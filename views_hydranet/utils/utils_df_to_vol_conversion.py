@@ -6,6 +6,7 @@ import logging
 logger = logging.getLogger(__name__)
 from views_pipeline_core.configs.pipeline import PipelineConfig
 from views_pipeline_core.files.utils import read_dataframe
+
 def get_requried_columns_for_vol():
 
     """
@@ -26,9 +27,7 @@ def get_requried_columns_for_vol():
                      - 'c_id': Country ID or relevant identifier.    
     """
 
-    # required_columns = ['priogrid_gid', 'col', 'row', 'month_id', 'c_id']
-    required_columns = ['priogrid_gid', 'col', 'row', 'month', 'c_id']
-    
+    required_columns = ['priogrid_gid', 'col', 'row', 'month_id', 'c_id']
 
     return required_columns
 
@@ -90,12 +89,12 @@ def df_to_vol(df, height = 180, width = 180, forecast_features = ['ln_sb_best', 
 
     """
 
-    #required_columns = ['pg_id', 'col', 'row', 'month_id', 'c_id']
+    #required_columns = ['priogrid_gid', 'col', 'row', 'month_id', 'c_id']
     required_columns = get_requried_columns_for_vol()
-    print(f'required_columns: {required_columns}')
-    print(f'fd: {df.columns}')
+    print(f'\033[91mRequired columns: {required_columns}\033[0m')
+    print(f'\033[91mDataFrame columns: {df.columns.tolist()}\033[0m')
     for col in required_columns:
-        if col not in df.columns:
+        if col not in df.columns.tolist():
             raise ValueError(f'Column {col} not found in the DataFrame. Please check your viewser query set in "model"/configs/config_input_data.py')
 
     vol_features =  required_columns + forecast_features

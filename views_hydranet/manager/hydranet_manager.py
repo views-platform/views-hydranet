@@ -28,6 +28,7 @@ class HydranetManager(ModelManager):
         super().__init__(model_path, wandb_notification)
         # wandb_notification is a boolean that determines whether to send notifications to the pipeline-notifications slack channel
         self.device = setup_device()
+        self.set_dataframe_format(format=".parquet")  # Set the dataframe format to parquet
 
     
     def _train_model_artifact(self):
@@ -61,7 +62,7 @@ class HydranetManager(ModelManager):
 
         if self.config["sweep"]:  # If not using wandb sweep
             model, criterion, optimizer, scheduler = make(self.config, self.device)
-            training_loop(self.config, model, criterion, optimizer, scheduler, vol_cal, self.device)
+            training_loop(self.config , model, criterion, optimizer, scheduler, vol_cal, self.device)
             print('Done training')
 
             evaluate_posterior(model, vol_cal, self.config, self.device)
