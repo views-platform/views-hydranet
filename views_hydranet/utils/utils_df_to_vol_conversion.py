@@ -20,14 +20,14 @@ def get_requried_columns_for_vol():
 
     Returns:
         list of str: A list of column names required to create the volume array, specifically:
-                     - 'priogrid_gid': Priogrid ID, a unique identifier for grid cells.
+                     - 'pg_id': Priogrid ID, a unique identifier for grid cells.
                      - 'col': Column index in the spatial grid.
                      - 'row': Row index in the spatial grid.
                      - 'month_id': Temporal index for months.
                      - 'c_id': Country ID or relevant identifier.    
     """
 
-    required_columns = ['priogrid_gid', 'col', 'row', 'month_id', 'c_id']
+    required_columns = ['pg_id', 'col', 'row', 'month_id', 'c_id']
 
     return required_columns
 
@@ -67,7 +67,7 @@ def df_to_vol(df, height = 180, width = 180, forecast_features = ['ln_sb_best', 
 
     Args:
         df (pd.DataFrame): The input DataFrame containing spatial-temporal data. Must include columns:
-                           - 'priogrid_gid': Priogrid ID.
+                           - 'pg_id': Priogrid ID.
                            - 'col': Column index in the spatial grid.
                            - 'row': Row index in the spatial grid.
                            - 'month_id': Temporal index for months.
@@ -85,11 +85,11 @@ def df_to_vol(df, height = 180, width = 180, forecast_features = ['ln_sb_best', 
                     Where n_features is the total number of required and forecast features combined. Given the default settings the default shape is [n_months, 180, 180, 8].
 
     Raises:
-        ValueError: If any of the required columns ('priogrid_gid', 'col', 'row', 'month_id', 'c_id') are missing from the DataFrame.
+        ValueError: If any of the required columns ('pg_id', 'col', 'row', 'month_id', 'c_id') are missing from the DataFrame.
 
     """
 
-    #required_columns = ['priogrid_gid', 'col', 'row', 'month_id', 'c_id']
+    #required_columns = ['pg_id', 'col', 'row', 'month_id', 'c_id']
     required_columns = get_requried_columns_for_vol()
     print(f'\033[91mRequired columns: {required_columns}\033[0m')
     print(f'\033[91mDataFrame columns: {df.columns.tolist()}\033[0m')
@@ -143,8 +143,8 @@ def vol_to_df(vol, forecast_features = ['ln_sb_best', 'ln_ns_best', 'ln_os_best'
 
     Returns:
         pd.DataFrame: The DataFrame representation of the volume array containing columns:
-                      'priogrid_gid', 'col', 'row', 'month_id', 'c_id', followed by forecast features.
-                      Rows where 'priogrid_gid' is 0 are removed. This datafreame should be identical to the original DataFrame used to create the volume via df_to_vol().
+                      'pg_id', 'col', 'row', 'month_id', 'c_id', followed by forecast features.
+                      Rows where 'pg_id' is 0 are removed. This datafreame should be identical to the original DataFrame used to create the volume via df_to_vol().
 
     Raises:
         ValueError: If the number of features in the volume does not match the expected number 
@@ -170,8 +170,8 @@ def vol_to_df(vol, forecast_features = ['ln_sb_best', 'ln_ns_best', 'ln_os_best'
     for col in required_columns:
         df[col] = df[col].astype(int)
 
-    # Remove rows where 'priogrid_gid' is 0 - these are ocean cells and not PRIO grid cells as such.
-    df = df[df['priogrid_gid'] != 0]
+    # Remove rows where 'pg_id' is 0 - these are ocean cells and not PRIO grid cells as such.
+    df = df[df['pg_id'] != 0]
 
     print(f'DataFrame of shape {df.shape} created. Should be (n_months * 180 * 180, 8)')
 
@@ -190,7 +190,7 @@ def df_vol_conversion_test(df, vol, forecast_features = ['ln_sb_best', 'ln_ns_be
 
     Args:
         df (pd.DataFrame): The original DataFrame containing the spatial-temporal data.
-                           Must include columns: 'priogrid_gid', 'col', 'row', 'month_id', 'c_id', and forecast features.
+                           Must include columns: 'pg_id', 'col', 'row', 'month_id', 'c_id', and forecast features.
 
         vol (np.ndarray): The 4D volume array obtained from the DataFrame conversion via df_to_vol().
                           Shape should be [n_months, height, width, n_features].
@@ -213,13 +213,13 @@ def df_vol_conversion_test(df, vol, forecast_features = ['ln_sb_best', 'ln_ns_be
     df_recreated = vol_to_df(vol)
 
     # Trim the original DataFrame to match the features of the recreated DataFrame
-    required_columns = ['priogrid_gid', 'col', 'row', 'month_id', 'c_id']
+    required_columns = ['pg_id', 'col', 'row', 'month_id', 'c_id']
     vol_features =  required_columns + forecast_features
     df_trimmed = df[vol_features]
 
-    # Sort both DataFrames by 'priogrid_gid' and 'month_id'
-    df_trimmed = df_trimmed.sort_values(by=['priogrid_gid', 'month_id'])
-    df_recreated = df_recreated.sort_values(by=['priogrid_gid', 'month_id'])
+    # Sort both DataFrames by 'pg_id' and 'month_id'
+    df_trimmed = df_trimmed.sort_values(by=['pg_id', 'month_id'])
+    df_recreated = df_recreated.sort_values(by=['pg_id', 'month_id'])
 
     # Reset the index to ensure alignment
     df_trimmed = df_trimmed.reset_index(drop=True)

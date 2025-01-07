@@ -29,7 +29,7 @@ def mock_df():
         pd.DataFrame: A mock DataFrame with predefined data.
     """
     data = {
-        "priogrid_gid": [1, 2, 3, 4],
+        "pg_id": [1, 2, 3, 4],
         "col": [1, 2, 3, 4],
         "row": [1, 2, 3, 4],
         "month_id": [1, 1, 2, 2],
@@ -165,8 +165,8 @@ def test_df_vol_conversion_test(mock_df):
     forecast_features = ["ln_sb_best", "ln_ns_best", "ln_os_best"]
     vol_features = required_columns + forecast_features
     df_trimmed = mock_df[vol_features]
-    df_trimmed = df_trimmed.sort_values(by=["priogrid_gid", "month_id"]).reset_index(drop=True)
-    df_recreated = df_recreated.sort_values(by=["priogrid_gid", "month_id"]).reset_index(
+    df_trimmed = df_trimmed.sort_values(by=["pg_id", "month_id"]).reset_index(drop=True)
+    df_recreated = df_recreated.sort_values(by=["pg_id", "month_id"]).reset_index(
         drop=True
     )
     assert df_trimmed.equals(df_recreated)
