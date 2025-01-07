@@ -1,0 +1,17 @@
+[project]
+name = "views-hydranet"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Dylan",email = "52908667+smellycloud@users.noreply.github.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11,<3.15"
+dependencies = [
+    "views-pipeline-core (>=0.2.0,<1.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
