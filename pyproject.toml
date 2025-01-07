@@ -1,7 +1,7 @@
 [project]
 name = "views-hydranet"
 version = "0.1.0"
-description = ""
+description = "views-hydranet is a package that contains modeling procedure, evaluation and forecasting using HydraNet implemented in PyTorch"
 authors = [
     {name = "Dylan",email = "52908667+smellycloud@users.noreply.github.com"}
 ]
