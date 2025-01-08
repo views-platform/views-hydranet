@@ -19,7 +19,7 @@ from views_hydranet.utils.utils_df_to_vol_conversion import create_or_load_views
 logger = logging.getLogger(__name__)
 
 from views_hydranet.utils.utils import choose_model, choose_loss, choose_sheduler, get_train_tensors, get_full_tensor, apply_dropout, execute_freeze_h_option, train_log, init_weights, get_data
-
+import wandb
 class HydranetManager(ModelManager):
 
     def __init__(
@@ -117,7 +117,13 @@ class HydranetManager(ModelManager):
         # Evaluate model artifact  #
         ############################
         # Run model in evaluation mode
-        evaluate_model_artifact(self._model_path, self.config, self.device, vol_test, artifact_name=artifact_name)
+        mean_metric_log_dict = evaluate_model_artifact(self._model_path, self.config, self.device, vol_test, artifact_name=artifact_name)
+
+
+        return mean_metric_log_dict
+
+        # Hacky and should be removed after eval package is ready!
+        # self._wandb_alert(title=f"Model evaluation complete for {self._model_path.model_name}", text=f"\n{evaluation_table}", level=wandb.AlertLevel.INFO)
 
         ############################
         # Save predictions         #

@@ -3,13 +3,15 @@ import pickle
 from sklearn.metrics import mean_squared_error, average_precision_score, roc_auc_score, brier_score_loss
 import pandas as pd
 import matplotlib.pyplot as plt
-
+import logging
 import sys
 from pathlib import Path
 
 from views_pipeline_core.models.outputs import ModelOutputs
 from views_pipeline_core.evaluation.metrics import EvaluationMetrics
 from views_pipeline_core.managers.model import ModelPathManager
+
+logger = logging.getLogger(__name__)
 
 def output_to_df(dict_of_outputs_dicts):
     
@@ -46,22 +48,35 @@ def output_to_df(dict_of_outputs_dicts):
     df_os = ModelOutputs.output_dict_to_dataframe(dict_of_outputs_dicts["os"])
 
     # SO FROM HERE IT GETS VERY HydraNet SPECIFIC. 
-    common_cols = ["pg_id", "c_id", "month_id", "step"]
+    common_cols = ["priogrid_gid", "c_id", "month_id", "step"] # D: KeyError: "['step'] not found in axis"
 
     # rename the columns so that the onse in df_test2 ends with a 0 and the ones in df_test3 ends with a 1. don't change the common columns
-    df_sb.columns = [f"{i}_sb" if i not in common_cols else i for i in df_sb.columns]
-    df_ns.columns = [f"{i}_ns" if i not in common_cols else i for i in df_ns.columns]
-    df_os.columns = [f"{i}_os" if i not in common_cols else i for i in df_os.columns]
+    # df_sb.columns = [f"{i}_sb" if i not in common_cols else i for i in df_sb.columns]
+    # df_ns.columns = [f"{i}_ns" if i not in common_cols else i for i in df_ns.columns]
+    # df_os.columns = [f"{i}_os" if i not in common_cols else i for i in df_os.columns]
+    for col in common_cols:
+        if col in df_sb.columns:
+            df_sb = df_sb.drop(columns=[col])
+        if col in df_ns.columns:
+            df_ns = df_ns.drop(columns=[col])
+        if col in df_os.columns:
+            df_os = df_os.drop(columns=[col])
 
-    # drop the pg_id and c_id columns from df_ns and df_os - bc concat is faster than merge when they are sorted the same way.
-    df_sb = df_sb.drop(columns=common_cols)
-    df_ns = df_ns.drop(columns=common_cols)
+    # drop the priogrid_gid and c_id columns from df_ns and df_os - bc concat is faster than merge when they are sorted the same way.
+    # df_sb = df_sb.drop(columns=common_cols)
+    # df_ns = df_ns.drop(columns=common_cols)
+
 
     # merge the dataframes
     df_all = pd.concat([df_sb, df_ns, df_os], axis=1)
 
     # drop ocean cells, i.e. where c_id == 0
-    df_all = df_all[df_all["c_id"] != 0]
+    # Check if 'c_id' column exists before filtering
+    if 'c_id' in df_all.columns:
+        df_all = df_all[df_all["c_id"] != 0]
+    else:
+        logger.warning("Column 'c_id' not found in the DataFrame")
+
 
     # no you can just drop it
     df_all = df_all.reset_index(drop=True)
@@ -70,7 +85,15 @@ def output_to_df(dict_of_outputs_dicts):
     df_all = df_all.astype(float)
 
     # make the binary columns integers
-    df_all = df_all.astype({"y_true_binary_sb": int, "y_true_binary_ns": int, "y_true_binary_os": int, "month_id" : int, "step" : int})
+    # df_all = df_all.astype({"y_true_binary_sb": int, "y_true_binary_ns": int, "y_true_binary_os": int, "month_id" : int, "step" : int})
+
+    # Check if columns exist before changing their data types
+    columns_to_int = ["y_true_binary_sb", "y_true_binary_ns", "y_true_binary_os", "month_id", "step"]
+    for col in columns_to_int:
+        if col in df_all.columns:
+            df_all[col] = df_all[col].astype(int)
+        else:
+            logger.warning(f"Column '{col}' not found in the DataFrame")
 
     # print the df
     #df_all

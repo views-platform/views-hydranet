@@ -91,7 +91,7 @@ def evaluate_posterior(model_path: ModelPathManager, model, views_vol, config, d
             y_true_binary = (y_true > 0) * 1
 
             # in theorty you could just use the metadata tensor to get pg and c id here
-            pg_id = out_of_sample_meta_vol[:,t,0,:,:].reshape(-1)  # nu 180x180, dim 1 is time . dim 2 is feature. feature 0 is pg_id
+            priogrid_gid = out_of_sample_meta_vol[:,t,0,:,:].reshape(-1)  # nu 180x180, dim 1 is time . dim 2 is feature. feature 0 is priogrid_gid
             c_id = out_of_sample_meta_vol[:,t,4,:,:].reshape(-1)  # nu 180x180, dim 1 is time . dim 2 is feature. feature 4 is c_id
             month_id = out_of_sample_meta_vol[:,t,3,:,:].reshape(-1)  # nu 180x180, dim 1 is time . dim 2 is feature. feature 3 is month_id
 
@@ -100,7 +100,7 @@ def evaluate_posterior(model_path: ModelPathManager, model, views_vol, config, d
 
             #else: # you need to make sure this works for forecasting
                 # in theorty you could just use the metadata tensor to get pg and c id here
-            pg_id = out_of_sample_meta_vol[:,t,0,:,:].reshape(-1)  # nu 180x180, dim 1 is time . dim 2 is feature. feature 0 is pg_id
+            priogrid_gid = out_of_sample_meta_vol[:,t,0,:,:].reshape(-1)  # nu 180x180, dim 1 is time . dim 2 is feature. feature 0 is priogrid_gid
             c_id = out_of_sample_meta_vol[:,t,4,:,:].reshape(-1)  # nu 180x180, dim 1 is time . dim 2 is feature. feature 4 is c_id
             month_id = out_of_sample_meta_vol[:,t,3,:,:].reshape(-1)  # nu 180x180, dim 1 is time . dim 2 is feature. feature 3 is month_id
 
@@ -110,7 +110,7 @@ def evaluate_posterior(model_path: ModelPathManager, model, views_vol, config, d
             dict_of_outputs_dicts[j][step].y_var = y_var
             dict_of_outputs_dicts[j][step].y_var_prob = y_var_prob
 
-            dict_of_outputs_dicts[j][step].pg_id = pg_id # in theory this should be in the right order
+            dict_of_outputs_dicts[j][step].priogrid_gid = priogrid_gid # in theory this should be in the right order
             dict_of_outputs_dicts[j][step].c_id = c_id # in theory this should be in the right order
             dict_of_outputs_dicts[j][step].step = t +1 # 1 indexed, bc the first step is 1 month ahead
             dict_of_outputs_dicts[j][step].month_id = month_id
@@ -131,7 +131,6 @@ def evaluate_posterior(model_path: ModelPathManager, model, views_vol, config, d
     mean_metric_log_dict = generate_wandb_mean_metrics_log_dict(dict_of_eval_dicts)
     wandb.log(mean_metric_log_dict)
 
-
     if not config.sweep:
 
         posterior_dict = {'posterior_list' : posterior_list, 'posterior_list_class': posterior_list_class, 'out_of_sample_vol' : out_of_sample_vol}
@@ -139,6 +138,7 @@ def evaluate_posterior(model_path: ModelPathManager, model, views_vol, config, d
 
     else:
         print('Running sweep. NO posterior dict, metric dict, or test vol pickled+dumped')
+    return mean_metric_log_dict
 
 
 def evaluate_model_artifact(model_path:ModelPathManager, config, device, views_vol, artifact_name=None):
@@ -210,10 +210,10 @@ def evaluate_model_artifact(model_path:ModelPathManager, config, device, views_v
     config.model_time_stamp = model_time_stamp
 
     # evaluate the model posterior distribution
-    evaluate_posterior(model, views_vol, config, device)
+    return evaluate_posterior(model_path, model, views_vol, config, device)
     
     # done. 
-    print('Done testing') 
+    # print('Done testing') 
 
 
 

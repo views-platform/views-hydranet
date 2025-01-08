@@ -9,6 +9,9 @@ readme = "README.md"
 requires-python = ">=3.11,<3.15"
 dependencies = [
     "views-pipeline-core (>=0.2.0,<1.0.0)"
+    "torch>=0.20.0,<1.0.0",
+    "torchvision>=2.5.0,<3.0.0",
+    "torchaudio>=2.5.0,<3.0.0"
 ]
 
 

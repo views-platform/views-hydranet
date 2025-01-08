@@ -366,6 +366,9 @@ def get_train_tensors(views_vol, sample, config, device):
 
     input_window = train_views_vol[ : , window_coords['min_row_indx'] : window_coords['max_row_indx'] , window_coords['min_col_indx'] : window_coords['max_col_indx'], :]
 
+    # D: Make a copy to ensure positive strides. Honestly, my brain hurts
+    input_window = input_window.copy()
+
     ln_best_sb_idx = config.first_feature_idx # 5 = ln_best_sb
     last_feature_idx = ln_best_sb_idx + config.input_channels
     train_tensor = torch.tensor(input_window).float().to(device).unsqueeze(dim=0).permute(0,1,4,2,3)[:, :, ln_best_sb_idx:last_feature_idx, :, :]
