@@ -120,7 +120,7 @@ class HydranetManager(ModelManager):
         mean_metric_log_dict = evaluate_model_artifact(self._model_path, self.config, self.device, vol_test, artifact_name=artifact_name)
 
 
-        return mean_metric_log_dict
+        return None
 
         # Hacky and should be removed after eval package is ready!
         # self._wandb_alert(title=f"Model evaluation complete for {self._model_path.model_name}", text=f"\n{evaluation_table}", level=wandb.AlertLevel.INFO)
