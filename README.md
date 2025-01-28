@@ -76,6 +76,8 @@ See the organization/pipeline level [docs](https://github.com/views-platform/doc
 
 ## 🚀 Usage  
 
+### 1. Run Training Locally  
+
 See the organization/pipeline level [docs](https://github.com/views-platform/docs)  
 
 ### 2. Use in the VIEWS Pipeline  
