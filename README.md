@@ -146,11 +146,10 @@ We welcome contributions to HydraNet! Please follow the contribution guidelines 
 
 ## 💬 Acknowledgements  
 
-HydraNet builds upon:  
 
-- [UCDP Georeferenced Event Dataset (GED)](https://ucdp.uu.se/) for conflict data.  
-- [PRIO Grid](https://grid.prio.org/#/) for spatial resolution.  
-- Concepts from Hegre et al. (2019), Hegre et al. (2021), and Vesco et al. (2022).  
-- Funding from the **European Research Council** and the **Danish Research Council**.  
+<p align="center">
+  <img src="https://raw.githubusercontent.com/views-platform/docs/main/images/views_funders.png" alt="Views Funders" width="80%">
+</p>
 
-Special thanks to the **VIEWS MD&D Team** for their collaboration, guidance, and efforts.  
+
+Special thanks to the **VIEWS MD&D Team** for their collaboration and support.  
