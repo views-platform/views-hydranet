@@ -151,5 +151,4 @@ We welcome contributions to HydraNet! Please follow the contribution guidelines 
   <img src="https://raw.githubusercontent.com/views-platform/docs/main/images/views_funders.png" alt="Views Funders" width="80%">
 </p>
 
-
 Special thanks to the **VIEWS MD&D Team** for their collaboration and support.  
