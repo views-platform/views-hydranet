@@ -118,7 +118,7 @@ class HydranetManager(ModelManager):
         ############################
         # Run model in evaluation mode
         mean_metric_log_dict = evaluate_model_artifact(self._model_path, self.config, self.device, vol_test, artifact_name=artifact_name)
-
+        self._wandb_alert(self._generate_evaluation_table(metric_dict=mean_metric_log_dict)) # D: Hack for now until multiple targets are supported
 
         return None
 

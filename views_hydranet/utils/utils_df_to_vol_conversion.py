@@ -1,7 +1,11 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
+import os
+import logging
+logger = logging.getLogger(__name__)
+from views_pipeline_core.configs.pipeline import PipelineConfig
+from views_pipeline_core.files.utils import read_dataframe
 
 def get_requried_columns_for_vol():
 
@@ -16,14 +20,14 @@ def get_requried_columns_for_vol():
 
     Returns:
         list of str: A list of column names required to create the volume array, specifically:
-                     - 'pg_id': Priogrid ID, a unique identifier for grid cells.
+                     - 'priogrid_gid': Priogrid ID, a unique identifier for grid cells.
                      - 'col': Column index in the spatial grid.
                      - 'row': Row index in the spatial grid.
                      - 'month_id': Temporal index for months.
                      - 'c_id': Country ID or relevant identifier.    
     """
 
-    required_columns = ['pg_id', 'col', 'row', 'month_id', 'c_id']
+    required_columns = ['priogrid_gid', 'col', 'row', 'month_id', 'c_id']
 
     return required_columns
 
@@ -63,7 +67,7 @@ def df_to_vol(df, height = 180, width = 180, forecast_features = ['ln_sb_best', 
 
     Args:
         df (pd.DataFrame): The input DataFrame containing spatial-temporal data. Must include columns:
-                           - 'pg_id': Priogrid ID.
+                           - 'priogrid_gid': Priogrid ID.
                            - 'col': Column index in the spatial grid.
                            - 'row': Row index in the spatial grid.
                            - 'month_id': Temporal index for months.
@@ -81,15 +85,22 @@ def df_to_vol(df, height = 180, width = 180, forecast_features = ['ln_sb_best', 
                     Where n_features is the total number of required and forecast features combined. Given the default settings the default shape is [n_months, 180, 180, 8].
 
     Raises:
-        ValueError: If any of the required columns ('pg_id', 'col', 'row', 'month_id', 'c_id') are missing from the DataFrame.
+        ValueError: If any of the required columns ('priogrid_gid', 'col', 'row', 'month_id', 'c_id') are missing from the DataFrame.
 
     """
 
-    #required_columns = ['pg_id', 'col', 'row', 'month_id', 'c_id']
+    #required_columns = ['priogrid_gid', 'col', 'row', 'month_id', 'c_id']
     required_columns = get_requried_columns_for_vol()
-    
+
+    # D: deal with the multi index dataframe df
+    if isinstance(df.index, pd.MultiIndex):
+        df = df.reset_index()
+
+    print(f'\033[91mRequired columns: {required_columns}\033[0m')
+    print(f'\033[91mDataFrame columns: {df.columns.tolist()}\033[0m')
+
     for col in required_columns:
-        if col not in df.columns:
+        if col not in df.columns.tolist():
             raise ValueError(f'Column {col} not found in the DataFrame. Please check your viewser query set in "model"/configs/config_input_data.py')
 
     vol_features =  required_columns + forecast_features
@@ -100,15 +111,23 @@ def df_to_vol(df, height = 180, width = 180, forecast_features = ['ln_sb_best', 
     month_last = df['month_id'].max()
     month_range = month_last - month_first + 1
 
-    # DANGER! Right now this changes (adds columns) to the input DataFrame. Bad practice change later... 
-    # You could just do df_abs = calculate_absolute_indices(df) and then use df_abs in the rest of the function.
-    # But I dont want to break anything now...
     df = calculate_absolute_indices(df) # abs_row, abs_col, abs_month needed for the volume
 
     vol = np.zeros([height, width, month_range, n_features]) # Create the volume array.
 
+    # D: Errors out.
+    # for i, feature in enumerate(vol_features):
+    #     vol[df['abs_row'], df['abs_col'], df['abs_month'], i] = df[feature] 
+
+    # D: New way of doing it. Hope this is the right way...
     for i, feature in enumerate(vol_features):
-        vol[df['abs_row'], df['abs_col'], df['abs_month'], i] = df[feature] 
+        # Convert indices to integers
+        abs_row_indices = df['abs_row'].astype(int)
+        abs_col_indices = df['abs_col'].astype(int)
+        abs_month_indices = df['abs_month'].astype(int)
+
+        vol[abs_row_indices, abs_col_indices, abs_month_indices, i] = df[feature]
+
 
     vol = np.flip(vol, axis=0)  # Flip the rows, so north is up.
     vol = np.transpose(vol, (2, 0, 1, 3))  # Move the month dimension to the front.
@@ -141,8 +160,8 @@ def vol_to_df(vol, forecast_features = ['ln_sb_best', 'ln_ns_best', 'ln_os_best'
 
     Returns:
         pd.DataFrame: The DataFrame representation of the volume array containing columns:
-                      'pg_id', 'col', 'row', 'month_id', 'c_id', followed by forecast features.
-                      Rows where 'pg_id' is 0 are removed. This datafreame should be identical to the original DataFrame used to create the volume via df_to_vol().
+                      'priogrid_gid', 'col', 'row', 'month_id', 'c_id', followed by forecast features.
+                      Rows where 'priogrid_gid' is 0 are removed. This datafreame should be identical to the original DataFrame used to create the volume via df_to_vol().
 
     Raises:
         ValueError: If the number of features in the volume does not match the expected number 
@@ -168,8 +187,8 @@ def vol_to_df(vol, forecast_features = ['ln_sb_best', 'ln_ns_best', 'ln_os_best'
     for col in required_columns:
         df[col] = df[col].astype(int)
 
-    # Remove rows where 'pg_id' is 0 - these are ocean cells and not PRIO grid cells as such.
-    df = df[df['pg_id'] != 0]
+    # Remove rows where 'priogrid_gid' is 0 - these are ocean cells and not PRIO grid cells as such.
+    df = df[df['priogrid_gid'] != 0]
 
     print(f'DataFrame of shape {df.shape} created. Should be (n_months * 180 * 180, 8)')
 
@@ -188,7 +207,7 @@ def df_vol_conversion_test(df, vol, forecast_features = ['ln_sb_best', 'ln_ns_be
 
     Args:
         df (pd.DataFrame): The original DataFrame containing the spatial-temporal data.
-                           Must include columns: 'pg_id', 'col', 'row', 'month_id', 'c_id', and forecast features.
+                           Must include columns: 'priogrid_gid', 'col', 'row', 'month_id', 'c_id', and forecast features.
 
         vol (np.ndarray): The 4D volume array obtained from the DataFrame conversion via df_to_vol().
                           Shape should be [n_months, height, width, n_features].
@@ -211,13 +230,13 @@ def df_vol_conversion_test(df, vol, forecast_features = ['ln_sb_best', 'ln_ns_be
     df_recreated = vol_to_df(vol)
 
     # Trim the original DataFrame to match the features of the recreated DataFrame
-    required_columns = ['pg_id', 'col', 'row', 'month_id', 'c_id']
+    required_columns = ['priogrid_gid', 'col', 'row', 'month_id', 'c_id']
     vol_features =  required_columns + forecast_features
     df_trimmed = df[vol_features]
 
-    # Sort both DataFrames by 'pg_id' and 'month_id'
-    df_trimmed = df_trimmed.sort_values(by=['pg_id', 'month_id'])
-    df_recreated = df_recreated.sort_values(by=['pg_id', 'month_id'])
+    # Sort both DataFrames by 'priogrid_gid' and 'month_id'
+    df_trimmed = df_trimmed.sort_values(by=['priogrid_gid', 'month_id'])
+    df_recreated = df_recreated.sort_values(by=['priogrid_gid', 'month_id'])
 
     # Reset the index to ensure alignment
     df_trimmed = df_trimmed.reset_index(drop=True)
@@ -275,15 +294,7 @@ def plot_vol(vol, month_range, forecast_features = ['ln_sb_best', 'ln_ns_best', 
         
         for j in range(min(n_features, vol.shape[-1])):  # Handle cases where there are fewer than 7 features
             im = ax[j].imshow(vol[i, :, :, j], cmap='rainbow', vmin= vol[:, :, :, j].min(), vmax= vol[:, :, :, j].max())
-
-            # if the feature does not have a name, use a generic numbered title
-            features_title = features_titles[j] if j < len(features_titles) else f'Feature {j}'
-
-            # Change in this feature is hard to see and uniform across each month, so we add the month id to the title
-            if features_title == 'month_id':
-                features_title = 'month_id' + f' ({np.unique(vol[i, :, :, j])})'
-
-            ax[j].set_title(features_title)
+            ax[j].set_title(features_titles[j] if j < len(features_titles) else f'Feature {j}')
 
         # Adding title with specific adjustment
         fig.suptitle(f'Time Step {i + 1}', fontsize=16, y=0.75)  # Adjust `y` for title position
@@ -298,3 +309,43 @@ def plot_vol(vol, month_range, forecast_features = ['ln_sb_best', 'ln_ns_best', 
         plt.tight_layout(pad=2.0, rect=[0, 0, 1, 0.9])  # `rect` adjusts the position of subplots
         
         plt.show()
+
+def create_or_load_views_vol(partition, PATH_PROCESSED, PATH_RAW):
+    """
+    Creates or loads a volume from a DataFrame for a specified partition.
+
+    This function manages the creation or loading of a 4D volume array based on the DataFrame
+    associated with the given partition. It ensures that the volume file is available locally,
+    either by loading it if it exists or creating it from the DataFrame if it does not.
+    This volume array is used as input data for CNN-based models such as HydraNet.
+
+    Args:
+        partition (str): The partition to process. Valid options are 'calibration', 'forecasting', 'testing'.
+        PATH_PROCESSED (str or Path): The path to the directory where processed volume data should be stored.
+
+    Returns:
+        np.ndarray: The 4D volume array created or loaded from the DataFrame, with shape
+                    [n_months, height, width, n_features].
+
+    """
+
+    path_vol = os.path.join(str(PATH_PROCESSED), f'{partition}_vol.npy')
+
+    # Create the folders if they don't exist
+    os.makedirs(str(PATH_PROCESSED), exist_ok=True)
+
+    # Check if the volume exists
+    if os.path.isfile(path_vol):
+        logger.info('Volume already created')
+        vol = np.load(path_vol)
+    else:
+        logger.info('Creating volume...')
+        path_raw = os.path.join(str(PATH_RAW), f'{partition}_viewser_df{PipelineConfig().dataframe_format}')
+        vol = df_to_vol(read_dataframe(path_raw))
+        logger.info(f'shape of volume: {vol.shape}')
+        logger.info(f'Saving volume to {path_vol}')
+        np.save(path_vol, vol)
+
+    logger.info('Done')
+
+    return vol

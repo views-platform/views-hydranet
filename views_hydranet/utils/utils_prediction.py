@@ -14,7 +14,7 @@ from sklearn.metrics import brier_score_loss
 from views_pipeline_core.managers.model import ModelPathManager
 
 
-from utils import get_full_tensor, apply_dropout, execute_freeze_h_option
+from views_hydranet.utils.utils import get_full_tensor, apply_dropout, execute_freeze_h_option
 
 def predict(model, full_tensor, config, device, sample_i, is_evalutaion = True):
 
@@ -25,7 +25,7 @@ def predict(model, full_tensor, config, device, sample_i, is_evalutaion = True):
     Each array is of the shap **fx180x180**, where f is the number of features (currently 3 types of violence).
     """
 
-    print(f'Posterior sample: {sample_i}/{config.test_samples}', end = '\r') # could and should put this in the predict function above.
+    print(f"Posterior sample: {sample_i}/{config['test_samples']}", end = '\r') # could and should put this in the predict function above.
 
 
     # Set the model to evaluation mode
@@ -47,14 +47,14 @@ def predict(model, full_tensor, config, device, sample_i, is_evalutaion = True):
     if is_evalutaion:
 
         full_seq_len = seq_len -1 # we loop over the full sequence. you need -1 because you are predicting the next month.
-        in_sample_seq_len = seq_len - 1 - config.time_steps # but retain the last time_steps for hold-out evaluation
+        in_sample_seq_len = seq_len - 1 - config['time_steps'] # but retain the last time_steps for hold-out evaluation
 
         # These print staments are informative while the model is running, but the implementation is not optimal....
         #print(f'\t\t\t\t\t\t\t Evaluation mode. retaining hold out set. Full sequence length: {full_seq_len}', end= '\r')
     
     else:
 
-        full_seq_len = seq_len - 1 + config.time_steps # we loop over the entire sequence plus the additional time_steps for forecasting
+        full_seq_len = seq_len - 1 + config['time_steps'] # we loop over the entire sequence plus the additional time_steps for forecasting
         in_sample_seq_len = seq_len - 1 # the in-sample part is now the entire sequence
 
         #print(f'\t\t\t\t\t\t\t Forecasting mode. No hold out set. Full sequence length: {full_seq_len}', end= '\r')
@@ -103,20 +103,20 @@ def sample_posterior(model, views_vol, config, device):
     - tuple: (posterior_magnitudes, posterior_probabilities, out_of_sample_data)
     """
 
-    print(f'Drawing {config.test_samples} posterior samples...', end = '\r')
+    print(f"Drawing {config['test_samples']} posterior samples...", end = '\r')
 
     # REALLY BAD NAME!!!!
     # Why do you put this test tensor on device here??!? 
     full_tensor, metadata_tensor = get_full_tensor(views_vol, config) # better cal this evel tensor
     
     # these two are only used for calibration and testing - not for forecasting
-    out_of_sample_vol = full_tensor[:,-config.time_steps:,:,:,:].cpu().numpy() # From the test tensor get the out-of-sample time_steps. 
-    out_of_sample_meta_vol = metadata_tensor[:,-config.time_steps:,:,:,:]
+    out_of_sample_vol = full_tensor[:,-config['time_steps']:,:,:,:].cpu().numpy() # From the test tensor get the out-of-sample time_steps. 
+    out_of_sample_meta_vol = metadata_tensor[:,-config['time_steps']:,:,:,:]
 
     posterior_list = []
     posterior_list_class = []
 
-    for sample_i in range(config.test_samples): # number of posterior samples to draw - just set config.test_samples, no? 
+    for sample_i in range(config['test_samples']): # number of posterior samples to draw - just set config.test_samples, no? 
 
         # full_tensor is need on device here, but maybe just do it inside the test function? 
         # This part is agnositc regarding wheter we are doing evaluation on calibration/testing or true forecasting with no eval set.
