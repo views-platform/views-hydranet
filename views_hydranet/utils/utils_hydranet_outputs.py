@@ -172,26 +172,26 @@ def save_model_outputs(model_path: ModelPathManager, config, posterior_dict, dic
     df_sb_os_ns_evaluation = evaluation_to_df(dict_of_eval_dicts)
 
     # Save the posterior dictionary
-    posterior_path = f'{model_path.data_generated}/posterior_dict_{config.time_steps}_{config.run_type}_{config.model_time_stamp}.pkl'
+    posterior_path = f'{model_path.data_generated}/posterior_dict_{config["time_steps"]}_{config["run_type"]}_{config["model_time_stamp"]}.pkl'
     with open(posterior_path, 'wb') as file:
         pickle.dump(posterior_dict, file)
 
     # Save the DataFrame of model outputs
-    outputs_path = f'{model_path.data_generated}/df_sb_os_ns_output_{config.time_steps}_{config.run_type}_{config.model_time_stamp}.pkl'
+    outputs_path = f'{model_path.data_generated}/df_sb_os_ns_output_{config["time_steps"]}_{config["run_type"]}_{config["model_time_stamp"]}.pkl'
     with open(outputs_path, 'wb') as file:
         pickle.dump(df_sb_os_ns_output, file)
 
     # Save the DataFrame of evaluation metrics
-    evaluation_path = f'{model_path.data_generated}/df_sb_os_ns_evaluation_{config.time_steps}_{config.run_type}_{config.model_time_stamp}.pkl'
+    evaluation_path = f'{model_path.data_generated}/df_sb_os_ns_evaluation_{config["time_steps"]}_{config["run_type"]}_{config["model_time_stamp"]}.pkl'
     with open(evaluation_path, 'wb') as file:
         pickle.dump(df_sb_os_ns_evaluation, file)
 
     # Save the tensors
-    test_vol_path = f'{model_path.data_generated}/test_vol_{config.time_steps}_{config.run_type}_{config.model_time_stamp}.pkl'
+    test_vol_path = f'{model_path.data_generated}/test_vol_{config["time_steps"]}_{config["run_type"]}_{config["model_time_stamp"]}.pkl'
     with open(test_vol_path, 'wb') as file:
         pickle.dump(full_tensor.cpu().numpy(), file)
 
-    metadata_vol_path = f'{model_path.data_generated}/metadata_vol_{config.time_steps}_{config.run_type}_{config.model_time_stamp}.pkl'
+    metadata_vol_path = f'{model_path.data_generated}/metadata_vol_{config["time_steps"]}_{config["run_type"]}_{config["model_time_stamp"]}.pkl'
     with open(metadata_vol_path, 'wb') as file:
         pickle.dump(metadata_tensor.cpu().numpy(), file)
 

@@ -40,16 +40,16 @@ def evaluate_posterior(model_path: ModelPathManager, model, views_vol, config, d
 
     Returns:
         None
-    """ 
+    """
 
     posterior_list, posterior_list_class, out_of_sample_vol, out_of_sample_meta_vol, full_tensor, metadata_tensor = sample_posterior(model, views_vol, config, device)
 
     #if eval:
     dict_of_eval_dicts = {}
-    dict_of_eval_dicts = {k: EvaluationMetrics.make_evaluation_dict(steps=config.time_steps) for k in ["sb", "ns", "os"]}
+    dict_of_eval_dicts = {k: EvaluationMetrics.make_evaluation_dict(steps=config["time_steps"]) for k in ["sb", "ns", "os"]}
 
     dict_of_outputs_dicts = {}
-    dict_of_outputs_dicts = {k: ModelOutputs.make_output_dict(steps=config.time_steps) for k in ["sb", "ns", "os"]}
+    dict_of_outputs_dicts = {k: ModelOutputs.make_output_dict(steps=config["time_steps"]) for k in ["sb", "ns", "os"]}
 
     # Get mean and std
     mean_array = np.array(posterior_list).mean(axis = 0) # get mean for each month!
@@ -124,7 +124,7 @@ def evaluate_posterior(model_path: ModelPathManager, model, views_vol, config, d
     mean_metric_log_dict = generate_wandb_mean_metrics_log_dict(dict_of_eval_dicts)
     wandb.log(mean_metric_log_dict)
 
-    if not config.sweep:
+    if not config["sweep"]:
 
         posterior_dict = {'posterior_list' : posterior_list, 'posterior_list_class': posterior_list_class, 'out_of_sample_vol' : out_of_sample_vol}
         save_model_outputs(model_path, config, posterior_dict, dict_of_outputs_dicts, dict_of_eval_dicts, full_tensor, metadata_tensor)
@@ -172,11 +172,11 @@ def evaluate_model_artifact(model_path:ModelPathManager, config, device, views_v
     
     else:
         # use the latest model artifact based on the run type
-        print(f"Using latest (default) run type ({config.run_type}) specific artifact")
+        print(f"Using latest (default) run type ({config['run_type']}) specific artifact")
         
         # Get the latest model artifact based on the run type and the (models specific) artifacts path
         # PATH_MODEL_ARTIFACT = get_latest_model_artifact(PATH_ARTIFACTS, config.run_type)
-        PATH_MODEL_ARTIFACT = model_path.get_latest_model_artifact_path(config.run_type)
+        PATH_MODEL_ARTIFACT = model_path.get_latest_model_artifact_path(config["run_type"])
 
     # Check if the model artifact exists - if not, raise an error
     #if not os.path.exists(PATH_MODEL_ARTIFACT):
@@ -187,7 +187,7 @@ def evaluate_model_artifact(model_path:ModelPathManager, config, device, views_v
     #     raise FileNotFoundError(f"Model artifact not found at {PATH_MODEL_ARTIFACT}")
 
     # load the model
-    model = torch.load(PATH_MODEL_ARTIFACT)
+    model = torch.load(PATH_MODEL_ARTIFACT, weights_only = False)
     
     # get the exact model date_time stamp for the pkl files made in the evaluate_posterior from evaluation.py
     #model_time_stamp = os.path.basename(PATH_MODEL_ARTIFACT)[-18:-3] # 18 is the length of the timestamp string + ".pt", and -3 is to remove the .pt file extension. a bit hardcoded, but very simple and should not change.
@@ -200,7 +200,7 @@ def evaluate_model_artifact(model_path:ModelPathManager, config, device, views_v
     print(f"model_time_stamp: {model_time_stamp}")
 
     # add to config for logging and conciseness
-    config.model_time_stamp = model_time_stamp
+    config["model_time_stamp"] = model_time_stamp
 
     # evaluate the model posterior distribution
     return evaluate_posterior(model_path, model, views_vol, config, device)
