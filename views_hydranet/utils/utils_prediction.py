@@ -5,16 +5,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-#from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import average_precision_score
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import mean_squared_error
-from sklearn.metrics import brier_score_loss
-
 from views_pipeline_core.managers.model import ModelPathManager
 
 
-from utils import get_full_tensor, apply_dropout, execute_freeze_h_option
+from views_pipeline_core.managers.model import ModelPathManager
+
+from views_hydranet.utils.utils import  get_full_tensor, apply_dropout, execute_freeze_h_option
 
 def predict(model, full_tensor, config, device, sample_i, is_evalutaion = True):
 

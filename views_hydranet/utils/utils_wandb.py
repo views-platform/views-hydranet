@@ -1,11 +1,10 @@
-import numpy as np
 import pandas as pd
-from sklearn.metrics import mean_squared_error, average_precision_score, roc_auc_score, brier_score_loss
 
 import wandb
 
 import sys
-from pathlib import Path
+
+#from views_pipeline_core.managers.model import ModelPathManager
 from views_hydranet.utils.utils_hydranet_outputs import evaluation_to_df
 
 # there are things in other utils that should be here...

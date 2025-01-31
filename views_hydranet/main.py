@@ -5,10 +5,13 @@ import wandb
 import sys
 from pathlib import Path
 
-PATH = Path(__file__)
-sys.path.insert(0, str(Path(*[i for i in PATH.parts[:PATH.parts.index("views_pipeline")+1]]) / "common_utils")) # PATH_COMMON_UTILS  
-from set_path import setup_project_paths, setup_artifacts_paths
-setup_project_paths(PATH)
+
+#PATH = Path(__file__)
+#sys.path.insert(0, str(Path(*[i for i in PATH.parts[:PATH.parts.index("views_pipeline")+1]]) / "common_utils")) # PATH_COMMON_UTILS  
+#from set_path import setup_project_paths, setup_artifacts_paths
+#setup_project_paths(PATH)
+
+
 
 from utils_cli_parser import parse_args, validate_arguments
 #from artifacts_utils import get_latest_model_artifact

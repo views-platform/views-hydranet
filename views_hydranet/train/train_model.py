@@ -49,7 +49,7 @@ def train(model, optimizer, scheduler, criterion_reg, criterion_class, multitask
 
 
     # Batch loops:
-    for batch in range(config.batch_size):
+    for batch in range(config["batch_size"]):
 
         # Getting the train_tensor
         train_tensor = get_train_tensors(views_vol, sample, config, device)
@@ -103,7 +103,7 @@ def train(model, optimizer, scheduler, criterion_reg, criterion_class, multitask
     total_loss.backward()
 
     # Gradient Clipping
-    if config.clip_grad_norm == True:
+    if config["clip_grad_norm"] == True:
         clip_value = 1.0
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=clip_value)
 
@@ -123,13 +123,13 @@ def training_loop(config, model, criterion, optimizer, scheduler, views_vol, dev
 
     criterion_reg, criterion_class, multitaskloss_instance = criterion
 
-    np.random.seed(config.np_seed)
-    torch.manual_seed(config.torch_seed)
+    np.random.seed(config["np_seed"])
+    torch.manual_seed(config["torch_seed"])
     print(f'Training initiated...')
 
-    for sample in range(config.samples):
+    for sample in range(config["samples"]):
 
-        print(f'Sample: {sample+1}/{config.samples}', end = '\r')
+        print(f'Sample: {sample+1}/{config["samples"]}', end = '\r')
 
         train(model, optimizer, scheduler , criterion_reg, criterion_class, multitaskloss_instance, views_vol, sample, config, device)
 
@@ -164,7 +164,7 @@ def train_model_artifact(model_path: ModelPathManager, config, device, views_vol
 
     # Define the path for the artifacts with a timestamp and a run type
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    model_filename = f"{config.run_type}_model_{timestamp}.pt"
+    model_filename = f"{config['run_type']}_model_{timestamp}.pt"
     # save the model
     torch.save(model, model_path.artifacts / model_filename)
     

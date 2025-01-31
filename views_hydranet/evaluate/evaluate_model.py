@@ -1,9 +1,5 @@
-import os
 
 import numpy as np
-import pickle
-import time
-import functools
 
 import torch
 import torch.nn as nn
@@ -17,18 +13,15 @@ from sklearn.metrics import brier_score_loss
 
 import wandb
 
-import sys
-from pathlib import Path
 
-from views_hydranet.utils.utils import choose_model, choose_loss, choose_sheduler, get_train_tensors, get_full_tensor, apply_dropout, execute_freeze_h_option, train_log, init_weights, get_data
-from views_hydranet.utils.utils_prediction import predict, sample_posterior
+from views_hydranet.utils.utils_prediction import sample_posterior
 from views_hydranet.utils.utils_wandb import generate_wandb_log_dict, generate_wandb_mean_metrics_log_dict
+from views_hydranet.utils.utils_hydranet_outputs import save_model_outputs
 
-from views_hydranet.utils.utils_hydranet_outputs import output_to_df, evaluation_to_df, save_model_outputs
 from views_pipeline_core.managers.model import ModelPathManager
-
 from views_pipeline_core.models.outputs import ModelOutputs
-from views_pipeline_core.evaluation.metrics import EvaluationMetrics
+#from views_pipeline_core.evaluation.metrics import EvaluationMetrics
+from views_hydranet.deprecated.metrics import EvaluationMetrics
 from views_pipeline_core.managers.model import ModelPathManager
 
 # so if this is mand more general and the if evals in activated then it should be in the utils_prediction.py file.

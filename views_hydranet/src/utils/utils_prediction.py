@@ -9,25 +9,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from views_pipeline_core.managers.model import ModelPathManager
 
-#from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import average_precision_score
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import mean_squared_error
-from sklearn.metrics import brier_score_loss
-
-import wandb
-
-import sys
-from pathlib import Path
-
-PATH = Path(__file__)
-sys.path.insert(0, str(Path(*[i for i in PATH.parts[:PATH.parts.index("views_pipeline")+1]]) / "common_utils")) # PATH_COMMON_UTILS  
-from set_path import setup_project_paths, setup_data_paths
-setup_project_paths(PATH)
-
-
-from utils import choose_model, choose_loss, choose_sheduler, get_train_tensors, get_full_tensor, apply_dropout, execute_freeze_h_option, train_log, init_weights, get_data
+from views_hydranet.utils.utils import choose_model, choose_loss, choose_sheduler, get_train_tensors, get_full_tensor, apply_dropout, execute_freeze_h_option, train_log, init_weights, get_data
 from config_sweep import get_sweep_config
 from config_hyperparameters import get_hp_config
 
