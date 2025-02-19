@@ -8,6 +8,7 @@ from views_pipeline_core.configs.pipeline import PipelineConfig
 from views_pipeline_core.files.utils import read_dataframe
 
 
+
 def get_requried_columns_for_vol():
 
     """
@@ -358,3 +359,4 @@ def create_or_load_views_vol(partition, PATH_PROCESSED, PATH_RAW):
     logger.info('Done')
 
     return vol
+

@@ -12,6 +12,7 @@ import wandb
 
 import sys
 from pathlib import Path
+import logging
 
 from views_pipeline_core.managers.model import ModelPathManager
 from views_hydranet.utils.utils import choose_model, choose_loss, choose_sheduler, get_train_tensors, get_full_tensor, apply_dropout, execute_freeze_h_option, train_log, init_weights, get_data
@@ -125,15 +126,20 @@ def training_loop(config, model, criterion, optimizer, scheduler, views_vol, dev
 
     np.random.seed(config["np_seed"])
     torch.manual_seed(config["torch_seed"])
-    print(f'Training initiated...')
+    #print(f'Training initiated...')
+    logging.info("🚀 Training initiated...")
 
     for sample in range(config["samples"]):
 
-        print(f'Sample: {sample+1}/{config["samples"]}', end = '\r')
+        #print(f'Sample: {sample+1}/{config["samples"]}', end = '\r')
+        progress_msg = f'📡 Training Sample {sample + 1}/{config["samples"]}'
+        print(progress_msg, end="\r")  # Live updating print
 
         train(model, optimizer, scheduler , criterion_reg, criterion_class, multitaskloss_instance, views_vol, sample, config, device)
 
-    print('training done...')
+    #print('training done...')
+    print("\n✅ Training complete!")  # Ensure final message is on a new line
+    logging.info("✅ Training completed successfully.")
 
 def train_model_artifact(model_path: ModelPathManager, config, device, views_vol):
 #def handle_training(config, device, views_vol, PATH_ARTIFACTS):
