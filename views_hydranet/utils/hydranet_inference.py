@@ -187,8 +187,8 @@ class HydraNetInference:
                 t1_pred_class = torch.sigmoid(t1_pred_class)
 
 
-                print(f"t1_pred: {t1_pred.shape}")
-                print(f"t1_pred_class: {t1_pred_class.shape}")
+                #print(f"t1_pred: {t1_pred.shape}")
+                #print(f"t1_pred_class: {t1_pred_class.shape}")
 
 
                 # ✅ Fix: Detach before calling .numpy()
@@ -204,8 +204,8 @@ class HydraNetInference:
 
                 out_of_sample_month += 1
 
-                print(f"pred_magnitudes_zstack: {pred_magnitudes_zstack.shape}")
-                print(f"pred_probabilities_zstack: {pred_probabilities_zstack.shape}")
+                #print(f"pred_magnitudes_zstack: {pred_magnitudes_zstack.shape}")
+                #print(f"pred_probabilities_zstack: {pred_probabilities_zstack.shape}")
 
 # ---------------------------------------
 
@@ -271,20 +271,20 @@ class HydraNetInference:
 
             # combine the two zstacks so 6 features are in the same dimension
             posterior_zstack = np.concatenate([posterior_magnitudes_zstack, posterior_probabilities_zstack], axis=-2)
-
+            metadata_zstack = metadata_tensor.numpy()[:,-self.config['time_steps']:,:,:,:].transpose(1, 3, 4, 2, 0)
 #            print("posterior_zstack: ", posterior_zstack.shape)
 
 #            print("metadata_tensor: ", metadata_tensor.shape)
 
-            metadata_reshaped = metadata_tensor.numpy()[:,-self.config['time_steps']:,:,:,:].transpose(1, 3, 4, 2, 0)
-            metadata_repeated = np.repeat(metadata_reshaped, self.config['test_samples'], axis=-1)
+            #metadata_reshaped = metadata_tensor.numpy()[:,-self.config['time_steps']:,:,:,:].transpose(1, 3, 4, 2, 0)
+            #metadata_repeated = np.repeat(metadata_reshaped, self.config['test_samples'], axis=-1)
 
             #print("metadata_repeated: ", metadata_repeated.shape)
 
-            zstack_combined = np.concatenate([metadata_repeated, posterior_zstack], axis=-2)
+            #zstack_combined = np.concatenate([metadata_repeated, posterior_zstack], axis=-2)
 
             #print("zstack_combined: ", zstack_combined.shape) 
                   
 
-        return posterior_magnitudes, posterior_probabilities, out_of_sample_vol, metadata_tensor, zstack_combined
+        return posterior_magnitudes, posterior_probabilities, out_of_sample_vol, metadata_tensor, posterior_zstack, metadata_zstack
 
