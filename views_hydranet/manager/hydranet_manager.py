@@ -134,12 +134,21 @@ class HydranetManager(ModelManager):
 
 
         inference = HydraNetInference(model, self.config, device=self.device)
-        posterior_magnitudes, posterior_probabilities, out_of_sample_vol, metadata_tensor, zstack_combined = inference.generate_posterior_samples(vol_test)
+        posterior_magnitudes, posterior_probabilities, out_of_sample_vol, metadata_tensor, posterior_zstack, meta_zstack = inference.generate_posterior_samples(vol_test)
+
+        # save the two zstacks
+        zstack_path = f'{self._model_path.data_generated}/stochastic_zstack_{self.config["time_steps"]}_{self.config["run_type"]}_{self.config["model_time_stamp"]}.pkl'
+        with open(zstack_path, 'wb') as file:
+            pickle.dump(posterior_zstack, file)
+
+        meta_zstack_path = f'{self._model_path.data_generated}/deterministic_zstack_{self.config["time_steps"]}_{self.config["run_type"]}_{self.config["model_time_stamp"]}.pkl'
+        with open(meta_zstack_path, 'wb') as file:
+            pickle.dump(meta_zstack, file)
 
         # save the zstack_combined
-        zstack_combined_path = f'{self._model_path.data_generated}/zstack_combined_{self.config["time_steps"]}_{self.config["run_type"]}_{self.config["model_time_stamp"]}.pkl'
-        with open(zstack_combined_path, 'wb') as file:
-            pickle.dump(zstack_combined, file)
+        #zstack_combined_path = f'{self._model_path.data_generated}/zstack_combined_{self.config["time_steps"]}_{self.config["run_type"]}_{self.config["model_time_stamp"]}.pkl'
+        #with open(zstack_combined_path, 'wb') as file:
+        #    pickle.dump(zstack_combined, file)
 
         #posterior_list, posterior_list_class, out_of_sample_vol, metadata_tensor = inference.generate_posterior_samples(vol_test)
 
