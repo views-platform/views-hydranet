@@ -237,10 +237,10 @@ class HydraNetInference:
         _, seq_len, _, H, W = full_tensor.shape  # Extract dynamic shape
 
         # Extract out-of-sample ground truth volume
-        out_of_sample_vol = full_tensor[:, -self.config["time_steps"]:].cpu().numpy()
+        # out_of_sample_vol = full_tensor[:, -self.config["time_steps"]:].cpu().numpy()
 
-        posterior_magnitudes = []
-        posterior_probabilities = []
+        #posterior_magnitudes = []
+        #posterior_probabilities = []
 
         posterior_magnitudes_zstack = np.zeros((self.config["time_steps"], H, W, self.config['input_channels'], self.config['test_samples']))
         posterior_probabilities_zstack = np.zeros((self.config["time_steps"], H, W, self.config['input_channels'], self.config['test_samples']))
@@ -250,9 +250,11 @@ class HydraNetInference:
                 logging.info(f"Processing posterior sample {sample_idx + 1}/{self.config['test_samples']}")
 
             #pred_magnitudes, pred_probabilities = self.predict(full_tensor, sample_idx)
-            pred_magnitudes, pred_probabilities, pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(full_tensor, sample_idx)
-            posterior_magnitudes.append(pred_magnitudes)
-            posterior_probabilities.append(pred_probabilities)
+            #pred_magnitudes, pred_probabilities, pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(full_tensor, sample_idx)
+            _, _, pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(full_tensor, sample_idx)
+
+            #posterior_magnitudes.append(pred_magnitudes)
+            #posterior_probabilities.append(pred_probabilities)
 
 #            print("posterior_magnitudes_pred_zstack: ", pred_magnitudes_zstack.shape)
  #           print("posterior_probabilities_pred_zstack: ", pred_probabilities_zstack.shape)
@@ -272,6 +274,7 @@ class HydraNetInference:
             # combine the two zstacks so 6 features are in the same dimension
             posterior_zstack = np.concatenate([posterior_magnitudes_zstack, posterior_probabilities_zstack], axis=-2)
             metadata_zstack = metadata_tensor.numpy()[:,-self.config['time_steps']:,:,:,:].transpose(1, 3, 4, 2, 0)
+            
 #            print("posterior_zstack: ", posterior_zstack.shape)
 
 #            print("metadata_tensor: ", metadata_tensor.shape)
@@ -286,5 +289,6 @@ class HydraNetInference:
             #print("zstack_combined: ", zstack_combined.shape) 
                   
 
-        return posterior_magnitudes, posterior_probabilities, out_of_sample_vol, metadata_tensor, posterior_zstack, metadata_zstack
+        # return posterior_magnitudes, posterior_probabilities, out_of_sample_vol, metadata_tensor, posterior_zstack, metadata_zstack
+        return posterior_zstack, metadata_zstack
 
