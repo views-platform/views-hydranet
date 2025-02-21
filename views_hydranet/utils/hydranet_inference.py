@@ -1,4 +1,5 @@
 import sys
+import os
 import numpy as np  
 import torch
 import logging
@@ -42,7 +43,7 @@ class HydraNetInference:
         self.model.eval()
         self.model.apply(self._apply_dropout)
 
-        logging.info("💪 HydraNetInference initialized successfully.")
+        logging.info("\n💪 HydraNetInference initialized successfully.")
 
 
     def _apply_dropout(self, module: torch.nn.Module):
@@ -227,3 +228,62 @@ class HydraNetInference:
         metadata_zstack = metadata_tensor.numpy()[:, -self.config['time_steps']:, :, :, :].transpose(1, 3, 4, 2, 0)
 
         return posterior_zstack, metadata_zstack
+
+
+
+### WORKING MEMEORY-MAPPED VERSION
+#    def generate_posterior_samples(self, views_vol: torch.Tensor) -> Tuple[str, str]:
+#        """
+#        Generates multiple posterior samples using Monte Carlo Dropout inference,
+#        optimized with np.memmap to avoid excessive RAM usage.
+#
+#        The simplest optimization: remove .flush() from every iteration.
+#        """
+#
+#        logging.info(f"\n🎲 Drawing {self.config['test_samples']} posterior samples using np.memmap...")
+#
+#        # Load the input tensor and metadata
+#        full_tensor, metadata_tensor = get_full_tensor(views_vol, self.config)
+#        full_tensor = full_tensor.to(self.device)  # Move tensor to device
+#        _, _, _, H, W = full_tensor.shape  
+#
+#        # Define memory-mapped file paths
+#        posterior_magnitudes_path = "posterior_magnitudes.dat"
+#        posterior_probabilities_path = "posterior_probabilities.dat"
+#
+#        # Remove existing files if they exist (to prevent corruption)
+#        for path in [posterior_magnitudes_path, posterior_probabilities_path]:
+#            if os.path.exists(path):
+#                os.remove(path)
+#
+#        # Create memory-mapped arrays instead of full in-memory arrays
+#        posterior_magnitudes_zstack = np.memmap(
+#            posterior_magnitudes_path, dtype=np.float32, mode='w+',
+#            shape=(self.config["time_steps"], H, W, self.config['input_channels'], self.config['test_samples'])
+#        )
+#
+#        posterior_probabilities_zstack = np.memmap(
+#            posterior_probabilities_path, dtype=np.float32, mode='w+',
+#            shape=(self.config["time_steps"], H, W, self.config['input_channels'], self.config['test_samples'])
+#        )
+#
+#        for sample_idx in range(self.config["test_samples"]):
+#            if sample_idx % 10 == 0:
+#                logging.info(f"\n➕ Processing posterior sample {sample_idx + 1}/{self.config['test_samples']}")
+#
+#            # Predict magnitudes and probabilities
+#            pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(full_tensor, sample_idx)
+#
+#            # Store slices in memory-mapped files without flushing every time
+#            posterior_magnitudes_zstack[:, :, :, :, sample_idx] = pred_magnitudes_zstack.transpose(0, 2, 3, 1)
+#            posterior_probabilities_zstack[:, :, :, :, sample_idx] = pred_probabilities_zstack.transpose(0, 2, 3, 1)
+#
+#        # Flush only once at the end
+#        posterior_magnitudes_zstack.flush()
+#        posterior_probabilities_zstack.flush()
+#
+#        return posterior_magnitudes_path, posterior_probabilities_path
+#
+#
+
+    
