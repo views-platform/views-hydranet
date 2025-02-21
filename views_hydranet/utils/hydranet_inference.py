@@ -148,7 +148,7 @@ class HydraNetInference:
         - pred_magnitudes (List[np.ndarray]): List of predicted magnitudes.
         - pred_probabilities (List[np.ndarray]): List of predicted probabilities.
         """
-        logging.info(f"🔮 Starting prediction | Posterior Sample {sample_idx + 1}/{self.config['test_samples']}")
+        logging.info(f"\n🔮 Starting prediction | Posterior Sample {sample_idx + 1}/{self.config['test_samples']}")
 
         full_tensor = full_tensor.to(self.device)  # Move tensor once to avoid redundant operations
         _, seq_len, _, H, W = full_tensor.shape  # Extract dynamic shape
@@ -201,7 +201,7 @@ class HydraNetInference:
 
         """ Generates multiple posterior samples using Monte Carlo Dropout inference."""
 
-        logging.info(f"Drawing {self.config['test_samples']} posterior samples...")
+        logging.info(f"\n🎲 Drawing {self.config['test_samples']} posterior samples...")
 
         full_tensor, metadata_tensor = get_full_tensor(views_vol, self.config)  # Load input tensor
         full_tensor = full_tensor.to(self.device)  # Move to device once
@@ -213,7 +213,7 @@ class HydraNetInference:
 
         for sample_idx in range(self.config["test_samples"]):
             if sample_idx % 10 == 0:
-                logging.info(f"Processing posterior sample {sample_idx + 1}/{self.config['test_samples']}")
+                logging.info(f"\n➕ Processing posterior sample {sample_idx + 1}/{self.config['test_samples']}")
 
             #_, _, pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(full_tensor, sample_idx)
             pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(full_tensor, sample_idx)
