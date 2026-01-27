@@ -246,3 +246,43 @@ def test_df_to_vol_duplicate_indices_raises_error(mock_df):
     with pytest.raises(ValueError, match="Duplicate entries found for 'priogrid_gid' and 'month_id'"):
         df_to_vol(duplicate_df)
 
+
+@pytest.fixture
+def mock_df_with_nan():
+    """
+    Fixture to create a mock DataFrame with NaN values in forecast features.
+    """
+    data = {
+        "priogrid_gid": [1, 2, 3, 4],
+        "col": [10, 20, 30, 40],
+        "row": [5, 15, 25, 35],
+        "month_id": [100, 100, 101, 101],
+        "c_id": [1, 1, 1, 1],
+        "ln_sb_best": [0.1, np.nan, 0.3, 0.4], # NaN here
+        "ln_ns_best": [0.2, 0.3, np.nan, 0.5], # NaN here
+        "ln_os_best": [0.3, 0.4, 0.5, np.nan], # NaN here
+    }
+    return pd.DataFrame(data)
+
+
+def test_df_vol_conversion_with_nan(mock_df_with_nan):
+    """
+    Tests the consistency of DataFrame and volume array conversions when
+    the input DataFrame contains NaN values in forecast features.
+    """
+    vol = df_to_vol(mock_df_with_nan)
+    df_recreated = vol_to_df(vol)
+
+    required_columns = get_requried_columns_for_vol()
+    forecast_features = ["ln_sb_best", "ln_ns_best", "ln_os_best"]
+    vol_features = required_columns + forecast_features
+    df_trimmed = mock_df_with_nan[vol_features]
+
+    # Sort both DataFrames by 'priogrid_gid' and 'month_id'
+    df_trimmed = df_trimmed.sort_values(by=["priogrid_gid", "month_id"]).reset_index(drop=True)
+    df_recreated = df_recreated.sort_values(by=["priogrid_gid", "month_id"]).reset_index(drop=True)
+
+    # pandas.DataFrame.equals() handles NaN values correctly.
+    assert df_trimmed.equals(df_recreated)
+
+
