@@ -271,12 +271,32 @@ def unit_norm(x, noise = False):
 
 def standard(x, noise = False):
 
-    """Return a standardnized x """
+    """Standardize a 1D NumPy array by removing the mean and scaling to unit variance.
+
+    Optionally adds Gaussian noise to the standardized array.
+
+    Args:
+        x (np.ndarray): The input 1D NumPy array to standardize.
+        noise (bool, optional): If True, adds Gaussian noise to the standardized array. Defaults to False.
+
+    Returns:
+        np.ndarray: The standardized 1D NumPy array, optionally with added noise.
+
+    Example:
+        >>> import numpy as np
+        >>> # Example without noise
+        >>> x_in = np.array([1, 2, 3, 4, 5])
+        >>> standard(x_in)
+        array([-1.41421356, -0.70710678,  0.        ,  0.70710678,  1.41421356])
+        >>> # Example with noise (output will vary due to randomness)
+        >>> x_in_noisy = np.array([10, 20, 30])
+        >>> standard(x_in_noisy, noise=True) # doctest: +SKIP
+    """
 
     x_standard = (x - x.mean()) / x.std()
 
     if noise == True:
-        x_unit_norm += np.random.normal(loc = 0, scale = x_standard.std(), size = len(x_standard))
+        x_standard += np.random.normal(loc = 0, scale = x_standard.std(), size = len(x_standard))
 
     return(x_standard)
 
