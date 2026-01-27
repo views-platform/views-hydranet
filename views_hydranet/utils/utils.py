@@ -1,4 +1,5 @@
 import sys
+from typing import Optional, Tuple
 
 import numpy as np
 
@@ -489,8 +490,7 @@ def get_train_tensors(views_vol, sample, config, device):
 #    return full_tensor 
 
 
-def get_full_tensor(views_vol, config = None):
-
+def get_full_tensor(views_vol: np.ndarray, config: Optional[dict] = None) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Converts the input 4D volume array into PyTorch tensors for model input, separating feature and metadata tensors.
 
@@ -502,30 +502,43 @@ def get_full_tensor(views_vol, config = None):
     Args:
         views_vol (np.ndarray): A 4D numpy array with shape [n_months, height, width, n_features]. This volume 
                                 contains spatial-temporal data with both features and metadata.
+        config (Optional[dict]): A dictionary containing model configuration, particularly "input_channels".
+                                 If `None`, "input_channels" defaults to 3 (hardcoded for testing purposes).
 
     Returns:
         Tuple[torch.Tensor, torch.Tensor]: 
             - `full_tensor` (torch.Tensor): A tensor with the selected features, of shape 
               [1, n_months, selected_features, height, width]. This tensor is used for out-of-sample 
               predictions for both evaluation and forecasting.
-
             - `metadata_tensor` (torch.Tensor): A tensor with the metadata, of shape 
               [1, n_months, metadata_features, height, width]. This tensor contains the remaining columns 
               of the original volume not used in `full_tensor`.
 
-        Example:
+    Raises:
+        ValueError: If the input `views_vol` does not have 4 dimensions.
+
+    .. warning::
+        - The `ln_best_sb_idx` (start index for main features) is currently hardcoded to `5`. This assumes 
+          a fixed order and number of initial metadata features in `views_vol`.
+        - When `config` is `None`, `input_channels` defaults to `3`. This behavior is hardcoded for 
+          testing purposes and might not reflect production configuration.
+        - The `print` statements to stdout are side effects.
+
+    Example:
         >>> views_vol = np.random.rand(36, 180, 180, 8)  # Example input volume
-        >>> full_tensor, metadata_tensor = get_full_tensor(views_vol)
+        >>> # Example with config
+        >>> config_with_channels = {"input_channels": 3}
+        >>> full_tensor, metadata_tensor = get_full_tensor(views_vol, config_with_channels)
         >>> print(full_tensor.shape)
         torch.Size([1, 36, 3, 180, 180]) 
         >>> print(metadata_tensor.shape)
         torch.Size([1, 36, 5, 180, 180])
-    
-    Notes:
-        - The function assumes that the feature index for the main feature starts at position 5 (`ln_best_sb_idx`) 
-          and the number of features to be used is defined by `month_range`.
-        - Ensure that the input `views_vol` is structured correctly to match the expected dimensions and content.
-
+        >>> # Example with config=None
+        >>> full_tensor_none_config, metadata_tensor_none_config = get_full_tensor(views_vol, config=None)
+        >>> print(full_tensor_none_config.shape)
+        torch.Size([1, 36, 3, 180, 180]) 
+        >>> print(metadata_tensor_none_config.shape)
+        torch.Size([1, 36, 5, 180, 180])
     """
 
     ln_best_sb_idx = 5#config.first_feature_idx # 5 = ln_best_sb
@@ -546,7 +559,7 @@ def get_full_tensor(views_vol, config = None):
 
     print(f'full_tensor shape {full_tensor.shape}')
 
-    return full_tensor, metadata_tensor 
+    return full_tensor, metadata_tensor
 
 
 
