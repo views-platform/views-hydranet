@@ -27,6 +27,10 @@ def get_requried_columns_for_vol():
                      - 'row': Row index in the spatial grid.
                      - 'month_id': Temporal index for months.
                      - 'c_id': Country ID or relevant identifier.
+
+    Example:
+        >>> get_requried_columns_for_vol()
+        ['priogrid_gid', 'col', 'row', 'month_id', 'c_id']
     """
 
     required_columns = ["priogrid_gid", "col", "row", "month_id", "c_id"]
