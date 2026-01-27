@@ -286,3 +286,16 @@ def test_df_vol_conversion_with_nan(mock_df_with_nan):
     assert df_trimmed.equals(df_recreated)
 
 
+def test_df_to_vol_empty_dataframe_raises_error():
+    """
+    Tests that df_to_vol raises a ValueError when an empty DataFrame is provided.
+    """
+    empty_df = pd.DataFrame(columns=[
+        "priogrid_gid", "col", "row", "month_id", "c_id",
+        "ln_sb_best", "ln_ns_best", "ln_os_best"
+    ])
+    with pytest.raises(ValueError, match="Input DataFrame cannot be empty."):
+        df_to_vol(empty_df)
+
+
+

@@ -94,76 +94,230 @@ def calculate_absolute_indices(df):
 
 
 def df_to_vol(
+
+
     df, height=180, width=180, forecast_features=["ln_sb_best", "ln_ns_best", "ln_os_best"]
+
+
 ):
+
+
     """
+
+
     Converts a DataFrame into a 4D numpy array (volume) for spatial-temporal data representation.
 
+
+
+
+
     This volume format is used by models like HydraNet and other CNN-based models. The resulting
+
+
     volume array has dimensions [n_months, height, width, n_features].
 
+
+
+
+
     Args:
+
+
         df (pd.DataFrame): The input DataFrame containing spatial-temporal data. Must include columns:
+
+
                            - 'priogrid_gid': Priogrid ID.
+
+
                            - 'col': Column index in the spatial grid.
+
+
                            - 'row': Row index in the spatial grid.
+
+
                            - 'month_id': Temporal index for months.
+
+
                            - 'c_id': Country ID or relevant identifier.
+
+
+
+
 
         height (int, optional): The height of the spatial grid. Defaults to 180 which fits Africa and the Middle East.
 
+
+
+
+
         width (int, optional): The width of the spatial grid. Defaults to 180 which fits Africa and the Middle East.
 
+
+
+
+
         forecast_features (list of str, optional): List of forcast feature columns to include in the volume.
+
+
                                                    Defaults to ['ln_sb_best', 'ln_ns_best', 'ln_os_best'].
 
+
+
+
+
     Returns:
+
+
         np.ndarray: A 4D volume array with shape [n_months, height, width, n_features].
+
+
                     Where n_features is the total number of required and forecast features combined. Given the default settings the default shape is [n_months, 180, 180, 8].
 
+
+
+
+
     Raises:
+
+
         ValueError: If any of the required columns ('priogrid_gid', 'col', 'row', 'month_id', 'c_id') are missing from the DataFrame.
 
+
+
+
+
     .. warning::
+
+
         This function internally calls `calculate_absolute_indices` which modifies
+
+
         the input DataFrame `df` in-place by adding 'abs_row', 'abs_col', and 'abs_month' columns.
+
+
         It also prints the shape of the created volume to standard output.
 
+
+
+
+
     Returns:
+
+
         np.ndarray: A 4D volume array with shape [n_months, height, width, n_features].
+
+
                     Where n_features is the total number of required and forecast features combined.
+
+
                     Given the default settings, the default shape is [n_months, 180, 180, 8].
 
+
+
+
+
     Example:
+
+
         >>> import pandas as pd
+
+
         >>> import numpy as np
+
+
         >>> from io import StringIO
+
+
         >>> import sys
+
+
         >>> from unittest.mock import patch
+
+
         >>> # Create a mock DataFrame
+
+
         >>> mock_data = {
+
+
         ...     "priogrid_gid": [1, 2, 3, 4],
+
+
         ...     "col": [10, 20, 30, 40],
+
+
         ...     "row": [5, 15, 25, 35],
+
+
         ...     "month_id": [100, 100, 101, 101],
+
+
         ...     "c_id": [1, 1, 1, 1],
+
+
         ...     "ln_sb_best": [0.1, 0.2, 0.3, 0.4],
+
+
         ...     "ln_ns_best": [0.2, 0.3, 0.4, 0.5],
+
+
         ...     "ln_os_best": [0.3, 0.4, 0.5, 0.6],
+
+
         ... }
+
+
         >>> mock_df = pd.DataFrame(mock_data)
+
+
         >>> # Capture stdout
+
+
         >>> captured_output = StringIO()
+
+
         >>> sys.stdout = captured_output
+
+
         >>> vol = df_to_vol(mock_df.copy(), height=40, width=40) # Use copy for example, use smaller height/width for brevity
+
+
         >>> sys.stdout = sys.__stdout__
+
+
         >>> assert isinstance(vol, np.ndarray)
+
+
         >>> assert vol.shape == (2, 40, 40, 8) # n_months (101-100+1), height, width, n_features (5 req + 3 forecast)
+
+
         >>> "Volume of shape (2, 40, 40, 8) created. Should be (n_months, 180, 180, 8)" in captured_output.getvalue()
+
+
         True
+
+
     """
 
+
+    # --- INPUT VALIDATION: Check for empty DataFrame ---
+
+
+    if df.empty:
+
+
+        raise ValueError("Input DataFrame cannot be empty.")
+
+
+    # --- END INPUT VALIDATION ---
+
+
+
+
+
     # to get prio grid id out of the index
+
+
     df = df.reset_index()
 
     # --- INPUT VALIDATION: Check for duplicate priogrid_gid and month_id combinations ---
