@@ -232,6 +232,44 @@ def vol_to_df(vol, forecast_features=["ln_sb_best", "ln_ns_best", "ln_os_best"])
     Raises:
         ValueError: If the number of features in the volume does not match the expected number
                     of features (length of required + forecast features)
+
+    .. warning::
+        This function prints the shape of the created DataFrame to standard output.
+
+    Returns:
+        pd.DataFrame: The DataFrame representation of the volume array containing columns:
+                      'priogrid_gid', 'col', 'row', 'month_id', 'c_id', followed by forecast features.
+                      Rows where 'priogrid_gid' is 0 are removed. This DataFrame should be identical to the original
+                      DataFrame used to create the volume via `df_to_vol()`.
+
+    Example:
+        >>> import numpy as np
+        >>> import pandas as pd
+        >>> from io import StringIO
+        >>> import sys
+        >>> # Create a mock volume (e.g., from a previous df_to_vol operation)
+        >>> mock_vol = np.zeros((2, 10, 10, 8)) # 2 months, 10x10 grid, 8 features
+        >>> # Populate with some dummy data for priogrid_gid, col, row, month_id, c_id
+        >>> # and some feature data.
+        >>> mock_vol[:, :, :, 0] = np.arange(200).reshape(2, 10, 10) # priogrid_gid
+        >>> mock_vol[:, :, :, 1] = 5 # col
+        >>> mock_vol[:, :, :, 2] = 5 # row
+        >>> mock_vol[:, :, :, 3] = np.array([100, 101]).reshape(2, 1, 1, 1) # month_id
+        >>> mock_vol[:, :, :, 4] = 1 # c_id
+        >>> mock_vol[:, :, :, 5] = 0.5 # ln_sb_best
+        >>> mock_vol[:, :, :, 6] = 0.6 # ln_ns_best
+        >>> mock_vol[:, :, :, 7] = 0.7 # ln_os_best
+        >>> # Capture stdout
+        >>> captured_output = StringIO()
+        >>> sys.stdout = captured_output
+        >>> df_recreated = vol_to_df(mock_vol)
+        >>> sys.stdout = sys.__stdout__
+        >>> assert isinstance(df_recreated, pd.DataFrame)
+        >>> assert df_recreated.shape == (200, 8) # 2 months * 10 * 10 cells, 8 features
+        >>> "DataFrame of shape (200, 8) created. Should be (n_months * 180 * 180, 8)" in captured_output.getvalue()
+        True
+        >>> # Check removal of priogrid_gid=0 cells (if any were 0 after conversion)
+        >>> assert 0 not in df_recreated['priogrid_gid'].values
     """
 
     required_columns = get_requried_columns_for_vol()
