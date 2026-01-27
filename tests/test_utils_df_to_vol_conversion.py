@@ -1,17 +1,14 @@
-import pytest
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import sys
-from pathlib import Path
+import pytest
 
 from views_hydranet.utils.utils_df_to_vol_conversion import (
-    get_requried_columns_for_vol,
     calculate_absolute_indices,
     df_to_vol,
-    vol_to_df,
     df_vol_conversion_test,
+    get_requried_columns_for_vol,
     plot_vol,
+    vol_to_df,
 )
 
 
@@ -182,9 +179,7 @@ def test_df_vol_conversion_test(mock_df):
     vol_features = required_columns + forecast_features
     df_trimmed = mock_df[vol_features]
     df_trimmed = df_trimmed.sort_values(by=["priogrid_gid", "month_id"]).reset_index(drop=True)
-    df_recreated = df_recreated.sort_values(by=["priogrid_gid", "month_id"]).reset_index(
-        drop=True
-    )
+    df_recreated = df_recreated.sort_values(by=["priogrid_gid", "month_id"]).reset_index(drop=True)
     assert df_trimmed.equals(df_recreated)
 
 
