@@ -214,7 +214,25 @@ def get_data(config):
 
 def norm(x, a = 0, b = 1):
 
-    """Return a normalized x in range [a:b]. Default is [0:1]"""
+    """Normalize a 1D array or Tensor to a specified range [a, b].
+
+    By default, normalizes the input `x` to the range [0, 1].
+
+    Args:
+        x (np.ndarray or torch.Tensor): The input array or tensor to normalize.
+        a (float, optional): The minimum value of the target range. Defaults to 0.
+        b (float, optional): The maximum value of the target range. Defaults to 1.
+
+    Returns:
+        np.ndarray or torch.Tensor: The normalized array or tensor within the range [a, b].
+
+    Example:
+        >>> import numpy as np
+        >>> norm(np.array([1, 2, 3, 4, 5]))
+        array([0.  , 0.25, 0.5 , 0.75, 1.  ])
+        >>> norm(np.array([10, 20, 30]), a=-1, b=1)
+        array([-1.,  0.,  1.])
+    """
     x_norm = (b-a)*(x - x.min())/(x.max()-x.min())+a
     return(x_norm)
 
