@@ -12,6 +12,10 @@ def calculate_date_from_index(target_index, start_index = 121, start_date = '01.
 
     Returns:
     str: The calculated month-year date corresponding to the target_index in 'MM.YYYY' format.
+
+    Example:
+        >>> calculate_date_from_index(122, start_index=121, start_date='01.1990')
+        '02.1990'
     """
     # Convert the start date to a datetime object
     base_date = datetime.strptime(start_date, '%m.%Y')
