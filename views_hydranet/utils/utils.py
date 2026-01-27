@@ -239,7 +239,27 @@ def norm(x, a = 0, b = 1):
 
 def unit_norm(x, noise = False):
 
-    """Return a normalized x (unit vector)"""
+    """Normalizes a 1D PyTorch Tensor to a unit vector.
+
+    Optionally adds Gaussian noise to the normalized vector.
+
+    Args:
+        x (torch.Tensor): The input 1D PyTorch Tensor to normalize.
+        noise (bool, optional): If True, adds Gaussian noise to the unit vector. Defaults to False.
+
+    Returns:
+        torch.Tensor: The normalized 1D unit vector, optionally with added noise.
+
+    Example:
+        >>> import torch
+        >>> # Example without noise
+        >>> x_in = torch.tensor([3.0, 4.0])
+        >>> unit_norm(x_in)
+        tensor([0.6000, 0.8000])
+        >>> # Example with noise (output will vary due to randomness)
+        >>> x_in_noisy = torch.tensor([1.0, 1.0])
+        >>> unit_norm(x_in_noisy, noise=True) # doctest: +SKIP
+    """
     x_unit_norm = x / torch.linalg.norm(x)
 
     if noise == True:
