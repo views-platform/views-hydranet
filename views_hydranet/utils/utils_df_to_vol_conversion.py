@@ -60,6 +60,21 @@ def calculate_absolute_indices(df):
         pd.DataFrame: The same DataFrame instance that was passed as input, but
                       now with 'abs_row', 'abs_col', and 'abs_month' columns
                       added.
+
+    Example:
+        >>> import pandas as pd
+        >>> df_in = pd.DataFrame({
+        ...     'row': [5, 15, 25, 35],
+        ...     'col': [10, 20, 30, 40],
+        ...     'month_id': [100, 100, 101, 101]
+        ... })
+        >>> df_out = calculate_absolute_indices(df_in.copy()) # Use copy to avoid in-place modification in example
+        >>> df_out[['abs_row', 'abs_col', 'abs_month']]
+           abs_row  abs_col  abs_month
+        0        0        0          0
+        1       10       10          0
+        2       20       20          1
+        3       30       30          1
     """
 
     # get the first month_id
