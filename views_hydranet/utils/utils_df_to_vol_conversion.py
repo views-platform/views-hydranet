@@ -124,6 +124,43 @@ def df_to_vol(
     Raises:
         ValueError: If any of the required columns ('priogrid_gid', 'col', 'row', 'month_id', 'c_id') are missing from the DataFrame.
 
+    .. warning::
+        This function internally calls `calculate_absolute_indices` which modifies
+        the input DataFrame `df` in-place by adding 'abs_row', 'abs_col', and 'abs_month' columns.
+        It also prints the shape of the created volume to standard output.
+
+    Returns:
+        np.ndarray: A 4D volume array with shape [n_months, height, width, n_features].
+                    Where n_features is the total number of required and forecast features combined.
+                    Given the default settings, the default shape is [n_months, 180, 180, 8].
+
+    Example:
+        >>> import pandas as pd
+        >>> import numpy as np
+        >>> from io import StringIO
+        >>> import sys
+        >>> from unittest.mock import patch
+        >>> # Create a mock DataFrame
+        >>> mock_data = {
+        ...     "priogrid_gid": [1, 2, 3, 4],
+        ...     "col": [10, 20, 30, 40],
+        ...     "row": [5, 15, 25, 35],
+        ...     "month_id": [100, 100, 101, 101],
+        ...     "c_id": [1, 1, 1, 1],
+        ...     "ln_sb_best": [0.1, 0.2, 0.3, 0.4],
+        ...     "ln_ns_best": [0.2, 0.3, 0.4, 0.5],
+        ...     "ln_os_best": [0.3, 0.4, 0.5, 0.6],
+        ... }
+        >>> mock_df = pd.DataFrame(mock_data)
+        >>> # Capture stdout
+        >>> captured_output = StringIO()
+        >>> sys.stdout = captured_output
+        >>> vol = df_to_vol(mock_df.copy(), height=40, width=40) # Use copy for example, use smaller height/width for brevity
+        >>> sys.stdout = sys.__stdout__
+        >>> assert isinstance(vol, np.ndarray)
+        >>> assert vol.shape == (2, 40, 40, 8) # n_months (101-100+1), height, width, n_features (5 req + 3 forecast)
+        >>> "Volume of shape (2, 40, 40, 8) created. Should be (n_months, 180, 180, 8)" in captured_output.getvalue()
+        True
     """
 
     # to get prio grid id out of the index
