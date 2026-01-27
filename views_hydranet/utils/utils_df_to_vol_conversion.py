@@ -636,6 +636,52 @@ def create_or_load_views_vol(partition, PATH_PROCESSED, PATH_RAW):
         np.ndarray: The 4D volume array created or loaded from the DataFrame, with shape
                     [n_months, height, width, n_features].
 
+    .. warning::
+        This function performs file system operations (creating directories, checking for file existence,
+        loading and saving NumPy arrays). It also logs information to the logger. Its behavior depends
+        on the existence of files and directories at the specified paths.
+
+    Returns:
+        np.ndarray: The 4D volume array created or loaded from the DataFrame, with shape
+                    [n_months, height, width, n_features].
+
+    Example:
+        >>> from unittest.mock import patch, MagicMock
+        >>> from pathlib import Path
+        >>> import numpy as np
+        >>> import pandas as pd
+        >>> # Mock dependencies for the example
+        >>> with patch('views_hydranet.utils.utils_df_to_vol_conversion.os.makedirs'), \
+        ...      patch('views_hydranet.utils.utils_df_to_vol_conversion.os.path.isfile', return_value=False), \
+        ...      patch('views_hydranet.utils.utils_df_to_vol_conversion.np.save'), \
+        ...      patch('views_hydranet.utils.utils_df_to_vol_conversion.np.load', return_value=np.zeros((2,10,10,8))), \
+        ...      patch('views_hydranet.utils.utils_df_to_vol_conversion.read_dataframe', return_value=MagicMock(spec=pd.DataFrame)), \
+        ...      patch('views_hydranet.utils.utils_df_to_vol_conversion.df_to_vol', return_value=np.zeros((2,10,10,8))), \
+        ...      patch('views_pipeline_core.configs.pipeline.PipelineConfig') as MockPipelineConfig:
+        ...     
+        ...     mock_pipeline_config_instance = MagicMock()
+        ...     mock_pipeline_config_instance.dataframe_format = ".parquet"
+        ...     MockPipelineConfig.return_value = mock_pipeline_config_instance
+        ...     
+        ...     partition = "testing"
+        ...     path_processed = Path("/tmp/processed")
+        ...     path_raw = Path("/tmp/raw")
+        ...     
+        ...     vol = create_or_load_views_vol(partition, path_processed, path_raw)
+        ...     assert isinstance(vol, np.ndarray)
+        >>> # Example where file exists
+        >>> with patch('views_hydranet.utils.utils_df_to_vol_conversion.os.makedirs'), \
+        ...      patch('views_hydranet.utils.utils_df_to_vol_conversion.os.path.isfile', return_value=True), \
+        ...      patch('views_hydranet.utils.utils_df_to_vol_conversion.np.save'), \
+        ...      patch('views_hydranet.utils.utils_df_to_vol_conversion.np.load', return_value=np.ones((2,10,10,8))) as mock_np_load:
+        ...     
+        ...     partition = "calibration"
+        ...     path_processed = Path("/tmp/processed")
+        ...     path_raw = Path("/tmp/raw")
+        ...     
+        ...     vol = create_or_load_views_vol(partition, path_processed, path_raw)
+        ...     mock_np_load.assert_called_once()
+        ...     assert np.all(vol == 1) # Check content from mock_np_load
     """
 
     path_vol = os.path.join(str(PATH_PROCESSED), f"{partition}_vol.npy")
