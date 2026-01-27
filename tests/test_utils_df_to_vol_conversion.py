@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import pytest
+from unittest.mock import patch, MagicMock
+from pathlib import Path
 
 from views_hydranet.utils.utils_df_to_vol_conversion import (
     calculate_absolute_indices,
@@ -9,6 +11,7 @@ from views_hydranet.utils.utils_df_to_vol_conversion import (
     get_requried_columns_for_vol,
     plot_vol,
     vol_to_df,
+    create_or_load_views_vol,
 )
 
 
@@ -296,6 +299,73 @@ def test_df_to_vol_empty_dataframe_raises_error():
     ])
     with pytest.raises(ValueError, match="Input DataFrame cannot be empty."):
         df_to_vol(empty_df)
+
+
+# New test for create_or_load_views_vol
+@patch('views_hydranet.utils.utils_df_to_vol_conversion.os.makedirs')
+@patch('views_hydranet.utils.utils_df_to_vol_conversion.np.save')
+@patch('views_hydranet.utils.utils_df_to_vol_conversion.logger')
+def test_create_or_load_views_vol_creates_if_not_exists(
+    mock_logger, mock_np_save, mock_os_makedirs, mock_df, mock_vol
+):
+    """
+    Tests that create_or_load_views_vol creates a volume if it does not exist.
+    """
+    partition = "testing"
+    path_processed = Path("/mock/processed")
+    path_raw = Path("/mock/raw")
+
+    with patch('views_hydranet.utils.utils_df_to_vol_conversion.os.path.isfile', return_value=False), \
+         patch('views_hydranet.utils.utils_df_to_vol_conversion.read_dataframe', return_value=mock_df), \
+         patch('views_hydranet.utils.utils_df_to_vol_conversion.df_to_vol', return_value=mock_vol), \
+         patch('views_pipeline_core.configs.pipeline.PipelineConfig') as MockPipelineConfig:
+
+        # Mock the PipelineConfig instance and its attribute
+        mock_pipeline_config_instance = MagicMock()
+        mock_pipeline_config_instance.dataframe_format = ".parquet"
+        MockPipelineConfig.return_value = mock_pipeline_config_instance
+
+        result_vol = create_or_load_views_vol(partition, path_processed, path_raw)
+
+        # Assertions
+        mock_os_makedirs.assert_called_once_with(str(path_processed), exist_ok=True)
+        mock_np_save.assert_called_once_with(str(path_processed / f"{partition}_vol.npy"), mock_vol)
+        assert result_vol is mock_vol # Should return the created mock_vol
+
+        # Check logger calls
+        mock_logger.info.assert_any_call("Creating volume...")
+        mock_logger.info.assert_any_call(f"shape of volume: {mock_vol.shape}")
+        mock_logger.info.assert_any_call(f"Saving volume to {path_processed / f'{partition}_vol.npy'}")
+        mock_logger.info.assert_any_call("Done")
+
+
+@patch('views_hydranet.utils.utils_df_to_vol_conversion.os.makedirs')
+@patch('views_hydranet.utils.utils_df_to_vol_conversion.np.load')
+@patch('views_hydranet.utils.utils_df_to_vol_conversion.logger')
+def test_create_or_load_views_vol_loads_if_exists(
+    mock_logger, mock_np_load, mock_os_makedirs, mock_vol
+):
+    """
+    Tests that create_or_load_views_vol loads a volume if it already exists.
+    """
+    partition = "testing"
+    path_processed = Path("/mock/processed")
+    path_raw = Path("/mock/raw")
+
+    mock_np_load.return_value = mock_vol # np.load returns the mock_vol
+
+    with patch('views_hydranet.utils.utils_df_to_vol_conversion.os.path.isfile', return_value=True):
+        result_vol = create_or_load_views_vol(partition, path_processed, path_raw)
+
+        # Assertions
+        mock_os_makedirs.assert_called_once_with(str(path_processed), exist_ok=True)
+        mock_np_load.assert_called_once_with(str(path_processed / f"{partition}_vol.npy"))
+        assert result_vol is mock_vol # Should return the loaded mock_vol
+
+        # Check logger calls
+        mock_logger.info.assert_any_call("Volume already created")
+        mock_logger.info.assert_any_call("Done")
+
 
 
 
