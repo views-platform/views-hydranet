@@ -552,6 +552,20 @@ def plot_vol(vol, month_range, forecast_features=["ln_sb_best", "ln_ns_best", "l
     Raises:
         ValueError: If `month_range` exceeds the number of time steps in `vol`.
 
+    .. warning::
+        This function calls `matplotlib.pyplot.show()`, which will block the execution
+        of the program until the plot window is closed. When running in an automated
+        environment or script, this may require special handling (e.g., running in
+        a non-interactive backend or redirecting output).
+
+    Returns:
+        None: The function displays the plots for each time step and feature, but does not return any value.
+
+    Example:
+        >>> import numpy as np
+        >>> # Create a mock volume for demonstration purposes
+        >>> mock_vol_example = np.random.rand(3, 10, 10, 8) # 3 months, 10x10 grid, 8 features
+        >>> plot_vol(mock_vol_example, month_range=1) # This will open a plot window
     """
 
     # check if the month_range is valid:
