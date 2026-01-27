@@ -10,7 +10,7 @@ from views_pipeline_core.configs.pipeline import PipelineConfig
 from views_pipeline_core.files.utils import read_dataframe
 
 
-def get_requried_columns_for_vol():
+def get_requried_columns_for_vol() -> list[str]:
     """
     Returns the list of required columns for constructing the volume array.
 
@@ -38,7 +38,7 @@ def get_requried_columns_for_vol():
     return required_columns
 
 
-def calculate_absolute_indices(df):
+def calculate_absolute_indices(df: pd.DataFrame) -> pd.DataFrame:
     """Computes absolute indices for 'row', 'col', and 'month_id'.
 
     This function calculates indices starting from 0 for the row, column, and
@@ -94,12 +94,11 @@ def calculate_absolute_indices(df):
 
 
 def df_to_vol(
-
-
-    df, height=180, width=180, forecast_features=["ln_sb_best", "ln_ns_best", "ln_os_best"]
-
-
-):
+    df: pd.DataFrame,
+    height: int = 180,
+    width: int = 180,
+    forecast_features: list[str] = ["ln_sb_best", "ln_ns_best", "ln_os_best"],
+) -> np.ndarray:
 
 
     """
@@ -379,7 +378,10 @@ def df_to_vol(
     return vol
 
 
-def vol_to_df(vol, forecast_features=["ln_sb_best", "ln_ns_best", "ln_os_best"]):
+def vol_to_df(
+    vol: np.ndarray,
+    forecast_features: list[str] = ["ln_sb_best", "ln_ns_best", "ln_os_best"],
+) -> pd.DataFrame:
     """
     Converts a 4D numpy array (volumne) back into a DataFrame.
 
@@ -476,7 +478,11 @@ def vol_to_df(vol, forecast_features=["ln_sb_best", "ln_ns_best", "ln_os_best"])
     return df
 
 
-def df_vol_conversion_test(df, vol, forecast_features=["ln_sb_best", "ln_ns_best", "ln_os_best"]):
+def df_vol_conversion_test(
+    df: pd.DataFrame,
+    vol: np.ndarray,
+    forecast_features: list[str] = ["ln_sb_best", "ln_ns_best", "ln_os_best"],
+) -> None:
     """
     Tests the consistency of DataFrame and volume array conversions.
 

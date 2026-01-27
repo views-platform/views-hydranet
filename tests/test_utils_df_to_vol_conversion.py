@@ -367,5 +367,66 @@ def test_create_or_load_views_vol_loads_if_exists(
         mock_logger.info.assert_any_call("Done")
 
 
+def test_df_vol_conversion_data_point_integrity(mock_df):
+    """
+    Tests that a specific data point from the DataFrame is correctly mapped to the volume
+    and back after df_to_vol and vol_to_df operations, verifying positional and value integrity.
+    """
+    # Use a copy to ensure the original mock_df is not modified by df_to_vol
+    df_copy = mock_df.copy()
+
+    # --- Step 1: Trace a specific data point from df_copy to vol ---
+    # Pick a data point: let's use the first row's 'ln_sb_best' value
+    original_row = df_copy.iloc[0]
+    original_value = original_row['ln_sb_best'] # 0.1
+    original_pg_id = original_row['priogrid_gid'] # 1
+    original_month_id = original_row['month_id'] # 100
+
+    # Calculate expected absolute indices
+    min_row = df_copy['row'].min() # 5
+    min_col = df_copy['col'].min() # 10
+    min_month = df_copy['month_id'].min() # 100
+
+    abs_row = int(original_row['row'] - min_row) # 5 - 5 = 0
+    abs_col = int(original_row['col'] - min_col) # 10 - 10 = 0
+    abs_month = int(original_row['month_id'] - min_month) # 100 - 100 = 0
+
+    # Define height, width, and forecast features as used in df_to_vol
+    height = 180
+    width = 180
+    forecast_features = ["ln_sb_best", "ln_ns_best", "ln_os_best"]
+    required_columns = get_requried_columns_for_vol()
+    vol_features = required_columns + forecast_features
+
+    # Find the feature index for 'ln_sb_best'
+    feature_index_ln_sb_best = vol_features.index('ln_sb_best') # 5
+
+    # Generate the volume
+    vol = df_to_vol(df_copy, height=height, width=width, forecast_features=forecast_features)
+
+    # After np.flip(vol, axis=0)
+    # The original abs_row=0 (top-most in original orientation) becomes height - 1 - abs_row = 180 - 1 - 0 = 179
+    flipped_abs_row = int(height - 1 - abs_row) # 179
+
+    # After np.transpose(vol, (2, 0, 1, 3))
+    # New order: (month_range, height, width, n_features)
+    # So, vol_transposed[abs_month, flipped_abs_row, abs_col, feature_index]
+    assert np.isclose(vol[abs_month, flipped_abs_row, abs_col, feature_index_ln_sb_best], original_value)
+
+    # --- Step 2: Trace the data point back from vol to df_recreated ---
+    df_recreated = vol_to_df(vol, forecast_features=forecast_features)
+
+    # Find the corresponding row in the recreated DataFrame
+    # Note: vol_to_df removes priogrid_gid=0, so filter for the correct pg_id and month_id
+    recreated_row = df_recreated[
+        (df_recreated['priogrid_gid'] == original_pg_id) &
+        (df_recreated['month_id'] == original_month_id)
+    ]
+
+    # Assert that the value is preserved and correctly located
+    assert not recreated_row.empty
+    assert np.isclose(recreated_row['ln_sb_best'].iloc[0], original_value)
+
+
 
 
