@@ -341,7 +341,7 @@ def my_decay(sample, samples, min_events, max_events, slope_ratio, roof_ratio):
     return(int(y))
 
 
-def get_window_index(views_vol, config, sample): 
+def get_window_index(views_vol: np.ndarray, config: dict, sample: int) -> dict: 
 
     """Draw/sample a cell which serves as the ancor for the sampeled window/patch drawn from the traning tensor.
     The dimensions of the windows are HxWxD, 
@@ -389,7 +389,7 @@ def get_window_index(views_vol, config, sample):
     return(window_index)
 
 
-def get_window_coords(window_index, config):
+def get_window_coords(window_index: dict, config: dict) -> dict:
     """Return the coordinates of the window around the sampled index. 
     This implementaions ensures that the window does never go out of bounds.
     (Thus no need for sampling until a window is found that does not go out of bounds)."""
@@ -430,11 +430,46 @@ def train_log(avg_loss_list, avg_loss_reg_list, avg_loss_class_list):
 
 
 # Should rename to sub_tensor or something like that... But it is used for training.. 
-def get_train_tensors(views_vol, sample, config, device): 
+def get_train_tensors(views_vol: np.ndarray, sample: int, config: dict, device: torch.device) -> torch.Tensor: 
+    """
+    Samples a window from the training tensor based on a sampled index and coordinates.
 
-    """Uses the get_window_index and get_window_coords functions to sample a window from the training tensor. 
-    The window is returned as a tensor of size 1 x config.time_steps x config.input_channels x 180 x 180.
-    A few spatial transformations are applied to the tensor at the end."""
+    This function prepares a training tensor by:
+    1. Slicing the input `views_vol` to exclude future time steps for evaluation.
+    2. Calling `get_window_index` to select a base spatial cell.
+    3. Calling `get_window_coords` to determine the window boundaries around the selected cell.
+    4. Extracting the `input_window` from `train_views_vol` based on these coordinates.
+    5. Converting the `input_window` to a PyTorch tensor, moving it to the specified `device`,
+       adding a batch dimension (`unsqueeze`), permuting dimensions, and slicing features
+       based on `config["first_feature_idx"]` and `config["input_channels"]`.
+    6. Applying spatial data augmentation (random horizontal and vertical flips) to the
+       reshaped tensor.
+
+    Args:
+        views_vol (np.ndarray): A 4D numpy array with shape [n_months, height, width, n_features]
+                                representing the full volume data.
+        sample (int): The current sample number, used by `get_window_index` for sampling logic.
+        config (dict): A dictionary containing configuration parameters such as:
+                       - "time_steps" (int): Number of months to exclude from the end of `views_vol`.
+                       - "first_feature_idx" (int): Starting index for the main features in `views_vol`.
+                       - "input_channels" (int): Number of features to select for the `train_tensor`.
+                       - "window_dim" (int): Dimension of the square spatial window.
+        device (torch.device): The PyTorch device ('cuda' or 'cpu') to place the resulting tensor on.
+
+    Returns:
+        torch.Tensor: A 5D PyTorch tensor with shape
+                      [1, (n_months - time_steps), input_channels, window_dim, window_dim]
+                      ready for model training.
+
+    .. warning::
+        - This function relies on `get_window_index` and `get_window_coords`, both of which
+          internally use `np.random.choice` and `np.random.randint`, making the window
+          selection non-deterministic unless these functions are mocked or `np.random.seed()`
+          is set globally.
+        - The `torchvision.transforms` also introduce randomness if not explicitly controlled.
+        - The comment "Should rename to sub_tensor or something like that... But it is used for training.."
+          suggests a potential naming inconsistency that could lead to confusion.
+    """
 
     # Not using the last 36 months - these ar for test set
     train_views_vol = views_vol[:-config["time_steps"]] # horrible naming... 

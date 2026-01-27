@@ -1,8 +1,10 @@
-import numpy as np
 import pytest
 import torch
+from unittest.mock import patch, MagicMock
+import numpy as np
+from torchvision import transforms # Added for mocking transforms
 
-from views_hydranet.utils.utils import norm, unit_norm, standard, my_decay, get_full_tensor
+from views_hydranet.utils.utils import norm, unit_norm, standard, my_decay, get_full_tensor, get_train_tensors, get_window_index, get_window_coords
 
 @pytest.fixture
 def mock_views_vol():
@@ -12,6 +14,22 @@ def mock_views_vol():
     """
     n_months, height, width, n_features = 36, 180, 180, 8
     return np.random.rand(n_months, height, width, n_features)
+
+@pytest.fixture
+def mock_config_train_tensors():
+    """
+    Fixture for a mock config dictionary used by get_train_tensors.
+    """
+    return {
+        "time_steps": 36,
+        "first_feature_idx": 5, # Corresponds to ln_best_sb_idx in utils.py
+        "input_channels": 3,
+        "window_dim": 16,
+        "min_events": 10,
+        "samples": 100,
+        "slope_ratio": 1.0,
+        "roof_ratio": 1.0,
+    }
 
 def test_norm_default_range():
     """
@@ -227,5 +245,236 @@ def test_get_full_tensor_none_config(mock_views_vol):
 
     assert full_tensor.shape == expected_full_tensor_shape
     assert metadata_tensor.shape == expected_metadata_tensor_shape
+
+
+@patch('views_hydranet.utils.utils.get_window_index', return_value={'row_indx': 5, 'col_indx': 5}) # Mocking window_index selection
+@patch('views_hydranet.utils.utils.get_window_coords', return_value={'min_row_indx': 5, 'max_row_indx': 21, 'min_col_indx': 5, 'max_col_indx': 21, 'dim': 16}) # Mocking window_coords
+@patch('views_hydranet.utils.utils.torch.cuda.is_available', return_value=False) # Mock CUDA availability
+def test_get_train_tensors_basic(
+    mock_cuda_available,
+    mock_get_window_coords,
+    mock_get_window_index,
+    mock_views_vol,
+    mock_config_train_tensors
+):
+    """
+    Tests the basic functionality of get_train_tensors, verifying output type and shape.
+    """
+    # Arrange
+    sample = 0
+    device = torch.device("cpu") # Since CUDA is mocked to be unavailable
+    
+    # Act
+    train_tensor = get_train_tensors(mock_views_vol, sample, mock_config_train_tensors, device)
+
+    # Assert
+    assert isinstance(train_tensor, torch.Tensor)
+
+    # Expected shape calculation
+    time_steps = mock_config_train_tensors["time_steps"]
+    input_channels = mock_config_train_tensors["input_channels"]
+    window_dim = mock_config_train_tensors["window_dim"]
+
+    # train_views_vol excludes the last 'time_steps' months
+    expected_n_months_after_slice = mock_views_vol.shape[0] - time_steps
+
+    # The shape of input_window will be (expected_n_months_after_slice, window_dim, window_dim, original_n_features)
+    # After unsqueeze(0), permute(0,1,4,2,3), and slicing ln_best_sb_idx:last_feature_idx
+    expected_shape = (
+        1, # Batch dim
+        expected_n_months_after_slice, # Months
+        input_channels, # Sliced features
+        window_dim, # Height
+        window_dim # Width
+    )
+    assert train_tensor.shape == expected_shape
+
+
+@patch('views_hydranet.utils.utils.get_window_index', return_value={'row_indx': 5, 'col_indx': 5}) # Mocking window_index selection
+@patch('views_hydranet.utils.utils.get_window_coords', return_value={'min_row_indx': 5, 'max_row_indx': 21, 'min_col_indx': 5, 'max_col_indx': 21, 'dim': 16}) # Mocking window_coords
+@patch('views_hydranet.utils.utils.torch.cuda.is_available', return_value=False) # Mock CUDA availability
+@patch('torchvision.transforms.RandomHorizontalFlip', return_value=MagicMock(side_effect=lambda x: x)) # Disable flip
+@patch('torchvision.transforms.RandomVerticalFlip', return_value=MagicMock(side_effect=lambda x: x)) # Disable flip
+def test_get_train_tensors_data_integrity(
+    mock_vf,
+    mock_hf,
+    mock_cuda_available,
+    mock_get_window_coords,
+    mock_get_window_index,
+    mock_config_train_tensors
+):
+    """
+    Tests get_train_tensors for data integrity, ensuring specific values are correctly
+    mapped to the output train_tensor after all slicing, permutations, and transformations.
+    """
+    # Arrange
+    sample = 0
+    device = torch.device("cpu")
+
+    # Create a custom views_vol with predictable values for tracing
+    n_months_full, original_height, original_width, n_features = 40, 180, 180, 8
+    mock_views_vol_data = np.arange(n_months_full * original_height * original_width * n_features).reshape(
+        n_months_full, original_height, original_width, n_features
+    )
+    
+    # Values from mock_config_train_tensors
+    time_steps = mock_config_train_tensors["time_steps"] # 36
+    first_feature_idx = mock_config_train_tensors["first_feature_idx"] # 5
+    input_channels = mock_config_train_tensors["input_channels"] # 3
+    window_dim = mock_config_train_tensors["window_dim"] # 16
+
+    # Calculate expected window coordinates (based on mock_get_window_coords return value)
+    expected_min_row_indx = 5
+    expected_max_row_indx = 21
+    expected_min_col_indx = 5
+    expected_max_col_indx = 21
+
+    # train_views_vol will be mock_views_vol_data[:-time_steps]
+    # n_months_after_slice = 40 - 36 = 4
+    n_months_after_slice = n_months_full - time_steps
+
+    # --- Pick a specific value to trace ---
+    # Let's pick a value from the first month of the training view (index 0)
+    # in the middle of the window, for the first selected feature (index first_feature_idx)
+    original_month_in_train_views = 0 # Corresponds to month 0 of train_views_vol
+    original_row_in_window = 5 + (window_dim // 2) - expected_min_row_indx # original_row_in_views_vol = 5 + 8 = 13
+    original_col_in_window = 5 + (window_dim // 2) - expected_min_col_indx # original_col_in_views_vol = 5 + 8 = 13
+    original_feature_idx = first_feature_idx # feature index 5 in the original views_vol
+
+    # The actual coordinates in mock_views_vol_data
+    actual_row_in_views_vol = expected_min_row_indx + original_row_in_window # 5 + 8 = 13
+    actual_col_in_views_vol = expected_min_col_indx + original_col_in_window # 5 + 8 = 13
+
+    # The original value we expect to find
+    original_value = mock_views_vol_data[
+        original_month_in_train_views,
+        actual_row_in_views_vol,
+        actual_col_in_views_vol,
+        original_feature_idx
+    ]
+
+    # Act
+    train_tensor = get_train_tensors(mock_views_vol_data, sample, mock_config_train_tensors, device)
+
+    # --- Trace expected position in train_tensor ---
+    # train_tensor = torch.tensor(input_window).float().to(device).unsqueeze(dim=0).permute(0,1,4,2,3)[:, :, ln_best_sb_idx:last_feature_idx, :, :]
+    
+    # After unsqueeze(dim=0) (batch dim) -> (1, N_months_train, H_window, W_window, N_features_all)
+    # After permute(0,1,4,2,3) -> (1, N_months_train, N_features_all, H_window, W_window)
+    # After slicing [:, :, ln_best_sb_idx:last_feature_idx, :, :] -> (1, N_months_train, N_features_selected, H_window, W_window)
+
+    # So, the final index in train_tensor will be:
+    # Batch = 0
+    # Month = original_month_in_train_views (e.g. 0)
+    # Feature = original_feature_idx - first_feature_idx (relative to the selected features)
+    # Height = original_row_in_window
+    # Width = original_col_in_window
+
+    expected_batch_idx = 0
+    expected_month_idx = original_month_in_train_views
+    expected_feature_idx_in_tensor = original_feature_idx - first_feature_idx # 5 - 5 = 0
+    expected_height_idx = original_row_in_window # 8
+    expected_width_idx = original_col_in_window # 8
+
+    # Assert
+    assert torch.isclose(
+        train_tensor[
+            expected_batch_idx,
+            expected_month_idx,
+            expected_feature_idx_in_tensor,
+            expected_height_idx,
+            expected_width_idx
+        ],
+        torch.tensor(original_value, dtype=torch.float32)
+    )
+
+
+@patch('views_hydranet.utils.utils.get_window_index', return_value={'row_indx': 0, 'col_indx': 0}) # Mocking window_index selection
+@patch('views_hydranet.utils.utils.get_window_coords', return_value={'min_row_indx': 0, 'max_row_indx': 4, 'min_col_indx': 0, 'max_col_indx': 4, 'dim': 4}) # Mocking window_coords
+@patch('views_hydranet.utils.utils.torch.cuda.is_available', return_value=False)
+@patch('torchvision.transforms.RandomVerticalFlip', return_value=MagicMock(side_effect=lambda x: x)) # Disable vertical flip
+def test_get_train_tensors_spatial_transforms(
+    mock_vertical_flip,
+    mock_cuda_available,
+    mock_get_window_coords,
+    mock_get_window_index,
+    mock_config_train_tensors
+):
+    """
+    Tests get_train_tensors for correct application of spatial transformations (horizontal/vertical flips).
+    Mocks the RandomHorizontalFlip and RandomVerticalFlip to ensure predictable behavior for testing.
+    """
+    # Arrange
+    sample = 0
+    device = torch.device("cpu")
+
+    # Create a small, predictable views_vol for easier verification
+    n_months_full, original_height, original_width, n_features = 40, 180, 180, 8
+    
+    # Create a 4x4 window to test flips
+    mock_views_vol_data = np.zeros((n_months_full, original_height, original_width, n_features), dtype=np.float32)
+    # Put a distinct pattern in a 4x4 area that will be picked as the window
+    # Window (slice from original_height/width): 0:16 for rows, 0:16 for cols
+    # Feature 5 (ln_best_sb_idx)
+    # Month 0 (from train_views_vol[0])
+    
+    # Example pattern for a 4x4 section of feature 5, month 0:
+    # 1 2 3 4
+    # 5 6 7 8
+    # 9 A B C
+    # D E F G
+    pattern_start_row = 0
+    pattern_start_col = 0
+    pattern_dim = 4
+    
+    # Values that will be in the input_window (feature 5, month 0, rows 0-3, cols 0-3)
+    # Using small values for easier numpy array creation and verification
+    for r in range(pattern_dim):
+        for c in range(pattern_dim):
+            mock_views_vol_data[0, r, c, 5] = (r * pattern_dim + c + 1) # Values 1 to 16
+
+    # Configure mock_config_train_tensors to pick this window
+    mock_config_train_tensors["window_dim"] = pattern_dim 
+    mock_config_train_tensors["first_feature_idx"] = 5
+    mock_config_train_tensors["input_channels"] = 1 # Only care about one feature for simplicity
+
+    # The get_window_index and get_window_coords mocks are set at the patch decorator level.
+
+    # Expected transformed pattern (horizontally flipped)
+    # 4 3 2 1
+    # 8 7 6 5
+    # C B A 9
+    # G F E D
+    expected_flipped_pattern = torch.tensor([
+        [4, 3, 2, 1],
+        [8, 7, 6, 5],
+        [12, 11, 10, 9],
+        [16, 15, 14, 13]
+    ], dtype=torch.float32)
+
+    # --- Mock the transforms to ensure a horizontal flip happens ---
+    class MockHorizontalFlip(torch.nn.Module):
+        def __init__(self, p=0.5):
+            super().__init__()
+            self.p = p
+        def forward(self, img):
+            # Simulate a horizontal flip always happening
+            return torch.flip(img, dims=[-1]) # Flip along the last spatial dimension (width)
+
+    # Use patch.object to mock the constructor returned by transforms.Compose
+    with patch('torchvision.transforms.RandomHorizontalFlip', side_effect=MockHorizontalFlip):
+        # Act
+        train_tensor = get_train_tensors(mock_views_vol_data, sample, mock_config_train_tensors, device)
+
+        # Assert that the specific feature channel in the window is horizontally flipped
+        # train_tensor shape: (1, months, selected_features, H, W)
+        # We selected input_channels = 1, so the feature index in train_tensor is 0
+        flipped_window_slice = train_tensor[0, 0, 0, :, :] # Batch 0, Month 0, Feature 0, all H, W
+
+        # Check if the pattern is correctly flipped
+        assert torch.allclose(flipped_window_slice, expected_flipped_pattern)
+
+
+
 
 
