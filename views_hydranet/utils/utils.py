@@ -303,9 +303,33 @@ def standard(x, noise = False):
 
 def my_decay(sample, samples, min_events, max_events, slope_ratio, roof_ratio):
 
-    """Return a number of events (y) sampled from a linear decay function. 
-    The decay function is defined by the slope_ratio and the number of samples.
-    It has a roof at roof_ratio*max_events and a floor at min_events"""
+    """Calculates a decayed number of events with a linear decay function, constrained by a floor and a roof.
+
+    The decay function is defined by a `slope_ratio` and the total `samples`.
+    The calculated value `y` is bounded by `min_events` (floor) and `roof_ratio * max_events` (roof).
+
+    Args:
+        sample (int): The current sample number, influencing the decay.
+        samples (int): The total number of samples over which the decay occurs.
+        min_events (int): The floor value for the number of events. The result `y` will not go below this.
+        max_events (int): The initial maximum number of events, from which decay starts.
+        slope_ratio (float): A ratio that influences the steepness of the linear decay.
+        roof_ratio (float): A ratio (0.0 to 1.0) applied to `max_events` to set the upper bound (roof) for `y`.
+
+    Returns:
+        int: The calculated number of events `y`, constrained by `min_events` and `roof_ratio * max_events`.
+
+    Example:
+        >>> # Normal decay case, respecting the roof
+        >>> my_decay(sample=0, samples=100, min_events=10, max_events=100, slope_ratio=1.0, roof_ratio=0.8)
+        80
+        >>> # Case where the decay hits the floor (min_events)
+        >>> my_decay(sample=99, samples=100, min_events=10, max_events=100, slope_ratio=1.0, roof_ratio=1.0)
+        10
+        >>> # Case where the value remains at max_events (due to small slope_ratio)
+        >>> my_decay(sample=0, samples=100, min_events=10, max_events=100, slope_ratio=0.1, roof_ratio=1.0)
+        100
+    """
 
     b = ((-max_events + min_events)/(samples*slope_ratio))
     y = (max_events + b * sample)
