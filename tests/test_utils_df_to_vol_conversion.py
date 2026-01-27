@@ -227,3 +227,22 @@ def test_df_to_vol_out_of_bounds_raises_error(mock_df):
 
     with pytest.raises(ValueError, match="Maximum column index .* is out of bounds for width"):
         df_to_vol(mock_df_copy, width=40)
+
+
+def test_df_to_vol_duplicate_indices_raises_error(mock_df):
+    """
+    Tests that df_to_vol raises a ValueError if there are duplicate
+    (priogrid_gid, month_id) pairs in the input DataFrame.
+    """
+    # Create a DataFrame with a duplicate (priogrid_gid, month_id)
+    # The original mock_df has:
+    # priogrid_gid: [1, 2, 3, 4]
+    # month_id:     [100, 100, 101, 101]
+    # To create a duplicate, we can change the third row to have priogrid_gid=1 and month_id=100
+    duplicate_df = mock_df.copy()
+    duplicate_df.loc[2, 'priogrid_gid'] = 1
+    duplicate_df.loc[2, 'month_id'] = 100 # Now (1, 100) is duplicated
+
+    with pytest.raises(ValueError, match="Duplicate entries found for 'priogrid_gid' and 'month_id'"):
+        df_to_vol(duplicate_df)
+

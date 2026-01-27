@@ -166,6 +166,16 @@ def df_to_vol(
     # to get prio grid id out of the index
     df = df.reset_index()
 
+    # --- INPUT VALIDATION: Check for duplicate priogrid_gid and month_id combinations ---
+    if df.duplicated(subset=['priogrid_gid', 'month_id']).any():
+        duplicate_entries = df[df.duplicated(subset=['priogrid_gid', 'month_id'], keep=False)]
+        raise ValueError(
+            "Duplicate entries found for 'priogrid_gid' and 'month_id'. "
+            "Each priogrid_gid must have a unique month_id. "
+            f"Duplicated entries:\n{duplicate_entries}"
+        )
+    # --- END INPUT VALIDATION ---
+
     # required_columns = ['priogrid_gid', 'col', 'row', 'month_id', 'c_id']
     required_columns = get_requried_columns_for_vol()
 
