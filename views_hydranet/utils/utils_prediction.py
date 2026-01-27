@@ -1,3 +1,4 @@
+#from views_hydranet.utils.utils_prediction import sample_posterior, predict
 import numpy as np
 
 import torch
@@ -8,7 +9,6 @@ import torch.nn.functional as F
 from views_pipeline_core.managers.model import ModelPathManager
 
 
-from views_pipeline_core.managers.model import ModelPathManager
 
 from views_hydranet.utils.utils import  get_full_tensor, apply_dropout, execute_freeze_h_option
 

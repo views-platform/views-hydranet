@@ -231,7 +231,7 @@ class HydraNetInference:
 
 
 
-### WORKING MEMEORY-MAPPED VERSION
+### WORKING MEMEORY-MAPPED VERSION - you could do a version that does both but wait until you know what is happening down stream
 #    def generate_posterior_samples(self, views_vol: torch.Tensor) -> Tuple[str, str]:
 #        """
 #        Generates multiple posterior samples using Monte Carlo Dropout inference,

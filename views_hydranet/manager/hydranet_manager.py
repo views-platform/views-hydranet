@@ -134,7 +134,8 @@ class HydranetManager(ModelManager):
 
 
         inference = HydraNetInference(model, self.config, device=self.device)
-        posterior_magnitudes, posterior_probabilities, out_of_sample_vol, metadata_tensor, posterior_zstack, meta_zstack = inference.generate_posterior_samples(vol_test)
+        # posterior_magnitudes, posterior_probabilities, out_of_sample_vol, metadata_tensor, posterior_zstack, meta_zstack = inference.generate_posterior_samples(vol_test)
+        posterior_zstack, meta_zstack = inference.generate_posterior_samples(vol_test)
 
         # save the two zstacks
         zstack_path = f'{self._model_path.data_generated}/stochastic_zstack_{self.config["time_steps"]}_{self.config["run_type"]}_{self.config["model_time_stamp"]}.pkl'

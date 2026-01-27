@@ -62,7 +62,7 @@ def train(model, optimizer, scheduler, criterion_reg, criterion_class, multitask
 
         # Sequens loop rnn style
         for i in range(seq_len-1): # so your sequnce is the full time len - last month.
-            print(f'\t\t month: {i+1}/{seq_len}...', end='\r')
+            print(f'\t\t\t\t month: {i+1}/{seq_len}...', end='\r')
 
             t0 = train_tensor[:, i, :, :, :]
 
