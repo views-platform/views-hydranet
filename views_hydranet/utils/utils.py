@@ -472,7 +472,7 @@ def get_train_tensors(views_vol: np.ndarray, sample: int, config: dict, device: 
     """
 
     # Not using the last 36 months - these ar for test set
-    train_views_vol = views_vol[:-config["time_steps"]] # horrible naming... 
+    train_views_vol = views_vol if config["time_steps"] == 0 else views_vol[:-config["time_steps"]] # horrible naming... 
 
  #   min_max_values = 
     window_index = get_window_index(views_vol = views_vol, config = config, sample = sample) # you should try and take this out of the loop - so you keep the index but changes the window_coords!!!

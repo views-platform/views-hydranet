@@ -477,4 +477,103 @@ def test_get_train_tensors_spatial_transforms(
 
 
 
+@patch('views_hydranet.utils.utils.get_window_index', return_value={'row_indx': 0, 'col_indx': 0})
+@patch('views_hydranet.utils.utils.get_window_coords', return_value={'min_row_indx': 0, 'max_row_indx': 4, 'min_col_indx': 0, 'max_col_indx': 4, 'dim': 4})
+@patch('views_hydranet.utils.utils.torch.cuda.is_available', return_value=False)
+def test_get_train_tensors_spatial_temporal_alignment(
+    mock_cuda_available,
+    mock_get_window_coords,
+    mock_get_window_index,
+    mock_config_train_tensors
+):
+    """
+    Tests get_train_tensors to ensure spatial transformations maintain temporal and feature alignment.
+    Verifies that flips (horizontal, vertical, both) are applied consistently across months and features.
+    """
+    # Arrange
+    device = torch.device("cpu")
+    n_months, height, width, n_features = 2, 4, 4, 2  # Small dimensions for clear tracing
+    sample = 0 # Not relevant for fixed window
 
+    # Create a views_vol where each cell (month, row, col, feature) has a unique, traceable value
+    # Value = m * 1000 + r * 100 + c * 10 + f
+    mock_views_vol_data = np.zeros((n_months, height, width, n_features), dtype=np.float32)
+    for m in range(n_months):
+        for r in range(height):
+            for c in range(width):
+                for f in range(n_features):
+                    mock_views_vol_data[m, r, c, f] = m * 1000 + r * 100 + c * 10 + f
+
+    # Configure mock_config_train_tensors
+    mock_config_train_tensors["window_dim"] = width # Use full width/height for simplicity
+    mock_config_train_tensors["first_feature_idx"] = 0 # Start from first feature
+    mock_config_train_tensors["input_channels"] = n_features # Use all features
+    mock_config_train_tensors["time_steps"] = 0 # Use all months
+
+    # Classes for mocking transforms
+    class MockHorizontalFlipAlways:
+        def __init__(self, p=0.5):
+            pass # Consume p argument
+        def __call__(self, img): 
+            return torch.flip(img, dims=[-1])
+    class MockVerticalFlipAlways:
+        def __init__(self, p=0.5):
+            pass # Consume p argument
+        def __call__(self, img):
+            return torch.flip(img, dims=[-2])
+    
+    # -------------------------------------------------------------------------
+    # Helper to prepare expected tensor from original data
+    # Input window is always mock_views_vol_data as window_dim=height/width, time_steps=0
+    def prepare_expected_tensor(data, h_flip=False, v_flip=False):
+        temp_tensor = torch.tensor(data).float().unsqueeze(dim=0).permute(0,1,4,2,3)
+        # Apply permutations and slicing as in get_train_tensors
+        # [:, :, ln_best_sb_idx:last_feature_idx, :, :]
+        # Since first_feature_idx=0 and input_channels=n_features, this slice is effectively all features
+        
+        # Reshape for torchvision transforms
+        N, C, D, H, W = temp_tensor.shape
+        temp_tensor_reshaped = temp_tensor.reshape(N, C*D, H, W)
+
+        if h_flip:
+            temp_tensor_reshaped = torch.flip(temp_tensor_reshaped, dims=[-1])
+        if v_flip:
+            temp_tensor_reshaped = torch.flip(temp_tensor_reshaped, dims=[-2])
+        
+        return temp_tensor_reshaped.reshape(N, C, D, H, W)
+
+    # -------------------------------------------------------------------------
+    # Scenario 1: No Flip
+    with patch('torchvision.transforms.RandomHorizontalFlip', return_value=MagicMock(side_effect=lambda x: x)), \
+         patch('torchvision.transforms.RandomVerticalFlip', return_value=MagicMock(side_effect=lambda x: x)):
+        
+        train_tensor = get_train_tensors(mock_views_vol_data, sample, mock_config_train_tensors, device)
+        expected_tensor = prepare_expected_tensor(mock_views_vol_data)
+        assert torch.allclose(train_tensor, expected_tensor)
+
+    # -------------------------------------------------------------------------
+    # Scenario 2: Horizontal Flip Only
+    with patch('torchvision.transforms.RandomHorizontalFlip', side_effect=MockHorizontalFlipAlways), \
+         patch('torchvision.transforms.RandomVerticalFlip', return_value=MagicMock(side_effect=lambda x: x)):
+        
+        train_tensor = get_train_tensors(mock_views_vol_data, sample, mock_config_train_tensors, device)
+        expected_tensor = prepare_expected_tensor(mock_views_vol_data, h_flip=True)
+        assert torch.allclose(train_tensor, expected_tensor)
+
+    # -------------------------------------------------------------------------
+    # Scenario 3: Vertical Flip Only
+    with patch('torchvision.transforms.RandomHorizontalFlip', return_value=MagicMock(side_effect=lambda x: x)), \
+         patch('torchvision.transforms.RandomVerticalFlip', side_effect=MockVerticalFlipAlways):
+        
+        train_tensor = get_train_tensors(mock_views_vol_data, sample, mock_config_train_tensors, device)
+        expected_tensor = prepare_expected_tensor(mock_views_vol_data, v_flip=True)
+        assert torch.allclose(train_tensor, expected_tensor)
+
+    # -------------------------------------------------------------------------
+    # Scenario 4: Both Horizontal and Vertical Flip
+    with patch('torchvision.transforms.RandomHorizontalFlip', side_effect=MockHorizontalFlipAlways), \
+         patch('torchvision.transforms.RandomVerticalFlip', side_effect=MockVerticalFlipAlways):
+        
+        train_tensor = get_train_tensors(mock_views_vol_data, sample, mock_config_train_tensors, device)
+        expected_tensor = prepare_expected_tensor(mock_views_vol_data, h_flip=True, v_flip=True)
+        assert torch.allclose(train_tensor, expected_tensor)
