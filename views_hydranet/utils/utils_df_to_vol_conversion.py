@@ -34,31 +34,42 @@ def get_requried_columns_for_vol():
     return required_columns
 
 
-def calculate_absolute_indices(df): # arguably HydraNet or at lest vol specific
-    """
-    Computes absolute indices for 'row', 'col', and 'month_id' in the DataFrame.    
-    This is needed to turn as pandas df into a numpy array (volume).
-    The volme is the data format need be the e.g. HydraNet model(s).
+def calculate_absolute_indices(df):
+    """Computes absolute indices for 'row', 'col', and 'month_id'.
+
+    This function calculates indices starting from 0 for the row, column, and
+    month dimensions based on the minimum values present in the input DataFrame.
+    These absolute indices are required for correctly placing data points into
+    a NumPy volume array.
+
+    .. warning::
+        This function modifies the input DataFrame in-place by adding
+        'abs_row', 'abs_col', and 'abs_month' columns. The caller should
+        be aware of this side-effect. A future refactor should change this
+        to return a new DataFrame instead.
 
     Args:
-        df (pd.DataFrame): The input DataFrame with columns 'row', 'col', and 'month_id'.
+        df (pd.DataFrame): The input DataFrame. Must contain 'row', 'col',
+                           and 'month_id' columns.
 
     Returns:
-        pd.DataFrame: The DataFrame with added 'abs_row', 'abs_col', and 'abs_month' columns.
+        pd.DataFrame: The same DataFrame instance that was passed as input, but
+                      now with 'abs_row', 'abs_col', and 'abs_month' columns
+                      added.
     """
-    
+
     # get the first month_id
-    month_first = df['month_id'].min() 
-    
+    month_first = df["month_id"].min()
+
     # calculate the absolute indices
-    df['abs_row'] = df['row'] - df['row'].min()         
-    df['abs_col'] = df['col'] - df['col'].min()
-    df['abs_month'] = df['month_id'] - month_first
+    df["abs_row"] = df["row"] - df["row"].min()
+    df["abs_col"] = df["col"] - df["col"].min()
+    df["abs_month"] = df["month_id"] - month_first
 
     # insure the data types are integers
-    df['abs_row'] = df['abs_row'].astype(int)
-    df['abs_col'] = df['abs_col'].astype(int)
-    df['abs_month'] = df['abs_month'].astype(int)
+    df["abs_row"] = df["abs_row"].astype(int)
+    df["abs_col"] = df["abs_col"].astype(int)
+    df["abs_month"] = df["abs_month"].astype(int)
 
     return df
 

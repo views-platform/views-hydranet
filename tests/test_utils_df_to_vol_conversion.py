@@ -30,9 +30,9 @@ def mock_df():
     """
     data = {
         "priogrid_gid": [1, 2, 3, 4],
-        "col": [1, 2, 3, 4],
-        "row": [1, 2, 3, 4],
-        "month_id": [1, 1, 2, 2],
+        "col": [10, 20, 30, 40],
+        "row": [5, 15, 25, 35],
+        "month_id": [100, 100, 101, 101],
         "c_id": [1, 1, 1, 1],
         "ln_sb_best": [0.1, 0.2, 0.3, 0.4],
         "ln_ns_best": [0.2, 0.3, 0.4, 0.5],
@@ -94,9 +94,25 @@ def test_calculate_absolute_indices(mock_df):
     assert "abs_row" in df.columns
     assert "abs_col" in df.columns
     assert "abs_month" in df.columns
-    assert df["abs_row"].equals(df["row"] - df["row"].min())
-    assert df["abs_col"].equals(df["col"] - df["col"].min())
-    assert df["abs_month"].equals(df["month_id"] - df["month_id"].min())
+    assert df["abs_row"].equals(pd.Series([0, 10, 20, 30]))
+    assert df["abs_col"].equals(pd.Series([0, 10, 20, 30]))
+    assert df["abs_month"].equals(pd.Series([0, 0, 1, 1]))
+
+
+def test_calculate_absolute_indices_modifies_in_place(mock_df):
+    """
+    Tests that calculate_absolute_indices modifies the DataFrame in-place.
+    This is undesirable behavior that should be flagged.
+    """
+    # Make a copy before calling the function
+    df_original_copy = mock_df.copy()
+
+    # Call the function
+    calculate_absolute_indices(mock_df)
+
+    # Assert that the original DataFrame has been modified and is no longer
+    # equal to the copy it was before the function call.
+    assert not df_original_copy.equals(mock_df)
 
 
 def test_df_to_vol(mock_df):
