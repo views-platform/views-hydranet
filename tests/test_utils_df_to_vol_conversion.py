@@ -201,3 +201,29 @@ def test_plot_vol(mock_vol):
         plot_vol(mock_vol, month_range=1)
     except Exception as e:
         pytest.fail(f"plot_vol raised an exception: {e}")
+
+
+def test_df_to_vol_out_of_bounds_raises_error(mock_df):
+    """
+    Tests that df_to_vol raises a ValueError if the span of row/col indices
+    is larger than the provided height/width.
+    """
+    # 1. Test ROW out of bounds
+    # Create a span of rows (5 to 205) greater than height (180)
+    mock_df_copy = mock_df.copy()
+    mock_df_copy.loc[0, 'row'] = 205 # max
+    mock_df_copy.loc[1, 'row'] = 5   # min
+    # abs_row max will be 205-5=200, which is > 180
+
+    with pytest.raises(ValueError, match="Maximum row index .* is out of bounds for height"):
+        df_to_vol(mock_df_copy)
+
+    # 2. Test COL out of bounds
+    # Create a span of cols (10 to 60) greater than width (40)
+    mock_df_copy = mock_df.copy()
+    mock_df_copy.loc[0, 'col'] = 60 # max
+    mock_df_copy.loc[1, 'col'] = 10 # min
+    # abs_col max will be 60-10=50, which is > 40
+
+    with pytest.raises(ValueError, match="Maximum column index .* is out of bounds for width"):
+        df_to_vol(mock_df_copy, width=40)

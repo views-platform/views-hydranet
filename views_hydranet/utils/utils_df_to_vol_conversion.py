@@ -191,6 +191,17 @@ def df_to_vol(
     # But I dont want to break anything now...
     df = calculate_absolute_indices(df)  # abs_row, abs_col, abs_month needed for the volume
 
+    # --- INPUT VALIDATION ---
+    if df["abs_row"].max() >= height:
+        raise ValueError(
+            f"Maximum row index ({df['abs_row'].max()}) is out of bounds for height {height}."
+        )
+    if df["abs_col"].max() >= width:
+        raise ValueError(
+            f"Maximum column index ({df['abs_col'].max()}) is out of bounds for width {width}."
+        )
+    # --- END INPUT VALIDATION ---
+
     vol = np.zeros([height, width, month_range, n_features])  # Create the volume array.
 
     for i, feature in enumerate(vol_features):
