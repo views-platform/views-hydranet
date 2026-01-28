@@ -285,7 +285,7 @@ def vol_to_df(
     # Remove rows where 'priogrid_gid' is 0 - these are ocean cells and not PRIO grid cells as such.
     df = df[df["priogrid_gid"] != 0]
 
-    print(f"DataFrame of shape {df.shape} created. Should be (n_months * 180 * 180, 8)")
+    logger.info(f"DataFrame of shape {df.shape} created. Should be (n_months * 180 * 180, 8)")
 
     return df
 
