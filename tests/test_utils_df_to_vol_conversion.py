@@ -1,17 +1,18 @@
+from pathlib import Path
+from unittest.mock import MagicMock, call, patch
+
 import numpy as np
 import pandas as pd
 import pytest
-from unittest.mock import patch, MagicMock
-from pathlib import Path
 
 from views_hydranet.utils.utils_df_to_vol_conversion import (
     calculate_absolute_indices,
+    create_or_load_views_vol,
     df_to_vol,
     df_vol_conversion_test,
     get_requried_columns_for_vol,
     plot_vol,
     vol_to_df,
-    create_or_load_views_vol,
 )
 
 
@@ -339,7 +340,8 @@ def test_create_or_load_views_vol_creates_if_not_exists(
         mock_logger.info.assert_any_call("Done")
 
 
-from unittest.mock import patch, MagicMock, call
+
+
 ...
 @patch('views_hydranet.utils.utils_df_to_vol_conversion.os.makedirs')
 @patch('views_hydranet.utils.utils_df_to_vol_conversion.np.load')
