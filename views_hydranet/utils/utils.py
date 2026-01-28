@@ -158,12 +158,34 @@ def init_weights(m, config):
         pass
 
 
-def norm_features(full_vol , config, a = 0, b = 1) -> np.ndarray:
+def norm_features(full_vol: np.ndarray, config: dict, a: int = 0, b: int = 1) -> np.ndarray:
+    """Normalizes a slice of features in a 4D volume in-place to the range [a, b].
 
+    This function iterates through a range of features defined by `config['first_feature_idx']`
+    and `config['input_channels']`. For each feature slice, it normalizes the values.
+
+    Args:
+        full_vol (np.ndarray): The 4D numpy array to be modified, with shape
+                               [time, height, width, features].
+        config (dict): A dictionary containing configuration, including:
+                       - "first_feature_idx" (int): The starting index of the features to normalize.
+                       - "input_channels" (int): The number of features to normalize.
+                       - "un_log" (bool, optional): If True, applies `np.exp(feature) - 1` before
+                         normalization. Defaults to False.
+        a (int, optional): The lower bound of the normalization range. Defaults to 0.
+        b (int, optional): The upper bound of the normalization range. Defaults to 1.
+
+    Returns:
+        np.ndarray: The same `full_vol` array, modified in-place.
+
+    .. warning::
+        - This function modifies the `full_vol` array in-place.
+        - The minimum value for normalization is hardcoded to `0`. It does not use the
+          actual minimum of the feature data.
+        - If the maximum value of a feature slice is 0, this function will cause a
+          `RuntimeWarning: invalid value encountered in divide` due to division by zero,
+          resulting in `NaN` values in that feature slice.
     """
-    Normalize the features of the volume. One by one to the range [a, b]. 
-    """
-    
 
     first_feature_idx = config['first_feature_idx'] #config.first_feature_idx
     last_feature_idx = first_feature_idx + config['input_channels'] - 1 #config.first_feature_idx + config.input_channels - 1
@@ -173,7 +195,7 @@ def norm_features(full_vol , config, a = 0, b = 1) -> np.ndarray:
 
         feature = full_vol[:, :, :, i] 
 
-        if config["un_log"]:
+        if "un_log" in config and config["un_log"]:
             feature = np.exp(feature) - 1
 
         feature_max = feature.max() # could make sure that we are not using information from the future.... But this is not a big deal... 

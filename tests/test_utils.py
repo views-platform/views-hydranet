@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 import numpy as np
 from torchvision import transforms # Added for mocking transforms
 
-from views_hydranet.utils.utils import norm, unit_norm, standard, my_decay, get_full_tensor, get_train_tensors, get_window_index, get_window_coords
+from views_hydranet.utils.utils import norm, unit_norm, standard, my_decay, get_full_tensor, get_train_tensors, get_window_index, get_window_coords, norm_features
 
 @pytest.fixture
 def mock_views_vol():
@@ -577,3 +577,79 @@ def test_get_train_tensors_spatial_temporal_alignment(
         train_tensor = get_train_tensors(mock_views_vol_data, sample, mock_config_train_tensors, device)
         expected_tensor = prepare_expected_tensor(mock_views_vol_data, h_flip=True, v_flip=True)
         assert torch.allclose(train_tensor, expected_tensor)
+
+@pytest.fixture
+def mock_config_norm_features():
+    """
+    Fixture for a mock config dictionary used by norm_features.
+    """
+    return {
+        "first_feature_idx": 1,
+        "input_channels": 2,
+        "un_log": False,
+    }
+
+def test_norm_features_basic(mock_config_norm_features):
+    """
+    Tests the basic functionality of norm_features, ensuring correct normalization
+    of specified features and that other features are untouched.
+    """
+    # Arrange
+    full_vol = np.ones((2, 2, 2, 4), dtype=np.float64)
+    # Feature 0: Should be untouched
+    full_vol[:, :, :, 0] = 100
+    # Feature 1: Should be normalized. Values from 0 to 7
+    full_vol[:, :, :, 1] = np.arange(8).reshape(2, 2, 2)
+    # Feature 2: Should be normalized. Values from 0 to 14
+    full_vol[:, :, :, 2] = np.arange(8).reshape(2, 2, 2) * 2
+    # Feature 3: Should be untouched
+    full_vol[:, :, :, 3] = 200
+
+    # Create a copy to check for in-place modification
+    original_full_vol = full_vol.copy()
+
+    # Act
+    result_vol = norm_features(full_vol, mock_config_norm_features)
+
+    # Assert
+    # 1. Check for in-place modification
+    assert result_vol is full_vol
+    
+    # 2. Check untouched features
+    assert np.all(result_vol[:, :, :, 0] == 100)
+    assert np.all(result_vol[:, :, :, 3] == 200)
+
+    # 3. Check normalized feature 1
+    # feature_max = 7, feature_min = 0
+    # expected = (1 - 0) * (original - 0) / (7 - 0) + 0 = original / 7
+    expected_feature_1 = original_full_vol[:, :, :, 1] / 7.0
+    assert np.allclose(result_vol[:, :, :, 1], expected_feature_1)
+
+    # 4. Check normalized feature 2
+    # feature_max = 14, feature_min = 0
+    # expected = (1 - 0) * (original - 0) / (14 - 0) + 0 = original / 14
+    expected_feature_2 = original_full_vol[:, :, :, 2] / 14.0
+    assert np.allclose(result_vol[:, :, :, 2], expected_feature_2)
+
+
+def test_norm_features_with_unlog(mock_config_norm_features):
+    """
+    Tests norm_features with the 'un_log' option enabled.
+    """
+    # Arrange
+    mock_config_norm_features["un_log"] = True
+    
+    full_vol = np.zeros((2, 2, 2, 4), dtype=np.float64)
+    # Feature 1: Log values. exp(feature) - 1 will be from 0 to 7
+    log_values = np.log(np.arange(1, 9).reshape(2, 2, 2))
+    full_vol[:, :, :, 1] = log_values
+
+    # Act
+    result_vol = norm_features(full_vol, mock_config_norm_features)
+
+    # Assert
+    # Original data after un-logging: np.exp(log_values) - 1 => results in np.arange(8).reshape(2,2,2)
+    # feature_max = 7, feature_min = 0
+    # expected = original_unlogged / 7
+    expected_feature_1 = np.arange(8).reshape(2, 2, 2) / 7.0
+    assert np.allclose(result_vol[:, :, :, 1], expected_feature_1)
