@@ -634,7 +634,6 @@ def test_norm_features_basic(mock_config_norm_features):
 
 def test_norm_features_with_unlog(mock_config_norm_features):
 
-
     """
 
 
@@ -642,16 +641,8 @@ def test_norm_features_with_unlog(mock_config_norm_features):
 
 
     """
-
-
     # Arrange
-
-
     mock_config_norm_features["un_log"] = True
-
-
-    
-
 
     full_vol = np.zeros((2, 2, 2, 4), dtype=np.float64)
 
@@ -660,22 +651,10 @@ def test_norm_features_with_unlog(mock_config_norm_features):
 
 
     log_values = np.log(np.arange(1, 9).reshape(2, 2, 2))
-
-
     full_vol[:, :, :, 1] = log_values
 
-
-
-
-
     # Act
-
-
     result_vol = norm_features(full_vol, mock_config_norm_features)
-
-
-
-
 
     # Assert
 
@@ -695,57 +674,11 @@ def test_norm_features_with_unlog(mock_config_norm_features):
     assert np.allclose(result_vol[:, :, :, 1], expected_feature_1)
 
 
-
-
-
-
-
-
 @patch('views_hydranet.utils.utils.HydraBNUNet06_LSTM4')
-
-
-
-
-
-
-
-
 def test_choose_model_hydra(mock_hydra_model):
-
-
-
-
-
-
-
-
     """
-
-
-
-
-
-
-
-
     Tests that choose_model correctly selects and instantiates the HydraBNUNet06_LSTM4 model.
-
-
-
-
-
-
-
-
     """
-
-
-
-
-
-
-
-
     # Arrange
 
 
@@ -756,68 +689,12 @@ def test_choose_model_hydra(mock_hydra_model):
 
 
     mock_config = {
-
-
-
-
-
-
-
-
         "model": "HydraBNUNet06_LSTM4",
-
-
-
-
-
-
-
-
         "input_channels": 3,
-
-
-
-
-
-
-
-
         "total_hidden_channels": 64,
-
-
-
-
-
-
-
-
         "output_channels": 1,
-
-
-
-
-
-
-
-
         "dropout_rate": 0.5
-
-
-
-
-
-
-
-
     }
-
-
-
-
-
-
-
-
     device = torch.device("cpu")
 
 
@@ -828,14 +705,6 @@ def test_choose_model_hydra(mock_hydra_model):
 
 
     mock_model_instance = MagicMock()
-
-
-
-
-
-
-
-
     # Configure the mock's 'to' method to return itself
 
 
@@ -856,22 +725,6 @@ def test_choose_model_hydra(mock_hydra_model):
 
     mock_hydra_model.return_value = mock_model_instance
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     # Act
 
 
@@ -883,22 +736,6 @@ def test_choose_model_hydra(mock_hydra_model):
 
     model = choose_model(mock_config, device)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     # Assert
 
 
@@ -909,59 +746,11 @@ def test_choose_model_hydra(mock_hydra_model):
 
 
     mock_hydra_model.assert_called_once_with(
-
-
-
-
-
-
-
-
         mock_config["input_channels"],
-
-
-
-
-
-
-
-
         mock_config["total_hidden_channels"],
-
-
-
-
-
-
-
-
         mock_config["output_channels"],
-
-
-
-
-
-
-
-
         mock_config["dropout_rate"]
-
-
-
-
-
-
-
-
     )
-
-
-
-
-
-
-
-
     mock_model_instance.to.assert_called_once_with(device)
 
 
@@ -974,30 +763,7 @@ def test_choose_model_hydra(mock_hydra_model):
     assert model is mock_model_instance
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def test_choose_model_unknown_raises_error():
-
-
-
-
-
-
-
-
     """
 
 
@@ -1017,14 +783,6 @@ def test_choose_model_unknown_raises_error():
 
 
     """
-
-
-
-
-
-
-
-
     # Arrange
 
 
@@ -1035,31 +793,7 @@ def test_choose_model_unknown_raises_error():
 
 
     mock_config = {"model": "unknown_model"}
-
-
-
-
-
-
-
-
     device = torch.device("cpu")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     # Capture stdout to prevent it from cluttering test output
 
@@ -1099,22 +833,6 @@ def test_choose_model_unknown_raises_error():
 
     sys.stdout = captured_output
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     # Act & Assert
 
 
@@ -1135,22 +853,6 @@ def test_choose_model_unknown_raises_error():
 
         choose_model(mock_config, device)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     # Reset stdout
 
 
@@ -1161,22 +863,6 @@ def test_choose_model_unknown_raises_error():
 
 
     sys.stdout = sys.__stdout__
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     # Optionally, assert that the print statement was still called
 
