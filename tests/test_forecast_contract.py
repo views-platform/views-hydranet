@@ -2,27 +2,23 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
-from views_hydranet.utils.utils_hydranet_outputs import predictions_to_contract_df
+from views_hydranet.utils.utils_hydranet_outputs import (
+    predictions_to_contract_df,
+    zstack_to_contract_df
+)
 
-def test_predictions_to_contract_df_schema():
+# -----------------------------------------------------------------------------
+# CONSTANTS FROM eval_lib_imp.md
+# -----------------------------------------------------------------------------
+EXPECTED_INDEX_NAMES = ["month_id", "priogrid_gid"]
+TARGETS = ["sb", "ns", "os"]
+
+def get_mock_metadata_vol(steps, H, W):
     """
-    Verify that predictions_to_contract_df produces a DataFrame matching
-    the Producer Contract specified in eval_lib_imp.md.
+    Creates a metadata volume matching Hydranet conventions.
+    Channels: 0:pg_id, 3:month_id, 4:c_id
     """
-    # 1. Setup Mock Data
-    steps = 3
-    samples = 10
-    H, W = 10, 10
-    
-    # posterior_list: List of [steps, features, H, W]
-    # We'll use 3 features (sb, ns, os)
-    posterior_list = [np.random.randn(steps, 3, H, W) for _ in range(samples)]
-    
-    # forecast_storage_vol: [batch, steps, channels, H, W]
-    # Channels: 0: pg_id, 3: month_id, 4: c_id
     vol = np.zeros((1, steps, 8, H, W))
-    
-    # Fill metadata
     for t in range(steps):
         # pg_id starting from 1 (0 is ocean)
         vol[0, t, 0, :, :] = np.arange(1, H*W + 1).reshape(H, W)
@@ -30,72 +26,150 @@ def test_predictions_to_contract_df_schema():
         vol[0, t, 3, :, :] = 500 + t
         # c_id
         vol[0, t, 4, :, :] = 10
-        
-    target = "sb"
-    
-    # 2. Execute
-    results = predictions_to_contract_df(posterior_list, vol, target)
-    
-    # 3. Assertions
-    assert isinstance(results, list)
-    assert len(results) == 1
-    df = results[0]
-    
-    # Index Check
-    assert isinstance(df.index, pd.MultiIndex)
-    assert df.index.names == ["month_id", "priogrid_gid"]
-    
-    # Column Check
-    expected_col = f"pred_lr_{target}"
-    assert len(df.columns) == 1
-    assert df.columns[0] == expected_col
-    
-    # Content Check
-    first_cell = df.iloc[0, 0]
-    assert isinstance(first_cell, list)
-    assert len(first_cell) == samples
-    
-    # Inverse Transform Check (exp(x) - 1)
-    # If raw posterior was 0, it should become 0
-    # If we set a known value:
-    posterior_list[0][0, 0, 0, 0] = np.log(101) # Should become 100
-    # Note: we need to set this for all samples if we check the list mean or similar, 
-    # but we just check if it's generally applied.
-    
-    # Re-run with fixed values for one cell
-    fixed_posterior = [np.zeros((steps, 3, H, W)) for _ in range(samples)]
-    for s in range(samples):
-        fixed_posterior[s][0, 0, 0, 0] = np.log(101)
-    
-    results = predictions_to_contract_df(fixed_posterior, vol, target)
-    df = results[0]
-    
-    # The first row (month 500, pg_id 1) should have value 100 in its list
-    val = df.loc[(500, 1), expected_col]
-    assert np.allclose(val, [100.0] * samples)
+    return vol
 
-def test_predictions_to_contract_df_filters_ocean():
+def get_mock_zstack_metadata(steps, H, W):
     """
-    Verify that cells with priogrid_gid == 0 are excluded.
+    Creates a metadata zstack matching HydraNetInference output.
+    Shape: [steps, H, W, channels, 1]
     """
-    steps = 1
-    samples = 1
-    H, W = 2, 2
+    vol = np.zeros((steps, H, W, 8, 1))
+    for t in range(steps):
+        vol[t, :, :, 0, 0] = np.arange(1, H*W + 1).reshape(H, W) # pg_id
+        vol[t, :, :, 3, 0] = 500 + t # month_id
+    return vol
+
+# -----------------------------------------------------------------------------
+# TEST SUITE 1: predictions_to_contract_df (sample_posterior flow)
+# -----------------------------------------------------------------------------
+
+@pytest.mark.parametrize("target", TARGETS)
+def test_predictions_to_contract_df_multi_target(target):
+    """
+    Verify all targets produce the correct column prefix 'pred_lr_'.
+    """
+    steps, samples, H, W = 2, 5, 4, 4
+    posterior_list = [np.random.randn(steps, 3, H, W) for _ in range(samples)]
+    vol = get_mock_metadata_vol(steps, H, W)
     
-    posterior_list = [np.zeros((steps, 3, H, W))]
-    vol = np.zeros((1, steps, 8, H, W))
+    results = predictions_to_contract_df(posterior_list, vol, target)
+    df = results[0]
     
-    # Set only one cell as land
-    vol[0, 0, 0, 0, 0] = 1 # pg_id = 1
-    vol[0, 0, 0, 0, 1] = 0 # pg_id = 0 (ocean)
-    vol[0, 0, 0, 1, 0] = 0 # pg_id = 0 (ocean)
-    vol[0, 0, 0, 1, 1] = 0 # pg_id = 0 (ocean)
-    
-    vol[0, 0, 3, :, :] = 500
+    expected_col = f"pred_lr_{target}"
+    assert expected_col in df.columns
+    assert list(df.index.names) == EXPECTED_INDEX_NAMES
+    # Verify cells contain lists of floats
+    assert isinstance(df.iloc[0][expected_col], list)
+    assert len(df.iloc[0][expected_col]) == samples
+
+def test_predictions_to_contract_df_inverse_transform():
+    """
+    CRITICAL: Verify np.exp(x) - 1 is applied correctly to raw posterior logs.
+    """
+    steps, samples, H, W = 1, 1, 2, 2
+    # Log value that should become exactly 100
+    log_val = np.log(101)
+    posterior_list = [np.full((steps, 3, H, W), log_val)]
+    vol = get_mock_metadata_vol(steps, H, W)
     
     results = predictions_to_contract_df(posterior_list, vol, "sb")
     df = results[0]
     
-    # Should only have 1 row
-    assert len(df) == 1
+    # Check value at first land cell
+    val = df.iloc[0]["pred_lr_sb"][0]
+    assert pytest.approx(val) == 100.0
+
+# -----------------------------------------------------------------------------
+# TEST SUITE 2: zstack_to_contract_df (HydraNetInference flow)
+# -----------------------------------------------------------------------------
+
+@pytest.mark.parametrize("target", TARGETS)
+def test_zstack_to_contract_df_multi_target(target):
+    """
+    Verify zstack conversion for all targets.
+    """
+    steps, samples, H, W = 2, 3, 4, 4
+    # posterior_zstack: [steps, H, W, channels, samples]
+    posterior_zstack = np.random.randn(steps, H, W, 3, samples)
+    meta_zstack = get_mock_zstack_metadata(steps, H, W)
+    
+    results = zstack_to_contract_df(posterior_zstack, meta_zstack, target)
+    df = results[0]
+    
+    expected_col = f"pred_lr_{target}"
+    assert expected_col in df.columns
+    assert list(df.index.names) == EXPECTED_INDEX_NAMES
+    assert len(df.iloc[0][expected_col]) == samples
+
+def test_zstack_to_contract_df_filtering():
+    """
+    Verify ocean cells (pg_id=0) are filtered out from zstack conversion.
+    """
+    steps, samples, H, W = 1, 1, 2, 2
+    posterior_zstack = np.zeros((steps, H, W, 3, samples))
+    meta_zstack = np.zeros((steps, H, W, 8, 1))
+    
+    # Set only (0,0) as land
+    meta_zstack[0, 0, 0, 0, 0] = 1 # pg_id
+    meta_zstack[0, 0, 0, 3, 0] = 500 # month_id
+    
+    # pg_id at other positions is 0 (ocean)
+    
+    results = zstack_to_contract_df(posterior_zstack, meta_zstack, "sb")
+    df = results[0]
+    
+    assert len(df) == 1 # Only one land cell
     assert df.index.get_level_values("priogrid_gid")[0] == 1
+
+def test_zstack_to_contract_df_inverse_transform():
+    """
+    Verify inverse transform for zstack flow.
+    """
+    steps, samples, H, W = 1, 1, 2, 2
+    log_val = np.log(51)
+    posterior_zstack = np.full((steps, H, W, 3, samples), log_val)
+    meta_zstack = get_mock_zstack_metadata(steps, H, W)
+    
+    results = zstack_to_contract_df(posterior_zstack, meta_zstack, "ns")
+    df = results[0]
+    
+    val = df.iloc[0]["pred_lr_ns"][0]
+    assert pytest.approx(val) == 50.0
+
+def test_contract_roundtrip_is_lossless():
+    """
+    NON-NEGOTIABLE PROOF: 
+    Original Tensor -> Contract DataFrame -> Reconstructed Tensor
+    Check for identical recovery.
+    """
+    from views_hydranet.utils.utils_hydranet_outputs import contract_df_to_zstack
+    
+    steps, samples, H, W = 2, 3, 5, 5
+    # Use non-negative random logs (Hydranet convention)
+    original_mags = np.random.uniform(0, 5, (steps, H, W, 1, samples))
+    
+    # We need a posterior_zstack with shape [steps, H, W, channels, samples]
+    # We only test one target channel for this proof.
+    posterior_zstack = np.zeros((steps, H, W, 3, samples))
+    posterior_zstack[:, :, :, 0:1, :] = original_mags
+    
+    meta_zstack = get_mock_zstack_metadata(steps, H, W)
+    
+    # 1. Forward: Tensor -> DF
+    list_df = zstack_to_contract_df(posterior_zstack, meta_zstack, target="sb")
+    
+    # 2. Inverse: DF -> Tensor
+    reconstructed_mags = contract_df_to_zstack(list_df, meta_zstack, target="sb")
+    
+    # 3. Assert Equality
+    # We use allclose because of floating point precision in log/exp, 
+    # but the structure and land-mapping must be exact.
+    np.testing.assert_allclose(
+        reconstructed_mags, 
+        original_mags, 
+        rtol=1e-7, 
+        err_msg="Lossless roundtrip failed! The original model output could not be recovered."
+    )
+    
+    # Verify shape identity
+    assert reconstructed_mags.shape == original_mags.shape

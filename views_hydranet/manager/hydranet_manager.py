@@ -15,7 +15,7 @@ import numpy as np
 import torch
 from pathlib import Path
 import pickle
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 # from views_hydranet.utils.utils_df_to_vol_conversion
 from views_hydranet.utils.utils_device import setup_device
 from views_hydranet.train.train_model import make, training_loop, train_model_artifact
@@ -23,7 +23,8 @@ from views_hydranet.train.train_model import make, training_loop, train_model_ar
 from views_hydranet.utils.utils_df_to_vol_conversion import create_or_load_views_vol
 
 from views_hydranet.utils.utils_prediction import sample_posterior, predict
-from views_hydranet.utils.utils_hydranet_outputs import zstack_to_contract_df
+from views_hydranet.utils.utils_hydranet_outputs import zstack_to_contract_df, validate_contract_dataframes
+from views_hydranet.utils.utils_orchestration import get_rolling_origin_indices
 
 from views_hydranet.utils.hydranet_inference import HydraNetInference
 
@@ -121,55 +122,77 @@ class HydranetManager(ForecastingModelManager):
 
     def _evaluate_model_artifact(
         self, eval_type: str, artifact_name: Optional[str] = None
-    ) -> None:
-        """Evaluates a model artifact.
+    ) -> List[pd.DataFrame]:
+        """Evaluates a model artifact using a rolling-origin strategy.
+
+        This implements the "Predictive Parallelogram" required by views-evaluation.
+        It generates multiple forecast sequences from different points in time.
 
         Args:
             eval_type: The type of evaluation to perform.
             artifact_name: The name of the model artifact to evaluate.
-                If None, the latest artifact for the current run_type is used.
+
+        Returns:
+            List[pd.DataFrame]: A list of DataFrames adhering to the evaluation contract.
         """
         run_type = self.config["run_type"]
 
-        vol_test = create_or_load_views_vol(
+        # 1. Load data and model
+        vol_full = create_or_load_views_vol(
             run_type, self._model_path.data_processed, self._model_path.data_raw
         )
-
         model, model_time_stamp = self._load_model_artifact(artifact_name)
-
-        logger.info(f"model_time_stamp: {model_time_stamp}")
+        
+        # 2. Determine Rolling Windows
+        # Standard VIEWS Offline Eval: 12 rolling sequences
+        # True Forecasting: 1 sequence
+        num_windows = 12 if run_type in ["calibration", "validation"] else 1
+        time_steps = self.config["time_steps"]
+        
+        origins = get_rolling_origin_indices(
+            total_months=vol_full.shape[0],
+            time_steps=time_steps,
+            num_windows=num_windows
+        )
+        
+        logger.info(f"Orchestrating {len(origins)} rolling windows starting from origins: {origins}")
 
         inference = HydraNetInference(model, self.config, device=self.device)
-        posterior_zstack, meta_zstack = inference.generate_posterior_samples(
-            vol_test, is_evaluation=True
-        )
+        list_df_predictions = []
 
-        # save the two zstacks
-        zstack_path = (
-            self._model_path.data_generated
-            / f'stochastic_zstack_{self.config["time_steps"]}_{self.config["run_type"]}_{model_time_stamp}.pkl'
-        )
-        with open(zstack_path, "wb") as file:
-            pickle.dump(posterior_zstack, file)
+        # 3. Execution Loop
+        for i, origin in enumerate(origins):
+            logger.info(f"Processing Rolling Origin {i+1}/{num_windows} (Month Index: {origin})")
+            
+            # Slice volume up to the end of the test window for this origin
+            # Shape: [origin + 1 + time_steps, H, W, features]
+            vol_slice = vol_full[: origin + 1 + time_steps]
+            
+            posterior_zstack, meta_zstack = inference.generate_posterior_samples(
+                vol_slice, is_evaluation=True
+            )
 
-        meta_zstack_path = (
-            self._model_path.data_generated
-            / f'deterministic_zstack_{self.config["time_steps"]}_{self.config["run_type"]}_{model_time_stamp}.pkl'
-        )
-        with open(meta_zstack_path, "wb") as file:
-            pickle.dump(meta_zstack, file)
+            # Convert to Contract DataFrame
+            # Defaulting target to 'sb' for now
+            df_list = zstack_to_contract_df(
+                posterior_zstack=posterior_zstack,
+                meta_zstack=meta_zstack,
+                target="sb"
+            )
+            list_df_predictions.extend(df_list)
 
-        logger.info(f"Zstacks saved to {self._model_path.data_generated}")
+            # Optional: Save intermediate zstacks for debugging (using origin index in name)
+            zstack_path = (
+                self._model_path.data_generated
+                / f'stochastic_zstack_o{origin}_{self.config["time_steps"]}_{run_type}_{model_time_stamp}.pkl'
+            )
+            with open(zstack_path, "wb") as file:
+                pickle.dump(posterior_zstack, file)
 
-        # Return the contract-compliant DataFrames for evaluation
-        # The pipeline usually evaluates one target at a time. Defaulting to 'sb'
-        # or deriving from eval_type if appropriate.
-        list_df_predictions = zstack_to_contract_df(
-            posterior_zstack=posterior_zstack,
-            meta_zstack=meta_zstack,
-            target="sb"
-        )
+        # 4. Final Validation (Adversarial Safeguard)
+        validate_contract_dataframes(list_df_predictions)
 
+        logger.info(f"Orchestration complete. Generated and validated {len(list_df_predictions)} sequences.")
         return list_df_predictions
 
 

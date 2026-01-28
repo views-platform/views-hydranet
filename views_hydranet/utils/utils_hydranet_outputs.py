@@ -146,6 +146,100 @@ def zstack_to_contract_df(
     df = df.set_index(["month_id", "priogrid_gid"])
     return [df]
 
+def validate_contract_dataframes(list_df: List[pd.DataFrame]) -> None:
+    """
+    Validates that the contract DataFrames are robust and safe for evaluation.
+    
+    Checks for:
+    1. Non-finite values (NaN, Inf) in predictions.
+    2. Presence of ocean cells (priogrid_gid == 0).
+    3. Empty DataFrames.
+
+    Raises:
+        ValueError: If any validation rule is violated.
+    """
+    if not list_df:
+        raise ValueError("Contract DataFrame list is empty!")
+
+    for i, df in enumerate(list_df):
+        if df.empty:
+            raise ValueError(f"Sequence {i} is empty!")
+            
+        # Check for Ocean Cells in Index
+        pg_ids = df.index.get_level_values("priogrid_gid")
+        if (pg_ids == 0).any():
+            raise ValueError(f"Sequence {i} contains ocean cells (priogrid_gid=0)!")
+
+        # Check for Non-Finite Numbers in all columns
+        # Contract columns contain lists, so we need to flatten to check
+        for col in df.columns:
+            # Flatten lists of samples to a single array for fast checking
+            all_values = np.concatenate(df[col].values)
+            if not np.isfinite(all_values).all():
+                num_bad = (~np.isfinite(all_values)).sum()
+                raise ValueError(
+                    f"Sequence {i}, column {col} contains {num_bad} non-finite values (NaN/Inf)!"
+                )
+
+    logger.info("Adversarial data validation passed: Data is finite and land-only.")
+
+def contract_df_to_zstack(
+    list_df_predictions: List[pd.DataFrame],
+    meta_zstack: np.ndarray,
+    target: str,
+) -> np.ndarray:
+    """
+    Inverse operation of zstack_to_contract_df. 
+    Reconstructs the posterior_zstack magnitudes from the Contract DataFrame.
+
+    This function is the "Reversibility Proof". It proves we can recover 
+    the original identical model outputs from the flattened contract format.
+
+    Args:
+        list_df_predictions: The list of contract DataFrames.
+        meta_zstack: The spatial template [steps, H, W, channels, 1].
+        target: The target variable name.
+
+    Returns:
+        np.ndarray: Reconstructed magnitudes [steps, H, W, 1, samples].
+                    (Note: returns single target channel).
+    """
+    df = list_df_predictions[0]
+    steps, H, W, _, _ = meta_zstack.shape
+    
+    # Peek at first list to get sample count
+    samples = len(df.iloc[0][f"pred_lr_{target}"])
+    
+    # Pre-allocate reconstructed volume
+    reconstructed = np.zeros((steps, H, W, 1, samples))
+    
+    # Extract IDs from template
+    pg_ids_template = meta_zstack[:, :, :, 0, 0]
+    month_ids_template = meta_zstack[:, :, :, 3, 0]
+    
+    # Inverse transform column name
+    col = f"pred_lr_{target}"
+    
+    # Iterate over template steps/cells
+    for t in range(steps):
+        # We find all entries in the DF for this month
+        month_id = int(np.unique(month_ids_template[t])[0])
+        df_month = df.xs(month_id, level="month_id")
+        
+        for h in range(H):
+            for w in range(W):
+                pg_id = int(pg_ids_template[t, h, w])
+                if pg_id > 0:
+                    # Retrieve samples from DF
+                    raw_samples = df_month.loc[pg_id, col]
+                    # Apply log transform: ln(x + 1) to reverse exp(x) - 1
+                    reconstructed[t, h, w, 0, :] = np.log(np.array(raw_samples) + 1)
+                else:
+                    # Ocean is 0 in original log-space too
+                    reconstructed[t, h, w, 0, :] = 0.0
+                    
+    return reconstructed
+
 def output_to_df(dict_of_outputs_dicts):
     
     """
