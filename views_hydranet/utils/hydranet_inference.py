@@ -160,28 +160,25 @@ class HydraNetInference:
         return t1_pred, t1_pred_class, h_tt
 
     def predict(
-        self, full_tensor: torch.Tensor, sample_idx: int, is_evaluation: bool = True
+        self,
+        full_tensor: torch.Tensor,
+        sample_idx: int,
+        is_evaluation: bool = True,
+        pbar: Optional[tqdm] = None,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Predicts a sequence using the HydraNet model.
 
         Args:
             full_tensor: Input tensor (batch, time, channels, H, W).
             sample_idx: Current sample index for posterior sampling.
-            is_evaluation: Whether running in evaluation mode (affects sequence length).
+            is_evaluation: Whether running in evaluation mode.
+            pbar: Optional progress bar to update.
 
         Returns:
-            A tuple containing:
-                - pred_magnitudes_zstack: Array of predicted magnitudes.
-                - pred_probabilities_zstack: Array of predicted probabilities.
+            A tuple containing magnitudes and probabilities zstacks.
         """
-        logger.debug(
-            f"Starting prediction | Posterior Sample {sample_idx + 1}/{self.config['test_samples']}"
-        )
-
-        full_tensor = full_tensor.to(
-            self.device
-        )  # Move tensor once to avoid redundant operations
-        _, seq_len, _, H, W = full_tensor.shape  # Extract dynamic shape
+        full_tensor = full_tensor.to(self.device)
+        _, seq_len, _, H, W = full_tensor.shape
 
         # Initialize hidden state
         h_tt = (
@@ -190,7 +187,7 @@ class HydraNetInference:
             .to(self.device)
         )
 
-        # Define sequence lengths based on evaluation mode
+        # Define sequence lengths
         if is_evaluation:
             full_seq_len = seq_len - 1
             in_sample_seq_len = seq_len - 1 - self.config["time_steps"]
@@ -208,6 +205,9 @@ class HydraNetInference:
         out_of_sample_month = 0
 
         for t in range(full_seq_len):
+            if pbar:
+                pbar.set_description(f"Drawing Samples | Sample {sample_idx+1} | Step {t+1}/{full_seq_len}")
+            
             if t < in_sample_seq_len:
                 t0 = full_tensor[:, t]
                 t1_pred, _, h_tt = self.model(t0, h_tt)
@@ -218,7 +218,6 @@ class HydraNetInference:
                 # --- PANIC CHECK: Detect explosion ---
                 if not torch.isfinite(t1_pred).all():
                     logger.error(f"!!! MODEL EXPLODED at sequence step {t} !!!")
-                    # Fill remaining steps with NaN to signal failure
                     pred_magnitudes_zstack[out_of_sample_month:] = np.nan
                     pred_probabilities_zstack[out_of_sample_month:] = np.nan
                     break
@@ -234,6 +233,9 @@ class HydraNetInference:
                 )
 
                 out_of_sample_month += 1
+            
+            if pbar:
+                pbar.update(1)
 
         return pred_magnitudes_zstack, pred_probabilities_zstack
 
@@ -245,21 +247,22 @@ class HydraNetInference:
 
         Args:
             views_vol: Input volume tensor.
-            is_evaluation: Whether running in evaluation mode (affects sequence length).
+            is_evaluation: Whether running in evaluation mode.
 
         Returns:
             A tuple containing:
                 - posterior_zstack: Concatenated magnitudes and probabilities.
                 - metadata_zstack: Transposed metadata tensor.
         """
+        full_tensor, metadata_tensor = get_full_tensor(views_vol, self.config)
+        full_tensor = full_tensor.to(self.device)
+        _, seq_len, _, H, W = full_tensor.shape
 
-        logger.info(f"Drawing {self.config['test_samples']} posterior samples...")
-
-        full_tensor, metadata_tensor = get_full_tensor(
-            views_vol, self.config
-        )  # Load input tensor
-        full_tensor = full_tensor.to(self.device)  # Move to device once
-        _, _, _, H, W = full_tensor.shape
+        # Define full_seq_len based on logic in predict()
+        if is_evaluation:
+            full_seq_len = seq_len - 1
+        else:
+            full_seq_len = seq_len - 1 + self.config["time_steps"]
 
         # Pre-allocate memory
         posterior_magnitudes_zstack = np.zeros(
@@ -274,23 +277,26 @@ class HydraNetInference:
         )
         posterior_probabilities_zstack = np.zeros_like(posterior_magnitudes_zstack)
 
-        for sample_idx in tqdm(
-            range(self.config["test_samples"]),
-            desc="Drawing Posterior Samples",
-            unit="sample",
-            leave=True,
-        ):
-            pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(
-                full_tensor, sample_idx, is_evaluation=is_evaluation
-            )
+        total_inference_steps = self.config["test_samples"] * full_seq_len
 
-            # Store slices directly without concatenation
-            posterior_magnitudes_zstack[:, :, :, :, sample_idx] = (
-                pred_magnitudes_zstack.transpose(0, 2, 3, 1)
-            )
-            posterior_probabilities_zstack[:, :, :, :, sample_idx] = (
-                pred_probabilities_zstack.transpose(0, 2, 3, 1)
-            )
+        with tqdm(
+            total=total_inference_steps,
+            desc="📡 Drawing Posterior Samples",
+            unit="step",
+            leave=False, # Don't clutter the terminal, the manager has the main bar
+        ) as pbar:
+            for sample_idx in range(self.config["test_samples"]):
+                pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(
+                    full_tensor, sample_idx, is_evaluation=is_evaluation, pbar=pbar
+                )
+
+                # Store slices directly without concatenation
+                posterior_magnitudes_zstack[:, :, :, :, sample_idx] = (
+                    pred_magnitudes_zstack.transpose(0, 2, 3, 1)
+                )
+                posterior_probabilities_zstack[:, :, :, :, sample_idx] = (
+                    pred_probabilities_zstack.transpose(0, 2, 3, 1)
+                )
 
         # Concatenate only once at the end
         posterior_zstack = np.concatenate(

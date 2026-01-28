@@ -16,6 +16,7 @@ import torch
 from pathlib import Path
 import pickle
 from typing import List, Optional, Tuple
+from tqdm import tqdm
 # from views_hydranet.utils.utils_df_to_vol_conversion
 from views_hydranet.utils.utils_device import setup_device
 from views_hydranet.train.train_model import make, training_loop, train_model_artifact
@@ -220,36 +221,39 @@ class HydranetManager(ForecastingModelManager):
         inference = HydraNetInference(model, self.config, device=self.device)
         list_df_predictions = []
 
-        # 3. Execution Loop
-        for i, origin in enumerate(origins):
-            logger.info(f"Processing Rolling Origin {i+1}/{num_windows} (Month Index: {origin})")
-            
-            # Slice volume up to the end of the test window for this origin
-            # Shape: [origin + 1 + time_steps, H, W, features]
-            vol_slice = vol_full[: origin + 1 + time_steps]
-            
-            posterior_zstack, meta_zstack = inference.generate_posterior_samples(
-                vol_slice, is_evaluation=True
-            )
-
-            # Convert to Contract DataFrames for ALL targets in config
-            # This handles multi-task evaluation (sb, ns, os)
-            targets = self.configs.get("targets", [])
-            for target in targets:
-                df_list = zstack_to_contract_df(
-                    posterior_zstack=posterior_zstack,
-                    meta_zstack=meta_zstack,
-                    target=target
+        # 3. Execution Loop (Rolling Origins)
+        with tqdm(total=len(origins), desc="🌍 Rolling Origin Evaluation", unit="origin") as pbar_origins:
+            for i, origin in enumerate(origins):
+                pbar_origins.set_postfix({"origin_idx": origin})
+                
+                # Slice volume up to the end of the test window for this origin
+                # Shape: [origin + 1 + time_steps, H, W, features]
+                vol_slice = vol_full[: origin + 1 + time_steps]
+                
+                posterior_zstack, meta_zstack = inference.generate_posterior_samples(
+                    vol_slice, is_evaluation=True
                 )
-                list_df_predictions.extend(df_list)
 
-            # Optional: Save intermediate zstacks for debugging (using origin index in name)
-            zstack_path = (
-                self._model_path.data_generated
-                / f'stochastic_zstack_o{origin}_{self.config["time_steps"]}_{run_type}_{model_time_stamp}.pkl'
-            )
-            with open(zstack_path, "wb") as file:
-                pickle.dump(posterior_zstack, file)
+                # Convert to Contract DataFrames for ALL targets in config
+                # This handles multi-task evaluation (sb, ns, os)
+                targets = self.configs.get("targets", [])
+                for target in targets:
+                    df_list = zstack_to_contract_df(
+                        posterior_zstack=posterior_zstack,
+                        meta_zstack=meta_zstack,
+                        target=target
+                    )
+                    list_df_predictions.extend(df_list)
+
+                # Optional: Save intermediate zstacks for debugging (using origin index in name)
+                zstack_path = (
+                    self._model_path.data_generated
+                    / f'stochastic_zstack_o{origin}_{self.config["time_steps"]}_{run_type}_{model_time_stamp}.pkl'
+                )
+                with open(zstack_path, "wb") as file:
+                    pickle.dump(posterior_zstack, file)
+                
+                pbar_origins.update(1)
 
         # 4. Final Validation (Adversarial Safeguard)
         validate_contract_dataframes(list_df_predictions)
