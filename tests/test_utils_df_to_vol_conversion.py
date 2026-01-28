@@ -339,6 +339,8 @@ def test_create_or_load_views_vol_creates_if_not_exists(
         mock_logger.info.assert_any_call("Done")
 
 
+from unittest.mock import patch, MagicMock, call
+...
 @patch('views_hydranet.utils.utils_df_to_vol_conversion.os.makedirs')
 @patch('views_hydranet.utils.utils_df_to_vol_conversion.np.load')
 @patch('views_hydranet.utils.utils_df_to_vol_conversion.logger')
@@ -363,8 +365,8 @@ def test_create_or_load_views_vol_loads_if_exists(
         assert result_vol is mock_vol # Should return the loaded mock_vol
 
         # Check logger calls
-        mock_logger.info.assert_any_call("Volume already created")
-        mock_logger.info.assert_any_call("Done")
+        expected_calls = [call("Volume already created"), call("Done")]
+        mock_logger.info.assert_has_calls(expected_calls, any_order=False)
 
 
 def test_df_vol_conversion_data_point_integrity(mock_df):
@@ -426,6 +428,19 @@ def test_df_vol_conversion_data_point_integrity(mock_df):
     # Assert that the value is preserved and correctly located
     assert not recreated_row.empty
     assert np.isclose(recreated_row['ln_sb_best'].iloc[0], original_value)
+
+
+@patch("matplotlib.pyplot.show")
+def test_plot_vol_invalid_month_range_raises_error(mock_show, mock_vol):
+    """
+    Tests that plot_vol raises a ValueError if month_range is greater than
+    the number of time steps in the volume.
+    """
+    # The mock_vol has 2 months (time steps)
+    invalid_month_range = 3
+
+    with pytest.raises(ValueError, match="month_range .* exceeds the number of time steps"):
+        plot_vol(mock_vol, month_range=invalid_month_range)
 
 
 
