@@ -17,8 +17,10 @@ def test_orchestration_loop_indices():
         "time_steps": 36,
         "test_samples": 1,
         "input_channels": 3,
-        "target_variable": "ns"
+        "target_variable": "ns",
+        "targets": ["ln_sb_best"] # Add target to trigger loop
     }
+    manager.configs = manager.config # Also set configs for target selection loop
     manager.device = "cpu"
     manager._model_path = MagicMock()
     # Ensure directory exists for file writing in mock
@@ -44,18 +46,17 @@ def test_orchestration_loop_indices():
         results = HydranetManager._evaluate_model_artifact(manager, eval_type="offline")
         
         # 3. Assertions
+        # 12 windows * 1 target = 12 DFs
         assert len(results) == 12
         
         # Verify that the correct target was passed to the converter
         mock_contract_conv.assert_called_with(
             posterior_zstack=ANY,
             meta_zstack=ANY,
-            target="ns"
+            target="ln_sb_best"
         )
         
         # Verify orchestration indices logic
         # origins should be range(12) for 48 months and 36 steps
         first_call_args = mock_inference.generate_posterior_samples.call_args_list[0]
-        # vol_slice = vol_full[: origin + 1 + time_steps]
-        # origin 0: slice is [:37]
         assert first_call_args[0][0].shape[0] == 37

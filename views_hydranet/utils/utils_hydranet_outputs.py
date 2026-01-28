@@ -105,7 +105,7 @@ def zstack_to_contract_df(
                           Channels 0,1,2 are magnitudes (sb, ns, os).
         meta_zstack: [steps, H, W, channels, 1].
                      Channel 0: priogrid_gid, 3: month_id.
-        target: The target variable name (e.g., 'sb').
+        target: The target variable name (e.g., 'ln_sb_best' or 'sb').
 
     Returns:
         List[pd.DataFrame]: Contract-compliant predictions.
@@ -113,9 +113,30 @@ def zstack_to_contract_df(
     steps = posterior_zstack.shape[0]
     samples = posterior_zstack.shape[-1]
     
-    # Mapping target to channel index
+    # Internal channel mapping
     target_map = {"sb": 0, "ns": 1, "os": 2}
-    t_idx = target_map.get(target, 0)
+    
+    # Identify internal channel: look for short-code in the target string
+    internal_key = "sb" # Default
+    for k in target_map.keys():
+        if k in target:
+            internal_key = k
+            break
+    
+    t_idx = target_map[internal_key]
+    
+    # Construct Output Column Name
+    # We follow Option 2: Explicit Raw Scale. 
+    # If input was 'ln_sb_best', output is 'pred_lr_sb_best'
+    # If input was 'sb', output is 'pred_lr_sb'
+    if target.startswith("ln_"):
+        out_target = target.replace("ln_", "lr_")
+    elif not target.startswith("lr_"):
+        out_target = f"lr_{target}"
+    else:
+        out_target = target
+        
+    out_col = f"pred_{out_target}"
     
     # Extract magnitudes and inverse transform
     # [steps, H, W, samples]
@@ -127,9 +148,8 @@ def zstack_to_contract_df(
     inf_count = np.isinf(mags).sum()
     
     if nan_count > 0 or inf_count > 0 or not np.isfinite(mags).all():
-        logger.error("!!! CRITICAL: NON-FINITE PREDICTIONS DETECTED IN LOG-SPACE !!!")
+        logger.error(f"!!! CRITICAL: NON-FINITE PREDICTIONS DETECTED FOR {target} IN LOG-SPACE !!!")
         logger.error(f"  Stats: NaNs={nan_count}, Infs={inf_count} out of {total_elements}")
-        # Only compute stats on finite values to avoid more NaNs
         finite_mags = mags[np.isfinite(mags)]
         if finite_mags.size > 0:
             logger.error(f"  Finite Range: min={finite_mags.min():.4f}, max={finite_mags.max():.4f}, mean={finite_mags.mean():.4f}")
@@ -142,11 +162,10 @@ def zstack_to_contract_df(
                 logger.error(f"  Step {t}: {np.isnan(t_mags).sum()} NaNs, {np.isinf(t_mags).sum()} Infs")
     # --- END DEBUG ---
 
-    mags = np.expm1(mags) # More stable version of exp(x) - 1
+    mags = np.expm1(mags) # log1p inverse: exp(x) - 1
     
     if not np.isfinite(mags).all():
-        logger.error("!!! CRITICAL: OVERFLOW DETECTED AFTER EXP TRANSFORM !!!")
-        logger.error(f"  Max value after expm1: {np.nanmax(mags)}")
+        logger.error(f"!!! CRITICAL: OVERFLOW DETECTED AFTER EXP TRANSFORM FOR {target} !!!")
     
     # Extract IDs
     pg_ids = meta_zstack[:, :, :, 0, 0]
@@ -165,7 +184,7 @@ def zstack_to_contract_df(
             rows.append({
                 "month_id": int(valid_months[i]),
                 "priogrid_gid": int(valid_pg[i]),
-                f"pred_lr_{target}": valid_mags[i].tolist()
+                out_col: valid_mags[i].tolist()
             })
             
     df = pd.DataFrame(rows)

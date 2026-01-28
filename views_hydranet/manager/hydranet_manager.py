@@ -43,6 +43,68 @@ class HydranetManager(ForecastingModelManager):
         self.set_dataframe_format(format=".parquet")  # Set the dataframe format to parquet
 
 
+    def _execute_model_evaluation(self, ensemble: bool = False) -> None:
+        """
+        HydraNet specific evaluation override.
+        1. Translates target names from ln_ (log) to lr_ (raw) to match our unlogged predictions.
+        2. Augments the ground-truth viewser dataframe with unlogged columns JIT.
+        """
+        import views_pipeline_core.managers.model.model as model_module
+        from views_pipeline_core.files.utils import read_dataframe as original_read_dataframe
+
+        # A. Translate targets in config: ln_ -> lr_
+        # This tells the pipeline core AND the evaluation manager to look for 'lr_' versions.
+        original_targets = self.configs.get("targets", [])
+        raw_targets = []
+        for t in original_targets:
+            if t.startswith("ln_"):
+                raw_targets.append(t.replace("ln_", "lr_"))
+            elif not t.startswith("lr_"):
+                raw_targets.append(f"lr_{t}")
+            else:
+                raw_targets.append(t)
+        
+        logger.info(f"Translating evaluation targets: {original_targets} -> {raw_targets}")
+        self.configs["targets"] = raw_targets
+
+        # B. Define the augmentation logic for ground truth
+        def augmented_read_dataframe(path):
+            df = original_read_dataframe(path)
+            # Add 'lr_' columns if they are missing but 'ln_' equivalents exist
+            for target in self.configs.get("targets", []):
+                if target.startswith("lr_") and target not in df.columns:
+                    ln_target = target.replace("lr_", "ln_")
+                    if ln_target in df.columns:
+                        logger.info(f"Augmenting ground truth: Unlogging {ln_target} -> {target}")
+                        df[target] = np.expm1(df[ln_target])
+                
+                # Handle binarized targets (The Virtual Target logic)
+                if target.endswith("_binarized") and target not in df.columns:
+                    # Try to find base magnitude (either lr_ or ln_)
+                    base_raw = target.replace("_binarized", "")
+                    base_log = target.replace("_binarized", "").replace("lr_", "ln_")
+                    
+                    if base_raw in df.columns:
+                        logger.info(f"Augmenting ground truth: Binarizing {base_raw} -> {target}")
+                        df[target] = (df[base_raw] > 0).astype(float)
+                    elif base_log in df.columns:
+                        logger.info(f"Augmenting ground truth: Binarizing {base_log} -> {target}")
+                        df[target] = (df[base_log] > 0).astype(float)
+            
+            return df
+
+        # C. Monkey-patch and execute
+        logger.info("Injecting HydraNet target translator into evaluation pipeline.")
+        original_func = model_module.read_dataframe
+        model_module.read_dataframe = augmented_read_dataframe
+
+        try:
+            super()._execute_model_evaluation(ensemble=ensemble)
+        finally:
+            # D. Restore original state
+            model_module.read_dataframe = original_func
+            self.configs["targets"] = original_targets
+
     def _train_model_artifact(self) -> None:
         run_type = self.config[
             "run_type"
@@ -172,14 +234,16 @@ class HydranetManager(ForecastingModelManager):
                 vol_slice, is_evaluation=True
             )
 
-            # Convert to Contract DataFrame
-            target = self.config.get("target_variable", "sb")
-            df_list = zstack_to_contract_df(
-                posterior_zstack=posterior_zstack,
-                meta_zstack=meta_zstack,
-                target=target
-            )
-            list_df_predictions.extend(df_list)
+            # Convert to Contract DataFrames for ALL targets in config
+            # This handles multi-task evaluation (sb, ns, os)
+            targets = self.configs.get("targets", [])
+            for target in targets:
+                df_list = zstack_to_contract_df(
+                    posterior_zstack=posterior_zstack,
+                    meta_zstack=meta_zstack,
+                    target=target
+                )
+                list_df_predictions.extend(df_list)
 
             # Optional: Save intermediate zstacks for debugging (using origin index in name)
             zstack_path = (
@@ -368,13 +432,16 @@ class HydranetManager(ForecastingModelManager):
 
         logger.info(f"Forecast zstacks saved to {self._model_path.data_generated}")
 
-        # Return contract-compliant DataFrames for forecasting
-        target = self.config.get("target_variable", "sb")
-        list_df_predictions = zstack_to_contract_df(
-            posterior_zstack=posterior_zstack,
-            meta_zstack=meta_zstack,
-            target=target
-        )
+        # Return contract-compliant DataFrames for ALL forecasting targets
+        list_df_predictions = []
+        targets = self.configs.get("targets", [])
+        for target in targets:
+            df_list = zstack_to_contract_df(
+                posterior_zstack=posterior_zstack,
+                meta_zstack=meta_zstack,
+                target=target
+            )
+            list_df_predictions.extend(df_list)
         
         # Validate before returning
         validate_contract_dataframes(list_df_predictions)
