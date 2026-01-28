@@ -173,11 +173,11 @@ class HydranetManager(ForecastingModelManager):
             )
 
             # Convert to Contract DataFrame
-            # Defaulting target to 'sb' for now
+            target = self.config.get("target_variable", "sb")
             df_list = zstack_to_contract_df(
                 posterior_zstack=posterior_zstack,
                 meta_zstack=meta_zstack,
-                target="sb"
+                target=target
             )
             list_df_predictions.extend(df_list)
 
@@ -368,4 +368,15 @@ class HydranetManager(ForecastingModelManager):
 
         logger.info(f"Forecast zstacks saved to {self._model_path.data_generated}")
 
-        return None
+        # Return contract-compliant DataFrames for forecasting
+        target = self.config.get("target_variable", "sb")
+        list_df_predictions = zstack_to_contract_df(
+            posterior_zstack=posterior_zstack,
+            meta_zstack=meta_zstack,
+            target=target
+        )
+        
+        # Validate before returning
+        validate_contract_dataframes(list_df_predictions)
+
+        return list_df_predictions
