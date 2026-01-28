@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 import numpy as np
 from torchvision import transforms # Added for mocking transforms
 
-from views_hydranet.utils.utils import norm, unit_norm, standard, my_decay, get_full_tensor, get_train_tensors, get_window_index, get_window_coords, norm_features
+from views_hydranet.utils.utils import norm, unit_norm, standard, my_decay, get_full_tensor, get_train_tensors, get_window_index, get_window_coords, norm_features, choose_model
 
 @pytest.fixture
 def mock_views_vol():
@@ -633,23 +633,568 @@ def test_norm_features_basic(mock_config_norm_features):
 
 
 def test_norm_features_with_unlog(mock_config_norm_features):
+
+
     """
+
+
     Tests norm_features with the 'un_log' option enabled.
+
+
     """
+
+
     # Arrange
+
+
     mock_config_norm_features["un_log"] = True
+
+
     
+
+
     full_vol = np.zeros((2, 2, 2, 4), dtype=np.float64)
+
+
     # Feature 1: Log values. exp(feature) - 1 will be from 0 to 7
+
+
     log_values = np.log(np.arange(1, 9).reshape(2, 2, 2))
+
+
     full_vol[:, :, :, 1] = log_values
 
+
+
+
+
     # Act
+
+
     result_vol = norm_features(full_vol, mock_config_norm_features)
 
+
+
+
+
     # Assert
+
+
     # Original data after un-logging: np.exp(log_values) - 1 => results in np.arange(8).reshape(2,2,2)
+
+
     # feature_max = 7, feature_min = 0
+
+
     # expected = original_unlogged / 7
+
+
     expected_feature_1 = np.arange(8).reshape(2, 2, 2) / 7.0
+
+
     assert np.allclose(result_vol[:, :, :, 1], expected_feature_1)
+
+
+
+
+
+
+
+
+@patch('views_hydranet.utils.utils.HydraBNUNet06_LSTM4')
+
+
+
+
+
+
+
+
+def test_choose_model_hydra(mock_hydra_model):
+
+
+
+
+
+
+
+
+    """
+
+
+
+
+
+
+
+
+    Tests that choose_model correctly selects and instantiates the HydraBNUNet06_LSTM4 model.
+
+
+
+
+
+
+
+
+    """
+
+
+
+
+
+
+
+
+    # Arrange
+
+
+
+
+
+
+
+
+    mock_config = {
+
+
+
+
+
+
+
+
+        "model": "HydraBNUNet06_LSTM4",
+
+
+
+
+
+
+
+
+        "input_channels": 3,
+
+
+
+
+
+
+
+
+        "total_hidden_channels": 64,
+
+
+
+
+
+
+
+
+        "output_channels": 1,
+
+
+
+
+
+
+
+
+        "dropout_rate": 0.5
+
+
+
+
+
+
+
+
+    }
+
+
+
+
+
+
+
+
+    device = torch.device("cpu")
+
+
+
+
+
+
+
+
+    mock_model_instance = MagicMock()
+
+
+
+
+
+
+
+
+    # Configure the mock's 'to' method to return itself
+
+
+
+
+
+
+
+
+    mock_model_instance.to.return_value = mock_model_instance
+
+
+
+
+
+
+
+
+    mock_hydra_model.return_value = mock_model_instance
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # Act
+
+
+
+
+
+
+
+
+    model = choose_model(mock_config, device)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # Assert
+
+
+
+
+
+
+
+
+    mock_hydra_model.assert_called_once_with(
+
+
+
+
+
+
+
+
+        mock_config["input_channels"],
+
+
+
+
+
+
+
+
+        mock_config["total_hidden_channels"],
+
+
+
+
+
+
+
+
+        mock_config["output_channels"],
+
+
+
+
+
+
+
+
+        mock_config["dropout_rate"]
+
+
+
+
+
+
+
+
+    )
+
+
+
+
+
+
+
+
+    mock_model_instance.to.assert_called_once_with(device)
+
+
+
+
+
+
+
+
+    assert model is mock_model_instance
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def test_choose_model_unknown_raises_error():
+
+
+
+
+
+
+
+
+    """
+
+
+
+
+
+
+
+
+    Tests that choose_model raises an UnboundLocalError for an unknown model name.
+
+
+
+
+
+
+
+
+    """
+
+
+
+
+
+
+
+
+    # Arrange
+
+
+
+
+
+
+
+
+    mock_config = {"model": "unknown_model"}
+
+
+
+
+
+
+
+
+    device = torch.device("cpu")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # Capture stdout to prevent it from cluttering test output
+
+
+
+
+
+
+
+
+    from io import StringIO
+
+
+
+
+
+
+
+
+    import sys
+
+
+
+
+
+
+
+
+    captured_output = StringIO()
+
+
+
+
+
+
+
+
+    sys.stdout = captured_output
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # Act & Assert
+
+
+
+
+
+
+
+
+    with pytest.raises(UnboundLocalError):
+
+
+
+
+
+
+
+
+        choose_model(mock_config, device)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # Reset stdout
+
+
+
+
+
+
+
+
+    sys.stdout = sys.__stdout__
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # Optionally, assert that the print statement was still called
+
+
+
+
+
+
+
+
+    assert "no model..." in captured_output.getvalue()
+
+
+
+
+
+
+
+
+
+
