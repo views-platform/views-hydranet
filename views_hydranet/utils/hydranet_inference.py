@@ -228,12 +228,13 @@ class HydraNetInference:
 
 
     def generate_posterior_samples(
-        self, views_vol: torch.Tensor
+        self, views_vol: torch.Tensor, is_evaluation: bool = True
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Generates multiple posterior samples using Monte Carlo Dropout.
 
         Args:
             views_vol: Input volume tensor.
+            is_evaluation: Whether running in evaluation mode (affects sequence length).
 
         Returns:
             A tuple containing:
@@ -269,7 +270,7 @@ class HydraNetInference:
                 )
 
             pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(
-                full_tensor, sample_idx
+                full_tensor, sample_idx, is_evaluation=is_evaluation
             )
 
             # Store slices directly without concatenation

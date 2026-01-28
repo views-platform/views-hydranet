@@ -1,60 +1,71 @@
-import wandb
-import numpy as np
-import torch
+import logging
+from datetime import datetime
+from typing import List, Optional, Tuple
+
 import matplotlib.pyplot as plt
-
+import numpy as np
 import pandas as pd
+import torch
 
-import sys
-from pathlib import Path
-from views_pipeline_core.managers.model import ModelPathManager
+from views_hydranet.utils.utils_df_to_vol_conversion import (
+    calculate_absolute_indices,
+    get_requried_columns_for_vol,
+)
 
-from views_hydranet.utils.utils_df_to_vol_conversion import get_requried_columns_for_vol, calculate_absolute_indices
+logger = logging.getLogger(__name__)
 
-def generate_fake_vol(vol, month_range=36):
-    """
-    Generates a fake prediction volume for testing purposes by extracting the last three features from the input volume.
+
+def generate_fake_vol(vol: np.ndarray, month_range: int = 36) -> np.ndarray:
+    """Generates a fake prediction volume for testing purposes.
+
+    Extracts the last three features from the input volume.
     Assumes the last three features represent `sb`, `ns`, and `os`.
 
     Args:
-        vol (np.ndarray): The input 4D volume array with shape [n_months, height, width, n_features].
-        n_months (int): The number of months to include in the fake volume. Default is 36.
+        vol: The input 4D volume array with shape [n_months, height, width, n_features].
+        month_range: The number of months to include in the fake volume. Default is 36.
 
     Returns:
-        np.ndarray: A volume array with the last three features, shape [32, height, width, 3].
-                    Represents a subset of the original volume for testing.
+        A volume array with the last three features, shape [month_range, height, width, 3].
     """
     # Extract the last three features from the volume
-    fake_vol = vol[-month_range:, :, :, 5:]  
+    fake_vol = vol[-month_range:, :, :, 5:]
 
     return fake_vol
 
 
-def make_forecast_storage_vol(heigth = 180, width = 180, month_range = 36, to_tensor = True):
-    """
-    Creates a forecast storage volume based on the last month of data in the DataFrame.
-    The volume is repeated for the specified `month_range` with incrementally adjusted month IDs.
+def make_forecast_storage_vol(
+    df: pd.DataFrame,
+    height: int = 180,
+    width: int = 180,
+    month_range: int = 36,
+    to_tensor: bool = True,
+) -> np.ndarray | torch.Tensor:
+    """Creates a forecast storage volume based on the last month of data in the DataFrame.
+
+    The volume is repeated for the specified `month_range` with incrementally
+    adjusted month IDs.
 
     Args:
-        df (pd.DataFrame): The input DataFrame containing spatial-temporal data.
-                           Expected columns include 'abs_row', 'abs_col', 'abs_month', 'pg_id', 'col', 
-                           'row', 'month_id', 'c_id'.
-
-        month_range (int): The number of months to forecast into the future. Default is 36.
+        df: The input DataFrame containing spatial-temporal data.
+            Expected columns include 'row', 'col', 'month_id', 'c_id', 'priogrid_gid'.
+        height: The height of the spatial grid. Defaults to 180.
+        width: The width of the spatial grid. Defaults to 180.
+        month_range: The number of months to forecast into the future. Default is 36.
+        to_tensor: Whether to return the result as a torch.Tensor.
 
     Returns:
-        np.ndarray: The forecast storage volume with shape [month_range, 180, 180, 5].
-                    Each time slice in the volume represents a future month based on the last month of data.
+        The forecast storage volume with shape [month_range, height, width, 5]
+        (if ndarray) or [1, month_range, 5, height, width] (if tensor).
     """
 
-    df = get_raw_df()
-    df = calculate_absolute_indices(df) # abs_row, abs_col, abs_month needed for the volume
+    df = calculate_absolute_indices(df)  # abs_row, abs_col, abs_month needed for the volume
 
     # Infer the last month_id from the DataFrame
-    last_month_id = df['month_id'].max()
+    last_month_id = df["month_id"].max()
 
     # Create a sub DataFrame of only the last month
-    sub_df = df[df['month_id'] == last_month_id].copy()
+    sub_df = df[df["month_id"] == last_month_id].copy()
 
     # required features
     required_columns = get_requried_columns_for_vol()
@@ -62,148 +73,185 @@ def make_forecast_storage_vol(heigth = 180, width = 180, month_range = 36, to_te
     # check if the required columns are in the df
     for col in required_columns:
         if col not in sub_df.columns:
-            raise ValueError(f"Column '{col}' not found in the DataFrame. Check the input DataFrame (located in 'data/raw') and try again.")
+            raise ValueError(
+                f"Column '{col}' not found in the DataFrame. "
+                "Check the input DataFrame and try again."
+            )
 
     # Initialize the volume array
-    features_num = len(required_columns)  # Adjust this based on the number of features you have - MUST BE INFERED FROM THE DATA
+    features_num = len(required_columns)
 
     # Create the zero array with only the last month
-    vol = np.zeros([heigth, width, 1, features_num])
+    vol = np.zeros([height, width, 1, features_num])
 
     # Adjust abs_month to 0 for the initial volume
-    sub_df['adjusted_abs_month'] = 0
+    sub_df["adjusted_abs_month"] = 0
 
-    for i, j in enumerate(required_columns):
-        vol[sub_df['abs_row'], sub_df['abs_col'], sub_df['adjusted_abs_month'], i] = sub_df[j]
+    for i, col_name in enumerate(required_columns):
+        vol[sub_df["abs_row"], sub_df["abs_col"], sub_df["adjusted_abs_month"], i] = sub_df[
+            col_name
+        ]
 
     # Stack the volume to the desired month range
     vol = np.repeat(vol, month_range, axis=2)
 
-    # THIS IS A WIERD THING AND THERE COULD BE A BUG HERE.... :
     # Adjust the month_id with an increment of 1
     for i in range(month_range):
-        vol[:, :, i, 3] = last_month_id + i + 1 # to get one month after the last observed month
+        vol[:, :, i, 3] = (
+            last_month_id + i + 1
+        )  # to get one month after the last observed month
 
     # Reorient and transpose
     vol = np.flip(vol, axis=0)
     vol = np.transpose(vol, (2, 0, 1, 3))
 
-    print(f'Volume of shape {vol.shape} created. Should be ({month_range}, 180, 180, {features_num})')
+    logger.info(
+        f"Volume of shape {vol.shape} created. Should be ({month_range}, 180, 180, {features_num})"
+    )
 
-    #  Convert to tensor and permute the dimensions. This make the vol similar to the out_of_sample_meta_vol and thus aligns the forcasting rutine with the eval rutine-
+    # Convert to tensor and permute dimensions.
     if to_tensor:
-        vol = torch.tensor(vol.copy()).float().unsqueeze(dim=0).permute(0,1,4,2,3) # the copy thing is weird but it works
+        # Align with out_of_sample_meta_vol: (batch, time, feature, height, width)
+        vol = (
+            torch.from_numpy(vol.copy())
+            .float()
+            .unsqueeze(dim=0)
+            .permute(0, 1, 4, 2, 3)
+        )
 
     return vol
 
 
 
-def merge_vol(forecast_storage_vol, vol_fake):
-    """
-    Merges a forecast volume with an existing forecast storage volume.
-    Combines the features from `vol_fake` with `vol` along the feature axis.
+def merge_vol(forecast_storage_vol: np.ndarray, vol_fake: np.ndarray) -> np.ndarray:
+    """Merges a forecast volume with an existing forecast storage volume.
+
+    Combines the features from `vol_fake` with `forecast_storage_vol` along the feature axis.
 
     Args:
-        vol (np.ndarray): The forecast storage volume with shape [n_months, height, width, n_features].
-        vol_fake (np.ndarray): The forecast volume to be merged with shape [n_months, height, width, n_features_fake].
+        forecast_storage_vol: The forecast storage volume with shape
+            [n_months, height, width, n_features].
+        vol_fake: The forecast volume to be merged with shape
+            [n_months, height, width, n_features_fake].
 
     Returns:
-        np.ndarray: The merged volume with shape [n_months, height, width, n_features + n_features_fake].
+        The merged volume with shape
+        [n_months, height, width, n_features + n_features_fake].
     """
     # Merge the forecast volume with the storage volume along the feature axis
     full_vol = np.concatenate([forecast_storage_vol, vol_fake], axis=-1)
 
-    # print the shape of the full volume
-    print(f'Volume of shape {full_vol.shape} created. Should be ({forecast_storage_vol.shape[0]}, 180, 180, {forecast_storage_vol.shape[3] + vol_fake.shape[3]})')
+    logger.info(
+        f"Volume of shape {full_vol.shape} created. "
+        f"Should be ({forecast_storage_vol.shape[0]}, 180, 180, "
+        f"{forecast_storage_vol.shape[3] + vol_fake.shape[3]})"
+    )
 
     return full_vol
 
 
-def check_vol_equal(vol, full_vol):
-    """
-    Unit test to verify the merging of two volumes.
-    Checks if the original volume and the merged volume are equivalent.
+def check_vol_equal(vol: np.ndarray, full_vol: np.ndarray) -> None:
+    """Verifies the merging of two volumes.
+
+    Checks if the original volume and the merged volume are equivalent for the
+    overlapping time steps and features.
 
     Args:
-        vol (np.ndarray): The original volume.
-        full_vol (np.ndarray): The merged volume.
-
-    Returns:
-        None: Prints the result of the equivalence test.
+        vol: The original volume.
+        full_vol: The merged volume.
     """
 
-    #print the shape of the volumes
-    print(vol.shape)
-    print(full_vol.shape)
+    logger.debug(f"Original vol shape: {vol.shape}")
+    logger.debug(f"Full vol shape: {full_vol.shape}")
 
     # trim original volume to the same shape as the full volume - ie. the last n months
     month_range = full_vol.shape[0]
     vol_trimmed = vol[-month_range:, :, :, :]
 
-    # print the shape of the trimmed volume
-    print(vol_trimmed.shape)
+    logger.debug(f"Trimmed original vol shape: {vol_trimmed.shape}")
 
     # now go through each feature individually and check if they are the same
-
-    list_features = ['pg_id', 'col', 'row', 'month_id', 'c_id', 'ln_sb_best', 'ln_ns_best', 'ln_os_best']
+    list_features = [
+        "pg_id",
+        "col",
+        "row",
+        "month_id",
+        "c_id",
+        "ln_sb_best",
+        "ln_ns_best",
+        "ln_os_best",
+    ]
 
     for i in range(vol_trimmed.shape[-1]):
-        print(f"Feature {i}, {list_features[i]} equal:", np.array_equal(vol_trimmed[:, :, :, i], full_vol[:, :, :, i]))
+        feature_name = list_features[i] if i < len(list_features) else f"feature_{i}"
+        is_equal = np.array_equal(vol_trimmed[:, :, :, i], full_vol[:, :, :, i])
+        logger.info(f"Feature {i} ({feature_name}) equal: {is_equal}")
 
 
-def check_month_id_consistency(forecast_storage_vol, df, month_range = 36):
-    """
-    Checks the consistency of month_id values between the forecast storage volume and the DataFrame.
+def check_month_id_consistency(
+    forecast_storage_vol: torch.Tensor, df: pd.DataFrame, month_range: int = 36
+) -> None:
+    """Checks consistency of month_id values between forecast storage and DataFrame.
 
     Args:
-        forecast_storage_vol (np.ndarray): The forecast storage volume with shape [batch, time, feature, height, width].
-        df (pd.DataFrame): The DataFrame containing month_id values.
-        month_range (int): The expected range of months in the forecast storage volume.
+        forecast_storage_vol: The forecast storage volume with shape
+            [batch, time, feature, height, width].
+        df: The DataFrame containing reference month_id values.
+        month_range: The expected range of months in the forecast storage volume.
 
     Raises:
-        ValueError: If there is a mismatch in month_id values between the forecast storage volume and the DataFrame.
+        ValueError: If there is a mismatch in month_id values.
     """
-    # print shapes for debugging
-    print(forecast_storage_vol.shape)
+    logger.debug(f"Forecast storage vol shape: {forecast_storage_vol.shape}")
 
     # Retrieve month_id values
     min_month_id_df = df["month_id"].min()
     max_month_id_df = df["month_id"].max()
-    min_month_id_vol = forecast_storage_vol[:, :, 3, :, :].min()
-    max_month_id_vol = forecast_storage_vol[:, :, 3, :, :].max()
 
-    # Print month_id values for debugging
-    print(f'Min month_id in df: {min_month_id_df}')
-    print(f'Max month_id in df: {max_month_id_df}')
-    print(f'Min month_id in forecast storage: {min_month_id_vol}')
-    print(f'Max month_id in forecast storage: {max_month_id_vol}')
+    # month_id is the 4th feature (index 3)
+    min_month_id_vol = forecast_storage_vol[:, :, 3, :, :].min().item()
+    max_month_id_vol = forecast_storage_vol[:, :, 3, :, :].max().item()
 
-    # so we are forecasting 36 months ahead
-    print(f'month forecasted ahead: {int(max_month_id_vol - min_month_id_vol + 1)}') 
+    logger.info(f"Min month_id in df: {min_month_id_df}")
+    logger.info(f"Max month_id in df: {max_month_id_df}")
+    logger.info(f"Min month_id in forecast storage: {min_month_id_vol}")
+    logger.info(f"Max month_id in forecast storage: {max_month_id_vol}")
+
+    logger.info(f"Months forecasted ahead: {int(max_month_id_vol - min_month_id_vol + 1)}")
 
     # Check if min month_id in the forecast storage volume is 1 above the max month_id in the df
     if min_month_id_vol != max_month_id_df + 1:
-        raise ValueError(f"Mismatch in month_id: Expected minimum month_id in storage volume to be {max_month_id_df + 1}, but got {min_month_id_vol}.")
+        raise ValueError(
+            f"Mismatch in month_id: Expected min {max_month_id_df + 1}, got {min_month_id_vol}."
+        )
 
     # Check if max month_id in the forecast storage volume is month_range above the max month_id in the df
     if max_month_id_vol != max_month_id_df + month_range:
-        raise ValueError(f"Mismatch in month_id: Expected maximum month_id in storage volume to be {max_month_id_df + month_range}, but got {max_month_id_vol}.")
+        raise ValueError(
+            f"Mismatch in month_id: Expected max {max_month_id_df + month_range}, got {max_month_id_vol}."
+        )
 
 
-def plot_vol_comparison(vol, new_vol, month_range=36):
-    """
-    Plots a comparison of slices from two 4D volume arrays for the specified month range.
-    Displays different feature maps for each time step in separate subplots for both volumes.
+def plot_vol_comparison(
+    vol: np.ndarray, new_vol: np.ndarray, month_range: int = 36
+) -> None:
+    """Plots a comparison of slices from two 4D volume arrays.
 
     Args:
-        vol (np.ndarray): The original 4D volume array with shape [n_months, height, width, n_features].
-        new_vol (np.ndarray): The new 4D volume array to compare with, with the same shape as `vol`.
-        month_range (int): The number of slices (time steps) to plot. Default is 36.
-
-    Returns:
-        None: Displays the plots.
+        vol: The original 4D volume array.
+        new_vol: The new 4D volume array to compare with.
+        month_range: The number of slices (time steps) to plot. Default is 36.
     """
-    features_titles = ['pg_id', 'col', 'row', 'month_id', 'c_id', 'ln_sb_best', 'ln_ns_best', 'ln_os_best']
+    features_titles = [
+        "pg_id",
+        "col",
+        "row",
+        "month_id",
+        "c_id",
+        "ln_sb_best",
+        "ln_ns_best",
+        "ln_os_best",
+    ]
     n_features = vol.shape[-1]
 
     # Ensure the volumes cover the last month_range months
@@ -211,66 +259,43 @@ def plot_vol_comparison(vol, new_vol, month_range=36):
     new_vol = new_vol[-month_range:, :, :, :]
 
     for i in range(month_range):
-        fig, ax = plt.subplots(2, n_features, figsize=(20, 7))  # 2 rows, n_features columns
-        
-        for j in range(n_features):  # Adjusted to use n_features directly
+        fig, ax = plt.subplots(2, n_features, figsize=(20, 7))
+
+        for j in range(n_features):
             # Plot the original volume in the first row
-            im1 = ax[0, j].imshow(vol[i, :, :, j], cmap='rainbow',
-                                  vmin=vol[:, :, :, j].min(), vmax=vol[:, :, :, j].max())
-            ax[0, j].set_title(features_titles[j] if j < len(features_titles) else f'Feature {j}')
-            #plt.colorbar(im1, ax=ax[0, j])
+            ax[0, j].imshow(
+                vol[i, :, :, j],
+                cmap="rainbow",
+                vmin=vol[:, :, :, j].min(),
+                vmax=vol[:, :, :, j].max(),
+            )
+            ax[0, j].set_title(
+                features_titles[j] if j < len(features_titles) else f"Feature {j}"
+            )
 
             # Plot the new volume in the second row
-            im2 = ax[1, j].imshow(new_vol[i, :, :, j], cmap='rainbow',
-                                  vmin=new_vol[:, :, :, j].min(), vmax=new_vol[:, :, :, j].max())
-            ax[1, j].set_title(f'New {features_titles[j]}' if j < len(features_titles) else f'New Feature {j}')
-            #plt.colorbar(im2, ax=ax[1, j])
+            ax[1, j].imshow(
+                new_vol[i, :, :, j],
+                cmap="rainbow",
+                vmin=new_vol[:, :, :, j].min(),
+                vmax=new_vol[:, :, :, j].max(),
+            )
+            ax[1, j].set_title(
+                f"New {features_titles[j]}"
+                if j < len(features_titles)
+                else f"New Feature {j}"
+            )
 
-        # Adding title with specific adjustment
-        fig.suptitle(f'Time Step {i + 1}', fontsize=16, y=1.05)  # Adjust `y` for title position
+        fig.suptitle(f"Time Step {i + 1}", fontsize=16, y=1.05)
 
         # Remove ticks
         for a in ax.flat:
             a.set_xticks([])
             a.set_yticks([])
 
-        # Adjust layout
-        plt.subplots_adjust(left=0.05, right=0.95, top=0.85, bottom=0.15, wspace=0.2, hspace=0.4)
-        plt.tight_layout(pad=2.0, rect=[0, 0, 1, 0.95])  # `rect` adjusts the position of subplots
-        
+        plt.subplots_adjust(
+            left=0.05, right=0.95, top=0.85, bottom=0.15, wspace=0.2, hspace=0.4
+        )
+        plt.tight_layout(pad=2.0, rect=[0, 0, 1, 0.95])
+
         plt.show()
-
-
-def get_raw_df():
-
-    """
-    Loads the raw DataFrame for forecasting purposes - really just to get the month_id, pg_id, col, row, and c_id.
-
-    This function attempts to load a DataFrame for the desired run type (forecasting by default).
-    It checks for the existence of the corresponding data file in the raw data path and loads it.
-    The DataFrame is expected to contain spatial-temporal data with features like 'ln_best_sb', 'ln_best_ns', and 'ln_best_os'.
-    The shape of the views_vol is (N, C, H, W, D), where D represents the number of features.
-
-    Raises:
-        FileNotFoundError: If the file is not found, the function prints an error message and exits,
-                           advising the user to run the appropriate data loader script 
-                           (`get_calibration_data.py`, `get_test_data.py`, or `get_forecasting_data.py`).
-
-    Returns:
-        pd.DataFrame: The loaded DataFrame containing the raw data.
-    """
-
-    PATH_RAW, _, _ = setup_data_paths(PATH)
-
-    try:
-        file_name = PATH_RAW / 'forecasting_viewser_df.pkl'
-
-        # debug print
-        print(f'Loading forecasting data from {file_name}...')
-        df = pd.read_pickle(file_name)
-    
-    except FileNotFoundError as e:
-        print(f'File not found: {e}. Run correct dataloader get_calibration_data.py, get_test_data.py or get_forecasting_data.py. Now exiting...')
-        sys.exit()
-
-    return df

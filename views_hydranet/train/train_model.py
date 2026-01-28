@@ -28,6 +28,7 @@ from views_hydranet.utils.utils import (
     get_data,
 )
 
+logger = logging.getLogger(__name__)
 
 def make(config: dict, device: torch.device):
     model = choose_model(config, device)

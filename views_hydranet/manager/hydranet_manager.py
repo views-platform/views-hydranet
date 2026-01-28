@@ -24,8 +24,6 @@ from views_hydranet.utils.utils_df_to_vol_conversion import create_or_load_views
 
 from views_hydranet.utils.utils_prediction import sample_posterior, predict
 
-from views_hydranet.evaluate.evaluate_model_old import evaluate_model_artifact, evaluate_posterior
-
 from views_hydranet.utils.hydranet_inference import HydraNetInference
 
 
@@ -144,7 +142,9 @@ class HydranetManager(ForecastingModelManager):
         self.config["model_time_stamp"] = model_time_stamp
 
         inference = HydraNetInference(model, self.config, device=self.device)
-        posterior_zstack, meta_zstack = inference.generate_posterior_samples(vol_test)
+        posterior_zstack, meta_zstack = inference.generate_posterior_samples(
+            vol_test, is_evaluation=True
+        )
 
         # save the two zstacks
         zstack_path = (
@@ -328,47 +328,47 @@ class HydranetManager(ForecastingModelManager):
 
         ############################
         # Generate model metrics   #
-        ############################
-#
-#    def _forecast_model_artifact(self, artifact_name):
-#        # Commonly used paths
-#        path_raw = self._model_path.data_raw
-#        path_generated = self._model_path.data_generated
-#        path_artifacts = self._model_path.artifacts
-#        run_type = self.config["run_type"]
-#
-#        # If an artifact name is provided through the CLI, use it.
-#        # Otherwise, get the latest model artifact based on the run type
-#        if artifact_name:
-#            logger.info(f"Using (non-default) artifact: {artifact_name}")
-#            path_artifact = path_artifacts / artifact_name
-#        else:
-#            # use the latest model artifact based on the run type
-#            logger.info(
-#                f"Using latest (default) run type ({run_type}) specific artifact"
-#            )
-#            path_artifact = self._model_path.get_latest_model_artifact_path(run_type)
-#
-#        self.config["timestamp"] = path_artifact.stem[-15:]
-#        # df_viewser = read_dataframe(
-#        #     path_raw / f"{run_type}_viewser_df{PipelineConfig.dataframe_format}"
-#        # )
-#        vol_forecast = create_or_load_views_vol(run_type, self._model_path.data_processed, self._model_path.data_raw)
-#        ############################
-#        # Load model artifact      #
-#        ############################
-#
-#        ############################
-#        # Forecast model artifact  #
-#        ############################
-#        # Run model in forecast mode
-#        forecast_with_model_artifact(self.config, self.device, vol_forecast, self._model_path.artifacts, artifact_name=artifact_name)
-#        ############################
-#        # Save predictions         #
-#        ############################
-#        # Save the predictions to the generated data directory "path_generated" or "self._model_path.data_generated"
-#        df_predictions = None  # Store the predictions here
-#        self._save_predictions(
-#            df_predictions=df_predictions, path_generated=path_generated
-#        )
-#
+    def _forecast_model_artifact(self, artifact_name: Optional[str] = None) -> None:
+        """Generates forecasts using a model artifact.
+
+        Args:
+            artifact_name: The name of the model artifact to use for forecasting.
+                If None, the latest artifact for the current run_type is used.
+        """
+        run_type = self.config["run_type"]
+
+        vol_forecast = create_or_load_views_vol(
+            run_type, self._model_path.data_processed, self._model_path.data_raw
+        )
+
+        model, model_time_stamp = self._load_model_artifact(artifact_name)
+
+        logger.info(f"model_time_stamp: {model_time_stamp}")
+
+        # add to config for logging and conciseness
+        self.config["model_time_stamp"] = model_time_stamp
+
+        inference = HydraNetInference(model, self.config, device=self.device)
+        # For true forecasting, is_evaluation should be False
+        posterior_zstack, meta_zstack = inference.generate_posterior_samples(
+            vol_forecast, is_evaluation=False
+        )
+
+        # save the two zstacks
+        zstack_path = (
+            self._model_path.data_generated
+            / f'forecast_stochastic_zstack_{self.config["time_steps"]}_{self.config["run_type"]}_{self.config["model_time_stamp"]}.pkl'
+        )
+        with open(zstack_path, "wb") as file:
+            pickle.dump(posterior_zstack, file)
+
+        meta_zstack_path = (
+            self._model_path.data_generated
+            / f'forecast_deterministic_zstack_{self.config["time_steps"]}_{self.config["run_type"]}_{self.config["model_time_stamp"]}.pkl'
+        )
+        with open(meta_zstack_path, "wb") as file:
+            pickle.dump(meta_zstack, file)
+
+        logger.info(f"Forecast zstacks saved to {self._model_path.data_generated}")
+
+        return None
