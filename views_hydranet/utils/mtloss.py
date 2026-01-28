@@ -17,8 +17,10 @@ class MultiTaskLoss(torch.nn.Module):
     device = losses.device
     stds = (torch.exp(self.log_vars)**(1/2)).to(device).to(dtype)
     self.is_regression = self.is_regression.to(device).to(dtype)
-    coeffs = 1 / ( (self.is_regression+1)*(stds**2) )
-    multi_task_losses = coeffs*losses + torch.log(stds)
+    # Add epsilon to prevent division by zero
+    eps = 1e-8
+    coeffs = 1 / ( (self.is_regression+1)*(stds**2) + eps )
+    multi_task_losses = coeffs*losses + torch.log(stds + eps)
 
     if self.reduction == 'sum':
       multi_task_losses = multi_task_losses.sum()

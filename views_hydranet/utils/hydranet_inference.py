@@ -213,6 +213,16 @@ class HydraNetInference:
             else:
                 t0 = t1_pred.detach()
                 t1_pred, t1_pred_class, h_tt = self.execute_freeze_h_option(t0, h_tt)
+                
+                # --- PANIC CHECK: Detect explosion ---
+                if not torch.isfinite(t1_pred).all():
+                    logger.error(f"!!! MODEL EXPLODED at sequence step {t} !!!")
+                    # Fill remaining steps with NaN to signal failure
+                    pred_magnitudes_zstack[out_of_sample_month:] = np.nan
+                    pred_probabilities_zstack[out_of_sample_month:] = np.nan
+                    break
+                # --- END PANIC CHECK ---
+
                 t1_pred_class = torch.sigmoid(t1_pred_class)
 
                 pred_magnitudes_zstack[out_of_sample_month, :, :, :] = (

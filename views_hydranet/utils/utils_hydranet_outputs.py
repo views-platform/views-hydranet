@@ -120,7 +120,33 @@ def zstack_to_contract_df(
     # Extract magnitudes and inverse transform
     # [steps, H, W, samples]
     mags = posterior_zstack[:, :, :, t_idx, :]
-    mags = np.exp(mags) - 1
+    
+    # --- DEBUG: Forensic Statistical Summary ---
+    total_elements = mags.size
+    nan_count = np.isnan(mags).sum()
+    inf_count = np.isinf(mags).sum()
+    
+    if nan_count > 0 or inf_count > 0 or not np.isfinite(mags).all():
+        logger.error("!!! CRITICAL: NON-FINITE PREDICTIONS DETECTED IN LOG-SPACE !!!")
+        logger.error(f"  Stats: NaNs={nan_count}, Infs={inf_count} out of {total_elements}")
+        # Only compute stats on finite values to avoid more NaNs
+        finite_mags = mags[np.isfinite(mags)]
+        if finite_mags.size > 0:
+            logger.error(f"  Finite Range: min={finite_mags.min():.4f}, max={finite_mags.max():.4f}, mean={finite_mags.mean():.4f}")
+        else:
+            logger.error("  NO FINITE VALUES IN TENSOR.")
+            
+        for t in range(steps):
+            t_mags = mags[t]
+            if not np.isfinite(t_mags).all():
+                logger.error(f"  Step {t}: {np.isnan(t_mags).sum()} NaNs, {np.isinf(t_mags).sum()} Infs")
+    # --- END DEBUG ---
+
+    mags = np.expm1(mags) # More stable version of exp(x) - 1
+    
+    if not np.isfinite(mags).all():
+        logger.error("!!! CRITICAL: OVERFLOW DETECTED AFTER EXP TRANSFORM !!!")
+        logger.error(f"  Max value after expm1: {np.nanmax(mags)}")
     
     # Extract IDs
     pg_ids = meta_zstack[:, :, :, 0, 0]
