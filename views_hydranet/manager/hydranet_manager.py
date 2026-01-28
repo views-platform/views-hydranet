@@ -49,11 +49,10 @@ class HydranetManager(ForecastingModelManager):
         1. Translates target names from ln_ (log) to lr_ (raw) to match our unlogged predictions.
         2. Augments the ground-truth viewser dataframe with unlogged columns JIT.
         """
-        import views_pipeline_core.managers.model.model as model_module
+        import views_pipeline_core.files.utils as utils_module
         from views_pipeline_core.files.utils import read_dataframe as original_read_dataframe
 
         # A. Translate targets in config: ln_ -> lr_
-        # This tells the pipeline core AND the evaluation manager to look for 'lr_' versions.
         original_targets = self.configs.get("targets", [])
         raw_targets = []
         for t in original_targets:
@@ -80,7 +79,6 @@ class HydranetManager(ForecastingModelManager):
                 
                 # Handle binarized targets (The Virtual Target logic)
                 if target.endswith("_binarized") and target not in df.columns:
-                    # Try to find base magnitude (either lr_ or ln_)
                     base_raw = target.replace("_binarized", "")
                     base_log = target.replace("_binarized", "").replace("lr_", "ln_")
                     
@@ -93,16 +91,16 @@ class HydranetManager(ForecastingModelManager):
             
             return df
 
-        # C. Monkey-patch and execute
-        logger.info("Injecting HydraNet target translator into evaluation pipeline.")
-        original_func = model_module.read_dataframe
-        model_module.read_dataframe = augmented_read_dataframe
+        # C. Monkey-patch the UTILS module and execute
+        logger.info("Injecting HydraNet target translator into utility layer.")
+        original_func = utils_module.read_dataframe
+        utils_module.read_dataframe = augmented_read_dataframe
 
         try:
             super()._execute_model_evaluation(ensemble=ensemble)
         finally:
             # D. Restore original state
-            model_module.read_dataframe = original_func
+            utils_module.read_dataframe = original_func
             self.configs["targets"] = original_targets
 
     def _train_model_artifact(self) -> None:
