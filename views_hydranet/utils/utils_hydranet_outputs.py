@@ -1,19 +1,150 @@
-import pickle
-
-from sklearn.metrics import mean_squared_error, average_precision_score, roc_auc_score, brier_score_loss
-import pandas as pd
-import matplotlib.pyplot as plt
 import logging
+import pickle
 import sys
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-
-from views_hydranet.utils.utils_model_outputs import ModelOutputs
-#from views_pipeline_core.evaluation.metrics import EvaluationMetrics
-from views_hydranet.deprecated.metrics import EvaluationMetrics
+import numpy as np
+import pandas as pd
+import torch
 from views_pipeline_core.managers.model import ModelPathManager
 
+from views_hydranet.deprecated.metrics import EvaluationMetrics
+from views_hydranet.utils.utils_model_outputs import ModelOutputs
+
 logger = logging.getLogger(__name__)
+
+def predictions_to_contract_df(
+    posterior_list: List[np.ndarray],
+    forecast_storage_vol: np.ndarray,
+    target: str,
+) -> List[pd.DataFrame]:
+    """
+    Converts raw posterior samples into the list of DataFrames required by views-evaluation.
+
+    This function implements the "Producer Contract" for views-hydranet.
+    It takes a list of posterior samples (from sample_posterior) and maps them to
+    their corresponding month_id and location_id (from forecast_storage_vol).
+
+    Args:
+        posterior_list: List of N posterior samples, each with shape [steps, features, H, W].
+        forecast_storage_vol: Metadata volume with shape [batch, steps, features, H, W].
+                              Channel 0: priogrid_gid, 3: month_id, 4: c_id.
+        target: The target variable name (e.g., 'sb').
+
+    Returns:
+        List[pd.DataFrame]: A list of DataFrames, one per sequence (usually 1 here).
+                            Each DF has MultiIndex (month_id, priogrid_gid)
+                            and column f"pred_lr_{target}".
+    """
+
+    # We assume batch size 1 for metadata extraction as per Hydranet convention
+    # forecast_storage_vol shape: [1, steps, 8, 180, 180]
+    steps = forecast_storage_vol.shape[1]
+    
+    # Extract IDs and flatten
+    pg_ids = forecast_storage_vol[0, :, 0, :, :].reshape(steps, -1)
+    month_ids = forecast_storage_vol[0, :, 3, :, :].reshape(steps, -1)
+    c_ids = forecast_storage_vol[0, :, 4, :, :].reshape(steps, -1)
+
+    # Filter out ocean cells (pg_id == 0)
+    # We create a mask for valid land cells across all steps
+    mask = pg_ids > 0
+    
+    # posterior_list is List of [steps, features, H, W]
+    # We need to stack samples to get [samples, steps, features, H, W]
+    all_samples = np.stack(posterior_list)  # [S, T, F, H, W]
+    
+    # Mapping target string to index
+    target_map = {"sb": 0, "ns": 1, "os": 2}
+    t_idx = target_map.get(target, 0)
+    
+    # Extract target feature samples: [S, T, H, W]
+    target_samples = all_samples[:, :, t_idx, :, :]
+    
+    # Re-scale/Inverse transform: exp(x) - 1 for 'ln_' prefixed models
+    # Hydranet targets are usually log-transformed.
+    # The contract requires RAW COUNTS.
+    target_samples = np.exp(target_samples) - 1
+    
+    # Now we build the DataFrame for this sequence
+    # Since we are usually dealing with one predictive run at a time in this module,
+    # the list will contain one DataFrame.
+    
+    rows = []
+    # This is slightly inefficient but clear. For 180x180 it's fine.
+    # We iterate over steps and land-cells.
+    for t in range(steps):
+        valid_pg = pg_ids[t][mask[t]]
+        valid_months = month_ids[t][mask[t]]
+        # target_samples[:, t, :, :] is [S, H, W] -> flatten to [S, H*W] -> filter land: [S, Valid]
+        valid_samples = target_samples[:, t, :, :].reshape(len(posterior_list), -1)[:, mask[t]]
+        
+        for i in range(len(valid_pg)):
+            rows.append({
+                "month_id": int(valid_months[i]),
+                "priogrid_gid": int(valid_pg[i]),
+                f"pred_lr_{target}": valid_samples[:, i].tolist()
+            })
+            
+    df = pd.DataFrame(rows)
+    df = df.set_index(["month_id", "priogrid_gid"])
+    
+    return [df]
+
+def zstack_to_contract_df(
+    posterior_zstack: np.ndarray,
+    meta_zstack: np.ndarray,
+    target: str,
+) -> List[pd.DataFrame]:
+    """
+    Converts zstacks from HydraNetInference into the list of DataFrames required by views-evaluation.
+
+    Args:
+        posterior_zstack: [steps, H, W, channels, samples]. 
+                          Channels 0,1,2 are magnitudes (sb, ns, os).
+        meta_zstack: [steps, H, W, channels, 1].
+                     Channel 0: priogrid_gid, 3: month_id.
+        target: The target variable name (e.g., 'sb').
+
+    Returns:
+        List[pd.DataFrame]: Contract-compliant predictions.
+    """
+    steps = posterior_zstack.shape[0]
+    samples = posterior_zstack.shape[-1]
+    
+    # Mapping target to channel index
+    target_map = {"sb": 0, "ns": 1, "os": 2}
+    t_idx = target_map.get(target, 0)
+    
+    # Extract magnitudes and inverse transform
+    # [steps, H, W, samples]
+    mags = posterior_zstack[:, :, :, t_idx, :]
+    mags = np.exp(mags) - 1
+    
+    # Extract IDs
+    pg_ids = meta_zstack[:, :, :, 0, 0]
+    month_ids = meta_zstack[:, :, :, 3, 0]
+    
+    mask = pg_ids > 0
+    
+    rows = []
+    for t in range(steps):
+        valid_pg = pg_ids[t][mask[t]]
+        valid_months = month_ids[t][mask[t]]
+        # [H, W, S] -> flatten spatial -> [H*W, S] -> filter: [Valid, S]
+        valid_mags = mags[t].reshape(-1, samples)[mask[t].flatten()]
+        
+        for i in range(len(valid_pg)):
+            rows.append({
+                "month_id": int(valid_months[i]),
+                "priogrid_gid": int(valid_pg[i]),
+                f"pred_lr_{target}": valid_mags[i].tolist()
+            })
+            
+    df = pd.DataFrame(rows)
+    df = df.set_index(["month_id", "priogrid_gid"])
+    return [df]
 
 def output_to_df(dict_of_outputs_dicts):
     

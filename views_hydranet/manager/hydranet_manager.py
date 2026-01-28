@@ -23,6 +23,7 @@ from views_hydranet.train.train_model import make, training_loop, train_model_ar
 from views_hydranet.utils.utils_df_to_vol_conversion import create_or_load_views_vol
 
 from views_hydranet.utils.utils_prediction import sample_posterior, predict
+from views_hydranet.utils.utils_hydranet_outputs import zstack_to_contract_df
 
 from views_hydranet.utils.hydranet_inference import HydraNetInference
 
@@ -138,9 +139,6 @@ class HydranetManager(ForecastingModelManager):
 
         logger.info(f"model_time_stamp: {model_time_stamp}")
 
-        # add to config for logging and conciseness
-        self.config["model_time_stamp"] = model_time_stamp
-
         inference = HydraNetInference(model, self.config, device=self.device)
         posterior_zstack, meta_zstack = inference.generate_posterior_samples(
             vol_test, is_evaluation=True
@@ -149,51 +147,30 @@ class HydranetManager(ForecastingModelManager):
         # save the two zstacks
         zstack_path = (
             self._model_path.data_generated
-            / f'stochastic_zstack_{self.config["time_steps"]}_{self.config["run_type"]}_{self.config["model_time_stamp"]}.pkl'
+            / f'stochastic_zstack_{self.config["time_steps"]}_{self.config["run_type"]}_{model_time_stamp}.pkl'
         )
         with open(zstack_path, "wb") as file:
             pickle.dump(posterior_zstack, file)
 
         meta_zstack_path = (
             self._model_path.data_generated
-            / f'deterministic_zstack_{self.config["time_steps"]}_{self.config["run_type"]}_{self.config["model_time_stamp"]}.pkl'
+            / f'deterministic_zstack_{self.config["time_steps"]}_{self.config["run_type"]}_{model_time_stamp}.pkl'
         )
         with open(meta_zstack_path, "wb") as file:
             pickle.dump(meta_zstack, file)
 
         logger.info(f"Zstacks saved to {self._model_path.data_generated}")
 
-        # Convert dicts of outputs and evaluation metrics to DataFrames
-        #df_sb_os_ns_output = output_to_df(dict_of_outputs_dicts)
-        #df_sb_os_ns_evaluation = evaluation_to_df(dict_of_eval_dicts)
+        # Return the contract-compliant DataFrames for evaluation
+        # The pipeline usually evaluates one target at a time. Defaulting to 'sb'
+        # or deriving from eval_type if appropriate.
+        list_df_predictions = zstack_to_contract_df(
+            posterior_zstack=posterior_zstack,
+            meta_zstack=meta_zstack,
+            target="sb"
+        )
 
-        # Save the posterior dictionary
-#        posterior_path = f'{self._model_path.data_generated}/posterior_dict_{self.config["time_steps"]}_{self.config["run_type"]}_{self.config["model_time_stamp"]}.pkl'
-#        with open(posterior_path, 'wb') as file:
-#            pickle.dump(posterior_dict, file)
-
-        # Save the DataFrame of model outputs
-        #outputs_path = f'{model_path.data_generated}/df_sb_os_ns_output_{config["time_steps"]}_{config["run_type"]}_{config["model_time_stamp"]}.pkl'
-        #with open(outputs_path, 'wb') as file:
-        #    pickle.dump(df_sb_os_ns_output, file)
-
-        # Save the DataFrame of evaluation metrics
-        #evaluation_path = f'{model_path.data_generated}/df_sb_os_ns_evaluation_{config["time_steps"]}_{config["run_type"]}_{config["model_time_stamp"]}.pkl'
-        #with open(evaluation_path, 'wb') as file:
-        #    pickle.dump(df_sb_os_ns_evaluation, file)
-
-        # Save the tensors
-        #test_vol_path = f'{self._model_path.data_generated}/test_vol_{self.config["time_steps"]}_{self.config["run_type"]}_{self.config["model_time_stamp"]}.pkl'
-        #with open(test_vol_path, 'wb') as file:
-        #    pickle.dump(full_tensor.cpu().numpy(), file)
-
-#        metadata_vol_path = f'{self._model_path.data_generated}/metadata_vol_{self.config["time_steps"]}_{self.config["run_type"]}_{self.config["model_time_stamp"]}.pkl'
-#        with open(metadata_vol_path, 'wb') as file:
-#            pickle.dump(metadata_tensor.cpu().numpy(), file)
-
-#        print('Posterior dict, outputs, evaluation metrics, and tensors pickled and saved!')
-
-        return None
+        return list_df_predictions
 
 
 
@@ -345,9 +322,6 @@ class HydranetManager(ForecastingModelManager):
 
         logger.info(f"model_time_stamp: {model_time_stamp}")
 
-        # add to config for logging and conciseness
-        self.config["model_time_stamp"] = model_time_stamp
-
         inference = HydraNetInference(model, self.config, device=self.device)
         # For true forecasting, is_evaluation should be False
         posterior_zstack, meta_zstack = inference.generate_posterior_samples(
@@ -357,14 +331,14 @@ class HydranetManager(ForecastingModelManager):
         # save the two zstacks
         zstack_path = (
             self._model_path.data_generated
-            / f'forecast_stochastic_zstack_{self.config["time_steps"]}_{self.config["run_type"]}_{self.config["model_time_stamp"]}.pkl'
+            / f'forecast_stochastic_zstack_{self.config["time_steps"]}_{self.config["run_type"]}_{model_time_stamp}.pkl'
         )
         with open(zstack_path, "wb") as file:
             pickle.dump(posterior_zstack, file)
 
         meta_zstack_path = (
             self._model_path.data_generated
-            / f'forecast_deterministic_zstack_{self.config["time_steps"]}_{self.config["run_type"]}_{self.config["model_time_stamp"]}.pkl'
+            / f'forecast_deterministic_zstack_{self.config["time_steps"]}_{self.config["run_type"]}_{model_time_stamp}.pkl'
         )
         with open(meta_zstack_path, "wb") as file:
             pickle.dump(meta_zstack, file)
