@@ -19,7 +19,7 @@ from views_hydranet.utils.utils_wandb import generate_wandb_log_dict, generate_w
 from views_hydranet.utils.utils_hydranet_outputs import save_model_outputs
 
 from views_pipeline_core.managers.model import ModelPathManager
-from views_pipeline_core.models.outputs import ModelOutputs
+from views_hydranet.utils.utils_model_outputs import ModelOutputs
 #from views_pipeline_core.evaluation.metrics import EvaluationMetrics
 from views_hydranet.deprecated.metrics import EvaluationMetrics
 from views_pipeline_core.managers.model import ModelPathManager

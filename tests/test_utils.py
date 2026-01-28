@@ -688,15 +688,15 @@ def test_choose_model_hydra(mock_hydra_model):
 
 def test_choose_model_unknown_raises_error(caplog):
     """
-    Tests that choose_model raises an UnboundLocalError for an unknown model name.
+    Tests that choose_model raises a ValueError for an unknown model name.
     """
     # Arrange
     mock_config = {"model": "unknown_model"}
     device = torch.device("cpu")
     # Act & Assert
-    with caplog.at_level(logging.ERROR, logger='views_hydranet.utils.utils'):
-        with pytest.raises(UnboundLocalError):
+    with caplog.at_level(logging.ERROR, logger="views_hydranet.utils.utils"):
+        with pytest.raises(ValueError, match="Unknown model type"):
             choose_model(mock_config, device)
 
     # Assert that the error message was logged
-    assert "no model..." in caplog.text
+    assert "Unknown model type: unknown_model" in caplog.text

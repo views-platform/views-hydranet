@@ -32,35 +32,39 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, LinearLR, OneCyc
 from views_hydranet.utils.warmup_decay_lr_scheduler import WarmupDecayLearningRateScheduler
 
 
-def choose_model(config, device):
+def choose_model(config: dict, device: torch.device) -> nn.Module:
     """Chooses a model based on the provided configuration.
 
     This function acts as a factory for creating model instances. The model type
     is determined by the `config["model"]` string.
 
     Args:
-        config (dict): A dictionary containing model configuration, including:
-                       - "model" (str): The name of the model to instantiate.
-                       - Other keys required by the model's constructor
-                         (e.g., "input_channels", "dropout_rate").
-        device (torch.device): The PyTorch device to which the model should be moved.
+        config: A dictionary containing model configuration, including:
+            - "model" (str): The name of the model to instantiate.
+            - Other keys required by the model's constructor
+              (e.g., "input_channels", "dropout_rate").
+        device: The PyTorch device to which the model should be moved.
 
     Returns:
-        torch.nn.Module: An instance of the chosen model, moved to the specified device.
+        An instance of the chosen model, moved to the specified device.
 
-    .. warning::
-        If an unknown model name is provided in the config, this function will print
-        "no model..." to stdout and then raise an `UnboundLocalError` because the
-        `unet` variable is never assigned.
+    Raises:
+        ValueError: If an unknown model name is provided in the config.
     """
 
-    if config["model"] == 'HydraBNUNet06_LSTM4':
-        unet = HydraBNUNet06_LSTM4(config["input_channels"], config["total_hidden_channels"], config["output_channels"], config["dropout_rate"]).to(device)
-
+    if config["model"] == "HydraBNUNet06_LSTM4":
+        model = HydraBNUNet06_LSTM4(
+            config["input_channels"],
+            config["total_hidden_channels"],
+            config["output_channels"],
+            config["dropout_rate"],
+        ).to(device)
     else:
-        logger.error('no model...')
+        error_msg = f"Unknown model type: {config['model']}"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
 
-    return unet
+    return model
 
 
 def choose_loss(config, device):
@@ -114,7 +118,7 @@ def choose_loss(config, device):
     return(criterion_reg, criterion_class, multitaskloss_instance)
 
 
-def choose_sheduler(config, unet):
+def choose_scheduler(config, unet):
     """Selects and configures a learning rate scheduler and optimizer.
 
     This function acts as a factory for creating a learning rate scheduler and its

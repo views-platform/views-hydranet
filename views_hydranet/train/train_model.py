@@ -15,10 +15,21 @@ from pathlib import Path
 import logging
 
 from views_pipeline_core.managers.model import ModelPathManager
-from views_hydranet.utils.utils import choose_model, choose_loss, choose_sheduler, get_train_tensors, get_full_tensor, apply_dropout, execute_freeze_h_option, train_log, init_weights, get_data
+from views_hydranet.utils.utils import (
+    choose_model,
+    choose_loss,
+    choose_scheduler,
+    get_train_tensors,
+    get_full_tensor,
+    apply_dropout,
+    execute_freeze_h_option,
+    train_log,
+    init_weights,
+    get_data,
+)
 
-def make(config, device):
 
+def make(config: dict, device: torch.device):
     model = choose_model(config, device)
 
     # Create a partial function with the initialization function and the config parameter
@@ -28,12 +39,14 @@ def make(config, device):
     model.apply(init_fn)
 
     # choose loss function
-    criterion = choose_loss(config, device) # this is a touple of the reg and the class criteria
+    criterion = choose_loss(
+        config, device
+    )  # this is a touple of the reg and the class criteria
 
-    # choose sheduler - the optimizer is always AdamW right now
-    optimizer, scheduler = choose_sheduler(config, model)
+    # choose scheduler - the optimizer is always AdamW right now
+    optimizer, scheduler = choose_scheduler(config, model)
 
-    return(model, criterion, optimizer, scheduler) #, dataloaders, dataset_sizes)
+    return (model, criterion, optimizer, scheduler)  # , dataloaders, dataset_sizes)
 
 
 def train(model, optimizer, scheduler, criterion_reg, criterion_class, multitaskloss_instance, views_vol, sample, config, device): # views vol and sample
@@ -118,52 +131,68 @@ def train(model, optimizer, scheduler, criterion_reg, criterion_class, multitask
     scheduler.step()
 
 
-def training_loop(config, model, criterion, optimizer, scheduler, views_vol, device):
-
+def training_loop(
+    config: dict,
+    model: nn.Module,
+    criterion: tuple,
+    optimizer: torch.optim.Optimizer,
+    scheduler: torch.optim.lr_scheduler._LRScheduler,
+    views_vol: np.ndarray,
+    device: torch.device,
+) -> None:
     # # add spatail transformer
 
     criterion_reg, criterion_class, multitaskloss_instance = criterion
 
     np.random.seed(config["np_seed"])
     torch.manual_seed(config["torch_seed"])
-    #print(f'Training initiated...')
-    logging.info("🚀 Training initiated...")
+    logger.info("🚀 Training initiated...")
 
     for sample in range(config["samples"]):
-
-        #print(f'Sample: {sample+1}/{config["samples"]}', end = '\r')
         progress_msg = f'📡 Training Sample {sample + 1}/{config["samples"]}'
         print(progress_msg, end="\r")  # Live updating print
 
-        train(model, optimizer, scheduler , criterion_reg, criterion_class, multitaskloss_instance, views_vol, sample, config, device)
+        train(
+            model,
+            optimizer,
+            scheduler,
+            criterion_reg,
+            criterion_class,
+            multitaskloss_instance,
+            views_vol,
+            sample,
+            config,
+            device,
+        )
 
-    #print('training done...')
-    print("\n✅ Training complete!")  # Ensure final message is on a new line
-    logging.info("✅ Training completed successfully.")
+    logger.info("✅ Training complete!")
 
-def train_model_artifact(model_path: ModelPathManager, config, device, views_vol):
-#def handle_training(config, device, views_vol, PATH_ARTIFACTS):
-    
-    """
-    Creates, trains, and saves a model artifact.
+
+def train_model_artifact(
+    model_path: ModelPathManager,
+    config: dict,
+    device: torch.device,
+    views_vol: np.ndarray,
+) -> None:
+    """Creates, trains, and saves a model artifact.
 
     This function creates the model, criterion, optimizer, and scheduler. It then trains the model
     using the provided training loop and saves the trained model with a timestamp and run type as an artifact
     in the specified artifacts path.
 
     Args:
-        config: Configuration object containing parameters and settings.
+        model_path: The ModelPathManager instance for path resolution.
+        config: Configuration dictionary containing parameters and settings.
         device: The device (torch.device) to run the model on (CPU or GPU).
-        views_vol: The tensor containing the input data for training.
-        PATH_ARTIFACTS: The path where model artifacts are stored.
+        views_vol: The array containing the input data for training.
     """
 
     # Create the model, criterion, optimizer and scheduler
     model, criterion, optimizer, scheduler = make(config, device)
-    
+
     # Train the model
     training_loop(config, model, criterion, optimizer, scheduler, views_vol, device)
-    print('Done training')
+    logger.info("Done training")
 
     # just in case the artifacts folder does not exist
     os.makedirs(model_path.artifacts, exist_ok=True)
@@ -173,6 +202,6 @@ def train_model_artifact(model_path: ModelPathManager, config, device, views_vol
     model_filename = f"{config['run_type']}_model_{timestamp}.pt"
     # save the model
     torch.save(model, model_path.artifacts / model_filename)
-    
+
     # done
-    print(f"Model saved as: {model_path.artifacts / model_filename}")
+    logger.info(f"Model saved as: {model_path.artifacts / model_filename}")

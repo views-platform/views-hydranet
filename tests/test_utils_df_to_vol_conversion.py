@@ -100,10 +100,9 @@ def test_calculate_absolute_indices(mock_df):
     assert df["abs_month"].equals(pd.Series([0, 0, 1, 1]))
 
 
-def test_calculate_absolute_indices_modifies_in_place(mock_df):
+def test_calculate_absolute_indices_is_non_mutating(mock_df):
     """
-    Tests that calculate_absolute_indices modifies the DataFrame in-place.
-    This is undesirable behavior that should be flagged.
+    Tests that calculate_absolute_indices does NOT modify the DataFrame in-place.
     """
     # Make a copy before calling the function
     df_original_copy = mock_df.copy()
@@ -111,9 +110,8 @@ def test_calculate_absolute_indices_modifies_in_place(mock_df):
     # Call the function
     calculate_absolute_indices(mock_df)
 
-    # Assert that the original DataFrame has been modified and is no longer
-    # equal to the copy it was before the function call.
-    assert not df_original_copy.equals(mock_df)
+    # Assert that the original DataFrame has NOT been modified
+    assert df_original_copy.equals(mock_df)
 
 
 def test_df_to_vol(mock_df):

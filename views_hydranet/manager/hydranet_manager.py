@@ -39,31 +39,33 @@ class HydranetManager(ModelManager):
         self.set_dataframe_format(format=".parquet")  # Set the dataframe format to parquet
 
 
-    def _train_model_artifact(self):
+    def _train_model_artifact(self) -> None:
+        run_type = self.config[
+            "run_type"
+        ]  # Run type: "calibration", "validation", "forecasting"
 
-        run_type = self.config["run_type"]  # Run type: "calibration", "validation", "forecasting"
-
-        # Use new class? 
-        vol_cal = create_or_load_views_vol(run_type, self._model_path.data_processed, self._model_path.data_raw)
-
+        # Use new class?
+        vol_cal = create_or_load_views_vol(
+            run_type, self._model_path.data_processed, self._model_path.data_raw
+        )
 
         if self.config["sweep"]:  # If not using wandb sweep
-
-            print('swep not implemented')
+            logger.warning("Sweep not implemented")
             raise NotImplementedError
 
             model, criterion, optimizer, scheduler = make(self.config, self.device)
-            training_loop(self.config , model, criterion, optimizer, scheduler, vol_cal, self.device)
-            print('Done training')
+            training_loop(
+                self.config, model, criterion, optimizer, scheduler, vol_cal, self.device
+            )
+            logger.info("Done training")
 
             evaluate_posterior(model, vol_cal, self.config, self.device)
-            print('Done testing')
+            logger.info("Done testing")
 
         # model_filename = ModelManager.generate_model_file_name(
         #         run_type, file_extension=".pt"
         #     )  # Generate the model file name
-        
-        
+
         train_model_artifact(self._model_path, self.config, self.device, vol_cal)
 
 
@@ -114,51 +116,48 @@ class HydranetManager(ModelManager):
 
 
 
-    def _evaluate_model_artifact(self, eval_type, artifact_name):
-#        # eval_type can be ????
-#
-        run_type = self.config["run_type"]
-#
-        vol_test = create_or_load_views_vol(run_type, self._model_path.data_processed, self._model_path.data_raw)
-        
-        model, model_time_stamp = self._load_model_artifact(artifact_name)#
+    def _evaluate_model_artifact(
+        self, eval_type: str, artifact_name: Optional[str] = None
+    ) -> None:
+        """Evaluates a model artifact.
 
-        # print for debugging
-        print(f"model_time_stamp: {model_time_stamp}")
+        Args:
+            eval_type: The type of evaluation to perform.
+            artifact_name: The name of the model artifact to evaluate.
+                If None, the latest artifact for the current run_type is used.
+        """
+        run_type = self.config["run_type"]
+
+        vol_test = create_or_load_views_vol(
+            run_type, self._model_path.data_processed, self._model_path.data_raw
+        )
+
+        model, model_time_stamp = self._load_model_artifact(artifact_name)
+
+        logger.info(f"model_time_stamp: {model_time_stamp}")
 
         # add to config for logging and conciseness
         self.config["model_time_stamp"] = model_time_stamp
 
-        # evaluate the model posterior distribution
-        #evaluate_posterior(self._model_path, model, vol_test, self.config, self.device)
-
-
         inference = HydraNetInference(model, self.config, device=self.device)
-        # posterior_magnitudes, posterior_probabilities, out_of_sample_vol, metadata_tensor, posterior_zstack, meta_zstack = inference.generate_posterior_samples(vol_test)
         posterior_zstack, meta_zstack = inference.generate_posterior_samples(vol_test)
 
         # save the two zstacks
-        zstack_path = f'{self._model_path.data_generated}/stochastic_zstack_{self.config["time_steps"]}_{self.config["run_type"]}_{self.config["model_time_stamp"]}.pkl'
-        with open(zstack_path, 'wb') as file:
+        zstack_path = (
+            self._model_path.data_generated
+            / f'stochastic_zstack_{self.config["time_steps"]}_{self.config["run_type"]}_{self.config["model_time_stamp"]}.pkl'
+        )
+        with open(zstack_path, "wb") as file:
             pickle.dump(posterior_zstack, file)
 
-        meta_zstack_path = f'{self._model_path.data_generated}/deterministic_zstack_{self.config["time_steps"]}_{self.config["run_type"]}_{self.config["model_time_stamp"]}.pkl'
-        with open(meta_zstack_path, 'wb') as file:
+        meta_zstack_path = (
+            self._model_path.data_generated
+            / f'deterministic_zstack_{self.config["time_steps"]}_{self.config["run_type"]}_{self.config["model_time_stamp"]}.pkl'
+        )
+        with open(meta_zstack_path, "wb") as file:
             pickle.dump(meta_zstack, file)
 
-        # save the zstack_combined
-        #zstack_combined_path = f'{self._model_path.data_generated}/zstack_combined_{self.config["time_steps"]}_{self.config["run_type"]}_{self.config["model_time_stamp"]}.pkl'
-        #with open(zstack_combined_path, 'wb') as file:
-        #    pickle.dump(zstack_combined, file)
-
-        #posterior_list, posterior_list_class, out_of_sample_vol, metadata_tensor = inference.generate_posterior_samples(vol_test)
-
-        #posterior_dict = {'posterior_list' : posterior_list, 'posterior_list_class': posterior_list_class, 'out_of_sample_vol' : out_of_sample_vol}
-
-
-        # Create the directory if it does not exist
-        #Path(self._model_path.data_generated).mkdir(parents=True, exist_ok=True)
-        #print(f'PATH to generated data: {self._model_path.data_generated}')
+        logger.info(f"Zstacks saved to {self._model_path.data_generated}")
 
         # Convert dicts of outputs and evaluation metrics to DataFrames
         #df_sb_os_ns_output = output_to_df(dict_of_outputs_dicts)

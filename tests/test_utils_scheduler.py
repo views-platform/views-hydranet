@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 
-from views_hydranet.utils.utils import choose_sheduler, init_weights
+from views_hydranet.utils.utils import choose_scheduler, init_weights
 
 
 @pytest.fixture
@@ -24,7 +24,7 @@ def mock_config():
 @patch('views_hydranet.utils.utils.torch.optim.AdamW')
 def test_choose_scheduler_plateau(mock_adamw, mock_plateau_scheduler, mock_unet, mock_config):
     """
-    Tests that choose_sheduler correctly selects and instantiates the ReduceLROnPlateau scheduler.
+    Tests that choose_scheduler correctly selects and instantiates the ReduceLROnPlateau scheduler.
     """
     # Arrange
     mock_optimizer_instance = MagicMock(spec=torch.optim.Optimizer)
@@ -34,7 +34,7 @@ def test_choose_scheduler_plateau(mock_adamw, mock_plateau_scheduler, mock_unet,
     mock_plateau_scheduler.return_value = mock_scheduler_instance
 
     # Act
-    optimizer, scheduler = choose_sheduler(mock_config, mock_unet)
+    optimizer, scheduler = choose_scheduler(mock_config, mock_unet)
 
     # Assert
     mock_adamw.assert_called_once_with(mock_unet.parameters(), lr=0.001, betas=(0.9, 0.999))

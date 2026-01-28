@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 
-from views_pipeline_core.models.outputs import ModelOutputs
+from views_hydranet.utils.utils_model_outputs import ModelOutputs
 #from views_pipeline_core.evaluation.metrics import EvaluationMetrics
 from views_hydranet.deprecated.metrics import EvaluationMetrics
 from views_pipeline_core.managers.model import ModelPathManager
