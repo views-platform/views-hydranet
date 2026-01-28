@@ -1,31 +1,22 @@
-import numpy as np
-import pickle
-import time
+import logging
 import os
-import functools
 from datetime import datetime
+from typing import Dict, List, Tuple
+
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+from tqdm import tqdm
 
 import wandb
-
-import sys
-from pathlib import Path
-import logging
-
 from views_pipeline_core.managers.model import ModelPathManager
 from views_hydranet.utils.utils import (
-    choose_model,
     choose_loss,
+    choose_model,
     choose_scheduler,
     get_train_tensors,
-    get_full_tensor,
-    apply_dropout,
-    execute_freeze_h_option,
     train_log,
     init_weights,
-    get_data,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,101 +25,100 @@ def make(config: dict, device: torch.device):
     model = choose_model(config, device)
 
     # Create a partial function with the initialization function and the config parameter
+    import functools
     init_fn = functools.partial(init_weights, config=config)
 
-    # Apply the initialization function to the modelrawi
+    # Apply the initialization function to the model
     model.apply(init_fn)
 
     # choose loss function
     criterion = choose_loss(
         config, device
-    )  # this is a touple of the reg and the class criteria
+    )  # this is a tuple of the reg and the class criteria
 
     # choose scheduler - the optimizer is always AdamW right now
     optimizer, scheduler = choose_scheduler(config, model)
 
-    return (model, criterion, optimizer, scheduler)  # , dataloaders, dataset_sizes)
+    return (model, criterion, optimizer, scheduler)
 
 
-def train(model, optimizer, scheduler, criterion_reg, criterion_class, multitaskloss_instance, views_vol, sample, config, device): # views vol and sample
+def train(
+    model: nn.Module,
+    optimizer: torch.optim.Optimizer,
+    scheduler: torch.optim.lr_scheduler._LRScheduler,
+    criterion_reg: nn.Module,
+    criterion_class: nn.Module,
+    multitaskloss_instance: nn.Module,
+    views_vol: np.ndarray,
+    sample: int,
+    config: dict,
+    device: torch.device,
+    pbar: tqdm,
+) -> None:
 
-    wandb.watch(model, [criterion_reg, criterion_class], log= None, log_freq=2048)
+    wandb.watch(model, [criterion_reg, criterion_class], log=None, log_freq=2048)
 
     avg_loss_reg_list = []
     avg_loss_class_list = []
     avg_loss_list = []
     total_loss = 0
 
-    model.train()  # train mode
-    multitaskloss_instance.train() # meybe another place...
-
+    model.train()
+    multitaskloss_instance.train()
 
     # Batch loops:
     for batch in range(config["batch_size"]):
-
         # Getting the train_tensor
         train_tensor = get_train_tensors(views_vol, sample, config, device)
         seq_len = train_tensor.shape[1]
-        window_dim = train_tensor.shape[-1] # the last dim should always be a spatial dim (H or W)
+        window_dim = train_tensor.shape[-1]
 
         # initialize a hidden state
-        h = model.init_h(hidden_channels = model.base, dim = window_dim).float().to(device)
+        h = model.init_h(hidden_channels=model.base, dim=window_dim).float().to(device)
 
-        # Sequens loop rnn style
-        for i in range(seq_len-1): # so your sequnce is the full time len - last month.
-            print(f'\t\t\t\t month: {i+1}/{seq_len}...', end='\r')
-
+        # Sequence loop rnn style
+        for i in range(seq_len - 1):
             t0 = train_tensor[:, i, :, :, :]
-
-            t1 = train_tensor[:, i+1, :, :, :]
-            t1_binary = (t1.clone().detach().requires_grad_(True) > 0) * 1.0 # 1.0 to ensure float. Should avoid cloning warning now.
+            t1 = train_tensor[:, i + 1, :, :, :]
+            t1_binary = (t1.clone().detach().requires_grad_(True) > 0) * 1.0
 
             # forward-pass
             t1_pred, t1_pred_class, h = model(t0, h.detach())
         
             losses_list = []
+            for j in range(t1_pred.shape[1]):
+                losses_list.append(criterion_reg(t1_pred[:, j, :, :], t1[:, j, :, :]))
 
-            for j in range(t1_pred.shape[1]): # first each reggression loss. Should be 1 channel, as I conccat the reg heads on dim = 1
-
-                losses_list.append(criterion_reg(t1_pred[:,j,:,:], t1[:,j,:,:])) # index 0 is batch dim, 1 is channel dim (here pred), 2 is H dim, 3 is W dim
-
-            for j in range(t1_pred_class.shape[1]): # then each classification loss. Should be 1 channel, as I conccat the class heads on dim = 1
-
-                losses_list.append(criterion_class(t1_pred_class[:,j,:,:], t1_binary[:,j,:,:])) # index 0 is batch dim, 1 is channel dim (here pred), 2 is H dim, 3 is W dim
+            for j in range(t1_pred_class.shape[1]):
+                losses_list.append(criterion_class(t1_pred_class[:, j, :, :], t1_binary[:, j, :, :]))
 
             losses = torch.stack(losses_list)
             loss = multitaskloss_instance(losses)
-
             total_loss += loss
 
-            # traning output
-            loss_reg = losses[:t1_pred.shape[1]].sum() # sum the reg losses
-            loss_class = losses[-t1_pred.shape[1]:].sum() # assuming 
+            loss_reg = losses[:t1_pred.shape[1]].sum()
+            loss_class = losses[-t1_pred.shape[1]:].sum()
 
             avg_loss_reg_list.append(loss_reg.detach().cpu().numpy().item())
             avg_loss_class_list.append(loss_class.detach().cpu().numpy().item())
             avg_loss_list.append(loss.detach().cpu().numpy().item())
-
+            
+            # Update pbar for each month
+            pbar.update(1)
 
     # log each sequence/timeline/batch
-    train_log(avg_loss_list, avg_loss_reg_list, avg_loss_class_list) # FIX!!!
+    train_log(avg_loss_list, avg_loss_reg_list, avg_loss_class_list)
 
-    # Backpropagation and optimization - after a full sequence... 
+    # Backpropagation and optimization
     optimizer.zero_grad()
     total_loss.backward()
 
     # Gradient Clipping
-    if config["clip_grad_norm"] == True:
-        clip_value = 1.0
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=clip_value)
-
-    else:
-        pass
+    if config.get("clip_grad_norm", False):
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
     # optimize
     optimizer.step()
-
-    # Adjust learning rate based on the loss
     scheduler.step()
 
 
@@ -141,30 +131,42 @@ def training_loop(
     views_vol: np.ndarray,
     device: torch.device,
 ) -> None:
-    # # add spatail transformer
-
     criterion_reg, criterion_class, multitaskloss_instance = criterion
 
     np.random.seed(config["np_seed"])
     torch.manual_seed(config["torch_seed"])
     logger.info("🚀 Training initiated...")
 
+    # Calculate total iterations for global pbar: samples * batch_size * (seq_len - 1)
+    # Since seq_len might vary slightly (unlikely here), we'll estimate or use sample-level pbar.
+    # Given the request for informative printing, a nested pbar approach is nice.
+    
     for sample in range(config["samples"]):
-        progress_msg = f'📡 Training Sample {sample + 1}/{config["samples"]}'
-        print(progress_msg, end="\r")  # Live updating print
-
-        train(
-            model,
-            optimizer,
-            scheduler,
-            criterion_reg,
-            criterion_class,
-            multitaskloss_instance,
-            views_vol,
-            sample,
-            config,
-            device,
-        )
+        # Determine seq_len for this sample to set pbar total accurately
+        # We call get_train_tensors once just to get the shape
+        temp_tensor = get_train_tensors(views_vol, sample, config, device)
+        seq_len = temp_tensor.shape[1]
+        total_steps = config["batch_size"] * (seq_len - 1)
+        
+        with tqdm(
+            total=total_steps,
+            desc=f"📡 Training Sample {sample + 1}/{config['samples']}",
+            unit="month",
+            leave=True
+        ) as pbar:
+            train(
+                model,
+                optimizer,
+                scheduler,
+                criterion_reg,
+                criterion_class,
+                multitaskloss_instance,
+                views_vol,
+                sample,
+                config,
+                device,
+                pbar
+            )
 
     logger.info("✅ Training complete!")
 
@@ -175,18 +177,7 @@ def train_model_artifact(
     device: torch.device,
     views_vol: np.ndarray,
 ) -> None:
-    """Creates, trains, and saves a model artifact.
-
-    This function creates the model, criterion, optimizer, and scheduler. It then trains the model
-    using the provided training loop and saves the trained model with a timestamp and run type as an artifact
-    in the specified artifacts path.
-
-    Args:
-        model_path: The ModelPathManager instance for path resolution.
-        config: Configuration dictionary containing parameters and settings.
-        device: The device (torch.device) to run the model on (CPU or GPU).
-        views_vol: The array containing the input data for training.
-    """
+    """Creates, trains, and saves a model artifact."""
 
     # Create the model, criterion, optimizer and scheduler
     model, criterion, optimizer, scheduler = make(config, device)

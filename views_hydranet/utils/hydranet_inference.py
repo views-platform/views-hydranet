@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import torch
 from torch.nn import Module
+from tqdm import tqdm
 
 from views_hydranet.utils.utils import get_full_tensor
 
@@ -273,12 +274,12 @@ class HydraNetInference:
         )
         posterior_probabilities_zstack = np.zeros_like(posterior_magnitudes_zstack)
 
-        for sample_idx in range(self.config["test_samples"]):
-            if sample_idx % 10 == 0:
-                logger.info(
-                    f"Processing posterior sample {sample_idx + 1}/{self.config['test_samples']}"
-                )
-
+        for sample_idx in tqdm(
+            range(self.config["test_samples"]),
+            desc="Drawing Posterior Samples",
+            unit="sample",
+            leave=True,
+        ):
             pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(
                 full_tensor, sample_idx, is_evaluation=is_evaluation
             )
