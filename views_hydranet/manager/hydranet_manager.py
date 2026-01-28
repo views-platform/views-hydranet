@@ -44,7 +44,7 @@ class HydranetManager(ForecastingModelManager):
         self.set_dataframe_format(format=".parquet")  # Set the dataframe format to parquet
 
 
-    def _execute_model_evaluation(self, ensemble: bool = False) -> None:
+    def _execute_model_evaluation(self) -> None:
         """
         HydraNet specific evaluation override.
         1. Translates target names from ln_ (log) to lr_ (raw) to match our unlogged predictions.
@@ -98,7 +98,7 @@ class HydranetManager(ForecastingModelManager):
         utils_module.read_dataframe = augmented_read_dataframe
 
         try:
-            super()._execute_model_evaluation(ensemble=ensemble)
+            super()._execute_model_evaluation()
         finally:
             # D. Restore original state
             utils_module.read_dataframe = original_func
