@@ -1,4 +1,8 @@
-from views_pipeline_core.managers.model import ModelPathManager, ModelManager
+from views_pipeline_core.managers.model import (
+    ForecastingModelManager,
+    ModelManager,
+    ModelPathManager,
+)
 from views_pipeline_core.files.utils import (
     read_dataframe,
 )
@@ -28,7 +32,7 @@ from views_hydranet.utils.hydranet_inference import HydraNetInference
 logger = logging.getLogger(__name__)
 
 
-class HydranetManager(ModelManager):
+class HydranetManager(ForecastingModelManager):
 
     def __init__(
         self, model_path: ModelPathManager, wandb_notification: bool = True
