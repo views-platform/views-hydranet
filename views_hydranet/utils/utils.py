@@ -1,6 +1,8 @@
+import logging
 import sys
 from typing import Optional, Tuple
 
+logger = logging.getLogger(__name__)
 import numpy as np
 
 import torch
@@ -56,12 +58,32 @@ def choose_model(config, device):
         unet = HydraBNUNet06_LSTM4(config["input_channels"], config["total_hidden_channels"], config["output_channels"], config["dropout_rate"]).to(device)
 
     else:
-        print('no model...')
+        logger.error('no model...')
 
     return unet
 
 
 def choose_loss(config, device):
+    """Selects loss functions based on the provided configuration.
+
+    This function acts as a factory for creating loss function instances.
+    It selects a regression loss and a classification loss based on the `config`
+    dictionary.
+
+    Args:
+        config (dict): A dictionary containing loss function configuration, including:
+                       - "loss_reg" (str): The name of the regression loss ('a' for MSE, 'b' for Shrinkage).
+                       - "loss_class" (str): The name of the classification loss ('a' for BCE, 'b' for Focal).
+                       - Other keys required by the loss constructors (e.g., "loss_reg_a").
+        device (torch.device): The PyTorch device to which the loss functions should be moved.
+
+    Returns:
+        tuple: A tuple containing the regression criterion, the classification criterion,
+               and an instance of the MultiTaskLoss.
+
+    Raises:
+        SystemExit: If an unknown `loss_reg` or `loss_class` name is provided in the config.
+    """
     if config['loss_reg'] == 'a':
         criterion_reg = nn.MSELoss().to(device)
 
@@ -69,8 +91,9 @@ def choose_loss(config, device):
         criterion_reg = ShrinkageLoss(a=config['loss_reg_a'], c=config['loss_reg_c'], size_average = True).to(device)
 
     else:
-        print('Wrong reg loss...')
+        logger.error('Wrong reg loss...')
         sys.exit()
+        return
 
     if config['loss_class'] == 'a':
         criterion_class = nn.BCELoss().to(device)
@@ -79,10 +102,11 @@ def choose_loss(config, device):
         criterion_class =  FocalLoss(alpha = config['loss_class_alpha'], gamma=config['loss_class_gamma']).to(device) # THIS IS IN USE
 
     else:
-        print('Wrong class loss...')
+        logger.error('Wrong class loss...')
         sys.exit()
+        return
 
-    print(f'Regression loss: {criterion_reg}\n classification loss: {criterion_class}')
+    logger.info(f'Regression loss: {criterion_reg}\n classification loss: {criterion_class}')
 
     is_regression = torch.Tensor([True, True, True, False, False, False])   # for vea you can just have 1 extre False (classifcation) in the end for the kl... Or should it really be seen as a reg?
     multitaskloss_instance = MultiTaskLoss(is_regression, reduction = 'sum') # also try mean
@@ -91,6 +115,26 @@ def choose_loss(config, device):
 
 
 def choose_sheduler(config, unet):
+    """Selects and configures a learning rate scheduler and optimizer.
+
+    This function acts as a factory for creating a learning rate scheduler and its
+    associated optimizer based on the `config` dictionary. It supports several
+
+    scheduler types, including 'plateau', 'step', 'linear', 'CosineAnnealingLR',
+    'OneCycleLR', 'CyclicLR', and 'WarmupDecay'.
+
+    Args:
+        config (dict): A dictionary containing scheduler configuration, including:
+                       - "scheduler" (str): The name of the scheduler to use.
+                       - "learning_rate" (float): The initial learning rate for the optimizer.
+                       - Other keys required by the scheduler/optimizer constructors.
+        unet (torch.nn.Module): The model whose parameters the optimizer will manage.
+
+    Returns:
+        tuple: A tuple containing the configured optimizer and scheduler. If the
+               scheduler name in the config is not recognized, the scheduler
+               will be an empty list.
+    """
     if config['scheduler'] == 'plateau':
         optimizer = torch.optim.AdamW(unet.parameters(), lr=config['learning_rate'], betas = (0.9, 0.999))
         scheduler = ReduceLROnPlateau(optimizer)
@@ -156,6 +200,23 @@ def choose_sheduler(config, unet):
 
 
 def init_weights(m, config):
+    """Initializes the weights of convolutional and linear layers within a module.
+
+    This function applies a specified weight initialization method to `nn.Conv2d`
+    and `nn.Linear` layers within the given module `m`. The initialization method
+    is determined by the `config['weight_init']` parameter.
+
+    Supported initialization methods:
+    - 'xavier_uni': Xavier uniform initialization.
+    - 'xavier_norm': Xavier normal initialization.
+    - 'kaiming_uni': Kaiming uniform initialization (He initialization).
+    - 'kaiming_norm': Kaiming normal initialization (He initialization).
+
+    Args:
+        m (torch.nn.Module): The module or layer whose weights are to be initialized.
+        config (dict): A dictionary containing configuration, including:
+                       - "weight_init" (str): The name of the weight initialization method.
+    """
     if config['weight_init'] == 'xavier_uni':
         if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
             nn.init.xavier_uniform_(m.weight)
@@ -226,11 +287,22 @@ def norm_features(full_vol: np.ndarray, config: dict, a: int = 0, b: int = 1) ->
     return full_vol
 
 
-def get_data(config):
+def get_data(config) -> np.ndarray:
+    """Loads pre-processed data (Numpy volumes) based on the specified run_type.
 
-    """Return the data for either the calibration, the test run or an actual forecast.
-    The shape for the views_vol is (N, C, H, W, D) where D is features.
-    Right now the features are ln_best_sb, ln_best_ns, ln_best_os
+    This function constructs a file path using the `model_path.data_processed` attribute
+    and the `run_type` from the configuration. It then attempts to load a Numpy
+    volume from this path.
+
+    Args:
+        config (dict): A dictionary containing configuration parameters, including:
+                       - "run_type" (str): Specifies the type of data to load (e.g., "calibration", "testing", "forecasting").
+
+    Returns:
+        np.ndarray: The loaded 4D Numpy array (`views_vol`).
+
+    Raises:
+        SystemExit: If the specified data file is not found.
     """
 
     # Data
@@ -243,12 +315,13 @@ def get_data(config):
     try:
         file_name = f'/{run_type}_vol.npy' # NOT WINDOWS FRIENDLY
         # debug print
-        print(f'Loading {run_type} data from {file_name}...')
+        logger.info(f'Loading {run_type} data from {file_name}...')
         views_vol = np.load(str(PATH_PROCESSED) + file_name)
     
     except FileNotFoundError as e:
-        print(f'File not found: {e}. Run correct dataloader get_calibration_data.py, get_test_data.py or get_forecasting_data.py. Now exiting...')
+        logger.error(f'File not found: {e}. Run correct dataloader get_calibration_data.py, get_test_data.py or get_forecasting_data.py. Now exiting...')
         sys.exit()
+        return
 
     return(views_vol)
 
@@ -381,13 +454,32 @@ def my_decay(sample, samples, min_events, max_events, slope_ratio, roof_ratio):
     return(int(y))
 
 
-def get_window_index(views_vol: np.ndarray, config: dict, sample: int) -> dict: 
+def get_window_index(views_vol: np.ndarray, config: dict, sample: int) -> dict:
+    """Samples a spatial cell (row and column index) from the input `views_vol`.
 
-    """Draw/sample a cell which serves as the ancor for the sampeled window/patch drawn from the traning tensor.
-    The dimensions of the windows are HxWxD, 
-    where H=D in {16,32,64} and D is the number of months in the training data.
-    The windows are constrained to be sampled from an area with some
-    minimum number of log_best events (min_events)."""
+    This function determines a cell within the `views_vol` that meets a minimum event
+    threshold, adjusted by `my_decay`. This cell then serves as an anchor for
+    drawing a window/patch from the training data. The selection of the feature
+    to evaluate is based on `sample % n_fatcats`.
+
+    Args:
+        views_vol (np.ndarray): A 4D numpy array with shape [n_months, height, width, n_features].
+        config (dict): A dictionary containing configuration parameters, including:
+                       - "first_feature_idx" (int): The starting index of the features to consider.
+                       - "input_channels" (int): The number of input channels (features).
+                       - "min_events" (int): The base minimum number of events required for a cell.
+                       - "samples" (int): Total number of samples, used by `my_decay`.
+                       - "slope_ratio" (float): Slope ratio for `my_decay`.
+                       - "roof_ratio" (float): Roof ratio for `my_decay`.
+        sample (int): The current sample number, used to determine the feature and influence `my_decay`.
+
+    Returns:
+        dict: A dictionary containing 'row_indx' and 'col_indx' of the sampled cell.
+
+    .. warning::
+        - The selection of the cell index involves `np.random.choice`, making the
+          output non-deterministic unless `np.random.seed()` is controlled externally.
+    """
 
 
     # BY NOW THIS IS PRETTY HACKY... SHOULD BE MADE MORE ELEGANT AT SOME POINT..
@@ -430,9 +522,29 @@ def get_window_index(views_vol: np.ndarray, config: dict, sample: int) -> dict:
 
 
 def get_window_coords(window_index: dict, config: dict) -> dict:
-    """Return the coordinates of the window around the sampled index. 
-    This implementaions ensures that the window does never go out of bounds.
-    (Thus no need for sampling until a window is found that does not go out of bounds)."""
+    """Determines the spatial boundaries (coordinates) for a data window.
+
+    Given a `window_index` (row and column of the anchor point) and a `window_dim`,
+    this function calculates the `min_row_indx`, `max_row_indx`, `min_col_indx`,
+    and `max_col_indx` of the data window. It uses `np.clip` to ensure that
+    the calculated window coordinates do not extend beyond the `180x180` spatial
+    dimensions, thus preventing out-of-bounds errors.
+
+    Args:
+        window_index (dict): A dictionary containing the anchor point of the window
+                             with keys 'row_indx' and 'col_indx'.
+        config (dict): A dictionary containing configuration parameters, including:
+                       - "window_dim" (int): The dimension (side length) of the square window.
+
+    Returns:
+        dict: A dictionary containing the calculated window coordinates:
+              'min_row_indx', 'max_row_indx', 'min_col_indx', 'max_col_indx', and 'dim'.
+
+    .. warning::
+        - The internal use of `np.random.randint` means that the exact placement
+          of the window around the `window_index` is non-deterministic unless
+          `np.random.seed()` is controlled externally.
+    """
 
     # you can change this back to random if you want
     window_dim = config["window_dim"]
@@ -569,33 +681,33 @@ def get_full_tensor(views_vol: np.ndarray, config: Optional[dict] = None) -> Tup
     """
     Converts the input 4D volume array into PyTorch tensors for model input, separating feature and metadata tensors.
 
-    This function transforms the input `views_vol`, which is a 4D numpy array, into two PyTorch tensors: 
-    `full_tensor` and `metadata_tensor`. The `full_tensor` is used for model input and contains the features 
-    specified for out-of-sample predictions. The `metadata_tensor` retains other columns not used as features 
+    This function transforms the input `views_vol`, which is a 4D numpy array, into two PyTorch tensors:
+    `full_tensor` and `metadata_tensor`. The `full_tensor` is used for model input and contains the features
+    specified for out-of-sample predictions. The `metadata_tensor` retains other columns not used as features
     and is kept for metadata purposes.
 
     Args:
-        views_vol (np.ndarray): A 4D numpy array with shape [n_months, height, width, n_features]. This volume 
+        views_vol (np.ndarray): A 4D numpy array with shape [n_months, height, width, n_features]. This volume
                                 contains spatial-temporal data with both features and metadata.
         config (Optional[dict]): A dictionary containing model configuration, particularly "input_channels".
                                  If `None`, "input_channels" defaults to 3 (hardcoded for testing purposes).
 
     Returns:
-        Tuple[torch.Tensor, torch.Tensor]: 
-            - `full_tensor` (torch.Tensor): A tensor with the selected features, of shape 
-              [1, n_months, selected_features, height, width]. This tensor is used for out-of-sample 
+        Tuple[torch.Tensor, torch.Tensor]:
+            - `full_tensor` (torch.Tensor): A tensor with the selected features, of shape
+              [1, n_months, selected_features, height, width]. This tensor is used for out-of-sample
               predictions for both evaluation and forecasting.
-            - `metadata_tensor` (torch.Tensor): A tensor with the metadata, of shape 
-              [1, n_months, metadata_features, height, width]. This tensor contains the remaining columns 
+            - `metadata_tensor` (torch.Tensor): A tensor with the metadata, of shape
+              [1, n_months, metadata_features, height, width]. This tensor contains the remaining columns
               of the original volume not used in `full_tensor`.
 
     Raises:
         ValueError: If the input `views_vol` does not have 4 dimensions.
 
     .. warning::
-        - The `ln_best_sb_idx` (start index for main features) is currently hardcoded to `5`. This assumes 
+        - The `ln_best_sb_idx` (start index for main features) is currently hardcoded to `5`. This assumes
           a fixed order and number of initial metadata features in `views_vol`.
-        - When `config` is `None`, `input_channels` defaults to `3`. This behavior is hardcoded for 
+        - When `config` is `None`, `input_channels` defaults to `3`. This behavior is hardcoded for
           testing purposes and might not reflect production configuration.
         - The `print` statements to stdout are side effects.
 
@@ -605,36 +717,79 @@ def get_full_tensor(views_vol: np.ndarray, config: Optional[dict] = None) -> Tup
         >>> config_with_channels = {"input_channels": 3}
         >>> full_tensor, metadata_tensor = get_full_tensor(views_vol, config_with_channels)
         >>> print(full_tensor.shape)
-        torch.Size([1, 36, 3, 180, 180]) 
+        torch.Size([1, 36, 3, 180, 180])
         >>> print(metadata_tensor.shape)
         torch.Size([1, 36, 5, 180, 180])
         >>> # Example with config=None
         >>> full_tensor_none_config, metadata_tensor_none_config = get_full_tensor(views_vol, config=None)
         >>> print(full_tensor_none_config.shape)
-        torch.Size([1, 36, 3, 180, 180]) 
+        torch.Size([1, 36, 3, 180, 180])
         >>> print(metadata_tensor_none_config.shape)
         torch.Size([1, 36, 5, 180, 180])
     """
 
-    ln_best_sb_idx = 5#config.first_feature_idx # 5 = ln_best_sb
+    # ln_best_sb_idx represents the starting index for the main features that will be used as input
+    # for the model. Features before this index are considered metadata.
+    # It is currently hardcoded to 5, meaning the first 5 features (indices 0-4) are treated as metadata.
+    ln_best_sb_idx = 5 # config.first_feature_idx is commented out for now.
 
     if config is not None:
+        # If a config is provided, use its 'input_channels' to determine the end of the feature slice.
         last_feature_idx = ln_best_sb_idx + config["input_channels"]
-
+        logger.info(f"Config provided. input_channels: {config['input_channels']}. "
+                   f"Features selected from index {ln_best_sb_idx} to {last_feature_idx-1}.")
     else:
+        # If no config is provided (e.g., in some testing scenarios), hardcode input_channels to 3.
+        # This assumes 3 input channels are expected if not specified.
         last_feature_idx = ln_best_sb_idx + 3 # hard coded, but just for testing when no config is passed
+        logger.info(f"No config provided. Defaulting to 3 input_channels. "
+                   f"Features selected from index {ln_best_sb_idx} to {last_feature_idx-1}.")
 
-    print(f'views_vol shape {views_vol.shape}')
+    # Log the shape of the input volume for debugging and verification
+    logger.debug(f'Input views_vol shape: {views_vol.shape}')
 
-    # THIS IS WHERE YOU LOOSE THE OTHE FEATURES!!!!
-    full_tensor = torch.tensor(views_vol).float().unsqueeze(dim=0).permute(0,1,4,2,3)[:, :, ln_best_sb_idx:last_feature_idx, :, :] 
+    # Create the full_tensor:
+    # - Convert numpy array to torch.tensor
+    # - Convert to float type
+    # - Add a batch dimension at dim 0 (unsqueeze(dim=0))
+    # - Permute dimensions from (N_months, H, W, N_features) to (Batch, N_months, N_features, H, W)
+    #   The permute is to change from (Batch, Months, Height, Width, Features) to (Batch, Months, Features, Height, Width)
+    # - Slice to select only the main input features from ln_best_sb_idx to last_feature_idx
+    full_tensor = torch.tensor(views_vol).float().unsqueeze(dim=0).permute(0,1,4,2,3)[:, :, ln_best_sb_idx:last_feature_idx, :, :]
 
-    # Make a metadata tensor with evrything else
+    # Create a metadata_tensor:
+    # - Follows the same initial conversion and permutation steps as full_tensor
+    # - Slices to select features from the beginning up to ln_best_sb_idx (exclusive), which are the metadata features.
     metadata_tensor = torch.tensor(views_vol).float().unsqueeze(dim=0).permute(0,1,4,2,3)[:, :, :ln_best_sb_idx, :, :]
 
-    print(f'full_tensor shape {full_tensor.shape}')
+    # Log the shapes of the output tensors for debugging and verification
+    logger.info(f'Output full_tensor shape (main model input): {full_tensor.shape}')
+    logger.info(f'Output metadata_tensor shape (additional info): {metadata_tensor.shape}')
 
     return full_tensor, metadata_tensor
+
+
+# Old implementation of get_full_tensor for reference.
+# This version only returned a single tensor and did not separate metadata.
+#
+# def get_full_tensor(views_vol, config, device):
+#
+#     """
+#     Uses to get the features for the full tensor
+#     Used for out-of-sample predictions for both evaluation and forecasting, depending on the run_type (partition).
+#     The test tensor is of size 1 x config.time_steps x config.input_channels x 180 x 180.
+#     """
+#
+#     ln_best_sb_idx = config.first_feature_idx # 5 = ln_best_sb
+#     last_feature_idx = ln_best_sb_idx + config.input_channels
+#
+#     print(f'views_vol shape {views_vol.shape}')  # (months, 180, 180, 8)
+#
+#     full_tensor = torch.tensor(views_vol).float().unsqueeze(dim=0).permute(0,1,4,2,3)[:, :, ln_best_sb_idx:last_feature_idx, :, :]
+#
+#     print(f'full_tensor shape {full_tensor.shape}') # (1, months, 3, 180, 180)
+#
+#     return full_tensor
 
 
 
@@ -719,7 +874,7 @@ def execute_freeze_h_option(config, model, t0, h_tt):
         h_tt = torch.cat([pair[0] if torch.rand(1) < 0.5 else pair[1] for pair in pairs], dim=1) # concatenate the frozen and new hidden states. Randomly pick between the frozen and new hidden states for each pair.
 
     else:
-        print('Wrong freez option...')
+        logger.error('Wrong freeze option...')
         sys.exit()
 
     return t1_pred, t1_pred_class, h_tt
