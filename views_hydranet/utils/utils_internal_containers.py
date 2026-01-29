@@ -50,7 +50,7 @@ class ModelOutputs:
             dict: A dictionary where each key is a step label (e.g., 'step01', 'step02', ...) and each value is an instance of ModelOutputs.
 
         Example:
-            >>> from utils_model_outputs import ModelOutputs
+            >>> from utils_internal_containers import ModelOutputs
             >>> output_dict = ModelOutputs.make_output_dict(steps=36)
             >>> output_dict['step01'].y_score = [0.1, 0.2, 0.3]
             >>> output_dict['step01'].y_true = [1, 0, 1]
@@ -85,7 +85,7 @@ class ModelOutputs:
                           from list-like columns to provide a flattened view.
 
         Example:
-            >>> from utils_model_outputs import ModelOutputs
+            >>> from utils_internal_containers import ModelOutputs
             >>> dict_of_outputs = {
             ...     "step01": ModelOutputs(y_score=[0.1, 0.2], y_true=[1, 0]),
             ...     "step02": ModelOutputs(y_score=[0.3, 0.4], y_true=[0, 1])

@@ -3,7 +3,7 @@ import numpy as np
 import os
 import psutil
 import time
-from views_hydranet.utils.utils_hydranet_outputs import zstack_to_contract_df
+from views_hydranet.utils.utils_contract_converters import zstack_to_contract_df
 
 def get_process_memory():
     process = psutil.Process(os.getpid())

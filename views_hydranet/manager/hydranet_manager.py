@@ -30,7 +30,7 @@ from views_pipeline_core.configs.pipeline import PipelineConfig
 from views_hydranet.utils.utils_device import setup_device
 from views_hydranet.train.train_model import make, training_loop, train_model_artifact
 from views_hydranet.utils.utils_df_to_vol_conversion import create_or_load_views_vol
-from views_hydranet.utils.utils_hydranet_outputs import (
+from views_hydranet.utils.utils_contract_converters import (
     zstack_to_contract_df, 
     validate_contract_dataframes
 )

@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 from views_pipeline_core.managers.model import ModelPathManager
 
-from views_hydranet.utils.utils_hydranet_outputs import (
+from views_hydranet.utils.utils_contract_converters import (
     predictions_to_contract_df,
 )
 from views_hydranet.utils.utils_prediction import sample_posterior

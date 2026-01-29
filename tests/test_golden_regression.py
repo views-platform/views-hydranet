@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import pytest
-from views_hydranet.utils.utils_hydranet_outputs import zstack_to_contract_df
+from views_hydranet.utils.utils_contract_converters import zstack_to_contract_df
 from views_evaluation.evaluation.evaluation_manager import EvaluationManager
 
 def test_golden_metric_regression():

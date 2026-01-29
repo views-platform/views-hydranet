@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
-from views_hydranet.utils.utils_hydranet_outputs import (
+from views_hydranet.utils.utils_contract_converters import (
     predictions_to_contract_df,
     zstack_to_contract_df
 )
@@ -195,7 +195,7 @@ def test_contract_roundtrip_is_lossless():
     Original Tensor -> Contract DataFrame -> Reconstructed Tensor
     Check for identical recovery.
     """
-    from views_hydranet.utils.utils_hydranet_outputs import contract_df_to_zstack
+    from views_hydranet.utils.utils_contract_converters import contract_df_to_zstack
     
     steps, samples, H, W = 2, 3, 5, 5
     # Use non-negative random logs (Hydranet convention)

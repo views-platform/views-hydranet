@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from views_hydranet.utils.utils_model_outputs import ModelOutputs
+from views_hydranet.utils.utils_internal_containers import ModelOutputs
 
 logger = logging.getLogger(__name__)
 

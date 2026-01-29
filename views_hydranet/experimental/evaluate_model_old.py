@@ -16,10 +16,10 @@ import wandb
 
 from views_hydranet.utils.utils_prediction import sample_posterior
 from views_hydranet.utils.utils_wandb import generate_wandb_log_dict, generate_wandb_mean_metrics_log_dict
-from views_hydranet.utils.utils_hydranet_outputs import save_model_outputs
+from views_hydranet.utils.utils_contract_converters import save_model_outputs
 
 from views_pipeline_core.managers.model import ModelPathManager
-from views_hydranet.utils.utils_model_outputs import ModelOutputs
+from views_hydranet.utils.utils_internal_containers import ModelOutputs
 #from views_pipeline_core.evaluation.metrics import EvaluationMetrics
 from views_hydranet.deprecated.metrics import EvaluationMetrics
 from views_pipeline_core.managers.model import ModelPathManager

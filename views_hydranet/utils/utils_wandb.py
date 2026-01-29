@@ -5,7 +5,7 @@ import wandb
 import sys
 
 #from views_pipeline_core.managers.model import ModelPathManager
-from views_hydranet.utils.utils_hydranet_outputs import evaluation_to_df
+from views_hydranet.utils.utils_contract_converters import evaluation_to_df
 
 # there are things in other utils that should be here...
 

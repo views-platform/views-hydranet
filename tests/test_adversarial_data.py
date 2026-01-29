@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from views_hydranet.utils.utils_hydranet_outputs import validate_contract_dataframes
+from views_hydranet.utils.utils_contract_converters import validate_contract_dataframes
 
 def test_validate_contract_dataframes_happy_path():
     """Valid data should pass."""
