@@ -60,6 +60,29 @@ class HydranetManager(ForecastingModelManager):
         super().__init__(model_path, wandb_notification)
         self.device = setup_device()
         self.set_dataframe_format(format=".parquet")
+        
+        # --- CONFIG SELF-HEALING ---
+        # We validate the raw dictionary against our Pydantic model.
+        # This calculates derived fields (like time_steps) and ensures 
+        # legacy code still finds them in the config dictionary.
+        from views_hydranet.utils.utils_config import HydraNetConfig
+        
+        # We check if self.configs is accessible (Core might not be ready in tests)
+        if hasattr(self, "_config_manager"):
+            try:
+                # 1. Parse and Validate
+                validated_config = HydraNetConfig(**self.configs)
+                
+                # 2. Re-populate derived/calculated values back into the raw dictionary
+                self.configs["time_steps"] = validated_config.time_steps
+                
+                if "first_feature_idx" not in self.configs:
+                    self.configs["first_feature_idx"] = 5
+                    
+                logger.info(f"Config healed: time_steps set to {validated_config.time_steps}")
+            except Exception as e:
+                logger.warning(f"Config healing skipped or failed: {e}")
+        # ---------------------------
 
     def _translate_targets(self, targets: List[str]) -> List[str]:
         """
