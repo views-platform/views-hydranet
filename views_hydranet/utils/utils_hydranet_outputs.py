@@ -37,59 +37,61 @@ def predictions_to_contract_df(
                             Each DF has MultiIndex (month_id, priogrid_gid)
                             and column f"pred_lr_{target}".
     """
-
-    # We assume batch size 1 for metadata extraction as per Hydranet convention
-    # forecast_storage_vol shape: [1, steps, 8, 180, 180]
-    steps = forecast_storage_vol.shape[1]
-    
-    # Extract IDs and flatten
-    pg_ids = forecast_storage_vol[0, :, 0, :, :].reshape(steps, -1)
-    month_ids = forecast_storage_vol[0, :, 3, :, :].reshape(steps, -1)
-    c_ids = forecast_storage_vol[0, :, 4, :, :].reshape(steps, -1)
-
-    # Filter out ocean cells (pg_id == 0)
-    # We create a mask for valid land cells across all steps
-    mask = pg_ids > 0
-    
+    # 1. Standardize Input
     # posterior_list is List of [steps, features, H, W]
-    # We need to stack samples to get [samples, steps, features, H, W]
-    all_samples = np.stack(posterior_list)  # [S, T, F, H, W]
+    all_samples = np.stack(posterior_list)  # [samples, steps, features, H, W]
+    steps = all_samples.shape[1]
+    num_samples = all_samples.shape[0]
     
-    # Mapping target string to index
+    # 2. Channel Mapping
     target_map = {"sb": 0, "ns": 1, "os": 2}
-    t_idx = target_map.get(target, 0)
+    internal_key = "sb"
+    for k in target_map.keys():
+        if k in target:
+            internal_key = k
+            break
+    t_idx = target_map[internal_key]
     
-    # Extract target feature samples: [S, T, H, W]
+    # 3. Target Naming (Explicit Raw Scale)
+    if target.startswith("ln_"):
+        out_target = target.replace("ln_", "lr_")
+    elif not target.startswith("lr_"):
+        out_target = f"lr_{target}"
+    else:
+        out_target = target
+    out_col = f"pred_{out_target}"
+
+    # 4. Extract and Unlog
+    # [samples, steps, H, W]
     target_samples = all_samples[:, :, t_idx, :, :]
+    target_samples = np.expm1(target_samples)
     
-    # Re-scale/Inverse transform: exp(x) - 1 for 'ln_' prefixed models
-    # Hydranet targets are usually log-transformed.
-    # The contract requires RAW COUNTS.
-    target_samples = np.exp(target_samples) - 1
+    # 5. Extract Metadata IDs
+    # forecast_storage_vol shape: [batch, steps, channels, H, W]
+    pg_ids = forecast_storage_vol[0, :, 0, :, :]
+    month_ids = forecast_storage_vol[0, :, 3, :, :]
     
-    # Now we build the DataFrame for this sequence
-    # Since we are usually dealing with one predictive run at a time in this module,
-    # the list will contain one DataFrame.
+    # 6. Vectorized Masking
+    mask = pg_ids > 0
+    land_pg_ids = pg_ids[mask].astype(int)
+    land_month_ids = month_ids[mask].astype(int)
     
-    rows = []
-    # This is slightly inefficient but clear. For 180x180 it's fine.
-    # We iterate over steps and land-cells.
-    for t in range(steps):
-        valid_pg = pg_ids[t][mask[t]]
-        valid_months = month_ids[t][mask[t]]
-        # target_samples[:, t, :, :] is [S, H, W] -> flatten to [S, H*W] -> filter land: [S, Valid]
-        valid_samples = target_samples[:, t, :, :].reshape(len(posterior_list), -1)[:, mask[t]]
-        
-        for i in range(len(valid_pg)):
-            rows.append({
-                "month_id": int(valid_months[i]),
-                "priogrid_gid": int(valid_pg[i]),
-                f"pred_lr_{target}": valid_samples[:, i].tolist()
-            })
-            
-    df = pd.DataFrame(rows)
+    # target_samples is [S, T, H, W] -> transpose to [T, H, W, S]
+    # This allows masking along the spatial dimensions while keeping samples grouped
+    land_mags = target_samples.transpose(1, 2, 3, 0)[mask]
+    
+    # 7. List Conversion (One-shot)
+    logger.info(f"Vectorized conversion: processing {land_mags.shape[0]} rows...")
+    land_samples_list = land_mags.tolist()
+    
+    # 8. Construct DF
+    df = pd.DataFrame({
+        "month_id": land_month_ids,
+        "priogrid_gid": land_pg_ids,
+        out_col: land_samples_list
+    })
+    
     df = df.set_index(["month_id", "priogrid_gid"])
-    
     return [df]
 
 def zstack_to_contract_df(
