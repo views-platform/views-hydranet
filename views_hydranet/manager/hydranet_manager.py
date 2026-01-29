@@ -186,14 +186,19 @@ class HydranetManager(ForecastingModelManager):
         Orchestrates rolling-origin evaluation.
 
         This method produces the 'Predictive Parallelogram' by looping through 12 
-        origin windows and extracting contract-compliant DataFrames.
+        origin windows. 
+
+        TRANSITION NOTE: While HydraNet is multitask, the current evaluation 
+        library expects one DataFrame per sequence containing ONLY the target 
+        column being evaluated. This method filters the multitask output to 
+        satisfy that contract.
 
         Args:
             eval_type: Pipeline evaluation strategy.
             artifact_name: Artifact to evaluate.
 
         Returns:
-            List of DataFrames satisfying the Producer Contract.
+            List of DataFrames (Length = Num Origins).
         """
         run_type = self.config["run_type"]
         vol_full = create_or_load_views_vol(
@@ -222,14 +227,33 @@ class HydranetManager(ForecastingModelManager):
                     vol_slice, is_evaluation=True, window_info=f"Origin {i+1}/{len(origins)}"
                 )
 
-                # Generate contract DFs for all configured targets
-                for target in self.configs.get("targets", []):
-                    df_list = zstack_to_contract_df(
+                # MULTITASK TRANSITION LOGIC:
+                # We filter the targets based on 'target_variable' if provided.
+                # This ensures we only send the requested data to the single-task evaluator.
+                requested_targets = self.configs.get("targets", [])
+                run_intent = self.config.get("target_variable")
+                
+                if run_intent:
+                    # Filter: Only process targets that match the user's run intent
+                    # e.g. if run_intent is 'sb', we only process 'lr_sb_best'
+                    requested_targets = [t for t in requested_targets if run_intent in t]
+                    logger.debug(f"Filtering targets based on run intent '{run_intent}': {requested_targets}")
+
+                df_origin = None
+                for target in requested_targets:
+                    df_target_list = zstack_to_contract_df(
                         posterior_zstack=posterior_zstack,
                         meta_zstack=meta_zstack,
                         target=target
                     )
-                    list_df_predictions.extend(df_list)
+                    df_target = df_target_list[0]
+                    if df_origin is None:
+                        df_origin = df_target
+                    else:
+                        df_origin = pd.concat([df_origin, df_target], axis=1)
+                
+                if df_origin is not None:
+                    list_df_predictions.append(df_origin)
 
                 # Persist stochastic zstack for forensic audit
                 zstack_path = (
@@ -263,13 +287,25 @@ class HydranetManager(ForecastingModelManager):
         )
 
         list_df_predictions = []
-        for target in self.configs.get("targets", []):
-            df_list = zstack_to_contract_df(
+        df_full_forecast = None
+        
+        requested_targets = self.configs.get("targets", [])
+        run_intent = self.config.get("target_variable")
+        if run_intent:
+            requested_targets = [t for t in requested_targets if run_intent in t]
+            logger.info(f"Forecasting filtered targets based on run intent '{run_intent}': {requested_targets}")
+
+        for target in requested_targets:
+            df_target_list = zstack_to_contract_df(
                 posterior_zstack=posterior_zstack,
                 meta_zstack=meta_zstack,
                 target=target
             )
-            list_df_predictions.extend(df_list)
+            df_target = df_target_list[0]
+            if df_full_forecast is None:
+                df_full_forecast = df_target
+            else:
+                df_full_forecast = pd.concat([df_full_forecast, df_target], axis=1)
         
         validate_contract_dataframes(list_df_predictions)
         return list_df_predictions
