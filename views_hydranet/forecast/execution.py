@@ -11,7 +11,6 @@ from views_pipeline_core.managers.model import ModelPathManager
 
 from views_hydranet.utils.utils_hydranet_outputs import (
     predictions_to_contract_df,
-    save_model_outputs,
 )
 from views_hydranet.utils.utils_prediction import sample_posterior
 from views_hydranet.utils.utils_true_forecasting import make_forecast_storage_vol
