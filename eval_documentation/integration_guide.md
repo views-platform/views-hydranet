@@ -26,15 +26,14 @@ The `EvaluationManager` expects two main inputs: a single DataFrame for the grou
 This is a single `pandas` DataFrame containing the observed, true values for your target variable.
 
 -   **Index:** Must be a `pandas.MultiIndex` with two levels:
-    1.  `month_id` (integer, e.g., `500`)
-    2.  `location_id` (integer, e.g., `country_id` or `priogrid_gid`)
+    1.  **month_id** (e.g., `500`)
+    2.  **priogrid_gid** (or `location_id`)
 -   **Columns:** Must contain a column with the **exact name of the target variable**.
-    -   **Important:** The name should reflect any transformations. For example, if your model predicts log-transformed values, the target name should be `ln_ged_sb_best`. The `transform_data` method uses these prefixes to correctly handle the data:
-        -   `ln_`: Reverses a log transformation (`np.exp(x) - 1`).
-        -   `lr_`: Assumes a raw value with no transformation. Use this if your data is not transformed.
-        -   `lx_`: Reverses a custom log transformation.
+-   **Scale Invariant (CRITICAL):** To ensure bit-identical evaluation and prevent pipeline crashes, HydraNet uses the **Raw Count Scale** (`lr_` prefix) for both actuals and predictions.
+    -   `lr_`: Represents raw conflict counts. Use this for both Ground Truth and Prediction columns.
+    -   **Transformation Note:** While the model trains on scaled data (log1p/asinh), the output converter automatically reverses this scaling before handoff. 
 
-**Example `actuals` DataFrame:**
+**Example `actuals` DataFrame (Raw Scale):**
 
 ```python
 import pandas as pd
@@ -42,38 +41,26 @@ import numpy as np
 
 # Define the index
 actuals_index = pd.MultiIndex.from_tuples(
-    [
-        (500, 101), (500, 102),
-        (501, 101), (501, 102),
-    ],
-    names=['month_id', 'country_id']
+    [(500, 1), (500, 2), (501, 1), (501, 2)],
+    names=['month_id', 'priogrid_gid']
 )
 
-# Create the DataFrame
+# Create the DataFrame (Raw counts)
 actuals = pd.DataFrame(
-    {'lr_ged_sb_best': [10, 0, 12, 1]},
+    {'lr_sb_best': [10.0, 0.0, 12.0, 1.0]},
     index=actuals_index
 )
-
-print(actuals)
-#                      lr_ged_sb_best
-# month_id country_id
-# 500      101                      10
-#          102                       0
-# 501      101                      12
-#          102                       1
 ```
 
 ### 2.2. The Predictions DataFrames (`predictions`)
 
-This must be a **Python `list`** where each element is a `pandas` DataFrame. Each DataFrame in the list represents a single forecast sequence from a rolling-origin evaluation.
+-   **Index:** Same `MultiIndex` as `actuals`.
+-   **Columns:** Exactly one column named `f"pred_{target_name}"`. 
+    -   Example: `pred_lr_sb_best`
+-   **Values:** A **list of floats** (posterior samples).
+    -   Uncertainty Evaluation: `[8.1, 9.5, 10.5]` (multiple samples).
+    -   The scale MUST be the same as `actuals` (Raw Counts).
 
--   **Index:** Must be the same `MultiIndex` format as `actuals`.
--   **Columns:** Each DataFrame must contain exactly one column.
-    -   The column name **must** be `f"pred_{target_name}"`. For the example above, this would be `pred_lr_ged_sb_best`.
--   **Values (Crucial for Evaluation Type):** The data type of the values in the prediction column determines whether a point or uncertainty evaluation is performed.
-    -   **Point Evaluation:** Each value must be a list or `np.ndarray` containing a **single** float (e.g., `[10.5]`).
-    -   **Uncertainty Evaluation:** Each value must be a list or `np.ndarray` containing **multiple** floats that represent the predictive distribution (e.g., `[8.1, 9.5, 10.5, 11.2]`).
 
 **Example `predictions` List (for a Point Evaluation):**
 

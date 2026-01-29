@@ -15,9 +15,12 @@ To provide a bit-identical, lossless bridge between the spatiotemporal tensors p
 | `pred_lr_<target>` | `list[float]` | A Python list containing N stochastic samples. |
 
 ### 2.2. Scaling Invariants (Numerical Scale)
-*   **Log-Space Exclusion:** All predictions MUST be inverse-transformed back to **Raw Count Scale** before being placed in the DataFrame.
-*   **Formula:** `raw = exp(log_magnitude) - 1`.
-*   **Prefix Requirement:** The column name MUST be prefixed with `pred_lr_` to explicitly signal "Linear/Raw" scale to the consumer.
+*   **Raw Scale Handoff:** All predictions MUST be inverse-transformed back to **Raw Count Scale** before being placed in the DataFrame.
+*   **Dynamic Symmetry:** The inverse transformation MUST be the symmetric partner of the model's training transform (as defined in the `TRANSFORMS` registry). 
+    *   Example (log1p): `raw = exp(val) - 1`
+    *   Example (asinh): `raw = sinh(val)`
+*   **Prefix Requirement:** The column name MUST be prefixed with `pred_lr_` to explicitly signal "Linear/Raw" scale to the consumer (the Evaluation Library).
+
 
 ### 2.3. Spatial Invariants (Land-Only)
 *   **Ocean Masking:** Any cell with `priogrid_gid == 0` MUST be excluded from the DataFrame.
