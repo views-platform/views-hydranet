@@ -136,6 +136,59 @@ def test_zstack_to_contract_df_inverse_transform():
     val = df.iloc[0]["pred_lr_ns"][0]
     assert pytest.approx(val) == 50.0
 
+def test_zstack_to_contract_df_binarized():
+    """
+    Verify that binarized targets are derived correctly from the correct magnitude channel.
+    Values should be exactly 0.0 or 1.0.
+    """
+    steps, samples, H, W = 1, 5, 2, 2
+    # Create zstack where channel 0 (sb) has some >0 and some <=0 values
+    posterior_zstack = np.zeros((steps, H, W, 3, samples))
+    # ln(1+1) -> 0.693 (Raw 1.0 -> Binary 1.0)
+    posterior_zstack[0, 0, 0, 0, :] = 0.693
+    # ln(0+1) -> 0.0 (Raw 0.0 -> Binary 0.0)
+    posterior_zstack[0, 0, 1, 0, :] = 0.0
+    
+    meta_zstack = get_mock_zstack_metadata(steps, H, W)
+    
+    # Request binarized SB
+    results = zstack_to_contract_df(posterior_zstack, meta_zstack, "sb_best_binarized")
+    df = results[0]
+    
+    col = "pred_lr_sb_best_binarized"
+    assert col in df.columns
+    
+    # Check land cell (0,0) -> should be [1.0, 1.0, ...]
+    val_high = df.xs(1, level="priogrid_gid").iloc[0][col]
+    assert all(v == 1.0 for v in val_high)
+    
+    # Check land cell (0,1) -> should be [0.0, 0.0, ...]
+    val_low = df.xs(2, level="priogrid_gid").iloc[0][col]
+    assert all(v == 0.0 for v in val_low)
+
+def test_channel_mapping_integrity():
+    """
+    Verify that requesting ns pulls from channel 1 and os from channel 2.
+    """
+    steps, samples, H, W = 1, 1, 2, 2
+    posterior_zstack = np.zeros((steps, H, W, 3, samples))
+    posterior_zstack[:, :, :, 0, :] = 10.0 # sb
+    posterior_zstack[:, :, :, 1, :] = 20.0 # ns
+    posterior_zstack[:, :, :, 2, :] = 30.0 # os
+    
+    meta_zstack = get_mock_zstack_metadata(steps, H, W)
+    
+    # Request NS
+    res_ns = zstack_to_contract_df(posterior_zstack, meta_zstack, "ns")[0]
+    # exp(20) - 1
+    assert pytest.approx(res_ns.iloc[0]["pred_lr_ns"][0]) == np.expm1(20.0)
+    
+    # Request OS
+    res_os = zstack_to_contract_df(posterior_zstack, meta_zstack, "os")[0]
+    # exp(30) - 1
+    assert pytest.approx(res_os.iloc[0]["pred_lr_os"][0]) == np.expm1(30.0)
+
+
 def test_contract_roundtrip_is_lossless():
     """
     NON-NEGOTIABLE PROOF: 
