@@ -5,14 +5,40 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class FocalLoss(nn.Module):
+    """
+    Focal Loss for addressing extreme class imbalance in binary classification.
+
+    This implementation reduces the relative loss for well-classified examples, 
+    putting more focus on hard, misclassified examples. It reduces to 
+    Binary Cross Entropy (BCE) when gamma=0 and alpha=0.5.
+
+    Paper: https://arxiv.org/abs/1708.02002
+
+    Args:
+        alpha (float): Balancing parameter for the rare class. Default: 0.25.
+        gamma (float): Focusing parameter. Higher values reduce focus on 
+                       easy examples. Default: 2.0.
+        reduction (str): 'mean', 'sum', or 'none'. Default: 'mean'.
+    """
     def __init__(self, alpha=0.25, gamma=2.0, reduction='mean'):
         super(FocalLoss, self).__init__()
-        self.alpha = alpha  # Focal loss balancing parameter
-        self.gamma = gamma  # Focal loss focusing parameter
-        self.reduction = reduction  # Loss reduction method
+        self.alpha = alpha  
+        self.gamma = gamma  
+        self.reduction = reduction  
 
     def forward(self, logits, targets):
+        """
+        Calculates the focal loss.
 
+        Args:
+            logits (torch.Tensor): Predicted unnormalized logits.
+            targets (torch.Tensor): Ground truth binary targets (0 or 1).
+
+        Returns:
+            torch.Tensor: Scalar loss if reduction is 'mean' or 'sum', 
+                          otherwise a tensor of shape [1, *logits.shape].
+        """
+        # Internal unsqueeze matches expected pipeline volume format
         logits, targets = logits.unsqueeze(0), targets.unsqueeze(0)
 
         # since you are not taking log(p) anywhere, you don't need to clamp it for numerical stability.
