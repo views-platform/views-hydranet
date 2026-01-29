@@ -131,29 +131,31 @@ def training_loop(
     views_vol: np.ndarray,
     device: torch.device,
 ) -> None:
+    """
+    Orchestrates the training process over multiple stochastic samples.
+    """
     criterion_reg, criterion_class, multitaskloss_instance = criterion
 
     np.random.seed(config["np_seed"])
     torch.manual_seed(config["torch_seed"])
     logger.info("🚀 Training initiated...")
 
-    # Calculate total iterations for global pbar: samples * batch_size * (seq_len - 1)
-    # Since seq_len might vary slightly (unlikely here), we'll estimate or use sample-level pbar.
-    # Given the request for informative printing, a nested pbar approach is nice.
+    # 1. Determine total steps upfront for a unified progress bar
+    # We peek at the first sample to get the sequence length
+    temp_tensor = get_train_tensors(views_vol, 0, config, device)
+    seq_len = temp_tensor.shape[1]
+    total_iterations = config["samples"] * config["batch_size"] * (seq_len - 1)
     
-    for sample in range(config["samples"]):
-        # Determine seq_len for this sample to set pbar total accurately
-        # We call get_train_tensors once just to get the shape
-        temp_tensor = get_train_tensors(views_vol, sample, config, device)
-        seq_len = temp_tensor.shape[1]
-        total_steps = config["batch_size"] * (seq_len - 1)
-        
-        with tqdm(
-            total=total_steps,
-            desc=f"👾 Training Sample {sample + 1}/{config['samples']}",
-            unit="month",
-            leave=True
-        ) as pbar:
+    with tqdm(
+        total=total_iterations,
+        desc="👾 Training HydraNet",
+        unit="month",
+        leave=True
+    ) as pbar:
+        for sample in range(config["samples"]):
+            # Update description to show current sample progress
+            pbar.set_description(f"👾 Training Sample {sample + 1}/{config['samples']}")
+            
             train(
                 model,
                 optimizer,
