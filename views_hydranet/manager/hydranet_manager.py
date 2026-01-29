@@ -107,17 +107,19 @@ class HydranetManager(ForecastingModelManager):
         HydraNet specific evaluation override.
 
         Instead of monkey-patching global utilities, this method explicitly 
-        prepares an 'Augmented Actuals' file that aligns with HydraNet's 
+        prepares an 'Augmented Actuals' environment that aligns with HydraNet's 
         unlogged/multitask predictions.
 
         Steps:
         1. Translates target names from log (ln_) to raw (lr_) to align scales.
         2. Loads and augments the ground-truth dataframe (unlog/binarize).
         3. Saves the augmented data to a temporary 'shadow' file.
-        4. Redirects the pipeline core to read from this shadow file.
-        5. Restores original state and cleans up.
+        4. Mirrors the original raw directory by symlinking log files.
+        5. Redirects the pipeline core to read from this shadow environment.
+        6. Restores original state and cleans up.
         """
         import os
+        from views_pipeline_core.files.utils import read_dataframe, save_dataframe
 
         # A. Translate targets in config: ln_ -> lr_
         original_targets = self.configs.get("targets", [])
@@ -126,11 +128,10 @@ class HydranetManager(ForecastingModelManager):
         logger.info(f"Translating evaluation targets: {original_targets} -> {raw_targets}")
         self.configs = {"targets": raw_targets}
 
-        # B. Prepare Augmented Shadow File
+        # B. Prepare Augmented Shadow Environment
         run_type = self.config["run_type"]
-        df_ext = PipelineConfig.dataframe_format
+        df_ext = ".parquet" # We use parquet for evaluation data by standard
         
-        # Determine paths
         original_raw_path = self._model_path.data_raw
         actuals_filename = f"{run_type}_viewser_df{df_ext}"
         original_actuals_path = original_raw_path / actuals_filename
@@ -143,15 +144,20 @@ class HydranetManager(ForecastingModelManager):
         logger.info(f"Preparing explicit ground-truth augmentation at {shadow_actuals_path}")
         
         try:
-            # 1. Load original
+            # 1. Load and Augment original ground-truth
             df = read_dataframe(original_actuals_path)
-            # 2. Augment JIT
             df_augmented = self._augment_dataframe(df, raw_targets)
-            # 3. Save shadow
             save_dataframe(df_augmented, shadow_actuals_path)
 
+            # 2. Mirror companion files (logs, timestamps) via symlinks
+            # The core library expects logs like '{run_type}_data_fetch_log.txt' to exist
+            for f in original_raw_path.iterdir():
+                if f.is_file() and f.name != actuals_filename:
+                    shadow_link = shadow_raw_dir / f.name
+                    if not shadow_link.exists():
+                        os.symlink(f, shadow_link)
+
             # C. Redirect Pipeline Core
-            # We temporarily overwrite the data_raw property on the path manager
             self._model_path.data_raw = shadow_raw_dir
 
             # D. Execute Base Logic
@@ -162,11 +168,11 @@ class HydranetManager(ForecastingModelManager):
             self._model_path.data_raw = original_raw_path
             self.configs = {"targets": original_targets}
             
-            if shadow_actuals_path.exists():
-                import os
-                os.remove(shadow_actuals_path)
-            if shadow_raw_dir.exists() and not os.listdir(shadow_raw_dir):
-                import os
+            # Clean up shadow files and symlinks
+            if shadow_raw_dir.exists():
+                for f in shadow_raw_dir.iterdir():
+                    if f.is_file() or f.is_symlink():
+                        os.remove(f)
                 os.rmdir(shadow_raw_dir)
             
             logger.info("Evaluation environment restored and temporary data cleaned.")
