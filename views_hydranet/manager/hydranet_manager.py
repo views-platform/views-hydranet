@@ -21,6 +21,10 @@ from views_pipeline_core.managers.model import (
     ModelManager,
     ModelPathManager,
 )
+from views_pipeline_core.files.utils import (
+    read_dataframe,
+    save_dataframe,
+)
 from views_pipeline_core.configs.pipeline import PipelineConfig
 
 from views_hydranet.utils.utils_device import setup_device
@@ -101,41 +105,71 @@ class HydranetManager(ForecastingModelManager):
     def _execute_model_evaluation(self) -> None:
         """
         HydraNet specific evaluation override.
-        1. Translates target names from log (ln_) to raw (lr_) to align scales.
-        2. Injects a JIT Data Augmentor into the utility layer to unlog/binarize
-           ground truth data on-the-fly.
-        3. Calls the base class evaluation logic.
 
-        Invariants:
-            - The 'targets' config is restored to its original state after execution.
-            - The 'read_dataframe' monkey-patch is strictly scoped to this call.
+        Instead of monkey-patching global utilities, this method explicitly 
+        prepares an 'Augmented Actuals' file that aligns with HydraNet's 
+        unlogged/multitask predictions.
+
+        Steps:
+        1. Translates target names from log (ln_) to raw (lr_) to align scales.
+        2. Loads and augments the ground-truth dataframe (unlog/binarize).
+        3. Saves the augmented data to a temporary 'shadow' file.
+        4. Redirects the pipeline core to read from this shadow file.
+        5. Restores original state and cleans up.
         """
-        import views_pipeline_core.files.utils as utils_module
-        from views_pipeline_core.files.utils import read_dataframe as original_read_dataframe
+        import os
 
         # A. Translate targets in config: ln_ -> lr_
         original_targets = self.configs.get("targets", [])
         raw_targets = self._translate_targets(original_targets)
         
         logger.info(f"Translating evaluation targets: {original_targets} -> {raw_targets}")
-        # Use the setter to ensure the change sticks in the underlying config manager
         self.configs = {"targets": raw_targets}
 
-        # B. Define the JIT augmentation logic wrapper
-        def augmented_read_dataframe(path):
-            df = original_read_dataframe(path)
-            return self._augment_dataframe(df, self.configs.get("targets", []))
+        # B. Prepare Augmented Shadow File
+        run_type = self.config["run_type"]
+        df_ext = PipelineConfig.dataframe_format
+        
+        # Determine paths
+        original_raw_path = self._model_path.data_raw
+        actuals_filename = f"{run_type}_viewser_df{df_ext}"
+        original_actuals_path = original_raw_path / actuals_filename
+        
+        # Shadow location in artifacts (isolated and clean)
+        shadow_raw_dir = self._model_path.artifacts / "tmp_eval_data"
+        shadow_raw_dir.mkdir(parents=True, exist_ok=True)
+        shadow_actuals_path = shadow_raw_dir / actuals_filename
 
-        # C. Inject and execute
-        logger.info("Injecting HydraNet target translator into utility layer.")
-        original_func = utils_module.read_dataframe
-        utils_module.read_dataframe = augmented_read_dataframe
-
+        logger.info(f"Preparing explicit ground-truth augmentation at {shadow_actuals_path}")
+        
         try:
+            # 1. Load original
+            df = read_dataframe(original_actuals_path)
+            # 2. Augment JIT
+            df_augmented = self._augment_dataframe(df, raw_targets)
+            # 3. Save shadow
+            save_dataframe(df_augmented, shadow_actuals_path)
+
+            # C. Redirect Pipeline Core
+            # We temporarily overwrite the data_raw property on the path manager
+            self._model_path.data_raw = shadow_raw_dir
+
+            # D. Execute Base Logic
             super()._execute_model_evaluation()
+
         finally:
-            utils_module.read_dataframe = original_func
+            # E. Restoration & Cleanup
+            self._model_path.data_raw = original_raw_path
             self.configs = {"targets": original_targets}
+            
+            if shadow_actuals_path.exists():
+                import os
+                os.remove(shadow_actuals_path)
+            if shadow_raw_dir.exists() and not os.listdir(shadow_raw_dir):
+                import os
+                os.rmdir(shadow_raw_dir)
+            
+            logger.info("Evaluation environment restored and temporary data cleaned.")
 
     def _train_model_artifact(self) -> None:
         """Trains a new HydraNet artifact based on current partition."""

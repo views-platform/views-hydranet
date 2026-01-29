@@ -66,19 +66,25 @@ def test_multitask_merging_alignment(robust_manager):
 def test_manager_restoration_under_chaos(robust_manager):
     """
     PROVE the Global State Protection:
-    The monkey-patch MUST be removed even if an unexpected exception occurs.
+    The redirection MUST be reversed even if an unexpected exception occurs.
     """
-    original_read_df = utils_module.read_dataframe
+    original_raw_path = robust_manager._model_path.data_raw
     robust_manager._config_dict["targets"] = ["ln_sb_best"]
     robust_manager._translate_targets.return_value = ["lr_sb_best"]
     
-    with patch("views_pipeline_core.managers.model.model.ForecastingModelManager._execute_model_evaluation", 
-               side_effect=RuntimeError("Chaos")):
-        
-        with pytest.raises(RuntimeError, match="Chaos"):
-            HydranetManager._execute_model_evaluation(robust_manager)
+    with patch("views_hydranet.manager.hydranet_manager.read_dataframe", return_value=pd.DataFrame({"ln_sb_best": [1.0]})):
+        with patch("views_hydranet.manager.hydranet_manager.save_dataframe"):
+            with patch("views_pipeline_core.managers.model.model.ForecastingModelManager._execute_model_evaluation", 
+                       side_effect=RuntimeError("Chaos")):
+                with patch("os.remove"):
+                    with patch("os.rmdir"):
+                        with patch("os.listdir", return_value=[]):
+                            with patch("pathlib.Path.mkdir"):
+                
+                                with pytest.raises(RuntimeError, match="Chaos"):
+                                    HydranetManager._execute_model_evaluation(robust_manager)
             
-    assert utils_module.read_dataframe == original_read_df
+    assert robust_manager._model_path.data_raw == original_raw_path
     assert robust_manager.configs["targets"] == ["ln_sb_best"]
 
 def test_partition_aware_windows(robust_manager):
