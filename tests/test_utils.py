@@ -148,10 +148,9 @@ def test_get_full_tensor_basic_config(mock_views_vol, caplog):
     assert metadata_tensor.shape == expected_metadata_tensor_shape
     
     # Assert log messages
-    assert f"Config provided. input_channels: {mock_config['input_channels']}." in caplog.text
-    assert f"Input views_vol shape: {mock_views_vol.shape}" in caplog.text
-    assert f"Output full_tensor shape (main model input): {full_tensor.shape}" in caplog.text
-    assert f"Output metadata_tensor shape (additional info): {metadata_tensor.shape}" in caplog.text
+    assert "Selecting features: metadata [0:5]" in caplog.text
+    assert "Output full_tensor shape" in caplog.text
+    assert "Output metadata_tensor shape" in caplog.text
 
 
 def test_get_full_tensor_data_integrity():

@@ -735,40 +735,37 @@ def get_full_tensor(views_vol: np.ndarray, config: Optional[dict] = None) -> Tup
     # ln_best_sb_idx represents the starting index for the main features that will be used as input
     # for the model. Features before this index are considered metadata.
     # It is currently hardcoded to 5, meaning the first 5 features (indices 0-4) are treated as metadata.
-    ln_best_sb_idx = 5 # config.first_feature_idx is commented out for now.
+    ln_best_sb_idx = 5 
 
-    if config is not None:
-        # If a config is provided, use its 'input_channels' to determine the end of the feature slice.
-        last_feature_idx = ln_best_sb_idx + config["input_channels"]
-        logger.info(f"Config provided. input_channels: {config['input_channels']}. "
-                   f"Features selected from index {ln_best_sb_idx} to {last_feature_idx-1}.")
-    else:
-        # If no config is provided (e.g., in some testing scenarios), hardcode input_channels to 3.
-        # This assumes 3 input channels are expected if not specified.
-        last_feature_idx = ln_best_sb_idx + 3 # hard coded, but just for testing when no config is passed
-        logger.info(f"No config provided. Defaulting to 3 input_channels. "
-                   f"Features selected from index {ln_best_sb_idx} to {last_feature_idx-1}.")
+    # Determine input channel count
+    requested_channels = config["input_channels"] if config is not None else 3
+    last_feature_idx = ln_best_sb_idx + requested_channels
+
+    # --- INVARIANT VALIDATION ---
+    actual_features = views_vol.shape[-1]
+    if actual_features < last_feature_idx:
+        raise ValueError(
+            f"Input volume only has {actual_features} features, but HydraNet requires "
+            f"{last_feature_idx} features (5 metadata + {requested_channels} input channels). "
+            "Please check your queryset or input parquet files."
+        )
+    # --- END VALIDATION ---
+
+    logger.debug(f"Selecting features: metadata [0:{ln_best_sb_idx}], "
+                f"input channels [{ln_best_sb_idx}:{last_feature_idx}].")
 
     # Log the shape of the input volume for debugging and verification
     logger.debug(f'Input views_vol shape: {views_vol.shape}')
 
-    # Create the full_tensor:
-    # - Convert numpy array to torch.tensor
-    # - Convert to float type
-    # - Add a batch dimension at dim 0 (unsqueeze(dim=0))
-    # - Permute dimensions from (N_months, H, W, N_features) to (Batch, N_months, N_features, H, W)
-    #   The permute is to change from (Batch, Months, Height, Width, Features) to (Batch, Months, Features, Height, Width)
-    # - Slice to select only the main input features from ln_best_sb_idx to last_feature_idx
+    # Create the full_tensor
     full_tensor = torch.tensor(views_vol).float().unsqueeze(dim=0).permute(0,1,4,2,3)[:, :, ln_best_sb_idx:last_feature_idx, :, :]
 
-    # Create a metadata_tensor:
-    # - Follows the same initial conversion and permutation steps as full_tensor
-    # - Slices to select features from the beginning up to ln_best_sb_idx (exclusive), which are the metadata features.
+    # Create a metadata_tensor
     metadata_tensor = torch.tensor(views_vol).float().unsqueeze(dim=0).permute(0,1,4,2,3)[:, :, :ln_best_sb_idx, :, :]
 
     # Log the shapes of the output tensors for debugging and verification
-    logger.info(f'Output full_tensor shape (main model input): {full_tensor.shape}')
-    logger.info(f'Output metadata_tensor shape (additional info): {metadata_tensor.shape}')
+    logger.debug(f'Output full_tensor shape: {full_tensor.shape}')
+    logger.debug(f'Output metadata_tensor shape: {metadata_tensor.shape}')
 
     return full_tensor, metadata_tensor
 
