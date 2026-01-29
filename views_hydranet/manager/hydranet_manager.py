@@ -231,7 +231,7 @@ class HydranetManager(ForecastingModelManager):
                 vol_slice = vol_full[: origin + 1 + time_steps]
                 
                 posterior_zstack, meta_zstack = inference.generate_posterior_samples(
-                    vol_slice, is_evaluation=True
+                    vol_slice, is_evaluation=True, window_info=f"Origin {i+1}/{len(origins)}"
                 )
 
                 # Convert to Contract DataFrames for ALL targets in config

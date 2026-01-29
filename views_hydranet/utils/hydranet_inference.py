@@ -241,13 +241,14 @@ class HydraNetInference:
 
 
     def generate_posterior_samples(
-        self, views_vol: torch.Tensor, is_evaluation: bool = True
+        self, views_vol: torch.Tensor, is_evaluation: bool = True, window_info: str = ""
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Generates multiple posterior samples using Monte Carlo Dropout.
 
         Args:
             views_vol: Input volume tensor.
             is_evaluation: Whether running in evaluation mode.
+            window_info: Optional string to display in progress bar (e.g., "Origin 1/12").
 
         Returns:
             A tuple containing:
@@ -278,10 +279,12 @@ class HydraNetInference:
         posterior_probabilities_zstack = np.zeros_like(posterior_magnitudes_zstack)
 
         total_inference_steps = self.config["test_samples"] * full_seq_len
+        
+        desc_prefix = f"[{window_info}] " if window_info else ""
 
         with tqdm(
             total=total_inference_steps,
-            desc="📡 Drawing Posterior Samples",
+            desc=f"{desc_prefix}🎲 Drawing Posterior Samples",
             unit="step",
             leave=False, # Don't clutter the terminal, the manager has the main bar
         ) as pbar:

@@ -150,7 +150,7 @@ def training_loop(
         
         with tqdm(
             total=total_steps,
-            desc=f"📡 Training Sample {sample + 1}/{config['samples']}",
+            desc=f"👾 Training Sample {sample + 1}/{config['samples']}",
             unit="month",
             leave=True
         ) as pbar:
