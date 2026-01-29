@@ -1,23 +1,41 @@
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Any, Dict
 import logging
 import sys
-from typing import Optional, Tuple
-
-logger = logging.getLogger(__name__)
 import numpy as np
-
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import transforms
 
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import average_precision_score
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import mean_squared_error
-from sklearn.metrics import brier_score_loss
+from sklearn.metrics import average_precision_score, roc_auc_score, mean_squared_error, brier_score_loss
 
 import wandb
+
+logger = logging.getLogger(__name__)
+
+def _get_feature_indices(config: Dict[str, Any], columns: Optional[List[str]] = None) -> Tuple[int, int]:
+    """
+    Unified helper to determine feature start and end indices.
+    Priority: 1. Column-name lookup, 2. Config key, 3. Hardcoded fallback (5).
+    """
+    if columns is not None:
+        target_indicators = ["sb", "ns", "os"]
+        feature_start_idx = -1
+        for i, col in enumerate(columns):
+            if any(ind in col.lower() for ind in target_indicators):
+                feature_start_idx = i
+                break
+        if feature_start_idx == -1:
+            feature_start_idx = config.get("first_feature_idx", 5)
+    else:
+        # Check config or default
+        feature_start_idx = config.get("first_feature_idx", 5)
+
+    requested_channels = config.get("input_channels", 3)
+    return feature_start_idx, feature_start_idx + requested_channels
+
 from views_pipeline_core.managers.model import ModelPathManager
 
 # networks
@@ -454,50 +472,25 @@ def my_decay(sample, samples, min_events, max_events, slope_ratio, roof_ratio):
     return(int(y))
 
 
-def get_window_index(views_vol: np.ndarray, config: dict, sample: int) -> dict:
+def get_window_index(views_vol: np.ndarray, config: dict, sample: int, columns: Optional[List[str]] = None) -> dict:
     """Samples a spatial cell (row and column index) from the input `views_vol`.
-
-    This function determines a cell within the `views_vol` that meets a minimum event
-    threshold, adjusted by `my_decay`. This cell then serves as an anchor for
-    drawing a window/patch from the training data. The selection of the feature
-    to evaluate is based on `sample % n_fatcats`.
-
-    Args:
-        views_vol (np.ndarray): A 4D numpy array with shape [n_months, height, width, n_features].
-        config (dict): A dictionary containing configuration parameters, including:
-                       - "first_feature_idx" (int): The starting index of the features to consider.
-                       - "input_channels" (int): The number of input channels (features).
-                       - "min_events" (int): The base minimum number of events required for a cell.
-                       - "samples" (int): Total number of samples, used by `my_decay`.
-                       - "slope_ratio" (float): Slope ratio for `my_decay`.
-                       - "roof_ratio" (float): Roof ratio for `my_decay`.
-        sample (int): The current sample number, used to determine the feature and influence `my_decay`.
-
-    Returns:
-        dict: A dictionary containing 'row_indx' and 'col_indx' of the sampled cell.
-
-    .. warning::
-        - The selection of the cell index involves `np.random.choice`, making the
-          output non-deterministic unless `np.random.seed()` is controlled externally.
     """
 
+    # Use the unified helper to find features
+    ln_best_sb_idx, last_feature_idx = _get_feature_indices(config, columns)
+    
+    min_events = config.get('min_events', 5)
+    samples = config.get('samples', 300)
+    slope_ratio = config.get('slope_ratio', 0.75)
+    roof_ratio = config.get('roof_ratio', 0.7)
 
-    # BY NOW THIS IS PRETTY HACKY... SHOULD BE MADE MORE ELEGANT AT SOME POINT..
-
-
-    ln_best_sb_idx = config['first_feature_idx'] # 5 = ln_best_sb 
-    last_feature_idx = ln_best_sb_idx + config['input_channels'] # removed -1 here. Now this is the last feature index.
-    min_events = config['min_events']
-    samples = config['samples']
-    slope_ratio = config['slope_ratio']
-    roof_ratio = config['roof_ratio']
-
-    # NEW----------------------------------------------------------------------------------------------------------------------------
+    # Identification of conflict heads
     fatcats = np.arange(ln_best_sb_idx, last_feature_idx, 1)
     n_fatcats = len(fatcats)
 
     fatcat = fatcats[sample % n_fatcats]
-    views_vol_count = np.count_nonzero(views_vol[:,:,:,fatcat], axis = 0) #.sum(axis=2) #for either sb, ns, os
+    views_vol_count = np.count_nonzero(views_vol[:,:,:,fatcat], axis = 0) 
+
     
     # --------------------------------------------------------------------------------------------------------------------------------
 
@@ -582,77 +575,39 @@ def train_log(avg_loss_list, avg_loss_reg_list, avg_loss_class_list):
 
 
 # Should rename to sub_tensor or something like that... But it is used for training.. 
-def get_train_tensors(views_vol: np.ndarray, sample: int, config: dict, device: torch.device) -> torch.Tensor: 
-    """
-    Samples a window from the training tensor based on a sampled index and coordinates.
-
-    This function prepares a training tensor by:
-    1. Slicing the input `views_vol` to exclude future time steps for evaluation.
-    2. Calling `get_window_index` to select a base spatial cell.
-    3. Calling `get_window_coords` to determine the window boundaries around the selected cell.
-    4. Extracting the `input_window` from `train_views_vol` based on these coordinates.
-    5. Converting the `input_window` to a PyTorch tensor, moving it to the specified `device`,
-       adding a batch dimension (`unsqueeze`), permuting dimensions, and slicing features
-       based on `config["first_feature_idx"]` and `config["input_channels"]`.
-    6. Applying spatial data augmentation (random horizontal and vertical flips) to the
-       reshaped tensor.
-
-    Args:
-        views_vol (np.ndarray): A 4D numpy array with shape [n_months, height, width, n_features]
-                                representing the full volume data.
-        sample (int): The current sample number, used by `get_window_index` for sampling logic.
-        config (dict): A dictionary containing configuration parameters such as:
-                       - "time_steps" (int): Number of months to exclude from the end of `views_vol`.
-                       - "first_feature_idx" (int): Starting index for the main features in `views_vol`.
-                       - "input_channels" (int): Number of features to select for the `train_tensor`.
-                       - "window_dim" (int): Dimension of the square spatial window.
-        device (torch.device): The PyTorch device ('cuda' or 'cpu') to place the resulting tensor on.
-
-    Returns:
-        torch.Tensor: A 5D PyTorch tensor with shape
-                      [1, (n_months - time_steps), input_channels, window_dim, window_dim]
-                      ready for model training.
-
-    .. warning::
-        - This function relies on `get_window_index` and `get_window_coords`, both of which
-          internally use `np.random.choice` and `np.random.randint`, making the window
-          selection non-deterministic unless these functions are mocked or `np.random.seed()`
-          is set globally.
-        - The `torchvision.transforms` also introduce randomness if not explicitly controlled.
-        - The comment "Should rename to sub_tensor or something like that... But it is used for training.."
-          suggests a potential naming inconsistency that could lead to confusion.
+def get_train_tensors(views_vol: np.ndarray, sample: int, config: dict, device: str, columns: Optional[List[str]] = None) -> torch.Tensor:
+    """Creates a training tensor (spatial window) for a single training sample.
     """
 
-    # Not using the last 36 months - these ar for test set
-    train_views_vol = views_vol if config["time_steps"] == 0 else views_vol[:-config["time_steps"]] # horrible naming... 
+    # 1. Determine time steps for hold-out
+    time_steps = config.get("time_steps", 36)
+    train_views_vol = views_vol if time_steps == 0 else views_vol[:-time_steps] 
 
- #   min_max_values = 
-    window_index = get_window_index(views_vol = views_vol, config = config, sample = sample) # you should try and take this out of the loop - so you keep the index but changes the window_coords!!!
+    # 2. Sample Window
+    window_index = get_window_index(views_vol = views_vol, config = config, sample = sample, columns = columns)
     window_coords = get_window_coords(window_index = window_index, config = config)
 
-    # you can add positional encoding here if you want - perhaps.....
-
+    # 3. Extract Window
     input_window = train_views_vol[ : , window_coords['min_row_indx'] : window_coords['max_row_indx'] , window_coords['min_col_indx'] : window_coords['max_col_indx'], :]
 
-    ln_best_sb_idx = config["first_feature_idx"] # 5 = ln_best_sb
-    last_feature_idx = ln_best_sb_idx + config["input_channels"]
+    # 4. Slice and Permute
+    ln_best_sb_idx, last_feature_idx = _get_feature_indices(config, columns)
+    
+    # Transform: [T, H, W, C] -> [1, T, C, H, W]
     train_tensor = torch.tensor(input_window).float().to(device).unsqueeze(dim=0).permute(0,1,4,2,3)[:, :, ln_best_sb_idx:last_feature_idx, :, :]
 
-    # Reshape
-    N = train_tensor.shape[0] # batch size. Always one - remember your do batch a different way here
-    C = train_tensor.shape[1] # months
-    D = config["input_channels"] # features
-    H = train_tensor.shape[3] # height
-    W =  train_tensor.shape[4] # width
-
-    # add spatial transformer
-    transformer = transforms.Compose([transforms.RandomHorizontalFlip(p=0.5), transforms.RandomVerticalFlip(p=0.5)])
-
-    # data augmentation (can be turned of for final experiments)
-    train_tensor = train_tensor.reshape(N, C*D, H, W)
-    train_tensor = transformer(train_tensor[:,:,:,:])
-    train_tensor = train_tensor.reshape(N, C, D, H, W)
-
+    # 5. Apply Spatial Transforms (Random Flips)
+    # We apply the same transform across all time steps to maintain consistency
+    N, T, C, H, W = train_tensor.shape
+    train_tensor_reshaped = train_tensor.reshape(N, T*C, H, W)
+    
+    transform = transforms.Compose([
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomVerticalFlip(p=0.5)
+    ])
+    
+    train_tensor_transformed = transform(train_tensor_reshaped)
+    train_tensor = train_tensor_transformed.reshape(N, T, C, H, W)
 
     return train_tensor
 

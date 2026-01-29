@@ -1,3 +1,4 @@
+from typing import Optional, List, Dict, Any, Tuple
 import logging
 import os
 from datetime import datetime
@@ -54,6 +55,7 @@ def train(
     config: dict,
     device: torch.device,
     pbar: tqdm,
+    columns: Optional[List[str]] = None,
 ) -> None:
 
     wandb.watch(model, [criterion_reg, criterion_class], log=None, log_freq=2048)
@@ -61,7 +63,7 @@ def train(
     avg_loss_reg_list = []
     avg_loss_class_list = []
     avg_loss_list = []
-    total_loss = 0
+    total_loss = torch.tensor(0.0).to(device) # Initialize as tensor
 
     model.train()
     multitaskloss_instance.train()
@@ -69,7 +71,7 @@ def train(
     # Batch loops:
     for batch in range(config["batch_size"]):
         # Getting the train_tensor
-        train_tensor = get_train_tensors(views_vol, sample, config, device)
+        train_tensor = get_train_tensors(views_vol, sample, config, device, columns=columns)
         seq_len = train_tensor.shape[1]
         window_dim = train_tensor.shape[-1]
 
@@ -110,15 +112,17 @@ def train(
     train_log(avg_loss_list, avg_loss_reg_list, avg_loss_class_list)
 
     # Backpropagation and optimization
-    optimizer.zero_grad()
-    total_loss.backward()
-
-    # Gradient Clipping
-    if config.get("clip_grad_norm", False):
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-
-    # optimize
-    optimizer.step()
+    if total_loss > 0:
+        optimizer.zero_grad()
+        total_loss.backward()
+    
+        # Gradient Clipping
+        if config.get("clip_grad_norm", False):
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+    
+        # optimize
+        optimizer.step()
+    
     scheduler.step()
 
 
@@ -130,6 +134,7 @@ def training_loop(
     scheduler: torch.optim.lr_scheduler._LRScheduler,
     views_vol: np.ndarray,
     device: torch.device,
+    columns: Optional[List[str]] = None,
 ) -> None:
     """
     Orchestrates the training process over multiple stochastic samples.
@@ -142,7 +147,7 @@ def training_loop(
 
     # 1. Determine total steps upfront for a unified progress bar
     # We peek at the first sample to get the sequence length
-    temp_tensor = get_train_tensors(views_vol, 0, config, device)
+    temp_tensor = get_train_tensors(views_vol, 0, config, device, columns=columns)
     seq_len = temp_tensor.shape[1]
     total_iterations = config["samples"] * config["batch_size"] * (seq_len - 1)
     
@@ -167,7 +172,8 @@ def training_loop(
                 sample,
                 config,
                 device,
-                pbar
+                pbar,
+                columns=columns
             )
 
     logger.info("✅ Training complete!")
@@ -178,6 +184,7 @@ def train_model_artifact(
     config: dict,
     device: torch.device,
     views_vol: np.ndarray,
+    columns: Optional[List[str]] = None,
 ) -> None:
     """Creates, trains, and saves a model artifact."""
 
@@ -185,7 +192,7 @@ def train_model_artifact(
     model, criterion, optimizer, scheduler = make(config, device)
 
     # Train the model
-    training_loop(config, model, criterion, optimizer, scheduler, views_vol, device)
+    training_loop(config, model, criterion, optimizer, scheduler, views_vol, device, columns=columns)
     logger.info("Done training")
 
     # just in case the artifacts folder does not exist

@@ -3,16 +3,13 @@ import pytest
 import torch
 from unittest.mock import patch, MagicMock
 import numpy as np
-from torchvision import transforms # Added for mocking transforms
+from torchvision import transforms
 
 from views_hydranet.utils.utils import norm, unit_norm, standard, my_decay, get_full_tensor, get_train_tensors, get_window_index, get_window_coords, norm_features, choose_model
 
 @pytest.fixture
 def mock_views_vol():
-    """
-    Fixture to create a mock 4D numpy array for views_vol.
-    Shape: [n_months, height, width, n_features]
-    """
+    """Fixture to create a mock 4D numpy array for views_vol."""
     n_months, height, width, n_features = 36, 180, 180, 8
     return np.random.rand(n_months, height, width, n_features)
 
@@ -422,7 +419,7 @@ def test_get_train_tensors_spatial_transforms(
         for c in range(pattern_dim):
             mock_views_vol_data[0, r, c, 5] = (r * pattern_dim + c + 1) # Values 1 to 16
 
-    # Configure mock_config_train_tensors to pick this window
+    # Configure mock_config_train_tensors
     mock_config_train_tensors["window_dim"] = pattern_dim 
     mock_config_train_tensors["first_feature_idx"] = 5
     mock_config_train_tensors["input_channels"] = 1 # Only care about one feature for simplicity

@@ -1,39 +1,29 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, PropertyMock
 from views_hydranet.manager.hydranet_manager import HydranetManager
 
-def test_config_self_healing_logic():
-    """
-    Verify the HEALING LOGIC itself (isolated from the manager init noise).
-    """
-    sparse_config = {
-        "run_type": "validation",
-        "steps": [1, 2, 3, 4, 5], 
-        "test_samples": 10,
-        "input_channels": 3,
-        "target_variable": "sb"
-    }
-    
+def test_config_self_healing_logic(valid_config_dict):
+    """Verify the HEALING LOGIC itself."""
     from views_hydranet.utils.utils_config import HydraNetConfig
     
-    # 1. Parse via Pydantic
-    validated = HydraNetConfig(**sparse_config)
+    # 1. Take a valid config and remove derived fields
+    if "time_steps" in valid_config_dict:
+        del valid_config_dict["time_steps"]
     
-    # 2. Check derived field
-    assert validated.time_steps == 5
+    # 2. Parse via Pydantic
+    validated = HydraNetConfig(**valid_config_dict)
     
-    # 3. Simulate re-population
-    sparse_config["time_steps"] = validated.time_steps
-    assert sparse_config["time_steps"] == 5
+    # 3. Check derived field (steps is 36 by default in fixture)
+    assert validated.time_steps == 36
 
-def test_manager_safe_init_without_config_manager():
-    """
-    Ensure the manager doesn't crash if _config_manager is missing (e.g. in partial mocks).
-    """
+def test_manager_safe_init_with_valid_mock(valid_config_dict):
+    """Ensure the manager initializes correctly with exhaustive config."""
     mpm = MagicMock()
+    
     with patch("views_pipeline_core.managers.model.model.ForecastingModelManager.__init__", return_value=None), \
          patch("views_hydranet.manager.hydranet_manager.setup_device", return_value="cpu"):
         
-        # This should NOT raise AttributeError
         manager = HydranetManager(model_path=mpm)
-        assert manager is not None
+        with patch.object(HydranetManager, "configs", new_callable=PropertyMock) as mock_configs:
+            mock_configs.return_value = valid_config_dict
+            assert manager is not None

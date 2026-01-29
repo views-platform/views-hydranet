@@ -51,38 +51,45 @@ class HydranetManager(ForecastingModelManager):
         self, model_path: ModelPathManager, wandb_notification: bool = True
     ) -> None:
         """
-        Initializes the manager and detects computation device.
-
-        Args:
-            model_path: Manager for model-specific filesystem paths.
-            wandb_notification: Whether to send alerts to Slack/WandB.
+        Initializes the manager and performs a strict configuration handshake.
         """
         super().__init__(model_path, wandb_notification)
         self.device = setup_device()
         self.set_dataframe_format(format=".parquet")
         
-        # --- CONFIG SELF-HEALING ---
-        # We validate the raw dictionary against our Pydantic model.
-        # This calculates derived fields (like time_steps) and ensures 
-        # legacy code still finds them in the config dictionary.
-        from views_hydranet.utils.utils_config import HydraNetConfig
-        
-        # We check if self.configs is accessible (Core might not be ready in tests)
+        # We perform the handshake only if the core library has loaded configs
         if hasattr(self, "_config_manager"):
-            try:
-                # 1. Parse and Validate
-                validated_config = HydraNetConfig(**self.configs)
-                
-                # 2. Re-populate derived/calculated values back into the raw dictionary
-                self.configs["time_steps"] = validated_config.time_steps
-                
-                if "first_feature_idx" not in self.configs:
-                    self.configs["first_feature_idx"] = 5
-                    
-                logger.info(f"Config healed: time_steps set to {validated_config.time_steps}")
-            except Exception as e:
-                logger.warning(f"Config healing skipped or failed: {e}")
-        # ---------------------------
+            self._perform_strict_handshake()
+
+    def _perform_strict_handshake(self) -> None:
+        """
+        Validates the current configuration against the HydraNet exhaustive schema.
+        """
+        from views_hydranet.utils.utils_config import HydraNetConfig
+        from pydantic import ValidationError
+        
+        try:
+            # 1. Exhaustive Validation
+            validated = HydraNetConfig(**self.configs)
+            
+            # 2. Sync dictionary with validated values
+            self.configs.update(validated.model_dump(exclude_none=True))
+            
+            logger.info(
+                f"HydraNet Handshake Successful: {validated.model} ready for {validated.run_type} "
+                f"({validated.time_steps} steps, transform={validated.transform})"
+            )
+            
+        except ValidationError as e:
+            missing_fields = [str(err['loc'][0]) for err in e.errors() if err['type'] == 'missing']
+            error_msg = (
+                f"\n[CRITICAL CONFIG ERROR] HydraNet cannot fly without all its parts!\n"
+                f"Missing required hyperparameters: {missing_fields}\n"
+                f"Please update your config_hyperparameters.py."
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg) from None
+
 
     def _translate_targets(self, targets: List[str]) -> List[str]:
         """
@@ -200,17 +207,20 @@ class HydranetManager(ForecastingModelManager):
             
             logger.info("Evaluation environment restored and temporary data cleaned.")
 
-    def _train_model_artifact(self) -> None:
-        """Trains a new HydraNet artifact based on current partition."""
-        run_type = self.config["run_type"]
-        vol_cal = create_or_load_views_vol(
-            run_type, self._model_path.data_processed, self._model_path.data_raw
-        )
-
-        if self.config.get("sweep", False):
-            raise NotImplementedError("WandB Sweep integration is currently disabled.")
-
-        train_model_artifact(self._model_path, self.config, self.device, vol_cal)
+    def _train_model_artifact(self, views_vol: np.ndarray, cal: bool) -> None:
+        """
+        Trains a model artifact using the provided data volume.
+        
+        Args:
+            views_vol: The 4D data volume [Time, H, W, Channels].
+            cal: Whether this is a calibration run.
+        """
+        # Pass column names if they are available in the volume metadata (if we use a manager for volumes)
+        # For now, we assume the manager handles the column extraction from the source dataframe
+        # or we pass None to trigger the safe pattern-matching fallback.
+        columns = getattr(views_vol, "columns", None)
+        
+        train_model_artifact(self.model_path, self.config, self.device, views_vol, columns=columns)
 
     def _load_model_artifact(self, artifact_name: Optional[str] = None) -> Tuple[torch.nn.Module, str]:
         """

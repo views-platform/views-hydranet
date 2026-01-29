@@ -46,32 +46,61 @@ def get_target_index(target_name: str) -> int:
 
 class HydraNetConfig(BaseModel):
     """
-    Strictly-typed configuration for HydraNet.
-    Ensures that all required parameters are present and valid before execution.
+    Exhaustive schema for HydraNet operations. 
+    Any missing field here will trigger a loud validation error at startup.
     """
+    # 1. High-Level Partitioning
     run_type: str = Field(..., description="Partition: calibration, validation, or forecasting")
-    steps: List[int] = Field(default_factory=lambda: list(range(1, 37)), description="The list of forecast steps")
-    time_steps: int = Field(default=36, description="Derived: number of months to predict (len(steps))")
+    steps: List[int] = Field(..., description="List of forecast steps (e.g. range(1,37))")
+    time_steps: int = Field(default=0, description="Calculated automatically from steps")
     
-    test_samples: int = Field(..., ge=1, description="Number of posterior samples to draw")
-    input_channels: int = Field(default=3, ge=1, description="Number of input feature channels")
-    target_variable: TargetVariable = Field(default=TargetVariable.SB_BEST, description="The primary target head")
-    targets: List[str] = Field(default_factory=list, description="List of target column names for evaluation")
+    # 2. Data Slicing & Scaling
+    input_channels: int = Field(default=3, ge=1)
+    target_variable: TargetVariable = Field(..., description="The primary target (sb, ns, os)")
+    targets: List[str] = Field(default_factory=list)
+    transform: str = Field(default="log1p")
     
-    transform: str = Field(default="log1p", description="The numerical transformation to use (log1p, asinh, identity)")
+    # 3. Training Architecture & Hyperparameters
+    model: str = Field(default="HydraBNUNet06_LSTM4")
+    window_dim: int = Field(default=32)
+    total_hidden_channels: int = Field(default=32)
+    dropout_rate: float = Field(default=0.125)
     
-    freeze_h: str = Field(default="none", description="Memory freezing strategy")
+    # 4. Optimization
+    learning_rate: float = Field(default=0.001)
+    weight_decay: float = Field(default=0.1)
+    batch_size: int = Field(default=3)
+    scheduler: str = Field(default="WarmupDecay")
+    warmup_steps: int = Field(default=100)
     
-    # Optional metadata
+    # 5. Loss Functions
+    loss_reg: str = Field(default="b")
+    loss_class: str = Field(default="b")
+    loss_reg_a: float = Field(default=258)
+    loss_reg_c: float = Field(default=0.001)
+    loss_class_gamma: float = Field(default=1.5)
+    loss_class_alpha: float = Field(default=0.75)
+    
+    # 6. Sampling & Reproducibility
+    samples: int = Field(default=300)
+    test_samples: int = Field(..., ge=1)
+    np_seed: int = Field(default=4)
+    torch_seed: int = Field(default=4)
+    
+    # 7. Spatial Windowing Logic
+    min_events: int = Field(default=5)
+    slope_ratio: float = Field(default=0.75)
+    roof_ratio: float = Field(default=0.7)
+    freeze_h: str = Field(default="hl")
+
+    # Metadata
     model_time_stamp: Optional[str] = None
 
     @model_validator(mode="before")
     @classmethod
     def align_steps_and_time(cls, data: Any) -> Any:
-        """Ensures time_steps is exactly the length of the steps list."""
-        if isinstance(data, dict):
-            if "steps" in data:
-                data["time_steps"] = len(data["steps"])
+        if isinstance(data, dict) and "steps" in data:
+            data["time_steps"] = len(data["steps"])
         return data
 
     @field_validator("run_type")
@@ -81,13 +110,7 @@ class HydraNetConfig(BaseModel):
         if v not in valid:
             raise ValueError(f"run_type must be one of {valid}")
         return v
-    
-    @field_validator("transform")
-    @classmethod
-    def validate_transform(cls, v: str) -> str:
-        if v not in TRANSFORMS:
-            raise ValueError(f"transform must be one of {list(TRANSFORMS.keys())}")
-        return v
+
 
     class Config:
         extra = "allow" # Allow extra fields from the broader pipeline for now

@@ -6,13 +6,13 @@ def test_config_validation_success():
     """Valid config should initialize correctly."""
     data = {
         "run_type": "validation",
-        "time_steps": 36,
+        "steps": [1, 2, 3], # Mandatory
         "test_samples": 100,
         "target_variable": "sb_best"
     }
     config = HydraNetConfig(**data)
     assert config.run_type == "validation"
-    assert config.time_steps == 36
+    assert config.time_steps == 3 # Derived
     assert config.target_variable == TargetVariable.SB_BEST
 
 def test_config_validation_failure_missing_key():
@@ -25,8 +25,9 @@ def test_config_validation_failure_invalid_type():
     """Invalid run_type should raise ValueError via validator."""
     data = {
         "run_type": "invalid_partition",
-        "time_steps": 36,
-        "test_samples": 10
+        "steps": [1],
+        "test_samples": 10,
+        "target_variable": "sb"
     }
     with pytest.raises(ValidationError, match="run_type must be one of"):
         HydraNetConfig(**data)
@@ -35,7 +36,7 @@ def test_config_target_enum_coercion():
     """Strings should be coerced to TargetVariable enum."""
     data = {
         "run_type": "forecasting",
-        "time_steps": 12,
+        "steps": [1],
         "test_samples": 5,
         "target_variable": "ns_best"
     }
