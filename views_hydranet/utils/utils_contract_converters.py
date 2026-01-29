@@ -26,6 +26,7 @@ def predictions_to_contract_df(
     posterior_list: List[np.ndarray],
     forecast_storage_vol: np.ndarray,
     target: str,
+    config: Optional[Dict[str, Any]] = None,
 ) -> List[pd.DataFrame]:
     """
     Converts a list of posterior sample arrays into the standard Contract DataFrame.
@@ -37,6 +38,7 @@ def predictions_to_contract_df(
         forecast_storage_vol: Metadata volume [batch, steps, channels, H, W].
                               Required channels: 0 (pg_id), 3 (month_id).
         target: The target variable name (e.g., 'ln_sb_best').
+        config: Optional configuration dictionary for transform lookups.
 
     Returns:
         List[pd.DataFrame]: A list containing a single MultiIndex DataFrame formatted 
@@ -44,20 +46,15 @@ def predictions_to_contract_df(
 
     Invariants:
         - Output column name is always prefixed with 'pred_lr_'.
-        - Values are inverse-transformed using exp(x) - 1 (Raw Count Scale).
+        - Values are inverse-transformed using the symmetric transform from config.
         - Ocean cells (priogrid_gid == 0) are strictly excluded.
     """
     # 1. Standardize Input
     all_samples = np.stack(posterior_list)  # [samples, steps, features, H, W]
     
-    # 2. Channel Mapping
-    target_map = {"sb": 0, "ns": 1, "os": 2}
-    internal_key = "sb"
-    for k in target_map.keys():
-        if k in target:
-            internal_key = k
-            break
-    t_idx = target_map[internal_key]
+    # 2. Channel Mapping (Robust Registry Lookup)
+    from views_hydranet.utils.utils_config import get_target_index
+    t_idx = get_target_index(target)
     
     # 3. Target Naming (Explicit Raw Scale)
     if target.startswith("ln_"):
@@ -71,7 +68,13 @@ def predictions_to_contract_df(
     # 4. Extract and Unlog
     # [samples, steps, H, W]
     target_samples = all_samples[:, :, t_idx, :, :]
-    target_samples = np.expm1(target_samples)
+    
+    from views_hydranet.utils.utils_config import TRANSFORMS
+    # Default to log1p for legacy compatibility
+    transform_name = config.get("transform", "log1p") if config else "log1p"
+    _, inverse_fn = TRANSFORMS[transform_name]
+    
+    target_samples = inverse_fn(target_samples)
     
     # Handle Binarization
     if target.endswith("_binarized"):
@@ -106,6 +109,7 @@ def zstack_to_contract_df(
     posterior_zstack: np.ndarray,
     meta_zstack: np.ndarray,
     target: str,
+    config: Optional[Dict[str, Any]] = None,
 ) -> List[pd.DataFrame]:
     """
     Converts zstacks from HydraNetInference into the standard Contract DataFrame.
@@ -116,6 +120,7 @@ def zstack_to_contract_df(
         posterior_zstack: Predicted magnitudes [steps, H, W, channels, samples].
         meta_zstack: Metadata volume [steps, H, W, channels, 1].
         target: The target variable name (e.g., 'ln_sb_best').
+        config: Optional configuration dictionary for transform lookups.
 
     Returns:
         List[pd.DataFrame]: A list containing a single MultiIndex DataFrame formatted 
@@ -127,14 +132,9 @@ def zstack_to_contract_df(
     """
     samples = posterior_zstack.shape[-1]
     
-    # Internal channel mapping
-    target_map = {"sb": 0, "ns": 1, "os": 2}
-    internal_key = "sb"
-    for k in target_map.keys():
-        if k in target:
-            internal_key = k
-            break
-    t_idx = target_map[internal_key]
+    # Internal channel mapping (Robust Registry Lookup)
+    from views_hydranet.utils.utils_config import get_target_index
+    t_idx = get_target_index(target)
     
     # Construct Output Column Name
     if target.startswith("ln_"):
@@ -145,8 +145,15 @@ def zstack_to_contract_df(
         out_target = target
     out_col = f"pred_{out_target}"
     
-    # Extract magnitudes and inverse transform
+    # Extract magnitudes and apply inverse transform from registry
     mags = posterior_zstack[:, :, :, t_idx, :]
+    
+    from views_hydranet.utils.utils_config import TRANSFORMS
+    # Default to log1p for legacy compatibility
+    transform_name = config.get("transform", "log1p") if config else "log1p"
+    _, inverse_fn = TRANSFORMS[transform_name]
+    
+    logger.debug(f"Converting magnitudes back to raw counts using {transform_name} inverse.")
     
     # --- DEBUG: Forensic Statistical Summary ---
     total_elements = mags.size
@@ -154,21 +161,11 @@ def zstack_to_contract_df(
     inf_count = np.isinf(mags).sum()
     
     if nan_count > 0 or inf_count > 0 or not np.isfinite(mags).all():
-        logger.error(f"!!! CRITICAL: NON-FINITE PREDICTIONS DETECTED FOR {target} IN LOG-SPACE !!!")
+        logger.error(f"!!! CRITICAL: NON-FINITE PREDICTIONS DETECTED FOR {target} IN SCALED-SPACE !!!")
         logger.error(f"  Stats: NaNs={nan_count}, Infs={inf_count} out of {total_elements}")
-        finite_mags = mags[np.isfinite(mags)]
-        if finite_mags.size > 0:
-            logger.error(f"  Finite Range: min={finite_mags.min():.4f}, max={finite_mags.max():.4f}, mean={finite_mags.mean():.4f}")
-        else:
-            logger.error("  NO FINITE VALUES IN TENSOR.")
             
-        for t in range(mags.shape[0]):
-            t_mags = mags[t]
-            if not np.isfinite(t_mags).all():
-                logger.error(f"  Step {t}: {np.isnan(t_mags).sum()} NaNs, {np.isinf(t_mags).sum()} Infs")
-    # --- END DEBUG ---
-
-    mags = np.expm1(mags) # log1p inverse: exp(x) - 1
+    # Apply the dynamic inverse
+    mags = inverse_fn(mags) 
     
     # 4. Handle Binarization (Classification Contract)
     if target.endswith("_binarized"):

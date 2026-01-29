@@ -55,7 +55,7 @@ def test_multitask_merging_alignment(manager_robust_env):
                             mock_inference = mock_inf_cls.return_value
                             mock_inference.generate_posterior_samples.return_value = (MagicMock(), MagicMock())
                             
-                            def side_effect(posterior_zstack, meta_zstack, target):
+                            def side_effect(posterior_zstack, meta_zstack, target, **kwargs):
                                 return [pd.DataFrame({f"pred_{target}": [0.5]}, index=pd.MultiIndex.from_tuples([(1,1)], names=["month_id", "priogrid_gid"]))]
                             mock_conv.side_effect = side_effect
                             

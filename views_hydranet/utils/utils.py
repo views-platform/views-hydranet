@@ -746,14 +746,29 @@ def get_full_tensor(
             f"Please check QuerySet/Architecture alignment."
         )
 
-    # 4. Perform Slicing
+    # 4. Perform Slicing and Scaling
     # Shape transformation: [T, H, W, C] -> [1, T, C, H, W]
-    vol_tensor = torch.tensor(views_vol).float().unsqueeze(dim=0).permute(0, 1, 4, 2, 3)
+    vol_tensor = torch.tensor(views_vol).float()
+    
+    # JIT Scaling Logic: 
+    # If we have column names and a transform is requested, apply it to 'lr_' columns.
+    from views_hydranet.utils.utils_config import TRANSFORMS
+    transform_name = config.get("transform", "log1p") if config else "log1p"
+    forward_fn, _ = TRANSFORMS[transform_name]
+
+    if columns is not None:
+        for i, col in enumerate(columns):
+            if col.lower().startswith("lr_"):
+                logger.debug(f"JIT Scaling: Applying {transform_name} to {col} (index {i})")
+                scaled_data = forward_fn(views_vol[:, :, :, i])
+                vol_tensor[:, :, :, i] = torch.tensor(scaled_data).float()
+
+    vol_tensor = vol_tensor.unsqueeze(dim=0).permute(0, 1, 4, 2, 3)
     
     full_tensor = vol_tensor[:, :, feature_start_idx:last_feature_idx, :, :]
     metadata_tensor = vol_tensor[:, :, :feature_start_idx, :, :]
 
-    logger.debug(f"Slicing complete: full_tensor={full_tensor.shape}, metadata_tensor={metadata_tensor.shape}")
+    logger.debug(f"Slicing and scaling complete: full_tensor={full_tensor.shape}")
 
     return full_tensor, metadata_tensor
 

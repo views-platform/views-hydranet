@@ -284,7 +284,8 @@ class HydranetManager(ForecastingModelManager):
                     df_target_list = zstack_to_contract_df(
                         posterior_zstack=posterior_zstack,
                         meta_zstack=meta_zstack,
-                        target=target
+                        target=target,
+                        config=self.config
                     )
                     df_target = df_target_list[0]
                     if df_origin is None:

@@ -70,3 +70,30 @@ def test_future_queryset_resilience():
     # Metadata tensor should have 6 channels now
     assert metadata_tensor.shape[2] == 6
 
+def test_jit_scaling_parity():
+    """
+    PROVE that 'Raw + JIT Log' == 'Pre-Logged'.
+    """
+    # 1. Setup raw counts
+    raw_val = 10.0
+    dummy_vol_raw = np.zeros((1, 1, 1, 6))
+    dummy_vol_raw[0, 0, 0, 5] = raw_val
+    cols_raw = ["pg_id", "row", "col", "month", "c_id", "lr_sb_best"]
+    
+    # 2. Setup pre-logged counts
+    logged_val = np.log1p(raw_val)
+    dummy_vol_logged = np.zeros((1, 1, 1, 6))
+    dummy_vol_logged[0, 0, 0, 5] = logged_val
+    cols_logged = ["pg_id", "row", "col", "month", "c_id", "ln_sb_best"]
+    
+    config = {"input_channels": 1, "transform": "log1p"}
+    
+    # Run both
+    full_raw, _ = get_full_tensor(dummy_vol_raw, config, columns=cols_raw)
+    full_logged, _ = get_full_tensor(dummy_vol_logged, config, columns=cols_logged)
+    
+    # ASSERT bit-identical parity
+    assert torch.allclose(full_raw, full_logged)
+    assert full_raw[0, 0, 0, 0, 0] == pytest.approx(logged_val)
+
+
