@@ -65,7 +65,8 @@ class HydranetManager(ForecastingModelManager):
                 raw_targets.append(t)
         
         logger.info(f"Translating evaluation targets: {original_targets} -> {raw_targets}")
-        self.configs["targets"] = raw_targets
+        # Use the setter to ensure the change sticks in the underlying config manager
+        self.configs = {"targets": raw_targets}
 
         # B. Define the augmentation logic for ground truth
         def augmented_read_dataframe(path):
