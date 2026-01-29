@@ -621,29 +621,6 @@ def test_norm_features_basic(mock_config_norm_features):
     assert np.allclose(result_vol[:, :, :, 2], expected_feature_2)
 
 
-def test_norm_features_with_unlog(mock_config_norm_features):
-
-    """
-    Tests norm_features with the 'un_log' option enabled.
-    """
-    # Arrange
-    mock_config_norm_features["un_log"] = True
-    full_vol = np.zeros((2, 2, 2, 4), dtype=np.float64)
-
-    # Feature 1: Log values. exp(feature) - 1 will be from 0 to 7
-    log_values = np.log(np.arange(1, 9).reshape(2, 2, 2))
-    full_vol[:, :, :, 1] = log_values
-
-    # Act
-    result_vol = norm_features(full_vol, mock_config_norm_features)
-
-    # Assert
-    # Original data after un-logging: np.exp(log_values) - 1 => results in np.arange(8).reshape(2,2,2)
-    # feature_max = 7, feature_min = 0
-    # expected = original_unlogged / 7
-    expected_feature_1 = np.arange(8).reshape(2, 2, 2) / 7.0
-
-    assert np.allclose(result_vol[:, :, :, 1], expected_feature_1)
 
 
 @patch('views_hydranet.utils.utils.HydraBNUNet06_LSTM4')

@@ -254,8 +254,6 @@ def norm_features(full_vol: np.ndarray, config: dict, a: int = 0, b: int = 1) ->
         config (dict): A dictionary containing configuration, including:
                        - "first_feature_idx" (int): The starting index of the features to normalize.
                        - "input_channels" (int): The number of features to normalize.
-                       - "un_log" (bool, optional): If True, applies `np.exp(feature) - 1` before
-                         normalization. Defaults to False.
         a (int, optional): The lower bound of the normalization range. Defaults to 0.
         b (int, optional): The upper bound of the normalization range. Defaults to 1.
 
@@ -271,19 +269,16 @@ def norm_features(full_vol: np.ndarray, config: dict, a: int = 0, b: int = 1) ->
           resulting in `NaN` values in that feature slice.
     """
 
-    first_feature_idx = config['first_feature_idx'] #config.first_feature_idx
-    last_feature_idx = first_feature_idx + config['input_channels'] - 1 #config.first_feature_idx + config.input_channels - 1
+    first_feature_idx = config['first_feature_idx']
+    last_feature_idx = first_feature_idx + config['input_channels'] - 1
 
 
     for i in range(first_feature_idx, last_feature_idx + 1):
 
         feature = full_vol[:, :, :, i] 
 
-        if "un_log" in config and config["un_log"]:
-            feature = np.exp(feature) - 1
-
-        feature_max = feature.max() # could make sure that we are not using information from the future.... But this is not a big deal... 
-        feature_min = 0 #full_vol[:, :, :, i].min()
+        feature_max = feature.max() 
+        feature_min = 0 
 
         feature_norm = (b-a)*(feature - feature_min)/(feature_max-feature_min)+a
 
