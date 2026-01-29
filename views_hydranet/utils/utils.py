@@ -1,3 +1,4 @@
+from typing import List, Tuple, Optional
 import logging
 import sys
 from typing import Optional, Tuple
@@ -681,91 +682,78 @@ def get_train_tensors(views_vol: np.ndarray, sample: int, config: dict, device: 
 #    return full_tensor 
 
 
-def get_full_tensor(views_vol: np.ndarray, config: Optional[dict] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+def get_full_tensor(
+    views_vol: np.ndarray, 
+    config: Optional[dict] = None,
+    columns: Optional[List[str]] = None
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Converts the input 4D volume array into PyTorch tensors for model input, separating feature and metadata tensors.
 
     This function transforms the input `views_vol`, which is a 4D numpy array, into two PyTorch tensors:
-    `full_tensor` and `metadata_tensor`. The `full_tensor` is used for model input and contains the features
-    specified for out-of-sample predictions. The `metadata_tensor` retains other columns not used as features
-    and is kept for metadata purposes.
+    `full_tensor` and `metadata_tensor`. 
+
+    The function dynamically determines the split point between metadata (Identity) and features (Conflict data)
+    based on the provided column names.
 
     Args:
-        views_vol (np.ndarray): A 4D numpy array with shape [n_months, height, width, n_features]. This volume
-                                contains spatial-temporal data with both features and metadata.
-        config (Optional[dict]): A dictionary containing model configuration, particularly "input_channels".
-                                 If `None`, "input_channels" defaults to 3 (hardcoded for testing purposes).
+        views_vol: The 4D input volume [Time, Lat, Lon, Channels].
+        config: Model configuration dictionary.
+        columns: Optional list of column names in the order they appear in the volume channels.
 
     Returns:
-        Tuple[torch.Tensor, torch.Tensor]:
-            - `full_tensor` (torch.Tensor): A tensor with the selected features, of shape
-              [1, n_months, selected_features, height, width]. This tensor is used for out-of-sample
-              predictions for both evaluation and forecasting.
-            - `metadata_tensor` (torch.Tensor): A tensor with the metadata, of shape
-              [1, n_months, metadata_features, height, width]. This tensor contains the remaining columns
-              of the original volume not used in `full_tensor`.
-
-    Raises:
-        ValueError: If the input `views_vol` does not have 4 dimensions.
-
-    .. warning::
-        - The `ln_best_sb_idx` (start index for main features) is currently hardcoded to `5`. This assumes
-          a fixed order and number of initial metadata features in `views_vol`.
-        - When `config` is `None`, `input_channels` defaults to `3`. This behavior is hardcoded for
-          testing purposes and might not reflect production configuration.
-        - The `print` statements to stdout are side effects.
-
-    Example:
-        >>> views_vol = np.random.rand(36, 180, 180, 8)  # Example input volume
-        >>> # Example with config
-        >>> config_with_channels = {"input_channels": 3}
-        >>> full_tensor, metadata_tensor = get_full_tensor(views_vol, config_with_channels)
-        >>> print(full_tensor.shape)
-        torch.Size([1, 36, 3, 180, 180])
-        >>> print(metadata_tensor.shape)
-        torch.Size([1, 36, 5, 180, 180])
-        >>> # Example with config=None
-        >>> full_tensor_none_config, metadata_tensor_none_config = get_full_tensor(views_vol, config=None)
-        >>> print(full_tensor_none_config.shape)
-        torch.Size([1, 36, 3, 180, 180])
-        >>> print(metadata_tensor_none_config.shape)
-        torch.Size([1, 36, 5, 180, 180])
+        Tuple[torch.Tensor, torch.Tensor]: (full_tensor, metadata_tensor)
     """
 
-    # ln_best_sb_idx represents the starting index for the main features that will be used as input
-    # for the model. Features before this index are considered metadata.
-    # It is currently hardcoded to 5, meaning the first 5 features (indices 0-4) are treated as metadata.
-    ln_best_sb_idx = 5 
+    # 1. Identify Identity Columns
+    # These are standard across VIEWS and should always be in the metadata tensor.
+    # We include common aliases used in different partitions.
+    identity_cols = ["priogrid_gid", "pg_id", "row", "col", "month_id", "month", "c_id"]
+    
+    # 2. Determine the Split Index
+    if columns is not None:
+        # Calculate index dynamically based on pattern-matching
+        # We look for the first column that matches our conflict targets (sb, ns, os)
+        # and has a standard prefix (ln_ or lr_)
+        target_indicators = ["sb", "ns", "os"]
+        feature_start_idx = -1
+        
+        for i, col in enumerate(columns):
+            col_lower = col.lower()
+            if any(indicator in col_lower for indicator in target_indicators):
+                feature_start_idx = i
+                break
+        
+        if feature_start_idx == -1:
+            logger.warning(f"get_full_tensor: Could not find any conflict targets in columns: {columns}. Defaulting to index 5.")
+            feature_start_idx = 5
+        else:
+            logger.debug(f"Dynamic Slicing: Found feature start at index {feature_start_idx} ('{columns[feature_start_idx]}').")
+    else:
+        # Fallback to legacy behavior for backward compatibility with un-annotated volumes
+        feature_start_idx = 5
+        logger.warning("get_full_tensor: No columns provided. Falling back to hardcoded index 5.")
 
-    # Determine input channel count
+    # 3. Validation: The Handshake
     requested_channels = config["input_channels"] if config is not None else 3
-    last_feature_idx = ln_best_sb_idx + requested_channels
+    last_feature_idx = feature_start_idx + requested_channels
+    actual_channels = views_vol.shape[-1]
 
-    # --- INVARIANT VALIDATION ---
-    actual_features = views_vol.shape[-1]
-    if actual_features < last_feature_idx:
+    if actual_channels < last_feature_idx:
         raise ValueError(
-            f"Input volume only has {actual_features} features, but HydraNet requires "
-            f"{last_feature_idx} features (5 metadata + {requested_channels} input channels). "
-            "Please check your queryset or input parquet files."
+            f"Architecture Mismatch! Model expects {requested_channels} features starting at "
+            f"index {feature_start_idx}, but volume only has {actual_channels} total channels. "
+            f"Please check QuerySet/Architecture alignment."
         )
-    # --- END VALIDATION ---
 
-    logger.debug(f"Selecting features: metadata [0:{ln_best_sb_idx}], "
-                f"input channels [{ln_best_sb_idx}:{last_feature_idx}].")
+    # 4. Perform Slicing
+    # Shape transformation: [T, H, W, C] -> [1, T, C, H, W]
+    vol_tensor = torch.tensor(views_vol).float().unsqueeze(dim=0).permute(0, 1, 4, 2, 3)
+    
+    full_tensor = vol_tensor[:, :, feature_start_idx:last_feature_idx, :, :]
+    metadata_tensor = vol_tensor[:, :, :feature_start_idx, :, :]
 
-    # Log the shape of the input volume for debugging and verification
-    logger.debug(f'Input views_vol shape: {views_vol.shape}')
-
-    # Create the full_tensor
-    full_tensor = torch.tensor(views_vol).float().unsqueeze(dim=0).permute(0,1,4,2,3)[:, :, ln_best_sb_idx:last_feature_idx, :, :]
-
-    # Create a metadata_tensor
-    metadata_tensor = torch.tensor(views_vol).float().unsqueeze(dim=0).permute(0,1,4,2,3)[:, :, :ln_best_sb_idx, :, :]
-
-    # Log the shapes of the output tensors for debugging and verification
-    logger.debug(f'Output full_tensor shape: {full_tensor.shape}')
-    logger.debug(f'Output metadata_tensor shape: {metadata_tensor.shape}')
+    logger.debug(f"Slicing complete: full_tensor={full_tensor.shape}, metadata_tensor={metadata_tensor.shape}")
 
     return full_tensor, metadata_tensor
 

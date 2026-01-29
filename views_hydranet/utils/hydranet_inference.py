@@ -241,21 +241,28 @@ class HydraNetInference:
 
 
     def generate_posterior_samples(
-        self, views_vol: torch.Tensor, is_evaluation: bool = True, window_info: str = ""
+        self, 
+        views_vol: np.ndarray, 
+        is_evaluation: bool = False, 
+        window_info: str = "",
+        columns: Optional[List[str]] = None
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """Generates multiple posterior samples using Monte Carlo Dropout.
+        """
+        Generates posterior samples from the model.
 
         Args:
-            views_vol: Input volume tensor.
-            is_evaluation: Whether running in evaluation mode.
-            window_info: Optional string to display in progress bar (e.g., "Origin 1/12").
+            views_vol: Spatiotemporal volume [Months, H, W, Channels].
+            is_evaluation: Whether to perform rolling origin evaluation logic.
+            window_info: Text for progress reporting.
+            columns: Optional list of column names for dynamic slicing.
 
         Returns:
-            A tuple containing:
-                - posterior_zstack: Concatenated magnitudes and probabilities.
-                - metadata_zstack: Transposed metadata tensor.
+            Tuple[np.ndarray, np.ndarray]: (posterior_zstack, metadata_zstack)
         """
-        full_tensor, metadata_tensor = get_full_tensor(views_vol, self.config)
+        from views_hydranet.utils.utils import get_full_tensor
+        
+        # 1. Prepare Tensors
+        full_tensor, metadata_tensor = get_full_tensor(views_vol, self.config, columns=columns)
         full_tensor = full_tensor.to(self.device)
         _, seq_len, _, H, W = full_tensor.shape
 

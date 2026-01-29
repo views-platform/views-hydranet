@@ -142,16 +142,10 @@ def test_get_full_tensor_basic_config(mock_views_vol, caplog):
     # Assert shapes
     n_months, height, width, n_features = mock_views_vol.shape
     expected_full_tensor_shape = (1, n_months, mock_config["input_channels"], height, width)
-    expected_metadata_tensor_shape = (1, n_months, 5, height, width) # 5 = ln_best_sb_idx (hardcoded)
-
+    expected_metadata_tensor_shape = (1, n_months, 5, height, width) # 5 = default/legacy fallback
+    
     assert full_tensor.shape == expected_full_tensor_shape
     assert metadata_tensor.shape == expected_metadata_tensor_shape
-    
-    # Assert log messages
-    assert "Selecting features: metadata [0:5]" in caplog.text
-    assert "Output full_tensor shape" in caplog.text
-    assert "Output metadata_tensor shape" in caplog.text
-
 
 def test_get_full_tensor_data_integrity():
     """

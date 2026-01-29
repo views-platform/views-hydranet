@@ -13,6 +13,26 @@ class TargetVariable(str, Enum):
     NS_BEST = "ns_best"
     OS_BEST = "os_best"
 
+# Centralized Registry for Multi-Task Heads
+# The order defined here corresponds to the channel index in the model output tensors.
+TARGET_REGISTRY = {
+    "sb": 0,
+    "ns": 1,
+    "os": 2
+}
+
+def get_target_index(target_name: str) -> int:
+    """
+    Determines the tensor channel index for a given target name.
+    
+    Example: 'ln_sb_best' -> 0, 'lr_ns_best' -> 1
+    """
+    target_name = target_name.lower()
+    for key, idx in TARGET_REGISTRY.items():
+        if key in target_name:
+            return idx
+    raise ValueError(f"Target '{target_name}' not recognized in TARGET_REGISTRY.")
+
 class HydraNetConfig(BaseModel):
     """
     Strictly-typed configuration for HydraNet.
