@@ -81,3 +81,12 @@ H1_d0 = F.relu(self.bn(self.conv(torch.cat([upsample, skip * 0.1], 1))))
 | **Forget Gates** | Medium | **Bias Initialization (-1.0 to force "forgetting" early)** |
 | **Regression Head** | CRITICAL | **Output Clamping (max=20.0)** |
 | **Loss Function** | Medium | **Epsilon Addition (`loss + 1e-8`)** |
+
+## 6. Critical Note on the "Numerical Healer"
+**The current post-processing 'healing' (NaN/Inf substitution and clamping) is a TEMPORARY STABILITY SHIM.**
+
+While it allows the pipeline to finish during short debugging runs, the occurrence of these values is a **Modeling Problem** (Architecture/Training/Inference). 
+- **The Healer masks symptoms, it does not fix the disease.**
+- Any reliance on the healer in production is considered **Technical Debt**.
+- The root cause remains the exponential amplification in the recurrent layers and the un-clamped regression heads, which MUST be solved at the architectural level.
+

@@ -57,9 +57,11 @@ Predictions are returned as a list of DataFrames, adhering to the ViEWS Producer
 - **Columns:** `pred_lr_{target}`
 - **Content:** List of posterior samples (for stochastic evaluation).
 
-## 4. Numerical Healing & Stability Contract
+## 4. Numerical Healing & Stability (TEMPORARY SHIM)
 
-To prevent pipeline crashes due to mathematical instabilities (exploding gradients, log-overflows), HydraNet implements a **Global Healing Contract**.
+To prevent pipeline crashes during debugging (short training runs), HydraNet implements a temporary **Stability Shim**.
+
+**CRITICAL:** This is not a fix for the underlying modeling problems. Overflows to non-finite or unrealistic values are considered architectural failures.
 
 - **Automatic Sanitization:** All non-finite values (`NaN`, `Inf`) are automatically substituted with `0.0` at the contract boundaries.
 - **Safety Clamping:** Values are clamped to a maximum of `20.0` in log-space (approx. 485 million in raw-space) before inverse transformation.

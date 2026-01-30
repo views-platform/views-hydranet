@@ -40,10 +40,12 @@ This proof ensures:
 
 ---
 
-## 4. Error Handling & Numerical Stability Guarantee
+## 4. Error Handling & Numerical Stability (Temporary Shim)
 
-### 4.1. Automatic Healing
-The Producer guarantees that all DataFrames returned under this contract are **Finite**.
+### 4.1. Automatic Healing (Debugging Only)
+**DISCLAIMER:** The following healing logic is a temporary solution to allow debugging. Non-finite values indicate architectural instability.
+
+The Producer currently guarantees that all DataFrames returned under this contract are **Finite** via post-processing:
 *   **NaN/Inf Substitution:** Any non-finite values produced by the model are automatically substituted with `0.0`.
 *   **Safety Clamping:** Values are clamped to a conservative range (e.g., 20.0 in log-space) to prevent overflow during inverse transformation.
 *   **Visibility:** Every healing event is logged as a `WARNING` to signal model instability to the developer.
