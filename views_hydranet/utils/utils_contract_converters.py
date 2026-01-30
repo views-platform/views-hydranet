@@ -18,39 +18,11 @@ import numpy as np
 import pandas as pd
 import torch
 
+from views_hydranet.utils.utils import heal_non_finite
 from views_hydranet.utils.utils_internal_containers import ModelOutputs
 
 logger = logging.getLogger(__name__)
 
-def _heal_non_finite(data: np.ndarray, context: str, clamp_val: Optional[float] = None) -> np.ndarray:
-    """
-    Heals non-finite values (NaN/Inf) by substituting them with 0.0.
-    Optionally clamps values to a maximum range to prevent overflow during inverse transforms.
-    Loudly logs a warning to ensure this is only used for debugging.
-    """
-    # 1. First Pass: Handle existing NaNs and Infs
-    if not np.isfinite(data).all():
-        num_nans = np.isnan(data).sum()
-        num_infs = np.isinf(data).sum()
-        logger.warning(
-            f"\n[NUMERICAL INSTABILITY] context: {context}\n"
-            f"Detected {num_nans} NaNs and {num_infs} Infs. "
-            f"Healing by substituting with 0.0."
-        )
-        data = np.nan_to_num(data, nan=0.0, posinf=0.0, neginf=0.0)
-    
-    # 2. Second Pass: Proactive Clamping (e.g. log-space > 20.0 is dangerous)
-    if clamp_val is not None:
-        if (data > clamp_val).any():
-            num_clamped = (data > clamp_val).sum()
-            logger.warning(
-                f"[NUMERICAL INSTABILITY] context: {context}\n"
-                f"Detected {num_clamped} values exceeding clamp threshold {clamp_val}. "
-                f"Clamping to {clamp_val} to prevent overflow in inverse transform."
-            )
-            data = np.clip(data, a_min=None, a_max=clamp_val)
-
-    return data
 
 def predictions_to_contract_df(
     posterior_list: List[np.ndarray],
@@ -100,7 +72,7 @@ def predictions_to_contract_df(
     target_samples = all_samples[:, :, t_idx, :, :]
     
     # Pass 1: Heal and Clamp before transform (20.0 in log-space is ~480 million fatalities)
-    target_samples = _heal_non_finite(target_samples, f"predictions_to_contract_df({target})", clamp_val=20.0)
+    target_samples = heal_non_finite(target_samples, f"predictions_to_contract_df({target})", clamp_val=20.0)
 
     from views_hydranet.utils.utils_config import TRANSFORMS
     # Default to log1p for legacy compatibility
@@ -110,7 +82,7 @@ def predictions_to_contract_df(
     target_samples = inverse_fn(target_samples)
     
     # Pass 2: Heal again after transform (catch overflows from non-log transforms)
-    target_samples = _heal_non_finite(target_samples, f"predictions_to_contract_df({target}) [POST-TRANSFORM]")
+    target_samples = heal_non_finite(target_samples, f"predictions_to_contract_df({target}) [POST-TRANSFORM]")
     
     # Handle Binarization
     if target.endswith("_binarized"):
@@ -184,8 +156,31 @@ def zstack_to_contract_df(
     # Extract magnitudes and apply inverse transform from registry
     mags = posterior_zstack[:, :, :, t_idx, :]
     
+    # 3. Collapse/Aggregation Logic (Compatibility Shim)
+    eval_mode = config.get("evalution_mode", "stochastic") if config else "stochastic"
+    agg_method = config.get("aggregate_method", "mean") if config else "mean"
+    agg_space = config.get("aggregate_space", "raw") if config else "raw"
+
+    def apply_aggregation(data: np.ndarray, method: str) -> np.ndarray:
+        if method == "mean":
+            return np.mean(data, axis=-1, keepdims=True)
+        elif method == "median":
+            return np.median(data, axis=-1, keepdims=True)
+        elif method == "max_aposteriori":
+            # For now, simplistic MAP as the mode of samples
+            # In continuous space, we'd need KDE, but for now we'll use mean as proxy or actual mode
+            from scipy import stats
+            # Mode on samples axis
+            mode_res = stats.mode(data, axis=-1, keepdims=True)
+            return mode_res.mode
+        return data
+
+    if eval_mode == "point" and agg_space == "logged":
+        logger.info(f"Collapsing samples using {agg_method} in LOGGED space.")
+        mags = apply_aggregation(mags, agg_method)
+
     # Pass 1: Heal and Clamp before transform
-    mags = _heal_non_finite(mags, f"zstack_to_contract_df({target})", clamp_val=20.0)
+    mags = heal_non_finite(mags, f"zstack_to_contract_df({target})", clamp_val=20.0)
 
     from views_hydranet.utils.utils_config import TRANSFORMS
     # Default to log1p for legacy compatibility
@@ -196,9 +191,13 @@ def zstack_to_contract_df(
     
     # Apply the dynamic inverse
     mags = inverse_fn(mags) 
+
+    if eval_mode == "point" and agg_space == "raw":
+        logger.info(f"Collapsing samples using {agg_method} in RAW space.")
+        mags = apply_aggregation(mags, agg_method)
     
     # Pass 2: Heal again after transform
-    mags = _heal_non_finite(mags, f"zstack_to_contract_df({target}) [POST-TRANSFORM]")
+    mags = heal_non_finite(mags, f"zstack_to_contract_df({target}) [POST-TRANSFORM]")
     
     # 4. Handle Binarization (Classification Contract)
     if target.endswith("_binarized"):

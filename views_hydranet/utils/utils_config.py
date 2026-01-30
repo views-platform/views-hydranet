@@ -95,6 +95,11 @@ class HydraNetConfig(BaseModel):
     roof_ratio: float = Field(default=0.7)
     freeze_h: str = Field(default="hl")
 
+    # 8. Evaluation & Aggregation (Compatibility Shim)
+    evalution_mode: str = Field(default="stochastic", description="Mode: 'point' or 'stochastic'")
+    aggregate_method: str = Field(default="mean", description="Method: 'mean', 'median', 'max_aposteriori'")
+    aggregate_space: str = Field(default="raw", description="Space: 'raw', 'logged', 'asinh'")
+
     # Metadata
     model_time_stamp: str | None = None
 
@@ -120,6 +125,32 @@ class HydraNetConfig(BaseModel):
             raise ValueError(f"run_type must be one of {valid}")
         return v
 
+    @field_validator("evalution_mode")
+    @classmethod
+    def validate_eval_mode(cls, v: str) -> str:
+        valid = ["point", "stochastic"]
+        # Allow 'stocastic' typo if it exists in data, but normalize to 'stochastic'
+        if v == "stocastic":
+            return "stochastic"
+        if v not in valid:
+            raise ValueError(f"evaluation_mode must be one of {valid}")
+        return v
+
+    @field_validator("aggregate_method")
+    @classmethod
+    def validate_agg_method(cls, v: str) -> str:
+        valid = ["mean", "median", "max_aposteriori"]
+        if v not in valid:
+            raise ValueError(f"aggregate_method must be one of {valid}")
+        return v
+
+    @field_validator("aggregate_space")
+    @classmethod
+    def validate_agg_space(cls, v: str) -> str:
+        valid = ["raw", "logged", "asinh"]
+        if v not in valid:
+            raise ValueError(f"aggregate_space must be one of {valid}")
+        return v
 
     class Config:
         extra = "allow" # Allow extra fields from the broader pipeline for now

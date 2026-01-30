@@ -21,6 +21,7 @@ from views_pipeline_core.managers.model import (
 
 from views_hydranet.train.train_model import train_model_artifact
 from views_hydranet.utils.hydranet_inference import HydraNetInference
+from views_hydranet.utils.utils import heal_non_finite
 from views_hydranet.utils.utils_contract_converters import (
     validate_contract_dataframes,
     zstack_to_contract_df,
@@ -167,7 +168,12 @@ class HydranetManager(ForecastingModelManager):
 
                 # Case A: We need lr_X, have ln_X -> Unlog
                 if target not in df_aug.columns and ln_col in df_aug.columns:
+                    # Pass 1: Heal/Clamp the log-transformed source before expm1
+                    df_aug[ln_col] = heal_non_finite(df_aug[ln_col], f"augment_actuals({ln_col})", clamp_val=20.0)
                     df_aug[target] = np.expm1(df_aug[ln_col])
+                    
+                    # Pass 2: Heal the resulting raw values
+                    df_aug[target] = heal_non_finite(df_aug[target], f"augment_actuals({target}) [POST-TRANSFORM]")
 
                 # Case B: We need lr_X_binarized
                 if "binarized" in target:

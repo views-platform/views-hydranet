@@ -3,6 +3,7 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
 
+import pandas as pd
 import numpy as np
 import torch
 import torch.nn as nn
@@ -44,6 +45,65 @@ from views_hydranet.utils.mtloss import MultiTaskLoss
 # loss functions
 from views_hydranet.utils.shringkage_loss import ShrinkageLoss
 from views_hydranet.utils.warmup_decay_lr_scheduler import WarmupDecayLearningRateScheduler
+
+
+def heal_non_finite(data: np.ndarray | pd.Series | pd.DataFrame, context: str, clamp_val: float | None = None) -> Any:
+    """
+    Heals non-finite values (NaN/Inf) by substituting them with 0.0.
+    Optionally clamps values to a maximum range to prevent overflow during inverse transforms.
+    Loudly logs a warning to ensure this is only used for debugging.
+    """
+    # 1. First Pass: Handle existing NaNs and Infs
+    is_pd = isinstance(data, (pd.Series, pd.DataFrame))
+    
+    # Check for finiteness
+    if is_pd:
+        has_bad = not np.isfinite(data.values).all()
+    else:
+        has_bad = not np.isfinite(data).all()
+
+    if has_bad:
+        if is_pd:
+            num_nans = data.isna().sum().sum()
+            num_infs = (np.isinf(data.values)).sum()
+        else:
+            num_nans = np.isnan(data).sum()
+            num_infs = np.isinf(data).sum()
+
+        logger.warning(
+            f"\n[NUMERICAL INSTABILITY] context: {context}\n"
+            f"Detected {num_nans} NaNs and {num_infs} Infs. "
+            f"Healing by substituting with 0.0."
+        )
+        if is_pd:
+            data = data.fillna(0.0).replace([np.inf, -np.inf], 0.0)
+        else:
+            data = np.nan_to_num(data, nan=0.0, posinf=0.0, neginf=0.0)
+    
+    # 2. Second Pass: Proactive Clamping
+    if clamp_val is not None:
+        if is_pd:
+            has_over = (data > clamp_val).any().any() if isinstance(data, pd.DataFrame) else (data > clamp_val).any()
+        else:
+            has_over = (data > clamp_val).any()
+
+        if has_over:
+            if is_pd:
+                num_clamped = (data > clamp_val).sum().sum() if isinstance(data, pd.DataFrame) else (data > clamp_val).sum()
+            else:
+                num_clamped = (data > clamp_val).sum()
+
+            logger.warning(
+                f"[NUMERICAL INSTABILITY] context: {context}\n"
+                f"Detected {num_clamped} values exceeding clamp threshold {clamp_val}. "
+                f"Clamping to {clamp_val}."
+            )
+            if is_pd:
+                data = data.clip(upper=clamp_val)
+            else:
+                data = np.clip(data, a_min=None, a_max=clamp_val)
+
+    return data
 
 
 def choose_model(config: dict, device: torch.device) -> nn.Module:
