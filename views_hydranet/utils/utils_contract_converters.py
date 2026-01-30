@@ -156,50 +156,49 @@ def zstack_to_contract_df(
     # Extract magnitudes and apply inverse transform from registry
     mags = posterior_zstack[:, :, :, t_idx, :]
     
-    # 3. Collapse/Aggregation Logic (Compatibility Shim)
+    # 2. Extract Config & Aggregation Strategy
     eval_mode = config.get("evalution_mode", "stochastic") if config else "stochastic"
-    agg_method = config.get("aggregate_method", "mean") if config else "mean"
-    agg_space = config.get("aggregate_space", "raw") if config else "raw"
-
-    def apply_aggregation(data: np.ndarray, method: str) -> np.ndarray:
-        if method == "mean":
-            return np.mean(data, axis=-1, keepdims=True)
-        elif method == "median":
-            return np.median(data, axis=-1, keepdims=True)
-        elif method == "max_aposteriori":
-            # For now, simplistic MAP as the mode of samples
-            # In continuous space, we'd need KDE, but for now we'll use mean as proxy or actual mode
-            from scipy import stats
-            # Mode on samples axis
-            mode_res = stats.mode(data, axis=-1, keepdims=True)
-            return mode_res.mode
-        return data
-
-    if eval_mode == "point" and agg_space == "logged":
-        logger.info(f"Collapsing samples using {agg_method} in LOGGED space.")
-        mags = apply_aggregation(mags, agg_method)
-
-    # Pass 1: Heal and Clamp before transform
-    mags = heal_non_finite(mags, f"zstack_to_contract_df({target})", clamp_val=20.0)
+    agg_method = config.get("aggregate_method", "geometric_mean") if config else "geometric_mean"
+    transform_name = config.get("transform", "log1p") if config else "log1p"
 
     from views_hydranet.utils.utils_config import TRANSFORMS
-    # Default to log1p for legacy compatibility
-    transform_name = config.get("transform", "log1p") if config else "log1p"
     _, inverse_fn = TRANSFORMS[transform_name]
-    
-    logger.debug(f"Converting magnitudes back to raw counts using {transform_name} inverse.")
-    
-    # Apply the dynamic inverse
-    mags = inverse_fn(mags) 
 
-    if eval_mode == "point" and agg_space == "raw":
-        logger.info(f"Collapsing samples using {agg_method} in RAW space.")
-        mags = apply_aggregation(mags, agg_method)
+    # 3. Explicit Aggregation Strategy Pass
+    if eval_mode == "point":
+        if agg_method == "geometric_mean":
+            # Math: exp(mean(log)) - 1
+            logger.info("Point-Collapse: Calculating Geometric Mean (Stable path).")
+            mags = np.mean(mags, axis=-1) # Collapse samples axis
+        
+        elif agg_method == "median":
+            # Math: exp(median(log)) - 1
+            logger.info("Point-Collapse: Calculating Median (Robust path).")
+            mags = np.median(mags, axis=-1)
+
+        elif agg_method == "arithmetic_mean":
+            # Math: mean(exp(log) - 1)
+            logger.warning("Point-Collapse: Calculating Arithmetic Mean (Unbiased but UNSTABLE path).")
+            mags = heal_non_finite(mags, f"zstack_to_contract_df({target}) [PRE-AGG]", clamp_val=20.0)
+            mags = inverse_fn(mags)
+            mags = np.mean(mags, axis=-1)
+            # Flag to skip final transform
+            inverse_fn = lambda x: x
+        
+        # After collapsing, expand back by 1 to maintain 4D expected by downstream masking
+        mags = np.expand_dims(mags, axis=-1)
+
+    # 4. Final Transformation & Numerical Guarding
+    # Pass 1: Guard before transform (unless arithmetic_mean already did it)
+    mags = heal_non_finite(mags, f"zstack_to_contract_df({target})", clamp_val=20.0)
     
-    # Pass 2: Heal again after transform
+    # Apply Inverse Transform
+    mags = inverse_fn(mags) 
+    
+    # Pass 2: Guard after transform
     mags = heal_non_finite(mags, f"zstack_to_contract_df({target}) [POST-TRANSFORM]")
     
-    # 4. Handle Binarization (Classification Contract)
+    # 5. Handle Binarization (Classification Contract) (Classification Contract)
     if target.endswith("_binarized"):
         # We binarize on the RAW scale: > 0
         mags = (mags > 0).astype(float)

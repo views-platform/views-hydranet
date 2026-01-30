@@ -16,8 +16,7 @@ def test_zstack_to_contract_df_point_collapse_mean_raw():
     
     config = {
         "evalution_mode": "point",
-        "aggregate_method": "mean",
-        "aggregate_space": "raw",
+        "aggregate_method": "arithmetic_mean",
         "transform": "log1p"
     }
     
@@ -28,14 +27,13 @@ def test_zstack_to_contract_df_point_collapse_mean_raw():
     expected_val = np.expm1(2.0)
     
     # The output should be a list containing a single mean value
-    actual_val_list = df.iloc[0]["pred_lr_sb"][0]
-    assert len(df.iloc[0]["pred_lr_sb"]) == 1
-    assert pytest.approx(actual_val_list) == expected_val
+    actual_val_list = df.iloc[0]["pred_lr_sb"]
+    assert len(actual_val_list) == 1
+    assert pytest.approx(actual_val_list[0]) == expected_val
 
 def test_zstack_to_contract_df_point_collapse_mean_logged():
     """
-    Verify that evalution_mode='point' with aggregate_method='mean' in 'logged' space works.
-    (Geometric Mean in raw space)
+    Verify that evalution_mode='point' with aggregate_method='geometric_mean' works.
     """
     steps, H, W, channels, samples = 1, 2, 2, 3, 10
     # Half samples are 1.0, half are 3.0 in log space
@@ -49,8 +47,7 @@ def test_zstack_to_contract_df_point_collapse_mean_logged():
     
     config = {
         "evalution_mode": "point",
-        "aggregate_method": "mean",
-        "aggregate_space": "logged",
+        "aggregate_method": "geometric_mean",
         "transform": "log1p"
     }
     
@@ -60,6 +57,6 @@ def test_zstack_to_contract_df_point_collapse_mean_logged():
     # Expected: mean in log space is (1+3)/2 = 2.0. Then inverse transform: exp(2.0)-1
     expected_val = np.expm1(2.0)
     
-    actual_val_list = df.iloc[0]["pred_lr_sb"][0]
-    assert len(df.iloc[0]["pred_lr_sb"]) == 1
-    assert pytest.approx(actual_val_list) == expected_val
+    actual_val_list = df.iloc[0]["pred_lr_sb"]
+    assert len(actual_val_list) == 1
+    assert pytest.approx(actual_val_list[0]) == expected_val
