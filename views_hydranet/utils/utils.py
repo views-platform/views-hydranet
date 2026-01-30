@@ -571,7 +571,8 @@ def train_log(avg_loss_list, avg_loss_reg_list, avg_loss_class_list):
     avg_loss_class = np.mean(avg_loss_class_list)
     
     # also log maps...
-    wandb.log({"avg_loss": avg_loss, "avg_loss_reg": avg_loss_reg, "avg_loss_class": avg_loss_class})
+    if wandb.run is not None:
+        wandb.log({"avg_loss": avg_loss, "avg_loss_reg": avg_loss_reg, "avg_loss_class": avg_loss_class})
 
 
 # Should rename to sub_tensor or something like that... But it is used for training.. 

@@ -58,7 +58,7 @@ def train(
     columns: Optional[List[str]] = None,
 ) -> None:
 
-    wandb.watch(model, [criterion_reg, criterion_class], log=None, log_freq=2048)
+    # wandb.watch(model, [criterion_reg, criterion_class], log=None, log_freq=2048)
 
     avg_loss_reg_list = []
     avg_loss_class_list = []

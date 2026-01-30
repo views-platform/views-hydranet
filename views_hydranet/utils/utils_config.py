@@ -103,6 +103,13 @@ class HydraNetConfig(BaseModel):
             data["time_steps"] = len(data["steps"])
         return data
 
+    @field_validator("transform")
+    @classmethod
+    def validate_transform(cls, v: str) -> str:
+        if v not in TRANSFORMS:
+            raise ValueError(f"Transform '{v}' not supported. Available: {list(TRANSFORMS.keys())}")
+        return v
+
     @field_validator("run_type")
     @classmethod
     def validate_run_type(cls, v: str) -> str:
