@@ -22,7 +22,7 @@ def manager_robust_env(tmp_path):
             m._model_path.data_generated = gen_dir
             m.device = "cpu"
             
-            m._config_dict = {
+            m._hydranet_config = {
                 "run_type": "validation",
                 "time_steps": 3,
                 "test_samples": 1,
@@ -30,9 +30,6 @@ def manager_robust_env(tmp_path):
                 "target_variable": "sb",
                 "targets": ["ln_sb_best"]
             }
-            type(m).configs = property(lambda self: self._config_dict, 
-                                       lambda self, v: self._config_dict.update(v))
-            type(m).config = property(lambda self: self._config_dict)
             
             return m
 
@@ -41,8 +38,8 @@ def test_multitask_merging_alignment(manager_robust_env):
     PROVE the fix for the Flattening Trap using real method logic.
     """
     manager = manager_robust_env
-    manager._config_dict["targets"] = ["lr_sb_best", "lr_ns_best"]
-    manager._config_dict["target_variable"] = "" # Both
+    manager._hydranet_config["targets"] = ["lr_sb_best", "lr_ns_best"]
+    manager._hydranet_config["target_variable"] = "" # Both
     
     with patch.object(HydranetManager, "_load_model_artifact", return_value=(MagicMock(), "ts")):
         with patch("views_hydranet.manager.hydranet_manager.create_or_load_views_vol") as mock_vol:
@@ -68,7 +65,7 @@ def test_multitask_merging_alignment(manager_robust_env):
 def test_partition_aware_windows(manager_robust_env):
     """Verify that forecasting partition correctly defaults to 1 window."""
     manager = manager_robust_env
-    manager._config_dict["run_type"] = "forecasting"
+    manager._hydranet_config["run_type"] = "forecasting"
     
     with patch.object(HydranetManager, "_load_model_artifact", return_value=(MagicMock(), "ts")):
         with patch("views_hydranet.manager.hydranet_manager.create_or_load_views_vol") as mock_vol:
