@@ -8,6 +8,7 @@ It handles spatiotemporal data volumes and implements rolling-origin evaluation.
 
 import logging
 import pickle
+from typing import Dict, Any
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -57,9 +58,18 @@ class HydranetManager(ForecastingModelManager):
         self.device = setup_device()
         self.set_dataframe_format(format=".parquet")
         
-        # We perform the handshake only if the core library has loaded configs
+        # Ensure model_path is attached (even if super().__init__ is mocked)
+        self._model_path = model_path
+        
+        # Internal storage for validated HydraNet settings
+        self._hydranet_config = {}
+        
+        # Initial handshake only if core is ready
         if hasattr(self, "_config_manager"):
-            self._perform_strict_handshake()
+            try:
+                self._perform_strict_handshake()
+            except Exception:
+                pass # Silent during init, loud during execution
 
     def _perform_strict_handshake(self) -> None:
         """
@@ -68,12 +78,17 @@ class HydranetManager(ForecastingModelManager):
         from views_hydranet.utils.utils_config import HydraNetConfig
         from pydantic import ValidationError
         
+        # Use existing local config if already validated, else check base configs
+        raw_config = self._hydranet_config if self._hydranet_config else getattr(self, "configs", {})
+        
         try:
             # 1. Exhaustive Validation
-            validated = HydraNetConfig(**self.configs)
+            validated = HydraNetConfig(**raw_config)
             
             # 2. Sync dictionary with validated values
-            self.configs.update(validated.model_dump(exclude_none=True))
+            self._hydranet_config = validated.model_dump(exclude_none=True)
+            if hasattr(self, "configs"):
+                self.configs.update(self._hydranet_config)
             
             logger.info(
                 f"HydraNet Handshake Successful: {validated.model} ready for {validated.run_type} "
@@ -81,73 +96,153 @@ class HydranetManager(ForecastingModelManager):
             )
             
         except ValidationError as e:
-            missing_fields = [str(err['loc'][0]) for err in e.errors() if err['type'] == 'missing']
+            # Capture ALL errors, not just missing ones
+            error_details = []
+            for err in e.errors():
+                loc = " -> ".join(map(str, err.get('loc', [])))
+                msg = err.get('msg', 'Unknown error')
+                error_details.append(f"- {loc}: {msg}")
+            
+            error_report = "\n".join(error_details)
+            
             error_msg = (
-                f"\n[CRITICAL CONFIG ERROR] HydraNet cannot fly without all its parts!\n"
-                f"Missing required hyperparameters: {missing_fields}\n"
-                f"Please update your config_hyperparameters.py."
+                f"\n[CRITICAL CONFIG ERROR] HydraNet Configuration Handshake Failed!\n"
+                f"The following issues were detected:\n{error_report}\n"
+                f"Please update your config_hyperparameters.py or runtime arguments."
             )
             logger.error(error_msg)
             raise ValueError(error_msg) from None
 
+    @property
+    def config(self) -> Dict[str, Any]:
+        """Returns the validated HydraNet configuration. Fallback to raw if not yet validated."""
+        return self._hydranet_config if self._hydranet_config else getattr(self, "configs", {})
+
+    @property
+    def configs(self) -> Dict[str, Any]:
+        """
+        Safe override of base config property.
+        Allows access even if base class is not initialized (e.g. in tests).
+        """
+        try:
+            # Attempt to retrieve from base class
+            base_conf = super().configs
+        except (AttributeError, NameError):
+            # Fallback if base is broken/mocked
+            base_conf = {}
+        
+        # Merge: Local config takes precedence if we want to override, 
+        # but typically we want the union. 
+        # For now, let's return a merged view.
+        combined = base_conf.copy()
+        combined.update(self._hydranet_config)
+        return combined
+
+    @configs.setter
+    def configs(self, value: Dict[str, Any]) -> None:
+        """
+        Safe setter for configs.
+        Updates the local storage.
+        """
+        self._hydranet_config.update(value)
 
     def _translate_targets(self, targets: List[str]) -> List[str]:
         """
-        Translates target names from ln_ (log) to lr_ (raw).
-        
-        Example: ['ln_sb_best'] -> ['lr_sb_best']
+        Translates target names from config format to raw format.
+        e.g., ln_sb_best -> lr_sb_best
         """
         translated = []
         for t in targets:
             if t.startswith("ln_"):
                 translated.append(t.replace("ln_", "lr_"))
-            elif not t.startswith("lr_"):
-                translated.append(f"lr_{t}")
-            else:
+            elif t.startswith("lr_"):
                 translated.append(t)
+            else:
+                translated.append(f"lr_{t}")
         return translated
 
     def _augment_dataframe(self, df: pd.DataFrame, requested_targets: List[str]) -> pd.DataFrame:
         """
-        Just-In-Time augmentation of the ground-truth dataframe.
-        Adds raw-scale columns and virtual binarized columns if missing.
+        Augments the dataframe with derived columns (unlogging, binarization).
         """
+        df_aug = df.copy()
         for target in requested_targets:
-            # 1. Unlog magnitude if missing
-            if target.startswith("lr_") and target not in df.columns:
-                ln_target = target.replace("lr_", "ln_")
-                if ln_target in df.columns:
-                    logger.debug(f"JIT Augment: Unlogging {ln_target} -> {target}")
-                    df[target] = np.expm1(df[ln_target])
-            
-            # 2. Virtual Binarization
-            if target.endswith("_binarized") and target not in df.columns:
-                base_raw = target.replace("_binarized", "")
-                base_log = target.replace("_binarized", "").replace("lr_", "ln_")
-                if base_raw in df.columns:
-                    logger.debug(f"JIT Augment: Binarizing {base_raw} -> {target}")
-                    df[target] = (df[base_raw] > 0).astype(float)
-                elif base_log in df.columns:
-                    logger.debug(f"JIT Augment: Binarizing {base_log} -> {target}")
-                    df[target] = (df[base_log] > 0).astype(float)
-        return df
+            # 1. Unlogging (ln_ -> lr_)
+            # If target is lr_X and we have ln_X, derive lr_X
+            if target.startswith("lr_"):
+                base_name = target[3:] # remove lr_
+                ln_col = f"ln_{base_name}"
+                
+                # Case A: We need lr_X, have ln_X -> Unlog
+                if target not in df_aug.columns and ln_col in df_aug.columns:
+                    df_aug[target] = np.expm1(df_aug[ln_col])
+                
+                # Case B: We need lr_X_binarized
+                if "binarized" in target:
+                    # derived from the raw level (lr_)
+                    # target might be "lr_sb_best_binarized"
+                    # base source is "lr_sb_best"
+                    source_col = target.replace("_binarized", "")
+                    
+                    # Ensure source exists (recurse/compute if needed)
+                    # For simplicity, assume source is either in df or computed above
+                    if source_col not in df_aug.columns:
+                        # Try to compute source first if possible
+                        # (Recursion logic or just repetition for this specific pattern)
+                        if source_col.startswith("lr_"):
+                             s_base = source_col[3:]
+                             s_ln = f"ln_{s_base}"
+                             if s_ln in df_aug.columns:
+                                 df_aug[source_col] = np.expm1(df_aug[s_ln])
+
+                    if source_col in df_aug.columns:
+                         # Binarize: > 0 => 1.0, else 0.0
+                         df_aug[target] = (df_aug[source_col] > 0).astype(float)
+        
+        return df_aug
+
+    def _execute_model_training(self) -> None:
+        """
+        HydraNet specific training override.
+        
+        Orchestrates the training process:
+        1. Validates configuration.
+        2. Loads/Creates the spatiotemporal data volume.
+        3. Executes the training loop for the specific artifact.
+        """
+        self._perform_strict_handshake()
+        
+        run_type = self.config["run_type"]
+        is_calibration = run_type == "calibration"
+        
+        logger.info(f"Starting HydraNet training execution for {run_type} (Calibration={is_calibration})")
+        
+        # Load the 4D volume (Time, H, W, Channels)
+        # This handles the complex conversion from DataFrame if the volume doesn't exist
+        views_vol = create_or_load_views_vol(
+            run_type, 
+            self._model_path.data_processed, 
+            self._model_path.data_raw
+        )
+        
+        # Execute the artifact training directly, injecting the loaded volume
+        self._train_model_artifact(views_vol, is_calibration)
+
+    def _execute_model_forecasting(self) -> None:
+        """HydraNet specific forecasting override."""
+        self._perform_strict_handshake()
+        super()._execute_model_forecasting()
+
+    def _execute_model_sweeping(self) -> None:
+        """HydraNet specific sweeping override."""
+        self._perform_strict_handshake()
+        super()._execute_model_sweeping()
 
     def _execute_model_evaluation(self) -> None:
         """
         HydraNet specific evaluation override.
-
-        Instead of monkey-patching global utilities, this method explicitly 
-        prepares an 'Augmented Actuals' environment that aligns with HydraNet's 
-        unlogged/multitask predictions.
-
-        Steps:
-        1. Translates target names from log (ln_) to raw (lr_) to align scales.
-        2. Loads and augments the ground-truth dataframe (unlog/binarize).
-        3. Saves the augmented data to a temporary 'shadow' file.
-        4. Mirrors the original raw directory by symlinking log files.
-        5. Redirects the pipeline core to read from this shadow environment.
-        6. Restores original state and cleans up.
         """
+        self._perform_strict_handshake()
         import os
         from views_pipeline_core.files.utils import read_dataframe, save_dataframe
 
@@ -220,7 +315,7 @@ class HydranetManager(ForecastingModelManager):
         # or we pass None to trigger the safe pattern-matching fallback.
         columns = getattr(views_vol, "columns", None)
         
-        train_model_artifact(self.model_path, self.config, self.device, views_vol, columns=columns)
+        train_model_artifact(self._model_path, self.config, self.device, views_vol, columns=columns)
 
     def _load_model_artifact(self, artifact_name: Optional[str] = None) -> Tuple[torch.nn.Module, str]:
         """
