@@ -28,8 +28,7 @@ def test_training_loop_smoke(valid_config_dict):
     valid_config_dict["samples"] = 1
     
     with patch("views_hydranet.train.train_model.get_train_tensors", return_value=mock_tensor), \
-         patch("views_hydranet.train.train_model.train_log"), \
-         patch("views_hydranet.train.train_model.wandb"):
+         patch("views_hydranet.train.train_model.train_log"):
         
         training_loop(valid_config_dict, model, criterion, optimizer, scheduler, views_vol, torch.device("cpu"))
         
@@ -40,8 +39,7 @@ def test_train_model_artifact_smoke_resilience(valid_config_dict, mock_mpm):
     STRICT SMOKE TEST:
     Verifies the entire stack with a valid config fixture.
     """
-    with patch("views_hydranet.train.train_model.wandb"), \
-         patch("views_hydranet.utils.utils.wandb"), \
+    with patch("views_hydranet.utils.utils.wandb"), \
          patch("views_hydranet.train.train_model.init_weights"), \
          patch("views_hydranet.train.train_model.torch.save"), \
          patch("views_hydranet.train.train_model.os.makedirs"):

@@ -4,8 +4,7 @@ from unittest.mock import MagicMock, patch, PropertyMock
 from views_hydranet.manager.hydranet_manager import HydranetManager
 
 @patch("views_hydranet.manager.hydranet_manager.setup_device")
-@patch("views_hydranet.manager.hydranet_manager.PipelineConfig")
-def test_hydranet_manager_instantiation(mock_pipeline_config, mock_setup_device, mock_mpm, valid_config_dict):
+def test_hydranet_manager_instantiation(mock_setup_device, mock_mpm, valid_config_dict):
     """
     Smoke test to verify that HydranetManager can be instantiated and handshake works.
     """

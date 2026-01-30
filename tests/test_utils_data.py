@@ -1,5 +1,6 @@
 
 from unittest.mock import MagicMock, patch
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -29,7 +30,7 @@ def test_get_data_success(mock_model_path, mock_np_load, mock_config_get_data):
     result = get_data(mock_config_get_data)
 
     # Assert
-    mock_np_load.assert_called_once_with("/mock/path/to/processed_data/calibration_vol.npy")
+    mock_np_load.assert_called_once_with(Path("/mock/path/to/processed_data/calibration_vol.npy"))
     assert np.array_equal(result, expected_data)
 
 @patch('views_hydranet.utils.utils.sys.exit')

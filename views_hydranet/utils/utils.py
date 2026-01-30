@@ -1,21 +1,17 @@
-from typing import List, Tuple, Optional, Any, Dict
 import logging
 import sys
+from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
+
 import numpy as np
-import pandas as pd
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torchvision import transforms
-
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import average_precision_score, roc_auc_score, mean_squared_error, brier_score_loss
-
 import wandb
+from torchvision import transforms
 
 logger = logging.getLogger(__name__)
 
-def _get_feature_indices(config: Dict[str, Any], columns: Optional[List[str]] = None) -> Tuple[int, int]:
+def _get_feature_indices(config: dict[str, Any], columns: list[str] | None = None) -> tuple[int, int]:
     """
     Unified helper to determine feature start and end indices.
     Priority: 1. Column-name lookup, 2. Config key, 3. Hardcoded fallback (5).
@@ -36,18 +32,17 @@ def _get_feature_indices(config: Dict[str, Any], columns: Optional[List[str]] = 
     requested_channels = config.get("input_channels", 3)
     return feature_start_idx, feature_start_idx + requested_channels
 
-from views_pipeline_core.managers.model import ModelPathManager
 
 # networks
+# learning rate schedulers
+from torch.optim.lr_scheduler import CyclicLR, LinearLR, OneCycleLR, ReduceLROnPlateau, StepLR
+
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
+from views_hydranet.utils.focal_loss import FocalLoss
+from views_hydranet.utils.mtloss import MultiTaskLoss
 
 # loss functions
-from views_hydranet.utils.shringkage_loss import ShrinkageLoss 
-from views_hydranet.utils.focal_loss import FocalLoss 
-from views_hydranet.utils.mtloss import MultiTaskLoss 
-
-# learning rate schedulers
-from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, LinearLR, OneCycleLR, CyclicLR
+from views_hydranet.utils.shringkage_loss import ShrinkageLoss
 from views_hydranet.utils.warmup_decay_lr_scheduler import WarmupDecayLearningRateScheduler
 
 
@@ -110,7 +105,7 @@ def choose_loss(config, device):
     if config['loss_reg'] == 'a':
         criterion_reg = nn.MSELoss().to(device)
 
-    elif config['loss_reg'] == 'b': 
+    elif config['loss_reg'] == 'b':
         criterion_reg = ShrinkageLoss(a=config['loss_reg_a'], c=config['loss_reg_c'], size_average = True).to(device)
 
     else:
@@ -121,7 +116,7 @@ def choose_loss(config, device):
     if config['loss_class'] == 'a':
         criterion_class = nn.BCELoss().to(device)
 
-    elif config['loss_class'] == 'b': 
+    elif config['loss_class'] == 'b':
         criterion_class =  FocalLoss(alpha = config['loss_class_alpha'], gamma=config['loss_class_gamma']).to(device) # THIS IS IN USE
 
     else:
@@ -194,7 +189,7 @@ def choose_scheduler(config, unet):
     elif config['scheduler'] == 'OneCycleLR':
         optimizer = torch.optim.AdamW(unet.parameters(), lr=config['learning_rate'], betas = (0.9, 0.999))
         scheduler = OneCycleLR(optimizer,
-                       total_steps=32, 
+                       total_steps=32,
                        max_lr = config["learning_rate"], # Upper learning rate boundaries in the cycle for each parameter group
                        anneal_strategy = 'cos') # Specifies the annealing strategy
 
@@ -206,9 +201,9 @@ def choose_scheduler(config, unet):
                        base_lr = config["learning_rate"] * 0.1,
                        max_lr = config["learning_rate"], # Upper learning rate boundaries in the cycle for each parameter group
                        mode = 'triangular2') # Specifies the annealing strategy
-        
+
     elif config['scheduler'] == 'WarmupDecay':
-        
+
         optimizer = torch.optim.AdamW(unet.parameters(), lr=config['learning_rate'], betas = (0.9, 0.999))
         d = config['window_dim'] * config['window_dim'] * config['input_channels'] # this is the dimension of the input window
         scheduler = WarmupDecayLearningRateScheduler(optimizer, d = d, warmup_steps = config['warmup_steps'])
@@ -251,7 +246,7 @@ def init_weights(m, config):
     elif config['weight_init'] == 'kaiming_uni':
         if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
             nn.init.kaiming_uniform_(m.weight)
-            
+
     elif config['weight_init'] == 'kaiming_norm':
         if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
             nn.init.kaiming_normal_(m.weight)
@@ -293,10 +288,10 @@ def norm_features(full_vol: np.ndarray, config: dict, a: int = 0, b: int = 1) ->
 
     for i in range(first_feature_idx, last_feature_idx + 1):
 
-        feature = full_vol[:, :, :, i] 
+        feature = full_vol[:, :, :, i]
 
-        feature_max = feature.max() 
-        feature_min = 0 
+        feature_max = feature.max()
+        feature_min = 0
 
         feature_norm = (b-a)*(feature - feature_min)/(feature_max-feature_min)+a
 
@@ -325,17 +320,17 @@ def get_data(config) -> np.ndarray:
 
     # Data
     #location = config.path_processed_data
-    # _, PATH_PROCESSED, _ = setup_data_paths(PATH)
-    PATH_PROCESSED = model_path.data_processed
+    # _, path_processed, _ = setup_data_paths(PATH)
+    path_processed = Path(model_path.data_processed)
 
     run_type = config["run_type"] # 'calibration', 'testing' or 'forecasting'
 
     try:
-        file_name = f'/{run_type}_vol.npy' # NOT WINDOWS FRIENDLY
+        file_name = f"{run_type}_vol.npy"
         # debug print
-        logger.info(f'Loading {run_type} data from {file_name}...')
-        views_vol = np.load(str(PATH_PROCESSED) + file_name)
-    
+        logger.info(f"Loading {run_type} data from {file_name}...")
+        views_vol = np.load(path_processed / file_name)
+
     except FileNotFoundError as e:
         logger.error(f'File not found: {e}. Run correct dataloader get_calibration_data.py, get_test_data.py or get_forecasting_data.py. Now exiting...')
         sys.exit()
@@ -465,20 +460,20 @@ def my_decay(sample, samples, min_events, max_events, slope_ratio, roof_ratio):
 
     b = ((-max_events + min_events)/(samples*slope_ratio))
     y = (max_events + b * sample)
-    
+
     y = min(y, max_events*roof_ratio)
     y = max(y, min_events)
-    
+
     return(int(y))
 
 
-def get_window_index(views_vol: np.ndarray, config: dict, sample: int, columns: Optional[List[str]] = None) -> dict:
+def get_window_index(views_vol: np.ndarray, config: dict, sample: int, columns: list[str] | None = None) -> dict:
     """Samples a spatial cell (row and column index) from the input `views_vol`.
     """
 
     # Use the unified helper to find features
     ln_best_sb_idx, last_feature_idx = _get_feature_indices(config, columns)
-    
+
     min_events = config.get('min_events', 5)
     samples = config.get('samples', 300)
     slope_ratio = config.get('slope_ratio', 0.75)
@@ -489,27 +484,27 @@ def get_window_index(views_vol: np.ndarray, config: dict, sample: int, columns: 
     n_fatcats = len(fatcats)
 
     fatcat = fatcats[sample % n_fatcats]
-    views_vol_count = np.count_nonzero(views_vol[:,:,:,fatcat], axis = 0) 
+    views_vol_count = np.count_nonzero(views_vol[:,:,:,fatcat], axis = 0)
 
-    
+
     # --------------------------------------------------------------------------------------------------------------------------------
 
     max_events = views_vol_count.max()
     min_events = my_decay(sample, samples, min_events, max_events, slope_ratio, roof_ratio)
-    
+
     min_events_index = np.where(views_vol_count >= min_events) # number of events so >= 1 or > 0 is the same as np.nonzero
 
     min_events_row = min_events_index[0]
     min_events_col = min_events_index[1]
 
     # it is index... Not lat long.
-    min_events_indx = [(row, col) for row, col in zip(min_events_row, min_events_col)] 
+    min_events_indx = [(row, col) for row, col in zip(min_events_row, min_events_col)]
 
     #indx = random.choice(min_events_indx) RANDOMENESS!!!!
     indx = min_events_indx[np.random.choice(len(min_events_indx))] # dumb but working solution of np.random instead of random
 
     # if you want a random temporal window, it is here.
-    window_index = {'row_indx':indx[0], 'col_indx':indx[1]} 
+    window_index = {'row_indx':indx[0], 'col_indx':indx[1]}
 
     return(window_index)
 
@@ -550,10 +545,10 @@ def get_window_coords(window_index: dict, config: dict) -> dict:
 
     # make dict of window coords to return
     window_coords = {
-        'min_row_indx':min_row_indx, 
-        'max_row_indx':max_row_indx, 
-        'min_col_indx':min_col_indx, 
-        'max_col_indx':max_col_indx, 
+        'min_row_indx':min_row_indx,
+        'max_row_indx':max_row_indx,
+        'min_col_indx':min_col_indx,
+        'max_col_indx':max_col_indx,
         'dim':window_dim}
 
     return(window_coords)
@@ -569,20 +564,20 @@ def train_log(avg_loss_list, avg_loss_reg_list, avg_loss_class_list):
     avg_loss = np.mean(avg_loss_list)
     avg_loss_reg = np.mean(avg_loss_reg_list)
     avg_loss_class = np.mean(avg_loss_class_list)
-    
+
     # also log maps...
     if wandb.run is not None:
         wandb.log({"avg_loss": avg_loss, "avg_loss_reg": avg_loss_reg, "avg_loss_class": avg_loss_class})
 
 
-# Should rename to sub_tensor or something like that... But it is used for training.. 
-def get_train_tensors(views_vol: np.ndarray, sample: int, config: dict, device: str, columns: Optional[List[str]] = None) -> torch.Tensor:
+# Should rename to sub_tensor or something like that... But it is used for training..
+def get_train_tensors(views_vol: np.ndarray, sample: int, config: dict, device: str, columns: list[str] | None = None) -> torch.Tensor:
     """Creates a training tensor (spatial window) for a single training sample.
     """
 
     # 1. Determine time steps for hold-out
     time_steps = config.get("time_steps", 36)
-    train_views_vol = views_vol if time_steps == 0 else views_vol[:-time_steps] 
+    train_views_vol = views_vol if time_steps == 0 else views_vol[:-time_steps]
 
     # 2. Sample Window
     window_index = get_window_index(views_vol = views_vol, config = config, sample = sample, columns = columns)
@@ -593,7 +588,7 @@ def get_train_tensors(views_vol: np.ndarray, sample: int, config: dict, device: 
 
     # 4. Slice and Permute
     ln_best_sb_idx, last_feature_idx = _get_feature_indices(config, columns)
-    
+
     # Transform: [T, H, W, C] -> [1, T, C, H, W]
     train_tensor = torch.tensor(input_window).float().to(device).unsqueeze(dim=0).permute(0,1,4,2,3)[:, :, ln_best_sb_idx:last_feature_idx, :, :]
 
@@ -601,12 +596,12 @@ def get_train_tensors(views_vol: np.ndarray, sample: int, config: dict, device: 
     # We apply the same transform across all time steps to maintain consistency
     N, T, C, H, W = train_tensor.shape
     train_tensor_reshaped = train_tensor.reshape(N, T*C, H, W)
-    
+
     transform = transforms.Compose([
         transforms.RandomHorizontalFlip(p=0.5),
         transforms.RandomVerticalFlip(p=0.5)
     ])
-    
+
     train_tensor_transformed = transform(train_tensor_reshaped)
     train_tensor = train_tensor_transformed.reshape(N, T, C, H, W)
 
@@ -617,7 +612,7 @@ def get_train_tensors(views_vol: np.ndarray, sample: int, config: dict, device: 
 #
 #    """
 #    Uses to get the features for the full tensor
-#    Used for out-of-sample predictions for both evaluation and forecasting, depending on the run_type (partition). 
+#    Used for out-of-sample predictions for both evaluation and forecasting, depending on the run_type (partition).
 #    The test tensor is of size 1 x config.time_steps x config.input_channels x 180 x 180.
 #    """
 #
@@ -626,18 +621,18 @@ def get_train_tensors(views_vol: np.ndarray, sample: int, config: dict, device: 
 #
 #    print(f'views_vol shape {views_vol.shape}')  # (months, 180, 180, 8)
 #
-#    full_tensor = torch.tensor(views_vol).float().unsqueeze(dim=0).permute(0,1,4,2,3)[:, :, ln_best_sb_idx:last_feature_idx, :, :] 
+#    full_tensor = torch.tensor(views_vol).float().unsqueeze(dim=0).permute(0,1,4,2,3)[:, :, ln_best_sb_idx:last_feature_idx, :, :]
 #
-#    print(f'full_tensor shape {full_tensor.shape}') # (1, months, 3, 180, 180) 
+#    print(f'full_tensor shape {full_tensor.shape}') # (1, months, 3, 180, 180)
 #
-#    return full_tensor 
+#    return full_tensor
 
 
 def get_full_tensor(
-    views_vol: np.ndarray, 
-    config: Optional[dict] = None,
-    columns: Optional[List[str]] = None
-) -> Tuple[torch.Tensor, torch.Tensor]:
+    views_vol: np.ndarray,
+    config: dict | None = None,
+    columns: list[str] | None = None
+) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Converts the input 4D volume array into PyTorch tensors for model input, separating feature and metadata tensors.
 
@@ -660,7 +655,7 @@ def get_full_tensor(
     # These are standard across VIEWS and should always be in the metadata tensor.
     # We include common aliases used in different partitions.
     identity_cols = ["priogrid_gid", "pg_id", "row", "col", "month_id", "month", "c_id"]
-    
+
     # 2. Determine the Split Index
     if columns is not None:
         # Calculate index dynamically based on pattern-matching
@@ -668,13 +663,13 @@ def get_full_tensor(
         # and has a standard prefix (ln_ or lr_)
         target_indicators = ["sb", "ns", "os"]
         feature_start_idx = -1
-        
+
         for i, col in enumerate(columns):
             col_lower = col.lower()
             if any(indicator in col_lower for indicator in target_indicators):
                 feature_start_idx = i
                 break
-        
+
         if feature_start_idx == -1:
             logger.warning(f"get_full_tensor: Could not find any conflict targets in columns: {columns}. Defaulting to index 5.")
             feature_start_idx = 5
@@ -700,8 +695,8 @@ def get_full_tensor(
     # 4. Perform Slicing and Scaling
     # Shape transformation: [T, H, W, C] -> [1, T, C, H, W]
     vol_tensor = torch.tensor(views_vol).float()
-    
-    # JIT Scaling Logic: 
+
+    # JIT Scaling Logic:
     # If we have column names and a transform is requested, apply it to 'lr_' columns.
     from views_hydranet.utils.utils_config import TRANSFORMS
     transform_name = config.get("transform", "log1p") if config else "log1p"
@@ -715,7 +710,7 @@ def get_full_tensor(
                 vol_tensor[:, :, :, i] = torch.tensor(scaled_data).float()
 
     vol_tensor = vol_tensor.unsqueeze(dim=0).permute(0, 1, 4, 2, 3)
-    
+
     full_tensor = vol_tensor[:, :, feature_start_idx:last_feature_idx, :, :]
     metadata_tensor = vol_tensor[:, :, :feature_start_idx, :, :]
 
@@ -749,39 +744,39 @@ def get_full_tensor(
 
 
 # def get_log_dict(i, mean_array, mean_class_array, std_array, std_class_array, out_of_sample_vol, config):
-# 
+#
 #     """Return a dictionary of metrics for the monthly out-of-sample predictions for W&B."""
-# 
+#
 #     log_dict = {}
 #     log_dict["monthly/out_sample_month"] = i
-# 
-# 
-#     #Fix in a sec when you see if it runs at all.... 
+#
+#
+#     #Fix in a sec when you see if it runs at all....
 #     for j in range(3): #(config.targets): # TARGETS IS & BUT THIS SHOULD BE 3!!!!!
-# 
-#         y_score = mean_array[i,j,:,:].reshape(-1) # make it 1d  # nu 180x180 
-#         y_score_prob = mean_class_array[i,j,:,:].reshape(-1) # nu 180x180 
-#         
+#
+#         y_score = mean_array[i,j,:,:].reshape(-1) # make it 1d  # nu 180x180
+#         y_score_prob = mean_class_array[i,j,:,:].reshape(-1) # nu 180x180
+#
 #         # do not really know what to do with these yet.
-#         y_var = std_array[i,j,:,:].reshape(-1)  # nu 180x180  
-#         y_var_prob = std_class_array[i,j,:,:].reshape(-1)  # nu 180x180 
-# 
+#         y_var = std_array[i,j,:,:].reshape(-1)  # nu 180x180
+#         y_var_prob = std_class_array[i,j,:,:].reshape(-1)  # nu 180x180
+#
 #         y_true = out_of_sample_vol[:,i,j,:,:].reshape(-1)  # nu 180x180 . dim 0 is time
 #         y_true_binary = (y_true > 0) * 1
-# 
-# 
+#
+#
 #         mse = mean_squared_error(y_true, y_score)
 #         ap = average_precision_score(y_true_binary, y_score_prob)
 #         auc = roc_auc_score(y_true_binary, y_score_prob)
 #         brier = brier_score_loss(y_true_binary, y_score_prob)
-# 
+#
 #         log_dict[f"monthly/mean_squared_error{j}"] = mse
 #         log_dict[f"monthly/average_precision_score{j}"] = ap
 #         log_dict[f"monthly/roc_auc_score{j}"] = auc
 #         log_dict[f"monthly/brier_score_loss{j}"] = brier
-# 
+#
 #     return log_dict
-# 
+#
 
 def execute_freeze_h_option(config, model, t0, h_tt):
 
@@ -792,26 +787,26 @@ def execute_freeze_h_option(config, model, t0, h_tt):
 
     The function returns the new hidden state/short term memory h_tt and the prediction t1_pred and t1_pred_class.    
     """
-     
+
     if config["freeze_h"] == "hl": # freeze the long term memory
-        
+
         split = int(h_tt.shape[1]/2) # split h_tt into hs_tt and hl_tt and save hl_tt as the forzen cell state/long term memory. Call it hl_frozen. Half of the second dimension which is channels.
         _, hl_frozen = torch.split(h_tt, split, dim=1)
-        t1_pred, t1_pred_class, h_tt = model(t0, h_tt) 
+        t1_pred, t1_pred_class, h_tt = model(t0, h_tt)
         hs, _ = torch.split(h_tt, split, dim=1) # Again split the h_tt into hs_tt and hl_tt. But discard the hl_tt
         h_tt = torch.cat((hs, hl_frozen), dim=1) # Concatenate the frozen cell state/long term memory (hl_frozen) with the new hidden state/short term memory. this is the new h_tt
 
     elif config["freeze_h"] == "hs": # freeze the short term memory
 
-        split = int(h_tt.shape[1]/2) 
+        split = int(h_tt.shape[1]/2)
         hs_frozen, _ = torch.split(h_tt, split, dim=1)
         t1_pred, t1_pred_class, h_tt = model(t0, h_tt)
         _, hl = torch.split(h_tt, split, dim=1)
-        h_tt = torch.cat((hs_frozen, hl), dim=1) 
+        h_tt = torch.cat((hs_frozen, hl), dim=1)
 
     elif config["freeze_h"] == "all": # freeze both h_l and h_s
 
-        t1_pred, t1_pred_class, _ = model(t0, h_tt) 
+        t1_pred, t1_pred_class, _ = model(t0, h_tt)
 
     elif config["freeze_h"] == "none": # dont freeze
         t1_pred, t1_pred_class, h_tt = model(t0, h_tt) # dont freeze anything.
@@ -845,7 +840,7 @@ def weigh_loss(loss, y_t0, y_t1, distance_scale):
 
     # Calculate the squared distance between y_t0 and y_t1
     squared_distance = torch.pow(y_t1 - y_t0, 2)
-    
+
     # Add the distance penalty to the original loss
     new_loss = loss + torch.mean(squared_distance) * distance_scale
 
