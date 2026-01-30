@@ -57,7 +57,16 @@ Predictions are returned as a list of DataFrames, adhering to the ViEWS Producer
 - **Columns:** `pred_lr_{target}`
 - **Content:** List of posterior samples (for stochastic evaluation).
 
-## 4. Shadow Environment (Evaluation)
+## 4. Numerical Healing & Stability Contract
+
+To prevent pipeline crashes due to mathematical instabilities (exploding gradients, log-overflows), HydraNet implements a **Global Healing Contract**.
+
+- **Automatic Sanitization:** All non-finite values (`NaN`, `Inf`) are automatically substituted with `0.0` at the contract boundaries.
+- **Safety Clamping:** Values are clamped to a maximum of `20.0` in log-space (approx. 485 million in raw-space) before inverse transformation.
+- **Two-Pass Implementation:** Sanitization occurs both **before** and **after** mathematical transformations.
+- **Scope:** This healing applies to **both** Ground-Truth (Actuals) augmentation and Model Predictions.
+
+## 5. Shadow Environment (Evaluation)
 To evaluate without polluting the production data state, HydraNet uses a "Shadow Environment".
 
 1. **Create:** A temporary folder `artifacts/tmp_eval_data`.

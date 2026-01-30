@@ -40,11 +40,16 @@ This proof ensures:
 
 ---
 
-## 4. Error Handling & Validation
+## 4. Error Handling & Numerical Stability Guarantee
 
-### 4.1. Non-Negotiable Failures (Hard Crashes)
+### 4.1. Automatic Healing
+The Producer guarantees that all DataFrames returned under this contract are **Finite**.
+*   **NaN/Inf Substitution:** Any non-finite values produced by the model are automatically substituted with `0.0`.
+*   **Safety Clamping:** Values are clamped to a conservative range (e.g., 20.0 in log-space) to prevent overflow during inverse transformation.
+*   **Visibility:** Every healing event is logged as a `WARNING` to signal model instability to the developer.
+
+### 4.2. Non-Negotiable Failures (Hard Crashes)
 The Producer MUST raise an error and halt if:
-*   **NaN/Inf:** Any value in the sample list is non-finite.
 *   **Missing Metadata:** `month_id` or `priogrid_gid` is missing from the meta-volume.
 *   **Empty Output:** The resulting DataFrame contains zero rows (unless the input was empty).
 
