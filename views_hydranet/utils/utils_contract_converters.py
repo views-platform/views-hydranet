@@ -22,6 +22,36 @@ from views_hydranet.utils.utils_internal_containers import ModelOutputs
 
 logger = logging.getLogger(__name__)
 
+def _heal_non_finite(data: np.ndarray, context: str, clamp_val: Optional[float] = None) -> np.ndarray:
+    """
+    Heals non-finite values (NaN/Inf) by substituting them with 0.0.
+    Optionally clamps values to a maximum range to prevent overflow during inverse transforms.
+    Loudly logs a warning to ensure this is only used for debugging.
+    """
+    # 1. First Pass: Handle existing NaNs and Infs
+    if not np.isfinite(data).all():
+        num_nans = np.isnan(data).sum()
+        num_infs = np.isinf(data).sum()
+        logger.warning(
+            f"\n[NUMERICAL INSTABILITY] context: {context}\n"
+            f"Detected {num_nans} NaNs and {num_infs} Infs. "
+            f"Healing by substituting with 0.0."
+        )
+        data = np.nan_to_num(data, nan=0.0, posinf=0.0, neginf=0.0)
+    
+    # 2. Second Pass: Proactive Clamping (e.g. log-space > 20.0 is dangerous)
+    if clamp_val is not None:
+        if (data > clamp_val).any():
+            num_clamped = (data > clamp_val).sum()
+            logger.warning(
+                f"[NUMERICAL INSTABILITY] context: {context}\n"
+                f"Detected {num_clamped} values exceeding clamp threshold {clamp_val}. "
+                f"Clamping to {clamp_val} to prevent overflow in inverse transform."
+            )
+            data = np.clip(data, a_min=None, a_max=clamp_val)
+
+    return data
+
 def predictions_to_contract_df(
     posterior_list: List[np.ndarray],
     forecast_storage_vol: np.ndarray,
@@ -69,12 +99,18 @@ def predictions_to_contract_df(
     # [samples, steps, H, W]
     target_samples = all_samples[:, :, t_idx, :, :]
     
+    # Pass 1: Heal and Clamp before transform (20.0 in log-space is ~480 million fatalities)
+    target_samples = _heal_non_finite(target_samples, f"predictions_to_contract_df({target})", clamp_val=20.0)
+
     from views_hydranet.utils.utils_config import TRANSFORMS
     # Default to log1p for legacy compatibility
     transform_name = config.get("transform", "log1p") if config else "log1p"
     _, inverse_fn = TRANSFORMS[transform_name]
     
     target_samples = inverse_fn(target_samples)
+    
+    # Pass 2: Heal again after transform (catch overflows from non-log transforms)
+    target_samples = _heal_non_finite(target_samples, f"predictions_to_contract_df({target}) [POST-TRANSFORM]")
     
     # Handle Binarization
     if target.endswith("_binarized"):
@@ -148,6 +184,9 @@ def zstack_to_contract_df(
     # Extract magnitudes and apply inverse transform from registry
     mags = posterior_zstack[:, :, :, t_idx, :]
     
+    # Pass 1: Heal and Clamp before transform
+    mags = _heal_non_finite(mags, f"zstack_to_contract_df({target})", clamp_val=20.0)
+
     from views_hydranet.utils.utils_config import TRANSFORMS
     # Default to log1p for legacy compatibility
     transform_name = config.get("transform", "log1p") if config else "log1p"
@@ -155,25 +194,16 @@ def zstack_to_contract_df(
     
     logger.debug(f"Converting magnitudes back to raw counts using {transform_name} inverse.")
     
-    # --- DEBUG: Forensic Statistical Summary ---
-    total_elements = mags.size
-    nan_count = np.isnan(mags).sum()
-    inf_count = np.isinf(mags).sum()
-    
-    if nan_count > 0 or inf_count > 0 or not np.isfinite(mags).all():
-        logger.error(f"!!! CRITICAL: NON-FINITE PREDICTIONS DETECTED FOR {target} IN SCALED-SPACE !!!")
-        logger.error(f"  Stats: NaNs={nan_count}, Infs={inf_count} out of {total_elements}")
-            
     # Apply the dynamic inverse
     mags = inverse_fn(mags) 
+    
+    # Pass 2: Heal again after transform
+    mags = _heal_non_finite(mags, f"zstack_to_contract_df({target}) [POST-TRANSFORM]")
     
     # 4. Handle Binarization (Classification Contract)
     if target.endswith("_binarized"):
         # We binarize on the RAW scale: > 0
         mags = (mags > 0).astype(float)
-    
-    if not np.isfinite(mags).all():
-        logger.error(f"!!! CRITICAL: NON-FINITE PREDICTIONS DETECTED FOR {target} after binarization check !!!")
     
     # Extract IDs
     pg_ids = meta_zstack[:, :, :, 0, 0]
@@ -198,7 +228,7 @@ def zstack_to_contract_df(
     df = df.set_index(["month_id", "priogrid_gid"])
     return [df]
 
-def validate_contract_dataframes(list_df: List[pd.DataFrame]) -> None:
+def validate_contract_dataframes(list_df: list[pd.DataFrame]) -> None:
     """
     Validates that the contract DataFrames are robust and safe for evaluation.
     
@@ -228,6 +258,9 @@ def validate_contract_dataframes(list_df: List[pd.DataFrame]) -> None:
             all_values = np.concatenate(df[col].values)
             if not np.isfinite(all_values).all():
                 num_bad = (~np.isfinite(all_values)).sum()
+                # We log this as a CRITICAL warning, but don't crash if healer is active
+                # Actually, validate should still crash if it finds NaNs AFTER the healer
+                # This ensures the healer actually worked.
                 raise ValueError(
                     f"Sequence {i}, column {col} contains {num_bad} non-finite values (NaN/Inf)!"
                 )

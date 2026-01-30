@@ -185,8 +185,8 @@ def test_channel_mapping_integrity():
     
     # Request OS
     res_os = zstack_to_contract_df(posterior_zstack, meta_zstack, "os")[0]
-    # exp(30) - 1
-    assert pytest.approx(res_os.iloc[0]["pred_lr_os"][0]) == np.expm1(30.0)
+    # Clamped at 20.0
+    assert pytest.approx(res_os.iloc[0]["pred_lr_os"][0]) == np.expm1(20.0)
 
 
 def test_contract_roundtrip_is_lossless():
