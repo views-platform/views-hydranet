@@ -64,3 +64,28 @@ The `EvaluationManager` assesses the predictive parallelogram by "slicing" it in
 | **Time-series-wise**| Forecast Run             | "How good was an entire 36-month forecast?"              | Grading a whole essay.                    |
 | **Step-wise**       | Forecast Horizon (Step)  | "How good is the model at predicting 6 months out?"      | Grading all introductions separately.     |
 | **Month-wise**      | Target Calendar Month    | "How well did we predict the events of a specific month?" | Grading all answers to one test question. |
+
+---
+
+## 4. Shadow Environment & Augmented Evaluation
+
+To perform evaluation without modifying the production data state, HydraNet implements a **Shadow Environment** pattern.
+
+### 4.1 Explicit Ground-Truth Augmentation
+Standard ground-truth files often only contain log-normalized values (e.g., `ln_sb_best`). However, the evaluation library requires raw counts (`lr_sb_best`) or binarized flags. 
+
+The `HydranetManager` automatically:
+1.  Detects missing derived columns in the original ground-truth.
+2.  Computes inverse transforms (e.g., `expm1(ln_x) -> lr_x`) and step-functions (`lr_x > 0 -> binarized_x`).
+3.  Saves these "Augmented Actuals" to a temporary location.
+
+### 4.2 The Redirect Pattern
+During evaluation, the system:
+1.  Creates a temporary folder: `artifacts/tmp_eval_data/`.
+2.  Writes the augmented ground-truth parquet there.
+3.  Symlinks required metadata (logs, timestamps) from the real raw data directory.
+4.  Temporarily overrides `self._model_path.data_raw` to point at this shadow directory.
+5.  Restores the original path and deletes the shadow data immediately after evaluation completes.
+
+This ensures that the **Evaluation Handshake** is satisfied even if the user hasn't manually prepared the raw level data.
+
