@@ -21,7 +21,6 @@ from views_pipeline_core.managers.model import (
 
 from views_hydranet.train.train_model import train_model_artifact
 from views_hydranet.utils.hydranet_inference import HydraNetInference
-from views_hydranet.utils.utils import heal_non_finite
 from views_hydranet.utils.utils_contract_converters import (
     validate_contract_dataframes,
     zstack_to_contract_df,
@@ -168,12 +167,8 @@ class HydranetManager(ForecastingModelManager):
 
                 # Case A: We need lr_X, have ln_X -> Unlog
                 if target not in df_aug.columns and ln_col in df_aug.columns:
-                    # Pass 1: Heal/Clamp the log-transformed source before expm1
-                    df_aug[ln_col] = heal_non_finite(df_aug[ln_col], f"augment_actuals({ln_col})", clamp_val=20.0)
+                    # NO HEAL
                     df_aug[target] = np.expm1(df_aug[ln_col])
-                    
-                    # Pass 2: Heal the resulting raw values
-                    df_aug[target] = heal_non_finite(df_aug[target], f"augment_actuals({target}) [POST-TRANSFORM]")
 
                 # Case B: We need lr_X_binarized
                 if "binarized" in target:
@@ -316,36 +311,34 @@ class HydranetManager(ForecastingModelManager):
 
         train_model_artifact(self._model_path, self.config, self.device, views_vol, columns=columns)
 
-    def _load_model_artifact(self, artifact_name: str | None = None) -> tuple[torch.nn.Module, str]:
-        """
-        Loads a model artifact and extracts its timestamp.
-
-        Args:
-            artifact_name: Specific filename or None for latest.
-
-        Returns:
-            Tuple of (loaded_model, timestamp_string).
-        """
-        if artifact_name:
-            if not artifact_name.endswith(".pt"):
-                artifact_name += ".pt"
-            path_model_artifact = self._model_path.artifacts / artifact_name
-        else:
-            run_type = self.config["run_type"]
-            path_model_artifact = self._model_path.get_latest_model_artifact_path(run_type)
-
-        if not path_model_artifact.exists():
-            raise FileNotFoundError(f"Model artifact not found at {path_model_artifact}")
-
-        model_time_stamp = path_model_artifact.stem[-15:]
-        logger.info(f"Loading model from {path_model_artifact} (TS: {model_time_stamp})")
-
-        # Cross-device compatibility load
-        model = torch.load(path_model_artifact, map_location="cpu", weights_only=False)
-        model.to(self.device)
-
-        return model, model_time_stamp
-
+        def _load_model_artifact(self, artifact_name: str | None = None) -> tuple[torch.nn.Module, str]:
+            """
+            Loads a model artifact and extracts its timestamp.
+            """
+            if artifact_name:
+                if not artifact_name.endswith(".pt"):
+                    artifact_name += ".pt"
+                path_model_artifact = self._model_path.artifacts / artifact_name
+            else:
+                run_type = self.config["run_type"]
+                path_model_artifact = self._model_path.get_latest_model_artifact_path(run_type)
+    
+            if not path_model_artifact.exists():
+                raise FileNotFoundError(f"Model artifact not found at {path_model_artifact}")
+    
+            model_time_stamp = path_model_artifact.stem[-15:]
+            logger.info(f"Loading model from {path_model_artifact} (TS: {model_time_stamp})")
+            
+            # Cross-device compatibility load
+            model = torch.load(path_model_artifact, map_location="cpu", weights_only=False)
+            model.to(self.device)
+    
+            # --- INTEGRITY AUDIT: Weight Checksum ---
+            with torch.no_grad():
+                param_sum = sum(p.sum().item() for p in model.parameters())
+                logger.info(f"AUDIT: Model Weights Loaded. Checksum (Sum of Params): {param_sum:.6f}")
+    
+            return model, model_time_stamp
     def _evaluate_model_artifact(
         self, eval_type: str, artifact_name: str | None = None
     ) -> list[pd.DataFrame]:

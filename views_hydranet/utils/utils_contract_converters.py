@@ -18,7 +18,6 @@ import numpy as np
 import pandas as pd
 import torch
 
-from views_hydranet.utils.utils import heal_non_finite
 from views_hydranet.utils.utils_internal_containers import ModelOutputs
 
 logger = logging.getLogger(__name__)
@@ -71,18 +70,11 @@ def predictions_to_contract_df(
     # [samples, steps, H, W]
     target_samples = all_samples[:, :, t_idx, :, :]
     
-    # Pass 1: Heal and Clamp before transform (20.0 in log-space is ~480 million fatalities)
-    target_samples = heal_non_finite(target_samples, f"predictions_to_contract_df({target})", clamp_val=20.0)
-
-    from views_hydranet.utils.utils_config import TRANSFORMS
-    # Default to log1p for legacy compatibility
-    transform_name = config.get("transform", "log1p") if config else "log1p"
-    _, inverse_fn = TRANSFORMS[transform_name]
+    from views_hydranet.utils.utils_scaling import ScalingEngine
+    scaler = ScalingEngine.from_config(config)
     
-    target_samples = inverse_fn(target_samples)
-    
-    # Pass 2: Heal again after transform (catch overflows from non-log transforms)
-    target_samples = heal_non_finite(target_samples, f"predictions_to_contract_df({target}) [POST-TRANSFORM]")
+    # Use robust unscale (handles healing and clamping)
+    target_samples = scaler.unscale(target_samples, f"predictions_to_contract_df({target})")
     
     # Handle Binarization
     if target.endswith("_binarized"):
@@ -159,49 +151,46 @@ def zstack_to_contract_df(
     # 2. Extract Config & Aggregation Strategy
     eval_mode = config.get("evalution_mode", "stochastic") if config else "stochastic"
     agg_method = config.get("aggregate_method", "geometric_mean") if config else "geometric_mean"
-    transform_name = config.get("transform", "log1p") if config else "log1p"
 
-    from views_hydranet.utils.utils_config import TRANSFORMS
-    _, inverse_fn = TRANSFORMS[transform_name]
+    from views_hydranet.utils.utils_scaling import ScalingEngine
+    scaler = ScalingEngine.from_config(config)
 
     # 3. Explicit Aggregation Strategy Pass
     if eval_mode == "point":
         if agg_method == "geometric_mean":
             # Math: exp(mean(log)) - 1
             logger.info("Point-Collapse: Calculating Geometric Mean (Stable path).")
-            mags = np.mean(mags, axis=-1) # Collapse samples axis
+            # Step A: Aggregate in log-space
+            mags = np.mean(mags, axis=-1)
+            # Step B: Unscale using robust engine
+            mags = scaler.unscale(mags, f"zstack_to_contract_df({target})")
         
         elif agg_method == "median":
             # Math: exp(median(log)) - 1
             logger.info("Point-Collapse: Calculating Median (Robust path).")
             mags = np.median(mags, axis=-1)
+            mags = scaler.unscale(mags, f"zstack_to_contract_df({target})")
 
         elif agg_method == "arithmetic_mean":
             # Math: mean(exp(log) - 1)
             logger.warning("Point-Collapse: Calculating Arithmetic Mean (Unbiased but UNSTABLE path).")
-            mags = heal_non_finite(mags, f"zstack_to_contract_df({target}) [PRE-AGG]", clamp_val=20.0)
-            mags = inverse_fn(mags)
+            # Step A: Transform every sample to raw-space (using robust unscale)
+            mags = scaler.unscale(mags, f"zstack_to_contract_df({target})")
+            # Step B: Aggregate in raw-space
             mags = np.mean(mags, axis=-1)
-            # Flag to skip final transform
-            inverse_fn = lambda x: x
         
-        # After collapsing, expand back by 1 to maintain 4D expected by downstream masking
+        # Squeeze-and-expand invariant
         mags = np.expand_dims(mags, axis=-1)
 
-    # 4. Final Transformation & Numerical Guarding
-    # Pass 1: Guard before transform (unless arithmetic_mean already did it)
-    mags = heal_non_finite(mags, f"zstack_to_contract_df({target})", clamp_val=20.0)
-    
-    # Apply Inverse Transform
-    mags = inverse_fn(mags) 
-    
-    # Pass 2: Guard after transform
-    mags = heal_non_finite(mags, f"zstack_to_contract_df({target}) [POST-TRANSFORM]")
-    
-    # 5. Handle Binarization (Classification Contract) (Classification Contract)
+    else:
+        # STOCHASTIC MODE: No aggregation, full pipeline
+        logger.info("Stochastic-Mode: Passing all samples to contract.")
+        mags = scaler.unscale(mags, f"zstack_to_contract_df({target})")
+
+    # 4. Handle Binarization (Classification Contract)
     if target.endswith("_binarized"):
-        # We binarize on the RAW scale: > 0
-        mags = (mags > 0).astype(float)
+        # We binarize on the RAW scale. Use a small epsilon to handle FP noise from expm1
+        mags = (mags > 1e-5).astype(float)
     
     # Extract IDs
     pg_ids = meta_zstack[:, :, :, 0, 0]
