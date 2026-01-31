@@ -1,6 +1,7 @@
-import numpy as np
 import os
-from pathlib import Path
+
+import numpy as np
+
 
 def check_vol(path):
     print(f"Checking volume: {path}")

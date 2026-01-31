@@ -1,5 +1,6 @@
 import torch
 
+
 def setup_device():
     """Sets up the device for PyTorch operations (CUDA if available, otherwise CPU).
 

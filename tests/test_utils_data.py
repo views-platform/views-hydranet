@@ -1,6 +1,6 @@
 
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -24,7 +24,7 @@ def test_get_data_success(mock_model_path, mock_np_load, mock_config_get_data):
     # Arrange
     expected_data = np.array([1, 2, 3])
     mock_np_load.return_value = expected_data
-    mock_model_path.data_processed = "/mock/path/to/processed_data"
+    mock_config_get_data["path_processed_data"] = "/mock/path/to/processed_data"
 
     # Act
     result = get_data(mock_config_get_data)
@@ -41,7 +41,7 @@ def test_get_data_file_not_found_exits(mock_model_path, mock_np_load, mock_sys_e
     Tests that get_data calls sys.exit when FileNotFoundError occurs.
     """
     # Arrange
-    mock_model_path.data_processed = "/mock/path/to/processed_data"
+    mock_config_get_data["path_processed_data"] = "/mock/path/to/processed_data"
 
     # Act
     result = get_data(mock_config_get_data) # Capture the result of the call

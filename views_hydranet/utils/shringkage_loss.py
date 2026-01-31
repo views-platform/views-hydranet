@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+
 
 class ShrinkageLoss(nn.Module):
     """
@@ -21,8 +21,8 @@ class ShrinkageLoss(nn.Module):
     """
     def __init__(self, a=10, c=0.2, size_average=True):
         super(ShrinkageLoss, self).__init__()
-        self.a = a  
-        self.c = c  
+        self.a = a
+        self.c = c
         self.size_average = size_average
 
     def forward(self, input, target):
@@ -36,14 +36,14 @@ class ShrinkageLoss(nn.Module):
         Returns:
             torch.Tensor: Scalar loss.
         """
-        input, target = input.unsqueeze(0), target.unsqueeze(0) 
+        input, target = input.unsqueeze(0), target.unsqueeze(0)
 
-        l = torch.abs(target - input)  
-        exp_term = torch.exp(self.a * (self.c - l))  
-        loss = (l ** 2) / (1 + exp_term)  
+        l = torch.abs(target - input)
+        exp_term = torch.exp(self.a * (self.c - l))
+        loss = (l ** 2) / (1 + exp_term)
 
         if self.size_average:
-            return loss.mean()  
+            return loss.mean()
         else:
-            return loss.sum()  
+            return loss.sum()
 

@@ -406,14 +406,10 @@ def test_df_vol_conversion_data_point_integrity(mock_df):
     # Generate the volume
     vol = df_to_vol(df_copy, height=height, width=width, forecast_features=forecast_features)
 
-    # After np.flip(vol, axis=0)
-    # The original abs_row=0 (top-most in original orientation) becomes height - 1 - abs_row = 180 - 1 - 0 = 179
-    flipped_abs_row = int(height - 1 - abs_row) # 179
-
     # After np.transpose(vol, (2, 0, 1, 3))
     # New order: (month_range, height, width, n_features)
-    # So, vol_transposed[abs_month, flipped_abs_row, abs_col, feature_index]
-    assert np.isclose(vol[abs_month, flipped_abs_row, abs_col, feature_index_ln_sb_best], original_value)
+    # Natural order: abs_row corresponds to axis 1.
+    assert np.isclose(vol[abs_month, abs_row, abs_col, feature_index_ln_sb_best], original_value)
 
     # --- Step 2: Trace the data point back from vol to df_recreated ---
     df_recreated = vol_to_df(vol, forecast_features=forecast_features)

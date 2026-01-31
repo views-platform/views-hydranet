@@ -1,6 +1,6 @@
-import pandas as pd
-import numpy as np
 import logging
+
+import pandas as pd
 from views_evaluation.evaluation.evaluation_manager import EvaluationManager
 
 # Suppress warnings for cleaner output
@@ -13,7 +13,7 @@ def probe(target_name, actual_val, pred_val):
     actuals = pd.DataFrame({target_name: [actual_val]}, index=idx)
     # Prediction as provided (wrapped in list for canonical format)
     preds = [pd.DataFrame({f"pred_{target_name}": [[pred_val]]}, index=idx)]
-    
+
     manager = EvaluationManager(metrics_list=["MSE"])
     results = manager.evaluate(actuals, preds, target_name, config={"steps": [1]})
     mse = results["step"][1].loc["step01", "MSE"]

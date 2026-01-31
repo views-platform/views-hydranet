@@ -1,7 +1,8 @@
-import pytest
 import numpy as np
-import pandas as pd
+import pytest
+
 from views_hydranet.utils.utils_contract_converters import zstack_to_contract_df
+
 
 def test_zstack_to_contract_df_point_collapse_mean_raw():
     """
@@ -13,19 +14,19 @@ def test_zstack_to_contract_df_point_collapse_mean_raw():
     meta_zstack = np.zeros((steps, H, W, 8, 1))
     meta_zstack[:, :, :, 0, 0] = 1.0 # Land
     meta_zstack[:, :, :, 3, 0] = 100 # month_id
-    
+
     config = {
         "evalution_mode": "point",
         "aggregate_method": "arithmetic_mean",
         "transform": "log1p"
     }
-    
+
     results = zstack_to_contract_df(posterior_zstack, meta_zstack, "sb", config=config)
     df = results[0]
-    
+
     # Expected value: mean(exp(2.0)-1) = exp(2.0)-1
     expected_val = np.expm1(2.0)
-    
+
     # The output should be a list containing a single mean value
     actual_val_list = df.iloc[0]["pred_lr_sb"]
     assert len(actual_val_list) == 1
@@ -40,23 +41,23 @@ def test_zstack_to_contract_df_point_collapse_mean_logged():
     posterior_zstack = np.zeros((steps, H, W, channels, samples))
     posterior_zstack[:, :, :, 0, :5] = 1.0
     posterior_zstack[:, :, :, 0, 5:] = 3.0
-    
+
     meta_zstack = np.zeros((steps, H, W, 8, 1))
     meta_zstack[:, :, :, 0, 0] = 1.0 # Land
     meta_zstack[:, :, :, 3, 0] = 100 # month_id
-    
+
     config = {
         "evalution_mode": "point",
         "aggregate_method": "geometric_mean",
         "transform": "log1p"
     }
-    
+
     results = zstack_to_contract_df(posterior_zstack, meta_zstack, "sb", config=config)
     df = results[0]
-    
+
     # Expected: mean in log space is (1+3)/2 = 2.0. Then inverse transform: exp(2.0)-1
     expected_val = np.expm1(2.0)
-    
+
     actual_val_list = df.iloc[0]["pred_lr_sb"]
     assert len(actual_val_list) == 1
     assert pytest.approx(actual_val_list[0]) == expected_val

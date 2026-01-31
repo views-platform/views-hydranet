@@ -1,10 +1,9 @@
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import torch
 import torch.nn as nn
-from views_pipeline_core.managers.model import ModelPathManager
 
 from views_hydranet.utils.utils import apply_dropout, execute_freeze_h_option, get_full_tensor
 

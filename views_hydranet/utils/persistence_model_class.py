@@ -1,7 +1,9 @@
 import warnings
 from datetime import datetime
-from dateutil.relativedelta import relativedelta
+
 import pandas as pd
+from dateutil.relativedelta import relativedelta
+
 
 class PersistenceModel:
     def __init__(self, df, features, is_true_forecast=True, lower_date_bound="01.1990", overwrite_lastmonth_warning=False):
@@ -27,13 +29,13 @@ class PersistenceModel:
         """ Validates the input dataframe for necessary columns and non-emptiness. """
         if self.df.empty:
             raise ValueError("The input dataframe is empty.")
-        
+
         if 'pg_id' not in self.df.columns:
             raise ValueError("The input dataframe does not contain the 'pg_id' column.")
-        
+
         if 'month_id' not in self.df.columns:
             raise ValueError("The input dataframe does not contain the 'month_id' column.")
-        
+
         for feature in self.features:
             if feature not in self.df.columns:
                 raise ValueError(f"The input dataframe does not contain the '{feature}' column.")
@@ -66,7 +68,7 @@ class PersistenceModel:
         - bool: True if the date is within the range, otherwise raises an error or prints a warning.
         """
         date_format = "%m.%Y"
-        
+
         max_month_date = datetime.strptime(max_month, date_format)
         min_date = datetime.strptime(self.lower_date_bound, date_format)
         current_date = datetime.now().replace(day=1)  # Use the first day of the current month
@@ -78,7 +80,7 @@ class PersistenceModel:
                 warnings.warn(message)
             else:
                 raise ValueError(message)
-        
+
         return True
 
     def get_persistence_model_predictions(self):
@@ -90,7 +92,7 @@ class PersistenceModel:
                             with '_persistence', and 'step' columns, extended from 
                             step 1 to 36 with constant values.
         """
-        # Get the max month_id and date    
+        # Get the max month_id and date
         max_month_id = self.df["month_id"].max()
 
         if not self.is_true_forecast:
@@ -106,7 +108,7 @@ class PersistenceModel:
         mode = "True Forecast" if self.is_true_forecast else "Validation/Evaluation (Adjusted 36 months earlier)"
         print(f"[{mode}] The max month is {max_month_date} with month_id {max_month_id}. Ensure this corresponds to your expectations! Current date is {current_month_date}.")
 
-        # Check if the max_month is within the valid range    
+        # Check if the max_month is within the valid range
         self.check_max_month(max_month_date)
 
         sub_df = self.df[self.df['month_id'] == max_month_id][['pg_id'] + self.features].copy()

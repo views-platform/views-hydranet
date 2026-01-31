@@ -1,11 +1,12 @@
-import pytest
+from unittest.mock import MagicMock, patch
+
 import pandas as pd
-import numpy as np
+import pytest
 import torch
 import torch.nn as nn
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+
 from views_hydranet.manager.hydranet_manager import HydranetManager
+
 
 class MockHydraNet(nn.Module):
     def __init__(self, base=32):
@@ -37,12 +38,12 @@ def test_manager_end_to_end_smoke_run(full_system_env, valid_config_dict):
     mpm.data_raw = raw_dir
     mpm.artifacts = art_dir
     mpm.get_latest_model_artifact_path.return_value = art_dir / "model.pt"
-    
+
     with patch("views_pipeline_core.managers.model.model.ForecastingModelManager.__init__", return_value=None):
         with patch("views_hydranet.manager.hydranet_manager.setup_device", return_value=torch.device("cpu")):
             manager = HydranetManager(model_path=mpm)
             manager._hydranet_config = valid_config_dict
-            
+
             with patch("views_pipeline_core.managers.model.model.ForecastingModelManager._execute_model_evaluation"):
                 manager._execute_model_evaluation()
                 assert manager.config["time_steps"] == 36

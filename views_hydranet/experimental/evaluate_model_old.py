@@ -1,28 +1,27 @@
 
 import numpy as np
-
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
-#from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import average_precision_score
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import mean_squared_error
-from sklearn.metrics import brier_score_loss
-
 import wandb
 
-
-from views_hydranet.utils.utils_prediction import sample_posterior
-from views_hydranet.utils.utils_wandb import generate_wandb_log_dict, generate_wandb_mean_metrics_log_dict
-from views_hydranet.utils.utils_contract_converters import save_model_outputs
-
+#from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import (
+    average_precision_score,
+    brier_score_loss,
+    mean_squared_error,
+    roc_auc_score,
+)
 from views_pipeline_core.managers.model import ModelPathManager
-from views_hydranet.utils.utils_internal_containers import ModelOutputs
+
 #from views_pipeline_core.evaluation.metrics import EvaluationMetrics
 from views_hydranet.deprecated.metrics import EvaluationMetrics
-from views_pipeline_core.managers.model import ModelPathManager
+from views_hydranet.utils.utils_contract_converters import save_model_outputs
+from views_hydranet.utils.utils_internal_containers import ModelOutputs
+from views_hydranet.utils.utils_prediction import sample_posterior
+from views_hydranet.utils.utils_wandb import (
+    generate_wandb_log_dict,
+    generate_wandb_mean_metrics_log_dict,
+)
+
 
 # so if this is mand more general and the if evals in activated then it should be in the utils_prediction.py file.
 # also it could 100% be multiple functions...
@@ -59,7 +58,7 @@ def evaluate_posterior(model_path: ModelPathManager, model, views_vol, config, d
     std_class_array = np.array(posterior_list_class).std(axis = 0)
 
 
-    for t in range(mean_array.shape[0]): #  0 of mean array is the temporal dim    
+    for t in range(mean_array.shape[0]): #  0 of mean array is the temporal dim
 
         log_dict = {}
         log_dict["monthly/out_sample_month"] = t +1 # 1 indexed, bc the first step is 1 month ahead
@@ -69,15 +68,15 @@ def evaluate_posterior(model_path: ModelPathManager, model, views_vol, config, d
             step = f"step{str(t+1).zfill(2)}"
 
             # get the scores
-            y_score = mean_array[t,i,:,:].reshape(-1) # make it 1d  # nu 180x180 
-            y_score_prob = mean_class_array[t,i,:,:].reshape(-1) # nu 180x180 
+            y_score = mean_array[t,i,:,:].reshape(-1) # make it 1d  # nu 180x180
+            y_score_prob = mean_class_array[t,i,:,:].reshape(-1) # nu 180x180
 
             # do not really know what to do with these yet.
-            y_var = std_array[t,i,:,:].reshape(-1)  # nu 180x180  
-            y_var_prob = std_class_array[t,i,:,:].reshape(-1)  # nu 180x180 
+            y_var = std_array[t,i,:,:].reshape(-1)  # nu 180x180
+            y_var_prob = std_class_array[t,i,:,:].reshape(-1)  # nu 180x180
 
             # see this is the out of sample vol - fine for evaluation but not for forecasting
-            # but also the place where you get the pgm.. 
+            # but also the place where you get the pgm..
 
             #if eval:
             y_true = out_of_sample_vol[:,t,i,:,:].reshape(-1)  # nu 180x180 . dim 0 is time     THE TRICK IS NOW TO USE A df -> vol and not out_of_sample_vol...
@@ -108,7 +107,7 @@ def evaluate_posterior(model_path: ModelPathManager, model, views_vol, config, d
             dict_of_outputs_dicts[j][step].step = t +1 # 1 indexed, bc the first step is 1 month ahead
             dict_of_outputs_dicts[j][step].month_id = month_id
 
-            #if eval:   
+            #if eval:
 
             dict_of_eval_dicts[j][step].MSE = mean_squared_error(y_true, y_score)
             dict_of_eval_dicts[j][step].AP = average_precision_score(y_true_binary, y_score_prob)
@@ -159,21 +158,21 @@ def evaluate_model_artifact(model_path:ModelPathManager, config, device, views_v
     # if an artifact name is provided through the CLI, use it. Otherwise, get the latest model artifact based on the run type
     if artifact_name:
         print(f"Using (non-default) artifact: {artifact_name}")
-        
+
         # If the pytorch artifact lacks the file extension, add it. This is obviously specific to pytorch artifacts, but we are deep in the model code here, so it is fine.
         if not artifact_name.endswith('.pt'):
             artifact_name += '.pt'
-        
+
         # Define the full (model specific) path for the artifact
         #PATH_MODEL_ARTIFACT = os.path.join(PATH_ARTIFACTS, artifact_name)
 
         # pathlib alternative as per sara's comment
         PATH_MODEL_ARTIFACT = model_path.artifacts / artifact_name # PATH_ARTIFACTS is already a Path object
-    
+
     else:
         # use the latest model artifact based on the run type
         print(f"Using latest (default) run type ({config['run_type']}) specific artifact")
-        
+
         # Get the latest model artifact based on the run type and the (models specific) artifacts path
         # PATH_MODEL_ARTIFACT = get_latest_model_artifact(PATH_ARTIFACTS, config.run_type)
         PATH_MODEL_ARTIFACT = model_path.get_latest_model_artifact_path(config["run_type"])
@@ -181,14 +180,14 @@ def evaluate_model_artifact(model_path:ModelPathManager, config, device, views_v
     # Check if the model artifact exists - if not, raise an error
     #if not os.path.exists(PATH_MODEL_ARTIFACT):
     #    raise FileNotFoundError(f"Model artifact not found at {PATH_MODEL_ARTIFACT}")
-    
+
     # Pathlib alternative as per sara's comment
     # if not PATH_MODEL_ARTIFACT.exists(): # PATH_MODEL_ARTIFACT is already a Path object
     #     raise FileNotFoundError(f"Model artifact not found at {PATH_MODEL_ARTIFACT}")
 
     # load the model
     model = torch.load(PATH_MODEL_ARTIFACT, weights_only = False)
-    
+
     # get the exact model date_time stamp for the pkl files made in the evaluate_posterior from evaluation.py
     #model_time_stamp = os.path.basename(PATH_MODEL_ARTIFACT)[-18:-3] # 18 is the length of the timestamp string + ".pt", and -3 is to remove the .pt file extension. a bit hardcoded, but very simple and should not change.
 
@@ -204,9 +203,9 @@ def evaluate_model_artifact(model_path:ModelPathManager, config, device, views_v
 
     # evaluate the model posterior distribution
     return evaluate_posterior(model_path, model, views_vol, config, device)
-    
-    # done. 
-    # print('Done testing') 
+
+    # done.
+    # print('Done testing')
 
 
 

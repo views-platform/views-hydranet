@@ -1,5 +1,5 @@
-import torch
 from torch.optim.lr_scheduler import _LRScheduler
+
 
 class WarmupDecayLearningRateScheduler(_LRScheduler):
     def __init__(self, optimizer, d, warmup_steps, last_epoch=-1):

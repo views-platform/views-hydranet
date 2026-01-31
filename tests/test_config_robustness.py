@@ -1,6 +1,8 @@
 import pytest
 from pydantic import ValidationError
+
 from views_hydranet.utils.utils_config import HydraNetConfig, TargetVariable
+
 
 def test_config_validation_success():
     """Valid config should initialize correctly."""

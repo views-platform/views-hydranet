@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class FocalLoss(nn.Module):
     def __init__(self, alpha=0.25, gamma=2.0, reduction='mean'):
         super(FocalLoss, self).__init__()
@@ -18,12 +19,12 @@ class FocalLoss(nn.Module):
         # since you are not taking log(p) anywhere, you don't need to clamp it for numerical stability.
         p = torch.sigmoid(logits)
 
-        ce_loss = F.binary_cross_entropy_with_logits(logits, targets, reduction="none")# Calculate the cross-entropy loss. inputs should be Predicted unnormalized logits according to the documentation         
+        ce_loss = F.binary_cross_entropy_with_logits(logits, targets, reduction="none")# Calculate the cross-entropy loss. inputs should be Predicted unnormalized logits according to the documentation
         p_t = p * targets + (1 - p) * (1 - targets) # Calculate the probability of the true class
         loss = ce_loss * ((1 - p_t) ** self.gamma)
 
         if self.alpha >= 0:
-            alpha_t = self.alpha * targets + (1 - self.alpha) * (1 - targets) 
+            alpha_t = self.alpha * targets + (1 - self.alpha) * (1 - targets)
             loss = alpha_t * loss # multiple alpha_t with targets here to balance the loss
 
         if self.reduction == 'mean':
@@ -82,7 +83,7 @@ class ShrinkageLoss(nn.Module):
 
     def forward(self, input, target):
 
-        input, target = input.unsqueeze(0), target.unsqueeze(0) 
+        input, target = input.unsqueeze(0), target.unsqueeze(0)
 
         l = torch.abs(target - input)  # Absolute difference between target and input
         exp_term = torch.exp(self.a * (self.c - l))  # Exponential term to control the sensitivity of the loss to deviations from the target values.

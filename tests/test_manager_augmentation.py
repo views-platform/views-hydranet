@@ -1,18 +1,21 @@
-import pytest
-import pandas as pd
-import numpy as np
 from unittest.mock import MagicMock, patch
+
+import numpy as np
+import pandas as pd
+import pytest
+
 from views_hydranet.manager.hydranet_manager import HydranetManager
+
 
 @pytest.fixture
 def clean_manager():
     """Returns a real manager instance with base init bypassed."""
     with patch("views_pipeline_core.managers.model.model.ForecastingModelManager.__init__", return_value=None), \
          patch("views_hydranet.manager.hydranet_manager.setup_device", return_value="cpu"):
-        
+
         m = HydranetManager(model_path=MagicMock())
         # Provide minimal config to satisfy handshake-free property access
-        m._hydranet_config = {"some": "config"} 
+        m._hydranet_config = {"some": "config"}
         return m
 
 def test_translate_targets(clean_manager):

@@ -12,13 +12,10 @@ Core Invariant:
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
-import torch
-
-from views_hydranet.utils.utils_internal_containers import ModelOutputs
 
 logger = logging.getLogger(__name__)
 
@@ -52,11 +49,11 @@ def predictions_to_contract_df(
     """
     # 1. Standardize Input
     all_samples = np.stack(posterior_list)  # [samples, steps, features, H, W]
-    
+
     # 2. Channel Mapping (Robust Registry Lookup)
     from views_hydranet.utils.utils_config import get_target_index
     t_idx = get_target_index(target)
-    
+
     # 3. Target Naming (Explicit Raw Scale)
     if target.startswith("ln_"):
         out_target = target.replace("ln_", "lr_")
@@ -69,39 +66,39 @@ def predictions_to_contract_df(
     # 4. Extract and Unlog
     # [samples, steps, H, W]
     target_samples = all_samples[:, :, t_idx, :, :]
-    
+
     from views_hydranet.utils.utils_scaling import ScalingEngine
     scaler = ScalingEngine.from_config(config)
-    
+
     # Use robust unscale (handles healing and clamping)
     target_samples = scaler.unscale(target_samples, f"predictions_to_contract_df({target})")
-    
+
     # Handle Binarization
     if target.endswith("_binarized"):
         target_samples = (target_samples > 0).astype(float)
-    
+
     # 5. Extract Metadata IDs
     pg_ids = forecast_storage_vol[0, :, 0, :, :]
     month_ids = forecast_storage_vol[0, :, 3, :, :]
-    
+
     # 6. Vectorized Masking
     mask = pg_ids > 0
     land_pg_ids = pg_ids[mask].astype(int)
     land_month_ids = month_ids[mask].astype(int)
-    
+
     # target_samples is [S, T, H, W] -> transpose to [T, H, W, S]
     land_mags = target_samples.transpose(1, 2, 3, 0)[mask]
-    
+
     # 7. List Conversion (One-shot)
     land_samples_list = land_mags.tolist()
-    
+
     # 8. Construct DF
     df = pd.DataFrame({
         "month_id": land_month_ids,
         "priogrid_gid": land_pg_ids,
         out_col: land_samples_list
     })
-    
+
     df = df.set_index(["month_id", "priogrid_gid"])
     return [df]
 
@@ -131,11 +128,11 @@ def zstack_to_contract_df(
         at least 8GB of free RAM is available when samples > 100.
     """
     samples = posterior_zstack.shape[-1]
-    
+
     # Internal channel mapping (Robust Registry Lookup)
     from views_hydranet.utils.utils_config import get_target_index
     t_idx = get_target_index(target)
-    
+
     # Construct Output Column Name
     if target.startswith("ln_"):
         out_target = target.replace("ln_", "lr_")
@@ -144,10 +141,12 @@ def zstack_to_contract_df(
     else:
         out_target = target
     out_col = f"pred_{out_target}"
-    
+
     # Extract magnitudes and apply inverse transform from registry
-    mags = posterior_zstack[:, :, :, t_idx, :]
-    
+    # Force C-contiguity to ensure masking matches memory layout
+    mags = np.ascontiguousarray(posterior_zstack[:, :, :, t_idx, :])
+    meta_zstack = np.ascontiguousarray(meta_zstack)
+
     # 2. Extract Config & Aggregation Strategy
     eval_mode = config.get("evalution_mode", "stochastic") if config else "stochastic"
     agg_method = config.get("aggregate_method", "geometric_mean") if config else "geometric_mean"
@@ -164,7 +163,7 @@ def zstack_to_contract_df(
             mags = np.mean(mags, axis=-1)
             # Step B: Unscale using robust engine
             mags = scaler.unscale(mags, f"zstack_to_contract_df({target})")
-        
+
         elif agg_method == "median":
             # Math: exp(median(log)) - 1
             logger.info("Point-Collapse: Calculating Median (Robust path).")
@@ -178,8 +177,8 @@ def zstack_to_contract_df(
             mags = scaler.unscale(mags, f"zstack_to_contract_df({target})")
             # Step B: Aggregate in raw-space
             mags = np.mean(mags, axis=-1)
-        
-        # Squeeze-and-expand invariant
+
+    # Squeeze-and-expand invariant
         mags = np.expand_dims(mags, axis=-1)
 
     else:
@@ -187,31 +186,35 @@ def zstack_to_contract_df(
         logger.info("Stochastic-Mode: Passing all samples to contract.")
         mags = scaler.unscale(mags, f"zstack_to_contract_df({target})")
 
-    # 4. Handle Binarization (Classification Contract)
+    # 5. Handle Binarization (Classification Contract)
     if target.endswith("_binarized"):
-        # We binarize on the RAW scale. Use a small epsilon to handle FP noise from expm1
         mags = (mags > 1e-5).astype(float)
-    
-    # Extract IDs
+
+    # 6. Extract IDs and Values using explicit coordinate mapping
+    # pg_ids: [T, H, W], month_ids: [T, H, W]
     pg_ids = meta_zstack[:, :, :, 0, 0]
     month_ids = meta_zstack[:, :, :, 3, 0]
-    
-    # Create mask for all land cells
-    mask = pg_ids > 0
-    land_pg_ids = pg_ids[mask].astype(int)
-    land_month_ids = month_ids[mask].astype(int)
-    land_mags = mags[mask]
-    
+
+    # Get indices of all land cells
+    t_idx_list, h_idx_list, w_idx_list = np.where(pg_ids > 0)
+
+    # Extract data using explicit indices
+    land_pg_ids = pg_ids[t_idx_list, h_idx_list, w_idx_list].astype(int)
+    land_month_ids = month_ids[t_idx_list, h_idx_list, w_idx_list].astype(int)
+
+    # mags: [T, H, W, S]
+    land_mags = mags[t_idx_list, h_idx_list, w_idx_list] # Result: [N, S]
+
     # Convert samples to list-of-lists
     land_samples_list = land_mags.tolist()
-    
+
     # Construct DataFrame
     df = pd.DataFrame({
         "month_id": land_month_ids,
         "priogrid_gid": land_pg_ids,
         out_col: land_samples_list
     })
-    
+
     df = df.set_index(["month_id", "priogrid_gid"])
     return [df]
 
@@ -233,7 +236,7 @@ def validate_contract_dataframes(list_df: list[pd.DataFrame]) -> None:
     for i, df in enumerate(list_df):
         if df.empty:
             raise ValueError(f"Sequence {i} is empty!")
-            
+
         # Check for Ocean Cells in Index
         pg_ids = df.index.get_level_values("priogrid_gid")
         if (pg_ids == 0).any():
@@ -281,26 +284,26 @@ def contract_df_to_zstack(
     """
     df = list_df_predictions[0]
     steps, H, W, _, _ = meta_zstack.shape
-    
+
     # Peek at first list to get sample count
     samples = len(df.iloc[0][f"pred_lr_{target}"])
-    
+
     # Pre-allocate reconstructed volume
     reconstructed = np.zeros((steps, H, W, 1, samples))
-    
+
     # Extract IDs from template
     pg_ids_template = meta_zstack[:, :, :, 0, 0]
     month_ids_template = meta_zstack[:, :, :, 3, 0]
-    
+
     # Inverse transform column name
     col = f"pred_lr_{target}"
-    
+
     # Iterate over template steps
     for t in range(steps):
         month_id = int(np.unique(month_ids_template[t])[0])
         # Performance Warning: .xs() is used here for clarity in the proof logic
         df_month = df.xs(month_id, level="month_id")
-        
+
         for h in range(H):
             for w in range(W):
                 pg_id = int(pg_ids_template[t, h, w])
@@ -310,5 +313,5 @@ def contract_df_to_zstack(
                     reconstructed[t, h, w, 0, :] = np.log1p(raw_samples)
                 else:
                     reconstructed[t, h, w, 0, :] = 0.0
-                    
+
     return reconstructed

@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class FocalLoss(nn.Module):
     """
     Focal Loss for addressing extreme class imbalance in binary classification.
@@ -22,9 +23,9 @@ class FocalLoss(nn.Module):
     """
     def __init__(self, alpha=0.25, gamma=2.0, reduction='mean'):
         super(FocalLoss, self).__init__()
-        self.alpha = alpha  
-        self.gamma = gamma  
-        self.reduction = reduction  
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
 
     def forward(self, logits, targets):
         """
@@ -44,12 +45,12 @@ class FocalLoss(nn.Module):
         # since you are not taking log(p) anywhere, you don't need to clamp it for numerical stability.
         p = torch.sigmoid(logits)
 
-        ce_loss = F.binary_cross_entropy_with_logits(logits, targets, reduction="none")# Calculate the cross-entropy loss. inputs should be Predicted unnormalized logits according to the documentation         
+        ce_loss = F.binary_cross_entropy_with_logits(logits, targets, reduction="none")# Calculate the cross-entropy loss. inputs should be Predicted unnormalized logits according to the documentation
         p_t = p * targets + (1 - p) * (1 - targets) # Calculate the probability of the true class
         loss = ce_loss * ((1 - p_t) ** self.gamma)
 
         if self.alpha >= 0:
-            alpha_t = self.alpha * targets + (1 - self.alpha) * (1 - targets) 
+            alpha_t = self.alpha * targets + (1 - self.alpha) * (1 - targets)
             loss = alpha_t * loss # multiple alpha_t with targets here to balance the loss
 
         if self.reduction == 'mean':

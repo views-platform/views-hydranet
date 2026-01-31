@@ -1,7 +1,7 @@
 import logging
-from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
 from collections.abc import Callable
+from enum import Enum
+from typing import Any
 
 import numpy as np
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -145,7 +145,7 @@ class HydraNetConfig(BaseModel):
             "max_aposteriori": "median" # MAP proxy
         }
         v = mapper.get(v, v)
-        
+
         valid = ["arithmetic_mean", "geometric_mean", "median"]
         if v not in valid:
             raise ValueError(f"aggregate_method must be one of {valid}")

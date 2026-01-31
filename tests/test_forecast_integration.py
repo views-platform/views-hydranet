@@ -1,7 +1,4 @@
 import logging
-import os
-from pathlib import Path
-from typing import Dict, List
 
 import numpy as np
 import pandas as pd
@@ -44,11 +41,11 @@ def mock_setup(tmp_path):
     """
     artifacts_dir = tmp_path / "artifacts"
     artifacts_dir.mkdir()
-    
+
     model = ToyHydranet(base=8)
     model_path = artifacts_dir / "toy_model.pt"
     torch.save(model, model_path)
-    
+
     # Mock views_vol: [months, H, W, features]
     # Channels: 0:pg_id, 1:col, 2:row, 3:month_id, 4:c_id, 5:sb, 6:ns, 7:os
     H, W = 10, 10
@@ -58,7 +55,7 @@ def mock_setup(tmp_path):
         vol[t, :, :, 0] = np.arange(1, H*W + 1).reshape(H, W) # pg_id
         vol[t, :, :, 3] = 500 + t # month_id
         vol[t, :, :, 4] = 10 # c_id
-        
+
     config = {
         "time_steps": 2,
         "test_samples": 3,
@@ -67,7 +64,7 @@ def mock_setup(tmp_path):
         "input_channels": 3,
         "freeze_h": "none"
     }
-    
+
     return model_path, torch.from_numpy(vol).float(), config, artifacts_dir
 
 def test_forecast_integration_end_to_end(mock_setup):
@@ -76,7 +73,7 @@ def test_forecast_integration_end_to_end(mock_setup):
     """
     model_path, views_vol, config, artifacts_dir = mock_setup
     device = torch.device("cpu")
-    
+
     # Execute the forecasting flow
     results = forecast_with_model_artifact(
         config=config,
@@ -85,28 +82,28 @@ def test_forecast_integration_end_to_end(mock_setup):
         PATH_ARTIFACTS=artifacts_dir,
         artifact_name="toy_model.pt"
     )
-    
+
     # Assertions
     assert isinstance(results, dict)
     assert set(results.keys()) == {"sb", "ns", "os"}
-    
+
     for target, df_list in results.items():
         assert isinstance(df_list, list)
         assert len(df_list) == 1
         df = df_list[0]
-        
+
         # Check Contract Compliance
         assert isinstance(df.index, pd.MultiIndex)
         assert df.index.names == ["month_id", "priogrid_gid"]
-        
+
         expected_col = f"pred_lr_{target}"
         assert expected_col in df.columns
-        
+
         # Check sample size
         first_val = df.iloc[0][expected_col]
         assert isinstance(first_val, list)
         assert len(first_val) == config["test_samples"]
-        
+
         # Verify month_id logic (predicting beyond input)
         unique_months = df.index.get_level_values("month_id").unique()
         assert list(unique_months) == [503, 504]

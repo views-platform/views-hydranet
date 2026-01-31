@@ -23,7 +23,7 @@ else:
     import glob
     models = glob.glob("artifacts/*.pt")
     if models:
-        latest_model = max(models, key=Path).replace('\', '/')
+        latest_model = max(models, key=lambda x: Path(x).stat().st_mtime)
         check_model(latest_model)
     else:
         print("No models found in artifacts/")

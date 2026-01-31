@@ -1,13 +1,15 @@
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 import torch
+
 from views_hydranet.utils.utils_true_forecasting import (
-    make_forecast_storage_vol,
+    check_month_id_consistency,
     generate_fake_vol,
+    make_forecast_storage_vol,
     merge_vol,
-    check_month_id_consistency
 )
+
 
 @pytest.fixture
 def mock_df():
@@ -28,7 +30,7 @@ def test_make_forecast_storage_vol_ndarray(mock_df):
     vol = make_forecast_storage_vol(
         mock_df, height=height, width=width, month_range=month_range, to_tensor=False
     )
-    
+
     assert isinstance(vol, np.ndarray)
     assert vol.shape == (month_range, height, width, 5)
     # Check month_id increments (Feature index 3)
@@ -41,7 +43,7 @@ def test_generate_fake_vol():
     # [Months, H, W, Features]
     vol = np.zeros((5, 10, 10, 8))
     vol[:, :, :, 5:] = 99.0
-    
+
     fake = generate_fake_vol(vol, month_range=2)
     assert fake.shape == (2, 10, 10, 3)
     assert np.all(fake == 99.0)
@@ -50,7 +52,7 @@ def test_merge_vol():
     """Verify concatenation of metadata and predictions."""
     meta = np.ones((2, 10, 10, 5))
     preds = np.zeros((2, 10, 10, 3))
-    
+
     merged = merge_vol(meta, preds)
     assert merged.shape == (2, 10, 10, 8)
     assert np.all(merged[:, :, :, :5] == 1.0)
@@ -65,7 +67,7 @@ def test_month_id_consistency_pass(mock_df):
     vol[0, 0, 3, :, :] = 101
     vol[0, 1, 3, :, :] = 102
     vol[0, 2, 3, :, :] = 103
-    
+
     # Should not raise
     check_month_id_consistency(vol, mock_df, month_range=month_range)
 
@@ -74,8 +76,8 @@ def test_month_id_consistency_fail(mock_df):
     month_range = 3
     vol = torch.zeros((1, month_range, 5, 10, 10))
     # Incorrect start: 105 instead of 101
-    vol[0, 0, 3, :, :] = 105 
-    
+    vol[0, 0, 3, :, :] = 105
+
     with pytest.raises(ValueError, match="Mismatch in month_id"):
         check_month_id_consistency(vol, mock_df, month_range=month_range)
 

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
-import pandas as pd
 
+import pandas as pd
 
 # MUST BE ALIGNED WITH THE METRICS WE DECIDE TO USE IN THE WORKSHOP!!!!
 

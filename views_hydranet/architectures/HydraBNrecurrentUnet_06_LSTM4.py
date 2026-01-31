@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 # give everything better names at some point
 class HydraBNUNet06_LSTM4(nn.Module):
     """
@@ -35,98 +36,98 @@ class HydraBNUNet06_LSTM4(nn.Module):
         """
         super().__init__()
 
-        kernel_size = 3 
+        kernel_size = 3
         base = total_hidden_channels
-        lstm_padding = kernel_size // 2 
-        
-        num_lstm_cells = 4 
-        num_lstm_state_layers = int(total_hidden_channels/(num_lstm_cells*2)) 
-        
-        self.base = base 
-        
+        lstm_padding = kernel_size // 2
+
+        num_lstm_cells = 4
+        num_lstm_state_layers = int(total_hidden_channels/(num_lstm_cells*2))
+
+        self.base = base
+
         # encoder (downsampling)
-        self.enc_conv0 = nn.Conv2d(input_channels + int(total_hidden_channels/2), base, kernel_size, padding=1, bias = False) 
+        self.enc_conv0 = nn.Conv2d(input_channels + int(total_hidden_channels/2), base, kernel_size, padding=1, bias = False)
 
         self.bn_enc_conv0 = nn.BatchNorm2d(base)
-        self.pool0 = nn.MaxPool2d(2, 2, padding=0) 
+        self.pool0 = nn.MaxPool2d(2, 2, padding=0)
 
         self.enc_conv1 = nn.Conv2d(base, base*2, kernel_size, padding=1, bias = False)
-        self.bn_enc_conv1 = nn.BatchNorm2d(base*2) 
-        self.pool1 = nn.MaxPool2d(2, 2, padding=0) 
+        self.bn_enc_conv1 = nn.BatchNorm2d(base*2)
+        self.pool1 = nn.MaxPool2d(2, 2, padding=0)
 
         # bottleneck
         self.bottleneck_conv = nn.Conv2d(base*2, base*4, kernel_size, padding=1, bias = False)
-        self.bn_bottleneck_conv = nn.BatchNorm2d(base*4) 
-        
+        self.bn_bottleneck_conv = nn.BatchNorm2d(base*4)
+
 
         # HEAD1 reg
-        self.upsample0_head1_reg = nn.ConvTranspose2d(base*4, base*2, 2, stride= 2, padding= 0, output_padding= 0) 
-        self.dec_conv0_head1_reg = nn.Conv2d(base*4, base*2, kernel_size, padding=1, bias = False) 
-        self.bn_dec_conv0_head1_reg = nn.BatchNorm2d(base*2) 
+        self.upsample0_head1_reg = nn.ConvTranspose2d(base*4, base*2, 2, stride= 2, padding= 0, output_padding= 0)
+        self.dec_conv0_head1_reg = nn.Conv2d(base*4, base*2, kernel_size, padding=1, bias = False)
+        self.bn_dec_conv0_head1_reg = nn.BatchNorm2d(base*2)
 
-        self.upsample1_head1_reg = nn.ConvTranspose2d(base*2, base, 2, stride= 2, padding= 0, output_padding= 0) 
-        self.dec_conv1_head1_reg = nn.Conv2d(base*2, base, kernel_size, padding=1, bias = False) 
-        self.bn_dec_conv1_head1_reg = nn.BatchNorm2d(base) 
+        self.upsample1_head1_reg = nn.ConvTranspose2d(base*2, base, 2, stride= 2, padding= 0, output_padding= 0)
+        self.dec_conv1_head1_reg = nn.Conv2d(base*2, base, kernel_size, padding=1, bias = False)
+        self.bn_dec_conv1_head1_reg = nn.BatchNorm2d(base)
 
-        self.dec_conv4_head1_reg = nn.Conv2d(base, output_channels, kernel_size, padding=1) 
+        self.dec_conv4_head1_reg = nn.Conv2d(base, output_channels, kernel_size, padding=1)
 
 
         # HEAD1 class
-        self.upsample0_head1_class = nn.ConvTranspose2d(base*4, base*2, 2, stride= 2, padding= 0, output_padding= 0) 
-        self.dec_conv0_head1_class = nn.Conv2d(base*4, base*2, kernel_size, padding=1, bias = False) 
-        self.bn_dec_conv0_head1_class = nn.BatchNorm2d(base*2) 
+        self.upsample0_head1_class = nn.ConvTranspose2d(base*4, base*2, 2, stride= 2, padding= 0, output_padding= 0)
+        self.dec_conv0_head1_class = nn.Conv2d(base*4, base*2, kernel_size, padding=1, bias = False)
+        self.bn_dec_conv0_head1_class = nn.BatchNorm2d(base*2)
 
-        self.upsample1_head1_class = nn.ConvTranspose2d(base*2, base, 2, stride= 2, padding= 0, output_padding= 0) 
-        self.dec_conv1_head1_class = nn.Conv2d(base*2, base, kernel_size, padding=1, bias = False) 
-        self.bn_dec_conv1_head1_class = nn.BatchNorm2d(base) 
+        self.upsample1_head1_class = nn.ConvTranspose2d(base*2, base, 2, stride= 2, padding= 0, output_padding= 0)
+        self.dec_conv1_head1_class = nn.Conv2d(base*2, base, kernel_size, padding=1, bias = False)
+        self.bn_dec_conv1_head1_class = nn.BatchNorm2d(base)
 
         self.dec_conv4_head1_class = nn.Conv2d(base, output_channels, 3, padding=1)
-        
+
 
         # HEAD2 reg
-        self.upsample0_head2_reg = nn.ConvTranspose2d(base*4, base*2, 2, stride= 2, padding= 0, output_padding= 0) 
-        self.dec_conv0_head2_reg = nn.Conv2d(base*4, base*2, kernel_size, padding=1, bias = False) 
-        self.bn_dec_conv0_head2_reg = nn.BatchNorm2d(base*2) 
+        self.upsample0_head2_reg = nn.ConvTranspose2d(base*4, base*2, 2, stride= 2, padding= 0, output_padding= 0)
+        self.dec_conv0_head2_reg = nn.Conv2d(base*4, base*2, kernel_size, padding=1, bias = False)
+        self.bn_dec_conv0_head2_reg = nn.BatchNorm2d(base*2)
 
-        self.upsample1_head2_reg = nn.ConvTranspose2d(base*2, base, 2, stride= 2, padding= 0, output_padding= 0) 
-        self.dec_conv1_head2_reg = nn.Conv2d(base*2, base, kernel_size, padding=1, bias = False) 
-        self.bn_dec_conv1_head2_reg = nn.BatchNorm2d(base) 
+        self.upsample1_head2_reg = nn.ConvTranspose2d(base*2, base, 2, stride= 2, padding= 0, output_padding= 0)
+        self.dec_conv1_head2_reg = nn.Conv2d(base*2, base, kernel_size, padding=1, bias = False)
+        self.bn_dec_conv1_head2_reg = nn.BatchNorm2d(base)
 
-        self.dec_conv4_head2_reg = nn.Conv2d(base, output_channels, 3, padding=1) 
+        self.dec_conv4_head2_reg = nn.Conv2d(base, output_channels, 3, padding=1)
 
 
         # HEAD2 class
-        self.upsample0_head2_class = nn.ConvTranspose2d(base*4, base*2, 2, stride= 2, padding= 0, output_padding= 0) 
-        self.dec_conv0_head2_class = nn.Conv2d(base*4, base*2, kernel_size, padding=1, bias = False) 
-        self.bn_dec_conv0_head2_class = nn.BatchNorm2d(base*2) 
+        self.upsample0_head2_class = nn.ConvTranspose2d(base*4, base*2, 2, stride= 2, padding= 0, output_padding= 0)
+        self.dec_conv0_head2_class = nn.Conv2d(base*4, base*2, kernel_size, padding=1, bias = False)
+        self.bn_dec_conv0_head2_class = nn.BatchNorm2d(base*2)
 
-        self.upsample1_head2_class = nn.ConvTranspose2d(base*2, base, 2, stride= 2, padding= 0, output_padding= 0) 
-        self.dec_conv1_head2_class = nn.Conv2d(base*2, base, kernel_size, padding=1, bias = False) 
-        self.bn_dec_conv1_head2_class = nn.BatchNorm2d(base) 
+        self.upsample1_head2_class = nn.ConvTranspose2d(base*2, base, 2, stride= 2, padding= 0, output_padding= 0)
+        self.dec_conv1_head2_class = nn.Conv2d(base*2, base, kernel_size, padding=1, bias = False)
+        self.bn_dec_conv1_head2_class = nn.BatchNorm2d(base)
 
         self.dec_conv4_head2_class = nn.Conv2d(base, output_channels, kernel_size, padding=1)
 
 
         # HEAD3 reg
-        self.upsample0_head3_reg = nn.ConvTranspose2d(base*4, base*2, 2, stride= 2, padding= 0, output_padding= 0) 
-        self.dec_conv0_head3_reg = nn.Conv2d(base*4, base*2, kernel_size, padding=1, bias = False) 
-        self.bn_dec_conv0_head3_reg = nn.BatchNorm2d(base*2) 
+        self.upsample0_head3_reg = nn.ConvTranspose2d(base*4, base*2, 2, stride= 2, padding= 0, output_padding= 0)
+        self.dec_conv0_head3_reg = nn.Conv2d(base*4, base*2, kernel_size, padding=1, bias = False)
+        self.bn_dec_conv0_head3_reg = nn.BatchNorm2d(base*2)
 
-        self.upsample1_head3_reg = nn.ConvTranspose2d(base*2, base, 2, stride= 2, padding= 0, output_padding= 0) 
-        self.dec_conv1_head3_reg = nn.Conv2d(base*2, base, kernel_size, padding=1, bias = False) 
-        self.bn_dec_conv1_head3_reg = nn.BatchNorm2d(base) 
+        self.upsample1_head3_reg = nn.ConvTranspose2d(base*2, base, 2, stride= 2, padding= 0, output_padding= 0)
+        self.dec_conv1_head3_reg = nn.Conv2d(base*2, base, kernel_size, padding=1, bias = False)
+        self.bn_dec_conv1_head3_reg = nn.BatchNorm2d(base)
 
-        self.dec_conv4_head3_reg = nn.Conv2d(base, output_channels, kernel_size, padding=1) 
+        self.dec_conv4_head3_reg = nn.Conv2d(base, output_channels, kernel_size, padding=1)
 
 
         # HEAD3 class
-        self.upsample0_head3_class = nn.ConvTranspose2d(base*4, base*2, 2, stride= 2, padding= 0, output_padding= 0) 
-        self.dec_conv0_head3_class = nn.Conv2d(base*4, base*2, 3, padding=1, bias = False) 
-        self.bn_dec_conv0_head3_class = nn.BatchNorm2d(base*2) 
+        self.upsample0_head3_class = nn.ConvTranspose2d(base*4, base*2, 2, stride= 2, padding= 0, output_padding= 0)
+        self.dec_conv0_head3_class = nn.Conv2d(base*4, base*2, 3, padding=1, bias = False)
+        self.bn_dec_conv0_head3_class = nn.BatchNorm2d(base*2)
 
-        self.upsample1_head3_class = nn.ConvTranspose2d(base*2, base, 2, stride= 2, padding= 0, output_padding= 0) 
-        self.dec_conv1_head3_class = nn.Conv2d(base*2, base, kernel_size, padding=1, bias = False) 
-        self.bn_dec_conv1_head3_class = nn.BatchNorm2d(base) 
+        self.upsample1_head3_class = nn.ConvTranspose2d(base*2, base, 2, stride= 2, padding= 0, output_padding= 0)
+        self.dec_conv1_head3_class = nn.Conv2d(base*2, base, kernel_size, padding=1, bias = False)
+        self.bn_dec_conv1_head3_class = nn.BatchNorm2d(base)
 
         self.dec_conv4_head3_class = nn.Conv2d(base, output_channels, kernel_size, padding=1)
 
@@ -135,7 +136,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
 
         # LSTM parameters initialization...
         # [Implementation details omitted for brevity, logic remains identical]
-        self.Wxi_1 = nn.Conv2d(input_channels, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True) 
+        self.Wxi_1 = nn.Conv2d(input_channels, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True)
         self.Whi_1 = nn.Conv2d(num_lstm_state_layers, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True)
         self.Wxf_1 = nn.Conv2d(input_channels, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True)
         self.Whf_1 = nn.Conv2d(num_lstm_state_layers, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True)
@@ -153,7 +154,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
         self.Wxo_2 = nn.Conv2d(input_channels, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True)
         self.Who_2 = nn.Conv2d(num_lstm_state_layers, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True)
 
-        self.Wxi_3 = nn.Conv2d(input_channels, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True) 
+        self.Wxi_3 = nn.Conv2d(input_channels, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True)
         self.Whi_3 = nn.Conv2d(num_lstm_state_layers, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True)
         self.Wxf_3 = nn.Conv2d(input_channels, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True)
         self.Whf_3 = nn.Conv2d(num_lstm_state_layers, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True)
@@ -162,7 +163,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
         self.Wxo_3 = nn.Conv2d(input_channels, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True)
         self.Who_3 = nn.Conv2d(num_lstm_state_layers, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True)
 
-        self.Wxi_4 = nn.Conv2d(input_channels, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True) 
+        self.Wxi_4 = nn.Conv2d(input_channels, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True)
         self.Whi_4 = nn.Conv2d(num_lstm_state_layers, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True)
         self.Wxf_4 = nn.Conv2d(input_channels, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True)
         self.Whf_4 = nn.Conv2d(num_lstm_state_layers, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True)
@@ -186,48 +187,48 @@ class HydraBNUNet06_LSTM4(nn.Module):
             h_next (torch.Tensor): Updated hidden state [batch, total_hidden_channels, H, W].
         """
 
-        # Splitting the hidden state tensor into 4 short-term memory tensors and 4 long-term memory tensors. 
-        split_h = int(h.shape[1] / 8) 
-        hs_1, hs_2, hs_3, hs_4, hl_1, hl_2, hl_3, hl_4 = torch.split(h, split_h, dim=1) 
+        # Splitting the hidden state tensor into 4 short-term memory tensors and 4 long-term memory tensors.
+        split_h = int(h.shape[1] / 8)
+        hs_1, hs_2, hs_3, hs_4, hl_1, hl_2, hl_3, hl_4 = torch.split(h, split_h, dim=1)
 
         # ... [LSTM Logic remains identical] ...
         #----------------- LSTM 1 -----------------
-        i_t_1 = torch.sigmoid(self.Wxi_1(x) + self.Whi_1(hs_1)) 
-        f_t_1 = torch.sigmoid(self.Wxf_1(x) + self.Whf_1(hs_1)) 
-        hl_1_tilde = torch.tanh(self.Wxc_1(x) + self.Whc_1(hs_1)) 
+        i_t_1 = torch.sigmoid(self.Wxi_1(x) + self.Whi_1(hs_1))
+        f_t_1 = torch.sigmoid(self.Wxf_1(x) + self.Whf_1(hs_1))
+        hl_1_tilde = torch.tanh(self.Wxc_1(x) + self.Whc_1(hs_1))
         hl_1 = f_t_1 * hl_1 + i_t_1 * hl_1_tilde
-        o_t_1 = torch.sigmoid(self.Wxo_1(x) + self.Who_1(hs_1)) 
-        hs_1 = o_t_1 * torch.tanh(hl_1) 
+        o_t_1 = torch.sigmoid(self.Wxo_1(x) + self.Who_1(hs_1))
+        hs_1 = o_t_1 * torch.tanh(hl_1)
 
         #----------------- LSTM 2 -----------------
-        i_t_2 = torch.sigmoid(self.Wxi_2(x) + self.Whi_2(hs_2)) 
-        f_t_2 = torch.sigmoid(self.Wxf_2(x) + self.Whf_2(hs_2)) 
-        hl_2_tilde = torch.tanh(self.Wxc_2(x) + self.Whc_2(hs_2)) 
+        i_t_2 = torch.sigmoid(self.Wxi_2(x) + self.Whi_2(hs_2))
+        f_t_2 = torch.sigmoid(self.Wxf_2(x) + self.Whf_2(hs_2))
+        hl_2_tilde = torch.tanh(self.Wxc_2(x) + self.Whc_2(hs_2))
         hl_2 = f_t_2 * hl_2 + i_t_2 * hl_2_tilde
-        o_t_2 = torch.sigmoid(self.Wxo_2(x) + self.Who_2(hs_2)) 
-        hs_2 = o_t_2 * torch.tanh(hl_2) 
+        o_t_2 = torch.sigmoid(self.Wxo_2(x) + self.Who_2(hs_2))
+        hs_2 = o_t_2 * torch.tanh(hl_2)
 
         #----------------- LSTM 3 -----------------
-        i_t_3 = torch.sigmoid(self.Wxi_3(x) + self.Whi_3(hs_3)) 
-        f_t_3 = torch.sigmoid(self.Wxf_3(x) + self.Whf_3(hs_3)) 
-        hl_3_tilde = torch.tanh(self.Wxc_3(x) + self.Whc_3(hs_3)) 
+        i_t_3 = torch.sigmoid(self.Wxi_3(x) + self.Whi_3(hs_3))
+        f_t_3 = torch.sigmoid(self.Wxf_3(x) + self.Whf_3(hs_3))
+        hl_3_tilde = torch.tanh(self.Wxc_3(x) + self.Whc_3(hs_3))
         hl_3 = f_t_3 * hl_3 + i_t_3 * hl_3_tilde
-        o_t_3 = torch.sigmoid(self.Wxo_3(x) + self.Who_3(hs_3)) 
-        hs_3 = o_t_3 * torch.tanh(hl_3) 
+        o_t_3 = torch.sigmoid(self.Wxo_3(x) + self.Who_3(hs_3))
+        hs_3 = o_t_3 * torch.tanh(hl_3)
 
         #----------------- LSTM 4 -----------------
-        i_t_4 = torch.sigmoid(self.Wxi_4(x) + self.Whi_4(hs_4)) 
-        f_t_4 = torch.sigmoid(self.Wxf_4(x) + self.Whf_4(hs_4)) 
-        hl_4_tilde = torch.tanh(self.Wxc_4(x) + self.Whc_4(hs_4)) 
+        i_t_4 = torch.sigmoid(self.Wxi_4(x) + self.Whi_4(hs_4))
+        f_t_4 = torch.sigmoid(self.Wxf_4(x) + self.Whf_4(hs_4))
+        hl_4_tilde = torch.tanh(self.Wxc_4(x) + self.Whc_4(hs_4))
         hl_4 = f_t_4 * hl_4 + i_t_4 * hl_4_tilde
-        o_t_4 = torch.sigmoid(self.Wxo_4(x) + self.Who_4(hs_4)) 
-        hs_4 = o_t_4 * torch.tanh(hl_4) 
-        
-        h = torch.cat([hs_1, hs_2, hs_3, hs_4, hl_1, hl_2, hl_3, hl_4], 1) 
-        x = torch.cat([x, hs_1, hs_2, hs_3, hs_4], 1) 
+        o_t_4 = torch.sigmoid(self.Wxo_4(x) + self.Who_4(hs_4))
+        hs_4 = o_t_4 * torch.tanh(hl_4)
+
+        h = torch.cat([hs_1, hs_2, hs_3, hs_4, hl_1, hl_2, hl_3, hl_4], 1)
+        x = torch.cat([x, hs_1, hs_2, hs_3, hs_4], 1)
 
         # encoder
-        e0s_ = F.relu(self.bn_enc_conv0(self.enc_conv0(x))) 
+        e0s_ = F.relu(self.bn_enc_conv0(self.enc_conv0(x)))
         e0s = self.dropout(e0s_)
         e0 = self.pool0(e0s)
         e1s = self.dropout(F.relu(self.bn_enc_conv1(self.enc_conv1(e0))))
@@ -241,7 +242,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
         # H1 reg
         H1_d0 = F.relu(self.bn_dec_conv0_head1_reg(self.dec_conv0_head1_reg(torch.cat([self.upsample0_head1_reg(b),e1s],1))))
         H1_d0 = self.dropout(H1_d0)
-        H1_d1 = F.relu(self.bn_dec_conv1_head1_reg(self.dec_conv1_head1_reg(torch.cat([self.upsample1_head1_reg(H1_d0), e0s],1)))) 
+        H1_d1 = F.relu(self.bn_dec_conv1_head1_reg(self.dec_conv1_head1_reg(torch.cat([self.upsample1_head1_reg(H1_d0), e0s],1))))
         H1_reg = self.dropout(H1_d1)
         H1_reg = self.dec_conv4_head1_reg(H1_reg)
         out_reg1 = F.relu(H1_reg)
@@ -249,15 +250,15 @@ class HydraBNUNet06_LSTM4(nn.Module):
         # H1 class
         H1_d0 = F.relu(self.bn_dec_conv0_head1_class(self.dec_conv0_head1_class(torch.cat([self.upsample0_head1_class(b),e1s],1))))
         H1_d0 = self.dropout(H1_d0)
-        H1_d1 = F.relu(self.bn_dec_conv1_head1_class(self.dec_conv1_head1_class(torch.cat([self.upsample1_head1_class(H1_d0), e0s],1)))) 
+        H1_d1 = F.relu(self.bn_dec_conv1_head1_class(self.dec_conv1_head1_class(torch.cat([self.upsample1_head1_class(H1_d0), e0s],1))))
         H1_class = self.dropout(H1_d1)
         H1_class = self.dec_conv4_head1_class(H1_class)
-        out_class1 = H1_class 
+        out_class1 = H1_class
 
         # H2 reg
         H2_d0 = F.relu(self.bn_dec_conv0_head2_reg(self.dec_conv0_head2_reg(torch.cat([self.upsample0_head2_reg(b),e1s],1))))
         H2_d0 = self.dropout(H1_d0)
-        H2_d1 = F.relu(self.bn_dec_conv1_head2_reg(self.dec_conv1_head2_reg(torch.cat([self.upsample1_head2_reg(H2_d0), e0s],1)))) 
+        H2_d1 = F.relu(self.bn_dec_conv1_head2_reg(self.dec_conv1_head2_reg(torch.cat([self.upsample1_head2_reg(H2_d0), e0s],1))))
         H2_reg = self.dropout(H1_d1)
         H2_reg = self.dec_conv4_head2_reg(H2_reg)
         out_reg2 = F.relu(H2_reg)
@@ -265,15 +266,15 @@ class HydraBNUNet06_LSTM4(nn.Module):
         # H2 class
         H2_d0 = F.relu(self.bn_dec_conv0_head2_class(self.dec_conv0_head2_class(torch.cat([self.upsample0_head2_class(b),e1s],1))))
         H2_d0 = self.dropout(H1_d0)
-        H2_d1 = F.relu(self.bn_dec_conv1_head2_class(self.dec_conv1_head2_class(torch.cat([self.upsample1_head2_class(H2_d0), e0s],1)))) 
+        H2_d1 = F.relu(self.bn_dec_conv1_head2_class(self.dec_conv1_head2_class(torch.cat([self.upsample1_head2_class(H2_d0), e0s],1))))
         H2_class = self.dropout(H2_d1)
         H2_class = self.dec_conv4_head2_class(H2_class)
-        out_class2 = H2_class 
+        out_class2 = H2_class
 
         # H3 reg
         H3_d0 = F.relu(self.bn_dec_conv0_head3_reg(self.dec_conv0_head3_reg(torch.cat([self.upsample0_head3_reg(b),e1s],1))))
         H3_d0 = self.dropout(H3_d0)
-        H3_d1 = F.relu(self.bn_dec_conv1_head3_reg(self.dec_conv1_head3_reg(torch.cat([self.upsample1_head3_reg(H3_d0), e0s],1)))) 
+        H3_d1 = F.relu(self.bn_dec_conv1_head3_reg(self.dec_conv1_head3_reg(torch.cat([self.upsample1_head3_reg(H3_d0), e0s],1))))
         H3_reg = self.dropout(H3_d1)
         H3_reg = self.dec_conv4_head3_reg(H3_reg)
         out_reg3 = F.relu(H3_reg)
@@ -281,21 +282,21 @@ class HydraBNUNet06_LSTM4(nn.Module):
         # H3 class
         H3_d0 = F.relu(self.bn_dec_conv0_head3_class(self.dec_conv0_head3_class(torch.cat([self.upsample0_head3_class(b),e1s],1))))
         H3_d0 = self.dropout(H1_d0)
-        H3_d1 = F.relu(self.bn_dec_conv1_head3_class(self.dec_conv1_head3_class(torch.cat([self.upsample1_head3_class(H3_d0), e0s],1)))) 
+        H3_d1 = F.relu(self.bn_dec_conv1_head3_class(self.dec_conv1_head3_class(torch.cat([self.upsample1_head3_class(H3_d0), e0s],1))))
         H3_class = self.dropout(H3_d1)
         H3_class = self.dec_conv4_head3_class(H3_class)
-        out_class3 = H3_class 
+        out_class3 = H3_class
 
-        out_reg = torch.concat([out_reg1, out_reg2, out_reg3], dim=1)        
+        out_reg = torch.concat([out_reg1, out_reg2, out_reg3], dim=1)
         out_class = torch.concat([out_class1, out_class2, out_class3], dim=1)
 
         return out_reg, out_class, h
 
 
-    def init_h(self, hidden_channels, dim): 
+    def init_h(self, hidden_channels, dim):
         """Legacy initialization. Use init_hTtime."""
         hs = torch.zeros((1,hidden_channels,dim,dim), dtype= torch.float64)
-        return hs 
+        return hs
 
     def init_hTtime(self, hidden_channels, H, W):
         """

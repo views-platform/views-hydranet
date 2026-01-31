@@ -1,5 +1,5 @@
-import pytest
 from views_hydranet.utils.utils_orchestration import get_rolling_origin_indices
+
 
 def test_get_rolling_origin_indices_standard():
     """
@@ -12,7 +12,7 @@ def test_get_rolling_origin_indices_forecast():
     """
     True forecasting: 1 window from the very end.
     """
-    # If we have 100 months and TS=36. Last origin should be 99 - 36 = 63? 
+    # If we have 100 months and TS=36. Last origin should be 99 - 36 = 63?
     # Wait, month 63 is the last input, 64..99 are the 36 steps.
     # total_months = 100. last_origin = 100 - 36 - 1 = 63.
     origins = get_rolling_origin_indices(total_months=100, time_steps=36, num_windows=1)

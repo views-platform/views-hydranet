@@ -1,5 +1,7 @@
 from datetime import datetime
+
 from dateutil.relativedelta import relativedelta
+
 
 def calculate_date_from_index(target_index, start_index = 121, start_date = '01.1990'):
     """
@@ -19,11 +21,11 @@ def calculate_date_from_index(target_index, start_index = 121, start_date = '01.
     """
     # Convert the start date to a datetime object
     base_date = datetime.strptime(start_date, '%m.%Y')
-    
+
     # Calculate the difference in indices
     month_difference = target_index - start_index
-    
+
     # Calculate the target date by adding the month difference
     target_date = base_date + relativedelta(months=month_difference)
-    
+
     return target_date.strftime('%m.%Y')

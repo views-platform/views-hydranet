@@ -1,9 +1,8 @@
 import logging
 import sys
-from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
+from typing import Any
 
-import pandas as pd
 import numpy as np
 import torch
 import torch.nn as nn
@@ -320,9 +319,13 @@ def get_data(config) -> np.ndarray:
     """
 
     # Data
-    #location = config.path_processed_data
-    # _, path_processed, _ = setup_data_paths(PATH)
-    path_processed = Path(model_path.data_processed)
+    # Use path from config if available, else exit
+    path_processed_str = config.get("path_processed_data")
+    if not path_processed_str:
+        logger.error("get_data: 'path_processed_data' not found in config. Exiting.")
+        sys.exit()
+    
+    path_processed = Path(path_processed_str)
 
     run_type = config["run_type"] # 'calibration', 'testing' or 'forecasting'
 
@@ -595,11 +598,12 @@ def get_train_tensors(views_vol: np.ndarray, sample: int, config: dict, device: 
     scaler = ScalingEngine.from_config(config)
 
     input_window_scaled = input_window.copy()
-    if columns is not None:
-        for i, col in enumerate(columns):
-            if col.lower().startswith("lr_"):
-                # Scale raw columns JIT
-                input_window_scaled[:, :, :, i] = scaler.scale(input_window[:, :, :, i], f"get_train_tensors({col})")
+    # ALL features (channels 5+) are scaled here regardless of metadata
+    # Metadata channels (0-4) are preserved as-is
+    input_window_scaled[:, :, :, ln_best_sb_idx:last_feature_idx] = scaler.scale(
+        input_window[:, :, :, ln_best_sb_idx:last_feature_idx],
+        "get_train_tensors"
+    )
 
     # Transform: [T, H, W, C] -> [1, T, C, H, W]
     train_tensor = torch.tensor(input_window_scaled).float().to(device).unsqueeze(dim=0).permute(0,1,4,2,3)[:, :, ln_best_sb_idx:last_feature_idx, :, :]
@@ -718,11 +722,11 @@ def get_full_tensor(
     else:
         views_vol_np = views_vol.copy().astype(np.float32)
 
-    if columns is not None:
-        for i, col in enumerate(columns):
-            if col.lower().startswith("lr_"):
-                # Scale raw columns JIT
-                views_vol_np[:, :, :, i] = scaler.scale(views_vol_np[:, :, :, i], f"get_full_tensor({col})")
+    # UNCONDITIONAL: Scale all feature channels regardless of metadata
+    views_vol_np[:, :, :, feature_start_idx:last_feature_idx] = scaler.scale(
+        views_vol_np[:, :, :, feature_start_idx:last_feature_idx],
+        "get_full_tensor"
+    )
 
     vol_tensor = torch.tensor(views_vol_np).float()
     vol_tensor = vol_tensor.unsqueeze(dim=0).permute(0, 1, 4, 2, 3)

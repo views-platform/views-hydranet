@@ -1,6 +1,7 @@
-import pytest
 from unittest.mock import MagicMock, patch
+
 from views_hydranet.manager.hydranet_manager import HydranetManager
+
 
 def test_model_path_accessibility():
     """
@@ -13,19 +14,19 @@ def test_model_path_accessibility():
     This test verifies that the manager correctly set 'self._model_path' during init
     and that we should prefer using that.
     """
-    
+
     # Simulate the "Mocked Base Class" scenario where super().__init__ does nothing
     with patch("views_pipeline_core.managers.model.model.ForecastingModelManager.__init__", return_value=None), \
          patch("views_hydranet.manager.hydranet_manager.setup_device", return_value="cpu"):
-        
+
         mock_mpm = MagicMock()
         manager = HydranetManager(model_path=mock_mpm)
-        
+
         # 1. Verify that our safe internal storage is present
         assert hasattr(manager, "_model_path")
         assert manager._model_path == mock_mpm
-        
-        # 2. Verify if 'self.model_path' is accessible. 
+
+        # 2. Verify if 'self.model_path' is accessible.
         # In the failing run, this raised AttributeError.
         # If the base class is NOT initialized, 'self.model_path' (if it's a simple attribute set in super().__init__) won't exist.
         try:

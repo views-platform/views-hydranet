@@ -1,10 +1,14 @@
 from dataclasses import dataclass
+from statistics import mean, median, stdev
 from typing import Optional
-import pandas as pd
-from statistics import mean, stdev, median
 
+import pandas as pd
 import properscoring as ps
-from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_squared_log_error, brier_score_loss, average_precision_score, roc_auc_score
+from sklearn.metrics import (
+    mean_absolute_error,
+    mean_squared_error,
+)
+
 # WARNING: mean_squared_error and mean_squared_log_error are deprecated.
 # from views_forecasts.extensions import *
 
@@ -94,7 +98,7 @@ class EvaluationMetrics:
 
         for metric in EvaluationMetrics.__annotations__.keys():
             metric_values = [getattr(evaluation, metric) for evaluation in evaluation_dict.values() if getattr(evaluation, metric) is not None]
-            if metric_values: 
+            if metric_values:
                 metrics_aggregate['mean'][metric] = mean(metric_values)
                 metrics_aggregate['std'][metric] = stdev(metric_values)
                 metrics_aggregate['median'][metric] = median(metric_values)

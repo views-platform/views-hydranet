@@ -1,7 +1,7 @@
-import pytest
-import torch
-import numpy as np
 from unittest.mock import MagicMock
+
+import pytest
+
 
 @pytest.fixture
 def valid_config_dict():
@@ -47,7 +47,6 @@ def valid_config_dict():
 @pytest.fixture
 def mock_mpm(tmp_path):
     """Provides a mocked ModelPathManager with real temp paths."""
-    from pathlib import Path
     mpm = MagicMock()
     mpm.logging = tmp_path / "logging"
     mpm.artifacts = tmp_path / "artifacts"
@@ -56,8 +55,8 @@ def mock_mpm(tmp_path):
     mpm.models = tmp_path / "models"
     mpm.root = tmp_path / "root"
     mpm.data_generated = tmp_path / "generated"
-    
+
     for d in [mpm.logging, mpm.artifacts, mpm.data_processed, mpm.data_raw, mpm.data_generated]:
         d.mkdir(parents=True, exist_ok=True)
-        
+
     return mpm

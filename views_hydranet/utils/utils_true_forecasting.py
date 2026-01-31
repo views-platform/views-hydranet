@@ -7,8 +7,7 @@ between observed data and forecast horizons.
 """
 
 import logging
-from datetime import datetime
-from typing import List, Optional, Tuple, Union
+from typing import Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -80,7 +79,7 @@ def make_forecast_storage_vol(
             )
 
     # 2. Index Calculation
-    df = calculate_absolute_indices(df)  
+    df = calculate_absolute_indices(df)
 
     # Infer the last month_id from the DataFrame
     last_month_id = df["month_id"].max()
@@ -109,7 +108,7 @@ def make_forecast_storage_vol(
     for i in range(month_range):
         vol[:, :, i, 3] = (
             last_month_id + i + 1
-        )  
+        )
 
     # Reorient and transpose
     vol = np.flip(vol, axis=0)
@@ -157,7 +156,7 @@ def check_vol_equal(vol: np.ndarray, full_vol: np.ndarray) -> None:
     vol_trimmed = vol[-month_range:, :, :, :]
 
     list_features = [
-        "pg_id", "col", "row", "month_id", "c_id", 
+        "pg_id", "col", "row", "month_id", "c_id",
         "ln_sb_best", "ln_ns_best", "ln_os_best",
     ]
 
@@ -201,7 +200,7 @@ def plot_vol_comparison(
 ) -> None:
     """Plots a visual comparison of two volumes step-by-step."""
     features_titles = [
-        "pg_id", "col", "row", "month_id", "c_id", 
+        "pg_id", "col", "row", "month_id", "c_id",
         "ln_sb_best", "ln_ns_best", "ln_os_best",
     ]
     n_features = vol.shape[-1]

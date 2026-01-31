@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List, Optional
-import pandas as pd
 
+import pandas as pd
 
 # we need to figure out if we are storing logged fatalities or not
 # And this is also a good place to decide on the uncertainty quantification. Right now var, but maybe HDI or something else.
@@ -101,7 +101,7 @@ class ModelOutputs:
         Note:
             - List-like columns are expanded such that each element in the list appears in a new row.
             - Attributes in ModelOutputs that are not lists remain as-is in the DataFrame.
-        """ 
+        """
 
         # Convert directly to a DataFrame and then explode list-like columns
         df = pd.DataFrame([{attr: getattr(instance, attr) for attr in instance.__dataclass_fields__.keys()} for instance in dict_of_outputs.values()]).apply(pd.Series.explode)

@@ -1,9 +1,10 @@
-import pytest
-import os
-import pandas as pd
 from unittest.mock import MagicMock, patch
+
+import pandas as pd
+import pytest
+
 from views_hydranet.manager.hydranet_manager import HydranetManager
-from pathlib import Path
+
 
 @pytest.fixture
 def manager_env(tmp_path, valid_config_dict):
@@ -13,10 +14,10 @@ def manager_env(tmp_path, valid_config_dict):
     art_dir.mkdir(parents=True)
     pd.DataFrame({"ln_sb_best": [1.0]}).to_parquet(raw_dir / "validation_viewser_df.parquet")
     (raw_dir / "validation_data_fetch_log.txt").write_text("Fetched")
-    
+
     with patch("views_pipeline_core.managers.model.model.ForecastingModelManager.__init__", return_value=None), \
          patch("views_hydranet.manager.hydranet_manager.setup_device", return_value="cpu"):
-        
+
         m = HydranetManager(model_path=MagicMock())
         m._model_path = MagicMock()
         m._model_path.data_raw = raw_dir

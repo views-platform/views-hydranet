@@ -3,6 +3,7 @@
 
 import torch
 
+
 class MultiTaskLoss(torch.nn.Module):
     """
     Learnable Multi-Task Loss balancer.

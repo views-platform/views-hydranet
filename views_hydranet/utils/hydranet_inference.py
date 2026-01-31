@@ -1,6 +1,5 @@
 import logging
-import sys
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -207,14 +206,24 @@ class HydraNetInference:
         for t in range(full_seq_len):
             if pbar:
                 pbar.set_description(f"Drawing Samples | Sample {sample_idx+1} | Step {t+1}/{full_seq_len}")
-            
+
             if t < in_sample_seq_len:
                 t0 = full_tensor[:, t]
-                t1_pred, _, h_tt = self.model(t0, h_tt)
+                # JIT FLIP: CNN expects North-is-Up (Axis 2 in [B, C, H, W])
+                t0_flipped = torch.flip(t0, [2])
+                t1_pred_flipped, _, h_tt = self.model(t0_flipped, h_tt)
+                # UNFLIP: Restore natural orientation for subsequent recurrence
+                t1_pred = torch.flip(t1_pred_flipped, [2])
             else:
                 t0 = t1_pred.detach()
-                t1_pred, t1_pred_class, h_tt = self.execute_freeze_h_option(t0, h_tt)
-                
+                # JIT NS-Flip
+                t0_flipped = torch.flip(t0, [2])
+                t1_pred_flipped, t1_pred_class_flipped, h_tt = self.execute_freeze_h_option(t0_flipped, h_tt)
+
+                # UNFLIP
+                t1_pred = torch.flip(t1_pred_flipped, [2])
+                t1_pred_class = torch.flip(t1_pred_class_flipped, [2])
+
                 # --- PANIC CHECK: Detect explosion ---
                 if not torch.isfinite(t1_pred).all():
                     logger.error(f"!!! MODEL EXPLODED at sequence step {t} !!!")
@@ -233,7 +242,7 @@ class HydraNetInference:
                 )
 
                 out_of_sample_month += 1
-            
+
             if pbar:
                 pbar.update(1)
 
@@ -241,9 +250,9 @@ class HydraNetInference:
 
 
     def generate_posterior_samples(
-        self, 
-        views_vol: np.ndarray, 
-        is_evaluation: bool = False, 
+        self,
+        views_vol: np.ndarray,
+        is_evaluation: bool = False,
         window_info: str = "",
         columns: Optional[List[str]] = None
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -259,8 +268,7 @@ class HydraNetInference:
         Returns:
             Tuple[np.ndarray, np.ndarray]: (posterior_zstack, metadata_zstack)
         """
-        from views_hydranet.utils.utils import get_full_tensor
-        
+
         # 1. Prepare Tensors
         full_tensor, metadata_tensor = get_full_tensor(views_vol, self.config, columns=columns)
         full_tensor = full_tensor.to(self.device)
@@ -286,7 +294,7 @@ class HydraNetInference:
         posterior_probabilities_zstack = np.zeros_like(posterior_magnitudes_zstack)
 
         total_inference_steps = self.config["test_samples"] * full_seq_len
-        
+
         desc_prefix = f"[{window_info}] " if window_info else ""
 
         with tqdm(

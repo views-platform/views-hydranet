@@ -8,7 +8,7 @@ It handles spatiotemporal data volumes and implements rolling-origin evaluation.
 
 import logging
 import pickle
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -328,7 +328,7 @@ class HydranetManager(ForecastingModelManager):
 
         model_time_stamp = path_model_artifact.stem[-15:]
         logger.info(f"Loading model from {path_model_artifact} (TS: {model_time_stamp})")
-        
+
         # Cross-device compatibility load
         model = torch.load(path_model_artifact, map_location="cpu", weights_only=False)
         model.to(self.device)

@@ -1,7 +1,6 @@
 import logging
 import os
 from datetime import datetime
-from typing import List, Optional
 
 import numpy as np
 import torch
@@ -82,8 +81,15 @@ def train(
             t1 = train_tensor[:, i + 1, :, :, :]
             t1_binary = (t1.clone().detach().requires_grad_(True) > 0) * 1.0
 
+            # JIT FLIP: CNN expects North-is-Up (Axis 2 in [B, C, H, W])
+            t0_flipped = torch.flip(t0, [2])
+
             # forward-pass
-            t1_pred, t1_pred_class, h = model(t0, h.detach())
+            t1_pred_flipped, t1_pred_class_flipped, h = model(t0_flipped, h.detach())
+
+            # UNFLIP: Restore natural orientation for loss calculation
+            t1_pred = torch.flip(t1_pred_flipped, [2])
+            t1_pred_class = torch.flip(t1_pred_class_flipped, [2])
 
             losses_list = []
             for j in range(t1_pred.shape[1]):

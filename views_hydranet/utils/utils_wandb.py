@@ -1,8 +1,6 @@
+
 import pandas as pd
-
 import wandb
-
-import sys
 
 #from views_pipeline_core.managers.model import ModelPathManager
 from views_hydranet.utils.utils_contract_converters import evaluation_to_df
@@ -34,7 +32,7 @@ def add_wandb_monthly_metrics():
     See Also:
         - `wandb.define_metric`: WandB API for defining metrics and their step relationships.
     """
-        
+
     # Define "new" monthly metrics for WandB logging
     wandb.define_metric("monthly/out_sample_month")
     wandb.define_metric("monthly/*", step_metric="monthly/out_sample_month")
@@ -84,12 +82,12 @@ def generate_wandb_log_dict(log_dict, dict_of_eval_dicts, feature, step):
     See Also:
         - `wandb.log`: WandB API for logging metrics.
     """
-    
+
     for key, value in dict_of_eval_dicts[feature][step].__dict__.items():
         if value is not None:
             log_dict[f"monthly/{key}_{feature}"] = value
 
-    return log_dict 
+    return log_dict
 
 
 def generate_wandb_mean_metrics_log_dict(dict_of_eval_dicts):
@@ -128,7 +126,7 @@ def generate_wandb_mean_metrics_log_dict(dict_of_eval_dicts):
 
 # ---------------- Im unsure if this is used or not... ----------------
 
-# 
+#
 def log_wandb_mean_metrics(config, df_eval):
     """
     Logs evaluation metrics to WandB.
