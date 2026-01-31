@@ -845,62 +845,99 @@ def get_full_tensor(
 #
 
 def execute_freeze_h_option(config, model, t0, h_tt):
-
     """
     This function is used to execute the freeze option set in config.
-    Potantially freezing the hidden state/short mem, the cell state/long mem, or both.
+    Potentially freezing the hidden state/short mem, the cell state/long mem, or both.
     Also have a random option where the model randomly picks between what to freeze.
 
-    The function returns the new hidden state/short term memory h_tt and the prediction t1_pred and t1_pred_class.    
+    The function returns the new hidden state/short term memory h_tt and the prediction
+    t1_pred and t1_pred_class.
     """
 
-    if config["freeze_h"] == "hl": # freeze the long term memory
-
-        split = int(h_tt.shape[1]/2) # split h_tt into hs_tt and hl_tt and save hl_tt as the forzen cell state/long term memory. Call it hl_frozen. Half of the second dimension which is channels.
+    if config["freeze_h"] == "hl":  # freeze the long term memory
+        # split h_tt into hs_tt and hl_tt and save hl_tt as the forzen cell state/long term memory.
+        # Call it hl_frozen. Half of the second dimension which is channels.
+        split = int(h_tt.shape[1] / 2)
         _, hl_frozen = torch.split(h_tt, split, dim=1)
         t1_pred, t1_pred_class, h_tt = model(t0, h_tt)
-        hs, _ = torch.split(h_tt, split, dim=1) # Again split the h_tt into hs_tt and hl_tt. But discard the hl_tt
-        h_tt = torch.cat((hs, hl_frozen), dim=1) # Concatenate the frozen cell state/long term memory (hl_frozen) with the new hidden state/short term memory. this is the new h_tt
+        # Again split the h_tt into hs_tt and hl_tt. But discard the hl_tt
+        hs, _ = torch.split(h_tt, split, dim=1)
+        # Concatenate the frozen cell state/long term memory (hl_frozen) with the new
+        # hidden state/short term memory. this is the new h_tt
+        h_tt = torch.cat((hs, hl_frozen), dim=1)
 
-    elif config["freeze_h"] == "hs": # freeze the short term memory
-
-        split = int(h_tt.shape[1]/2)
+    elif config["freeze_h"] == "hs":  # freeze the short term memory
+        split = int(h_tt.shape[1] / 2)
         hs_frozen, _ = torch.split(h_tt, split, dim=1)
         t1_pred, t1_pred_class, h_tt = model(t0, h_tt)
         _, hl = torch.split(h_tt, split, dim=1)
         h_tt = torch.cat((hs_frozen, hl), dim=1)
 
-    elif config["freeze_h"] == "all": # freeze both h_l and h_s
-
+    elif config["freeze_h"] == "all":  # freeze both h_l and h_s
         t1_pred, t1_pred_class, _ = model(t0, h_tt)
 
-    elif config["freeze_h"] == "none": # dont freeze
-        t1_pred, t1_pred_class, h_tt = model(t0, h_tt) # dont freeze anything.
+    elif config["freeze_h"] == "none":  # dont freeze
+        t1_pred, t1_pred_class, h_tt = model(t0, h_tt)  # dont freeze anything.
 
-    elif config["freeze_h"] == "random": # random pick between what tho freeze of hs1, hs2, hl1, and hl2
-
+    elif config["freeze_h"] == "random":  # random pick between what tho freeze
         t1_pred, t1_pred_class, h_tt_new = model(t0, h_tt)
 
-        split_four_ways = int(h_tt.shape[1] / 8) # spltting the tensor four ways along dim 1 to get hs1, hs2, hl1, and hl2
+        # splitting the tensor four ways along dim 1 to get hs1, hs2, hl1, and hl2
+        split_four_ways = int(h_tt.shape[1] / 8)
 
-        hs_1_frozen, hs_2_frozen, hs_3_frozen, hs_4_frozen, hl_1_frozen, hl_2_frozen, hl_3_frozen, hl_4_frozen = torch.split(h_tt, split_four_ways, dim=1) # split the h_tt from the last step
-        hs_1_new, hs_2_new, hs_3_new, hs_4_new, hl_1_new, hl_2_new, hl_3_new, hl_4_new = torch.split(h_tt_new, split_four_ways, dim=1) # split the h_tt from the current step
+        # split the h_tt from the last step
+        (
+            hs_1_frozen,
+            hs_2_frozen,
+            hs_3_frozen,
+            hs_4_frozen,
+            hl_1_frozen,
+            hl_2_frozen,
+            hl_3_frozen,
+            hl_4_frozen,
+        ) = torch.split(h_tt, split_four_ways, dim=1)
 
-        pairs = [(hs_1_frozen, hs_1_new), (hs_2_frozen, hs_2_new), (hs_3_frozen, hs_3_new), (hs_4_frozen, hs_4_new), (hl_1_frozen, hl_1_new), (hl_2_frozen, hl_2_new), (hl_3_frozen, hl_3_new), (hl_4_frozen, hl_4_new)] # make pairs of the frozen and new hidden states
-        h_tt = torch.cat([pair[0] if torch.rand(1) < 0.5 else pair[1] for pair in pairs], dim=1) # concatenate the frozen and new hidden states. Randomly pick between the frozen and new hidden states for each pair.
+        # split the h_tt from the current step
+        (
+            hs_1_new,
+            hs_2_new,
+            hs_3_new,
+            hs_4_new,
+            hl_1_new,
+            hl_2_new,
+            hl_3_new,
+            hl_4_new,
+        ) = torch.split(h_tt_new, split_four_ways, dim=1)
+
+        # make pairs of the frozen and new hidden states
+        pairs = [
+            (hs_1_frozen, hs_1_new),
+            (hs_2_frozen, hs_2_new),
+            (hs_3_frozen, hs_3_new),
+            (hs_4_frozen, hs_4_new),
+            (hl_1_frozen, hl_1_new),
+            (hl_2_frozen, hl_2_new),
+            (hl_3_frozen, hl_3_new),
+            (hl_4_frozen, hl_4_new),
+        ]
+        # concatenate the frozen and new hidden states.
+        # Randomly pick between the frozen and new hidden states for each pair.
+        h_tt = torch.cat(
+            [pair[0] if torch.rand(1) < 0.5 else pair[1] for pair in pairs], dim=1
+        )
 
     else:
-        logger.error('Wrong freeze option...')
+        logger.error("Wrong freeze option...")
         sys.exit()
 
     return t1_pred, t1_pred_class, h_tt
 
 
 def weigh_loss(loss, y_t0, y_t1, distance_scale):
-
     """
-    This function is used to weigh the loss function with a distance penalty. 
-    If the distance between y_t0 and y_t1 is large, i.e. the level of violence differ, then the loss is increased.
+    This function is used to weigh the loss function with a distance penalty.
+    If the distance between y_t0 and y_t1 is large, i.e. the level of violence differ,
+    then the loss is increased.
     The point is to make the model more sensitive to large changes in violence compared to inertia.
     """
 
