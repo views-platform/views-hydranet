@@ -311,34 +311,34 @@ class HydranetManager(ForecastingModelManager):
 
         train_model_artifact(self._model_path, self.config, self.device, views_vol, columns=columns)
 
-        def _load_model_artifact(self, artifact_name: str | None = None) -> tuple[torch.nn.Module, str]:
-            """
-            Loads a model artifact and extracts its timestamp.
-            """
-            if artifact_name:
-                if not artifact_name.endswith(".pt"):
-                    artifact_name += ".pt"
-                path_model_artifact = self._model_path.artifacts / artifact_name
-            else:
-                run_type = self.config["run_type"]
-                path_model_artifact = self._model_path.get_latest_model_artifact_path(run_type)
-    
-            if not path_model_artifact.exists():
-                raise FileNotFoundError(f"Model artifact not found at {path_model_artifact}")
-    
-            model_time_stamp = path_model_artifact.stem[-15:]
-            logger.info(f"Loading model from {path_model_artifact} (TS: {model_time_stamp})")
-            
-            # Cross-device compatibility load
-            model = torch.load(path_model_artifact, map_location="cpu", weights_only=False)
-            model.to(self.device)
-    
-            # --- INTEGRITY AUDIT: Weight Checksum ---
-            with torch.no_grad():
-                param_sum = sum(p.sum().item() for p in model.parameters())
-                logger.info(f"AUDIT: Model Weights Loaded. Checksum (Sum of Params): {param_sum:.6f}")
-    
-            return model, model_time_stamp
+    def _load_model_artifact(self, artifact_name: str | None = None) -> tuple[torch.nn.Module, str]:
+        """
+        Loads a model artifact and extracts its timestamp.
+        """
+        if artifact_name:
+            if not artifact_name.endswith(".pt"):
+                artifact_name += ".pt"
+            path_model_artifact = self._model_path.artifacts / artifact_name
+        else:
+            run_type = self.config["run_type"]
+            path_model_artifact = self._model_path.get_latest_model_artifact_path(run_type)
+
+        if not path_model_artifact.exists():
+            raise FileNotFoundError(f"Model artifact not found at {path_model_artifact}")
+
+        model_time_stamp = path_model_artifact.stem[-15:]
+        logger.info(f"Loading model from {path_model_artifact} (TS: {model_time_stamp})")
+        
+        # Cross-device compatibility load
+        model = torch.load(path_model_artifact, map_location="cpu", weights_only=False)
+        model.to(self.device)
+
+        # --- INTEGRITY AUDIT: Weight Checksum ---
+        with torch.no_grad():
+            param_sum = sum(p.sum().item() for p in model.parameters())
+            logger.info(f"AUDIT: Model Weights Loaded. Checksum (Sum of Params): {param_sum:.6f}")
+
+        return model, model_time_stamp
     def _evaluate_model_artifact(
         self, eval_type: str, artifact_name: str | None = None
     ) -> list[pd.DataFrame]:

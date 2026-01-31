@@ -30,6 +30,8 @@ def manager_robust_env(tmp_path):
                 "target_variable": "sb",
                 "targets": ["ln_sb_best"]
             }
+            # Attach a mock _load_model_artifact to the instance to allow patching
+            m._load_model_artifact = MagicMock(return_value=(MagicMock(), "ts"))
             
             return m
 
@@ -41,7 +43,7 @@ def test_multitask_merging_alignment(manager_robust_env):
     manager._hydranet_config["targets"] = ["lr_sb_best", "lr_ns_best"]
     manager._hydranet_config["target_variable"] = "" # Both
     
-    with patch.object(HydranetManager, "_load_model_artifact", return_value=(MagicMock(), "ts")):
+    with patch.object(manager, "_load_model_artifact", return_value=(MagicMock(), "ts")):
         with patch("views_hydranet.manager.hydranet_manager.create_or_load_views_vol") as mock_vol:
             with patch("views_hydranet.manager.hydranet_manager.HydraNetInference") as mock_inf_cls:
                 with patch("views_hydranet.manager.hydranet_manager.zstack_to_contract_df") as mock_conv:
@@ -67,7 +69,7 @@ def test_partition_aware_windows(manager_robust_env):
     manager = manager_robust_env
     manager._hydranet_config["run_type"] = "forecasting"
     
-    with patch.object(HydranetManager, "_load_model_artifact", return_value=(MagicMock(), "ts")):
+    with patch.object(manager, "_load_model_artifact", return_value=(MagicMock(), "ts")):
         with patch("views_hydranet.manager.hydranet_manager.create_or_load_views_vol") as mock_vol:
             with patch("views_hydranet.manager.hydranet_manager.HydraNetInference") as mock_inf_cls:
                 with patch("views_hydranet.manager.hydranet_manager.zstack_to_contract_df", return_value=[pd.DataFrame()]):
