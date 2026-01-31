@@ -205,7 +205,9 @@ class HydraNetInference:
 
         for t in range(full_seq_len):
             if pbar:
-                pbar.set_description(f"Drawing Samples | Sample {sample_idx+1} | Step {t+1}/{full_seq_len}")
+                pbar.set_description(
+                    f"Drawing Samples | Sample {sample_idx+1} | Step {t+1}/{full_seq_len}"
+                )
 
             if t < in_sample_seq_len:
                 t0 = full_tensor[:, t]
@@ -218,7 +220,9 @@ class HydraNetInference:
                 t0 = t1_pred.detach()
                 # JIT NS-Flip
                 t0_flipped = torch.flip(t0, [2])
-                t1_pred_flipped, t1_pred_class_flipped, h_tt = self.execute_freeze_h_option(t0_flipped, h_tt)
+                t1_pred_flipped, t1_pred_class_flipped, h_tt = self.execute_freeze_h_option(
+                    t0_flipped, h_tt
+                )
 
                 # UNFLIP
                 t1_pred = torch.flip(t1_pred_flipped, [2])

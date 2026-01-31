@@ -71,7 +71,9 @@ class HydranetManager(ForecastingModelManager):
         from views_hydranet.utils.utils_config import HydraNetConfig
 
         # Use existing local config if already validated, else check base configs
-        raw_config = self._hydranet_config if self._hydranet_config else getattr(self, "configs", {})
+        raw_config = (
+            self._hydranet_config if self._hydranet_config else getattr(self, "configs", {})
+        )
 
         try:
             # 1. Exhaustive Validation
@@ -91,8 +93,8 @@ class HydranetManager(ForecastingModelManager):
             # Capture ALL errors, not just missing ones
             error_details = []
             for err in e.errors():
-                loc = " -> ".join(map(str, err.get('loc', [])))
-                msg = err.get('msg', 'Unknown error')
+                loc = " -> ".join(map(str, err.get("loc", [])))
+                msg = err.get("msg", "Unknown error")
                 error_details.append(f"- {loc}: {msg}")
 
             error_report = "\n".join(error_details)
@@ -108,7 +110,9 @@ class HydranetManager(ForecastingModelManager):
     @property
     def config(self) -> dict[str, Any]:
         """Returns the validated HydraNet configuration. Fallback to raw if not yet validated."""
-        return self._hydranet_config if self._hydranet_config else getattr(self, "configs", {})
+        return (
+            self._hydranet_config if self._hydranet_config else getattr(self, "configs", {})
+        )
 
     @property
     def configs(self) -> dict[str, Any]:
@@ -197,7 +201,7 @@ class HydranetManager(ForecastingModelManager):
     def _execute_model_training(self) -> None:
         """
         HydraNet specific training override.
-        
+
         Orchestrates the training process:
         1. Validates configuration.
         2. Loads/Creates the spatiotemporal data volume.
@@ -208,14 +212,14 @@ class HydranetManager(ForecastingModelManager):
         run_type = self.config["run_type"]
         is_calibration = run_type == "calibration"
 
-        logger.info(f"Starting HydraNet training execution for {run_type} (Calibration={is_calibration})")
+        logger.info(
+            f"Starting HydraNet training execution for {run_type} (Calibration={is_calibration})"
+        )
 
         # Load the 4D volume (Time, H, W, Channels)
         # This handles the complex conversion from DataFrame if the volume doesn't exist
         views_vol = create_or_load_views_vol(
-            run_type,
-            self._model_path.data_processed,
-            self._model_path.data_raw
+            run_type, self._model_path.data_processed, self._model_path.data_raw
         )
 
         # Execute the artifact training directly, injecting the loaded volume
@@ -249,7 +253,7 @@ class HydranetManager(ForecastingModelManager):
 
         # B. Prepare Augmented Shadow Environment
         run_type = self.config["run_type"]
-        df_ext = ".parquet" # We use parquet for evaluation data by standard
+        df_ext = ".parquet"  # We use parquet for evaluation data by standard
 
         original_raw_path = self._model_path.data_raw
         actuals_filename = f"{run_type}_viewser_df{df_ext}"
@@ -299,19 +303,23 @@ class HydranetManager(ForecastingModelManager):
     def _train_model_artifact(self, views_vol: np.ndarray, cal: bool) -> None:
         """
         Trains a model artifact using the provided data volume.
-        
+
         Args:
             views_vol: The 4D data volume [Time, H, W, Channels].
             cal: Whether this is a calibration run.
         """
-        # Pass column names if they are available in the volume metadata (if we use a manager for volumes)
+        # Pass column names if they are available in the volume metadata
         # For now, we assume the manager handles the column extraction from the source dataframe
         # or we pass None to trigger the safe pattern-matching fallback.
         columns = getattr(views_vol, "columns", None)
 
-        train_model_artifact(self._model_path, self.config, self.device, views_vol, columns=columns)
+        train_model_artifact(
+            self._model_path, self.config, self.device, views_vol, columns=columns
+        )
 
-    def _load_model_artifact(self, artifact_name: str | None = None) -> tuple[torch.nn.Module, str]:
+    def _load_model_artifact(
+        self, artifact_name: str | None = None
+    ) -> tuple[torch.nn.Module, str]:
         """
         Loads a model artifact and extracts its timestamp.
         """
@@ -336,21 +344,24 @@ class HydranetManager(ForecastingModelManager):
         # --- INTEGRITY AUDIT: Weight Checksum ---
         with torch.no_grad():
             param_sum = sum(p.sum().item() for p in model.parameters())
-            logger.info(f"AUDIT: Model Weights Loaded. Checksum (Sum of Params): {param_sum:.6f}")
+            logger.info(
+                f"AUDIT: Model Weights Loaded. Checksum (Sum of Params): {param_sum:.6f}"
+            )
 
         return model, model_time_stamp
+
     def _evaluate_model_artifact(
         self, eval_type: str, artifact_name: str | None = None
     ) -> list[pd.DataFrame]:
         """
         Orchestrates rolling-origin evaluation.
 
-        This method produces the 'Predictive Parallelogram' by looping through 12 
-        origin windows. 
+        This method produces the 'Predictive Parallelogram' by looping through 12
+        origin windows.
 
-        TRANSITION NOTE: While HydraNet is multitask, the current evaluation 
-        library expects one DataFrame per sequence containing ONLY the target 
-        column being evaluated. This method filters the multitask output to 
+        TRANSITION NOTE: While HydraNet is multitask, the current evaluation
+        library expects one DataFrame per sequence containing ONLY the target
+        column being evaluated. This method filters the multitask output to
         satisfy that contract.
 
         Args:
@@ -370,15 +381,15 @@ class HydranetManager(ForecastingModelManager):
         time_steps = self.config["time_steps"]
 
         origins = get_rolling_origin_indices(
-            total_months=vol_full.shape[0],
-            time_steps=time_steps,
-            num_windows=num_windows
+            total_months=vol_full.shape[0], time_steps=time_steps, num_windows=num_windows
         )
 
         inference = HydraNetInference(model, self.config, device=self.device)
         list_df_predictions = []
 
-        with tqdm(total=len(origins), desc="🌍 Rolling Origin Evaluation", unit="origin") as pbar_origins:
+        with tqdm(
+            total=len(origins), desc="🌍 Rolling Origin Evaluation", unit="origin"
+        ) as pbar_origins:
             for i, origin in enumerate(origins):
                 pbar_origins.set_postfix({"origin_idx": origin})
 
@@ -397,7 +408,10 @@ class HydranetManager(ForecastingModelManager):
                     # Filter: Only process targets that match the user's run intent
                     # e.g. if run_intent is 'sb', we only process 'lr_sb_best'
                     requested_targets = [t for t in requested_targets if run_intent in t]
-                    logger.debug(f"Filtering targets based on run intent '{run_intent}': {requested_targets}")
+                    logger.debug(
+                        f"Filtering targets based on run intent '{run_intent}': "
+                        f"{requested_targets}"
+                    )
 
                 df_origin = None
                 for target in requested_targets:
@@ -405,7 +419,7 @@ class HydranetManager(ForecastingModelManager):
                         posterior_zstack=posterior_zstack,
                         meta_zstack=meta_zstack,
                         target=target,
-                        config=self.config
+                        config=self.config,
                     )
                     df_target = df_target_list[0]
                     if df_origin is None:
@@ -419,7 +433,7 @@ class HydranetManager(ForecastingModelManager):
                 # Persist stochastic zstack for forensic audit
                 zstack_path = (
                     self._model_path.data_generated
-                    / f'stochastic_zstack_o{origin}_{time_steps}_{run_type}_{model_time_stamp}.pkl'
+                    / f"stochastic_zstack_o{origin}_{time_steps}_{run_type}_{model_time_stamp}.pkl"
                 )
                 with open(zstack_path, "wb") as file:
                     pickle.dump(posterior_zstack, file)
@@ -433,7 +447,7 @@ class HydranetManager(ForecastingModelManager):
         """
         Generates operational forecasts.
 
-        Aligns with the evaluation contract to ensure downstream pipelines 
+        Aligns with the evaluation contract to ensure downstream pipelines
         can consume live forecasts using the same logic as historical tests.
         """
         run_type = self.config["run_type"]
@@ -454,13 +468,14 @@ class HydranetManager(ForecastingModelManager):
         run_intent = self.config.get("target_variable")
         if run_intent:
             requested_targets = [t for t in requested_targets if run_intent in t]
-            logger.info(f"Forecasting filtered targets based on run intent '{run_intent}': {requested_targets}")
+            logger.info(
+                f"Forecasting filtered targets based on run intent '{run_intent}': "
+                f"{requested_targets}"
+            )
 
         for target in requested_targets:
             df_target_list = zstack_to_contract_df(
-                posterior_zstack=posterior_zstack,
-                meta_zstack=meta_zstack,
-                target=target
+                posterior_zstack=posterior_zstack, meta_zstack=meta_zstack, target=target
             )
             df_target = df_target_list[0]
             if df_full_forecast is None:

@@ -1,6 +1,8 @@
-import torch
 import sys
 from pathlib import Path
+
+import torch
+
 
 def check_model(path):
     print(f"Checking model: {path}")

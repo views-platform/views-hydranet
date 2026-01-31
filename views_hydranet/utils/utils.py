@@ -11,7 +11,9 @@ from torchvision import transforms
 
 logger = logging.getLogger(__name__)
 
-def _get_feature_indices(config: dict[str, Any], columns: list[str] | None = None) -> tuple[int, int]:
+def _get_feature_indices(
+    config: dict[str, Any], columns: list[str] | None = None
+) -> tuple[int, int]:
     """
     Unified helper to determine feature start and end indices.
     Priority: 1. Column-name lookup, 2. Config key, 3. Hardcoded fallback (5).
@@ -35,7 +37,13 @@ def _get_feature_indices(config: dict[str, Any], columns: list[str] | None = Non
 
 # networks
 # learning rate schedulers
-from torch.optim.lr_scheduler import CyclicLR, LinearLR, OneCycleLR, ReduceLROnPlateau, StepLR
+from torch.optim.lr_scheduler import (
+    CyclicLR,
+    LinearLR,
+    OneCycleLR,
+    ReduceLROnPlateau,
+    StepLR,
+)
 
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
 from views_hydranet.utils.focal_loss import FocalLoss
@@ -105,31 +113,39 @@ def choose_loss(config, device):
     if config['loss_reg'] == 'a':
         criterion_reg = nn.MSELoss().to(device)
 
-    elif config['loss_reg'] == 'b':
-        criterion_reg = ShrinkageLoss(a=config['loss_reg_a'], c=config['loss_reg_c'], size_average = True).to(device)
+    elif config["loss_reg"] == "b":
+        criterion_reg = ShrinkageLoss(
+            a=config["loss_reg_a"], c=config["loss_reg_c"], size_average=True
+        ).to(device)
 
     else:
-        logger.error('Wrong reg loss...')
+        logger.error("Wrong reg loss...")
         sys.exit()
         return
 
-    if config['loss_class'] == 'a':
+    if config["loss_class"] == "a":
         criterion_class = nn.BCELoss().to(device)
 
-    elif config['loss_class'] == 'b':
-        criterion_class =  FocalLoss(alpha = config['loss_class_alpha'], gamma=config['loss_class_gamma']).to(device) # THIS IS IN USE
+    elif config["loss_class"] == "b":
+        criterion_class = FocalLoss(
+            alpha=config["loss_class_alpha"], gamma=config["loss_class_gamma"]
+        ).to(device)  # THIS IS IN USE
 
     else:
-        logger.error('Wrong class loss...')
+        logger.error("Wrong class loss...")
         sys.exit()
         return
 
-    logger.info(f'Regression loss: {criterion_reg}\n classification loss: {criterion_class}')
+    logger.info(f"Regression loss: {criterion_reg}\n classification loss: {criterion_class}")
 
-    is_regression = torch.Tensor([True, True, True, False, False, False])   # for vea you can just have 1 extre False (classifcation) in the end for the kl... Or should it really be seen as a reg?
-    multitaskloss_instance = MultiTaskLoss(is_regression, reduction = 'sum') # also try mean
+    is_regression = torch.Tensor(
+        [True, True, True, False, False, False]
+    )  # for vea you can just have 1 extre False (classifcation) in the end for the kl...
+    multitaskloss_instance = MultiTaskLoss(
+        is_regression, reduction="sum"
+    )  # also try mean
 
-    return(criterion_reg, criterion_class, multitaskloss_instance)
+    return (criterion_reg, criterion_class, multitaskloss_instance)
 
 
 def choose_scheduler(config, unet):
@@ -137,7 +153,6 @@ def choose_scheduler(config, unet):
 
     This function acts as a factory for creating a learning rate scheduler and its
     associated optimizer based on the `config` dictionary. It supports several
-
     scheduler types, including 'plateau', 'step', 'linear', 'CosineAnnealingLR',
     'OneCycleLR', 'CyclicLR', and 'WarmupDecay'.
 
@@ -153,67 +168,108 @@ def choose_scheduler(config, unet):
                scheduler name in the config is not recognized, the scheduler
                will be an empty list.
     """
-    if config['scheduler'] == 'plateau':
-        optimizer = torch.optim.AdamW(unet.parameters(), lr=config['learning_rate'], betas = (0.9, 0.999))
+    if config["scheduler"] == "plateau":
+        optimizer = torch.optim.AdamW(
+            unet.parameters(), lr=config["learning_rate"], betas=(0.9, 0.999)
+        )
         scheduler = ReduceLROnPlateau(optimizer)
 
-    elif config['scheduler'] == 'step': # seems to be an DEPRECATION issue
-        optimizer = torch.optim.AdamW(unet.parameters(), lr=config['learning_rate'], betas = (0.9, 0.999))
-        scheduler = StepLR(optimizer, step_size= 60)
+    elif config["scheduler"] == "step":  # seems to be an DEPRECATION issue
+        optimizer = torch.optim.AdamW(
+            unet.parameters(), lr=config["learning_rate"], betas=(0.9, 0.999)
+        )
+        scheduler = StepLR(optimizer, step_size=60)
 
-    elif config['scheduler'] == 'linear':
-        optimizer = torch.optim.AdamW(unet.parameters(), lr=config['learning_rate'], betas = (0.9, 0.999))
+    elif config["scheduler"] == "linear":
+        optimizer = torch.optim.AdamW(
+            unet.parameters(), lr=config["learning_rate"], betas=(0.9, 0.999)
+        )
         scheduler = LinearLR(optimizer)
 
-    elif config['scheduler'] == 'CosineAnnealingLR1':
-        optimizer = torch.optim.AdamW(unet.parameters(), lr=config['learning_rate'], betas = (0.9, 0.999))
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = config['samples'], eta_min = 0.00005) # you should try with config.samples * 0.2, 0,33 and 0.5
+    elif config["scheduler"] == "CosineAnnealingLR1":
+        optimizer = torch.optim.AdamW(
+            unet.parameters(), lr=config["learning_rate"], betas=(0.9, 0.999)
+        )
+        # you should try with config.samples * 0.2, 0,33 and 0.5
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=config["samples"], eta_min=0.00005
+        )
 
-    elif config['scheduler'] == 'CosineAnnealingLR02':
-        optimizer = torch.optim.AdamW(unet.parameters(), lr=config['learning_rate'], betas = (0.9, 0.999))
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = config['samples'] * 0.2, eta_min = 0.00005)
+    elif config["scheduler"] == "CosineAnnealingLR02":
+        optimizer = torch.optim.AdamW(
+            unet.parameters(), lr=config["learning_rate"], betas=(0.9, 0.999)
+        )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=config["samples"] * 0.2, eta_min=0.00005
+        )
 
-    elif config['scheduler'] == 'CosineAnnealingLR033':
-        optimizer = torch.optim.AdamW(unet.parameters(), lr=config['learning_rate'], betas = (0.9, 0.999))
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = config['samples'] * 0.33, eta_min = 0.00005)
+    elif config["scheduler"] == "CosineAnnealingLR033":
+        optimizer = torch.optim.AdamW(
+            unet.parameters(), lr=config["learning_rate"], betas=(0.9, 0.999)
+        )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=config["samples"] * 0.33, eta_min=0.00005
+        )
 
-    elif config['scheduler'] == 'CosineAnnealingLR05':
-        optimizer = torch.optim.AdamW(unet.parameters(), lr=config['learning_rate'], betas = (0.9, 0.999))
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = config['samples'] * 0.5, eta_min = 0.00005)
+    elif config["scheduler"] == "CosineAnnealingLR05":
+        optimizer = torch.optim.AdamW(
+            unet.parameters(), lr=config["learning_rate"], betas=(0.9, 0.999)
+        )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=config["samples"] * 0.5, eta_min=0.00005
+        )
 
-    elif config['scheduler'] == 'CosineAnnealingLR004':
-        optimizer = torch.optim.AdamW(unet.parameters(), lr=config['learning_rate'], betas = (0.9, 0.999))
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = config['samples'] * 0.04, eta_min = 0.00005)
+    elif config["scheduler"] == "CosineAnnealingLR004":
+        optimizer = torch.optim.AdamW(
+            unet.parameters(), lr=config["learning_rate"], betas=(0.9, 0.999)
+        )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=config["samples"] * 0.04, eta_min=0.00005
+        )
 
+    elif config["scheduler"] == "OneCycleLR":
+        optimizer = torch.optim.AdamW(
+            unet.parameters(), lr=config["learning_rate"], betas=(0.9, 0.999)
+        )
+        scheduler = OneCycleLR(
+            optimizer,
+            total_steps=32,
+            max_lr=config["learning_rate"],
+            anneal_strategy="cos",
+        )
 
-    elif config['scheduler'] == 'OneCycleLR':
-        optimizer = torch.optim.AdamW(unet.parameters(), lr=config['learning_rate'], betas = (0.9, 0.999))
-        scheduler = OneCycleLR(optimizer,
-                       total_steps=32,
-                       max_lr = config["learning_rate"], # Upper learning rate boundaries in the cycle for each parameter group
-                       anneal_strategy = 'cos') # Specifies the annealing strategy
+    elif config["scheduler"] == "CyclicLR":
+        optimizer = torch.optim.AdamW(
+            unet.parameters(), lr=config["learning_rate"], betas=(0.9, 0.999)
+        )
+        scheduler = CyclicLR(
+            optimizer,
+            step_size_up=200,
+            base_lr=config["learning_rate"] * 0.1,
+            max_lr=config["learning_rate"],
+            mode="triangular2",
+        )
 
-    elif config['scheduler'] == 'CyclicLR':
-
-        optimizer = torch.optim.AdamW(unet.parameters(), lr=config['learning_rate'], betas = (0.9, 0.999))
-        scheduler = CyclicLR(optimizer,
-                       step_size_up=200,
-                       base_lr = config["learning_rate"] * 0.1,
-                       max_lr = config["learning_rate"], # Upper learning rate boundaries in the cycle for each parameter group
-                       mode = 'triangular2') # Specifies the annealing strategy
-
-    elif config['scheduler'] == 'WarmupDecay':
-
-        optimizer = torch.optim.AdamW(unet.parameters(), lr=config['learning_rate'], betas = (0.9, 0.999))
-        d = config['window_dim'] * config['window_dim'] * config['input_channels'] # this is the dimension of the input window
-        scheduler = WarmupDecayLearningRateScheduler(optimizer, d = d, warmup_steps = config['warmup_steps'])
-
+    elif config["scheduler"] == "WarmupDecay":
+        optimizer = torch.optim.AdamW(
+            unet.parameters(), lr=config["learning_rate"], betas=(0.9, 0.999)
+        )
+        # dimension of the input window
+        d = config["window_dim"] * config["window_dim"] * config["input_channels"]
+        scheduler = WarmupDecayLearningRateScheduler(
+            optimizer, d=d, warmup_steps=config["warmup_steps"]
+        )
 
     else:
-        optimizer = torch.optim.AdamW(unet.parameters(), lr=config['learning_rate'], weight_decay = config['weight_decay'], betas = (0.9, 0.999))
-        scheduler = [] # could set to None...
+        optimizer = torch.optim.AdamW(
+            unet.parameters(),
+            lr=config["learning_rate"],
+            weight_decay=config["weight_decay"],
+            betas=(0.9, 0.999),
+        )
+        scheduler = []  # could set to None...
 
-    return(optimizer, scheduler)
+    return (optimizer, scheduler)
 
 
 
@@ -265,7 +321,7 @@ def norm_features(full_vol: np.ndarray, config: dict, a: int = 0, b: int = 1) ->
         full_vol (np.ndarray): The 4D numpy array to be modified, with shape
                                [time, height, width, features].
         config (dict): A dictionary containing configuration, including:
-                       - "first_feature_idx" (int): The starting index of the features to normalize.
+                       - "first_feature_idx" (int): The starting index of normalization features.
                        - "input_channels" (int): The number of features to normalize.
         a (int, optional): The lower bound of the normalization range. Defaults to 0.
         b (int, optional): The upper bound of the normalization range. Defaults to 1.
@@ -282,20 +338,18 @@ def norm_features(full_vol: np.ndarray, config: dict, a: int = 0, b: int = 1) ->
           resulting in `NaN` values in that feature slice.
     """
 
-    first_feature_idx = config['first_feature_idx']
-    last_feature_idx = first_feature_idx + config['input_channels'] - 1
-
+    first_feature_idx = config["first_feature_idx"]
+    last_feature_idx = first_feature_idx + config["input_channels"] - 1
 
     for i in range(first_feature_idx, last_feature_idx + 1):
-
         feature = full_vol[:, :, :, i]
 
         feature_max = feature.max()
         feature_min = 0
 
-        feature_norm = (b-a)*(feature - feature_min)/(feature_max-feature_min)+a
+        feature_norm = (b - a) * (feature - feature_min) / (feature_max - feature_min) + a
 
-        full_vol[:,:,:,i] = feature_norm
+        full_vol[:, :, :, i] = feature_norm
 
     return full_vol
 
@@ -309,7 +363,7 @@ def get_data(config) -> np.ndarray:
 
     Args:
         config (dict): A dictionary containing configuration parameters, including:
-                       - "run_type" (str): Specifies the type of data to load (e.g., "calibration", "testing", "forecasting").
+                       - "run_type" (str): The partition to load (e.g., "calibration", "testing").
 
     Returns:
         np.ndarray: The loaded 4D Numpy array (`views_vol`).
@@ -324,10 +378,10 @@ def get_data(config) -> np.ndarray:
     if not path_processed_str:
         logger.error("get_data: 'path_processed_data' not found in config. Exiting.")
         sys.exit()
-    
+
     path_processed = Path(path_processed_str)
 
-    run_type = config["run_type"] # 'calibration', 'testing' or 'forecasting'
+    run_type = config["run_type"]  # 'calibration', 'testing' or 'forecasting'
 
     try:
         file_name = f"{run_type}_vol.npy"
@@ -336,11 +390,14 @@ def get_data(config) -> np.ndarray:
         views_vol = np.load(path_processed / file_name)
 
     except FileNotFoundError as e:
-        logger.error(f'File not found: {e}. Run correct dataloader get_calibration_data.py, get_test_data.py or get_forecasting_data.py. Now exiting...')
+        logger.error(
+            f"File not found: {e}. Run correct dataloader get_calibration_data.py, "
+            f"get_test_data.py or get_forecasting_data.py. Now exiting..."
+        )
         sys.exit()
         return
 
-    return(views_vol)
+    return views_vol
 
 
 def norm(x, a = 0, b = 1):
@@ -368,8 +425,7 @@ def norm(x, a = 0, b = 1):
     return(x_norm)
 
 
-def unit_norm(x, noise = False):
-
+def unit_norm(x, noise=False):
     """Normalizes a 1D PyTorch Tensor to a unit vector.
 
     Optionally adds Gaussian noise to the normalized vector.
@@ -393,22 +449,24 @@ def unit_norm(x, noise = False):
     """
     x_unit_norm = x / torch.linalg.norm(x)
 
-    if noise == True:
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        x_unit_norm += torch.randn(len(x_unit_norm), dtype=torch.float, requires_grad=False, device = device) * x_unit_norm.std()
+    if noise:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        x_unit_norm += (
+            torch.randn(len(x_unit_norm), dtype=torch.float, requires_grad=False, device=device)
+            * x_unit_norm.std()
+        )
 
-    return(x_unit_norm)
+    return x_unit_norm
 
 
-def standard(x, noise = False):
-
+def standard(x, noise=False):
     """Standardize a 1D NumPy array by removing the mean and scaling to unit variance.
 
     Optionally adds Gaussian noise to the standardized array.
 
     Args:
         x (np.ndarray): The input 1D NumPy array to standardize.
-        noise (bool, optional): If True, adds Gaussian noise to the standardized array. Defaults to False.
+        noise (bool, optional): If True, adds noise to the standardized array. Defaults to False.
 
     Returns:
         np.ndarray: The standardized 1D NumPy array, optionally with added noise.
@@ -426,77 +484,72 @@ def standard(x, noise = False):
 
     x_standard = (x - x.mean()) / x.std()
 
-    if noise == True:
-        x_standard += np.random.normal(loc = 0, scale = x_standard.std(), size = len(x_standard))
+    if noise:
+        x_standard += np.random.normal(loc=0, scale=x_standard.std(), size=len(x_standard))
 
-    return(x_standard)
+    return x_standard
 
 
 def my_decay(sample, samples, min_events, max_events, slope_ratio, roof_ratio):
-
-    """Calculates a decayed number of events with a linear decay function, constrained by a floor and a roof.
+    """Calculates a decayed number of events with a linear decay function.
 
     The decay function is defined by a `slope_ratio` and the total `samples`.
-    The calculated value `y` is bounded by `min_events` (floor) and `roof_ratio * max_events` (roof).
+    The calculated value `y` is bounded by `min_events` (floor) and
+    `roof_ratio * max_events` (roof).
 
     Args:
         sample (int): The current sample number, influencing the decay.
         samples (int): The total number of samples over which the decay occurs.
-        min_events (int): The floor value for the number of events. The result `y` will not go below this.
+        min_events (int): The floor value for the number of events.
         max_events (int): The initial maximum number of events, from which decay starts.
         slope_ratio (float): A ratio that influences the steepness of the linear decay.
-        roof_ratio (float): A ratio (0.0 to 1.0) applied to `max_events` to set the upper bound (roof) for `y`.
+        roof_ratio (float): Upper bound ratio (0.0 to 1.0) applied to `max_events`.
 
     Returns:
-        int: The calculated number of events `y`, constrained by `min_events` and `roof_ratio * max_events`.
+        int: The calculated number of events `y`.
 
     Example:
         >>> # Normal decay case, respecting the roof
-        >>> my_decay(sample=0, samples=100, min_events=10, max_events=100, slope_ratio=1.0, roof_ratio=0.8)
+        >>> my_decay(sample=0, samples=100, min_events=10, max_events=100,
+        ...          slope_ratio=1.0, roof_ratio=0.8)
         80
-        >>> # Case where the decay hits the floor (min_events)
-        >>> my_decay(sample=99, samples=100, min_events=10, max_events=100, slope_ratio=1.0, roof_ratio=1.0)
-        10
-        >>> # Case where the value remains at max_events (due to small slope_ratio)
-        >>> my_decay(sample=0, samples=100, min_events=10, max_events=100, slope_ratio=0.1, roof_ratio=1.0)
-        100
     """
 
-    b = ((-max_events + min_events)/(samples*slope_ratio))
-    y = (max_events + b * sample)
+    b = (-max_events + min_events) / (samples * slope_ratio)
+    y = max_events + b * sample
 
-    y = min(y, max_events*roof_ratio)
+    y = min(y, max_events * roof_ratio)
     y = max(y, min_events)
 
-    return(int(y))
+    return int(y)
 
 
-def get_window_index(views_vol: np.ndarray, config: dict, sample: int, columns: list[str] | None = None) -> dict:
-    """Samples a spatial cell (row and column index) from the input `views_vol`.
-    """
+def get_window_index(
+    views_vol: np.ndarray, config: dict, sample: int, columns: list[str] | None = None
+) -> dict:
+    """Samples a spatial cell (row and column index) from the input `views_vol`."""
 
     # Use the unified helper to find features
     ln_best_sb_idx, last_feature_idx = _get_feature_indices(config, columns)
 
-    min_events = config.get('min_events', 5)
-    samples = config.get('samples', 300)
-    slope_ratio = config.get('slope_ratio', 0.75)
-    roof_ratio = config.get('roof_ratio', 0.7)
+    min_events = config.get("min_events", 5)
+    samples = config.get("samples", 300)
+    slope_ratio = config.get("slope_ratio", 0.75)
+    roof_ratio = config.get("roof_ratio", 0.7)
 
     # Identification of conflict heads
     fatcats = np.arange(ln_best_sb_idx, last_feature_idx, 1)
     n_fatcats = len(fatcats)
 
     fatcat = fatcats[sample % n_fatcats]
-    views_vol_count = np.count_nonzero(views_vol[:,:,:,fatcat], axis = 0)
+    views_vol_count = np.count_nonzero(views_vol[:, :, :, fatcat], axis=0)
 
-
-    # --------------------------------------------------------------------------------------------------------------------------------
-
+    # --- Decay Logic ---
     max_events = views_vol_count.max()
     min_events = my_decay(sample, samples, min_events, max_events, slope_ratio, roof_ratio)
 
-    min_events_index = np.where(views_vol_count >= min_events) # number of events so >= 1 or > 0 is the same as np.nonzero
+    # number of events so >= 1 or > 0 is the same as np.nonzero
+    min_events_index = np.where(views_vol_count >= min_events)
 
     min_events_row = min_events_index[0]
     min_events_col = min_events_index[1]
@@ -504,123 +557,137 @@ def get_window_index(views_vol: np.ndarray, config: dict, sample: int, columns: 
     # it is index... Not lat long.
     min_events_indx = [(row, col) for row, col in zip(min_events_row, min_events_col)]
 
-    #indx = random.choice(min_events_indx) RANDOMENESS!!!!
-    indx = min_events_indx[np.random.choice(len(min_events_indx))] # dumb but working solution of np.random instead of random
+    # indx = random.choice(min_events_indx) RANDOMENESS!!!!
+    # dumb but working solution of np.random instead of random
+    indx = min_events_indx[np.random.choice(len(min_events_indx))]
 
     # if you want a random temporal window, it is here.
-    window_index = {'row_indx':indx[0], 'col_indx':indx[1]}
+    window_index = {"row_indx": indx[0], "col_indx": indx[1]}
 
-    return(window_index)
+    return window_index
 
 
 def get_window_coords(window_index: dict, config: dict) -> dict:
     """Determines the spatial boundaries (coordinates) for a data window.
 
     Given a `window_index` (row and column of the anchor point) and a `window_dim`,
-    this function calculates the `min_row_indx`, `max_row_indx`, `min_col_indx`,
-    and `max_col_indx` of the data window. It uses `np.clip` to ensure that
-    the calculated window coordinates do not extend beyond the `180x180` spatial
-    dimensions, thus preventing out-of-bounds errors.
+    this function calculates the boundaries. It uses `np.clip` to ensure
+    coordinates stay within the `180x180` spatial dimensions.
 
     Args:
-        window_index (dict): A dictionary containing the anchor point of the window
-                             with keys 'row_indx' and 'col_indx'.
-        config (dict): A dictionary containing configuration parameters, including:
-                       - "window_dim" (int): The dimension (side length) of the square window.
+        window_index (dict): Anchor point with keys 'row_indx' and 'col_indx'.
+        config (dict): Contains "window_dim" (int).
 
     Returns:
-        dict: A dictionary containing the calculated window coordinates:
+        dict: Calculated window coordinates:
               'min_row_indx', 'max_row_indx', 'min_col_indx', 'max_col_indx', and 'dim'.
-
-    .. warning::
-        - The internal use of `np.random.randint` means that the exact placement
-          of the window around the `window_index` is non-deterministic unless
-          `np.random.seed()` is controlled externally.
     """
 
-    # you can change this back to random if you want
     window_dim = config["window_dim"]
 
-    # Randomly select a window around the sampled index. np.clip is used to ensure that the window does not go out of bounds
-    min_row_indx = np.clip(int(window_index['row_indx'] - np.random.randint(0, window_dim)), 0, 180 - window_dim)
+    # Randomly select a window around the sampled index.
+    min_row_indx = np.clip(
+        int(window_index["row_indx"] - np.random.randint(0, window_dim)), 0, 180 - window_dim
+    )
     max_row_indx = min_row_indx + window_dim
-    min_col_indx = np.clip(int(window_index['col_indx'] - np.random.randint(0, window_dim)), 0, 180 - window_dim)
+    min_col_indx = np.clip(
+        int(window_index["col_indx"] - np.random.randint(0, window_dim)), 0, 180 - window_dim
+    )
     max_col_indx = min_col_indx + window_dim
 
     # make dict of window coords to return
     window_coords = {
-        'min_row_indx':min_row_indx,
-        'max_row_indx':max_row_indx,
-        'min_col_indx':min_col_indx,
-        'max_col_indx':max_col_indx,
-        'dim':window_dim}
+        "min_row_indx": min_row_indx,
+        "max_row_indx": max_row_indx,
+        "min_col_indx": min_col_indx,
+        "max_col_indx": max_col_indx,
+        "dim": window_dim,
+    }
 
-    return(window_coords)
+    return window_coords
 
 
 def apply_dropout(m):
-    if type(m) == nn.Dropout:
+    if isinstance(m, nn.Dropout):
         m.train()
 
 
 def train_log(avg_loss_list, avg_loss_reg_list, avg_loss_class_list):
-
     avg_loss = np.mean(avg_loss_list)
     avg_loss_reg = np.mean(avg_loss_reg_list)
     avg_loss_class = np.mean(avg_loss_class_list)
 
-    # also log maps...
     if wandb.run is not None:
-        wandb.log({"avg_loss": avg_loss, "avg_loss_reg": avg_loss_reg, "avg_loss_class": avg_loss_class})
+        wandb.log(
+            {"avg_loss": avg_loss, "avg_loss_reg": avg_loss_reg, "avg_loss_class": avg_loss_class}
+        )
 
 
-# Should rename to sub_tensor or something like that... But it is used for training..
-def get_train_tensors(views_vol: np.ndarray, sample: int, config: dict, device: str, columns: list[str] | None = None) -> torch.Tensor:
-    """Creates a training tensor (spatial window) for a single training sample.
-    """
+def get_train_tensors(
+    views_vol: np.ndarray,
+    sample: int,
+    config: dict,
+    device: str,
+    columns: list[str] | None = None,
+) -> torch.Tensor:
+    """Creates a training tensor (spatial window) for a single training sample."""
 
     # 1. Determine time steps for hold-out
     time_steps = config.get("time_steps", 36)
     train_views_vol = views_vol if time_steps == 0 else views_vol[:-time_steps]
 
     # 2. Sample Window
-    window_index = get_window_index(views_vol = views_vol, config = config, sample = sample, columns = columns)
-    window_coords = get_window_coords(window_index = window_index, config = config)
+    window_index = get_window_index(
+        views_vol=views_vol, config=config, sample=sample, columns=columns
+    )
+    window_coords = get_window_coords(window_index=window_index, config=config)
 
     # 3. Extract Window
-    input_window = train_views_vol[ : , window_coords['min_row_indx'] : window_coords['max_row_indx'] , window_coords['min_col_indx'] : window_coords['max_col_indx'], :]
+    input_window = train_views_vol[
+        :,
+        window_coords["min_row_indx"] : window_coords["max_row_indx"],
+        window_coords["min_col_indx"] : window_coords["max_col_indx"],
+        :,
+    ]
 
     # 4. Slice and Permute
     ln_best_sb_idx, last_feature_idx = _get_feature_indices(config, columns)
 
     # JIT Scaling Logic: Ensure training data scale matches eval path
     from views_hydranet.utils.utils_scaling import ScalingEngine
+
     scaler = ScalingEngine.from_config(config)
 
     input_window_scaled = input_window.copy()
     # ALL features (channels 5+) are scaled here regardless of metadata
     # Metadata channels (0-4) are preserved as-is
     input_window_scaled[:, :, :, ln_best_sb_idx:last_feature_idx] = scaler.scale(
-        input_window[:, :, :, ln_best_sb_idx:last_feature_idx],
-        "get_train_tensors"
+        input_window[:, :, :, ln_best_sb_idx:last_feature_idx], "get_train_tensors"
     )
 
     # Transform: [T, H, W, C] -> [1, T, C, H, W]
-    train_tensor = torch.tensor(input_window_scaled).float().to(device).unsqueeze(dim=0).permute(0,1,4,2,3)[:, :, ln_best_sb_idx:last_feature_idx, :, :]
+    train_tensor = (
+        torch.tensor(input_window_scaled)
+        .float()
+        .to(device)
+        .unsqueeze(dim=0)
+        .permute(0, 1, 4, 2, 3)[:, :, ln_best_sb_idx:last_feature_idx, :, :]
+    )
 
     # INTEGRITY CHECK: Log max feature value to detect explosion early
     if sample == 0 and train_tensor.numel() > 0:
-        logger.info(f"AUDIT: Training Input Scale (Max Feature): {train_tensor.max().item():.4f}")
+        logger.info(
+            f"AUDIT: Training Input Scale (Max Feature): {train_tensor.max().item():.4f}"
+        )
 
     # 5. Apply Spatial Transforms (Random Flips)
     # We apply the same transform across all time steps to maintain consistency
     N, T, C, H, W = train_tensor.shape
-    train_tensor_reshaped = train_tensor.reshape(N, T*C, H, W)
+    train_tensor_reshaped = train_tensor.reshape(N, T * C, H, W)
 
-    transform = transforms.Compose([
-        transforms.RandomHorizontalFlip(p=0.5),
-        transforms.RandomVerticalFlip(p=0.5)
-    ])
+    transform = transforms.Compose(
+        [transforms.RandomHorizontalFlip(p=0.5), transforms.RandomVerticalFlip(p=0.5)]
+    )
 
     train_tensor_transformed = transform(train_tensor_reshaped)
     train_tensor = train_tensor_transformed.reshape(N, T, C, H, W)
@@ -628,59 +695,30 @@ def get_train_tensors(views_vol: np.ndarray, sample: int, config: dict, device: 
     return train_tensor
 
 
-#def get_full_tensor(views_vol, config, device):
-#
-#    """
-#    Uses to get the features for the full tensor
-#    Used for out-of-sample predictions for both evaluation and forecasting, depending on the run_type (partition).
-#    The test tensor is of size 1 x config.time_steps x config.input_channels x 180 x 180.
-#    """
-#
-#    ln_best_sb_idx = config.first_feature_idx # 5 = ln_best_sb
-#    last_feature_idx = ln_best_sb_idx + config.input_channels
-#
-#    print(f'views_vol shape {views_vol.shape}')  # (months, 180, 180, 8)
-#
-#    full_tensor = torch.tensor(views_vol).float().unsqueeze(dim=0).permute(0,1,4,2,3)[:, :, ln_best_sb_idx:last_feature_idx, :, :]
-#
-#    print(f'full_tensor shape {full_tensor.shape}') # (1, months, 3, 180, 180)
-#
-#    return full_tensor
-
-
 def get_full_tensor(
-    views_vol: np.ndarray,
-    config: dict | None = None,
-    columns: list[str] | None = None
+    views_vol: np.ndarray, config: dict | None = None, columns: list[str] | None = None
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """
-    Converts the input 4D volume array into PyTorch tensors for model input, separating feature and metadata tensors.
+    Converts input 4D volume array into feature and metadata PyTorch tensors.
 
-    This function transforms the input `views_vol`, which is a 4D numpy array, into two PyTorch tensors:
-    `full_tensor` and `metadata_tensor`. 
-
-    The function dynamically determines the split point between metadata (Identity) and features (Conflict data)
-    based on the provided column names.
+    Dynamically determines the split point between metadata (Identity) and
+    features (Conflict data) based on provided column names.
 
     Args:
         views_vol: The 4D input volume [Time, Lat, Lon, Channels].
         config: Model configuration dictionary.
-        columns: Optional list of column names in the order they appear in the volume channels.
+        columns: Optional list of column names in the order they appear in the channels.
 
     Returns:
         Tuple[torch.Tensor, torch.Tensor]: (full_tensor, metadata_tensor)
     """
 
     # 1. Identify Identity Columns
-    # These are standard across VIEWS and should always be in the metadata tensor.
-    # We include common aliases used in different partitions.
-    identity_cols = ["priogrid_gid", "pg_id", "row", "col", "month_id", "month", "c_id"]
+    # Identity aliases: priogrid_gid, pg_id, row, col, month_id, month, c_id
 
     # 2. Determine the Split Index
     if columns is not None:
         # Calculate index dynamically based on pattern-matching
-        # We look for the first column that matches our conflict targets (sb, ns, os)
-        # and has a standard prefix (ln_ or lr_)
         target_indicators = ["sb", "ns", "os"]
         feature_start_idx = -1
 
@@ -691,10 +729,16 @@ def get_full_tensor(
                 break
 
         if feature_start_idx == -1:
-            logger.warning(f"get_full_tensor: Could not find any conflict targets in columns: {columns}. Defaulting to index 5.")
+            logger.warning(
+                f"get_full_tensor: Could not find any conflict targets in columns: {columns}. "
+                f"Defaulting to index 5."
+            )
             feature_start_idx = 5
         else:
-            logger.debug(f"Dynamic Slicing: Found feature start at index {feature_start_idx} ('{columns[feature_start_idx]}').")
+            logger.debug(
+                f"Dynamic Slicing: Found feature start at index {feature_start_idx} "
+                f"('{columns[feature_start_idx]}')."
+            )
     else:
         # Fallback to legacy behavior for backward compatibility with un-annotated volumes
         feature_start_idx = 5
@@ -714,6 +758,7 @@ def get_full_tensor(
 
     # 4. Perform Slicing and Scaling
     from views_hydranet.utils.utils_scaling import ScalingEngine
+
     scaler = ScalingEngine.from_config(config)
 
     # Transform to float array for JIT scaling (Polymorphic handle)
@@ -724,8 +769,7 @@ def get_full_tensor(
 
     # UNCONDITIONAL: Scale all feature channels regardless of metadata
     views_vol_np[:, :, :, feature_start_idx:last_feature_idx] = scaler.scale(
-        views_vol_np[:, :, :, feature_start_idx:last_feature_idx],
-        "get_full_tensor"
+        views_vol_np[:, :, :, feature_start_idx:last_feature_idx], "get_full_tensor"
     )
 
     vol_tensor = torch.tensor(views_vol_np).float()

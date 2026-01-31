@@ -96,7 +96,9 @@ def train(
                 losses_list.append(criterion_reg(t1_pred[:, j, :, :], t1[:, j, :, :]))
 
             for j in range(t1_pred_class.shape[1]):
-                losses_list.append(criterion_class(t1_pred_class[:, j, :, :], t1_binary[:, j, :, :]))
+                losses_list.append(
+                    criterion_class(t1_pred_class[:, j, :, :], t1_binary[:, j, :, :])
+                )
 
             losses = torch.stack(losses_list)
             loss = multitaskloss_instance(losses)
@@ -196,7 +198,9 @@ def train_model_artifact(
     model, criterion, optimizer, scheduler = make(config, device)
 
     # Train the model
-    training_loop(config, model, criterion, optimizer, scheduler, views_vol, device, columns=columns)
+    training_loop(
+        config, model, criterion, optimizer, scheduler, views_vol, device, columns=columns
+    )
     logger.info("Done training")
 
     # just in case the artifacts folder does not exist
