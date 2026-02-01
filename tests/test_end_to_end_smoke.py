@@ -26,7 +26,7 @@ def full_system_env(tmp_path):
     gen_dir = proj_dir / "data" / "generated"
     for d in [raw_dir, art_dir, gen_dir]: d.mkdir(parents=True)
     df_path = raw_dir / "validation_viewser_df.parquet"
-    pd.DataFrame({"month_id": [100, 101], "priogrid_gid": [1, 1], "ln_sb_best": [0.1, 0.2]}).to_parquet(df_path)
+    pd.DataFrame({"month_id": [100, 101], "priogrid_gid": [1, 1], "lr_sb_best": [0.1, 0.2]}).to_parquet(df_path)
     (raw_dir / "validation_data_fetch_log.txt").write_text("Fetch TS: 2026-01-29")
     model = MockHydraNet(base=32)
     torch.save(model, art_dir / "model.pt")

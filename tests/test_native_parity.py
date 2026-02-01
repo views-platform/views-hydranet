@@ -11,13 +11,13 @@ def test_index_5_reference_parity():
     # 1. Create a dummy volume: [Months, Lat, Lon, Channels]
     dummy_vol = np.zeros((2, 180, 180, 8))
 
-    # Fill channel 5 (ln_sb_best) with a unique pattern
+    # Fill channel 5 (lr_sb_best) with a unique pattern
     dummy_vol[:, :, :, 5] = 1.23
-    # Fill channel 6 (ln_ns_best) with another pattern
+    # Fill channel 6 (lr_ns_best) with another pattern
     dummy_vol[:, :, :, 6] = 4.56
 
     config = {"input_channels": 3}
-    cols = ["priogrid_gid", "row", "col", "month_id", "c_id", "ln_sb_best", "ln_ns_best", "ln_os_best"]
+    cols = ["priogrid_gid", "row", "col", "month_id", "c_id", "lr_sb_best", "lr_ns_best", "lr_os_best"]
 
     # 2. RUN NEW LOGIC
     full_tensor, metadata_tensor = get_full_tensor(dummy_vol, config, columns=cols)
@@ -46,7 +46,7 @@ def test_channel_mapping_intent():
     dummy_vol[0, 0, 0, 5] = 100.0 # SB
     dummy_vol[0, 0, 0, 6] = 200.0 # NS
     dummy_vol[0, 0, 0, 7] = 300.0 # OS
-    cols = ["priogrid_gid", "row", "col", "month_id", "c_id", "ln_sb_best", "ln_ns_best", "ln_os_best"]
+    cols = ["priogrid_gid", "row", "col", "month_id", "c_id", "lr_sb_best", "lr_ns_best", "lr_os_best"]
 
     full_tensor, _ = get_full_tensor(dummy_vol, {"input_channels": 3}, columns=cols)
 
@@ -61,7 +61,7 @@ def test_future_queryset_resilience():
     In this scenario, a new metadata column 'iso_code' is added at index 4.
     """
     # Columns: pg_id, row, col, month, iso_code, c_id, SB, NS, OS
-    cols = ["priogrid_gid", "row", "col", "month_id", "iso_code", "c_id", "ln_sb_best", "ln_ns_best", "ln_os_best"]
+    cols = ["priogrid_gid", "row", "col", "month_id", "iso_code", "c_id", "lr_sb_best", "lr_ns_best", "lr_os_best"]
 
     dummy_vol = np.zeros((1, 1, 1, 9))
     dummy_vol[0, 0, 0, 6] = 1.23 # SB is now at index 6

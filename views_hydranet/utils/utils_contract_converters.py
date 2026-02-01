@@ -35,7 +35,7 @@ def predictions_to_contract_df(
         posterior_list: A list of N posterior sample arrays, each with shape [steps, features, H, W].
         forecast_storage_vol: Metadata volume [batch, steps, channels, H, W].
                               Required channels: 0 (pg_id), 3 (month_id).
-        target: The target variable name (e.g., 'ln_sb_best').
+        target: The target variable name (e.g., 'lr_sb_best').
         config: Optional configuration dictionary for transform lookups.
 
     Returns:
@@ -54,26 +54,15 @@ def predictions_to_contract_df(
     from views_hydranet.utils.utils_config import get_target_index
     t_idx = get_target_index(target)
 
-    # 3. Target Naming (Explicit Raw Scale)
-    if target.startswith("ln_"):
-        out_target = target.replace("ln_", "lr_")
-    elif not target.startswith("lr_"):
-        out_target = f"lr_{target}"
-    else:
-        out_target = target
-    out_col = f"pred_{out_target}"
+    # 3. Target Naming (Literal Standard)
+    # We no longer translate prefixes or add evaluation artifacts here.
+    out_col = target
 
-    # 4. Extract and Unlog
+    # 4. Extract target samples (Semantic Space)
     # [samples, steps, H, W]
     target_samples = all_samples[:, :, t_idx, :, :]
 
-    from views_hydranet.utils.utils_scaling import ScalingEngine
-    scaler = ScalingEngine.from_config(config)
-
-    # Use robust unscale (handles healing and clamping)
-    target_samples = scaler.unscale(target_samples, f"predictions_to_contract_df({target})")
-
-    # Handle Binarization
+    # Handle Binarization (Literal check)
     if target.endswith("_binarized"):
         target_samples = (target_samples > 0).astype(float)
 
@@ -116,7 +105,7 @@ def zstack_to_contract_df(
     Args:
         posterior_zstack: Predicted magnitudes [steps, H, W, channels, samples].
         meta_zstack: Metadata volume [steps, H, W, channels, 1].
-        target: The target variable name (e.g., 'ln_sb_best').
+        target: The target variable name (e.g., 'lr_sb_best').
         config: Optional configuration dictionary for transform lookups.
 
     Returns:
@@ -134,15 +123,11 @@ def zstack_to_contract_df(
     t_idx = get_target_index(target)
 
     # Construct Output Column Name
-    if target.startswith("ln_"):
-        out_target = target.replace("ln_", "lr_")
-    elif not target.startswith("lr_"):
-        out_target = f"lr_{target}"
-    else:
-        out_target = target
-    out_col = f"pred_{out_target}"
+    # 3. Target Naming (Literal Standard)
+    # We no longer translate prefixes or add evaluation artifacts here.
+    out_col = target
 
-    # Extract magnitudes and apply inverse transform from registry
+    # Extract magnitudes (Semantic Space)
     # Force C-contiguity to ensure masking matches memory layout
     mags = np.ascontiguousarray(posterior_zstack[:, :, :, t_idx, :])
     meta_zstack = np.ascontiguousarray(meta_zstack)
@@ -151,31 +136,21 @@ def zstack_to_contract_df(
     eval_mode = config.get("evalution_mode", "stochastic") if config else "stochastic"
     agg_method = config.get("aggregate_method", "geometric_mean") if config else "geometric_mean"
 
-    from views_hydranet.utils.utils_scaling import ScalingEngine
-    scaler = ScalingEngine.from_config(config)
-
     # 3. Explicit Aggregation Strategy Pass
     if eval_mode == "point":
         if agg_method == "geometric_mean":
-            # Math: exp(mean(log)) - 1
-            logger.info("Point-Collapse: Calculating Geometric Mean (Stable path).")
-            # Step A: Aggregate in log-space
+            # Math: mean of log values (remains in log-space)
+            logger.info("Point-Collapse: Calculating Geometric Mean (Semantic/Log Space).")
             mags = np.mean(mags, axis=-1)
-            # Step B: Unscale using robust engine
-            mags = scaler.unscale(mags, f"zstack_to_contract_df({target})")
 
         elif agg_method == "median":
-            # Math: exp(median(log)) - 1
-            logger.info("Point-Collapse: Calculating Median (Robust path).")
+            logger.info("Point-Collapse: Calculating Median (Semantic Space).")
             mags = np.median(mags, axis=-1)
-            mags = scaler.unscale(mags, f"zstack_to_contract_df({target})")
 
         elif agg_method == "arithmetic_mean":
-            # Math: mean(exp(log) - 1)
-            logger.warning("Point-Collapse: Calculating Arithmetic Mean (Unbiased but UNSTABLE path).")
-            # Step A: Transform every sample to raw-space (using robust unscale)
-            mags = scaler.unscale(mags, f"zstack_to_contract_df({target})")
-            # Step B: Aggregate in raw-space
+            # WARNING: This requires raw space. Since we are in semantic space,
+            # we warn and default to simple mean.
+            logger.warning("Point-Collapse: Arithmetic Mean requested in Semantic Space. Defaulting to simple Mean.")
             mags = np.mean(mags, axis=-1)
 
     # Squeeze-and-expand invariant
@@ -183,8 +158,7 @@ def zstack_to_contract_df(
 
     else:
         # STOCHASTIC MODE: No aggregation, full pipeline
-        logger.info("Stochastic-Mode: Passing all samples to contract.")
-        mags = scaler.unscale(mags, f"zstack_to_contract_df({target})")
+        logger.info("Stochastic-Mode: Passing all samples to contract in Semantic Space.")
 
     # 5. Handle Binarization (Classification Contract)
     if target.endswith("_binarized"):
@@ -308,9 +282,9 @@ def contract_df_to_zstack(
             for w in range(W):
                 pg_id = int(pg_ids_template[t, h, w])
                 if pg_id > 0:
-                    raw_samples = df_month.loc[pg_id, col]
-                    # Apply log1p forward: ln(x + 1)
-                    reconstructed[t, h, w, 0, :] = np.log1p(raw_samples)
+                    # Invariant: The DataFrame already holds semantic values
+                    # (No forward transformation here)
+                    reconstructed[t, h, w, 0, :] = df_month.loc[pg_id, col]
                 else:
                     reconstructed[t, h, w, 0, :] = 0.0
 

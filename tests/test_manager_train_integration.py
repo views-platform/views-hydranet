@@ -23,18 +23,25 @@ def test_manager_execute_training_integration(manager_with_config):
     """
     manager = manager_with_config
 
-    # Mock the volume loader
+    # Mock the data fetching and transformation
+    mock_df = MagicMock()
     mock_vol = np.zeros((10, 10, 10, 3))
 
-    with patch("views_hydranet.manager.hydranet_manager.create_or_load_views_vol", return_value=mock_vol) as mock_loader, \
+    with patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetcher_cls, \
+         patch("views_hydranet.manager.hydranet_manager.df_to_vol", return_value=mock_vol) as mock_converter, \
          patch.object(manager, "_train_model_artifact") as mock_trainer:
+
+        mock_fetcher = mock_fetcher_cls.return_value
+        mock_fetcher.fetch.return_value = mock_df
 
         manager._execute_model_training()
 
-        # Verify Loader was called
-        mock_loader.assert_called_once()
+        # Verify Fetcher was called
+        mock_fetcher.fetch.assert_called_once()
+
+        # Verify Converter was called
+        mock_converter.assert_called_once_with(mock_df)
 
         # Verify Trainer was called with correct args (vol, cal)
-        # config["run_type"] is "calibration" in the valid_config_dict fixture usually
         expected_cal = manager.config["run_type"] == "calibration"
         mock_trainer.assert_called_once_with(mock_vol, expected_cal)

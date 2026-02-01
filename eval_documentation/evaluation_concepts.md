@@ -72,11 +72,11 @@ The `EvaluationManager` assesses the predictive parallelogram by "slicing" it in
 To perform evaluation without modifying the production data state, HydraNet implements a **Shadow Environment** pattern.
 
 ### 4.1 Explicit Ground-Truth Augmentation
-Standard ground-truth files often only contain log-normalized values (e.g., `ln_sb_best`). However, the evaluation library requires raw counts (`lr_sb_best`) or binarized flags. 
+Standard ground-truth files often only contain log-normalized values (e.g., `lr_sb_best`). However, the evaluation library requires raw counts (`lr_sb_best`) or binarized flags. 
 
 The `HydranetManager` automatically:
 1.  Detects missing derived columns in the original ground-truth.
-2.  Computes inverse transforms (e.g., `expm1(ln_x) -> lr_x`) and step-functions (`lr_x > 0 -> binarized_x`).
+2.  Computes inverse transforms (e.g., `expm1(lr_x) -> lr_x`) and step-functions (`lr_x > 0 -> binarized_x`).
 3.  Saves these "Augmented Actuals" to a temporary location.
 
 ### 4.2 The Redirect Pattern

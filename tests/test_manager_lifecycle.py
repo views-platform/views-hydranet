@@ -12,7 +12,7 @@ def manager_env(tmp_path, valid_config_dict):
     art_dir = tmp_path / "artifacts"
     raw_dir.mkdir(parents=True)
     art_dir.mkdir(parents=True)
-    pd.DataFrame({"ln_sb_best": [1.0]}).to_parquet(raw_dir / "validation_viewser_df.parquet")
+    pd.DataFrame({"lr_sb_best": [1.0]}).to_parquet(raw_dir / "validation_viewser_df.parquet")
     (raw_dir / "validation_data_fetch_log.txt").write_text("Fetched")
 
     with patch("views_pipeline_core.managers.model.model.ForecastingModelManager.__init__", return_value=None), \

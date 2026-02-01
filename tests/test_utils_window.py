@@ -15,7 +15,7 @@ def mock_views_vol_window():
     n_months, height, width, n_features = 12, 180, 180, 8
     vol = np.zeros((n_months, height, width, n_features))
     # Fill some features with non-zero values to simulate events
-    vol[:, 10:20, 10:20, 5] = 1 # feature 5 (ln_best_sb_idx)
+    vol[:, 10:20, 10:20, 5] = 1 # feature 5 (lr_best_sb_idx)
     vol[:, 15:25, 15:25, 6] = 2 # feature 6
     return vol
 
@@ -25,7 +25,7 @@ def mock_config_window():
     Fixture for a mock config dictionary for get_window_index and get_window_coords.
     """
     return {
-        "first_feature_idx": 5, # Corresponds to ln_best_sb_idx in utils.py
+        "first_feature_idx": 5, # Corresponds to lr_best_sb_idx in utils.py
         "input_channels": 3,
         "min_events": 1,
         "samples": 100,

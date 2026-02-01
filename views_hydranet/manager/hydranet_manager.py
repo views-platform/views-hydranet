@@ -26,7 +26,9 @@ from views_hydranet.utils.utils_contract_converters import (
     zstack_to_contract_df,
 )
 from views_hydranet.utils.utils_device import setup_device
-from views_hydranet.utils.utils_df_to_vol_conversion import create_or_load_views_vol
+from views_hydranet.utils.data_fetcher import DataFetcher
+from views_hydranet.utils.feature_scaler import FeatureScaler
+from views_hydranet.utils.utils_df_to_vol_conversion import df_to_vol
 from views_hydranet.utils.utils_orchestration import get_rolling_origin_indices
 
 logger = logging.getLogger(__name__)
@@ -144,14 +146,12 @@ class HydranetManager(ForecastingModelManager):
 
     def _translate_targets(self, targets: list[str]) -> list[str]:
         """
-        Translates target names from config format to raw format.
-        e.g., ln_sb_best -> lr_sb_best
+        Ensures target names have the 'lr_' prefix.
+        Prefixes are treated as literal markers, not triggers for transformation.
         """
         translated = []
         for t in targets:
-            if t.startswith("ln_"):
-                translated.append(t.replace("ln_", "lr_"))
-            elif t.startswith("lr_"):
+            if t.startswith("lr_"):
                 translated.append(t)
             else:
                 translated.append(f"lr_{t}")
@@ -159,42 +159,20 @@ class HydranetManager(ForecastingModelManager):
 
     def _augment_dataframe(self, df: pd.DataFrame, requested_targets: list[str]) -> pd.DataFrame:
         """
-        Augments the dataframe with derived columns (unlogging, binarization).
+        Augments the dataframe with derived columns (binarization only).
+        Prefixes (lr_, lr_) are treated as fixed literal labels.
+        Automatic unlogging is strictly disabled.
         """
         df_aug = df.copy()
         for target in requested_targets:
-            # 1. Unlogging (ln_ -> lr_)
-            # If target is lr_X and we have ln_X, derive lr_X
-            if target.startswith("lr_"):
-                base_name = target[3:] # remove lr_
-                ln_col = f"ln_{base_name}"
-
-                # Case A: We need lr_X, have ln_X -> Unlog
-                if target not in df_aug.columns and ln_col in df_aug.columns:
-                    # NO HEAL
-                    df_aug[target] = np.expm1(df_aug[ln_col])
-
-                # Case B: We need lr_X_binarized
-                if "binarized" in target:
-                    # derived from the raw level (lr_)
-                    # target might be "lr_sb_best_binarized"
-                    # base source is "lr_sb_best"
-                    source_col = target.replace("_binarized", "")
-
-                    # Ensure source exists (recurse/compute if needed)
-                    # For simplicity, assume source is either in df or computed above
-                    if source_col not in df_aug.columns:
-                        # Try to compute source first if possible
-                        # (Recursion logic or just repetition for this specific pattern)
-                        if source_col.startswith("lr_"):
-                             s_base = source_col[3:]
-                             s_ln = f"ln_{s_base}"
-                             if s_ln in df_aug.columns:
-                                 df_aug[source_col] = np.expm1(df_aug[s_ln])
-
-                    if source_col in df_aug.columns:
-                         # Binarize: > 0 => 1.0, else 0.0
-                         df_aug[target] = (df_aug[source_col] > 0).astype(float)
+            # Binarization logic (Literal 'binarized' check)
+            if "binarized" in target:
+                source_col = target.replace("_binarized", "")
+                if source_col in df_aug.columns:
+                     # Binarize: > 0 => 1.0, else 0.0
+                     df_aug[target] = (df_aug[source_col] > 0).astype(float)
+                else:
+                    logger.warning(f"Could not binarize {target}: source {source_col} missing.")
 
         return df_aug
 
@@ -202,10 +180,11 @@ class HydranetManager(ForecastingModelManager):
         """
         HydraNet specific training override.
 
-        Orchestrates the training process:
+        Orchestrates the training process in a linear pipeline:
         1. Validates configuration.
-        2. Loads/Creates the spatiotemporal data volume.
-        3. Executes the training loop for the specific artifact.
+        2. Ingests raw data explicitly.
+        3. Transforms DataFrame to spatiotemporal volume.
+        4. Executes the training loop.
         """
         self._perform_strict_handshake()
 
@@ -216,13 +195,18 @@ class HydranetManager(ForecastingModelManager):
             f"Starting HydraNet training execution for {run_type} (Calibration={is_calibration})"
         )
 
-        # Load the 4D volume (Time, H, W, Channels)
-        # This handles the complex conversion from DataFrame if the volume doesn't exist
-        views_vol = create_or_load_views_vol(
-            run_type, self._model_path.data_processed, self._model_path.data_raw
-        )
+        # 1. Ingest: Explicit fetch from disk
+        fetcher = DataFetcher(self._model_path.data_raw)
+        df = fetcher.fetch(run_type)
 
-        # Execute the artifact training directly, injecting the loaded volume
+        # 2. Scale: Raw -> Semantic Space
+        scaler = FeatureScaler(self.config)
+        df = scaler.fit_transform(df)
+
+        # 3. Transform: DataFrame -> Volume
+        views_vol = df_to_vol(df, forecast_features=scaler.configured_columns)
+
+        # 4. Train: Pass the volume to the trainer
         self._train_model_artifact(views_vol, is_calibration)
 
     def _execute_model_forecasting(self) -> None:
@@ -244,12 +228,12 @@ class HydranetManager(ForecastingModelManager):
 
         from views_pipeline_core.files.utils import read_dataframe, save_dataframe
 
-        # A. Translate targets in config: ln_ -> lr_
+        # A. Ensure targets use the standard prefix
         original_targets = self.configs.get("targets", [])
-        raw_targets = self._translate_targets(original_targets)
+        standard_targets = self._translate_targets(original_targets)
 
-        logger.info(f"Translating evaluation targets: {original_targets} -> {raw_targets}")
-        self.configs = {"targets": raw_targets}
+        logger.info(f"Standardizing evaluation targets: {original_targets} -> {standard_targets}")
+        self.configs = {"targets": standard_targets}
 
         # B. Prepare Augmented Shadow Environment
         run_type = self.config["run_type"]
@@ -355,26 +339,20 @@ class HydranetManager(ForecastingModelManager):
     ) -> list[pd.DataFrame]:
         """
         Orchestrates rolling-origin evaluation.
-
-        This method produces the 'Predictive Parallelogram' by looping through 12
-        origin windows.
-
-        TRANSITION NOTE: While HydraNet is multitask, the current evaluation
-        library expects one DataFrame per sequence containing ONLY the target
-        column being evaluated. This method filters the multitask output to
-        satisfy that contract.
-
-        Args:
-            eval_type: Pipeline evaluation strategy.
-            artifact_name: Artifact to evaluate.
-
-        Returns:
-            List of DataFrames (Length = Num Origins).
         """
         run_type = self.config["run_type"]
-        vol_full = create_or_load_views_vol(
-            run_type, self._model_path.data_processed, self._model_path.data_raw
-        )
+
+        # 1. Ingest: Explicit fetch from disk
+        fetcher = DataFetcher(self._model_path.data_raw)
+        df = fetcher.fetch(run_type)
+
+        # 2. Scale: Raw -> Semantic Space (Inbound Boundary)
+        scaler = FeatureScaler(self.config)
+        df = scaler.fit_transform(df)
+
+        # 3. Transform: DataFrame -> Volume
+        vol_full = df_to_vol(df, forecast_features=scaler.configured_columns)
+
         model, model_time_stamp = self._load_model_artifact(artifact_name)
 
         num_windows = 12 if run_type in ["calibration", "validation"] else 1
@@ -398,20 +376,11 @@ class HydranetManager(ForecastingModelManager):
                     vol_slice, is_evaluation=True, window_info=f"Origin {i+1}/{len(origins)}"
                 )
 
-                # MULTITASK TRANSITION LOGIC:
-                # We filter the targets based on 'target_variable' if provided.
-                # This ensures we only send the requested data to the single-task evaluator.
-                requested_targets = self.configs.get("targets", [])
+                requested_targets = scaler.configured_columns
                 run_intent = self.config.get("target_variable")
 
                 if run_intent:
-                    # Filter: Only process targets that match the user's run intent
-                    # e.g. if run_intent is 'sb', we only process 'lr_sb_best'
                     requested_targets = [t for t in requested_targets if run_intent in t]
-                    logger.debug(
-                        f"Filtering targets based on run intent '{run_intent}': "
-                        f"{requested_targets}"
-                    )
 
                 df_origin = None
                 for target in requested_targets:
@@ -428,6 +397,12 @@ class HydranetManager(ForecastingModelManager):
                         df_origin = pd.concat([df_origin, df_target], axis=1)
 
                 if df_origin is not None:
+                    # 4. Inverse Scale: Semantic -> Raw Space (Outbound Boundary)
+                    # We inverse BEFORE adding eval-specific prefixes
+                    df_origin = scaler.inverse_transform(df_origin)
+
+                    # 5. JIT Prefixing: Add 'pred_' artifacts for evaluation library
+                    df_origin.columns = [f"pred_{col}" for col in df_origin.columns]
                     list_df_predictions.append(df_origin)
 
                 # Persist stochastic zstack for forensic audit
@@ -446,33 +421,27 @@ class HydranetManager(ForecastingModelManager):
     def _forecast_model_artifact(self, artifact_name: str | None = None) -> list[pd.DataFrame]:
         """
         Generates operational forecasts.
-
-        Aligns with the evaluation contract to ensure downstream pipelines
-        can consume live forecasts using the same logic as historical tests.
         """
         run_type = self.config["run_type"]
-        vol_forecast = create_or_load_views_vol(
-            run_type, self._model_path.data_processed, self._model_path.data_raw
-        )
+        # 1. Ingest: Explicit fetch from disk
+        fetcher = DataFetcher(self._model_path.data_raw)
+        df = fetcher.fetch(run_type)
+        # 2. Scale: Raw -> Semantic Space (Inbound Boundary)
+        scaler = FeatureScaler(self.config)
+        df = scaler.fit_transform(df)
+        # 3. Transform: DataFrame -> Volume
+        vol_forecast = df_to_vol(df, forecast_features=scaler.configured_columns)
         model, model_time_stamp = self._load_model_artifact(artifact_name)
-
         inference = HydraNetInference(model, self.config, device=self.device)
         posterior_zstack, meta_zstack = inference.generate_posterior_samples(
             vol_forecast, is_evaluation=False
         )
-
         list_df_predictions = []
         df_full_forecast = None
-
-        requested_targets = self.configs.get("targets", [])
+        requested_targets = scaler.configured_columns
         run_intent = self.config.get("target_variable")
         if run_intent:
             requested_targets = [t for t in requested_targets if run_intent in t]
-            logger.info(
-                f"Forecasting filtered targets based on run intent '{run_intent}': "
-                f"{requested_targets}"
-            )
-
         for target in requested_targets:
             df_target_list = zstack_to_contract_df(
                 posterior_zstack=posterior_zstack, meta_zstack=meta_zstack, target=target
@@ -482,6 +451,11 @@ class HydranetManager(ForecastingModelManager):
                 df_full_forecast = df_target
             else:
                 df_full_forecast = pd.concat([df_full_forecast, df_target], axis=1)
-
+        if df_full_forecast is not None:
+            # 4. Inverse Scale: Semantic -> Raw Space (Outbound Boundary)
+            df_full_forecast = scaler.inverse_transform(df_full_forecast)
+            # 5. JIT Prefixing: Add 'pred_' for evaluation contract compliance
+            df_full_forecast.columns = [f"pred_{col}" for col in df_full_forecast.columns]
+            list_df_predictions.append(df_full_forecast)
         validate_contract_dataframes(list_df_predictions)
         return list_df_predictions

@@ -7,7 +7,6 @@ import pytest
 
 from views_hydranet.utils.utils_df_to_vol_conversion import (
     calculate_absolute_indices,
-    create_or_load_views_vol,
     df_to_vol,
     df_vol_conversion_test,
     get_requried_columns_for_vol,
@@ -22,8 +21,8 @@ def mock_df():
     Fixture to create a mock DataFrame.
 
     This fixture creates a mock DataFrame with predefined data for testing purposes.
-    The DataFrame contains columns for pg_id, col, row, month_id, c_id, ln_sb_best,
-    ln_ns_best, and ln_os_best. The DataFrame is used to simulate input data for
+    The DataFrame contains columns for pg_id, col, row, month_id, c_id, lr_sb_best,
+    lr_ns_best, and lr_os_best. The DataFrame is used to simulate input data for
     various functions that require a DataFrame as input.
 
     Returns:
@@ -35,9 +34,9 @@ def mock_df():
         "row": [5, 15, 25, 35],
         "month_id": [100, 100, 101, 101],
         "c_id": [1, 1, 1, 1],
-        "ln_sb_best": [0.1, 0.2, 0.3, 0.4],
-        "ln_ns_best": [0.2, 0.3, 0.4, 0.5],
-        "ln_os_best": [0.3, 0.4, 0.5, 0.6],
+        "lr_sb_best": [0.1, 0.2, 0.3, 0.4],
+        "lr_ns_best": [0.2, 0.3, 0.4, 0.5],
+        "lr_os_best": [0.3, 0.4, 0.5, 0.6],
     }
     return pd.DataFrame(data)
 
@@ -153,7 +152,7 @@ def test_vol_to_df(mock_vol):
     df = vol_to_df(mock_vol)
     assert isinstance(df, pd.DataFrame)
     required_columns = get_requried_columns_for_vol()
-    forecast_features = ["ln_sb_best", "ln_ns_best", "ln_os_best"]
+    forecast_features = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
     expected_columns = required_columns + forecast_features
     assert set(df.columns) == set(expected_columns)
 
@@ -177,7 +176,7 @@ def test_df_vol_conversion_test(mock_df):
     df_vol_conversion_test(mock_df, vol)
     df_recreated = vol_to_df(vol)
     required_columns = get_requried_columns_for_vol()
-    forecast_features = ["ln_sb_best", "ln_ns_best", "ln_os_best"]
+    forecast_features = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
     vol_features = required_columns + forecast_features
     df_trimmed = mock_df[vol_features]
     df_trimmed = df_trimmed.sort_values(by=["priogrid_gid", "month_id"]).reset_index(drop=True)
@@ -260,9 +259,9 @@ def mock_df_with_nan():
         "row": [5, 15, 25, 35],
         "month_id": [100, 100, 101, 101],
         "c_id": [1, 1, 1, 1],
-        "ln_sb_best": [0.1, np.nan, 0.3, 0.4], # NaN here
-        "ln_ns_best": [0.2, 0.3, np.nan, 0.5], # NaN here
-        "ln_os_best": [0.3, 0.4, 0.5, np.nan], # NaN here
+        "lr_sb_best": [0.1, np.nan, 0.3, 0.4], # NaN here
+        "lr_ns_best": [0.2, 0.3, np.nan, 0.5], # NaN here
+        "lr_os_best": [0.3, 0.4, 0.5, np.nan], # NaN here
     }
     return pd.DataFrame(data)
 
@@ -276,7 +275,7 @@ def test_df_vol_conversion_with_nan(mock_df_with_nan):
     df_recreated = vol_to_df(vol)
 
     required_columns = get_requried_columns_for_vol()
-    forecast_features = ["ln_sb_best", "ln_ns_best", "ln_os_best"]
+    forecast_features = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
     vol_features = required_columns + forecast_features
     df_trimmed = mock_df_with_nan[vol_features]
 
@@ -294,79 +293,10 @@ def test_df_to_vol_empty_dataframe_raises_error():
     """
     empty_df = pd.DataFrame(columns=[
         "priogrid_gid", "col", "row", "month_id", "c_id",
-        "ln_sb_best", "ln_ns_best", "ln_os_best"
+        "lr_sb_best", "lr_ns_best", "lr_os_best"
     ])
     with pytest.raises(ValueError, match="Input DataFrame cannot be empty."):
         df_to_vol(empty_df)
-
-
-# New test for create_or_load_views_vol
-@patch('views_hydranet.utils.utils_df_to_vol_conversion.os.makedirs')
-@patch('views_hydranet.utils.utils_df_to_vol_conversion.np.save')
-@patch('views_hydranet.utils.utils_df_to_vol_conversion.logger')
-def test_create_or_load_views_vol_creates_if_not_exists(
-    mock_logger, mock_np_save, mock_os_makedirs, mock_df, mock_vol
-):
-    """
-    Tests that create_or_load_views_vol creates a volume if it does not exist.
-    """
-    partition = "testing"
-    path_processed = Path("/mock/processed")
-    path_raw = Path("/mock/raw")
-
-    with patch('views_hydranet.utils.utils_df_to_vol_conversion.os.path.isfile', return_value=False), \
-         patch('views_hydranet.utils.utils_df_to_vol_conversion.read_dataframe', return_value=mock_df), \
-         patch('views_hydranet.utils.utils_df_to_vol_conversion.df_to_vol', return_value=mock_vol), \
-         patch('views_pipeline_core.configs.pipeline.PipelineConfig') as MockPipelineConfig:
-
-        # Mock the PipelineConfig instance and its attribute
-        mock_pipeline_config_instance = MagicMock()
-        mock_pipeline_config_instance.dataframe_format = ".parquet"
-        MockPipelineConfig.return_value = mock_pipeline_config_instance
-
-        result_vol = create_or_load_views_vol(partition, path_processed, path_raw)
-
-        # Assertions
-        mock_os_makedirs.assert_called_once_with(str(path_processed), exist_ok=True)
-        mock_np_save.assert_called_once_with(str(path_processed / f"{partition}_vol.npy"), mock_vol)
-        assert result_vol is mock_vol # Should return the created mock_vol
-
-        # Check logger calls
-        mock_logger.info.assert_any_call("Creating volume...")
-        mock_logger.info.assert_any_call(f"shape of volume: {mock_vol.shape}")
-        mock_logger.info.assert_any_call(f"Saving volume to {path_processed / f'{partition}_vol.npy'}")
-        mock_logger.info.assert_any_call("Done")
-
-
-
-
-...
-@patch('views_hydranet.utils.utils_df_to_vol_conversion.os.makedirs')
-@patch('views_hydranet.utils.utils_df_to_vol_conversion.np.load')
-@patch('views_hydranet.utils.utils_df_to_vol_conversion.logger')
-def test_create_or_load_views_vol_loads_if_exists(
-    mock_logger, mock_np_load, mock_os_makedirs, mock_vol
-):
-    """
-    Tests that create_or_load_views_vol loads a volume if it already exists.
-    """
-    partition = "testing"
-    path_processed = Path("/mock/processed")
-    path_raw = Path("/mock/raw")
-
-    mock_np_load.return_value = mock_vol # np.load returns the mock_vol
-
-    with patch('views_hydranet.utils.utils_df_to_vol_conversion.os.path.isfile', return_value=True):
-        result_vol = create_or_load_views_vol(partition, path_processed, path_raw)
-
-        # Assertions
-        mock_os_makedirs.assert_called_once_with(str(path_processed), exist_ok=True)
-        mock_np_load.assert_called_once_with(str(path_processed / f"{partition}_vol.npy"))
-        assert result_vol is mock_vol # Should return the loaded mock_vol
-
-        # Check logger calls
-        expected_calls = [call("Volume already created"), call("Done")]
-        mock_logger.info.assert_has_calls(expected_calls, any_order=False)
 
 
 def test_df_vol_conversion_data_point_integrity(mock_df):
@@ -378,9 +308,9 @@ def test_df_vol_conversion_data_point_integrity(mock_df):
     df_copy = mock_df.copy()
 
     # --- Step 1: Trace a specific data point from df_copy to vol ---
-    # Pick a data point: let's use the first row's 'ln_sb_best' value
+    # Pick a data point: let's use the first row's 'lr_sb_best' value
     original_row = df_copy.iloc[0]
-    original_value = original_row['ln_sb_best'] # 0.1
+    original_value = original_row['lr_sb_best'] # 0.1
     original_pg_id = original_row['priogrid_gid'] # 1
     original_month_id = original_row['month_id'] # 100
 
@@ -396,12 +326,12 @@ def test_df_vol_conversion_data_point_integrity(mock_df):
     # Define height, width, and forecast features as used in df_to_vol
     height = 180
     width = 180
-    forecast_features = ["ln_sb_best", "ln_ns_best", "ln_os_best"]
+    forecast_features = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
     required_columns = get_requried_columns_for_vol()
     vol_features = required_columns + forecast_features
 
-    # Find the feature index for 'ln_sb_best'
-    feature_index_ln_sb_best = vol_features.index('ln_sb_best') # 5
+    # Find the feature index for 'lr_sb_best'
+    feature_index_lr_sb_best = vol_features.index('lr_sb_best') # 5
 
     # Generate the volume
     vol = df_to_vol(df_copy, height=height, width=width, forecast_features=forecast_features)
@@ -409,7 +339,7 @@ def test_df_vol_conversion_data_point_integrity(mock_df):
     # After np.transpose(vol, (2, 0, 1, 3))
     # New order: (month_range, height, width, n_features)
     # Natural order: abs_row corresponds to axis 1.
-    assert np.isclose(vol[abs_month, abs_row, abs_col, feature_index_ln_sb_best], original_value)
+    assert np.isclose(vol[abs_month, abs_row, abs_col, feature_index_lr_sb_best], original_value)
 
     # --- Step 2: Trace the data point back from vol to df_recreated ---
     df_recreated = vol_to_df(vol, forecast_features=forecast_features)
@@ -423,7 +353,7 @@ def test_df_vol_conversion_data_point_integrity(mock_df):
 
     # Assert that the value is preserved and correctly located
     assert not recreated_row.empty
-    assert np.isclose(recreated_row['ln_sb_best'].iloc[0], original_value)
+    assert np.isclose(recreated_row['lr_sb_best'].iloc[0], original_value)
 
 
 @patch("matplotlib.pyplot.show")

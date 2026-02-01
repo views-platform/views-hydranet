@@ -35,16 +35,16 @@ To survive in hostile environments (like mocked tests or partial initializations
 HydraNet operates on a strict 4D Spatiotemporal Volume format: `[Time, Height, Width, Channels]`
 
 - **Channels 0-4 (Metadata):** strictly reserved for `priogrid_gid`, `col`, `row`, `month_id`, `c_id`.
-- **Channels 5+ (Features):** The actual input features (e.g., `ln_sb_best`).
+- **Channels 5+ (Features):** The actual input features (e.g., `lr_sb_best`).
 - **Spatial Orientation:** "North is Up". The conversion process applies `np.flip(vol, axis=0)` to match CNN expectations.
 
 ### 3.2 Evaluation Target Scheme
 The system enforces a specific naming convention for targets during evaluation.
 
-- **Translation:** `ln_` (log-normalized) prefixes are automatically translated to `lr_` (level-raw).
-  - Example: `ln_sb_best` -> `lr_sb_best`
+- **Translation:** `lr_` (log-normalized) prefixes are automatically translated to `lr_` (level-raw).
+  - Example: `lr_sb_best` -> `lr_sb_best`
 - **Derivation:** If a target is requested (e.g., `lr_sb_best`) but only the log version exists, the system automatically:
-  1. Detects `ln_sb_best`.
+  1. Detects `lr_sb_best`.
   2. Applies `expm1` (inverse log1p).
   3. Creates `lr_sb_best`.
 - **Binarization:** Targets containing `binarized` trigger an automatic thresholding:
@@ -72,7 +72,7 @@ To prevent pipeline crashes during debugging (short training runs), HydraNet imp
 To evaluate without polluting the production data state, HydraNet uses a "Shadow Environment".
 
 1. **Create:** A temporary folder `artifacts/tmp_eval_data`.
-2. **Augment:** Generates derived ground-truth columns (e.g., `lr_` from `ln_`) and saves a new parquet file there.
+2. **Augment:** Generates derived ground-truth columns (e.g., `lr_` from `lr_`) and saves a new parquet file there.
 3. **Link:** Symlinks other required files (logs, etc.) from the real raw directory.
 4. **Redirect:** Points `self._model_path.data_raw` to this shadow directory.
 5. **Execute:** Runs evaluation.

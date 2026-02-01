@@ -30,7 +30,7 @@ def manager_robust_env(tmp_path):
                 "test_samples": 1,
                 "input_channels": 3,
                 "target_variable": "sb",
-                "targets": ["ln_sb_best"]
+                "targets": ["lr_sb_best"]
             }
             # Attach a mock _load_model_artifact to the instance to allow patching
             m._load_model_artifact = MagicMock(return_value=(MagicMock(), "ts"))
@@ -46,13 +46,16 @@ def test_multitask_merging_alignment(manager_robust_env):
     manager._hydranet_config["target_variable"] = "" # Both
 
     with patch.object(manager, "_load_model_artifact", return_value=(MagicMock(), "ts")):
-        with patch("views_hydranet.manager.hydranet_manager.create_or_load_views_vol") as mock_vol:
+        with patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetcher_cls, \
+             patch("views_hydranet.manager.hydranet_manager.df_to_vol") as mock_converter:
             with patch("views_hydranet.manager.hydranet_manager.HydraNetInference") as mock_inf_cls:
                 with patch("views_hydranet.manager.hydranet_manager.zstack_to_contract_df") as mock_conv:
                     with patch("views_hydranet.manager.hydranet_manager.pickle.dump"):
                         with patch("views_hydranet.manager.hydranet_manager.validate_contract_dataframes"):
 
-                            mock_vol.return_value = np.zeros((10, 10, 10, 8))
+                            mock_fetcher = mock_fetcher_cls.return_value
+                            mock_fetcher.fetch.return_value = MagicMock()
+                            mock_converter.return_value = np.zeros((10, 10, 10, 8))
                             mock_inference = mock_inf_cls.return_value
                             mock_inference.generate_posterior_samples.return_value = (MagicMock(), MagicMock())
 
@@ -72,13 +75,16 @@ def test_partition_aware_windows(manager_robust_env):
     manager._hydranet_config["run_type"] = "forecasting"
 
     with patch.object(manager, "_load_model_artifact", return_value=(MagicMock(), "ts")):
-        with patch("views_hydranet.manager.hydranet_manager.create_or_load_views_vol") as mock_vol:
+        with patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetcher_cls, \
+             patch("views_hydranet.manager.hydranet_manager.df_to_vol") as mock_converter:
             with patch("views_hydranet.manager.hydranet_manager.HydraNetInference") as mock_inf_cls:
                 with patch("views_hydranet.manager.hydranet_manager.zstack_to_contract_df", return_value=[pd.DataFrame()]):
                     with patch("views_hydranet.manager.hydranet_manager.pickle.dump"):
                         with patch("views_hydranet.manager.hydranet_manager.validate_contract_dataframes"):
 
-                            mock_vol.return_value = np.zeros((100, 10, 10, 8))
+                            mock_fetcher = mock_fetcher_cls.return_value
+                            mock_fetcher.fetch.return_value = MagicMock()
+                            mock_converter.return_value = np.zeros((100, 10, 10, 8))
                             mock_inference = mock_inf_cls.return_value
                             mock_inference.generate_posterior_samples.return_value = (MagicMock(), MagicMock())
 

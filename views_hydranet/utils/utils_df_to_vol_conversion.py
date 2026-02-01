@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+from views_hydranet.utils.data_fetcher import DataFetcher
 from views_pipeline_core.configs.pipeline import PipelineConfig
 from views_pipeline_core.files.utils import read_dataframe
 
@@ -19,7 +20,7 @@ def get_requried_columns_for_vol() -> list[str]:
     such as HydraNet and other CNN-based models. The minimum volume array includes data for
     spatial coordinates, temporal indices, and identifiers for grid cells.
     Beynd these columns, the volume typically includes "forecast feeatures",
-    for instance "ln_sb_best", "ln_ns_best", and "ln_os_best" for the three event types.
+    for instance "lr_sb_best", "lr_ns_best", and "lr_os_best" for the three event types.
 
     Returns:
         list of str: A list of column names required to create the volume array, specifically:
@@ -93,7 +94,7 @@ def df_to_vol(
     df: pd.DataFrame,
     height: int = 180,
     width: int = 180,
-    forecast_features: list[str] = ["ln_sb_best", "ln_ns_best", "ln_os_best"],
+    forecast_features: list[str] = ["lr_sb_best", "lr_ns_best", "lr_os_best"],
 ) -> np.ndarray:
     """Converts a DataFrame into a 4D numpy array (volume) for spatial-temporal data representation.
 
@@ -110,7 +111,7 @@ def df_to_vol(
         height: The height of the spatial grid. Defaults to 180.
         width: The width of the spatial grid. Defaults to 180.
         forecast_features: List of forecast feature columns to include in the volume.
-            Defaults to ['ln_sb_best', 'ln_ns_best', 'ln_os_best'].
+            Defaults to ['lr_sb_best', 'lr_ns_best', 'lr_os_best'].
 
     Returns:
         A 4D volume array with shape [n_months, height, width, n_features].
@@ -129,9 +130,9 @@ def df_to_vol(
         ...     "row": [5, 15, 25, 35],
         ...     "month_id": [100, 100, 101, 101],
         ...     "c_id": [1, 1, 1, 1],
-        ...     "ln_sb_best": [0.1, 0.2, 0.3, 0.4],
-        ...     "ln_ns_best": [0.2, 0.3, 0.4, 0.5],
-        ...     "ln_os_best": [0.3, 0.4, 0.5, 0.6],
+        ...     "lr_sb_best": [0.1, 0.2, 0.3, 0.4],
+        ...     "lr_ns_best": [0.2, 0.3, 0.4, 0.5],
+        ...     "lr_os_best": [0.3, 0.4, 0.5, 0.6],
         ... }
         >>> mock_df = pd.DataFrame(mock_data)
         >>> vol = df_to_vol(mock_df, height=40, width=40)
@@ -200,7 +201,7 @@ def df_to_vol(
 
 def vol_to_df(
     vol: np.ndarray,
-    forecast_features: list[str] = ["ln_sb_best", "ln_ns_best", "ln_os_best"],
+    forecast_features: list[str] = ["lr_sb_best", "lr_ns_best", "lr_os_best"],
 ) -> pd.DataFrame:
     """Converts a 4D numpy array (volume) back into a DataFrame.
 
@@ -212,7 +213,7 @@ def vol_to_df(
         vol: The input 4D volume array (created with df_to_vol()) to be converted, with shape
              [n_months, height, width, n_features].
         forecast_features: List of feature names corresponding to the forecast features in the volume.
-             Defaults to ['ln_sb_best', 'ln_ns_best', 'ln_os_best'].
+             Defaults to ['lr_sb_best', 'lr_ns_best', 'lr_os_best'].
 
     Returns:
         The DataFrame representation of the volume array containing columns:
@@ -293,7 +294,7 @@ def vol_to_df(
 def df_vol_conversion_test(
     df: pd.DataFrame,
     vol: np.ndarray,
-    forecast_features: list[str] = ["ln_sb_best", "ln_ns_best", "ln_os_best"],
+    forecast_features: list[str] = ["lr_sb_best", "lr_ns_best", "lr_os_best"],
 ) -> None:
     """Tests the consistency of DataFrame and volume array conversions.
 
@@ -305,7 +306,7 @@ def df_vol_conversion_test(
         df: The original DataFrame containing the spatial-temporal data.
         vol: The 4D volume array obtained from the DataFrame conversion via df_to_vol().
         forecast_features: List of feature names included in the volume.
-            Defaults to ['ln_sb_best', 'ln_ns_best', 'ln_os_best'].
+            Defaults to ['lr_sb_best', 'lr_ns_best', 'lr_os_best'].
     """
 
     # Make a copy of the original DataFrame
@@ -338,7 +339,7 @@ def df_vol_conversion_test(
 def plot_vol(
     vol: np.ndarray,
     month_range: int,
-    forecast_features: list[str] = ["ln_sb_best", "ln_ns_best", "ln_os_best"],
+    forecast_features: list[str] = ["lr_sb_best", "lr_ns_best", "lr_os_best"],
 ) -> None:
     """Plots feature maps from a 4D volume array over a specified range of months.
 
@@ -350,7 +351,7 @@ def plot_vol(
         vol: The input 4D volume array with shape [n_months, height, width, n_features].
         month_range: The number of recent time steps (months) to plot.
         forecast_features: List of additional feature names to include in the plots.
-            Defaults to ['ln_sb_best', 'ln_ns_best', 'ln_os_best'].
+            Defaults to ['lr_sb_best', 'lr_ns_best', 'lr_os_best'].
 
     Raises:
         ValueError: If `month_range` exceeds the number of time steps in `vol`.
@@ -413,50 +414,3 @@ def plot_vol(
         plt.tight_layout(pad=2.0, rect=[0, 0, 1, 0.9])  # `rect` adjusts the position of subplots
 
         plt.show()
-
-
-def create_or_load_views_vol(
-    partition: str, PATH_PROCESSED: str | Path, PATH_RAW: str | Path
-) -> np.ndarray:
-    """Creates or loads a volume from a DataFrame for a specified partition.
-
-    This function manages the creation or loading of a 4D volume array based on the DataFrame
-    associated with the given partition. It ensures that the volume file is available locally,
-    either by loading it if it exists or creating it from the DataFrame if it does not.
-
-    Args:
-        partition: The partition to process. Valid options are 'calibration', 'forecasting', 'testing'.
-        PATH_PROCESSED: The path to the directory where processed volume data should be stored.
-        PATH_RAW: The path to the directory where raw data is located.
-
-    Returns:
-        The 4D volume array created or loaded from the DataFrame, with shape
-        [n_months, height, width, n_features].
-
-    Example:
-        >>> from pathlib import Path
-        >>> # Mocking would be required for a full example
-    """
-
-    path_vol = os.path.join(str(PATH_PROCESSED), f"{partition}_vol.npy")
-
-    # Create the folders if they don't exist
-    os.makedirs(str(PATH_PROCESSED), exist_ok=True)
-
-    # Check if the volume exists
-    if os.path.isfile(path_vol):
-        logger.info("Volume already created")
-        vol = np.load(path_vol)
-    else:
-        logger.info("Creating volume...")
-        path_raw = os.path.join(
-            str(PATH_RAW), f"{partition}_viewser_df{PipelineConfig().dataframe_format}"
-        )
-        vol = df_to_vol(read_dataframe(path_raw))
-        logger.info(f"shape of volume: {vol.shape}")
-        logger.info(f"Saving volume to {path_vol}")
-        np.save(path_vol, vol)
-
-    logger.info("Done")
-
-    return vol

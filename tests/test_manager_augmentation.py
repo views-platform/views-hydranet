@@ -19,12 +19,12 @@ def clean_manager():
         return m
 
 def test_translate_targets(clean_manager):
-    inputs = ["ln_sb_best", "ns_best", "lr_os_best"]
+    inputs = ["lr_sb_best", "ns_best", "lr_os_best"]
     expected = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
     assert clean_manager._translate_targets(inputs) == expected
 
 def test_augment_dataframe_unlogging(clean_manager):
-    df = pd.DataFrame({"ln_sb_best": [4.61512051681]})
+    df = pd.DataFrame({"lr_sb_best": [4.61512051681]})
     requested = ["lr_sb_best"]
     augmented = clean_manager._augment_dataframe(df, requested)
     assert "lr_sb_best" in augmented.columns

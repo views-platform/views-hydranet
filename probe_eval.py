@@ -28,7 +28,7 @@ probe("lr_sb", 100.0, 4.61512)
 # Test 2: 'ln' prefix (Log)
 # Both actual and pred are logged (ln(100+1) ~ 4.61512)
 # Expected: Library unlogs both to 100, MSE = 0
-probe("ln_sb", 4.61512, 4.61512)
+probe("lr_sb", 4.61512, 4.61512)
 
 # Test 3: Mixed (This is the "Silent Error" risk)
 # Target is 'lr' but we give it logs

@@ -30,7 +30,7 @@ def mock_config_train_tensors():
     """
     return {
         "time_steps": 36,
-        "first_feature_idx": 5, # Corresponds to ln_best_sb_idx in utils.py
+        "first_feature_idx": 5, # Corresponds to lr_best_sb_idx in utils.py
         "input_channels": 3,
         "window_dim": 16,
         "min_events": 10,
@@ -169,13 +169,13 @@ def test_get_full_tensor_data_integrity():
     # Call the function
     full_tensor, metadata_tensor = get_full_tensor(mock_views_vol_data, mock_config)
 
-    # Hardcoded ln_best_sb_idx from get_full_tensor
-    ln_best_sb_idx = 5
+    # Hardcoded lr_best_sb_idx from get_full_tensor
+    lr_best_sb_idx = 5
 
     # --- Verify a value in full_tensor ---
-    # Choose a value that should go into full_tensor (e.g., from feature index 5, which is ln_best_sb_idx)
+    # Choose a value that should go into full_tensor (e.g., from feature index 5, which is lr_best_sb_idx)
     original_month, original_row, original_col = 0, 0, 0
-    original_feature_idx_full = ln_best_sb_idx # This is the 6th feature (index 5)
+    original_feature_idx_full = lr_best_sb_idx # This is the 6th feature (index 5)
     original_value_full = mock_views_vol_data[original_month, original_row, original_col, original_feature_idx_full]
 
     # Expected position in full_tensor after unsqueeze(0) and permute(0,1,4,2,3)
@@ -183,7 +183,7 @@ def test_get_full_tensor_data_integrity():
     # But it's (N_batch, N_months, N_features, H, W) after unsqueeze and permute
     # new_tensor[batch_dim, month_dim, feature_dim, height_dim, width_dim]
     expected_full_tensor_month_idx = original_month
-    expected_full_tensor_feature_idx = original_feature_idx_full - ln_best_sb_idx # Relative index within selected features
+    expected_full_tensor_feature_idx = original_feature_idx_full - lr_best_sb_idx # Relative index within selected features
 
     # NOTE: df_to_vol FLIPS the volume. Row 0 (South) -> Row 1 (North) in 2x2 grid
     expected_full_tensor_height_idx = height - 1 - original_row
@@ -243,7 +243,7 @@ def test_get_full_tensor_none_config(mock_views_vol):
     n_months, height, width, n_features = mock_views_vol.shape
     # When config is None, input_channels defaults to 3 (hardcoded in get_full_tensor)
     expected_full_tensor_shape = (1, n_months, 3, height, width)
-    expected_metadata_tensor_shape = (1, n_months, 5, height, width) # 5 = ln_best_sb_idx (hardcoded)
+    expected_metadata_tensor_shape = (1, n_months, 5, height, width) # 5 = lr_best_sb_idx (hardcoded)
 
     assert full_tensor.shape == expected_full_tensor_shape
     assert metadata_tensor.shape == expected_metadata_tensor_shape
@@ -281,7 +281,7 @@ def test_get_train_tensors_basic(
     expected_n_months_after_slice = mock_views_vol.shape[0] - time_steps
 
     # The shape of input_window will be (expected_n_months_after_slice, window_dim, window_dim, original_n_features)
-    # After unsqueeze(0), permute(0,1,4,2,3), and slicing ln_best_sb_idx:last_feature_idx
+    # After unsqueeze(0), permute(0,1,4,2,3), and slicing lr_best_sb_idx:last_feature_idx
     expected_shape = (
         1, # Batch dim
         expected_n_months_after_slice, # Months
@@ -357,7 +357,7 @@ def test_get_train_tensors_spatial_transforms(
     mock_views_vol_data = np.zeros((n_months_full, original_height, original_width, n_features), dtype=np.float32)
     # Put a distinct pattern in a 4x4 area that will be picked as the window
     # Window (slice from original_height/width): 0:16 for rows, 0:16 for cols
-    # Feature 5 (ln_best_sb_idx)
+    # Feature 5 (lr_best_sb_idx)
     # Month 0 (from train_views_vol[0])
 
     # Example pattern for a 4x4 section of feature 5, month 0:
@@ -388,12 +388,10 @@ def test_get_train_tensors_spatial_transforms(
     # C B A 9
     # G F E D
     # Apply log1p
-    expected_flipped_pattern = torch.tensor([
-        [4, 3, 2, 1],
-        [8, 7, 6, 5],
-        [12, 11, 10, 9],
-        [16, 15, 14, 13]
-    ], dtype=torch.float32).log1p()
+    full_tensor = torch.tensor([
+        [[50, 60, 70], [80, 90, 100], [110, 120, 130]],
+        [[140, 150, 160], [170, 180, 190], [200, 210, 220]]
+    ], dtype=torch.float32)
 
     # --- Mock the transforms to ensure a horizontal flip happens ---
     class MockHorizontalFlip(torch.nn.Module):
@@ -469,12 +467,12 @@ def test_get_train_tensors_spatial_temporal_alignment(
     # Helper to prepare expected tensor from original data
     # Input window is always mock_views_vol_data as window_dim=height/width, time_steps=0
     def prepare_expected_tensor(data, h_flip=False, v_flip=False):
-        # Apply Scaling FIRST
-        data = np.log1p(data)
+    # The data is already in semantic space before reaching this utility
+    data = data.copy()
 
         temp_tensor = torch.tensor(data).float().unsqueeze(dim=0).permute(0,1,4,2,3)
         # Apply permutations and slicing as in get_train_tensors
-        # [:, :, ln_best_sb_idx:last_feature_idx, :, :]
+        # [:, :, lr_best_sb_idx:last_feature_idx, :, :]
         # Since first_feature_idx=0 and input_channels=n_features, this slice is effectively all features
 
         # Reshape for torchvision transforms

@@ -530,7 +530,7 @@ def get_window_index(
     """Samples a spatial cell (row and column index) from the input `views_vol`."""
 
     # Use the unified helper to find features
-    ln_best_sb_idx, last_feature_idx = _get_feature_indices(config, columns)
+    lr_best_sb_idx, last_feature_idx = _get_feature_indices(config, columns)
 
     min_events = config.get("min_events", 5)
     samples = config.get("samples", 300)
@@ -538,7 +538,7 @@ def get_window_index(
     roof_ratio = config.get("roof_ratio", 0.7)
 
     # Identification of conflict heads
-    fatcats = np.arange(ln_best_sb_idx, last_feature_idx, 1)
+    fatcats = np.arange(lr_best_sb_idx, last_feature_idx, 1)
     n_fatcats = len(fatcats)
 
     fatcat = fatcats[sample % n_fatcats]
@@ -651,19 +651,12 @@ def get_train_tensors(
     ]
 
     # 4. Slice and Permute
-    ln_best_sb_idx, last_feature_idx = _get_feature_indices(config, columns)
+    lr_best_sb_idx, last_feature_idx = _get_feature_indices(config, columns)
 
-    # JIT Scaling Logic: Ensure training data scale matches eval path
-    from views_hydranet.utils.utils_scaling import ScalingEngine
-
-    scaler = ScalingEngine.from_config(config)
-
+    # DATA SCALE POLICY:
+    # Scaling is now handled by the FeatureScaler at the Manager/DF boundary.
+    # The tensors consumed here are strictly in semantic space.
     input_window_scaled = input_window.copy()
-    # ALL features (channels 5+) are scaled here regardless of metadata
-    # Metadata channels (0-4) are preserved as-is
-    input_window_scaled[:, :, :, ln_best_sb_idx:last_feature_idx] = scaler.scale(
-        input_window[:, :, :, ln_best_sb_idx:last_feature_idx], "get_train_tensors"
-    )
 
     # Transform: [T, H, W, C] -> [1, T, C, H, W]
     train_tensor = (
@@ -671,7 +664,7 @@ def get_train_tensors(
         .float()
         .to(device)
         .unsqueeze(dim=0)
-        .permute(0, 1, 4, 2, 3)[:, :, ln_best_sb_idx:last_feature_idx, :, :]
+        .permute(0, 1, 4, 2, 3)[:, :, lr_best_sb_idx:last_feature_idx, :, :]
     )
 
     # INTEGRITY CHECK: Log max feature value to detect explosion early
@@ -756,21 +749,12 @@ def get_full_tensor(
             f"Please check QuerySet/Architecture alignment."
         )
 
-    # 4. Perform Slicing and Scaling
-    from views_hydranet.utils.utils_scaling import ScalingEngine
-
-    scaler = ScalingEngine.from_config(config)
-
-    # Transform to float array for JIT scaling (Polymorphic handle)
+    # 4. Perform Slicing and Conversion
+    # Transform to float array (Polymorphic handle)
     if isinstance(views_vol, torch.Tensor):
         views_vol_np = views_vol.detach().cpu().numpy().astype(np.float32)
     else:
-        views_vol_np = views_vol.copy().astype(np.float32)
-
-    # UNCONDITIONAL: Scale all feature channels regardless of metadata
-    views_vol_np[:, :, :, feature_start_idx:last_feature_idx] = scaler.scale(
-        views_vol_np[:, :, :, feature_start_idx:last_feature_idx], "get_full_tensor"
-    )
+        views_vol_np = views_vol.astype(np.float32)
 
     vol_tensor = torch.tensor(views_vol_np).float()
     vol_tensor = vol_tensor.unsqueeze(dim=0).permute(0, 1, 4, 2, 3)
@@ -779,8 +763,8 @@ def get_full_tensor(
     metadata_tensor = vol_tensor[:, :, :feature_start_idx, :, :]
 
     if full_tensor.numel() > 0:
-        logger.info(f"AUDIT: Eval Input Scale (Max Feature): {full_tensor.max().item():.4f}")
-    logger.debug(f"Slicing and scaling complete: full_tensor={full_tensor.shape}")
+        logger.info(f"AUDIT: Semantic Input Scale (Max Feature): {full_tensor.max().item():.4f}")
+    logger.debug(f"Slicing complete: full_tensor={full_tensor.shape}")
 
     return full_tensor, metadata_tensor
 
@@ -796,12 +780,12 @@ def get_full_tensor(
 #     The test tensor is of size 1 x config.time_steps x config.input_channels x 180 x 180.
 #     """
 #
-#     ln_best_sb_idx = config.first_feature_idx # 5 = ln_best_sb
-#     last_feature_idx = ln_best_sb_idx + config.input_channels
+#     lr_best_sb_idx = config.first_feature_idx # 5 = lr_best_sb
+#     last_feature_idx = lr_best_sb_idx + config.input_channels
 #
 #     print(f'views_vol shape {views_vol.shape}')  # (months, 180, 180, 8)
 #
-#     full_tensor = torch.tensor(views_vol).float().unsqueeze(dim=0).permute(0,1,4,2,3)[:, :, ln_best_sb_idx:last_feature_idx, :, :]
+#     full_tensor = torch.tensor(views_vol).float().unsqueeze(dim=0).permute(0,1,4,2,3)[:, :, lr_best_sb_idx:last_feature_idx, :, :]
 #
 #     print(f'full_tensor shape {full_tensor.shape}') # (1, months, 3, 180, 180)
 #

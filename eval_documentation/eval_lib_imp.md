@@ -52,7 +52,7 @@ This object contains the ground truth values that your predictions will be compa
     *   **Target Column:** The DataFrame **must** contain one column whose name is an exact string match for the `target` parameter passed to the `.evaluate()` method.
     *   **CRITICAL: Prefix Requirement:** The target name **must** start with one of the following prefixes, which signals to the `EvaluationManager` how to internally handle the data:
         *   `lr_`: Indicates "raw" data that needs no transformation.
-        *   `ln_`: Indicates log-transformed data; the library will apply an `exp(x) - 1` transformation.
+        *   `lr_`: Indicates log-transformed data; the library will apply an `exp(x) - 1` transformation.
         *   `lx_`: Indicates a different log-transform; the library will apply a different `exp` transformation.
     *   **Data Type:** The data in the target column must be numeric (`int` or `float`). Other columns are permitted in the DataFrame but will be ignored by the evaluation process.
 
@@ -149,7 +149,7 @@ list_of_prediction_dfs = [predictions_1, ...] # Add more sequences here
 The single most dangerous risk of silent failure is a mismatch between the expected data scale and the actual data scale.
 
 *   **Universal Rule:** The producer repository (e.g., `views-r2darts2`, `views-stepshifter`) is **always responsible** for fully inverse-transforming its predictions back to their original, "raw count" scale.
-*   **Risk:** The `EvaluationManager` **does not** perform any inverse transformations on prediction data. If it receives log-transformed data, it will calculate all metrics on these incorrect values, producing silently corrupted results. It is the producer's sole responsibility to ensure the data is on the correct scale. Producers must also ensure the data is mathematically appropriate for these transformations (e.g., non-negative values when using `ln_` or `lx_` prefixes, as log-transforms are undefined for negative numbers), as the `EvaluationManager` applies these transforms directly without prior validation.
+*   **Risk:** The `EvaluationManager` **does not** perform any inverse transformations on prediction data. If it receives log-transformed data, it will calculate all metrics on these incorrect values, producing silently corrupted results. It is the producer's sole responsibility to ensure the data is on the correct scale. Producers must also ensure the data is mathematically appropriate for these transformations (e.g., non-negative values when using `lr_` or `lx_` prefixes, as log-transforms are undefined for negative numbers), as the `EvaluationManager` applies these transforms directly without prior validation.
 
 ### 3.5. Robustness Limitations & Input Validation Responsibility (CRITICAL)
 

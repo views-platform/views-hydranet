@@ -38,7 +38,7 @@ def get_target_index(target_name: str) -> int:
     """
     Determines the tensor channel index for a given target name.
     
-    Example: 'ln_sb_best' -> 0, 'lr_ns_best' -> 1
+    Example: 'lr_sb_best' -> 0, 'lr_ns_best' -> 1
     """
     target_name = target_name.lower()
     for key, idx in TARGET_REGISTRY.items():

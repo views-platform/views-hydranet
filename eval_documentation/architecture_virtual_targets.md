@@ -4,7 +4,7 @@
 The `views-pipeline-core` assumes a **1:1 mapping** between the `targets` listed in configuration and the columns present in the physical data files (`.parquet`).
 
 ### The Conflict:
-*   **HydraNet** is a multitask model. It treats magnitude (`ln_sb_best`) and binary occurrence (`ln_sb_best_binarized`) as two heads of the same task.
+*   **HydraNet** is a multitask model. It treats magnitude (`lr_sb_best`) and binary occurrence (`lr_sb_best_binarized`) as two heads of the same task.
 *   **Historical Data** (actuals) usually only stores the magnitude. The binary state is "virtual"—it is a deterministic derivation: `magnitude > 0`.
 *   **The Error:** When the Pipeline Core attempts to evaluate HydraNet, it reads the `targets` list (which includes the binarized versions) and attempts to slice the raw data. This triggers a `KeyError` because the binarized columns don't exist on disk.
 
@@ -45,7 +45,7 @@ def augmented_read_dataframe(path):
 ### Step 3: Handling Configuration Dissonance
 *   **Current State:** Eval Lib takes 1 target.
 *   **HydraNet Goal:** Evaluate both magnitude and binary for the selected `target_variable` (e.g., "sb").
-*   **The Plan:** The Manager will ensure that if `target_variable == "sb"`, both `ln_sb_best` and `ln_sb_best_binarized` are available in the ground truth, regardless of what the physical file contains.
+*   **The Plan:** The Manager will ensure that if `target_variable == "sb"`, both `lr_sb_best` and `lr_sb_best_binarized` are available in the ground truth, regardless of what the physical file contains.
 
 ---
 

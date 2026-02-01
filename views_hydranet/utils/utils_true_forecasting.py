@@ -157,7 +157,7 @@ def check_vol_equal(vol: np.ndarray, full_vol: np.ndarray) -> None:
 
     list_features = [
         "pg_id", "col", "row", "month_id", "c_id",
-        "ln_sb_best", "ln_ns_best", "ln_os_best",
+        "lr_sb_best", "lr_ns_best", "lr_os_best",
     ]
 
     for i in range(vol_trimmed.shape[-1]):
@@ -201,7 +201,7 @@ def plot_vol_comparison(
     """Plots a visual comparison of two volumes step-by-step."""
     features_titles = [
         "pg_id", "col", "row", "month_id", "c_id",
-        "ln_sb_best", "ln_ns_best", "ln_os_best",
+        "lr_sb_best", "lr_ns_best", "lr_os_best",
     ]
     n_features = vol.shape[-1]
 

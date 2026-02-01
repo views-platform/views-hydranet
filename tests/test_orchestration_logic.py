@@ -33,13 +33,16 @@ def test_orchestration_loop_indices():
     manager._model_path.data_generated.mkdir(parents=True, exist_ok=True)
 
     # 2. Setup external patches
-    with patch("views_hydranet.manager.hydranet_manager.create_or_load_views_vol") as mock_vol_loader:
+    with patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetcher_cls, \
+         patch("views_hydranet.manager.hydranet_manager.df_to_vol") as mock_converter:
         with patch("views_hydranet.manager.hydranet_manager.HydraNetInference") as mock_inference_cls:
             with patch("views_hydranet.manager.hydranet_manager.zstack_to_contract_df") as mock_contract_conv:
                 with patch("views_hydranet.manager.hydranet_manager.pickle.dump"):
                     with patch("views_hydranet.manager.hydranet_manager.validate_contract_dataframes"):
 
-                        mock_vol_loader.return_value = np.zeros((15, 10, 10, 8))
+                        mock_fetcher = mock_fetcher_cls.return_value
+                        mock_fetcher.fetch.return_value = MagicMock()
+                        mock_converter.return_value = np.zeros((15, 10, 10, 8))
                         mock_inference = mock_inference_cls.return_value
                         mock_inference.generate_posterior_samples.return_value = (
                             np.zeros((3, 10, 10, 6, 1)),

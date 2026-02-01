@@ -7,9 +7,9 @@ To achieve "Rust-like" robustness by ensuring every transformation, orchestratio
 
 ## Phase 1: The "Translation & Augmentation" Suite (Unit)
 The monkey-patching and target translation are the most "magical" parts of the system. We must de-mystify them with unit tests.
-*   **Target Translation:** Verify `ln_sb_best` -> `lr_sb_best` and `sb` -> `lr_sb` across all edge cases.
+*   **Target Translation:** Verify `lr_sb_best` -> `lr_sb_best` and `sb` -> `lr_sb` across all edge cases.
 *   **JIT Augmentor:** Verify that the augmented data loader correctly:
-    *   Unlogs `ln_` columns into `lr_` columns.
+    *   Unlogs `lr_` columns into `lr_` columns.
     *   Binarizes magnitude columns into `_binarized` columns.
     *   Does nothing if columns are already present.
 *   **Verification Target:** `tests/test_manager_augmentation.py`

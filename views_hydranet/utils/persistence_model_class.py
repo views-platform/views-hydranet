@@ -135,6 +135,6 @@ class PersistenceModel:
 
 
 # Example usage
-# model = PersistenceModel(df_test, ['ln_sb_best', 'ln_os_best', 'ln_ns_best'], is_true_forecast=False)
+# model = PersistenceModel(df_test, ['lr_sb_best', 'lr_os_best', 'lr_ns_best'], is_true_forecast=False)
 # df_persistence = model.get_persistence_model_predictions()
 # print(df_persistence)

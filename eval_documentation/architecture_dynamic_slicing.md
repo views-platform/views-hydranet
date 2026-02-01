@@ -6,7 +6,7 @@
 Currently, the HydraNet pipeline uses a hardcoded integer `idx = 5` to separate metadata (IDs) from features (Conflict counts).
 
 ### The Risks:
-1.  **Data Corruption:** If a user adds a new column to the QuerySet (e.g., `iso_code`), index 5 might point to `c_id` instead of `ln_sb_best`. The model would then train on Country IDs as if they were conflict counts.
+1.  **Data Corruption:** If a user adds a new column to the QuerySet (e.g., `iso_code`), index 5 might point to `c_id` instead of `lr_sb_best`. The model would then train on Country IDs as if they were conflict counts.
 2.  **Silent Failures:** Standard unit tests pass because they assume the "Standard 5" layout.
 3.  **Future Rigidity:** Adding a 4th target variable currently requires a manual code search-and-replace.
 
