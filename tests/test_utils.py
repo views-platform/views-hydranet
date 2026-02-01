@@ -176,7 +176,6 @@ def test_get_full_tensor_data_integrity():
     # Choose a value that should go into full_tensor (e.g., from feature index 5, which is lr_best_sb_idx)
     original_month, original_row, original_col = 0, 0, 0
     original_feature_idx_full = lr_best_sb_idx # This is the 6th feature (index 5)
-    original_value_full = mock_views_vol_data[original_month, original_row, original_col, original_feature_idx_full]
 
     # Expected position in full_tensor after unsqueeze(0) and permute(0,1,4,2,3)
     # The permute changes (N, H, W, F) to (N, F, H, W) effectively if only 4D.
@@ -191,7 +190,7 @@ def test_get_full_tensor_data_integrity():
 
     # Pull the value that will actually be at this flipped position
     actual_source_value = mock_views_vol_data[original_month, height - 1 - original_row, original_col, original_feature_idx_full]
-    expected_value = np.log1p(actual_source_value)
+    expected_value = actual_source_value
 
     # Assert value in full_tensor
     assert torch.isclose(
@@ -318,14 +317,17 @@ def test_get_train_tensors_data_integrity(
     # Fill target channel with 50.0
     target_val = 50.0
     mock_views_vol_data[:, :, :, 5] = target_val
-
     # Act
     train_tensor = get_train_tensors(mock_views_vol_data, sample, mock_config_train_tensors, device)
 
-    # Expect Unconditional Scaling: log1p(50)
-    expected_value = np.log1p(target_val)
+    # Expect Unconditional Preservation: 50.0 (Semantic Space)
+    expected_value = target_val
 
-    # Assert: All pixels in the first feature channel should be the scaled value
+
+
+            # Assert: All pixels in the first feature channel should be the literal value
+
+
     assert torch.allclose(
         train_tensor[0, :, 0, :, :],
         torch.tensor(expected_value, dtype=torch.float32)
@@ -365,8 +367,6 @@ def test_get_train_tensors_spatial_transforms(
     # 5 6 7 8
     # 9 A B C
     # D E F G
-    pattern_start_row = 0
-    pattern_start_col = 0
     pattern_dim = 4
 
     # Values that will be in the input_window (feature 5, month 0, rows 0-3, cols 0-3)
@@ -382,15 +382,12 @@ def test_get_train_tensors_spatial_transforms(
 
     # The get_window_index and get_window_coords mocks are set at the patch decorator level.
 
-    # Expected transformed pattern (horizontally flipped AND SCALED)
-    # 4 3 2 1
-    # 8 7 6 5
-    # C B A 9
-    # G F E D
-    # Apply log1p
-    full_tensor = torch.tensor([
-        [[50, 60, 70], [80, 90, 100], [110, 120, 130]],
-        [[140, 150, 160], [170, 180, 190], [200, 210, 220]]
+    # Expected transformed pattern (horizontally flipped - NO SCALING)
+    expected_flipped_pattern = torch.tensor([
+        [4, 3, 2, 1],
+        [8, 7, 6, 5],
+        [12, 11, 10, 9],
+        [16, 15, 14, 13]
     ], dtype=torch.float32)
 
     # --- Mock the transforms to ensure a horizontal flip happens ---
@@ -467,10 +464,10 @@ def test_get_train_tensors_spatial_temporal_alignment(
     # Helper to prepare expected tensor from original data
     # Input window is always mock_views_vol_data as window_dim=height/width, time_steps=0
     def prepare_expected_tensor(data, h_flip=False, v_flip=False):
-    # The data is already in semantic space before reaching this utility
-    data = data.copy()
+        # The data is already in semantic space before reaching this utility
+        data_copy = data.copy()
 
-        temp_tensor = torch.tensor(data).float().unsqueeze(dim=0).permute(0,1,4,2,3)
+        temp_tensor = torch.tensor(data_copy).float().unsqueeze(dim=0).permute(0,1,4,2,3)
         # Apply permutations and slicing as in get_train_tensors
         # [:, :, lr_best_sb_idx:last_feature_idx, :, :]
         # Since first_feature_idx=0 and input_channels=n_features, this slice is effectively all features

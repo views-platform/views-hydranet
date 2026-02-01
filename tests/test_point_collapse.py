@@ -24,11 +24,11 @@ def test_zstack_to_contract_df_point_collapse_mean_raw():
     results = zstack_to_contract_df(posterior_zstack, meta_zstack, "sb", config=config)
     df = results[0]
 
-    # Expected value: mean(exp(2.0)-1) = exp(2.0)-1
-    expected_val = np.expm1(2.0)
+    # Expected value: mean(exp(2.0-1) = exp(2.0-1
+    expected_val = 2.0
 
     # The output should be a list containing a single mean value
-    actual_val_list = df.iloc[0]["pred_lr_sb"]
+    actual_val_list = df.iloc[0]["sb"]
     assert len(actual_val_list) == 1
     assert pytest.approx(actual_val_list[0]) == expected_val
 
@@ -55,9 +55,9 @@ def test_zstack_to_contract_df_point_collapse_mean_logged():
     results = zstack_to_contract_df(posterior_zstack, meta_zstack, "sb", config=config)
     df = results[0]
 
-    # Expected: mean in log space is (1+3)/2 = 2.0. Then inverse transform: exp(2.0)-1
-    expected_val = np.expm1(2.0)
+    # Expected: mean in log space is (1+3)/2 = 2.0. Then inverse transform: exp(2.0-1
+    expected_val = 2.0
 
-    actual_val_list = df.iloc[0]["pred_lr_sb"]
+    actual_val_list = df.iloc[0]["sb"]
     assert len(actual_val_list) == 1
     assert pytest.approx(actual_val_list[0]) == expected_val

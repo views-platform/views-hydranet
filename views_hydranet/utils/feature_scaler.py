@@ -3,10 +3,11 @@ Declarative and Stateful Feature Scaling for HydraNet.
 """
 
 import logging
-from typing import Dict, List, Callable
+from typing import Any, Callable, Dict, List
+
 import numpy as np
 import pandas as pd
-from typing import Any
+
 logger = logging.getLogger(__name__)
 
 class FeatureScaler:
@@ -24,9 +25,9 @@ class FeatureScaler:
         self._config = {}
         for method in ["log1p", "asinh", "identity"]:
             self._config[method] = config.get(method, [])
-        
+
         self._is_fitted = False
-        
+
         # Math Registry: (Forward, Inverse)
         self._methods: Dict[str, tuple[Callable, Callable]] = {
             "log1p": (np.log1p, np.expm1),
@@ -54,7 +55,7 @@ class FeatureScaler:
             for col in columns:
                 if col not in df_out.columns:
                     raise ValueError(f"FeatureScaler Fit Error: Column '{col}' missing from DataFrame.")
-                
+
                 logger.info(f"FeatureScaler: {col} -> {method}")
                 df_out[col] = forward_func(df_out[col])
 
@@ -86,7 +87,7 @@ class FeatureScaler:
             for col in columns:
                 if col not in df_out.columns:
                     raise ValueError(f"FeatureScaler Inverse Error: Column '{col}' missing.")
-                
+
                 logger.info(f"FeatureScaler: {col} <- {method} (Inverse)")
                 df_out[col] = inverse_func(df_out[col])
 

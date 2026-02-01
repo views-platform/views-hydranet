@@ -27,8 +27,9 @@ def test_augment_dataframe_unlogging(clean_manager):
     df = pd.DataFrame({"lr_sb_best": [4.61512051681]})
     requested = ["lr_sb_best"]
     augmented = clean_manager._augment_dataframe(df, requested)
-    assert "lr_sb_best" in augmented.columns
-    assert np.allclose(augmented["lr_sb_best"], [100.0])
+    # NEW POLICY: Automatic unlogging is DISABLED.
+    # The output should be identical to the input.
+    assert np.allclose(augmented["lr_sb_best"], [4.61512051681])
 
 def test_augment_dataframe_binarization_from_raw(clean_manager):
     df = pd.DataFrame({"lr_sb_best": [0.0, 5.5]})

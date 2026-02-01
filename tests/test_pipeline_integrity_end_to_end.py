@@ -83,8 +83,7 @@ def test_topological_integrity_full_circuit():
 
     # 5. Verification
     # Use np.isclose to handle float32/64 precision differences during list search
-    recovered_marker_row = df_recovered[df_recovered["pred_lr_sb"].apply(lambda x: any(np.isclose(v, marker_val) for v in x))]
-
+    recovered_marker_row = df_recovered[df_recovered["sb"].apply(lambda x: any(np.isclose(v, marker_val) for v in x))]
     if recovered_marker_row.empty:
         print("\n[!] FAILURE: Marker value 9.99 was LOST in the pipeline.")
         pytest.fail("Data was corrupted during transformation.")

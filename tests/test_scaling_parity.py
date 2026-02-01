@@ -36,8 +36,8 @@ def test_scaling_parity_between_train_and_eval():
     train_max = train_tensor.max().item()
 
     # EXPECTATION:
-    # log1p(100) is approx 4.615
-    expected_val = np.log1p(100.0)
+    # 100.0 is preserved exactly (Semantic Space)
+    expected_val = 100.0
 
     print("\nScaling Check:")
     print(f"  Expected Max: {expected_val:.4f}")

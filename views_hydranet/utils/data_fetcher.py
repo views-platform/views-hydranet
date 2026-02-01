@@ -9,6 +9,7 @@ import pandas as pd
 from views_pipeline_core.configs.pipeline import PipelineConfig
 from views_pipeline_core.files.utils import read_dataframe
 
+
 class DataFetcher:
     """
     Component responsible for retrieving raw VIEWS DataFrames from disk.
@@ -41,7 +42,7 @@ class DataFetcher:
 
         # Explicit Debugging Block
         print("\n" + "=" * 60)
-        print(f"!!! DEBUG: DataFetcher - Ingestion Complete")
+        print("!!! DEBUG: DataFetcher - Ingestion Complete")
         print(f"!!! Partition: {partition}")
         print(f"!!! Columns:   {df.columns.tolist()}")
         print("=" * 60 + "\n")

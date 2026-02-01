@@ -20,14 +20,14 @@ from views_pipeline_core.managers.model import (
 )
 
 from views_hydranet.train.train_model import train_model_artifact
+from views_hydranet.utils.data_fetcher import DataFetcher
+from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.hydranet_inference import HydraNetInference
 from views_hydranet.utils.utils_contract_converters import (
     validate_contract_dataframes,
     zstack_to_contract_df,
 )
 from views_hydranet.utils.utils_device import setup_device
-from views_hydranet.utils.data_fetcher import DataFetcher
-from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.utils_df_to_vol_conversion import df_to_vol
 from views_hydranet.utils.utils_orchestration import get_rolling_origin_indices
 

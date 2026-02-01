@@ -26,13 +26,11 @@ def test_index_5_reference_parity():
     assert full_tensor.shape == (1, 2, 3, 180, 180)
     assert metadata_tensor.shape == (1, 2, 5, 180, 180)
 
-    # Check values at index 0 (which should be scaled from dummy_vol index 5)
-    # log1p(1.23) is approx 0.8020
-    expected_5 = np.log1p(1.23)
+    # Check values at index 0 (literal value from dummy_vol index 5)
+    expected_5 = 1.23
     assert torch.allclose(full_tensor[0, :, 0, :, :], torch.tensor(expected_5, dtype=torch.float32))
-    # Check values at index 1 (which should be scaled from dummy_vol index 6)
-    # log1p(4.56) is approx 1.7156
-    expected_6 = np.log1p(4.56)
+    # Check values at index 1 (literal value from dummy_vol index 6)
+    expected_6 = 4.56
     assert torch.allclose(full_tensor[0, :, 1, :, :], torch.tensor(expected_6, dtype=torch.float32))
 
     # Prove that metadata_tensor contains indices 0-4
@@ -50,10 +48,10 @@ def test_channel_mapping_intent():
 
     full_tensor, _ = get_full_tensor(dummy_vol, {"input_channels": 3}, columns=cols)
 
-    # New Policy: 100.0 is scaled to log1p(100) approx 4.6151
-    assert torch.isclose(full_tensor[0, 0, 0, 0, 0], torch.tensor(np.log1p(100.0), dtype=torch.float32))
-    assert torch.isclose(full_tensor[0, 0, 1, 0, 0], torch.tensor(np.log1p(200.0), dtype=torch.float32))
-    assert torch.isclose(full_tensor[0, 0, 2, 0, 0], torch.tensor(np.log1p(300.0), dtype=torch.float32))
+    # New Policy: Tensors are strictly semantic (No JIT scaling)
+    assert torch.isclose(full_tensor[0, 0, 0, 0, 0], torch.tensor(100.0, dtype=torch.float32))
+    assert torch.isclose(full_tensor[0, 0, 1, 0, 0], torch.tensor(200.0, dtype=torch.float32))
+    assert torch.isclose(full_tensor[0, 0, 2, 0, 0], torch.tensor(300.0, dtype=torch.float32))
 
 def test_future_queryset_resilience():
     """
@@ -70,8 +68,8 @@ def test_future_queryset_resilience():
 
     full_tensor, metadata_tensor = get_full_tensor(dummy_vol, config, columns=cols)
 
-    # EXPECTATION: Head 0 should be scaled log1p(1.23)
-    assert torch.isclose(full_tensor[0, 0, 0, 0, 0], torch.tensor(np.log1p(1.23), dtype=torch.float32))
+    # EXPECTATION: Head 0 should be literal 1.23
+    assert torch.isclose(full_tensor[0, 0, 0, 0, 0], torch.tensor(1.23, dtype=torch.float32))
     # Metadata tensor should have 6 channels now
     assert metadata_tensor.shape[2] == 6
 
@@ -90,8 +88,8 @@ def test_jit_scaling_parity():
     # Run
     full_raw, _ = get_full_tensor(dummy_vol_raw, config, columns=cols_raw)
 
-    # ASSERT correct scaling
-    expected = np.log1p(raw_val)
+    # ASSERT correct preservation (No JIT scaling)
+    expected = raw_val
     assert torch.isclose(full_raw[0, 0, 0, 0, 0], torch.tensor(expected, dtype=torch.float32))
 
 

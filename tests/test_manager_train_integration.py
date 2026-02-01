@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import numpy as np
 import pytest
@@ -39,8 +39,8 @@ def test_manager_execute_training_integration(manager_with_config):
         # Verify Fetcher was called
         mock_fetcher.fetch.assert_called_once()
 
-        # Verify Converter was called
-        mock_converter.assert_called_once_with(mock_df)
+        # Verify Converter was called with the scaled DF and the list of features
+        mock_converter.assert_called_once_with(mock_df.copy.return_value, forecast_features=ANY)
 
         # Verify Trainer was called with correct args (vol, cal)
         expected_cal = manager.config["run_type"] == "calibration"

@@ -23,8 +23,8 @@ def test_geometric_mean_parity(base_data):
     config = {"evalution_mode": "point", "aggregate_method": "geometric_mean"}
     res = zstack_to_contract_df(post, meta, "sb", config=config)[0]
 
-    expected = np.expm1(2.0)
-    assert pytest.approx(res.iloc[0]["pred_lr_sb"][0]) == expected
+    expected = 2.0
+    assert pytest.approx(res.iloc[0]["sb"][0]) == expected
 
 def test_arithmetic_mean_parity(base_data):
     """Verify: mean(exp(1)-1, exp(3)-1)"""
@@ -32,10 +32,10 @@ def test_arithmetic_mean_parity(base_data):
     config = {"evalution_mode": "point", "aggregate_method": "arithmetic_mean"}
     res = zstack_to_contract_df(post, meta, "sb", config=config)[0]
 
-    val1 = np.expm1(1.0)
-    val2 = np.expm1(3.0)
+    val1 = 1.0
+    val2 = 3.0
     expected = (val1 + val2) / 2.0
-    assert pytest.approx(res.iloc[0]["pred_lr_sb"][0]) == expected
+    assert pytest.approx(res.iloc[0]["sb"][0]) == expected
 
 def test_median_parity(base_data):
     """Verify: median is invariant to the transform space."""
@@ -44,5 +44,5 @@ def test_median_parity(base_data):
     res = zstack_to_contract_df(post, meta, "sb", config=config)[0]
 
     # Median of 1.0 and 3.0 is 2.0. exp(2.0)-1
-    expected = np.expm1(2.0)
-    assert pytest.approx(res.iloc[0]["pred_lr_sb"][0]) == expected
+    expected = 2.0
+    assert pytest.approx(res.iloc[0]["sb"][0]) == expected

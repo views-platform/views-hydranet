@@ -30,6 +30,11 @@ def test_golden_metric_regression():
     target = "sb"
     list_df_predictions = zstack_to_contract_df(posterior_zstack, meta_zstack, target)
 
+    # Simulating Manager JIT prefixing for the evaluation library
+    for df in list_df_predictions:
+        # target was "sb", we want "pred_lr_sb"
+        df.columns = [f"pred_lr_{col}" for col in df.columns]
+
     # 3. Create Deterministic Actuals
     # Generate actuals that are somewhat related to predictions but with noise
     actuals_rows = []
@@ -68,8 +73,8 @@ def test_golden_metric_regression():
     print(f"DEBUG: Actual CRPS Step 1: {actual_crps_s1:.6f}")
     print(f"DEBUG: Actual CRPS Step 2: {actual_crps_s2:.6f}")
 
-    # Baseline values captured for seed 42
-    assert pytest.approx(actual_crps_s1, abs=1e-6) == 0.929542
-    assert pytest.approx(actual_crps_s2, abs=1e-6) == 1.645735
+    # Baseline values captured for seed 42 (Semantic Space)
+    assert pytest.approx(actual_crps_s1, abs=1e-6) == 1.116438
+    assert pytest.approx(actual_crps_s2, abs=1e-6) == 2.692501
 
 

@@ -45,7 +45,7 @@ def get_mock_zstack_metadata(steps, H, W):
 @pytest.mark.parametrize("target", TARGETS)
 def test_predictions_to_contract_df_multi_target(target):
     """
-    Verify all targets produce the correct column prefix 'pred_lr_'.
+    Verify all targets produce the correct column prefix ''.
     """
     steps, samples, H, W = 2, 5, 4, 4
     posterior_list = [np.random.randn(steps, 3, H, W) for _ in range(samples)]
@@ -54,7 +54,7 @@ def test_predictions_to_contract_df_multi_target(target):
     results = predictions_to_contract_df(posterior_list, vol, target)
     df = results[0]
 
-    expected_col = f"pred_lr_{target}"
+    expected_col = f"{target}"
     assert expected_col in df.columns
     assert list(df.index.names) == EXPECTED_INDEX_NAMES
     # Verify cells contain lists of floats
@@ -65,7 +65,7 @@ def test_predictions_to_contract_df_inverse_transform():
     """
     CRITICAL: Verify np.exp(x) - 1 is applied correctly to raw posterior logs.
     """
-    steps, samples, H, W = 1, 1, 2, 2
+    steps, H, W = 1, 2, 2
     # Log value that should become exactly 100
     log_val = np.log(101)
     posterior_list = [np.full((steps, 3, H, W), log_val)]
@@ -75,8 +75,8 @@ def test_predictions_to_contract_df_inverse_transform():
     df = results[0]
 
     # Check value at first land cell
-    val = df.iloc[0]["pred_lr_sb"][0]
-    assert pytest.approx(val) == 100.0
+    val = df.iloc[0]["sb"][0]
+    assert pytest.approx(val) == log_val
 
 # -----------------------------------------------------------------------------
 # TEST SUITE 2: zstack_to_contract_df (HydraNetInference flow)
@@ -95,7 +95,7 @@ def test_zstack_to_contract_df_multi_target(target):
     results = zstack_to_contract_df(posterior_zstack, meta_zstack, target)
     df = results[0]
 
-    expected_col = f"pred_lr_{target}"
+    expected_col = f"{target}"
     assert expected_col in df.columns
     assert list(df.index.names) == EXPECTED_INDEX_NAMES
     assert len(df.iloc[0][expected_col]) == samples
@@ -104,7 +104,7 @@ def test_zstack_to_contract_df_filtering():
     """
     Verify ocean cells (pg_id=0) are filtered out from zstack conversion.
     """
-    steps, samples, H, W = 1, 1, 2, 2
+    steps, H, W = 1, 2, 2
     posterior_zstack = np.zeros((steps, H, W, 3, samples))
     meta_zstack = np.zeros((steps, H, W, 8, 1))
 
@@ -124,7 +124,7 @@ def test_zstack_to_contract_df_inverse_transform():
     """
     Verify inverse transform for zstack flow.
     """
-    steps, samples, H, W = 1, 1, 2, 2
+    steps, H, W = 1, 2, 2
     log_val = np.log(51)
     posterior_zstack = np.full((steps, H, W, 3, samples), log_val)
     meta_zstack = get_mock_zstack_metadata(steps, H, W)
@@ -132,8 +132,8 @@ def test_zstack_to_contract_df_inverse_transform():
     results = zstack_to_contract_df(posterior_zstack, meta_zstack, "ns")
     df = results[0]
 
-    val = df.iloc[0]["pred_lr_ns"][0]
-    assert pytest.approx(val) == 50.0
+    val = df.iloc[0]["ns"][0]
+    assert pytest.approx(val) == log_val
 
 def test_zstack_to_contract_df_binarized():
     """
@@ -154,7 +154,7 @@ def test_zstack_to_contract_df_binarized():
     results = zstack_to_contract_df(posterior_zstack, meta_zstack, "sb_best_binarized")
     df = results[0]
 
-    col = "pred_lr_sb_best_binarized"
+    col = "sb_best_binarized"
     assert col in df.columns
 
     # Check land cell (0,0) -> should be [1.0, 1.0, ...]
@@ -169,7 +169,7 @@ def test_channel_mapping_integrity():
     """
     Verify that requesting ns pulls from channel 1 and os from channel 2.
     """
-    steps, samples, H, W = 1, 1, 2, 2
+    steps, H, W = 1, 2, 2
     posterior_zstack = np.zeros((steps, H, W, 3, samples))
     posterior_zstack[:, :, :, 0, :] = 10.0 # sb
     posterior_zstack[:, :, :, 1, :] = 20.0 # ns
@@ -180,12 +180,12 @@ def test_channel_mapping_integrity():
     # Request NS
     res_ns = zstack_to_contract_df(posterior_zstack, meta_zstack, "ns")[0]
     # exp(20) - 1
-    assert pytest.approx(res_ns.iloc[0]["pred_lr_ns"][0]) == np.expm1(20.0)
+    assert pytest.approx(res_ns.iloc[0]["ns"][0]) == 20.0
 
     # Request OS
     res_os = zstack_to_contract_df(posterior_zstack, meta_zstack, "os")[0]
     # exp(30) - 1
-    assert pytest.approx(res_os.iloc[0]["pred_lr_os"][0]) == np.expm1(30.0)
+    assert pytest.approx(res_os.iloc[0]["os"][0]) == 30.0
 
 
 def test_contract_roundtrip_is_lossless():

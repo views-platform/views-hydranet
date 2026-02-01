@@ -96,10 +96,9 @@ def test_forecast_integration_end_to_end(mock_setup):
         assert isinstance(df.index, pd.MultiIndex)
         assert df.index.names == ["month_id", "priogrid_gid"]
 
-        expected_col = f"pred_lr_{target}"
+        expected_col = target
         assert expected_col in df.columns
-
-        # Check sample size
+                # Check sample size
         first_val = df.iloc[0][expected_col]
         assert isinstance(first_val, list)
         assert len(first_val) == config["test_samples"]

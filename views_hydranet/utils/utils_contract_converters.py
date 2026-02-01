@@ -260,7 +260,7 @@ def contract_df_to_zstack(
     steps, H, W, _, _ = meta_zstack.shape
 
     # Peek at first list to get sample count
-    samples = len(df.iloc[0][f"pred_lr_{target}"])
+    samples = len(df.iloc[0][target])
 
     # Pre-allocate reconstructed volume
     reconstructed = np.zeros((steps, H, W, 1, samples))
@@ -269,8 +269,8 @@ def contract_df_to_zstack(
     pg_ids_template = meta_zstack[:, :, :, 0, 0]
     month_ids_template = meta_zstack[:, :, :, 3, 0]
 
-    # Inverse transform column name
-    col = f"pred_lr_{target}"
+    # Inverse transform column name (Literal Standard)
+    col = target
 
     # Iterate over template steps
     for t in range(steps):
