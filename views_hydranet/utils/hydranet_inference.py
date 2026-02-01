@@ -6,7 +6,8 @@ import torch
 from torch.nn import Module
 from tqdm import tqdm
 
-from views_hydranet.utils.utils import get_full_tensor
+from views_hydranet.utils.volume_handler import VolumeHandler
+
 
 logger = logging.getLogger(__name__)
 
@@ -211,22 +212,13 @@ class HydraNetInference:
 
             if t < in_sample_seq_len:
                 t0 = full_tensor[:, t]
-                # JIT FLIP: CNN expects North-is-Up (Axis 2 in [B, C, H, W])
-                t0_flipped = torch.flip(t0, [2])
-                t1_pred_flipped, _, h_tt = self.model(t0_flipped, h_tt)
-                # UNFLIP: Restore natural orientation for subsequent recurrence
-                t1_pred = torch.flip(t1_pred_flipped, [2])
+                # Data is already North-Up via VolumeHandler.
+                t1_pred, _, h_tt = self.model(t0, h_tt)
             else:
                 t0 = t1_pred.detach()
-                # JIT NS-Flip
-                t0_flipped = torch.flip(t0, [2])
-                t1_pred_flipped, t1_pred_class_flipped, h_tt = self.execute_freeze_h_option(
-                    t0_flipped, h_tt
+                t1_pred, t1_pred_class, h_tt = self.execute_freeze_h_option(
+                    t0, h_tt
                 )
-
-                # UNFLIP
-                t1_pred = torch.flip(t1_pred_flipped, [2])
-                t1_pred_class = torch.flip(t1_pred_class_flipped, [2])
 
                 # --- PANIC CHECK: Detect explosion ---
                 if not torch.isfinite(t1_pred).all():
@@ -255,39 +247,38 @@ class HydraNetInference:
 
     def generate_posterior_samples(
         self,
-        views_vol: np.ndarray,
+        handler: VolumeHandler,
         is_evaluation: bool = False,
-        window_info: str = "",
-        columns: Optional[List[str]] = None
+        window_info: str = ""
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Generates posterior samples from the model.
 
         Args:
-            views_vol: Spatiotemporal volume [Months, H, W, Channels].
+            handler: VolumeHandler carrier [Months, H, W, Channels].
             is_evaluation: Whether to perform rolling origin evaluation logic.
             window_info: Text for progress reporting.
-            columns: Optional list of column names for dynamic slicing.
 
         Returns:
             Tuple[np.ndarray, np.ndarray]: (posterior_zstack, metadata_zstack)
         """
 
-        # 1. Prepare Tensors
-        full_tensor, metadata_tensor = get_full_tensor(views_vol, self.config, columns=columns)
-        full_tensor = full_tensor.to(self.device)
+        # 1. Model Entry Gate: Standardized PyTorch Layout
+        # We strip identity channels here for the model input
+        full_tensor = handler.to_pytorch(self.device, include_identities=False)
         _, seq_len, _, H, W = full_tensor.shape
 
         # Define full_seq_len based on logic in predict()
+        time_steps = len(self.config["steps"])
         if is_evaluation:
             full_seq_len = seq_len - 1
         else:
-            full_seq_len = seq_len - 1 + self.config["time_steps"]
+            full_seq_len = seq_len - 1 + time_steps
 
         # Pre-allocate memory
         posterior_magnitudes_zstack = np.zeros(
             (
-                self.config["time_steps"],
+                time_steps,
                 H,
                 W,
                 self.config["input_channels"],
@@ -324,9 +315,6 @@ class HydraNetInference:
         posterior_zstack = np.concatenate(
             [posterior_magnitudes_zstack, posterior_probabilities_zstack], axis=-2
         )
-        metadata_zstack = (
-            metadata_tensor.numpy()[:, -self.config["time_steps"] :, :, :, :]
-            .transpose(1, 3, 4, 2, 0)
-        )
-
-        return posterior_zstack, metadata_zstack
+        
+        # Metadata recovery is handled via the VolumeHandler in the manager
+        return posterior_zstack, None

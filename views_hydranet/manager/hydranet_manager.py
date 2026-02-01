@@ -66,9 +66,6 @@ class HydranetManager(ForecastingModelManager):
 
     def _execute_model_training(self) -> None:
         """HydraNet specific training override."""
-        # run_type = self.configs["run_type"]
-        #is_calibration = run_type == "calibration"
-
         logger.info(f"Starting HydraNet training: {self.configs['run_type']}")
 
         # 1. Ingest
@@ -76,7 +73,7 @@ class HydranetManager(ForecastingModelManager):
         df = fetcher.fetch_df()
         df = DataFetcher.standardize_raw_df(df, self.configs) 
 
-        # 2. Sniff (Authoritative Config)
+        # 2. Sniff
         sniffer = DataSniffer(self.configs)
         sniffer.sniff_ingestion(df)
 
@@ -85,7 +82,6 @@ class HydranetManager(ForecastingModelManager):
         df = scaler.fit_transform(df)
 
         # 4. Transform: DataFrame -> Volume (Absolute Anchoring)
-        # We use the VolumeHandler to ensure the geometry is authoritative and traceable.
         handler = VolumeHandler.from_df(
             df, 
             self.configs, 
@@ -94,21 +90,17 @@ class HydranetManager(ForecastingModelManager):
         )
 
         # PEACE OF MIND GATE: Uncomment to visually verify the raster before training
-        handler.visual_audit()
+        # handler.visual_audit()
 
-        # 5. Train: Pass the VolumeHandler carrier to the trainer
-        train_model_artifact(
-            self._model_path, self.configs, self.device, handler, columns=None
-        )
+        # 5. Train
+        train_model_artifact(self._model_path, self.configs, self.device, handler)
 
     def _execute_model_evaluation(self) -> None:
         """HydraNet specific evaluation override."""
         import os
         from views_pipeline_core.files.utils import read_dataframe, save_dataframe
 
-        # Access targets directly from authoritative config
         targets = self.configs.get("targets", [])
-
         run_type = self.configs["run_type"]
         original_raw_path = self._model_path.data_raw
         actuals_filename = f"{run_type}_viewser_df.parquet"
@@ -166,8 +158,14 @@ class HydranetManager(ForecastingModelManager):
         scaler = FeatureScaler(self.configs)
         df = scaler.fit_transform(df)
 
-        # 4. Transform
-        vol_full = df_to_vol(df, forecast_features=self.configs["features"])
+        # 4. Transform: Canonical Inbound Volume
+        handler = VolumeHandler.from_df(
+            df, 
+            self.configs, 
+            height=self.configs.get("height", 180), 
+            width=self.configs.get("width", 180)
+        )
+        vol_full = handler.data
 
         sniffer.sniff_forecast_alignment(df, vol_full, month_range=vol_full.shape[0])
 
@@ -180,21 +178,23 @@ class HydranetManager(ForecastingModelManager):
         list_df_predictions = []
 
         for i, origin in enumerate(origins):
-            vol_slice = vol_full[: origin + 1 + time_steps]
-            posterior_zstack, meta_zstack = inference.generate_posterior_samples(vol_slice, is_evaluation=True)
+            # The inference engine now consumes the carrier handler
+            posterior_zstack, _ = inference.generate_posterior_samples(
+                handler, is_evaluation=True, window_info=f"Origin {i+1}/{len(origins)}"
+            )
 
             requested_targets = scaler.configured_columns
             if self.configs.get("target_variable"):
                 requested_targets = [t for t in requested_targets if self.configs["target_variable"] in t]
 
-            df_origin = None
-            for target in requested_targets:
-                df_target = zstack_to_contract_df(posterior_zstack, meta_zstack, target, config=self.configs)[0]
-                df_origin = df_target if df_origin is None else pd.concat([df_origin, df_target], axis=1)
+            # --- THE SYMMETRY ENGINE ---
+            pred_handler = handler.wrap_posterior(posterior_zstack, feature_names=requested_targets)
+            df_origin = pred_handler.to_df(identity_provider=handler)
 
             if df_origin is not None:
                 df_origin = scaler.inverse_transform(df_origin)
-                df_origin.columns = [f"pred_{col}" for col in df_origin.columns]
+                rename_map = {col: f"pred_{col}" for col in requested_targets}
+                df_origin = df_origin.rename(columns=rename_map)
                 list_df_predictions.append(df_origin)
 
         validate_contract_dataframes(list_df_predictions)
@@ -212,25 +212,33 @@ class HydranetManager(ForecastingModelManager):
         scaler = FeatureScaler(self.configs)
         df = scaler.fit_transform(df)
 
-        # 4. Transform
-        vol_forecast = df_to_vol(df, forecast_features=self.configs["features"])
+        # 4. Transform: Canonical Inbound Volume
+        handler = VolumeHandler.from_df(
+            df, 
+            self.configs, 
+            height=self.configs.get("height", 180), 
+            width=self.configs.get("width", 180)
+        )
+        vol_forecast = handler.data
 
         time_steps = len(self.configs["steps"])
-        sniffer.sniff_forecast_alignment(df, vol_forecast, month_range=time_steps)
+        sniffer.sniff_forecast_alignment(df, handler.data, month_range=time_steps)
 
         model, _ = self._load_model_artifact(artifact_name)
         inference = HydraNetInference(model, self.configs, device=self.device)
-        posterior_zstack, meta_zstack = inference.generate_posterior_samples(vol_forecast, is_evaluation=False)
+        posterior_zstack, _ = inference.generate_posterior_samples(handler, is_evaluation=False)
         
-        df_full = None
-        for target in scaler.configured_columns:
-            if self.configs.get("target_variable") and self.configs["target_variable"] not in target:
-                continue
-            df_target = zstack_to_contract_df(posterior_zstack, meta_zstack, target)[0]
-            df_full = df_target if df_full is None else pd.concat([df_full, df_target], axis=1)
+        requested_targets = scaler.configured_columns
+        if self.configs.get("target_variable"):
+            requested_targets = [t for t in requested_targets if self.configs["target_variable"] in t]
+
+        # --- THE SYMMETRY ENGINE ---
+        pred_handler = handler.wrap_posterior(posterior_zstack, feature_names=requested_targets)
+        df_full = pred_handler.to_df(identity_provider=handler)
                 
         if df_full is not None:
             df_full = scaler.inverse_transform(df_full)
-            df_full.columns = [f"pred_{col}" for col in df_full.columns]
+            rename_map = {col: f"pred_{col}" for col in requested_targets}
+            df_full = df_full.rename(columns=rename_map)
             
         return [df_full] if df_full is not None else []

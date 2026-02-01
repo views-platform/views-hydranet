@@ -13,7 +13,6 @@ from views_hydranet.utils.utils import (
     choose_loss,
     choose_model,
     choose_scheduler,
-    get_train_tensors,
     init_weights,
     train_log,
 )
@@ -64,18 +63,17 @@ def train(
     model.train()
     multitaskloss_instance.train()
 
-    # 1. Coordinate Space Discovery
-    identity_cols = config["identity_cols"]
-    
-    # We cast to float32 at the last possible moment
-    full_sample_tensor = torch.from_numpy(sample_handler.data.astype(np.float32)).to(device)
-    
-    # [T, H, W, C] -> [1, T, C, H, W]
-    full_sample_tensor = full_sample_tensor.unsqueeze(0).permute(0, 1, 4, 2, 3)
-    
-    # Slice only the feature channels
-    feat_start = len(identity_cols)
-    train_tensor = full_sample_tensor[:, :, feat_start:, :, :]
+    # 1. Stochastic Data Augmentation (Tube-Level)
+    # We flip the entire spatial-temporal tube together to maintain consistency.
+    if config.get("random_flips", True):
+        if np.random.rand() < 0.5:
+            sample_handler.flip("H")
+        if np.random.rand() < 0.5:
+            sample_handler.flip("W")
+
+    # 1. Model Entry Gate: Transform to PyTorch [B, T, C, H, W]
+    # We strip identity channels here so the model only sees features.
+    train_tensor = sample_handler.to_pytorch(device, include_identities=False)
 
     seq_len = train_tensor.shape[1]
     window_dim = train_tensor.shape[-1]
