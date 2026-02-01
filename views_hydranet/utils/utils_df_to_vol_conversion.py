@@ -163,7 +163,7 @@ def df_to_vol(
     for i, feature in enumerate(vol_features):
         vol[df_abs["abs_row"], df_abs["abs_col"], df_abs["abs_month"], i] = df_abs[feature]
 
-    # vol = np.flip(vol, axis=0)  # REMOVED: Orientation now handled at CNN boundary
+    vol = np.flip(vol, axis=0)  # Flip the rows, so north is up.
     vol = np.transpose(vol, (2, 0, 1, 3))  # Move the month dimension to the front. [T, H, W, C]
 
     logger.info(f"Volume of shape {vol.shape} created. Should be (n_months, 180, 180, 8)")

@@ -4,6 +4,7 @@ Standalone DataFetcher component for the HydraNet pipeline.
 
 import os
 from pathlib import Path
+from typing import Any, Dict
 
 import pandas as pd
 from views_pipeline_core.configs.pipeline import PipelineConfig
@@ -19,19 +20,21 @@ class DataFetcher:
     of the raw data state.
     """
 
-    def __init__(self, path_raw: str | Path) -> None:
-        self.path_raw = path_raw
-
-    def fetch(self, partition: str) -> pd.DataFrame:
+    def __init__(self, path_raw: str | Path, config: Dict[str, Any]) -> None:
         """
-        Loads the DataFrame for a specific partition.
+        Initializes with the physical data path and the active configuration.
+        """
+        self.path_raw = path_raw
+        self.config = config
 
-        Args:
-            partition: Name of the partition (e.g., 'calibration').
+    def fetch_df(self) -> pd.DataFrame:
+        """
+        Loads the DataFrame for the current run_type defined in the config.
 
         Returns:
             pd.DataFrame: The raw data as fetched from the pipeline output.
         """
+        partition = self.config["run_type"]
         df_ext = PipelineConfig().dataframe_format
         path_raw_file = os.path.join(
             str(self.path_raw), f"{partition}_viewser_df{df_ext}"
@@ -49,39 +52,37 @@ class DataFetcher:
 
         return df
 
-def standardize_raw_df(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Standardizes a raw VIEWS DataFrame by enforcing strict index structure.
-    
-    Requirements:
-    - Must be a pandas MultiIndex.
-    - Level 0 must be 'month_id'.
-    - Level 1 must be 'priogrid_gid'.
-    
-    Raises:
-        ValueError: If the index structure does not match exactly.
-    """
-    
-    # 1. Enforce MultiIndex
-    if not isinstance(df.index, pd.MultiIndex):
-        error_msg = f"[CRITICAL DATA ERROR] Expected MultiIndex, got {type(df.index)}"
-        print(f"\n{error_msg}")
-        raise ValueError(error_msg)
+    @staticmethod
+    def standardize_raw_df(df: pd.DataFrame, config: dict) -> pd.DataFrame:
+        """
+        Standardizes a raw VIEWS DataFrame by enforcing strict index structure from config.
         
-    # 2. Enforce Level Names and Order
-    expected_names = ["month_id", "priogrid_gid"]
-    actual_names = list(df.index.names)
-    
-    if actual_names[:2] != expected_names:
-        error_msg = (
-            f"[CRITICAL DATA ERROR] Index Contract Violation!\n"
-            f"Expected levels 0,1: {expected_names}\n"
-            f"Actual levels:       {actual_names}"
-        )
-        print(f"\n{error_msg}")
-        raise ValueError(error_msg)
+        Requirements:
+        - Must be a pandas MultiIndex.
+        - Level names must match config["index_names"].
         
-    # 3. Structural Normalization
-    # We bring the indices into columns so the DataSniffer and Scaler can 
-    # treat them as first-class members of the DataFrame.
-    return df.reset_index()
+        Raises:
+            ValueError: If the index structure does not match exactly.
+        """
+        
+        # 1. Enforce MultiIndex
+        if not isinstance(df.index, pd.MultiIndex):
+            error_msg = f"[CRITICAL DATA ERROR] Expected MultiIndex, got {type(df.index)}"
+            print(f"\n{error_msg}")
+            raise ValueError(error_msg)
+            
+        # 2. Enforce Level Names and Order from Config
+        expected_names = config.get("index_names", ["month_id", "priogrid_gid"])
+        actual_names = list(df.index.names)
+        
+        if actual_names[:len(expected_names)] != expected_names:
+            error_msg = (
+                f"[CRITICAL DATA ERROR] Index Contract Violation!\n"
+                f"Expected levels: {expected_names}\n"
+                f"Actual levels:   {actual_names}"
+            )
+            print(f"\n{error_msg}")
+            raise ValueError(error_msg)
+            
+        # 3. Structural Normalization
+        return df.reset_index()

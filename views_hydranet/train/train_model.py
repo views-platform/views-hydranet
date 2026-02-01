@@ -8,6 +8,7 @@ import torch.nn as nn
 from tqdm import tqdm
 from views_pipeline_core.managers.model import ModelPathManager
 
+from views_hydranet.utils.integrity_guardian import IntegrityGuardian
 from views_hydranet.utils.utils import (
     choose_loss,
     choose_model,
@@ -16,6 +17,8 @@ from views_hydranet.utils.utils import (
     init_weights,
     train_log,
 )
+from views_hydranet.utils.volume_handler import VolumeHandler
+from views_hydranet.utils.volume_sampler import VolumeSampler
 
 logger = logging.getLogger(__name__)
 
@@ -47,41 +50,46 @@ def train(
     criterion_reg: nn.Module,
     criterion_class: nn.Module,
     multitaskloss_instance: nn.Module,
-    views_vol: np.ndarray,
-    sample: int,
+    sample_handler: VolumeHandler,
     config: dict,
     device: torch.device,
     pbar: tqdm,
-    columns: list[str] | None = None,
 ) -> None:
-
-    # wandb.watch(model, [criterion_reg, criterion_class], log=None, log_freq=2048)
 
     avg_loss_reg_list = []
     avg_loss_class_list = []
     avg_loss_list = []
-    total_loss = torch.tensor(0.0).to(device) # Initialize as tensor
+    total_loss = torch.tensor(0.0).to(device) 
 
     model.train()
     multitaskloss_instance.train()
 
-    # Batch loops:
-    for batch in range(config["batch_size"]):
-        # Getting the train_tensor
-        train_tensor = get_train_tensors(views_vol, sample, config, device, columns=columns)
-        seq_len = train_tensor.shape[1]
-        window_dim = train_tensor.shape[-1]
+    # 1. Coordinate Space Discovery
+    identity_cols = config["identity_cols"]
+    
+    # We cast to float32 at the last possible moment
+    full_sample_tensor = torch.from_numpy(sample_handler.data.astype(np.float32)).to(device)
+    
+    # [T, H, W, C] -> [1, T, C, H, W]
+    full_sample_tensor = full_sample_tensor.unsqueeze(0).permute(0, 1, 4, 2, 3)
+    
+    # Slice only the feature channels
+    feat_start = len(identity_cols)
+    train_tensor = full_sample_tensor[:, :, feat_start:, :, :]
 
-        # initialize a hidden state
-        h = model.init_h(hidden_channels=model.base, dim=window_dim).float().to(device)
+    seq_len = train_tensor.shape[1]
+    window_dim = train_tensor.shape[-1]
+    
+    # initialize a hidden state
+    h = model.init_h(hidden_channels=model.base, dim=window_dim).float().to(device)
 
-        # Sequence loop rnn style
-        for i in range(seq_len - 1):
+    # Sequence loop rnn style
+    for i in range(seq_len - 1):
             t0 = train_tensor[:, i, :, :, :]
             t1 = train_tensor[:, i + 1, :, :, :]
             t1_binary = (t1.clone().detach().requires_grad_(True) > 0) * 1.0
 
-            # JIT FLIP: CNN expects North-is-Up (Axis 2 in [B, C, H, W])
+            # JIT FLIP: CNN expects North-is-Up
             t0_flipped = torch.flip(t0, [2])
 
             # forward-pass
@@ -122,6 +130,9 @@ def train(
         optimizer.zero_grad()
         total_loss.backward()
 
+        # NUMERICAL AUDIT: Hard stop on explosion
+        IntegrityGuardian.monitor(model, t1_pred, total_loss, context="Sequence End")
+
         # Gradient Clipping
         if config.get("clip_grad_norm", False):
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -138,7 +149,7 @@ def training_loop(
     criterion: tuple,
     optimizer: torch.optim.Optimizer,
     scheduler: torch.optim.lr_scheduler._LRScheduler,
-    views_vol: np.ndarray,
+    handler: VolumeHandler,
     device: torch.device,
     columns: list[str] | None = None,
 ) -> None:
@@ -151,10 +162,12 @@ def training_loop(
     torch.manual_seed(config["torch_seed"])
     logger.info("🚀 Training initiated...")
 
+    # Initialize the Sampler Lens
+    sampler = VolumeSampler(handler, config)
+
     # 1. Determine total steps upfront for a unified progress bar
-    # We peek at the first sample to get the sequence length
-    temp_tensor = get_train_tensors(views_vol, 0, config, device, columns=columns)
-    seq_len = temp_tensor.shape[1]
+    train_vol_shape = sampler.get_train_volume().shape
+    seq_len = train_vol_shape[0]
     total_iterations = config["samples"] * config["batch_size"] * (seq_len - 1)
 
     with tqdm(
@@ -164,23 +177,25 @@ def training_loop(
         leave=True
     ) as pbar:
         for sample in range(config["samples"]):
-            # Update description to show current sample progress
             pbar.set_description(f"👾 Training Sample {sample + 1}/{config['samples']}")
 
-            train(
-                model,
-                optimizer,
-                scheduler,
-                criterion_reg,
-                criterion_class,
-                multitaskloss_instance,
-                views_vol,
-                sample,
-                config,
-                device,
-                pbar,
-                columns=columns
-            )
+            # Batch loops:
+            for batch in range(config["batch_size"]):
+                # Extract a fresh windowed sample as a Handler
+                sample_handler = sampler.sample_window(sample)
+
+                train(
+                    model,
+                    optimizer,
+                    scheduler,
+                    criterion_reg,
+                    criterion_class,
+                    multitaskloss_instance,
+                    sample_handler,
+                    config,
+                    device,
+                    pbar
+                )
 
     logger.info("✅ Training complete!")
 
@@ -189,7 +204,7 @@ def train_model_artifact(
     model_path: ModelPathManager,
     config: dict,
     device: torch.device,
-    views_vol: np.ndarray,
+    handler: VolumeHandler,
     columns: list[str] | None = None,
 ) -> None:
     """Creates, trains, and saves a model artifact."""
@@ -199,7 +214,7 @@ def train_model_artifact(
 
     # Train the model
     training_loop(
-        config, model, criterion, optimizer, scheduler, views_vol, device, columns=columns
+        config, model, criterion, optimizer, scheduler, handler, device, columns=columns
     )
     logger.info("Done training")
 

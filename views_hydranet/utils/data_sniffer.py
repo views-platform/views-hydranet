@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 class DataSniffer:
     """
-    A passive data observer that enforces strict contract compliance.
+    A passive data observer that enforces strict contract compliance. 
     
     This class identifies divergent or corrupted data states early. 
     It is strictly 'read-only' and will never modify data.
@@ -22,28 +22,41 @@ class DataSniffer:
 
     def __init__(self, config: Dict[str, Any]) -> None:
         """
-        Initialize with the handshake configuration to know the expected state.
+        Initialize with the configuration to know the expected state.
         """
         self.config = config
-        # Central Authority for Identity Columns
-        self.identity_cols = ["priogrid_gid", "col", "row", "month_id", "c_id"]
+        
+        # 1. Enforce Mandatory Identity Columns from Config
+        if "identity_cols" not in config:
+            error_msg = "[CRITICAL CONFIG ERROR] DataSniffer: 'identity_cols' missing from configuration!"
+            logger.error(error_msg)
+            raise KeyError(error_msg)
+            
+        self.identity_cols = config["identity_cols"]
+        
+        # 2. Minimum validation: We expect exactly 5 identities for this architecture
+        if len(self.identity_cols) != 5:
+            error_msg = (
+                f"[CRITICAL CONFIG ERROR] DataSniffer: Identity Contract Violation!\n"
+                f"Expected 5 identity columns, got {len(self.identity_cols)}: {self.identity_cols}"
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
 
     def sniff_ingestion(self, df: pd.DataFrame) -> None:
         """
         Suite of checks performed immediately after data is fetched from disk.
         
         Runs:
-        1. Obligatory Column Check
+        1. Obligatory Column Check (Identity + Features)
         2. Spatiotemporal Uniqueness Check (No duplicates)
-        3. Prefix Integrity Check (lr_ prefix enforcement)
-        4. Identity Value Sanity Check (Ranges and Finiteness)
-        5. Non-Finite Value Check
+        3. Identity Value Sanity Check (Ranges and Finiteness)
+        4. Non-Finite Value Check
         """
         logger.info("DataSniffer: Starting Ingestion Suite (Raw Space)")
         
         self._check_obligatory_columns(df)
         self._check_spatiotemporal_uniqueness(df)
-        self._check_column_prefixes(df)
         self._check_identity_values(df)
         self._check_non_finite(df)
         
@@ -136,12 +149,36 @@ class DataSniffer:
             raise ValueError(error_msg)
 
     def _check_col(self, df: pd.DataFrame) -> None:
-        """Placeholder for col sanity check."""
-        pass
+        """Verifies that the span of column indices fits within the volume width."""
+        width = self.config.get("width", 180)
+        
+        c_min, c_max = df["col"].min(), df["col"].max()
+        span = c_max - c_min
+        
+        if span >= width:
+            error_msg = (
+                f"[CRITICAL DATA ERROR] DataSniffer: 'col' span too large!\n"
+                f"Data spans {span} columns (min={c_min}, max={c_max}), but the "
+                f"volume fixture width is {width}. Data cannot fit."
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
 
     def _check_row(self, df: pd.DataFrame) -> None:
-        """Placeholder for row sanity check."""
-        pass
+        """Verifies that the span of row indices fits within the volume height."""
+        height = self.config.get("height", 180)
+        
+        r_min, r_max = df["row"].min(), df["row"].max()
+        span = r_max - r_min
+        
+        if span >= height:
+            error_msg = (
+                f"[CRITICAL DATA ERROR] DataSniffer: 'row' span too large!\n"
+                f"Data spans {span} rows (min={r_min}, max={r_max}), but the "
+                f"volume fixture height is {height}. Data cannot fit."
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
 
     def _check_c_id(self, df: pd.DataFrame) -> None:
         """Placeholder for c_id sanity check."""
@@ -167,37 +204,20 @@ class DataSniffer:
             logger.error(error_msg)
             raise ValueError(error_msg)
 
-    def _check_column_prefixes(self, df: pd.DataFrame) -> None:
-        """
-        Enforces that all non-identity columns start with the 'lr_' prefix.
-        """
-        # Identify columns that are neither identity columns nor prefixed correctly
-        offending_columns = [
-            col for col in df.columns 
-            if col not in self.identity_cols and not col.startswith("lr_")
-        ]
-
-        if offending_columns:
-            error_msg = (
-                f"\n[CRITICAL DATA ERROR] DataSniffer: Prefix Violation!\n"
-                f"The following columns do not have the mandatory 'lr_' prefix: {offending_columns}\n"
-                f"All non-identity columns must be explicitly labeled as raw ('lr_').\n"
-                f"Auto-fixing is strictly forbidden."
-            )
-            logger.error(error_msg)
-            raise ValueError(error_msg)
-
     def _check_obligatory_columns(self, df: pd.DataFrame) -> None:
         """
         Ensures all required identity and feature columns exist.
         """
-        # 1. Identity Columns
+        # 1. Identity Columns (from config)
         identity_cols = self.identity_cols
         
-        # 2. Feature Columns (Declarative Config)
-        feature_cols = []
-        for method in ["log1p", "asinh", "identity"]:
-            feature_cols.extend(self.config.get(method, []))
+        # 2. Feature Columns (from config)
+        if "features" not in self.config:
+            error_msg = "[CRITICAL CONFIG ERROR] DataSniffer: 'features' missing from configuration!"
+            logger.error(error_msg)
+            raise KeyError(error_msg)
+            
+        feature_cols = self.config["features"]
 
         required_cols = list(set(identity_cols + feature_cols))
         missing_cols = [col for col in required_cols if col not in df.columns]

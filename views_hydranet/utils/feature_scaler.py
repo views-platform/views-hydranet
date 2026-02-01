@@ -38,13 +38,16 @@ class FeatureScaler:
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Fits the scaler (locks state) and applies transformations.
-        Fails if columns are missing.
+        Returns a DataFrame with all original columns intact.
         """
         if self._is_fitted:
             raise RuntimeError("FeatureScaler is one-shot and already fitted.")
 
         df_out = df.copy()
-        logger.info("FeatureScaler: FIT-TRANSFORM (Semantic Entry)")
+        
+        # Calculate how many features we are actually scaling
+        total_scaled = sum(len(cols) for cols in self._config.values())
+        logger.info(f"FeatureScaler: FIT-TRANSFORM ({total_scaled} features)")
 
         for method, columns in self._config.items():
             if method not in self._methods:
@@ -55,11 +58,30 @@ class FeatureScaler:
             for col in columns:
                 if col not in df_out.columns:
                     raise ValueError(f"FeatureScaler Fit Error: Column '{col}' missing from DataFrame.")
-
-                logger.info(f"FeatureScaler: {col} -> {method}")
+                
+                # Apply transformation to the existing column (preserving other columns)
                 df_out[col] = forward_func(df_out[col])
 
         self._is_fitted = True
+
+        # AUDIT LOG: Comprehensive view of the resulting DataFrame
+        stats = []
+        for col in df_out.columns:
+            if pd.api.types.is_numeric_dtype(df_out[col]):
+                c_min = df_out[col].min()
+                c_max = df_out[col].max()
+                stats.append(f"  - {col:.<40} [{c_min:>12.4f}, {c_max:>12.4f}]")
+            else:
+                stats.append(f"  - {col:.<40} [Non-numeric]")
+        
+        report = "\n" + "="*80 + "\n"
+        report += " FEATURE SCALER: DATA STATE REPORT (Semantic Space)\n"
+        report += "-"*80 + "\n"
+        report += "\n".join(stats)
+        report += "\n" + "="*80
+        
+        logger.info(report)
+
         return df_out
 
     @property

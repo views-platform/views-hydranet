@@ -121,7 +121,6 @@ def make_forecast_storage_vol(
     return vol
 
 
-
 def merge_vol(forecast_storage_vol: np.ndarray, vol_fake: np.ndarray) -> np.ndarray:
     """
     Merges a metadata volume with a prediction volume.
@@ -135,66 +134,6 @@ def merge_vol(forecast_storage_vol: np.ndarray, vol_fake: np.ndarray) -> np.ndar
     """
     full_vol = np.concatenate([forecast_storage_vol, vol_fake], axis=-1)
     return full_vol
-
-
-    def check_vol_equal(vol: np.ndarray, full_vol: np.ndarray) -> None:
-        """
-        Forensic check to verify bit-identity between two volumes.
-    
-        Checks if the overlapping slices of the original and merged volumes 
-        are bit-identical.
-        """
-        steps_original = vol.shape[0]
-        slice_merged = full_vol[:steps_original, :, :, :]
-    
-        if not np.array_equal(vol, slice_merged):
-            # Detailed reporting for debugging
-            diff_mask = vol != slice_merged
-            n_diff = np.sum(diff_mask)
-            raise ValueError(
-                f"FATAL: Volumes are not bit-identical! Detected {n_diff} mismatches "
-                "in the overlapping historical slice."
-            )
-        logger.info("Forensic Audit Passed: Bit-identity confirmed.")
-
-
-    def check_month_id_consistency(
-        forecast_storage_vol: Union[np.ndarray, torch.Tensor],
-        df: pd.DataFrame,
-        month_range: int = 36,
-    ) -> None:
-        """
-        Validates that the forecast horizon is perfectly aligned with historical data.
-    
-        Args:
-            forecast_storage_vol: Forecast volume [B, T, C, H, W] or [T, H, W, C].
-            df: Observed historical DataFrame.
-            month_range: Expected length of the forecast.
-    
-        Raises:
-            ValueError: If the forecast does not start exactly at last_month + 1.
-        """
-        max_month_id_df = df["month_id"].max()
-        
-        # Handle both Tensor [B,T,C,H,W] and ndarray [T,H,W,C]
-        if torch.is_tensor(forecast_storage_vol):
-            # Tensor: Channel is at index 2 (B,T,C,H,W)
-            min_month_id_vol = forecast_storage_vol[:, :, 3, :, :].min().item()
-            max_month_id_vol = forecast_storage_vol[:, :, 3, :, :].max().item()
-        else:
-            # ndarray: Channel is at index 3 (T,H,W,C)
-            min_month_id_vol = forecast_storage_vol[:, :, :, 3].min()
-            max_month_id_vol = forecast_storage_vol[:, :, :, 3].max()
-
-        if min_month_id_vol != max_month_id_df + 1:
-            raise ValueError(
-                f"Mismatch in month_id: Expected min {max_month_id_df + 1}, got {min_month_id_vol}."
-            )
-
-        if max_month_id_vol != max_month_id_df + month_range:
-            raise ValueError(
-                f"Mismatch in month_id: Expected max {max_month_id_df + month_range}, got {max_month_id_vol}."
-            )
 
 
 def plot_vol_comparison(
