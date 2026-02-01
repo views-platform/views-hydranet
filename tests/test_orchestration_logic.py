@@ -44,7 +44,8 @@ def test_orchestration_loop_indices():
                     with patch("views_hydranet.manager.hydranet_manager.validate_contract_dataframes"):
 
                         mock_fetcher = mock_fetcher_cls.return_value
-                        real_df = pd.DataFrame(columns=["lr_ns_best"])
+                        cols = ["priogrid_gid", "col", "row", "month_id", "c_id", "lr_ns_best"]
+                        real_df = pd.DataFrame(columns=cols)
                         mock_fetcher.fetch.return_value = real_df
 
                         mock_converter.return_value = np.zeros((15, 10, 10, 8))

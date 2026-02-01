@@ -20,7 +20,8 @@ from views_pipeline_core.managers.model import (
 )
 
 from views_hydranet.train.train_model import train_model_artifact
-from views_hydranet.utils.data_fetcher import DataFetcher
+from views_hydranet.utils.data_fetcher import DataFetcher, standardize_raw_df
+from views_hydranet.utils.data_sniffer import DataSniffer
 from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.hydranet_inference import HydraNetInference
 from views_hydranet.utils.utils_contract_converters import (
@@ -146,21 +147,14 @@ class HydranetManager(ForecastingModelManager):
 
     def _translate_targets(self, targets: list[str]) -> list[str]:
         """
-        Ensures target names have the 'lr_' prefix.
-        Prefixes are treated as literal markers, not triggers for transformation.
+        Pass-through for targets. Magical prefixing is strictly forbidden.
         """
-        translated = []
-        for t in targets:
-            if t.startswith("lr_"):
-                translated.append(t)
-            else:
-                translated.append(f"lr_{t}")
-        return translated
+        return targets
 
     def _augment_dataframe(self, df: pd.DataFrame, requested_targets: list[str]) -> pd.DataFrame:
         """
         Augments the dataframe with derived columns (binarization only).
-        Prefixes (lr_, lr_) are treated as fixed literal labels.
+        Prefixes (lr_, ln_) are treated as fixed literal labels.
         Automatic unlogging is strictly disabled.
         """
         df_aug = df.copy()
@@ -198,15 +192,21 @@ class HydranetManager(ForecastingModelManager):
         # 1. Ingest: Explicit fetch from disk
         fetcher = DataFetcher(self._model_path.data_raw)
         df = fetcher.fetch(run_type)
+        df = standardize_raw_df(df) 
 
-        # 2. Scale: Raw -> Semantic Space
+        # 2. Sniff: Strict Validation (Raw Space)
+        sniffer = DataSniffer(self.config)
+        sniffer.sniff_ingestion(df)
+
+        # 3. Scale: Raw -> Semantic Space
         scaler = FeatureScaler(self.config)
         df = scaler.fit_transform(df)
 
-        # 3. Transform: DataFrame -> Volume
+        # 4. Transform: DataFrame -> Volume
+        # We use the scaler's configured columns to ensure the volume matches
         views_vol = df_to_vol(df, forecast_features=scaler.configured_columns)
 
-        # 4. Train: Pass the volume to the trainer
+        # 5. Train: Pass the volume to the trainer
         self._train_model_artifact(views_vol, is_calibration)
 
     def _execute_model_forecasting(self) -> None:
@@ -253,7 +253,7 @@ class HydranetManager(ForecastingModelManager):
         try:
             # 1. Load and Augment original ground-truth
             df = read_dataframe(original_actuals_path)
-            df_augmented = self._augment_dataframe(df, raw_targets)
+            df_augmented = self._augment_dataframe(df, standard_targets)
             save_dataframe(df_augmented, shadow_actuals_path)
 
             # 2. Mirror companion files (logs, timestamps) via symlinks
@@ -346,7 +346,14 @@ class HydranetManager(ForecastingModelManager):
         fetcher = DataFetcher(self._model_path.data_raw)
         df = fetcher.fetch(run_type)
 
-        # 2. Scale: Raw -> Semantic Space (Inbound Boundary)
+        # 2. Standardize: Enforce strict Index structure
+        df = standardize_raw_df(df)
+
+        # 3. Sniff: Strict Validation (Raw Space)
+        sniffer = DataSniffer(self.config)
+        sniffer.sniff_ingestion(df)
+
+        # 3. Scale: Raw -> Semantic Space (Inbound Boundary)
         scaler = FeatureScaler(self.config)
         df = scaler.fit_transform(df)
 
@@ -426,7 +433,10 @@ class HydranetManager(ForecastingModelManager):
         # 1. Ingest: Explicit fetch from disk
         fetcher = DataFetcher(self._model_path.data_raw)
         df = fetcher.fetch(run_type)
-        # 2. Scale: Raw -> Semantic Space (Inbound Boundary)
+        # 2. Sniff: Strict Validation (Raw Space)
+        sniffer = DataSniffer(self.config)
+        sniffer.sniff_ingestion(df)
+        # 3. Scale: Raw -> Semantic Space (Inbound Boundary)
         scaler = FeatureScaler(self.config)
         df = scaler.fit_transform(df)
         # 3. Transform: DataFrame -> Volume

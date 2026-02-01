@@ -65,7 +65,7 @@ def test_predictions_to_contract_df_inverse_transform():
     """
     CRITICAL: Verify np.exp(x) - 1 is applied correctly to raw posterior logs.
     """
-    steps, H, W = 1, 2, 2
+    steps, samples, H, W = 1, 5, 2, 2
     # Log value that should become exactly 100
     log_val = np.log(101)
     posterior_list = [np.full((steps, 3, H, W), log_val)]
@@ -104,7 +104,7 @@ def test_zstack_to_contract_df_filtering():
     """
     Verify ocean cells (pg_id=0) are filtered out from zstack conversion.
     """
-    steps, H, W = 1, 2, 2
+    steps, samples, H, W = 1, 5, 2, 2
     posterior_zstack = np.zeros((steps, H, W, 3, samples))
     meta_zstack = np.zeros((steps, H, W, 8, 1))
 
@@ -124,7 +124,7 @@ def test_zstack_to_contract_df_inverse_transform():
     """
     Verify inverse transform for zstack flow.
     """
-    steps, H, W = 1, 2, 2
+    steps, samples, H, W = 1, 5, 2, 2
     log_val = np.log(51)
     posterior_zstack = np.full((steps, H, W, 3, samples), log_val)
     meta_zstack = get_mock_zstack_metadata(steps, H, W)
@@ -169,7 +169,7 @@ def test_channel_mapping_integrity():
     """
     Verify that requesting ns pulls from channel 1 and os from channel 2.
     """
-    steps, H, W = 1, 2, 2
+    steps, samples, H, W = 1, 5, 2, 2
     posterior_zstack = np.zeros((steps, H, W, 3, samples))
     posterior_zstack[:, :, :, 0, :] = 10.0 # sb
     posterior_zstack[:, :, :, 1, :] = 20.0 # ns

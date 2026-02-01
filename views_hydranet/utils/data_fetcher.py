@@ -48,3 +48,40 @@ class DataFetcher:
         print("=" * 60 + "\n")
 
         return df
+
+def standardize_raw_df(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Standardizes a raw VIEWS DataFrame by enforcing strict index structure.
+    
+    Requirements:
+    - Must be a pandas MultiIndex.
+    - Level 0 must be 'month_id'.
+    - Level 1 must be 'priogrid_gid'.
+    
+    Raises:
+        ValueError: If the index structure does not match exactly.
+    """
+    
+    # 1. Enforce MultiIndex
+    if not isinstance(df.index, pd.MultiIndex):
+        error_msg = f"[CRITICAL DATA ERROR] Expected MultiIndex, got {type(df.index)}"
+        print(f"\n{error_msg}")
+        raise ValueError(error_msg)
+        
+    # 2. Enforce Level Names and Order
+    expected_names = ["month_id", "priogrid_gid"]
+    actual_names = list(df.index.names)
+    
+    if actual_names[:2] != expected_names:
+        error_msg = (
+            f"[CRITICAL DATA ERROR] Index Contract Violation!\n"
+            f"Expected levels 0,1: {expected_names}\n"
+            f"Actual levels:       {actual_names}"
+        )
+        print(f"\n{error_msg}")
+        raise ValueError(error_msg)
+        
+    # 3. Structural Normalization
+    # We bring the indices into columns so the DataSniffer and Scaler can 
+    # treat them as first-class members of the DataFrame.
+    return df.reset_index()

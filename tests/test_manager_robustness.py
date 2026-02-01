@@ -56,8 +56,9 @@ def test_multitask_merging_alignment(manager_robust_env):
                         with patch("views_hydranet.manager.hydranet_manager.validate_contract_dataframes"):
 
                             mock_fetcher = mock_fetcher_cls.return_value
-                            # USE REAL DATAFRAME
-                            real_df = pd.DataFrame(columns=["lr_sb_best", "lr_ns_best", "lr_os_best"])
+                            # USE REAL DATAFRAME WITH OBLIGATORY COLUMNS
+                            cols = ["priogrid_gid", "col", "row", "month_id", "c_id", "lr_sb_best", "lr_ns_best", "lr_os_best"]
+                            real_df = pd.DataFrame(columns=cols)
                             mock_fetcher.fetch.return_value = real_df
 
                             mock_converter.return_value = np.zeros((10, 10, 10, 8))
@@ -88,8 +89,9 @@ def test_partition_aware_windows(manager_robust_env):
                         with patch("views_hydranet.manager.hydranet_manager.validate_contract_dataframes"):
 
                             mock_fetcher = mock_fetcher_cls.return_value
-                            # USE REAL DATAFRAME
-                            real_df = pd.DataFrame(columns=["lr_sb_best"])
+                            # USE REAL DATAFRAME WITH OBLIGATORY COLUMNS
+                            cols = ["priogrid_gid", "col", "row", "month_id", "c_id", "lr_sb_best"]
+                            real_df = pd.DataFrame(columns=cols)
                             mock_fetcher.fetch.return_value = real_df
 
                             mock_converter.return_value = np.zeros((100, 10, 10, 8))

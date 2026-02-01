@@ -1,6 +1,7 @@
 from unittest.mock import ANY, MagicMock, patch
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from views_hydranet.manager.hydranet_manager import HydranetManager
@@ -24,11 +25,13 @@ def test_manager_execute_training_integration(manager_with_config):
     manager = manager_with_config
 
     # Mock the data fetching and transformation
-    mock_df = MagicMock()
+    cols = ["priogrid_gid", "col", "row", "month_id", "c_id", "lr_sb_best", "lr_ns_best", "lr_os_best"]
+    mock_df = pd.DataFrame(columns=cols)
     mock_vol = np.zeros((10, 10, 10, 3))
 
     with patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetcher_cls, \
          patch("views_hydranet.manager.hydranet_manager.df_to_vol", return_value=mock_vol) as mock_converter, \
+         patch.object(pd.DataFrame, "copy", return_value=MagicMock()) as mock_copy, \
          patch.object(manager, "_train_model_artifact") as mock_trainer:
 
         mock_fetcher = mock_fetcher_cls.return_value
@@ -39,8 +42,8 @@ def test_manager_execute_training_integration(manager_with_config):
         # Verify Fetcher was called
         mock_fetcher.fetch.assert_called_once()
 
-        # Verify Converter was called with the scaled DF and the list of features
-        mock_converter.assert_called_once_with(mock_df.copy.return_value, forecast_features=ANY)
+        # Verify Converter was called with the result of copy()
+        mock_converter.assert_called_once_with(mock_copy.return_value, forecast_features=ANY)
 
         # Verify Trainer was called with correct args (vol, cal)
         expected_cal = manager.config["run_type"] == "calibration"

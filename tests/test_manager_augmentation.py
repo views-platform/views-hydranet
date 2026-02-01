@@ -19,9 +19,9 @@ def clean_manager():
         return m
 
 def test_translate_targets(clean_manager):
+    # NEW POLICY: Pass-through only.
     inputs = ["lr_sb_best", "ns_best", "lr_os_best"]
-    expected = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
-    assert clean_manager._translate_targets(inputs) == expected
+    assert clean_manager._translate_targets(inputs) == inputs
 
 def test_augment_dataframe_unlogging(clean_manager):
     df = pd.DataFrame({"lr_sb_best": [4.61512051681]})

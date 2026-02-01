@@ -25,7 +25,7 @@ def test_scaling_parity_between_train_and_eval():
     }
 
     # Define columns to trigger JIT scaling logic
-    columns = ["pg", "col", "row", "month", "c_id", "lr_sb_best", "lr_ns_best", "lr_os_best"]
+    columns = ["priogrid_gid", "col", "row", "month_id", "c_id", "lr_sb_best", "lr_ns_best", "lr_os_best"]
 
     # 1. Get Eval Tensor (should be scaled)
     full_tensor, _ = get_full_tensor(vol, config=config, columns=columns)

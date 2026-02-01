@@ -78,10 +78,7 @@ def test_jit_scaling_parity():
     PROVE that 'Raw' inputs are correctly handled by our unconditional scaling.
     """
     # 1. Setup raw counts
-    raw_val = 10.0
-    dummy_vol_raw = np.zeros((1, 1, 1, 6))
-    dummy_vol_raw[0, 0, 0, 5] = raw_val
-    cols_raw = ["pg_id", "row", "col", "month", "c_id", "lr_sb_best"]
+    cols_raw = ["priogrid_gid", "row", "col", "month_id", "c_id", "lr_sb_best"]
 
     config = {"input_channels": 1, "transform": "log1p"}
 

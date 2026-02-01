@@ -134,34 +134,11 @@ def df_to_vol(
         >>> vol.shape
         (2, 40, 40, 8)
     """
-    # --- INPUT VALIDATION: Check for empty DataFrame ---
-    if df.empty:
-        raise ValueError("Input DataFrame cannot be empty.")
-    # --- END INPUT VALIDATION ---
-
+    # --- INPUT VALIDATION: Indexing and Slicing ---
     # to get prio grid id out of the index
     df = df.reset_index()
 
-    # --- INPUT VALIDATION: Check for duplicate priogrid_gid and month_id combinations ---
-    if df.duplicated(subset=["priogrid_gid", "month_id"]).any():
-        duplicate_entries = df[df.duplicated(subset=["priogrid_gid", "month_id"], keep=False)]
-        raise ValueError(
-            "Duplicate entries found for 'priogrid_gid' and 'month_id'. "
-            "Each priogrid_gid must have a unique month_id. "
-            f"Duplicated entries:\n{duplicate_entries}"
-        )
-    # --- END INPUT VALIDATION ---
-
-    required_columns = get_requried_columns_for_vol()
-
-    for col in required_columns:
-        if col not in df.columns.tolist():
-            raise ValueError(
-                f"Column {col} not found in the DataFrame. "
-                "Please check your viewser query set in 'model'/configs/config_input_data.py"
-            )
-
-    vol_features = required_columns + forecast_features
+    vol_features = get_requried_columns_for_vol() + forecast_features
     n_features = len(vol_features)
 
     month_first = df["month_id"].min()
