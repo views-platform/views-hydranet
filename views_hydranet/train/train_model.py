@@ -89,15 +89,8 @@ def train(
             t1 = train_tensor[:, i + 1, :, :, :]
             t1_binary = (t1.clone().detach().requires_grad_(True) > 0) * 1.0
 
-            # JIT FLIP: CNN expects North-is-Up
-            t0_flipped = torch.flip(t0, [2])
-
-            # forward-pass
-            t1_pred_flipped, t1_pred_class_flipped, h = model(t0_flipped, h.detach())
-
-            # UNFLIP: Restore natural orientation for loss calculation
-            t1_pred = torch.flip(t1_pred_flipped, [2])
-            t1_pred_class = torch.flip(t1_pred_class_flipped, [2])
+            # Forward pass (Data is already North-Up via VolumeHandler)
+            t1_pred, t1_pred_class, h = model(t0, h.detach())
 
             losses_list = []
             for j in range(t1_pred.shape[1]):
@@ -176,14 +169,13 @@ def training_loop(
         unit="month",
         leave=True
     ) as pbar:
-        for sample in range(config["samples"]):
-            pbar.set_description(f"👾 Training Sample {sample + 1}/{config['samples']}")
+        for sample_idx in range(config["samples"]):
+            pbar.set_description(f"👾 Training Sample {sample_idx + 1}/{config['samples']}")
 
-            # Batch loops:
-            for batch in range(config["batch_size"]):
-                # Extract a fresh windowed sample as a Handler
-                sample_handler = sampler.sample_window(sample)
+            # The Sampler now owns the full batch extraction
+            batch = sampler.get_next_batch(sample_idx)
 
+            for sample_handler in batch:
                 train(
                     model,
                     optimizer,
