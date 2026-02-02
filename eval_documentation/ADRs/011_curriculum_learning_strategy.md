@@ -6,7 +6,15 @@
 ---
 
 ## 1. Decision: Governed Training Trajectory
-We will implement a dynamic Curriculum Learning strategy that schedules the "Difficulty" of sampled data. The training process will scale from high-signal, high-intensity conflict "tubes" to the full, sparse complexity of the global distribution.
+We will implement a dynamic Curriculum Learning strategy that schedules the "Difficulty" of sampled data.
+
+### 1.1 The Lesson (The Atomic Unit)
+A **Lesson** is defined as one complete training iteration consisting of:
+1.  **A Mixed Salad Batch:** Extraction of `windows_per_lesson` (typically 3) spatiotemporal tubes.
+2.  **Multitask Coverage:** Each window in the lesson targets a different conflict type (`sb`, `ns`, `os`).
+3.  **The Optimization Gate:** Gradients are accumulated across all windows in the lesson. **One single parameter update (backprop)** occurs per lesson.
+
+The training process will scale from high-signal, high-intensity conflict "lessons" to the full, sparse complexity of the global distribution.
 
 ---
 

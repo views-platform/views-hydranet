@@ -20,20 +20,11 @@ This section defines the "Physics" of the dataset. It allows the `VolumeHandler`
 *   `id_col`: Defines the unit/node identity axis.
 *   `spatial_cols`: Defines the geographic [y, x] grid coordinates.
 
-### 2.2 Model Identity & Architecture
-Defines which model class to instantiate and its internal capacity (channels, dropout).
-
-### 2.3 Optimization & Loss
-Defines the mathematical constraints for training, including learning rates, schedulers, and specific loss function variants (e.g., Focal Loss).
-
-### 2.4 Sampling & Uncertainty
-Defines the stochastic behavior of the `VolumeSampler` and the posterior sampling depth for uncertainty estimation.
-
 ---
 
 ## 3. Canonical Example (The Standard)
 
-Below is the definitive example of a compliant configuration. All future hyperparameter files must adhere to this structure.
+Below is the definitive, unabridged example of a compliant configuration. All future hyperparameter files must adhere to this structure.
 
 ```python
 def get_hp_config():
@@ -61,7 +52,7 @@ def get_hp_config():
         'target_variable': 'sb_best',
         'min_events': 5,
         'window_dim': 32,
-        'time_steps': 36, # Legacy support
+        'time_steps': 36, 
         "steps": list(range(1, 37)),
 
         'log1p': ['lr_sb_best', 'lr_ns_best', 'lr_os_best'],
@@ -89,14 +80,14 @@ def get_hp_config():
         # ============================================================
         'learning_rate': 0.001,
         'weight_decay': 0.1,
-        'batch_size': 3,
         'scheduler': 'WarmupDecay',
         'warmup_steps': 100,
 
         # ============================================================
-        # Sampling / uncertainty
+        # Curriculum & Optimization (The Lesson Specification)
         # ============================================================
-        'samples': 300,
+        'total_lessons': 300,        # Number of curriculum stages
+        'windows_per_lesson': 3,     # True Mini-Batch size (The Mixed Salad)
         'test_samples': 10,
 
         # ============================================================
