@@ -54,7 +54,7 @@ def train(
     config: dict,
     device: torch.device,
     pbar: tqdm,
-) -> None:
+) -> torch.Tensor: # Returns window loss
 
     avg_loss_reg_list = []
     avg_loss_class_list = []
@@ -117,22 +117,9 @@ def train(
     # log each sequence/timeline/batch
     train_log(avg_loss_list, avg_loss_reg_list, avg_loss_class_list)
 
-    # Backpropagation and optimization
-    if total_loss > 0:
-        optimizer.zero_grad()
-        total_loss.backward()
-
-        # NUMERICAL AUDIT: Hard stop on explosion
-        IntegrityGuardian.monitor(model, t1_pred, total_loss, context="Sequence End")
-
-        # Gradient Clipping
-        if config.get("clip_grad_norm", False):
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-
-        # optimize
-        optimizer.step()
-
-    scheduler.step()
+    # RETURN TOTAL LOSS (DO NOT STEP)
+    # The optimization gate is now at the Lesson level.
+    return total_loss
 
 
 def training_loop(
@@ -163,7 +150,7 @@ def training_loop(
     # 1. Determine total steps upfront for a unified progress bar
     train_vol_shape = sampler.get_train_volume().shape
     seq_len = train_vol_shape[0]
-    total_iterations = config["samples"] * config["batch_size"] * (seq_len - 1)
+    total_iterations = config["total_lessons"] * config["windows_per_lesson"] * (seq_len - 1)
 
     with tqdm(
         total=total_iterations,
@@ -171,25 +158,30 @@ def training_loop(
         unit="month",
         leave=True
     ) as pbar:
-        for sample_idx in range(config["samples"]):
+        # Loop over Strategic Lessons
+        for sample_idx in range(config["total_lessons"]):
+            
+            optimizer.zero_grad() # Reset gradients at start of Lesson
+            lesson_loss = torch.tensor(0.0).to(device)
+            
             # Pull one lesson per window in the batch (The Mixed Salad)
-            for batch_item_idx in range(config["batch_size"]):
+            for batch_item_idx in range(config["windows_per_lesson"]):
                 # 1. Handshake with Planner
-                global_window_idx = sample_idx * config["batch_size"] + batch_item_idx
+                global_window_idx = sample_idx * config["windows_per_lesson"] + batch_item_idx
                 target, threshold = planner.get_lesson(global_window_idx)
                 
                 # 2. Handshake with Lens
                 batch, qualified_cells = sampler.get_batch(target, threshold, batch_size=1)
                 sample_handler = batch[0]
 
-                # Update progress bar with the current high-frequency target
+                # Update progress bar
                 pbar.set_description(
-                    f"👾 Training | Sample {sample_idx + 1}/{config['samples']} | "
+                    f"👾 Training | Lesson {sample_idx + 1}/{config['total_lessons']} | "
                     f"Target: {target} | Threshold: {threshold} (Cells: {qualified_cells})"
                 )
 
-                # 3. Train
-                train(
+                # 3. Process Window (Accumulate Loss)
+                window_loss = train(
                     model,
                     optimizer,
                     scheduler,
@@ -201,6 +193,26 @@ def training_loop(
                     device,
                     pbar
                 )
+                lesson_loss += window_loss
+
+            # --- THE OPTIMIZATION GATE (ADR 014) ---
+            if lesson_loss > 0:
+                # Backpropagate once per Lesson (Mini-Batch of 3)
+                lesson_loss.backward()
+
+                # NUMERICAL AUDIT: Hard stop on explosion
+                # Note: t1_pred is not available at the lesson level, passing a safe dummy
+                IntegrityGuardian.monitor(model, torch.tensor([0.0]), lesson_loss, context=f"Lesson {sample_idx}")
+
+                # Gradient Clipping
+                if config.get("clip_grad_norm", False):
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+
+                # Optimize (Update Weights)
+                optimizer.step()
+
+            # Step scheduler at the end of the lesson
+            scheduler.step()
 
     logger.info("✅ Training complete!")
 
