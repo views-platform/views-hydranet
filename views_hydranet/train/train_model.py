@@ -16,6 +16,7 @@ from views_hydranet.utils.utils import (
     init_weights,
     train_log,
 )
+from views_hydranet.utils.curriculum import CurriculumLearner
 from views_hydranet.utils.volume_handler import VolumeHandler
 from views_hydranet.utils.volume_sampler import VolumeSampler
 
@@ -153,8 +154,11 @@ def training_loop(
     torch.manual_seed(config["torch_seed"])
     logger.info("🚀 Training initiated...")
 
-    # Initialize the Sampler Lens
+    # Initialize the Sampler Components
+    # 1. The Lens (Mechanical)
     sampler = VolumeSampler(handler, config)
+    # 2. The Planner (Strategic)
+    planner = CurriculumLearner(config, handler)
 
     # 1. Determine total steps upfront for a unified progress bar
     train_vol_shape = sampler.get_train_volume().shape
@@ -168,10 +172,16 @@ def training_loop(
         leave=True
     ) as pbar:
         for sample_idx in range(config["samples"]):
-            pbar.set_description(f"👾 Training Sample {sample_idx + 1}/{config['samples']}")
+            # Pull the strategic instruction for this sample block
+            target, threshold = planner.get_lesson(sample_idx)
+            
+            pbar.set_description(
+                f"👾 Training | Sample {sample_idx + 1}/{config['samples']} | "
+                f"Target: {target} | Threshold: {threshold}"
+            )
 
-            # The Sampler now owns the full batch extraction
-            batch = sampler.get_next_batch(sample_idx)
+            # The Sampler now follows the Planner's instructions
+            batch = sampler.get_batch(target, threshold, batch_size=config["batch_size"])
 
             for sample_handler in batch:
                 train(

@@ -1,5 +1,5 @@
 """
-VolumeSampler: Stochastic windowing and batch management for HydraNet Volumes.
+VolumeSampler: The Pure Lens for spatiotemporal window extraction.
 """
 import logging
 from typing import Any, Dict, List
@@ -9,15 +9,16 @@ from views_hydranet.utils.volume_handler import VolumeHandler
 logger = logging.getLogger(__name__)
 
 class VolumeSampler:
+    """
+    Mechanical tool for extracting spatiotemporal windows from a global VolumeHandler.
+    Strictly follows instructions (target, threshold) provided by the strategic planner.
+    """
+
     def __init__(self, handler: VolumeHandler, config: Dict[str, Any]):
-        """
-        Lensing engine for spatiotemporal volumes.
-        Binds a specific strategy to a global handler.
-        """
         self.handler = handler
         self.config = config
         
-        # --- THE HANDSHAKE (ADR 009 Section 1) ---
+        # --- THE HANDSHAKE (ADR 013 Section 1) ---
         dim = config.get("window_dim")
         if not dim:
             raise ValueError("VolumeSampler Contract Violation: 'window_dim' missing from config.")
@@ -31,10 +32,6 @@ class VolumeSampler:
                 f"handler spatial bounds ({h_max}x{w_max})."
             )
 
-        # Batching state
-        self.batch_size = config.get("batch_size", 1)
-        self._buffer: List[VolumeHandler] = []
-
         # Stateful Reproducibility: Use a local generator
         seed = config.get("np_seed", 42)
         self.rng = np.random.default_rng(seed)
@@ -46,40 +43,41 @@ class VolumeSampler:
         if steps <= 0:
             return self.handler
         
-        # We use the handler's internal slicing capability
         total_t = self.handler.data.shape[self.handler.get_axis_idx("T")]
         return self.handler.slice_time(0, total_t - steps)
 
-    def _generate_window(self, sample_idx: int) -> VolumeHandler:
-        """Internal: Core logic for extracting a single spatial window."""
+    def _generate_window(self, target_name: str, threshold: int) -> VolumeHandler:
+        """Internal: Extracts a single spatial window based on explicit instructions."""
         train_vh = self.get_train_volume()
         vol_data = train_vh.data
         dim = self.config["window_dim"]
         h_max, w_max = vol_data.shape[1], vol_data.shape[2]
 
-        # Zero-Magic: Resolve target channel from Ledger
-        features = train_vh._metadata.feature_cols
-        target_name = features[sample_idx % len(features)]
-        target_idx = train_vh.channel_map.index(target_name)
+        # Zero-Magic: Resolve target index from Ledger
+        try:
+            target_idx = train_vh.channel_map.index(target_name)
+        except ValueError:
+            raise ValueError(f"VolumeSampler: target_name '{target_name}' not found in Ledger.")
         
-        # Activity Search
+        # Activity Search (Importance Sampling)
         activity = np.count_nonzero(vol_data[..., target_idx], axis=0)
-        
-        busy_cells = np.argwhere(activity >= self.config.get("min_events", 5))
+        busy_cells = np.argwhere(activity >= threshold)
         
         if busy_cells.size > 0:
+            # Pick a busy anchor
             r_anc, c_axc = busy_cells[self.rng.choice(len(busy_cells))]
         else:
+            # Fallback to random anchor
             r_anc, c_axc = self.rng.integers(0, h_max), self.rng.integers(0, w_max)
 
-        # Spatial Jitter
+        # Spatial Jitter (prevent center-bias)
         r0 = np.clip(r_anc - self.rng.integers(0, dim), 0, h_max - dim)
         c0 = np.clip(c_axc - self.rng.integers(0, dim), 0, w_max - dim)
 
-        # Extraction
+        # Atomic Extraction
         data = vol_data[:, r0:r0+dim, c0:c0+dim, :].copy()
         
-        # Absolute Anchoring
+        # Absolute Anchoring: Propagate geographic truth
         p_row, p_col = train_vh.spatial_offset
         
         return VolumeHandler(
@@ -94,15 +92,12 @@ class VolumeSampler:
             spatial_offset=(p_row + r0, p_col + c0)
         )
 
-    def get_next_batch(self, sample_idx: int) -> List[VolumeHandler]:
+    def get_batch(self, target_name: str, threshold: int, batch_size: int = 1) -> List[VolumeHandler]:
         """
-        Returns a full batch of VolumeHandlers.
-        Resets the internal buffer each time.
+        Returns a batch of VolumeHandlers based on strategic instructions.
         """
-        self._buffer = []
-        for i in range(self.batch_size):
-            # We vary the internal seed slightly per batch element 
-            # while keeping the base sample_idx for reproducibility
-            self._buffer.append(self._generate_window(sample_idx + i))
+        batch = []
+        for _ in range(batch_size):
+            batch.append(self._generate_window(target_name, threshold))
         
-        return self._buffer
+        return batch
