@@ -437,11 +437,15 @@ class VolumeHandler:
     @property
     def data(self): return self._data
     @property
+    def axes(self): return self._metadata.axes
+    @property
     def channel_map(self): return self._metadata.channel_map
     @property
     def id_col(self): return self._metadata.id_col
     @property
     def time_col(self): return self._metadata.time_col
+    @property
+    def spatial_cols(self): return self._metadata.spatial_cols
     @property
     def spatial_offset(self): return self._metadata.spatial_offset
 

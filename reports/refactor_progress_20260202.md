@@ -1,32 +1,26 @@
-# Refactor Progress Report: VolumeHandler (ADR 007 Compliance)
+# Refactor Progress Report: Spatiotemporal Integrity (ADR 007 & 009)
 
 **Date:** 02-02-2026  
-**Status:** 100% Complete (All Paths Locked Down and Verified in CI)
+**Status:** 100% Core Foundation Restored
 
 ---
 
 ## 1. Verified Components (Locked Down)
 
-The following methods have survived rigorous Popperian audits and are now bit-perfect, "Zero-Magic" compliant, and part of the permanent test suite (`tests/test_volume_handler_ledger.py`):
+The "Boring Architecture" is now fully established for the data bridge. All components are part of the permanent CI suite.
 
-| Component | Status | Verification | Key Falsification Overcome |
+| Component | Status | Spec | Key Falsification Overcome |
 | :--- | :--- | :--- | :--- |
-| `VolumeMetadata` (Ledger) | **LOCKED** | `pytest` | Positional role drift. |
-| `__init__` | **LOCKED** | `pytest` | Channel/Map size mismatch. |
-| `from_df` (Handshake) | **LOCKED** | `pytest` | Hardcoded VIEWS names. |
-| `to_historical_df` | **LOCKED** | `pytest` | Identity type drift & Ocean leakage. |
-| `to_pytorch` | **LOCKED** | `pytest` | Incorrect identity stripping indices. |
-| `wrap_predictions` | **LOCKED** | `pytest` | 5D Dimensionality collision. |
-| `to_evaluation_df` | **LOCKED** | `pytest` | Silent temporal truncation. |
-| `to_forecast_df` | **LOCKED** | `pytest` | Calendar hallucination. |
+| `VolumeHandler` | **LOCKED** | ADR 007 | Topographic drift in reconstruction. |
+| `VolumeSampler` | **LOCKED** | ADR 009 | Geographic context loss in windows. |
+
+### VolumeSampler Breakthroughs:
+*   **The Mini-Custodian:** Windows are no longer naked tensors; they are mini-`VolumeHandler` objects.
+*   **Absolute Slicing:** Window offsets are mathematically calculated to preserve absolute geographic coordinates.
+*   **Handshake Rigor:** The sampler now validates spatial bounds at initialization.
 
 ---
 
-## 2. CI/CD Integration
-The "Truth Audits" have been migrated from ephemeral scripts to a robust `pytest` class. This ensures that any future regression in spatiotemporal integrity will be caught immediately.
-
----
-
-## 3. Recovery Context
-*   **Permanent Authority:** `eval_documentation/ADRs/007_volume_handler_specification.md`
-*   **Test Suite:** `tests/test_volume_handler_ledger.py`
+## 2. Recovery Context
+*   **Handled:** Inbound, Transformation, Outbound, and Stochastic Windowing.
+*   **Next Horizon:** Trainer integration. Ensuring the `train()` loop consumes these mini-handlers without magic indices.
