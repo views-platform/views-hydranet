@@ -52,16 +52,16 @@ class TestCurriculumIntegration:
         assert batch[0].channel_map == handler.channel_map
 
     def test_oscillation_coverage(self, setup_bridge):
-        """Verify that multiple lessons cover all subjects."""
+        """Verify that oscillation happens at every window step (Mixed Salad)."""
         config, handler = setup_bridge
         planner = CurriculumLearner(config, handler)
         
-        subjects_seen = set()
-        for i in range(3):
-            target, _ = planner.get_lesson(i)
-            subjects_seen.add(target)
-            
-        assert subjects_seen == {"sb", "ns", "os"}
+        # Pull 3 lessons sequentially (Batch size doesn't matter to Planner, only index)
+        # 0 -> sb, 1 -> ns, 2 -> os
+        assert planner.get_lesson(0)[0] == "sb"
+        assert planner.get_lesson(1)[0] == "ns"
+        assert planner.get_lesson(2)[0] == "os"
+        assert planner.get_lesson(3)[0] == "sb" # Cycles back
 
     def test_cooling_trajectory(self, setup_bridge):
         """Verify the mathematical schedule of threshold decay."""

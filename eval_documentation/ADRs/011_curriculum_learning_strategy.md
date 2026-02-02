@@ -24,8 +24,8 @@ We will implement a dynamic Curriculum Learning strategy that schedules the "Dif
 
 ### 2.3 Multi-Task Oscillation (Priming)
 *   **The Law:** Balanced learning across all conflict types (`sb`, `ns`, `os`) must be enforced from Step 1.
-*   **Mechanism:** The sampler rotates its "Busy-Search" target across all defined feature columns per batch.
-*   **Goal:** Prevent early specialization in a single task and ensure balanced gradients for the Multi-Task Loss heads.
+*   **Mechanism:** The sampler rotates its "Busy-Search" target across all defined feature columns **per window**.
+*   **Goal:** Prevent early specialization in a single task and ensure balanced gradients for the Multi-Task Loss heads. Every batch should ideally contain a representative of every task.
 
 ---
 

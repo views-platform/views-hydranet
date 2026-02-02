@@ -21,28 +21,28 @@ class CurriculumLearner:
         self.handler = handler
         
         # 1. Pre-calculate trajectory parameters (Zero-Magic)
-        self.samples = config["samples"]
+        # We now calculate the decay base on Total Windows (samples * batch_size)
+        # to support the "Mixed Salad" high-frequency oscillation.
+        self.total_windows = config["samples"] * config.get("batch_size", 1)
         self.min_events = config["min_events"]
-        self.max_events = config.get("max_events", 100) # Fallback if missing
+        self.max_events = config.get("max_events", 100)
         self.slope_ratio = config.get("slope_ratio", 0.75)
         self.roof_ratio = config.get("roof_ratio", 0.7)
         
         # 2. Extract targets from Ledger (Handshake)
-        # In this implementation, we assume all features are valid targets for oscillation
         self.subjects = list(handler._metadata.feature_cols)
         if not self.subjects:
              raise ValueError("CurriculumLearner: Ledger has no feature columns to target.")
 
-    def get_threshold(self, sample_idx: int) -> int:
+    def get_threshold(self, global_window_idx: int) -> int:
         """
         Calculates the current 'min_events' threshold (The Cooling).
         """
-        # Linear decay logic derived from previous 'my_decay'
-        # b = rate of change per sample
-        b = ((-self.max_events + self.min_events) / (self.samples * self.slope_ratio))
+        # b = rate of change per window
+        b = ((-self.max_events + self.min_events) / (self.total_windows * self.slope_ratio))
         
-        # Linear progression
-        threshold = self.max_events + b * sample_idx
+        # Linear progression based on global window progress
+        threshold = self.max_events + b * global_window_idx
         
         # Contract Enforcement: Cap and Floor
         threshold = min(threshold, self.max_events * self.roof_ratio)

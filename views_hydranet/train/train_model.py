@@ -172,18 +172,23 @@ def training_loop(
         leave=True
     ) as pbar:
         for sample_idx in range(config["samples"]):
-            # Pull the strategic instruction for this sample block
-            target, threshold = planner.get_lesson(sample_idx)
-            
-            # The Sampler now follows the Planner's instructions
-            batch, qualified_cells = sampler.get_batch(target, threshold, batch_size=config["batch_size"])
+            # Pull one lesson per window in the batch (The Mixed Salad)
+            for batch_item_idx in range(config["batch_size"]):
+                # 1. Handshake with Planner
+                global_window_idx = sample_idx * config["batch_size"] + batch_item_idx
+                target, threshold = planner.get_lesson(global_window_idx)
+                
+                # 2. Handshake with Lens
+                batch, qualified_cells = sampler.get_batch(target, threshold, batch_size=1)
+                sample_handler = batch[0]
 
-            pbar.set_description(
-                f"👾 Training | Sample {sample_idx + 1}/{config['samples']} | "
-                f"Target: {target} | Events Threshold: {threshold} (Available Cells: {qualified_cells})"
-            )
+                # Update progress bar with the current high-frequency target
+                pbar.set_description(
+                    f"👾 Training | Sample {sample_idx + 1}/{config['samples']} | "
+                    f"Target: {target} | Threshold: {threshold} (Cells: {qualified_cells})"
+                )
 
-            for sample_handler in batch:
+                # 3. Train
                 train(
                     model,
                     optimizer,

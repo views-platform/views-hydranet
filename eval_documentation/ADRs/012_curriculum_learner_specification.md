@@ -19,8 +19,8 @@
 
 ### Zone 3: Subject Rotation (The Oscillation)
 *   **Responsibility:** Ensuring balanced learning across all conflict tasks.
-*   **Logic:** Alternates the search target across `sb`, `ns`, and `os` based on the sequence index.
-*   **Goal:** Enforce Multi-Task Priming.
+*   **Logic:** Alternates the search target across `sb`, `ns`, and `os` based on the **global window index** (Sample index * Batch size + Batch element index).
+*   **Goal:** Enforce Multi-Task Priming at the highest possible frequency (The Mixed Salad).
 
 ---
 
