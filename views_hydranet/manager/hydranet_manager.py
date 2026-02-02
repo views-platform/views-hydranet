@@ -167,7 +167,7 @@ class HydranetManager(ForecastingModelManager):
         )
         vol_full = handler.data
 
-        sniffer.sniff_forecast_alignment(df, vol_full, month_range=vol_full.shape[0])
+        sniffer.sniff_forecast_alignment(df, vol_full, month_range=vol_full.shape[0], is_forecast=False)
 
         model, model_time_stamp = self._load_model_artifact(artifact_name)
         time_steps = len(self.configs["steps"])
@@ -189,7 +189,9 @@ class HydranetManager(ForecastingModelManager):
 
             # --- THE SYMMETRY ENGINE ---
             pred_handler = handler.wrap_posterior(posterior_zstack, feature_names=requested_targets)
-            df_origin = pred_handler.to_df(identity_provider=handler)
+            
+            # Use explicit evaluation reconstruction (handles slicing internally)
+            df_origin = pred_handler.to_evaluation_df(history=handler, start_idx=origin + 1)
 
             if df_origin is not None:
                 df_origin = scaler.inverse_transform(df_origin)
@@ -222,7 +224,7 @@ class HydranetManager(ForecastingModelManager):
         vol_forecast = handler.data
 
         time_steps = len(self.configs["steps"])
-        sniffer.sniff_forecast_alignment(df, handler.data, month_range=time_steps)
+        sniffer.sniff_forecast_alignment(df, handler.data, month_range=time_steps, is_forecast=False)
 
         model, _ = self._load_model_artifact(artifact_name)
         inference = HydraNetInference(model, self.configs, device=self.device)
@@ -234,7 +236,9 @@ class HydranetManager(ForecastingModelManager):
 
         # --- THE SYMMETRY ENGINE ---
         pred_handler = handler.wrap_posterior(posterior_zstack, feature_names=requested_targets)
-        df_full = pred_handler.to_df(identity_provider=handler)
+        
+        # Use explicit operational reconstruction (handles extrapolation internally)
+        df_full = pred_handler.to_forecast_df(history=handler)
                 
         if df_full is not None:
             df_full = scaler.inverse_transform(df_full)

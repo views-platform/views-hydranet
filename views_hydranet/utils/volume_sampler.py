@@ -1,23 +1,27 @@
 """
 VolumeSampler: Stochastic windowing and batch management for HydraNet Volumes.
 """
+import logging
 from typing import Any, Dict, List
 import numpy as np
 from views_hydranet.utils.volume_handler import VolumeHandler
 
+logger = logging.getLogger(__name__)
+
 class VolumeSampler:
-    """
-    Consumes a VolumeHandler to produce sampled windows for training.
-    Includes a buffering mechanism for controlled batching.
-    """
     def __init__(self, handler: VolumeHandler, config: Dict[str, Any]):
         self.handler = handler
         self.config = config
         self.feature_start_idx = len(config["identity_cols"])
         
-        # Batching state (mirroring the BatchSampler pattern)
+        # Batching state
         self.batch_size = config.get("batch_size", 1)
         self._buffer: List[VolumeHandler] = []
+
+        # Stateful Reproducibility: Use a local generator
+        seed = config.get("np_seed", 42)
+        self.rng = np.random.default_rng(seed)
+        logger.info(f"VolumeSampler: Initialized with np_seed={seed}")
 
     def get_train_volume(self) -> np.ndarray:
         """Slices off the test horizon."""
@@ -36,12 +40,15 @@ class VolumeSampler:
         
         busy_cells = np.argwhere(activity >= self.config.get("min_events", 5))
         if busy_cells.size > 0:
-            r_anc, c_axc = busy_cells[np.random.choice(len(busy_cells))]
+            # Use local RNG
+            r_anc, c_axc = busy_cells[self.rng.choice(len(busy_cells))]
         else:
-            r_anc, c_axc = np.random.randint(0, h_max), np.random.randint(0, w_max)
+            # Use local RNG
+            r_anc, c_axc = self.rng.integers(0, h_max), self.rng.integers(0, w_max)
 
-        r0 = np.clip(r_anc - np.random.randint(0, dim), 0, h_max - dim)
-        c0 = np.clip(c_axc - np.random.randint(0, dim), 0, w_max - dim)
+        # Use local RNG for spatial jitter
+        r0 = np.clip(r_anc - self.rng.integers(0, dim), 0, h_max - dim)
+        c0 = np.clip(c_axc - self.rng.integers(0, dim), 0, w_max - dim)
 
         data = vol[:, r0:r0+dim, c0:c0+dim, :].copy()
         p_row, p_col = self.handler.spatial_offset

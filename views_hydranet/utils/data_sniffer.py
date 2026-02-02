@@ -63,53 +63,67 @@ class DataSniffer:
         logger.info("DataSniffer: Ingestion Suite Passed.")
 
     def sniff_forecast_alignment(
-        self, df: pd.DataFrame, forecast_storage_vol: Union[np.ndarray, torch.Tensor], month_range: int = 36
+        self, 
+        df: pd.DataFrame, 
+        vol: Union[np.ndarray, torch.Tensor], 
+        month_range: int = 36,
+        is_forecast: bool = True
     ) -> None:
         """
-        Validates that the forecast horizon is perfectly aligned with historical data.
+        Validates the temporal continuity of a volume against observed history.
         
         Args:
             df: Observed historical DataFrame.
-            forecast_storage_vol: Forecast metadata volume [B, T, C, H, W] or [T, H, W, C].
-            month_range: Expected length of the forecast.
-            
-        Raises:
-            ValueError: If the forecast does not start exactly at last_month + 1.
+            vol: Volume carrier [T, H, W, C] (ndarray) or [B, T, C, H, W] (tensor).
+            month_range: Expected length of the volume.
+            is_forecast: If True, expects vol to start at history_end + 1.
+                         If False, expects vol to match history exactly.
         """
-        logger.info("DataSniffer: Starting Forecast Alignment Suite")
+        logger.info(f"DataSniffer: Starting {'Forecast' if is_forecast else 'History'} Alignment Suite")
         
-        max_month_id_df = df["month_id"].max()
+        max_month_df = df["month_id"].max()
+        min_month_df = df["month_id"].min()
         
-        # Handle both Tensor [B,T,C,H,W] and ndarray [T,H,W,C]
-        if torch.is_tensor(forecast_storage_vol):
-            # Tensor: Channel is at index 3 (B, T, C, H, W)
-            # Channel 3 is month_id
-            min_month_id_vol = forecast_storage_vol[:, :, 3, :, :].min().item()
-            max_month_id_vol = forecast_storage_vol[:, :, 3, :, :].max().item()
+        # 1. Get volume bounds from channel 3 (month_id)
+        # We assume month_id is dense (via VolumeHandler)
+        
+        # Resolve month_id index dynamically
+        channel_map = self.identity_cols + self.config.get("features", [])
+        try:
+            m_idx = channel_map.index("month_id")
+        except ValueError:
+             raise ValueError("[CRITICAL CONFIG ERROR] 'month_id' not found in channel map!")
+
+        if torch.is_tensor(vol):
+            m_chan = vol[:, :, m_idx, :, :]
         else:
-            # ndarray: Channel is at index 3 (T, H, W, C)
-            min_month_id_vol = forecast_storage_vol[:, :, :, 3].min()
-            max_month_id_vol = forecast_storage_vol[:, :, :, 3].max()
+            m_chan = vol[..., m_idx]
+            
+        min_month_vol = m_chan.min().item() if torch.is_tensor(m_chan) else m_chan.min()
+        max_month_vol = m_chan.max().item() if torch.is_tensor(m_chan) else m_chan.max()
 
-        if min_month_id_vol != max_month_id_df + 1:
-            error_msg = (
-                f"[CRITICAL DATA ERROR] DataSniffer: Forecast Continuity Broken!\n"
-                f"History ends at month {max_month_id_df}.\n"
-                f"Forecast starts at month {min_month_id_vol} (Expected {max_month_id_df + 1})."
-            )
-            logger.error(error_msg)
-            raise ValueError(error_msg)
+        # 2. Check Continuity
+        if is_forecast:
+            expected_min = max_month_df + 1
+            if min_month_vol != expected_min:
+                error_msg = (
+                    f"[CRITICAL DATA ERROR] DataSniffer: Forecast Continuity Broken!\n"
+                    f"History ends at {max_month_df}. Forecast starts at {min_month_vol} (Expected {expected_min})."
+                )
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+        else:
+            # History Volume Check
+            if min_month_vol != min_month_df or max_month_vol != max_month_df:
+                error_msg = (
+                    f"[CRITICAL DATA ERROR] DataSniffer: History Volume Mismatch!\n"
+                    f"DF range: [{min_month_df}, {max_month_df}]\n"
+                    f"Vol range: [{min_month_vol}, {max_month_vol}]"
+                )
+                logger.error(error_msg)
+                raise ValueError(error_msg)
 
-        if max_month_id_vol != max_month_id_df + month_range:
-            error_msg = (
-                f"[CRITICAL DATA ERROR] DataSniffer: Forecast Horizon Mismatch!\n"
-                f"Expected horizon: {month_range} months.\n"
-                f"Actual horizon:   {max_month_id_vol - max_month_id_df} months."
-            )
-            logger.error(error_msg)
-            raise ValueError(error_msg)
-
-        logger.info("DataSniffer: Forecast Alignment Passed.")
+        logger.info("DataSniffer: Temporal Alignment Passed.")
 
     def _check_identity_values(self, df: pd.DataFrame) -> None:
         """

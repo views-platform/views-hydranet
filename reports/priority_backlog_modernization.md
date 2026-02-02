@@ -22,12 +22,12 @@
 
 ---
 
-## Priority 3: Stateful Reproducibility
+## Priority 3: Stateful Reproducibility (DONE)
 **Goal:** Lock the `VolumeSampler` to a specific random state.
 
-* **The Problem:** The sampler currently uses global `np.random`. While the seed is set in the manager, this is "fragile reproducibility."
-* **The Solution:** Initialize `VolumeSampler` with its own `np.random.RandomState(config["np_seed"])`.
-* **Success Criteria:** Running the same training sequence twice produces identical spatial windows and identical audit logs.
+* **The Problem:** The sampler used global `np.random`, making window extraction non-deterministic.
+* **The Solution:** Initialized `VolumeSampler` with a local `np.random.Generator` tied to `config["np_seed"]`.
+* **Success Criteria:** Verified by `verify_reproducibility.py`. Two independent samplers now produce bit-identical training sequences.
 
 ---
 
