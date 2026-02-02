@@ -69,7 +69,23 @@ class TestOptimizationGate:
             
             training_loop(config, model, criterion, optimizer, scheduler, handler, device)
 
-        # total_lessons = 2.
         assert optimizer.step.call_count == 2
         assert optimizer.zero_grad.call_count == 2
         assert scheduler.step.call_count == 2
+
+    def test_train_function_is_dumb(self, mock_components):
+        """Verify that the train function returns loss without modifying weights (ADR 014)."""
+        from views_hydranet.train.train_model import train
+        config, model, criterion, optimizer, scheduler, handler, device = mock_components
+        
+        orig_weights = model.weight.clone().detach()
+        pbar = MagicMock()
+        
+        # Pull criterion components
+        cr, cc, mt = criterion
+        
+        loss = train(model, optimizer, scheduler, cr, cc, mt, handler, config, device, pbar)
+        
+        assert isinstance(loss, torch.Tensor)
+        assert torch.allclose(model.weight, orig_weights)
+        assert optimizer.step.call_count == 0
