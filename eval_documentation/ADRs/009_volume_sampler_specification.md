@@ -1,7 +1,9 @@
-# ADR 009: Specification for VolumeSampler (The Lens)
+# ADR 009: Specification for VolumeSampler (The Lens) [DEPRECATED]
 
-**Status:** Proposed  
-**Context:** Sampling is the stochastic heart of the training pipeline. Previous implementations were "Magic Boxes" that extracted raw arrays, losing geographic context and temporal precision. This ADR mandates that the Sampler acts as a transparent lens, producing mini-VolumeHandlers that carry their own truth.
+**Status:** DEPRECATED  
+**Superseded by:** ADR 012 (Planner) and ADR 013 (Lens)
+
+**Context:** This specification originally coupled "Stochastic Strategy" (The Planning) with "Window Extraction" (The Mechanism). To achieve 100% separation of concerns, this ADR has been split into two distinct components. Do not use this for implementation.
 
 ---
 
