@@ -1,34 +1,32 @@
 # Refactor Progress Report: VolumeHandler (ADR 007 Compliance)
 
 **Date:** 02-02-2026  
-**Status:** 100% Complete (All Paths Locked Down and Verified)
+**Status:** 100% Complete (All Paths Locked Down and Verified in CI)
 
 ---
 
 ## 1. Verified Components (Locked Down)
 
-The following methods have survived rigorous Popperian audits and are now bit-perfect and "Zero-Magic" compliant:
+The following methods have survived rigorous Popperian audits and are now bit-perfect, "Zero-Magic" compliant, and part of the permanent test suite (`tests/test_volume_handler_ledger.py`):
 
-| Component | Status | Verification Script | Key Falsification Overcome |
+| Component | Status | Verification | Key Falsification Overcome |
 | :--- | :--- | :--- | :--- |
-| `VolumeMetadata` (Ledger) | **LOCKED** | `verify_core_ledger.py` | Positional role drift. |
-| `__init__` | **LOCKED** | `verify_core_ledger.py` | Channel/Map size mismatch. |
-| `from_df` (Handshake) | **LOCKED** | `verify_from_df_rigor.py` | Hardcoded VIEWS names. |
-| `to_historical_df` | **LOCKED** | `verify_to_historical_rigor.py` | Identity type drift & Ocean leakage. |
-| `to_pytorch` | **LOCKED** | `verify_pytorch_gate.py` | Incorrect identity stripping indices. |
-| `wrap_predictions` | **LOCKED** | `verify_prediction_recovery.py` | 5D Dimensionality collision (Batch/Samples). |
-| `to_evaluation_df` | **LOCKED** | `verify_evaluation_rigor.py` | Silent temporal truncation. |
-| `to_forecast_df` | **LOCKED** | `verify_forecast_rigor.py` | Calendar hallucination. |
+| `VolumeMetadata` (Ledger) | **LOCKED** | `pytest` | Positional role drift. |
+| `__init__` | **LOCKED** | `pytest` | Channel/Map size mismatch. |
+| `from_df` (Handshake) | **LOCKED** | `pytest` | Hardcoded VIEWS names. |
+| `to_historical_df` | **LOCKED** | `pytest` | Identity type drift & Ocean leakage. |
+| `to_pytorch` | **LOCKED** | `pytest` | Incorrect identity stripping indices. |
+| `wrap_predictions` | **LOCKED** | `pytest` | 5D Dimensionality collision. |
+| `to_evaluation_df` | **LOCKED** | `pytest` | Silent temporal truncation. |
+| `to_forecast_df` | **LOCKED** | `pytest` | Calendar hallucination. |
 
 ---
 
-## 2. Conclusion
-The `VolumeHandler` is now a robust "Custodian" of spatiotemporal data. It enforces strict contracts between Signal and Scaffold, uses the Ledger exclusively for role mapping, and is completely decoupled from hardcoded VIEWS strings.
+## 2. CI/CD Integration
+The "Truth Audits" have been migrated from ephemeral scripts to a robust `pytest` class. This ensures that any future regression in spatiotemporal integrity will be caught immediately.
 
 ---
 
-## 3. Recovery Context (In case of Crash)
-*   **Branch:** `migrate_stuff_from_old_repo`
-*   **Working Directory:** `views_hydranet/utils/`
-*   **Authority:** `eval_documentation/ADRs/007_volume_handler_specification.md`
-*   **Final Verified State:** All methods proven via `python verify_*.py`.
+## 3. Recovery Context
+*   **Permanent Authority:** `eval_documentation/ADRs/007_volume_handler_specification.md`
+*   **Test Suite:** `tests/test_volume_handler_ledger.py`
