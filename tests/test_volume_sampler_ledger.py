@@ -48,16 +48,16 @@ class TestVolumeSamplerLedger:
         s1 = VolumeSampler(global_handler, global_config)
         s2 = VolumeSampler(global_handler, global_config)
         
-        # New API: get_batch(target, threshold)
-        b1 = s1.get_batch("f1", 0, batch_size=2)
-        b2 = s2.get_batch("f1", 0, batch_size=2)
+        # New API: get_batch(target, threshold) -> (batch, qualified_count)
+        b1, _ = s1.get_batch("f1", 0, batch_size=2)
+        b2, _ = s2.get_batch("f1", 0, batch_size=2)
         
         for v1, v2 in zip(b1, b2):
             assert np.array_equal(v1.data, v2.data)
 
     def test_topological_integrity(self, global_handler, global_config):
         sampler = VolumeSampler(global_handler, global_config)
-        batch = sampler.get_batch("f1", 0, batch_size=1)
+        batch, _ = sampler.get_batch("f1", 0, batch_size=1)
         sample = batch[0]
         
         df_sample = sample.to_historical_df()
@@ -68,12 +68,23 @@ class TestVolumeSamplerLedger:
         assert len(match) > 0
         assert match.iloc[0]["i"] == test_row["i"]
 
+    def test_ledger_inheritance(self, global_handler, global_config):
+        """Verify that mini-handlers inherit all ledger roles."""
+        sampler = VolumeSampler(global_handler, global_config)
+        batch, _ = sampler.get_batch("f1", 0, batch_size=1)
+        sample = batch[0]
+        
+        assert sample.time_col == global_handler.time_col
+        assert sample.id_col == global_handler.id_col
+        assert sample.spatial_cols == global_handler.spatial_cols
+
     def test_busy_first_strategy(self, global_handler, global_config):
         sampler = VolumeSampler(global_handler, global_config)
         
         # Force threshold=1 to find the busy pixel at geographic (105, 205)
         for i in range(10):
-            batch = sampler.get_batch("f1", threshold=1, batch_size=1)
+            batch, count = sampler.get_batch("f1", threshold=1, batch_size=1)
+            assert count == 1 # Precisely one busy cell
             sample = batch[0]
             y0, x0 = sample.spatial_offset
             dim = global_config["window_dim"]

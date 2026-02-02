@@ -46,8 +46,9 @@ class TestCurriculumIntegration:
         assert target == "sb"
         
         # Push to Sampler
-        batch = sampler.get_batch(target, threshold, batch_size=1)
+        batch, qualified = sampler.get_batch(target, threshold, batch_size=1)
         assert len(batch) == 1
+        assert qualified >= 0 # Should be at least 0
         assert batch[0].channel_map == handler.channel_map
 
     def test_oscillation_coverage(self, setup_bridge):

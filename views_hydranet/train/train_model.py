@@ -175,13 +175,13 @@ def training_loop(
             # Pull the strategic instruction for this sample block
             target, threshold = planner.get_lesson(sample_idx)
             
+            # The Sampler now follows the Planner's instructions
+            batch, qualified_cells = sampler.get_batch(target, threshold, batch_size=config["batch_size"])
+
             pbar.set_description(
                 f"👾 Training | Sample {sample_idx + 1}/{config['samples']} | "
-                f"Target: {target} | Threshold: {threshold}"
+                f"Target: {target} | Events Threshold: {threshold} (Available Cells: {qualified_cells})"
             )
-
-            # The Sampler now follows the Planner's instructions
-            batch = sampler.get_batch(target, threshold, batch_size=config["batch_size"])
 
             for sample_handler in batch:
                 train(

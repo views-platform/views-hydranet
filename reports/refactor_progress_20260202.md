@@ -12,7 +12,8 @@ The "Boring Architecture" is now fully established for the data bridge. All comp
 | Component | Status | Spec | Key Falsification Overcome |
 | :--- | :--- | :--- | :--- |
 | `VolumeHandler` | **LOCKED** | ADR 007 | Topographic drift in reconstruction. |
-| `VolumeSampler` | **LOCKED** | ADR 009 | Geographic context loss in windows. |
+| `VolumeSampler` | **LOCKED** | ADR 013 | Geographic context loss in windows. |
+| `Curriculum (Transparency)` | **LOCKED** | ADR 012 | Added available cell count to progress bar. |
 | `Geometric (Flip/Permute)` | **LOCKED** | ADR 007 | Augmentation regressions in training. |
 
 ### VolumeSampler Breakthroughs:

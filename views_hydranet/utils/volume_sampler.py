@@ -2,7 +2,7 @@
 VolumeSampler: The Pure Lens for spatiotemporal window extraction.
 """
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 import numpy as np
 from views_hydranet.utils.volume_handler import VolumeHandler
 
@@ -92,12 +92,24 @@ class VolumeSampler:
             spatial_offset=(p_row + r0, p_col + c0)
         )
 
-    def get_batch(self, target_name: str, threshold: int, batch_size: int = 1) -> List[VolumeHandler]:
+    def get_batch(self, target_name: str, threshold: int, batch_size: int = 1) -> Tuple[List[VolumeHandler], int]:
         """
         Returns a batch of VolumeHandlers based on strategic instructions.
+        Also returns the count of available 'busy' cells for logging.
         """
+        # 1. Peek at qualified count for transparency
+        train_vh = self.get_train_volume()
+        try:
+            target_idx = train_vh.channel_map.index(target_name)
+        except ValueError:
+            raise ValueError(f"VolumeSampler: target_name '{target_name}' not found in Ledger.")
+            
+        activity = np.count_nonzero(train_vh.data[..., target_idx], axis=0)
+        qualified_count = len(np.argwhere(activity >= threshold))
+
+        # 2. Generate the batch
         batch = []
         for _ in range(batch_size):
             batch.append(self._generate_window(target_name, threshold))
         
-        return batch
+        return batch, qualified_count
