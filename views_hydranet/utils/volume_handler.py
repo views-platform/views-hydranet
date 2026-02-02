@@ -264,6 +264,9 @@ class VolumeHandler:
             data=new_data,
             axes=self._metadata.axes,
             channel_map=self._metadata.channel_map,
+            time_col=self._metadata.time_col,
+            id_col=self._metadata.id_col,
+            spatial_cols=self._metadata.spatial_cols,
             identity_cols=self._metadata.identity_cols,
             feature_cols=self._metadata.feature_cols,
             spatial_offset=self._metadata.spatial_offset
@@ -272,39 +275,57 @@ class VolumeHandler:
     def to_evaluation_df(self, history: 'VolumeHandler', start_idx: int) -> pd.DataFrame:
         """
         Converts predictions to DF by slicing a history provider.
+        Strictly enforces that the prediction window exists within history.
         """
-        duration = self.data.shape[self.get_axis_idx("T")]
-        # 1. Explicitly slice the provider
+        t_idx_self = self.get_axis_idx("T")
+        duration = self._data.shape[t_idx_self]
+        
+        # 1. Strict Contract Validation (ADR 007 Section 3.3)
+        history_duration = history.data.shape[history.get_axis_idx("T")]
+        if start_idx + duration > history_duration:
+            raise ValueError(
+                f"VolumeHandler Contract Violation: Evaluation window [index {start_idx} : {start_idx + duration}] "
+                f"exceeds history duration ({history_duration}). Use to_forecast_df for the future."
+            )
+
+        # 2. Slice the scaffold
         provider_slice = history.slice_time(start_idx, start_idx + duration)
         
-        # 2. Reconstruct using provider's identities
+        # 3. Align Self (Signal) to [H, W, T, C] and revert flip
         work_data = self._data.detach().cpu().numpy() if torch.is_tensor(self._data) else self._data.copy()
         t_idx, h_idx, w_idx, c_idx = self.get_axis_idx("T"), self.get_axis_idx("H"), self.get_axis_idx("W"), self.get_axis_idx("C")
-        
-        # Transform self to [H, W, T, C] and revert flip
         work_data = np.transpose(work_data, (h_idx, w_idx, t_idx, c_idx))
         work_data = np.flip(work_data, axis=0)
 
-        # Transform provider to [H, W, T, C] and revert flip
+        # 4. Align Provider (Scaffold) to [H, W, T, C] and revert flip
         provider_data = provider_slice.data.detach().cpu().numpy() if torch.is_tensor(provider_slice.data) else provider_slice.data.copy()
-        provider_data = np.transpose(provider_data, (h_idx, w_idx, t_idx, c_idx))
+        p_t, p_h, p_w, p_c = provider_slice.get_axis_idx("T"), provider_slice.get_axis_idx("H"), provider_slice.get_axis_idx("W"), provider_slice.get_axis_idx("C")
+        provider_data = np.transpose(provider_data, (p_h, p_w, p_t, p_c))
         provider_data = np.flip(provider_data, axis=0)
 
-        pg_idx = provider_slice.channel_map.index("priogrid_gid")
+        # 5. Mask via Scaffold ID (Looked up from Ledger)
+        id_col = provider_slice._metadata.id_col
+        try:
+            pg_idx = provider_slice.channel_map.index(id_col)
+        except ValueError:
+            raise ValueError(f"VolumeHandler Ledger Error: ID column '{id_col}' missing from scaffold map.")
+            
         mask = provider_data[:, :, :, pg_idx] > 0
         indices = np.where(mask)
 
+        # 6. Reconstruct
         df_dict = {}
-        # Identities from provider
+        # Identities from provider (authoritative scaffold)
         for i, col_name in enumerate(provider_slice.channel_map):
             if col_name in provider_slice._metadata.identity_cols:
                 vals = provider_data[indices[0], indices[1], indices[2], i]
+                # Clean integer casting for known types
                 if col_name in ["priogrid_gid", "month_id", "row", "col", "c_id"]:
                     df_dict[col_name] = vals.astype(int)
                 else:
                     df_dict[col_name] = vals
 
-        # Signals from self
+        # Signals from self (authoritative predictions)
         for i, col_name in enumerate(self.channel_map):
             if col_name not in df_dict:
                 df_dict[col_name] = work_data[indices[0], indices[1], indices[2], i].astype(np.float32)
@@ -331,9 +352,11 @@ class VolumeHandler:
         else:
             future_vol = np.tile(last_frame, repeat_shape)
             
-        # 3. Increment month_id
+        # 3. Increment month_id (found dynamically from Ledger)
         try:
-            m_idx = self.channel_map.index("month_id")
+            m_col = self._metadata.time_col
+            m_idx = self.channel_map.index(m_col)
+            
             if torch.is_tensor(self._data):
                 increments = torch.arange(1, steps + 1, device=self._data.device).view(steps, 1, 1)
                 future_vol[..., m_idx] += increments
@@ -341,12 +364,16 @@ class VolumeHandler:
                 increments = np.arange(1, steps + 1).reshape(steps, 1, 1)
                 future_vol[..., m_idx] += increments
         except ValueError:
+            # Time column not in channel map
             pass
 
         return VolumeHandler(
             data=future_vol,
             axes=self._metadata.axes,
             channel_map=self._metadata.channel_map,
+            time_col=self._metadata.time_col,
+            id_col=self._metadata.id_col,
+            spatial_cols=self._metadata.spatial_cols,
             identity_cols=self._metadata.identity_cols,
             feature_cols=self._metadata.feature_cols,
             spatial_offset=self._metadata.spatial_offset
@@ -356,7 +383,7 @@ class VolumeHandler:
         """
         Converts predictions to DF by extrapolating a history provider.
         """
-        duration = self.data.shape[self.get_axis_idx("T")]
+        duration = self._data.shape[self.get_axis_idx("T")]
         # 1. Explicitly extrapolate history into future
         provider_future = history.extrapolate_time(duration)
         
@@ -370,19 +397,27 @@ class VolumeHandler:
         provider_data = np.transpose(provider_data, (h_idx, w_idx, t_idx, c_idx))
         provider_data = np.flip(provider_data, axis=0)
 
-        pg_idx = provider_future.channel_map.index("priogrid_gid")
+        # Mask via Scaffold ID (Looked up from Ledger)
+        id_col = provider_future._metadata.id_col
+        try:
+            pg_idx = provider_future.channel_map.index(id_col)
+        except ValueError:
+            raise ValueError(f"VolumeHandler Ledger Error: ID column '{id_col}' missing from scaffold map.")
+            
         mask = provider_data[:, :, :, pg_idx] > 0
         indices = np.where(mask)
 
         df_dict = {}
+        # Identities from provider (authoritative scaffold)
         for i, col_name in enumerate(provider_future.channel_map):
             if col_name in provider_future._metadata.identity_cols:
                 vals = provider_data[indices[0], indices[1], indices[2], i]
-                if col_name in ["priogrid_gid", "month_id", "row", "col", "c_id"]:
+                if col_name in ["priogrid_gid", "month_id", "row", "col", "c_id"] or col_name == provider_future._metadata.time_col:
                     df_dict[col_name] = vals.astype(int)
                 else:
                     df_dict[col_name] = vals
 
+        # Signals from self
         for i, col_name in enumerate(self.channel_map):
             if col_name not in df_dict:
                 df_dict[col_name] = work_data[indices[0], indices[1], indices[2], i].astype(np.float32)

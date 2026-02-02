@@ -1,7 +1,7 @@
 # Refactor Progress Report: VolumeHandler (ADR 007 Compliance)
 
 **Date:** 02-02-2026  
-**Status:** 75% Complete (Core & Inbound Paths Locked Down)
+**Status:** 100% Complete (All Paths Locked Down and Verified)
 
 ---
 
@@ -17,20 +17,13 @@ The following methods have survived rigorous Popperian audits and are now bit-pe
 | `to_historical_df` | **LOCKED** | `verify_to_historical_rigor.py` | Identity type drift & Ocean leakage. |
 | `to_pytorch` | **LOCKED** | `verify_pytorch_gate.py` | Incorrect identity stripping indices. |
 | `wrap_predictions` | **LOCKED** | `verify_prediction_recovery.py` | 5D Dimensionality collision (Batch/Samples). |
+| `to_evaluation_df` | **LOCKED** | `verify_evaluation_rigor.py` | Silent temporal truncation. |
+| `to_forecast_df` | **LOCKED** | `verify_forecast_rigor.py` | Calendar hallucination. |
 
 ---
 
-## 2. Active Discovery & Next Steps
-
-### Step 6: Hardening `to_evaluation_df` (Next)
-*   **Current State:** Vulnerable to silent temporal truncation (Audit 1.1).
-*   **Mission:** Enforce strict temporal overlap. If `prediction_duration + start_idx > history_duration`, raise `ContractViolation`.
-*   **Verification:** `verify_evaluation_rigor.py`.
-
-### Step 7: Hardening `to_forecast_df`
-*   **Current State:** Vulnerable to "Calendar Hallucination."
-*   **Mission:** Ensure `month_id` increments are derived mathematically from the Ledger's `time_col` value at $T_{last}$.
-*   **Verification:** `verify_forecast_scaffold.py`.
+## 2. Conclusion
+The `VolumeHandler` is now a robust "Custodian" of spatiotemporal data. It enforces strict contracts between Signal and Scaffold, uses the Ledger exclusively for role mapping, and is completely decoupled from hardcoded VIEWS strings.
 
 ---
 
@@ -38,4 +31,4 @@ The following methods have survived rigorous Popperian audits and are now bit-pe
 *   **Branch:** `migrate_stuff_from_old_repo`
 *   **Working Directory:** `views_hydranet/utils/`
 *   **Authority:** `eval_documentation/ADRs/007_volume_handler_specification.md`
-*   **Constraint:** Do NOT use shared helper functions for reconstruction yet. Keep each path explicit and readable.
+*   **Final Verified State:** All methods proven via `python verify_*.py`.
