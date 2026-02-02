@@ -13,6 +13,7 @@ The "Boring Architecture" is now fully established for the data bridge. All comp
 | :--- | :--- | :--- | :--- |
 | `VolumeHandler` | **LOCKED** | ADR 007 | Topographic drift in reconstruction. |
 | `VolumeSampler` | **LOCKED** | ADR 009 | Geographic context loss in windows. |
+| `Geometric (Flip/Permute)` | **LOCKED** | ADR 007 | Augmentation regressions in training. |
 
 ### VolumeSampler Breakthroughs:
 *   **The Mini-Custodian:** Windows are no longer naked tensors; they are mini-`VolumeHandler` objects.

@@ -434,8 +434,40 @@ class VolumeHandler:
 
         return pd.DataFrame(df_dict)
 
+    def permute(self, dims: Union[List[int], Tuple[int, ...]]) -> 'VolumeHandler':
+        """
+        Reorders the axes of the volume and updates the Ledger.
+        """
+        dims_tuple = tuple(dims)
+        self._data = self._data.permute(*dims_tuple) if torch.is_tensor(self._data) else np.transpose(self._data, dims_tuple)
+        
+        # Update Ledger
+        new_axes = tuple(self._metadata.axes[i] for i in dims_tuple)
+        self._metadata = replace(
+            self._metadata, 
+            axes=new_axes, 
+            history=self._metadata.history + (("permute", dims_tuple),)
+        )
+        return self
+
+    def flip(self, axis_label: str) -> 'VolumeHandler':
+        """
+        Flips the volume along a specific named axis and updates the Ledger history.
+        """
+        idx = self.get_axis_idx(axis_label)
+        self._data = torch.flip(self._data, dims=[idx]) if torch.is_tensor(self._data) else np.flip(self._data, axis=idx)
+        
+        self._metadata = replace(
+            self._metadata, 
+            history=self._metadata.history + (("flip", axis_label),)
+        )
+        return self
+
     @property
     def data(self): return self._data
+    @property
+    def shape(self): return self._data.shape
+    def __len__(self): return self._data.shape[self.get_axis_idx("T")]
     @property
     def axes(self): return self._metadata.axes
     @property

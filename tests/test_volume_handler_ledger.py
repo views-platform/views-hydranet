@@ -166,6 +166,18 @@ class TestVolumeHandlerLedger:
         assert len(res_df) == 2
         assert sorted(res_df["month_id"].tolist()) == [100, 101]
 
+    def test_array_like_metadata_access(self, standard_config):
+        """Verify that VolumeHandler exposes shape and len properties correctly."""
+        data = np.zeros((10, 5, 5, 4)) # T=10
+        vh = VolumeHandler(
+            data=data,
+            axes=("T", "H", "W", "C"),
+            channel_map=["t", "i", "f1", "f2"],
+            time_col="t", id_col="i", spatial_cols=["y", "x"]
+        )
+        assert vh.shape == (10, 5, 5, 4)
+        assert len(vh) == 10
+
     def test_to_forecast_df_continuity(self, custom_alias_config):
         """Verify future calendar projection and Ledger adherence."""
         df_hist = pd.DataFrame([{"temporal": 500, "unit": 1, "y": 0, "x": 0, "signal": 1.0}])
