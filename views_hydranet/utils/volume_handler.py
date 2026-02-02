@@ -79,10 +79,20 @@ class VolumeHandler:
         Factory: Constructs a VolumeHandler from a standardized DataFrame.
         Enforces Absolute Anchoring and North-Up orientation.
         """
-        # 1. Resolve Ledger Roles from Config
-        time_col = config["time_col"]
-        id_col = config["id_col"]
-        y_col, x_col = config["spatial_cols"]
+        # 1. Resolve Ledger Roles from Config (ADR 007 Section 1.1)
+        # We enforce that these keys exist to ensure Zero-Magic operation
+        try:
+            time_col = config["time_col"]
+            id_col = config["id_col"]
+            y_col, x_col = config["spatial_cols"]
+        except KeyError as e:
+            raise KeyError(
+                f"VolumeHandler Contract Violation: Missing Ledger Role {e} in config.\n"
+                f"To comply with ADR 007, your config must define:\n"
+                f"  'time_col': The temporal index (e.g., 'month_id')\n"
+                f"  'id_col':   The unit index (e.g., 'priogrid_gid')\n"
+                f"  'spatial_cols': ['row_col', 'col_col']\n"
+            )
         
         identity_cols = config.get("identity_cols", [])
         feature_cols = config.get("features", [])
