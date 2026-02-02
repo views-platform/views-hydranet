@@ -34,7 +34,23 @@ We will implement an explicit **Optimization Gate** at the end of each Lesson. P
 
 ---
 
-## 4. Data Flow Topology
+## 4. Terminological Precision (Tactical vs. Strategic)
+
+To ensure unambiguous communication and logging, we define two distinct indices:
+
+### 4.1 The Global Step Index (`global_step_idx`)
+*   **Definition:** The absolute count of individual spatiotemporal windows (tubes) processed.
+*   **Granularity:** Tactical.
+*   **Responsibility:** Governs the **Lensing**. It is the index used by the `CurriculumLearner` to shift subjects (Mixed Salad) and decrement the difficulty threshold (Cooling).
+
+### 4.2 The Lesson Index (`lesson_idx`)
+*   **Definition:** The count of completed optimization cycles (Mini-Batches).
+*   **Granularity:** Strategic.
+*   **Responsibility:** Governs the **Gate**. One lesson is complete only after `windows_per_lesson` steps have been accumulated and `optimizer.step()` has been invoked.
+
+---
+
+## 5. Data Flow Topology
 `Lesson N` → `[Window 1 (sb), Window 2 (ns), Window 3 (os)]` → `Accumulated Loss` → **`Optimizer Step`** → `Lesson N+1`.
 
 ---

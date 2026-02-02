@@ -16,6 +16,7 @@ The "Boring Architecture" is now fully established for the data bridge. All comp
 | `Curriculum (Transparency)` | **LOCKED** | ADR 012 | Added available cell count to progress bar. |
 | `Mixed Salad (Oscillation)` | **LOCKED** | ADR 011 | Implemented window-level target interleaving. |
 | `Optimization Gate` | **LOCKED** | ADR 014 | Enforced gradient accumulation per Lesson. |
+| `Stochastic Integrity`| **LOCKED** | ADR 007 | Preserved 5D samples as lists in DataFrames. |
 | `Terminology Alignment` | **LOCKED** | ADR 008 | Renamed samples/batch_size to total_lessons/windows_per_lesson. |
 | `Geometric (Flip/Permute)` | **LOCKED** | ADR 007 | Augmentation regressions in training. |
 

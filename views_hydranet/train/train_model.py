@@ -177,7 +177,8 @@ def training_loop(
                 # Update progress bar
                 pbar.set_description(
                     f"👾 Training | Lesson {lesson_idx + 1}/{config['total_lessons']} | "
-                    f"Target: {target} | Events Threshold: {threshold} (Cells: {qualified_cells})"
+                    f"Window {window_idx + 1}/{config['windows_per_lesson']} | "
+                    f"Target: {target} | Threshold: {threshold} (Cells: {qualified_cells})"
                 )
 
                 # 3. Process Window (Accumulate Loss)

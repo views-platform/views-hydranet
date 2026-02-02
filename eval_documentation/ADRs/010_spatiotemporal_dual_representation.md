@@ -9,7 +9,7 @@
 We will maintain two strictly defined, non-overlapping representations of the volume data. The transition between them is a one-way gate managed by the `VolumeHandler`.
 
 ### 1.1 The Semantic Layout (Custodian)
-*   **Shape:** `[Time, Height, Width, Channel]`
+*   **Shape:** `[Time, Height, Width, Channel]` or `[Time, Height, Width, Channel, Samples]`
 *   **Purpose:** Logical storage, slicing, masking, and Ledger alignment.
 *   **Rationale:** This layout preserves the "Natural Physics" of the data. It allows for efficient spatial slicing (`H, W`) and temporal indexing (`T`) using standard array notation. It is the "Source of Truth" for all identity-preserving operations.
 

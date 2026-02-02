@@ -131,11 +131,13 @@ class TestVolumeHandlerLedger:
         assert pred_vh.data.shape == (1, 5, 5, 2) # [T, H, W, C]
         assert pred_vh.id_col == "priogrid_gid" # Inherited
 
-        # 3. Recovery: 5D Samples Mean Collapse
+        # 3. Recovery: 5D Samples Preservation (ADR 007 Section 3.4)
         samples_5d = np.ones((1, 5, 5, 2, 10)) * 5.0
         pred_vh_samples = vh.wrap_predictions(samples_5d, ["p1", "p2"])
-        assert pred_vh_samples.data.shape == (1, 5, 5, 2)
+        # Expect 5D shape [T, H, W, C, S]
+        assert pred_vh_samples.data.shape == (1, 5, 5, 2, 10)
         assert np.all(pred_vh_samples.data == 5.0)
+        assert "S" in pred_vh_samples.axes
 
     def test_to_evaluation_df_contract(self, standard_config):
         """Verify strict temporal contract enforcement for evaluation."""

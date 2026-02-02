@@ -44,3 +44,9 @@ Initialized once from `config`, verified once against `df`. It stores:
 *   **No Hardcoded Strings:** Logic never uses `"month_id"` or `"row"`. It uses `self.ledger.time_col` or `self.ledger.y_coord`.
 *   **No Magic Numbers:** Indices are always resolved from the `channel_map`.
 *   **Explicit Fail:** Shape or coordinate mismatches must raise a `ContractViolation`, never silently truncate.
+
+### 3.4 Stochastic Integrity (Uncertainty Preservation)
+*   **Applicability:** Currently applies only to **Outbound Prediction Paths** (model outputs). 
+*   **The Samples Dimension (S):** Prediction volumes may contain a 5th dimension `S` representing stochastic samples (e.g., from MC Dropout). 
+*   **No Silent Collapse:** The `VolumeHandler` is strictly prohibited from averaging or collapsing the `S` dimension during wrapping or reconstruction.
+*   **The List-Valued Contract:** When a 5D volume is converted to a DataFrame, every prediction cell must contain a `list[float]` of length `S`. This is the required format for the ViEWS evaluation package.
