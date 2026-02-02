@@ -17,7 +17,7 @@ class TestVolumeSamplerLedger:
             "identity_cols": ["t", "i", "y", "x"],
             "features": ["f1"],
             "row_offset": 100, "col_offset": 200, "height": 10, "width": 10,
-            "window_dim": 2, "batch_size": 2, "np_seed": 42, "steps": [1, 2],
+            "window_dim": 2, "windows_per_lesson": 2, "np_seed": 42, "steps": [1, 2],
             "min_events": 1
         }
 

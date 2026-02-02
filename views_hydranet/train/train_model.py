@@ -159,16 +159,16 @@ def training_loop(
         leave=True
     ) as pbar:
         # Loop over Strategic Lessons
-        for sample_idx in range(config["total_lessons"]):
+        for lesson_idx in range(config["total_lessons"]):
             
             optimizer.zero_grad() # Reset gradients at start of Lesson
             lesson_loss = torch.tensor(0.0).to(device)
             
             # Pull one lesson per window in the batch (The Mixed Salad)
-            for batch_item_idx in range(config["windows_per_lesson"]):
+            for window_idx in range(config["windows_per_lesson"]):
                 # 1. Handshake with Planner
-                global_window_idx = sample_idx * config["windows_per_lesson"] + batch_item_idx
-                target, threshold = planner.get_lesson(global_window_idx)
+                global_step_idx = lesson_idx * config["windows_per_lesson"] + window_idx
+                target, threshold = planner.get_lesson(global_step_idx)
                 
                 # 2. Handshake with Lens
                 batch, qualified_cells = sampler.get_batch(target, threshold, batch_size=1)
@@ -176,8 +176,8 @@ def training_loop(
 
                 # Update progress bar
                 pbar.set_description(
-                    f"👾 Training | Lesson {sample_idx + 1}/{config['total_lessons']} | "
-                    f"Target: {target} | Threshold: {threshold} (Cells: {qualified_cells})"
+                    f"👾 Training | Lesson {lesson_idx + 1}/{config['total_lessons']} | "
+                    f"Target: {target} | Events Threshold: {threshold} (Cells: {qualified_cells})"
                 )
 
                 # 3. Process Window (Accumulate Loss)
@@ -202,7 +202,7 @@ def training_loop(
 
                 # NUMERICAL AUDIT: Hard stop on explosion
                 # Note: t1_pred is not available at the lesson level, passing a safe dummy
-                IntegrityGuardian.monitor(model, torch.tensor([0.0]), lesson_loss, context=f"Lesson {sample_idx}")
+                IntegrityGuardian.monitor(model, torch.tensor([0.0]), lesson_loss, context=f"Lesson {lesson_idx}")
 
                 # Gradient Clipping
                 if config.get("clip_grad_norm", False):

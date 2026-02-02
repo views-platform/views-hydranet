@@ -34,7 +34,7 @@ def mock_config_train_tensors():
         "input_channels": 3,
         "window_dim": 16,
         "min_events": 10,
-        "samples": 100,
+        "total_lessons": 100,
         "slope_ratio": 1.0,
         "roof_ratio": 1.0,
     }

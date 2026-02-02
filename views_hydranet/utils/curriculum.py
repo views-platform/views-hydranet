@@ -21,9 +21,9 @@ class CurriculumLearner:
         self.handler = handler
         
         # 1. Pre-calculate trajectory parameters (Zero-Magic)
-        # We now calculate the decay base on Total Windows (samples * batch_size)
+        # We now calculate the decay base on Total Steps (lessons * windows_per_lesson)
         # to support the "Mixed Salad" high-frequency oscillation.
-        self.total_windows = config["samples"] * config.get("batch_size", 1)
+        self.total_steps = config["total_lessons"] * config.get("windows_per_lesson", 1)
         self.min_events = config["min_events"]
         self.max_events = config.get("max_events", 100)
         self.slope_ratio = config.get("slope_ratio", 0.75)
@@ -34,15 +34,15 @@ class CurriculumLearner:
         if not self.subjects:
              raise ValueError("CurriculumLearner: Ledger has no feature columns to target.")
 
-    def get_threshold(self, global_window_idx: int) -> int:
+    def get_threshold(self, global_step_idx: int) -> int:
         """
         Calculates the current 'min_events' threshold (The Cooling).
         """
-        # b = rate of change per window
-        b = ((-self.max_events + self.min_events) / (self.total_windows * self.slope_ratio))
+        # b = rate of change per step
+        b = ((-self.max_events + self.min_events) / (self.total_steps * self.slope_ratio))
         
-        # Linear progression based on global window progress
-        threshold = self.max_events + b * global_window_idx
+        # Linear progression based on global step progress
+        threshold = self.max_events + b * global_step_idx
         
         # Contract Enforcement: Cap and Floor
         threshold = min(threshold, self.max_events * self.roof_ratio)
@@ -50,13 +50,13 @@ class CurriculumLearner:
         
         return int(threshold)
 
-    def get_lesson(self, sample_idx: int) -> Tuple[str, int]:
+    def get_lesson(self, global_step_idx: int) -> Tuple[str, int]:
         """
-        Returns the specific (target, threshold) for the current training sample.
+        Returns the specific (target, threshold) for the current training step.
         """
-        threshold = self.get_threshold(sample_idx)
+        threshold = self.get_threshold(global_step_idx)
         
         # Subject Oscillation: Rotate through features
-        subject = self.subjects[sample_idx % len(self.subjects)]
+        subject = self.subjects[global_step_idx % len(self.subjects)]
         
         return subject, threshold

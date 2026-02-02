@@ -25,8 +25,8 @@ def test_training_loop_smoke(valid_config_dict):
     mock_tensor = torch.randn(1, 2, 3, 16, 16)
 
     # Ensure config has what loop needs
-    valid_config_dict["batch_size"] = 1
-    valid_config_dict["samples"] = 1
+    valid_config_dict["windows_per_lesson"] = 1
+    valid_config_dict["total_lessons"] = 1
 
     with patch("views_hydranet.train.train_model.get_train_tensors", return_value=mock_tensor), \
          patch("views_hydranet.train.train_model.train_log"):
@@ -50,9 +50,8 @@ def test_train_model_artifact_smoke_resilience(valid_config_dict, mock_mpm):
         mock_vol[:, :, :, 5:] = 1.0
 
         # We simulate the small sample count for the smoke test
-        valid_config_dict["samples"] = 1
-        valid_config_dict["batch_size"] = 1
-
+            valid_config_dict["total_lessons"] = 1
+            valid_config_dict["windows_per_lesson"] = 1
         # Execute REAL artifact training
         train_model_artifact(mock_mpm, valid_config_dict, torch.device("cpu"), mock_vol)
         print("\n✅ Training path is robust!")

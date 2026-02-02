@@ -28,7 +28,7 @@ def mock_config_window():
         "first_feature_idx": 5, # Corresponds to lr_best_sb_idx in utils.py
         "input_channels": 3,
         "min_events": 1,
-        "samples": 100,
+        "total_lessons": 100,
         "slope_ratio": 1.0,
         "roof_ratio": 1.0,
         "window_dim": 16, # Added for get_window_coords
