@@ -122,18 +122,32 @@ class HydraNetConfig(BaseModel):
     def handle_typos_and_dependencies(cls, data: Any) -> Any:
         if not isinstance(data, dict):
             return data
+            
+        # 1. Calculate time_steps from steps
         if "steps" in data:
             data["time_steps"] = len(data["steps"])
+            
+        # 2. Handle Typos (evalution_mode vs evaluation_mode)
         if "evaluation_mode" in data and "evalution_mode" not in data:
             data["evalution_mode"] = data["evaluation_mode"]
+
+        # 3. LEGACY MIGRATION: Construction of 'transforms' from legacy keys
+        if "transforms" not in data:
+            legacy_map = {}
+            for method in list(TRANSFORMS.keys()):
+                if method in data and isinstance(data[method], list):
+                    legacy_map[method] = data[method]
+            
+            if legacy_map:
+                data["transforms"] = legacy_map
+            elif "transform" in data and "features" in data:
+                data["transforms"] = {data["transform"]: data["features"]}
+            
         return data
 
     @model_validator(mode="after")
     def validate_scaling_ledger(self) -> "HydraNetConfig":
-        """
-        The Scaling Law Checksum:
-        Ensures every predictive feature is explicitly mapped to a transformation.
-        """
+        """The Scaling Law Checksum: Ensures every predictive feature is explicitly mapped."""
         features_set = set(self.features)
         mapped_set = set()
         
