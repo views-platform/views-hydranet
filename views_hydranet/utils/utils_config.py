@@ -64,10 +64,21 @@ class HydraNetConfig(BaseModel):
     input_channels: int = Field(..., ge=1)
     target_variable: TargetVariable = Field(..., description="The primary target (sb, ns, os)")
     targets: list[str] = Field(default_factory=list)
+    classification_outputs: list[str] = Field(..., description="The semantic names for the classification heads")
     identity_cols: list[str] = Field(..., description="Columns to be excluded from features")
     transform: str = Field(...)
+    
+    # 3. Spatiotemporal Topology (Structural Invariants)
+    height: int = Field(..., ge=1)
+    width: int = Field(..., ge=1)
+    time_col: str = Field(...)
+    id_col: str = Field(...)
+    spatial_cols: list[str] = Field(...)
+    row_offset: int = Field(...)
+    col_offset: int = Field(...)
+    features: list[str] = Field(...)
 
-    # 3. Training Architecture & Hyperparameters
+    # 4. Training Architecture & Hyperparameters
     model: str = Field(...)
     window_dim: int = Field(...)
     total_hidden_channels: int = Field(...)
@@ -161,4 +172,4 @@ class HydraNetConfig(BaseModel):
         return v
 
     class Config:
-        extra = "allow" # Allow extra fields from the broader pipeline for now
+        extra = "forbid" # Strictly reject unknown keys to enforce Boring Architecture

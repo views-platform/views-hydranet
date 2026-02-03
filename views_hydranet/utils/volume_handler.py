@@ -10,6 +10,11 @@ import torch
 
 logger = logging.getLogger(__name__)
 
+# Internal Naming Invariants (ADR 020)
+PRED_PREFIX = "pred_"
+REG_SUFFIX = "_raw"
+PROB_SUFFIX = "_prob"
+
 @dataclass(frozen=True)
 class VolumeMetadata:
     """
@@ -189,11 +194,17 @@ class VolumeHandler:
     def wrap_predictions(
         self,
         posterior_data: Union[np.ndarray, torch.Tensor],
-        feature_names: List[str]
+        base_names: List[str]
     ) -> 'VolumeHandler':
         """
         Creates a new VolumeHandler for model outputs, anchored to this handler's ledger.
+        Automatically applies ADR 020 naming Engine.
         """
+        # 1. Automated Naming (Internal Symmetry Gate)
+        reg_names = [f"{n}_INTERNAL_SIGNAL" for n in base_names]
+        prob_names = [f"{n}_INTERNAL_PROB" for n in base_names]
+        full_signal_names = reg_names + prob_names
+
         if posterior_data.ndim == 5:
             if torch.is_tensor(posterior_data):
                 # Assume [B=1, T, C, H, W] -> [T, H, W, C]
@@ -210,12 +221,12 @@ class VolumeHandler:
         return VolumeHandler(
             data=work_data,
             axes=axes,
-            channel_map=feature_names,
+            channel_map=full_signal_names,
             time_col=self._metadata.time_col,
             id_col=self._metadata.id_col,
             spatial_cols=self._metadata.spatial_cols,
             identity_cols=self._metadata.identity_cols,
-            feature_cols=tuple(feature_names),
+            feature_cols=tuple(full_signal_names),
             spatial_offset=self._metadata.spatial_offset
         )
 
@@ -281,7 +292,7 @@ class VolumeHandler:
         indices = np.where(mask)
 
         reconstructed = {}
-        # 4. Identities from Provider
+        # 4. Identities & Actuals from Provider
         for i, name in enumerate(provider.channel_map):
             if name in provider._metadata.identity_cols:
                 vals = p_data[indices[0], indices[1], indices[2], i]
@@ -292,7 +303,7 @@ class VolumeHandler:
             elif name in provider._metadata.feature_cols:
                 # ADR 007 Hardening: Prefix Actuals to prevent collision with Predictions
                 vals = p_data[indices[0], indices[1], indices[2], i]
-                reconstructed[f"ACTUAL_{name}"] = vals.astype(np.float32)
+                reconstructed[f"ACTUAL_INTERNAL_{name}"] = vals.astype(np.float32)
 
         # 5. Extract Features/Predictions from Self
         for i, name in enumerate(self.channel_map):
@@ -304,7 +315,30 @@ class VolumeHandler:
             else:
                 reconstructed[name] = temp_data[indices[0], indices[1], indices[2], i].astype(np.float32)
 
-        return pd.DataFrame(reconstructed)
+        df_out = pd.DataFrame(reconstructed)
+        
+        # 6. Automatic Symmetry Recovery (ADR 020)
+        final_rename = {}
+        for col in df_out.columns:
+            if "INTERNAL_SIGNAL" in col:
+                base = col.replace("_INTERNAL_SIGNAL", "")
+                final_rename[col] = f"{PRED_PREFIX}{base}{REG_SUFFIX}"
+            elif "INTERNAL_PROB" in col:
+                base = col.replace("_INTERNAL_PROB", "")
+                final_rename[col] = f"{PRED_PREFIX}{base}{PROB_SUFFIX}"
+            elif "ACTUAL_INTERNAL_" in col:
+                base = col.replace("ACTUAL_INTERNAL_", "")
+                final_rename[col] = base
+                
+        df_out = df_out.rename(columns=final_rename)
+        
+        # 7. Automated Topographical Restoration (ADR 007)
+        # Restore the MultiIndex using the authoritative Ledger roles
+        time_col, id_col = self._metadata.time_col, self._metadata.id_col
+        if time_col in df_out.columns and id_col in df_out.columns:
+            df_out = df_out.set_index([time_col, id_col])
+            
+        return df_out
 
     def slice_time(self, start_idx: int, end_idx: int) -> 'VolumeHandler':
         """

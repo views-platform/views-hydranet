@@ -15,16 +15,23 @@ The model output is a single concatenated tensor (or a tuple that is immediately
 
 Total channels MUST equal `n_regression_outputs + n_classification_outputs`. Any deviation triggers an immediate structural failure.
 
-### 1.2 The Naming Engine (Symmetry Recovery)
-To recover semantic meaning from the raw stack, the `HydranetManager` must construct column names using the following formula:
+### 1.2 The Naming Engine (Internal Invariants)
+To ensure absolute consistency, the naming of model heads is an internal secret of the HydraNet package. The following constants are used to "dress" raw tensors during the Symmetry Recovery process:
 
-*   **Regression Name:** `eval_prefix` + `target_name` + `regression_surfix`
-*   **Classification Name:** `eval_prefix` + `target_name` + `classification_surfix`
+*   **Prefix:** `pred_` (Required by downstream evaluation)
+*   **Regression Suffix:** `_raw` (Indicates count-space prediction)
+*   **Classification Suffix:** `_prob` (Indicates probability-space signal)
+
+**Formula:**
+*   `pred_` + `target_name` + `_raw`
+*   `pred_` + `target_name` + `_prob`
 
 ---
 
 ## 2. Structural Invariants
-[INVARIANTS DEFINED IN SPECIFICATION BUT NOT CURRENTLY ENFORCED IN CODE]
+
+1.  **Zero-Configuration Naming:** The researcher providing the config should never have to know about or define these prefixes/suffixes. They are hardcoded into the `VolumeHandler` gate.
+2.  **Positional Mapping:** The `wrap_predictions` method must accept a list of `base_names` and automatically map them to the 6-head output based on the positional Regression/Classification blocks.
 
 ---
 

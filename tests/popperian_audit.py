@@ -52,9 +52,6 @@ AUDIT_CONFIG = {
     "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
     "identity_cols": ["month_id", "priogrid_gid", "row", "col"],
     "target_variable": "lr_sb_best",
-    "eval_prefix": "pred_",
-    "regression_surfix": "_raw",
-    "classification_surfix": "_prob",
     "classification_outputs": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
     "targets": ["lr_sb_best"]
 }
