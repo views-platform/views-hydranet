@@ -45,6 +45,10 @@ def get_hp_config():
         'time_col': 'month_id',
         'id_col': 'priogrid_gid',
         'spatial_cols': ['row', 'col'],
+        'row_offset': 87,            # Global geographic anchor (Y)
+        'col_offset': 310,           # Global geographic anchor (X)
+        'height': 180,               # Global grid resolution (Y)
+        'width': 180,                # Global grid resolution (X)
 
         # ============================================================
         # Target / data handling

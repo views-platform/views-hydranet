@@ -14,6 +14,12 @@ Initialized once from `config`, verified once against `df`. It stores:
 *   **Topology:** The ordered `channel_map`.
 *   **Anchors:** Geographic `row_offset` and `col_offset`.
 
+### 1.3 The Geographic Anchor (Absolute Anchoring)
+To prevent spatial drift, every volume is anchored to a global coordinate system.
+*   **Purpose:** Map array indices `[y, x]` to real-world coordinates `[row, col]`.
+*   **Mechanism:** `geographic_row = array_y + row_offset`.
+*   **Contract:** These offsets must be provided by the config. They ensure that even a 32x32 window (extracted by the Sampler) can be accurately reconstructed into a global sparse DataFrame.
+
 ---
 
 ## 2. Functional API (The Flow)
