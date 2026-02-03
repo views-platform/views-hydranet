@@ -39,26 +39,25 @@ A **Lesson** is defined as one complete training iteration consisting of:
 ## 3. Functional Specification
 
 ### 3.1 The Scheduler (Temporal)
-Uses the `my_decay` function to map the current `sample_idx` to a `min_events` threshold.
-*   **Inputs:** `sample_idx`, `total_samples`, `min_events`, `max_events`, `slope_ratio`, `roof_ratio`.
-*   **Output:** An integer `threshold` representing the current "Lensing Strength."
+Uses the linear decay logic to map the current `global_step_idx` to an **Intensity Ratio**.
+*   **Inputs:** `global_step_idx`, `total_steps` (lessons * batch), `min_ratio`, `max_ratio`, `slope_ratio`, `roof_ratio`.
+*   **Output:** A float `ratio` between 0.0 and 1.0 representing the current "Lensing Strength."
 
 ### 3.2 The Selector (Spatial)
-The `VolumeSampler` uses the current `threshold` to identify "Busy" cells.
-*   **Handshake:** The sampler must provide a `set_difficulty(threshold)` method.
-*   **Logic:** If `activity >= threshold`, the cell is a candidate for sampling. As `threshold` drops, the "Universe" of valid samples expands.
+The `VolumeSampler` converts the `ratio` to an absolute integer `threshold` based on the target subject's maxima.
+*   **Logic:** `threshold = int(ratio * subject_max)`. If `activity >= threshold`, the cell is a candidate for sampling.
 
 ### 3.3 The Oscillator (Target)
-The sampler alternates its search target:
-`Target(Sample_N) = Feature_Cols[Sample_N % len(Feature_Cols)]`
+The sampler alternates its search target per window:
+`Target(global_step_idx) = Feature_Cols[global_step_idx % len(Feature_Cols)]`
 
 ---
 
 ## 4. Implementation Invariants (The "Spirit")
 
-1.  **Explicit Handshake:** The Trainer is responsible for calculating difficulty; the Sampler is responsible for enforcing it. This separation must be explicit.
-2.  **No Magic Cooling:** The decay parameters must be visible in the `config` (ADR 008 compliance).
-3.  **Auditability:** The current `min_events` threshold should be logged to ensure the "Cooling" is proceeding as planned.
+1.  **Explicit Handshake:** The Trainer is responsible for calculating progress; the Planner is responsible for calculating difficulty; the Lens is responsible for enforcing it.
+2.  **No Magic Cooling:** The decay parameters (ratios and slopes) must be visible in the `config` (ADR 008 compliance).
+3.  **Auditability:** The current `threshold` and `available_cells` should be displayed in the progress bar.
 
 ---
 

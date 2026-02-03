@@ -33,6 +33,14 @@ To prevent spatial drift, every volume is anchored to a global coordinate system
 | `to_evaluation_df()` | Bridge | `history`, `idx` | `pd.DataFrame` |
 | `to_forecast_df()` | Bridge | `history` | `pd.DataFrame` |
 
+### 2.1 Metadata Access (Citizen Class)
+To integrate with training loops without exposing raw data, the handler provides:
+*   `shape`: Returns the 4D/5D data shape.
+*   `__len__`: Returns the temporal duration (number of months).
+*   `axes`: Returns the axis-role ledger (e.g., T, H, W, C, S).
+*   `spatial_cols`: Returns the names of the Y and X coordinates.
+*   `spatial_offset`: Returns the geographic global anchor.
+
 ---
 
 ## 3. Implementation Contracts

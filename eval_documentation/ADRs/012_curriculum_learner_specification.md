@@ -42,9 +42,9 @@
 
 ## 4. Contractual Precision (The "Constraints")
 
-### `get_lesson(sample_idx: int) -> Tuple[str, int]`
-*   **Pre-condition:** `sample_idx` must be within the bounds of `total_samples`.
-*   **Post-condition:** Returns a tuple of `(target_column_name, event_threshold)`.
+### `get_lesson(global_step_idx: int) -> Tuple[str, int]`
+*   **Pre-condition:** `global_step_idx` must be within the bounds of `total_steps`.
+*   **Post-condition:** Returns a tuple of `(target_column_name, absolute_event_threshold)`.
 
 ---
 
