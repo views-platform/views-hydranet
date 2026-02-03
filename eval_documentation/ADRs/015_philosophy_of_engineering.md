@@ -40,7 +40,16 @@ Multi-task learning requires simultaneous, not sequential, optimization.
 
 ---
 
-## 5. Consequences
+## 5. Law 5: Explicit Transformation (No Silent Logic)
+Data content modification (scaling, augmentation, binarization) is a strategic act and must be treated as such.
+*   **The Principle:** Logic that changes cell values or row counts must never be "bundled" into ingestion or structural bridges.
+*   **The Mechanism:** Transformations must be implemented in specialized classes (e.g., `FeatureScaler`) and invoked explicitly by the `HydranetManager`.
+*   **The Constraint:** Every transformation must be triggered by a specific `config` entry. If the config is silent, the data remains raw.
+*   **Goal:** Traceability. A researcher must be able to look at the `Manager` and see exactly when and where the "Raw" data became "Semantic" data.
+
+---
+
+## 6. Consequences
 By following these laws, we trade **Initial Speed** for **Permanent Trust**. 
 *   It takes longer to set up a run (because the config is verbose).
 *   It is harder to write new features (because they must be verified against ADRs).

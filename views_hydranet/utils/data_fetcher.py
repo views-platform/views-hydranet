@@ -71,8 +71,15 @@ class DataFetcher:
             print(f"\n{error_msg}")
             raise ValueError(error_msg)
             
-        # 2. Enforce Level Names and Order from Config
-        expected_names = config.get("index_names", ["month_id", "priogrid_gid"])
+        # 2. Enforce Level Names and Order from Config (ADR 017 Section 1.2)
+        try:
+            expected_names = config["index_names"]
+        except KeyError:
+            raise KeyError(
+                "DataFetcher Contract Violation: 'index_names' missing from config.\n"
+                "To comply with ADR 017, you must explicitly define the MultiIndex levels."
+            )
+            
         actual_names = list(df.index.names)
         
         if actual_names[:len(expected_names)] != expected_names:

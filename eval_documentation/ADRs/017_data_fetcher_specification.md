@@ -15,22 +15,22 @@
 *   **Responsibility:** Mapping complex MultiIndex structures to a flat, role-based table.
 *   **The Law:** The Fetcher never "guesses" which index level represents Time or Space. It must pull the authoritative names from the `index_names` entry in the configuration.
 
-### Zone 3: Geometric Hygiene (The Purge)
-*   **Responsibility:** Ensuring that the sparse DataFrame contains only valid land units.
-*   **Action:** It must explicitly drop any row where the Primary ID (e.g., `priogrid_gid`) is 0. This ensures the system never attempts to "paint" data onto non-existent geographic coordinates.
+### Zone 3: Structural Gateway (Flat Exit)
+*   **Responsibility:** Standardizing the MultiIndex into a format consumable by the VolumeHandler.
+*   **The Law of Content Preservation:** The Fetcher is a "Passive Ingestor." It is strictly prohibited from dropping rows, filling NaNs, or scaling values. It only resets the index to provide a flat table.
 
 ---
 
 ## 2. Structural Invariants (The "Spirit")
 
-1.  **Zero-Inference Handshake:** If `index_names` is missing from the config, the Fetcher must "Fail Loud and Proud." Defaulting to `["month_id", "priogrid_gid"]` is prohibited (ADR 015 Law 1).
-2.  **Immutability of Source:** The Fetcher reads data but never modifies the original file on disk. 
+1.  **Zero-Inference Handshake:** If `index_names` is missing from the config, the Fetcher must fail immediately. 
+2.  **Explicit Transformation Only:** Content modification (e.g., scaling) is the responsibility of the `FeatureScaler`, not the Fetcher.
 3.  **Flat Output:** The final product of the Fetcher must always be a flat `pd.DataFrame` with a standard numeric index. MultiIndices must be reset after validation.
 
 ---
 
 ## 3. Data Flow Topology
-`Disk (Parity/CSV)` → **`DataFetcher`** → `Verified Sparse DF` → **`VolumeHandler`**.
+`Disk` → **`DataFetcher` (Structure)** → `Sparse DF` → **`FeatureScaler` (Content)** → `Semantic DF` → **`VolumeHandler` (Topology)**.
 
 ---
 
