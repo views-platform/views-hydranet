@@ -20,6 +20,7 @@ from views_pipeline_core.managers.model import (
 )
 
 from views_hydranet.train.train_model import train_model_artifact
+from views_hydranet.utils.config_initializer import ConfigInitializer
 from views_hydranet.utils.data_fetcher import DataFetcher
 from views_hydranet.utils.data_sniffer import DataSniffer
 from views_hydranet.utils.feature_scaler import FeatureScaler
@@ -68,6 +69,10 @@ class HydranetManager(ForecastingModelManager):
         """HydraNet specific training override."""
         logger.info(f"Starting HydraNet training: {self.configs['run_type']}")
 
+        # 0. Strict Config Handshake (ADR 008/015)
+        # Validates schema once before component initialization
+        self.configs = ConfigInitializer(self.configs).get_config()
+
         # 1. Ingest
         fetcher = DataFetcher(self._model_path.data_raw, self.configs)
         df = fetcher.fetch_df()
@@ -85,8 +90,8 @@ class HydranetManager(ForecastingModelManager):
         handler = VolumeHandler.from_df(
             df, 
             self.configs, 
-            height=self.configs.get("height", 180), 
-            width=self.configs.get("width", 180)
+            height=self.configs["height"], 
+            width=self.configs["width"]
         )
 
         # PEACE OF MIND GATE: Uncomment to visually verify the raster before training
@@ -148,6 +153,7 @@ class HydranetManager(ForecastingModelManager):
 
     def _evaluate_model_artifact(self, eval_type: str, artifact_name: str | None = None) -> list[pd.DataFrame]:
         """Orchestrates rolling-origin evaluation."""
+        self.configs = ConfigInitializer(self.configs).get_config()
         run_type = self.configs["run_type"]
         fetcher = DataFetcher(self._model_path.data_raw, self.configs)
         df = DataFetcher.standardize_raw_df(fetcher.fetch_df(), self.configs)
@@ -162,10 +168,9 @@ class HydranetManager(ForecastingModelManager):
         handler = VolumeHandler.from_df(
             df, 
             self.configs, 
-            height=self.configs.get("height", 180), 
-            width=self.configs.get("width", 180)
+            height=self.configs["height"], 
+            width=self.configs["width"]
         )
-        vol_full = handler.data
 
         sniffer.sniff_forecast_alignment(df, vol_full, month_range=vol_full.shape[0], is_forecast=False)
 
@@ -204,6 +209,7 @@ class HydranetManager(ForecastingModelManager):
 
     def _forecast_model_artifact(self, artifact_name: str | None = None) -> list[pd.DataFrame]:
         """Generates operational forecasts."""
+        self.configs = ConfigInitializer(self.configs).get_config()
         run_type = self.configs["run_type"]
         fetcher = DataFetcher(self._model_path.data_raw, self.configs)
         df = DataFetcher.standardize_raw_df(fetcher.fetch_df(), self.configs)
@@ -218,8 +224,8 @@ class HydranetManager(ForecastingModelManager):
         handler = VolumeHandler.from_df(
             df, 
             self.configs, 
-            height=self.configs.get("height", 180), 
-            width=self.configs.get("width", 180)
+            height=self.configs["height"], 
+            width=self.configs["width"]
         )
         vol_forecast = handler.data
 
