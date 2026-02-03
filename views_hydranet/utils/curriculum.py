@@ -3,6 +3,7 @@ CurriculumLearner: The Strategic Planner for the HydraNet Training Trajectory.
 """
 import logging
 from typing import Any, Dict, Tuple
+import numpy as np
 from views_hydranet.utils.volume_handler import VolumeHandler
 
 logger = logging.getLogger(__name__)
@@ -11,52 +12,87 @@ class CurriculumLearner:
     """
     Strategic Planner responsible for scheduling training difficulty (Cooling)
     and rotating subject targets (Oscillation).
+    
+    Implements Target-Relative Thresholding to ensure Signal Anchorage 
+    across tasks of varying sparsity.
     """
 
     def __init__(self, config: Dict[str, Any], handler: VolumeHandler):
         """
-        Initializes the planner with the authoritative Ledger.
+        Initializes the planner with the authoritative Ledger and calculates
+        subject-specific intensity maxima.
         """
         self.config = config
         self.handler = handler
         
         # 1. Pre-calculate trajectory parameters (Zero-Magic)
-        # We now calculate the decay base on Total Steps (lessons * windows_per_lesson)
-        # to support the "Mixed Salad" high-frequency oscillation.
         self.total_steps = config["total_lessons"] * config.get("windows_per_lesson", 1)
-        self.min_events = config["min_events"]
-        self.max_events = config.get("max_events", 100)
+        
+        # In the relative world, min/max are ratios (0.0 to 1.0)
+        # e.g., start at 90% of max, cool down to 5% of max
+        self.min_ratio = config.get("min_ratio", 0.05)
+        self.max_ratio = config.get("max_ratio", 0.95)
+        
         self.slope_ratio = config.get("slope_ratio", 0.75)
         self.roof_ratio = config.get("roof_ratio", 0.7)
         
-        # 2. Extract targets from Ledger (Handshake)
+        # 2. Extract targets from Ledger and Record Maxima
         self.subjects = list(handler._metadata.feature_cols)
         if not self.subjects:
              raise ValueError("CurriculumLearner: Ledger has no feature columns to target.")
+             
+        self.subject_maxima = self._calculate_subject_maxima()
+        logger.info(f"CurriculumLearner: Established subject maxima: {self.subject_maxima}")
 
-    def get_threshold(self, global_step_idx: int) -> int:
+    def _calculate_subject_maxima(self) -> Dict[str, float]:
         """
-        Calculates the current 'min_events' threshold (The Cooling).
+        Scans the global volume to find the maximum activity for each subject.
+        Uses spatiotemporal count non-zero as the activity metric.
+        """
+        maxima = {}
+        data = self.handler.data
+        
+        for name in self.subjects:
+            idx = self.handler.channel_map.index(name)
+            # Find max activity in any spatial cell across time
+            # Activity = sum of events in the T dimension
+            activity = np.count_nonzero(data[..., idx], axis=0)
+            maxima[name] = float(np.max(activity))
+            
+        return maxima
+
+    def get_intensity_ratio(self, global_step_idx: int) -> float:
+        """
+        Calculates the current global intensity ratio (The Cooling).
+        Returns a float between min_ratio and max_ratio.
         """
         # b = rate of change per step
-        b = ((-self.max_events + self.min_events) / (self.total_steps * self.slope_ratio))
+        b = ((-self.max_ratio + self.min_ratio) / (self.total_steps * self.slope_ratio))
         
-        # Linear progression based on global step progress
-        threshold = self.max_events + b * global_step_idx
+        # Linear progression
+        ratio = self.max_ratio + b * global_step_idx
         
-        # Contract Enforcement: Cap and Floor
-        threshold = min(threshold, self.max_events * self.roof_ratio)
-        threshold = max(threshold, self.min_events)
+        # Contract Enforcement
+        ratio = min(ratio, self.max_ratio * self.roof_ratio)
+        ratio = max(ratio, self.min_ratio)
         
-        return int(threshold)
+        return ratio
 
     def get_lesson(self, global_step_idx: int) -> Tuple[str, int]:
         """
-        Returns the specific (target, threshold) for the current training step.
+        Returns the specific (target, absolute_threshold) for the current training step.
         """
-        threshold = self.get_threshold(global_step_idx)
+        ratio = self.get_intensity_ratio(global_step_idx)
         
-        # Subject Oscillation: Rotate through features
+        # Subject Oscillation
         subject = self.subjects[global_step_idx % len(self.subjects)]
         
+        # Convert relative ratio to absolute event threshold
+        subject_max = self.subject_maxima[subject]
+        threshold = int(ratio * subject_max)
+        
+        # Floor safety: Always require at least 1 event if ratio > 0
+        if ratio > 0 and threshold == 0 and subject_max > 0:
+            threshold = 1
+            
         return subject, threshold

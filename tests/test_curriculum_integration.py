@@ -41,15 +41,40 @@ class TestCurriculumIntegration:
         # Pull Lesson for Step 0
         target, threshold = planner.get_lesson(global_step_idx=0)
         
-        # Verify Threshold (Initial Cooling)
-        # max_events=100, roof=0.7 -> should be 70
-        assert threshold == 70
+        # Verify Threshold (Initial Cooling - Relative)
+        # roof=0.7, max_ratio=0.95 -> ratio=0.665
+        # Since data is zeros, all maxima are 0.0. threshold should be 0.
+        assert threshold == 0
         assert target == "sb"
         
         # Push to Sampler
         batch, qualified = sampler.get_batch(target, threshold, batch_size=1)
         assert len(batch) == 1
         assert qualified >= 0 
+
+    def test_subject_maxima_discovery(self, setup_bridge):
+        """Verify that the planner correctly identifies the signal intensity peaks."""
+        config, handler = setup_bridge
+        # Inject known signal into 'sb' at channel index 2 (t, i, sb, ns, os)
+        handler.data[0, 5, 5, 2] = 1.0 # 1 event in T=0
+        handler.data[1, 5, 5, 2] = 1.0 # 1 event in T=1
+        # Total activity at (5,5) for 'sb' is 2.
+        
+        planner = CurriculumLearner(config, handler)
+        assert planner.subject_maxima["sb"] == 2.0
+        assert planner.subject_maxima["ns"] == 0.0
+
+    def test_relative_threshold_scaling(self, setup_bridge):
+        """Verify that threshold scales correctly based on subject-specific maxima."""
+        config, handler = setup_bridge
+        config["max_ratio"] = 1.0
+        config["roof_ratio"] = 1.0 # no cap
+        handler.data[:, 0, 0, 2] = 1.0 # 'sb' max = 2
+        
+        planner = CurriculumLearner(config, handler)
+        # Step 0 -> sb. Ratio 1.0. Threshold should be 1.0 * 2 = 2.
+        _, thresh = planner.get_lesson(0)
+        assert thresh == 2
 
     def test_oscillation_coverage(self, setup_bridge):
         """Verify that oscillation happens at every window step (Mixed Salad)."""
@@ -67,15 +92,15 @@ class TestCurriculumIntegration:
         """Verify the mathematical schedule of threshold decay."""
         config, handler = setup_bridge
         # total_lessons=300, windows_per_lesson=1 -> total_steps=300
-        # min=5, max=100, slope=0.75 (ends at step 225), roof=0.7 (max 70)
+        # min_ratio=0.05, max_ratio=0.95, slope=0.75 (ends at step 225), roof=0.7 (max ratio 0.665)
         planner = CurriculumLearner(config, handler)
         
         # 1. Roof Cap at Step 0
-        assert planner.get_threshold(0) == 70
+        assert np.isclose(planner.get_intensity_ratio(0), 0.665)
         
         # 2. Linear Cooling
-        mid_val = planner.get_threshold(100)
-        assert 5 < mid_val < 70
+        mid_val = planner.get_intensity_ratio(100)
+        assert 0.05 < mid_val < 0.665
         
         # 3. Floor hit at Step 250 (past 225)
-        assert planner.get_threshold(250) == 5
+        assert np.isclose(planner.get_intensity_ratio(250), 0.05)

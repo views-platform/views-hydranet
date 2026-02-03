@@ -12,9 +12,8 @@ We will implement a dynamic Curriculum Learning strategy that schedules the "Dif
 A **Lesson** is defined as one complete training iteration consisting of:
 1.  **A Mixed Salad Batch:** Extraction of `windows_per_lesson` (typically 3) spatiotemporal tubes.
 2.  **Multitask Coverage:** Each window in the lesson targets a different conflict type (`sb`, `ns`, `os`).
-3.  **The Optimization Gate:** Gradients are accumulated across all windows in the lesson. **One single parameter update (backprop)** occurs per lesson.
-
-The training process will scale from high-signal, high-intensity conflict "lessons" to the full, sparse complexity of the global distribution.
+3.  **Target-Relative Thresholding:** The "Difficulty" is calculated relative to the specific subject's distribution. (e.g., Lesson 1 targets the top 90% of intensity for whatever subject is chosen).
+4.  **The Optimization Gate:** Gradients are accumulated across all windows in the lesson. **One single parameter update (backprop)** occurs per lesson.
 
 ---
 

@@ -14,8 +14,11 @@
 
 ### Zone 2: Trajectory Calculation (The Cooling)
 *   **Responsibility:** Implementing the "Mathematical Cooling" of the search threshold.
-*   **Logic:** Uses the linear decay function (`my_decay`) to map the current `sample_idx` to a `min_events` threshold.
-*   **Goal:** Enforce Signal Anchorage (high signal early, sparse data late).
+*   **Logic:** 
+    1.  Calculates a **Global Intensity Ratio** (e.g., 0.9 cooling to 0.1) based on the linear decay of the sequence index.
+    2.  At initialization, records the `maximum_observed_intensity` for every subject in the global volume.
+    3.  During `get_lesson`, converts the ratio to an absolute threshold: `threshold = int(ratio * subject_max)`.
+*   **Goal:** Enforce Signal Anchorage independently for every task, regardless of their relative sparsity.
 
 ### Zone 3: Subject Rotation (The Oscillation)
 *   **Responsibility:** Ensuring balanced learning across all conflict tasks.
