@@ -88,7 +88,7 @@ def get_hp_config():
         # ============================================================
         'total_lessons': 300,        # Number of curriculum stages
         'windows_per_lesson': 3,     # True Mini-Batch size (The Mixed Salad)
-        'test_samples': 10,
+        'n_posterior_samples': 10,   # Resolution of uncertainty (MC Dropout)
 
         # ============================================================
         # Loss: classification & regression

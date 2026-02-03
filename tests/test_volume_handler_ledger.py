@@ -22,7 +22,8 @@ class TestVolumeHandlerLedger:
             "col_offset": 20,
             "height": 5,
             "width": 5,
-            "steps": [1]
+            "steps": [1],
+            "n_posterior_samples": 10
         }
 
     @pytest.fixture

@@ -282,13 +282,13 @@ class HydraNetInference:
                 H,
                 W,
                 self.config["input_channels"],
-                self.config["test_samples"],
+                self.config["n_posterior_samples"],
             ),
             dtype=np.float32,
         )
         posterior_probabilities_zstack = np.zeros_like(posterior_magnitudes_zstack)
 
-        total_inference_steps = self.config["test_samples"] * full_seq_len
+        total_inference_steps = self.config["n_posterior_samples"] * full_seq_len
 
         desc_prefix = f"[{window_info}] " if window_info else ""
 
@@ -298,7 +298,7 @@ class HydraNetInference:
             unit="step",
             leave=False, # Don't clutter the terminal, the manager has the main bar
         ) as pbar:
-            for sample_idx in range(self.config["test_samples"]):
+            for sample_idx in range(self.config["n_posterior_samples"]):
                 pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(
                     full_tensor, sample_idx, is_evaluation=is_evaluation, pbar=pbar
                 )

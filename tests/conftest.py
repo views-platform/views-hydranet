@@ -25,7 +25,7 @@ def valid_config_dict():
         "scheduler": "WarmupDecay",
         "warmup_steps": 100,
         "total_lessons": 300,
-        "test_samples": 10,
+        "n_posterior_samples": 10,
         "loss_reg": "b",
         "loss_class": "b",
         "loss_reg_a": 258,

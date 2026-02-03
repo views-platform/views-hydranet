@@ -19,6 +19,7 @@ class TestOptimizationGate:
             "windows_per_lesson": 2,
             "np_seed": 4, "torch_seed": 4,
             "window_dim": 1, "steps": [1],
+            "n_posterior_samples": 10,
             "min_events": 1, "max_events": 10, "slope_ratio": 1.0, "roof_ratio": 1.0,
             "identity_cols": ["t"], "features": ["f1"],
             "time_col": "t", "id_col": "i", "spatial_cols": ["y", "x"],

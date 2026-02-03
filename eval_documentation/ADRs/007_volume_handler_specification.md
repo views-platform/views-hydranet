@@ -49,4 +49,4 @@ Initialized once from `config`, verified once against `df`. It stores:
 *   **Applicability:** Currently applies only to **Outbound Prediction Paths** (model outputs). 
 *   **The Samples Dimension (S):** Prediction volumes may contain a 5th dimension `S` representing stochastic samples (e.g., from MC Dropout). 
 *   **No Silent Collapse:** The `VolumeHandler` is strictly prohibited from averaging or collapsing the `S` dimension during wrapping or reconstruction.
-*   **The List-Valued Contract:** When a 5D volume is converted to a DataFrame, every prediction cell must contain a `list[float]` of length `S`. This is the required format for the ViEWS evaluation package.
+*   **The List-Valued Contract:** When a 5D volume is converted to a DataFrame, every prediction cell must contain a `list[float]` of length `S`. This is the required format for the ViEWS evaluation package. The length `S` is determined by the `n_posterior_samples` configuration key.

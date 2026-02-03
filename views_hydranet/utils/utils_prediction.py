@@ -84,7 +84,9 @@ def sample_posterior(
     - tuple: (posterior_magnitudes, posterior_probabilities, out_of_sample_vol, out_of_sample_meta_vol, full_tensor, metadata_tensor)
     """
 
-    logger.info(f"Drawing {config['test_samples']} posterior samples...")
+    # choose how many samples to draw
+    n_samples = config['n_posterior_samples']
+    logger.info(f"Drawing {n_samples} posterior samples...")
 
     full_tensor, metadata_tensor = get_full_tensor(views_vol, config)
 
