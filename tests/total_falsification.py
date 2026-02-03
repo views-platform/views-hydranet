@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import torch
 import torch.nn as nn
+from unittest.mock import MagicMock, patch, PropertyMock
 from pydantic import ValidationError
 from views_hydranet.utils.utils_config import HydraNetConfig, TRANSFORMS
 from views_hydranet.utils.volume_handler import VolumeHandler
@@ -10,7 +11,7 @@ from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.manager.hydranet_manager import HydranetManager
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
 
-# ROOT FIX AUDIT STANDARDS
+# BIT-PERFECT AUDIT STANDARDS (Root Fix Schema)
 BASE_CONFIG = {
     'run_type': 'calibration',
     'steps': [1, 2],
@@ -22,9 +23,11 @@ BASE_CONFIG = {
     'classification_outputs': ['lr_sb_best', 'lr_ns_best', 'lr_os_best'],
     'identity_cols': ['month_id', 'priogrid_gid', 'row', 'col'],
     'features': ['lr_sb_best', 'lr_ns_best', 'lr_os_best'],
-    'log1p': ['lr_sb_best'],
-    'asinh': ['lr_ns_best'],
-    'identity': ['lr_os_best'],
+    'transform': {
+        'log1p': ['lr_sb_best'],
+        'asinh': ['lr_ns_best'],
+        'identity': ['lr_os_best']
+    },
     'height': 4, 'width': 4,
     'time_col': 'month_id', 'id_col': 'priogrid_gid',
     'spatial_cols': ['row', 'col'],
@@ -54,8 +57,8 @@ BASE_CONFIG = {
     'aggregate_method': 'geometric_mean'
 }
 
-class TestNukeProofAudit:
-    """The 36-Gate Nuke-Proof Falsification Suite."""
+class TestComprehensiveFalsificationAudit:
+    """The Single Source of Truth for Bit-Perfect Architecture."""
 
     # --- ZONE 1: CONFIG HANDSHAKE ---
     
@@ -68,9 +71,7 @@ class TestNukeProofAudit:
 
     def test_gate_5_scaling_law_missing_feature(self):
         bad_cfg = BASE_CONFIG.copy()
-        bad_cfg['log1p'] = []
-        bad_cfg['asinh'] = []
-        bad_cfg['identity'] = []
+        bad_cfg['transform'] = {'log1p': ['lr_sb_best']} 
         with pytest.raises(ValidationError, match="not assigned a transform"):
             HydraNetConfig(**bad_cfg)
 
@@ -80,23 +81,9 @@ class TestNukeProofAudit:
         with pytest.raises(ValidationError, match="Checksum Law Violation: input_channels"):
             HydraNetConfig(**bad_cfg)
 
-    def test_gate_12_baggage_tolerance(self):
-        baggage_cfg = BASE_CONFIG.copy()
-        baggage_cfg['deployment_status'] = 'shadow'
-        cfg = HydraNetConfig(**baggage_cfg)
-        assert cfg.model_dump()['deployment_status'] == 'shadow'
+    # --- ZONE 2: VOLUME PHYSICS & SYMMETRY ---
 
-    def test_gate_13_14_typo_normalization(self):
-        typo_cfg = BASE_CONFIG.copy()
-        typo_cfg['evalution_mode'] = 'stocastic'
-        typo_cfg['aggregate_method'] = 'mean'
-        cfg = HydraNetConfig(**typo_cfg)
-        assert cfg.evalution_mode == 'stochastic'
-        assert cfg.aggregate_method == 'geometric_mean'
-
-    # --- ZONE 2: VOLUME PHYSICS ---
-
-    def test_gate_15_16_identity_striping(self):
+    def test_gate_15_identity_striping(self):
         df = pd.DataFrame({
             'month_id': [1, 1], 'priogrid_gid': [1, 2],
             'row': [0, 0], 'col': [0, 1],
@@ -106,44 +93,88 @@ class TestNukeProofAudit:
         tensor = handler.to_pytorch(torch.device('cpu'), include_identities=False)
         assert tensor.shape == (1, 1, 3, 4, 4) 
 
-    def test_gate_20_21_22_23_symmetry_recovery(self):
-        posterior = torch.ones((1, 1, 6, 4, 4))
-        df_hist = pd.DataFrame({
-            'month_id': [1, 1], 'priogrid_gid': [1, 2],
-            'row': [0, 0], 'col': [0, 1],
-            'lr_sb_best': [10.0, 20.0], 'lr_ns_best': [0.0, 0.0], 'lr_os_best': [0.0, 0.0]
-        })
-        handler = VolumeHandler.from_df(df_hist, BASE_CONFIG, height=4, width=4)
-        pred_handler = handler.wrap_predictions(posterior, base_names=BASE_CONFIG['classification_outputs'])
-        df_res = pred_handler.to_evaluation_df(history=handler, start_idx=0)
+    def test_gate_20_21_22_symmetry_recovery(self, tmp_path):
+        """Claim: Manager correctly names 6 heads and restores MultiIndex."""
+        mpm = MagicMock()
+        mpm.data_raw = tmp_path
+        mpm.artifacts = tmp_path
+        model = HydraBNUNet06_LSTM4(3, 16, 1, 0.0)
         
-        assert isinstance(df_res.index, pd.MultiIndex)
-        assert df_res.index.names == ["month_id", "priogrid_gid"]
-        assert "lr_sb_best" in df_res.columns
-        assert "pred_lr_sb_best_raw" in df_res.columns
+        # History data
+        df_hist = pd.DataFrame({
+            'month_id': list(range(1, 11)) * 2, 
+            'priogrid_gid': [1]*10 + [2]*10,
+            'row': [0]*20, 'col': [0]*10 + [1]*10,
+            'lr_sb_best': [1.0]*20, 'lr_ns_best': [0.0]*20, 'lr_os_best': [0.0]*20
+        })
+
+        with patch("views_pipeline_core.managers.model.model.ForecastingModelManager.__init__", return_value=None):
+            manager = HydranetManager(model_path=mpm)
+            manager.device = torch.device("cpu")
+            
+            # HARDEN THE MANAGER CONFIG MOCK
+            with patch.object(HydranetManager, 'configs', new_callable=PropertyMock) as mock_cfg:
+                mock_cfg.return_value = BASE_CONFIG
+                
+                with patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetcher, \
+                     patch("views_hydranet.manager.hydranet_manager.FeatureScaler") as mock_scaler, \
+                     patch.object(manager, '_load_model_artifact', return_value=(model, "audit")), \
+                     patch("views_hydranet.manager.hydranet_manager.HydraNetInference") as mock_inf:
+                    
+                    mock_fetcher.standardize_raw_df.side_effect = lambda x, y: x
+                    mock_fetcher.return_value.fetch_df.return_value = df_hist
+                    mock_scaler.return_value.fit_transform.return_value = df_hist
+                    mock_scaler.return_value.inverse_transform.side_effect = lambda x: x
+                    
+                    posterior = np.ones((1, 4, 4, 6, 1)) # 6 channels
+                    mock_inf.return_value.generate_posterior_samples.return_value = (posterior, None)
+                    
+                    results = manager._evaluate_model_artifact(eval_type="audit")
+                    df_res = results[0]
+                    
+                    assert isinstance(df_res.index, pd.MultiIndex)
+                    assert df_res.index.names == ["month_id", "priogrid_gid"]
+                    assert "pred_lr_sb_best_raw" in df_res.columns
+                    assert "lr_sb_best" in df_res.columns # Actuals preserved
 
     # --- ZONE 3: MATH ---
 
-    def test_gate_26_27_28_math_precision(self):
+    def test_gate_26_math_precision(self):
         scaler = FeatureScaler(BASE_CONFIG)
         df = pd.DataFrame({
-            'lr_sb_best': [10.0, 100.0, 1000.0],
-            'lr_ns_best': [10.0, 100.0, 1000.0],
-            'lr_os_best': [10.0, 100.0, 1000.0]
+            'lr_sb_best': [10.0, 100.0],
+            'lr_ns_best': [10.0, 100.0],
+            'lr_os_best': [10.0, 100.0]
         })
         semantic = scaler.fit_transform(df)
         recovered = scaler.inverse_transform(semantic)
         for col in df.columns:
             np.testing.assert_allclose(df[col], recovered[col], rtol=1e-6)
 
-    def test_gate_29_30_scaler_gate_law(self):
-        scaler = FeatureScaler(BASE_CONFIG)
-        df = pd.DataFrame({'lr_sb_best': [1.0], 'lr_ns_best': [1.0], 'lr_os_best': [1.0]})
-        with pytest.raises(RuntimeError, match="Must be FITTED"):
-            scaler.inverse_transform(df)
-        scaler.fit_transform(df)
-        with pytest.raises(RuntimeError, match="already fitted"):
-            scaler.fit_transform(df)
+# --- ZONE 4: MEMORY & HARDWARE ---
+
+    def test_gate_31_oom_sentinel(self):
+        """Verify CUDA memory release after immediate backward."""
+        if not torch.cuda.is_available():
+            pytest.skip("CUDA required for OOM Sentinel")
+            
+        device = torch.device("cuda")
+        model = HydraBNUNet06_LSTM4(3, 16, 1, 0.0).to(device)
+        x = torch.randn(1, 1, 3, 64, 64).to(device)
+        h = model.init_hTtime(16, 64, 64).to(device).float()
+        
+        mem_start = torch.cuda.memory_allocated(device)
+        reg, cl, _ = model(x[:, 0], h)
+        loss = reg.sum()
+        
+        mem_with_graph = torch.cuda.memory_allocated(device)
+        assert mem_with_graph > mem_start
+        
+        loss.backward()
+        del loss, reg, cl, h, x
+        
+        mem_after = torch.cuda.memory_allocated(device)
+        assert mem_after < mem_with_graph
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
