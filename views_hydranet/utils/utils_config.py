@@ -89,20 +89,18 @@ class HydraNetConfig(BaseModel):
     np_seed: int = Field(default=4)
     torch_seed: int = Field(default=4)
 
-    # ... (other fields)
+    # 7. Spatial Windowing Logic
+    min_events: int = Field(default=5)
+    slope_ratio: float = Field(default=0.75)
+    roof_ratio: float = Field(default=0.7)
+    freeze_h: str = Field(default="hl")
 
-    @model_validator(mode="before")
-    @classmethod
-    def handle_legacy_keys(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            # Backward compatibility for renaming
-            if "test_samples" in data and "n_posterior_samples" not in data:
-                data["n_posterior_samples"] = data.pop("test_samples")
-            if "samples" in data and "total_lessons" not in data:
-                data["total_lessons"] = data.pop("samples")
-            if "batch_size" in data and "windows_per_lesson" not in data:
-                data["windows_per_lesson"] = data.pop("batch_size")
-        return data
+    # 8. Evaluation & Aggregation (Compatibility Shim)
+    evalution_mode: str = Field(default="stochastic", description="Mode: 'point' or 'stochastic'")
+    aggregate_method: str = Field(default="geometric_mean", description="Method: 'arithmetic_mean', 'geometric_mean', 'median'")
+
+    # Metadata
+    model_time_stamp: str | None = None
 
     @model_validator(mode="before")
     @classmethod
