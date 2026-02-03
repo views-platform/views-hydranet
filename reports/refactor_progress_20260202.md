@@ -23,6 +23,7 @@ The "Boring Architecture" is now fully established for the data bridge. All comp
 | `Zero-Magic Defaults` | **LOCKED** | ADR 008 | Purged all hidden defaults; explicit config mandatory. |
 | `Lens`                 | **LOCKED** | ADR 013 | Pure geometric tool (no training knowledge). |
 | `Sentinel`             | **LOCKED** | ADR 018 | DataSniffer enforces spatiotemporal contracts. |
+| `Normalizer`           | **LOCKED** | ADR 019 | Stateful FeatureScaler with bit-perfect reversibility. |
 | `Geometric (Flip/Permute)` | **LOCKED** | ADR 007 | Augmentation regressions in training. |
 
 ### VolumeSampler Breakthroughs:

@@ -3,10 +3,11 @@ Declarative and Stateful Feature Scaling for HydraNet.
 """
 
 import logging
-from typing import Any, Callable, Dict, List
+from typing import Any, Dict, List
 
-import numpy as np
 import pandas as pd
+
+from views_hydranet.utils.utils_config import TRANSFORMS
 
 logger = logging.getLogger(__name__)
 
@@ -14,79 +15,68 @@ class FeatureScaler:
     """
     A one-shot stateful gateway for DataFrame feature transformations.
     
-    This class enforces the boundary between Raw and Semantic data spaces.
-    It uses a declarative config to apply and reverse math on specific columns.
+    Identifies and reverses non-linear scaling with bit-perfect precision.
+    Strictly follows ADR 019: Fail Loud and Proud on missing columns.
     """
 
     def __init__(self, config: Dict[str, Any]) -> None:
         """
-        Initialize with a config containing 'log1p', 'asinh', 'identity' keys.
+        Initialize with a config containing transformation keys (e.g., 'log1p', 'asinh').
         """
         self._config = {}
-        for method in ["log1p", "asinh", "identity"]:
+        # Only track methods recognized by the global registry
+        for method in TRANSFORMS.keys():
             self._config[method] = config.get(method, [])
 
         self._is_fitted = False
 
-        # Math Registry: (Forward, Inverse)
-        self._methods: Dict[str, tuple[Callable, Callable]] = {
-            "log1p": (np.log1p, np.expm1),
-            "asinh": (np.arcsinh, np.sinh),
-            "identity": (lambda x: x, lambda x: x)
-        }
-
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Fits the scaler (locks state) and applies transformations.
-        Returns a DataFrame with all original columns intact.
         """
         if self._is_fitted:
-            raise RuntimeError("FeatureScaler is one-shot and already fitted.")
+            raise RuntimeError("FeatureScaler is a one-shot gate and is already fitted.")
 
         df_out = df.copy()
-
-        # Calculate how many features we are actually scaling
+        
         total_scaled = sum(len(cols) for cols in self._config.values())
-        logger.info(f"FeatureScaler: FIT-TRANSFORM ({total_scaled} features)")
+        logger.info(f"FeatureScaler: Starting FIT-TRANSFORM ({total_scaled} columns)")
 
         for method, columns in self._config.items():
-            if method not in self._methods:
-                raise ValueError(f"FeatureScaler: Unknown method '{method}'")
-
-            forward_func, _ = self._methods[method]
+            forward_func, _ = TRANSFORMS[method]
 
             for col in columns:
                 if col not in df_out.columns:
-                    raise ValueError(f"FeatureScaler Fit Error: Column '{col}' missing from DataFrame.")
-
-                # Apply transformation to the existing column (preserving other columns)
+                    raise ValueError(
+                        f"[CRITICAL DATA ERROR] FeatureScaler Fit Failure!\n"
+                        f"Requested column '{col}' missing from Raw DataFrame."
+                    )
+                
                 df_out[col] = forward_func(df_out[col])
 
         self._is_fitted = True
-
-        # AUDIT LOG: Comprehensive view of the resulting DataFrame
-        stats = []
-        for col in df_out.columns:
-            if pd.api.types.is_numeric_dtype(df_out[col]):
-                c_min = df_out[col].min()
-                c_max = df_out[col].max()
-                stats.append(f"  - {col:.<40} [{c_min:>12.4f}, {c_max:>12.4f}]")
-            else:
-                stats.append(f"  - {col:.<40} [Non-numeric]")
-
-        report = "\n" + "="*80 + "\n"
-        report += " FEATURE SCALER: DATA STATE REPORT (Semantic Space)\n"
-        report += "-"*80 + "\n"
-        report += "\n".join(stats)
-        report += "\n" + "="*80
-
-        logger.info(report)
+        self._log_data_state(df_out)
 
         return df_out
 
+    def _log_data_state(self, df: pd.DataFrame) -> None:
+        """Internal: Generates a diagnostic report of the Semantic Space."""
+        stats = []
+        for col in df.columns:
+            if pd.api.types.is_numeric_dtype(df[col]):
+                c_min, c_max = df[col].min(), df[col].max()
+                stats.append(f"  - {col:.<40} [{c_min:>12.4f}, {c_max:>12.4f}]")
+        
+        report = "\n" + "="*80 + "\n"
+        report += " FEATURE SCALER: SEMANTIC SPACE REPORT\n"
+        report += "-"*80 + "\n"
+        report += "\n".join(stats)
+        report += "\n" + "="*80
+        logger.info(report)
+
     @property
     def configured_columns(self) -> List[str]:
-        """Returns a flat list of all columns configured for scaling."""
+        """Returns a flat list of all columns explicitly configured for scaling."""
         all_cols = []
         for cols in self._config.values():
             all_cols.extend(cols)
@@ -94,23 +84,24 @@ class FeatureScaler:
 
     def inverse_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Reverses the transformations using the initial configuration.
-        Fails if columns are missing.
+        Reverses the transformations to restore the Raw count space.
         """
         if not self._is_fitted:
-            raise RuntimeError("FeatureScaler must be fitted before inverse_transform.")
+            raise RuntimeError("FeatureScaler Contract Violation: Must be FITTED before inverse pass.")
 
         df_out = df.copy()
-        logger.info("FeatureScaler: INVERSE-TRANSFORM (Raw Exit)")
+        logger.info("FeatureScaler: Starting INVERSE-TRANSFORM (Raw Exit)")
 
         for method, columns in self._config.items():
-            _, inverse_func = self._methods[method]
+            _, inverse_func = TRANSFORMS[method]
 
             for col in columns:
                 if col not in df_out.columns:
-                    raise ValueError(f"FeatureScaler Inverse Error: Column '{col}' missing.")
+                    raise ValueError(
+                        f"[CRITICAL DATA ERROR] FeatureScaler Inverse Failure!\n"
+                        f"Transformed column '{col}' missing from Semantic DataFrame."
+                    )
 
-                logger.info(f"FeatureScaler: {col} <- {method} (Inverse)")
                 df_out[col] = inverse_func(df_out[col])
 
         return df_out
