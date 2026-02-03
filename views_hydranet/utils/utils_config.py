@@ -71,7 +71,7 @@ class HydraNetConfig(BaseModel):
     # 4. Optimization
     learning_rate: float = Field(default=0.001)
     weight_decay: float = Field(default=0.1)
-    windows_per_lesson: int = Field(default=3)
+    windows_per_lesson: int = Field(..., description="Number of windows processed per parameter update")
     scheduler: str = Field(default="WarmupDecay")
     warmup_steps: int = Field(default=100)
 
@@ -84,7 +84,7 @@ class HydraNetConfig(BaseModel):
     loss_class_alpha: float = Field(default=0.75)
 
     # 6. Sampling & Reproducibility
-    total_lessons: int = Field(default=300)
+    total_lessons: int = Field(..., description="Total number of curriculum lessons")
     n_posterior_samples: int = Field(..., ge=1, description="Number of stochastic samples for uncertainty (MC Dropout)")
     np_seed: int = Field(default=4)
     torch_seed: int = Field(default=4)

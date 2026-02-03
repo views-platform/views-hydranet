@@ -19,6 +19,7 @@ The "Boring Architecture" is now fully established for the data bridge. All comp
 | `Stochastic Integrity`| **LOCKED** | ADR 007 | Preserved 5D samples as lists in DataFrames. |
 | `Terminology Alignment` | **LOCKED** | ADR 008 | Renamed samples/batch_size to total_lessons/windows_per_lesson. |
 | `Uncertainty Resolution`| **LOCKED** | ADR 008 | Renamed test_samples to n_posterior_samples. |
+| `Config Handshake`     | **LOCKED** | ADR 008 | Enforced Fail-Fast validation (no magic migration). |
 | `Geometric (Flip/Permute)` | **LOCKED** | ADR 007 | Augmentation regressions in training. |
 
 ### VolumeSampler Breakthroughs:
