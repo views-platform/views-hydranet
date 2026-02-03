@@ -141,7 +141,14 @@ class HydraNetConfig(BaseModel):
             if legacy_map:
                 data["transforms"] = legacy_map
             elif "transform" in data and "features" in data:
-                data["transforms"] = {data["transform"]: data["features"]}
+                method = data["transform"]
+                # Only migrate if method is a hashable string recognized by HydraNet
+                if isinstance(method, str) and method in TRANSFORMS:
+                    data["transforms"] = {method: data["features"]}
+                else:
+                    # If we can't derive it, we must provide an empty dict to avoid missing-field error
+                    # (The 'after' validator will then Loudly Fail if features are missing)
+                    data["transforms"] = {}
             
         return data
 
