@@ -60,7 +60,7 @@ class HydraNetConfig(BaseModel):
     targets: list[str] = Field(default_factory=list, description="Requested targets for the outbound contract")
     classification_outputs: list[str] = Field(..., description="Semantic names for the classification heads")
     identity_cols: list[str] = Field(..., description="Non-predictive metadata columns to be stripped")
-    transform: str = Field(..., description="Feature scaling transform (e.g. log1p)")
+    transforms: dict[str, list[str]] = Field(..., description="Mapping of transform method to list of columns")
     
     # 3. Spatiotemporal Topology (Structural Invariants)
     height: int = Field(..., ge=1, description="Grid height")
@@ -128,12 +128,32 @@ class HydraNetConfig(BaseModel):
             data["evalution_mode"] = data["evaluation_mode"]
         return data
 
-    @field_validator("transform")
-    @classmethod
-    def validate_transform(cls, v: str) -> str:
-        if v not in TRANSFORMS:
-            raise ValueError(f"Transform '{v}' not supported. Available: {list(TRANSFORMS.keys())}")
-        return v
+    @model_validator(mode="after")
+    def validate_scaling_ledger(self) -> "HydraNetConfig":
+        """
+        The Scaling Law Checksum:
+        Ensures every predictive feature is explicitly mapped to a transformation.
+        """
+        features_set = set(self.features)
+        mapped_set = set()
+        
+        for method, cols in self.transforms.items():
+            if method not in TRANSFORMS:
+                raise ValueError(f"Scaling Law Violation: Transform method '{method}' not in registry.")
+            for col in cols:
+                if col in mapped_set:
+                    raise ValueError(f"Scaling Law Violation: Feature '{col}' mapped multiple times.")
+                mapped_set.add(col)
+        
+        missing = features_set - mapped_set
+        if missing:
+            raise ValueError(f"Scaling Law Violation: Features {missing} are missing from 'transforms' mapping.")
+            
+        unrecognized = mapped_set - features_set
+        if unrecognized:
+            raise ValueError(f"Scaling Law Violation: 'transforms' contains unknown features: {unrecognized}")
+            
+        return self
 
     @field_validator("run_type")
     @classmethod

@@ -54,7 +54,12 @@ AUDIT_CONFIG = {
     "identity_cols": ["month_id", "priogrid_gid", "row", "col"],
     "target_variable": "lr_sb_best",
     "classification_outputs": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
-    "targets": ["lr_sb_best"]
+    "targets": ["lr_sb_best"],
+    "transforms": {
+        "log1p": ["lr_sb_best"],
+        "asinh": ["lr_ns_best"],
+        "identity": ["lr_os_best"]
+    }
 }
 class TestPopperianAudit:
     """The Truth Engine: Falsifying Hallucination Claims."""

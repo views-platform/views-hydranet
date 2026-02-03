@@ -19,6 +19,7 @@ Where parameters are mathematically coupled, we favor **Explicit Redundancy** ov
 *   **Coupling 1:** `input_channels` MUST equal `len(features)`.
 *   **Coupling 2:** `time_steps` MUST equal `len(steps)`.
 *   **Coupling 3:** `n_classification_outputs` (implicit) MUST equal `len(classification_outputs)`.
+*   **Coupling 4 (The Scaling Law):** Every feature in `features` MUST appear exactly once in the `transforms` mapping. This ensures zero ambiguity regarding input distributions.
 
 ### 1.3 Internalization of Architectural Invariants (ADR 020)
 Naming prefixes (`pred_`) and suffixes (`_raw`, `_prob`) are fixed architectural invariants. Including them in the configuration is prohibited. They are enforced internally by the `VolumeHandler` Symmetry Engine.
@@ -83,9 +84,13 @@ hyperparameters = {
     'target_variable': 'lr_sb_best',
     'classification_outputs': ['lr_sb_best', 'lr_ns_best', 'lr_os_best'],
     'targets': ['lr_sb_best'], # Inbound requested targets
-    'transform': 'log1p',
+    'transforms': {
+        'log1p': ['lr_sb_best', 'lr_ns_best'],
+        'asinh': [],
+        'identity': ['lr_os_best']
+    },
     'steps': list(range(1, 37)),
-    'time_steps': 36, # Checksum for 'steps'
+    'time_steps': 36, # Checksum: Must match len(steps)
 
     # Loss Functions
     'loss_reg': 'b',

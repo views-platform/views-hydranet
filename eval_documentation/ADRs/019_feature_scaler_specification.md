@@ -9,11 +9,12 @@
 
 ### Zone 1: Configuration (The Handshake)
 *   **Responsibility:** Initializing the scaler with a declarative mapping of columns to methods.
-*   **The Law:** The Scaler only transforms columns explicitly listed in the `config`. If a column is missing from the mapping, it remains in its raw state.
+*   **The Law:** Every predictive feature MUST be assigned to exactly one transformation method in the `transforms` dictionary.
+*   **Supported Methods:** `log1p`, `asinh`, `identity`.
 
 ### Zone 2: Forward Transformation (Raw → Semantic)
 *   **Responsibility:** Applying non-linear math to stabilize input distributions.
-*   **Mechanism:** `fit_transform(df)`. This method "locks" the state of the scaler.
+*   **Mechanism:** `fit_transform(df)`. This method "locks" the state of the scaler. Heterogeneous signals (e.g. counts vs. ratios) are processed in parallel blocks based on the configuration.
 
 ### Zone 3: Inverse Transformation (Semantic → Raw)
 *   **Responsibility:** Reversing all forward math to restore the original count space for the evaluation package.
