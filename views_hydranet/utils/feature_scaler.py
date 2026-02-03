@@ -40,10 +40,14 @@ class FeatureScaler:
         df_out = df.copy()
         
         total_scaled = sum(len(cols) for cols in self._config.values())
-        logger.info(f"FeatureScaler: Starting FIT-TRANSFORM ({total_scaled} columns)")
+        logger.info(f"🚀 FeatureScaler: Entering Semantic Space ({total_scaled} columns to transform)")
 
         for method, columns in self._config.items():
+            if not columns:
+                continue
+                
             forward_func, _ = TRANSFORMS[method]
+            logger.info(f"  → Applying [{method:.<10}] to: {columns}")
 
             for col in columns:
                 if col not in df_out.columns:
@@ -55,23 +59,24 @@ class FeatureScaler:
                 df_out[col] = forward_func(df_out[col])
 
         self._is_fitted = True
-        self._log_data_state(df_out)
+        self._log_data_state(df_out, space="SEMANTIC")
 
         return df_out
 
-    def _log_data_state(self, df: pd.DataFrame) -> None:
-        """Internal: Generates a diagnostic report of the Semantic Space."""
+    def _log_data_state(self, df: pd.DataFrame, space: str = "SEMANTIC") -> None:
+        """Internal: Generates a beautiful diagnostic report of the current data space."""
         stats = []
-        for col in df.columns:
-            if pd.api.types.is_numeric_dtype(df[col]):
+        # Focus on configured features for the report
+        for col in self.configured_columns:
+            if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
                 c_min, c_max = df[col].min(), df[col].max()
-                stats.append(f"  - {col:.<40} [{c_min:>12.4f}, {c_max:>12.4f}]")
+                stats.append(f"  - {col:.<40} [{c_min:>12.4f} to {c_max:>12.4f}]")
         
-        report = "\n" + "="*80 + "\n"
-        report += " FEATURE SCALER: SEMANTIC SPACE REPORT\n"
-        report += "-"*80 + "\n"
-        report += "\n".join(stats)
-        report += "\n" + "="*80
+        report = "\n" + "💠" + "="*78 + "\n"
+        report += f"  FEATURE SCALER: {space} SPACE REPORT\n"
+        report += "  " + "-"*76 + "\n"
+        report += "\n".join(stats) if stats else "  (No transformed features found)"
+        report += "\n" + "💠" + "="*78 + "\n"
         logger.info(report)
 
     @property
@@ -90,10 +95,14 @@ class FeatureScaler:
             raise RuntimeError("FeatureScaler Contract Violation: Must be FITTED before inverse pass.")
 
         df_out = df.copy()
-        logger.info("FeatureScaler: Starting INVERSE-TRANSFORM (Raw Exit)")
+        logger.info(f"🔙 FeatureScaler: Returning to Raw Space ({len(self.configured_columns)} columns to invert)")
 
         for method, columns in self._config.items():
+            if not columns:
+                continue
+                
             _, inverse_func = TRANSFORMS[method]
+            logger.info(f"  ← Reversing [{method:.<10}] for: {columns}")
 
             for col in columns:
                 if col not in df_out.columns:
@@ -104,4 +113,5 @@ class FeatureScaler:
 
                 df_out[col] = inverse_func(df_out[col])
 
+        self._log_data_state(df_out, space="RAW")
         return df_out
