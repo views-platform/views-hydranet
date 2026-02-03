@@ -66,16 +66,27 @@ class FeatureScaler:
     def _log_data_state(self, df: pd.DataFrame, space: str = "SEMANTIC") -> None:
         """Internal: Generates a beautiful diagnostic report of the current data space."""
         stats = []
-        # Focus on configured features for the report
+        
+        # Build a lookup for which method belongs to which column
+        method_lookup = {}
+        for method, cols in self._config.items():
+            for col in cols:
+                method_lookup[col] = method
+
+        # Format rows: [Method] Column -> [Min, Max]
         for col in self.configured_columns:
             if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
                 c_min, c_max = df[col].min(), df[col].max()
-                stats.append(f"  - {col:.<40} [{c_min:>12.4f} to {c_max:>12.4f}]")
+                method = method_lookup.get(col, "unknown")
+                stats.append(f"  [{method:^10}] {col:.<30} min: {c_min:>10.4f} | max: {c_max:>10.4f}")
         
         report = "\n" + "💠" + "="*78 + "\n"
         report += f"  FEATURE SCALER: {space} SPACE REPORT\n"
         report += "  " + "-"*76 + "\n"
-        report += "\n".join(stats) if stats else "  (No transformed features found)"
+        if stats:
+            report += "\n".join(stats)
+        else:
+            report += "  (No transformed features found)"
         report += "\n" + "💠" + "="*78 + "\n"
         logger.info(report)
 
