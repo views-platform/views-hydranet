@@ -24,6 +24,7 @@ The "Boring Architecture" is now fully established for the data bridge. All comp
 | `Lens`                 | **LOCKED** | ADR 013 | Pure geometric tool (no training knowledge). |
 | `Sentinel`             | **LOCKED** | ADR 018 | DataSniffer enforces spatiotemporal contracts. |
 | `Normalizer`           | **LOCKED** | ADR 019 | Stateful FeatureScaler with bit-perfect reversibility. |
+| `Utilities Migration`  | **IN PROGRESS** | N/A | Isolating 11 legacy files to utils/legacy/. |
 | `Geometric (Flip/Permute)` | **LOCKED** | ADR 007 | Augmentation regressions in training. |
 
 ### VolumeSampler Breakthroughs:
