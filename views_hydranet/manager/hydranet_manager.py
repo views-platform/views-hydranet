@@ -183,20 +183,68 @@ class HydranetManager(ForecastingModelManager):
                 handler, is_evaluation=True, window_info=f"Origin {i+1}/{len(origins)}"
             )
 
-            requested_targets = scaler.configured_columns
-            if self.configs.get("target_variable"):
-                requested_targets = [t for t in requested_targets if self.configs["target_variable"] in t]
+            # --- THE SYMMETRY ENGINE (ADR 020) ---
+            # 1. Map the 6 architectural heads to unique temporary semantic names
+            base_names = self.configs["classification_outputs"]
+            reg_names = [f"{n}_RAW_PRED" for n in base_names] 
+            prob_suffix = self.configs["classification_surfix"]
+            prob_names = [f"{n}{prob_suffix}" for n in base_names]
+            full_signal_names = reg_names + prob_names
 
-            # --- THE SYMMETRY ENGINE ---
-            pred_handler = handler.wrap_posterior(posterior_zstack, feature_names=requested_targets)
+            pred_handler = handler.wrap_predictions(posterior_zstack, feature_names=full_signal_names)
 
-            # Use explicit evaluation reconstruction (handles slicing internally)
+            # 2. Reconstruct with Identity Scaffold & Actuals (ADR 007)
             df_origin = pred_handler.to_evaluation_df(history=handler, start_idx=origin + 1)
 
             if df_origin is not None:
+                # 3. Inverse Transform (ADR 019)
+                # Predictions are currently named f"{n}_RAW_PRED"
+                # Actuals are currently named f"ACTUAL_{n}" (from VolumeHandler)
+                # There is NO collision.
+                
+                # Rename RAW_PRED back to base names so Scaler recognizes them
+                pred_rename = {f"{n}_RAW_PRED": n for n in base_names}
+                df_origin = df_origin.rename(columns=pred_rename)
+                
                 df_origin = scaler.inverse_transform(df_origin)
-                rename_map = {col: f"pred_{col}" for col in requested_targets}
-                df_origin = df_origin.rename(columns=rename_map)
+                
+                # 4. Final Naming Bridge (ADR 016)
+                eval_prefix = self.configs["eval_prefix"]
+                reg_suffix = self.configs["regression_surfix"]
+                
+                final_rename = {}
+                for n in base_names:
+                    final_rename[n] = f"{eval_prefix}{n}{reg_suffix}"
+                    final_rename[f"{n}{prob_suffix}"] = f"{eval_prefix}{n}{prob_suffix}"
+                    # Restore Actuals to their original names
+                    if f"ACTUAL_{n}" in df_origin.columns:
+                        final_rename[f"ACTUAL_{n}"] = n
+                
+                df_origin = df_origin.rename(columns=final_rename)
+                
+                # 5. The Subsetting Gate (ADR 016 Sec 5.2)
+                requested_targets = self.configs["targets"]
+                
+                time_col = self.configs["time_col"]
+                id_col = self.configs["id_col"]
+                final_cols = [time_col, id_col]
+                
+                for t in requested_targets:
+                    # Include the Actual (ground truth)
+                    if t in df_origin.columns: 
+                        final_cols.append(t)
+                    
+                    # Include the Predictions
+                    reg_pred = f"{eval_prefix}{t}{reg_suffix}"
+                    prob_pred = f"{eval_prefix}{t}{prob_suffix}"
+                    if reg_pred in df_origin.columns: final_cols.append(reg_pred)
+                    if prob_pred in df_origin.columns: final_cols.append(prob_pred)
+                
+                # Ensure we only select columns that actually exist
+                final_cols = list(dict.fromkeys(final_cols)) # Deduplicate while preserving order
+                final_cols = [c for c in final_cols if c in df_origin.columns]
+                df_origin = df_origin[final_cols].set_index([time_col, id_col])
+                
                 list_df_predictions.append(df_origin)
 
         validate_contract_dataframes(list_df_predictions)
@@ -231,18 +279,56 @@ class HydranetManager(ForecastingModelManager):
         posterior_zstack, _ = inference.generate_posterior_samples(handler, is_evaluation=False)
 
         requested_targets = scaler.configured_columns
-        if self.configs.get("target_variable"):
-            requested_targets = [t for t in requested_targets if self.configs["target_variable"] in t]
+        
+        # --- THE SYMMETRY ENGINE (ADR 020) ---
+        # 1. Map the 6 architectural heads to unique temporary semantic names
+        base_names = self.configs["classification_outputs"]
+        reg_names = [f"{n}_RAW_PRED" for n in base_names]
+        prob_suffix = self.configs["classification_surfix"]
+        prob_names = [f"{n}{prob_suffix}" for n in base_names]
+        full_signal_names = reg_names + prob_names
 
-        # --- THE SYMMETRY ENGINE ---
-        pred_handler = handler.wrap_posterior(posterior_zstack, feature_names=requested_targets)
+        pred_handler = handler.wrap_predictions(posterior_zstack, feature_names=full_signal_names)
 
-        # Use explicit operational reconstruction (handles extrapolation internally)
+        # 2. Use explicit operational reconstruction (handles extrapolation internally)
         df_full = pred_handler.to_forecast_df(history=handler)
 
         if df_full is not None:
+            # 3. Inverse Transform (ADR 019) with Collision Clearance
+            # Predictions are named f"{n}_RAW_PRED", Actuals f"ACTUAL_{n}"
+            pred_rename = {f"{n}_RAW_PRED": n for n in base_names}
+            df_full = df_full.rename(columns=pred_rename)
+            
             df_full = scaler.inverse_transform(df_full)
-            rename_map = {col: f"pred_{col}" for col in requested_targets}
-            df_full = df_full.rename(columns=rename_map)
+            
+            # 4. Final Naming Bridge (ADR 016)
+            eval_prefix = self.configs["eval_prefix"]
+            reg_suffix = self.configs["regression_surfix"]
+            
+            final_rename = {}
+            for n in base_names:
+                final_rename[n] = f"{eval_prefix}{n}{reg_suffix}"
+                final_rename[f"{n}{prob_suffix}"] = f"{eval_prefix}{n}{prob_suffix}"
+                if f"ACTUAL_{n}" in df_full.columns:
+                    final_rename[f"ACTUAL_{n}"] = n
+            
+            df_full = df_full.rename(columns=final_rename)
+
+            # 5. The Subsetting Gate (ADR 016 Sec 5.2)
+            requested_targets = self.configs["targets"]
+            time_col = self.configs["time_col"]
+            id_col = self.configs["id_col"]
+            final_cols = [time_col, id_col]
+            
+            for t in requested_targets:
+                if t in df_full.columns: final_cols.append(t)
+                reg_pred = f"{eval_prefix}{t}{reg_suffix}"
+                prob_pred = f"{eval_prefix}{t}{prob_suffix}"
+                if reg_pred in df_full.columns: final_cols.append(reg_pred)
+                if prob_pred in df_full.columns: final_cols.append(prob_pred)
+            
+            final_cols = list(dict.fromkeys(final_cols))
+            final_cols = [c for c in final_cols if c in df_full.columns]
+            df_full = df_full[final_cols].set_index([time_col, id_col])
 
         return [df_full] if df_full is not None else []

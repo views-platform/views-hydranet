@@ -84,7 +84,7 @@ class VolumeSampler:
         # Absolute Anchoring: Propagate geographic truth
         p_row, p_col = train_vh.spatial_offset
 
-        return VolumeHandler(
+        vh = VolumeHandler(
             data=data,
             axes=train_vh.axes,
             channel_map=train_vh.channel_map,
@@ -95,6 +95,10 @@ class VolumeSampler:
             feature_cols=train_vh._metadata.feature_cols,
             spatial_offset=(p_row + r0, p_col + c0)
         )
+        
+        mem_mb = data.nbytes / (1024**2)
+        logger.debug(f"🔍 VolumeSampler: Extracted Window {data.shape} | Memory: {mem_mb:.2f} MB")
+        return vh
 
     def get_batch(self, target_name: str, threshold: int, batch_size: int = 1) -> Tuple[List[VolumeHandler], int]:
         """

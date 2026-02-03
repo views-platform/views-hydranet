@@ -47,7 +47,8 @@ class TestConfigHardshaking:
             "loss_class_gamma": 1.5, "loss_class_alpha": 0.75, "freeze_h": "hl",
             "evalution_mode": "stochastic", "aggregate_method": "geometric_mean",
             "np_seed": 4, "torch_seed": 4, "min_events": 5, "slope_ratio": 0.75, "roof_ratio": 0.7,
-            "max_ratio": 0.95, "min_ratio": 0.05
+            "max_ratio": 0.95, "min_ratio": 0.05,
+            "identity_cols": ["month_id", "priogrid_gid"]
         }
         # This should pass validation as it contains all required keys
         config = HydraNetConfig(**full_data)

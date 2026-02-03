@@ -78,6 +78,9 @@ def train(
 
     seq_len = train_tensor.shape[1]
     window_dim = train_tensor.shape[-1]
+    
+    mem_allocated = torch.cuda.memory_allocated(device) / (1024**2) if device.type == 'cuda' else 0
+    logger.debug(f"🚀 Training: Entered Gate with Tensor {train_tensor.shape} | GPU Mem: {mem_allocated:.2f} MB")
 
     # initialize a hidden state
     h = model.init_h(hidden_channels=model.base, dim=window_dim).float().to(device)
@@ -86,7 +89,7 @@ def train(
     for i in range(seq_len - 1):
             t0 = train_tensor[:, i, :, :, :]
             t1 = train_tensor[:, i + 1, :, :, :]
-            t1_binary = (t1.clone().detach().requires_grad_(True) > 0) * 1.0
+            t1_binary = (t1.clone().detach() > 0) * 1.0
 
             # Forward pass (Data is already North-Up via VolumeHandler)
             t1_pred, t1_pred_class, h = model(t0, h.detach())
@@ -194,13 +197,17 @@ def training_loop(
                     device,
                     pbar
                 )
-                lesson_loss += window_loss
+                
+                # --- MEMORY-SAFE ACCUMULATION (ADR 014 Hardening) ---
+                # We backpropagate the window loss immediately to clear the graph nodes
+                # from VRAM, but we don't call optimizer.step() until the end of the Lesson.
+                if window_loss > 0:
+                    window_loss.backward()
+                
+                lesson_loss += window_loss.detach() # Keep track of magnitude for logging
 
             # --- THE OPTIMIZATION GATE (ADR 014) ---
             if lesson_loss > 0:
-                # Backpropagate once per Lesson (Mini-Batch of 3)
-                lesson_loss.backward()
-
                 # NUMERICAL AUDIT: Hard stop on explosion
                 # Note: t1_pred is not available at the lesson level, passing a safe dummy
                 IntegrityGuardian.monitor(model, torch.tensor([0.0]), lesson_loss, context=f"Lesson {lesson_idx}")

@@ -218,8 +218,21 @@ def validate_contract_dataframes(list_df: list[pd.DataFrame]) -> None:
 
         # Check for Non-Finite Numbers in all columns
         for col in df.columns:
-            # Flatten lists of samples to a single array for fast checking
-            all_values = np.concatenate(df[col].values)
+            # Flatten lists of samples if present, otherwise use raw values
+            if df[col].empty: continue
+            first_val = df[col].iloc[0]
+            
+            if isinstance(first_val, (list, np.ndarray)):
+                all_values = np.concatenate(df[col].values)
+            else:
+                all_values = df[col].values
+            
+            # Defensive check: ensure we are looking at numbers
+            try:
+                all_values = all_values.astype(np.float64)
+            except (ValueError, TypeError):
+                continue # Skip non-numeric columns (like metadata if any leaked in)
+
             if not np.isfinite(all_values).all():
                 num_bad = (~np.isfinite(all_values)).sum()
                 # We log this as a CRITICAL warning, but don't crash if healer is active

@@ -12,13 +12,14 @@ We will implement an explicit **Optimization Gate** at the end of each Lesson. P
 
 ## 2. Functional Specification
 
-### 2.1 The Accumulation Loop
-*   **Input:** `windows_per_lesson` (e.g., 3).
-*   **Logic:** 
-    1.  The Trainer processes each window in the lesson sequentially.
-    2.  The loss for each window is calculated but **not** immediately stepped.
-    3.  Lapses are accumulated into a `lesson_loss`.
-    4.  **The Gate:** Once all windows in the lesson are processed, `lesson_loss.backward()` and `optimizer.step()` are invoked.
+### 2.1 The Memory-Safe Accumulation Law (ADR 014 Hardening)
+To ensure physical stability on limited hardware (e.g., 8GB VRAM), we strictly reject the "Late-Backward" accumulation pattern.
+*   **The Problem:** Waiting until the end of a Lesson to call `.backward()` forces PyTorch to hold the activation graphs for all `windows_per_lesson` (e.g., 1,008 months) in VRAM simultaneously.
+*   **The Decision:** We implement **Immediate Backpropagation**.
+    1.  The loss for each individual window is calculated.
+    2.  **Graph Clearance:** `window_loss.backward()` is called **immediately** after each window loop. This populates parameter gradients and frees the activation graph memory.
+    3.  **Gradient Summation:** PyTorch automatically accumulates (sums) gradients in the `.grad` buffers.
+*   **The Gate:** `optimizer.step()` is invoked only after all `windows_per_lesson` have completed their individual backpropagations.
 
 ### 2.2 Shared Hidden State Handling
 *   **Constraint:** Since each window in a Mixed Salad batch comes from a different geographic location, the model's **Hidden State (`h`)** must be re-initialized at the start of every window.

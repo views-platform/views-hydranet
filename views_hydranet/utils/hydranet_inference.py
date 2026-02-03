@@ -202,6 +202,7 @@ class HydraNetInference:
         )
 
         out_of_sample_month = 0
+        t1_pred = None # Initialize to prevent UnboundLocalError
 
         for t in range(full_seq_len):
             if pbar:
@@ -214,6 +215,12 @@ class HydraNetInference:
                 # Data is already North-Up via VolumeHandler.
                 t1_pred, _, h_tt = self.model(t0, h_tt)
             else:
+                # BOOTSTRAP: If we are starting out-of-sample immediately, 
+                # we need to initialize t1_pred from the first frame of history.
+                if t1_pred is None:
+                    t0 = full_tensor[:, 0]
+                    t1_pred, _, h_tt = self.model(t0, h_tt)
+                
                 t0 = t1_pred.detach()
                 t1_pred, t1_pred_class, h_tt = self.execute_freeze_h_option(
                     t0, h_tt

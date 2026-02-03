@@ -139,6 +139,9 @@ class VolumeHandler:
         vol = np.flip(vol, axis=0) # North-Up
         vol = np.transpose(vol, (2, 0, 1, 3)) # [T, H, W, C]
 
+        mem_mb = vol.nbytes / (1024**2)
+        logger.debug(f"💠 VolumeHandler: Created Global Volume {vol.shape} | Memory: {mem_mb:.2f} MB")
+
         return cls(
             data=vol,
             axes=("T", "H", "W", "C"),
@@ -166,9 +169,16 @@ class VolumeHandler:
             np_data = self._data.astype(np.float32)
 
         if not include_identities:
-            # Strip identities based on ledger classifications
-            n_identities = len(self._metadata.identity_cols)
-            np_data = np_data[:, :, :, n_identities:]
+            # ADR 007 hardening: Strip identity channels by checking the channel map.
+            # This ensures only feature_cols reach the model.
+            feature_indices = [i for i, name in enumerate(self.channel_map) if name in self._metadata.feature_cols]
+            if not feature_indices:
+                 # Fallback to legacy count-based stripping if feature_cols is empty
+                 # (Protects against un-annotated handlers)
+                 n_identities = len(self._metadata.identity_cols)
+                 np_data = np_data[:, :, :, n_identities:]
+            else:
+                 np_data = np_data[:, :, :, feature_indices]
 
         tensor = torch.from_numpy(np_data).to(device)
         tensor = tensor.permute(0, 3, 1, 2) # [T, C, H, W]
@@ -279,6 +289,10 @@ class VolumeHandler:
                     reconstructed[name] = vals.astype(int)
                 else:
                     reconstructed[name] = vals
+            elif name in provider._metadata.feature_cols:
+                # ADR 007 Hardening: Prefix Actuals to prevent collision with Predictions
+                vals = p_data[indices[0], indices[1], indices[2], i]
+                reconstructed[f"ACTUAL_{name}"] = vals.astype(np.float32)
 
         # 5. Extract Features/Predictions from Self
         for i, name in enumerate(self.channel_map):

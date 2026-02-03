@@ -25,6 +25,10 @@ class TargetVariable(str, Enum):
     SB_BEST = "sb_best"
     NS_BEST = "ns_best"
     OS_BEST = "os_best"
+    # Legacy prefixes
+    LR_SB_BEST = "lr_sb_best"
+    LR_NS_BEST = "lr_ns_best"
+    LR_OS_BEST = "lr_os_best"
 
 # Centralized Registry for Multi-Task Heads
 # The order defined here corresponds to the channel index in the model output tensors.
@@ -60,6 +64,7 @@ class HydraNetConfig(BaseModel):
     input_channels: int = Field(..., ge=1)
     target_variable: TargetVariable = Field(..., description="The primary target (sb, ns, os)")
     targets: list[str] = Field(default_factory=list)
+    identity_cols: list[str] = Field(..., description="Columns to be excluded from features")
     transform: str = Field(...)
 
     # 3. Training Architecture & Hyperparameters
