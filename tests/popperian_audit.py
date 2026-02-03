@@ -27,6 +27,7 @@ AUDIT_CONFIG = {
     "weight_decay": 0.0, 
     "scheduler": "WarmupDecay", 
     "warmup_steps": 1,
+    "h_init": "abs_rand_exp-100",
     "loss_reg": "b", 
     "loss_class": "b", 
     "loss_reg_a": 1, 

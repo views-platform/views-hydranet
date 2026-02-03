@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Callable
 from enum import Enum
-from typing import Any
+from typing import Any, List, Optional
 
 import numpy as np
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -9,9 +9,6 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 logger = logging.getLogger(__name__)
 
 # --- TRANSFORMATION REGISTRY ---
-# Maps a transform name to a tuple of (Forward Function, Inverse Function)
-# Forward: Used for training/inference input scaling.
-# Inverse: Used for converting back to raw counts for the Producer Contract.
 TRANSFORMS: dict[str, tuple[Callable, Callable]] = {
     "log1p": (np.log1p, np.expm1),
     "asinh": (np.arcsinh, np.sinh),
@@ -25,13 +22,11 @@ class TargetVariable(str, Enum):
     SB_BEST = "sb_best"
     NS_BEST = "ns_best"
     OS_BEST = "os_best"
-    # Legacy prefixes
     LR_SB_BEST = "lr_sb_best"
     LR_NS_BEST = "lr_ns_best"
     LR_OS_BEST = "lr_os_best"
 
 # Centralized Registry for Multi-Task Heads
-# The order defined here corresponds to the channel index in the model output tensors.
 TARGET_REGISTRY = {
     "sb": 0,
     "ns": 1,
@@ -39,11 +34,7 @@ TARGET_REGISTRY = {
 }
 
 def get_target_index(target_name: str) -> int:
-    """
-    Determines the tensor channel index for a given target name.
-    
-    Example: 'lr_sb_best' -> 0, 'lr_ns_best' -> 1
-    """
+    """Determines the tensor channel index for a given target name."""
     target_name = target_name.lower()
     for key, idx in TARGET_REGISTRY.items():
         if key in target_name:
@@ -52,81 +43,89 @@ def get_target_index(target_name: str) -> int:
 
 class HydraNetConfig(BaseModel):
     """
-    Exhaustive schema for HydraNet operations. 
-    Any missing field here will trigger a loud validation error at startup.
+    The 'Minimum Strict Set' for HydraNet operations. 
+    
+    This schema defines the fields that HydraNet REQUIRES to function.
+    Extra fields (pipeline baggage) are ALLOWED but ignored by the core logic.
     """
     # 1. High-Level Partitioning
     run_type: str = Field(..., description="Partition: calibration, validation, or forecasting")
     steps: list[int] = Field(..., description="List of forecast steps (e.g. range(1,37))")
     time_steps: int = Field(default=0, description="Calculated automatically from steps")
 
-    # 2. Data Slicing & Scaling
+    # 2. Data Slicing & Scaling (The Physics)
     input_channels: int = Field(..., ge=1)
+    output_channels: int = Field(default=1, ge=1, description="Channels per model head (usually 1)")
     target_variable: TargetVariable = Field(..., description="The primary target (sb, ns, os)")
-    targets: list[str] = Field(default_factory=list)
-    classification_outputs: list[str] = Field(..., description="The semantic names for the classification heads")
-    identity_cols: list[str] = Field(..., description="Columns to be excluded from features")
-    transform: str = Field(...)
+    targets: list[str] = Field(default_factory=list, description="Requested targets for the outbound contract")
+    classification_outputs: list[str] = Field(..., description="Semantic names for the classification heads")
+    identity_cols: list[str] = Field(..., description="Non-predictive metadata columns to be stripped")
+    transform: str = Field(..., description="Feature scaling transform (e.g. log1p)")
     
     # 3. Spatiotemporal Topology (Structural Invariants)
-    height: int = Field(..., ge=1)
-    width: int = Field(..., ge=1)
-    time_col: str = Field(...)
-    id_col: str = Field(...)
-    spatial_cols: list[str] = Field(...)
-    row_offset: int = Field(...)
-    col_offset: int = Field(...)
-    features: list[str] = Field(...)
+    height: int = Field(..., ge=1, description="Grid height")
+    width: int = Field(..., ge=1, description="Grid width")
+    time_col: str = Field(..., description="Temporal index name")
+    id_col: str = Field(..., description="Unit index name")
+    spatial_cols: list[str] = Field(..., description="[row, col] column names")
+    row_offset: int = Field(..., description="Row anchor offset")
+    col_offset: int = Field(..., description="Column anchor offset")
+    features: list[str] = Field(..., description="Exhaustive list of input feature columns")
 
-    # 4. Training Architecture & Hyperparameters
-    model: str = Field(...)
-    window_dim: int = Field(...)
-    total_hidden_channels: int = Field(...)
-    dropout_rate: float = Field(...)
+    # 4. Training Architecture
+    model: str = Field(..., description="Architecture name")
+    window_dim: int = Field(..., description="Temporal window size")
+    total_hidden_channels: int = Field(..., description="Base hidden width")
+    dropout_rate: float = Field(..., ge=0.0, le=1.0)
+    weight_init: str = Field(default="xavier_norm", description="Weight initialization strategy")
+    h_init: str = Field(default="abs_rand_exp-100", description="Hidden state initialization string")
 
-    # 4. Optimization
-    learning_rate: float = Field(...)
-    weight_decay: float = Field(...)
-    windows_per_lesson: int = Field(..., description="Number of windows processed per parameter update")
-    scheduler: str = Field(...)
-    warmup_steps: int = Field(...)
+    # 5. Optimization
+    learning_rate: float = Field(..., gt=0.0)
+    weight_decay: float = Field(..., ge=0.0)
+    windows_per_lesson: int = Field(..., description="Accumulation steps (ADR 014)")
+    scheduler: str = Field(..., description="Learning rate scheduler name")
+    warmup_steps: int = Field(..., description="Scheduler warmup period")
+    clip_grad_norm: bool = Field(default=True, description="Enable gradient clipping")
 
-    # 5. Loss Functions
-    loss_reg: str = Field(...)
-    loss_class: str = Field(...)
+    # 6. Loss Functions
+    loss_reg: str = Field(..., description="Regression loss type")
+    loss_class: str = Field(..., description="Classification loss type")
     loss_reg_a: float = Field(...)
     loss_reg_c: float = Field(...)
     loss_class_gamma: float = Field(...)
     loss_class_alpha: float = Field(...)
 
-    # 6. Sampling & Reproducibility
-    total_lessons: int = Field(..., description="Total number of curriculum lessons")
-    n_posterior_samples: int = Field(..., ge=1, description="Number of stochastic samples for uncertainty (MC Dropout)")
+    # 7. Sampling & Reproducibility
+    total_lessons: int = Field(..., description="Curriculum length")
+    n_posterior_samples: int = Field(..., ge=1, description="MC Dropout sample count")
     np_seed: int = Field(...)
     torch_seed: int = Field(...)
 
-    # 7. Spatial Windowing Logic
-    min_events: int = Field(...)
+    # 8. Spatial Filtering & Curriculum Logic
+    min_events: int = Field(..., description="Minimum events per window for training")
     slope_ratio: float = Field(...)
     roof_ratio: float = Field(...)
-    freeze_h: str = Field(...)
-
-    # 8. Evaluation & Aggregation (Compatibility Shim)
-    evalution_mode: str = Field(..., description="Mode: 'point' or 'stochastic'")
-    aggregate_method: str = Field(..., description="Method: 'arithmetic_mean', 'geometric_mean', 'median'")
-
-    # 9. Target-Relative Ratios (ADR 012)
     max_ratio: float = Field(...)
     min_ratio: float = Field(...)
+    freeze_h: str = Field(..., description="Hidden state reset strategy (ADR 013)")
+
+    # 9. Evaluation & Aggregation (Downstream Compatibility)
+    evalution_mode: str = Field(..., description="Mode: 'point' or 'stochastic'")
+    aggregate_method: str = Field(..., description="Aggregation strategy")
 
     # Metadata
-    model_time_stamp: str | None = None
+    model_time_stamp: Optional[str] = None
 
     @model_validator(mode="before")
     @classmethod
-    def align_steps_and_time(cls, data: Any) -> Any:
-        if isinstance(data, dict) and "steps" in data:
+    def handle_typos_and_dependencies(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        if "steps" in data:
             data["time_steps"] = len(data["steps"])
+        if "evaluation_mode" in data and "evalution_mode" not in data:
+            data["evalution_mode"] = data["evaluation_mode"]
         return data
 
     @field_validator("transform")
@@ -139,7 +138,7 @@ class HydraNetConfig(BaseModel):
     @field_validator("run_type")
     @classmethod
     def validate_run_type(cls, v: str) -> str:
-        valid = ["calibration", "validation", "forecasting"]
+        valid = ["calibration", "validation", "forecasting", "testing"]
         if v not in valid:
             raise ValueError(f"run_type must be one of {valid}")
         return v
@@ -148,28 +147,20 @@ class HydraNetConfig(BaseModel):
     @classmethod
     def validate_eval_mode(cls, v: str) -> str:
         valid = ["point", "stochastic"]
-        # Allow 'stocastic' typo if it exists in data, but normalize to 'stochastic'
-        if v == "stocastic":
-            return "stochastic"
+        if v == "stocastic": return "stochastic"
         if v not in valid:
-            raise ValueError(f"evaluation_mode must be one of {valid}")
+            raise ValueError(f"evalution_mode must be one of {valid}")
         return v
 
     @field_validator("aggregate_method")
     @classmethod
     def validate_agg_method(cls, v: str) -> str:
-        # Map legacy names to new explicit names for backward compatibility
-        mapper = {
-            "mean": "geometric_mean",
-            "median": "median",
-            "max_aposteriori": "median" # MAP proxy
-        }
+        mapper = {"mean": "geometric_mean", "median": "median", "max_aposteriori": "median"}
         v = mapper.get(v, v)
-
-        valid = ["arithmetic_mean", "geometric_mean", "median"]
-        if v not in valid:
-            raise ValueError(f"aggregate_method must be one of {valid}")
+        valid_options = ["arithmetic_mean", "geometric_mean", "median"]
+        if v not in valid_options:
+            raise ValueError(f"aggregate_method must be one of {valid_options}")
         return v
 
     class Config:
-        extra = "forbid" # Strictly reject unknown keys to enforce Boring Architecture
+        extra = "allow" # Tolerant Handshake: Accept pipeline baggage but keep our domain strict.
