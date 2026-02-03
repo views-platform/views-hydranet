@@ -84,10 +84,10 @@ hyperparameters = {
     'target_variable': 'lr_sb_best',
     'classification_outputs': ['lr_sb_best', 'lr_ns_best', 'lr_os_best'],
     'targets': ['lr_sb_best'], # Inbound requested targets
-    'transforms': {
-        'log1p': ['lr_sb_best', 'lr_ns_best'],
+    'transform': {
+        'log1p': ['lr_sb_best', 'lr_ns_best', 'lr_os_best'],
         'asinh': [],
-        'identity': ['lr_os_best']
+        'identity': []
     },
     'steps': list(range(1, 37)),
     'time_steps': 36, # Checksum: Must match len(steps)

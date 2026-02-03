@@ -55,11 +55,9 @@ AUDIT_CONFIG = {
     "target_variable": "lr_sb_best",
     "classification_outputs": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
     "targets": ["lr_sb_best"],
-    "transforms": {
-        "log1p": ["lr_sb_best"],
-        "asinh": ["lr_ns_best"],
-        "identity": ["lr_os_best"]
-    }
+    "log1p": ["lr_sb_best"],
+    "asinh": ["lr_ns_best"],
+    "identity": ["lr_os_best"]
 }
 class TestPopperianAudit:
     """The Truth Engine: Falsifying Hallucination Claims."""

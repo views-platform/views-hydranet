@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Callable
 from enum import Enum
-from typing import Any, List, Optional
+from typing import Any, List, Dict, Optional
 
 import numpy as np
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -26,153 +26,113 @@ class TargetVariable(str, Enum):
     LR_NS_BEST = "lr_ns_best"
     LR_OS_BEST = "lr_os_best"
 
-# Centralized Registry for Multi-Task Heads
-TARGET_REGISTRY = {
-    "sb": 0,
-    "ns": 1,
-    "os": 2
-}
-
-def get_target_index(target_name: str) -> int:
-    """Determines the tensor channel index for a given target name."""
-    target_name = target_name.lower()
-    for key, idx in TARGET_REGISTRY.items():
-        if key in target_name:
-            return idx
-    raise ValueError(f"Target '{target_name}' not recognized in TARGET_REGISTRY.")
-
 class HydraNetConfig(BaseModel):
     """
-    The 'Minimum Strict Set' for HydraNet operations. 
-    
-    This schema defines the fields that HydraNet REQUIRES to function.
-    Extra fields (pipeline baggage) are ALLOWED but ignored by the core logic.
+    The Exhaustive 'Minimum Strict Set' for HydraNet operations.
+    Matches the pipeline configuration 1-to-1.
     """
     # 1. High-Level Partitioning
-    run_type: str = Field(..., description="Partition: calibration, validation, or forecasting")
-    steps: list[int] = Field(..., description="List of forecast steps (e.g. range(1,37))")
-    time_steps: int = Field(default=0, description="Calculated automatically from steps")
+    run_type: str = Field(..., description="Partition: calibration, validation, forecasting, or testing")
+    steps: list[int] = Field(..., description="List of forecast steps")
+    time_steps: int = Field(..., description="Checksum for 'steps'")
 
     # 2. Data Slicing & Scaling (The Physics)
-    input_channels: int = Field(..., ge=1)
-    output_channels: int = Field(default=1, ge=1, description="Channels per model head (usually 1)")
-    target_variable: TargetVariable = Field(..., description="The primary target (sb, ns, os)")
-    targets: list[str] = Field(default_factory=list, description="Requested targets for the outbound contract")
-    classification_outputs: list[str] = Field(..., description="Semantic names for the classification heads")
-    identity_cols: list[str] = Field(..., description="Non-predictive metadata columns to be stripped")
-    transforms: dict[str, list[str]] = Field(..., description="Mapping of transform method to list of columns")
+    input_channels: int = Field(..., ge=1, description="Checksum for 'features'")
+    output_channels: int = Field(..., ge=1, description="Channels per model head")
+    target_variable: TargetVariable = Field(..., description="The primary target")
+    targets: list[str] = Field(default_factory=list)
+    classification_outputs: list[str] = Field(..., description="Semantic names for model heads")
+    identity_cols: list[str] = Field(..., description="Columns to be excluded from features")
+    features: list[str] = Field(..., description="Exhaustive list of predictive signals")
     
-    # 3. Spatiotemporal Topology (Structural Invariants)
-    height: int = Field(..., ge=1, description="Grid height")
-    width: int = Field(..., ge=1, description="Grid width")
-    time_col: str = Field(..., description="Temporal index name")
-    id_col: str = Field(..., description="Unit index name")
-    spatial_cols: list[str] = Field(..., description="[row, col] column names")
-    row_offset: int = Field(..., description="Row anchor offset")
-    col_offset: int = Field(..., description="Column anchor offset")
-    features: list[str] = Field(..., description="Exhaustive list of input feature columns")
+    # The Root Scaling Field (Matches user config 1-to-1)
+    transform: Dict[str, List[str]] = Field(..., description="Mapping of method to columns")
+    
+    # 3. Spatiotemporal Topology
+    height: int = Field(..., ge=1)
+    width: int = Field(..., ge=1)
+    time_col: str = Field(...)
+    id_col: str = Field(...)
+    spatial_cols: list[str] = Field(...)
+    row_offset: int = Field(...)
+    col_offset: int = Field(...)
 
     # 4. Training Architecture
-    model: str = Field(..., description="Architecture name")
-    window_dim: int = Field(..., description="Temporal window size")
-    total_hidden_channels: int = Field(..., description="Base hidden width")
+    model: str = Field(...)
+    window_dim: int = Field(...)
+    total_hidden_channels: int = Field(...)
     dropout_rate: float = Field(..., ge=0.0, le=1.0)
-    weight_init: str = Field(default="xavier_norm", description="Weight initialization strategy")
-    h_init: str = Field(default="abs_rand_exp-100", description="Hidden state initialization string")
+    weight_init: str = Field(...)
+    h_init: str = Field(...)
 
     # 5. Optimization
     learning_rate: float = Field(..., gt=0.0)
     weight_decay: float = Field(..., ge=0.0)
-    windows_per_lesson: int = Field(..., description="Accumulation steps (ADR 014)")
-    scheduler: str = Field(..., description="Learning rate scheduler name")
-    warmup_steps: int = Field(..., description="Scheduler warmup period")
-    clip_grad_norm: bool = Field(default=True, description="Enable gradient clipping")
+    windows_per_lesson: int = Field(..., ge=1)
+    scheduler: str = Field(...)
+    warmup_steps: int = Field(..., ge=1)
+    clip_grad_norm: bool = Field(...)
 
     # 6. Loss Functions
-    loss_reg: str = Field(..., description="Regression loss type")
-    loss_class: str = Field(..., description="Classification loss type")
+    loss_reg: str = Field(...)
+    loss_class: str = Field(...)
     loss_reg_a: float = Field(...)
     loss_reg_c: float = Field(...)
     loss_class_gamma: float = Field(...)
     loss_class_alpha: float = Field(...)
 
     # 7. Sampling & Reproducibility
-    total_lessons: int = Field(..., description="Curriculum length")
-    n_posterior_samples: int = Field(..., ge=1, description="MC Dropout sample count")
+    total_lessons: int = Field(..., ge=1)
+    n_posterior_samples: int = Field(..., ge=1)
     np_seed: int = Field(...)
     torch_seed: int = Field(...)
 
-    # 8. Spatial Filtering & Curriculum Logic
-    min_events: int = Field(..., description="Minimum events per window for training")
+    # 8. Strategy & Curriculum
+    min_events: int = Field(...)
     slope_ratio: float = Field(...)
     roof_ratio: float = Field(...)
     max_ratio: float = Field(...)
     min_ratio: float = Field(...)
-    freeze_h: str = Field(..., description="Hidden state reset strategy (ADR 013)")
+    freeze_h: str = Field(...)
 
-    # 9. Evaluation & Aggregation (Downstream Compatibility)
-    evalution_mode: str = Field(..., description="Mode: 'point' or 'stochastic'")
-    aggregate_method: str = Field(..., description="Aggregation strategy")
+    # 9. Outbound Evaluation
+    evalution_mode: str = Field(...)
+    aggregate_method: str = Field(...)
 
     # Metadata
     model_time_stamp: Optional[str] = None
 
     @model_validator(mode="before")
     @classmethod
-    def handle_typos_and_dependencies(cls, data: Any) -> Any:
-        if not isinstance(data, dict):
-            return data
-            
-        # 1. Calculate time_steps from steps
-        if "steps" in data:
-            data["time_steps"] = len(data["steps"])
-            
-        # 2. Handle Typos (evalution_mode vs evaluation_mode)
-        if "evaluation_mode" in data and "evalution_mode" not in data:
-            data["evalution_mode"] = data["evaluation_mode"]
-
-        # 3. LEGACY MIGRATION: Construction of 'transforms' from legacy keys
-        if "transforms" not in data:
-            legacy_map = {}
-            for method in list(TRANSFORMS.keys()):
-                if method in data and isinstance(data[method], list):
-                    legacy_map[method] = data[method]
-            
-            if legacy_map:
-                data["transforms"] = legacy_map
-            elif "transform" in data and "features" in data:
-                method = data["transform"]
-                # Only migrate if method is a hashable string recognized by HydraNet
-                if isinstance(method, str) and method in TRANSFORMS:
-                    data["transforms"] = {method: data["features"]}
-                else:
-                    # If we can't derive it, we must provide an empty dict to avoid missing-field error
-                    # (The 'after' validator will then Loudly Fail if features are missing)
-                    data["transforms"] = {}
-            
+    def handle_typos(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "evaluation_mode" in data and "evalution_mode" not in data:
+                data["evalution_mode"] = data["evaluation_mode"]
         return data
 
     @model_validator(mode="after")
-    def validate_scaling_ledger(self) -> "HydraNetConfig":
-        """The Scaling Law Checksum: Ensures every predictive feature is explicitly mapped."""
+    def validate_laws(self) -> "HydraNetConfig":
+        """The Checksum and Scaling Laws."""
+        # Checksum: input_channels
+        if self.input_channels != len(self.features):
+            raise ValueError(f"Checksum Law Violation: input_channels ({self.input_channels}) != features ({len(self.features)})")
+        
+        # Checksum: time_steps
+        if self.time_steps != len(self.steps):
+            raise ValueError(f"Checksum Law Violation: time_steps ({self.time_steps}) != steps ({len(self.steps)})")
+            
+        # Scaling Law: All features must be in the 'transform' dictionary
         features_set = set(self.features)
         mapped_set = set()
-        
-        for method, cols in self.transforms.items():
+        for method, cols in self.transform.items():
             if method not in TRANSFORMS:
-                raise ValueError(f"Scaling Law Violation: Transform method '{method}' not in registry.")
+                raise ValueError(f"Scaling Law Violation: Unknown method '{method}'")
             for col in cols:
-                if col in mapped_set:
-                    raise ValueError(f"Scaling Law Violation: Feature '{col}' mapped multiple times.")
                 mapped_set.add(col)
         
         missing = features_set - mapped_set
         if missing:
-            raise ValueError(f"Scaling Law Violation: Features {missing} are missing from 'transforms' mapping.")
-            
-        unrecognized = mapped_set - features_set
-        if unrecognized:
-            raise ValueError(f"Scaling Law Violation: 'transforms' contains unknown features: {unrecognized}")
+            raise ValueError(f"Scaling Law Violation: Features {missing} are not assigned a transform in the 'transform' dict.")
             
         return self
 
@@ -180,17 +140,14 @@ class HydraNetConfig(BaseModel):
     @classmethod
     def validate_run_type(cls, v: str) -> str:
         valid = ["calibration", "validation", "forecasting", "testing"]
-        if v not in valid:
-            raise ValueError(f"run_type must be one of {valid}")
+        if v not in valid: raise ValueError(f"run_type must be in {valid}")
         return v
 
     @field_validator("evalution_mode")
     @classmethod
     def validate_eval_mode(cls, v: str) -> str:
-        valid = ["point", "stochastic"]
         if v == "stocastic": return "stochastic"
-        if v not in valid:
-            raise ValueError(f"evalution_mode must be one of {valid}")
+        if v not in ["point", "stochastic"]: raise ValueError("evaluation_mode must be 'point' or 'stochastic'")
         return v
 
     @field_validator("aggregate_method")
@@ -198,10 +155,8 @@ class HydraNetConfig(BaseModel):
     def validate_agg_method(cls, v: str) -> str:
         mapper = {"mean": "geometric_mean", "median": "median", "max_aposteriori": "median"}
         v = mapper.get(v, v)
-        valid_options = ["arithmetic_mean", "geometric_mean", "median"]
-        if v not in valid_options:
-            raise ValueError(f"aggregate_method must be one of {valid_options}")
+        if v not in ["arithmetic_mean", "geometric_mean", "median"]: raise ValueError("Invalid aggregate_method")
         return v
 
     class Config:
-        extra = "allow" # Tolerant Handshake: Accept pipeline baggage but keep our domain strict.
+        extra = "allow" # Tolerant Handshake
