@@ -18,10 +18,18 @@ class TestCurriculumIntegration:
             "total_lessons": 300, "windows_per_lesson": 1,
             "min_events": 5, "max_events": 100,
             "slope_ratio": 0.75, "roof_ratio": 0.7,
+            "min_ratio": 0.05, "max_ratio": 0.95,
             "time_col": "t", "id_col": "i", "spatial_cols": ["y", "x"],
             "identity_cols": ["t", "i"], "features": ["sb", "ns", "os"],
             "row_offset": 0, "col_offset": 0, "height": 32, "width": 32,
-            "window_dim": 32, "np_seed": 4, "steps": [1]
+            "window_dim": 32, "np_seed": 4, "steps": [1],
+            "n_posterior_samples": 10,
+            "learning_rate": 0.001, "weight_decay": 0.1, "scheduler": "WarmupDecay", "warmup_steps": 100,
+            "loss_reg": "b", "loss_class": "b", "loss_reg_a": 16, "loss_reg_c": 0.05,
+            "loss_class_gamma": 1.5, "loss_class_alpha": 0.75, "freeze_h": "hl",
+            "evalution_mode": "stochastic", "aggregate_method": "geometric_mean",
+            "model": "HydraBNUNet06_LSTM4", "transform": "log1p", "run_type": "calibration",
+            "torch_seed": 4
         }
         data = np.zeros((2, 32, 32, 5))
         handler = VolumeHandler(

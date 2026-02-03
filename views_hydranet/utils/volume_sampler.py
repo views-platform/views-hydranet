@@ -19,9 +19,7 @@ class VolumeSampler:
         self.config = config
         
         # --- THE HANDSHAKE (ADR 013 Section 1) ---
-        dim = config.get("window_dim")
-        if not dim:
-            raise ValueError("VolumeSampler Contract Violation: 'window_dim' missing from config.")
+        dim = config["window_dim"]
             
         h_max = handler.data.shape[handler.get_axis_idx("H")]
         w_max = handler.data.shape[handler.get_axis_idx("W")]
@@ -32,19 +30,23 @@ class VolumeSampler:
                 f"handler spatial bounds ({h_max}x{w_max})."
             )
 
+        # Batching state
+        self.windows_per_lesson = config["windows_per_lesson"]
+        self._buffer: List[VolumeHandler] = []
+
         # Stateful Reproducibility: Use a local generator
-        seed = config.get("np_seed", 42)
+        seed = config["np_seed"]
         self.rng = np.random.default_rng(seed)
         logger.info(f"VolumeSampler: Initialized with np_seed={seed}")
 
     def get_train_volume(self) -> VolumeHandler:
         """Slices off the test horizon while preserving the Ledger."""
-        steps = len(self.config.get("steps", []))
-        if steps <= 0:
+        steps = self.config["steps"]
+        if not steps:
             return self.handler
         
         total_t = self.handler.data.shape[self.handler.get_axis_idx("T")]
-        return self.handler.slice_time(0, total_t - steps)
+        return self.handler.slice_time(0, total_t - len(steps))
 
     def _generate_window(self, target_name: str, threshold: int) -> VolumeHandler:
         """Internal: Extracts a single spatial window based on explicit instructions."""

@@ -26,15 +26,16 @@ class CurriculumLearner:
         self.handler = handler
         
         # 1. Pre-calculate trajectory parameters (Zero-Magic)
-        self.total_steps = config["total_lessons"] * config.get("windows_per_lesson", 1)
+        # All these keys MUST exist per ADR 008 schema validation.
+        self.total_steps = config["total_lessons"] * config["windows_per_lesson"]
         
         # In the relative world, min/max are ratios (0.0 to 1.0)
-        # e.g., start at 90% of max, cool down to 5% of max
-        self.min_ratio = config.get("min_ratio", 0.05)
-        self.max_ratio = config.get("max_ratio", 0.95)
+        self.min_ratio = config["min_ratio"]
+        self.max_ratio = config["max_ratio"]
         
-        self.slope_ratio = config.get("slope_ratio", 0.75)
-        self.roof_ratio = config.get("roof_ratio", 0.7)
+        self.slope_ratio = config["slope_ratio"]
+        self.roof_ratio = config["roof_ratio"]
+        self.min_events = config["min_events"]
         
         # 2. Extract targets from Ledger and Record Maxima
         self.subjects = list(handler._metadata.feature_cols)

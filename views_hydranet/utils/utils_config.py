@@ -57,47 +57,51 @@ class HydraNetConfig(BaseModel):
     time_steps: int = Field(default=0, description="Calculated automatically from steps")
 
     # 2. Data Slicing & Scaling
-    input_channels: int = Field(default=3, ge=1)
+    input_channels: int = Field(..., ge=1)
     target_variable: TargetVariable = Field(..., description="The primary target (sb, ns, os)")
     targets: list[str] = Field(default_factory=list)
-    transform: str = Field(default="log1p")
+    transform: str = Field(...)
 
     # 3. Training Architecture & Hyperparameters
-    model: str = Field(default="HydraBNUNet06_LSTM4")
-    window_dim: int = Field(default=32)
-    total_hidden_channels: int = Field(default=32)
-    dropout_rate: float = Field(default=0.125)
+    model: str = Field(...)
+    window_dim: int = Field(...)
+    total_hidden_channels: int = Field(...)
+    dropout_rate: float = Field(...)
 
     # 4. Optimization
-    learning_rate: float = Field(default=0.001)
-    weight_decay: float = Field(default=0.1)
+    learning_rate: float = Field(...)
+    weight_decay: float = Field(...)
     windows_per_lesson: int = Field(..., description="Number of windows processed per parameter update")
-    scheduler: str = Field(default="WarmupDecay")
-    warmup_steps: int = Field(default=100)
+    scheduler: str = Field(...)
+    warmup_steps: int = Field(...)
 
     # 5. Loss Functions
-    loss_reg: str = Field(default="b")
-    loss_class: str = Field(default="b")
-    loss_reg_a: float = Field(default=258)
-    loss_reg_c: float = Field(default=0.001)
-    loss_class_gamma: float = Field(default=1.5)
-    loss_class_alpha: float = Field(default=0.75)
+    loss_reg: str = Field(...)
+    loss_class: str = Field(...)
+    loss_reg_a: float = Field(...)
+    loss_reg_c: float = Field(...)
+    loss_class_gamma: float = Field(...)
+    loss_class_alpha: float = Field(...)
 
     # 6. Sampling & Reproducibility
     total_lessons: int = Field(..., description="Total number of curriculum lessons")
     n_posterior_samples: int = Field(..., ge=1, description="Number of stochastic samples for uncertainty (MC Dropout)")
-    np_seed: int = Field(default=4)
-    torch_seed: int = Field(default=4)
+    np_seed: int = Field(...)
+    torch_seed: int = Field(...)
 
     # 7. Spatial Windowing Logic
-    min_events: int = Field(default=5)
-    slope_ratio: float = Field(default=0.75)
-    roof_ratio: float = Field(default=0.7)
-    freeze_h: str = Field(default="hl")
+    min_events: int = Field(...)
+    slope_ratio: float = Field(...)
+    roof_ratio: float = Field(...)
+    freeze_h: str = Field(...)
 
     # 8. Evaluation & Aggregation (Compatibility Shim)
-    evalution_mode: str = Field(default="stochastic", description="Mode: 'point' or 'stochastic'")
-    aggregate_method: str = Field(default="geometric_mean", description="Method: 'arithmetic_mean', 'geometric_mean', 'median'")
+    evalution_mode: str = Field(..., description="Mode: 'point' or 'stochastic'")
+    aggregate_method: str = Field(..., description="Method: 'arithmetic_mean', 'geometric_mean', 'median'")
+
+    # 9. Target-Relative Ratios (ADR 012)
+    max_ratio: float = Field(...)
+    min_ratio: float = Field(...)
 
     # Metadata
     model_time_stamp: str | None = None

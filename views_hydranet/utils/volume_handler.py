@@ -96,6 +96,13 @@ class VolumeHandler:
         
         # --- THE STRICT HANDSHAKE (ADR 007 Section 1.2) ---
         required_roles = [time_col, id_col, y_col, x_col]
+        # Offsets are also strictly required now
+        try:
+            row_offset = config["row_offset"]
+            col_offset = config["col_offset"]
+        except KeyError as e:
+             raise KeyError(f"VolumeHandler Contract Violation: Missing mandatory offset {e} in config.")
+
         all_required = list(set(required_roles + list(identity_cols) + list(feature_cols)))
         
         missing = [c for c in all_required if c not in df.columns]
@@ -105,9 +112,6 @@ class VolumeHandler:
         channel_map = list(identity_cols) + list(feature_cols)
         
         # 2. Structural Anchoring
-        row_offset = config.get("row_offset", df[y_col].min())
-        col_offset = config.get("col_offset", df[x_col].min())
-        
         month_min = df[time_col].min()
         month_max = df[time_col].max()
         month_range = int(month_max - month_min + 1)

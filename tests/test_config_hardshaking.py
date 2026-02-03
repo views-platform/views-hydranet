@@ -31,16 +31,24 @@ class TestConfigHardshaking:
 
     def test_strict_role_requirement(self):
         """Verify that basic HydraNet operation requires all roles."""
-        minimal_data = {
+        full_data = {
             "run_type": "calibration",
             "target_variable": "sb",
             "steps": [1],
             "n_posterior_samples": 10,
             "total_lessons": 10,
-            "windows_per_lesson": 1
+            "windows_per_lesson": 1,
+            "input_channels": 3, "transform": "log1p", "model": "HydraBNUNet06_LSTM4",
+            "window_dim": 32, "total_hidden_channels": 32, "dropout_rate": 0.125,
+            "learning_rate": 0.001, "weight_decay": 0.1, "scheduler": "WarmupDecay", "warmup_steps": 100,
+            "loss_reg": "b", "loss_class": "b", "loss_reg_a": 16, "loss_reg_c": 0.05,
+            "loss_class_gamma": 1.5, "loss_class_alpha": 0.75, "freeze_h": "hl",
+            "evalution_mode": "stochastic", "aggregate_method": "geometric_mean",
+            "np_seed": 4, "torch_seed": 4, "min_events": 5, "slope_ratio": 0.75, "roof_ratio": 0.7,
+            "max_ratio": 0.95, "min_ratio": 0.05
         }
-        # This should pass validation as it contains all required new keys
-        config = HydraNetConfig(**minimal_data)
+        # This should pass validation as it contains all required keys
+        config = HydraNetConfig(**full_data)
         assert config.n_posterior_samples == 10
         
     def test_fail_on_missing_target(self):
