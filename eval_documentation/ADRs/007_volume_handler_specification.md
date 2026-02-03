@@ -49,15 +49,21 @@ To integrate with training loops without exposing raw data, the handler provides
 *   **Strict Validation:** If a role (e.g., `time_col`) is missing from the DF, fail immediately. 
 *   **No Persistence:** Once initialized, the handler never looks back at the original DF.
 
-### 3.2 The Symmetry Recovery Gate (ADR 020 Integration)
-The `VolumeHandler` is the authoritative point for restoring semantic meaning to raw model outputs. To ensure bit-perfect symmetry, it implements the following laws:
+### 3.2 The Boring Bridges (DataFrame Reconstruction)
+To convert the internal 4D/5D volumes back into DataFrames, the handler provides three authoritative bridges:
+*   **`to_historical_df`**: Reconstructs a DataFrame using its own internal data and ledger. 
+*   **`to_evaluation_df`**: Slices a provided history handler to match its own temporal duration, then performs reconstruction using the history as a scaffold.
+*   **`to_forecast_df`**: Extrapolates a provided history handler (incrementing the temporal index) to create a future scaffold for reconstruction.
 
-1.  **The Collision Law:** During spatiotemporal reconstruction (`to_evaluation_df`), ground-truth features from the history provider are prefixed with `ACTUAL_INTERNAL_`. This prevents them from being overwritten by model predictions that share the same semantic name.
+### 3.3 The Symmetry Recovery Gate (ADR 020 Integration)
+The reconstruction logic (shared by all bridges) is the authoritative point for restoring semantic meaning to raw model outputs. To ensure bit-perfect symmetry, it implements the following laws:
+
+1.  **The Collision Law:** During reconstruction, ground-truth features from the history/scaffold are prefixed with `ACTUAL_INTERNAL_`. This prevents them from being overwritten by model predictions that share the same semantic name.
 2.  **Internalized Naming:** The `wrap_predictions(base_names)` method automatically "dresses" the 6 architectural heads with internal labels (`_INTERNAL_SIGNAL`, `_INTERNAL_PROB`). 
 3.  **Automatic Topographical Restoration:** Before returning a DataFrame, the handler automatically restores the `pd.MultiIndex` using its authoritative Ledger roles (`time_col`, `id_col`).
 4.  **The Final Handshake:** Internal labels are mapped to the final outbound contract names (`pred_..._raw`, `pred_..._prob`) and `ACTUAL_INTERNAL_` is stripped, delivering a clean, bit-perfect DataFrame to the evaluation domain.
 
-### 3.3 The Zero-Magic Law
+### 3.4 The Zero-Magic Law
 *   **No Hardcoded Strings:** Logic never uses `"month_id"` or `"row"`. It uses `self.ledger.time_col` or `self.ledger.y_coord`.
 *   **No Magic Numbers:** Indices are always resolved from the `channel_map`.
 *   **Explicit Fail:** Shape or coordinate mismatches must raise a `ContractViolation`, never silently truncate.
