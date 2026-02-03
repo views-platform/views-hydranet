@@ -60,11 +60,20 @@ Logic that exists in multiple places, violating the DRY (Don't Repeat Yourself) 
 3.  **Phase 3 (Consolidation):** Move unique math from `utils.py` into their respective ADR classes and delete the general `utils.py`. **[PENDING]**
 
 ## 5. Migration Status (03-02-2026)
-The following 11 files have been moved to `views_hydranet/utils/legacy/`:
+### 5.1 Utilities
+The following 11 files have been moved to `views_hydranet/legacy_code/utils/`:
 *   `data_loader.py`, `invertible_data_transformer.py`
 *   `persistence_model_class.py`, `utils_df_to_vol_conversion.py`
 *   `utils_date_index.py`, `utils_internal_containers.py`
 *   `utils_evaluation_metrics.py`, `utils_wandb.py`
 *   `utils_prediction.py`, `utils_true_forecasting.py`
 *   `utils_synthetic_data.py`
+
+### 5.2 Subdirectories
+The following entire subdirectories have been moved to `views_hydranet/legacy_code/`:
+*   `deprecated/`
+*   `experimental/`
+*   `evaluate/`
+*   `legacy/`
+*   `forecast/` (Superseded by internal logic in `HydranetManager`)
 The codebase is currently carrying approximately **30-40% legacy weight** in the utilities directory. While this does not break the current ADR-compliant runs, a scheduled pruning will be necessary to maintain the "Boring" standard. 🖖
