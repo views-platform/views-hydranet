@@ -13,7 +13,8 @@
 
 ### Zone 2: Component Gluing (The Handshake)
 *   **Responsibility:** Initializing and passing data between specialized components (`DataFetcher`, `VolumeHandler`, `HydraNetInference`).
-*   **The Law:** The Manager never performs math or data transformation directly. If it needs to scale data, it calls `FeatureScaler`. If it needs a tensor, it calls `VolumeHandler`.
+*   **The Law:** The Manager never performs math or data transformation directly. It trusts the `VolumeHandler` to return bit-perfect, topologically correct, and correctly named DataFrames.
+*   **Zero-Management of Keys:** The Manager is prohibited from performing manual string renaming or index manipulation. If a column needs a `pred_` prefix or a MultiIndex needs restoration, it must be handled by the specialized gate inside the `VolumeHandler` (ADR 007).
 
 ### Zone 3: Artifact Custody (The Storage)
 *   **Responsibility:** Managing the loading and saving of model artifacts (`.pt` files) and ensuring they are associated with the correct metadata timestamp.

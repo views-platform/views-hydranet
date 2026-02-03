@@ -19,7 +19,7 @@ Where parameters are mathematically coupled, we favor **Explicit Redundancy** ov
 *   **Coupling 1:** `input_channels` MUST equal `len(features)`.
 *   **Coupling 2:** `time_steps` MUST equal `len(steps)`.
 *   **Coupling 3:** `n_classification_outputs` (implicit) MUST equal `len(classification_outputs)`.
-*   **Coupling 4 (The Scaling Law):** Every feature in `features` MUST appear exactly once in the `transforms` mapping. This ensures zero ambiguity regarding input distributions.
+*   **Coupling 4 (The Scaling Law):** Every feature in `features` MUST appear exactly once in the `transform` mapping. This ensures zero ambiguity regarding input distributions.
 
 ### 1.3 Internalization of Architectural Invariants (ADR 020)
 Naming prefixes (`pred_`) and suffixes (`_raw`, `_prob`) are fixed architectural invariants. Including them in the configuration is prohibited. They are enforced internally by the `VolumeHandler` Symmetry Engine.

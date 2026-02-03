@@ -9,7 +9,7 @@
 
 ### Zone 1: Configuration (The Handshake)
 *   **Responsibility:** Initializing the scaler with a declarative mapping of columns to methods.
-*   **The Law:** Every predictive feature MUST be assigned to exactly one transformation method in the `transforms` dictionary.
+*   **The Law:** Every predictive feature MUST be assigned to exactly one transformation method in the `transform` dictionary.
 *   **Supported Methods:** `log1p`, `asinh`, `identity`.
 
 ### Zone 2: Forward Transformation (Raw → Semantic)
