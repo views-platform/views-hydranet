@@ -28,6 +28,6 @@ class ConfigInitializer:
         # 1. Strict Validation via Pydantic (ADR 008)
         # Any missing fields or legacy keys will trigger a loud ValidationError here.
         config_obj = HydraNetConfig(**self._raw)
-        
+
         # 2. Return as a dictionary for component consumption
         return config_obj.model_dump()

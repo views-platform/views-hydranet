@@ -1,10 +1,13 @@
 
-import pytest
-import numpy as np
-import torch
 from unittest.mock import MagicMock, patch
+
+import numpy as np
+import pytest
+import torch
+
 from views_hydranet.train.train_model import training_loop
 from views_hydranet.utils.volume_handler import VolumeHandler
+
 
 class TestOptimizationGate:
     """
@@ -25,12 +28,12 @@ class TestOptimizationGate:
             "time_col": "t", "id_col": "i", "spatial_cols": ["y", "x"],
             "row_offset": 0, "col_offset": 0, "height": 1, "width": 1
         }
-        
+
         device = torch.device("cpu")
         model = torch.nn.Linear(1, 1).to(device)
         model.base = 1
         model.init_h = lambda hidden_channels, dim: torch.zeros((1, 1, 1, 1), requires_grad=True)
-        
+
         def mock_forward(t0, h):
             pred = torch.ones((1, 1, 1, 1), requires_grad=True)
             return pred, pred, h
@@ -43,30 +46,30 @@ class TestOptimizationGate:
             MagicMock(return_value=torch.tensor(0.1, requires_grad=True)),
             MagicMock(return_value=torch.tensor(0.2, requires_grad=True))
         )
-        
+
         data = np.zeros((2, 1, 1, 2))
         handler = VolumeHandler(
             data=data, axes=("T", "H", "W", "C"), channel_map=["t", "f1"],
             time_col="t", id_col="i", spatial_cols=["y", "x"],
             identity_cols=["t"], feature_cols=["f1"]
         )
-        
+
         return config, model, criterion, optimizer, scheduler, handler, device
 
     def test_optimization_frequency(self, mock_components):
         """Verify exactly one update per lesson regardless of windows per lesson."""
         config, model, criterion, optimizer, scheduler, handler, device = mock_components
-        
+
         with patch('views_hydranet.train.train_model.CurriculumLearner') as MockPlanner, \
              patch('views_hydranet.train.train_model.VolumeSampler') as MockSampler:
-            
+
             planner = MockPlanner.return_value
             planner.get_lesson.return_value = ("f1", 5)
-            
+
             sampler = MockSampler.return_value
             sampler.get_train_volume.return_value = handler
             sampler.get_batch.return_value = ([handler], 1)
-            
+
             training_loop(config, model, criterion, optimizer, scheduler, handler, device)
 
         assert optimizer.step.call_count == 2
@@ -77,15 +80,15 @@ class TestOptimizationGate:
         """Verify that the train function returns loss without modifying weights (ADR 014)."""
         from views_hydranet.train.train_model import train
         config, model, criterion, optimizer, scheduler, handler, device = mock_components
-        
+
         orig_weights = model.weight.clone().detach()
         pbar = MagicMock()
-        
+
         # Pull criterion components
         cr, cc, mt = criterion
-        
+
         loss = train(model, optimizer, scheduler, cr, cc, mt, handler, config, device, pbar)
-        
+
         assert isinstance(loss, torch.Tensor)
         assert torch.allclose(model.weight, orig_weights)
         assert optimizer.step.call_count == 0

@@ -1,7 +1,9 @@
 
 import pytest
 from pydantic import ValidationError
+
 from views_hydranet.utils.utils_config import HydraNetConfig
+
 
 class TestConfigHardshaking:
     """
@@ -19,10 +21,10 @@ class TestConfigHardshaking:
             "samples": 300,      # LEGACY
             "batch_size": 3      # LEGACY
         }
-        
+
         with pytest.raises(ValidationError) as excinfo:
             HydraNetConfig(**legacy_data)
-        
+
         errors = str(excinfo.value)
         # It must complain about the missing NEW required keys
         assert "n_posterior_samples" in errors
@@ -50,7 +52,7 @@ class TestConfigHardshaking:
         # This should pass validation as it contains all required keys
         config = HydraNetConfig(**full_data)
         assert config.n_posterior_samples == 10
-        
+
     def test_fail_on_missing_target(self):
         """Verify that missing mandatory fields still trigger standard Pydantic errors."""
         incomplete_data = {

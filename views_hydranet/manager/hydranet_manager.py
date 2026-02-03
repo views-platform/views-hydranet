@@ -7,13 +7,9 @@ It handles spatiotemporal data volumes and implements rolling-origin evaluation.
 """
 
 import logging
-import pickle
-from typing import Any, Dict
 
-import numpy as np
 import pandas as pd
 import torch
-from tqdm import tqdm
 from views_pipeline_core.managers.model import (
     ForecastingModelManager,
     ModelPathManager,
@@ -27,12 +23,10 @@ from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.hydranet_inference import HydraNetInference
 from views_hydranet.utils.utils_contract_converters import (
     validate_contract_dataframes,
-    zstack_to_contract_df,
 )
 from views_hydranet.utils.utils_device import setup_device
-from views_hydranet.utils.utils_df_to_vol_conversion import df_to_vol
-from views_hydranet.utils.volume_handler import VolumeHandler
 from views_hydranet.utils.utils_orchestration import get_rolling_origin_indices
+from views_hydranet.utils.volume_handler import VolumeHandler
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +70,7 @@ class HydranetManager(ForecastingModelManager):
         # 1. Ingest
         fetcher = DataFetcher(self._model_path.data_raw, self.configs)
         df = fetcher.fetch_df()
-        df = DataFetcher.standardize_raw_df(df, self.configs) 
+        df = DataFetcher.standardize_raw_df(df, self.configs)
 
         # 2. Sniff
         sniffer = DataSniffer(self.configs)
@@ -88,9 +82,9 @@ class HydranetManager(ForecastingModelManager):
 
         # 4. Transform: DataFrame -> Volume (Absolute Anchoring)
         handler = VolumeHandler.from_df(
-            df, 
-            self.configs, 
-            height=self.configs["height"], 
+            df,
+            self.configs,
+            height=self.configs["height"],
             width=self.configs["width"]
         )
 
@@ -103,6 +97,7 @@ class HydranetManager(ForecastingModelManager):
     def _execute_model_evaluation(self) -> None:
         """HydraNet specific evaluation override."""
         import os
+
         from views_pipeline_core.files.utils import read_dataframe, save_dataframe
 
         targets = self.configs.get("targets", [])
@@ -166,19 +161,19 @@ class HydranetManager(ForecastingModelManager):
 
         # 4. Transform: Canonical Inbound Volume
         handler = VolumeHandler.from_df(
-            df, 
-            self.configs, 
-            height=self.configs["height"], 
+            df,
+            self.configs,
+            height=self.configs["height"],
             width=self.configs["width"]
         )
 
-        sniffer.sniff_forecast_alignment(df, vol_full, month_range=vol_full.shape[0], is_forecast=False)
+        sniffer.sniff_forecast_alignment(df, handler, is_forecast=False)
 
         model, model_time_stamp = self._load_model_artifact(artifact_name)
         time_steps = len(self.configs["steps"])
         num_windows = 12 if run_type in ["calibration", "validation"] else 1
 
-        origins = get_rolling_origin_indices(vol_full.shape[0], time_steps, num_windows)
+        origins = get_rolling_origin_indices(handler.shape[0], time_steps, num_windows)
         inference = HydraNetInference(model, self.configs, device=self.device)
         list_df_predictions = []
 
@@ -194,7 +189,7 @@ class HydranetManager(ForecastingModelManager):
 
             # --- THE SYMMETRY ENGINE ---
             pred_handler = handler.wrap_posterior(posterior_zstack, feature_names=requested_targets)
-            
+
             # Use explicit evaluation reconstruction (handles slicing internally)
             df_origin = pred_handler.to_evaluation_df(history=handler, start_idx=origin + 1)
 
@@ -222,33 +217,32 @@ class HydranetManager(ForecastingModelManager):
 
         # 4. Transform: Canonical Inbound Volume
         handler = VolumeHandler.from_df(
-            df, 
-            self.configs, 
-            height=self.configs["height"], 
+            df,
+            self.configs,
+            height=self.configs["height"],
             width=self.configs["width"]
         )
-        vol_forecast = handler.data
 
         time_steps = len(self.configs["steps"])
-        sniffer.sniff_forecast_alignment(df, handler.data, month_range=time_steps, is_forecast=False)
+        sniffer.sniff_forecast_alignment(df, handler, is_forecast=False)
 
         model, _ = self._load_model_artifact(artifact_name)
         inference = HydraNetInference(model, self.configs, device=self.device)
         posterior_zstack, _ = inference.generate_posterior_samples(handler, is_evaluation=False)
-        
+
         requested_targets = scaler.configured_columns
         if self.configs.get("target_variable"):
             requested_targets = [t for t in requested_targets if self.configs["target_variable"] in t]
 
         # --- THE SYMMETRY ENGINE ---
         pred_handler = handler.wrap_posterior(posterior_zstack, feature_names=requested_targets)
-        
+
         # Use explicit operational reconstruction (handles extrapolation internally)
         df_full = pred_handler.to_forecast_df(history=handler)
-                
+
         if df_full is not None:
             df_full = scaler.inverse_transform(df_full)
             rename_map = {col: f"pred_{col}" for col in requested_targets}
             df_full = df_full.rename(columns=rename_map)
-            
+
         return [df_full] if df_full is not None else []

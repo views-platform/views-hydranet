@@ -64,13 +64,13 @@ class DataFetcher:
         Raises:
             ValueError: If the index structure does not match exactly.
         """
-        
+
         # 1. Enforce MultiIndex
         if not isinstance(df.index, pd.MultiIndex):
             error_msg = f"[CRITICAL DATA ERROR] Expected MultiIndex, got {type(df.index)}"
             print(f"\n{error_msg}")
             raise ValueError(error_msg)
-            
+
         # 2. Enforce Level Names and Order from Config (ADR 017 Section 1.2)
         try:
             expected_names = config["index_names"]
@@ -79,9 +79,9 @@ class DataFetcher:
                 "DataFetcher Contract Violation: 'index_names' missing from config.\n"
                 "To comply with ADR 017, you must explicitly define the MultiIndex levels."
             )
-            
+
         actual_names = list(df.index.names)
-        
+
         if actual_names[:len(expected_names)] != expected_names:
             error_msg = (
                 f"[CRITICAL DATA ERROR] Index Contract Violation!\n"
@@ -90,6 +90,6 @@ class DataFetcher:
             )
             print(f"\n{error_msg}")
             raise ValueError(error_msg)
-            
+
         # 3. Structural Normalization
         return df.reset_index()

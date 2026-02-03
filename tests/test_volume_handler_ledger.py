@@ -1,8 +1,10 @@
-import pytest
-import pandas as pd
 import numpy as np
+import pandas as pd
+import pytest
 import torch
+
 from views_hydranet.utils.volume_handler import VolumeHandler
+
 
 class TestVolumeHandlerLedger:
     """
@@ -45,7 +47,7 @@ class TestVolumeHandlerLedger:
         """Verify Ledger role storage and channel dimension enforcement."""
         data = np.zeros((1, 5, 5, 4)) # T=1, H=5, W=5, C=4
         map_4 = ["month_id", "priogrid_gid", "feat_1", "feat_2"]
-        
+
         # Positive Case
         vh = VolumeHandler(
             data=data,
@@ -94,9 +96,9 @@ class TestVolumeHandlerLedger:
         ]
         df_in = pd.DataFrame(data_in)
         vh = VolumeHandler.from_df(df_in, standard_config, height=5, width=5)
-        
+
         df_out = vh.to_historical_df()
-        
+
         # 1. Bit-perfect Identity Equality
         # Sort both by month_id to ensure order
         df_in_sorted = df_in.sort_values("month_id").reset_index(drop=True)
@@ -113,7 +115,7 @@ class TestVolumeHandlerLedger:
         c_idx = vh.channel_map.index("feat_1")
         # Ensure we are setting a value in a cell that was originally 0.0 (Ocean)
         vh.data[0, 0, 0, c_idx] = 999.0
-        
+
         df_masked = vh.to_historical_df()
         assert 999.0 not in df_masked["feat_1"].values
 
@@ -121,7 +123,7 @@ class TestVolumeHandlerLedger:
         """Verify PyTorch permutation, identity stripping, and 5D wrapping."""
         df = pd.DataFrame([{"month_id": 100, "priogrid_gid": 1, "row": 10, "col": 20, "feat_1": 1.0, "feat_2": 2.0}])
         vh = VolumeHandler.from_df(df, standard_config, height=5, width=5)
-        
+
         # 1. Strip Identities
         tensor = vh.to_pytorch(torch.device("cpu"), include_identities=False)
         # Expected: [B=1, T=1, C=2, H=5, W=5] (Identity count is 4 in standard_config fixture)
@@ -198,7 +200,7 @@ class TestVolumeHandlerLedger:
         pred_vh = VolumeHandler.from_df(df_pred, pred_config, height=2, width=2)
 
         res_df = pred_vh.to_forecast_df(history)
-        
+
         assert len(res_df) == 3
         # Check calendar: 500 -> 501, 502, 503
         assert sorted(res_df["temporal"].unique().tolist()) == [501, 502, 503]

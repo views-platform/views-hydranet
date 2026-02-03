@@ -44,7 +44,7 @@ class FeatureScaler:
             raise RuntimeError("FeatureScaler is one-shot and already fitted.")
 
         df_out = df.copy()
-        
+
         # Calculate how many features we are actually scaling
         total_scaled = sum(len(cols) for cols in self._config.values())
         logger.info(f"FeatureScaler: FIT-TRANSFORM ({total_scaled} features)")
@@ -58,7 +58,7 @@ class FeatureScaler:
             for col in columns:
                 if col not in df_out.columns:
                     raise ValueError(f"FeatureScaler Fit Error: Column '{col}' missing from DataFrame.")
-                
+
                 # Apply transformation to the existing column (preserving other columns)
                 df_out[col] = forward_func(df_out[col])
 
@@ -73,13 +73,13 @@ class FeatureScaler:
                 stats.append(f"  - {col:.<40} [{c_min:>12.4f}, {c_max:>12.4f}]")
             else:
                 stats.append(f"  - {col:.<40} [Non-numeric]")
-        
+
         report = "\n" + "="*80 + "\n"
         report += " FEATURE SCALER: DATA STATE REPORT (Semantic Space)\n"
         report += "-"*80 + "\n"
         report += "\n".join(stats)
         report += "\n" + "="*80
-        
+
         logger.info(report)
 
         return df_out

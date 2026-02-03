@@ -8,6 +8,7 @@ import torch.nn as nn
 from tqdm import tqdm
 from views_pipeline_core.managers.model import ModelPathManager
 
+from views_hydranet.utils.curriculum import CurriculumLearner
 from views_hydranet.utils.integrity_guardian import IntegrityGuardian
 from views_hydranet.utils.utils import (
     choose_loss,
@@ -16,7 +17,6 @@ from views_hydranet.utils.utils import (
     init_weights,
     train_log,
 )
-from views_hydranet.utils.curriculum import CurriculumLearner
 from views_hydranet.utils.volume_handler import VolumeHandler
 from views_hydranet.utils.volume_sampler import VolumeSampler
 
@@ -59,7 +59,7 @@ def train(
     avg_loss_reg_list = []
     avg_loss_class_list = []
     avg_loss_list = []
-    total_loss = torch.tensor(0.0).to(device) 
+    total_loss = torch.tensor(0.0).to(device)
 
     model.train()
     multitaskloss_instance.train()
@@ -78,7 +78,7 @@ def train(
 
     seq_len = train_tensor.shape[1]
     window_dim = train_tensor.shape[-1]
-    
+
     # initialize a hidden state
     h = model.init_h(hidden_channels=model.base, dim=window_dim).float().to(device)
 
@@ -160,16 +160,16 @@ def training_loop(
     ) as pbar:
         # Loop over Strategic Lessons
         for lesson_idx in range(config["total_lessons"]):
-            
+
             optimizer.zero_grad() # Reset gradients at start of Lesson
             lesson_loss = torch.tensor(0.0).to(device)
-            
+
             # Pull one lesson per window in the batch (The Mixed Salad)
             for window_idx in range(config["windows_per_lesson"]):
                 # 1. Handshake with Planner
                 global_step_idx = lesson_idx * config["windows_per_lesson"] + window_idx
                 target, threshold = planner.get_lesson(global_step_idx)
-                
+
                 # 2. Handshake with Lens
                 batch, qualified_cells = sampler.get_batch(target, threshold, batch_size=1)
                 sample_handler = batch[0]

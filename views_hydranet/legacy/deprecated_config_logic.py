@@ -12,6 +12,7 @@ def _perform_strict_handshake_LEGACY(raw_config: Dict[str, Any]) -> Dict[str, An
     Original strict handshake logic using Pydantic.
     """
     from pydantic import ValidationError
+
     from views_hydranet.utils.utils_config import HydraNetConfig
 
     try:

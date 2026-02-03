@@ -3,7 +3,9 @@ VolumeSampler: The Pure Lens for spatiotemporal window extraction.
 """
 import logging
 from typing import Any, Dict, List, Tuple
+
 import numpy as np
+
 from views_hydranet.utils.volume_handler import VolumeHandler
 
 logger = logging.getLogger(__name__)
@@ -17,13 +19,13 @@ class VolumeSampler:
     def __init__(self, handler: VolumeHandler, config: Dict[str, Any]):
         self.handler = handler
         self.config = config
-        
+
         # --- THE HANDSHAKE (ADR 013 Section 1) ---
         dim = config["window_dim"]
-            
+
         h_max = handler.data.shape[handler.get_axis_idx("H")]
         w_max = handler.data.shape[handler.get_axis_idx("W")]
-        
+
         if dim > h_max or dim > w_max:
             raise ValueError(
                 f"VolumeSampler Contract Violation: window_dim ({dim}) exceeds "
@@ -44,7 +46,7 @@ class VolumeSampler:
         steps = self.config["steps"]
         if not steps:
             return self.handler
-        
+
         total_t = self.handler.data.shape[self.handler.get_axis_idx("T")]
         return self.handler.slice_time(0, total_t - len(steps))
 
@@ -60,11 +62,11 @@ class VolumeSampler:
             target_idx = train_vh.channel_map.index(target_name)
         except ValueError:
             raise ValueError(f"VolumeSampler: target_name '{target_name}' not found in Ledger.")
-        
+
         # Activity Search (Importance Sampling)
         activity = np.count_nonzero(vol_data[..., target_idx], axis=0)
         busy_cells = np.argwhere(activity >= threshold)
-        
+
         if busy_cells.size > 0:
             # Pick a busy anchor
             r_anc, c_axc = busy_cells[self.rng.choice(len(busy_cells))]
@@ -78,10 +80,10 @@ class VolumeSampler:
 
         # Atomic Extraction
         data = vol_data[:, r0:r0+dim, c0:c0+dim, :].copy()
-        
+
         # Absolute Anchoring: Propagate geographic truth
         p_row, p_col = train_vh.spatial_offset
-        
+
         return VolumeHandler(
             data=data,
             axes=train_vh.axes,
@@ -105,7 +107,7 @@ class VolumeSampler:
             target_idx = train_vh.channel_map.index(target_name)
         except ValueError:
             raise ValueError(f"VolumeSampler: target_name '{target_name}' not found in Ledger.")
-            
+
         activity = np.count_nonzero(train_vh.data[..., target_idx], axis=0)
         qualified_count = len(np.argwhere(activity >= threshold))
 
@@ -113,5 +115,5 @@ class VolumeSampler:
         batch = []
         for _ in range(batch_size):
             batch.append(self._generate_window(target_name, threshold))
-        
+
         return batch, qualified_count

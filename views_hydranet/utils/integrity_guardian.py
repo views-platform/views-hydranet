@@ -2,6 +2,7 @@
 IntegrityGuardian: Numerical stability monitor for HydraNet training.
 """
 import logging
+
 import torch
 import torch.nn as nn
 
@@ -15,15 +16,15 @@ class IntegrityGuardian:
 
     @staticmethod
     def monitor(
-        model: nn.Module, 
-        prediction: torch.Tensor, 
-        loss: torch.Tensor, 
+        model: nn.Module,
+        prediction: torch.Tensor,
+        loss: torch.Tensor,
         context: str = ""
     ) -> None:
         """
         Scans model weights, predictions, and loss for NaNs, Infs, or Magnitude Explosions.
         """
-        
+
         # 1. Check Loss (The quickest signal)
         if not torch.isfinite(loss):
             error_msg = f"[FATAL NUMERICAL EXPLOSION] Loss is {loss.item()} at {context}"

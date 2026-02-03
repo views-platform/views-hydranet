@@ -2,11 +2,17 @@
 DataSniffer: Passive observation and strict validation for the HydraNet pipeline.
 """
 
+from __future__ import annotations
+
 import logging
-from typing import Any, Dict, List, Union
+from typing import TYPE_CHECKING, Any, Dict
+
 import numpy as np
 import pandas as pd
 import torch
+
+if TYPE_CHECKING:
+    from views_hydranet.utils.volume_handler import VolumeHandler
 
 logger = logging.getLogger(__name__)
 
@@ -14,10 +20,8 @@ class DataSniffer:
     """
     A passive data observer that enforces strict contract compliance. 
     
-    This class identifies divergent or corrupted data states early. 
-    It is strictly 'read-only' and will never modify data.
-    
-    Any contract violation results in an immediate exception to stop the run.
+    Identifies divergent or corrupted data states early without modifying data.
+    Any contract violation results in an immediate exception (Fail Loud and Proud).
     """
 
     def __init__(self, config: Dict[str, Any]) -> None:
@@ -26,32 +30,17 @@ class DataSniffer:
         """
         self.config = config
         
-        # 1. Enforce Mandatory Identity Columns from Config
-        if "identity_cols" not in config:
-            error_msg = "[CRITICAL CONFIG ERROR] DataSniffer: 'identity_cols' missing from configuration!"
-            logger.error(error_msg)
-            raise KeyError(error_msg)
+        # 1. Enforce Mandatory Roles from Config
+        required = ["identity_cols", "time_col", "id_col", "spatial_cols", "height", "width"]
+        missing = [k for k in required if k not in config]
+        if missing:
+            raise KeyError(f"[CRITICAL CONFIG ERROR] DataSniffer: Missing mandatory keys {missing}")
             
         self.identity_cols = config["identity_cols"]
-        
-        # 2. Minimum validation: We expect exactly 5 identities for this architecture
-        if len(self.identity_cols) != 5:
-            error_msg = (
-                f"[CRITICAL CONFIG ERROR] DataSniffer: Identity Contract Violation!\n"
-                f"Expected 5 identity columns, got {len(self.identity_cols)}: {self.identity_cols}"
-            )
-            logger.error(error_msg)
-            raise ValueError(error_msg)
 
     def sniff_ingestion(self, df: pd.DataFrame) -> None:
         """
         Suite of checks performed immediately after data is fetched from disk.
-        
-        Runs:
-        1. Obligatory Column Check (Identity + Features)
-        2. Spatiotemporal Uniqueness Check (No duplicates)
-        3. Identity Value Sanity Check (Ranges and Finiteness)
-        4. Non-Finite Value Check
         """
         logger.info("DataSniffer: Starting Ingestion Suite (Raw Space)")
         
@@ -65,44 +54,35 @@ class DataSniffer:
     def sniff_forecast_alignment(
         self, 
         df: pd.DataFrame, 
-        vol: Union[np.ndarray, torch.Tensor], 
-        month_range: int = 36,
+        handler: VolumeHandler, 
         is_forecast: bool = True
     ) -> None:
         """
-        Validates the temporal continuity of a volume against observed history.
-        
-        Args:
-            df: Observed historical DataFrame.
-            vol: Volume carrier [T, H, W, C] (ndarray) or [B, T, C, H, W] (tensor).
-            month_range: Expected length of the volume.
-            is_forecast: If True, expects vol to start at history_end + 1.
-                         If False, expects vol to match history exactly.
+        Validates the temporal continuity and geographic anchoring of a volume carrier.
         """
         logger.info(f"DataSniffer: Starting {'Forecast' if is_forecast else 'History'} Alignment Suite")
         
-        max_month_df = df["month_id"].max()
-        min_month_df = df["month_id"].min()
+        # Pull Ledger roles
+        time_col = handler.time_col
+        y_col, x_col = handler.spatial_cols
         
-        # 1. Get volume bounds from channel 3 (month_id)
-        # We assume month_id is dense (via VolumeHandler)
+        max_month_df = df[time_col].max()
+        min_month_df = df[time_col].min()
         
-        # Resolve month_id index dynamically
-        channel_map = self.identity_cols + self.config.get("features", [])
+        # 1. Resolve temporal index via Ledger
         try:
-            m_idx = channel_map.index("month_id")
+            m_idx = handler.channel_map.index(time_col)
         except ValueError:
-             raise ValueError("[CRITICAL CONFIG ERROR] 'month_id' not found in channel map!")
+             raise ValueError(f"[CRITICAL DATA ERROR] DataSniffer: '{time_col}' missing from Handler Ledger!")
 
-        if torch.is_tensor(vol):
-            m_chan = vol[:, :, m_idx, :, :]
-        else:
-            m_chan = vol[..., m_idx]
+        # Pull temporal range from data
+        vol_data = handler.data
+        m_chan = vol_data[..., m_idx]
             
         min_month_vol = m_chan.min().item() if torch.is_tensor(m_chan) else m_chan.min()
         max_month_vol = m_chan.max().item() if torch.is_tensor(m_chan) else m_chan.max()
 
-        # 2. Check Continuity
+        # 2. Check Continuity (ADR 018 Section 1.2)
         if is_forecast:
             expected_min = max_month_df + 1
             if min_month_vol != expected_min:
@@ -123,97 +103,64 @@ class DataSniffer:
                 logger.error(error_msg)
                 raise ValueError(error_msg)
 
-        logger.info("DataSniffer: Temporal Alignment Passed.")
+        # 3. Geographic Anchor Check (Absolute Anchoring)
+        r_off, c_off = handler.spatial_offset
+        if df[y_col].min() < r_off or df[x_col].min() < c_off:
+             raise ValueError(
+                 f"[CRITICAL DATA ERROR] DataSniffer: Geographic Anchor Violation!\n"
+                 f"Data starts at ({df[y_col].min()}, {df[x_col].min()}), but "
+                 f"Handler is anchored at ({r_off}, {c_off})."
+             )
+
+        logger.info("DataSniffer: Temporal and Geographic Alignment Passed.")
 
     def _check_identity_values(self, df: pd.DataFrame) -> None:
         """
         Orchestrates strict numerical constraints on identity columns.
         """
-        self._check_priogrid_gid(df)
-        self._check_col(df)
-        self._check_row(df)
-        self._check_month_id(df)
-        self._check_c_id(df)
+        time_col = self.config["time_col"]
+        id_col = self.config["id_col"]
+        y_col, x_col = self.config["spatial_cols"]
 
-    def _check_priogrid_gid(self, df: pd.DataFrame) -> None:
-        """Enforces that priogrid_gid is positive and finite."""
-        pg_col = "priogrid_gid"
-        if not (df[pg_col] > 0).all() or not np.isfinite(df[pg_col]).all():
-            bad_values = df[~((df[pg_col] > 0) & np.isfinite(df[pg_col]))][pg_col].unique()
-            error_msg = (
-                f"[CRITICAL DATA ERROR] DataSniffer: Invalid {pg_col} detected!\n"
-                f"IDs must be positive and finite. Found: {bad_values[:10]}"
+        self._check_finiteness(df, [time_col, id_col, y_col, x_col])
+        self._check_spatial_bounds(df, y_col, x_col)
+
+    def _check_finiteness(self, df: pd.DataFrame, cols: list[str]) -> None:
+        """Enforces that essential columns are finite."""
+        for col in cols:
+            if not np.isfinite(df[col]).all():
+                raise ValueError(f"DataSniffer: Non-finite values detected in mandatory column '{col}'")
+
+    def _check_spatial_bounds(self, df: pd.DataFrame, y_col: str, x_col: str) -> None:
+        """Verifies that the span of indices fits within the configured volume resolution."""
+        height = self.config["height"]
+        width = self.config["width"]
+        
+        r_span = df[y_col].max() - df[y_col].min()
+        c_span = df[x_col].max() - df[x_col].min()
+        
+        if r_span >= height or c_span >= width:
+            raise ValueError(
+                f"[CRITICAL DATA ERROR] DataSniffer: Spatial Span Violation!\n"
+                f"Data spans {r_span}x{c_span}, but volume resolution is {height}x{width}."
             )
-            logger.error(error_msg)
-            raise ValueError(error_msg)
-
-    def _check_month_id(self, df: pd.DataFrame) -> None:
-        """Enforces that month_id is within the allowed range and finite."""
-        m_col = "month_id"
-        m_min, m_max = 120, 1000
-        within_range = (df[m_col] >= m_min) & (df[m_col] <= m_max)
-        
-        if not within_range.all() or not np.isfinite(df[m_col]).all():
-            bad_values = df[~(within_range & np.isfinite(df[m_col]))][m_col].unique()
-            error_msg = (
-                f"[CRITICAL DATA ERROR] DataSniffer: Invalid {m_col} detected!\n"
-                f"Months must be between {m_min} and {m_max} and finite. Found: {bad_values[:10]}"
-            )
-            logger.error(error_msg)
-            raise ValueError(error_msg)
-
-    def _check_col(self, df: pd.DataFrame) -> None:
-        """Verifies that the span of column indices fits within the volume width."""
-        width = self.config.get("width", 180)
-        
-        c_min, c_max = df["col"].min(), df["col"].max()
-        span = c_max - c_min
-        
-        if span >= width:
-            error_msg = (
-                f"[CRITICAL DATA ERROR] DataSniffer: 'col' span too large!\n"
-                f"Data spans {span} columns (min={c_min}, max={c_max}), but the "
-                f"volume fixture width is {width}. Data cannot fit."
-            )
-            logger.error(error_msg)
-            raise ValueError(error_msg)
-
-    def _check_row(self, df: pd.DataFrame) -> None:
-        """Verifies that the span of row indices fits within the volume height."""
-        height = self.config.get("height", 180)
-        
-        r_min, r_max = df["row"].min(), df["row"].max()
-        span = r_max - r_min
-        
-        if span >= height:
-            error_msg = (
-                f"[CRITICAL DATA ERROR] DataSniffer: 'row' span too large!\n"
-                f"Data spans {span} rows (min={r_min}, max={r_max}), but the "
-                f"volume fixture height is {height}. Data cannot fit."
-            )
-            logger.error(error_msg)
-            raise ValueError(error_msg)
-
-    def _check_c_id(self, df: pd.DataFrame) -> None:
-        """Placeholder for c_id sanity check."""
-        pass
 
     def _check_spatiotemporal_uniqueness(self, df: pd.DataFrame) -> None:
         """
-        Enforces that each (month_id, priogrid_gid) combination is unique.
-        Duplicate entries would corrupt the 4D volume transformation.
+        Enforces that each (time, id) combination is unique.
         """
-        subset = ["month_id", "priogrid_gid"]
+        time_col = self.config["time_col"]
+        id_col = self.config["id_col"]
+        subset = [time_col, id_col]
+        
         if df.duplicated(subset=subset).any():
             duplicates = df[df.duplicated(subset=subset, keep=False)]
-            # Format some examples for the log
             example_ids = duplicates[subset].head(5).to_dict('records')
             
             error_msg = (
                 f"\n[CRITICAL DATA ERROR] DataSniffer: Duplicate Entries Detected!\n"
                 f"Each combination of {subset} must be unique.\n"
-                f"Found {len(duplicates)} duplicate rows. Examples: {example_ids}\n"
-                f"Check your queryset for overlapping data sources."
+                f"Found {len(duplicates)} duplicate rows. Examples: {example_ids}"
             )
             logger.error(error_msg)
             raise ValueError(error_msg)
@@ -222,18 +169,7 @@ class DataSniffer:
         """
         Ensures all required identity and feature columns exist.
         """
-        # 1. Identity Columns (from config)
-        identity_cols = self.identity_cols
-        
-        # 2. Feature Columns (from config)
-        if "features" not in self.config:
-            error_msg = "[CRITICAL CONFIG ERROR] DataSniffer: 'features' missing from configuration!"
-            logger.error(error_msg)
-            raise KeyError(error_msg)
-            
-        feature_cols = self.config["features"]
-
-        required_cols = list(set(identity_cols + feature_cols))
+        required_cols = list(set(self.identity_cols + self.config["features"]))
         missing_cols = [col for col in required_cols if col not in df.columns]
 
         if missing_cols:
@@ -247,11 +183,10 @@ class DataSniffer:
 
     def _check_non_finite(self, df: pd.DataFrame) -> None:
         """
-        Scans for NaNs and Infs.
+        Scans for NaNs and Infs in all numeric columns.
         """
         offending_columns = []
         for col in df.columns:
-            # We only check numeric columns for finiteness
             if pd.api.types.is_numeric_dtype(df[col]):
                 if not np.isfinite(df[col]).all():
                     offending_columns.append(col)
@@ -264,8 +199,8 @@ class DataSniffer:
                 error_details.append(f" - {col}: {n_nans} NaNs, {n_infs} Infs")
             
             error_msg = (
-                f"\n[CRITICAL DATA ERROR] DataSniffer detected non-finite values!\n"
-                f"Offending Columns:\n" + "\n".join(error_details)
+                "\n[CRITICAL DATA ERROR] DataSniffer detected non-finite values!\n"
+                "Offending Columns:\n" + "\n".join(error_details)
             )
             logger.error(error_msg)
             raise ValueError(error_msg)

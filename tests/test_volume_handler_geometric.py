@@ -1,8 +1,10 @@
 
-import pytest
 import numpy as np
+import pytest
 import torch
+
 from views_hydranet.utils.volume_handler import VolumeHandler
+
 
 class TestVolumeHandlerGeometric:
     """
@@ -28,10 +30,10 @@ class TestVolumeHandlerGeometric:
         # Original: [1, 2], [3, 4]
         # Flip W: [2, 1], [4, 3]
         vh.flip("W")
-        
+
         expected = np.array([[[[2], [1]], [[4], [3]]]], dtype=np.float32)
         assert np.array_equal(vh.data, expected)
-        
+
         # Check history
         assert vh._metadata.history[-1] == ("flip", "W")
 
@@ -45,7 +47,7 @@ class TestVolumeHandlerGeometric:
         # Current: (T, H, W, C) -> Index (0, 1, 2, 3)
         # Target: (T, C, H, W) -> Index (0, 3, 1, 2)
         vh.permute((0, 3, 1, 2))
-        
+
         assert vh.axes == ("T", "C", "H", "W")
         assert vh.data.shape == (1, 1, 2, 2)
         assert vh._metadata.history[-1] == ("permute", (0, 3, 1, 2))
@@ -53,16 +55,16 @@ class TestVolumeHandlerGeometric:
     def test_torch_geometric(self):
         """Verify that flip and permute work on torch tensors."""
         # [B=1, T=1, C=1, H=2, W=2]
-        data = torch.tensor([[[[[1.0, 2.0], [3.0, 4.0]]]]]) 
+        data = torch.tensor([[[[[1.0, 2.0], [3.0, 4.0]]]]])
         vh = VolumeHandler(
             data=data,
             axes=("B", "T", "C", "H", "W"),
             channel_map=["v"], # dummy
             time_col="t", id_col="i", spatial_cols=["H", "W"]
         )
-        
+
         vh.flip("W")
         assert vh.data[0, 0, 0, 0, 0].item() == 2.0
-        
+
         vh.permute((0, 1, 2, 4, 3))
         assert vh.axes == ("B", "T", "C", "W", "H")

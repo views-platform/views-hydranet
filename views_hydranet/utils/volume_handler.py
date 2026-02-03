@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass, field, replace
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -17,16 +17,16 @@ class VolumeMetadata:
     """
     axes: Tuple[str, ...]
     channel_map: Tuple[str, ...]
-    
+
     # Structural Roles (The names of the columns providing the scaffold)
     time_col: str
     id_col: str
     spatial_cols: Tuple[str, str] # (row_col, col_col)
-    
+
     # Classification
     identity_cols: Tuple[str, ...]
     feature_cols: Tuple[str, ...]
-    
+
     spatial_offset: Tuple[int, int]
     history: Tuple[Tuple[str, Any], ...] = field(default_factory=tuple)
 
@@ -54,7 +54,7 @@ class VolumeHandler:
             feature_cols=tuple(feature_cols),
             spatial_offset=spatial_offset
         )
-        
+
         # Validation: Channel dimension must match channel_map
         c_idx = self.get_axis_idx("C")
         actual_channels = self._data.shape[c_idx]
@@ -90,10 +90,10 @@ class VolumeHandler:
                 f"  'id_col':   The unit index (e.g., 'priogrid_gid')\n"
                 f"  'spatial_cols': ['row_col', 'col_col']\n"
             )
-        
+
         identity_cols = config.get("identity_cols", [])
         feature_cols = config.get("features", [])
-        
+
         # --- THE STRICT HANDSHAKE (ADR 007 Section 1.2) ---
         required_roles = [time_col, id_col, y_col, x_col]
         # Offsets are also strictly required now
@@ -104,18 +104,18 @@ class VolumeHandler:
              raise KeyError(f"VolumeHandler Contract Violation: Missing mandatory offset {e} in config.")
 
         all_required = list(set(required_roles + list(identity_cols) + list(feature_cols)))
-        
+
         missing = [c for c in all_required if c not in df.columns]
         if missing:
             raise ValueError(f"VolumeHandler Handshake Failed! Missing columns: {missing}")
-        
+
         channel_map = list(identity_cols) + list(feature_cols)
-        
+
         # 2. Structural Anchoring
         month_min = df[time_col].min()
         month_max = df[time_col].max()
         month_range = int(month_max - month_min + 1)
-        
+
         # 3. Coordinate Calculation
         r_idx = (df[y_col] - row_offset).astype(int).values
         c_idx = (df[x_col] - col_offset).astype(int).values
@@ -140,8 +140,8 @@ class VolumeHandler:
         vol = np.transpose(vol, (2, 0, 1, 3)) # [T, H, W, C]
 
         return cls(
-            data=vol, 
-            axes=("T", "H", "W", "C"), 
+            data=vol,
+            axes=("T", "H", "W", "C"),
             channel_map=channel_map,
             time_col=time_col,
             id_col=id_col,
@@ -220,7 +220,7 @@ class VolumeHandler:
         Converts predictions to DF by slicing a history provider.
         """
         duration = self.data.shape[self.get_axis_idx("T")]
-        
+
         # Contract Validation
         history_duration = history.data.shape[history.get_axis_idx("T")]
         if start_idx + duration > history_duration:
@@ -248,7 +248,7 @@ class VolumeHandler:
         # 1. Align Self (Signal)
         temp_data = self._data.detach().cpu().numpy() if torch.is_tensor(self._data) else self._data.copy()
         has_samples = "S" in self._metadata.axes
-        
+
         if has_samples:
             t_idx, h_idx, w_idx, c_idx, s_idx = self.get_axis_idx("T"), self.get_axis_idx("H"), self.get_axis_idx("W"), self.get_axis_idx("C"), self.get_axis_idx("S")
             temp_data = np.transpose(temp_data, (h_idx, w_idx, t_idx, c_idx, s_idx))
@@ -269,7 +269,7 @@ class VolumeHandler:
         pg_idx = provider.channel_map.index(id_col)
         mask = p_data[:, :, :, pg_idx] > 0
         indices = np.where(mask)
-        
+
         reconstructed = {}
         # 4. Identities from Provider
         for i, name in enumerate(provider.channel_map):
@@ -289,7 +289,7 @@ class VolumeHandler:
                 reconstructed[name] = [row.tolist() for row in vals]
             else:
                 reconstructed[name] = temp_data[indices[0], indices[1], indices[2], i].astype(np.float32)
-                
+
         return pd.DataFrame(reconstructed)
 
     def slice_time(self, start_idx: int, end_idx: int) -> 'VolumeHandler':
@@ -321,15 +321,15 @@ class VolumeHandler:
         slices = [slice(None)] * self._data.ndim
         slices[t_idx] = slice(-1, None)
         last_frame = self._data[tuple(slices)]
-        
+
         repeat_shape = [1] * self._data.ndim
         repeat_shape[t_idx] = steps
-        
+
         if torch.is_tensor(self._data):
             future_vol = last_frame.repeat(*repeat_shape)
         else:
             future_vol = np.tile(last_frame, repeat_shape)
-            
+
         try:
             m_col = self._metadata.time_col
             m_idx = self.channel_map.index(m_col)
@@ -360,12 +360,12 @@ class VolumeHandler:
         """
         dims_tuple = tuple(dims)
         self._data = self._data.permute(*dims_tuple) if torch.is_tensor(self._data) else np.transpose(self._data, dims_tuple)
-        
+
         # Update Ledger
         new_axes = tuple(self._metadata.axes[i] for i in dims_tuple)
         self._metadata = replace(
-            self._metadata, 
-            axes=new_axes, 
+            self._metadata,
+            axes=new_axes,
             history=self._metadata.history + (("permute", dims_tuple),)
         )
         return self
@@ -376,9 +376,9 @@ class VolumeHandler:
         """
         idx = self.get_axis_idx(axis_label)
         self._data = torch.flip(self._data, dims=[idx]) if torch.is_tensor(self._data) else np.flip(self._data, axis=idx)
-        
+
         self._metadata = replace(
-            self._metadata, 
+            self._metadata,
             history=self._metadata.history + (("flip", axis_label),)
         )
         return self

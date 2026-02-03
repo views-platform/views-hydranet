@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 import torch
@@ -7,7 +7,6 @@ from torch.nn import Module
 from tqdm import tqdm
 
 from views_hydranet.utils.volume_handler import VolumeHandler
-
 
 logger = logging.getLogger(__name__)
 
@@ -315,6 +314,6 @@ class HydraNetInference:
         posterior_zstack = np.concatenate(
             [posterior_magnitudes_zstack, posterior_probabilities_zstack], axis=-2
         )
-        
+
         # Metadata recovery is handled via the VolumeHandler in the manager
         return posterior_zstack, None

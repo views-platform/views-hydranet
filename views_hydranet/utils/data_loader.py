@@ -1,18 +1,8 @@
 import logging
-import os
-from typing import List, Dict, Any, Tuple 
-
-from views_pipeline_core.configs.pipeline import PipelineConfig
-from views_pipeline_core.files.utils import read_dataframe
 
 import pandas as pd
+from views_pipeline_core.configs.pipeline import PipelineConfig
 
-from views_pipeline_core.managers.model import (
-    ForecastingModelManager,
-    ModelPathManager,
-)
-
-from pathlib import Path
 
 class DataLoader:
 
@@ -22,13 +12,13 @@ class DataLoader:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info(f"DataLoader initialized with config: {self.config}")
 
-   
+
     def load_dataframe(self) -> pd.DataFrame:
-        pass 
+        pass
 
 if __name__ == "__main__":
     pass
-    
+
 
 
 

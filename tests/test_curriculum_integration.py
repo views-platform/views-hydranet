@@ -1,10 +1,11 @@
 
-import pytest
 import numpy as np
-import pandas as pd
+import pytest
+
+from views_hydranet.utils.curriculum import CurriculumLearner
 from views_hydranet.utils.volume_handler import VolumeHandler
 from views_hydranet.utils.volume_sampler import VolumeSampler
-from views_hydranet.utils.curriculum import CurriculumLearner
+
 
 class TestCurriculumIntegration:
     """
@@ -42,23 +43,23 @@ class TestCurriculumIntegration:
     def test_planner_to_lens_handshake(self, setup_bridge):
         """Verify that the Planner's lesson is accepted by the Lens."""
         config, handler = setup_bridge
-        
+
         planner = CurriculumLearner(config, handler)
         sampler = VolumeSampler(handler, config)
-        
+
         # Pull Lesson for Step 0
         target, threshold = planner.get_lesson(global_step_idx=0)
-        
+
         # Verify Threshold (Initial Cooling - Relative)
         # roof=0.7, max_ratio=0.95 -> ratio=0.665
         # Since data is zeros, all maxima are 0.0. threshold should be 0.
         assert threshold == 0
         assert target == "sb"
-        
+
         # Push to Sampler
         batch, qualified = sampler.get_batch(target, threshold, batch_size=1)
         assert len(batch) == 1
-        assert qualified >= 0 
+        assert qualified >= 0
 
     def test_subject_maxima_discovery(self, setup_bridge):
         """Verify that the planner correctly identifies the signal intensity peaks."""
@@ -67,7 +68,7 @@ class TestCurriculumIntegration:
         handler.data[0, 5, 5, 2] = 1.0 # 1 event in T=0
         handler.data[1, 5, 5, 2] = 1.0 # 1 event in T=1
         # Total activity at (5,5) for 'sb' is 2.
-        
+
         planner = CurriculumLearner(config, handler)
         assert planner.subject_maxima["sb"] == 2.0
         assert planner.subject_maxima["ns"] == 0.0
@@ -78,7 +79,7 @@ class TestCurriculumIntegration:
         config["max_ratio"] = 1.0
         config["roof_ratio"] = 1.0 # no cap
         handler.data[:, 0, 0, 2] = 1.0 # 'sb' max = 2
-        
+
         planner = CurriculumLearner(config, handler)
         # Step 0 -> sb. Ratio 1.0. Threshold should be 1.0 * 2 = 2.
         _, thresh = planner.get_lesson(0)
@@ -88,7 +89,7 @@ class TestCurriculumIntegration:
         """Verify that oscillation happens at every window step (Mixed Salad)."""
         config, handler = setup_bridge
         planner = CurriculumLearner(config, handler)
-        
+
         # Pull 3 lessons sequentially (Batch size doesn't matter to Planner, only index)
         # 0 -> sb, 1 -> ns, 2 -> os
         assert planner.get_lesson(0)[0] == "sb"
@@ -102,13 +103,13 @@ class TestCurriculumIntegration:
         # total_lessons=300, windows_per_lesson=1 -> total_steps=300
         # min_ratio=0.05, max_ratio=0.95, slope=0.75 (ends at step 225), roof=0.7 (max ratio 0.665)
         planner = CurriculumLearner(config, handler)
-        
+
         # 1. Roof Cap at Step 0
         assert np.isclose(planner.get_intensity_ratio(0), 0.665)
-        
+
         # 2. Linear Cooling
         mid_val = planner.get_intensity_ratio(100)
         assert 0.05 < mid_val < 0.665
-        
+
         # 3. Floor hit at Step 250 (past 225)
         assert np.isclose(planner.get_intensity_ratio(250), 0.05)

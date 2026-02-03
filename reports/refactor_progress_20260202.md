@@ -21,6 +21,8 @@ The "Boring Architecture" is now fully established for the data bridge. All comp
 | `Uncertainty Resolution`| **LOCKED** | ADR 008 | Renamed test_samples to n_posterior_samples. |
 | `Config Handshake`     | **LOCKED** | ADR 008 | Enforced Fail-Fast validation (no magic migration). |
 | `Zero-Magic Defaults` | **LOCKED** | ADR 008 | Purged all hidden defaults; explicit config mandatory. |
+| `Lens`                 | **LOCKED** | ADR 013 | Pure geometric tool (no training knowledge). |
+| `Sentinel`             | **LOCKED** | ADR 018 | DataSniffer enforces spatiotemporal contracts. |
 | `Geometric (Flip/Permute)` | **LOCKED** | ADR 007 | Augmentation regressions in training. |
 
 ### VolumeSampler Breakthroughs:

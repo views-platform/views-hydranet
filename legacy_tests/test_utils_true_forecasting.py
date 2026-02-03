@@ -1,13 +1,14 @@
-from unittest.mock import MagicMock
 import numpy as np
 import pandas as pd
 import pytest
 import torch
+
 from views_hydranet.utils.utils_true_forecasting import (
     check_month_id_consistency,
     check_vol_equal,
     make_forecast_storage_vol,
 )
+
 
 @pytest.fixture
 def mock_df():
@@ -50,7 +51,7 @@ def test_check_vol_equal():
     """Verify bit-identity check."""
     vol1 = np.ones((2, 4, 4, 3))
     vol2 = np.ones((5, 4, 4, 3))
-    
+
     # Overlapping slices are identical
     check_vol_equal(vol1, vol2) # Should not raise
 
@@ -64,7 +65,7 @@ def test_check_month_id_consistency_happy_path(mock_df):
     month_range = 3
     height, width = 10, 10
     vol = make_forecast_storage_vol(mock_df, height=height, width=width, month_range=month_range, to_tensor=False)
-    
+
     check_month_id_consistency(vol, mock_df, month_range=month_range)
 
 def test_check_month_id_consistency_mismatch(mock_df):
@@ -72,7 +73,7 @@ def test_check_month_id_consistency_mismatch(mock_df):
     month_range = 3
     height, width = 10, 10
     vol = make_forecast_storage_vol(mock_df, height=height, width=width, month_range=month_range, to_tensor=False)
-    
+
     # Intentionally corrupt the volume's max month
     vol[-1, :, :, 3] = 999
     with pytest.raises(ValueError, match="Mismatch in month_id"):

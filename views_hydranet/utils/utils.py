@@ -1,13 +1,10 @@
 "Shared Utilities for the HydraNet Pipeline."
 import logging
 import sys
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
 import torch.nn as nn
-from torchvision import transforms
 import wandb
 
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
@@ -37,7 +34,7 @@ def choose_loss(config, device):
     """Factory for loss function instances."""
     if config['loss_reg'] == 'a':
         criterion_reg = nn.MSELoss().to(device)
-    elif config['loss_reg'] == 'b': 
+    elif config['loss_reg'] == 'b':
         criterion_reg = ShrinkageLoss(a=config['loss_reg_a'], c=config['loss_reg_c'], size_average=True).to(device)
     else:
         logger.error('Wrong reg loss...')
@@ -45,7 +42,7 @@ def choose_loss(config, device):
 
     if config['loss_class'] == 'a':
         criterion_class = nn.BCELoss().to(device)
-    elif config['loss_class'] == 'b': 
+    elif config['loss_class'] == 'b':
         criterion_class = FocalLoss(alpha=config['loss_class_alpha'], gamma=config['loss_class_gamma']).to(device)
     else:
         logger.error('Wrong class loss...')
@@ -59,7 +56,7 @@ def choose_loss(config, device):
 def choose_scheduler(config, unet):
     """Factory for learning rate schedulers."""
     optimizer = torch.optim.AdamW(unet.parameters(), lr=config['learning_rate'], betas=(0.9, 0.999))
-    
+
     if config['scheduler'] == 'WarmupDecay':
         d = config['window_dim'] * config['window_dim'] * config['input_channels']
         scheduler = WarmupDecayLearningRateScheduler(optimizer, d=d, warmup_steps=config['warmup_steps'])
@@ -68,7 +65,7 @@ def choose_scheduler(config, unet):
     else:
         # Fallback to standard optimizer only
         scheduler = []
-    
+
     return (optimizer, scheduler)
 
 def init_weights(m, config):
@@ -92,8 +89,8 @@ def train_log(avg_loss_list, avg_loss_reg_list, avg_loss_class_list):
     """Metric logging gate for W&B."""
     if wandb.run is not None:
         wandb.log({
-            "avg_loss": np.mean(avg_loss_list), 
-            "avg_loss_reg": np.mean(avg_loss_reg_list), 
+            "avg_loss": np.mean(avg_loss_list),
+            "avg_loss_reg": np.mean(avg_loss_reg_list),
             "avg_loss_class": np.mean(avg_loss_class_list)
         })
 
