@@ -38,9 +38,9 @@ class ShrinkageLoss(nn.Module):
         """
         input, target = input.unsqueeze(0), target.unsqueeze(0)
 
-        l = torch.abs(target - input)
-        exp_term = torch.exp(self.a * (self.c - l))
-        loss = (l ** 2) / (1 + exp_term)
+        diff = torch.abs(target - input)
+        exp_term = torch.exp(self.a * (self.c - diff))
+        loss = (diff ** 2) / (1 + exp_term)
 
         if self.size_average:
             return loss.mean()

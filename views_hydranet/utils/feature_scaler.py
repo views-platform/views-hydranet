@@ -33,14 +33,14 @@ class FeatureScaler:
             raise RuntimeError("FeatureScaler is a one-shot gate and is already fitted.")
 
         df_out = df.copy()
-        
+
         total_scaled = sum(len(cols) for cols in self._transform_config.values())
         logger.info(f"🚀 FeatureScaler: Entering Semantic Space ({total_scaled} features to transform)")
 
         for method, columns in self._transform_config.items():
             if not columns or method not in TRANSFORMS:
                 continue
-                
+
             forward_func, _ = TRANSFORMS[method]
             logger.info(f"  → Applying [{method:.10}] to {len(columns)} features")
 
@@ -50,7 +50,7 @@ class FeatureScaler:
                         f"[CRITICAL DATA ERROR] FeatureScaler Fit Failure!\n"
                         f"Requested feature '{col}' missing from Raw DataFrame."
                     )
-                
+
                 df_out[col] = forward_func(df_out[col])
 
         self._is_fitted = True
@@ -61,7 +61,7 @@ class FeatureScaler:
     def _log_data_state(self, df: pd.DataFrame, space: str = "SEMANTIC") -> None:
         """Internal: Generates a beautiful diagnostic report."""
         stats = []
-        
+
         method_lookup = {}
         for method, cols in self._transform_config.items():
             for col in cols:
@@ -72,7 +72,7 @@ class FeatureScaler:
                 c_min, c_max = df[col].min(), df[col].max()
                 method = method_lookup.get(col, "unknown")
                 stats.append(f"  [{method:^10}] {col:.<30} min: {c_min:>10.4f} | max: {c_max:>10.4f}")
-        
+
         report = "\n" + "💠" + "="*78 + "\n"
         report += f"  FEATURE SCALER: {space} SPACE REPORT\n"
         report += "  " + "-"*76 + "\n"
@@ -104,13 +104,13 @@ class FeatureScaler:
         for method, columns in self._transform_config.items():
             if not columns:
                 continue
-                
+
             _, inverse_func = TRANSFORMS[method]
             logger.info(f"  ← Reversing [{method:.<10}]")
 
             for col in columns:
                 if col not in df_out.columns:
-                    continue 
+                    continue
 
                 df_out[col] = inverse_func(df_out[col])
 

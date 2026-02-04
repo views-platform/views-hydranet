@@ -95,7 +95,7 @@ class VolumeSampler:
             feature_cols=train_vh._metadata.feature_cols,
             spatial_offset=(p_row + r0, p_col + c0)
         )
-        
+
         mem_mb = data.nbytes / (1024**2)
         logger.debug(f"🔍 VolumeSampler: Extracted Window {data.shape} | Memory: {mem_mb:.2f} MB")
         return vh

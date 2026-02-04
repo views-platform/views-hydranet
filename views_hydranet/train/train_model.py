@@ -78,7 +78,7 @@ def train(
 
     seq_len = train_tensor.shape[1]
     window_dim = train_tensor.shape[-1]
-    
+
     mem_allocated = torch.cuda.memory_allocated(device) / (1024**2) if device.type == 'cuda' else 0
     logger.debug(f"🚀 Training: Entered Gate with Tensor {train_tensor.shape} | GPU Mem: {mem_allocated:.2f} MB")
 
@@ -197,13 +197,13 @@ def training_loop(
                     device,
                     pbar
                 )
-                
+
                 # --- MEMORY-SAFE ACCUMULATION (ADR 014 Hardening) ---
                 # We backpropagate the window loss immediately to clear the graph nodes
                 # from VRAM, but we don't call optimizer.step() until the end of the Lesson.
                 if window_loss > 0:
                     window_loss.backward()
-                
+
                 lesson_loss += window_loss.detach() # Keep track of magnitude for logging
 
             # --- THE OPTIMIZATION GATE (ADR 014) ---

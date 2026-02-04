@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
-
 from views_hydranet.utils.utils_true_forecasting import (
     check_month_id_consistency,
     check_vol_equal,

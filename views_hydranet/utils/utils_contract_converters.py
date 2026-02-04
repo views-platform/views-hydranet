@@ -116,7 +116,6 @@ def zstack_to_contract_df(
         This function performs a heavy list-conversion. For 180x180 grids, ensure 
         at least 8GB of free RAM is available when samples > 100.
     """
-    samples = posterior_zstack.shape[-1]
 
     # Internal channel mapping (Robust Registry Lookup)
     from views_hydranet.utils.utils_config import get_target_index
@@ -221,12 +220,12 @@ def validate_contract_dataframes(list_df: list[pd.DataFrame]) -> None:
             # Flatten lists of samples if present, otherwise use raw values
             if df[col].empty: continue
             first_val = df[col].iloc[0]
-            
+
             if isinstance(first_val, (list, np.ndarray)):
                 all_values = np.concatenate(df[col].values)
             else:
                 all_values = df[col].values
-            
+
             # Defensive check: ensure we are looking at numbers
             try:
                 all_values = all_values.astype(np.float64)

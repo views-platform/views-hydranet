@@ -2,10 +2,10 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
+from views_hydranet.utils.utils_df_to_vol_conversion import df_to_vol
 
 from views_hydranet.utils.utils import get_full_tensor
 from views_hydranet.utils.utils_contract_converters import zstack_to_contract_df
-from views_hydranet.utils.utils_df_to_vol_conversion import df_to_vol
 
 
 def test_topological_integrity_full_circuit():

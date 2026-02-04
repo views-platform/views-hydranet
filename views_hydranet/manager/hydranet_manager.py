@@ -193,16 +193,16 @@ class HydranetManager(ForecastingModelManager):
             if df_origin is not None:
                 # 2. Inverse Transform (ADR 019)
                 df_origin = scaler.inverse_transform(df_origin)
-                
+
                 # 3. The Subsetting Gate (ADR 016 Sec 5.2)
                 # Keep only the requested targets (Actuals + Preds)
                 requested_targets = self.configs["targets"]
                 final_cols = []
                 for t in requested_targets:
                     for col in [t, f"pred_{t}_raw", f"pred_{t}_prob"]:
-                        if col in df_origin.columns: 
+                        if col in df_origin.columns:
                             final_cols.append(col)
-                
+
                 list_df_predictions.append(df_origin[final_cols])
 
         validate_contract_dataframes(list_df_predictions)
@@ -211,7 +211,6 @@ class HydranetManager(ForecastingModelManager):
     def _forecast_model_artifact(self, artifact_name: str | None = None) -> list[pd.DataFrame]:
         """Generates operational forecasts."""
         self.configs = ConfigInitializer(self.configs).get_config()
-        run_type = self.configs["run_type"]
         fetcher = DataFetcher(self._model_path.data_raw, self.configs)
         df = DataFetcher.standardize_raw_df(fetcher.fetch_df(), self.configs)
 
@@ -229,7 +228,6 @@ class HydranetManager(ForecastingModelManager):
             width=self.configs["width"]
         )
 
-        time_steps = len(self.configs["steps"])
         sniffer.sniff_forecast_alignment(df, handler, is_forecast=False)
 
         model, _ = self._load_model_artifact(artifact_name)
@@ -243,15 +241,15 @@ class HydranetManager(ForecastingModelManager):
 
         if df_full is not None:
             df_full = scaler.inverse_transform(df_full)
-            
+
             # Subsetting Gate
             requested_targets = self.configs["targets"]
             final_cols = []
             for t in requested_targets:
                 for col in [t, f"pred_{t}_raw", f"pred_{t}_prob"]:
-                    if col in df_full.columns: 
+                    if col in df_full.columns:
                         final_cols.append(col)
-            
+
             df_full = df_full[final_cols]
 
         return [df_full] if df_full is not None else []

@@ -29,13 +29,13 @@ class DataSniffer:
         Initialize with the configuration to know the expected state.
         """
         self.config = config
-        
+
         # 1. Enforce Mandatory Roles from Config
         required = ["identity_cols", "time_col", "id_col", "spatial_cols", "height", "width"]
         missing = [k for k in required if k not in config]
         if missing:
             raise KeyError(f"[CRITICAL CONFIG ERROR] DataSniffer: Missing mandatory keys {missing}")
-            
+
         self.identity_cols = config["identity_cols"]
 
     def sniff_ingestion(self, df: pd.DataFrame) -> None:
@@ -43,32 +43,32 @@ class DataSniffer:
         Suite of checks performed immediately after data is fetched from disk.
         """
         logger.info("DataSniffer: Starting Ingestion Suite (Raw Space)")
-        
+
         self._check_obligatory_columns(df)
         self._check_spatiotemporal_uniqueness(df)
         self._check_identity_values(df)
         self._check_non_finite(df)
-        
+
         logger.info("DataSniffer: Ingestion Suite Passed.")
 
     def sniff_forecast_alignment(
-        self, 
-        df: pd.DataFrame, 
-        handler: VolumeHandler, 
+        self,
+        df: pd.DataFrame,
+        handler: VolumeHandler,
         is_forecast: bool = True
     ) -> None:
         """
         Validates the temporal continuity and geographic anchoring of a volume carrier.
         """
         logger.info(f"DataSniffer: Starting {'Forecast' if is_forecast else 'History'} Alignment Suite")
-        
+
         # Pull Ledger roles
         time_col = handler.time_col
         y_col, x_col = handler.spatial_cols
-        
+
         max_month_df = df[time_col].max()
         min_month_df = df[time_col].min()
-        
+
         # 1. Resolve temporal index via Ledger
         try:
             m_idx = handler.channel_map.index(time_col)
@@ -78,7 +78,7 @@ class DataSniffer:
         # Pull temporal range from data
         vol_data = handler.data
         m_chan = vol_data[..., m_idx]
-            
+
         min_month_vol = m_chan.min().item() if torch.is_tensor(m_chan) else m_chan.min()
         max_month_vol = m_chan.max().item() if torch.is_tensor(m_chan) else m_chan.max()
 
@@ -135,10 +135,10 @@ class DataSniffer:
         """Verifies that the span of indices fits within the configured volume resolution."""
         height = self.config["height"]
         width = self.config["width"]
-        
+
         r_span = df[y_col].max() - df[y_col].min()
         c_span = df[x_col].max() - df[x_col].min()
-        
+
         if r_span >= height or c_span >= width:
             raise ValueError(
                 f"[CRITICAL DATA ERROR] DataSniffer: Spatial Span Violation!\n"
@@ -152,11 +152,11 @@ class DataSniffer:
         time_col = self.config["time_col"]
         id_col = self.config["id_col"]
         subset = [time_col, id_col]
-        
+
         if df.duplicated(subset=subset).any():
             duplicates = df[df.duplicated(subset=subset, keep=False)]
             example_ids = duplicates[subset].head(5).to_dict('records')
-            
+
             error_msg = (
                 f"\n[CRITICAL DATA ERROR] DataSniffer: Duplicate Entries Detected!\n"
                 f"Each combination of {subset} must be unique.\n"
@@ -197,7 +197,7 @@ class DataSniffer:
                 n_nans = df[col].isna().sum()
                 n_infs = (~np.isfinite(df[col])).sum() - n_nans
                 error_details.append(f" - {col}: {n_nans} NaNs, {n_infs} Infs")
-            
+
             error_msg = (
                 "\n[CRITICAL DATA ERROR] DataSniffer detected non-finite values!\n"
                 "Offending Columns:\n" + "\n".join(error_details)

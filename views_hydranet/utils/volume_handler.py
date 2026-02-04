@@ -316,7 +316,7 @@ class VolumeHandler:
                 reconstructed[name] = temp_data[indices[0], indices[1], indices[2], i].astype(np.float32)
 
         df_out = pd.DataFrame(reconstructed)
-        
+
         # 6. Automatic Symmetry Recovery (ADR 020)
         final_rename = {}
         for col in df_out.columns:
@@ -329,15 +329,15 @@ class VolumeHandler:
             elif "ACTUAL_INTERNAL_" in col:
                 base = col.replace("ACTUAL_INTERNAL_", "")
                 final_rename[col] = base
-                
+
         df_out = df_out.rename(columns=final_rename)
-        
+
         # 7. Automated Topographical Restoration (ADR 007)
         # Restore the MultiIndex using the authoritative Ledger roles
         time_col, id_col = self._metadata.time_col, self._metadata.id_col
         if time_col in df_out.columns and id_col in df_out.columns:
             df_out = df_out.set_index([time_col, id_col])
-            
+
         return df_out
 
     def slice_time(self, start_idx: int, end_idx: int) -> 'VolumeHandler':

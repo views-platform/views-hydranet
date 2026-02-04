@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Callable
 from enum import Enum
-from typing import Any, List, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -44,10 +44,10 @@ class HydraNetConfig(BaseModel):
     classification_outputs: list[str] = Field(..., description="Semantic names for model heads")
     identity_cols: list[str] = Field(..., description="Columns to be excluded from features")
     features: list[str] = Field(..., description="Exhaustive list of predictive signals")
-    
+
     # The Root Scaling Field (Matches user config 1-to-1)
     transform: Dict[str, List[str]] = Field(..., description="Mapping of method to columns")
-    
+
     # 3. Spatiotemporal Topology
     height: int = Field(..., ge=1)
     width: int = Field(..., ge=1)
@@ -116,11 +116,11 @@ class HydraNetConfig(BaseModel):
         # Checksum: input_channels
         if self.input_channels != len(self.features):
             raise ValueError(f"Checksum Law Violation: input_channels ({self.input_channels}) != features ({len(self.features)})")
-        
+
         # Checksum: time_steps
         if self.time_steps != len(self.steps):
             raise ValueError(f"Checksum Law Violation: time_steps ({self.time_steps}) != steps ({len(self.steps)})")
-            
+
         # Scaling Law: All features must be in the 'transform' dictionary
         features_set = set(self.features)
         mapped_set = set()
@@ -129,11 +129,11 @@ class HydraNetConfig(BaseModel):
                 raise ValueError(f"Scaling Law Violation: Unknown method '{method}'")
             for col in cols:
                 mapped_set.add(col)
-        
+
         missing = features_set - mapped_set
         if missing:
             raise ValueError(f"Scaling Law Violation: Features {missing} are not assigned a transform in the 'transform' dict.")
-            
+
         return self
 
     @field_validator("run_type")

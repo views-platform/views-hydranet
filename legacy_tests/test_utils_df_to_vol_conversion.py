@@ -3,7 +3,6 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 import pytest
-
 from views_hydranet.utils.utils_df_to_vol_conversion import (
     calculate_absolute_indices,
     df_to_vol,

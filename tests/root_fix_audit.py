@@ -1,11 +1,11 @@
 
-import pytest
-import pandas as pd
 import numpy as np
-import torch
+import pandas as pd
+import pytest
 from pydantic import ValidationError
-from views_hydranet.utils.utils_config import HydraNetConfig
+
 from views_hydranet.utils.feature_scaler import FeatureScaler
+from views_hydranet.utils.utils_config import HydraNetConfig
 
 # BIT-PERFECT ROOT AUDIT STANDARDS
 BASE_CONFIG = {
@@ -62,7 +62,7 @@ def test_scaler_root_consumption():
     semantic = scaler.fit_transform(df)
     # log1p(10) is ~2.39
     assert semantic['lr_sb_best'].iloc[0] < 3.0
-    
+
     recovered = scaler.inverse_transform(semantic)
     np.testing.assert_allclose(df['lr_sb_best'], recovered['lr_sb_best'])
 

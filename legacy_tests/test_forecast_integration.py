@@ -5,7 +5,6 @@ import pandas as pd
 import pytest
 import torch
 import torch.nn as nn
-
 from views_hydranet.forecast.execution import forecast_with_model_artifact
 
 # Configure logging for tests
