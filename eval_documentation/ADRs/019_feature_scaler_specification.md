@@ -20,6 +20,11 @@
 *   **Responsibility:** Reversing all forward math to restore the original count space for the evaluation package.
 *   **Mechanism:** `inverse_transform(df)`.
 
+### Zone 4: Volume Support (Vectorized Inversion)
+*   **Responsibility:** Providing high-performance mathematical inversion for contiguous spatiotemporal tensors (VolumeHandlers).
+*   **The "Immediate Raw" Principle:** Predictions should be inverse-transformed as soon as they leave the inference engine. This ensures that any subsequent operations (like Point-Collapse in ADR 021) happen in scientifically accurate Raw Count Space.
+*   **Mechanism:** `inverse_transform_volume(VolumeHandler) -> VolumeHandler`. This method applies math directly to the underlying NumPy data using the volume's internal Ledger to map channels to their specific inverse functions.
+
 ---
 
 ## 2. Structural Invariants (The "Spirit")
@@ -28,23 +33,20 @@
 2.  **Stateful Gate Law:** The Scaler is a "one-way gate." Once `fit_transform` is called, the configuration is locked. `inverse_transform` must fail if called before the scaler has been fitted.
 3.  **No Content Discovery:** The Scaler never "guesses" which columns need scaling based on their values. It only follows the explicit instructions in the `config`.
 4.  **Fail Loud and Proud:** If a requested column is missing from the DataFrame during either forward or inverse passes, the scaler must raise an immediate exception.
+5.  **Direct Tensor Math:** Volume transformations must use native NumPy vectorized operations to avoid the "Object Tax" bottleneck.
 
 ---
 
-## 3. Data Flow Topology
-`DataFetcher` → `Raw DF` → **`FeatureScaler`** → `Semantic DF` → `VolumeHandler` → `Model` → `VolumeHandler` → `Semantic DF` → **`FeatureScaler`** → `Raw Prediction DF`.
+## 3. Data Flow Topology (The Professional Path)
+`Model Outputs` → **`FeatureScaler (Zone 4)`** → `Raw Volume` → `VolumeHandler (Collapse)` → `Point Volume` → `DataFrame Reconstruction`.
 
 ---
 
 ## 4. Contractual Precision (The "Constraints")
 
-### `fit_transform(df: pd.DataFrame) -> pd.DataFrame`
-*   **Pre-condition:** `df` contains all columns listed in the scaling config.
-*   **Post-condition:** Returns a new `df` where values are transformed. Scaler state is `LOCKED`.
-
-### `inverse_transform(df: pd.DataFrame) -> pd.DataFrame`
-*   **Pre-condition:** Scaler state is `LOCKED`. `df` contains all columns that were previously transformed.
-*   **Post-condition:** Returns a `df` where values are restored to their original scale.
+### `inverse_transform_volume(vh: VolumeHandler) -> VolumeHandler`
+*   **Pre-condition:** Scaler state is `LOCKED`.
+*   **Post-condition:** Returns a NEW `VolumeHandler` where the `data` array has been mathematically inverted according to the internal channel names in the Ledger.
 
 ---
 

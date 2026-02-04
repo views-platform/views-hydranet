@@ -116,3 +116,59 @@ class FeatureScaler:
 
         self._log_data_state(df_out, space="RAW")
         return df_out
+
+    def inverse_transform_volume(self, vh: "VolumeHandler") -> "VolumeHandler":
+        """
+        Directly inverts a VolumeHandler's internal data array.
+        Essential for accurate Arithmetic Mean collapse (ADR 021).
+        """
+        if not self._is_fitted:
+            raise RuntimeError("FeatureScaler Contract Violation: Must be FITTED before inverse pass.")
+
+        from views_hydranet.utils.volume_handler import VolumeHandler
+
+        logger.info(f"🔙 FeatureScaler: Inverting Volume {vh.shape} to Raw Space")
+
+        # 1. Align internal lookup
+        method_lookup = {}
+        for method, cols in self._transform_config.items():
+            for col in cols:
+                method_lookup[col] = method
+
+        # 2. Vectorized Math on underlying array
+        import numpy as np
+        import torch
+        work_data = vh.data.detach().cpu().numpy() if torch.is_tensor(vh.data) else vh.data.copy()
+        
+        c_idx = vh.get_axis_idx("C")
+        
+        for i, channel_name in enumerate(vh.channel_map):
+            # Strip internal suffixes to find the base semantic name
+            base_name = channel_name.replace("_INTERNAL_SIGNAL", "").replace("_INTERNAL_PROB", "")
+            
+            # If it's a classification head (prob), we don't inverse-transform it 
+            # (probabilities are already in a standard 0-1 scale)
+            if "_INTERNAL_PROB" in channel_name:
+                continue
+
+            method = method_lookup.get(base_name)
+            if method and method in TRANSFORMS:
+                _, inverse_func = TRANSFORMS[method]
+                logger.debug(f"  ← Volume Channel {i} ({channel_name}): Inverting via {method}")
+                
+                # Slicing the 5D/4D volume on the channel axis
+                slc = [slice(None)] * work_data.ndim
+                slc[c_idx] = i
+                work_data[tuple(slc)] = inverse_func(work_data[tuple(slc)])
+
+        return VolumeHandler(
+            data=work_data,
+            axes=vh._metadata.axes,
+            channel_map=vh.channel_map,
+            time_col=vh._metadata.time_col,
+            id_col=vh._metadata.id_col,
+            spatial_cols=vh._metadata.spatial_cols,
+            identity_cols=vh._metadata.identity_cols,
+            feature_cols=vh._metadata.feature_cols,
+            spatial_offset=vh._metadata.spatial_offset
+        )

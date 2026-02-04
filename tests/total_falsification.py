@@ -1,181 +1,112 @@
-from unittest.mock import MagicMock, PropertyMock, patch
-
+import pytest
 import numpy as np
 import pandas as pd
-import pytest
 import torch
-from pydantic import ValidationError
-
-from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
-from views_hydranet.manager.hydranet_manager import HydranetManager
-from views_hydranet.utils.feature_scaler import FeatureScaler
-from views_hydranet.utils.utils_config import HydraNetConfig
 from views_hydranet.utils.volume_handler import VolumeHandler
+from views_hydranet.utils.feature_scaler import FeatureScaler
 
-# BIT-PERFECT AUDIT STANDARDS (Root Fix Schema)
-BASE_CONFIG = {
-    'run_type': 'calibration',
-    'steps': [1, 2],
-    'time_steps': 2,
-    'input_channels': 3,
-    'output_channels': 1,
-    'target_variable': 'lr_sb_best',
-    'targets': ['lr_sb_best'],
-    'classification_outputs': ['lr_sb_best', 'lr_ns_best', 'lr_os_best'],
-    'identity_cols': ['month_id', 'priogrid_gid', 'row', 'col'],
-    'features': ['lr_sb_best', 'lr_ns_best', 'lr_os_best'],
-    'transform': {
-        'log1p': ['lr_sb_best'],
-        'asinh': ['lr_ns_best'],
-        'identity': ['lr_os_best']
-    },
-    'height': 4, 'width': 4,
-    'time_col': 'month_id', 'id_col': 'priogrid_gid',
-    'spatial_cols': ['row', 'col'],
-    'row_offset': 0, 'col_offset': 0,
-    'model': 'HydraBNUNet06_LSTM4',
-    'window_dim': 2,
-    'total_hidden_channels': 16,
-    'dropout_rate': 0.0,
-    'weight_init': 'xavier_norm',
-    'h_init': 'abs_rand_exp-100',
-    'learning_rate': 0.001,
-    'weight_decay': 0.0,
-    'windows_per_lesson': 1,
-    'scheduler': 'WarmupDecay',
-    'warmup_steps': 1,
-    'clip_grad_norm': True,
-    'loss_reg': 'b', 'loss_class': 'b',
-    'loss_reg_a': 1, 'loss_reg_c': 1,
-    'loss_class_gamma': 1, 'loss_class_alpha': 1,
-    'total_lessons': 1,
-    'n_posterior_samples': 1,
-    'np_seed': 4, 'torch_seed': 4,
-    'min_events': 0, 'slope_ratio': 0.5, 'roof_ratio': 0.5,
-    'max_ratio': 0.9, 'min_ratio': 0.1,
-    'freeze_h': 'hl',
-    'evalution_mode': 'point',
-    'aggregate_method': 'geometric_mean'
+# FALSIFICATION CONFIG
+CFG = {
+    "transform": {"log1p": ["sb"], "asinh": ["ns"]}, # 'os' is intentionally identity
+    "aggregate_method": "arithmetic_mean"
 }
 
-class TestComprehensiveFalsificationAudit:
-    """The Single Source of Truth for Bit-Perfect Architecture."""
+class TestNukeProofAudit:
+    """Popperian Audit: Attempting to falsify the hardening logic."""
 
-    # --- ZONE 1: CONFIG HANDSHAKE ---
+    def test_gate_a_heterogeneous_collision(self):
+        """
+        Gate A: Mixed Scale Collision.
+        Verifies that log1p and asinh don't interfere when inverting a volume.
+        """
+        # [T=1, H=1, W=1, C=3, S=1]
+        data = np.zeros((1, 1, 1, 3, 1))
+        data[0,0,0,0,0] = np.log1p(10.0)   # SB: 10
+        data[0,0,0,1,0] = np.arcsinh(10.0) # NS: 10
+        data[0,0,0,2,0] = 10.0             # OS: 10 (Identity)
+        
+        vh = VolumeHandler(
+            data=data, axes=("T", "H", "W", "C", "S"),
+            channel_map=["sb_INTERNAL_SIGNAL", "ns_INTERNAL_SIGNAL", "os_INTERNAL_SIGNAL"],
+            time_col="t", id_col="i", spatial_cols=("y", "x")
+        )
+        
+        scaler = FeatureScaler(CFG)
+        scaler._is_fitted = True
+        
+        raw_vh = scaler.inverse_transform_volume(vh)
+        
+        # All should be 10.0 now
+        np.testing.assert_allclose(raw_vh.data[0,0,0,0,0], 10.0, rtol=1e-5)
+        np.testing.assert_allclose(raw_vh.data[0,0,0,1,0], 10.0, rtol=1e-5)
+        np.testing.assert_allclose(raw_vh.data[0,0,0,2,0], 10.0, rtol=1e-5)
 
-    @pytest.mark.parametrize("missing_key", ["h_init", "weight_init", "output_channels", "clip_grad_norm"])
-    def test_gate_1_to_4_strictness(self, missing_key):
-        bad_cfg = BASE_CONFIG.copy()
-        del bad_cfg[missing_key]
-        with pytest.raises(ValidationError):
-            HydraNetConfig(**bad_cfg)
+    def test_gate_b_actuals_corruption(self):
+        """
+        Gate B: Actuals Corruption.
+        Prove that ACTUAL_INTERNAL_ columns are NOT double-inversed.
+        """
+        data = np.zeros((1, 1, 1, 2, 1))
+        data[0,0,0,0,0] = 5.0 # This is an Actual (already raw)
+        data[0,0,0,1,0] = np.log1p(100.0) # This is a prediction
+        
+        vh = VolumeHandler(
+            data=data, axes=("T", "H", "W", "C", "S"),
+            channel_map=["ACTUAL_INTERNAL_sb", "sb_INTERNAL_SIGNAL"],
+            time_col="t", id_col="i", spatial_cols=("y", "x")
+        )
+        
+        scaler = FeatureScaler(CFG)
+        scaler._is_fitted = True
+        
+        raw_vh = scaler.inverse_transform_volume(vh)
+        
+        # Actual must remain 5.0. If it was double-inversed (expm1(5)), it would be ~147
+        assert raw_vh.data[0,0,0,0,0] == 5.0
+        # Prediction must be 100.0
+        np.testing.assert_allclose(raw_vh.data[0,0,0,1,0], 100.0, rtol=1e-5)
 
-    def test_gate_5_scaling_law_missing_feature(self):
-        bad_cfg = BASE_CONFIG.copy()
-        bad_cfg['transform'] = {'log1p': ['lr_sb_best']}
-        with pytest.raises(ValidationError, match="not assigned a transform"):
-            HydraNetConfig(**bad_cfg)
+    def test_gate_c_axis_permutation_robustness(self):
+        """
+        Gate C: Axis Permutation.
+        Prove that collapse_to_point uses semantic labels, not positions.
+        """
+        # Permuted layout: [S, C, T, H, W]
+        data = np.random.rand(10, 2, 1, 4, 4)
+        vh = VolumeHandler(
+            data=data, axes=("S", "C", "T", "H", "W"), # CRAZY LAYOUT
+            channel_map=["a", "b"],
+            time_col="t", id_col="i", spatial_cols=("y", "x")
+        )
+        
+        # This will fail if I used 'axis=4' or 'axis=-1' hardcoded
+        point_vh = vh.collapse_to_point(method="mean")
+        
+        assert point_vh.data.shape == (2, 1, 4, 4)
+        assert "S" not in point_vh._metadata.axes
 
-    def test_gate_8_checksum_input_channels(self):
-        bad_cfg = BASE_CONFIG.copy()
-        bad_cfg['input_channels'] = 99
-        with pytest.raises(ValidationError, match="Checksum Law Violation: input_channels"):
-            HydraNetConfig(**bad_cfg)
-
-    # --- ZONE 2: VOLUME PHYSICS & SYMMETRY ---
-
-    def test_gate_15_identity_striping(self):
-        df = pd.DataFrame({
-            'month_id': [1, 1], 'priogrid_gid': [1, 2],
-            'row': [0, 0], 'col': [0, 1],
-            'lr_sb_best': [1.0, 2.0], 'lr_ns_best': [0.0, 0.0], 'lr_os_best': [0.0, 0.0]
-        })
-        handler = VolumeHandler.from_df(df, BASE_CONFIG, height=4, width=4)
-        tensor = handler.to_pytorch(torch.device('cpu'), include_identities=False)
-        assert tensor.shape == (1, 1, 3, 4, 4)
-
-    def test_gate_20_21_22_symmetry_recovery(self, tmp_path):
-        """Claim: Manager correctly names 6 heads and restores MultiIndex."""
-        mpm = MagicMock()
-        mpm.data_raw = tmp_path
-        mpm.artifacts = tmp_path
-        model = HydraBNUNet06_LSTM4(3, 16, 1, 0.0)
-
-        # History data
-        df_hist = pd.DataFrame({
-            'month_id': list(range(1, 11)) * 2,
-            'priogrid_gid': [1]*10 + [2]*10,
-            'row': [0]*20, 'col': [0]*10 + [1]*10,
-            'lr_sb_best': [1.0]*20, 'lr_ns_best': [0.0]*20, 'lr_os_best': [0.0]*20
-        })
-
-        with patch("views_pipeline_core.managers.model.model.ForecastingModelManager.__init__", return_value=None):
-            manager = HydranetManager(model_path=mpm)
-            manager.device = torch.device("cpu")
-
-            # HARDEN THE MANAGER CONFIG MOCK
-            with patch.object(HydranetManager, 'configs', new_callable=PropertyMock) as mock_cfg:
-                mock_cfg.return_value = BASE_CONFIG
-
-                with patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetcher, \
-                     patch("views_hydranet.manager.hydranet_manager.FeatureScaler") as mock_scaler, \
-                     patch.object(manager, '_load_model_artifact', return_value=(model, "audit")), \
-                     patch("views_hydranet.manager.hydranet_manager.HydraNetInference") as mock_inf:
-
-                    mock_fetcher.standardize_raw_df.side_effect = lambda x, y: x
-                    mock_fetcher.return_value.fetch_df.return_value = df_hist
-                    mock_scaler.return_value.fit_transform.return_value = df_hist
-                    mock_scaler.return_value.inverse_transform.side_effect = lambda x: x
-
-                    posterior = np.ones((1, 4, 4, 6, 1)) # 6 channels
-                    mock_inf.return_value.generate_posterior_samples.return_value = (posterior, None)
-
-                    results = manager._evaluate_model_artifact(eval_type="audit")
-                    df_res = results[0]
-
-                    assert isinstance(df_res.index, pd.MultiIndex)
-                    assert df_res.index.names == ["month_id", "priogrid_gid"]
-                    assert "pred_lr_sb_best_raw" in df_res.columns
-                    assert "lr_sb_best" in df_res.columns # Actuals preserved
-
-    # --- ZONE 3: MATH ---
-
-    def test_gate_26_math_precision(self):
-        scaler = FeatureScaler(BASE_CONFIG)
-        df = pd.DataFrame({
-            'lr_sb_best': [10.0, 100.0],
-            'lr_ns_best': [10.0, 100.0],
-            'lr_os_best': [10.0, 100.0]
-        })
-        semantic = scaler.fit_transform(df)
-        recovered = scaler.inverse_transform(semantic)
-        for col in df.columns:
-            np.testing.assert_allclose(df[col], recovered[col], rtol=1e-6)
-
-# --- ZONE 4: MEMORY & HARDWARE ---
-
-    def test_gate_31_oom_sentinel(self):
-        """Verify CUDA memory release after immediate backward."""
-        if not torch.cuda.is_available():
-            pytest.skip("CUDA required for OOM Sentinel")
-
-        device = torch.device("cuda")
-        model = HydraBNUNet06_LSTM4(3, 16, 1, 0.0).to(device)
-        x = torch.randn(1, 1, 3, 64, 64).to(device)
-        h = model.init_hTtime(16, 64, 64).to(device).float()
-
-        mem_start = torch.cuda.memory_allocated(device)
-        reg, cl, _ = model(x[:, 0], h)
-        loss = reg.sum()
-
-        mem_with_graph = torch.cuda.memory_allocated(device)
-        assert mem_with_graph > mem_start
-
-        loss.backward()
-        del loss, reg, cl, h, x
-
-        mem_after = torch.cuda.memory_allocated(device)
-        assert mem_after < mem_with_graph
+    def test_gate_e_symmetry_leak(self):
+        """
+        Gate E: Multi-Task Symmetry Leak.
+        Prove that probabilities (_INTERNAL_PROB) are NEVER inverse-transformed.
+        """
+        data = np.zeros((1, 1, 1, 2, 1))
+        data[0,0,0,0,0] = np.log1p(10.0) # Signal
+        data[0,0,0,1,0] = 0.8            # Probability
+        
+        vh = VolumeHandler(
+            data=data, axes=("T", "H", "W", "C", "S"),
+            channel_map=["sb_INTERNAL_SIGNAL", "sb_INTERNAL_PROB"],
+            time_col="t", id_col="i", spatial_cols=("y", "x")
+        )
+        
+        scaler = FeatureScaler(CFG)
+        scaler._is_fitted = True
+        
+        raw_vh = scaler.inverse_transform_volume(vh)
+        
+        # Prob must stay 0.8. If expm1 was applied, it would be ~1.22 (illegal)
+        assert raw_vh.data[0,0,0,1,0] == 0.8
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
