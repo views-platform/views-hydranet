@@ -25,6 +25,12 @@ The `VolumeHandler` is a "Boring" container. It performs mathematical operations
 
 ### 3.5 The Safe Path (Arithmetic Mean)
 When features use heterogeneous transformations (e.g., some are logged, others are asinh), the most consistent and scientifically safe aggregation is the **Arithmetic Mean of the Raw Values**. 
+
+*   **Formal Justification (Jensen's Inequality):**
+    *   For any convex transformation $\varphi$ (like $log$ or $asinh$), $\varphi(E[X]) \neq E[\varphi(X)]$.
+    *   Therefore, the "Geometric Mean" (Mean of Logs) is mathematically distinct from the "Arithmetic Mean" (Mean of Raw).
+    *   To preserve the "Expected Value" interpretation of the point estimate in the real-world domain, we must average the raw values.
+
 *   **Strategy:** To achieve this, the Orchestrator must:
     1.  Perform a vectorized **Inverse Transform** on the 5D NumPy Volume (highly efficient).
     2.  Invoke `collapse_to_point(method="arithmetic_mean")`.
