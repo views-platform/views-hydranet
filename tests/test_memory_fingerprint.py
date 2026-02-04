@@ -90,6 +90,19 @@ def plot_results(results: List[Dict]):
     plt.savefig(plot_path)
     print(f"\nDiagnostic Plot updated: {plot_path}")
 
+def test_memory_efficiency_gate():
+    """
+    FORMAL HARD GATE: Prove that reconstruction tax is measurable and bounded.
+    """
+    # Test a single representative sample size
+    results = audit_memory_explosion(n_samples_list=[25], grid_dim=64, n_months=12)
+    res = results[0]
+    
+    # Assert that Pandas Tax is roughly within the documented 10x-30x range
+    # (Checking for extreme outliers that would indicate a new leak)
+    assert res["pandas_tax"] < 100.0 
+    assert res["pandas_gb"] > res["numpy_gb"]
+
 if __name__ == "__main__":
     samples_to_test = [1, 10, 25, 50, 100]
     

@@ -473,30 +473,30 @@ class VolumeHandler:
         return self
 
     @property
-    def data:
+    def data(self):
         return self._data
     @property
-    def shape:
+    def shape(self):
         return self._data.shape
     def __len__(self):
         return self._data.shape[self.get_axis_idx("T")]
     @property
-    def axes:
+    def axes(self):
         return self._metadata.axes
     @property
-    def channel_map:
+    def channel_map(self):
         return self._metadata.channel_map
     @property
-    def id_col:
+    def id_col(self):
         return self._metadata.id_col
     @property
-    def time_col:
+    def time_col(self):
         return self._metadata.time_col
     @property
-    def spatial_cols:
+    def spatial_cols(self):
         return self._metadata.spatial_cols
     @property
-    def spatial_offset:
+    def spatial_offset(self):
         return self._metadata.spatial_offset
 
     def get_axis_idx(self, label: str) -> int:

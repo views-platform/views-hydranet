@@ -106,6 +106,8 @@ class TestPipelineIntegration:
         mock_scaler.configured_columns = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
         mock_scaler.fit_transform.side_effect = lambda df: df
         mock_scaler.inverse_transform.side_effect = lambda df: df
+        # NEW: Support volume inversion in the mock
+        mock_scaler.inverse_transform_volume.side_effect = lambda vh: vh
 
         # Mock ModelPathManager
         mpm = MagicMock()
@@ -169,6 +171,7 @@ class TestPipelineIntegration:
         mock_scaler.configured_columns = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
         mock_scaler.fit_transform.side_effect = lambda df: df
         mock_scaler.inverse_transform.side_effect = lambda df: df
+        mock_scaler.inverse_transform_volume.side_effect = lambda vh: vh
 
         mpm = MagicMock()
         mpm.data_raw = tmp_path

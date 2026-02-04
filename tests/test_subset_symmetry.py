@@ -48,11 +48,12 @@ class TestSubsetSymmetryAudit:
         mpm.artifacts = tmp_path
 
         # History data (10 months to satisfy windowing)
+        # MUST BE RAW COUNTS (10.0)
         df_hist = pd.DataFrame({
             'month_id': list(range(1, 11)) * 2,
             'priogrid_gid': [1]*10 + [2]*10,
             'row': [0]*20, 'col': [0]*10 + [1]*10,
-            'lr_sb_best': [np.log1p(10.0)]*20,
+            'lr_sb_best': [10.0]*20,
             'lr_ns_best': [0.0]*20, 'lr_os_best': [0.0]*20
         })
 
@@ -79,6 +80,15 @@ class TestSubsetSymmetryAudit:
                     # Setup Scaler Mock (Realistic Behavior for Stochastic Samples)
                     scaler_instance = mock_scaler.return_value
                     scaler_instance.fit_transform.return_value = df_hist
+                    
+                    def mock_inv_vol(vh):
+                        # Perform real math on the mock volume
+                        # PREVENTION: Only invert if values are still in log-space (approx 4.6)
+                        if np.max(vh.data[..., 0]) < 10.0:
+                            vh.data[..., 0] = np.expm1(vh.data[..., 0]) 
+                        return vh
+                    scaler_instance.inverse_transform_volume.side_effect = mock_inv_vol
+                    
                     # Inverse log1p -> expm1 (Handling list-valued samples)
                     def mock_inverse(df):
                         df = df.copy()

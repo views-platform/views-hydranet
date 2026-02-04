@@ -183,18 +183,24 @@ class HydranetManager(ForecastingModelManager):
                 handler, is_evaluation=True, window_info=f"Origin {i+1}/{len(origins)}"
             )
 
-            # --- THE SYMMETRY ENGINE (ADR 020) ---
-            # 1. Wrap and Reconstruct via internal naming engine
-            # VolumeHandler now handles Naming, Actuals Protection, and Multi-Indexing
+            # --- THE SYMMETRY ENGINE (ADR 020 / ADR 021) ---
+            # 1. Dress raw tensors
             base_names = self.configs["classification_outputs"]
             pred_handler = handler.wrap_predictions(posterior_zstack, base_names=base_names)
+
+            # 2. THE FINAL HANDSHAKE (Immediate Raw Inversion)
+            # Move back to count-space while in compact NumPy memory
+            pred_handler = scaler.inverse_transform_volume(pred_handler)
+
+            # 3. DIMENSION REDUCTION (RAM Survival Gate)
+            if self.configs["evalution_mode"] == "point":
+                pred_handler = pred_handler.collapse_to_point(method=self.configs["aggregate_method"])
+
+            # 4. Reconstruct DataFrame from the already-raw volume
             df_origin = pred_handler.to_evaluation_df(history=handler, start_idx=origin + 1)
 
             if df_origin is not None:
-                # 2. Inverse Transform (ADR 019)
-                df_origin = scaler.inverse_transform(df_origin)
-
-                # 3. The Subsetting Gate (ADR 016 Sec 5.2)
+                # The Subsetting Gate (ADR 016 Sec 5.2)
                 # Keep only the requested targets (Actuals + Preds)
                 requested_targets = self.configs["targets"]
                 final_cols = []
@@ -234,15 +240,24 @@ class HydranetManager(ForecastingModelManager):
         inference = HydraNetInference(model, self.configs, device=self.device)
         posterior_zstack, _ = inference.generate_posterior_samples(handler, is_evaluation=False)
 
-        # --- THE SYMMETRY ENGINE (ADR 020) ---
+        # --- THE SYMMETRY ENGINE (ADR 020 / ADR 021) ---
         base_names = self.configs["classification_outputs"]
         pred_handler = handler.wrap_predictions(posterior_zstack, base_names=base_names)
+
+        # 2. THE FINAL HANDSHAKE (Immediate Raw Inversion)
+        # Move back to count-space while in compact NumPy memory
+        pred_handler = scaler.inverse_transform_volume(pred_handler)
+
+        # 3. DIMENSION REDUCTION (RAM Survival Gate)
+        if self.configs["evalution_mode"] == "point":
+            pred_handler = pred_handler.collapse_to_point(method=self.configs["aggregate_method"])
+
+        # 4. Reconstruct DataFrame from the already-raw volume
         df_full = pred_handler.to_forecast_df(history=handler)
 
         if df_full is not None:
-            df_full = scaler.inverse_transform(df_full)
-
-            # Subsetting Gate
+            # The Subsetting Gate (ADR 016 Sec 5.2)
+            # Keep only the requested targets (Actuals + Preds)
             requested_targets = self.configs["targets"]
             final_cols = []
             for t in requested_targets:
