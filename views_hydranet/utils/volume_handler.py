@@ -230,6 +230,82 @@ class VolumeHandler:
             spatial_offset=self._metadata.spatial_offset
         )
 
+    def collapse_to_point(self, method: str = "mean") -> 'VolumeHandler':
+        """
+        Mathematically collapses the sample dimension ('S') into a point estimate.
+        Governed by ADR 021: Volume Dimension Reduction.
+        """
+        if "S" not in self._metadata.axes:
+            logger.warning("VolumeHandler: collapse_to_point() called on a volume that is already 4D. Skipping.")
+            return self
+
+        s_idx = self.get_axis_idx("S")
+        logger.info(f"💠 VolumeHandler: Collapsing dimension 'S' via {method} (ADR 021 Survival Gate)")
+
+        if torch.is_tensor(self._data):
+            work_data = self._data.detach().cpu().numpy()
+        else:
+            work_data = self._data
+
+        if method == "mean":
+            collapsed_data = np.mean(work_data, axis=s_idx)
+        else:
+            raise NotImplementedError(f"Collapse method '{method}' is not defined in ADR 021.")
+
+        # Update axes: Filter out 'S'
+        new_axes = tuple(ax for ax in self._metadata.axes if ax != "S")
+
+        return VolumeHandler(
+            data=collapsed_data,
+            axes=new_axes,
+            channel_map=self.channel_map,
+            time_col=self._metadata.time_col,
+            id_col=self._metadata.id_col,
+            spatial_cols=self._metadata.spatial_cols,
+            identity_cols=self._metadata.identity_cols,
+            feature_cols=self._metadata.feature_cols,
+            spatial_offset=self._metadata.spatial_offset
+        )
+
+    def collapse_to_point(self, method: str) -> 'VolumeHandler':
+        """
+        Mathematically collapses the sample dimension ('S') into a point estimate.
+        Governed by ADR 021: Volume Dimension Reduction.
+        """
+        if "S" not in self._metadata.axes:
+            logger.warning("VolumeHandler: collapse_to_point() called on a volume that is already 4D. Skipping.")
+            return self
+
+        s_idx = self.get_axis_idx("S")
+        logger.info(f"💠 VolumeHandler: Collapsing dimension 'S' via {method} (ADR 021 Survival Gate)")
+
+        if torch.is_tensor(self._data):
+            work_data = self._data.detach().cpu().numpy()
+        else:
+            work_data = self._data
+
+        if method in ["arithmetic_mean", "mean"]:
+            collapsed_data = np.mean(work_data, axis=s_idx)
+        elif method == "median":
+            collapsed_data = np.median(work_data, axis=s_idx)
+        else:
+            raise NotImplementedError(f"Collapse method '{method}' is not defined in ADR 021.")
+
+        # Update axes: Filter out 'S'
+        new_axes = tuple(ax for ax in self._metadata.axes if ax != "S")
+
+        return VolumeHandler(
+            data=collapsed_data,
+            axes=new_axes,
+            channel_map=self.channel_map,
+            time_col=self._metadata.time_col,
+            id_col=self._metadata.id_col,
+            spatial_cols=self._metadata.spatial_cols,
+            identity_cols=self._metadata.identity_cols,
+            feature_cols=self._metadata.feature_cols,
+            spatial_offset=self._metadata.spatial_offset
+        )
+
     def to_historical_df(self) -> pd.DataFrame:
         """
         Converts the internal volume back to a sparse DataFrame.
