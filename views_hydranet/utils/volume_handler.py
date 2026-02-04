@@ -252,7 +252,7 @@ class VolumeHandler:
         elif method == "median":
             collapsed_data = np.median(work_data, axis=s_idx)
         else:
-            raise NotImplementedError(f"Collapse method '{method}' is not defined in ADR 021.")
+            raise NotImplementedError(f"Collapse method '{method}' is not defined in ADR 021. Must be 'arithmetic_mean' or 'median'.")
 
         # Update axes: Filter out 'S'
         new_axes = tuple(ax for ax in self._metadata.axes if ax != "S")
@@ -444,6 +444,7 @@ class VolumeHandler:
     def permute(self, dims: Union[List[int], Tuple[int, ...]]) -> 'VolumeHandler':
         """
         Reorders the axes of the volume and updates the Ledger.
+        NOTE: Review needed - primarily used in geometric tests.
         """
         dims_tuple = tuple(dims)
         self._data = self._data.permute(*dims_tuple) if torch.is_tensor(self._data) else np.transpose(self._data, dims_tuple)
@@ -460,6 +461,7 @@ class VolumeHandler:
     def flip(self, axis_label: str) -> 'VolumeHandler':
         """
         Flips the volume along a specific named axis and updates the Ledger history.
+        NOTE: Critical for data augmentation in training loop.
         """
         idx = self.get_axis_idx(axis_label)
         self._data = torch.flip(self._data, dims=[idx]) if torch.is_tensor(self._data) else np.flip(self._data, axis=idx)
@@ -471,22 +473,31 @@ class VolumeHandler:
         return self
 
     @property
-    def data(self): return self._data
+    def data:
+        return self._data
     @property
-    def shape(self): return self._data.shape
-    def __len__(self): return self._data.shape[self.get_axis_idx("T")]
+    def shape:
+        return self._data.shape
+    def __len__(self):
+        return self._data.shape[self.get_axis_idx("T")]
     @property
-    def axes(self): return self._metadata.axes
+    def axes:
+        return self._metadata.axes
     @property
-    def channel_map(self): return self._metadata.channel_map
+    def channel_map:
+        return self._metadata.channel_map
     @property
-    def id_col(self): return self._metadata.id_col
+    def id_col:
+        return self._metadata.id_col
     @property
-    def time_col(self): return self._metadata.time_col
+    def time_col:
+        return self._metadata.time_col
     @property
-    def spatial_cols(self): return self._metadata.spatial_cols
+    def spatial_cols:
+        return self._metadata.spatial_cols
     @property
-    def spatial_offset(self): return self._metadata.spatial_offset
+    def spatial_offset:
+        return self._metadata.spatial_offset
 
     def get_axis_idx(self, label: str) -> int:
         return self._metadata.axes.index(label)
