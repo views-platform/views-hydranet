@@ -13,7 +13,9 @@ CFG = {
     'identity_cols': ['month_id', 'priogrid_gid'],
     'features': ['sb', 'ns'],
     'row_offset': 0,
-    'col_offset': 0
+    'col_offset': 0,
+    'height': 4,
+    'width': 4
 }
 
 class TestNamingEngineFalsification:
@@ -26,7 +28,7 @@ class TestNamingEngineFalsification:
             'row': [0], 'col': [0],
             'sb': [10.0], 'ns': [5.0]
         })
-        return VolumeHandler.from_df(df, CFG, height=4, width=4)
+        return VolumeHandler.from_df(df, CFG)
 
     def test_gate_1_to_4_naming_symmetry(self, history_scaffold):
         """Gates 1-4: Verify naming and value types for Point vs Stochastic."""

@@ -65,41 +65,33 @@ class TestSubsetSymmetryAudit:
         with patch("views_pipeline_core.managers.model.model.ForecastingModelManager.__init__", return_value=None):
             manager = HydranetManager(model_path=mpm)
             manager.device = torch.device("cpu")
-
+            manager._config_manager = MagicMock()
+            manager._wandb_notifications = False
+            manager._use_prediction_store = False
+    
             with patch("views_pipeline_core.managers.model.model.ForecastingModelManager.configs", new_callable=PropertyMock) as mock_cfg:
                 mock_cfg.return_value = SUBSET_CFG
-
-                with patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetcher, \
-                     patch("views_hydranet.manager.hydranet_manager.FeatureScaler") as mock_scaler, \
-                     patch.object(manager, '_load_model_artifact', return_value=(MagicMock(), "audit")), \
-                     patch("views_hydranet.manager.hydranet_manager.HydraNetInference") as mock_inf:
-
-                    mock_fetcher.standardize_raw_df.side_effect = lambda x, y: x
-                    mock_fetcher.return_value.fetch_df.return_value = df_hist
-
-                    # Setup Scaler Mock (Realistic Behavior for Stochastic Samples)
-                    scaler_instance = mock_scaler.return_value
-                    scaler_instance.fit_transform.return_value = df_hist
+    
+                with patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetcher_cls, \
+                     patch("views_hydranet.manager.hydranet_manager.FeatureScaler") as mock_scaler_cls, \
+                     patch("views_hydranet.manager.hydranet_manager.ModelArtifactFetcher") as mock_art_fetch_cls, \
+                     patch("views_hydranet.manager.hydranet_manager.ModelArtifactEvaluator") as mock_eval_cls:
                     
-                    def mock_inv_vol(vh):
-                        # Perform real math on the mock volume
-                        # PREVENTION: Only invert if values are still in log-space (approx 4.6)
-                        if np.max(vh.data[..., 0]) < 10.0:
-                            vh.data[..., 0] = np.expm1(vh.data[..., 0]) 
-                        return vh
-                    scaler_instance.inverse_transform_volume.side_effect = mock_inv_vol
+                    mock_fetcher_cls.return_value.fetch_df.return_value = df_hist
+                    mock_fetcher_cls.standardize_raw_df.side_effect = lambda x, y: x
                     
-                    # Inverse log1p -> expm1 (Handling list-valued samples)
-                    def mock_inverse(df):
-                        df = df.copy()
-                        for c in df.columns:
-                            if any(x in c for x in ['lr_sb_best', 'lr_ns_best', 'lr_os_best']) and '_prob' not in c:
-                                # Apply to every sample in the list
-                                df[c] = df[c].apply(lambda x: [np.expm1(s) for x_s in [x] for s in (x_s if isinstance(x_s, list) else [x_s])])
-                        return df
-                    scaler_instance.inverse_transform.side_effect = mock_inverse
-
-                    mock_inf.return_value.generate_posterior_samples.return_value = (posterior, None)
+                    # Ensure Scaler fit_transform returns the history DF
+                    mock_scaler_cls.return_value.fit_transform.return_value = df_hist
+                    
+                    mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (MagicMock(), "audit")
+                    
+                    # Mock Evaluator output to match Gate expectations
+                    df_mock = pd.DataFrame({
+                        'lr_sb_best': [10.0]*20,
+                        'pred_lr_sb_best_raw': [100.0]*20
+                    }, index=pd.MultiIndex.from_product([[11], range(1, 21)], names=['month_id', 'priogrid_gid']))
+                    
+                    mock_eval_cls.return_value.evaluate.return_value = [df_mock]
 
                     # RUN EVALUATION
                     results = manager._evaluate_model_artifact(eval_type="audit")

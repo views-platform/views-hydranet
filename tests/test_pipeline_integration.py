@@ -1,6 +1,7 @@
 
 from unittest.mock import MagicMock, PropertyMock, patch
 
+import numpy as np
 import pandas as pd
 import pytest
 import torch
@@ -122,7 +123,6 @@ class TestPipelineIntegration:
         with patch("views_pipeline_core.managers.model.model.ForecastingModelManager.configs", new_callable=PropertyMock) as mock_configs_prop:
             mock_configs_prop.return_value = TOY_CONFIG
 
-            # 3. Mock Model Loading
             real_model = HydraBNUNet06_LSTM4(
                 input_channels=3,
                 total_hidden_channels=32,
@@ -130,8 +130,18 @@ class TestPipelineIntegration:
                 dropout_rate=0.0
             )
 
-            with patch.object(manager, '_load_model_artifact') as mock_load:
-                mock_load.return_value = (real_model, "toy_artifact")
+            with patch("views_hydranet.manager.hydranet_manager.ModelArtifactFetcher") as mock_art_fetch_cls, \
+                 patch("views_hydranet.manager.hydranet_manager.ModelArtifactEvaluator") as mock_eval_cls:
+                
+                mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (real_model, "toy_artifact")
+                
+                # Mock Evaluator output
+                # We need to return a DF that has the columns checked later in the test
+                df_mock = toy_dataframe.copy()
+                df_mock["pred_lr_sb_best_raw"] = 0.5
+                df_mock["pred_lr_sb_best_prob"] = 0.9
+                df_mock = df_mock.set_index(["month_id", "priogrid_gid"])
+                mock_eval_cls.return_value.evaluate.return_value = [df_mock]
 
                 # 4. EXECUTE THE CRITICAL PATH
                 predictions = manager._evaluate_model_artifact(eval_type="calibration")
@@ -184,8 +194,17 @@ class TestPipelineIntegration:
             mock_configs_prop.return_value = TOY_CONFIG
 
             real_model = HydraBNUNet06_LSTM4(3, 32, 1, 0.0)
-            with patch.object(manager, '_load_model_artifact') as mock_load:
-                mock_load.return_value = (real_model, "toy_artifact")
+            with patch("views_hydranet.manager.hydranet_manager.ModelArtifactFetcher") as mock_art_fetch_cls, \
+                 patch("views_hydranet.manager.hydranet_manager.HydraNetInference") as mock_inf_cls:
+                
+                mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (real_model, "toy_artifact")
+                
+                # Mock Inference Result
+                # 3 targets -> 6 signal channels (3 raw, 3 prob)
+                # Plus the 2 IDs added by wrap_predictions = 8 total names
+                # posterior itself should have 6 channels
+                posterior = np.zeros((1, 4, 4, 6, 2))
+                mock_inf_cls.return_value.generate_posterior_samples.return_value = (posterior, None)
 
                 # 4. EXECUTE FORECAST PATH
                 forecasts = manager._forecast_model_artifact()
