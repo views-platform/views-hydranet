@@ -4,9 +4,12 @@
 |---------------------|-------------------|
 | Subject             | Solving the Stochastic DataFrame RAM Bottleneck |
 | ADR Number          | 023               |
-| Status              | Accepted          |
+| Status              | Proposed          |
 | Author              | Gemini CLI        |
 | Date                | 04.02.2026        |
+
+## ⚠️ PROPOSAL DISCLAIMER
+**This ADR is currently NOT ACCEPTED for production.** While the research proved significant RAM benefits, the solution was deemed too complex (introducing multiple heavy dependencies and leaky abstractions) for the current project phase. It is preserved here as a technical foundation for future architectural meetings.
 
 ## Context
 The HydraNet pipeline must produce long-format DataFrames where stochastic predictions (posterior samples) are stored as lists within cells. 

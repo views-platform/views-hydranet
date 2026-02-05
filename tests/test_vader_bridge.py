@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
-import polars as pl
 from views_hydranet.utils.volume_handler import VolumeHandler
 
 # SHARED PHYSICS CONFIG
@@ -21,9 +20,8 @@ PHYSICS_CFG = {
 
 # --- GREEN TEAM: THE PROOF OF ACCURACY ---
 
-def test_green_point_reconstruction_accuracy():
+def test_bridge_point_accuracy():
     """Prove bit-perfect accuracy for Point (4D) reconstruction."""
-    # 1. Setup
     df_in = pd.DataFrame({
         'month_id': [1, 1], 'priogrid_gid': [1, 2],
         'row': [0, 0], 'col': [0, 1],
@@ -31,104 +29,125 @@ def test_green_point_reconstruction_accuracy():
     })
     handler = VolumeHandler.from_df(df_in, PHYSICS_CFG)
     
-    # 2. Simulate Point Prediction (4D)
     posterior = np.zeros((1, 4, 4, 2)) # 1 Head (Signal + Prob)
-    # Put values in the land cells (flipped row 0 -> index 3)
     posterior[0, 3, 0, 0] = 100.5
     posterior[0, 3, 1, 0] = 200.5
     
-    # 3. Reconstruct
     pred_handler = handler.wrap_predictions(posterior, base_names=['feature_a'])
     df_out = pred_handler.to_evaluation_df(history=handler, start_idx=0)
     
-    # 4. Audit
     assert df_out.loc[(1, 1), "pred_feature_a_raw"] == 100.5
     assert df_out.loc[(1, 2), "pred_feature_a_raw"] == 200.5
-    assert df_out.loc[(1, 1), "feature_a"] == 10.5 # Actual preserved
-    print("✅ Green Team: Point Accuracy Verified.")
+    assert df_out.loc[(1, 1), "feature_a"] == 10.5 
 
-def test_green_stochastic_reconstruction_accuracy():
+def test_bridge_stochastic_accuracy():
     """Prove bit-perfect accuracy for Stochastic (5D) reconstruction."""
-    # 1. Setup
-    df_in = pd.DataFrame({
-        'month_id': [1], 'priogrid_gid': [1],
-        'row': [0], 'col': [0],
-        'feature_a': [10.0]
-    })
+    df_in = pd.DataFrame({'month_id': [1], 'priogrid_gid': [1], 'row': [0], 'col': [0], 'feature_a': [10.0]})
     handler = VolumeHandler.from_df(df_in, PHYSICS_CFG)
     
-    # 2. Simulate Stochastic Prediction (5D)
-    # [T, H, W, C, S] -> 1 Head, 3 Samples
     posterior = np.zeros((1, 4, 4, 2, 3)) 
     posterior[0, 3, 0, 0, :] = [1.0, 2.0, 3.0]
     
-    # 3. Reconstruct
     pred_handler = handler.wrap_predictions(posterior, base_names=['feature_a'])
     df_out = pred_handler.to_evaluation_df(history=handler, start_idx=0)
     
-    # 4. Audit
     val = df_out.loc[(1, 1), "pred_feature_a_raw"]
     assert isinstance(val, list)
     assert val == [1.0, 2.0, 3.0]
-    print("✅ Green Team: Stochastic Accuracy Verified.")
 
 # --- BEIGE TEAM: THE PROOF OF ROBUSTNESS ---
 
-def test_beige_mismatched_scaffold_fail():
-    """Prove that mismatched temporal windows fail loud and proud."""
+def test_bridge_contract_violation():
+    """Prove that duration mismatches fail loud and proud."""
     df_in = pd.DataFrame({'month_id': [1], 'priogrid_gid': [1], 'row': [0], 'col': [0], 'feature_a': [1.0]})
     handler = VolumeHandler.from_df(df_in, PHYSICS_CFG)
     
-    # Prediction has 2 months
-    posterior = np.zeros((2, 4, 4, 2))
+    posterior = np.zeros((2, 4, 4, 2)) # 2 months
     
-    # Should fail because signal duration (2) != handler duration (1)
-    # Catching this at the wrap layer is better than catching it at the bridge.
     with pytest.raises(ValueError, match="Signal duration \(2\) does not match Handler duration \(1\)"):
         handler.wrap_predictions(posterior, base_names=['feature_a'])
-    print("✅ Beige Team: Temporal Contract Violation caught early in wrap_predictions.")
+
+def test_bridge_naming_suffixes():
+    """Verify that both _raw and _prob suffixes are correctly applied."""
+    df_in = pd.DataFrame({'month_id': [1], 'priogrid_gid': [1], 'row': [0], 'col': [0], 'feature_a': [1.0]})
+    handler = VolumeHandler.from_df(df_in, PHYSICS_CFG)
+    
+    posterior = np.zeros((1, 4, 4, 2)) 
+    pred_handler = handler.wrap_predictions(posterior, base_names=['feature_a'])
+    df_out = pred_handler.to_evaluation_df(history=handler, start_idx=0)
+    
+    assert "pred_feature_a_raw" in df_out.columns
+    assert "pred_feature_a_prob" in df_out.columns
 
 # --- RED TEAM: THE PROOF OF INVINCIBILITY ---
 
-def test_red_vader_bridge_shuffle_protection():
+def test_bridge_vader_alignment_shuffle():
     """
-    RED TEAM ATTACK: The Ultimate Alignment Test.
-    We transform the handler (Flip) and prove the bridge re-aligns correctly.
+    RED TEAM ATTACK: Verify that explicit joins fix topographic shuffling.
     """
-    # 1. Setup 2x2 Land
     df = pd.DataFrame({
         'month_id': [1, 1, 1, 1],
-        'priogrid_gid': [1, 2, 3, 4], # 1:0,0, 2:0,1, 3:1,0, 4:1,1
+        'priogrid_gid': [1, 2, 3, 4],
         'row': [0, 0, 1, 1],
         'col': [0, 1, 0, 1],
         'feature_a': [10.0, 20.0, 30.0, 40.0]
     })
     handler = VolumeHandler.from_df(df, PHYSICS_CFG)
     
-    # 2. Simulate Prediction [T, H, W, C]
     posterior = np.zeros((1, 4, 4, 2))
-    # Correct positions in North-Up flipped 4x4 (Row 0 bottom -> index 3)
     posterior[0, 3, 0, 0] = 10.0 # PGID 1
     posterior[0, 3, 1, 0] = 20.0 # PGID 2
     posterior[0, 2, 0, 0] = 30.0 # PGID 3
     posterior[0, 2, 1, 0] = 40.0 # PGID 4
     
-    # 3. ATTACK: Transform the Handler
-    # Flip the internal data. This moves Land cells to new array positions.
+    # ATTACK: Shuffle the data via API flip
     handler.flip("H")
-    
-    # Also flip the posterior to match (simulating a consistent pipeline flip)
     posterior = np.flip(posterior, axis=1)
     
-    # 4. RECONSTRUCTION (The Vader Bridge)
     pred_handler = handler.wrap_predictions(posterior, base_names=['feature_a'])
     df_res = pred_handler.to_evaluation_df(history=handler, start_idx=0)
     
-    # 5. AUDIT
-    # Even though everything was flipped, the join must restore alignment
+    # AUDIT: Re-alignment must be perfect
     assert df_res.loc[(1, 1), "pred_feature_a_raw"] == 10.0
+    assert df_res.loc[(1, 2), "pred_feature_a_raw"] == 20.0
+    assert df_res.loc[(1, 3), "pred_feature_a_raw"] == 30.0
     assert df_res.loc[(1, 4), "pred_feature_a_raw"] == 40.0
-    print("✅ Red Team: Vader Bridge alignment INVINCIBLE.")
 
-if __name__ == "__main__":
-    pytest.main([__file__])
+# --- MATHEMATICAL AUDIT: THE PROOF OF SEQUENCE ---
+
+def test_jensens_inequality_sequence():
+    """
+    Formal Proof: Verifies that 'Inverse -> Collapse' (Arithmetic Mean) 
+    yields a different (and scientifically correct) result than 
+    'Collapse -> Inverse' (Geometric Mean).    
+    Data: Two samples, 10 and 100 (Raw Count Space).
+    Transformation: Log1p (Natural Log(x + 1)).
+    """
+    raw_samples = np.array([10.0, 100.0])
+    model_output_log_space = np.log1p(raw_samples) 
+    data_5d = model_output_log_space.reshape(1, 1, 1, 1, 2)
+    
+    vh = VolumeHandler(
+        data=data_5d, axes=("T", "H", "W", "C", "S"),
+        channel_map=["pred_sb_INTERNAL_SIGNAL"],
+        time_col="month_id", id_col="pg_id",
+        spatial_cols=("row", "col"), spatial_offset=(0,0)
+    )
+
+    # PATH A: The HydraNet Manager Path (Correct)
+    data_raw = np.expm1(vh.data) 
+    vh_raw = VolumeHandler(
+        data=data_raw, axes=vh.axes, channel_map=vh.channel_map,
+        time_col=vh.time_col, id_col=vh.id_col,
+        spatial_cols=vh.spatial_cols, spatial_offset=vh.spatial_offset
+    )
+    vh_collapsed_A = vh_raw.collapse_to_point(method="mean")
+    result_A = vh_collapsed_A.data.flatten()[0]
+    assert np.allclose(result_A, 55.0, rtol=1e-5)
+    
+    # PATH B: The Wrong Path (Geometric Mean)
+    vh_collapsed_B_log = vh.collapse_to_point(method="mean")
+    result_B = np.expm1(vh_collapsed_B_log.data.flatten()[0])
+    
+    # Conclusion: Results must differ significantly (Jensen's Inequality)
+    assert abs(result_A - result_B) > 10.0
