@@ -1,6 +1,12 @@
-# HydraNet Architectural Plan: Dynamic Slicing & Handshake
-**Date:** 29-01-2026
-**Status:** PROPOSED / MISSION-CRITICAL
+# ADR 030: Dynamic Slicing and Handshake
+
+| ADR Info            | Details           |
+|---------------------|-------------------|
+| Subject             | Name-Based Feature/ID Separation |
+| ADR Number          | 030               |
+| Status              | Accepted          |
+| Author              | Gemini CLI        |
+| Date                | 04.02.2026        |
 
 ## 1. The Core Problem: "Blind Slicing"
 Currently, the HydraNet pipeline uses a hardcoded integer `idx = 5` to separate metadata (IDs) from features (Conflict counts).

@@ -44,6 +44,19 @@
 *   **Pre-condition:** The `df` must possess a MultiIndex matching the `index_names` in the config.
 *   **Post-condition:** Returns a flattened, geographically sanitized DataFrame (Ocean cells removed).
 
+## 6. Verification Protocol (Team Audit)
+
+### Green Team (Accuracy)
+- Prove that `fetch_df` retrieves the exact parquet file requested.
+- Verify that MultiIndices are correctly reset into flat columns.
+
+### Beige Team (Robustness)
+- Verify that if the file path is invalid, the fetcher fails with a clear `FileNotFoundError`.
+- Verify that missing MultiIndex levels trigger a `ContractViolation`.
+
+### Red Team (Invincibility)
+- Verify that the fetcher is "Passive": it must not drop rows based on value contents or scale any data.
+
 ---
 
 ## 5. Semantic Naming

@@ -16,7 +16,7 @@ We enforce a strict asymmetry between training and inference scales, governed by
 
 ### 1. The Fully Convolutional Law
 *   **Invariant:** All HydraNet model architectures MUST be **Fully Convolutional** (or utilize Global Average Pooling / Adaptive Pooling). 
-*   **Purpose:** To ensure the model is **Shape-Agnostic**. The network must be capable of processing a 32x32 patch or a 180x180 global grid using the same weight parameters without code modifications.
+*   **Purpose:** To ensure the model is **Shape-Agnostic**. The network must be capable of processing a small local patch (e.g., 32x32) or a high-resolution global grid (e.g., 180x180 or 360x720) using the same weight parameters without code modifications.
 
 ### 2. Training (The Local Patch)
 *   **Mechanism:** Training is executed on **local patches (windows)** extracted by the `VolumeSampler` (The Lens).

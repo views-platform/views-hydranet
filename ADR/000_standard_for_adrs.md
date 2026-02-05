@@ -29,6 +29,12 @@ Each function must define strict **Pre-conditions** (what must be true before ca
 ### 1.6 Semantic Naming
 The ADR must enforce naming conventions that describe **Semantic Intent** (why the data is in this state) rather than **Mechanical Format** (what the data structure is).
 
+### 1.7 The Team Audit Standard (Falsification)
+To prevent "Lazy Testing" and ensure absolute reliability, every specification MUST include a **Verification Protocol** structured into three psychological roles:
+1.  **Green Team (The Happy Path):** Proves the component does exactly what we claim it does (Accuracy).
+2.  **Beige Team (The Robustness Path):** Proves that errors, typos, and contract violations do not go silent and break the system "Loud and Proud."
+3.  **Red Team (The Invincibility Path):** Proves that malicious or catastrophic state changes (shuffling, data loss, identity corruption) cannot impact the functional integrity of the output.
+
 ---
 
 ## 2. Consequences

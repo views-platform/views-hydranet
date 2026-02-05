@@ -22,7 +22,8 @@ The `evaluate` method accepts the following inputs:
 3. The target variable name,  
 4. The model config.  
 
-Both the actual and prediction DataFrames must use a multi-index of `(month_id, country_id/priogrid_gid)` and contain a column for the target variable. In the actuals DataFrame, this column must be named exactly as the target. In each prediction DataFrame, the predicted column must be named `f'pred_{target}'`.
+**Spatiotemporal Alignment:**
+Both the actual and prediction DataFrames must use a multi-index of `(month_id, priogrid_gid)`. While `priogrid_gid` is the primary spatial index, other identity columns like `country_id` MUST be carried as mandatory bookkeeping identities in the DataFrame to ensure traceability. In the actuals DataFrame, the target column must be named exactly as the target. In each prediction DataFrame, the predicted column must be named `f'pred_{target}'`.
 
 The number of prediction DataFrames is flexible. However, the standard practice is to evaluate **12 sequences**. When more than two predictions are provided, the evaluation will behave similarly to a **rolling origin evaluation** with a **fixed holdout size of 1**. For further reference, see the [ADR 002](https://github.com/views-platform/views-evaluation/blob/main/documentation/ADRs/002_evaluation_strategy.md) on rolling origin methodology.
 

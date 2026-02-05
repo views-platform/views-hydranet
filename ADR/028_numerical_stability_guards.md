@@ -1,4 +1,12 @@
-# Numerical Stability Assessment: HydraNet 06_LSTM4
+# ADR 028: Numerical Stability Guards
+
+| ADR Info            | Details           |
+|---------------------|-------------------|
+| Subject             | Numerical Stability Strategies |
+| ADR Number          | 028               |
+| Status              | Accepted          |
+| Author              | Gemini CLI        |
+| Date                | 04.02.2026        |
 
 ## 1. The Initialization "Dampening" Problem
 ### Problem

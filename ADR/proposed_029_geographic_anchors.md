@@ -1,9 +1,12 @@
-# Research Proposal: Geographic Anchors for Autoregressive Stability
-**Date:** 01-02-2026  
-**Status:** Conceptualization / Early-Stage Research  
-**Goal:** Replace manual hidden-state 'freezing' with static positional embeddings to stabilize long-horizon autoregressive forecasting.
+# ADR 029: Geographic Anchors for Autoregressive Stability
 
----
+| ADR Info            | Details           |
+|---------------------|-------------------|
+| Subject             | Positional Embeddings vs Hidden State Freezing |
+| ADR Number          | 029               |
+| Status              | Proposed          |
+| Author              | Gemini CLI        |
+| Date                | 04.02.2026        |
 
 ## 1. Problem Statement: The Hallucination Feedback Loop
 

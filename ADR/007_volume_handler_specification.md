@@ -69,7 +69,41 @@ The reconstruction logic (shared by all bridges) is the authoritative point for 
 *   **Explicit Fail:** Shape or coordinate mismatches must raise a `ContractViolation`, never silently truncate.
 
 ### 3.4 Stochastic Integrity (Uncertainty Preservation)
+
 *   **Applicability:** Currently applies only to **Outbound Prediction Paths** (model outputs). 
+
 *   **The Samples Dimension (S):** Prediction volumes may contain a 5th dimension `S` representing stochastic samples (e.g., from MC Dropout). 
+
 *   **No Silent Collapse:** The `VolumeHandler` is strictly prohibited from averaging or collapsing the `S` dimension during wrapping or reconstruction.
+
 *   **The List-Valued Contract:** When a 5D volume is converted to a DataFrame, every prediction cell must contain a `list[float]` of length `S`. This is the required format for the ViEWS evaluation package. The length `S` is determined by the `n_posterior_samples` configuration key.
+
+
+
+## 4. Verification Protocol (Team Audit)
+
+
+
+### Green Team (Accuracy)
+
+- Prove bit-perfect round-trip: `DF -> Volume -> DF`.
+
+- Verify that geographic coordinates in the DF match the array indices + offsets.
+
+- Verify that `c_id` (country_id) is preserved and correctly aligned in the output DF.
+
+
+
+### Beige Team (Robustness)
+
+- Verify that providing a DF with missing role columns (e.g., no `month_id`) triggers an immediate crash.
+
+- Verify that providing an `S` dimension to a scalar-only reconstruction method triggers a `ContractViolation`.
+
+
+
+### Red Team (Invincibility)
+
+- Verify that "Ocean Cells" (priogrid_gid=0) in the input DF are strictly purged and cannot leak into the internal volume.
+
+- Verify that shuffling the input DF rows has zero impact on the resulting Volume (Topological Stability).

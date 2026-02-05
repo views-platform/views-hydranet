@@ -56,8 +56,8 @@ hyperparameters = {
     'spatial_cols': ['row', 'col'],
     'row_offset': 0,
     'col_offset': 0,
-    'height': 180,
-    'width': 180,
+    'height': 360, # Dynamic resolution supported (ADR 025)
+    'width': 720,
     'identity_cols': ['month_id', 'priogrid_gid', 'row', 'col', 'c_id'],
     'features': ['lr_sb_best', 'lr_ns_best', 'lr_os_best'],
     'input_channels': 3, # Checksum for 'features'
@@ -115,3 +115,16 @@ hyperparameters = {
     'run_type': 'calibration',
 }
 ```
+
+## 4. Verification Protocol (Team Audit)
+
+### Green Team (Accuracy)
+- Prove that valid configurations are correctly loaded into the internal configuration storage.
+- Verify that the Checksum Laws are strictly enforced during the handshake.
+
+### Beige Team (Robustness)
+- Verify that missing mandatory keys trigger an immediate `ValidationError`.
+- Verify that type mismatches (e.g., string for `input_channels`) are caught by the Pydantic gate.
+
+### Red Team (Invincibility)
+- Verify that attempt to override architectural invariants (prefixes/suffixes) in the config is ignored or results in an error.

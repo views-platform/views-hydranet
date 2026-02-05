@@ -1,4 +1,12 @@
-# Architectural Plan: Virtual Target Augmentation in HydraNet
+# ADR 031: Virtual Target Augmentation
+
+| ADR Info            | Details           |
+|---------------------|-------------------|
+| Subject             | JIT Binarization and unlogging |
+| ADR Number          | 031               |
+| Status              | Accepted          |
+| Author              | Gemini CLI        |
+| Date                | 04.02.2026        |
 
 ## 1. Problem Diagnosis: The "Static Data" Trap
 The `views-pipeline-core` assumes a **1:1 mapping** between the `targets` listed in configuration and the columns present in the physical data files (`.parquet`).

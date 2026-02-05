@@ -48,6 +48,20 @@
 *   **Pre-condition:** Scaler state is `LOCKED`.
 *   **Post-condition:** Returns a NEW `VolumeHandler` where the `data` array has been mathematically inverted according to the internal channel names in the Ledger.
 
+## 2. Verification Protocol (Team Audit)
+
+### Green Team (Accuracy)
+- Prove that `inverse_transform(fit_transform(X)) == X` within float32 precision for all supported methods.
+- Verify that `inverse_transform_volume` correctly targets only feature channels while ignoring IDs.
+
+### Beige Team (Robustness)
+- Verify that calling `inverse_transform` before `fit_transform` raises a `StateError`.
+- Verify that missing configuration for a feature column triggers a `ConfigurationError`.
+
+### Red Team (Invincibility)
+- Verify that scaling does not mutate the input DataFrame in-place.
+- Verify that NaNs or Infs in non-scaled columns are preserved exactly as they were (no silent healing by the scaler).
+
 ---
 
 ## 5. Semantic Naming
