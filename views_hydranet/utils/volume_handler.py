@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
+import polars as pl
+import pyarrow as pa
 import torch
 
 logger = logging.getLogger(__name__)
@@ -75,14 +77,15 @@ class VolumeHandler:
         cls,
         df: pd.DataFrame,
         config: Dict[str, Any],
-        height: int = 180,
-        width: int = 180
     ) -> 'VolumeHandler':
         """
         Factory: Constructs a VolumeHandler from a standardized DataFrame.
         Enforces Absolute Anchoring and North-Up orientation.
         """
         # 1. Resolve Ledger Roles from Config (ADR 007 Section 1.1)
+
+        height, width = config["height"], config["width"]
+
         try:
             time_col = config["time_col"]
             id_col = config["id_col"]
@@ -304,6 +307,7 @@ class VolumeHandler:
         """
         Shared logic: Align, Mask, Flatten, and Combine.
         Handles both Point (4D) and Stochastic (5D) volumes.
+        Uses Polars/Arrow Bridge for RAM scalability (ADR 023).
         """
         # 1. Align Self (Signal)
         temp_data = self._data.detach().cpu().numpy() if torch.is_tensor(self._data) else self._data.copy()
@@ -313,6 +317,7 @@ class VolumeHandler:
             t_idx, h_idx, w_idx, c_idx, s_idx = self.get_axis_idx("T"), self.get_axis_idx("H"), self.get_axis_idx("W"), self.get_axis_idx("C"), self.get_axis_idx("S")
             temp_data = np.transpose(temp_data, (h_idx, w_idx, t_idx, c_idx, s_idx))
             temp_data = np.flip(temp_data, axis=0)
+            n_samples = self.shape[s_idx]
         else:
             t_idx, h_idx, w_idx, c_idx = self.get_axis_idx("T"), self.get_axis_idx("H"), self.get_axis_idx("W"), self.get_axis_idx("C")
             temp_data = np.transpose(temp_data, (h_idx, w_idx, t_idx, c_idx))
@@ -329,34 +334,44 @@ class VolumeHandler:
         pg_idx = provider.channel_map.index(id_col)
         mask = p_data[:, :, :, pg_idx] > 0
         indices = np.where(mask)
+        n_rows = len(indices[0])
 
-        reconstructed = {}
-        # 4. Identities & Actuals from Provider
+        reconstructed_cols = {}
+        # 4. Identities & Actuals from Provider (Scaffold)
         for i, name in enumerate(provider.channel_map):
             if name in provider._metadata.identity_cols:
                 vals = p_data[indices[0], indices[1], indices[2], i]
-                if name in ["priogrid_gid", "month_id", "row", "col", "c_id"] or name == provider._metadata.time_col:
-                    reconstructed[name] = vals.astype(int)
+                if name in ["priogrid_gid", "month_id", "row", "col", "c_id"] or \
+                   name == provider._metadata.time_col or \
+                   name == provider._metadata.id_col:
+                    reconstructed_cols[name] = vals.astype(np.int32)
                 else:
-                    reconstructed[name] = vals
+                    reconstructed_cols[name] = vals.astype(np.float32)
             elif name in provider._metadata.feature_cols:
                 # ADR 007 Hardening: Prefix Actuals to prevent collision with Predictions
                 vals = p_data[indices[0], indices[1], indices[2], i]
-                reconstructed[f"ACTUAL_INTERNAL_{name}"] = vals.astype(np.float32)
+                reconstructed_cols[f"ACTUAL_INTERNAL_{name}"] = vals.astype(np.float32)
 
-        # 5. Extract Features/Predictions from Self
+        # 5. Extract Features/Predictions from Self (Signal)
         for i, name in enumerate(self.channel_map):
-            if name in reconstructed:
+            if name in reconstructed_cols:
                 continue
             if has_samples:
-                vals = temp_data[indices[0], indices[1], indices[2], i, :]
-                reconstructed[name] = [row.tolist() for row in vals]
+                # OPTIMIZED STOCHASTIC PATH (ADR 023)
+                # Instead of list comprehension, use Arrow ListArray
+                vals_flat = temp_data[indices[0], indices[1], indices[2], i, :].ravel()
+                offsets = np.arange(0, (n_rows + 1) * n_samples, n_samples, dtype=np.int32)
+                reconstructed_cols[name] = pa.ListArray.from_arrays(offsets, vals_flat)
             else:
-                reconstructed[name] = temp_data[indices[0], indices[1], indices[2], i].astype(np.float32)
+                reconstructed_cols[name] = temp_data[indices[0], indices[1], indices[2], i].astype(np.float32)
 
-        df_out = pd.DataFrame(reconstructed)
+        # 6. Polars Bridge
+        df_pl = pl.from_arrow(pa.table(reconstructed_cols))
+        
+        # 7. Zero-Copy Handshake to Pandas (Arrow Extension Backed)
+        df_out = df_pl.to_pandas(use_pyarrow_extension_array=True)
 
-        # 6. Automatic Symmetry Recovery (ADR 020)
+        # 8. Automatic Symmetry Recovery (ADR 020)
         final_rename = {}
         for col in df_out.columns:
             if "INTERNAL_SIGNAL" in col:
@@ -371,7 +386,7 @@ class VolumeHandler:
 
         df_out = df_out.rename(columns=final_rename)
 
-        # 7. Automated Topographical Restoration (ADR 007)
+        # 9. Automated Topographical Restoration (ADR 007)
         # Restore the MultiIndex using the authoritative Ledger roles
         time_col, id_col = self._metadata.time_col, self._metadata.id_col
         if time_col in df_out.columns and id_col in df_out.columns:
