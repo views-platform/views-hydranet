@@ -34,7 +34,7 @@ def audit_memory_explosion(n_samples_list: List[int], grid_dim: int = 180, n_mon
         # STATE B: Fragmented Dictionary of Lists (tolist)
         start_time = time.time()
         flattened = vol.reshape(-1, n)
-        reconstructed = {"pred_sb_raw": [row.tolist() for row in flattened]}
+        reconstructed = {"pred_lr_sb": [row.tolist() for row in flattened]}
         state_b_mem = get_process_memory_gb() - baseline_mem
         print(f"State B (Dict of Lists): {state_b_mem:.4f} GB (tolist took {time.time()-start_time:.2f}s)")
 
@@ -55,7 +55,7 @@ def audit_memory_explosion(n_samples_list: List[int], grid_dim: int = 180, n_mon
         # STATE E: Pandas DataFrame (NumPy arrays in cells)
         start_time = time.time()
         # Create a dictionary of numpy arrays
-        reconstructed_np = {"pred_sb_raw": [row for row in flattened]}
+        reconstructed_np = {"pred_lr_sb": [row for row in flattened]}
         df_pd_np = pd.DataFrame(reconstructed_np)
         state_e_mem = get_process_memory_gb() - baseline_mem
         print(f"State E (Pandas with NumPy cells): {state_e_mem:.4f} GB (Consolidation took {time.time()-start_time:.2f}s)")

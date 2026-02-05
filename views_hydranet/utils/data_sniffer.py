@@ -204,3 +204,94 @@ class DataSniffer:
             )
             logger.error(error_msg)
             raise ValueError(error_msg)
+
+    def sniff_pure_state_parity(self, df_input: pd.DataFrame, df_output: pd.DataFrame) -> None:
+        """
+        Verifies that the output DataFrame is bit-wise identical to the input DataFrame
+        once model predictions are stripped.
+        """
+        logger.info("DataSniffer: Starting Pure State Parity Audit")
+        
+        time_col = self.config["time_col"]
+        id_col = self.config["id_col"]
+        
+        # 1. Strip predictions from output
+        pred_cols = [c for c in df_output.columns if c.startswith("pred_")]
+        generated_binary = [c for c in df_output.columns if c.startswith("by_") and c not in df_input.columns]
+        
+        df_stripped = df_output.drop(columns=pred_cols + generated_binary)
+        
+        # 2. Alignment
+        if isinstance(df_input.index, pd.MultiIndex):
+            df_in_aligned = df_input.reset_index()
+        else:
+            df_in_aligned = df_input.copy()
+            
+        df_out_aligned = df_stripped.reset_index()
+
+        # 3. Structural Integrity (Columns must match)
+        df_out_aligned = df_out_aligned[df_in_aligned.columns]
+        
+        # 4. Type-Agnostic Comparison (Force stripped to match input types)
+        for col in df_in_aligned.columns:
+            df_out_aligned[col] = df_out_aligned[col].astype(df_in_aligned[col].dtype)
+
+        # 5. Order-Agnostic Comparison (Sort both by Time and ID)
+        df_in_aligned = df_in_aligned.sort_values(by=[time_col, id_col]).reset_index(drop=True)
+        df_out_aligned = df_out_aligned.sort_values(by=[time_col, id_col]).reset_index(drop=True)
+
+        if not df_in_aligned.equals(df_out_aligned):
+            drift_report = []
+            for col in df_in_aligned.columns:
+                if not df_in_aligned[col].equals(df_out_aligned[col]):
+                    drift_report.append(f" - Column '{col}': Input[{df_in_aligned[col].dtype}] != Output[{df_out_aligned[col].dtype}]")
+                    mask = df_in_aligned[col] != df_out_aligned[col]
+                    drift_sample = df_in_aligned.loc[mask, col].head(3).tolist()
+                    out_sample = df_out_aligned.loc[mask, col].head(3).tolist()
+                    drift_report.append(f"   Samples: Input {drift_sample} vs Output {out_sample}")
+            
+            error_msg = (
+                f"[CRITICAL DATA ERROR] DataSniffer: Pure State Parity Violation!\n"
+                f"Output (minus predictions) has drifted from Input.\n"
+                + "\n".join(drift_report)
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        logger.info("DataSniffer: Pure State Parity Audit Passed.")
+
+    def sniff_pure_state_schema(self, df: pd.DataFrame, config: Dict[str, Any]) -> None:
+        """
+        Enforces the ADR 032 structural contract on the output DataFrame.
+        """
+        logger.info("DataSniffer: Starting Pure State Schema Audit")
+        
+        # 1. MultiIndex Check (ADR 032 Section 2.1)
+        expected_index = [config["time_col"], config["id_col"]]
+        if list(df.index.names) != expected_index:
+            raise ValueError(f"DataSniffer: Index Mismatch! Expected {expected_index}, got {list(df.index.names)}")
+            
+        # 2. Identity Column Check (ADR 032 Section 2.2)
+        # c_id is non-negotiable
+        mandatory = ["c_id"] + list(config["spatial_cols"])
+        missing = [c for c in mandatory if c not in df.columns]
+        if missing:
+            raise ValueError(f"DataSniffer: Missing Mandatory Identities! {missing}")
+            
+        # 3. Target Prefix Check (ADR 032 Section 2.4)
+        targets = config["features"]
+        for target in targets:
+            # We expect pred_lr_{target} and pred_by_{target}
+            # Note: target itself might already have lr_ prefix in some configs
+            # We assume features in config are the base names or lr_ prefixed names.
+            # To be safe, we check for columns starting with pred_ and containing the target
+            found_preds = [c for c in df.columns if c.startswith("pred_") and target in c]
+            if not found_preds:
+                raise ValueError(f"DataSniffer: Missing Predictions for target '{target}'")
+                
+            # Verify retirement of suffixes
+            offending = [c for c in found_preds if c.endswith("_raw") or c.endswith("_prob")]
+            if offending:
+                raise ValueError(f"DataSniffer: Legacy Suffixes detected! {offending} violates ADR 032.")
+
+        logger.info("DataSniffer: Pure State Schema Audit Passed.")

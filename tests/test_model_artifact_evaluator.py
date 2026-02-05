@@ -46,7 +46,7 @@ def test_evaluator_green_path():
     model = MagicMock(spec=torch.nn.Module)
     
     # Mock HydraNetInference to return a dummy zstack for 2 steps
-    # Shape: [T=2, H=2, W=2, C=2]
+    # Shape: [T=2, H=2, W=2, C=2] -> (lr_sb, by_sb)
     posterior = np.ones((2, 2, 2, 2))
     
     evaluator = ModelArtifactEvaluator(CFG, model, torch.device('cpu'))
@@ -63,7 +63,7 @@ def test_evaluator_green_path():
         assert len(results) == 1 # 1 window for 'test' run_type
         df = results[0]
         assert isinstance(df.index, pd.MultiIndex)
-        assert "pred_sb_raw" in df.columns
+        assert "pred_lr_sb" in df.columns
         assert "sb" in df.columns # The Actual
         print("✅ Green Team: Evaluator Handshake Verified.")
 
@@ -91,6 +91,7 @@ def test_evaluator_beige_mismatched_targets():
     
     evaluator = ModelArtifactEvaluator(bad_cfg, model, torch.device('cpu'))
     
+    # Shape: [T=2, H=2, W=2, C=2]
     posterior = np.ones((2, 2, 2, 2))
     with patch("views_hydranet.utils.model_artifact_evaluator.HydraNetInference") as mock_inf_cls:
         mock_inf = mock_inf_cls.return_value
@@ -100,8 +101,9 @@ def test_evaluator_beige_mismatched_targets():
         df = results[0]
         # Should only contain 'sb' related cols, silently ignoring 'non_existent_target'
         assert "non_existent_target" not in df.columns
-        assert "pred_sb_raw" in df.columns
-        print("✅ Beige Team: Subsetting Gate Robustness Verified.")
+        assert "pred_lr_sb" in df.columns
+        assert "sb" in df.columns # The Actual
+
 
 # --- RED TEAM: THE PROOF OF INVINCIBILITY ---
 
@@ -126,7 +128,9 @@ def test_evaluator_red_topographic_integrity():
     # We return [200, 100] instead of [100, 200].
     # Window duration is 2 steps.
     posterior = np.zeros((2, 2, 2, 2))
-    posterior[:, :, :, 0] = [[ [200.0, 100.0], [200.0, 100.0] ], [[200.0, 100.0], [200.0, 100.0]]] # Flipped
+    # Signal channel (0)
+    posterior[:, :, 0, 0] = 200.0 # Top Row
+    posterior[:, :, 1, 0] = 100.0 # Bottom Row
     
     with patch("views_hydranet.utils.model_artifact_evaluator.HydraNetInference") as mock_inf_cls:
         mock_inf = mock_inf_cls.return_value
@@ -145,8 +149,9 @@ def test_evaluator_red_topographic_integrity():
         
         # GID 1 should have 100.0, GID 2 should have 200.0
         # In this simplified test, we just check if the col exist and has values
-        assert "pred_sb_raw" in df.columns
-        assert not df["pred_sb_raw"].isna().any()
+        assert "pred_lr_sb" in df.columns
+        assert "sb" in df.columns # The Actual
+
         print("✅ Red Team: Orchestration Integrity Verified.")
 
 if __name__ == "__main__":

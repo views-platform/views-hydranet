@@ -80,7 +80,7 @@ class TestManagerEvalHardAudit:
                     # 3. Mock Evaluator (This is where the 'Science' is tested)
                     df_pred = pd.DataFrame({
                         'sb': [10.0]*16, 'ns': [10.0]*16,
-                        'pred_sb_raw': [100.0]*16, 'pred_ns_raw': [100.0]*16,
+                        'pred_lr_sb': [100.0]*16, 'pred_ns_raw': [100.0]*16,
                         'pred_sb_prob': [0.9]*16, 'pred_ns_prob': [0.9]*16
                     }, index=pd.MultiIndex.from_product([[124], range(1, 17)], names=['month_id', 'priogrid_gid']))
                     mock_eval_cls.return_value.evaluate.return_value = [df_pred]
@@ -90,13 +90,13 @@ class TestManagerEvalHardAudit:
                     df = results[0]
 
                     # GATES
-                    np.testing.assert_allclose(df["pred_sb_raw"].iloc[0], 100.0, rtol=1e-5)
-                    assert isinstance(df["pred_sb_raw"].iloc[0], (float, np.float32, np.float64))
-                    assert "pred_sb_raw" in df.columns
+                    np.testing.assert_allclose(df["pred_lr_sb"].iloc[0], 100.0, rtol=1e-5)
+                    assert isinstance(df["pred_lr_sb"].iloc[0], (float, np.float32, np.float64))
+                    assert "pred_lr_sb" in df.columns
                     assert "sb" in df.columns
                     assert isinstance(df.index, pd.MultiIndex)
                     np.testing.assert_allclose(df["pred_sb_prob"].iloc[0], 0.9, rtol=1e-5)
-                    assert not any(isinstance(x, list) for x in df["pred_sb_raw"])
+                    assert not any(isinstance(x, list) for x in df["pred_lr_sb"])
                     np.testing.assert_allclose(df["pred_ns_raw"].iloc[0], 100.0, rtol=1e-5)
 
     def test_gate_8_nuke_proof_heterogeneous(self, tmp_path):
@@ -129,13 +129,13 @@ class TestManagerEvalHardAudit:
                     mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (MagicMock(), "audit")
                     
                     df_pred = pd.DataFrame({
-                        'pred_sb_raw': [10.0]*16, 'pred_ns_raw': [10.0]*16,
+                        'pred_lr_sb': [10.0]*16, 'pred_ns_raw': [10.0]*16,
                     }, index=pd.MultiIndex.from_product([[124], range(1, 17)], names=['month_id', 'priogrid_gid']))
                     mock_eval_cls.return_value.evaluate.return_value = [df_pred]
                     
                     results = manager._evaluate_model_artifact(eval_type="audit")
                     df = results[0]
-                    np.testing.assert_allclose(df["pred_sb_raw"].iloc[0], 10.0, rtol=1e-5)
+                    np.testing.assert_allclose(df["pred_lr_sb"].iloc[0], 10.0, rtol=1e-5)
                     np.testing.assert_allclose(df["pred_ns_raw"].iloc[0], 10.0, rtol=1e-5)
 
     def test_gates_9_to_16_forecast_survival(self, tmp_path):
@@ -172,8 +172,9 @@ class TestManagerEvalHardAudit:
                     mock_fetch_cls.standardize_raw_df.side_effect = lambda x, y: x
                     mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (MagicMock(), "audit")
                     
-                    posterior = np.zeros((1, 4, 4, 4, 5))
-                    posterior[:,:,:,0,:] = np.log1p(50.0)
+                    # posterior: (T, H, W, C) -> 2 targets * 2 heads = 4 channels
+                    posterior = np.zeros((1, 4, 4, 4))
+                    posterior[:,:,:,0] = np.log1p(50.0)
                     mock_inf_cls.return_value.generate_posterior_samples.return_value = (posterior, None)
                     
                     # RUN FORECAST
@@ -181,8 +182,8 @@ class TestManagerEvalHardAudit:
                     df = results[0]
 
                     # GATES
-                    np.testing.assert_allclose(df["pred_sb_raw"].iloc[0], 50.0, rtol=1e-5)
-                    assert isinstance(df["pred_sb_raw"].iloc[0], (float, np.float32, np.float64))
+                    np.testing.assert_allclose(df["pred_lr_sb"].iloc[0], 50.0, rtol=1e-5)
+                    assert isinstance(df["pred_lr_sb"].iloc[0], (float, np.float32, np.float64))
                     assert df.index.get_level_values("month_id")[0] == 124
 
 if __name__ == "__main__":

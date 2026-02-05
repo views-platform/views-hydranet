@@ -92,9 +92,13 @@ class ModelArtifactEvaluator:
                 requested_targets = self.config["targets"]
                 final_cols = []
                 for t in requested_targets:
-                    for col in [t, f"pred_{t}_raw", f"pred_{t}_prob"]:
+                    # ADR 032: Prefixes pred_lr_ and pred_by_
+                    for col in [f"lr_{t}", f"by_{t}", f"pred_lr_{t}", f"pred_by_{t}"]:
                         if col in df_origin.columns:
                             final_cols.append(col)
+                    # Backward compatibility for non-prefixed actuals if they exist
+                    if t in df_origin.columns and t not in final_cols:
+                        final_cols.append(t)
 
                 list_df_predictions.append(df_origin[final_cols])
 

@@ -27,7 +27,7 @@ class TestNukeProofAudit:
         
         vh = VolumeHandler(
             data=data, axes=("T", "H", "W", "C", "S"),
-            channel_map=["sb_INTERNAL_SIGNAL", "ns_INTERNAL_SIGNAL", "os_INTERNAL_SIGNAL"],
+            channel_map=["pred_lr_sb", "pred_lr_ns", "pred_lr_os"],
             time_col="t", id_col="i", spatial_cols=("y", "x")
         )
         
@@ -44,24 +44,22 @@ class TestNukeProofAudit:
     def test_gate_b_actuals_corruption(self):
         """
         Gate B: Actuals Corruption.
-        Prove that ACTUAL_INTERNAL_ columns are NOT double-inversed.
+        Prove that linear actuals columns are NOT double-inversed.
         """
         data = np.zeros((1, 1, 1, 2, 1))
         data[0,0,0,0,0] = 5.0 # This is an Actual (already raw)
         data[0,0,0,1,0] = np.log1p(100.0) # This is a prediction
-        
+            
         vh = VolumeHandler(
             data=data, axes=("T", "H", "W", "C", "S"),
-            channel_map=["ACTUAL_INTERNAL_sb", "sb_INTERNAL_SIGNAL"],
+            channel_map=["dummy_actual", "pred_lr_sb"],
             time_col="t", id_col="i", spatial_cols=("y", "x")
         )
-        
         scaler = FeatureScaler(CFG)
         scaler._is_fitted = True
-        
         raw_vh = scaler.inverse_transform_volume(vh)
         
-        # Actual must remain 5.0. If it was double-inversed (expm1(5)), it would be ~147
+        # Actual must remain 5.0. 
         assert raw_vh.data[0,0,0,0,0] == 5.0
         # Prediction must be 100.0
         np.testing.assert_allclose(raw_vh.data[0,0,0,1,0], 100.0, rtol=1e-5)
@@ -88,7 +86,7 @@ class TestNukeProofAudit:
     def test_gate_e_symmetry_leak(self):
         """
         Gate E: Multi-Task Symmetry Leak.
-        Prove that probabilities (_INTERNAL_PROB) are NEVER inverse-transformed.
+        Prove that probabilities (pred_by_) are NEVER inverse-transformed.
         """
         data = np.zeros((1, 1, 1, 2, 1))
         data[0,0,0,0,0] = np.log1p(10.0) # Signal
@@ -96,7 +94,7 @@ class TestNukeProofAudit:
         
         vh = VolumeHandler(
             data=data, axes=("T", "H", "W", "C", "S"),
-            channel_map=["sb_INTERNAL_SIGNAL", "sb_INTERNAL_PROB"],
+            channel_map=["pred_lr_sb", "pred_by_sb"],
             time_col="t", id_col="i", spatial_cols=("y", "x")
         )
         

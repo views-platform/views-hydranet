@@ -57,12 +57,12 @@ def test_red_team_the_abyss():
         r, c = 9 - (idx // 10), idx % 10 # VolumeHandler North-Up flip
         
         expected_val = posterior[0, r, c, 0]
+        
         if not kill_mask[r, c]:
             # Survivor: Must match bit-perfectly
-            assert df_res.loc[(1, pgid), "pred_sb_raw"] == expected_val
+            assert df_res.loc[(1, pgid), "pred_lr_sb"] == expected_val
         else:
-            # Killed: Must be 0.0 (because we joined 0.0) or NaN
-            # In our case, it joined 0.0 as the 'prediction'.
+            # Killed: Must be either missing or 0.0 (if joined)
             pass
 
     print("✅ Red Team: Ragged Void Survived. Survivors are topologically locked.")
@@ -82,8 +82,8 @@ def test_red_team_the_abyss():
     # Because we joined on [month_id, pg_id], and the watermark is now 1001,
     # it will NOT find a match in the Scaffold (which only has month 1).
     # Thus, the resulting DataFrame must be EMPTY for the predictions.
-    assert "pred_sb_raw" in df_warp.columns
-    assert df_warp["pred_sb_raw"].isna().all()
+    assert "pred_lr_sb" in df_warp.columns
+    assert df_warp["pred_lr_sb"].isna().all()
     
     print("✅ Red Team: Temporal Warp Survived. Bridge trusts watermarks over array positions.")
 
@@ -97,7 +97,7 @@ def test_red_team_the_abyss():
     
     # AUDIT C:
     # No matches found for pg_id 1..100 because the watermark says they are all 999.
-    assert df_id["pred_sb_raw"].isna().all()
+    assert df_id["pred_lr_sb"].isna().all()
     print("✅ Red Team: Stolen Identity Survived. Corrupted watermarks fail safe.")
 
     print("\n💎 FINAL VERDICT: THE VADER BRIDGE IS UNBREAKABLE.")

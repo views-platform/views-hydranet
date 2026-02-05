@@ -13,10 +13,10 @@ import torch
 
 logger = logging.getLogger(__name__)
 
-# Internal Naming Invariants (ADR 020)
+# Internal Naming Invariants (ADR 020/032)
+LINEAR_PREFIX = "lr_"
+BINARY_PREFIX = "by_"
 PRED_PREFIX = "pred_"
-REG_SUFFIX = "_raw"
-PROB_SUFFIX = "_prob"
 
 @dataclass(frozen=True)
 class VolumeMetadata:
@@ -202,21 +202,22 @@ class VolumeHandler:
     ) -> 'VolumeHandler':
         """
         Creates a new VolumeHandler for model outputs, anchored to this handler's ledger.
-        Automatically applies ADR 020 naming Engine and Watermarks the volume with IDs.
+        Automatically applies ADR 032 naming Engine and Watermarks the volume with IDs.
         """
         # 1. Automated Naming (Internal Symmetry Gate)
-        reg_names = [f"{n}_INTERNAL_SIGNAL" for n in base_names]
-        prob_names = [f"{n}_INTERNAL_PROB" for n in base_names]
+        # Using ADR 032 naming conventions: pred_lr_{target} and pred_by_{target}
+        reg_names = [f"{PRED_PREFIX}{LINEAR_PREFIX}{n}" for n in base_names]
+        prob_names = [f"{PRED_PREFIX}{BINARY_PREFIX}{n}" for n in base_names]
         
         # 2. THE WATERMARK (Red Team Hardening)
-        # We prepend the identity channels (Time, ID) to the prediction data
+        # We prepend ALL identity channels from the parent to the prediction data
         # so the prediction volumes are "Self-Describing" and Join-Safe.
         time_col = self._metadata.time_col
         id_col = self._metadata.id_col
         
-        # Extract ID channels from self (Point to the shared indices)
-        time_idx = self.channel_map.index(time_col)
-        id_idx = self.channel_map.index(id_col)
+        # Identify all non-feature channels from the parent
+        identity_names = [n for n in self.channel_map if n in self._metadata.identity_cols]
+        identity_idxs = [self.channel_map.index(n) for n in identity_names]
         
         # Normalize Data Layout to [T, H, W, C, (S)]
         if torch.is_tensor(posterior_data):
@@ -238,25 +239,22 @@ class VolumeHandler:
             axes = ("T", "H", "W", "C", "S")
             n_samples = work_data.shape[-1]
             
-            # self.data is [T, H, W, C]
-            t_slice = self.data[..., time_idx : time_idx + 1] # [T, H, W, 1]
-            time_watermark = np.expand_dims(t_slice, axis=-1) # [T, H, W, 1, 1]
-            time_watermark = np.repeat(time_watermark, n_samples, axis=-1) # [T, H, W, 1, S]
+            # Extract and repeat identity watermarks
+            id_vols = []
+            for idx in identity_idxs:
+                slice_data = self.data[..., idx : idx + 1] # [T, H, W, 1]
+                watermark = np.expand_dims(slice_data, axis=-1) # [T, H, W, 1, 1]
+                watermark = np.repeat(watermark, n_samples, axis=-1) # [T, H, W, 1, S]
+                id_vols.append(watermark)
             
-            id_slice = self.data[..., id_idx : id_idx + 1] # [T, H, W, 1]
-            id_watermark = np.expand_dims(id_slice, axis=-1) # [T, H, W, 1, 1]
-            id_watermark = np.repeat(id_watermark, n_samples, axis=-1) # [T, H, W, 1, S]
-            
-            full_data = np.concatenate([time_watermark, id_watermark, work_data], axis=-2)
+            full_data = np.concatenate(id_vols + [work_data], axis=-2)
         else:
             # Point: [T, H, W, C]
             axes = ("T", "H", "W", "C")
-            time_watermark = self.data[..., time_idx : time_idx + 1]
-            id_watermark = self.data[..., id_idx : id_idx + 1]
-            
-            full_data = np.concatenate([time_watermark, id_watermark, work_data], axis=-1)
+            id_vols = [self.data[..., idx : idx + 1] for idx in identity_idxs]
+            full_data = np.concatenate(id_vols + [work_data], axis=-1)
 
-        full_signal_names = [time_col, id_col] + reg_names + prob_names
+        full_signal_names = list(identity_names) + reg_names + prob_names
 
         return VolumeHandler(
             data=full_data,
@@ -265,7 +263,7 @@ class VolumeHandler:
             time_col=time_col,
             id_col=id_col,
             spatial_cols=self._metadata.spatial_cols,
-            identity_cols=(time_col, id_col),
+            identity_cols=tuple(identity_names),
             feature_cols=tuple(reg_names + prob_names),
             spatial_offset=self._metadata.spatial_offset
         )
@@ -376,18 +374,31 @@ class VolumeHandler:
         indices = np.where(mask)
 
         # 4. Initialize Polars Scaffold (The Source of Truth)
+        # ADR 032: We MUST carry month_id, priogrid_gid, row, col, and c_id
         scaffold_cols = {
             time_col: p_data[indices[0], indices[1], indices[2], time_idx].astype(np.int32),
             id_col: p_data[indices[0], indices[1], indices[2], pg_idx].astype(np.int32)
         }
         
-        # Add Actuals to Scaffold
+        # Add Actuals and Identities to Scaffold
+        # We explicitly generate binary actuals (by_) from linear actuals (lr_)
         for i, name in enumerate(provider.channel_map):
             if name in [time_col, id_col]: continue
+            
+            # Carry Identity Columns (row, col, c_id, etc) from provider
             if name in provider._metadata.identity_cols:
                 scaffold_cols[name] = p_data[indices[0], indices[1], indices[2], i].astype(np.float32)
+            
+            # Carry Linear Actuals and Generate Binary Derivatives
             elif name in provider._metadata.feature_cols:
-                scaffold_cols[f"ACTUAL_INTERNAL_{name}"] = p_data[indices[0], indices[1], indices[2], i].astype(np.float32)
+                # Store the Linear Actual
+                scaffold_cols[name] = p_data[indices[0], indices[1], indices[2], i].astype(np.float32)
+                
+                # ADR 032: Generate Binary Derivative (by_) if name is linear (lr_)
+                if name.startswith(LINEAR_PREFIX):
+                    binary_name = name.replace(LINEAR_PREFIX, BINARY_PREFIX, 1)
+                    if binary_name not in provider.channel_map: # Don't overwrite if it exists
+                        scaffold_cols[binary_name] = (p_data[indices[0], indices[1], indices[2], i] > 0).astype(np.float32)
 
         pl_master = pl.DataFrame(scaffold_cols)
         del p_data, scaffold_cols
@@ -443,15 +454,9 @@ class VolumeHandler:
         for col in pl_master.columns:
             if col in [time_col, id_col]: continue
             
-            # Determine canonical outbound name (ADR 020)
-            if "INTERNAL_SIGNAL" in col:
-                new_name = f"{PRED_PREFIX}{col.replace('_INTERNAL_SIGNAL', '')}{REG_SUFFIX}"
-            elif "INTERNAL_PROB" in col:
-                new_name = f"{PRED_PREFIX}{col.replace('_INTERNAL_PROB', '')}{PROB_SUFFIX}"
-            elif "ACTUAL_INTERNAL_" in col:
-                new_name = col.replace("ACTUAL_INTERNAL_", "")
-            else:
-                new_name = col
+            # ADR 032: Prefixes pred_lr_ and pred_by_ are already applied in wrap_predictions.
+            # Actuals (lr_, by_) and Identities (row, col, c_id) carry their literal names.
+            new_name = col
 
             # Safe Export: Use to_list() for stochastic channels to ensure compatibility
             if has_samples and col in self.channel_map:
@@ -462,29 +467,6 @@ class VolumeHandler:
             gc.collect()
 
         # 7. Final Topographical Restoration
-        if time_col in df_out.columns and id_col in df_out.columns:
-            df_out = df_out.set_index([time_col, id_col])
-
-        return df_out
-
-        # 8. Automatic Symmetry Recovery (ADR 020)
-        final_rename = {}
-        for col in df_out.columns:
-            if "INTERNAL_SIGNAL" in col:
-                base = col.replace("_INTERNAL_SIGNAL", "")
-                final_rename[col] = f"{PRED_PREFIX}{base}{REG_SUFFIX}"
-            elif "INTERNAL_PROB" in col:
-                base = col.replace("_INTERNAL_PROB", "")
-                final_rename[col] = f"{PRED_PREFIX}{base}{PROB_SUFFIX}"
-            elif "ACTUAL_INTERNAL_" in col:
-                base = col.replace("ACTUAL_INTERNAL_", "")
-                final_rename[col] = base
-
-        df_out = df_out.rename(columns=final_rename)
-
-        # 9. Automated Topographical Restoration (ADR 007)
-        # Restore the MultiIndex using the authoritative Ledger roles
-        time_col, id_col = self._metadata.time_col, self._metadata.id_col
         if time_col in df_out.columns and id_col in df_out.columns:
             df_out = df_out.set_index([time_col, id_col])
 

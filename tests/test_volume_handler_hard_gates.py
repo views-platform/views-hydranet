@@ -45,10 +45,12 @@ def test_gate_12_6_head_dressing():
     )
 
     pred_handler = handler.wrap_predictions(posterior, base_names=base_names)
-
+    
     # Check internal signal names
-    assert "a_INTERNAL_SIGNAL" in pred_handler.channel_map
-    assert "b_INTERNAL_PROB" in pred_handler.channel_map
+    assert "pred_lr_a" in pred_handler.channel_map
+    assert "pred_by_a" in pred_handler.channel_map
+    assert "pred_lr_b" in pred_handler.channel_map
+    assert "pred_by_b" in pred_handler.channel_map
 
 def test_gate_13_14_topography_restoration():
     """Assert full symmetry recovery and MultiIndex restoration."""
@@ -70,7 +72,7 @@ def test_gate_13_14_topography_restoration():
     assert isinstance(df_res.index, pd.MultiIndex)
     assert df_res.index.names == ['month_id', 'priogrid_gid']
     assert "feature_a" in df_res.columns # The Actual
-    assert "pred_feature_a_raw" in df_res.columns # The Prediction
+    assert "pred_lr_feature_a" in df_res.columns # The Prediction
     assert not any("INTERNAL" in col for col in df_res.columns)
 
 def test_gate_15_geographic_anchoring():

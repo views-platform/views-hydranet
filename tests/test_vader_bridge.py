@@ -36,8 +36,8 @@ def test_bridge_point_accuracy():
     pred_handler = handler.wrap_predictions(posterior, base_names=['feature_a'])
     df_out = pred_handler.to_evaluation_df(history=handler, start_idx=0)
     
-    assert df_out.loc[(1, 1), "pred_feature_a_raw"] == 100.5
-    assert df_out.loc[(1, 2), "pred_feature_a_raw"] == 200.5
+    assert df_out.loc[(1, 1), "pred_lr_feature_a"] == 100.5
+    assert df_out.loc[(1, 2), "pred_lr_feature_a"] == 200.5
     assert df_out.loc[(1, 1), "feature_a"] == 10.5 
 
 def test_bridge_stochastic_accuracy():
@@ -51,7 +51,9 @@ def test_bridge_stochastic_accuracy():
     pred_handler = handler.wrap_predictions(posterior, base_names=['feature_a'])
     df_out = pred_handler.to_evaluation_df(history=handler, start_idx=0)
     
-    val = df_out.loc[(1, 1), "pred_feature_a_raw"]
+    val = df_out.loc[(1, 1), "pred_lr_feature_a"]
+    
+    
     assert isinstance(val, list)
     assert val == [1.0, 2.0, 3.0]
 
@@ -75,11 +77,10 @@ def test_bridge_naming_suffixes():
     posterior = np.zeros((1, 4, 4, 2)) 
     pred_handler = handler.wrap_predictions(posterior, base_names=['feature_a'])
     df_out = pred_handler.to_evaluation_df(history=handler, start_idx=0)
-    
-    assert "pred_feature_a_raw" in df_out.columns
-    assert "pred_feature_a_prob" in df_out.columns
 
-# --- RED TEAM: THE PROOF OF INVINCIBILITY ---
+    assert "pred_lr_feature_a" in df_out.columns
+    assert "pred_by_feature_a" in df_out.columns
+    # --- RED TEAM: THE PROOF OF INVINCIBILITY ---
 
 def test_bridge_vader_alignment_shuffle():
     """
@@ -106,12 +107,12 @@ def test_bridge_vader_alignment_shuffle():
     
     pred_handler = handler.wrap_predictions(posterior, base_names=['feature_a'])
     df_res = pred_handler.to_evaluation_df(history=handler, start_idx=0)
-    
+
     # AUDIT: Re-alignment must be perfect
-    assert df_res.loc[(1, 1), "pred_feature_a_raw"] == 10.0
-    assert df_res.loc[(1, 2), "pred_feature_a_raw"] == 20.0
-    assert df_res.loc[(1, 3), "pred_feature_a_raw"] == 30.0
-    assert df_res.loc[(1, 4), "pred_feature_a_raw"] == 40.0
+    assert df_res.loc[(1, 1), "pred_lr_feature_a"] == 10.0
+    assert df_res.loc[(1, 2), "pred_lr_feature_a"] == 20.0
+    assert df_res.loc[(1, 3), "pred_lr_feature_a"] == 30.0
+    assert df_res.loc[(1, 4), "pred_lr_feature_a"] == 40.0
 
 # --- MATHEMATICAL AUDIT: THE PROOF OF SEQUENCE ---
 

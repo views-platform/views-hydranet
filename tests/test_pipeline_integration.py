@@ -55,12 +55,9 @@ TOY_CONFIG = {
     "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
     "identity_cols": ["month_id", "priogrid_gid", "row", "col"],
 
-    # Outbound / Evaluation (The Naming Engine)
-    "eval_prefix": "pred_",
-    "regression_surfix": "_raw",
-    "classification_surfix": "_prob",
-    "classification_outputs": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
-    "targets": ["lr_sb_best"]
+    # Outbound / Evaluation (ADR 032 Alignment)
+    "classification_outputs": ["sb_best", "ns_best", "os_best"],
+    "targets": ["sb_best"]
 }
 
 @pytest.fixture
@@ -200,9 +197,8 @@ class TestPipelineIntegration:
                 mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (real_model, "toy_artifact")
                 
                 # Mock Inference Result
-                # 3 targets -> 6 signal channels (3 raw, 3 prob)
-                # Plus the 2 IDs added by wrap_predictions = 8 total names
-                # posterior itself should have 6 channels
+                # 3 targets -> 6 signal channels (3 linear, 3 binary)
+                # Plus the watermarks added by wrap_predictions
                 posterior = np.zeros((1, 4, 4, 6, 2))
                 mock_inf_cls.return_value.generate_posterior_samples.return_value = (posterior, None)
 
@@ -213,8 +209,8 @@ class TestPipelineIntegration:
                 assert isinstance(forecasts, list)
                 assert len(forecasts) > 0
                 df_forecast = forecasts[0]
-
-                assert "pred_lr_sb_best_raw" in df_forecast.columns
-                assert "pred_lr_sb_best_prob" in df_forecast.columns
+    
+                assert "pred_lr_sb_best" in df_forecast.columns
+                assert "pred_by_sb_best" in df_forecast.columns
                 assert df_forecast.index.names == ["month_id", "priogrid_gid"]
                 assert len(df_forecast) > 0

@@ -40,12 +40,12 @@ class TestNamingEngineFalsification:
         df_4d = pred_vh_4d.to_evaluation_df(history=history_scaffold, start_idx=0)
         
         # Gate 1: Point Regression
-        assert "pred_sb_raw" in df_4d.columns
-        assert isinstance(df_4d["pred_sb_raw"].iloc[0], (float, np.float32, np.float64))
+        assert "pred_lr_sb" in df_4d.columns
+        assert isinstance(df_4d["pred_lr_sb"].iloc[0], (float, np.float32, np.float64))
         
         # Gate 2: Point Classification
-        assert "pred_sb_prob" in df_4d.columns
-        assert isinstance(df_4d["pred_sb_prob"].iloc[0], (float, np.float32, np.float64))
+        assert "pred_by_sb" in df_4d.columns
+        assert isinstance(df_4d["pred_by_sb"].iloc[0], (float, np.float32, np.float64))
 
         # --- SCENARIO B: STOCHASTIC (5D) ---
         # [T=1, H=4, W=4, C=4, S=5]
@@ -54,14 +54,14 @@ class TestNamingEngineFalsification:
         df_5d = pred_vh_5d.to_evaluation_df(history=history_scaffold, start_idx=0)
         
         # Gate 3: Stochastic Regression
-        assert "pred_sb_raw" in df_5d.columns
-        assert isinstance(df_5d["pred_sb_raw"].iloc[0], list)
-        assert len(df_5d["pred_sb_raw"].iloc[0]) == 5
+        assert "pred_lr_sb" in df_5d.columns
+        assert isinstance(df_5d["pred_lr_sb"].iloc[0], list)
+        assert len(df_5d["pred_lr_sb"].iloc[0]) == 5
         
         # Gate 4: Stochastic Classification
-        assert "pred_sb_prob" in df_5d.columns
-        assert isinstance(df_5d["pred_sb_prob"].iloc[0], list)
-        assert len(df_5d["pred_sb_prob"].iloc[0]) == 5
+        assert "pred_by_sb" in df_5d.columns
+        assert isinstance(df_5d["pred_by_sb"].iloc[0], list)
+        assert len(df_5d["pred_by_sb"].iloc[0]) == 5
 
     def test_gate_5_to_8_integrity_and_collision(self, history_scaffold):
         """Gates 5-8: Verify actuals protection, cleanup, and multi-target symmetry."""
@@ -93,8 +93,8 @@ class TestNamingEngineFalsification:
         # Both sb and ns must have their triplet (Actual, Raw, Prob)
         for target in ["sb", "ns"]:
             assert target in cols
-            assert f"pred_{target}_raw" in cols
-            assert f"pred_{target}_prob" in cols
+            assert f"pred_lr_{target}" in cols
+            assert f"pred_by_{target}" in cols
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -49,7 +49,16 @@ Data content modification (scaling, augmentation, binarization) is a strategic a
 
 ---
 
-## 6. Consequences
+## 6. Law 6: The Prefix-Purity Law (No False Comfort)
+We reject the practice of renaming columns (e.g., `lr_` to `ln_`) as they undergo mathematical transformations. 
+*   **The Principle:** Column prefixes describe **Semantic Intent** (Linear vs. Binary), not **Numerical Scale** (Logged vs. Raw).
+*   **Authority:** The `config` Fit/Transform state is the only authoritative record of a column's current scale. 
+*   **False Comfort:** Changing a prefix does not prove a transformation occurred; it only creates a misleading audit trail. We preserve the original name and trust the `config` to govern the math.
+*   **The Edge Exception:** Standard prefixes (`pred_lr_`, `pred_by_`) are enforced only at the **I/O Edges** to satisfy external consumers.
+
+---
+
+## 7. Consequences
 By following these laws, we trade **Initial Speed** for **Permanent Trust**. 
 *   It takes longer to set up a run (because the config is verbose).
 *   It is harder to write new features (because they must be verified against ADRs).

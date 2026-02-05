@@ -143,13 +143,16 @@ class FeatureScaler:
         c_idx = vh.get_axis_idx("C")
         
         for i, channel_name in enumerate(vh.channel_map):
-            # Strip internal suffixes to find the base semantic name
-            base_name = channel_name.replace("_INTERNAL_SIGNAL", "").replace("_INTERNAL_PROB", "")
-            
-            # If it's a classification head (prob), we don't inverse-transform it 
-            # (probabilities are already in a standard 0-1 scale)
-            if "_INTERNAL_PROB" in channel_name:
+            # ADR 032: Handle both actuals (lr_sb) and predictions (pred_lr_sb)
+            # 1. Identify intent (Linear vs Binary)
+            if "by_" in channel_name:
+                # Binary/Probability heads are never inverse-transformed
                 continue
+            
+            # 2. Extract base target name by stripping standard prefixes
+            # Example: pred_lr_sb_best -> sb_best
+            # Example: lr_sb_best -> sb_best
+            base_name = channel_name.replace("pred_", "").replace("lr_", "")
 
             method = method_lookup.get(base_name)
             if method and method in TRANSFORMS:

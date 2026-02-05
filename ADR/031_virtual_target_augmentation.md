@@ -26,8 +26,8 @@ A "Virtual Column" is a column that the system *expects* to exist, but the Manag
 
 ### Logic:
 For any target `T` in `config["targets"]`:
-If `T` ends with `_binarized` and is missing from the data:
-1. Look for `Base = T.replace("_binarized", "")`.
+If `T` starts with `by_` and is missing from the data:
+1. Look for `Base = T.replace("by_", "lr_")`.
 2. If `Base` exists, calculate `T = (Base > 0).astype(float)`.
 
 ---
@@ -45,7 +45,7 @@ def augmented_read_dataframe(path):
     df = original_read_dataframe(path)
     # Apply Virtual Column logic
     for target in self.configs["targets"]:
-        if target.endswith("_binarized") and target not in df.columns:
+        if target.startswith("by_") and target not in df.columns:
             # ... calculation ...
     return df
 ```
