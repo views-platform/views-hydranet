@@ -21,9 +21,12 @@ from views_hydranet.utils.data_fetcher import DataFetcher
 from views_hydranet.utils.data_sniffer import DataSniffer
 from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.hydranet_inference import HydraNetInference
+from views_hydranet.utils.model_artifact_evaluator import ModelArtifactEvaluator
 from views_hydranet.utils.utils_contract_converters import (
     validate_contract_dataframes,
 )
+
+from views_hydranet.utils.model_artifact_fetcher import ModelArtifactFetcher
 from views_hydranet.utils.utils_device import setup_device
 from views_hydranet.utils.utils_orchestration import get_rolling_origin_indices
 from views_hydranet.utils.volume_handler import VolumeHandler
@@ -49,16 +52,6 @@ class HydranetManager(ForecastingModelManager):
         self.set_dataframe_format(format=".parquet")
         self._model_path = model_path
 
-    def _augment_dataframe(self, df: pd.DataFrame, requested_targets: list[str]) -> pd.DataFrame:
-        """Augments the dataframe with derived columns (binarization only)."""
-        df_aug = df.copy()
-        for target in requested_targets:
-            if "binarized" in target:
-                source_col = target.replace("_binarized", "")
-                if source_col in df_aug.columns:
-                     df_aug[target] = (df_aug[source_col] > 0).astype(float)
-        return df_aug
-
     def _execute_model_training(self) -> None:
         """HydraNet specific training override."""
         logger.info(f"Starting HydraNet training: {self.configs['run_type']}")
@@ -68,8 +61,8 @@ class HydranetManager(ForecastingModelManager):
         self.configs = ConfigInitializer(self.configs).get_config()
 
         # 1. Ingest
-        fetcher = DataFetcher(self._model_path.data_raw, self.configs)
-        df = fetcher.fetch_df()
+        data_fetcher = DataFetcher(self._model_path.data_raw, self.configs)
+        df = data_fetcher.fetch_df()
         df = DataFetcher.standardize_raw_df(df, self.configs)
 
         # 2. Sniff
@@ -81,138 +74,60 @@ class HydranetManager(ForecastingModelManager):
         df = scaler.fit_transform(df)
 
         # 4. Transform: DataFrame -> Volume (Absolute Anchoring)
-        handler = VolumeHandler.from_df(
-            df,
-            self.configs,
-            height=self.configs["height"],
-            width=self.configs["width"]
-        )
+        handler = VolumeHandler.from_df(df, self.configs)
 
         # PEACE OF MIND GATE: Uncomment to visually verify the raster before training
-        # handler.visual_audit()
+        #handler.visual_audit()
 
         # 5. Train
         train_model_artifact(self._model_path, self.configs, self.device, handler)
 
-    def _execute_model_evaluation(self) -> None:
-        """HydraNet specific evaluation override."""
-        import os
-
-        from views_pipeline_core.files.utils import read_dataframe, save_dataframe
-
-        targets = self.configs.get("targets", [])
-        run_type = self.configs["run_type"]
-        original_raw_path = self._model_path.data_raw
-        actuals_filename = f"{run_type}_viewser_df.parquet"
-        original_actuals_path = original_raw_path / actuals_filename
-
-        shadow_raw_dir = self._model_path.artifacts / "tmp_eval_data"
-        shadow_raw_dir.mkdir(parents=True, exist_ok=True)
-        shadow_actuals_path = shadow_raw_dir / actuals_filename
-
-        try:
-            df = read_dataframe(original_actuals_path)
-            df_augmented = self._augment_dataframe(df, targets)
-            save_dataframe(df_augmented, shadow_actuals_path)
-
-            for f in original_raw_path.iterdir():
-                if f.is_file() and f.name != actuals_filename:
-                    shadow_link = shadow_raw_dir / f.name
-                    if not shadow_link.exists():
-                        os.symlink(f, shadow_link)
-
-            self._model_path.data_raw = shadow_raw_dir
-            super()._execute_model_evaluation()
-
-        finally:
-            self._model_path.data_raw = original_raw_path
-            if shadow_raw_dir.exists():
-                for f in shadow_raw_dir.iterdir():
-                    if f.is_file() or f.is_symlink():
-                        os.remove(f)
-                os.rmdir(shadow_raw_dir)
-
-    def _load_model_artifact(self, artifact_name: str | None = None) -> tuple[torch.nn.Module, str]:
-        """Loads a model artifact."""
-        if artifact_name:
-            path_model_artifact = self._model_path.artifacts / (artifact_name if artifact_name.endswith(".pt") else artifact_name + ".pt")
-        else:
-            path_model_artifact = self._model_path.get_latest_model_artifact_path(self.configs["run_type"])
-
-        if not path_model_artifact.exists():
-            raise FileNotFoundError(f"Model artifact not found at {path_model_artifact}")
-
-        model = torch.load(path_model_artifact, map_location="cpu", weights_only=False)
-        model.to(self.device)
-        return model, path_model_artifact.stem[-15:]
-
     def _evaluate_model_artifact(self, eval_type: str, artifact_name: str | None = None) -> list[pd.DataFrame]:
-        """Orchestrates rolling-origin evaluation."""
+        """Orchestrates rolling-origin evaluation via specialized component."""
+        
+        # 0. Strict Config Handshake (ADR 008/015)
         self.configs = ConfigInitializer(self.configs).get_config()
-        run_type = self.configs["run_type"]
-        fetcher = DataFetcher(self._model_path.data_raw, self.configs)
-        df = DataFetcher.standardize_raw_df(fetcher.fetch_df(), self.configs)
 
+        # 1. Fetch model artifact
+        # Handshake with PipelineConfigManager if available, fallback to direct config
+        add_config_fn = self._config_manager.add_config if hasattr(self, '_config_manager') else (lambda x: None)
+        
+        model_fetcher = ModelArtifactFetcher(
+            self._model_path.artifacts,
+            self._model_path.get_latest_model_artifact_path(self.configs["run_type"]),
+            self.configs,
+            add_config_fn,
+            self.device
+        )
+        model, _ = model_fetcher.fetch_model_artifact()
+
+        # 2. Ingest
+        data_fetcher = DataFetcher(self._model_path.data_raw, self.configs)
+        df = data_fetcher.fetch_df()
+        df = DataFetcher.standardize_raw_df(df, self.configs)
+
+        # 3. Sniff
         sniffer = DataSniffer(self.configs)
         sniffer.sniff_ingestion(df)
 
+        # 4. Scale
         scaler = FeatureScaler(self.configs)
         df = scaler.fit_transform(df)
 
-        # 4. Transform: Canonical Inbound Volume
-        handler = VolumeHandler.from_df(
-            df,
-            self.configs,
-            height=self.configs["height"],
-            width=self.configs["width"]
-        )
-
+        # 5. Transform: Canonical Inbound Volume
+        handler = VolumeHandler.from_df(df, self.configs)
         sniffer.sniff_forecast_alignment(df, handler, is_forecast=False)
 
-        model, model_time_stamp = self._load_model_artifact(artifact_name)
-        time_steps = len(self.configs["steps"])
-        num_windows = 12 if run_type in ["calibration", "validation"] else 1
+        # 6. Evaluate via Specialized Actor (ADR 024)
+        evaluator = ModelArtifactEvaluator(self.configs, model, self.device)
+        list_df_predictions = evaluator.evaluate(handler, scaler)
 
-        origins = get_rolling_origin_indices(handler.shape[0], time_steps, num_windows)
-        inference = HydraNetInference(model, self.configs, device=self.device)
-        list_df_predictions = []
-
-        for i, origin in enumerate(origins):
-            # The inference engine now consumes the carrier handler
-            posterior_zstack, _ = inference.generate_posterior_samples(
-                handler, is_evaluation=True, window_info=f"Origin {i+1}/{len(origins)}"
-            )
-
-            # --- THE SYMMETRY ENGINE (ADR 020 / ADR 021) ---
-            # 1. Dress raw tensors
-            base_names = self.configs["classification_outputs"]
-            pred_handler = handler.wrap_predictions(posterior_zstack, base_names=base_names)
-
-            # 2. THE FINAL HANDSHAKE (Immediate Raw Inversion)
-            # Move back to count-space while in compact NumPy memory
-            pred_handler = scaler.inverse_transform_volume(pred_handler)
-
-            # 3. DIMENSION REDUCTION (RAM Survival Gate)
-            if self.configs["evalution_mode"] == "point":
-                pred_handler = pred_handler.collapse_to_point(method=self.configs["aggregate_method"])
-
-            # 4. Reconstruct DataFrame from the already-raw volume
-            df_origin = pred_handler.to_evaluation_df(history=handler, start_idx=origin + 1)
-
-            if df_origin is not None:
-                # The Subsetting Gate (ADR 016 Sec 5.2)
-                # Keep only the requested targets (Actuals + Preds)
-                requested_targets = self.configs["targets"]
-                final_cols = []
-                for t in requested_targets:
-                    for col in [t, f"pred_{t}_raw", f"pred_{t}_prob"]:
-                        if col in df_origin.columns:
-                            final_cols.append(col)
-
-                list_df_predictions.append(df_origin[final_cols])
-
-        validate_contract_dataframes(list_df_predictions)
         return list_df_predictions
+
+
+
+
+
 
     def _forecast_model_artifact(self, artifact_name: str | None = None) -> list[pd.DataFrame]:
         """Generates operational forecasts."""
@@ -227,25 +142,31 @@ class HydranetManager(ForecastingModelManager):
         df = scaler.fit_transform(df)
 
         # 4. Transform: Canonical Inbound Volume
-        handler = VolumeHandler.from_df(
-            df,
-            self.configs,
-            height=self.configs["height"],
-            width=self.configs["width"]
-        )
-
+        handler = VolumeHandler.from_df(df, self.configs)
         sniffer.sniff_forecast_alignment(df, handler, is_forecast=False)
 
-        model, _ = self._load_model_artifact(artifact_name)
+        model_fetcher = ModelArtifactFetcher(
+            self._model_path.artifacts,
+            self._model_path.get_latest_model_artifact_path(self.configs["run_type"]),
+            self.configs,
+            (self._config_manager.add_config if hasattr(self, '_config_manager') else (lambda x: None)),
+            self.device
+        )
+        model, _ = model_fetcher.fetch_model_artifact()
+
         inference = HydraNetInference(model, self.configs, device=self.device)
         posterior_zstack, _ = inference.generate_posterior_samples(handler, is_evaluation=False)
 
-        # --- THE SYMMETRY ENGINE (ADR 020 / ADR 021) ---
+        # --- THE SYMMETRY ENGINE (ADR 020 / ADR 021 / ADR 023) ---
+        # 1. Temporal Alignment: Extrapolate the identity scaffold into the future
+        # so the watermarks (IDs) match the forecast duration.
+        duration = posterior_zstack.shape[0] if not torch.is_tensor(posterior_zstack) else posterior_zstack.shape[1]
+        future_handler = handler.extrapolate_time(duration)
+
         base_names = self.configs["classification_outputs"]
-        pred_handler = handler.wrap_predictions(posterior_zstack, base_names=base_names)
+        pred_handler = future_handler.wrap_predictions(posterior_zstack, base_names=base_names)
 
         # 2. THE FINAL HANDSHAKE (Immediate Raw Inversion)
-        # Move back to count-space while in compact NumPy memory
         pred_handler = scaler.inverse_transform_volume(pred_handler)
 
         # 3. DIMENSION REDUCTION (RAM Survival Gate)
@@ -256,8 +177,7 @@ class HydranetManager(ForecastingModelManager):
         df_full = pred_handler.to_forecast_df(history=handler)
 
         if df_full is not None:
-            # The Subsetting Gate (ADR 016 Sec 5.2)
-            # Keep only the requested targets (Actuals + Preds)
+            # The Subsetting Gate
             requested_targets = self.configs["targets"]
             final_cols = []
             for t in requested_targets:
