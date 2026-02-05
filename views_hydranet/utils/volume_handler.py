@@ -1,5 +1,6 @@
 "VolumeHandler: Authoritative Layout Management for Spatiotemporal Volumes."
 
+import gc
 import logging
 from dataclasses import dataclass, field, replace
 from typing import Any, Dict, List, Tuple, Union
@@ -201,35 +202,71 @@ class VolumeHandler:
     ) -> 'VolumeHandler':
         """
         Creates a new VolumeHandler for model outputs, anchored to this handler's ledger.
-        Automatically applies ADR 020 naming Engine.
+        Automatically applies ADR 020 naming Engine and Watermarks the volume with IDs.
         """
         # 1. Automated Naming (Internal Symmetry Gate)
         reg_names = [f"{n}_INTERNAL_SIGNAL" for n in base_names]
         prob_names = [f"{n}_INTERNAL_PROB" for n in base_names]
-        full_signal_names = reg_names + prob_names
-
-        if posterior_data.ndim == 5:
-            if torch.is_tensor(posterior_data):
-                # Assume [B=1, T, C, H, W] -> [T, H, W, C]
-                work_data = posterior_data.squeeze(0).permute(0, 2, 3, 1)
-                axes = ("T", "H", "W", "C")
-            else:
-                # Assume [T, H, W, C, S] -> Preserve Samples
-                work_data = posterior_data
-                axes = ("T", "H", "W", "C", "S")
+        
+        # 2. THE WATERMARK (Red Team Hardening)
+        # We prepend the identity channels (Time, ID) to the prediction data
+        # so the prediction volumes are "Self-Describing" and Join-Safe.
+        time_col = self._metadata.time_col
+        id_col = self._metadata.id_col
+        
+        # Extract ID channels from self (Point to the shared indices)
+        time_idx = self.channel_map.index(time_col)
+        id_idx = self.channel_map.index(id_col)
+        
+        # Normalize Data Layout to [T, H, W, C, (S)]
+        if torch.is_tensor(posterior_data):
+            # Input is [B=1, T, C, H, W] -> [T, H, W, C]
+            work_data = posterior_data.squeeze(0).permute(0, 2, 3, 1).cpu().numpy()
         else:
             work_data = posterior_data
+
+        # 3. DURATION GUARD (ADR 015 - Fail Loud)
+        # The signal must match the temporal duration of its carrier handler.
+        if work_data.shape[0] != self.shape[0]:
+            raise ValueError(
+                f"VolumeHandler Contract Violation: Signal duration ({work_data.shape[0]}) "
+                f"does not match Handler duration ({self.shape[0]})."
+            )
+
+        if work_data.ndim == 5:
+            # Stochastic: [T, H, W, C, S]
+            axes = ("T", "H", "W", "C", "S")
+            n_samples = work_data.shape[-1]
+            
+            # self.data is [T, H, W, C]
+            t_slice = self.data[..., time_idx : time_idx + 1] # [T, H, W, 1]
+            time_watermark = np.expand_dims(t_slice, axis=-1) # [T, H, W, 1, 1]
+            time_watermark = np.repeat(time_watermark, n_samples, axis=-1) # [T, H, W, 1, S]
+            
+            id_slice = self.data[..., id_idx : id_idx + 1] # [T, H, W, 1]
+            id_watermark = np.expand_dims(id_slice, axis=-1) # [T, H, W, 1, 1]
+            id_watermark = np.repeat(id_watermark, n_samples, axis=-1) # [T, H, W, 1, S]
+            
+            full_data = np.concatenate([time_watermark, id_watermark, work_data], axis=-2)
+        else:
+            # Point: [T, H, W, C]
             axes = ("T", "H", "W", "C")
+            time_watermark = self.data[..., time_idx : time_idx + 1]
+            id_watermark = self.data[..., id_idx : id_idx + 1]
+            
+            full_data = np.concatenate([time_watermark, id_watermark, work_data], axis=-1)
+
+        full_signal_names = [time_col, id_col] + reg_names + prob_names
 
         return VolumeHandler(
-            data=work_data,
+            data=full_data,
             axes=axes,
             channel_map=full_signal_names,
-            time_col=self._metadata.time_col,
-            id_col=self._metadata.id_col,
+            time_col=time_col,
+            id_col=id_col,
             spatial_cols=self._metadata.spatial_cols,
-            identity_cols=self._metadata.identity_cols,
-            feature_cols=tuple(full_signal_names),
+            identity_cols=(time_col, id_col),
+            feature_cols=tuple(reg_names + prob_names),
             spatial_offset=self._metadata.spatial_offset
         )
 
@@ -307,7 +344,8 @@ class VolumeHandler:
         """
         Shared logic: Align, Mask, Flatten, and Combine.
         Handles both Point (4D) and Stochastic (5D) volumes.
-        Uses Polars/Arrow Bridge for RAM scalability (ADR 023).
+        Uses an Iterative Watermarked Bridge (ADR 023) to ensure 
+        absolute topographic integrity and RAM scalability.
         """
         # 1. Align Self (Signal)
         temp_data = self._data.detach().cpu().numpy() if torch.is_tensor(self._data) else self._data.copy()
@@ -317,7 +355,6 @@ class VolumeHandler:
             t_idx, h_idx, w_idx, c_idx, s_idx = self.get_axis_idx("T"), self.get_axis_idx("H"), self.get_axis_idx("W"), self.get_axis_idx("C"), self.get_axis_idx("S")
             temp_data = np.transpose(temp_data, (h_idx, w_idx, t_idx, c_idx, s_idx))
             temp_data = np.flip(temp_data, axis=0)
-            n_samples = self.shape[s_idx]
         else:
             t_idx, h_idx, w_idx, c_idx = self.get_axis_idx("T"), self.get_axis_idx("H"), self.get_axis_idx("W"), self.get_axis_idx("C")
             temp_data = np.transpose(temp_data, (h_idx, w_idx, t_idx, c_idx))
@@ -332,44 +369,103 @@ class VolumeHandler:
         # 3. Mask via Scaffold ID
         id_col = provider._metadata.id_col
         pg_idx = provider.channel_map.index(id_col)
+        time_col = provider._metadata.time_col
+        time_idx = provider.channel_map.index(time_col)
+        
         mask = p_data[:, :, :, pg_idx] > 0
         indices = np.where(mask)
-        n_rows = len(indices[0])
 
-        reconstructed_cols = {}
-        # 4. Identities & Actuals from Provider (Scaffold)
-        for i, name in enumerate(provider.channel_map):
-            if name in provider._metadata.identity_cols:
-                vals = p_data[indices[0], indices[1], indices[2], i]
-                if name in ["priogrid_gid", "month_id", "row", "col", "c_id"] or \
-                   name == provider._metadata.time_col or \
-                   name == provider._metadata.id_col:
-                    reconstructed_cols[name] = vals.astype(np.int32)
-                else:
-                    reconstructed_cols[name] = vals.astype(np.float32)
-            elif name in provider._metadata.feature_cols:
-                # ADR 007 Hardening: Prefix Actuals to prevent collision with Predictions
-                vals = p_data[indices[0], indices[1], indices[2], i]
-                reconstructed_cols[f"ACTUAL_INTERNAL_{name}"] = vals.astype(np.float32)
-
-        # 5. Extract Features/Predictions from Self (Signal)
-        for i, name in enumerate(self.channel_map):
-            if name in reconstructed_cols:
-                continue
-            if has_samples:
-                # OPTIMIZED STOCHASTIC PATH (ADR 023)
-                # Instead of list comprehension, use Arrow ListArray
-                vals_flat = temp_data[indices[0], indices[1], indices[2], i, :].ravel()
-                offsets = np.arange(0, (n_rows + 1) * n_samples, n_samples, dtype=np.int32)
-                reconstructed_cols[name] = pa.ListArray.from_arrays(offsets, vals_flat)
-            else:
-                reconstructed_cols[name] = temp_data[indices[0], indices[1], indices[2], i].astype(np.float32)
-
-        # 6. Polars Bridge
-        df_pl = pl.from_arrow(pa.table(reconstructed_cols))
+        # 4. Initialize Polars Scaffold (The Source of Truth)
+        scaffold_cols = {
+            time_col: p_data[indices[0], indices[1], indices[2], time_idx].astype(np.int32),
+            id_col: p_data[indices[0], indices[1], indices[2], pg_idx].astype(np.int32)
+        }
         
-        # 7. Zero-Copy Handshake to Pandas (Arrow Extension Backed)
-        df_out = df_pl.to_pandas(use_pyarrow_extension_array=True)
+        # Add Actuals to Scaffold
+        for i, name in enumerate(provider.channel_map):
+            if name in [time_col, id_col]: continue
+            if name in provider._metadata.identity_cols:
+                scaffold_cols[name] = p_data[indices[0], indices[1], indices[2], i].astype(np.float32)
+            elif name in provider._metadata.feature_cols:
+                scaffold_cols[f"ACTUAL_INTERNAL_{name}"] = p_data[indices[0], indices[1], indices[2], i].astype(np.float32)
+
+        pl_master = pl.DataFrame(scaffold_cols)
+        del p_data, scaffold_cols
+        gc.collect()
+
+        # 5. Iterative Watermarked Join (One Column at a Time)
+        try:
+            head_id_idx = self.channel_map.index(id_col)
+            head_time_idx = self.channel_map.index(time_col)
+        except ValueError:
+            head_id_idx = None 
+            head_time_idx = None
+
+        for i, name in enumerate(self.channel_map):
+            if name in pl_master.columns: continue
+            
+            # Create Watermarked Head
+            if head_id_idx is not None:
+                if has_samples:
+                    # STOCHASTIC WATERMARK: Extract first sample only for IDs (Join keys must be scalar)
+                    head_dict = {
+                        time_col: temp_data[indices[0], indices[1], indices[2], head_time_idx, 0].astype(np.int32),
+                        id_col: temp_data[indices[0], indices[1], indices[2], head_id_idx, 0].astype(np.int32),
+                        name: temp_data[indices[0], indices[1], indices[2], i, :]
+                    }
+                else:
+                    # POINT WATERMARK: Standard extraction
+                    head_dict = {
+                        time_col: temp_data[indices[0], indices[1], indices[2], head_time_idx].astype(np.int32),
+                        id_col: temp_data[indices[0], indices[1], indices[2], head_id_idx].astype(np.int32),
+                        name: temp_data[indices[0], indices[1], indices[2], i]
+                    }
+            else:
+                # POSITION FALLBACK: Re-use scaffold IDs (Vulnerable to shuffle)
+                head_dict = {
+                    time_col: pl_master[time_col], 
+                    id_col: pl_master[id_col],
+                    name: temp_data[indices[0], indices[1], indices[2], i, :] if has_samples else temp_data[indices[0], indices[1], indices[2], i]
+                }
+
+            df_head = pl.DataFrame(head_dict)
+            
+            # Explicit Join (Red Team Proof)
+            pl_master = pl_master.join(df_head, on=[time_col, id_col], how="left")
+            del df_head
+            gc.collect()
+
+        # 6. Iterative Safe Handshake to Pandas (Legacy Compatibility)
+        # We build the Pandas DataFrame column by column to keep the 'Object Tax'
+        # limited to exactly one column's worth of Python lists.
+        df_out = pl_master.select([time_col, id_col]).to_pandas()
+        
+        for col in pl_master.columns:
+            if col in [time_col, id_col]: continue
+            
+            # Determine canonical outbound name (ADR 020)
+            if "INTERNAL_SIGNAL" in col:
+                new_name = f"{PRED_PREFIX}{col.replace('_INTERNAL_SIGNAL', '')}{REG_SUFFIX}"
+            elif "INTERNAL_PROB" in col:
+                new_name = f"{PRED_PREFIX}{col.replace('_INTERNAL_PROB', '')}{PROB_SUFFIX}"
+            elif "ACTUAL_INTERNAL_" in col:
+                new_name = col.replace("ACTUAL_INTERNAL_", "")
+            else:
+                new_name = col
+
+            # Safe Export: Use to_list() for stochastic channels to ensure compatibility
+            if has_samples and col in self.channel_map:
+                df_out[new_name] = pl_master[col].to_list()
+            else:
+                df_out[new_name] = pl_master[col].to_pandas()
+            
+            gc.collect()
+
+        # 7. Final Topographical Restoration
+        if time_col in df_out.columns and id_col in df_out.columns:
+            df_out = df_out.set_index([time_col, id_col])
+
+        return df_out
 
         # 8. Automatic Symmetry Recovery (ADR 020)
         final_rename = {}

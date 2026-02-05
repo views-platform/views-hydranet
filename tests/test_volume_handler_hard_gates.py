@@ -26,7 +26,7 @@ def test_gate_11_identity_striping():
         'row': [10, 10], 'col': [20, 21],
         'feature_a': [1.0, 2.0], 'feature_b': [0.0, 0.0]
     })
-    handler = VolumeHandler.from_df(df, PHYSICS_CFG, height=4, width=4)
+    handler = VolumeHandler.from_df(df, PHYSICS_CFG)
     tensor = handler.to_pytorch(torch.device('cpu'), include_identities=False)
 
     # 2 features, T=1, H=4, W=4
@@ -57,7 +57,7 @@ def test_gate_13_14_topography_restoration():
         'row': [10, 10], 'col': [20, 21],
         'feature_a': [10.0, 20.0], 'feature_b': [5.0, 5.0]
     })
-    handler = VolumeHandler.from_df(df_hist, PHYSICS_CFG, height=4, width=4)
+    handler = VolumeHandler.from_df(df_hist, PHYSICS_CFG)
 
     # Simulate a 4-channel prediction (2 reg, 2 class)
     # feature_a_raw, feature_b_raw, feature_a_prob, feature_b_prob
@@ -80,7 +80,7 @@ def test_gate_15_geographic_anchoring():
         'row': [10], 'col': [20], # Matches offsets exactly
         'feature_a': [1.0], 'feature_b': [1.0]
     })
-    handler = VolumeHandler.from_df(df, PHYSICS_CFG, height=4, width=4)
+    handler = VolumeHandler.from_df(df, PHYSICS_CFG)
     data = handler.data # [T, H, W, C]
 
     # Coordinates (10, 20) with offsets (10, 20) should map to grid index (0, 0)

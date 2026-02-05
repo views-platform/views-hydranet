@@ -25,7 +25,8 @@ def test_classification_and_raw_suffixes():
     })
     
     # Initialize Handler
-    handler = VolumeHandler.from_df(df, config, height=2, width=2)
+    config["height"], config["width"] = 2, 2
+    handler = VolumeHandler.from_df(df, config)
     
     # Simulate posterior: 1 Batch, 1 Time, 2 Channels (1 Signal, 1 Prob), 2 Height, 2 Width
     # We provide 1 base name "target", so we expect 2 output channels: target_INTERNAL_SIGNAL, target_INTERNAL_PROB

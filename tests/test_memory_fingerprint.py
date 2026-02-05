@@ -52,21 +52,32 @@ def audit_memory_explosion(n_samples_list: List[int], grid_dim: int = 180, n_mon
         state_d_mem = get_process_memory_gb() - baseline_mem
         print(f"State D (Polars DF): {state_d_mem:.4f} GB (Consolidation took {time.time()-start_time:.2f}s)")
 
+        # STATE E: Pandas DataFrame (NumPy arrays in cells)
+        start_time = time.time()
+        # Create a dictionary of numpy arrays
+        reconstructed_np = {"pred_sb_raw": [row for row in flattened]}
+        df_pd_np = pd.DataFrame(reconstructed_np)
+        state_e_mem = get_process_memory_gb() - baseline_mem
+        print(f"State E (Pandas with NumPy cells): {state_e_mem:.4f} GB (Consolidation took {time.time()-start_time:.2f}s)")
+
         pandas_tax = state_c_mem / actual_data_size
         polars_tax = state_d_mem / actual_data_size
-        print(f"Calculated Object Tax -> Pandas: {pandas_tax:.2f}x | Polars: {polars_tax:.2f}x")
+        numpy_cell_tax = state_e_mem / actual_data_size
+        print(f"Calculated Object Tax -> Pandas (List): {pandas_tax:.2f}x | Polars: {polars_tax:.2f}x | Pandas (NumPy): {numpy_cell_tax:.2f}x")
 
         results.append({
             "n_samples": n,
             "numpy_gb": state_a_mem,
             "pandas_gb": state_c_mem,
             "polars_gb": state_d_mem,
+            "pandas_np_gb": state_e_mem,
             "pandas_tax": pandas_tax,
-            "polars_tax": polars_tax
+            "polars_tax": polars_tax,
+            "numpy_cell_tax": numpy_cell_tax
         })
 
         # Cleanup
-        del vol, reconstructed, flattened, df_pd, df_pl
+        del vol, reconstructed, flattened, df_pd, df_pl, reconstructed_np, df_pd_np
         time.sleep(1)
 
     return results
@@ -78,6 +89,7 @@ def plot_results(results: List[Dict]):
     plt.plot(df["n_samples"], df["numpy_gb"], marker='o', label="NumPy (Contiguous)")
     plt.plot(df["n_samples"], df["pandas_gb"], marker='x', label="Pandas (List-in-Cell)")
     plt.plot(df["n_samples"], df["polars_gb"], marker='v', label="Polars (List-in-Series)")
+    plt.plot(df["n_samples"], df["pandas_np_gb"], marker='s', label="Pandas (NumPy-in-Cell)")
     
     plt.title("Memory Fingerprint: Pandas vs. Polars for Stochastic Reconstruction")
     plt.xlabel("Number of Stochastic Samples")
