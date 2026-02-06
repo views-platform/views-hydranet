@@ -128,17 +128,17 @@ class TestPipelineIntegration:
             )
 
             with patch("views_hydranet.manager.hydranet_manager.ModelArtifactFetcher") as mock_art_fetch_cls, \
-                 patch("views_hydranet.manager.hydranet_manager.ModelArtifactEvaluator") as mock_eval_cls:
+                 patch("views_hydranet.manager.hydranet_manager.BacktestOrchestrator") as mock_eval_cls:
                 
                 mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (real_model, "toy_artifact")
                 
-                # Mock Evaluator output
+                # Mock Orchestrator output
                 # We need to return a DF that has the columns checked later in the test
                 df_mock = toy_dataframe.copy()
-                df_mock["pred_lr_sb_best_raw"] = 0.5
-                df_mock["pred_lr_sb_best_prob"] = 0.9
+                df_mock["pred_lr_sb_best"] = 0.5
+                df_mock["pred_by_sb_best"] = 0.9
                 df_mock = df_mock.set_index(["month_id", "priogrid_gid"])
-                mock_eval_cls.return_value.evaluate.return_value = [df_mock]
+                mock_eval_cls.return_value.generate_rolling_forecasts.return_value = [df_mock]
 
                 # 4. EXECUTE THE CRITICAL PATH
                 predictions = manager._evaluate_model_artifact(eval_type="calibration")
@@ -149,8 +149,8 @@ class TestPipelineIntegration:
                 df_pred = predictions[0]
 
                 # Verify Naming Engine Results
-                assert "pred_lr_sb_best_raw" in df_pred.columns
-                assert "pred_lr_sb_best_prob" in df_pred.columns
+                assert "pred_lr_sb_best" in df_pred.columns
+                assert "pred_by_sb_best" in df_pred.columns
 
                 # Verify Inclusion of Actuals
                 assert "lr_sb_best" in df_pred.columns
@@ -159,7 +159,7 @@ class TestPipelineIntegration:
                 assert df_pred.index.names == ["month_id", "priogrid_gid"]
 
                 # Verify Subsetting (should NOT include ns or os preds since not in 'targets')
-                assert "pred_lr_ns_best_raw" not in df_pred.columns
+                assert "pred_lr_ns_best" not in df_pred.columns
 
                 assert len(df_pred) > 0
 

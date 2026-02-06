@@ -75,7 +75,7 @@ class TestSubsetSymmetryAudit:
                 with patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetcher_cls, \
                      patch("views_hydranet.manager.hydranet_manager.FeatureScaler") as mock_scaler_cls, \
                      patch("views_hydranet.manager.hydranet_manager.ModelArtifactFetcher") as mock_art_fetch_cls, \
-                     patch("views_hydranet.manager.hydranet_manager.ModelArtifactEvaluator") as mock_eval_cls:
+                     patch("views_hydranet.manager.hydranet_manager.BacktestOrchestrator") as mock_eval_cls:
                     
                     mock_fetcher_cls.return_value.fetch_df.return_value = df_hist
                     mock_fetcher_cls.standardize_raw_df.side_effect = lambda x, y: x
@@ -85,13 +85,13 @@ class TestSubsetSymmetryAudit:
                     
                     mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (MagicMock(), "audit")
                     
-                    # Mock Evaluator output to match Gate expectations
+                    # Mock Orchestrator output to match Gate expectations
                     df_mock = pd.DataFrame({
                         'lr_sb_best': [10.0]*20,
-                        'pred_lr_sb_best_raw': [100.0]*20
+                        'pred_lr_sb_best': [100.0]*20
                     }, index=pd.MultiIndex.from_product([[11], range(1, 21)], names=['month_id', 'priogrid_gid']))
                     
-                    mock_eval_cls.return_value.evaluate.return_value = [df_mock]
+                    mock_eval_cls.return_value.generate_rolling_forecasts.return_value = [df_mock]
 
                     # RUN EVALUATION
                     results = manager._evaluate_model_artifact(eval_type="audit")
@@ -101,8 +101,8 @@ class TestSubsetSymmetryAudit:
                     cols = df_final.columns.tolist()
 
                     # Gate 26 (Isolation): NO NS or OS predictions
-                    assert "pred_lr_ns_best_raw" not in cols
-                    assert "pred_lr_os_best_raw" not in cols
+                    assert "pred_lr_ns_best" not in cols
+                    assert "pred_lr_os_best" not in cols
 
                     # Gate 27 (Actual Preservation): Actual is present
                     assert "lr_sb_best" in cols
@@ -112,7 +112,7 @@ class TestSubsetSymmetryAudit:
                     assert df_final.index.names == ["month_id", "priogrid_gid"]
 
                     # Gate 29 (Inverse Symmetry): Prediction was log1p(100), inverse is 100.0
-                    np.testing.assert_allclose(df_final["pred_lr_sb_best_raw"].iloc[0], 100.0, rtol=1e-5)
+                    np.testing.assert_allclose(df_final["pred_lr_sb_best"].iloc[0], 100.0, rtol=1e-5)
 
                     # Gate 30 (Collision Immunity): Actual was log1p(10), inverse is 10.0
                     np.testing.assert_allclose(df_final["lr_sb_best"].iloc[0], 10.0, rtol=1e-5)

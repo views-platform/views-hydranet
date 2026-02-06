@@ -21,7 +21,7 @@ from views_hydranet.utils.data_fetcher import DataFetcher
 from views_hydranet.utils.data_sniffer import DataSniffer
 from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.hydranet_inference import HydraNetInference
-from views_hydranet.utils.model_artifact_evaluator import ModelArtifactEvaluator
+from views_hydranet.utils.backtest_orchestrator import BacktestOrchestrator
 from views_hydranet.utils.utils_contract_converters import (
     validate_contract_dataframes,
 )
@@ -118,11 +118,15 @@ class HydranetManager(ForecastingModelManager):
         handler = VolumeHandler.from_df(df, self.configs)
         sniffer.sniff_forecast_alignment(df, handler, is_forecast=False)
 
-        # 6. Evaluate via Specialized Actor (ADR 024)
-        evaluator = ModelArtifactEvaluator(self.configs, model, self.device)
-        list_df_predictions = evaluator.evaluate(handler, scaler)
+        # 6. Backtest Orchestration (ADR 024)
+        # We explicitly resolve the rolling-origin indices here to ensure transparency.
+        run_type = self.configs["run_type"]
+        time_steps = len(self.configs["steps"])
+        num_windows = 12 if run_type in ["calibration", "validation"] else 1
+        origins = get_rolling_origin_indices(handler.shape[0], time_steps, num_windows)
 
-        print(list_df_predictions)
+        orchestrator = BacktestOrchestrator(self.configs, model, self.device)
+        list_df_predictions = orchestrator.generate_rolling_forecasts(handler, scaler, origins=origins)
 
         return list_df_predictions
 

@@ -118,7 +118,12 @@ class VolumeHandler:
         if missing:
             raise ValueError(f"VolumeHandler Handshake Failed! Missing columns: {missing}")
 
-        channel_map = list(identity_cols) + list(feature_cols)
+        # The channel map is ordered: [Primary Keys] + [Metadata] + [Features]
+        # We ensure time_col and id_col are always first.
+        channel_map = [time_col, id_col]
+        for col in list(identity_cols) + list(feature_cols):
+            if col not in channel_map:
+                channel_map.append(col)
 
         # 2. Structural Anchoring
         month_min = df[time_col].min()
@@ -224,8 +229,18 @@ class VolumeHandler:
         time_col = self._metadata.time_col
         id_col = self._metadata.id_col
         
-        # Identify all non-feature channels from the parent
-        identity_names = [n for n in self.channel_map if n in self._metadata.identity_cols]
+        # Identify primary join keys from the parent
+        try:
+            head_time_idx = self.channel_map.index(time_col)
+            head_id_idx = self.channel_map.index(id_col)
+        except ValueError as e:
+            raise ValueError(
+                f"VolumeHandler Ledger Corruption: Primary index '{e}' missing from channel map. "
+                f"Prediction wrapping requires watermarked primary keys."
+            )
+        
+        # Identify all non-feature channels from the parent (excluding primary keys already handled)
+        identity_names = [n for n in self.channel_map if n in self._metadata.identity_cols and n not in [time_col, id_col]]
         identity_idxs = [self.channel_map.index(n) for n in identity_names]
         
         # Normalize Data Layout to [T, H, W, C, (S)]
@@ -243,6 +258,11 @@ class VolumeHandler:
                 f"does not match Handler duration ({self.shape[0]})."
             )
 
+        # 4. Concatenate Identity Watermarks
+        # Primary keys (Time, ID) must come first to ensure Join-Safety
+        primary_idxs = [head_time_idx, head_id_idx]
+        primary_names = [time_col, id_col]
+
         if work_data.ndim == 5:
             # Stochastic: [T, H, W, C, S]
             axes = ("T", "H", "W", "C", "S")
@@ -250,7 +270,7 @@ class VolumeHandler:
             
             # Extract and repeat identity watermarks
             id_vols = []
-            for idx in identity_idxs:
+            for idx in primary_idxs + identity_idxs:
                 slice_data = self.data[..., idx : idx + 1] # [T, H, W, 1]
                 watermark = np.expand_dims(slice_data, axis=-1) # [T, H, W, 1, 1]
                 watermark = np.repeat(watermark, n_samples, axis=-1) # [T, H, W, 1, S]
@@ -260,10 +280,10 @@ class VolumeHandler:
         else:
             # Point: [T, H, W, C]
             axes = ("T", "H", "W", "C")
-            id_vols = [self.data[..., idx : idx + 1] for idx in identity_idxs]
+            id_vols = [self.data[..., idx : idx + 1] for idx in primary_idxs + identity_idxs]
             full_data = np.concatenate(id_vols + [work_data], axis=-1)
 
-        full_signal_names = list(identity_names) + reg_names + prob_names
+        full_signal_names = primary_names + identity_names + reg_names + prob_names
 
         return VolumeHandler(
             data=full_data,
@@ -328,7 +348,7 @@ class VolumeHandler:
         """
         duration = self.data.shape[self.get_axis_idx("T")]
 
-        # Contract Validation
+        # Contract Validation (ADR 015)
         history_duration = history.data.shape[history.get_axis_idx("T")]
         if start_idx + duration > history_duration:
             raise ValueError(
@@ -389,22 +409,17 @@ class VolumeHandler:
             id_col: p_data[indices[0], indices[1], indices[2], pg_idx].astype(np.int32)
         }
         
-        # Add Actuals and Identities to Scaffold
-        # We explicitly generate binary actuals (by_) from linear actuals (lr_)
+        # Add Actuals and Identities to Scaffold from the provider's map
         for i, name in enumerate(provider.channel_map):
             if name in [time_col, id_col]: continue
             
-            # Carry Identity Columns (row, col, c_id, etc) from provider
-            if name in provider._metadata.identity_cols:
-                scaffold_cols[name] = p_data[indices[0], indices[1], indices[2], i].astype(np.float32)
-            
-            # Carry Linear Actuals and Generate Binary Derivatives
-            elif name in provider._metadata.feature_cols:
-                # Store the Linear Actual
+            # Carry everything from the provider that is either an identity or a feature
+            if name in provider._metadata.identity_cols or name in provider._metadata.feature_cols:
                 scaffold_cols[name] = p_data[indices[0], indices[1], indices[2], i].astype(np.float32)
                 
-                # ADR 032: Generate Binary Derivative (by_) if name is linear (lr_)
-                if name.startswith(LINEAR_PREFIX):
+                # ADR 032: Generate Binary Derivative (by_) if name is linear (lr_) 
+                # and it was marked as a feature column.
+                if name in provider._metadata.feature_cols and name.startswith(LINEAR_PREFIX):
                     binary_name = name.replace(LINEAR_PREFIX, BINARY_PREFIX, 1)
                     if binary_name not in provider.channel_map: # Don't overwrite if it exists
                         scaffold_cols[binary_name] = (p_data[indices[0], indices[1], indices[2], i] > 0).astype(np.float32)
@@ -458,20 +473,16 @@ class VolumeHandler:
         # 6. Iterative Safe Handshake to Pandas (Legacy Compatibility)
         # We build the Pandas DataFrame column by column to keep the 'Object Tax'
         # limited to exactly one column's worth of Python lists.
-        df_out = pl_master.select([time_col, id_col]).to_pandas()
+        # ADR 032: We initialize with all columns from pl_master to ensure 
+        # bookkeeping identities (c_id, row, col) are carried forward.
+        df_out = pd.DataFrame()
         
         for col in pl_master.columns:
-            if col in [time_col, id_col]: continue
-            
-            # ADR 032: Prefixes pred_lr_ and pred_by_ are already applied in wrap_predictions.
-            # Actuals (lr_, by_) and Identities (row, col, c_id) carry their literal names.
-            new_name = col
-
             # Safe Export: Use to_list() for stochastic channels to ensure compatibility
             if has_samples and col in self.channel_map:
-                df_out[new_name] = pl_master[col].to_list()
+                df_out[col] = pl_master[col].to_list()
             else:
-                df_out[new_name] = pl_master[col].to_pandas()
+                df_out[col] = pl_master[col].to_pandas()
             
             gc.collect()
 
@@ -486,6 +497,14 @@ class VolumeHandler:
         Returns a new VolumeHandler containing a temporal subset of the data.
         """
         t_idx = self.get_axis_idx("T")
+        max_t = self._data.shape[t_idx]
+        
+        if start_idx < 0 or end_idx > max_t or start_idx >= end_idx:
+            raise ValueError(
+                f"VolumeHandler Contract Violation: Invalid time slice [{start_idx}:{end_idx}] "
+                f"for volume with duration {max_t}."
+            )
+
         slices = [slice(None)] * self._data.ndim
         slices[t_idx] = slice(start_idx, end_idx)
         new_data = self._data[tuple(slices)]

@@ -69,7 +69,7 @@ class TestManagerEvalHardAudit:
                 
                 with patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetch_cls, \
                      patch("views_hydranet.manager.hydranet_manager.ModelArtifactFetcher") as mock_art_fetch_cls, \
-                     patch("views_hydranet.manager.hydranet_manager.ModelArtifactEvaluator") as mock_eval_cls:
+                     patch("views_hydranet.manager.hydranet_manager.BacktestOrchestrator") as mock_eval_cls:
                     
                     # 1. Mock DataFetcher
                     mock_fetch_cls.return_value.fetch_df.return_value = df_hist
@@ -84,7 +84,7 @@ class TestManagerEvalHardAudit:
                         'pred_lr_sb_best': [100.0]*16, 'pred_lr_ns_best': [100.0]*16,
                         'pred_by_sb_best': [0.9]*16, 'pred_by_ns_best': [0.9]*16
                     }, index=pd.MultiIndex.from_product([[124], range(1, 17)], names=['month_id', 'priogrid_gid']))
-                    mock_eval_cls.return_value.evaluate.return_value = [df_pred]
+                    mock_eval_cls.return_value.generate_rolling_forecasts.return_value = [df_pred]
                     
                     # RUN EVALUATION
                     results = manager._evaluate_model_artifact(eval_type="audit")
@@ -123,7 +123,7 @@ class TestManagerEvalHardAudit:
                 mock_cfg.return_value = AUDIT_CFG
                 with patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetch_cls, \
                      patch("views_hydranet.manager.hydranet_manager.ModelArtifactFetcher") as mock_art_fetch_cls, \
-                     patch("views_hydranet.manager.hydranet_manager.ModelArtifactEvaluator") as mock_eval_cls:
+                     patch("views_hydranet.manager.hydranet_manager.BacktestOrchestrator") as mock_eval_cls:
                     
                     mock_fetch_cls.return_value.fetch_df.return_value = df_hist
                     mock_fetch_cls.standardize_raw_df.side_effect = lambda x, y: x
@@ -132,7 +132,7 @@ class TestManagerEvalHardAudit:
                     df_pred = pd.DataFrame({
                         'pred_lr_sb_best': [10.0]*16, 'pred_lr_ns_best': [10.0]*16,
                     }, index=pd.MultiIndex.from_product([[124], range(1, 17)], names=['month_id', 'priogrid_gid']))
-                    mock_eval_cls.return_value.evaluate.return_value = [df_pred]
+                    mock_eval_cls.return_value.generate_rolling_forecasts.return_value = [df_pred]
                     
                     results = manager._evaluate_model_artifact(eval_type="audit")
                     df = results[0]

@@ -1,10 +1,9 @@
-
 import numpy as np
 import pandas as pd
 import pytest
 import torch
 from unittest.mock import MagicMock, patch
-from views_hydranet.utils.model_artifact_evaluator import ModelArtifactEvaluator
+from views_hydranet.utils.backtest_orchestrator import BacktestOrchestrator
 from views_hydranet.utils.volume_handler import VolumeHandler
 
 # SHARED CONFIG
@@ -26,8 +25,8 @@ CFG = {
     'aggregate_method': 'mean'
 }
 
-def test_evaluator_green_path():
-    """Prove that the evaluator correctly orchestrates the evaluation flow."""
+def test_orchestrator_green_path():
+    """Prove that the orchestrator correctly orchestrates the backtest flow."""
     # 1. Setup Mock Handler (12 months to satisfy rolling origin requirements)
     df_in = pd.DataFrame({
         'month_id': sorted(list(range(1, 13)) * 2),
@@ -49,27 +48,28 @@ def test_evaluator_green_path():
     # Shape: [T=2, H=2, W=2, C=2] -> (lr_sb, by_sb)
     posterior = np.ones((2, 2, 2, 2))
     
-    evaluator = ModelArtifactEvaluator(CFG, model, torch.device('cpu'))
+    orchestrator = BacktestOrchestrator(CFG, model, torch.device('cpu'))
     
-    with patch("views_hydranet.utils.model_artifact_evaluator.HydraNetInference") as mock_inf_cls:
+    with patch("views_hydranet.utils.backtest_orchestrator.HydraNetInference") as mock_inf_cls:
         mock_inf = mock_inf_cls.return_value
         mock_inf.generate_posterior_samples.return_value = (posterior, None)
         
-        # 4. EXECUTE
-        results = evaluator.evaluate(handler, scaler)
+        # 4. EXECUTE (Explicitly passing origins)
+        origins = [0]
+        results = orchestrator.generate_rolling_forecasts(handler, scaler, origins=origins)
         
         # 5. AUDIT
         assert isinstance(results, list)
-        assert len(results) == 1 # 1 window for 'test' run_type
+        assert len(results) == 1 
         df = results[0]
         assert isinstance(df.index, pd.MultiIndex)
         assert "pred_lr_sb" in df.columns
         assert "lr_sb" in df.columns # The Actual
-        print("✅ Green Team: Evaluator Handshake Verified.")
+        print("✅ Green Team: Orchestrator Handshake Verified.")
 
 # --- BEIGE TEAM: THE PROOF OF ROBUSTNESS ---
 
-def test_evaluator_beige_mismatched_targets():
+def test_orchestrator_beige_mismatched_targets():
     """Verify that the subsetting gate handles missing target columns without crashing."""
     # Setup
     df_in = pd.DataFrame({
@@ -84,20 +84,19 @@ def test_evaluator_beige_mismatched_targets():
     model = MagicMock(spec=torch.nn.Module)
     
     # Target in config is  'lr_sb', but we simulate a different output
-    # By using a different base_name in wrap_predictions (inside the evaluator)
-    # Actually, we can just ensure the 'targets' list has something missing
     bad_cfg = CFG.copy()
     bad_cfg['targets'] = [ 'lr_sb', 'lr_non_existent']
     
-    evaluator = ModelArtifactEvaluator(bad_cfg, model, torch.device('cpu'))
+    orchestrator = BacktestOrchestrator(bad_cfg, model, torch.device('cpu'))
     
     # Shape: [T=2, H=2, W=2, C=2]
     posterior = np.ones((2, 2, 2, 2))
-    with patch("views_hydranet.utils.model_artifact_evaluator.HydraNetInference") as mock_inf_cls:
+    with patch("views_hydranet.utils.backtest_orchestrator.HydraNetInference") as mock_inf_cls:
         mock_inf = mock_inf_cls.return_value
         mock_inf.generate_posterior_samples.return_value = (posterior, None)
         
-        results = evaluator.evaluate(handler, scaler)
+        origins = [0]
+        results = orchestrator.generate_rolling_forecasts(handler, scaler, origins=origins)
         df = results[0]
         # Should only contain 'sb' related cols, silently ignoring 'lr_non_existent'
         assert "lr_non_existent" not in df.columns
@@ -107,8 +106,8 @@ def test_evaluator_beige_mismatched_targets():
 
 # --- RED TEAM: THE PROOF OF INVINCIBILITY ---
 
-def test_evaluator_red_topographic_integrity():
-    """Verify that the evaluator maintains integrity even if the model flips the geography."""
+def test_orchestrator_red_topographic_integrity():
+    """Verify that the orchestrator maintains integrity even if the model flips the geography."""
     # Setup 2x2 grid
     df_in = pd.DataFrame({
         'month_id': sorted(list(range(1, 13)) * 2),
@@ -121,7 +120,7 @@ def test_evaluator_red_topographic_integrity():
     scaler.inverse_transform_volume.side_effect = lambda h: h
     model = MagicMock(spec=torch.nn.Module)
     
-    evaluator = ModelArtifactEvaluator(CFG, model, torch.device('cpu'))
+    orchestrator = BacktestOrchestrator(CFG, model, torch.device('cpu'))
     
     # ATTACK: The model returns a FLIPPED geography
     # Normally, GID 1 is at index 0, GID 2 is at index 1.
@@ -132,17 +131,18 @@ def test_evaluator_red_topographic_integrity():
     posterior[:, :, 0, 0] = 200.0 # Top Row
     posterior[:, :, 1, 0] = 100.0 # Bottom Row
     
-    with patch("views_hydranet.utils.model_artifact_evaluator.HydraNetInference") as mock_inf_cls:
+    with patch("views_hydranet.utils.backtest_orchestrator.HydraNetInference") as mock_inf_cls:
         mock_inf = mock_inf_cls.return_value
         mock_inf.generate_posterior_samples.return_value = (posterior, None)
         
-        results = evaluator.evaluate(handler, scaler)
+        origins = [0]
+        results = orchestrator.generate_rolling_forecasts(handler, scaler, origins=origins)
         df = results[0]
         
         # Resolve the actual start month from the resulting index
         start_month = df.index.get_level_values("month_id").min()
         
-        # PROOF: The Vader Bridge (inside the evaluator) must use the watermarks 
+        # PROOF: The Vader Bridge (inside the orchestrator) must use the watermarks 
         # to re-align the data. Even though we injected [200, 100] into the grid positions,
         # because the handler's internal ID for those coordinates were [GID 1, GID 2],
         # they must be correctly mapped.
@@ -155,4 +155,4 @@ def test_evaluator_red_topographic_integrity():
         print("✅ Red Team: Orchestration Integrity Verified.")
 
 if __name__ == "__main__":
-    test_evaluator_green_path()
+    test_orchestrator_green_path()
