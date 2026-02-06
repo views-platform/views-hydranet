@@ -7,7 +7,9 @@ It handles spatiotemporal data volumes and implements rolling-origin evaluation.
 """
 
 import logging
+from datetime import datetime
 
+import numpy as np
 import pandas as pd
 import torch
 from views_pipeline_core.managers.model import (
@@ -53,41 +55,69 @@ class HydranetManager(ForecastingModelManager):
         logger.info(f"Starting HydraNet training: {self.configs['run_type']}")
 
         # 0. Strict Config Handshake (ADR 008/015)
-        # Validates schema once before component initialization
         self.configs = ConfigInitializer(self.configs).get_config()
 
         # 1. Ingest
+        print("") # Block Separator
         data_fetcher = DataFetcher(self._model_path.data_raw, self.configs)
         df = data_fetcher.fetch_df()
         df = DataFetcher.standardize_raw_df(df, self.configs)
 
         # 2. Sniff
+        print("")
         sniffer = DataSniffer(self.configs)
         sniffer.sniff_ingestion(df)
 
         # 3. Scale
+        print("")
         scaler = FeatureScaler(self.configs)
         df = scaler.fit_transform(df)
 
         # 4. Transform: DataFrame -> Volume (Absolute Anchoring)
+        print("")
         handler = VolumeHandler.from_df(df, self.configs)
 
-        # PEACE OF MIND GATE: Uncomment to visually verify the raster before training
-        #handler.visual_audit()
-
         # 5. Train
-        train_model_artifact(self._model_path, self.configs, self.device, handler)
+        print("")
+        summary = train_model_artifact(self._model_path, self.configs, self.device, handler)
+        self._log_training_summary(summary)
+
+    def _log_training_summary(self, summary: dict) -> None:
+        """Internal: Prints a beautiful audit of the training process."""
+        print("\n" + "💠" + "="*100)
+        print("  HYDRANET TRAINING HEALTH AUDIT")
+        print("  " + "-"*98)
+        
+        # 1. Loss Metrics
+        print(f"  Final Lesson Loss: {summary['final_loss']:>12.6f}")
+        print(f"  Minimum Loss:      {summary['min_loss']:>12.6f}")
+        print(f"  Maximum Loss:      {summary['max_loss']:>12.6f}")
+        print(f"  Final Learning Rate: {summary['learning_rate']:>12.6e}")
+        
+        # 2. Spectral Health (Weight Norms)
+        print("\n  WEIGHT NORMS (Spectral Health):")
+        print(f"  {'Parameter Layer':<40} | {'L2 Norm':>12}")
+        print("  " + "-"*55)
+        
+        for name, norm in summary['weight_norms'].items():
+            short_name = name.replace("module.", "").replace(".weight", "")
+            status = "✅" if 0.01 < norm < 100.0 else "⚠️"
+            if norm == 0: status = "💀"
+            
+            print(f"  {short_name:<40} | {norm:>12.4f} {status}")
+
+        is_healthy = np.isfinite(summary['final_loss']) and all(np.isfinite(v) for v in summary['weight_norms'].values())
+        verdict = "❇️ HEALTHY" if is_healthy else "🚨 CRITICAL FAILURE (NaN/Inf Detected)"
+        
+        print("\n  FINAL VERDICT: " + verdict)
+        print("💠" + "="*100 + "\n")
 
     def _evaluate_model_artifact(self, eval_type: str, artifact_name: str | None = None) -> list[pd.DataFrame]:
         """Orchestrates rolling-origin evaluation via specialized component."""
-
-        # 0. Strict Config Handshake (ADR 008/015)
         self.configs = ConfigInitializer(self.configs).get_config()
 
-        # 1. Fetch model artifact
-        # Handshake with PipelineConfigManager if available, fallback to direct config
+        print("")
         add_config_fn = self._config_manager.add_config if hasattr(self, '_config_manager') else (lambda x: None)
-
         model_fetcher = ModelArtifactFetcher(
             self._model_path.artifacts,
             self._model_path.get_latest_model_artifact_path(self.configs["run_type"]),
@@ -97,25 +127,24 @@ class HydranetManager(ForecastingModelManager):
         )
         model, _ = model_fetcher.fetch_model_artifact()
 
-        # 2. Ingest
+        print("")
         data_fetcher = DataFetcher(self._model_path.data_raw, self.configs)
         df = data_fetcher.fetch_df()
         df = DataFetcher.standardize_raw_df(df, self.configs)
 
-        # 3. Sniff
+        print("")
         sniffer = DataSniffer(self.configs)
         sniffer.sniff_ingestion(df)
 
-        # 4. Scale
+        print("")
         scaler = FeatureScaler(self.configs)
         df = scaler.fit_transform(df)
 
-        # 5. Transform: Canonical Inbound Volume
+        print("")
         handler = VolumeHandler.from_df(df, self.configs)
         sniffer.sniff_forecast_alignment(df, handler, is_forecast=False)
 
-        # 6. Backtest Orchestration (ADR 024)
-        # We explicitly resolve the rolling-origin indices here to ensure transparency.
+        print("")
         run_type = self.configs["run_type"]
         time_steps = len(self.configs["steps"])
         num_windows = 12 if run_type in ["calibration", "validation"] else 1
@@ -124,29 +153,72 @@ class HydranetManager(ForecastingModelManager):
         orchestrator = BacktestOrchestrator(self.configs, model, self.device)
         list_df_predictions = orchestrator.generate_rolling_forecasts(handler, scaler, origins=origins)
 
+        self._log_prediction_summary(list_df_predictions)
         return list_df_predictions
 
+    def _log_prediction_summary(self, list_df: list[pd.DataFrame]) -> None:
+        """Internal: Prints a beautiful diagnostic summary of prediction results."""
+        if not list_df:
+            print("\n⚠️  EVALUATION SUMMARY: No DataFrames produced.")
+            return
 
+        print("\n" + "💠" + "="*100)
+        print(f"  HYDRANET EVALUATION SUMMARY: {len(list_df)} sequences")
+        print("  " + "-"*98)
 
+        for i, df in enumerate(list_df):
+            start_month = df.index.get_level_values("month_id").min()
+            end_month = df.index.get_level_values("month_id").max()
+            print(f"\n  Sequence {i+1:02d} | Months: {start_month} to {end_month} | Rows: {len(df):,}")
+            
+            header = f"{'Column':<25} | {'Min':>12} | {'Max':>12} | {'Mean':>12} | {'NaN/Inf':>8}"
+            print("  " + header)
+            print("  " + "-" * len(header))
 
+            for col in df.columns:
+                series = df[col]
+                if series.empty: continue
+                
+                first_val = series.iloc[0]
+                is_stochastic = isinstance(first_val, (list, np.ndarray))
+                
+                try:
+                    if is_stochastic:
+                        flat_vals = np.concatenate(series.values).astype(np.float64)
+                    else:
+                        flat_vals = series.values.astype(np.float64)
 
+                    c_min, c_max, c_mean = np.nanmin(flat_vals), np.nanmax(flat_vals), np.nanmean(flat_vals)
+                    c_bad = np.sum(~np.isfinite(flat_vals))
+                    col_display = f"{col}{'*' if is_stochastic else ''}"
+                    print(f"  {col_display:<25} | {c_min:>12.4f} | {c_max:>12.4f} | {c_mean:>12.4f} | {c_bad:>8}")
+                except (TypeError, ValueError):
+                    print(f"  {col:<25} | {'N/A':>12} | {'N/A':>12} | {'N/A':>12} | {'-':>8}")
+
+        print("\n  (*) Indicates stochastic samples flattened for summary.")
+        print("💠" + "="*100 + "\n")
 
     def _forecast_model_artifact(self, artifact_name: str | None = None) -> list[pd.DataFrame]:
         """Generates operational forecasts."""
         self.configs = ConfigInitializer(self.configs).get_config()
+        
+        print("")
         fetcher = DataFetcher(self._model_path.data_raw, self.configs)
         df = DataFetcher.standardize_raw_df(fetcher.fetch_df(), self.configs)
 
+        print("")
         sniffer = DataSniffer(self.configs)
         sniffer.sniff_ingestion(df)
 
+        print("")
         scaler = FeatureScaler(self.configs)
         df = scaler.fit_transform(df)
 
-        # 4. Transform: Canonical Inbound Volume
+        print("")
         handler = VolumeHandler.from_df(df, self.configs)
         sniffer.sniff_forecast_alignment(df, handler, is_forecast=False)
 
+        print("")
         model_fetcher = ModelArtifactFetcher(
             self._model_path.artifacts,
             self._model_path.get_latest_model_artifact_path(self.configs["run_type"]),
@@ -156,45 +228,32 @@ class HydranetManager(ForecastingModelManager):
         )
         model, _ = model_fetcher.fetch_model_artifact()
 
+        print("")
         inference = HydraNetInference(model, self.configs, device=self.device)
         posterior_zstack, _ = inference.generate_posterior_samples(handler, is_evaluation=False)
 
-        # --- THE SYMMETRY ENGINE (ADR 020 / ADR 021 / ADR 023) ---
-        # 1. Temporal Alignment: Extrapolate the identity scaffold into the future
-        # so the watermarks (IDs) match the forecast duration.
         duration = posterior_zstack.shape[0] if not torch.is_tensor(posterior_zstack) else posterior_zstack.shape[1]
         future_handler = handler.extrapolate_time(duration)
 
         base_names = self.configs["classification_outputs"]
         pred_handler = future_handler.wrap_predictions(posterior_zstack, base_names=base_names)
-
-        # 2. THE FINAL HANDSHAKE (Immediate Raw Inversion)
         pred_handler = scaler.inverse_transform_volume(pred_handler)
 
-        # 3. DIMENSION REDUCTION (RAM Survival Gate)
         if self.configs["evalution_mode"] == "point":
             pred_handler = pred_handler.collapse_to_point(method=self.configs["aggregate_method"])
 
-        # 4. Reconstruct DataFrame from the already-raw volume
         df_full = pred_handler.to_forecast_df(history=handler)
 
         if df_full is not None:
-            # The Subsetting Gate (Boring Law)
             requested_targets = self.configs["targets"]
             final_cols = []
             for t in requested_targets:
                 if not t.startswith("lr_"):
                     raise ValueError(f"HydranetManager Contract Violation: Target '{t}' must start with 'lr_'")
-
-                # Derive ADR 032 literal names
                 binary_t = t.replace("lr_", "by_", 1)
-                pred_lr_t = f"pred_{t}"
-                pred_by_t = f"pred_{binary_t}"
-
-                for col in [t, binary_t, pred_lr_t, pred_by_t]:
-                    if col in df_full.columns:
-                        final_cols.append(col)
-
+                for col in [t, binary_t, f"pred_{t}", f"pred_{binary_t}"]:
+                    if col in df_full.columns: final_cols.append(col)
             df_full = df_full[final_cols]
 
+        self._log_prediction_summary([df_full] if df_full is not None else [])
         return [df_full] if df_full is not None else []

@@ -134,9 +134,10 @@ def training_loop(
     handler: VolumeHandler,
     device: torch.device,
     columns: list[str] | None = None,
-) -> None:
+) -> dict:
     """
     Orchestrates the training process over multiple stochastic samples.
+    Returns a diagnostic summary dictionary.
     """
     criterion_reg, criterion_class, multitaskloss_instance = criterion
 
@@ -155,6 +156,8 @@ def training_loop(
     seq_len = train_vol_shape[0]
     total_iterations = config["total_lessons"] * config["windows_per_lesson"] * (seq_len - 1)
 
+    loss_history = []
+    
     with tqdm(
         total=total_iterations,
         desc="👾 Training HydraNet",
@@ -181,7 +184,7 @@ def training_loop(
                 pbar.set_description(
                     f"👾 Training | Lesson {lesson_idx + 1}/{config['total_lessons']} | "
                     f"Window {window_idx + 1}/{config['windows_per_lesson']} | "
-                    f"Target: {target} | Threshold: {threshold} (Cells: {qualified_cells})"
+                    f"Target: {target} | Threshold: {threshold}"
                 )
 
                 # 3. Process Window (Accumulate Loss)
@@ -199,8 +202,6 @@ def training_loop(
                 )
 
                 # --- MEMORY-SAFE ACCUMULATION (ADR 014 Hardening) ---
-                # We backpropagate the window loss immediately to clear the graph nodes
-                # from VRAM, but we don't call optimizer.step() until the end of the Lesson.
                 if window_loss > 0:
                     window_loss.backward()
 
@@ -209,8 +210,9 @@ def training_loop(
             # --- THE OPTIMIZATION GATE (ADR 014) ---
             if lesson_loss > 0:
                 # NUMERICAL AUDIT: Hard stop on explosion
-                # Note: t1_pred is not available at the lesson level, passing a safe dummy
                 IntegrityGuardian.monitor(model, torch.tensor([0.0]), lesson_loss, context=f"Lesson {lesson_idx}")
+                
+                loss_history.append(lesson_loss.item())
 
                 # Gradient Clipping
                 if config.get("clip_grad_norm", False):
@@ -223,6 +225,21 @@ def training_loop(
             scheduler.step()
 
     logger.info("✅ Training complete!")
+    
+    # 4. Final weight audit
+    weight_norms = {}
+    for name, param in model.named_parameters():
+        if "weight" in name and param.requires_grad:
+            weight_norms[name] = param.data.norm().item()
+
+    return {
+        "final_loss": loss_history[-1] if loss_history else 0.0,
+        "min_loss": min(loss_history) if loss_history else 0.0,
+        "max_loss": max(loss_history) if loss_history else 0.0,
+        "loss_history": loss_history,
+        "weight_norms": weight_norms,
+        "learning_rate": optimizer.param_groups[0]['lr']
+    }
 
 
 def train_model_artifact(
@@ -231,14 +248,14 @@ def train_model_artifact(
     device: torch.device,
     handler: VolumeHandler,
     columns: list[str] | None = None,
-) -> None:
+) -> dict:
     """Creates, trains, and saves a model artifact."""
 
     # Create the model, criterion, optimizer and scheduler
     model, criterion, optimizer, scheduler = make(config, device)
 
     # Train the model
-    training_loop(
+    summary = training_loop(
         config, model, criterion, optimizer, scheduler, handler, device, columns=columns
     )
     logger.info("Done training")
@@ -254,3 +271,4 @@ def train_model_artifact(
 
     # done
     logger.info(f"Model saved as: {model_path.artifacts / model_filename}")
+    return summary

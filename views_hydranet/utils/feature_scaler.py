@@ -76,7 +76,7 @@ class FeatureScaler:
                 method = method_lookup.get(col, "unknown")
                 stats.append(f"  [{method:^10}] {col:.<30} min: {c_min:>10.4f} | max: {c_max:>10.4f}")
 
-        report = "\n" + "💠" + "="*78 + "\n"
+        report = "\n\n" + "💠" + "="*78 + "\n"
         report += f"  FEATURE SCALER: {space} SPACE REPORT\n"
         report += "  " + "-"*76 + "\n"
         if stats:
