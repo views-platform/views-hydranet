@@ -56,9 +56,18 @@ We strictly reject the practice of renaming columns (e.g., `lr_` to `ln_` or `as
 *   **Authority:** The `config` Fit/Transform state is the only authoritative record of a column's current scale. 
 *   **Rationale:** Changing a prefix based on math creates a misleading and brittle audit trail. We preserve the original `lr_` name and trust the `config` to govern the math.
 *   **The Edge Exception:** The only valid transformations of a target name are the derivation of binary intent (`lr_` -> `by_`) and the prepending of prediction intent (`pred_`).
+
 ---
 
-## 7. Consequences
+## 7. Law 7: Narrative Spacing (Temporal Clarity)
+Terminal output is a narrative of the system's life. Clutter is a risk to observability.
+*   **The Principle:** Every major transition in the pipeline (Ingest, Sniff, Scale, Transform, Train) must be visually punctuated in the console.
+*   **The Mechanism:** The use of explicit narrative white space (print newlines) and diagnostic "block headers" (💠) to group log messages into discrete, readable chapters.
+*   **Goal:** Allow the human observer to detect stage-stalls or logic-loops at a glance. We prioritize human-parsable diagnostic narrative over raw logging density.
+
+---
+
+## 8. Consequences
 By following these laws, we trade **Initial Speed** for **Permanent Trust**. 
 *   It takes longer to set up a run (because the config is verbose).
 *   It is harder to write new features (because they must be verified against ADRs).
