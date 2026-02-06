@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Tuple, Union
 import numpy as np
 import pandas as pd
 import polars as pl
-import pyarrow as pa
 import torch
 
 logger = logging.getLogger(__name__)
@@ -185,7 +184,10 @@ class VolumeHandler:
         if not include_identities:
             # ADR 007 hardening: Strip identity channels by checking the channel map.
             # This ensures only feature_cols reach the model.
-            feature_indices = [i for i, name in enumerate(self.channel_map) if name in self._metadata.feature_cols]
+            feature_indices = [
+                i for i, name in enumerate(self.channel_map) 
+                if name in self._metadata.feature_cols
+            ]
             if not feature_indices:
                  # Fallback to legacy count-based stripping if feature_cols is empty
                  # (Protects against un-annotated handlers)
@@ -217,18 +219,18 @@ class VolumeHandler:
         for n in base_names:
             if not n.startswith(LINEAR_PREFIX):
                 raise ValueError(
-                    f"VolumeHandler Contract Violation: Feature '{n}' must start with '{LINEAR_PREFIX}' "
-                    f"to conform to ADR 032 naming conventions."
+                    f"VolumeHandler Contract Violation: Feature '{n}' must start with "
+                    f"'{LINEAR_PREFIX}' to conform to ADR 032 naming conventions."
                 )
             reg_names.append(f"{PRED_PREFIX}{n}")
             prob_names.append(f"{PRED_PREFIX}{n.replace(LINEAR_PREFIX, BINARY_PREFIX, 1)}")
-        
+
         # 2. THE WATERMARK (Red Team Hardening)
         # We prepend ALL identity channels from the parent to the prediction data
         # so the prediction volumes are "Self-Describing" and Join-Safe.
         time_col = self._metadata.time_col
         id_col = self._metadata.id_col
-        
+
         # Identify primary join keys from the parent
         try:
             head_time_idx = self.channel_map.index(time_col)
@@ -238,11 +240,14 @@ class VolumeHandler:
                 f"VolumeHandler Ledger Corruption: Primary index '{e}' missing from channel map. "
                 f"Prediction wrapping requires watermarked primary keys."
             )
-        
+
         # Identify all non-feature channels from the parent (excluding primary keys already handled)
-        identity_names = [n for n in self.channel_map if n in self._metadata.identity_cols and n not in [time_col, id_col]]
+        identity_names = [
+            n for n in self.channel_map 
+            if n in self._metadata.identity_cols and n not in [time_col, id_col]
+        ]
         identity_idxs = [self.channel_map.index(n) for n in identity_names]
-        
+
         # Normalize Data Layout to [T, H, W, C, (S)]
         if torch.is_tensor(posterior_data):
             # Input is [B=1, T, C, H, W] -> [T, H, W, C]
@@ -267,7 +272,7 @@ class VolumeHandler:
             # Stochastic: [T, H, W, C, S]
             axes = ("T", "H", "W", "C", "S")
             n_samples = work_data.shape[-1]
-            
+
             # Extract and repeat identity watermarks
             id_vols = []
             for idx in primary_idxs + identity_idxs:
@@ -275,7 +280,7 @@ class VolumeHandler:
                 watermark = np.expand_dims(slice_data, axis=-1) # [T, H, W, 1, 1]
                 watermark = np.repeat(watermark, n_samples, axis=-1) # [T, H, W, 1, S]
                 id_vols.append(watermark)
-            
+
             full_data = np.concatenate(id_vols + [work_data], axis=-2)
         else:
             # Point: [T, H, W, C]
@@ -351,10 +356,12 @@ class VolumeHandler:
         # Contract Validation (ADR 015)
         history_duration = history.data.shape[history.get_axis_idx("T")]
         if start_idx + duration > history_duration:
-            raise ValueError(
-                f"VolumeHandler Contract Violation: Evaluation window [index {start_idx} : {start_idx + duration}] "
+            err_msg = (
+                f"VolumeHandler Contract Violation: Evaluation window "
+                f"[index {start_idx} : {start_idx + duration}] "
                 f"exceeds history duration ({history_duration})."
             )
+            raise ValueError(err_msg)
 
         provider_slice = history.slice_time(start_idx, start_idx + duration)
         return self._reconstruct_from_provider(provider_slice)
@@ -379,17 +386,33 @@ class VolumeHandler:
         has_samples = "S" in self._metadata.axes
 
         if has_samples:
-            t_idx, h_idx, w_idx, c_idx, s_idx = self.get_axis_idx("T"), self.get_axis_idx("H"), self.get_axis_idx("W"), self.get_axis_idx("C"), self.get_axis_idx("S")
+            t_idx, h_idx, w_idx, c_idx, s_idx = (
+                self.get_axis_idx("T"), 
+                self.get_axis_idx("H"), 
+                self.get_axis_idx("W"), 
+                self.get_axis_idx("C"), 
+                self.get_axis_idx("S")
+            )
             temp_data = np.transpose(temp_data, (h_idx, w_idx, t_idx, c_idx, s_idx))
             temp_data = np.flip(temp_data, axis=0)
         else:
-            t_idx, h_idx, w_idx, c_idx = self.get_axis_idx("T"), self.get_axis_idx("H"), self.get_axis_idx("W"), self.get_axis_idx("C")
+            t_idx, h_idx, w_idx, c_idx = (
+                self.get_axis_idx("T"), 
+                self.get_axis_idx("H"), 
+                self.get_axis_idx("W"), 
+                self.get_axis_idx("C")
+            )
             temp_data = np.transpose(temp_data, (h_idx, w_idx, t_idx, c_idx))
             temp_data = np.flip(temp_data, axis=0)
 
         # 2. Align Provider (Scaffold)
         p_data = provider.data.detach().cpu().numpy() if torch.is_tensor(provider.data) else provider.data.copy()
-        p_t, p_h, p_w, p_c = provider.get_axis_idx("T"), provider.get_axis_idx("H"), provider.get_axis_idx("W"), provider.get_axis_idx("C")
+        p_t, p_h, p_w, p_c = (
+            provider.get_axis_idx("T"), 
+            provider.get_axis_idx("H"), 
+            provider.get_axis_idx("W"), 
+            provider.get_axis_idx("C")
+        )
         p_data = np.transpose(p_data, (p_h, p_w, p_t, p_c))
         p_data = np.flip(p_data, axis=0)
 
@@ -398,7 +421,7 @@ class VolumeHandler:
         pg_idx = provider.channel_map.index(id_col)
         time_col = provider._metadata.time_col
         time_idx = provider.channel_map.index(time_col)
-        
+
         mask = p_data[:, :, :, pg_idx] > 0
         indices = np.where(mask)
 
@@ -408,21 +431,31 @@ class VolumeHandler:
             time_col: p_data[indices[0], indices[1], indices[2], time_idx].astype(np.int32),
             id_col: p_data[indices[0], indices[1], indices[2], pg_idx].astype(np.int32)
         }
-        
+
+        # 4. Initialize Polars Scaffold (The Source of Truth)
+        # ADR 032: We MUST carry month_id, priogrid_gid, row, col, and c_id
+        scaffold_cols = {
+            time_col: p_data[indices[0], indices[1], indices[2], time_idx].astype(np.int32),
+            id_col: p_data[indices[0], indices[1], indices[2], pg_idx].astype(np.int32)
+        }
+
         # Add Actuals and Identities to Scaffold from the provider's map
         for i, name in enumerate(provider.channel_map):
-            if name in [time_col, id_col]: continue
-            
+            if name in [time_col, id_col]:
+                continue
+
             # Carry everything from the provider that is either an identity or a feature
             if name in provider._metadata.identity_cols or name in provider._metadata.feature_cols:
                 scaffold_cols[name] = p_data[indices[0], indices[1], indices[2], i].astype(np.float32)
-                
-                # ADR 032: Generate Binary Derivative (by_) if name is linear (lr_) 
+
+                # ADR 032: Generate Binary Derivative (by_) if name is linear (lr_)
                 # and it was marked as a feature column.
-                if name in provider._metadata.feature_cols and name.startswith(LINEAR_PREFIX):
+                is_feature = name in provider._metadata.feature_cols
+                if is_feature and name.startswith(LINEAR_PREFIX):
                     binary_name = name.replace(LINEAR_PREFIX, BINARY_PREFIX, 1)
-                    if binary_name not in provider.channel_map: # Don't overwrite if it exists
-                        scaffold_cols[binary_name] = (p_data[indices[0], indices[1], indices[2], i] > 0).astype(np.float32)
+                    if binary_name not in provider.channel_map:  # Don't overwrite if it exists
+                        binary_mask = (p_data[indices[0], indices[1], indices[2], i] > 0)
+                        scaffold_cols[binary_name] = binary_mask.astype(np.float32)
 
         pl_master = pl.DataFrame(scaffold_cols)
         del p_data, scaffold_cols
@@ -433,16 +466,18 @@ class VolumeHandler:
             head_id_idx = self.channel_map.index(id_col)
             head_time_idx = self.channel_map.index(time_col)
         except ValueError:
-            head_id_idx = None 
+            head_id_idx = None
             head_time_idx = None
 
         for i, name in enumerate(self.channel_map):
-            if name in pl_master.columns: continue
-            
+            if name in pl_master.columns:
+                continue
+
             # Create Watermarked Head
             if head_id_idx is not None:
                 if has_samples:
-                    # STOCHASTIC WATERMARK: Extract first sample only for IDs (Join keys must be scalar)
+                    # STOCHASTIC WATERMARK: Extract first sample only for IDs
+                    # Join keys must be scalar.
                     head_dict = {
                         time_col: temp_data[indices[0], indices[1], indices[2], head_time_idx, 0].astype(np.int32),
                         id_col: temp_data[indices[0], indices[1], indices[2], head_id_idx, 0].astype(np.int32),
@@ -457,14 +492,17 @@ class VolumeHandler:
                     }
             else:
                 # POSITION FALLBACK: Re-use scaffold IDs (Vulnerable to shuffle)
+                if has_samples:
+                    head_val = temp_data[indices[0], indices[1], indices[2], i, :]
+                else:
+                    head_val = temp_data[indices[0], indices[1], indices[2], i]
                 head_dict = {
-                    time_col: pl_master[time_col], 
+                    time_col: pl_master[time_col],
                     id_col: pl_master[id_col],
-                    name: temp_data[indices[0], indices[1], indices[2], i, :] if has_samples else temp_data[indices[0], indices[1], indices[2], i]
+                    name: head_val
                 }
-
             df_head = pl.DataFrame(head_dict)
-            
+
             # Explicit Join (Red Team Proof)
             pl_master = pl_master.join(df_head, on=[time_col, id_col], how="left")
             del df_head
@@ -473,17 +511,17 @@ class VolumeHandler:
         # 6. Iterative Safe Handshake to Pandas (Legacy Compatibility)
         # We build the Pandas DataFrame column by column to keep the 'Object Tax'
         # limited to exactly one column's worth of Python lists.
-        # ADR 032: We initialize with all columns from pl_master to ensure 
+        # ADR 032: We initialize with all columns from pl_master to ensure
         # bookkeeping identities (c_id, row, col) are carried forward.
         df_out = pd.DataFrame()
-        
+
         for col in pl_master.columns:
             # Safe Export: Use to_list() for stochastic channels to ensure compatibility
             if has_samples and col in self.channel_map:
                 df_out[col] = pl_master[col].to_list()
             else:
                 df_out[col] = pl_master[col].to_pandas()
-            
+
             gc.collect()
 
         # 7. Final Topographical Restoration
@@ -498,12 +536,13 @@ class VolumeHandler:
         """
         t_idx = self.get_axis_idx("T")
         max_t = self._data.shape[t_idx]
-        
+
         if start_idx < 0 or end_idx > max_t or start_idx >= end_idx:
-            raise ValueError(
+            err_msg = (
                 f"VolumeHandler Contract Violation: Invalid time slice [{start_idx}:{end_idx}] "
                 f"for volume with duration {max_t}."
             )
+            raise ValueError(err_msg)
 
         slices = [slice(None)] * self._data.ndim
         slices[t_idx] = slice(start_idx, end_idx)

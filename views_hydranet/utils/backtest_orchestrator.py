@@ -8,11 +8,10 @@ from typing import Any, Dict, List
 
 import pandas as pd
 import torch
-import numpy as np
 
+from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.hydranet_inference import HydraNetInference
 from views_hydranet.utils.volume_handler import VolumeHandler
-from views_hydranet.utils.feature_scaler import FeatureScaler
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +21,9 @@ class BacktestOrchestrator:
     """
 
     def __init__(
-        self, 
-        config: Dict[str, Any], 
-        model: torch.nn.Module, 
+        self,
+        config: Dict[str, Any],
+        model: torch.nn.Module,
         device: torch.device
     ) -> None:
         """
@@ -35,8 +34,8 @@ class BacktestOrchestrator:
         self.device = device
 
     def generate_rolling_forecasts(
-        self, 
-        handler: VolumeHandler, 
+        self,
+        handler: VolumeHandler,
         scaler: FeatureScaler,
         origins: List[int]
     ) -> List[pd.DataFrame]:
@@ -59,7 +58,10 @@ class BacktestOrchestrator:
             # 2. Temporal Alignment Gate (ADR 024/025)
             # We slice the handler to match the duration of the prediction window
             # so the watermarks (IDs) align correctly during wrapping.
-            duration = posterior_zstack.shape[0] if not torch.is_tensor(posterior_zstack) else posterior_zstack.shape[1]
+            if not torch.is_tensor(posterior_zstack):
+                duration = posterior_zstack.shape[0]
+            else:
+                duration = posterior_zstack.shape[1]
             window_handler = handler.slice_time(origin + 1, origin + 1 + duration)
 
             # 3. Symmetry Recovery & Watermarking (ADR 020/032)
@@ -79,11 +81,11 @@ class BacktestOrchestrator:
 
             if df_origin is not None:
                 # 7. The Subsetting Gate (ADR 033 / Law 6 Alignment)
-                # We extract the requested targets, their binary derivatives, 
+                # We extract the requested targets, their binary derivatives,
                 # AND mandatory bookkeeping columns.
                 requested_targets = self.config["targets"]
                 bookkeeping_cols = ["c_id", "row", "col"]
-                
+
                 final_cols = []
                 # 1. Add Bookkeeping First
                 for col in bookkeeping_cols:
@@ -94,12 +96,12 @@ class BacktestOrchestrator:
                 for t in requested_targets:
                     if not t.startswith("lr_"):
                         raise ValueError(f"Orchestrator Contract Violation: Target '{t}' must start with 'lr_'")
-                    
+
                     # Derive ADR 032 literal names
                     binary_t = t.replace("lr_", "by_", 1)
                     pred_lr_t = f"pred_{t}"
                     pred_by_t = f"pred_{binary_t}"
-                    
+
                     for col in [t, binary_t, pred_lr_t, pred_by_t]:
                         if col in df_origin.columns:
                             final_cols.append(col)

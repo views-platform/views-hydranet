@@ -16,12 +16,12 @@ from views_pipeline_core.managers.model import (
 )
 
 from views_hydranet.train.train_model import train_model_artifact
+from views_hydranet.utils.backtest_orchestrator import BacktestOrchestrator
 from views_hydranet.utils.config_initializer import ConfigInitializer
 from views_hydranet.utils.data_fetcher import DataFetcher
 from views_hydranet.utils.data_sniffer import DataSniffer
 from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.hydranet_inference import HydraNetInference
-from views_hydranet.utils.backtest_orchestrator import BacktestOrchestrator
 from views_hydranet.utils.model_artifact_fetcher import ModelArtifactFetcher
 from views_hydranet.utils.utils_device import setup_device
 from views_hydranet.utils.utils_orchestration import get_rolling_origin_indices
@@ -80,14 +80,14 @@ class HydranetManager(ForecastingModelManager):
 
     def _evaluate_model_artifact(self, eval_type: str, artifact_name: str | None = None) -> list[pd.DataFrame]:
         """Orchestrates rolling-origin evaluation via specialized component."""
-        
+
         # 0. Strict Config Handshake (ADR 008/015)
         self.configs = ConfigInitializer(self.configs).get_config()
 
         # 1. Fetch model artifact
         # Handshake with PipelineConfigManager if available, fallback to direct config
         add_config_fn = self._config_manager.add_config if hasattr(self, '_config_manager') else (lambda x: None)
-        
+
         model_fetcher = ModelArtifactFetcher(
             self._model_path.artifacts,
             self._model_path.get_latest_model_artifact_path(self.configs["run_type"]),
@@ -185,12 +185,12 @@ class HydranetManager(ForecastingModelManager):
             for t in requested_targets:
                 if not t.startswith("lr_"):
                     raise ValueError(f"HydranetManager Contract Violation: Target '{t}' must start with 'lr_'")
-                
+
                 # Derive ADR 032 literal names
                 binary_t = t.replace("lr_", "by_", 1)
                 pred_lr_t = f"pred_{t}"
                 pred_by_t = f"pred_{binary_t}"
-                
+
                 for col in [t, binary_t, pred_lr_t, pred_by_t]:
                     if col in df_full.columns:
                         final_cols.append(col)

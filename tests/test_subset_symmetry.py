@@ -68,29 +68,29 @@ class TestSubsetSymmetryAudit:
             manager._config_manager = MagicMock()
             manager._wandb_notifications = False
             manager._use_prediction_store = False
-    
+
             with patch("views_pipeline_core.managers.model.model.ForecastingModelManager.configs", new_callable=PropertyMock) as mock_cfg:
                 mock_cfg.return_value = SUBSET_CFG
-    
+
                 with patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetcher_cls, \
                      patch("views_hydranet.manager.hydranet_manager.FeatureScaler") as mock_scaler_cls, \
                      patch("views_hydranet.manager.hydranet_manager.ModelArtifactFetcher") as mock_art_fetch_cls, \
                      patch("views_hydranet.manager.hydranet_manager.BacktestOrchestrator") as mock_eval_cls:
-                    
+
                     mock_fetcher_cls.return_value.fetch_df.return_value = df_hist
                     mock_fetcher_cls.standardize_raw_df.side_effect = lambda x, y: x
-                    
+
                     # Ensure Scaler fit_transform returns the history DF
                     mock_scaler_cls.return_value.fit_transform.return_value = df_hist
-                    
+
                     mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (MagicMock(), "audit")
-                    
+
                     # Mock Orchestrator output to match Gate expectations
                     df_mock = pd.DataFrame({
                         'lr_sb_best': [10.0]*20,
                         'pred_lr_sb_best': [100.0]*20
                     }, index=pd.MultiIndex.from_product([[11], range(1, 21)], names=['month_id', 'priogrid_gid']))
-                    
+
                     mock_eval_cls.return_value.generate_rolling_forecasts.return_value = [df_mock]
 
                     # RUN EVALUATION

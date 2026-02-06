@@ -1,9 +1,8 @@
-import pytest
 import numpy as np
-import pandas as pd
-import torch
-from views_hydranet.utils.volume_handler import VolumeHandler
+import pytest
+
 from views_hydranet.utils.feature_scaler import FeatureScaler
+from views_hydranet.utils.volume_handler import VolumeHandler
 
 # FALSIFICATION CONFIG
 CFG = {
@@ -24,18 +23,18 @@ class TestNukeProofAudit:
         data[0,0,0,0,0] = np.log1p(10.0)   # SB: 10
         data[0,0,0,1,0] = np.arcsinh(10.0) # NS: 10
         data[0,0,0,2,0] = 10.0             # OS: 10 (Identity)
-        
+
         vh = VolumeHandler(
             data=data, axes=("T", "H", "W", "C", "S"),
             channel_map=["pred_lr_sb", "pred_lr_ns", "pred_lr_os"],
             time_col="t", id_col="i", spatial_cols=("y", "x")
         )
-        
+
         scaler = FeatureScaler(CFG)
         scaler._is_fitted = True
-        
+
         raw_vh = scaler.inverse_transform_volume(vh)
-        
+
         # All should be 10.0 now
         np.testing.assert_allclose(raw_vh.data[0,0,0,0,0], 10.0, rtol=1e-5)
         np.testing.assert_allclose(raw_vh.data[0,0,0,1,0], 10.0, rtol=1e-5)
@@ -49,7 +48,7 @@ class TestNukeProofAudit:
         data = np.zeros((1, 1, 1, 2, 1))
         data[0,0,0,0,0] = 5.0 # This is an Actual (already raw)
         data[0,0,0,1,0] = np.log1p(100.0) # This is a prediction
-            
+
         vh = VolumeHandler(
             data=data, axes=("T", "H", "W", "C", "S"),
             channel_map=["dummy_actual", "pred_lr_sb"],
@@ -58,8 +57,8 @@ class TestNukeProofAudit:
         scaler = FeatureScaler(CFG)
         scaler._is_fitted = True
         raw_vh = scaler.inverse_transform_volume(vh)
-        
-        # Actual must remain 5.0. 
+
+        # Actual must remain 5.0.
         assert raw_vh.data[0,0,0,0,0] == 5.0
         # Prediction must be 100.0
         np.testing.assert_allclose(raw_vh.data[0,0,0,1,0], 100.0, rtol=1e-5)
@@ -76,10 +75,10 @@ class TestNukeProofAudit:
             channel_map=["lr_a", "lr_b"],
             time_col="t", id_col="i", spatial_cols=("y", "x")
         )
-        
+
         # This will fail if I used 'axis=4' or 'axis=-1' hardcoded
         point_vh = vh.collapse_to_point(method="mean")
-        
+
         assert point_vh.data.shape == (2, 1, 4, 4)
         assert "S" not in point_vh._metadata.axes
 
@@ -91,18 +90,18 @@ class TestNukeProofAudit:
         data = np.zeros((1, 1, 1, 2, 1))
         data[0,0,0,0,0] = np.log1p(10.0) # Signal
         data[0,0,0,1,0] = 0.8            # Probability
-        
+
         vh = VolumeHandler(
             data=data, axes=("T", "H", "W", "C", "S"),
             channel_map=["pred_lr_sb", "pred_by_sb"],
             time_col="t", id_col="i", spatial_cols=("y", "x")
         )
-        
+
         scaler = FeatureScaler(CFG)
         scaler._is_fitted = True
-        
+
         raw_vh = scaler.inverse_transform_volume(vh)
-        
+
         # Prob must stay 0.8. If expm1 was applied, it would be ~1.22 (illegal)
         assert raw_vh.data[0,0,0,1,0] == 0.8
 

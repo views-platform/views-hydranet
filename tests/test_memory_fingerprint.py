@@ -1,11 +1,13 @@
 import os
-import psutil
+import time
+from typing import Dict, List
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import polars as pl
-import matplotlib.pyplot as plt
-import time
-from typing import Dict, List
+import psutil
+
 
 def get_process_memory_gb() -> float:
     """Returns the current Resident Set Size (RSS) in GB."""
@@ -17,14 +19,14 @@ def audit_memory_explosion(n_samples_list: List[int], grid_dim: int = 180, n_mon
     Simulates the VolumeHandler reconstruction process and measures RAM at 4 states.
     """
     results = []
-    
+
     # Baseline
     baseline_mem = get_process_memory_gb()
     print(f"Initial Baseline Memory: {baseline_mem:.4f} GB")
 
     for n in n_samples_list:
         print(f"\n--- Interrogating n_samples = {n} ---")
-        
+
         # STATE A: Contiguous NumPy Volume
         vol = np.random.rand(n_months, grid_dim, grid_dim, 1, n).astype(np.float32)
         state_a_mem = get_process_memory_gb() - baseline_mem
@@ -84,20 +86,20 @@ def audit_memory_explosion(n_samples_list: List[int], grid_dim: int = 180, n_mon
 
 def plot_results(results: List[Dict]):
     df = pd.DataFrame(results)
-    
+
     plt.figure(figsize=(10, 6))
     plt.plot(df["n_samples"], df["numpy_gb"], marker='o', label="NumPy (Contiguous)")
     plt.plot(df["n_samples"], df["pandas_gb"], marker='x', label="Pandas (List-in-Cell)")
     plt.plot(df["n_samples"], df["polars_gb"], marker='v', label="Polars (List-in-Series)")
     plt.plot(df["n_samples"], df["pandas_np_gb"], marker='s', label="Pandas (NumPy-in-Cell)")
-    
+
     plt.title("Memory Fingerprint: Pandas vs. Polars for Stochastic Reconstruction")
     plt.xlabel("Number of Stochastic Samples")
     plt.ylabel("RAM Usage (GB)")
     plt.legend()
     plt.grid(True, linestyle='--',
  alpha=0.7)
-    
+
     plot_path = "conversion_integrity_check.png"
     plt.savefig(plot_path)
     print(f"\nDiagnostic Plot updated: {plot_path}")
@@ -109,15 +111,15 @@ def test_memory_efficiency_gate():
     # Test a single representative sample size
     results = audit_memory_explosion(n_samples_list=[25], grid_dim=64, n_months=12)
     res = results[0]
-    
+
     # Assert that Pandas Tax is roughly within the documented 10x-30x range
     # (Checking for extreme outliers that would indicate a new leak)
-    assert res["pandas_tax"] < 100.0 
+    assert res["pandas_tax"] < 100.0
     assert res["pandas_gb"] > res["numpy_gb"]
 
 if __name__ == "__main__":
     samples_to_test = [1, 10, 25, 50, 100]
-    
+
     try:
         data = audit_memory_explosion(samples_to_test)
         plot_results(data)

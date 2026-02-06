@@ -5,9 +5,9 @@ Governed by ADR 026.
 """
 
 import logging
-from pathlib import Path
-from typing import Any, Dict, Tuple, Optional
 from collections.abc import Callable
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
 
 import torch
 
@@ -22,11 +22,11 @@ class ModelArtifactFetcher:
     """
 
     def __init__(
-        self, 
-        path_model_artifacts: Path, 
-        path_latest_model_artifacts: Path, 
-        config: Dict[str, Any], 
-        add_config_function: Callable[[Dict[str, Any]], None], 
+        self,
+        path_model_artifacts: Path,
+        path_latest_model_artifacts: Path,
+        config: Dict[str, Any],
+        add_config_function: Callable[[Dict[str, Any]], None],
         device: torch.device
     ) -> None:
         """
@@ -63,11 +63,11 @@ class ModelArtifactFetcher:
         if model_artifact_name:
             # 1. Use a specified artifact provided by the user
             logger.info(f"Retriever: Using specific model artifact: {model_artifact_name}")
-            
+
             # Ensure correct extension
             if not model_artifact_name.endswith(".pt"):
                 model_artifact_name += ".pt"
-            
+
             path_model_artifact = self.path_model_artifacts / model_artifact_name
         else:
             # 2. Automatically use the latest model artifact based on the run type
@@ -80,12 +80,12 @@ class ModelArtifactFetcher:
         # 3. Metadata Extraction (The 15-char timestamp)
         # Expected format: ..._YYYYMMDD_HHMMSS.pt
         timestamp = path_model_artifact.stem[-15:]
-        
+
         # 4. Deserialization and Device Placement
         logger.debug(f"Retriever: Loading artifact from {path_model_artifact}")
         model = torch.load(path_model_artifact, map_location="cpu", weights_only=False)
         model.to(self.device)
-        
+
         # 5. The Handshake: Register the exact model used in the config
         self.add_config({"timestamp": timestamp})
 

@@ -45,7 +45,7 @@ def test_gate_12_6_head_dressing():
     )
 
     pred_handler = handler.wrap_predictions(posterior, base_names=base_names)
-    
+
     # Check internal signal names
     assert "pred_lr_a" in pred_handler.channel_map
     assert "pred_by_a" in pred_handler.channel_map

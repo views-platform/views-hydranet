@@ -1,8 +1,9 @@
+from unittest.mock import MagicMock, patch
+
 import numpy as np
 import pandas as pd
-import pytest
 import torch
-from unittest.mock import MagicMock, patch
+
 from views_hydranet.utils.backtest_orchestrator import BacktestOrchestrator
 from views_hydranet.utils.volume_handler import VolumeHandler
 
@@ -36,31 +37,31 @@ def test_orchestrator_green_path():
          'lr_sb': [1.0] * 24
     })
     handler = VolumeHandler.from_df(df_in, CFG)
-    
+
     # 2. Setup Mock Scaler
     scaler = MagicMock()
     scaler.inverse_transform_volume.side_effect = lambda h: h
-    
+
     # 3. Setup Mock Model & Inference
     model = MagicMock(spec=torch.nn.Module)
-    
+
     # Mock HydraNetInference to return a dummy zstack for 2 steps
     # Shape: [T=2, H=2, W=2, C=2] -> (lr_sb, by_sb)
     posterior = np.ones((2, 2, 2, 2))
-    
+
     orchestrator = BacktestOrchestrator(CFG, model, torch.device('cpu'))
-    
+
     with patch("views_hydranet.utils.backtest_orchestrator.HydraNetInference") as mock_inf_cls:
         mock_inf = mock_inf_cls.return_value
         mock_inf.generate_posterior_samples.return_value = (posterior, None)
-        
+
         # 4. EXECUTE (Explicitly passing origins)
         origins = [0]
         results = orchestrator.generate_rolling_forecasts(handler, scaler, origins=origins)
-        
+
         # 5. AUDIT
         assert isinstance(results, list)
-        assert len(results) == 1 
+        assert len(results) == 1
         df = results[0]
         assert isinstance(df.index, pd.MultiIndex)
         assert "pred_lr_sb" in df.columns
@@ -82,19 +83,19 @@ def test_orchestrator_beige_mismatched_targets():
     scaler = MagicMock()
     scaler.inverse_transform_volume.side_effect = lambda h: h
     model = MagicMock(spec=torch.nn.Module)
-    
+
     # Target in config is  'lr_sb', but we simulate a different output
     bad_cfg = CFG.copy()
     bad_cfg['targets'] = [ 'lr_sb', 'lr_non_existent']
-    
+
     orchestrator = BacktestOrchestrator(bad_cfg, model, torch.device('cpu'))
-    
+
     # Shape: [T=2, H=2, W=2, C=2]
     posterior = np.ones((2, 2, 2, 2))
     with patch("views_hydranet.utils.backtest_orchestrator.HydraNetInference") as mock_inf_cls:
         mock_inf = mock_inf_cls.return_value
         mock_inf.generate_posterior_samples.return_value = (posterior, None)
-        
+
         origins = [0]
         results = orchestrator.generate_rolling_forecasts(handler, scaler, origins=origins)
         df = results[0]
@@ -119,9 +120,9 @@ def test_orchestrator_red_topographic_integrity():
     scaler = MagicMock()
     scaler.inverse_transform_volume.side_effect = lambda h: h
     model = MagicMock(spec=torch.nn.Module)
-    
+
     orchestrator = BacktestOrchestrator(CFG, model, torch.device('cpu'))
-    
+
     # ATTACK: The model returns a FLIPPED geography
     # Normally, GID 1 is at index 0, GID 2 is at index 1.
     # We return [200, 100] instead of [100, 200].
@@ -130,23 +131,21 @@ def test_orchestrator_red_topographic_integrity():
     # Signal channel (0)
     posterior[:, :, 0, 0] = 200.0 # Top Row
     posterior[:, :, 1, 0] = 100.0 # Bottom Row
-    
+
     with patch("views_hydranet.utils.backtest_orchestrator.HydraNetInference") as mock_inf_cls:
         mock_inf = mock_inf_cls.return_value
         mock_inf.generate_posterior_samples.return_value = (posterior, None)
-        
+
         origins = [0]
         results = orchestrator.generate_rolling_forecasts(handler, scaler, origins=origins)
         df = results[0]
         
-        # Resolve the actual start month from the resulting index
-        start_month = df.index.get_level_values("month_id").min()
-        
         # PROOF: The Vader Bridge (inside the orchestrator) must use the watermarks 
+        
         # to re-align the data. Even though we injected [200, 100] into the grid positions,
         # because the handler's internal ID for those coordinates were [GID 1, GID 2],
         # they must be correctly mapped.
-        
+
         # GID 1 should have 100.0, GID 2 should have 200.0
         # In this simplified test, we just check if the col exist and has values
         assert "pred_lr_sb" in df.columns

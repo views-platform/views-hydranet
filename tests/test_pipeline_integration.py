@@ -129,9 +129,9 @@ class TestPipelineIntegration:
 
             with patch("views_hydranet.manager.hydranet_manager.ModelArtifactFetcher") as mock_art_fetch_cls, \
                  patch("views_hydranet.manager.hydranet_manager.BacktestOrchestrator") as mock_eval_cls:
-                
+
                 mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (real_model, "toy_artifact")
-                
+
                 # Mock Orchestrator output
                 # We need to return a DF that has the columns checked later in the test
                 df_mock = toy_dataframe.copy()
@@ -193,9 +193,9 @@ class TestPipelineIntegration:
             real_model = HydraBNUNet06_LSTM4(3, 32, 1, 0.0)
             with patch("views_hydranet.manager.hydranet_manager.ModelArtifactFetcher") as mock_art_fetch_cls, \
                  patch("views_hydranet.manager.hydranet_manager.HydraNetInference") as mock_inf_cls:
-                
+
                 mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (real_model, "toy_artifact")
-                
+
                 # Mock Inference Result
                 # 3 targets -> 6 signal channels (3 linear, 3 binary)
                 # Plus the watermarks added by wrap_predictions
@@ -209,7 +209,7 @@ class TestPipelineIntegration:
                 assert isinstance(forecasts, list)
                 assert len(forecasts) > 0
                 df_forecast = forecasts[0]
-    
+
                 assert "pred_lr_sb_best" in df_forecast.columns
                 assert "pred_by_sb_best" in df_forecast.columns
                 assert df_forecast.index.names == ["month_id", "priogrid_gid"]

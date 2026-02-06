@@ -1,8 +1,8 @@
 
-import pytest
 import numpy as np
 import pandas as pd
-import torch
+import pytest
+
 from views_hydranet.utils.volume_handler import VolumeHandler
 
 # NAMING CONFIG
@@ -32,17 +32,17 @@ class TestNamingEngineFalsification:
 
     def test_gate_1_to_4_naming_symmetry(self, history_scaffold):
         """Gates 1-4: Verify naming and value types for Point vs Stochastic."""
-        
+
         # --- SCENARIO A: POINT (4D) ---
         # [T=1, H=4, W=4, C=4] (sb_reg, ns_reg, sb_prob, ns_prob)
         posterior_4d = np.random.rand(1, 4, 4, 4)
         pred_vh_4d = history_scaffold.wrap_predictions(posterior_4d, base_names=[ 'lr_sb',  'lr_ns'])
         df_4d = pred_vh_4d.to_evaluation_df(history=history_scaffold, start_idx=0)
-        
+
         # Gate 1: Point Regression
         assert "pred_lr_sb" in df_4d.columns
         assert isinstance(df_4d["pred_lr_sb"].iloc[0], (float, np.float32, np.float64))
-        
+
         # Gate 2: Point Classification
         assert "pred_by_sb" in df_4d.columns
         assert isinstance(df_4d["pred_by_sb"].iloc[0], (float, np.float32, np.float64))
@@ -52,12 +52,12 @@ class TestNamingEngineFalsification:
         posterior_5d = np.random.rand(1, 4, 4, 4, 5)
         pred_vh_5d = history_scaffold.wrap_predictions(posterior_5d, base_names=[ 'lr_sb',  'lr_ns'])
         df_5d = pred_vh_5d.to_evaluation_df(history=history_scaffold, start_idx=0)
-        
+
         # Gate 3: Stochastic Regression
         assert "pred_lr_sb" in df_5d.columns
         assert isinstance(df_5d["pred_lr_sb"].iloc[0], list)
         assert len(df_5d["pred_lr_sb"].iloc[0]) == 5
-        
+
         # Gate 4: Stochastic Classification
         assert "pred_by_sb" in df_5d.columns
         assert isinstance(df_5d["pred_by_sb"].iloc[0], list)
@@ -65,13 +65,13 @@ class TestNamingEngineFalsification:
 
     def test_gate_5_to_8_integrity_and_collision(self, history_scaffold):
         """Gates 5-8: Verify actuals protection, cleanup, and multi-target symmetry."""
-        
+
         posterior = np.zeros((1, 4, 4, 4))
         pred_vh = history_scaffold.wrap_predictions(posterior, base_names=[ 'lr_sb',  'lr_ns'])
         df = pred_vh.to_evaluation_df(history=history_scaffold, start_idx=0)
-        
+
         cols = df.columns.tolist()
-        
+
         # Gate 5: Actual Preservation
         # The ground truth  'lr_sb' must exist alongside the prediction
         assert "lr_sb" in cols
@@ -83,13 +83,13 @@ class TestNamingEngineFalsification:
         # No internal tokens should ever reach the researcher
         assert not any("_INTERNAL_" in c for c in cols)
         assert not any("ACTUAL_INTERNAL_" in c for c in cols)
-        
+
         # Gate 7: Prefix Constancy
         # Every prediction MUST start with pred_
         preds = [c for c in cols if c.startswith("pred_")]
         assert len(preds) == 4 # (lr_sb, by_sb, lr_ns, by_ns)
         assert all(c.startswith("pred_") for c in preds)
-        
+
         # Gate 8: Multi-Target Symmetry
         # Both sb and ns must have their triplet (Actual, Prediction, Binary)
         for target in ["sb", "ns"]:

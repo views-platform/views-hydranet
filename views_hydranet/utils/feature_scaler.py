@@ -3,9 +3,12 @@ Declarative and Stateful Feature Scaling for HydraNet.
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, TYPE_CHECKING
 
 import pandas as pd
+
+if TYPE_CHECKING:
+    from views_hydranet.utils.volume_handler import VolumeHandler
 
 from views_hydranet.utils.utils_config import TRANSFORMS
 
@@ -136,19 +139,18 @@ class FeatureScaler:
                 method_lookup[col] = method
 
         # 2. Vectorized Math on underlying array
-        import numpy as np
         import torch
         work_data = vh.data.detach().cpu().numpy() if torch.is_tensor(vh.data) else vh.data.copy()
-        
+
         c_idx = vh.get_axis_idx("C")
-        
+
         for i, channel_name in enumerate(vh.channel_map):
             # ADR 032: Handle both actuals (lr_sb) and predictions (pred_lr_sb)
             # 1. Identify intent (Linear vs Binary)
             if "by_" in channel_name:
                 # Binary/Probability heads are never inverse-transformed
                 continue
-            
+
             # 2. Extract base target name by stripping standard prefixes
             # Example: pred_lr_sb_best -> lr_sb_best
             # Example: lr_sb_best -> lr_sb_best
@@ -158,7 +160,7 @@ class FeatureScaler:
             if method and method in TRANSFORMS:
                 _, inverse_func = TRANSFORMS[method]
                 logger.debug(f"  ← Volume Channel {i} ({channel_name}): Inverting via {method}")
-                
+
                 # Slicing the 5D/4D volume on the channel axis
                 slc = [slice(None)] * work_data.ndim
                 slc[c_idx] = i

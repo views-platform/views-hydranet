@@ -5,11 +5,10 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 import torch
 import torch.nn as nn
-from views_hydranet.utils.utils_prediction import sample_posterior
-
 from views_hydranet.utils.utils_contract_converters import (
     predictions_to_contract_df,
 )
+from views_hydranet.utils.utils_prediction import sample_posterior
 
 logger = logging.getLogger(__name__)
 

@@ -1,9 +1,10 @@
 
-import os
-import psutil
-import numpy as np
-import time
 import logging
+import os
+import time
+
+import numpy as np
+import psutil
 
 # Configure logging for bit-perfect transparency
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -39,17 +40,17 @@ class SurvivalHandler:
 
         s_idx = self._axes.index("S")
         logger.info(f"Collapsing dimension 'S' at index {s_idx}...")
-        
+
         start_time = time.time()
         # PERFORM THE KILL: np.mean along the sample axis
         collapsed_data = np.mean(self._data, axis=s_idx)
-        
+
         # Define new axes (4D)
         new_axes = tuple(ax for ax in self._axes if ax != "S")
-        
+
         duration = time.time() - start_time
         logger.info(f"Collapse complete in {duration:.4f}s. New shape: {collapsed_data.shape}")
-        
+
         return SurvivalHandler(collapsed_data, new_axes)
 
 def run_survival_audit():
@@ -71,18 +72,18 @@ def run_survival_audit():
     logger.info("Generating Stochastic 5D Volume...")
     stochastic_data = np.random.rand(T, H, W, C, S).astype(np.float32)
     handler_5d = SurvivalHandler(stochastic_data, ("T", "H", "W", "C", "S"))
-    
+
     state_a_mem = get_process_memory_gb()
     print(f"2. State A (Stochastic 5D) RAM: {state_a_mem:.4f} GB (Delta: {state_a_mem-baseline:.4f} GB)")
 
     # 3. PERFORM COLLAPSE (The Milestone 1 Logic)
     handler_4d = handler_5d.collapse_to_point()
-    
+
     # CRITICAL: Discard the 5D data to simulate real-world memory recovery
     del stochastic_data
     del handler_5d
     time.sleep(1) # Let GC work
-    
+
     state_b_mem = get_process_memory_gb()
     print(f"3. State B (Point 4D) RAM: {state_b_mem:.4f} GB (Delta from Baseline: {state_b_mem-baseline:.4f} GB)")
 
