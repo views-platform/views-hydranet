@@ -1,6 +1,6 @@
 # ADR 019: Specification for FeatureScaler (The Normalizer)
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Context:** Spatiotemporal signals often require non-linear scaling (e.g., log-transformation) to stabilize training. To maintain the "Producer Contract," we must be able to reverse these transformations with bit-perfect precision. This ADR defines the `FeatureScaler` as the authoritative, stateful gateway for all mathematical transformations.
 
 ---
@@ -8,21 +8,12 @@
 ## 1. Functional Categorization (The "Zones")
 
 ### Zone 1: Configuration (The Handshake)
-*   **Responsibility:** Initializing the scaler with a declarative mapping of columns to methods.
-*   **The Law:** Every predictive feature MUST be assigned to exactly one transformation method in the `transform` dictionary.
-*   **Supported Methods:** `log1p`, `asinh`, `identity`.
-
-### Zone 2: Forward Transformation (Raw → Semantic)
-*   **Responsibility:** Applying non-linear math to stabilize input distributions.
-*   **Mechanism:** `fit_transform(df)`. This method "locks" the state of the scaler. Heterogeneous signals (e.g. counts vs. ratios) are processed in parallel blocks based on the configuration.
-
-### Zone 3: Inverse Transformation (Semantic → Raw)
-*   **Responsibility:** Reversing all forward math to restore the original count space for the evaluation package.
-*   **Mechanism:** `inverse_transform(df)`.
+... (existing content) ...
 
 ### Zone 4: Volume Support (Vectorized Inversion)
 *   **Responsibility:** Providing high-performance mathematical inversion for contiguous spatiotemporal tensors (VolumeHandlers).
 *   **The "Immediate Raw" Principle:** Predictions should be inverse-transformed as soon as they leave the inference engine. This ensures that any subsequent operations (like Point-Collapse in ADR 021) happen in scientifically accurate Raw Count Space.
+*   **Prefix-Awareness:** The inversion logic MUST be aware of the `pred_lr_` and `pred_by_` prefixes (ADR 032). It must correctly identify the base target name to resolve the appropriate inverse function while strictly ignoring binary probability heads (`pred_by_`).
 *   **Mechanism:** `inverse_transform_volume(VolumeHandler) -> VolumeHandler`. This method applies math directly to the underlying NumPy data using the volume's internal Ledger to map channels to their specific inverse functions.
 
 ---

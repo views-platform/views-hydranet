@@ -150,9 +150,9 @@ class FeatureScaler:
                 continue
             
             # 2. Extract base target name by stripping standard prefixes
-            # Example: pred_lr_sb_best -> sb_best
-            # Example: lr_sb_best -> sb_best
-            base_name = channel_name.replace("pred_", "").replace("lr_", "")
+            # Example: pred_lr_sb_best -> lr_sb_best
+            # Example: lr_sb_best -> lr_sb_best
+            base_name = channel_name.replace("pred_", "")
 
             method = method_lookup.get(base_name)
             if method and method in TRANSFORMS:

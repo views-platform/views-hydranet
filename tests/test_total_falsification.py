@@ -7,7 +7,7 @@ from views_hydranet.utils.feature_scaler import FeatureScaler
 
 # FALSIFICATION CONFIG
 CFG = {
-    "transform": {"log1p": ["sb"], "asinh": ["ns"]}, # 'os' is intentionally identity
+    "transform": {"log1p": ["lr_sb"], "asinh": ["lr_ns"]}, #  'os' is intentionally identity
     "aggregate_method": "arithmetic_mean"
 }
 
@@ -73,7 +73,7 @@ class TestNukeProofAudit:
         data = np.random.rand(10, 2, 1, 4, 4)
         vh = VolumeHandler(
             data=data, axes=("S", "C", "T", "H", "W"), # CRAZY LAYOUT
-            channel_map=["a", "b"],
+            channel_map=["lr_a", "lr_b"],
             time_col="t", id_col="i", spatial_cols=("y", "x")
         )
         

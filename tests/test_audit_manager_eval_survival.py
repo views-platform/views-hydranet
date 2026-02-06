@@ -13,16 +13,17 @@ AUDIT_CFG = {
     'time_steps': 1,
     'input_channels': 2,
     'output_channels': 1,
-    'target_variable': 'sb',
-    'targets': ['sb', 'ns'],
-    'classification_outputs': ['sb', 'ns'],
+    'target_variable': 'lr_sb_best',
+    'targets': ['lr_sb_best', 'lr_ns_best'],
+    'classification_outputs': ['lr_sb_best', 'lr_ns_best'],
     'identity_cols': ['month_id', 'priogrid_gid'],
-    'features': ['sb', 'ns'],
+    'features': ['lr_sb_best', 'lr_ns_best'],
     'transform': {
-        'log1p': ['sb'],
-        'asinh': ['ns'],
+        'log1p': ['lr_sb_best'],
+        'asinh': ['lr_ns_best'],
         'identity': []
     },
+
     'height': 4, 'width': 4,
     'time_col': 'month_id', 'id_col': 'priogrid_gid',
     'spatial_cols': ['row', 'col'],
@@ -31,7 +32,7 @@ AUDIT_CFG = {
     'dropout_rate': 0.0, 'weight_init': 'norm', 'h_init': 'zero',
     'learning_rate': 0.01, 'weight_decay': 0.0, 'windows_per_lesson': 1,
     'scheduler': 'none', 'warmup_steps': 1, 'clip_grad_norm': True,
-    'loss_reg': 'b', 'loss_class': 'b', 'loss_reg_a': 1, 'loss_reg_c': 1,
+    'loss_reg':  'b', 'loss_class':  'b', 'loss_reg_a': 1, 'loss_reg_c': 1,
     'loss_class_gamma': 1, 'loss_class_alpha': 1,
     'total_lessons': 1, 'n_posterior_samples': 10,
     'np_seed': 1, 'torch_seed': 1,
@@ -53,7 +54,7 @@ class TestManagerEvalHardAudit:
             'month_id': sorted(list(range(100, 124)) * 16), 
             'priogrid_gid': list(range(1, 17)) * 24,
             'row': [0]*384, 'col': [0]*384,
-            'sb': [10.0]*384, 'ns': [10.0]*384
+             'lr_sb_best': [10.0]*384,  'lr_ns_best': [10.0]*384
         })
 
         with patch("views_pipeline_core.managers.model.model.ForecastingModelManager.__init__", return_value=None):
@@ -79,9 +80,9 @@ class TestManagerEvalHardAudit:
                     
                     # 3. Mock Evaluator (This is where the 'Science' is tested)
                     df_pred = pd.DataFrame({
-                        'sb': [10.0]*16, 'ns': [10.0]*16,
-                        'pred_lr_sb': [100.0]*16, 'pred_ns_raw': [100.0]*16,
-                        'pred_sb_prob': [0.9]*16, 'pred_ns_prob': [0.9]*16
+                         'lr_sb_best': [10.0]*16,  'lr_ns_best': [10.0]*16,
+                        'pred_lr_sb_best': [100.0]*16, 'pred_lr_ns_best': [100.0]*16,
+                        'pred_by_sb_best': [0.9]*16, 'pred_by_ns_best': [0.9]*16
                     }, index=pd.MultiIndex.from_product([[124], range(1, 17)], names=['month_id', 'priogrid_gid']))
                     mock_eval_cls.return_value.evaluate.return_value = [df_pred]
                     
@@ -90,14 +91,14 @@ class TestManagerEvalHardAudit:
                     df = results[0]
 
                     # GATES
-                    np.testing.assert_allclose(df["pred_lr_sb"].iloc[0], 100.0, rtol=1e-5)
-                    assert isinstance(df["pred_lr_sb"].iloc[0], (float, np.float32, np.float64))
-                    assert "pred_lr_sb" in df.columns
-                    assert "sb" in df.columns
+                    np.testing.assert_allclose(df["pred_lr_sb_best"].iloc[0], 100.0, rtol=1e-5)
+                    assert isinstance(df["pred_lr_sb_best"].iloc[0], (float, np.float32, np.float64))
+                    assert "pred_lr_sb_best" in df.columns
+                    assert "lr_sb_best" in df.columns
                     assert isinstance(df.index, pd.MultiIndex)
-                    np.testing.assert_allclose(df["pred_sb_prob"].iloc[0], 0.9, rtol=1e-5)
-                    assert not any(isinstance(x, list) for x in df["pred_lr_sb"])
-                    np.testing.assert_allclose(df["pred_ns_raw"].iloc[0], 100.0, rtol=1e-5)
+                    np.testing.assert_allclose(df["pred_by_sb_best"].iloc[0], 0.9, rtol=1e-5)
+                    assert not any(isinstance(x, list) for x in df["pred_lr_sb_best"])
+                    np.testing.assert_allclose(df["pred_lr_ns_best"].iloc[0], 100.0, rtol=1e-5)
 
     def test_gate_8_nuke_proof_heterogeneous(self, tmp_path):
         """Hard Gate 8: Verify multiple inverse functions in one volume."""
@@ -109,7 +110,7 @@ class TestManagerEvalHardAudit:
             'month_id': sorted(list(range(100, 124)) * 16), 
             'priogrid_gid': list(range(1, 17)) * 24,
             'row': [0]*384, 'col': [0]*384,
-            'sb': [1.0]*384, 'ns': [1.0]*384
+             'lr_sb_best': [1.0]*384,  'lr_ns_best': [1.0]*384
         })
 
         with patch("views_pipeline_core.managers.model.model.ForecastingModelManager.__init__", return_value=None):
@@ -129,14 +130,14 @@ class TestManagerEvalHardAudit:
                     mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (MagicMock(), "audit")
                     
                     df_pred = pd.DataFrame({
-                        'pred_lr_sb': [10.0]*16, 'pred_ns_raw': [10.0]*16,
+                        'pred_lr_sb_best': [10.0]*16, 'pred_lr_ns_best': [10.0]*16,
                     }, index=pd.MultiIndex.from_product([[124], range(1, 17)], names=['month_id', 'priogrid_gid']))
                     mock_eval_cls.return_value.evaluate.return_value = [df_pred]
                     
                     results = manager._evaluate_model_artifact(eval_type="audit")
                     df = results[0]
-                    np.testing.assert_allclose(df["pred_lr_sb"].iloc[0], 10.0, rtol=1e-5)
-                    np.testing.assert_allclose(df["pred_ns_raw"].iloc[0], 10.0, rtol=1e-5)
+                    np.testing.assert_allclose(df["pred_lr_sb_best"].iloc[0], 10.0, rtol=1e-5)
+                    np.testing.assert_allclose(df["pred_lr_ns_best"].iloc[0], 10.0, rtol=1e-5)
 
     def test_gates_9_to_16_forecast_survival(self, tmp_path):
         """Hard Gates 9-16: Falsify the Survival Sequence in the Forecasting path."""
@@ -148,7 +149,7 @@ class TestManagerEvalHardAudit:
             'month_id': sorted(list(range(100, 124)) * 16), 
             'priogrid_gid': list(range(1, 17)) * 24,
             'row': [0]*384, 'col': [0]*384,
-            'sb': [10.0]*384, 'ns': [10.0]*384
+             'lr_sb_best': [10.0]*384,  'lr_ns_best': [10.0]*384
         })
 
         with patch("views_pipeline_core.managers.model.model.ForecastingModelManager.__init__", return_value=None):
@@ -182,8 +183,8 @@ class TestManagerEvalHardAudit:
                     df = results[0]
 
                     # GATES
-                    np.testing.assert_allclose(df["pred_lr_sb"].iloc[0], 50.0, rtol=1e-5)
-                    assert isinstance(df["pred_lr_sb"].iloc[0], (float, np.float32, np.float64))
+                    np.testing.assert_allclose(df["pred_lr_sb_best"].iloc[0], 50.0, rtol=1e-5)
+                    assert isinstance(df["pred_lr_sb_best"].iloc[0], (float, np.float32, np.float64))
                     assert df.index.get_level_values("month_id")[0] == 124
 
 if __name__ == "__main__":

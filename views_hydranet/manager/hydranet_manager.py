@@ -122,6 +122,8 @@ class HydranetManager(ForecastingModelManager):
         evaluator = ModelArtifactEvaluator(self.configs, model, self.device)
         list_df_predictions = evaluator.evaluate(handler, scaler)
 
+        print(list_df_predictions)
+
         return list_df_predictions
 
 
@@ -177,17 +179,21 @@ class HydranetManager(ForecastingModelManager):
         df_full = pred_handler.to_forecast_df(history=handler)
 
         if df_full is not None:
-            # The Subsetting Gate
+            # The Subsetting Gate (Boring Law)
             requested_targets = self.configs["targets"]
             final_cols = []
             for t in requested_targets:
-                # ADR 032: Prefixes pred_lr_ and pred_by_
-                for col in [f"lr_{t}", f"by_{t}", f"pred_lr_{t}", f"pred_by_{t}"]:
+                if not t.startswith("lr_"):
+                    raise ValueError(f"HydranetManager Contract Violation: Target '{t}' must start with 'lr_'")
+                
+                # Derive ADR 032 literal names
+                binary_t = t.replace("lr_", "by_", 1)
+                pred_lr_t = f"pred_{t}"
+                pred_by_t = f"pred_{binary_t}"
+                
+                for col in [t, binary_t, pred_lr_t, pred_by_t]:
                     if col in df_full.columns:
                         final_cols.append(col)
-                # Backward compatibility for non-prefixed actuals if they exist
-                if t in df_full.columns and t not in final_cols:
-                    final_cols.append(t)
 
             df_full = df_full[final_cols]
 

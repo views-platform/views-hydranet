@@ -32,7 +32,7 @@ BASE_CONFIG = {
     'dropout_rate': 0.0, 'weight_init': 'norm', 'h_init': 'zero',
     'learning_rate': 0.01, 'weight_decay': 0.0, 'windows_per_lesson': 1,
     'scheduler': 'none', 'warmup_steps': 1, 'clip_grad_norm': True,
-    'loss_reg': 'b', 'loss_class': 'b', 'loss_reg_a': 1, 'loss_reg_c': 1,
+    'loss_reg':  'lr_b', 'loss_class':  'lr_b', 'loss_reg_a': 1, 'loss_reg_c': 1,
     'loss_class_gamma': 1, 'loss_class_alpha': 1,
     'total_lessons': 1, 'n_posterior_samples': 1, 'np_seed': 1, 'torch_seed': 1,
     'min_events': 0, 'slope_ratio': 0.1, 'roof_ratio': 0.1, 'max_ratio': 0.9, 'min_ratio': 0.1,

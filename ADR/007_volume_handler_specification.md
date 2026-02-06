@@ -55,13 +55,13 @@ To convert the internal 4D/5D volumes back into DataFrames, the handler provides
 *   **`to_evaluation_df`**: Slices a provided history handler to match its own temporal duration, then performs reconstruction using the history as a scaffold.
 *   **`to_forecast_df`**: Extrapolates a provided history handler (incrementing the temporal index) to create a future scaffold for reconstruction.
 
-### 3.3 The Symmetry Recovery Gate (ADR 020 Integration)
+### 3.3 The Symmetry Recovery Gate (ADR 032 Integration)
 The reconstruction logic (shared by all bridges) is the authoritative point for restoring semantic meaning to raw model outputs. To ensure bit-perfect symmetry, it implements the following laws:
 
-1.  **The Collision Law:** During reconstruction, ground-truth features from the history/scaffold are prefixed with `ACTUAL_INTERNAL_`. This prevents them from being overwritten by model predictions that share the same semantic name.
-2.  **Internalized Naming:** The `wrap_predictions(base_names)` method automatically "dresses" the 6 architectural heads with internal labels (`_INTERNAL_SIGNAL`, `_INTERNAL_PROB`). 
+1.  **The Identity Carriage Law:** During reconstruction, mandatory identity columns (including `c_id`, `row`, `col`) MUST be carried losslessly from the provider to the output DataFrame.
+2.  **Intent-Based Naming:** The `wrap_predictions(base_names)` method automatically "dresses" the architectural heads using the `pred_lr_` and `pred_by_` prefixes (ADR 020/032). 
 3.  **Automatic Topographical Restoration:** Before returning a DataFrame, the handler automatically restores the `pd.MultiIndex` using its authoritative Ledger roles (`time_col`, `id_col`).
-4.  **The Final Handshake:** Internal labels are mapped to the final outbound contract names (`pred_..._raw`, `pred_..._prob`) and `ACTUAL_INTERNAL_` is stripped, delivering a clean, bit-perfect DataFrame to the evaluation domain.
+4.  **The Binary Derivative Law:** If requested, the bridge generates binary actuals (`by_{target}`) from linear counts (`lr_{target}`) to ensure a complete evaluation scaffold.
 
 ### 3.4 The Zero-Magic Law
 *   **No Hardcoded Strings:** Logic never uses `"month_id"` or `"row"`. It uses `self.ledger.time_col` or `self.ledger.y_coord`.

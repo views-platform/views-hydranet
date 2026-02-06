@@ -11,7 +11,7 @@ CFG = {
     'id_col': 'priogrid_gid',
     'spatial_cols': ['row', 'col'],
     'identity_cols': ['month_id', 'priogrid_gid'],
-    'features': ['sb'],
+    'features': [ 'lr_sb'],
     'row_offset': 0,
     'col_offset': 0,
     'height': 10,
@@ -27,7 +27,7 @@ def test_red_team_the_abyss():
         'priogrid_gid': np.arange(1, 101),
         'row': np.repeat(np.arange(10), 10),
         'col': np.tile(np.arange(10), 10),
-        'sb': np.random.rand(100)
+         'lr_sb': np.random.rand(100)
     })
     handler = VolumeHandler.from_df(df_in, CFG)
     
@@ -39,7 +39,7 @@ def test_red_team_the_abyss():
     
     # 3. ATTACK A: The Ragged Void (50% Data Loss)
     # We watermark the volume, then we 'murder' 50% of the land cells in the prediction volume.
-    pred_handler = handler.wrap_predictions(posterior, base_names=['sb'])
+    pred_handler = handler.wrap_predictions(posterior, base_names=[ 'lr_sb'])
     
     # Destructive surgery: Zero out 50 random rows in the internal data
     # (But we don't just zero the values, we zero the WATERMARKS too)
@@ -69,7 +69,7 @@ def test_red_team_the_abyss():
 
     # 5. ATTACK B: The Temporal Warp
     # We watermark the volume, then we shift the 'month_id' watermark by 1000 months.
-    pred_handler_warp = handler.wrap_predictions(posterior, base_names=['sb'])
+    pred_handler_warp = handler.wrap_predictions(posterior, base_names=[ 'lr_sb'])
     
     # Find month_id channel index
     m_idx = pred_handler_warp.channel_map.index("month_id")
@@ -89,7 +89,7 @@ def test_red_team_the_abyss():
 
     # 6. ATTACK C: The Stolen Identity (ID Collision)
     # We set all pg_ids in the watermark to '999'.
-    pred_handler_id = handler.wrap_predictions(posterior, base_names=['sb'])
+    pred_handler_id = handler.wrap_predictions(posterior, base_names=[ 'lr_sb'])
     id_idx = pred_handler_id.channel_map.index("priogrid_gid")
     pred_handler_id.data[..., id_idx] = 999
     

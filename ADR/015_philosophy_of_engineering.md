@@ -49,13 +49,13 @@ Data content modification (scaling, augmentation, binarization) is a strategic a
 
 ---
 
-## 6. Law 6: The Prefix-Purity Law (No False Comfort)
-We reject the practice of renaming columns (e.g., `lr_` to `ln_`) as they undergo mathematical transformations. 
-*   **The Principle:** Column prefixes describe **Semantic Intent** (Linear vs. Binary), not **Numerical Scale** (Logged vs. Raw).
+## 6. Law 6: The Prefix-Purity Law (Never Fuck With lr_)
+We strictly reject the practice of renaming columns (e.g., `lr_` to `ln_` or `as_`) as they undergo mathematical transformations.
+*   **The Principle:** Column prefixes describe **Semantic Intent** (Linear vs. Binary), not **Numerical Scale** (Logged vs. Raw). 
+*   **The Invariant:** The `lr_` prefix signifies "Linear/Identity Intent" (raw counts). This prefix MUST be preserved throughout the internal pipeline, regardless of whether the data is raw, logged, or otherwise scaled.
 *   **Authority:** The `config` Fit/Transform state is the only authoritative record of a column's current scale. 
-*   **False Comfort:** Changing a prefix does not prove a transformation occurred; it only creates a misleading audit trail. We preserve the original name and trust the `config` to govern the math.
-*   **The Edge Exception:** Standard prefixes (`pred_lr_`, `pred_by_`) are enforced only at the **I/O Edges** to satisfy external consumers.
-
+*   **Rationale:** Changing a prefix based on math creates a misleading and brittle audit trail. We preserve the original `lr_` name and trust the `config` to govern the math.
+*   **The Edge Exception:** The only valid transformations of a target name are the derivation of binary intent (`lr_` -> `by_`) and the prepending of prediction intent (`pred_`).
 ---
 
 ## 7. Consequences

@@ -1,6 +1,6 @@
 # ADR 016: Specification for HydranetManager (The Orchestrator)
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Context:** High-level pipeline management requires a central orchestrator. Previous managers became "God Objects" containing both strategy and mechanics. This ADR defines the `HydranetManager` as a pure orchestrator that delegates all technical work to specialized "Boring" components.
 
 ---
@@ -14,7 +14,7 @@
 ### Zone 2: Component Gluing (The Handshake)
 *   **Responsibility:** Initializing and passing data between specialized components (`DataFetcher`, `VolumeHandler`, `HydraNetInference`).
 *   **The Law:** The Manager never performs math or data transformation directly. It trusts the `VolumeHandler` to return bit-perfect, topologically correct, and correctly named DataFrames.
-*   **Zero-Management of Keys:** The Manager is prohibited from performing manual string renaming or index manipulation. If a column needs a `pred_` prefix or a MultiIndex needs restoration, it must be handled by the specialized gate inside the `VolumeHandler` (ADR 007).
+*   **Zero-Management of Keys:** The Manager is prohibited from performing manual string renaming or index manipulation. If a column needs a `pred_lr_` or `pred_by_` prefix or a MultiIndex needs restoration, it must be handled by the specialized gate inside the `VolumeHandler` (ADR 032).
 
 ### Zone 3: Artifact Custody (The Storage)
 *   **Responsibility:** Managing the loading and saving of model artifacts (`.pt` files) and ensuring they are associated with the correct metadata timestamp.

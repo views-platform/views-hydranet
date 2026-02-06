@@ -67,4 +67,5 @@ The architecture `HydraBNUNet06_LSTM4` is physically limited to 3 heads. To supp
 ### Actionable ADHD Summary
 *   **The Change:** We stop guessing where data is. We ask for it by name.
 *   **The Safety:** If the QuerySet and the Model don't match, the code will stop and tell you exactly why, instead of giving you bad results.
+*   **The Identity:** Crucial bookkeeping columns like `c_id` (country_id) are explicitly identified and preserved to ensure downstream join stability.
 *   **The Result:** You can change your QuerySet tomorrow, and HydraNet won't blink.

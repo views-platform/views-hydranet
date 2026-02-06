@@ -205,9 +205,18 @@ class VolumeHandler:
         Automatically applies ADR 032 naming Engine and Watermarks the volume with IDs.
         """
         # 1. Automated Naming (Internal Symmetry Gate)
-        # Using ADR 032 naming conventions: pred_lr_{target} and pred_by_{target}
-        reg_names = [f"{PRED_PREFIX}{LINEAR_PREFIX}{n}" for n in base_names]
-        prob_names = [f"{PRED_PREFIX}{BINARY_PREFIX}{n}" for n in base_names]
+        # ADR 032: Naming is derived literally from base features.
+        # Rule: reg = pred_{feature}, prob = pred_by_{base} (where feature is lr_{base})
+        reg_names = []
+        prob_names = []
+        for n in base_names:
+            if not n.startswith(LINEAR_PREFIX):
+                raise ValueError(
+                    f"VolumeHandler Contract Violation: Feature '{n}' must start with '{LINEAR_PREFIX}' "
+                    f"to conform to ADR 032 naming conventions."
+                )
+            reg_names.append(f"{PRED_PREFIX}{n}")
+            prob_names.append(f"{PRED_PREFIX}{n.replace(LINEAR_PREFIX, BINARY_PREFIX, 1)}")
         
         # 2. THE WATERMARK (Red Team Hardening)
         # We prepend ALL identity channels from the parent to the prediction data

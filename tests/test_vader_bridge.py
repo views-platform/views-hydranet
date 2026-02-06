@@ -11,7 +11,7 @@ PHYSICS_CFG = {
     'id_col': 'priogrid_gid',
     'spatial_cols': ['row', 'col'],
     'identity_cols': ['month_id', 'priogrid_gid'],
-    'features': ['feature_a'],
+    'features': [ 'lr_feature_a'],
     'row_offset': 0,
     'col_offset': 0,
     'height': 4,
@@ -25,7 +25,7 @@ def test_bridge_point_accuracy():
     df_in = pd.DataFrame({
         'month_id': [1, 1], 'priogrid_gid': [1, 2],
         'row': [0, 0], 'col': [0, 1],
-        'feature_a': [10.5, 20.5]
+         'lr_feature_a': [10.5, 20.5]
     })
     handler = VolumeHandler.from_df(df_in, PHYSICS_CFG)
     
@@ -33,22 +33,22 @@ def test_bridge_point_accuracy():
     posterior[0, 3, 0, 0] = 100.5
     posterior[0, 3, 1, 0] = 200.5
     
-    pred_handler = handler.wrap_predictions(posterior, base_names=['feature_a'])
+    pred_handler = handler.wrap_predictions(posterior, base_names=[ 'lr_feature_a'])
     df_out = pred_handler.to_evaluation_df(history=handler, start_idx=0)
     
     assert df_out.loc[(1, 1), "pred_lr_feature_a"] == 100.5
     assert df_out.loc[(1, 2), "pred_lr_feature_a"] == 200.5
-    assert df_out.loc[(1, 1), "feature_a"] == 10.5 
+    assert df_out.loc[(1, 1), "lr_feature_a"] == 10.5 
 
 def test_bridge_stochastic_accuracy():
     """Prove bit-perfect accuracy for Stochastic (5D) reconstruction."""
-    df_in = pd.DataFrame({'month_id': [1], 'priogrid_gid': [1], 'row': [0], 'col': [0], 'feature_a': [10.0]})
+    df_in = pd.DataFrame({'month_id': [1], 'priogrid_gid': [1], 'row': [0], 'col': [0],  'lr_feature_a': [10.0]})
     handler = VolumeHandler.from_df(df_in, PHYSICS_CFG)
     
     posterior = np.zeros((1, 4, 4, 2, 3)) 
     posterior[0, 3, 0, 0, :] = [1.0, 2.0, 3.0]
     
-    pred_handler = handler.wrap_predictions(posterior, base_names=['feature_a'])
+    pred_handler = handler.wrap_predictions(posterior, base_names=[ 'lr_feature_a'])
     df_out = pred_handler.to_evaluation_df(history=handler, start_idx=0)
     
     val = df_out.loc[(1, 1), "pred_lr_feature_a"]
@@ -61,21 +61,21 @@ def test_bridge_stochastic_accuracy():
 
 def test_bridge_contract_violation():
     """Prove that duration mismatches fail loud and proud."""
-    df_in = pd.DataFrame({'month_id': [1], 'priogrid_gid': [1], 'row': [0], 'col': [0], 'feature_a': [1.0]})
+    df_in = pd.DataFrame({'month_id': [1], 'priogrid_gid': [1], 'row': [0], 'col': [0],  'lr_feature_a': [1.0]})
     handler = VolumeHandler.from_df(df_in, PHYSICS_CFG)
     
     posterior = np.zeros((2, 4, 4, 2)) # 2 months
     
     with pytest.raises(ValueError, match="Signal duration \(2\) does not match Handler duration \(1\)"):
-        handler.wrap_predictions(posterior, base_names=['feature_a'])
+        handler.wrap_predictions(posterior, base_names=[ 'lr_feature_a'])
 
 def test_bridge_naming_suffixes():
     """Verify that both _raw and _prob suffixes are correctly applied."""
-    df_in = pd.DataFrame({'month_id': [1], 'priogrid_gid': [1], 'row': [0], 'col': [0], 'feature_a': [1.0]})
+    df_in = pd.DataFrame({'month_id': [1], 'priogrid_gid': [1], 'row': [0], 'col': [0],  'lr_feature_a': [1.0]})
     handler = VolumeHandler.from_df(df_in, PHYSICS_CFG)
     
     posterior = np.zeros((1, 4, 4, 2)) 
-    pred_handler = handler.wrap_predictions(posterior, base_names=['feature_a'])
+    pred_handler = handler.wrap_predictions(posterior, base_names=[ 'lr_feature_a'])
     df_out = pred_handler.to_evaluation_df(history=handler, start_idx=0)
 
     assert "pred_lr_feature_a" in df_out.columns
@@ -91,7 +91,7 @@ def test_bridge_vader_alignment_shuffle():
         'priogrid_gid': [1, 2, 3, 4],
         'row': [0, 0, 1, 1],
         'col': [0, 1, 0, 1],
-        'feature_a': [10.0, 20.0, 30.0, 40.0]
+         'lr_feature_a': [10.0, 20.0, 30.0, 40.0]
     })
     handler = VolumeHandler.from_df(df, PHYSICS_CFG)
     
@@ -105,7 +105,7 @@ def test_bridge_vader_alignment_shuffle():
     handler.flip("H")
     posterior = np.flip(posterior, axis=1)
     
-    pred_handler = handler.wrap_predictions(posterior, base_names=['feature_a'])
+    pred_handler = handler.wrap_predictions(posterior, base_names=[ 'lr_feature_a'])
     df_res = pred_handler.to_evaluation_df(history=handler, start_idx=0)
 
     # AUDIT: Re-alignment must be perfect

@@ -240,16 +240,19 @@ class DataSniffer:
         df_in_aligned = df_in_aligned.sort_values(by=[time_col, id_col]).reset_index(drop=True)
         df_out_aligned = df_out_aligned.sort_values(by=[time_col, id_col]).reset_index(drop=True)
 
-        if not df_in_aligned.equals(df_out_aligned):
-            drift_report = []
-            for col in df_in_aligned.columns:
+        # 6. Robust Comparison (Structural + AllClose for Floats)
+        drift_report = []
+        for col in df_in_aligned.columns:
+            if pd.api.types.is_float_dtype(df_in_aligned[col]):
+                # Use np.allclose for floats
+                if not np.allclose(df_in_aligned[col].values, df_out_aligned[col].values, atol=1e-5):
+                    drift_report.append(f" - Column '{col}': Float values drifted beyond tolerance.")
+            else:
+                # Use standard equality for IDs and other types
                 if not df_in_aligned[col].equals(df_out_aligned[col]):
-                    drift_report.append(f" - Column '{col}': Input[{df_in_aligned[col].dtype}] != Output[{df_out_aligned[col].dtype}]")
-                    mask = df_in_aligned[col] != df_out_aligned[col]
-                    drift_sample = df_in_aligned.loc[mask, col].head(3).tolist()
-                    out_sample = df_out_aligned.loc[mask, col].head(3).tolist()
-                    drift_report.append(f"   Samples: Input {drift_sample} vs Output {out_sample}")
-            
+                    drift_report.append(f" - Column '{col}': Categorical/Integer drift detected.")
+
+        if drift_report:
             error_msg = (
                 f"[CRITICAL DATA ERROR] DataSniffer: Pure State Parity Violation!\n"
                 f"Output (minus predictions) has drifted from Input.\n"

@@ -11,7 +11,7 @@ CFG = {
     'id_col': 'priogrid_gid',
     'spatial_cols': ['row', 'col'],
     'identity_cols': ['month_id', 'priogrid_gid'],
-    'features': ['sb', 'ns'],
+    'features': [ 'lr_sb',  'lr_ns'],
     'row_offset': 0,
     'col_offset': 0,
     'height': 4,
@@ -26,7 +26,7 @@ class TestNamingEngineFalsification:
         df = pd.DataFrame({
             'month_id': [100], 'priogrid_gid': [1],
             'row': [0], 'col': [0],
-            'sb': [10.0], 'ns': [5.0]
+             'lr_sb': [10.0],  'lr_ns': [5.0]
         })
         return VolumeHandler.from_df(df, CFG)
 
@@ -36,7 +36,7 @@ class TestNamingEngineFalsification:
         # --- SCENARIO A: POINT (4D) ---
         # [T=1, H=4, W=4, C=4] (sb_reg, ns_reg, sb_prob, ns_prob)
         posterior_4d = np.random.rand(1, 4, 4, 4)
-        pred_vh_4d = history_scaffold.wrap_predictions(posterior_4d, base_names=['sb', 'ns'])
+        pred_vh_4d = history_scaffold.wrap_predictions(posterior_4d, base_names=[ 'lr_sb',  'lr_ns'])
         df_4d = pred_vh_4d.to_evaluation_df(history=history_scaffold, start_idx=0)
         
         # Gate 1: Point Regression
@@ -50,7 +50,7 @@ class TestNamingEngineFalsification:
         # --- SCENARIO B: STOCHASTIC (5D) ---
         # [T=1, H=4, W=4, C=4, S=5]
         posterior_5d = np.random.rand(1, 4, 4, 4, 5)
-        pred_vh_5d = history_scaffold.wrap_predictions(posterior_5d, base_names=['sb', 'ns'])
+        pred_vh_5d = history_scaffold.wrap_predictions(posterior_5d, base_names=[ 'lr_sb',  'lr_ns'])
         df_5d = pred_vh_5d.to_evaluation_df(history=history_scaffold, start_idx=0)
         
         # Gate 3: Stochastic Regression
@@ -67,17 +67,17 @@ class TestNamingEngineFalsification:
         """Gates 5-8: Verify actuals protection, cleanup, and multi-target symmetry."""
         
         posterior = np.zeros((1, 4, 4, 4))
-        pred_vh = history_scaffold.wrap_predictions(posterior, base_names=['sb', 'ns'])
+        pred_vh = history_scaffold.wrap_predictions(posterior, base_names=[ 'lr_sb',  'lr_ns'])
         df = pred_vh.to_evaluation_df(history=history_scaffold, start_idx=0)
         
         cols = df.columns.tolist()
         
         # Gate 5: Actual Preservation
-        # The ground truth 'sb' must exist alongside the prediction
-        assert "sb" in cols
-        assert "ns" in cols
+        # The ground truth  'lr_sb' must exist alongside the prediction
+        assert "lr_sb" in cols
+        assert "lr_ns" in cols
         # Value must match input (10.0)
-        assert df["sb"].iloc[0] == 10.0
+        assert df["lr_sb"].iloc[0] == 10.0
 
         # Gate 6: Internal Cleanup
         # No internal tokens should ever reach the researcher
@@ -85,16 +85,18 @@ class TestNamingEngineFalsification:
         assert not any("ACTUAL_INTERNAL_" in c for c in cols)
         
         # Gate 7: Prefix Constancy
-        # Every prediction must start with pred_
-        preds = [c for c in cols if c not in ["sb", "ns"]]
+        # Every prediction MUST start with pred_
+        preds = [c for c in cols if c.startswith("pred_")]
+        assert len(preds) == 4 # (lr_sb, by_sb, lr_ns, by_ns)
         assert all(c.startswith("pred_") for c in preds)
         
         # Gate 8: Multi-Target Symmetry
-        # Both sb and ns must have their triplet (Actual, Raw, Prob)
+        # Both sb and ns must have their triplet (Actual, Prediction, Binary)
         for target in ["sb", "ns"]:
-            assert target in cols
-            assert f"pred_lr_{target}" in cols
-            assert f"pred_by_{target}" in cols
+            assert f"lr_{target}" in cols # Linear Actual
+            assert f"by_{target}" in cols # Binary Actual
+            assert f"pred_lr_{target}" in cols # Linear Prediction
+            assert f"pred_by_{target}" in cols # Binary Prediction
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

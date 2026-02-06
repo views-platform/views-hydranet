@@ -28,8 +28,8 @@ TOY_CONFIG = {
     "weight_decay": 0.0,
     "scheduler": "WarmupDecay",
     "warmup_steps": 1,
-    "loss_reg": "b",
-    "loss_class": "b",
+    "loss_reg": "lr_b",
+    "loss_class": "lr_b",
     "loss_reg_a": 1,
     "loss_reg_c": 1,
     "loss_class_gamma": 1,
@@ -56,8 +56,8 @@ TOY_CONFIG = {
     "identity_cols": ["month_id", "priogrid_gid", "row", "col"],
 
     # Outbound / Evaluation (ADR 032 Alignment)
-    "classification_outputs": ["sb_best", "ns_best", "os_best"],
-    "targets": ["sb_best"]
+    "classification_outputs": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "targets": ["lr_sb_best"]
 }
 
 @pytest.fixture

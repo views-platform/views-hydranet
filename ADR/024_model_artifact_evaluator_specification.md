@@ -25,8 +25,8 @@ We implement the `ModelArtifactEvaluator` as a pure, component-based actor. It i
 2.  **Inference Execution:** Delegating to `HydraNetInference` to generate raw 5D/4D tensors.
 3.  **Symmetry Gate (Vader Bridge):** Invoking `VolumeHandler.wrap_predictions` to ensure topographic integrity and naming symmetry.
 4.  **Numerical Recovery:** Applying inverse transforms via the `FeatureScaler` while the data is still in contiguous NumPy memory.
-5.  **Reconstruction:** Bridging the spatiotemporal volumes back into long-format DataFrames.
-6.  **Contract Enforcement:** Validating that the final output satisfies the ViEWS Outbound Contract (finite values, correct suffixes, MultiIndex).
+5.  **Reconstruction:** Bridging the spatiotemporal volumes back into long-format DataFrames according to the **ADR 032 "Pure State" schema** (carrying `c_id`, `row`, `col`).
+6.  **Contract Enforcement:** Validating that the final output satisfies the ViEWS Outbound Contract (finite values, ADR 032 prefixes, MultiIndex).
 
 ### 3. Interface Design
 *   `__init__(self, config, model, device)`: Sets the static context.

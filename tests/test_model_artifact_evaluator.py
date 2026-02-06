@@ -15,9 +15,9 @@ CFG = {
     'id_col': 'priogrid_gid',
     'spatial_cols': ['row', 'col'],
     'identity_cols': ['month_id', 'priogrid_gid'],
-    'features': ['sb'],
-    'targets': ['sb'],
-    'classification_outputs': ['sb'],
+    'features': [ 'lr_sb'],
+    'targets': [ 'lr_sb'],
+    'classification_outputs': [ 'lr_sb'],
     'row_offset': 0,
     'col_offset': 0,
     'height': 2,
@@ -34,7 +34,7 @@ def test_evaluator_green_path():
         'priogrid_gid': [1, 2] * 12,
         'row': [0, 0] * 12,
         'col': [0, 1] * 12,
-        'sb': [1.0] * 24
+         'lr_sb': [1.0] * 24
     })
     handler = VolumeHandler.from_df(df_in, CFG)
     
@@ -64,7 +64,7 @@ def test_evaluator_green_path():
         df = results[0]
         assert isinstance(df.index, pd.MultiIndex)
         assert "pred_lr_sb" in df.columns
-        assert "sb" in df.columns # The Actual
+        assert "lr_sb" in df.columns # The Actual
         print("✅ Green Team: Evaluator Handshake Verified.")
 
 # --- BEIGE TEAM: THE PROOF OF ROBUSTNESS ---
@@ -76,18 +76,18 @@ def test_evaluator_beige_mismatched_targets():
         'month_id': sorted(list(range(1, 13)) * 2),
         'priogrid_gid': [1, 2] * 12,
         'row': [0, 0] * 12, 'col': [0, 1] * 12,
-        'sb': [1.0] * 24
+         'lr_sb': [1.0] * 24
     })
     handler = VolumeHandler.from_df(df_in, CFG)
     scaler = MagicMock()
     scaler.inverse_transform_volume.side_effect = lambda h: h
     model = MagicMock(spec=torch.nn.Module)
     
-    # Target in config is 'sb', but we simulate a different output
+    # Target in config is  'lr_sb', but we simulate a different output
     # By using a different base_name in wrap_predictions (inside the evaluator)
     # Actually, we can just ensure the 'targets' list has something missing
     bad_cfg = CFG.copy()
-    bad_cfg['targets'] = ['sb', 'non_existent_target']
+    bad_cfg['targets'] = [ 'lr_sb', 'lr_non_existent']
     
     evaluator = ModelArtifactEvaluator(bad_cfg, model, torch.device('cpu'))
     
@@ -99,10 +99,10 @@ def test_evaluator_beige_mismatched_targets():
         
         results = evaluator.evaluate(handler, scaler)
         df = results[0]
-        # Should only contain 'sb' related cols, silently ignoring 'non_existent_target'
-        assert "non_existent_target" not in df.columns
+        # Should only contain 'sb' related cols, silently ignoring 'lr_non_existent'
+        assert "lr_non_existent" not in df.columns
         assert "pred_lr_sb" in df.columns
-        assert "sb" in df.columns # The Actual
+        assert "lr_sb" in df.columns # The Actual
 
 
 # --- RED TEAM: THE PROOF OF INVINCIBILITY ---
@@ -114,7 +114,7 @@ def test_evaluator_red_topographic_integrity():
         'month_id': sorted(list(range(1, 13)) * 2),
         'priogrid_gid': [1, 2] * 12,
         'row': [0, 0] * 12, 'col': [0, 1] * 12,
-        'sb': [10.0, 20.0] * 12 # GID 1 has 10, GID 2 has 20
+         'lr_sb': [10.0, 20.0] * 12 # GID 1 has 10, GID 2 has 20
     })
     handler = VolumeHandler.from_df(df_in, CFG)
     scaler = MagicMock()
@@ -150,7 +150,7 @@ def test_evaluator_red_topographic_integrity():
         # GID 1 should have 100.0, GID 2 should have 200.0
         # In this simplified test, we just check if the col exist and has values
         assert "pred_lr_sb" in df.columns
-        assert "sb" in df.columns # The Actual
+        assert "lr_sb" in df.columns # The Actual
 
         print("✅ Red Team: Orchestration Integrity Verified.")
 

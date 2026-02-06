@@ -88,17 +88,21 @@ class ModelArtifactEvaluator:
             df_origin = pred_handler.to_evaluation_df(history=window_handler, start_idx=0)
 
             if df_origin is not None:
-                # 8. The Subsetting Gate (ADR 016 Sec 5.2)
+                # 8. The Subsetting Gate (Boring Law)
                 requested_targets = self.config["targets"]
                 final_cols = []
                 for t in requested_targets:
-                    # ADR 032: Prefixes pred_lr_ and pred_by_
-                    for col in [f"lr_{t}", f"by_{t}", f"pred_lr_{t}", f"pred_by_{t}"]:
+                    if not t.startswith("lr_"):
+                        raise ValueError(f"Evaluator Contract Violation: Target '{t}' must start with 'lr_'")
+                    
+                    # Derive ADR 032 literal names
+                    binary_t = t.replace("lr_", "by_", 1)
+                    pred_lr_t = f"pred_{t}"
+                    pred_by_t = f"pred_{binary_t}"
+                    
+                    for col in [t, binary_t, pred_lr_t, pred_by_t]:
                         if col in df_origin.columns:
                             final_cols.append(col)
-                    # Backward compatibility for non-prefixed actuals if they exist
-                    if t in df_origin.columns and t not in final_cols:
-                        final_cols.append(t)
 
                 list_df_predictions.append(df_origin[final_cols])
 
