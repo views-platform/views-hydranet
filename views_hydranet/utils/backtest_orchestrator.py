@@ -11,9 +11,6 @@ import torch
 import numpy as np
 
 from views_hydranet.utils.hydranet_inference import HydraNetInference
-from views_hydranet.utils.utils_contract_converters import (
-    validate_contract_dataframes,
-)
 from views_hydranet.utils.volume_handler import VolumeHandler
 from views_hydranet.utils.feature_scaler import FeatureScaler
 
@@ -109,8 +106,5 @@ class BacktestOrchestrator:
 
                 list_df_predictions.append(df_origin[final_cols])
 
-        # 8. Final Contract Validation
-        validate_contract_dataframes(list_df_predictions)
-        
         logger.info(f"✅ BacktestOrchestrator: Produced {len(list_df_predictions)} DataFrames.")
         return list_df_predictions

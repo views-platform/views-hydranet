@@ -22,10 +22,6 @@ from views_hydranet.utils.data_sniffer import DataSniffer
 from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.hydranet_inference import HydraNetInference
 from views_hydranet.utils.backtest_orchestrator import BacktestOrchestrator
-from views_hydranet.utils.utils_contract_converters import (
-    validate_contract_dataframes,
-)
-
 from views_hydranet.utils.model_artifact_fetcher import ModelArtifactFetcher
 from views_hydranet.utils.utils_device import setup_device
 from views_hydranet.utils.utils_orchestration import get_rolling_origin_indices
