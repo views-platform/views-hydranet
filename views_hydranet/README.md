@@ -16,12 +16,11 @@
 3. [Features](#features)  
 4. [Installation](#installation)  
 5. [Usage](#usage)  
-6. [Configuration & Stability](#configuration--stability)
-7. [Architecture](#architecture)  
-8. [Project Structure](#project-structure)  
-9. [Contributing](#contributing)  
-10. [License](#license)  
-11. [Acknowledgements](#acknowledgements)  
+6. [Architecture](#architecture)  
+7. [Project Structure](#project-structure)  
+8. [Contributing](#contributing)  
+9. [License](#license)  
+10. [Acknowledgements](#acknowledgements)  
 
 ---
 
@@ -91,15 +90,6 @@ HydraNet seamlessly integrates into the broader VIEWS pipeline. After training a
 
 ---
 
-## ⚙️ Configuration & Stability
-
-HydraNet uses a **Strict Handshake** protocol to ensure production predictability. All hyperparameters are validated against a Pydantic schema (`HydraNetConfig`) at the start of every task.
-
-- **Fail-Fast:** If a required field is missing or a value is invalid (e.g., a typo in `transform`), the program will halt immediately with a detailed error report.
-- **Safe-Mode:** The system uses internal state protection to ensure that critical paths (like model saving and data loading) are robust against partial initializations or mocked environments.
-
----
-
 ## 🏗 Architecture  
 
 HydraNet employs a **probabilistic recurrent U-net** architecture optimized for spatiotemporal conflict forecasting.  
@@ -156,15 +146,11 @@ We welcome contributions to HydraNet! Please follow the contribution guidelines 
 
 ## 💬 Acknowledgements  
 
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/views-platform/docs/main/images/views_funders.png" alt="Views Funders" width="80%">
 </p>
 
-HydraNet builds upon:  
 
-- [UCDP Georeferenced Event Dataset (GED)](https://ucdp.uu.se/) for conflict data.  
-- [PRIO Grid](https://grid.prio.org/#/) for spatial resolution.  
-- Concepts from Hegre et al. (2019), Hegre et al. (2021), and Vesco et al. (2022).  
-- Funding from the **European Research Council** and the **Danish Research Council**.  
+Special thanks to the **VIEWS MD&D Team** for their collaboration and support.  
 
-Special thanks to the **VIEWS MD&D Team** for their collaboration, guidance, and efforts.  
