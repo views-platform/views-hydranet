@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 import torch
 
-from views_hydranet.utils.backtest_orchestrator import BacktestOrchestrator
+from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
 from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.volume_handler import VolumeHandler
 
@@ -60,7 +60,7 @@ class TestBacktestUnbreakableAudit:
     def test_green_temporal_continuity(self, audit_env):
         """Prove that month_id increments by 1 from DF to DF and starts at origin + 1."""
         handler, scaler, model = audit_env
-        orchestrator = BacktestOrchestrator(CFG, model, torch.device('cpu'))
+        orchestrator = InferenceOrchestrator(CFG, model, torch.device('cpu'))
 
         # We request 3 origins: index 10, 11, 12.
         # (Which correspond to month_id 110, 111, 112)
@@ -70,10 +70,10 @@ class TestBacktestUnbreakableAudit:
         # Shape: [T=3, H=2, W=2, C=6] -> (3 targets * 2 heads)
         mock_posterior = np.random.rand(3, 2, 2, 6)
 
-        with patch("views_hydranet.utils.backtest_orchestrator.HydraNetInference") as mock_inf_cls:
+        with patch("views_hydranet.utils.inference_orchestrator.HydraNetInference") as mock_inf_cls:
             mock_inf_cls.return_value.generate_posterior_samples.return_value = (mock_posterior, None)
 
-            results = orchestrator.generate_rolling_forecasts(handler, scaler, origins=origins)
+            results = orchestrator.generate_forecasts(handler, scaler, origins=origins)
 
             assert len(results) == 3
 
@@ -91,13 +91,13 @@ class TestBacktestUnbreakableAudit:
     def test_green_12_feature_schema(self, audit_env):
         """Prove that every DF contains exactly the 12 required feature columns."""
         handler, scaler, model = audit_env
-        orchestrator = BacktestOrchestrator(CFG, model, torch.device('cpu'))
+        orchestrator = InferenceOrchestrator(CFG, model, torch.device('cpu'))
         origins = [0]
 
         mock_posterior = np.random.rand(3, 2, 2, 6)
-        with patch("views_hydranet.utils.backtest_orchestrator.HydraNetInference") as mock_inf_cls:
+        with patch("views_hydranet.utils.inference_orchestrator.HydraNetInference") as mock_inf_cls:
             mock_inf_cls.return_value.generate_posterior_samples.return_value = (mock_posterior, None)
-            df = orchestrator.generate_rolling_forecasts(handler, scaler, origins=origins)[0]
+            df = orchestrator.generate_forecasts(handler, scaler, origins=origins)[0]
 
             expected_features = [
                 'lr_sb_best', 'lr_ns_best', 'lr_os_best',       # Linear Actuals
@@ -118,18 +118,18 @@ class TestBacktestUnbreakableAudit:
     def test_beige_out_of_bounds_origin(self, audit_env):
         """Verify that requesting an origin that leaves no room for steps fails loud."""
         handler, scaler, model = audit_env
-        orchestrator = BacktestOrchestrator(CFG, model, torch.device('cpu'))
+        orchestrator = InferenceOrchestrator(CFG, model, torch.device('cpu'))
 
         # History has 21 months (0-20).
         # Origin 19 + 3 steps = Index 22 -> OUT OF BOUNDS.
         origins = [19]
 
         mock_posterior = np.random.rand(3, 2, 2, 6)
-        with patch("views_hydranet.utils.backtest_orchestrator.HydraNetInference") as mock_inf_cls:
+        with patch("views_hydranet.utils.inference_orchestrator.HydraNetInference") as mock_inf_cls:
             mock_inf_cls.return_value.generate_posterior_samples.return_value = (mock_posterior, None)
 
             with pytest.raises(ValueError, match="Invalid time slice"):
-                orchestrator.generate_rolling_forecasts(handler, scaler, origins=origins)
+                orchestrator.generate_forecasts(handler, scaler, origins=origins)
 
     # --- RED TEAM: THE INVINCIBILITY PATH (INVARIANTS) ---
 
@@ -139,7 +139,7 @@ class TestBacktestUnbreakableAudit:
         the Watermarks MUST force the IDs and Months back into alignment.
         """
         handler, scaler, model = audit_env
-        orchestrator = BacktestOrchestrator(CFG, model, torch.device('cpu'))
+        orchestrator = InferenceOrchestrator(CFG, model, torch.device('cpu'))
         origins = [0]
 
         # ATTACK: Inference returns data where [0,0] is month 999 and pg_id 666
@@ -147,10 +147,10 @@ class TestBacktestUnbreakableAudit:
         # and use the Scaffold's truth.
         mock_posterior = np.random.rand(3, 2, 2, 6)
 
-        with patch("views_hydranet.utils.backtest_orchestrator.HydraNetInference") as mock_inf_cls:
+        with patch("views_hydranet.utils.inference_orchestrator.HydraNetInference") as mock_inf_cls:
             mock_inf_cls.return_value.generate_posterior_samples.return_value = (mock_posterior, None)
 
-            df = orchestrator.generate_rolling_forecasts(handler, scaler, origins=origins)[0]
+            df = orchestrator.generate_forecasts(handler, scaler, origins=origins)[0]
 
             # PROOF: Month IDs must be 101, 102, 103 (Index 1, 2, 3)
             # regardless of what the model internally did.
@@ -168,16 +168,16 @@ class TestBacktestUnbreakableAudit:
         stochastic_cfg['evalution_mode'] = 'stochastic'
         stochastic_cfg['n_posterior_samples'] = 5
 
-        orchestrator = BacktestOrchestrator(stochastic_cfg, model, torch.device('cpu'))
+        orchestrator = InferenceOrchestrator(stochastic_cfg, model, torch.device('cpu'))
         origins = [0]
 
         # [T, H, W, C, S]
         mock_posterior = np.random.rand(3, 2, 2, 6, 5)
 
-        with patch("views_hydranet.utils.backtest_orchestrator.HydraNetInference") as mock_inf_cls:
+        with patch("views_hydranet.utils.inference_orchestrator.HydraNetInference") as mock_inf_cls:
             mock_inf_cls.return_value.generate_posterior_samples.return_value = (mock_posterior, None)
 
-            df = orchestrator.generate_rolling_forecasts(handler, scaler, origins=origins)[0]
+            df = orchestrator.generate_forecasts(handler, scaler, origins=origins)[0]
 
             sample_cell = df["pred_lr_sb_best"].iloc[0]
             assert isinstance(sample_cell, list)

@@ -75,7 +75,7 @@ class TestSubsetSymmetryAudit:
                 with patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetcher_cls, \
                      patch("views_hydranet.manager.hydranet_manager.FeatureScaler") as mock_scaler_cls, \
                      patch("views_hydranet.manager.hydranet_manager.ModelArtifactFetcher") as mock_art_fetch_cls, \
-                     patch("views_hydranet.manager.hydranet_manager.BacktestOrchestrator") as mock_eval_cls:
+                     patch("views_hydranet.manager.hydranet_manager.InferenceOrchestrator") as mock_eval_cls:
 
                     mock_fetcher_cls.return_value.fetch_df.return_value = df_hist
                     mock_fetcher_cls.standardize_raw_df.side_effect = lambda x, y: x
@@ -91,7 +91,7 @@ class TestSubsetSymmetryAudit:
                         'pred_lr_sb_best': [100.0]*20
                     }, index=pd.MultiIndex.from_product([[11], range(1, 21)], names=['month_id', 'priogrid_gid']))
 
-                    mock_eval_cls.return_value.generate_rolling_forecasts.return_value = [df_mock]
+                    mock_eval_cls.return_value.generate_forecasts.return_value = [df_mock]
 
                     # RUN EVALUATION
                     results = manager._evaluate_model_artifact(eval_type="audit")

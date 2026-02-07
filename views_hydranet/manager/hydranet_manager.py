@@ -18,13 +18,14 @@ from views_pipeline_core.managers.model import (
 )
 
 from views_hydranet.train.train_model import train_model_artifact
-from views_hydranet.utils.backtest_orchestrator import BacktestOrchestrator
 from views_hydranet.utils.config_initializer import ConfigInitializer
 from views_hydranet.utils.data_fetcher import DataFetcher
 from views_hydranet.utils.data_sniffer import DataSniffer
 from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.hydranet_inference import HydraNetInference
+from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
 from views_hydranet.utils.model_artifact_fetcher import ModelArtifactFetcher
+from views_hydranet.utils.pure_state_adapter import PureStateAdapter
 from views_hydranet.utils.utils_device import setup_device
 from views_hydranet.utils.utils_orchestration import get_rolling_origin_indices
 from views_hydranet.utils.volume_handler import VolumeHandler
@@ -150,8 +151,14 @@ class HydranetManager(ForecastingModelManager):
         num_windows = 12 if run_type in ["calibration", "validation"] else 1
         origins = get_rolling_origin_indices(handler.shape[0], time_steps, num_windows)
 
-        orchestrator = BacktestOrchestrator(self.configs, model, self.device)
-        list_df_predictions = orchestrator.generate_rolling_forecasts(handler, scaler, origins=origins)
+        # 6. Unified Inference Orchestration (ADR 038)
+        print("")
+        orchestrator = InferenceOrchestrator(self.configs, model, self.device)
+        list_df_predictions = orchestrator.generate_forecasts(handler, scaler, origins=origins)
+
+        # 7. Pure State Adaptation (ADR 040)
+        adapter = PureStateAdapter(self.configs)
+        list_df_predictions = adapter.enforce_pure_state_list(list_df_predictions)
 
         self._log_prediction_summary(list_df_predictions)
         return list_df_predictions
@@ -228,32 +235,18 @@ class HydranetManager(ForecastingModelManager):
         )
         model, _ = model_fetcher.fetch_model_artifact()
 
+        # 6. Unified Inference Orchestration (ADR 038)
         print("")
-        inference = HydraNetInference(model, self.configs, device=self.device)
-        posterior_zstack, _ = inference.generate_posterior_samples(handler, is_evaluation=False)
+        orchestrator = InferenceOrchestrator(self.configs, model, self.device)
+        # Operational origins: just the last available month
+        origins = [handler.shape[0] - 1]
+        list_df_predictions = orchestrator.generate_forecasts(handler, scaler, origins=origins)
 
-        duration = posterior_zstack.shape[0] if not torch.is_tensor(posterior_zstack) else posterior_zstack.shape[1]
-        future_handler = handler.extrapolate_time(duration)
+        # 7. Pure State Adaptation (ADR 040)
+        adapter = PureStateAdapter(self.configs)
+        list_df_predictions = adapter.enforce_pure_state_list(list_df_predictions)
 
-        base_names = self.configs["classification_outputs"]
-        pred_handler = future_handler.wrap_predictions(posterior_zstack, base_names=base_names)
-        pred_handler = scaler.inverse_transform_volume(pred_handler)
+        self._log_prediction_summary(list_df_predictions)
+        return list_df_predictions
 
-        if self.configs["evalution_mode"] == "point":
-            pred_handler = pred_handler.collapse_to_point(method=self.configs["aggregate_method"])
-
-        df_full = pred_handler.to_forecast_df(history=handler)
-
-        if df_full is not None:
-            requested_targets = self.configs["targets"]
-            final_cols = []
-            for t in requested_targets:
-                if not t.startswith("lr_"):
-                    raise ValueError(f"HydranetManager Contract Violation: Target '{t}' must start with 'lr_'")
-                binary_t = t.replace("lr_", "by_", 1)
-                for col in [t, binary_t, f"pred_{t}", f"pred_{binary_t}"]:
-                    if col in df_full.columns: final_cols.append(col)
-            df_full = df_full[final_cols]
-
-        self._log_prediction_summary([df_full] if df_full is not None else [])
-        return [df_full] if df_full is not None else []
+        

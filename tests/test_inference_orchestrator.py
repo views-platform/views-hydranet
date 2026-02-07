@@ -4,7 +4,8 @@ import numpy as np
 import pandas as pd
 import torch
 
-from views_hydranet.utils.backtest_orchestrator import BacktestOrchestrator
+from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
+from views_hydranet.utils.pure_state_adapter import PureStateAdapter
 from views_hydranet.utils.volume_handler import VolumeHandler
 
 # SHARED CONFIG
@@ -49,17 +50,21 @@ def test_orchestrator_green_path():
     # Shape: [T=2, H=2, W=2, C=2] -> (lr_sb, by_sb)
     posterior = np.ones((2, 2, 2, 2))
 
-    orchestrator = BacktestOrchestrator(CFG, model, torch.device('cpu'))
+    orchestrator = InferenceOrchestrator(CFG, model, torch.device('cpu'))
 
-    with patch("views_hydranet.utils.backtest_orchestrator.HydraNetInference") as mock_inf_cls:
+    with patch("views_hydranet.utils.inference_orchestrator.HydraNetInference") as mock_inf_cls:
         mock_inf = mock_inf_cls.return_value
         mock_inf.generate_posterior_samples.return_value = (posterior, None)
 
         # 4. EXECUTE (Explicitly passing origins)
         origins = [0]
-        results = orchestrator.generate_rolling_forecasts(handler, scaler, origins=origins)
+        list_df_dirty = orchestrator.generate_forecasts(handler, scaler, origins=origins)
 
-        # 5. AUDIT
+        # 5. ADAPT (ADR 040)
+        adapter = PureStateAdapter(CFG)
+        results = adapter.enforce_pure_state_list(list_df_dirty)
+
+        # 6. AUDIT
         assert isinstance(results, list)
         assert len(results) == 1
         df = results[0]
@@ -88,16 +93,19 @@ def test_orchestrator_beige_mismatched_targets():
     bad_cfg = CFG.copy()
     bad_cfg['targets'] = [ 'lr_sb', 'lr_non_existent']
 
-    orchestrator = BacktestOrchestrator(bad_cfg, model, torch.device('cpu'))
+    orchestrator = InferenceOrchestrator(bad_cfg, model, torch.device('cpu'))
 
     # Shape: [T=2, H=2, W=2, C=2]
     posterior = np.ones((2, 2, 2, 2))
-    with patch("views_hydranet.utils.backtest_orchestrator.HydraNetInference") as mock_inf_cls:
+    with patch("views_hydranet.utils.inference_orchestrator.HydraNetInference") as mock_inf_cls:
         mock_inf = mock_inf_cls.return_value
         mock_inf.generate_posterior_samples.return_value = (posterior, None)
 
         origins = [0]
-        results = orchestrator.generate_rolling_forecasts(handler, scaler, origins=origins)
+        list_df_dirty = orchestrator.generate_forecasts(handler, scaler, origins=origins)
+        
+        adapter = PureStateAdapter(bad_cfg)
+        results = adapter.enforce_pure_state_list(list_df_dirty)
         df = results[0]
         # Should only contain 'sb' related cols, silently ignoring 'lr_non_existent'
         assert "lr_non_existent" not in df.columns
@@ -121,7 +129,7 @@ def test_orchestrator_red_topographic_integrity():
     scaler.inverse_transform_volume.side_effect = lambda h: h
     model = MagicMock(spec=torch.nn.Module)
 
-    orchestrator = BacktestOrchestrator(CFG, model, torch.device('cpu'))
+    orchestrator = InferenceOrchestrator(CFG, model, torch.device('cpu'))
 
     # ATTACK: The model returns a FLIPPED geography
     # Normally, GID 1 is at index 0, GID 2 is at index 1.
@@ -132,12 +140,15 @@ def test_orchestrator_red_topographic_integrity():
     posterior[:, :, 0, 0] = 200.0 # Top Row
     posterior[:, :, 1, 0] = 100.0 # Bottom Row
 
-    with patch("views_hydranet.utils.backtest_orchestrator.HydraNetInference") as mock_inf_cls:
+    with patch("views_hydranet.utils.inference_orchestrator.HydraNetInference") as mock_inf_cls:
         mock_inf = mock_inf_cls.return_value
         mock_inf.generate_posterior_samples.return_value = (posterior, None)
 
         origins = [0]
-        results = orchestrator.generate_rolling_forecasts(handler, scaler, origins=origins)
+        list_df_dirty = orchestrator.generate_forecasts(handler, scaler, origins=origins)
+        
+        adapter = PureStateAdapter(CFG)
+        results = adapter.enforce_pure_state_list(list_df_dirty)
         df = results[0]
         
         # PROOF: The Vader Bridge (inside the orchestrator) must use the watermarks 
