@@ -22,8 +22,8 @@ class PureStateAdapter:
         """
         Initializes with target and identity metadata.
         """
-        self.targets = config.get("targets", [])
-        self.classification_outputs = config.get("classification_outputs", [])
+        self.regression_targets = config.get("regression_targets", [])
+        self.classification_targets = config.get("classification_targets", [])
         self.identity_cols = ["c_id", "row", "col"] # ADR 032 Mandatory Identity Anchors
 
     def enforce_pure_state(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -49,7 +49,7 @@ class PureStateAdapter:
                  logger.debug(f"PureStateAdapter: Identity '{col}' missing from inbound DataFrame.")
 
         # 2. Target Handshake (ADR 032 / 033 Symmetry)
-        for t in self.targets:
+        for t in self.regression_targets:
             if not t.startswith("lr_"):
                 # Law 6 Violation
                 raise ValueError(f"PureStateAdapter Contract Violation: Target '{t}' must start with 'lr_' prefix.")

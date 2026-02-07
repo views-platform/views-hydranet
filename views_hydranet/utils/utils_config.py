@@ -15,17 +15,6 @@ TRANSFORMS: dict[str, tuple[Callable, Callable]] = {
     "identity": (lambda x: x, lambda x: x)
 }
 
-class TargetVariable(str, Enum):
-    SB = "sb"
-    NS = "ns"
-    OS = "os"
-    SB_BEST = "sb_best"
-    NS_BEST = "ns_best"
-    OS_BEST = "os_best"
-    LR_SB_BEST = "lr_sb_best"
-    LR_NS_BEST = "lr_ns_best"
-    LR_OS_BEST = "lr_os_best"
-
 class HydraNetConfig(BaseModel):
     """
     The Exhaustive 'Minimum Strict Set' for HydraNet operations.
@@ -39,9 +28,8 @@ class HydraNetConfig(BaseModel):
     # 2. Data Slicing & Scaling (The Physics)
     input_channels: int = Field(..., ge=1, description="Checksum for 'features'")
     output_channels: int = Field(..., ge=1, description="Channels per model head")
-    target_variable: TargetVariable = Field(..., description="The primary target")
-    targets: list[str] = Field(default_factory=list)
-    classification_outputs: list[str] = Field(..., description="Semantic names for model heads")
+    regression_targets: list[str] = Field(..., description="Intensity mission (must start with lr_)")
+    classification_targets: list[str] = Field(..., description="Binary mission")
     identity_cols: list[str] = Field(..., description="Columns to be excluded from features")
     features: list[str] = Field(..., description="Exhaustive list of predictive signals")
 
@@ -121,8 +109,8 @@ class HydraNetConfig(BaseModel):
         if self.time_steps != len(self.steps):
             raise ValueError(f"Checksum Law Violation: time_steps ({self.time_steps}) != steps ({len(self.steps)})")
 
-        # Scaling Law: All features must be in the 'transform' dictionary
-        features_set = set(self.features)
+        # Scaling Law: All features AND targets must be in the 'transform' dictionary
+        all_required_cols = set(self.features) | set(self.regression_targets) | set(self.classification_targets)
         mapped_set = set()
         for method, cols in self.transform.items():
             if method not in TRANSFORMS:
@@ -130,9 +118,9 @@ class HydraNetConfig(BaseModel):
             for col in cols:
                 mapped_set.add(col)
 
-        missing = features_set - mapped_set
+        missing = all_required_cols - mapped_set
         if missing:
-            raise ValueError(f"Scaling Law Violation: Features {missing} are not assigned a transform in the 'transform' dict.")
+            raise ValueError(f"Scaling Law Violation: Required columns {missing} are not assigned a transform in the 'transform' dict.")
 
         return self
 

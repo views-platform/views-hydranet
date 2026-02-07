@@ -89,7 +89,7 @@ class InferenceOrchestrator:
 
             # --- 3. WRAP (ADR 039.3) ---
             # Bind the prediction tensors to the identity scaffold
-            base_names = self.config["classification_outputs"]
+            base_names = self.config["classification_targets"]
             pred_handler = window_handler.wrap_predictions(posterior_zstack, base_names=base_names)
 
             # --- 4. INVERT (ADR 039.4) ---

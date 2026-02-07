@@ -248,5 +248,3 @@ class HydranetManager(ForecastingModelManager):
 
         self._log_prediction_summary(list_df_predictions)
         return list_df_predictions
-
-        

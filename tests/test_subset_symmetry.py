@@ -14,9 +14,8 @@ SUBSET_CFG = {
     'time_steps': 1,
     'input_channels': 3,
     'output_channels': 1,
-    'target_variable': 'lr_sb_best',
-    'targets': ['lr_sb_best'], # ONLY SB REQUESTED
-    'classification_outputs': ['lr_sb_best', 'lr_ns_best', 'lr_os_best'],
+    'regression_targets': ['lr_sb_best'], # ONLY SB REQUESTED
+    'classification_targets': ['lr_sb_best', 'lr_ns_best', 'lr_os_best'],
     'identity_cols': ['month_id', 'priogrid_gid', 'row', 'col'],
     'features': ['lr_sb_best', 'lr_ns_best', 'lr_os_best'],
     'transform': {

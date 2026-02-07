@@ -56,8 +56,8 @@ TOY_CONFIG = {
     "identity_cols": ["month_id", "priogrid_gid", "row", "col"],
 
     # Outbound / Evaluation (ADR 032 Alignment)
-    "classification_outputs": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
-    "targets": ["lr_sb_best"]
+    "classification_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "regression_targets": ["lr_sb_best"]
 }
 
 @pytest.fixture

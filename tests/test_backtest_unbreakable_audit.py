@@ -21,8 +21,8 @@ CFG = {
     'spatial_cols': ['row', 'col'],
     'identity_cols': ['row', 'col', 'c_id'], # month_id and pg_id are already primary
     'features': ['lr_sb_best', 'lr_ns_best', 'lr_os_best'],
-    'targets': ['lr_sb_best', 'lr_ns_best', 'lr_os_best'],
-    'classification_outputs': ['lr_sb_best', 'lr_ns_best', 'lr_os_best'],
+    'regression_targets': ['lr_sb_best', 'lr_ns_best', 'lr_os_best'],
+    'classification_targets': ['lr_sb_best', 'lr_ns_best', 'lr_os_best'],
     'row_offset': 0, 'col_offset': 0, 'height': 2, 'width': 2,
     'evalution_mode': 'point', 'aggregate_method': 'mean',
     'transform': {'identity': ['lr_sb_best', 'lr_ns_best', 'lr_os_best']}
