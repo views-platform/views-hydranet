@@ -160,6 +160,17 @@ class HydranetManager(ForecastingModelManager):
         adapter = PureStateAdapter(self.configs)
         list_df_predictions = adapter.enforce_pure_state_list(list_df_predictions)
 
+        # 8. Diplomatic Forgery (ADR 031)
+        # We augment the 'targets' config JIT so the evaluation package
+        # can locate both linear and binary channels in our results.
+        eval_targets = []
+        for t in self.configs["regression_targets"]:
+            eval_targets.append(t)
+            eval_targets.append(t.replace("lr_", "by_", 1))
+        
+        # Temporary Patch for the handshake
+        self.configs["targets"] = eval_targets
+
         self._log_prediction_summary(list_df_predictions)
         return list_df_predictions
 
