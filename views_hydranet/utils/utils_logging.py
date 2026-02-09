@@ -33,7 +33,7 @@ def calculate_hdi(samples: np.ndarray, mass: float = 0.95) -> tuple[float, float
 
 def log_ingestion_report(df_in: pd.DataFrame, df_out: pd.DataFrame, config: dict) -> None:
     """Prints a summary of the data ingestion and standardization process."""
-    print("\n💠" + "="*100)
+    print("\n👾" + "="*100)
     print("  INGESTION & STANDARDIZATION AUDIT")
     print("  " + "-"*98)
     
@@ -59,11 +59,21 @@ def log_ingestion_report(df_in: pd.DataFrame, df_out: pd.DataFrame, config: dict
     if removed_cols:
         print(f"  Removed Columns: {list(removed_cols)}")
         
-    print("💠" + "="*100 + "\n")
+    print("👾" + "="*100 + "\n")
+
+def log_data_load_report(partition: str, path: str, df: pd.DataFrame) -> None:
+    """Prints a beautiful summary of the raw data load."""
+    print("\n👾" + "="*100)
+    print(f"  DATA LOAD COMPLETE: {partition.upper()}")
+    print("  " + "-"*98)
+    print(f"  Source Path: {path}")
+    print(f"  Rows Loaded: {len(df):,}")
+    print(f"  Columns:     {df.columns.tolist()}")
+    print("👾" + "="*100 + "\n")
 
 def log_curriculum_report(subjects: list[str], maxima: dict[str, float], config: dict) -> None:
     """Prints the scheduled training curriculum plan."""
-    print("\n💠" + "="*100)
+    print("\n👾" + "="*100)
     print("  CURRICULUM LESSON PLAN (PRE-FLIGHT)")
     print("  " + "-"*98)
     
@@ -91,7 +101,7 @@ def log_curriculum_report(subjects: list[str], maxima: dict[str, float], config:
         
         print(f"  {sub:<25} | {m:>12,.0f} | {start:>15,.0f} | {end:>15,.0f}")
         
-    print("💠" + "="*100 + "\n")
+    print("👾" + "="*100 + "\n")
 
 def log_prediction_summary(list_df: list[pd.DataFrame]) -> None:
     """Prints a beautiful diagnostic summary of prediction results."""
@@ -99,7 +109,7 @@ def log_prediction_summary(list_df: list[pd.DataFrame]) -> None:
         print("\n⚠️  EVALUATION SUMMARY: No DataFrames produced.")
         return
 
-    print("\n💠" + "="*100)
+    print("\n👾" + "="*100)
     print(f"  HYDRANET EVALUATION SUMMARY: {len(list_df)} sequences")
     print("  " + "-"*98)
 
@@ -135,11 +145,11 @@ def log_prediction_summary(list_df: list[pd.DataFrame]) -> None:
             except (TypeError, ValueError):
                 print(f"  {col:<25} | {'N/A':>12} | {'N/A':>12} | {'N/A':>12} | {'N/A':^25} | {'-':>8}")
             print("\n  (*) Indicates stochastic samples flattened for summary.")
-    print("💠" + "="*100 + "\n")
+    print("👾" + "="*100 + "\n")
 
 def log_training_summary(summary: dict) -> None:
     """Prints a beautiful audit of the training process."""
-    print("\n💠" + "="*100)
+    print("\n👾" + "="*100)
     print("  HYDRANET TRAINING HEALTH AUDIT")
     print("  " + "-"*98)
     
@@ -166,4 +176,4 @@ def log_training_summary(summary: dict) -> None:
     verdict = "❇️ HEALTHY" if is_healthy else "🚨 CRITICAL FAILURE (NaN/Inf Detected)"
     
     print("\n  FINAL VERDICT: " + verdict)
-    print("💠" + "="*100 + "\n")
+    print("👾" + "="*100 + "\n")
