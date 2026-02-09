@@ -27,7 +27,12 @@ from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
 from views_hydranet.utils.model_artifact_fetcher import ModelArtifactFetcher
 from views_hydranet.utils.pure_state_adapter import PureStateAdapter
 from views_hydranet.utils.utils_device import setup_device
-from views_hydranet.utils.utils_logging import log_prediction_summary, log_training_summary
+from views_hydranet.utils.utils_logging import (
+    log_curriculum_report,
+    log_ingestion_report,
+    log_prediction_summary,
+    log_training_summary,
+)
 from views_hydranet.utils.utils_orchestration import get_rolling_origin_indices
 from views_hydranet.utils.volume_handler import VolumeHandler
 
@@ -62,8 +67,9 @@ class HydranetManager(ForecastingModelManager):
         # 1. Ingest
         print("") # Block Separator
         data_fetcher = DataFetcher(self._model_path.data_raw, self.configs)
-        df = data_fetcher.fetch_df()
-        df = DataFetcher.standardize_raw_df(df, self.configs)
+        df_raw = data_fetcher.fetch_df()
+        df = DataFetcher.standardize_raw_df(df_raw, self.configs)
+        log_ingestion_report(df_raw, df, self.configs)
 
         # 2. Sniff
         print("")
