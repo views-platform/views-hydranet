@@ -164,5 +164,63 @@ def test_orchestrator_red_topographic_integrity():
 
         print("✅ Red Team: Orchestration Integrity Verified.")
 
+def test_orchestrator_red_law_of_sequence_physics():
+    """
+    PROVE ADR 039: Inverse-Transform MUST happen BEFORE Point-Collapse.
+    If they are swapped, the non-linear average will be biased.
+    """
+    # 1. Setup heterogenous grid
+    # We use a non-linear transform (log1p) where avg(log(x)) != log(avg(x))
+    cfg = CFG.copy()
+    cfg['regression_targets'] = ['lr_sb']
+    cfg['classification_targets'] = ['lr_sb']
+    cfg['evalution_mode'] = 'point'
+    cfg['aggregate_method'] = 'mean'
+    cfg['transform'] = {'log1p': ['lr_sb']}
+
+    df_in = pd.DataFrame({
+        'month_id': [1]*2, 'priogrid_gid': [1, 2],
+        'row': [0, 0], 'col': [0, 1], 'lr_sb': [1.0, 1.0]
+    })
+    handler = VolumeHandler.from_df(df_in, cfg)
+    
+    # 2. Setup real scaler to test the math
+    from views_hydranet.utils.feature_scaler import FeatureScaler
+    scaler = FeatureScaler(cfg)
+    scaler._is_fitted = True 
+
+    # 3. Mock Inference to return STOCHASTIC samples in LOG space
+    # We return two samples for one cell: log1p(10) and log1p(100)
+    # Correct Mean (Inverse first): (10 + 100) / 2 = 55.0
+    # Incorrect Mean (Collapse first): expm1((log1p(10) + log1p(100))/2) = 32.3
+    val1 = np.log1p(10.0)
+    val2 = np.log1p(100.0)
+    # [T=1, H=2, W=2, C=2, S=2]
+    posterior = np.zeros((1, 2, 2, 2, 2))
+    # Populate the regression channel (0) for ALL spatial cells
+    posterior[0, :, :, 0, 0] = val1
+    posterior[0, :, :, 0, 1] = val2
+
+    model = MagicMock(spec=torch.nn.Module)
+    orchestrator = InferenceOrchestrator(cfg, model, torch.device('cpu'))
+
+    with patch("views_hydranet.utils.inference_orchestrator.HydraNetInference") as mock_inf_cls:
+        mock_inf = mock_inf_cls.return_value
+        mock_inf.generate_posterior_samples.return_value = (posterior, None)
+
+        origins = [0]
+        # This call executes the full internal pipeline
+        list_df_dirty = orchestrator.generate_forecasts(handler, scaler, origins=origins)
+        
+        adapter = PureStateAdapter(cfg)
+        df = adapter.enforce_pure_state_list(list_df_dirty)[0]
+
+        # 4. THE PHYSICS AUDIT
+        # If the Law of Sequence is followed, the value must be exactly 55.0
+        calculated_val = df.loc[(2, 1), "pred_lr_sb"]
+        np.testing.assert_allclose(calculated_val, 55.0, rtol=1e-5)
+        
+        print(f"✅ Physics Audit Passed: Value {calculated_val} confirms Inverse-before-Collapse.")
+
 if __name__ == "__main__":
     test_orchestrator_green_path()
