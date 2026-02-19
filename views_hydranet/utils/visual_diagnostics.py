@@ -125,21 +125,21 @@ class VisualDiagnostics:
             t_len = data.shape[0]
             t_indices = np.linspace(0, t_len - 1, 5, dtype=int)
             
-            # Select Features (Limit to 5 interesting ones + Metadata)
-            # We want to see: row gradient, col gradient, conflict
+            # Select Features (Metadata + Features)
             interesting = []
             
-            # Metadata Checks (Hypothesis 1)
-            meta_cols = [vh.time_col, vh.id_col] + list(vh.spatial_cols)
-            for c in meta_cols:
-                if c in vh.channel_map: interesting.append(c)
-            
-            # Conflict Checks (First 3 non-meta)
-            count = 0
-            for c in vh.channel_map:
-                if c not in interesting and count < 3:
+            # 1. Metadata / Identity Group
+            # We want: month_id, priogrid_gid, c_id, row, col
+            meta_order = [vh.time_col, vh.id_col, "c_id"] + list(vh.spatial_cols)
+            for c in meta_order:
+                if c in vh.channel_map and c not in interesting:
                     interesting.append(c)
-                    count += 1
+            
+            # 2. Features Group (All linear signals)
+            # Pull directly from ledger to ensure completeness (ADR 012)
+            for c in vh._metadata.feature_cols:
+                if c in vh.channel_map and c not in interesting:
+                    interesting.append(c)
             
             # Construct Sliced Volume [5, H, W, F]
             feat_indices = [vh.channel_map.index(c) for c in interesting]
