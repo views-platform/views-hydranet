@@ -3,12 +3,16 @@ Standalone DataFetcher component for the HydraNet pipeline.
 """
 
 import os
+import logging
 from pathlib import Path
 from typing import Any, Dict
 
 import pandas as pd
 from views_pipeline_core.configs.pipeline import PipelineConfig
 from views_pipeline_core.files.utils import read_dataframe
+from views_hydranet.utils.utils_logging import log_data_load_report
+
+logger = logging.getLogger(__name__)
 
 
 class DataFetcher:
@@ -40,15 +44,10 @@ class DataFetcher:
             str(self.path_raw), f"{partition}_viewser_df{df_ext}"
         )
 
-        print(f"!!! DataFetcher: Loading {partition} from {path_raw_file}")
+        logger.info(f"DataFetcher: Loading {partition} from {path_raw_file}")
         df = read_dataframe(path_raw_file)
 
-        # Explicit Debugging Block
-        print("\n" + "=" * 60)
-        print("!!! DEBUG: DataFetcher - Ingestion Complete")
-        print(f"!!! Partition: {partition}")
-        print(f"!!! Columns:   {df.columns.tolist()}")
-        print("=" * 60 + "\n")
+        log_data_load_report(partition, path_raw_file, df)
 
         return df
 

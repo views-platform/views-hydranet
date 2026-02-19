@@ -14,7 +14,6 @@ def valid_config_dict():
         "model": "HydraBNUNet06_LSTM4",
         "run_type": "validation",
         "steps": list(range(1, 37)),
-        "target_variable": "lr_sb",
         "input_channels": 3,
         "output_channels": 1,
         "total_hidden_channels": 32,

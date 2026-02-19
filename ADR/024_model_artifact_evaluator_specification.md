@@ -4,9 +4,12 @@
 |---------------------|-------------------|
 | Subject             | Encapsulating the Backtest Protocol |
 | ADR Number          | 024               |
-| Status              | Accepted          |
+| Status              | Superseded by ADR 038 and 039 |
 | Author              | Gemini CLI        |
 | Date                | 06.02.2026        |
+
+## Note on Retirement
+This ADR is superseded. The `BacktestOrchestrator` has been generalized into the `InferenceOrchestrator` (ADR 038) to eliminate the "Operational vs. Backtest" logic drift. The specific numerical sequence defined here is now formalized in the "Symmetry Engine Specification" (ADR 039).
 
 ## Context
 The generation of forecasts across a historical rolling-origin window requires a complex orchestration of temporal indexing, spatiotemporal window extraction, multi-sample inference, symmetry recovery (naming), and inverse numerical transformations. 

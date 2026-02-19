@@ -50,10 +50,12 @@ def augmented_read_dataframe(path):
     return df
 ```
 
-### Step 3: Handling Configuration Dissonance
-*   **Current State:** Eval Lib takes 1 target.
-*   **HydraNet Goal:** Evaluate both magnitude and binary for the selected `target_variable` (e.g., "sb").
-*   **The Plan:** The Manager will ensure that if `target_variable == "sb"`, both `lr_sb_best` and `lr_sb_best_binarized` are available in the ground truth, regardless of what the physical file contains.
+### Step 3: Handling Configuration Dissonance (The Diplomatic Forgery)
+The `HydranetManager` serves as a diplomatic interpreter between HydraNet's vector-native topology and the scalar-centric requirements of external libraries (`views-pipeline-core` and `views-evaluation`).
+
+1.  **Ingestion State (Clean):** The `targets` list in the persistent config contains only physical columns present on disk (`lr_` linear counts). This satisfies the Pipeline Core's ingestion validation.
+2.  **Inference State (Vector-Native):** The model ignores the `targets` key and uses `regression_targets` and `classification_targets`.
+3.  **Evaluation Handshake (Augmentation):** Right before the Manager hands the results to the evaluation library, it performs a JIT augmentation of the `targets` list. It combines regression and classification subjects into a temporary list, ensuring the evaluation package sees all generated channels (actuals and predictions) as "Real."
 
 ---
 

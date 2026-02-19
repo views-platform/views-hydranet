@@ -77,14 +77,6 @@ def init_weights(m, config):
         if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
             nn.init.kaiming_uniform_(m.weight)
 
-def my_decay(sample, samples, min_events, max_events, slope_ratio, roof_ratio):
-    """Linear decay function for importance sampling."""
-    b = ((-max_events + min_events)/(samples*slope_ratio))
-    y = (max_events + b * sample)
-    y = min(y, max_events*roof_ratio)
-    y = max(y, min_events)
-    return int(y)
-
 def train_log(avg_loss_list, avg_loss_reg_list, avg_loss_class_list):
     """Metric logging gate for W&B."""
     if wandb.run is not None:

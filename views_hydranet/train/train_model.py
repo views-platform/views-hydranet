@@ -10,6 +10,7 @@ from views_pipeline_core.managers.model import ModelPathManager
 
 from views_hydranet.utils.curriculum import CurriculumLearner
 from views_hydranet.utils.integrity_guardian import IntegrityGuardian
+from views_hydranet.utils.utils_logging import log_curriculum_report
 from views_hydranet.utils.utils import (
     choose_loss,
     choose_model,
@@ -150,6 +151,7 @@ def training_loop(
     sampler = VolumeSampler(handler, config)
     # 2. The Planner (Strategic)
     planner = CurriculumLearner(config, handler)
+    log_curriculum_report(planner.subjects, planner.subject_maxima, config)
 
     # 1. Determine total steps upfront for a unified progress bar
     train_vol_shape = sampler.get_train_volume().shape
@@ -157,6 +159,7 @@ def training_loop(
     total_iterations = config["total_lessons"] * config["windows_per_lesson"] * (seq_len - 1)
 
     loss_history = []
+    max_raw_grad_norm = 0.0
     
     with tqdm(
         total=total_iterations,
@@ -214,6 +217,15 @@ def training_loop(
                 
                 loss_history.append(lesson_loss.item())
 
+                # --- 1. Audit Raw Gradient Energy BEFORE Clipping ---
+                total_norm = 0.0
+                for p in model.parameters():
+                    if p.grad is not None:
+                        param_norm = p.grad.detach().data.norm(2)
+                        total_norm += param_norm.item() ** 2
+                raw_grad_norm = total_norm ** 0.5
+                max_raw_grad_norm = max(max_raw_grad_norm, raw_grad_norm)
+
                 # Gradient Clipping
                 if config.get("clip_grad_norm", False):
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -236,6 +248,7 @@ def training_loop(
         "final_loss": loss_history[-1] if loss_history else 0.0,
         "min_loss": min(loss_history) if loss_history else 0.0,
         "max_loss": max(loss_history) if loss_history else 0.0,
+        "max_raw_grad_norm": max_raw_grad_norm,
         "loss_history": loss_history,
         "weight_norms": weight_norms,
         "learning_rate": optimizer.param_groups[0]['lr']
