@@ -205,7 +205,9 @@ class VisualDiagnostics:
                 # Stats Overlay (Hypothesis 2 Probe)
                 stats = self._calculate_stats(img_data)
                 
-                im = ax.imshow(img_data, origin='lower', cmap='viridis', vmin=vmin, vmax=vmax, interpolation='nearest')
+                # HydraNet data is already flipped to North-Up in VolumeHandler.
+                # imshow(origin='upper') places index 0 (North) at the top.
+                im = ax.imshow(img_data, origin='upper', cmap='viridis', vmin=vmin, vmax=vmax, interpolation='nearest')
                 ax.set_xticks([])
                 ax.set_yticks([])
                 
