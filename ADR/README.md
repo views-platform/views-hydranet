@@ -1,67 +1,44 @@
 # Architectural Decision Records (ADRs)
 
-## Overview
+This directory contains the Architectural Decision Records (ADRs) for the HydraNet project. Records are organized by their lifecycle status to ensure the codebase remains governed and traceable.
 
-This folder houses the Architectural Decision Records (ADRs) of our project. ADRs are critical documents capturing essential architectural decisions, along with their contexts and consequences. These records aim to provide insights into the architectural direction, promote consistent decision-making, and enhance comprehension for both new and existing project contributors.
+## 📁 Directory Structure
 
-## Purpose
+- **[`active/`](./active/)**: The current "Law of the Land." These ADRs are accepted, implemented, and rigorously verified. They define the structural invariants of the system.
+- **[`proposed/`](./proposed/)**: Emerging specifications and strategies currently under review or awaiting implementation.
+- **[`archive/`](./archive/)**: Legacy records, superseded specifications, and rejected proposals preserved for historical context and rationale.
 
-ADRs are instrumental in:
-- Documenting the rationale behind specific architectural decisions.
-- Outlining considered alternatives and assessed trade-offs.
-- Ensuring transparency and maintaining architectural integrity as the project evolves.
+---
 
-## Usage Guidelines
+## 🟢 [Active (The Law)](./active/)
+These documents define the current structure of the HydraNet pipeline:
+- **000**: Standard for ADR Quality.
+- **007**: The Custodian (`VolumeHandler`).
+- **008**: Operational Configuration Specification.
+- **015**: Philosophy of Engineering (Boring Architecture).
+- **016**: The Orchestrator (`HydranetManager`).
+- **019**: The Normalizer (`FeatureScaler`).
+- **020**: Multi-Task Output Topology.
+- **021**: Volume Dimension Reduction.
+- **032**: The Pure State (Volume-to-DataFrame Contract).
+- **038**: Unified Inference Pipeline (Forecast-is-Backtest).
+- **042**: Standardized Error Propagation.
+- *(And others...)*
 
-### For New Developers
-- **Orientation**: Begin by reviewing existing ADRs to grasp the foundational decisions shaping the project.
-- **Contextual Learning**: Gain insights into the problems addressed and the solutions devised through each ADR.
+## 🟡 [Proposed (Emerging)](./proposed/)
+Specifications currently in the design or implementation phase:
+- **010-014**: Spatiotemporal Dual-Representation and Curriculum Strategy.
+- **017-018**: DataFetcher and DataSniffer Specifications.
+- **029**: Geographic Anchors.
 
-### For Experienced Developers
-- **Reference Tool**: Refer to ADRs to understand and remember the reasons behind past architectural choices, particularly useful when updating or expanding the system.
-- **Documentation of Changes**: Contribute new ADRs when suggesting significant architectural changes or introducing new patterns.
+## 🔴 [Archive (Historical)](./archive/)
+Legacy iterations and superseded designs:
+- **001-006**: Early evaluation and manager specifications.
+- **009**: Original VolumeSampler (superseded by 013).
+- **023**: Polars Bridge (Preserved research).
+- **024**: Legacy Backtest Orchestrator (superseded by 038).
 
-## Status of ADRs
+---
 
-This repository is currently transitioning to a **"Boring Architecture"** standard governed by **ADR 000**. 
-
-### 🟢 Active (The Law of the Land)
-These documents are rigorously verified against the implementation and define the current structural invariants:
-*   **000**: Standard for ADR Quality.
-*   **007**: The Custodian (`VolumeHandler`).
-*   **008**: Operational Configuration Specification.
-*   **010**: Dual-Representation (Semantic vs. Hardware).
-*   **011**: Curriculum Learning Strategy.
-*   **012**: The Planner (`CurriculumLearner`).
-*   **013**: The Pure Lens (`VolumeSampler`).
-*   **014**: The Optimization Gate (Gradient Accumulation).
-
-### 🔴 Legacy (Historical Reference)
-These documents represent previous iterations and may contain magic numbers or deprecated logic. Use with caution:
-*   **001-006**: Early evaluation and manager specifications.
-*   **009**: Original VolumeSampler (superseded by 012 & 013).
-
-## Structure of ADRs
-
-Each ADR follows a structured markdown format:
-- **Title**: Concise and indicative of the decision content.
-- **Status**: Current state of the ADR (e.g., proposed, accepted, rejected, deprecated).
-- **Context**: Description of the problem and the need for a decision.
-- **Decision**: The specific resolution or change implemented.
-- **Consequences**: Both positive and negative outcomes resulting from the decision.
-
-### Naming Convention
-
-ADRs are sequentially named with a numeric prefix (e.g., `001-initial-decision.md`) to maintain order and facilitate easy navigation through the records.
-
-## Contributing to ADRs
-
-To add a new ADR:
-1. Fork the repository and create a feature branch for your ADR.
-2. Draft your ADR in markdown using the standard template.
-3. Open a pull request with a comprehensive description of the proposed record.
-4. Participate in the review process to address any feedback and finalize the ADR.
-
-## Feedback and Inquiries
-
-For questions or comments regarding the ADRs or the documentation process, please initiate a discussion through a repository issue or bring it up in our regular team meetings.
+## Usage & Quality
+Every new ADR must follow the [ADR Template](./adr_template.md) and satisfy the quality criteria defined in **[ADR 000](./active/000_standard_for_adrs.md)**.
