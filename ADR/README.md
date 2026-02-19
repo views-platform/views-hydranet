@@ -13,16 +13,18 @@ This directory contains the Architectural Decision Records (ADRs) for the HydraN
 ## 🟢 [Active (The Law)](./active/)
 These documents define the current structure of the HydraNet pipeline:
 - **000**: Standard for ADR Quality.
-- **007**: The Custodian (`VolumeHandler`).
-- **008**: Operational Configuration Specification.
+- **007**: The Volume Ledger & Topology.
+- **008**: Operational Configuration Specification (Unified).
 - **015**: Philosophy of Engineering (Boring Architecture).
-- **016**: The Orchestrator (`HydranetManager`).
+- **016**: Orchestration Lifecycle Management.
 - **019**: The Normalizer (`FeatureScaler`).
 - **020**: Multi-Task Output Topology.
 - **021**: Volume Dimension Reduction.
-- **032**: The Pure State (Volume-to-DataFrame Contract).
+- **032**: Authoritative Output Schema (The Pure State).
 - **038**: Unified Inference Pipeline (Forecast-is-Backtest).
 - **042**: Standardized Error Propagation.
+- **043**: Spatiotemporal Reconstruction Bridges.
+- **044**: Component Handshake and Wiring.
 - *(And others...)*
 
 ## 🟡 [Proposed (Emerging)](./proposed/)
@@ -37,6 +39,8 @@ Legacy iterations and superseded designs:
 - **009**: Original VolumeSampler (superseded by 013).
 - **023**: Polars Bridge (Preserved research).
 - **024**: Legacy Backtest Orchestrator (superseded by 038).
+- **033**: Naming Invariants (superseded by 032).
+- **041**: Redundant Targets (superseded by 008).
 
 ---
 
