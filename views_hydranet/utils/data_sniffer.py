@@ -34,7 +34,11 @@ class DataSniffer:
         required = ["identity_cols", "time_col", "id_col", "spatial_cols", "height", "width"]
         missing = [k for k in required if k not in config]
         if missing:
-            raise KeyError(f"[CRITICAL CONFIG ERROR] DataSniffer: Missing mandatory keys {missing}")
+            err_msg = f"[CRITICAL CONFIG ERROR] DataSniffer: Missing mandatory keys {missing}"
+            
+            logger.error(err_msg)
+            
+            raise KeyError(err_msg)
 
         self.identity_cols = config["identity_cols"]
 
@@ -76,7 +80,11 @@ class DataSniffer:
         try:
             m_idx = handler.channel_map.index(time_col)
         except ValueError:
-             raise ValueError(f"[CRITICAL DATA ERROR] DataSniffer: '{time_col}' missing from Handler Ledger!")
+             err_msg = f"[CRITICAL DATA ERROR] DataSniffer: '{time_col}' missing from Handler Ledger!"
+             
+             logger.error(err_msg)
+             
+             raise ValueError(err_msg)
 
         # Pull temporal range from data
         vol_data = handler.data
@@ -89,31 +97,39 @@ class DataSniffer:
         if is_forecast:
             expected_min = max_month_df + 1
             if min_month_vol != expected_min:
-                error_msg = (
+                err_msg = (
                     f"[CRITICAL DATA ERROR] DataSniffer: Forecast Continuity Broken!\n"
                     f"History ends at {max_month_df}. Forecast starts at {min_month_vol} (Expected {expected_min})."
                 )
-                logger.error(error_msg)
-                raise ValueError(error_msg)
+                
+                logger.error(err_msg)
+                
+                raise ValueError(err_msg)
         else:
             # History Volume Check
             if min_month_vol != min_month_df or max_month_vol != max_month_df:
-                error_msg = (
+                err_msg = (
                     f"[CRITICAL DATA ERROR] DataSniffer: History Volume Mismatch!\n"
                     f"DF range: [{min_month_df}, {max_month_df}]\n"
                     f"Vol range: [{min_month_vol}, {max_month_vol}]"
                 )
-                logger.error(error_msg)
-                raise ValueError(error_msg)
+                
+                logger.error(err_msg)
+                
+                raise ValueError(err_msg)
 
         # 3. Geographic Anchor Check (Absolute Anchoring)
         r_off, c_off = handler.spatial_offset
-        if df[y_col].min() < r_off or df[x_col].min() < c_off:
-             raise ValueError(
-                 f"[CRITICAL DATA ERROR] DataSniffer: Geographic Anchor Violation!\n"
-                 f"Data starts at ({df[y_col].min()}, {df[x_col].min()}), but "
-                 f"Handler is anchored at ({r_off}, {c_off})."
-             )
+        if df[y_col].min() < r_off or df[x_col].min() < c_off: 
+            err_msg = (
+                f"[CRITICAL DATA ERROR] DataSniffer: Geographic Anchor Violation!\n"
+                f"Data starts at ({df[y_col].min()}, {df[x_col].min()}), but "
+                f"Handler is anchored at ({r_off}, {c_off})."
+            )
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
 
         logger.info("DataSniffer: Temporal and Geographic Alignment Passed.")
 
@@ -132,7 +148,11 @@ class DataSniffer:
         """Enforces that essential columns are finite."""
         for col in cols:
             if not np.isfinite(df[col]).all():
-                raise ValueError(f"DataSniffer: Non-finite values detected in mandatory column '{col}'")
+                err_msg = f"DataSniffer: Non-finite values detected in mandatory column '{col}'"
+                
+                logger.error(err_msg)
+                
+                raise ValueError(err_msg)
 
     def _check_spatial_bounds(self, df: pd.DataFrame, y_col: str, x_col: str) -> None:
         """Verifies that the span of indices fits within the configured volume resolution."""
@@ -143,10 +163,14 @@ class DataSniffer:
         c_span = df[x_col].max() - df[x_col].min()
 
         if r_span >= height or c_span >= width:
-            raise ValueError(
+            err_msg = (
                 f"[CRITICAL DATA ERROR] DataSniffer: Spatial Span Violation!\n"
                 f"Data spans {r_span}x{c_span}, but volume resolution is {height}x{width}."
             )
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
 
     def _check_spatiotemporal_uniqueness(self, df: pd.DataFrame) -> None:
         """
@@ -160,13 +184,15 @@ class DataSniffer:
             duplicates = df[df.duplicated(subset=subset, keep=False)]
             example_ids = duplicates[subset].head(5).to_dict('records')
 
-            error_msg = (
+            err_msg = (
                 f"\n[CRITICAL DATA ERROR] DataSniffer: Duplicate Entries Detected!\n"
                 f"Each combination of {subset} must be unique.\n"
                 f"Found {len(duplicates)} duplicate rows. Examples: {example_ids}"
             )
-            logger.error(error_msg)
-            raise ValueError(error_msg)
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
 
     def _check_obligatory_columns(self, df: pd.DataFrame) -> None:
         """
@@ -176,13 +202,15 @@ class DataSniffer:
         missing_cols = [col for col in required_cols if col not in df.columns]
 
         if missing_cols:
-            error_msg = (
+            err_msg = (
                 f"\n[CRITICAL DATA ERROR] DataSniffer: Missing Obligatory Columns!\n"
                 f"Missing: {missing_cols}\n"
                 f"Available: {df.columns.tolist()}"
             )
-            logger.error(error_msg)
-            raise ValueError(error_msg)
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
 
     def _check_non_finite(self, df: pd.DataFrame) -> None:
         """
@@ -201,12 +229,14 @@ class DataSniffer:
                 n_infs = (~np.isfinite(df[col])).sum() - n_nans
                 error_details.append(f" - {col}: {n_nans} NaNs, {n_infs} Infs")
 
-            error_msg = (
+            err_msg = (
                 "\n[CRITICAL DATA ERROR] DataSniffer detected non-finite values!\n"
                 "Offending Columns:\n" + "\n".join(error_details)
             )
-            logger.error(error_msg)
-            raise ValueError(error_msg)
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
 
     def sniff_pure_state_parity(self, df_input: pd.DataFrame, df_output: pd.DataFrame) -> None:
         """
@@ -257,13 +287,15 @@ class DataSniffer:
                     drift_report.append(f" - Column '{col}': Categorical/Integer drift detected.")
 
         if drift_report:
-            error_msg = (
+            err_msg = (
                 "[CRITICAL DATA ERROR] DataSniffer: Pure State Parity Violation!\n"
                 "Output (minus predictions) has drifted from Input.\n"
                 + "\n".join(drift_report)
             )
-            logger.error(error_msg)
-            raise ValueError(error_msg)
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
 
         logger.info("DataSniffer: Pure State Parity Audit Passed.")
 
@@ -277,14 +309,22 @@ class DataSniffer:
         # 1. MultiIndex Check (ADR 032 Section 2.1)
         expected_index = [config["time_col"], config["id_col"]]
         if list(df.index.names) != expected_index:
-            raise ValueError(f"DataSniffer: Index Mismatch! Expected {expected_index}, got {list(df.index.names)}")
+            err_msg = f"DataSniffer: Index Mismatch! Expected {expected_index}, got {list(df.index.names)}"
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
 
         # 2. Identity Column Check (ADR 032 Section 2.2)
         # c_id is non-negotiable
         mandatory = ["c_id"] + list(config["spatial_cols"])
         missing = [c for c in mandatory if c not in df.columns]
         if missing:
-            raise ValueError(f"DataSniffer: Missing Mandatory Identities! {missing}")
+            err_msg = f"DataSniffer: Missing Mandatory Identities! {missing}"
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
 
         # 3. Target Prefix Check (ADR 032 Section 2.4)
         targets = config["features"]
@@ -295,11 +335,19 @@ class DataSniffer:
             # To be safe, we check for columns starting with pred_ and containing the target
             found_preds = [c for c in df.columns if c.startswith("pred_") and target in c]
             if not found_preds:
-                raise ValueError(f"DataSniffer: Missing Predictions for target '{target}'")
+                err_msg = f"DataSniffer: Missing Predictions for target '{target}'"
+                
+                logger.error(err_msg)
+                
+                raise ValueError(err_msg)
 
             # Verify retirement of suffixes
             offending = [c for c in found_preds if c.endswith("_raw") or c.endswith("_prob")]
             if offending:
-                raise ValueError(f"DataSniffer: Legacy Suffixes detected! {offending} violates ADR 032.")
+                err_msg = f"DataSniffer: Legacy Suffixes detected! {offending} violates ADR 032."
+                
+                logger.error(err_msg)
+                
+                raise ValueError(err_msg)
 
         logger.info("DataSniffer: Pure State Schema Audit Passed.")

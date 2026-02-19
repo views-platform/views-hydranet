@@ -27,10 +27,14 @@ class VolumeSampler:
         w_max = handler.data.shape[handler.get_axis_idx("W")]
 
         if dim > h_max or dim > w_max:
-            raise ValueError(
+            err_msg = (
                 f"VolumeSampler Contract Violation: window_dim ({dim}) exceeds "
                 f"handler spatial bounds ({h_max}x{w_max})."
             )
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
 
         # Batching state
         self.windows_per_lesson = config["windows_per_lesson"]
@@ -61,7 +65,11 @@ class VolumeSampler:
         try:
             target_idx = train_vh.channel_map.index(target_name)
         except ValueError:
-            raise ValueError(f"VolumeSampler: target_name '{target_name}' not found in Ledger.")
+            err_msg = f"VolumeSampler: target_name '{target_name}' not found in Ledger."
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
 
         # Activity Search (Importance Sampling)
         activity = np.count_nonzero(vol_data[..., target_idx], axis=0)
@@ -110,7 +118,11 @@ class VolumeSampler:
         try:
             target_idx = train_vh.channel_map.index(target_name)
         except ValueError:
-            raise ValueError(f"VolumeSampler: target_name '{target_name}' not found in Ledger.")
+            err_msg = f"VolumeSampler: target_name '{target_name}' not found in Ledger."
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
 
         activity = np.count_nonzero(train_vh.data[..., target_idx], axis=0)
         qualified_count = len(np.argwhere(activity >= threshold))

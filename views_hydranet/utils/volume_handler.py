@@ -67,10 +67,14 @@ class VolumeHandler:
         actual_channels = self._data.shape[c_idx]
         expected_channels = len(self.channel_map)
         if actual_channels != expected_channels:
-             raise ValueError(
+             err_msg = (
                  f"VolumeHandler: Channel mismatch! Data has {actual_channels} channels, "
                  f"but channel_map has {expected_channels} names."
              )
+             
+             logger.error(err_msg)
+             
+             raise ValueError(err_msg)
 
     @classmethod
     def from_df(
@@ -91,13 +95,15 @@ class VolumeHandler:
             id_col = config["id_col"]
             y_col, x_col = config["spatial_cols"]
         except KeyError as e:
-            raise KeyError(
-                f"VolumeHandler Contract Violation: Missing Ledger Role {e} in config.\n"
+            err_msg = (f"VolumeHandler Contract Violation: Missing Ledger Role {e} in config.\n"
                 f"To comply with ADR 007, your config must define:\n"
                 f"  'time_col': The temporal index (e.g., 'month_id')\n"
                 f"  'id_col':   The unit index (e.g., 'priogrid_gid')\n"
-                f"  'spatial_cols': ['row_col', 'col_col']\n"
-            )
+                f"  'spatial_cols': ['row_col', 'col_col']\n")
+            
+            logger.error(err_msg)
+            
+            raise KeyError(err_msg)
 
         identity_cols = config.get("identity_cols", [])
         feature_cols = config.get("features", [])
@@ -109,13 +115,21 @@ class VolumeHandler:
             row_offset = config["row_offset"]
             col_offset = config["col_offset"]
         except KeyError as e:
-             raise KeyError(f"VolumeHandler Contract Violation: Missing mandatory offset {e} in config.")
+            err_msg = (f"VolumeHandler Contract Violation: Missing mandatory offset {e} in config.")
+            
+            logger.error(err_msg)
+            
+            raise KeyError(err_msg)
 
         all_required = list(set(required_roles + list(identity_cols) + list(feature_cols)))
 
         missing = [c for c in all_required if c not in df.columns]
         if missing:
-            raise ValueError(f"VolumeHandler Handshake Failed! Missing columns: {missing}")
+            err_msg = (f"VolumeHandler Handshake Failed! Missing columns: {missing}")
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
 
         # The channel map is ordered: [Primary Keys] + [Metadata] + [Features]
         # We ensure time_col and id_col are always first.
@@ -153,7 +167,7 @@ class VolumeHandler:
         vol = np.transpose(vol, (2, 0, 1, 3)) # [T, H, W, C]
 
         mem_mb = vol.nbytes / (1024**2)
-        logger.debug(f"💠 VolumeHandler: Created Global Volume {vol.shape} | Memory: {mem_mb:.2f} MB")
+        logger.debug(f"🌐 VolumeHandler: Created Global Volume {vol.shape} | Memory: {mem_mb:.2f} MB")
 
         return cls(
             data=vol,
@@ -218,10 +232,14 @@ class VolumeHandler:
         prob_names = []
         for n in base_names:
             if not n.startswith(LINEAR_PREFIX):
-                raise ValueError(
+                err_msg = (
                     f"VolumeHandler Contract Violation: Feature '{n}' must start with "
                     f"'{LINEAR_PREFIX}' to conform to ADR 032 naming conventions."
                 )
+                
+                logger.error(err_msg)
+                
+                raise ValueError(err_msg)
             reg_names.append(f"{PRED_PREFIX}{n}")
             prob_names.append(f"{PRED_PREFIX}{n.replace(LINEAR_PREFIX, BINARY_PREFIX, 1)}")
 
@@ -312,7 +330,7 @@ class VolumeHandler:
             return self
 
         s_idx = self.get_axis_idx("S")
-        logger.info(f"💠 VolumeHandler: Collapsing dimension 'S' via {method} (ADR 021 Survival Gate)")
+        logger.info(f"📍 VolumeHandler: Collapsing dimension 'S' via {method} (ADR 021 Survival Gate)")
 
         if torch.is_tensor(self._data):
             work_data = self._data.detach().cpu().numpy()
@@ -324,7 +342,11 @@ class VolumeHandler:
         elif method == "median":
             collapsed_data = np.median(work_data, axis=s_idx)
         else:
-            raise NotImplementedError(f"Collapse method '{method}' is not defined in ADR 021. Must be 'arithmetic_mean' or 'median'.")
+            err_msg = f"Collapse method '{method}' is not defined in ADR 021. Must be 'arithmetic_mean' or 'median'."
+            
+            logger.error(err_msg)
+            
+            raise NotImplementedError(err_msg)
 
         # Update axes: Filter out 'S'
         new_axes = tuple(ax for ax in self._metadata.axes if ax != "S")
@@ -361,6 +383,9 @@ class VolumeHandler:
                 f"[index {start_idx} : {start_idx + duration}] "
                 f"exceeds history duration ({history_duration})."
             )
+            
+            logger.error(err_msg)
+            
             raise ValueError(err_msg)
 
         provider_slice = history.slice_time(start_idx, start_idx + duration)
@@ -542,6 +567,9 @@ class VolumeHandler:
                 f"VolumeHandler Contract Violation: Invalid time slice [{start_idx}:{end_idx}] "
                 f"for volume with duration {max_t}."
             )
+            
+            logger.error(err_msg)
+            
             raise ValueError(err_msg)
 
         slices = [slice(None)] * self._data.ndim

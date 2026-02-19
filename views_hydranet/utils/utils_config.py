@@ -103,24 +103,40 @@ class HydraNetConfig(BaseModel):
         """The Checksum and Scaling Laws."""
         # Checksum: input_channels
         if self.input_channels != len(self.features):
-            raise ValueError(f"Checksum Law Violation: input_channels ({self.input_channels}) != features ({len(self.features)})")
+            err_msg = f"Checksum Law Violation: input_channels ({self.input_channels}) != features ({len(self.features)})"
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
 
         # Checksum: time_steps
         if self.time_steps != len(self.steps):
-            raise ValueError(f"Checksum Law Violation: time_steps ({self.time_steps}) != steps ({len(self.steps)})")
+            err_msg = f"Checksum Law Violation: time_steps ({self.time_steps}) != steps ({len(self.steps)})"
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
 
         # Scaling Law: All features AND targets must be in the 'transform' dictionary
         all_required_cols = set(self.features) | set(self.regression_targets) | set(self.classification_targets)
         mapped_set = set()
         for method, cols in self.transform.items():
             if method not in TRANSFORMS:
-                raise ValueError(f"Scaling Law Violation: Unknown method '{method}'")
+                err_msg = f"Scaling Law Violation: Unknown method '{method}'"
+                
+                logger.error(err_msg)
+                
+                raise ValueError(err_msg)
             for col in cols:
                 mapped_set.add(col)
 
         missing = all_required_cols - mapped_set
         if missing:
-            raise ValueError(f"Scaling Law Violation: Required columns {missing} are not assigned a transform in the 'transform' dict.")
+            err_msg = f"Scaling Law Violation: Required columns {missing} are not assigned a transform in the 'transform' dict."
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
 
         return self
 
@@ -128,14 +144,24 @@ class HydraNetConfig(BaseModel):
     @classmethod
     def validate_run_type(cls, v: str) -> str:
         valid = ["calibration", "validation", "forecasting", "testing"]
-        if v not in valid: raise ValueError(f"run_type must be in {valid}")
+        if v not in valid: 
+            err_msg = f"run_type must be in {valid}"
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
         return v
 
     @field_validator("evalution_mode")
     @classmethod
     def validate_eval_mode(cls, v: str) -> str:
         if v == "stocastic": return "stochastic"
-        if v not in ["point", "stochastic"]: raise ValueError("evaluation_mode must be 'point' or 'stochastic'")
+        if v not in ["point", "stochastic"]: 
+            err_msg = "evaluation_mode must be 'point' or 'stochastic'"
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
         return v
 
     @field_validator("aggregate_method")
@@ -143,7 +169,12 @@ class HydraNetConfig(BaseModel):
     def validate_agg_method(cls, v: str) -> str:
         mapper = {"mean": "geometric_mean", "median": "median", "max_aposteriori": "median"}
         v = mapper.get(v, v)
-        if v not in ["arithmetic_mean", "geometric_mean", "median"]: raise ValueError("Invalid aggregate_method")
+        if v not in ["arithmetic_mean", "geometric_mean", "median"]: 
+            err_msg = "Invalid aggregate_method"
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
         return v
 
     class Config:

@@ -75,7 +75,11 @@ class ModelArtifactFetcher:
             path_model_artifact = self.path_latest_model_artifacts
 
         if not path_model_artifact.exists():
-            raise FileNotFoundError(f"Retriever Contract Violation: Model artifact not found at {path_model_artifact}")
+            err_msg = f"Retriever Contract Violation: Model artifact not found at {path_model_artifact}"
+            
+            logger.error(err_msg)
+            
+            raise FileNotFoundError(err_msg)
 
         # 3. Metadata Extraction (The 15-char timestamp)
         # Expected format: ..._YYYYMMDD_HHMMSS.pt

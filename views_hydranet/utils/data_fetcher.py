@@ -44,7 +44,10 @@ class DataFetcher:
             str(self.path_raw), f"{partition}_viewser_df{df_ext}"
         )
 
+        print("")
         logger.info(f"DataFetcher: Loading {partition} from {path_raw_file}")
+        print("")
+
         df = read_dataframe(path_raw_file)
 
         log_data_load_report(partition, path_raw_file, df)
@@ -66,29 +69,35 @@ class DataFetcher:
 
         # 1. Enforce MultiIndex
         if not isinstance(df.index, pd.MultiIndex):
-            error_msg = f"[CRITICAL DATA ERROR] Expected MultiIndex, got {type(df.index)}"
-            print(f"\n{error_msg}")
-            raise ValueError(error_msg)
+            err_msg = f"[CRITICAL DATA ERROR] Expected MultiIndex, got {type(df.index)}"
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
 
         # 2. Enforce Level Names and Order from Config (ADR 017 Section 1.2)
         try:
             expected_names = config["index_names"]
         except KeyError:
-            raise KeyError(
-                "DataFetcher Contract Violation: 'index_names' missing from config.\n"
-                "To comply with ADR 017, you must explicitly define the MultiIndex levels."
-            )
+            err_msg = ("DataFetcher Contract Violation: 'index_names' missing from config.\n"
+                "To comply with ADR 017, you must explicitly define the MultiIndex levels.")
+            
+            logger.error(err_msg)
+            
+            raise KeyError(err_msg)
 
         actual_names = list(df.index.names)
 
         if actual_names[:len(expected_names)] != expected_names:
-            error_msg = (
+            err_msg = (
                 f"[CRITICAL DATA ERROR] Index Contract Violation!\n"
                 f"Expected levels: {expected_names}\n"
                 f"Actual levels:   {actual_names}"
             )
-            print(f"\n{error_msg}")
-            raise ValueError(error_msg)
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
 
         # 3. Structural Normalization
         return df.reset_index()
