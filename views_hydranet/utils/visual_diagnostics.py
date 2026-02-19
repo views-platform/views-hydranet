@@ -90,6 +90,11 @@ class VisualDiagnostics:
                 
                 vol_slice[t_idx, r_idx, c_idx, i] = df_slice[feat].values
 
+            # 3. Orient North-Up (Match VolumeHandler logic)
+            # Fancy indexing places min-latitude at index 0. 
+            # We flip axis 1 (Height) so North is at index 0 for 'upper' plotting.
+            vol_slice = np.flip(vol_slice, axis=1)
+
             # Plot
             self._plot_grid(vol_slice, features, global_months, stage_label)
 
