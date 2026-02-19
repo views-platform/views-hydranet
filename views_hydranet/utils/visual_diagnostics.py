@@ -32,7 +32,7 @@ class VisualDiagnostics:
             # If manager passed a timestamp in config (ADR 026), use it.
             from datetime import datetime
             config_ts = config.get("model_time_stamp")
-            ts = run_timestamp or config_ts or datetime.now().strftime("%Y%m%d_%H%M%S")
+            ts = run_timestamp or config_ts or datetime.now().strftime("%d%m%y_%H%M")
             self.save_dir = f"reports/plots/diagnostics/{ts}"
             os.makedirs(self.save_dir, exist_ok=True)
             logger.info(f"📸 VisualDiagnostics: Active. Saving biopsies to {self.save_dir}")
@@ -49,18 +49,19 @@ class VisualDiagnostics:
 
     def biopsy_dataframe(self, df: pd.DataFrame, stage_label: str, features: List[str] = []) -> None:
         """
-        Adapts a flat DataFrame to the biopsy grid.
-        Requires explicit knowledge of spatial columns to reshape.
+        Adapts a flat or MultiIndexed DataFrame to the biopsy grid.
         """
         if not self.active: return
 
         try:
+            # 0. Handle MultiIndex (Crucial for Stage 1)
+            # If the dataframe is indexed, reset it so we can treat everything as columns
+            working_df = df.reset_index() if isinstance(df.index, pd.MultiIndex) else df.copy()
+            
             # 1. Sort for temporal continuity (Hypothesis 5 Probe)
-            # We sort a copy to ensure the plot is valid even if input is unsorted
-            df_sorted = df.sort_values(by=[self.time_col, self.y_col, self.x_col])
+            df_sorted = working_df.sort_values(by=[self.time_col, self.y_col, self.x_col])
             
             # 2. Reshape to [T, H, W, C] using VolumeHandler logic (but lightweight)
-            # We use the same offset logic as VolumeHandler to see if it produces valid maps
             t_min = df_sorted[self.time_col].min()
             t_max = df_sorted[self.time_col].max()
             t_len = int(t_max - t_min + 1)
@@ -73,26 +74,20 @@ class VisualDiagnostics:
             df_slice = df_sorted[df_sorted[self.time_col].isin(global_months)]
             
             # We need to construct a mini-volume for plotting
-            # Allocate [5, H, W, F]
             vol_slice = np.zeros((5, self.height, self.width, len(features)))
-            vol_slice[:] = np.nan # Default to NaN to see "ocean" clearly
+            vol_slice[:] = np.nan
             
             for i, feat in enumerate(features):
                 if feat not in df_slice.columns:
+                    # Check if it was part of the index and is now a column
                     continue
                     
-                # Fill grid
-                # Note: This reproduces VolumeHandler.from_df logic explicitly to test it
                 r_idx = (df_slice[self.y_col] - self.row_offset).astype(int).values
                 c_idx = (df_slice[self.x_col] - self.col_offset).astype(int).values
                 
-                # Map global month to local index 0..4
-                # We create a lookup map
                 month_map = {m: idx for idx, m in enumerate(global_months)}
                 t_idx = df_slice[self.time_col].map(month_map).values
                 
-                # Bounds check (visualize out-of-bounds as wrapping if it happens)
-                # But here we just plot.
                 vol_slice[t_idx, r_idx, c_idx, i] = df_slice[feat].values
 
             # Plot
@@ -100,6 +95,9 @@ class VisualDiagnostics:
 
         except Exception as e:
             logger.error(f"VisualDiagnostics: Failed to biopsy DataFrame at {stage_label}: {e}")
+            # Raise in debug mode to see stack trace, or log clearly
+            if logger.getEffectiveLevel() <= logging.DEBUG:
+                raise e
 
     def biopsy_volume(self, vh: VolumeHandler, stage_label: str) -> None:
         """

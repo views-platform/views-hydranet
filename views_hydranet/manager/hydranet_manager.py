@@ -60,7 +60,7 @@ class HydranetManager(ForecastingModelManager):
         
         # Authoritative Run Timestamp (ADR 026 / Visual Diagnostics)
         from datetime import datetime
-        self.run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.run_timestamp = datetime.now().strftime("%d%m%y_%H%M")
         logger.info(f"🕒 HydranetManager: Initialized run with timestamp {self.run_timestamp}")
 
     def _run_preflight_check(self) -> None:
