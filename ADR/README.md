@@ -29,14 +29,17 @@ These documents define the current structure of the HydraNet pipeline:
 
 ## 🟡 [Proposed (Emerging)](./proposed/)
 Specifications currently in the design or implementation phase:
-- **010-014**: Spatiotemporal Dual-Representation and Curriculum Strategy.
-- **017-018**: DataFetcher and DataSniffer Specifications.
+- **010**: Spatiotemporal Dual-Representation Reasoning.
+- **011**: Curriculum Learning and Training Topology (Unified).
+- **017**: The Inbound Handshake (Ingestion and Validation).
 - **029**: Geographic Anchors.
 
 ## 🔴 [Archive (Historical)](./archive/)
 Legacy iterations and superseded designs:
 - **001-006**: Early evaluation and manager specifications.
 - **009**: Original VolumeSampler (superseded by 013).
+- **012-014**: Curriculum mechanics (superseded by 011).
+- **018**: Data Sniffer (superseded by 017).
 - **023**: Polars Bridge (Preserved research).
 - **024**: Legacy Backtest Orchestrator (superseded by 038).
 - **033**: Naming Invariants (superseded by 032).
