@@ -7,12 +7,14 @@ This directory contains the Architectural Decision Records (ADRs) for the HydraN
 - **[`active/`](./active/)**: The current "Law of the Land." These ADRs are accepted, implemented, and rigorously verified. They define the structural invariants of the system.
 - **[`proposed/`](./proposed/)**: Emerging specifications and strategies currently under review or awaiting implementation.
 - **[`archive/`](./archive/)**: Legacy records, superseded specifications, and rejected proposals preserved for historical context and rationale.
+- **[`templates/`](./templates/)**: Generic ADR templates used as foundations for new repositories.
 
 ---
 
 ## 🟢 [Active (The Law)](./active/)
 These documents define the current structure of the HydraNet pipeline:
 - **000**: Standard for ADR Quality.
+- **005**: Testing as Mandatory Critical Infrastructure (Red/Beige/Green).
 - **007**: The Volume Ledger & Topology.
 - **008**: Operational Configuration Specification (Unified).
 - **015**: Philosophy of Engineering (Boring Architecture).
@@ -22,10 +24,11 @@ These documents define the current structure of the HydraNet pipeline:
 - **021**: Volume Dimension Reduction.
 - **032**: Authoritative Output Schema (The Pure State).
 - **038**: Unified Inference Pipeline (Forecast-is-Backtest).
-- **042**: Standardized Error Propagation.
+- **042**: Standardized Error Propagation (Double-Lock).
 - **043**: Spatiotemporal Reconstruction Bridges.
 - **044**: Component Handshake and Wiring.
-- *(And others...)*
+- **045**: Ontology of the HydraNet Repository (Roles).
+- **046**: Protocol for Silicon-Based Contributors.
 
 ## 🟡 [Proposed (Emerging)](./proposed/)
 Specifications currently in the design or implementation phase:

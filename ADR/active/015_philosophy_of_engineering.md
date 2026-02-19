@@ -8,6 +8,10 @@
 ## 1. Law 1: Fail Loud and Proud (Anti-Fragility)
 We strictly reject silent error handling, magic fallbacks, and "best-effort" execution.
 *   **The Principle:** If the data or configuration violates its contract, the system MUST crash immediately with a descriptive error.
+*   **The Double-Lock Protocol:** Structural failures must be both **logged persistently** and **raised explicitly**. A failure is only "handled" when it is reported to the log and the execution is halted.
+*   **Explicit Logging Levels:**
+    *   **ERROR:** For standard structural or data validation failures.
+    *   **CRITICAL:** For catastrophic system-wide breakdowns or unrecoverable state corruption.
 *   **Prohibited:** 
     *   Magic default values (e.g., assuming a spatial resolution if not provided).
     *   Silent truncation (e.g., evaluation ignoring months if history ends prematurely).
