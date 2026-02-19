@@ -136,6 +136,7 @@ def training_loop(
     handler: VolumeHandler,
     device: torch.device,
     columns: list[str] | None = None,
+    run_timestamp: str | None = None,
 ) -> dict:
     """
     Orchestrates the training process over multiple stochastic samples.
@@ -147,8 +148,8 @@ def training_loop(
     torch.manual_seed(config["torch_seed"])
     logger.info("🚀 Training initiated...")
     
-    # Initialize Visual Truth Engine
-    viz = VisualDiagnostics(config)
+    # Initialize Visual Truth Engine with Authoritative Timestamp
+    viz = VisualDiagnostics(config, run_timestamp=run_timestamp)
 
     # Initialize the Sampler Components
     # 1. The Lens (Mechanical)
@@ -270,6 +271,7 @@ def train_model_artifact(
     device: torch.device,
     handler: VolumeHandler,
     columns: list[str] | None = None,
+    run_timestamp: str | None = None,
 ) -> dict:
     """Creates, trains, and saves a model artifact."""
 
@@ -278,7 +280,7 @@ def train_model_artifact(
 
     # Train the model
     summary = training_loop(
-        config, model, criterion, optimizer, scheduler, handler, device, columns=columns
+        config, model, criterion, optimizer, scheduler, handler, device, columns=columns, run_timestamp=run_timestamp
     )
     logger.info("Done training")
 

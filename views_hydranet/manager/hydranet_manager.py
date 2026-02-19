@@ -57,6 +57,11 @@ class HydranetManager(ForecastingModelManager):
         self.device = setup_device()
         self.set_dataframe_format(format=".parquet")
         self._model_path = model_path
+        
+        # Authoritative Run Timestamp (ADR 026 / Visual Diagnostics)
+        from datetime import datetime
+        self.run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        logger.info(f"🕒 HydranetManager: Initialized run with timestamp {self.run_timestamp}")
 
     def _run_preflight_check(self) -> None:
         """
@@ -84,8 +89,8 @@ class HydranetManager(ForecastingModelManager):
         self.configs = ConfigInitializer(self.configs).get_config()
         self._run_preflight_check()
         
-        # Initialize Visual Truth Engine
-        viz = VisualDiagnostics(self.configs)
+        # Initialize Visual Truth Engine with Authoritative Timestamp
+        viz = VisualDiagnostics(self.configs, run_timestamp=self.run_timestamp)
 
         # 1. Ingest
         print("") # Block Separator
@@ -123,14 +128,14 @@ class HydranetManager(ForecastingModelManager):
         # 5. Train
         print("")
         # Pass visualizer to training loop for Stage 4 (Sampling) probes
-        summary = train_model_artifact(self._model_path, self.configs, self.device, handler)
+        summary = train_model_artifact(self._model_path, self.configs, self.device, handler, run_timestamp=self.run_timestamp)
         log_training_summary(summary)
 
     def _evaluate_model_artifact(self, eval_type: str, artifact_name: str | None = None) -> list[pd.DataFrame]:
         """Orchestrates rolling-origin evaluation via specialized component."""
         self.configs = ConfigInitializer(self.configs).get_config()
         self._run_preflight_check()
-        viz = VisualDiagnostics(self.configs)
+        viz = VisualDiagnostics(self.configs, run_timestamp=self.run_timestamp)
 
         print("")
         add_config_fn = self._config_manager.add_config if hasattr(self, '_config_manager') else (lambda x: None)
@@ -210,7 +215,7 @@ class HydranetManager(ForecastingModelManager):
         """Generates operational forecasts."""
         self.configs = ConfigInitializer(self.configs).get_config()
         self._run_preflight_check()
-        viz = VisualDiagnostics(self.configs)
+        viz = VisualDiagnostics(self.configs, run_timestamp=self.run_timestamp)
         
         print("")
         fetcher = DataFetcher(self._model_path.data_raw, self.configs)
