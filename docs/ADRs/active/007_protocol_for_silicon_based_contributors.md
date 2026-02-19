@@ -28,7 +28,7 @@ Agents must never assume their own success. Every architectural or code change m
 *   **Constraint:** If an agent modifies a component, it must run the corresponding Red/Beige/Green tests (ADR 005).
 
 ### 2.3 The "Double-Lock" Reporting
-Agents must follow the Narrative Failure pattern (ADR 042) for all error propagation they implement.
+Agents must follow the Narrative Failure pattern (ADR 008) for all error propagation they implement.
 *   **Spirit:** "Fail Loud and Proud."
 
 ---

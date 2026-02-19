@@ -23,7 +23,7 @@ During the application of Law 7 (adding `print("")` block separators), a series 
 
 ## 4. Architectural Outcomes
 The session resulted in a significant expansion of the "Boring Architecture" documentation:
-- **ADR 015 (Updated):** Codified Law 7 (Narrative Spacing) as a first-class citizen of observability.
+- **ADR 003 (Updated):** Codified Law 7 (Narrative Spacing) as a first-class citizen of observability.
 - **ADR 036 (New):** Proposed transition from "Magic Dicts" to Structured Dependency Injection (`HydraContext`).
 - **ADR 037 (New):** Proposed "Health Constellations" (Radar Plots) for geometric symmetry auditing.
 

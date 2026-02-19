@@ -10,13 +10,13 @@
 
 ---
 
-## 1. Functional Categorization (The Loops)
+## 1. Ontological Categorization (The Roles)
 
-### Zone 1: Lifecycle Management (The Trains)
+### Role 1: Lifecycle Management (The Trains)
 *   **Responsibility:** Orchestrating the sequence of high-level tasks: `Training` → `Evaluation` → `Forecasting`.
 *   **Contract:** It must strictly follow the ViEWS `ForecastingModelManager` interface.
 
-### Zone 3: Artifact Custody (The Storage)
+### Role 3: Artifact Custody (The Storage)
 *   **Responsibility:** Managing the loading and saving of model artifacts (`.pt` files) and ensuring they are associated with the correct metadata timestamp.
 
 ---

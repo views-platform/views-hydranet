@@ -1,9 +1,9 @@
-# ADR 007: The Volume Ledger and Topology
+# ADR 012: The Volume Ledger and Topology
 
 | ADR Info            | Details           |
 |---------------------|-------------------|
 | Subject             | Internal Data Model for VolumeHandler |
-| ADR Number          | 007               |
+| ADR Number          | 012               |
 | Status              | Accepted          |
 | Author              | Gemini CLI        |
 | Date                | 19.02.2026        |

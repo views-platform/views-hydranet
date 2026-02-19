@@ -41,7 +41,7 @@ We enforce a strict, three-perspective testing strategy. No component is conside
 ## 3. Enforcement Rules
 *   **No Test, No Merge:** Code that affects behavior must not be merged without corresponding tests.
 *   **Happy-Path Only is Failure:** Tests that only cover the Green Team perspective are insufficient.
-*   **Loud Failure:** If a failure mode is known, it must be tested and the system must fail explicitly (ADR 042).
+*   **Loud Failure:** If a failure mode is known, it must be tested and the system must fail explicitly (ADR 008).
 
 ---
 

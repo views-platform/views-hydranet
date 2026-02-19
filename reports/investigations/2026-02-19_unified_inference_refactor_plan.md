@@ -10,7 +10,7 @@ This plan executes the transition from a dual-logic system to a single, hardened
 - **Zero-Drift:** Ensure operational forecasts and historical backtests use 100% identical code for inference.
 - **Law of Sequence (ADR 039):** Enforce the `Invert -> Collapse` order of operations at the component level.
 - **Contract Isolation (ADR 040):** Move final column subsetting and naming logic out of the Manager.
-- **Observability (ADR 015):** Preserve the "Narrative Spacing" and diagnostic summaries across the new architecture.
+- **Observability (ADR 003):** Preserve the "Narrative Spacing" and diagnostic summaries across the new architecture.
 
 ## 3. Implementation Phases
 

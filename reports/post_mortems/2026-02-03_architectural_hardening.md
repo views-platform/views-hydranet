@@ -5,7 +5,7 @@
 ## 1. Executive Summary
 Over the last 48 hours, the HydraNet codebase has undergone a fundamental philosophical and technical transformation. We have moved away from a "Best-Effort" pipeline—characterized by magic defaults, hidden assumptions, and silent data transformations—toward a **"Boring Architecture."** 
 
-This transition has established a rigorous "Law of the Land" (ADR 015) where every spatiotemporal operation is governed by an explicit Ledger, and every strategic decision is exposed in a mandatory, validated configuration. The result is a system that is mathematically traceable, geographically bit-perfect, and structurally anti-fragile.
+This transition has established a rigorous "Law of the Land" (ADR 003) where every spatiotemporal operation is governed by an explicit Ledger, and every strategic decision is exposed in a mandatory, validated configuration. The result is a system that is mathematically traceable, geographically bit-perfect, and structurally anti-fragile.
 
 ---
 

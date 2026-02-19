@@ -5,12 +5,12 @@
 
 ---
 
-## 1. Functional Categorization (The "Zones")
+## 1. Ontological Categorization (The "Roles")
 
-### Zone 1: Configuration (The Handshake)
+### Role 1: Configuration (The Handshake)
 ... (existing content) ...
 
-### Zone 4: Volume Support (Vectorized Inversion)
+### Role 4: Volume Support (Vectorized Inversion)
 *   **Responsibility:** Providing high-performance mathematical inversion for contiguous spatiotemporal tensors (VolumeHandlers).
 *   **The "Immediate Raw" Principle:** Predictions should be inverse-transformed as soon as they leave the inference engine. This ensures that any subsequent operations (like Point-Collapse in ADR 021) happen in scientifically accurate Raw Count Space.
 *   **Prefix-Awareness:** The inversion logic MUST be aware of the `pred_lr_` and `pred_by_` prefixes (ADR 032). It must correctly identify the base target name to resolve the appropriate inverse function while strictly ignoring binary probability heads (`pred_by_`).
@@ -29,7 +29,7 @@
 ---
 
 ## 3. Data Flow Topology (The Professional Path)
-`Model Outputs` → **`FeatureScaler (Zone 4)`** → `Raw Volume` → `VolumeHandler (Collapse)` → `Point Volume` → `DataFrame Reconstruction`.
+`Model Outputs` → **`FeatureScaler (Role 4)`** → `Raw Volume` → `VolumeHandler (Collapse)` → `Point Volume` → `DataFrame Reconstruction`.
 
 ---
 

@@ -12,7 +12,7 @@ The "Boring Architecture" is now fully established for the data bridge. All comp
 | Component | Status | Spec | Key Falsification Overcome |
 | :--- | :--- | :--- | :--- |
 | `VolumeHandler` | **LOCKED** | ADR 007 | Topographic drift in reconstruction. |
-| `VolumeSampler` | **LOCKED** | ADR 013 | Geographic context loss in windows. |
+| `VolumeSampler` | **LOCKED** | ADR 011 | Geographic context loss in windows. |
 | `Curriculum (Transparency)` | **LOCKED** | ADR 012 | Added available cell count to progress bar. |
 | `Mixed Salad (Oscillation)` | **LOCKED** | ADR 011 | Implemented window-level target interleaving. |
 | `Optimization Gate` | **LOCKED** | ADR 014 | Enforced gradient accumulation per Lesson. |
@@ -21,7 +21,7 @@ The "Boring Architecture" is now fully established for the data bridge. All comp
 | `Uncertainty Resolution`| **LOCKED** | ADR 008 | Renamed test_samples to n_posterior_samples. |
 | `Config Handshake`     | **LOCKED** | ADR 008 | Enforced Fail-Fast validation (no magic migration). |
 | `Zero-Magic Defaults` | **LOCKED** | ADR 008 | Purged all hidden defaults; explicit config mandatory. |
-| `Lens`                 | **LOCKED** | ADR 013 | Pure geometric tool (no training knowledge). |
+| `Lens`                 | **LOCKED** | ADR 011 | Pure geometric tool (no training knowledge). |
 | `Sentinel`             | **LOCKED** | ADR 018 | DataSniffer enforces spatiotemporal contracts. |
 | `Normalizer`           | **LOCKED** | ADR 019 | Stateful FeatureScaler with bit-perfect reversibility. |
 | `Utilities Migration`  | **IN PROGRESS** | N/A | Isolating 11 legacy files to utils/legacy/. |

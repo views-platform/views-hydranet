@@ -31,7 +31,7 @@ We strictly enforce a **"Create-Only / Edit-In-Place"** separation of concerns f
 - **Complexity:** The AI must accurately identify unique context strings for the `replace` tool, which requires reading the file first. This adds a step to the workflow (Read -> Replace vs. Just Write).
 
 ## Rationale
-The cost of a single silent truncation event (hours of debugging, potential data loss) far outweighs the cost of the extra "Read" step required for safe editing. This aligns with the project's "Boring Architecture" philosophy (ADR 015): reliability over speed.
+The cost of a single silent truncation event (hours of debugging, potential data loss) far outweighs the cost of the extra "Read" step required for safe editing. This aligns with the project's "Boring Architecture" philosophy (ADR 003): reliability over speed.
 
 ### Considerations
 *   **ADRs:** This applies specifically to ADRs as well. While ADRs are immutable in spirit, they are occasionally amended (e.g., adding a status update). These amendments must be done via `replace`.

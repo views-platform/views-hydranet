@@ -3,7 +3,7 @@
 **Status:** Active  
 **Owner:** Custodian  
 **Last reviewed:** 19.02.2026  
-**Related ADRs:** ADR-001, ADR-007, ADR-010, ADR-032, ADR-043
+**Related ADRs:** ADR-001, ADR-012, ADR-010, ADR-032, ADR-043
 
 ---
 

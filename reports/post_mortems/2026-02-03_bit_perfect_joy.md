@@ -6,7 +6,7 @@
 ---
 
 ## 1. Executive Summary
-This session successfully resolved a critical hardware-block (VRAM OOM) and a growing technical debt in naming conventions. By applying the "Boring Architecture" philosophy (ADR 015), we moved from a fragile, "ghost-parameter" driven state to a bit-perfect, schema-guaranteed architecture. The result is a **Tolerant Handshake** that allows for seamless pipeline integration while strictly enforcing the physics of the HydraNet domain.
+This session successfully resolved a critical hardware-block (VRAM OOM) and a growing technical debt in naming conventions. By applying the "Boring Architecture" philosophy (ADR 003), we moved from a fragile, "ghost-parameter" driven state to a bit-perfect, schema-guaranteed architecture. The result is a **Tolerant Handshake** that allows for seamless pipeline integration while strictly enforcing the physics of the HydraNet domain.
 
 ---
 
@@ -34,7 +34,7 @@ We formalized the 6-head output topology.
 *   **Internalization:** Naming invariants (`pred_`, `_raw`, `_prob`) were hardcoded as internal architectural secrets.
 *   **Collision Protection:** `VolumeHandler` was hardened to use an `ACTUAL_INTERNAL_` prefix during reconstruction, ensuring ground-truth data is never overwritten by predictions.
 
-### 3.3 The Tolerant Handshake (ADR 008 Evolution)
+### 3.3 The Tolerant Handshake (ADR 009 Evolution)
 We initially attempted a "Selfish Component" model (`extra="forbid"`), which crashed due to pipeline baggage. 
 *   **Synthesis:** We updated `HydraNetConfig` to exhaustively document all 46 keys used by the domain logic (removing "ghosts") while setting `extra="allow"` to tolerate external metadata.
 *   **Checksum Law:** We mandated explicit redundancy for critical couplings (e.g., `input_channels == len(features)`), ensuring logical drift is caught at the configuration gate.
@@ -64,6 +64,6 @@ To falsify the hypothesis of hallucination, we implemented `tests/popperian_audi
 *   `views_hydranet/utils/volume_handler.py`: The Internalized Naming Engine.
 *   `views_hydranet/manager/hydranet_manager.py`: The simplified Orchestrator.
 *   `tests/popperian_audit.py`: The permanent Truth Engine.
-*   `ADR 008`, `ADR 020`: The updated architectural laws.
+*   `ADR 009`, `ADR 020`: The updated architectural laws.
 
 **System State:** bit-perfect. 🖖

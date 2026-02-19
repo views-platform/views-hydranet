@@ -50,10 +50,18 @@ Contracts must be clear enough that:
 
 ## Active Contracts
 
-- `ModelRunner.md`
+### The Spine (Orchestration & Data)
+- `HydranetManager.md`
 - `VolumeHandler.md`
-- `BoundaryValidator.md`
-- (Add entries as they are created)
+- `DataSniffer.md`
+
+### The Actors (Logic & Training)
+- `InferenceOrchestrator.md`
+- `FeatureScaler.md`
+- `ModelArtifactFetcher.md`
+- `DataFetcher.md`
+- `CurriculumLearner.md`
+- `VolumeSampler.md`
 
 ---
 

@@ -10,7 +10,7 @@ The following specifications are formalized but **NOT IMPLEMENTED** in the activ
 *   **ADR 008:** Outbound Config Schema (GAPPED)
 *   **ADR 007:** Symmetry Recovery Gate (GAPPED)
 *   **ADR 016:** Subsetting Gate (GAPPED)
-*   **ADR 015:** Augmentation Law (GAPPED)
+*   **ADR 003:** Augmentation Law (GAPPED)
 
 ## 2. Forensic Investigation (Active)
 The system is currently suffering from a `torch.OutOfMemoryError` during training. A full `git restore` did not resolve the issue, suggesting:

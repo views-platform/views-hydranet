@@ -8,8 +8,8 @@
 ## 1. Decision: The "Boring Architecture" Specification Standard
 Every ADR must move beyond describing *what code does* and instead define *what the architecture guarantees*. An ADR is considered "Good and Useful" only if it satisfies the following six criteria:
 
-### 1.1 Functional Categorization (The "Zones")
-The ADR must group functions into logical zones of responsibility (e.g., Inbound, Transformation, Outbound). This ensures that "Bridge" logic (I/O) is never polluted with "Calculation" logic (Math).
+### 1.1 Ontological Categorization (The "Roles")
+The ADR must group functions into logical roles of responsibility (e.g., Inbound, Transformation, Outbound). This ensures that "Bridge" logic (I/O) is never polluted with "Calculation" logic (Math).
 
 ### 1.2 The "Handshake" Protocol
 The ADR must explicitly define the single point where external data is validated against internal standards. It must state that after this point, the external source is discarded and the internal **Ledger** is the authoritative source of truth.

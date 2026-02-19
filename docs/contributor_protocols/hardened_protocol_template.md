@@ -23,7 +23,7 @@ All data entering the system must pass through a numerical airlock.
 - **Requirement:** Downcast all input to `float32` immediately.
 - **Requirement:** Detect and raise errors on NaNs or Infs at every boundary (Data entry, Loss calculation, Prediction output).
 
-### D. Physical Symmetrical Architecture (ADR-013)
+### D. Physical Symmetrical Architecture (ADR-025)
 **"1 Class, 1 File, 1 Name."**
 Organizational Zen is a requirement for maintainability.
 - **Requirement:** Every non-trivial class must live in its own file named after the class in `snake_case`.

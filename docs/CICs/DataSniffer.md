@@ -3,7 +3,7 @@
 **Status:** Active  
 **Owner:** Sentinel  
 **Last reviewed:** 19.02.2026  
-**Related ADRs:** ADR-001, ADR-009, ADR-017, ADR-032
+**Related ADRs:** ADR-001, ADR-009, ADR-009, ADR-032
 
 ---
 

@@ -20,17 +20,17 @@ We will maintain two strictly defined, non-overlapping representations of the vo
 
 ---
 
-## 2. Functional Categorization (The "Zones")
+## 2. Ontological Categorization (The "Roles")
 
-### Zone 1: The Logic Zone (Semantic)
+### Role 1: The Logic Role (Semantic)
 All operations involving "Where" or "When" (e.g., `VolumeSampler` windowing, `to_evaluation_df` slicing) must occur in the **Semantic Layout**. This ensures that coordinate math remains intuitive and human-readable.
 
-### Zone 2: The Transform Zone (The Gate)
+### Role 2: The Transform Role (The Gate)
 The `to_pytorch()` method acts as the formal transition point. It is responsible for:
 1.  **Permutation:** Mechanically reordering axes.
 2.  **Identity Redaction:** Stripping non-predictive channels (IDs, coordinates) to prevent the model from learning "Hidden Physics" (e.g., overfitting on raw Grid IDs).
 
-### Zone 3: The Recovery Zone (The Bridge)
+### Role 3: The Recovery Role (The Bridge)
 The `wrap_predictions()` method reverses the hardware layout back into the semantic layout, allowing the predicted "Signals" to be re-aligned with their geographic "Scaffold."
 
 ---

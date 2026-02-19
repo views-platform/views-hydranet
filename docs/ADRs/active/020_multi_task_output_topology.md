@@ -1,7 +1,7 @@
 # ADR 020: Multi-Task Output Topology
 
 **Status:** Implemented  
-**Context:** The HydraNet architecture produces multiple independent heads for regression (magnitude) and classification (probability). To maintain "Boring" traceability, the mapping from raw model channels to semantic variables must be explicit and immutable. This specification is governed by the configuration standards in [ADR 008](./008_operational_configuration_specification.md).
+**Context:** The HydraNet architecture produces multiple independent heads for regression (magnitude) and classification (probability). To maintain "Boring" traceability, the mapping from raw model channels to semantic variables must be explicit and immutable. This specification is governed by the configuration standards in [ADR 009](./008_operational_configuration_specification.md).
 
 ---
 
@@ -13,7 +13,7 @@ The model output is a single concatenated tensor (or a tuple that is immediately
 1.  **Regression Block:** `n` channels.
 2.  **Classification Block:** `n` channels.
 
-The number of channels `n` is defined by the length of the `classification_outputs` list in the configuration. To comply with the **Checksum Law** in ADR 008, the model architecture must verify that the raw tensor width matches `2 * len(classification_outputs)`.
+The number of channels `n` is defined by the length of the `classification_outputs` list in the configuration. To comply with the **Checksum Law** in ADR 009, the model architecture must verify that the raw tensor width matches `2 * len(classification_outputs)`.
 
 ### 1.2 The Naming Engine (Intent-Based Prefixes)
 To ensure absolute consistency, the naming of model heads is determined solely by prefixes. Suffixes are retired as redundant.
@@ -36,6 +36,6 @@ To ensure absolute consistency, the naming of model heads is determined solely b
 ---
 
 ## 3. Reference
-*   **Configuration Invariants:** [ADR 008: Operational Configuration Specification](./008_operational_configuration_specification.md)
+*   **Configuration Invariants:** [ADR 009: Operational Configuration Specification](./008_operational_configuration_specification.md)
 *   **Reconstruction Logic:** `views_hydranet/utils/volume_handler.py`
 
