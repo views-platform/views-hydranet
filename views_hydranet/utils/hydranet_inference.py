@@ -40,9 +40,17 @@ class HydraNetInference:
 
         # Step 2: Validate inputs
         if not isinstance(model, Module):
-            raise TypeError("Expected 'model' to be an instance of torch.nn.Module.")
+            err_msg = "Expected 'model' to be an instance of torch.nn.Module."
+            
+            logger.error(err_msg)
+            
+            raise TypeError(err_msg)
         if not isinstance(config, dict):
-            raise TypeError("Expected 'config' to be a dictionary.")
+            err_msg = "Expected 'config' to be a dictionary."
+            
+            logger.error(err_msg)
+            
+            raise TypeError(err_msg)
 
         self.model = model
         self.config = config
@@ -151,10 +159,14 @@ class HydraNetInference:
             )
 
         else:
-            raise ValueError(
+            err_msg = (
                 f"Invalid freeze_h option: {freeze_h}. "
                 "Must be one of ['hl', 'hs', 'all', 'none', 'random']."
             )
+            
+            logger.error(err_msg)
+            
+            raise ValueError(err_msg)
 
         return t1_pred, t1_pred_class, h_tt
 

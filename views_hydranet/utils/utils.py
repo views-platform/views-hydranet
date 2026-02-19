@@ -25,9 +25,11 @@ def choose_model(config: dict, device: torch.device) -> nn.Module:
             config["dropout_rate"],
         ).to(device)
     else:
-        error_msg = f"Unknown model type: {config['model']}"
-        logger.error(error_msg)
-        raise ValueError(error_msg)
+        err_msg = f"Unknown model type: {config['model']}"
+        
+        logger.error(err_msg)
+        
+        raise ValueError(err_msg)
     return model
 
 def choose_loss(config, device):
@@ -37,16 +39,22 @@ def choose_loss(config, device):
     elif config['loss_reg'] == 'b':
         criterion_reg = ShrinkageLoss(a=config['loss_reg_a'], c=config['loss_reg_c'], size_average=True).to(device)
     else:
-        logger.error('Wrong reg loss...')
-        sys.exit()
+        err_msg = f"Unknown regression loss type: {config['loss_reg']}"
+        
+        logger.error(err_msg)
+        
+        raise ValueError(err_msg)
 
     if config['loss_class'] == 'a':
         criterion_class = nn.BCELoss().to(device)
     elif config['loss_class'] == 'b':
         criterion_class = FocalLoss(alpha=config['loss_class_alpha'], gamma=config['loss_class_gamma']).to(device)
     else:
-        logger.error('Wrong class loss...')
-        sys.exit()
+        err_msg = f"Unknown classification loss type: {config['loss_class']}"
+        
+        logger.error(err_msg)
+        
+        raise ValueError(err_msg)
 
     logger.info(f'Regression loss: {criterion_reg}\n classification loss: {criterion_class}')
     is_regression = torch.Tensor([True, True, True, False, False, False])

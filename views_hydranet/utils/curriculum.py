@@ -42,7 +42,11 @@ class CurriculumLearner:
         # 2. Extract targets from Ledger and Record Maxima
         self.subjects = list(handler._metadata.feature_cols)
         if not self.subjects:
-             raise ValueError("CurriculumLearner: Ledger has no feature columns to target.")
+             err_msg = "CurriculumLearner: Ledger has no feature columns to target."
+             
+             logger.error(err_msg)
+             
+             raise ValueError(err_msg)
 
         self.subject_maxima = self._calculate_subject_maxima()
         logger.info(f"CurriculumLearner: Established subject maxima: {self.subject_maxima}")

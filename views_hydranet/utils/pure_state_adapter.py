@@ -52,7 +52,11 @@ class PureStateAdapter:
         for t in self.regression_targets:
             if not t.startswith("lr_"):
                 # Law 6 Violation
-                raise ValueError(f"PureStateAdapter Contract Violation: Target '{t}' must start with 'lr_' prefix.")
+                err_msg = f"PureStateAdapter Contract Violation: Target '{t}' must start with 'lr_' prefix."
+                
+                logger.error(err_msg)
+                
+                raise ValueError(err_msg)
 
             # Derive the 4-Column Block for this target
             binary_t = t.replace("lr_", "by_", 1)
