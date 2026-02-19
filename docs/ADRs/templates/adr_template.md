@@ -1,108 +1,65 @@
-# ADR-XXXX: <Concise decision title>
+# ADR-NNN: <Concise Decision Title>
 
 **Status:** Proposed | Accepted | Superseded | Deprecated  
 **Date:** YYYY-MM-DD  
-**Deciders:** <Names / roles>  
-**Consulted:** <Optional>  
-**Informed:** <Optional>  
+**Deciders:** <Names/Roles>  
+**Informed:** <Names/Roles>  
 
 ---
 
-## Context
-
-Describe the problem that motivated this decision.
-
-Include:
-- What is *not working* or *no longer tenable*
-- Relevant technical, organizational, or scientific constraints
-- Prior assumptions that turned out to be wrong
-- Why this decision matters *now* (and not later)
-
-This section should make it obvious to a future reader **why a decision was needed at all**.
+## 1. Context
+**Why are we doing this now?**
+- **Problem:** Describe the current pain point or scientific constraint.
+- **Assumptions:** What was previously assumed that is no longer true?
+- **Urgency:** Why is a decision required immediately?
 
 ---
 
-## Decision
-
-State the decision **clearly and unambiguously**.
-
-- What is being decided?
-- What is explicitly *in scope*?
-- What is explicitly *out of scope*?
-
-Use assertive language.  
-This is the **source of truth**.
+## 2. Decision
+**The new Law of the Land.**
+- **Statement:** "We will [Action] to achieve [Outcome]."
+- **In-Scope:** Explicitly define what is covered.
+- **Out-of-Scope:** Explicitly define what is NOT covered.
 
 ---
 
-## Rationale
-
-Explain *why this option was chosen* over alternatives.
-
-Include:
-- Key design principles or values (e.g. correctness > convenience)
-- Trade-offs consciously accepted
-- Alignment with long-term architecture or research goals
-- Why this decision reduces risk, ambiguity, or technical debt
+## 3. Rationale & Integrity Impact
+**The logic behind the choice.**
+- **Logic:** Why this over Alternative X? (Prioritize *Correctness > Convenience*).
+- **Fortress State:** How does this improve **Reproducibility** or **Numerical Stability**?
+- **Fail-Loud:** Does this align with the mandate to crash immediately on contract violation?
 
 ---
 
-## Hardening & Integrity Impact (New)
+## 4. Consequences
+**The honest trade-off.**
 
-Describe how this decision affects the **Fortress State** of the codebase:
-- Does it improve **Reproducibility**?
-- Does it enforce **Numerical Stability** (NaN/Inf airlocks)?
-- Does it align with the **Fail-Loud** mandate?
-- Does it simplify or enforce **Symmetrical Architecture**?
+### ✅ Positive (Benefits)
+- [ ] Simplification of [Component]
+- [ ] Reduced risk of [Failure Mode]
+- [ ] Improved traceability for [Role]
 
----
-
-## Considered Alternatives
-
-List the main alternatives that were seriously considered.
-
-### Alternative A: <name>
-- **Pros:**  
-- **Cons:**  
-- **Reason for rejection:**  
+### ⚠️ Negative (Costs)
+- [ ] Increased boilerplate in [Layer]
+- [ ] Breaking change requiring migration of [Artifacts]
 
 ---
 
-## Consequences
-
-### Positive
-- Benefits unlocked / Simplifications introduced / Risks reduced
-
-### Negative
-- New constraints / Short-term pain / Technical debt accepted
+## 5. Validation
+**How do we prove it works?**
+- **Invariants:** What must remain bit-perfect?
+- **Tests:** Which Red/Beige/Green tests (ADR-005) verify this?
+- **Failure Mode:** What observation would trigger a reconsideration of this ADR?
 
 ---
 
-## Implementation Notes
-
-Include:
-- Where the decision should be enforced (code, config, docs, tests)
-- Migration strategy (if applicable)
-- Guardrails to prevent regression
+## 6. Implementation Notes
+- **Location:** Where is this enforced (Code, Config, or CI)?
+- **References:** PRs, Issues, or Research Papers.
 
 ---
 
-## Validation & Monitoring
-
-How will we know this decision was correct?
-- Tests or invariants that should hold
-- Metrics or signals to watch
-- Failure modes that would trigger reconsideration
-
----
-
-## Open Questions
-
-- What do we still not know?
-- What depends on future work or data?
-
----
-
-## References
-
-PRs, Issues, Design docs, Papers, etc.
+### 💡 How to use:
+1. Copy to `docs/ADRs/[active|proposed]/NNN_snake_case_title.md`.
+2. Keep it **assertive and literal**.
+3. If you can't define the **Validation**, the decision is too vague.
