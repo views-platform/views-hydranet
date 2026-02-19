@@ -98,12 +98,12 @@ class HydranetManager(ForecastingModelManager):
         df_raw = data_fetcher.fetch_df()
         
         # DIAGNOSTIC: Stage 1 (Ingestion)
-        # We want to see EVERYTHING that defines identity + the primary signal
+        # We want to see EVERYTHING that defines identity + ALL primary signals
         plot_feats = [
             self.configs.get("time_col", "month_id"),
             self.configs.get("id_col", "priogrid_gid"),
             "c_id"
-        ] + self.configs.get("spatial_cols", []) + self.configs.get("regression_targets", [])[:1]
+        ] + self.configs.get("spatial_cols", []) + self.configs.get("regression_targets", [])
         
         viz.biopsy_dataframe(df_raw, "Stage 1: Raw Ingestion", features=plot_feats)
 
@@ -162,7 +162,7 @@ class HydranetManager(ForecastingModelManager):
             self.configs.get("time_col", "month_id"),
             self.configs.get("id_col", "priogrid_gid"),
             "c_id"
-        ] + self.configs.get("spatial_cols", []) + self.configs.get("regression_targets", [])[:1]
+        ] + self.configs.get("spatial_cols", []) + self.configs.get("regression_targets", [])
         
         viz.biopsy_dataframe(df, "Stage 1: Raw Ingestion", features=plot_feats)
         
@@ -236,7 +236,7 @@ class HydranetManager(ForecastingModelManager):
             self.configs.get("time_col", "month_id"),
             self.configs.get("id_col", "priogrid_gid"),
             "c_id"
-        ] + self.configs.get("spatial_cols", []) + self.configs.get("regression_targets", [])[:1]
+        ] + self.configs.get("spatial_cols", []) + self.configs.get("regression_targets", [])
         
         viz.biopsy_dataframe(df, "Stage 1: Raw Ingestion", features=plot_feats)
         
