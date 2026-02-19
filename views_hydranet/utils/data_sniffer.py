@@ -198,7 +198,8 @@ class DataSniffer:
         """
         Ensures all required identity and feature columns exist.
         """
-        required_cols = list(set(self.identity_cols + self.config["features"]))
+        spatial_cols = self.config["spatial_cols"] # Dynamically pull [row, col] or [row_id, col_id]
+        required_cols = list(set(self.identity_cols + self.config["features"] + list(spatial_cols)))
         missing_cols = [col for col in required_cols if col not in df.columns]
 
         if missing_cols:
