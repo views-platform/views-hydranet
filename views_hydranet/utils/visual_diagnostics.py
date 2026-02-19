@@ -30,7 +30,9 @@ class VisualDiagnostics:
         if self.active:
             # Determine save directory
             # If manager passed a timestamp in config (ADR 026), use it.
-            ts = run_timestamp or config.get("model_time_stamp", "unknown_run")
+            from datetime import datetime
+            config_ts = config.get("model_time_stamp")
+            ts = run_timestamp or config_ts or datetime.now().strftime("%Y%m%d_%H%M%S")
             self.save_dir = f"reports/plots/diagnostics/{ts}"
             os.makedirs(self.save_dir, exist_ok=True)
             logger.info(f"📸 VisualDiagnostics: Active. Saving biopsies to {self.save_dir}")
