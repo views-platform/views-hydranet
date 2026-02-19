@@ -4,7 +4,7 @@ Governed by ADR 038 (Unification) and ADR 039 (Sequence).
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import torch
@@ -12,6 +12,7 @@ import torch
 from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.hydranet_inference import HydraNetInference
 from views_hydranet.utils.volume_handler import VolumeHandler
+from views_hydranet.utils.visual_diagnostics import VisualDiagnostics
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,8 @@ class InferenceOrchestrator:
         self,
         config: Dict[str, Any],
         model: torch.nn.Module,
-        device: torch.device
+        device: torch.device,
+        visualizer: Optional[VisualDiagnostics] = None
     ) -> None:
         """
         Initializes with the static model context.
@@ -35,6 +37,7 @@ class InferenceOrchestrator:
         self.config = config
         self.model = model
         self.device = device
+        self.viz = visualizer or VisualDiagnostics({"diagnostic_visualizations": False}) # Null Object Fallback
 
     def generate_forecasts(
         self,
@@ -65,7 +68,17 @@ class InferenceOrchestrator:
                 is_evaluation=is_backtest, 
                 window_info=f"Origin {i+1}/{len(origins)}"
             )
-
+            
+            # DIAGNOSTIC: Stage 5 (Inference Input/Output)
+            # We visualize the raw output tensor before wrapping
+            # Note: We need channel names to label the plot. 
+            # The model outputs [reg_1..3, class_1..3].
+            raw_channels = self.config["regression_targets"] + self.config["classification_targets"]
+            if torch.is_tensor(posterior_zstack):
+                 # Unsqueeze batch dim for biopsy if missing
+                 tensor_viz = posterior_zstack.unsqueeze(0) if posterior_zstack.ndim == 4 else posterior_zstack
+                 self.viz.biopsy_tensor(tensor_viz, f"Stage 5: Raw Inference Output (Origin {origin})", channel_names=raw_channels)
+            
             # Determine duration from posterior shape
             duration = posterior_zstack.shape[0] if not torch.is_tensor(posterior_zstack) else posterior_zstack.shape[1]
 

@@ -11,6 +11,7 @@ from views_pipeline_core.managers.model import ModelPathManager
 from views_hydranet.utils.curriculum import CurriculumLearner
 from views_hydranet.utils.integrity_guardian import IntegrityGuardian
 from views_hydranet.utils.utils_logging import log_curriculum_report
+from views_hydranet.utils.visual_diagnostics import VisualDiagnostics
 from views_hydranet.utils.utils import (
     choose_loss,
     choose_model,
@@ -145,6 +146,9 @@ def training_loop(
     np.random.seed(config["np_seed"])
     torch.manual_seed(config["torch_seed"])
     logger.info("🚀 Training initiated...")
+    
+    # Initialize Visual Truth Engine
+    viz = VisualDiagnostics(config)
 
     # Initialize the Sampler Components
     # 1. The Lens (Mechanical)
@@ -182,6 +186,11 @@ def training_loop(
                 # 2. Handshake with Lens
                 batch, qualified_cells = sampler.get_batch(target, threshold, batch_size=1)
                 sample_handler = batch[0]
+                
+                # DIAGNOSTIC: Stage 4 (Sampling)
+                # We biopsy the first few windows of the first lesson to verify geometry
+                if lesson_idx == 0 and window_idx < 3:
+                     viz.biopsy_volume(sample_handler, f"Stage 4: Training Window {window_idx+1} (Target: {target})")
 
                 # Update progress bar
                 pbar.set_description(

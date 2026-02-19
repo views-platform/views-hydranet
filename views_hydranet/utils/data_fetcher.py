@@ -100,4 +100,28 @@ class DataFetcher:
             raise ValueError(err_msg)
 
         # 3. Structural Normalization
-        return df.reset_index()
+        df_flat = df.reset_index()
+        
+        # 4. Sort-Order Assertion (Hypothesis 5 Probe)
+        # We must ensure time is monotonic for the VolumeHandler to work correctly.
+        time_col = config.get("time_col", "month_id")
+        id_col = config.get("id_col", "priogrid_gid")
+        
+        if time_col in df_flat.columns:
+            if not df_flat[time_col].is_monotonic_increasing:
+                logger.warning(f"⚠️ DataFetcher: DataFrame is NOT sorted by {time_col}. This may cause 'Random Number' scrambling in VolumeHandler.")
+                # We enforce sort to be safe
+                df_flat = df_flat.sort_values(by=[time_col, id_col])
+                logger.info(f"✅ DataFetcher: Enforced sort by [{time_col}, {id_col}].")
+
+        # 5. Geo-Sanitization (Ocean Removal)
+        # We only keep cells that have a valid ID.
+        if id_col not in df_flat.columns:
+             err_msg = f"DataFetcher Sanitization Failed: '{id_col}' not found after reset_index."
+             logger.error(err_msg)
+             raise KeyError(err_msg)
+
+        # Drop rows where ID is 0 or NaN (Ocean)
+        df_out = df_flat[df_flat[id_col] > 0].copy()
+        
+        return df_out
