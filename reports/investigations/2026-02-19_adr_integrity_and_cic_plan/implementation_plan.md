@@ -44,13 +44,13 @@
 
 ---
 
-## Stage 3: Verification and Closure
+## Stage 3: Verification and Closure - [COMPLETED]
 *Goal: Empirically prove that the system matches the new documentation.*
 
-### 3.1 ADR Compliance Audit
+### 3.1 ADR Compliance Audit - [DONE]
 - **Action:** Use `docs/audits/adr_compliance_audit_template.md` to generate a report verifying that the code actually implements the renumbered laws.
 
-### 3.2 Commit and Sync
+### 3.2 Commit and Sync - [DONE]
 - **Action:** Merge `doc/architectural-docs-and-license` into `development` once all contracts are signed.
 
 ---
