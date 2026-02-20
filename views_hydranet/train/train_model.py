@@ -56,6 +56,8 @@ def train(
     config: dict,
     device: torch.device,
     pbar: tqdm,
+    viz: VisualDiagnostics = None,
+    stage_label: str = "",
 ) -> torch.Tensor: # Returns window loss
 
     avg_loss_reg_list = []
@@ -87,6 +89,10 @@ def train(
     # initialize a hidden state
     h = model.init_h(hidden_channels=model.base, dim=window_dim).float().to(device)
 
+    # STAGE 5 DIAGNOSTIC: Accumulators
+    acc_y_reg, acc_yh_reg = [], []
+    acc_y_cls, acc_yh_cls = [], []
+
     # Sequence loop rnn style
     for i in range(seq_len - 1):
             t0 = train_tensor[:, i, :, :, :]
@@ -95,6 +101,19 @@ def train(
 
             # Forward pass (Data is already North-Up via VolumeHandler)
             t1_pred, t1_pred_class, h = model(t0, h.detach())
+            
+            # STAGE 5 DIAGNOSTIC: Accumulate middle steps
+            if viz and stage_label:
+                 # We want 6 steps. If seq_len is small, we take what we can.
+                 # Usually training windows are 12-24 steps.
+                 # We start capturing from the middle of the sequence.
+                 start_idx = max(0, (seq_len // 2) - 3)
+                 if i >= start_idx and len(acc_y_reg) < 6:
+                      # [B, C, H, W] -> [H, W, C]
+                      acc_y_reg.append(t1[0].permute(1, 2, 0).detach().cpu().numpy())
+                      acc_yh_reg.append(t1_pred[0].permute(1, 2, 0).detach().cpu().numpy())
+                      acc_y_cls.append(t1_binary[0].permute(1, 2, 0).detach().cpu().numpy())
+                      acc_yh_cls.append(torch.sigmoid(t1_pred_class[0]).permute(1, 2, 0).detach().cpu().numpy())
 
             losses_list = []
             for j in range(t1_pred.shape[1]):
@@ -118,6 +137,14 @@ def train(
 
             # Update pbar for each month
             pbar.update(1)
+
+    # STAGE 5 DIAGNOSTIC: Finalize Biopsy
+    if viz and stage_label and acc_y_reg:
+         viz.biopsy_training_performance(
+             np.stack(acc_y_reg), np.stack(acc_yh_reg),
+             np.stack(acc_y_cls), np.stack(acc_yh_cls),
+             stage_label
+         )
 
     # log each sequence/timeline/batch
     train_log(avg_loss_list, avg_loss_reg_list, avg_loss_class_list)
@@ -202,6 +229,9 @@ def training_loop(
                 )
 
                 # 3. Process Window (Accumulate Loss)
+                # Pass viz to capture training dynamics (Stage 5)
+                # Only biopsy first 3 windows of Lesson 1
+                slbl = f"Stage 5: Training Forensic (Lesson {lesson_idx + 1}_Win {window_idx + 1})"
                 window_loss = train(
                     model,
                     optimizer,
@@ -212,7 +242,9 @@ def training_loop(
                     sample_handler,
                     config,
                     device,
-                    pbar
+                    pbar,
+                    viz=viz,
+                    stage_label=slbl if (lesson_idx == 0 and window_idx < 3) else ""
                 )
 
                 # --- MEMORY-SAFE ACCUMULATION (ADR 014 Hardening) ---

@@ -335,6 +335,70 @@ class VisualDiagnostics:
         except Exception as e:
             logger.error(f"VisualDiagnostics: Failed to biopsy autoregressive loop at {stage_label}: {e}")
 
+    def biopsy_training_performance(self, 
+                                   y_reg: np.ndarray, y_hat_reg: np.ndarray, 
+                                   y_cls: np.ndarray, y_hat_cls: np.ndarray, 
+                                   stage_label: str) -> None:
+        """
+        4x6 Forensic Grid for Training runs.
+        Rows: [Y_Reg, Y_Hat_Reg, Y_Cls, Y_Hat_Cls]
+        Cols: 6 sequential time steps.
+        """
+        if not self.active: return
+
+        try:
+            # Inputs are [T, H, W, C]
+            # We assume C=0 for simplicity in this dense plot
+            n_times = min(6, y_reg.shape[0])
+            
+            fig, axes = plt.subplots(4, n_times, figsize=(18, 12))
+            
+            row_labels = [
+                "GROUND TRUTH (Reg)", "PREDICTION (Reg)",
+                "GROUND TRUTH (Cls)", "PREDICTION (Cls)"
+            ]
+            data_rows = [y_reg, y_hat_reg, y_cls, y_hat_cls]
+            cmaps = ['magma', 'magma', 'viridis', 'viridis']
+            
+            for r_idx in range(4):
+                row_data = data_rows[r_idx]
+                feat_slice = row_data[..., 0] # Use first target only
+                vmin, vmax = np.nanmin(feat_slice), np.nanmax(feat_slice)
+                
+                for t_idx in range(n_times):
+                    ax = axes[r_idx, t_idx]
+                    img = feat_slice[t_idx]
+                    stats = self._calculate_stats(img)
+                    
+                    ax.imshow(img, origin='upper', cmap=cmaps[r_idx], vmin=vmin, vmax=vmax, interpolation='nearest')
+                    ax.set_xticks([])
+                    ax.set_yticks([])
+                    
+                    if r_idx == 0:
+                        ax.set_title(f"Step {t_idx+1}")
+                    if t_idx == 0:
+                        ax.set_ylabel(f"{row_labels[r_idx]}\n{stats}", rotation=0, labelpad=80, fontsize=9, fontweight='bold')
+                    else:
+                        ax.text(0.05, 0.95, stats, transform=ax.transAxes, color='white', 
+                                fontsize=8, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='black', alpha=0.5))
+
+            # Vertical line between History (3) and Forecast (3)
+            if n_times > 3:
+                line_x = 0.5 + 0.01
+                fig.add_artist(plt.Line2D([line_x, line_x], [0.05, 0.9], color='cyan', linestyle='--', linewidth=2, alpha=0.5))
+
+            plt.suptitle(f"Training Performance Forensic: {stage_label}", fontsize=18, y=0.98)
+            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+            
+            safe_label = stage_label.lower().replace(' ', '_').replace('/', '_')
+            save_path = os.path.join(self.save_dir, f"biopsy_{safe_label}.png")
+            plt.savefig(save_path, dpi=100)
+            plt.close()
+            logger.info(f"📸 VisualDiagnostics: Saved {save_path}")
+
+        except Exception as e:
+            logger.error(f"VisualDiagnostics: Failed training biopsy at {stage_label}: {e}")
+
     def _plot_grid_with_context(self, data_5d, feature_names, time_indices, global_maps, context_feat, offset, stage_label):
         """
         Plots the biopsy grid with a global context map sequence at the top.
