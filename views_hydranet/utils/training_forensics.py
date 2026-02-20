@@ -35,7 +35,9 @@ class TrainingForensics:
         for target in all_targets:
             self.history[target] = {
                 "bias_instant": [],
-                "bias_running": []
+                "bias_running": [],
+                "y_bar": [],
+                "y_hat_bar": []
             }
             metrics = self.reg_metrics if target in self.reg_targets else self.cls_metrics
             for m in metrics:
@@ -98,6 +100,10 @@ class TrainingForensics:
             # 2. Calculate Bias (Dual Mode)
             sum_y = np.sum(y_all)
             sum_yh = np.sum(yh_all)
+            
+            # Store raw means
+            self.history[target]["y_bar"].append(np.mean(y_all))
+            self.history[target]["y_hat_bar"].append(np.mean(yh_all))
             
             # Instantaneous
             instant_bias = sum_yh / sum_y if sum_y > 0 else 1.0

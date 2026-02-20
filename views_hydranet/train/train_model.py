@@ -309,7 +309,7 @@ def training_loop(
                 
                 # DIAGNOSTIC: Finalize Forensic Auditor and Trigger Dossiers
                 forensics.finalize_lesson()
-                for target in config.get("regression_targets", []):
+                for target in forensics.history.keys():
                      dossier = forensics.get_dossier(target)
                      viz.biopsy_feature_dossier(target, dossier, f"Lesson {lesson_idx+1}")
 

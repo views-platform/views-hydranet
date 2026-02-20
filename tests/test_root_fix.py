@@ -65,6 +65,41 @@ def test_scaler_root_consumption():
     recovered = scaler.inverse_transform(semantic)
     np.testing.assert_allclose(df['lr_sb_best'], recovered['lr_sb_best'])
 
+def test_scaler_rejects_nan_input():
+    """
+    RED GATE: FeatureScaler.fit_transform() must raise if the input DataFrame
+    contains NaN or Inf values in any configured feature column.
+
+    Context: log1p(NaN) = NaN. asinh(Inf) = Inf. The scaler currently applies
+    transforms silently, propagating poison values into the volume and then into
+    the training loss. A NaN loss causes optimizer.step() to produce NaN weights,
+    collapsing the model to random noise. This gate must fire BEFORE the transform
+    touches the data.
+
+    Taxonomy (ADR 005): RED — adversarial: silent data poisoning via missing values.
+    """
+    scaler = FeatureScaler(BASE_CONFIG)
+
+    # Case A: NaN in a feature column
+    df_nan = pd.DataFrame({
+        'lr_sb_best': [1.0, float('nan')],
+        'lr_ns_best': [2.0, 3.0],
+        'lr_os_best': [4.0, 5.0]
+    })
+    with pytest.raises(ValueError, match=r"[Nn]aN|[Nn]ull|[Mm]issing|[Pp]oison"):
+        scaler.fit_transform(df_nan)
+
+    # Case B: Inf in a feature column
+    scaler_b = FeatureScaler(BASE_CONFIG)
+    df_inf = pd.DataFrame({
+        'lr_sb_best': [1.0, float('inf')],
+        'lr_ns_best': [2.0, 3.0],
+        'lr_os_best': [4.0, 5.0]
+    })
+    with pytest.raises(ValueError, match=r"[Ii]nf|[Pp]oison|[Ii]nvalid"):
+        scaler_b.fit_transform(df_inf)
+
+
 def test_scaler_rejects_unmapped_columns():
     """
     RED GATE: FeatureScaler.fit_transform() must raise if a configured feature

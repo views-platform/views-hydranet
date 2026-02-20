@@ -42,6 +42,34 @@ class FeatureScaler:
 
         df_out = df.copy()
 
+        # Guard: reject NaN or Inf in any configured feature column BEFORE transforms.
+        # log1p(NaN)=NaN, asinh(Inf)=Inf — poison propagates silently into loss → NaN weights.
+        for col in self.configured_columns:
+            if col in df_out.columns:
+                col_series = df_out[col]
+                if col_series.isnull().any():
+                    nan_count = col_series.isnull().sum()
+                    err_msg = (
+                        f"[CRITICAL DATA ERROR] FeatureScaler: NaN values detected!\n"
+                        f"Feature '{col}' contains {nan_count} NaN value(s).\n"
+                        f"NaN poison will propagate through transforms into training loss, "
+                        f"causing NaN weights and model collapse. Clean the data before scaling."
+                    )
+                    logger.error(err_msg)
+                    raise ValueError(err_msg)
+
+                import numpy as np
+                if np.isinf(col_series.values).any():
+                    inf_count = np.isinf(col_series.values).sum()
+                    err_msg = (
+                        f"[CRITICAL DATA ERROR] FeatureScaler: Inf values detected!\n"
+                        f"Feature '{col}' contains {inf_count} Inf value(s).\n"
+                        f"Inf poison will propagate through transforms into training loss, "
+                        f"causing invalid gradients and model collapse. Clean the data before scaling."
+                    )
+                    logger.error(err_msg)
+                    raise ValueError(err_msg)
+
         # Guard: every configured feature must appear in the transform dict.
         # Catches bypass of HydraNetConfig validation (direct instantiation, inference, tests).
         if self._features:

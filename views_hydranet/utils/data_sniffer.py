@@ -52,6 +52,7 @@ class DataSniffer:
         self._check_obligatory_columns(df)
         self._check_spatiotemporal_uniqueness(df)
         self._check_identity_values(df)
+        self._check_anchor_alignment(df)
         self._check_non_finite(df)
 
         logger.info("DataSniffer: Ingestion Suite Passed.")
@@ -174,6 +175,63 @@ class DataSniffer:
                 logger.error(err_msg)
                 
                 raise ValueError(err_msg)
+
+    def _check_anchor_alignment(self, df: pd.DataFrame) -> None:
+        """
+        Verifies that df['row'].min() == config['row_offset'] and
+        df['col'].min() == config['col_offset'].
+
+        Two distinct silent failure modes are caught here:
+
+        1. df.min < offset (e.g. data at row 80 when offset=87):
+           r_idx = 80 - 87 = -7 → negative numpy fancy index → spatial wrap.
+           VolumeHandler's guard will catch this, but only AFTER the volume
+           starts building. This check fires before the volume exists.
+
+        2. df.min > offset (e.g. data starts at row 90 when offset=87):
+           r_idx.min() = 3 → rows 0-2 of the volume are silently zero.
+           VolumeHandler does NOT raise for this case. This is the ONLY gate
+           that catches it. The model trains on a spatially-shifted grid with
+           no error ever surfacing.
+
+        The check is skipped if row_offset/col_offset are absent from config
+        (backwards-compatible with callers that do not set explicit offsets).
+        """
+        cfg_r_off = self.config.get("row_offset")
+        cfg_c_off = self.config.get("col_offset")
+
+        if cfg_r_off is None or cfg_c_off is None:
+            return  # No declared offsets → skip check
+
+        y_col, x_col = self.config["spatial_cols"]
+        actual_r_min = df[y_col].min()
+        actual_c_min = df[x_col].min()
+
+        if actual_r_min != cfg_r_off:
+            err_msg = (
+                f"[CRITICAL DATA ERROR] DataSniffer: Geographic Anchor Alignment Failure!\n"
+                f"Config declares row_offset={cfg_r_off}, but df['{y_col}'].min() = {actual_r_min}.\n"
+                f"Expected: df['{y_col}'].min() == row_offset ({cfg_r_off}).\n"
+                f"If actual < offset: negative r_idx → spatial wrap (VolumeHandler will raise).\n"
+                f"If actual > offset: rows 0..{actual_r_min - cfg_r_off - 1} of the volume "
+                f"are silently zero — spatial shift with NO downstream error. "
+                f"Correct either the config row_offset or the data source."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+
+        if actual_c_min != cfg_c_off:
+            err_msg = (
+                f"[CRITICAL DATA ERROR] DataSniffer: Geographic Anchor Alignment Failure!\n"
+                f"Config declares col_offset={cfg_c_off}, but df['{x_col}'].min() = {actual_c_min}.\n"
+                f"Expected: df['{x_col}'].min() == col_offset ({cfg_c_off}).\n"
+                f"If actual < offset: negative c_idx → spatial wrap (VolumeHandler will raise).\n"
+                f"If actual > offset: cols 0..{actual_c_min - cfg_c_off - 1} of the volume "
+                f"are silently zero — spatial shift with NO downstream error. "
+                f"Correct either the config col_offset or the data source."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
 
     def _check_spatial_bounds(self, df: pd.DataFrame, y_col: str, x_col: str) -> None:
         """Verifies that the span of indices fits within the configured volume resolution."""

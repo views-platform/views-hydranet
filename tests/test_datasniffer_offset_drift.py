@@ -150,5 +150,99 @@ def test_sniffer_skips_drift_check_when_offsets_absent_from_config():
     sniffer.sniff_forecast_alignment(df, handler, is_forecast=False)
 
 
+# ---------------------------------------------------------------------------
+# INGESTION ANCHOR ALIGNMENT: df.row.min() must equal config row_offset
+# ---------------------------------------------------------------------------
+
+INGEST_CFG = {
+    "time_col": "month_id",
+    "id_col": "priogrid_gid",
+    "spatial_cols": ["row", "col"],
+    "identity_cols": ["month_id", "priogrid_gid"],
+    "features": ["value"],
+    "height": 180,
+    "width": 180,
+    "row_offset": 87,    # The config declares the grid starts at global row 87
+    "col_offset": 310,
+}
+
+
+def _make_ingest_df(row_min: int, col_min: int) -> pd.DataFrame:
+    """Minimal DataFrame with coordinates starting at (row_min, col_min)."""
+    return pd.DataFrame({
+        "month_id": [100, 100],
+        "priogrid_gid": [1, 2],
+        "row": [row_min, row_min + 1],
+        "col": [col_min, col_min + 1],
+        "value": [1.0, 2.0],
+    })
+
+
+def test_sniffer_ingestion_rejects_anchor_below_offset():
+    """
+    RED GATE: sniff_ingestion() must raise when df['row'].min() < config['row_offset'].
+
+    Failure mode: data extends BELOW the configured anchor.
+    r_idx = row - row_offset = negative → silent numpy wrap in VolumeHandler
+    (now caught by VolumeHandler guard, but DataSniffer must catch it EARLIER,
+    before the volume is even built).
+
+    Taxonomy (ADR 005): RED — adversarial misconfiguration at the data boundary.
+    """
+    # Data starts at row 80, but config says grid starts at row 87.
+    # r_idx.min() = 80 - 87 = -7 → negative index → spatial scrambling.
+    sniffer = DataSniffer(INGEST_CFG)
+    df = _make_ingest_df(row_min=80, col_min=310)
+
+    with pytest.raises(ValueError, match=r"[Aa]nchor|[Oo]ffset|[Aa]lign"):
+        sniffer.sniff_ingestion(df)
+
+
+def test_sniffer_ingestion_rejects_anchor_above_offset():
+    """
+    RED GATE: sniff_ingestion() must raise when df['row'].min() > config['row_offset'].
+
+    Failure mode: data starts AFTER the configured anchor — the most dangerous
+    silent case. r_idx.min() = 3 means rows 0-2 of the volume are silent zeros.
+    VolumeHandler does NOT raise (no negative indices, no out-of-bounds).
+    Only this check can catch it.
+
+    Example: config says row_offset=87 but the data provider has silently trimmed
+    the first 3 rows of the Africa grid, starting at row 90 instead. The model
+    trains on a spatially-shifted grid and no error is ever raised.
+
+    Taxonomy (ADR 005): RED — the most dangerous silent failure mode.
+    """
+    # Data starts at row 90, but config says grid starts at row 87.
+    # Rows 87, 88, 89 of the volume are silently zero. No VolumeHandler guard fires.
+    sniffer = DataSniffer(INGEST_CFG)
+    df = _make_ingest_df(row_min=90, col_min=310)
+
+    with pytest.raises(ValueError, match=r"[Aa]nchor|[Oo]ffset|[Aa]lign"):
+        sniffer.sniff_ingestion(df)
+
+
+def test_sniffer_ingestion_accepts_correct_anchor():
+    """
+    GREEN GATE: sniff_ingestion() must NOT raise when df['row'].min() == config['row_offset']
+    and df['col'].min() == config['col_offset'].
+    """
+    sniffer = DataSniffer(INGEST_CFG)
+    df = _make_ingest_df(row_min=87, col_min=310)
+    sniffer.sniff_ingestion(df)  # Must not raise
+
+
+def test_sniffer_ingestion_skips_anchor_check_when_offset_absent():
+    """
+    BACKWARDS-COMPAT GATE: If config does not contain row_offset/col_offset,
+    the anchor alignment check is skipped and sniff_ingestion() still passes.
+    """
+    cfg_no_offsets = {k: v for k, v in INGEST_CFG.items()
+                      if k not in ("row_offset", "col_offset")}
+    sniffer = DataSniffer(cfg_no_offsets)
+    df = _make_ingest_df(row_min=90, col_min=315)  # Mismatched but no offsets in config
+    sniffer.sniff_ingestion(df)  # Must not raise
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
