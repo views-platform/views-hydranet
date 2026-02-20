@@ -22,6 +22,7 @@ from views_hydranet.utils.utils import (
 )
 from views_hydranet.utils.volume_handler import VolumeHandler
 from views_hydranet.utils.volume_sampler import VolumeSampler
+from views_hydranet.utils.training_forensics import TrainingForensics
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,7 @@ def train(
     pbar: tqdm,
     viz: VisualDiagnostics = None,
     stage_label: str = "",
+    forensics: TrainingForensics = None,
 ) -> Dict[str, torch.Tensor]: # Returns window losses
 
     avg_loss_reg_list = []
@@ -113,6 +115,19 @@ def train(
             # This allows gradients to flow back across the entire temporal sequence.
             t1_pred, t1_pred_class, h = model(t0, h)
             
+            # --- FORENSIC RECORDING (ADR 001 Custodian) ---
+            if forensics:
+                 # We record each target individually to satisfy TrainingForensics target-mapped history
+                 reg_targets = config.get("regression_targets", [])
+                 cls_targets = config.get("classification_targets", [])
+                 for idx, target_name in enumerate(reg_targets):
+                      # Record regression
+                      forensics.record(target_name, t1[:, idx:idx+1], t1_pred[:, idx:idx+1])
+                      # Record classification counterpart (if exists in config)
+                      if idx < len(cls_targets):
+                           cls_target = cls_targets[idx]
+                           forensics.record(cls_target, t1_binary[:, idx:idx+1], torch.sigmoid(t1_pred_class[:, idx:idx+1]))
+
             # STAGE 5 DIAGNOSTIC: Accumulate middle steps
             if viz and stage_label:
                  # We want 6 steps.
@@ -196,6 +211,9 @@ def training_loop(
     
     # Initialize Visual Truth Engine with Authoritative Timestamp
     viz = VisualDiagnostics(config, run_timestamp=run_timestamp)
+    
+    # Initialize Forensic Auditor (ADR 001 Custodian)
+    forensics = TrainingForensics(config)
 
     # Initialize the Sampler Components
     # 1. The Lens (Mechanical)
@@ -264,7 +282,8 @@ def training_loop(
                     device,
                     pbar,
                     viz=viz,
-                    stage_label=slbl
+                    stage_label=slbl,
+                    forensics=forensics
                 )
 
                 # --- MEMORY-SAFE ACCUMULATION (ADR 014 Hardening) ---
@@ -287,6 +306,12 @@ def training_loop(
                 
                 # DIAGNOSTIC: Update Dynamic Loss Curves
                 viz.biopsy_loss_curves(loss_history_reg, loss_history_cls, loss_history, f"Lesson {lesson_idx+1}")
+                
+                # DIAGNOSTIC: Finalize Forensic Auditor and Trigger Dossiers
+                forensics.finalize_lesson()
+                for target in config.get("regression_targets", []):
+                     dossier = forensics.get_dossier(target)
+                     viz.biopsy_feature_dossier(target, dossier, f"Lesson {lesson_idx+1}")
 
                 # --- 1. Audit Raw Gradient Energy BEFORE Clipping ---
                 total_norm = 0.0

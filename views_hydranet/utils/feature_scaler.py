@@ -26,6 +26,7 @@ class FeatureScaler:
         Initialize with the explicit 'transform' dictionary.
         """
         self._transform_config = config.get("transform", {})
+        self._features = config.get("features", [])
         self._is_fitted = False
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -40,6 +41,24 @@ class FeatureScaler:
             raise RuntimeError(err_msg)
 
         df_out = df.copy()
+
+        # Guard: every configured feature must appear in the transform dict.
+        # Catches bypass of HydraNetConfig validation (direct instantiation, inference, tests).
+        if self._features:
+            unmapped = [
+                f for f in self._features
+                if f in df_out.columns and f not in self.configured_columns
+            ]
+            if unmapped:
+                err_msg = (
+                    f"[CRITICAL DATA ERROR] FeatureScaler: Unmapped feature column(s) detected!\n"
+                    f"The following features are present in the DataFrame but absent from the 'transform' dict:\n"
+                    f"  {unmapped}\n"
+                    f"Raw values would pass through untransformed, causing gradient explosion in training.\n"
+                    f"Add these columns to the 'transform' config dict to resolve."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
 
         total_scaled = sum(len(cols) for cols in self._transform_config.values())
         logger.info(f"💫 FeatureScaler: Entering Semantic Space ({total_scaled} features to transform)")

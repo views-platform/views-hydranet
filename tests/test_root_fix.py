@@ -65,5 +65,31 @@ def test_scaler_root_consumption():
     recovered = scaler.inverse_transform(semantic)
     np.testing.assert_allclose(df['lr_sb_best'], recovered['lr_sb_best'])
 
+def test_scaler_rejects_unmapped_columns():
+    """
+    RED GATE: FeatureScaler.fit_transform() must raise if a configured feature
+    column is present in the DataFrame but absent from the 'transform' dict.
+
+    Context: HydraNetConfig validates this at config-level, but the FeatureScaler
+    boundary itself has no guard. If config validation is bypassed (e.g. in tests,
+    during inference, or via direct instantiation), feat_b would pass through raw.
+    Raw counts (e.g. battle deaths in hundreds) sent to the model cause gradient
+    explosion. This gate must exist independently of config-level validation.
+
+    Taxonomy (ADR 005): RED — adversarial bypass of the validation layer.
+    """
+    # Config omits 'feat_b' from transform — but feat_b IS in features list
+    config = {
+        'transform': {'log1p': ['feat_a']},
+        'features': ['feat_a', 'feat_b']
+    }
+    scaler = FeatureScaler(config)
+
+    df = pd.DataFrame({'feat_a': [1.0, 2.0], 'feat_b': [3.0, 4.0]})
+
+    with pytest.raises(ValueError, match=r"feat_b|unmapped|transform"):
+        scaler.fit_transform(df)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

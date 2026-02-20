@@ -24,6 +24,8 @@ class TestOptimizationGate:
             "n_posterior_samples": 10,
             "min_events": 1, "max_events": 10, "slope_ratio": 1.0, "roof_ratio": 1.0,
             "identity_cols": ["t"], "features": ["f1"],
+            "regression_targets": ["f1"], "classification_targets": ["by_f1"],
+            "regression_metrics": ["mse"], "classification_metrics": ["ap"],
             "time_col": "t", "id_col": "i", "spatial_cols": ["y", "x"],
             "row_offset": 0, "col_offset": 0, "height": 1, "width": 1
         }

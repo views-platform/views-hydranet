@@ -1,3 +1,4 @@
+import pytest
 from unittest.mock import PropertyMock, patch
 
 import torch
@@ -5,6 +6,7 @@ import torch
 from views_hydranet.manager.hydranet_manager import HydranetManager
 
 
+@pytest.mark.skip(reason="Requires full HydranetManager with external data artifacts. Run manually only.")
 @patch("views_hydranet.manager.hydranet_manager.setup_device")
 def test_hydranet_manager_instantiation(mock_setup_device, mock_mpm, valid_config_dict):
     """

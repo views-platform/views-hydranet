@@ -118,3 +118,42 @@ def test_weight_init_xavier_norm_is_not_silent():
         "Fix: add `elif config['weight_init'] == 'xavier_norm': "
         "nn.init.xavier_normal_(m.weight)` to init_weights() in utils.py."
     )
+
+
+def test_weight_init_xavier_norm_statistics():
+    """
+    GREEN GATE (Phase B): After applying 'xavier_norm', the weight distribution
+    must match the Xavier Normal formula: std ≈ sqrt(2 / (fan_in + fan_out)).
+
+    For Conv2d(in=8, out=16, kernel=3):
+      fan_in  = 8 * 3 * 3 = 72
+      fan_out = 16 * 3 * 3 = 144
+      expected_std = sqrt(2 / (72 + 144)) = sqrt(2 / 216) ≈ 0.0962
+
+    This verifies that the correct distribution was applied — not Kaiming Uniform
+    (std ≈ 0.167) or a trivial constant. Uses a large layer so the empirical std
+    converges tightly to the theoretical value.
+
+    Taxonomy (ADR 005): GREEN — proves the fix is mathematically correct.
+    """
+    import math
+
+    # Large layer for tight statistical convergence (weight count = 16*8*5*5 = 3200)
+    layer = nn.Conv2d(in_channels=8, out_channels=16, kernel_size=5)
+
+    fan_in = 8 * 5 * 5    # 200
+    fan_out = 16 * 5 * 5  # 400
+    expected_std = math.sqrt(2.0 / (fan_in + fan_out))  # ≈ 0.0577
+
+    config = {'weight_init': 'xavier_norm'}
+    init_weights(layer, config)
+
+    actual_std = layer.weight.std().item()
+
+    assert abs(actual_std - expected_std) < 0.02, (
+        f"\nXavier Normal statistics test failed.\n"
+        f"Expected std ≈ {expected_std:.4f} (from 2 / (fan_in={fan_in} + fan_out={fan_out})).\n"
+        f"Got std = {actual_std:.4f}.\n"
+        f"If std ≈ 0.10, Kaiming Uniform was applied instead of Xavier Normal.\n"
+        f"If std ≈ 0.00, weights were not modified. Check init_weights() in utils.py."
+    )

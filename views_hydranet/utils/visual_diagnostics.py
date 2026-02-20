@@ -465,6 +465,64 @@ class VisualDiagnostics:
         except Exception as e:
             logger.error(f"VisualDiagnostics: Failed to plot loss curves: {e}")
 
+    def biopsy_feature_dossier(self, target_name: str, dossier: Dict[str, List[float]], stage_label: str) -> None:
+        """
+        Generates forensic_[target].png: A high-density 1x3 tracker.
+        Row 1: Regression Health (all reg metrics)
+        Row 2: Classification Health (all cls metrics)
+        Row 3: Calibration Pulse (Bias Ratios)
+        """
+        if not self.active: return
+
+        try:
+            fig, axes = plt.subplots(3, 1, figsize=(10, 14))
+            
+            # 1. Regression Subplot
+            ax_reg = axes[0]
+            reg_metrics = self.config.get("regression_metrics", [])
+            for m in reg_metrics:
+                if m in dossier:
+                    ax_reg.plot(dossier[m], label=m.upper(), marker='o', alpha=0.7)
+            ax_reg.set_title(f"Regression Health: {target_name}", fontweight='bold')
+            ax_reg.set_ylabel("Error Score")
+            ax_reg.legend()
+            ax_reg.grid(True, alpha=0.3)
+
+            # 2. Classification Subplot
+            ax_cls = axes[1]
+            cls_metrics = self.config.get("classification_metrics", [])
+            for m in cls_metrics:
+                if m in dossier:
+                    ax_cls.plot(dossier[m], label=m.upper(), marker='s', alpha=0.7)
+            ax_cls.set_title(f"Classification Health: {target_name}", fontweight='bold')
+            ax_cls.set_ylabel("Score (Higher is Better)")
+            ax_cls.legend()
+            ax_cls.grid(True, alpha=0.3)
+
+            # 3. Bias Subplot
+            ax_bias = axes[2]
+            ax_bias.plot(dossier["bias_instant"], label="Instant (Lesson)", color='orange', alpha=0.8)
+            ax_bias.plot(dossier["bias_running"], label="Running (Global)", color='black', linestyle='--', linewidth=2)
+            ax_bias.axhline(1.0, color='gray', linestyle=':', alpha=0.5)
+            ax_bias.set_title(f"Calibration Pulse (ŷ_bar / y_bar): {target_name}", fontweight='bold')
+            ax_bias.set_ylabel("Ratio (1.0 = Unbiased)")
+            ax_bias.legend()
+            ax_bias.grid(True, alpha=0.3)
+            
+            # Optional: Log scale for bias if it explodes
+            if any(v > 10 for v in dossier["bias_instant"]):
+                ax_bias.set_yscale('log')
+
+            plt.suptitle(f"Feature Dossier: {target_name} ({stage_label})", fontsize=18)
+            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+            
+            save_path = os.path.join(self.save_dir, f"forensic_{target_name.lower()}.png")
+            plt.savefig(save_path, dpi=100)
+            plt.close()
+
+        except Exception as e:
+            logger.error(f"VisualDiagnostics: Failed to generate dossier for {target_name}: {e}")
+
     def _plot_grid_with_context(self, data_5d, feature_names, time_indices, global_maps, context_feat, offset, stage_label):
         """
         Plots the biopsy grid with a global context map sequence at the top.
