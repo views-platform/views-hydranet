@@ -91,6 +91,79 @@ def test_gate_15_geographic_anchoring():
     # So we check index [0, 3, 0, :]
     assert data[0, 3, 0, handler.channel_map.index( 'lr_feature_a')] == 1.0
 
+def test_gate_16_spatial_gradient_preservation():
+    """
+    GREEN+RED GATE: Verifies that VolumeHandler.from_df() correctly maps
+    spatial coordinates — values at specific (row, col) locations in the
+    DataFrame must land at the corresponding locations in the volume.
+
+    Method: the 'Gradient Oracle'. Each cell's value is set to its local
+    row index (a perfect north-south gradient). After from_df(), the volume
+    must contain a monotonically ordered gradient along every column.
+    Any scrambling (wrong offset, wrong indexing, wrong flip) breaks monotonicity.
+
+    This is the automated equivalent of the Visual Diagnostics Gradient Test
+    (2026-02-19 investigation plan). Once this test exists, spatial scrambling
+    cannot be introduced without a visible test failure.
+
+    North-Up note: VolumeHandler flips axis=0 so array row 0 holds the
+    SOUTHERNMOST data (highest r_local). The gradient runs high→low as
+    array row index increases (0 = south = H-1, H-1 = north = 0).
+    """
+    H, W = 4, 4
+    cfg = {
+        'time_col': 'month_id', 'id_col': 'priogrid_gid',
+        'spatial_cols': ['row', 'col'],
+        'identity_cols': ['month_id', 'priogrid_gid'],
+        'features': ['value'],
+        'row_offset': 10,
+        'col_offset': 20,
+        'height': H, 'width': W,
+    }
+
+    # Build full H×W grid for one time step.
+    # value = r_local → perfect north-south gradient (0 at north, H-1 at south).
+    rows, cols, values = [], [], []
+    for r_local in range(H):
+        for c_local in range(W):
+            rows.append(10 + r_local)    # global = offset + local
+            cols.append(20 + c_local)
+            values.append(float(r_local))
+
+    df = pd.DataFrame({
+        'month_id': [1] * (H * W),
+        'priogrid_gid': list(range(H * W)),
+        'row': rows, 'col': cols, 'value': values,
+    })
+
+    handler = VolumeHandler.from_df(df, cfg)
+    data = handler.data  # [T=1, H=4, W=4, C]
+    feat_idx = handler.channel_map.index('value')
+
+    # After North-Up flip: array row 0 = south (r_local H-1), row H-1 = north (r_local 0).
+    # Along every column, values must be strictly DECREASING (south→north).
+    for c in range(W):
+        col_slice = data[0, :, c, feat_idx]
+        diffs = np.diff(col_slice)
+        assert np.all(diffs < 0), (
+            f"\nSpatial gradient not preserved in column {c}."
+            f"\nExpected strictly decreasing values (south→north in array)."
+            f"\nActual slice: {col_slice}"
+            f"\nDiffs (all should be -1): {diffs}"
+            f"\nThis indicates spatial scrambling — check row_offset config."
+        )
+
+    # Exact boundary values
+    assert data[0, 0, 0, feat_idx] == float(H - 1), (
+        f"Southernmost array row should hold value {H-1}, "
+        f"got {data[0, 0, 0, feat_idx]}"
+    )
+    assert data[0, H - 1, 0, feat_idx] == 0.0, (
+        f"Northernmost array row should hold value 0.0, "
+        f"got {data[0, H-1, 0, feat_idx]}"
+    )
+
+
 def test_gate_17_negative_offset_rejection():
     """
     RED GATE: VolumeHandler must raise BEFORE writing when row/col offsets

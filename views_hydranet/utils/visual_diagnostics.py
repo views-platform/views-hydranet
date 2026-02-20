@@ -213,41 +213,40 @@ class VisualDiagnostics:
             feat_indices = [sample_vh.channel_map.index(c) for c in interesting]
             sample_slice = s_data[t_indices][..., feat_indices]
 
-            # 3. Extract Global Context for the FIRST interesting feature (usually month_id or conflict)
-            # We use the middle time step of the sample for the global view
-            mid_t = t_indices[2]
+            # 3. Extract Global Context Sequence for the signal feature
+            # We want to see how the whole world evolves alongside the patch
             g_data = global_vh.data
             g_t_idx = global_vh.get_axis_idx("T")
             g_c_idx = global_vh.get_axis_idx("C")
             
-            # Identify first signal feature
             signal_feat = interesting[-1] 
             g_feat_idx = global_vh.channel_map.index(signal_feat)
             id_feat_idx = global_vh.channel_map.index(global_vh.id_col)
             
-            global_map = g_data[mid_t, ..., g_feat_idx] if g_t_idx == 0 else g_data[:, :, mid_t, g_feat_idx]
-            # Ensure correct orientation for plotting
-            if g_t_idx == 0: # [T, H, W, C]
-                 global_map = g_data[mid_t, ..., g_feat_idx]
-                 id_map = g_data[mid_t, ..., id_feat_idx]
-            else: # [H, W, T, C] or other
-                 # Fallback to general slice
-                 slc = [slice(None)] * g_data.ndim
-                 slc[g_t_idx] = mid_t
-                 slc[g_c_idx] = g_feat_idx
-                 global_map = g_data[tuple(slc)]
-                 slc[g_c_idx] = id_feat_idx
-                 id_map = g_data[tuple(slc)]
-
-            # Mask Ocean (priogrid_gid <= 0)
-            global_map = np.where(id_map > 0, global_map, np.nan)
+            # Extract [5, H, W] global maps
+            # We need to handle axis permutation safely
+            global_maps = []
+            for t in t_indices:
+                slc = [slice(None)] * g_data.ndim
+                slc[g_t_idx] = t
+                slc[g_c_idx] = g_feat_idx
+                g_map = g_data[tuple(slc)]
+                
+                slc[g_c_idx] = id_feat_idx
+                id_map = g_data[tuple(slc)]
+                
+                # Mask Ocean
+                masked_map = np.where(id_map > 0, g_map, np.nan)
+                global_maps.append(masked_map)
+            
+            global_maps = np.stack(global_maps)
 
             # 4. Plot with Context
             self._plot_grid_with_context(
                 sample_slice, 
                 interesting, 
                 t_indices, 
-                global_map, 
+                global_maps, 
                 signal_feat,
                 sample_vh.spatial_offset, 
                 stage_label
@@ -256,37 +255,52 @@ class VisualDiagnostics:
         except Exception as e:
             logger.error(f"VisualDiagnostics: Failed to biopsy sample at {stage_label}: {e}")
 
-    def _plot_grid_with_context(self, data_5d, feature_names, time_indices, global_map, context_feat, offset, stage_label):
+    def _plot_grid_with_context(self, data_5d, feature_names, time_indices, global_maps, context_feat, offset, stage_label):
         """
-        Plots the biopsy grid with a global context map at the top.
+        Plots the biopsy grid with a global context map sequence at the top.
         """
         import matplotlib.patches as patches
         n_times = data_5d.shape[0]
         n_feats = data_5d.shape[-1]
         
         # Grid Setup: 1 row for Global Context + N rows for features
-        fig = plt.figure(figsize=(4 * n_times, 3 * (n_feats + 2)))
-        gs = fig.add_gridspec(n_feats + 2, n_times)
+        fig = plt.figure(figsize=(4 * n_times, 3 * (n_feats + 1)))
+        gs = fig.add_gridspec(n_feats + 1, n_times)
 
-        # 1. Global Context Row (Spans all columns)
-        ax_global = fig.add_subplot(gs[0:2, :])
-        im = ax_global.imshow(global_map, origin='upper', cmap='magma', interpolation='nearest')
-        ax_global.set_title(f"Global Context: {context_feat} (Orange Box = Sample Location)")
+        # 1. Global Context Row (One plot per time step)
+        # We need to compute vmin/vmax for the global signal
+        g_vmin, g_vmax = np.nanmin(global_maps), np.nanmax(global_maps)
         
-        # Draw Orange Bounding Box
-        # VolumeHandler flip(axis=0) means North is at index 0. 
-        # But offsets are raw. 
+        # Coordinate Logic for Bounding Box
+        # VolumeHandler data is flipped (North at index 0).
+        # raw_row 0 is South. In a 180-tall array, raw_row 0 is index 179.
         # r_idx = row - row_offset. 
-        # In North-Up array, top is max-latitude.
-        # This part is tricky. We'll eyeball it.
+        # In North-Up array: plotted_y = height - 1 - r_idx
         patch_h, patch_w = data_5d.shape[1], data_5d.shape[2]
-        # Calculate top-left corner in array coordinates
-        # Offset is (row_off, col_off). 
-        # If global height is 180, and row_off is 100, then array[0] is latitude 180+100? No.
-        # Let's trust the relative positioning.
-        rect = patches.Rectangle((offset[1], offset[0]), patch_w, patch_h, linewidth=2, edgecolor='orange', facecolor='none')
-        ax_global.add_patch(rect)
-        plt.colorbar(im, ax=ax_global)
+        
+        for t_idx in range(n_times):
+            ax_g = fig.add_subplot(gs[0, t_idx])
+            ax_g.imshow(global_maps[t_idx], origin='upper', cmap='magma', vmin=g_vmin, vmax=g_vmax, interpolation='nearest')
+            
+            # The Box: 
+            # x = offset_col
+            # y = height - (offset_row - global_row_offset) - patch_height?
+            # Simplified: VolumeHandler.from_df flips the final array.
+            # So the index 0 in the array is actually the top of the map.
+            # Thus, plotted_y = r_idx (after flip).
+            # Wait, r_idx 0 is South. After flip, r_idx 0 is index 179.
+            # So top of map is r_idx_max.
+            # Correct logic: offset[0] is the r_idx of the bottom of the patch.
+            # Since map is flipped, plotted_y = (GlobalHeight - patch_h) - offset[0]
+            plotted_y = (self.height - patch_h) - offset[0]
+            rect = patches.Rectangle((offset[1], plotted_y), patch_w, patch_h, linewidth=1.5, edgecolor='orange', facecolor='none')
+            ax_g.add_patch(rect)
+            
+            ax_g.set_xticks([])
+            ax_g.set_yticks([])
+            if t_idx == 0:
+                ax_g.set_ylabel(f"GLOBAL\n{context_feat}", rotation=0, labelpad=60, fontsize=9, fontweight='bold')
+            ax_g.set_title(f"World T={time_indices[t_idx]}")
 
         # 2. Standard Biopsy Rows
         for f_idx in range(n_feats):
@@ -295,7 +309,7 @@ class VisualDiagnostics:
             vmin, vmax = np.nanmin(feat_slice), np.nanmax(feat_slice)
             
             for t_idx in range(n_times):
-                ax = fig.add_subplot(gs[f_idx + 2, t_idx])
+                ax = fig.add_subplot(gs[f_idx + 1, t_idx])
                 img_data = data_5d[t_idx, ..., f_idx]
                 stats = self._calculate_stats(img_data)
                 
@@ -303,8 +317,6 @@ class VisualDiagnostics:
                 ax.set_xticks([])
                 ax.set_yticks([])
                 
-                if f_idx == 0:
-                    ax.set_title(f"T={time_indices[t_idx]}")
                 if t_idx == 0:
                     ax.set_ylabel(f"{feat_name}", rotation=0, labelpad=60, fontsize=9)
                 
