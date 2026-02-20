@@ -191,7 +191,8 @@ def training_loop(
                 # DIAGNOSTIC: Stage 4 (Sampling)
                 # We biopsy the first few windows of the first lesson to verify geometry
                 if lesson_idx == 0 and window_idx < 3:
-                     viz.biopsy_volume(sample_handler, f"Stage 4: Training Window {window_idx+1} (Target: {target})")
+                     # Pass global handler for context row
+                     viz.biopsy_sample(sample_handler, handler, f"Stage 4: Training Window {window_idx+1} (Target: {target})")
 
                 # Update progress bar
                 pbar.set_description(

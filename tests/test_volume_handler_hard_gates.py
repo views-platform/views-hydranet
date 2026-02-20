@@ -91,5 +91,88 @@ def test_gate_15_geographic_anchoring():
     # So we check index [0, 3, 0, :]
     assert data[0, 3, 0, handler.channel_map.index( 'lr_feature_a')] == 1.0
 
+def test_gate_17_negative_offset_rejection():
+    """
+    RED GATE: VolumeHandler must raise BEFORE writing when row/col offsets
+    produce negative indices. Two cases must both be caught:
+
+    Case A — "Loud": negative index exceeds numpy array bounds → currently
+              raises IndexError deep in numpy (wrong layer, wrong type).
+              After the guard: raises ValueError early with a clear message.
+
+    Case B — "Silent" (the real danger): negative index is within numpy's
+              valid wrap-around range (e.g., -87 in a height=180 array).
+              numpy writes to the WRONG location and raises nothing.
+              After the guard: raises ValueError early.
+
+    This is Phase 1, Step 1 of the Test Remediation Plan (2026-02-19).
+    """
+    # --- Case A: Loud failure (small grid, index well out of bounds) ---
+    # row=20, row_offset=50 → r_idx = 20-50 = -30. height=4, so -30 < -4 → IndexError
+    bad_row_cfg = dict(PHYSICS_CFG, row_offset=50, col_offset=20)
+    df_bad_row = pd.DataFrame({
+        'month_id': [1], 'priogrid_gid': [1],
+        'row': [20], 'col': [20],
+        'lr_feature_a': [1.0], 'lr_feature_b': [1.0],
+    })
+    with pytest.raises(ValueError, match="row"):
+        VolumeHandler.from_df(df_bad_row, bad_row_cfg)
+
+    # --- Case B: Silent failure (large grid, index wraps without error) ---
+    # Mimics the production scenario: height=180, row_offset=87, but data
+    # starts at row=0 (local coords). r_idx = 0-87 = -87. In a 180-tall array,
+    # -87 is a VALID numpy index (wraps to 93). No IndexError. Data is silently
+    # written 87 rows from the bottom instead of the top. Map is inverted.
+    silent_cfg = {
+        'time_col': 'month_id', 'id_col': 'priogrid_gid',
+        'spatial_cols': ['row', 'col'],
+        'identity_cols': ['month_id', 'priogrid_gid'],
+        'features': ['lr_feature_a'],
+        'row_offset': 87,   # <-- typical Africa offset
+        'col_offset': 310,
+        'height': 180,
+        'width': 180,
+    }
+    df_silent = pd.DataFrame({
+        'month_id': [1], 'priogrid_gid': [1],
+        'row': [0],   # local coord — r_idx = 0-87 = -87, wraps to 93 silently
+        'col': [310],
+        'lr_feature_a': [1.0],
+    })
+    with pytest.raises(ValueError, match="row"):
+        VolumeHandler.from_df(df_silent, silent_cfg)
+
+    # --- Case C: Col offset produces negative c_idx ---
+    bad_col_cfg = dict(PHYSICS_CFG, row_offset=10, col_offset=50)
+    df_bad_col = pd.DataFrame({
+        'month_id': [1], 'priogrid_gid': [1],
+        'row': [10], 'col': [10],  # col=10, offset=50 → c_idx=-40
+        'lr_feature_a': [1.0], 'lr_feature_b': [1.0],
+    })
+    with pytest.raises(ValueError, match="col"):
+        VolumeHandler.from_df(df_bad_col, bad_col_cfg)
+
+    # --- Case D: Span violation (Positive index out of bounds) ---
+    # row=15, row_offset=10 → r_idx=5. height=4, so 5 >= 4 → ValueError
+    span_cfg = dict(PHYSICS_CFG, height=4)
+    df_span = pd.DataFrame({
+        'month_id': [1], 'priogrid_gid': [1],
+        'row': [15], 'col': [20],
+        'lr_feature_a': [1.0], 'lr_feature_b': [1.0],
+    })
+    with pytest.raises(ValueError, match="Span Violation"):
+        VolumeHandler.from_df(df_span, span_cfg)
+
+    # --- Boundary: exact match must NOT raise ---
+    # row_offset == df.row.min() → r_idx=0, valid.
+    exact_cfg = dict(PHYSICS_CFG, row_offset=10, col_offset=20)
+    df_exact = pd.DataFrame({
+        'month_id': [1], 'priogrid_gid': [1],
+        'row': [10], 'col': [20],
+        'lr_feature_a': [1.0], 'lr_feature_b': [1.0],
+    })
+    VolumeHandler.from_df(df_exact, exact_cfg)  # must not raise
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

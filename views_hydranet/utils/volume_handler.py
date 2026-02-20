@@ -148,6 +148,51 @@ class VolumeHandler:
         c_idx = (df[x_col] - col_offset).astype(int).values
         m_idx = (df[time_col] - month_min).astype(int).values
 
+        # --- SPATIAL INTEGRITY GUARD (ADR 012 / Test Remediation Plan 2026-02-19) ---
+        # 1. Lower Bound: Prevent silent numpy wrap-around (scrambling)
+        if r_idx.min() < 0:
+            err_msg = (
+                f"VolumeHandler Spatial Anchor Violation: row indices are negative after "
+                f"applying row_offset={row_offset}. "
+                f"df['{y_col}'].min()={df[y_col].min()} → "
+                f"min r_idx={r_idx.min()}. "
+                f"row_offset must be <= df['{y_col}'].min(). "
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+
+        if c_idx.min() < 0:
+            err_msg = (
+                f"VolumeHandler Spatial Anchor Violation: col indices are negative after "
+                f"applying col_offset={col_offset}. "
+                f"df['{x_col}'].min()={df[x_col].min()} → "
+                f"min c_idx={c_idx.min()}. "
+                f"col_offset must be <= df['{x_col}'].min(). "
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+
+        # 2. Upper Bound: Prevent out-of-bounds writing/crashes
+        if r_idx.max() >= height:
+            err_msg = (
+                f"VolumeHandler Spatial Span Violation: row index {r_idx.max()} exceeds "
+                f"volume height {height}. "
+                f"df['{y_col}'].max()={df[y_col].max()} | row_offset={row_offset}. "
+                f"Increase config['height'] or adjust offsets."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+
+        if c_idx.max() >= width:
+            err_msg = (
+                f"VolumeHandler Spatial Span Violation: col index {c_idx.max()} exceeds "
+                f"volume width {width}. "
+                f"df['{x_col}'].max()={df[x_col].max()} | col_offset={col_offset}. "
+                f"Increase config['width'] or adjust offsets."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+
         # 4. Allocation & Population
         vol = np.zeros([height, width, month_range, len(channel_map)], dtype=np.float64)
 

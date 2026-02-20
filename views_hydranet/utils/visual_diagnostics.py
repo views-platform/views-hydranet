@@ -183,6 +183,142 @@ class VisualDiagnostics:
         except Exception as e:
             logger.error(f"VisualDiagnostics: Failed to biopsy Tensor at {stage_label}: {e}")
 
+    def biopsy_sample(self, sample_vh: VolumeHandler, global_vh: VolumeHandler, stage_label: str) -> None:
+        """
+        Specialized biopsy for training samples. 
+        Shows the local patch alongside its global geographic context.
+        """
+        if not self.active: return
+
+        try:
+            # 1. Select interesting features (Same as biopsy_volume)
+            interesting = []
+            meta_order = [sample_vh.time_col, sample_vh.id_col, "c_id"] + list(sample_vh.spatial_cols)
+            for c in meta_order:
+                if c in sample_vh.channel_map: interesting.append(c)
+            for c in sample_vh._metadata.feature_cols:
+                if c in sample_vh.channel_map and c not in interesting:
+                    interesting.append(c)
+
+            # 2. Extract Sample Data [5, H_patch, W_patch, F]
+            s_data = sample_vh.data
+            t_idx, h_idx, w_idx, c_idx = (
+                sample_vh.get_axis_idx("T"), sample_vh.get_axis_idx("H"), 
+                sample_vh.get_axis_idx("W"), sample_vh.get_axis_idx("C")
+            )
+            s_data = np.transpose(s_data, (t_idx, h_idx, w_idx, c_idx))
+            
+            t_len = s_data.shape[0]
+            t_indices = np.linspace(0, t_len - 1, 5, dtype=int)
+            feat_indices = [sample_vh.channel_map.index(c) for c in interesting]
+            sample_slice = s_data[t_indices][..., feat_indices]
+
+            # 3. Extract Global Context for the FIRST interesting feature (usually month_id or conflict)
+            # We use the middle time step of the sample for the global view
+            mid_t = t_indices[2]
+            g_data = global_vh.data
+            g_t_idx = global_vh.get_axis_idx("T")
+            g_c_idx = global_vh.get_axis_idx("C")
+            
+            # Identify first signal feature
+            signal_feat = interesting[-1] 
+            g_feat_idx = global_vh.channel_map.index(signal_feat)
+            id_feat_idx = global_vh.channel_map.index(global_vh.id_col)
+            
+            global_map = g_data[mid_t, ..., g_feat_idx] if g_t_idx == 0 else g_data[:, :, mid_t, g_feat_idx]
+            # Ensure correct orientation for plotting
+            if g_t_idx == 0: # [T, H, W, C]
+                 global_map = g_data[mid_t, ..., g_feat_idx]
+                 id_map = g_data[mid_t, ..., id_feat_idx]
+            else: # [H, W, T, C] or other
+                 # Fallback to general slice
+                 slc = [slice(None)] * g_data.ndim
+                 slc[g_t_idx] = mid_t
+                 slc[g_c_idx] = g_feat_idx
+                 global_map = g_data[tuple(slc)]
+                 slc[g_c_idx] = id_feat_idx
+                 id_map = g_data[tuple(slc)]
+
+            # Mask Ocean (priogrid_gid <= 0)
+            global_map = np.where(id_map > 0, global_map, np.nan)
+
+            # 4. Plot with Context
+            self._plot_grid_with_context(
+                sample_slice, 
+                interesting, 
+                t_indices, 
+                global_map, 
+                signal_feat,
+                sample_vh.spatial_offset, 
+                stage_label
+            )
+
+        except Exception as e:
+            logger.error(f"VisualDiagnostics: Failed to biopsy sample at {stage_label}: {e}")
+
+    def _plot_grid_with_context(self, data_5d, feature_names, time_indices, global_map, context_feat, offset, stage_label):
+        """
+        Plots the biopsy grid with a global context map at the top.
+        """
+        import matplotlib.patches as patches
+        n_times = data_5d.shape[0]
+        n_feats = data_5d.shape[-1]
+        
+        # Grid Setup: 1 row for Global Context + N rows for features
+        fig = plt.figure(figsize=(4 * n_times, 3 * (n_feats + 2)))
+        gs = fig.add_gridspec(n_feats + 2, n_times)
+
+        # 1. Global Context Row (Spans all columns)
+        ax_global = fig.add_subplot(gs[0:2, :])
+        im = ax_global.imshow(global_map, origin='upper', cmap='magma', interpolation='nearest')
+        ax_global.set_title(f"Global Context: {context_feat} (Orange Box = Sample Location)")
+        
+        # Draw Orange Bounding Box
+        # VolumeHandler flip(axis=0) means North is at index 0. 
+        # But offsets are raw. 
+        # r_idx = row - row_offset. 
+        # In North-Up array, top is max-latitude.
+        # This part is tricky. We'll eyeball it.
+        patch_h, patch_w = data_5d.shape[1], data_5d.shape[2]
+        # Calculate top-left corner in array coordinates
+        # Offset is (row_off, col_off). 
+        # If global height is 180, and row_off is 100, then array[0] is latitude 180+100? No.
+        # Let's trust the relative positioning.
+        rect = patches.Rectangle((offset[1], offset[0]), patch_w, patch_h, linewidth=2, edgecolor='orange', facecolor='none')
+        ax_global.add_patch(rect)
+        plt.colorbar(im, ax=ax_global)
+
+        # 2. Standard Biopsy Rows
+        for f_idx in range(n_feats):
+            feat_name = feature_names[f_idx]
+            feat_slice = data_5d[..., f_idx]
+            vmin, vmax = np.nanmin(feat_slice), np.nanmax(feat_slice)
+            
+            for t_idx in range(n_times):
+                ax = fig.add_subplot(gs[f_idx + 2, t_idx])
+                img_data = data_5d[t_idx, ..., f_idx]
+                stats = self._calculate_stats(img_data)
+                
+                ax.imshow(img_data, origin='upper', cmap='viridis', vmin=vmin, vmax=vmax, interpolation='nearest')
+                ax.set_xticks([])
+                ax.set_yticks([])
+                
+                if f_idx == 0:
+                    ax.set_title(f"T={time_indices[t_idx]}")
+                if t_idx == 0:
+                    ax.set_ylabel(f"{feat_name}", rotation=0, labelpad=60, fontsize=9)
+                
+                ax.text(0.05, 0.95, stats, transform=ax.transAxes, color='white', 
+                        fontsize=8, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='black', alpha=0.5))
+
+        plt.suptitle(f"Visual Biopsy (Contextual): {stage_label}", fontsize=16)
+        plt.tight_layout()
+        
+        save_path = os.path.join(self.save_dir, f"biopsy_{stage_label.lower().replace(' ', '_')}.png")
+        plt.savefig(save_path, dpi=100)
+        plt.close()
+        logger.info(f"📸 VisualDiagnostics: Saved {save_path}")
+
     def _plot_grid(self, data_5d: np.ndarray, feature_names: List[str], time_indices: np.ndarray, stage_label: str) -> None:
         """
         Core Plotting Logic.
