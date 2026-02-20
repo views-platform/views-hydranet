@@ -117,16 +117,16 @@ def train(
             
             # --- FORENSIC RECORDING (ADR 001 Custodian) ---
             if forensics:
-                 # We record each target individually to satisfy TrainingForensics target-mapped history
                  reg_targets = config.get("regression_targets", [])
                  cls_targets = config.get("classification_targets", [])
+                 
+                 # Record Regression Targets
                  for idx, target_name in enumerate(reg_targets):
-                      # Record regression
-                      forensics.record(target_name, t1[:, idx:idx+1], t1_pred[:, idx:idx+1])
-                      # Record classification counterpart (if exists in config)
-                      if idx < len(cls_targets):
-                           cls_target = cls_targets[idx]
-                           forensics.record(cls_target, t1_binary[:, idx:idx+1], torch.sigmoid(t1_pred_class[:, idx:idx+1]))
+                      forensics.record(f"REG:{target_name}", t1[:, idx:idx+1], t1_pred[:, idx:idx+1])
+                 
+                 # Record Classification Targets
+                 for idx, target_name in enumerate(cls_targets):
+                      forensics.record(f"CLS:{target_name}", t1_binary[:, idx:idx+1], torch.sigmoid(t1_pred_class[:, idx:idx+1]))
 
             # STAGE 5 DIAGNOSTIC: Accumulate middle steps
             if viz and stage_label:
@@ -309,9 +309,10 @@ def training_loop(
                 
                 # DIAGNOSTIC: Finalize Forensic Auditor and Trigger Dossiers
                 forensics.finalize_lesson()
-                for target in forensics.history.keys():
-                     dossier = forensics.get_dossier(target)
-                     viz.biopsy_feature_dossier(target, dossier, f"Lesson {lesson_idx+1}")
+                logger.info(f"📊 Training: Finalized Forensic Lesson {lesson_idx+1}. Generating {len(forensics.history)} dossiers...")
+                for key, meta in forensics.target_map.items():
+                     dossier = forensics.get_dossier(key)
+                     viz.biopsy_feature_dossier(meta["name"], dossier, f"Lesson {lesson_idx+1}", target_type=meta["type"])
 
                 # --- 1. Audit Raw Gradient Energy BEFORE Clipping ---
                 total_norm = 0.0

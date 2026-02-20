@@ -6,6 +6,7 @@ Governed by ADR 038 (Unification) and ADR 039 (Sequence).
 import logging
 from typing import Any, Dict, List, Optional
 
+import numpy as np
 import pandas as pd
 import torch
 
@@ -61,18 +62,22 @@ class InferenceOrchestrator:
         list_df_dirty = []
 
         for i, origin in enumerate(origins):
-            # Generate Posterior Samples [T, H, W, C, (S)]
-            posterior_zstack, _ = inference.generate_posterior_samples(
+            # Generate Posterior Samples
+            post_reg, post_cls = inference.generate_posterior_samples(
                 handler, 
                 is_evaluation=is_backtest, 
                 window_info=f"Origin {i+1}/{len(origins)}"
             )
             
-            # DIAGNOSTIC: Stage 5 was handled INSIDE inference.predict() 
-            # (The Autoregressive Forensic)
+            # Combine for wrapping [T, H, W, C, S]
+            # Handle cases where post_cls might be None or empty (legacy mocks)
+            if post_cls is not None and post_cls.size > 0:
+                 posterior_zstack = np.concatenate([post_reg, post_cls], axis=-2)
+            else:
+                 posterior_zstack = post_reg
 
             # Determine duration from posterior shape
-            duration = posterior_zstack.shape[0] if not torch.is_tensor(posterior_zstack) else posterior_zstack.shape[1]
+            duration = posterior_zstack.shape[0]
 
             # --- 2. TEMPORAL ALIGNMENT (ADR 039.1) ---
             # Determine if we are within historical bounds or projecting into the future
@@ -94,7 +99,8 @@ class InferenceOrchestrator:
 
             # --- 3. WRAP (ADR 039.3) ---
             # Bind the prediction tensors to the identity scaffold
-            base_names = self.config["classification_targets"]
+            # ADR 032: base_names must be the 'lr_' features.
+            base_names = self.config["regression_targets"]
             pred_handler = window_handler.wrap_predictions(posterior_zstack, base_names=base_names)
 
             # DIAGNOSTIC: Stage 6 (Predicted Volume - Pre Inversion)

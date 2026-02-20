@@ -390,9 +390,5 @@ class HydraNetInference:
                 )
 
         # Concatenate only once at the end
-        posterior_zstack = np.concatenate(
-            [posterior_magnitudes_zstack, posterior_probabilities_zstack], axis=-2
-        )
-
-        # Metadata recovery is handled via the VolumeHandler in the manager
-        return posterior_zstack, None
+        # REFACTOR: Return them separately so orchestrator knows exactly what is what.
+        return posterior_magnitudes_zstack, posterior_probabilities_zstack

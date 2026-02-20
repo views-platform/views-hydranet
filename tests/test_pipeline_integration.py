@@ -197,9 +197,9 @@ class TestPipelineIntegration:
                 mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (real_model, "toy_artifact")
 
                 # Mock Inference Result
-                # 3 targets -> 6 signal channels (3 linear, 3 binary)
-                # Plus the watermarks added by wrap_predictions
-                posterior = np.zeros((1, 4, 4, 6, 2))
+                # TOY_CONFIG has 1 reg target. 
+                # 1 target -> 2 signal channels (1 linear, 1 binary)
+                posterior = np.zeros((1, 4, 4, 2, 2))
                 mock_inf_cls.return_value.generate_posterior_samples.return_value = (posterior, None)
 
                 # 4. EXECUTE FORECAST PATH

@@ -1,4 +1,3 @@
-
 import logging
 from typing import Any, Dict, List, Optional
 import numpy as np
@@ -10,13 +9,18 @@ class TrainingForensics:
     """
     Independent Forensic Auditor for HydraNet training performance.
     Calculates and stores metrics trajectory decoupled from the optimization logic.
+    Namespaces internal storage to prevent collisions between Reg and Cls targets.
     """
 
     def __init__(self, config: Dict[str, Any]) -> None:
         self.config = config
         self.reg_targets = config.get("regression_targets", [])
         self.cls_targets = config.get("classification_targets", [])
-        self.reg_metrics = config.get("regression_metrics", ["mse"])
+        
+        # Pull and filter metrics (strip redundant calibration pulses)
+        raw_reg_metrics = config.get("regression_metrics", ["mse"])
+        self.reg_metrics = [m for m in raw_reg_metrics if m.lower() != "y_hat_bar"]
+        
         self.cls_metrics = config.get("classification_metrics", ["ap"])
         
         # 1. Threshold Integrity Guard
@@ -28,104 +32,112 @@ class TrainingForensics:
                 logger.error(err_msg)
                 raise ValueError(err_msg)
 
-        # 2. Initialize Histories
-        # {target: {metric: [values]}}
+        # 2. Initialize Histories with NAMESPACED Keys (ADR 003 Explicit)
+        # We use "REG:name" and "CLS:name" to prevent collisions
         self.history = {}
-        all_targets = self.reg_targets + self.cls_targets
-        for target in all_targets:
-            self.history[target] = {
-                "bias_instant": [],
-                "bias_running": [],
-                "y_bar": [],
-                "y_hat_bar": []
-            }
-            metrics = self.reg_metrics if target in self.reg_targets else self.cls_metrics
-            for m in metrics:
-                self.history[target][m] = []
+        self.target_map = {} # Maps namespaced key to metadata
+        
+        for target in self.reg_targets:
+            key = f"REG:{target}"
+            self.target_map[key] = {"type": "REG", "name": target, "metrics": self.reg_metrics}
+            self._init_target_history(key, self.reg_metrics)
+            
+        for target in self.cls_targets:
+            key = f"CLS:{target}"
+            self.target_map[key] = {"type": "CLS", "name": target, "metrics": self.cls_metrics}
+            self._init_target_history(key, self.cls_metrics)
 
         # 3. Running Totals for Global Bias
-        self.running_sum_y = {target: 0.0 for target in all_targets}
-        self.running_sum_yh = {target: 0.0 for target in all_targets}
+        all_keys = list(self.target_map.keys())
+        self.running_sum_y = {key: 0.0 for key in all_keys}
+        self.running_sum_yh = {key: 0.0 for key in all_keys}
 
         # 4. Lesson Accumulators (Reset every lesson)
         self._reset_accumulators()
 
+    def _init_target_history(self, key: str, metrics: List[str]):
+        """Helper to initialize history for a namespaced key."""
+        self.history[key] = {
+            "bias_instant": [],
+            "bias_running": [],
+            "y_bar": [],
+            "y_hat_bar": []
+        }
+        for m in metrics:
+            self.history[key][m] = []
+
     def _reset_accumulators(self):
         """Prepares empty buffers for a new lesson."""
-        all_targets = self.reg_targets + self.cls_targets
-        self.lesson_y = {target: [] for target in all_targets}
-        self.lesson_yh = {target: [] for target in all_targets}
+        all_keys = list(self.target_map.keys())
+        self.lesson_y = {key: [] for key in all_keys}
+        self.lesson_yh = {key: [] for key in all_keys}
 
-    def record(self, target_name: str, y: torch.Tensor, y_hat: torch.Tensor) -> None:
+    def record(self, namespaced_key: str, y: torch.Tensor, y_hat: torch.Tensor) -> None:
         """
         Records a single window pass. 
-        Stores raw values in lesson buffers for end-of-lesson reduction.
+        namespaced_key: e.g. 'REG:lr_sb_best'
         """
-        if target_name not in self.lesson_y:
-            raise KeyError(f"TrainingForensics: Target '{target_name}' not initialized.")
+        if namespaced_key not in self.lesson_y:
+            raise KeyError(f"TrainingForensics: Key '{namespaced_key}' not initialized.")
 
-        # Detach and move to CPU/NumPy immediately to free GPU and avoid graph interference
-        # We flatten to [N] to simplify aggregation
-        self.lesson_y[target_name].append(y.detach().cpu().numpy().flatten())
-        self.lesson_yh[target_name].append(y_hat.detach().cpu().numpy().flatten())
+        self.lesson_y[namespaced_key].append(y.detach().cpu().numpy().flatten())
+        self.lesson_yh[namespaced_key].append(y_hat.detach().cpu().numpy().flatten())
 
     def finalize_lesson(self) -> None:
         """
         Reduces lesson buffers into final metrics and updates history.
         """
-        for target in self.history.keys():
-            if not self.lesson_y[target]:
-                # Skip targets that were not seen this lesson (e.g. inactive classification)
-                # Ensure we append a nan or last value to keep history length aligned?
-                # Actually, ADR 014 says we only optimize what we see. 
-                # To keep plots aligned, we'll append the last value if history exists, else 0.
-                for m in self.history[target].keys():
-                     last_val = self.history[target][m][-1] if self.history[target][m] else 0.0
-                     self.history[target][m].append(last_val)
+        for key, meta in self.target_map.items():
+            if not self.lesson_y[key]:
+                for m in self.history[key].keys():
+                     last_val = self.history[key][m][-1] if self.history[key][m] else 0.0
+                     self.history[key][m].append(last_val)
                 continue
 
-            y_all = np.concatenate(self.lesson_y[target])
-            yh_all = np.concatenate(self.lesson_yh[target])
+            y_all = np.concatenate(self.lesson_y[key])
+            yh_all = np.concatenate(self.lesson_yh[key])
             
             # 1. Calculate Metrics
-            if target in self.reg_targets:
+            if meta["type"] == "REG":
                 for m in self.reg_metrics:
                     val = self._calculate_reg_metric(m, y_all, yh_all)
-                    self.history[target][m].append(val)
+                    self.history[key][m].append(val)
             else:
                 for m in self.cls_metrics:
                     val = self._calculate_cls_metric(m, y_all, yh_all)
-                    self.history[target][m].append(val)
+                    self.history[key][m].append(val)
 
             # 2. Calculate Bias (Dual Mode)
             sum_y = np.sum(y_all)
             sum_yh = np.sum(yh_all)
             
-            # Store raw means
-            self.history[target]["y_bar"].append(np.mean(y_all))
-            self.history[target]["y_hat_bar"].append(np.mean(yh_all))
+            self.history[key]["y_bar"].append(np.mean(y_all))
+            self.history[key]["y_hat_bar"].append(np.mean(yh_all))
             
-            # Instantaneous
             instant_bias = sum_yh / sum_y if sum_y > 0 else 1.0
-            self.history[target]["bias_instant"].append(instant_bias)
+            self.history[key]["bias_instant"].append(instant_bias)
             
-            # Running
-            self.running_sum_y[target] += sum_y
-            self.running_sum_yh[target] += sum_yh
-            running_bias = self.running_sum_yh[target] / self.running_sum_y[target] if self.running_sum_y[target] > 0 else 1.0
-            self.history[target]["bias_running"].append(running_bias)
+            self.running_sum_y[key] += sum_y
+            self.running_sum_yh[key] += sum_yh
+            running_bias = self.running_sum_yh[key] / self.running_sum_y[key] if self.running_sum_y[key] > 0 else 1.0
+            self.history[key]["bias_running"].append(running_bias)
 
         self._reset_accumulators()
 
-    def get_dossier(self, target_name: str) -> Dict[str, List[float]]:
-        """Returns the historical record for a specific feature."""
-        return self.history.get(target_name, {})
+    def get_dossier(self, namespaced_key: str) -> Dict[str, List[float]]:
+        """Returns the historical record for a namespaced key."""
+        return self.history.get(namespaced_key, {})
 
     def _calculate_reg_metric(self, name: str, y: np.ndarray, yh: np.ndarray) -> float:
         if name.lower() == "mse":
             return np.mean((y - yh)**2)
         if name.lower() == "mae":
             return np.mean(np.abs(y - yh))
+        # Handle RMSLE, MSLE, CRPS placeholder
+        if name.lower() == "rmsle":
+             return np.sqrt(np.mean((np.log1p(y) - np.log1p(yh))**2))
+        if name.lower() == "msle":
+             return np.mean((np.log1p(y) - np.log1p(yh))**2)
         return 0.0
 
     def _calculate_cls_metric(self, name: str, y: np.ndarray, yh: np.ndarray) -> float:
@@ -134,12 +146,18 @@ class TrainingForensics:
         # Ensure binary y for sklearn
         y_bin = (y > 0).astype(int)
         
+        # Guard: sklearn metrics fail if only one class is present
+        if len(np.unique(y_bin)) < 2:
+             if name.lower() == "auc": return 0.5
+             if name.lower() == "ap": return 0.0
+             return 0.0
+
         if name.lower() == "ap":
             try:
                 return average_precision_score(y_bin, yh)
-            except ValueError: return 0.0 # No positive samples
+            except ValueError: return 0.0
         if name.lower() == "auc":
             try:
                 return roc_auc_score(y_bin, yh)
-            except ValueError: return 0.5 # No positive samples
+            except ValueError: return 0.5
         return 0.0

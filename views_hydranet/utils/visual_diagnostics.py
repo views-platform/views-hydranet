@@ -465,14 +465,15 @@ class VisualDiagnostics:
         except Exception as e:
             logger.error(f"VisualDiagnostics: Failed to plot loss curves: {e}")
 
-    def biopsy_feature_dossier(self, target_name: str, dossier: Dict[str, List[float]], stage_label: str) -> None:
+    def biopsy_feature_dossier(self, target_name: str, dossier: Dict[str, List[float]], 
+                               stage_label: str, target_type: str = "REG") -> None:
         """
         Generates Joyful Forensic Dossiers.
-        Automatically detects if target is Reg or Cls and renders one-metric-per-row.
+        One-metric-per-row layout.
         """
         if not self.active: return
 
-        is_reg = target_name.startswith("lr_")
+        is_reg = (target_type == "REG")
         metrics = self.config.get("regression_metrics", []) if is_reg else self.config.get("classification_metrics", [])
         
         # Filter for metrics actually in the dossier
@@ -529,7 +530,8 @@ class VisualDiagnostics:
             plt.suptitle(f"{mode_str} FORENSIC: {target_name} ({stage_label})", fontsize=18)
             plt.tight_layout(rect=[0, 0.03, 1, 0.97])
             
-            fname = f"forensic_{target_name.lower()}.png"
+            type_tag = "reg" if is_reg else "cls"
+            fname = f"forensic_{type_tag}_{target_name.lower()}.png"
             save_path = os.path.join(self.save_dir, fname)
             plt.savefig(save_path, dpi=100)
             plt.close()
