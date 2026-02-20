@@ -84,6 +84,13 @@ def init_weights(m, config):
     elif config['weight_init'] == 'kaiming_uni':
         if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
             nn.init.kaiming_uniform_(m.weight)
+    elif config['weight_init'] == 'xavier_norm':
+        if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+            nn.init.xavier_normal_(m.weight)
+    else:
+        err_msg = f"Unknown weight_init scheme: '{config['weight_init']}'. Valid: 'xavier_uni', 'xavier_norm', 'kaiming_uni'."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
 
 def train_log(avg_loss_list, avg_loss_reg_list, avg_loss_class_list):
     """Metric logging gate for W&B."""

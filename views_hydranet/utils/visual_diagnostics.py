@@ -241,14 +241,23 @@ class VisualDiagnostics:
             
             global_maps = np.stack(global_maps)
 
-            # 4. Plot with Context
+            # 4. Calculate Relative Offset for Bounding Box
+            # sample_vh.spatial_offset = (global_row_offset + r0, global_col_offset + c0)
+            # relative_r0 = sample_vh.spatial_offset[0] - global_vh.spatial_offset[0]
+            # relative_c0 = sample_vh.spatial_offset[1] - global_vh.spatial_offset[1]
+            rel_offset = (
+                sample_vh.spatial_offset[0] - global_vh.spatial_offset[0],
+                sample_vh.spatial_offset[1] - global_vh.spatial_offset[1]
+            )
+
+            # 5. Plot with Context
             self._plot_grid_with_context(
                 sample_slice, 
                 interesting, 
                 t_indices, 
                 global_maps, 
                 signal_feat,
-                sample_vh.spatial_offset, 
+                rel_offset, 
                 stage_label
             )
 
@@ -275,25 +284,29 @@ class VisualDiagnostics:
         # VolumeHandler data is flipped (North at index 0).
         # raw_row 0 is South. In a 180-tall array, raw_row 0 is index 179.
         # r_idx = row - row_offset. 
-        # In North-Up array: plotted_y = height - 1 - r_idx
+        # offset[0] is the min_r_idx of the patch (South-most row).
+        # Since map is flipped, the North-most row of the patch is:
+        # plotted_y = (GlobalHeight - 1) - (offset[0] + patch_h - 1)
+        # Simplify: plotted_y = GlobalHeight - offset[0] - patch_h
         patch_h, patch_w = data_5d.shape[1], data_5d.shape[2]
+        plotted_y = self.height - offset[0] - patch_h
         
         for t_idx in range(n_times):
             ax_g = fig.add_subplot(gs[0, t_idx])
             ax_g.imshow(global_maps[t_idx], origin='upper', cmap='magma', vmin=g_vmin, vmax=g_vmax, interpolation='nearest')
             
-            # The Box: 
-            # x = offset_col
-            # y = height - (offset_row - global_row_offset) - patch_height?
-            # Simplified: VolumeHandler.from_df flips the final array.
-            # So the index 0 in the array is actually the top of the map.
-            # Thus, plotted_y = r_idx (after flip).
-            # Wait, r_idx 0 is South. After flip, r_idx 0 is index 179.
-            # So top of map is r_idx_max.
-            # Correct logic: offset[0] is the r_idx of the bottom of the patch.
-            # Since map is flipped, plotted_y = (GlobalHeight - patch_h) - offset[0]
+            # The Box: (x, y) is bottom-left in standard matplotlib, 
+            # but in imshow(origin='upper'), y=0 is top.
+            # plotted_y = (GlobalHeight - patch_h) - relative_r0
             plotted_y = (self.height - patch_h) - offset[0]
-            rect = patches.Rectangle((offset[1], plotted_y), patch_w, patch_h, linewidth=1.5, edgecolor='orange', facecolor='none')
+            rect = patches.Rectangle(
+                (offset[1], plotted_y), 
+                patch_w, patch_h, 
+                linewidth=2, 
+                edgecolor='cyan', # High contrast against magma
+                facecolor='none',
+                zorder=10 # Ensure it is on top
+            )
             ax_g.add_patch(rect)
             
             ax_g.set_xticks([])

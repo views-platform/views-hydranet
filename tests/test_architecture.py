@@ -1,6 +1,8 @@
 import torch
+import torch.nn as nn
 
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
+from views_hydranet.utils.utils import init_weights
 
 
 def test_architecture_instantiation():
@@ -69,5 +71,50 @@ def test_architecture_multi_batch_support():
 
     out_reg, out_class, new_h = model(x, h)
 
-    assert out_reg.shape[0] == batch_size
-    assert new_h.shape[0] == batch_size
+    assert out_reg.shape[0] == batch_size, f"Expected batch dim {batch_size}, got {out_reg.shape[0]}"
+    assert new_h.shape[0] == batch_size, f"Expected batch dim {batch_size}, got {new_h.shape[0]}"
+
+
+def test_weight_init_xavier_norm_is_not_silent():
+    """
+    RED GATE: init_weights() must NOT silently ignore 'xavier_norm'.
+
+    The active production config has weight_init='xavier_norm'. The current
+    init_weights() only handles 'xavier_uni' and 'kaiming_uni'. 'xavier_norm'
+    falls through: no initialization, no error, no warning. The model has been
+    running on PyTorch default init (Kaiming Uniform) its entire existence while
+    the config specifies Xavier Normal.
+
+    This test asserts that AFTER calling init_weights with 'xavier_norm', the
+    layer weights differ from the sentinel value (all 1.0). If init_weights
+    silently ignores the config, weights remain 1.0 and this test FAILS — the
+    correct Red Gate behavior confirming the bug is real.
+
+    Acceptable outcomes after the fix:
+    (a) The function applies nn.init.xavier_normal_ → weights differ from sentinel.
+    (b) The function raises ValueError for an unrecognised scheme → explicit and loud.
+    Either path is a correct fix. Silent pass-through is not acceptable.
+    """
+    layer = nn.Conv2d(in_channels=8, out_channels=16, kernel_size=3, padding=1)
+
+    # Set all weights to a known sentinel. xavier_normal_ draws from
+    # N(0, gain * sqrt(2 / (fan_in + fan_out))) — P(all weights == 1.0) ≈ 0.
+    nn.init.constant_(layer.weight, 1.0)
+    sentinel = layer.weight.clone()
+
+    config = {'weight_init': 'xavier_norm'}
+
+    try:
+        init_weights(layer, config)
+    except ValueError:
+        # Acceptable: function explicitly rejects unknown init schemes.
+        return
+
+    # Function returned without error — weights MUST have changed.
+    assert not torch.equal(layer.weight, sentinel), (
+        "init_weights(layer, {'weight_init': 'xavier_norm'}) returned without error "
+        "but the layer weights were NOT modified (still all 1.0). "
+        "The function silently ignored 'xavier_norm'. "
+        "Fix: add `elif config['weight_init'] == 'xavier_norm': "
+        "nn.init.xavier_normal_(m.weight)` to init_weights() in utils.py."
+    )
