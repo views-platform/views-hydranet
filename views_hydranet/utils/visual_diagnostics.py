@@ -219,11 +219,11 @@ class VisualDiagnostics:
                 if f_idx == 0:
                     ax.set_title(f"T={time_indices[t_idx]}")
                 if t_idx == 0:
-                    ax.set_ylabel(f"{feat_name}\n{stats}", rotation=0, labelpad=60, fontsize=9)
-                else:
-                    # Add stats as text inside plot for other columns to save space
-                    ax.text(0.05, 0.95, stats, transform=ax.transAxes, color='white', 
-                            fontsize=8, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='black', alpha=0.5))
+                    ax.set_ylabel(f"{feat_name}", rotation=0, labelpad=60, fontsize=9)
+                
+                # Add stats as text inside plot for ALL columns
+                ax.text(0.05, 0.95, stats, transform=ax.transAxes, color='white', 
+                        fontsize=8, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='black', alpha=0.5))
 
         plt.suptitle(f"Visual Biopsy: {stage_label}", fontsize=16)
         plt.tight_layout()
