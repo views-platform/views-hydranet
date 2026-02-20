@@ -91,6 +91,12 @@ class VolumeSampler:
 
         # Absolute Anchoring: Propagate geographic truth
         p_row, p_col = train_vh.spatial_offset
+        h_max, _ = train_vh.shape[1], train_vh.shape[2] # Global Height
+
+        # r0 is index from the NORTH (top). 
+        # The South-most raw row index of the patch is:
+        # global_south + (global_height - patch_height - r0)
+        new_row_offset = p_row + (h_max - dim - r0)
 
         vh = VolumeHandler(
             data=data,
@@ -101,7 +107,7 @@ class VolumeSampler:
             spatial_cols=train_vh.spatial_cols,
             identity_cols=train_vh._metadata.identity_cols,
             feature_cols=train_vh._metadata.feature_cols,
-            spatial_offset=(p_row + r0, p_col + c0)
+            spatial_offset=(new_row_offset, p_col + c0)
         )
 
         mem_mb = data.nbytes / (1024**2)

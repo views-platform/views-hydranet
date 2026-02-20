@@ -43,3 +43,36 @@ def test_mtloss_parameters_are_learnable():
 
     assert mt.log_vars.grad is not None
     assert not torch.all(mt.log_vars.grad == 0)
+
+
+def test_mtloss_rejects_mismatched_task_count():
+    """
+    RED GATE: MultiTaskLoss.forward() must raise ValueError when the number
+    of losses differs from the number of tasks in is_regression.
+
+    Production context: is_regression has 6 elements (3 regression + 3
+    classification). If the model ever outputs a different head count, the
+    losses tensor has a different length. Without an explicit guard, PyTorch
+    raises a generic RuntimeError deep inside the computation with a message
+    that does not identify the task balancer as the source.
+
+    This test asserts that MultiTaskLoss raises ValueError (not RuntimeError)
+    with a message referencing 'task', so the failure is immediately actionable.
+
+    Mismatches to test:
+    - Too few losses (3 instead of 6) — the most likely production failure
+    - Too many losses (8 instead of 6) — catches the symmetric case
+    """
+    is_reg = torch.Tensor([True, True, True, False, False, False])  # 6 tasks
+    mt = MultiTaskLoss(is_reg, reduction='sum')
+
+    # Case A: Too few losses
+    with pytest.raises(ValueError, match=r"[Tt]ask|[Mm]ismatch|[Ee]xpected"):
+        mt(torch.tensor([1.0, 2.0, 3.0]))  # 3 != 6
+
+    # Case B: Too many losses
+    with pytest.raises(ValueError, match=r"[Tt]ask|[Mm]ismatch|[Ee]xpected"):
+        mt(torch.tensor([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]))  # 8 != 6
+
+    # Case C: Correct count must NOT raise
+    mt(torch.tensor([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]))  # 6 == 6, OK

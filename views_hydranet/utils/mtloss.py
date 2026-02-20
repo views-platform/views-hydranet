@@ -41,6 +41,12 @@ class MultiTaskLoss(torch.nn.Module):
         Returns:
             torch.Tensor: Weighted and regularized combined loss.
         """
+        if len(losses) != self.n_tasks:
+            raise ValueError(
+                f"MultiTaskLoss task count mismatch: expected {self.n_tasks} losses "
+                f"(matching is_regression length), but received {len(losses)}. "
+                f"Check that the model's output head count matches the loss mask."
+            )
         dtype = losses.dtype
         device = losses.device
         stds = (torch.exp(self.log_vars)**(1/2)).to(device).to(dtype)

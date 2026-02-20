@@ -280,32 +280,27 @@ class VisualDiagnostics:
         # We need to compute vmin/vmax for the global signal
         g_vmin, g_vmax = np.nanmin(global_maps), np.nanmax(global_maps)
         
-        # Coordinate Logic for Bounding Box
-        # VolumeHandler data is flipped (North at index 0).
-        # raw_row 0 is South. In a 180-tall array, raw_row 0 is index 179.
-        # r_idx = row - row_offset. 
-        # offset[0] is the min_r_idx of the patch (South-most row).
-        # Since map is flipped, the North-most row of the patch is:
-        # plotted_y = (GlobalHeight - 1) - (offset[0] + patch_h - 1)
-        # Simplify: plotted_y = GlobalHeight - offset[0] - patch_h
+        # --- VISUAL PHYSICS (Fixed ADR-012 / VolumeSampler) ---
+        # 1. rel_offset[0] is the relative SOUTH-most row index of the patch
+        #    relative to the global volume (calculated in biopsy_sample).
+        # 2. In imshow(origin='upper'), index 0 is North.
+        # 3. top_rel_idx (North edge) = (GlobalHeight - 1) - (rel_offset[0] + patch_h - 1)
+        # ---------------------------------------------------
         patch_h, patch_w = data_5d.shape[1], data_5d.shape[2]
-        plotted_y = self.height - offset[0] - patch_h
+        top_rel_idx = (self.height - 1) - (offset[0] + patch_h - 1)
         
         for t_idx in range(n_times):
             ax_g = fig.add_subplot(gs[0, t_idx])
             ax_g.imshow(global_maps[t_idx], origin='upper', cmap='magma', vmin=g_vmin, vmax=g_vmax, interpolation='nearest')
             
-            # The Box: (x, y) is bottom-left in standard matplotlib, 
-            # but in imshow(origin='upper'), y=0 is top.
-            # plotted_y = (GlobalHeight - patch_h) - relative_r0
-            plotted_y = (self.height - patch_h) - offset[0]
+            # The Box: x=relative_col, y=flipped_top_row
             rect = patches.Rectangle(
-                (offset[1], plotted_y), 
+                (offset[1], top_rel_idx), 
                 patch_w, patch_h, 
                 linewidth=2, 
-                edgecolor='cyan', # High contrast against magma
+                edgecolor='cyan', 
                 facecolor='none',
-                zorder=10 # Ensure it is on top
+                zorder=10
             )
             ax_g.add_patch(rect)
             

@@ -120,16 +120,37 @@ class DataSniffer:
 
         # 3. Geographic Anchor Check (Absolute Anchoring)
         r_off, c_off = handler.spatial_offset
-        if df[y_col].min() < r_off or df[x_col].min() < c_off: 
+        if df[y_col].min() < r_off or df[x_col].min() < c_off:
             err_msg = (
                 f"[CRITICAL DATA ERROR] DataSniffer: Geographic Anchor Violation!\n"
                 f"Data starts at ({df[y_col].min()}, {df[x_col].min()}), but "
                 f"Handler is anchored at ({r_off}, {c_off})."
             )
-            
+
             logger.error(err_msg)
-            
+
             raise ValueError(err_msg)
+
+        # 4. Anchor Drift Check (CIC §6: drift between data partitions)
+        # If the config declares row_offset/col_offset, the handler's actual
+        # spatial_offset must match exactly. A mismatch means the handler was
+        # built under different geographic assumptions than the current config
+        # specifies — silent spatial scrambling will result.
+        cfg_r_off = self.config.get("row_offset")
+        cfg_c_off = self.config.get("col_offset")
+        if cfg_r_off is not None and cfg_c_off is not None:
+            if (r_off, c_off) != (cfg_r_off, cfg_c_off):
+                err_msg = (
+                    f"[CRITICAL DATA ERROR] DataSniffer: Geographic Anchor Drift!\n"
+                    f"Config specifies row_offset={cfg_r_off}, col_offset={cfg_c_off}, "
+                    f"but the Handler's spatial_offset is ({r_off}, {c_off}).\n"
+                    f"The Handler was built under different geographic anchors than the "
+                    f"current config expects. Spatial scrambling will result if not corrected."
+                )
+
+                logger.error(err_msg)
+
+                raise ValueError(err_msg)
 
         logger.info("DataSniffer: Temporal and Geographic Alignment Passed.")
 
