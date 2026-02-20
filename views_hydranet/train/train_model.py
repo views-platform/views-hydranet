@@ -100,7 +100,9 @@ def train(
             t1_binary = (t1.clone().detach() > 0) * 1.0
 
             # Forward pass (Data is already North-Up via VolumeHandler)
-            t1_pred, t1_pred_class, h = model(t0, h.detach())
+            # We remove h.detach() to enable Backpropagation Through Time (BPTT).
+            # This allows gradients to flow back across the entire temporal sequence.
+            t1_pred, t1_pred_class, h = model(t0, h)
             
             # STAGE 5 DIAGNOSTIC: Accumulate middle steps
             if viz and stage_label:
