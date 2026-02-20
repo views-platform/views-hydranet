@@ -203,9 +203,10 @@ class HydranetManager(ForecastingModelManager):
         adapter = PureStateAdapter(self.configs)
         list_df_predictions = adapter.enforce_pure_state_list(list_df_predictions)
         
-        # DIAGNOSTIC: Stage 6 (Reconstruction - Sample 0)
+        # DIAGNOSTIC: Stage 7 (Reconstruction - Sample 0)
         if list_df_predictions:
-             viz.biopsy_dataframe(list_df_predictions[0], "Stage 6: Final Prediction", features=[f"pred_{plot_feats[0]}"])
+             pred_plot_feats = [f"pred_{t}" for t in self.configs["regression_targets"]]
+             viz.biopsy_dataframe(list_df_predictions[0], "Stage 7: Final Reconstruction", features=pred_plot_feats)
 
         # 8. Diplomatic Forgery (ADR 031)
         # We augment the 'targets' config JIT so the evaluation package
@@ -283,9 +284,10 @@ class HydranetManager(ForecastingModelManager):
         adapter = PureStateAdapter(self.configs)
         list_df_predictions = adapter.enforce_pure_state_list(list_df_predictions)
         
-        # DIAGNOSTIC: Stage 6
+        # DIAGNOSTIC: Stage 7
         if list_df_predictions:
-             viz.biopsy_dataframe(list_df_predictions[0], "Stage 6: Final Prediction", features=[f"pred_{plot_feats[0]}"])
+             pred_plot_feats = [f"pred_{t}" for t in self.configs["regression_targets"]]
+             viz.biopsy_dataframe(list_df_predictions[0], "Stage 7: Final Reconstruction", features=pred_plot_feats)
 
         log_prediction_summary(list_df_predictions)
         return list_df_predictions

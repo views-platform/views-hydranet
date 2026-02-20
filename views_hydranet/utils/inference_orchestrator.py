@@ -61,7 +61,6 @@ class InferenceOrchestrator:
         list_df_dirty = []
 
         for i, origin in enumerate(origins):
-            # --- 1. PREDICT & EXTRAPOLATE (ADR 039.1 / 039.2) ---
             # Generate Posterior Samples [T, H, W, C, (S)]
             posterior_zstack, _ = inference.generate_posterior_samples(
                 handler, 
@@ -69,16 +68,9 @@ class InferenceOrchestrator:
                 window_info=f"Origin {i+1}/{len(origins)}"
             )
             
-            # DIAGNOSTIC: Stage 5 (Inference Input/Output)
-            # We visualize the raw output tensor before wrapping
-            # Note: We need channel names to label the plot. 
-            # The model outputs [reg_1..3, class_1..3].
-            raw_channels = self.config["regression_targets"] + self.config["classification_targets"]
-            if torch.is_tensor(posterior_zstack):
-                 # Unsqueeze batch dim for biopsy if missing
-                 tensor_viz = posterior_zstack.unsqueeze(0) if posterior_zstack.ndim == 4 else posterior_zstack
-                 self.viz.biopsy_tensor(tensor_viz, f"Stage 5: Raw Inference Output (Origin {origin})", channel_names=raw_channels)
-            
+            # DIAGNOSTIC: Stage 5 was handled INSIDE inference.predict() 
+            # (The Autoregressive Forensic)
+
             # Determine duration from posterior shape
             duration = posterior_zstack.shape[0] if not torch.is_tensor(posterior_zstack) else posterior_zstack.shape[1]
 
@@ -104,6 +96,11 @@ class InferenceOrchestrator:
             # Bind the prediction tensors to the identity scaffold
             base_names = self.config["classification_targets"]
             pred_handler = window_handler.wrap_predictions(posterior_zstack, base_names=base_names)
+
+            # DIAGNOSTIC: Stage 6 (Predicted Volume - Pre Inversion)
+            # We visualize the wrapped VolumeHandler before the scaler touches it.
+            if i == 0: # Only biopsy first origin to save space
+                 self.viz.biopsy_volume(pred_handler, f"Stage 6: Raw Predicted Volume (Origin {origin})")
 
             # --- 4. INVERT (ADR 039.4) ---
             # Return the volume to Raw Count space BEFORE any spatial aggregation
