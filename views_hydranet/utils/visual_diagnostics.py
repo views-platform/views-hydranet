@@ -26,6 +26,7 @@ class VisualDiagnostics:
 
     def __init__(self, config: Dict[str, Any], run_timestamp: Optional[str] = None) -> None:
         self.active = config.get("diagnostic_visualizations", False)
+        self.config = config # Store for dynamic labelling
         
         if self.active:
             # Determine save directory
@@ -415,27 +416,37 @@ class VisualDiagnostics:
                            history_total: List[float], 
                            stage_label: str) -> None:
         """
-        1x3 Grid showing loss evolution over lessons.
+        Generates both Linear and Log-scale plots showing loss evolution over lessons.
         """
         if not self.active: return
 
-        try:
+        def _generate_plot(is_log: bool):
             fig, axes = plt.subplots(3, 1, figsize=(10, 12))
             
-            titles = ["Regression Loss (MSE/Shrinkage)", "Classification Loss (Focal/BCE)", "Total Multi-Task Loss"]
+            l_reg = self.config.get("loss_reg", "Unknown")
+            l_cls = self.config.get("loss_class", "Unknown")
+            
+            titles = [f"Regression Loss ({l_reg})", f"Classification Loss ({l_cls})", "Total Multi-Task Loss"]
             data = [history_reg, history_cls, history_total]
             colors = ['firebrick', 'seagreen', 'royalblue']
             
             for i in range(3):
                 ax = axes[i]
-                ax.plot(data[i], marker='o', linestyle='-', color=colors[i], markersize=4, alpha=0.7)
-                ax.set_title(titles[i], fontweight='bold')
+                # Filter out non-positive for log plot to avoid matplotlib warnings
+                plot_data = data[i]
+                ax.plot(plot_data, marker='o', linestyle='-', color=colors[i], markersize=4, alpha=0.7)
+                
+                scale_suffix = " (Log Scale)" if is_log else ""
+                ax.set_title(titles[i] + scale_suffix, fontweight='bold')
                 ax.set_xlabel("Lesson")
                 ax.set_ylabel("Loss")
-                ax.grid(True, alpha=0.3)
+                ax.grid(True, which="both", alpha=0.3)
                 
-                if len(data[i]) > 0:
-                    current = data[i][-1]
+                if is_log:
+                    ax.set_yscale('log')
+                
+                if len(plot_data) > 0:
+                    current = plot_data[-1]
                     ax.text(0.95, 0.95, f"Current: {current:.4f}", transform=ax.transAxes, 
                             verticalalignment='top', horizontalalignment='right',
                             bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
@@ -443,10 +454,14 @@ class VisualDiagnostics:
             plt.suptitle(f"Learning Dynamics: {stage_label}", fontsize=18)
             plt.tight_layout(rect=[0, 0.03, 1, 0.95])
             
-            save_path = os.path.join(self.save_dir, "loss_evolution.png")
+            fname = "loss_evolution_log.png" if is_log else "loss_evolution.png"
+            save_path = os.path.join(self.save_dir, fname)
             plt.savefig(save_path, dpi=100)
             plt.close()
-            # We don't log every time to avoid spamming the console
+
+        try:
+            _generate_plot(is_log=False)
+            _generate_plot(is_log=True)
         except Exception as e:
             logger.error(f"VisualDiagnostics: Failed to plot loss curves: {e}")
 
