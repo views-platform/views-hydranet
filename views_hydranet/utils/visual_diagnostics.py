@@ -332,7 +332,8 @@ class VisualDiagnostics:
                         fontsize=8, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='black', alpha=0.5))
 
         plt.suptitle(f"Visual Biopsy (Contextual): {stage_label}", fontsize=16)
-        plt.tight_layout()
+        # rect=[left, bottom, right, top] - reserve top 5% for suptitle
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         
         save_path = os.path.join(self.save_dir, f"biopsy_{stage_label.lower().replace(' ', '_')}.png")
         plt.savefig(save_path, dpi=100)
@@ -382,7 +383,7 @@ class VisualDiagnostics:
                         fontsize=8, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='black', alpha=0.5))
 
         plt.suptitle(f"Visual Biopsy: {stage_label}", fontsize=16)
-        plt.tight_layout()
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         
         save_path = os.path.join(self.save_dir, f"biopsy_{stage_label.lower().replace(' ', '_')}.png")
         plt.savefig(save_path, dpi=100)

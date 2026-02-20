@@ -5,6 +5,9 @@ import time
 
 import numpy as np
 import psutil
+import pytest
+
+from views_hydranet.utils.volume_handler import VolumeHandler
 
 # Configure logging for bit-perfect transparency
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -98,6 +101,88 @@ def run_survival_audit():
     reduction = (state_a_mem - state_b_mem) / (state_a_mem - baseline) * 100
     print(f"\nSUCCESS: RAM footprint reduced by {reduction:.2f}% after Point-Collapse.")
     print("Proof: We can now safely proceed to DataFrame reconstruction because we only have 1 value per cell.")
+
+def test_collapse_mathematical_correctness():
+    """
+    GREEN GATE: VolumeHandler.collapse_to_point() must compute the correct
+    arithmetic mean across the sample dimension S.
+
+    The existing run_survival_audit() verifies that collapse produces the
+    right *shape* but does NOT verify the *math*. A collapse that returns
+    all zeros or the wrong aggregation would pass the shape check silently.
+
+    Method: Create a 5D volume with 3 known samples (2.0, 4.0, 6.0).
+    The arithmetic mean is exactly 4.0. After collapse, every cell must
+    contain exactly 4.0 — not approximately, exactly, because these are
+    representable float32 values with no accumulation error.
+
+    Also verified: median collapse (also 4.0 for symmetric samples), and
+    that an unknown method raises NotImplementedError loudly.
+    """
+    T, H, W, C, S = 1, 4, 4, 1, 3
+
+    # Build 5D volume with known, distinct sample values.
+    data = np.zeros((T, H, W, C, S), dtype=np.float32)
+    data[..., 0] = 2.0   # sample 0: all cells = 2.0
+    data[..., 1] = 4.0   # sample 1: all cells = 4.0
+    data[..., 2] = 6.0   # sample 2: all cells = 6.0
+    # arithmetic mean = (2 + 4 + 6) / 3 = 4.0 exactly
+
+    handler_5d = VolumeHandler(
+        data=data,
+        axes=('T', 'H', 'W', 'C', 'S'),
+        channel_map=['value'],    # C=1, so channel_map has 1 entry
+        time_col='month_id',
+        id_col='priogrid_gid',
+        spatial_cols=['row', 'col'],
+        spatial_offset=(0, 0),
+    )
+
+    # --- Arithmetic mean ---
+    collapsed = handler_5d.collapse_to_point(method='arithmetic_mean')
+
+    assert collapsed.data.shape == (T, H, W, C), (
+        f"\nExpected collapsed shape {(T, H, W, C)}, got {collapsed.data.shape}.\n"
+        f"The S dimension was not removed by the collapse."
+    )
+    assert np.allclose(collapsed.data, 4.0), (
+        f"\nArithmetic mean collapse is incorrect.\n"
+        f"Expected every cell = 4.0, got min={collapsed.data.min():.4f}, "
+        f"max={collapsed.data.max():.4f}.\n"
+        f"Input samples were [2.0, 4.0, 6.0]; expected mean = 4.0."
+    )
+    assert "S" not in collapsed._metadata.axes, (
+        f"\nAxes after collapse still contain 'S': {collapsed._metadata.axes}.\n"
+        f"The S axis must be removed from the metadata after collapse."
+    )
+
+    # --- Median (symmetric samples → same result) ---
+    collapsed_med = handler_5d.collapse_to_point(method='median')
+    assert np.allclose(collapsed_med.data, 4.0), (
+        f"\nMedian collapse is incorrect.\n"
+        f"Samples are [2.0, 4.0, 6.0]; expected median = 4.0, "
+        f"got min={collapsed_med.data.min():.4f}, max={collapsed_med.data.max():.4f}."
+    )
+
+    # --- Unknown method raises loudly ---
+    with pytest.raises(NotImplementedError):
+        handler_5d.collapse_to_point(method='geometric_mean')
+
+    # --- Already-4D handler returns self without error ---
+    handler_4d = VolumeHandler(
+        data=np.ones((T, H, W, C), dtype=np.float32),
+        axes=('T', 'H', 'W', 'C'),
+        channel_map=['value'],
+        time_col='month_id',
+        id_col='priogrid_gid',
+        spatial_cols=['row', 'col'],
+        spatial_offset=(0, 0),
+    )
+    result = handler_4d.collapse_to_point(method='arithmetic_mean')
+    assert result is handler_4d, (
+        "collapse_to_point() on an already-4D volume must return self (no-op)."
+    )
+
 
 if __name__ == "__main__":
     run_survival_audit()
