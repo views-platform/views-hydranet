@@ -320,15 +320,16 @@ class VisualDiagnostics:
                     if t_idx == 0:
                         ax.set_ylabel(row_labels[r_idx], rotation=0, labelpad=80, fontweight='bold')
 
+            plt.suptitle(f"Autoregressive Forensic: {stage_label} ({feat_name})", fontsize=18, y=0.98)
+            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
             # Add vertical delimitation line correctly (between col 0 and 1)
-            fig.canvas.draw() # Ensure positions are calculated
+            # IMPORTANT: tight_layout must be called BEFORE get_position()
+            fig.canvas.draw() 
             pos0 = axes[0, 0].get_position()
             pos1 = axes[0, 1].get_position()
             line_x = (pos0.x1 + pos1.x0) / 2
             fig.add_artist(plt.Line2D([line_x, line_x], [0.05, 0.9], color='cyan', linestyle='--', linewidth=2, alpha=0.8))
-
-            plt.suptitle(f"Autoregressive Forensic: {stage_label} ({feat_name})", fontsize=18, y=0.98)
-            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
             
             # Sanitize label for filesystem
             safe_label = stage_label.lower().replace(' ', '_').replace('/', '_')
@@ -390,6 +391,9 @@ class VisualDiagnostics:
                         ax.text(0.05, 0.95, stats, transform=ax.transAxes, color='white', 
                                 fontsize=8, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='black', alpha=0.5))
 
+            plt.suptitle(f"Training Performance Forensic: {stage_label}", fontsize=18, y=0.98)
+            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
             # Vertical line between History (3) and Forecast (3)
             if n_times > 3:
                 fig.canvas.draw()
@@ -397,9 +401,6 @@ class VisualDiagnostics:
                 pos3 = axes[0, 3].get_position()
                 line_x = (pos2.x1 + pos3.x0) / 2
                 fig.add_artist(plt.Line2D([line_x, line_x], [0.05, 0.9], color='cyan', linestyle='--', linewidth=2, alpha=0.8))
-
-            plt.suptitle(f"Training Performance Forensic: {stage_label}", fontsize=18, y=0.98)
-            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
             
             safe_label = stage_label.lower().replace(' ', '_').replace('/', '_')
             save_path = os.path.join(self.save_dir, f"biopsy_{safe_label}.png")
