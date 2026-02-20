@@ -54,7 +54,9 @@ We inject `visualizer.biopsy(...)` calls at these critical "Fault Lines":
     *   *What we see:* Are the 32x32 windows actually capturing conflict?
 5.  **Inference Input (Stage 5):** Inside `hydranet_inference` loop. 
     *   *What we see:* Is the autoregressive feedback loop feeding back coherent maps?
-6.  **Reconstruction (Stage 6):** Final DataFrame. 
+6.  **Predicted Volume (Stage 6):** In `InferenceOrchestrator` after prediction but BEFORE inversion.
+    *   *What we see:* Raw model output in Semantic Space.
+7.  **Reconstruction (Stage 7):** Final DataFrame. 
     *   *What we see:* Did the bridge back to DF maintain the geography?
 
 ### 2.3 The "Pre-Flight" Validator (Hypothesis 3)

@@ -57,7 +57,7 @@ class InferenceOrchestrator:
         
         logger.info(f"💠 InferenceOrchestrator: Initiating {mode_label} pass ({len(origins)} origins).")
 
-        inference = HydraNetInference(self.model, self.config, device=self.device)
+        inference = HydraNetInference(self.model, self.config, device=self.device, visualizer=self.viz)
         list_df_dirty = []
 
         for i, origin in enumerate(origins):

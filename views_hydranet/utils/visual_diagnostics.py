@@ -264,6 +264,75 @@ class VisualDiagnostics:
         except Exception as e:
             logger.error(f"VisualDiagnostics: Failed to biopsy sample at {stage_label}: {e}")
 
+    def biopsy_autoregressive(self, truth_seq: List[np.ndarray], pred_seq: List[np.ndarray], stage_label: str, channel_names: List[str]) -> None:
+        """
+        Specialized biopsy for the autoregressive feedback loop.
+        Structure: 3 Rows (Truth, Pred, Delta) x 6 Columns (Seed + 5 steps).
+        """
+        if not self.active: return
+
+        try:
+            # Inputs are lists of arrays [H, W, C]
+            # Convert to [Time, Row, Col, Chan]
+            truth = np.stack(truth_seq) # [6, H, W, C]
+            pred = np.stack(pred_seq)   # [6, H, W, C]
+            delta = np.abs(truth - pred)
+            
+            n_times = 6
+            
+            # To keep it "Joyful" and not too huge, we'll plot the first signal only
+            feat_idx = 0
+            feat_name = channel_names[feat_idx]
+
+            fig, axes = plt.subplots(3, n_times, figsize=(18, 10))
+            
+            row_labels = ["GROUND TRUTH (y)", "PREDICTION (ŷ)", "ABSOLUTE DELTA (|y-ŷ|)"]
+            data_rows = [truth, pred, delta]
+            
+            # Shared scale for Truth and Pred, Delta gets its own
+            v_min = np.min([np.nanmin(truth[..., feat_idx]), np.nanmin(pred[..., feat_idx])])
+            v_max = np.max([np.nanmax(truth[..., feat_idx]), np.nanmax(pred[..., feat_idx])])
+            d_max = np.nanmax(delta[..., feat_idx])
+
+            for r_idx in range(3):
+                row_data = data_rows[r_idx]
+                for t_idx in range(n_times):
+                    ax = axes[r_idx, t_idx]
+                    img = row_data[t_idx, ..., feat_idx]
+                    
+                    # Style
+                    cmap = 'magma' if r_idx < 2 else 'Reds'
+                    vmx = v_max if r_idx < 2 else d_max
+                    vmn = v_min if r_idx < 2 else 0
+                    
+                    ax.imshow(img, origin='upper', cmap=cmap, vmin=vmn, vmax=vmx, interpolation='nearest')
+                    ax.set_xticks([])
+                    ax.set_yticks([])
+                    
+                    # Labels
+                    if r_idx == 0:
+                        title = "SEED (t=0)" if t_idx == 0 else f"Step t+{t_idx}"
+                        ax.set_title(title, fontweight='bold')
+                    
+                    if t_idx == 0:
+                        ax.set_ylabel(row_labels[r_idx], rotation=0, labelpad=80, fontweight='bold')
+
+            # Add vertical delimitation line across the whole figure
+            # After column 0 (x ~ 1/6)
+            line_x = 1.0/6.0 + 0.015 # Approx
+            fig.add_artist(plt.Line2D([line_x, line_x], [0.05, 0.9], color='cyan', linestyle='--', linewidth=2, alpha=0.5))
+
+            plt.suptitle(f"Autoregressive Forensic: {stage_label} ({feat_name})", fontsize=18, y=0.98)
+            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+            
+            save_path = os.path.join(self.save_dir, f"biopsy_{stage_label.lower().replace(' ', '_')}.png")
+            plt.savefig(save_path, dpi=100)
+            plt.close()
+            logger.info(f"📸 VisualDiagnostics: Saved {save_path}")
+
+        except Exception as e:
+            logger.error(f"VisualDiagnostics: Failed to biopsy autoregressive loop at {stage_label}: {e}")
+
     def _plot_grid_with_context(self, data_5d, feature_names, time_indices, global_maps, context_feat, offset, stage_label):
         """
         Plots the biopsy grid with a global context map sequence at the top.

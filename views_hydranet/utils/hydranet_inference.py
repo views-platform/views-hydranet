@@ -1,12 +1,14 @@
 import logging
-from typing import Optional, Tuple
+from typing import Optional, Tuple, TYPE_CHECKING, List
 
 import numpy as np
 import torch
 from torch.nn import Module
 from tqdm import tqdm
 
-from views_hydranet.utils.volume_handler import VolumeHandler
+if TYPE_CHECKING:
+    from views_hydranet.utils.volume_handler import VolumeHandler
+    from views_hydranet.utils.visual_diagnostics import VisualDiagnostics
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +21,7 @@ class HydraNetInference:
     """
 
     def __init__(
-        self, model: Module, config: dict, device: Optional[str] = None
+        self, model: Module, config: dict, device: Optional[str] = None, visualizer: Optional['VisualDiagnostics'] = None
     ) -> None:
         """Initializes the inference pipeline for HydraNet.
 
@@ -28,6 +30,7 @@ class HydraNetInference:
             config: Configuration settings for inference.
             device: The device to run inference on ('cuda' or 'cpu').
                 If not specified, it is automatically detected.
+            visualizer: Optional VisualDiagnostics observer.
 
         Raises:
             TypeError: If model or config are of incorrect types.
@@ -54,6 +57,7 @@ class HydraNetInference:
 
         self.model = model
         self.config = config
+        self.viz = visualizer or VisualDiagnostics({"diagnostic_visualizations": False})
 
         # Step 3: Move model to device and configure for inference
         self.model.to(self.device)
@@ -176,6 +180,7 @@ class HydraNetInference:
         sample_idx: int,
         is_evaluation: bool = True,
         pbar: Optional[tqdm] = None,
+        stage_label: str = "Stage 5"
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Predicts a sequence using the HydraNet model.
 
@@ -184,6 +189,7 @@ class HydraNetInference:
             sample_idx: Current sample index for posterior sampling.
             is_evaluation: Whether running in evaluation mode.
             pbar: Optional progress bar to update.
+            stage_label: Label for visual diagnostics.
 
         Returns:
             A tuple containing magnitudes and probabilities zstacks.
@@ -215,6 +221,10 @@ class HydraNetInference:
 
         out_of_sample_month = 0
         t1_pred = None # Initialize to prevent UnboundLocalError
+        
+        # STAGE 5 DIAGNOSTIC: Accumulators
+        truth_accumulator = []
+        pred_accumulator = []
 
         for t in range(full_seq_len):
             if pbar:
@@ -234,6 +244,19 @@ class HydraNetInference:
                     t1_pred, _, h_tt = self.model(t0, h_tt)
 
                 t0 = t1_pred.detach()
+                
+                # STAGE 5 DIAGNOSTIC: Capture Truth vs Pred
+                # We capture the first 6 steps (Seed + 5 steps)
+                if sample_idx == 0 and len(truth_accumulator) < 6:
+                     # For t0 (Input), the 'truth' is the ground truth from the future part of the tensor
+                     # if available (is_evaluation=True), otherwise we just see the seed.
+                     # We take channel 0 only for biopsy simplicity
+                     target_t = t if is_evaluation else 0 
+                     y_truth = full_tensor[0, target_t].permute(1, 2, 0).detach().cpu().numpy()
+                     y_pred = t0[0].permute(1, 2, 0).detach().cpu().numpy()
+                     truth_accumulator.append(y_truth)
+                     pred_accumulator.append(y_pred)
+
                 t1_pred, t1_pred_class, h_tt = self.execute_freeze_h_option(
                     t0, h_tt
                 )
@@ -259,13 +282,23 @@ class HydraNetInference:
 
             if pbar:
                 pbar.update(1)
+        
+        # STAGE 5 DIAGNOSTIC: Finalize Biopsy
+        if sample_idx == 0 and truth_accumulator and self.viz.active:
+             # Ensure we have exactly 6 frames (padding if model exploded early)
+             while len(truth_accumulator) < 6:
+                  truth_accumulator.append(np.zeros_like(truth_accumulator[0]))
+                  pred_accumulator.append(np.zeros_like(pred_accumulator[0]))
+             
+             raw_channels = self.config["regression_targets"]
+             self.viz.biopsy_autoregressive(truth_accumulator, pred_accumulator, stage_label, channel_names=raw_channels)
 
         return pred_magnitudes_zstack, pred_probabilities_zstack
 
 
     def generate_posterior_samples(
         self,
-        handler: VolumeHandler,
+        handler: 'VolumeHandler',
         is_evaluation: bool = False,
         window_info: str = ""
     ) -> Tuple[np.ndarray, np.ndarray]:
@@ -318,7 +351,7 @@ class HydraNetInference:
         ) as pbar:
             for sample_idx in range(self.config["n_posterior_samples"]):
                 pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(
-                    full_tensor, sample_idx, is_evaluation=is_evaluation, pbar=pbar
+                    full_tensor, sample_idx, is_evaluation=is_evaluation, pbar=pbar, stage_label=window_info
                 )
 
                 # Store slices directly without concatenation
