@@ -264,7 +264,8 @@ class VisualDiagnostics:
         except Exception as e:
             logger.error(f"VisualDiagnostics: Failed to biopsy sample at {stage_label}: {e}")
 
-    def biopsy_autoregressive(self, truth_seq: List[np.ndarray], pred_seq: List[np.ndarray], stage_label: str, channel_names: List[str]) -> None:
+    def biopsy_autoregressive(self, truth_seq: List[np.ndarray], pred_seq: List[np.ndarray], 
+                              stage_label: str, channel_names: List[str], time_indices: List[float] = None) -> None:
         """
         Specialized biopsy for the autoregressive feedback loop.
         Structure: 3 Rows (Truth, Pred, Delta) x 6 Columns (Seed + 5 steps).
@@ -311,16 +312,19 @@ class VisualDiagnostics:
                     
                     # Labels
                     if r_idx == 0:
-                        title = "SEED (t=0)" if t_idx == 0 else f"Step t+{t_idx}"
-                        ax.set_title(title, fontweight='bold')
+                        m_id = int(time_indices[t_idx]) if time_indices else t_idx
+                        suffix = "_seed" if t_idx == 0 else "_out"
+                        ax.set_title(f"{m_id}{suffix}", fontweight='bold')
                     
                     if t_idx == 0:
                         ax.set_ylabel(row_labels[r_idx], rotation=0, labelpad=80, fontweight='bold')
 
-            # Add vertical delimitation line across the whole figure
-            # After column 0 (x ~ 1/6)
-            line_x = 1.0/6.0 + 0.015 # Approx
-            fig.add_artist(plt.Line2D([line_x, line_x], [0.05, 0.9], color='cyan', linestyle='--', linewidth=2, alpha=0.5))
+            # Add vertical delimitation line correctly (between col 0 and 1)
+            fig.canvas.draw() # Ensure positions are calculated
+            pos0 = axes[0, 0].get_position()
+            pos1 = axes[0, 1].get_position()
+            line_x = (pos0.x1 + pos1.x0) / 2
+            fig.add_artist(plt.Line2D([line_x, line_x], [0.05, 0.9], color='cyan', linestyle='--', linewidth=2, alpha=0.8))
 
             plt.suptitle(f"Autoregressive Forensic: {stage_label} ({feat_name})", fontsize=18, y=0.98)
             plt.tight_layout(rect=[0, 0.03, 1, 0.95])
@@ -338,7 +342,8 @@ class VisualDiagnostics:
     def biopsy_training_performance(self, 
                                    y_reg: np.ndarray, y_hat_reg: np.ndarray, 
                                    y_cls: np.ndarray, y_hat_cls: np.ndarray, 
-                                   stage_label: str) -> None:
+                                   stage_label: str,
+                                   time_indices: List[float] = None) -> None:
         """
         4x6 Forensic Grid for Training runs.
         Rows: [Y_Reg, Y_Hat_Reg, Y_Cls, Y_Hat_Cls]
@@ -348,7 +353,6 @@ class VisualDiagnostics:
 
         try:
             # Inputs are [T, H, W, C]
-            # We assume C=0 for simplicity in this dense plot
             n_times = min(6, y_reg.shape[0])
             
             fig, axes = plt.subplots(4, n_times, figsize=(18, 12))
@@ -375,7 +379,10 @@ class VisualDiagnostics:
                     ax.set_yticks([])
                     
                     if r_idx == 0:
-                        ax.set_title(f"Step {t_idx+1}")
+                        m_id = int(time_indices[t_idx]) if time_indices else t_idx
+                        # Midpoint split: 3 in, 3 out
+                        suffix = "_in" if t_idx < 3 else "_out"
+                        ax.set_title(f"{m_id}{suffix}", fontweight='bold')
                     if t_idx == 0:
                         ax.set_ylabel(f"{row_labels[r_idx]}\n{stats}", rotation=0, labelpad=80, fontsize=9, fontweight='bold')
                     else:
@@ -384,8 +391,11 @@ class VisualDiagnostics:
 
             # Vertical line between History (3) and Forecast (3)
             if n_times > 3:
-                line_x = 0.5 + 0.01
-                fig.add_artist(plt.Line2D([line_x, line_x], [0.05, 0.9], color='cyan', linestyle='--', linewidth=2, alpha=0.5))
+                fig.canvas.draw()
+                pos2 = axes[0, 2].get_position()
+                pos3 = axes[0, 3].get_position()
+                line_x = (pos2.x1 + pos3.x0) / 2
+                fig.add_artist(plt.Line2D([line_x, line_x], [0.05, 0.9], color='cyan', linestyle='--', linewidth=2, alpha=0.8))
 
             plt.suptitle(f"Training Performance Forensic: {stage_label}", fontsize=18, y=0.98)
             plt.tight_layout(rect=[0, 0.03, 1, 0.95])

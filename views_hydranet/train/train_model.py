@@ -93,6 +93,14 @@ def train(
     # STAGE 5 DIAGNOSTIC: Accumulators
     acc_y_reg, acc_yh_reg = [], []
     acc_y_cls, acc_yh_cls = [], []
+    acc_months = []
+    
+    time_idx = -1
+    if viz and stage_label:
+         try:
+              time_idx = sample_handler.channel_map.index(sample_handler.time_col)
+         except Exception:
+              pass
 
     # Sequence loop rnn style
     for i in range(seq_len - 1):
@@ -107,9 +115,7 @@ def train(
             
             # STAGE 5 DIAGNOSTIC: Accumulate middle steps
             if viz and stage_label:
-                 # We want 6 steps. If seq_len is small, we take what we can.
-                 # Usually training windows are 12-24 steps.
-                 # We start capturing from the middle of the sequence.
+                 # We want 6 steps.
                  start_idx = max(0, (seq_len // 2) - 3)
                  if i >= start_idx and len(acc_y_reg) < 6:
                       # [B, C, H, W] -> [H, W, C]
@@ -117,6 +123,11 @@ def train(
                       acc_yh_reg.append(t1_pred[0].permute(1, 2, 0).detach().cpu().numpy())
                       acc_y_cls.append(t1_binary[0].permute(1, 2, 0).detach().cpu().numpy())
                       acc_yh_cls.append(torch.sigmoid(t1_pred_class[0]).permute(1, 2, 0).detach().cpu().numpy())
+                      
+                      if time_idx >= 0:
+                           # Extract month_id from sample_handler.data [T, H, W, C]
+                           m_id = sample_handler.data[i+1, 0, 0, time_idx]
+                           acc_months.append(m_id)
 
             losses_list = []
             n_reg = t1.shape[1] # Actual regression features in data
@@ -147,7 +158,8 @@ def train(
          viz.biopsy_training_performance(
              np.stack(acc_y_reg), np.stack(acc_yh_reg),
              np.stack(acc_y_cls), np.stack(acc_yh_cls),
-             stage_label
+             stage_label,
+             time_indices=acc_months
          )
 
     # log each sequence/timeline/batch

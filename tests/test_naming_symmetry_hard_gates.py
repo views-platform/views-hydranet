@@ -32,6 +32,7 @@ class TestNamingEngineFalsification:
 
     def test_gate_1_to_4_naming_symmetry(self, history_scaffold):
         """Gates 1-4: Verify naming and value types for Point vs Stochastic."""
+        np.random.seed(42)  # Fix seed: naming test cares about types, not values, but reproducibility matters
 
         # --- SCENARIO A: POINT (4D) ---
         # [T=1, H=4, W=4, C=4] (sb_reg, ns_reg, sb_prob, ns_prob)

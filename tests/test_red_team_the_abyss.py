@@ -20,6 +20,8 @@ CFG = {
 def test_red_team_the_abyss():
     print("\n🚩 RED TEAM: Initiating Total Annihilation Audit")
 
+    np.random.seed(42)  # Fix seed for reproducible kill_mask and lr_sb values
+
     # 1. SETUP: 10x10 grid, 1 month, 100% land
     df_in = pd.DataFrame({
         'month_id': [1] * 100,

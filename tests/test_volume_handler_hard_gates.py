@@ -30,7 +30,10 @@ def test_gate_11_identity_striping():
     tensor = handler.to_pytorch(torch.device('cpu'), include_identities=False)
 
     # 2 features, T=1, H=4, W=4
-    assert tensor.shape == (1, 1, 2, 4, 4)
+    assert tensor.shape == (1, 1, 2, 4, 4), (
+        f"Expected tensor shape (1, 1, 2, 4, 4) [B, T, C, H, W] after stripping identities, "
+        f"got {tensor.shape}. Check include_identities=False path in to_pytorch()."
+    )
 
 def test_gate_12_6_head_dressing():
     """Assert wrap_predictions correctly dresses 6 semantic heads."""
@@ -47,10 +50,18 @@ def test_gate_12_6_head_dressing():
     pred_handler = handler.wrap_predictions(posterior, base_names=base_names)
 
     # Check internal signal names
-    assert "pred_lr_a" in pred_handler.channel_map
-    assert "pred_by_a" in pred_handler.channel_map
-    assert "pred_lr_b" in pred_handler.channel_map
-    assert "pred_by_b" in pred_handler.channel_map
+    assert "pred_lr_a" in pred_handler.channel_map, (
+        f"Expected 'pred_lr_a' in channel_map, got: {pred_handler.channel_map}"
+    )
+    assert "pred_by_a" in pred_handler.channel_map, (
+        f"Expected 'pred_by_a' in channel_map, got: {pred_handler.channel_map}"
+    )
+    assert "pred_lr_b" in pred_handler.channel_map, (
+        f"Expected 'pred_lr_b' in channel_map, got: {pred_handler.channel_map}"
+    )
+    assert "pred_by_b" in pred_handler.channel_map, (
+        f"Expected 'pred_by_b' in channel_map, got: {pred_handler.channel_map}"
+    )
 
 def test_gate_13_14_topography_restoration():
     """Assert full symmetry recovery and MultiIndex restoration."""
@@ -69,11 +80,23 @@ def test_gate_13_14_topography_restoration():
     df_res = pred_handler.to_evaluation_df(history=handler, start_idx=0)
 
     # GATES
-    assert isinstance(df_res.index, pd.MultiIndex)
-    assert df_res.index.names == ['month_id', 'priogrid_gid']
-    assert "lr_feature_a" in df_res.columns # The Actual
-    assert "pred_lr_feature_a" in df_res.columns # The Prediction
-    assert not any("INTERNAL" in col for col in df_res.columns)
+    assert isinstance(df_res.index, pd.MultiIndex), (
+        f"Expected MultiIndex, got {type(df_res.index)}. "
+        f"to_evaluation_df() must restore (month_id, priogrid_gid) as MultiIndex."
+    )
+    assert df_res.index.names == ['month_id', 'priogrid_gid'], (
+        f"Expected index names ['month_id', 'priogrid_gid'], got {df_res.index.names}."
+    )
+    assert "lr_feature_a" in df_res.columns, (  # The Actual
+        f"Ground truth 'lr_feature_a' missing from output. Columns: {df_res.columns.tolist()}"
+    )
+    assert "pred_lr_feature_a" in df_res.columns, (  # The Prediction
+        f"Prediction 'pred_lr_feature_a' missing from output. Columns: {df_res.columns.tolist()}"
+    )
+    assert not any("INTERNAL" in col for col in df_res.columns), (
+        f"Internal token leaked into output columns: "
+        f"{[c for c in df_res.columns if 'INTERNAL' in c]}"
+    )
 
 def test_gate_15_geographic_anchoring():
     """Assert row_offset correctly anchors the grid."""
@@ -89,7 +112,14 @@ def test_gate_15_geographic_anchoring():
     # But wait, it is flipped (North-Up)
     # Row 0 in input (bottom) becomes Row 3 in North-Up (top)
     # So we check index [0, 3, 0, :]
-    assert data[0, 3, 0, handler.channel_map.index( 'lr_feature_a')] == 1.0
+    feat_idx = handler.channel_map.index('lr_feature_a')
+    actual = data[0, 3, 0, feat_idx]
+    assert actual == 1.0, (
+        f"\nGeographic anchor test failed.\n"
+        f"Expected data[T=0, H=3, W=0, C={feat_idx}] == 1.0 (North-Up flip: "
+        f"row=10 with offset=10 → r_idx=0, flipped to H-1=3).\n"
+        f"Got {actual}. Check row_offset and North-Up flip logic in from_df()."
+    )
 
 def test_gate_16_spatial_gradient_preservation():
     """

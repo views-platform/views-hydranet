@@ -54,8 +54,14 @@ def test_bridge_stochastic_accuracy():
     val = df_out.loc[(1, 1), "pred_lr_feature_a"]
 
 
-    assert isinstance(val, list)
-    assert val == [1.0, 2.0, 3.0]
+    assert isinstance(val, list), (
+        f"Expected a list of stochastic samples for 5D posterior, got {type(val)}. "
+        f"to_evaluation_df() must aggregate sample dimension S into a Python list per cell."
+    )
+    assert val == [1.0, 2.0, 3.0], (
+        f"Expected [1.0, 2.0, 3.0] (the 3 posterior samples in order), got {val}. "
+        f"Sample values must be preserved exactly; check collapse_to_point() and to_evaluation_df()."
+    )
 
 # --- BEIGE TEAM: THE PROOF OF ROBUSTNESS ---
 
@@ -78,8 +84,14 @@ def test_bridge_naming_suffixes():
     pred_handler = handler.wrap_predictions(posterior, base_names=[ 'lr_feature_a'])
     df_out = pred_handler.to_evaluation_df(history=handler, start_idx=0)
 
-    assert "pred_lr_feature_a" in df_out.columns
-    assert "pred_by_feature_a" in df_out.columns
+    assert "pred_lr_feature_a" in df_out.columns, (
+        f"Expected 'pred_lr_feature_a' in evaluation df columns, got: {list(df_out.columns)}. "
+        f"wrap_predictions() must prepend 'pred_' to base_names for regression output."
+    )
+    assert "pred_by_feature_a" in df_out.columns, (
+        f"Expected 'pred_by_feature_a' in evaluation df columns, got: {list(df_out.columns)}. "
+        f"wrap_predictions() must generate 'pred_by_' prefix for binary classification output."
+    )
     # --- RED TEAM: THE PROOF OF INVINCIBILITY ---
 
 def test_bridge_vader_alignment_shuffle():
@@ -96,6 +108,12 @@ def test_bridge_vader_alignment_shuffle():
     handler = VolumeHandler.from_df(df, PHYSICS_CFG)
 
     posterior = np.zeros((1, 4, 4, 2))
+    # Index derivation: PHYSICS_CFG row_offset=0, col_offset=0, H=4.
+    # North-Up flip: flipped_r = (H-1) - r_idx = 3 - r_idx.
+    #   PGID 1: global_row=0, global_col=0 → r_idx=0, c_idx=0 → flipped_r=3 → posterior[0, 3, 0, 0]
+    #   PGID 2: global_row=0, global_col=1 → r_idx=0, c_idx=1 → flipped_r=3 → posterior[0, 3, 1, 0]
+    #   PGID 3: global_row=1, global_col=0 → r_idx=1, c_idx=0 → flipped_r=2 → posterior[0, 2, 0, 0]
+    #   PGID 4: global_row=1, global_col=1 → r_idx=1, c_idx=1 → flipped_r=2 → posterior[0, 2, 1, 0]
     posterior[0, 3, 0, 0] = 10.0 # PGID 1
     posterior[0, 3, 1, 0] = 20.0 # PGID 2
     posterior[0, 2, 0, 0] = 30.0 # PGID 3
@@ -144,11 +162,21 @@ def test_jensens_inequality_sequence():
     )
     vh_collapsed_A = vh_raw.collapse_to_point(method="mean")
     result_A = vh_collapsed_A.data.flatten()[0]
-    assert np.allclose(result_A, 55.0, rtol=1e-5)
+    assert np.allclose(result_A, 55.0, rtol=1e-5), (
+        f"Path A (Inverse then Collapse): expected arithmetic mean of [10.0, 100.0] = 55.0, "
+        f"got {result_A:.6f}. "
+        f"expm1(log1p([10, 100])) → back to [10, 100] → mean = 55.0 exactly."
+    )
 
     # PATH B: The Wrong Path (Geometric Mean)
     vh_collapsed_B_log = vh.collapse_to_point(method="mean")
     result_B = np.expm1(vh_collapsed_B_log.data.flatten()[0])
 
     # Conclusion: Results must differ significantly (Jensen's Inequality)
-    assert abs(result_A - result_B) > 10.0
+    assert abs(result_A - result_B) > 10.0, (
+        f"Jensen's Inequality test failed: Path A (expm1 then mean) = {result_A:.4f}, "
+        f"Path B (mean then expm1) = {result_B:.4f}. "
+        f"For inputs [10, 100], the arithmetic mean in raw space (55.0) must differ by >10 "
+        f"from the geometric-mean equivalent in log space (~31.6). "
+        f"If this fails, the two paths have collapsed to the same value."
+    )

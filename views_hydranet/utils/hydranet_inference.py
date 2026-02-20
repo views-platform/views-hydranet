@@ -180,7 +180,8 @@ class HydraNetInference:
         sample_idx: int,
         is_evaluation: bool = True,
         pbar: Optional[tqdm] = None,
-        stage_label: str = "Stage 5"
+        stage_label: str = "Stage 5",
+        time_indices: Optional[List[float]] = None
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Predicts a sequence using the HydraNet model.
 
@@ -300,7 +301,10 @@ class HydraNetInference:
                        pred_accumulator.append(np.zeros_like(pred_accumulator[0]))
                   
                   raw_channels = self.config["regression_targets"]
-                  self.viz.biopsy_autoregressive(truth_accumulator, pred_accumulator, stage_label, channel_names=raw_channels)
+                  self.viz.biopsy_autoregressive(
+                      truth_accumulator, pred_accumulator, stage_label, 
+                      channel_names=raw_channels, time_indices=time_indices
+                  )
              else:
                   logger.warning(f"🧬 Stage 5: No data accumulated for forensic biopsy in {stage_label}!")
 
@@ -329,6 +333,17 @@ class HydraNetInference:
         # We strip identity channels here for the model input
         full_tensor = handler.to_pytorch(self.device, include_identities=False)
         _, seq_len, _, H, W = full_tensor.shape
+        
+        # 2. Extract Time Indices for Forensic Biopsy (Stage 5)
+        # month_id is in the channel_map.
+        time_indices = None
+        if self.viz.active:
+             try:
+                  t_idx = handler.channel_map.index(handler.time_col)
+                  # handler.data is [T, H, W, C]
+                  time_indices = handler.data[:, 0, 0, t_idx].tolist()
+             except Exception:
+                  pass
 
         # Define full_seq_len based on logic in predict()
         time_steps = len(self.config["steps"])
@@ -362,7 +377,8 @@ class HydraNetInference:
         ) as pbar:
             for sample_idx in range(self.config["n_posterior_samples"]):
                 pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(
-                    full_tensor, sample_idx, is_evaluation=is_evaluation, pbar=pbar, stage_label=window_info
+                    full_tensor, sample_idx, is_evaluation=is_evaluation, pbar=pbar, 
+                    stage_label=window_info, time_indices=time_indices
                 )
 
                 # Store slices directly without concatenation

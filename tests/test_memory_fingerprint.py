@@ -18,6 +18,7 @@ def audit_memory_explosion(n_samples_list: List[int], grid_dim: int = 180, n_mon
     """
     Simulates the VolumeHandler reconstruction process and measures RAM at 4 states.
     """
+    np.random.seed(42)  # Fix seed: memory test cares about allocation patterns, not values
     results = []
 
     # Baseline

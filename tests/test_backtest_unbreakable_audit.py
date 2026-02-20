@@ -31,6 +31,8 @@ CFG = {
 @pytest.fixture
 def audit_env():
     """Sets up a bit-perfect environment for the unbreakable audit."""
+    np.random.seed(42)  # Fix seed for reproducible feature values in history scaffold
+
     # 1. History: Months 100 to 120 (21 months)
     df_hist = pd.DataFrame({
         'month_id': sorted(list(range(100, 121)) * 4),

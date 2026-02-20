@@ -34,6 +34,13 @@ class TestOptimizationGate:
         model.init_h = lambda hidden_channels, dim: torch.zeros((1, 1, 1, 1), requires_grad=True)
 
         def mock_forward(t0, h):
+            # Shape contract: handler has channel_map=["t", "f1"] with identity_cols=["t"].
+            # After to_pytorch(include_identities=False), only "f1" remains → C=1.
+            # If this assert fires, identity stripping in to_pytorch() is broken.
+            assert t0.shape[1] == 1, (
+                f"mock_forward received t0 with {t0.shape[1]} channels; expected 1 (feature 'f1' only). "
+                f"Identity column 't' must be stripped before the model sees the tensor."
+            )
             pred = torch.ones((1, 1, 1, 1), requires_grad=True)
             return pred, pred, h
         model.forward = mock_forward
