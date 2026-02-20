@@ -1,6 +1,7 @@
 import logging
 import os
 from datetime import datetime
+from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
@@ -58,7 +59,7 @@ def train(
     pbar: tqdm,
     viz: VisualDiagnostics = None,
     stage_label: str = "",
-) -> torch.Tensor: # Returns window loss
+) -> Dict[str, torch.Tensor]: # Returns window losses
 
     avg_loss_reg_list = []
     avg_loss_class_list = []
@@ -152,9 +153,12 @@ def train(
     # log each sequence/timeline/batch
     train_log(avg_loss_list, avg_loss_reg_list, avg_loss_class_list)
 
-    # RETURN TOTAL LOSS (DO NOT STEP)
-    # The optimization gate is now at the Lesson level.
-    return total_loss
+    # RETURN LOSS COMPONENTS
+    return {
+        "total": total_loss,
+        "reg": torch.tensor(np.sum(avg_loss_reg_list)).to(device),
+        "cls": torch.tensor(np.sum(avg_loss_class_list)).to(device)
+    }
 
 
 def training_loop(
@@ -194,6 +198,8 @@ def training_loop(
     total_iterations = config["total_lessons"] * config["windows_per_lesson"] * (seq_len - 1)
 
     loss_history = []
+    loss_history_reg = []
+    loss_history_cls = []
     max_raw_grad_norm = 0.0
     
     with tqdm(
@@ -207,6 +213,8 @@ def training_loop(
 
             optimizer.zero_grad() # Reset gradients at start of Lesson
             lesson_loss = torch.tensor(0.0).to(device)
+            lesson_reg = 0.0
+            lesson_cls = 0.0
 
             # Pull one lesson per window in the batch (The Mixed Salad)
             for window_idx in range(config["windows_per_lesson"]):
@@ -232,7 +240,7 @@ def training_loop(
                 # 3. Process Window (Accumulate Loss)
                 # Pass viz to capture training dynamics (Stage 5) for all windows
                 slbl = f"Stage 5: Training Forensic (Lesson {lesson_idx + 1}_Win {window_idx + 1})"
-                window_loss = train(
+                losses = train(
                     model,
                     optimizer,
                     scheduler,
@@ -248,10 +256,13 @@ def training_loop(
                 )
 
                 # --- MEMORY-SAFE ACCUMULATION (ADR 014 Hardening) ---
-                if window_loss > 0:
-                    window_loss.backward()
+                w_loss = losses["total"]
+                if w_loss > 0:
+                    w_loss.backward()
 
-                lesson_loss += window_loss.detach() # Keep track of magnitude for logging
+                lesson_loss += w_loss.detach() # Keep track of magnitude for logging
+                lesson_reg += losses["reg"].item()
+                lesson_cls += losses["cls"].item()
 
             # --- THE OPTIMIZATION GATE (ADR 014) ---
             if lesson_loss > 0:
@@ -259,6 +270,11 @@ def training_loop(
                 IntegrityGuardian.monitor(model, torch.tensor([0.0]), lesson_loss, context=f"Lesson {lesson_idx}")
                 
                 loss_history.append(lesson_loss.item())
+                loss_history_reg.append(lesson_reg / config["windows_per_lesson"])
+                loss_history_cls.append(lesson_cls / config["windows_per_lesson"])
+                
+                # DIAGNOSTIC: Update Dynamic Loss Curves
+                viz.biopsy_loss_curves(loss_history_reg, loss_history_cls, loss_history, f"Lesson {lesson_idx+1}")
 
                 # --- 1. Audit Raw Gradient Energy BEFORE Clipping ---
                 total_norm = 0.0

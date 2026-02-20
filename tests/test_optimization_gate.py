@@ -1,4 +1,3 @@
-
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -87,9 +86,10 @@ class TestOptimizationGate:
         # Pull criterion components
         cr, cc, mt = criterion
 
-        loss = train(model, optimizer, scheduler, cr, cc, mt, handler, config, device, pbar)
+        losses = train(model, optimizer, scheduler, cr, cc, mt, handler, config, device, pbar)
 
-        assert isinstance(loss, torch.Tensor)
+        assert isinstance(losses, dict)
+        assert "total" in losses and isinstance(losses["total"], torch.Tensor)
         assert torch.allclose(model.weight, orig_weights)
         assert optimizer.step.call_count == 0
 
@@ -130,7 +130,6 @@ class TestOptimizationGate:
         model, criterion, optimizer, scheduler = make(config, device)
         
         # Create a real handler with some signal
-        # Channels: t, lr_f1, lr_f2, lr_f3
         data = np.random.rand(5, 8, 8, 4) 
         data[..., 1:] = 1.0 # Ensure some signal
         handler = VolumeHandler(

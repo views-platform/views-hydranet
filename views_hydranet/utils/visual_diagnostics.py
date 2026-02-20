@@ -399,6 +399,47 @@ class VisualDiagnostics:
         except Exception as e:
             logger.error(f"VisualDiagnostics: Failed training biopsy at {stage_label}: {e}")
 
+    def biopsy_loss_curves(self, 
+                           history_reg: List[float], 
+                           history_cls: List[float], 
+                           history_total: List[float], 
+                           stage_label: str) -> None:
+        """
+        1x3 Grid showing loss evolution over lessons.
+        """
+        if not self.active: return
+
+        try:
+            fig, axes = plt.subplots(3, 1, figsize=(10, 12))
+            
+            titles = ["Regression Loss (MSE/Shrinkage)", "Classification Loss (Focal/BCE)", "Total Multi-Task Loss"]
+            data = [history_reg, history_cls, history_total]
+            colors = ['firebrick', 'seagreen', 'royalblue']
+            
+            for i in range(3):
+                ax = axes[i]
+                ax.plot(data[i], marker='o', linestyle='-', color=colors[i], markersize=4, alpha=0.7)
+                ax.set_title(titles[i], fontweight='bold')
+                ax.set_xlabel("Lesson")
+                ax.set_ylabel("Loss")
+                ax.grid(True, alpha=0.3)
+                
+                if len(data[i]) > 0:
+                    current = data[i][-1]
+                    ax.text(0.95, 0.95, f"Current: {current:.4f}", transform=ax.transAxes, 
+                            verticalalignment='top', horizontalalignment='right',
+                            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+            plt.suptitle(f"Learning Dynamics: {stage_label}", fontsize=18)
+            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+            
+            save_path = os.path.join(self.save_dir, "loss_evolution.png")
+            plt.savefig(save_path, dpi=100)
+            plt.close()
+            # We don't log every time to avoid spamming the console
+        except Exception as e:
+            logger.error(f"VisualDiagnostics: Failed to plot loss curves: {e}")
+
     def _plot_grid_with_context(self, data_5d, feature_names, time_indices, global_maps, context_feat, offset, stage_label):
         """
         Plots the biopsy grid with a global context map sequence at the top.
