@@ -92,3 +92,67 @@ class TestOptimizationGate:
         assert isinstance(loss, torch.Tensor)
         assert torch.allclose(model.weight, orig_weights)
         assert optimizer.step.call_count == 0
+
+    def test_gate_18_weight_mutation_numerical(self):
+        """
+        GREEN GATE: Proves that model weights actually change after a training lesson.
+        This uses real gradients and a real optimizer, not mocks.
+        """
+        from views_hydranet.train.train_model import make, training_loop
+        
+        # 1. Setup a real world config that satisfies utils.py hardcoded mask (3+3)
+        config = {
+            "model": "HydraBNUNet06_LSTM4", 
+            "base": 16, 
+            "input_channels": 3, 
+            "total_hidden_channels": 16,
+            "output_channels": 6, 
+            "dropout_rate": 0.1,
+            "regression_targets": ["lr_f1", "lr_f2", "lr_f3"], 
+            "classification_targets": ["by_f1", "by_f2", "by_f3"],
+            "total_lessons": 1, "windows_per_lesson": 1,
+            "steps": [1], "n_posterior_samples": 1,
+            "np_seed": 42, "torch_seed": 42, "learning_rate": 1e-3, "weight_decay": 1e-2,
+            "window_dim": 8,
+            "weight_init": "xavier_uni", "clip_grad_norm": False,
+            "time_col": "t", "id_col": "i", "spatial_cols": ["y", "x"],
+            "identity_cols": ["t", "i"], "features": ["lr_f1", "lr_f2", "lr_f3"],
+            "row_offset": 0, "col_offset": 0, "height": 8, "width": 8,
+            "min_events": 0, "max_events": 100, "slope_ratio": 1.0, "roof_ratio": 1.0,
+            "min_ratio": 0.1, "max_ratio": 0.9,
+            "run_type": "train", "scheduler": "none", "loss_reg": "a", "loss_class": "b",
+            "loss_reg_a": 1.0, "loss_reg_c": 1.0,
+            "loss_class_alpha": 0.25, "loss_class_gamma": 2.0
+        }
+        device = torch.device("cpu")
+        
+        # Initialize real components
+        model, criterion, optimizer, scheduler = make(config, device)
+        
+        # Create a real handler with some signal
+        # Channels: t, lr_f1, lr_f2, lr_f3
+        data = np.random.rand(5, 8, 8, 4) 
+        data[..., 1:] = 1.0 # Ensure some signal
+        handler = VolumeHandler(
+            data=data, axes=("T", "H", "W", "C"), channel_map=["t", "lr_f1", "lr_f2", "lr_f3"],
+            time_col="t", id_col="i", spatial_cols=["y", "x"],
+            identity_cols=["t", "i"], feature_cols=["lr_f1", "lr_f2", "lr_f3"]
+        )
+
+        # Record initial weights
+        initial_params = [p.clone().detach() for p in model.parameters() if p.requires_grad]
+        
+        # Run 1 lesson
+        training_loop(config, model, criterion, optimizer, scheduler, handler, device)
+        
+        # Record updated weights
+        updated_params = [p.clone().detach() for p in model.parameters() if p.requires_grad]
+        
+        # Assert that at least some parameters have changed
+        any_change = False
+        for p_init, p_upd in zip(initial_params, updated_params):
+            if not torch.equal(p_init, p_upd):
+                any_change = True
+                break
+        
+        assert any_change, "CRITICAL FAILURE: Model weights did not change after optimizer.step()!"

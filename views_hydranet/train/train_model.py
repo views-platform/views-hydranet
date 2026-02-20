@@ -116,10 +116,11 @@ def train(
                       acc_yh_cls.append(torch.sigmoid(t1_pred_class[0]).permute(1, 2, 0).detach().cpu().numpy())
 
             losses_list = []
-            for j in range(t1_pred.shape[1]):
+            n_reg = t1.shape[1] # Actual regression features in data
+            for j in range(n_reg):
                 losses_list.append(criterion_reg(t1_pred[:, j, :, :], t1[:, j, :, :]))
 
-            for j in range(t1_pred_class.shape[1]):
+            for j in range(n_reg):
                 losses_list.append(
                     criterion_class(t1_pred_class[:, j, :, :], t1_binary[:, j, :, :])
                 )
@@ -273,8 +274,9 @@ def training_loop(
                 # Optimize (Update Weights)
                 optimizer.step()
 
-            # Step scheduler at the end of the lesson
-            scheduler.step()
+            # Step scheduler at the end of the lesson if it exists
+            if scheduler and not isinstance(scheduler, list):
+                scheduler.step()
 
     logger.info("✅ Training complete!")
     
