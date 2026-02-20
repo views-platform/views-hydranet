@@ -236,21 +236,28 @@ class HydraNetInference:
                 t0 = full_tensor[:, t]
                 # Data is already North-Up via VolumeHandler.
                 t1_pred, _, h_tt = self.model(t0, h_tt)
+                
+                # STAGE 5: Capture the LAST historical frame as the SEED (t=in_sample_seq_len-1)
+                if sample_idx == 0 and t == in_sample_seq_len - 1 and self.viz.active:
+                     y_seed = t0[0].permute(1, 2, 0).detach().cpu().numpy()
+                     truth_accumulator.append(y_seed)
+                     pred_accumulator.append(y_seed) # Seed is identity
             else:
                 # BOOTSTRAP: If we are starting out-of-sample immediately,
                 # we need to initialize t1_pred from the first frame of history.
                 if t1_pred is None:
                     t0 = full_tensor[:, 0]
                     t1_pred, _, h_tt = self.model(t0, h_tt)
+                    # Special case: If seq_len=1, seed is t=0
+                    if sample_idx == 0 and not truth_accumulator and self.viz.active:
+                         y_seed = t0[0].permute(1, 2, 0).detach().cpu().numpy()
+                         truth_accumulator.append(y_seed)
+                         pred_accumulator.append(y_seed)
 
                 t0 = t1_pred.detach()
                 
-                # STAGE 5 DIAGNOSTIC: Capture Truth vs Pred
-                # We capture the first 6 steps (Seed + 5 steps)
-                if sample_idx == 0 and len(truth_accumulator) < 6:
-                     # For t0 (Input), the 'truth' is the ground truth from the future part of the tensor
-                     # if available (is_evaluation=True), otherwise we just see the seed.
-                     # We take channel 0 only for biopsy simplicity
+                # STAGE 5 DIAGNOSTIC: Capture 5 autoregressive steps
+                if sample_idx == 0 and len(truth_accumulator) < 6 and self.viz.active:
                      target_t = t if is_evaluation else 0 
                      y_truth = full_tensor[0, target_t].permute(1, 2, 0).detach().cpu().numpy()
                      y_pred = t0[0].permute(1, 2, 0).detach().cpu().numpy()
