@@ -291,14 +291,18 @@ class HydraNetInference:
                 pbar.update(1)
         
         # STAGE 5 DIAGNOSTIC: Finalize Biopsy
-        if sample_idx == 0 and truth_accumulator and self.viz.active:
-             # Ensure we have exactly 6 frames (padding if model exploded early)
-             while len(truth_accumulator) < 6:
-                  truth_accumulator.append(np.zeros_like(truth_accumulator[0]))
-                  pred_accumulator.append(np.zeros_like(pred_accumulator[0]))
-             
-             raw_channels = self.config["regression_targets"]
-             self.viz.biopsy_autoregressive(truth_accumulator, pred_accumulator, stage_label, channel_names=raw_channels)
+        if sample_idx == 0 and self.viz.active:
+             if truth_accumulator:
+                  logger.info(f"🧬 Stage 5: Finalizing Autoregressive Forensic for {stage_label} ({len(truth_accumulator)} steps captured)")
+                  # Ensure we have exactly 6 frames (padding if model exploded early)
+                  while len(truth_accumulator) < 6:
+                       truth_accumulator.append(np.zeros_like(truth_accumulator[0]))
+                       pred_accumulator.append(np.zeros_like(pred_accumulator[0]))
+                  
+                  raw_channels = self.config["regression_targets"]
+                  self.viz.biopsy_autoregressive(truth_accumulator, pred_accumulator, stage_label, channel_names=raw_channels)
+             else:
+                  logger.warning(f"🧬 Stage 5: No data accumulated for forensic biopsy in {stage_label}!")
 
         return pred_magnitudes_zstack, pred_probabilities_zstack
 

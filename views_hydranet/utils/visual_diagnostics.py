@@ -325,7 +325,9 @@ class VisualDiagnostics:
             plt.suptitle(f"Autoregressive Forensic: {stage_label} ({feat_name})", fontsize=18, y=0.98)
             plt.tight_layout(rect=[0, 0.03, 1, 0.95])
             
-            save_path = os.path.join(self.save_dir, f"biopsy_{stage_label.lower().replace(' ', '_')}.png")
+            # Sanitize label for filesystem
+            safe_label = stage_label.lower().replace(' ', '_').replace('/', '_')
+            save_path = os.path.join(self.save_dir, f"biopsy_{safe_label}.png")
             plt.savefig(save_path, dpi=100)
             plt.close()
             logger.info(f"📸 VisualDiagnostics: Saved {save_path}")
@@ -404,7 +406,9 @@ class VisualDiagnostics:
         # rect=[left, bottom, right, top] - reserve top 5% for suptitle
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         
-        save_path = os.path.join(self.save_dir, f"biopsy_{stage_label.lower().replace(' ', '_')}.png")
+        # Sanitize label for filesystem
+        safe_label = stage_label.lower().replace(' ', '_').replace('/', '_')
+        save_path = os.path.join(self.save_dir, f"biopsy_{safe_label}.png")
         plt.savefig(save_path, dpi=100)
         plt.close()
         logger.info(f"📸 VisualDiagnostics: Saved {save_path}")
@@ -454,7 +458,9 @@ class VisualDiagnostics:
         plt.suptitle(f"Visual Biopsy: {stage_label}", fontsize=16)
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         
-        save_path = os.path.join(self.save_dir, f"biopsy_{stage_label.lower().replace(' ', '_')}.png")
+        # Sanitize label for filesystem
+        safe_label = stage_label.lower().replace(' ', '_').replace('/', '_')
+        save_path = os.path.join(self.save_dir, f"biopsy_{safe_label}.png")
         plt.savefig(save_path, dpi=100)
         plt.close()
         logger.info(f"📸 VisualDiagnostics: Saved {save_path}")
