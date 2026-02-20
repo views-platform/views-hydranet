@@ -216,10 +216,8 @@ def training_loop(
                 sample_handler = batch[0]
                 
                 # DIAGNOSTIC: Stage 4 (Sampling)
-                # We biopsy the first few windows of the first lesson to verify geometry
-                if lesson_idx == 0 and window_idx < 3:
-                     # Pass global handler for context row
-                     viz.biopsy_sample(sample_handler, handler, f"Stage 4: Training Window {window_idx+1} (Target: {target})")
+                # We biopsy every window to verify geometry and variety
+                viz.biopsy_sample(sample_handler, handler, f"Stage 4: Training Window {window_idx+1} (Lesson {lesson_idx+1} Target {target})")
 
                 # Update progress bar
                 pbar.set_description(
@@ -229,8 +227,7 @@ def training_loop(
                 )
 
                 # 3. Process Window (Accumulate Loss)
-                # Pass viz to capture training dynamics (Stage 5)
-                # Only biopsy first 3 windows of Lesson 1
+                # Pass viz to capture training dynamics (Stage 5) for all windows
                 slbl = f"Stage 5: Training Forensic (Lesson {lesson_idx + 1}_Win {window_idx + 1})"
                 window_loss = train(
                     model,
@@ -244,7 +241,7 @@ def training_loop(
                     device,
                     pbar,
                     viz=viz,
-                    stage_label=slbl if (lesson_idx == 0 and window_idx < 3) else ""
+                    stage_label=slbl
                 )
 
                 # --- MEMORY-SAFE ACCUMULATION (ADR 014 Hardening) ---
