@@ -536,6 +536,7 @@ class VisualDiagnostics:
             save_path = os.path.join(self.save_dir, fname)
             plt.savefig(save_path, dpi=100)
             plt.close()
+            logger.info(f"💾 VisualDiagnostics: Saved {mode_str} dossier to {fname}")
 
         except Exception as e:
             logger.error(f"VisualDiagnostics: Failed to generate joyful dossier for {target_name}: {e}")
