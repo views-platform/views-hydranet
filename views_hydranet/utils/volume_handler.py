@@ -3,7 +3,7 @@
 import gc
 import logging
 from dataclasses import dataclass, field, replace
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import numpy as np
 import pandas as pd
@@ -30,7 +30,7 @@ class VolumeMetadata:
     # Structural Roles (The names of the columns providing the scaffold)
     time_col: str
     id_col: str
-    spatial_cols: Tuple[str, str]  # (row_col, col_col)
+    spatial_cols: Tuple[str, ...]  # Usually (row_col, col_col)
 
     # Classification
     identity_cols: Tuple[str, ...]
@@ -48,7 +48,7 @@ class VolumeHandler:
         channel_map: Union[List[str], Tuple[str, ...]],
         time_col: str,
         id_col: str,
-        spatial_cols: Union[List[str], Tuple[str, str]],
+        spatial_cols: Union[List[str], Tuple[str, ...]],
         identity_cols: Union[List[str], Tuple[str, ...]] = (),
         feature_cols: Union[List[str], Tuple[str, ...]] = (),
         spatial_offset: Tuple[int, int] = (0, 0),
@@ -322,6 +322,7 @@ class VolumeHandler:
         primary_idxs = [head_time_idx, head_id_idx]
         primary_names = [time_col, id_col]
 
+        axes: Tuple[str, ...]
         if work_data.ndim == 5:
             # Stochastic: [T, H, W, C, S]
             axes = ("T", "H", "W", "C", "S")
@@ -660,11 +661,15 @@ class VolumeHandler:
             m_col = self._metadata.time_col
             m_idx = self.channel_map.index(m_col)
             if torch.is_tensor(self._data):
-                increments = torch.arange(1, steps + 1, device=self._data.device).view(steps, 1, 1)
-                future_vol[..., m_idx] += increments
+                t_increments = torch.arange(1, steps + 1, device=self._data.device).view(
+                    steps, 1, 1
+                )
+                t_future_vol = cast(torch.Tensor, future_vol)
+                t_future_vol[..., m_idx] += t_increments
             else:
-                increments = np.arange(1, steps + 1).reshape(steps, 1, 1)
-                future_vol[..., m_idx] += increments
+                np_increments = np.arange(1, steps + 1).reshape(steps, 1, 1)
+                np_future_vol = cast(np.ndarray, future_vol)
+                np_future_vol[..., m_idx] += np_increments
         except ValueError:
             pass
 
@@ -686,11 +691,12 @@ class VolumeHandler:
         NOTE: Review needed - primarily used in geometric tests.
         """
         dims_tuple = tuple(dims)
-        self._data = (
-            self._data.permute(*dims_tuple)
-            if torch.is_tensor(self._data)
-            else np.transpose(self._data, dims_tuple)
-        )
+        if torch.is_tensor(self._data):
+            t_data = cast(torch.Tensor, self._data)
+            self._data = cast(Any, t_data.permute(*dims_tuple))
+        else:
+            np_data = cast(np.ndarray, self._data)
+            self._data = cast(Any, np.transpose(np_data, dims_tuple))
 
         # Update Ledger
         new_axes = tuple(self._metadata.axes[i] for i in dims_tuple)
@@ -707,11 +713,12 @@ class VolumeHandler:
         NOTE: Critical for data augmentation in training loop.
         """
         idx = self.get_axis_idx(axis_label)
-        self._data = (
-            torch.flip(self._data, dims=[idx])
-            if torch.is_tensor(self._data)
-            else np.flip(self._data, axis=idx)
-        )
+        if torch.is_tensor(self._data):
+            t_data = cast(torch.Tensor, self._data)
+            self._data = cast(Any, torch.flip(t_data, dims=[idx]))
+        else:
+            np_data = cast(np.ndarray, self._data)
+            self._data = cast(Any, np.flip(np_data, axis=idx))
 
         self._metadata = replace(
             self._metadata, history=self._metadata.history + (("flip", axis_label),)
@@ -787,9 +794,10 @@ class VolumeHandler:
                 src_idx = self.channel_map.index(src_name)
 
                 # Slicing the volume on the channel axis
-                slc = [slice(None)] * self._data.ndim
+                slc: List[Union[slice, int]] = [slice(None)] * self._data.ndim
                 slc[c_idx] = src_idx
 
+                derived_data: Union[np.ndarray, torch.Tensor]
                 if op == "binary":
                     # Zero Magic: threshold is mandatory for binary
                     if "threshold" not in instr:
@@ -808,7 +816,10 @@ class VolumeHandler:
                             (self._data[tuple(slc)] > threshold).float().unsqueeze(c_idx)
                         )
                     else:
-                        derived_data = (self._data[tuple(slc)] > threshold).astype(np.float32)
+                        # Use a temporary variable to help mypy with types
+                        raw_slice = self._data[tuple(slc)]
+                        assert isinstance(raw_slice, np.ndarray)
+                        derived_data = (raw_slice > threshold).astype(np.float32)
                         derived_data = np.expand_dims(derived_data, axis=c_idx)
                 else:
                     err_msg = (
@@ -819,13 +830,16 @@ class VolumeHandler:
 
                 # Concatenate to data
                 if torch.is_tensor(self._data):
+                    assert torch.is_tensor(derived_data)
                     self._data = torch.cat([self._data, derived_data], dim=c_idx)
                 else:
+                    assert isinstance(derived_data, np.ndarray)
+                    assert isinstance(self._data, np.ndarray)
                     self._data = np.concatenate([self._data, derived_data], axis=c_idx)
 
                 # Update ledger
-                new_channels.append(dst_name)
-                new_features.append(dst_name)
+                new_channels.append(cast(str, dst_name))
+                new_features.append(cast(str, dst_name))
 
         self._metadata = replace(
             self._metadata, channel_map=tuple(new_channels), feature_cols=tuple(new_features)

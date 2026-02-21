@@ -3,7 +3,7 @@ Declarative and Stateful Feature Scaling for HydraNet.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Union
 
 import pandas as pd
 
@@ -239,7 +239,7 @@ class FeatureScaler:
                 logger.debug(f"  ← Volume Channel {i} ({channel_name}): Inverting via {method}")
 
                 # Slicing the 5D/4D volume on the channel axis
-                slc = [slice(None)] * work_data.ndim
+                slc: List[Union[slice, int]] = [slice(None)] * work_data.ndim
                 slc[c_idx] = i
                 work_data[tuple(slc)] = inverse_func(work_data[tuple(slc)])
 

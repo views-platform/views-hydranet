@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, cast
 
 import numpy as np
 import torch
@@ -59,7 +59,7 @@ class HydraNetInference:
 
             raise TypeError(err_msg)
 
-        self.model = model
+        self.model: Module = model
         self.config = config
         self.viz = visualizer or VisualDiagnostics({"diagnostic_visualizations": False})
 
@@ -209,7 +209,7 @@ class HydraNetInference:
 
         # Initialize hidden state
         h_tt = (
-            self.model.init_hTtime(hidden_channels=self.model.base, H=H, W=W)
+            cast(Any, self.model).init_hTtime(hidden_channels=self.model.base, H=H, W=W)
             .float()
             .to(self.device)
         )
@@ -246,7 +246,8 @@ class HydraNetInference:
                 # Slice input features
                 t0_input = t0[:, feat_indices, :, :]
                 # Data is already North-Up via VolumeHandler.
-                t1_pred, _, h_tt = self.model(t0_input, h_tt)
+                # Use Any to satisfy mypy non-callable error
+                t1_pred, _, h_tt = cast(Any, self.model)(t0_input, h_tt)
 
                 # STAGE 5: Capture the LAST historical frame as the SEED (t=in_sample_seq_len-1)
                 if sample_idx == 0 and t == in_sample_seq_len - 1 and self.viz.active:
@@ -259,7 +260,7 @@ class HydraNetInference:
                 if t1_pred is None:
                     t0 = full_tensor[:, 0]
                     t0_input = t0[:, feat_indices, :, :]
-                    t1_pred, _, h_tt = self.model(t0_input, h_tt)
+                    t1_pred, _, h_tt = cast(Any, self.model)(t0_input, h_tt)
                     # Special case: If seq_len=1, seed is t=0
                     if sample_idx == 0 and not truth_accumulator and self.viz.active:
                         y_seed = t0[0].permute(1, 2, 0).detach().cpu().numpy()
@@ -318,7 +319,7 @@ class HydraNetInference:
                     pred_accumulator,
                     stage_label,
                     channel_names=raw_channels,
-                    time_indices=time_indices,
+                    time_indices=time_indices if time_indices else [],
                 )
             else:
                 logger.warning(
@@ -348,9 +349,7 @@ class HydraNetInference:
         _, seq_len, _, H, W = full_tensor.shape
 
         # ADR 046: Map channel names for consistent indexing in predict()
-        feature_names = [
-            n for n in handler.channel_map if n in handler._metadata.feature_cols
-        ]
+        feature_names = [n for n in handler.channel_map if n in handler._metadata.feature_cols]
 
         # 2. Extract Time Indices for Forensic Biopsy (Stage 5)
         # month_id is in the channel_map.

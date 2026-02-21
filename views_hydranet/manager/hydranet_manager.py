@@ -8,6 +8,7 @@ It handles spatiotemporal data volumes and implements rolling-origin evaluation.
 
 import logging
 from datetime import datetime
+from typing import Any, Dict
 
 import pandas as pd
 from views_pipeline_core.managers.model import (
@@ -43,6 +44,8 @@ class HydranetManager(ForecastingModelManager):
     Inherits from ForecastingModelManager to integrate with the ViEWS pipeline.
     Implements multi-task evaluation and rolling-origin orchestration.
     """
+
+    configs: Dict[str, Any]
 
     def __init__(self, model_path: ModelPathManager, wandb_notification: bool = True) -> None:
         """

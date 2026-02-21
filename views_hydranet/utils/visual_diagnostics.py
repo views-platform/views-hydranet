@@ -323,7 +323,7 @@ class VisualDiagnostics:
         pred_seq: List[np.ndarray],
         stage_label: str,
         channel_names: List[str],
-        time_indices: List[float] = None,
+        time_indices: Optional[List[float]] = None,
     ) -> None:
         """
         Specialized biopsy for the autoregressive feedback loop.
@@ -386,7 +386,7 @@ class VisualDiagnostics:
             plt.suptitle(
                 f"Autoregressive Forensic: {stage_label} ({feat_name})", fontsize=18, y=0.98
             )
-            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+            plt.tight_layout(rect=(0, 0.03, 1, 0.95))
 
             # Add vertical delimitation line correctly (between col 0 and 1)
             # IMPORTANT: tight_layout must be called BEFORE get_position()
@@ -424,7 +424,7 @@ class VisualDiagnostics:
         y_cls: np.ndarray,
         y_hat_cls: np.ndarray,
         stage_label: str,
-        time_indices: List[float] = None,
+        time_indices: Optional[List[float]] = None,
     ) -> None:
         """
         4x6 Forensic Grid for Training runs.
@@ -496,7 +496,7 @@ class VisualDiagnostics:
                         )
 
             plt.suptitle(f"Training Performance Forensic: {stage_label}", fontsize=18, y=0.98)
-            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+            plt.tight_layout(rect=(0, 0.03, 1, 0.95))
 
             # Vertical line between History (3) and Forecast (3)
             if n_times > 3:
@@ -581,7 +581,7 @@ class VisualDiagnostics:
                     )
 
             plt.suptitle(f"Learning Dynamics: {stage_label}", fontsize=18)
-            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+            plt.tight_layout(rect=(0, 0.03, 1, 0.95))
 
             fname = "loss_evolution_log.png" if is_log else "loss_evolution.png"
             save_path = os.path.join(self.dirs["training"], fname)
@@ -690,7 +690,7 @@ class VisualDiagnostics:
 
             mode_str = "REGRESSION" if is_reg else "CLASSIFICATION"
             plt.suptitle(f"{mode_str} FORENSIC: {target_name} ({stage_label})", fontsize=18)
-            plt.tight_layout(rect=[0, 0.03, 1, 0.97])
+            plt.tight_layout(rect=(0, 0.03, 1, 0.97))
 
             type_tag = "reg" if is_reg else "cls"
             fname = f"forensic_{type_tag}_{target_name.lower()}.png"
@@ -706,14 +706,14 @@ class VisualDiagnostics:
 
     def _plot_grid_with_context(
         self,
-        data_5d,
-        feature_names,
-        time_indices,
-        global_maps,
-        context_feat,
-        offset,
-        stage_label,
-        subdir: str = None,
+        data_5d: np.ndarray,
+        feature_names: List[str],
+        time_indices: np.ndarray,
+        global_maps: np.ndarray,
+        context_feat: str,
+        offset: Tuple[int, int],
+        stage_label: str,
+        subdir: Optional[str] = None,
     ) -> None:
         """
         Plots the biopsy grid with a global context map sequence at the top.
@@ -811,7 +811,7 @@ class VisualDiagnostics:
 
         plt.suptitle(f"Visual Biopsy (Contextual): {stage_label}", fontsize=16)
         # rect=[left, bottom, right, top] - reserve top 5% for suptitle
-        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+        plt.tight_layout(rect=(0, 0.03, 1, 0.95))
 
         # Sanitize label for filesystem
         safe_label = stage_label.lower().replace(" ", "_").replace("/", "_")
@@ -830,7 +830,7 @@ class VisualDiagnostics:
         feature_names: List[str],
         time_indices: np.ndarray,
         stage_label: str,
-        subdir: str = None,
+        subdir: Optional[str] = None,
     ) -> None:
         """
         Core Plotting Logic.
@@ -891,7 +891,7 @@ class VisualDiagnostics:
                 )
 
         plt.suptitle(f"Visual Biopsy: {stage_label}", fontsize=16)
-        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+        plt.tight_layout(rect=(0, 0.03, 1, 0.95))
 
         # Sanitize label for filesystem
         safe_label = stage_label.lower().replace(" ", "_").replace("/", "_")

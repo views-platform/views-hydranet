@@ -38,9 +38,8 @@ class TrainingForensics:
 
         # 2. Initialize Histories with NAMESPACED Keys (ADR 003 Explicit)
         # We use "REG:name" and "CLS:name" to prevent collisions
-        self.history = {}
-        self.target_map = {}  # Maps namespaced key to metadata
-
+        self.history: Dict[str, Dict[str, List[float]]] = {}
+        self.target_map: Dict[str, Dict[str, Any]] = {}  # Maps namespaced key to metadata
         for target in self.reg_targets:
             key = f"REG:{target}"
             self.target_map[key] = {"type": "REG", "name": target, "metrics": self.reg_metrics}

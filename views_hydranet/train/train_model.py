@@ -1,7 +1,7 @@
 import logging
 import os
 from datetime import datetime
-from typing import Dict
+from typing import Any, Dict, Optional, cast
 
 import numpy as np
 import torch
@@ -58,9 +58,9 @@ def train(
     config: dict,
     device: torch.device,
     pbar: tqdm,
-    viz: VisualDiagnostics = None,
+    viz: Optional[VisualDiagnostics] = None,
     stage_label: str = "",
-    forensics: TrainingForensics = None,
+    forensics: Optional[TrainingForensics] = None,
 ) -> Dict[str, torch.Tensor]:  # Returns window losses
 
     avg_loss_reg_list = []
@@ -87,8 +87,7 @@ def train(
     # The tensor contains channels in the order defined by sample_handler.channel_map
     # (filtered by feature_cols in to_pytorch).
     feature_names = [
-        n for n in sample_handler.channel_map
-        if n in sample_handler._metadata.feature_cols
+        n for n in sample_handler.channel_map if n in sample_handler._metadata.feature_cols
     ]
 
     reg_targets = config.get("regression_targets", [])
@@ -112,11 +111,13 @@ def train(
     )
 
     # initialize a hidden state
-    h = model.init_h(hidden_channels=model.base, dim=window_dim).float().to(device)
+    h = cast(Any, model).init_h(hidden_channels=model.base, dim=window_dim).float().to(device)
 
     # STAGE 5 DIAGNOSTIC: Accumulators
-    acc_y_reg, acc_yh_reg = [], []
-    acc_y_cls, acc_yh_cls = [], []
+    acc_y_reg: list[np.ndarray] = []
+    acc_yh_reg: list[np.ndarray] = []
+    acc_y_cls: list[np.ndarray] = []
+    acc_yh_cls: list[np.ndarray] = []
     acc_months = []
 
     time_idx = -1
@@ -137,7 +138,8 @@ def train(
 
         # Forward pass: Feed ONLY the input features (Zero Magic)
         t0_input = t0[:, feat_indices, :, :]
-        t1_pred, t1_pred_class, h = model(t0_input, h)
+        # Use Any to satisfy mypy non-callable error
+        t1_pred, t1_pred_class, h = cast(Any, model)(t0_input, h)
 
         # --- FORENSIC RECORDING (ADR 001 Custodian) ---
         if forensics:
@@ -184,7 +186,7 @@ def train(
             losses_list.append(criterion_class(t1_pred_class[:, j, :, :], y_cls[:, j, :, :]))
 
         losses = torch.stack(losses_list)
-        loss = multitaskloss_instance(losses)
+        loss = cast(Any, multitaskloss_instance)(losses)
         total_loss += loss
 
         loss_reg = losses[:n_reg].sum()

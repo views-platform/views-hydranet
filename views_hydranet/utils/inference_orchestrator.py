@@ -61,7 +61,7 @@ class InferenceOrchestrator:
         )
 
         inference = HydraNetInference(
-            self.model, self.config, device=self.device, visualizer=self.viz
+            self.model, self.config, device=str(self.device), visualizer=self.viz
         )
         list_df_dirty = []
 
