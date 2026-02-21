@@ -1,4 +1,3 @@
-
 """
 TrainingForensics Test Suite
 
@@ -13,6 +12,7 @@ Coverage:
   BEIGE GATES — Empty lessons (carry-forward), zero-sum y (sentinel 1.0), unknown get_dossier,
              — AP/AUC no-positive-samples edge cases
 """
+
 import pytest
 import torch
 
@@ -53,6 +53,7 @@ def _record_cls(tf: TrainingForensics, y: list, yh: list) -> None:
 # ---------------------------------------------------------------------------
 # RED GATES — Init: forbidden metrics raise ValueError (ADR 008 Narrative Failure)
 # ---------------------------------------------------------------------------
+
 
 def test_forensics_rejects_f1_in_reg_metrics():
     """
@@ -95,6 +96,7 @@ def test_forensics_rejects_precision():
 # RED GATE — record(): unknown target raises KeyError
 # ---------------------------------------------------------------------------
 
+
 def test_forensics_record_raises_on_unknown_target():
     """
     RED GATE: record() must raise KeyError if the target was not initialized.
@@ -109,6 +111,7 @@ def test_forensics_record_raises_on_unknown_target():
 # ---------------------------------------------------------------------------
 # GREEN GATES — Metric Mathematics (Independent Auditor Check)
 # ---------------------------------------------------------------------------
+
 
 def test_forensics_mse_correctness():
     """
@@ -186,6 +189,7 @@ def test_forensics_bias_running_is_cumulative_across_lessons():
 # BEIGE GATES — Edge Cases and Stability (Robust Auditor)
 # ---------------------------------------------------------------------------
 
+
 def test_forensics_empty_lesson_first_appends_zero():
     """
     BEIGE GATE: finalize_lesson() with no records must append 0.0 or carry forward.
@@ -202,10 +206,10 @@ def test_forensics_empty_lesson_subsequent_carries_forward():
     BEIGE GATE: finalize_lesson() must carry forward the last recorded value if empty.
     """
     tf = TrainingForensics(FORENSICS_CFG)
-    _record_reg(tf, [0.0, 4.0], [0.0, 2.0]) # MSE = 2.0
+    _record_reg(tf, [0.0, 4.0], [0.0, 2.0])  # MSE = 2.0
     tf.finalize_lesson()
 
-    tf.finalize_lesson() # Empty lesson
+    tf.finalize_lesson()  # Empty lesson
     mse_history = tf.history["REG:lr_feat_a"]["mse"]
     assert len(mse_history) == 2
     assert mse_history[1] == 2.0

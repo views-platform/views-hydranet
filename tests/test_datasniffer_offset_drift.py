@@ -12,13 +12,13 @@ row_offset/col_offset. If a handler was built with one offset and the
 config was later changed (or vice versa), spatial scrambling occurs
 silently. This file closes that blind spot.
 """
+
 import numpy as np
 import pandas as pd
 import pytest
 
 from views_hydranet.utils.data_sniffer import DataSniffer
 from views_hydranet.utils.volume_handler import VolumeHandler
-
 
 # ---------------------------------------------------------------------------
 # Shared fixture helpers
@@ -32,8 +32,11 @@ DRIFT_CFG = {
     "features": ["value"],
     "height": 4,
     "width": 4,
-    "row_offset": 87,    # <-- the config's INTENDED anchor
+    "row_offset": 87,  # <-- the config's INTENDED anchor
     "col_offset": 310,
+    # ADR 046 Compliance
+    "transformations": {"identity": ["value"]},
+    "derivations": {},
 }
 
 
@@ -44,7 +47,7 @@ def _make_handler(row_offset: int, col_offset: int, month: int = 100) -> VolumeH
     check in sniff_forecast_alignment passes.
     """
     data = np.zeros((1, 4, 4, 2), dtype=np.float32)
-    data[..., 0] = float(month)   # channel 0 = month_id
+    data[..., 0] = float(month)  # channel 0 = month_id
     return VolumeHandler(
         data=data,
         axes=("T", "H", "W", "C"),
@@ -61,18 +64,21 @@ def _make_df(row_min: int, col_min: int, month: int = 100) -> pd.DataFrame:
     Build a minimal DataFrame whose coordinates start at (row_min, col_min)
     and whose month_id matches `month`.
     """
-    return pd.DataFrame({
-        "month_id": [month, month],
-        "priogrid_gid": [1, 2],
-        "row": [row_min, row_min + 1],
-        "col": [col_min, col_min + 1],
-        "value": [1.0, 2.0],
-    })
+    return pd.DataFrame(
+        {
+            "month_id": [month, month],
+            "priogrid_gid": [1, 2],
+            "row": [row_min, row_min + 1],
+            "col": [col_min, col_min + 1],
+            "value": [1.0, 2.0],
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # RED GATE: drift on row_offset must be detected
 # ---------------------------------------------------------------------------
+
 
 def test_sniffer_detects_row_offset_drift():
     """
@@ -117,6 +123,7 @@ def test_sniffer_detects_col_offset_drift():
 # GREEN GATE: correct offsets must NOT raise
 # ---------------------------------------------------------------------------
 
+
 def test_sniffer_accepts_correct_offsets():
     """
     GREEN GATE: When handler.spatial_offset == (config row_offset, col_offset),
@@ -140,8 +147,7 @@ def test_sniffer_skips_drift_check_when_offsets_absent_from_config():
     This ensures that existing DataSniffer usages without explicit offset config
     keys are not broken by the new check.
     """
-    cfg_no_offsets = {k: v for k, v in DRIFT_CFG.items()
-                      if k not in ("row_offset", "col_offset")}
+    cfg_no_offsets = {k: v for k, v in DRIFT_CFG.items() if k not in ("row_offset", "col_offset")}
     handler = _make_handler(row_offset=90, col_offset=315)  # any offset
     df = _make_df(row_min=90, col_min=315)
 
@@ -162,20 +168,25 @@ INGEST_CFG = {
     "features": ["value"],
     "height": 180,
     "width": 180,
-    "row_offset": 87,    # The config declares the grid starts at global row 87
+    "row_offset": 87,  # The config declares the grid starts at global row 87
     "col_offset": 310,
+    # ADR 046 Compliance
+    "transformations": {"identity": ["value"]},
+    "derivations": {},
 }
 
 
 def _make_ingest_df(row_min: int, col_min: int) -> pd.DataFrame:
     """Minimal DataFrame with coordinates starting at (row_min, col_min)."""
-    return pd.DataFrame({
-        "month_id": [100, 100],
-        "priogrid_gid": [1, 2],
-        "row": [row_min, row_min + 1],
-        "col": [col_min, col_min + 1],
-        "value": [1.0, 2.0],
-    })
+    return pd.DataFrame(
+        {
+            "month_id": [100, 100],
+            "priogrid_gid": [1, 2],
+            "row": [row_min, row_min + 1],
+            "col": [col_min, col_min + 1],
+            "value": [1.0, 2.0],
+        }
+    )
 
 
 def test_sniffer_ingestion_rejects_anchor_below_offset():
@@ -237,8 +248,7 @@ def test_sniffer_ingestion_skips_anchor_check_when_offset_absent():
     BACKWARDS-COMPAT GATE: If config does not contain row_offset/col_offset,
     the anchor alignment check is skipped and sniff_ingestion() still passes.
     """
-    cfg_no_offsets = {k: v for k, v in INGEST_CFG.items()
-                      if k not in ("row_offset", "col_offset")}
+    cfg_no_offsets = {k: v for k, v in INGEST_CFG.items() if k not in ("row_offset", "col_offset")}
     sniffer = DataSniffer(cfg_no_offsets)
     df = _make_ingest_df(row_min=90, col_min=315)  # Mismatched but no offsets in config
     sniffer.sniff_ingestion(df)  # Must not raise

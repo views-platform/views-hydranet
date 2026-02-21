@@ -3,22 +3,19 @@ from typing import List
 
 logger = logging.getLogger(__name__)
 
-def get_rolling_origin_indices(
-    total_months: int,
-    time_steps: int,
-    num_windows: int
-) -> List[int]:
+
+def get_rolling_origin_indices(total_months: int, time_steps: int, num_windows: int) -> List[int]:
     """
     Calculates the origin indices for a rolling-origin evaluation.
-    
+
     The origins are calculated by rolling backwards from the end of the data,
     ensuring each origin has 'time_steps' months of ground truth following it.
-    
+
     Args:
         total_months: Total number of months in the volume.
         time_steps: Number of steps to forecast.
         num_windows: Number of rolling sequences desired (e.g., 12).
-        
+
     Returns:
         List[int]: Ascending list of origin indices.
     """

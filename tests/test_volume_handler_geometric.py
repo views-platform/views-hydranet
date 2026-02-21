@@ -1,4 +1,3 @@
-
 import numpy as np
 import pytest
 import torch
@@ -8,7 +7,7 @@ from views_hydranet.utils.volume_handler import VolumeHandler
 
 class TestVolumeHandlerGeometric:
     """
-    Verifies that VolumeHandler can perform geometric transformations 
+    Verifies that VolumeHandler can perform geometric transformations
     while preserving Ledger integrity and tracking history.
     """
 
@@ -22,7 +21,9 @@ class TestVolumeHandlerGeometric:
             data=data,
             axes=("T", "H", "W", "C"),
             channel_map=["f1"],
-            time_col="t", id_col="i", spatial_cols=["H", "W"]
+            time_col="t",
+            id_col="i",
+            spatial_cols=["H", "W"],
         )
 
     def test_flip_spatial(self, vh):
@@ -59,8 +60,10 @@ class TestVolumeHandlerGeometric:
         vh = VolumeHandler(
             data=data,
             axes=("B", "T", "C", "H", "W"),
-            channel_map=["v"], # dummy
-            time_col="t", id_col="i", spatial_cols=["H", "W"]
+            channel_map=["v"],  # dummy
+            time_col="t",
+            id_col="i",
+            spatial_cols=["H", "W"],
         )
 
         vh.flip("W")

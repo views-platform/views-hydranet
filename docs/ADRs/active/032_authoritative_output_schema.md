@@ -57,4 +57,6 @@ For the standard 3-task model, the output contains exactly 12 feature columns (6
 ---
 
 ## 4. Rationale
-By merging naming invariants with the schema definition, we create a single source of truth for "The Final Handshake." We trade "at-a-glance" math visibility in column names (like `ln_sb`) for **Systemic Integrity** and join-safety across the pipeline.
+By merging naming invariants with the schema definition, we create a single source of truth for "The Final Handshake." We trade "at-a-glance" math visibility in column names (like `ln_sb`) for **Systemic Integrity** and join-safety across the pipeline. 
+
+As defined in **ADR-046 (Symmetric Feature Lifecycle)**, the existence of `by_` features is the result of an explicit **Derivation**, while the values of `lr_` features are the result of **Transformations**. The schema defines the destination, and the lifecycle ADR defines the journey.

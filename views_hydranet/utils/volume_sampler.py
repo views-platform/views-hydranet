@@ -1,6 +1,7 @@
 """
 VolumeSampler: The Pure Lens for spatiotemporal window extraction.
 """
+
 import logging
 from typing import Any, Dict, List, Tuple
 
@@ -9,6 +10,7 @@ import numpy as np
 from views_hydranet.utils.volume_handler import VolumeHandler
 
 logger = logging.getLogger(__name__)
+
 
 class VolumeSampler:
     """
@@ -31,9 +33,9 @@ class VolumeSampler:
                 f"VolumeSampler Contract Violation: window_dim ({dim}) exceeds "
                 f"handler spatial bounds ({h_max}x{w_max})."
             )
-            
+
             logger.error(err_msg)
-            
+
             raise ValueError(err_msg)
 
         # Batching state
@@ -66,9 +68,9 @@ class VolumeSampler:
             target_idx = train_vh.channel_map.index(target_name)
         except ValueError:
             err_msg = f"VolumeSampler: target_name '{target_name}' not found in Ledger."
-            
+
             logger.error(err_msg)
-            
+
             raise ValueError(err_msg)
 
         # Activity Search (Importance Sampling)
@@ -87,13 +89,13 @@ class VolumeSampler:
         c0 = np.clip(c_axc - self.rng.integers(0, dim), 0, w_max - dim)
 
         # Atomic Extraction
-        data = vol_data[:, r0:r0+dim, c0:c0+dim, :].copy()
+        data = vol_data[:, r0 : r0 + dim, c0 : c0 + dim, :].copy()
 
         # Absolute Anchoring: Propagate geographic truth
         p_row, p_col = train_vh.spatial_offset
-        h_max, _ = train_vh.shape[1], train_vh.shape[2] # Global Height
+        h_max, _ = train_vh.shape[1], train_vh.shape[2]  # Global Height
 
-        # r0 is index from the NORTH (top). 
+        # r0 is index from the NORTH (top).
         # The South-most raw row index of the patch is:
         # global_south + (global_height - patch_height - r0)
         new_row_offset = p_row + (h_max - dim - r0)
@@ -107,14 +109,16 @@ class VolumeSampler:
             spatial_cols=train_vh.spatial_cols,
             identity_cols=train_vh._metadata.identity_cols,
             feature_cols=train_vh._metadata.feature_cols,
-            spatial_offset=(new_row_offset, p_col + c0)
+            spatial_offset=(new_row_offset, p_col + c0),
         )
 
         mem_mb = data.nbytes / (1024**2)
         logger.debug(f"🔍 VolumeSampler: Extracted Window {data.shape} | Memory: {mem_mb:.2f} MB")
         return vh
 
-    def get_batch(self, target_name: str, threshold: int, batch_size: int = 1) -> Tuple[List[VolumeHandler], int]:
+    def get_batch(
+        self, target_name: str, threshold: int, batch_size: int = 1
+    ) -> Tuple[List[VolumeHandler], int]:
         """
         Returns a batch of VolumeHandlers based on strategic instructions.
         Also returns the count of available 'busy' cells for logging.
@@ -125,9 +129,9 @@ class VolumeSampler:
             target_idx = train_vh.channel_map.index(target_name)
         except ValueError:
             err_msg = f"VolumeSampler: target_name '{target_name}' not found in Ledger."
-            
+
             logger.error(err_msg)
-            
+
             raise ValueError(err_msg)
 
         activity = np.count_nonzero(train_vh.data[..., target_idx], axis=0)

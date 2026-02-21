@@ -19,6 +19,7 @@ Test isolation strategy:
   `reports/plots/diagnostics/test_ts/` resolves inside pytest's temp directory.
   The `run_timestamp="test_ts"` pin makes the save_dir path deterministic.
 """
+
 import matplotlib
 
 matplotlib.use("Agg")  # Must precede any pyplot import; avoids GUI windows in CI
@@ -48,6 +49,12 @@ ACTIVE_CFG = {
     "classification_metrics": ["ap"],
     "loss_reg": "mse",
     "loss_class": "bce",
+    # ADR 046 Compliance
+    "features": ["lr_feat"],
+    "regression_targets": ["lr_feat"],
+    "classification_targets": ["by_feat"],
+    "transformations": {"identity": ["lr_feat"]},
+    "derivations": {"binary": [{"from": "lr_feat", "to": "by_feat", "threshold": 0}]},
 }
 
 TS = "test_ts"  # Fixed timestamp → deterministic save_dir
@@ -56,6 +63,7 @@ TS = "test_ts"  # Fixed timestamp → deterministic save_dir
 # ---------------------------------------------------------------------------
 # Shared array helpers
 # ---------------------------------------------------------------------------
+
 
 def _seq(n: int = 6, h: int = 4, w: int = 4, c: int = 1, fill: float = 0.0):
     """Return a list of n numpy arrays shaped [H, W, C]."""
@@ -103,6 +111,7 @@ def vd_active(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # BEIGE GATES — Null Object: ALL 8 public methods, inactive → no files, no crash
 # ---------------------------------------------------------------------------
+
 
 def test_vd_inactive_biopsy_autoregressive_no_file(tmp_path, monkeypatch):
     """
@@ -208,6 +217,7 @@ def test_vd_inactive_biopsy_sample_no_file(tmp_path, monkeypatch):
 # GREEN GATE — Active constructor: save_dir is created
 # ---------------------------------------------------------------------------
 
+
 def test_vd_active_creates_save_dir(tmp_path, monkeypatch):
     """
     GREEN GATE: Active VisualDiagnostics must create its save_dir at construction time.
@@ -227,14 +237,18 @@ def test_vd_active_creates_save_dir(tmp_path, monkeypatch):
 # GREEN GATES — Active: array-based methods produce PNG files
 # ---------------------------------------------------------------------------
 
+
 def test_vd_biopsy_autoregressive_saves_png(vd_active, tmp_path):
     """
     GREEN GATE: biopsy_autoregressive must save exactly one PNG file.
     CIC §5: PNG file is saved to save_dir with sanitized stage_label as stem.
     """
     vd_active.biopsy_autoregressive(
-        _seq(fill=1.0), _seq(fill=0.5), "autoregressive_stage", ["lr_feat_a"],
-        time_indices=list(range(400, 406))
+        _seq(fill=1.0),
+        _seq(fill=0.5),
+        "autoregressive_stage",
+        ["lr_feat_a"],
+        time_indices=list(range(400, 406)),
     )
     pngs = list(tmp_path.rglob("*.png"))
     assert len(pngs) == 1, (
@@ -250,9 +264,12 @@ def test_vd_biopsy_training_performance_saves_png(vd_active, tmp_path):
     GREEN GATE: biopsy_training_performance must save exactly one PNG file.
     """
     vd_active.biopsy_training_performance(
-        _arr(fill=1.0), _arr(fill=0.5), _arr(fill=1.0), _arr(fill=0.3),
+        _arr(fill=1.0),
+        _arr(fill=0.5),
+        _arr(fill=1.0),
+        _arr(fill=0.3),
         "training_perf_stage",
-        time_indices=list(range(400, 406))
+        time_indices=list(range(400, 406)),
     )
     pngs = list(tmp_path.rglob("*.png"))
     assert len(pngs) == 1, (
@@ -274,9 +291,7 @@ def test_vd_biopsy_loss_curves_saves_two_pngs(vd_active, tmp_path):
     assert "loss_evolution_log.png" in pngs, (
         f"biopsy_loss_curves must produce 'loss_evolution_log.png'. Found: {pngs}"
     )
-    assert len(pngs) == 2, (
-        f"biopsy_loss_curves must produce exactly 2 PNGs. Found: {pngs}"
-    )
+    assert len(pngs) == 2, f"biopsy_loss_curves must produce exactly 2 PNGs. Found: {pngs}"
 
 
 def test_vd_biopsy_feature_dossier_regression_saves_png(vd_active, tmp_path):
@@ -318,6 +333,7 @@ def test_vd_biopsy_feature_dossier_classification_saves_png(vd_active, tmp_path)
 # GREEN GATE — biopsy_tensor: 5D and 4D inputs both produce PNG
 # ---------------------------------------------------------------------------
 
+
 def test_vd_biopsy_tensor_5d_saves_png(vd_active, tmp_path):
     """
     GREEN GATE: biopsy_tensor with a 5D tensor [B, T, C, H, W] must save one PNG.
@@ -347,6 +363,7 @@ def test_vd_biopsy_tensor_4d_saves_png(vd_active, tmp_path):
 # GREEN GATE — _calculate_stats: math correctness
 # ---------------------------------------------------------------------------
 
+
 def test_vd_calculate_stats_known_array(tmp_path, monkeypatch):
     """
     GREEN GATE: _calculate_stats must produce correct μ, min, max for a known array.
@@ -356,9 +373,7 @@ def test_vd_calculate_stats_known_array(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     vd = VisualDiagnostics(ACTIVE_CFG, run_timestamp=TS)
     result = vd._calculate_stats(np.array([0.0, 2.0, 4.0, 6.0]))
-    assert "μ:3.00" in result, (
-        f"_calculate_stats output must contain 'μ:3.00'. Got: {result!r}"
-    )
+    assert "μ:3.00" in result, f"_calculate_stats output must contain 'μ:3.00'. Got: {result!r}"
     assert "[0.00, 6.00]" in result, (
         f"_calculate_stats output must contain '[0.00, 6.00]'. Got: {result!r}"
     )
@@ -373,15 +388,14 @@ def test_vd_calculate_stats_all_nan_returns_empty(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     vd = VisualDiagnostics(ACTIVE_CFG, run_timestamp=TS)
     result = vd._calculate_stats(np.array([np.nan, np.nan]))
-    assert result == "EMPTY", (
-        f"_calculate_stats on all-NaN must return 'EMPTY'. Got: {result!r}"
-    )
+    assert result == "EMPTY", f"_calculate_stats on all-NaN must return 'EMPTY'. Got: {result!r}"
 
 
 # ---------------------------------------------------------------------------
 # RED GATES — Adversarial inputs: active methods must NOT propagate exceptions
 # CIC §6: "NO exception propagation is permitted from any public method."
 # ---------------------------------------------------------------------------
+
 
 def test_vd_nan_arrays_biopsy_autoregressive_no_crash(vd_active):
     """

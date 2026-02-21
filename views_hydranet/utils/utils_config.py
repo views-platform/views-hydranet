@@ -1,6 +1,5 @@
 import logging
 from collections.abc import Callable
-from enum import Enum
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -12,29 +11,40 @@ logger = logging.getLogger(__name__)
 TRANSFORMS: dict[str, tuple[Callable, Callable]] = {
     "log1p": (np.log1p, np.expm1),
     "asinh": (np.arcsinh, np.sinh),
-    "identity": (lambda x: x, lambda x: x)
+    "identity": (lambda x: x, lambda x: x),
 }
+
 
 class HydraNetConfig(BaseModel):
     """
     The Exhaustive 'Minimum Strict Set' for HydraNet operations.
     Matches the pipeline configuration 1-to-1.
     """
+
     # 1. High-Level Partitioning
-    run_type: str = Field(..., description="Partition: calibration, validation, forecasting, or testing")
+    run_type: str = Field(
+        ..., description="Partition: calibration, validation, forecasting, or testing"
+    )
     steps: list[int] = Field(..., description="List of forecast steps")
     time_steps: int = Field(..., description="Checksum for 'steps'")
 
     # 2. Data Slicing & Scaling (The Physics)
     input_channels: int = Field(..., ge=1, description="Checksum for 'features'")
     output_channels: int = Field(..., ge=1, description="Channels per model head")
-    regression_targets: list[str] = Field(..., description="Intensity mission (must start with lr_)")
+    regression_targets: list[str] = Field(
+        ..., description="Intensity mission (must start with lr_)"
+    )
     classification_targets: list[str] = Field(..., description="Binary mission")
     identity_cols: list[str] = Field(..., description="Columns to be excluded from features")
     features: list[str] = Field(..., description="Exhaustive list of predictive signals")
 
-    # The Root Scaling Field (Matches user config 1-to-1)
-    transform: Dict[str, List[str]] = Field(..., description="Mapping of method to columns")
+    # ADR 046 Symmetric Lifecycle (Transformations vs Derivations)
+    transformations: Dict[str, List[str]] = Field(
+        ..., description="Mapping of scaling method to columns"
+    )
+    derivations: Dict[str, List[Dict[str, Any]]] = Field(
+        default_factory=dict, description="Instructional feature engineering"
+    )
 
     # 3. Spatiotemporal Topology
     height: int = Field(..., ge=1)
@@ -103,39 +113,56 @@ class HydraNetConfig(BaseModel):
         """The Checksum and Scaling Laws."""
         # Checksum: input_channels
         if self.input_channels != len(self.features):
-            err_msg = f"Checksum Law Violation: input_channels ({self.input_channels}) != features ({len(self.features)})"
-            
+            err_msg = (
+                f"Checksum Law Violation: input_channels ({self.input_channels}) != "
+                f"features ({len(self.features)})"
+            )
+
             logger.error(err_msg)
-            
+
             raise ValueError(err_msg)
 
         # Checksum: time_steps
         if self.time_steps != len(self.steps):
-            err_msg = f"Checksum Law Violation: time_steps ({self.time_steps}) != steps ({len(self.steps)})"
-            
+            err_msg = (
+                f"Checksum Law Violation: time_steps ({self.time_steps}) != "
+                f"steps ({len(self.steps)})"
+            )
+
             logger.error(err_msg)
-            
+
             raise ValueError(err_msg)
 
-        # Scaling Law: All features AND targets must be in the 'transform' dictionary
-        all_required_cols = set(self.features) | set(self.regression_targets) | set(self.classification_targets)
-        mapped_set = set()
-        for method, cols in self.transform.items():
+        # Feature Lifecycle Law (ADR 046):
+        # All signals must be accounted for (either transformed or derived)
+        all_required_cols = (
+            set(self.features) | set(self.regression_targets) | set(self.classification_targets)
+        )
+        accounted_for = set()
+
+        # 1. Check Transformations (Scale)
+        for method, cols in self.transformations.items():
             if method not in TRANSFORMS:
-                err_msg = f"Scaling Law Violation: Unknown method '{method}'"
-                
+                err_msg = f"Feature Lifecycle Violation: Unknown transformation method '{method}'"
                 logger.error(err_msg)
-                
                 raise ValueError(err_msg)
             for col in cols:
-                mapped_set.add(col)
+                accounted_for.add(col)
 
-        missing = all_required_cols - mapped_set
+        # 2. Check Derivations (Identity)
+        for op, instrs in self.derivations.items():
+            for instr in instrs:
+                # Add the 'to' column to accounted_for
+                if "to" in instr:
+                    accounted_for.add(instr["to"])
+
+        missing = all_required_cols - accounted_for
         if missing:
-            err_msg = f"Scaling Law Violation: Required columns {missing} are not assigned a transform in the 'transform' dict."
-            
+            err_msg = (
+                f"Feature Lifecycle Violation: Required columns {missing} are not accounted for. "
+                f"They must either be in 'transformations' or produced by 'derivations'."
+            )
             logger.error(err_msg)
-            
             raise ValueError(err_msg)
 
         return self
@@ -144,23 +171,24 @@ class HydraNetConfig(BaseModel):
     @classmethod
     def validate_run_type(cls, v: str) -> str:
         valid = ["calibration", "validation", "forecasting", "testing"]
-        if v not in valid: 
+        if v not in valid:
             err_msg = f"run_type must be in {valid}"
-            
+
             logger.error(err_msg)
-            
+
             raise ValueError(err_msg)
         return v
 
     @field_validator("evalution_mode")
     @classmethod
     def validate_eval_mode(cls, v: str) -> str:
-        if v == "stocastic": return "stochastic"
-        if v not in ["point", "stochastic"]: 
+        if v == "stocastic":
+            return "stochastic"
+        if v not in ["point", "stochastic"]:
             err_msg = "evaluation_mode must be 'point' or 'stochastic'"
-            
+
             logger.error(err_msg)
-            
+
             raise ValueError(err_msg)
         return v
 
@@ -169,13 +197,13 @@ class HydraNetConfig(BaseModel):
     def validate_agg_method(cls, v: str) -> str:
         mapper = {"mean": "geometric_mean", "median": "median", "max_aposteriori": "median"}
         v = mapper.get(v, v)
-        if v not in ["arithmetic_mean", "geometric_mean", "median"]: 
+        if v not in ["arithmetic_mean", "geometric_mean", "median"]:
             err_msg = "Invalid aggregate_method"
-            
+
             logger.error(err_msg)
-            
+
             raise ValueError(err_msg)
         return v
 
     class Config:
-        extra = "allow" # Tolerant Handshake
+        extra = "allow"  # Tolerant Handshake

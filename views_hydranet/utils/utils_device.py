@@ -37,6 +37,6 @@ def setup_device():
         ...     assert "Using device: cpu" in captured_output.getvalue()
     """
     # Set the device
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
-    return device   # not sure you need to return it, but it might be useful for debugging
+    return device  # not sure you need to return it, but it might be useful for debugging

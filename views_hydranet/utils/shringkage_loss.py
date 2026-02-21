@@ -6,9 +6,9 @@ class ShrinkageLoss(nn.Module):
     """
     Shrinkage Loss for regression tasks with noise.
 
-    This loss function is a variation of Mean Squared Error (MSE) that 
-    penalizes small deviations (below threshold 'c') significantly less 
-     than larger ones. It is designed to 'shrink' the contribution 
+    This loss function is a variation of Mean Squared Error (MSE) that
+    penalizes small deviations (below threshold 'c') significantly less
+     than larger ones. It is designed to 'shrink' the contribution
     of noise to the total loss.
 
     Formula: loss = (l^2) / (1 + exp(a * (c - l)))
@@ -19,6 +19,7 @@ class ShrinkageLoss(nn.Module):
         c (float): Threshold below which errors are aggressively shrunk. Default: 0.2.
         size_average (bool): If True, returns the mean loss. Otherwise returns sum.
     """
+
     def __init__(self, a=10, c=0.2, size_average=True):
         super(ShrinkageLoss, self).__init__()
         self.a = a
@@ -40,10 +41,9 @@ class ShrinkageLoss(nn.Module):
 
         diff = torch.abs(target - input)
         exp_term = torch.exp(self.a * (self.c - diff))
-        loss = (diff ** 2) / (1 + exp_term)
+        loss = (diff**2) / (1 + exp_term)
 
         if self.size_average:
             return loss.mean()
         else:
             return loss.sum()
-

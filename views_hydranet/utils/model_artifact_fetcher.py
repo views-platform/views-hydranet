@@ -1,4 +1,3 @@
-
 """
 Standalone ModelArtifactFetcher component for the HydraNet pipeline.
 Governed by ADR 026.
@@ -13,10 +12,11 @@ import torch
 
 logger = logging.getLogger(__name__)
 
+
 class ModelArtifactFetcher:
     """
     Component responsible for retrieving trained HydraNet artifacts from disk.
-    
+
     Acts as the 'Retriever' in the Boring Architecture, ensuring that models
     are loaded, placed on the correct device, and their metadata is recorded.
     """
@@ -27,7 +27,7 @@ class ModelArtifactFetcher:
         path_latest_model_artifacts: Path,
         config: Dict[str, Any],
         add_config_function: Callable[[Dict[str, Any]], None],
-        device: torch.device
+        device: torch.device,
     ) -> None:
         """
         Initializes the fetcher with physical paths and callbacks.
@@ -46,7 +46,9 @@ class ModelArtifactFetcher:
         self.run_type = config.get("run_type", "unknown")
         self.device = device
 
-    def fetch_model_artifact(self, model_artifact_name: Optional[str] = None) -> Tuple[torch.nn.Module, str]:
+    def fetch_model_artifact(
+        self, model_artifact_name: Optional[str] = None
+    ) -> Tuple[torch.nn.Module, str]:
         """
         Fetches a trained model artifact from disk and extracts its metadata.
 
@@ -75,10 +77,12 @@ class ModelArtifactFetcher:
             path_model_artifact = self.path_latest_model_artifacts
 
         if not path_model_artifact.exists():
-            err_msg = f"Retriever Contract Violation: Model artifact not found at {path_model_artifact}"
-            
+            err_msg = (
+                f"Retriever Contract Violation: Model artifact not found at {path_model_artifact}"
+            )
+
             logger.error(err_msg)
-            
+
             raise FileNotFoundError(err_msg)
 
         # 3. Metadata Extraction (The 15-char timestamp)
@@ -94,9 +98,3 @@ class ModelArtifactFetcher:
         self.add_config({"timestamp": timestamp})
 
         return model, timestamp
-
-
-
-
-
-

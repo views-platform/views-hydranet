@@ -13,6 +13,7 @@ def test_mtloss_initialization():
     assert isinstance(mt.log_vars, torch.nn.Parameter)
     assert mt.log_vars.shape == (3,)
 
+
 def test_mtloss_weighting_logic():
     """Verify that MTLoss weights regression and classification differently."""
     # Logic: coeffs = 1 / ((is_regression + 1) * stds^2)
@@ -31,6 +32,7 @@ def test_mtloss_weighting_logic():
     # class_coeff = 1 / (1 * 1) = 1.0
     # Expected: 0.5*10 + ln(1) + 1.0*10 + ln(1) = 5 + 10 = 15
     assert pytest.approx(combined.sum().item(), abs=1e-5) == 15.0
+
 
 def test_mtloss_parameters_are_learnable():
     """Verify that log_vars parameters receive gradients."""
@@ -64,7 +66,7 @@ def test_mtloss_rejects_mismatched_task_count():
     - Too many losses (8 instead of 6) — catches the symmetric case
     """
     is_reg = torch.Tensor([True, True, True, False, False, False])  # 6 tasks
-    mt = MultiTaskLoss(is_reg, reduction='sum')
+    mt = MultiTaskLoss(is_reg, reduction="sum")
 
     # Case A: Too few losses
     with pytest.raises(ValueError, match=r"[Tt]ask|[Mm]ismatch|[Ee]xpected"):

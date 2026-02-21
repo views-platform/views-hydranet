@@ -12,16 +12,17 @@ import torch
 
 from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.hydranet_inference import HydraNetInference
-from views_hydranet.utils.volume_handler import VolumeHandler
 from views_hydranet.utils.visual_diagnostics import VisualDiagnostics
+from views_hydranet.utils.volume_handler import VolumeHandler
 
 logger = logging.getLogger(__name__)
+
 
 class InferenceOrchestrator:
     """
     The sole authoritative actor for HydraNet inference.
-    
-    Whether predicting the past (backtest) or the future (operational), 
+
+    Whether predicting the past (backtest) or the future (operational),
     all data flows through this engine to ensure zero orchestration drift.
     """
 
@@ -30,7 +31,7 @@ class InferenceOrchestrator:
         config: Dict[str, Any],
         model: torch.nn.Module,
         device: torch.device,
-        visualizer: Optional[VisualDiagnostics] = None
+        visualizer: Optional[VisualDiagnostics] = None,
     ) -> None:
         """
         Initializes with the static model context.
@@ -38,43 +39,44 @@ class InferenceOrchestrator:
         self.config = config
         self.model = model
         self.device = device
-        self.viz = visualizer or VisualDiagnostics({"diagnostic_visualizations": False}) # Null Object Fallback
+        self.viz = visualizer or VisualDiagnostics(
+            {"diagnostic_visualizations": False}
+        )  # Null Object Fallback
 
     def generate_forecasts(
-        self,
-        handler: VolumeHandler,
-        scaler: FeatureScaler,
-        origins: List[int]
+        self, handler: VolumeHandler, scaler: FeatureScaler, origins: List[int]
     ) -> List[pd.DataFrame]:
         """
         Orchestrates inference across one or more time origins.
         Returns a list of 'Dirty' DataFrames containing all available channels.
-        
+
         Strictly follows ADR 039 Order of Operations:
         1. Predict -> 2. Wrap -> 3. Invert -> 4. Collapse -> 5. Reconstruct.
         """
         is_backtest = len(origins) > 1
         mode_label = "BACKTEST" if is_backtest else "OPERATIONAL"
-        
-        logger.info(f"💠 InferenceOrchestrator: Initiating {mode_label} pass ({len(origins)} origins).")
 
-        inference = HydraNetInference(self.model, self.config, device=self.device, visualizer=self.viz)
+        logger.info(
+            f"💠 InferenceOrchestrator: Initiating {mode_label} pass ({len(origins)} origins)."
+        )
+
+        inference = HydraNetInference(
+            self.model, self.config, device=self.device, visualizer=self.viz
+        )
         list_df_dirty = []
 
         for i, origin in enumerate(origins):
             # Generate Posterior Samples
             post_reg, post_cls = inference.generate_posterior_samples(
-                handler, 
-                is_evaluation=is_backtest, 
-                window_info=f"Origin {i+1}/{len(origins)}"
+                handler, is_evaluation=is_backtest, window_info=f"Origin {i + 1}/{len(origins)}"
             )
-            
+
             # Combine for wrapping [T, H, W, C, S]
             # Handle cases where post_cls might be None or empty (legacy mocks)
             if post_cls is not None and post_cls.size > 0:
-                 posterior_zstack = np.concatenate([post_reg, post_cls], axis=-2)
+                posterior_zstack = np.concatenate([post_reg, post_cls], axis=-2)
             else:
-                 posterior_zstack = post_reg
+                posterior_zstack = post_reg
 
             # Determine duration from posterior shape
             duration = posterior_zstack.shape[0]
@@ -91,22 +93,28 @@ class InferenceOrchestrator:
                 # Projecting: Extrapolate into the future
                 # We only extrapolate if the origin is at the end of history
                 if origin < max_history_idx:
-                     # This is a backtest origin that requested too many steps
-                     # We force slice_time to trigger the Contract Violation (Fail Loud)
-                     window_handler = handler.slice_time(origin + 1, origin + 1 + duration)
+                    # This is a backtest origin that requested too many steps
+                    # We force slice_time to trigger the Contract Violation (Fail Loud)
+                    window_handler = handler.slice_time(origin + 1, origin + 1 + duration)
                 else:
-                     window_handler = handler.extrapolate_time(duration)
+                    window_handler = handler.extrapolate_time(duration)
 
             # --- 3. WRAP (ADR 039.3) ---
             # Bind the prediction tensors to the identity scaffold
             # ADR 032: base_names must be the 'lr_' features.
-            base_names = self.config["regression_targets"]
-            pred_handler = window_handler.wrap_predictions(posterior_zstack, base_names=base_names)
+            target_names = (
+                self.config["regression_targets"] + self.config["classification_targets"]
+            )
+            pred_handler = window_handler.wrap_predictions(
+                posterior_zstack, target_names=target_names
+            )
 
             # DIAGNOSTIC: Stage 6 (Predicted Volume - Pre Inversion)
             # We visualize the wrapped VolumeHandler before the scaler touches it.
-            if i == 0: # Only biopsy first origin to save space
-                 self.viz.biopsy_volume(pred_handler, f"Stage 6: Raw Predicted Volume (Origin {origin})")
+            if i == 0:  # Only biopsy first origin to save space
+                self.viz.biopsy_volume(
+                    pred_handler, f"Stage 6: Raw Predicted Volume (Origin {origin})"
+                )
 
             # --- 4. INVERT (ADR 039.4) ---
             # Return the volume to Raw Count space BEFORE any spatial aggregation
@@ -116,7 +124,9 @@ class InferenceOrchestrator:
             # --- 5. COLLAPSE (ADR 039.5) ---
             # Perform dimension reduction (Point-Collapse) if requested
             if self.config.get("evalution_mode") == "point":
-                pred_handler = pred_handler.collapse_to_point(method=self.config["aggregate_method"])
+                pred_handler = pred_handler.collapse_to_point(
+                    method=self.config["aggregate_method"]
+                )
 
             # --- 6. RECONSTRUCT (ADR 039.6) ---
             # Bridge the volumes back into long-format DataFrames.

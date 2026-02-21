@@ -1,6 +1,7 @@
 """
 ConfigInitializer: Canonical Entry Point for HydraNet Configuration.
 """
+
 import logging
 from typing import Any, Dict
 
@@ -8,9 +9,10 @@ from views_hydranet.utils.utils_config import HydraNetConfig
 
 logger = logging.getLogger(__name__)
 
+
 class ConfigInitializer:
     """
-    Handles the initialization, normalization, and validation of 
+    Handles the initialization, normalization, and validation of
     HydraNet run-time configurations.
     """
 

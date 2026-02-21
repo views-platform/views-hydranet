@@ -6,6 +6,7 @@ import torch
 
 logger = logging.getLogger(__name__)
 
+
 class TrainingForensics:
     """
     Independent Forensic Auditor for HydraNet training performance.
@@ -28,15 +29,17 @@ class TrainingForensics:
         forbidden = ["f1", "accuracy", "recall", "precision"]
         for m in self.reg_metrics + self.cls_metrics:
             if m.lower() in forbidden:
-                err_msg = (f"Metric '{m}' requires a threshold to be specified in the config; "
-                           f"this is currently not supported by TrainingForensics.")
+                err_msg = (
+                    f"Metric '{m}' requires a threshold to be specified in the config; "
+                    f"this is currently not supported by TrainingForensics."
+                )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
 
         # 2. Initialize Histories with NAMESPACED Keys (ADR 003 Explicit)
         # We use "REG:name" and "CLS:name" to prevent collisions
         self.history = {}
-        self.target_map = {} # Maps namespaced key to metadata
+        self.target_map = {}  # Maps namespaced key to metadata
 
         for target in self.reg_targets:
             key = f"REG:{target}"
@@ -58,12 +61,7 @@ class TrainingForensics:
 
     def _init_target_history(self, key: str, metrics: List[str]):
         """Helper to initialize history for a namespaced key."""
-        self.history[key] = {
-            "bias_instant": [],
-            "bias_running": [],
-            "y_bar": [],
-            "y_hat_bar": []
-        }
+        self.history[key] = {"bias_instant": [], "bias_running": [], "y_bar": [], "y_hat_bar": []}
         for m in metrics:
             self.history[key][m] = []
 
@@ -91,8 +89,8 @@ class TrainingForensics:
         for key, meta in self.target_map.items():
             if not self.lesson_y[key]:
                 for m in self.history[key].keys():
-                     last_val = self.history[key][m][-1] if self.history[key][m] else 0.0
-                     self.history[key][m].append(last_val)
+                    last_val = self.history[key][m][-1] if self.history[key][m] else 0.0
+                    self.history[key][m].append(last_val)
                 continue
 
             y_all = np.concatenate(self.lesson_y[key])
@@ -120,7 +118,11 @@ class TrainingForensics:
 
             self.running_sum_y[key] += sum_y
             self.running_sum_yh[key] += sum_yh
-            running_bias = self.running_sum_yh[key] / self.running_sum_y[key] if self.running_sum_y[key] > 0 else 1.0
+            running_bias = (
+                self.running_sum_yh[key] / self.running_sum_y[key]
+                if self.running_sum_y[key] > 0
+                else 1.0
+            )
             self.history[key]["bias_running"].append(running_bias)
 
         self._reset_accumulators()
@@ -131,14 +133,14 @@ class TrainingForensics:
 
     def _calculate_reg_metric(self, name: str, y: np.ndarray, yh: np.ndarray) -> float:
         if name.lower() == "mse":
-            return np.mean((y - yh)**2)
+            return np.mean((y - yh) ** 2)
         if name.lower() == "mae":
             return np.mean(np.abs(y - yh))
         # Handle RMSLE, MSLE, CRPS placeholder
         if name.lower() == "rmsle":
-             return np.sqrt(np.mean((np.log1p(y) - np.log1p(yh))**2))
+            return np.sqrt(np.mean((np.log1p(y) - np.log1p(yh)) ** 2))
         if name.lower() == "msle":
-             return np.mean((np.log1p(y) - np.log1p(yh))**2)
+            return np.mean((np.log1p(y) - np.log1p(yh)) ** 2)
         return 0.0
 
     def _calculate_cls_metric(self, name: str, y: np.ndarray, yh: np.ndarray) -> float:
@@ -149,16 +151,20 @@ class TrainingForensics:
 
         # Guard: sklearn metrics fail if only one class is present
         if len(np.unique(y_bin)) < 2:
-             if name.lower() == "auc": return 0.5
-             if name.lower() == "ap": return 0.0
-             return 0.0
+            if name.lower() == "auc":
+                return 0.5
+            if name.lower() == "ap":
+                return 0.0
+            return 0.0
 
         if name.lower() == "ap":
             try:
                 return average_precision_score(y_bin, yh)
-            except ValueError: return 0.0
+            except ValueError:
+                return 0.0
         if name.lower() == "auc":
             try:
                 return roc_auc_score(y_bin, yh)
-            except ValueError: return 0.5
+            except ValueError:
+                return 0.5
         return 0.0

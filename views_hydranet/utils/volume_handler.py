@@ -3,7 +3,7 @@
 import gc
 import logging
 from dataclasses import dataclass, field, replace
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -17,18 +17,20 @@ LINEAR_PREFIX = "lr_"
 BINARY_PREFIX = "by_"
 PRED_PREFIX = "pred_"
 
+
 @dataclass(frozen=True)
 class VolumeMetadata:
     """
     The immutable ledger for a volume's layout.
     """
+
     axes: Tuple[str, ...]
     channel_map: Tuple[str, ...]
 
     # Structural Roles (The names of the columns providing the scaffold)
     time_col: str
     id_col: str
-    spatial_cols: Tuple[str, str] # (row_col, col_col)
+    spatial_cols: Tuple[str, str]  # (row_col, col_col)
 
     # Classification
     identity_cols: Tuple[str, ...]
@@ -36,6 +38,7 @@ class VolumeMetadata:
 
     spatial_offset: Tuple[int, int]
     history: Tuple[Tuple[str, Any], ...] = field(default_factory=tuple)
+
 
 class VolumeHandler:
     def __init__(
@@ -49,6 +52,7 @@ class VolumeHandler:
         identity_cols: Union[List[str], Tuple[str, ...]] = (),
         feature_cols: Union[List[str], Tuple[str, ...]] = (),
         spatial_offset: Tuple[int, int] = (0, 0),
+        config: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._data = data
         self._metadata = VolumeMetadata(
@@ -59,29 +63,33 @@ class VolumeHandler:
             spatial_cols=tuple(spatial_cols),
             identity_cols=tuple(identity_cols),
             feature_cols=tuple(feature_cols),
-            spatial_offset=spatial_offset
+            spatial_offset=spatial_offset,
         )
 
-        # Validation: Channel dimension must match channel_map
+        # 1. Validation: Channel dimension must match channel_map
         c_idx = self.get_axis_idx("C")
         actual_channels = self._data.shape[c_idx]
         expected_channels = len(self.channel_map)
         if actual_channels != expected_channels:
-             err_msg = (
-                 f"VolumeHandler: Channel mismatch! Data has {actual_channels} channels, "
-                 f"but channel_map has {expected_channels} names."
-             )
-             
-             logger.error(err_msg)
-             
-             raise ValueError(err_msg)
+            err_msg = (
+                f"VolumeHandler: Channel mismatch! Data has {actual_channels} channels, "
+                f"but channel_map has {expected_channels} names."
+            )
+
+            logger.error(err_msg)
+
+            raise ValueError(err_msg)
+
+        # 2. ADR 046: Execute derivations (if instructions provided)
+        if config and "derivations" in config:
+            self._execute_derivations(config["derivations"])
 
     @classmethod
     def from_df(
         cls,
         df: pd.DataFrame,
         config: Dict[str, Any],
-    ) -> 'VolumeHandler':
+    ) -> "VolumeHandler":
         """
         Factory: Constructs a VolumeHandler from a standardized DataFrame.
         Enforces Absolute Anchoring and North-Up orientation.
@@ -95,14 +103,16 @@ class VolumeHandler:
             id_col = config["id_col"]
             y_col, x_col = config["spatial_cols"]
         except KeyError as e:
-            err_msg = (f"VolumeHandler Contract Violation: Missing Ledger Role {e} in config.\n"
+            err_msg = (
+                f"VolumeHandler Contract Violation: Missing Ledger Role {e} in config.\n"
                 f"To comply with ADR 007, your config must define:\n"
                 f"  'time_col': The temporal index (e.g., 'month_id')\n"
                 f"  'id_col':   The unit index (e.g., 'priogrid_gid')\n"
-                f"  'spatial_cols': ['row_col', 'col_col']\n")
-            
+                f"  'spatial_cols': ['row_col', 'col_col']\n"
+            )
+
             logger.error(err_msg)
-            
+
             raise KeyError(err_msg)
 
         identity_cols = config.get("identity_cols", [])
@@ -115,20 +125,18 @@ class VolumeHandler:
             row_offset = config["row_offset"]
             col_offset = config["col_offset"]
         except KeyError as e:
-            err_msg = (f"VolumeHandler Contract Violation: Missing mandatory offset {e} in config.")
-            
+            err_msg = f"VolumeHandler Contract Violation: Missing mandatory offset {e} in config."
             logger.error(err_msg)
-            
             raise KeyError(err_msg)
 
         all_required = list(set(required_roles + list(identity_cols) + list(feature_cols)))
 
         missing = [c for c in all_required if c not in df.columns]
         if missing:
-            err_msg = (f"VolumeHandler Handshake Failed! Missing columns: {missing}")
-            
+            err_msg = f"VolumeHandler Handshake Failed! Missing columns: {missing}"
+
             logger.error(err_msg)
-            
+
             raise ValueError(err_msg)
 
         # The channel map is ordered: [Primary Keys] + [Metadata] + [Features]
@@ -208,11 +216,13 @@ class VolumeHandler:
             vol[r_idx, c_idx, m_idx, i] = df[col_name].values
 
         # 5. Flip & Layout
-        vol = np.flip(vol, axis=0) # North-Up
-        vol = np.transpose(vol, (2, 0, 1, 3)) # [T, H, W, C]
+        vol = np.flip(vol, axis=0)  # North-Up
+        vol = np.transpose(vol, (2, 0, 1, 3))  # [T, H, W, C]
 
         mem_mb = vol.nbytes / (1024**2)
-        logger.debug(f"🌐 VolumeHandler: Created Global Volume {vol.shape} | Memory: {mem_mb:.2f} MB")
+        logger.debug(
+            f"🌐 VolumeHandler: Created Global Volume {vol.shape} | Memory: {mem_mb:.2f} MB"
+        )
 
         return cls(
             data=vol,
@@ -223,14 +233,11 @@ class VolumeHandler:
             spatial_cols=(y_col, x_col),
             identity_cols=identity_cols,
             feature_cols=feature_cols,
-            spatial_offset=(row_offset, col_offset)
+            spatial_offset=(row_offset, col_offset),
+            config=config,
         )
 
-    def to_pytorch(
-        self,
-        device: torch.device,
-        include_identities: bool = False
-    ) -> torch.Tensor:
+    def to_pytorch(self, device: torch.device, include_identities: bool = False) -> torch.Tensor:
         """
         Transforms the volume into a model-ready PyTorch tensor.
         Canonical Output Layout: [Batch=1, Time, Channel, Height, Width]
@@ -244,49 +251,32 @@ class VolumeHandler:
             # ADR 007 hardening: Strip identity channels by checking the channel map.
             # This ensures only feature_cols reach the model.
             feature_indices = [
-                i for i, name in enumerate(self.channel_map) 
-                if name in self._metadata.feature_cols
+                i for i, name in enumerate(self.channel_map) if name in self._metadata.feature_cols
             ]
             if not feature_indices:
-                 # Fallback to legacy count-based stripping if feature_cols is empty
-                 # (Protects against un-annotated handlers)
-                 n_identities = len(self._metadata.identity_cols)
-                 np_data = np_data[:, :, :, n_identities:]
+                # Fallback to legacy count-based stripping if feature_cols is empty
+                # (Protects against un-annotated handlers)
+                n_identities = len(self._metadata.identity_cols)
+                np_data = np_data[:, :, :, n_identities:]
             else:
-                 np_data = np_data[:, :, :, feature_indices]
+                np_data = np_data[:, :, :, feature_indices]
 
         tensor = torch.from_numpy(np_data).to(device)
-        tensor = tensor.permute(0, 3, 1, 2) # [T, C, H, W]
-        tensor = tensor.unsqueeze(0) # [B, T, C, H, W]
+        tensor = tensor.permute(0, 3, 1, 2)  # [T, C, H, W]
+        tensor = tensor.unsqueeze(0)  # [B, T, C, H, W]
 
         return tensor
 
     def wrap_predictions(
-        self,
-        posterior_data: Union[np.ndarray, torch.Tensor],
-        base_names: List[str]
-    ) -> 'VolumeHandler':
+        self, posterior_data: Union[np.ndarray, torch.Tensor], target_names: List[str]
+    ) -> "VolumeHandler":
         """
         Creates a new VolumeHandler for model outputs, anchored to this handler's ledger.
         Automatically applies ADR 032 naming Engine and Watermarks the volume with IDs.
         """
         # 1. Automated Naming (Internal Symmetry Gate)
-        # ADR 032: Naming is derived literally from base features.
-        # Rule: reg = pred_{feature}, prob = pred_by_{base} (where feature is lr_{base})
-        reg_names = []
-        prob_names = []
-        for n in base_names:
-            if not n.startswith(LINEAR_PREFIX):
-                err_msg = (
-                    f"VolumeHandler Contract Violation: Feature '{n}' must start with "
-                    f"'{LINEAR_PREFIX}' to conform to ADR 032 naming conventions."
-                )
-                
-                logger.error(err_msg)
-                
-                raise ValueError(err_msg)
-            reg_names.append(f"{PRED_PREFIX}{n}")
-            prob_names.append(f"{PRED_PREFIX}{n.replace(LINEAR_PREFIX, BINARY_PREFIX, 1)}")
+        # ADR 032: Naming is derived literally from target names.
+        full_signal_names = [f"{PRED_PREFIX}{n}" for n in target_names]
 
         # 2. THE WATERMARK (Red Team Hardening)
         # We prepend ALL identity channels from the parent to the prediction data
@@ -304,9 +294,10 @@ class VolumeHandler:
                 f"Prediction wrapping requires watermarked primary keys."
             )
 
-        # Identify all non-feature channels from the parent (excluding primary keys already handled)
+        # Identify all non-feature channels from parent (excluding primary keys already handled)
         identity_names = [
-            n for n in self.channel_map 
+            n
+            for n in self.channel_map
             if n in self._metadata.identity_cols and n not in [time_col, id_col]
         ]
         identity_idxs = [self.channel_map.index(n) for n in identity_names]
@@ -339,9 +330,9 @@ class VolumeHandler:
             # Extract and repeat identity watermarks
             id_vols = []
             for idx in primary_idxs + identity_idxs:
-                slice_data = self.data[..., idx : idx + 1] # [T, H, W, 1]
-                watermark = np.expand_dims(slice_data, axis=-1) # [T, H, W, 1, 1]
-                watermark = np.repeat(watermark, n_samples, axis=-1) # [T, H, W, 1, S]
+                slice_data = self.data[..., idx : idx + 1]  # [T, H, W, 1]
+                watermark = np.expand_dims(slice_data, axis=-1)  # [T, H, W, 1, 1]
+                watermark = np.repeat(watermark, n_samples, axis=-1)  # [T, H, W, 1, S]
                 id_vols.append(watermark)
 
             full_data = np.concatenate(id_vols + [work_data], axis=-2)
@@ -351,31 +342,36 @@ class VolumeHandler:
             id_vols = [self.data[..., idx : idx + 1] for idx in primary_idxs + identity_idxs]
             full_data = np.concatenate(id_vols + [work_data], axis=-1)
 
-        full_signal_names = primary_names + identity_names + reg_names + prob_names
+        # The final channel map is [Keys] + [Identities] + [Predictions]
+        final_names = primary_names + identity_names + full_signal_names
 
         return VolumeHandler(
             data=full_data,
             axes=axes,
-            channel_map=full_signal_names,
+            channel_map=final_names,
             time_col=time_col,
             id_col=id_col,
             spatial_cols=self._metadata.spatial_cols,
             identity_cols=tuple(identity_names),
-            feature_cols=tuple(reg_names + prob_names),
-            spatial_offset=self._metadata.spatial_offset
+            feature_cols=tuple(full_signal_names),
+            spatial_offset=self._metadata.spatial_offset,
         )
 
-    def collapse_to_point(self, method: str) -> 'VolumeHandler':
+    def collapse_to_point(self, method: str) -> "VolumeHandler":
         """
         Mathematically collapses the sample dimension ('S') into a point estimate.
         Governed by ADR 021: Volume Dimension Reduction.
         """
         if "S" not in self._metadata.axes:
-            logger.warning("VolumeHandler: collapse_to_point() called on a volume that is already 4D. Skipping.")
+            logger.warning(
+                "VolumeHandler: collapse_to_point() called on already 4D volume. Skipping."
+            )
             return self
 
         s_idx = self.get_axis_idx("S")
-        logger.info(f"📍 VolumeHandler: Collapsing dimension 'S' via {method} (ADR 021 Survival Gate)")
+        logger.info(
+            f"📍 VolumeHandler: Collapsing dimension 'S' via {method} (ADR 021 Survival Gate)"
+        )
 
         if torch.is_tensor(self._data):
             work_data = self._data.detach().cpu().numpy()
@@ -387,10 +383,13 @@ class VolumeHandler:
         elif method == "median":
             collapsed_data = np.median(work_data, axis=s_idx)
         else:
-            err_msg = f"Collapse method '{method}' is not defined in ADR 021. Must be 'arithmetic_mean' or 'median'."
-            
+            err_msg = (
+                f"Collapse method '{method}' is not defined in ADR 021. "
+                "Must be 'arithmetic_mean' or 'median'."
+            )
+
             logger.error(err_msg)
-            
+
             raise NotImplementedError(err_msg)
 
         # Update axes: Filter out 'S'
@@ -405,7 +404,7 @@ class VolumeHandler:
             spatial_cols=self._metadata.spatial_cols,
             identity_cols=self._metadata.identity_cols,
             feature_cols=self._metadata.feature_cols,
-            spatial_offset=self._metadata.spatial_offset
+            spatial_offset=self._metadata.spatial_offset,
         )
 
     def to_historical_df(self) -> pd.DataFrame:
@@ -414,7 +413,7 @@ class VolumeHandler:
         """
         return self._reconstruct_from_provider(self)
 
-    def to_evaluation_df(self, history: 'VolumeHandler', start_idx: int) -> pd.DataFrame:
+    def to_evaluation_df(self, history: "VolumeHandler", start_idx: int) -> pd.DataFrame:
         """
         Converts predictions to DF by slicing a history provider.
         """
@@ -428,15 +427,15 @@ class VolumeHandler:
                 f"[index {start_idx} : {start_idx + duration}] "
                 f"exceeds history duration ({history_duration})."
             )
-            
+
             logger.error(err_msg)
-            
+
             raise ValueError(err_msg)
 
         provider_slice = history.slice_time(start_idx, start_idx + duration)
         return self._reconstruct_from_provider(provider_slice)
 
-    def to_forecast_df(self, history: 'VolumeHandler') -> pd.DataFrame:
+    def to_forecast_df(self, history: "VolumeHandler") -> pd.DataFrame:
         """
         Converts predictions to DF by extrapolating a history provider.
         """
@@ -444,44 +443,50 @@ class VolumeHandler:
         provider_future = history.extrapolate_time(duration)
         return self._reconstruct_from_provider(provider_future)
 
-    def _reconstruct_from_provider(self, provider: 'VolumeHandler') -> pd.DataFrame:
+    def _reconstruct_from_provider(self, provider: "VolumeHandler") -> pd.DataFrame:
         """
         Shared logic: Align, Mask, Flatten, and Combine.
         Handles both Point (4D) and Stochastic (5D) volumes.
-        Uses an Iterative Watermarked Bridge (ADR 023) to ensure 
+        Uses an Iterative Watermarked Bridge (ADR 023) to ensure
         absolute topographic integrity and RAM scalability.
         """
         # 1. Align Self (Signal)
-        temp_data = self._data.detach().cpu().numpy() if torch.is_tensor(self._data) else self._data.copy()
+        temp_data = (
+            self._data.detach().cpu().numpy() if torch.is_tensor(self._data) else self._data.copy()
+        )
         has_samples = "S" in self._metadata.axes
 
         if has_samples:
             t_idx, h_idx, w_idx, c_idx, s_idx = (
-                self.get_axis_idx("T"), 
-                self.get_axis_idx("H"), 
-                self.get_axis_idx("W"), 
-                self.get_axis_idx("C"), 
-                self.get_axis_idx("S")
+                self.get_axis_idx("T"),
+                self.get_axis_idx("H"),
+                self.get_axis_idx("W"),
+                self.get_axis_idx("C"),
+                self.get_axis_idx("S"),
             )
             temp_data = np.transpose(temp_data, (h_idx, w_idx, t_idx, c_idx, s_idx))
             temp_data = np.flip(temp_data, axis=0)
         else:
             t_idx, h_idx, w_idx, c_idx = (
-                self.get_axis_idx("T"), 
-                self.get_axis_idx("H"), 
-                self.get_axis_idx("W"), 
-                self.get_axis_idx("C")
+                self.get_axis_idx("T"),
+                self.get_axis_idx("H"),
+                self.get_axis_idx("W"),
+                self.get_axis_idx("C"),
             )
             temp_data = np.transpose(temp_data, (h_idx, w_idx, t_idx, c_idx))
             temp_data = np.flip(temp_data, axis=0)
 
         # 2. Align Provider (Scaffold)
-        p_data = provider.data.detach().cpu().numpy() if torch.is_tensor(provider.data) else provider.data.copy()
+        p_data = (
+            provider.data.detach().cpu().numpy()
+            if torch.is_tensor(provider.data)
+            else provider.data.copy()
+        )
         p_t, p_h, p_w, p_c = (
-            provider.get_axis_idx("T"), 
-            provider.get_axis_idx("H"), 
-            provider.get_axis_idx("W"), 
-            provider.get_axis_idx("C")
+            provider.get_axis_idx("T"),
+            provider.get_axis_idx("H"),
+            provider.get_axis_idx("W"),
+            provider.get_axis_idx("C"),
         )
         p_data = np.transpose(p_data, (p_h, p_w, p_t, p_c))
         p_data = np.flip(p_data, axis=0)
@@ -499,14 +504,14 @@ class VolumeHandler:
         # ADR 032: We MUST carry month_id, priogrid_gid, row, col, and c_id
         scaffold_cols = {
             time_col: p_data[indices[0], indices[1], indices[2], time_idx].astype(np.int32),
-            id_col: p_data[indices[0], indices[1], indices[2], pg_idx].astype(np.int32)
+            id_col: p_data[indices[0], indices[1], indices[2], pg_idx].astype(np.int32),
         }
 
         # 4. Initialize Polars Scaffold (The Source of Truth)
         # ADR 032: We MUST carry month_id, priogrid_gid, row, col, and c_id
         scaffold_cols = {
             time_col: p_data[indices[0], indices[1], indices[2], time_idx].astype(np.int32),
-            id_col: p_data[indices[0], indices[1], indices[2], pg_idx].astype(np.int32)
+            id_col: p_data[indices[0], indices[1], indices[2], pg_idx].astype(np.int32),
         }
 
         # Add Actuals and Identities to Scaffold from the provider's map
@@ -516,16 +521,9 @@ class VolumeHandler:
 
             # Carry everything from the provider that is either an identity or a feature
             if name in provider._metadata.identity_cols or name in provider._metadata.feature_cols:
-                scaffold_cols[name] = p_data[indices[0], indices[1], indices[2], i].astype(np.float32)
-
-                # ADR 032: Generate Binary Derivative (by_) if name is linear (lr_)
-                # and it was marked as a feature column.
-                is_feature = name in provider._metadata.feature_cols
-                if is_feature and name.startswith(LINEAR_PREFIX):
-                    binary_name = name.replace(LINEAR_PREFIX, BINARY_PREFIX, 1)
-                    if binary_name not in provider.channel_map:  # Don't overwrite if it exists
-                        binary_mask = (p_data[indices[0], indices[1], indices[2], i] > 0)
-                        scaffold_cols[binary_name] = binary_mask.astype(np.float32)
+                scaffold_cols[name] = p_data[indices[0], indices[1], indices[2], i].astype(
+                    np.float32
+                )
 
         pl_master = pl.DataFrame(scaffold_cols)
         del p_data, scaffold_cols
@@ -549,16 +547,24 @@ class VolumeHandler:
                     # STOCHASTIC WATERMARK: Extract first sample only for IDs
                     # Join keys must be scalar.
                     head_dict = {
-                        time_col: temp_data[indices[0], indices[1], indices[2], head_time_idx, 0].astype(np.int32),
-                        id_col: temp_data[indices[0], indices[1], indices[2], head_id_idx, 0].astype(np.int32),
-                        name: temp_data[indices[0], indices[1], indices[2], i, :]
+                        time_col: temp_data[
+                            indices[0], indices[1], indices[2], head_time_idx, 0
+                        ].astype(np.int32),
+                        id_col: temp_data[
+                            indices[0], indices[1], indices[2], head_id_idx, 0
+                        ].astype(np.int32),
+                        name: temp_data[indices[0], indices[1], indices[2], i, :],
                     }
                 else:
                     # POINT WATERMARK: Standard extraction
                     head_dict = {
-                        time_col: temp_data[indices[0], indices[1], indices[2], head_time_idx].astype(np.int32),
-                        id_col: temp_data[indices[0], indices[1], indices[2], head_id_idx].astype(np.int32),
-                        name: temp_data[indices[0], indices[1], indices[2], i]
+                        time_col: temp_data[
+                            indices[0], indices[1], indices[2], head_time_idx
+                        ].astype(np.int32),
+                        id_col: temp_data[indices[0], indices[1], indices[2], head_id_idx].astype(
+                            np.int32
+                        ),
+                        name: temp_data[indices[0], indices[1], indices[2], i],
                     }
             else:
                 # POSITION FALLBACK: Re-use scaffold IDs (Vulnerable to shuffle)
@@ -569,7 +575,7 @@ class VolumeHandler:
                 head_dict = {
                     time_col: pl_master[time_col],
                     id_col: pl_master[id_col],
-                    name: head_val
+                    name: head_val,
                 }
             df_head = pl.DataFrame(head_dict)
 
@@ -600,7 +606,7 @@ class VolumeHandler:
 
         return df_out
 
-    def slice_time(self, start_idx: int, end_idx: int) -> 'VolumeHandler':
+    def slice_time(self, start_idx: int, end_idx: int) -> "VolumeHandler":
         """
         Returns a new VolumeHandler containing a temporal subset of the data.
         """
@@ -612,9 +618,9 @@ class VolumeHandler:
                 f"VolumeHandler Contract Violation: Invalid time slice [{start_idx}:{end_idx}] "
                 f"for volume with duration {max_t}."
             )
-            
+
             logger.error(err_msg)
-            
+
             raise ValueError(err_msg)
 
         slices = [slice(None)] * self._data.ndim
@@ -630,10 +636,10 @@ class VolumeHandler:
             spatial_cols=self._metadata.spatial_cols,
             identity_cols=self._metadata.identity_cols,
             feature_cols=self._metadata.feature_cols,
-            spatial_offset=self._metadata.spatial_offset
+            spatial_offset=self._metadata.spatial_offset,
         )
 
-    def extrapolate_time(self, steps: int) -> 'VolumeHandler':
+    def extrapolate_time(self, steps: int) -> "VolumeHandler":
         """
         Creates a future Identity Scaffold by extending the last time step.
         """
@@ -671,66 +677,159 @@ class VolumeHandler:
             spatial_cols=self._metadata.spatial_cols,
             identity_cols=self._metadata.identity_cols,
             feature_cols=self._metadata.feature_cols,
-            spatial_offset=self._metadata.spatial_offset
+            spatial_offset=self._metadata.spatial_offset,
         )
 
-    def permute(self, dims: Union[List[int], Tuple[int, ...]]) -> 'VolumeHandler':
+    def permute(self, dims: Union[List[int], Tuple[int, ...]]) -> "VolumeHandler":
         """
         Reorders the axes of the volume and updates the Ledger.
         NOTE: Review needed - primarily used in geometric tests.
         """
         dims_tuple = tuple(dims)
-        self._data = self._data.permute(*dims_tuple) if torch.is_tensor(self._data) else np.transpose(self._data, dims_tuple)
+        self._data = (
+            self._data.permute(*dims_tuple)
+            if torch.is_tensor(self._data)
+            else np.transpose(self._data, dims_tuple)
+        )
 
         # Update Ledger
         new_axes = tuple(self._metadata.axes[i] for i in dims_tuple)
         self._metadata = replace(
             self._metadata,
             axes=new_axes,
-            history=self._metadata.history + (("permute", dims_tuple),)
+            history=self._metadata.history + (("permute", dims_tuple),),
         )
         return self
 
-    def flip(self, axis_label: str) -> 'VolumeHandler':
+    def flip(self, axis_label: str) -> "VolumeHandler":
         """
         Flips the volume along a specific named axis and updates the Ledger history.
         NOTE: Critical for data augmentation in training loop.
         """
         idx = self.get_axis_idx(axis_label)
-        self._data = torch.flip(self._data, dims=[idx]) if torch.is_tensor(self._data) else np.flip(self._data, axis=idx)
+        self._data = (
+            torch.flip(self._data, dims=[idx])
+            if torch.is_tensor(self._data)
+            else np.flip(self._data, axis=idx)
+        )
 
         self._metadata = replace(
-            self._metadata,
-            history=self._metadata.history + (("flip", axis_label),)
+            self._metadata, history=self._metadata.history + (("flip", axis_label),)
         )
         return self
 
     @property
     def data(self):
         return self._data
+
     @property
     def shape(self):
         return self._data.shape
+
     def __len__(self):
         return self._data.shape[self.get_axis_idx("T")]
+
     @property
     def axes(self):
         return self._metadata.axes
+
     @property
     def channel_map(self):
         return self._metadata.channel_map
+
     @property
     def id_col(self):
         return self._metadata.id_col
+
     @property
     def time_col(self):
         return self._metadata.time_col
+
     @property
     def spatial_cols(self):
         return self._metadata.spatial_cols
+
     @property
     def spatial_offset(self):
         return self._metadata.spatial_offset
+
+    def _execute_derivations(self, derivations_config: Dict[str, List[Dict[str, Any]]]) -> None:
+        """
+        Executes additive feature engineering instructions (ADR 046).
+        Mutates internal _data and _metadata.
+        """
+        c_idx = self.get_axis_idx("C")
+        new_channels = list(self._metadata.channel_map)
+        new_features = list(self._metadata.feature_cols)
+
+        for op, instructions in derivations_config.items():
+            for instr in instructions:
+                src_name = instr.get("from")
+                dst_name = instr.get("to")
+
+                # Zero Magic: Check mandatory keys
+                if not all([src_name, dst_name]):
+                    err_msg = (
+                        f"VolumeHandler Derivation Error: Missing mandatory keys (from, to) "
+                        f"in {op} instr: {instr}"
+                    )
+                    logger.error(err_msg)
+                    raise KeyError(err_msg)
+
+                if src_name not in self.channel_map:
+                    err_msg = (
+                        f"VolumeHandler Derivation Error: Source feature '{src_name}' "
+                        "not found in volume."
+                    )
+                    logger.error(err_msg)
+                    raise ValueError(err_msg)
+
+                src_idx = self.channel_map.index(src_name)
+
+                # Slicing the volume on the channel axis
+                slc = [slice(None)] * self._data.ndim
+                slc[c_idx] = src_idx
+
+                if op == "binary":
+                    # Zero Magic: threshold is mandatory for binary
+                    if "threshold" not in instr:
+                        err_msg = (
+                            f"VolumeHandler Derivation Error: 'binary' op requires explicit "
+                            f"'threshold' key in {instr}"
+                        )
+                        logger.error(err_msg)
+                        raise KeyError(err_msg)
+
+                    threshold = instr["threshold"]
+
+                    # Perform thresholding
+                    if torch.is_tensor(self._data):
+                        derived_data = (
+                            (self._data[tuple(slc)] > threshold).float().unsqueeze(c_idx)
+                        )
+                    else:
+                        derived_data = (self._data[tuple(slc)] > threshold).astype(np.float32)
+                        derived_data = np.expand_dims(derived_data, axis=c_idx)
+                else:
+                    err_msg = (
+                        f"VolumeHandler Derivation Error: Operation '{op}' is not implemented."
+                    )
+                    logger.error(err_msg)
+                    raise NotImplementedError(err_msg)
+
+                # Concatenate to data
+                if torch.is_tensor(self._data):
+                    self._data = torch.cat([self._data, derived_data], dim=c_idx)
+                else:
+                    self._data = np.concatenate([self._data, derived_data], axis=c_idx)
+
+                # Update ledger
+                new_channels.append(dst_name)
+                new_features.append(dst_name)
+
+        self._metadata = replace(
+            self._metadata, channel_map=tuple(new_channels), feature_cols=tuple(new_features)
+        )
 
     def get_axis_idx(self, label: str) -> int:
         return self._metadata.axes.index(label)

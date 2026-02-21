@@ -8,13 +8,11 @@ from views_hydranet.utils.utils import init_weights
 def test_architecture_instantiation():
     """Verify that the model can be instantiated with valid parameters."""
     model = HydraBNUNet06_LSTM4(
-        input_channels=8,
-        total_hidden_channels=32,
-        output_channels=1,
-        dropout_rate=0.1
+        input_channels=8, total_hidden_channels=32, output_channels=1, dropout_rate=0.1
     )
     assert isinstance(model, torch.nn.Module)
     assert model.base == 32
+
 
 def test_architecture_hidden_state_init():
     """Verify that hidden state initialization produces correct shapes and types."""
@@ -26,11 +24,15 @@ def test_architecture_hidden_state_init():
     assert h.dtype == torch.float64
     assert torch.all(h == 0)
 
+
 def test_architecture_forward_pass_shapes():
-    """Verify that the forward pass produces correctly shaped outputs for regression and classification."""
+    """
+    Verify that the forward pass produces correctly shaped outputs for
+    regression and classification.
+    """
     input_ch = 8
     hidden_ch = 32
-    out_ch = 1 # Per head, total 3
+    out_ch = 1  # Per head, total 3
     H, W = 16, 16
 
     model = HydraBNUNet06_LSTM4(input_ch, hidden_ch, out_ch, 0.1).float()
@@ -44,9 +46,10 @@ def test_architecture_forward_pass_shapes():
     assert out_class.shape == (1, 3, H, W)
     assert new_h.shape == (1, hidden_ch, H, W)
 
+
 def test_architecture_recurrent_state_evolution():
     """Verify that the hidden state actually changes after a forward pass."""
-    model = HydraBNUNet06_LSTM4(8, 32, 1, 0.0).float() # No dropout for determinism
+    model = HydraBNUNet06_LSTM4(8, 32, 1, 0.0).float()  # No dropout for determinism
     x = torch.randn((1, 8, 16, 16)).float()
     h_init = model.init_hTtime(32, 16, 16).float()
 
@@ -55,6 +58,7 @@ def test_architecture_recurrent_state_evolution():
     # Hidden state should no longer be zeros
     assert not torch.all(h_next == 0)
     assert h_next.shape == h_init.shape
+
 
 def test_architecture_multi_batch_support():
     """Verify that the architecture supports batch sizes > 1."""
@@ -71,7 +75,9 @@ def test_architecture_multi_batch_support():
 
     out_reg, out_class, new_h = model(x, h)
 
-    assert out_reg.shape[0] == batch_size, f"Expected batch dim {batch_size}, got {out_reg.shape[0]}"
+    assert out_reg.shape[0] == batch_size, (
+        f"Expected batch dim {batch_size}, got {out_reg.shape[0]}"
+    )
     assert new_h.shape[0] == batch_size, f"Expected batch dim {batch_size}, got {new_h.shape[0]}"
 
 
@@ -102,7 +108,7 @@ def test_weight_init_xavier_norm_is_not_silent():
     nn.init.constant_(layer.weight, 1.0)
     sentinel = layer.weight.clone()
 
-    config = {'weight_init': 'xavier_norm'}
+    config = {"weight_init": "xavier_norm"}
 
     try:
         init_weights(layer, config)
@@ -141,11 +147,11 @@ def test_weight_init_xavier_norm_statistics():
     # Large layer for tight statistical convergence (weight count = 16*8*5*5 = 3200)
     layer = nn.Conv2d(in_channels=8, out_channels=16, kernel_size=5)
 
-    fan_in = 8 * 5 * 5    # 200
+    fan_in = 8 * 5 * 5  # 200
     fan_out = 16 * 5 * 5  # 400
     expected_std = math.sqrt(2.0 / (fan_in + fan_out))  # ≈ 0.0577
 
-    config = {'weight_init': 'xavier_norm'}
+    config = {"weight_init": "xavier_norm"}
     init_weights(layer, config)
 
     actual_std = layer.weight.std().item()

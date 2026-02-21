@@ -11,7 +11,7 @@ def test_setup_device_cuda_available():
     """
     Tests setup_device when CUDA is available.
     """
-    with patch('torch.cuda.is_available', return_value=True):
+    with patch("torch.cuda.is_available", return_value=True):
         # Capture stdout
         captured_output = StringIO()
         sys.stdout = captured_output
@@ -20,14 +20,15 @@ def test_setup_device_cuda_available():
 
         sys.stdout = sys.__stdout__  # Reset stdout
 
-        assert device == torch.device('cuda')
+        assert device == torch.device("cuda")
         assert "Using device: cuda" in captured_output.getvalue()
+
 
 def test_setup_device_cuda_not_available():
     """
     Tests setup_device when CUDA is not available.
     """
-    with patch('torch.cuda.is_available', return_value=False):
+    with patch("torch.cuda.is_available", return_value=False):
         # Capture stdout
         captured_output = StringIO()
         sys.stdout = captured_output
@@ -36,6 +37,5 @@ def test_setup_device_cuda_not_available():
 
         sys.stdout = sys.__stdout__  # Reset stdout
 
-        assert device == torch.device('cpu')
+        assert device == torch.device("cpu")
         assert "Using device: cpu" in captured_output.getvalue()
-

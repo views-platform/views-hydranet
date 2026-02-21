@@ -1,12 +1,14 @@
-import pytest
 from unittest.mock import PropertyMock, patch
 
+import pytest
 import torch
 
 from views_hydranet.manager.hydranet_manager import HydranetManager
 
 
-@pytest.mark.skip(reason="Requires full HydranetManager with external data artifacts. Run manually only.")
+@pytest.mark.skip(
+    reason="Requires full HydranetManager with external data artifacts. Run manually only."
+)
 @patch("views_hydranet.manager.hydranet_manager.setup_device")
 def test_hydranet_manager_instantiation(mock_setup_device, mock_mpm, valid_config_dict):
     """
@@ -16,7 +18,10 @@ def test_hydranet_manager_instantiation(mock_setup_device, mock_mpm, valid_confi
     mock_setup_device.return_value = torch.device("cpu")
 
     # Act
-    with patch("views_pipeline_core.managers.model.model.ForecastingModelManager.__init__", return_value=None):
+    with patch(
+        "views_pipeline_core.managers.model.model.ForecastingModelManager.__init__",
+        return_value=None,
+    ):
         # We manually build the minimum required state for the handshake
         manager = HydranetManager(model_path=mock_mpm)
         manager._configs = valid_config_dict
