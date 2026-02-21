@@ -131,21 +131,8 @@ class VisualDiagnostics:
             t_len = data.shape[0]
             t_indices = np.linspace(0, t_len - 1, 5, dtype=int)
             
-            # Select Features (Metadata + Features)
-            interesting = []
-            
-            # 1. Metadata / Identity Group
-            # We want: month_id, priogrid_gid, c_id, row, col
-            meta_order = [vh.time_col, vh.id_col, "c_id"] + list(vh.spatial_cols)
-            for c in meta_order:
-                if c in vh.channel_map and c not in interesting:
-                    interesting.append(c)
-            
-            # 2. Features Group (All linear signals)
-            # Pull directly from ledger to ensure completeness (ADR 012)
-            for c in vh._metadata.feature_cols:
-                if c in vh.channel_map and c not in interesting:
-                    interesting.append(c)
+            # Select Features (Metadata first, then signals)
+            interesting, _ = self._select_display_channels(vh)
             
             # Construct Sliced Volume [5, H, W, F]
             feat_indices = [vh.channel_map.index(c) for c in interesting]
@@ -192,14 +179,8 @@ class VisualDiagnostics:
         if not self.active: return
 
         try:
-            # 1. Select interesting features (Same as biopsy_volume)
-            interesting = []
-            meta_order = [sample_vh.time_col, sample_vh.id_col, "c_id"] + list(sample_vh.spatial_cols)
-            for c in meta_order:
-                if c in sample_vh.channel_map: interesting.append(c)
-            for c in sample_vh._metadata.feature_cols:
-                if c in sample_vh.channel_map and c not in interesting:
-                    interesting.append(c)
+            # 1. Select interesting features (Metadata first, then signals)
+            interesting, meta_cols = self._select_display_channels(sample_vh)
 
             # 2. Extract Sample Data [5, H_patch, W_patch, F]
             s_data = sample_vh.data
@@ -220,7 +201,16 @@ class VisualDiagnostics:
             g_t_idx = global_vh.get_axis_idx("T")
             g_c_idx = global_vh.get_axis_idx("C")
             
-            signal_feat = interesting[-1] 
+            signal_feat = next(
+                (c for c in interesting if c not in meta_cols),
+                None
+            )
+            if signal_feat is None:
+                logger.warning(
+                    f"VisualDiagnostics.biopsy_sample: No signal feature found in channel "
+                    f"map for global context at {stage_label}. Skipping biopsy."
+                )
+                return
             g_feat_idx = global_vh.channel_map.index(signal_feat)
             id_feat_idx = global_vh.channel_map.index(global_vh.id_col)
             
@@ -264,6 +254,31 @@ class VisualDiagnostics:
 
         except Exception as e:
             logger.error(f"VisualDiagnostics: Failed to biopsy sample at {stage_label}: {e}")
+
+    def _select_display_channels(self, vh: VolumeHandler) -> Tuple[List[str], set]:
+        """
+        Builds the ordered channel list for biopsy display.
+
+        Returns (interesting, meta_cols) where:
+        - interesting: ordered list of channel names to display (metadata first, then signals)
+        - meta_cols: frozenset of identity/metadata channel names, enabling O(1)
+          signal-vs-metadata classification without re-scanning the list.
+        """
+        meta_cols = {vh.time_col, vh.id_col, "c_id"} | set(vh.spatial_cols)
+        interesting: List[str] = []
+
+        # 1. Metadata / Identity Group (fixed display order)
+        meta_order = [vh.time_col, vh.id_col, "c_id"] + list(vh.spatial_cols)
+        for c in meta_order:
+            if c in vh.channel_map and c not in interesting:
+                interesting.append(c)
+
+        # 2. Signal Features Group (pulled from ledger — ADR 012)
+        for c in vh._metadata.feature_cols:
+            if c in vh.channel_map and c not in interesting:
+                interesting.append(c)
+
+        return interesting, meta_cols
 
     def biopsy_autoregressive(self, truth_seq: List[np.ndarray], pred_seq: List[np.ndarray], 
                               stage_label: str, channel_names: List[str], time_indices: List[float] = None) -> None:
