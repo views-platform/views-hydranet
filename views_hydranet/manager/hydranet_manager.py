@@ -205,7 +205,11 @@ class HydranetManager(ForecastingModelManager):
         
         # DIAGNOSTIC: Stage 7 (Reconstruction - Sample 0)
         if list_df_predictions:
-             pred_plot_feats = [f"pred_{t}" for t in self.configs["regression_targets"]]
+             pred_plot_feats = []
+             for t in self.configs.get("regression_targets", []):
+                  pred_plot_feats.append(f"pred_{t}")
+                  pred_plot_feats.append(f"pred_{t.replace('lr_', 'by_', 1)}")
+             
              viz.biopsy_dataframe(list_df_predictions[0], "Stage 7: Final Reconstruction", features=pred_plot_feats)
 
         # 8. Diplomatic Forgery (ADR 031)
@@ -286,7 +290,11 @@ class HydranetManager(ForecastingModelManager):
         
         # DIAGNOSTIC: Stage 7
         if list_df_predictions:
-             pred_plot_feats = [f"pred_{t}" for t in self.configs["regression_targets"]]
+             pred_plot_feats = []
+             for t in self.configs.get("regression_targets", []):
+                  pred_plot_feats.append(f"pred_{t}")
+                  pred_plot_feats.append(f"pred_{t.replace('lr_', 'by_', 1)}")
+             
              viz.biopsy_dataframe(list_df_predictions[0], "Stage 7: Final Reconstruction", features=pred_plot_feats)
 
         log_prediction_summary(list_df_predictions)
