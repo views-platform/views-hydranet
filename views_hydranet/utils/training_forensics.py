@@ -1,5 +1,6 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
+
 import numpy as np
 import torch
 
@@ -16,13 +17,13 @@ class TrainingForensics:
         self.config = config
         self.reg_targets = config.get("regression_targets", [])
         self.cls_targets = config.get("classification_targets", [])
-        
+
         # Pull and filter metrics (strip redundant calibration pulses)
         raw_reg_metrics = config.get("regression_metrics", ["mse"])
         self.reg_metrics = [m for m in raw_reg_metrics if m.lower() != "y_hat_bar"]
-        
+
         self.cls_metrics = config.get("classification_metrics", ["ap"])
-        
+
         # 1. Threshold Integrity Guard
         forbidden = ["f1", "accuracy", "recall", "precision"]
         for m in self.reg_metrics + self.cls_metrics:
@@ -36,12 +37,12 @@ class TrainingForensics:
         # We use "REG:name" and "CLS:name" to prevent collisions
         self.history = {}
         self.target_map = {} # Maps namespaced key to metadata
-        
+
         for target in self.reg_targets:
             key = f"REG:{target}"
             self.target_map[key] = {"type": "REG", "name": target, "metrics": self.reg_metrics}
             self._init_target_history(key, self.reg_metrics)
-            
+
         for target in self.cls_targets:
             key = f"CLS:{target}"
             self.target_map[key] = {"type": "CLS", "name": target, "metrics": self.cls_metrics}
@@ -74,7 +75,7 @@ class TrainingForensics:
 
     def record(self, namespaced_key: str, y: torch.Tensor, y_hat: torch.Tensor) -> None:
         """
-        Records a single window pass. 
+        Records a single window pass.
         namespaced_key: e.g. 'REG:lr_sb_best'
         """
         if namespaced_key not in self.lesson_y:
@@ -96,7 +97,7 @@ class TrainingForensics:
 
             y_all = np.concatenate(self.lesson_y[key])
             yh_all = np.concatenate(self.lesson_yh[key])
-            
+
             # 1. Calculate Metrics
             if meta["type"] == "REG":
                 for m in self.reg_metrics:
@@ -110,13 +111,13 @@ class TrainingForensics:
             # 2. Calculate Bias (Dual Mode)
             sum_y = np.sum(y_all)
             sum_yh = np.sum(yh_all)
-            
+
             self.history[key]["y_bar"].append(np.mean(y_all))
             self.history[key]["y_hat_bar"].append(np.mean(yh_all))
-            
+
             instant_bias = sum_yh / sum_y if sum_y > 0 else 1.0
             self.history[key]["bias_instant"].append(instant_bias)
-            
+
             self.running_sum_y[key] += sum_y
             self.running_sum_yh[key] += sum_yh
             running_bias = self.running_sum_yh[key] / self.running_sum_y[key] if self.running_sum_y[key] > 0 else 1.0
@@ -142,10 +143,10 @@ class TrainingForensics:
 
     def _calculate_cls_metric(self, name: str, y: np.ndarray, yh: np.ndarray) -> float:
         from sklearn.metrics import average_precision_score, roc_auc_score
-        
+
         # Ensure binary y for sklearn
         y_bin = (y > 0).astype(int)
-        
+
         # Guard: sklearn metrics fail if only one class is present
         if len(np.unique(y_bin)) < 2:
              if name.lower() == "auc": return 0.5

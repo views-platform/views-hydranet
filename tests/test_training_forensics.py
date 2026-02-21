@@ -13,12 +13,10 @@ Coverage:
   BEIGE GATES — Empty lessons (carry-forward), zero-sum y (sentinel 1.0), unknown get_dossier,
              — AP/AUC no-positive-samples edge cases
 """
-import numpy as np
 import pytest
 import torch
 
 from views_hydranet.utils.training_forensics import TrainingForensics
-
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -120,7 +118,7 @@ def test_forensics_mse_correctness():
     tf = TrainingForensics(FORENSICS_CFG)
     _record_reg(tf, [0.0, 4.0], [0.0, 2.0])
     tf.finalize_lesson()
-    
+
     mse_val = tf.history["REG:lr_feat_a"]["mse"][0]
     assert mse_val == pytest.approx(2.0), f"MSE calculation failed. Expected 2.0, got {mse_val}"
 
@@ -133,7 +131,7 @@ def test_forensics_mae_correctness():
     tf = TrainingForensics(FORENSICS_CFG)
     _record_reg(tf, [0.0, 4.0], [0.0, 2.0])
     tf.finalize_lesson()
-    
+
     mae_val = tf.history["REG:lr_feat_a"]["mae"][0]
     assert mae_val == pytest.approx(1.0), f"MAE calculation failed. Expected 1.0, got {mae_val}"
 
@@ -146,7 +144,7 @@ def test_forensics_bias_instant_correctness():
     tf = TrainingForensics(FORENSICS_CFG)
     _record_reg(tf, [3.0, 1.0], [6.0, 2.0])
     tf.finalize_lesson()
-    
+
     bias_val = tf.history["REG:lr_feat_a"]["bias_instant"][0]
     assert bias_val == pytest.approx(2.0), f"Instant Bias failed. Expected 2.0, got {bias_val}"
 
@@ -159,7 +157,7 @@ def test_forensics_y_bar_and_yhat_bar_correctness():
     tf = TrainingForensics(FORENSICS_CFG)
     _record_reg(tf, [0.0, 4.0], [0.0, 2.0])
     tf.finalize_lesson()
-    
+
     y_bar = tf.history["REG:lr_feat_a"]["y_bar"][0]
     yh_bar = tf.history["REG:lr_feat_a"]["y_hat_bar"][0]
     assert y_bar == 2.0
@@ -171,12 +169,12 @@ def test_forensics_bias_running_is_cumulative_across_lessons():
     GREEN GATE: bias_running must accumulate across lessons, not reset.
     """
     tf = TrainingForensics(FORENSICS_CFG)
-    
+
     # Lesson 1
     _record_reg(tf, [2.0], [4.0])
     tf.finalize_lesson()
     assert tf.history["REG:lr_feat_a"]["bias_running"][0] == 2.0
-    
+
     # Lesson 2
     _record_reg(tf, [2.0], [0.0])
     tf.finalize_lesson()
@@ -193,7 +191,7 @@ def test_forensics_empty_lesson_first_appends_zero():
     BEIGE GATE: finalize_lesson() with no records must append 0.0 or carry forward.
     """
     tf = TrainingForensics(FORENSICS_CFG)
-    tf.finalize_lesson() 
+    tf.finalize_lesson()
     mse_history = tf.history["REG:lr_feat_a"]["mse"]
     assert len(mse_history) == 1
     assert mse_history[0] == 0.0
@@ -206,7 +204,7 @@ def test_forensics_empty_lesson_subsequent_carries_forward():
     tf = TrainingForensics(FORENSICS_CFG)
     _record_reg(tf, [0.0, 4.0], [0.0, 2.0]) # MSE = 2.0
     tf.finalize_lesson()
-    
+
     tf.finalize_lesson() # Empty lesson
     mse_history = tf.history["REG:lr_feat_a"]["mse"]
     assert len(mse_history) == 2
@@ -218,7 +216,7 @@ def test_forensics_zero_sum_y_bias_falls_back_to_one():
     BEIGE GATE: When Σy=0, bias_instant falls back to 1.0 (sentinel).
     """
     tf = TrainingForensics(FORENSICS_CFG)
-    _record_reg(tf, [0.0, 0.0], [0.5, 0.5]) 
+    _record_reg(tf, [0.0, 0.0], [0.5, 0.5])
     tf.finalize_lesson()
     assert tf.history["REG:lr_feat_a"]["bias_instant"][0] == 1.0
 
@@ -261,7 +259,7 @@ def test_forensics_history_length_tracks_finalize_calls():
     for _ in range(3):
         _record_reg(tf, [1.0], [1.5])
         tf.finalize_lesson()
-    
+
     assert len(tf.history["REG:lr_feat_a"]["mse"]) == 3
 
 
@@ -274,6 +272,6 @@ def test_forensics_reg_and_cls_history_length_aligned():
     for _ in range(4):
         _record_reg(tf, [1.0], [1.5])
         tf.finalize_lesson()
-    
+
     assert len(tf.history["REG:lr_feat_a"]["mse"]) == 4
     assert len(tf.history["CLS:by_feat_a"]["ap"]) == 4

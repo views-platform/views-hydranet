@@ -57,7 +57,16 @@ def choose_loss(config, device):
         raise ValueError(err_msg)
 
     logger.info(f'Regression loss: {criterion_reg}\n classification loss: {criterion_class}')
-    is_regression = torch.Tensor([True, True, True, False, False, False])
+    
+    # Dynamic Loss Mask (ADR 020 Multi-Task)
+    # We construct the boolean mask based on the configured targets
+    n_reg = len(config.get("regression_targets", []))
+    n_cls = len(config.get("classification_targets", []))
+    
+    # Mask: True for Regression, False for Classification
+    mask_list = [True] * n_reg + [False] * n_cls
+    is_regression = torch.Tensor(mask_list)
+    
     multitaskloss_instance = MultiTaskLoss(is_regression, reduction='sum')
     return (criterion_reg, criterion_class, multitaskloss_instance)
 

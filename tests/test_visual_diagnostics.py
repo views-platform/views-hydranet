@@ -20,15 +20,15 @@ Test isolation strategy:
   The `run_timestamp="test_ts"` pin makes the save_dir path deterministic.
 """
 import matplotlib
+
 matplotlib.use("Agg")  # Must precede any pyplot import; avoids GUI windows in CI
 
 import numpy as np
+import pandas as pd
 import pytest
 import torch
-import pandas as pd
 
 from views_hydranet.utils.visual_diagnostics import VisualDiagnostics
-
 
 # ---------------------------------------------------------------------------
 # Shared configs
