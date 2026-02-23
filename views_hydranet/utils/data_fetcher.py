@@ -128,4 +128,57 @@ class DataFetcher:
         # Drop rows where ID is 0 or NaN (Ocean)
         df_out = df_flat[df_flat[id_col] > 0].copy()
 
+        # 6. Ontological Standardization (ADR 046)
+        # Ensure the DataFrame matches the instructional blueprint
+        return DataFetcher.apply_blueprint(df_out, config)
+
+    @staticmethod
+    def apply_blueprint(df: pd.DataFrame, config: Dict[str, Any]) -> pd.DataFrame:
+        """
+        Executes the instructional derivations (ADR 046) on a DataFrame.
+        This ensures that DataFrames used for training and evaluation contain
+        the derived signals (e.g., binary targets) defined in the blueprint.
+        """
+        df_out = df.copy()
+        derivations = config.get("derivations", {})
+
+        for op, instructions in derivations.items():
+            for instr in instructions:
+                src_name = instr.get("from")
+                dst_name = instr.get("to")
+
+                if not all([src_name, dst_name]):
+                    err_msg = (
+                        f"DataFetcher Blueprint Error: Missing mandatory keys (from, to) "
+                        f"in {op} instr: {instr}"
+                    )
+                    logger.error(err_msg)
+                    raise KeyError(err_msg)
+
+                if src_name not in df_out.columns:
+                    # If the source is missing, we can't derive.
+                    logger.debug(
+                        f"DataFetcher Blueprint: Source '{src_name}' missing. "
+                        "Skipping derivation."
+                    )
+                    continue
+
+                if op == "binary":
+                    if "threshold" not in instr:
+                        err_msg = (
+                            f"DataFetcher Blueprint Error: 'binary' op requires "
+                            f"explicit 'threshold' key in {instr}"
+                        )
+                        logger.error(err_msg)
+                        raise KeyError(err_msg)
+
+                    threshold = instr["threshold"]
+                    df_out[dst_name] = (df_out[src_name] > threshold).astype(float)
+                else:
+                    err_msg = (
+                        f"DataFetcher Blueprint Error: Operation '{op}' not implemented."
+                    )
+                    logger.error(err_msg)
+                    raise NotImplementedError(err_msg)
+
         return df_out

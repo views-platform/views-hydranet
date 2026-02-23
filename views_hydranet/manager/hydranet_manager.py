@@ -60,6 +60,15 @@ class HydranetManager(ForecastingModelManager):
         self.run_timestamp = datetime.now().strftime("%d%m%y_%H%M")
         logger.info(f"🕒 HydranetManager: Initialized run with timestamp {self.run_timestamp}")
 
+    def prepare_actuals_df(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Fulfills the handshake contract with views_pipeline_core.
+        Augments the ground-truth DataFrame with signals manufactured
+        via the Instructional Blueprint.
+        """
+        logger.info("🛠️ HydranetManager: Manufacturing derived signals for evaluation.")
+        return DataFetcher.apply_blueprint(df, self.configs)
+
     def _run_preflight_check(self) -> None:
         """
         Hypothesis 3 Probe: Validates Config vs Architecture.

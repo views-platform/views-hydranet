@@ -200,12 +200,14 @@ class HydraNetInference:
         Returns:
             A tuple containing magnitudes and probabilities zstacks.
         """
-        full_tensor = full_tensor.to(self.device)
         _, seq_len, _, H, W = full_tensor.shape
 
         # ADR 046: Identify input features by name
         input_features = self.config.get("features", [])
         feat_indices = [feature_names.index(f) for f in input_features]
+
+        reg_targets = self.config.get("regression_targets", [])
+        reg_indices = [feature_names.index(t) for t in reg_targets]
 
         # Initialize hidden state
         h_tt = (
@@ -222,7 +224,7 @@ class HydraNetInference:
             full_seq_len = seq_len - 1 + self.config["time_steps"]
             in_sample_seq_len = seq_len - 1
 
-        n_reg = len(self.config["regression_targets"])
+        n_reg = len(reg_targets)
         n_cls = len(self.config["classification_targets"])
 
         pred_magnitudes_zstack = np.zeros((self.config["time_steps"], n_reg, H, W))
@@ -251,7 +253,9 @@ class HydraNetInference:
 
                 # STAGE 5: Capture the LAST historical frame as the SEED (t=in_sample_seq_len-1)
                 if sample_idx == 0 and t == in_sample_seq_len - 1 and self.viz.active:
-                    y_seed = t0[0].permute(1, 2, 0).detach().cpu().numpy()
+                    # Slice to get only regression targets for consistency with y_pred
+                    seed_slice = t0[0, reg_indices, :, :]
+                    y_seed = seed_slice.permute(1, 2, 0).detach().cpu().numpy()
                     truth_accumulator.append(y_seed)
                     pred_accumulator.append(y_seed)  # Seed is identity
             else:
@@ -263,7 +267,8 @@ class HydraNetInference:
                     t1_pred, _, h_tt = cast(Any, self.model)(t0_input, h_tt)
                     # Special case: If seq_len=1, seed is t=0
                     if sample_idx == 0 and not truth_accumulator and self.viz.active:
-                        y_seed = t0[0].permute(1, 2, 0).detach().cpu().numpy()
+                        seed_slice = t0[0, reg_indices, :, :]
+                        y_seed = seed_slice.permute(1, 2, 0).detach().cpu().numpy()
                         truth_accumulator.append(y_seed)
                         pred_accumulator.append(y_seed)
 
@@ -272,7 +277,10 @@ class HydraNetInference:
                 # STAGE 5 DIAGNOSTIC: Capture 5 autoregressive steps
                 if sample_idx == 0 and len(truth_accumulator) < 6 and self.viz.active:
                     target_t = t if is_evaluation else 0
-                    y_truth = full_tensor[0, target_t].permute(1, 2, 0).detach().cpu().numpy()
+                    # Slice truth from full_tensor using reg_indices
+                    truth_slice = full_tensor[0, target_t, reg_indices, :, :]
+                    y_truth = truth_slice.permute(1, 2, 0).detach().cpu().numpy()
+                    
                     y_pred = t0[0].permute(1, 2, 0).detach().cpu().numpy()
                     truth_accumulator.append(y_truth)
                     pred_accumulator.append(y_pred)
@@ -345,7 +353,8 @@ class HydraNetInference:
 
         # 1. Model Entry Gate: Standardized PyTorch Layout
         # We strip identity channels here for the model input
-        full_tensor = handler.to_pytorch(self.device, include_identities=False)
+        # HARDENING: Move to GPU ONCE before the loop
+        full_tensor = handler.to_pytorch(self.device, include_identities=False).to(self.device)
         _, seq_len, _, H, W = full_tensor.shape
 
         # ADR 046: Map channel names for consistent indexing in predict()
@@ -404,24 +413,30 @@ class HydraNetInference:
             unit="step",
             leave=False,  # Don't clutter the terminal, the manager has the main bar
         ) as pbar:
-            for sample_idx in range(self.config["n_posterior_samples"]):
-                pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(
-                    full_tensor,
-                    sample_idx,
-                    feature_names=feature_names,
-                    is_evaluation=is_evaluation,
-                    pbar=pbar,
-                    stage_label=window_info,
-                    time_indices=time_indices,
-                )
+            # HARDENING: Explicitly wrap the whole loop in no_grad
+            with torch.no_grad():
+                for sample_idx in range(self.config["n_posterior_samples"]):
+                    pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(
+                        full_tensor,
+                        sample_idx,
+                        feature_names=feature_names,
+                        is_evaluation=is_evaluation,
+                        pbar=pbar,
+                        stage_label=window_info,
+                        time_indices=time_indices,
+                    )
 
-                # Store slices directly without concatenation
-                posterior_magnitudes_zstack[:, :, :, :, sample_idx] = (
-                    pred_magnitudes_zstack.transpose(0, 2, 3, 1)
-                )
-                posterior_probabilities_zstack[:, :, :, :, sample_idx] = (
-                    pred_probabilities_zstack.transpose(0, 2, 3, 1)
-                )
+                    # Store slices directly without concatenation
+                    posterior_magnitudes_zstack[:, :, :, :, sample_idx] = (
+                        pred_magnitudes_zstack.transpose(0, 2, 3, 1)
+                    )
+                    posterior_probabilities_zstack[:, :, :, :, sample_idx] = (
+                        pred_probabilities_zstack.transpose(0, 2, 3, 1)
+                    )
+
+                    # HARDENING: Clear VRAM cache between samples to prevent fragmentation
+                    if self.device.type == "cuda":
+                        torch.cuda.empty_cache()
 
         # Concatenate only once at the end
         # REFACTOR: Return them separately so orchestrator knows exactly what is what.

@@ -9,8 +9,9 @@ def test_eval_package_contract_acceptance():
     """
 
     # 1. Define the Metric Config
-    metrics_config = ["mse", "mae"]
-    eval_manager = EvaluationManager(metrics_config)
+    # Update: EvaluationManager.__init__ takes no arguments.
+    # Metrics are likely inferred or passed via config if needed.
+    eval_manager = EvaluationManager()
 
     # 2. Construct 'Toy Actuals' (Raw Scale)
     # The evaluation library expects a MultiIndex actuals too for processed data
@@ -32,7 +33,16 @@ def test_eval_package_contract_acceptance():
     ).set_index(["month_id", "priogrid_gid"])
 
     # 4. Mock pipeline configs (eval lib needs steps as a LIST of ints)
-    pipeline_configs = {"targets": ["lr_sb_best"], "run_type": "validation", "steps": [1]}
+    # Add metrics here just in case
+    pipeline_configs = {
+        "targets": ["lr_sb_best"],
+        "run_type": "validation",
+        "steps": [1],
+        "regression_metrics": ["mse", "mae"],
+        "classification_metrics": ["auc", "ap"],
+        "regression_point_metrics": ["mse", "mae"],
+        "classification_point_metrics": ["auc", "ap"],
+    }
 
     # 5. EXECUTE THE REAL EVALUATION
     try:
