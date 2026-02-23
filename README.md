@@ -98,6 +98,12 @@ HydraNet uses a **Strict Handshake** protocol to ensure production predictabilit
 - **Fail-Fast:** If a required field is missing or a value is invalid (e.g., a typo in `transform`), the program will halt immediately with a detailed error report.
 - **Safe-Mode:** The system uses internal state protection to ensure that critical paths (like model saving and data loading) are robust against partial initializations or mocked environments.
 
+### Feature Lifecycle (ADR 046)
+HydraNet employs a **Symmetric Feature Lifecycle** governed by an "Instructional Blueprint."
+- **Transformations:** Mathematical scaling (e.g., `log1p`) applied to raw inputs.
+- **Derivations:** Manufacturing instructions for targets (e.g., `binary` thresholding) applied consistently during training and evaluation.
+- **Handshake:** The model manager "sanctifies" ground-truth data for evaluation, ensuring that targets like `by_sb_best` are derived on-the-fly and bit-perfect with training logic.
+
 ---
 
 ## 🏗 Architecture  
