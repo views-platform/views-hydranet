@@ -30,6 +30,7 @@ import pytest
 import torch
 
 from views_hydranet.utils.visual_diagnostics import VisualDiagnostics
+from views_hydranet.utils.volume_handler import VolumeHandler
 
 # ---------------------------------------------------------------------------
 # Shared configs
@@ -213,6 +214,20 @@ def test_vd_inactive_biopsy_sample_no_file(tmp_path, monkeypatch):
     )
 
 
+def test_vd_inactive_biopsy_health_constellation_no_file(tmp_path, monkeypatch):
+    """
+    BEIGE GATE: Inactive biopsy_health_constellation must return silently with no files.
+    CIC §3: Null Object Contract — ALL public methods return immediately when inactive.
+    ADR-037: Null Object guard is mandatory for the radar plot path.
+    """
+    monkeypatch.chdir(tmp_path)
+    vd = VisualDiagnostics(INACTIVE_CFG)
+    vd.biopsy_health_constellation({"encoder.weight": 1.0}, "test")
+    assert list(tmp_path.rglob("*.png")) == [], (
+        "Inactive biopsy_health_constellation must not write any PNG files."
+    )
+
+
 # ---------------------------------------------------------------------------
 # GREEN GATE — Active constructor: save_dir is created
 # ---------------------------------------------------------------------------
@@ -360,6 +375,112 @@ def test_vd_biopsy_tensor_4d_saves_png(vd_active, tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# GREEN GATE — biopsy_volume: active mode saves PNG
+# ---------------------------------------------------------------------------
+
+
+def test_vd_biopsy_volume_saves_png(vd_active, tmp_path):
+    """
+    GREEN GATE: biopsy_volume must save exactly one PNG in active mode.
+    CIC §5: "biopsy_volume routes to pipeline/ (non-predict) or reasoning/ (predict)."
+    Stage label without 'predict' → routed to 01_pipeline_health/.
+    """
+    data = np.zeros((6, 8, 8, 2), dtype=np.float32)
+    vh = VolumeHandler(
+        data=data,
+        axes=("T", "H", "W", "C"),
+        channel_map=["priogrid_gid", "lr_feat"],
+        time_col="month_id",
+        id_col="priogrid_gid",
+        spatial_cols=["row", "col"],
+        identity_cols=["priogrid_gid"],
+        feature_cols=["lr_feat"],
+    )
+    vd_active.biopsy_volume(vh, "volume_stage")
+    pngs = list(tmp_path.rglob("*.png"))
+    assert len(pngs) == 1, (
+        f"biopsy_volume must save exactly 1 PNG. Found: {[p.name for p in pngs]}"
+    )
+    assert "volume_stage" in pngs[0].name, (
+        f"PNG name must contain 'volume_stage'. Got: {pngs[0].name}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# GREEN GATE — biopsy_dataframe: active mode saves PNG
+# ---------------------------------------------------------------------------
+
+
+def test_vd_biopsy_dataframe_saves_png(vd_active, tmp_path):
+    """
+    GREEN GATE: biopsy_dataframe must save exactly one PNG in active mode.
+    CIC §5: "biopsy_dataframe routes to 01_pipeline_health/."
+    Constructs a minimal spatial DataFrame and calls biopsy_dataframe with one feature.
+    """
+    rows = []
+    for month in range(400, 406):
+        for r in range(4):
+            for c in range(4):
+                rows.append({"month_id": month, "row": r, "col": c, "lr_feat": float(r + c)})
+    df = pd.DataFrame(rows)
+
+    vd_active.biopsy_dataframe(df, "dataframe_stage", features=["lr_feat"])
+    pngs = list(tmp_path.rglob("*.png"))
+    assert len(pngs) == 1, (
+        f"biopsy_dataframe must save exactly 1 PNG. Found: {[p.name for p in pngs]}"
+    )
+    assert "dataframe_stage" in pngs[0].name, (
+        f"PNG name must contain 'dataframe_stage'. Got: {pngs[0].name}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# GREEN GATE — biopsy_sample: active mode saves PNG
+# ---------------------------------------------------------------------------
+
+
+def test_vd_biopsy_sample_saves_png(vd_active, tmp_path):
+    """
+    GREEN GATE: biopsy_sample must save exactly one PNG in active mode.
+    CIC §5: "biopsy_sample routes to 02_training_dynamics/ and includes global context."
+    Constructs a global (8×8) and a sample (4×4) VolumeHandler with matching channel maps
+    so that _select_display_channels produces a non-empty signal feature.
+    """
+    global_data = np.ones((6, 8, 8, 2), dtype=np.float32)
+    global_vh = VolumeHandler(
+        data=global_data,
+        axes=("T", "H", "W", "C"),
+        channel_map=["priogrid_gid", "lr_feat"],
+        time_col="month_id",
+        id_col="priogrid_gid",
+        spatial_cols=["row", "col"],
+        identity_cols=["priogrid_gid"],
+        feature_cols=["lr_feat"],
+        spatial_offset=(0, 0),
+    )
+    sample_data = np.ones((6, 4, 4, 2), dtype=np.float32)
+    sample_vh = VolumeHandler(
+        data=sample_data,
+        axes=("T", "H", "W", "C"),
+        channel_map=["priogrid_gid", "lr_feat"],
+        time_col="month_id",
+        id_col="priogrid_gid",
+        spatial_cols=["row", "col"],
+        identity_cols=["priogrid_gid"],
+        feature_cols=["lr_feat"],
+        spatial_offset=(2, 2),
+    )
+    vd_active.biopsy_sample(sample_vh, global_vh, "sample_stage")
+    pngs = list(tmp_path.rglob("*.png"))
+    assert len(pngs) == 1, (
+        f"biopsy_sample must save exactly 1 PNG. Found: {[p.name for p in pngs]}"
+    )
+    assert "sample_stage" in pngs[0].name, (
+        f"PNG name must contain 'sample_stage'. Got: {pngs[0].name}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # GREEN GATE — _calculate_stats: math correctness
 # ---------------------------------------------------------------------------
 
@@ -389,6 +510,39 @@ def test_vd_calculate_stats_all_nan_returns_empty(tmp_path, monkeypatch):
     vd = VisualDiagnostics(ACTIVE_CFG, run_timestamp=TS)
     result = vd._calculate_stats(np.array([np.nan, np.nan]))
     assert result == "EMPTY", f"_calculate_stats on all-NaN must return 'EMPTY'. Got: {result!r}"
+
+
+# ---------------------------------------------------------------------------
+# GREEN GATE — biopsy_health_constellation: radar plot saved as PNG (ADR-037)
+# ---------------------------------------------------------------------------
+
+
+def test_vd_biopsy_health_constellation_saves_png(vd_active, tmp_path):
+    """
+    GREEN GATE: biopsy_health_constellation must save exactly one PNG in active mode.
+    ADR-037: Radar plot of L2 weight norms per functional block (Encoder, Bottleneck,
+    Decoder, MultiTaskHead). Saved to 02_training_dynamics/ as
+    constellation_{safe_label}.png.
+    """
+    weight_norms = {
+        "encoder_1.0.weight": 1.5,
+        "encoder_1.1.weight": 0.8,
+        "bottleneck.0.weight": 2.1,
+        "decoder_final.0.weight": 0.9,
+        "multi_task_head.reg.0.weight": 0.4,
+        "multi_task_head.cls.0.weight": 0.6,
+    }
+    vd_active.biopsy_health_constellation(weight_norms, "end_of_training")
+    pngs = list(tmp_path.rglob("*.png"))
+    assert len(pngs) == 1, (
+        f"biopsy_health_constellation must save exactly 1 PNG. Found: {[p.name for p in pngs]}"
+    )
+    assert "constellation" in pngs[0].name, (
+        f"PNG name must contain 'constellation'. Got: {pngs[0].name}"
+    )
+    assert "end_of_training" in pngs[0].name, (
+        f"PNG name must contain 'end_of_training'. Got: {pngs[0].name}"
+    )
 
 
 # ---------------------------------------------------------------------------

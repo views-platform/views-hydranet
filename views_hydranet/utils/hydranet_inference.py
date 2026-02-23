@@ -280,7 +280,7 @@ class HydraNetInference:
                     # Slice truth from full_tensor using reg_indices
                     truth_slice = full_tensor[0, target_t, reg_indices, :, :]
                     y_truth = truth_slice.permute(1, 2, 0).detach().cpu().numpy()
-                    
+
                     y_pred = t0[0].permute(1, 2, 0).detach().cpu().numpy()
                     truth_accumulator.append(y_truth)
                     pred_accumulator.append(y_pred)

@@ -292,6 +292,66 @@ class VisualDiagnostics:
         except Exception as e:
             logger.error(f"VisualDiagnostics: Failed to biopsy sample at {stage_label}: {e}")
 
+    def biopsy_health_constellation(
+        self, weight_norms: Dict[str, float], stage_label: str
+    ) -> None:
+        """
+        Produces a radar (polar) plot of mean L2 weight norms per functional block.
+        Implements ADR-037: Geometric Health Visualization (Health Constellations).
+        Routes to '02_training_dynamics/' (ADR-045).
+        Saved as constellation_{safe_label}.png.
+        """
+        if not self.active:
+            return
+
+        try:
+            # 1. Aggregate raw layer norms into functional blocks
+            blocks: Dict[str, List[float]] = {
+                "Encoder": [],
+                "Bottleneck": [],
+                "Decoder": [],
+                "MultiTaskHead": [],
+            }
+            for name, norm in weight_norms.items():
+                short = name.replace("module.", "").lower()
+                if "encoder" in short:
+                    blocks["Encoder"].append(norm)
+                elif "bottleneck" in short:
+                    blocks["Bottleneck"].append(norm)
+                elif "decoder" in short:
+                    blocks["Decoder"].append(norm)
+                elif "head" in short or "multi_task" in short:
+                    blocks["MultiTaskHead"].append(norm)
+
+            labels = list(blocks.keys())
+            values = [float(np.mean(v)) if v else 0.0 for v in blocks.values()]
+
+            # 2. Close the radar polygon
+            n = len(labels)
+            angles = np.linspace(0, 2 * np.pi, n, endpoint=False).tolist()
+            angles += angles[:1]
+            values += values[:1]
+
+            # 3. Plot
+            fig, ax = plt.subplots(figsize=(6, 6), subplot_kw={"polar": True})
+            ax.plot(angles, values, "o-", linewidth=2, color="cyan")
+            ax.fill(angles, values, alpha=0.25, color="cyan")
+            ax.set_xticks(angles[:-1])
+            ax.set_xticklabels(labels, fontsize=10)
+            ax.set_title(f"Health Constellation: {stage_label}", fontsize=14, pad=20)
+
+            # 4. Save
+            safe_label = stage_label.lower().replace(" ", "_").replace("/", "_")
+            save_path = os.path.join(self.dirs["training"], f"constellation_{safe_label}.png")
+            plt.savefig(save_path, dpi=100)
+            plt.close()
+            logger.info(f"📸 VisualDiagnostics: Saved {save_path}")
+
+        except Exception as e:
+            logger.error(
+                f"VisualDiagnostics: Failed to plot health constellation at {stage_label}: {e}"
+            )
+
     def _select_display_channels(self, vh: VolumeHandler) -> Tuple[List[str], set]:
         """
         Builds the ordered channel list for biopsy display.

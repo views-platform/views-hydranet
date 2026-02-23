@@ -24,11 +24,11 @@ It implements the **Null Object pattern**: when `diagnostic_visualizations: Fals
 ---
 
 ## 3. Responsibilities and Guarantees
-- **Null Object Contract:** When inactive (`self.active == False`), ALL 8 public methods return immediately without side effects. No files are created, no exceptions are raised, no logs are emitted beyond DEBUG level.
+- **Null Object Contract:** When inactive (`self.active == False`), ALL 9 public methods return immediately without side effects. No files are created, no exceptions are raised, no logs are emitted beyond DEBUG level.
 - **Resilient Active Mode:** When active, every public method wraps its body in `try/except Exception`. Failures are logged at ERROR level; the exception is NEVER propagated to the caller.
 - **PNG File Output:** Each biopsy call saves exactly one PNG to `self.save_dir`, using the sanitized `stage_label` as the filename stem. Exception: `biopsy_loss_curves` saves two PNGs (linear + log scale).
 - **Save Directory Isolation:** The save directory `reports/plots/diagnostics/{timestamp}/` is created at construction time. The timestamp is resolved in priority order: `run_timestamp` argument → `config['model_time_stamp']` → `datetime.now()`.
-- **8-Method Public Interface:**
+- **9-Method Public Interface:**
   1. `biopsy_dataframe(df, stage_label, features)` — Stage 1 (raw ingestion) and Stage 2 (scaled) and Stage 7 (final reconstruction)
   2. `biopsy_volume(vh, stage_label)` — Stage 3 (global volume) and Stage 6 (predicted volume)
   3. `biopsy_tensor(tensor, stage_label, channel_names)` — raw PyTorch tensor [B,T,C,H,W] or [T,C,H,W]
@@ -37,6 +37,7 @@ It implements the **Null Object pattern**: when `diagnostic_visualizations: Fals
   6. `biopsy_training_performance(y_reg, y_hat_reg, y_cls, y_hat_cls, stage_label, time_indices)` — Stage 5 training (4×6 Y_Reg/Ŷ_Reg/Y_Cls/Ŷ_Cls grid)
   7. `biopsy_loss_curves(history_reg, history_cls, history_total, stage_label)` — Live loss evolution (linear + log)
   8. `biopsy_feature_dossier(target_name, dossier, stage_label)` — Per-target forensic dossier (fed by `TrainingForensics`)
+  9. `biopsy_health_constellation(weight_norms, stage_label)` — ADR-037 radar plot of mean L2 norms per functional block (Encoder, Bottleneck, Decoder, MultiTaskHead); saved to `02_training_dynamics/` as `constellation_{safe_label}.png`
 - **North-Up Convention:** All spatial grids are rendered with `origin='upper'` (index 0 = North), consistent with the VolumeHandler flip convention.
 - **Stats Overlay:** `_calculate_stats(data)` computes μ, σ, min, max from finite values only. Returns `"EMPTY"` for all-NaN or zero-element inputs.
 

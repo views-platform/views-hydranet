@@ -385,6 +385,9 @@ def training_loop(
         if "weight" in name and param.requires_grad:
             weight_norms[name] = param.data.norm().item()
 
+    # ADR-037: Health Constellation radar plot of L2 norms per functional block
+    viz.biopsy_health_constellation(weight_norms, "End of Training")
+
     return {
         "final_loss": loss_history[-1] if loss_history else 0.0,
         "min_loss": min(loss_history) if loss_history else 0.0,
