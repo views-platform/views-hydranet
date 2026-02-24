@@ -22,9 +22,10 @@
 
 1.  **Bit-Perfect Reversibility:** Every transformation method must define a mathematically exact inverse (e.g., `log1p` ↔ `expm1`).
 2.  **Stateful Gate Law:** The Scaler is a "one-way gate." Once `fit_transform` is called, the configuration is locked. `inverse_transform` must fail if called before the scaler has been fitted.
-3.  **No Content Discovery:** The Scaler never "guesses" which columns need scaling based on their values. It only follows the explicit instructions in the `config`.
+3.  **No Content Discovery:** The Scaler never "guesses" which columns need scaling based on their values. It only follows the explicit instructions in the `config` under the `transformations` key (ADR 046).
 4.  **Fail Loud and Proud:** If a requested column is missing from the DataFrame during either forward or inverse passes, the scaler must raise an immediate exception.
 5.  **Direct Tensor Math:** Volume transformations must use native NumPy vectorized operations to avoid the "Object Tax" bottleneck.
+6.  **Scale vs Identity (ADR 046):** The Scaler ONLY handles transformations (value changes). It MUST NOT be used for derivations (creating new features).
 
 ---
 

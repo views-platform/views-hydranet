@@ -10,11 +10,12 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+
 class PureStateAdapter:
     """
     Authoritative actor for enforcing the HydraNet output contract.
-    
-    Translates "Dirty" internal DataFrames into the 12-feature "Pure State" 
+
+    Translates "Dirty" internal DataFrames into the 12-feature "Pure State"
     representation required by the ViEWS pipeline.
     """
 
@@ -24,12 +25,12 @@ class PureStateAdapter:
         """
         self.regression_targets = config.get("regression_targets", [])
         self.classification_targets = config.get("classification_targets", [])
-        self.identity_cols = ["c_id", "row", "col"] # ADR 032 Mandatory Identity Anchors
+        self.identity_cols = ["c_id", "row", "col"]  # ADR 032 Mandatory Identity Anchors
 
     def enforce_pure_state(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Subsets and renames columns to satisfy ADR 032.
-        
+
         Rules:
         1. Keep Mandatory Identities (c_id, row, col).
         2. Keep Actuals (lr_ targets and their by_ derivatives).
@@ -40,22 +41,25 @@ class PureStateAdapter:
             return df
 
         final_cols = []
-        
+
         # 1. Identity Handshake
         for col in self.identity_cols:
             if col in df.columns:
                 final_cols.append(col)
             else:
-                 logger.debug(f"PureStateAdapter: Identity '{col}' missing from inbound DataFrame.")
+                logger.debug(f"PureStateAdapter: Identity '{col}' missing from inbound DataFrame.")
 
         # 2. Target Handshake (ADR 032 / 033 Symmetry)
         for t in self.regression_targets:
             if not t.startswith("lr_"):
                 # Law 6 Violation
-                err_msg = f"PureStateAdapter Contract Violation: Target '{t}' must start with 'lr_' prefix."
-                
+                err_msg = (
+                    f"PureStateAdapter Contract Violation: Target '{t}' must "
+                    "start with 'lr_' prefix."
+                )
+
                 logger.error(err_msg)
-                
+
                 raise ValueError(err_msg)
 
             # Derive the 4-Column Block for this target
@@ -64,16 +68,19 @@ class PureStateAdapter:
             pred_by_t = f"pred_{binary_t}"
 
             block = [t, binary_t, pred_lr_t, pred_by_t]
-            
+
             for col in block:
                 if col in df.columns:
                     final_cols.append(col)
                 else:
-                    logger.debug(f"PureStateAdapter: Target component '{col}' missing from inbound DataFrame.")
+                    logger.debug(
+                        f"PureStateAdapter: Target component '{col}' missing from inbound "
+                        "DataFrame."
+                    )
 
         # 3. Final Subsetting
         df_pure = df[final_cols].copy()
-        
+
         logger.info(f"✨ PureStateAdapter: Contract satisfied ({len(final_cols)} features).")
         return df_pure
 

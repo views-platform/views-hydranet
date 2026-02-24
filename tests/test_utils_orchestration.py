@@ -8,6 +8,7 @@ def test_get_rolling_origin_indices_standard():
     origins = get_rolling_origin_indices(total_months=48, time_steps=36, num_windows=12)
     assert origins == list(range(12))
 
+
 def test_get_rolling_origin_indices_forecast():
     """
     True forecasting: 1 window from the very end.
@@ -18,6 +19,7 @@ def test_get_rolling_origin_indices_forecast():
     origins = get_rolling_origin_indices(total_months=100, time_steps=36, num_windows=1)
     assert origins == [63]
 
+
 def test_get_rolling_origin_indices_limited_data():
     """
     If we ask for 12 but only have 5 valid ones.
@@ -26,6 +28,7 @@ def test_get_rolling_origin_indices_limited_data():
     # Origins possible: 0, 1, 2, 3. Total 4.
     origins = get_rolling_origin_indices(total_months=40, time_steps=36, num_windows=12)
     assert origins == [0, 1, 2, 3]
+
 
 def test_get_rolling_origin_indices_insufficient_data():
     """

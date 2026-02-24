@@ -1,4 +1,3 @@
-
 import numpy as np
 import pandas as pd
 
@@ -6,28 +5,36 @@ from views_hydranet.utils.volume_handler import VolumeHandler
 
 # SHARED PHYSICS CONFIG (Red Team Scale)
 CFG = {
-    'time_col': 'month_id',
-    'id_col': 'priogrid_gid',
-    'spatial_cols': ['row', 'col'],
-    'identity_cols': ['month_id', 'priogrid_gid'],
-    'features': [ 'lr_sb'],
-    'row_offset': 0,
-    'col_offset': 0,
-    'height': 10,
-    'width': 10
+    "time_col": "month_id",
+    "id_col": "priogrid_gid",
+    "spatial_cols": ["row", "col"],
+    "identity_cols": ["month_id", "priogrid_gid"],
+    "features": ["lr_sb"],
+    "row_offset": 0,
+    "col_offset": 0,
+    "height": 10,
+    "width": 10,
+    # ADR 046 Compliance
+    "transformations": {"identity": ["lr_sb"]},
+    "derivations": {"binary": [{"from": "lr_sb", "to": "by_sb", "threshold": 0}]},
 }
+
 
 def test_red_team_the_abyss():
     print("\n🚩 RED TEAM: Initiating Total Annihilation Audit")
 
+    np.random.seed(42)  # Fix seed for reproducible kill_mask and lr_sb values
+
     # 1. SETUP: 10x10 grid, 1 month, 100% land
-    df_in = pd.DataFrame({
-        'month_id': [1] * 100,
-        'priogrid_gid': np.arange(1, 101),
-        'row': np.repeat(np.arange(10), 10),
-        'col': np.tile(np.arange(10), 10),
-         'lr_sb': np.random.rand(100)
-    })
+    df_in = pd.DataFrame(
+        {
+            "month_id": [1] * 100,
+            "priogrid_gid": np.arange(1, 101),
+            "row": np.repeat(np.arange(10), 10),
+            "col": np.tile(np.arange(10), 10),
+            "lr_sb": np.random.rand(100),
+        }
+    )
     handler = VolumeHandler.from_df(df_in, CFG)
 
     # 2. CREATE SIGNAL
@@ -38,7 +45,7 @@ def test_red_team_the_abyss():
 
     # 3. ATTACK A: The Ragged Void (50% Data Loss)
     # We watermark the volume, then we 'murder' 50% of the land cells in the prediction volume.
-    pred_handler = handler.wrap_predictions(posterior, base_names=[ 'lr_sb'])
+    pred_handler = handler.wrap_predictions(posterior, target_names=["lr_sb", "by_sb"])
 
     # Destructive surgery: Zero out 50 random rows in the internal data
     # (But we don't just zero the values, we zero the WATERMARKS too)
@@ -53,7 +60,7 @@ def test_red_team_the_abyss():
     # Every killed cell must be either missing or NaN (depending on join type).
     for pgid in range(1, 101):
         idx = pgid - 1
-        r, c = 9 - (idx // 10), idx % 10 # VolumeHandler North-Up flip
+        r, c = 9 - (idx // 10), idx % 10  # VolumeHandler North-Up flip
 
         expected_val = posterior[0, r, c, 0]
 
@@ -68,7 +75,7 @@ def test_red_team_the_abyss():
 
     # 5. ATTACK B: The Temporal Warp
     # We watermark the volume, then we shift the 'month_id' watermark by 1000 months.
-    pred_handler_warp = handler.wrap_predictions(posterior, base_names=[ 'lr_sb'])
+    pred_handler_warp = handler.wrap_predictions(posterior, target_names=["lr_sb", "by_sb"])
 
     # Find month_id channel index
     m_idx = pred_handler_warp.channel_map.index("month_id")
@@ -88,7 +95,7 @@ def test_red_team_the_abyss():
 
     # 6. ATTACK C: The Stolen Identity (ID Collision)
     # We set all pg_ids in the watermark to '999'.
-    pred_handler_id = handler.wrap_predictions(posterior, base_names=[ 'lr_sb'])
+    pred_handler_id = handler.wrap_predictions(posterior, target_names=["lr_sb", "by_sb"])
     id_idx = pred_handler_id.channel_map.index("priogrid_gid")
     pred_handler_id.data[..., id_idx] = 999
 
@@ -100,6 +107,7 @@ def test_red_team_the_abyss():
     print("✅ Red Team: Stolen Identity Survived. Corrupted watermarks fail safe.")
 
     print("\n💎 FINAL VERDICT: THE VADER BRIDGE IS UNBREAKABLE.")
+
 
 if __name__ == "__main__":
     test_red_team_the_abyss()

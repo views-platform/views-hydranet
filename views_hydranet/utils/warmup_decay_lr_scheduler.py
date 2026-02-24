@@ -9,6 +9,6 @@ class WarmupDecayLearningRateScheduler(_LRScheduler):
 
     def get_lr(self):
         step_num = self.last_epoch + 1
-        scale = self.d**(-0.5)
-        lr = scale * min(step_num**(-0.5), step_num * self.warmup_steps**(-1.5))
+        scale = self.d ** (-0.5)
+        lr = scale * min(step_num ** (-0.5), step_num * self.warmup_steps ** (-1.5))
         return [lr] * len(self.base_lrs)

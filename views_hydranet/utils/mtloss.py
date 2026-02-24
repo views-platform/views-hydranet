@@ -8,8 +8,8 @@ class MultiTaskLoss(torch.nn.Module):
     """
     Learnable Multi-Task Loss balancer.
 
-    Automatically weights multiple regression and classification losses using 
-    homoscedastic uncertainty. This allows the model to balance the relative 
+    Automatically weights multiple regression and classification losses using
+    homoscedastic uncertainty. This allows the model to balance the relative
     contribution of different tasks without manual hyperparameter tuning.
 
     Paper: https://arxiv.org/abs/1705.07115
@@ -17,7 +17,8 @@ class MultiTaskLoss(torch.nn.Module):
     Attributes:
         log_vars (torch.nn.Parameter): Learnable log-variance coefficients per task.
     """
-    def __init__(self, is_regression, reduction='none'):
+
+    def __init__(self, is_regression, reduction="none"):
         """
         Initializes the MultiTaskLoss balancer.
 
@@ -41,25 +42,33 @@ class MultiTaskLoss(torch.nn.Module):
         Returns:
             torch.Tensor: Weighted and regularized combined loss.
         """
+        if len(losses) != self.n_tasks:
+            raise ValueError(
+                f"MultiTaskLoss task count mismatch: expected {self.n_tasks} losses "
+                f"(matching is_regression length), but received {len(losses)}. "
+                f"Check that the model's output head count matches the loss mask."
+            )
         dtype = losses.dtype
         device = losses.device
-        stds = (torch.exp(self.log_vars)**(1/2)).to(device).to(dtype)
+        stds = (torch.exp(self.log_vars) ** (1 / 2)).to(device).to(dtype)
         self.is_regression = self.is_regression.to(device).to(dtype)
         # Add epsilon to prevent division by zero
         eps = 1e-8
-        coeffs = 1 / ( (self.is_regression+1)*(stds**2) + eps )
-        multi_task_losses = coeffs*losses + torch.log(stds + eps)
+        coeffs = 1 / ((self.is_regression + 1) * (stds**2) + eps)
+        multi_task_losses = coeffs * losses + torch.log(stds + eps)
 
-        if self.reduction == 'sum':
+        if self.reduction == "sum":
             multi_task_losses = multi_task_losses.sum()
-        if self.reduction == 'mean':
+        if self.reduction == "mean":
             multi_task_losses = multi_task_losses.mean()
 
         return multi_task_losses
 
-'''
+
+"""
 usage
-is_regression = torch.Tensor([True, True, False]) # True: Regression/MeanSquaredErrorLoss, False: Classification/CrossEntropyLoss
+is_regression = torch.Tensor([True, True, False])
+# True: Regression/MeanSquaredErrorLoss, False: Classification/CrossEntropyLoss
 multitaskloss_instance = MultiTaskLoss(is_regression)
 params = list(model.parameters()) + list(multitaskloss_instance.parameters())
 torch.optim.Adam(params, lr=1e-3)
@@ -67,4 +76,4 @@ model.train()
 multitaskloss.train()
 losses = torch.stack(loss0, loss1, loss3)
 multitaskloss = multitaskloss_instance(losses)
-'''
+"""

@@ -1,4 +1,3 @@
-
 from unittest.mock import MagicMock, PropertyMock, patch
 
 import numpy as np
@@ -17,7 +16,7 @@ TOY_CONFIG = {
     "total_lessons": 1,
     "windows_per_lesson": 1,
     "input_channels": 3,
-    "transform": "log1p",
+    "output_channels": 1,
     "model": "HydraBNUNet06_LSTM4",
     "window_dim": 4,
     "height": 4,
@@ -45,7 +44,6 @@ TOY_CONFIG = {
     "max_ratio": 0.95,
     "min_ratio": 0.05,
     "time_steps": 1,
-
     # Ledger Roles
     "time_col": "month_id",
     "id_col": "priogrid_gid",
@@ -54,11 +52,20 @@ TOY_CONFIG = {
     "col_offset": 0,
     "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
     "identity_cols": ["month_id", "priogrid_gid", "row", "col"],
-
     # Outbound / Evaluation (ADR 032 Alignment)
-    "classification_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
-    "regression_targets": ["lr_sb_best"]
+    "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
+    "regression_targets": ["lr_sb_best"],
+    # ADR 046 Compliance
+    "transformations": {"log1p": ["lr_sb_best", "lr_ns_best", "lr_os_best"], "identity": []},
+    "derivations": {
+        "binary": [
+            {"from": "lr_sb_best", "to": "by_sb_best", "threshold": 0},
+            {"from": "lr_ns_best", "to": "by_ns_best", "threshold": 0},
+            {"from": "lr_os_best", "to": "by_os_best", "threshold": 0},
+        ]
+    },
 }
+
 
 @pytest.fixture
 def toy_dataframe():
@@ -67,16 +74,19 @@ def toy_dataframe():
     for t in range(100, 110):
         for r in range(4):
             for c in range(4):
-                rows.append({
-                    "month_id": t,
-                    "priogrid_gid": r*4 + c + 1,
-                    "row": r,
-                    "col": c,
-                    "lr_sb_best": 0.5,
-                    "lr_ns_best": 0.1,
-                    "lr_os_best": 0.0
-                })
+                rows.append(
+                    {
+                        "month_id": t,
+                        "priogrid_gid": r * 4 + c + 1,
+                        "row": r,
+                        "col": c,
+                        "lr_sb_best": 0.5,
+                        "lr_ns_best": 0.1,
+                        "lr_os_best": 0.0,
+                    }
+                )
     return pd.DataFrame(rows)
+
 
 class TestPipelineIntegration:
     """
@@ -87,8 +97,19 @@ class TestPipelineIntegration:
     @patch("views_hydranet.manager.hydranet_manager.FeatureScaler")
     @patch("views_hydranet.manager.hydranet_manager.DataFetcher")
     @patch("views_hydranet.manager.hydranet_manager.ConfigInitializer")
-    @patch("views_pipeline_core.managers.model.model.ForecastingModelManager.__init__", return_value=None)
-    def test_evaluate_model_artifact_flow(self, mock_fmm_init, mock_config_init, mock_fetcher_cls, mock_scaler_cls, toy_dataframe, tmp_path):
+    @patch(
+        "views_pipeline_core.managers.model.model.ForecastingModelManager.__init__",
+        return_value=None,
+    )
+    def test_evaluate_model_artifact_flow(
+        self,
+        mock_fmm_init,
+        mock_config_init,
+        mock_fetcher_cls,
+        mock_scaler_cls,
+        toy_dataframe,
+        tmp_path,
+    ):
         # 1. Setup Environment
         mock_fetcher_instance = mock_fetcher_cls.return_value
         mock_fetcher_instance.fetch_df.return_value = toy_dataframe
@@ -117,20 +138,28 @@ class TestPipelineIntegration:
         manager.device = torch.device("cpu")
 
         # FIX: Mock the configs property using PropertyMock since we mocked __init__
-        with patch("views_pipeline_core.managers.model.model.ForecastingModelManager.configs", new_callable=PropertyMock) as mock_configs_prop:
+        with patch(
+            "views_pipeline_core.managers.model.model.ForecastingModelManager.configs",
+            new_callable=PropertyMock,
+        ) as mock_configs_prop:
             mock_configs_prop.return_value = TOY_CONFIG
 
             real_model = HydraBNUNet06_LSTM4(
-                input_channels=3,
-                total_hidden_channels=32,
-                output_channels=1,
-                dropout_rate=0.0
+                input_channels=3, total_hidden_channels=32, output_channels=1, dropout_rate=0.0
             )
 
-            with patch("views_hydranet.manager.hydranet_manager.ModelArtifactFetcher") as mock_art_fetch_cls, \
-                 patch("views_hydranet.manager.hydranet_manager.InferenceOrchestrator") as mock_eval_cls:
-
-                mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (real_model, "toy_artifact")
+            with (
+                patch(
+                    "views_hydranet.manager.hydranet_manager.ModelArtifactFetcher"
+                ) as mock_art_fetch_cls,
+                patch(
+                    "views_hydranet.manager.hydranet_manager.InferenceOrchestrator"
+                ) as mock_eval_cls,
+            ):
+                mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (
+                    real_model,
+                    "toy_artifact",
+                )
 
                 # Mock Orchestrator output
                 # We need to return a DF that has the columns checked later in the test
@@ -166,8 +195,19 @@ class TestPipelineIntegration:
     @patch("views_hydranet.manager.hydranet_manager.FeatureScaler")
     @patch("views_hydranet.manager.hydranet_manager.DataFetcher")
     @patch("views_hydranet.manager.hydranet_manager.ConfigInitializer")
-    @patch("views_pipeline_core.managers.model.model.ForecastingModelManager.__init__", return_value=None)
-    def test_forecast_model_artifact_flow(self, mock_fmm_init, mock_config_init, mock_fetcher_cls, mock_scaler_cls, toy_dataframe, tmp_path):
+    @patch(
+        "views_pipeline_core.managers.model.model.ForecastingModelManager.__init__",
+        return_value=None,
+    )
+    def test_forecast_model_artifact_flow(
+        self,
+        mock_fmm_init,
+        mock_config_init,
+        mock_fetcher_cls,
+        mock_scaler_cls,
+        toy_dataframe,
+        tmp_path,
+    ):
         # 1. Setup Environment
         mock_fetcher_instance = mock_fetcher_cls.return_value
         mock_fetcher_instance.fetch_df.return_value = toy_dataframe
@@ -187,20 +227,34 @@ class TestPipelineIntegration:
         manager = HydranetManager(model_path=mpm)
         manager.device = torch.device("cpu")
 
-        with patch("views_pipeline_core.managers.model.model.ForecastingModelManager.configs", new_callable=PropertyMock) as mock_configs_prop:
+        with patch(
+            "views_pipeline_core.managers.model.model.ForecastingModelManager.configs",
+            new_callable=PropertyMock,
+        ) as mock_configs_prop:
             mock_configs_prop.return_value = TOY_CONFIG
 
             real_model = HydraBNUNet06_LSTM4(3, 32, 1, 0.0)
-            with patch("views_hydranet.manager.hydranet_manager.ModelArtifactFetcher") as mock_art_fetch_cls, \
-                 patch("views_hydranet.utils.inference_orchestrator.HydraNetInference") as mock_inf_cls:
-
-                mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (real_model, "toy_artifact")
+            with (
+                patch(
+                    "views_hydranet.manager.hydranet_manager.ModelArtifactFetcher"
+                ) as mock_art_fetch_cls,
+                patch(
+                    "views_hydranet.utils.inference_orchestrator.HydraNetInference"
+                ) as mock_inf_cls,
+            ):
+                mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (
+                    real_model,
+                    "toy_artifact",
+                )
 
                 # Mock Inference Result
-                # 3 targets -> 6 signal channels (3 linear, 3 binary)
-                # Plus the watermarks added by wrap_predictions
-                posterior = np.zeros((1, 4, 4, 6, 2))
-                mock_inf_cls.return_value.generate_posterior_samples.return_value = (posterior, None)
+                # TOY_CONFIG has 1 reg target and 3 cls targets.
+                # Total 4 signal channels.
+                posterior = np.zeros((1, 4, 4, 4, 2))
+                mock_inf_cls.return_value.generate_posterior_samples.return_value = (
+                    posterior,
+                    None,
+                )
 
                 # 4. EXECUTE FORECAST PATH
                 forecasts = manager._forecast_model_artifact()

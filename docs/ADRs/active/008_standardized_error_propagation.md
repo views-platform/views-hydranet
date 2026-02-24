@@ -48,5 +48,11 @@ raise SystemError(err_msg)
 **Negative Effects:**
 - **Increased Boilerplate:** Requires three lines of code for what could be done in one.
 
-## 4. Rationale
+## 4. Strategic Exceptions (The Fail-Safe Clause)
+While "Fail Loud" is the default, **Observability Actors** (e.g., `VisualDiagnostics`, W&B loggers) are permitted to implement a **Fail-Safe** pattern. 
+-   **Definition:** These actors must catch their own internal exceptions and log them as `ERROR` but **MUST NOT** propagate the crash to the calling thread.
+-   **Rationale:** A failure in the reporting layer (the camera) should never kill the primary workload (the engine). A 3-day training run must not abort because a matplotlib backend failed to render a PNG.
+-   **Constraint:** This exception applies *only* to side-effect reporting tools. Core logic (Data Handling, Modeling, Math) must always Fail Loud.
+
+## 5. Rationale
 In a Boring Architecture, we prioritize "Fail Loud and Proud" (Law 1). By standardizing the failure sequence, we ensure that the system's "Death Cry" is as informative and well-documented as its "Life Narrative."

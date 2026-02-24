@@ -21,9 +21,8 @@ To ensure absolute consistency, the naming of model heads is determined solely b
 *   **Linear Prefix:** `pred_lr_` (Indicates count-space prediction)
 *   **Binary Prefix:** `pred_by_` (Indicates probability-space signal)
 
-**Formula:**
-*   `pred_lr_` + `target_name`
-*   `pred_by_` + `target_name`
+**Explicit Link (ADR 046):**
+The `classification_targets` listed in the config MUST match the results of explicit `derivations`. For example, if `derivations['binary']` targets `lr_sb_best`, then `classification_targets` must explicitly contain `by_sb_best`. 
 
 ---
 
@@ -31,6 +30,7 @@ To ensure absolute consistency, the naming of model heads is determined solely b
 
 1.  **Prefix-Only Intent:** The model architecture never uses suffixes to describe its heads. Intent is derived from the `lr_` (linear) vs. `by_` (binary) prefix mapping.
 2.  **Positional Mapping:** The `wrap_predictions` method accepts the semantic `base_names` list from the configuration and automatically maps them to the 6-head output.
+3.  **Instructional Integrity:** The model does not "guess" how to create binary targets. It only produces `by_` signals if a `binary` derivation is explicitly configured (ADR 046).
 3.  **Topographical Restoration:** The `VolumeHandler` is responsible for restoring the MultiIndex and carrying mandatory identity columns (including `c_id`) before the DataFrame leaves the HydraNet domain.
 
 ---

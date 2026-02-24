@@ -1,6 +1,7 @@
 """
 CurriculumLearner: The Strategic Planner for the HydraNet Training Trajectory.
 """
+
 import logging
 from typing import Any, Dict, Tuple
 
@@ -10,12 +11,13 @@ from views_hydranet.utils.volume_handler import VolumeHandler
 
 logger = logging.getLogger(__name__)
 
+
 class CurriculumLearner:
     """
     Strategic Planner responsible for scheduling training difficulty (Cooling)
     and rotating subject targets (Oscillation).
-    
-    Implements Target-Relative Thresholding to ensure Signal Anchorage 
+
+    Implements Target-Relative Thresholding to ensure Signal Anchorage
     across tasks of varying sparsity.
     """
 
@@ -42,11 +44,11 @@ class CurriculumLearner:
         # 2. Extract targets from Ledger and Record Maxima
         self.subjects = list(handler._metadata.feature_cols)
         if not self.subjects:
-             err_msg = "CurriculumLearner: Ledger has no feature columns to target."
-             
-             logger.error(err_msg)
-             
-             raise ValueError(err_msg)
+            err_msg = "CurriculumLearner: Ledger has no feature columns to target."
+
+            logger.error(err_msg)
+
+            raise ValueError(err_msg)
 
         self.subject_maxima = self._calculate_subject_maxima()
         logger.info(f"CurriculumLearner: Established subject maxima: {self.subject_maxima}")
@@ -74,7 +76,7 @@ class CurriculumLearner:
         Returns a float between min_ratio and max_ratio.
         """
         # b = rate of change per step
-        b = ((-self.max_ratio + self.min_ratio) / (self.total_steps * self.slope_ratio))
+        b = (-self.max_ratio + self.min_ratio) / (self.total_steps * self.slope_ratio)
 
         # Linear progression
         ratio = self.max_ratio + b * global_step_idx

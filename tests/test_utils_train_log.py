@@ -1,4 +1,3 @@
-
 from unittest.mock import patch
 
 import numpy as np
@@ -6,7 +5,7 @@ import numpy as np
 from views_hydranet.utils.utils import train_log
 
 
-@patch('views_hydranet.utils.utils.wandb')
+@patch("views_hydranet.utils.utils.wandb")
 def test_train_log_basic(mock_wandb):
     """
     Tests that train_log calculates average losses and logs them to wandb.
@@ -24,13 +23,16 @@ def test_train_log_basic(mock_wandb):
     train_log(avg_loss_list, avg_loss_reg_list, avg_loss_class_list)
 
     # Assert
-    mock_wandb.log.assert_called_once_with({
-        "avg_loss": expected_avg_loss,
-        "avg_loss_reg": expected_avg_loss_reg,
-        "avg_loss_class": expected_avg_loss_class
-    })
+    mock_wandb.log.assert_called_once_with(
+        {
+            "avg_loss": expected_avg_loss,
+            "avg_loss_reg": expected_avg_loss_reg,
+            "avg_loss_class": expected_avg_loss_class,
+        }
+    )
 
-@patch('views_hydranet.utils.utils.wandb')
+
+@patch("views_hydranet.utils.utils.wandb")
 def test_train_log_empty_lists(mock_wandb):
     """
     Tests that train_log handles empty lists gracefully (though np.mean on empty lists
