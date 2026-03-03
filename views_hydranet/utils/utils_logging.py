@@ -3,8 +3,59 @@ Diagnostic Narrative Utilities for HydraNet.
 Governed by ADR 034 and ADR 035.
 """
 
+import logging
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pandas as pd
+
+if TYPE_CHECKING:
+    import torch
+
+_device_logger = logging.getLogger(__name__)
+
+
+def log_device_report(device: "torch.device", run_type: str) -> None:
+    """Prints a device banner at the start of a training/evaluation/forecasting run.
+
+    Emits a standard 👾 banner for GPU runs and a loud 🚨 WARNING banner for CPU
+    runs, plus a logging.warning() call so the message is captured by log handlers.
+
+    Args:
+        device:   The torch.device selected by setup_device().
+        run_type: Human-readable label for the current operation
+                  (e.g. "training", "evaluation", "forecasting").
+    """
+    import torch  # local import — torch is a project dep but not a module-level import here
+
+    label = run_type.upper()
+
+    if device.type == "cuda":
+        gpu_count = torch.cuda.device_count()
+        gpu_name = torch.cuda.get_device_name(0) if gpu_count > 0 else "unknown"
+        vram_mib = (
+            torch.cuda.get_device_properties(0).total_memory // (1024**2) if gpu_count > 0 else 0
+        )
+        print("\n👾" + "=" * 100)
+        print(f"  DEVICE REPORT — {label}")
+        print("  " + "-" * 98)
+        print("  Device:    cuda  (GPU)")
+        print(f"  GPU Name:  {gpu_name}")
+        print(f"  VRAM:      {vram_mib:,} MiB")
+        print(f"  GPU Count: {gpu_count}")
+        print("👾" + "=" * 100 + "\n")
+    else:
+        _device_logger.warning(
+            "HydraNet running on CPU for %s. Performance will be severely degraded.", run_type
+        )
+        print("\n🚨" + "=" * 100)
+        print(f"  ⚠️  WARNING: RUNNING ON CPU — {label}")
+        print("  " + "-" * 98)
+        print("  No CUDA-capable GPU was detected.")
+        print("  HydraNet is a spatiotemporal deep network designed for GPU execution.")
+        print("  Expect severely degraded performance and very long runtimes.")
+        print("  This is NOT a hard stop. Proceeding on CPU.")
+        print("🚨" + "=" * 100 + "\n")
 
 
 def calculate_hdi(samples: np.ndarray, mass: float = 0.95) -> tuple[float, float]:

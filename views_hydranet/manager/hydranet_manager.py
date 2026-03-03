@@ -26,6 +26,7 @@ from views_hydranet.utils.model_artifact_fetcher import ModelArtifactFetcher
 from views_hydranet.utils.pure_state_adapter import PureStateAdapter
 from views_hydranet.utils.utils_device import setup_device
 from views_hydranet.utils.utils_logging import (
+    log_device_report,
     log_ingestion_report,
     log_prediction_summary,
     log_training_summary,
@@ -81,17 +82,25 @@ class HydranetManager(ForecastingModelManager):
 
         # HydraBNUNet06_LSTM4 hardcodes 3 reg + 3 class
         if n_reg != 3 or n_class != 3:
-            msg = (
-                f"⚠️ ARCHITECTURE MISMATCH: Model expects 3+3 heads, Config has {n_reg}+{n_class}. "
-                "This may cause loss misalignment."
+            err_msg = (
+                f"ARCHITECTURE MISMATCH: Model expects 3+3 heads, "
+                f"Config has {n_reg}+{n_class}. Aborting."
             )
-            logger.warning(msg)
-            print(f"\n{msg}\n")
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         else:
             logger.info("✅ Architecture: Head Count Aligned (3+3)")
 
     def _execute_model_training(self) -> None:
         """HydraNet specific training override."""
+        self._train_model_artifact()
+
+    def _train_model_artifact(self) -> Any:
+        """
+        Executes the training lifecycle and returns the trained model object.
+        This method acts as the 'Operational Core' for both standard runs and sweeps.
+        """
+        log_device_report(self.device, "training")
         logger.info(f"Starting HydraNet training: {self.configs['run_type']}")
 
         # 0. Strict Config Handshake (ADR 008/015)
@@ -145,16 +154,29 @@ class HydranetManager(ForecastingModelManager):
 
         # 5. Train
         print("")
+        # Determine persistence (Sweep Safety)
+        # In a sweep, we do NOT want to save every trial's artifact to disk locally.
+        is_sweep = self.configs.get("sweep", False)
+        save_artifact = not is_sweep
+
         # Pass visualizer to training loop for Stage 4 (Sampling) probes
-        summary = train_model_artifact(
-            self._model_path, self.configs, self.device, handler, run_timestamp=self.run_timestamp
+        model, summary = train_model_artifact(
+            self._model_path,
+            self.configs,
+            self.device,
+            handler,
+            run_timestamp=self.run_timestamp,
+            save_artifact=save_artifact,
         )
         log_training_summary(summary)
+
+        return model
 
     def _evaluate_model_artifact(
         self, eval_type: str, artifact_name: str | None = None
     ) -> list[pd.DataFrame]:
         """Orchestrates rolling-origin evaluation via specialized component."""
+        log_device_report(self.device, eval_type)
         self.configs = ConfigInitializer(self.configs).get_config()
         self._run_preflight_check()
         viz = VisualDiagnostics(self.configs, run_timestamp=self.run_timestamp)
@@ -205,6 +227,15 @@ class HydranetManager(ForecastingModelManager):
         viz.biopsy_dataframe(df, "Stage 2: Scaled DataFrame", features=plot_feats)
 
         print("")
+        # Resolve partition for evaluation runs (skipped for forecasting).
+        run_type = self.configs["run_type"]
+        time_steps = len(self.configs["steps"])
+        partition = getattr(self, "_partition_dict", {}).get(run_type)
+        if partition is not None:
+            time_col = self.configs.get("time_col", "month_id")
+            test_end = partition["test"][1]
+            df = df[df[time_col] <= test_end]
+
         handler = VolumeHandler.from_df(df, self.configs)
 
         # DIAGNOSTIC: Stage 3
@@ -213,9 +244,11 @@ class HydranetManager(ForecastingModelManager):
         sniffer.sniff_forecast_alignment(df, handler, is_forecast=False)
 
         print("")
-        run_type = self.configs["run_type"]
-        time_steps = len(self.configs["steps"])
-        num_windows = 12 if run_type in ["calibration", "validation"] else 1
+        if partition is not None:
+            test_start = partition["test"][0]
+            num_windows = test_end - (test_start - 1) - time_steps + 1
+        else:
+            num_windows = 1
         origins = get_rolling_origin_indices(handler.shape[0], time_steps, num_windows)
 
         # 6. Unified Inference Orchestration (ADR 038)
@@ -245,6 +278,7 @@ class HydranetManager(ForecastingModelManager):
 
     def _forecast_model_artifact(self, artifact_name: str | None = None) -> list[pd.DataFrame]:
         """Generates operational forecasts."""
+        log_device_report(self.device, "forecasting")
         self.configs = ConfigInitializer(self.configs).get_config()
         self._run_preflight_check()
         viz = VisualDiagnostics(self.configs, run_timestamp=self.run_timestamp)

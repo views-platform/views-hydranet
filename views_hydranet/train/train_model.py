@@ -102,7 +102,8 @@ def train(
     n_cls = len(cls_targets)
 
     seq_len = train_tensor.shape[1]
-    window_dim = train_tensor.shape[-1]
+    window_H = train_tensor.shape[-2]
+    window_W = train_tensor.shape[-1]
 
     mem_allocated = torch.cuda.memory_allocated(device) / (1024**2) if device.type == "cuda" else 0
     logger.debug(
@@ -111,7 +112,12 @@ def train(
     )
 
     # initialize a hidden state
-    h = cast(Any, model).init_h(hidden_channels=model.base, dim=window_dim).float().to(device)
+    h = (
+        cast(Any, model)
+        .init_hTtime(hidden_channels=model.base, H=window_H, W=window_W)
+        .float()
+        .to(device)
+    )
 
     # STAGE 5 DIAGNOSTIC: Accumulators
     acc_y_reg: list[np.ndarray] = []
@@ -406,7 +412,8 @@ def train_model_artifact(
     handler: VolumeHandler,
     columns: list[str] | None = None,
     run_timestamp: str | None = None,
-) -> dict:
+    save_artifact: bool = True,
+) -> tuple[nn.Module, dict]:
     """Creates, trains, and saves a model artifact."""
 
     # Create the model, criterion, optimizer and scheduler
@@ -426,15 +433,19 @@ def train_model_artifact(
     )
     logger.info("Done training")
 
-    # just in case the artifacts folder does not exist
-    os.makedirs(model_path.artifacts, exist_ok=True)
+    if save_artifact:
+        # just in case the artifacts folder does not exist
+        os.makedirs(model_path.artifacts, exist_ok=True)
 
-    # Define the path for the artifacts with a timestamp and a run type
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    model_filename = f"{config['run_type']}_model_{timestamp}.pt"
-    # save the model
-    torch.save(model, model_path.artifacts / model_filename)
+        # Define the path for the artifacts with a timestamp and a run type
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        model_filename = f"{config['run_type']}_model_{timestamp}.pt"
+        # save the model
+        torch.save(model, model_path.artifacts / model_filename)
 
-    # done
-    logger.info(f"Model saved as: {model_path.artifacts / model_filename}")
-    return summary
+        # done
+        logger.info(f"Model saved as: {model_path.artifacts / model_filename}")
+    else:
+        logger.info("Skipping artifact save (sweep/dry-run active).")
+
+    return model, summary

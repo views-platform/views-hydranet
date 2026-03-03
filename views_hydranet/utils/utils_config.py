@@ -49,6 +49,7 @@ class HydraNetConfig(BaseModel):
     # 3. Spatiotemporal Topology
     height: int = Field(..., ge=1)
     width: int = Field(..., ge=1)
+    index_names: list[str] = Field(..., description="Column names used as the DataFrame index")
     time_col: str = Field(...)
     id_col: str = Field(...)
     spatial_cols: list[str] = Field(...)
@@ -61,7 +62,6 @@ class HydraNetConfig(BaseModel):
     total_hidden_channels: int = Field(...)
     dropout_rate: float = Field(..., ge=0.0, le=1.0)
     weight_init: str = Field(...)
-    h_init: str = Field(...)
 
     # 5. Optimization
     learning_rate: float = Field(..., gt=0.0)
@@ -94,7 +94,7 @@ class HydraNetConfig(BaseModel):
     freeze_h: str = Field(...)
 
     # 9. Outbound Evaluation
-    evalution_mode: str = Field(...)
+    evaluation_mode: str = Field(...)
     aggregate_method: str = Field(...)
 
     # Metadata
@@ -104,8 +104,8 @@ class HydraNetConfig(BaseModel):
     @classmethod
     def handle_typos(cls, data: Any) -> Any:
         if isinstance(data, dict):
-            if "evaluation_mode" in data and "evalution_mode" not in data:
-                data["evalution_mode"] = data["evaluation_mode"]
+            if "evalution_mode" in data and "evaluation_mode" not in data:
+                data["evaluation_mode"] = data["evalution_mode"]
         return data
 
     @model_validator(mode="after")
@@ -179,7 +179,7 @@ class HydraNetConfig(BaseModel):
             raise ValueError(err_msg)
         return v
 
-    @field_validator("evalution_mode")
+    @field_validator("evaluation_mode")
     @classmethod
     def validate_eval_mode(cls, v: str) -> str:
         if v == "stocastic":
@@ -195,7 +195,7 @@ class HydraNetConfig(BaseModel):
     @field_validator("aggregate_method")
     @classmethod
     def validate_agg_method(cls, v: str) -> str:
-        mapper = {"mean": "geometric_mean", "median": "median", "max_aposteriori": "median"}
+        mapper = {"mean": "arithmetic_mean", "median": "median", "max_aposteriori": "median"}
         v = mapper.get(v, v)
         if v not in ["arithmetic_mean", "geometric_mean", "median"]:
             err_msg = "Invalid aggregate_method"

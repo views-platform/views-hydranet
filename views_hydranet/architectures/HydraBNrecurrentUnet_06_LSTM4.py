@@ -501,11 +501,6 @@ class HydraBNUNet06_LSTM4(nn.Module):
 
         return out_reg, out_class, h
 
-    def init_h(self, hidden_channels, dim):
-        """Legacy initialization. Use init_hTtime."""
-        hs = torch.zeros((1, hidden_channels, dim, dim), dtype=torch.float64)
-        return hs
-
     def init_hTtime(self, hidden_channels, H, W):
         """
         Initializes the recurrent hidden state.

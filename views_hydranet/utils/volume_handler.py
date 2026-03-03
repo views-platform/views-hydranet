@@ -205,12 +205,9 @@ class VolumeHandler:
         vol = np.zeros([height, width, month_range, len(channel_map)], dtype=np.float64)
 
         # Dense Identity Population (Temporal)
-        try:
-            m_chan_idx = channel_map.index(time_col)
-            m_vals_global = np.arange(month_min, month_max + 1)
-            vol[..., m_chan_idx] = m_vals_global.reshape(1, 1, month_range)
-        except ValueError:
-            pass
+        m_chan_idx = channel_map.index(time_col)
+        m_vals_global = np.arange(month_min, month_max + 1)
+        vol[..., m_chan_idx] = m_vals_global.reshape(1, 1, month_range)
 
         for i, col_name in enumerate(channel_map):
             vol[r_idx, c_idx, m_idx, i] = df[col_name].values
@@ -253,13 +250,11 @@ class VolumeHandler:
             feature_indices = [
                 i for i, name in enumerate(self.channel_map) if name in self._metadata.feature_cols
             ]
-            if not feature_indices:
-                # Fallback to legacy count-based stripping if feature_cols is empty
-                # (Protects against un-annotated handlers)
-                n_identities = len(self._metadata.identity_cols)
-                np_data = np_data[:, :, :, n_identities:]
-            else:
-                np_data = np_data[:, :, :, feature_indices]
+            assert feature_indices, (
+                "VolumeHandler.to_pytorch: feature_cols is empty — "
+                "handler was not constructed via from_df or config['features'] is missing."
+            )
+            np_data = np_data[:, :, :, feature_indices]
 
         tensor = torch.from_numpy(np_data).to(device)
         tensor = tensor.permute(0, 3, 1, 2)  # [T, C, H, W]
@@ -508,13 +503,6 @@ class VolumeHandler:
             id_col: p_data[indices[0], indices[1], indices[2], pg_idx].astype(np.int32),
         }
 
-        # 4. Initialize Polars Scaffold (The Source of Truth)
-        # ADR 032: We MUST carry month_id, priogrid_gid, row, col, and c_id
-        scaffold_cols = {
-            time_col: p_data[indices[0], indices[1], indices[2], time_idx].astype(np.int32),
-            id_col: p_data[indices[0], indices[1], indices[2], pg_idx].astype(np.int32),
-        }
-
         # Add Actuals and Identities to Scaffold from the provider's map
         for i, name in enumerate(provider.channel_map):
             if name in [time_col, id_col]:
@@ -569,15 +557,14 @@ class VolumeHandler:
                     }
             else:
                 # POSITION FALLBACK: Re-use scaffold IDs (Vulnerable to shuffle)
-                if has_samples:
-                    head_val = temp_data[indices[0], indices[1], indices[2], i, :]
-                else:
-                    head_val = temp_data[indices[0], indices[1], indices[2], i]
-                head_dict = {
-                    time_col: pl_master[time_col],
-                    id_col: pl_master[id_col],
-                    name: head_val,
-                }
+                err_msg = (
+                    f"VolumeHandler._reconstruct_from_provider: Prediction channel '{name}' "
+                    "has no watermarked identity scaffold. Cannot safely reconstruct without "
+                    "risking identity scramble. Ensure wrap_predictions() is used before "
+                    "reconstruction."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
             df_head = pl.DataFrame(head_dict)
 
             # Explicit Join (Red Team Proof)
@@ -657,21 +644,18 @@ class VolumeHandler:
         else:
             future_vol = np.tile(last_frame, repeat_shape)
 
-        try:
-            m_col = self._metadata.time_col
-            m_idx = self.channel_map.index(m_col)
-            if torch.is_tensor(self._data):
-                t_increments = torch.arange(1, steps + 1, device=self._data.device).view(
-                    steps, 1, 1
-                )
-                t_future_vol = cast(torch.Tensor, future_vol)
-                t_future_vol[..., m_idx] += t_increments
-            else:
-                np_increments = np.arange(1, steps + 1).reshape(steps, 1, 1)
-                np_future_vol = cast(np.ndarray, future_vol)
-                np_future_vol[..., m_idx] += np_increments
-        except ValueError:
-            pass
+        m_col = self._metadata.time_col
+        m_idx = self.channel_map.index(m_col)
+        if torch.is_tensor(self._data):
+            t_increments = torch.arange(1, steps + 1, device=self._data.device).view(
+                steps, 1, 1
+            )
+            t_future_vol = cast(torch.Tensor, future_vol)
+            t_future_vol[..., m_idx] += t_increments
+        else:
+            np_increments = np.arange(1, steps + 1).reshape(steps, 1, 1)
+            np_future_vol = cast(np.ndarray, future_vol)
+            np_future_vol[..., m_idx] += np_increments
 
         return VolumeHandler(
             data=future_vol,

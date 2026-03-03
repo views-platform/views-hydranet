@@ -80,7 +80,10 @@ def choose_loss(config, device):
 def choose_scheduler(config, unet):
     """Factory for learning rate schedulers."""
     optimizer = torch.optim.AdamW(
-        unet.parameters(), lr=config["learning_rate"], betas=(0.9, 0.999)
+        unet.parameters(),
+        lr=config["learning_rate"],
+        betas=(0.9, 0.999),
+        weight_decay=config["weight_decay"],
     )
 
     if config["scheduler"] == "WarmupDecay":
@@ -127,27 +130,3 @@ def train_log(avg_loss_list, avg_loss_reg_list, avg_loss_class_list):
                 "avg_loss_class": np.mean(avg_loss_class_list),
             }
         )
-
-
-def execute_freeze_h_option(config, model, t0, h_tt):
-    """Research logic for hidden-state freezing during inference."""
-    freeze_h = config.get("freeze_h", "none")
-    num_channels = h_tt.shape[1]
-    split = num_channels // 2
-
-    if freeze_h == "hl":
-        _, hl_f = torch.split(h_tt, split, dim=1)
-        t1_p, t1_pc, h_tt = model(t0, h_tt)
-        hs_u, _ = torch.split(h_tt, split, dim=1)
-        h_tt = torch.cat((hs_u, hl_f), dim=1)
-    elif freeze_h == "hs":
-        hs_f, _ = torch.split(h_tt, split, dim=1)
-        t1_p, t1_pc, h_tt = model(t0, h_tt)
-        _, hl_u = torch.split(h_tt, split, dim=1)
-        h_tt = torch.cat((hs_f, hl_u), dim=1)
-    elif freeze_h == "all":
-        t1_p, t1_pc, _ = model(t0, h_tt)
-    else:
-        t1_p, t1_pc, h_tt = model(t0, h_tt)
-
-    return t1_p, t1_pc, h_tt
