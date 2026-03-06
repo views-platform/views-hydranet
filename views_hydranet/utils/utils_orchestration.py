@@ -4,7 +4,9 @@ from typing import List
 logger = logging.getLogger(__name__)
 
 
-def get_rolling_origin_indices(total_months: int, time_steps: int, num_windows: int) -> List[int]:
+def get_rolling_origin_indices(
+    total_months: int, time_steps: int, num_windows: int, fixed_last_origin: int | None = None
+) -> List[int]:
     """
     Calculates the origin indices for a rolling-origin evaluation.
 
@@ -15,14 +17,18 @@ def get_rolling_origin_indices(total_months: int, time_steps: int, num_windows: 
         total_months: Total number of months in the volume.
         time_steps: Number of steps to forecast.
         num_windows: Number of rolling sequences desired (e.g., 12).
+        fixed_last_origin: Optional index to force as the last origin.
 
     Returns:
         List[int]: Ascending list of origin indices.
     """
-    # Last valid origin index where we still have 'time_steps' remaining
-    # Example: N=48, TS=36. Last origin is 11. (48 - 36 - 1)
-    # Month 11 is the last input, months 12..47 (36 steps) are the output.
-    last_origin = total_months - time_steps - 1
+    if fixed_last_origin is not None:
+        last_origin = fixed_last_origin
+    else:
+        # Last valid origin index where we still have 'time_steps' remaining
+        # Example: N=48, TS=36. Last origin is 11. (48 - 36 - 1)
+        # Month 11 is the last input, months 12..47 (36 steps) are the output.
+        last_origin = total_months - time_steps - 1
 
     if last_origin < 0:
         logger.warning(f"Not enough data for even one window! N={total_months}, TS={time_steps}")

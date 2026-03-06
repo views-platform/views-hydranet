@@ -68,7 +68,7 @@ class InferenceOrchestrator:
         for i, origin in enumerate(origins):
             # Generate Posterior Samples
             post_reg, post_cls = inference.generate_posterior_samples(
-                handler, is_evaluation=is_backtest, window_info=f"Origin {i + 1}/{len(origins)}"
+                handler, origin=origin, is_evaluation=is_backtest, window_info=f"Origin {i + 1}/{len(origins)}"
             )
 
             # Combine for wrapping [T, H, W, C, S]
@@ -123,7 +123,7 @@ class InferenceOrchestrator:
 
             # --- 5. COLLAPSE (ADR 039.5) ---
             # Perform dimension reduction (Point-Collapse) if requested
-            if self.config.get("evalution_mode") == "point":
+            if self.config.get("evaluation_mode") == "point":
                 pred_handler = pred_handler.collapse_to_point(
                     method=self.config["aggregate_method"]
                 )
