@@ -96,6 +96,10 @@ class HydraNetConfig(BaseModel):
     # 9. Outbound Evaluation
     evaluation_mode: str = Field(...)
     aggregate_method: str = Field(...)
+    prediction_format: str = Field(
+        default="prediction_frame",
+        description="Output format for abstract method returns (ADR-033).",
+    )
 
     # Metadata
     model_time_stamp: Optional[str] = None

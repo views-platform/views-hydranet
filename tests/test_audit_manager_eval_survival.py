@@ -12,21 +12,27 @@ AUDIT_CFG = {
     "run_type": "calibration",
     "steps": [1],
     "time_steps": 1,
-    "input_channels": 2,
+    "input_channels": 3,
     "output_channels": 1,
-    "regression_targets": ["lr_sb_best", "lr_ns_best"],
-    "classification_targets": ["by_sb_best", "by_ns_best"],
+    "regression_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
     "identity_cols": ["month_id", "priogrid_gid"],
-    "features": ["lr_sb_best", "lr_ns_best"],
-    "transformations": {"log1p": ["lr_sb_best"], "asinh": ["lr_ns_best"], "identity": []},
+    "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "transformations": {
+        "log1p": ["lr_sb_best"],
+        "asinh": ["lr_ns_best"],
+        "identity": ["lr_os_best"],
+    },
     "derivations": {
         "binary": [
             {"from": "lr_sb_best", "to": "by_sb_best", "threshold": 0},
             {"from": "lr_ns_best", "to": "by_ns_best", "threshold": 0},
+            {"from": "lr_os_best", "to": "by_os_best", "threshold": 0},
         ]
     },
     "height": 4,
     "width": 4,
+    "index_names": ["month_id", "priogrid_gid"],
     "time_col": "month_id",
     "id_col": "priogrid_gid",
     "spatial_cols": ["row", "col"],
@@ -60,7 +66,7 @@ AUDIT_CFG = {
     "max_ratio": 0.9,
     "min_ratio": 0.1,
     "freeze_h": "none",
-    "evalution_mode": "point",
+    "evaluation_mode": "point",
     "aggregate_method": "arithmetic_mean",
 }
 
@@ -82,6 +88,7 @@ class TestManagerEvalHardAudit:
                 "col": [0] * 384,
                 "lr_sb_best": [10.0] * 384,
                 "lr_ns_best": [10.0] * 384,
+                "lr_os_best": [10.0] * 384,
             }
         )
 
@@ -122,10 +129,13 @@ class TestManagerEvalHardAudit:
                         {
                             "lr_sb_best": [10.0] * 16,
                             "lr_ns_best": [10.0] * 16,
+                            "lr_os_best": [10.0] * 16,
                             "pred_lr_sb_best": [100.0] * 16,
                             "pred_lr_ns_best": [100.0] * 16,
+                            "pred_lr_os_best": [100.0] * 16,
                             "pred_by_sb_best": [0.9] * 16,
                             "pred_by_ns_best": [0.9] * 16,
+                            "pred_by_os_best": [0.9] * 16,
                         },
                         index=pd.MultiIndex.from_product(
                             [[124], range(1, 17)], names=["month_id", "priogrid_gid"]
@@ -135,19 +145,19 @@ class TestManagerEvalHardAudit:
 
                     # RUN EVALUATION
                     results = manager._evaluate_model_artifact(eval_type="audit")
-                    df = results[0]
+                    pf_sb = results["lr_sb_best"][0]
+                    pf_by_sb = results["by_sb_best"][0]
+                    pf_ns = results["lr_ns_best"][0]
 
                     # GATES
-                    np.testing.assert_allclose(df["pred_lr_sb_best"].iloc[0], 100.0, rtol=1e-5)
-                    assert isinstance(
-                        df["pred_lr_sb_best"].iloc[0], (float, np.float32, np.float64)
-                    )
-                    assert "pred_lr_sb_best" in df.columns
-                    assert "lr_sb_best" in df.columns
-                    assert isinstance(df.index, pd.MultiIndex)
-                    np.testing.assert_allclose(df["pred_by_sb_best"].iloc[0], 0.9, rtol=1e-5)
-                    assert not any(isinstance(x, list) for x in df["pred_lr_sb_best"])
-                    np.testing.assert_allclose(df["pred_lr_ns_best"].iloc[0], 100.0, rtol=1e-5)
+                    np.testing.assert_allclose(pf_sb.y_pred[0, 0], 100.0, rtol=1e-5)
+                    assert isinstance(pf_sb.y_pred[0, 0], (float, np.floating))
+                    assert "lr_sb_best" in results
+                    assert "by_sb_best" in results
+                    assert pf_sb.y_pred.ndim == 2
+                    np.testing.assert_allclose(pf_by_sb.y_pred[0, 0], 0.9, rtol=1e-5)
+                    assert pf_sb.y_pred.ndim == 2  # Dense array, no list-in-cell
+                    np.testing.assert_allclose(pf_ns.y_pred[0, 0], 100.0, rtol=1e-5)
 
     def test_gate_8_nuke_proof_heterogeneous(self, tmp_path):
         """Hard Gate 8: Verify multiple inverse functions in one volume."""
@@ -163,51 +173,55 @@ class TestManagerEvalHardAudit:
                 "col": [0] * 384,
                 "lr_sb_best": [1.0] * 384,
                 "lr_ns_best": [1.0] * 384,
+                "lr_os_best": [1.0] * 384,
             }
         )
 
         with patch(
-            "views_pipeline_core.managers.model.model.ForecastingModelManager.__init__",
-            return_value=None,
-        ):
-            manager = HydranetManager(model_path=mpm)
-            manager.device = torch.device("cpu")
-            manager._config_manager = MagicMock()
-            manager._wandb_notifications = False
-            manager._use_prediction_store = False
-            with patch.object(HydranetManager, "configs", new_callable=PropertyMock) as mock_cfg:
-                mock_cfg.return_value = AUDIT_CFG
-                with (
-                    patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetch_cls,
-                    patch(
-                        "views_hydranet.manager.hydranet_manager.ModelArtifactFetcher"
-                    ) as mock_art_fetch_cls,
-                    patch(
-                        "views_hydranet.manager.hydranet_manager.InferenceOrchestrator"
-                    ) as mock_eval_cls,
+                    "views_pipeline_core.managers.model.model.ForecastingModelManager.__init__",
+                    return_value=None,
                 ):
-                    mock_fetch_cls.return_value.fetch_df.return_value = df_hist
-                    mock_fetch_cls.standardize_raw_df.side_effect = lambda x, y: x
-                    mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (
-                        MagicMock(),
-                        "audit",
-                    )
+                    manager = HydranetManager(model_path=mpm)
+                    manager.device = torch.device("cpu")
+                    manager._config_manager = MagicMock()
+                    manager._wandb_notifications = False
+                    manager._use_prediction_store = False
+                    with patch.object(HydranetManager, "configs", new_callable=PropertyMock) as mock_cfg:
+                        mock_cfg.return_value = AUDIT_CFG
+                        with (
+                            patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetch_cls,
+                            patch(
+                                "views_hydranet.manager.hydranet_manager.ModelArtifactFetcher"
+                            ) as mock_art_fetch_cls,
+                            patch(
+                                "views_hydranet.manager.hydranet_manager.InferenceOrchestrator"
+                            ) as mock_eval_cls,
+                        ):
+                            mock_fetch_cls.return_value.fetch_df.return_value = df_hist
+                            mock_fetch_cls.standardize_raw_df.side_effect = lambda x, y: x
+                            mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (
+                                MagicMock(),
+                                "audit",
+                            )
+            
+                            df_pred = pd.DataFrame(
+                                {
+                                    "pred_lr_sb_best": [10.0] * 16,
+                                    "pred_lr_ns_best": [10.0] * 16,
+                                    "pred_lr_os_best": [10.0] * 16,
+                                    "pred_by_sb_best": [0.5] * 16,
+                                    "pred_by_ns_best": [0.5] * 16,
+                                    "pred_by_os_best": [0.5] * 16,
+                                },
+                                index=pd.MultiIndex.from_product(
+                                    [[124], range(1, 17)], names=["month_id", "priogrid_gid"]
+                                ),
+                            )
+                            mock_eval_cls.return_value.generate_forecasts.return_value = [df_pred]
 
-                    df_pred = pd.DataFrame(
-                        {
-                            "pred_lr_sb_best": [10.0] * 16,
-                            "pred_lr_ns_best": [10.0] * 16,
-                        },
-                        index=pd.MultiIndex.from_product(
-                            [[124], range(1, 17)], names=["month_id", "priogrid_gid"]
-                        ),
-                    )
-                    mock_eval_cls.return_value.generate_forecasts.return_value = [df_pred]
-
-                    results = manager._evaluate_model_artifact(eval_type="audit")
-                    df = results[0]
-                    np.testing.assert_allclose(df["pred_lr_sb_best"].iloc[0], 10.0, rtol=1e-5)
-                    np.testing.assert_allclose(df["pred_lr_ns_best"].iloc[0], 10.0, rtol=1e-5)
+                            results = manager._evaluate_model_artifact(eval_type="audit")
+                            np.testing.assert_allclose(results["lr_sb_best"][0].y_pred[0, 0], 10.0, rtol=1e-5)
+                            np.testing.assert_allclose(results["lr_ns_best"][0].y_pred[0, 0], 10.0, rtol=1e-5)
 
     def test_gates_9_to_16_forecast_survival(self, tmp_path):
         """Hard Gates 9-16: Falsify the Survival Sequence in the Forecasting path."""
@@ -223,6 +237,7 @@ class TestManagerEvalHardAudit:
                 "col": [0] * 384,
                 "lr_sb_best": [10.0] * 384,
                 "lr_ns_best": [10.0] * 384,
+                "lr_os_best": [10.0] * 384,
             }
         )
 
@@ -259,8 +274,8 @@ class TestManagerEvalHardAudit:
                         "audit",
                     )
 
-                    # posterior: (T, H, W, C) -> 2 targets * 2 heads = 4 channels
-                    posterior = np.zeros((1, 4, 4, 4))
+                    # posterior: (T, H, W, C) -> 3 targets * 2 heads = 6 channels
+                    posterior = np.zeros((1, 4, 4, 6))
                     posterior[:, :, :, 0] = np.log1p(50.0)
                     mock_inf_cls.return_value.generate_posterior_samples.return_value = (
                         posterior,
@@ -269,14 +284,12 @@ class TestManagerEvalHardAudit:
 
                     # RUN FORECAST
                     results = manager._forecast_model_artifact()
-                    df = results[0]
+                    pf_sb = results["lr_sb_best"]
 
                     # GATES
-                    np.testing.assert_allclose(df["pred_lr_sb_best"].iloc[0], 50.0, rtol=1e-5)
-                    assert isinstance(
-                        df["pred_lr_sb_best"].iloc[0], (float, np.float32, np.float64)
-                    )
-                    assert df.index.get_level_values("month_id")[0] == 124
+                    np.testing.assert_allclose(pf_sb.y_pred[0, 0], 50.0, rtol=1e-5)
+                    assert isinstance(pf_sb.y_pred[0, 0], (float, np.floating))
+                    assert pf_sb.identifiers["time"][0] == 124
 
 
 if __name__ == "__main__":

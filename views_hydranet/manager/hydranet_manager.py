@@ -10,7 +10,9 @@ import logging
 from datetime import datetime
 from typing import Any, Dict
 
+import numpy as np
 import pandas as pd
+from views_pipeline_core.data.prediction_frame import PredictionFrame
 from views_pipeline_core.managers.model import (
     ForecastingModelManager,
     ModelPathManager,
@@ -90,6 +92,27 @@ class HydranetManager(ForecastingModelManager):
             raise ValueError(err_msg)
         else:
             logger.info("✅ Architecture: Head Count Aligned (3+3)")
+
+    def _to_pf_dict(
+        self,
+        list_dfs: list[pd.DataFrame],
+        all_targets: list[str],
+    ) -> dict[str, list[PredictionFrame]]:
+        result: dict[str, list[PredictionFrame]] = {t: [] for t in all_targets}
+        for df in list_dfs:
+            time_arr = df.index.get_level_values(0).values
+            unit_arr = df.index.get_level_values(1).values
+            for target in all_targets:
+                y_pred = np.stack(df[f"pred_{target}"].values)  # (N, S) or (N,) for point forecasts
+                if y_pred.ndim == 1:
+                    y_pred = y_pred.reshape(-1, 1)
+                result[target].append(
+                    PredictionFrame(
+                        y_pred=y_pred,
+                        identifiers={"time": time_arr, "unit": unit_arr},
+                    )
+                )
+        return result
 
     def _execute_model_training(self) -> None:
         """HydraNet specific training override."""
@@ -174,7 +197,7 @@ class HydranetManager(ForecastingModelManager):
 
     def _evaluate_model_artifact(
         self, eval_type: str, artifact_name: str | None = None
-    ) -> list[pd.DataFrame]:
+    ) -> dict[str, list[PredictionFrame]]:
         """Orchestrates rolling-origin evaluation via specialized component."""
         log_device_report(self.device, eval_type)
         self.configs = ConfigInitializer(self.configs).get_config()
@@ -274,9 +297,13 @@ class HydranetManager(ForecastingModelManager):
             )
 
         log_prediction_summary(list_df_predictions)
-        return list_df_predictions
+        all_targets = (
+            self.configs.get("regression_targets", [])
+            + self.configs.get("classification_targets", [])
+        )
+        return self._to_pf_dict(list_df_predictions, all_targets)
 
-    def _forecast_model_artifact(self, artifact_name: str | None = None) -> list[pd.DataFrame]:
+    def _forecast_model_artifact(self, artifact_name: str | None = None) -> dict[str, PredictionFrame]:
         """Generates operational forecasts."""
         log_device_report(self.device, "forecasting")
         self.configs = ConfigInitializer(self.configs).get_config()
@@ -360,4 +387,10 @@ class HydranetManager(ForecastingModelManager):
             )
 
         log_prediction_summary(list_df_predictions)
-        return list_df_predictions
+        all_targets = (
+            self.configs.get("regression_targets", [])
+            + self.configs.get("classification_targets", [])
+        )
+        pf_dict_of_lists = self._to_pf_dict(list_df_predictions, all_targets)
+        # Forecast has exactly one origin → unwrap list to get single PF per target
+        return {target: pf_list[0] for target, pf_list in pf_dict_of_lists.items()}
