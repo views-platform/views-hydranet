@@ -28,8 +28,9 @@ CFG = {
     "col_offset": 0,
     "height": 2,
     "width": 2,
-    "evalution_mode": "point",
+    "evaluation_mode": "point",
     "aggregate_method": "mean",
+    "index_names": ["month_id", "priogrid_gid"],
     "transformations": {"identity": ["lr_sb_best", "lr_ns_best", "lr_os_best"]},
     "derivations": {
         "binary": [
@@ -215,7 +216,7 @@ class TestBacktestUnbreakableAudit:
         """Prove that in stochastic mode, cells contain lists of exactly n_posterior_samples."""
         handler, scaler, model = audit_env
         stochastic_cfg = CFG.copy()
-        stochastic_cfg["evalution_mode"] = "stochastic"
+        stochastic_cfg["evaluation_mode"] = "stochastic"
         stochastic_cfg["n_posterior_samples"] = 5
 
         orchestrator = InferenceOrchestrator(stochastic_cfg, model, torch.device("cpu"))

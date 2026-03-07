@@ -26,8 +26,9 @@ CFG = {
     "col_offset": 0,
     "height": 2,
     "width": 2,
-    "evalution_mode": "point",
+    "evaluation_mode": "point",
     "aggregate_method": "mean",
+    "index_names": ["month_id", "priogrid_gid"],
     "transformations": {"identity": ["lr_sb"]},
     "derivations": {"binary": [{"from": "lr_sb", "to": "by_sb", "threshold": 0}]},
 }
@@ -192,7 +193,7 @@ def test_orchestrator_red_law_of_sequence_physics():
     cfg = CFG.copy()
     cfg["regression_targets"] = ["lr_sb"]
     cfg["classification_targets"] = ["by_sb"]
-    cfg["evalution_mode"] = "point"
+    cfg["evaluation_mode"] = "point"
     cfg["aggregate_method"] = "mean"
     cfg["transformations"] = {"log1p": ["lr_sb"]}
     cfg["derivations"] = {"binary": [{"from": "lr_sb", "to": "by_sb", "threshold": 0}]}

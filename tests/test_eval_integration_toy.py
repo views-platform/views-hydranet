@@ -38,10 +38,10 @@ def test_eval_package_contract_acceptance():
         "targets": ["lr_sb_best"],
         "run_type": "validation",
         "steps": [1],
-        "regression_metrics": ["mse", "mae"],
-        "classification_metrics": ["auc", "ap"],
-        "regression_point_metrics": ["mse", "mae"],
-        "classification_point_metrics": ["auc", "ap"],
+        "regression_metrics": ["MSE"],
+        "classification_metrics": ["AP"],
+        "regression_point_metrics": ["MSE"],
+        "classification_point_metrics": ["AP"],
     }
 
     # 5. EXECUTE THE REAL EVALUATION

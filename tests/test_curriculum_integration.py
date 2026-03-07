@@ -47,7 +47,7 @@ class TestCurriculumIntegration:
             "loss_class_gamma": 1.5,
             "loss_class_alpha": 0.75,
             "freeze_h": "hl",
-            "evalution_mode": "stochastic",
+            "evaluation_mode": "stochastic",
             "aggregate_method": "geometric_mean",
             "model": "HydraBNUNet06_LSTM4",
             "run_type": "calibration",

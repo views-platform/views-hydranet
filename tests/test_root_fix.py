@@ -31,6 +31,7 @@ BASE_CONFIG = {
     },
     "height": 4,
     "width": 4,
+    "index_names": ["month_id", "priogrid_gid"],
     "time_col": "month_id",
     "id_col": "priogrid_gid",
     "spatial_cols": ["row", "col"],
@@ -64,7 +65,7 @@ BASE_CONFIG = {
     "max_ratio": 0.9,
     "min_ratio": 0.1,
     "freeze_h": "none",
-    "evalution_mode": "point",
+    "evaluation_mode": "point",
     "aggregate_method": "mean",
 }
 

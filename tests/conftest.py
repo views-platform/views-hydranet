@@ -50,7 +50,7 @@ def valid_config_dict():
         "row_offset": 0,
         "col_offset": 0,
         "time_steps": 36,
-        "evalution_mode": "point",
+        "evaluation_mode": "point",
         "aggregate_method": "arithmetic_mean",
         "transformations": {"log1p": ["lr_sb_best", "lr_ns_best", "lr_os_best"], "identity": []},
         "derivations": {
