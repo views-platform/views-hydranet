@@ -104,6 +104,14 @@ HydraNet employs a **Symmetric Feature Lifecycle** governed by an "Instructional
 - **Derivations:** Manufacturing instructions for targets (e.g., `binary` thresholding) applied consistently during training and evaluation.
 - **Handshake:** The model manager "sanctifies" ground-truth data for evaluation, ensuring that targets like `by_sb_best` are derived on-the-fly and bit-perfect with training logic.
 
+### Prediction Output Format (ADR 047)
+HydraNet adopts the **PredictionFrame** interface mandated by `views-pipeline-core` (ADR-033).
+
+- **What:** `_evaluate_model_artifact()` returns `dict[str, list[PredictionFrame]]` and `_forecast_model_artifact()` returns `dict[str, PredictionFrame]` — one entry per target signal.
+- **Why:** Target-keyed output enables multi-target dispatch, enforces a validated `(N, S)` shape contract, and unlocks automatic parity auditing between the PF and legacy DataFrame paths.
+- **How:** The config declares `"prediction_format": "prediction_frame"`. The manager converts its internal DataFrames via `_to_pf_dict()` before returning. The upstream pipeline reads the flag and routes through `PredictionFrameDispatcher`.
+- **Guide:** See [`reports/guides/prediction_frame.md`](reports/guides/prediction_frame.md) for a self-contained implementation guide, including how to adopt this pattern in other model repos.
+
 ---
 
 ## 🏗 Architecture  
