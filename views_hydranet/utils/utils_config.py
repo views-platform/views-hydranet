@@ -94,8 +94,24 @@ class HydraNetConfig(BaseModel):
     freeze_h: str = Field(...)
 
     # 9. Outbound Evaluation
-    evaluation_mode: str = Field(...)
-    aggregate_method: str = Field(...)
+    evaluation_mode: str = Field(
+        ...,
+        description=(
+            "Controls whether the posterior sample axis (S) is preserved or collapsed. "
+            "'stochastic': all S samples are kept → PredictionFrame.y_pred.shape == (N, S). "
+            "'point': collapse_to_point(aggregate_method) folds S to a scalar per cell → "
+            "PredictionFrame.y_pred.shape == (N, 1) regardless of n_posterior_samples."
+        ),
+    )
+    aggregate_method: str = Field(
+        ...,
+        description=(
+            "Aggregation function applied when evaluation_mode == 'point'. "
+            "Ignored in stochastic mode. "
+            "Supported: 'arithmetic_mean' (alias 'mean'), 'median' (alias 'max_aposteriori'). "
+            "'geometric_mean' is schema-valid but raises NotImplementedError at runtime."
+        ),
+    )
     prediction_format: str = Field(
         default="prediction_frame",
         description="Output format for abstract method returns (ADR-033).",
@@ -171,6 +187,23 @@ class HydraNetConfig(BaseModel):
 
         return self
 
+    @model_validator(mode="after")
+    def warn_aggregate_method_in_stochastic_mode(self) -> "HydraNetConfig":
+        if self.evaluation_mode == "stochastic":
+            logger.warning(
+                "\n"
+                "╔══════════════════════════════════════════════════════════════╗\n"
+                "║  HydraNetConfig WARNING: aggregate_method is IGNORED         ║\n"
+                "║                                                              ║\n"
+                "║  evaluation_mode='stochastic' preserves the full posterior.  ║\n"
+                "║  The aggregate_method='%s' setting has NO effect.       ║\n"
+                "║                                                              ║\n"
+                "║  To activate aggregation, set evaluation_mode='point'.       ║\n"
+                "╚══════════════════════════════════════════════════════════════╝",
+                self.aggregate_method,
+            )
+        return self
+
     @field_validator("run_type")
     @classmethod
     def validate_run_type(cls, v: str) -> str:
@@ -186,13 +219,13 @@ class HydraNetConfig(BaseModel):
     @field_validator("evaluation_mode")
     @classmethod
     def validate_eval_mode(cls, v: str) -> str:
-        if v == "stocastic":
-            return "stochastic"
-        if v not in ["point", "stochastic"]:
-            err_msg = "evaluation_mode must be 'point' or 'stochastic'"
-
+        valid = ["point", "stochastic"]
+        if v not in valid:
+            err_msg = (
+                f"evaluation_mode='{v}' is not valid. "
+                f"Expected one of: {valid}."
+            )
             logger.error(err_msg)
-
             raise ValueError(err_msg)
         return v
 

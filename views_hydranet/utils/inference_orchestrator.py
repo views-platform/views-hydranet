@@ -3,6 +3,7 @@ InferenceOrchestrator: The Unified Symmetry Engine for HydraNet.
 Governed by ADR 038 (Unification) and ADR 039 (Sequence).
 """
 
+import gc
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -52,6 +53,19 @@ class InferenceOrchestrator:
 
         Strictly follows ADR 039 Order of Operations:
         1. Predict -> 2. Wrap -> 3. Invert -> 4. Collapse -> 5. Reconstruct.
+
+        Mode (controlled by ``config["evaluation_mode"]``):
+
+        - **"stochastic"**: Step 4 (Collapse) is skipped.  The S axis from
+          ``generate_posterior_samples`` is preserved through Wrap → Invert → Reconstruct.
+          Output DataFrames contain list-in-cell values (one list of S floats per cell).
+          ``_to_pf_dict()`` stacks these into ``PredictionFrame.y_pred.shape == (N, S)``.
+
+        - **"point"**: Step 4 calls ``collapse_to_point(aggregate_method)``, which folds the
+          S axis to a single scalar per cell before reconstruction.
+          Output DataFrames contain scalar values per cell.
+          ``_to_pf_dict()`` reshapes ``(N,)`` → ``(N, 1)``, giving
+          ``PredictionFrame.y_pred.shape == (N, 1)`` regardless of ``n_posterior_samples``.
         """
         is_backtest = len(origins) > 1
         mode_label = "BACKTEST" if is_backtest else "OPERATIONAL"
@@ -139,3 +153,100 @@ class InferenceOrchestrator:
 
         logger.info(f"✅ InferenceOrchestrator: Produced {len(list_df_dirty)} Dirty DataFrames.")
         return list_df_dirty
+
+    def generate_prediction_frames(
+        self,
+        handler: VolumeHandler,
+        scaler: "FeatureScaler",
+        origins: List[int],
+        all_targets: List[str],
+    ) -> List[Dict[str, Any]]:
+        """
+        Pandas-free parallel of generate_forecasts().
+
+        Follows the same ADR 039 sequence (Predict → Wrap → Invert → Collapse),
+        but replaces the final Reconstruct step with VolumeHandler.to_evaluation_pf()
+        instead of to_evaluation_df().  No pandas DataFrame is materialised.
+
+        Returns
+        -------
+        list[dict[str, PredictionFrame]]
+            One dict per rolling origin.  Each dict maps every target name to a
+            PredictionFrame with y_pred.shape == (N, S) in stochastic mode or
+            (N, 1) in point mode.
+        """
+        is_backtest = len(origins) > 1
+        mode_label = "BACKTEST" if is_backtest else "OPERATIONAL"
+
+        logger.info(
+            f"💠 InferenceOrchestrator: Initiating {mode_label} pass ({len(origins)} origins) "
+            f"[pandas-free PredictionFrame path]."
+        )
+
+        inference = HydraNetInference(
+            self.model, self.config, device=str(self.device), visualizer=self.viz
+        )
+        list_pf_dicts: List[Dict[str, Any]] = []
+
+        for i, origin in enumerate(origins):
+            # --- 1. PREDICT ---
+            post_reg, post_cls = inference.generate_posterior_samples(
+                handler, origin=origin, is_evaluation=is_backtest,
+                window_info=f"Origin {i + 1}/{len(origins)}"
+            )
+
+            if post_cls is not None and post_cls.size > 0:
+                posterior_zstack = np.concatenate([post_reg, post_cls], axis=-2)
+            else:
+                posterior_zstack = post_reg
+
+            duration = posterior_zstack.shape[0]
+
+            # --- 2. TEMPORAL ALIGNMENT (ADR 039.1) ---
+            max_history_idx = handler.shape[0] - 1
+            is_projecting = (origin + duration) > max_history_idx
+
+            if not is_projecting:
+                window_handler = handler.slice_time(origin + 1, origin + 1 + duration)
+            else:
+                if origin < max_history_idx:
+                    window_handler = handler.slice_time(origin + 1, origin + 1 + duration)
+                else:
+                    window_handler = handler.extrapolate_time(duration)
+
+            # --- 3. WRAP (ADR 039.3) ---
+            target_names = all_targets
+            pred_handler = window_handler.wrap_predictions(
+                posterior_zstack, target_names=target_names
+            )
+
+            if i == 0:
+                self.viz.biopsy_volume(
+                    pred_handler, f"Stage 6: Raw Predicted Volume (Origin {origin})"
+                )
+
+            # --- 4. INVERT (ADR 039.4) ---
+            pred_handler = scaler.inverse_transform_volume(pred_handler)
+
+            # --- 5. COLLAPSE (ADR 039.5) ---
+            if self.config.get("evaluation_mode") == "point":
+                pred_handler = pred_handler.collapse_to_point(
+                    method=self.config["aggregate_method"]
+                )
+
+            # --- 6. RECONSTRUCT AS PF (ADR 039.6 / ADR-047) ---
+            pf_dict = pred_handler.to_evaluation_pf(
+                history=window_handler, start_idx=0, all_targets=all_targets
+            )
+            list_pf_dicts.append(pf_dict)
+
+            # Explicit per-origin memory release
+            del post_reg, posterior_zstack, pred_handler, window_handler
+            if post_cls is not None:
+                del post_cls
+            gc.collect()
+
+        logger.info(
+            f"✅ InferenceOrchestrator: Produced {len(list_pf_dicts)} PredictionFrame dicts."
+        )
+        return list_pf_dicts

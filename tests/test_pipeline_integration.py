@@ -162,16 +162,23 @@ class TestPipelineIntegration:
                     "toy_artifact",
                 )
 
-                # Mock Orchestrator output — all 6 prediction columns required by _to_pf_dict
-                df_mock = toy_dataframe.copy()
-                df_mock["pred_lr_sb_best"] = 0.5
-                df_mock["pred_lr_ns_best"] = 0.5
-                df_mock["pred_lr_os_best"] = 0.5
-                df_mock["pred_by_sb_best"] = 0.9
-                df_mock["pred_by_ns_best"] = 0.9
-                df_mock["pred_by_os_best"] = 0.9
-                df_mock = df_mock.set_index(["month_id", "priogrid_gid"])
-                mock_eval_cls.return_value.generate_forecasts.return_value = [df_mock]
+                # Mock Orchestrator output — generate_prediction_frames returns
+                # list[dict[str, PredictionFrame]] directly (pandas-free path)
+                from views_pipeline_core.data.prediction_frame import PredictionFrame
+                N = len(toy_dataframe)
+                time_arr = toy_dataframe["month_id"].values
+                unit_arr = toy_dataframe["priogrid_gid"].values
+                _pf_per_target = {
+                    t: PredictionFrame(
+                        y_pred=np.full((N, 1), 0.5),
+                        identifiers={"time": time_arr, "unit": unit_arr},
+                    )
+                    for t in [
+                        "lr_sb_best", "lr_ns_best", "lr_os_best",
+                        "by_sb_best", "by_ns_best", "by_os_best",
+                    ]
+                }
+                mock_eval_cls.return_value.generate_prediction_frames.return_value = [_pf_per_target]
 
                 # 4. EXECUTE THE CRITICAL PATH
                 predictions = manager._evaluate_model_artifact(eval_type="calibration")

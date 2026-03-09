@@ -5,7 +5,22 @@ import pandas as pd
 import pytest
 import torch
 
+from views_pipeline_core.data.prediction_frame import PredictionFrame
+
 from views_hydranet.manager.hydranet_manager import HydranetManager
+
+
+def _pf_dict(values: dict, n: int, month_id: int = 11) -> dict:
+    """Build mock generate_prediction_frames payload."""
+    time_arr = np.array([month_id] * n, dtype=np.int32)
+    unit_arr = np.array(range(1, n + 1), dtype=np.int32)
+    return {
+        target: PredictionFrame(
+            y_pred=np.full((n, 1), val),
+            identifiers={"time": time_arr, "unit": unit_arr},
+        )
+        for target, val in values.items()
+    }
 
 # SUBSET AUDIT CONFIG
 SUBSET_CFG = {
@@ -136,23 +151,14 @@ class TestSubsetSymmetryAudit:
                         "audit",
                     )
 
-                    # Mock Orchestrator output to match Gate expectations
-                    df_mock = pd.DataFrame(
-                        {
-                            "lr_sb_best": [10.0] * 20,
-                            "pred_lr_sb_best": [100.0] * 20,
-                            "pred_lr_ns_best": [100.0] * 20,
-                            "pred_lr_os_best": [100.0] * 20,
-                            "pred_by_sb_best": [0.9] * 20,
-                            "pred_by_ns_best": [0.9] * 20,
-                            "pred_by_os_best": [0.9] * 20,
-                        },
-                        index=pd.MultiIndex.from_product(
-                            [[11], range(1, 21)], names=["month_id", "priogrid_gid"]
-                        ),
-                    )
-
-                    mock_eval_cls.return_value.generate_forecasts.return_value = [df_mock]
+                    # Mock Orchestrator output — generate_prediction_frames returns
+                    # list[dict[str, PredictionFrame]] (pandas-free path)
+                    mock_eval_cls.return_value.generate_prediction_frames.return_value = [
+                        _pf_dict({
+                            "lr_sb_best": 100.0, "lr_ns_best": 100.0, "lr_os_best": 100.0,
+                            "by_sb_best": 0.9,   "by_ns_best": 0.9,   "by_os_best": 0.9,
+                        }, n=20)
+                    ]
 
                     # RUN EVALUATION
                     results = manager._evaluate_model_artifact(eval_type="audit")

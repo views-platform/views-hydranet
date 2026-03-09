@@ -55,6 +55,20 @@ has one sample. The shape is `(N, 1)`, NOT `(N,)`. The 2D invariant is always ma
 **What N means:** N is the number of spatial units in the evaluation window. For HydraNet at
 pgm level with a 4x4 grid, N=16. For a full-resolution run, N = number of PRIO grid cells.
 
+**`sample_count` property:** `pf.sample_count` returns `y_pred.shape[1]` (S).
+
+- In **stochastic mode**: `sample_count == n_posterior_samples` (e.g. 10, 50, 100).
+- In **point mode**: `sample_count == 1` always — the S axis was collapsed by
+  `collapse_to_point()` before the PredictionFrame was built.
+
+Use `sample_count` to branch at call sites without inspecting the shape directly:
+```python
+if pf.sample_count > 1:
+    lower, upper = np.percentile(pf.y_pred, [5, 95], axis=1)  # credible interval
+else:
+    point_estimate = pf.y_pred[:, 0]                           # single value per cell
+```
+
 ---
 
 ## 3. The Contract With the Pipeline

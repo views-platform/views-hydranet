@@ -10,7 +10,6 @@ import logging
 from datetime import datetime
 from typing import Any, Dict
 
-import numpy as np
 import pandas as pd
 from views_pipeline_core.data.prediction_frame import PredictionFrame
 from views_pipeline_core.managers.model import (
@@ -25,12 +24,10 @@ from views_hydranet.utils.data_sniffer import DataSniffer
 from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
 from views_hydranet.utils.model_artifact_fetcher import ModelArtifactFetcher
-from views_hydranet.utils.pure_state_adapter import PureStateAdapter
 from views_hydranet.utils.utils_device import setup_device
 from views_hydranet.utils.utils_logging import (
     log_device_report,
     log_ingestion_report,
-    log_prediction_summary,
     log_training_summary,
 )
 from views_hydranet.utils.utils_orchestration import get_rolling_origin_indices
@@ -92,27 +89,6 @@ class HydranetManager(ForecastingModelManager):
             raise ValueError(err_msg)
         else:
             logger.info("✅ Architecture: Head Count Aligned (3+3)")
-
-    def _to_pf_dict(
-        self,
-        list_dfs: list[pd.DataFrame],
-        all_targets: list[str],
-    ) -> dict[str, list[PredictionFrame]]:
-        result: dict[str, list[PredictionFrame]] = {t: [] for t in all_targets}
-        for df in list_dfs:
-            time_arr = df.index.get_level_values(0).values
-            unit_arr = df.index.get_level_values(1).values
-            for target in all_targets:
-                y_pred = np.stack(df[f"pred_{target}"].values)  # (N, S) or (N,) for point forecasts
-                if y_pred.ndim == 1:
-                    y_pred = y_pred.reshape(-1, 1)
-                result[target].append(
-                    PredictionFrame(
-                        y_pred=y_pred,
-                        identifiers={"time": time_arr, "unit": unit_arr},
-                    )
-                )
-        return result
 
     def _execute_model_training(self) -> None:
         """HydraNet specific training override."""
@@ -274,34 +250,28 @@ class HydranetManager(ForecastingModelManager):
             num_windows = 1
         origins = get_rolling_origin_indices(handler.shape[0], time_steps, num_windows)
 
-        # 6. Unified Inference Orchestration (ADR 038)
+        # 6. Unified Inference Orchestration (ADR 038 / ADR-047 pandas-free path)
         print("")
-        # Pass visualizer to orchestrator for Stage 5/6 probes
-        orchestrator = InferenceOrchestrator(self.configs, model, self.device, visualizer=viz)
-        list_df_predictions = orchestrator.generate_forecasts(handler, scaler, origins=origins)
-
-        # 7. Pure State Adaptation (ADR 040)
-        adapter = PureStateAdapter(self.configs)
-        list_df_predictions = adapter.enforce_pure_state_list(list_df_predictions)
-
-        # DIAGNOSTIC: Stage 7 (Reconstruction - Sample 0)
-        if list_df_predictions:
-            # ADR 046: Regression and classification targets are now explicitly named in config
-            pred_plot_feats = [
-                f"pred_{t}"
-                for t in self.configs["regression_targets"]
-                + self.configs["classification_targets"]
-            ]
-            viz.biopsy_dataframe(
-                list_df_predictions[0], "Stage 7: Final Reconstruction", features=pred_plot_feats
-            )
-
-        log_prediction_summary(list_df_predictions)
         all_targets = (
             self.configs.get("regression_targets", [])
             + self.configs.get("classification_targets", [])
         )
-        return self._to_pf_dict(list_df_predictions, all_targets)
+        # Pass visualizer to orchestrator for Stage 5/6 probes
+        orchestrator = InferenceOrchestrator(self.configs, model, self.device, visualizer=viz)
+        list_pf_dicts = orchestrator.generate_prediction_frames(
+            handler, scaler, origins=origins, all_targets=all_targets
+        )
+
+        # Merge list[dict[target → PF]] → dict[target → list[PF]]
+        result: dict[str, list[PredictionFrame]] = {
+            t: [d[t] for d in list_pf_dicts] for t in all_targets
+        }
+
+        logger.info(
+            f"✅ HydranetManager: Evaluation complete — "
+            f"{len(list_pf_dicts)} origin(s), {len(result)} targets."
+        )
+        return result
 
     def _forecast_model_artifact(self, artifact_name: str | None = None) -> dict[str, PredictionFrame]:
         """Generates operational forecasts."""
@@ -362,35 +332,24 @@ class HydranetManager(ForecastingModelManager):
         )
         model, _ = model_fetcher.fetch_model_artifact()
 
-        # 6. Unified Inference Orchestration (ADR 038)
+        # 6. Unified Inference Orchestration (ADR 038 / ADR-047 pandas-free path)
         print("")
-        # Pass visualizer to orchestrator
-        orchestrator = InferenceOrchestrator(self.configs, model, self.device, visualizer=viz)
-        # Operational origins: just the last available month
-        origins = [handler.shape[0] - 1]
-        list_df_predictions = orchestrator.generate_forecasts(handler, scaler, origins=origins)
-
-        # 7. Pure State Adaptation (ADR 040)
-        adapter = PureStateAdapter(self.configs)
-        list_df_predictions = adapter.enforce_pure_state_list(list_df_predictions)
-
-        # DIAGNOSTIC: Stage 7
-        if list_df_predictions:
-            # ADR 046: Use explicit target names from config
-            pred_plot_feats = [
-                f"pred_{t}"
-                for t in self.configs["regression_targets"]
-                + self.configs["classification_targets"]
-            ]
-            viz.biopsy_dataframe(
-                list_df_predictions[0], "Stage 7: Final Reconstruction", features=pred_plot_feats
-            )
-
-        log_prediction_summary(list_df_predictions)
         all_targets = (
             self.configs.get("regression_targets", [])
             + self.configs.get("classification_targets", [])
         )
-        pf_dict_of_lists = self._to_pf_dict(list_df_predictions, all_targets)
+        # Pass visualizer to orchestrator
+        orchestrator = InferenceOrchestrator(self.configs, model, self.device, visualizer=viz)
+        # Operational forecast: single origin at the last available time step
+        origins = [handler.shape[0] - 1]
+        list_pf_dicts = orchestrator.generate_prediction_frames(
+            handler, scaler, origins=origins, all_targets=all_targets
+        )
+
         # Forecast has exactly one origin → unwrap list to get single PF per target
-        return {target: pf_list[0] for target, pf_list in pf_dict_of_lists.items()}
+        result: dict[str, PredictionFrame] = {t: list_pf_dicts[0][t] for t in all_targets}
+
+        logger.info(
+            f"✅ HydranetManager: Forecast complete — {len(result)} targets."
+        )
+        return result

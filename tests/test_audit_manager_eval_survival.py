@@ -5,7 +5,22 @@ import pandas as pd
 import pytest
 import torch
 
+from views_pipeline_core.data.prediction_frame import PredictionFrame
+
 from views_hydranet.manager.hydranet_manager import HydranetManager
+
+
+def _pf_dict(values: dict[str, float], n: int, month_id: int = 124) -> dict:
+    """Build a mock list[dict[str, PredictionFrame]] for generate_prediction_frames."""
+    time_arr = np.array([month_id] * n, dtype=np.int32)
+    unit_arr = np.array(range(1, n + 1), dtype=np.int32)
+    return {
+        target: PredictionFrame(
+            y_pred=np.full((n, 1), val),
+            identifiers={"time": time_arr, "unit": unit_arr},
+        )
+        for target, val in values.items()
+    }
 
 # AUDIT CONFIG: Point mode, arithmetic mean, heterogeneous scales
 AUDIT_CFG = {
@@ -124,24 +139,14 @@ class TestManagerEvalHardAudit:
                         "audit",
                     )
 
-                    # 3. Mock Evaluator (This is where the 'Science' is tested)
-                    df_pred = pd.DataFrame(
-                        {
-                            "lr_sb_best": [10.0] * 16,
-                            "lr_ns_best": [10.0] * 16,
-                            "lr_os_best": [10.0] * 16,
-                            "pred_lr_sb_best": [100.0] * 16,
-                            "pred_lr_ns_best": [100.0] * 16,
-                            "pred_lr_os_best": [100.0] * 16,
-                            "pred_by_sb_best": [0.9] * 16,
-                            "pred_by_ns_best": [0.9] * 16,
-                            "pred_by_os_best": [0.9] * 16,
-                        },
-                        index=pd.MultiIndex.from_product(
-                            [[124], range(1, 17)], names=["month_id", "priogrid_gid"]
-                        ),
-                    )
-                    mock_eval_cls.return_value.generate_forecasts.return_value = [df_pred]
+                    # 3. Mock Evaluator — generate_prediction_frames returns
+                    # list[dict[str, PredictionFrame]] (pandas-free path)
+                    mock_eval_cls.return_value.generate_prediction_frames.return_value = [
+                        _pf_dict({
+                            "lr_sb_best": 100.0, "lr_ns_best": 100.0, "lr_os_best": 100.0,
+                            "by_sb_best": 0.9,   "by_ns_best": 0.9,   "by_os_best": 0.9,
+                        }, n=16)
+                    ]
 
                     # RUN EVALUATION
                     results = manager._evaluate_model_artifact(eval_type="audit")
@@ -204,20 +209,12 @@ class TestManagerEvalHardAudit:
                                 "audit",
                             )
             
-                            df_pred = pd.DataFrame(
-                                {
-                                    "pred_lr_sb_best": [10.0] * 16,
-                                    "pred_lr_ns_best": [10.0] * 16,
-                                    "pred_lr_os_best": [10.0] * 16,
-                                    "pred_by_sb_best": [0.5] * 16,
-                                    "pred_by_ns_best": [0.5] * 16,
-                                    "pred_by_os_best": [0.5] * 16,
-                                },
-                                index=pd.MultiIndex.from_product(
-                                    [[124], range(1, 17)], names=["month_id", "priogrid_gid"]
-                                ),
-                            )
-                            mock_eval_cls.return_value.generate_forecasts.return_value = [df_pred]
+                            mock_eval_cls.return_value.generate_prediction_frames.return_value = [
+                                _pf_dict({
+                                    "lr_sb_best": 10.0, "lr_ns_best": 10.0, "lr_os_best": 10.0,
+                                    "by_sb_best": 0.5,  "by_ns_best": 0.5,  "by_os_best": 0.5,
+                                }, n=16)
+                            ]
 
                             results = manager._evaluate_model_artifact(eval_type="audit")
                             np.testing.assert_allclose(results["lr_sb_best"][0].y_pred[0, 0], 10.0, rtol=1e-5)
