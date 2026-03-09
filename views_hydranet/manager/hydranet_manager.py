@@ -8,7 +8,7 @@ It handles spatiotemporal data volumes and implements rolling-origin evaluation.
 
 import logging
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, List, Union
 
 import pandas as pd
 from views_pipeline_core.data.prediction_frame import PredictionFrame
@@ -173,7 +173,7 @@ class HydranetManager(ForecastingModelManager):
 
     def _evaluate_model_artifact(
         self, eval_type: str, artifact_name: str | None = None
-    ) -> dict[str, list[PredictionFrame]]:
+    ) -> "Union[dict[str, list[PredictionFrame]], List[pd.DataFrame]]":
         """Orchestrates rolling-origin evaluation via specialized component."""
         log_device_report(self.device, eval_type)
         self.configs = ConfigInitializer(self.configs).get_config()
@@ -250,30 +250,40 @@ class HydranetManager(ForecastingModelManager):
             num_windows = 1
         origins = get_rolling_origin_indices(handler.shape[0], time_steps, num_windows)
 
-        # 6. Unified Inference Orchestration (ADR 038 / ADR-047 pandas-free path)
+        # 6. Unified Inference Orchestration (ADR 038)
         print("")
         all_targets = (
             self.configs.get("regression_targets", [])
             + self.configs.get("classification_targets", [])
         )
-        # Pass visualizer to orchestrator for Stage 5/6 probes
+        prediction_format = self.configs.get("prediction_format", "prediction_frame")
         orchestrator = InferenceOrchestrator(self.configs, model, self.device, visualizer=viz)
-        list_pf_dicts = orchestrator.generate_prediction_frames(
-            handler, scaler, origins=origins, all_targets=all_targets
-        )
 
-        # Merge list[dict[target → PF]] → dict[target → list[PF]]
-        result: dict[str, list[PredictionFrame]] = {
-            t: [d[t] for d in list_pf_dicts] for t in all_targets
-        }
+        if prediction_format == "prediction_frame":
+            # ADR-047 pandas-free path
+            list_pf_dicts = orchestrator.generate_prediction_frames(
+                handler, scaler, origins=origins, all_targets=all_targets
+            )
+            result: dict[str, list[PredictionFrame]] = {
+                t: [d[t] for d in list_pf_dicts] for t in all_targets
+            }
+            logger.info(
+                f"✅ HydranetManager: Evaluation complete — "
+                f"{len(list_pf_dicts)} origin(s), {len(result)} targets [PF path]."
+            )
+            return result
+        else:
+            # Legacy DataFrame path
+            list_df_predictions = orchestrator.generate_forecasts(
+                handler, scaler, origins=origins
+            )
+            logger.info(
+                f"✅ HydranetManager: Evaluation complete — "
+                f"{len(list_df_predictions)} origin(s) [DataFrame path]."
+            )
+            return list_df_predictions
 
-        logger.info(
-            f"✅ HydranetManager: Evaluation complete — "
-            f"{len(list_pf_dicts)} origin(s), {len(result)} targets."
-        )
-        return result
-
-    def _forecast_model_artifact(self, artifact_name: str | None = None) -> dict[str, PredictionFrame]:
+    def _forecast_model_artifact(self, artifact_name: str | None = None) -> "Union[dict[str, PredictionFrame], pd.DataFrame]":
         """Generates operational forecasts."""
         log_device_report(self.device, "forecasting")
         self.configs = ConfigInitializer(self.configs).get_config()
@@ -332,24 +342,30 @@ class HydranetManager(ForecastingModelManager):
         )
         model, _ = model_fetcher.fetch_model_artifact()
 
-        # 6. Unified Inference Orchestration (ADR 038 / ADR-047 pandas-free path)
+        # 6. Unified Inference Orchestration (ADR 038)
         print("")
         all_targets = (
             self.configs.get("regression_targets", [])
             + self.configs.get("classification_targets", [])
         )
-        # Pass visualizer to orchestrator
+        prediction_format = self.configs.get("prediction_format", "prediction_frame")
         orchestrator = InferenceOrchestrator(self.configs, model, self.device, visualizer=viz)
-        # Operational forecast: single origin at the last available time step
         origins = [handler.shape[0] - 1]
-        list_pf_dicts = orchestrator.generate_prediction_frames(
-            handler, scaler, origins=origins, all_targets=all_targets
-        )
 
-        # Forecast has exactly one origin → unwrap list to get single PF per target
-        result: dict[str, PredictionFrame] = {t: list_pf_dicts[0][t] for t in all_targets}
-
-        logger.info(
-            f"✅ HydranetManager: Forecast complete — {len(result)} targets."
-        )
-        return result
+        if prediction_format == "prediction_frame":
+            # ADR-047 pandas-free path — single origin, unwrap to one PF per target
+            list_pf_dicts = orchestrator.generate_prediction_frames(
+                handler, scaler, origins=origins, all_targets=all_targets
+            )
+            result: dict[str, PredictionFrame] = {t: list_pf_dicts[0][t] for t in all_targets}
+            logger.info(
+                f"✅ HydranetManager: Forecast complete — {len(result)} targets [PF path]."
+            )
+            return result
+        else:
+            # Legacy DataFrame path — single origin, unwrap to one DataFrame
+            list_df_predictions = orchestrator.generate_forecasts(
+                handler, scaler, origins=origins
+            )
+            logger.info("✅ HydranetManager: Forecast complete [DataFrame path].")
+            return list_df_predictions[0]
