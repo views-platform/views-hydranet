@@ -1,3 +1,4 @@
+import gc
 import logging
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple, cast
 
@@ -294,7 +295,9 @@ class HydraNetInference:
 
         # --- BATCH TRANSFERS (Speed Hardening) ---
         full_magnitudes = torch.cat(acc_magnitudes, dim=0)  # [T_steps, C, H, W]
+        del acc_magnitudes  # step tensors no longer needed; free before full+numpy coexist
         full_probabilities = torch.cat(acc_probabilities, dim=0)
+        del acc_probabilities
 
         if not torch.isfinite(full_magnitudes).all():
             logger.error(f"!!! MODEL EXPLODED during sample {sample_idx} sequence !!!")
@@ -304,7 +307,9 @@ class HydraNetInference:
             )
 
         pred_magnitudes_zstack = full_magnitudes.detach().cpu().numpy()
+        del full_magnitudes  # tensor no longer needed after numpy copy
         pred_probabilities_zstack = full_probabilities.detach().cpu().numpy()
+        del full_probabilities
 
         # STAGE 5 DIAGNOSTIC: Finalize Biopsy
         if sample_idx == 0 and self.viz.active:
@@ -438,9 +443,14 @@ class HydraNetInference:
                         pred_probabilities_zstack.transpose(0, 2, 3, 1)
                     )
 
-            # HARDENING: Clear VRAM cache ONCE after all samples are drawn
+            # Explicit release of the input tensor before returning.
+            # del + gc.collect() ensures the PyTorch allocator pool receives the
+            # memory BEFORE the next origin allocates its own full_tensor.
+            del full_tensor
             if self.device.type == "cuda":
                 torch.cuda.empty_cache()
+            else:
+                gc.collect()  # on CPU, prompt PyTorch allocator to coalesce its pool
 
         # Concatenate only once at the end
         # REFACTOR: Return them separately so orchestrator knows exactly what is what.
