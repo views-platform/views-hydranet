@@ -6,6 +6,7 @@ evaluation, and forecasting tasks for the HydraNet model within the ViEWS pipeli
 It handles spatiotemporal data volumes and implements rolling-origin evaluation.
 """
 
+import gc
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Union
@@ -241,6 +242,8 @@ class HydranetManager(ForecastingModelManager):
         viz.biopsy_volume(handler, "Stage 3: Global Volume")
 
         sniffer.sniff_forecast_alignment(df, handler, is_forecast=False)
+        del df  # viewser DataFrame no longer needed; handler carries all inference data
+        gc.collect()
 
         print("")
         if partition is not None:

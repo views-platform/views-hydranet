@@ -452,6 +452,4 @@ class HydraNetInference:
             else:
                 gc.collect()  # on CPU, prompt PyTorch allocator to coalesce its pool
 
-        # Concatenate only once at the end
-        # REFACTOR: Return them separately so orchestrator knows exactly what is what.
         return posterior_magnitudes_zstack, posterior_probabilities_zstack
