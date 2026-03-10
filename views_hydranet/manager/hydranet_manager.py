@@ -330,6 +330,8 @@ class HydranetManager(ForecastingModelManager):
         viz.biopsy_volume(handler, "Stage 3: Global Volume")
 
         sniffer.sniff_forecast_alignment(df, handler, is_forecast=False)
+        del df  # viewser DataFrame no longer needed; handler carries all inference data
+        gc.collect()
 
         print("")
         model_fetcher = ModelArtifactFetcher(
