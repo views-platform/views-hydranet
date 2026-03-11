@@ -280,14 +280,15 @@ class ConfigInitializer:
         """
         self._raw = raw_config
 
-    def get_config(self) -> HydraNetConfig:
+    def get_config(self) -> dict:
         """
-        Returns the processed and strictly validated configuration object.
+        Returns the processed and strictly validated configuration as a dict.
         This is the single 'Handshake' point for the whole pipeline.
 
-        Returns HydraNetConfig (typed Pydantic object) with dict-compatible
-        __getitem__/get/keys methods for backward compatibility.
+        Validation is enforced by the HydraNetConfig Pydantic constructor —
+        any missing fields or legacy keys trigger a loud ValidationError.
+        The result is returned as a plain dict because the parent class
+        (ForecastingModelManager.configs setter) requires isinstance(dict).
         """
-        # Strict Validation via Pydantic (ADR 008)
-        # Any missing fields or legacy keys will trigger a loud ValidationError here.
-        return HydraNetConfig(**self._raw)
+        config_obj = HydraNetConfig(**self._raw)
+        return config_obj.model_dump()
