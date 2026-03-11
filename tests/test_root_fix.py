@@ -3,8 +3,8 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
+from views_hydranet.utils.config_initializer import HydraNetConfig
 from views_hydranet.utils.feature_scaler import FeatureScaler
-from views_hydranet.utils.utils_config import HydraNetConfig
 
 # BIT-PERFECT ROOT AUDIT STANDARDS
 BASE_CONFIG = {

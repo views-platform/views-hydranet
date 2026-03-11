@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
-
 from views_pipeline_core.data.prediction_frame import PredictionFrame
 
 from views_hydranet.manager.hydranet_manager import HydranetManager

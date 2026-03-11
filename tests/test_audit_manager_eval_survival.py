@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
-
 from views_pipeline_core.data.prediction_frame import PredictionFrame
 
 from views_hydranet.manager.hydranet_manager import HydranetManager
@@ -208,7 +207,7 @@ class TestManagerEvalHardAudit:
                                 MagicMock(),
                                 "audit",
                             )
-            
+
                             mock_eval_cls.return_value.generate_prediction_frames.return_value = [
                                 _pf_dict({
                                     "lr_sb_best": 10.0, "lr_ns_best": 10.0, "lr_os_best": 10.0,

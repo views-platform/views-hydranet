@@ -245,13 +245,13 @@ class HydraNetInference:
                 # 1. HISTORY DIGESTION: Update hidden state only
                 t0_input = full_tensor[:, t, feat_indices, :, :]
                 _, _, h_tt = cast(Any, self.model)(t0_input, h_tt)
-            
+
             elif t == origin:
                 # 2. SEED STEP: Month Origin -> Month Origin + 1 (Step 1)
                 t0_input = full_tensor[:, t, feat_indices, :, :]
                 t1_pred, t1_pred_class, h_tt = cast(Any, self.model)(t0_input, h_tt)
                 t1_pred_class = torch.sigmoid(t1_pred_class)
-                
+
                 acc_magnitudes.append(t1_pred)
                 acc_probabilities.append(t1_pred_class)
 
@@ -260,14 +260,14 @@ class HydraNetInference:
                     y_seed = full_tensor[0, t, reg_indices, :, :].permute(1, 2, 0).detach().cpu().numpy()
                     truth_accumulator.append(y_seed)
                     pred_accumulator.append(y_seed)
-                    
+
                     # Step 1 truth
                     try:
                         y_truth = full_tensor[0, t + 1, reg_indices, :, :].permute(1, 2, 0).detach().cpu().numpy()
                         truth_accumulator.append(y_truth)
                     except IndexError:
                         truth_accumulator.append(np.zeros_like(y_seed))
-                    
+
                     y_pred = t1_pred[0].permute(1, 2, 0).detach().cpu().numpy()
                     pred_accumulator.append(y_pred)
 
@@ -286,7 +286,7 @@ class HydraNetInference:
                         truth_accumulator.append(y_truth)
                     except IndexError:
                         truth_accumulator.append(np.zeros_like(truth_accumulator[0]))
-                    
+
                     y_pred = t1_pred[0].permute(1, 2, 0).detach().cpu().numpy()
                     pred_accumulator.append(y_pred)
 
@@ -442,6 +442,8 @@ class HydraNetInference:
                     posterior_probabilities_zstack[:, :, :, :, sample_idx] = (
                         pred_probabilities_zstack.transpose(0, 2, 3, 1)
                     )
+                    del pred_magnitudes_zstack
+                    del pred_probabilities_zstack
 
             # Explicit release of the input tensor before returning.
             # del + gc.collect() ensures the PyTorch allocator pool receives the

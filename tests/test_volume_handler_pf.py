@@ -18,11 +18,9 @@ The _df methods are not changed; parity tests guard against any divergence.
 import numpy as np
 import pandas as pd
 import pytest
-
 from views_pipeline_core.data.prediction_frame import PredictionFrame
 
 from views_hydranet.utils.volume_handler import VolumeHandler
-
 
 # ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -302,4 +300,44 @@ class TestToForecastPF:
             f"Identifier set mismatch:\n"
             f"  DF: {sorted(df_pairs)}\n"
             f"  PF: {sorted(pf_pairs)}"
+        )
+
+
+# ─── Tests: wrap_predictions dtype contract ───────────────────────────────────
+
+class TestWrapPredictionsDtype:
+    """
+    Guard against the silent float64 upcast in wrap_predictions().
+
+    The history VolumeHandler is float64 (from_df uses np.zeros dtype=float64).
+    Posterior data from PyTorch is float32.  np.concatenate promotes everything
+    to float64 if not cast first — doubling the pred_handler size for no benefit.
+
+    Identity values (priogrid_gid, month_id, row, col) are small integers well
+    within float32's exact range (integers ≤ 2^24 ≈ 16.7 million).
+    """
+
+    def test_stochastic_pred_handler_is_float32(self, stochastic_pred_handler):
+        """
+        wrap_predictions() with 5D float32 posterior must produce float32 pred_handler.
+        Identity watermarks sliced from float64 history must be cast to float32
+        before np.concatenate to prevent the silent upcast.
+        """
+        assert stochastic_pred_handler._data.dtype == np.float32, (
+            f"wrap_predictions() stochastic branch produced "
+            f"{stochastic_pred_handler._data.dtype}, expected float32. "
+            "The float64 identity watermarks must be cast to float32 before "
+            "np.concatenate to prevent 2× peak RAM from NumPy's silent upcast."
+        )
+
+    def test_point_pred_handler_preserves_source_dtype(self, window_handler):
+        """
+        wrap_predictions() with 4D float64 posterior preserves float64.
+        The point (DF) path is unchanged — float64 is appropriate there.
+        """
+        posterior_4d = np.ones((1, 2, 2, 6), dtype=np.float64)
+        pred = window_handler.wrap_predictions(posterior_4d, target_names=TARGETS)
+        assert pred._data.dtype == np.float64, (
+            "wrap_predictions() point branch must preserve the source dtype (float64). "
+            "Only the stochastic branch casts to float32."
         )

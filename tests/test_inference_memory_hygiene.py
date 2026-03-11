@@ -25,12 +25,10 @@ import weakref
 from unittest.mock import MagicMock, patch
 
 import numpy as np
-import pytest
 import torch
 
 from views_hydranet.utils.hydranet_inference import HydraNetInference
 from views_hydranet.utils.volume_handler import VolumeHandler
-
 
 # ─── Minimal fixtures ────────────────────────────────────────────────────────
 
@@ -206,11 +204,130 @@ class TestStructuralMemoryHygiene:
             "after del full_tensor."
         )
 
+    def test_per_sample_arrays_deleted_inside_loop(self):
+        """
+        pred_magnitudes_zstack and pred_probabilities_zstack must be explicitly
+        deleted inside the sampling loop after being assigned to the pre-allocated
+        zstack slices.
+
+        Without these dels, Python holds the previous iteration's per-sample arrays
+        alive until the name is rebound on the next iteration.  At the loop peak
+        (sample S-1), two sample-worth of intermediate arrays coexist unnecessarily.
+        At S=64 and pgm scale each array is ~(T, C, H, W) float32 — multiple GB.
+        """
+        source = inspect.getsource(HydraNetInference.generate_posterior_samples)
+        assert "del pred_magnitudes_zstack" in source, (
+            "generate_posterior_samples() must 'del pred_magnitudes_zstack' inside "
+            "the sampling loop after assigning to posterior_magnitudes_zstack[:,...,sample_idx]."
+        )
+        assert "del pred_probabilities_zstack" in source, (
+            "generate_posterior_samples() must 'del pred_probabilities_zstack' inside "
+            "the sampling loop after assigning to "
+            "posterior_probabilities_zstack[:,...,sample_idx]."
+        )
+
     def test_gc_imported_in_hydranet_inference(self):
         """gc must be imported at module level for gc.collect() to work."""
         import views_hydranet.utils.hydranet_inference as _mod
         assert hasattr(_mod, "gc") or "import gc" in inspect.getsource(_mod), (
             "hydranet_inference.py must import gc."
+        )
+
+    def test_post_reg_deleted_before_invert(self):
+        """
+        post_reg must be deleted before inverse_transform_volume is called.
+
+        post_reg (0.88 GB) is no longer needed after np.concatenate. Keeping it
+        alive during the inversion means its memory coexists with pred_handler._data
+        AND the work_data copy created by inverse_transform_volume, unnecessarily
+        increasing peak RAM.
+        """
+        from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
+        source = inspect.getsource(InferenceOrchestrator.generate_prediction_frames_streaming)
+        del_pos = source.index("del post_reg")
+        invert_pos = source.index("scaler.inverse_transform_volume")
+        assert del_pos < invert_pos, (
+            "post_reg must be deleted before scaler.inverse_transform_volume is called. "
+            "It is no longer needed after np.concatenate."
+        )
+
+    def test_posterior_zstack_deleted_before_invert(self):
+        """
+        posterior_zstack must be deleted before inverse_transform_volume is called.
+
+        posterior_zstack (1.75 GB) is no longer needed after wrap_predictions. Keeping
+        it alive during inversion means it coexists with pred_handler._data AND the
+        work_data copy, adding 1.75 GB to peak RAM unnecessarily.
+        """
+        from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
+        source = inspect.getsource(InferenceOrchestrator.generate_prediction_frames_streaming)
+        del_pos = source.index("del posterior_zstack")
+        invert_pos = source.index("scaler.inverse_transform_volume")
+        assert del_pos < invert_pos, (
+            "posterior_zstack must be deleted before scaler.inverse_transform_volume is called. "
+            "Its data is already inside pred_handler after wrap_predictions."
+        )
+
+    def test_generate_prediction_frames_streaming_deletes_pf_dict(self):
+        """
+        del pf_dict must appear explicitly in generate_prediction_frames_streaming().
+        Without this, the PredictionFrame stays alive until the next gc pass,
+        overlapping with the next origin's memory allocations.
+        """
+        from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
+        source = inspect.getsource(InferenceOrchestrator.generate_prediction_frames_streaming)
+        assert "del pf_dict" in source, (
+            "generate_prediction_frames_streaming() must explicitly 'del pf_dict' after "
+            "calling origin_sink(). Without this, the PredictionFrame stays live until "
+            "the next gc pass, overlapping with the next origin's allocations."
+        )
+
+    def test_generate_prediction_frames_streaming_calls_gc_collect(self):
+        """
+        gc.collect() must be called inside the origin loop of
+        generate_prediction_frames_streaming().
+        """
+        from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
+        source = inspect.getsource(InferenceOrchestrator.generate_prediction_frames_streaming)
+        assert "gc.collect()" in source, (
+            "generate_prediction_frames_streaming() must call gc.collect() inside the "
+            "origin loop to promptly release memory after each origin."
+        )
+
+
+    def test_valid_cell_indices_does_not_copy_self_data(self):
+        """
+        _valid_cell_indices() must not call self._data.copy().
+
+        np.transpose() and np.flip() both return non-contiguous views —
+        no allocation occurs.  The subsequent fancy indexing in
+        _reconstruct_as_pf_dict() gathers only the valid (N, S) cells,
+        which is the first — and only — allocation needed.
+
+        Copying self._data first doubles peak RAM for zero benefit:
+        at pgm scale the pred_handler volume is large enough to OOM
+        when the copy coexists with the PredictionFrame dict and the
+        per-origin posterior numpy arrays.
+        """
+        source = inspect.getsource(VolumeHandler._valid_cell_indices)
+        assert "self._data.copy()" not in source, (
+            "_valid_cell_indices() must not call self._data.copy(). "
+            "np.transpose() and np.flip() return views; the full-grid copy "
+            "doubles peak RAM for no benefit."
+        )
+
+    def test_valid_cell_indices_does_not_copy_provider_data(self):
+        """
+        _valid_cell_indices() must not call provider.data.copy().
+
+        The scaffold copy is equally unnecessary — transpose + flip on the
+        provider array are also views, and the mask / identity extraction
+        reads from the resulting view without mutating it.
+        """
+        source = inspect.getsource(VolumeHandler._valid_cell_indices)
+        assert "provider.data.copy()" not in source, (
+            "_valid_cell_indices() must not call provider.data.copy(). "
+            "The scaffold copy is unnecessary; views suffice."
         )
 
 
@@ -298,4 +415,149 @@ class TestTensorLifecycle:
         assert tensor_ref[0]() is None, (
             "full_tensor is still alive after generate_posterior_samples() returned. "
             "A reference is being held inside HydraNetInference — this is H4."
+        )
+
+
+# ─── STREAMING EVALUATION INTERFACE TESTS (Step 4 TDD) ───────────────────────
+
+class TestStreamingEvalInterface:
+    """
+    TDD tests for HydranetManager._evaluate_model_artifact_streaming().
+
+    These tests are RED before the Step 4B implementation and GREEN after.
+
+    Strategy: patch _setup_evaluation() to return a toy _EvaluationContext-like
+    object, then patch orchestrator.generate_prediction_frames_streaming() with
+    a fake_streaming callback that calls origin_sink directly with controlled
+    pf_dicts.  All I/O is bypassed.
+    """
+
+    _ALL_TARGETS = ["lr_sb_best", "lr_ns_best", "lr_os_best",
+                    "by_sb_best", "by_ns_best", "by_os_best"]
+    _N_ORIGINS = 3
+
+    def _run_streaming(self, n_origins=None, targets=None):
+        """
+        Helper: run _evaluate_model_artifact_streaming() with all I/O patched.
+
+        Returns (emitted_indices, emitted_dicts).
+        """
+        from types import SimpleNamespace
+
+        from views_pipeline_core.data.prediction_frame import PredictionFrame
+
+        from views_hydranet.manager.hydranet_manager import HydranetManager
+
+        n_origins = n_origins or self._N_ORIGINS
+        targets = targets or self._ALL_TARGETS
+
+        def fake_streaming(handler, scaler, origins, all_targets, origin_sink):
+            for i in range(n_origins):
+                pf_dict = {
+                    t: PredictionFrame(
+                        y_pred=np.ones((4, 2), dtype=np.float32),
+                        identifiers={
+                            "time": np.array([100, 101, 102, 103], dtype=np.int64),
+                            "unit": np.array([1, 2, 3, 4], dtype=np.int64),
+                        },
+                    )
+                    for t in (all_targets or targets)
+                }
+                origin_sink(i, pf_dict)
+
+        mock_orchestrator = MagicMock()
+        mock_orchestrator.generate_prediction_frames_streaming.side_effect = fake_streaming
+
+        mock_ctx = SimpleNamespace(
+            handler=MagicMock(),
+            scaler=MagicMock(),
+            origins=list(range(n_origins)),
+            all_targets=targets,
+            orchestrator=mock_orchestrator,
+        )
+
+        manager = object.__new__(HydranetManager)
+
+        emitted_indices = []
+        emitted_dicts = []
+
+        def sink(i, pf_dict):
+            emitted_indices.append(i)
+            emitted_dicts.append(pf_dict)
+
+        with patch.object(HydranetManager, "_setup_evaluation", return_value=mock_ctx):
+            manager._evaluate_model_artifact_streaming("calibration", None, sink)
+
+        return emitted_indices, emitted_dicts
+
+    def test_streaming_calls_sink_once_per_origin(self):
+        """origin_sink must be called exactly N_ORIGINS times."""
+        indices, _ = self._run_streaming(n_origins=3)
+        assert len(indices) == 3
+
+    def test_streaming_emits_correct_origin_indices(self):
+        """origin_idx must be 0, 1, 2, 3 (sequential, 0-based)."""
+        indices, _ = self._run_streaming(n_origins=4)
+        assert indices == [0, 1, 2, 3]
+
+    def test_streaming_pf_dict_contains_all_targets(self):
+        """Every emitted pf_dict must contain all target keys."""
+        targets = ["lr_sb_best", "lr_ns_best", "by_sb_best"]
+        _, dicts = self._run_streaming(n_origins=2, targets=targets)
+        for pf_dict in dicts:
+            assert set(pf_dict.keys()) == set(targets)
+
+    def test_streaming_frees_pf_after_sink(self):
+        """
+        PredictionFrames must be collectable after origin_sink returns.
+        Tests that the streaming implementation does not hold references.
+        """
+        from types import SimpleNamespace
+
+        from views_pipeline_core.data.prediction_frame import PredictionFrame
+
+        from views_hydranet.manager.hydranet_manager import HydranetManager
+
+        weak_refs = []
+
+        def sink_with_weakref(i, pf_dict):
+            for pf in pf_dict.values():
+                weak_refs.append(weakref.ref(pf))
+            # Sink does NOT hold pf_dict — it frees immediately
+
+        mock_orchestrator = MagicMock()
+
+        def fake_streaming(handler, scaler, origins, all_targets, origin_sink):
+            for i in range(2):
+                pf = PredictionFrame(
+                    y_pred=np.ones((2, 2), dtype=np.float32),
+                    identifiers={
+                        "time": np.array([100, 101], dtype=np.int64),
+                        "unit": np.array([1, 2], dtype=np.int64),
+                    },
+                )
+                origin_sink(i, {"target": pf})
+                del pf          # streaming implementation frees immediately
+                gc.collect()
+
+        mock_orchestrator.generate_prediction_frames_streaming.side_effect = fake_streaming
+
+        mock_ctx = SimpleNamespace(
+            handler=MagicMock(),
+            scaler=MagicMock(),
+            origins=[0, 1],
+            all_targets=["target"],
+            orchestrator=mock_orchestrator,
+        )
+
+        manager = object.__new__(HydranetManager)
+        with patch.object(HydranetManager, "_setup_evaluation", return_value=mock_ctx):
+            manager._evaluate_model_artifact_streaming(
+                "calibration", None, sink_with_weakref
+            )
+
+        gc.collect()
+        assert all(r() is None for r in weak_refs), (
+            "At least one PredictionFrame was not freed after origin_sink returned. "
+            "The streaming implementation must del pf_dict after calling origin_sink."
         )

@@ -5,7 +5,7 @@ Governed by ADR 038 (Unification) and ADR 039 (Sequence).
 
 import gc
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -82,7 +82,8 @@ class InferenceOrchestrator:
         for i, origin in enumerate(origins):
             # Generate Posterior Samples
             post_reg, post_cls = inference.generate_posterior_samples(
-                handler, origin=origin, is_evaluation=is_backtest, window_info=f"Origin {i + 1}/{len(origins)}"
+                handler, origin=origin, is_evaluation=is_backtest,
+                window_info=f"Origin {i + 1}/{len(origins)}"
             )
 
             # Combine for wrapping [T, H, W, C, S]
@@ -91,6 +92,11 @@ class InferenceOrchestrator:
                 posterior_zstack = np.concatenate([post_reg, post_cls], axis=-2)
             else:
                 posterior_zstack = post_reg
+            # post_reg and post_cls are no longer needed after concatenation.
+            # Free early so they are not alive during the inverse_transform_volume copy.
+            del post_reg
+            if post_cls is not None:
+                del post_cls
 
             # Determine duration from posterior shape
             duration = posterior_zstack.shape[0]
@@ -122,6 +128,8 @@ class InferenceOrchestrator:
             pred_handler = window_handler.wrap_predictions(
                 posterior_zstack, target_names=target_names
             )
+            # posterior_zstack data is now inside pred_handler — free before inversion copy.
+            del posterior_zstack
 
             # DIAGNOSTIC: Stage 6 (Predicted Volume - Pre Inversion)
             # We visualize the wrapped VolumeHandler before the scaler touches it.
@@ -199,6 +207,9 @@ class InferenceOrchestrator:
                 posterior_zstack = np.concatenate([post_reg, post_cls], axis=-2)
             else:
                 posterior_zstack = post_reg
+            del post_reg
+            if post_cls is not None:
+                del post_cls
 
             duration = posterior_zstack.shape[0]
 
@@ -219,6 +230,7 @@ class InferenceOrchestrator:
             pred_handler = window_handler.wrap_predictions(
                 posterior_zstack, target_names=target_names
             )
+            del posterior_zstack
 
             if i == 0:
                 self.viz.biopsy_volume(
@@ -241,12 +253,122 @@ class InferenceOrchestrator:
             list_pf_dicts.append(pf_dict)
 
             # Explicit per-origin memory release
-            del post_reg, posterior_zstack, pred_handler, window_handler
-            if post_cls is not None:
-                del post_cls
+            del pred_handler, window_handler
             gc.collect()
 
         logger.info(
             f"✅ InferenceOrchestrator: Produced {len(list_pf_dicts)} PredictionFrame dicts."
         )
         return list_pf_dicts
+
+    def generate_prediction_frames_streaming(
+        self,
+        handler: VolumeHandler,
+        scaler: "FeatureScaler",
+        origins: List[int],
+        all_targets: List[str],
+        origin_sink: Callable[[int, Dict[str, Any]], None],
+    ) -> None:
+        """
+        Stream prediction frames one origin at a time.
+
+        Follows the identical ADR 039 sequence as generate_prediction_frames():
+        Predict → Align → Wrap → Invert → Collapse → Reconstruct
+
+        Instead of accumulating pf_dicts in a list, calls origin_sink(i, pf_dict)
+        immediately after reconstructing each origin's PredictionFrames, then
+        frees all intermediate arrays before the next origin begins.
+
+        Peak memory: one origin's PredictionFrames alive at any moment.
+
+        NOTE: Steps 1–6 are intentionally duplicated from generate_prediction_frames().
+        The batch method is frozen (ADR-047 contract). If you fix a bug in steps 1–6
+        of either method, you MUST apply the same fix to the other.
+        """
+        is_backtest = len(origins) > 1
+        mode_label = "BACKTEST" if is_backtest else "OPERATIONAL"
+
+        logger.info(
+            f"💠 InferenceOrchestrator: Initiating {mode_label} streaming pass "
+            f"({len(origins)} origins) [pandas-free PredictionFrame path]."
+        )
+
+        inference = HydraNetInference(
+            self.model, self.config, device=str(self.device), visualizer=self.viz
+        )
+
+        for i, origin in enumerate(origins):
+            # ── 1. PREDICT ──────────────────────────────────────────────────────
+            post_reg, post_cls = inference.generate_posterior_samples(
+                handler,
+                origin=origin,
+                is_evaluation=is_backtest,
+                window_info=f"Origin {i + 1}/{len(origins)}",
+            )
+
+            if post_cls is not None and post_cls.size > 0:
+                posterior_zstack = np.concatenate([post_reg, post_cls], axis=-2)
+            else:
+                posterior_zstack = post_reg
+            # Free post_reg and post_cls immediately — their data is now in posterior_zstack.
+            # This ensures they are not alive during the inverse_transform_volume copy.
+            del post_reg
+            if post_cls is not None:
+                del post_cls
+
+            duration = posterior_zstack.shape[0]
+
+            # ── 2. TEMPORAL ALIGNMENT (ADR 039.1) ──────────────────────────────
+            max_history_idx = handler.shape[0] - 1
+            is_projecting = (origin + duration) > max_history_idx
+
+            if not is_projecting:
+                window_handler = handler.slice_time(origin + 1, origin + 1 + duration)
+            else:
+                if origin < max_history_idx:
+                    window_handler = handler.slice_time(origin + 1, origin + 1 + duration)
+                else:
+                    window_handler = handler.extrapolate_time(duration)
+
+            # ── 3. WRAP (ADR 039.3) ─────────────────────────────────────────────
+            pred_handler = window_handler.wrap_predictions(
+                posterior_zstack, target_names=all_targets
+            )
+            # posterior_zstack data is now inside pred_handler — free before inversion copy.
+            del posterior_zstack
+
+            if i == 0:
+                self.viz.biopsy_volume(
+                    pred_handler, f"Stage 6: Raw Predicted Volume (Origin {origin})"
+                )
+
+            # ── 4. INVERT (ADR 039.4) ───────────────────────────────────────────
+            pred_handler = scaler.inverse_transform_volume(pred_handler)
+
+            # ── 5. COLLAPSE (ADR 039.5) ─────────────────────────────────────────
+            if self.config.get("evaluation_mode") == "point":
+                pred_handler = pred_handler.collapse_to_point(
+                    method=self.config["aggregate_method"]
+                )
+
+            # ── 6. RECONSTRUCT AS PF (ADR 039.6 / ADR-047) ─────────────────────
+            pf_dict = pred_handler.to_evaluation_pf(
+                history=window_handler, start_idx=0, all_targets=all_targets
+            )
+
+            # ── FREE INFERENCE OBJECTS BEFORE SINK ──────────────────────────────
+            # pf_dict is self-contained (fancy-indexing copies). pred_handler and
+            # window_handler are no longer needed. post_reg/post_cls/posterior_zstack
+            # were already freed above (before the inversion copy).
+            del pred_handler, window_handler
+            gc.collect()
+
+            # ── EMIT ────────────────────────────────────────────────────────────
+            origin_sink(i, pf_dict)
+            del pf_dict
+            gc.collect()
+
+        logger.info(
+            f"✅ InferenceOrchestrator: Streamed {len(origins)} origin(s) "
+            f"[pandas-free PredictionFrame streaming path]."
+        )

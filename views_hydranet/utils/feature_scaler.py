@@ -10,7 +10,7 @@ import pandas as pd
 if TYPE_CHECKING:
     from views_hydranet.utils.volume_handler import VolumeHandler
 
-from views_hydranet.utils.utils_config import TRANSFORMS
+from views_hydranet.utils.config_initializer import TRANSFORMS
 
 logger = logging.getLogger(__name__)
 

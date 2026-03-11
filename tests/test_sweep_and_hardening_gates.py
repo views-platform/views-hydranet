@@ -1,8 +1,9 @@
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
+
+import numpy as np
 import pytest
 import torch
-import numpy as np
-import os
+
 from views_hydranet.manager.hydranet_manager import HydranetManager
 from views_hydranet.train.train_model import train_model_artifact
 
@@ -42,7 +43,7 @@ def test_manager_sweep_skip_save_logic(tmp_path):
     """
     mpm = MagicMock()
     mpm.artifacts = tmp_path
-    
+
     # Mock dependencies to reach the save logic
     with (
         patch("views_hydranet.train.train_model.make", return_value=(MagicMock(), MagicMock(), MagicMock(), MagicMock())),
@@ -54,9 +55,9 @@ def test_manager_sweep_skip_save_logic(tmp_path):
         cfg_std["sweep"] = False
         _, _ = train_model_artifact(mpm, cfg_std, torch.device("cpu"), MagicMock(), save_artifact=True)
         assert mock_save.called
-        
+
         mock_save.reset_mock()
-        
+
         # 2. Sweep Run (Save = False)
         cfg_sweep = SWEEP_CFG.copy()
         cfg_sweep["sweep"] = True
@@ -70,12 +71,12 @@ def test_manager_architecture_mismatch_red_gate():
     """
     bad_cfg = SWEEP_CFG.copy()
     bad_cfg["regression_targets"] = ["lr_sb"] # Only 1, architecture expects 3
-    
+
     with patch("views_pipeline_core.managers.model.model.ForecastingModelManager.__init__", return_value=None):
         manager = HydranetManager(model_path=MagicMock())
         with patch.object(HydranetManager, "configs", new_callable=PropertyMock) as mock_cfg:
             mock_cfg.return_value = bad_cfg
-            
+
             with pytest.raises(ValueError, match="ARCHITECTURE MISMATCH"):
                 manager._run_preflight_check()
 
@@ -85,7 +86,7 @@ def test_volume_handler_missing_watermark_red_gate():
     This is the "Identity Theft" protection gate.
     """
     from views_hydranet.utils.volume_handler import VolumeHandler
-    
+
     # Create a VolumeHandler manually with NO identity columns in the map
     data = np.random.rand(1, 4, 4, 1) # 1 channel
     vh = VolumeHandler(
@@ -96,8 +97,8 @@ def test_volume_handler_missing_watermark_red_gate():
         id_col="priogrid_gid",
         spatial_cols=("row", "col")
     )
-    
-    # Attempting to reconstruct from a provider should fail because 'unknown_signal' 
+
+    # Attempting to reconstruct from a provider should fail because 'unknown_signal'
     # has no path back to the scaffold IDs.
     provider_data = np.random.rand(1, 4, 4, 2)
     provider = VolumeHandler(
@@ -108,6 +109,6 @@ def test_volume_handler_missing_watermark_red_gate():
         id_col="priogrid_gid",
         spatial_cols=("row", "col")
     )
-    
+
     with pytest.raises(ValueError, match="no watermarked identity scaffold"):
         vh._reconstruct_from_provider(provider)

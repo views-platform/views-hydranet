@@ -323,15 +323,23 @@ class VolumeHandler:
             axes = ("T", "H", "W", "C", "S")
             n_samples = work_data.shape[-1]
 
-            # Extract and repeat identity watermarks
+            # Extract and repeat identity watermarks.
+            # Cast to float32 before concatenation: self.data is float64 (from_df),
+            # work_data is float32 (PyTorch output). np.concatenate would silently
+            # upcast everything to float64, doubling pred_handler RAM for no benefit.
+            # Identity values (priogrid_gid, month_id, row, col) are small integers
+            # exactly representable in float32 (exact up to 2^24 ≈ 16.7 million).
             id_vols = []
             for idx in primary_idxs + identity_idxs:
                 slice_data = self.data[..., idx : idx + 1]  # [T, H, W, 1]
                 watermark = np.expand_dims(slice_data, axis=-1)  # [T, H, W, 1, 1]
                 watermark = np.repeat(watermark, n_samples, axis=-1)  # [T, H, W, 1, S]
-                id_vols.append(watermark)
+                id_vols.append(watermark.astype(np.float32))
 
-            full_data = np.concatenate(id_vols + [work_data], axis=-2)
+            # work_data from PyTorch is float32; ensure consistent output dtype.
+            full_data = np.concatenate(
+                id_vols + [work_data.astype(np.float32)], axis=-2
+            )
         else:
             # Point: [T, H, W, C]
             axes = ("T", "H", "W", "C")
@@ -474,10 +482,12 @@ class VolumeHandler:
         - unit_flat  : 1-D array of priogrid_gid values for each valid cell  (N,)
         """
         # 1. Align self (signal)
+        # No copy: np.transpose() and np.flip() return views; fancy indexing
+        # in _reconstruct_as_pf_dict() allocates only the valid (N, S) result.
         temp_data = (
             self._data.detach().cpu().numpy()
             if torch.is_tensor(self._data)
-            else self._data.copy()
+            else self._data
         )
         has_samples = "S" in self._metadata.axes
 
@@ -497,10 +507,11 @@ class VolumeHandler:
         temp_data = np.flip(temp_data, axis=0)  # North-Up
 
         # 2. Align provider (scaffold)
+        # No copy: transpose + flip below are views; mask read is non-mutating.
         p_data = (
             provider.data.detach().cpu().numpy()
             if torch.is_tensor(provider.data)
-            else provider.data.copy()
+            else provider.data
         )
         p_t, p_h, p_w, p_c = (
             provider.get_axis_idx("T"), provider.get_axis_idx("H"),

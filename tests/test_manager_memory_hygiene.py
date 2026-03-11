@@ -17,8 +17,6 @@ evaluate and forecast paths.
 
 import inspect
 
-import pytest
-
 from views_hydranet.manager.hydranet_manager import HydranetManager
 
 
@@ -33,21 +31,23 @@ class TestManagerDataFrameLifecycle:
 
     def test_evaluate_model_artifact_deletes_df_after_sniff(self):
         """
-        _evaluate_model_artifact() must release the viewser DataFrame before
-        the inference loop begins.
+        _setup_evaluation() must release the viewser DataFrame before the
+        inference loop begins.
 
-        The DataFrame (~1 GB at pgm scale) is fully consumed by
-        VolumeHandler.from_df() and read (but not stored) by
-        sniff_forecast_alignment(). It is not referenced after that point.
+        Since _evaluate_model_artifact() delegates setup to _setup_evaluation(),
+        the DataFrame lifecycle lives in _setup_evaluation().  The DataFrame
+        (~1 GB at pgm scale) is fully consumed by VolumeHandler.from_df() and
+        read (but not stored) by sniff_forecast_alignment(). It is not
+        referenced after that point.
         """
-        source = inspect.getsource(HydranetManager._evaluate_model_artifact)
+        source = inspect.getsource(HydranetManager._setup_evaluation)
         assert "del df" in source, (
-            "_evaluate_model_artifact() must explicitly 'del df' after "
+            "_setup_evaluation() must explicitly 'del df' after "
             "sniff_forecast_alignment(). The DataFrame is not needed during "
             "the inference loop; keeping it alive wastes ~1 GB at pgm scale."
         )
         assert "gc.collect()" in source, (
-            "_evaluate_model_artifact() must call gc.collect() after 'del df' "
+            "_setup_evaluation() must call gc.collect() after 'del df' "
             "to prompt the allocator to release the freed memory."
         )
 
