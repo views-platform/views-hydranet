@@ -22,6 +22,9 @@ class HydraNetInference:
     Monte Carlo Dropout for uncertainty estimation.
     """
 
+    _RANDOM_FREEZE_NUM_CHUNKS = 8
+    _RANDOM_FREEZE_PROBABILITY = 0.5
+
     def __init__(
         self,
         model: Module,
@@ -154,12 +157,12 @@ class HydraNetInference:
             t1_pred, t1_pred_class, h_tt_new = self.model(t0, h_tt)
 
             # Vectorized Chunk Selection (ADR 028 Performance Hardening)
-            num_chunks = 8
+            num_chunks = self._RANDOM_FREEZE_NUM_CHUNKS
             split_size_small = num_channels // num_chunks
             B, _, H, W = h_tt.shape
 
             # Generate binary mask on the correct device
-            mask = (torch.rand(num_chunks, device=self.device) < 0.5).float()
+            mask = (torch.rand(num_chunks, device=self.device) < self._RANDOM_FREEZE_PROBABILITY).float()
             mask_expanded = mask.view(1, num_chunks, 1, 1, 1).bool()
 
             h_tt_reshaped = h_tt.view(B, num_chunks, split_size_small, H, W)

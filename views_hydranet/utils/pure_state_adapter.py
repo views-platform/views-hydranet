@@ -4,6 +4,7 @@ Governed by ADR 040 (The Subsetting Gate).
 """
 
 import logging
+import warnings
 from typing import Any, Dict, List
 
 import pandas as pd
@@ -23,6 +24,11 @@ class PureStateAdapter:
         """
         Initializes with target and identity metadata.
         """
+        warnings.warn(
+            "PureStateAdapter is deprecated — ADR-047 PredictionFrame path replaces it.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.regression_targets = config.get("regression_targets", [])
         self.classification_targets = config.get("classification_targets", [])
         self.identity_cols = ["c_id", "row", "col"]  # ADR 032 Mandatory Identity Anchors

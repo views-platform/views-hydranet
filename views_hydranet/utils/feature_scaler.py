@@ -5,6 +5,7 @@ Declarative and Stateful Feature Scaling for HydraNet.
 import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Union
 
+import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
@@ -58,8 +59,6 @@ class FeatureScaler:
                     )
                     logger.error(err_msg)
                     raise ValueError(err_msg)
-
-                import numpy as np
 
                 if np.isinf(col_series.values).any():
                     inf_count = np.isinf(col_series.values).sum()

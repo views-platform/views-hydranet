@@ -1,3 +1,4 @@
+import functools
 import logging
 import os
 from datetime import datetime
@@ -31,8 +32,6 @@ def make(config: dict, device: torch.device):
     model = choose_model(config, device)
 
     # Create a partial function with the initialization function and the config parameter
-    import functools
-
     init_fn = functools.partial(init_weights, config=config)
 
     # Apply the initialization function to the model

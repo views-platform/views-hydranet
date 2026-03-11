@@ -58,31 +58,6 @@ def log_device_report(device: "torch.device", run_type: str) -> None:
         print("🚨" + "=" * 100 + "\n")
 
 
-def calculate_hdi(samples: np.ndarray, mass: float = 0.95) -> tuple[float, float]:
-    """
-    Calculates the Highest Density Interval (HDI) for a set of samples.
-    """
-    if samples.size == 0:
-        return np.nan, np.nan
-
-    sorted_samples = np.sort(samples)
-    n_samples = len(sorted_samples)
-
-    interval_idx_inc = int(np.floor(mass * n_samples))
-    n_intervals = n_samples - interval_idx_inc
-
-    # Handle edge case where interval is larger than sample count
-    if interval_idx_inc == 0:
-        return sorted_samples[0], sorted_samples[-1]
-
-    interval_width = sorted_samples[interval_idx_inc:] - sorted_samples[:n_intervals]
-    min_idx = np.argmin(interval_width)
-
-    hdi_min = sorted_samples[min_idx]
-    hdi_max = sorted_samples[min_idx + interval_idx_inc]
-
-    return hdi_min, hdi_max
-
 
 def log_ingestion_report(df_in: pd.DataFrame, df_out: pd.DataFrame, config: dict) -> None:
     """Prints a summary of the data ingestion and standardization process."""
@@ -162,66 +137,6 @@ def log_curriculum_report(subjects: list[str], maxima: dict[str, float], config:
 
     print("👾" + "=" * 100 + "\n")
 
-
-def log_prediction_summary(list_df: list[pd.DataFrame]) -> None:
-    """Prints a beautiful diagnostic summary of prediction results."""
-    if not list_df:
-        print("\n⚠️  EVALUATION SUMMARY: No DataFrames produced.")
-        return
-
-    print("\n👾" + "=" * 100)
-    print(f"  HYDRANET EVALUATION SUMMARY: {len(list_df)} sequences")
-    print("  " + "-" * 98)
-
-    for i, df in enumerate(list_df):
-        start_month = df.index.get_level_values("month_id").min()
-        end_month = df.index.get_level_values("month_id").max()
-        print(
-            f"\n  Sequence {i + 1:02d} | Months: {start_month} to {end_month} | Rows: {len(df):,}"
-        )
-
-        header = (
-            f"{'Column':<25} | {'Min':>12} | {'Max':>12} | {'Mean':>12} | "
-            f"{'HDI (95%)':^25} | {'NaN/Inf':>8}"
-        )
-        print("  " + header)
-        print("  " + "-" * len(header))
-
-        for col in df.columns:
-            series = df[col]
-            if series.empty:
-                continue
-
-            first_val = series.iloc[0]
-            is_stochastic = isinstance(first_val, (list, np.ndarray))
-
-            try:
-                if is_stochastic:
-                    flat_vals = np.concatenate(series.values).astype(np.float64)
-                    hdi_min, hdi_max = calculate_hdi(flat_vals)
-                    hdi_str = f"[{hdi_min:>8.4f}, {hdi_max:>8.4f}]"
-                else:
-                    flat_vals = series.values.astype(np.float64)
-                    hdi_str = f"{'N/A':^25}"
-
-                c_min, c_max, c_mean = (
-                    np.nanmin(flat_vals),
-                    np.nanmax(flat_vals),
-                    np.nanmean(flat_vals),
-                )
-                c_bad = np.sum(~np.isfinite(flat_vals))
-                col_display = f"{col}{'*' if is_stochastic else ''}"
-                print(
-                    f"  {col_display:<25} | {c_min:>12.4f} | {c_max:>12.4f} | "
-                    f"{c_mean:>12.4f} | {hdi_str} | {c_bad:>8}"
-                )
-            except (TypeError, ValueError):
-                print(
-                    f"  {col:<25} | {'N/A':>12} | {'N/A':>12} | {'N/A':>12} | "
-                    f"{'N/A':^25} | {'-':>8}"
-                )
-            print("\n  (*) Indicates stochastic samples flattened for summary.")
-    print("👾" + "=" * 100 + "\n")
 
 
 def log_training_summary(summary: dict) -> None:

@@ -5,7 +5,10 @@ Governed by ADR 038 (Unification) and ADR 039 (Sequence).
 
 import gc
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from views_pipeline_core.data.prediction_frame import PredictionFrame
 
 import numpy as np
 import pandas as pd
@@ -167,7 +170,7 @@ class InferenceOrchestrator:
         scaler: "FeatureScaler",
         origins: List[int],
         all_targets: List[str],
-    ) -> List[Dict[str, Any]]:
+    ) -> List[Dict[str, "PredictionFrame"]]:
         """
         Pandas-free parallel of generate_forecasts().
 
@@ -193,7 +196,7 @@ class InferenceOrchestrator:
         inference = HydraNetInference(
             self.model, self.config, device=str(self.device), visualizer=self.viz
         )
-        list_pf_dicts: List[Dict[str, Any]] = []
+        list_pf_dicts: List[Dict[str, "PredictionFrame"]] = []
 
         for i, origin in enumerate(origins):
             pred_handler, window_handler = self._run_adr039_pipeline(
@@ -222,7 +225,7 @@ class InferenceOrchestrator:
         scaler: "FeatureScaler",
         origins: List[int],
         all_targets: List[str],
-        origin_sink: Callable[[int, Dict[str, Any]], None],
+        origin_sink: Callable[[int, Dict[str, "PredictionFrame"]], None],
     ) -> None:
         """
         Stream prediction frames one origin at a time.

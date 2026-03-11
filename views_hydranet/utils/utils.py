@@ -1,6 +1,7 @@
 "Shared Utilities for the HydraNet Pipeline."
 
 import logging
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import torch
@@ -34,7 +35,9 @@ def choose_model(config: dict, device: torch.device) -> nn.Module:
     return model
 
 
-def choose_loss(config, device):
+def choose_loss(
+    config: Dict[str, Any], device: torch.device
+) -> Tuple[nn.Module, nn.Module, "MultiTaskLoss"]:
     """Factory for loss function instances."""
     if config["loss_reg"] == "a":
         criterion_reg = nn.MSELoss().to(device)
@@ -77,7 +80,9 @@ def choose_loss(config, device):
     return (criterion_reg, criterion_class, multitaskloss_instance)
 
 
-def choose_scheduler(config, unet):
+def choose_scheduler(
+    config: Dict[str, Any], unet: nn.Module
+) -> Tuple[torch.optim.Optimizer, Any]:
     """Factory for learning rate schedulers."""
     optimizer = torch.optim.AdamW(
         unet.parameters(),
@@ -100,7 +105,7 @@ def choose_scheduler(config, unet):
     return (optimizer, scheduler)
 
 
-def init_weights(m, config):
+def init_weights(m: nn.Module, config: Dict[str, Any]) -> None:
     """Weight initialization gate."""
     if config["weight_init"] == "xavier_uni":
         if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
@@ -120,7 +125,11 @@ def init_weights(m, config):
         raise ValueError(err_msg)
 
 
-def train_log(avg_loss_list, avg_loss_reg_list, avg_loss_class_list):
+def train_log(
+    avg_loss_list: List[float],
+    avg_loss_reg_list: List[float],
+    avg_loss_class_list: List[float],
+) -> None:
     """Metric logging gate for W&B."""
     if wandb.run is not None:
         wandb.log(

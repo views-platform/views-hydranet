@@ -28,7 +28,6 @@ from views_hydranet.utils.model_artifact_fetcher import ModelArtifactFetcher
 from views_hydranet.utils.utils_device import setup_device
 from views_hydranet.utils.utils_logging import (
     log_device_report,
-    log_ingestion_report,
     log_training_summary,
 )
 from views_hydranet.utils.utils_orchestration import get_rolling_origin_indices
@@ -57,6 +56,82 @@ class HydranetManager(ForecastingModelManager):
     """
 
     configs: Dict[str, Any]
+
+    def _run_data_pipeline(
+        self,
+        viz: "VisualDiagnostics",
+        partition_bound: int | None = None,
+    ) -> tuple["VolumeHandler", "FeatureScaler", "DataSniffer"]:
+        """
+        Shared data ingestion pipeline (ADR 039 Steps 1-3).
+
+        Fetch → Biopsy Stage 1 → Standardize → Sniff → Scale →
+        Biopsy Stage 2 → (partition) → Volume → Biopsy Stage 3.
+
+        Parameters
+        ----------
+        viz : VisualDiagnostics
+            Visual diagnostics engine for biopsy calls.
+        partition_bound : int, optional
+            If set, filters the DataFrame to ``time_col <= partition_bound``
+            before constructing the VolumeHandler (evaluation path).
+
+        Returns
+        -------
+        (VolumeHandler, FeatureScaler, DataSniffer)
+        """
+        # 1. Ingest
+        print("")
+        data_fetcher = DataFetcher(self._model_path.data_raw, self.configs)
+        df = data_fetcher.fetch_df()
+
+        # Diagnostic plot features
+        plot_feats = (
+            [
+                self.configs.get("time_col", "month_id"),
+                self.configs.get("id_col", "priogrid_gid"),
+                "c_id",
+            ]
+            + self.configs.get("spatial_cols", [])
+            + self.configs.get("regression_targets", [])
+        )
+
+        # DIAGNOSTIC: Stage 1 (Ingestion)
+        viz.biopsy_dataframe(df, "Stage 1: Raw Ingestion", features=plot_feats)
+
+        df = DataFetcher.standardize_raw_df(df, self.configs)
+
+        # 2. Sniff
+        print("")
+        sniffer = DataSniffer(self.configs)
+        sniffer.sniff_ingestion(df)
+
+        # 3. Scale
+        print("")
+        scaler = FeatureScaler(self.configs)
+        df = scaler.fit_transform(df)
+
+        # DIAGNOSTIC: Stage 2 (Transformation)
+        viz.biopsy_dataframe(df, "Stage 2: Scaled DataFrame", features=plot_feats)
+
+        # Partition slicing (evaluation only)
+        if partition_bound is not None:
+            time_col = self.configs.get("time_col", "month_id")
+            df = df[df[time_col] <= partition_bound]
+
+        # 4. Transform: DataFrame -> Volume
+        print("")
+        handler = VolumeHandler.from_df(df, self.configs)
+
+        # DIAGNOSTIC: Stage 3 (Volume)
+        viz.biopsy_volume(handler, "Stage 3: Global Volume")
+
+        sniffer.sniff_forecast_alignment(df, handler, is_forecast=False)
+
+        del df
+        gc.collect()
+
+        return handler, scaler, sniffer
 
     def __init__(self, model_path: ModelPathManager, wandb_notification: bool = True) -> None:
         """
@@ -117,50 +192,8 @@ class HydranetManager(ForecastingModelManager):
         self.configs = ConfigInitializer(self.configs).get_config()
         self._run_preflight_check()
 
-        # Initialize Visual Truth Engine with Authoritative Timestamp
         viz = VisualDiagnostics(self.configs, run_timestamp=self.run_timestamp)
-
-        # 1. Ingest
-        print("")  # Block Separator
-        data_fetcher = DataFetcher(self._model_path.data_raw, self.configs)
-        df_raw = data_fetcher.fetch_df()
-
-        # DIAGNOSTIC: Stage 1 (Ingestion)
-        # We want to see EVERYTHING that defines identity + ALL primary signals
-        plot_feats = (
-            [
-                self.configs.get("time_col", "month_id"),
-                self.configs.get("id_col", "priogrid_gid"),
-                "c_id",
-            ]
-            + self.configs.get("spatial_cols", [])
-            + self.configs.get("regression_targets", [])
-        )
-
-        viz.biopsy_dataframe(df_raw, "Stage 1: Raw Ingestion", features=plot_feats)
-
-        df = DataFetcher.standardize_raw_df(df_raw, self.configs)
-        log_ingestion_report(df_raw, df, self.configs)
-
-        # 2. Sniff
-        print("")
-        sniffer = DataSniffer(self.configs)
-        sniffer.sniff_ingestion(df)
-
-        # 3. Scale
-        print("")
-        scaler = FeatureScaler(self.configs)
-        df = scaler.fit_transform(df)
-
-        # DIAGNOSTIC: Stage 2 (Transformation)
-        viz.biopsy_dataframe(df, "Stage 2: Scaled DataFrame", features=plot_feats)
-
-        # 4. Transform: DataFrame -> Volume (Absolute Anchoring)
-        print("")
-        handler = VolumeHandler.from_df(df, self.configs)
-
-        # DIAGNOSTIC: Stage 3 (Volume) - CRITICAL SCRAMBLE CHECK
-        viz.biopsy_volume(handler, "Stage 3: Global Volume")
+        handler, scaler, sniffer = self._run_data_pipeline(viz)
 
         # 5. Train
         print("")
@@ -221,56 +254,15 @@ class HydranetManager(ForecastingModelManager):
             self.device,
         ).fetch_model_artifact()
 
-        # ── Data fetch and standardisation ───────────────────────────────────
-        print("")
-        data_fetcher = DataFetcher(self._model_path.data_raw, self.configs)
-        df = data_fetcher.fetch_df()
-
-        plot_feats = (
-            [
-                self.configs.get("time_col", "month_id"),
-                self.configs.get("id_col", "priogrid_gid"),
-                "c_id",
-            ]
-            + self.configs.get("spatial_cols", [])
-            + self.configs.get("regression_targets", [])
-        )
-
-        # DIAGNOSTIC: Stage 1
-        viz.biopsy_dataframe(df, "Stage 1: Raw Ingestion", features=plot_feats)
-        df = DataFetcher.standardize_raw_df(df, self.configs)
-
-        print("")
-        sniffer = DataSniffer(self.configs)
-        sniffer.sniff_ingestion(df)
-
-        # ── Feature scaling ───────────────────────────────────────────────────
-        print("")
-        scaler = FeatureScaler(self.configs)
-        df = scaler.fit_transform(df)
-
-        # DIAGNOSTIC: Stage 2
-        viz.biopsy_dataframe(df, "Stage 2: Scaled DataFrame", features=plot_feats)
-
-        # ── Partition slicing (evaluation only) ───────────────────────────────
-        print("")
+        # ── Data pipeline ──────────────────────────────────────────────────────
         run_type = self.configs["run_type"]
         time_steps = len(self.configs["steps"])
         partition = getattr(self, "_partition_dict", {}).get(run_type)
-        if partition is not None:
-            time_col = self.configs.get("time_col", "month_id")
-            test_end = partition["test"][1]
-            df = df[df[time_col] <= test_end]
+        test_end = partition["test"][1] if partition is not None else None
 
-        # ── Volume handler ────────────────────────────────────────────────────
-        handler = VolumeHandler.from_df(df, self.configs)
-
-        # DIAGNOSTIC: Stage 3
-        viz.biopsy_volume(handler, "Stage 3: Global Volume")
-
-        sniffer.sniff_forecast_alignment(df, handler, is_forecast=False)
-        del df  # viewser DataFrame no longer needed; handler carries all inference data
-        gc.collect()
+        handler, scaler, sniffer = self._run_data_pipeline(
+            viz, partition_bound=test_end
+        )
 
         # ── Rolling origin indices ────────────────────────────────────────────
         print("")
@@ -358,52 +350,16 @@ class HydranetManager(ForecastingModelManager):
             origin_sink=origin_sink,
         )
 
-    def _forecast_model_artifact(self, artifact_name: str | None = None) -> "Union[dict[str, PredictionFrame], pd.DataFrame]":
+    def _forecast_model_artifact(
+        self, artifact_name: str | None = None
+    ) -> "Union[dict[str, PredictionFrame], pd.DataFrame]":
         """Generates operational forecasts."""
         log_device_report(self.device, "forecasting")
         self.configs = ConfigInitializer(self.configs).get_config()
         self._run_preflight_check()
         viz = VisualDiagnostics(self.configs, run_timestamp=self.run_timestamp)
 
-        print("")
-        fetcher = DataFetcher(self._model_path.data_raw, self.configs)
-        df = fetcher.fetch_df()
-
-        # DIAGNOSTIC: Stage 1
-        plot_feats = (
-            [
-                self.configs.get("time_col", "month_id"),
-                self.configs.get("id_col", "priogrid_gid"),
-                "c_id",
-            ]
-            + self.configs.get("spatial_cols", [])
-            + self.configs.get("regression_targets", [])
-        )
-
-        viz.biopsy_dataframe(df, "Stage 1: Raw Ingestion", features=plot_feats)
-
-        df = DataFetcher.standardize_raw_df(df, self.configs)
-
-        print("")
-        sniffer = DataSniffer(self.configs)
-        sniffer.sniff_ingestion(df)
-
-        print("")
-        scaler = FeatureScaler(self.configs)
-        df = scaler.fit_transform(df)
-
-        # DIAGNOSTIC: Stage 2
-        viz.biopsy_dataframe(df, "Stage 2: Scaled DataFrame", features=plot_feats)
-
-        print("")
-        handler = VolumeHandler.from_df(df, self.configs)
-
-        # DIAGNOSTIC: Stage 3
-        viz.biopsy_volume(handler, "Stage 3: Global Volume")
-
-        sniffer.sniff_forecast_alignment(df, handler, is_forecast=False)
-        del df  # viewser DataFrame no longer needed; handler carries all inference data
-        gc.collect()
+        handler, scaler, sniffer = self._run_data_pipeline(viz)
 
         print("")
         model_fetcher = ModelArtifactFetcher(
