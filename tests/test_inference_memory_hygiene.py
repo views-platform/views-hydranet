@@ -243,7 +243,7 @@ class TestStructuralMemoryHygiene:
         increasing peak RAM.
         """
         from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
-        source = inspect.getsource(InferenceOrchestrator.generate_prediction_frames_streaming)
+        source = inspect.getsource(InferenceOrchestrator._run_adr039_pipeline)
         del_pos = source.index("del post_reg")
         invert_pos = source.index("scaler.inverse_transform_volume")
         assert del_pos < invert_pos, (
@@ -260,7 +260,7 @@ class TestStructuralMemoryHygiene:
         work_data copy, adding 1.75 GB to peak RAM unnecessarily.
         """
         from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
-        source = inspect.getsource(InferenceOrchestrator.generate_prediction_frames_streaming)
+        source = inspect.getsource(InferenceOrchestrator._run_adr039_pipeline)
         del_pos = source.index("del posterior_zstack")
         invert_pos = source.index("scaler.inverse_transform_volume")
         assert del_pos < invert_pos, (

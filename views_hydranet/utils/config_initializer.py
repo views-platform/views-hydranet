@@ -247,6 +247,23 @@ class HydraNetConfig(BaseModel):
             raise ValueError(err_msg)
         return v
 
+    # --- Dict-compatibility layer (gradual migration from config["key"]) ---
+
+    def __getitem__(self, key: str) -> Any:
+        try:
+            return getattr(self, key)
+        except AttributeError:
+            raise KeyError(key)
+
+    def __contains__(self, key: str) -> bool:
+        return hasattr(self, key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return getattr(self, key, default)
+
+    def keys(self) -> list[str]:
+        return list(self.model_fields.keys()) + list(self.__pydantic_extra__.keys())
+
     class Config:
         extra = "allow"  # Tolerant Handshake
 
@@ -263,14 +280,14 @@ class ConfigInitializer:
         """
         self._raw = raw_config
 
-    def get_config(self) -> Dict[str, Any]:
+    def get_config(self) -> HydraNetConfig:
         """
-        Returns the processed and strictly validated configuration dictionary.
+        Returns the processed and strictly validated configuration object.
         This is the single 'Handshake' point for the whole pipeline.
-        """
-        # 1. Strict Validation via Pydantic (ADR 008)
-        # Any missing fields or legacy keys will trigger a loud ValidationError here.
-        config_obj = HydraNetConfig(**self._raw)
 
-        # 2. Return as a dictionary for component consumption
-        return config_obj.model_dump()
+        Returns HydraNetConfig (typed Pydantic object) with dict-compatible
+        __getitem__/get/keys methods for backward compatibility.
+        """
+        # Strict Validation via Pydantic (ADR 008)
+        # Any missing fields or legacy keys will trigger a loud ValidationError here.
+        return HydraNetConfig(**self._raw)
