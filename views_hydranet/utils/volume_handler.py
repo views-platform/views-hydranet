@@ -1,13 +1,11 @@
 "VolumeHandler: Authoritative Layout Management for Spatiotemporal Volumes."
 
-import gc
 import logging
 from dataclasses import dataclass, field, replace
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import numpy as np
 import pandas as pd
-import polars as pl
 import torch
 
 logger = logging.getLogger(__name__)
@@ -421,8 +419,7 @@ class VolumeHandler:
     ) -> Dict[str, Any]:
         """
         Converts predictions to a dict of PredictionFrames by slicing a history
-        provider.  Symmetric with to_evaluation_df() — same provider-prep logic,
-        no pandas object created.
+        provider.  No pandas object created.
 
         Returns
         -------
@@ -434,7 +431,7 @@ class VolumeHandler:
 
         duration = self.data.shape[self.get_axis_idx("T")]
 
-        # Same bounds check as to_evaluation_df
+        # Bounds check
         history_duration = history.data.shape[history.get_axis_idx("T")]
         if start_idx + duration > history_duration:
             err_msg = (
@@ -447,27 +444,6 @@ class VolumeHandler:
 
         provider_slice = history.slice_time(start_idx, start_idx + duration)
         return self._reconstruct_as_pf_dict(provider_slice, all_targets, PredictionFrame)
-
-    def to_forecast_pf(
-        self,
-        history: "VolumeHandler",
-        all_targets: List[str],
-    ) -> Dict[str, Any]:
-        """
-        Converts predictions to a dict of PredictionFrames by extrapolating a
-        history provider.  Symmetric with to_forecast_df() — no pandas object
-        created.
-
-        Returns
-        -------
-        dict[str, PredictionFrame]
-            Keys are target names; value is one PredictionFrame per target.
-        """
-        from views_pipeline_core.data.prediction_frame import PredictionFrame  # lazy import
-
-        duration = self._data.shape[self.get_axis_idx("T")]
-        provider_future = history.extrapolate_time(duration)
-        return self._reconstruct_as_pf_dict(provider_future, all_targets, PredictionFrame)
 
     def _valid_cell_indices(
         self, provider: "VolumeHandler"
@@ -538,9 +514,9 @@ class VolumeHandler:
         self, provider: "VolumeHandler", all_targets: List[str], PredictionFrame: Any
     ) -> Dict[str, Any]:
         """
-        Core PredictionFrame assembly.  Applies the same spatial geometry as
-        _reconstruct_from_provider() but writes directly into numpy arrays —
-        no Polars, no pandas, no list-in-cell overhead.
+        Core PredictionFrame assembly.  Applies spatial geometry (transpose,
+        flip, mask) then writes directly into numpy arrays — no Polars, no
+        pandas, no list-in-cell overhead.
         """
         temp_data, indices, time_flat, unit_flat = self._valid_cell_indices(provider)
         has_samples = "S" in self._metadata.axes
@@ -560,199 +536,6 @@ class VolumeHandler:
                 identifiers=identifiers,
             )
         return result
-
-    # ─── DataFrame Output Path ────────────────────────────────────────────────
-
-    def to_historical_df(self) -> pd.DataFrame:
-        """
-        Converts the internal volume back to a sparse DataFrame.
-        """
-        return self._reconstruct_from_provider(self)
-
-    def to_evaluation_df(self, history: "VolumeHandler", start_idx: int) -> pd.DataFrame:
-        """
-        Converts predictions to DF by slicing a history provider.
-        """
-        duration = self.data.shape[self.get_axis_idx("T")]
-
-        # Contract Validation (ADR 015)
-        history_duration = history.data.shape[history.get_axis_idx("T")]
-        if start_idx + duration > history_duration:
-            err_msg = (
-                f"VolumeHandler Contract Violation: Evaluation window "
-                f"[index {start_idx} : {start_idx + duration}] "
-                f"exceeds history duration ({history_duration})."
-            )
-
-            logger.error(err_msg)
-
-            raise ValueError(err_msg)
-
-        provider_slice = history.slice_time(start_idx, start_idx + duration)
-        return self._reconstruct_from_provider(provider_slice)
-
-    def to_forecast_df(self, history: "VolumeHandler") -> pd.DataFrame:
-        """
-        Converts predictions to DF by extrapolating a history provider.
-        """
-        duration = self._data.shape[self.get_axis_idx("T")]
-        provider_future = history.extrapolate_time(duration)
-        return self._reconstruct_from_provider(provider_future)
-
-    def _reconstruct_from_provider(self, provider: "VolumeHandler") -> pd.DataFrame:
-        """
-        Shared logic: Align, Mask, Flatten, and Combine.
-        Handles both Point (4D) and Stochastic (5D) volumes.
-        Uses an Iterative Watermarked Bridge (ADR 023) to ensure
-        absolute topographic integrity and RAM scalability.
-        """
-        # 1. Align Self (Signal)
-        temp_data = (
-            self._data.detach().cpu().numpy() if torch.is_tensor(self._data) else self._data.copy()
-        )
-        has_samples = "S" in self._metadata.axes
-
-        if has_samples:
-            t_idx, h_idx, w_idx, c_idx, s_idx = (
-                self.get_axis_idx("T"),
-                self.get_axis_idx("H"),
-                self.get_axis_idx("W"),
-                self.get_axis_idx("C"),
-                self.get_axis_idx("S"),
-            )
-            temp_data = np.transpose(temp_data, (h_idx, w_idx, t_idx, c_idx, s_idx))
-            temp_data = np.flip(temp_data, axis=0)
-        else:
-            t_idx, h_idx, w_idx, c_idx = (
-                self.get_axis_idx("T"),
-                self.get_axis_idx("H"),
-                self.get_axis_idx("W"),
-                self.get_axis_idx("C"),
-            )
-            temp_data = np.transpose(temp_data, (h_idx, w_idx, t_idx, c_idx))
-            temp_data = np.flip(temp_data, axis=0)
-
-        # 2. Align Provider (Scaffold)
-        p_data = (
-            provider.data.detach().cpu().numpy()
-            if torch.is_tensor(provider.data)
-            else provider.data.copy()
-        )
-        p_t, p_h, p_w, p_c = (
-            provider.get_axis_idx("T"),
-            provider.get_axis_idx("H"),
-            provider.get_axis_idx("W"),
-            provider.get_axis_idx("C"),
-        )
-        p_data = np.transpose(p_data, (p_h, p_w, p_t, p_c))
-        p_data = np.flip(p_data, axis=0)
-
-        # 3. Mask via Scaffold ID
-        id_col = provider._metadata.id_col
-        pg_idx = provider.channel_map.index(id_col)
-        time_col = provider._metadata.time_col
-        time_idx = provider.channel_map.index(time_col)
-
-        mask = p_data[:, :, :, pg_idx] > 0
-        indices = np.where(mask)
-
-        # 4. Initialize Polars Scaffold (The Source of Truth)
-        # ADR 032: We MUST carry month_id, priogrid_gid, row, col, and c_id
-        scaffold_cols = {
-            time_col: p_data[indices[0], indices[1], indices[2], time_idx].astype(np.int32),
-            id_col: p_data[indices[0], indices[1], indices[2], pg_idx].astype(np.int32),
-        }
-
-        # Add Actuals and Identities to Scaffold from the provider's map
-        for i, name in enumerate(provider.channel_map):
-            if name in [time_col, id_col]:
-                continue
-
-            # Carry everything from the provider that is either an identity or a feature
-            if name in provider._metadata.identity_cols or name in provider._metadata.feature_cols:
-                scaffold_cols[name] = p_data[indices[0], indices[1], indices[2], i].astype(
-                    np.float32
-                )
-
-        pl_master = pl.DataFrame(scaffold_cols)
-        del p_data, scaffold_cols
-        gc.collect()
-
-        # 5. Iterative Watermarked Join (One Column at a Time)
-        try:
-            head_id_idx = self.channel_map.index(id_col)
-            head_time_idx = self.channel_map.index(time_col)
-        except ValueError:
-            head_id_idx = None
-            head_time_idx = None
-
-        for i, name in enumerate(self.channel_map):
-            if name in pl_master.columns:
-                continue
-
-            # Create Watermarked Head
-            if head_id_idx is not None:
-                if has_samples:
-                    # STOCHASTIC WATERMARK: Extract first sample only for IDs
-                    # Join keys must be scalar.
-                    head_dict = {
-                        time_col: temp_data[
-                            indices[0], indices[1], indices[2], head_time_idx, 0
-                        ].astype(np.int32),
-                        id_col: temp_data[
-                            indices[0], indices[1], indices[2], head_id_idx, 0
-                        ].astype(np.int32),
-                        name: temp_data[indices[0], indices[1], indices[2], i, :],
-                    }
-                else:
-                    # POINT WATERMARK: Standard extraction
-                    head_dict = {
-                        time_col: temp_data[
-                            indices[0], indices[1], indices[2], head_time_idx
-                        ].astype(np.int32),
-                        id_col: temp_data[indices[0], indices[1], indices[2], head_id_idx].astype(
-                            np.int32
-                        ),
-                        name: temp_data[indices[0], indices[1], indices[2], i],
-                    }
-            else:
-                # POSITION FALLBACK: Re-use scaffold IDs (Vulnerable to shuffle)
-                err_msg = (
-                    f"VolumeHandler._reconstruct_from_provider: Prediction channel '{name}' "
-                    "has no watermarked identity scaffold. Cannot safely reconstruct without "
-                    "risking identity scramble. Ensure wrap_predictions() is used before "
-                    "reconstruction."
-                )
-                logger.error(err_msg)
-                raise ValueError(err_msg)
-            df_head = pl.DataFrame(head_dict)
-
-            # Explicit Join (Red Team Proof)
-            pl_master = pl_master.join(df_head, on=[time_col, id_col], how="left")
-            del df_head
-            gc.collect()
-
-        # 6. Iterative Safe Handshake to Pandas (Legacy Compatibility)
-        # We build the Pandas DataFrame column by column to keep the 'Object Tax'
-        # limited to exactly one column's worth of Python lists.
-        # ADR 032: We initialize with all columns from pl_master to ensure
-        # bookkeeping identities (c_id, row, col) are carried forward.
-        df_out = pd.DataFrame()
-
-        for col in pl_master.columns:
-            # Safe Export: Use to_list() for stochastic channels to ensure compatibility
-            if has_samples and col in self.channel_map:
-                df_out[col] = pl_master[col].to_list()
-            else:
-                df_out[col] = pl_master[col].to_pandas()
-
-            gc.collect()
-
-        # 7. Final Topographical Restoration
-        if time_col in df_out.columns and id_col in df_out.columns:
-            df_out = df_out.set_index([time_col, id_col])
-
-        return df_out
 
     def slice_time(self, start_idx: int, end_idx: int) -> "VolumeHandler":
         """
@@ -829,7 +612,7 @@ class VolumeHandler:
             spatial_offset=self._metadata.spatial_offset,
         )
 
-    def permute(self, dims: Union[List[int], Tuple[int, ...]]) -> "VolumeHandler":
+    def _permute(self, dims: Union[List[int], Tuple[int, ...]]) -> "VolumeHandler":
         """
         Reorders the axes of the volume and updates the Ledger.
         NOTE: Review needed - primarily used in geometric tests.

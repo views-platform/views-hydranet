@@ -47,7 +47,7 @@ class TestVolumeHandlerGeometric:
         """Verify that permute reorders data and updates the axes ledger."""
         # Current: (T, H, W, C) -> Index (0, 1, 2, 3)
         # Target: (T, C, H, W) -> Index (0, 3, 1, 2)
-        vh.permute((0, 3, 1, 2))
+        vh._permute((0, 3, 1, 2))
 
         assert vh.axes == ("T", "C", "H", "W")
         assert vh.data.shape == (1, 1, 2, 2)
@@ -69,5 +69,5 @@ class TestVolumeHandlerGeometric:
         vh.flip("W")
         assert vh.data[0, 0, 0, 0, 0].item() == 2.0
 
-        vh.permute((0, 1, 2, 4, 3))
+        vh._permute((0, 1, 2, 4, 3))
         assert vh.axes == ("B", "T", "C", "W", "H")

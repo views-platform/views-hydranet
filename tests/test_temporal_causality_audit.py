@@ -155,15 +155,15 @@ def test_causal_shielding_poison_attack(causal_setup):
 def test_partition_alignment_purple_alien_scenario():
     """
     RED TEAM: The "Purple Alien" Reconstruction.
-    
+
     Scenario:
     - Validation Partition Data: Months 0 to 480 (481 months total).
     - Config: 36 steps.
     - Expected Partition Window: 445 to 480.
     - Expected Base Origin: 444.
-    
-    This test proves that the system NATURALLY derives Origin 444 and produces 
-    Months 445-480 without any 'magic' overrides, solely based on the physics 
+
+    This test proves that the system NATURALLY derives Origin 444 and produces
+    Months 445-480 without any 'magic' overrides, solely based on the physics
     of the array shapes and the loop logic.
     """
     from views_hydranet.utils.utils_orchestration import get_rolling_origin_indices

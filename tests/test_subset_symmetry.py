@@ -77,7 +77,7 @@ SUBSET_CFG = {
     "min_ratio": 0.1,
     "freeze_h": "none",
     "evaluation_mode": "point",
-    "aggregate_method": "mean",
+    "aggregate_method": "arithmetic_mean",
 }
 
 

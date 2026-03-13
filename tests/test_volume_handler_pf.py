@@ -1,18 +1,11 @@
 """
-Unit tests for VolumeHandler.to_evaluation_pf() and to_forecast_pf().
-
-TDD — tests are written BEFORE the implementation.
+Unit tests for VolumeHandler.to_evaluation_pf().
 
 Verifies:
 1. Correct return type: dict[str, PredictionFrame]
 2. All targets present as dict keys
 3. Correct y_pred shapes (stochastic vs point mode)
 4. Identifiers populated (time, unit arrays)
-5. Parity with to_evaluation_df() / to_forecast_df():
-   - Same (time, unit) pairs per observation
-   - Same prediction values (point mode: exact; stochastic: per-sample)
-
-The _df methods are not changed; parity tests guard against any divergence.
 """
 
 import numpy as np
@@ -98,10 +91,7 @@ def point_pred_handler(window_handler):
 # ─── Tests: to_evaluation_pf ─────────────────────────────────────────────────
 
 class TestToEvaluationPF:
-    """
-    Tests for VolumeHandler.to_evaluation_pf().
-    Mirrors the guarantees of to_evaluation_df() but returns PredictionFrames.
-    """
+    """Tests for VolumeHandler.to_evaluation_pf()."""
 
     def test_returns_dict(self, stochastic_pred_handler, window_handler):
         result = stochastic_pred_handler.to_evaluation_pf(
@@ -155,152 +145,13 @@ class TestToEvaluationPF:
         assert not np.any(np.isnan(pf.identifiers["time"].astype(float)))
         assert not np.any(np.isnan(pf.identifiers["unit"].astype(float)))
 
-    def test_parity_identifiers_with_df(self, stochastic_pred_handler, window_handler):
-        """
-        Parity: (time, unit) pairs must be identical to those in to_evaluation_df().
-        The same valid-cell mask is applied in both paths.
-        """
-        df = stochastic_pred_handler.to_evaluation_df(
-            history=window_handler, start_idx=0
-        )
-        pf_dict = stochastic_pred_handler.to_evaluation_pf(
-            history=window_handler, start_idx=0, all_targets=TARGETS
-        )
-        pf = pf_dict["lr_sb_best"]
-
-        df_time = df.index.get_level_values("month_id").values
-        df_unit = df.index.get_level_values("priogrid_gid").values
-        df_pairs = set(zip(df_time.tolist(), df_unit.tolist()))
-        pf_pairs = set(zip(pf.identifiers["time"].tolist(), pf.identifiers["unit"].tolist()))
-
-        assert df_pairs == pf_pairs, (
-            f"Identifier set mismatch:\n"
-            f"  DF:  {sorted(df_pairs)}\n"
-            f"  PF:  {sorted(pf_pairs)}"
-        )
-
-    def test_parity_values_point_mode(self, point_pred_handler, window_handler):
-        """
-        Parity: in point mode, prediction values must match to_evaluation_df() exactly.
-        Both paths extract from the same numpy volume; the only difference is the
-        Polars join (df path) vs direct indexing (pf path).
-        """
-        df = point_pred_handler.to_evaluation_df(history=window_handler, start_idx=0)
-        pf_dict = point_pred_handler.to_evaluation_pf(
-            history=window_handler, start_idx=0, all_targets=TARGETS
-        )
-
-        # Sort both by (time, unit) for reproducible comparison
-        df_time = df.index.get_level_values("month_id").values
-        df_unit = df.index.get_level_values("priogrid_gid").values
-        df_order = np.lexsort((df_unit, df_time))
-
-        pf = pf_dict["lr_sb_best"]
-        pf_order = np.lexsort((pf.identifiers["unit"], pf.identifiers["time"]))
-
-        df_vals = df["pred_lr_sb_best"].values.astype(float)[df_order]
-        pf_vals = pf.y_pred[:, 0][pf_order]
-
-        np.testing.assert_allclose(
-            pf_vals, df_vals, rtol=1e-5,
-            err_msg="Point-mode prediction values diverge from to_evaluation_df()"
-        )
-
-    def test_parity_values_stochastic_mode(self, stochastic_pred_handler, window_handler):
-        """
-        Parity: in stochastic mode, each row's sample vector must match the list
-        stored in the corresponding to_evaluation_df() cell.
-        """
-        df = stochastic_pred_handler.to_evaluation_df(history=window_handler, start_idx=0)
-        pf_dict = stochastic_pred_handler.to_evaluation_pf(
-            history=window_handler, start_idx=0, all_targets=TARGETS
-        )
-
-        df_time = df.index.get_level_values("month_id").values
-        df_unit = df.index.get_level_values("priogrid_gid").values
-        df_order = np.lexsort((df_unit, df_time))
-
-        pf = pf_dict["lr_sb_best"]
-        pf_order = np.lexsort((pf.identifiers["unit"], pf.identifiers["time"]))
-
-        df_vals = np.array(
-            [np.array(v) for v in df["pred_lr_sb_best"].values[df_order]]
-        )  # (N, S)
-        pf_vals = pf.y_pred[pf_order]  # (N, S)
-
-        np.testing.assert_allclose(
-            pf_vals, df_vals, rtol=1e-5,
-            err_msg="Stochastic prediction values diverge from to_evaluation_df()"
-        )
-
     def test_bounds_check_raises_on_bad_start_idx(self, stochastic_pred_handler, window_handler):
-        """Inherits the same bounds validation as to_evaluation_df()."""
+        """Bounds validation raises on invalid start_idx."""
         with pytest.raises(ValueError, match="Contract Violation"):
             stochastic_pred_handler.to_evaluation_pf(
                 history=window_handler, start_idx=999, all_targets=TARGETS
             )
 
-
-# ─── Tests: to_forecast_pf ───────────────────────────────────────────────────
-
-class TestToForecastPF:
-    """
-    Tests for VolumeHandler.to_forecast_pf().
-    Mirrors the guarantees of to_forecast_df() but returns PredictionFrames.
-    """
-
-    def test_returns_dict(self, stochastic_pred_handler, history_handler):
-        result = stochastic_pred_handler.to_forecast_pf(
-            history=history_handler, all_targets=TARGETS
-        )
-        assert isinstance(result, dict)
-
-    def test_all_targets_present(self, stochastic_pred_handler, history_handler):
-        result = stochastic_pred_handler.to_forecast_pf(
-            history=history_handler, all_targets=TARGETS
-        )
-        for target in TARGETS:
-            assert target in result
-            assert isinstance(result[target], PredictionFrame)
-
-    def test_stochastic_shape(self, stochastic_pred_handler, history_handler):
-        result = stochastic_pred_handler.to_forecast_pf(
-            history=history_handler, all_targets=TARGETS
-        )
-        for target in TARGETS:
-            pf = result[target]
-            assert pf.y_pred.ndim == 2
-            assert pf.y_pred.shape == (N_CELLS, S)
-
-    def test_point_shape(self, point_pred_handler, history_handler):
-        result = point_pred_handler.to_forecast_pf(
-            history=history_handler, all_targets=TARGETS
-        )
-        for target in TARGETS:
-            pf = result[target]
-            assert pf.y_pred.ndim == 2
-            assert pf.y_pred.shape == (N_CELLS, 1)
-
-    def test_parity_identifiers_with_df(self, stochastic_pred_handler, history_handler):
-        """
-        Parity: (time, unit) pairs must be identical to those in to_forecast_df().
-        """
-        df = stochastic_pred_handler.to_forecast_df(history=history_handler)
-        pf_dict = stochastic_pred_handler.to_forecast_pf(
-            history=history_handler, all_targets=TARGETS
-        )
-        pf = pf_dict["lr_sb_best"]
-
-        df_time = df.index.get_level_values("month_id").values
-        df_unit = df.index.get_level_values("priogrid_gid").values
-        df_pairs = set(zip(df_time.tolist(), df_unit.tolist()))
-        pf_pairs = set(zip(pf.identifiers["time"].tolist(), pf.identifiers["unit"].tolist()))
-
-        assert df_pairs == pf_pairs, (
-            f"Identifier set mismatch:\n"
-            f"  DF: {sorted(df_pairs)}\n"
-            f"  PF: {sorted(pf_pairs)}"
-        )
 
 
 # ─── Tests: wrap_predictions dtype contract ───────────────────────────────────

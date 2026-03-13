@@ -52,7 +52,11 @@ class TestOptimizationGate:
         device = torch.device("cpu")
         model = torch.nn.Linear(2, 1).to(device)  # Changed to 2
         model.base = 1
-        model.init_hTtime = lambda hidden_channels, H, W: torch.zeros((1, 1, 1, 1), requires_grad=True)
+        model.init_hTtime = (
+            lambda hidden_channels, H, W: torch.zeros(
+                (1, 1, 1, 1), requires_grad=True
+            )
+        )
 
         def mock_forward(t0, h):
             # Shape contract: handler has channel_map=["t", "f1", "by_f1"] with

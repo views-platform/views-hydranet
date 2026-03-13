@@ -1,6 +1,5 @@
 from unittest.mock import MagicMock, PropertyMock, patch
 
-import numpy as np
 import pytest
 import torch
 
@@ -46,14 +45,23 @@ def test_manager_sweep_skip_save_logic(tmp_path):
 
     # Mock dependencies to reach the save logic
     with (
-        patch("views_hydranet.train.train_model.make", return_value=(MagicMock(), MagicMock(), MagicMock(), MagicMock())),
-        patch("views_hydranet.train.train_model.training_loop", return_value={"final_loss": 0.1}),
+        patch(
+            "views_hydranet.train.train_model.make",
+            return_value=(MagicMock(), MagicMock(), MagicMock(), MagicMock()),
+        ),
+        patch(
+            "views_hydranet.train.train_model.training_loop",
+            return_value={"final_loss": 0.1},
+        ),
         patch("torch.save") as mock_save
     ):
         # 1. Standard Run (Save = True)
         cfg_std = SWEEP_CFG.copy()
         cfg_std["sweep"] = False
-        _, _ = train_model_artifact(mpm, cfg_std, torch.device("cpu"), MagicMock(), save_artifact=True)
+        _, _ = train_model_artifact(
+            mpm, cfg_std, torch.device("cpu"),
+            MagicMock(), save_artifact=True,
+        )
         assert mock_save.called
 
         mock_save.reset_mock()
@@ -61,7 +69,10 @@ def test_manager_sweep_skip_save_logic(tmp_path):
         # 2. Sweep Run (Save = False)
         cfg_sweep = SWEEP_CFG.copy()
         cfg_sweep["sweep"] = True
-        _, _ = train_model_artifact(mpm, cfg_sweep, torch.device("cpu"), MagicMock(), save_artifact=False)
+        _, _ = train_model_artifact(
+            mpm, cfg_sweep, torch.device("cpu"),
+            MagicMock(), save_artifact=False,
+        )
         assert not mock_save.called
 
 def test_manager_architecture_mismatch_red_gate():
@@ -72,43 +83,14 @@ def test_manager_architecture_mismatch_red_gate():
     bad_cfg = SWEEP_CFG.copy()
     bad_cfg["regression_targets"] = ["lr_sb"] # Only 1, architecture expects 3
 
-    with patch("views_pipeline_core.managers.model.model.ForecastingModelManager.__init__", return_value=None):
+    with patch(
+        "views_pipeline_core.managers.model.model"
+        ".ForecastingModelManager.__init__",
+        return_value=None,
+    ):
         manager = HydranetManager(model_path=MagicMock())
         with patch.object(HydranetManager, "configs", new_callable=PropertyMock) as mock_cfg:
             mock_cfg.return_value = bad_cfg
 
             with pytest.raises(ValueError, match="ARCHITECTURE MISMATCH"):
                 manager._run_preflight_check()
-
-def test_volume_handler_missing_watermark_red_gate():
-    """
-    RED GATE: Verify that VolumeHandler.reconstruct fails if no watermarks are present.
-    This is the "Identity Theft" protection gate.
-    """
-    from views_hydranet.utils.volume_handler import VolumeHandler
-
-    # Create a VolumeHandler manually with NO identity columns in the map
-    data = np.random.rand(1, 4, 4, 1) # 1 channel
-    vh = VolumeHandler(
-        data=data,
-        axes=("T", "H", "W", "C"),
-        channel_map=("unknown_signal",),
-        time_col="month_id",
-        id_col="priogrid_gid",
-        spatial_cols=("row", "col")
-    )
-
-    # Attempting to reconstruct from a provider should fail because 'unknown_signal'
-    # has no path back to the scaffold IDs.
-    provider_data = np.random.rand(1, 4, 4, 2)
-    provider = VolumeHandler(
-        data=provider_data,
-        axes=("T", "H", "W", "C"),
-        channel_map=("month_id", "priogrid_gid"),
-        time_col="month_id",
-        id_col="priogrid_gid",
-        spatial_cols=("row", "col")
-    )
-
-    with pytest.raises(ValueError, match="no watermarked identity scaffold"):
-        vh._reconstruct_from_provider(provider)

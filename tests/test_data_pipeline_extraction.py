@@ -30,7 +30,6 @@ PIPELINE_CFG = {
     "steps": list(range(1, 37)),
     "sweep": False,
     "diagnostic_visualizations": False,
-    "prediction_format": "prediction_frame",
     "evaluation_mode": "point",
     "aggregate_method": "arithmetic_mean",
 }

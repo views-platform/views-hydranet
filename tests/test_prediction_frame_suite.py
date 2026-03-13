@@ -425,22 +425,13 @@ class TestPredictionFrameBeige:
         np.random.seed(99)
         posterior = np.random.rand(1, 2, 2, N_CHANNELS, 5)
 
-        for alias in ("mean", "arithmetic_mean"):
-            cfg = {**PF_BASE_CFG, "evaluation_mode": "point", "aggregate_method": alias}
-            orc = InferenceOrchestrator(cfg, model, device)
-            with patch(
-                "views_hydranet.utils.inference_orchestrator.HydraNetInference"
-            ) as mock_inf_cls:
-                mock_inf_cls.return_value.generate_posterior_samples.return_value = (
-                    posterior.copy(),
-                    None,
-                )
-                dfs = orc.generate_forecasts(handler, scaler, origins=[19])
-
-        # Run both and compare
         results = {}
         for alias in ("mean", "arithmetic_mean"):
-            cfg = {**PF_BASE_CFG, "evaluation_mode": "point", "aggregate_method": alias}
+            cfg = {
+                **PF_BASE_CFG,
+                "evaluation_mode": "point",
+                "aggregate_method": alias,
+            }
             orc = InferenceOrchestrator(cfg, model, device)
             with patch(
                 "views_hydranet.utils.inference_orchestrator.HydraNetInference"
@@ -449,11 +440,14 @@ class TestPredictionFrameBeige:
                     posterior.copy(),
                     None,
                 )
-                results[alias] = orc.generate_forecasts(handler, scaler, origins=[19])[0]
+                pf_list = orc.generate_prediction_frames(
+                    handler, scaler, origins=[19], all_targets=ALL_TARGETS,
+                )
+                results[alias] = pf_list[0]["lr_sb_best"].y_pred
 
         np.testing.assert_array_equal(
-            results["mean"]["pred_lr_sb_best"].values,
-            results["arithmetic_mean"]["pred_lr_sb_best"].values,
+            results["mean"],
+            results["arithmetic_mean"],
             err_msg="'mean' and 'arithmetic_mean' must produce identical predictions",
         )
 
@@ -624,7 +618,7 @@ class TestPredictionFrameRedTeam:
         This test proves that collapse_to_point() is a live computation —
         not a no-op or a pass-through.
 
-        Setup: cell (row=0, col=0), channel 0 (lr_sb_best), S=4 samples
+        Setup: channel 0 (lr_sb_best), S=4 samples
                values = [1.0, 1.0, 1.0, 100.0]
                arithmetic_mean = 25.75
                median           = 1.0
@@ -632,17 +626,17 @@ class TestPredictionFrameRedTeam:
         handler, scaler, model = orch_env
         device = torch.device("cpu")
 
-        # Build a deterministic skewed posterior.
-        # All 4 spatial cells use the same skewed sample distribution so the test
-        # is independent of the North-Up spatial flip applied in to_evaluation_df.
-        # Channel 0 = lr_sb_best.  S=4 samples: [1, 1, 1, 100].
-        # arithmetic_mean = 25.75, median = 1.0.
+        # All 4 spatial cells use the same skewed sample distribution.
         posterior = np.zeros((1, 2, 2, N_CHANNELS, 4))
-        posterior[0, :, :, 0, :] = [1.0, 1.0, 1.0, 100.0]   # all cells, channel 0
+        posterior[0, :, :, 0, :] = [1.0, 1.0, 1.0, 100.0]
 
         pf_results = {}
         for method in ("arithmetic_mean", "median"):
-            cfg = {**PF_BASE_CFG, "evaluation_mode": "point", "aggregate_method": method}
+            cfg = {
+                **PF_BASE_CFG,
+                "evaluation_mode": "point",
+                "aggregate_method": method,
+            }
             orc = InferenceOrchestrator(cfg, model, device)
             with patch(
                 "views_hydranet.utils.inference_orchestrator.HydraNetInference"
@@ -651,9 +645,10 @@ class TestPredictionFrameRedTeam:
                     posterior.copy(),
                     None,
                 )
-                df = orc.generate_forecasts(handler, scaler, origins=[19])[0]
-            # All cells carry the same skewed distribution — read any row.
-            pf_results[method] = float(df["pred_lr_sb_best"].iloc[0])
+                pf_list = orc.generate_prediction_frames(
+                    handler, scaler, origins=[19], all_targets=ALL_TARGETS,
+                )
+            pf_results[method] = float(pf_list[0]["lr_sb_best"].y_pred[0, 0])
 
         arith_val = pf_results["arithmetic_mean"]
         median_val = pf_results["median"]

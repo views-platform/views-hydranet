@@ -162,7 +162,10 @@ class HydraNetInference:
             B, _, H, W = h_tt.shape
 
             # Generate binary mask on the correct device
-            mask = (torch.rand(num_chunks, device=self.device) < self._RANDOM_FREEZE_PROBABILITY).float()
+            mask = (
+                torch.rand(num_chunks, device=self.device)
+                < self._RANDOM_FREEZE_PROBABILITY
+            ).float()
             mask_expanded = mask.view(1, num_chunks, 1, 1, 1).bool()
 
             h_tt_reshaped = h_tt.view(B, num_chunks, split_size_small, H, W)
@@ -226,7 +229,6 @@ class HydraNetInference:
 
         # BOUNDARY ANCHORING (ADR 015)
         # History ends at 'origin'. So there are 'origin + 1' months of history.
-        in_sample_seq_len = origin + 1
         time_steps = self.config["time_steps"]
 
         n_reg = len(reg_targets)
@@ -260,13 +262,19 @@ class HydraNetInference:
 
                 if sample_idx == 0 and self.viz.active:
                     # Seed frame for biopsy
-                    y_seed = full_tensor[0, t, reg_indices, :, :].permute(1, 2, 0).detach().cpu().numpy()
+                    y_seed = (
+                        full_tensor[0, t, reg_indices, :, :]
+                        .permute(1, 2, 0).detach().cpu().numpy()
+                    )
                     truth_accumulator.append(y_seed)
                     pred_accumulator.append(y_seed)
 
                     # Step 1 truth
                     try:
-                        y_truth = full_tensor[0, t + 1, reg_indices, :, :].permute(1, 2, 0).detach().cpu().numpy()
+                        y_truth = (
+                            full_tensor[0, t + 1, reg_indices, :, :]
+                            .permute(1, 2, 0).detach().cpu().numpy()
+                        )
                         truth_accumulator.append(y_truth)
                     except IndexError:
                         truth_accumulator.append(np.zeros_like(y_seed))
@@ -285,7 +293,10 @@ class HydraNetInference:
 
                 if sample_idx == 0 and self.viz.active and len(truth_accumulator) < 6:
                     try:
-                        y_truth = full_tensor[0, t + 1, reg_indices, :, :].permute(1, 2, 0).detach().cpu().numpy()
+                        y_truth = (
+                            full_tensor[0, t + 1, reg_indices, :, :]
+                            .permute(1, 2, 0).detach().cpu().numpy()
+                        )
                         truth_accumulator.append(y_truth)
                     except IndexError:
                         truth_accumulator.append(np.zeros_like(truth_accumulator[0]))

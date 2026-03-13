@@ -190,10 +190,15 @@ class TestManagerEvalHardAudit:
                     manager._config_manager = MagicMock()
                     manager._wandb_notifications = False
                     manager._use_prediction_store = False
-                    with patch.object(HydranetManager, "configs", new_callable=PropertyMock) as mock_cfg:
+                    with patch.object(
+                        HydranetManager, "configs",
+                        new_callable=PropertyMock,
+                    ) as mock_cfg:
                         mock_cfg.return_value = AUDIT_CFG
                         with (
-                            patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetch_cls,
+                            patch(
+                                "views_hydranet.manager.hydranet_manager.DataFetcher"
+                            ) as mock_fetch_cls,
                             patch(
                                 "views_hydranet.manager.hydranet_manager.ModelArtifactFetcher"
                             ) as mock_art_fetch_cls,
@@ -216,8 +221,14 @@ class TestManagerEvalHardAudit:
                             ]
 
                             results = manager._evaluate_model_artifact(eval_type="audit")
-                            np.testing.assert_allclose(results["lr_sb_best"][0].y_pred[0, 0], 10.0, rtol=1e-5)
-                            np.testing.assert_allclose(results["lr_ns_best"][0].y_pred[0, 0], 10.0, rtol=1e-5)
+                            np.testing.assert_allclose(
+                                results["lr_sb_best"][0].y_pred[0, 0],
+                                10.0, rtol=1e-5,
+                            )
+                            np.testing.assert_allclose(
+                                results["lr_ns_best"][0].y_pred[0, 0],
+                                10.0, rtol=1e-5,
+                            )
 
     def test_gates_9_to_16_forecast_survival(self, tmp_path):
         """Hard Gates 9-16: Falsify the Survival Sequence in the Forecasting path."""

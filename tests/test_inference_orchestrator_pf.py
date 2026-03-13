@@ -1,18 +1,11 @@
 """
 Tests for InferenceOrchestrator.generate_prediction_frames().
 
-TDD — tests are written BEFORE the implementation.
-
-generate_prediction_frames() is the pandas-free parallel of generate_forecasts():
-- Same ADR 039 sequence (Predict → Wrap → Invert → Collapse → to_pf)
-- Returns list[dict[str, PredictionFrame]] instead of list[pd.DataFrame]
+generate_prediction_frames() is the sole output method:
+- Inference pipeline sequence (Predict → Wrap → Invert → Collapse → to_pf)
+- Returns list[dict[str, PredictionFrame]]
 - No pandas object is materialised in the output path
 - Per-origin memory release (del of large numpy arrays after each origin)
-
-Parity requirement:
-  For each rolling origin, the (time, unit) identifiers and prediction values
-  produced by generate_prediction_frames() must match those produced by
-  generate_forecasts() for the same posterior input.
 """
 
 from unittest.mock import MagicMock, patch
@@ -89,7 +82,7 @@ ORCH_CFG = {
     "freeze_h": "none",
     "evaluation_mode": "stochastic",
     "aggregate_method": "arithmetic_mean",
-    "prediction_format": "prediction_frame",
+
 }
 
 N_CELLS = 4
@@ -230,47 +223,3 @@ class TestGeneratePredictionFrames:
 
         assert len(result) == n_origins
 
-    def test_parity_identifiers_with_generate_forecasts(self, orch_env):
-        """
-        Parity: (time, unit) pairs from generate_prediction_frames() must match
-        those from generate_forecasts() for the same posterior.
-        """
-        handler, scaler, model = orch_env
-        np.random.seed(99)
-        posterior = np.random.rand(1, 2, 2, 6, S)
-        origin = [handler.shape[0] - 2]
-
-        cfg = {**ORCH_CFG, "evaluation_mode": "stochastic"}
-
-        with patch(
-            "views_hydranet.utils.inference_orchestrator.HydraNetInference"
-        ) as mock_inf_cls:
-            mock_inf_cls.return_value.generate_posterior_samples.return_value = (
-                posterior.copy(), None
-            )
-            orchestrator_df = InferenceOrchestrator(cfg, model, torch.device("cpu"))
-            dfs = orchestrator_df.generate_forecasts(handler, scaler, origins=origin)
-
-        with patch(
-            "views_hydranet.utils.inference_orchestrator.HydraNetInference"
-        ) as mock_inf_cls:
-            mock_inf_cls.return_value.generate_posterior_samples.return_value = (
-                posterior.copy(), None
-            )
-            orchestrator_pf = InferenceOrchestrator(cfg, model, torch.device("cpu"))
-            pf_list = orchestrator_pf.generate_prediction_frames(
-                handler, scaler, origins=origin, all_targets=TARGETS
-            )
-
-        df = dfs[0]
-        pf_dict = pf_list[0]
-        pf = pf_dict["lr_sb_best"]
-
-        df_time = df.index.get_level_values("month_id").values
-        df_unit = df.index.get_level_values("priogrid_gid").values
-        df_pairs = set(zip(df_time.tolist(), df_unit.tolist()))
-        pf_pairs = set(zip(pf.identifiers["time"].tolist(), pf.identifiers["unit"].tolist()))
-
-        assert df_pairs == pf_pairs, (
-            f"Identifier mismatch:\n  DF: {sorted(df_pairs)}\n  PF: {sorted(pf_pairs)}"
-        )

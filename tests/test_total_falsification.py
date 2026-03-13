@@ -87,7 +87,7 @@ class TestNukeProofAudit:
         )
 
         # This will fail if I used 'axis=4' or 'axis=-1' hardcoded
-        point_vh = vh.collapse_to_point(method="mean")
+        point_vh = vh.collapse_to_point(method="arithmetic_mean")
 
         assert point_vh.data.shape == (2, 1, 4, 4)
         assert "S" not in point_vh._metadata.axes

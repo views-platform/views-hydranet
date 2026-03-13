@@ -11,7 +11,6 @@ if TYPE_CHECKING:
     from views_pipeline_core.data.prediction_frame import PredictionFrame
 
 import numpy as np
-import pandas as pd
 import torch
 
 from views_hydranet.utils.feature_scaler import FeatureScaler
@@ -47,7 +46,7 @@ class InferenceOrchestrator:
             {"diagnostic_visualizations": False}
         )  # Null Object Fallback
 
-    def _run_adr039_pipeline(
+    def _run_inference_pipeline(
         self,
         handler: VolumeHandler,
         scaler: FeatureScaler,
@@ -114,56 +113,6 @@ class InferenceOrchestrator:
 
         return pred_handler, window_handler
 
-    def generate_forecasts(
-        self, handler: VolumeHandler, scaler: FeatureScaler, origins: List[int]
-    ) -> List[pd.DataFrame]:
-        """
-        Orchestrates inference across one or more time origins.
-        Returns a list of 'Dirty' DataFrames containing all available channels.
-
-        Strictly follows ADR 039 Order of Operations:
-        1. Predict -> 2. Wrap -> 3. Invert -> 4. Collapse -> 5. Reconstruct.
-
-        Mode (controlled by ``config["evaluation_mode"]``):
-
-        - **"stochastic"**: Step 4 (Collapse) is skipped.  The S axis from
-          ``generate_posterior_samples`` is preserved through Wrap → Invert → Reconstruct.
-          Output DataFrames contain list-in-cell values (one list of S floats per cell).
-
-        - **"point"**: Step 4 calls ``collapse_to_point(aggregate_method)``, which folds the
-          S axis to a single scalar per cell before reconstruction.
-          Output DataFrames contain scalar values per cell.
-        """
-        is_backtest = len(origins) > 1
-        mode_label = "BACKTEST" if is_backtest else "OPERATIONAL"
-
-        logger.info(
-            f"💠 InferenceOrchestrator: Initiating {mode_label} pass ({len(origins)} origins)."
-        )
-
-        inference = HydraNetInference(
-            self.model, self.config, device=str(self.device), visualizer=self.viz
-        )
-        target_names = (
-            self.config["regression_targets"] + self.config["classification_targets"]
-        )
-        list_df_dirty = []
-
-        for i, origin in enumerate(origins):
-            pred_handler, window_handler = self._run_adr039_pipeline(
-                handler, scaler, inference, origin, i, is_backtest, len(origins),
-                target_names,
-            )
-
-            # --- 6. RECONSTRUCT (ADR 039.6) ---
-            df_dirty = pred_handler.to_evaluation_df(history=window_handler, start_idx=0)
-
-            if df_dirty is not None:
-                list_df_dirty.append(df_dirty)
-
-        logger.info(f"✅ InferenceOrchestrator: Produced {len(list_df_dirty)} Dirty DataFrames.")
-        return list_df_dirty
-
     def generate_prediction_frames(
         self,
         handler: VolumeHandler,
@@ -172,11 +121,11 @@ class InferenceOrchestrator:
         all_targets: List[str],
     ) -> List[Dict[str, "PredictionFrame"]]:
         """
-        Pandas-free parallel of generate_forecasts().
+        Generate PredictionFrame dicts for each rolling origin.
 
-        Follows the same ADR 039 sequence (Predict → Wrap → Invert → Collapse),
-        but replaces the final Reconstruct step with VolumeHandler.to_evaluation_pf()
-        instead of to_evaluation_df().  No pandas DataFrame is materialised.
+        Follows the inference pipeline sequence (Predict → Wrap → Invert → Collapse),
+        then assembles results via VolumeHandler.to_evaluation_pf().
+        No pandas DataFrame is materialised on the output path.
 
         Returns
         -------
@@ -199,7 +148,7 @@ class InferenceOrchestrator:
         list_pf_dicts: List[Dict[str, "PredictionFrame"]] = []
 
         for i, origin in enumerate(origins):
-            pred_handler, window_handler = self._run_adr039_pipeline(
+            pred_handler, window_handler = self._run_inference_pipeline(
                 handler, scaler, inference, origin, i, is_backtest, len(origins),
                 all_targets,
             )
@@ -252,7 +201,7 @@ class InferenceOrchestrator:
         )
 
         for i, origin in enumerate(origins):
-            pred_handler, window_handler = self._run_adr039_pipeline(
+            pred_handler, window_handler = self._run_inference_pipeline(
                 handler, scaler, inference, origin, i, is_backtest, len(origins),
                 all_targets,
             )

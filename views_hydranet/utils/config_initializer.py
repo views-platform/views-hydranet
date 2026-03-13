@@ -117,11 +117,6 @@ class HydraNetConfig(BaseModel):
             "'geometric_mean' is schema-valid but raises NotImplementedError at runtime."
         ),
     )
-    prediction_format: str = Field(
-        default="prediction_frame",
-        description="Output format for abstract method returns (ADR-033).",
-    )
-
     # Metadata
     model_time_stamp: Optional[str] = None
 

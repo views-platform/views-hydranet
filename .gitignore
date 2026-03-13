@@ -199,6 +199,7 @@ cython_debug/
 # folders
 **/wandb/
 **/notebooks/
+reports/
 
 # mac specific 
 .DS_Store

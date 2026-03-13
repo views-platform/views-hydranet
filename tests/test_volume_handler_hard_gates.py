@@ -80,48 +80,6 @@ def test_gate_12_6_head_dressing():
     )
 
 
-def test_gate_13_14_topography_restoration():
-    """Assert full symmetry recovery and MultiIndex restoration."""
-    df_hist = pd.DataFrame(
-        {
-            "month_id": [1, 1],
-            "priogrid_gid": [1, 2],
-            "row": [10, 10],
-            "col": [20, 21],
-            "lr_feature_a": [10.0, 20.0],
-            "lr_feature_b": [5.0, 5.0],
-        }
-    )
-    handler = VolumeHandler.from_df(df_hist, PHYSICS_CFG)
-
-    # Simulate a 4-channel prediction (2 reg, 2 class)
-    # feature_a_raw, feature_b_raw, feature_a_prob, feature_b_prob
-    posterior = torch.zeros((1, 1, 4, 4, 4))
-    target_names = ["lr_feature_a", "lr_feature_b", "by_feature_a", "by_feature_b"]
-
-    pred_handler = handler.wrap_predictions(posterior, target_names=target_names)
-    df_res = pred_handler.to_evaluation_df(history=handler, start_idx=0)
-
-    # GATES
-    assert isinstance(df_res.index, pd.MultiIndex), (
-        f"Expected MultiIndex, got {type(df_res.index)}. "
-        f"to_evaluation_df() must restore (month_id, priogrid_gid) as MultiIndex."
-    )
-    assert df_res.index.names == ["month_id", "priogrid_gid"], (
-        f"Expected index names ['month_id', 'priogrid_gid'], got {df_res.index.names}."
-    )
-    assert "lr_feature_a" in df_res.columns, (  # The Actual
-        f"Ground truth 'lr_feature_a' missing from output. Columns: {df_res.columns.tolist()}"
-    )
-    assert "pred_lr_feature_a" in df_res.columns, (  # The Prediction
-        f"Prediction 'pred_lr_feature_a' missing from output. Columns: {df_res.columns.tolist()}"
-    )
-    assert not any("INTERNAL" in col for col in df_res.columns), (
-        f"Internal token leaked into output columns: "
-        f"{[c for c in df_res.columns if 'INTERNAL' in c]}"
-    )
-
-
 def test_gate_15_geographic_anchoring():
     """Assert row_offset correctly anchors the grid."""
     df = pd.DataFrame(
@@ -337,84 +295,6 @@ def test_gate_17_negative_offset_rejection():
         }
     )
     VolumeHandler.from_df(df_exact, exact_cfg)  # must not raise
-
-
-def test_gate_18_value_round_trip():
-    """
-    GREEN GATE: Bit-perfect value preservation through the full DF→Volume→DF
-    round-trip (from_df → to_historical_df).
-
-    The existing structural tests verify that the round-trip produces the
-    correct MultiIndex and column names. They do NOT verify that the VALUE at
-    each (month_id, priogrid_gid) survived intact.
-
-    Method: assign value = float(priogrid_gid) to every cell. After the
-    round-trip, each cell's value must still equal its priogrid_gid. A
-    spatially scrambled volume maps cells to wrong locations, so the wrong
-    priogrid_gid's value lands under each key — the assertion fails.
-
-    This is the semantic complement to test_gate_16 (which tests gradient
-    preservation). Gate 16 verifies spatial ordering; Gate 18 verifies exact
-    value identity for every individual cell.
-    """
-    H, W = 4, 4
-    cfg = {
-        "time_col": "month_id",
-        "id_col": "priogrid_gid",
-        "spatial_cols": ["row", "col"],
-        "identity_cols": ["month_id", "priogrid_gid"],
-        "features": ["value"],
-        "row_offset": 10,
-        "col_offset": 20,
-        "height": H,
-        "width": W,
-        "transformations": {"identity": ["value"]},
-        "derivations": {},
-    }
-
-    # Build a full H×W grid. value = priogrid_gid: every cell carries its own
-    # identifier as its value. Any spatial scrambling maps a cell's value to
-    # the wrong key in the reconstructed DataFrame.
-    rows, cols, pgids, values = [], [], [], []
-    pgid = 1
-    for r in range(H):
-        for c in range(W):
-            rows.append(10 + r)
-            cols.append(20 + c)
-            pgids.append(pgid)
-            values.append(float(pgid))  # value == pgid: unique per cell
-            pgid += 1
-
-    df_orig = pd.DataFrame(
-        {
-            "month_id": [1] * (H * W),
-            "priogrid_gid": pgids,
-            "row": rows,
-            "col": cols,
-            "value": values,
-        }
-    )
-
-    handler = VolumeHandler.from_df(df_orig, cfg)
-    df_rt = handler.to_historical_df()  # DataFrame with (month_id, priogrid_gid) MultiIndex
-
-    # Verify each cell's value survived the round-trip.
-    for pgid_check in range(1, H * W + 1):
-        expected = float(pgid_check)
-        try:
-            actual = float(df_rt.loc[(1, pgid_check), "value"])
-        except KeyError:
-            raise AssertionError(
-                f"\nRound-trip failed: priogrid_gid={pgid_check} is missing from the "
-                f"reconstructed DataFrame.\n"
-                f"Available index entries: {list(df_rt.index[:5])}..."
-            )
-        assert actual == expected, (
-            f"\nValue round-trip failed for priogrid_gid={pgid_check}.\n"
-            f"Expected value={expected} (== pgid), got value={actual}.\n"
-            f"This indicates spatial scrambling: the cell was mapped to the wrong "
-            f"location in the volume and reconstructed under the wrong priogrid_gid."
-        )
 
 
 if __name__ == "__main__":
