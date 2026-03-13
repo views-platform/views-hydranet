@@ -2,8 +2,8 @@
 
 **Status:** Active  
 **Owner:** Actor  
-**Last reviewed:** 19.02.2026  
-**Related ADRs:** ADR-001, ADR-011, ADR-012
+**Last reviewed:** 13.03.2026  
+**Related ADRs:** ADR-001, ADR-011 (Proposed), ADR-012
 
 ---
 
@@ -28,6 +28,7 @@ The `VolumeSampler` is the **Lens** of the HydraNet pipeline. Its primary purpos
 - **Busy-Search Mechanism:** Responsible for identifying all geographic coordinates satisfying an explicit intensity threshold.
 - **Deterministic Extraction:** Guarantees that spatial jitter and patch selection are deterministic for a given random seed and index.
 - **Absolute Anchoring:** Ensures that the `spatial_offset` of every extracted patch is correctly adjusted to preserve its global geographic identity.
+- **Training Volume Preparation:** Provides `get_train_volume()` to slice off the test horizon from the global volume while preserving the Ledger.
 
 ---
 

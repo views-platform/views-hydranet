@@ -55,8 +55,13 @@ Let `{target}` denote the name of an observed count variable.
 **Column name pattern:**
 
 ```
-pred_{target}_raw
+pred_{target}
 ```
+
+> **Note:** The `pred_` prefix is prepended to the full target name. For regression targets
+> starting with `lr_`, this produces columns like `pred_lr_sb_best`. For classification
+> targets starting with `by_`, this produces columns like `pred_by_sb_best`.
+> See ADR-032 and ADR-047 for the authoritative naming contract.
 
 **Cell semantics:**
 
@@ -76,8 +81,11 @@ pred_{target}_raw
 **Column name pattern:**
 
 ```
-pred_{target}_prob
+pred_{target}
 ```
+
+> **Note:** Classification targets use the `by_` prefix (e.g., `by_sb_best`),
+> so the predicted probability column becomes `pred_by_sb_best`.
 
 **Cell semantics:**
 
@@ -93,18 +101,17 @@ pred_{target}_prob
 For each target variable `{target}`, the DataFrame contains the following aligned column triplet:
 
 ```
-{target}
-pred_{target}_raw
-pred_{target}_prob
+{target}          (e.g., lr_sb_best — observed count)
+pred_{target}     (e.g., pred_lr_sb_best — predicted count)
+pred_{target}     (e.g., pred_by_sb_best — predicted probability)
 ```
 
 Naming rules:
 
 * All predicted columns are prefixed with `pred_`.
-* Suffixes disambiguate prediction type:
-
-  * `_raw` → predicted count
-  * `_prob` → predicted probability of any occurrence
+* The target name itself encodes the variable type:
+  * `lr_*` targets → predicted counts (regression)
+  * `by_*` targets → predicted occurrence probabilities (classification)
 * `{target}` must be identical across the observed and predicted columns.
 
 ---
@@ -151,6 +158,6 @@ This results in a **ragged DataFrame** (value-ragged, not index-ragged) that pre
 
 ## 7. Compact Technical Summary
 
-> A long-format pandas DataFrame indexed by `(month_id, grid_id)`, containing scalar observed count variables and paired predicted count (`pred_{target}_raw`) and occurrence-probability (`pred_{target}_prob`) columns for each target, where predicted cells store either point estimates or fixed-length posterior sample lists (`s = 128`) depending on evaluation mode.
+> A long-format pandas DataFrame indexed by `(month_id, grid_id)`, containing scalar observed count variables and paired predicted count (`pred_lr_{target}`) and occurrence-probability (`pred_by_{target}`) columns for each target, where predicted cells store either point estimates or fixed-length posterior sample lists (`s = 128`) depending on evaluation mode. The `pred_` prefix is prepended to the full target name; the `lr_` and `by_` prefixes are part of the target name itself, not separate suffixes.
 
 

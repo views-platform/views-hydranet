@@ -11,7 +11,7 @@ import wandb
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
 from views_hydranet.utils.focal_loss import FocalLoss
 from views_hydranet.utils.mtloss import MultiTaskLoss
-from views_hydranet.utils.shringkage_loss import ShrinkageLoss
+from views_hydranet.utils.shrinkage_loss import ShrinkageLoss
 from views_hydranet.utils.warmup_decay_lr_scheduler import WarmupDecayLearningRateScheduler
 
 logger = logging.getLogger(__name__)

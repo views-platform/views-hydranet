@@ -2,8 +2,8 @@
 
 **Status:** Active  
 **Owner:** Sentinel  
-**Last reviewed:** 19.02.2026  
-**Related ADRs:** ADR-001, ADR-009, ADR-009, ADR-032
+**Last reviewed:** 13.03.2026
+**Related ADRs:** ADR-001, ADR-009, ADR-032
 
 ---
 
@@ -26,7 +26,8 @@ The `DataSniffer` is the **Sentinel** of the HydraNet pipeline. Its primary purp
 
 - **Inbound Integrity:** Guarantees that DataFrames entering the pipeline contain all required identity/feature columns and that they are unique and finite.
 - **Alignment Verification:** Guarantees that history and forecast volumes are temporally contiguous and geographically anchored to the same coordinate system.
-- **Pure State Validation:** Guarantees that output DataFrames satisfy the authoritative schema defined in ADR-032.
+- **Pure State Parity:** Guarantees via `sniff_pure_state_parity(df_input, df_output)` that the output DataFrame — once predictions are stripped — is bit-identical to the input DataFrame (type-agnostic, order-agnostic comparison).
+- **Pure State Schema:** Guarantees via `sniff_pure_state_schema(df, config)` that the output DataFrame satisfies the ADR-032 structural contract (correct MultiIndex, mandatory identity columns, valid prefix-aware prediction columns).
 - **Handshake Enforcement:** Validates that the configuration provided to actors matches the physical reality of the data.
 
 ---
@@ -74,6 +75,12 @@ sniffer.sniff_ingestion(df)
 
 # Verifying alignment before forecasting
 sniffer.sniff_forecast_alignment(history_df, forecast_handler, is_forecast=True)
+
+# Verifying output parity (predictions stripped, original data unchanged)
+sniffer.sniff_pure_state_parity(df_input, df_output)
+
+# Verifying output schema compliance (ADR-032)
+sniffer.sniff_pure_state_schema(df_output, config)
 ```
 
 ---

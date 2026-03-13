@@ -19,7 +19,7 @@ To provide a bit-identical, lossless bridge between the spatiotemporal tensors p
 *   **Dynamic Symmetry:** The inverse transformation MUST be the symmetric partner of the model's training transform (as defined in the `TRANSFORMS` registry). 
     *   Example (log1p): `raw = exp(val) - 1`
     *   Example (asinh): `raw = sinh(val)`
-*   **Prefix Requirement:** The column name MUST be prefixed with `pred_lr_` to explicitly signal "Linear/Raw" scale to the consumer (the Evaluation Library).
+*   **Prefix Requirement:** The column name MUST be prefixed with `pred_` (the constant `PRED_PREFIX` in `volume_handler.py`). For regression targets whose names start with `lr_` (e.g., `lr_sb_best`), this produces columns like `pred_lr_sb_best`. The `lr_` is part of the target name, not a separate prefix. See ADR-032 and ADR-047.
 
 
 ### 2.3. Spatial Invariants (Land-Only)

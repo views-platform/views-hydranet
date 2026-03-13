@@ -98,3 +98,17 @@ While it allows the pipeline to finish during short debugging runs, the occurren
 - Any reliance on the healer in production is considered **Technical Debt**.
 - The root cause remains the exponential amplification in the recurrent layers and the un-clamped regression heads, which MUST be solved at the architectural level.
 
+## Status Notes (2026-03-13)
+
+**Implemented:**
+- `IntegrityGuardian.monitor()`: NaN/Inf loss detection, prediction magnitude ceiling (10,000), gradient NaN/Inf scan
+- `IntegrityGuardian.check_weights()`: Full weight tensor finite-ness check
+
+**Deferred (Future Consideration):**
+- Weight initialization damping factor (0.01) — Section 1
+- LSTM cell-state clamping — Section 2
+- Regression head output clamping — Section 3
+- Layer scaling for skip connections — Section 4
+
+These were identified as desirable but not yet implemented. They remain valid architectural goals.
+

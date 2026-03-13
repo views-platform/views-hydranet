@@ -2,8 +2,8 @@
 
 **Status:** Active  
 **Owner:** Custodian  
-**Last reviewed:** 19.02.2026  
-**Related ADRs:** ADR-001, ADR-012, ADR-010, ADR-032, ADR-043
+**Last reviewed:** 13.03.2026
+**Related ADRs:** ADR-001, ADR-012, ADR-010 (Proposed), ADR-021, ADR-032, ADR-043, ADR-047
 
 ---
 
@@ -42,9 +42,10 @@ The `VolumeHandler` is the **Custodian** of spatiotemporal data. Its primary pur
 
 ## 5. Outputs and Side Effects
 
-- **4D/5D Tensors:** Produces Pytorch-ready tensors in the **Execution Layout** (`[B, T, C, H, W]`).
-- **Standardized DataFrames:** Produces "Pure State" DataFrames compliant with ADR-032.
-- **mini-VolumeHandlers:** Produces new instances when sliced or sampled, preserving the parent Ledger but adjusting offsets.
+- **4D/5D Tensors:** Produces Pytorch-ready tensors via `to_pytorch(device, include_identities)`.
+- **PredictionFrame Dicts:** Produces `Dict[str, PredictionFrame]` via `to_evaluation_pf()` / `to_forecast_pf()` (ADR-047 pandas-free path).
+- **Standardized DataFrames:** Produces "Pure State" DataFrames via `to_evaluation_df()` / `to_forecast_df()` (ADR-032, diagnostic use only).
+- **Derived VolumeHandlers:** Produces new instances via `slice_time()`, `extrapolate_time()`, `collapse_to_point()`, `flip()`, and `wrap_predictions()` — preserving the parent Ledger but adjusting metadata.
 
 ---
 
@@ -61,7 +62,7 @@ The `VolumeHandler` is the **Custodian** of spatiotemporal data. Its primary pur
 
 - **Orchestrator:** Interacts with `HydranetManager` as a passive data container.
 - **Actors:** Interacts with `VolumeSampler` (The Lens) for window extraction and `InferenceOrchestrator` for prediction wrapping.
-- **Execution:** Transitions into PyTorch space via the `to_pytorch()` gate (ADR-010).
+- **Execution:** Transitions into PyTorch space via the `to_pytorch()` gate (ADR-010, Proposed).
 
 ---
 
@@ -71,11 +72,18 @@ The `VolumeHandler` is the **Custodian** of spatiotemporal data. Its primary pur
 # Initialization from a raw DataFrame
 handler = VolumeHandler.from_df(df, config)
 
-# Geometric extraction for training
-patch = handler.extract_window(y=10, x=20, height=32, width=32)
+# Temporal slicing and dimension reduction
+train_vh = handler.slice_time(0, total_t - len(steps))
+point_vh = pred_handler.collapse_to_point(method="arithmetic_mean")
 
 # Wrapping raw model outputs back into a Custodian
 pred_handler = handler.wrap_predictions(output_tensor, target_names)
+
+# PredictionFrame output (ADR-047)
+pf_dict = pred_handler.to_evaluation_pf(history, start_idx, all_targets)
+
+# PyTorch tensor for model input
+tensor = handler.to_pytorch(device, include_identities=False)
 ```
 
 ---
@@ -90,9 +98,9 @@ pred_handler = handler.wrap_predictions(output_tensor, target_names)
 
 ## 10. Test Alignment
 
-- **🟩 Green Team:** Bit-perfect round-trip tests (`DF -> Volume -> DF`) in `tests/test_volume_handler_geometric.py`.
+- **🟩 Green Team:** Round-trip tests in `tests/test_volume_handler_geometric.py`, PredictionFrame output tests in `tests/test_volume_handler_pf.py`.
 - **🟫 Beige Team:** Tests for missing role columns and mismatched resolutions in `tests/test_volume_handler_hard_gates.py`.
-- **🟥 Red Team:** Shuffling input rows to prove topological stability and providing non-finite values to stability guards.
+- **🟥 Red Team:** Shuffling input rows to prove topological stability in `tests/test_prediction_frame_suite.py`.
 
 ---
 

@@ -1,6 +1,6 @@
 # ADR 011: Curriculum Learning Strategy (Progressive Importance Sampling)
 
-**Status:** Proposed  
+**Status:** Superseded by active ADR-011  
 **Context:** Spatiotemporal conflict data is extremely zero-inflated (sparse). Without a governed training path, models risk settling into a "Conservative Minimum" (predicting zero everywhere) or diverging due to the "lottery" of random initial sampling. This ADR formalizes the curriculum as a structural anchor for the training loop.
 
 ---
