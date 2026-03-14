@@ -200,7 +200,7 @@ class VolumeHandler:
             raise ValueError(err_msg)
 
         # 4. Allocation & Population
-        vol = np.zeros([height, width, month_range, len(channel_map)], dtype=np.float64)
+        vol = np.zeros([height, width, month_range, len(channel_map)], dtype=np.float32)
 
         # Dense Identity Population (Temporal)
         m_chan_idx = channel_map.index(time_col)
@@ -322,9 +322,9 @@ class VolumeHandler:
             n_samples = work_data.shape[-1]
 
             # Extract and repeat identity watermarks.
-            # Cast to float32 before concatenation: self.data is float64 (from_df),
-            # work_data is float32 (PyTorch output). np.concatenate would silently
-            # upcast everything to float64, doubling pred_handler RAM for no benefit.
+            # Ensure float32 consistency: self.data is float32 (from_df),
+            # work_data is float32 (PyTorch output). Defensive cast to prevent
+            # accidental upcast if upstream ever introduces float64.
             # Identity values (priogrid_gid, month_id, row, col) are small integers
             # exactly representable in float32 (exact up to 2^24 ≈ 16.7 million).
             id_vols = []

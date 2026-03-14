@@ -21,7 +21,7 @@ def test_architecture_hidden_state_init():
     h = model.init_hTtime(hidden_channels=32, H=H, W=W)
 
     assert h.shape == (1, 32, H, W)
-    assert h.dtype == torch.float64
+    assert h.dtype == torch.float32
     assert torch.all(h == 0)
 
 

@@ -86,9 +86,9 @@ df_standard = DataFetcher.standardize_raw_df(df_raw, config)
 
 ## 10. Test Alignment
 
-- **🟩 Green Team:** Parquet round-trip tests in `legacy_tests/test_utils_data.py`.
-- **🟫 Beige Team:** Tests for missing index levels and invalid file paths.
-- **🟥 Red Team:** Verification that the fetcher is strictly "Passive" and does not mutate or scale data content.
+- **🟩 Green Team:** MultiIndex standardization, ocean cell removal, blueprint execution in `tests/test_data_fetcher.py`.
+- **🟫 Beige Team:** Extra column preservation, missing blueprint source handling in `tests/test_data_fetcher.py`.
+- **🟥 Red Team:** Non-MultiIndex rejection, wrong level names, missing config keys, unknown blueprint ops, file-not-found in `tests/test_data_fetcher.py`.
 
 ---
 

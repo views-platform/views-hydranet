@@ -27,7 +27,7 @@ TARGET_IDX = CHANNEL_MAP.index(TARGET)
 def sampler_handler():
     """VolumeHandler [T=10, H=8, W=8, C=7] with mixed activity in lr_sb_best."""
     rng = np.random.RandomState(42)
-    data = rng.rand(T, H, W, N_CHANNELS).astype(np.float64)
+    data = rng.rand(T, H, W, N_CHANNELS).astype(np.float32)
 
     # Make some cells have zero activity in lr_sb_best (for importance sampling test)
     data[:, 4:, 4:, TARGET_IDX] = 0.0

@@ -95,9 +95,9 @@ sniffer.sniff_pure_state_schema(df_output, config)
 
 ## 10. Test Alignment
 
-- **🟩 Green Team:** Tests for successful verification of standard partitions in `legacy_tests/test_utils_data.py`.
-- **🟫 Beige Team:** Tests for missing mandatory columns and mismatched anchors.
-- **🟥 Red Team:** Adversarial tests providing shuffled rows or overlapping time-series to ensure the "Panic Check" triggers.
+- **🟩 Green Team:** Successful verification of standard partitions and parity in `tests/test_datasniffer_offset_drift.py` and `tests/test_datasniffer_pure_state.py`.
+- **🟫 Beige Team:** Float precision tolerance, order-agnostic comparison, and mixed target schema validation in `tests/test_datasniffer_pure_state.py`.
+- **🟥 Red Team:** Offset drift detection, anchor rejection, parity violation detection, and schema rejection in `tests/test_datasniffer_offset_drift.py` and `tests/test_datasniffer_pure_state.py`.
 
 ---
 

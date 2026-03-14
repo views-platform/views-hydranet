@@ -90,7 +90,7 @@ def toy_handler():
     Channel map: [month_id, priogrid_gid, c_id, row, col, lr_sb_best, by_sb_best]
     """
     n_channels = 7  # 2 primary + 3 identity + 1 reg + 1 cls
-    data = np.random.RandomState(42).rand(T, H, W, n_channels).astype(np.float64)
+    data = np.random.RandomState(42).rand(T, H, W, n_channels).astype(np.float32)
 
     # Fill identity channels with sensible values
     # month_id (channel 0): sequential time

@@ -46,6 +46,107 @@ def make(config: dict, device: torch.device):
     return (model, criterion, optimizer, scheduler)
 
 
+class _SequenceIndices:
+    """Pre-computed channel indices for the sequence loop (Zero Magic ADR 003)."""
+
+    __slots__ = ("reg", "cls", "feat", "n_reg", "n_cls", "reg_names", "cls_names")
+
+    def __init__(self, feature_names: list[str], config: dict) -> None:
+        reg_targets = config.get("regression_targets", [])
+        cls_targets = config.get("classification_targets", [])
+        input_features = config.get("features", [])
+
+        self.reg = [feature_names.index(t) for t in reg_targets]
+        self.cls = [feature_names.index(t) for t in cls_targets]
+        self.feat = [feature_names.index(f) for f in input_features]
+        self.n_reg = len(reg_targets)
+        self.n_cls = len(cls_targets)
+        self.reg_names = reg_targets
+        self.cls_names = cls_targets
+
+
+def _process_sequence(
+    train_tensor: torch.Tensor,
+    model: nn.Module,
+    h: torch.Tensor,
+    criterion_reg: nn.Module,
+    criterion_class: nn.Module,
+    multitaskloss_instance: nn.Module,
+    idx: "_SequenceIndices",
+    device: torch.device,
+    pbar: Optional[tqdm] = None,
+    forensics: Optional[TrainingForensics] = None,
+) -> Dict[str, Any]:
+    """
+    Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
+
+    Runs the recurrent model step-by-step through the temporal sequence,
+    computes multi-task losses, and optionally records forensic data.
+    No optimizer, no diagnostics, no data augmentation — just forward + loss.
+
+    Returns dict with keys: total, reg, cls, h, per_step_losses.
+    """
+    seq_len = train_tensor.shape[1]
+    total_loss = torch.tensor(0.0).to(device)
+    step_reg: list[float] = []
+    step_cls: list[float] = []
+    step_total: list[float] = []
+
+    for i in range(seq_len - 1):
+        t0 = train_tensor[:, i, :, :, :]
+        t1 = train_tensor[:, i + 1, :, :, :]
+
+        # ADR 046: Separate ground truth signals explicitly
+        y_reg = t1[:, idx.reg, :, :]
+        y_cls = t1[:, idx.cls, :, :]
+
+        # Forward pass: Feed ONLY the input features (Zero Magic)
+        t0_input = t0[:, idx.feat, :, :]
+        t1_pred, t1_pred_class, h = cast(Any, model)(t0_input, h)
+
+        # --- FORENSIC RECORDING (ADR 001 Custodian) ---
+        if forensics:
+            for j, target_name in enumerate(idx.reg_names):
+                forensics.record(
+                    f"REG:{target_name}", y_reg[:, j : j + 1], t1_pred[:, j : j + 1]
+                )
+            for j, target_name in enumerate(idx.cls_names):
+                forensics.record(
+                    f"CLS:{target_name}",
+                    y_cls[:, j : j + 1],
+                    torch.sigmoid(t1_pred_class[:, j : j + 1]),
+                )
+
+        # Loss computation
+        losses_list = []
+        for j in range(idx.n_reg):
+            losses_list.append(criterion_reg(t1_pred[:, j, :, :], y_reg[:, j, :, :]))
+        for j in range(idx.n_cls):
+            losses_list.append(criterion_class(t1_pred_class[:, j, :, :], y_cls[:, j, :, :]))
+
+        losses = torch.stack(losses_list)
+        loss = cast(Any, multitaskloss_instance)(losses)
+        total_loss += loss
+
+        loss_reg = losses[: idx.n_reg].sum()
+        loss_class = losses[idx.n_reg :].sum()
+
+        step_reg.append(loss_reg.detach().cpu().numpy().item())
+        step_cls.append(loss_class.detach().cpu().numpy().item())
+        step_total.append(loss.detach().cpu().numpy().item())
+
+        if pbar is not None:
+            pbar.update(1)
+
+    return {
+        "total": total_loss,
+        "reg": torch.tensor(np.sum(step_reg)).to(device),
+        "cls": torch.tensor(np.sum(step_cls)).to(device),
+        "h": h,
+        "per_step_losses": (step_total, step_reg, step_cls),
+    }
+
+
 def train(
     model: nn.Module,
     optimizer: torch.optim.Optimizer,
@@ -62,11 +163,6 @@ def train(
     forensics: Optional[TrainingForensics] = None,
 ) -> Dict[str, torch.Tensor]:  # Returns window losses
 
-    avg_loss_reg_list = []
-    avg_loss_class_list = []
-    avg_loss_list = []
-    total_loss = torch.tensor(0.0).to(device)
-
     model.train()
     multitaskloss_instance.train()
 
@@ -78,27 +174,15 @@ def train(
         if np.random.rand() < 0.5:
             sample_handler.flip("W")
 
-    # 1. Model Entry Gate: Transform to PyTorch [B, T, C, H, W]
+    # 2. Model Entry Gate: Transform to PyTorch [B, T, C, H, W]
     # We strip identity channels here so the model only sees features.
     train_tensor = sample_handler.to_pytorch(device, include_identities=False)
 
-    # 2. Identify signal indices in the feature tensor (Zero Magic ADR 003)
-    # The tensor contains channels in the order defined by sample_handler.channel_map
-    # (filtered by feature_cols in to_pytorch).
+    # 3. Pre-compute channel indices (Zero Magic ADR 003)
     feature_names = [
         n for n in sample_handler.channel_map if n in sample_handler._metadata.feature_cols
     ]
-
-    reg_targets = config.get("regression_targets", [])
-    cls_targets = config.get("classification_targets", [])
-    input_features = config.get("features", [])
-
-    reg_indices = [feature_names.index(t) for t in reg_targets]
-    cls_indices = [feature_names.index(t) for t in cls_targets]
-    feat_indices = [feature_names.index(f) for f in input_features]
-
-    n_reg = len(reg_targets)
-    n_cls = len(cls_targets)
+    idx = _SequenceIndices(feature_names, config)
 
     seq_len = train_tensor.shape[1]
     window_H = train_tensor.shape[-2]
@@ -110,21 +194,19 @@ def train(
         f"GPU Mem: {mem_allocated:.2f} MB"
     )
 
-    # initialize a hidden state
+    # 4. Initialize hidden state (float32 from init_hTtime)
     h = (
         cast(Any, model)
         .init_hTtime(hidden_channels=model.base, H=window_H, W=window_W)
-        .float()
         .to(device)
     )
 
-    # STAGE 5 DIAGNOSTIC: Accumulators
+    # 5. STAGE 5 DIAGNOSTIC: Accumulate visual biopsy data around midpoint
     acc_y_reg: list[np.ndarray] = []
     acc_yh_reg: list[np.ndarray] = []
     acc_y_cls: list[np.ndarray] = []
     acc_yh_cls: list[np.ndarray] = []
     acc_months = []
-
     time_idx = -1
     if viz and stage_label:
         try:
@@ -132,97 +214,65 @@ def train(
         except Exception:
             pass
 
-    # Sequence loop rnn style
-    for i in range(seq_len - 1):
-        t0 = train_tensor[:, i, :, :, :]
-        t1 = train_tensor[:, i + 1, :, :, :]
+    # --- CORE SEQUENCE PROCESSING ---
+    result = _process_sequence(
+        train_tensor, model, h,
+        criterion_reg, criterion_class, multitaskloss_instance,
+        idx, device, pbar=pbar, forensics=forensics,
+    )
+    step_total, step_reg, step_cls = result["per_step_losses"]
 
-        # ADR 046: Separate ground truth signals explicitly
-        y_reg = t1[:, reg_indices, :, :]
-        y_cls = t1[:, cls_indices, :, :]
+    # --- STAGE 5 DIAGNOSTIC: Lightweight midpoint biopsy ---
+    if viz and stage_label:
+        biopsy_start = max(0, (seq_len // 2) - 3)
+        biopsy_end = min(seq_len - 1, biopsy_start + 6)
 
-        # Forward pass: Feed ONLY the input features (Zero Magic)
-        t0_input = t0[:, feat_indices, :, :]
-        # Use Any to satisfy mypy non-callable error
-        t1_pred, t1_pred_class, h = cast(Any, model)(t0_input, h)
-
-        # --- FORENSIC RECORDING (ADR 001 Custodian) ---
-        if forensics:
-            # Record Regression Targets
-            for idx, target_name in enumerate(reg_targets):
-                forensics.record(
-                    f"REG:{target_name}", y_reg[:, idx : idx + 1], t1_pred[:, idx : idx + 1]
-                )
-
-            # Record Classification Targets
-            for idx, target_name in enumerate(cls_targets):
-                forensics.record(
-                    f"CLS:{target_name}",
-                    y_cls[:, idx : idx + 1],
-                    torch.sigmoid(t1_pred_class[:, idx : idx + 1]),
-                )
-
-        # STAGE 5 DIAGNOSTIC: Accumulate middle steps
-        if viz and stage_label:
-            # We want 6 steps.
-            start_idx = max(0, (seq_len // 2) - 3)
-            if i >= start_idx and len(acc_y_reg) < 6:
-                # [B, C, H, W] -> [H, W, C]
-                acc_y_reg.append(y_reg[0].permute(1, 2, 0).detach().cpu().numpy())
-                acc_yh_reg.append(t1_pred[0].permute(1, 2, 0).detach().cpu().numpy())
-                acc_y_cls.append(y_cls[0].permute(1, 2, 0).detach().cpu().numpy())
-                acc_yh_cls.append(
-                    torch.sigmoid(t1_pred_class[0]).permute(1, 2, 0).detach().cpu().numpy()
-                )
-
-                if time_idx >= 0:
-                    # Extract month_id from sample_handler.data [T, H, W, C]
-                    m_id = sample_handler.data[i + 1, 0, 0, time_idx]
-                    acc_months.append(m_id)
-
-        losses_list = []
-
-        # 1. Regression Losses
-        for j in range(n_reg):
-            losses_list.append(criterion_reg(t1_pred[:, j, :, :], y_reg[:, j, :, :]))
-
-        # 2. Classification Losses
-        for j in range(n_cls):
-            losses_list.append(criterion_class(t1_pred_class[:, j, :, :], y_cls[:, j, :, :]))
-
-        losses = torch.stack(losses_list)
-        loss = cast(Any, multitaskloss_instance)(losses)
-        total_loss += loss
-
-        loss_reg = losses[:n_reg].sum()
-        loss_class = losses[n_reg:].sum()
-
-        avg_loss_reg_list.append(loss_reg.detach().cpu().numpy().item())
-        avg_loss_class_list.append(loss_class.detach().cpu().numpy().item())
-        avg_loss_list.append(loss.detach().cpu().numpy().item())
-
-        # Update pbar for each month
-        pbar.update(1)
-
-    # STAGE 5 DIAGNOSTIC: Finalize Biopsy
-    if viz and stage_label and acc_y_reg:
-        viz.biopsy_training_performance(
-            np.stack(acc_y_reg),
-            np.stack(acc_yh_reg),
-            np.stack(acc_y_cls),
-            np.stack(acc_yh_cls),
-            stage_label,
-            time_indices=acc_months,
+        # Re-run the midpoint steps in eval mode for diagnostic capture only
+        model.eval()
+        h_diag = (
+            cast(Any, model)
+            .init_hTtime(hidden_channels=model.base, H=window_H, W=window_W)
+            .to(device)
         )
+        with torch.no_grad():
+            for i in range(seq_len - 1):
+                t0 = train_tensor[:, i, :, :, :]
+                t1 = train_tensor[:, i + 1, :, :, :]
+                t0_input = t0[:, idx.feat, :, :]
+                t1_pred, t1_pred_class, h_diag = cast(Any, model)(t0_input, h_diag)
+
+                if biopsy_start <= i < biopsy_end:
+                    y_reg = t1[:, idx.reg, :, :]
+                    y_cls = t1[:, idx.cls, :, :]
+                    acc_y_reg.append(y_reg[0].permute(1, 2, 0).cpu().numpy())
+                    acc_yh_reg.append(t1_pred[0].permute(1, 2, 0).cpu().numpy())
+                    acc_y_cls.append(y_cls[0].permute(1, 2, 0).cpu().numpy())
+                    acc_yh_cls.append(
+                        torch.sigmoid(t1_pred_class[0]).permute(1, 2, 0).cpu().numpy()
+                    )
+                    if time_idx >= 0:
+                        m_id = sample_handler.data[i + 1, 0, 0, time_idx]
+                        acc_months.append(m_id)
+        model.train()
+
+        if acc_y_reg:
+            viz.biopsy_training_performance(
+                np.stack(acc_y_reg),
+                np.stack(acc_yh_reg),
+                np.stack(acc_y_cls),
+                np.stack(acc_yh_cls),
+                stage_label,
+                time_indices=acc_months,
+            )
 
     # log each sequence/timeline/batch
-    train_log(avg_loss_list, avg_loss_reg_list, avg_loss_class_list)
+    train_log(step_total, step_reg, step_cls)
 
     # RETURN LOSS COMPONENTS
     return {
-        "total": total_loss,
-        "reg": torch.tensor(np.sum(avg_loss_reg_list)).to(device),
-        "cls": torch.tensor(np.sum(avg_loss_class_list)).to(device),
+        "total": result["total"],
+        "reg": result["reg"],
+        "cls": result["cls"],
     }
 
 

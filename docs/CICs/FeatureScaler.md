@@ -87,9 +87,9 @@ vh_raw = scaler.inverse_transform_volume(vh_semantic)
 
 ## 10. Test Alignment
 
-- **🟩 Green Team:** Round-trip accuracy tests in `legacy_tests/test_scaling_parity.py`.
-- **🟫 Beige Team:** Tests for missing transformation keys in the config.
-- **🟥 Red Team:** Verification that NaNs or Infs are preserved through transformation and not "hidden" by the scaler.
+- **🟩 Green Team:** Round-trip accuracy tests (log1p, asinh, identity), configured_columns property, volume metadata preservation in `tests/test_feature_scaler.py` and `tests/test_root_fix.py`.
+- **🟫 Beige Team:** Heterogeneous transforms, pred_ prefix stripping, input immutability, state locking in `tests/test_feature_scaler.py`.
+- **🟥 Red Team:** One-shot guard, inverse-before-fit guard, NaN/Inf rejection, unmapped feature rejection, missing column rejection in `tests/test_feature_scaler.py` and `tests/test_root_fix.py`.
 
 ---
 

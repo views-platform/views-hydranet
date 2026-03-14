@@ -511,7 +511,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
             W (int): Grid width.
 
         Returns:
-            torch.Tensor: Zero-initialized state [1, hidden_channels, H, W] in float64.
+            torch.Tensor: Zero-initialized state [1, hidden_channels, H, W] in float32.
         """
-        hs = torch.zeros((1, hidden_channels, H, W), dtype=torch.float64)
+        hs = torch.zeros((1, hidden_channels, H, W), dtype=torch.float32)
         return hs
