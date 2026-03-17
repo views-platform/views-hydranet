@@ -4,6 +4,8 @@ import pytest
 # Catches silent test collection failures (e.g., broken imports from
 # views_pipeline_core) before they erode coverage unnoticed.
 # Only triggers when running the full suite (no specific test paths given).
+# Assumes views_pipeline_core is installed (full monorepo environment).
+# Without it, ~13 test files fail to collect, reducing count to ~270.
 _MINIMUM_EXPECTED_TESTS = 280
 
 
