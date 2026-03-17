@@ -99,8 +99,7 @@ def choose_scheduler(
     elif config["scheduler"] == "plateau":
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
     else:
-        # Fallback to standard optimizer only
-        scheduler = []
+        scheduler = None
 
     return (optimizer, scheduler)
 

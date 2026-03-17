@@ -43,9 +43,9 @@ class DataFetcher:
         df_ext = PipelineConfig.dataframe_format
         path_raw_file = os.path.join(str(self.path_raw), f"{partition}_viewser_df{df_ext}")
 
-        print("")
+
         logger.info(f"DataFetcher: Loading {partition} from {path_raw_file}")
-        print("")
+
 
         df = read_dataframe(path_raw_file)
 

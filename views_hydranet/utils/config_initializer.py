@@ -125,6 +125,10 @@ class HydraNetConfig(BaseModel):
     def handle_typos(cls, data: Any) -> Any:
         if isinstance(data, dict):
             if "evalution_mode" in data and "evaluation_mode" not in data:
+                logger.warning(
+                    "Deprecated config key 'evalution_mode' — use 'evaluation_mode'. "
+                    "This shim will be removed in a future release."
+                )
                 data["evaluation_mode"] = data["evalution_mode"]
         return data
 

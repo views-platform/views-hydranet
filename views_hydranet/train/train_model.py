@@ -428,7 +428,7 @@ def training_loop(
                 optimizer.step()
 
             # Step scheduler at the end of the lesson if it exists
-            if scheduler and not isinstance(scheduler, list):
+            if scheduler is not None:
                 scheduler.step()
 
     logger.info("✅ Training complete!")

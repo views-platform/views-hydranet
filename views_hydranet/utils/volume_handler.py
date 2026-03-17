@@ -653,38 +653,38 @@ class VolumeHandler:
         return self
 
     @property
-    def data(self):
+    def data(self) -> Union[np.ndarray, "torch.Tensor"]:
         return self._data
 
     @property
-    def shape(self):
+    def shape(self) -> Tuple:
         return self._data.shape
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self._data.shape[self.get_axis_idx("T")]
 
     @property
-    def axes(self):
+    def axes(self) -> Tuple[str, ...]:
         return self._metadata.axes
 
     @property
-    def channel_map(self):
+    def channel_map(self) -> Tuple[str, ...]:
         return self._metadata.channel_map
 
     @property
-    def id_col(self):
+    def id_col(self) -> str:
         return self._metadata.id_col
 
     @property
-    def time_col(self):
+    def time_col(self) -> str:
         return self._metadata.time_col
 
     @property
-    def spatial_cols(self):
+    def spatial_cols(self) -> Tuple[str, ...]:
         return self._metadata.spatial_cols
 
     @property
-    def spatial_offset(self):
+    def spatial_offset(self) -> Tuple[int, int]:
         return self._metadata.spatial_offset
 
     # Cross-ref: DataFetcher.apply_blueprint() (data_fetcher.py)

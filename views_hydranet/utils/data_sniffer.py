@@ -47,7 +47,7 @@ class DataSniffer:
         """
         Suite of checks performed immediately after data is fetched from disk.
         """
-        print("")
+
         logger.info("DataSniffer: Starting Ingestion Suite (Raw Space)")
 
         self._check_obligatory_columns(df)
@@ -57,7 +57,7 @@ class DataSniffer:
         self._check_non_finite(df)
 
         logger.info("DataSniffer: Ingestion Suite Passed.")
-        print("")
+
 
     def sniff_forecast_alignment(
         self, df: pd.DataFrame, handler: VolumeHandler, is_forecast: bool = True
@@ -65,7 +65,7 @@ class DataSniffer:
         """
         Validates the temporal continuity and geographic anchoring of a volume carrier.
         """
-        print("")
+
         logger.info(
             f"DataSniffer: Starting {'Forecast' if is_forecast else 'History'} Alignment Suite"
         )
@@ -332,7 +332,7 @@ class DataSniffer:
         Verifies that the output DataFrame is bit-wise identical to the input DataFrame
         once model predictions are stripped.
         """
-        print("")
+
         logger.info("DataSniffer: Starting Pure State Parity Audit")
 
         time_col = self.config["time_col"]
@@ -397,7 +397,7 @@ class DataSniffer:
         """
         Enforces the ADR 032 structural contract on the output DataFrame.
         """
-        print("")
+
         logger.info("DataSniffer: Starting Pure State Schema Audit")
 
         # 1. MultiIndex Check (ADR 032 Section 2.1)
