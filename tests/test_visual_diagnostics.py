@@ -595,5 +595,35 @@ def test_vd_biopsy_tensor_bad_ndim_no_crash(vd_active):
     vd_active.biopsy_tensor(t, "bad_ndim_stage", ["lr_feat"])
 
 
+def test_vd_biopsy_dataframe_stochastic_list_in_cell_no_crash(vd_active, tmp_path):
+    """
+    RED GATE: biopsy_dataframe must handle list-in-cell prediction columns without crashing.
+
+    In stochastic evaluation mode, InferenceOrchestrator produces DataFrames where each
+    pred_<target> cell contains a Python list of S posterior samples.  biopsy_dataframe
+    is called on this DataFrame before _to_pf_dict() collapses the lists.  It must
+    silently collapse each list to its mean for plotting rather than raising
+    "ValueError: setting an array element with a sequence."
+
+    Regression guard for the stochastic-mode crash fixed in visual_diagnostics.py.
+    """
+    rows = []
+    for month in range(400, 406):
+        for r in range(4):
+            for c in range(4):
+                rows.append({
+                    "month_id": month,
+                    "row": r,
+                    "col": c,
+                    # list-in-cell: 5 posterior samples per cell
+                    "pred_lr_feat": [float(r + c + s) for s in range(5)],
+                })
+    df = pd.DataFrame(rows)
+
+    # Must complete without raising — the ValueError crash this guards against would propagate
+    # out of biopsy_dataframe in DEBUG mode and was silently swallowed otherwise.
+    vd_active.biopsy_dataframe(df, "stochastic_stage", features=["pred_lr_feat"])
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

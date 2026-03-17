@@ -140,7 +140,7 @@ class TrainingForensics:
             return np.sqrt(np.mean((np.log1p(y) - np.log1p(yh)) ** 2))
         if name.lower() == "msle":
             return np.mean((np.log1p(y) - np.log1p(yh)) ** 2)
-        return 0.0
+        raise ValueError(f"Unknown regression metric: '{name}'")
 
     def _calculate_cls_metric(self, name: str, y: np.ndarray, yh: np.ndarray) -> float:
         from sklearn.metrics import average_precision_score, roc_auc_score
@@ -166,4 +166,4 @@ class TrainingForensics:
                 return roc_auc_score(y_bin, yh)
             except ValueError:
                 return 0.5
-        return 0.0
+        raise ValueError(f"Unknown classification metric: '{name}'")

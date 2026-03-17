@@ -2,7 +2,7 @@
 
 **Status:** Active  
 **Owner:** Actor  
-**Last reviewed:** 19.02.2026  
+**Last reviewed:** 13.03.2026  
 **Related ADRs:** ADR-003, ADR-009, ADR-019, ADR-032
 
 ---
@@ -26,7 +26,9 @@ The `FeatureScaler` is the **Normalizer** of the HydraNet pipeline. Its primary 
 
 - **Bit-Perfect Reversibility:** Guarantees that every forward transform has a mathematically exact inverse.
 - **Stateful Lock:** Guarantees that once the scaler is fitted (`fit_transform`), its parameters are immutable for the duration of the run.
-- **Immediate Raw Principle:** Provides high-performance, vectorized inversion for whole volumes (`VolumeHandler`) to ensure downstream math happens in Raw Space.
+- **Immediate Raw Principle:** Provides high-performance, vectorized inversion for whole volumes (`VolumeHandler`) via `inverse_transform_volume()` to ensure downstream math happens in Raw Space.
+- **DataFrame Inversion:** Provides `inverse_transform(df)` for DataFrame-level inversion (complement to the volume path).
+- **Introspection:** Provides `configured_columns` property returning the flat list of all columns configured for scaling.
 - **Scientific Accuracy:** Ensures that point-estimates (Averages) are calculated *after* inversion to avoid violating Jensen's Inequality.
 
 ---
@@ -85,9 +87,9 @@ vh_raw = scaler.inverse_transform_volume(vh_semantic)
 
 ## 10. Test Alignment
 
-- **🟩 Green Team:** Round-trip accuracy tests in `legacy_tests/test_scaling_parity.py`.
-- **🟫 Beige Team:** Tests for missing transformation keys in the config.
-- **🟥 Red Team:** Verification that NaNs or Infs are preserved through transformation and not "hidden" by the scaler.
+- **🟩 Green Team:** Round-trip accuracy tests (log1p, asinh, identity), configured_columns property, volume metadata preservation in `tests/test_feature_scaler.py` and `tests/test_root_fix.py`.
+- **🟫 Beige Team:** Heterogeneous transforms, pred_ prefix stripping, input immutability, state locking in `tests/test_feature_scaler.py`.
+- **🟥 Red Team:** One-shot guard, inverse-before-fit guard, NaN/Inf rejection, unmapped feature rejection, missing column rejection in `tests/test_feature_scaler.py` and `tests/test_root_fix.py`.
 
 ---
 

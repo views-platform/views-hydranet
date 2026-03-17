@@ -438,13 +438,13 @@ class HydraBNUNet06_LSTM4(nn.Module):
                 self.dec_conv0_head2_reg(torch.cat([self.upsample0_head2_reg(b), e1s], 1))
             )
         )
-        H2_d0 = self.dropout(H1_d0)
+        H2_d0 = self.dropout(H2_d0)
         H2_d1 = F.relu(
             self.bn_dec_conv1_head2_reg(
                 self.dec_conv1_head2_reg(torch.cat([self.upsample1_head2_reg(H2_d0), e0s], 1))
             )
         )
-        H2_reg = self.dropout(H1_d1)
+        H2_reg = self.dropout(H2_d1)
         H2_reg = self.dec_conv4_head2_reg(H2_reg)
         out_reg2 = F.relu(H2_reg)
 
@@ -454,7 +454,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
                 self.dec_conv0_head2_class(torch.cat([self.upsample0_head2_class(b), e1s], 1))
             )
         )
-        H2_d0 = self.dropout(H1_d0)
+        H2_d0 = self.dropout(H2_d0)
         H2_d1 = F.relu(
             self.bn_dec_conv1_head2_class(
                 self.dec_conv1_head2_class(torch.cat([self.upsample1_head2_class(H2_d0), e0s], 1))
@@ -486,7 +486,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
                 self.dec_conv0_head3_class(torch.cat([self.upsample0_head3_class(b), e1s], 1))
             )
         )
-        H3_d0 = self.dropout(H1_d0)
+        H3_d0 = self.dropout(H3_d0)
         H3_d1 = F.relu(
             self.bn_dec_conv1_head3_class(
                 self.dec_conv1_head3_class(torch.cat([self.upsample1_head3_class(H3_d0), e0s], 1))
@@ -501,11 +501,6 @@ class HydraBNUNet06_LSTM4(nn.Module):
 
         return out_reg, out_class, h
 
-    def init_h(self, hidden_channels, dim):
-        """Legacy initialization. Use init_hTtime."""
-        hs = torch.zeros((1, hidden_channels, dim, dim), dtype=torch.float64)
-        return hs
-
     def init_hTtime(self, hidden_channels, H, W):
         """
         Initializes the recurrent hidden state.
@@ -516,7 +511,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
             W (int): Grid width.
 
         Returns:
-            torch.Tensor: Zero-initialized state [1, hidden_channels, H, W] in float64.
+            torch.Tensor: Zero-initialized state [1, hidden_channels, H, W] in float32.
         """
-        hs = torch.zeros((1, hidden_channels, H, W), dtype=torch.float64)
+        hs = torch.zeros((1, hidden_channels, H, W), dtype=torch.float32)
         return hs

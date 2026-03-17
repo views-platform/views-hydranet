@@ -2,8 +2,8 @@
 
 **Status:** Active  
 **Owner:** Actor  
-**Last reviewed:** 19.02.2026  
-**Related ADRs:** ADR-001, ADR-009, ADR-017
+**Last reviewed:** 13.03.2026  
+**Related ADRs:** ADR-001, ADR-009, ADR-017, ADR-046
 
 ---
 
@@ -28,6 +28,7 @@ The `DataFetcher` is the **Ingestor** of the HydraNet pipeline. Its primary purp
 - **Structural Standardization:** Guarantees the conversion of complex MultiIndices into flat columns based on the authoritative `index_names` in the config.
 - **Physical Sanitization:** Responsible for the removal of non-geographic rows (e.g., Ocean cells with `priogrid_gid=0`) to ensure a clean topological starting point.
 - **Zero-Inference Handshake:** Guarantees that it never "guesses" column roles; it strictly follows the configuration.
+- **Blueprint Execution:** `apply_blueprint(df, config)` (static method) executes the ADR-046 derivation instructions on a DataFrame, producing derived columns (e.g., binarization via threshold) so that training and evaluation DataFrames contain all required signals.
 
 ---
 
@@ -85,9 +86,9 @@ df_standard = DataFetcher.standardize_raw_df(df_raw, config)
 
 ## 10. Test Alignment
 
-- **🟩 Green Team:** Parquet round-trip tests in `legacy_tests/test_utils_data.py`.
-- **🟫 Beige Team:** Tests for missing index levels and invalid file paths.
-- **🟥 Red Team:** Verification that the fetcher is strictly "Passive" and does not mutate or scale data content.
+- **🟩 Green Team:** MultiIndex standardization, ocean cell removal, blueprint execution in `tests/test_data_fetcher.py`.
+- **🟫 Beige Team:** Extra column preservation, missing blueprint source handling in `tests/test_data_fetcher.py`.
+- **🟥 Red Team:** Non-MultiIndex rejection, wrong level names, missing config keys, unknown blueprint ops, file-not-found in `tests/test_data_fetcher.py`.
 
 ---
 

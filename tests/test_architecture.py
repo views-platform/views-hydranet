@@ -21,7 +21,7 @@ def test_architecture_hidden_state_init():
     h = model.init_hTtime(hidden_channels=32, H=H, W=W)
 
     assert h.shape == (1, 32, H, W)
-    assert h.dtype == torch.float64
+    assert h.dtype == torch.float32
     assert torch.all(h == 0)
 
 
@@ -162,4 +162,30 @@ def test_weight_init_xavier_norm_statistics():
         f"Got std = {actual_std:.4f}.\n"
         f"If std ≈ 0.10, Kaiming Uniform was applied instead of Xavier Normal.\n"
         f"If std ≈ 0.00, weights were not modified. Check init_weights() in utils.py."
+    )
+
+
+def test_no_cross_head_variable_leakage():
+    """
+    Structural gate: dropout in H{n} decoder blocks must only reference H{n} variables.
+
+    Catches copy-paste bugs where H2/H3 decoder dropout calls accidentally use
+    H1's intermediate variables, breaking multi-task head independence.
+    """
+    import inspect
+    import re
+
+    source = inspect.getsource(HydraBNUNet06_LSTM4.forward)
+    pattern = r"(H(\d)_\w+)\s*=\s*self\.dropout\(H(\d)_\w+\)"
+    violations = []
+    for match in re.finditer(pattern, source):
+        lhs_head = match.group(2)
+        rhs_head = match.group(3)
+        if lhs_head != rhs_head:
+            violations.append(
+                f"H{lhs_head} block uses H{rhs_head}'s variable: {match.group(0)}"
+            )
+    assert not violations, (
+        f"Cross-head variable leakage detected in {len(violations)} dropout call(s):\n"
+        + "\n".join(f"  - {v}" for v in violations)
     )

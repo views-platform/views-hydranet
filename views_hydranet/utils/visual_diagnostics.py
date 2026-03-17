@@ -105,7 +105,16 @@ class VisualDiagnostics:
                 month_map = {m: idx for idx, m in enumerate(global_months)}
                 t_idx = df_slice[self.time_col].map(month_map).values
 
-                vol_slice[t_idx, r_idx, c_idx, i] = df_slice[feat].values
+                # Collapse list-in-cell (stochastic mode) → scalar mean for plotting.
+                # Mirrors biopsy_volume's nanmean over the S axis.
+                raw_vals = df_slice[feat].values
+                first_valid = next((v for v in raw_vals if v is not None), None)
+                if isinstance(first_valid, (list, np.ndarray)):
+                    scalar_vals = np.array([np.mean(v) for v in raw_vals], dtype=float)
+                else:
+                    scalar_vals = raw_vals.astype(float)
+
+                vol_slice[t_idx, r_idx, c_idx, i] = scalar_vals
 
             # 3. Orient North-Up (Match VolumeHandler logic)
             # Fancy indexing places min-latitude at index 0.
@@ -117,11 +126,11 @@ class VisualDiagnostics:
                 vol_slice, features, global_months, stage_label, subdir=self.dirs["pipeline"]
             )
 
-        except Exception as e:
-            logger.error(f"VisualDiagnostics: Failed to biopsy DataFrame at {stage_label}: {e}")
-            # Raise in debug mode to see stack trace, or log clearly
-            if logger.getEffectiveLevel() <= logging.DEBUG:
-                raise e
+        except Exception:
+            logger.warning(
+                "VisualDiagnostics: biopsy_dataframe failed at '%s' — skipping plot.",
+                stage_label, exc_info=True,
+            )
 
     def biopsy_volume(self, vh: VolumeHandler, stage_label: str) -> None:
         """

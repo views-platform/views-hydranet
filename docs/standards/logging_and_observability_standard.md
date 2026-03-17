@@ -179,7 +179,7 @@ Logging tests must not rely on manual inspection.
 * Swallowing exceptions without logging
 * Logging and continuing after invariant violation
 * Downgrading errors to warnings to “keep things running”
-* Using `print()` for structural diagnostics
+* Using `print()` for structural diagnostics (**Exception:** `utils_logging.py` uses `print()` for formatted console banners by design. Blank-line `print()` separators in `DataSniffer` and `DataFetcher` are intentional formatting.)
 * Logging entire objects without context
 
 ---

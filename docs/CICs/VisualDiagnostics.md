@@ -2,7 +2,7 @@
 
 **Status:** Active
 **Owner:** Custodian (Visual Truth Engine)
-**Last Reviewed:** 20.02.2026
+**Last Reviewed:** 13.03.2026
 **Related ADRs:** ADR-005 (Testing), ADR-006 (CIC), ADR-008 (Failure Loudness), ADR-034 (Prediction Diagnostics), ADR-035 (Training Health Audit), ADR-037 (Geometric Health Visualization)
 
 ---

@@ -5,12 +5,14 @@ Declarative and Stateful Feature Scaling for HydraNet.
 import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Union
 
+import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
     from views_hydranet.utils.volume_handler import VolumeHandler
 
-from views_hydranet.utils.utils_config import TRANSFORMS
+from views_hydranet.utils.config_initializer import TRANSFORMS
+from views_hydranet.utils.volume_handler import BINARY_PREFIX, PRED_PREFIX
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +60,6 @@ class FeatureScaler:
                     )
                     logger.error(err_msg)
                     raise ValueError(err_msg)
-
-                import numpy as np
 
                 if np.isinf(col_series.values).any():
                     inf_count = np.isinf(col_series.values).sum()
@@ -224,14 +224,14 @@ class FeatureScaler:
         for i, channel_name in enumerate(vh.channel_map):
             # ADR 032: Handle both actuals (lr_sb) and predictions (pred_lr_sb)
             # 1. Identify intent (Linear vs Binary)
-            if "by_" in channel_name:
+            if channel_name.startswith(BINARY_PREFIX):
                 # Binary/Probability heads are never inverse-transformed
                 continue
 
             # 2. Extract base target name by stripping standard prefixes
             # Example: pred_lr_sb_best -> lr_sb_best
             # Example: lr_sb_best -> lr_sb_best
-            base_name = channel_name.replace("pred_", "")
+            base_name = channel_name.removeprefix(PRED_PREFIX)
 
             method = method_lookup.get(base_name)
             if method and method in TRANSFORMS:

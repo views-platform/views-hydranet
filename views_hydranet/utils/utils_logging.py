@@ -3,34 +3,60 @@ Diagnostic Narrative Utilities for HydraNet.
 Governed by ADR 034 and ADR 035.
 """
 
+import logging
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pandas as pd
 
+if TYPE_CHECKING:
+    import torch
 
-def calculate_hdi(samples: np.ndarray, mass: float = 0.95) -> tuple[float, float]:
+_device_logger = logging.getLogger(__name__)
+
+
+def log_device_report(device: "torch.device", run_type: str) -> None:
+    """Prints a device banner at the start of a training/evaluation/forecasting run.
+
+    Emits a standard 👾 banner for GPU runs and a loud 🚨 WARNING banner for CPU
+    runs, plus a logging.warning() call so the message is captured by log handlers.
+
+    Args:
+        device:   The torch.device selected by setup_device().
+        run_type: Human-readable label for the current operation
+                  (e.g. "training", "evaluation", "forecasting").
     """
-    Calculates the Highest Density Interval (HDI) for a set of samples.
-    """
-    if samples.size == 0:
-        return np.nan, np.nan
+    import torch  # local import — torch is a project dep but not a module-level import here
 
-    sorted_samples = np.sort(samples)
-    n_samples = len(sorted_samples)
+    label = run_type.upper()
 
-    interval_idx_inc = int(np.floor(mass * n_samples))
-    n_intervals = n_samples - interval_idx_inc
+    if device.type == "cuda":
+        gpu_count = torch.cuda.device_count()
+        gpu_name = torch.cuda.get_device_name(0) if gpu_count > 0 else "unknown"
+        vram_mib = (
+            torch.cuda.get_device_properties(0).total_memory // (1024**2) if gpu_count > 0 else 0
+        )
+        print("\n👾" + "=" * 100)
+        print(f"  DEVICE REPORT — {label}")
+        print("  " + "-" * 98)
+        print("  Device:    cuda  (GPU)")
+        print(f"  GPU Name:  {gpu_name}")
+        print(f"  VRAM:      {vram_mib:,} MiB")
+        print(f"  GPU Count: {gpu_count}")
+        print("👾" + "=" * 100 + "\n")
+    else:
+        _device_logger.warning(
+            "HydraNet running on CPU for %s. Performance will be severely degraded.", run_type
+        )
+        print("\n🚨" + "=" * 100)
+        print(f"  ⚠️  WARNING: RUNNING ON CPU — {label}")
+        print("  " + "-" * 98)
+        print("  No CUDA-capable GPU was detected.")
+        print("  HydraNet is a spatiotemporal deep network designed for GPU execution.")
+        print("  Expect severely degraded performance and very long runtimes.")
+        print("  This is NOT a hard stop. Proceeding on CPU.")
+        print("🚨" + "=" * 100 + "\n")
 
-    # Handle edge case where interval is larger than sample count
-    if interval_idx_inc == 0:
-        return sorted_samples[0], sorted_samples[-1]
-
-    interval_width = sorted_samples[interval_idx_inc:] - sorted_samples[:n_intervals]
-    min_idx = np.argmin(interval_width)
-
-    hdi_min = sorted_samples[min_idx]
-    hdi_max = sorted_samples[min_idx + interval_idx_inc]
-
-    return hdi_min, hdi_max
 
 
 def log_ingestion_report(df_in: pd.DataFrame, df_out: pd.DataFrame, config: dict) -> None:
@@ -111,66 +137,6 @@ def log_curriculum_report(subjects: list[str], maxima: dict[str, float], config:
 
     print("👾" + "=" * 100 + "\n")
 
-
-def log_prediction_summary(list_df: list[pd.DataFrame]) -> None:
-    """Prints a beautiful diagnostic summary of prediction results."""
-    if not list_df:
-        print("\n⚠️  EVALUATION SUMMARY: No DataFrames produced.")
-        return
-
-    print("\n👾" + "=" * 100)
-    print(f"  HYDRANET EVALUATION SUMMARY: {len(list_df)} sequences")
-    print("  " + "-" * 98)
-
-    for i, df in enumerate(list_df):
-        start_month = df.index.get_level_values("month_id").min()
-        end_month = df.index.get_level_values("month_id").max()
-        print(
-            f"\n  Sequence {i + 1:02d} | Months: {start_month} to {end_month} | Rows: {len(df):,}"
-        )
-
-        header = (
-            f"{'Column':<25} | {'Min':>12} | {'Max':>12} | {'Mean':>12} | "
-            f"{'HDI (95%)':^25} | {'NaN/Inf':>8}"
-        )
-        print("  " + header)
-        print("  " + "-" * len(header))
-
-        for col in df.columns:
-            series = df[col]
-            if series.empty:
-                continue
-
-            first_val = series.iloc[0]
-            is_stochastic = isinstance(first_val, (list, np.ndarray))
-
-            try:
-                if is_stochastic:
-                    flat_vals = np.concatenate(series.values).astype(np.float64)
-                    hdi_min, hdi_max = calculate_hdi(flat_vals)
-                    hdi_str = f"[{hdi_min:>8.4f}, {hdi_max:>8.4f}]"
-                else:
-                    flat_vals = series.values.astype(np.float64)
-                    hdi_str = f"{'N/A':^25}"
-
-                c_min, c_max, c_mean = (
-                    np.nanmin(flat_vals),
-                    np.nanmax(flat_vals),
-                    np.nanmean(flat_vals),
-                )
-                c_bad = np.sum(~np.isfinite(flat_vals))
-                col_display = f"{col}{'*' if is_stochastic else ''}"
-                print(
-                    f"  {col_display:<25} | {c_min:>12.4f} | {c_max:>12.4f} | "
-                    f"{c_mean:>12.4f} | {hdi_str} | {c_bad:>8}"
-                )
-            except (TypeError, ValueError):
-                print(
-                    f"  {col:<25} | {'N/A':>12} | {'N/A':>12} | {'N/A':>12} | "
-                    f"{'N/A':^25} | {'-':>8}"
-                )
-            print("\n  (*) Indicates stochastic samples flattened for summary.")
-    print("👾" + "=" * 100 + "\n")
 
 
 def log_training_summary(summary: dict) -> None:

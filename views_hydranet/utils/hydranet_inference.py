@@ -1,3 +1,4 @@
+import gc
 import logging
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple, cast
 
@@ -6,8 +7,9 @@ import torch
 from torch.nn import Module
 from tqdm import tqdm
 
+from views_hydranet.utils.visual_diagnostics import VisualDiagnostics
+
 if TYPE_CHECKING:
-    from views_hydranet.utils.visual_diagnostics import VisualDiagnostics
     from views_hydranet.utils.volume_handler import VolumeHandler
 
 logger = logging.getLogger(__name__)
@@ -19,6 +21,9 @@ class HydraNetInference:
     Includes model loading, inference execution, and posterior sampling using
     Monte Carlo Dropout for uncertainty estimation.
     """
+
+    _RANDOM_FREEZE_NUM_CHUNKS = 8
+    _RANDOM_FREEZE_PROBABILITY = 0.5
 
     def __init__(
         self,
@@ -151,18 +156,23 @@ class HydraNetInference:
             # Run model first to get new `h_tt_new`
             t1_pred, t1_pred_class, h_tt_new = self.model(t0, h_tt)
 
-            # Split the tensors into eight parts
-            split_size_small = num_channels // 8
-            h_tt_slices_old = torch.split(h_tt, split_size_small, dim=1)
-            h_tt_slices_new = torch.split(h_tt_new, split_size_small, dim=1)
+            # Vectorized Chunk Selection (ADR 028 Performance Hardening)
+            num_chunks = self._RANDOM_FREEZE_NUM_CHUNKS
+            split_size_small = num_channels // num_chunks
+            B, _, H, W = h_tt.shape
 
-            # Randomly choose whether to keep the old or new part
-            h_tt = torch.cat(
-                [
-                    old if torch.rand(1) < 0.5 else new
-                    for old, new in zip(h_tt_slices_old, h_tt_slices_new)
-                ],
-                dim=1,
+            # Generate binary mask on the correct device
+            mask = (
+                torch.rand(num_chunks, device=self.device)
+                < self._RANDOM_FREEZE_PROBABILITY
+            ).float()
+            mask_expanded = mask.view(1, num_chunks, 1, 1, 1).bool()
+
+            h_tt_reshaped = h_tt.view(B, num_chunks, split_size_small, H, W)
+            h_tt_new_reshaped = h_tt_new.view(B, num_chunks, split_size_small, H, W)
+
+            h_tt = torch.where(mask_expanded, h_tt_reshaped, h_tt_new_reshaped).view(
+                B, num_channels, H, W
             )
 
         else:
@@ -180,6 +190,7 @@ class HydraNetInference:
     def predict(
         self,
         full_tensor: torch.Tensor,
+        origin: int,
         sample_idx: int,
         feature_names: List[str],
         is_evaluation: bool = True,
@@ -216,98 +227,103 @@ class HydraNetInference:
             .to(self.device)
         )
 
-        # Define sequence lengths
-        if is_evaluation:
-            full_seq_len = seq_len - 1
-            in_sample_seq_len = seq_len - 1 - self.config["time_steps"]
-        else:
-            full_seq_len = seq_len - 1 + self.config["time_steps"]
-            in_sample_seq_len = seq_len - 1
+        # BOUNDARY ANCHORING (ADR 015)
+        # History ends at 'origin'. So there are 'origin + 1' months of history.
+        time_steps = self.config["time_steps"]
 
         n_reg = len(reg_targets)
         n_cls = len(self.config["classification_targets"])
 
-        pred_magnitudes_zstack = np.zeros((self.config["time_steps"], n_reg, H, W))
-        pred_probabilities_zstack = np.zeros((self.config["time_steps"], n_cls, H, W))
-
-        out_of_sample_month = 0
-        t1_pred = None  # Initialize to prevent UnboundLocalError
+        # GPU Accumulators for sequence steps
+        acc_magnitudes = []
+        acc_probabilities = []
 
         # STAGE 5 DIAGNOSTIC: Accumulators
         truth_accumulator = []
         pred_accumulator = []
 
-        for t in range(full_seq_len):
-            if pbar:
-                pbar.set_description(
-                    f"Drawing Samples | Sample {sample_idx + 1} | Step {t + 1}/{full_seq_len}"
-                )
+        # THE UNIFIED CAUSAL LOOP (ADR 015)
+        # Total iterations: Digest History (origin) + Autoregression (time_steps)
+        t1_pred = None
+        for t in range(origin + time_steps):
+            if t < origin:
+                # 1. HISTORY DIGESTION: Update hidden state only
+                t0_input = full_tensor[:, t, feat_indices, :, :]
+                _, _, h_tt = cast(Any, self.model)(t0_input, h_tt)
 
-            if t < in_sample_seq_len:
-                t0 = full_tensor[:, t]
-                # Slice input features
-                t0_input = t0[:, feat_indices, :, :]
-                # Data is already North-Up via VolumeHandler.
-                # Use Any to satisfy mypy non-callable error
-                t1_pred, _, h_tt = cast(Any, self.model)(t0_input, h_tt)
-
-                # STAGE 5: Capture the LAST historical frame as the SEED (t=in_sample_seq_len-1)
-                if sample_idx == 0 and t == in_sample_seq_len - 1 and self.viz.active:
-                    # Slice to get only regression targets for consistency with y_pred
-                    seed_slice = t0[0, reg_indices, :, :]
-                    y_seed = seed_slice.permute(1, 2, 0).detach().cpu().numpy()
-                    truth_accumulator.append(y_seed)
-                    pred_accumulator.append(y_seed)  # Seed is identity
-            else:
-                # BOOTSTRAP: If we are starting out-of-sample immediately,
-                # we need to initialize t1_pred from the first frame of history.
-                if t1_pred is None:
-                    t0 = full_tensor[:, 0]
-                    t0_input = t0[:, feat_indices, :, :]
-                    t1_pred, _, h_tt = cast(Any, self.model)(t0_input, h_tt)
-                    # Special case: If seq_len=1, seed is t=0
-                    if sample_idx == 0 and not truth_accumulator and self.viz.active:
-                        seed_slice = t0[0, reg_indices, :, :]
-                        y_seed = seed_slice.permute(1, 2, 0).detach().cpu().numpy()
-                        truth_accumulator.append(y_seed)
-                        pred_accumulator.append(y_seed)
-
-                t0 = t1_pred.detach()
-
-                # STAGE 5 DIAGNOSTIC: Capture 5 autoregressive steps
-                if sample_idx == 0 and len(truth_accumulator) < 6 and self.viz.active:
-                    target_t = t if is_evaluation else 0
-                    # Slice truth from full_tensor using reg_indices
-                    truth_slice = full_tensor[0, target_t, reg_indices, :, :]
-                    y_truth = truth_slice.permute(1, 2, 0).detach().cpu().numpy()
-
-                    y_pred = t0[0].permute(1, 2, 0).detach().cpu().numpy()
-                    truth_accumulator.append(y_truth)
-                    pred_accumulator.append(y_pred)
-
-                t1_pred, t1_pred_class, h_tt = self.execute_freeze_h_option(t0, h_tt)
-
-                # --- PANIC CHECK: Detect explosion ---
-                if not torch.isfinite(t1_pred).all():
-                    logger.error(f"!!! MODEL EXPLODED at sequence step {t} !!!")
-                    pred_magnitudes_zstack[out_of_sample_month:] = np.nan
-                    pred_probabilities_zstack[out_of_sample_month:] = np.nan
-                    break
-                # --- END PANIC CHECK ---
-
+            elif t == origin:
+                # 2. SEED STEP: Month Origin -> Month Origin + 1 (Step 1)
+                t0_input = full_tensor[:, t, feat_indices, :, :]
+                t1_pred, t1_pred_class, h_tt = cast(Any, self.model)(t0_input, h_tt)
                 t1_pred_class = torch.sigmoid(t1_pred_class)
 
-                pred_magnitudes_zstack[out_of_sample_month, :, :, :] = (
-                    t1_pred.cpu().detach().numpy().squeeze()
-                )
-                pred_probabilities_zstack[out_of_sample_month, :, :, :] = (
-                    t1_pred_class.cpu().detach().numpy().squeeze()
-                )
+                acc_magnitudes.append(t1_pred)
+                acc_probabilities.append(t1_pred_class)
 
-                out_of_sample_month += 1
+                if sample_idx == 0 and self.viz.active:
+                    # Seed frame for biopsy
+                    y_seed = (
+                        full_tensor[0, t, reg_indices, :, :]
+                        .permute(1, 2, 0).detach().cpu().numpy()
+                    )
+                    truth_accumulator.append(y_seed)
+                    pred_accumulator.append(y_seed)
+
+                    # Step 1 truth
+                    try:
+                        y_truth = (
+                            full_tensor[0, t + 1, reg_indices, :, :]
+                            .permute(1, 2, 0).detach().cpu().numpy()
+                        )
+                        truth_accumulator.append(y_truth)
+                    except IndexError:
+                        truth_accumulator.append(np.zeros_like(y_seed))
+
+                    y_pred = t1_pred[0].permute(1, 2, 0).detach().cpu().numpy()
+                    pred_accumulator.append(y_pred)
+
+            else:
+                # 3. AUTOREGRESSION: Pred[k] -> Pred[k+1]
+                t0_autoreg = t1_pred.detach()
+                t1_pred, t1_pred_class, h_tt = self.execute_freeze_h_option(t0_autoreg, h_tt)
+                t1_pred_class = torch.sigmoid(t1_pred_class)
+
+                acc_magnitudes.append(t1_pred)
+                acc_probabilities.append(t1_pred_class)
+
+                if sample_idx == 0 and self.viz.active and len(truth_accumulator) < 6:
+                    try:
+                        y_truth = (
+                            full_tensor[0, t + 1, reg_indices, :, :]
+                            .permute(1, 2, 0).detach().cpu().numpy()
+                        )
+                        truth_accumulator.append(y_truth)
+                    except IndexError:
+                        truth_accumulator.append(np.zeros_like(truth_accumulator[0]))
+
+                    y_pred = t1_pred[0].permute(1, 2, 0).detach().cpu().numpy()
+                    pred_accumulator.append(y_pred)
 
             if pbar:
                 pbar.update(1)
+
+        # --- BATCH TRANSFERS (Speed Hardening) ---
+        full_magnitudes = torch.cat(acc_magnitudes, dim=0)  # [T_steps, C, H, W]
+        del acc_magnitudes  # step tensors no longer needed; free before full+numpy coexist
+        full_probabilities = torch.cat(acc_probabilities, dim=0)
+        del acc_probabilities
+
+        if not torch.isfinite(full_magnitudes).all():
+            logger.error(f"!!! MODEL EXPLODED during sample {sample_idx} sequence !!!")
+            return (
+                np.full((time_steps, n_reg, H, W), np.nan, dtype=np.float32),
+                np.full((time_steps, n_cls, H, W), np.nan, dtype=np.float32),
+            )
+
+        pred_magnitudes_zstack = full_magnitudes.detach().cpu().numpy()
+        del full_magnitudes  # tensor no longer needed after numpy copy
+        pred_probabilities_zstack = full_probabilities.detach().cpu().numpy()
+        del full_probabilities
 
         # STAGE 5 DIAGNOSTIC: Finalize Biopsy
         if sample_idx == 0 and self.viz.active:
@@ -337,7 +353,11 @@ class HydraNetInference:
         return pred_magnitudes_zstack, pred_probabilities_zstack
 
     def generate_posterior_samples(
-        self, handler: "VolumeHandler", is_evaluation: bool = False, window_info: str = ""
+        self,
+        handler: "VolumeHandler",
+        origin: Optional[int] = None,
+        is_evaluation: bool = False,
+        window_info: str = "",
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Generates posterior samples from the model.
@@ -371,13 +391,12 @@ class HydraNetInference:
             except Exception:
                 pass
 
-        # Define full_seq_len based on logic in predict()
-        time_steps = len(self.config["steps"])
-        if is_evaluation:
-            full_seq_len = seq_len - 1
-        else:
-            full_seq_len = seq_len - 1 + time_steps
+        # Resolve Origin
+        if origin is None:
+            # Default to using all available history
+            origin = seq_len - 1
 
+        time_steps = len(self.config["steps"])
         n_reg = len(self.config["regression_targets"])
         n_cls = len(self.config["classification_targets"])
 
@@ -403,7 +422,10 @@ class HydraNetInference:
             dtype=np.float32,
         )
 
-        total_inference_steps = self.config["n_posterior_samples"] * full_seq_len
+        # Progress bar logic
+        # Digest (origin) + Seed (1) + Autoreg (time_steps - 1) = origin + time_steps
+        steps_per_sample = origin + time_steps
+        total_inference_steps = self.config["n_posterior_samples"] * steps_per_sample
 
         desc_prefix = f"[{window_info}] " if window_info else ""
 
@@ -418,6 +440,7 @@ class HydraNetInference:
                 for sample_idx in range(self.config["n_posterior_samples"]):
                     pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(
                         full_tensor,
+                        origin,
                         sample_idx,
                         feature_names=feature_names,
                         is_evaluation=is_evaluation,
@@ -433,11 +456,16 @@ class HydraNetInference:
                     posterior_probabilities_zstack[:, :, :, :, sample_idx] = (
                         pred_probabilities_zstack.transpose(0, 2, 3, 1)
                     )
+                    del pred_magnitudes_zstack
+                    del pred_probabilities_zstack
 
-                    # HARDENING: Clear VRAM cache between samples to prevent fragmentation
-                    if self.device.type == "cuda":
-                        torch.cuda.empty_cache()
+            # Explicit release of the input tensor before returning.
+            # del + gc.collect() ensures the PyTorch allocator pool receives the
+            # memory BEFORE the next origin allocates its own full_tensor.
+            del full_tensor
+            if self.device.type == "cuda":
+                torch.cuda.empty_cache()
+            else:
+                gc.collect()  # on CPU, prompt PyTorch allocator to coalesce its pool
 
-        # Concatenate only once at the end
-        # REFACTOR: Return them separately so orchestrator knows exactly what is what.
         return posterior_magnitudes_zstack, posterior_probabilities_zstack

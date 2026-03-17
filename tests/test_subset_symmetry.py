@@ -4,8 +4,22 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
+from views_pipeline_core.data.prediction_frame import PredictionFrame
 
 from views_hydranet.manager.hydranet_manager import HydranetManager
+
+
+def _pf_dict(values: dict, n: int, month_id: int = 11) -> dict:
+    """Build mock generate_prediction_frames payload."""
+    time_arr = np.array([month_id] * n, dtype=np.int32)
+    unit_arr = np.array(range(1, n + 1), dtype=np.int32)
+    return {
+        target: PredictionFrame(
+            y_pred=np.full((n, 1), val),
+            identifiers={"time": time_arr, "unit": unit_arr},
+        )
+        for target, val in values.items()
+    }
 
 # SUBSET AUDIT CONFIG
 SUBSET_CFG = {
@@ -14,7 +28,7 @@ SUBSET_CFG = {
     "time_steps": 1,
     "input_channels": 3,
     "output_channels": 1,
-    "regression_targets": ["lr_sb_best"],  # ONLY SB REQUESTED
+    "regression_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
     "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
     "identity_cols": ["month_id", "priogrid_gid", "row", "col"],
     "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
@@ -28,6 +42,7 @@ SUBSET_CFG = {
     },
     "height": 4,
     "width": 4,
+    "index_names": ["month_id", "priogrid_gid"],
     "time_col": "month_id",
     "id_col": "priogrid_gid",
     "spatial_cols": ["row", "col"],
@@ -61,8 +76,8 @@ SUBSET_CFG = {
     "max_ratio": 0.9,
     "min_ratio": 0.1,
     "freeze_h": "none",
-    "evalution_mode": "point",
-    "aggregate_method": "mean",
+    "evaluation_mode": "point",
+    "aggregate_method": "arithmetic_mean",
 }
 
 
@@ -135,41 +150,37 @@ class TestSubsetSymmetryAudit:
                         "audit",
                     )
 
-                    # Mock Orchestrator output to match Gate expectations
-                    df_mock = pd.DataFrame(
-                        {"lr_sb_best": [10.0] * 20, "pred_lr_sb_best": [100.0] * 20},
-                        index=pd.MultiIndex.from_product(
-                            [[11], range(1, 21)], names=["month_id", "priogrid_gid"]
-                        ),
-                    )
-
-                    mock_eval_cls.return_value.generate_forecasts.return_value = [df_mock]
+                    # Mock Orchestrator output — generate_prediction_frames returns
+                    # list[dict[str, PredictionFrame]] (pandas-free path)
+                    mock_eval_cls.return_value.generate_prediction_frames.return_value = [
+                        _pf_dict({
+                            "lr_sb_best": 100.0, "lr_ns_best": 100.0, "lr_os_best": 100.0,
+                            "by_sb_best": 0.9,   "by_ns_best": 0.9,   "by_os_best": 0.9,
+                        }, n=20)
+                    ]
 
                     # RUN EVALUATION
                     results = manager._evaluate_model_artifact(eval_type="audit")
-                    df_final = results[0]
 
                     # GATES
-                    cols = df_final.columns.tolist()
+                    # Gate 26 (Completeness): ALL regression predictions are keyed in result
+                    assert "lr_sb_best" in results
+                    assert "lr_ns_best" in results
+                    assert "lr_os_best" in results
 
-                    # Gate 26 (Isolation): NO NS or OS predictions
-                    assert "pred_lr_ns_best" not in cols
-                    assert "pred_lr_os_best" not in cols
+                    # Gate 27 (Target Coverage): Classification targets also present
+                    assert "by_sb_best" in results
 
-                    # Gate 27 (Actual Preservation): Actual is present
-                    assert "lr_sb_best" in cols
+                    # Gate 28 (Identifier Integrity): time and unit identifiers preserved
+                    pf_sb = results["lr_sb_best"][0]
+                    assert "time" in pf_sb.identifiers
+                    assert "unit" in pf_sb.identifiers
 
-                    # Gate 28 (Index Integrity): MultiIndex restored
-                    assert isinstance(df_final.index, pd.MultiIndex)
-                    assert df_final.index.names == ["month_id", "priogrid_gid"]
+                    # Gate 29 (Value Correctness): Prediction was 100.0
+                    np.testing.assert_allclose(pf_sb.y_pred[0, 0], 100.0, rtol=1e-5)
 
-                    # Gate 29 (Inverse Symmetry): Prediction was log1p(100), inverse is 100.0
-                    np.testing.assert_allclose(
-                        df_final["pred_lr_sb_best"].iloc[0], 100.0, rtol=1e-5
-                    )
-
-                    # Gate 30 (Collision Immunity): Actual was log1p(10), inverse is 10.0
-                    np.testing.assert_allclose(df_final["lr_sb_best"].iloc[0], 10.0, rtol=1e-5)
+                    # Gate 30 (Multi-target): All 6 targets produce PredictionFrames
+                    assert len(results) == 6
 
 
 if __name__ == "__main__":

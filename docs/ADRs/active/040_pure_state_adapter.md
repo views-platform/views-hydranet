@@ -30,6 +30,14 @@ The Adapter is initialized with the `targets` and `classification_outputs` from 
 **Negative Effects:**
 - **New Component:** Adds a small amount of "scaffolding" code.
 
+## Status Notes (2026-03-13)
+
+The `PureStateAdapter` class described in this ADR was not implemented as a standalone component. Its responsibilities (prefix-aware column mapping, schema enforcement) are embedded in:
+- `VolumeHandler.to_evaluation_pf()` / `VolumeHandler._reconstruct_as_pf_dict()` — PredictionFrame assembly (ADR-047)
+- `DataSniffer.sniff_pure_state_schema()` — schema validation
+
+This ADR remains as design intent documentation. The logic is distributed rather than centralized.
+
 ## 4. Rationale
 In a Boring Architecture, we prefer a specialized class over a 10-line block of logic in a Manager. By encapsulating the "Subsetting Gate" in an Adapter, we make the final handshake of the pipeline as formal and auditable as the ingestion handshake.
 

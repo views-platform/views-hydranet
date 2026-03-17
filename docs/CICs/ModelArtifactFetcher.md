@@ -2,7 +2,7 @@
 
 **Status:** Active  
 **Owner:** Actor  
-**Last reviewed:** 19.02.2026  
+**Last reviewed:** 13.03.2026  
 **Related ADRs:** ADR-001, ADR-009, ADR-016, ADR-026
 
 ---

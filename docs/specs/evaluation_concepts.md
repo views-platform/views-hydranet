@@ -1,5 +1,10 @@
 # Core Concepts in VIEWS Evaluation
 
+**Status:** Active
+**Date:** 06.02.2026
+**Author:** HydraNet Team
+**Related ADRs:** ADR-004, ADR-032
+
 This document explains the core concepts behind the `views-evaluation` framework, clarifying how data is organized and how model performance is measured.
 
 ## 1. Data Organization: Partitions and Sets

@@ -1,6 +1,6 @@
 # ADR 017: Specification for DataFetcher (The Ingestor)
 
-**Status:** Proposed  
+**Status:** Superseded by active ADR-017  
 **Context:** Data ingestion is the first point of contact with the "Wild World." To maintain topological integrity, we require a strictly specified component that standardizes diverse data formats into a canonical sparse table.
 
 ---

@@ -56,3 +56,14 @@ def test_focal_loss_gradient_flow():
 
     assert logits.grad is not None
     assert not torch.all(logits.grad == 0)
+
+
+@pytest.mark.parametrize("gamma", [0.0, 0.5, 1.0, 2.0, 5.0])
+def test_focal_loss_gamma_produces_finite_loss(gamma):
+    """Verify FocalLoss is finite and positive for a range of gamma values."""
+    fl = FocalLoss(alpha=0.25, gamma=gamma, reduction="mean")
+    logits = torch.randn(2, 2)
+    targets = torch.randint(0, 2, (2, 2)).float()
+    loss = fl(logits, targets)
+    assert torch.isfinite(loss)
+    assert loss.item() >= 0

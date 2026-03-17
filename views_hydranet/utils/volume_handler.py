@@ -1,13 +1,11 @@
 "VolumeHandler: Authoritative Layout Management for Spatiotemporal Volumes."
 
-import gc
 import logging
 from dataclasses import dataclass, field, replace
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import numpy as np
 import pandas as pd
-import polars as pl
 import torch
 
 logger = logging.getLogger(__name__)
@@ -202,15 +200,12 @@ class VolumeHandler:
             raise ValueError(err_msg)
 
         # 4. Allocation & Population
-        vol = np.zeros([height, width, month_range, len(channel_map)], dtype=np.float64)
+        vol = np.zeros([height, width, month_range, len(channel_map)], dtype=np.float32)
 
         # Dense Identity Population (Temporal)
-        try:
-            m_chan_idx = channel_map.index(time_col)
-            m_vals_global = np.arange(month_min, month_max + 1)
-            vol[..., m_chan_idx] = m_vals_global.reshape(1, 1, month_range)
-        except ValueError:
-            pass
+        m_chan_idx = channel_map.index(time_col)
+        m_vals_global = np.arange(month_min, month_max + 1)
+        vol[..., m_chan_idx] = m_vals_global.reshape(1, 1, month_range)
 
         for i, col_name in enumerate(channel_map):
             vol[r_idx, c_idx, m_idx, i] = df[col_name].values
@@ -253,13 +248,11 @@ class VolumeHandler:
             feature_indices = [
                 i for i, name in enumerate(self.channel_map) if name in self._metadata.feature_cols
             ]
-            if not feature_indices:
-                # Fallback to legacy count-based stripping if feature_cols is empty
-                # (Protects against un-annotated handlers)
-                n_identities = len(self._metadata.identity_cols)
-                np_data = np_data[:, :, :, n_identities:]
-            else:
-                np_data = np_data[:, :, :, feature_indices]
+            assert feature_indices, (
+                "VolumeHandler.to_pytorch: feature_cols is empty — "
+                "handler was not constructed via from_df or config['features'] is missing."
+            )
+            np_data = np_data[:, :, :, feature_indices]
 
         tensor = torch.from_numpy(np_data).to(device)
         tensor = tensor.permute(0, 3, 1, 2)  # [T, C, H, W]
@@ -328,15 +321,23 @@ class VolumeHandler:
             axes = ("T", "H", "W", "C", "S")
             n_samples = work_data.shape[-1]
 
-            # Extract and repeat identity watermarks
+            # Extract and repeat identity watermarks.
+            # Ensure float32 consistency: self.data is float32 (from_df),
+            # work_data is float32 (PyTorch output). Defensive cast to prevent
+            # accidental upcast if upstream ever introduces float64.
+            # Identity values (priogrid_gid, month_id, row, col) are small integers
+            # exactly representable in float32 (exact up to 2^24 ≈ 16.7 million).
             id_vols = []
             for idx in primary_idxs + identity_idxs:
                 slice_data = self.data[..., idx : idx + 1]  # [T, H, W, 1]
                 watermark = np.expand_dims(slice_data, axis=-1)  # [T, H, W, 1, 1]
                 watermark = np.repeat(watermark, n_samples, axis=-1)  # [T, H, W, 1, S]
-                id_vols.append(watermark)
+                id_vols.append(watermark.astype(np.float32))
 
-            full_data = np.concatenate(id_vols + [work_data], axis=-2)
+            # work_data from PyTorch is float32; ensure consistent output dtype.
+            full_data = np.concatenate(
+                id_vols + [work_data.astype(np.float32)], axis=-2
+            )
         else:
             # Point: [T, H, W, C]
             axes = ("T", "H", "W", "C")
@@ -408,19 +409,29 @@ class VolumeHandler:
             spatial_offset=self._metadata.spatial_offset,
         )
 
-    def to_historical_df(self) -> pd.DataFrame:
-        """
-        Converts the internal volume back to a sparse DataFrame.
-        """
-        return self._reconstruct_from_provider(self)
+    # ─── PredictionFrame Output Path (ADR-047 pandas-free) ───────────────────
 
-    def to_evaluation_df(self, history: "VolumeHandler", start_idx: int) -> pd.DataFrame:
+    def to_evaluation_pf(
+        self,
+        history: "VolumeHandler",
+        start_idx: int,
+        all_targets: List[str],
+    ) -> Dict[str, Any]:
         """
-        Converts predictions to DF by slicing a history provider.
+        Converts predictions to a dict of PredictionFrames by slicing a history
+        provider.  No pandas object created.
+
+        Returns
+        -------
+        dict[str, PredictionFrame]
+            Keys are target names; value is one PredictionFrame per target
+            covering this rolling-origin window.
         """
+        from views_pipeline_core.data.prediction_frame import PredictionFrame  # lazy import
+
         duration = self.data.shape[self.get_axis_idx("T")]
 
-        # Contract Validation (ADR 015)
+        # Bounds check
         history_duration = history.data.shape[history.get_axis_idx("T")]
         if start_idx + duration > history_duration:
             err_msg = (
@@ -428,184 +439,103 @@ class VolumeHandler:
                 f"[index {start_idx} : {start_idx + duration}] "
                 f"exceeds history duration ({history_duration})."
             )
-
             logger.error(err_msg)
-
             raise ValueError(err_msg)
 
         provider_slice = history.slice_time(start_idx, start_idx + duration)
-        return self._reconstruct_from_provider(provider_slice)
+        return self._reconstruct_as_pf_dict(provider_slice, all_targets, PredictionFrame)
 
-    def to_forecast_df(self, history: "VolumeHandler") -> pd.DataFrame:
+    def _valid_cell_indices(
+        self, provider: "VolumeHandler"
+    ) -> Tuple[np.ndarray, Tuple, np.ndarray, np.ndarray]:
         """
-        Converts predictions to DF by extrapolating a history provider.
-        """
-        duration = self._data.shape[self.get_axis_idx("T")]
-        provider_future = history.extrapolate_time(duration)
-        return self._reconstruct_from_provider(provider_future)
+        Shared geometry for the PredictionFrame output path.
 
-    def _reconstruct_from_provider(self, provider: "VolumeHandler") -> pd.DataFrame:
+        Returns (temp_data, indices, time_flat, unit_flat) where:
+        - temp_data  : self.data after transpose + North-Up flip  [H, W, T, C, (S)]
+        - indices    : (h_arr, w_arr, t_arr) from np.where(valid_mask)
+        - time_flat  : 1-D array of month_id values for each valid cell  (N,)
+        - unit_flat  : 1-D array of priogrid_gid values for each valid cell  (N,)
         """
-        Shared logic: Align, Mask, Flatten, and Combine.
-        Handles both Point (4D) and Stochastic (5D) volumes.
-        Uses an Iterative Watermarked Bridge (ADR 023) to ensure
-        absolute topographic integrity and RAM scalability.
-        """
-        # 1. Align Self (Signal)
+        # 1. Align self (signal)
+        # No copy: np.transpose() and np.flip() return views; fancy indexing
+        # in _reconstruct_as_pf_dict() allocates only the valid (N, S) result.
         temp_data = (
-            self._data.detach().cpu().numpy() if torch.is_tensor(self._data) else self._data.copy()
+            self._data.detach().cpu().numpy()
+            if torch.is_tensor(self._data)
+            else self._data
         )
         has_samples = "S" in self._metadata.axes
 
         if has_samples:
-            t_idx, h_idx, w_idx, c_idx, s_idx = (
-                self.get_axis_idx("T"),
-                self.get_axis_idx("H"),
-                self.get_axis_idx("W"),
-                self.get_axis_idx("C"),
+            t_ax, h_ax, w_ax, c_ax, s_ax = (
+                self.get_axis_idx("T"), self.get_axis_idx("H"),
+                self.get_axis_idx("W"), self.get_axis_idx("C"),
                 self.get_axis_idx("S"),
             )
-            temp_data = np.transpose(temp_data, (h_idx, w_idx, t_idx, c_idx, s_idx))
-            temp_data = np.flip(temp_data, axis=0)
+            temp_data = np.transpose(temp_data, (h_ax, w_ax, t_ax, c_ax, s_ax))
         else:
-            t_idx, h_idx, w_idx, c_idx = (
-                self.get_axis_idx("T"),
-                self.get_axis_idx("H"),
-                self.get_axis_idx("W"),
-                self.get_axis_idx("C"),
+            t_ax, h_ax, w_ax, c_ax = (
+                self.get_axis_idx("T"), self.get_axis_idx("H"),
+                self.get_axis_idx("W"), self.get_axis_idx("C"),
             )
-            temp_data = np.transpose(temp_data, (h_idx, w_idx, t_idx, c_idx))
-            temp_data = np.flip(temp_data, axis=0)
+            temp_data = np.transpose(temp_data, (h_ax, w_ax, t_ax, c_ax))
+        temp_data = np.flip(temp_data, axis=0)  # North-Up
 
-        # 2. Align Provider (Scaffold)
+        # 2. Align provider (scaffold)
+        # No copy: transpose + flip below are views; mask read is non-mutating.
         p_data = (
             provider.data.detach().cpu().numpy()
             if torch.is_tensor(provider.data)
-            else provider.data.copy()
+            else provider.data
         )
         p_t, p_h, p_w, p_c = (
-            provider.get_axis_idx("T"),
-            provider.get_axis_idx("H"),
-            provider.get_axis_idx("W"),
-            provider.get_axis_idx("C"),
+            provider.get_axis_idx("T"), provider.get_axis_idx("H"),
+            provider.get_axis_idx("W"), provider.get_axis_idx("C"),
         )
         p_data = np.transpose(p_data, (p_h, p_w, p_t, p_c))
-        p_data = np.flip(p_data, axis=0)
+        p_data = np.flip(p_data, axis=0)  # North-Up
 
-        # 3. Mask via Scaffold ID
+        # 3. Mask via priogrid_gid > 0
         id_col = provider._metadata.id_col
-        pg_idx = provider.channel_map.index(id_col)
         time_col = provider._metadata.time_col
+        pg_idx = provider.channel_map.index(id_col)
         time_idx = provider.channel_map.index(time_col)
 
         mask = p_data[:, :, :, pg_idx] > 0
         indices = np.where(mask)
 
-        # 4. Initialize Polars Scaffold (The Source of Truth)
-        # ADR 032: We MUST carry month_id, priogrid_gid, row, col, and c_id
-        scaffold_cols = {
-            time_col: p_data[indices[0], indices[1], indices[2], time_idx].astype(np.int32),
-            id_col: p_data[indices[0], indices[1], indices[2], pg_idx].astype(np.int32),
-        }
+        time_flat = p_data[indices[0], indices[1], indices[2], time_idx].astype(np.int32)
+        unit_flat = p_data[indices[0], indices[1], indices[2], pg_idx].astype(np.int32)
 
-        # 4. Initialize Polars Scaffold (The Source of Truth)
-        # ADR 032: We MUST carry month_id, priogrid_gid, row, col, and c_id
-        scaffold_cols = {
-            time_col: p_data[indices[0], indices[1], indices[2], time_idx].astype(np.int32),
-            id_col: p_data[indices[0], indices[1], indices[2], pg_idx].astype(np.int32),
-        }
+        return temp_data, indices, time_flat, unit_flat
 
-        # Add Actuals and Identities to Scaffold from the provider's map
-        for i, name in enumerate(provider.channel_map):
-            if name in [time_col, id_col]:
-                continue
+    def _reconstruct_as_pf_dict(
+        self, provider: "VolumeHandler", all_targets: List[str], PredictionFrame: Any
+    ) -> Dict[str, Any]:
+        """
+        Core PredictionFrame assembly.  Applies spatial geometry (transpose,
+        flip, mask) then writes directly into numpy arrays — no Polars, no
+        pandas, no list-in-cell overhead.
+        """
+        temp_data, indices, time_flat, unit_flat = self._valid_cell_indices(provider)
+        has_samples = "S" in self._metadata.axes
+        identifiers = {"time": time_flat, "unit": unit_flat}
 
-            # Carry everything from the provider that is either an identity or a feature
-            if name in provider._metadata.identity_cols or name in provider._metadata.feature_cols:
-                scaffold_cols[name] = p_data[indices[0], indices[1], indices[2], i].astype(
-                    np.float32
-                )
-
-        pl_master = pl.DataFrame(scaffold_cols)
-        del p_data, scaffold_cols
-        gc.collect()
-
-        # 5. Iterative Watermarked Join (One Column at a Time)
-        try:
-            head_id_idx = self.channel_map.index(id_col)
-            head_time_idx = self.channel_map.index(time_col)
-        except ValueError:
-            head_id_idx = None
-            head_time_idx = None
-
-        for i, name in enumerate(self.channel_map):
-            if name in pl_master.columns:
-                continue
-
-            # Create Watermarked Head
-            if head_id_idx is not None:
-                if has_samples:
-                    # STOCHASTIC WATERMARK: Extract first sample only for IDs
-                    # Join keys must be scalar.
-                    head_dict = {
-                        time_col: temp_data[
-                            indices[0], indices[1], indices[2], head_time_idx, 0
-                        ].astype(np.int32),
-                        id_col: temp_data[
-                            indices[0], indices[1], indices[2], head_id_idx, 0
-                        ].astype(np.int32),
-                        name: temp_data[indices[0], indices[1], indices[2], i, :],
-                    }
-                else:
-                    # POINT WATERMARK: Standard extraction
-                    head_dict = {
-                        time_col: temp_data[
-                            indices[0], indices[1], indices[2], head_time_idx
-                        ].astype(np.int32),
-                        id_col: temp_data[indices[0], indices[1], indices[2], head_id_idx].astype(
-                            np.int32
-                        ),
-                        name: temp_data[indices[0], indices[1], indices[2], i],
-                    }
+        result: Dict[str, Any] = {}
+        for target in all_targets:
+            pred_col = f"pred_{target}"
+            chan_idx = self.channel_map.index(pred_col)
+            if has_samples:
+                y_pred = temp_data[indices[0], indices[1], indices[2], chan_idx, :]  # (N, S)
             else:
-                # POSITION FALLBACK: Re-use scaffold IDs (Vulnerable to shuffle)
-                if has_samples:
-                    head_val = temp_data[indices[0], indices[1], indices[2], i, :]
-                else:
-                    head_val = temp_data[indices[0], indices[1], indices[2], i]
-                head_dict = {
-                    time_col: pl_master[time_col],
-                    id_col: pl_master[id_col],
-                    name: head_val,
-                }
-            df_head = pl.DataFrame(head_dict)
-
-            # Explicit Join (Red Team Proof)
-            pl_master = pl_master.join(df_head, on=[time_col, id_col], how="left")
-            del df_head
-            gc.collect()
-
-        # 6. Iterative Safe Handshake to Pandas (Legacy Compatibility)
-        # We build the Pandas DataFrame column by column to keep the 'Object Tax'
-        # limited to exactly one column's worth of Python lists.
-        # ADR 032: We initialize with all columns from pl_master to ensure
-        # bookkeeping identities (c_id, row, col) are carried forward.
-        df_out = pd.DataFrame()
-
-        for col in pl_master.columns:
-            # Safe Export: Use to_list() for stochastic channels to ensure compatibility
-            if has_samples and col in self.channel_map:
-                df_out[col] = pl_master[col].to_list()
-            else:
-                df_out[col] = pl_master[col].to_pandas()
-
-            gc.collect()
-
-        # 7. Final Topographical Restoration
-        if time_col in df_out.columns and id_col in df_out.columns:
-            df_out = df_out.set_index([time_col, id_col])
-
-        return df_out
+                y_pred = temp_data[indices[0], indices[1], indices[2], chan_idx]     # (N,)
+                y_pred = y_pred.reshape(-1, 1)                                        # (N, 1)
+            result[target] = PredictionFrame(
+                y_pred=y_pred,
+                identifiers=identifiers,
+            )
+        return result
 
     def slice_time(self, start_idx: int, end_idx: int) -> "VolumeHandler":
         """
@@ -657,21 +587,18 @@ class VolumeHandler:
         else:
             future_vol = np.tile(last_frame, repeat_shape)
 
-        try:
-            m_col = self._metadata.time_col
-            m_idx = self.channel_map.index(m_col)
-            if torch.is_tensor(self._data):
-                t_increments = torch.arange(1, steps + 1, device=self._data.device).view(
-                    steps, 1, 1
-                )
-                t_future_vol = cast(torch.Tensor, future_vol)
-                t_future_vol[..., m_idx] += t_increments
-            else:
-                np_increments = np.arange(1, steps + 1).reshape(steps, 1, 1)
-                np_future_vol = cast(np.ndarray, future_vol)
-                np_future_vol[..., m_idx] += np_increments
-        except ValueError:
-            pass
+        m_col = self._metadata.time_col
+        m_idx = self.channel_map.index(m_col)
+        if torch.is_tensor(self._data):
+            t_increments = torch.arange(1, steps + 1, device=self._data.device).view(
+                steps, 1, 1
+            )
+            t_future_vol = cast(torch.Tensor, future_vol)
+            t_future_vol[..., m_idx] += t_increments
+        else:
+            np_increments = np.arange(1, steps + 1).reshape(steps, 1, 1)
+            np_future_vol = cast(np.ndarray, future_vol)
+            np_future_vol[..., m_idx] += np_increments
 
         return VolumeHandler(
             data=future_vol,
@@ -685,7 +612,7 @@ class VolumeHandler:
             spatial_offset=self._metadata.spatial_offset,
         )
 
-    def permute(self, dims: Union[List[int], Tuple[int, ...]]) -> "VolumeHandler":
+    def _permute(self, dims: Union[List[int], Tuple[int, ...]]) -> "VolumeHandler":
         """
         Reorders the axes of the volume and updates the Ledger.
         NOTE: Review needed - primarily used in geometric tests.
@@ -726,40 +653,43 @@ class VolumeHandler:
         return self
 
     @property
-    def data(self):
+    def data(self) -> Union[np.ndarray, "torch.Tensor"]:
         return self._data
 
     @property
-    def shape(self):
+    def shape(self) -> Tuple:
         return self._data.shape
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self._data.shape[self.get_axis_idx("T")]
 
     @property
-    def axes(self):
+    def axes(self) -> Tuple[str, ...]:
         return self._metadata.axes
 
     @property
-    def channel_map(self):
+    def channel_map(self) -> Tuple[str, ...]:
         return self._metadata.channel_map
 
     @property
-    def id_col(self):
+    def id_col(self) -> str:
         return self._metadata.id_col
 
     @property
-    def time_col(self):
+    def time_col(self) -> str:
         return self._metadata.time_col
 
     @property
-    def spatial_cols(self):
+    def spatial_cols(self) -> Tuple[str, ...]:
         return self._metadata.spatial_cols
 
     @property
-    def spatial_offset(self):
+    def spatial_offset(self) -> Tuple[int, int]:
         return self._metadata.spatial_offset
 
+    # Cross-ref: DataFetcher.apply_blueprint() (data_fetcher.py)
+    # This path RAISES if source missing; DataFrame path SKIPS.
+    # See tests/test_derivation_parity.py for parity guard.
     def _execute_derivations(self, derivations_config: Dict[str, List[Dict[str, Any]]]) -> None:
         """
         Executes additive feature engineering instructions (ADR 046).

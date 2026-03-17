@@ -2,8 +2,8 @@
 
 **Status:** Active  
 **Owner:** Actor  
-**Last reviewed:** 19.02.2026  
-**Related ADRs:** ADR-001, ADR-009, ADR-011
+**Last reviewed:** 13.03.2026  
+**Related ADRs:** ADR-001, ADR-009, ADR-011 (Proposed)
 
 ---
 
@@ -28,6 +28,7 @@ The `CurriculumLearner` is the **Planner** of the HydraNet pipeline. Its primary
 - **Signal Anchorage:** Responsible for converting the global ratio into an absolute event threshold for each specific task (`sb`, `ns`, `os`).
 - **Multitask Oscillation:** Guarantees the balanced rotation of search targets across windows to ensure multitask gradient stability.
 - **Stateless Strategy:** Guarantees that for a given global window index and configuration, the strategy produced is identical and reproducible.
+- **Introspection:** Provides `get_intensity_ratio(global_step_idx)` to expose the current global intensity ratio (the "Cooling" curve) for logging and diagnostics.
 
 ---
 

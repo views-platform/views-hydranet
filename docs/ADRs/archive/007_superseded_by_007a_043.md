@@ -1,6 +1,6 @@
 # ADR 007: Technical Specification for VolumeHandler (The Custodian)
 
-**Status:** Proposed  
+**Status:** Superseded by ADR-012, ADR-043  
 **Context:** Complexity is the enemy of the good. This spec enforces a "Boring" architecture where data, ledger, and logic travel together without magic strings or hidden assumptions.
 
 ---

@@ -2,7 +2,7 @@
 
 **Status:** Active  
 **Owner:** Custodian (Learning Trajectory)  
-**Last Reviewed:** 20.02.2026  
+**Last Reviewed:** 13.03.2026  
 **Related ADRs:** ADR-001 (Ontology), ADR-003 (Zero Magic), ADR-009 (Strict Boundaries), ADR-014 (Optimization Gate), ADR-032 (Naming)
 
 ---
@@ -50,7 +50,8 @@ The `TrainingForensics` class is the **Independent Forensic Auditor** of model p
 ---
 
 ## 7. Boundaries and Interactions
-- **The Producer (`train()`):** Interacts via `.record(target_name, y, y_hat)` per window.
+- **The Producer (`train()`):** Interacts via `.record(namespaced_key, y, y_hat)` per window, where `namespaced_key` follows the format `"REG:target"` or `"CLS:target"`.
+- **Lesson Boundary:** `.finalize_lesson()` reduces per-window buffers into stable lesson-level metrics and updates history.
 - **The Consumer (`VisualDiagnostics`):** Interacts via `.get_dossier(target_name)` to retrieve data for the "Feature Dossier" plots.
 
 ---

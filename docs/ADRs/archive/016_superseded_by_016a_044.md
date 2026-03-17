@@ -1,6 +1,6 @@
 # ADR 016: Specification for HydranetManager (The Orchestrator)
 
-**Status:** Accepted  
+**Status:** Superseded by active ADR-016, ADR-044  
 **Context:** High-level pipeline management requires a central orchestrator. Previous managers became "God Objects" containing both strategy and mechanics. This ADR defines the `HydranetManager` as a pure orchestrator that delegates all technical work to specialized "Boring" components.
 
 ---

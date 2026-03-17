@@ -2,8 +2,8 @@
 
 **Status:** Active  
 **Owner:** Actor  
-**Last reviewed:** 19.02.2026  
-**Related ADRs:** ADR-038, ADR-039, ADR-044
+**Last reviewed:** 13.03.2026
+**Related ADRs:** ADR-038, ADR-039, ADR-044, ADR-047
 
 ---
 
@@ -25,7 +25,7 @@ The `InferenceOrchestrator` is the **Unified Symmetry Engine** of the HydraNet p
 ## 3. Responsibilities and Guarantees
 
 - **Unification Guarantee:** Ensures that the exact same code path is used for both rolling-origin backtests and single-origin operational forecasts.
-- **Law of Sequence (ADR-039):** Guarantees the immutable order: Extrapolate -> Predict -> Wrap -> Invert -> Collapse -> Reconstruct.
+- **Law of Sequence (ADR-039):** Guarantees the immutable order: Predict -> Align -> Wrap -> Invert -> Collapse -> Reconstruct.
 - **Identity Integrity:** Ensures that every prediction is anchored to the correct geographic and temporal scaffold provided by the history.
 - **Stochastic Awareness:** Correctly handles the 5th dimension (`S`) across the inference sequence without silent collapse.
 
@@ -41,7 +41,8 @@ The `InferenceOrchestrator` is the **Unified Symmetry Engine** of the HydraNet p
 
 ## 5. Outputs and Side Effects
 
-- **Prediction List:** Produces a list of "Pure State" DataFrames (ADR-032) for every origin provided.
+- **PredictionFrame Dicts:** Produces `List[Dict[str, PredictionFrame]]` — one dict per origin, keyed by target name (ADR-047).
+- **Streaming Output:** The streaming variant calls an `origin_sink(i, pf_dict)` callback per origin, freeing memory immediately after each (ADR-047).
 - **Diagnostic Summaries:** Triggers automated summaries of the prediction statistics (ADR-034).
 
 ---
@@ -67,11 +68,11 @@ The `InferenceOrchestrator` is the **Unified Symmetry Engine** of the HydraNet p
 ```python
 orchestrator = InferenceOrchestrator(config, model, device)
 
-# Operational Forecast
-predictions = orchestrator.predict(history_vh, origins=[latest_month])
+# Batch evaluation (accumulates all origins in memory)
+pf_dicts = orchestrator.generate_prediction_frames(handler, scaler, origins=[400, 412, 424], all_targets=targets)
 
-# Backtest
-backtest_results = orchestrator.predict(history_vh, origins=[400, 412, 424])
+# Streaming evaluation (one origin at a time, minimal memory)
+orchestrator.generate_prediction_frames_streaming(handler, scaler, origins=[400, 412, 424], all_targets=targets, origin_sink=my_callback)
 ```
 
 ---
@@ -85,9 +86,9 @@ backtest_results = orchestrator.predict(history_vh, origins=[400, 412, 424])
 
 ## 10. Test Alignment
 
-- **🟩 Green Team:** Bit-perfect parity tests between backtest and forecast modes in `tests/test_inference_orchestrator.py`.
+- **🟩 Green Team:** PredictionFrame shape and content tests in `tests/test_inference_orchestrator_pf.py`.
 - **🟫 Beige Team:** Tests for invalid origin months and mismatched feature sets.
-- **🟥 Red Team:** Survival tests against model explosion during long-horizon (36 month) roll-forwards.
+- **🟥 Red Team:** Survival tests in `tests/test_audit_manager_eval_survival.py`.
 
 ---
 

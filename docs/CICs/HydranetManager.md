@@ -2,8 +2,8 @@
 
 **Status:** Active  
 **Owner:** Orchestrator  
-**Last reviewed:** 19.02.2026  
-**Related ADRs:** ADR-001, ADR-009, ADR-016, ADR-044
+**Last reviewed:** 13.03.2026
+**Related ADRs:** ADR-001, ADR-009, ADR-016, ADR-044, ADR-047
 
 ---
 
@@ -43,7 +43,7 @@ The `HydranetManager` is the **Orchestrator** of the HydraNet pipeline. Its prim
 ## 5. Outputs and Side Effects
 
 - **Model Artifacts:** Produces trained `.pt` files saved to the artifacts directory.
-- **Prediction DataFrames:** Produces "Pure State" DataFrames for consumption by evaluation libraries.
+- **PredictionFrame Dicts:** Produces `Dict[str, PredictionFrame]` or `Dict[str, List[PredictionFrame]]` for consumption by evaluation libraries (ADR-047).
 - **Persistent Logs:** Records the complete narrative of the run, including configuration checksums and performance metrics.
 
 ---
@@ -67,14 +67,18 @@ The `HydranetManager` is the **Orchestrator** of the HydraNet pipeline. Its prim
 ## 8. Examples of Correct Usage
 
 ```python
-# Initialization
-manager = HydranetManager(config, model_path)
+# Initialization (via views-pipeline-core)
+manager = HydranetManager(model_path)
 
-# Running a training task
-manager._execute_model_training()
+# Public API
+actuals_df = manager.prepare_actuals_df(raw_df)
 
-# Running a forecasting task
-predictions = manager._execute_model_forecasting()
+# Internal lifecycle methods (called by views-pipeline-core framework):
+# manager._train_model_artifact()          → trains and saves .pt artifact
+# manager._evaluate_model_artifact()       → batch rolling-origin evaluation → Dict[str, List[PF]]
+# manager._evaluate_model_artifact_streaming()  → streaming evaluation via origin_sink callback
+# manager._forecast_model_artifact()       → operational forecast → Dict[str, PF]
+# manager._run_data_pipeline(viz)          → shared data ingestion → (VolumeHandler, FeatureScaler, DataSniffer)
 ```
 
 ---

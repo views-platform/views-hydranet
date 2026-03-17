@@ -3,8 +3,8 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
+from views_hydranet.utils.config_initializer import HydraNetConfig
 from views_hydranet.utils.feature_scaler import FeatureScaler
-from views_hydranet.utils.utils_config import HydraNetConfig
 
 # BIT-PERFECT ROOT AUDIT STANDARDS
 BASE_CONFIG = {
@@ -31,6 +31,7 @@ BASE_CONFIG = {
     },
     "height": 4,
     "width": 4,
+    "index_names": ["month_id", "priogrid_gid"],
     "time_col": "month_id",
     "id_col": "priogrid_gid",
     "spatial_cols": ["row", "col"],
@@ -64,8 +65,8 @@ BASE_CONFIG = {
     "max_ratio": 0.9,
     "min_ratio": 0.1,
     "freeze_h": "none",
-    "evalution_mode": "point",
-    "aggregate_method": "mean",
+    "evaluation_mode": "point",
+    "aggregate_method": "arithmetic_mean",
 }
 
 

@@ -6,11 +6,13 @@ evaluation, and forecasting tasks for the HydraNet model within the ViEWS pipeli
 It handles spatiotemporal data volumes and implements rolling-origin evaluation.
 """
 
+import gc
 import logging
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Callable, Dict, List, NamedTuple
 
 import pandas as pd
+from views_pipeline_core.data.prediction_frame import PredictionFrame
 from views_pipeline_core.managers.model import (
     ForecastingModelManager,
     ModelPathManager,
@@ -23,11 +25,9 @@ from views_hydranet.utils.data_sniffer import DataSniffer
 from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
 from views_hydranet.utils.model_artifact_fetcher import ModelArtifactFetcher
-from views_hydranet.utils.pure_state_adapter import PureStateAdapter
 from views_hydranet.utils.utils_device import setup_device
 from views_hydranet.utils.utils_logging import (
-    log_ingestion_report,
-    log_prediction_summary,
+    log_device_report,
     log_training_summary,
 )
 from views_hydranet.utils.utils_orchestration import get_rolling_origin_indices
@@ -35,6 +35,16 @@ from views_hydranet.utils.visual_diagnostics import VisualDiagnostics
 from views_hydranet.utils.volume_handler import VolumeHandler
 
 logger = logging.getLogger(__name__)
+
+
+class _EvaluationContext(NamedTuple):
+    """Typed return value of HydranetManager._setup_evaluation()."""
+
+    handler: "VolumeHandler"
+    scaler: "FeatureScaler"
+    origins: List[int]
+    all_targets: List[str]
+    orchestrator: "InferenceOrchestrator"
 
 
 class HydranetManager(ForecastingModelManager):
@@ -46,6 +56,82 @@ class HydranetManager(ForecastingModelManager):
     """
 
     configs: Dict[str, Any]
+
+    def _run_data_pipeline(
+        self,
+        viz: "VisualDiagnostics",
+        partition_bound: int | None = None,
+    ) -> tuple["VolumeHandler", "FeatureScaler", "DataSniffer"]:
+        """
+        Shared data ingestion pipeline (ADR 039 Steps 1-3).
+
+        Fetch → Biopsy Stage 1 → Standardize → Sniff → Scale →
+        Biopsy Stage 2 → (partition) → Volume → Biopsy Stage 3.
+
+        Parameters
+        ----------
+        viz : VisualDiagnostics
+            Visual diagnostics engine for biopsy calls.
+        partition_bound : int, optional
+            If set, filters the DataFrame to ``time_col <= partition_bound``
+            before constructing the VolumeHandler (evaluation path).
+
+        Returns
+        -------
+        (VolumeHandler, FeatureScaler, DataSniffer)
+        """
+        # 1. Ingest
+
+        data_fetcher = DataFetcher(self._model_path.data_raw, self.configs)
+        df = data_fetcher.fetch_df()
+
+        # Diagnostic plot features
+        plot_feats = (
+            [
+                self.configs.get("time_col", "month_id"),
+                self.configs.get("id_col", "priogrid_gid"),
+                "c_id",
+            ]
+            + self.configs.get("spatial_cols", [])
+            + self.configs.get("regression_targets", [])
+        )
+
+        # DIAGNOSTIC: Stage 1 (Ingestion)
+        viz.biopsy_dataframe(df, "Stage 1: Raw Ingestion", features=plot_feats)
+
+        df = DataFetcher.standardize_raw_df(df, self.configs)
+
+        # 2. Sniff
+
+        sniffer = DataSniffer(self.configs)
+        sniffer.sniff_ingestion(df)
+
+        # 3. Scale
+
+        scaler = FeatureScaler(self.configs)
+        df = scaler.fit_transform(df)
+
+        # DIAGNOSTIC: Stage 2 (Transformation)
+        viz.biopsy_dataframe(df, "Stage 2: Scaled DataFrame", features=plot_feats)
+
+        # Partition slicing (evaluation only)
+        if partition_bound is not None:
+            time_col = self.configs.get("time_col", "month_id")
+            df = df[df[time_col] <= partition_bound]
+
+        # 4. Transform: DataFrame -> Volume
+
+        handler = VolumeHandler.from_df(df, self.configs)
+
+        # DIAGNOSTIC: Stage 3 (Volume)
+        viz.biopsy_volume(handler, "Stage 3: Global Volume")
+
+        sniffer.sniff_forecast_alignment(df, handler, is_forecast=False)
+
+        del df
+        gc.collect()
+
+        return handler, scaler, sniffer
 
     def __init__(self, model_path: ModelPathManager, wandb_notification: bool = True) -> None:
         """
@@ -81,213 +167,187 @@ class HydranetManager(ForecastingModelManager):
 
         # HydraBNUNet06_LSTM4 hardcodes 3 reg + 3 class
         if n_reg != 3 or n_class != 3:
-            msg = (
-                f"⚠️ ARCHITECTURE MISMATCH: Model expects 3+3 heads, Config has {n_reg}+{n_class}. "
-                "This may cause loss misalignment."
+            err_msg = (
+                f"ARCHITECTURE MISMATCH: Model expects 3+3 heads, "
+                f"Config has {n_reg}+{n_class}. Aborting."
             )
-            logger.warning(msg)
-            print(f"\n{msg}\n")
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         else:
             logger.info("✅ Architecture: Head Count Aligned (3+3)")
 
     def _execute_model_training(self) -> None:
         """HydraNet specific training override."""
+        self._train_model_artifact()
+
+    def _train_model_artifact(self) -> Any:
+        """
+        Executes the training lifecycle and returns the trained model object.
+        This method acts as the 'Operational Core' for both standard runs and sweeps.
+        """
+        log_device_report(self.device, "training")
         logger.info(f"Starting HydraNet training: {self.configs['run_type']}")
 
         # 0. Strict Config Handshake (ADR 008/015)
         self.configs = ConfigInitializer(self.configs).get_config()
         self._run_preflight_check()
 
-        # Initialize Visual Truth Engine with Authoritative Timestamp
         viz = VisualDiagnostics(self.configs, run_timestamp=self.run_timestamp)
-
-        # 1. Ingest
-        print("")  # Block Separator
-        data_fetcher = DataFetcher(self._model_path.data_raw, self.configs)
-        df_raw = data_fetcher.fetch_df()
-
-        # DIAGNOSTIC: Stage 1 (Ingestion)
-        # We want to see EVERYTHING that defines identity + ALL primary signals
-        plot_feats = (
-            [
-                self.configs.get("time_col", "month_id"),
-                self.configs.get("id_col", "priogrid_gid"),
-                "c_id",
-            ]
-            + self.configs.get("spatial_cols", [])
-            + self.configs.get("regression_targets", [])
-        )
-
-        viz.biopsy_dataframe(df_raw, "Stage 1: Raw Ingestion", features=plot_feats)
-
-        df = DataFetcher.standardize_raw_df(df_raw, self.configs)
-        log_ingestion_report(df_raw, df, self.configs)
-
-        # 2. Sniff
-        print("")
-        sniffer = DataSniffer(self.configs)
-        sniffer.sniff_ingestion(df)
-
-        # 3. Scale
-        print("")
-        scaler = FeatureScaler(self.configs)
-        df = scaler.fit_transform(df)
-
-        # DIAGNOSTIC: Stage 2 (Transformation)
-        viz.biopsy_dataframe(df, "Stage 2: Scaled DataFrame", features=plot_feats)
-
-        # 4. Transform: DataFrame -> Volume (Absolute Anchoring)
-        print("")
-        handler = VolumeHandler.from_df(df, self.configs)
-
-        # DIAGNOSTIC: Stage 3 (Volume) - CRITICAL SCRAMBLE CHECK
-        viz.biopsy_volume(handler, "Stage 3: Global Volume")
+        handler, scaler, sniffer = self._run_data_pipeline(viz)
 
         # 5. Train
-        print("")
+
+        # Determine persistence (Sweep Safety)
+        # In a sweep, we do NOT want to save every trial's artifact to disk locally.
+        is_sweep = self.configs.get("sweep", False)
+        save_artifact = not is_sweep
+
         # Pass visualizer to training loop for Stage 4 (Sampling) probes
-        summary = train_model_artifact(
-            self._model_path, self.configs, self.device, handler, run_timestamp=self.run_timestamp
+        model, summary = train_model_artifact(
+            self._model_path,
+            self.configs,
+            self.device,
+            handler,
+            run_timestamp=self.run_timestamp,
+            save_artifact=save_artifact,
         )
         log_training_summary(summary)
 
-    def _evaluate_model_artifact(
+        return model
+
+    def _setup_evaluation(
         self, eval_type: str, artifact_name: str | None = None
-    ) -> list[pd.DataFrame]:
-        """Orchestrates rolling-origin evaluation via specialized component."""
+    ) -> _EvaluationContext:
+        """
+        Shared setup for batch and streaming evaluation.
+
+        Fetches the model artifact, loads and scales the data, creates the
+        VolumeHandler, sniffs alignment, computes rolling-origin indices,
+        and builds the InferenceOrchestrator.
+
+        Returns
+        -------
+        _EvaluationContext
+            handler     : VolumeHandler — spatiotemporal data carrier
+            scaler      : FeatureScaler — fitted, ready for inverse_transform_volume
+            origins     : List[int]     — rolling origin indices (sorted, 0-indexed)
+            all_targets : List[str]     — regression_targets + classification_targets
+            orchestrator: InferenceOrchestrator — wired with model, device, visualizer
+        """
+        log_device_report(self.device, eval_type)
         self.configs = ConfigInitializer(self.configs).get_config()
         self._run_preflight_check()
         viz = VisualDiagnostics(self.configs, run_timestamp=self.run_timestamp)
 
-        print("")
+        # ── Model artifact ────────────────────────────────────────────────────
+
         add_config_fn = (
             self._config_manager.add_config
             if hasattr(self, "_config_manager")
             else (lambda x: None)
         )
-        model_fetcher = ModelArtifactFetcher(
+        model, _ = ModelArtifactFetcher(
             self._model_path.artifacts,
             self._model_path.get_latest_model_artifact_path(self.configs["run_type"]),
             self.configs,
             add_config_fn,
             self.device,
-        )
-        model, _ = model_fetcher.fetch_model_artifact()
+        ).fetch_model_artifact()
 
-        print("")
-        data_fetcher = DataFetcher(self._model_path.data_raw, self.configs)
-        df = data_fetcher.fetch_df()
-
-        # DIAGNOSTIC: Stage 1
-        plot_feats = (
-            [
-                self.configs.get("time_col", "month_id"),
-                self.configs.get("id_col", "priogrid_gid"),
-                "c_id",
-            ]
-            + self.configs.get("spatial_cols", [])
-            + self.configs.get("regression_targets", [])
-        )
-
-        viz.biopsy_dataframe(df, "Stage 1: Raw Ingestion", features=plot_feats)
-
-        df = DataFetcher.standardize_raw_df(df, self.configs)
-
-        print("")
-        sniffer = DataSniffer(self.configs)
-        sniffer.sniff_ingestion(df)
-
-        print("")
-        scaler = FeatureScaler(self.configs)
-        df = scaler.fit_transform(df)
-
-        # DIAGNOSTIC: Stage 2
-        viz.biopsy_dataframe(df, "Stage 2: Scaled DataFrame", features=plot_feats)
-
-        print("")
-        handler = VolumeHandler.from_df(df, self.configs)
-
-        # DIAGNOSTIC: Stage 3
-        viz.biopsy_volume(handler, "Stage 3: Global Volume")
-
-        sniffer.sniff_forecast_alignment(df, handler, is_forecast=False)
-
-        print("")
+        # ── Data pipeline ──────────────────────────────────────────────────────
         run_type = self.configs["run_type"]
         time_steps = len(self.configs["steps"])
-        num_windows = 12 if run_type in ["calibration", "validation"] else 1
+        partition = getattr(self, "_partition_dict", {}).get(run_type)
+        test_end = partition["test"][1] if partition is not None else None
+
+        handler, scaler, sniffer = self._run_data_pipeline(
+            viz, partition_bound=test_end
+        )
+
+        # ── Rolling origin indices ────────────────────────────────────────────
+
+        if partition is not None:
+            test_start = partition["test"][0]
+            num_windows = test_end - (test_start - 1) - time_steps + 1
+        else:
+            num_windows = 1
         origins = get_rolling_origin_indices(handler.shape[0], time_steps, num_windows)
 
-        # 6. Unified Inference Orchestration (ADR 038)
-        print("")
-        # Pass visualizer to orchestrator for Stage 5/6 probes
+        # ── Targets and orchestrator ──────────────────────────────────────────
+
+        all_targets = (
+            self.configs.get("regression_targets", [])
+            + self.configs.get("classification_targets", [])
+        )
         orchestrator = InferenceOrchestrator(self.configs, model, self.device, visualizer=viz)
-        list_df_predictions = orchestrator.generate_forecasts(handler, scaler, origins=origins)
 
-        # 7. Pure State Adaptation (ADR 040)
-        adapter = PureStateAdapter(self.configs)
-        list_df_predictions = adapter.enforce_pure_state_list(list_df_predictions)
+        return _EvaluationContext(
+            handler=handler,
+            scaler=scaler,
+            origins=origins,
+            all_targets=all_targets,
+            orchestrator=orchestrator,
+        )
 
-        # DIAGNOSTIC: Stage 7 (Reconstruction - Sample 0)
-        if list_df_predictions:
-            # ADR 046: Regression and classification targets are now explicitly named in config
-            pred_plot_feats = [
-                f"pred_{t}"
-                for t in self.configs["regression_targets"]
-                + self.configs["classification_targets"]
-            ]
-            viz.biopsy_dataframe(
-                list_df_predictions[0], "Stage 7: Final Reconstruction", features=pred_plot_feats
-            )
+    def _evaluate_model_artifact(
+        self, eval_type: str, artifact_name: str | None = None
+    ) -> "dict[str, list[PredictionFrame]]":
+        """Orchestrates rolling-origin evaluation via specialized component."""
+        ctx = self._setup_evaluation(eval_type, artifact_name)
+        handler, scaler, origins, all_targets, orchestrator = ctx
 
-        log_prediction_summary(list_df_predictions)
-        return list_df_predictions
+        list_pf_dicts = orchestrator.generate_prediction_frames(
+            handler, scaler, origins=origins, all_targets=all_targets
+        )
+        result: dict[str, list[PredictionFrame]] = {
+            t: [d[t] for d in list_pf_dicts] for t in all_targets
+        }
+        logger.info(
+            f"✅ HydranetManager: Evaluation complete — "
+            f"{len(list_pf_dicts)} origin(s), {len(result)} targets."
+        )
+        return result
 
-    def _forecast_model_artifact(self, artifact_name: str | None = None) -> list[pd.DataFrame]:
+    def _evaluate_model_artifact_streaming(
+        self,
+        eval_type: str,
+        artifact_name: str | None,
+        origin_sink: Callable[[int, Dict[str, "PredictionFrame"]], None],
+    ) -> None:
+        """
+        Override of ForecastingModelManager._evaluate_model_artifact_streaming().
+
+        Streams rolling-origin evaluation: calls origin_sink(i, pf_dict) exactly
+        once per origin, in sequential 0-based order (i = 0, 1, ..., M-1).
+        Each pf_dict maps every target name to its PredictionFrame for that origin.
+        The sink is responsible for persisting and freeing pf_dict before returning.
+
+        Memory advantage:
+            Batch path: M × T PredictionFrames in RAM simultaneously
+            Streaming:  1 × T PredictionFrames in RAM at any moment
+            Reduction:  M× (e.g. 13× at pgm scale with S=32)
+        """
+        ctx = self._setup_evaluation(eval_type, artifact_name)
+        ctx.orchestrator.generate_prediction_frames_streaming(
+            ctx.handler,
+            ctx.scaler,
+            origins=ctx.origins,
+            all_targets=ctx.all_targets,
+            origin_sink=origin_sink,
+        )
+
+    def _forecast_model_artifact(
+        self, artifact_name: str | None = None
+    ) -> "dict[str, PredictionFrame]":
         """Generates operational forecasts."""
+        log_device_report(self.device, "forecasting")
         self.configs = ConfigInitializer(self.configs).get_config()
         self._run_preflight_check()
         viz = VisualDiagnostics(self.configs, run_timestamp=self.run_timestamp)
 
-        print("")
-        fetcher = DataFetcher(self._model_path.data_raw, self.configs)
-        df = fetcher.fetch_df()
+        handler, scaler, sniffer = self._run_data_pipeline(viz)
 
-        # DIAGNOSTIC: Stage 1
-        plot_feats = (
-            [
-                self.configs.get("time_col", "month_id"),
-                self.configs.get("id_col", "priogrid_gid"),
-                "c_id",
-            ]
-            + self.configs.get("spatial_cols", [])
-            + self.configs.get("regression_targets", [])
-        )
 
-        viz.biopsy_dataframe(df, "Stage 1: Raw Ingestion", features=plot_feats)
-
-        df = DataFetcher.standardize_raw_df(df, self.configs)
-
-        print("")
-        sniffer = DataSniffer(self.configs)
-        sniffer.sniff_ingestion(df)
-
-        print("")
-        scaler = FeatureScaler(self.configs)
-        df = scaler.fit_transform(df)
-
-        # DIAGNOSTIC: Stage 2
-        viz.biopsy_dataframe(df, "Stage 2: Scaled DataFrame", features=plot_feats)
-
-        print("")
-        handler = VolumeHandler.from_df(df, self.configs)
-
-        # DIAGNOSTIC: Stage 3
-        viz.biopsy_volume(handler, "Stage 3: Global Volume")
-
-        sniffer.sniff_forecast_alignment(df, handler, is_forecast=False)
-
-        print("")
         model_fetcher = ModelArtifactFetcher(
             self._model_path.artifacts,
             self._model_path.get_latest_model_artifact_path(self.configs["run_type"]),
@@ -301,29 +361,21 @@ class HydranetManager(ForecastingModelManager):
         )
         model, _ = model_fetcher.fetch_model_artifact()
 
-        # 6. Unified Inference Orchestration (ADR 038)
-        print("")
-        # Pass visualizer to orchestrator
+
+        all_targets = (
+            self.configs.get("regression_targets", [])
+            + self.configs.get("classification_targets", [])
+        )
         orchestrator = InferenceOrchestrator(self.configs, model, self.device, visualizer=viz)
-        # Operational origins: just the last available month
         origins = [handler.shape[0] - 1]
-        list_df_predictions = orchestrator.generate_forecasts(handler, scaler, origins=origins)
 
-        # 7. Pure State Adaptation (ADR 040)
-        adapter = PureStateAdapter(self.configs)
-        list_df_predictions = adapter.enforce_pure_state_list(list_df_predictions)
-
-        # DIAGNOSTIC: Stage 7
-        if list_df_predictions:
-            # ADR 046: Use explicit target names from config
-            pred_plot_feats = [
-                f"pred_{t}"
-                for t in self.configs["regression_targets"]
-                + self.configs["classification_targets"]
-            ]
-            viz.biopsy_dataframe(
-                list_df_predictions[0], "Stage 7: Final Reconstruction", features=pred_plot_feats
-            )
-
-        log_prediction_summary(list_df_predictions)
-        return list_df_predictions
+        list_pf_dicts = orchestrator.generate_prediction_frames(
+            handler, scaler, origins=origins, all_targets=all_targets
+        )
+        result: dict[str, PredictionFrame] = {
+            t: list_pf_dicts[0][t] for t in all_targets
+        }
+        logger.info(
+            f"✅ HydranetManager: Forecast complete — {len(result)} targets."
+        )
+        return result

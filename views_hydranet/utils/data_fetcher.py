@@ -40,12 +40,12 @@ class DataFetcher:
             pd.DataFrame: The raw data as fetched from the pipeline output.
         """
         partition = self.config["run_type"]
-        df_ext = PipelineConfig().dataframe_format
+        df_ext = PipelineConfig.dataframe_format
         path_raw_file = os.path.join(str(self.path_raw), f"{partition}_viewser_df{df_ext}")
 
-        print("")
+
         logger.info(f"DataFetcher: Loading {partition} from {path_raw_file}")
-        print("")
+
 
         df = read_dataframe(path_raw_file)
 
@@ -132,6 +132,9 @@ class DataFetcher:
         # Ensure the DataFrame matches the instructional blueprint
         return DataFetcher.apply_blueprint(df_out, config)
 
+    # Cross-ref: VolumeHandler._execute_derivations() (volume_handler.py)
+    # This path SKIPS if source missing; volume path RAISES.
+    # See tests/test_derivation_parity.py for parity guard.
     @staticmethod
     def apply_blueprint(df: pd.DataFrame, config: Dict[str, Any]) -> pd.DataFrame:
         """

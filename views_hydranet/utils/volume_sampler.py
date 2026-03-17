@@ -38,10 +38,6 @@ class VolumeSampler:
 
             raise ValueError(err_msg)
 
-        # Batching state
-        self.windows_per_lesson = config["windows_per_lesson"]
-        self._buffer: List[VolumeHandler] = []
-
         # Stateful Reproducibility: Use a local generator
         seed = config["np_seed"]
         self.rng = np.random.default_rng(seed)
