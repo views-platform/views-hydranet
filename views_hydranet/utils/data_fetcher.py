@@ -132,6 +132,9 @@ class DataFetcher:
         # Ensure the DataFrame matches the instructional blueprint
         return DataFetcher.apply_blueprint(df_out, config)
 
+    # Cross-ref: VolumeHandler._execute_derivations() (volume_handler.py)
+    # This path SKIPS if source missing; volume path RAISES.
+    # See tests/test_derivation_parity.py for parity guard.
     @staticmethod
     def apply_blueprint(df: pd.DataFrame, config: Dict[str, Any]) -> pd.DataFrame:
         """

@@ -229,6 +229,16 @@ class HydraNetConfig(BaseModel):
             raise ValueError(err_msg)
         return v
 
+    @field_validator("total_hidden_channels")
+    @classmethod
+    def validate_hidden_channels_divisibility(cls, v: int) -> int:
+        if v % 8 != 0:
+            raise ValueError(
+                f"total_hidden_channels={v} is not divisible by 8. "
+                f"The architecture requires 4 LSTM cells x 2 states = 8 partitions."
+            )
+        return v
+
     @field_validator("aggregate_method")
     @classmethod
     def validate_agg_method(cls, v: str) -> str:

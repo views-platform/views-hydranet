@@ -438,13 +438,13 @@ class HydraBNUNet06_LSTM4(nn.Module):
                 self.dec_conv0_head2_reg(torch.cat([self.upsample0_head2_reg(b), e1s], 1))
             )
         )
-        H2_d0 = self.dropout(H1_d0)
+        H2_d0 = self.dropout(H2_d0)
         H2_d1 = F.relu(
             self.bn_dec_conv1_head2_reg(
                 self.dec_conv1_head2_reg(torch.cat([self.upsample1_head2_reg(H2_d0), e0s], 1))
             )
         )
-        H2_reg = self.dropout(H1_d1)
+        H2_reg = self.dropout(H2_d1)
         H2_reg = self.dec_conv4_head2_reg(H2_reg)
         out_reg2 = F.relu(H2_reg)
 
@@ -454,7 +454,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
                 self.dec_conv0_head2_class(torch.cat([self.upsample0_head2_class(b), e1s], 1))
             )
         )
-        H2_d0 = self.dropout(H1_d0)
+        H2_d0 = self.dropout(H2_d0)
         H2_d1 = F.relu(
             self.bn_dec_conv1_head2_class(
                 self.dec_conv1_head2_class(torch.cat([self.upsample1_head2_class(H2_d0), e0s], 1))
@@ -486,7 +486,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
                 self.dec_conv0_head3_class(torch.cat([self.upsample0_head3_class(b), e1s], 1))
             )
         )
-        H3_d0 = self.dropout(H1_d0)
+        H3_d0 = self.dropout(H3_d0)
         H3_d1 = F.relu(
             self.bn_dec_conv1_head3_class(
                 self.dec_conv1_head3_class(torch.cat([self.upsample1_head3_class(H3_d0), e0s], 1))

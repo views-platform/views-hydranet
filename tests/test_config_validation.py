@@ -158,3 +158,9 @@ class TestRed:
         cfg = _make_config(valid_config_dict, evaluation_mode="stocastic")
         with pytest.raises(ValidationError, match="not valid"):
             HydraNetConfig(**cfg)
+
+    def test_red_hidden_channels_not_divisible_by_8(self, valid_config_dict):
+        """total_hidden_channels must be divisible by 8 (4 LSTM cells x 2 states)."""
+        cfg = _make_config(valid_config_dict, total_hidden_channels=30)
+        with pytest.raises(ValidationError, match="divisible by 8"):
+            HydraNetConfig(**cfg)

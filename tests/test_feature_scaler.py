@@ -330,3 +330,81 @@ class TestRed:
         scaler = FeatureScaler(config)
         with pytest.raises(ValueError, match="Fit Failure"):
             scaler.fit_transform(df)
+
+
+# ─── String Matching Regression Tests ─────────────────────────────────────
+
+
+class TestStringMatching:
+
+    def test_binary_prefix_uses_startswith_not_substring(self):
+        """A channel containing 'by_' mid-name must NOT be skipped during inversion."""
+        from views_hydranet.utils.volume_handler import VolumeHandler
+
+        # "hereby_x" contains "by_" as a substring but is NOT a binary channel
+        data = np.ones((2, 2, 2, 2), dtype=np.float32) * 5.0
+        vh = VolumeHandler(
+            data=data,
+            axes=("T", "H", "W", "C"),
+            channel_map=("pred_lr_sb_best", "pred_hereby_x"),
+            time_col="month_id",
+            id_col="priogrid_gid",
+            spatial_cols=("row", "col"),
+            feature_cols=("pred_lr_sb_best", "pred_hereby_x"),
+        )
+
+        config = _make_config(
+            transformations={
+                "log1p": ["lr_sb_best", "hereby_x"],
+            },
+            features=["lr_sb_best", "hereby_x"],
+        )
+        scaler = FeatureScaler(config)
+        scaler.fit_transform(_make_df().assign(hereby_x=np.arange(10, dtype=float) + 1))
+
+        result = scaler.inverse_transform_volume(vh)
+        c_idx = vh.channel_map.index("pred_hereby_x")
+
+        # If "by_" substring match incorrectly skips this channel, it stays at 5.0
+        # expm1(5.0) = 147.41... so inverted value must differ from 5.0
+        assert not np.allclose(result.data[:, :, :, c_idx], 5.0), (
+            "Channel 'pred_hereby_x' was skipped by inverse_transform_volume — "
+            "substring 'by_' match should use startswith(), not 'in'"
+        )
+
+    def test_pred_prefix_strips_only_leading_prefix(self):
+        """'pred_pred_x' should resolve to base name 'pred_x', not 'x'."""
+        from views_hydranet.utils.volume_handler import VolumeHandler
+
+        data = np.ones((2, 2, 2, 1), dtype=np.float32) * 3.0
+        vh = VolumeHandler(
+            data=data,
+            axes=("T", "H", "W", "C"),
+            channel_map=("pred_pred_x",),
+            time_col="month_id",
+            id_col="priogrid_gid",
+            spatial_cols=("row", "col"),
+            feature_cols=("pred_pred_x",),
+        )
+
+        # Transform config uses "pred_x" as the base name (after stripping one "pred_")
+        config = _make_config(
+            transformations={
+                "log1p": ["pred_x"],
+            },
+            features=["pred_x"],
+        )
+        scaler = FeatureScaler(config)
+        scaler.fit_transform(
+            _make_df().rename(columns={"lr_sb_best": "pred_x"})[
+                ["month_id", "priogrid_gid", "pred_x"]
+            ].assign(**{"lr_ns_best": 0.0, "lr_os_best": 0.0})
+        )
+
+        result = scaler.inverse_transform_volume(vh)
+
+        # expm1(3.0) ≈ 19.09 — if the transform was applied, data changes from 3.0
+        assert not np.allclose(result.data[:, :, :, 0], 3.0), (
+            "Channel 'pred_pred_x' was not inverted — "
+            "replace('pred_', '') strips all occurrences; use removeprefix() instead"
+        )
