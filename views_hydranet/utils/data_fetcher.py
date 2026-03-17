@@ -40,7 +40,7 @@ class DataFetcher:
             pd.DataFrame: The raw data as fetched from the pipeline output.
         """
         partition = self.config["run_type"]
-        df_ext = PipelineConfig().dataframe_format
+        df_ext = PipelineConfig.dataframe_format
         path_raw_file = os.path.join(str(self.path_raw), f"{partition}_viewser_df{df_ext}")
 
         print("")
