@@ -63,17 +63,3 @@ class MultiTaskLoss(torch.nn.Module):
             multi_task_losses = multi_task_losses.mean()
 
         return multi_task_losses
-
-
-"""
-usage
-is_regression = torch.Tensor([True, True, False])
-# True: Regression/MeanSquaredErrorLoss, False: Classification/CrossEntropyLoss
-multitaskloss_instance = MultiTaskLoss(is_regression)
-params = list(model.parameters()) + list(multitaskloss_instance.parameters())
-torch.optim.Adam(params, lr=1e-3)
-model.train()
-multitaskloss.train()
-losses = torch.stack(loss0, loss1, loss3)
-multitaskloss = multitaskloss_instance(losses)
-"""

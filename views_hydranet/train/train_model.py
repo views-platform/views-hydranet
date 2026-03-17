@@ -284,7 +284,6 @@ def training_loop(
     scheduler: torch.optim.lr_scheduler._LRScheduler,
     handler: VolumeHandler,
     device: torch.device,
-    columns: list[str] | None = None,
     run_timestamp: str | None = None,
 ) -> dict:
     """
@@ -459,7 +458,6 @@ def train_model_artifact(
     config: dict,
     device: torch.device,
     handler: VolumeHandler,
-    columns: list[str] | None = None,
     run_timestamp: str | None = None,
     save_artifact: bool = True,
 ) -> tuple[nn.Module, dict]:
@@ -477,7 +475,6 @@ def train_model_artifact(
         scheduler,
         handler,
         device,
-        columns=columns,
         run_timestamp=run_timestamp,
     )
     logger.info("Done training")

@@ -59,16 +59,3 @@ class IntegrityGuardian:
                     logger.error(err_msg)
 
                     raise RuntimeError(err_msg)
-
-    @staticmethod
-    def check_weights(model: nn.Module, context: str = "") -> None:
-        """Deep scan of model weights for corruption."""
-        for name, param in model.named_parameters():
-            if not torch.isfinite(param).all():
-                err_msg = (
-                    f"[FATAL WEIGHT CORRUPTION] NaN/Inf detected in weights of {name} at {context}"
-                )
-
-                logger.error(err_msg)
-
-                raise RuntimeError(err_msg)

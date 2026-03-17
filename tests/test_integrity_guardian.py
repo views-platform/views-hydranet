@@ -46,9 +46,6 @@ class TestGreen:
 
         IntegrityGuardian.monitor(tiny_model, healthy_prediction, healthy_loss)
 
-    def test_green_check_weights_healthy(self, tiny_model):
-        """Standard initialized model -> no raise."""
-        IntegrityGuardian.check_weights(tiny_model)
 
 
 # ---------------------------------------------------------------------------
@@ -75,7 +72,6 @@ class TestBeige:
         """nn.Module() with no parameters -> no raise."""
         empty = nn.Module()
         IntegrityGuardian.monitor(empty, healthy_prediction, healthy_loss)
-        IntegrityGuardian.check_weights(empty)
 
 
 # ---------------------------------------------------------------------------
@@ -105,14 +101,3 @@ class TestRed:
         with pytest.raises(RuntimeError, match="GRADIENT"):
             IntegrityGuardian.monitor(tiny_model, healthy_prediction, healthy_loss)
 
-    def test_red_nan_weights(self, tiny_model):
-        with torch.no_grad():
-            tiny_model.weight.fill_(float("nan"))
-        with pytest.raises(RuntimeError, match="WEIGHT CORRUPTION"):
-            IntegrityGuardian.check_weights(tiny_model)
-
-    def test_red_inf_weights(self, tiny_model):
-        with torch.no_grad():
-            tiny_model.weight.fill_(float("inf"))
-        with pytest.raises(RuntimeError, match="WEIGHT CORRUPTION"):
-            IntegrityGuardian.check_weights(tiny_model)
