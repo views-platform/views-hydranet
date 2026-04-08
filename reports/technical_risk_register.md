@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-08                           |
-| Total Concerns    | 30                                   |
-| Open Concerns     | 29                                   |
+| Total Concerns    | 34                                   |
+| Open Concerns     | 33                                   |
 | Resolved Concerns | 0                                    |
 
 ---
@@ -312,9 +312,9 @@ The training loop is the single most critical code path and has no automated end
 | Tier | 3 |
 | Source | expert-review (2026-04-08) |
 | Trigger | Corrupt handler data or unexpected type in diagnostic/time-index extraction |
-| Location | `hydranet_inference.py:391-392`, `visual_diagnostics.py:129-133` |
+| Location | `hydranet_inference.py:391`, `train_model.py:214`, `visual_diagnostics.py:129,181,214,301,359,484,593,663,771` |
 
-`hydranet_inference.py:391-392` catches all exceptions during time index extraction and continues silently (`except Exception: pass`). If `handler.data` is corrupt, inference runs without diagnostics and no one is alerted. Similarly, all `biopsy_*` methods in `visual_diagnostics.py` swallow exceptions. Should use specific exception types and log the exception details.
+11 locations use bare `except Exception` across 3 files. `hydranet_inference.py:391` catches all exceptions during time index extraction and continues silently. `train_model.py:214` swallows exceptions during diagnostic time index extraction. `visual_diagnostics.py` has 9 catch-all handlers across all `biopsy_*` methods. Should use specific exception types and log exception details.
 
 ---
 
@@ -443,6 +443,62 @@ No test verifies system behavior with edge-case configurations that Pydantic acc
 | Location | `model_artifact_fetcher.py`, `test_model_artifact_fetcher.py` (3 tests) |
 
 Only 3 tests exist: happy path with latest artifact, happy path with specific artifact, and missing file error. No tests for timestamp extraction edge cases, device placement verification, or the `add_config` callback behavior.
+
+---
+
+### C-31: ADR-008 log-before-raise violations in 4 files
+
+| Field | Value |
+|-------|-------|
+| ID | C-31 |
+| Tier | 4 |
+| Source | falsification-audit (2026-04-08) |
+| Trigger | Operational debugging — exceptions raised without preceding log entry |
+| Location | `training_forensics.py:79,143,169`, `config_initializer.py:265`, `volume_handler.py:285,308`, `mtloss.py:46` |
+
+7 `raise` statements without preceding `logger.error()` violate ADR-008 (Observability and Explicit Failure). The exceptions have clear messages, so this is a logging hygiene issue rather than a silent failure risk. All are in error paths that produce descriptive error messages.
+
+---
+
+### C-32: VolumeSampler CIC failure modes untested and unregistered
+
+| Field | Value |
+|-------|-------|
+| ID | C-32 |
+| Tier | 4 |
+| Source | falsification-audit (2026-04-08) |
+| Trigger | Code change to `_generate_window()` extraction bounds or target resolution |
+| Location | `volume_sampler.py:55-70` (ledger), `volume_sampler.py:84-88` (bounds) |
+
+VolumeSampler CIC Section 6 declares "Geometric Overflow" (extraction outside bounds) and "Ledger Inconsistency" (target missing from volume) as failure modes. Both are handled in code (`np.clip` for bounds, `ValueError` for missing target) but have no test coverage and were not captured by the test-review.
+
+---
+
+### C-33: InferenceOrchestrator "Sequence Violation" failure mode untested
+
+| Field | Value |
+|-------|-------|
+| ID | C-33 |
+| Tier | 4 |
+| Source | falsification-audit (2026-04-08) |
+| Trigger | Bypassing `_run_inference_pipeline()` step order |
+| Location | `inference_orchestrator.py:49-114` |
+
+InferenceOrchestrator CIC Section 6 declares "Sequence Violation" as a failure mode — the system should raise if the ADR 039 step order (Predict → Align → Wrap → Invert → Collapse) is bypassed. In practice, the sequence is enforced by method composition (each step feeds the next), so bypass is unlikely. But the CIC promise is untested.
+
+---
+
+### C-34: `train_model.py:214` bare `except Exception` missed by C-21
+
+| Field | Value |
+|-------|-------|
+| ID | C-34 |
+| Tier | 4 |
+| Source | falsification-audit (2026-04-08) |
+| Trigger | Diagnostic time index extraction fails silently during training |
+| Location | `train_model.py:214` |
+
+The `train()` function has a bare `except Exception: pass` at line 214 for time index extraction during diagnostic biopsy. If `sample_handler.channel_map` is corrupt, the training continues without diagnostic data and no warning is logged. This location was missed by C-21's original enumeration (now corrected).
 
 ---
 
