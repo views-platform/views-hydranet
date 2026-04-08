@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-08                           |
-| Total Concerns    | 14                                   |
-| Open Concerns     | 14                                   |
+| Total Concerns    | 22                                   |
+| Open Concerns     | 22                                   |
 | Resolved Concerns | 0                                    |
 
 ---
@@ -217,6 +217,153 @@ Unlike transformation methods that return new VolumeHandlers (`slice_time`, `col
 | Location | `volume_handler.py:637-653` |
 
 Like `_permute()`, `flip()` modifies `self._data` in-place rather than returning a new VolumeHandler. Used in the training augmentation path (`train_model.train()`). Safe in practice because the augmented handler is a per-window copy from `VolumeSampler`, but the mutation pattern is inconsistent with the immutable-by-convention design.
+
+---
+
+### C-15: `training_loop()` has 4+ responsibilities in 175 lines
+
+| Field | Value |
+|-------|-------|
+| ID | C-15 |
+| Tier | 3 |
+| Source | expert-review (2026-04-08) |
+| Trigger | Modifying lesson orchestration, diagnostic biopsy, gradient clipping, or forensic finalization |
+| Location | `train_model.py:279-453` |
+
+`training_loop()` mixes lesson orchestration, gradient accumulation/clipping, diagnostic biopsy generation, forensic auditor finalization, and progress bar management in one function. Violates SRP — changes to diagnostic output require touching the same function that controls optimization.
+
+---
+
+### C-16: `visual_diagnostics.py` catch-all exception handlers hide bugs
+
+| Field | Value |
+|-------|-------|
+| ID | C-16 |
+| Tier | 3 |
+| Source | expert-review (2026-04-08) |
+| Trigger | Bug in any `biopsy_*` method's plotting logic |
+| Location | `visual_diagnostics.py:129-133` (and similar in other biopsy methods) |
+
+All `biopsy_*` methods wrap their body in `try/except Exception` and log a warning on failure. If diagnostic code has a bug, it silently produces no plot with no test failure. The file is 985 lines with 12+ biopsy methods. Tests only verify the `active=True/False` toggle, not plot correctness or exception-free execution.
+
+---
+
+### C-17: `train()` function has 13 parameters
+
+| Field | Value |
+|-------|-------|
+| ID | C-17 |
+| Tier | 3 |
+| Source | expert-review (2026-04-08) |
+| Trigger | Adding a new training feature that requires another parameter |
+| Location | `train_model.py:150-163` |
+
+`train()` takes model, optimizer, scheduler, criterion_reg, criterion_class, multitaskloss_instance, sample_handler, config, device, pbar, viz, stage_label, and forensics. Wide interface makes the function hard to call correctly and easy to wire incorrectly. Could be reduced by bundling training context into a dataclass.
+
+---
+
+### C-18: No end-to-end training smoke test
+
+| Field | Value |
+|-------|-------|
+| ID | C-18 |
+| Tier | 3 |
+| Source | expert-review (2026-04-08) |
+| Trigger | Refactoring the training loop, changing config keys, or modifying lesson/window/sequence wiring |
+| Location | `train_model.py:279-497` (entire training path) |
+
+The training loop is the single most critical code path and has no automated end-to-end test. `test_train_loop.py` tests `_process_sequence()` in isolation. A wiring bug (wrong argument order, missing config key, changed return type) in the lesson→window→optimize chain won't be caught until someone runs a full training job (hours on GPU).
+
+---
+
+### C-19: `priogrid_gid > 0` validity assumption undocumented at ingestion
+
+| Field | Value |
+|-------|-------|
+| ID | C-19 |
+| Tier | 4 |
+| Source | expert-review (2026-04-08) |
+| Trigger | Upstream data source assigning `priogrid_gid == 0` to a valid cell |
+| Location | `volume_handler.py:505` |
+
+`_valid_cell_indices()` uses `mask = p_data[:, :, :, pg_idx] > 0` to identify valid cells. If any legitimate grid cell has `priogrid_gid == 0`, it is silently dropped from output. This assumption is not enforced or documented at ingestion (`DataSniffer`, `DataFetcher`). In practice, PRIO-GRID assigns GIDs starting from 1, but this is domain knowledge not codified in the system.
+
+---
+
+### C-20: Autoregressive inference has no soft magnitude guard
+
+| Field | Value |
+|-------|-------|
+| ID | C-20 |
+| Tier | 4 |
+| Source | expert-review (2026-04-08) |
+| Trigger | Model producing slightly incorrect predictions that compound over 36 autoregressive steps |
+| Location | `hydranet_inference.py:287-288` |
+
+`t0_autoreg = t1_pred.detach()` feeds model predictions back as input. `IntegrityGuardian` catches NaN/Inf and its hard ceiling (`> 10000`) catches extreme explosion, but gradual magnitude drift (e.g., predictions growing from 2 to 200 over 36 steps) goes undetected. No soft warning or clipping on autoregressive feedback inputs.
+
+---
+
+### C-21: Bare `except Exception` swallows errors in inference and diagnostics
+
+| Field | Value |
+|-------|-------|
+| ID | C-21 |
+| Tier | 3 |
+| Source | expert-review (2026-04-08) |
+| Trigger | Corrupt handler data or unexpected type in diagnostic/time-index extraction |
+| Location | `hydranet_inference.py:391-392`, `visual_diagnostics.py:129-133` |
+
+`hydranet_inference.py:391-392` catches all exceptions during time index extraction and continues silently (`except Exception: pass`). If `handler.data` is corrupt, inference runs without diagnostics and no one is alerted. Similarly, all `biopsy_*` methods in `visual_diagnostics.py` swallow exceptions. Should use specific exception types and log the exception details.
+
+---
+
+### C-22: `cast(Any, model)` at 7+ call sites bypasses type safety
+
+| Field | Value |
+|-------|-------|
+| ID | C-22 |
+| Tier | 4 |
+| Source | expert-review (2026-04-08) |
+| Trigger | Changing the model's `forward()` return signature |
+| Location | `train_model.py:105,199,242`, `hydranet_inference.py:122,137,147,151,157,225,257` |
+
+The model's return type is untyped; 7+ call sites use `cast(Any, model)(input, h)` to suppress type checking. The actual contract (returns `(out_reg, out_class, h)` tuple) is invisible at every call site. A `Protocol` type would make the interface explicit and catch signature changes statically.
+
+---
+
+## Disagreements
+
+### D-01: VolumeHandler scope — God Object vs Deep Module
+
+| Field | Value |
+|-------|-------|
+| ID | D-01 |
+| Source | expert-review (2026-04-08) |
+| Perspectives | Martin (split — SRP violation, 780 lines, 9 dependents), Ousterhout (keep — successful deep module hiding complexity), Hickey (partial split — extract PF output path, keep volume ops together) |
+| Resolution | Partial split recommended: extract PredictionFrame output path into dedicated assembler, keep volume operations in VolumeHandler |
+
+---
+
+### D-02: Architecture extensibility — parameterize vs leave alone
+
+| Field | Value |
+|-------|-------|
+| ID | D-02 |
+| Source | expert-review (2026-04-08) |
+| Perspectives | GoF (parameterize — 6 copy-pasted decoder blocks is anti-pattern), Beck/Feathers (leave alone — structural regex test guards against bugs, refactoring invalidates all .pt artifacts) |
+| Resolution | Leave as-is. Cost of refactoring (breaking all artifacts) exceeds benefit. Structural test provides adequate safety. |
+
+---
+
+### D-03: Config monolith — complecting vs front-loading validation
+
+| Field | Value |
+|-------|-------|
+| ID | D-03 |
+| Source | expert-review (2026-04-08) |
+| Perspectives | Hickey (split — 9 concerns conflated in one model), Ousterhout/Nygard (keep — single validation point, cross-field checksums require all fields visible) |
+| Resolution | Keep single config. Cross-field checksum laws depend on simultaneous field access. |
 
 ---
 
