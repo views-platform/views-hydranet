@@ -6,8 +6,8 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-08                           |
 | Total Concerns    | 40                                   |
-| Open Concerns     | 34                                   |
-| Resolved Concerns | 6                                    |
+| Open Concerns     | 31                                   |
+| Resolved Concerns | 9                                    |
 
 ---
 
@@ -37,20 +37,6 @@
 `hydranet_manager.py` imports 12 internal modules and wires all components manually. Any wiring change requires modifying this single 380-line file. Fan-out of 12 — highest in the codebase.
 
 Per Martin (Clean Architecture Ch 26, p.228-232): the Manager correctly acts as the "Main Component" — the dirtiest component that creates everything and hands control to higher-level abstractions. High fan-out is expected for Main. The concern is not dirtiness but *size*: at 380 lines it exceeds a pure wiring role, mixing lifecycle orchestration with component construction. Martin: "Think of Main as a plugin to the application" — it should be replaceable without touching policy.
-
----
-
-### C-02: Duplicated setup between eval and forecast
-
-| Field | Value |
-|-------|-------|
-| ID | C-02 |
-| Tier | 3 |
-| Source | repo-assimilation (2026-04-08) |
-| Trigger | Bug fix applied to one path but not the other |
-| Location | `hydranet_manager.py:339-381` vs `218-290` |
-
-`_forecast_model_artifact()` repeats model loading, config init, data pipeline, and orchestrator construction from `_setup_evaluation()` instead of reusing it. Nearly identical 40-line blocks in both methods.
 
 ---
 
@@ -334,20 +320,6 @@ Per Martin (Clean Architecture Ch 11, p.104-108): DIP says "depend on abstractio
 
 ---
 
-### C-23: `extrapolate_time()` has no direct unit test
-
-| Field | Value |
-|-------|-------|
-| ID | C-23 |
-| Tier | 3 |
-| Source | test-review (2026-04-08) |
-| Trigger | Change to time increment logic or future scaffold construction |
-| Location | `volume_handler.py:573-613` |
-
-`extrapolate_time()` creates future identity scaffolding by repeating the last time step and incrementing time indices. No test verifies temporal continuity, correct time channel incrementing, or shape preservation. Used in the forecast path when predictions extend beyond available history.
-
----
-
 ### C-26: VisualDiagnostics plot correctness untested
 
 | Field | Value |
@@ -387,20 +359,6 @@ No test verifies system behavior with edge-case configurations that Pydantic acc
 | Location | `model_artifact_fetcher.py`, `test_model_artifact_fetcher.py` (3 tests) |
 
 Only 3 tests exist: happy path with latest artifact, happy path with specific artifact, and missing file error. No tests for timestamp extraction edge cases, device placement verification, or the `add_config` callback behavior.
-
----
-
-### C-32: VolumeSampler CIC failure modes untested and unregistered
-
-| Field | Value |
-|-------|-------|
-| ID | C-32 |
-| Tier | 4 |
-| Source | falsification-audit (2026-04-08) |
-| Trigger | Code change to `_generate_window()` extraction bounds or target resolution |
-| Location | `volume_sampler.py:55-70` (ledger), `volume_sampler.py:84-88` (bounds) |
-
-VolumeSampler CIC Section 6 declares "Geometric Overflow" (extraction outside bounds) and "Ledger Inconsistency" (target missing from volume) as failure modes. Both are handled in code (`np.clip` for bounds, `ValueError` for missing target) but have no test coverage and were not captured by the test-review.
 
 ---
 
@@ -541,7 +499,7 @@ Risk: a future CI pipeline that runs `pytest tests/` without excluding this file
 | ID | D-01 |
 | Source | expert-review (2026-04-08) |
 | Perspectives | Martin (split — SRP Ch 7 p.80: serves 4 actors; ISP Ch 10 p.100: 20+ method interface; SAP Ch 14 p.139: Zone of Pain), Ousterhout (keep — successful deep module hiding complexity), Hickey (partial split — extract PF output path, keep volume ops together) |
-| Resolution | Partial split recommended: extract PredictionFrame output path into dedicated assembler, keep volume operations in VolumeHandler. Clean Architecture analysis strengthens the split case via three independent SOLID violations (SRP, ISP, SAP) but Ousterhout's "deep module" counter-argument remains valid for the core volume operations. Trigger: when VolumeHandler next needs a non-trivial change to the PF output path (`to_evaluation_pf`, `to_forecast_pf`, `_reconstruct_as_pf_dict`). |
+| Resolution | **Accepted** (2026-04-08): Partial split will be executed when VolumeHandler next needs a non-trivial change to the PF output path (`to_evaluation_pf`, `to_forecast_pf`, `_reconstruct_as_pf_dict`). Extract PredictionFrame output into dedicated assembler; keep core volume operations in VolumeHandler. Three independent SOLID violations (SRP, ISP, SAP = C-36, C-37, C-39) support the split. Ousterhout's "deep module" counter-argument remains valid for core volume operations but does not extend to the PF output path. This decision unblocks C-36, C-37, C-39 for execution when the trigger fires. |
 
 ---
 
@@ -616,6 +574,36 @@ Risk: a future CI pipeline that runs `pytest tests/` without excluding this file
 | ID | C-31 |
 | Resolved | 2026-04-08 |
 | Resolution | Applied ADR-008 "Narrative Failure" pattern (err_msg → logger.error → raise) to all 7 locations: `training_forensics.py` (3), `config_initializer.py` (1), `volume_handler.py` (2), `mtloss.py` (1). Also added `logger` to `mtloss.py` which previously had none. |
+
+---
+
+### C-02: Duplicated setup between eval and forecast — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-02 |
+| Resolved | 2026-04-08 |
+| Resolution | Added `forecast=True` parameter to `_setup_evaluation()`. `_forecast_model_artifact()` reduced from 25 lines of duplicated setup to a single `_setup_evaluation("forecasting", forecast=True)` call. Forecast path correctly skips partition lookup and uses `partition_bound=None`. |
+
+---
+
+### C-23: `extrapolate_time()` has no direct unit test — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-23 |
+| Resolved | 2026-04-08 |
+| Resolution | Added 4 tests in `tests/test_volume_handler_hard_gates.py`: shape preservation, temporal continuity (time channel increment verification), non-time channel cloning, and single-step edge case. |
+
+---
+
+### C-32: VolumeSampler CIC failure modes untested and unregistered — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-32 |
+| Resolved | 2026-04-08 |
+| Resolution | Ledger Inconsistency already tested by existing `test_red_unknown_target`. Added `TestGeometricOverflow` class (2 tests) verifying bounds clamping with edge anchors and max-dim extraction. CIC Section 6 notes: code uses `np.clip` (silent correction) rather than raising — correct behavior, CIC language ("Fails if...") is aspirational rather than literal. |
 
 ---
 

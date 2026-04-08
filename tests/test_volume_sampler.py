@@ -312,3 +312,49 @@ class TestSpatialOffsetRoundTrip:
             "Sentinel value 42.0 was not found in any of 50 extracted windows. "
             "Check importance sampling or sentinel placement."
         )
+
+
+# ---------------------------------------------------------------------------
+# C-32: VolumeSampler CIC failure modes — Geometric Overflow (bounds clamping)
+# ---------------------------------------------------------------------------
+class TestGeometricOverflow:
+    """
+    C-32: When the importance-sampled anchor is near the grid edge,
+    np.clip must constrain the extraction window to valid bounds.
+    The extracted window must have correct shape and not exceed the grid.
+    """
+
+    def test_edge_anchor_produces_valid_window(self, sampler_handler):
+        """
+        Use window_dim close to H to force the clip path.
+        Window must still have correct shape even when anchor is at edge.
+        """
+        dim = H - 1  # 7 out of 8 — almost full grid, forces clipping
+        sampler = VolumeSampler(sampler_handler, _make_config(window_dim=dim))
+        batch, _ = sampler.get_batch(TARGET, threshold=1, batch_size=5)
+
+        for i, window in enumerate(batch):
+            assert window.shape[1] == dim, (
+                f"Window {i}: expected H={dim}, got {window.shape[1]}"
+            )
+            assert window.shape[2] == dim, (
+                f"Window {i}: expected W={dim}, got {window.shape[2]}"
+            )
+
+    def test_max_dim_produces_single_valid_window(self, sampler_handler):
+        """
+        window_dim == H means the entire grid is the window.
+        np.clip forces r0=0, c0=0. Must produce valid extraction.
+        """
+        sampler = VolumeSampler(sampler_handler, _make_config(window_dim=H))
+        batch, _ = sampler.get_batch(TARGET, threshold=1, batch_size=1)
+
+        window = batch[0]
+        assert window.shape[1] == H
+        assert window.shape[2] == W
+        # Data should match the full training volume (minus horizon steps)
+        train_vh = sampler.get_train_volume()
+        np.testing.assert_array_equal(
+            window.data[:, :, :, :],
+            train_vh.data[:, :, :, :],
+        )
