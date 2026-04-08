@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-08                           |
-| Total Concerns    | 28                                   |
-| Open Concerns     | 28                                   |
+| Total Concerns    | 30                                   |
+| Open Concerns     | 30                                   |
 | Resolved Concerns | 0                                    |
 
 ---
@@ -415,6 +415,34 @@ When the curriculum's threshold yields zero qualified cells, `VolumeSampler._gen
 | Location | `docs/CICs/HydranetManager.md` (Section 10), `docs/CICs/ConfigInitializer.md` (Section 10) |
 
 Several CICs reference test files that no longer exist: `legacy_tests/test_manager_smoke.py`, `legacy_tests/test_manager_robustness.py`, `tests/test_red_team_the_abyss.py`, `tests/test_config_initializer.py`. These files were deleted during dead code cleanup but the CIC test alignment sections were not updated.
+
+---
+
+### C-29: Plausible misconfiguration scenarios untested
+
+| Field | Value |
+|-------|-------|
+| ID | C-29 |
+| Tier | 4 |
+| Source | test-review (2026-04-08) |
+| Trigger | Human operator providing technically valid but degenerate config values |
+| Location | `config_initializer.py` (HydraNetConfig), `volume_sampler.py`, `train_model.py` |
+
+No test verifies system behavior with edge-case configurations that Pydantic accepts but produce degenerate behavior: `window_dim=1` (single-pixel patches), `total_lessons=0` (no training), `windows_per_lesson=0` (empty lesson), `learning_rate=1e-20` (effectively zero). These are plausible human errors that pass validation but produce silent quality degradation.
+
+---
+
+### C-30: ModelArtifactFetcher has minimal test coverage
+
+| Field | Value |
+|-------|-------|
+| ID | C-30 |
+| Tier | 4 |
+| Source | test-review (2026-04-08) |
+| Trigger | Change to artifact loading, device placement, or timestamp extraction logic |
+| Location | `model_artifact_fetcher.py`, `test_model_artifact_fetcher.py` (3 tests) |
+
+Only 3 tests exist: happy path with latest artifact, happy path with specific artifact, and missing file error. No tests for timestamp extraction edge cases, device placement verification, or the `add_config` callback behavior.
 
 ---
 
