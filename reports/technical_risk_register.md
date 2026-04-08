@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-08                           |
-| Total Concerns    | 39                                   |
-| Open Concerns     | 38                                   |
+| Total Concerns    | 40                                   |
+| Open Concerns     | 39                                   |
 | Resolved Concerns | 0                                    |
 
 ---
@@ -599,6 +599,20 @@ Note: C-05 already registers the string code opacity; this concern addresses the
 VolumeHandler is an Entity-layer component (core data carrier, highest stability). `PredictionFrame` is from the Framework layer (`views_pipeline_core`). The import in `to_evaluation_pf()` violates the Dependency Rule — an inner-circle component depends on an outer-circle type.
 
 Per Martin (Clean Architecture Ch 22, p.203-209): "Source code dependencies must point only inward, toward higher-level policies. Nothing in an inner circle can know anything at all about something in an outer circle." Currently mitigated by lazy import (inside the method body, not at module level), which limits the coupling to runtime rather than import-time. A full fix would extract `to_evaluation_pf()` into an Interface Adapter that imports both VolumeHandler and PredictionFrame.
+
+---
+
+### C-40: `validate_docs.sh` uses GNU-only `grep -oP` (not portable to macOS)
+
+| Field | Value |
+|-------|-------|
+| ID | C-40 |
+| Tier | 4 |
+| Source | pr-review (2026-04-08) |
+| Trigger | macOS contributor running `bash docs/validate_docs.sh` |
+| Location | `docs/validate_docs.sh:60,75` |
+
+Two `grep -oP` calls use Perl-compatible regex (`-P` flag), which requires GNU grep. macOS ships BSD grep, which does not support `-P`. The script will fail with an error on macOS unless the user has GNU grep installed or aliased. Currently low-impact: all known contributors use Linux, the script is a manual governance tool (not CI), and failure is loud and non-destructive. Fix is straightforward: rewrite with `sed -E` or `awk` for POSIX portability. Script was copied verbatim from base_docs template — fix should be upstreamed there as well.
 
 ---
 
