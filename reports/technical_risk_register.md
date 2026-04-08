@@ -31,7 +31,7 @@
 | ID | C-01 |
 | Tier | 3 |
 | Source | repo-assimilation (2026-04-08) |
-| Trigger | Any change to component wiring or lifecycle ordering |
+| Trigger | When adding or removing a component from Manager's initialization sequence, verify file hasn't exceeded pure-wiring scope |
 | Location | `manager/hydranet_manager.py` |
 
 `hydranet_manager.py` imports 12 internal modules and wires all components manually. Any wiring change requires modifying this single 380-line file. Fan-out of 12 — highest in the codebase.
@@ -195,7 +195,7 @@ Multiple modules reach into `VolumeHandler._metadata.feature_cols`, `._metadata.
 | ID | C-12 |
 | Tier | 4 |
 | Source | repo-assimilation (2026-04-08) |
-| Trigger | Running in an environment without `wandb` installed |
+| Trigger | When importing any module from `utils/` in an environment without `wandb`, verify `utils.py` doesn't block the import chain |
 | Location | `utils.py:9` |
 
 `import wandb` runs unconditionally at module load even when W&B is not configured. Mitigated by `if wandb.run is not None` guard in `train_log()`, but the import itself would fail in environments without the package. Currently a soft dependency since `wandb` is not in `pyproject.toml` required deps.
@@ -239,7 +239,7 @@ Per Martin (Clean Architecture Ch 6, p.70-76): "Segregation of Mutability" — s
 | ID | C-15 |
 | Tier | 3 |
 | Source | expert-review (2026-04-08) |
-| Trigger | Modifying lesson orchestration, diagnostic biopsy, gradient clipping, or forensic finalization |
+| Trigger | When modifying diagnostic biopsy logic in `training_loop()`, verify you don't need to also touch optimization code in the same function |
 | Location | `train_model.py:279-453` |
 
 `training_loop()` mixes lesson orchestration, gradient accumulation/clipping, diagnostic biopsy generation, forensic auditor finalization, and progress bar management in one function. Violates SRP — changes to diagnostic output require touching the same function that controls optimization.
@@ -269,7 +269,7 @@ All `biopsy_*` methods wrap their body in `try/except Exception` and log a warni
 | ID | C-17 |
 | Tier | 3 |
 | Source | expert-review (2026-04-08) |
-| Trigger | Adding a new training feature that requires another parameter |
+| Trigger | When adding a parameter to `train()`, verify total count and consider bundling into a context dataclass |
 | Location | `train_model.py:150-163` |
 
 `train()` takes model, optimizer, scheduler, criterion_reg, criterion_class, multitaskloss_instance, sample_handler, config, device, pbar, viz, stage_label, and forensics. Wide interface makes the function hard to call correctly and easy to wire incorrectly. Could be reduced by bundling training context into a dataclass.
@@ -283,7 +283,7 @@ All `biopsy_*` methods wrap their body in `try/except Exception` and log a warni
 | ID | C-18 |
 | Tier | 3 |
 | Source | expert-review (2026-04-08) |
-| Trigger | Refactoring the training loop, changing config keys, or modifying lesson/window/sequence wiring |
+| Trigger | When refactoring the training loop, verify the full train→lesson→window→optimize chain with a manual end-to-end run |
 | Location | `train_model.py:279-497` (entire training path) |
 
 The training loop is the single most critical code path and has no automated end-to-end test. `test_train_loop.py` tests `_process_sequence()` in isolation. A wiring bug (wrong argument order, missing config key, changed return type) in the lesson→window→optimize chain won't be caught until someone runs a full training job (hours on GPU).
@@ -300,7 +300,7 @@ The training loop is the single most critical code path and has no automated end
 | Trigger | Upstream data source assigning `priogrid_gid == 0` to a valid cell |
 | Location | `volume_handler.py:505` |
 
-`_valid_cell_indices()` uses `mask = p_data[:, :, :, pg_idx] > 0` to identify valid cells. If any legitimate grid cell has `priogrid_gid == 0`, it is silently dropped from output. This assumption is not enforced or documented at ingestion (`DataSniffer`, `DataFetcher`). In practice, PRIO-GRID assigns GIDs starting from 1, but this is domain knowledge not codified in the system.
+`_valid_cell_indices()` uses `mask = p_data[:, :, :, pg_idx] > 0` to identify valid cells. If any legitimate grid cell has `priogrid_gid == 0`, it is silently dropped from output. This assumption is not enforced or documented at ingestion (`DataSniffer`, `DataFetcher`). In practice, PRIO-GRID assigns GIDs starting from 1, but this is domain knowledge not codified in the system. Tier rationale: impact is catastrophic (silent data loss) but trigger probability is near-zero given PRIO-GRID's established numbering convention. Tier 4 reflects expected risk (impact × likelihood), not impact alone.
 
 ---
 
@@ -309,9 +309,9 @@ The training loop is the single most critical code path and has no automated end
 | Field | Value |
 |-------|-------|
 | ID | C-20 |
-| Tier | 4 |
+| Tier | 3 |
 | Source | expert-review (2026-04-08) |
-| Trigger | Model producing slightly incorrect predictions that compound over 36 autoregressive steps |
+| Trigger | When modifying autoregressive feedback in `_run_autoregressive()`, verify that gradual magnitude drift (not just NaN/Inf) is detectable |
 | Location | `hydranet_inference.py:287-288` |
 
 `t0_autoreg = t1_pred.detach()` feeds model predictions back as input. `IntegrityGuardian` catches NaN/Inf and its hard ceiling (`> 10000`) catches extreme explosion, but gradual magnitude drift (e.g., predictions growing from 2 to 200 over 36 steps) goes undetected. No soft warning or clipping on autoregressive feedback inputs.
@@ -513,7 +513,7 @@ Per Martin (Ch 13, p.120-121): also violates CRP (Common Reuse Principle) — im
 | ID | C-36 |
 | Tier | 3 |
 | Source | clean-architecture-review (2026-04-08) |
-| Trigger | Any consumer of VolumeHandler needing to understand methods irrelevant to its use case |
+| Trigger | When a new module imports VolumeHandler, verify it doesn't transitively pull unused dependencies (e.g., PredictionFrame via the PF output path) |
 | Location | `volume_handler.py` (780 lines, 20+ methods, 9 dependents) |
 
 VolumeHandler exposes a single monolithic interface to all consumers. The training loop uses `to_pytorch()`, `flip()`, `channel_map`. The inference path uses `wrap_predictions()`, `to_evaluation_pf()`, `slice_time()`. The data pipeline uses `from_df()`. Each consumer depends on the full 780-line interface but uses only a subset.
@@ -611,7 +611,7 @@ Risk: a future CI pipeline that runs `pytest tests/` without excluding this file
 | ID | D-01 |
 | Source | expert-review (2026-04-08) |
 | Perspectives | Martin (split — SRP Ch 7 p.80: serves 4 actors; ISP Ch 10 p.100: 20+ method interface; SAP Ch 14 p.139: Zone of Pain), Ousterhout (keep — successful deep module hiding complexity), Hickey (partial split — extract PF output path, keep volume ops together) |
-| Resolution | Partial split recommended: extract PredictionFrame output path into dedicated assembler, keep volume operations in VolumeHandler. Clean Architecture analysis strengthens the split case via three independent SOLID violations (SRP, ISP, SAP) but Ousterhout's "deep module" counter-argument remains valid for the core volume operations. |
+| Resolution | Partial split recommended: extract PredictionFrame output path into dedicated assembler, keep volume operations in VolumeHandler. Clean Architecture analysis strengthens the split case via three independent SOLID violations (SRP, ISP, SAP) but Ousterhout's "deep module" counter-argument remains valid for the core volume operations. Trigger: when VolumeHandler next needs a non-trivial change to the PF output path (`to_evaluation_pf`, `to_forecast_pf`, `_reconstruct_as_pf_dict`). |
 
 ---
 
@@ -622,7 +622,7 @@ Risk: a future CI pipeline that runs `pytest tests/` without excluding this file
 | ID | D-02 |
 | Source | expert-review (2026-04-08) |
 | Perspectives | GoF (parameterize — 6 copy-pasted decoder blocks is anti-pattern), Beck/Feathers (leave alone — structural regex test guards against bugs, refactoring invalidates all .pt artifacts) |
-| Resolution | Leave as-is. Cost of refactoring (breaking all artifacts) exceeds benefit. Structural test provides adequate safety. |
+| Resolution | Leave as-is. Cost of refactoring (breaking all artifacts) exceeds benefit. Structural test in `tests/test_architecture.py` provides adequate safety — this test is load-bearing infrastructure; do not modify without understanding its role as the guard for this decision. |
 
 ---
 
