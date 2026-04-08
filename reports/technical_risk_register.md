@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-08                           |
-| Total Concerns    | 22                                   |
-| Open Concerns     | 22                                   |
+| Total Concerns    | 28                                   |
+| Open Concerns     | 28                                   |
 | Resolved Concerns | 0                                    |
 
 ---
@@ -333,6 +333,90 @@ The model's return type is untyped; 7+ call sites use `cast(Any, model)(input, h
 ---
 
 ## Disagreements
+
+### C-23: `extrapolate_time()` has no direct unit test
+
+| Field | Value |
+|-------|-------|
+| ID | C-23 |
+| Tier | 3 |
+| Source | test-review (2026-04-08) |
+| Trigger | Change to time increment logic or future scaffold construction |
+| Location | `volume_handler.py:573-613` |
+
+`extrapolate_time()` creates future identity scaffolding by repeating the last time step and incrementing time indices. No test verifies temporal continuity, correct time channel incrementing, or shape preservation. Used in the forecast path when predictions extend beyond available history.
+
+---
+
+### C-24: InferenceOrchestrator temporal discontinuity failure mode untested
+
+| Field | Value |
+|-------|-------|
+| ID | C-24 |
+| Tier | 3 |
+| Source | test-review (2026-04-08) |
+| Trigger | Requesting an origin index beyond the handler's temporal bounds |
+| Location | `inference_orchestrator.py:49-114` |
+
+CIC documents "Temporal Discontinuity" as a failure mode — the orchestrator should fail if the requested origin does not exist within the provided history. No test verifies this behavior. Currently guarded implicitly by `VolumeHandler.slice_time()` bounds check, but the orchestrator-level contract is untested.
+
+---
+
+### C-25: Curriculum→Sampler zero-qualified-cells interaction untested
+
+| Field | Value |
+|-------|-------|
+| ID | C-25 |
+| Tier | 3 |
+| Source | test-review (2026-04-08) |
+| Trigger | Curriculum threshold too high for sparse targets, causing extended random-anchor fallback |
+| Location | `curriculum.py:90-107`, `volume_sampler.py:76-81` |
+
+When the curriculum's threshold yields zero qualified cells, `VolumeSampler._generate_window()` falls back to a random spatial anchor. No test verifies this fallback path or that it logs the transition. Extended random-anchor sampling degrades training quality without any error signal.
+
+---
+
+### C-26: VisualDiagnostics plot correctness untested
+
+| Field | Value |
+|-------|-------|
+| ID | C-26 |
+| Tier | 4 |
+| Source | test-review (2026-04-08) |
+| Trigger | Bug in any `biopsy_*` plotting logic |
+| Location | `visual_diagnostics.py` (985 lines, 12+ biopsy methods) |
+
+29 tests verify the `active=True/False` toggle and no-crash behavior, but zero tests verify that generated plots contain correct data, have non-zero file size, or reflect the volume state they claim to show. A plotting bug could produce plausible-looking but incorrect visualizations that mislead operators.
+
+---
+
+### C-27: `train_model.py` import structure blocks local testing
+
+| Field | Value |
+|-------|-------|
+| ID | C-27 |
+| Tier | 3 |
+| Source | test-review (2026-04-08) |
+| Trigger | Running tests in partial environment without views_pipeline_core |
+| Location | `train_model.py:11` (`from views_pipeline_core.managers.model import ModelPathManager`) |
+
+`ModelPathManager` is imported at module level but only used in `train_model_artifact()`. This cascades to block testing of `_process_sequence()`, `train()`, and `training_loop()` — the 3 most testable functions in the file. 12 tests currently fail due to this import chain.
+
+---
+
+### C-28: CIC test file references are stale
+
+| Field | Value |
+|-------|-------|
+| ID | C-28 |
+| Tier | 4 |
+| Source | test-review (2026-04-08) |
+| Trigger | CIC review or audit referencing non-existent test files |
+| Location | `docs/CICs/HydranetManager.md` (Section 10), `docs/CICs/ConfigInitializer.md` (Section 10) |
+
+Several CICs reference test files that no longer exist: `legacy_tests/test_manager_smoke.py`, `legacy_tests/test_manager_robustness.py`, `tests/test_red_team_the_abyss.py`, `tests/test_config_initializer.py`. These files were deleted during dead code cleanup but the CIC test alignment sections were not updated.
+
+---
 
 ### D-01: VolumeHandler scope — God Object vs Deep Module
 
