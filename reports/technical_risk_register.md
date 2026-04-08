@@ -5,9 +5,9 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-08                           |
-| Total Concerns    | 41                                   |
-| Open Concerns     | 40                                   |
-| Resolved Concerns | 0                                    |
+| Total Concerns    | 40                                   |
+| Open Concerns     | 39                                   |
+| Resolved Concerns | 1                                    |
 
 ---
 
@@ -31,7 +31,7 @@
 | ID | C-01 |
 | Tier | 3 |
 | Source | repo-assimilation (2026-04-08) |
-| Trigger | Any change to component wiring or lifecycle ordering |
+| Trigger | When adding or removing a component from Manager's initialization sequence, verify file hasn't exceeded pure-wiring scope |
 | Location | `manager/hydranet_manager.py` |
 
 `hydranet_manager.py` imports 12 internal modules and wires all components manually. Any wiring change requires modifying this single 380-line file. Fan-out of 12 — highest in the codebase.
@@ -195,7 +195,7 @@ Multiple modules reach into `VolumeHandler._metadata.feature_cols`, `._metadata.
 | ID | C-12 |
 | Tier | 4 |
 | Source | repo-assimilation (2026-04-08) |
-| Trigger | Running in an environment without `wandb` installed |
+| Trigger | When importing any module from `utils/` in an environment without `wandb`, verify `utils.py` doesn't block the import chain |
 | Location | `utils.py:9` |
 
 `import wandb` runs unconditionally at module load even when W&B is not configured. Mitigated by `if wandb.run is not None` guard in `train_log()`, but the import itself would fail in environments without the package. Currently a soft dependency since `wandb` is not in `pyproject.toml` required deps.
@@ -212,7 +212,7 @@ Multiple modules reach into `VolumeHandler._metadata.feature_cols`, `._metadata.
 | Trigger | Calling `_permute()` on a shared VolumeHandler reference |
 | Location | `volume_handler.py:615-635` |
 
-Unlike transformation methods that return new VolumeHandlers (`slice_time`, `collapse_to_point`), `_permute()` modifies `self._data` and `self._metadata` in-place. Inconsistent with the immutable-by-convention pattern. Currently used only in geometric tests, not in production paths.
+Unlike transformation methods that return new VolumeHandlers (`slice_time`, `collapse_to_point`), `_permute()` modifies `self._data` and `self._metadata` in-place. Inconsistent with the immutable-by-convention pattern. Currently used only in geometric tests, not in production paths. See also C-14 (same mutation pattern on `flip()`).
 
 ---
 
@@ -226,7 +226,7 @@ Unlike transformation methods that return new VolumeHandlers (`slice_time`, `col
 | Trigger | Calling `flip()` on a VolumeHandler that is referenced elsewhere |
 | Location | `volume_handler.py:637-653` |
 
-Like `_permute()`, `flip()` modifies `self._data` in-place rather than returning a new VolumeHandler. Used in the training augmentation path (`train_model.train()`). Safe in practice because the augmented handler is a per-window copy from `VolumeSampler`, but the mutation pattern is inconsistent with the immutable-by-convention design.
+Like `_permute()` (C-13), `flip()` modifies `self._data` in-place rather than returning a new VolumeHandler. Used in the training augmentation path (`train_model.train()`). Safe in practice because the augmented handler is a per-window copy from `VolumeSampler`, but the mutation pattern is inconsistent with the immutable-by-convention design.
 
 Per Martin (Clean Architecture Ch 6, p.70-76): "Segregation of Mutability" — separate the application into immutable (pure functional) and mutable (transactional) components. `VolumeMetadata` is correctly immutable (`frozen=True`). But `flip()` and `_permute()` break the segregation by mutating `_data` in-place. Martin would say: these are the "transactional memory" components that should be explicitly marked as mutable, or refactored to return new instances.
 
@@ -239,7 +239,7 @@ Per Martin (Clean Architecture Ch 6, p.70-76): "Segregation of Mutability" — s
 | ID | C-15 |
 | Tier | 3 |
 | Source | expert-review (2026-04-08) |
-| Trigger | Modifying lesson orchestration, diagnostic biopsy, gradient clipping, or forensic finalization |
+| Trigger | When modifying diagnostic biopsy logic in `training_loop()`, verify you don't need to also touch optimization code in the same function |
 | Location | `train_model.py:279-453` |
 
 `training_loop()` mixes lesson orchestration, gradient accumulation/clipping, diagnostic biopsy generation, forensic auditor finalization, and progress bar management in one function. Violates SRP — changes to diagnostic output require touching the same function that controls optimization.
@@ -269,7 +269,7 @@ All `biopsy_*` methods wrap their body in `try/except Exception` and log a warni
 | ID | C-17 |
 | Tier | 3 |
 | Source | expert-review (2026-04-08) |
-| Trigger | Adding a new training feature that requires another parameter |
+| Trigger | When adding a parameter to `train()`, verify total count and consider bundling into a context dataclass |
 | Location | `train_model.py:150-163` |
 
 `train()` takes model, optimizer, scheduler, criterion_reg, criterion_class, multitaskloss_instance, sample_handler, config, device, pbar, viz, stage_label, and forensics. Wide interface makes the function hard to call correctly and easy to wire incorrectly. Could be reduced by bundling training context into a dataclass.
@@ -283,7 +283,7 @@ All `biopsy_*` methods wrap their body in `try/except Exception` and log a warni
 | ID | C-18 |
 | Tier | 3 |
 | Source | expert-review (2026-04-08) |
-| Trigger | Refactoring the training loop, changing config keys, or modifying lesson/window/sequence wiring |
+| Trigger | When refactoring the training loop, verify the full train→lesson→window→optimize chain with a manual end-to-end run |
 | Location | `train_model.py:279-497` (entire training path) |
 
 The training loop is the single most critical code path and has no automated end-to-end test. `test_train_loop.py` tests `_process_sequence()` in isolation. A wiring bug (wrong argument order, missing config key, changed return type) in the lesson→window→optimize chain won't be caught until someone runs a full training job (hours on GPU).
@@ -300,7 +300,7 @@ The training loop is the single most critical code path and has no automated end
 | Trigger | Upstream data source assigning `priogrid_gid == 0` to a valid cell |
 | Location | `volume_handler.py:505` |
 
-`_valid_cell_indices()` uses `mask = p_data[:, :, :, pg_idx] > 0` to identify valid cells. If any legitimate grid cell has `priogrid_gid == 0`, it is silently dropped from output. This assumption is not enforced or documented at ingestion (`DataSniffer`, `DataFetcher`). In practice, PRIO-GRID assigns GIDs starting from 1, but this is domain knowledge not codified in the system.
+`_valid_cell_indices()` uses `mask = p_data[:, :, :, pg_idx] > 0` to identify valid cells. If any legitimate grid cell has `priogrid_gid == 0`, it is silently dropped from output. This assumption is not enforced or documented at ingestion (`DataSniffer`, `DataFetcher`). In practice, PRIO-GRID assigns GIDs starting from 1, but this is domain knowledge not codified in the system. Tier rationale: impact is catastrophic (silent data loss) but trigger probability is near-zero given PRIO-GRID's established numbering convention. Tier 4 reflects expected risk (impact × likelihood), not impact alone.
 
 ---
 
@@ -309,9 +309,9 @@ The training loop is the single most critical code path and has no automated end
 | Field | Value |
 |-------|-------|
 | ID | C-20 |
-| Tier | 4 |
+| Tier | 3 |
 | Source | expert-review (2026-04-08) |
-| Trigger | Model producing slightly incorrect predictions that compound over 36 autoregressive steps |
+| Trigger | When modifying autoregressive feedback in `_run_autoregressive()`, verify that gradual magnitude drift (not just NaN/Inf) is detectable |
 | Location | `hydranet_inference.py:287-288` |
 
 `t0_autoreg = t1_pred.detach()` feeds model predictions back as input. `IntegrityGuardian` catches NaN/Inf and its hard ceiling (`> 10000`) catches extreme explosion, but gradual magnitude drift (e.g., predictions growing from 2 to 200 over 36 steps) goes undetected. No soft warning or clipping on autoregressive feedback inputs.
@@ -347,8 +347,6 @@ The model's return type is untyped; 7+ call sites use `cast(Any, model)(input, h
 Per Martin (Clean Architecture Ch 11, p.104-108): DIP says "depend on abstractions, not on concretions." Every `cast(Any, model)` call is a concrete dependency on the model's undeclared interface. Martin's coding practice (p.105): "Don't refer to volatile concrete classes." A `Protocol` defining `__call__(x, h) -> (Tensor, Tensor, Tensor)` would invert this dependency, making the contract explicit and verifiable at type-check time.
 
 ---
-
-## Disagreements
 
 ### C-23: `extrapolate_time()` has no direct unit test
 
@@ -417,20 +415,6 @@ When the curriculum's threshold yields zero qualified cells, `VolumeSampler._gen
 | Location | `train_model.py:11` (`from views_pipeline_core.managers.model import ModelPathManager`) |
 
 `ModelPathManager` is imported at module level but only used in `train_model_artifact()`. This cascades to block testing of `_process_sequence()`, `train()`, and `training_loop()` — the 3 most testable functions in the file. 12 tests currently fail due to this import chain.
-
----
-
-### C-28: CIC test file references are stale
-
-| Field | Value |
-|-------|-------|
-| ID | C-28 |
-| Tier | 4 |
-| Source | test-review (2026-04-08) |
-| Trigger | CIC review or audit referencing non-existent test files |
-| Location | `docs/CICs/HydranetManager.md` (Section 10), `docs/CICs/ConfigInitializer.md` (Section 10) |
-
-Several CICs reference test files that no longer exist: `legacy_tests/test_manager_smoke.py`, `legacy_tests/test_manager_robustness.py`, `tests/test_red_team_the_abyss.py`, `tests/test_config_initializer.py`. These files were deleted during dead code cleanup but the CIC test alignment sections were not updated.
 
 ---
 
@@ -504,20 +488,6 @@ InferenceOrchestrator CIC Section 6 declares "Sequence Violation" as a failure m
 
 ---
 
-### C-34: `train_model.py:214` bare `except Exception` missed by C-21
-
-| Field | Value |
-|-------|-------|
-| ID | C-34 |
-| Tier | 4 |
-| Source | falsification-audit (2026-04-08) |
-| Trigger | Diagnostic time index extraction fails silently during training |
-| Location | `train_model.py:214` |
-
-The `train()` function has a bare `except Exception: pass` at line 214 for time index extraction during diagnostic biopsy. If `sample_handler.channel_map` is corrupt, the training continues without diagnostic data and no warning is logged. This location was missed by C-21's original enumeration (now corrected).
-
----
-
 ### C-35: `utils/` package violates Common Closure and Screaming Architecture
 
 | Field | Value |
@@ -543,12 +513,12 @@ Per Martin (Ch 13, p.120-121): also violates CRP (Common Reuse Principle) — im
 | ID | C-36 |
 | Tier | 3 |
 | Source | clean-architecture-review (2026-04-08) |
-| Trigger | Any consumer of VolumeHandler needing to understand methods irrelevant to its use case |
+| Trigger | When a new module imports VolumeHandler, verify it doesn't transitively pull unused dependencies (e.g., PredictionFrame via the PF output path) |
 | Location | `volume_handler.py` (780 lines, 20+ methods, 9 dependents) |
 
 VolumeHandler exposes a single monolithic interface to all consumers. The training loop uses `to_pytorch()`, `flip()`, `channel_map`. The inference path uses `wrap_predictions()`, `to_evaluation_pf()`, `slice_time()`. The data pipeline uses `from_df()`. Each consumer depends on the full 780-line interface but uses only a subset.
 
-Per Martin (Clean Architecture Ch 10, p.100-103): ISP says "avoid depending on things you don't use." Each consumer is forced to depend on methods, imports, and complexity it never invokes. Martin (p.102): "depending on something that carries baggage that you don't need can cause you troubles that you didn't expect." The training path doesn't need `to_evaluation_pf()` but transitively depends on `PredictionFrame` because of it.
+Per Martin (Clean Architecture Ch 10, p.100-103): ISP says "avoid depending on things you don't use." Each consumer is forced to depend on methods, imports, and complexity it never invokes. Martin (p.102): "depending on something that carries baggage that you don't need can cause you troubles that you didn't expect." The training path doesn't need `to_evaluation_pf()` but transitively depends on `PredictionFrame` because of it. See also C-37 (SAP Zone of Pain) and D-01 (God Object vs Deep Module disagreement).
 
 ---
 
@@ -564,7 +534,7 @@ Per Martin (Clean Architecture Ch 10, p.100-103): ISP says "avoid depending on t
 
 VolumeHandler has Instability I = 2/(9+2) ≈ 0.18 — highly stable. But it is entirely concrete — no abstract base class, no Protocol, no interface definition. Per Martin (Clean Architecture Ch 14, p.139-143): SAP says "a component should be as abstract as it is stable." A component with high stability and low abstractness sits in the "Zone of Pain" — it's painful to change because many depend on it, and there's no abstraction to insulate them from change.
 
-Currently tolerable because VolumeHandler's interface is mature and rarely changes. Would become painful if a second volume carrier type were needed (e.g., lazy-loading for very large grids, or GPU-resident tensors for inference).
+Currently tolerable because VolumeHandler's interface is mature and rarely changes. Would become painful if a second volume carrier type were needed (e.g., lazy-loading for very large grids, or GPU-resident tensors for inference). See also C-36 (ISP violation) and D-01 (God Object vs Deep Module disagreement).
 
 ---
 
@@ -626,11 +596,13 @@ Two `grep -oP` calls use Perl-compatible regex (`-P` flag), which requires GNU g
 | Trigger | CI pipeline collecting `tests/test_falsification_all_risks_identified.py` without explicit exclusion |
 | Location | `tests/test_falsification_all_risks_identified.py` (8 `assert False` stubs) |
 
-TDD RED-state falsification stubs use `assert False` to mark unresolved risks. These are intentionally failing — they exist to remind developers that the underlying code issues (C-31 through C-34) are not yet fixed. Currently excluded via `--ignore` in manual test runs.
+TDD RED-state falsification stubs use `assert False` to mark unresolved risks. These are intentionally failing — they exist to remind developers that the underlying code issues (C-31 through C-33) are not yet fixed. Currently excluded via `--ignore` in manual test runs.
 
 Risk: a future CI pipeline that runs `pytest tests/` without excluding this file will see 8 deterministic failures. The stubs should NOT be converted to `xfail` or `skip` (that would silence the RED signal, defeating their TDD purpose). The correct resolution is either: (a) fix the underlying code issues so the stubs can be replaced with real passing tests, or (b) ensure CI explicitly excludes `test_falsification_*.py` files until remediation.
 
 ---
+
+## Disagreements
 
 ### D-01: VolumeHandler scope — God Object vs Deep Module
 
@@ -639,7 +611,7 @@ Risk: a future CI pipeline that runs `pytest tests/` without excluding this file
 | ID | D-01 |
 | Source | expert-review (2026-04-08) |
 | Perspectives | Martin (split — SRP Ch 7 p.80: serves 4 actors; ISP Ch 10 p.100: 20+ method interface; SAP Ch 14 p.139: Zone of Pain), Ousterhout (keep — successful deep module hiding complexity), Hickey (partial split — extract PF output path, keep volume ops together) |
-| Resolution | Partial split recommended: extract PredictionFrame output path into dedicated assembler, keep volume operations in VolumeHandler. Clean Architecture analysis strengthens the split case via three independent SOLID violations (SRP, ISP, SAP) but Ousterhout's "deep module" counter-argument remains valid for the core volume operations. |
+| Resolution | Partial split recommended: extract PredictionFrame output path into dedicated assembler, keep volume operations in VolumeHandler. Clean Architecture analysis strengthens the split case via three independent SOLID violations (SRP, ISP, SAP) but Ousterhout's "deep module" counter-argument remains valid for the core volume operations. Trigger: when VolumeHandler next needs a non-trivial change to the PF output path (`to_evaluation_pf`, `to_forecast_pf`, `_reconstruct_as_pf_dict`). |
 
 ---
 
@@ -650,7 +622,7 @@ Risk: a future CI pipeline that runs `pytest tests/` without excluding this file
 | ID | D-02 |
 | Source | expert-review (2026-04-08) |
 | Perspectives | GoF (parameterize — 6 copy-pasted decoder blocks is anti-pattern), Beck/Feathers (leave alone — structural regex test guards against bugs, refactoring invalidates all .pt artifacts) |
-| Resolution | Leave as-is. Cost of refactoring (breaking all artifacts) exceeds benefit. Structural test provides adequate safety. |
+| Resolution | Leave as-is. Cost of refactoring (breaking all artifacts) exceeds benefit. Structural test in `tests/test_architecture.py` provides adequate safety — this test is load-bearing infrastructure; do not modify without understanding its role as the guard for this decision. |
 
 ---
 
@@ -679,8 +651,8 @@ Risk: a future CI pipeline that runs `pytest tests/` without excluding this file
 
 ## Register Conventions
 
-- **ID format:** `C-xx` for concerns, `D-xx` for disagreements
-- **Sources:** `repo-assimilation`, `expert-review`, `tech-debt-audit`, `falsification-audit`, `incident`
+- **ID format:** `C-xx` for concerns, `D-xx` for disagreements. IDs are permanent — gaps in numbering indicate merged or resolved entries
+- **Sources:** `repo-assimilation`, `expert-review`, `test-review`, `falsification-audit`, `clean-architecture-review`, `pr-review`, `tech-debt-audit`, `incident`
 - **Resolution:** Move to "Resolved Concerns" with resolution date and summary when addressed
 - **Header counts:** `Total Concerns` and `Open Concerns` in the register header are manually maintained — update them whenever a concern is added or resolved
 - **Governed by:** ADR-048
