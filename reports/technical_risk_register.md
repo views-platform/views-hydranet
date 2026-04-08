@@ -231,4 +231,5 @@ Like `_permute()`, `flip()` modifies `self._data` in-place rather than returning
 - **ID format:** `C-xx` for concerns, `D-xx` for disagreements
 - **Sources:** `repo-assimilation`, `expert-review`, `tech-debt-audit`, `falsification-audit`, `incident`
 - **Resolution:** Move to "Resolved Concerns" with resolution date and summary when addressed
+- **Header counts:** `Total Concerns` and `Open Concerns` in the register header are manually maintained — update them whenever a concern is added or resolved
 - **Governed by:** ADR-048

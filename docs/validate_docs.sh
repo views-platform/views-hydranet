@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Validates internal consistency of base_docs documentation set.
+# Validates internal consistency of views-hydranet documentation set.
 # Exit 0 if clean, exit 1 if issues found.
 
 set -uo pipefail
@@ -9,7 +9,7 @@ cd "$SCRIPT_DIR"
 
 errors=0
 
-echo "=== base_docs validation ==="
+echo "=== views-hydranet docs validation ==="
 echo ""
 
 # 1. Check for unfilled template placeholders in accepted/active files
