@@ -5,9 +5,9 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-08                           |
-| Total Concerns    | 41                                   |
-| Open Concerns     | 40                                   |
-| Resolved Concerns | 0                                    |
+| Total Concerns    | 40                                   |
+| Open Concerns     | 39                                   |
+| Resolved Concerns | 1                                    |
 
 ---
 
@@ -212,7 +212,7 @@ Multiple modules reach into `VolumeHandler._metadata.feature_cols`, `._metadata.
 | Trigger | Calling `_permute()` on a shared VolumeHandler reference |
 | Location | `volume_handler.py:615-635` |
 
-Unlike transformation methods that return new VolumeHandlers (`slice_time`, `collapse_to_point`), `_permute()` modifies `self._data` and `self._metadata` in-place. Inconsistent with the immutable-by-convention pattern. Currently used only in geometric tests, not in production paths.
+Unlike transformation methods that return new VolumeHandlers (`slice_time`, `collapse_to_point`), `_permute()` modifies `self._data` and `self._metadata` in-place. Inconsistent with the immutable-by-convention pattern. Currently used only in geometric tests, not in production paths. See also C-14 (same mutation pattern on `flip()`).
 
 ---
 
@@ -226,7 +226,7 @@ Unlike transformation methods that return new VolumeHandlers (`slice_time`, `col
 | Trigger | Calling `flip()` on a VolumeHandler that is referenced elsewhere |
 | Location | `volume_handler.py:637-653` |
 
-Like `_permute()`, `flip()` modifies `self._data` in-place rather than returning a new VolumeHandler. Used in the training augmentation path (`train_model.train()`). Safe in practice because the augmented handler is a per-window copy from `VolumeSampler`, but the mutation pattern is inconsistent with the immutable-by-convention design.
+Like `_permute()` (C-13), `flip()` modifies `self._data` in-place rather than returning a new VolumeHandler. Used in the training augmentation path (`train_model.train()`). Safe in practice because the augmented handler is a per-window copy from `VolumeSampler`, but the mutation pattern is inconsistent with the immutable-by-convention design.
 
 Per Martin (Clean Architecture Ch 6, p.70-76): "Segregation of Mutability" — separate the application into immutable (pure functional) and mutable (transactional) components. `VolumeMetadata` is correctly immutable (`frozen=True`). But `flip()` and `_permute()` break the segregation by mutating `_data` in-place. Martin would say: these are the "transactional memory" components that should be explicitly marked as mutable, or refactored to return new instances.
 
@@ -348,8 +348,6 @@ Per Martin (Clean Architecture Ch 11, p.104-108): DIP says "depend on abstractio
 
 ---
 
-## Disagreements
-
 ### C-23: `extrapolate_time()` has no direct unit test
 
 | Field | Value |
@@ -417,20 +415,6 @@ When the curriculum's threshold yields zero qualified cells, `VolumeSampler._gen
 | Location | `train_model.py:11` (`from views_pipeline_core.managers.model import ModelPathManager`) |
 
 `ModelPathManager` is imported at module level but only used in `train_model_artifact()`. This cascades to block testing of `_process_sequence()`, `train()`, and `training_loop()` — the 3 most testable functions in the file. 12 tests currently fail due to this import chain.
-
----
-
-### C-28: CIC test file references are stale
-
-| Field | Value |
-|-------|-------|
-| ID | C-28 |
-| Tier | 4 |
-| Source | test-review (2026-04-08) |
-| Trigger | CIC review or audit referencing non-existent test files |
-| Location | `docs/CICs/HydranetManager.md` (Section 10), `docs/CICs/ConfigInitializer.md` (Section 10) |
-
-Several CICs reference test files that no longer exist: `legacy_tests/test_manager_smoke.py`, `legacy_tests/test_manager_robustness.py`, `tests/test_red_team_the_abyss.py`, `tests/test_config_initializer.py`. These files were deleted during dead code cleanup but the CIC test alignment sections were not updated.
 
 ---
 
@@ -504,20 +488,6 @@ InferenceOrchestrator CIC Section 6 declares "Sequence Violation" as a failure m
 
 ---
 
-### C-34: `train_model.py:214` bare `except Exception` missed by C-21
-
-| Field | Value |
-|-------|-------|
-| ID | C-34 |
-| Tier | 4 |
-| Source | falsification-audit (2026-04-08) |
-| Trigger | Diagnostic time index extraction fails silently during training |
-| Location | `train_model.py:214` |
-
-The `train()` function has a bare `except Exception: pass` at line 214 for time index extraction during diagnostic biopsy. If `sample_handler.channel_map` is corrupt, the training continues without diagnostic data and no warning is logged. This location was missed by C-21's original enumeration (now corrected).
-
----
-
 ### C-35: `utils/` package violates Common Closure and Screaming Architecture
 
 | Field | Value |
@@ -548,7 +518,7 @@ Per Martin (Ch 13, p.120-121): also violates CRP (Common Reuse Principle) — im
 
 VolumeHandler exposes a single monolithic interface to all consumers. The training loop uses `to_pytorch()`, `flip()`, `channel_map`. The inference path uses `wrap_predictions()`, `to_evaluation_pf()`, `slice_time()`. The data pipeline uses `from_df()`. Each consumer depends on the full 780-line interface but uses only a subset.
 
-Per Martin (Clean Architecture Ch 10, p.100-103): ISP says "avoid depending on things you don't use." Each consumer is forced to depend on methods, imports, and complexity it never invokes. Martin (p.102): "depending on something that carries baggage that you don't need can cause you troubles that you didn't expect." The training path doesn't need `to_evaluation_pf()` but transitively depends on `PredictionFrame` because of it.
+Per Martin (Clean Architecture Ch 10, p.100-103): ISP says "avoid depending on things you don't use." Each consumer is forced to depend on methods, imports, and complexity it never invokes. Martin (p.102): "depending on something that carries baggage that you don't need can cause you troubles that you didn't expect." The training path doesn't need `to_evaluation_pf()` but transitively depends on `PredictionFrame` because of it. See also C-37 (SAP Zone of Pain) and D-01 (God Object vs Deep Module disagreement).
 
 ---
 
@@ -564,7 +534,7 @@ Per Martin (Clean Architecture Ch 10, p.100-103): ISP says "avoid depending on t
 
 VolumeHandler has Instability I = 2/(9+2) ≈ 0.18 — highly stable. But it is entirely concrete — no abstract base class, no Protocol, no interface definition. Per Martin (Clean Architecture Ch 14, p.139-143): SAP says "a component should be as abstract as it is stable." A component with high stability and low abstractness sits in the "Zone of Pain" — it's painful to change because many depend on it, and there's no abstraction to insulate them from change.
 
-Currently tolerable because VolumeHandler's interface is mature and rarely changes. Would become painful if a second volume carrier type were needed (e.g., lazy-loading for very large grids, or GPU-resident tensors for inference).
+Currently tolerable because VolumeHandler's interface is mature and rarely changes. Would become painful if a second volume carrier type were needed (e.g., lazy-loading for very large grids, or GPU-resident tensors for inference). See also C-36 (ISP violation) and D-01 (God Object vs Deep Module disagreement).
 
 ---
 
@@ -626,11 +596,13 @@ Two `grep -oP` calls use Perl-compatible regex (`-P` flag), which requires GNU g
 | Trigger | CI pipeline collecting `tests/test_falsification_all_risks_identified.py` without explicit exclusion |
 | Location | `tests/test_falsification_all_risks_identified.py` (8 `assert False` stubs) |
 
-TDD RED-state falsification stubs use `assert False` to mark unresolved risks. These are intentionally failing — they exist to remind developers that the underlying code issues (C-31 through C-34) are not yet fixed. Currently excluded via `--ignore` in manual test runs.
+TDD RED-state falsification stubs use `assert False` to mark unresolved risks. These are intentionally failing — they exist to remind developers that the underlying code issues (C-31 through C-33) are not yet fixed. Currently excluded via `--ignore` in manual test runs.
 
 Risk: a future CI pipeline that runs `pytest tests/` without excluding this file will see 8 deterministic failures. The stubs should NOT be converted to `xfail` or `skip` (that would silence the RED signal, defeating their TDD purpose). The correct resolution is either: (a) fix the underlying code issues so the stubs can be replaced with real passing tests, or (b) ensure CI explicitly excludes `test_falsification_*.py` files until remediation.
 
 ---
+
+## Disagreements
 
 ### D-01: VolumeHandler scope — God Object vs Deep Module
 
@@ -679,8 +651,8 @@ Risk: a future CI pipeline that runs `pytest tests/` without excluding this file
 
 ## Register Conventions
 
-- **ID format:** `C-xx` for concerns, `D-xx` for disagreements
-- **Sources:** `repo-assimilation`, `expert-review`, `tech-debt-audit`, `falsification-audit`, `incident`
+- **ID format:** `C-xx` for concerns, `D-xx` for disagreements. IDs are permanent — gaps in numbering indicate merged or resolved entries
+- **Sources:** `repo-assimilation`, `expert-review`, `test-review`, `falsification-audit`, `clean-architecture-review`, `pr-review`, `tech-debt-audit`, `incident`
 - **Resolution:** Move to "Resolved Concerns" with resolution date and summary when addressed
 - **Header counts:** `Total Concerns` and `Open Concerns` in the register header are manually maintained — update them whenever a concern is added or resolved
 - **Governed by:** ADR-048

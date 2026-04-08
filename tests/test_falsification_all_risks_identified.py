@@ -116,13 +116,13 @@ def test_falsify_06_c21_undercounts_bare_except():
     """
     Probe 6 (Category C): Exception hierarchy completeness
 
-    Finding: C-21 lists 2 locations for bare 'except Exception' catches
-    (hydranet_inference.py:391, visual_diagnostics.py:129). Actual count is 11:
+    Finding: C-21 originally listed 2 locations for bare 'except Exception' catches.
+    Actual count is 11 across 3 files (now corrected in C-21):
     - visual_diagnostics.py: 9 locations (129, 181, 214, 301, 359, 484, 593, 663, 771)
     - hydranet_inference.py: 1 location (391)
-    - train_model.py: 1 location (214) — COMPLETELY MISSED
+    - train_model.py: 1 location (214) — originally missed, now in C-21
 
-    Severity: Soft falsification
+    Severity: Soft falsification (C-34 merged into C-21 after register review)
 
     Expected: C-21 should enumerate all bare exception catches, not just 2 of 11.
     """
