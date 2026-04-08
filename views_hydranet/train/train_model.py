@@ -1,14 +1,18 @@
+from __future__ import annotations
+
 import functools
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, Optional, cast
+from typing import TYPE_CHECKING, Any, Dict, Optional, cast
 
 import numpy as np
 import torch
 import torch.nn as nn
 from tqdm import tqdm
-from views_pipeline_core.managers.model import ModelPathManager
+
+if TYPE_CHECKING:
+    from views_pipeline_core.managers.model import ModelPathManager
 
 from views_hydranet.utils.curriculum import CurriculumLearner
 from views_hydranet.utils.integrity_guardian import IntegrityGuardian

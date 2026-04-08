@@ -297,5 +297,67 @@ def test_gate_17_negative_offset_rejection():
     VolumeHandler.from_df(df_exact, exact_cfg)  # must not raise
 
 
+# ─── C-24: Temporal discontinuity — slice_time bounds check ──────────────────
+
+
+def test_gate_slice_time_beyond_bounds_raises():
+    """
+    C-24: Requesting a time slice beyond the handler's temporal extent must
+    raise ValueError with ADR-008 compliant log-before-raise.
+
+    This is the temporal discontinuity failure mode declared in the
+    InferenceOrchestrator CIC. The orchestrator delegates bounds checking
+    to VolumeHandler.slice_time(); this test verifies that delegation works.
+    """
+    handler = VolumeHandler(
+        data=np.zeros((5, 4, 4, 2)),  # T=5, H=4, W=4, C=2
+        axes=("T", "H", "W", "C"),
+        channel_map=["month_id", "priogrid_gid"],
+        time_col="month_id",
+        id_col="priogrid_gid",
+        spatial_cols=["row", "col"],
+    )
+
+    # Beyond end
+    with pytest.raises(ValueError, match="Invalid time slice"):
+        handler.slice_time(3, 7)  # end=7 > T=5
+
+    # Negative start
+    with pytest.raises(ValueError, match="Invalid time slice"):
+        handler.slice_time(-1, 3)
+
+    # Start >= end (empty slice)
+    with pytest.raises(ValueError, match="Invalid time slice"):
+        handler.slice_time(3, 3)
+
+    # Valid boundary: must NOT raise
+    result = handler.slice_time(0, 5)  # full extent
+    assert result.shape[0] == 5
+
+
+def test_gate_slice_time_origin_plus_duration_oob():
+    """
+    C-24: Simulates the orchestrator's temporal alignment calculation.
+    When origin + duration exceeds the handler's time extent, slice_time
+    must raise — not silently return truncated data.
+    """
+    handler = VolumeHandler(
+        data=np.zeros((10, 4, 4, 2)),  # T=10
+        axes=("T", "H", "W", "C"),
+        channel_map=["month_id", "priogrid_gid"],
+        time_col="month_id",
+        id_col="priogrid_gid",
+        spatial_cols=["row", "col"],
+    )
+
+    origin = 8
+    duration = 5
+    start = origin + 1  # = 9
+    end = origin + 1 + duration  # = 14, but T=10
+
+    with pytest.raises(ValueError, match="Invalid time slice"):
+        handler.slice_time(start, end)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -76,7 +76,11 @@ class TrainingForensics:
         namespaced_key: e.g. 'REG:lr_sb_best'
         """
         if namespaced_key not in self.lesson_y:
-            raise KeyError(f"TrainingForensics: Key '{namespaced_key}' not initialized.")
+            err_msg = f"TrainingForensics: Key '{namespaced_key}' not initialized."
+
+            logger.error(err_msg)
+
+            raise KeyError(err_msg)
 
         self.lesson_y[namespaced_key].append(y.detach().cpu().numpy().flatten())
         self.lesson_yh[namespaced_key].append(y_hat.detach().cpu().numpy().flatten())
@@ -140,7 +144,12 @@ class TrainingForensics:
             return np.sqrt(np.mean((np.log1p(y) - np.log1p(yh)) ** 2))
         if name.lower() == "msle":
             return np.mean((np.log1p(y) - np.log1p(yh)) ** 2)
-        raise ValueError(f"Unknown regression metric: '{name}'")
+
+        err_msg = f"Unknown regression metric: '{name}'"
+
+        logger.error(err_msg)
+
+        raise ValueError(err_msg)
 
     def _calculate_cls_metric(self, name: str, y: np.ndarray, yh: np.ndarray) -> float:
         from sklearn.metrics import average_precision_score, roc_auc_score
@@ -166,4 +175,8 @@ class TrainingForensics:
                 return roc_auc_score(y_bin, yh)
             except ValueError:
                 return 0.5
-        raise ValueError(f"Unknown classification metric: '{name}'")
+        err_msg = f"Unknown classification metric: '{name}'"
+
+        logger.error(err_msg)
+
+        raise ValueError(err_msg)

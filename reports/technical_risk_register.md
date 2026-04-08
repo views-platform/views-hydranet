@@ -6,8 +6,8 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-08                           |
 | Total Concerns    | 40                                   |
-| Open Concerns     | 39                                   |
-| Resolved Concerns | 1                                    |
+| Open Concerns     | 34                                   |
+| Resolved Concerns | 6                                    |
 
 ---
 
@@ -67,20 +67,6 @@ Per Martin (Clean Architecture Ch 26, p.228-232): the Manager correctly acts as 
 The `HydraBNUNet06_LSTM4` model has 6 decoder heads physically baked into the class definition. Adding a target requires duplicating ~50 lines of layer definitions + forward() code, plus updating the preflight check. Currently stable (no planned target changes).
 
 Per Martin (Clean Architecture Ch 8, p.87-93): this violates OCP — the architecture is closed to extension. Adding a head requires modifying both `__init__()` and `forward()`. Martin's "hierarchy of protection" (p.91) says the model entity should be the most protected component — but here it's the component most exposed to change if target count evolves.
-
----
-
-### C-04: Spatial offset arithmetic in VolumeSampler is untested
-
-| Field | Value |
-|-------|-------|
-| ID | C-04 |
-| Tier | 2 |
-| Source | repo-assimilation (2026-04-08) |
-| Trigger | Change to window_dim, spatial_offset, or VolumeHandler.from_df() coordinate logic |
-| Location | `volume_sampler.py:91-98` |
-
-`_generate_window()` computes `new_row_offset = p_row + (h_max - dim - r0)` to propagate geographic truth into sub-volumes. No test verifies this round-trip against the parent handler's coordinate system. A bug here would produce spatially misaligned training windows with no downstream error signal.
 
 ---
 
@@ -258,7 +244,7 @@ Per Martin (Clean Architecture Ch 7, p.80-86): the function serves at least two 
 | Trigger | Bug in any `biopsy_*` method's plotting logic |
 | Location | `visual_diagnostics.py:129-133` (and similar in other biopsy methods) |
 
-All `biopsy_*` methods wrap their body in `try/except Exception` and log a warning on failure. If diagnostic code has a bug, it silently produces no plot with no test failure. The file is 985 lines with 12+ biopsy methods. Tests only verify the `active=True/False` toggle, not plot correctness or exception-free execution.
+All `biopsy_*` methods wrap their body in `try/except Exception` and log on failure. If diagnostic code has a bug, it silently produces no plot with no test failure. The file is 985 lines with 12+ biopsy methods. Tests only verify the `active=True/False` toggle, not plot correctness or exception-free execution. Partial fix (2026-04-08): `biopsy_dataframe` catch block upgraded from `logger.warning` to `logger.error` per ADR-008 Section 4 (Fail-Safe constraint). Catch-all pattern itself is ADR-008 compliant (Observability Actors are permitted Fail-Safe). Remaining concern: plot correctness is untested (see also C-26).
 
 ---
 
@@ -362,34 +348,6 @@ Per Martin (Clean Architecture Ch 11, p.104-108): DIP says "depend on abstractio
 
 ---
 
-### C-24: InferenceOrchestrator temporal discontinuity failure mode untested
-
-| Field | Value |
-|-------|-------|
-| ID | C-24 |
-| Tier | 3 |
-| Source | test-review (2026-04-08) |
-| Trigger | Requesting an origin index beyond the handler's temporal bounds |
-| Location | `inference_orchestrator.py:49-114` |
-
-CIC documents "Temporal Discontinuity" as a failure mode — the orchestrator should fail if the requested origin does not exist within the provided history. No test verifies this behavior. Currently guarded implicitly by `VolumeHandler.slice_time()` bounds check, but the orchestrator-level contract is untested.
-
----
-
-### C-25: Curriculum→Sampler zero-qualified-cells interaction untested
-
-| Field | Value |
-|-------|-------|
-| ID | C-25 |
-| Tier | 3 |
-| Source | test-review (2026-04-08) |
-| Trigger | Curriculum threshold too high for sparse targets, causing extended random-anchor fallback |
-| Location | `curriculum.py:90-107`, `volume_sampler.py:76-81` |
-
-When the curriculum's threshold yields zero qualified cells, `VolumeSampler._generate_window()` falls back to a random spatial anchor. No test verifies this fallback path or that it logs the transition. Extended random-anchor sampling degrades training quality without any error signal.
-
----
-
 ### C-26: VisualDiagnostics plot correctness untested
 
 | Field | Value |
@@ -401,20 +359,6 @@ When the curriculum's threshold yields zero qualified cells, `VolumeSampler._gen
 | Location | `visual_diagnostics.py` (985 lines, 12+ biopsy methods) |
 
 29 tests verify the `active=True/False` toggle and no-crash behavior, but zero tests verify that generated plots contain correct data, have non-zero file size, or reflect the volume state they claim to show. A plotting bug could produce plausible-looking but incorrect visualizations that mislead operators.
-
----
-
-### C-27: `train_model.py` import structure blocks local testing
-
-| Field | Value |
-|-------|-------|
-| ID | C-27 |
-| Tier | 3 |
-| Source | test-review (2026-04-08) |
-| Trigger | Running tests in partial environment without views_pipeline_core |
-| Location | `train_model.py:11` (`from views_pipeline_core.managers.model import ModelPathManager`) |
-
-`ModelPathManager` is imported at module level but only used in `train_model_artifact()`. This cascades to block testing of `_process_sequence()`, `train()`, and `training_loop()` — the 3 most testable functions in the file. 12 tests currently fail due to this import chain.
 
 ---
 
@@ -443,20 +387,6 @@ No test verifies system behavior with edge-case configurations that Pydantic acc
 | Location | `model_artifact_fetcher.py`, `test_model_artifact_fetcher.py` (3 tests) |
 
 Only 3 tests exist: happy path with latest artifact, happy path with specific artifact, and missing file error. No tests for timestamp extraction edge cases, device placement verification, or the `add_config` callback behavior.
-
----
-
-### C-31: ADR-008 log-before-raise violations in 4 files
-
-| Field | Value |
-|-------|-------|
-| ID | C-31 |
-| Tier | 4 |
-| Source | falsification-audit (2026-04-08) |
-| Trigger | Operational debugging — exceptions raised without preceding log entry |
-| Location | `training_forensics.py:79,143,169`, `config_initializer.py:265`, `volume_handler.py:285,308`, `mtloss.py:46` |
-
-7 `raise` statements without preceding `logger.error()` violate ADR-008 (Observability and Explicit Failure). The exceptions have clear messages, so this is a logging hygiene issue rather than a silent failure risk. All are in error paths that produce descriptive error messages.
 
 ---
 
@@ -638,6 +568,56 @@ Risk: a future CI pipeline that runs `pytest tests/` without excluding this file
 ---
 
 ## Resolved Concerns
+
+### C-04: Spatial offset arithmetic in VolumeSampler is untested — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-04 |
+| Resolved | 2026-04-08 |
+| Resolution | Added `test_window_offset_preserves_geographic_truth` in `tests/test_volume_sampler.py`. Test plants a sentinel value at known coordinates, extracts a window, and verifies geographic round-trip via `spatial_offset`. |
+
+---
+
+### C-24: InferenceOrchestrator temporal discontinuity failure mode untested — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-24 |
+| Resolved | 2026-04-08 |
+| Resolution | Added `test_gate_slice_time_beyond_bounds_raises` and `test_gate_slice_time_origin_plus_duration_oob` in `tests/test_volume_handler_hard_gates.py`. Tests verify `slice_time()` raises `ValueError` on out-of-bounds origins. |
+
+---
+
+### C-25: Curriculum→Sampler zero-qualified-cells interaction untested — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-25 |
+| Resolved | 2026-04-08 |
+| Resolution | Added `test_curriculum_high_threshold_triggers_fallback` in `tests/test_volume_sampler.py`. Test verifies CurriculumLearner + VolumeSampler interaction: extreme threshold yields `qualified=0` with valid batch via random fallback. |
+
+---
+
+### C-27: `train_model.py` import structure blocks local testing — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-27 |
+| Resolved | 2026-04-08 |
+| Resolution | Moved `from views_pipeline_core.managers.model import ModelPathManager` to `TYPE_CHECKING` guard with `from __future__ import annotations`. Import only runs during static analysis, not at runtime. |
+
+---
+
+### C-31: ADR-008 log-before-raise violations in 4 files — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-31 |
+| Resolved | 2026-04-08 |
+| Resolution | Applied ADR-008 "Narrative Failure" pattern (err_msg → logger.error → raise) to all 7 locations: `training_forensics.py` (3), `config_initializer.py` (1), `volume_handler.py` (2), `mtloss.py` (1). Also added `logger` to `mtloss.py` which previously had none. |
+
+---
 
 ### C-28: CIC test file references are stale — RESOLVED
 
