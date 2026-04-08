@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-08                           |
-| Total Concerns    | 34                                   |
-| Open Concerns     | 33                                   |
+| Total Concerns    | 39                                   |
+| Open Concerns     | 38                                   |
 | Resolved Concerns | 0                                    |
 
 ---
@@ -36,6 +36,8 @@
 
 `hydranet_manager.py` imports 12 internal modules and wires all components manually. Any wiring change requires modifying this single 380-line file. Fan-out of 12 — highest in the codebase.
 
+Per Martin (Clean Architecture Ch 26, p.228-232): the Manager correctly acts as the "Main Component" — the dirtiest component that creates everything and hands control to higher-level abstractions. High fan-out is expected for Main. The concern is not dirtiness but *size*: at 380 lines it exceeds a pure wiring role, mixing lifecycle orchestration with component construction. Martin: "Think of Main as a plugin to the application" — it should be replaceable without touching policy.
+
 ---
 
 ### C-02: Duplicated setup between eval and forecast
@@ -64,6 +66,8 @@
 
 The `HydraBNUNet06_LSTM4` model has 6 decoder heads physically baked into the class definition. Adding a target requires duplicating ~50 lines of layer definitions + forward() code, plus updating the preflight check. Currently stable (no planned target changes).
 
+Per Martin (Clean Architecture Ch 8, p.87-93): this violates OCP — the architecture is closed to extension. Adding a head requires modifying both `__init__()` and `forward()`. Martin's "hierarchy of protection" (p.91) says the model entity should be the most protected component — but here it's the component most exposed to change if target count evolves.
+
 ---
 
 ### C-04: Spatial offset arithmetic in VolumeSampler is untested
@@ -91,6 +95,8 @@ The `HydraBNUNet06_LSTM4` model has 6 decoder heads physically baked into the cl
 | Location | `utils.py:42-66, 83-104` |
 
 `choose_loss()` maps `"a"` → MSELoss, `"b"` → ShrinkageLoss with no enum or constant. These magic strings are validated only at runtime, not by Pydantic. A typo produces a clear `ValueError`, but the string codes are opaque.
+
+See also C-38 for the structural OCP violation in these factories. Per Martin (Clean Architecture Ch 8, p.87): the `TRANSFORMS` registry in `config_initializer.py` demonstrates the correct pattern — the factories should follow suit.
 
 ---
 
@@ -148,6 +154,8 @@ The volume is flipped North-Up in `from_df()` and must be un-flipped in `_valid_
 
 Full model (not `state_dict`) is pickled via `torch.save()`. This couples saved `.pt` artifacts to the exact class definition and module path. Renaming the architecture class or moving it to a different module breaks deserialization of all existing artifacts. `weights_only=False` in load confirms full-object deserialization.
 
+Per Martin (Clean Architecture Ch 32, p.275-278): "Don't marry the framework." The serialized artifact is married to PyTorch's pickle format and the concrete class path — the tightest possible coupling to a framework detail. `state_dict()` serialization would keep PyTorch at arm's length, making the architecture class freely renameable and movable.
+
 ---
 
 ### C-10: 13 test files require views_pipeline_core
@@ -161,6 +169,8 @@ Full model (not `state_dict`) is pickled via `torch.save()`. This couples saved 
 | Location | `tests/conftest.py:9`, 13 test files |
 
 Tests covering manager integration, PredictionFrame output, and subset symmetry cannot run without `views_pipeline_core`. The conftest gate (280 minimum) only triggers when running the full suite from `tests/`. In partial environments, 270 tests collect and the gate is bypassed, silently missing integration coverage.
+
+Per Martin (Clean Architecture Ch 28, p.243-246): "Design for Testability" — tests should not depend on volatile things. The test suite's dependence on the framework layer (`views_pipeline_core`) at import time makes 13 test files fragile. Martin's "Testing API" (p.245) principle: decouple test structure from application structure. See also C-27 for the specific import chain that causes this.
 
 ---
 
@@ -218,6 +228,8 @@ Unlike transformation methods that return new VolumeHandlers (`slice_time`, `col
 
 Like `_permute()`, `flip()` modifies `self._data` in-place rather than returning a new VolumeHandler. Used in the training augmentation path (`train_model.train()`). Safe in practice because the augmented handler is a per-window copy from `VolumeSampler`, but the mutation pattern is inconsistent with the immutable-by-convention design.
 
+Per Martin (Clean Architecture Ch 6, p.70-76): "Segregation of Mutability" — separate the application into immutable (pure functional) and mutable (transactional) components. `VolumeMetadata` is correctly immutable (`frozen=True`). But `flip()` and `_permute()` break the segregation by mutating `_data` in-place. Martin would say: these are the "transactional memory" components that should be explicitly marked as mutable, or refactored to return new instances.
+
 ---
 
 ### C-15: `training_loop()` has 4+ responsibilities in 175 lines
@@ -231,6 +243,8 @@ Like `_permute()`, `flip()` modifies `self._data` in-place rather than returning
 | Location | `train_model.py:279-453` |
 
 `training_loop()` mixes lesson orchestration, gradient accumulation/clipping, diagnostic biopsy generation, forensic auditor finalization, and progress bar management in one function. Violates SRP — changes to diagnostic output require touching the same function that controls optimization.
+
+Per Martin (Clean Architecture Ch 7, p.80-86): the function serves at least two actors — the data scientist (lesson/window/optimization strategy) and the platform engineer (diagnostic/forensic reporting). Martin's "Symptom 2: Merges" (p.83) applies: two people changing the same function for different reasons creates merge risk. The data scientist tuning gradient clipping and the platform engineer adding a new diagnostic biopsy should never collide.
 
 ---
 
@@ -329,6 +343,8 @@ The training loop is the single most critical code path and has no automated end
 | Location | `train_model.py:105,199,242`, `hydranet_inference.py:122,137,147,151,157,225,257` |
 
 The model's return type is untyped; 7+ call sites use `cast(Any, model)(input, h)` to suppress type checking. The actual contract (returns `(out_reg, out_class, h)` tuple) is invisible at every call site. A `Protocol` type would make the interface explicit and catch signature changes statically.
+
+Per Martin (Clean Architecture Ch 11, p.104-108): DIP says "depend on abstractions, not on concretions." Every `cast(Any, model)` call is a concrete dependency on the model's undeclared interface. Martin's coding practice (p.105): "Don't refer to volatile concrete classes." A `Protocol` defining `__call__(x, h) -> (Tensor, Tensor, Tensor)` would invert this dependency, making the contract explicit and verifiable at type-check time.
 
 ---
 
@@ -502,14 +518,98 @@ The `train()` function has a bare `except Exception: pass` at line 214 for time 
 
 ---
 
+### C-35: `utils/` package violates Common Closure and Screaming Architecture
+
+| Field | Value |
+|-------|-------|
+| ID | C-35 |
+| Tier | 3 |
+| Source | clean-architecture-review (2026-04-08) |
+| Trigger | Adding a new module — unclear where it belongs; changing a training component forces retest of unrelated data pipeline tests |
+| Location | `views_hydranet/utils/` (20 of 25 source files) |
+
+The `utils/` package contains 20 files spanning 5 distinct domains: data pipeline (fetcher, sniffer, scaler, handler), training strategy (curriculum, sampler, forensics), inference (orchestrator, inference engine), observability (diagnostics, logging, guardian), and configuration. A single generic package name for 80% of the codebase.
+
+Per Martin (Clean Architecture Ch 13, p.117-123): violates CCP (Common Closure Principle) — classes that change for different reasons are packaged together. A training strategy change and a data pipeline change both touch `utils/`. Per Martin (Ch 21, p.199-202): violates Screaming Architecture — the top-level structure should scream "conflict forecasting system," not "utilities." The directory should say `data_pipeline/`, `training/`, `inference/`, `observability/` — not `utils/`.
+
+Per Martin (Ch 13, p.120-121): also violates CRP (Common Reuse Principle) — importing `IntegrityGuardian` (pure torch, no pandas) from `utils/` transitively exposes the consumer to `volume_handler`'s pandas/torch/pipeline_core dependency tree.
+
+---
+
+### C-36: VolumeHandler violates Interface Segregation Principle
+
+| Field | Value |
+|-------|-------|
+| ID | C-36 |
+| Tier | 3 |
+| Source | clean-architecture-review (2026-04-08) |
+| Trigger | Any consumer of VolumeHandler needing to understand methods irrelevant to its use case |
+| Location | `volume_handler.py` (780 lines, 20+ methods, 9 dependents) |
+
+VolumeHandler exposes a single monolithic interface to all consumers. The training loop uses `to_pytorch()`, `flip()`, `channel_map`. The inference path uses `wrap_predictions()`, `to_evaluation_pf()`, `slice_time()`. The data pipeline uses `from_df()`. Each consumer depends on the full 780-line interface but uses only a subset.
+
+Per Martin (Clean Architecture Ch 10, p.100-103): ISP says "avoid depending on things you don't use." Each consumer is forced to depend on methods, imports, and complexity it never invokes. Martin (p.102): "depending on something that carries baggage that you don't need can cause you troubles that you didn't expect." The training path doesn't need `to_evaluation_pf()` but transitively depends on `PredictionFrame` because of it.
+
+---
+
+### C-37: VolumeHandler in SAP "Zone of Pain" — stable but not abstract
+
+| Field | Value |
+|-------|-------|
+| ID | C-37 |
+| Tier | 4 |
+| Source | clean-architecture-review (2026-04-08) |
+| Trigger | Need to provide an alternative VolumeHandler implementation (e.g., lazy-loading, GPU-resident) |
+| Location | `volume_handler.py` — fan-in=9, fan-out=2 |
+
+VolumeHandler has Instability I = 2/(9+2) ≈ 0.18 — highly stable. But it is entirely concrete — no abstract base class, no Protocol, no interface definition. Per Martin (Clean Architecture Ch 14, p.139-143): SAP says "a component should be as abstract as it is stable." A component with high stability and low abstractness sits in the "Zone of Pain" — it's painful to change because many depend on it, and there's no abstraction to insulate them from change.
+
+Currently tolerable because VolumeHandler's interface is mature and rarely changes. Would become painful if a second volume carrier type were needed (e.g., lazy-loading for very large grids, or GPU-resident tensors for inference).
+
+---
+
+### C-38: Factory functions closed to extension (OCP violation)
+
+| Field | Value |
+|-------|-------|
+| ID | C-38 |
+| Tier | 4 |
+| Source | clean-architecture-review (2026-04-08) |
+| Trigger | Adding a new model architecture, loss function, or scheduler |
+| Location | `utils.py:20-35` (`choose_model`), `utils.py:38-80` (`choose_loss`), `utils.py:83-104` (`choose_scheduler`) |
+
+All three factory functions use `if/elif/else` chains on string config values. Adding a new model requires modifying `choose_model()`. Adding a new loss requires modifying `choose_loss()`. The factories are closed to extension — the opposite of OCP.
+
+Per Martin (Clean Architecture Ch 8, p.87-93): "A software artifact should be open for extension but closed for modification." The `TRANSFORMS` registry in `config_initializer.py` is the correct pattern — a dict of callables that can be extended without modifying existing code. The factories should follow the same pattern: a `MODELS` registry, a `LOSSES` registry.
+
+Note: C-05 already registers the string code opacity; this concern addresses the structural OCP violation.
+
+---
+
+### C-39: VolumeHandler Entity imports Framework type (Dependency Rule violation)
+
+| Field | Value |
+|-------|-------|
+| ID | C-39 |
+| Tier | 4 |
+| Source | clean-architecture-review (2026-04-08) |
+| Trigger | Change to `PredictionFrame` class in `views_pipeline_core` |
+| Location | `volume_handler.py:430` (`from views_pipeline_core.data.prediction_frame import PredictionFrame`) |
+
+VolumeHandler is an Entity-layer component (core data carrier, highest stability). `PredictionFrame` is from the Framework layer (`views_pipeline_core`). The import in `to_evaluation_pf()` violates the Dependency Rule — an inner-circle component depends on an outer-circle type.
+
+Per Martin (Clean Architecture Ch 22, p.203-209): "Source code dependencies must point only inward, toward higher-level policies. Nothing in an inner circle can know anything at all about something in an outer circle." Currently mitigated by lazy import (inside the method body, not at module level), which limits the coupling to runtime rather than import-time. A full fix would extract `to_evaluation_pf()` into an Interface Adapter that imports both VolumeHandler and PredictionFrame.
+
+---
+
 ### D-01: VolumeHandler scope — God Object vs Deep Module
 
 | Field | Value |
 |-------|-------|
 | ID | D-01 |
 | Source | expert-review (2026-04-08) |
-| Perspectives | Martin (split — SRP violation, 780 lines, 9 dependents), Ousterhout (keep — successful deep module hiding complexity), Hickey (partial split — extract PF output path, keep volume ops together) |
-| Resolution | Partial split recommended: extract PredictionFrame output path into dedicated assembler, keep volume operations in VolumeHandler |
+| Perspectives | Martin (split — SRP Ch 7 p.80: serves 4 actors; ISP Ch 10 p.100: 20+ method interface; SAP Ch 14 p.139: Zone of Pain), Ousterhout (keep — successful deep module hiding complexity), Hickey (partial split — extract PF output path, keep volume ops together) |
+| Resolution | Partial split recommended: extract PredictionFrame output path into dedicated assembler, keep volume operations in VolumeHandler. Clean Architecture analysis strengthens the split case via three independent SOLID violations (SRP, ISP, SAP) but Ousterhout's "deep module" counter-argument remains valid for the core volume operations. |
 
 ---
 
