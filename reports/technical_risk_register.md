@@ -6,7 +6,7 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-08                           |
 | Total Concerns    | 30                                   |
-| Open Concerns     | 30                                   |
+| Open Concerns     | 29                                   |
 | Resolved Concerns | 0                                    |
 
 ---
@@ -481,7 +481,13 @@ Only 3 tests exist: happy path with latest artifact, happy path with specific ar
 
 ## Resolved Concerns
 
-(none)
+### C-28: CIC test file references are stale — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-28 |
+| Resolved | 2026-04-08 |
+| Resolution | Updated test alignment sections in HydranetManager.md, HydraNetConfig.md, and ConfigInitializer.md to reference actual test files (test_config_typed.py, test_config_validation.py, test_manager_memory_hygiene.py, etc.) |
 
 ---
 

@@ -86,9 +86,9 @@ all_keys = config_obj.keys()
 
 ## 10. Test Alignment
 
-- **🟩 Green Team:** Valid configuration construction in `tests/test_pipeline_integration.py`.
-- **🟫 Beige Team:** Checksum and lifecycle violations in `tests/test_config_initializer.py`.
-- **🟥 Red Team:** Adversarial configs with typos, missing fields, and boundary values.
+- **🟩 Green Team:** Valid configuration construction and dict access in `tests/test_config_typed.py`.
+- **🟫 Beige Team:** Checksum violations, lifecycle law, stochastic mode warning in `tests/test_config_validation.py`.
+- **🟥 Red Team:** Invalid run_type, evaluation_mode, hidden channels divisibility, missing fields in `tests/test_config_validation.py`.
 
 ---
 
