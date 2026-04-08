@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-08                           |
-| Total Concerns    | 40                                   |
-| Open Concerns     | 39                                   |
+| Total Concerns    | 41                                   |
+| Open Concerns     | 40                                   |
 | Resolved Concerns | 0                                    |
 
 ---
@@ -613,6 +613,22 @@ Per Martin (Clean Architecture Ch 22, p.203-209): "Source code dependencies must
 | Location | `docs/validate_docs.sh:60,75` |
 
 Two `grep -oP` calls use Perl-compatible regex (`-P` flag), which requires GNU grep. macOS ships BSD grep, which does not support `-P`. The script will fail with an error on macOS unless the user has GNU grep installed or aliased. Currently low-impact: all known contributors use Linux, the script is a manual governance tool (not CI), and failure is loud and non-destructive. Fix is straightforward: rewrite with `sed -E` or `awk` for POSIX portability. Script was copied verbatim from base_docs template — fix should be upstreamed there as well.
+
+---
+
+### C-41: Falsification test stubs will fail in CI if not excluded
+
+| Field | Value |
+|-------|-------|
+| ID | C-41 |
+| Tier | 4 |
+| Source | pr-review (2026-04-08) |
+| Trigger | CI pipeline collecting `tests/test_falsification_all_risks_identified.py` without explicit exclusion |
+| Location | `tests/test_falsification_all_risks_identified.py` (8 `assert False` stubs) |
+
+TDD RED-state falsification stubs use `assert False` to mark unresolved risks. These are intentionally failing — they exist to remind developers that the underlying code issues (C-31 through C-34) are not yet fixed. Currently excluded via `--ignore` in manual test runs.
+
+Risk: a future CI pipeline that runs `pytest tests/` without excluding this file will see 8 deterministic failures. The stubs should NOT be converted to `xfail` or `skip` (that would silence the RED signal, defeating their TDD purpose). The correct resolution is either: (a) fix the underlying code issues so the stubs can be replaced with real passing tests, or (b) ensure CI explicitly excludes `test_falsification_*.py` files until remediation.
 
 ---
 
