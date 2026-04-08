@@ -77,9 +77,9 @@ config = initializer.get_config()  # Returns validated dict
 
 ## 10. Test Alignment
 
-- **🟩 Green Team:** Smoke tests for valid configuration round-trips in `tests/test_pipeline_integration.py`.
-- **🟫 Beige Team:** Tests for checksum mismatches, missing fields, and invalid enum values in `tests/test_config_initializer.py`.
-- **🟥 Red Team:** Feature Lifecycle Law violations with missing transformation coverage.
+- **🟩 Green Team:** Valid configuration round-trips and dict access in `tests/test_config_typed.py`.
+- **🟫 Beige Team:** Checksum mismatches, lifecycle law violations, typo handling in `tests/test_config_validation.py`.
+- **🟥 Red Team:** Invalid enum values, hidden channels divisibility, missing fields in `tests/test_config_validation.py`.
 
 ---
 

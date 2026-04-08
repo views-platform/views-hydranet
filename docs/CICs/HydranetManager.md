@@ -93,9 +93,10 @@ actuals_df = manager.prepare_actuals_df(raw_df)
 
 ## 10. Test Alignment
 
-- **🟩 Green Team:** Smoke tests for full lifecycle passes in `legacy_tests/test_manager_smoke.py`.
-- **🟫 Beige Team:** Robustness tests for invalid configurations in `legacy_tests/test_manager_robustness.py`.
-- **🟥 Red Team:** Survival tests against "The Abyss" (catastrophic data/config mismatches) in `tests/test_red_team_the_abyss.py`.
+- **🟩 Green Team:** Lifecycle delegation tests in `tests/test_manager_memory_hygiene.py`. Full pipeline flow tests in `tests/test_pipeline_integration.py` (requires `views_pipeline_core`).
+- **🟫 Beige Team:** Sweep skip-save logic and architecture mismatch gates in `tests/test_sweep_and_hardening_gates.py` (requires `views_pipeline_core`).
+- **🟥 Red Team:** Evaluation and forecast survival gates in `tests/test_audit_manager_eval_survival.py` (requires `views_pipeline_core`).
+- **⚠️ Gap:** No locally-runnable tests exist — all manager tests depend on `views_pipeline_core`.
 
 ---
 
