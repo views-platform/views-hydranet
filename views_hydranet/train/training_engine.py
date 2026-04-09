@@ -160,7 +160,7 @@ def _process_sequence(
 def train(
     model: nn.Module,
     optimizer: torch.optim.Optimizer,
-    scheduler: torch.optim.lr_scheduler._LRScheduler,
+    scheduler: Optional[torch.optim.lr_scheduler._LRScheduler],
     criterion_reg: nn.Module,
     criterion_class: nn.Module,
     multitaskloss_instance: nn.Module,
@@ -291,7 +291,7 @@ def training_loop(
     model: nn.Module,
     criterion: tuple,
     optimizer: torch.optim.Optimizer,
-    scheduler: torch.optim.lr_scheduler._LRScheduler,
+    scheduler: Optional[torch.optim.lr_scheduler._LRScheduler],
     handler: VolumeHandler,
     device: torch.device,
     run_timestamp: str | None = None,
