@@ -70,7 +70,7 @@ TINY_CONFIG = {
 
 @pytest.fixture
 def tiny_handler():
-    """Tiny VolumeHandler [T=6, H=4, W=4, C=5] with synthetic data."""
+    """Tiny VolumeHandler [T=6, H=8, W=8, C=5] with synthetic data."""
     rng = np.random.RandomState(42)
     data = rng.rand(T, H, W, len(CHANNEL_MAP)).astype(np.float32)
 
