@@ -10,10 +10,12 @@ _MINIMUM_EXPECTED_TESTS = 280
 
 
 def pytest_collection_modifyitems(config, items):
-    # Only enforce when running the full test directory (no specific files/paths)
+    # Only enforce when running the full test directory (no specific files/paths).
+    # Bare `pytest` (no args) is treated as full-suite invocation.
     args = config.invocation_params.args
-    if args and all(a == "tests/" or a == "tests" for a in args if not a.startswith("-")):
-        if len(items) < _MINIMUM_EXPECTED_TESTS:
+    positional = [a for a in args if not a.startswith("-")]
+    is_full_suite = not positional or all(a in ("tests/", "tests") for a in positional)
+    if is_full_suite and len(items) < _MINIMUM_EXPECTED_TESTS:
             raise pytest.UsageError(
                 f"Test collection gate: only {len(items)} tests collected, "
                 f"expected at least {_MINIMUM_EXPECTED_TESTS}. "
