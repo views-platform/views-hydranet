@@ -37,21 +37,23 @@ def choose_model(config: dict, device: torch.device) -> nn.Module:
     return model
 
 
+# Loss registries: add new losses here, not in choose_loss().
+# "params" lists are declared for future ReproducibilityGate genome audit (C-43).
 LOSS_REG_REGISTRY: Dict[str, Any] = {
     "mse": {
-        "class": nn.MSELoss,
+        "cls": nn.MSELoss,
         "params": [],
         "factory": lambda config, device: nn.MSELoss().to(device),
     },
     "shrinkage": {
-        "class": ShrinkageLoss,
+        "cls": ShrinkageLoss,
         "params": ["loss_reg_a", "loss_reg_c"],
         "factory": lambda config, device: ShrinkageLoss(
             a=config["loss_reg_a"], c=config["loss_reg_c"], size_average=True,
         ).to(device),
     },
     "basu_dpd": {
-        "class": BasuDPDLoss,
+        "cls": BasuDPDLoss,
         "params": ["loss_reg_alpha", "loss_reg_sigma"],
         "factory": lambda config, device: BasuDPDLoss(
             alpha=config.get("loss_reg_alpha", 0.5),
@@ -59,7 +61,7 @@ LOSS_REG_REGISTRY: Dict[str, Any] = {
         ).to(device),
     },
     "lognormal_nll": {
-        "class": LogNormalFixedSigmaLoss,
+        "cls": LogNormalFixedSigmaLoss,
         "params": ["loss_reg_sigma"],
         "factory": lambda config, device: LogNormalFixedSigmaLoss(
             sigma=config.get("loss_reg_sigma", 0.9),
@@ -69,12 +71,12 @@ LOSS_REG_REGISTRY: Dict[str, Any] = {
 
 LOSS_CLASS_REGISTRY: Dict[str, Any] = {
     "bce": {
-        "class": nn.BCELoss,
+        "cls": nn.BCELoss,
         "params": [],
         "factory": lambda config, device: nn.BCELoss().to(device),
     },
     "focal": {
-        "class": FocalLoss,
+        "cls": FocalLoss,
         "params": ["loss_class_alpha", "loss_class_gamma"],
         "factory": lambda config, device: FocalLoss(
             alpha=config["loss_class_alpha"], gamma=config["loss_class_gamma"],
