@@ -9,6 +9,7 @@ import torch.nn as nn
 import wandb
 
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
+from views_hydranet.utils.basu_loss import BasuDPDLoss
 from views_hydranet.utils.focal_loss import FocalLoss
 from views_hydranet.utils.mtloss import MultiTaskLoss
 from views_hydranet.utils.shrinkage_loss import ShrinkageLoss
@@ -44,6 +45,11 @@ def choose_loss(
     elif config["loss_reg"] == "b":
         criterion_reg = ShrinkageLoss(
             a=config["loss_reg_a"], c=config["loss_reg_c"], size_average=True
+        ).to(device)
+    elif config["loss_reg"] == "c":
+        criterion_reg = BasuDPDLoss(
+            alpha=config.get("loss_reg_alpha", 0.5),
+            sigma=config.get("loss_reg_sigma", 1.0),
         ).to(device)
     else:
         err_msg = f"Unknown regression loss type: {config['loss_reg']}"
