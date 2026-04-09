@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-10                           |
-| Total Concerns    | 45                                   |
-| Open Concerns     | 27                                   |
+| Total Concerns    | 47                                   |
+| Open Concerns     | 29                                   |
 | Resolved Concerns | 18                                   |
 
 ---
@@ -451,6 +451,46 @@ Cross-references: C-44 (onset bias init — prerequisite, now resolved), views-m
 | Location | `views-models/models/purple_alien/configs/config_hyperparameters.py` (`loss_reg_c: 0.001`) |
 
 The autoresearch found that Shrinkage loss with `c=1.0` marginally outperforms Basu DPD and NLL on log-space magnitude errors (Finding 6.4). The hydranet production default is `c=0.001`, calibrated for the U-Net's normalized feature space where typical errors are in the 0-1 range. But purple_alien's targets are log1p-transformed, where the natural error scale is 0-7 (log1p of 0-1000 fatalities). A threshold of `c=0.001` in log-space means "suppress errors below 0.1% in magnitude" — virtually no suppression. The autoresearch suggests `c=1.0` ("suppress errors below 2.7x in magnitude") is more appropriate for log-space operation. Note: the `a` parameter (steepness) at 258 in purple_alien is also very different from the autoresearch optimal of 10 — but the LSTM hurdle and U-Net have different residual distributions, so direct transfer is not guaranteed. Empirical testing on HydraNet with `c=1.0, a=10` is recommended before changing the production default.
+
+---
+
+### C-47: Pareto Loss not available in loss registry
+
+| Field | Value |
+|-------|-------|
+| ID | C-47 |
+| Tier | 4 |
+| Source | manual (2026-04-10), metric-lab autoresearch Round 4 |
+| Trigger | When configuring a new HydraNet model to use the autoresearch-recommended loss function |
+| Location | `views_hydranet/utils/utils.py` (`LOSS_REG_REGISTRY`) |
+
+The metric-lab autoresearch (61 experiments, April 2026) found Pareto Loss `(1/alpha) * log(1 + alpha * |error|)` with alpha=1.0 to be the best-performing magnitude loss when combined with a QS99 regularizer. The implementation is 6 lines (Kozerawski et al. 2022, "Taming the Long Tail"). The loss registry currently offers `mse`, `shrinkage`, `basu_dpd`, and `lognormal_nll` — but not `pareto`. Without the QS99 regularizer (see C-48), Pareto alone converges to the same performance as Shrinkage and Basu (within 0.04%), so this is a completeness concern, not a performance gap.
+
+---
+
+### C-48: No QS99 tail regularizer in training loop — Forecaster's Dilemma unaddressed
+
+| Field | Value |
+|-------|-------|
+| ID | C-48 |
+| Tier | 3 |
+| Source | manual (2026-04-10), metric-lab autoresearch Finding F2, Lerch et al. (2017) |
+| Trigger | When evaluating HydraNet's 99th percentile accuracy (QS99 guardrail) on sparse targets like non-state violence |
+| Location | `training_engine.py:130-139` (`_process_sequence` loss computation) |
+
+Lerch et al. (2017, "Forecaster's Dilemma: Extreme Events and Forecast Evaluation") proved mathematically that standard proper scoring rules (CRPS, log score) systematically discourage sharp predictions for rare events. A "timid" forecast that hedges everywhere scores better under CRPS than a sharp forecast that accurately predicts the tail but occasionally overshoots. This is not a tuning problem — it is a mathematical property of proper scoring rules applied to rare events.
+
+The metric-lab autoresearch confirmed this empirically: the ns QS99 guardrail was the most persistent failure across all 61 experiments (sole failure in 23-63% of rounds). Adding an explicit pinball loss at the 99th percentile — `loss_qs = QuantileLoss(alpha=0.99)(q99_pred, target)` where `q99_pred = mu + 2.33 * sigma` — broke through the dilemma and improved overall CRPS by 0.13% while making the ns QS99 guardrail pass comfortably (0.023 vs 0.027 threshold).
+
+This is architecturally different from a loss function swap. The QS99 term is a third component in the training loss, alongside `criterion_reg` and `criterion_class`. It requires:
+1. Computing the model's implicit 99th percentile: `pred + 2.33 * config["loss_reg_sigma"]`
+2. A pinball loss function (6 lines)
+3. A configurable weight (autoresearch optimal: 0.1)
+4. Addition to `_process_sequence()` loss accumulation
+
+This cannot be implemented as a LOSS_REG_REGISTRY entry because it operates on a derived quantity (the predicted quantile), not on the raw prediction-target pair. It requires a training loop change.
+
+Literature: Lerch et al. (2017) [views-metric-lab/lit/scoring_rules/Lerch-ForecastersDilemmaExtreme-2017.pdf], Gneiting & Ranjan (2011) [views-metric-lab/lit/scoring_rules/Gneiting-ComparingDensityForecasts-2011.pdf], Kozerawski & Turk (2022) [views-metric-lab/lit/long_tail/Kozerawski-TamingLongTailDeepProbabilistic-2022.pdf]. See also C-45 (hurdle masking) and C-47 (Pareto loss).
 
 ---
 
