@@ -5,9 +5,9 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-09                           |
-| Total Concerns    | 40                                   |
-| Open Concerns     | 26                                   |
-| Resolved Concerns | 14                                   |
+| Total Concerns    | 43                                   |
+| Open Concerns     | 28                                   |
+| Resolved Concerns | 15                                   |
 
 ---
 
@@ -354,24 +354,6 @@ Currently tolerable because VolumeHandler's interface is mature and rarely chang
 
 ---
 
-### C-38: Factory functions closed to extension (OCP violation)
-
-| Field | Value |
-|-------|-------|
-| ID | C-38 |
-| Tier | 4 |
-| Source | clean-architecture-review (2026-04-08) |
-| Trigger | Adding a new model architecture, loss function, or scheduler |
-| Location | `utils.py:20-35` (`choose_model`), `utils.py:38-80` (`choose_loss`), `utils.py:83-104` (`choose_scheduler`) |
-
-All three factory functions use `if/elif/else` chains on string config values. Adding a new model requires modifying `choose_model()`. Adding a new loss requires modifying `choose_loss()`. The factories are closed to extension — the opposite of OCP.
-
-Per Martin (Clean Architecture Ch 8, p.87-93): "A software artifact should be open for extension but closed for modification." The `TRANSFORMS` registry in `config_initializer.py` is the correct pattern — a dict of callables that can be extended without modifying existing code. The factories should follow the same pattern: a `MODELS` registry, a `LOSSES` registry.
-
-Note: C-05 already registers the string code opacity; this concern addresses the structural OCP violation.
-
----
-
 ### C-39: VolumeHandler Entity imports Framework type (Dependency Rule violation)
 
 | Field | Value |
@@ -415,6 +397,52 @@ Two `grep -oP` calls use Perl-compatible regex (`-P` flag), which requires GNU g
 TDD RED-state falsification stubs use `assert False` to mark unresolved risks. These are intentionally failing — they exist to remind developers that the underlying code issues (C-31 through C-33) are not yet fixed. Currently excluded via `--ignore` in manual test runs.
 
 Risk: a future CI pipeline that runs `pytest tests/` without excluding this file will see 8 deterministic failures. The stubs should NOT be converted to `xfail` or `skip` (that would silence the RED signal, defeating their TDD purpose). The correct resolution is either: (a) fix the underlying code issues so the stubs can be replaced with real passing tests, or (b) ensure CI explicitly excludes `test_falsification_*.py` files until remediation.
+
+---
+
+### C-42: No reproducibility gate — seeds partially set, no manifest audit
+
+| Field | Value |
+|-------|-------|
+| ID | C-42 |
+| Tier | 2 |
+| Source | manual (2026-04-09) |
+| Trigger | When comparing training runs across machines, CUDA devices, or Python versions — results may silently differ |
+| Location | `training_engine.py:309-310` (seed setting), `config_initializer.py` (schema) |
+
+Training reproducibility has four gaps: (1) `torch.cuda.manual_seed_all()` is never called — CUDA non-determinism is uncontrolled. (2) `torch.backends.cudnn.deterministic` is not set. (3) Python's `random.seed()` is not called. (4) `np_seed` and `torch_seed` are not in `HydraNetConfig` schema — they can be silently omitted from configs without validation error. No manifest audit exists (unlike views-r2darts2 which has `ReproducibilityGate` with `lock_entropy()` that locks all 4 RNG sources).
+
+Tier rationale: Tier 2 because results silently differ across environments with no error signal — identical configs produce different models on different hardware, violating the scientific reproducibility contract for conflict forecasting.
+
+---
+
+### C-43: No reproducibility gate — no parameter genome audit
+
+| Field | Value |
+|-------|-------|
+| ID | C-43 |
+| Tier | 3 |
+| Source | manual (2026-04-09) |
+| Trigger | When adding a new hyperparameter that affects training outcome but isn't declared in the reproducibility manifest |
+| Location | `views_hydranet/` (no `infrastructure/reproducibility_gate.py` exists) |
+
+Unlike views-r2darts2 (which audits every config against an architecture-specific "genome" of required parameters before training starts), HydraNet has no manifest audit. Pydantic validates field types but not completeness relative to the training contract. A config can omit `loss_reg_alpha` and silently get the default — the run appears to succeed but uses different hyperparameters than intended. The r2darts2 pattern (`ReproducibilityGate.Config.audit_manifest()` + `MissingHyperparameterError`) should be adopted. See also C-42 for the seed-specific subset of this gap.
+
+---
+
+### C-44: Classification head bias initializes to 50% event probability on 0.1-3% event-rate grid
+
+| Field | Value |
+|-------|-------|
+| ID | C-44 |
+| Tier | 2 |
+| Source | manual (2026-04-10), metric-lab autoresearch Finding F1 |
+| Trigger | When training on the full PRIO-GRID or any grid with event rate < 10% |
+| Location | `HydraBNrecurrentUnet_06_LSTM4` classification decoder heads (bias initialization) |
+
+PyTorch `nn.Linear`/`nn.Conv2d` layers initialize bias near zero. For the classification heads (`by_*` targets), `sigmoid(0) = 0.50` — a 25-71x overestimate of the true event rate (0.7-3% on active cells, ~0.1% on full PRIO-GRID). The BCE loss gradient spends training capacity learning "most cells are peaceful" instead of "which cells are escalating." Metric-lab autoresearch demonstrated 98.5% metric improvement from initializing logit bias to `log(event_rate / (1 - event_rate))` (e.g., -5.0 for 0.7% event rate). This is the single most impactful intervention found across 45 experiments.
+
+Tier rationale: Tier 2 because the miscalibration silently degrades forecast quality — the model trains but produces systematically overconfident onset predictions with no error signal. The effect scales with grid sparsity.
 
 ---
 
@@ -582,6 +610,16 @@ Risk: a future CI pipeline that runs `pytest tests/` without excluding this file
 | ID | C-32 |
 | Resolved | 2026-04-08 |
 | Resolution | Ledger Inconsistency already tested by existing `test_red_unknown_target`. Added `TestGeometricOverflow` class (2 tests) verifying bounds clamping with edge anchors and max-dim extraction. CIC Section 6 notes: code uses `np.clip` (silent correction) rather than raising — correct behavior, CIC language ("Fails if...") is aspirational rather than literal. |
+
+---
+
+### C-38: Factory functions closed to extension (OCP violation) — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-38 |
+| Resolved | 2026-04-10 |
+| Resolution | Replaced `if/elif/else` chain in `choose_loss()` with `LOSS_REG_REGISTRY` and `LOSS_CLASS_REGISTRY` dicts. Adding a new loss requires only adding a registry entry. Opaque letter codes (`a`, `b`, `c`, `d`) replaced with readable names (`mse`, `shrinkage`, `basu_dpd`, `lognormal_nll`). Model and scheduler factories remain as if/elif (1-2 options each, low pressure). |
 
 ---
 
