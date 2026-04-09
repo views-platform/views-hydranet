@@ -39,6 +39,34 @@ from views_hydranet.utils.volume_sampler import VolumeSampler
 logger = logging.getLogger(__name__)
 
 
+def _init_classification_head_bias(model: nn.Module, bias_value: float) -> None:
+    """
+    Initialize classification decoder head biases to logit(event_rate).
+
+    Autoresearch Finding F1: sigmoid(0) = 0.50 is a 25-71x overestimate of
+    the true event rate on zero-inflated PRIO-GRID data. Initializing to
+    logit(event_rate) provides 98.5% metric improvement.
+
+    Targets layers named 'dec_conv4_head{N}_class' — the final output
+    Conv2d of each classification decoder branch.
+    """
+    count = 0
+    for name, module in model.named_modules():
+        is_class_head = "dec_conv4" in name and "_class" in name
+        has_bias = hasattr(module, "bias") and module.bias is not None
+        if is_class_head and has_bias:
+            nn.init.constant_(module.bias, bias_value)
+            count += 1
+            logger.debug(f"Classification head '{name}' bias → {bias_value:.2f}")
+    import math
+
+    sigmoid_val = 1.0 / (1.0 + math.exp(-bias_value))
+    logger.info(
+        f"Onset bias initialization: {count} classification heads set to {bias_value:.2f} "
+        f"(sigmoid = {sigmoid_val:.4f}, i.e. {sigmoid_val*100:.2f}% prior event probability)"
+    )
+
+
 def make(config: dict, device: torch.device):
     model = choose_model(config, device)
 
@@ -47,6 +75,11 @@ def make(config: dict, device: torch.device):
 
     # Apply the initialization function to the model
     model.apply(init_fn)
+
+    # Classification head bias initialization (C-44)
+    onset_bias = config.get("onset_bias_init")
+    if onset_bias is not None:
+        _init_classification_head_bias(model, onset_bias)
 
     # choose loss function
     criterion = choose_loss(config, device)  # this is a tuple of the reg and the class criteria
