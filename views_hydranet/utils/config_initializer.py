@@ -89,6 +89,10 @@ class HydraNetConfig(BaseModel):
     # FocalLoss params (loss_class='focal')
     loss_class_gamma: float = Field(default=1.5)
     loss_class_alpha: float = Field(default=0.75)
+    # Classification head bias initialization (C-44)
+    # Set to log(event_rate / (1 - event_rate)). None = PyTorch default.
+    # -5.0 ≈ 0.67% event rate, -7.0 ≈ 0.09% event rate.
+    onset_bias_init: float | None = Field(default=None)
 
     # 7. Sampling & Reproducibility
     total_lessons: int = Field(..., ge=1)
