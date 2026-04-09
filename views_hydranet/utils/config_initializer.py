@@ -76,16 +76,17 @@ class HydraNetConfig(BaseModel):
     warmup_steps: int = Field(..., ge=1)
     clip_grad_norm: bool = Field(...)
 
-    # 6. Loss Functions
+    # 6. Loss Functions (names: mse, shrinkage, basu_dpd, lognormal_nll)
     loss_reg: str = Field(...)
     loss_class: str = Field(...)
-    # ShrinkageLoss params (loss_reg='b')
+    # ShrinkageLoss params (loss_reg='shrinkage')
     loss_reg_a: float = Field(default=10.0)
     loss_reg_c: float = Field(default=0.2)
-    # BasuDPDLoss params (loss_reg='c')
+    # BasuDPDLoss params (loss_reg='basu_dpd')
     loss_reg_alpha: float = Field(default=0.5)
+    # Shared: BasuDPDLoss sigma / LogNormalFixedSigmaLoss sigma
     loss_reg_sigma: float = Field(default=1.0)
-    # FocalLoss params (loss_class='b')
+    # FocalLoss params (loss_class='focal')
     loss_class_gamma: float = Field(default=1.5)
     loss_class_alpha: float = Field(default=0.75)
 

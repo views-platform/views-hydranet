@@ -189,9 +189,9 @@ def test_basu_loss_registered_in_choose_loss():
     from views_hydranet.utils.utils import choose_loss
 
     config = {
-        "loss_reg": "c",
+        "loss_reg": "basu_dpd",
         "loss_reg_alpha": 0.5,
-        "loss_class": "a",
+        "loss_class": "bce",
         "regression_targets": ["lr_sb_best"],
         "classification_targets": [],
     }

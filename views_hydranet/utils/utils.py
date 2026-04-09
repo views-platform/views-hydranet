@@ -37,44 +37,87 @@ def choose_model(config: dict, device: torch.device) -> nn.Module:
     return model
 
 
+LOSS_REG_REGISTRY: Dict[str, Any] = {
+    "mse": {
+        "class": nn.MSELoss,
+        "params": [],
+        "factory": lambda config, device: nn.MSELoss().to(device),
+    },
+    "shrinkage": {
+        "class": ShrinkageLoss,
+        "params": ["loss_reg_a", "loss_reg_c"],
+        "factory": lambda config, device: ShrinkageLoss(
+            a=config["loss_reg_a"], c=config["loss_reg_c"], size_average=True,
+        ).to(device),
+    },
+    "basu_dpd": {
+        "class": BasuDPDLoss,
+        "params": ["loss_reg_alpha", "loss_reg_sigma"],
+        "factory": lambda config, device: BasuDPDLoss(
+            alpha=config.get("loss_reg_alpha", 0.5),
+            sigma=config.get("loss_reg_sigma", 1.0),
+        ).to(device),
+    },
+    "lognormal_nll": {
+        "class": LogNormalFixedSigmaLoss,
+        "params": ["loss_reg_sigma"],
+        "factory": lambda config, device: LogNormalFixedSigmaLoss(
+            sigma=config.get("loss_reg_sigma", 0.9),
+        ).to(device),
+    },
+}
+
+LOSS_CLASS_REGISTRY: Dict[str, Any] = {
+    "bce": {
+        "class": nn.BCELoss,
+        "params": [],
+        "factory": lambda config, device: nn.BCELoss().to(device),
+    },
+    "focal": {
+        "class": FocalLoss,
+        "params": ["loss_class_alpha", "loss_class_gamma"],
+        "factory": lambda config, device: FocalLoss(
+            alpha=config["loss_class_alpha"], gamma=config["loss_class_gamma"],
+        ).to(device),
+    },
+}
+
+
 def choose_loss(
     config: Dict[str, Any], device: torch.device
 ) -> Tuple[nn.Module, nn.Module, "MultiTaskLoss"]:
-    """Factory for loss function instances."""
-    if config["loss_reg"] == "a":
-        criterion_reg = nn.MSELoss().to(device)
-    elif config["loss_reg"] == "b":
-        criterion_reg = ShrinkageLoss(
-            a=config["loss_reg_a"], c=config["loss_reg_c"], size_average=True
-        ).to(device)
-    elif config["loss_reg"] == "c":
-        criterion_reg = BasuDPDLoss(
-            alpha=config.get("loss_reg_alpha", 0.5),
-            sigma=config.get("loss_reg_sigma", 1.0),
-        ).to(device)
-    elif config["loss_reg"] == "d":
-        criterion_reg = LogNormalFixedSigmaLoss(
-            sigma=config.get("loss_reg_sigma", 0.9),
-        ).to(device)
-    else:
-        err_msg = f"Unknown regression loss type: {config['loss_reg']}"
+    """Factory for loss function instances.
+
+    Loss functions are selected by name via the LOSS_REG_REGISTRY and
+    LOSS_CLASS_REGISTRY dictionaries. Adding a new loss requires only
+    adding an entry to the appropriate registry — no modification of
+    this function (OCP).
+    """
+    loss_reg_name = config["loss_reg"]
+    if loss_reg_name not in LOSS_REG_REGISTRY:
+        err_msg = (
+            f"Unknown regression loss: '{loss_reg_name}'. "
+            f"Available: {list(LOSS_REG_REGISTRY.keys())}"
+        )
 
         logger.error(err_msg)
 
         raise ValueError(err_msg)
 
-    if config["loss_class"] == "a":
-        criterion_class = nn.BCELoss().to(device)
-    elif config["loss_class"] == "b":
-        criterion_class = FocalLoss(
-            alpha=config["loss_class_alpha"], gamma=config["loss_class_gamma"]
-        ).to(device)
-    else:
-        err_msg = f"Unknown classification loss type: {config['loss_class']}"
+    criterion_reg = LOSS_REG_REGISTRY[loss_reg_name]["factory"](config, device)
+
+    loss_class_name = config["loss_class"]
+    if loss_class_name not in LOSS_CLASS_REGISTRY:
+        err_msg = (
+            f"Unknown classification loss: '{loss_class_name}'. "
+            f"Available: {list(LOSS_CLASS_REGISTRY.keys())}"
+        )
 
         logger.error(err_msg)
 
         raise ValueError(err_msg)
+
+    criterion_class = LOSS_CLASS_REGISTRY[loss_class_name]["factory"](config, device)
 
     logger.info(f"Regression loss: {criterion_reg}\n classification loss: {criterion_class}")
 

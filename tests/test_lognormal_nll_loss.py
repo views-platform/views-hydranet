@@ -98,9 +98,9 @@ def test_lognormal_nll_registered_in_choose_loss():
     from views_hydranet.utils.utils import choose_loss
 
     config = {
-        "loss_reg": "d",
+        "loss_reg": "lognormal_nll",
         "loss_reg_sigma": 0.9,
-        "loss_class": "a",
+        "loss_class": "bce",
         "regression_targets": ["lr_sb_best"],
         "classification_targets": [],
     }
