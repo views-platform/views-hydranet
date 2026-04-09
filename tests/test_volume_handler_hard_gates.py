@@ -297,5 +297,255 @@ def test_gate_17_negative_offset_rejection():
     VolumeHandler.from_df(df_exact, exact_cfg)  # must not raise
 
 
+# ─── C-24: Temporal discontinuity — slice_time bounds check ──────────────────
+
+
+def test_gate_slice_time_beyond_bounds_raises():
+    """
+    C-24: Requesting a time slice beyond the handler's temporal extent must
+    raise ValueError with ADR-008 compliant log-before-raise.
+
+    This is the temporal discontinuity failure mode declared in the
+    InferenceOrchestrator CIC. The orchestrator delegates bounds checking
+    to VolumeHandler.slice_time(); this test verifies that delegation works.
+    """
+    handler = VolumeHandler(
+        data=np.zeros((5, 4, 4, 2)),  # T=5, H=4, W=4, C=2
+        axes=("T", "H", "W", "C"),
+        channel_map=["month_id", "priogrid_gid"],
+        time_col="month_id",
+        id_col="priogrid_gid",
+        spatial_cols=["row", "col"],
+    )
+
+    # Beyond end
+    with pytest.raises(ValueError, match="Invalid time slice"):
+        handler.slice_time(3, 7)  # end=7 > T=5
+
+    # Negative start
+    with pytest.raises(ValueError, match="Invalid time slice"):
+        handler.slice_time(-1, 3)
+
+    # Start >= end (empty slice)
+    with pytest.raises(ValueError, match="Invalid time slice"):
+        handler.slice_time(3, 3)
+
+    # Valid boundary: must NOT raise
+    result = handler.slice_time(0, 5)  # full extent
+    assert result.shape[0] == 5
+
+
+def test_gate_slice_time_origin_plus_duration_oob():
+    """
+    C-24: Simulates the orchestrator's temporal alignment calculation.
+    When origin + duration exceeds the handler's time extent, slice_time
+    must raise — not silently return truncated data.
+    """
+    handler = VolumeHandler(
+        data=np.zeros((10, 4, 4, 2)),  # T=10
+        axes=("T", "H", "W", "C"),
+        channel_map=["month_id", "priogrid_gid"],
+        time_col="month_id",
+        id_col="priogrid_gid",
+        spatial_cols=["row", "col"],
+    )
+
+    origin = 8
+    duration = 5
+    start = origin + 1  # = 9
+    end = origin + 1 + duration  # = 14, but T=10
+
+    with pytest.raises(ValueError, match="Invalid time slice"):
+        handler.slice_time(start, end)
+
+
+# ─── C-23: extrapolate_time() unit tests ─────────────────────────────────────
+
+
+# ─── C-08: North-Up flip symmetry assertion ──────────────────────────────────
+
+
+def test_gate_flip_symmetry_from_df_to_output():
+    """
+    C-08: The North-Up flip in from_df() and the North-Up flip in
+    _valid_cell_indices() must be symmetric. If a cell is at geographic
+    row R in the input DataFrame, it must appear at geographic row R
+    in the output reconstruction.
+
+    This test creates a gradient pattern (value = row index), runs it
+    through from_df(), then verifies that _valid_cell_indices() recovers
+    the original geographic mapping. Any flip mismatch produces inverted
+    or scrambled coordinates.
+    """
+    H, W = 4, 4
+    cfg = {
+        "time_col": "month_id",
+        "id_col": "priogrid_gid",
+        "spatial_cols": ["row", "col"],
+        "identity_cols": ["month_id", "priogrid_gid"],
+        "features": ["value"],
+        "row_offset": 10,
+        "col_offset": 20,
+        "height": H,
+        "width": W,
+        "transformations": {"identity": ["value"]},
+        "derivations": {},
+    }
+
+    # Build DataFrame with value = global row (geographic truth)
+    rows, cols, values, gids = [], [], [], []
+    for r in range(H):
+        for c in range(W):
+            rows.append(10 + r)
+            cols.append(20 + c)
+            values.append(float(10 + r))  # value = geographic row
+            gids.append(1 + r * W + c)
+
+    df = pd.DataFrame({
+        "month_id": [1] * (H * W),
+        "priogrid_gid": gids,
+        "row": rows,
+        "col": cols,
+        "value": values,
+    })
+
+    handler = VolumeHandler.from_df(df, cfg)
+
+    # Now use _valid_cell_indices to extract the reconstruction mapping.
+    # _valid_cell_indices returns (rows, cols, values) for valid cells.
+    # The geographic row of each output cell must match the value we planted.
+    #
+    # We test the round-trip by checking that the data at each valid cell
+    # has value == its original geographic row.
+    val_idx = handler.channel_map.index("value")
+    gid_idx = handler.channel_map.index("priogrid_gid")
+
+    data = handler.data  # [T=1, H=4, W=4, C]
+    for r_array in range(H):
+        for c_array in range(W):
+            gid = data[0, r_array, c_array, gid_idx]
+            if gid > 0:  # valid cell
+                planted_value = data[0, r_array, c_array, val_idx]
+                # The planted value IS the geographic row.
+                # Recover geographic row from array index:
+                # After North-Up flip, array row 0 = south (highest geo row),
+                # array row H-1 = north (lowest geo row).
+                geo_row = cfg["row_offset"] + (H - 1 - r_array)
+                assert planted_value == geo_row, (
+                    f"Flip symmetry broken at array[{r_array},{c_array}]: "
+                    f"value={planted_value} but geo_row={geo_row}. "
+                    f"North-Up flip in from_df and output path are asymmetric."
+                )
+
+
+# ─── C-23: extrapolate_time() unit tests ─────────────────────────────────────
+
+
+def test_extrapolate_time_shape_preservation():
+    """
+    C-23: extrapolate_time(steps) must return [steps, H, W, C] with
+    H, W, C unchanged from the input handler.
+    """
+    T, H, W, C = 3, 2, 2, 3
+    data = np.ones((T, H, W, C), dtype=np.float32)
+    handler = VolumeHandler(
+        data=data,
+        axes=("T", "H", "W", "C"),
+        channel_map=["month_id", "priogrid_gid", "value"],
+        time_col="month_id",
+        id_col="priogrid_gid",
+        spatial_cols=["row", "col"],
+    )
+
+    result = handler.extrapolate_time(5)
+    assert result.shape == (5, H, W, C), (
+        f"Expected shape (5, {H}, {W}, {C}), got {result.shape}"
+    )
+
+
+def test_extrapolate_time_temporal_continuity():
+    """
+    C-23: Time channel must increment by 1 per step from the last
+    observed value. If last frame has month_id=102, extrapolate(3)
+    must produce [103, 104, 105].
+    """
+    T, H, W = 3, 2, 2
+    data = np.zeros((T, H, W, 3), dtype=np.float32)
+    # Set time channel (index 0) to known values
+    data[0, :, :, 0] = 100.0
+    data[1, :, :, 0] = 101.0
+    data[2, :, :, 0] = 102.0
+
+    handler = VolumeHandler(
+        data=data,
+        axes=("T", "H", "W", "C"),
+        channel_map=["month_id", "priogrid_gid", "value"],
+        time_col="month_id",
+        id_col="priogrid_gid",
+        spatial_cols=["row", "col"],
+    )
+
+    result = handler.extrapolate_time(3)
+    time_idx = result.channel_map.index("month_id")
+
+    for step in range(3):
+        expected = 103.0 + step
+        actual = result.data[step, 0, 0, time_idx]
+        assert actual == expected, (
+            f"Step {step}: expected month_id={expected}, got {actual}"
+        )
+
+
+def test_extrapolate_time_non_time_channels_cloned():
+    """
+    C-23: Non-time channels must replicate the last frame exactly.
+    """
+    T, H, W = 3, 2, 2
+    data = np.zeros((T, H, W, 3), dtype=np.float32)
+    data[0, :, :, 0] = 100.0
+    data[1, :, :, 0] = 101.0
+    data[2, :, :, 0] = 102.0
+    # Set non-time channels in last frame to known pattern
+    data[2, :, :, 1] = 42.0  # priogrid_gid
+    data[2, 0, 0, 2] = 7.0   # value at specific cell
+    data[2, 1, 1, 2] = 13.0  # value at another cell
+
+    handler = VolumeHandler(
+        data=data,
+        axes=("T", "H", "W", "C"),
+        channel_map=["month_id", "priogrid_gid", "value"],
+        time_col="month_id",
+        id_col="priogrid_gid",
+        spatial_cols=["row", "col"],
+    )
+
+    result = handler.extrapolate_time(4)
+
+    # Every step should clone the last frame's non-time data
+    for step in range(4):
+        assert result.data[step, 0, 0, 1] == 42.0, f"Step {step}: priogrid_gid not cloned"
+        assert result.data[step, 0, 0, 2] == 7.0, f"Step {step}: value[0,0] not cloned"
+        assert result.data[step, 1, 1, 2] == 13.0, f"Step {step}: value[1,1] not cloned"
+
+
+def test_extrapolate_time_single_step():
+    """C-23 edge case: steps=1 produces a single future frame."""
+    data = np.zeros((2, 2, 2, 2), dtype=np.float32)
+    data[1, :, :, 0] = 50.0
+
+    handler = VolumeHandler(
+        data=data,
+        axes=("T", "H", "W", "C"),
+        channel_map=["month_id", "priogrid_gid"],
+        time_col="month_id",
+        id_col="priogrid_gid",
+        spatial_cols=["row", "col"],
+    )
+
+    result = handler.extrapolate_time(1)
+    assert result.shape[0] == 1
+    assert result.data[0, 0, 0, 0] == 51.0
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

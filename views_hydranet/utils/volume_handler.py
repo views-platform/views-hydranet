@@ -282,10 +282,14 @@ class VolumeHandler:
             head_time_idx = self.channel_map.index(time_col)
             head_id_idx = self.channel_map.index(id_col)
         except ValueError as e:
-            raise ValueError(
+            err_msg = (
                 f"VolumeHandler Ledger Corruption: Primary index '{e}' missing from channel map. "
                 f"Prediction wrapping requires watermarked primary keys."
             )
+
+            logger.error(err_msg)
+
+            raise ValueError(err_msg)
 
         # Identify all non-feature channels from parent (excluding primary keys already handled)
         identity_names = [
@@ -305,10 +309,14 @@ class VolumeHandler:
         # 3. DURATION GUARD (ADR 015 - Fail Loud)
         # The signal must match the temporal duration of its carrier handler.
         if work_data.shape[0] != self.shape[0]:
-            raise ValueError(
+            err_msg = (
                 f"VolumeHandler Contract Violation: Signal duration ({work_data.shape[0]}) "
                 f"does not match Handler duration ({self.shape[0]})."
             )
+
+            logger.error(err_msg)
+
+            raise ValueError(err_msg)
 
         # 4. Concatenate Identity Watermarks
         # Primary keys (Time, ID) must come first to ensure Join-Safety

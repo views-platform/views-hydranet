@@ -1,7 +1,11 @@
 # from https://github.com/ywatanabe1989/custom_losses_pytorch/blob/master/multi_task_loss.py
 # inpsired by https://arxiv.org/abs/1705.07115
 
+import logging
+
 import torch
+
+logger = logging.getLogger(__name__)
 
 
 class MultiTaskLoss(torch.nn.Module):
@@ -43,11 +47,15 @@ class MultiTaskLoss(torch.nn.Module):
             torch.Tensor: Weighted and regularized combined loss.
         """
         if len(losses) != self.n_tasks:
-            raise ValueError(
+            err_msg = (
                 f"MultiTaskLoss task count mismatch: expected {self.n_tasks} losses "
                 f"(matching is_regression length), but received {len(losses)}. "
                 f"Check that the model's output head count matches the loss mask."
             )
+
+            logger.error(err_msg)
+
+            raise ValueError(err_msg)
         dtype = losses.dtype
         device = losses.device
         stds = (torch.exp(self.log_vars) ** (1 / 2)).to(device).to(dtype)

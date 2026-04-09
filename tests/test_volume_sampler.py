@@ -161,3 +161,205 @@ class TestRed:
             for w1, w2 in zip(batch1, batch2)
         )
         assert differs, "Different seeds must produce different windows"
+
+
+# ---------------------------------------------------------------------------
+# C-25: Curriculum→Sampler zero-qualified-cells interaction
+# ---------------------------------------------------------------------------
+class TestCurriculumSamplerInteraction:
+    """
+    C-25: When curriculum threshold is too high for sparse targets,
+    all cells have zero qualified activity. Sampler must fall back to
+    random anchors and report qualified=0 to the caller.
+    """
+
+    def test_curriculum_high_threshold_triggers_fallback(self, sampler_handler):
+        """
+        C-25 interaction test: curriculum naturally produces a threshold
+        that exceeds all cell activity, forcing sampler random-anchor fallback.
+
+        Uses roof_ratio=2.0 so the curriculum's own threshold = 2 * subject_max,
+        guaranteeing zero qualified cells without hardcoding a magic number.
+        """
+        from views_hydranet.utils.curriculum import CurriculumLearner
+
+        # Curriculum config: roof_ratio=2.0 makes threshold = 2 * subject_max
+        # at max intensity, which exceeds the maximum possible activity count
+        curriculum_cfg = {
+            "total_lessons": 10,
+            "windows_per_lesson": 3,
+            "min_ratio": 0.0,
+            "max_ratio": 1.0,
+            "slope_ratio": 0.5,
+            "roof_ratio": 2.0,
+            "min_events": 1,
+        }
+
+        curriculum = CurriculumLearner(curriculum_cfg, sampler_handler)
+        sampler = VolumeSampler(sampler_handler, _make_config())
+
+        # At step 0 (max intensity), threshold = max_ratio * roof_ratio * subject_max
+        # = 1.0 * 2.0 * subject_max = 2 * subject_max → exceeds all activity
+        target, threshold = curriculum.get_lesson(0)
+
+        # Use the curriculum-provided threshold (not a magic number)
+        batch, qualified = sampler.get_batch(target, threshold=threshold, batch_size=2)
+
+        # Curriculum threshold exceeds any cell's activity → zero qualified
+        assert qualified == 0, (
+            f"Expected 0 qualified cells with curriculum threshold={threshold}, "
+            f"got {qualified}. Subject max: {curriculum.subject_maxima[target]}"
+        )
+        # But batch should still be produced (random fallback)
+        assert len(batch) == 2, (
+            f"Expected 2 windows from random fallback, got {len(batch)}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# C-04: Spatial offset round-trip in _generate_window()
+# ---------------------------------------------------------------------------
+class TestSpatialOffsetRoundTrip:
+    """
+    C-04: The spatial offset computed by _generate_window() must correctly
+    propagate geographic truth into sub-windows. A cell's absolute geographic
+    coordinates must be recoverable from the sub-window's data + offset.
+    """
+
+    def test_window_offset_preserves_geographic_truth(self):
+        """
+        Plant a known value at a known geographic coordinate in the parent.
+        Extract a window containing that coordinate. Verify the window's
+        spatial_offset + local index recovers the original coordinate.
+        """
+        H, W, T, C = 8, 8, 5, 5
+        parent_row_offset = 100
+        parent_col_offset = 200
+        dim = 4
+
+        data = np.zeros((T, H, W, C), dtype=np.float32)
+        channel_map = ["month_id", "priogrid_gid", "row", "col", "value"]
+
+        # Plant a sentinel value at known coordinates
+        # Array index [t=0, r=2, c=3] → geographic row = 100 + (8 - 1 - 2) = 105 (North-Up)
+        # Wait: spatial_offset is the SOUTH-most row. So geographic row for
+        # array index r is: spatial_offset + (H - 1 - r)
+        sentinel_r, sentinel_c = 2, 3
+        data[:, sentinel_r, sentinel_c, 4] = 42.0  # value channel
+
+        parent = VolumeHandler(
+            data=data,
+            axes=("T", "H", "W", "C"),
+            channel_map=channel_map,
+            time_col="month_id",
+            id_col="priogrid_gid",
+            spatial_cols=("row", "col"),
+            spatial_offset=(parent_row_offset, parent_col_offset),
+        )
+
+        # Force the sampler to extract a window that contains our sentinel
+        # by using a seed and threshold that ensures deterministic extraction
+        cfg = {
+            "window_dim": dim,
+            "windows_per_lesson": 1,
+            "np_seed": 0,
+            "steps": [1],
+        }
+        sampler = VolumeSampler(parent, cfg)
+
+        # Extract many windows; at least one should contain the sentinel
+        found = False
+        for seed in range(50):
+            sampler = VolumeSampler(parent, {**cfg, "np_seed": seed})
+            # Put activity at the sentinel location so importance sampling picks it
+            data[:, sentinel_r, sentinel_c, 4] = 42.0
+            batch, _ = sampler.get_batch("value", threshold=1, batch_size=1)
+            window = batch[0]
+
+            # Check if sentinel is in this window
+            val_idx = window.channel_map.index("value")
+            window_data = window.data  # [T, dim, dim, C]
+
+            sentinel_locations = np.argwhere(window_data[0, :, :, val_idx] == 42.0)
+            if len(sentinel_locations) == 0:
+                continue
+
+            found = True
+            local_r, local_c = sentinel_locations[0]
+
+            # Recover geographic coordinates from window
+            w_row_off, w_col_off = window.spatial_offset
+            w_h = window.shape[1]
+
+            # Geographic row = window_row_offset + (window_H - 1 - local_r)
+            recovered_geo_row = w_row_off + (w_h - 1 - local_r)
+
+            # Geographic col = window_col_offset + local_c
+            recovered_geo_col = w_col_off + local_c
+
+            # Same computation for parent
+            parent_geo_row = parent_row_offset + (H - 1 - sentinel_r)
+            parent_geo_col = parent_col_offset + sentinel_c
+
+            assert recovered_geo_row == parent_geo_row, (
+                f"Geographic row mismatch: window says {recovered_geo_row}, "
+                f"parent says {parent_geo_row}. "
+                f"Window offset={w_row_off}, local_r={local_r}, w_h={w_h}"
+            )
+            assert recovered_geo_col == parent_geo_col, (
+                f"Geographic col mismatch: window says {recovered_geo_col}, "
+                f"parent says {parent_geo_col}. "
+                f"Window offset={w_col_off}, local_c={local_c}"
+            )
+            break
+
+        assert found, (
+            "Sentinel value 42.0 was not found in any of 50 extracted windows. "
+            "Check importance sampling or sentinel placement."
+        )
+
+
+# ---------------------------------------------------------------------------
+# C-32: VolumeSampler CIC failure modes — Geometric Overflow (bounds clamping)
+# ---------------------------------------------------------------------------
+class TestGeometricOverflow:
+    """
+    C-32: When the importance-sampled anchor is near the grid edge,
+    np.clip must constrain the extraction window to valid bounds.
+    The extracted window must have correct shape and not exceed the grid.
+    """
+
+    def test_edge_anchor_produces_valid_window(self, sampler_handler):
+        """
+        Use window_dim close to H to force the clip path.
+        Window must still have correct shape even when anchor is at edge.
+        """
+        dim = H - 1  # 7 out of 8 — almost full grid, forces clipping
+        sampler = VolumeSampler(sampler_handler, _make_config(window_dim=dim))
+        batch, _ = sampler.get_batch(TARGET, threshold=1, batch_size=5)
+
+        for i, window in enumerate(batch):
+            assert window.shape[1] == dim, (
+                f"Window {i}: expected H={dim}, got {window.shape[1]}"
+            )
+            assert window.shape[2] == dim, (
+                f"Window {i}: expected W={dim}, got {window.shape[2]}"
+            )
+
+    def test_max_dim_produces_single_valid_window(self, sampler_handler):
+        """
+        window_dim == H means the entire grid is the window.
+        np.clip forces r0=0, c0=0. Must produce valid extraction.
+        """
+        sampler = VolumeSampler(sampler_handler, _make_config(window_dim=H))
+        batch, _ = sampler.get_batch(TARGET, threshold=1, batch_size=1)
+
+        window = batch[0]
+        assert window.shape[1] == H
+        assert window.shape[2] == W
+        # Data should match the full training volume (minus horizon steps)
+        train_vh = sampler.get_train_volume()
+        np.testing.assert_array_equal(
+            window.data[:, :, :, :],
+            train_vh.data[:, :, :, :],
+        )

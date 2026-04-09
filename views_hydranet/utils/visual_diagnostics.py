@@ -127,7 +127,7 @@ class VisualDiagnostics:
             )
 
         except Exception:
-            logger.warning(
+            logger.error(
                 "VisualDiagnostics: biopsy_dataframe failed at '%s' — skipping plot.",
                 stage_label, exc_info=True,
             )

@@ -262,6 +262,8 @@ class HydraNetConfig(BaseModel):
         try:
             return getattr(self, key)
         except AttributeError:
+            logger.error(f"HydraNetConfig: key '{key}' not found.")
+
             raise KeyError(key)
 
     def __contains__(self, key: str) -> bool:
