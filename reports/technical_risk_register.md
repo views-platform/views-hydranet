@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-09                           |
-| Total Concerns    | 40                                   |
-| Open Concerns     | 26                                   |
+| Total Concerns    | 42                                   |
+| Open Concerns     | 28                                   |
 | Resolved Concerns | 14                                   |
 
 ---
@@ -415,6 +415,36 @@ Two `grep -oP` calls use Perl-compatible regex (`-P` flag), which requires GNU g
 TDD RED-state falsification stubs use `assert False` to mark unresolved risks. These are intentionally failing — they exist to remind developers that the underlying code issues (C-31 through C-33) are not yet fixed. Currently excluded via `--ignore` in manual test runs.
 
 Risk: a future CI pipeline that runs `pytest tests/` without excluding this file will see 8 deterministic failures. The stubs should NOT be converted to `xfail` or `skip` (that would silence the RED signal, defeating their TDD purpose). The correct resolution is either: (a) fix the underlying code issues so the stubs can be replaced with real passing tests, or (b) ensure CI explicitly excludes `test_falsification_*.py` files until remediation.
+
+---
+
+### C-42: No reproducibility gate — seeds partially set, no manifest audit
+
+| Field | Value |
+|-------|-------|
+| ID | C-42 |
+| Tier | 2 |
+| Source | manual (2026-04-09) |
+| Trigger | When comparing training runs across machines, CUDA devices, or Python versions — results may silently differ |
+| Location | `training_engine.py:309-310` (seed setting), `config_initializer.py` (schema) |
+
+Training reproducibility has four gaps: (1) `torch.cuda.manual_seed_all()` is never called — CUDA non-determinism is uncontrolled. (2) `torch.backends.cudnn.deterministic` is not set. (3) Python's `random.seed()` is not called. (4) `np_seed` and `torch_seed` are not in `HydraNetConfig` schema — they can be silently omitted from configs without validation error. No manifest audit exists (unlike views-r2darts2 which has `ReproducibilityGate` with `lock_entropy()` that locks all 4 RNG sources).
+
+Tier rationale: Tier 2 because results silently differ across environments with no error signal — identical configs produce different models on different hardware, violating the scientific reproducibility contract for conflict forecasting.
+
+---
+
+### C-43: No reproducibility gate — no parameter genome audit
+
+| Field | Value |
+|-------|-------|
+| ID | C-43 |
+| Tier | 3 |
+| Source | manual (2026-04-09) |
+| Trigger | When adding a new hyperparameter that affects training outcome but isn't declared in the reproducibility manifest |
+| Location | `views_hydranet/` (no `infrastructure/reproducibility_gate.py` exists) |
+
+Unlike views-r2darts2 (which audits every config against an architecture-specific "genome" of required parameters before training starts), HydraNet has no manifest audit. Pydantic validates field types but not completeness relative to the training contract. A config can omit `loss_reg_alpha` and silently get the default — the run appears to succeed but uses different hyperparameters than intended. The r2darts2 pattern (`ReproducibilityGate.Config.audit_manifest()` + `MissingHyperparameterError`) should be adopted. See also C-42 for the seed-specific subset of this gap.
 
 ---
 
