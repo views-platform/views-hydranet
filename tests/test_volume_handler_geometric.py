@@ -1,4 +1,3 @@
-
 import numpy as np
 import pytest
 import torch
@@ -8,7 +7,7 @@ from views_hydranet.utils.volume_handler import VolumeHandler
 
 class TestVolumeHandlerGeometric:
     """
-    Verifies that VolumeHandler can perform geometric transformations 
+    Verifies that VolumeHandler can perform geometric transformations
     while preserving Ledger integrity and tracking history.
     """
 
@@ -22,7 +21,9 @@ class TestVolumeHandlerGeometric:
             data=data,
             axes=("T", "H", "W", "C"),
             channel_map=["f1"],
-            time_col="t", id_col="i", spatial_cols=["H", "W"]
+            time_col="t",
+            id_col="i",
+            spatial_cols=["H", "W"],
         )
 
     def test_flip_spatial(self, vh):
@@ -46,7 +47,7 @@ class TestVolumeHandlerGeometric:
         """Verify that permute reorders data and updates the axes ledger."""
         # Current: (T, H, W, C) -> Index (0, 1, 2, 3)
         # Target: (T, C, H, W) -> Index (0, 3, 1, 2)
-        vh.permute((0, 3, 1, 2))
+        vh._permute((0, 3, 1, 2))
 
         assert vh.axes == ("T", "C", "H", "W")
         assert vh.data.shape == (1, 1, 2, 2)
@@ -59,12 +60,14 @@ class TestVolumeHandlerGeometric:
         vh = VolumeHandler(
             data=data,
             axes=("B", "T", "C", "H", "W"),
-            channel_map=["v"], # dummy
-            time_col="t", id_col="i", spatial_cols=["H", "W"]
+            channel_map=["v"],  # dummy
+            time_col="t",
+            id_col="i",
+            spatial_cols=["H", "W"],
         )
 
         vh.flip("W")
         assert vh.data[0, 0, 0, 0, 0].item() == 2.0
 
-        vh.permute((0, 1, 2, 4, 3))
+        vh._permute((0, 1, 2, 4, 3))
         assert vh.axes == ("B", "T", "C", "W", "H")

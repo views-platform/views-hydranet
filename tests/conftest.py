@@ -1,13 +1,33 @@
-from unittest.mock import MagicMock
-
 import pytest
+
+# --- Minimum test count gate ---
+# Catches silent test collection failures (e.g., broken imports from
+# views_pipeline_core) before they erode coverage unnoticed.
+# Only triggers when running the full suite (no specific test paths given).
+# Assumes views_pipeline_core is installed (full monorepo environment).
+# Without it, ~13 test files fail to collect, reducing count to ~270.
+_MINIMUM_EXPECTED_TESTS = 280
+
+
+def pytest_collection_modifyitems(config, items):
+    # Only enforce when running the full test directory (no specific files/paths).
+    # Bare `pytest` (no args) is treated as full-suite invocation.
+    args = config.invocation_params.args
+    positional = [a for a in args if not a.startswith("-")]
+    is_full_suite = not positional or all(a in ("tests/", "tests") for a in positional)
+    if is_full_suite and len(items) < _MINIMUM_EXPECTED_TESTS:
+            raise pytest.UsageError(
+                f"Test collection gate: only {len(items)} tests collected, "
+                f"expected at least {_MINIMUM_EXPECTED_TESTS}. "
+                f"Check for import errors in test files."
+            )
 
 
 @pytest.fixture
 def valid_config_dict():
     """
     Provides a complete, valid dictionary that satisfies the strict
-    HydraNetConfig Pydantic model. These values are pulled from the 
+    HydraNetConfig Pydantic model. These values are pulled from the
     current mission-ready defaults.
     """
     return {
@@ -40,22 +60,29 @@ def valid_config_dict():
         "np_seed": 4,
         "torch_seed": 4,
         "window_dim": 32,
-        "transform": "log1p"
+        "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+        "regression_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+        "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
+        "identity_cols": ["c_id", "row", "col"],
+        "time_col": "month_id",
+        "id_col": "priogrid_gid",
+        "spatial_cols": ["row", "col"],
+        "height": 180,
+        "width": 360,
+        "index_names": ["month_id", "priogrid_gid"],
+        "row_offset": 0,
+        "col_offset": 0,
+        "max_ratio": 0.9,
+        "min_ratio": 0.1,
+        "time_steps": 36,
+        "evaluation_mode": "point",
+        "aggregate_method": "arithmetic_mean",
+        "transformations": {"log1p": ["lr_sb_best", "lr_ns_best", "lr_os_best"], "identity": []},
+        "derivations": {
+            "binary": [
+                {"from": "lr_sb_best", "to": "by_sb_best", "threshold": 0},
+                {"from": "lr_ns_best", "to": "by_ns_best", "threshold": 0},
+                {"from": "lr_os_best", "to": "by_os_best", "threshold": 0},
+            ]
+        },
     }
-
-@pytest.fixture
-def mock_mpm(tmp_path):
-    """Provides a mocked ModelPathManager with real temp paths."""
-    mpm = MagicMock()
-    mpm.logging = tmp_path / "logging"
-    mpm.artifacts = tmp_path / "artifacts"
-    mpm.data_processed = tmp_path / "data_processed"
-    mpm.data_raw = tmp_path / "data_raw"
-    mpm.models = tmp_path / "models"
-    mpm.root = tmp_path / "root"
-    mpm.data_generated = tmp_path / "generated"
-
-    for d in [mpm.logging, mpm.artifacts, mpm.data_processed, mpm.data_raw, mpm.data_generated]:
-        d.mkdir(parents=True, exist_ok=True)
-
-    return mpm

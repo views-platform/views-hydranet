@@ -16,10 +16,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class DataSniffer:
     """
-    A passive data observer that enforces strict contract compliance. 
-    
+    A passive data observer that enforces strict contract compliance.
+
     Identifies divergent or corrupted data states early without modifying data.
     Any contract violation results in an immediate exception (Fail Loud and Proud).
     """
@@ -35,9 +36,9 @@ class DataSniffer:
         missing = [k for k in required if k not in config]
         if missing:
             err_msg = f"[CRITICAL CONFIG ERROR] DataSniffer: Missing mandatory keys {missing}"
-            
+
             logger.error(err_msg)
-            
+
             raise KeyError(err_msg)
 
         self.identity_cols = config["identity_cols"]
@@ -46,28 +47,28 @@ class DataSniffer:
         """
         Suite of checks performed immediately after data is fetched from disk.
         """
-        print("")
+
         logger.info("DataSniffer: Starting Ingestion Suite (Raw Space)")
 
         self._check_obligatory_columns(df)
         self._check_spatiotemporal_uniqueness(df)
         self._check_identity_values(df)
+        self._check_anchor_alignment(df)
         self._check_non_finite(df)
 
         logger.info("DataSniffer: Ingestion Suite Passed.")
-        print("")
+
 
     def sniff_forecast_alignment(
-        self,
-        df: pd.DataFrame,
-        handler: VolumeHandler,
-        is_forecast: bool = True
+        self, df: pd.DataFrame, handler: VolumeHandler, is_forecast: bool = True
     ) -> None:
         """
         Validates the temporal continuity and geographic anchoring of a volume carrier.
         """
-        print("")
-        logger.info(f"DataSniffer: Starting {'Forecast' if is_forecast else 'History'} Alignment Suite")
+
+        logger.info(
+            f"DataSniffer: Starting {'Forecast' if is_forecast else 'History'} Alignment Suite"
+        )
 
         # Pull Ledger roles
         time_col = handler.time_col
@@ -80,11 +81,13 @@ class DataSniffer:
         try:
             m_idx = handler.channel_map.index(time_col)
         except ValueError:
-             err_msg = f"[CRITICAL DATA ERROR] DataSniffer: '{time_col}' missing from Handler Ledger!"
-             
-             logger.error(err_msg)
-             
-             raise ValueError(err_msg)
+            err_msg = (
+                f"[CRITICAL DATA ERROR] DataSniffer: '{time_col}' missing from Handler Ledger!"
+            )
+
+            logger.error(err_msg)
+
+            raise ValueError(err_msg)
 
         # Pull temporal range from data
         vol_data = handler.data
@@ -99,11 +102,12 @@ class DataSniffer:
             if min_month_vol != expected_min:
                 err_msg = (
                     f"[CRITICAL DATA ERROR] DataSniffer: Forecast Continuity Broken!\n"
-                    f"History ends at {max_month_df}. Forecast starts at {min_month_vol} (Expected {expected_min})."
+                    f"History ends at {max_month_df}. Forecast starts at {min_month_vol} "
+                    f"(Expected {expected_min})."
                 )
-                
+
                 logger.error(err_msg)
-                
+
                 raise ValueError(err_msg)
         else:
             # History Volume Check
@@ -113,23 +117,44 @@ class DataSniffer:
                     f"DF range: [{min_month_df}, {max_month_df}]\n"
                     f"Vol range: [{min_month_vol}, {max_month_vol}]"
                 )
-                
+
                 logger.error(err_msg)
-                
+
                 raise ValueError(err_msg)
 
         # 3. Geographic Anchor Check (Absolute Anchoring)
         r_off, c_off = handler.spatial_offset
-        if df[y_col].min() < r_off or df[x_col].min() < c_off: 
+        if df[y_col].min() < r_off or df[x_col].min() < c_off:
             err_msg = (
                 f"[CRITICAL DATA ERROR] DataSniffer: Geographic Anchor Violation!\n"
                 f"Data starts at ({df[y_col].min()}, {df[x_col].min()}), but "
                 f"Handler is anchored at ({r_off}, {c_off})."
             )
-            
+
             logger.error(err_msg)
-            
+
             raise ValueError(err_msg)
+
+        # 4. Anchor Drift Check (CIC §6: drift between data partitions)
+        # If the config declares row_offset/col_offset, the handler's actual
+        # spatial_offset must match exactly. A mismatch means the handler was
+        # built under different geographic assumptions than the current config
+        # specifies — silent spatial scrambling will result.
+        cfg_r_off = self.config.get("row_offset")
+        cfg_c_off = self.config.get("col_offset")
+        if cfg_r_off is not None and cfg_c_off is not None:
+            if (r_off, c_off) != (cfg_r_off, cfg_c_off):
+                err_msg = (
+                    f"[CRITICAL DATA ERROR] DataSniffer: Geographic Anchor Drift!\n"
+                    f"Config specifies row_offset={cfg_r_off}, col_offset={cfg_c_off}, "
+                    f"but the Handler's spatial_offset is ({r_off}, {c_off}).\n"
+                    f"The Handler was built under different geographic anchors than the "
+                    f"current config expects. Spatial scrambling will result if not corrected."
+                )
+
+                logger.error(err_msg)
+
+                raise ValueError(err_msg)
 
         logger.info("DataSniffer: Temporal and Geographic Alignment Passed.")
 
@@ -149,10 +174,69 @@ class DataSniffer:
         for col in cols:
             if not np.isfinite(df[col]).all():
                 err_msg = f"DataSniffer: Non-finite values detected in mandatory column '{col}'"
-                
+
                 logger.error(err_msg)
-                
+
                 raise ValueError(err_msg)
+
+    def _check_anchor_alignment(self, df: pd.DataFrame) -> None:
+        """
+        Verifies that df['row'].min() == config['row_offset'] and
+        df['col'].min() == config['col_offset'].
+
+        Two distinct silent failure modes are caught here:
+
+        1. df.min < offset (e.g. data at row 80 when offset=87):
+           r_idx = 80 - 87 = -7 → negative numpy fancy index → spatial wrap.
+           VolumeHandler's guard will catch this, but only AFTER the volume
+           starts building. This check fires before the volume exists.
+
+        2. df.min > offset (e.g. data starts at row 90 when offset=87):
+           r_idx.min() = 3 → rows 0-2 of the volume are silently zero.
+           VolumeHandler does NOT raise for this case. This is the ONLY gate
+           that catches it. The model trains on a spatially-shifted grid with
+           no error ever surfacing.
+
+        The check is skipped if row_offset/col_offset are absent from config
+        (backwards-compatible with callers that do not set explicit offsets).
+        """
+        cfg_r_off = self.config.get("row_offset")
+        cfg_c_off = self.config.get("col_offset")
+
+        if cfg_r_off is None or cfg_c_off is None:
+            return  # No declared offsets → skip check
+
+        y_col, x_col = self.config["spatial_cols"]
+        actual_r_min = df[y_col].min()
+        actual_c_min = df[x_col].min()
+
+        if actual_r_min != cfg_r_off:
+            err_msg = (
+                "[CRITICAL DATA ERROR] DataSniffer: Geographic Anchor Alignment Failure!\n"
+                f"Config declares row_offset={cfg_r_off}, but "
+                f"df['{y_col}'].min() = {actual_r_min}.\n"
+                f"Expected: df['{y_col}'].min() == row_offset ({cfg_r_off}).\n"
+                "If actual < offset: negative r_idx → spatial wrap (VolumeHandler will raise).\n"
+                f"If actual > offset: rows 0..{actual_r_min - cfg_r_off - 1} of the volume "
+                "are silently zero — spatial shift with NO downstream error. "
+                "Correct either the config row_offset or the data source."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+
+        if actual_c_min != cfg_c_off:
+            err_msg = (
+                "[CRITICAL DATA ERROR] DataSniffer: Geographic Anchor Alignment Failure!\n"
+                f"Config declares col_offset={cfg_c_off}, but "
+                f"df['{x_col}'].min() = {actual_c_min}.\n"
+                f"Expected: df['{x_col}'].min() == col_offset ({cfg_c_off}).\n"
+                "If actual < offset: negative c_idx → spatial wrap (VolumeHandler will raise).\n"
+                f"If actual > offset: cols 0..{actual_c_min - cfg_c_off - 1} of the volume "
+                "are silently zero — spatial shift with NO downstream error. "
+                "Correct either the config col_offset or the data source."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
 
     def _check_spatial_bounds(self, df: pd.DataFrame, y_col: str, x_col: str) -> None:
         """Verifies that the span of indices fits within the configured volume resolution."""
@@ -167,9 +251,9 @@ class DataSniffer:
                 f"[CRITICAL DATA ERROR] DataSniffer: Spatial Span Violation!\n"
                 f"Data spans {r_span}x{c_span}, but volume resolution is {height}x{width}."
             )
-            
+
             logger.error(err_msg)
-            
+
             raise ValueError(err_msg)
 
     def _check_spatiotemporal_uniqueness(self, df: pd.DataFrame) -> None:
@@ -182,23 +266,28 @@ class DataSniffer:
 
         if df.duplicated(subset=subset).any():
             duplicates = df[df.duplicated(subset=subset, keep=False)]
-            example_ids = duplicates[subset].head(5).to_dict('records')
+            example_ids = duplicates[subset].head(5).to_dict("records")
 
             err_msg = (
                 f"\n[CRITICAL DATA ERROR] DataSniffer: Duplicate Entries Detected!\n"
                 f"Each combination of {subset} must be unique.\n"
                 f"Found {len(duplicates)} duplicate rows. Examples: {example_ids}"
             )
-            
+
             logger.error(err_msg)
-            
+
             raise ValueError(err_msg)
 
     def _check_obligatory_columns(self, df: pd.DataFrame) -> None:
         """
         Ensures all required identity and feature columns exist.
         """
-        required_cols = list(set(self.identity_cols + self.config["features"]))
+        spatial_cols = self.config[
+            "spatial_cols"
+        ]  # Dynamically pull [row, col] or [row_id, col_id]
+        required_cols = list(
+            set(self.identity_cols + self.config["features"] + list(spatial_cols))
+        )
         missing_cols = [col for col in required_cols if col not in df.columns]
 
         if missing_cols:
@@ -207,9 +296,9 @@ class DataSniffer:
                 f"Missing: {missing_cols}\n"
                 f"Available: {df.columns.tolist()}"
             )
-            
+
             logger.error(err_msg)
-            
+
             raise ValueError(err_msg)
 
     def _check_non_finite(self, df: pd.DataFrame) -> None:
@@ -233,9 +322,9 @@ class DataSniffer:
                 "\n[CRITICAL DATA ERROR] DataSniffer detected non-finite values!\n"
                 "Offending Columns:\n" + "\n".join(error_details)
             )
-            
+
             logger.error(err_msg)
-            
+
             raise ValueError(err_msg)
 
     def sniff_pure_state_parity(self, df_input: pd.DataFrame, df_output: pd.DataFrame) -> None:
@@ -243,7 +332,7 @@ class DataSniffer:
         Verifies that the output DataFrame is bit-wise identical to the input DataFrame
         once model predictions are stripped.
         """
-        print("")
+
         logger.info("DataSniffer: Starting Pure State Parity Audit")
 
         time_col = self.config["time_col"]
@@ -251,7 +340,9 @@ class DataSniffer:
 
         # 1. Strip predictions from output
         pred_cols = [c for c in df_output.columns if c.startswith("pred_")]
-        generated_binary = [c for c in df_output.columns if c.startswith("by_") and c not in df_input.columns]
+        generated_binary = [
+            c for c in df_output.columns if c.startswith("by_") and c not in df_input.columns
+        ]
 
         df_stripped = df_output.drop(columns=pred_cols + generated_binary)
 
@@ -279,8 +370,12 @@ class DataSniffer:
         for col in df_in_aligned.columns:
             if pd.api.types.is_float_dtype(df_in_aligned[col]):
                 # Use np.allclose for floats
-                if not np.allclose(df_in_aligned[col].values, df_out_aligned[col].values, atol=1e-5):
-                    drift_report.append(f" - Column '{col}': Float values drifted beyond tolerance.")
+                if not np.allclose(
+                    df_in_aligned[col].values, df_out_aligned[col].values, atol=1e-5
+                ):
+                    drift_report.append(
+                        f" - Column '{col}': Float values drifted beyond tolerance."
+                    )
             else:
                 # Use standard equality for IDs and other types
                 if not df_in_aligned[col].equals(df_out_aligned[col]):
@@ -289,12 +384,11 @@ class DataSniffer:
         if drift_report:
             err_msg = (
                 "[CRITICAL DATA ERROR] DataSniffer: Pure State Parity Violation!\n"
-                "Output (minus predictions) has drifted from Input.\n"
-                + "\n".join(drift_report)
+                "Output (minus predictions) has drifted from Input.\n" + "\n".join(drift_report)
             )
-            
+
             logger.error(err_msg)
-            
+
             raise ValueError(err_msg)
 
         logger.info("DataSniffer: Pure State Parity Audit Passed.")
@@ -303,16 +397,19 @@ class DataSniffer:
         """
         Enforces the ADR 032 structural contract on the output DataFrame.
         """
-        print("")
+
         logger.info("DataSniffer: Starting Pure State Schema Audit")
 
         # 1. MultiIndex Check (ADR 032 Section 2.1)
         expected_index = [config["time_col"], config["id_col"]]
         if list(df.index.names) != expected_index:
-            err_msg = f"DataSniffer: Index Mismatch! Expected {expected_index}, got {list(df.index.names)}"
-            
+            err_msg = (
+                f"DataSniffer: Index Mismatch! Expected {expected_index}, "
+                f"got {list(df.index.names)}"
+            )
+
             logger.error(err_msg)
-            
+
             raise ValueError(err_msg)
 
         # 2. Identity Column Check (ADR 032 Section 2.2)
@@ -321,33 +418,30 @@ class DataSniffer:
         missing = [c for c in mandatory if c not in df.columns]
         if missing:
             err_msg = f"DataSniffer: Missing Mandatory Identities! {missing}"
-            
+
             logger.error(err_msg)
-            
+
             raise ValueError(err_msg)
 
         # 3. Target Prefix Check (ADR 032 Section 2.4)
-        targets = config["features"]
+        targets = config["regression_targets"] + config["classification_targets"]
         for target in targets:
-            # We expect pred_lr_{target} and pred_by_{target}
-            # Note: target itself might already have lr_ prefix in some configs
-            # We assume features in config are the base names or lr_ prefixed names.
-            # To be safe, we check for columns starting with pred_ and containing the target
-            found_preds = [c for c in df.columns if c.startswith("pred_") and target in c]
+            # We expect pred_{target}
+            found_preds = [c for c in df.columns if c == f"pred_{target}"]
             if not found_preds:
-                err_msg = f"DataSniffer: Missing Predictions for target '{target}'"
-                
+                err_msg = f"DataSniffer: Missing Prediction for target '{target}'"
+
                 logger.error(err_msg)
-                
+
                 raise ValueError(err_msg)
 
             # Verify retirement of suffixes
             offending = [c for c in found_preds if c.endswith("_raw") or c.endswith("_prob")]
             if offending:
                 err_msg = f"DataSniffer: Legacy Suffixes detected! {offending} violates ADR 032."
-                
+
                 logger.error(err_msg)
-                
+
                 raise ValueError(err_msg)
 
         logger.info("DataSniffer: Pure State Schema Audit Passed.")

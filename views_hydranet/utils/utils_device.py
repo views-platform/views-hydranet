@@ -1,10 +1,15 @@
+import logging
+
 import torch
 
+logger = logging.getLogger(__name__)
 
-def setup_device():
+
+def setup_device() -> torch.device:
     """Sets up the device for PyTorch operations (CUDA if available, otherwise CPU).
 
-    Prints the selected device to standard output.
+    Device selection is logged at DEBUG level. Call `log_device_report` from
+    `utils_logging` to emit a visible banner at operation start.
 
     .. warning::
         This function's behavior depends on the system environment and the availability of CUDA.
@@ -12,31 +17,7 @@ def setup_device():
 
     Returns:
         torch.device: The selected device ('cuda' or 'cpu').
-
-    Example:
-        >>> # Assuming CUDA is available
-        >>> import torch
-        >>> from unittest.mock import patch
-        >>> from io import StringIO
-        >>> import sys
-        >>> with patch('torch.cuda.is_available', return_value=True):
-        ...     captured_output = StringIO()
-        ...     sys.stdout = captured_output
-        ...     device = setup_device()
-        ...     sys.stdout = sys.__stdout__
-        ...     assert device == torch.device('cuda')
-        ...     assert "Using device: cuda" in captured_output.getvalue()
-
-        >>> # Assuming CUDA is not available
-        >>> with patch('torch.cuda.is_available', return_value=False):
-        ...     captured_output = StringIO()
-        ...     sys.stdout = captured_output
-        ...     device = setup_device()
-        ...     sys.stdout = sys.__stdout__
-        ...     assert device == torch.device('cpu')
-        ...     assert "Using device: cpu" in captured_output.getvalue()
     """
-    # Set the device
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"Using device: {device}")
-    return device   # not sure you need to return it, but it might be useful for debugging
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logger.debug("Device selected: %s", device)
+    return device

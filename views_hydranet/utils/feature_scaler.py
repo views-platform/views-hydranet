@@ -3,29 +3,33 @@ Declarative and Stateful Feature Scaling for HydraNet.
 """
 
 import logging
-from typing import Any, Dict, List, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Union
 
+import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
     from views_hydranet.utils.volume_handler import VolumeHandler
 
-from views_hydranet.utils.utils_config import TRANSFORMS
+from views_hydranet.utils.config_initializer import TRANSFORMS
+from views_hydranet.utils.volume_handler import BINARY_PREFIX, PRED_PREFIX
 
 logger = logging.getLogger(__name__)
+
 
 class FeatureScaler:
     """
     A one-shot stateful gateway for DataFrame feature transformations.
-    
-    Matches the pipeline configuration 1-to-1: consumes the 'transform' dict.
+
+    Matches the pipeline configuration 1-to-1: consumes the 'transformations' dict.
     """
 
     def __init__(self, config: Dict[str, Any]) -> None:
         """
-        Initialize with the explicit 'transform' dictionary.
+        Initialize with the explicit 'transformations' dictionary.
         """
-        self._transform_config = config.get("transform", {})
+        self._transform_config = config.get("transformations", {})
+        self._features = config.get("features", [])
         self._is_fitted = False
 
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -34,15 +38,66 @@ class FeatureScaler:
         """
         if self._is_fitted:
             err_msg = "FeatureScaler is a one-shot gate and is already fitted."
-            
+
             logger.error(err_msg)
-            
+
             raise RuntimeError(err_msg)
 
         df_out = df.copy()
 
+        # Guard: reject NaN or Inf in any configured feature column BEFORE transforms.
+        # log1p(NaN)=NaN, asinh(Inf)=Inf — poison propagates silently into loss → NaN weights.
+        for col in self.configured_columns:
+            if col in df_out.columns:
+                col_series = df_out[col]
+                if col_series.isnull().any():
+                    nan_count = col_series.isnull().sum()
+                    err_msg = (
+                        f"[CRITICAL DATA ERROR] FeatureScaler: NaN values detected!\n"
+                        f"Feature '{col}' contains {nan_count} NaN value(s).\n"
+                        f"NaN poison will propagate through transforms into training loss, "
+                        f"causing NaN weights and model collapse. Clean the data before scaling."
+                    )
+                    logger.error(err_msg)
+                    raise ValueError(err_msg)
+
+                if np.isinf(col_series.values).any():
+                    inf_count = np.isinf(col_series.values).sum()
+                    err_msg = (
+                        f"[CRITICAL DATA ERROR] FeatureScaler: Inf values detected!\n"
+                        f"Feature '{col}' contains {inf_count} Inf value(s).\n"
+                        "Inf poison will propagate through transforms into training loss, "
+                        "causing invalid gradients and model collapse. "
+                        "Clean the data before scaling."
+                    )
+                    logger.error(err_msg)
+                    raise ValueError(err_msg)
+
+        # Guard: every configured feature must appear in the transformations dict.
+        # Catches bypass of HydraNetConfig validation (direct instantiation, inference, tests).
+        if self._features:
+            unmapped = [
+                f
+                for f in self._features
+                if f in df_out.columns and f not in self.configured_columns
+            ]
+            if unmapped:
+                err_msg = (
+                    f"[CRITICAL DATA ERROR] FeatureScaler: Unmapped feature column(s) detected!\n"
+                    "The following features are present in the DataFrame but absent "
+                    "from the 'transformations' dict:\n"
+                    f"  {unmapped}\n"
+                    "Raw values would pass through untransformed, causing gradient explosion "
+                    "in training.\n"
+                    "Add these columns to the 'transformations' config dict to resolve."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+
         total_scaled = sum(len(cols) for cols in self._transform_config.values())
-        logger.info(f"💫 FeatureScaler: Entering Semantic Space ({total_scaled} features to transform)")
+        logger.info(
+            f"💫 FeatureScaler: Entering Semantic Space ({total_scaled} features to transform)"
+        )
 
         for method, columns in self._transform_config.items():
             if not columns or method not in TRANSFORMS:
@@ -57,9 +112,9 @@ class FeatureScaler:
                         f"[CRITICAL DATA ERROR] FeatureScaler Fit Failure!\n"
                         f"Requested feature '{col}' missing from Raw DataFrame."
                     )
-                    
+
                     logger.error(err_msg)
-                    
+
                     raise ValueError(err_msg)
 
                 df_out[col] = forward_func(df_out[col])
@@ -82,16 +137,18 @@ class FeatureScaler:
             if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
                 c_min, c_max = df[col].min(), df[col].max()
                 method = method_lookup.get(col, "unknown")
-                stats.append(f"  [{method:^10}] {col:.<30} min: {c_min:>10.4f} | max: {c_max:>10.4f}")
+                stats.append(
+                    f"  [{method:^10}] {col:.<30} min: {c_min:>10.4f} | max: {c_max:>10.4f}"
+                )
 
-        report = "\n\n" + "➡️" + "="*78 + "\n"
+        report = "\n\n" + "➡️" + "=" * 78 + "\n"
         report += f"  FEATURE SCALER: {space} SPACE REPORT\n"
-        report += "  " + "-"*76 + "\n"
+        report += "  " + "-" * 76 + "\n"
         if stats:
             report += "\n".join(stats)
         else:
             report += "  (No transformed features found)"
-        report += "\n" + "➡️" + "="*78 + "\n"
+        report += "\n" + "➡️" + "=" * 78 + "\n"
         logger.info(report)
 
     @property
@@ -108,13 +165,16 @@ class FeatureScaler:
         """
         if not self._is_fitted:
             err_msg = "FeatureScaler Contract Violation: Must be FITTED before inverse pass."
-            
+
             logger.error(err_msg)
-            
+
             raise RuntimeError(err_msg)
 
         df_out = df.copy()
-        logger.info(f"🔙 FeatureScaler: Returning to Raw Space ({len(self.configured_columns)} features to invert)")
+        logger.info(
+            "🔙 FeatureScaler: Returning to Raw Space "
+            f"({len(self.configured_columns)} features to invert)"
+        )
 
         for method, columns in self._transform_config.items():
             if not columns:
@@ -139,9 +199,9 @@ class FeatureScaler:
         """
         if not self._is_fitted:
             err_msg = "FeatureScaler Contract Violation: Must be FITTED before inverse pass."
-            
+
             logger.error(err_msg)
-            
+
             raise RuntimeError(err_msg)
 
         from views_hydranet.utils.volume_handler import VolumeHandler
@@ -156,6 +216,7 @@ class FeatureScaler:
 
         # 2. Vectorized Math on underlying array
         import torch
+
         work_data = vh.data.detach().cpu().numpy() if torch.is_tensor(vh.data) else vh.data.copy()
 
         c_idx = vh.get_axis_idx("C")
@@ -163,14 +224,14 @@ class FeatureScaler:
         for i, channel_name in enumerate(vh.channel_map):
             # ADR 032: Handle both actuals (lr_sb) and predictions (pred_lr_sb)
             # 1. Identify intent (Linear vs Binary)
-            if "by_" in channel_name:
+            if channel_name.startswith(BINARY_PREFIX):
                 # Binary/Probability heads are never inverse-transformed
                 continue
 
             # 2. Extract base target name by stripping standard prefixes
             # Example: pred_lr_sb_best -> lr_sb_best
             # Example: lr_sb_best -> lr_sb_best
-            base_name = channel_name.replace("pred_", "")
+            base_name = channel_name.removeprefix(PRED_PREFIX)
 
             method = method_lookup.get(base_name)
             if method and method in TRANSFORMS:
@@ -178,7 +239,7 @@ class FeatureScaler:
                 logger.debug(f"  ← Volume Channel {i} ({channel_name}): Inverting via {method}")
 
                 # Slicing the 5D/4D volume on the channel axis
-                slc = [slice(None)] * work_data.ndim
+                slc: List[Union[slice, int]] = [slice(None)] * work_data.ndim
                 slc[c_idx] = i
                 work_data[tuple(slc)] = inverse_func(work_data[tuple(slc)])
 
@@ -191,5 +252,5 @@ class FeatureScaler:
             spatial_cols=vh._metadata.spatial_cols,
             identity_cols=vh._metadata.identity_cols,
             feature_cols=vh._metadata.feature_cols,
-            spatial_offset=vh._metadata.spatial_offset
+            spatial_offset=vh._metadata.spatial_offset,
         )

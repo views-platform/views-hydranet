@@ -6,9 +6,10 @@ from views_hydranet.utils.volume_handler import VolumeHandler
 
 # FALSIFICATION CONFIG
 CFG = {
-    "transform": {"log1p": ["lr_sb"], "asinh": ["lr_ns"]}, #  'os' is intentionally identity
-    "aggregate_method": "arithmetic_mean"
+    "transformations": {"log1p": ["lr_sb"], "asinh": ["lr_ns"]},  #  'os' is intentionally identity
+    "aggregate_method": "arithmetic_mean",
 }
+
 
 class TestNukeProofAudit:
     """Popperian Audit: Attempting to falsify the hardening logic."""
@@ -20,14 +21,17 @@ class TestNukeProofAudit:
         """
         # [T=1, H=1, W=1, C=3, S=1]
         data = np.zeros((1, 1, 1, 3, 1))
-        data[0,0,0,0,0] = np.log1p(10.0)   # SB: 10
-        data[0,0,0,1,0] = np.arcsinh(10.0) # NS: 10
-        data[0,0,0,2,0] = 10.0             # OS: 10 (Identity)
+        data[0, 0, 0, 0, 0] = np.log1p(10.0)  # SB: 10
+        data[0, 0, 0, 1, 0] = np.arcsinh(10.0)  # NS: 10
+        data[0, 0, 0, 2, 0] = 10.0  # OS: 10 (Identity)
 
         vh = VolumeHandler(
-            data=data, axes=("T", "H", "W", "C", "S"),
+            data=data,
+            axes=("T", "H", "W", "C", "S"),
             channel_map=["pred_lr_sb", "pred_lr_ns", "pred_lr_os"],
-            time_col="t", id_col="i", spatial_cols=("y", "x")
+            time_col="t",
+            id_col="i",
+            spatial_cols=("y", "x"),
         )
 
         scaler = FeatureScaler(CFG)
@@ -36,9 +40,9 @@ class TestNukeProofAudit:
         raw_vh = scaler.inverse_transform_volume(vh)
 
         # All should be 10.0 now
-        np.testing.assert_allclose(raw_vh.data[0,0,0,0,0], 10.0, rtol=1e-5)
-        np.testing.assert_allclose(raw_vh.data[0,0,0,1,0], 10.0, rtol=1e-5)
-        np.testing.assert_allclose(raw_vh.data[0,0,0,2,0], 10.0, rtol=1e-5)
+        np.testing.assert_allclose(raw_vh.data[0, 0, 0, 0, 0], 10.0, rtol=1e-5)
+        np.testing.assert_allclose(raw_vh.data[0, 0, 0, 1, 0], 10.0, rtol=1e-5)
+        np.testing.assert_allclose(raw_vh.data[0, 0, 0, 2, 0], 10.0, rtol=1e-5)
 
     def test_gate_b_actuals_corruption(self):
         """
@@ -46,22 +50,25 @@ class TestNukeProofAudit:
         Prove that linear actuals columns are NOT double-inversed.
         """
         data = np.zeros((1, 1, 1, 2, 1))
-        data[0,0,0,0,0] = 5.0 # This is an Actual (already raw)
-        data[0,0,0,1,0] = np.log1p(100.0) # This is a prediction
+        data[0, 0, 0, 0, 0] = 5.0  # This is an Actual (already raw)
+        data[0, 0, 0, 1, 0] = np.log1p(100.0)  # This is a prediction
 
         vh = VolumeHandler(
-            data=data, axes=("T", "H", "W", "C", "S"),
+            data=data,
+            axes=("T", "H", "W", "C", "S"),
             channel_map=["dummy_actual", "pred_lr_sb"],
-            time_col="t", id_col="i", spatial_cols=("y", "x")
+            time_col="t",
+            id_col="i",
+            spatial_cols=("y", "x"),
         )
         scaler = FeatureScaler(CFG)
         scaler._is_fitted = True
         raw_vh = scaler.inverse_transform_volume(vh)
 
         # Actual must remain 5.0.
-        assert raw_vh.data[0,0,0,0,0] == 5.0
+        assert raw_vh.data[0, 0, 0, 0, 0] == 5.0
         # Prediction must be 100.0
-        np.testing.assert_allclose(raw_vh.data[0,0,0,1,0], 100.0, rtol=1e-5)
+        np.testing.assert_allclose(raw_vh.data[0, 0, 0, 1, 0], 100.0, rtol=1e-5)
 
     def test_gate_c_axis_permutation_robustness(self):
         """
@@ -71,13 +78,16 @@ class TestNukeProofAudit:
         # Permuted layout: [S, C, T, H, W]
         data = np.random.rand(10, 2, 1, 4, 4)
         vh = VolumeHandler(
-            data=data, axes=("S", "C", "T", "H", "W"), # CRAZY LAYOUT
+            data=data,
+            axes=("S", "C", "T", "H", "W"),  # CRAZY LAYOUT
             channel_map=["lr_a", "lr_b"],
-            time_col="t", id_col="i", spatial_cols=("y", "x")
+            time_col="t",
+            id_col="i",
+            spatial_cols=("y", "x"),
         )
 
         # This will fail if I used 'axis=4' or 'axis=-1' hardcoded
-        point_vh = vh.collapse_to_point(method="mean")
+        point_vh = vh.collapse_to_point(method="arithmetic_mean")
 
         assert point_vh.data.shape == (2, 1, 4, 4)
         assert "S" not in point_vh._metadata.axes
@@ -88,13 +98,16 @@ class TestNukeProofAudit:
         Prove that probabilities (pred_by_) are NEVER inverse-transformed.
         """
         data = np.zeros((1, 1, 1, 2, 1))
-        data[0,0,0,0,0] = np.log1p(10.0) # Signal
-        data[0,0,0,1,0] = 0.8            # Probability
+        data[0, 0, 0, 0, 0] = np.log1p(10.0)  # Signal
+        data[0, 0, 0, 1, 0] = 0.8  # Probability
 
         vh = VolumeHandler(
-            data=data, axes=("T", "H", "W", "C", "S"),
+            data=data,
+            axes=("T", "H", "W", "C", "S"),
             channel_map=["pred_lr_sb", "pred_by_sb"],
-            time_col="t", id_col="i", spatial_cols=("y", "x")
+            time_col="t",
+            id_col="i",
+            spatial_cols=("y", "x"),
         )
 
         scaler = FeatureScaler(CFG)
@@ -103,7 +116,8 @@ class TestNukeProofAudit:
         raw_vh = scaler.inverse_transform_volume(vh)
 
         # Prob must stay 0.8. If expm1 was applied, it would be ~1.22 (illegal)
-        assert raw_vh.data[0,0,0,1,0] == 0.8
+        assert raw_vh.data[0, 0, 0, 1, 0] == 0.8
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
