@@ -79,10 +79,15 @@ class HydraNetConfig(BaseModel):
     # 6. Loss Functions
     loss_reg: str = Field(...)
     loss_class: str = Field(...)
-    loss_reg_a: float = Field(...)
-    loss_reg_c: float = Field(...)
-    loss_class_gamma: float = Field(...)
-    loss_class_alpha: float = Field(...)
+    # ShrinkageLoss params (loss_reg='b')
+    loss_reg_a: float = Field(default=10.0)
+    loss_reg_c: float = Field(default=0.2)
+    # BasuDPDLoss params (loss_reg='c')
+    loss_reg_alpha: float = Field(default=0.5)
+    loss_reg_sigma: float = Field(default=1.0)
+    # FocalLoss params (loss_class='b')
+    loss_class_gamma: float = Field(default=1.5)
+    loss_class_alpha: float = Field(default=0.75)
 
     # 7. Sampling & Reproducibility
     total_lessons: int = Field(..., ge=1)
