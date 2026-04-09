@@ -98,12 +98,21 @@ pred_{target}
 
 ## 4. Naming and Alignment Invariants
 
-For each target variable `{target}`, the DataFrame contains the following aligned column triplet:
+For each target variable `{target}`, the DataFrame contains an aligned column pair:
 
 ```
-{target}          (e.g., lr_sb_best — observed count)
-pred_{target}     (e.g., pred_lr_sb_best — predicted count)
-pred_{target}     (e.g., pred_by_sb_best — predicted probability)
+{target}          (observed value)
+pred_{target}     (predicted value)
+```
+
+Regression and classification targets are separate variables with distinct names:
+
+```
+lr_sb_best        (observed count)
+pred_lr_sb_best   (predicted count — regression target)
+
+by_sb_best        (observed binary indicator)
+pred_by_sb_best   (predicted probability — classification target)
 ```
 
 Naming rules:
@@ -113,6 +122,7 @@ Naming rules:
   * `lr_*` targets → predicted counts (regression)
   * `by_*` targets → predicted occurrence probabilities (classification)
 * `{target}` must be identical across the observed and predicted columns.
+* Each target produces exactly one `pred_{target}` column — no target appears twice.
 
 ---
 
