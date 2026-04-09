@@ -389,7 +389,11 @@ class HydraNetInference:
                 # handler.data is [T, H, W, C]
                 time_indices = handler.data[:, 0, 0, t_idx].tolist()
             except Exception:
-                pass
+                logger.error(
+                    "HydraNetInference: Failed to extract time indices "
+                    "for diagnostic biopsy — skipping.",
+                    exc_info=True,
+                )
 
         # Resolve Origin
         if origin is None:

@@ -6,8 +6,8 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-08                           |
 | Total Concerns    | 40                                   |
-| Open Concerns     | 31                                   |
-| Resolved Concerns | 9                                    |
+| Open Concerns     | 26                                   |
+| Resolved Concerns | 14                                   |
 
 ---
 
@@ -83,34 +83,6 @@ See also C-38 for the structural OCP violation in these factories. Per Martin (C
 | Location | `config_initializer.py:302-303` |
 
 `ConfigInitializer.get_config()` validates via `HydraNetConfig` then returns `.model_dump()` as a plain dict. All downstream consumers use `config["key"]` or `config.get(key)` without type safety. The `extra = "allow"` setting means unvalidated keys pass through silently. Constrained by parent class (`ForecastingModelManager.configs`) requiring `isinstance(dict)`.
-
----
-
-### C-07: Training loop lacks explicit per-window memory cleanup
-
-| Field | Value |
-|-------|-------|
-| ID | C-07 |
-| Tier | 3 |
-| Source | repo-assimilation (2026-04-08) |
-| Trigger | Large `windows_per_lesson` values or large `window_dim` on GPU |
-| Location | `train_model.py:333-376` |
-
-Window VolumeHandlers and tensors from `sampler.get_batch()` accumulate in the inner loop without explicit `del` or `gc.collect()`. For large window counts, this can stress GPU memory. The inference path correctly implements per-origin cleanup; the training path does not.
-
----
-
-### C-08: North-Up flip symmetry is implicitly coupled
-
-| Field | Value |
-|-------|-------|
-| ID | C-08 |
-| Tier | 2 |
-| Source | repo-assimilation (2026-04-08) |
-| Trigger | Adding a new output path that bypasses `_valid_cell_indices()` |
-| Location | `volume_handler.py:214` (from_df flip), `volume_handler.py:483` (_valid_cell_indices flip) |
-
-The volume is flipped North-Up in `from_df()` and must be un-flipped in `_valid_cell_indices()` for output reconstruction. These two operations are implicitly coupled — no assertion or structural test verifies the flip count. A mismatch would produce silently inverted geographic coordinates. Currently guarded indirectly by `test_derivation_parity.py`.
 
 ---
 
@@ -204,22 +176,6 @@ Per Martin (Clean Architecture Ch 6, p.70-76): "Segregation of Mutability" — s
 
 ---
 
-### C-15: `training_loop()` has 4+ responsibilities in 175 lines
-
-| Field | Value |
-|-------|-------|
-| ID | C-15 |
-| Tier | 3 |
-| Source | expert-review (2026-04-08) |
-| Trigger | When modifying diagnostic biopsy logic in `training_loop()`, verify you don't need to also touch optimization code in the same function |
-| Location | `train_model.py:279-453` |
-
-`training_loop()` mixes lesson orchestration, gradient accumulation/clipping, diagnostic biopsy generation, forensic auditor finalization, and progress bar management in one function. Violates SRP — changes to diagnostic output require touching the same function that controls optimization.
-
-Per Martin (Clean Architecture Ch 7, p.80-86): the function serves at least two actors — the data scientist (lesson/window/optimization strategy) and the platform engineer (diagnostic/forensic reporting). Martin's "Symptom 2: Merges" (p.83) applies: two people changing the same function for different reasons creates merge risk. The data scientist tuning gradient clipping and the platform engineer adding a new diagnostic biopsy should never collide.
-
----
-
 ### C-16: `visual_diagnostics.py` catch-all exception handlers hide bugs
 
 | Field | Value |
@@ -248,20 +204,6 @@ All `biopsy_*` methods wrap their body in `try/except Exception` and log on fail
 
 ---
 
-### C-18: No end-to-end training smoke test
-
-| Field | Value |
-|-------|-------|
-| ID | C-18 |
-| Tier | 3 |
-| Source | expert-review (2026-04-08) |
-| Trigger | When refactoring the training loop, verify the full train→lesson→window→optimize chain with a manual end-to-end run |
-| Location | `train_model.py:279-497` (entire training path) |
-
-The training loop is the single most critical code path and has no automated end-to-end test. `test_train_loop.py` tests `_process_sequence()` in isolation. A wiring bug (wrong argument order, missing config key, changed return type) in the lesson→window→optimize chain won't be caught until someone runs a full training job (hours on GPU).
-
----
-
 ### C-19: `priogrid_gid > 0` validity assumption undocumented at ingestion
 
 | Field | Value |
@@ -287,20 +229,6 @@ The training loop is the single most critical code path and has no automated end
 | Location | `hydranet_inference.py:287-288` |
 
 `t0_autoreg = t1_pred.detach()` feeds model predictions back as input. `IntegrityGuardian` catches NaN/Inf and its hard ceiling (`> 10000`) catches extreme explosion, but gradual magnitude drift (e.g., predictions growing from 2 to 200 over 36 steps) goes undetected. No soft warning or clipping on autoregressive feedback inputs.
-
----
-
-### C-21: Bare `except Exception` swallows errors in inference and diagnostics
-
-| Field | Value |
-|-------|-------|
-| ID | C-21 |
-| Tier | 3 |
-| Source | expert-review (2026-04-08) |
-| Trigger | Corrupt handler data or unexpected type in diagnostic/time-index extraction |
-| Location | `hydranet_inference.py:391`, `train_model.py:214`, `visual_diagnostics.py:129,181,214,301,359,484,593,663,771` |
-
-11 locations use bare `except Exception` across 3 files. `hydranet_inference.py:391` catches all exceptions during time index extraction and continues silently. `train_model.py:214` swallows exceptions during diagnostic time index extraction. `visual_diagnostics.py` has 9 catch-all handlers across all `biopsy_*` methods. Should use specific exception types and log exception details.
 
 ---
 
@@ -594,6 +522,56 @@ Risk: a future CI pipeline that runs `pytest tests/` without excluding this file
 | ID | C-23 |
 | Resolved | 2026-04-08 |
 | Resolution | Added 4 tests in `tests/test_volume_handler_hard_gates.py`: shape preservation, temporal continuity (time channel increment verification), non-time channel cloning, and single-step edge case. |
+
+---
+
+### C-07: Training loop lacks explicit per-window memory cleanup — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-07 |
+| Resolved | 2026-04-09 |
+| Resolution | Added `del sample_handler, losses, w_loss` after `backward()` in the inner window loop of `training_loop()` in `training_engine.py`. Matches the per-origin cleanup pattern already used in the inference path. |
+
+---
+
+### C-08: North-Up flip symmetry is implicitly coupled — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-08 |
+| Resolved | 2026-04-08 |
+| Resolution | Added `test_gate_flip_symmetry_from_df_to_output` in `tests/test_volume_handler_hard_gates.py`. Test plants geographic-row values, runs through `from_df()`, and verifies the North-Up flip maps correctly at every array index. Flip symmetry is now structurally tested. |
+
+---
+
+### C-15: `training_loop()` has 4+ responsibilities — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-15 |
+| Resolved | 2026-04-09 |
+| Resolution | Split `train_model.py` into `training_engine.py` (Entity layer, pure training logic) and `train_model.py` (Framework wiring, 38 lines). The file-level SRP violation is eliminated — `training_engine.py` serves the data scientist, `train_model.py` serves the platform. Function-level diagnostic mixing in `training_loop()` remains but is now contained in a single-responsibility module. |
+
+---
+
+### C-21: Bare `except Exception` swallows errors in inference and diagnostics — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-21 |
+| Resolved | 2026-04-09 |
+| Resolution | All 11 locations now comply with ADR-008. The 2 core-logic locations (`hydranet_inference.py:391`, `training_engine.py:224`) upgraded from silent `pass` to `logger.error(..., exc_info=True)` per Fail-Safe constraint. The 9 `visual_diagnostics.py` locations already logged as `logger.error`. All catch-all patterns are ADR-008 Section 4 compliant (Observability Actors permitted Fail-Safe). |
+
+---
+
+### C-18: No end-to-end training smoke test — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-18 |
+| Resolved | 2026-04-08 |
+| Resolution | Added `test_training_smoke_end_to_end` in `tests/test_training_engine.py`. Runs full `training_loop` on 8x8 synthetic data (2 lessons, 1 window each). Verifies: completes without error, returns expected keys, records loss history, model parameters change from initialization. |
 
 ---
 
