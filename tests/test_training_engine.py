@@ -160,7 +160,7 @@ def test_train_model_still_exports_artifact_function():
 def test_training_smoke_end_to_end(tiny_handler):
     """
     C-18: The most critical missing test. Runs a full training_loop on
-    tiny synthetic data (2 lessons, 1 window each, 4x4 grid).
+    tiny synthetic data (2 lessons, 1 window each, 8x8 grid).
 
     Verifies:
     1. training_loop completes without error
