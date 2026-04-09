@@ -1,7 +1,7 @@
 # ADR 020: Multi-Task Output Topology
 
 **Status:** Implemented  
-**Context:** The HydraNet architecture produces multiple independent heads for regression (magnitude) and classification (probability). To maintain "Boring" traceability, the mapping from raw model channels to semantic variables must be explicit and immutable. This specification is governed by the configuration standards in [ADR 009](./008_operational_configuration_specification.md).
+**Context:** The HydraNet architecture produces multiple independent heads for regression (magnitude) and classification (probability). To maintain "Boring" traceability, the mapping from raw model channels to semantic variables must be explicit and immutable. This specification is governed by the configuration standards in [ADR 009](./009_boundary_contracts_and_configuration_validation.md).
 
 ---
 
