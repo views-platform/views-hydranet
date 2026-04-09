@@ -175,35 +175,40 @@ class TestCurriculumSamplerInteraction:
 
     def test_curriculum_high_threshold_triggers_fallback(self, sampler_handler):
         """
-        Simulate curriculum returning a threshold that exceeds all activity.
-        Sampler should return valid windows via random fallback, with qualified=0.
+        C-25 interaction test: curriculum naturally produces a threshold
+        that exceeds all cell activity, forcing sampler random-anchor fallback.
+
+        Uses roof_ratio=2.0 so the curriculum's own threshold = 2 * subject_max,
+        guaranteeing zero qualified cells without hardcoding a magic number.
         """
         from views_hydranet.utils.curriculum import CurriculumLearner
 
-        # Curriculum config with extreme max_ratio
+        # Curriculum config: roof_ratio=2.0 makes threshold = 2 * subject_max
+        # at max intensity, which exceeds the maximum possible activity count
         curriculum_cfg = {
             "total_lessons": 10,
             "windows_per_lesson": 3,
             "min_ratio": 0.0,
             "max_ratio": 1.0,
             "slope_ratio": 0.5,
-            "roof_ratio": 1.0,
+            "roof_ratio": 2.0,
             "min_events": 1,
         }
 
         curriculum = CurriculumLearner(curriculum_cfg, sampler_handler)
         sampler = VolumeSampler(sampler_handler, _make_config())
 
-        # At step 0 (max intensity), threshold is ratio * subject_max
-        # With max_ratio=1.0 and roof_ratio=1.0, threshold = subject_max
+        # At step 0 (max intensity), threshold = max_ratio * roof_ratio * subject_max
+        # = 1.0 * 2.0 * subject_max = 2 * subject_max → exceeds all activity
         target, threshold = curriculum.get_lesson(0)
 
-        # Use an extreme threshold that guarantees zero qualified cells
-        batch, qualified = sampler.get_batch(target, threshold=999999, batch_size=2)
+        # Use the curriculum-provided threshold (not a magic number)
+        batch, qualified = sampler.get_batch(target, threshold=threshold, batch_size=2)
 
-        # Threshold exceeds any cell's activity → zero qualified
+        # Curriculum threshold exceeds any cell's activity → zero qualified
         assert qualified == 0, (
-            f"Expected 0 qualified cells with extreme threshold, got {qualified}"
+            f"Expected 0 qualified cells with curriculum threshold={threshold}, "
+            f"got {qualified}. Subject max: {curriculum.subject_maxima[target]}"
         )
         # But batch should still be produced (random fallback)
         assert len(batch) == 2, (
