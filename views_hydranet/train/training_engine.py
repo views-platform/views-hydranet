@@ -222,7 +222,10 @@ def train(
         try:
             time_idx = sample_handler.channel_map.index(sample_handler.time_col)
         except Exception:
-            pass
+            logger.error(
+                "Training: Failed to extract time index for diagnostic biopsy — skipping.",
+                exc_info=True,
+            )
 
     # --- CORE SEQUENCE PROCESSING ---
     result = _process_sequence(
@@ -392,6 +395,9 @@ def training_loop(
                 lesson_loss += w_loss.detach()  # Keep track of magnitude for logging
                 lesson_reg += losses["reg"].item()
                 lesson_cls += losses["cls"].item()
+
+                # --- PER-WINDOW MEMORY RELEASE (C-07) ---
+                del sample_handler, losses, w_loss
 
             # --- THE OPTIMIZATION GATE (ADR 014) ---
             if lesson_loss > 0:
