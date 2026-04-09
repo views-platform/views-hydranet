@@ -119,6 +119,13 @@ class BasuDPDLoss(nn.Module):
             (s ** a) * math.sqrt(1.0 + a) * (2 * math.pi) ** (a / 2.0)
         )
 
-        loss = integral_term - (1.0 + 1.0 / a) * f_alpha
+        per_element = integral_term - (1.0 + 1.0 / a) * f_alpha
+
+        # Shift so loss=0 at perfect prediction (residual=0).
+        # The raw DPD is negative at the optimum, which breaks training
+        # gates that assume loss > 0 (e.g., the backward() gate in
+        # training_loop). Subtracting the minimum preserves gradients.
+        loss_at_zero = integral_term - (1.0 + 1.0 / a) * (coeff ** a)
+        loss = per_element - loss_at_zero
 
         return torch.mean(loss)

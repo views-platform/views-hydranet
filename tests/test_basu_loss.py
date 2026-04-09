@@ -146,6 +146,40 @@ def test_basu_loss_handles_zero_inflated_data():
 
 
 # ---------------------------------------------------------------------------
+# RED TEST 6b: Loss is non-negative (compatible with training_loop > 0 gate)
+# ---------------------------------------------------------------------------
+def test_basu_loss_is_non_negative():
+    """
+    The training loop gates backward() on `w_loss > 0`. A negative loss
+    would skip all gradient updates, producing an untrained model.
+    The shifted DPD must be >= 0 everywhere and == 0 at perfect prediction.
+    """
+    from views_hydranet.utils.basu_loss import BasuDPDLoss
+
+    loss_fn = BasuDPDLoss(alpha=0.5)
+
+    # Case 1: random data — loss should be positive
+    pred = torch.randn(1, 8, 8)
+    target = torch.randn(1, 8, 8)
+    loss = loss_fn(pred, target)
+    assert loss >= 0, f"Loss should be >= 0, got {loss.item()}"
+
+    # Case 2: perfect prediction — loss should be ~0
+    perfect = torch.randn(1, 8, 8)
+    loss_perfect = loss_fn(perfect, perfect.clone())
+    assert loss_perfect.abs() < 1e-6, (
+        f"Loss at perfect prediction should be ~0, got {loss_perfect.item()}"
+    )
+
+    # Case 3: extreme outlier — loss should still be positive
+    pred_zero = torch.zeros(1, 4, 4)
+    target_extreme = torch.zeros(1, 4, 4)
+    target_extreme[0, 0, 0] = 1000.0
+    loss_extreme = loss_fn(pred_zero, target_extreme)
+    assert loss_extreme >= 0, f"Loss with outlier should be >= 0, got {loss_extreme.item()}"
+
+
+# ---------------------------------------------------------------------------
 # RED TEST 7: Configurable via choose_loss factory
 # ---------------------------------------------------------------------------
 def test_basu_loss_registered_in_choose_loss():
