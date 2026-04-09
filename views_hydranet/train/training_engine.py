@@ -20,6 +20,7 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
+from views_hydranet.infrastructure.reproducibility_gate import ReproducibilityGate
 from views_hydranet.utils.curriculum import CurriculumLearner
 from views_hydranet.utils.integrity_guardian import IntegrityGuardian
 from views_hydranet.utils.training_forensics import TrainingForensics
@@ -305,8 +306,9 @@ def training_loop(
     """
     criterion_reg, criterion_class, multitaskloss_instance = criterion
 
-    np.random.seed(config["np_seed"])
-    torch.manual_seed(config["torch_seed"])
+    ReproducibilityGate.lock_entropy(
+        np_seed=config["np_seed"], torch_seed=config["torch_seed"]
+    )
     logger.info("🚀 Training initiated...")
 
     # Initialize Visual Truth Engine with Authoritative Timestamp
