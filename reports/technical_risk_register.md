@@ -4,10 +4,10 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-04-09                           |
-| Total Concerns    | 43                                   |
-| Open Concerns     | 28                                   |
-| Resolved Concerns | 15                                   |
+| Last Updated      | 2026-04-10                           |
+| Total Concerns    | 45                                   |
+| Open Concerns     | 27                                   |
+| Resolved Concerns | 18                                   |
 
 ---
 
@@ -400,49 +400,57 @@ Risk: a future CI pipeline that runs `pytest tests/` without excluding this file
 
 ---
 
-### C-42: No reproducibility gate — seeds partially set, no manifest audit
+### C-45: Regression heads receive gradients from zero-valued pixels (no hurdle masking)
 
 | Field | Value |
 |-------|-------|
-| ID | C-42 |
-| Tier | 2 |
-| Source | manual (2026-04-09) |
-| Trigger | When comparing training runs across machines, CUDA devices, or Python versions — results may silently differ |
-| Location | `training_engine.py:309-310` (seed setting), `config_initializer.py` (schema) |
-
-Training reproducibility has four gaps: (1) `torch.cuda.manual_seed_all()` is never called — CUDA non-determinism is uncontrolled. (2) `torch.backends.cudnn.deterministic` is not set. (3) Python's `random.seed()` is not called. (4) `np_seed` and `torch_seed` are not in `HydraNetConfig` schema — they can be silently omitted from configs without validation error. No manifest audit exists (unlike views-r2darts2 which has `ReproducibilityGate` with `lock_entropy()` that locks all 4 RNG sources).
-
-Tier rationale: Tier 2 because results silently differ across environments with no error signal — identical configs produce different models on different hardware, violating the scientific reproducibility contract for conflict forecasting.
-
----
-
-### C-43: No reproducibility gate — no parameter genome audit
-
-| Field | Value |
-|-------|-------|
-| ID | C-43 |
+| ID | C-45 |
 | Tier | 3 |
-| Source | manual (2026-04-09) |
-| Trigger | When adding a new hyperparameter that affects training outcome but isn't declared in the reproducibility manifest |
-| Location | `views_hydranet/` (no `infrastructure/reproducibility_gate.py` exists) |
+| Source | manual (2026-04-10), metric-lab ZIF-TS recommendation, autoresearch Finding F2/F6 |
+| Trigger | When training on the full PRIO-GRID where 97-99% of pixels are zero — regression gradients are dominated by near-zero targets that carry no magnitude signal |
+| Location | `training_engine.py:133` (`criterion_reg(t1_pred[:, j, :, :], y_reg[:, j, :, :])`) |
 
-Unlike views-r2darts2 (which audits every config against an architecture-specific "genome" of required parameters before training starts), HydraNet has no manifest audit. Pydantic validates field types but not completeness relative to the training contract. A config can omit `loss_reg_alpha` and silently get the default — the run appears to succeed but uses different hyperparameters than intended. The r2darts2 pattern (`ReproducibilityGate.Config.audit_manifest()` + `MissingHyperparameterError`) should be adopted. See also C-42 for the seed-specific subset of this gap.
+HydraNet v1 computes the regression loss on ALL spatial pixels, including the ~97% that are zero. The model learns to predict near-zero everywhere because that minimizes loss across the dominant class. This is the "Zero-Gravity" effect described by Lerch et al. (2017, "Forecaster's Dilemma"): peace-time gradients drown the crisis-time signal that matters for humanitarian decision-making.
+
+The metric-lab ZIF-TS final recommendation (March 2026) specifies: "Models must use separate output heads for Occurrence P(Y > 0) and Magnitude E[Y | Y > 0]. The Magnitude Head MUST be masked during training — it should only receive gradients from pixels where y > 0." The autoresearch (April 2026, 53 experiments) validated this on real UCDP/GED data: the LSTM hurdle model's magnitude loss was masked to positive-only observations in all 53 experiments.
+
+HydraNet's architecture already has the structural prerequisite — 3 separate regression decoder heads and 3 separate classification decoder heads. The missing piece is a mask in `_process_sequence()`:
+
+```python
+# Current (v1): regression on ALL pixels
+loss_reg = criterion_reg(pred, target)
+
+# Hurdle (v2): regression ONLY on positive pixels  
+mask = target > 0
+if mask.any():
+    loss_reg = criterion_reg(pred[mask], target[mask])
+```
+
+Three risks require empirical validation before implementation:
+
+1. **Spatial gradient sparsity:** The U-Net decoder heads use Conv2d layers that aggregate spatial neighborhoods. With 97% of pixels masked, each convolution kernel receives gradient signal from only ~3% of its receptive field. This may cause weight instability or slow convergence — unlike the LSTM hurdle (which aggregates temporally), the U-Net aggregates spatially, and spatial sparsity is more damaging to convolutional gradient flow than temporal sparsity is to recurrent gradient flow.
+
+2. **Onset-magnitude coupling at inference:** At inference time, the hurdle prediction is `P(event) * E[magnitude | event]`. A miscalibrated onset head (before the C-44 logit bias fix) would produce false positives that multiply with the magnitude head's output, inflating forecasts. The logit bias fix (C-44, now implemented) is a prerequisite for stable hurdle inference.
+
+3. **Loss scale change:** With masking, the regression loss is averaged over ~3% of pixels instead of 100%. The effective learning rate for magnitude weights increases ~33x relative to the onset weights. The MultiTaskLoss balancer may need re-tuning, or the masked loss should be re-normalized.
+
+Implementation plan: add `hurdle_masking: bool = False` config flag, gate the mask in `_process_sequence()`, test empirically on the full grid. Backward compatible — existing models continue to train on all pixels until the flag is enabled.
+
+Cross-references: C-44 (onset bias init — prerequisite, now resolved), views-metric-lab ZIF-TS final recommendation (Pillar 1), autoresearch Finding F2 (data-volume dependency), views-metric-lab hydranet_v2_implementation_roadmap.md (Priority 1, Section 2.1).
 
 ---
 
-### C-44: Classification head bias initializes to 50% event probability on 0.1-3% event-rate grid
+### C-46: Shrinkage loss threshold c=0.001 may be suboptimal for log1p-transformed targets
 
 | Field | Value |
 |-------|-------|
-| ID | C-44 |
-| Tier | 2 |
-| Source | manual (2026-04-10), metric-lab autoresearch Finding F1 |
-| Trigger | When training on the full PRIO-GRID or any grid with event rate < 10% |
-| Location | `HydraBNrecurrentUnet_06_LSTM4` classification decoder heads (bias initialization) |
+| ID | C-46 |
+| Tier | 4 |
+| Source | manual (2026-04-10), metric-lab autoresearch Finding F4/Round 3 |
+| Trigger | When evaluating purple_alien's CRPS against blue_strange/violet_visitor — the difference may be attributable to suboptimal c, not the loss function itself |
+| Location | `views-models/models/purple_alien/configs/config_hyperparameters.py` (`loss_reg_c: 0.001`) |
 
-PyTorch `nn.Linear`/`nn.Conv2d` layers initialize bias near zero. For the classification heads (`by_*` targets), `sigmoid(0) = 0.50` — a 25-71x overestimate of the true event rate (0.7-3% on active cells, ~0.1% on full PRIO-GRID). The BCE loss gradient spends training capacity learning "most cells are peaceful" instead of "which cells are escalating." Metric-lab autoresearch demonstrated 98.5% metric improvement from initializing logit bias to `log(event_rate / (1 - event_rate))` (e.g., -5.0 for 0.7% event rate). This is the single most impactful intervention found across 45 experiments.
-
-Tier rationale: Tier 2 because the miscalibration silently degrades forecast quality — the model trains but produces systematically overconfident onset predictions with no error signal. The effect scales with grid sparsity.
+The autoresearch found that Shrinkage loss with `c=1.0` marginally outperforms Basu DPD and NLL on log-space magnitude errors (Finding 6.4). The hydranet production default is `c=0.001`, calibrated for the U-Net's normalized feature space where typical errors are in the 0-1 range. But purple_alien's targets are log1p-transformed, where the natural error scale is 0-7 (log1p of 0-1000 fatalities). A threshold of `c=0.001` in log-space means "suppress errors below 0.1% in magnitude" — virtually no suppression. The autoresearch suggests `c=1.0` ("suppress errors below 2.7x in magnitude") is more appropriate for log-space operation. Note: the `a` parameter (steepness) at 258 in purple_alien is also very different from the autoresearch optimal of 10 — but the LSTM hurdle and U-Net have different residual distributions, so direct transfer is not guaranteed. Empirical testing on HydraNet with `c=1.0, a=10` is recommended before changing the production default.
 
 ---
 
@@ -610,6 +618,36 @@ Tier rationale: Tier 2 because the miscalibration silently degrades forecast qua
 | ID | C-32 |
 | Resolved | 2026-04-08 |
 | Resolution | Ledger Inconsistency already tested by existing `test_red_unknown_target`. Added `TestGeometricOverflow` class (2 tests) verifying bounds clamping with edge anchors and max-dim extraction. CIC Section 6 notes: code uses `np.clip` (silent correction) rather than raising — correct behavior, CIC language ("Fails if...") is aspirational rather than literal. |
+
+---
+
+### C-42: No reproducibility gate — seeds partially set, no manifest audit — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-42 |
+| Resolved | 2026-04-10 |
+| Resolution | Added `ReproducibilityGate.lock_entropy(np_seed, torch_seed)` in `views_hydranet/infrastructure/reproducibility_gate.py`. Locks all 4 RNG sources: Python random, NumPy, PyTorch CPU, PyTorch CUDA. `training_engine.py` now calls `lock_entropy()` instead of manual `np.random.seed()` + `torch.manual_seed()`. 7 TDD tests verify determinism. |
+
+---
+
+### C-43: No reproducibility gate — no parameter genome audit — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-43 |
+| Resolved | 2026-04-10 |
+| Resolution | Added `ReproducibilityGate.audit_manifest(config)` that validates config completeness before training. Checks 16 core genome parameters (presence + non-None), validates loss_reg/loss_class against `LOSS_REG_REGISTRY`/`LOSS_CLASS_REGISTRY`, and validates loss-specific params from registry `"params"` lists. Raises `ValueError` with clear message on missing parameters. 7 TDD tests. |
+
+---
+
+### C-44: Classification head bias initializes to 50% event probability — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-44 |
+| Resolved | 2026-04-10 |
+| Resolution | Added `_init_classification_head_bias(model, bias_value)` in `training_engine.py`. Targets `dec_conv4_head{N}_class` layers via `named_modules()` after weight init. New config parameter `onset_bias_init` (None = PyTorch default, -5.0 = 0.67% prior). Called from `make()`. 5 TDD tests including training smoke test. All 3 views-models configs updated with `onset_bias_init: -5.0`. Based on metric-lab autoresearch Finding F1 (98.5% metric improvement). |
 
 ---
 
