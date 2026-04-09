@@ -11,6 +11,7 @@ import wandb
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
 from views_hydranet.utils.basu_loss import BasuDPDLoss
 from views_hydranet.utils.focal_loss import FocalLoss
+from views_hydranet.utils.lognormal_nll_loss import LogNormalFixedSigmaLoss
 from views_hydranet.utils.mtloss import MultiTaskLoss
 from views_hydranet.utils.shrinkage_loss import ShrinkageLoss
 from views_hydranet.utils.warmup_decay_lr_scheduler import WarmupDecayLearningRateScheduler
@@ -50,6 +51,10 @@ def choose_loss(
         criterion_reg = BasuDPDLoss(
             alpha=config.get("loss_reg_alpha", 0.5),
             sigma=config.get("loss_reg_sigma", 1.0),
+        ).to(device)
+    elif config["loss_reg"] == "d":
+        criterion_reg = LogNormalFixedSigmaLoss(
+            sigma=config.get("loss_reg_sigma", 0.9),
         ).to(device)
     else:
         err_msg = f"Unknown regression loss type: {config['loss_reg']}"
