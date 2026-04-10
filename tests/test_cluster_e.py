@@ -278,8 +278,11 @@ def _make_tiny_model():
             self.base = 8
 
         def forward(self, x, h):
+            from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import (
+                ModelOutput,
+            )
             out = self.conv(x)
-            return out, out, h
+            return ModelOutput(reg=out, cls=out, h_next=h)
 
         def init_hTtime(self, hidden_channels, H, W):
             return torch.zeros(1, hidden_channels, H, W)

@@ -27,6 +27,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import torch
 
+from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import ModelOutput
 from views_hydranet.utils.hydranet_inference import HydraNetInference
 from views_hydranet.utils.volume_handler import VolumeHandler
 
@@ -96,7 +97,7 @@ class _MinimalModel(torch.nn.Module):
         B, _, H, W = x.shape
         reg = torch.zeros(B, 3, H, W)
         cls = torch.zeros(B, 3, H, W)
-        return reg, cls, h
+        return ModelOutput(reg=reg, cls=cls, h_next=h)
 
 
 def _make_mock_inference(config=None) -> HydraNetInference:

@@ -133,8 +133,7 @@ class DataFetcher:
         return DataFetcher.apply_blueprint(df_out, config)
 
     # Cross-ref: VolumeHandler._execute_derivations() (volume_handler.py)
-    # This path SKIPS if source missing; volume path RAISES.
-    # See tests/test_derivation_parity.py for parity guard.
+    # Both paths RAISE if source is missing — see tests/test_derivation_parity.py.
     @staticmethod
     def apply_blueprint(df: pd.DataFrame, config: Dict[str, Any]) -> pd.DataFrame:
         """
@@ -159,12 +158,12 @@ class DataFetcher:
                     raise KeyError(err_msg)
 
                 if src_name not in df_out.columns:
-                    # If the source is missing, we can't derive.
-                    logger.debug(
-                        f"DataFetcher Blueprint: Source '{src_name}' missing. "
-                        "Skipping derivation."
+                    err_msg = (
+                        f"DataFetcher Blueprint Error: Source column '{src_name}' "
+                        f"not found in DataFrame. Available columns: {list(df_out.columns)}"
                     )
-                    continue
+                    logger.error(err_msg)
+                    raise ValueError(err_msg)
 
                 if op == "binary":
                     if "threshold" not in instr:

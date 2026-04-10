@@ -2,6 +2,7 @@
 import pytest
 import torch
 
+from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import ModelOutput
 from views_hydranet.utils.hydranet_inference import HydraNetInference
 
 
@@ -17,7 +18,7 @@ class MockModel(torch.nn.Module):
         # Dummy predictions
         reg = torch.randn(x.shape[0], 3, x.shape[2], x.shape[3])
         cls = torch.randn(x.shape[0], 3, x.shape[2], x.shape[3])
-        return reg, cls, h_new
+        return ModelOutput(reg=reg, cls=cls, h_next=h_new)
 
 @pytest.fixture
 def inf_setup():

@@ -142,20 +142,19 @@ class TestBeige:
         result = DataFetcher.standardize_raw_df(df, _base_config())
         assert "extra_col" in result.columns
 
-    def test_beige_blueprint_missing_source_skips(self):
-        """Missing source column -> silent skip."""
-        df = pd.DataFrame({"a": [1, 2]})
-        cfg = _base_config(derivations={
-            "binary": [{"from": "nonexistent", "to": "out", "threshold": 0.5}]
-        })
-        result = DataFetcher.apply_blueprint(df, cfg)
-        assert "out" not in result.columns
-
-
 # ---------------------------------------------------------------------------
 # RED TEAM — failure detection
 # ---------------------------------------------------------------------------
 class TestRed:
+    def test_red_blueprint_missing_source_raises(self):
+        """C-50: Missing source column raises (matches VolumeHandler behavior)."""
+        df = pd.DataFrame({"a": [1, 2]})
+        cfg = _base_config(derivations={
+            "binary": [{"from": "nonexistent", "to": "out", "threshold": 0.5}]
+        })
+        with pytest.raises(ValueError, match="Source column 'nonexistent' not found"):
+            DataFetcher.apply_blueprint(df, cfg)
+
     def test_red_non_multiindex_raises(self):
         """RangeIndex -> ValueError."""
         df = pd.DataFrame({"a": [1, 2]})

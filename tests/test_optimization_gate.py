@@ -67,8 +67,11 @@ class TestOptimizationGate:
                 "expected 2 (features 'f1' and 'by_f1'). "
                 "Identity column 't' must be stripped before the model sees the tensor."
             )
+            from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import (
+                ModelOutput,
+            )
             pred = torch.ones((1, 1, 1, 1), requires_grad=True)
-            return pred, pred, h
+            return ModelOutput(reg=pred, cls=pred, h_next=h)
 
         model.forward = mock_forward
 

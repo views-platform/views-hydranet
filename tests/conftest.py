@@ -2,6 +2,8 @@ import pytest
 import torch
 import torch.nn as nn
 
+from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import ModelOutput
+
 # --- Minimum test count gate ---
 # Catches silent test collection failures (e.g., broken imports from
 # views_pipeline_core) before they erode coverage unnoticed.
@@ -44,7 +46,11 @@ class TinyModel(nn.Module):
 
     def forward(self, x, h):
         combined = torch.cat([x, h], dim=1)
-        return self.reg_head(combined), self.cls_head(combined), self.h_update(combined)
+        return ModelOutput(
+            reg=self.reg_head(combined),
+            cls=self.cls_head(combined),
+            h_next=self.h_update(combined),
+        )
 
     def init_hTtime(self, hidden_channels, H, W):
         return torch.zeros(1, hidden_channels, H, W)
