@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-10                           |
-| Total Concerns    | 53                                   |
-| Open Concerns     | 21                                   |
+| Total Concerns    | 54                                   |
+| Open Concerns     | 22                                   |
 | Resolved Concerns | 32                                   |
 
 ---
@@ -347,6 +347,24 @@ During autoregressive inference, `HydraNetInference.predict()` logs a WARNING wh
 See also C-20 (resolved — added the soft warning).
 
 ---
+
+### C-55: CIC drift after code changes — recurring documentation hygiene gap
+
+| Field | Value |
+|-------|-------|
+| ID | C-55 |
+| Tier | 4 |
+| Source | review-diff (2026-04-10), recurring across PR #23 and PR #24 |
+| Trigger | When adding a `field_validator` or changing a documented failure mode in a CIC-governed class, update the CIC's Section 6 (Failure Modes) in the same PR |
+| Location | `docs/CICs/HydraNetConfig.md` Section 6 (missing `loss_reg`/`loss_class` validators added in C-05), `docs/CICs/DataFetcher.md` Section 6 (still says `apply_blueprint` skips on missing source after C-50 changed it to raise) |
+
+CICs documenting class contracts have been observed to drift from code in two consecutive PRs: PR #23 (C-05) added `field_validator` for `loss_reg`/`loss_class` to `HydraNetConfig`, but the CIC's Section 6 still lists only `run_type`, `evaluation_mode`, and `aggregate_method` as validated enums. PR #24 (C-50) changed `DataFetcher.apply_blueprint()` from "skip on missing source" to "raise on missing source", but the CIC still describes the old behavior. Both gaps were flagged at suggestion-severity in review-diff and not blocked, but the recurring pattern indicates a process gap.
+
+This is a maintainability concern, not a correctness risk: the code is the source of truth, the CIC lags. The risk is that the CIC becomes a misleading document — readers (especially silicon-based contributors per ADR-007) may trust the CIC over the code, leading to wrong assumptions about failure modes. The fix is procedural: add a CIC update to the standard PR checklist when touching a CIC-governed class.
+
+C-28 (resolved 2026-04-08) addressed a one-time stale CIC update. C-55 captures the recurring pattern that motivates a process change rather than a one-time fix.
+
+See also C-28 (resolved — one-time CIC test references update).
 
 ---
 
