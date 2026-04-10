@@ -58,68 +58,11 @@ def test_falsify_01_adr008_training_forensics_log_before_raise(caplog):
     assert "Unknown classification metric" in caplog.text
 
 
-def test_falsify_01b_adr008_config_initializer_log_before_raise(caplog):
+def test_falsify_01b_adr008_config_initializer_log_before_raise(caplog, valid_config_dict):
     """Verify C-31: HydraNetConfig.__getitem__ logs error before KeyError."""
     from views_hydranet.utils.config_initializer import HydraNetConfig
 
-    # Build inline (can't call fixtures directly)
-    config_dict = {
-        "model": "HydraBNUNet06_LSTM4",
-        "run_type": "validation",
-        "steps": list(range(1, 37)),
-        "input_channels": 3,
-        "output_channels": 1,
-        "total_hidden_channels": 32,
-        "dropout_rate": 0.125,
-        "learning_rate": 0.001,
-        "weight_decay": 0.1,
-        "windows_per_lesson": 3,
-        "scheduler": "WarmupDecay",
-        "warmup_steps": 100,
-        "total_lessons": 300,
-        "n_posterior_samples": 10,
-        "loss_reg": "mse",
-        "loss_class": "bce",
-        "weight_init": "xavier_norm",
-        "clip_grad_norm": True,
-        "min_events": 5,
-        "slope_ratio": 0.75,
-        "roof_ratio": 0.7,
-        "freeze_h": "hl",
-        "np_seed": 4,
-        "torch_seed": 4,
-        "window_dim": 32,
-        "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
-        "regression_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
-        "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
-        "identity_cols": ["c_id", "row", "col"],
-        "time_col": "month_id",
-        "id_col": "priogrid_gid",
-        "spatial_cols": ["row", "col"],
-        "height": 180,
-        "width": 360,
-        "index_names": ["month_id", "priogrid_gid"],
-        "row_offset": 0,
-        "col_offset": 0,
-        "max_ratio": 0.9,
-        "min_ratio": 0.1,
-        "time_steps": 36,
-        "evaluation_mode": "point",
-        "aggregate_method": "arithmetic_mean",
-        "transformations": {
-            "log1p": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
-            "identity": [],
-        },
-        "derivations": {
-            "binary": [
-                {"from": "lr_sb_best", "to": "by_sb_best", "threshold": 0},
-                {"from": "lr_ns_best", "to": "by_ns_best", "threshold": 0},
-                {"from": "lr_os_best", "to": "by_os_best", "threshold": 0},
-            ]
-        },
-    }
-
-    config_obj = HydraNetConfig(**config_dict)
+    config_obj = HydraNetConfig(**valid_config_dict)
 
     with caplog.at_level(logging.ERROR, logger="views_hydranet.utils.config_initializer"):
         with pytest.raises(KeyError):

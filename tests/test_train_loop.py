@@ -19,40 +19,9 @@ import pytest
 import torch
 import torch.nn as nn
 
+from tests.conftest import TinyModel
 from views_hydranet.train.training_engine import TrainingContext, train
 from views_hydranet.utils.volume_handler import VolumeHandler
-
-# ---------------------------------------------------------------------------
-# Tiny Model (isolates training logic from HydraNet architecture)
-# ---------------------------------------------------------------------------
-
-class TinyModel(nn.Module):
-    """
-    Minimal model matching HydraNet's interface contract:
-    forward(x, h) -> (reg_pred, cls_pred, h_next)
-
-    x: [B, C_in, H, W]
-    h: [B, hidden, H, W]
-    Returns: reg [B, n_reg, H, W], cls [B, n_cls, H, W], h [B, hidden, H, W]
-    """
-
-    def __init__(self, input_channels, n_reg, n_cls, hidden=4):
-        super().__init__()
-        self.base = hidden
-        self.reg_head = nn.Conv2d(input_channels + hidden, n_reg, 1)
-        self.cls_head = nn.Conv2d(input_channels + hidden, n_cls, 1)
-        self.h_update = nn.Conv2d(input_channels + hidden, hidden, 1)
-
-    def forward(self, x, h):
-        combined = torch.cat([x, h], dim=1)
-        reg = self.reg_head(combined)
-        cls = self.cls_head(combined)
-        h_next = self.h_update(combined)
-        return reg, cls, h_next
-
-    def init_hTtime(self, hidden_channels, H, W):
-        return torch.zeros(1, hidden_channels, H, W)
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
