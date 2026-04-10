@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 import torch
 
+from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import ModelOutput
 from views_hydranet.train.train_model import training_loop
 from views_hydranet.utils.volume_handler import VolumeHandler
 
@@ -68,7 +69,7 @@ class TestOptimizationGate:
                 "Identity column 't' must be stripped before the model sees the tensor."
             )
             pred = torch.ones((1, 1, 1, 1), requires_grad=True)
-            return pred, pred, h
+            return ModelOutput(reg=pred, cls=pred, h_next=h)
 
         model.forward = mock_forward
 

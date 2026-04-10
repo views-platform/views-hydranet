@@ -1,6 +1,22 @@
+from typing import NamedTuple
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+
+class ModelOutput(NamedTuple):
+    """
+    Typed return value for HydraBNUNet06_LSTM4.forward().
+
+    Replaces the implicit (out_reg, out_class, h) tuple with named fields,
+    eliminating cast(Any, model) at consumer sites (C-22). NamedTuple supports
+    tuple unpacking, so legacy `r, c, h = model(x, h)` continues to work.
+    """
+
+    reg: torch.Tensor       # [B, n_reg, H, W] regression head outputs
+    cls: torch.Tensor       # [B, n_cls, H, W] classification head logits
+    h_next: torch.Tensor    # [B, total_hidden_channels, H, W] LSTM hidden state
 
 
 # give everything better names at some point
@@ -343,9 +359,8 @@ class HydraBNUNet06_LSTM4(nn.Module):
             h (torch.Tensor): Combined hidden state [batch, total_hidden_channels, H, W].
 
         Returns:
-            out_reg (torch.Tensor): Concatenated regression heads [batch, 3, H, W].
-            out_class (torch.Tensor): Concatenated classification heads [batch, 3, H, W].
-            h_next (torch.Tensor): Updated hidden state [batch, total_hidden_channels, H, W].
+            ModelOutput: NamedTuple with `reg`, `cls`, `h_next` fields. Supports
+                tuple unpacking for backward compatibility.
         """
 
         # Splitting hidden state into 4 short-term and 4 long-term memory tensors.
@@ -499,7 +514,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
         out_reg = torch.concat([out_reg1, out_reg2, out_reg3], dim=1)
         out_class = torch.concat([out_class1, out_class2, out_class3], dim=1)
 
-        return out_reg, out_class, h
+        return ModelOutput(reg=out_reg, cls=out_class, h_next=h)
 
     def init_hTtime(self, hidden_channels, H, W):
         """

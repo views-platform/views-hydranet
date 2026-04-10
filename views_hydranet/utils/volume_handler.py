@@ -696,8 +696,7 @@ class VolumeHandler:
         return self._metadata.spatial_offset
 
     # Cross-ref: DataFetcher.apply_blueprint() (data_fetcher.py)
-    # This path RAISES if source missing; DataFrame path SKIPS.
-    # See tests/test_derivation_parity.py for parity guard.
+    # Both paths RAISE if source is missing — see tests/test_derivation_parity.py.
     def _execute_derivations(self, derivations_config: Dict[str, List[Dict[str, Any]]]) -> None:
         """
         Executes additive feature engineering instructions (ADR 046).

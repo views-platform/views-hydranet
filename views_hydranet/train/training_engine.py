@@ -149,7 +149,8 @@ def _process_sequence(
 
         # Forward pass: Feed ONLY the input features (Zero Magic)
         t0_input = t0[:, idx.feat, :, :]
-        t1_pred, t1_pred_class, h = cast(Any, model)(t0_input, h)
+        output = model(t0_input, h)
+        t1_pred, t1_pred_class, h = output.reg, output.cls, output.h_next
 
         # --- FORENSIC RECORDING (ADR 001 Custodian) ---
         if forensics:
@@ -301,11 +302,9 @@ def train(
     )
 
     # 4. Initialize hidden state
-    h = (
-        cast(Any, model)
-        .init_hTtime(hidden_channels=model.base, H=window_H, W=window_W)
-        .to(device)
-    )
+    h = model.init_hTtime(
+        hidden_channels=model.base, H=window_H, W=window_W
+    ).to(device)
 
     # 5. STAGE 5 DIAGNOSTIC
     acc_y_reg: list[np.ndarray] = []
@@ -341,17 +340,18 @@ def train(
 
         # Re-run the midpoint steps in eval mode for diagnostic capture only
         model.eval()
-        h_diag = (
-            cast(Any, model)
-            .init_hTtime(hidden_channels=model.base, H=window_H, W=window_W)
-            .to(device)
-        )
+        h_diag = model.init_hTtime(
+            hidden_channels=model.base, H=window_H, W=window_W
+        ).to(device)
         with torch.no_grad():
             for i in range(seq_len - 1):
                 t0 = train_tensor[:, i, :, :, :]
                 t1 = train_tensor[:, i + 1, :, :, :]
                 t0_input = t0[:, idx.feat, :, :]
-                t1_pred, t1_pred_class, h_diag = cast(Any, model)(t0_input, h_diag)
+                output_diag = model(t0_input, h_diag)
+                t1_pred, t1_pred_class, h_diag = (
+                    output_diag.reg, output_diag.cls, output_diag.h_next
+                )
 
                 if biopsy_start <= i < biopsy_end:
                     y_reg = t1[:, idx.reg, :, :]

@@ -6,8 +6,8 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-10                           |
 | Total Concerns    | 53                                   |
-| Open Concerns     | 24                                   |
-| Resolved Concerns | 29                                   |
+| Open Concerns     | 21                                   |
+| Resolved Concerns | 32                                   |
 
 ---
 
@@ -162,22 +162,6 @@ All `biopsy_*` methods wrap their body in `try/except Exception` and log on fail
 
 ---
 
-### C-22: `cast(Any, model)` at 7+ call sites bypasses type safety
-
-| Field | Value |
-|-------|-------|
-| ID | C-22 |
-| Tier | 4 |
-| Source | expert-review (2026-04-08) |
-| Trigger | Changing the model's `forward()` return signature |
-| Location | `train_model.py:105,199,242`, `hydranet_inference.py:122,137,147,151,157,225,257` |
-
-The model's return type is untyped; 7+ call sites use `cast(Any, model)(input, h)` to suppress type checking. The actual contract (returns `(out_reg, out_class, h)` tuple) is invisible at every call site. A `Protocol` type would make the interface explicit and catch signature changes statically.
-
-Per Martin (Clean Architecture Ch 11, p.104-108): DIP says "depend on abstractions, not on concretions." Every `cast(Any, model)` call is a concrete dependency on the model's undeclared interface. Martin's coding practice (p.105): "Don't refer to volatile concrete classes." A `Protocol` defining `__call__(x, h) -> (Tensor, Tensor, Tensor)` would invert this dependency, making the contract explicit and verifiable at type-check time.
-
----
-
 ### C-26: VisualDiagnostics plot correctness untested
 
 | Field | Value |
@@ -300,20 +284,6 @@ Per Martin (Clean Architecture Ch 22, p.203-209): "Source code dependencies must
 
 ---
 
-### C-40: `validate_docs.sh` uses GNU-only `grep -oP` (not portable to macOS)
-
-| Field | Value |
-|-------|-------|
-| ID | C-40 |
-| Tier | 4 |
-| Source | pr-review (2026-04-08) |
-| Trigger | macOS contributor running `bash docs/validate_docs.sh` |
-| Location | `docs/validate_docs.sh:60,75` |
-
-Two `grep -oP` calls use Perl-compatible regex (`-P` flag), which requires GNU grep. macOS ships BSD grep, which does not support `-P`. The script will fail with an error on macOS unless the user has GNU grep installed or aliased. Currently low-impact: all known contributors use Linux, the script is a manual governance tool (not CI), and failure is loud and non-destructive. Fix is straightforward: rewrite with `sed -E` or `awk` for POSIX portability. Script was copied verbatim from base_docs template — fix should be upstreamed there as well.
-
----
-
 ### C-41: Falsification test stubs will fail in CI if not excluded
 
 | Field | Value |
@@ -359,20 +329,6 @@ The autoresearch found that Shrinkage loss with `c=1.0` marginally outperforms B
 The alternative is nested structure: `regularizers: { qs99: { weight: 0.01, tau: 0.99 } }`. This is cleaner for extensibility but breaks the flat-key pattern, complicates Pydantic validation, and requires changes to the genome audit.
 
 Current decision: stay flat. Revisit when either (a) total config keys exceed 50, or (b) a feature requires 4+ related keys that create naming collision risk. The migration is mechanical (rename keys, update configs) but touches every model config in views-models.
-
----
-
-### C-50: Derivation asymmetry — DataFrame path skips, Volume path raises
-
-| Field | Value |
-|-------|-------|
-| ID | C-50 |
-| Tier | 3 |
-| Source | repo-assimilation (2026-04-10) |
-| Trigger | When calling `prepare_actuals_df()` on a ground-truth DataFrame that lacks a derivation source column, verify derived classification targets are present in the output |
-| Location | `data_fetcher.py:161-166` (skip), `volume_handler.py:724-730` (raise) |
-
-`DataFetcher.apply_blueprint()` silently skips derivations when the source column is missing from the DataFrame, while `VolumeHandler._execute_derivations()` raises `ValueError` for the same condition. This asymmetry is documented in code comments (cross-ref lines in both files) and tested in `test_derivation_parity.py`. The risk is that `prepare_actuals_df()` — used to manufacture derived signals for evaluation ground truth — may produce a DataFrame lacking binary classification targets (e.g., `by_sb_best`) without error, causing evaluation to compare model output against incomplete ground truth. Currently mitigated by the fact that derivation source columns (regression targets like `lr_sb_best`) are always present in the ground-truth DataFrame; their absence would indicate a deeper data pipeline failure.
 
 ---
 
@@ -658,6 +614,36 @@ See also C-20 (resolved — added the soft warning).
 | ID | C-28 |
 | Resolved | 2026-04-08 |
 | Resolution | Updated test alignment sections in HydranetManager.md, HydraNetConfig.md, and ConfigInitializer.md to reference actual test files (test_config_typed.py, test_config_validation.py, test_manager_memory_hygiene.py, etc.) |
+
+---
+
+### C-22: `cast(Any, model)` at 7+ call sites bypasses type safety — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-22 |
+| Resolved | 2026-04-10 |
+| Resolution | Defined `ModelOutput` NamedTuple in `architectures/HydraBNrecurrentUnet_06_LSTM4.py` with `reg`, `cls`, `h_next` fields. `forward()` now returns `ModelOutput(...)`; NamedTuple supports tuple unpacking so legacy `r, c, h = model(x, h)` continues to work. Removed `cast(Any, model)` wrappers in `training_engine.py` and `hydranet_inference.py` — consumers now use named access (`output.reg`, `output.cls`, `output.h_next`) or simple unpacking. Updated 5 test mocks (conftest.py TinyModel, test_temporal_causality_audit, test_inference_logic, test_inference_memory_hygiene, test_cluster_e, test_optimization_gate) to return ModelOutput. The remaining `cast(Any, multitaskloss_instance)` is unrelated to C-22. |
+
+---
+
+### C-40: `validate_docs.sh` uses GNU-only `grep -oP` — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-40 |
+| Resolved | 2026-04-10 |
+| Resolution | Replaced both `grep -oP` calls in `docs/validate_docs.sh` with portable `sed -nE` regex extraction. Lines 60 (ADR number extraction) and 75 (protocol path extraction) now work on macOS BSD grep. Script verified — `bash docs/validate_docs.sh` passes cleanly. Should be upstreamed to base_docs template. |
+
+---
+
+### C-50: Derivation asymmetry — DataFrame path skips, Volume path raises — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-50 |
+| Resolved | 2026-04-10 |
+| Resolution | Made `DataFetcher.apply_blueprint()` raise `ValueError` (matching `VolumeHandler._execute_derivations()`) when a derivation source column is missing from the DataFrame. Updated cross-reference comments in both files. Updated `test_data_fetcher.py`: removed `test_beige_blueprint_missing_source_skips`, added `test_red_blueprint_missing_source_raises`. The two paths now have symmetric behavior verified by `test_derivation_parity.py` and the new red test. |
 
 ---
 

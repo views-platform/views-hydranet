@@ -1,6 +1,6 @@
 import gc
 import logging
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -222,7 +222,7 @@ class HydraNetInference:
 
         # Initialize hidden state
         h_tt = (
-            cast(Any, self.model).init_hTtime(hidden_channels=self.model.base, H=H, W=W)
+            self.model.init_hTtime(hidden_channels=self.model.base, H=H, W=W)
             .float()
             .to(self.device)
         )
@@ -249,12 +249,13 @@ class HydraNetInference:
             if t < origin:
                 # 1. HISTORY DIGESTION: Update hidden state only
                 t0_input = full_tensor[:, t, feat_indices, :, :]
-                _, _, h_tt = cast(Any, self.model)(t0_input, h_tt)
+                h_tt = self.model(t0_input, h_tt).h_next
 
             elif t == origin:
                 # 2. SEED STEP: Month Origin -> Month Origin + 1 (Step 1)
                 t0_input = full_tensor[:, t, feat_indices, :, :]
-                t1_pred, t1_pred_class, h_tt = cast(Any, self.model)(t0_input, h_tt)
+                output = self.model(t0_input, h_tt)
+                t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
                 t1_pred_class = torch.sigmoid(t1_pred_class)
 
                 acc_magnitudes.append(t1_pred)

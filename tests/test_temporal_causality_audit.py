@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 import torch
 
+from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import ModelOutput
 from views_hydranet.utils.hydranet_inference import HydraNetInference
 
 
@@ -21,7 +22,7 @@ class CausalMockModel(torch.nn.Module):
         t1_pred = x + 0.1
         t1_cls = torch.zeros_like(t1_pred)
         h_new = h + 0.01
-        return t1_pred, t1_cls, h_new
+        return ModelOutput(reg=t1_pred, cls=t1_cls, h_next=h_new)
 
 @pytest.fixture
 def causal_setup():
