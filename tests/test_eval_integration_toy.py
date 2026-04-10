@@ -1,4 +1,8 @@
 import pandas as pd
+import pytest
+
+pytest.importorskip("views_evaluation")
+
 from views_evaluation.evaluation.evaluation_manager import EvaluationManager
 
 

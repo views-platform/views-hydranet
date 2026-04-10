@@ -6,8 +6,8 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-10                           |
 | Total Concerns    | 51                                   |
-| Open Concerns     | 25                                   |
-| Resolved Concerns | 26                                   |
+| Open Concerns     | 24                                   |
+| Resolved Concerns | 27                                   |
 
 ---
 
@@ -87,20 +87,6 @@ Additionally, `torch.load(..., weights_only=False)` deserializes arbitrary Pytho
 Per Martin (Clean Architecture Ch 32, p.275-278): "Don't marry the framework." The serialized artifact is married to PyTorch's pickle format and the concrete class path — the tightest possible coupling to a framework detail. `state_dict()` serialization would keep PyTorch at arm's length, making the architecture class freely renameable and movable.
 
 ---
-
-### C-10: 13 test files require views_pipeline_core
-
-| Field | Value |
-|-------|-------|
-| ID | C-10 |
-| Tier | 3 |
-| Source | repo-assimilation (2026-04-08) |
-| Trigger | Developer runs tests in partial environment without pipeline_core |
-| Location | `tests/conftest.py:9`, 13 test files |
-
-Tests covering manager integration, PredictionFrame output, and subset symmetry cannot run without `views_pipeline_core`. The conftest gate (280 minimum) only triggers when running the full suite from `tests/`. In partial environments, 270 tests collect and the gate is bypassed, silently missing integration coverage.
-
-Per Martin (Clean Architecture Ch 28, p.243-246): "Design for Testability" — tests should not depend on volatile things. The test suite's dependence on the framework layer (`views_pipeline_core`) at import time makes 13 test files fragile. Martin's "Testing API" (p.245) principle: decouple test structure from application structure. See also C-27 for the specific import chain that causes this.
 
 ---
 
@@ -672,6 +658,16 @@ See also C-20 (resolved — added the soft warning).
 | ID | C-28 |
 | Resolved | 2026-04-08 |
 | Resolution | Updated test alignment sections in HydranetManager.md, HydraNetConfig.md, and ConfigInitializer.md to reference actual test files (test_config_typed.py, test_config_validation.py, test_manager_memory_hygiene.py, etc.) |
+
+---
+
+### C-10: 12 test files require views_pipeline_core — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-10 |
+| Resolved | 2026-04-10 |
+| Resolution | Added `pytest.importorskip("views_pipeline_core")` to 10 test files, `pytest.importorskip("views_evaluation")` to 1 file, and `pytest.importorskip("polars")` to 1 file. Collection errors replaced with clean skip markers. In partial environments: 349 tests collect, 12 skip, 0 errors. In full environments: 414 tests collect, 0 skip. Conftest minimum-test gate (280) continues to function correctly. |
 
 ---
 

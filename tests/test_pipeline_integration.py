@@ -5,6 +5,8 @@ import pandas as pd
 import pytest
 import torch
 
+pytest.importorskip("views_pipeline_core")
+
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
 from views_hydranet.manager.hydranet_manager import HydranetManager
 

@@ -14,6 +14,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+pytest.importorskip("views_pipeline_core")
+
 from views_hydranet.utils.data_fetcher import DataFetcher
 
 # ---------------------------------------------------------------------------

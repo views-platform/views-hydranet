@@ -13,6 +13,8 @@ import pandas as pd
 import pytest
 import torch
 
+pytest.importorskip("views_pipeline_core")
+
 from views_hydranet.manager.hydranet_manager import HydranetManager
 
 # ---------------------------------------------------------------------------
