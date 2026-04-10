@@ -5,9 +5,9 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-10                           |
-| Total Concerns    | 51                                   |
+| Total Concerns    | 53                                   |
 | Open Concerns     | 24                                   |
-| Resolved Concerns | 27                                   |
+| Resolved Concerns | 29                                   |
 
 ---
 
@@ -658,6 +658,26 @@ See also C-20 (resolved — added the soft warning).
 | ID | C-28 |
 | Resolved | 2026-04-08 |
 | Resolution | Updated test alignment sections in HydranetManager.md, HydraNetConfig.md, and ConfigInitializer.md to reference actual test files (test_config_typed.py, test_config_validation.py, test_manager_memory_hygiene.py, etc.) |
+
+---
+
+### C-53: Weight head implementation guide has unresolved technical issues — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-53 |
+| Resolved | 2026-04-10 |
+| Resolution | Added Section 0 (Critical Review) to `views-metric-lab/reports/experiments/hydranet_weight_head_implementation_guide.md` documenting all 5 technical issues with corrections: (1) use `reduction='none'` with `LOSS_REG_REGISTRY`, don't bypass; (2) define `ModelOutput` NamedTuple with optional weights field, don't use conditional return type; (3) use per-pixel entropy or variance penalty, not `H(mean(w))`; (4) sequence proxy validation → ConvLSTM proxy → lightweight head → single-target pilot before full rollout; (5) defer heteroscedastic sigma until fuzzy CRPS evaluates it. Recommended sequencing block added at end. The guide is now safe to follow with the corrections in Section 0. |
+
+---
+
+### C-54: onset_bias_init default -5.0 suboptimal — dilution study supports -7.0 — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-54 |
+| Resolved | 2026-04-10 |
+| Resolution | Updated `onset_bias_init` from `-5.0` to `-7.0` in all three views-models configs (blue_strange, violet_visitor, purple_alien). Comment updated to reference dilution study. One-line change per file, no code changes required. |
 
 ---
 
