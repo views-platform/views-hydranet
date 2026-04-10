@@ -19,6 +19,7 @@ import pytest
 import torch
 import torch.nn as nn
 
+from views_hydranet.train.training_engine import TrainingContext, train
 from views_hydranet.utils.volume_handler import VolumeHandler
 
 # ---------------------------------------------------------------------------
@@ -131,10 +132,8 @@ def toy_model():
 class TestTrainSingleWindow:
     """Characterization: train() produces finite loss and flowing gradients."""
 
-    def test_train_returns_finite_loss(self, toy_config, toy_handler, toy_model):
-        from tqdm import tqdm
-
-        from views_hydranet.train.train_model import train
+    def _make_ctx(self, toy_config, toy_model):
+        """Build a TrainingContext for tests (C-17 API)."""
         from views_hydranet.utils.mtloss import MultiTaskLoss
 
         device = torch.device("cpu")
@@ -146,15 +145,21 @@ class TestTrainSingleWindow:
             list(toy_model.parameters()) + list(mtl.parameters()), lr=0.01
         )
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100)
+        return TrainingContext(
+            model=toy_model, optimizer=optimizer, scheduler=scheduler,
+            criterion_reg=criterion_reg, criterion_class=criterion_class,
+            multitaskloss_instance=mtl,
+            config=toy_config, device=device,
+        )
 
+    def test_train_returns_finite_loss(self, toy_config, toy_handler, toy_model):
+        from tqdm import tqdm
+
+        ctx = self._make_ctx(toy_config, toy_model)
         seq_len = toy_handler.shape[0]
         pbar = tqdm(total=seq_len - 1, disable=True)
 
-        result = train(
-            toy_model, optimizer, scheduler,
-            criterion_reg, criterion_class, mtl,
-            toy_handler, toy_config, device, pbar,
-        )
+        result = train(ctx, toy_handler, pbar)
 
         assert "total" in result
         assert torch.isfinite(result["total"]), "Loss must be finite after training"
@@ -163,27 +168,11 @@ class TestTrainSingleWindow:
     def test_gradients_flow_to_all_parameters(self, toy_config, toy_handler, toy_model):
         from tqdm import tqdm
 
-        from views_hydranet.train.train_model import train
-        from views_hydranet.utils.mtloss import MultiTaskLoss
-
-        device = torch.device("cpu")
-        criterion_reg = nn.MSELoss()
-        criterion_class = nn.BCEWithLogitsLoss()
-        is_regression = torch.Tensor([True] * N_REG + [False] * N_CLS)
-        mtl = MultiTaskLoss(is_regression, reduction="sum")
-        optimizer = torch.optim.AdamW(
-            list(toy_model.parameters()) + list(mtl.parameters()), lr=0.01
-        )
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100)
-
+        ctx = self._make_ctx(toy_config, toy_model)
         seq_len = toy_handler.shape[0]
         pbar = tqdm(total=seq_len - 1, disable=True)
 
-        result = train(
-            toy_model, optimizer, scheduler,
-            criterion_reg, criterion_class, mtl,
-            toy_handler, toy_config, device, pbar,
-        )
+        result = train(ctx, toy_handler, pbar)
 
         # Backward pass to populate gradients
         result["total"].backward()
@@ -207,7 +196,7 @@ class TestTrainingLoop:
     """Characterization: training_loop() drives loss downward over lessons."""
 
     def test_loss_decreases_over_lessons(self, toy_config, toy_handler, toy_model):
-        from views_hydranet.train.train_model import training_loop
+        from views_hydranet.train.training_engine import training_loop
         from views_hydranet.utils.mtloss import MultiTaskLoss
 
         device = torch.device("cpu")
@@ -234,9 +223,12 @@ class TestTrainingLoop:
         mock_planner.get_lesson.return_value = ("lr_sb_best", 0.0)
 
         with (
-            patch("views_hydranet.train.train_model.VolumeSampler", return_value=mock_sampler),
-            patch("views_hydranet.train.train_model.CurriculumLearner", return_value=mock_planner),
-            patch("views_hydranet.train.train_model.log_curriculum_report"),
+            patch("views_hydranet.train.training_engine.VolumeSampler", return_value=mock_sampler),
+            patch(
+                "views_hydranet.train.training_engine.CurriculumLearner",
+                return_value=mock_planner,
+            ),
+            patch("views_hydranet.train.training_engine.log_curriculum_report"),
         ):
             summary = training_loop(
                 toy_config, toy_model, criterion, optimizer, scheduler,
@@ -258,7 +250,7 @@ class TestTrainingLoop:
     def test_summary_contains_expected_keys(self, toy_config, toy_handler, toy_model):
         from unittest.mock import patch
 
-        from views_hydranet.train.train_model import training_loop
+        from views_hydranet.train.training_engine import training_loop
         from views_hydranet.utils.mtloss import MultiTaskLoss
 
         device = torch.device("cpu")
@@ -280,9 +272,12 @@ class TestTrainingLoop:
         mock_planner.get_lesson.return_value = ("lr_sb_best", 0.0)
 
         with (
-            patch("views_hydranet.train.train_model.VolumeSampler", return_value=mock_sampler),
-            patch("views_hydranet.train.train_model.CurriculumLearner", return_value=mock_planner),
-            patch("views_hydranet.train.train_model.log_curriculum_report"),
+            patch("views_hydranet.train.training_engine.VolumeSampler", return_value=mock_sampler),
+            patch(
+                "views_hydranet.train.training_engine.CurriculumLearner",
+                return_value=mock_planner,
+            ),
+            patch("views_hydranet.train.training_engine.log_curriculum_report"),
         ):
             summary = training_loop(
                 toy_config, toy_model, criterion, optimizer, scheduler,
