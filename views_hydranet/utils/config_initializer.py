@@ -86,13 +86,18 @@ class HydraNetConfig(BaseModel):
     loss_reg_alpha: float = Field(default=0.5)
     # Shared: BasuDPDLoss sigma / LogNormalFixedSigmaLoss sigma
     loss_reg_sigma: float = Field(default=1.0)
+    # ParetoLoss params (loss_reg='pareto')
+    loss_reg_pareto_alpha: float = Field(default=1.0)
     # FocalLoss params (loss_class='focal')
     loss_class_gamma: float = Field(default=1.5)
     loss_class_alpha: float = Field(default=0.75)
     # Classification head bias initialization (C-44)
-    # Set to log(event_rate / (1 - event_rate)). None = PyTorch default.
-    # -5.0 ≈ 0.67% event rate, -7.0 ≈ 0.09% event rate.
     onset_bias_init: float | None = Field(default=None)
+    # Hurdle masking (C-45): None = disabled, 0.0 = standard hurdle (y > 0)
+    hurdle_threshold: float | None = Field(default=None)
+    # QS99 tail regularizer (C-48): 0.0 = disabled. Only active when hurdle is enabled.
+    qs99_weight: float = Field(default=0.0)
+    qs99_tau: float = Field(default=0.99)
 
     # 7. Sampling & Reproducibility
     total_lessons: int = Field(..., ge=1)

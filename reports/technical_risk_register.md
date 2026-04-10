@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-10                           |
-| Total Concerns    | 47                                   |
-| Open Concerns     | 29                                   |
+| Total Concerns    | 48                                   |
+| Open Concerns     | 30                                   |
 | Resolved Concerns | 18                                   |
 
 ---
@@ -491,6 +491,24 @@ This is architecturally different from a loss function swap. The QS99 term is a 
 This cannot be implemented as a LOSS_REG_REGISTRY entry because it operates on a derived quantity (the predicted quantile), not on the raw prediction-target pair. It requires a training loop change.
 
 Literature: Lerch et al. (2017) [views-metric-lab/lit/scoring_rules/Lerch-ForecastersDilemmaExtreme-2017.pdf], Gneiting & Ranjan (2011) [views-metric-lab/lit/scoring_rules/Gneiting-ComparingDensityForecasts-2011.pdf], Kozerawski & Turk (2022) [views-metric-lab/lit/long_tail/Kozerawski-TamingLongTailDeepProbabilistic-2022.pdf]. See also C-45 (hurdle masking) and C-47 (Pareto loss).
+
+---
+
+### C-49: Flat config schema may not scale — no nested structure for regularizers, strategies, or per-target settings
+
+| Field | Value |
+|-------|-------|
+| ID | C-49 |
+| Tier | 4 |
+| Source | manual (2026-04-10) |
+| Trigger | When the number of flat config keys exceeds ~40-50, or when adding a feature requires 3+ related keys that would be cleaner as a nested group |
+| Location | `config_initializer.py` (`HydraNetConfig`), `CORE_GENOME` in `reproducibility_gate.py` |
+
+`HydraNetConfig` uses flat keys for all parameters: `loss_reg_alpha`, `loss_reg_sigma`, `loss_class_gamma`, `qs99_weight`, `qs99_tau`, `hurdle_threshold`, etc. This is consistent, simple, and works well at the current scale (~25 keys). But the pattern has a threshold of inconvenience: as regularizers, per-target settings, and training strategies accumulate, flat keys become ambiguous (does `alpha` belong to the loss, the regularizer, or the curriculum?), hard to group visually in config files, and awkward for the genome audit (which keys belong to which feature?).
+
+The alternative is nested structure: `regularizers: { qs99: { weight: 0.01, tau: 0.99 } }`. This is cleaner for extensibility but breaks the flat-key pattern, complicates Pydantic validation, and requires changes to the genome audit.
+
+Current decision: stay flat. Revisit when either (a) total config keys exceed 50, or (b) a feature requires 4+ related keys that create naming collision risk. The migration is mechanical (rename keys, update configs) but touches every model config in views-models.
 
 ---
 

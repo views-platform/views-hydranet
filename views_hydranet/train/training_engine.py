@@ -120,6 +120,9 @@ def _process_sequence(
     device: torch.device,
     pbar: Optional[tqdm] = None,
     forensics: Optional[TrainingForensics] = None,
+    hurdle_threshold: Optional[float] = None,
+    qs99_weight: float = 0.0,
+    qs99_tau: float = 0.99,
 ) -> Dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
@@ -163,13 +166,39 @@ def _process_sequence(
 
         # Loss computation
         losses_list = []
+        qs99_loss = torch.tensor(0.0, device=device)
         for j in range(idx.n_reg):
-            losses_list.append(criterion_reg(t1_pred[:, j, :, :], y_reg[:, j, :, :]))
+            pred_j = t1_pred[:, j, :, :]
+            target_j = y_reg[:, j, :, :]
+
+            if hurdle_threshold is not None:
+                # C-45: Regression loss on positive observations only
+                mask = target_j > hurdle_threshold
+                if mask.any():
+                    losses_list.append(criterion_reg(pred_j[mask], target_j[mask]))
+                else:
+                    losses_list.append(torch.tensor(0.0, device=device))
+
+                # C-48: QS99 regularizer (distribution-free pinball on mu)
+                # Only active when hurdle is enabled and weight > 0
+                if qs99_weight > 0 and mask.any():
+                    error = target_j[mask] - pred_j[mask]
+                    pinball = torch.where(
+                        error >= 0,
+                        qs99_tau * error,
+                        (qs99_tau - 1.0) * error,
+                    )
+                    qs99_loss = qs99_loss + pinball.mean()
+            else:
+                losses_list.append(criterion_reg(pred_j, target_j))
+
         for j in range(idx.n_cls):
             losses_list.append(criterion_class(t1_pred_class[:, j, :, :], y_cls[:, j, :, :]))
 
         losses = torch.stack(losses_list)
         loss = cast(Any, multitaskloss_instance)(losses)
+        if qs99_weight > 0:
+            loss = loss + qs99_weight * qs99_loss
         total_loss += loss
 
         loss_reg = losses[: idx.n_reg].sum()
@@ -266,6 +295,9 @@ def train(
         train_tensor, model, h,
         criterion_reg, criterion_class, multitaskloss_instance,
         idx, device, pbar=pbar, forensics=forensics,
+        hurdle_threshold=config.get("hurdle_threshold"),
+        qs99_weight=config.get("qs99_weight", 0.0),
+        qs99_tau=config.get("qs99_tau", 0.99),
     )
     step_total, step_reg, step_cls = result["per_step_losses"]
 

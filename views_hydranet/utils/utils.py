@@ -13,6 +13,7 @@ from views_hydranet.utils.basu_loss import BasuDPDLoss
 from views_hydranet.utils.focal_loss import FocalLoss
 from views_hydranet.utils.lognormal_nll_loss import LogNormalFixedSigmaLoss
 from views_hydranet.utils.mtloss import MultiTaskLoss
+from views_hydranet.utils.pareto_loss import ParetoLoss
 from views_hydranet.utils.shrinkage_loss import ShrinkageLoss
 from views_hydranet.utils.warmup_decay_lr_scheduler import WarmupDecayLearningRateScheduler
 
@@ -65,6 +66,13 @@ LOSS_REG_REGISTRY: Dict[str, Any] = {
         "params": ["loss_reg_sigma"],
         "factory": lambda config, device: LogNormalFixedSigmaLoss(
             sigma=config.get("loss_reg_sigma", 0.9),
+        ).to(device),
+    },
+    "pareto": {
+        "cls": ParetoLoss,
+        "params": ["loss_reg_pareto_alpha"],
+        "factory": lambda config, device: ParetoLoss(
+            alpha=config.get("loss_reg_pareto_alpha", 1.0),
         ).to(device),
     },
 }
