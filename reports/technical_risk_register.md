@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-10                           |
-| Total Concerns    | 48                                   |
-| Open Concerns     | 25                                   |
+| Total Concerns    | 51                                   |
+| Open Concerns     | 28                                   |
 | Resolved Concerns | 23                                   |
 
 ---
@@ -66,9 +66,9 @@ Per Martin (Clean Architecture Ch 8, p.87-93): this violates OCP — the archite
 | Trigger | Typo in config `loss_reg` or `loss_class` values |
 | Location | `utils.py:42-66, 83-104` |
 
-`choose_loss()` maps `"a"` → MSELoss, `"b"` → ShrinkageLoss with no enum or constant. These magic strings are validated only at runtime, not by Pydantic. A typo produces a clear `ValueError`, but the string codes are opaque.
+`choose_loss()` selects loss functions via string keys (`"mse"`, `"shrinkage"`, `"basu_dpd"`, etc.) looked up in `LOSS_REG_REGISTRY` and `LOSS_CLASS_REGISTRY` dicts. These strings are validated at runtime by the registry lookup (raises `ValueError` on unknown key) and by `ReproducibilityGate.audit_manifest()`, but not by Pydantic at config validation time. A typo in config `loss_reg` or `loss_class` passes Pydantic silently and fails only when `choose_loss()` runs.
 
-See also C-38 for the structural OCP violation in these factories. Per Martin (Clean Architecture Ch 8, p.87): the `TRANSFORMS` registry in `config_initializer.py` demonstrates the correct pattern — the factories should follow suit.
+See also C-38 (resolved — factory OCP violation fixed via registries; opaque letter codes replaced with readable names).
 
 ---
 
@@ -92,11 +92,13 @@ See also C-38 for the structural OCP violation in these factories. Per Martin (C
 |-------|-------|
 | ID | C-09 |
 | Tier | 3 |
-| Source | repo-assimilation (2026-04-08) |
-| Trigger | Renaming or moving the `HydraBNUNet06_LSTM4` class |
-| Location | `train_model.py:490`, `model_artifact_fetcher.py:94` |
+| Source | repo-assimilation (2026-04-08), updated repo-assimilation (2026-04-10) |
+| Trigger | Renaming or moving the `HydraBNUNet06_LSTM4` class, or loading an artifact from an untrusted source |
+| Location | `train/train_model.py:70`, `model_artifact_fetcher.py:94` |
 
 Full model (not `state_dict`) is pickled via `torch.save()`. This couples saved `.pt` artifacts to the exact class definition and module path. Renaming the architecture class or moving it to a different module breaks deserialization of all existing artifacts. `weights_only=False` in load confirms full-object deserialization.
+
+Additionally, `torch.load(..., weights_only=False)` deserializes arbitrary Python objects via pickle — a known arbitrary code execution vector per PyTorch documentation. In the current closed-loop pipeline (train locally, load locally), the security risk is low. Would become critical if `.pt` artifacts are shared externally or loaded from untrusted sources.
 
 Per Martin (Clean Architecture Ch 32, p.275-278): "Don't marry the framework." The serialized artifact is married to PyTorch's pickle format and the concrete class path — the tightest possible coupling to a framework detail. `state_dict()` serialization would keep PyTorch at arm's length, making the architecture class freely renameable and movable.
 
@@ -187,8 +189,6 @@ Per Martin (Clean Architecture Ch 6, p.70-76): "Segregation of Mutability" — s
 | Location | `visual_diagnostics.py:129-133` (and similar in other biopsy methods) |
 
 All `biopsy_*` methods wrap their body in `try/except Exception` and log on failure. If diagnostic code has a bug, it silently produces no plot with no test failure. The file is 985 lines with 12+ biopsy methods. Tests only verify the `active=True/False` toggle, not plot correctness or exception-free execution. Partial fix (2026-04-08): `biopsy_dataframe` catch block upgraded from `logger.warning` to `logger.error` per ADR-008 Section 4 (Fail-Safe constraint). Catch-all pattern itself is ADR-008 compliant (Observability Actors are permitted Fail-Safe). Remaining concern: plot correctness is untested (see also C-26).
-
----
 
 ---
 
@@ -368,9 +368,9 @@ Two `grep -oP` calls use Perl-compatible regex (`-P` flag), which requires GNU g
 | Trigger | CI pipeline collecting `tests/test_falsification_all_risks_identified.py` without explicit exclusion |
 | Location | `tests/test_falsification_all_risks_identified.py` (8 `assert False` stubs) |
 
-TDD RED-state falsification stubs use `assert False` to mark unresolved risks. These are intentionally failing — they exist to remind developers that the underlying code issues (C-31 through C-33) are not yet fixed. Currently excluded via `--ignore` in manual test runs.
+TDD RED-state falsification stubs use `assert False` to mark unresolved risks. These are intentionally failing — they exist to remind developers that the underlying code issue (C-33) is not yet fixed. C-31 and C-32 have been resolved but the corresponding stubs have not been updated to passing tests. Currently excluded via `--ignore` in manual test runs.
 
-Risk: a future CI pipeline that runs `pytest tests/` without excluding this file will see 8 deterministic failures. The stubs should NOT be converted to `xfail` or `skip` (that would silence the RED signal, defeating their TDD purpose). The correct resolution is either: (a) fix the underlying code issues so the stubs can be replaced with real passing tests, or (b) ensure CI explicitly excludes `test_falsification_*.py` files until remediation.
+Risk: a future CI pipeline that runs `pytest tests/` without excluding this file will see deterministic failures. The stubs should NOT be converted to `xfail` or `skip` (that would silence the RED signal, defeating their TDD purpose). The correct resolution is either: (a) fix C-33 and update the stubs to real passing tests, or (b) update stubs for resolved C-31/C-32 to passing tests and ensure CI explicitly excludes remaining RED stubs until C-33 remediation.
 
 ---
 
@@ -403,6 +403,54 @@ The autoresearch found that Shrinkage loss with `c=1.0` marginally outperforms B
 The alternative is nested structure: `regularizers: { qs99: { weight: 0.01, tau: 0.99 } }`. This is cleaner for extensibility but breaks the flat-key pattern, complicates Pydantic validation, and requires changes to the genome audit.
 
 Current decision: stay flat. Revisit when either (a) total config keys exceed 50, or (b) a feature requires 4+ related keys that create naming collision risk. The migration is mechanical (rename keys, update configs) but touches every model config in views-models.
+
+---
+
+### C-50: Derivation asymmetry — DataFrame path skips, Volume path raises
+
+| Field | Value |
+|-------|-------|
+| ID | C-50 |
+| Tier | 3 |
+| Source | repo-assimilation (2026-04-10) |
+| Trigger | When calling `prepare_actuals_df()` on a ground-truth DataFrame that lacks a derivation source column, verify derived classification targets are present in the output |
+| Location | `data_fetcher.py:161-166` (skip), `volume_handler.py:724-730` (raise) |
+
+`DataFetcher.apply_blueprint()` silently skips derivations when the source column is missing from the DataFrame, while `VolumeHandler._execute_derivations()` raises `ValueError` for the same condition. This asymmetry is documented in code comments (cross-ref lines in both files) and tested in `test_derivation_parity.py`. The risk is that `prepare_actuals_df()` — used to manufacture derived signals for evaluation ground truth — may produce a DataFrame lacking binary classification targets (e.g., `by_sb_best`) without error, causing evaluation to compare model output against incomplete ground truth. Currently mitigated by the fact that derivation source columns (regression targets like `lr_sb_best`) are always present in the ground-truth DataFrame; their absence would indicate a deeper data pipeline failure.
+
+---
+
+### C-51: Autoregressive drift warning-to-halt gap is 100x
+
+| Field | Value |
+|-------|-------|
+| ID | C-51 |
+| Tier | 4 |
+| Source | repo-assimilation (2026-04-10) |
+| Trigger | When model predictions diverge during autoregressive inference, check whether the 100→10,000 gap wastes significant GPU time before halting |
+| Location | `hydranet_inference.py:293-298` (warn at 100), `integrity_guardian.py:38` (halt at 10,000) |
+
+During autoregressive inference, `HydraNetInference.predict()` logs a WARNING when `max |pred| > 100.0` (C-20 resolution), but execution continues until `IntegrityGuardian.monitor()` raises `RuntimeError` at the hard ceiling of 10,000. The 100x gap between the soft warning and the hard halt means a diverging model can waste significant GPU time generating predictions that are already astronomically wrong. On PRIO-GRID data in log1p-space, `|pred| > 100` represents `expm1(100) ≈ 2.7×10^43` fatalities — beyond physical reality. In practice the gap is tolerable because: (a) the warning is logged per-step and visible in real-time, (b) the hard halt catches the explosion before NaN/Inf, and (c) reducing the halt threshold would require careful calibration to avoid false positives on legitimate high-magnitude predictions.
+
+See also C-20 (resolved — added the soft warning).
+
+---
+
+### C-52: 15 tests broken by recent refactors — training and streaming inference have no safety net
+
+| Field | Value |
+|-------|-------|
+| ID | C-52 |
+| Tier | 2 |
+| Source | test-review (2026-04-10) |
+| Trigger | When modifying `train()`, `training_loop()`, or `generate_prediction_frames_streaming()`, verify the test suite passes before shipping — currently 15 tests fail silently |
+| Location | `tests/test_train_loop.py` (4 tests), `tests/test_optimization_gate.py` (3 tests), `tests/test_inference_memory_hygiene.py` (4 tests), `tests/test_inference_orchestrator.py` (4 tests) |
+
+15 tests broke silently during recent refactors and were not updated: C-15 (training_engine split) moved `VolumeSampler`/`CurriculumLearner` out of `train_model.py`, breaking mock paths in 3 tests. C-17 (TrainingContext) changed `train()` from 10 positional args to 3-4 (`ctx`, `sample_handler`, `pbar`, `stage_label`), breaking 2 tests. C-38 (loss registry rename) changed `loss_reg='a'` to `'mse'`, breaking 1 config fixture. The streaming evaluation interface addition broke 7 tests across 2 files with stale API references. As a result, the training loop and streaming inference path — the two most actively evolving code paths — have zero passing behavioral tests. The conftest minimum-test gate (280) did not catch this because collection succeeded and 320 tests still pass.
+
+Tier 2 rationale: structural fragility with clear trigger — any further change to `train()` or streaming inference has no safety net, and the existing pass-rate (93%) masks the gap.
+
+See also C-10 (views_pipeline_core test gating), C-41 (falsification stubs in CI).
 
 ---
 
