@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 import torch
 import torch.nn as nn
-import wandb
 
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
 from views_hydranet.utils.basu_loss import BasuDPDLoss
@@ -194,6 +193,8 @@ def train_log(
     avg_loss_class_list: List[float],
 ) -> None:
     """Metric logging gate for W&B."""
+    import wandb
+
     if wandb.run is not None:
         wandb.log(
             {

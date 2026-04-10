@@ -6,8 +6,8 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-10                           |
 | Total Concerns    | 51                                   |
-| Open Concerns     | 28                                   |
-| Resolved Concerns | 23                                   |
+| Open Concerns     | 25                                   |
+| Resolved Concerns | 26                                   |
 
 ---
 
@@ -53,22 +53,6 @@ Per Martin (Clean Architecture Ch 26, p.228-232): the Manager correctly acts as 
 The `HydraBNUNet06_LSTM4` model has 6 decoder heads physically baked into the class definition. Adding a target requires duplicating ~50 lines of layer definitions + forward() code, plus updating the preflight check. Currently stable (no planned target changes).
 
 Per Martin (Clean Architecture Ch 8, p.87-93): this violates OCP — the architecture is closed to extension. Adding a head requires modifying both `__init__()` and `forward()`. Martin's "hierarchy of protection" (p.91) says the model entity should be the most protected component — but here it's the component most exposed to change if target count evolves.
-
----
-
-### C-05: Loss/scheduler selection uses unvalidated string codes
-
-| Field | Value |
-|-------|-------|
-| ID | C-05 |
-| Tier | 4 |
-| Source | repo-assimilation (2026-04-08) |
-| Trigger | Typo in config `loss_reg` or `loss_class` values |
-| Location | `utils.py:42-66, 83-104` |
-
-`choose_loss()` selects loss functions via string keys (`"mse"`, `"shrinkage"`, `"basu_dpd"`, etc.) looked up in `LOSS_REG_REGISTRY` and `LOSS_CLASS_REGISTRY` dicts. These strings are validated at runtime by the registry lookup (raises `ValueError` on unknown key) and by `ReproducibilityGate.audit_manifest()`, but not by Pydantic at config validation time. A typo in config `loss_reg` or `loss_class` passes Pydantic silently and fails only when `choose_loss()` runs.
-
-See also C-38 (resolved — factory OCP violation fixed via registries; opaque letter codes replaced with readable names).
 
 ---
 
@@ -131,20 +115,6 @@ Per Martin (Clean Architecture Ch 28, p.243-246): "Design for Testability" — t
 | Location | `train_model.py:183`, `curriculum.py:45`, `feature_scaler.py:245-255`, `hydranet_inference.py:381` |
 
 Multiple modules reach into `VolumeHandler._metadata.feature_cols`, `._metadata.identity_cols`, etc. instead of using properties. This couples them to the internal dataclass structure. Mitigated by `VolumeMetadata` being a frozen dataclass (structurally stable), but violates encapsulation convention.
-
----
-
-### C-12: `wandb` imported unconditionally at module level
-
-| Field | Value |
-|-------|-------|
-| ID | C-12 |
-| Tier | 4 |
-| Source | repo-assimilation (2026-04-08) |
-| Trigger | When importing any module from `utils/` in an environment without `wandb`, verify `utils.py` doesn't block the import chain |
-| Location | `utils.py:9` |
-
-`import wandb` runs unconditionally at module load even when W&B is not configured. Mitigated by `if wandb.run is not None` guard in `train_log()`, but the import itself would fail in environments without the package. Currently a soft dependency since `wandb` is not in `pyproject.toml` required deps.
 
 ---
 
@@ -368,9 +338,9 @@ Two `grep -oP` calls use Perl-compatible regex (`-P` flag), which requires GNU g
 | Trigger | CI pipeline collecting `tests/test_falsification_all_risks_identified.py` without explicit exclusion |
 | Location | `tests/test_falsification_all_risks_identified.py` (8 `assert False` stubs) |
 
-TDD RED-state falsification stubs use `assert False` to mark unresolved risks. These are intentionally failing — they exist to remind developers that the underlying code issue (C-33) is not yet fixed. C-31 and C-32 have been resolved but the corresponding stubs have not been updated to passing tests. Currently excluded via `--ignore` in manual test runs.
+7 of 8 original falsification stubs have been converted to passing verification tests (PR #20, 2026-04-10): C-31 stubs (4) now verify logger.error precedes each raise, C-32 stubs (2) verify test classes exist, C-21 stub (1) verifies except handler compliance. One RED stub remains for C-33 (InferenceOrchestrator sequence violation — still open).
 
-Risk: a future CI pipeline that runs `pytest tests/` without excluding this file will see deterministic failures. The stubs should NOT be converted to `xfail` or `skip` (that would silence the RED signal, defeating their TDD purpose). The correct resolution is either: (a) fix C-33 and update the stubs to real passing tests, or (b) update stubs for resolved C-31/C-32 to passing tests and ensure CI explicitly excludes remaining RED stubs until C-33 remediation.
+Residual risk: CI pipeline collecting the file without `--ignore` will see 1 deterministic failure from the C-33 stub. The stub should NOT be `xfail`'d — it exists to remind that C-33 is unresolved. Resolution: fix C-33 or ensure CI excludes the file.
 
 ---
 
@@ -435,22 +405,6 @@ During autoregressive inference, `HydraNetInference.predict()` logs a WARNING wh
 See also C-20 (resolved — added the soft warning).
 
 ---
-
-### C-52: 15 tests broken by recent refactors — training and streaming inference have no safety net
-
-| Field | Value |
-|-------|-------|
-| ID | C-52 |
-| Tier | 2 |
-| Source | test-review (2026-04-10) |
-| Trigger | When modifying `train()`, `training_loop()`, or `generate_prediction_frames_streaming()`, verify the test suite passes before shipping — currently 15 tests fail silently |
-| Location | `tests/test_train_loop.py` (4 tests), `tests/test_optimization_gate.py` (3 tests), `tests/test_inference_memory_hygiene.py` (4 tests), `tests/test_inference_orchestrator.py` (4 tests) |
-
-15 tests broke silently during recent refactors and were not updated: C-15 (training_engine split) moved `VolumeSampler`/`CurriculumLearner` out of `train_model.py`, breaking mock paths in 3 tests. C-17 (TrainingContext) changed `train()` from 10 positional args to 3-4 (`ctx`, `sample_handler`, `pbar`, `stage_label`), breaking 2 tests. C-38 (loss registry rename) changed `loss_reg='a'` to `'mse'`, breaking 1 config fixture. The streaming evaluation interface addition broke 7 tests across 2 files with stale API references. As a result, the training loop and streaming inference path — the two most actively evolving code paths — have zero passing behavioral tests. The conftest minimum-test gate (280) did not catch this because collection succeeded and 320 tests still pass.
-
-Tier 2 rationale: structural fragility with clear trigger — any further change to `train()` or streaming inference has no safety net, and the existing pass-rate (93%) masks the gap.
-
-See also C-10 (views_pipeline_core test gating), C-41 (falsification stubs in CI).
 
 ---
 
@@ -718,6 +672,36 @@ See also C-10 (views_pipeline_core test gating), C-41 (falsification stubs in CI
 | ID | C-28 |
 | Resolved | 2026-04-08 |
 | Resolution | Updated test alignment sections in HydranetManager.md, HydraNetConfig.md, and ConfigInitializer.md to reference actual test files (test_config_typed.py, test_config_validation.py, test_manager_memory_hygiene.py, etc.) |
+
+---
+
+### C-05: Loss/scheduler selection uses unvalidated string codes — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-05 |
+| Resolved | 2026-04-10 |
+| Resolution | Added `field_validator` for `loss_reg` and `loss_class` in `HydraNetConfig`. Validators lazy-import `LOSS_REG_REGISTRY` / `LOSS_CLASS_REGISTRY` from `utils.py` and reject unregistered values at config construction time. Typos now fail at Pydantic validation, not at `choose_loss()` runtime. |
+
+---
+
+### C-12: `wandb` imported unconditionally at module level — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-12 |
+| Resolved | 2026-04-10 |
+| Resolution | Moved `import wandb` from module-level in `utils.py` to inside `train_log()` function body. `wandb` is now only imported when the function is actually called, and only used when `wandb.run is not None`. Environments without `wandb` installed can now import `utils.py` without error. |
+
+---
+
+### C-52: 15 tests broken by recent refactors — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-52 |
+| Resolved | 2026-04-10 |
+| Resolution | Updated `train()` call signatures to use `TrainingContext` (C-17 API), fixed mock paths from `train_model` → `training_engine` (C-15 split), updated loss codes `'a'`→`'mse'`, `'b'`→`'focal'` (C-38 rename), deferred `training_loop` import to avoid `sys.modules` interaction. All 7 training/optimization tests restored. Streaming tests passed once `views_pipeline_core` was available. 6 beige config tests added. `TinyModel` extracted to conftest.py. Result: 412 passed, 2 failed (1 intentional RED + 1 pre-existing). |
 
 ---
 
