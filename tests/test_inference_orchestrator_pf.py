@@ -14,6 +14,9 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
+
+pytest.importorskip("views_pipeline_core")
+
 from views_pipeline_core.data.prediction_frame import PredictionFrame
 
 from views_hydranet.utils.feature_scaler import FeatureScaler

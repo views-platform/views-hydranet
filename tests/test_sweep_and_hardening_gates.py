@@ -3,6 +3,8 @@ from unittest.mock import MagicMock, PropertyMock, patch
 import pytest
 import torch
 
+pytest.importorskip("views_pipeline_core")
+
 from views_hydranet.manager.hydranet_manager import HydranetManager
 from views_hydranet.train.train_model import train_model_artifact
 
