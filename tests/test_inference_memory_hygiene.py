@@ -296,36 +296,44 @@ class TestStructuralMemoryHygiene:
         )
 
 
-    def test_valid_cell_indices_does_not_copy_self_data(self):
+    def test_valid_cell_indices_does_not_copy_signal_data(self):
         """
-        _valid_cell_indices() must not call self._data.copy().
+        PredictionFrameAssembler._valid_cell_indices() must not call
+        signal.data.copy() (D-01 extraction moved this from VolumeHandler).
 
         np.transpose() and np.flip() both return non-contiguous views —
         no allocation occurs.  The subsequent fancy indexing in
         _reconstruct_as_pf_dict() gathers only the valid (N, S) cells,
         which is the first — and only — allocation needed.
 
-        Copying self._data first doubles peak RAM for zero benefit:
+        Copying signal data first doubles peak RAM for zero benefit:
         at pgm scale the pred_handler volume is large enough to OOM
         when the copy coexists with the PredictionFrame dict and the
         per-origin posterior numpy arrays.
         """
-        source = inspect.getsource(VolumeHandler._valid_cell_indices)
-        assert "self._data.copy()" not in source, (
-            "_valid_cell_indices() must not call self._data.copy(). "
+        from views_hydranet.utils.prediction_frame_assembler import (
+            PredictionFrameAssembler,
+        )
+        source = inspect.getsource(PredictionFrameAssembler._valid_cell_indices)
+        assert "signal.data.copy()" not in source, (
+            "_valid_cell_indices() must not call signal.data.copy(). "
             "np.transpose() and np.flip() return views; the full-grid copy "
             "doubles peak RAM for no benefit."
         )
 
     def test_valid_cell_indices_does_not_copy_provider_data(self):
         """
-        _valid_cell_indices() must not call provider.data.copy().
+        PredictionFrameAssembler._valid_cell_indices() must not call
+        provider.data.copy() (D-01 extraction moved this from VolumeHandler).
 
         The scaffold copy is equally unnecessary — transpose + flip on the
         provider array are also views, and the mask / identity extraction
         reads from the resulting view without mutating it.
         """
-        source = inspect.getsource(VolumeHandler._valid_cell_indices)
+        from views_hydranet.utils.prediction_frame_assembler import (
+            PredictionFrameAssembler,
+        )
+        source = inspect.getsource(PredictionFrameAssembler._valid_cell_indices)
         assert "provider.data.copy()" not in source, (
             "_valid_cell_indices() must not call provider.data.copy(). "
             "The scaffold copy is unnecessary; views suffice."
