@@ -158,9 +158,12 @@ class DataFetcher:
                     raise KeyError(err_msg)
 
                 if src_name not in df_out.columns:
+                    cols = list(df_out.columns)
+                    cols_preview = cols[:10] if len(cols) > 10 else cols
+                    suffix = f" (+{len(cols) - 10} more)" if len(cols) > 10 else ""
                     err_msg = (
                         f"DataFetcher Blueprint Error: Source column '{src_name}' "
-                        f"not found in DataFrame. Available columns: {list(df_out.columns)}"
+                        f"not found in DataFrame. Available: {cols_preview}{suffix}"
                     )
                     logger.error(err_msg)
                     raise ValueError(err_msg)

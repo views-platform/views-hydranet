@@ -349,9 +349,9 @@ def train(
                 t1 = train_tensor[:, i + 1, :, :, :]
                 t0_input = t0[:, idx.feat, :, :]
                 output_diag = model(t0_input, h_diag)
-                t1_pred = output_diag.reg
-                t1_pred_class = output_diag.cls
-                h_diag = output_diag.h_next
+                t1_pred, t1_pred_class, h_diag = (
+                    output_diag.reg, output_diag.cls, output_diag.h_next
+                )
 
                 if biopsy_start <= i < biopsy_end:
                     y_reg = t1[:, idx.reg, :, :]

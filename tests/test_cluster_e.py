@@ -8,6 +8,8 @@ C-48: QS99 tail regularizer (distribution-free pinball)
 
 import torch
 
+from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import ModelOutput
+
 
 # ---------------------------------------------------------------------------
 # C-47: ParetoLoss
@@ -278,9 +280,6 @@ def _make_tiny_model():
             self.base = 8
 
         def forward(self, x, h):
-            from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import (
-                ModelOutput,
-            )
             out = self.conv(x)
             return ModelOutput(reg=out, cls=out, h_next=h)
 
