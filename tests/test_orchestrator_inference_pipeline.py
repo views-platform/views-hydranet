@@ -82,12 +82,19 @@ class TestAdr039PipelineParity:
             pytest.skip("_run_inference_pipeline not yet implemented")
 
         mock_pred = MagicMock()
-        mock_pred.to_evaluation_pf.return_value = {"lr_sb_best": MagicMock()}
         mock_window = MagicMock()
+        mock_assembler_cls = MagicMock()
+        mock_assembler_cls.return_value.assemble_evaluation.return_value = {
+            "lr_sb_best": MagicMock()
+        }
 
         with (
             patch.object(orch, "_run_inference_pipeline", return_value=(mock_pred, mock_window)),
             patch("views_hydranet.utils.inference_orchestrator.HydraNetInference"),
+            patch(
+                "views_hydranet.utils.inference_orchestrator.PredictionFrameAssembler",
+                mock_assembler_cls,
+            ),
         ):
             handler = MagicMock()
             handler.shape = (10, 4, 4, 5)
@@ -104,12 +111,19 @@ class TestAdr039PipelineParity:
             pytest.skip("_run_inference_pipeline not yet implemented")
 
         mock_pred = MagicMock()
-        mock_pred.to_evaluation_pf.return_value = {"lr_sb_best": MagicMock()}
         mock_window = MagicMock()
+        mock_assembler_cls = MagicMock()
+        mock_assembler_cls.return_value.assemble_evaluation.return_value = {
+            "lr_sb_best": MagicMock()
+        }
 
         with (
             patch.object(orch, "_run_inference_pipeline", return_value=(mock_pred, mock_window)),
             patch("views_hydranet.utils.inference_orchestrator.HydraNetInference"),
+            patch(
+                "views_hydranet.utils.inference_orchestrator.PredictionFrameAssembler",
+                mock_assembler_cls,
+            ),
         ):
             handler = MagicMock()
             handler.shape = (10, 4, 4, 5)

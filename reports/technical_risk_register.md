@@ -4,10 +4,10 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-04-10                           |
+| Last Updated      | 2026-04-11                           |
 | Total Concerns    | 54                                   |
-| Open Concerns     | 22                                   |
-| Resolved Concerns | 32                                   |
+| Open Concerns     | 21                                   |
+| Resolved Concerns | 33                                   |
 
 ---
 
@@ -236,51 +236,39 @@ Per Martin (Ch 13, p.120-121): also violates CRP (Common Reuse Principle) — im
 
 ---
 
-### C-36: VolumeHandler violates Interface Segregation Principle
+### C-36: VolumeHandler violates Interface Segregation Principle (partially addressed)
 
 | Field | Value |
 |-------|-------|
 | ID | C-36 |
 | Tier | 3 |
-| Source | clean-architecture-review (2026-04-08) |
-| Trigger | When a new module imports VolumeHandler, verify it doesn't transitively pull unused dependencies (e.g., PredictionFrame via the PF output path) |
-| Location | `volume_handler.py` (780 lines, 20+ methods, 9 dependents) |
+| Source | clean-architecture-review (2026-04-08), updated D-01 execution (2026-04-11) |
+| Trigger | When a new module imports VolumeHandler, verify it doesn't transitively pull unused dependencies; when adding methods to VolumeHandler, consider whether they belong to a separate adapter |
+| Location | `volume_handler.py` (658 lines, ~17 methods, 9 dependents) |
 
-VolumeHandler exposes a single monolithic interface to all consumers. The training loop uses `to_pytorch()`, `flip()`, `channel_map`. The inference path uses `wrap_predictions()`, `to_evaluation_pf()`, `slice_time()`. The data pipeline uses `from_df()`. Each consumer depends on the full 780-line interface but uses only a subset.
+**Partially addressed (2026-04-11):** D-01 partial split executed. PredictionFrame output path (`to_evaluation_pf`, `_valid_cell_indices`, `_reconstruct_as_pf_dict`, ~127 lines) extracted into `PredictionFrameAssembler`. VolumeHandler shrunk from 787 → 658 lines, 20+ → ~17 methods. Inference orchestrator now imports the assembler explicitly; training loop never depended on the PF path.
 
-Per Martin (Clean Architecture Ch 10, p.100-103): ISP says "avoid depending on things you don't use." Each consumer is forced to depend on methods, imports, and complexity it never invokes. Martin (p.102): "depending on something that carries baggage that you don't need can cause you troubles that you didn't expect." The training path doesn't need `to_evaluation_pf()` but transitively depends on `PredictionFrame` because of it. See also C-37 (SAP Zone of Pain) and D-01 (God Object vs Deep Module disagreement).
+**Residual concern:** VolumeHandler still exposes a single interface with ~17 methods spanning data ingestion (`from_df`), model entry (`to_pytorch`), prediction wrapping (`wrap_predictions`), spatial/temporal manipulation (`slice_time`, `extrapolate_time`, `flip`, `_permute`, `collapse_to_point`), and feature engineering (`_execute_derivations`). These are tighter cohesion than the PF path (all operate on the underlying volume), but the ISP gap is reduced rather than eliminated.
+
+Per Martin (Clean Architecture Ch 10, p.100-103): ISP says "avoid depending on things you don't use." See also C-37 (SAP Zone of Pain) and D-01 (resolved — partial split executed).
 
 ---
 
-### C-37: VolumeHandler in SAP "Zone of Pain" — stable but not abstract
+### C-37: VolumeHandler in SAP "Zone of Pain" — partial abstraction at PF boundary
 
 | Field | Value |
 |-------|-------|
 | ID | C-37 |
 | Tier | 4 |
-| Source | clean-architecture-review (2026-04-08) |
+| Source | clean-architecture-review (2026-04-08), updated D-01 execution (2026-04-11) |
 | Trigger | Need to provide an alternative VolumeHandler implementation (e.g., lazy-loading, GPU-resident) |
-| Location | `volume_handler.py` — fan-in=9, fan-out=2 |
+| Location | `volume_handler.py` — fan-in=9, fan-out=1 (after PF extraction) |
 
-VolumeHandler has Instability I = 2/(9+2) ≈ 0.18 — highly stable. But it is entirely concrete — no abstract base class, no Protocol, no interface definition. Per Martin (Clean Architecture Ch 14, p.139-143): SAP says "a component should be as abstract as it is stable." A component with high stability and low abstractness sits in the "Zone of Pain" — it's painful to change because many depend on it, and there's no abstraction to insulate them from change.
+**Partially addressed (2026-04-11):** D-01 partial split executed. The PredictionFrameAssembler is now an interface adapter at the entity/framework boundary — its `assemble_evaluation()` method abstracts the PF assembly contract from the underlying volume operations. VolumeHandler's fan-out dropped from 2 to 1 (no more `views_pipeline_core` import).
 
-Currently tolerable because VolumeHandler's interface is mature and rarely changes. Would become painful if a second volume carrier type were needed (e.g., lazy-loading for very large grids, or GPU-resident tensors for inference). See also C-36 (ISP violation) and D-01 (God Object vs Deep Module disagreement).
+**Residual concern:** VolumeHandler itself still has no abstract base class, Protocol, or interface definition. The core volume operations (transpose/flip/slice/wrap) remain a concrete monolithic class. Resolving the residual would require extracting an `IVolumeHandler` Protocol — out of scope for the partial split. Currently tolerable because the interface is mature and rarely changes.
 
----
-
-### C-39: VolumeHandler Entity imports Framework type (Dependency Rule violation)
-
-| Field | Value |
-|-------|-------|
-| ID | C-39 |
-| Tier | 4 |
-| Source | clean-architecture-review (2026-04-08) |
-| Trigger | Change to `PredictionFrame` class in `views_pipeline_core` |
-| Location | `volume_handler.py:430` (`from views_pipeline_core.data.prediction_frame import PredictionFrame`) |
-
-VolumeHandler is an Entity-layer component (core data carrier, highest stability). `PredictionFrame` is from the Framework layer (`views_pipeline_core`). The import in `to_evaluation_pf()` violates the Dependency Rule — an inner-circle component depends on an outer-circle type.
-
-Per Martin (Clean Architecture Ch 22, p.203-209): "Source code dependencies must point only inward, toward higher-level policies. Nothing in an inner circle can know anything at all about something in an outer circle." Currently mitigated by lazy import (inside the method body, not at module level), which limits the coupling to runtime rather than import-time. A full fix would extract `to_evaluation_pf()` into an Interface Adapter that imports both VolumeHandler and PredictionFrame.
+See also C-36 (ISP partially addressed) and D-01 (resolved — partial split executed).
 
 ---
 
@@ -377,7 +365,7 @@ See also C-28 (resolved — one-time CIC test references update).
 | ID | D-01 |
 | Source | expert-review (2026-04-08) |
 | Perspectives | Martin (split — SRP Ch 7 p.80: serves 4 actors; ISP Ch 10 p.100: 20+ method interface; SAP Ch 14 p.139: Zone of Pain), Ousterhout (keep — successful deep module hiding complexity), Hickey (partial split — extract PF output path, keep volume ops together) |
-| Resolution | **Accepted** (2026-04-08): Partial split will be executed when VolumeHandler next needs a non-trivial change to the PF output path (`to_evaluation_pf`, `to_forecast_pf`, `_reconstruct_as_pf_dict`). Extract PredictionFrame output into dedicated assembler; keep core volume operations in VolumeHandler. Three independent SOLID violations (SRP, ISP, SAP = C-36, C-37, C-39) support the split. Ousterhout's "deep module" counter-argument remains valid for core volume operations but does not extend to the PF output path. This decision unblocks C-36, C-37, C-39 for execution when the trigger fires. |
+| Resolution | **Executed (2026-04-11):** Partial split implemented. Extracted `to_evaluation_pf`, `_valid_cell_indices`, `_reconstruct_as_pf_dict` (~127 lines) from `volume_handler.py` into a new `views_hydranet/utils/prediction_frame_assembler.py` containing a stateless `PredictionFrameAssembler` class. VolumeHandler shrunk from 787 → 658 lines and no longer imports `views_pipeline_core` (fully resolves C-39). `InferenceOrchestrator` now constructs an assembler instance and calls `assembler.assemble_evaluation(signal=..., history=..., start_idx=..., all_targets=...)` instead of `pred_handler.to_evaluation_pf(...)`. C-36 and C-37 remain open as "partially addressed" — VolumeHandler still has ~17 methods and no abstract base class, but the Framework-layer dependency is gone and the worst ISP offender (PF path) is extracted. Ousterhout's "deep module" counter-argument remains valid for the surviving core volume operations. Hickey's "partial split" recommendation was followed. |
 
 ---
 
@@ -632,6 +620,16 @@ See also C-28 (resolved — one-time CIC test references update).
 | ID | C-28 |
 | Resolved | 2026-04-08 |
 | Resolution | Updated test alignment sections in HydranetManager.md, HydraNetConfig.md, and ConfigInitializer.md to reference actual test files (test_config_typed.py, test_config_validation.py, test_manager_memory_hygiene.py, etc.) |
+
+---
+
+### C-39: VolumeHandler Entity imports Framework type — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-39 |
+| Resolved | 2026-04-11 |
+| Resolution | D-01 partial split executed. Extracted PredictionFrame output path from VolumeHandler into a dedicated `PredictionFrameAssembler` class in `views_hydranet/utils/prediction_frame_assembler.py`. The lazy `from views_pipeline_core.data.prediction_frame import PredictionFrame` import that was inside `VolumeHandler.to_evaluation_pf()` now lives only inside `PredictionFrameAssembler.assemble_evaluation()`. VolumeHandler is fully decoupled from the Framework layer — `grep "views_pipeline_core" volume_handler.py` returns zero matches. The Dependency Rule violation is eliminated. C-36 and C-37 are partially addressed by the same refactor (narratives updated). |
 
 ---
 

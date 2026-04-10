@@ -15,6 +15,7 @@ import torch
 
 from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.hydranet_inference import HydraNetInference
+from views_hydranet.utils.prediction_frame_assembler import PredictionFrameAssembler
 from views_hydranet.utils.visual_diagnostics import VisualDiagnostics
 from views_hydranet.utils.volume_handler import VolumeHandler
 
@@ -124,7 +125,7 @@ class InferenceOrchestrator:
         Generate PredictionFrame dicts for each rolling origin.
 
         Follows the inference pipeline sequence (Predict → Wrap → Invert → Collapse),
-        then assembles results via VolumeHandler.to_evaluation_pf().
+        then assembles results via PredictionFrameAssembler.assemble_evaluation().
         No pandas DataFrame is materialised on the output path.
 
         Returns
@@ -145,6 +146,7 @@ class InferenceOrchestrator:
         inference = HydraNetInference(
             self.model, self.config, device=str(self.device), visualizer=self.viz
         )
+        assembler = PredictionFrameAssembler()
         list_pf_dicts: List[Dict[str, "PredictionFrame"]] = []
 
         for i, origin in enumerate(origins):
@@ -154,8 +156,11 @@ class InferenceOrchestrator:
             )
 
             # --- 6. RECONSTRUCT AS PF (ADR 039.6 / ADR-047) ---
-            pf_dict = pred_handler.to_evaluation_pf(
-                history=window_handler, start_idx=0, all_targets=all_targets
+            pf_dict = assembler.assemble_evaluation(
+                signal=pred_handler,
+                history=window_handler,
+                start_idx=0,
+                all_targets=all_targets,
             )
             list_pf_dicts.append(pf_dict)
 
@@ -199,6 +204,7 @@ class InferenceOrchestrator:
         inference = HydraNetInference(
             self.model, self.config, device=str(self.device), visualizer=self.viz
         )
+        assembler = PredictionFrameAssembler()
 
         for i, origin in enumerate(origins):
             pred_handler, window_handler = self._run_inference_pipeline(
@@ -207,8 +213,11 @@ class InferenceOrchestrator:
             )
 
             # --- 6. RECONSTRUCT AS PF (ADR 039.6 / ADR-047) ---
-            pf_dict = pred_handler.to_evaluation_pf(
-                history=window_handler, start_idx=0, all_targets=all_targets
+            pf_dict = assembler.assemble_evaluation(
+                signal=pred_handler,
+                history=window_handler,
+                start_idx=0,
+                all_targets=all_targets,
             )
 
             # Free inference objects before sink

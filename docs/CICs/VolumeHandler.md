@@ -2,7 +2,7 @@
 
 **Status:** Active  
 **Owner:** Custodian  
-**Last reviewed:** 13.03.2026
+**Last reviewed:** 11.04.2026
 **Related ADRs:** ADR-001, ADR-012, ADR-010 (Proposed), ADR-021, ADR-032, ADR-043, ADR-047
 
 ---
@@ -43,9 +43,9 @@ The `VolumeHandler` is the **Custodian** of spatiotemporal data. Its primary pur
 ## 5. Outputs and Side Effects
 
 - **4D/5D Tensors:** Produces Pytorch-ready tensors via `to_pytorch(device, include_identities)`.
-- **PredictionFrame Dicts:** Produces `Dict[str, PredictionFrame]` via `to_evaluation_pf()` / `to_forecast_pf()` (ADR-047 pandas-free path).
 - **Standardized DataFrames:** Produces "Pure State" DataFrames via `to_evaluation_df()` / `to_forecast_df()` (ADR-032, diagnostic use only).
 - **Derived VolumeHandlers:** Produces new instances via `slice_time()`, `extrapolate_time()`, `collapse_to_point()`, `flip()`, and `wrap_predictions()` — preserving the parent Ledger but adjusting metadata.
+- **PredictionFrame output:** No longer produced by VolumeHandler. As of 2026-04-11 (D-01 partial split), PredictionFrame assembly lives in `PredictionFrameAssembler` (`views_hydranet/utils/prediction_frame_assembler.py`). Consumers requiring PF output should construct an assembler and call `assembler.assemble_evaluation(signal=vh, history=vh, start_idx=int, all_targets=list)`.
 
 ---
 
@@ -79,11 +79,16 @@ point_vh = pred_handler.collapse_to_point(method="arithmetic_mean")
 # Wrapping raw model outputs back into a Custodian
 pred_handler = handler.wrap_predictions(output_tensor, target_names)
 
-# PredictionFrame output (ADR-047)
-pf_dict = pred_handler.to_evaluation_pf(history, start_idx, all_targets)
-
 # PyTorch tensor for model input
 tensor = handler.to_pytorch(device, include_identities=False)
+
+# PredictionFrame output is now handled by a separate adapter (D-01 split):
+# from views_hydranet.utils.prediction_frame_assembler import PredictionFrameAssembler
+# assembler = PredictionFrameAssembler()
+# pf_dict = assembler.assemble_evaluation(
+#     signal=pred_handler, history=window_handler,
+#     start_idx=0, all_targets=all_targets,
+# )
 ```
 
 ---
@@ -98,9 +103,10 @@ tensor = handler.to_pytorch(device, include_identities=False)
 
 ## 10. Test Alignment
 
-- **🟩 Green Team:** Round-trip tests in `tests/test_volume_handler_geometric.py`, PredictionFrame output tests in `tests/test_volume_handler_pf.py`.
+- **🟩 Green Team:** Round-trip tests in `tests/test_volume_handler_geometric.py`.
 - **🟫 Beige Team:** Tests for missing role columns and mismatched resolutions in `tests/test_volume_handler_hard_gates.py`.
 - **🟥 Red Team:** Shuffling input rows to prove topological stability in `tests/test_prediction_frame_suite.py`.
+- **PredictionFrame output:** Tests for the extracted assembler live in `tests/test_prediction_frame_assembler.py` (see `docs/CICs/PredictionFrameAssembler.md`).
 
 ---
 
