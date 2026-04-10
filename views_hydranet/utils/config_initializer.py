@@ -258,6 +258,34 @@ class HydraNetConfig(BaseModel):
             )
         return v
 
+    @field_validator("loss_reg")
+    @classmethod
+    def validate_loss_reg(cls, v: str) -> str:
+        from views_hydranet.utils.utils import LOSS_REG_REGISTRY
+
+        if v not in LOSS_REG_REGISTRY:
+            err_msg = (
+                f"loss_reg='{v}' is not registered. "
+                f"Available: {list(LOSS_REG_REGISTRY.keys())}"
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator("loss_class")
+    @classmethod
+    def validate_loss_class(cls, v: str) -> str:
+        from views_hydranet.utils.utils import LOSS_CLASS_REGISTRY
+
+        if v not in LOSS_CLASS_REGISTRY:
+            err_msg = (
+                f"loss_class='{v}' is not registered. "
+                f"Available: {list(LOSS_CLASS_REGISTRY.keys())}"
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
     @field_validator("aggregate_method")
     @classmethod
     def validate_agg_method(cls, v: str) -> str:
