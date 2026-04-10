@@ -100,8 +100,8 @@ class TestOptimizationGate:
         config, model, criterion, optimizer, scheduler, handler, device = mock_components
 
         with (
-            patch("views_hydranet.train.train_model.CurriculumLearner") as MockPlanner,
-            patch("views_hydranet.train.train_model.VolumeSampler") as MockSampler,
+            patch("views_hydranet.train.training_engine.CurriculumLearner") as MockPlanner,
+            patch("views_hydranet.train.training_engine.VolumeSampler") as MockSampler,
         ):
             planner = MockPlanner.return_value
             planner.get_lesson.return_value = ("f1", 5)
@@ -118,17 +118,21 @@ class TestOptimizationGate:
 
     def test_train_function_is_dumb(self, mock_components):
         """Verify that the train function returns loss without modifying weights (ADR 014)."""
-        from views_hydranet.train.train_model import train
+        from views_hydranet.train.training_engine import TrainingContext, train
 
         config, model, criterion, optimizer, scheduler, handler, device = mock_components
 
         orig_weights = model.weight.clone().detach()
         pbar = MagicMock()
 
-        # Pull criterion components
         cr, cc, mt = criterion
+        ctx = TrainingContext(
+            model=model, optimizer=optimizer, scheduler=scheduler,
+            criterion_reg=cr, criterion_class=cc, multitaskloss_instance=mt,
+            config=config, device=device,
+        )
 
-        losses = train(model, optimizer, scheduler, cr, cc, mt, handler, config, device, pbar)
+        losses = train(ctx, handler, pbar)
 
         assert isinstance(losses, dict)
         assert "total" in losses and isinstance(losses["total"], torch.Tensor)
@@ -181,8 +185,8 @@ class TestOptimizationGate:
             "max_ratio": 0.9,
             "run_type": "train",
             "scheduler": "none",
-            "loss_reg": "a",
-            "loss_class": "b",
+            "loss_reg": "mse",
+            "loss_class": "focal",
             "loss_reg_a": 1.0,
             "loss_reg_c": 1.0,
             "loss_class_alpha": 0.25,
