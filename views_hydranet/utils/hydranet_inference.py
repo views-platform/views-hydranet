@@ -288,6 +288,14 @@ class HydraNetInference:
                 t1_pred, t1_pred_class, h_tt = self.execute_freeze_h_option(t0_autoreg, h_tt)
                 t1_pred_class = torch.sigmoid(t1_pred_class)
 
+                # C-20: Soft magnitude guard — detect gradual drift
+                max_pred = t1_pred.abs().max().item()
+                if max_pred > 100.0:
+                    logger.warning(
+                        f"Autoregressive drift: step {t}, max |pred| = {max_pred:.1f}. "
+                        f"Predictions may be diverging."
+                    )
+
                 acc_magnitudes.append(t1_pred)
                 acc_probabilities.append(t1_pred_class)
 

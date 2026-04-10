@@ -6,8 +6,8 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-10                           |
 | Total Concerns    | 48                                   |
-| Open Concerns     | 30                                   |
-| Resolved Concerns | 18                                   |
+| Open Concerns     | 25                                   |
+| Resolved Concerns | 23                                   |
 
 ---
 
@@ -190,18 +190,6 @@ All `biopsy_*` methods wrap their body in `try/except Exception` and log on fail
 
 ---
 
-### C-17: `train()` function has 13 parameters
-
-| Field | Value |
-|-------|-------|
-| ID | C-17 |
-| Tier | 3 |
-| Source | expert-review (2026-04-08) |
-| Trigger | When adding a parameter to `train()`, verify total count and consider bundling into a context dataclass |
-| Location | `train_model.py:150-163` |
-
-`train()` takes model, optimizer, scheduler, criterion_reg, criterion_class, multitaskloss_instance, sample_handler, config, device, pbar, viz, stage_label, and forensics. Wide interface makes the function hard to call correctly and easy to wire incorrectly. Could be reduced by bundling training context into a dataclass.
-
 ---
 
 ### C-19: `priogrid_gid > 0` validity assumption undocumented at ingestion
@@ -215,20 +203,6 @@ All `biopsy_*` methods wrap their body in `try/except Exception` and log on fail
 | Location | `volume_handler.py:505` |
 
 `_valid_cell_indices()` uses `mask = p_data[:, :, :, pg_idx] > 0` to identify valid cells. If any legitimate grid cell has `priogrid_gid == 0`, it is silently dropped from output. This assumption is not enforced or documented at ingestion (`DataSniffer`, `DataFetcher`). In practice, PRIO-GRID assigns GIDs starting from 1, but this is domain knowledge not codified in the system. Tier rationale: impact is catastrophic (silent data loss) but trigger probability is near-zero given PRIO-GRID's established numbering convention. Tier 4 reflects expected risk (impact × likelihood), not impact alone.
-
----
-
-### C-20: Autoregressive inference has no soft magnitude guard
-
-| Field | Value |
-|-------|-------|
-| ID | C-20 |
-| Tier | 3 |
-| Source | expert-review (2026-04-08) |
-| Trigger | When modifying autoregressive feedback in `_run_autoregressive()`, verify that gradual magnitude drift (not just NaN/Inf) is detectable |
-| Location | `hydranet_inference.py:287-288` |
-
-`t0_autoreg = t1_pred.detach()` feeds model predictions back as input. `IntegrityGuardian` catches NaN/Inf and its hard ceiling (`> 10000`) catches extreme explosion, but gradual magnitude drift (e.g., predictions growing from 2 to 200 over 36 steps) goes undetected. No soft warning or clipping on autoregressive feedback inputs.
 
 ---
 
@@ -400,46 +374,6 @@ Risk: a future CI pipeline that runs `pytest tests/` without excluding this file
 
 ---
 
-### C-45: Regression heads receive gradients from zero-valued pixels (no hurdle masking)
-
-| Field | Value |
-|-------|-------|
-| ID | C-45 |
-| Tier | 3 |
-| Source | manual (2026-04-10), metric-lab ZIF-TS recommendation, autoresearch Finding F2/F6 |
-| Trigger | When training on the full PRIO-GRID where 97-99% of pixels are zero — regression gradients are dominated by near-zero targets that carry no magnitude signal |
-| Location | `training_engine.py:133` (`criterion_reg(t1_pred[:, j, :, :], y_reg[:, j, :, :])`) |
-
-HydraNet v1 computes the regression loss on ALL spatial pixels, including the ~97% that are zero. The model learns to predict near-zero everywhere because that minimizes loss across the dominant class. This is the "Zero-Gravity" effect described by Lerch et al. (2017, "Forecaster's Dilemma"): peace-time gradients drown the crisis-time signal that matters for humanitarian decision-making.
-
-The metric-lab ZIF-TS final recommendation (March 2026) specifies: "Models must use separate output heads for Occurrence P(Y > 0) and Magnitude E[Y | Y > 0]. The Magnitude Head MUST be masked during training — it should only receive gradients from pixels where y > 0." The autoresearch (April 2026, 53 experiments) validated this on real UCDP/GED data: the LSTM hurdle model's magnitude loss was masked to positive-only observations in all 53 experiments.
-
-HydraNet's architecture already has the structural prerequisite — 3 separate regression decoder heads and 3 separate classification decoder heads. The missing piece is a mask in `_process_sequence()`:
-
-```python
-# Current (v1): regression on ALL pixels
-loss_reg = criterion_reg(pred, target)
-
-# Hurdle (v2): regression ONLY on positive pixels  
-mask = target > 0
-if mask.any():
-    loss_reg = criterion_reg(pred[mask], target[mask])
-```
-
-Three risks require empirical validation before implementation:
-
-1. **Spatial gradient sparsity:** The U-Net decoder heads use Conv2d layers that aggregate spatial neighborhoods. With 97% of pixels masked, each convolution kernel receives gradient signal from only ~3% of its receptive field. This may cause weight instability or slow convergence — unlike the LSTM hurdle (which aggregates temporally), the U-Net aggregates spatially, and spatial sparsity is more damaging to convolutional gradient flow than temporal sparsity is to recurrent gradient flow.
-
-2. **Onset-magnitude coupling at inference:** At inference time, the hurdle prediction is `P(event) * E[magnitude | event]`. A miscalibrated onset head (before the C-44 logit bias fix) would produce false positives that multiply with the magnitude head's output, inflating forecasts. The logit bias fix (C-44, now implemented) is a prerequisite for stable hurdle inference.
-
-3. **Loss scale change:** With masking, the regression loss is averaged over ~3% of pixels instead of 100%. The effective learning rate for magnitude weights increases ~33x relative to the onset weights. The MultiTaskLoss balancer may need re-tuning, or the masked loss should be re-normalized.
-
-Implementation plan: add `hurdle_masking: bool = False` config flag, gate the mask in `_process_sequence()`, test empirically on the full grid. Backward compatible — existing models continue to train on all pixels until the flag is enabled.
-
-Cross-references: C-44 (onset bias init — prerequisite, now resolved), views-metric-lab ZIF-TS final recommendation (Pillar 1), autoresearch Finding F2 (data-volume dependency), views-metric-lab hydranet_v2_implementation_roadmap.md (Priority 1, Section 2.1).
-
----
-
 ### C-46: Shrinkage loss threshold c=0.001 may be suboptimal for log1p-transformed targets
 
 | Field | Value |
@@ -451,46 +385,6 @@ Cross-references: C-44 (onset bias init — prerequisite, now resolved), views-m
 | Location | `views-models/models/purple_alien/configs/config_hyperparameters.py` (`loss_reg_c: 0.001`) |
 
 The autoresearch found that Shrinkage loss with `c=1.0` marginally outperforms Basu DPD and NLL on log-space magnitude errors (Finding 6.4). The hydranet production default is `c=0.001`, calibrated for the U-Net's normalized feature space where typical errors are in the 0-1 range. But purple_alien's targets are log1p-transformed, where the natural error scale is 0-7 (log1p of 0-1000 fatalities). A threshold of `c=0.001` in log-space means "suppress errors below 0.1% in magnitude" — virtually no suppression. The autoresearch suggests `c=1.0` ("suppress errors below 2.7x in magnitude") is more appropriate for log-space operation. Note: the `a` parameter (steepness) at 258 in purple_alien is also very different from the autoresearch optimal of 10 — but the LSTM hurdle and U-Net have different residual distributions, so direct transfer is not guaranteed. Empirical testing on HydraNet with `c=1.0, a=10` is recommended before changing the production default.
-
----
-
-### C-47: Pareto Loss not available in loss registry
-
-| Field | Value |
-|-------|-------|
-| ID | C-47 |
-| Tier | 4 |
-| Source | manual (2026-04-10), metric-lab autoresearch Round 4 |
-| Trigger | When configuring a new HydraNet model to use the autoresearch-recommended loss function |
-| Location | `views_hydranet/utils/utils.py` (`LOSS_REG_REGISTRY`) |
-
-The metric-lab autoresearch (61 experiments, April 2026) found Pareto Loss `(1/alpha) * log(1 + alpha * |error|)` with alpha=1.0 to be the best-performing magnitude loss when combined with a QS99 regularizer. The implementation is 6 lines (Kozerawski et al. 2022, "Taming the Long Tail"). The loss registry currently offers `mse`, `shrinkage`, `basu_dpd`, and `lognormal_nll` — but not `pareto`. Without the QS99 regularizer (see C-48), Pareto alone converges to the same performance as Shrinkage and Basu (within 0.04%), so this is a completeness concern, not a performance gap.
-
----
-
-### C-48: No QS99 tail regularizer in training loop — Forecaster's Dilemma unaddressed
-
-| Field | Value |
-|-------|-------|
-| ID | C-48 |
-| Tier | 3 |
-| Source | manual (2026-04-10), metric-lab autoresearch Finding F2, Lerch et al. (2017) |
-| Trigger | When evaluating HydraNet's 99th percentile accuracy (QS99 guardrail) on sparse targets like non-state violence |
-| Location | `training_engine.py:130-139` (`_process_sequence` loss computation) |
-
-Lerch et al. (2017, "Forecaster's Dilemma: Extreme Events and Forecast Evaluation") proved mathematically that standard proper scoring rules (CRPS, log score) systematically discourage sharp predictions for rare events. A "timid" forecast that hedges everywhere scores better under CRPS than a sharp forecast that accurately predicts the tail but occasionally overshoots. This is not a tuning problem — it is a mathematical property of proper scoring rules applied to rare events.
-
-The metric-lab autoresearch confirmed this empirically: the ns QS99 guardrail was the most persistent failure across all 61 experiments (sole failure in 23-63% of rounds). Adding an explicit pinball loss at the 99th percentile — `loss_qs = QuantileLoss(alpha=0.99)(q99_pred, target)` where `q99_pred = mu + 2.33 * sigma` — broke through the dilemma and improved overall CRPS by 0.13% while making the ns QS99 guardrail pass comfortably (0.023 vs 0.027 threshold).
-
-This is architecturally different from a loss function swap. The QS99 term is a third component in the training loss, alongside `criterion_reg` and `criterion_class`. It requires:
-1. Computing the model's implicit 99th percentile: `pred + 2.33 * config["loss_reg_sigma"]`
-2. A pinball loss function (6 lines)
-3. A configurable weight (autoresearch optimal: 0.1)
-4. Addition to `_process_sequence()` loss accumulation
-
-This cannot be implemented as a LOSS_REG_REGISTRY entry because it operates on a derived quantity (the predicted quantile), not on the raw prediction-target pair. It requires a training loop change.
-
-Literature: Lerch et al. (2017) [views-metric-lab/lit/scoring_rules/Lerch-ForecastersDilemmaExtreme-2017.pdf], Gneiting & Ranjan (2011) [views-metric-lab/lit/scoring_rules/Gneiting-ComparingDensityForecasts-2011.pdf], Kozerawski & Turk (2022) [views-metric-lab/lit/long_tail/Kozerawski-TamingLongTailDeepProbabilistic-2022.pdf]. See also C-45 (hurdle masking) and C-47 (Pareto loss).
 
 ---
 
@@ -696,6 +590,56 @@ Current decision: stay flat. Revisit when either (a) total config keys exceed 50
 | ID | C-43 |
 | Resolved | 2026-04-10 |
 | Resolution | Added `ReproducibilityGate.audit_manifest(config)` that validates config completeness before training. Checks 16 core genome parameters (presence + non-None), validates loss_reg/loss_class against `LOSS_REG_REGISTRY`/`LOSS_CLASS_REGISTRY`, and validates loss-specific params from registry `"params"` lists. Raises `ValueError` with clear message on missing parameters. 7 TDD tests. |
+
+---
+
+### C-17: `train()` function has 13 parameters — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-17 |
+| Resolved | 2026-04-10 |
+| Resolution | Added `TrainingContext` dataclass that bundles the 10 "wired once" components (model, optimizer, scheduler, 3 loss components, config, device, viz, forensics). `train()` reduced from 13 params to 4: `ctx`, `sample_handler`, `pbar`, `stage_label`. Created once in `training_loop()`, passed to every `train()` call. |
+
+---
+
+### C-20: Autoregressive inference has no soft magnitude guard — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-20 |
+| Resolved | 2026-04-10 |
+| Resolution | Added soft magnitude WARNING in `hydranet_inference.py` autoregressive loop: logs warning when `max |pred| > 100.0` at any step. Does not clip — warns only, allowing operators to detect gradual drift before it reaches the hard NaN/Inf ceiling. |
+
+---
+
+### C-45: Regression heads receive gradients from zero-valued pixels — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-45 |
+| Resolved | 2026-04-10 |
+| Resolution | Added `hurdle_threshold` config key to `_process_sequence()`. When set (e.g., 0.0), regression loss is computed only on `target > threshold` pixels. Backward compatible: `None` = all pixels (v1 behavior). 3 TDD tests (all-zeros, mixed data, None bypass). |
+
+---
+
+### C-47: Pareto Loss not available in loss registry — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-47 |
+| Resolved | 2026-04-10 |
+| Resolution | Implemented `ParetoLoss` (6 lines, Kozerawski et al. 2022). Registered as `loss_reg='pareto'` with `loss_reg_pareto_alpha` config. 5 TDD tests. |
+
+---
+
+### C-48: No QS99 tail regularizer — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-48 |
+| Resolved | 2026-04-10 |
+| Resolution | Distribution-free asymmetric pinball loss on `mu` (ML expert Suggestion 3 — no sigma, no distributional assumption). Config keys: `qs99_weight` (0.0=disabled), `qs99_tau` (0.99). Only active when `hurdle_threshold` is not None. Added to `_process_sequence()` after MultiTaskLoss. 2 TDD tests (adds to loss, disabled without hurdle). Addresses Lerch et al. (2017) Forecaster's Dilemma. |
 
 ---
 

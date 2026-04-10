@@ -220,27 +220,61 @@ def _process_sequence(
     }
 
 
+class TrainingContext:
+    """Bundles the 'wired once' training components (C-17).
+
+    Reduces train() from 13 parameters to 4: ctx, sample_handler, pbar, stage_label.
+    Created once in training_loop(), passed to every train() call.
+    """
+
+    __slots__ = (
+        "model", "optimizer", "scheduler",
+        "criterion_reg", "criterion_class", "multitaskloss_instance",
+        "config", "device", "viz", "forensics",
+    )
+
+    def __init__(
+        self,
+        model: nn.Module,
+        optimizer: torch.optim.Optimizer,
+        scheduler: Optional[torch.optim.lr_scheduler._LRScheduler],
+        criterion_reg: nn.Module,
+        criterion_class: nn.Module,
+        multitaskloss_instance: nn.Module,
+        config: dict,
+        device: torch.device,
+        viz: Optional[VisualDiagnostics] = None,
+        forensics: Optional[TrainingForensics] = None,
+    ):
+        self.model = model
+        self.optimizer = optimizer
+        self.scheduler = scheduler
+        self.criterion_reg = criterion_reg
+        self.criterion_class = criterion_class
+        self.multitaskloss_instance = multitaskloss_instance
+        self.config = config
+        self.device = device
+        self.viz = viz
+        self.forensics = forensics
+
+
 def train(
-    model: nn.Module,
-    optimizer: torch.optim.Optimizer,
-    scheduler: Optional[torch.optim.lr_scheduler._LRScheduler],
-    criterion_reg: nn.Module,
-    criterion_class: nn.Module,
-    multitaskloss_instance: nn.Module,
+    ctx: TrainingContext,
     sample_handler: VolumeHandler,
-    config: dict,
-    device: torch.device,
     pbar: tqdm,
-    viz: Optional[VisualDiagnostics] = None,
     stage_label: str = "",
-    forensics: Optional[TrainingForensics] = None,
 ) -> Dict[str, torch.Tensor]:  # Returns window losses
 
-    model.train()
-    multitaskloss_instance.train()
+    ctx.model.train()
+    ctx.multitaskloss_instance.train()
+
+    config = ctx.config
+    model = ctx.model
+    device = ctx.device
+    viz = ctx.viz
+    forensics = ctx.forensics
 
     # 1. Stochastic Data Augmentation (Tube-Level)
-    # We flip the entire spatial-temporal tube together to maintain consistency.
     if config.get("random_flips", True):
         if np.random.rand() < 0.5:
             sample_handler.flip("H")
@@ -248,7 +282,6 @@ def train(
             sample_handler.flip("W")
 
     # 2. Model Entry Gate: Transform to PyTorch [B, T, C, H, W]
-    # We strip identity channels here so the model only sees features.
     train_tensor = sample_handler.to_pytorch(device, include_identities=False)
 
     # 3. Pre-compute channel indices (Zero Magic ADR 003)
@@ -267,14 +300,14 @@ def train(
         f"GPU Mem: {mem_allocated:.2f} MB"
     )
 
-    # 4. Initialize hidden state (float32 from init_hTtime)
+    # 4. Initialize hidden state
     h = (
         cast(Any, model)
         .init_hTtime(hidden_channels=model.base, H=window_H, W=window_W)
         .to(device)
     )
 
-    # 5. STAGE 5 DIAGNOSTIC: Accumulate visual biopsy data around midpoint
+    # 5. STAGE 5 DIAGNOSTIC
     acc_y_reg: list[np.ndarray] = []
     acc_yh_reg: list[np.ndarray] = []
     acc_y_cls: list[np.ndarray] = []
@@ -293,7 +326,7 @@ def train(
     # --- CORE SEQUENCE PROCESSING ---
     result = _process_sequence(
         train_tensor, model, h,
-        criterion_reg, criterion_class, multitaskloss_instance,
+        ctx.criterion_reg, ctx.criterion_class, ctx.multitaskloss_instance,
         idx, device, pbar=pbar, forensics=forensics,
         hurdle_threshold=config.get("hurdle_threshold"),
         qs99_weight=config.get("qs99_weight", 0.0),
@@ -382,6 +415,14 @@ def training_loop(
     # Initialize Forensic Auditor (ADR 001 Custodian)
     forensics = TrainingForensics(config)
 
+    # C-17: Bundle training components into context
+    ctx = TrainingContext(
+        model=model, optimizer=optimizer, scheduler=scheduler,
+        criterion_reg=criterion_reg, criterion_class=criterion_class,
+        multitaskloss_instance=multitaskloss_instance,
+        config=config, device=device, viz=viz, forensics=forensics,
+    )
+
     # Initialize the Sampler Components
     # 1. The Lens (Mechanical)
     sampler = VolumeSampler(handler, config)
@@ -438,21 +479,7 @@ def training_loop(
                 # 3. Process Window (Accumulate Loss)
                 # Pass viz to capture training dynamics (Stage 5) for all windows
                 slbl = f"Stage 5: Training Forensic (Lesson {lesson_idx + 1}_Win {window_idx + 1})"
-                losses = train(
-                    model,
-                    optimizer,
-                    scheduler,
-                    criterion_reg,
-                    criterion_class,
-                    multitaskloss_instance,
-                    sample_handler,
-                    config,
-                    device,
-                    pbar,
-                    viz=viz,
-                    stage_label=slbl,
-                    forensics=forensics,
-                )
+                losses = train(ctx, sample_handler, pbar, stage_label=slbl)
 
                 # --- MEMORY-SAFE ACCUMULATION (ADR 014 Hardening) ---
                 w_loss = losses["total"]
