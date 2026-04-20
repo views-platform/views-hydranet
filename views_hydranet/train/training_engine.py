@@ -282,9 +282,9 @@ def train(
     # 1. Stochastic Data Augmentation (Tube-Level)
     if config.get("random_flips", True):
         if np.random.rand() < 0.5:
-            sample_handler.flip("H")
+            sample_handler = sample_handler.flip("H")
         if np.random.rand() < 0.5:
-            sample_handler.flip("W")
+            sample_handler = sample_handler.flip("W")
 
     # 2. Model Entry Gate: Transform to PyTorch [B, T, C, H, W]
     train_tensor = sample_handler.to_pytorch(device, include_identities=False)

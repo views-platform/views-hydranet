@@ -6,8 +6,8 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-20                           |
 | Total Concerns    | 70                                   |
-| Open Concerns     | 9                                    |
-| Resolved Concerns | 61                                   |
+| Open Concerns     | 7                                    |
+| Resolved Concerns | 63                                   |
 
 ---
 
@@ -108,7 +108,7 @@ Multiple modules reach into `VolumeHandler._metadata.feature_cols`, `._metadata.
 
 ---
 
-### C-13: `_permute()` mutates VolumeHandler in-place
+### C-13: `_permute()` mutates VolumeHandler in-place — RESOLVED
 
 | Field | Value |
 |-------|-------|
@@ -120,9 +120,11 @@ Multiple modules reach into `VolumeHandler._metadata.feature_cols`, `._metadata.
 
 Unlike transformation methods that return new VolumeHandlers (`slice_time`, `collapse_to_point`), `_permute()` modifies `self._data` and `self._metadata` in-place. Inconsistent with the immutable-by-convention pattern. Currently used only in geometric tests, not in production paths. See also C-14 (same mutation pattern on `flip()`).
 
+**Resolution (2026-04-20):** Refactored `_permute()` to return a new VolumeHandler instance with transformed data and updated axes/history. Original instance is never mutated. Immutability verified by `test_permute_returns_new_instance`.
+
 ---
 
-### C-14: `flip()` mutates VolumeHandler in-place
+### C-14: `flip()` mutates VolumeHandler in-place — RESOLVED
 
 | Field | Value |
 |-------|-------|
@@ -135,6 +137,8 @@ Unlike transformation methods that return new VolumeHandlers (`slice_time`, `col
 Like `_permute()` (C-13), `flip()` modifies `self._data` in-place rather than returning a new VolumeHandler. Used in the training augmentation path (`train_model.train()`). Safe in practice because the augmented handler is a per-window copy from `VolumeSampler`, but the mutation pattern is inconsistent with the immutable-by-convention design.
 
 Per Martin (Clean Architecture Ch 6, p.70-76): "Segregation of Mutability" — separate the application into immutable (pure functional) and mutable (transactional) components. `VolumeMetadata` is correctly immutable (`frozen=True`). But `flip()` and `_permute()` break the segregation by mutating `_data` in-place. Martin would say: these are the "transactional memory" components that should be explicitly marked as mutable, or refactored to return new instances.
+
+**Resolution (2026-04-20):** Refactored `flip()` to return a new VolumeHandler instance with flipped data and updated history. Training engine caller updated to `sample_handler = sample_handler.flip(...)`. Immutability verified by `test_flip_returns_new_instance`.
 
 ---
 

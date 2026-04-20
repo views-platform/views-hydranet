@@ -488,43 +488,60 @@ class VolumeHandler:
 
     def _permute(self, dims: Union[List[int], Tuple[int, ...]]) -> "VolumeHandler":
         """
-        Reorders the axes of the volume and updates the Ledger.
-        NOTE: Review needed - primarily used in geometric tests.
+        Returns a new VolumeHandler with reordered axes.
         """
         dims_tuple = tuple(dims)
         if torch.is_tensor(self._data):
-            t_data = cast(torch.Tensor, self._data)
-            self._data = cast(Any, t_data.permute(*dims_tuple))
+            new_data: Any = (
+                cast(torch.Tensor, self._data).permute(*dims_tuple).contiguous().clone()
+            )
         else:
-            np_data = cast(np.ndarray, self._data)
-            self._data = cast(Any, np.transpose(np_data, dims_tuple))
+            new_data = np.transpose(cast(np.ndarray, self._data), dims_tuple).copy()
 
-        # Update Ledger
         new_axes = tuple(self._metadata.axes[i] for i in dims_tuple)
-        self._metadata = replace(
-            self._metadata,
+        result = VolumeHandler(
+            data=new_data,
             axes=new_axes,
+            channel_map=self.channel_map,
+            time_col=self.time_col,
+            id_col=self.id_col,
+            spatial_cols=self.spatial_cols,
+            identity_cols=self.identity_cols,
+            feature_cols=self.feature_cols,
+            spatial_offset=self.spatial_offset,
+        )
+        result._metadata = replace(
+            result._metadata,
             history=self._metadata.history + (("permute", dims_tuple),),
         )
-        return self
+        return result
 
     def flip(self, axis_label: str) -> "VolumeHandler":
         """
-        Flips the volume along a specific named axis and updates the Ledger history.
-        NOTE: Critical for data augmentation in training loop.
+        Returns a new VolumeHandler flipped along a named axis.
         """
         idx = self.get_axis_idx(axis_label)
         if torch.is_tensor(self._data):
-            t_data = cast(torch.Tensor, self._data)
-            self._data = cast(Any, torch.flip(t_data, dims=[idx]))
+            new_data: Any = torch.flip(cast(torch.Tensor, self._data), dims=[idx])
         else:
-            np_data = cast(np.ndarray, self._data)
-            self._data = cast(Any, np.flip(np_data, axis=idx))
+            new_data = np.flip(cast(np.ndarray, self._data), axis=idx).copy()
 
-        self._metadata = replace(
-            self._metadata, history=self._metadata.history + (("flip", axis_label),)
+        result = VolumeHandler(
+            data=new_data,
+            axes=self.axes,
+            channel_map=self.channel_map,
+            time_col=self.time_col,
+            id_col=self.id_col,
+            spatial_cols=self.spatial_cols,
+            identity_cols=self.identity_cols,
+            feature_cols=self.feature_cols,
+            spatial_offset=self.spatial_offset,
         )
-        return self
+        result._metadata = replace(
+            result._metadata,
+            history=self._metadata.history + (("flip", axis_label),),
+        )
+        return result
 
     @property
     def data(self) -> Union[np.ndarray, "torch.Tensor"]:

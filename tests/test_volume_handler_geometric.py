@@ -27,28 +27,42 @@ class TestGreen:
         """Verify that flip('W') reverses the columns."""
         # Original: [1, 2], [3, 4]
         # Flip W: [2, 1], [4, 3]
-        vh.flip("W")
+        flipped = vh.flip("W")
 
         expected = np.array([[[[2], [1]], [[4], [3]]]], dtype=np.float32)
-        assert np.array_equal(vh.data, expected)
+        assert np.array_equal(flipped.data, expected)
 
         # Check history
-        assert vh.history[-1] == ("flip", "W")
+        assert flipped.history[-1] == ("flip", "W")
 
     def test_flip_temporal(self, vh):
         """Verify that flip('T') works (though unusual for this model)."""
-        vh.flip("T")
-        assert vh.history[-1] == ("flip", "T")
+        flipped = vh.flip("T")
+        assert flipped.history[-1] == ("flip", "T")
 
     def test_permute_axes(self, vh):
         """Verify that permute reorders data and updates the axes ledger."""
         # Current: (T, H, W, C) -> Index (0, 1, 2, 3)
         # Target: (T, C, H, W) -> Index (0, 3, 1, 2)
-        vh._permute((0, 3, 1, 2))
+        permuted = vh._permute((0, 3, 1, 2))
 
-        assert vh.axes == ("T", "C", "H", "W")
-        assert vh.data.shape == (1, 1, 2, 2)
-        assert vh.history[-1] == ("permute", (0, 3, 1, 2))
+        assert permuted.axes == ("T", "C", "H", "W")
+        assert permuted.data.shape == (1, 1, 2, 2)
+        assert permuted.history[-1] == ("permute", (0, 3, 1, 2))
+
+    def test_flip_returns_new_instance(self, vh):
+        """flip() must return a new VolumeHandler, not mutate the original."""
+        original_data = vh.data.copy()
+        flipped = vh.flip("W")
+        assert flipped is not vh
+        np.testing.assert_array_equal(vh.data, original_data)
+
+    def test_permute_returns_new_instance(self, vh):
+        """_permute() must return a new VolumeHandler, not mutate the original."""
+        original_data = vh.data.copy()
+        permuted = vh._permute((0, 3, 1, 2))
+        assert permuted is not vh
+        np.testing.assert_array_equal(vh.data, original_data)
 
     def test_torch_geometric(self):
         """Verify that flip and permute work on torch tensors."""
@@ -63,8 +77,8 @@ class TestGreen:
             spatial_cols=["H", "W"],
         )
 
-        vh.flip("W")
-        assert vh.data[0, 0, 0, 0, 0].item() == 2.0
+        flipped = vh.flip("W")
+        assert flipped.data[0, 0, 0, 0, 0].item() == 2.0
 
-        vh._permute((0, 1, 2, 4, 3))
-        assert vh.axes == ("B", "T", "C", "W", "H")
+        permuted = flipped._permute((0, 1, 2, 4, 3))
+        assert permuted.axes == ("B", "T", "C", "W", "H")
