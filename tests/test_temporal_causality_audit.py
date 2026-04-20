@@ -61,7 +61,7 @@ class TestGreen:
 
         handler = MagicMock()
         handler.channel_map = feature_names
-        handler._metadata.feature_cols = feature_names
+        handler.feature_cols = feature_names
 
         magnitudes, _ = inf.predict(full_tensor, 9, 0, feature_names)
 

@@ -258,3 +258,106 @@ class TestBeigeSinglePosteriorSample:
         assert float(collapsed.data.flat[0]) == pytest.approx(5.0), (
             "Collapsing S=1 should be identity"
         )
+
+
+# ---------------------------------------------------------------------------
+# RED: Degenerate configs that should be rejected (C-29)
+# ---------------------------------------------------------------------------
+
+
+class TestRedDegenerateConfigsRejected:
+    """C-29: Configs that Pydantic accepts but produce degenerate behavior."""
+
+    def test_slope_ratio_zero_rejected(self):
+        """slope_ratio=0.0 causes ZeroDivisionError in curriculum — must reject."""
+        from views_hydranet.utils.config_initializer import HydraNetConfig
+
+        with pytest.raises(ValueError, match="slope_ratio"):
+            HydraNetConfig(**_pydantic_config(slope_ratio=0.0))
+
+    def test_slope_ratio_negative_rejected(self):
+        """Negative slope_ratio inverts curriculum — must reject."""
+        from views_hydranet.utils.config_initializer import HydraNetConfig
+
+        with pytest.raises(ValueError, match="slope_ratio"):
+            HydraNetConfig(**_pydantic_config(slope_ratio=-1.0))
+
+    def test_min_ratio_greater_than_max_ratio_rejected(self):
+        """min_ratio > max_ratio inverts curriculum range — must reject."""
+        from views_hydranet.utils.config_initializer import HydraNetConfig
+
+        with pytest.raises(ValueError, match="min_ratio.*max_ratio"):
+            HydraNetConfig(**_pydantic_config(min_ratio=0.9, max_ratio=0.1))
+
+    def test_window_dim_less_than_2_rejected(self):
+        """window_dim=1 gives single-pixel patches — must reject."""
+        from views_hydranet.utils.config_initializer import HydraNetConfig
+
+        with pytest.raises(ValueError, match="window_dim"):
+            HydraNetConfig(**_pydantic_config(window_dim=1))
+
+    def test_roof_ratio_zero_rejected(self):
+        """roof_ratio=0.0 eliminates curriculum variation — must reject."""
+        from views_hydranet.utils.config_initializer import HydraNetConfig
+
+        with pytest.raises(ValueError, match="roof_ratio"):
+            HydraNetConfig(**_pydantic_config(roof_ratio=0.0))
+
+    def test_roof_ratio_negative_rejected(self):
+        """Negative roof_ratio is nonsensical — must reject."""
+        from views_hydranet.utils.config_initializer import HydraNetConfig
+
+        with pytest.raises(ValueError, match="roof_ratio"):
+            HydraNetConfig(**_pydantic_config(roof_ratio=-0.5))
+
+
+def _pydantic_config(**overrides):
+    """Minimal valid kwargs for HydraNetConfig with overrides."""
+    base = {
+        "run_type": "calibration",
+        "features": ["lr_sb", "by_sb"],
+        "regression_targets": ["lr_sb"],
+        "classification_targets": ["by_sb"],
+        "height": 8,
+        "width": 8,
+        "index_names": ["month_id", "priogrid_gid"],
+        "time_col": "month_id",
+        "id_col": "priogrid_gid",
+        "spatial_cols": ["row", "col"],
+        "row_offset": 0,
+        "col_offset": 0,
+        "model": "HydraBNUNet06_LSTM4",
+        "window_dim": 4,
+        "total_hidden_channels": 16,
+        "dropout_rate": 0.1,
+        "weight_init": "xavier",
+        "learning_rate": 0.001,
+        "weight_decay": 0.01,
+        "windows_per_lesson": 2,
+        "scheduler": "warmup_decay",
+        "warmup_steps": 5,
+        "clip_grad_norm": True,
+        "loss_reg": "mse",
+        "loss_class": "focal",
+        "total_lessons": 10,
+        "n_posterior_samples": 5,
+        "np_seed": 42,
+        "torch_seed": 42,
+        "min_events": 0,
+        "slope_ratio": 1.0,
+        "roof_ratio": 1.0,
+        "max_ratio": 0.9,
+        "min_ratio": 0.1,
+        "freeze_h": "none",
+        "evaluation_mode": "point",
+        "aggregate_method": "arithmetic_mean",
+        "prediction_format": "prediction_frame",
+        "time_steps": 3,
+        "steps": [1, 2, 3],
+        "input_channels": 2,
+        "output_channels": 2,
+        "identity_cols": ["priogrid_gid", "month_id"],
+        "transformations": {"log1p": ["lr_sb", "by_sb"]},
+    }
+    base.update(overrides)
+    return base

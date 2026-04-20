@@ -53,7 +53,7 @@ SUBSET_CFG = {
     "row_offset": 0,
     "col_offset": 0,
     "model": "Dummy",
-    "window_dim": 1,
+    "window_dim": 2,
     "total_hidden_channels": 8,
     "dropout_rate": 0.0,
     "weight_init": "norm",

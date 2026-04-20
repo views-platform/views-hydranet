@@ -398,7 +398,7 @@ class HydraNetInference:
         _, seq_len, _, H, W = full_tensor.shape
 
         # ADR 046: Map channel names for consistent indexing in predict()
-        feature_names = [n for n in handler.channel_map if n in handler._metadata.feature_cols]
+        feature_names = [n for n in handler.channel_map if n in handler.feature_cols]
 
         # 2. Extract Time Indices for Forensic Biopsy (Stage 5)
         # month_id is in the channel_map.

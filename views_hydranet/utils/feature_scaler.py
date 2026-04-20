@@ -245,12 +245,12 @@ class FeatureScaler:
 
         return VolumeHandler(
             data=work_data,
-            axes=vh._metadata.axes,
+            axes=vh.axes,
             channel_map=vh.channel_map,
-            time_col=vh._metadata.time_col,
-            id_col=vh._metadata.id_col,
-            spatial_cols=vh._metadata.spatial_cols,
-            identity_cols=vh._metadata.identity_cols,
-            feature_cols=vh._metadata.feature_cols,
-            spatial_offset=vh._metadata.spatial_offset,
+            time_col=vh.time_col,
+            id_col=vh.id_col,
+            spatial_cols=vh.spatial_cols,
+            identity_cols=vh.identity_cols,
+            feature_cols=vh.feature_cols,
+            spatial_offset=vh.spatial_offset,
         )

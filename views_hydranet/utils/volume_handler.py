@@ -246,7 +246,7 @@ class VolumeHandler:
             # ADR 007 hardening: Strip identity channels by checking the channel map.
             # This ensures only feature_cols reach the model.
             feature_indices = [
-                i for i, name in enumerate(self.channel_map) if name in self._metadata.feature_cols
+                i for i, name in enumerate(self.channel_map) if name in self.feature_cols
             ]
             assert feature_indices, (
                 "VolumeHandler.to_pytorch: feature_cols is empty — "
@@ -293,9 +293,7 @@ class VolumeHandler:
 
         # Identify all non-feature channels from parent (excluding primary keys already handled)
         identity_names = [
-            n
-            for n in self.channel_map
-            if n in self._metadata.identity_cols and n not in [time_col, id_col]
+            n for n in self.channel_map if n in self.identity_cols and n not in [time_col, id_col]
         ]
         identity_idxs = [self.channel_map.index(n) for n in identity_names]
 
@@ -359,10 +357,10 @@ class VolumeHandler:
             channel_map=final_names,
             time_col=time_col,
             id_col=id_col,
-            spatial_cols=self._metadata.spatial_cols,
+            spatial_cols=self.spatial_cols,
             identity_cols=tuple(identity_names),
             feature_cols=tuple(full_signal_names),
-            spatial_offset=self._metadata.spatial_offset,
+            spatial_offset=self.spatial_offset,
         )
 
     def collapse_to_point(self, method: str) -> "VolumeHandler":
@@ -407,12 +405,12 @@ class VolumeHandler:
             data=collapsed_data,
             axes=new_axes,
             channel_map=self.channel_map,
-            time_col=self._metadata.time_col,
-            id_col=self._metadata.id_col,
-            spatial_cols=self._metadata.spatial_cols,
-            identity_cols=self._metadata.identity_cols,
-            feature_cols=self._metadata.feature_cols,
-            spatial_offset=self._metadata.spatial_offset,
+            time_col=self.time_col,
+            id_col=self.id_col,
+            spatial_cols=self.spatial_cols,
+            identity_cols=self.identity_cols,
+            feature_cols=self.feature_cols,
+            spatial_offset=self.spatial_offset,
         )
 
     def slice_time(self, start_idx: int, end_idx: int) -> "VolumeHandler":
@@ -438,14 +436,14 @@ class VolumeHandler:
 
         return VolumeHandler(
             data=new_data,
-            axes=self._metadata.axes,
-            channel_map=self._metadata.channel_map,
-            time_col=self._metadata.time_col,
-            id_col=self._metadata.id_col,
-            spatial_cols=self._metadata.spatial_cols,
-            identity_cols=self._metadata.identity_cols,
-            feature_cols=self._metadata.feature_cols,
-            spatial_offset=self._metadata.spatial_offset,
+            axes=self.axes,
+            channel_map=self.channel_map,
+            time_col=self.time_col,
+            id_col=self.id_col,
+            spatial_cols=self.spatial_cols,
+            identity_cols=self.identity_cols,
+            feature_cols=self.feature_cols,
+            spatial_offset=self.spatial_offset,
         )
 
     def extrapolate_time(self, steps: int) -> "VolumeHandler":
@@ -478,14 +476,14 @@ class VolumeHandler:
 
         return VolumeHandler(
             data=future_vol,
-            axes=self._metadata.axes,
-            channel_map=self._metadata.channel_map,
-            time_col=self._metadata.time_col,
-            id_col=self._metadata.id_col,
-            spatial_cols=self._metadata.spatial_cols,
-            identity_cols=self._metadata.identity_cols,
-            feature_cols=self._metadata.feature_cols,
-            spatial_offset=self._metadata.spatial_offset,
+            axes=self.axes,
+            channel_map=self.channel_map,
+            time_col=self.time_col,
+            id_col=self.id_col,
+            spatial_cols=self.spatial_cols,
+            identity_cols=self.identity_cols,
+            feature_cols=self.feature_cols,
+            spatial_offset=self.spatial_offset,
         )
 
     def _permute(self, dims: Union[List[int], Tuple[int, ...]]) -> "VolumeHandler":
@@ -563,6 +561,18 @@ class VolumeHandler:
     def spatial_offset(self) -> Tuple[int, int]:
         return self._metadata.spatial_offset
 
+    @property
+    def feature_cols(self) -> Tuple[str, ...]:
+        return self._metadata.feature_cols
+
+    @property
+    def identity_cols(self) -> Tuple[str, ...]:
+        return self._metadata.identity_cols
+
+    @property
+    def history(self) -> Tuple[Tuple[str, Any], ...]:
+        return self._metadata.history
+
     # Cross-ref: DataFetcher.apply_blueprint() (data_fetcher.py)
     # Both paths RAISE if source is missing — see tests/test_derivation_parity.py.
     def _execute_derivations(self, derivations_config: Dict[str, List[Dict[str, Any]]]) -> None:
@@ -572,7 +582,7 @@ class VolumeHandler:
         """
         c_idx = self.get_axis_idx("C")
         new_channels = list(self._metadata.channel_map)
-        new_features = list(self._metadata.feature_cols)
+        new_features = list(self.feature_cols)
 
         for op, instructions in derivations_config.items():
             for instr in instructions:

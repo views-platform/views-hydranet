@@ -22,7 +22,7 @@ class TestOptimizationGate:
             "windows_per_lesson": 2,
             "np_seed": 4,
             "torch_seed": 4,
-            "window_dim": 1,
+            "window_dim": 2,
             "steps": [1],
             "time_steps": 1,  # Added checksum
             "n_posterior_samples": 10,

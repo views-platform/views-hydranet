@@ -99,9 +99,8 @@ def test_derivation_ledger_update():
     assert "by_feat_a" in vh.channel_map, (
         f"Expected 'by_feat_a' in channel_map after derivation, got: {list(vh.channel_map)}"
     )
-    assert "by_feat_a" in vh._metadata.feature_cols, (
-        f"Expected 'by_feat_a' in feature_cols after derivation, "
-        f"got: {list(vh._metadata.feature_cols)}"
+    assert "by_feat_a" in vh.feature_cols, (
+        f"Expected 'by_feat_a' in feature_cols after derivation, got: {list(vh.feature_cols)}"
     )
     assert vh.data.shape[-1] == 2, (
         f"Expected shape[-1] == 2 (1 original + 1 derived), got {vh.data.shape[-1]}"

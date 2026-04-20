@@ -33,12 +33,12 @@ class TestGreen:
         assert np.array_equal(vh.data, expected)
 
         # Check history
-        assert vh._metadata.history[-1] == ("flip", "W")
+        assert vh.history[-1] == ("flip", "W")
 
     def test_flip_temporal(self, vh):
         """Verify that flip('T') works (though unusual for this model)."""
         vh.flip("T")
-        assert vh._metadata.history[-1] == ("flip", "T")
+        assert vh.history[-1] == ("flip", "T")
 
     def test_permute_axes(self, vh):
         """Verify that permute reorders data and updates the axes ledger."""
@@ -48,7 +48,7 @@ class TestGreen:
 
         assert vh.axes == ("T", "C", "H", "W")
         assert vh.data.shape == (1, 1, 2, 2)
-        assert vh._metadata.history[-1] == ("permute", (0, 3, 1, 2))
+        assert vh.history[-1] == ("permute", (0, 3, 1, 2))
 
     def test_torch_geometric(self):
         """Verify that flip and permute work on torch tensors."""

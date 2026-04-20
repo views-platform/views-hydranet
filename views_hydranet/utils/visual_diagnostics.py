@@ -395,7 +395,7 @@ class VisualDiagnostics:
                 interesting.append(c)
 
         # 2. Signal Features Group (pulled from ledger — ADR 012)
-        for c in vh._metadata.feature_cols:
+        for c in vh.feature_cols:
             if c in vh.channel_map and c not in interesting:
                 interesting.append(c)
 

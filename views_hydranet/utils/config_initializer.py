@@ -300,6 +300,48 @@ class HydraNetConfig(BaseModel):
             raise ValueError(err_msg)
         return v
 
+    @field_validator("slope_ratio")
+    @classmethod
+    def validate_slope_ratio(cls, v: float) -> float:
+        if v <= 0.0:
+            err_msg = (
+                f"slope_ratio must be > 0.0 (got {v}). Zero causes division-by-zero in curriculum."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator("roof_ratio")
+    @classmethod
+    def validate_roof_ratio(cls, v: float) -> float:
+        if v <= 0.0:
+            err_msg = f"roof_ratio must be > 0.0 (got {v}). Zero eliminates curriculum variation."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator("window_dim")
+    @classmethod
+    def validate_window_dim(cls, v: int) -> int:
+        if v < 2:
+            err_msg = (
+                f"window_dim must be >= 2 (got {v}). Single-pixel patches have no spatial context."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
+    @model_validator(mode="after")
+    def validate_ratio_ordering(self) -> "HydraNetConfig":
+        if self.min_ratio >= self.max_ratio:
+            err_msg = (
+                f"min_ratio ({self.min_ratio}) must be < max_ratio ({self.max_ratio}). "
+                f"Inverted range breaks curriculum sampling."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
     # --- Dict-compatibility layer (gradual migration from config["key"]) ---
 
     def __getitem__(self, key: str) -> Any:
