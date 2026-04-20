@@ -5,11 +5,8 @@ import torch
 from views_hydranet.utils.volume_handler import VolumeHandler
 
 
-class TestVolumeHandlerGeometric:
-    """
-    Verifies that VolumeHandler can perform geometric transformations
-    while preserving Ledger integrity and tracking history.
-    """
+class TestGreen:
+    """Green: VolumeHandler geometric transformations preserve Ledger integrity."""
 
     @pytest.fixture
     def vh(self):

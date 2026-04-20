@@ -10,9 +10,11 @@ _process_sequence are available from this module for existing callers.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import torch
@@ -66,11 +68,15 @@ def train_model_artifact(
         # Define the path for the artifacts with a timestamp and a run type
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         model_filename = f"{config['run_type']}_model_{timestamp}.pt"
-        # save the model
-        torch.save(model, model_path.artifacts / model_filename)
+        artifact_path = Path(model_path.artifacts / model_filename)
+        torch.save(model, artifact_path)
 
-        # done
-        logger.info(f"Model saved as: {model_path.artifacts / model_filename}")
+        if artifact_path.exists():
+            sha256 = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+            artifact_path.with_suffix(".pt.sha256").write_text(sha256)
+            logger.info(f"Model saved as: {artifact_path} (sha256: {sha256[:16]}…)")
+        else:
+            logger.info(f"Model saved as: {artifact_path}")
     else:
         logger.info("Skipping artifact save (sweep/dry-run active).")
 

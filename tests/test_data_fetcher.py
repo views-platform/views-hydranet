@@ -90,9 +90,9 @@ class TestGreenBlueprint:
     def test_green_blueprint_binary(self):
         """Binary derivation produces correct 0/1 column."""
         df = pd.DataFrame({"signal": [0.0, 0.5, 1.0, 2.0]})
-        cfg = _base_config(derivations={
-            "binary": [{"from": "signal", "to": "is_active", "threshold": 0.5}]
-        })
+        cfg = _base_config(
+            derivations={"binary": [{"from": "signal", "to": "is_active", "threshold": 0.5}]}
+        )
         result = DataFetcher.apply_blueprint(df, cfg)
         np.testing.assert_array_equal(result["is_active"].values, [0.0, 0.0, 1.0, 1.0])
 
@@ -110,17 +110,11 @@ class TestGreenFetchDf:
         expected_df = _make_multiindex_df()
 
         with (
-            patch(
-                "views_hydranet.utils.data_fetcher.PipelineConfig"
-            ) as mock_pc,
-            patch(
-                "views_hydranet.utils.data_fetcher.read_dataframe"
-            ) as mock_read,
-            patch(
-                "views_hydranet.utils.data_fetcher.log_data_load_report"
-            ),
+            patch("views_hydranet.utils.data_fetcher.PipelineConfig") as mock_pc,
+            patch("views_hydranet.utils.data_fetcher.read_dataframe") as mock_read,
+            patch("views_hydranet.utils.data_fetcher.log_data_load_report"),
         ):
-            mock_pc.return_value.dataframe_format = ".parquet"
+            mock_pc.dataframe_format = ".parquet"
             mock_read.return_value = expected_df
 
             fetcher = DataFetcher(tmp_path, cfg)
@@ -142,6 +136,7 @@ class TestBeige:
         result = DataFetcher.standardize_raw_df(df, _base_config())
         assert "extra_col" in result.columns
 
+
 # ---------------------------------------------------------------------------
 # RED TEAM — failure detection
 # ---------------------------------------------------------------------------
@@ -149,9 +144,9 @@ class TestRed:
     def test_red_blueprint_missing_source_raises(self):
         """C-50: Missing source column raises (matches VolumeHandler behavior)."""
         df = pd.DataFrame({"a": [1, 2]})
-        cfg = _base_config(derivations={
-            "binary": [{"from": "nonexistent", "to": "out", "threshold": 0.5}]
-        })
+        cfg = _base_config(
+            derivations={"binary": [{"from": "nonexistent", "to": "out", "threshold": 0.5}]}
+        )
         with pytest.raises(ValueError, match="Source column 'nonexistent' not found"):
             DataFetcher.apply_blueprint(df, cfg)
 
@@ -163,9 +158,7 @@ class TestRed:
 
     def test_red_wrong_level_names_raises(self):
         """Wrong MultiIndex names -> ValueError."""
-        idx = pd.MultiIndex.from_arrays(
-            [[1, 2], [3, 4]], names=["wrong_a", "wrong_b"]
-        )
+        idx = pd.MultiIndex.from_arrays([[1, 2], [3, 4]], names=["wrong_a", "wrong_b"])
         df = pd.DataFrame({"a": [1, 2]}, index=idx)
         with pytest.raises(ValueError, match="Contract Violation"):
             DataFetcher.standardize_raw_df(df, _base_config())
@@ -179,9 +172,7 @@ class TestRed:
 
     def test_red_missing_id_col_raises(self):
         """id_col absent after reset -> KeyError."""
-        idx = pd.MultiIndex.from_arrays(
-            [[1, 2], [3, 4]], names=INDEX_NAMES
-        )
+        idx = pd.MultiIndex.from_arrays([[1, 2], [3, 4]], names=INDEX_NAMES)
         df = pd.DataFrame({"a": [1, 2]}, index=idx)
         # Use a bogus id_col that won't exist after reset
         cfg = _base_config(id_col="nonexistent_col")
@@ -191,18 +182,18 @@ class TestRed:
     def test_red_blueprint_unknown_op_raises(self):
         """Unknown operation -> NotImplementedError."""
         df = pd.DataFrame({"a": [1, 2]})
-        cfg = _base_config(derivations={
-            "logarithmic": [{"from": "a", "to": "b"}]
-        })
+        cfg = _base_config(derivations={"logarithmic": [{"from": "a", "to": "b"}]})
         with pytest.raises(NotImplementedError, match="logarithmic"):
             DataFetcher.apply_blueprint(df, cfg)
 
     def test_red_blueprint_missing_key_raises(self):
         """Binary op missing threshold -> KeyError."""
         df = pd.DataFrame({"a": [1, 2]})
-        cfg = _base_config(derivations={
-            "binary": [{"from": "a", "to": "b"}]  # no threshold
-        })
+        cfg = _base_config(
+            derivations={
+                "binary": [{"from": "a", "to": "b"}]  # no threshold
+            }
+        )
         with pytest.raises(KeyError, match="threshold"):
             DataFetcher.apply_blueprint(df, cfg)
 
@@ -211,17 +202,11 @@ class TestRed:
         cfg = _base_config(run_type="calibration")
 
         with (
-            patch(
-                "views_hydranet.utils.data_fetcher.PipelineConfig"
-            ) as mock_pc,
-            patch(
-                "views_hydranet.utils.data_fetcher.read_dataframe"
-            ) as mock_read,
-            patch(
-                "views_hydranet.utils.data_fetcher.log_data_load_report"
-            ),
+            patch("views_hydranet.utils.data_fetcher.PipelineConfig") as mock_pc,
+            patch("views_hydranet.utils.data_fetcher.read_dataframe") as mock_read,
+            patch("views_hydranet.utils.data_fetcher.log_data_load_report"),
         ):
-            mock_pc.return_value.dataframe_format = ".parquet"
+            mock_pc.dataframe_format = ".parquet"
             mock_read.side_effect = FileNotFoundError("File not found")
 
             fetcher = DataFetcher(tmp_path, cfg)

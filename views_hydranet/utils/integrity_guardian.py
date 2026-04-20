@@ -1,9 +1,10 @@
 """
-IntegrityGuardian: Numerical stability monitor for HydraNet training.
+IntegrityGuardian: Numerical stability monitor for HydraNet.
 """
 
 import logging
 
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -59,3 +60,15 @@ class IntegrityGuardian:
                     logger.error(err_msg)
 
                     raise RuntimeError(err_msg)
+
+    @staticmethod
+    def monitor_numpy(array: np.ndarray, context: str = "") -> None:
+        """
+        Checks a numpy array for non-finite values (NaN/Inf).
+        Raises RuntimeError on detection (ADR-003: Fail Loud).
+        """
+        if not np.isfinite(array).all():
+            nan_count = int(np.count_nonzero(~np.isfinite(array)))
+            err_msg = f"[FATAL] Array contains {nan_count} non-finite values. Context: {context}"
+            logger.error(err_msg)
+            raise RuntimeError(err_msg)

@@ -14,9 +14,9 @@ class ModelOutput(NamedTuple):
     tuple unpacking, so legacy `r, c, h = model(x, h)` continues to work.
     """
 
-    reg: torch.Tensor       # [B, n_reg, H, W] regression head outputs
-    cls: torch.Tensor       # [B, n_cls, H, W] classification head logits
-    h_next: torch.Tensor    # [B, total_hidden_channels, H, W] LSTM hidden state
+    reg: torch.Tensor  # [B, n_reg, H, W] regression head outputs
+    cls: torch.Tensor  # [B, n_cls, H, W] classification head logits
+    h_next: torch.Tensor  # [B, total_hidden_channels, H, W] LSTM hidden state
 
 
 # give everything better names at some point

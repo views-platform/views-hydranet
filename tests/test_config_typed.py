@@ -3,7 +3,6 @@ Tests for ConfigInitializer.get_config() — validates config via Pydantic,
 returns plain dict (required by parent class ForecastingModelManager.configs setter).
 """
 
-
 from views_hydranet.utils.config_initializer import ConfigInitializer
 
 # Minimal valid config that satisfies all HydraNetConfig validators

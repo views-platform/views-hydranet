@@ -3,6 +3,7 @@ Standalone ModelArtifactFetcher component for the HydraNet pipeline.
 Governed by ADR 026.
 """
 
+import hashlib
 import logging
 from collections.abc import Callable
 from pathlib import Path
@@ -89,12 +90,31 @@ class ModelArtifactFetcher:
         # Expected format: ..._YYYYMMDD_HHMMSS.pt
         timestamp = path_model_artifact.stem[-15:]
 
-        # 4. Deserialization and Device Placement
+        # 4. Integrity Verification (SHA-256)
+        hash_path = path_model_artifact.with_suffix(".pt.sha256")
+        if hash_path.exists():
+            expected = hash_path.read_text().strip()
+            actual = hashlib.sha256(path_model_artifact.read_bytes()).hexdigest()
+            if actual != expected:
+                err_msg = (
+                    f"Retriever: Artifact integrity check FAILED for {path_model_artifact}. "
+                    f"Expected sha256={expected[:16]}…, got {actual[:16]}…"
+                )
+                logger.error(err_msg)
+                raise RuntimeError(err_msg)
+            logger.info(f"Retriever: SHA-256 verified for {path_model_artifact.name}")
+        else:
+            logger.warning(
+                f"Retriever: No .sha256 hash file for {path_model_artifact.name}. "
+                f"Skipping integrity check (legacy artifact)."
+            )
+
+        # 5. Deserialization and Device Placement
         logger.debug(f"Retriever: Loading artifact from {path_model_artifact}")
         model = torch.load(path_model_artifact, map_location="cpu", weights_only=False)
         model.to(self.device)
 
-        # 5. The Handshake: Register the exact model used in the config
+        # 6. The Handshake: Register the exact model used in the config
         self.add_config({"timestamp": timestamp})
 
         return model, timestamp

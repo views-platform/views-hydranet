@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+    branches: [main, development]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - run: uv tool install ruff
+      - run: ruff check .
+      - run: ruff format --check .
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          environment-file: environment.yml
+          activate-environment: views-hydranet-env
+      - run: |
+          conda run -n views-hydranet-env python -m pytest tests/ \
+            --ignore=tests/test_eval_integration_toy.py \
+            --ignore=tests/test_falsification_all_risks_identified.py \
+            --ignore=tests/test_falsification_deployment_readiness.py \
+            --ignore=tests/test_falsification_cradle_to_grave.py \
+            --ignore=tests/test_falsification_end_to_end_claim.py \
+            --ignore=tests/test_falsification_repo_clean.py \
+            -v --tb=short

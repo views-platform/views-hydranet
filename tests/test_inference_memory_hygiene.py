@@ -117,16 +117,23 @@ def _make_handler() -> VolumeHandler:
     for t in range(100, 105):
         for r in range(2):
             for c in range(2):
-                rows.append({
-                    "month_id": t, "priogrid_gid": r * 2 + c + 1,
-                    "row": float(r), "col": float(c),
-                    "lr_sb_best": 0.5, "lr_ns_best": 0.1, "lr_os_best": 0.0,
-                })
+                rows.append(
+                    {
+                        "month_id": t,
+                        "priogrid_gid": r * 2 + c + 1,
+                        "row": float(r),
+                        "col": float(c),
+                        "lr_sb_best": 0.5,
+                        "lr_ns_best": 0.1,
+                        "lr_os_best": 0.0,
+                    }
+                )
     df = pd.DataFrame(rows)
     return VolumeHandler.from_df(df, MEMORY_CFG)
 
 
 # ─── STRUCTURAL TESTS (RED → GREEN) ──────────────────────────────────────────
+
 
 class TestStructuralMemoryHygiene:
     """
@@ -230,6 +237,7 @@ class TestStructuralMemoryHygiene:
     def test_gc_imported_in_hydranet_inference(self):
         """gc must be imported at module level for gc.collect() to work."""
         import views_hydranet.utils.hydranet_inference as _mod
+
         assert hasattr(_mod, "gc") or "import gc" in inspect.getsource(_mod), (
             "hydranet_inference.py must import gc."
         )
@@ -244,6 +252,7 @@ class TestStructuralMemoryHygiene:
         increasing peak RAM.
         """
         from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
+
         source = inspect.getsource(InferenceOrchestrator._run_inference_pipeline)
         del_pos = source.index("del post_reg")
         invert_pos = source.index("scaler.inverse_transform_volume")
@@ -261,6 +270,7 @@ class TestStructuralMemoryHygiene:
         work_data copy, adding 1.75 GB to peak RAM unnecessarily.
         """
         from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
+
         source = inspect.getsource(InferenceOrchestrator._run_inference_pipeline)
         del_pos = source.index("del posterior_zstack")
         invert_pos = source.index("scaler.inverse_transform_volume")
@@ -276,6 +286,7 @@ class TestStructuralMemoryHygiene:
         overlapping with the next origin's memory allocations.
         """
         from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
+
         source = inspect.getsource(InferenceOrchestrator.generate_prediction_frames_streaming)
         assert "del pf_dict" in source, (
             "generate_prediction_frames_streaming() must explicitly 'del pf_dict' after "
@@ -289,12 +300,12 @@ class TestStructuralMemoryHygiene:
         generate_prediction_frames_streaming().
         """
         from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
+
         source = inspect.getsource(InferenceOrchestrator.generate_prediction_frames_streaming)
         assert "gc.collect()" in source, (
             "generate_prediction_frames_streaming() must call gc.collect() inside the "
             "origin loop to promptly release memory after each origin."
         )
-
 
     def test_valid_cell_indices_does_not_copy_signal_data(self):
         """
@@ -314,6 +325,7 @@ class TestStructuralMemoryHygiene:
         from views_hydranet.utils.prediction_frame_assembler import (
             PredictionFrameAssembler,
         )
+
         source = inspect.getsource(PredictionFrameAssembler._valid_cell_indices)
         assert "signal.data.copy()" not in source, (
             "_valid_cell_indices() must not call signal.data.copy(). "
@@ -333,6 +345,7 @@ class TestStructuralMemoryHygiene:
         from views_hydranet.utils.prediction_frame_assembler import (
             PredictionFrameAssembler,
         )
+
         source = inspect.getsource(PredictionFrameAssembler._valid_cell_indices)
         assert "provider.data.copy()" not in source, (
             "_valid_cell_indices() must not call provider.data.copy(). "
@@ -341,6 +354,7 @@ class TestStructuralMemoryHygiene:
 
 
 # ─── LIFECYCLE TESTS (regression guards) ─────────────────────────────────────
+
 
 class TestTensorLifecycle:
     """
@@ -384,7 +398,6 @@ class TestTensorLifecycle:
                 origin=3,
                 sample_idx=0,
                 feature_names=["lr_sb_best", "lr_ns_best", "lr_os_best"],
-                is_evaluation=False,
             )
 
         # After predict() returns, force GC and verify tensors are freed
@@ -429,6 +442,7 @@ class TestTensorLifecycle:
 
 # ─── STREAMING EVALUATION INTERFACE TESTS (Step 4 TDD) ───────────────────────
 
+
 class TestStreamingEvalInterface:
     """
     TDD tests for HydranetManager._evaluate_model_artifact_streaming().
@@ -441,8 +455,14 @@ class TestStreamingEvalInterface:
     pf_dicts.  All I/O is bypassed.
     """
 
-    _ALL_TARGETS = ["lr_sb_best", "lr_ns_best", "lr_os_best",
-                    "by_sb_best", "by_ns_best", "by_os_best"]
+    _ALL_TARGETS = [
+        "lr_sb_best",
+        "lr_ns_best",
+        "lr_os_best",
+        "by_sb_best",
+        "by_ns_best",
+        "by_os_best",
+    ]
     _N_ORIGINS = 3
 
     def _run_streaming(self, n_origins=None, targets=None):
@@ -546,7 +566,7 @@ class TestStreamingEvalInterface:
                     },
                 )
                 origin_sink(i, {"target": pf})
-                del pf          # streaming implementation frees immediately
+                del pf  # streaming implementation frees immediately
                 gc.collect()
 
         mock_orchestrator.generate_prediction_frames_streaming.side_effect = fake_streaming
@@ -561,9 +581,7 @@ class TestStreamingEvalInterface:
 
         manager = object.__new__(HydranetManager)
         with patch.object(HydranetManager, "_setup_evaluation", return_value=mock_ctx):
-            manager._evaluate_model_artifact_streaming(
-                "calibration", None, sink_with_weakref
-            )
+            manager._evaluate_model_artifact_streaming("calibration", None, sink_with_weakref)
 
         gc.collect()
         assert all(r() is None for r in weak_refs), (

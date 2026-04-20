@@ -43,9 +43,7 @@ class DataFetcher:
         df_ext = PipelineConfig.dataframe_format
         path_raw_file = os.path.join(str(self.path_raw), f"{partition}_viewser_df{df_ext}")
 
-
         logger.info(f"DataFetcher: Loading {partition} from {path_raw_file}")
-
 
         df = read_dataframe(path_raw_file)
 
@@ -180,9 +178,7 @@ class DataFetcher:
                     threshold = instr["threshold"]
                     df_out[dst_name] = (df_out[src_name] > threshold).astype(float)
                 else:
-                    err_msg = (
-                        f"DataFetcher Blueprint Error: Operation '{op}' not implemented."
-                    )
+                    err_msg = f"DataFetcher Blueprint Error: Operation '{op}' not implemented."
                     logger.error(err_msg)
                     raise NotImplementedError(err_msg)
 

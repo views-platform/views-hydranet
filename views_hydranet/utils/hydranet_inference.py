@@ -163,8 +163,7 @@ class HydraNetInference:
 
             # Generate binary mask on the correct device
             mask = (
-                torch.rand(num_chunks, device=self.device)
-                < self._RANDOM_FREEZE_PROBABILITY
+                torch.rand(num_chunks, device=self.device) < self._RANDOM_FREEZE_PROBABILITY
             ).float()
             mask_expanded = mask.view(1, num_chunks, 1, 1, 1).bool()
 
@@ -193,7 +192,6 @@ class HydraNetInference:
         origin: int,
         sample_idx: int,
         feature_names: List[str],
-        is_evaluation: bool = True,
         pbar: Optional[tqdm] = None,
         stage_label: str = "Stage 5",
         time_indices: Optional[List[float]] = None,
@@ -204,7 +202,6 @@ class HydraNetInference:
             full_tensor: Input tensor (batch, time, channels, H, W).
             sample_idx: Current sample index for posterior sampling.
             feature_names: Names of channels in full_tensor.
-            is_evaluation: Whether running in evaluation mode.
             pbar: Optional progress bar to update.
             stage_label: Label for visual diagnostics.
 
@@ -230,9 +227,6 @@ class HydraNetInference:
         # BOUNDARY ANCHORING (ADR 015)
         # History ends at 'origin'. So there are 'origin + 1' months of history.
         time_steps = self.config["time_steps"]
-
-        n_reg = len(reg_targets)
-        n_cls = len(self.config["classification_targets"])
 
         # GPU Accumulators for sequence steps
         acc_magnitudes = []
@@ -265,7 +259,10 @@ class HydraNetInference:
                     # Seed frame for biopsy
                     y_seed = (
                         full_tensor[0, t, reg_indices, :, :]
-                        .permute(1, 2, 0).detach().cpu().numpy()
+                        .permute(1, 2, 0)
+                        .detach()
+                        .cpu()
+                        .numpy()
                     )
                     truth_accumulator.append(y_seed)
                     pred_accumulator.append(y_seed)
@@ -274,7 +271,10 @@ class HydraNetInference:
                     try:
                         y_truth = (
                             full_tensor[0, t + 1, reg_indices, :, :]
-                            .permute(1, 2, 0).detach().cpu().numpy()
+                            .permute(1, 2, 0)
+                            .detach()
+                            .cpu()
+                            .numpy()
                         )
                         truth_accumulator.append(y_truth)
                     except IndexError:
@@ -304,7 +304,10 @@ class HydraNetInference:
                     try:
                         y_truth = (
                             full_tensor[0, t + 1, reg_indices, :, :]
-                            .permute(1, 2, 0).detach().cpu().numpy()
+                            .permute(1, 2, 0)
+                            .detach()
+                            .cpu()
+                            .numpy()
                         )
                         truth_accumulator.append(y_truth)
                     except IndexError:
@@ -323,11 +326,12 @@ class HydraNetInference:
         del acc_probabilities
 
         if not torch.isfinite(full_magnitudes).all():
-            logger.error(f"!!! MODEL EXPLODED during sample {sample_idx} sequence !!!")
-            return (
-                np.full((time_steps, n_reg, H, W), np.nan, dtype=np.float32),
-                np.full((time_steps, n_cls, H, W), np.nan, dtype=np.float32),
+            err_msg = (
+                f"Model produced non-finite predictions during sample {sample_idx}. "
+                f"Aborting inference (ADR-003: Fail Loud)."
             )
+            logger.error(err_msg)
+            raise RuntimeError(err_msg)
 
         pred_magnitudes_zstack = full_magnitudes.detach().cpu().numpy()
         del full_magnitudes  # tensor no longer needed after numpy copy
@@ -365,7 +369,6 @@ class HydraNetInference:
         self,
         handler: "VolumeHandler",
         origin: Optional[int] = None,
-        is_evaluation: bool = False,
         window_info: str = "",
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -373,7 +376,6 @@ class HydraNetInference:
 
         Args:
             handler: VolumeHandler carrier [Months, H, W, Channels].
-            is_evaluation: Whether to perform rolling origin evaluation logic.
             window_info: Text for progress reporting.
 
         Returns:
@@ -456,7 +458,6 @@ class HydraNetInference:
                         origin,
                         sample_idx,
                         feature_names=feature_names,
-                        is_evaluation=is_evaluation,
                         pbar=pbar,
                         stage_label=window_info,
                         time_indices=time_indices,

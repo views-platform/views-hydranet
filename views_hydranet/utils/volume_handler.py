@@ -343,9 +343,7 @@ class VolumeHandler:
                 id_vols.append(watermark.astype(np.float32))
 
             # work_data from PyTorch is float32; ensure consistent output dtype.
-            full_data = np.concatenate(
-                id_vols + [work_data.astype(np.float32)], axis=-2
-            )
+            full_data = np.concatenate(id_vols + [work_data.astype(np.float32)], axis=-2)
         else:
             # Point: [T, H, W, C]
             axes = ("T", "H", "W", "C")
@@ -470,9 +468,7 @@ class VolumeHandler:
         m_col = self._metadata.time_col
         m_idx = self.channel_map.index(m_col)
         if torch.is_tensor(self._data):
-            t_increments = torch.arange(1, steps + 1, device=self._data.device).view(
-                steps, 1, 1
-            )
+            t_increments = torch.arange(1, steps + 1, device=self._data.device).view(steps, 1, 1)
             t_future_vol = cast(torch.Tensor, future_vol)
             t_future_vol[..., m_idx] += t_increments
         else:

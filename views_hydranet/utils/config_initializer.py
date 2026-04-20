@@ -113,7 +113,12 @@ class HydraNetConfig(BaseModel):
     min_ratio: float = Field(...)
     freeze_h: str = Field(...)
 
-    # 9. Outbound Evaluation
+    # 9. Runtime Flags
+    sweep: bool = Field(default=False)
+    random_flips: bool = Field(default=True)
+    diagnostic_visualizations: bool = Field(default=False)
+
+    # 10. Outbound Evaluation
     evaluation_mode: str = Field(
         ...,
         description=(
@@ -240,10 +245,7 @@ class HydraNetConfig(BaseModel):
     def validate_eval_mode(cls, v: str) -> str:
         valid = ["point", "stochastic"]
         if v not in valid:
-            err_msg = (
-                f"evaluation_mode='{v}' is not valid. "
-                f"Expected one of: {valid}."
-            )
+            err_msg = f"evaluation_mode='{v}' is not valid. Expected one of: {valid}."
             logger.error(err_msg)
             raise ValueError(err_msg)
         return v
@@ -265,8 +267,7 @@ class HydraNetConfig(BaseModel):
 
         if v not in LOSS_REG_REGISTRY:
             err_msg = (
-                f"loss_reg='{v}' is not registered. "
-                f"Available: {list(LOSS_REG_REGISTRY.keys())}"
+                f"loss_reg='{v}' is not registered. Available: {list(LOSS_REG_REGISTRY.keys())}"
             )
             logger.error(err_msg)
             raise ValueError(err_msg)

@@ -13,6 +13,7 @@ See: C-42, C-43 in the technical risk register.
 from __future__ import annotations
 
 import logging
+import os
 import random
 from typing import Any, Dict
 
@@ -56,11 +57,10 @@ class ReproducibilityGate:
     @staticmethod
     def lock_entropy(np_seed: int, torch_seed: int | None = None) -> None:
         """
-        Force-reset all RNG seeds to guarantee deterministic training.
+        Force-reset all RNG seeds to guarantee deterministic execution.
 
-        Locks Python random, NumPy, PyTorch CPU, and PyTorch CUDA.
-        Must be called before any training or inference that requires
-        reproducibility.
+        Locks Python random, NumPy, PyTorch CPU, PyTorch CUDA, and
+        enforces deterministic algorithm selection (C-61).
 
         Args:
             np_seed: Seed for Python random and NumPy.
@@ -73,8 +73,15 @@ class ReproducibilityGate:
         torch.manual_seed(torch_seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(torch_seed)
+
+        os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+        torch.use_deterministic_algorithms(True, warn_only=True)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
         logger.info(
-            f"Entropy locked: numpy/random seed={np_seed}, torch seed={torch_seed}"
+            f"Entropy locked: numpy/random seed={np_seed}, torch seed={torch_seed}, "
+            f"deterministic_algorithms=True"
         )
 
     @staticmethod
@@ -96,8 +103,7 @@ class ReproducibilityGate:
         missing_core = [k for k in CORE_GENOME if k not in config]
         if missing_core:
             raise ValueError(
-                f"REPRODUCIBILITY CONTRACT VIOLATED: "
-                f"Missing core parameters: {missing_core}"
+                f"REPRODUCIBILITY CONTRACT VIOLATED: Missing core parameters: {missing_core}"
             )
 
         none_core = [k for k in CORE_GENOME if config.get(k) is None]

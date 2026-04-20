@@ -47,7 +47,6 @@ class TestGreen:
         IntegrityGuardian.monitor(tiny_model, healthy_prediction, healthy_loss)
 
 
-
 # ---------------------------------------------------------------------------
 # BEIGE TEAM — boundary & robustness
 # ---------------------------------------------------------------------------
@@ -100,4 +99,3 @@ class TestRed:
             break  # corrupt just one
         with pytest.raises(RuntimeError, match="GRADIENT"):
             IntegrityGuardian.monitor(tiny_model, healthy_prediction, healthy_loss)
-

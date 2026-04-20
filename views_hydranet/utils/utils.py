@@ -49,7 +49,9 @@ LOSS_REG_REGISTRY: Dict[str, Any] = {
         "cls": ShrinkageLoss,
         "params": ["loss_reg_a", "loss_reg_c"],
         "factory": lambda config, device: ShrinkageLoss(
-            a=config["loss_reg_a"], c=config["loss_reg_c"], size_average=True,
+            a=config["loss_reg_a"],
+            c=config["loss_reg_c"],
+            size_average=True,
         ).to(device),
     },
     "basu_dpd": {
@@ -86,7 +88,8 @@ LOSS_CLASS_REGISTRY: Dict[str, Any] = {
         "cls": FocalLoss,
         "params": ["loss_class_alpha", "loss_class_gamma"],
         "factory": lambda config, device: FocalLoss(
-            alpha=config["loss_class_alpha"], gamma=config["loss_class_gamma"],
+            alpha=config["loss_class_alpha"],
+            gamma=config["loss_class_gamma"],
         ).to(device),
     },
 }
@@ -143,9 +146,7 @@ def choose_loss(
     return (criterion_reg, criterion_class, multitaskloss_instance)
 
 
-def choose_scheduler(
-    config: Dict[str, Any], unet: nn.Module
-) -> Tuple[torch.optim.Optimizer, Any]:
+def choose_scheduler(config: Dict[str, Any], unet: nn.Module) -> Tuple[torch.optim.Optimizer, Any]:
     """Factory for learning rate schedulers."""
     optimizer = torch.optim.AdamW(
         unet.parameters(),

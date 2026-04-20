@@ -120,27 +120,51 @@ def test_training_runs_with_onset_bias():
             data[:, r, c, 1] = 1 + r * W + c
 
     handler = VolumeHandler(
-        data=data, axes=("T", "H", "W", "C"), channel_map=channel_map,
-        time_col="month_id", id_col="priogrid_gid", spatial_cols=("row", "col"),
-        identity_cols=tuple(identity), feature_cols=tuple(features),
+        data=data,
+        axes=("T", "H", "W", "C"),
+        channel_map=channel_map,
+        time_col="month_id",
+        id_col="priogrid_gid",
+        spatial_cols=("row", "col"),
+        identity_cols=tuple(identity),
+        feature_cols=tuple(features),
     )
 
     config = _make_config(
         onset_bias_init=-5.0,
-        np_seed=42, torch_seed=42, total_lessons=2,
-        windows_per_lesson=1, window_dim=8, steps=[1, 2],
-        time_steps=2, clip_grad_norm=True, random_flips=False,
-        diagnostic_visualizations=False, min_events=1,
-        min_ratio=0.0, max_ratio=1.0, slope_ratio=0.5, roof_ratio=1.0,
-        transformations={"identity": features}, derivations={},
-        time_col="month_id", id_col="priogrid_gid",
-        identity_cols=identity, spatial_cols=["row", "col"],
+        np_seed=42,
+        torch_seed=42,
+        total_lessons=2,
+        windows_per_lesson=1,
+        window_dim=8,
+        steps=[1, 2],
+        time_steps=2,
+        clip_grad_norm=True,
+        random_flips=False,
+        diagnostic_visualizations=False,
+        min_events=1,
+        min_ratio=0.0,
+        max_ratio=1.0,
+        slope_ratio=0.5,
+        roof_ratio=1.0,
+        transformations={"identity": features},
+        derivations={},
+        time_col="month_id",
+        id_col="priogrid_gid",
+        identity_cols=identity,
+        spatial_cols=["row", "col"],
     )
 
     device = torch.device("cpu")
     model, criterion, optimizer, scheduler = make(config, device)
     summary = training_loop(
-        config, model, criterion, optimizer, scheduler, handler, device,
+        config,
+        model,
+        criterion,
+        optimizer,
+        scheduler,
+        handler,
+        device,
     )
 
     assert len(summary["loss_history"]) > 0, "No losses recorded"

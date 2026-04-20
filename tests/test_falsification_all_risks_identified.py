@@ -144,9 +144,7 @@ def test_falsify_03c_orchestrator_sequence_violation_untested():
 
     Severity: Soft falsification
     """
-    assert False, (
-        "InferenceOrchestrator 'Sequence Violation' failure mode: untested (C-33 open)"
-    )
+    assert False, "InferenceOrchestrator 'Sequence Violation' failure mode: untested (C-33 open)"
 
 
 # ─── C-21 (RESOLVED): Bare except Exception compliance ──────────────────────
@@ -166,9 +164,7 @@ def test_falsify_06_c21_undercounts_bare_except():
     # VisualDiagnostics must have >= 9 except handlers (the biopsy methods)
     source = inspect.getsource(visual_diagnostics.VisualDiagnostics)
     tree = ast.parse(source)
-    except_handlers = [
-        node for node in ast.walk(tree) if isinstance(node, ast.ExceptHandler)
-    ]
+    except_handlers = [node for node in ast.walk(tree) if isinstance(node, ast.ExceptHandler)]
     assert len(except_handlers) >= 9, (
         f"Expected >= 9 except handlers in VisualDiagnostics, found {len(except_handlers)}"
     )

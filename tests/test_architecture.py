@@ -182,9 +182,7 @@ def test_no_cross_head_variable_leakage():
         lhs_head = match.group(2)
         rhs_head = match.group(3)
         if lhs_head != rhs_head:
-            violations.append(
-                f"H{lhs_head} block uses H{rhs_head}'s variable: {match.group(0)}"
-            )
+            violations.append(f"H{lhs_head} block uses H{rhs_head}'s variable: {match.group(0)}")
     assert not violations, (
         f"Cross-head variable leakage detected in {len(violations)} dropout call(s):\n"
         + "\n".join(f"  - {v}" for v in violations)

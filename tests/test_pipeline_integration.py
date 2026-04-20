@@ -91,11 +91,8 @@ def toy_dataframe():
     return pd.DataFrame(rows)
 
 
-class TestPipelineIntegration:
-    """
-    Verifies the End-to-End flow:
-    DataFrame -> Custodian -> Inference -> Wrapper (The Fix) -> Reconstruction
-    """
+class TestGreen:
+    """Green: End-to-end pipeline flow (DataFrame -> Inference -> PredictionFrame)."""
 
     @patch("views_hydranet.manager.hydranet_manager.FeatureScaler")
     @patch("views_hydranet.manager.hydranet_manager.DataFetcher")
@@ -167,6 +164,7 @@ class TestPipelineIntegration:
                 # Mock Orchestrator output — generate_prediction_frames returns
                 # list[dict[str, PredictionFrame]] directly (pandas-free path)
                 from views_pipeline_core.data.prediction_frame import PredictionFrame
+
                 N = len(toy_dataframe)
                 time_arr = toy_dataframe["month_id"].values
                 unit_arr = toy_dataframe["priogrid_gid"].values
@@ -176,8 +174,12 @@ class TestPipelineIntegration:
                         identifiers={"time": time_arr, "unit": unit_arr},
                     )
                     for t in [
-                        "lr_sb_best", "lr_ns_best", "lr_os_best",
-                        "by_sb_best", "by_ns_best", "by_os_best",
+                        "lr_sb_best",
+                        "lr_ns_best",
+                        "lr_os_best",
+                        "by_sb_best",
+                        "by_ns_best",
+                        "by_os_best",
                     ]
                 }
                 mock_eval_cls.return_value.generate_prediction_frames.return_value = [
@@ -201,10 +203,18 @@ class TestPipelineIntegration:
                 assert pf_sb.y_pred.ndim == 2
                 assert len(pf_sb.y_pred) > 0
 
+                # Verify prediction values are numerically valid (C-67)
+                for target, pf_list in predictions.items():
+                    pf = pf_list[0]
+                    assert np.isfinite(pf.y_pred).all(), (
+                        f"Target {target}: predictions contain NaN/Inf"
+                    )
+
                 # Verify identifiers preserved
                 assert "time" in pf_sb.identifiers
                 assert "unit" in pf_sb.identifiers
 
+    @patch("views_hydranet.manager.hydranet_manager.DataSniffer")
     @patch("views_hydranet.manager.hydranet_manager.FeatureScaler")
     @patch("views_hydranet.manager.hydranet_manager.DataFetcher")
     @patch("views_hydranet.manager.hydranet_manager.ConfigInitializer")
@@ -218,6 +228,7 @@ class TestPipelineIntegration:
         mock_config_init,
         mock_fetcher_cls,
         mock_scaler_cls,
+        mock_sniffer_cls,
         toy_dataframe,
         tmp_path,
     ):
@@ -285,3 +296,9 @@ class TestPipelineIntegration:
                 assert len(pf_sb.y_pred) > 0
                 assert "time" in pf_sb.identifiers
                 assert "unit" in pf_sb.identifiers
+
+                # Verify prediction values are numerically valid (C-67)
+                for target, pf in forecasts.items():
+                    assert np.isfinite(pf.y_pred).all(), (
+                        f"Target {target}: forecast contains NaN/Inf"
+                    )

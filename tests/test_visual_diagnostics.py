@@ -611,13 +611,15 @@ def test_vd_biopsy_dataframe_stochastic_list_in_cell_no_crash(vd_active, tmp_pat
     for month in range(400, 406):
         for r in range(4):
             for c in range(4):
-                rows.append({
-                    "month_id": month,
-                    "row": r,
-                    "col": c,
-                    # list-in-cell: 5 posterior samples per cell
-                    "pred_lr_feat": [float(r + c + s) for s in range(5)],
-                })
+                rows.append(
+                    {
+                        "month_id": month,
+                        "row": r,
+                        "col": c,
+                        # list-in-cell: 5 posterior samples per cell
+                        "pred_lr_feat": [float(r + c + s) for s in range(5)],
+                    }
+                )
     df = pd.DataFrame(rows)
 
     # Must complete without raising — the ValueError crash this guards against would propagate

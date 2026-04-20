@@ -74,8 +74,7 @@ def toy_handler():
     return VolumeHandler(
         data=data,
         axes=("T", "H", "W", "C"),
-        channel_map=["month_id", "priogrid_gid", "c_id", "row", "col",
-                      "lr_sb_best", "by_sb_best"],
+        channel_map=["month_id", "priogrid_gid", "c_id", "row", "col", "lr_sb_best", "by_sb_best"],
         time_col="month_id",
         id_col="priogrid_gid",
         spatial_cols=("row", "col"),
@@ -98,8 +97,9 @@ def toy_model():
 # Tests: train() function — single window pass
 # ---------------------------------------------------------------------------
 
-class TestTrainSingleWindow:
-    """Characterization: train() produces finite loss and flowing gradients."""
+
+class TestGreen:
+    """Green: train() produces finite loss and flowing gradients."""
 
     def _make_ctx(self, toy_config, toy_model):
         """Build a TrainingContext for tests (C-17 API)."""
@@ -115,10 +115,14 @@ class TestTrainSingleWindow:
         )
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100)
         return TrainingContext(
-            model=toy_model, optimizer=optimizer, scheduler=scheduler,
-            criterion_reg=criterion_reg, criterion_class=criterion_class,
+            model=toy_model,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            criterion_reg=criterion_reg,
+            criterion_class=criterion_class,
             multitaskloss_instance=mtl,
-            config=toy_config, device=device,
+            config=toy_config,
+            device=device,
         )
 
     def test_train_returns_finite_loss(self, toy_config, toy_handler, toy_model):
@@ -161,8 +165,9 @@ class TestTrainSingleWindow:
 # Tests: training_loop() — multi-lesson training
 # ---------------------------------------------------------------------------
 
-class TestTrainingLoop:
-    """Characterization: training_loop() drives loss downward over lessons."""
+
+class TestBeige:
+    """Beige: training_loop() multi-lesson loss dynamics."""
 
     def test_loss_decreases_over_lessons(self, toy_config, toy_handler, toy_model):
         from views_hydranet.train.training_engine import training_loop
@@ -200,8 +205,13 @@ class TestTrainingLoop:
             patch("views_hydranet.train.training_engine.log_curriculum_report"),
         ):
             summary = training_loop(
-                toy_config, toy_model, criterion, optimizer, scheduler,
-                toy_handler, device,
+                toy_config,
+                toy_model,
+                criterion,
+                optimizer,
+                scheduler,
+                toy_handler,
+                device,
             )
 
         assert "loss_history" in summary
@@ -249,14 +259,23 @@ class TestTrainingLoop:
             patch("views_hydranet.train.training_engine.log_curriculum_report"),
         ):
             summary = training_loop(
-                toy_config, toy_model, criterion, optimizer, scheduler,
-                toy_handler, device,
+                toy_config,
+                toy_model,
+                criterion,
+                optimizer,
+                scheduler,
+                toy_handler,
+                device,
             )
 
         expected_keys = {
-            "final_loss", "min_loss", "max_loss",
-            "max_raw_grad_norm", "loss_history",
-            "weight_norms", "learning_rate",
+            "final_loss",
+            "min_loss",
+            "max_loss",
+            "max_raw_grad_norm",
+            "loss_history",
+            "weight_norms",
+            "learning_rate",
         }
         assert expected_keys.issubset(summary.keys()), (
             f"Missing keys: {expected_keys - summary.keys()}"

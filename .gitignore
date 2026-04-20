@@ -200,6 +200,7 @@ cython_debug/
 **/wandb/
 **/notebooks/
 reports/
+graphify-out/
 
 # mac specific 
 .DS_Store

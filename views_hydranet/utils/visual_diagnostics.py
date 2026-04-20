@@ -129,7 +129,8 @@ class VisualDiagnostics:
         except Exception:
             logger.error(
                 "VisualDiagnostics: biopsy_dataframe failed at '%s' — skipping plot.",
-                stage_label, exc_info=True,
+                stage_label,
+                exc_info=True,
             )
 
     def biopsy_volume(self, vh: VolumeHandler, stage_label: str) -> None:

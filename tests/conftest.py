@@ -20,11 +20,11 @@ def pytest_collection_modifyitems(config, items):
     positional = [a for a in args if not a.startswith("-")]
     is_full_suite = not positional or all(a in ("tests/", "tests") for a in positional)
     if is_full_suite and len(items) < _MINIMUM_EXPECTED_TESTS:
-            raise pytest.UsageError(
-                f"Test collection gate: only {len(items)} tests collected, "
-                f"expected at least {_MINIMUM_EXPECTED_TESTS}. "
-                f"Check for import errors in test files."
-            )
+        raise pytest.UsageError(
+            f"Test collection gate: only {len(items)} tests collected, "
+            f"expected at least {_MINIMUM_EXPECTED_TESTS}. "
+            f"Check for import errors in test files."
+        )
 
 
 class TinyModel(nn.Module):

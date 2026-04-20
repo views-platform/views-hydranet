@@ -58,7 +58,6 @@ class DataSniffer:
 
         logger.info("DataSniffer: Ingestion Suite Passed.")
 
-
     def sniff_forecast_alignment(
         self, df: pd.DataFrame, handler: VolumeHandler, is_forecast: bool = True
     ) -> None:
@@ -167,6 +166,13 @@ class DataSniffer:
         y_col, x_col = self.config["spatial_cols"]
 
         self._check_finiteness(df, [time_col, id_col, y_col, x_col])
+        if (df[id_col] <= 0).any():
+            err_msg = (
+                f"DataSniffer: '{id_col}' contains non-positive values"
+                f" — downstream masking assumes all IDs > 0"
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         self._check_spatial_bounds(df, y_col, x_col)
 
     def _check_finiteness(self, df: pd.DataFrame, cols: list[str]) -> None:

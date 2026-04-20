@@ -63,7 +63,7 @@ def _init_classification_head_bias(model: nn.Module, bias_value: float) -> None:
     sigmoid_val = 1.0 / (1.0 + math.exp(-bias_value))
     logger.info(
         f"Onset bias initialization: {count} classification heads set to {bias_value:.2f} "
-        f"(sigmoid = {sigmoid_val:.4f}, i.e. {sigmoid_val*100:.2f}% prior event probability)"
+        f"(sigmoid = {sigmoid_val:.4f}, i.e. {sigmoid_val * 100:.2f}% prior event probability)"
     )
 
 
@@ -155,9 +155,7 @@ def _process_sequence(
         # --- FORENSIC RECORDING (ADR 001 Custodian) ---
         if forensics:
             for j, target_name in enumerate(idx.reg_names):
-                forensics.record(
-                    f"REG:{target_name}", y_reg[:, j : j + 1], t1_pred[:, j : j + 1]
-                )
+                forensics.record(f"REG:{target_name}", y_reg[:, j : j + 1], t1_pred[:, j : j + 1])
             for j, target_name in enumerate(idx.cls_names):
                 forensics.record(
                     f"CLS:{target_name}",
@@ -229,9 +227,16 @@ class TrainingContext:
     """
 
     __slots__ = (
-        "model", "optimizer", "scheduler",
-        "criterion_reg", "criterion_class", "multitaskloss_instance",
-        "config", "device", "viz", "forensics",
+        "model",
+        "optimizer",
+        "scheduler",
+        "criterion_reg",
+        "criterion_class",
+        "multitaskloss_instance",
+        "config",
+        "device",
+        "viz",
+        "forensics",
     )
 
     def __init__(
@@ -265,7 +270,6 @@ def train(
     pbar: tqdm,
     stage_label: str = "",
 ) -> Dict[str, torch.Tensor]:  # Returns window losses
-
     ctx.model.train()
     ctx.multitaskloss_instance.train()
 
@@ -302,9 +306,7 @@ def train(
     )
 
     # 4. Initialize hidden state
-    h = model.init_hTtime(
-        hidden_channels=model.base, H=window_H, W=window_W
-    ).to(device)
+    h = model.init_hTtime(hidden_channels=model.base, H=window_H, W=window_W).to(device)
 
     # 5. STAGE 5 DIAGNOSTIC
     acc_y_reg: list[np.ndarray] = []
@@ -324,9 +326,16 @@ def train(
 
     # --- CORE SEQUENCE PROCESSING ---
     result = _process_sequence(
-        train_tensor, model, h,
-        ctx.criterion_reg, ctx.criterion_class, ctx.multitaskloss_instance,
-        idx, device, pbar=pbar, forensics=forensics,
+        train_tensor,
+        model,
+        h,
+        ctx.criterion_reg,
+        ctx.criterion_class,
+        ctx.multitaskloss_instance,
+        idx,
+        device,
+        pbar=pbar,
+        forensics=forensics,
         hurdle_threshold=config.get("hurdle_threshold"),
         qs99_weight=config.get("qs99_weight", 0.0),
         qs99_tau=config.get("qs99_tau", 0.99),
@@ -340,9 +349,7 @@ def train(
 
         # Re-run the midpoint steps in eval mode for diagnostic capture only
         model.eval()
-        h_diag = model.init_hTtime(
-            hidden_channels=model.base, H=window_H, W=window_W
-        ).to(device)
+        h_diag = model.init_hTtime(hidden_channels=model.base, H=window_H, W=window_W).to(device)
         with torch.no_grad():
             for i in range(seq_len - 1):
                 t0 = train_tensor[:, i, :, :, :]
@@ -350,7 +357,9 @@ def train(
                 t0_input = t0[:, idx.feat, :, :]
                 output_diag = model(t0_input, h_diag)
                 t1_pred, t1_pred_class, h_diag = (
-                    output_diag.reg, output_diag.cls, output_diag.h_next
+                    output_diag.reg,
+                    output_diag.cls,
+                    output_diag.h_next,
                 )
 
                 if biopsy_start <= i < biopsy_end:
@@ -404,9 +413,7 @@ def training_loop(
     """
     criterion_reg, criterion_class, multitaskloss_instance = criterion
 
-    ReproducibilityGate.lock_entropy(
-        np_seed=config["np_seed"], torch_seed=config["torch_seed"]
-    )
+    ReproducibilityGate.lock_entropy(np_seed=config["np_seed"], torch_seed=config["torch_seed"])
     logger.info("🚀 Training initiated...")
 
     # Initialize Visual Truth Engine with Authoritative Timestamp
@@ -417,10 +424,16 @@ def training_loop(
 
     # C-17: Bundle training components into context
     ctx = TrainingContext(
-        model=model, optimizer=optimizer, scheduler=scheduler,
-        criterion_reg=criterion_reg, criterion_class=criterion_class,
+        model=model,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        criterion_reg=criterion_reg,
+        criterion_class=criterion_class,
         multitaskloss_instance=multitaskloss_instance,
-        config=config, device=device, viz=viz, forensics=forensics,
+        config=config,
+        device=device,
+        viz=viz,
+        forensics=forensics,
     )
 
     # Initialize the Sampler Components

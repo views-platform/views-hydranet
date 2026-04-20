@@ -103,9 +103,7 @@ class TestBeige:
         lr = _get_lr_at_epoch(d=512, warmup_steps=4000, epoch=extra_steps)
         assert lr > 0
 
-    @pytest.mark.parametrize(
-        "d,warmup", [(64, 100), (128, 500), (512, 4000)]
-    )
+    @pytest.mark.parametrize("d,warmup", [(64, 100), (128, 500), (512, 4000)])
     def test_beige_formula_parity(self, d, warmup):
         """Scheduler output matches independently computed formula at multiple epochs."""
         for epoch in [0, warmup // 2, warmup, warmup * 2]:

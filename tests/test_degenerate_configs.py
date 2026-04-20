@@ -76,13 +76,16 @@ def _make_ctx(config, model):
     n_cls = len(config["classification_targets"])
     is_regression = torch.Tensor([True] * n_reg + [False] * n_cls)
     mtl = MultiTaskLoss(is_regression, reduction="sum")
-    optimizer = torch.optim.AdamW(
-        list(model.parameters()) + list(mtl.parameters()), lr=0.01
-    )
+    optimizer = torch.optim.AdamW(list(model.parameters()) + list(mtl.parameters()), lr=0.01)
     return TrainingContext(
-        model=model, optimizer=optimizer, scheduler=None,
-        criterion_reg=nn.MSELoss(), criterion_class=nn.BCEWithLogitsLoss(),
-        multitaskloss_instance=mtl, config=config, device=device,
+        model=model,
+        optimizer=optimizer,
+        scheduler=None,
+        criterion_reg=nn.MSELoss(),
+        criterion_class=nn.BCEWithLogitsLoss(),
+        multitaskloss_instance=mtl,
+        config=config,
+        device=device,
     )
 
 
@@ -120,9 +123,7 @@ class TestBeigeMinimumViableTraining:
 
         is_regression = torch.Tensor([True, False])
         mtl = MultiTaskLoss(is_regression, reduction="sum")
-        optimizer = torch.optim.AdamW(
-            list(model.parameters()) + list(mtl.parameters()), lr=0.01
-        )
+        optimizer = torch.optim.AdamW(list(model.parameters()) + list(mtl.parameters()), lr=0.01)
         criterion = (nn.MSELoss(), nn.BCEWithLogitsLoss(), mtl)
 
         mock_sampler = MagicMock()
@@ -192,8 +193,7 @@ class TestBeigeStochasticAggregateInteraction:
             result = handler  # stochastic: no collapse
 
         assert "S" in result.axes, (
-            "Stochastic mode must preserve sample dimension S. "
-            "aggregate_method should be ignored."
+            "Stochastic mode must preserve sample dimension S. aggregate_method should be ignored."
         )
         assert result.shape[-1] == 8, "All 8 samples must survive"
 

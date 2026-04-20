@@ -58,7 +58,6 @@ def log_device_report(device: "torch.device", run_type: str) -> None:
         print("🚨" + "=" * 100 + "\n")
 
 
-
 def log_ingestion_report(df_in: pd.DataFrame, df_out: pd.DataFrame, config: dict) -> None:
     """Prints a summary of the data ingestion and standardization process."""
     print("\n👾" + "=" * 100)
@@ -136,7 +135,6 @@ def log_curriculum_report(subjects: list[str], maxima: dict[str, float], config:
         print(f"  {sub:<25} | {m:>12,.0f} | {start:>15,.0f} | {end:>15,.0f}")
 
     print("👾" + "=" * 100 + "\n")
-
 
 
 def log_training_summary(summary: dict) -> None:

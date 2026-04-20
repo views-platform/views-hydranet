@@ -38,20 +38,22 @@ PIPELINE_CFG = {
 
 # Minimal DataFrame that DataFetcher.fetch_df would return
 _ROWS = 100
-_DF = pd.DataFrame({
-    "month_id": np.tile(np.arange(1, 11), 10),
-    "priogrid_gid": np.repeat(np.arange(1, 11), 10),
-    "row": np.repeat(np.arange(1, 11), 10),
-    "col": np.ones(_ROWS, dtype=int),
-    "c_id": np.ones(_ROWS, dtype=int),
-    "lr_sb_best": np.random.rand(_ROWS),
-    "lr_ns_best": np.random.rand(_ROWS),
-    "lr_os_best": np.random.rand(_ROWS),
-    "by_sb_best": np.random.rand(_ROWS),
-    "by_ns_best": np.random.rand(_ROWS),
-    "by_os_best": np.random.rand(_ROWS),
-    "feat_a": np.random.rand(_ROWS),
-})
+_DF = pd.DataFrame(
+    {
+        "month_id": np.tile(np.arange(1, 11), 10),
+        "priogrid_gid": np.repeat(np.arange(1, 11), 10),
+        "row": np.repeat(np.arange(1, 11), 10),
+        "col": np.ones(_ROWS, dtype=int),
+        "c_id": np.ones(_ROWS, dtype=int),
+        "lr_sb_best": np.random.rand(_ROWS),
+        "lr_ns_best": np.random.rand(_ROWS),
+        "lr_os_best": np.random.rand(_ROWS),
+        "by_sb_best": np.random.rand(_ROWS),
+        "by_ns_best": np.random.rand(_ROWS),
+        "by_os_best": np.random.rand(_ROWS),
+        "feat_a": np.random.rand(_ROWS),
+    }
+)
 
 
 class TestDataPipelineMethodExists:
@@ -76,24 +78,12 @@ class TestDataPipelineReturns:
         mpm.artifacts.mkdir()
 
         with (
-            patch.object(
-                HydranetManager, "__init__", lambda self, *a, **kw: None
-            ),
-            patch.object(
-                HydranetManager, "configs", new_callable=PropertyMock
-            ) as mock_cfg,
-            patch(
-                "views_hydranet.manager.hydranet_manager.DataFetcher"
-            ) as mock_fetch_cls,
-            patch(
-                "views_hydranet.manager.hydranet_manager.FeatureScaler"
-            ) as mock_scaler_cls,
-            patch(
-                "views_hydranet.manager.hydranet_manager.DataSniffer"
-            ) as mock_sniffer_cls,
-            patch(
-                "views_hydranet.manager.hydranet_manager.VolumeHandler"
-            ) as mock_vh_cls,
+            patch.object(HydranetManager, "__init__", lambda self, *a, **kw: None),
+            patch.object(HydranetManager, "configs", new_callable=PropertyMock) as mock_cfg,
+            patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetch_cls,
+            patch("views_hydranet.manager.hydranet_manager.FeatureScaler") as mock_scaler_cls,
+            patch("views_hydranet.manager.hydranet_manager.DataSniffer") as mock_sniffer_cls,
+            patch("views_hydranet.manager.hydranet_manager.VolumeHandler") as mock_vh_cls,
         ):
             mock_cfg.return_value = PIPELINE_CFG
 
