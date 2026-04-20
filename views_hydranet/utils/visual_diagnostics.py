@@ -179,8 +179,12 @@ class VisualDiagnostics:
 
             self._plot_grid(vol_slice, interesting, t_indices, stage_label, subdir=target_subdir)
 
-        except Exception as e:
-            logger.error(f"VisualDiagnostics: Failed to biopsy Volume at {stage_label}: {e}")
+        except Exception:
+            logger.error(
+                "VisualDiagnostics: biopsy_volume failed at '%s' — skipping plot.",
+                stage_label,
+                exc_info=True,
+            )
 
     def biopsy_tensor(
         self, tensor: torch.Tensor, stage_label: str, channel_names: List[str]
@@ -212,8 +216,12 @@ class VisualDiagnostics:
                 data, channel_names, t_indices, stage_label, subdir=self.dirs["pipeline"]
             )
 
-        except Exception as e:
-            logger.error(f"VisualDiagnostics: Failed to biopsy Tensor at {stage_label}: {e}")
+        except Exception:
+            logger.error(
+                "VisualDiagnostics: biopsy_tensor failed at '%s' — skipping plot.",
+                stage_label,
+                exc_info=True,
+            )
 
     def biopsy_sample(
         self, sample_vh: VolumeHandler, global_vh: VolumeHandler, stage_label: str
@@ -299,8 +307,12 @@ class VisualDiagnostics:
                 subdir=self.dirs["training"],
             )
 
-        except Exception as e:
-            logger.error(f"VisualDiagnostics: Failed to biopsy sample at {stage_label}: {e}")
+        except Exception:
+            logger.error(
+                "VisualDiagnostics: biopsy_sample failed at '%s' — skipping plot.",
+                stage_label,
+                exc_info=True,
+            )
 
     def biopsy_health_constellation(
         self, weight_norms: Dict[str, float], stage_label: str
@@ -357,9 +369,11 @@ class VisualDiagnostics:
             plt.close()
             logger.info(f"📸 VisualDiagnostics: Saved {save_path}")
 
-        except Exception as e:
+        except Exception:
             logger.error(
-                f"VisualDiagnostics: Failed to plot health constellation at {stage_label}: {e}"
+                "VisualDiagnostics: biopsy_health_constellation failed at '%s' — skipping plot.",
+                stage_label,
+                exc_info=True,
             )
 
     def _select_display_channels(self, vh: VolumeHandler) -> Tuple[List[str], set]:
@@ -482,9 +496,11 @@ class VisualDiagnostics:
             plt.close()
             logger.info(f"📸 VisualDiagnostics: Saved {save_path}")
 
-        except Exception as e:
+        except Exception:
             logger.error(
-                f"VisualDiagnostics: Failed to biopsy autoregressive loop at {stage_label}: {e}"
+                "VisualDiagnostics: biopsy_autoregressive failed at '%s' — skipping plot.",
+                stage_label,
+                exc_info=True,
             )
 
     def biopsy_training_performance(
@@ -591,8 +607,12 @@ class VisualDiagnostics:
             plt.close()
             logger.info(f"📸 VisualDiagnostics: Saved {save_path}")
 
-        except Exception as e:
-            logger.error(f"VisualDiagnostics: Failed training biopsy at {stage_label}: {e}")
+        except Exception:
+            logger.error(
+                "VisualDiagnostics: biopsy_training_performance failed at '%s' — skipping plot.",
+                stage_label,
+                exc_info=True,
+            )
 
     def biopsy_loss_curves(
         self,
@@ -661,8 +681,11 @@ class VisualDiagnostics:
         try:
             _generate_plot(is_log=False)
             _generate_plot(is_log=True)
-        except Exception as e:
-            logger.error(f"VisualDiagnostics: Failed to plot loss curves: {e}")
+        except Exception:
+            logger.error(
+                "VisualDiagnostics: biopsy_loss_curves failed — skipping plot.",
+                exc_info=True,
+            )
 
     def biopsy_feature_dossier(
         self,
@@ -769,9 +792,11 @@ class VisualDiagnostics:
             plt.close()
             logger.info(f"💾 VisualDiagnostics: Saved {mode_str} dossier to {fname}")
 
-        except Exception as e:
+        except Exception:
             logger.error(
-                f"VisualDiagnostics: Failed to generate joyful dossier for {target_name}: {e}"
+                "VisualDiagnostics: biopsy_feature_dossier failed for '%s' — skipping plot.",
+                target_name,
+                exc_info=True,
             )
 
     def _plot_grid_with_context(

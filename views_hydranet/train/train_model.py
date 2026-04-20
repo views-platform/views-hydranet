@@ -11,6 +11,7 @@ _process_sequence are available from this module for existing callers.
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
 from datetime import datetime
@@ -69,14 +70,28 @@ def train_model_artifact(
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         model_filename = f"{config['run_type']}_model_{timestamp}.pt"
         artifact_path = Path(model_path.artifacts / model_filename)
-        torch.save(model, artifact_path)
+        torch.save(model.state_dict(), artifact_path)
+
+        arch_keys = [
+            "model",
+            "input_channels",
+            "total_hidden_channels",
+            "output_channels",
+            "dropout_rate",
+        ]
+        missing = [k for k in arch_keys if k not in config]
+        if missing:
+            raise ValueError(f"Config sidecar requires keys {arch_keys}, missing: {missing}")
+        config_snapshot = {k: config[k] for k in arch_keys}
+        artifact_path.with_suffix(".pt.config.json").write_text(
+            json.dumps(config_snapshot, indent=2)
+        )
 
         if artifact_path.exists():
             sha256 = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
             artifact_path.with_suffix(".pt.sha256").write_text(sha256)
             logger.info(f"Model saved as: {artifact_path} (sha256: {sha256[:16]}…)")
-        else:
-            logger.info(f"Model saved as: {artifact_path}")
+
     else:
         logger.info("Skipping artifact save (sweep/dry-run active).")
 

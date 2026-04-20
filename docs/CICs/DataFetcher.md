@@ -52,6 +52,7 @@ The `DataFetcher` is the **Ingestor** of the HydraNet pipeline. Its primary purp
 - **Missing Index:** Raises a `ContractViolation` if the columns defined in `index_names` are missing from the raw file.
 - **Path Error:** Raises `FileNotFoundError` if the requested partition does not exist on disk.
 - **Sanitization Failure:** Fails loud if the input DataFrame does not contain the specified ID column required for ocean-cell removal.
+- **Blueprint Source Missing:** Raises `ValueError` when a derivation instruction's `from` column is not found in the DataFrame (C-50: changed from skip to raise).
 
 ---
 

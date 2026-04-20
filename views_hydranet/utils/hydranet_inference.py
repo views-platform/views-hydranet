@@ -7,6 +7,7 @@ import torch
 from torch.nn import Module
 from tqdm import tqdm
 
+from views_hydranet.utils.integrity_guardian import IntegrityGuardian
 from views_hydranet.utils.visual_diagnostics import VisualDiagnostics
 
 if TYPE_CHECKING:
@@ -290,8 +291,16 @@ class HydraNetInference:
                 t1_pred_class = torch.sigmoid(t1_pred_class)
 
                 # C-20: Soft magnitude guard — detect gradual drift
+                # C-51: three-tier escalation (100 → 500 → 1000)
                 max_pred = t1_pred.abs().max().item()
-                if max_pred > 100.0:
+                if max_pred > 500.0:
+                    logger.error(
+                        f"Autoregressive drift SEVERE: step {t}, max |pred| = {max_pred:.1f}. "
+                        f"Predictions are almost certainly diverging — "
+                        f"IntegrityGuardian will halt at "
+                        f"{IntegrityGuardian.PREDICTION_MAGNITUDE_CEILING}."
+                    )
+                elif max_pred > 100.0:
                     logger.warning(
                         f"Autoregressive drift: step {t}, max |pred| = {max_pred:.1f}. "
                         f"Predictions may be diverging."

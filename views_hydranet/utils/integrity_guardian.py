@@ -17,6 +17,8 @@ class IntegrityGuardian:
     Raises RuntimeError to stop training if an explosion is detected.
     """
 
+    PREDICTION_MAGNITUDE_CEILING = 1000
+
     @staticmethod
     def monitor(
         model: nn.Module, prediction: torch.Tensor, loss: torch.Tensor, context: str = ""
@@ -34,9 +36,12 @@ class IntegrityGuardian:
             raise RuntimeError(err_msg)
 
         # 2. Check Predictions (Magnitude Check)
-        # For log-scaled conflict data, values > 100 are extremely suspicious.
-        # We set a hard ceiling at 10,000.
-        if not torch.isfinite(prediction).all() or prediction.abs().max() > 10000:
+        # C-51: lowered from 10000 to 1000 — for log1p-transformed conflict data,
+        # |pred| > 100 already implies exp(100) fatalities, which is unphysical.
+        if (
+            not torch.isfinite(prediction).all()
+            or prediction.abs().max() > IntegrityGuardian.PREDICTION_MAGNITUDE_CEILING
+        ):
             p_max = prediction.abs().max().item()
             err_msg = (
                 f"[FATAL NUMERICAL EXPLOSION] Predictions exploded (Max Abs: {p_max:.2f}) "

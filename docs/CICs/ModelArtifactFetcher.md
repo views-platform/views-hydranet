@@ -24,7 +24,8 @@ The `ModelArtifactFetcher` is the **Retriever** of the HydraNet pipeline. Its pr
 ## 3. Responsibilities and Guarantees
 
 - **Path Resolution:** Guarantees robust resolution of either a specific named artifact or the "latest" version for a given project.
-- **Atomic Loading:** Ensures that `torch.load` is executed with the correct map-location logic for the target device.
+- **Dual-Mode Loading:** Loads `state_dict` + config sidecar (`.pt.config.json`, preferred, `weights_only=True`) or legacy full-object (deprecated, `weights_only=False`).
+- **Integrity Verification:** Verifies SHA-256 checksum against `.pt.sha256` sidecar when present.
 - **Traceability Handshake:** Extracts the 15-character timestamp from the filename and updates the global configuration via a callback to ensure auditability.
 - **Device Placement:** Guarantees that the model is placed on the requested execution device (CPU/CUDA) immediately upon retrieval.
 
@@ -48,6 +49,9 @@ The `ModelArtifactFetcher` is the **Retriever** of the HydraNet pipeline. Its pr
 ## 6. Failure Modes and Loudness
 
 - **Missing Artifact:** Raises `FileNotFoundError` if the specified model or the "latest" symlink is missing.
+- **SHA-256 Integrity Failure:** Raises `RuntimeError` when the `.pt.sha256` sidecar exists and the hash does not match. Legacy artifacts without a hash file log a WARNING and skip verification.
+- **Legacy Full-Object Artifact:** Logs WARNING with re-save guidance when no `.pt.config.json` sidecar is found. Falls back to `weights_only=False` loading (deprecated). Not a fatal error.
+- **State-Dict Load Failure:** Raises on `load_state_dict()` mismatch when config sidecar is present but architecture has changed. Uses `weights_only=True` for security (no arbitrary code execution).
 - **Checksum Failure:** Fails loud if the extracted timestamp does not match the 15-character spatiotemporal standard.
 - **Incompatible Weights:** Fails if the artifact is incompatible with the current architecture definition.
 
@@ -63,13 +67,16 @@ The `ModelArtifactFetcher` is the **Retriever** of the HydraNet pipeline. Its pr
 ## 8. Examples of Correct Usage
 
 ```python
-fetcher = ModelArtifactFetcher(path_artifacts, config, add_config_fn, device)
+fetcher = ModelArtifactFetcher(
+    path_artifacts, path_latest, config, add_config_fn, device,
+    model_factory=choose_model,  # optional; defaults to choose_model from utils
+)
 
 # Fetch latest
-model = fetcher.fetch_model_artifact()
+model, timestamp = fetcher.fetch_model_artifact()
 
 # Fetch specific version
-model = fetcher.fetch_model_artifact(model_artifact_name="20260219_120000_hydra.pt")
+model, timestamp = fetcher.fetch_model_artifact(model_artifact_name="20260219_120000_hydra.pt")
 ```
 
 ---
@@ -84,8 +91,8 @@ model = fetcher.fetch_model_artifact(model_artifact_name="20260219_120000_hydra.
 ## 10. Test Alignment
 
 - **🟩 Green Team:** Tests for successful loading and device placement in `tests/test_model_artifact_fetcher.py`.
-- **🟫 Beige Team:** Tests for missing artifact files and malformed timestamps.
-- **🟥 Red Team:** Verification that model state is correctly restored even after interrupted training sessions.
+- **🟫 Beige Team:** Tests for missing artifact files, malformed timestamps, and broken symlinks.
+- **🟥 Red Team:** SHA-256 mismatch detection, empty artifact handling, state_dict roundtrip, legacy deprecation warning verification.
 
 ---
 

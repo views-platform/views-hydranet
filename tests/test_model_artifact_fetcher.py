@@ -245,5 +245,126 @@ class TestRed:
         assert isinstance(model, DummyModel)
 
 
+def _dummy_model_factory(config: dict, device: torch.device) -> nn.Module:
+    """Test model factory for DummyModel."""
+    m = DummyModel()
+    return m.to(device)
+
+
+class TestStateDictSerialization:
+    """C-09: state_dict serialization with config sidecar."""
+
+    def test_state_dict_roundtrip(self, tmp_path):
+        """New-format artifact (state_dict + config sidecar) must load correctly."""
+        import json
+
+        artifacts_dir = tmp_path / "artifacts"
+        artifacts_dir.mkdir()
+        artifact_path = artifacts_dir / "cal_model_20260420_100000.pt"
+
+        model = DummyModel()
+        torch.save(model.state_dict(), artifact_path)
+
+        config_sidecar = artifact_path.with_suffix(".pt.config.json")
+        config_sidecar.write_text(
+            json.dumps(
+                {
+                    "model": "DummyModel",
+                    "input_channels": 1,
+                    "total_hidden_channels": 1,
+                    "output_channels": 1,
+                    "dropout_rate": 0.0,
+                }
+            )
+        )
+
+        sha256 = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+        artifact_path.with_suffix(".pt.sha256").write_text(sha256)
+
+        fetcher = ModelArtifactFetcher(
+            path_model_artifacts=artifacts_dir,
+            path_latest_model_artifacts=artifact_path,
+            config={"run_type": "test"},
+            add_config_function=MagicMock(),
+            device=torch.device("cpu"),
+            model_factory=_dummy_model_factory,
+        )
+
+        model_loaded, ts = fetcher.fetch_model_artifact()
+        assert isinstance(model_loaded, nn.Module)
+        assert ts == "20260420_100000"
+
+    def test_legacy_full_object_logs_deprecation_warning(self, mock_setup, caplog):
+        """Legacy full-object artifact must log a deprecation warning."""
+        import logging
+
+        artifacts_dir, latest_path, config, add_config_mock = mock_setup
+
+        fetcher = ModelArtifactFetcher(
+            path_model_artifacts=artifacts_dir,
+            path_latest_model_artifacts=latest_path,
+            config=config,
+            add_config_function=add_config_mock,
+            device=torch.device("cpu"),
+        )
+
+        with caplog.at_level(logging.WARNING):
+            fetcher.fetch_model_artifact()
+
+        assert any(
+            "legacy" in r.message.lower() and "re-save" in r.message.lower()
+            for r in caplog.records
+        ), "Loading legacy full-object artifact must log deprecation warning with re-save guidance"
+
+    def test_state_dict_format_uses_weights_only_true(self, tmp_path):
+        """New-format load must use weights_only=True (no arbitrary code exec)."""
+        import json
+        from unittest.mock import patch
+
+        artifacts_dir = tmp_path / "artifacts"
+        artifacts_dir.mkdir()
+        artifact_path = artifacts_dir / "cal_model_20260420_100000.pt"
+
+        model = DummyModel()
+        torch.save(model.state_dict(), artifact_path)
+
+        config_sidecar = artifact_path.with_suffix(".pt.config.json")
+        config_sidecar.write_text(
+            json.dumps(
+                {
+                    "model": "DummyModel",
+                    "input_channels": 1,
+                    "total_hidden_channels": 1,
+                    "output_channels": 1,
+                    "dropout_rate": 0.0,
+                }
+            )
+        )
+
+        sha256 = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+        artifact_path.with_suffix(".pt.sha256").write_text(sha256)
+
+        fetcher = ModelArtifactFetcher(
+            path_model_artifacts=artifacts_dir,
+            path_latest_model_artifacts=artifact_path,
+            config={"run_type": "test"},
+            add_config_function=MagicMock(),
+            device=torch.device("cpu"),
+            model_factory=_dummy_model_factory,
+        )
+
+        with patch("views_hydranet.utils.model_artifact_fetcher.torch.load") as mock_load:
+            mock_load.return_value = model.state_dict()
+            try:
+                fetcher.fetch_model_artifact()
+            except Exception:
+                pass
+            mock_load.assert_called_once()
+            _, kwargs = mock_load.call_args
+            assert kwargs.get("weights_only") is True, (
+                "New-format artifacts must be loaded with weights_only=True"
+            )
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

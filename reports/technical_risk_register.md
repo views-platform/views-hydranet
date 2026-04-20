@@ -6,8 +6,8 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-20                           |
 | Total Concerns    | 70                                   |
-| Open Concerns     | 18                                   |
-| Resolved Concerns | 52                                   |
+| Open Concerns     | 12                                   |
+| Resolved Concerns | 58                                   |
 
 ---
 
@@ -72,7 +72,7 @@ Per Martin (Clean Architecture Ch 8, p.87-93): this violates OCP — the archite
 
 ---
 
-### C-09: `torch.save(model)` full-object serialization — no integrity verification
+### C-09: `torch.save(model)` full-object serialization — no integrity verification — RESOLVED
 
 | Field | Value |
 |-------|-------|
@@ -87,6 +87,8 @@ Full model (not `state_dict`) is pickled via `torch.save()`. This couples saved 
 **Upgraded from Tier 3→2 (falsify-F2-07, 2026-04-19):** Three compounding gaps make this deployment-blocking: (1) `weights_only=False` enables pickle ACE, (2) no hash/checksum verification — corrupted files load silently, (3) no config snapshot saved alongside artifact — no way to verify that loaded model matches expected architecture beyond a hardcoded 3+3 head check in `_run_preflight_check()`. For high-stakes deployment where model artifacts transit shared infrastructure, this is a supply-chain attack surface.
 
 See also C-03 (hardcoded 3+3 heads).
+
+**Resolution (2026-04-20):** Three-part fix: (1) Save switched from `torch.save(model)` to `torch.save(model.state_dict())` in `train_model.py`, eliminating pickle ACE on new artifacts. (2) Architecture config sidecar (`.pt.config.json`) written alongside artifact, enabling model reconstruction without pickle. (3) Dual-mode loader in `model_artifact_fetcher.py`: new-format uses `weights_only=True`; legacy full-object uses `weights_only=False` with deprecation warning and re-save guidance. SHA-256 verification (C-30) already covers integrity. 3 new tests in `test_model_artifact_fetcher.py`.
 
 ---
 
@@ -134,7 +136,7 @@ Per Martin (Clean Architecture Ch 6, p.70-76): "Segregation of Mutability" — s
 
 ---
 
-### C-16: `visual_diagnostics.py` catch-all exception handlers hide bugs
+### C-16: `visual_diagnostics.py` catch-all exception handlers hide bugs — RESOLVED
 
 | Field | Value |
 |-------|-------|
@@ -145,6 +147,8 @@ Per Martin (Clean Architecture Ch 6, p.70-76): "Segregation of Mutability" — s
 | Location | `visual_diagnostics.py:129-133` (and similar in other biopsy methods) |
 
 All `biopsy_*` methods wrap their body in `try/except Exception` and log on failure. If diagnostic code has a bug, it silently produces no plot with no test failure. The file is 985 lines with 12+ biopsy methods. Tests only verify the `active=True/False` toggle, not plot correctness or exception-free execution. Partial fix (2026-04-08): `biopsy_dataframe` catch block upgraded from `logger.warning` to `logger.error` per ADR-008 Section 4 (Fail-Safe constraint). Catch-all pattern itself is ADR-008 compliant (Observability Actors are permitted Fail-Safe). Remaining concern: plot correctness is untested (see also C-26).
+
+**Resolution (2026-04-20):** Standardized all 9 catch-all handlers to ADR-008 Section 4 Fail-Safe pattern: `logger.error("...", stage_label, exc_info=True)`. All handlers now include full traceback in logs. 8 new tests in `test_visual_diagnostics.py` verify each biopsy method logs ERROR with `exc_info` on failure.
 
 ---
 
@@ -164,7 +168,7 @@ All `biopsy_*` methods wrap their body in `try/except Exception` and log on fail
 
 ---
 
-### C-26: VisualDiagnostics plot correctness untested
+### C-26: VisualDiagnostics plot correctness untested — RESOLVED
 
 | Field | Value |
 |-------|-------|
@@ -175,6 +179,8 @@ All `biopsy_*` methods wrap their body in `try/except Exception` and log on fail
 | Location | `visual_diagnostics.py` (985 lines, 12+ biopsy methods) |
 
 29 tests verify the `active=True/False` toggle and no-crash behavior, but zero tests verify that generated plots contain correct data, have non-zero file size, or reflect the volume state they claim to show. A plotting bug could produce plausible-looking but incorrect visualizations that mislead operators.
+
+**Resolution (2026-04-20):** Test suite now has 37 tests (8 BEIGE null-object, 15 GREEN active-mode with PNG output and math verification, 6 RED adversarial inputs, 8 RED error-logging with `exc_info`). All 8 public biopsy methods have coverage including file output, stats correctness, and error observability. Combined with C-16 resolution, visual diagnostics is comprehensively tested.
 
 ---
 
@@ -298,7 +304,7 @@ Residual risk: CI pipeline collecting the file without `--ignore` will see 1 det
 
 ---
 
-### C-46: Shrinkage loss threshold c=0.001 may be suboptimal for log1p-transformed targets
+### C-46: Shrinkage loss threshold c=0.001 may be suboptimal for log1p-transformed targets — RESOLVED
 
 | Field | Value |
 |-------|-------|
@@ -309,6 +315,8 @@ Residual risk: CI pipeline collecting the file without `--ignore` will see 1 det
 | Location | `views-models/models/purple_alien/configs/config_hyperparameters.py` (`loss_reg_c: 0.001`) |
 
 The autoresearch found that Shrinkage loss with `c=1.0` marginally outperforms Basu DPD and NLL on log-space magnitude errors (Finding 6.4). The hydranet production default is `c=0.001`, calibrated for the U-Net's normalized feature space where typical errors are in the 0-1 range. But purple_alien's targets are log1p-transformed, where the natural error scale is 0-7 (log1p of 0-1000 fatalities). A threshold of `c=0.001` in log-space means "suppress errors below 0.1% in magnitude" — virtually no suppression. The autoresearch suggests `c=1.0` ("suppress errors below 2.7x in magnitude") is more appropriate for log-space operation. Note: the `a` parameter (steepness) at 258 in purple_alien is also very different from the autoresearch optimal of 10 — but the LSTM hurdle and U-Net have different residual distributions, so direct transfer is not guaranteed. Empirical testing on HydraNet with `c=1.0, a=10` is recommended before changing the production default.
+
+**Resolution (2026-04-20):** Deferred to views-models. The hydranet library default is `loss_reg_c=0.2` (`config_initializer.py`), which is appropriate for the normalized feature space. The concern about `c=0.001` applies exclusively to `purple_alien`'s model-specific config in the external `views-models` repo. No hydranet library code change needed.
 
 ---
 
@@ -330,7 +338,7 @@ Current decision: stay flat. Revisit when either (a) total config keys exceed 50
 
 ---
 
-### C-51: Autoregressive drift warning-to-halt gap is 100x
+### C-51: Autoregressive drift warning-to-halt gap is 100x — RESOLVED
 
 | Field | Value |
 |-------|-------|
@@ -344,9 +352,11 @@ During autoregressive inference, `HydraNetInference.predict()` logs a WARNING wh
 
 See also C-20 (resolved — added the soft warning).
 
+**Resolution (2026-04-20):** Three-tier escalation: WARNING at |pred| > 100, ERROR at |pred| > 500, HALT at |pred| > 1000. `IntegrityGuardian.PREDICTION_MAGNITUDE_CEILING` class constant lowered from 10000 to 1000. Gap reduced from 100× to 10×. ERROR-level log at 500 references the ceiling value so operators know the halt threshold.
+
 ---
 
-### C-55: CIC drift after code changes — recurring documentation hygiene gap
+### C-55: CIC drift after code changes — recurring documentation hygiene gap — RESOLVED
 
 | Field | Value |
 |-------|-------|
@@ -363,6 +373,8 @@ This is a maintainability concern, not a correctness risk: the code is the sourc
 C-28 (resolved 2026-04-08) addressed a one-time stale CIC update. C-55 captures the recurring pattern that motivates a process change rather than a one-time fix.
 
 See also C-28 (resolved — one-time CIC test references update).
+
+**Resolution (2026-04-20):** Fixed both specific drifts: added `loss_reg`, `loss_class`, `aggregate_method` validators to HydraNetConfig.md Section 6; added blueprint-source-missing raise to DataFetcher.md Section 6. Added `tests/test_cic_drift_detection.py` (4 tests) to detect future Section 6 drift for these CICs.
 
 ---
 
