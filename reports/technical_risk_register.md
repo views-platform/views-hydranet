@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-04-21                           |
-| Total Concerns    | 71                                   |
-| Open Concerns     | 7                                    |
+| Total Concerns    | 72                                   |
+| Open Concerns     | 8                                    |
 | Resolved Concerns | 64                                   |
 
 ---
@@ -345,6 +345,20 @@ The autoresearch found that Shrinkage loss with `c=1.0` marginally outperforms B
 The alternative is nested structure: `regularizers: { qs99: { weight: 0.01, tau: 0.99 } }`. This is cleaner for extensibility but breaks the flat-key pattern, complicates Pydantic validation, and requires changes to the genome audit.
 
 Current decision: stay flat. Revisit when either (a) total config keys exceed 50, or (b) a feature requires 4+ related keys that create naming collision risk. The migration is mechanical (rename keys, update configs) but touches every model config in views-models.
+
+---
+
+### C-73: Legacy `evalution_mode` typo shim in HydraNetConfig
+
+| Field | Value |
+|-------|-------|
+| ID | C-73 |
+| Tier | 4 |
+| Source | manual (2026-04-21) |
+| Trigger | When all model configs in `views-models` have been confirmed to use `evaluation_mode` (not `evalution_mode`), remove the `handle_typos` model_validator shim |
+| Location | `config_initializer.py:143-153` (`handle_typos` model_validator) |
+
+`HydraNetConfig` has a `model_validator(mode="before")` shim that silently rewrites the legacy typo key `evalution_mode` → `evaluation_mode`. One known consumer (`views-models`) has been fixed (2026-04-21), but other model configs in the `views-models` repo may still use the old key. The shim should be removed once a grep across all configs in `views-models` confirms zero remaining instances of `evalution_mode`. Removing it prematurely would break any config still using the typo — Pydantic's `extra="allow"` would silently accept the misspelled key and leave `evaluation_mode` at its default.
 
 ---
 
