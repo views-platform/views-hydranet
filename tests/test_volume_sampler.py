@@ -16,8 +16,13 @@ from views_hydranet.utils.volume_sampler import VolumeSampler
 T, H, W = 10, 8, 8
 N_CHANNELS = 7
 CHANNEL_MAP = [
-    "month_id", "priogrid_gid", "c_id", "row", "col",
-    "lr_sb_best", "by_sb_best",
+    "month_id",
+    "priogrid_gid",
+    "c_id",
+    "row",
+    "col",
+    "lr_sb_best",
+    "by_sb_best",
 ]
 TARGET = "lr_sb_best"
 TARGET_IDX = CHANNEL_MAP.index(TARGET)
@@ -156,10 +161,7 @@ class TestRed:
         batch2, _ = s2.get_batch(TARGET, threshold=1, batch_size=1)
 
         # At least one window should differ
-        differs = any(
-            not np.array_equal(w1.data, w2.data)
-            for w1, w2 in zip(batch1, batch2)
-        )
+        differs = any(not np.array_equal(w1.data, w2.data) for w1, w2 in zip(batch1, batch2))
         assert differs, "Different seeds must produce different windows"
 
 
@@ -211,9 +213,7 @@ class TestCurriculumSamplerInteraction:
             f"got {qualified}. Subject max: {curriculum.subject_maxima[target]}"
         )
         # But batch should still be produced (random fallback)
-        assert len(batch) == 2, (
-            f"Expected 2 windows from random fallback, got {len(batch)}"
-        )
+        assert len(batch) == 2, f"Expected 2 windows from random fallback, got {len(batch)}"
 
 
 # ---------------------------------------------------------------------------
@@ -339,12 +339,8 @@ class TestGeometricOverflow:
         batch, _ = sampler.get_batch(TARGET, threshold=1, batch_size=5)
 
         for i, window in enumerate(batch):
-            assert window.shape[1] == dim, (
-                f"Window {i}: expected H={dim}, got {window.shape[1]}"
-            )
-            assert window.shape[2] == dim, (
-                f"Window {i}: expected W={dim}, got {window.shape[2]}"
-            )
+            assert window.shape[1] == dim, f"Window {i}: expected H={dim}, got {window.shape[1]}"
+            assert window.shape[2] == dim, f"Window {i}: expected W={dim}, got {window.shape[2]}"
 
     def test_max_dim_produces_single_valid_window(self, sampler_handler):
         """

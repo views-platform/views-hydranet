@@ -103,8 +103,8 @@ class VolumeSampler:
             time_col=train_vh.time_col,
             id_col=train_vh.id_col,
             spatial_cols=train_vh.spatial_cols,
-            identity_cols=train_vh._metadata.identity_cols,
-            feature_cols=train_vh._metadata.feature_cols,
+            identity_cols=train_vh.identity_cols,
+            feature_cols=train_vh.feature_cols,
             spatial_offset=(new_row_offset, p_col + c0),
         )
 

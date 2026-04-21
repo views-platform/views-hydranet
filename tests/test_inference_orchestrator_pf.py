@@ -26,8 +26,12 @@ from views_hydranet.utils.volume_handler import VolumeHandler
 # ─── Config & fixtures ───────────────────────────────────────────────────────
 
 TARGETS = [
-    "lr_sb_best", "lr_ns_best", "lr_os_best",
-    "by_sb_best", "by_ns_best", "by_os_best",
+    "lr_sb_best",
+    "lr_ns_best",
+    "lr_os_best",
+    "by_sb_best",
+    "by_ns_best",
+    "by_os_best",
 ]
 
 ORCH_CFG = {
@@ -57,7 +61,7 @@ ORCH_CFG = {
     "row_offset": 0,
     "col_offset": 0,
     "model": "HydraBNUNet06_LSTM4",
-    "window_dim": 1,
+    "window_dim": 2,
     "total_hidden_channels": 8,
     "dropout_rate": 0.0,
     "weight_init": "norm",
@@ -85,7 +89,6 @@ ORCH_CFG = {
     "freeze_h": "none",
     "evaluation_mode": "stochastic",
     "aggregate_method": "arithmetic_mean",
-
 }
 
 N_CELLS = 4
@@ -97,15 +100,17 @@ def _make_df(n_months: int = 21) -> pd.DataFrame:
     for t in range(100, 100 + n_months):
         for r in range(2):
             for c in range(2):
-                rows.append({
-                    "month_id": t,
-                    "priogrid_gid": r * 2 + c + 1,
-                    "row": float(r),
-                    "col": float(c),
-                    "lr_sb_best": float(r + c + t * 0.01),
-                    "lr_ns_best": 0.5,
-                    "lr_os_best": 0.0,
-                })
+                rows.append(
+                    {
+                        "month_id": t,
+                        "priogrid_gid": r * 2 + c + 1,
+                        "row": float(r),
+                        "col": float(c),
+                        "lr_sb_best": float(r + c + t * 0.01),
+                        "lr_ns_best": 0.5,
+                        "lr_os_best": 0.0,
+                    }
+                )
     return pd.DataFrame(rows)
 
 
@@ -122,8 +127,9 @@ def orch_env():
 
 # ─── Tests ───────────────────────────────────────────────────────────────────
 
-class TestGeneratePredictionFrames:
-    """Tests for InferenceOrchestrator.generate_prediction_frames()."""
+
+class TestGreen:
+    """Green: InferenceOrchestrator.generate_prediction_frames() contract."""
 
     def test_returns_list_of_dicts(self, orch_env):
         """Return type is list[dict[str, PredictionFrame]]."""
@@ -137,9 +143,7 @@ class TestGeneratePredictionFrames:
         with patch(
             "views_hydranet.utils.inference_orchestrator.HydraNetInference"
         ) as mock_inf_cls:
-            mock_inf_cls.return_value.generate_posterior_samples.return_value = (
-                posterior, None
-            )
+            mock_inf_cls.return_value.generate_posterior_samples.return_value = (posterior, None)
             origins = [handler.shape[0] - 2]
             result = orchestrator.generate_prediction_frames(
                 handler, scaler, origins=origins, all_targets=TARGETS
@@ -164,9 +168,7 @@ class TestGeneratePredictionFrames:
         with patch(
             "views_hydranet.utils.inference_orchestrator.HydraNetInference"
         ) as mock_inf_cls:
-            mock_inf_cls.return_value.generate_posterior_samples.return_value = (
-                posterior, None
-            )
+            mock_inf_cls.return_value.generate_posterior_samples.return_value = (posterior, None)
             result = orchestrator.generate_prediction_frames(
                 handler, scaler, origins=[handler.shape[0] - 2], all_targets=TARGETS
             )
@@ -189,9 +191,7 @@ class TestGeneratePredictionFrames:
         with patch(
             "views_hydranet.utils.inference_orchestrator.HydraNetInference"
         ) as mock_inf_cls:
-            mock_inf_cls.return_value.generate_posterior_samples.return_value = (
-                posterior, None
-            )
+            mock_inf_cls.return_value.generate_posterior_samples.return_value = (posterior, None)
             result = orchestrator.generate_prediction_frames(
                 handler, scaler, origins=[handler.shape[0] - 2], all_targets=TARGETS
             )
@@ -217,12 +217,9 @@ class TestGeneratePredictionFrames:
         with patch(
             "views_hydranet.utils.inference_orchestrator.HydraNetInference"
         ) as mock_inf_cls:
-            mock_inf_cls.return_value.generate_posterior_samples.return_value = (
-                posterior, None
-            )
+            mock_inf_cls.return_value.generate_posterior_samples.return_value = (posterior, None)
             result = orchestrator.generate_prediction_frames(
                 handler, scaler, origins=origins, all_targets=TARGETS
             )
 
         assert len(result) == n_origins
-

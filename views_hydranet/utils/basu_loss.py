@@ -76,9 +76,7 @@ class BasuDPDLoss(nn.Module):
             raise ValueError(f"alpha must be >= 0, got {alpha}")
         self.alpha = alpha
         self.sigma = sigma
-        logger.info(
-            f"BasuDPDLoss initialized: alpha={alpha}, sigma={sigma}"
-        )
+        logger.info(f"BasuDPDLoss initialized: alpha={alpha}, sigma={sigma}")
 
     def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """
@@ -108,16 +106,14 @@ class BasuDPDLoss(nn.Module):
         # The constant C = 1/(sigma^alpha * sqrt(1+alpha)) doesn't affect
         # the gradient direction but we include it for proper loss values.
         coeff = 1.0 / (s * math.sqrt(2 * math.pi))
-        log_f_alpha = a * math.log(coeff) - (a / 2.0) * residual ** 2
+        log_f_alpha = a * math.log(coeff) - (a / 2.0) * residual**2
 
         # Clamp for numerical stability before exp
         log_f_alpha = torch.clamp(log_f_alpha, max=80.0)
         f_alpha = torch.exp(log_f_alpha)
 
         # Full DPD: integral_term - (1 + 1/alpha) * f(y)^alpha
-        integral_term = 1.0 / (
-            (s ** a) * math.sqrt(1.0 + a) * (2 * math.pi) ** (a / 2.0)
-        )
+        integral_term = 1.0 / ((s**a) * math.sqrt(1.0 + a) * (2 * math.pi) ** (a / 2.0))
 
         per_element = integral_term - (1.0 + 1.0 / a) * f_alpha
 
@@ -125,7 +121,7 @@ class BasuDPDLoss(nn.Module):
         # The raw DPD is negative at the optimum, which breaks training
         # gates that assume loss > 0 (e.g., the backward() gate in
         # training_loop). Subtracting the minimum preserves gradients.
-        loss_at_zero = integral_term - (1.0 + 1.0 / a) * (coeff ** a)
+        loss_at_zero = integral_term - (1.0 + 1.0 / a) * (coeff**a)
         loss = per_element - loss_at_zero
 
         return torch.mean(loss)

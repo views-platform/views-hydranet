@@ -47,19 +47,24 @@ class TestGreen:
         IntegrityGuardian.monitor(tiny_model, healthy_prediction, healthy_loss)
 
 
-
 # ---------------------------------------------------------------------------
 # BEIGE TEAM — boundary & robustness
 # ---------------------------------------------------------------------------
 class TestBeige:
     def test_beige_prediction_at_boundary(self, tiny_model, healthy_loss):
-        """Prediction magnitude exactly at 9999 -> no raise."""
-        pred = torch.full((1, 1, 4, 4), 9999.0)
+        """Prediction magnitude just under ceiling -> no raise."""
+        pred = torch.full((1, 1, 4, 4), 999.0)
         IntegrityGuardian.monitor(tiny_model, pred, healthy_loss)
 
     def test_beige_prediction_just_over(self, tiny_model, healthy_loss):
-        """Prediction magnitude at 10001 -> RuntimeError."""
-        pred = torch.full((1, 1, 4, 4), 10001.0)
+        """Prediction magnitude just over ceiling -> RuntimeError."""
+        pred = torch.full((1, 1, 4, 4), 1001.0)
+        with pytest.raises(RuntimeError, match="EXPLOSION"):
+            IntegrityGuardian.monitor(tiny_model, pred, healthy_loss)
+
+    def test_beige_prediction_at_1500_raises(self, tiny_model, healthy_loss):
+        """C-51: predictions at 1500 must trigger halt (was silent before)."""
+        pred = torch.full((1, 1, 4, 4), 1500.0)
         with pytest.raises(RuntimeError, match="EXPLOSION"):
             IntegrityGuardian.monitor(tiny_model, pred, healthy_loss)
 
@@ -100,4 +105,3 @@ class TestRed:
             break  # corrupt just one
         with pytest.raises(RuntimeError, match="GRADIENT"):
             IntegrityGuardian.monitor(tiny_model, healthy_prediction, healthy_loss)
-

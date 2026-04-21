@@ -24,6 +24,7 @@ def _pf_dict(values: dict, n: int, month_id: int = 11) -> dict:
         for target, val in values.items()
     }
 
+
 # SUBSET AUDIT CONFIG
 SUBSET_CFG = {
     "run_type": "calibration",
@@ -52,7 +53,7 @@ SUBSET_CFG = {
     "row_offset": 0,
     "col_offset": 0,
     "model": "Dummy",
-    "window_dim": 1,
+    "window_dim": 2,
     "total_hidden_channels": 8,
     "dropout_rate": 0.0,
     "weight_init": "norm",
@@ -156,10 +157,17 @@ class TestSubsetSymmetryAudit:
                     # Mock Orchestrator output — generate_prediction_frames returns
                     # list[dict[str, PredictionFrame]] (pandas-free path)
                     mock_eval_cls.return_value.generate_prediction_frames.return_value = [
-                        _pf_dict({
-                            "lr_sb_best": 100.0, "lr_ns_best": 100.0, "lr_os_best": 100.0,
-                            "by_sb_best": 0.9,   "by_ns_best": 0.9,   "by_os_best": 0.9,
-                        }, n=20)
+                        _pf_dict(
+                            {
+                                "lr_sb_best": 100.0,
+                                "lr_ns_best": 100.0,
+                                "lr_os_best": 100.0,
+                                "by_sb_best": 0.9,
+                                "by_ns_best": 0.9,
+                                "by_os_best": 0.9,
+                            },
+                            n=20,
+                        )
                     ]
 
                     # RUN EVALUATION

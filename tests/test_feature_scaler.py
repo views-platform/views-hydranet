@@ -34,13 +34,15 @@ def _make_config(**overrides):
 def _make_df(n_rows=10):
     """DataFrame with positive values suitable for log1p/asinh."""
     rng = np.random.RandomState(42)
-    return pd.DataFrame({
-        "month_id": np.arange(n_rows),
-        "priogrid_gid": np.arange(100, 100 + n_rows),
-        "lr_sb_best": rng.uniform(0.1, 50.0, n_rows),
-        "lr_ns_best": rng.uniform(0.1, 50.0, n_rows),
-        "lr_os_best": rng.uniform(0.1, 50.0, n_rows),
-    })
+    return pd.DataFrame(
+        {
+            "month_id": np.arange(n_rows),
+            "priogrid_gid": np.arange(100, 100 + n_rows),
+            "lr_sb_best": rng.uniform(0.1, 50.0, n_rows),
+            "lr_ns_best": rng.uniform(0.1, 50.0, n_rows),
+            "lr_os_best": rng.uniform(0.1, 50.0, n_rows),
+        }
+    )
 
 
 def _make_volume_handler(config):
@@ -62,15 +64,17 @@ def _make_volume_handler(config):
     for t in range(2):
         for r in range(2):
             for c in range(2):
-                rows.append({
-                    "month_id": 500 + t,
-                    "priogrid_gid": r * 2 + c + 1,
-                    "row": float(r),
-                    "col": float(c),
-                    "lr_sb_best": 10.0 + t + r + c,
-                    "lr_ns_best": 5.0 + t + r,
-                    "lr_os_best": 1.0 + t,
-                })
+                rows.append(
+                    {
+                        "month_id": 500 + t,
+                        "priogrid_gid": r * 2 + c + 1,
+                        "row": float(r),
+                        "col": float(c),
+                        "lr_sb_best": 10.0 + t + r + c,
+                        "lr_ns_best": 5.0 + t + r,
+                        "lr_os_best": 1.0 + t,
+                    }
+                )
     df = pd.DataFrame(rows)
     return VolumeHandler.from_df(df, full_config)
 
@@ -79,7 +83,6 @@ def _make_volume_handler(config):
 
 
 class TestGreen:
-
     def test_green_fit_transform_returns_dataframe(self):
         scaler = FeatureScaler(_make_config())
         result = scaler.fit_transform(_make_df())
@@ -99,7 +102,9 @@ class TestGreen:
         recovered = scaler.inverse_transform(scaled)
 
         np.testing.assert_allclose(
-            recovered["lr_sb_best"].values, original, atol=1e-10,
+            recovered["lr_sb_best"].values,
+            original,
+            atol=1e-10,
             err_msg="log1p round-trip failed: expm1(log1p(x)) != x",
         )
 
@@ -117,7 +122,9 @@ class TestGreen:
         recovered = scaler.inverse_transform(scaled)
 
         np.testing.assert_allclose(
-            recovered["lr_ns_best"].values, original, atol=1e-10,
+            recovered["lr_ns_best"].values,
+            original,
+            atol=1e-10,
             err_msg="asinh round-trip failed: sinh(asinh(x)) != x",
         )
 
@@ -134,7 +141,8 @@ class TestGreen:
         scaled = scaler.fit_transform(df)
 
         np.testing.assert_array_equal(
-            scaled["lr_os_best"].values, original,
+            scaled["lr_os_best"].values,
+            original,
             err_msg="identity transform should not modify values",
         )
 
@@ -184,7 +192,8 @@ class TestGreen:
 
         # Binary channel should be unchanged (5.0)
         np.testing.assert_array_equal(
-            result.data[:, :, :, c_idx], 5.0,
+            result.data[:, :, :, c_idx],
+            5.0,
             err_msg="Binary channel 'by_' should not be inverted",
         )
 
@@ -193,7 +202,6 @@ class TestGreen:
 
 
 class TestBeige:
-
     def test_beige_fit_locks_state(self):
         """After fit_transform, _is_fitted is True."""
         scaler = FeatureScaler(_make_config())
@@ -213,7 +221,9 @@ class TestBeige:
 
         for col in config["features"]:
             np.testing.assert_allclose(
-                recovered[col].values, originals[col], atol=1e-10,
+                recovered[col].values,
+                originals[col],
+                atol=1e-10,
                 err_msg=f"Heterogeneous round-trip failed for {col}",
             )
 
@@ -242,7 +252,9 @@ class TestBeige:
 
         result = scaler.inverse_transform_volume(vh)
         np.testing.assert_allclose(
-            result.data, 10.0, atol=1e-5,
+            result.data,
+            10.0,
+            atol=1e-5,
             err_msg="pred_ prefix stripping failed: volume not correctly inverted",
         )
 
@@ -256,7 +268,8 @@ class TestBeige:
         scaler.fit_transform(df)
 
         np.testing.assert_array_equal(
-            df["lr_sb_best"].values, original_values,
+            df["lr_sb_best"].values,
+            original_values,
             err_msg="fit_transform mutated the input DataFrame in-place",
         )
 
@@ -265,7 +278,6 @@ class TestBeige:
 
 
 class TestRed:
-
     def test_red_double_fit_raises_runtime_error(self):
         """Calling fit_transform twice raises RuntimeError."""
         scaler = FeatureScaler(_make_config())
@@ -336,7 +348,6 @@ class TestRed:
 
 
 class TestStringMatching:
-
     def test_binary_prefix_uses_startswith_not_substring(self):
         """A channel containing 'by_' mid-name must NOT be skipped during inversion."""
         from views_hydranet.utils.volume_handler import VolumeHandler
@@ -396,9 +407,9 @@ class TestStringMatching:
         )
         scaler = FeatureScaler(config)
         scaler.fit_transform(
-            _make_df().rename(columns={"lr_sb_best": "pred_x"})[
-                ["month_id", "priogrid_gid", "pred_x"]
-            ].assign(**{"lr_ns_best": 0.0, "lr_os_best": 0.0})
+            _make_df()
+            .rename(columns={"lr_sb_best": "pred_x"})[["month_id", "priogrid_gid", "pred_x"]]
+            .assign(**{"lr_ns_best": 0.0, "lr_os_best": 0.0})
         )
 
         result = scaler.inverse_transform_volume(vh)

@@ -30,7 +30,6 @@ def _make_config(valid_config_dict, **overrides):
 
 
 class TestGreen:
-
     def test_green_valid_config_passes_all_validators(self, valid_config_dict):
         """Complete valid config constructs without error."""
         config = HydraNetConfig(**valid_config_dict)
@@ -59,10 +58,7 @@ class TestGreen:
 
 
 class TestBeige:
-
-    def test_beige_stochastic_mode_warns_about_ignored_aggregate(
-        self, valid_config_dict, caplog
-    ):
+    def test_beige_stochastic_mode_warns_about_ignored_aggregate(self, valid_config_dict, caplog):
         """Stochastic mode + aggregate_method → logs warning."""
         cfg = _make_config(
             valid_config_dict,
@@ -92,7 +88,6 @@ class TestBeige:
 
 
 class TestRed:
-
     def test_red_checksum_input_channels_mismatch(self, valid_config_dict):
         """input_channels != len(features) → ValueError."""
         cfg = _make_config(valid_config_dict, input_channels=99)

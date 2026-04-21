@@ -611,18 +611,113 @@ def test_vd_biopsy_dataframe_stochastic_list_in_cell_no_crash(vd_active, tmp_pat
     for month in range(400, 406):
         for r in range(4):
             for c in range(4):
-                rows.append({
-                    "month_id": month,
-                    "row": r,
-                    "col": c,
-                    # list-in-cell: 5 posterior samples per cell
-                    "pred_lr_feat": [float(r + c + s) for s in range(5)],
-                })
+                rows.append(
+                    {
+                        "month_id": month,
+                        "row": r,
+                        "col": c,
+                        # list-in-cell: 5 posterior samples per cell
+                        "pred_lr_feat": [float(r + c + s) for s in range(5)],
+                    }
+                )
     df = pd.DataFrame(rows)
 
     # Must complete without raising — the ValueError crash this guards against would propagate
     # out of biopsy_dataframe in DEBUG mode and was silently swallowed otherwise.
     vd_active.biopsy_dataframe(df, "stochastic_stage", features=["pred_lr_feat"])
+
+
+# ---------------------------------------------------------------------------
+# RED GATES — C-16: Error logging with exc_info (ADR-008 §4 Fail-Safe)
+# ---------------------------------------------------------------------------
+
+
+def test_vd_biopsy_volume_logs_error_with_traceback(vd_active, caplog):
+    """C-16: biopsy_volume must log ERROR with exc_info on failure."""
+    import logging
+
+    with caplog.at_level(logging.ERROR):
+        vd_active.biopsy_volume(None, "broken")
+    errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert errors, "biopsy_volume must log ERROR on failure"
+    assert any(r.exc_info is not None and r.exc_info[0] is not None for r in errors)
+
+
+def test_vd_biopsy_tensor_logs_error_with_traceback(vd_active, caplog):
+    """C-16: biopsy_tensor must log ERROR with exc_info on failure."""
+    import logging
+
+    with caplog.at_level(logging.ERROR):
+        vd_active.biopsy_tensor(None, "broken", channel_names=["a"])
+    errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert errors, "biopsy_tensor must log ERROR on failure"
+    assert any(r.exc_info is not None and r.exc_info[0] is not None for r in errors)
+
+
+def test_vd_biopsy_sample_logs_error_with_traceback(vd_active, caplog):
+    """C-16: biopsy_sample must log ERROR with exc_info on failure."""
+    import logging
+
+    with caplog.at_level(logging.ERROR):
+        vd_active.biopsy_sample(None, None, "broken")
+    errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert errors, "biopsy_sample must log ERROR on failure"
+    assert any(r.exc_info is not None and r.exc_info[0] is not None for r in errors)
+
+
+def test_vd_biopsy_health_constellation_logs_error_with_traceback(vd_active, caplog):
+    """C-16: biopsy_health_constellation must log ERROR with exc_info on failure."""
+    import logging
+
+    with caplog.at_level(logging.ERROR):
+        vd_active.biopsy_health_constellation(None, "broken")
+    errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert errors, "biopsy_health_constellation must log ERROR on failure"
+    assert any(r.exc_info is not None and r.exc_info[0] is not None for r in errors)
+
+
+def test_vd_biopsy_autoregressive_logs_error_with_traceback(vd_active, caplog):
+    """C-16: biopsy_autoregressive must log ERROR with exc_info on failure."""
+    import logging
+
+    with caplog.at_level(logging.ERROR):
+        vd_active.biopsy_autoregressive(None, None, "broken", channel_names=["a"])
+    errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert errors, "biopsy_autoregressive must log ERROR on failure"
+    assert any(r.exc_info is not None and r.exc_info[0] is not None for r in errors)
+
+
+def test_vd_biopsy_training_performance_logs_error_with_traceback(vd_active, caplog):
+    """C-16: biopsy_training_performance must log ERROR with exc_info on failure."""
+    import logging
+
+    with caplog.at_level(logging.ERROR):
+        vd_active.biopsy_training_performance(None, None, None, None, "broken")
+    errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert errors, "biopsy_training_performance must log ERROR on failure"
+    assert any(r.exc_info is not None and r.exc_info[0] is not None for r in errors)
+
+
+def test_vd_biopsy_loss_curves_logs_error_with_traceback(vd_active, caplog):
+    """C-16: biopsy_loss_curves must log ERROR with exc_info on failure."""
+    import logging
+
+    with caplog.at_level(logging.ERROR):
+        vd_active.biopsy_loss_curves(None, None, None, "broken")
+    errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert errors, "biopsy_loss_curves must log ERROR on failure"
+    assert any(r.exc_info is not None and r.exc_info[0] is not None for r in errors)
+
+
+def test_vd_biopsy_feature_dossier_logs_error_with_traceback(vd_active, caplog):
+    """C-16: biopsy_feature_dossier must log ERROR with exc_info on failure."""
+    import logging
+
+    with caplog.at_level(logging.ERROR):
+        vd_active.biopsy_feature_dossier("broken", {"bad_metric": [None]}, "broken")
+    errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert errors, "biopsy_feature_dossier must log ERROR on failure"
+    assert any(r.exc_info is not None and r.exc_info[0] is not None for r in errors)
 
 
 if __name__ == "__main__":

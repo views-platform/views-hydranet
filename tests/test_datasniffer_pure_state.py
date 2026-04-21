@@ -31,14 +31,16 @@ def _make_sniffer():
 
 def _make_input_df():
     """Flat DataFrame with 4 rows — the 'input' before predictions."""
-    return pd.DataFrame({
-        "month_id": [500, 500, 501, 501],
-        "priogrid_gid": [1, 2, 1, 2],
-        "c_id": [10, 20, 10, 20],
-        "row": [0.0, 1.0, 0.0, 1.0],
-        "col": [0.0, 0.0, 0.0, 0.0],
-        "lr_sb_best": [1.0, 2.0, 3.0, 4.0],
-    })
+    return pd.DataFrame(
+        {
+            "month_id": [500, 500, 501, 501],
+            "priogrid_gid": [1, 2, 1, 2],
+            "c_id": [10, 20, 10, 20],
+            "row": [0.0, 1.0, 0.0, 1.0],
+            "col": [0.0, 0.0, 0.0, 0.0],
+            "lr_sb_best": [1.0, 2.0, 3.0, 4.0],
+        }
+    )
 
 
 def _make_output_df(df_input):
@@ -52,15 +54,17 @@ def _make_output_df(df_input):
 
 def _make_schema_valid_df():
     """DataFrame with correct MultiIndex and mandatory columns for schema check."""
-    df = pd.DataFrame({
-        "month_id": [500, 500, 501, 501],
-        "priogrid_gid": [1, 2, 1, 2],
-        "c_id": [10, 20, 10, 20],
-        "row": [0.0, 1.0, 0.0, 1.0],
-        "col": [0.0, 0.0, 0.0, 0.0],
-        "pred_lr_sb_best": [0.5, 0.6, 0.7, 0.8],
-        "pred_by_sb_best": [0.1, 0.2, 0.3, 0.4],
-    })
+    df = pd.DataFrame(
+        {
+            "month_id": [500, 500, 501, 501],
+            "priogrid_gid": [1, 2, 1, 2],
+            "c_id": [10, 20, 10, 20],
+            "row": [0.0, 1.0, 0.0, 1.0],
+            "col": [0.0, 0.0, 0.0, 0.0],
+            "pred_lr_sb_best": [0.5, 0.6, 0.7, 0.8],
+            "pred_by_sb_best": [0.1, 0.2, 0.3, 0.4],
+        }
+    )
     return df.set_index(["month_id", "priogrid_gid"])
 
 
@@ -68,7 +72,6 @@ def _make_schema_valid_df():
 
 
 class TestGreen:
-
     def test_green_parity_passes_on_clean_round_trip(self):
         """Output with predictions stripped matches input — no raise."""
         sniffer = _make_sniffer()
@@ -95,7 +98,6 @@ class TestGreen:
 
 
 class TestBeige:
-
     def test_beige_parity_tolerates_float_precision(self):
         """Float values within atol=1e-5 pass parity check."""
         sniffer = _make_sniffer()
@@ -130,7 +132,6 @@ class TestBeige:
 
 
 class TestRed:
-
     def test_red_parity_detects_drifted_float_column(self):
         """Output float column values differ from input → ValueError."""
         sniffer = _make_sniffer()

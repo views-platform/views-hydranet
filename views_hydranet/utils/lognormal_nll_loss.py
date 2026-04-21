@@ -74,4 +74,4 @@ class LogNormalFixedSigmaLoss(nn.Module):
             Scalar loss tensor (always non-negative).
         """
         residual = (target - input) / self.sigma
-        return torch.mean(0.5 * residual ** 2)
+        return torch.mean(0.5 * residual**2)

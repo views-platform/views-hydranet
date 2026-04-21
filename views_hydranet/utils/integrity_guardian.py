@@ -1,9 +1,10 @@
 """
-IntegrityGuardian: Numerical stability monitor for HydraNet training.
+IntegrityGuardian: Numerical stability monitor for HydraNet.
 """
 
 import logging
 
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -15,6 +16,8 @@ class IntegrityGuardian:
     Monitors tensors and models for numerical instability.
     Raises RuntimeError to stop training if an explosion is detected.
     """
+
+    PREDICTION_MAGNITUDE_CEILING = 1000
 
     @staticmethod
     def monitor(
@@ -33,9 +36,12 @@ class IntegrityGuardian:
             raise RuntimeError(err_msg)
 
         # 2. Check Predictions (Magnitude Check)
-        # For log-scaled conflict data, values > 100 are extremely suspicious.
-        # We set a hard ceiling at 10,000.
-        if not torch.isfinite(prediction).all() or prediction.abs().max() > 10000:
+        # C-51: lowered from 10000 to 1000 — for log1p-transformed conflict data,
+        # |pred| > 100 already implies exp(100) fatalities, which is unphysical.
+        if (
+            not torch.isfinite(prediction).all()
+            or prediction.abs().max() > IntegrityGuardian.PREDICTION_MAGNITUDE_CEILING
+        ):
             p_max = prediction.abs().max().item()
             err_msg = (
                 f"[FATAL NUMERICAL EXPLOSION] Predictions exploded (Max Abs: {p_max:.2f}) "
@@ -59,3 +65,15 @@ class IntegrityGuardian:
                     logger.error(err_msg)
 
                     raise RuntimeError(err_msg)
+
+    @staticmethod
+    def monitor_numpy(array: np.ndarray, context: str = "") -> None:
+        """
+        Checks a numpy array for non-finite values (NaN/Inf).
+        Raises RuntimeError on detection (ADR-003: Fail Loud).
+        """
+        if not np.isfinite(array).all():
+            nan_count = int(np.count_nonzero(~np.isfinite(array)))
+            err_msg = f"[FATAL] Array contains {nan_count} non-finite values. Context: {context}"
+            logger.error(err_msg)
+            raise RuntimeError(err_msg)

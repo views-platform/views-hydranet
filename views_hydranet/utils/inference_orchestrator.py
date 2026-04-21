@@ -15,6 +15,7 @@ import torch
 
 from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.hydranet_inference import HydraNetInference
+from views_hydranet.utils.integrity_guardian import IntegrityGuardian
 from views_hydranet.utils.prediction_frame_assembler import PredictionFrameAssembler
 from views_hydranet.utils.visual_diagnostics import VisualDiagnostics
 from views_hydranet.utils.volume_handler import VolumeHandler
@@ -66,8 +67,7 @@ class InferenceOrchestrator:
         """
         # --- 1. PREDICT ---
         post_reg, post_cls = inference.generate_posterior_samples(
-            handler, origin=origin, is_evaluation=is_backtest,
-            window_info=f"Origin {origin_idx + 1}/{n_origins}"
+            handler, origin=origin, window_info=f"Origin {origin_idx + 1}/{n_origins}"
         )
 
         if post_cls is not None and post_cls.size > 0:
@@ -78,6 +78,11 @@ class InferenceOrchestrator:
         if post_cls is not None:
             del post_cls
 
+        IntegrityGuardian.monitor_numpy(
+            posterior_zstack,
+            context=f"Origin {origin_idx + 1}/{n_origins} posterior predictions",
+        )
+
         duration = posterior_zstack.shape[0]
 
         # --- 2. TEMPORAL ALIGNMENT (ADR 039.1) ---
@@ -86,16 +91,17 @@ class InferenceOrchestrator:
 
         if not is_projecting:
             window_handler = handler.slice_time(origin + 1, origin + 1 + duration)
+        elif origin < max_history_idx:
+            raise NotImplementedError(
+                f"Partial projection is not supported: origin={origin} is within "
+                f"historical range (max_history_idx={max_history_idx}), but "
+                f"origin + duration={origin + duration} exceeds it."
+            )
         else:
-            if origin < max_history_idx:
-                window_handler = handler.slice_time(origin + 1, origin + 1 + duration)
-            else:
-                window_handler = handler.extrapolate_time(duration)
+            window_handler = handler.extrapolate_time(duration)
 
         # --- 3. WRAP (ADR 039.3) ---
-        pred_handler = window_handler.wrap_predictions(
-            posterior_zstack, target_names=target_names
-        )
+        pred_handler = window_handler.wrap_predictions(posterior_zstack, target_names=target_names)
         del posterior_zstack
 
         if origin_idx == 0:
@@ -108,9 +114,7 @@ class InferenceOrchestrator:
 
         # --- 5. COLLAPSE (ADR 039.5) ---
         if self.config.get("evaluation_mode") == "point":
-            pred_handler = pred_handler.collapse_to_point(
-                method=self.config["aggregate_method"]
-            )
+            pred_handler = pred_handler.collapse_to_point(method=self.config["aggregate_method"])
 
         return pred_handler, window_handler
 
@@ -151,7 +155,13 @@ class InferenceOrchestrator:
 
         for i, origin in enumerate(origins):
             pred_handler, window_handler = self._run_inference_pipeline(
-                handler, scaler, inference, origin, i, is_backtest, len(origins),
+                handler,
+                scaler,
+                inference,
+                origin,
+                i,
+                is_backtest,
+                len(origins),
                 all_targets,
             )
 
@@ -208,7 +218,13 @@ class InferenceOrchestrator:
 
         for i, origin in enumerate(origins):
             pred_handler, window_handler = self._run_inference_pipeline(
-                handler, scaler, inference, origin, i, is_backtest, len(origins),
+                handler,
+                scaler,
+                inference,
+                origin,
+                i,
+                is_backtest,
+                len(origins),
                 all_targets,
             )
 

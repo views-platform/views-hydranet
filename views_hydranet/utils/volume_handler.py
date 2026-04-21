@@ -246,7 +246,7 @@ class VolumeHandler:
             # ADR 007 hardening: Strip identity channels by checking the channel map.
             # This ensures only feature_cols reach the model.
             feature_indices = [
-                i for i, name in enumerate(self.channel_map) if name in self._metadata.feature_cols
+                i for i, name in enumerate(self.channel_map) if name in self.feature_cols
             ]
             assert feature_indices, (
                 "VolumeHandler.to_pytorch: feature_cols is empty — "
@@ -293,9 +293,7 @@ class VolumeHandler:
 
         # Identify all non-feature channels from parent (excluding primary keys already handled)
         identity_names = [
-            n
-            for n in self.channel_map
-            if n in self._metadata.identity_cols and n not in [time_col, id_col]
+            n for n in self.channel_map if n in self.identity_cols and n not in [time_col, id_col]
         ]
         identity_idxs = [self.channel_map.index(n) for n in identity_names]
 
@@ -343,9 +341,7 @@ class VolumeHandler:
                 id_vols.append(watermark.astype(np.float32))
 
             # work_data from PyTorch is float32; ensure consistent output dtype.
-            full_data = np.concatenate(
-                id_vols + [work_data.astype(np.float32)], axis=-2
-            )
+            full_data = np.concatenate(id_vols + [work_data.astype(np.float32)], axis=-2)
         else:
             # Point: [T, H, W, C]
             axes = ("T", "H", "W", "C")
@@ -361,10 +357,10 @@ class VolumeHandler:
             channel_map=final_names,
             time_col=time_col,
             id_col=id_col,
-            spatial_cols=self._metadata.spatial_cols,
+            spatial_cols=self.spatial_cols,
             identity_cols=tuple(identity_names),
             feature_cols=tuple(full_signal_names),
-            spatial_offset=self._metadata.spatial_offset,
+            spatial_offset=self.spatial_offset,
         )
 
     def collapse_to_point(self, method: str) -> "VolumeHandler":
@@ -409,12 +405,12 @@ class VolumeHandler:
             data=collapsed_data,
             axes=new_axes,
             channel_map=self.channel_map,
-            time_col=self._metadata.time_col,
-            id_col=self._metadata.id_col,
-            spatial_cols=self._metadata.spatial_cols,
-            identity_cols=self._metadata.identity_cols,
-            feature_cols=self._metadata.feature_cols,
-            spatial_offset=self._metadata.spatial_offset,
+            time_col=self.time_col,
+            id_col=self.id_col,
+            spatial_cols=self.spatial_cols,
+            identity_cols=self.identity_cols,
+            feature_cols=self.feature_cols,
+            spatial_offset=self.spatial_offset,
         )
 
     def slice_time(self, start_idx: int, end_idx: int) -> "VolumeHandler":
@@ -440,14 +436,14 @@ class VolumeHandler:
 
         return VolumeHandler(
             data=new_data,
-            axes=self._metadata.axes,
-            channel_map=self._metadata.channel_map,
-            time_col=self._metadata.time_col,
-            id_col=self._metadata.id_col,
-            spatial_cols=self._metadata.spatial_cols,
-            identity_cols=self._metadata.identity_cols,
-            feature_cols=self._metadata.feature_cols,
-            spatial_offset=self._metadata.spatial_offset,
+            axes=self.axes,
+            channel_map=self.channel_map,
+            time_col=self.time_col,
+            id_col=self.id_col,
+            spatial_cols=self.spatial_cols,
+            identity_cols=self.identity_cols,
+            feature_cols=self.feature_cols,
+            spatial_offset=self.spatial_offset,
         )
 
     def extrapolate_time(self, steps: int) -> "VolumeHandler":
@@ -470,9 +466,7 @@ class VolumeHandler:
         m_col = self._metadata.time_col
         m_idx = self.channel_map.index(m_col)
         if torch.is_tensor(self._data):
-            t_increments = torch.arange(1, steps + 1, device=self._data.device).view(
-                steps, 1, 1
-            )
+            t_increments = torch.arange(1, steps + 1, device=self._data.device).view(steps, 1, 1)
             t_future_vol = cast(torch.Tensor, future_vol)
             t_future_vol[..., m_idx] += t_increments
         else:
@@ -482,55 +476,72 @@ class VolumeHandler:
 
         return VolumeHandler(
             data=future_vol,
-            axes=self._metadata.axes,
-            channel_map=self._metadata.channel_map,
-            time_col=self._metadata.time_col,
-            id_col=self._metadata.id_col,
-            spatial_cols=self._metadata.spatial_cols,
-            identity_cols=self._metadata.identity_cols,
-            feature_cols=self._metadata.feature_cols,
-            spatial_offset=self._metadata.spatial_offset,
+            axes=self.axes,
+            channel_map=self.channel_map,
+            time_col=self.time_col,
+            id_col=self.id_col,
+            spatial_cols=self.spatial_cols,
+            identity_cols=self.identity_cols,
+            feature_cols=self.feature_cols,
+            spatial_offset=self.spatial_offset,
         )
 
     def _permute(self, dims: Union[List[int], Tuple[int, ...]]) -> "VolumeHandler":
         """
-        Reorders the axes of the volume and updates the Ledger.
-        NOTE: Review needed - primarily used in geometric tests.
+        Returns a new VolumeHandler with reordered axes.
         """
         dims_tuple = tuple(dims)
         if torch.is_tensor(self._data):
-            t_data = cast(torch.Tensor, self._data)
-            self._data = cast(Any, t_data.permute(*dims_tuple))
+            new_data: Any = (
+                cast(torch.Tensor, self._data).permute(*dims_tuple).contiguous().clone()
+            )
         else:
-            np_data = cast(np.ndarray, self._data)
-            self._data = cast(Any, np.transpose(np_data, dims_tuple))
+            new_data = np.transpose(cast(np.ndarray, self._data), dims_tuple).copy()
 
-        # Update Ledger
         new_axes = tuple(self._metadata.axes[i] for i in dims_tuple)
-        self._metadata = replace(
-            self._metadata,
+        result = VolumeHandler(
+            data=new_data,
             axes=new_axes,
+            channel_map=self.channel_map,
+            time_col=self.time_col,
+            id_col=self.id_col,
+            spatial_cols=self.spatial_cols,
+            identity_cols=self.identity_cols,
+            feature_cols=self.feature_cols,
+            spatial_offset=self.spatial_offset,
+        )
+        result._metadata = replace(
+            result._metadata,
             history=self._metadata.history + (("permute", dims_tuple),),
         )
-        return self
+        return result
 
     def flip(self, axis_label: str) -> "VolumeHandler":
         """
-        Flips the volume along a specific named axis and updates the Ledger history.
-        NOTE: Critical for data augmentation in training loop.
+        Returns a new VolumeHandler flipped along a named axis.
         """
         idx = self.get_axis_idx(axis_label)
         if torch.is_tensor(self._data):
-            t_data = cast(torch.Tensor, self._data)
-            self._data = cast(Any, torch.flip(t_data, dims=[idx]))
+            new_data: Any = torch.flip(cast(torch.Tensor, self._data), dims=[idx])
         else:
-            np_data = cast(np.ndarray, self._data)
-            self._data = cast(Any, np.flip(np_data, axis=idx))
+            new_data = np.flip(cast(np.ndarray, self._data), axis=idx).copy()
 
-        self._metadata = replace(
-            self._metadata, history=self._metadata.history + (("flip", axis_label),)
+        result = VolumeHandler(
+            data=new_data,
+            axes=self.axes,
+            channel_map=self.channel_map,
+            time_col=self.time_col,
+            id_col=self.id_col,
+            spatial_cols=self.spatial_cols,
+            identity_cols=self.identity_cols,
+            feature_cols=self.feature_cols,
+            spatial_offset=self.spatial_offset,
         )
-        return self
+        result._metadata = replace(
+            result._metadata,
+            history=self._metadata.history + (("flip", axis_label),),
+        )
+        return result
 
     @property
     def data(self) -> Union[np.ndarray, "torch.Tensor"]:
@@ -567,6 +578,18 @@ class VolumeHandler:
     def spatial_offset(self) -> Tuple[int, int]:
         return self._metadata.spatial_offset
 
+    @property
+    def feature_cols(self) -> Tuple[str, ...]:
+        return self._metadata.feature_cols
+
+    @property
+    def identity_cols(self) -> Tuple[str, ...]:
+        return self._metadata.identity_cols
+
+    @property
+    def history(self) -> Tuple[Tuple[str, Any], ...]:
+        return self._metadata.history
+
     # Cross-ref: DataFetcher.apply_blueprint() (data_fetcher.py)
     # Both paths RAISE if source is missing — see tests/test_derivation_parity.py.
     def _execute_derivations(self, derivations_config: Dict[str, List[Dict[str, Any]]]) -> None:
@@ -576,7 +599,7 @@ class VolumeHandler:
         """
         c_idx = self.get_axis_idx("C")
         new_channels = list(self._metadata.channel_map)
-        new_features = list(self._metadata.feature_cols)
+        new_features = list(self.feature_cols)
 
         for op, instructions in derivations_config.items():
             for instr in instructions:

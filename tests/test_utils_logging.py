@@ -24,11 +24,13 @@ from views_hydranet.utils.utils_logging import (
 # ---------------------------------------------------------------------------
 @pytest.fixture
 def sample_df():
-    return pd.DataFrame({
-        "month_id": [1, 2, 3, 4, 5],
-        "priogrid_gid": [10, 20, 30, 40, 50],
-        "feat_a": np.random.rand(5),
-    })
+    return pd.DataFrame(
+        {
+            "month_id": [1, 2, 3, 4, 5],
+            "priogrid_gid": [10, 20, 30, 40, 50],
+            "feat_a": np.random.rand(5),
+        }
+    )
 
 
 @pytest.fixture

@@ -43,14 +43,16 @@ def _make_parity_df():
     for t in range(2):
         for r in range(2):
             for c in range(2):
-                rows.append({
-                    "month_id": 500 + t,
-                    "priogrid_gid": r * 2 + c + 1,
-                    "c_id": 1,
-                    "row": float(r),
-                    "col": float(c),
-                    "src_feat": 0.1 * (t * 4 + r * 2 + c),  # 0.0, 0.1, ..., 0.7
-                })
+                rows.append(
+                    {
+                        "month_id": 500 + t,
+                        "priogrid_gid": r * 2 + c + 1,
+                        "c_id": 1,
+                        "row": float(r),
+                        "col": float(c),
+                        "src_feat": 0.1 * (t * 4 + r * 2 + c),  # 0.0, 0.1, ..., 0.7
+                    }
+                )
     return pd.DataFrame(rows)
 
 

@@ -85,12 +85,8 @@ def test_lognormal_nll_gradient_direction_matches_mse():
     torch.nn.MSELoss()(pred, target).backward()
     grad_mse = pred.grad.clone()
 
-    cos_sim = torch.nn.functional.cosine_similarity(
-        grad_nll.flatten(), grad_mse.flatten(), dim=0
-    )
-    assert cos_sim > 0.999, (
-        f"Gradient direction should match MSE, cosine similarity {cos_sim:.4f}"
-    )
+    cos_sim = torch.nn.functional.cosine_similarity(grad_nll.flatten(), grad_mse.flatten(), dim=0)
+    assert cos_sim > 0.999, f"Gradient direction should match MSE, cosine similarity {cos_sim:.4f}"
 
 
 def test_lognormal_nll_registered_in_choose_loss():

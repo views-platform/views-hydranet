@@ -17,6 +17,7 @@ from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 def _make_config(mode="stochastic"):
     return {
         "regression_targets": ["lr_sb_best"],
@@ -44,6 +45,7 @@ def _make_orchestrator(config=None):
 # RED TESTS — _run_inference_pipeline must exist
 # ---------------------------------------------------------------------------
 
+
 class TestAdr039PipelineMethodExists:
     """RED GATE: The shared pipeline method must exist after refactor."""
 
@@ -68,6 +70,7 @@ class TestAdr039PipelineMethodExists:
 # ---------------------------------------------------------------------------
 # STRUCTURAL PARITY TESTS — all three paths must call the shared method
 # ---------------------------------------------------------------------------
+
 
 class TestAdr039PipelineParity:
     """
@@ -100,7 +103,10 @@ class TestAdr039PipelineParity:
             handler.shape = (10, 4, 4, 5)
             scaler = MagicMock()
             orch.generate_prediction_frames(
-                handler, scaler, origins=[5], all_targets=["lr_sb_best", "by_sb_best"],
+                handler,
+                scaler,
+                origins=[5],
+                all_targets=["lr_sb_best", "by_sb_best"],
             )
             orch._run_inference_pipeline.assert_called_once()
 
@@ -130,7 +136,9 @@ class TestAdr039PipelineParity:
             scaler = MagicMock()
             sink = MagicMock()
             orch.generate_prediction_frames_streaming(
-                handler, scaler, origins=[5],
+                handler,
+                scaler,
+                origins=[5],
                 all_targets=["lr_sb_best", "by_sb_best"],
                 origin_sink=sink,
             )

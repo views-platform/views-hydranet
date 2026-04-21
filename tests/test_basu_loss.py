@@ -75,9 +75,7 @@ def test_basu_alpha_zero_converges_to_mse():
     grad_mse = pred.grad.clone()
 
     # Gradient directions should be highly correlated
-    cos_sim = torch.nn.functional.cosine_similarity(
-        grad_basu.flatten(), grad_mse.flatten(), dim=0
-    )
+    cos_sim = torch.nn.functional.cosine_similarity(grad_basu.flatten(), grad_mse.flatten(), dim=0)
     assert cos_sim > 0.99, (
         f"Basu(alpha≈0) gradients should match MSE direction, got cosine similarity {cos_sim:.4f}"
     )
@@ -200,6 +198,7 @@ def test_basu_loss_registered_in_choose_loss():
     criterion_reg, criterion_class, mtl = choose_loss(config, device)
 
     from views_hydranet.utils.basu_loss import BasuDPDLoss
+
     assert isinstance(criterion_reg, BasuDPDLoss), (
         f"Expected BasuDPDLoss, got {type(criterion_reg).__name__}"
     )

@@ -121,9 +121,7 @@ def test_training_engine_uses_lock_entropy():
     )
 
     # Should import and use lock_entropy
-    assert "lock_entropy" in source, (
-        "training_engine.py does not reference lock_entropy"
-    )
+    assert "lock_entropy" in source, "training_engine.py does not reference lock_entropy"
 
 
 # ---------------------------------------------------------------------------

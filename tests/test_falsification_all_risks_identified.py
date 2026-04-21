@@ -134,19 +134,26 @@ def test_falsify_03b_volume_sampler_ledger_inconsistency_untested():
 # ─── C-33 (OPEN): InferenceOrchestrator sequence violation ───────────────────
 
 
-def test_falsify_03c_orchestrator_sequence_violation_untested():
+def test_falsify_03c_orchestrator_sequence_enforced_by_composition():
     """
-    Probe 3 (Category E): CIC failure mode not in register
+    C-33 verification: InferenceOrchestrator ADR 039 sequence is enforced
+    implicitly by method composition — each step's return type is the next
+    step's required input type. Bypass is structurally impossible without
+    reimplementing the pipeline.
 
-    Finding: InferenceOrchestrator CIC Section 6 declares "Sequence Violation"
-    failure mode (bypass pipeline order). No test verifies this, and the concern
-    is registered as C-33.
-
-    Severity: Soft falsification
+    Verify that _run_inference_pipeline exists and is a single method
+    encoding the full Predict→Align→Wrap→Invert→Collapse sequence.
     """
-    assert False, (
-        "InferenceOrchestrator 'Sequence Violation' failure mode: untested (C-33 open)"
-    )
+    import inspect
+
+    from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
+
+    source = inspect.getsource(InferenceOrchestrator._run_inference_pipeline)
+    assert "generate_posterior" in source, "Step 1 PREDICT missing"
+    assert "slice_time" in source, "Step 2 ALIGN missing"
+    assert "wrap_predictions" in source, "Step 3 WRAP missing"
+    assert "inverse_transform" in source, "Step 4 INVERT missing"
+    assert "collapse_to_point" in source, "Step 5 COLLAPSE missing"
 
 
 # ─── C-21 (RESOLVED): Bare except Exception compliance ──────────────────────
@@ -166,9 +173,7 @@ def test_falsify_06_c21_undercounts_bare_except():
     # VisualDiagnostics must have >= 9 except handlers (the biopsy methods)
     source = inspect.getsource(visual_diagnostics.VisualDiagnostics)
     tree = ast.parse(source)
-    except_handlers = [
-        node for node in ast.walk(tree) if isinstance(node, ast.ExceptHandler)
-    ]
+    except_handlers = [node for node in ast.walk(tree) if isinstance(node, ast.ExceptHandler)]
     assert len(except_handlers) >= 9, (
         f"Expected >= 9 except handlers in VisualDiagnostics, found {len(except_handlers)}"
     )

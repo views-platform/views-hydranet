@@ -113,7 +113,12 @@ class HydraNetConfig(BaseModel):
     min_ratio: float = Field(...)
     freeze_h: str = Field(...)
 
-    # 9. Outbound Evaluation
+    # 9. Runtime Flags
+    sweep: bool = Field(default=False)
+    random_flips: bool = Field(default=True)
+    diagnostic_visualizations: bool = Field(default=False)
+
+    # 10. Outbound Evaluation
     evaluation_mode: str = Field(
         ...,
         description=(
@@ -240,10 +245,7 @@ class HydraNetConfig(BaseModel):
     def validate_eval_mode(cls, v: str) -> str:
         valid = ["point", "stochastic"]
         if v not in valid:
-            err_msg = (
-                f"evaluation_mode='{v}' is not valid. "
-                f"Expected one of: {valid}."
-            )
+            err_msg = f"evaluation_mode='{v}' is not valid. Expected one of: {valid}."
             logger.error(err_msg)
             raise ValueError(err_msg)
         return v
@@ -265,8 +267,7 @@ class HydraNetConfig(BaseModel):
 
         if v not in LOSS_REG_REGISTRY:
             err_msg = (
-                f"loss_reg='{v}' is not registered. "
-                f"Available: {list(LOSS_REG_REGISTRY.keys())}"
+                f"loss_reg='{v}' is not registered. Available: {list(LOSS_REG_REGISTRY.keys())}"
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
@@ -298,6 +299,48 @@ class HydraNetConfig(BaseModel):
 
             raise ValueError(err_msg)
         return v
+
+    @field_validator("slope_ratio")
+    @classmethod
+    def validate_slope_ratio(cls, v: float) -> float:
+        if v <= 0.0:
+            err_msg = (
+                f"slope_ratio must be > 0.0 (got {v}). Zero causes division-by-zero in curriculum."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator("roof_ratio")
+    @classmethod
+    def validate_roof_ratio(cls, v: float) -> float:
+        if v <= 0.0:
+            err_msg = f"roof_ratio must be > 0.0 (got {v}). Zero eliminates curriculum variation."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator("window_dim")
+    @classmethod
+    def validate_window_dim(cls, v: int) -> int:
+        if v < 2:
+            err_msg = (
+                f"window_dim must be >= 2 (got {v}). Single-pixel patches have no spatial context."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
+    @model_validator(mode="after")
+    def validate_ratio_ordering(self) -> "HydraNetConfig":
+        if self.min_ratio >= self.max_ratio:
+            err_msg = (
+                f"min_ratio ({self.min_ratio}) must be < max_ratio ({self.max_ratio}). "
+                f"Inverted range breaks curriculum sampling."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
 
     # --- Dict-compatibility layer (gradual migration from config["key"]) ---
 

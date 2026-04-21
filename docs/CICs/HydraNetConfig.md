@@ -52,6 +52,13 @@ The `HydraNetConfig` is the **Schema** of the HydraNet pipeline. Its primary pur
 - **Checksum Mismatch:** Raises `ValueError` with explicit counts (e.g., "input_channels (7) != features (6)").
 - **Feature Lifecycle Violation:** Raises `ValueError` listing unaccounted columns.
 - **Invalid Evaluation Mode:** Raises `ValueError` with valid options listed — no silent typo correction for `evaluation_mode` (only the legacy `evalution_mode` key name is corrected).
+- **Invalid Loss Function (Regression):** Raises `ValueError` when `loss_reg` is not in `LOSS_REG_REGISTRY`, listing valid options.
+- **Invalid Loss Function (Classification):** Raises `ValueError` when `loss_class` is not in `LOSS_CLASS_REGISTRY`, listing valid options.
+- **Invalid Aggregate Method:** Raises `ValueError` when `aggregate_method` is not in `[arithmetic_mean, geometric_mean, median]`.
+- **Degenerate Slope Ratio:** Raises `ValueError` when `slope_ratio <= 0.0` (causes division-by-zero in curriculum).
+- **Degenerate Roof Ratio:** Raises `ValueError` when `roof_ratio <= 0.0` (eliminates curriculum variation).
+- **Degenerate Window Dim:** Raises `ValueError` when `window_dim < 2` (single-pixel patches have no spatial context).
+- **Inverted Ratio Range:** Raises `ValueError` when `min_ratio >= max_ratio` (breaks curriculum sampling).
 
 ---
 

@@ -92,14 +92,20 @@ def test_hurdle_masking_reduces_loss_contributors():
     h = torch.zeros(B, 8, H, W)
 
     model = _make_tiny_model()
-    idx = _SequenceIndices(["feat"], {"regression_targets": ["feat"],
-                                       "classification_targets": [],
-                                       "features": ["feat"]})
+    idx = _SequenceIndices(
+        ["feat"],
+        {"regression_targets": ["feat"], "classification_targets": [], "features": ["feat"]},
+    )
 
     result = _process_sequence(
-        train_tensor, model, h,
-        torch.nn.MSELoss(), torch.nn.BCELoss(), _SumReducer(),
-        idx, torch.device("cpu"),
+        train_tensor,
+        model,
+        h,
+        torch.nn.MSELoss(),
+        torch.nn.BCELoss(),
+        _SumReducer(),
+        idx,
+        torch.device("cpu"),
         hurdle_threshold=0.0,
     )
 
@@ -124,14 +130,20 @@ def test_hurdle_none_processes_all_pixels():
     h = torch.zeros(B, 8, H, W)
 
     model = _make_tiny_model()
-    idx = _SequenceIndices(["feat"], {"regression_targets": ["feat"],
-                                       "classification_targets": [],
-                                       "features": ["feat"]})
+    idx = _SequenceIndices(
+        ["feat"],
+        {"regression_targets": ["feat"], "classification_targets": [], "features": ["feat"]},
+    )
 
     result = _process_sequence(
-        train_tensor, model, h,
-        torch.nn.MSELoss(), torch.nn.BCELoss(), _SumReducer(),
-        idx, torch.device("cpu"),
+        train_tensor,
+        model,
+        h,
+        torch.nn.MSELoss(),
+        torch.nn.BCELoss(),
+        _SumReducer(),
+        idx,
+        torch.device("cpu"),
         hurdle_threshold=None,
     )
 
@@ -155,31 +167,44 @@ def test_qs99_regularizer_adds_to_loss():
     h = torch.zeros(B, 8, H, W)
 
     model = _make_tiny_model()
-    idx = _SequenceIndices(["feat"], {"regression_targets": ["feat"],
-                                       "classification_targets": [],
-                                       "features": ["feat"]})
+    idx = _SequenceIndices(
+        ["feat"],
+        {"regression_targets": ["feat"], "classification_targets": [], "features": ["feat"]},
+    )
 
     # Without regularizer
     result_no_qs = _process_sequence(
-        train_tensor, model, h.clone(),
-        torch.nn.MSELoss(), torch.nn.BCELoss(), _SumReducer(),
-        idx, torch.device("cpu"),
-        hurdle_threshold=0.0, qs99_weight=0.0,
+        train_tensor,
+        model,
+        h.clone(),
+        torch.nn.MSELoss(),
+        torch.nn.BCELoss(),
+        _SumReducer(),
+        idx,
+        torch.device("cpu"),
+        hurdle_threshold=0.0,
+        qs99_weight=0.0,
     )
 
     # With regularizer
     result_with_qs = _process_sequence(
-        train_tensor, model, h.clone(),
-        torch.nn.MSELoss(), torch.nn.BCELoss(), _SumReducer(),
-        idx, torch.device("cpu"),
-        hurdle_threshold=0.0, qs99_weight=0.1, qs99_tau=0.99,
+        train_tensor,
+        model,
+        h.clone(),
+        torch.nn.MSELoss(),
+        torch.nn.BCELoss(),
+        _SumReducer(),
+        idx,
+        torch.device("cpu"),
+        hurdle_threshold=0.0,
+        qs99_weight=0.1,
+        qs99_tau=0.99,
     )
 
     loss_no = result_no_qs["total"].item()
     loss_with = result_with_qs["total"].item()
     assert loss_no != loss_with, (
-        f"QS99 regularizer should change the total loss: "
-        f"without={loss_no}, with={loss_with}"
+        f"QS99 regularizer should change the total loss: without={loss_no}, with={loss_with}"
     )
 
 
@@ -192,22 +217,35 @@ def test_qs99_disabled_when_no_hurdle():
     h = torch.zeros(B, 8, H, W)
 
     model = _make_tiny_model()
-    idx = _SequenceIndices(["feat"], {"regression_targets": ["feat"],
-                                       "classification_targets": [],
-                                       "features": ["feat"]})
+    idx = _SequenceIndices(
+        ["feat"],
+        {"regression_targets": ["feat"], "classification_targets": [], "features": ["feat"]},
+    )
 
     result_a = _process_sequence(
-        train_tensor, model, h.clone(),
-        torch.nn.MSELoss(), torch.nn.BCELoss(), _SumReducer(),
-        idx, torch.device("cpu"),
-        hurdle_threshold=None, qs99_weight=0.0,
+        train_tensor,
+        model,
+        h.clone(),
+        torch.nn.MSELoss(),
+        torch.nn.BCELoss(),
+        _SumReducer(),
+        idx,
+        torch.device("cpu"),
+        hurdle_threshold=None,
+        qs99_weight=0.0,
     )
 
     result_b = _process_sequence(
-        train_tensor, model, h.clone(),
-        torch.nn.MSELoss(), torch.nn.BCELoss(), _SumReducer(),
-        idx, torch.device("cpu"),
-        hurdle_threshold=None, qs99_weight=0.1,
+        train_tensor,
+        model,
+        h.clone(),
+        torch.nn.MSELoss(),
+        torch.nn.BCELoss(),
+        _SumReducer(),
+        idx,
+        torch.device("cpu"),
+        hurdle_threshold=None,
+        qs99_weight=0.1,
     )
 
     assert abs(result_a["total"].item() - result_b["total"].item()) < 1e-6, (
@@ -242,15 +280,27 @@ def test_hurdle_masking_mixed_data():
     )
 
     result_no_hurdle = _process_sequence(
-        train_tensor, model, h.clone(),
-        torch.nn.MSELoss(), torch.nn.BCELoss(), _SumReducer(),
-        idx, torch.device("cpu"), hurdle_threshold=None,
+        train_tensor,
+        model,
+        h.clone(),
+        torch.nn.MSELoss(),
+        torch.nn.BCELoss(),
+        _SumReducer(),
+        idx,
+        torch.device("cpu"),
+        hurdle_threshold=None,
     )
 
     result_hurdle = _process_sequence(
-        train_tensor, model, h.clone(),
-        torch.nn.MSELoss(), torch.nn.BCELoss(), _SumReducer(),
-        idx, torch.device("cpu"), hurdle_threshold=0.0,
+        train_tensor,
+        model,
+        h.clone(),
+        torch.nn.MSELoss(),
+        torch.nn.BCELoss(),
+        _SumReducer(),
+        idx,
+        torch.device("cpu"),
+        hurdle_threshold=0.0,
     )
 
     loss_no = result_no_hurdle["total"].item()
@@ -273,6 +323,7 @@ class _SumReducer(torch.nn.Module):
 
 def _make_tiny_model():
     """Minimal model that matches HydraNet's forward signature."""
+
     class TinyModel(torch.nn.Module):
         def __init__(self):
             super().__init__()

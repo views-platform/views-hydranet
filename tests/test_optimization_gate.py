@@ -22,7 +22,7 @@ class TestOptimizationGate:
             "windows_per_lesson": 2,
             "np_seed": 4,
             "torch_seed": 4,
-            "window_dim": 1,
+            "window_dim": 2,
             "steps": [1],
             "time_steps": 1,  # Added checksum
             "n_posterior_samples": 10,
@@ -53,10 +53,8 @@ class TestOptimizationGate:
         device = torch.device("cpu")
         model = torch.nn.Linear(2, 1).to(device)  # Changed to 2
         model.base = 1
-        model.init_hTtime = (
-            lambda hidden_channels, H, W: torch.zeros(
-                (1, 1, 1, 1), requires_grad=True
-            )
+        model.init_hTtime = lambda hidden_channels, H, W: torch.zeros(
+            (1, 1, 1, 1), requires_grad=True
         )
 
         def mock_forward(t0, h):
@@ -128,9 +126,14 @@ class TestOptimizationGate:
 
         cr, cc, mt = criterion
         ctx = TrainingContext(
-            model=model, optimizer=optimizer, scheduler=scheduler,
-            criterion_reg=cr, criterion_class=cc, multitaskloss_instance=mt,
-            config=config, device=device,
+            model=model,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            criterion_reg=cr,
+            criterion_class=cc,
+            multitaskloss_instance=mt,
+            config=config,
+            device=device,
         )
 
         losses = train(ctx, handler, pbar)

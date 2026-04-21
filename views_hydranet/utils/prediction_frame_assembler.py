@@ -76,9 +76,7 @@ class PredictionFrameAssembler:
             raise ValueError(err_msg)
 
         provider_slice = history.slice_time(start_idx, start_idx + duration)
-        return self._reconstruct_as_pf_dict(
-            signal, provider_slice, all_targets, PredictionFrame
-        )
+        return self._reconstruct_as_pf_dict(signal, provider_slice, all_targets, PredictionFrame)
 
     def _valid_cell_indices(
         self, signal: "VolumeHandler", provider: "VolumeHandler"
@@ -96,23 +94,25 @@ class PredictionFrameAssembler:
         # No copy: np.transpose() and np.flip() return views; fancy indexing
         # in _reconstruct_as_pf_dict() allocates only the valid (N, S) result.
         temp_data = (
-            signal.data.detach().cpu().numpy()
-            if torch.is_tensor(signal.data)
-            else signal.data
+            signal.data.detach().cpu().numpy() if torch.is_tensor(signal.data) else signal.data
         )
         has_samples = "S" in signal.axes
 
         if has_samples:
             t_ax, h_ax, w_ax, c_ax, s_ax = (
-                signal.get_axis_idx("T"), signal.get_axis_idx("H"),
-                signal.get_axis_idx("W"), signal.get_axis_idx("C"),
+                signal.get_axis_idx("T"),
+                signal.get_axis_idx("H"),
+                signal.get_axis_idx("W"),
+                signal.get_axis_idx("C"),
                 signal.get_axis_idx("S"),
             )
             temp_data = np.transpose(temp_data, (h_ax, w_ax, t_ax, c_ax, s_ax))
         else:
             t_ax, h_ax, w_ax, c_ax = (
-                signal.get_axis_idx("T"), signal.get_axis_idx("H"),
-                signal.get_axis_idx("W"), signal.get_axis_idx("C"),
+                signal.get_axis_idx("T"),
+                signal.get_axis_idx("H"),
+                signal.get_axis_idx("W"),
+                signal.get_axis_idx("C"),
             )
             temp_data = np.transpose(temp_data, (h_ax, w_ax, t_ax, c_ax))
         temp_data = np.flip(temp_data, axis=0)  # North-Up
@@ -125,8 +125,10 @@ class PredictionFrameAssembler:
             else provider.data
         )
         p_t, p_h, p_w, p_c = (
-            provider.get_axis_idx("T"), provider.get_axis_idx("H"),
-            provider.get_axis_idx("W"), provider.get_axis_idx("C"),
+            provider.get_axis_idx("T"),
+            provider.get_axis_idx("H"),
+            provider.get_axis_idx("W"),
+            provider.get_axis_idx("C"),
         )
         p_data = np.transpose(p_data, (p_h, p_w, p_t, p_c))
         p_data = np.flip(p_data, axis=0)  # North-Up
@@ -157,9 +159,7 @@ class PredictionFrameAssembler:
         flip, mask) then writes directly into numpy arrays — no Polars, no
         pandas, no list-in-cell overhead.
         """
-        temp_data, indices, time_flat, unit_flat = self._valid_cell_indices(
-            signal, provider
-        )
+        temp_data, indices, time_flat, unit_flat = self._valid_cell_indices(signal, provider)
         has_samples = "S" in signal.axes
         identifiers = {"time": time_flat, "unit": unit_flat}
 
@@ -170,8 +170,8 @@ class PredictionFrameAssembler:
             if has_samples:
                 y_pred = temp_data[indices[0], indices[1], indices[2], chan_idx, :]  # (N, S)
             else:
-                y_pred = temp_data[indices[0], indices[1], indices[2], chan_idx]     # (N,)
-                y_pred = y_pred.reshape(-1, 1)                                        # (N, 1)
+                y_pred = temp_data[indices[0], indices[1], indices[2], chan_idx]  # (N,)
+                y_pred = y_pred.reshape(-1, 1)  # (N, 1)
             result[target] = PredictionFrame(
                 y_pred=y_pred,
                 identifiers=identifiers,

@@ -91,7 +91,7 @@ def generate_readme() -> str:
     lines.append("## Directory Structure")
     lines.append("")
     lines.append(
-        "- **[`active/`](./active/)**: The current \"Law of the Land.\" "
+        '- **[`active/`](./active/)**: The current "Law of the Land." '
         "Accepted, implemented, and verified."
     )
     lines.append(
@@ -103,8 +103,7 @@ def generate_readme() -> str:
         "specifications, and rejected proposals."
     )
     lines.append(
-        "- **[`templates/`](./templates/)**: Constitutional ADR templates "
-        "from base_docs."
+        "- **[`templates/`](./templates/)**: Constitutional ADR templates from base_docs."
     )
     lines.append("")
     lines.append("---")
