@@ -4,10 +4,10 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-04-20                           |
-| Total Concerns    | 70                                   |
+| Last Updated      | 2026-04-21                           |
+| Total Concerns    | 71                                   |
 | Open Concerns     | 7                                    |
-| Resolved Concerns | 63                                   |
+| Resolved Concerns | 64                                   |
 
 ---
 
@@ -36,7 +36,7 @@
 
 `hydranet_manager.py` imports 12 internal modules and wires all components manually. Any wiring change requires modifying this single 380-line file. Fan-out of 12 — highest in the codebase.
 
-**Graph-quantified coupling (2026-04-19, graphify):** Knowledge graph confirms HydranetManager as the second-highest-degree node (112 edges), bridging 8 communities: Core Pipeline, Manager Eval Survival, Inference Engine, Data Validation, Subset Symmetry Tests, Sweep & Hardening Gates, HydraBN LSTM Architecture, Data Pipeline Extraction, Manager Memory Hygiene. 99 of these edges are INFERRED (runtime coupling beyond static imports).
+**Graph-quantified coupling (2026-04-21, graphify):** Knowledge graph confirms HydranetManager as the second-highest-degree node (157 edges, up from 112 on 2026-04-19), bridging 8+ communities. Edge growth is primarily from expanded semantic extraction coverage (ADR/CIC documents now included), not from new code coupling.
 
 Per Martin (Clean Architecture Ch 26, p.228-232): the Manager correctly acts as the "Main Component" — the dirtiest component that creates everything and hands control to higher-level abstractions. High fan-out is expected for Main. The concern is not dirtiness but *size*: at 380 lines it exceeds a pure wiring role, mixing lifecycle orchestration with component construction. Martin: "Think of Main as a plugin to the application" — it should be replaceable without touching policy.
 
@@ -272,7 +272,7 @@ Per Martin (Ch 13, p.120-121): also violates CRP (Common Reuse Principle) — im
 
 **Residual concern:** VolumeHandler still exposes a single interface with ~17 methods spanning data ingestion (`from_df`), model entry (`to_pytorch`), prediction wrapping (`wrap_predictions`), spatial/temporal manipulation (`slice_time`, `extrapolate_time`, `flip`, `_permute`, `collapse_to_point`), and feature engineering (`_execute_derivations`). These are tighter cohesion than the PF path (all operate on the underlying volume), but the ISP gap is reduced rather than eliminated.
 
-**Graph-quantified coupling (2026-04-19, graphify):** Knowledge graph analysis confirms VolumeHandler as the dominant god node: 398 edges, bridging 16 distinct communities (Core Pipeline, Inference Engine, Curriculum Learning, Data Validation, Feature Scaler Tests, Point Collapse Survival, Derivation Parity, Geometric Volume, PF Assembler, Training Engine, Onset Bias, Volume Handler Hard Gates, Derivation Lifecycle, Manager Memory, Model Training Entry, Volume Handler Core). The 12 EXTRACTED method edges (`__init__`, `to_pytorch`, `wrap_predictions`, `collapse_to_point`, `slice_time`, `extrapolate_time`, `_permute`, `flip`, `__len__`, `_execute_derivations`, `get_axis_idx`, `from_df`) define the blast radius boundary — changing any signature ripples across all 16 communities. The remaining 386 edges are INFERRED (runtime coupling not captured by AST).
+**Graph-quantified coupling (2026-04-21, graphify):** Knowledge graph confirms VolumeHandler as the dominant god node: 451 edges (up from 398 on 2026-04-19), bridging 16+ communities. Edge growth from expanded extraction coverage (ADR/CIC/spec documents). The EXTRACTED method edges define the blast radius boundary — changing any signature ripples across all communities.
 
 Per Martin (Clean Architecture Ch 10, p.100-103): ISP says "avoid depending on things you don't use." See also C-37 (SAP Zone of Pain) and D-01 (resolved — partial split executed).
 
@@ -345,6 +345,22 @@ The autoresearch found that Shrinkage loss with `c=1.0` marginally outperforms B
 The alternative is nested structure: `regularizers: { qs99: { weight: 0.01, tau: 0.99 } }`. This is cleaner for extensibility but breaks the flat-key pattern, complicates Pydantic validation, and requires changes to the genome audit.
 
 Current decision: stay flat. Revisit when either (a) total config keys exceed 50, or (b) a feature requires 4+ related keys that create naming collision risk. The migration is mechanical (rename keys, update configs) but touches every model config in views-models.
+
+---
+
+### C-72: Misspelled placeholder `requirments.txt` in package root — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-72 |
+| Tier | 4 |
+| Source | graphify (2026-04-21) |
+| Trigger | When setting up dependency management or CI/CD, a tool or contributor may look for `requirements.txt` and miss this file (or find it and get no content) |
+| Location | `views_hydranet/requirments.txt` |
+
+Graphify extraction discovered `views_hydranet/requirments.txt` — a misspelled filename containing only the placeholder text "To come...". The file serves no purpose: the project uses conda for dependency management (pinned in the conda environment, confirmed by 53 identical wandb snapshots). The misspelling means automated tools looking for `requirements.txt` will not find it, and any tool that does find it gets no useful content. Either delete the file or rename it to `requirements.txt` and populate it.
+
+**Resolution (2026-04-21):** File deleted. Project uses conda for dependency management; no `requirements.txt` needed.
 
 ---
 
