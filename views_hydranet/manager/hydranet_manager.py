@@ -9,7 +9,7 @@ It handles spatiotemporal data volumes and implements rolling-origin evaluation.
 import gc
 import logging
 from datetime import datetime
-from typing import Any, Callable, Dict, List, NamedTuple
+from typing import Any, Callable, NamedTuple
 
 import pandas as pd
 from views_pipeline_core.data.prediction_frame import PredictionFrame
@@ -43,8 +43,8 @@ class _EvaluationContext(NamedTuple):
 
     handler: "VolumeHandler"
     scaler: "FeatureScaler"
-    origins: List[int]
-    all_targets: List[str]
+    origins: list[int]
+    all_targets: list[str]
     orchestrator: "InferenceOrchestrator"
 
 
@@ -56,7 +56,7 @@ class HydranetManager(ForecastingModelManager):
     Implements multi-task evaluation and rolling-origin orchestration.
     """
 
-    configs: Dict[str, Any]
+    configs: dict[str, Any]
 
     def _run_data_pipeline(
         self,
@@ -89,7 +89,7 @@ class HydranetManager(ForecastingModelManager):
         # 1. Ingest
 
         data_fetcher = DataFetcher(self._model_path.data_raw, self.configs)
-        df = data_fetcher.fetch_df()
+        df = data_fetcher.fetch_df(cached_path=self._get_cached_data_path())
 
         # Diagnostic plot features
         plot_feats = (
@@ -251,8 +251,8 @@ class HydranetManager(ForecastingModelManager):
         _EvaluationContext
             handler     : VolumeHandler — spatiotemporal data carrier
             scaler      : FeatureScaler — fitted, ready for inverse_transform_volume
-            origins     : List[int]     — origin indices (rolling for eval, single for forecast)
-            all_targets : List[str]     — regression_targets + classification_targets
+            origins     : list[int]     — origin indices (rolling for eval, single for forecast)
+            all_targets : list[str]     — regression_targets + classification_targets
             orchestrator: InferenceOrchestrator — wired with model, device, visualizer
         """
         log_device_report(self.device, eval_type)
@@ -336,7 +336,7 @@ class HydranetManager(ForecastingModelManager):
         self,
         eval_type: str,
         artifact_name: str | None,
-        origin_sink: Callable[[int, Dict[str, "PredictionFrame"]], None],
+        origin_sink: Callable[[int, dict[str, "PredictionFrame"]], None],
     ) -> None:
         """
         Override of ForecastingModelManager._evaluate_model_artifact_streaming().

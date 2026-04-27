@@ -5,7 +5,7 @@ Standalone DataFetcher component for the HydraNet pipeline.
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pandas as pd
 from views_pipeline_core.configs.pipeline import PipelineConfig
@@ -25,23 +25,34 @@ class DataFetcher:
     of the raw data state.
     """
 
-    def __init__(self, path_raw: str | Path, config: Dict[str, Any]) -> None:
+    def __init__(self, path_raw: str | Path, config: dict[str, Any]) -> None:
         """
         Initializes with the physical data path and the active configuration.
         """
         self.path_raw = path_raw
-        self.config = config
+        self.config = dict(config)
 
-    def fetch_df(self) -> pd.DataFrame:
+    def fetch_df(self, cached_path: str | Path | None = None) -> pd.DataFrame:
         """
         Loads the DataFrame for the current run_type defined in the config.
 
-        Returns:
-            pd.DataFrame: The raw data as fetched from the pipeline output.
+        Parameters
+        ----------
+        cached_path : str or Path, optional
+            If provided, load data from this exact path instead of
+            constructing the default ``<run_type>_viewser_df`` filename.
+
+        Returns
+        -------
+        pd.DataFrame
+            The raw data as fetched from the pipeline output.
         """
         partition = self.config["run_type"]
-        df_ext = PipelineConfig.dataframe_format
-        path_raw_file = os.path.join(str(self.path_raw), f"{partition}_viewser_df{df_ext}")
+        if cached_path is not None:
+            path_raw_file = str(cached_path)
+        else:
+            df_ext = PipelineConfig.dataframe_format
+            path_raw_file = os.path.join(str(self.path_raw), f"{partition}_viewser_df{df_ext}")
 
         logger.info(f"DataFetcher: Loading {partition} from {path_raw_file}")
 
@@ -133,7 +144,7 @@ class DataFetcher:
     # Cross-ref: VolumeHandler._execute_derivations() (volume_handler.py)
     # Both paths RAISE if source is missing — see tests/test_derivation_parity.py.
     @staticmethod
-    def apply_blueprint(df: pd.DataFrame, config: Dict[str, Any]) -> pd.DataFrame:
+    def apply_blueprint(df: pd.DataFrame, config: dict[str, Any]) -> pd.DataFrame:
         """
         Executes the instructional derivations (ADR 046) on a DataFrame.
         This ensures that DataFrames used for training and evaluation contain
