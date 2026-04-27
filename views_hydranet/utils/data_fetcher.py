@@ -32,16 +32,25 @@ class DataFetcher:
         self.path_raw = path_raw
         self.config = config
 
-    def fetch_df(self) -> pd.DataFrame:
+    def fetch_df(self, cached_path=None) -> pd.DataFrame:
         """
         Loads the DataFrame for the current run_type defined in the config.
+
+        Parameters
+        ----------
+        cached_path : str or Path, optional
+            If provided, load data from this exact path instead of
+            constructing the default ``<run_type>_viewser_df`` filename.
 
         Returns:
             pd.DataFrame: The raw data as fetched from the pipeline output.
         """
         partition = self.config["run_type"]
-        df_ext = PipelineConfig.dataframe_format
-        path_raw_file = os.path.join(str(self.path_raw), f"{partition}_viewser_df{df_ext}")
+        if cached_path is not None:
+            path_raw_file = str(cached_path)
+        else:
+            df_ext = PipelineConfig.dataframe_format
+            path_raw_file = os.path.join(str(self.path_raw), f"{partition}_viewser_df{df_ext}")
 
         logger.info(f"DataFetcher: Loading {partition} from {path_raw_file}")
 
