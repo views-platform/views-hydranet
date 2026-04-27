@@ -10,7 +10,7 @@ from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import ModelOutp
 # Only triggers when running the full suite (no specific test paths given).
 # Assumes views_pipeline_core is installed (full monorepo environment).
 # Without it, ~13 test files fail to collect, reducing count to ~270.
-_MINIMUM_EXPECTED_TESTS = 280
+_MINIMUM_EXPECTED_TESTS = 287
 
 
 def pytest_collection_modifyitems(config, items):

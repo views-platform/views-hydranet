@@ -4,10 +4,10 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-04-21                           |
-| Total Concerns    | 72                                   |
-| Open Concerns     | 8                                    |
-| Resolved Concerns | 64                                   |
+| Last Updated      | 2026-04-28                           |
+| Total Concerns    | 75                                   |
+| Open Concerns     | 10                                   |
+| Resolved Concerns | 65                                   |
 
 ---
 
@@ -40,6 +40,8 @@
 
 Per Martin (Clean Architecture Ch 26, p.228-232): the Manager correctly acts as the "Main Component" — the dirtiest component that creates everything and hands control to higher-level abstractions. High fan-out is expected for Main. The concern is not dirtiness but *size*: at 380 lines it exceeds a pure wiring role, mixing lifecycle orchestration with component construction. Martin: "Think of Main as a plugin to the application" — it should be replaceable without touching policy.
 
+**Tech-debt-cleanup (2026-04-27):** Two additional symptoms identified: (1) `_setup_evaluation()` is 92 lines — performs model loading, conditional data pipeline dispatch, origin calculation, and orchestrator construction in a single method. Should decompose into `_load_model_artifact()`, `_compute_origins()`, `_create_orchestrator()`. (2) `hasattr(self, "_config_manager")` guard (line ~269) falls back to a no-op lambda instead of failing loudly — defensive hack around uncertain parent class initialization.
+
 ---
 
 ### C-03: Architecture hardcodes 3+3 heads
@@ -70,7 +72,166 @@ Per Martin (Clean Architecture Ch 8, p.87-93): this violates OCP — the archite
 
 `ConfigInitializer.get_config()` validates via `HydraNetConfig` then returns `.model_dump()` as a plain dict. All downstream consumers use `config["key"]` or `config.get(key)` without type safety. The `extra = "allow"` setting means unvalidated keys pass through silently. Constrained by parent class (`ForecastingModelManager.configs`) requiring `isinstance(dict)`.
 
+**Tech-debt-cleanup (2026-04-27) — config mutation hazard:** `self.configs` is reassigned via `ConfigInitializer(self.configs).get_config()` in both `_train_model_artifact()` (line 198) and `_setup_evaluation()` (line 259). If `get_config()` is not idempotent, repeated calls may diverge. In sweep scenarios, shared mutable state on `self.configs` means one trial's config initialization could leak into another. Safe in current single-threaded execution but structurally fragile.
+
 ---
+
+### C-35: `utils/` package violates Common Closure and Screaming Architecture
+
+| Field | Value |
+|-------|-------|
+| ID | C-35 |
+| Tier | 3 |
+| Source | clean-architecture-review (2026-04-08) |
+| Trigger | Adding a new module — unclear where it belongs; changing a training component forces retest of unrelated data pipeline tests |
+| Location | `views_hydranet/utils/` (20 of 25 source files) |
+
+The `utils/` package contains 20 files spanning 5 distinct domains: data pipeline (fetcher, sniffer, scaler, handler), training strategy (curriculum, sampler, forensics), inference (orchestrator, inference engine), observability (diagnostics, logging, guardian), and configuration. A single generic package name for 80% of the codebase.
+
+Per Martin (Clean Architecture Ch 13, p.117-123): violates CCP (Common Closure Principle) — classes that change for different reasons are packaged together. A training strategy change and a data pipeline change both touch `utils/`. Per Martin (Ch 21, p.199-202): violates Screaming Architecture — the top-level structure should scream "conflict forecasting system," not "utilities." The directory should say `data_pipeline/`, `training/`, `inference/`, `observability/` — not `utils/`.
+
+Per Martin (Ch 13, p.120-121): also violates CRP (Common Reuse Principle) — importing `IntegrityGuardian` (pure torch, no pandas) from `utils/` transitively exposes the consumer to `volume_handler`'s pandas/torch/pipeline_core dependency tree.
+
+---
+
+### C-36: VolumeHandler violates Interface Segregation Principle (partially addressed)
+
+| Field | Value |
+|-------|-------|
+| ID | C-36 |
+| Tier | 3 |
+| Source | clean-architecture-review (2026-04-08), updated D-01 execution (2026-04-11) |
+| Trigger | When a new module imports VolumeHandler, verify it doesn't transitively pull unused dependencies; when adding methods to VolumeHandler, consider whether they belong to a separate adapter |
+| Location | `volume_handler.py` (658 lines, ~17 methods, 9 dependents) |
+
+**Partially addressed (2026-04-11):** D-01 partial split executed. PredictionFrame output path (`to_evaluation_pf`, `_valid_cell_indices`, `_reconstruct_as_pf_dict`, ~127 lines) extracted into `PredictionFrameAssembler`. VolumeHandler shrunk from 787 → 658 lines, 20+ → ~17 methods. Inference orchestrator now imports the assembler explicitly; training loop never depended on the PF path.
+
+**Residual concern:** VolumeHandler still exposes a single interface with ~17 methods spanning data ingestion (`from_df`), model entry (`to_pytorch`), prediction wrapping (`wrap_predictions`), spatial/temporal manipulation (`slice_time`, `extrapolate_time`, `flip`, `_permute`, `collapse_to_point`), and feature engineering (`_execute_derivations`). These are tighter cohesion than the PF path (all operate on the underlying volume), but the ISP gap is reduced rather than eliminated.
+
+**Graph-quantified coupling (2026-04-21, graphify):** Knowledge graph confirms VolumeHandler as the dominant god node: 451 edges (up from 398 on 2026-04-19), bridging 16+ communities. Edge growth from expanded extraction coverage (ADR/CIC/spec documents). The EXTRACTED method edges define the blast radius boundary — changing any signature ripples across all communities.
+
+Per Martin (Clean Architecture Ch 10, p.100-103): ISP says "avoid depending on things you don't use." See also C-37 (SAP Zone of Pain) and D-01 (resolved — partial split executed).
+
+---
+
+### C-37: VolumeHandler in SAP "Zone of Pain" — partial abstraction at PF boundary
+
+| Field | Value |
+|-------|-------|
+| ID | C-37 |
+| Tier | 4 |
+| Source | clean-architecture-review (2026-04-08), updated D-01 execution (2026-04-11) |
+| Trigger | Need to provide an alternative VolumeHandler implementation (e.g., lazy-loading, GPU-resident) |
+| Location | `volume_handler.py` — fan-in=9, fan-out=1 (after PF extraction) |
+
+**Partially addressed (2026-04-11):** D-01 partial split executed. The PredictionFrameAssembler is now an interface adapter at the entity/framework boundary — its `assemble_evaluation()` method abstracts the PF assembly contract from the underlying volume operations. VolumeHandler's fan-out dropped from 2 to 1 (no more `views_pipeline_core` import).
+
+**Residual concern:** VolumeHandler itself still has no abstract base class, Protocol, or interface definition. The core volume operations (transpose/flip/slice/wrap) remain a concrete monolithic class. Resolving the residual would require extracting an `IVolumeHandler` Protocol — out of scope for the partial split. Currently tolerable because the interface is mature and rarely changes.
+
+See also C-36 (ISP partially addressed) and D-01 (resolved — partial split executed).
+
+---
+
+### C-49: Flat config schema may not scale — no nested structure for regularizers, strategies, or per-target settings
+
+| Field | Value |
+|-------|-------|
+| ID | C-49 |
+| Tier | 4 |
+| Source | manual (2026-04-10) |
+| Trigger | When the number of flat config keys exceeds ~40-50, or when adding a feature requires 3+ related keys that would be cleaner as a nested group |
+| Location | `config_initializer.py` (`HydraNetConfig`), `CORE_GENOME` in `reproducibility_gate.py` |
+
+`HydraNetConfig` uses flat keys for all parameters: `loss_reg_alpha`, `loss_reg_sigma`, `loss_class_gamma`, `qs99_weight`, `qs99_tau`, `hurdle_threshold`, etc. This is consistent, simple, and works well at the current scale (~25 keys). But the pattern has a threshold of inconvenience: as regularizers, per-target settings, and training strategies accumulate, flat keys become ambiguous (does `alpha` belong to the loss, the regularizer, or the curriculum?), hard to group visually in config files, and awkward for the genome audit (which keys belong to which feature?).
+
+The alternative is nested structure: `regularizers: { qs99: { weight: 0.01, tau: 0.99 } }`. This is cleaner for extensibility but breaks the flat-key pattern, complicates Pydantic validation, and requires changes to the genome audit.
+
+Current decision: stay flat. Revisit when either (a) total config keys exceed 50, or (b) a feature requires 4+ related keys that create naming collision risk. The migration is mechanical (rename keys, update configs) but touches every model config in views-models.
+
+---
+
+### C-73: Legacy `evalution_mode` typo shim in HydraNetConfig
+
+| Field | Value |
+|-------|-------|
+| ID | C-73 |
+| Tier | 4 |
+| Source | manual (2026-04-21) |
+| Trigger | When all model configs in `views-models` have been confirmed to use `evaluation_mode` (not `evalution_mode`), remove the `handle_typos` model_validator shim |
+| Location | `config_initializer.py:143-153` (`handle_typos` model_validator) |
+
+`HydraNetConfig` has a `model_validator(mode="before")` shim that silently rewrites the legacy typo key `evalution_mode` → `evaluation_mode`. One known consumer (`views-models`) has been fixed (2026-04-21), but other model configs in the `views-models` repo may still use the old key. The shim should be removed once a grep across all configs in `views-models` confirms zero remaining instances of `evalution_mode`. Removing it prematurely would break any config still using the typo — Pydantic's `extra="allow"` would silently accept the misspelled key and leave `evaluation_mode` at its default.
+
+---
+
+### C-75: Duplicated derivation logic between DataFetcher and VolumeHandler
+
+| Field | Value |
+|-------|-------|
+| ID | C-75 |
+| Tier | 3 |
+| Source | tech-debt-cleanup (2026-04-27) |
+| Trigger | When adding a new derivation operation type (e.g., "logarithmic", "scaling") to the instructional blueprint, verify both paths are updated identically |
+| Location | `utils/data_fetcher.py:144-194` (`apply_blueprint`), `utils/volume_handler.py:595-644` (`_execute_derivations`) |
+
+`DataFetcher.apply_blueprint()` and `VolumeHandler._execute_derivations()` implement nearly identical derivation logic independently — same mandatory-key validation, same "binary" threshold check, same error messages, same `NotImplementedError` for unknown ops. A bug fix or new operation must be applied in both places. `test_derivation_parity.py` guards against divergence, but the duplication itself increases maintenance cost. Extracting a shared `DerivationEngine` would centralize the logic.
+
+See also C-36 (VolumeHandler ISP), D-01 (VolumeHandler scope).
+
+---
+
+### C-76: `apply_blueprint` hard-codes operation types — violates OCP
+
+| Field | Value |
+|-------|-------|
+| ID | C-76 |
+| Tier | 4 |
+| Source | tech-debt-cleanup (2026-04-27) |
+| Trigger | When adding a second derivation operation type beyond "binary" |
+| Location | `utils/data_fetcher.py:178-192`, `utils/volume_handler.py:635-644` |
+
+`apply_blueprint()` uses an `if op == "binary" ... else raise NotImplementedError` conditional. Adding a new operation (e.g., log-transform, z-score) requires modifying the method body. A strategy pattern or operation registry would make the method open for extension without modification. Currently low urgency — only "binary" is used across all configs.
+
+See also C-75 (duplicated derivation logic).
+
+---
+
+## Disagreements
+
+### D-01: VolumeHandler scope — God Object vs Deep Module
+
+| Field | Value |
+|-------|-------|
+| ID | D-01 |
+| Source | expert-review (2026-04-08) |
+| Perspectives | Martin (split — SRP Ch 7 p.80: serves 4 actors; ISP Ch 10 p.100: 20+ method interface; SAP Ch 14 p.139: Zone of Pain), Ousterhout (keep — successful deep module hiding complexity), Hickey (partial split — extract PF output path, keep volume ops together) |
+| Resolution | **Executed (2026-04-11):** Partial split implemented. Extracted `to_evaluation_pf`, `_valid_cell_indices`, `_reconstruct_as_pf_dict` (~127 lines) from `volume_handler.py` into a new `views_hydranet/utils/prediction_frame_assembler.py` containing a stateless `PredictionFrameAssembler` class. VolumeHandler shrunk from 787 → 658 lines and no longer imports `views_pipeline_core` (fully resolves C-39). `InferenceOrchestrator` now constructs an assembler instance and calls `assembler.assemble_evaluation(signal=..., history=..., start_idx=..., all_targets=...)` instead of `pred_handler.to_evaluation_pf(...)`. C-36 and C-37 remain open as "partially addressed" — VolumeHandler still has ~17 methods and no abstract base class, but the Framework-layer dependency is gone and the worst ISP offender (PF path) is extracted. Ousterhout's "deep module" counter-argument remains valid for the surviving core volume operations. Hickey's "partial split" recommendation was followed. |
+
+---
+
+### D-02: Architecture extensibility — parameterize vs leave alone
+
+| Field | Value |
+|-------|-------|
+| ID | D-02 |
+| Source | expert-review (2026-04-08) |
+| Perspectives | GoF (parameterize — 6 copy-pasted decoder blocks is anti-pattern), Beck/Feathers (leave alone — structural regex test guards against bugs, refactoring invalidates all .pt artifacts) |
+| Resolution | Leave as-is. Cost of refactoring (breaking all artifacts) exceeds benefit. Structural test in `tests/test_architecture.py` provides adequate safety — this test is load-bearing infrastructure; do not modify without understanding its role as the guard for this decision. |
+
+---
+
+### D-03: Config monolith — complecting vs front-loading validation
+
+| Field | Value |
+|-------|-------|
+| ID | D-03 |
+| Source | expert-review (2026-04-08) |
+| Perspectives | Hickey (split — 9 concerns conflated in one model), Ousterhout/Nygard (keep — single validation point, cross-field checksums require all fields visible) |
+| Resolution | Keep single config. Cross-field checksum laws depend on simultaneous field access. |
+
+---
+
+## Resolved Concerns
 
 ### C-09: `torch.save(model)` full-object serialization — no integrity verification — RESOLVED
 
@@ -240,62 +401,6 @@ InferenceOrchestrator CIC Section 6 declares "Sequence Violation" as a failure m
 
 ---
 
-### C-35: `utils/` package violates Common Closure and Screaming Architecture
-
-| Field | Value |
-|-------|-------|
-| ID | C-35 |
-| Tier | 3 |
-| Source | clean-architecture-review (2026-04-08) |
-| Trigger | Adding a new module — unclear where it belongs; changing a training component forces retest of unrelated data pipeline tests |
-| Location | `views_hydranet/utils/` (20 of 25 source files) |
-
-The `utils/` package contains 20 files spanning 5 distinct domains: data pipeline (fetcher, sniffer, scaler, handler), training strategy (curriculum, sampler, forensics), inference (orchestrator, inference engine), observability (diagnostics, logging, guardian), and configuration. A single generic package name for 80% of the codebase.
-
-Per Martin (Clean Architecture Ch 13, p.117-123): violates CCP (Common Closure Principle) — classes that change for different reasons are packaged together. A training strategy change and a data pipeline change both touch `utils/`. Per Martin (Ch 21, p.199-202): violates Screaming Architecture — the top-level structure should scream "conflict forecasting system," not "utilities." The directory should say `data_pipeline/`, `training/`, `inference/`, `observability/` — not `utils/`.
-
-Per Martin (Ch 13, p.120-121): also violates CRP (Common Reuse Principle) — importing `IntegrityGuardian` (pure torch, no pandas) from `utils/` transitively exposes the consumer to `volume_handler`'s pandas/torch/pipeline_core dependency tree.
-
----
-
-### C-36: VolumeHandler violates Interface Segregation Principle (partially addressed)
-
-| Field | Value |
-|-------|-------|
-| ID | C-36 |
-| Tier | 3 |
-| Source | clean-architecture-review (2026-04-08), updated D-01 execution (2026-04-11) |
-| Trigger | When a new module imports VolumeHandler, verify it doesn't transitively pull unused dependencies; when adding methods to VolumeHandler, consider whether they belong to a separate adapter |
-| Location | `volume_handler.py` (658 lines, ~17 methods, 9 dependents) |
-
-**Partially addressed (2026-04-11):** D-01 partial split executed. PredictionFrame output path (`to_evaluation_pf`, `_valid_cell_indices`, `_reconstruct_as_pf_dict`, ~127 lines) extracted into `PredictionFrameAssembler`. VolumeHandler shrunk from 787 → 658 lines, 20+ → ~17 methods. Inference orchestrator now imports the assembler explicitly; training loop never depended on the PF path.
-
-**Residual concern:** VolumeHandler still exposes a single interface with ~17 methods spanning data ingestion (`from_df`), model entry (`to_pytorch`), prediction wrapping (`wrap_predictions`), spatial/temporal manipulation (`slice_time`, `extrapolate_time`, `flip`, `_permute`, `collapse_to_point`), and feature engineering (`_execute_derivations`). These are tighter cohesion than the PF path (all operate on the underlying volume), but the ISP gap is reduced rather than eliminated.
-
-**Graph-quantified coupling (2026-04-21, graphify):** Knowledge graph confirms VolumeHandler as the dominant god node: 451 edges (up from 398 on 2026-04-19), bridging 16+ communities. Edge growth from expanded extraction coverage (ADR/CIC/spec documents). The EXTRACTED method edges define the blast radius boundary — changing any signature ripples across all communities.
-
-Per Martin (Clean Architecture Ch 10, p.100-103): ISP says "avoid depending on things you don't use." See also C-37 (SAP Zone of Pain) and D-01 (resolved — partial split executed).
-
----
-
-### C-37: VolumeHandler in SAP "Zone of Pain" — partial abstraction at PF boundary
-
-| Field | Value |
-|-------|-------|
-| ID | C-37 |
-| Tier | 4 |
-| Source | clean-architecture-review (2026-04-08), updated D-01 execution (2026-04-11) |
-| Trigger | Need to provide an alternative VolumeHandler implementation (e.g., lazy-loading, GPU-resident) |
-| Location | `volume_handler.py` — fan-in=9, fan-out=1 (after PF extraction) |
-
-**Partially addressed (2026-04-11):** D-01 partial split executed. The PredictionFrameAssembler is now an interface adapter at the entity/framework boundary — its `assemble_evaluation()` method abstracts the PF assembly contract from the underlying volume operations. VolumeHandler's fan-out dropped from 2 to 1 (no more `views_pipeline_core` import).
-
-**Residual concern:** VolumeHandler itself still has no abstract base class, Protocol, or interface definition. The core volume operations (transpose/flip/slice/wrap) remain a concrete monolithic class. Resolving the residual would require extracting an `IVolumeHandler` Protocol — out of scope for the partial split. Currently tolerable because the interface is mature and rarely changes.
-
-See also C-36 (ISP partially addressed) and D-01 (resolved — partial split executed).
-
----
-
 ### C-41: Falsification test stubs will fail in CI if not excluded — RESOLVED
 
 | Field | Value |
@@ -327,38 +432,6 @@ Residual risk: None. All stubs now pass as GREEN verification tests.
 The autoresearch found that Shrinkage loss with `c=1.0` marginally outperforms Basu DPD and NLL on log-space magnitude errors (Finding 6.4). The hydranet production default is `c=0.001`, calibrated for the U-Net's normalized feature space where typical errors are in the 0-1 range. But purple_alien's targets are log1p-transformed, where the natural error scale is 0-7 (log1p of 0-1000 fatalities). A threshold of `c=0.001` in log-space means "suppress errors below 0.1% in magnitude" — virtually no suppression. The autoresearch suggests `c=1.0` ("suppress errors below 2.7x in magnitude") is more appropriate for log-space operation. Note: the `a` parameter (steepness) at 258 in purple_alien is also very different from the autoresearch optimal of 10 — but the LSTM hurdle and U-Net have different residual distributions, so direct transfer is not guaranteed. Empirical testing on HydraNet with `c=1.0, a=10` is recommended before changing the production default.
 
 **Resolution (2026-04-20):** Deferred to views-models. The hydranet library default is `loss_reg_c=0.2` (`config_initializer.py`), which is appropriate for the normalized feature space. The concern about `c=0.001` applies exclusively to `purple_alien`'s model-specific config in the external `views-models` repo. No hydranet library code change needed.
-
----
-
-### C-49: Flat config schema may not scale — no nested structure for regularizers, strategies, or per-target settings
-
-| Field | Value |
-|-------|-------|
-| ID | C-49 |
-| Tier | 4 |
-| Source | manual (2026-04-10) |
-| Trigger | When the number of flat config keys exceeds ~40-50, or when adding a feature requires 3+ related keys that would be cleaner as a nested group |
-| Location | `config_initializer.py` (`HydraNetConfig`), `CORE_GENOME` in `reproducibility_gate.py` |
-
-`HydraNetConfig` uses flat keys for all parameters: `loss_reg_alpha`, `loss_reg_sigma`, `loss_class_gamma`, `qs99_weight`, `qs99_tau`, `hurdle_threshold`, etc. This is consistent, simple, and works well at the current scale (~25 keys). But the pattern has a threshold of inconvenience: as regularizers, per-target settings, and training strategies accumulate, flat keys become ambiguous (does `alpha` belong to the loss, the regularizer, or the curriculum?), hard to group visually in config files, and awkward for the genome audit (which keys belong to which feature?).
-
-The alternative is nested structure: `regularizers: { qs99: { weight: 0.01, tau: 0.99 } }`. This is cleaner for extensibility but breaks the flat-key pattern, complicates Pydantic validation, and requires changes to the genome audit.
-
-Current decision: stay flat. Revisit when either (a) total config keys exceed 50, or (b) a feature requires 4+ related keys that create naming collision risk. The migration is mechanical (rename keys, update configs) but touches every model config in views-models.
-
----
-
-### C-73: Legacy `evalution_mode` typo shim in HydraNetConfig
-
-| Field | Value |
-|-------|-------|
-| ID | C-73 |
-| Tier | 4 |
-| Source | manual (2026-04-21) |
-| Trigger | When all model configs in `views-models` have been confirmed to use `evaluation_mode` (not `evalution_mode`), remove the `handle_typos` model_validator shim |
-| Location | `config_initializer.py:143-153` (`handle_typos` model_validator) |
-
-`HydraNetConfig` has a `model_validator(mode="before")` shim that silently rewrites the legacy typo key `evalution_mode` → `evaluation_mode`. One known consumer (`views-models`) has been fixed (2026-04-21), but other model configs in the `views-models` repo may still use the old key. The shim should be removed once a grep across all configs in `views-models` confirms zero remaining instances of `evalution_mode`. Removing it prematurely would break any config still using the typo — Pydantic's `extra="allow"` would silently accept the misspelled key and leave `evaluation_mode` at its default.
 
 ---
 
@@ -573,43 +646,6 @@ Register header claims 69 total / 19 open / 50 resolved. Actual entry count: 68 
 **Resolution (2026-04-20):** Double separators removed. C-34 gap is expected per register rules (gaps indicate merged entries). Header updated to 70 total / 18 open / 52 resolved matching actual counts after C-70 and C-71 resolution.
 
 ---
-
-## Disagreements
-
-### D-01: VolumeHandler scope — God Object vs Deep Module
-
-| Field | Value |
-|-------|-------|
-| ID | D-01 |
-| Source | expert-review (2026-04-08) |
-| Perspectives | Martin (split — SRP Ch 7 p.80: serves 4 actors; ISP Ch 10 p.100: 20+ method interface; SAP Ch 14 p.139: Zone of Pain), Ousterhout (keep — successful deep module hiding complexity), Hickey (partial split — extract PF output path, keep volume ops together) |
-| Resolution | **Executed (2026-04-11):** Partial split implemented. Extracted `to_evaluation_pf`, `_valid_cell_indices`, `_reconstruct_as_pf_dict` (~127 lines) from `volume_handler.py` into a new `views_hydranet/utils/prediction_frame_assembler.py` containing a stateless `PredictionFrameAssembler` class. VolumeHandler shrunk from 787 → 658 lines and no longer imports `views_pipeline_core` (fully resolves C-39). `InferenceOrchestrator` now constructs an assembler instance and calls `assembler.assemble_evaluation(signal=..., history=..., start_idx=..., all_targets=...)` instead of `pred_handler.to_evaluation_pf(...)`. C-36 and C-37 remain open as "partially addressed" — VolumeHandler still has ~17 methods and no abstract base class, but the Framework-layer dependency is gone and the worst ISP offender (PF path) is extracted. Ousterhout's "deep module" counter-argument remains valid for the surviving core volume operations. Hickey's "partial split" recommendation was followed. |
-
----
-
-### D-02: Architecture extensibility — parameterize vs leave alone
-
-| Field | Value |
-|-------|-------|
-| ID | D-02 |
-| Source | expert-review (2026-04-08) |
-| Perspectives | GoF (parameterize — 6 copy-pasted decoder blocks is anti-pattern), Beck/Feathers (leave alone — structural regex test guards against bugs, refactoring invalidates all .pt artifacts) |
-| Resolution | Leave as-is. Cost of refactoring (breaking all artifacts) exceeds benefit. Structural test in `tests/test_architecture.py` provides adequate safety — this test is load-bearing infrastructure; do not modify without understanding its role as the guard for this decision. |
-
----
-
-### D-03: Config monolith — complecting vs front-loading validation
-
-| Field | Value |
-|-------|-------|
-| ID | D-03 |
-| Source | expert-review (2026-04-08) |
-| Perspectives | Hickey (split — 9 concerns conflated in one model), Ousterhout/Nygard (keep — single validation point, cross-field checksums require all fields visible) |
-| Resolution | Keep single config. Cross-field checksum laws depend on simultaneous field access. |
-
----
-
-## Resolved Concerns
 
 ### C-59: HydranetManager has zero failure-mode tests — RESOLVED
 
@@ -988,6 +1024,16 @@ Register header claims 69 total / 19 open / 50 resolved. Actual entry count: 68 
 | ID | C-52 |
 | Resolved | 2026-04-10 |
 | Resolution | Updated `train()` call signatures to use `TrainingContext` (C-17 API), fixed mock paths from `train_model` → `training_engine` (C-15 split), updated loss codes `'a'`→`'mse'`, `'b'`→`'focal'` (C-38 rename), deferred `training_loop` import to avoid `sys.modules` interaction. All 7 training/optimization tests restored. Streaming tests passed once `views_pipeline_core` was available. 6 beige config tests added. `TinyModel` extracted to conftest.py. Result: 412 passed, 2 failed (1 intentional RED + 1 pre-existing). |
+
+---
+
+### C-74: DataFetcher.fetch_df() hardcodes viewser filename — breaks datafactory consumers — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-74 |
+| Resolved | 2026-04-27 |
+| Resolution | `fetch_df()` now accepts an optional `cached_path` parameter. When provided, it loads from that exact path instead of constructing the hardcoded `{run_type}_viewser_df` filename. The single call site in `HydranetManager._run_data_pipeline()` passes `cached_path=self._get_cached_data_path()`, a framework method that returns the source-aware path (viewser or datafactory). Fallback preserved for backward compatibility. Two new tests added (`test_green_fetch_df_cached_path`, `test_beige_cached_path_ignores_run_type`). CIC Section 8 updated with cached_path usage example. |
 
 ---
 

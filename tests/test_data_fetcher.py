@@ -122,7 +122,26 @@ class TestGreenFetchDf:
 
             mock_read.assert_called_once()
             call_path = mock_read.call_args[0][0]
-            assert "calibration_viewser_df.parquet" in call_path
+            assert call_path.startswith(str(tmp_path))
+            assert call_path.endswith("calibration_viewser_df.parquet")
+            assert result is expected_df
+
+    def test_green_fetch_df_cached_path(self, tmp_path):
+        """cached_path overrides default viewser filename construction."""
+        cfg = _base_config(run_type="calibration")
+        expected_df = _make_multiindex_df()
+        explicit_path = "/data/raw/calibration_datafactory_df.parquet"
+
+        with (
+            patch("views_hydranet.utils.data_fetcher.read_dataframe") as mock_read,
+            patch("views_hydranet.utils.data_fetcher.log_data_load_report"),
+        ):
+            mock_read.return_value = expected_df
+
+            fetcher = DataFetcher(tmp_path, cfg)
+            result = fetcher.fetch_df(cached_path=explicit_path)
+
+            mock_read.assert_called_once_with(explicit_path)
             assert result is expected_df
 
 
@@ -135,6 +154,25 @@ class TestBeige:
         df = _make_multiindex_df()
         result = DataFetcher.standardize_raw_df(df, _base_config())
         assert "extra_col" in result.columns
+
+    def test_beige_cached_path_ignores_run_type(self, tmp_path):
+        """When cached_path is set, run_type does not influence the loaded path."""
+        cfg = _base_config(run_type="validation")
+        expected_df = _make_multiindex_df()
+        explicit_path = "/data/raw/validation_datafactory_df.parquet"
+
+        with (
+            patch("views_hydranet.utils.data_fetcher.read_dataframe") as mock_read,
+            patch("views_hydranet.utils.data_fetcher.log_data_load_report"),
+        ):
+            mock_read.return_value = expected_df
+
+            fetcher = DataFetcher(tmp_path, cfg)
+            fetcher.fetch_df(cached_path=explicit_path)
+
+            call_path = mock_read.call_args[0][0]
+            assert "viewser_df" not in call_path
+            assert call_path == explicit_path
 
 
 # ---------------------------------------------------------------------------
