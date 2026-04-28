@@ -52,7 +52,7 @@ The `DataSniffer` is the **Sentinel** of the HydraNet pipeline. Its primary purp
 
 - **Uniqueness Violation:** Fails if duplicate Time/ID pairs are detected (prevents rasterization bugs).
 - **Discontinuity:** Fails loud if a forecast start month does not immediately follow the history end month.
-- **Anchor Violation:** Raises a critical error if geographic offsets (`row_offset`, `col_offset`) drift between data partitions.
+- **Anchor Violation:** Raises a critical error if data coordinates fall below the configured offsets (`row_offset`, `col_offset`), or if offsets drift between data partitions. When data starts above the offset (sparse regions), logs a warning but does not raise.
 - **Non-Finite Identities:** Fails if mandatory identity columns (`month_id`, `row`, `col`) contain `NaN` or `Inf`.
 
 ---
