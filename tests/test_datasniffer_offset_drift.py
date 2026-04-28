@@ -13,6 +13,8 @@ config was later changed (or vice versa), spatial scrambling occurs
 silently. This file closes that blind spot.
 """
 
+import logging
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -209,28 +211,21 @@ def test_sniffer_ingestion_rejects_anchor_below_offset():
         sniffer.sniff_ingestion(df)
 
 
-def test_sniffer_ingestion_rejects_anchor_above_offset():
+def test_sniffer_ingestion_warns_anchor_above_offset(caplog):
     """
-    RED GATE: sniff_ingestion() must raise when df['row'].min() > config['row_offset'].
+    BEIGE GATE: sniff_ingestion() must NOT raise when df['row'].min() > config['row_offset'].
 
-    Failure mode: data starts AFTER the configured anchor — the most dangerous
-    silent case. r_idx.min() = 3 means rows 0-2 of the volume are silent zeros.
-    VolumeHandler does NOT raise (no negative indices, no out-of-bounds).
-    Only this check can catch it.
-
-    Example: config says row_offset=87 but the data provider has silently trimmed
-    the first 3 rows of the Africa grid, starting at row 90 instead. The model
-    trains on a spatially-shifted grid and no error is ever raised.
-
-    Taxonomy (ADR 005): RED — the most dangerous silent failure mode.
+    Sparse regions (e.g. land cells in a 360×720 global grid) legitimately start
+    above the configured offset. Leading zero rows/cols in the volume are expected.
+    The sniffer logs a warning but does not halt the pipeline.
     """
-    # Data starts at row 90, but config says grid starts at row 87.
-    # Rows 87, 88, 89 of the volume are silently zero. No VolumeHandler guard fires.
     sniffer = DataSniffer(INGEST_CFG)
     df = _make_ingest_df(row_min=90, col_min=310)
 
-    with pytest.raises(ValueError, match=r"[Aa]nchor|[Oo]ffset|[Aa]lign"):
+    with caplog.at_level(logging.WARNING):
         sniffer.sniff_ingestion(df)
+
+    assert any("sparse regions" in msg for msg in caplog.messages)
 
 
 def test_sniffer_ingestion_accepts_correct_anchor():
