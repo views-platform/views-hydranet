@@ -102,6 +102,35 @@ class VisualDiagnostics:
                 r_idx = (df_slice[self.y_col] - self.row_offset).astype(int).values
                 c_idx = (df_slice[self.x_col] - self.col_offset).astype(int).values
 
+                if r_idx.min() < 0:
+                    raise ValueError(
+                        f"VisualDiagnostics: row indices negative after "
+                        f"offset. min row="
+                        f"{df_slice[self.y_col].min()}, "
+                        f"row_offset={self.row_offset}"
+                    )
+                if c_idx.min() < 0:
+                    raise ValueError(
+                        f"VisualDiagnostics: col indices negative after "
+                        f"offset. min col="
+                        f"{df_slice[self.x_col].min()}, "
+                        f"col_offset={self.col_offset}"
+                    )
+                if r_idx.max() >= self.height:
+                    raise ValueError(
+                        f"VisualDiagnostics: row index {r_idx.max()}"
+                        f" >= height {self.height}. "
+                        f"max row={df_slice[self.y_col].max()}, "
+                        f"row_offset={self.row_offset}"
+                    )
+                if c_idx.max() >= self.width:
+                    raise ValueError(
+                        f"VisualDiagnostics: col index {c_idx.max()}"
+                        f" >= width {self.width}. "
+                        f"max col={df_slice[self.x_col].max()}, "
+                        f"col_offset={self.col_offset}"
+                    )
+
                 month_map = {m: idx for idx, m in enumerate(global_months)}
                 t_idx = df_slice[self.time_col].map(month_map).values
 
