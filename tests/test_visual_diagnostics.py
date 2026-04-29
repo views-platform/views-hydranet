@@ -595,6 +595,57 @@ def test_vd_biopsy_tensor_bad_ndim_no_crash(vd_active):
     vd_active.biopsy_tensor(t, "bad_ndim_stage", ["lr_feat"])
 
 
+def test_vd_biopsy_dataframe_oob_indices_logs_error_no_crash(vd_active, tmp_path, caplog):
+    """
+    RED GATE: biopsy_dataframe with out-of-bounds spatial indices must log an
+    error and return without crashing or producing a PNG.
+    CIC §3: "Resilient Active Mode" — failures logged, never propagated.
+    """
+    import logging
+
+    rows = []
+    for month in range(400, 406):
+        for r in range(20, 24):
+            for c in range(4):
+                rows.append({"month_id": month, "row": r, "col": c, "lr_feat": 1.0})
+    df = pd.DataFrame(rows)
+
+    with caplog.at_level(logging.ERROR):
+        vd_active.biopsy_dataframe(df, "oob_stage", features=["lr_feat"])
+
+    errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert errors, "biopsy_dataframe must log ERROR for out-of-bounds indices"
+    assert any("row index" in r.message or "row indices" in r.message for r in errors)
+    assert list(tmp_path.rglob("*.png")) == [], (
+        "No PNG should be produced when indices are out of bounds."
+    )
+
+
+def test_vd_biopsy_dataframe_negative_indices_logs_error(vd_active, tmp_path, caplog):
+    """
+    RED GATE: biopsy_dataframe with negative spatial indices after offset
+    subtraction must log an error and skip plotting.
+    """
+    import logging
+
+    cfg = {**ACTIVE_CFG, "row_offset": 100}
+    vd = VisualDiagnostics(cfg, run_timestamp=TS)
+
+    rows = []
+    for month in range(400, 406):
+        for r in range(4):
+            for c in range(4):
+                rows.append({"month_id": month, "row": r, "col": c, "lr_feat": 1.0})
+    df = pd.DataFrame(rows)
+
+    with caplog.at_level(logging.ERROR):
+        vd.biopsy_dataframe(df, "neg_idx_stage", features=["lr_feat"])
+
+    errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert errors, "biopsy_dataframe must log ERROR for negative indices"
+    assert any("negative" in r.message for r in errors)
+
+
 def test_vd_biopsy_dataframe_stochastic_list_in_cell_no_crash(vd_active, tmp_path):
     """
     RED GATE: biopsy_dataframe must handle list-in-cell prediction columns without crashing.
