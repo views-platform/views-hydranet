@@ -89,7 +89,7 @@ class HydranetManager(ForecastingModelManager):
         # 1. Ingest
 
         data_fetcher = DataFetcher(self._model_path.data_raw, self.configs)
-        df = data_fetcher.fetch_df(cached_path=self._get_cached_data_path())
+        df = data_fetcher.fetch_df(cached_path=getattr(self, "_cached_data_path", None))
 
         # Diagnostic plot features
         plot_feats = (

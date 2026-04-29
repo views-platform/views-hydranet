@@ -90,23 +90,47 @@ class VisualDiagnostics:
             # Filter for these months only to save memory
             df_slice = df_sorted[df_sorted[self.time_col].isin(global_months)]
 
+            if df_slice.empty:
+                logger.error(
+                    "VisualDiagnostics: no data for selected timestamps — skipping '%s'.",
+                    stage_label,
+                )
+                return
+
             # We need to construct a mini-volume for plotting
             vol_slice = np.zeros((5, self.height, self.width, len(features)))
             vol_slice[:] = np.nan
 
+            r_idx = (df_slice[self.y_col] - self.row_offset).astype(int).values
+            c_idx = (df_slice[self.x_col] - self.col_offset).astype(int).values
+
+            for label, idx_arr, limit, col, offset in [
+                ("row", r_idx, self.height, self.y_col, self.row_offset),
+                ("col", c_idx, self.width, self.x_col, self.col_offset),
+            ]:
+                if idx_arr.min() < 0:
+                    logger.error(
+                        "VisualDiagnostics: %s indices negative after offset. "
+                        "min %s=%s, %s_offset=%s — skipping '%s'.",
+                        label, label, df_slice[col].min(), label, offset, stage_label,
+                    )
+                    return
+                if idx_arr.max() >= limit:
+                    logger.error(
+                        "VisualDiagnostics: %s index %d >= %s %d. "
+                        "max %s=%s, %s_offset=%s — skipping '%s'.",
+                        label, idx_arr.max(), label, limit,
+                        label, df_slice[col].max(), label, offset, stage_label,
+                    )
+                    return
+
+            month_map = {m: idx for idx, m in enumerate(global_months)}
+            t_idx = df_slice[self.time_col].map(month_map).values
+
             for i, feat in enumerate(features):
                 if feat not in df_slice.columns:
-                    # Check if it was part of the index and is now a column
                     continue
 
-                r_idx = (df_slice[self.y_col] - self.row_offset).astype(int).values
-                c_idx = (df_slice[self.x_col] - self.col_offset).astype(int).values
-
-                month_map = {m: idx for idx, m in enumerate(global_months)}
-                t_idx = df_slice[self.time_col].map(month_map).values
-
-                # Collapse list-in-cell (stochastic mode) → scalar mean for plotting.
-                # Mirrors biopsy_volume's nanmean over the S axis.
                 raw_vals = df_slice[feat].values
                 first_valid = next((v for v in raw_vals if v is not None), None)
                 if isinstance(first_valid, (list, np.ndarray)):
