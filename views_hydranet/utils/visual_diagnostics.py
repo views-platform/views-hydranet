@@ -90,6 +90,13 @@ class VisualDiagnostics:
             # Filter for these months only to save memory
             df_slice = df_sorted[df_sorted[self.time_col].isin(global_months)]
 
+            if df_slice.empty:
+                logger.error(
+                    "VisualDiagnostics: no data for selected timestamps — skipping '%s'.",
+                    stage_label,
+                )
+                return
+
             # We need to construct a mini-volume for plotting
             vol_slice = np.zeros((5, self.height, self.width, len(features)))
             vol_slice[:] = np.nan
