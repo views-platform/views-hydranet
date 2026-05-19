@@ -45,13 +45,13 @@ This component follows the **Boring Architecture** philosophy by making the retr
 
 ## References
 
-- views-pipeline-core ADR-052: Artifact-Prediction Timestamp Contract (central contract governing all model-specific repos)
-- views-pipeline-core ADR-013: Prediction Naming Convention
+- views-pipeline-core ADR-052: Artifact-Prediction Timestamp Contract (central contract governing all model-specific repos) — not yet merged upstream
+- [views-pipeline-core ADR-013: Prediction Naming Convention](https://github.com/views-platform/views-pipeline-core/blob/main/documentation/ADRs/013_prediction_naming_convention.md)
 
 ### Note on the `config` property trap (ADR-052)
 
 `ForecastingModelManager.config` is a property that returns a **new dictionary** on every access. Direct **item assignment** (`self.config["timestamp"] = value`) modifies a transient copy and is silently lost. The correct persistence APIs are:
 - `self._config_manager.add_config({"timestamp": value})` — direct call
-- `self.configs = {"timestamp": value}` — property setter (equivalent, delegates to `add_config()`)
+- `self.configs = {"timestamp": value}` — property setter (delegates to `add_config()` after a type check)
 
 `ModelArtifactFetcher` avoids this trap by accepting `add_config_function` as a constructor parameter and calling it directly — the safest pattern of all.

@@ -6,7 +6,7 @@
 ---
 
 ## 1. Decision: The "Boring Architecture" Specification Standard
-Every ADR must move beyond describing *what code does* and instead define *what the architecture guarantees*. An ADR is considered "Good and Useful" only if it satisfies the following six criteria:
+Every ADR must move beyond describing *what code does* and instead define *what the architecture guarantees*. An ADR is considered "Good and Useful" only if it satisfies the following eight criteria:
 
 ### 1.1 Ontological Categorization (The "Roles")
 The ADR must group functions into logical roles of responsibility (e.g., Inbound, Transformation, Outbound). This ensures that "Bridge" logic (I/O) is never polluted with "Calculation" logic (Math).
@@ -34,6 +34,9 @@ To prevent "Lazy Testing" and ensure absolute reliability, every specification M
 1.  **Green Team (The Happy Path):** Proves the component does exactly what we claim it does (Accuracy).
 2.  **Beige Team (The Robustness Path):** Proves that errors, typos, and contract violations do not go silent and break the system "Loud and Proud."
 3.  **Red Team (The Invincibility Path):** Proves that malicious or catastrophic state changes (shuffling, data loss, identity corruption) cannot impact the functional integrity of the output.
+
+### 1.8 Cross-Repository References
+When an ADR implements or is governed by a contract in another repository (e.g., views-pipeline-core), it must include a `## References` section listing those external ADRs with clickable links. This ensures a developer reading the local ADR discovers the central contract without searching across repos.
 
 ---
 
