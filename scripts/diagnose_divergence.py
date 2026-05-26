@@ -13,14 +13,16 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
 
 MODELS_ROOT = Path(__file__).resolve().parents[1].parent / "views-models" / "models"
 PA_PARQUET = MODELS_ROOT / "purple_alien" / "data" / "raw" / "calibration_viewser_df.parquet"
-BS_PARQUET = MODELS_ROOT / "bright_starship" / "data" / "raw" / "calibration_datafactory_df.parquet"
+BS_PARQUET = (
+    MODELS_ROOT / "bright_starship" / "data" / "raw" / "calibration_datafactory_df.parquet"
+)
 
 EVENT_COLS = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
 
@@ -63,6 +65,7 @@ CONFIG = {
 
 # ── Helpers ───────────────────────────────────────────────────────────────
 
+
 def hr(title: str) -> None:
     print(f"\n{'=' * 70}")
     print(f"  {title}")
@@ -96,10 +99,12 @@ def apply_log1p(df: pd.DataFrame) -> pd.DataFrame:
 def build_volume(df: pd.DataFrame) -> Any:
     """Build a VolumeHandler from a standardized + scaled DataFrame."""
     from views_hydranet.utils.volume_handler import VolumeHandler
+
     return VolumeHandler.from_df(df, CONFIG)
 
 
 # ── Phase 0 + 1: Data Layer Audit ────────────────────────────────────────
+
 
 def phase_0_and_1(pa_df: pd.DataFrame, bs_df: pd.DataFrame) -> Dict[str, Any]:
     """Quantify input data differences."""
@@ -127,12 +132,16 @@ def phase_0_and_1(pa_df: pd.DataFrame, bs_df: pd.DataFrame) -> Dict[str, Any]:
     print(f"  Only in PA: {len(only_pa)}   Only in BS: {len(only_bs)}")
     print(f"  Match: {pgids_match}")
 
-    print(f"  Row count:    PA={len(pa_df):,}  BS={len(bs_df):,}  Match: {len(pa_df) == len(bs_df)}")
+    print(
+        f"  Row count:    PA={len(pa_df):,}  BS={len(bs_df):,}  Match: {len(pa_df) == len(bs_df)}"
+    )
 
     if not months_match:
         findings.append("COVERAGE: month ranges differ")
     if not pgids_match:
-        findings.append(f"COVERAGE: PGID sets differ (PA-only: {len(only_pa)}, BS-only: {len(only_bs)})")
+        findings.append(
+            f"COVERAGE: PGID sets differ (PA-only: {len(only_pa)}, BS-only: {len(only_bs)})"
+        )
     results["coverage_match"] = months_match and pgids_match
 
     # -- 1.2 Value-level comparison --
@@ -158,11 +167,15 @@ def phase_0_and_1(pa_df: pd.DataFrame, bs_df: pd.DataFrame) -> Dict[str, Any]:
         pct_diff = 100.0 * n_diff_exact / n_total
 
         print(f"\n  {col}:")
-        print(f"    Cells with ANY difference:  {n_diff_exact:>10,} / {n_total:,} ({pct_diff:.4f}%)")
+        print(
+            f"    Cells with ANY difference:  {n_diff_exact:>10,} / {n_total:,} ({pct_diff:.4f}%)"
+        )
         print(f"    Cells with diff > 0.01:     {n_diff_001:>10,}")
         print(f"    Max absolute difference:    {max_diff:.6f}")
         print(f"    Mean absolute difference:   {mean_diff:.8f}")
-        print(f"    Sum:  PA={pa_sum:>14,.1f}   BS={bs_sum:>14,.1f}   delta={bs_sum - pa_sum:+,.1f}")
+        print(
+            f"    Sum:  PA={pa_sum:>14,.1f}   BS={bs_sum:>14,.1f}   delta={bs_sum - pa_sum:+,.1f}"
+        )
 
         if n_diff_exact > 0:
             corr = np.corrcoef(pa_vals, bs_vals)[0, 1]
@@ -174,14 +187,20 @@ def phase_0_and_1(pa_df: pd.DataFrame, bs_df: pd.DataFrame) -> Dict[str, Any]:
                 bs_diffvals = bs_vals[diff_where]
                 n_pa_zero_bs_nonzero = np.sum((pa_diffvals == 0) & (bs_diffvals > 0))
                 n_pa_nonzero_bs_zero = np.sum((pa_diffvals > 0) & (bs_diffvals == 0))
-                print(f"    Zero/nonzero disagreements: PA=0,BS>0: {n_pa_zero_bs_nonzero}  PA>0,BS=0: {n_pa_nonzero_bs_zero}")
+                print(
+                    f"    Zero/nonzero disagreements: "
+                    f"PA=0,BS>0: {n_pa_zero_bs_nonzero}  "
+                    f"PA>0,BS=0: {n_pa_nonzero_bs_zero}"
+                )
 
         results[f"{col}_n_diff"] = n_diff_exact
         results[f"{col}_max_diff"] = max_diff
         results[f"{col}_pct_diff"] = pct_diff
 
         if pct_diff > 0.5:
-            findings.append(f"VALUE: {col} differs in {pct_diff:.2f}% of cells (exceeds 0.5% threshold)")
+            findings.append(
+                f"VALUE: {col} differs in {pct_diff:.2f}% of cells (exceeds 0.5% threshold)"
+            )
 
     # -- 1.3 Zero pattern audit (H4) --
     section("1.3 Zero / NaN Pattern Audit (H4)")
@@ -201,8 +220,10 @@ def phase_0_and_1(pa_df: pd.DataFrame, bs_df: pd.DataFrame) -> Dict[str, Any]:
         print(f"\n  {col}:")
         print(f"    Both zero:     {both_zero:>10,}")
         print(f"    Both nonzero:  {both_nonzero:>10,}")
-        print(f"    PA=0, BS>0:    {pa_only_zero:>10,}  {'<-- NaN fill asymmetry?' if pa_only_zero > 0 else ''}")
-        print(f"    PA>0, BS=0:    {bs_only_zero:>10,}  {'<-- NaN fill asymmetry?' if bs_only_zero > 0 else ''}")
+        tag_pa = "<-- NaN fill asymmetry?" if pa_only_zero > 0 else ""
+        tag_bs = "<-- NaN fill asymmetry?" if bs_only_zero > 0 else ""
+        print(f"    PA=0, BS>0:    {pa_only_zero:>10,}  {tag_pa}")
+        print(f"    PA>0, BS=0:    {bs_only_zero:>10,}  {tag_bs}")
 
         if pa_only_zero > 0 or bs_only_zero > 0:
             findings.append(
@@ -230,7 +251,8 @@ def phase_0_and_1(pa_df: pd.DataFrame, bs_df: pd.DataFrame) -> Dict[str, Any]:
             print(f"\n  {col} (cells that differ):")
             print(f"    Mean raw diff:     {raw_mean:.8f}")
             print(f"    Mean log1p diff:   {log_mean:.8f}")
-            print(f"    Amplification:     {ratio:.4f}x  {'(compresses)' if ratio < 1 else '(amplifies!)'}")
+            label = "(compresses)" if ratio < 1 else "(amplifies!)"
+            print(f"    Amplification:     {ratio:.4f}x  {label}")
         else:
             print(f"\n  {col}: No differences — log1p comparison skipped")
 
@@ -253,7 +275,10 @@ def phase_0_and_1(pa_df: pd.DataFrame, bs_df: pd.DataFrame) -> Dict[str, Any]:
 
         # Temporal distribution
         unique_months = sorted(set(months))
-        month_year = lambda m: (1980 + m // 12, m % 12 if m % 12 != 0 else 12)
+
+        def month_year(m):
+            return (1980 + m // 12, m % 12 if m % 12 != 0 else 12)
+
         first_y, first_m = month_year(unique_months[0])
         last_y, last_m = month_year(unique_months[-1])
 
@@ -266,11 +291,17 @@ def phase_0_and_1(pa_df: pd.DataFrame, bs_df: pd.DataFrame) -> Dict[str, Any]:
         # Top 5 largest differences
         abs_diff = np.abs(pa_v - bs_v)
         top5_idx = np.argsort(abs_diff)[-5:][::-1]
-        print(f"    Top 5 largest differences:")
+        print("    Top 5 largest differences:")
         for i in top5_idx:
             m = months[i]
             y, mo = month_year(int(m))
-            print(f"      month={int(m)} ({y}-{mo:02d}), pgid={int(pgids[i])}: PA={pa_v[i]:.0f}, BS={bs_v[i]:.0f}, delta={bs_v[i]-pa_v[i]:+.0f}")
+            delta = bs_v[i] - pa_v[i]
+            print(
+                f"      month={int(m)} ({y}-{mo:02d}), "
+                f"pgid={int(pgids[i])}: "
+                f"PA={pa_v[i]:.0f}, BS={bs_v[i]:.0f}, "
+                f"delta={delta:+.0f}"
+            )
 
     # -- Summary --
     section("Phase 0+1 Summary")
@@ -286,10 +317,10 @@ def phase_0_and_1(pa_df: pd.DataFrame, bs_df: pd.DataFrame) -> Dict[str, Any]:
 
 # ── Phase 2: Amplification Analysis ──────────────────────────────────────
 
+
 def phase_2(pa_df: pd.DataFrame, bs_df: pd.DataFrame) -> Dict[str, Any]:
     """Trace data differences through CurriculumLearner and VolumeSampler."""
     from views_hydranet.utils.curriculum import CurriculumLearner
-    from views_hydranet.utils.volume_handler import VolumeHandler
 
     results: Dict[str, Any] = {}
 
@@ -310,7 +341,8 @@ def phase_2(pa_df: pd.DataFrame, bs_df: pd.DataFrame) -> Dict[str, Any]:
     vol_diff = np.abs(pa_vh.data.astype(np.float64) - bs_vh.data.astype(np.float64))
     print(f"  Volume max abs diff (all channels):  {vol_diff.max():.8f}")
     print(f"  Volume mean abs diff (all channels): {vol_diff.mean():.10f}")
-    print(f"  Volume nonzero diffs (all channels): {np.count_nonzero(vol_diff > 1e-7):,} / {vol_diff.size:,}")
+    nz = np.count_nonzero(vol_diff > 1e-7)
+    print(f"  Volume nonzero diffs (all channels): {nz:,} / {vol_diff.size:,}")
 
     # Feature-only comparison (what the model actually sees)
     feature_indices = [pa_vh.channel_map.index(f) for f in CONFIG["features"]]
@@ -319,7 +351,7 @@ def phase_2(pa_df: pd.DataFrame, bs_df: pd.DataFrame) -> Dict[str, Any]:
     model_indices = feature_indices + binary_indices
 
     model_diff = vol_diff[..., model_indices]
-    print(f"\n  Feature+binary channels only (model inputs):")
+    print("\n  Feature+binary channels only (model inputs):")
     print(f"    Max abs diff:  {model_diff.max():.8f}")
     print(f"    Mean abs diff: {model_diff.mean():.10f}")
     print(f"    Nonzero diffs: {np.count_nonzero(model_diff > 1e-7):,} / {model_diff.size:,}")
@@ -388,8 +420,12 @@ def phase_2(pa_df: pd.DataFrame, bs_df: pd.DataFrame) -> Dict[str, Any]:
     # -- 2.4 VolumeSampler busy-cell divergence (all 450 steps, location-aware) --
     section("2.4 VolumeSampler Busy-Cell Divergence (all 450 steps)")
 
-    pa_train = pa_vh.slice_time(0, pa_vh.data.shape[pa_vh.get_axis_idx("T")] - len(CONFIG["steps"]))
-    bs_train = bs_vh.slice_time(0, bs_vh.data.shape[bs_vh.get_axis_idx("T")] - len(CONFIG["steps"]))
+    pa_train = pa_vh.slice_time(
+        0, pa_vh.data.shape[pa_vh.get_axis_idx("T")] - len(CONFIG["steps"])
+    )
+    bs_train = bs_vh.slice_time(
+        0, bs_vh.data.shape[bs_vh.get_axis_idx("T")] - len(CONFIG["steps"])
+    )
 
     count_mismatches = 0
     location_mismatches = 0
@@ -463,12 +499,18 @@ def phase_2(pa_df: pd.DataFrame, bs_df: pd.DataFrame) -> Dict[str, Any]:
         first_any = first_count_divergence[0]
 
     if first_any is not None:
-        print(f"\n  Training phases:")
-        print(f"    Steps 0-{first_any - 1} ({first_any}/{total_steps} = {100*first_any/total_steps:.1f}%): "
-              f"IDENTICAL windows — only cell values differ")
-        print(f"    Steps {first_any}-{total_steps - 1} ({total_steps - first_any}/{total_steps} = "
-              f"{100*(total_steps - first_any)/total_steps:.1f}%): "
-              f"DIFFERENT windows — location and/or count diverge")
+        print("\n  Training phases:")
+        pct_id = 100 * first_any / total_steps
+        print(
+            f"    Steps 0-{first_any - 1} "
+            f"({first_any}/{total_steps} = {pct_id:.1f}%): "
+            f"IDENTICAL windows — only cell values differ"
+        )
+        print(
+            f"    Steps {first_any}-{total_steps - 1} ({total_steps - first_any}/{total_steps} = "
+            f"{100 * (total_steps - first_any) / total_steps:.1f}%): "
+            f"DIFFERENT windows — location and/or count diverge"
+        )
 
     results["identical_steps"] = identical_steps
     results["count_mismatches"] = count_mismatches
@@ -484,27 +526,30 @@ def phase_2(pa_df: pd.DataFrame, bs_df: pd.DataFrame) -> Dict[str, Any]:
         print("  CurriculumLearner computes different thresholds,")
         print("  VolumeSampler selects different training windows.")
     elif divergent > 0:
-        print(f"  Curriculum thresholds are IDENTICAL (subject_maxima match).")
+        print("  Curriculum thresholds are IDENTICAL (subject_maxima match).")
         print(f"  But VolumeSampler selects DIFFERENT windows at {divergent}/{total_steps} steps")
-        print(f"  ({100*divergent/total_steps:.1f}%) because data differences shift which cells")
-        print(f"  qualify at each threshold.")
+        print(
+            f"  ({100 * divergent / total_steps:.1f}%) because data differences shift which cells"
+        )
+        print("  qualify at each threshold.")
         print()
-        print(f"  Two INTERLEAVED divergence mechanisms (not temporally separated):")
-        print(f"    Mechanism A — value divergence in identical windows:")
-        print(f"      {identical_steps}/{total_steps} steps ({100*identical_steps/total_steps:.1f}%)")
-        print(f"    Mechanism B — different window locations:")
-        print(f"      {divergent}/{total_steps} steps ({100*divergent/total_steps:.1f}%)")
+        print("  Two INTERLEAVED divergence mechanisms (not temporally separated):")
+        print("    Mechanism A — value divergence in identical windows:")
+        pct_a = 100 * identical_steps / total_steps
+        print(f"      {identical_steps}/{total_steps} steps ({pct_a:.1f}%)")
+        print("    Mechanism B — different window locations:")
+        print(f"      {divergent}/{total_steps} steps ({100 * divergent / total_steps:.1f}%)")
         print()
-        print(f"  Both mechanisms are present throughout training. Mechanism A is")
-        print(f"  more prevalent and has high per-window impact (~74% of cells differ")
-        print(f"  on average within spatially-identical windows).")
+        print("  Both mechanisms are present throughout training. Mechanism A is")
+        print("  more prevalent and has high per-window impact (~74% of cells differ")
+        print("  on average within spatially-identical windows).")
         print()
-        print(f"  CONCLUSION: This is training sensitivity, not a data-source bug.")
-        print(f"  The curriculum's hard threshold boundary (activity >= threshold)")
-        print(f"  creates discrete jumps in window selection from tiny data")
-        print(f"  perturbations. Any small data change — even from the same source")
-        print(f"  fetched at different UCDP release dates — would produce similar")
-        print(f"  prediction divergence.")
+        print("  CONCLUSION: This is training sensitivity, not a data-source bug.")
+        print("  The curriculum's hard threshold boundary (activity >= threshold)")
+        print("  creates discrete jumps in window selection from tiny data")
+        print("  perturbations. Any small data change — even from the same source")
+        print("  fetched at different UCDP release dates — would produce similar")
+        print("  prediction divergence.")
     else:
         print("  No spatial divergence detected — windows are identical.")
         print("  If predictions differ, the cause is value-level only.")
@@ -513,6 +558,7 @@ def phase_2(pa_df: pd.DataFrame, bs_df: pd.DataFrame) -> Dict[str, Any]:
 
 
 # ── Main ──────────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     hr("DIVERGENCE DIAGNOSTIC: purple_alien vs bright_starship")
@@ -540,11 +586,13 @@ def main() -> None:
 
     divergent = p2.get("count_mismatches", 0) + p2.get("location_mismatches", 0)
     total_steps = CONFIG["total_lessons"] * CONFIG["windows_per_lesson"]
-    first = p2.get("first_divergence_step")
 
     if p2.get("subject_maxima_differ"):
         print("\n  ROOT CAUSE: Curriculum amplification.")
-        print("  subject_maxima differ -> different thresholds -> different windows -> butterfly effect.")
+        print(
+            "  subject_maxima differ -> different thresholds "
+            "-> different windows -> butterfly effect."
+        )
     elif divergent > 0:
         identical = p2.get("identical_steps", 0)
         print("\n  FINDING: Training is highly sensitive to small data perturbations.")
@@ -561,13 +609,15 @@ def main() -> None:
                 print(f"    {col}: {n} cells differ, max delta = {mx:.0f}")
         print()
         print("  These differences propagate through two INTERLEAVED mechanisms:")
-        print(f"    Mechanism A — value divergence in identical windows:")
-        print(f"      {identical}/{total_steps} steps ({100*identical/total_steps:.1f}%)")
-        print(f"      ~74% of cells differ per window on average.")
-        print(f"    Mechanism B — different window locations:")
-        print(f"      {divergent}/{total_steps} steps ({100*divergent/total_steps:.1f}%)")
-        print(f"      ({p2.get('location_mismatches',0)} location-only + "
-              f"{p2.get('count_mismatches',0)} count mismatches)")
+        print("    Mechanism A — value divergence in identical windows:")
+        print(f"      {identical}/{total_steps} steps ({100 * identical / total_steps:.1f}%)")
+        print("      ~74% of cells differ per window on average.")
+        print("    Mechanism B — different window locations:")
+        print(f"      {divergent}/{total_steps} steps ({100 * divergent / total_steps:.1f}%)")
+        print(
+            f"      ({p2.get('location_mismatches', 0)} location-only + "
+            f"{p2.get('count_mismatches', 0)} count mismatches)"
+        )
         print()
         print("  CONCLUSION: This is NOT a data-source parity bug.")
         print()

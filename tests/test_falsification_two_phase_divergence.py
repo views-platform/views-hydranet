@@ -22,7 +22,9 @@ import pytest
 
 MODELS_ROOT = Path(__file__).resolve().parents[1].parent / "views-models" / "models"
 PA_PARQUET = MODELS_ROOT / "purple_alien" / "data" / "raw" / "calibration_viewser_df.parquet"
-BS_PARQUET = MODELS_ROOT / "bright_starship" / "data" / "raw" / "calibration_datafactory_df.parquet"
+BS_PARQUET = (
+    MODELS_ROOT / "bright_starship" / "data" / "raw" / "calibration_datafactory_df.parquet"
+)
 EVENT_COLS = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
 
 CONFIG = {

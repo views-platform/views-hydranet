@@ -19,7 +19,9 @@ import pytest
 
 MODELS_ROOT = Path(__file__).resolve().parents[1].parent / "views-models" / "models"
 PA_PARQUET = MODELS_ROOT / "purple_alien" / "data" / "raw" / "calibration_viewser_df.parquet"
-BS_PARQUET = MODELS_ROOT / "bright_starship" / "data" / "raw" / "calibration_datafactory_df.parquet"
+BS_PARQUET = (
+    MODELS_ROOT / "bright_starship" / "data" / "raw" / "calibration_datafactory_df.parquet"
+)
 EVENT_COLS = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
 
 CONFIG = {
@@ -177,6 +179,7 @@ def test_falsify_04_full_450_step_count_parity():
     assert len(count_mismatches) == 0, (
         f"Busy-cell counts differ at {len(count_mismatches)} / {total_steps} steps. "
         f"First: step {count_mismatches[0][0]}, {count_mismatches[0][1]}, "
-        f"thresh={count_mismatches[0][2]}: PA={count_mismatches[0][3]}, BS={count_mismatches[0][4]}. "
+        f"thresh={count_mismatches[0][2]}: "
+        f"PA={count_mismatches[0][3]}, BS={count_mismatches[0][4]}. "
         f"The diagnostic checked only 30 steps and missed this."
     )

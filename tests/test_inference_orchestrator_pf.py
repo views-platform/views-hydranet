@@ -223,3 +223,40 @@ class TestGreen:
             )
 
         assert len(result) == n_origins
+
+
+class TestReproducibility:
+    """Pipeline-level reproducibility: same seeds produce identical outputs."""
+
+    def test_pipeline_reproducibility_two_runs(self, orch_env):
+        """generate_prediction_frames with identical seeds → identical PFs."""
+        handler, scaler, model = orch_env
+        np.random.seed(99)
+        posterior = np.random.rand(1, 2, 2, 6, S)
+
+        cfg = {**ORCH_CFG, "evaluation_mode": "stochastic"}
+        origins = [handler.shape[0] - 2]
+
+        results = []
+        for _ in range(2):
+            orch = InferenceOrchestrator(cfg, model, torch.device("cpu"))
+            with patch(
+                "views_hydranet.utils.inference_orchestrator.HydraNetInference"
+            ) as mock_inf_cls:
+                mock_inf_cls.return_value.generate_posterior_samples.return_value = (
+                    posterior.copy(),
+                    None,
+                )
+                result_1 = orch.generate_prediction_frames(
+                    handler, scaler, origins=origins, all_targets=TARGETS
+                )
+            results.append(result_1)
+
+        for target in TARGETS:
+            pf_1 = results[0][0][target]
+            pf_2 = results[1][0][target]
+            np.testing.assert_array_equal(
+                pf_1.y_pred,
+                pf_2.y_pred,
+                err_msg=f"{target}: outputs differ between identical runs",
+            )

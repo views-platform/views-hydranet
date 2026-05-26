@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-05-26                           |
-| Total Concerns    | 77                                   |
-| Open Concerns     | 10                                   |
+| Total Concerns    | 78                                   |
+| Open Concerns     | 11                                   |
 | Resolved Concerns | 67                                   |
 
 ---
@@ -193,6 +193,22 @@ See also C-36 (VolumeHandler ISP), D-01 (VolumeHandler scope).
 `apply_blueprint()` uses an `if op == "binary" ... else raise NotImplementedError` conditional. Adding a new operation (e.g., log-transform, z-score) requires modifying the method body. A strategy pattern or operation registry would make the method open for extension without modification. Currently low urgency — only "binary" is used across all configs.
 
 See also C-75 (duplicated derivation logic).
+
+---
+
+### C-79: No pipeline-level reproducibility comparison test
+
+| Field | Value |
+|-------|-------|
+| ID | C-79 |
+| Tier | 4 |
+| Source | /falsify merge-readiness audit P2 (2026-05-26), originally noted in C-42 resolution |
+| Trigger | When modifying inference orchestrator, posterior sampling, or aggregation logic — no test verifies that two identical runs produce identical outputs |
+| Location | `tests/test_falsification_cradle_to_grave.py` (F3-06 stub), `views_hydranet/utils/hydranet_inference.py`, `views_hydranet/utils/inference_orchestrator.py` |
+
+`ReproducibilityGate.lock_entropy()` sets all RNG seeds (C-42 resolved), but no test actually runs the inference pipeline twice with the same seeds and compares outputs. Pipeline-level determinism is assumed, not proven. The F3-06 falsification stub encodes this gap. Noted as a "residual test gap" in C-42 resolution text but never registered.
+
+See also C-42 (resolved — entropy locking).
 
 ---
 

@@ -22,7 +22,9 @@ import pytest
 
 MODELS_ROOT = Path(__file__).resolve().parents[1].parent / "views-models" / "models"
 PA_PARQUET = MODELS_ROOT / "purple_alien" / "data" / "raw" / "calibration_viewser_df.parquet"
-BS_PARQUET = MODELS_ROOT / "bright_starship" / "data" / "raw" / "calibration_datafactory_df.parquet"
+BS_PARQUET = (
+    MODELS_ROOT / "bright_starship" / "data" / "raw" / "calibration_datafactory_df.parquet"
+)
 EVENT_COLS = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
 
 CONFIG = {
@@ -181,9 +183,9 @@ def test_falsify_g3_mechanism_a_prevalence():
 
     assert n_divergent > n_identical, (
         f"Mechanism B (spatial divergence from importance sampling) affects "
-        f"{n_divergent}/{total_steps} steps ({100*n_divergent/total_steps:.1f}%), "
+        f"{n_divergent}/{total_steps} steps ({100 * n_divergent / total_steps:.1f}%), "
         f"but mechanism A (value divergence) affects {n_identical}/{total_steps} "
-        f"({100*n_identical/total_steps:.1f}%) steps with identical windows. "
+        f"({100 * n_identical / total_steps:.1f}%) steps with identical windows. "
         f"Mechanism A is more prevalent — importance sampling is not the main cause."
     )
 
@@ -229,8 +231,8 @@ def test_falsify_g4_uniform_sampling_still_diverges():
         r0 = int(np.clip(r_anc - rng.integers(0, dim), 0, h_max - dim))
         c0 = int(np.clip(c_anc - rng.integers(0, dim), 0, w_max - dim))
 
-        pa_win = pa_train.data[:, r0:r0+dim, c0:c0+dim, :]
-        bs_win = bs_train.data[:, r0:r0+dim, c0:c0+dim, :]
+        pa_win = pa_train.data[:, r0 : r0 + dim, c0 : c0 + dim, :]
+        bs_win = bs_train.data[:, r0 : r0 + dim, c0 : c0 + dim, :]
 
         feat_diff = np.abs(
             pa_win[..., feature_indices].astype(np.float64)
@@ -247,7 +249,7 @@ def test_falsify_g4_uniform_sampling_still_diverges():
         f"Under uniform sampling, {pct_with_diffs:.1f}% of windows still "
         f"contain feature differences (vs ~99.3% with importance sampling). "
         f"Importance sampling concentrates divergence by only "
-        f"{99.3/pct_with_diffs:.1f}x — removing it does not eliminate the "
+        f"{99.3 / pct_with_diffs:.1f}x — removing it does not eliminate the "
         f"base sensitivity. The weight-update feedback loop amplifies "
         f"value-level differences regardless of sampling strategy."
     )
