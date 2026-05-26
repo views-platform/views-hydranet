@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
+from views_hydranet.utils.sampling_strategies import SAMPLING_STRATEGY_REGISTRY
 from views_hydranet.utils.volume_handler import VolumeHandler
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,18 @@ class VolumeSampler:
         self.rng = np.random.default_rng(seed)
         logger.info(f"VolumeSampler: Initialized with np_seed={seed}")
 
+        # EXPERIMENTAL: Sampling strategy registry (mirrors loss registry pattern).
+        # Default "threshold" preserves current production behaviour exactly.
+        strategy_name = config.get("sampling_strategy", "threshold")
+        entry = SAMPLING_STRATEGY_REGISTRY.get(strategy_name)
+        if entry is None:
+            raise ValueError(
+                f"Unknown sampling_strategy='{strategy_name}'. "
+                f"Available: {list(SAMPLING_STRATEGY_REGISTRY.keys())}"
+            )
+        self._select_anchor = entry["fn"]
+        self.min_events = config.get("min_events", 5)
+
     def get_train_volume(self) -> VolumeHandler:
         """Slices off the test horizon while preserving the Ledger."""
         steps = self.config["steps"]
@@ -69,16 +82,11 @@ class VolumeSampler:
 
             raise ValueError(err_msg)
 
-        # Activity Search (Importance Sampling)
+        # Activity Search (Importance Sampling) — strategy-based anchor selection
         activity = np.count_nonzero(vol_data[..., target_idx], axis=0)
-        busy_cells = np.argwhere(activity >= threshold)
-
-        if busy_cells.size > 0:
-            # Pick a busy anchor
-            r_anc, c_axc = busy_cells[self.rng.choice(len(busy_cells))]
-        else:
-            # Fallback to random anchor
-            r_anc, c_axc = self.rng.integers(0, h_max), self.rng.integers(0, w_max)
+        r_anc, c_axc = self._select_anchor(
+            activity, threshold, self.min_events, self.rng, self.config
+        )
 
         # Spatial Jitter (prevent center-bias)
         r0 = np.clip(r_anc - self.rng.integers(0, dim), 0, h_max - dim)

@@ -159,3 +159,9 @@ class TestRed:
         cfg = _make_config(valid_config_dict, total_hidden_channels=30)
         with pytest.raises(ValidationError, match="divisible by 8"):
             HydraNetConfig(**cfg)
+
+    def test_red_invalid_sampling_strategy(self, valid_config_dict):
+        """Invalid sampling_strategy → ValueError with registered keys."""
+        cfg = _make_config(valid_config_dict, sampling_strategy="nonexistent")
+        with pytest.raises(ValidationError, match="not registered"):
+            HydraNetConfig(**cfg)

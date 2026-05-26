@@ -104,6 +104,11 @@ class HydraNetConfig(BaseModel):
     n_posterior_samples: int = Field(..., ge=1)
     np_seed: int = Field(...)
     torch_seed: int = Field(...)
+    # EXPERIMENTAL: Sampling strategy (default preserves current behaviour)
+    sampling_strategy: str = Field(default="threshold")
+    sampling_alpha: float = Field(default=1.0)
+    sampling_temperature: float = Field(default=10.0)
+    sampling_steepness: float = Field(default=1.0)
 
     # 8. Strategy & Curriculum
     min_events: int = Field(...)
@@ -282,6 +287,20 @@ class HydraNetConfig(BaseModel):
             err_msg = (
                 f"loss_class='{v}' is not registered. "
                 f"Available: {list(LOSS_CLASS_REGISTRY.keys())}"
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator("sampling_strategy")
+    @classmethod
+    def validate_sampling_strategy(cls, v: str) -> str:
+        from views_hydranet.utils.sampling_strategies import SAMPLING_STRATEGY_REGISTRY
+
+        if v not in SAMPLING_STRATEGY_REGISTRY:
+            err_msg = (
+                f"sampling_strategy='{v}' is not registered. "
+                f"Available: {list(SAMPLING_STRATEGY_REGISTRY.keys())}"
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
