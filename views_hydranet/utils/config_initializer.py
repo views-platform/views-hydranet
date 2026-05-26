@@ -80,17 +80,17 @@ class HydraNetConfig(BaseModel):
     loss_reg: str = Field(...)
     loss_class: str = Field(...)
     # ShrinkageLoss params (loss_reg='shrinkage')
-    loss_reg_a: float = Field(default=10.0)
-    loss_reg_c: float = Field(default=0.2)
+    loss_reg_a: float | None = Field(default=None)
+    loss_reg_c: float | None = Field(default=None)
     # BasuDPDLoss params (loss_reg='basu_dpd')
-    loss_reg_alpha: float = Field(default=0.5)
+    loss_reg_alpha: float | None = Field(default=None)
     # Shared: BasuDPDLoss sigma / LogNormalFixedSigmaLoss sigma
-    loss_reg_sigma: float = Field(default=1.0)
+    loss_reg_sigma: float | None = Field(default=None)
     # ParetoLoss params (loss_reg='pareto')
-    loss_reg_pareto_alpha: float = Field(default=1.0)
+    loss_reg_pareto_alpha: float | None = Field(default=None)
     # FocalLoss params (loss_class='focal')
-    loss_class_gamma: float = Field(default=1.5)
-    loss_class_alpha: float = Field(default=0.75)
+    loss_class_gamma: float | None = Field(default=None)
+    loss_class_alpha: float | None = Field(default=None)
     # Classification head bias initialization (C-44)
     onset_bias_init: float | None = Field(default=None)
     # Hurdle masking (C-45): None = disabled, 0.0 = standard hurdle (y > 0)
@@ -412,6 +412,40 @@ class HydraNetConfig(BaseModel):
             if getattr(self, param) is None:
                 err_msg = (
                     f"sampling_strategy='{self.sampling_strategy}' requires '{param}' "
+                    f"but it was not provided. Add '{param}' to your config."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_loss_reg_params(self) -> "HydraNetConfig":
+        from views_hydranet.utils.utils import LOSS_REG_REGISTRY
+
+        entry = LOSS_REG_REGISTRY.get(self.loss_reg)
+        if entry is None:
+            return self
+        for param in entry["params"]:
+            if getattr(self, param) is None:
+                err_msg = (
+                    f"loss_reg='{self.loss_reg}' requires '{param}' "
+                    f"but it was not provided. Add '{param}' to your config."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_loss_class_params(self) -> "HydraNetConfig":
+        from views_hydranet.utils.utils import LOSS_CLASS_REGISTRY
+
+        entry = LOSS_CLASS_REGISTRY.get(self.loss_class)
+        if entry is None:
+            return self
+        for param in entry["params"]:
+            if getattr(self, param) is None:
+                err_msg = (
+                    f"loss_class='{self.loss_class}' requires '{param}' "
                     f"but it was not provided. Add '{param}' to your config."
                 )
                 logger.error(err_msg)
