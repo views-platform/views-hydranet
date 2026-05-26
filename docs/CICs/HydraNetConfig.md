@@ -2,8 +2,8 @@
 
 **Status:** Active
 **Owner:** Schema
-**Last reviewed:** 13.03.2026
-**Related ADRs:** ADR-009, ADR-046
+**Last reviewed:** 26.05.2026
+**Related ADRs:** ADR-009, ADR-046, ADR-049
 
 ---
 
@@ -59,6 +59,7 @@ The `HydraNetConfig` is the **Schema** of the HydraNet pipeline. Its primary pur
 - **Degenerate Roof Ratio:** Raises `ValueError` when `roof_ratio <= 0.0` (eliminates curriculum variation).
 - **Degenerate Window Dim:** Raises `ValueError` when `window_dim < 2` (single-pixel patches have no spatial context).
 - **Inverted Ratio Range:** Raises `ValueError` when `min_ratio >= max_ratio` (breaks curriculum sampling).
+- **Invalid Sampling Strategy (ADR-049):** Raises `ValueError` when `sampling_strategy` is not in `SAMPLING_STRATEGY_REGISTRY`, listing valid options.
 
 ---
 

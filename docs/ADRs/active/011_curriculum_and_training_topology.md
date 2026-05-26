@@ -36,7 +36,7 @@ A **Lesson** is one complete training iteration consisting of:
 
 ### 3.2 The Lens (`VolumeSampler`)
 *   **Responsibility:** Pure geometric tool for "Busy-Search" and window extraction.
-*   **Identification:** Scans the global volume for cells satisfying the Planner's `threshold`.
+*   **Identification:** Scans the global volume for cells satisfying the Planner's `threshold`. The default strategy is a hard threshold (uniform over qualifying cells). ADR-049 extends this to four configurable strategies: `threshold`, `power_law`, `boltzmann`, and `sigmoid`.
 *   **Extraction:** Slicing the global volume into a local `VolumeHandler` with a correctly adjusted `spatial_offset`.
 
 ---
