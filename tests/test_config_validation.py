@@ -178,3 +178,16 @@ class TestRed:
         cfg = _make_config(valid_config_dict, sampling_strategy="power_law")
         with pytest.raises(ValidationError, match="sampling_alpha"):
             HydraNetConfig(**cfg)
+
+    def test_red_multi_field_missing_reports_all_errors(self, valid_config_dict):
+        """Removing 3 sentinel-governed fields → all 3 reported in one ValidationError (C-80)."""
+        cfg = dict(valid_config_dict)
+        del cfg["sampling_strategy"]
+        del cfg["evaluation_mode"]
+        del cfg["loss_reg"]
+        with pytest.raises(ValidationError) as exc_info:
+            HydraNetConfig(**cfg)
+        error_text = str(exc_info.value)
+        assert "sampling_strategy" in error_text
+        assert "evaluation_mode" in error_text
+        assert "loss_reg" in error_text

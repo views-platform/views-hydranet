@@ -5,9 +5,9 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-05-26                           |
-| Total Concerns    | 78                                   |
+| Total Concerns    | 79                                   |
 | Open Concerns     | 11                                   |
-| Resolved Concerns | 67                                   |
+| Resolved Concerns | 68                                   |
 
 ---
 
@@ -266,6 +266,16 @@ See also C-42 (resolved — entropy locking).
 | ID | C-78 |
 | Resolved | 2026-05-26 |
 | Resolution | All four gaps addressed: (P1) added `test_green_ratio_matches_power_law_formula` — verifies p(a)/p(b) ≈ (act_a/act_b)^α, catches Boltzmann substitution. (P2) added `test_green_high_steepness_recovers_threshold` to TestSigmoid. (P3) added parametrized `TestNonDefaultStrategyIntegration` testing power_law/boltzmann/sigmoid through VolumeSampler. (P4) added `test_red_invalid_sampling_strategy` to test_config_validation.py. |
+
+---
+
+### C-80: Sentinel injection pattern for multi-field error collection has no direct test — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-80 |
+| Resolved | 2026-05-26 |
+| Resolution | Added `test_red_multi_field_missing_reports_all_errors` in `tests/test_config_validation.py`. Test removes 3 sentinel-governed fields (`sampling_strategy`, `evaluation_mode`, `loss_reg`) simultaneously and asserts all 3 appear in the resulting `ValidationError`. Sentinel injection pattern now has direct coverage. |
 
 ---
 
