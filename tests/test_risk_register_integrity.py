@@ -85,23 +85,15 @@ class TestGreen:
         """Entries marked RESOLVED must not sit in the Open Concerns section."""
         text = _read_register()
         open_section = _extract_section(text, "Open Concerns")
-        misplaced = [
-            eid for eid, resolved in _entry_headers_in(open_section) if resolved
-        ]
-        assert misplaced == [], (
-            f"Resolved entries misplaced in Open section: {misplaced}"
-        )
+        misplaced = [eid for eid, resolved in _entry_headers_in(open_section) if resolved]
+        assert misplaced == [], f"Resolved entries misplaced in Open section: {misplaced}"
 
     def test_no_open_entries_in_resolved_section(self):
         """Entries without RESOLVED marker must not sit in the Resolved section."""
         text = _read_register()
         resolved_section = _extract_section(text, "Resolved Concerns")
-        misplaced = [
-            eid for eid, resolved in _entry_headers_in(resolved_section) if not resolved
-        ]
-        assert misplaced == [], (
-            f"Open entries misplaced in Resolved section: {misplaced}"
-        )
+        misplaced = [eid for eid, resolved in _entry_headers_in(resolved_section) if not resolved]
+        assert misplaced == [], f"Open entries misplaced in Resolved section: {misplaced}"
 
     def test_no_duplicate_ids(self):
         """Every C-xx / D-xx ID must appear exactly once as a ### header."""
@@ -125,6 +117,4 @@ class TestGreen:
             m = re.search(rf"^## {re.escape(heading)}", text, re.MULTILINE)
             assert m, f"Missing section: ## {heading}"
             positions.append(m.start())
-        assert positions == sorted(positions), (
-            f"Section order wrong. Expected: {expected_order}"
-        )
+        assert positions == sorted(positions), f"Section order wrong. Expected: {expected_order}"

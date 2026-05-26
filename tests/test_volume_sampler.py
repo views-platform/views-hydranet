@@ -63,6 +63,8 @@ def _make_config(**overrides):
         "windows_per_lesson": 3,
         "np_seed": 42,
         "steps": list(range(1, 4)),  # 3-step test horizon
+        "sampling_strategy": "threshold",
+        "min_events": 5,
     }
     cfg.update(overrides)
     return cfg
@@ -135,6 +137,30 @@ class TestBeige:
         batch, qualified = sampler.get_batch(TARGET, threshold=999999, batch_size=1)
         assert len(batch) == 1
         assert qualified == 0
+
+
+# ---------------------------------------------------------------------------
+# GREEN — non-default strategy integration
+# ---------------------------------------------------------------------------
+class TestNonDefaultStrategyIntegration:
+    """Each non-threshold strategy produces valid batches through VolumeSampler."""
+
+    @pytest.mark.parametrize(
+        "strategy,extra_cfg",
+        [
+            ("power_law", {"sampling_alpha": 1.5}),
+            ("boltzmann", {"sampling_temperature": 10.0}),
+            ("sigmoid", {"sampling_steepness": 1.0}),
+        ],
+    )
+    def test_green_non_default_produces_valid_batch(self, sampler_handler, strategy, extra_cfg):
+        cfg = _make_config(sampling_strategy=strategy, **extra_cfg)
+        sampler = VolumeSampler(sampler_handler, cfg)
+        batch, _ = sampler.get_batch(TARGET, threshold=1, batch_size=2)
+        assert len(batch) == 2
+        for window in batch:
+            assert window.shape[1] == cfg["window_dim"]
+            assert window.shape[2] == cfg["window_dim"]
 
 
 # ---------------------------------------------------------------------------
@@ -264,6 +290,8 @@ class TestSpatialOffsetRoundTrip:
             "windows_per_lesson": 1,
             "np_seed": 0,
             "steps": [1],
+            "sampling_strategy": "threshold",
+            "min_events": 1,
         }
         sampler = VolumeSampler(parent, cfg)
 

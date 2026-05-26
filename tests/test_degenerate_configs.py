@@ -63,6 +63,7 @@ def _base_config(**overrides):
         "roof_ratio": 1.0,
         "min_ratio": 0.1,
         "max_ratio": 0.9,
+        "sampling_strategy": "threshold",
     }
     config.update(overrides)
     return config
@@ -349,6 +350,7 @@ def _pydantic_config(**overrides):
         "max_ratio": 0.9,
         "min_ratio": 0.1,
         "freeze_h": "none",
+        "sampling_strategy": "threshold",
         "evaluation_mode": "point",
         "aggregate_method": "arithmetic_mean",
         "prediction_format": "prediction_frame",

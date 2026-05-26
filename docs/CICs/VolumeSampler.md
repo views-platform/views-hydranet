@@ -2,8 +2,8 @@
 
 **Status:** Active  
 **Owner:** Actor  
-**Last reviewed:** 13.03.2026  
-**Related ADRs:** ADR-001, ADR-011 (Proposed), ADR-012
+**Last reviewed:** 26.05.2026  
+**Related ADRs:** ADR-001, ADR-011 (Proposed), ADR-012, ADR-049 (Experimental)
 
 ---
 
@@ -25,7 +25,7 @@ The `VolumeSampler` is the **Lens** of the HydraNet pipeline. Its primary purpos
 ## 3. Responsibilities and Guarantees
 
 - **The Mini-Custodian Law:** Guarantees that every extracted patch is returned as a fully functional `VolumeHandler`, ensuring data and identity are never decoupled.
-- **Busy-Search Mechanism:** Responsible for identifying all geographic coordinates satisfying an explicit intensity threshold.
+- **Anchor Selection (ADR-049):** Responsible for selecting geographic anchor coordinates via a configurable sampling strategy. The strategy is resolved from `SAMPLING_STRATEGY_REGISTRY` at construction time based on `config["sampling_strategy"]` (required, no default). `"threshold"` preserves the original hard-threshold behaviour. Alternative strategies (`power_law`, `boltzmann`, `sigmoid`) provide smooth probability distributions over the activity grid. See ADR-049 for mathematical definitions and selection guide.
 - **Deterministic Extraction:** Guarantees that spatial jitter and patch selection are deterministic for a given random seed and index.
 - **Absolute Anchoring:** Ensures that the `spatial_offset` of every extracted patch is correctly adjusted to preserve its global geographic identity.
 - **Training Volume Preparation:** Provides `get_train_volume()` to slice off the test horizon from the global volume while preserving the Ledger.
@@ -36,6 +36,7 @@ The `VolumeSampler` is the **Lens** of the HydraNet pipeline. Its primary purpos
 
 - **Global Volume:** Requires a reference to the complete training `VolumeHandler`.
 - **Lesson Instructions:** Receives a `target_name` and `threshold` for every batch request.
+- **Strategy Configuration:** Reads `sampling_strategy` (required, no default) and strategy-specific parameters (`sampling_alpha`, `sampling_temperature`, `sampling_steepness`) from config. See ADR-049 Section 3 for parameter semantics.
 - **Geometry:** Assumes a fixed window size (e.g., 32x32) defined in the configuration.
 
 ---
@@ -49,7 +50,7 @@ The `VolumeSampler` is the **Lens** of the HydraNet pipeline. Its primary purpos
 
 ## 6. Failure Modes and Loudness
 
-- **Qualified Count Zero:** Fails loud (Panic) if no cells in the entire world meet the requested difficulty threshold.
+- **Qualified Count Zero:** Falls back to uniform random anchor selection and reports `qualified=0` to the caller. This is not a failure — sparse targets at high curriculum thresholds routinely produce zero qualified cells (see C-25).
 - **Geometric Overflow:** Fails if extraction is attempted outside the physical bounds of the global array.
 - **Ledger Inconsistency:** Fails if the global volume's Ledger is missing the target requested by the Lesson.
 

@@ -55,6 +55,7 @@ TINY_CONFIG = {
     "dropout_rate": 0.0,
     "weight_init": "xavier_uni",
     "min_events": 1,
+    "sampling_strategy": "threshold",
     "min_ratio": 0.0,
     "max_ratio": 1.0,
     "slope_ratio": 0.5,

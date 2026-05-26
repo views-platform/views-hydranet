@@ -27,6 +27,7 @@ def _make_config(mode="stochastic"):
         "aggregate_method": "arithmetic_mean",
         "n_posterior_samples": 2,
         "freeze_h": "none",
+        "sampling_strategy": "threshold",
         "time_steps": 2,
         "steps": [1, 2],
     }

@@ -41,6 +41,7 @@ def causal_setup():
         "regression_targets": ["feat"],
         "classification_targets": ["class"],
         "freeze_h": "none",
+        "sampling_strategy": "threshold",
         "n_posterior_samples": 1,
         "diagnostic_visualizations": False,
     }
@@ -140,6 +141,7 @@ class TestRed:
             "regression_targets": ["feat"],
             "classification_targets": ["class"],
             "freeze_h": "none",
+            "sampling_strategy": "threshold",
             "n_posterior_samples": 1,
             "diagnostic_visualizations": False,
         }

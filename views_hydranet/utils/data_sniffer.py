@@ -229,7 +229,10 @@ class DataSniffer:
             logger.warning(
                 "Anchor: df['%s'].min()=%d > row_offset=%d — "
                 "rows 0..%d of the volume will be zero (expected for sparse regions).",
-                y_col, actual_r_min, cfg_r_off, int(actual_r_min - cfg_r_off - 1),
+                y_col,
+                actual_r_min,
+                cfg_r_off,
+                int(actual_r_min - cfg_r_off - 1),
             )
 
         if actual_c_min < cfg_c_off:
@@ -247,7 +250,10 @@ class DataSniffer:
             logger.warning(
                 "Anchor: df['%s'].min()=%d > col_offset=%d — "
                 "cols 0..%d of the volume will be zero (expected for sparse regions).",
-                x_col, actual_c_min, cfg_c_off, int(actual_c_min - cfg_c_off - 1),
+                x_col,
+                actual_c_min,
+                cfg_c_off,
+                int(actual_c_min - cfg_c_off - 1),
             )
 
     def _check_spatial_bounds(self, df: pd.DataFrame, y_col: str, x_col: str) -> None:

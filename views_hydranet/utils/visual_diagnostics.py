@@ -112,15 +112,27 @@ class VisualDiagnostics:
                     logger.error(
                         "VisualDiagnostics: %s indices negative after offset. "
                         "min %s=%s, %s_offset=%s — skipping '%s'.",
-                        label, label, df_slice[col].min(), label, offset, stage_label,
+                        label,
+                        label,
+                        df_slice[col].min(),
+                        label,
+                        offset,
+                        stage_label,
                     )
                     return
                 if idx_arr.max() >= limit:
                     logger.error(
                         "VisualDiagnostics: %s index %d >= %s %d. "
                         "max %s=%s, %s_offset=%s — skipping '%s'.",
-                        label, idx_arr.max(), label, limit,
-                        label, df_slice[col].max(), label, offset, stage_label,
+                        label,
+                        idx_arr.max(),
+                        label,
+                        limit,
+                        label,
+                        df_slice[col].max(),
+                        label,
+                        offset,
+                        stage_label,
                     )
                     return
 

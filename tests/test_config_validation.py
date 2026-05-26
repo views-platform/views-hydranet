@@ -130,9 +130,9 @@ class TestRed:
             HydraNetConfig(**cfg)
 
     def test_red_invalid_aggregate_method(self, valid_config_dict):
-        """Invalid aggregate_method → ValueError."""
+        """Invalid aggregate_method → ValueError listing valid options."""
         cfg = _make_config(valid_config_dict, aggregate_method="bogus_method")
-        with pytest.raises(ValidationError, match="Invalid aggregate_method"):
+        with pytest.raises(ValidationError, match="is not valid.*Expected one of"):
             HydraNetConfig(**cfg)
 
     def test_red_invalid_run_type(self, valid_config_dict):
@@ -159,3 +159,35 @@ class TestRed:
         cfg = _make_config(valid_config_dict, total_hidden_channels=30)
         with pytest.raises(ValidationError, match="divisible by 8"):
             HydraNetConfig(**cfg)
+
+    def test_red_invalid_sampling_strategy(self, valid_config_dict):
+        """Invalid sampling_strategy → ValueError with registered keys."""
+        cfg = _make_config(valid_config_dict, sampling_strategy="nonexistent")
+        with pytest.raises(ValidationError, match="not registered"):
+            HydraNetConfig(**cfg)
+
+    def test_red_missing_sampling_strategy_field_required(self, valid_config_dict):
+        """Missing sampling_strategy → informative error listing valid strategies."""
+        cfg = dict(valid_config_dict)
+        del cfg["sampling_strategy"]
+        with pytest.raises(ValidationError, match="ADR-049.*Valid strategies"):
+            HydraNetConfig(**cfg)
+
+    def test_red_missing_strategy_param_raises(self, valid_config_dict):
+        """power_law without sampling_alpha → ValueError naming the missing param."""
+        cfg = _make_config(valid_config_dict, sampling_strategy="power_law")
+        with pytest.raises(ValidationError, match="sampling_alpha"):
+            HydraNetConfig(**cfg)
+
+    def test_red_multi_field_missing_reports_all_errors(self, valid_config_dict):
+        """Removing 3 sentinel-governed fields → all 3 reported in one ValidationError (C-80)."""
+        cfg = dict(valid_config_dict)
+        del cfg["sampling_strategy"]
+        del cfg["evaluation_mode"]
+        del cfg["loss_reg"]
+        with pytest.raises(ValidationError) as exc_info:
+            HydraNetConfig(**cfg)
+        error_text = str(exc_info.value)
+        assert "sampling_strategy" in error_text
+        assert "evaluation_mode" in error_text
+        assert "loss_reg" in error_text

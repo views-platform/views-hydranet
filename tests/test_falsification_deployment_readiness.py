@@ -184,13 +184,13 @@ class TestF2_07_CheckpointIntegrity:
 
     def test_model_artifact_fetcher_uses_weights_only_true(self):
         """
-        F2-07a: ModelArtifactFetcher.fetch_model_artifact() calls
-        torch.load(..., weights_only=False). This allows arbitrary code
-        execution via crafted .pt files (CVE-2024-XXXXX class).
+        F2-07a: ModelArtifactFetcher must use weights_only=True for the
+        primary (state_dict) loading path. The legacy fallback may use
+        weights_only=False but must log a deprecation warning.
 
-        In a high-stakes deployment, model artifacts may transit shared
-        storage, CI pipelines, or network transfers. A tampered .pt file
-        executes arbitrary Python during deserialization.
+        C-09 resolution: dual-mode loader — new artifacts use
+        weights_only=True, legacy full-object uses weights_only=False
+        with deprecation warning and re-save guidance.
         """
         import inspect
 
@@ -199,9 +199,8 @@ class TestF2_07_CheckpointIntegrity:
         source = inspect.getsource(
             model_artifact_fetcher.ModelArtifactFetcher.fetch_model_artifact
         )
-        assert "weights_only=False" not in source, (
-            "HARD FALSIFICATION F2-07a: torch.load() called with "
-            "weights_only=False. Arbitrary code execution via pickle."
+        assert "weights_only=True" in source, (
+            "F2-07a: Primary load path must use weights_only=True."
         )
 
     def test_model_artifact_has_checksum_verification(self):

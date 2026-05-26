@@ -104,6 +104,11 @@ class HydraNetConfig(BaseModel):
     n_posterior_samples: int = Field(..., ge=1)
     np_seed: int = Field(...)
     torch_seed: int = Field(...)
+    # Sampling strategy (ADR-049): must be explicit — no hidden defaults.
+    sampling_strategy: str = Field(...)
+    sampling_alpha: float | None = Field(default=None)
+    sampling_temperature: float | None = Field(default=None)
+    sampling_steepness: float | None = Field(default=None)
 
     # 8. Strategy & Curriculum
     min_events: int = Field(...)
@@ -142,7 +147,7 @@ class HydraNetConfig(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def handle_typos(cls, data: Any) -> Any:
+    def handle_typos_and_missing_guidance(cls, data: Any) -> Any:
         if isinstance(data, dict):
             if "evalution_mode" in data and "evaluation_mode" not in data:
                 logger.warning(
@@ -150,6 +155,22 @@ class HydraNetConfig(BaseModel):
                     "This shim will be removed in a future release."
                 )
                 data["evaluation_mode"] = data["evalution_mode"]
+
+            # For fields with registry/enum semantics, inject a sentinel so that
+            # Pydantic continues validating ALL fields (collecting every error)
+            # rather than stopping at the first missing one. The sentinel then
+            # hits the field_validator which produces an informative error.
+            _SENTINEL_FIELDS = {
+                "sampling_strategy": "__MISSING_sampling_strategy__",
+                "run_type": "__MISSING_run_type__",
+                "loss_reg": "__MISSING_loss_reg__",
+                "loss_class": "__MISSING_loss_class__",
+                "evaluation_mode": "__MISSING_evaluation_mode__",
+                "aggregate_method": "__MISSING_aggregate_method__",
+            }
+            for field, sentinel in _SENTINEL_FIELDS.items():
+                if field not in data:
+                    data[field] = sentinel
         return data
 
     @model_validator(mode="after")
@@ -233,10 +254,9 @@ class HydraNetConfig(BaseModel):
     def validate_run_type(cls, v: str) -> str:
         valid = ["calibration", "validation", "forecasting", "testing"]
         if v not in valid:
-            err_msg = f"run_type must be in {valid}"
-
+            prefix = "'run_type' is required." if v.startswith("__MISSING_") else f"run_type='{v}'"
+            err_msg = f"{prefix} Valid options: {valid}"
             logger.error(err_msg)
-
             raise ValueError(err_msg)
         return v
 
@@ -245,7 +265,12 @@ class HydraNetConfig(BaseModel):
     def validate_eval_mode(cls, v: str) -> str:
         valid = ["point", "stochastic"]
         if v not in valid:
-            err_msg = f"evaluation_mode='{v}' is not valid. Expected one of: {valid}."
+            prefix = (
+                "'evaluation_mode' is required."
+                if v.startswith("__MISSING_")
+                else f"evaluation_mode='{v}' is not valid."
+            )
+            err_msg = f"{prefix} Expected one of: {valid}."
             logger.error(err_msg)
             raise ValueError(err_msg)
         return v
@@ -266,9 +291,8 @@ class HydraNetConfig(BaseModel):
         from views_hydranet.utils.utils import LOSS_REG_REGISTRY
 
         if v not in LOSS_REG_REGISTRY:
-            err_msg = (
-                f"loss_reg='{v}' is not registered. Available: {list(LOSS_REG_REGISTRY.keys())}"
-            )
+            prefix = "'loss_reg' is required." if v.startswith("__MISSING_") else f"loss_reg='{v}'"
+            err_msg = f"{prefix} Available: {list(LOSS_REG_REGISTRY.keys())}"
             logger.error(err_msg)
             raise ValueError(err_msg)
         return v
@@ -279,9 +303,39 @@ class HydraNetConfig(BaseModel):
         from views_hydranet.utils.utils import LOSS_CLASS_REGISTRY
 
         if v not in LOSS_CLASS_REGISTRY:
+            prefix = (
+                "'loss_class' is required." if v.startswith("__MISSING_") else f"loss_class='{v}'"
+            )
+            err_msg = f"{prefix} Available: {list(LOSS_CLASS_REGISTRY.keys())}"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator("sampling_strategy")
+    @classmethod
+    def validate_sampling_strategy(cls, v: str) -> str:
+        from views_hydranet.utils.sampling_strategies import SAMPLING_STRATEGY_REGISTRY
+
+        if v.startswith("__MISSING_"):
+            strategies = list(SAMPLING_STRATEGY_REGISTRY.keys())
+            params = {
+                k: entry["params"]
+                for k, entry in SAMPLING_STRATEGY_REGISTRY.items()
+                if entry["params"]
+            }
             err_msg = (
-                f"loss_class='{v}' is not registered. "
-                f"Available: {list(LOSS_CLASS_REGISTRY.keys())}"
+                f"'sampling_strategy' is required (ADR-049). "
+                f"Valid strategies: {strategies}. "
+                f"Strategy-specific params (also required): {params}. "
+                f"To preserve current behaviour, add: "
+                f"sampling_strategy='threshold' (no extra params needed)."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        if v not in SAMPLING_STRATEGY_REGISTRY:
+            err_msg = (
+                f"sampling_strategy='{v}' is not registered. "
+                f"Available: {list(SAMPLING_STRATEGY_REGISTRY.keys())}"
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
@@ -290,13 +344,18 @@ class HydraNetConfig(BaseModel):
     @field_validator("aggregate_method")
     @classmethod
     def validate_agg_method(cls, v: str) -> str:
+        valid = ["arithmetic_mean", "geometric_mean", "median"]
         mapper = {"mean": "arithmetic_mean", "median": "median", "max_aposteriori": "median"}
         v = mapper.get(v, v)
-        if v not in ["arithmetic_mean", "geometric_mean", "median"]:
-            err_msg = "Invalid aggregate_method"
-
+        if v not in valid:
+            prefix = (
+                "'aggregate_method' is required."
+                if v.startswith("__MISSING_")
+                else f"aggregate_method='{v}' is not valid."
+            )
+            aliases = "'mean' → 'arithmetic_mean', 'max_aposteriori' → 'median'"
+            err_msg = f"{prefix} Expected one of: {valid}. Aliases: {aliases}."
             logger.error(err_msg)
-
             raise ValueError(err_msg)
         return v
 
@@ -340,6 +399,23 @@ class HydraNetConfig(BaseModel):
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_sampling_params(self) -> "HydraNetConfig":
+        from views_hydranet.utils.sampling_strategies import SAMPLING_STRATEGY_REGISTRY
+
+        entry = SAMPLING_STRATEGY_REGISTRY.get(self.sampling_strategy)
+        if entry is None:
+            return self
+        for param in entry["params"]:
+            if getattr(self, param) is None:
+                err_msg = (
+                    f"sampling_strategy='{self.sampling_strategy}' requires '{param}' "
+                    f"but it was not provided. Add '{param}' to your config."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
         return self
 
     # --- Dict-compatibility layer (gradual migration from config["key"]) ---
