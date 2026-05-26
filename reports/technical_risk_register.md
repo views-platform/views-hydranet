@@ -4,10 +4,10 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-04-28                           |
-| Total Concerns    | 75                                   |
+| Last Updated      | 2026-05-26                           |
+| Total Concerns    | 77                                   |
 | Open Concerns     | 10                                   |
-| Resolved Concerns | 65                                   |
+| Resolved Concerns | 67                                   |
 
 ---
 
@@ -232,6 +232,26 @@ See also C-75 (duplicated derivation logic).
 ---
 
 ## Resolved Concerns
+
+### C-77: Power-law sampling strategy overflows float64 with extreme alpha — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-77 |
+| Resolved | 2026-05-26 |
+| Resolution | Replaced direct exponentiation `flat ** alpha` with log-space arithmetic: `alpha * np.log(flat)` followed by log-sum-exp normalization (same pattern as Boltzmann strategy). All three soft strategies now use consistent numerical stabilization. Falsification test stub `test_falsify_p4_power_law_extreme_alpha_overflow` flipped GREEN. |
+
+---
+
+### C-78: Sampling strategy test suite has four coverage gaps — low discriminative power — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-78 |
+| Resolved | 2026-05-26 |
+| Resolution | All four gaps addressed: (P1) added `test_green_ratio_matches_power_law_formula` — verifies p(a)/p(b) ≈ (act_a/act_b)^α, catches Boltzmann substitution. (P2) added `test_green_high_steepness_recovers_threshold` to TestSigmoid. (P3) added parametrized `TestNonDefaultStrategyIntegration` testing power_law/boltzmann/sigmoid through VolumeSampler. (P4) added `test_red_invalid_sampling_strategy` to test_config_validation.py. |
+
+---
 
 ### C-09: `torch.save(model)` full-object serialization — no integrity verification — RESOLVED
 
