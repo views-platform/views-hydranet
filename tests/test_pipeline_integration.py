@@ -36,6 +36,7 @@ TOY_CONFIG = {
     "loss_class_gamma": 1,
     "loss_class_alpha": 1,
     "freeze_h": "hl",
+    "sampling_strategy": "threshold",
     "evaluation_mode": "stochastic",
     "aggregate_method": "geometric_mean",
     "np_seed": 4,

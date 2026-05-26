@@ -87,6 +87,7 @@ ORCH_CFG = {
     "max_ratio": 0.9,
     "min_ratio": 0.1,
     "freeze_h": "none",
+    "sampling_strategy": "threshold",
     "evaluation_mode": "stochastic",
     "aggregate_method": "arithmetic_mean",
 }

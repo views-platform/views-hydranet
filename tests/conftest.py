@@ -108,6 +108,7 @@ def valid_config_dict():
         "max_ratio": 0.9,
         "min_ratio": 0.1,
         "time_steps": 36,
+        "sampling_strategy": "threshold",
         "evaluation_mode": "point",
         "aggregate_method": "arithmetic_mean",
         "transformations": {"log1p": ["lr_sb_best", "lr_ns_best", "lr_os_best"], "identity": []},

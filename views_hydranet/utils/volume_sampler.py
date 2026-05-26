@@ -44,9 +44,7 @@ class VolumeSampler:
         self.rng = np.random.default_rng(seed)
         logger.info(f"VolumeSampler: Initialized with np_seed={seed}")
 
-        # EXPERIMENTAL: Sampling strategy registry (mirrors loss registry pattern).
-        # Default "threshold" preserves current production behaviour exactly.
-        strategy_name = config.get("sampling_strategy", "threshold")
+        strategy_name = config["sampling_strategy"]
         entry = SAMPLING_STRATEGY_REGISTRY.get(strategy_name)
         if entry is None:
             raise ValueError(
@@ -54,7 +52,7 @@ class VolumeSampler:
                 f"Available: {list(SAMPLING_STRATEGY_REGISTRY.keys())}"
             )
         self._select_anchor = entry["fn"]
-        self.min_events = config.get("min_events", 5)
+        self.min_events = config["min_events"]
 
     def get_train_volume(self) -> VolumeHandler:
         """Slices off the test horizon while preserving the Ledger."""

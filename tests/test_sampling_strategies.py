@@ -285,13 +285,20 @@ class TestSigmoid:
 # ---------------------------------------------------------------------------
 # BEIGE — boundary and edge cases
 # ---------------------------------------------------------------------------
+FULL_STRATEGY_CFG = {
+    "sampling_alpha": 1.0,
+    "sampling_temperature": 10.0,
+    "sampling_steepness": 1.0,
+}
+
+
 class TestBeigeEdgeCases:
     def test_beige_all_zero_fallback(self):
         """All-zero activity → fallback anchor returned, not an error."""
         activity = np.zeros((H, W), dtype=np.int64)
         rng = np.random.default_rng(42)
         for fn_name, entry in SAMPLING_STRATEGY_REGISTRY.items():
-            r, c = entry["fn"](activity, THRESHOLD, MIN_EVENTS, rng, {})
+            r, c = entry["fn"](activity, THRESHOLD, MIN_EVENTS, rng, FULL_STRATEGY_CFG)
             assert 0 <= r < H and 0 <= c < W, f"{fn_name} returned out-of-bounds"
 
     def test_beige_single_cell_eligible(self):
@@ -299,7 +306,9 @@ class TestBeigeEdgeCases:
         activity = np.zeros((H, W), dtype=np.int64)
         activity[3, 7] = 100
         for fn_name, entry in SAMPLING_STRATEGY_REGISTRY.items():
-            samples = _sample_n(entry["fn"], activity, THRESHOLD, MIN_EVENTS, {}, n=50)
+            samples = _sample_n(
+                entry["fn"], activity, THRESHOLD, MIN_EVENTS, FULL_STRATEGY_CFG, n=50
+            )
             for r, c in samples:
                 assert (r, c) == (3, 7), f"{fn_name} selected wrong cell: ({r}, {c})"
 

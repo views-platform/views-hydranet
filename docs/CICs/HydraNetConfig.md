@@ -60,6 +60,8 @@ The `HydraNetConfig` is the **Schema** of the HydraNet pipeline. Its primary pur
 - **Degenerate Window Dim:** Raises `ValueError` when `window_dim < 2` (single-pixel patches have no spatial context).
 - **Inverted Ratio Range:** Raises `ValueError` when `min_ratio >= max_ratio` (breaks curriculum sampling).
 - **Invalid Sampling Strategy (ADR-049):** Raises `ValueError` when `sampling_strategy` is not in `SAMPLING_STRATEGY_REGISTRY`, listing valid options.
+- **Missing Sampling Strategy:** Raises `ValidationError` — `sampling_strategy` is a required field with no default.
+- **Missing Strategy Parameter (ADR-049):** Raises `ValueError` when the strategy's required parameter is not provided (e.g., `power_law` requires `sampling_alpha`, `boltzmann` requires `sampling_temperature`, `sigmoid` requires `sampling_steepness`).
 
 ---
 

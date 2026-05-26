@@ -36,7 +36,7 @@ def select_anchor_power_law(
     config: dict,
 ) -> tuple[int, int]:
     """Power-law weighting: p proportional to activity^alpha, floor at min_events."""
-    alpha = config.get("sampling_alpha", 1.0)
+    alpha = config["sampling_alpha"]
     flat = activity.ravel().astype(np.float64)
     eligible = flat >= min_events
     if not eligible.any():
@@ -59,7 +59,7 @@ def select_anchor_boltzmann(
     config: dict,
 ) -> tuple[int, int]:
     """Boltzmann weighting: p proportional to exp(activity / tau), floor at min_events."""
-    tau = config.get("sampling_temperature", 10.0)
+    tau = config["sampling_temperature"]
     flat = activity.ravel().astype(np.float64)
     eligible = flat >= min_events
     if not eligible.any():
@@ -82,7 +82,7 @@ def select_anchor_sigmoid(
     config: dict,
 ) -> tuple[int, int]:
     """Sigmoid soft threshold: p = sigmoid(k * (activity - threshold)), zero below min_events."""
-    steepness = config.get("sampling_steepness", 1.0)
+    steepness = config["sampling_steepness"]
     flat = activity.ravel().astype(np.float64)
     eligible = flat >= min_events
     if not eligible.any():

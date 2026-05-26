@@ -25,6 +25,7 @@ def inf_setup():
     model = MockModel(channels=64)
     cfg = {
         "freeze_h": "none",
+        "sampling_strategy": "threshold",
         "time_steps": 1,
         "steps": [1],
         "regression_targets": ["r1", "r2", "r3"],

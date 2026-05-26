@@ -63,6 +63,7 @@ MINIMAL_CONFIG = {
     "max_ratio": 0.9,
     "min_ratio": 0.1,
     "freeze_h": "none",
+    "sampling_strategy": "threshold",
     "evaluation_mode": "point",
     "aggregate_method": "mean",
 }

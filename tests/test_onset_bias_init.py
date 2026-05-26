@@ -143,6 +143,7 @@ def test_training_runs_with_onset_bias():
         random_flips=False,
         diagnostic_visualizations=False,
         min_events=1,
+        sampling_strategy="threshold",
         min_ratio=0.0,
         max_ratio=1.0,
         slope_ratio=0.5,

@@ -290,6 +290,8 @@ class TestSpatialOffsetRoundTrip:
             "windows_per_lesson": 1,
             "np_seed": 0,
             "steps": [1],
+            "sampling_strategy": "threshold",
+            "min_events": 1,
         }
         sampler = VolumeSampler(parent, cfg)
 
