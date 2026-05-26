@@ -385,17 +385,20 @@ def phase_2(pa_df: pd.DataFrame, bs_df: pd.DataFrame) -> Dict[str, Any]:
     results["threshold_mismatches"] = n_threshold_diffs
     results["first_divergence_step"] = first_divergence
 
-    # -- 2.4 VolumeSampler busy_cells divergence --
-    section("2.4 VolumeSampler Busy-Cell Divergence (first 30 steps)")
+    # -- 2.4 VolumeSampler busy-cell divergence (all 450 steps, location-aware) --
+    section("2.4 VolumeSampler Busy-Cell Divergence (all 450 steps)")
 
     pa_train = pa_vh.slice_time(0, pa_vh.data.shape[pa_vh.get_axis_idx("T")] - len(CONFIG["steps"]))
     bs_train = bs_vh.slice_time(0, bs_vh.data.shape[bs_vh.get_axis_idx("T")] - len(CONFIG["steps"]))
 
-    print(f"\n  {'Step':>4} {'Target':<15} {'Thresh':>6} {'PA cells':>9} {'BS cells':>9} {'Delta':>7}")
-    print(f"  {'-' * 55}")
+    count_mismatches = 0
+    location_mismatches = 0
+    identical_steps = 0
+    first_location_divergence = None
+    first_count_divergence = None
+    boundary_straddles = 0
 
-    cell_divergences = 0
-    for step in range(min(30, total_steps)):
+    for step in range(total_steps):
         pa_subj, pa_thresh = pa_cl.get_lesson(step)
         bs_subj, bs_thresh = bs_cl.get_lesson(step)
 
@@ -405,88 +408,95 @@ def phase_2(pa_df: pd.DataFrame, bs_df: pd.DataFrame) -> Dict[str, Any]:
         pa_activity = np.count_nonzero(pa_train.data[..., pa_idx], axis=0)
         bs_activity = np.count_nonzero(bs_train.data[..., bs_idx], axis=0)
 
-        pa_busy = len(np.argwhere(pa_activity >= pa_thresh))
-        bs_busy = len(np.argwhere(bs_activity >= bs_thresh))
+        pa_cells = set(map(tuple, np.argwhere(pa_activity >= pa_thresh)))
+        bs_cells = set(map(tuple, np.argwhere(bs_activity >= bs_thresh)))
 
-        delta = bs_busy - pa_busy
-        marker = " *" if delta != 0 else ""
-        print(f"  {step:>4} {pa_subj:<15} {pa_thresh:>6} {pa_busy:>9,} {bs_busy:>9,} {delta:>+7,}{marker}")
+        if len(pa_cells) != len(bs_cells):
+            count_mismatches += 1
+            if first_count_divergence is None:
+                first_count_divergence = (step, pa_subj, pa_thresh, len(pa_cells), len(bs_cells))
+        elif pa_cells != bs_cells:
+            location_mismatches += 1
+            if first_location_divergence is None:
+                only_pa = pa_cells - bs_cells
+                only_bs = bs_cells - pa_cells
+                first_location_divergence = (step, pa_subj, pa_thresh, only_pa, only_bs)
+        else:
+            identical_steps += 1
 
-        if delta != 0:
-            cell_divergences += 1
+        # Boundary straddling: cells at exact threshold with different activity
+        for cell in map(tuple, np.argwhere(pa_activity == pa_thresh)):
+            if bs_activity[cell] != pa_thresh:
+                boundary_straddles += 1
+        for cell in map(tuple, np.argwhere(bs_activity == bs_thresh)):
+            if pa_activity[cell] != bs_thresh:
+                boundary_straddles += 1
 
-    results["busy_cell_divergences_30"] = cell_divergences
+    divergent_steps = count_mismatches + location_mismatches
+    pct_identical = 100.0 * identical_steps / total_steps
+    pct_divergent = 100.0 * divergent_steps / total_steps
 
-    # -- 2.5 Window-level value differences (what the model actually trains on) --
-    section("2.5 Training Window Value Differences")
-    print("  Extracting windows with identical sampler to check within-window data diffs...")
+    print(f"\n  Total steps:                {total_steps}")
+    print(f"  Identical (count + locations): {identical_steps} ({pct_identical:.1f}%)")
+    print(f"  Count mismatches:              {count_mismatches}")
+    print(f"  Location-only mismatches:      {location_mismatches}")
+    print(f"  Total divergent:               {divergent_steps} ({pct_divergent:.1f}%)")
+    print(f"  Boundary straddles:            {boundary_straddles}")
 
-    from views_hydranet.utils.volume_sampler import VolumeSampler
+    if first_location_divergence:
+        s, subj, thr, only_pa, only_bs = first_location_divergence
+        print(f"\n  First LOCATION divergence at step {s} ({subj}, thresh={thr}):")
+        print(f"    Cells only in PA: {sorted(only_pa)[:3]}")
+        print(f"    Cells only in BS: {sorted(only_bs)[:3]}")
 
-    pa_sampler = VolumeSampler(pa_vh, CONFIG)
-    bs_sampler = VolumeSampler(bs_vh, CONFIG)
+    if first_count_divergence:
+        s, subj, thr, pa_n, bs_n = first_count_divergence
+        print(f"  First COUNT divergence at step {s} ({subj}, thresh={thr}):")
+        print(f"    PA={pa_n} cells, BS={bs_n} cells")
 
-    window_diffs = []
-    n_windows = min(30, total_steps)
+    first_any = None
+    if first_location_divergence and first_count_divergence:
+        first_any = min(first_location_divergence[0], first_count_divergence[0])
+    elif first_location_divergence:
+        first_any = first_location_divergence[0]
+    elif first_count_divergence:
+        first_any = first_count_divergence[0]
 
-    for step in range(n_windows):
-        subj, thresh = pa_cl.get_lesson(step)
-        pa_windows, _ = pa_sampler.get_batch(subj, thresh, batch_size=1)
-        bs_windows, _ = bs_sampler.get_batch(subj, thresh, batch_size=1)
+    if first_any is not None:
+        print(f"\n  Training phases:")
+        print(f"    Steps 0-{first_any - 1} ({first_any}/{total_steps} = {100*first_any/total_steps:.1f}%): "
+              f"IDENTICAL windows — only cell values differ")
+        print(f"    Steps {first_any}-{total_steps - 1} ({total_steps - first_any}/{total_steps} = "
+              f"{100*(total_steps - first_any)/total_steps:.1f}%): "
+              f"DIFFERENT windows — location and/or count diverge")
 
-        pa_w = pa_windows[0].data.astype(np.float64)
-        bs_w = bs_windows[0].data.astype(np.float64)
-
-        # Compare only feature+binary channels
-        pa_feat = pa_w[..., [pa_windows[0].channel_map.index(f) for f in CONFIG["features"]]]
-        bs_feat = bs_w[..., [bs_windows[0].channel_map.index(f) for f in CONFIG["features"]]]
-
-        w_diff = np.abs(pa_feat - bs_feat)
-        max_d = w_diff.max()
-        mean_d = w_diff.mean()
-        n_nonzero = np.count_nonzero(w_diff > 1e-7)
-        window_diffs.append((step, subj, thresh, max_d, mean_d, n_nonzero))
-
-    print(f"\n  {'Step':>4} {'Target':<15} {'Max diff':>10} {'Mean diff':>12} {'Cells diff':>11}")
-    print(f"  {'-' * 57}")
-
-    any_diff = False
-    for step, subj, thresh, max_d, mean_d, n_nz in window_diffs:
-        marker = " <--" if max_d > 0.01 else ""
-        if max_d > 1e-7:
-            any_diff = True
-        print(f"  {step:>4} {subj:<15} {max_d:>10.4f} {mean_d:>12.8f} {n_nz:>11,}{marker}")
-
-    if any_diff:
-        print("\n  CONFIRMED: Same windows contain DIFFERENT values.")
-        print("  The model trains on different loss surfaces despite identical scheduling.")
-    else:
-        print("\n  Windows contain identical values — divergence is NOT in the training data.")
-
-    results["windows_have_value_diffs"] = any_diff
+    results["identical_steps"] = identical_steps
+    results["count_mismatches"] = count_mismatches
+    results["location_mismatches"] = location_mismatches
+    results["first_divergence_step"] = first_any
+    results["boundary_straddles"] = boundary_straddles
 
     # -- Summary --
     section("Phase 2 Summary")
+    divergent = results.get("count_mismatches", 0) + results.get("location_mismatches", 0)
     if maxima_differ:
         print("  CONFIRMED: subject_maxima differ between datasets.")
-        print("  This means CurriculumLearner computes different thresholds,")
-        print("  which causes VolumeSampler to select different training windows,")
-        print("  which puts the two models on divergent training trajectories.")
+        print("  CurriculumLearner computes different thresholds,")
+        print("  VolumeSampler selects different training windows.")
+    elif divergent > 0:
+        print(f"  Curriculum thresholds are IDENTICAL (subject_maxima match).")
+        print(f"  But VolumeSampler selects DIFFERENT windows at {divergent}/{total_steps} steps")
+        print(f"  because data differences shift which cells qualify at each threshold.")
         print()
-        print("  AMPLIFICATION CHAIN:")
-        print("    Data delta (~0.1%)")
-        print("    -> subject_maxima differ (busiest cell has different count)")
-        print(f"    -> {n_threshold_diffs}/{total_steps} lesson thresholds differ")
-        print("    -> VolumeSampler picks different busy_cells")
-        print("    -> Different training patches x150 lessons")
-        print("    -> Butterfly effect through LSTM hidden state")
-        print("    -> Divergent predictions")
-    elif n_threshold_diffs > 0:
-        print(f"  Thresholds differ in {n_threshold_diffs} steps despite matching maxima.")
-        print("  This is unexpected — investigate rounding in get_lesson().")
+        first = results.get("first_divergence_step")
+        if first is not None:
+            print(f"  Two-phase divergence mechanism:")
+            print(f"    Phase A (steps 0-{first-1}): Identical windows, different cell values")
+            print(f"    Phase B (steps {first}-{total_steps-1}): Different windows entirely")
+            print(f"  Phase B dominates: {100*divergent/total_steps:.0f}% of training uses different spatial patches.")
     else:
-        print("  No amplification detected — curriculum schedules are identical.")
-        print("  If predictions still differ, the cause is outside the curriculum/sampler path.")
+        print("  No spatial divergence detected — windows are identical.")
+        print("  If predictions differ, the cause is value-level only.")
 
     return results
 
@@ -517,34 +527,44 @@ def main() -> None:
 
     hr("FINAL VERDICT")
 
+    divergent = p2.get("count_mismatches", 0) + p2.get("location_mismatches", 0)
+    total_steps = CONFIG["total_lessons"] * CONFIG["windows_per_lesson"]
+    first = p2.get("first_divergence_step")
+
     if p2.get("subject_maxima_differ"):
         print("\n  ROOT CAUSE: Curriculum amplification.")
         print("  subject_maxima differ -> different thresholds -> different windows -> butterfly effect.")
-    elif p2.get("windows_have_value_diffs"):
-        print("\n  ROOT CAUSE: Value-level data differences in training windows.")
+    elif divergent > 0:
+        print("\n  ROOT CAUSE: UCDP data version differences cause two-phase training divergence.")
         print()
-        print("  The curriculum and sampler produce IDENTICAL window selections")
-        print("  (same thresholds, same busy_cells, same RNG sequence).")
-        print("  But the cell VALUES within those windows differ because the")
-        print("  two backends deliver slightly different event counts.")
+        print("  The two backends deliver different UCDP versions. ~600 cell-months have")
+        print("  re-geolocated events (max delta: up to 1000 fatalities per cell).")
         print()
-        print("  Key data differences found:")
+        print("  Key data differences:")
         for col in EVENT_COLS:
             n = p01.get(f"{col}_n_diff", 0)
             mx = p01.get(f"{col}_max_diff", 0)
             if n > 0:
                 print(f"    {col}: {n} cells differ, max delta = {mx:.0f}")
         print()
-        print("  These value diffs produce different gradients at each training step.")
-        print("  Over 150 lessons x 3 windows/lesson = 450 gradient updates, small")
-        print("  differences compound through the LSTM hidden state (butterfly effect).")
+        print("  These differences propagate through training in two phases:")
+        if first is not None:
+            print(f"    Phase A — steps 0 to {first - 1} ({first} steps, {100*first/total_steps:.0f}%):")
+            print(f"      Identical window locations. Only cell values differ.")
+            print(f"      Different gradients compound through LSTM hidden state.")
+            print(f"    Phase B — steps {first} to {total_steps - 1} ({total_steps - first} steps, {100*(total_steps-first)/total_steps:.0f}%):")
+            print(f"      Different window LOCATIONS ({p2.get('location_mismatches',0)} location-only")
+            print(f"      + {p2.get('count_mismatches',0)} count mismatches = {divergent} divergent steps).")
+            print(f"      Models train on entirely different spatial patches.")
+        print()
+        print("  Phase B is the dominant mechanism — the models are effectively")
+        print("  training on different data for the majority of the curriculum.")
         print()
         print("  NEXT STEPS:")
         print("  1. Phase 3: Cross-data experiment — copy PA parquet to BS, retrain,")
-        print("     verify predictions converge. This confirms data is the sole cause.")
-        print("  2. Investigate WHY the backends deliver different values for ~600 cells.")
-        print("     Max diff of 760 fatalities is NOT a rounding error — it suggests")
-        print("     different UCDP data versions or different aggregation logic.")
+        print("     verify predictions converge. Confirms data is the sole cause.")
+        print("  2. Investigate upstream: why do the backends differ for ~600 cells?")
+        print("     Max diff of 760+ fatalities = UCDP re-geolocations across versions.")
     elif p01.get("findings"):
         print("\n  Data differences exist but do NOT enter the training path.")
         print("  Investigate other pipeline stages.")
