@@ -43,6 +43,22 @@ class TestGreen:
         config = HydraNetConfig(**cfg)
         assert config.evaluation_mode == "point"
 
+    def test_green_mse_needs_no_loss_params(self, valid_config_dict):
+        """mse/bce require no loss-specific params — absence is fine."""
+        cfg = dict(valid_config_dict)
+        for key in [
+            "loss_reg_a",
+            "loss_reg_c",
+            "loss_reg_alpha",
+            "loss_reg_sigma",
+            "loss_reg_pareto_alpha",
+            "loss_class_gamma",
+            "loss_class_alpha",
+        ]:
+            cfg.pop(key, None)
+        config = HydraNetConfig(**cfg)
+        assert config.loss_reg == "mse"
+
     @pytest.mark.parametrize(
         "alias,expected",
         [("mean", "arithmetic_mean"), ("max_aposteriori", "median"), ("median", "median")],
@@ -191,3 +207,37 @@ class TestRed:
         assert "sampling_strategy" in error_text
         assert "evaluation_mode" in error_text
         assert "loss_reg" in error_text
+
+    def test_red_missing_loss_reg_param_raises(self, valid_config_dict):
+        """shrinkage without loss_reg_a/loss_reg_c → ValidationError naming the param."""
+        cfg = _make_config(valid_config_dict, loss_reg="shrinkage")
+        del cfg["loss_reg_a"]
+        del cfg["loss_reg_c"]
+        with pytest.raises(ValidationError, match="loss_reg_a"):
+            HydraNetConfig(**cfg)
+
+    def test_red_missing_loss_class_param_raises(self, valid_config_dict):
+        """focal without loss_class_gamma/loss_class_alpha → ValidationError naming the param."""
+        cfg = _make_config(valid_config_dict, loss_class="focal")
+        del cfg["loss_class_gamma"]
+        del cfg["loss_class_alpha"]
+        with pytest.raises(ValidationError, match="loss_class_"):
+            HydraNetConfig(**cfg)
+
+    def test_red_loss_reg_shared_param_raises(self, valid_config_dict):
+        """basu_dpd with loss_reg_alpha but missing loss_reg_sigma → ValidationError."""
+        cfg = _make_config(valid_config_dict, loss_reg="basu_dpd", loss_reg_alpha=0.5)
+        with pytest.raises(ValidationError, match="loss_reg_sigma"):
+            HydraNetConfig(**cfg)
+
+    def test_red_missing_lognormal_param_raises(self, valid_config_dict):
+        """lognormal_nll without loss_reg_sigma → ValidationError."""
+        cfg = _make_config(valid_config_dict, loss_reg="lognormal_nll")
+        with pytest.raises(ValidationError, match="loss_reg_sigma"):
+            HydraNetConfig(**cfg)
+
+    def test_red_missing_pareto_param_raises(self, valid_config_dict):
+        """pareto without loss_reg_pareto_alpha → ValidationError."""
+        cfg = _make_config(valid_config_dict, loss_reg="pareto")
+        with pytest.raises(ValidationError, match="loss_reg_pareto_alpha"):
+            HydraNetConfig(**cfg)

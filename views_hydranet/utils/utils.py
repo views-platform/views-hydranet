@@ -58,22 +58,22 @@ LOSS_REG_REGISTRY: Dict[str, Any] = {
         "cls": BasuDPDLoss,
         "params": ["loss_reg_alpha", "loss_reg_sigma"],
         "factory": lambda config, device: BasuDPDLoss(
-            alpha=config.get("loss_reg_alpha", 0.5),
-            sigma=config.get("loss_reg_sigma", 1.0),
+            alpha=config["loss_reg_alpha"],
+            sigma=config["loss_reg_sigma"],
         ).to(device),
     },
     "lognormal_nll": {
         "cls": LogNormalFixedSigmaLoss,
         "params": ["loss_reg_sigma"],
         "factory": lambda config, device: LogNormalFixedSigmaLoss(
-            sigma=config.get("loss_reg_sigma", 0.9),
+            sigma=config["loss_reg_sigma"],
         ).to(device),
     },
     "pareto": {
         "cls": ParetoLoss,
         "params": ["loss_reg_pareto_alpha"],
         "factory": lambda config, device: ParetoLoss(
-            alpha=config.get("loss_reg_pareto_alpha", 1.0),
+            alpha=config["loss_reg_pareto_alpha"],
         ).to(device),
     },
 }
