@@ -95,9 +95,11 @@ class HydraNetConfig(BaseModel):
     onset_bias_init: float | None = Field(default=None)
     # Hurdle masking (C-45): None = disabled, 0.0 = standard hurdle (y > 0)
     hurdle_threshold: float | None = Field(default=None)
-    # QS99 tail regularizer (C-48): 0.0 = disabled. Only active when hurdle is enabled.
-    qs99_weight: float = Field(default=0.0)
-    qs99_tau: float = Field(default=0.99)
+    # QS99 tail regularizer (C-48): strict when hurdle active + weight > 0.
+    qs99_weight: float | None = Field(default=None, ge=0.0)
+    qs99_tau: float | None = Field(default=None, gt=0.0, lt=1.0)
+    # Per-target regression loss weights (C-87): None = uniform.
+    target_weights: Dict[str, float] | None = Field(default=None)
 
     # 7. Sampling & Reproducibility
     total_lessons: int = Field(..., ge=1)
@@ -436,6 +438,28 @@ class HydraNetConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def validate_basu_dpd_range(self) -> "HydraNetConfig":
+        if self.loss_reg != "basu_dpd":
+            return self
+        if self.loss_reg_alpha is not None and self.loss_reg_alpha <= 0:
+            err_msg = (
+                f"loss_reg='basu_dpd' requires loss_reg_alpha > 0, "
+                f"got {self.loss_reg_alpha}. alpha=0 degenerates to MLE "
+                f"(no robustness), alpha < 0 is undefined."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        if self.loss_reg_sigma is not None and self.loss_reg_sigma <= 0:
+            err_msg = (
+                f"loss_reg='basu_dpd' requires loss_reg_sigma > 0, "
+                f"got {self.loss_reg_sigma}. sigma=0 causes division by zero "
+                f"in the density power divergence formula."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
     def validate_loss_class_params(self) -> "HydraNetConfig":
         from views_hydranet.utils.utils import LOSS_CLASS_REGISTRY
 
@@ -450,6 +474,42 @@ class HydraNetConfig(BaseModel):
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_hurdle_params(self) -> "HydraNetConfig":
+        if (
+            self.hurdle_threshold is not None
+            and self.qs99_weight is not None
+            and self.qs99_weight > 0
+        ):
+            if self.qs99_tau is None:
+                err_msg = (
+                    f"hurdle_threshold={self.hurdle_threshold} with "
+                    f"qs99_weight={self.qs99_weight} requires 'qs99_tau' "
+                    f"but it was not provided. Add 'qs99_tau' to your config."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_target_weights(self) -> "HydraNetConfig":
+        if self.target_weights is None:
+            return self
+        for w in self.target_weights.values():
+            if w < 0:
+                err_msg = f"target_weights values must be >= 0, got {self.target_weights}."
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+        missing = [t for t in self.regression_targets if t not in self.target_weights]
+        if missing:
+            err_msg = (
+                f"target_weights is missing entries for regression targets: "
+                f"{missing}. All regression_targets must have a weight."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return self
 
     # --- Dict-compatibility layer (gradual migration from config["key"]) ---

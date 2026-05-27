@@ -4,10 +4,10 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-05-26                           |
-| Total Concerns    | 79                                   |
-| Open Concerns     | 11                                   |
-| Resolved Concerns | 68                                   |
+| Last Updated      | 2026-05-27                           |
+| Total Concerns    | 89                                   |
+| Open Concerns     | 14                                   |
+| Resolved Concerns | 75                                   |
 
 ---
 
@@ -212,6 +212,62 @@ See also C-42 (resolved — entropy locking).
 
 ---
 
+### C-87: Hurdle mechanism applies uniform loss parameters across targets with different rare-event ratios
+
+| Field | Value |
+|-------|-------|
+| ID | C-87 |
+| Tier | 3 (was 2, mitigated by Path A) |
+| Source | manual review (2026-05-27), informed by repeated OS/NS near-zero prediction failures |
+| Trigger | When training with hurdle + Basu DPD on multi-target configs where OS and NS are 3-5x rarer than SB — gradient starvation causes the model to effectively abandon rare-target regression heads |
+| Location | `views_hydranet/train/training_engine.py:169-196` (hurdle loop), `views_hydranet/utils/config_initializer.py` (no per-target param support) |
+
+The hurdle mechanism masks regression loss to positive observations per-target, but all targets share a single `loss_reg` (Basu DPD with global alpha/sigma), a single `qs99_weight`/`qs99_tau`, and no per-target loss weighting. When SB has ~5% non-zero cells and OS/NS have ~1%, the regression gradient signal for rare targets is ~5x weaker. Historical outcome: models predict near-zero for OS and NS.
+
+**Path A (IMPLEMENTED):** Per-target loss weighting via `target_weights` config dict (`Dict[str, float] | None`). Applied inside the hurdle loop at per-target loss computation — multiplies regression loss, QS99 penalty, and non-hurdle loss by the configured weight. Validator enforces all regression targets present and non-negative weights. Tested by 4 integration tests in `test_hurdle_basu_integration.py`.
+
+**Path B (future — per-target Basu parameters):** Separate `alpha`/`sigma` per target. OS gets lower alpha (more sensitivity), SB gets higher alpha (more robustness). More expressive but requires nested config structure (C-49 scaling concern). Deferred until Path A proves insufficient.
+
+Tier 2 → Tier 3: Path A mitigates the immediate gradient starvation. Residual risk is that uniform alpha/sigma may still under-serve rare targets if weight scaling alone is insufficient.
+
+**Test gap (test-review 2026-05-27):** `target_weights` is only tested with a single-target config. No test verifies correct per-target weight application with multiple regression targets — a bug in target-name lookup would pass single-target tests but silently misweight in production. See C-88.
+
+See also ADR-050 (hurdle-decomposed loss), C-49 (flat config scaling).
+
+---
+
+### C-85: Flip probability 0.5 hardcoded in training_engine — not config-driven
+
+| Field | Value |
+|-------|-------|
+| ID | C-85 |
+| Tier | 4 |
+| Source | /falsify magic-numbers audit P1 (2026-05-27) |
+| Trigger | When running augmentation sensitivity experiments and needing flip probability other than 0.5 — requires source code change instead of config change |
+| Location | `views_hydranet/train/training_engine.py:290-292` |
+
+Data augmentation flip on/off is config-driven (`random_flips: bool`), but the flip probability is hardcoded at `0.5` (fair coin). This is the only behavior-affecting numeric literal in `training_engine.py` that isn't sourced from config. Symmetric by definition (H/W flips), so `0.5` is defensible — but a researcher doing augmentation experiments would need to modify source code to test other probabilities.
+
+See also C-65 (resolved — `random_flips` added to schema).
+
+---
+
+### C-89: `_SumReducer` and `_make_tiny_model` duplicated across test files
+
+| Field | Value |
+|-------|-------|
+| ID | C-89 |
+| Tier | 4 |
+| Source | /test-review (Beck W1) (2026-05-27) |
+| Trigger | When modifying `ModelOutput` or the model forward signature — both copies must be updated independently, and forgetting one produces confusing test failures |
+| Location | `tests/test_cluster_e.py:317-340`, `tests/test_hurdle_basu_integration.py:327-346` |
+
+Identical `_SumReducer` and `_make_tiny_model` helpers are defined in two test files. A third copy is likely in the next PR that adds `_process_sequence` tests. Should be extracted to `conftest.py` as shared fixtures.
+
+Tier 4 rationale: code quality / DRY violation. Single-developer scope. No correctness impact.
+
+---
+
 ## Disagreements
 
 ### D-01: VolumeHandler scope — God Object vs Deep Module
@@ -248,6 +304,76 @@ See also C-42 (resolved — entropy locking).
 ---
 
 ## Resolved Concerns
+
+### C-88: No smoke test exercises `train()` with hurdle+Basu+target_weights config — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-88 |
+| Resolved | 2026-05-27 |
+| Resolution | Added `test_train_with_hurdle_basu_target_weights` in `tests/test_hurdle_basu_integration.py::TestGreenTrainEntryPoint` — exercises the full `train()` → `config.get()` → `_process_sequence` path with Basu DPD, hurdle, QS99, and target_weights. Also added `test_target_weights_multi_target_applies_per_target` with 2-channel model and asymmetric weights to verify per-target weight application. See C-87. |
+
+---
+
+### C-90: CIC HydraNetConfig §10 Test Alignment stale — missing new test files — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-90 |
+| Resolved | 2026-05-27 |
+| Resolution | Updated CIC §10 to list all test files covering HydraNetConfig: `test_config_typed.py` (green), `test_config_validation.py` (beige + red), `test_falsification_hurdle_params.py` (red), `test_falsification_loss_param_validation.py` (red), `test_hurdle_basu_integration.py` (green + beige + red). |
+
+---
+
+### C-84: `_process_sequence` guard does not check `qs99_tau is not None` — TypeError on direct call — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-84 |
+| Resolved | 2026-05-27 |
+| Resolution | Added `qs99_tau is not None` to the guard at `training_engine.py:183`. Now all four conditions (`qs99_weight is not None`, `qs99_weight > 0`, `qs99_tau is not None`, `mask.any()`) must hold before QS99 arithmetic executes. See also C-81. |
+
+---
+
+### C-86: Four `config.get` calls with shadow or contradictory fallback defaults — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-86 |
+| Resolved | 2026-05-27 |
+| Resolution | Removed all four fallback defaults: `config.get("random_flips")`, `config.get("clip_grad_norm")`, `config.get("regression_targets")`, `config.get("classification_targets")`. Schema guarantees all fields present after `HydraNetConfig` validation. 2 guard tests in `tests/test_falsification_magic_numbers.py::TestRedShadowDefaults`. |
+
+---
+
+### C-81: QS99 parameters accept out-of-domain values — no range validation — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-81 |
+| Resolved | 2026-05-27 |
+| Resolution | Added `ge=0.0` constraint on `qs99_weight` and `gt=0.0, lt=1.0` constraints on `qs99_tau` via Pydantic Field validators. 3 red tests in `tests/test_falsification_hurdle_params.py::TestRedQS99Range`. |
+
+---
+
+### C-82: ADR-050 §5 red-team claim unimplemented — Basu α=0, σ=0 accepted at config — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-82 |
+| Resolved | 2026-05-27 |
+| Resolution | Added `validate_basu_dpd_range` model validator: rejects `loss_reg_alpha <= 0` and `loss_reg_sigma <= 0` when `loss_reg='basu_dpd'`. 2 red tests in `tests/test_falsification_hurdle_params.py::TestRedBasuDegenerate`. ADR-050 §5 claim now matches implementation. See also C-05. |
+
+---
+
+### C-83: Risk register C-48 resolution text stale after parameter hardening — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-83 |
+| Resolved | 2026-05-27 |
+| Resolution | Updated C-48 resolution text to reflect `None` defaults and strict conditional validation. |
+
+---
 
 ### C-77: Power-law sampling strategy overflows float64 with extreme alpha — RESOLVED
 
@@ -939,7 +1065,7 @@ Register header claims 69 total / 19 open / 50 resolved. Actual entry count: 68 
 |-------|-------|
 | ID | C-48 |
 | Resolved | 2026-04-10 |
-| Resolution | Distribution-free asymmetric pinball loss on `mu` (ML expert Suggestion 3 — no sigma, no distributional assumption). Config keys: `qs99_weight` (0.0=disabled), `qs99_tau` (0.99). Only active when `hurdle_threshold` is not None. Added to `_process_sequence()` after MultiTaskLoss. 2 TDD tests (adds to loss, disabled without hurdle). Addresses Lerch et al. (2017) Forecaster's Dilemma. |
+| Resolution | Distribution-free asymmetric pinball loss on `mu` (ML expert Suggestion 3 — no sigma, no distributional assumption). Config keys: `qs99_weight` (None=disabled), `qs99_tau` (None=must be explicit when active). Only active when `hurdle_threshold` is not None and `qs99_weight > 0`. Strict conditional validation added by ADR-050 parameter hardening: `qs99_tau` is required when `hurdle_threshold` is set and `qs99_weight > 0` — no silent defaults. Added to `_process_sequence()` after MultiTaskLoss. 10 TDD tests (2 original + 8 hurdle-Basu integration). Addresses Lerch et al. (2017) Forecaster's Dilemma. |
 
 ---
 

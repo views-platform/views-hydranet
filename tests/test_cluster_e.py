@@ -7,6 +7,7 @@ C-48: QS99 tail regularizer (distribution-free pinball)
 """
 
 import torch
+import torch.nn as nn
 
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import ModelOutput
 
@@ -91,7 +92,7 @@ def test_hurdle_masking_reduces_loss_contributors():
     train_tensor = torch.zeros(B, T, C, H, W)
     h = torch.zeros(B, 8, H, W)
 
-    model = _make_tiny_model()
+    model = make_tiny_model()
     idx = _SequenceIndices(
         ["feat"],
         {"regression_targets": ["feat"], "classification_targets": [], "features": ["feat"]},
@@ -103,7 +104,7 @@ def test_hurdle_masking_reduces_loss_contributors():
         h,
         torch.nn.MSELoss(),
         torch.nn.BCELoss(),
-        _SumReducer(),
+        SumReducer(),
         idx,
         torch.device("cpu"),
         hurdle_threshold=0.0,
@@ -129,7 +130,7 @@ def test_hurdle_none_processes_all_pixels():
     train_tensor = torch.zeros(B, T, C, H, W)
     h = torch.zeros(B, 8, H, W)
 
-    model = _make_tiny_model()
+    model = make_tiny_model()
     idx = _SequenceIndices(
         ["feat"],
         {"regression_targets": ["feat"], "classification_targets": [], "features": ["feat"]},
@@ -141,7 +142,7 @@ def test_hurdle_none_processes_all_pixels():
         h,
         torch.nn.MSELoss(),
         torch.nn.BCELoss(),
-        _SumReducer(),
+        SumReducer(),
         idx,
         torch.device("cpu"),
         hurdle_threshold=None,
@@ -166,7 +167,7 @@ def test_qs99_regularizer_adds_to_loss():
     train_tensor = torch.randn(B, T, C, H, W).abs()  # positive values
     h = torch.zeros(B, 8, H, W)
 
-    model = _make_tiny_model()
+    model = make_tiny_model()
     idx = _SequenceIndices(
         ["feat"],
         {"regression_targets": ["feat"], "classification_targets": [], "features": ["feat"]},
@@ -179,7 +180,7 @@ def test_qs99_regularizer_adds_to_loss():
         h.clone(),
         torch.nn.MSELoss(),
         torch.nn.BCELoss(),
-        _SumReducer(),
+        SumReducer(),
         idx,
         torch.device("cpu"),
         hurdle_threshold=0.0,
@@ -193,7 +194,7 @@ def test_qs99_regularizer_adds_to_loss():
         h.clone(),
         torch.nn.MSELoss(),
         torch.nn.BCELoss(),
-        _SumReducer(),
+        SumReducer(),
         idx,
         torch.device("cpu"),
         hurdle_threshold=0.0,
@@ -216,7 +217,7 @@ def test_qs99_disabled_when_no_hurdle():
     train_tensor = torch.randn(B, T, C, H, W).abs()
     h = torch.zeros(B, 8, H, W)
 
-    model = _make_tiny_model()
+    model = make_tiny_model()
     idx = _SequenceIndices(
         ["feat"],
         {"regression_targets": ["feat"], "classification_targets": [], "features": ["feat"]},
@@ -228,7 +229,7 @@ def test_qs99_disabled_when_no_hurdle():
         h.clone(),
         torch.nn.MSELoss(),
         torch.nn.BCELoss(),
-        _SumReducer(),
+        SumReducer(),
         idx,
         torch.device("cpu"),
         hurdle_threshold=None,
@@ -241,7 +242,7 @@ def test_qs99_disabled_when_no_hurdle():
         h.clone(),
         torch.nn.MSELoss(),
         torch.nn.BCELoss(),
-        _SumReducer(),
+        SumReducer(),
         idx,
         torch.device("cpu"),
         hurdle_threshold=None,
@@ -273,7 +274,7 @@ def test_hurdle_masking_mixed_data():
     train_tensor[0, 2, 0, 2, 2] = 7.0
     h = torch.zeros(B, 8, H, W)
 
-    model = _make_tiny_model()
+    model = make_tiny_model()
     idx = _SequenceIndices(
         ["feat"],
         {"regression_targets": ["feat"], "classification_targets": [], "features": ["feat"]},
@@ -285,7 +286,7 @@ def test_hurdle_masking_mixed_data():
         h.clone(),
         torch.nn.MSELoss(),
         torch.nn.BCELoss(),
-        _SumReducer(),
+        SumReducer(),
         idx,
         torch.device("cpu"),
         hurdle_threshold=None,
@@ -297,7 +298,7 @@ def test_hurdle_masking_mixed_data():
         h.clone(),
         torch.nn.MSELoss(),
         torch.nn.BCELoss(),
-        _SumReducer(),
+        SumReducer(),
         idx,
         torch.device("cpu"),
         hurdle_threshold=0.0,
@@ -314,20 +315,20 @@ def test_hurdle_masking_mixed_data():
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-class _SumReducer(torch.nn.Module):
+class SumReducer(nn.Module):
     """Mock MultiTaskLoss that sums all losses to a scalar."""
 
     def forward(self, losses):
         return losses.sum()
 
 
-def _make_tiny_model():
+def make_tiny_model():
     """Minimal model that matches HydraNet's forward signature."""
 
-    class TinyModel(torch.nn.Module):
+    class TinyModel(nn.Module):
         def __init__(self):
             super().__init__()
-            self.conv = torch.nn.Conv2d(1, 1, 1)
+            self.conv = nn.Conv2d(1, 1, 1)
             self.base = 8
 
         def forward(self, x, h):

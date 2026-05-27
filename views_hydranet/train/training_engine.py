@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import functools
 import logging
+import math
 from typing import Any, Dict, Optional, cast
 
 import numpy as np
@@ -58,7 +59,6 @@ def _init_classification_head_bias(model: nn.Module, bias_value: float) -> None:
             nn.init.constant_(module.bias, bias_value)
             count += 1
             logger.debug(f"Classification head '{name}' bias → {bias_value:.2f}")
-    import math
 
     sigmoid_val = 1.0 / (1.0 + math.exp(-bias_value))
     logger.info(
@@ -70,21 +70,14 @@ def _init_classification_head_bias(model: nn.Module, bias_value: float) -> None:
 def make(config: dict, device: torch.device):
     model = choose_model(config, device)
 
-    # Create a partial function with the initialization function and the config parameter
     init_fn = functools.partial(init_weights, config=config)
-
-    # Apply the initialization function to the model
     model.apply(init_fn)
 
-    # Classification head bias initialization (C-44)
     onset_bias = config.get("onset_bias_init")
     if onset_bias is not None:
         _init_classification_head_bias(model, onset_bias)
 
-    # choose loss function
-    criterion = choose_loss(config, device)  # this is a tuple of the reg and the class criteria
-
-    # choose scheduler - the optimizer is always AdamW right now
+    criterion = choose_loss(config, device)
     optimizer, scheduler = choose_scheduler(config, model)
 
     return (model, criterion, optimizer, scheduler)
@@ -96,9 +89,9 @@ class _SequenceIndices:
     __slots__ = ("reg", "cls", "feat", "n_reg", "n_cls", "reg_names", "cls_names")
 
     def __init__(self, feature_names: list[str], config: dict) -> None:
-        reg_targets = config.get("regression_targets", [])
-        cls_targets = config.get("classification_targets", [])
-        input_features = config.get("features", [])
+        reg_targets = config.get("regression_targets")
+        cls_targets = config.get("classification_targets")
+        input_features = config.get("features")
 
         self.reg = [feature_names.index(t) for t in reg_targets]
         self.cls = [feature_names.index(t) for t in cls_targets]
@@ -121,8 +114,9 @@ def _process_sequence(
     pbar: Optional[tqdm] = None,
     forensics: Optional[TrainingForensics] = None,
     hurdle_threshold: Optional[float] = None,
-    qs99_weight: float = 0.0,
-    qs99_tau: float = 0.99,
+    qs99_weight: Optional[float] = None,
+    qs99_tau: Optional[float] = None,
+    target_weights: Optional[Dict[str, float]] = None,
 ) -> Dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
@@ -170,42 +164,53 @@ def _process_sequence(
             pred_j = t1_pred[:, j, :, :]
             target_j = y_reg[:, j, :, :]
 
+            # C-87: per-target loss weight (1.0 if not configured)
+            tw = 1.0
+            if target_weights is not None:
+                tw = target_weights[idx.reg_names[j]]
+
             if hurdle_threshold is not None:
                 # C-45: Regression loss on positive observations only
                 mask = target_j > hurdle_threshold
                 if mask.any():
-                    losses_list.append(criterion_reg(pred_j[mask], target_j[mask]))
+                    losses_list.append(tw * criterion_reg(pred_j[mask], target_j[mask]))
                 else:
                     losses_list.append(torch.tensor(0.0, device=device))
 
                 # C-48: QS99 regularizer (distribution-free pinball on mu)
                 # Only active when hurdle is enabled and weight > 0
-                if qs99_weight > 0 and mask.any():
+                qs99_active = (
+                    qs99_weight is not None
+                    and qs99_weight > 0
+                    and qs99_tau is not None
+                    and mask.any()
+                )
+                if qs99_active:
                     error = target_j[mask] - pred_j[mask]
                     pinball = torch.where(
                         error >= 0,
                         qs99_tau * error,
                         (qs99_tau - 1.0) * error,
                     )
-                    qs99_loss = qs99_loss + pinball.mean()
+                    qs99_loss = qs99_loss + tw * pinball.mean()
             else:
-                losses_list.append(criterion_reg(pred_j, target_j))
+                losses_list.append(tw * criterion_reg(pred_j, target_j))
 
         for j in range(idx.n_cls):
             losses_list.append(criterion_class(t1_pred_class[:, j, :, :], y_cls[:, j, :, :]))
 
         losses = torch.stack(losses_list)
         loss = cast(Any, multitaskloss_instance)(losses)
-        if qs99_weight > 0:
+        if qs99_weight is not None and qs99_weight > 0:
             loss = loss + qs99_weight * qs99_loss
         total_loss += loss
 
         loss_reg = losses[: idx.n_reg].sum()
         loss_class = losses[idx.n_reg :].sum()
 
-        step_reg.append(loss_reg.detach().cpu().numpy().item())
-        step_cls.append(loss_class.detach().cpu().numpy().item())
-        step_total.append(loss.detach().cpu().numpy().item())
+        step_reg.append(loss_reg.detach().item())
+        step_cls.append(loss_class.detach().item())
+        step_total.append(loss.detach().item())
 
         if pbar is not None:
             pbar.update(1)
@@ -280,7 +285,7 @@ def train(
     forensics = ctx.forensics
 
     # 1. Stochastic Data Augmentation (Tube-Level)
-    if config.get("random_flips", True):
+    if config.get("random_flips"):
         if np.random.rand() < 0.5:
             sample_handler = sample_handler.flip("H")
         if np.random.rand() < 0.5:
@@ -335,8 +340,9 @@ def train(
         pbar=pbar,
         forensics=forensics,
         hurdle_threshold=config.get("hurdle_threshold"),
-        qs99_weight=config.get("qs99_weight", 0.0),
-        qs99_tau=config.get("qs99_tau", 0.99),
+        qs99_weight=config.get("qs99_weight"),
+        qs99_tau=config.get("qs99_tau"),
+        target_weights=config.get("target_weights"),
     )
     step_total, step_reg, step_cls = result["per_step_losses"]
 
@@ -542,7 +548,7 @@ def training_loop(
                 max_raw_grad_norm = max(max_raw_grad_norm, raw_grad_norm)
 
                 # Gradient Clipping
-                if config.get("clip_grad_norm", False):
+                if config.get("clip_grad_norm"):
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
                 # Optimize (Update Weights)
