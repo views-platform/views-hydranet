@@ -23,7 +23,7 @@ The `HydraNetConfig` is the **Schema** of the HydraNet pipeline. Its primary pur
 
 ## 3. Responsibilities and Guarantees
 
-- **Field Validation:** Guarantees that all 54 fields are type-checked and constraint-validated (e.g., `dropout_rate` in [0.0, 1.0], `input_channels >= 1`).
+- **Field Validation:** Guarantees that all 63 fields are type-checked and constraint-validated (e.g., `dropout_rate` in [0.0, 1.0], `input_channels >= 1`).
 - **Checksum Laws (ADR-009):** Guarantees `input_channels == len(features)` and `time_steps == len(steps)`.
 - **Feature Lifecycle Law (ADR-046):** Guarantees that all required columns (features + targets) are accounted for in `transformations` or `derivations`.
 - **Typo Correction:** Handles the legacy `evalution_mode` typo via a `model_validator(mode="before")` shim.
