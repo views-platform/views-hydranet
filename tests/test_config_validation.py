@@ -229,3 +229,15 @@ class TestRed:
         cfg = _make_config(valid_config_dict, loss_reg="basu_dpd", loss_reg_alpha=0.5)
         with pytest.raises(ValidationError, match="loss_reg_sigma"):
             HydraNetConfig(**cfg)
+
+    def test_red_missing_lognormal_param_raises(self, valid_config_dict):
+        """lognormal_nll without loss_reg_sigma → ValidationError."""
+        cfg = _make_config(valid_config_dict, loss_reg="lognormal_nll")
+        with pytest.raises(ValidationError, match="loss_reg_sigma"):
+            HydraNetConfig(**cfg)
+
+    def test_red_missing_pareto_param_raises(self, valid_config_dict):
+        """pareto without loss_reg_pareto_alpha → ValidationError."""
+        cfg = _make_config(valid_config_dict, loss_reg="pareto")
+        with pytest.raises(ValidationError, match="loss_reg_pareto_alpha"):
+            HydraNetConfig(**cfg)

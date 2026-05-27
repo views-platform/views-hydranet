@@ -1,14 +1,14 @@
 """
 Falsification stubs for PR #34 (strict conditional parameter validation).
 
-F5: CIC §3 field count drift — claims 54 fields, actual is 63.
+F5: CIC §3 field count drift — guard against future miscounts.
 """
 
 from views_hydranet.utils.config_initializer import HydraNetConfig
 
 
 class TestF5_CICFieldCountDrift:
-    """CIC §3 claims 'all 54 fields are type-checked'. Actual count is 63."""
+    """CIC §3 field count must stay in sync with actual model_fields."""
 
     def test_cic_field_count_matches_actual(self):
         """CIC §3 field count must match actual model_fields count."""
