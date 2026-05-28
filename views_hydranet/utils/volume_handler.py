@@ -2,6 +2,7 @@
 
 import logging
 from dataclasses import dataclass, field, replace
+from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import numpy as np
@@ -9,6 +10,12 @@ import pandas as pd
 import torch
 
 logger = logging.getLogger(__name__)
+
+
+class SpatialConvention(Enum):
+    GEOGRAPHIC = "geographic"
+    NORTH_UP = "north_up"
+
 
 # Internal Naming Invariants (ADR 020/032)
 LINEAR_PREFIX = "lr_"
@@ -36,6 +43,7 @@ class VolumeMetadata:
 
     spatial_offset: Tuple[int, int]
     history: Tuple[Tuple[str, Any], ...] = field(default_factory=tuple)
+    spatial_convention: SpatialConvention = SpatialConvention.GEOGRAPHIC
 
 
 class VolumeHandler:
@@ -219,7 +227,7 @@ class VolumeHandler:
             f"🌐 VolumeHandler: Created Global Volume {vol.shape} | Memory: {mem_mb:.2f} MB"
         )
 
-        return cls(
+        result = cls(
             data=vol,
             axes=("T", "H", "W", "C"),
             channel_map=channel_map,
@@ -231,6 +239,8 @@ class VolumeHandler:
             spatial_offset=(row_offset, col_offset),
             config=config,
         )
+        result._metadata = replace(result._metadata, spatial_convention=SpatialConvention.NORTH_UP)
+        return result
 
     def to_pytorch(self, device: torch.device, include_identities: bool = False) -> torch.Tensor:
         """
@@ -351,7 +361,7 @@ class VolumeHandler:
         # The final channel map is [Keys] + [Identities] + [Predictions]
         final_names = primary_names + identity_names + full_signal_names
 
-        return VolumeHandler(
+        result = VolumeHandler(
             data=full_data,
             axes=axes,
             channel_map=final_names,
@@ -362,6 +372,10 @@ class VolumeHandler:
             feature_cols=tuple(full_signal_names),
             spatial_offset=self.spatial_offset,
         )
+        result._metadata = replace(
+            result._metadata, spatial_convention=self._metadata.spatial_convention
+        )
+        return result
 
     def collapse_to_point(self, method: str) -> "VolumeHandler":
         """
@@ -401,7 +415,7 @@ class VolumeHandler:
         # Update axes: Filter out 'S'
         new_axes = tuple(ax for ax in self._metadata.axes if ax != "S")
 
-        return VolumeHandler(
+        result = VolumeHandler(
             data=collapsed_data,
             axes=new_axes,
             channel_map=self.channel_map,
@@ -412,6 +426,10 @@ class VolumeHandler:
             feature_cols=self.feature_cols,
             spatial_offset=self.spatial_offset,
         )
+        result._metadata = replace(
+            result._metadata, spatial_convention=self._metadata.spatial_convention
+        )
+        return result
 
     def slice_time(self, start_idx: int, end_idx: int) -> "VolumeHandler":
         """
@@ -434,7 +452,7 @@ class VolumeHandler:
         slices[t_idx] = slice(start_idx, end_idx)
         new_data = self._data[tuple(slices)]
 
-        return VolumeHandler(
+        result = VolumeHandler(
             data=new_data,
             axes=self.axes,
             channel_map=self.channel_map,
@@ -445,6 +463,10 @@ class VolumeHandler:
             feature_cols=self.feature_cols,
             spatial_offset=self.spatial_offset,
         )
+        result._metadata = replace(
+            result._metadata, spatial_convention=self._metadata.spatial_convention
+        )
+        return result
 
     def extrapolate_time(self, steps: int) -> "VolumeHandler":
         """
@@ -474,7 +496,7 @@ class VolumeHandler:
             np_future_vol = cast(np.ndarray, future_vol)
             np_future_vol[..., m_idx] += np_increments
 
-        return VolumeHandler(
+        result = VolumeHandler(
             data=future_vol,
             axes=self.axes,
             channel_map=self.channel_map,
@@ -485,6 +507,10 @@ class VolumeHandler:
             feature_cols=self.feature_cols,
             spatial_offset=self.spatial_offset,
         )
+        result._metadata = replace(
+            result._metadata, spatial_convention=self._metadata.spatial_convention
+        )
+        return result
 
     def _permute(self, dims: Union[List[int], Tuple[int, ...]]) -> "VolumeHandler":
         """
@@ -513,6 +539,7 @@ class VolumeHandler:
         result._metadata = replace(
             result._metadata,
             history=self._metadata.history + (("permute", dims_tuple),),
+            spatial_convention=self._metadata.spatial_convention,
         )
         return result
 
@@ -540,6 +567,7 @@ class VolumeHandler:
         result._metadata = replace(
             result._metadata,
             history=self._metadata.history + (("flip", axis_label),),
+            spatial_convention=self._metadata.spatial_convention,
         )
         return result
 
@@ -589,6 +617,10 @@ class VolumeHandler:
     @property
     def history(self) -> Tuple[Tuple[str, Any], ...]:
         return self._metadata.history
+
+    @property
+    def spatial_convention(self) -> SpatialConvention:
+        return self._metadata.spatial_convention
 
     # Cross-ref: DataFetcher.apply_blueprint() (data_fetcher.py)
     # Both paths RAISE if source is missing — see tests/test_derivation_parity.py.

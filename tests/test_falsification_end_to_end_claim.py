@@ -110,29 +110,11 @@ class TestArtifactNameSilentlyIgnored:
 
         manager = _make_manager(tmp_path)
 
-        import pandas as pd
-
-        df = pd.DataFrame(
-            {
-                "month_id": sorted(list(range(100, 112)) * 16),
-                "priogrid_gid": list(range(1, 17)) * 12,
-                "row": [0] * 192,
-                "col": [0] * 192,
-                "lr_sb_best": [1.0] * 192,
-                "lr_ns_best": [1.0] * 192,
-                "lr_os_best": [1.0] * 192,
-            }
-        )
-
         with (
             patch.object(HydranetManager, "configs", new_callable=PropertyMock) as mock_cfg,
-            patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetch_cls,
             patch("views_hydranet.manager.hydranet_manager.ModelArtifactFetcher") as mock_art_cls,
-            patch("views_hydranet.manager.hydranet_manager.InferenceOrchestrator"),
         ):
             mock_cfg.return_value = MINIMAL_CFG
-            mock_fetch_cls.return_value.fetch_df.return_value = df
-            mock_fetch_cls.standardize_raw_df.side_effect = lambda x, y: x
 
             mock_model = MagicMock()
             mock_art_cls.return_value.fetch_model_artifact.return_value = (
@@ -140,7 +122,7 @@ class TestArtifactNameSilentlyIgnored:
                 "test_timestamp",
             )
 
-            manager._setup_evaluation("test", artifact_name="calibration_model_X")
+            manager._load_model_artifact("calibration_model_X")
 
             mock_art_cls.return_value.fetch_model_artifact.assert_called_once_with(
                 model_artifact_name="calibration_model_X"

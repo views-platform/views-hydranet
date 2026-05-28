@@ -4,10 +4,10 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-05-27                           |
-| Total Concerns    | 89                                   |
-| Open Concerns     | 14                                   |
-| Resolved Concerns | 75                                   |
+| Last Updated      | 2026-05-28                           |
+| Total Concerns    | 92                                   |
+| Open Concerns     | 15                                   |
+| Resolved Concerns | 77                                   |
 
 ---
 
@@ -268,6 +268,23 @@ Tier 4 rationale: code quality / DRY violation. Single-developer scope. No corre
 
 ---
 
+### C-93: `_evaluate_sweep` not implemented — sweep evaluation crashes with `NotImplementedError`
+
+| Field | Value |
+|-------|-------|
+| ID | C-93 |
+| Tier | 2 |
+| Source | expert-code-review (2026-05-28), falsify merge-readiness (2026-05-28) |
+| Trigger | Running `python main.py -r calibration --sweep` on any HydraNet model — training completes but evaluation crashes, aborting the sweep agent |
+| Location | `views_hydranet/manager/hydranet_manager.py` (missing override), `views_pipeline_core/managers/model/model.py:780-820` (abstract contract) |
+| Cross-refs | C-01, D-04 |
+
+`HydranetManager` implements `_evaluate_model_artifact` (single runs) but not `_evaluate_sweep` (wandb sweeps). The base class `ForecastingModelManager` marks it `@abstractmethod`. Root cause: `_setup_evaluation()` (lines 224-314) couples model loading (lines 268-279) with data pipeline + orchestrator wiring (lines 281-314). Sweep needs the data pipeline but not the disk load — the model is in-memory. Fix requires decomposing `_setup_evaluation()`: extract model loading into `_load_model_artifact()`, make `model` a required parameter of `_setup_evaluation()`, then add a 5-line `_evaluate_sweep()` override. Sibling managers (views-baseline, views-stepshifter) implement this method; HydraNet is the only one missing it.
+
+Tier 2 rationale: structural fragility — every sweep run crashes today. Clear trigger. Blocks hyperparameter optimization workflow.
+
+---
+
 ## Disagreements
 
 ### D-01: VolumeHandler scope — God Object vs Deep Module
@@ -303,15 +320,56 @@ Tier 4 rationale: code quality / DRY violation. Single-developer scope. No corre
 
 ---
 
+### D-04: `_evaluate_sweep` fix — parameter injection vs method extraction
+
+| Field | Value |
+|-------|-------|
+| ID | D-04 |
+| Source | expert-code-review (2026-05-28) |
+| Perspectives | Beck (add `model` param to `_setup_evaluation()` — simplest change), Martin/Hickey (decompose — extract `_load_model_artifact()`, make `model` required param, no boolean branching), Ousterhout (preserve method depth — don't fragment the setup into many shallow pieces) |
+| Resolution | **Consensus: Option C (decompose).** Make `model` a *required* parameter of `_setup_evaluation()`. Extract model loading into `_load_model_artifact()`. Three existing callers load then pass; sweep passes in-memory model. No boolean params, no duplication, no complecting. See C-93. |
+
+---
+
 ## Resolved Concerns
 
-### C-88: No smoke test exercises `train()` with hurdle+Basu+target_weights config — RESOLVED
+### C-88: No integration test for `target_weights` multi-target application — RESOLVED
 
 | Field | Value |
 |-------|-------|
 | ID | C-88 |
 | Resolved | 2026-05-27 |
 | Resolution | Added `test_train_with_hurdle_basu_target_weights` in `tests/test_hurdle_basu_integration.py::TestGreenTrainEntryPoint` — exercises the full `train()` → `config.get()` → `_process_sequence` path with Basu DPD, hurdle, QS99, and target_weights. Also added `test_target_weights_multi_target_applies_per_target` with 2-channel model and asymmetric weights to verify per-target weight application. See C-87. |
+
+---
+
+### C-08: North-Up flip symmetry is implicitly coupled — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-08 |
+| Resolved | 2026-04-08 (initial), 2026-05-28 (hardened) |
+| Resolution | **Phase 1 (2026-04-08):** Added `test_gate_flip_symmetry_from_df_to_output` in `tests/test_volume_handler_hard_gates.py`. **Phase 2 (2026-05-28):** Full hardening — added `SpatialConvention` enum to `VolumeMetadata` (GEOGRAPHIC/NORTH_UP), `raise ValueError` guards in `PredictionFrameAssembler._valid_cell_indices()`, convention propagation through all 8 VolumeHandler creation sites, and 40 tests across `tests/test_flip_symmetry_hardening.py` (32 tests) and `tests/test_falsification_flip_hardening.py` (8 tests) covering round-trips, source inspection, domain-knowledge invariants (hemisphere land ratios), augmentation, visualization, and convention propagation paths. |
+
+---
+
+### C-91: SpatialConvention propagation through pipeline methods has incomplete test coverage — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-91 |
+| Resolved | 2026-05-28 |
+| Resolution | Added 6 dedicated convention-preservation tests in `tests/test_falsification_flip_hardening.py::TestF01ConventionPropagation` covering `slice_time`, `extrapolate_time`, `wrap_predictions`, `collapse_to_point`, `inverse_transform_volume`, and `_permute`. Added asymmetric mismatch test (provider=GEOGRAPHIC, signal=NORTH_UP) in `TestF02AsymmetricMismatch`. All propagation sites now have regression coverage. |
+
+---
+
+### C-92: Convention guards in PredictionFrameAssembler use `assert` (stripped by `-O`) — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-92 |
+| Resolved | 2026-05-28 |
+| Resolution | Upgraded convention guards in `PredictionFrameAssembler._valid_cell_indices()` from `assert` to `if not ...: raise ValueError(...)`. Guards are now unconditional regardless of Python optimization level. Verified by source-inspection test in `tests/test_falsification_flip_hardening.py::TestF07GuardsUseRaise`. |
 
 ---
 
@@ -946,16 +1004,6 @@ Register header claims 69 total / 19 open / 50 resolved. Actual entry count: 68 
 | ID | C-07 |
 | Resolved | 2026-04-09 |
 | Resolution | Added `del sample_handler, losses, w_loss` after `backward()` in the inner window loop of `training_loop()` in `training_engine.py`. Matches the per-origin cleanup pattern already used in the inference path. |
-
----
-
-### C-08: North-Up flip symmetry is implicitly coupled — RESOLVED
-
-| Field | Value |
-|-------|-------|
-| ID | C-08 |
-| Resolved | 2026-04-08 |
-| Resolution | Added `test_gate_flip_symmetry_from_df_to_output` in `tests/test_volume_handler_hard_gates.py`. Test plants geographic-row values, runs through `from_df()`, and verifies the North-Up flip maps correctly at every array index. Flip symmetry is now structurally tested. |
 
 ---
 

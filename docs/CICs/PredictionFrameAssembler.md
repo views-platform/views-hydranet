@@ -57,6 +57,7 @@ It exists as a separate class — rather than as methods on `VolumeHandler` — 
 
 ## 6. Failure Modes and Loudness
 
+- **Convention mismatch:** Raises `ValueError("Signal must be North-Up. Got: ...")` or `ValueError("Provider must be North-Up. Got: ...")` if either input has `spatial_convention != SpatialConvention.NORTH_UP`. Guards use `raise ValueError` (not `assert`) so they survive `python -O`.
 - **Bounds Violation:** Raises `ValueError("PredictionFrameAssembler Contract Violation: ...")` if `start_idx + duration > history_duration`. Logged at ERROR level before raising.
 - **Missing target channel:** Raises `ValueError` (from `signal.channel_map.index(pred_col)`) if a target name's `pred_{target}` column is missing from the signal's channel map.
 - **Missing `views_pipeline_core`:** Raises `ImportError` at the lazy import site inside `assemble_evaluation()`. Module-level import (`from views_hydranet.utils.prediction_frame_assembler import PredictionFrameAssembler`) succeeds without the framework installed.

@@ -24,7 +24,7 @@ The `VolumeSampler` is the **Lens** of the HydraNet pipeline. Its primary purpos
 
 ## 3. Responsibilities and Guarantees
 
-- **The Mini-Custodian Law:** Guarantees that every extracted patch is returned as a fully functional `VolumeHandler`, ensuring data and identity are never decoupled.
+- **The Mini-Custodian Law:** Guarantees that every extracted patch is returned as a fully functional `VolumeHandler`, ensuring data and identity are never decoupled. This includes propagating the parent's `spatial_convention` to each extracted patch.
 - **Anchor Selection (ADR-049):** Responsible for selecting geographic anchor coordinates via a configurable sampling strategy. The strategy is resolved from `SAMPLING_STRATEGY_REGISTRY` at construction time based on `config["sampling_strategy"]` (required, no default). `"threshold"` preserves the original hard-threshold behaviour. Alternative strategies (`power_law`, `boltzmann`, `sigmoid`) provide smooth probability distributions over the activity grid. See ADR-049 for mathematical definitions and selection guide.
 - **Deterministic Extraction:** Guarantees that spatial jitter and patch selection are deterministic for a given random seed and index.
 - **Absolute Anchoring:** Ensures that the `spatial_offset` of every extracted patch is correctly adjusted to preserve its global geographic identity.

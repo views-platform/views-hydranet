@@ -3,6 +3,7 @@ Declarative and Stateful Feature Scaling for HydraNet.
 """
 
 import logging
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Dict, List, Union
 
 import numpy as np
@@ -243,7 +244,7 @@ class FeatureScaler:
                 slc[c_idx] = i
                 work_data[tuple(slc)] = inverse_func(work_data[tuple(slc)])
 
-        return VolumeHandler(
+        result = VolumeHandler(
             data=work_data,
             axes=vh.axes,
             channel_map=vh.channel_map,
@@ -254,3 +255,5 @@ class FeatureScaler:
             feature_cols=vh.feature_cols,
             spatial_offset=vh.spatial_offset,
         )
+        result._metadata = replace(result._metadata, spatial_convention=vh.spatial_convention)
+        return result

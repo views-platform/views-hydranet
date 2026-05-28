@@ -29,6 +29,7 @@ The `VolumeHandler` is the **Custodian** of spatiotemporal data. Its primary pur
 - **Authoritative Bridging:** Provides the only valid path for converting between spatiotemporal volumes and long-format DataFrames.
 - **Symmetry Preservation:** Ensures that model outputs are "dressed" with the same metadata and identities as the inputs.
 - **Stochastic Preservation:** Guarantees that the sample dimension (`S`) is never silently collapsed or averaged.
+- **Spatial Convention Preservation:** All derived VolumeHandlers (`slice_time`, `extrapolate_time`, `collapse_to_point`, `flip`, `wrap_predictions`) propagate the parent's `spatial_convention` via metadata replacement.
 
 ---
 
@@ -106,6 +107,7 @@ tensor = handler.to_pytorch(device, include_identities=False)
 - **🟩 Green Team:** Round-trip tests in `tests/test_volume_handler_geometric.py`.
 - **🟫 Beige Team:** Tests for missing role columns and mismatched resolutions in `tests/test_volume_handler_hard_gates.py`.
 - **🟥 Red Team:** Shuffling input rows to prove topological stability in `tests/test_prediction_frame_suite.py`.
+- **North-Up hardening:** 32 tests in `tests/test_flip_symmetry_hardening.py` (round-trips, source inspection, domain-knowledge invariants, augmentation) and 8 tests in `tests/test_falsification_flip_hardening.py` (convention propagation, asymmetric mismatch, guard robustness).
 - **PredictionFrame output:** Tests for the extracted assembler live in `tests/test_prediction_frame_assembler.py` (see `docs/CICs/PredictionFrameAssembler.md`).
 
 ---

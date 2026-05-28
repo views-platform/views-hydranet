@@ -3,6 +3,7 @@ VolumeSampler: The Pure Lens for spatiotemporal window extraction.
 """
 
 import logging
+from dataclasses import replace
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
@@ -105,6 +106,7 @@ class VolumeSampler:
             feature_cols=train_vh.feature_cols,
             spatial_offset=(new_row_offset, p_col + c0),
         )
+        vh._metadata = replace(vh._metadata, spatial_convention=train_vh.spatial_convention)
 
         mem_mb = data.nbytes / (1024**2)
         logger.debug(f"🔍 VolumeSampler: Extracted Window {data.shape} | Memory: {mem_mb:.2f} MB")

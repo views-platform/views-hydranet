@@ -515,7 +515,10 @@ class TestStreamingEvalInterface:
             emitted_indices.append(i)
             emitted_dicts.append(pf_dict)
 
-        with patch.object(HydranetManager, "_setup_evaluation", return_value=mock_ctx):
+        with (
+            patch.object(HydranetManager, "_load_model_artifact", return_value=MagicMock()),
+            patch.object(HydranetManager, "_setup_evaluation", return_value=mock_ctx),
+        ):
             manager._evaluate_model_artifact_streaming("calibration", None, sink)
 
         return emitted_indices, emitted_dicts
@@ -581,7 +584,10 @@ class TestStreamingEvalInterface:
         )
 
         manager = object.__new__(HydranetManager)
-        with patch.object(HydranetManager, "_setup_evaluation", return_value=mock_ctx):
+        with (
+            patch.object(HydranetManager, "_load_model_artifact", return_value=MagicMock()),
+            patch.object(HydranetManager, "_setup_evaluation", return_value=mock_ctx),
+        ):
             manager._evaluate_model_artifact_streaming("calibration", None, sink_with_weakref)
 
         gc.collect()

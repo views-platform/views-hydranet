@@ -90,6 +90,13 @@ class PredictionFrameAssembler:
         - time_flat  : 1-D array of month_id values for each valid cell  (N,)
         - unit_flat  : 1-D array of priogrid_gid values for each valid cell  (N,)
         """
+        from views_hydranet.utils.volume_handler import SpatialConvention
+
+        if signal.spatial_convention != SpatialConvention.NORTH_UP:
+            raise ValueError("Signal must be North-Up. Got: " + str(signal.spatial_convention))
+        if provider.spatial_convention != SpatialConvention.NORTH_UP:
+            raise ValueError("Provider must be North-Up. Got: " + str(provider.spatial_convention))
+
         # 1. Align signal
         # No copy: np.transpose() and np.flip() return views; fancy indexing
         # in _reconstruct_as_pf_dict() allocates only the valid (N, S) result.

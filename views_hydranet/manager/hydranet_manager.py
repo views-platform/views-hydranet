@@ -221,26 +221,43 @@ class HydranetManager(ForecastingModelManager):
 
         return model
 
+    def _load_model_artifact(self, artifact_name: str | None = None) -> Any:
+        """Load a trained model artifact from disk."""
+        add_config_fn = (
+            self._config_manager.add_config
+            if hasattr(self, "_config_manager")
+            else (lambda x: None)
+        )
+        model, _ = ModelArtifactFetcher(
+            self._model_path.artifacts,
+            self._model_path.get_latest_model_artifact_path(self.configs["run_type"]),
+            self.configs,
+            add_config_fn,
+            self.device,
+        ).fetch_model_artifact(model_artifact_name=artifact_name)
+        return model
+
     def _setup_evaluation(
         self,
         eval_type: str,
-        artifact_name: str | None = None,
+        model: Any,
         *,
         forecast: bool = False,
     ) -> _EvaluationContext:
         """
-        Shared setup for evaluation, streaming, and forecasting.
+        Shared setup for evaluation, streaming, forecasting, and sweeps.
 
-        Fetches the model artifact, loads and scales the data, creates the
-        VolumeHandler, sniffs alignment, computes origin indices,
-        and builds the InferenceOrchestrator.
+        Loads and scales the data, creates the VolumeHandler, sniffs
+        alignment, computes origin indices, and builds the
+        InferenceOrchestrator with the provided model.
 
         Parameters
         ----------
         eval_type : str
             Label for device logging (e.g. "calibration", "forecasting").
-        artifact_name : str | None
-            Specific artifact to load (default: latest).
+        model : torch.nn.Module
+            Trained model — loaded from disk via ``_load_model_artifact()``
+            or received in-memory from ``_execute_model_sweeping()``.
         forecast : bool
             If True, skips partition lookup and uses the single latest
             time index as the sole origin. Data pipeline runs without
@@ -262,21 +279,6 @@ class HydranetManager(ForecastingModelManager):
         )
         self._run_preflight_check()
         viz = VisualDiagnostics(self.configs, run_timestamp=self.run_timestamp)
-
-        # ── Model artifact ────────────────────────────────────────────────────
-
-        add_config_fn = (
-            self._config_manager.add_config
-            if hasattr(self, "_config_manager")
-            else (lambda x: None)
-        )
-        model, _ = ModelArtifactFetcher(
-            self._model_path.artifacts,
-            self._model_path.get_latest_model_artifact_path(self.configs["run_type"]),
-            self.configs,
-            add_config_fn,
-            self.device,
-        ).fetch_model_artifact(model_artifact_name=artifact_name)
 
         # ── Data pipeline ──────────────────────────────────────────────────────
 
@@ -317,7 +319,8 @@ class HydranetManager(ForecastingModelManager):
         self, eval_type: str, artifact_name: str | None = None
     ) -> "dict[str, list[PredictionFrame]]":
         """Orchestrates rolling-origin evaluation via specialized component."""
-        ctx = self._setup_evaluation(eval_type, artifact_name)
+        model = self._load_model_artifact(artifact_name)
+        ctx = self._setup_evaluation(eval_type, model)
         handler, scaler, origins, all_targets, orchestrator = ctx
 
         list_pf_dicts = orchestrator.generate_prediction_frames(
@@ -351,7 +354,8 @@ class HydranetManager(ForecastingModelManager):
             Streaming:  1 × T PredictionFrames in RAM at any moment
             Reduction:  M× (e.g. 13× at pgm scale with S=32)
         """
-        ctx = self._setup_evaluation(eval_type, artifact_name)
+        model = self._load_model_artifact(artifact_name)
+        ctx = self._setup_evaluation(eval_type, model)
         ctx.orchestrator.generate_prediction_frames_streaming(
             ctx.handler,
             ctx.scaler,
@@ -364,7 +368,8 @@ class HydranetManager(ForecastingModelManager):
         self, artifact_name: str | None = None
     ) -> "dict[str, PredictionFrame]":
         """Generates operational forecasts."""
-        ctx = self._setup_evaluation("forecasting", artifact_name, forecast=True)
+        model = self._load_model_artifact(artifact_name)
+        ctx = self._setup_evaluation("forecasting", model, forecast=True)
 
         list_pf_dicts = ctx.orchestrator.generate_prediction_frames(
             ctx.handler, ctx.scaler, origins=ctx.origins, all_targets=ctx.all_targets
@@ -372,3 +377,11 @@ class HydranetManager(ForecastingModelManager):
         result: dict[str, PredictionFrame] = {t: list_pf_dicts[0][t] for t in ctx.all_targets}
         logger.info(f"✅ HydranetManager: Forecast complete — {len(result)} targets.")
         return result
+
+    def _evaluate_sweep(self, eval_type: str, model: Any) -> "dict[str, list[PredictionFrame]]":
+        """Evaluate a trained model during a WandB sweep iteration."""
+        ctx = self._setup_evaluation(eval_type, model)
+        list_pf_dicts = ctx.orchestrator.generate_prediction_frames(
+            ctx.handler, ctx.scaler, origins=ctx.origins, all_targets=ctx.all_targets
+        )
+        return {t: [d[t] for d in list_pf_dicts] for t in ctx.all_targets}

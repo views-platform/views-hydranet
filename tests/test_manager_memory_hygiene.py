@@ -132,7 +132,6 @@ class TestArtifactMethodsDelegateToSharedPipeline:
             patch.object(mgr, "_run_data_pipeline") as mock_pipeline,
             patch.object(mgr, "_run_preflight_check"),
             patch("views_hydranet.manager.hydranet_manager.ConfigInitializer") as mock_ci,
-            patch("views_hydranet.manager.hydranet_manager.ModelArtifactFetcher") as mock_maf,
             patch("views_hydranet.manager.hydranet_manager.VisualDiagnostics"),
             patch("views_hydranet.manager.hydranet_manager.log_device_report"),
             patch(
@@ -142,12 +141,11 @@ class TestArtifactMethodsDelegateToSharedPipeline:
         ):
             mock_cfg.return_value = _CFG
             mock_ci.return_value.get_config.return_value = _CFG
-            mock_maf.return_value.fetch_model_artifact.return_value = (MagicMock(), "artifact")
             mock_handler = MagicMock()
             mock_handler.shape = (10, 10, 1, 12)
             mock_pipeline.return_value = (mock_handler, MagicMock(), MagicMock())
 
-            mgr._setup_evaluation("calibration")
+            mgr._setup_evaluation("calibration", MagicMock())
             mock_pipeline.assert_called_once()
 
     def test_forecast_delegates(self, tmp_path):
