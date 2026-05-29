@@ -4,9 +4,9 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-05-28                           |
-| Total Concerns    | 92                                   |
-| Open Concerns     | 15                                   |
+| Last Updated      | 2026-05-29                           |
+| Total Concerns    | 93                                   |
+| Open Concerns     | 16                                   |
 | Resolved Concerns | 77                                   |
 
 ---
@@ -282,6 +282,22 @@ Tier 4 rationale: code quality / DRY violation. Single-developer scope. No corre
 `HydranetManager` implements `_evaluate_model_artifact` (single runs) but not `_evaluate_sweep` (wandb sweeps). The base class `ForecastingModelManager` marks it `@abstractmethod`. Root cause: `_setup_evaluation()` (lines 224-314) couples model loading (lines 268-279) with data pipeline + orchestrator wiring (lines 281-314). Sweep needs the data pipeline but not the disk load — the model is in-memory. Fix requires decomposing `_setup_evaluation()`: extract model loading into `_load_model_artifact()`, make `model` a required parameter of `_setup_evaluation()`, then add a 5-line `_evaluate_sweep()` override. Sibling managers (views-baseline, views-stepshifter) implement this method; HydraNet is the only one missing it.
 
 Tier 2 rationale: structural fragility — every sweep run crashes today. Clear trigger. Blocks hyperparameter optimization workflow.
+
+---
+
+### C-94: `reg_latent` tensor allocated during inference — wasteful memory
+
+| Field | Value |
+|-------|-------|
+| ID | C-94 |
+| Tier | 4 |
+| Source | pr-review (2026-05-29) |
+| Trigger | When running long autoregressive inference (36 steps × many origins), verify `reg_latent` is not consuming unnecessary GPU memory per step |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py` (`forward()`) |
+
+`ModelOutput.reg_latent` carries the pre-ReLU latent activations needed by `TobitLoss` during training. However, `forward()` always populates `reg_latent` regardless of whether the model is in training or eval mode. During inference (`model.eval()`), `reg_latent` is never consumed — the training engine uses it only inside the training loop. Each inference step allocates a full `[B, C, H, W]` tensor that is immediately discarded. Over 36 autoregressive steps × multiple origins, this is wasteful. Fix: gate `reg_latent` population on `self.training`.
+
+See also C-22 (resolved — ModelOutput NamedTuple), ADR-054 (Tobit loss).
 
 ---
 

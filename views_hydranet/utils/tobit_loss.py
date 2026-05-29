@@ -73,6 +73,7 @@ class TobitLoss(nn.Module):
         if sigma <= 0:
             raise ValueError(f"sigma must be > 0, got {sigma}")
         self.sigma = sigma
+        self._log_sigma = math.log(sigma)
         logger.info(f"TobitLoss initialized: sigma={sigma}")
 
     def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -98,6 +99,6 @@ class TobitLoss(nn.Module):
         observed = ~censored
         if observed.any():
             residual = (target[observed] - input[observed]) / self.sigma
-            loss[observed] = 0.5 * residual**2 + math.log(self.sigma)
+            loss[observed] = 0.5 * residual**2 + self._log_sigma
 
         return loss.mean()

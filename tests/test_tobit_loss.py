@@ -364,3 +364,18 @@ class TestModelOutputRegLatent:
         assert torch.allclose(output.reg, expected, atol=1e-6), (
             "reg should equal F.relu(reg_latent)"
         )
+
+    def test_reg_latent_none_in_eval_mode(self):
+        """reg_latent should be None when model is in eval mode (saves memory)."""
+        from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import (
+            HydraBNUNet06_LSTM4,
+        )
+
+        model = HydraBNUNet06_LSTM4(8, 32, 1, 0.0).float()
+        model.eval()
+        x = torch.randn(1, 8, 16, 16).float()
+        h = model.init_hTtime(32, 16, 16).float()
+        output = model(x, h)
+
+        assert output.reg_latent is None
+        assert output.reg is not None

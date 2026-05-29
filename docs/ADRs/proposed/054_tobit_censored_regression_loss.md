@@ -80,14 +80,14 @@
   - `output.reg >= 0` always (enforced by `test_reg_latent_is_pre_relu`)
   - Gradient flows to ALL cells including y=0 (enforced by `test_gradient_flows_to_all_cells`)
 
-- **Tests:** 27 tests in `tests/test_tobit_loss.py`:
+- **Tests:** 28 tests in `tests/test_tobit_loss.py`:
   - Interface (5): importable, nn.Module, needs_latent flag, scalar output, sigma validation
   - Censored (4): all-censored, gradient direction, loss monotonicity, hand-computed
   - Observed (3): all-observed, perfect prediction, hand-computed
   - Mixed (3): batch, gradient density, spatial shapes
   - Numerical stability (4): large positive/negative mu, large residual, small sigma
   - Registry (4): registered, factory, config accepts, config rejects tobit+hurdle
-  - ModelOutput (4): field exists, forward returns it, pre-ReLU property, relu relationship
+  - ModelOutput (5): field exists, forward returns it, pre-ReLU property, relu relationship, eval-mode None
 
 - **Failure Mode:** If isolation test S2a-Tobit shows training loss oscillation similar to S2-hurdle, the normal latent assumption is inappropriate. Proceed to Path D (tail-aware extension).
 

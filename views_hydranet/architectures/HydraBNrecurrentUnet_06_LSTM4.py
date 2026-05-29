@@ -516,7 +516,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
         H3_class = self.dec_conv4_head3_class(H3_class)
         out_class3 = H3_class
 
-        out_reg_latent = torch.concat([H1_reg, H2_reg, H3_reg], dim=1)
+        out_reg_latent = torch.concat([H1_reg, H2_reg, H3_reg], dim=1) if self.training else None
         out_reg = torch.concat([out_reg1, out_reg2, out_reg3], dim=1)
         out_class = torch.concat([out_class1, out_class2, out_class3], dim=1)
 
