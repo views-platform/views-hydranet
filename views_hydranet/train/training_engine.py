@@ -14,7 +14,7 @@ from __future__ import annotations
 import functools
 import logging
 import math
-from typing import Any, Dict, Optional, cast
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -111,13 +111,13 @@ def _process_sequence(
     multitaskloss_instance: nn.Module,
     idx: "_SequenceIndices",
     device: torch.device,
-    pbar: Optional[tqdm] = None,
-    forensics: Optional[TrainingForensics] = None,
-    hurdle_threshold: Optional[float] = None,
-    qs99_weight: Optional[float] = None,
-    qs99_tau: Optional[float] = None,
-    target_weights: Optional[Dict[str, float]] = None,
-) -> Dict[str, Any]:
+    pbar: tqdm | None = None,
+    forensics: TrainingForensics | None = None,
+    hurdle_threshold: float | None = None,
+    qs99_weight: float | None = None,
+    qs99_tau: float | None = None,
+    target_weights: dict[str, float] | None = None,
+) -> dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
 
@@ -248,14 +248,14 @@ class TrainingContext:
         self,
         model: nn.Module,
         optimizer: torch.optim.Optimizer,
-        scheduler: Optional[torch.optim.lr_scheduler._LRScheduler],
+        scheduler: torch.optim.lr_scheduler._LRScheduler | None,
         criterion_reg: nn.Module,
         criterion_class: nn.Module,
         multitaskloss_instance: nn.Module,
         config: dict,
         device: torch.device,
-        viz: Optional[VisualDiagnostics] = None,
-        forensics: Optional[TrainingForensics] = None,
+        viz: VisualDiagnostics | None = None,
+        forensics: TrainingForensics | None = None,
     ):
         self.model = model
         self.optimizer = optimizer
@@ -274,7 +274,7 @@ def train(
     sample_handler: VolumeHandler,
     pbar: tqdm,
     stage_label: str = "",
-) -> Dict[str, torch.Tensor]:  # Returns window losses
+) -> dict[str, torch.Tensor]:
     ctx.model.train()
     ctx.multitaskloss_instance.train()
 
@@ -406,7 +406,7 @@ def training_loop(
     model: nn.Module,
     criterion: tuple,
     optimizer: torch.optim.Optimizer,
-    scheduler: Optional[torch.optim.lr_scheduler._LRScheduler],
+    scheduler: torch.optim.lr_scheduler._LRScheduler | None,
     handler: VolumeHandler,
     device: torch.device,
     run_timestamp: str | None = None,

@@ -1,7 +1,7 @@
 "Shared Utilities for the HydraNet Pipeline."
 
 import logging
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 import torch
@@ -39,7 +39,7 @@ def choose_model(config: dict, device: torch.device) -> nn.Module:
 
 # Loss registries: add new losses here, not in choose_loss().
 # "params" lists are declared for future ReproducibilityGate genome audit (C-43).
-LOSS_REG_REGISTRY: Dict[str, Any] = {
+LOSS_REG_REGISTRY: dict[str, Any] = {
     "mse": {
         "cls": nn.MSELoss,
         "params": [],
@@ -78,7 +78,7 @@ LOSS_REG_REGISTRY: Dict[str, Any] = {
     },
 }
 
-LOSS_CLASS_REGISTRY: Dict[str, Any] = {
+LOSS_CLASS_REGISTRY: dict[str, Any] = {
     "bce": {
         "cls": nn.BCELoss,
         "params": [],
@@ -96,8 +96,8 @@ LOSS_CLASS_REGISTRY: Dict[str, Any] = {
 
 
 def choose_loss(
-    config: Dict[str, Any], device: torch.device
-) -> Tuple[nn.Module, nn.Module, "MultiTaskLoss"]:
+    config: dict[str, Any], device: torch.device
+) -> tuple[nn.Module, nn.Module, "MultiTaskLoss"]:
     """Factory for loss function instances.
 
     Loss functions are selected by name via the LOSS_REG_REGISTRY and
@@ -105,31 +105,20 @@ def choose_loss(
     adding an entry to the appropriate registry — no modification of
     this function (OCP).
     """
-    loss_reg_name = config["loss_reg"]
-    if loss_reg_name not in LOSS_REG_REGISTRY:
-        err_msg = (
-            f"Unknown regression loss: '{loss_reg_name}'. "
+    try:
+        criterion_reg = LOSS_REG_REGISTRY[config["loss_reg"]]["factory"](config, device)
+    except KeyError:
+        raise ValueError(
+            f"Unknown regression loss: '{config['loss_reg']}'. "
             f"Available: {list(LOSS_REG_REGISTRY.keys())}"
-        )
-
-        logger.error(err_msg)
-
-        raise ValueError(err_msg)
-
-    criterion_reg = LOSS_REG_REGISTRY[loss_reg_name]["factory"](config, device)
-
-    loss_class_name = config["loss_class"]
-    if loss_class_name not in LOSS_CLASS_REGISTRY:
-        err_msg = (
-            f"Unknown classification loss: '{loss_class_name}'. "
+        ) from None
+    try:
+        criterion_class = LOSS_CLASS_REGISTRY[config["loss_class"]]["factory"](config, device)
+    except KeyError:
+        raise ValueError(
+            f"Unknown classification loss: '{config['loss_class']}'. "
             f"Available: {list(LOSS_CLASS_REGISTRY.keys())}"
-        )
-
-        logger.error(err_msg)
-
-        raise ValueError(err_msg)
-
-    criterion_class = LOSS_CLASS_REGISTRY[loss_class_name]["factory"](config, device)
+        ) from None
 
     logger.info(f"Regression loss: {criterion_reg}\n classification loss: {criterion_class}")
 
@@ -146,7 +135,7 @@ def choose_loss(
     return (criterion_reg, criterion_class, multitaskloss_instance)
 
 
-def choose_scheduler(config: Dict[str, Any], unet: nn.Module) -> Tuple[torch.optim.Optimizer, Any]:
+def choose_scheduler(config: dict[str, Any], unet: nn.Module) -> tuple[torch.optim.Optimizer, Any]:
     """Factory for learning rate schedulers."""
     optimizer = torch.optim.AdamW(
         unet.parameters(),
@@ -168,7 +157,7 @@ def choose_scheduler(config: Dict[str, Any], unet: nn.Module) -> Tuple[torch.opt
     return (optimizer, scheduler)
 
 
-def init_weights(m: nn.Module, config: Dict[str, Any]) -> None:
+def init_weights(m: nn.Module, config: dict[str, Any]) -> None:
     """Weight initialization gate."""
     if config["weight_init"] == "xavier_uni":
         if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
@@ -189,9 +178,9 @@ def init_weights(m: nn.Module, config: Dict[str, Any]) -> None:
 
 
 def train_log(
-    avg_loss_list: List[float],
-    avg_loss_reg_list: List[float],
-    avg_loss_class_list: List[float],
+    avg_loss_list: list[float],
+    avg_loss_reg_list: list[float],
+    avg_loss_class_list: list[float],
 ) -> None:
     """Metric logging gate for W&B."""
     import wandb
