@@ -14,6 +14,7 @@ from views_hydranet.utils.lognormal_nll_loss import LogNormalFixedSigmaLoss
 from views_hydranet.utils.mtloss import MultiTaskLoss
 from views_hydranet.utils.pareto_loss import ParetoLoss
 from views_hydranet.utils.shrinkage_loss import ShrinkageLoss
+from views_hydranet.utils.tobit_loss import TobitLoss
 from views_hydranet.utils.warmup_decay_lr_scheduler import WarmupDecayLearningRateScheduler
 
 logger = logging.getLogger(__name__)
@@ -74,6 +75,13 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
         "params": ["loss_reg_pareto_alpha"],
         "factory": lambda config, device: ParetoLoss(
             alpha=config["loss_reg_pareto_alpha"],
+        ).to(device),
+    },
+    "tobit": {
+        "cls": TobitLoss,
+        "params": ["loss_reg_sigma"],
+        "factory": lambda config, device: TobitLoss(
+            sigma=config["loss_reg_sigma"],
         ).to(device),
     },
 }

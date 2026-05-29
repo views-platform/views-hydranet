@@ -120,7 +120,8 @@ class HydraNetInference:
             _, hl_t_frozen = torch.split(h_tt, split_size, dim=1)
 
             # Run the model
-            t1_pred, t1_pred_class, h_tt = self.model(t0, h_tt)
+            output = self.model(t0, h_tt)
+            t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
 
             # Split the updated hidden state and keep the old `hl_t_frozen`
             hs_t_updated, _ = torch.split(h_tt, split_size, dim=1)
@@ -135,7 +136,8 @@ class HydraNetInference:
             hs_t_frozen, _ = torch.split(h_tt, split_size, dim=1)
 
             # Run the model
-            t1_pred, t1_pred_class, h_tt = self.model(t0, h_tt)
+            output = self.model(t0, h_tt)
+            t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
 
             # Split the new hidden state and retain the frozen `hs_t_frozen`
             _, hl_t_updated = torch.split(h_tt, split_size, dim=1)
@@ -145,17 +147,20 @@ class HydraNetInference:
 
         elif freeze_h == "all":  # Freeze both short-term and long-term memory
             logger.debug("Freezing both hs and hl.")
-            t1_pred, t1_pred_class, _ = self.model(t0, h_tt)  # Do not update h_tt
+            output = self.model(t0, h_tt)
+            t1_pred, t1_pred_class = output.reg, output.cls  # Do not update h_tt
 
         elif freeze_h == "none":  # No freezing, use normal hidden state update
             logger.debug("Not freezing any memory.")
-            t1_pred, t1_pred_class, h_tt = self.model(t0, h_tt)
+            output = self.model(t0, h_tt)
+            t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
 
         elif freeze_h == "random":  # Randomly freeze some parts
             logger.debug("Random freezing mode activated.")
 
             # Run model first to get new `h_tt_new`
-            t1_pred, t1_pred_class, h_tt_new = self.model(t0, h_tt)
+            output = self.model(t0, h_tt)
+            t1_pred, t1_pred_class, h_tt_new = output.reg, output.cls, output.h_next
 
             # Vectorized Chunk Selection (ADR 028 Performance Hardening)
             num_chunks = self._RANDOM_FREEZE_NUM_CHUNKS

@@ -39,12 +39,13 @@ def test_architecture_forward_pass_shapes():
     x = torch.randn((1, input_ch, H, W)).float()
     h = model.init_hTtime(hidden_ch, H, W).float()
 
-    out_reg, out_class, new_h = model(x, h)
+    output = model(x, h)
 
     # 3 heads (sb, ns, os) concatenated
-    assert out_reg.shape == (1, 3, H, W)
-    assert out_class.shape == (1, 3, H, W)
-    assert new_h.shape == (1, hidden_ch, H, W)
+    assert output.reg.shape == (1, 3, H, W)
+    assert output.cls.shape == (1, 3, H, W)
+    assert output.h_next.shape == (1, hidden_ch, H, W)
+    assert output.reg_latent.shape == (1, 3, H, W)
 
 
 def test_architecture_recurrent_state_evolution():
@@ -53,11 +54,11 @@ def test_architecture_recurrent_state_evolution():
     x = torch.randn((1, 8, 16, 16)).float()
     h_init = model.init_hTtime(32, 16, 16).float()
 
-    _, _, h_next = model(x, h_init)
+    output = model(x, h_init)
 
     # Hidden state should no longer be zeros
-    assert not torch.all(h_next == 0)
-    assert h_next.shape == h_init.shape
+    assert not torch.all(output.h_next == 0)
+    assert output.h_next.shape == h_init.shape
 
 
 def test_architecture_multi_batch_support():
@@ -73,12 +74,14 @@ def test_architecture_multi_batch_support():
     x = torch.randn((batch_size, input_ch, H, W)).float()
     h = torch.zeros((batch_size, hidden_ch, H, W)).float()
 
-    out_reg, out_class, new_h = model(x, h)
+    output = model(x, h)
 
-    assert out_reg.shape[0] == batch_size, (
-        f"Expected batch dim {batch_size}, got {out_reg.shape[0]}"
+    assert output.reg.shape[0] == batch_size, (
+        f"Expected batch dim {batch_size}, got {output.reg.shape[0]}"
     )
-    assert new_h.shape[0] == batch_size, f"Expected batch dim {batch_size}, got {new_h.shape[0]}"
+    assert output.h_next.shape[0] == batch_size, (
+        f"Expected batch dim {batch_size}, got {output.h_next.shape[0]}"
+    )
 
 
 def test_weight_init_xavier_norm_is_not_silent():

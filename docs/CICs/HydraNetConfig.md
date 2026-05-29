@@ -3,7 +3,7 @@
 **Status:** Active
 **Owner:** Schema
 **Last reviewed:** 26.05.2026
-**Related ADRs:** ADR-009, ADR-046, ADR-049, ADR-050
+**Related ADRs:** ADR-009, ADR-046, ADR-049, ADR-050, ADR-054
 
 ---
 
@@ -55,7 +55,7 @@ The `HydraNetConfig` is the **Schema** of the HydraNet pipeline. Its primary pur
 - **Invalid Evaluation Mode:** Raises `ValueError` with valid options listed — no silent typo correction for `evaluation_mode` (only the legacy `evalution_mode` key name is corrected).
 - **Invalid Loss Function (Regression):** Raises `ValueError` when `loss_reg` is not in `LOSS_REG_REGISTRY`, listing valid options.
 - **Invalid Loss Function (Classification):** Raises `ValueError` when `loss_class` is not in `LOSS_CLASS_REGISTRY`, listing valid options.
-- **Missing Loss Reg Parameter:** Raises `ValueError` when the active regression loss's required parameter is not provided (e.g., `shrinkage` requires `loss_reg_a` and `loss_reg_c`, `basu_dpd` requires `loss_reg_alpha` and `loss_reg_sigma`).
+- **Missing Loss Reg Parameter:** Raises `ValueError` when the active regression loss's required parameter is not provided (e.g., `shrinkage` requires `loss_reg_a` and `loss_reg_c`, `basu_dpd` requires `loss_reg_alpha` and `loss_reg_sigma`, `tobit` requires `loss_reg_sigma`).
 - **Missing Loss Class Parameter:** Raises `ValueError` when the active classification loss's required parameter is not provided (e.g., `focal` requires `loss_class_alpha` and `loss_class_gamma`).
 - **Invalid Aggregate Method:** Raises `ValueError` when `aggregate_method` is not in `[arithmetic_mean, geometric_mean, median]`.
 - **Degenerate Slope Ratio:** Raises `ValueError` when `slope_ratio <= 0.0` (causes division-by-zero in curriculum).
@@ -65,6 +65,7 @@ The `HydraNetConfig` is the **Schema** of the HydraNet pipeline. Its primary pur
 - **Invalid Sampling Strategy (ADR-049):** Raises `ValueError` when `sampling_strategy` is not in `SAMPLING_STRATEGY_REGISTRY`, listing valid options.
 - **Missing Sampling Strategy:** Raises `ValidationError` — `sampling_strategy` is a required field with no default.
 - **Missing Strategy Parameter (ADR-049):** Raises `ValueError` when the strategy's required parameter is not provided (e.g., `power_law` requires `sampling_alpha`, `boltzmann` requires `sampling_temperature`, `sigmoid` requires `sampling_steepness`).
+- **Contradictory Tobit + Hurdle (ADR-054):** Raises `ValueError` when `loss_reg='tobit'` and `hurdle_threshold` is set. Tobit handles zero-inflation internally via censored likelihood; the hurdle mask is contradictory.
 - **Missing Hurdle QS99 Parameter (ADR-050):** Raises `ValueError` when `hurdle_threshold` is set with `qs99_weight > 0` but `qs99_tau` is not provided.
 - **Invalid QS99 Weight (ADR-050):** Raises `ValidationError` when `qs99_weight < 0` (negative weight inverts the penalty direction).
 - **Invalid QS99 Tau (ADR-050):** Raises `ValidationError` when `qs99_tau` is not in `(0.0, 1.0)` (pinball loss quantile must be a valid probability).
@@ -105,7 +106,7 @@ all_keys = config_obj.keys()
 
 ## 10. Test Alignment
 
-- **🟩 Green Team:** Valid configuration construction and dict access in `tests/test_config_typed.py`. Hurdle+Basu DPD integration paths in `tests/test_hurdle_basu_integration.py`.
+- **🟩 Green Team:** Valid configuration construction and dict access in `tests/test_config_typed.py`. Hurdle+Basu DPD integration paths in `tests/test_hurdle_basu_integration.py`. Tobit config acceptance and tobit+hurdle rejection in `tests/test_tobit_loss.py`.
 - **🟫 Beige Team:** Checksum violations, lifecycle law, stochastic mode warning in `tests/test_config_validation.py`. Config path guards (hurdle disabled, qs99_weight=0) in `tests/test_hurdle_basu_integration.py`.
 - **🟥 Red Team:** Invalid run_type, evaluation_mode, hidden channels divisibility, missing fields in `tests/test_config_validation.py`. QS99 range validation, Basu degenerate params in `tests/test_falsification_hurdle_params.py`. Hurdle parameter enforcement, target_weights validation in `tests/test_hurdle_basu_integration.py`. CIC field count drift in `tests/test_falsification_loss_param_validation.py`.
 

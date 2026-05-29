@@ -4,10 +4,10 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-05-28                           |
-| Total Concerns    | 92                                   |
+| Last Updated      | 2026-05-29                           |
+| Total Concerns    | 93                                   |
 | Open Concerns     | 15                                   |
-| Resolved Concerns | 77                                   |
+| Resolved Concerns | 78                                   |
 
 ---
 
@@ -332,6 +332,16 @@ Tier 2 rationale: structural fragility — every sweep run crashes today. Clear 
 ---
 
 ## Resolved Concerns
+
+### C-94: `reg_latent` tensor allocated during inference — wasteful memory — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-94 |
+| Resolved | 2026-05-29 |
+| Resolution | Gated `out_reg_latent` concatenation on `self.training` in `forward()`. Eval mode now returns `reg_latent=None`, eliminating one `[B, C, H, W]` allocation per autoregressive step. Verified by `test_reg_latent_none_in_eval_mode`. |
+
+---
 
 ### C-88: No integration test for `target_weights` multi-target application — RESOLVED
 
