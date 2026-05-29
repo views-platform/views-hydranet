@@ -146,6 +146,10 @@ def _process_sequence(
         output = model(t0_input, h)
         t1_pred, t1_pred_class, h = output.reg, output.cls, output.h_next
 
+        # Censored losses (TobitLoss) need pre-ReLU latent mu
+        use_latent = getattr(criterion_reg, "needs_latent", False) is True
+        t1_pred_for_loss = output.reg_latent if use_latent else t1_pred
+
         # --- FORENSIC RECORDING (ADR 001 Custodian) ---
         if forensics:
             for j, target_name in enumerate(idx.reg_names):
@@ -161,7 +165,7 @@ def _process_sequence(
         losses_list = []
         qs99_loss = torch.tensor(0.0, device=device)
         for j in range(idx.n_reg):
-            pred_j = t1_pred[:, j, :, :]
+            pred_j = t1_pred_for_loss[:, j, :, :]
             target_j = y_reg[:, j, :, :]
 
             # C-87: per-target loss weight (1.0 if not configured)
@@ -169,7 +173,7 @@ def _process_sequence(
             if target_weights is not None:
                 tw = target_weights[idx.reg_names[j]]
 
-            if hurdle_threshold is not None:
+            if hurdle_threshold is not None and not use_latent:
                 # C-45: Regression loss on positive observations only
                 mask = target_j > hurdle_threshold
                 if mask.any():

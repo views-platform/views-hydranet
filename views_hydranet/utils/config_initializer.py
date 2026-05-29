@@ -76,7 +76,7 @@ class HydraNetConfig(BaseModel):
     warmup_steps: int = Field(..., ge=1)
     clip_grad_norm: bool = Field(...)
 
-    # 6. Loss Functions (names: mse, shrinkage, basu_dpd, lognormal_nll)
+    # 6. Loss Functions (names: mse, shrinkage, basu_dpd, lognormal_nll, tobit)
     loss_reg: str = Field(...)
     loss_class: str = Field(...)
     # ShrinkageLoss params (loss_reg='shrinkage')
@@ -84,7 +84,7 @@ class HydraNetConfig(BaseModel):
     loss_reg_c: float | None = Field(default=None)
     # BasuDPDLoss params (loss_reg='basu_dpd')
     loss_reg_alpha: float | None = Field(default=None)
-    # Shared: BasuDPDLoss sigma / LogNormalFixedSigmaLoss sigma
+    # Shared: BasuDPDLoss / LogNormalFixedSigmaLoss / TobitLoss sigma
     loss_reg_sigma: float | None = Field(default=None)
     # ParetoLoss params (loss_reg='pareto')
     loss_reg_pareto_alpha: float | None = Field(default=None)
@@ -478,6 +478,14 @@ class HydraNetConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_hurdle_params(self) -> "HydraNetConfig":
+        if self.loss_reg == "tobit" and self.hurdle_threshold is not None:
+            err_msg = (
+                "loss_reg='tobit' handles zero-inflation internally via "
+                "censored likelihood. Setting hurdle_threshold is contradictory "
+                "— remove hurdle_threshold from your config."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         if (
             self.hurdle_threshold is not None
             and self.qs99_weight is not None
