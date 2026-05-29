@@ -6,8 +6,8 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-05-29                           |
 | Total Concerns    | 93                                   |
-| Open Concerns     | 16                                   |
-| Resolved Concerns | 77                                   |
+| Open Concerns     | 15                                   |
+| Resolved Concerns | 78                                   |
 
 ---
 
@@ -285,22 +285,6 @@ Tier 2 rationale: structural fragility — every sweep run crashes today. Clear 
 
 ---
 
-### C-94: `reg_latent` tensor allocated during inference — wasteful memory
-
-| Field | Value |
-|-------|-------|
-| ID | C-94 |
-| Tier | 4 |
-| Source | pr-review (2026-05-29) |
-| Trigger | When running long autoregressive inference (36 steps × many origins), verify `reg_latent` is not consuming unnecessary GPU memory per step |
-| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py` (`forward()`) |
-
-`ModelOutput.reg_latent` carries the pre-ReLU latent activations needed by `TobitLoss` during training. However, `forward()` always populates `reg_latent` regardless of whether the model is in training or eval mode. During inference (`model.eval()`), `reg_latent` is never consumed — the training engine uses it only inside the training loop. Each inference step allocates a full `[B, C, H, W]` tensor that is immediately discarded. Over 36 autoregressive steps × multiple origins, this is wasteful. Fix: gate `reg_latent` population on `self.training`.
-
-See also C-22 (resolved — ModelOutput NamedTuple), ADR-054 (Tobit loss).
-
----
-
 ## Disagreements
 
 ### D-01: VolumeHandler scope — God Object vs Deep Module
@@ -348,6 +332,16 @@ See also C-22 (resolved — ModelOutput NamedTuple), ADR-054 (Tobit loss).
 ---
 
 ## Resolved Concerns
+
+### C-94: `reg_latent` tensor allocated during inference — wasteful memory — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-94 |
+| Resolved | 2026-05-29 |
+| Resolution | Gated `out_reg_latent` concatenation on `self.training` in `forward()`. Eval mode now returns `reg_latent=None`, eliminating one `[B, C, H, W]` allocation per autoregressive step. Verified by `test_reg_latent_none_in_eval_mode`. |
+
+---
 
 ### C-88: No integration test for `target_weights` multi-target application — RESOLVED
 
