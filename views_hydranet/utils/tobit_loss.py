@@ -68,13 +68,20 @@ class TobitLoss(nn.Module):
 
     needs_latent = True
 
-    def __init__(self, sigma: float = 1.0):
+    def __init__(self, sigma: float = 1.0, learnable: bool = False):
         super().__init__()
         if sigma <= 0:
             raise ValueError(f"sigma must be > 0, got {sigma}")
-        self.sigma = sigma
-        self._log_sigma = math.log(sigma)
-        logger.info(f"TobitLoss initialized: sigma={sigma}")
+        log_sigma_val = torch.tensor(math.log(sigma))
+        if learnable:
+            self.log_sigma = torch.nn.Parameter(log_sigma_val)
+        else:
+            self.register_buffer("log_sigma", log_sigma_val)
+        logger.info(f"TobitLoss initialized: sigma={sigma}, learnable={learnable}")
+
+    @property
+    def sigma(self) -> float:
+        return self.log_sigma.exp().item()
 
     def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """
@@ -88,7 +95,8 @@ class TobitLoss(nn.Module):
         Returns:
             Scalar loss tensor.
         """
-        z = input / self.sigma
+        sigma = self.log_sigma.exp()
+        z = input / sigma
         censored = target == 0
 
         loss = torch.zeros_like(input)
@@ -98,7 +106,7 @@ class TobitLoss(nn.Module):
 
         observed = ~censored
         if observed.any():
-            residual = (target[observed] - input[observed]) / self.sigma
-            loss[observed] = 0.5 * residual**2 + self._log_sigma
+            residual = (target[observed] - input[observed]) / sigma
+            loss[observed] = 0.5 * residual**2 + self.log_sigma  # log(σ) from Gaussian NLL
 
         return loss.mean()

@@ -85,7 +85,8 @@ class HydraNetConfig(BaseModel):
     # BasuDPDLoss params (loss_reg='basu_dpd')
     loss_reg_alpha: float | None = Field(default=None)
     # Shared: BasuDPDLoss / LogNormalFixedSigmaLoss / TobitLoss sigma
-    loss_reg_sigma: float | None = Field(default=None)
+    # Per-target Tobit (issue #44): dict[str, float] maps regression target → sigma.
+    loss_reg_sigma: float | Dict[str, float] | None = Field(default=None)
     # ParetoLoss params (loss_reg='pareto')
     loss_reg_pareto_alpha: float | None = Field(default=None)
     # FocalLoss params (loss_class='focal')
@@ -100,6 +101,8 @@ class HydraNetConfig(BaseModel):
     qs99_tau: float | None = Field(default=None, gt=0.0, lt=1.0)
     # Per-target regression loss weights (C-87): None = uniform.
     target_weights: Dict[str, float] | None = Field(default=None)
+    # Learnable Tobit sigma (ADR-055): optimizer adjusts sigma during training.
+    learnable_sigma: bool = Field(default=False)
 
     # 7. Sampling & Reproducibility
     total_lessons: int = Field(..., ge=1)
@@ -449,7 +452,7 @@ class HydraNetConfig(BaseModel):
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
-        if self.loss_reg_sigma is not None and self.loss_reg_sigma <= 0:
+        if isinstance(self.loss_reg_sigma, (int, float)) and self.loss_reg_sigma <= 0:
             err_msg = (
                 f"loss_reg='basu_dpd' requires loss_reg_sigma > 0, "
                 f"got {self.loss_reg_sigma}. sigma=0 causes division by zero "
@@ -515,6 +518,51 @@ class HydraNetConfig(BaseModel):
             err_msg = (
                 f"target_weights is missing entries for regression targets: "
                 f"{missing}. All regression_targets must have a weight."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        extra = [k for k in self.target_weights if k not in self.regression_targets]
+        if extra:
+            err_msg = (
+                f"target_weights contains keys not in regression_targets: "
+                f"{extra}. Remove them or check for typos."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_per_target_sigma(self) -> "HydraNetConfig":
+        if not isinstance(self.loss_reg_sigma, dict):
+            return self
+        if self.loss_reg != "tobit":
+            err_msg = (
+                f"Per-target loss_reg_sigma (dict) is only supported for "
+                f"loss_reg='tobit', got loss_reg='{self.loss_reg}'."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        for v in self.loss_reg_sigma.values():
+            if v <= 0:
+                err_msg = (
+                    f"All per-target loss_reg_sigma values must be positive, "
+                    f"got {self.loss_reg_sigma}."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+        missing = [t for t in self.regression_targets if t not in self.loss_reg_sigma]
+        if missing:
+            err_msg = (
+                f"Per-target loss_reg_sigma is missing entries for regression "
+                f"targets: {missing}. All regression_targets must have a sigma."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        extra = [k for k in self.loss_reg_sigma if k not in self.regression_targets]
+        if extra:
+            err_msg = (
+                f"Per-target loss_reg_sigma contains keys not in regression_targets: "
+                f"{extra}. Remove them or check for typos."
             )
             logger.error(err_msg)
             raise ValueError(err_msg)

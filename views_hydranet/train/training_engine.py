@@ -80,6 +80,14 @@ def make(config: dict, device: torch.device):
     criterion = choose_loss(config, device)
     optimizer, scheduler = choose_scheduler(config, model)
 
+    # ADR-055: add learnable sigma parameters to the optimizer
+    criterion_reg = criterion[0]
+    if isinstance(criterion_reg, dict):
+        for loss_instance in criterion_reg.values():
+            sigma_params = list(loss_instance.parameters())
+            if sigma_params:
+                optimizer.add_param_group({"params": sigma_params})
+
     return (model, criterion, optimizer, scheduler)
 
 
@@ -106,7 +114,7 @@ def _process_sequence(
     train_tensor: torch.Tensor,
     model: nn.Module,
     h: torch.Tensor,
-    criterion_reg: nn.Module,
+    criterion_reg: nn.Module | dict[str, nn.Module],
     criterion_class: nn.Module,
     multitaskloss_instance: nn.Module,
     idx: "_SequenceIndices",
@@ -133,6 +141,12 @@ def _process_sequence(
     step_cls: list[float] = []
     step_total: list[float] = []
 
+    # Censored losses (TobitLoss) need pre-ReLU latent mu — resolve once
+    if isinstance(criterion_reg, dict):
+        use_latent = any(getattr(v, "needs_latent", False) for v in criterion_reg.values())
+    else:
+        use_latent = getattr(criterion_reg, "needs_latent", False) is True
+
     for i in range(seq_len - 1):
         t0 = train_tensor[:, i, :, :, :]
         t1 = train_tensor[:, i + 1, :, :, :]
@@ -146,8 +160,6 @@ def _process_sequence(
         output = model(t0_input, h)
         t1_pred, t1_pred_class, h = output.reg, output.cls, output.h_next
 
-        # Censored losses (TobitLoss) need pre-ReLU latent mu
-        use_latent = getattr(criterion_reg, "needs_latent", False) is True
         t1_pred_for_loss = output.reg_latent if use_latent else t1_pred
 
         # --- FORENSIC RECORDING (ADR 001 Custodian) ---
@@ -168,6 +180,13 @@ def _process_sequence(
             pred_j = t1_pred_for_loss[:, j, :, :]
             target_j = y_reg[:, j, :, :]
 
+            # Issue #44: per-target loss instance (or shared single instance)
+            loss_fn_j = (
+                criterion_reg[idx.reg_names[j]]
+                if isinstance(criterion_reg, dict)
+                else criterion_reg
+            )
+
             # C-87: per-target loss weight (1.0 if not configured)
             tw = 1.0
             if target_weights is not None:
@@ -177,7 +196,7 @@ def _process_sequence(
                 # C-45: Regression loss on positive observations only
                 mask = target_j > hurdle_threshold
                 if mask.any():
-                    losses_list.append(tw * criterion_reg(pred_j[mask], target_j[mask]))
+                    losses_list.append(tw * loss_fn_j(pred_j[mask], target_j[mask]))
                 else:
                     losses_list.append(torch.tensor(0.0, device=device))
 
@@ -198,7 +217,7 @@ def _process_sequence(
                     )
                     qs99_loss = qs99_loss + tw * pinball.mean()
             else:
-                losses_list.append(tw * criterion_reg(pred_j, target_j))
+                losses_list.append(tw * loss_fn_j(pred_j, target_j))
 
         for j in range(idx.n_cls):
             losses_list.append(criterion_class(t1_pred_class[:, j, :, :], y_cls[:, j, :, :]))
@@ -253,7 +272,7 @@ class TrainingContext:
         model: nn.Module,
         optimizer: torch.optim.Optimizer,
         scheduler: torch.optim.lr_scheduler._LRScheduler | None,
-        criterion_reg: nn.Module,
+        criterion_reg: nn.Module | dict[str, nn.Module],
         criterion_class: nn.Module,
         multitaskloss_instance: nn.Module,
         config: dict,
@@ -557,6 +576,18 @@ def training_loop(
 
                 # Optimize (Update Weights)
                 optimizer.step()
+
+                # ADR-055: log per-target sigma once per lesson (after optimizer step)
+                if isinstance(criterion_reg, dict):
+                    import wandb
+
+                    if wandb.run is not None:
+                        wandb.log(
+                            {
+                                f"sigma/{name}": loss_fn.sigma
+                                for name, loss_fn in criterion_reg.items()
+                            }
+                        )
 
             # Step scheduler at the end of the lesson if it exists
             if scheduler is not None:
