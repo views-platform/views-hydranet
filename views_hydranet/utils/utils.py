@@ -105,7 +105,7 @@ LOSS_CLASS_REGISTRY: dict[str, Any] = {
 
 def choose_loss(
     config: dict[str, Any], device: torch.device
-) -> tuple[nn.Module, nn.Module, "MultiTaskLoss"]:
+) -> tuple[nn.Module | dict[str, nn.Module], nn.Module, "MultiTaskLoss"]:
     """Factory for loss function instances.
 
     Loss functions are selected by name via the LOSS_REG_REGISTRY and
@@ -113,13 +113,21 @@ def choose_loss(
     adding an entry to the appropriate registry — no modification of
     this function (OCP).
     """
-    try:
-        criterion_reg = LOSS_REG_REGISTRY[config["loss_reg"]]["factory"](config, device)
-    except KeyError:
-        raise ValueError(
-            f"Unknown regression loss: '{config['loss_reg']}'. "
-            f"Available: {list(LOSS_REG_REGISTRY.keys())}"
-        ) from None
+    loss_reg_sigma = config.get("loss_reg_sigma")
+    learnable = config.get("learnable_sigma", False)
+    if isinstance(loss_reg_sigma, dict) and config["loss_reg"] == "tobit":
+        criterion_reg = {
+            target: TobitLoss(sigma=s, learnable=learnable).to(device)
+            for target, s in loss_reg_sigma.items()
+        }
+    else:
+        try:
+            criterion_reg = LOSS_REG_REGISTRY[config["loss_reg"]]["factory"](config, device)
+        except KeyError:
+            raise ValueError(
+                f"Unknown regression loss: '{config['loss_reg']}'. "
+                f"Available: {list(LOSS_REG_REGISTRY.keys())}"
+            ) from None
     try:
         criterion_class = LOSS_CLASS_REGISTRY[config["loss_class"]]["factory"](config, device)
     except KeyError:

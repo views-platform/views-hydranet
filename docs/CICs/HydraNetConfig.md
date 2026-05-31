@@ -23,12 +23,13 @@ The `HydraNetConfig` is the **Schema** of the HydraNet pipeline. Its primary pur
 
 ## 3. Responsibilities and Guarantees
 
-- **Field Validation:** Guarantees that all 64 fields are type-checked and constraint-validated (e.g., `dropout_rate` in [0.0, 1.0], `input_channels >= 1`).
+- **Field Validation:** Guarantees that all 65 fields are type-checked and constraint-validated (e.g., `dropout_rate` in [0.0, 1.0], `input_channels >= 1`).
 - **Checksum Laws (ADR-009):** Guarantees `input_channels == len(features)` and `time_steps == len(steps)`.
 - **Feature Lifecycle Law (ADR-046):** Guarantees that all required columns (features + targets) are accounted for in `transformations` or `derivations`.
 - **Typo Correction:** Handles the legacy `evalution_mode` typo via a `model_validator(mode="before")` shim.
 - **Enum Validation:** Validates `run_type`, `evaluation_mode`, and `aggregate_method` against strict allowlists, with alias support for `aggregate_method` (e.g., `"mean"` → `"arithmetic_mean"`).
 - **Conditional Parameter Validation:** Guarantees that strategy-specific parameters are explicitly provided for the active choice in `sampling_strategy`, `loss_reg`, `loss_class`, `hurdle_threshold` (QS99 params), and `target_weights` (regression target coverage). No silent defaults — missing parameters raise immediately.
+- **Per-Target Sigma Validation (issue #44):** `loss_reg_sigma` accepts `float` (shared across targets) or `Dict[str, float]` (per-target). Dict form is only valid for `loss_reg='tobit'`. Validates: all regression targets present, no extra keys, all values positive.
 - **Dict Compatibility Layer:** Provides `__getitem__`, `__contains__`, `get()`, and `keys()` for gradual migration from `config["key"]` access patterns.
 
 ---
@@ -72,6 +73,10 @@ The `HydraNetConfig` is the **Schema** of the HydraNet pipeline. Its primary pur
 - **Degenerate Basu DPD Alpha (ADR-050):** Raises `ValueError` when `loss_reg='basu_dpd'` and `loss_reg_alpha <= 0` (α=0 degenerates to MLE, α<0 is undefined).
 - **Degenerate Basu DPD Sigma (ADR-050):** Raises `ValueError` when `loss_reg='basu_dpd'` and `loss_reg_sigma <= 0` (σ=0 causes division by zero).
 - **Invalid Target Weights (ADR-050):** Raises `ValueError` when `target_weights` contains negative values or is missing a regression target.
+- **Per-Target Sigma for Non-Tobit (issue #44):** Raises `ValueError` when `loss_reg_sigma` is a dict but `loss_reg` is not `'tobit'`. Dict sigma is only meaningful for Tobit censored-normal loss.
+- **Per-Target Sigma Non-Positive (issue #44):** Raises `ValueError` when any value in the `loss_reg_sigma` dict is ≤ 0.
+- **Per-Target Sigma Missing Target (issue #44):** Raises `ValueError` when the `loss_reg_sigma` dict is missing an entry for a regression target.
+- **Per-Target Sigma Extra Key (issue #44):** Raises `ValueError` when the `loss_reg_sigma` dict contains a key not in `regression_targets` (catches typos).
 
 ---
 
