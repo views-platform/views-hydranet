@@ -104,6 +104,12 @@ class HydraNetConfig(BaseModel):
     # Learnable Tobit sigma (ADR-055): optimizer adjusts sigma during training.
     learnable_sigma: bool = Field(default=False)
 
+    # 11. Scheduled Sampling (ADR-056): close train/inference gap.
+    ss_schedule: str | None = Field(default=None)
+    ss_epsilon_max: float = Field(default=1.0, ge=0.0, le=1.0)
+    ss_warmup_lessons: int | None = Field(default=None, ge=1)
+    ss_k: float | None = Field(default=None, gt=0.0)
+
     # 7. Sampling & Reproducibility
     total_lessons: int = Field(..., ge=1)
     n_posterior_samples: int = Field(..., ge=1)
@@ -564,6 +570,29 @@ class HydraNetConfig(BaseModel):
                 f"Per-target loss_reg_sigma contains keys not in regression_targets: "
                 f"{extra}. Remove them or check for typos."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_scheduled_sampling_params(self) -> "HydraNetConfig":
+        if self.ss_schedule is None:
+            return self
+        valid = ["linear", "inverse_sigmoid", "exponential"]
+        if self.ss_schedule not in valid:
+            err_msg = f"ss_schedule='{self.ss_schedule}' is not valid. Expected one of: {valid}"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        if self.ss_schedule == "linear" and self.ss_warmup_lessons is None:
+            err_msg = "ss_schedule='linear' requires 'ss_warmup_lessons'."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        if self.ss_schedule in ("inverse_sigmoid", "exponential") and self.ss_k is None:
+            err_msg = f"ss_schedule='{self.ss_schedule}' requires 'ss_k'."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        if self.ss_schedule == "exponential" and self.ss_k is not None and self.ss_k >= 1.0:
+            err_msg = f"ss_schedule='exponential' requires ss_k < 1.0, got {self.ss_k}."
             logger.error(err_msg)
             raise ValueError(err_msg)
         return self
