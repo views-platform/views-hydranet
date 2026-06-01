@@ -23,7 +23,7 @@ The `HydraNetConfig` is the **Schema** of the HydraNet pipeline. Its primary pur
 
 ## 3. Responsibilities and Guarantees
 
-- **Field Validation:** Guarantees that all 65 fields are type-checked and constraint-validated (e.g., `dropout_rate` in [0.0, 1.0], `input_channels >= 1`).
+- **Field Validation:** Guarantees that all 69 fields are type-checked and constraint-validated (e.g., `dropout_rate` in [0.0, 1.0], `input_channels >= 1`).
 - **Checksum Laws (ADR-009):** Guarantees `input_channels == len(features)` and `time_steps == len(steps)`.
 - **Feature Lifecycle Law (ADR-046):** Guarantees that all required columns (features + targets) are accounted for in `transformations` or `derivations`.
 - **Typo Correction:** Handles the legacy `evalution_mode` typo via a `model_validator(mode="before")` shim.
@@ -77,6 +77,10 @@ The `HydraNetConfig` is the **Schema** of the HydraNet pipeline. Its primary pur
 - **Per-Target Sigma Non-Positive (issue #44):** Raises `ValueError` when any value in the `loss_reg_sigma` dict is ≤ 0.
 - **Per-Target Sigma Missing Target (issue #44):** Raises `ValueError` when the `loss_reg_sigma` dict is missing an entry for a regression target.
 - **Per-Target Sigma Extra Key (issue #44):** Raises `ValueError` when the `loss_reg_sigma` dict contains a key not in `regression_targets` (catches typos).
+- **Invalid Scheduled Sampling Schedule (ADR-056):** Raises `ValueError` when `ss_schedule` is not in `['linear', 'inverse_sigmoid', 'exponential']`.
+- **Missing Scheduled Sampling Warmup (ADR-056):** Raises `ValueError` when `ss_schedule='linear'` and `ss_warmup_lessons` is not provided.
+- **Missing Scheduled Sampling K (ADR-056):** Raises `ValueError` when `ss_schedule` is `'inverse_sigmoid'` or `'exponential'` and `ss_k` is not provided.
+- **Invalid Scheduled Sampling K (ADR-056):** Raises `ValueError` when `ss_schedule='exponential'` and `ss_k >= 1.0` (divergent schedule).
 
 ---
 

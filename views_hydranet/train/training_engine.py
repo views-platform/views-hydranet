@@ -125,6 +125,7 @@ def _process_sequence(
     qs99_weight: float | None = None,
     qs99_tau: float | None = None,
     target_weights: dict[str, float] | None = None,
+    ss_epsilon: float = 0.0,
 ) -> dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
@@ -147,6 +148,8 @@ def _process_sequence(
     else:
         use_latent = getattr(criterion_reg, "needs_latent", False) is True
 
+    prev_pred: torch.Tensor | None = None
+
     for i in range(seq_len - 1):
         t0 = train_tensor[:, i, :, :, :]
         t1 = train_tensor[:, i + 1, :, :, :]
@@ -156,9 +159,18 @@ def _process_sequence(
         y_cls = t1[:, idx.cls, :, :]
 
         # Forward pass: Feed ONLY the input features (Zero Magic)
-        t0_input = t0[:, idx.feat, :, :]
+        t0_gt = t0[:, idx.feat, :, :]
+
+        # ADR-056: scheduled sampling — may replace ground truth with model prediction
+        if ss_epsilon > 0.0 and prev_pred is not None:
+            mask = torch.rand(t0_gt.shape[0], 1, 1, 1, device=device) < ss_epsilon
+            t0_input = torch.where(mask, prev_pred, t0_gt)
+        else:
+            t0_input = t0_gt
+
         output = model(t0_input, h)
         t1_pred, t1_pred_class, h = output.reg, output.cls, output.h_next
+        prev_pred = t1_pred.detach()
 
         t1_pred_for_loss = output.reg_latent if use_latent else t1_pred
 
@@ -297,6 +309,7 @@ def train(
     sample_handler: VolumeHandler,
     pbar: tqdm,
     stage_label: str = "",
+    ss_epsilon: float = 0.0,
 ) -> dict[str, torch.Tensor]:
     ctx.model.train()
     ctx.multitaskloss_instance.train()
@@ -366,6 +379,7 @@ def train(
         qs99_weight=config.get("qs99_weight"),
         qs99_tau=config.get("qs99_tau"),
         target_weights=config.get("target_weights"),
+        ss_epsilon=ss_epsilon,
     )
     step_total, step_reg, step_cls = result["per_step_losses"]
 
@@ -480,6 +494,18 @@ def training_loop(
     loss_history_cls = []
     max_raw_grad_norm = 0.0
 
+    # ADR-056: scheduled sampling mixer (disabled when ss_schedule is None)
+    ss_mixer = None
+    if config.get("ss_schedule") is not None:
+        from views_hydranet.utils.scheduled_sampling import ScheduledSamplingMixer
+
+        ss_mixer = ScheduledSamplingMixer(
+            schedule=config["ss_schedule"],
+            epsilon_max=config.get("ss_epsilon_max", 1.0),
+            warmup_lessons=config.get("ss_warmup_lessons"),
+            k=config.get("ss_k"),
+        )
+
     with tqdm(
         total=total_iterations, desc="👾 Training HydraNet", unit="month", leave=True
     ) as pbar:
@@ -489,6 +515,9 @@ def training_loop(
             lesson_loss = torch.tensor(0.0).to(device)
             lesson_reg = 0.0
             lesson_cls = 0.0
+
+            # ADR-056: compute epsilon once per lesson
+            ss_epsilon = ss_mixer.get_epsilon(lesson_idx) if ss_mixer is not None else 0.0
 
             # Pull one lesson per window in the batch (The Mixed Salad)
             for window_idx in range(config["windows_per_lesson"]):
@@ -519,7 +548,7 @@ def training_loop(
                 # 3. Process Window (Accumulate Loss)
                 # Pass viz to capture training dynamics (Stage 5) for all windows
                 slbl = f"Stage 5: Training Forensic (Lesson {lesson_idx + 1}_Win {window_idx + 1})"
-                losses = train(ctx, sample_handler, pbar, stage_label=slbl)
+                losses = train(ctx, sample_handler, pbar, stage_label=slbl, ss_epsilon=ss_epsilon)
 
                 # --- MEMORY-SAFE ACCUMULATION (ADR 014 Hardening) ---
                 w_loss = losses["total"]
@@ -588,6 +617,13 @@ def training_loop(
                                 for name, loss_fn in criterion_reg.items()
                             }
                         )
+
+            # ADR-056: log scheduled sampling epsilon once per lesson (outside loss gate)
+            if ss_mixer is not None:
+                import wandb
+
+                if wandb.run is not None:
+                    wandb.log({"ss_epsilon": ss_epsilon})
 
             # Step scheduler at the end of the lesson if it exists
             if scheduler is not None:
