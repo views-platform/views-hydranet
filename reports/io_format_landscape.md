@@ -130,11 +130,14 @@ for output. Parquet only for legacy consumers and external delivery.
 
 ## Related Issues
 
-| Issue | Repo | Title |
-|-------|------|-------|
-| #136 | pipeline-core | FeatureFrame not integrated |
-| #137 | pipeline-core | dataframe_format singleton |
-| #138 | pipeline-core | No unified I/O contract |
-| #139 | pipeline-core | Track B retirement |
-| #52 | hydranet | Ghost prediction_format config |
-| #118 | pipeline-core | Sweep ghost run (related — format-aware fetch) |
+| Issue | Repo | Title | Covers |
+|-------|------|-------|--------|
+| #136 | pipeline-core | FeatureFrame not integrated | Smell #1 (consuming side) |
+| #93 | datafactory | FeatureFrame: expose for consumption | Smell #1 (producing side) |
+| #137 | pipeline-core | dataframe_format singleton | Smell #3 |
+| #138 | pipeline-core | No unified I/O contract | Smell #4, documentation |
+| #139 | pipeline-core | Track B retirement | Smell #2 |
+| #140 | pipeline-core | Ownership duplication: dual sniffers/loaders | Smell #5 |
+| #141 | pipeline-core | Strategic: full numpy pipeline | Actions #7-9 |
+| #52 | hydranet | Ghost prediction_format config | Smell #6 |
+| #118 | pipeline-core | Sweep ghost run | Related (format-aware fetch) |
