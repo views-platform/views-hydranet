@@ -618,6 +618,18 @@ def training_loop(
                             }
                         )
 
+                # Issue #48: log multi-task loss weights once per lesson
+                import wandb
+
+                if wandb.run is not None:
+                    mtl_names = config.get("regression_targets", []) + config.get(
+                        "classification_targets", []
+                    )
+                    mtl_log_vars = multitaskloss_instance.log_vars.detach()
+                    wandb.log(
+                        {f"mtl_log_var/{n}": lv.item() for n, lv in zip(mtl_names, mtl_log_vars)}
+                    )
+
             # ADR-056: log scheduled sampling epsilon once per lesson (outside loss gate)
             if ss_mixer is not None:
                 import wandb
