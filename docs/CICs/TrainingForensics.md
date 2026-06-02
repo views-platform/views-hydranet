@@ -56,6 +56,14 @@ The `TrainingForensics` class is the **Independent Forensic Auditor** of model p
 
 ---
 
+## 10. Test Alignment
+
+| Test File | Coverage |
+|-----------|----------|
+| `tests/test_training_forensics.py` | 18 tests: per-step recording, lesson finalization, dossier generation, target map construction |
+
+---
+
 ## End of Contract
 This document defines the **intended meaning** of `TrainingForensics`.  
 Changes to behavior that violate this intent are bugs.  

@@ -84,6 +84,14 @@ It implements the **Null Object pattern**: when `diagnostic_visualizations: Fals
 
 ---
 
+## 10. Test Alignment
+
+| Test File | Coverage |
+|-----------|----------|
+| `tests/test_visual_diagnostics.py` | 39 tests: 8 beige null-object, 15 green active-mode with PNG output, 8 red error-logging with exc_info, 8 adversarial NaN/empty inputs |
+
+---
+
 ## End of Contract
 This document defines the **intended meaning** of `VisualDiagnostics`.
 Changes to behavior that violate this intent are bugs.
