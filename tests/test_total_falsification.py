@@ -11,7 +11,7 @@ CFG = {
 }
 
 
-class TestNukeProofAudit:
+class TestRedNukeProofAudit:
     """Popperian Audit: Attempting to falsify the hardening logic."""
 
     def test_gate_a_heterogeneous_collision(self):

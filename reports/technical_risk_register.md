@@ -6,8 +6,8 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-02                           |
 | Total Concerns    | 107                                  |
-| Open Concerns     | 22                                   |
-| Resolved Concerns | 85                                   |
+| Open Concerns     | 21                                   |
+| Resolved Concerns | 86                                   |
 
 ---
 
@@ -212,16 +212,6 @@ See also C-42 (resolved — entropy locking).
 
 ---
 
-### C-87: Hurdle mechanism applies uniform loss parameters across targets with different rare-event ratios — RESOLVED
-
-| Field | Value |
-|-------|-------|
-| ID | C-87 |
-| Resolved | 2026-06-01 |
-| Resolution | The hurdle mechanism was replaced by Tobit censored-normal likelihood (ADR-054), which provides dense gradient from ALL cells. Per-target sigma (issue #44, ADR-055) gives each target its own loss scale. Scheduled sampling (ADR-056) closes the exposure bias. The root cause (gradient starvation from hurdle masking) is eliminated. Per-target loss weights (`target_weights` from ADR-050) remain available as an additional lever. |
-
----
-
 ### C-85: Flip probability 0.5 hardcoded in training_engine — not config-driven
 
 | Field | Value |
@@ -255,16 +245,6 @@ Identical `_SumReducer` and `_make_tiny_model` helpers are defined in two test f
 **Test review amplification (2026-06-02):** Additionally, `_tobit_config()` helper is duplicated across 3 test files (test_tobit_loss.py, test_per_target_sigma.py, test_learnable_sigma.py) with slightly different base configs. Same DRY concern, different fixture.
 
 Tier 4 rationale: code quality / DRY violation. Single-developer scope. No correctness impact.
-
----
-
-### C-93: `_evaluate_sweep` not implemented — sweep evaluation crashes with `NotImplementedError` — RESOLVED
-
-| Field | Value |
-|-------|-------|
-| ID | C-93 |
-| Resolved | 2026-05-28 |
-| Resolution | Decomposed `_setup_evaluation()` per D-04 consensus: extracted `_load_model_artifact()`, made `model` a required parameter of `_setup_evaluation()`, added `_evaluate_sweep()` override. Commit 9b38532 (ADR-053). Verified by 5 successful wandb sweeps across May-June 2026. |
 
 ---
 
@@ -305,16 +285,6 @@ Tier 4 rationale: efficiency concern, not correctness. Training produces correct
 
 ---
 
-### C-97: Step-wise CRPS degradation quantifies exposure bias — Path E baseline metric — RESOLVED
-
-| Field | Value |
-|-------|-------|
-| ID | C-97 |
-| Resolved | 2026-06-01 |
-| Resolution | Gate 2 PASSED. Scheduled sampling (ADR-056, PR #50) reduced the step/month MCR gap for lr_sb from 1.60 to 0.02 (99% reduction) at `ss_epsilon_max=0.5`. Step-wise sb CRPS improved 43% (0.265 → 0.152). No escalation to GTF needed. Baseline metrics preserved in `reports/sweep_isolation_plan.md`. |
-
----
-
 ### C-98: Implicit `input_channels == 3 × output_channels` constraint — unvalidated architectural invariant
 
 | Field | Value |
@@ -350,62 +320,6 @@ Tier 3 rationale: a misconfigured config produces a cryptic error deep in the fo
 The two paths are currently distinct (line 150: `t1_pred_for_loss = output.reg_latent if use_latent else t1_pred`, line 147: `t1_pred = output.reg`). But they originate from the same forward pass, and a refactoring that merges variable names or simplifies the output handling could accidentally route `reg_latent` into the scheduled sampling mixer. A unit test should assert that the mixer input is always non-negative.
 
 Tier 4 rationale: no current bug. Single-developer scope. The risk is future-facing and easily mitigated with a test assertion.
-
----
-
-### C-100: `validate_basu_dpd_range` TypeError crash when `loss_reg_sigma` is dict — RESOLVED
-
-| Field | Value |
-|-------|-------|
-| ID | C-100 |
-| Resolved | 2026-05-30 |
-| Resolution | Added `isinstance(self.loss_reg_sigma, (int, float))` guard before `<= 0` comparison in `validate_basu_dpd_range`. PR #47. Falsification stub `test_P1_basu_dpd_with_dict_sigma_crashes_with_typeerror` verifies the fix. |
-
----
-
-### C-101: Extra keys in per-target sigma dict silently accepted — RESOLVED
-
-| Field | Value |
-|-------|-------|
-| ID | C-101 |
-| Resolved | 2026-05-30 |
-| Resolution | Added extra-key check to `validate_per_target_sigma`. PR #47. Falsification stub `test_P5_extra_keys_in_dict_sigma_rejected` verifies. Also added same check to `validate_target_weights` for consistency. |
-
----
-
-### C-102: Stale type annotations for `criterion_reg` after per-target sigma change — RESOLVED
-
-| Field | Value |
-|-------|-------|
-| ID | C-102 |
-| Resolved | 2026-05-30 |
-| Resolution | Updated type annotations in 3 locations: `_process_sequence` parameter, `TrainingContext.__init__`, and `choose_loss` return type — all now `nn.Module | dict[str, nn.Module]`. PR #47. |
-
----
-
-### C-103: CIC HydraNetConfig.md stale after per-target sigma — RESOLVED
-
-| Field | Value |
-|-------|-------|
-| ID | C-103 |
-| Resolved | 2026-05-30 |
-| Resolution | CIC Section 3 updated with per-target sigma validation responsibility. Section 6 updated with 4 new failure modes (non-tobit, non-positive, missing target, extra key). Field count updated. PR #47. |
-
----
-
-### C-104: ParetoLoss registered in LOSS_REG_REGISTRY but has no test file
-
-| Field | Value |
-|-------|-------|
-| ID | C-104 |
-| Tier | 4 |
-| Source | repo-assimilation (2026-06-02) |
-| Trigger | When a researcher sets `loss_reg='pareto'` in a model config — the loss function is untested and could silently produce wrong gradients |
-| Location | `views_hydranet/utils/pareto_loss.py`, `views_hydranet/utils/utils.py:76-79` (LOSS_REG_REGISTRY entry) |
-
-`ParetoLoss` is registered in `LOSS_REG_REGISTRY` with `loss_reg='pareto'` and config parameter `loss_reg_pareto_alpha`. The config validator accepts it. But no `test_pareto_loss.py` exists — the loss function has zero test coverage. All other 6 loss functions have dedicated test files.
-
-Tier 4 rationale: no production config uses pareto today. Single-developer scope. The risk is dormant until someone enables it.
 
 ---
 
@@ -477,7 +391,6 @@ Triage options: (a) convert to xfail with documented reason, (b) delete and refe
 
 Tier 4 rationale: no correctness impact. Test suite hygiene.
 
----
 
 ## Disagreements
 
@@ -526,6 +439,86 @@ Tier 4 rationale: no correctness impact. Test suite hygiene.
 ---
 
 ## Resolved Concerns
+
+### C-87: Hurdle mechanism applies uniform loss parameters across targets with different rare-event ratios — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-87 |
+| Resolved | 2026-06-01 |
+| Resolution | The hurdle mechanism was replaced by Tobit censored-normal likelihood (ADR-054), which provides dense gradient from ALL cells. Per-target sigma (issue #44, ADR-055) gives each target its own loss scale. Scheduled sampling (ADR-056) closes the exposure bias. The root cause (gradient starvation from hurdle masking) is eliminated. Per-target loss weights (`target_weights` from ADR-050) remain available as an additional lever. |
+
+---
+
+### C-93: `_evaluate_sweep` not implemented — sweep evaluation crashes with `NotImplementedError` — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-93 |
+| Resolved | 2026-05-28 |
+| Resolution | Decomposed `_setup_evaluation()` per D-04 consensus: extracted `_load_model_artifact()`, made `model` a required parameter of `_setup_evaluation()`, added `_evaluate_sweep()` override. Commit 9b38532 (ADR-053). Verified by 5 successful wandb sweeps across May-June 2026. |
+
+---
+
+### C-97: Step-wise CRPS degradation quantifies exposure bias — Path E baseline metric — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-97 |
+| Resolved | 2026-06-01 |
+| Resolution | Gate 2 PASSED. Scheduled sampling (ADR-056, PR #50) reduced the step/month MCR gap for lr_sb from 1.60 to 0.02 (99% reduction) at `ss_epsilon_max=0.5`. Step-wise sb CRPS improved 43% (0.265 → 0.152). No escalation to GTF needed. Baseline metrics preserved in `reports/sweep_isolation_plan.md`. |
+
+---
+
+### C-100: `validate_basu_dpd_range` TypeError crash when `loss_reg_sigma` is dict — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-100 |
+| Resolved | 2026-05-30 |
+| Resolution | Added `isinstance(self.loss_reg_sigma, (int, float))` guard before `<= 0` comparison in `validate_basu_dpd_range`. PR #47. Falsification stub `test_P1_basu_dpd_with_dict_sigma_crashes_with_typeerror` verifies the fix. |
+
+---
+
+### C-101: Extra keys in per-target sigma dict silently accepted — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-101 |
+| Resolved | 2026-05-30 |
+| Resolution | Added extra-key check to `validate_per_target_sigma`. PR #47. Falsification stub `test_P5_extra_keys_in_dict_sigma_rejected` verifies. Also added same check to `validate_target_weights` for consistency. |
+
+---
+
+### C-102: Stale type annotations for `criterion_reg` after per-target sigma change — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-102 |
+| Resolved | 2026-05-30 |
+| Resolution | Updated type annotations in 3 locations: `_process_sequence` parameter, `TrainingContext.__init__`, and `choose_loss` return type — all now `nn.Module | dict[str, nn.Module]`. PR #47. |
+
+---
+
+### C-103: CIC HydraNetConfig.md stale after per-target sigma — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-103 |
+| Resolved | 2026-05-30 |
+| Resolution | CIC Section 3 updated with per-target sigma validation responsibility. Section 6 updated with 4 new failure modes (non-tobit, non-positive, missing target, extra key). Field count updated. PR #47. |
+
+---
+
+### C-104: ParetoLoss registered in LOSS_REG_REGISTRY but has no test file — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-104 |
+| Resolved | 2026-06-02 |
+| Resolution | Investigation found 5 existing tests in `tests/test_cluster_e.py`: importable, nn.Module, forward returns scalar, registry integration, gradient behavior (outlier compression). The register entry was incorrect — ParetoLoss was tested all along, just not in a dedicated file. |
+
+---
 
 ### C-94: `reg_latent` tensor allocated during inference — wasteful memory — RESOLVED
 

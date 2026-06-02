@@ -15,7 +15,7 @@ import torch
 from views_hydranet.utils.tobit_loss import TobitLoss
 
 
-class TestTobitLossInterface:
+class TestGreenTobitLossInterface:
     """Module interface and basic contract tests."""
 
     def test_importable(self):
@@ -44,7 +44,7 @@ class TestTobitLossInterface:
             TobitLoss(sigma=-1.0)
 
 
-class TestTobitLossCensored:
+class TestGreenTobitLossCensored:
     """Censored cells (y=0): -log Phi(-mu/sigma)."""
 
     def test_all_censored(self):
@@ -97,7 +97,7 @@ class TestTobitLossCensored:
         )
 
 
-class TestTobitLossObserved:
+class TestGreenTobitLossObserved:
     """Observed cells (y>0): 0.5 * ((y-mu)/sigma)^2 + log(sigma)."""
 
     def test_all_observed(self):
@@ -130,7 +130,7 @@ class TestTobitLossObserved:
         )
 
 
-class TestTobitLossMixed:
+class TestGreenTobitLossMixed:
     """Mixed censored + observed cells (the typical case: ~95% zeros)."""
 
     def test_mixed_batch(self):
@@ -169,7 +169,7 @@ class TestTobitLossMixed:
         assert mu.grad.isfinite().all()
 
 
-class TestTobitLossNumericalStability:
+class TestBeigeTobitLossNumericalStability:
     """Edge cases that could cause NaN/Inf."""
 
     def test_large_positive_mu_censored(self):
@@ -267,7 +267,7 @@ def _tobit_config(**overrides):
     return base
 
 
-class TestTobitLossRegistry:
+class TestGreenTobitLossRegistry:
     """Integration with the loss registry."""
 
     def test_registered_in_loss_reg_registry(self):
@@ -297,7 +297,7 @@ class TestTobitLossRegistry:
             HydraNetConfig(**_tobit_config(hurdle_threshold=0.0))
 
 
-class TestModelOutputRegLatent:
+class TestGreenModelOutputRegLatent:
     """Verify the pre-ReLU latent is exposed by ModelOutput."""
 
     def test_model_output_has_reg_latent_field(self):

@@ -46,7 +46,7 @@ def _mock_manager(tmp_path):
         return mgr
 
 
-class TestLoadModelArtifact:
+class TestGreenLoadModelArtifact:
     """Unit tests for the extracted _load_model_artifact() method."""
 
     def test_calls_fetcher(self, tmp_path):
@@ -109,7 +109,7 @@ class TestLoadModelArtifact:
             assert result is mock_model
 
 
-class TestSetupEvaluationRefactored:
+class TestGreenSetupEvaluationRefactored:
     """Tests that _setup_evaluation accepts a model parameter and does not load one."""
 
     def test_uses_provided_model(self, tmp_path):
@@ -173,7 +173,7 @@ class TestSetupEvaluationRefactored:
             mock_maf.assert_not_called()
 
 
-class TestEvaluateSweep:
+class TestGreenEvaluateSweep:
     """Tests for the new _evaluate_sweep() override."""
 
     def test_returns_dict(self, tmp_path):

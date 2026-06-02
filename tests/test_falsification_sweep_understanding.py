@@ -36,12 +36,13 @@ from views_hydranet.utils.config_initializer import TRANSFORMS
 class TestP1NoStablePartition:
     """P1: All tested combinations are unstable — no partitioning possible."""
 
-    @pytest.mark.skip(
+    @pytest.mark.xfail(
+        run=False,
         reason=(
             "HARD FALSIFICATION: 6/6 sweep runs diverged during inference. "
             "Both shrinkage and basu_dpd diverge. All 4 sampling strategies diverge. "
             "The sweep axes do not discriminate stable from unstable."
-        )
+        ),
     )
     def test_at_least_one_sweep_cell_is_stable(self):
         """If we understand instability, we should identify stable configurations."""
@@ -51,12 +52,13 @@ class TestP1NoStablePartition:
 class TestP2UncontrolledConfound:
     """P2: Fixed features are an uncontrolled confound."""
 
-    @pytest.mark.skip(
+    @pytest.mark.xfail(
+        run=False,
         reason=(
             "HARD FALSIFICATION: hurdle_threshold=0.0, qs99_weight=0.1, "
             "target_weights={sb:2,ns:1,os:1} are enabled on ALL sweep runs. "
             "No control arm exists. Cannot attribute instability to sweep axes."
-        )
+        ),
     )
     def test_sweep_has_control_arm(self):
         """A valid sweep needs a control arm without new features."""
@@ -99,14 +101,15 @@ class TestP3SilentCorruption:
 class TestP4TeacherForcingGap:
     """P4: Training stability does not imply inference stability."""
 
-    @pytest.mark.skip(
+    @pytest.mark.xfail(
+        run=False,
         reason=(
             "SOFT FALSIFICATION: All 6 runs had 0 training explosions and "
             "finite training loss, yet ALL diverged during inference. "
             "The teacher-forcing gap (training feeds ground truth, inference "
             "feeds predictions back) is the actual instability mechanism, "
             "not 'hyperparameter combination'."
-        )
+        ),
     )
     def test_training_stability_implies_inference_stability(self):
         """
@@ -119,13 +122,14 @@ class TestP4TeacherForcingGap:
 class TestP5ZeroSuccessfulCompletions:
     """P5: No sweep configuration has produced a successful evaluation."""
 
-    @pytest.mark.skip(
+    @pytest.mark.xfail(
+        run=False,
         reason=(
             "HARD FALSIFICATION: 0 successful evaluation completions across "
             "3 sweeps (sweep-1evr493j, sweep-owwibj2e, sweep-e0gg6eeb). "
             "The claim implies we can distinguish stable from unstable. "
             "We have zero positive evidence."
-        )
+        ),
     )
     def test_any_sweep_configuration_completes_evaluation(self):
         """At least one grid cell should complete evaluation successfully."""

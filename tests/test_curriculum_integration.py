@@ -6,7 +6,7 @@ from views_hydranet.utils.volume_handler import VolumeHandler
 from views_hydranet.utils.volume_sampler import VolumeSampler
 
 
-class TestCurriculumIntegration:
+class TestGreenCurriculumIntegration:
     """
     Verifies the handshake between the Planner (CurriculumLearner)
     and the Lens (VolumeSampler).

@@ -82,11 +82,12 @@ class TestP2ExpmOverflowGuard:
 class TestP3AutoregressiveClamping:
     """P3: Autoregressive loop feeds predictions back without magnitude guard."""
 
-    @pytest.mark.skip(
+    @pytest.mark.xfail(
+        run=False,
         reason=(
             "SOFT FALSIFICATION: Requires architectural change (ADR-028 §2). "
             "Detection exists (isfinite at line 337), prevention does not."
-        )
+        ),
     )
     def test_autoregressive_predictions_are_bounded(self):
         """
@@ -96,11 +97,12 @@ class TestP3AutoregressiveClamping:
         """
         pass
 
-    @pytest.mark.skip(
+    @pytest.mark.xfail(
+        run=False,
         reason=(
             "SOFT FALSIFICATION: IntegrityGuardian.monitor() ceiling=1000 "
             "is only called during training, not inference."
-        )
+        ),
     )
     def test_integrity_guardian_ceiling_enforced_during_inference(self):
         """
