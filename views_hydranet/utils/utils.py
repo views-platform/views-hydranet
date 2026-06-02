@@ -1,17 +1,20 @@
 "Shared Utilities for the HydraNet Pipeline."
 
 import logging
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 import torch
 import torch.nn as nn
-import wandb
 
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
+from views_hydranet.utils.basu_loss import BasuDPDLoss
 from views_hydranet.utils.focal_loss import FocalLoss
+from views_hydranet.utils.lognormal_nll_loss import LogNormalFixedSigmaLoss
 from views_hydranet.utils.mtloss import MultiTaskLoss
+from views_hydranet.utils.pareto_loss import ParetoLoss
 from views_hydranet.utils.shrinkage_loss import ShrinkageLoss
+from views_hydranet.utils.tobit_loss import TobitLoss
 from views_hydranet.utils.warmup_decay_lr_scheduler import WarmupDecayLearningRateScheduler
 
 logger = logging.getLogger(__name__)
@@ -35,35 +38,103 @@ def choose_model(config: dict, device: torch.device) -> nn.Module:
     return model
 
 
+# Loss registries: add new losses here, not in choose_loss().
+# "params" lists are declared for future ReproducibilityGate genome audit (C-43).
+LOSS_REG_REGISTRY: dict[str, Any] = {
+    "mse": {
+        "cls": nn.MSELoss,
+        "params": [],
+        "factory": lambda config, device: nn.MSELoss().to(device),
+    },
+    "shrinkage": {
+        "cls": ShrinkageLoss,
+        "params": ["loss_reg_a", "loss_reg_c"],
+        "factory": lambda config, device: ShrinkageLoss(
+            a=config["loss_reg_a"],
+            c=config["loss_reg_c"],
+            size_average=True,
+        ).to(device),
+    },
+    "basu_dpd": {
+        "cls": BasuDPDLoss,
+        "params": ["loss_reg_alpha", "loss_reg_sigma"],
+        "factory": lambda config, device: BasuDPDLoss(
+            alpha=config["loss_reg_alpha"],
+            sigma=config["loss_reg_sigma"],
+        ).to(device),
+    },
+    "lognormal_nll": {
+        "cls": LogNormalFixedSigmaLoss,
+        "params": ["loss_reg_sigma"],
+        "factory": lambda config, device: LogNormalFixedSigmaLoss(
+            sigma=config["loss_reg_sigma"],
+        ).to(device),
+    },
+    "pareto": {
+        "cls": ParetoLoss,
+        "params": ["loss_reg_pareto_alpha"],
+        "factory": lambda config, device: ParetoLoss(
+            alpha=config["loss_reg_pareto_alpha"],
+        ).to(device),
+    },
+    "tobit": {
+        "cls": TobitLoss,
+        "params": ["loss_reg_sigma"],
+        "factory": lambda config, device: TobitLoss(
+            sigma=config["loss_reg_sigma"],
+        ).to(device),
+    },
+}
+
+LOSS_CLASS_REGISTRY: dict[str, Any] = {
+    "bce": {
+        "cls": nn.BCELoss,
+        "params": [],
+        "factory": lambda config, device: nn.BCELoss().to(device),
+    },
+    "focal": {
+        "cls": FocalLoss,
+        "params": ["loss_class_alpha", "loss_class_gamma"],
+        "factory": lambda config, device: FocalLoss(
+            alpha=config["loss_class_alpha"],
+            gamma=config["loss_class_gamma"],
+        ).to(device),
+    },
+}
+
+
 def choose_loss(
-    config: Dict[str, Any], device: torch.device
-) -> Tuple[nn.Module, nn.Module, "MultiTaskLoss"]:
-    """Factory for loss function instances."""
-    if config["loss_reg"] == "a":
-        criterion_reg = nn.MSELoss().to(device)
-    elif config["loss_reg"] == "b":
-        criterion_reg = ShrinkageLoss(
-            a=config["loss_reg_a"], c=config["loss_reg_c"], size_average=True
-        ).to(device)
+    config: dict[str, Any], device: torch.device
+) -> tuple[nn.Module | dict[str, nn.Module], nn.Module, "MultiTaskLoss"]:
+    """Factory for loss function instances.
+
+    Loss functions are selected by name via the LOSS_REG_REGISTRY and
+    LOSS_CLASS_REGISTRY dictionaries. Adding a new loss requires only
+    adding an entry to the appropriate registry — no modification of
+    this function (OCP).
+    """
+    loss_reg_sigma = config.get("loss_reg_sigma")
+    learnable = config.get("learnable_sigma", False)
+    if isinstance(loss_reg_sigma, dict) and config["loss_reg"] == "tobit":
+        criterion_reg = {
+            target: TobitLoss(sigma=s, learnable=learnable).to(device)
+            for target, s in loss_reg_sigma.items()
+        }
     else:
-        err_msg = f"Unknown regression loss type: {config['loss_reg']}"
-
-        logger.error(err_msg)
-
-        raise ValueError(err_msg)
-
-    if config["loss_class"] == "a":
-        criterion_class = nn.BCELoss().to(device)
-    elif config["loss_class"] == "b":
-        criterion_class = FocalLoss(
-            alpha=config["loss_class_alpha"], gamma=config["loss_class_gamma"]
-        ).to(device)
-    else:
-        err_msg = f"Unknown classification loss type: {config['loss_class']}"
-
-        logger.error(err_msg)
-
-        raise ValueError(err_msg)
+        try:
+            criterion_reg = LOSS_REG_REGISTRY[config["loss_reg"]]["factory"](config, device)
+        except KeyError:
+            raise ValueError(
+                f"Unknown regression loss: '{config['loss_reg']}'. "
+                f"Available: {list(LOSS_REG_REGISTRY.keys())}"
+            ) from None
+    try:
+        criterion_class = LOSS_CLASS_REGISTRY[config["loss_class"]]["factory"](config, device)
+    except KeyError:
+        raise ValueError(
+            f"Unknown classification loss: '{config['loss_class']}'. "
+            f"Available: {list(LOSS_CLASS_REGISTRY.keys())}"
+        ) from None
 
     logger.info(f"Regression loss: {criterion_reg}\n classification loss: {criterion_class}")
 
@@ -80,9 +151,7 @@ def choose_loss(
     return (criterion_reg, criterion_class, multitaskloss_instance)
 
 
-def choose_scheduler(
-    config: Dict[str, Any], unet: nn.Module
-) -> Tuple[torch.optim.Optimizer, Any]:
+def choose_scheduler(config: dict[str, Any], unet: nn.Module) -> tuple[torch.optim.Optimizer, Any]:
     """Factory for learning rate schedulers."""
     optimizer = torch.optim.AdamW(
         unet.parameters(),
@@ -104,7 +173,7 @@ def choose_scheduler(
     return (optimizer, scheduler)
 
 
-def init_weights(m: nn.Module, config: Dict[str, Any]) -> None:
+def init_weights(m: nn.Module, config: dict[str, Any]) -> None:
     """Weight initialization gate."""
     if config["weight_init"] == "xavier_uni":
         if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
@@ -125,11 +194,13 @@ def init_weights(m: nn.Module, config: Dict[str, Any]) -> None:
 
 
 def train_log(
-    avg_loss_list: List[float],
-    avg_loss_reg_list: List[float],
-    avg_loss_class_list: List[float],
+    avg_loss_list: list[float],
+    avg_loss_reg_list: list[float],
+    avg_loss_class_list: list[float],
 ) -> None:
     """Metric logging gate for W&B."""
+    import wandb
+
     if wandb.run is not None:
         wandb.log(
             {

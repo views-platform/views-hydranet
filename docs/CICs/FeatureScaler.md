@@ -30,6 +30,7 @@ The `FeatureScaler` is the **Normalizer** of the HydraNet pipeline. Its primary 
 - **DataFrame Inversion:** Provides `inverse_transform(df)` for DataFrame-level inversion (complement to the volume path).
 - **Introspection:** Provides `configured_columns` property returning the flat list of all columns configured for scaling.
 - **Scientific Accuracy:** Ensures that point-estimates (Averages) are calculated *after* inversion to avoid violating Jensen's Inequality.
+- **Spatial Convention Preservation:** `inverse_transform_volume()` propagates the input VolumeHandler's `spatial_convention` to the returned VolumeHandler.
 
 ---
 

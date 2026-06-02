@@ -199,7 +199,9 @@ cython_debug/
 # folders
 **/wandb/
 **/notebooks/
+# reports/technical_risk_register.md is force-tracked (git add -f) despite this rule
 reports/
+graphify-out/
 
 # mac specific 
 .DS_Store

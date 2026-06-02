@@ -1,6 +1,27 @@
+from typing import NamedTuple
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+
+class ModelOutput(NamedTuple):
+    """
+    Typed return value for HydraBNUNet06_LSTM4.forward().
+
+    Fields reg, cls, h_next are the primary outputs. reg_latent carries the
+    pre-ReLU regression activations needed by censored losses (TobitLoss).
+    Consumers that do not need latent values can ignore it — default is None.
+
+    NOTE: Adding reg_latent as a 4th field means tuple unpacking with 3
+    variables (``r, c, h = model(x, h)``) no longer works. Use named access:
+    ``output.reg, output.cls, output.h_next``.
+    """
+
+    reg: torch.Tensor  # [B, n_reg, H, W] post-ReLU regression head outputs
+    cls: torch.Tensor  # [B, n_cls, H, W] classification head logits
+    h_next: torch.Tensor  # [B, total_hidden_channels, H, W] LSTM hidden state
+    reg_latent: torch.Tensor | None = None  # [B, n_reg, H, W] pre-ReLU latent mu
 
 
 # give everything better names at some point
@@ -343,9 +364,8 @@ class HydraBNUNet06_LSTM4(nn.Module):
             h (torch.Tensor): Combined hidden state [batch, total_hidden_channels, H, W].
 
         Returns:
-            out_reg (torch.Tensor): Concatenated regression heads [batch, 3, H, W].
-            out_class (torch.Tensor): Concatenated classification heads [batch, 3, H, W].
-            h_next (torch.Tensor): Updated hidden state [batch, total_hidden_channels, H, W].
+            ModelOutput: NamedTuple with `reg`, `cls`, `h_next` fields. Supports
+                tuple unpacking for backward compatibility.
         """
 
         # Splitting hidden state into 4 short-term and 4 long-term memory tensors.
@@ -496,10 +516,11 @@ class HydraBNUNet06_LSTM4(nn.Module):
         H3_class = self.dec_conv4_head3_class(H3_class)
         out_class3 = H3_class
 
+        out_reg_latent = torch.concat([H1_reg, H2_reg, H3_reg], dim=1) if self.training else None
         out_reg = torch.concat([out_reg1, out_reg2, out_reg3], dim=1)
         out_class = torch.concat([out_class1, out_class2, out_class3], dim=1)
 
-        return out_reg, out_class, h
+        return ModelOutput(reg=out_reg, cls=out_class, h_next=h, reg_latent=out_reg_latent)
 
     def init_hTtime(self, hidden_channels, H, W):
         """

@@ -75,8 +75,10 @@ actuals_df = manager.prepare_actuals_df(raw_df)
 
 # Internal lifecycle methods (called by views-pipeline-core framework):
 # manager._train_model_artifact()          → trains and saves .pt artifact
+# manager._load_model_artifact(name=None)  → loads .pt artifact from disk → model
 # manager._evaluate_model_artifact()       → batch rolling-origin evaluation → Dict[str, List[PF]]
 # manager._evaluate_model_artifact_streaming()  → streaming evaluation via origin_sink callback
+# manager._evaluate_sweep(eval_type, model)→ sweep-iteration evaluation (in-memory model) → Dict[str, List[PF]]
 # manager._forecast_model_artifact()       → operational forecast → Dict[str, PF]
 # manager._run_data_pipeline(viz)          → shared data ingestion → (VolumeHandler, FeatureScaler, DataSniffer)
 ```
@@ -93,7 +95,7 @@ actuals_df = manager.prepare_actuals_df(raw_df)
 
 ## 10. Test Alignment
 
-- **🟩 Green Team:** Lifecycle delegation tests in `tests/test_manager_memory_hygiene.py`. Full pipeline flow tests in `tests/test_pipeline_integration.py` (requires `views_pipeline_core`).
+- **🟩 Green Team:** Lifecycle delegation tests in `tests/test_manager_memory_hygiene.py`. Full pipeline flow tests in `tests/test_pipeline_integration.py` (requires `views_pipeline_core`). `_load_model_artifact` and `_evaluate_sweep` decomposition tests in `tests/test_evaluate_sweep.py` (requires `views_pipeline_core`).
 - **🟫 Beige Team:** Sweep skip-save logic and architecture mismatch gates in `tests/test_sweep_and_hardening_gates.py` (requires `views_pipeline_core`).
 - **🟥 Red Team:** Evaluation and forecast survival gates in `tests/test_audit_manager_eval_survival.py` (requires `views_pipeline_core`).
 - **⚠️ Gap:** No locally-runnable tests exist — all manager tests depend on `views_pipeline_core`.

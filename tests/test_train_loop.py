@@ -19,39 +19,9 @@ import pytest
 import torch
 import torch.nn as nn
 
+from tests.conftest import TinyModel
+from views_hydranet.train.training_engine import TrainingContext, train
 from views_hydranet.utils.volume_handler import VolumeHandler
-
-# ---------------------------------------------------------------------------
-# Tiny Model (isolates training logic from HydraNet architecture)
-# ---------------------------------------------------------------------------
-
-class TinyModel(nn.Module):
-    """
-    Minimal model matching HydraNet's interface contract:
-    forward(x, h) -> (reg_pred, cls_pred, h_next)
-
-    x: [B, C_in, H, W]
-    h: [B, hidden, H, W]
-    Returns: reg [B, n_reg, H, W], cls [B, n_cls, H, W], h [B, hidden, H, W]
-    """
-
-    def __init__(self, input_channels, n_reg, n_cls, hidden=4):
-        super().__init__()
-        self.base = hidden
-        self.reg_head = nn.Conv2d(input_channels + hidden, n_reg, 1)
-        self.cls_head = nn.Conv2d(input_channels + hidden, n_cls, 1)
-        self.h_update = nn.Conv2d(input_channels + hidden, hidden, 1)
-
-    def forward(self, x, h):
-        combined = torch.cat([x, h], dim=1)
-        reg = self.reg_head(combined)
-        cls = self.cls_head(combined)
-        h_next = self.h_update(combined)
-        return reg, cls, h_next
-
-    def init_hTtime(self, hidden_channels, H, W):
-        return torch.zeros(1, hidden_channels, H, W)
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -104,8 +74,7 @@ def toy_handler():
     return VolumeHandler(
         data=data,
         axes=("T", "H", "W", "C"),
-        channel_map=["month_id", "priogrid_gid", "c_id", "row", "col",
-                      "lr_sb_best", "by_sb_best"],
+        channel_map=["month_id", "priogrid_gid", "c_id", "row", "col", "lr_sb_best", "by_sb_best"],
         time_col="month_id",
         id_col="priogrid_gid",
         spatial_cols=("row", "col"),
@@ -128,13 +97,12 @@ def toy_model():
 # Tests: train() function — single window pass
 # ---------------------------------------------------------------------------
 
-class TestTrainSingleWindow:
-    """Characterization: train() produces finite loss and flowing gradients."""
 
-    def test_train_returns_finite_loss(self, toy_config, toy_handler, toy_model):
-        from tqdm import tqdm
+class TestGreen:
+    """Green: train() produces finite loss and flowing gradients."""
 
-        from views_hydranet.train.train_model import train
+    def _make_ctx(self, toy_config, toy_model):
+        """Build a TrainingContext for tests (C-17 API)."""
         from views_hydranet.utils.mtloss import MultiTaskLoss
 
         device = torch.device("cpu")
@@ -146,15 +114,25 @@ class TestTrainSingleWindow:
             list(toy_model.parameters()) + list(mtl.parameters()), lr=0.01
         )
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100)
+        return TrainingContext(
+            model=toy_model,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            criterion_reg=criterion_reg,
+            criterion_class=criterion_class,
+            multitaskloss_instance=mtl,
+            config=toy_config,
+            device=device,
+        )
 
+    def test_train_returns_finite_loss(self, toy_config, toy_handler, toy_model):
+        from tqdm import tqdm
+
+        ctx = self._make_ctx(toy_config, toy_model)
         seq_len = toy_handler.shape[0]
         pbar = tqdm(total=seq_len - 1, disable=True)
 
-        result = train(
-            toy_model, optimizer, scheduler,
-            criterion_reg, criterion_class, mtl,
-            toy_handler, toy_config, device, pbar,
-        )
+        result = train(ctx, toy_handler, pbar)
 
         assert "total" in result
         assert torch.isfinite(result["total"]), "Loss must be finite after training"
@@ -163,27 +141,11 @@ class TestTrainSingleWindow:
     def test_gradients_flow_to_all_parameters(self, toy_config, toy_handler, toy_model):
         from tqdm import tqdm
 
-        from views_hydranet.train.train_model import train
-        from views_hydranet.utils.mtloss import MultiTaskLoss
-
-        device = torch.device("cpu")
-        criterion_reg = nn.MSELoss()
-        criterion_class = nn.BCEWithLogitsLoss()
-        is_regression = torch.Tensor([True] * N_REG + [False] * N_CLS)
-        mtl = MultiTaskLoss(is_regression, reduction="sum")
-        optimizer = torch.optim.AdamW(
-            list(toy_model.parameters()) + list(mtl.parameters()), lr=0.01
-        )
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100)
-
+        ctx = self._make_ctx(toy_config, toy_model)
         seq_len = toy_handler.shape[0]
         pbar = tqdm(total=seq_len - 1, disable=True)
 
-        result = train(
-            toy_model, optimizer, scheduler,
-            criterion_reg, criterion_class, mtl,
-            toy_handler, toy_config, device, pbar,
-        )
+        result = train(ctx, toy_handler, pbar)
 
         # Backward pass to populate gradients
         result["total"].backward()
@@ -203,11 +165,12 @@ class TestTrainSingleWindow:
 # Tests: training_loop() — multi-lesson training
 # ---------------------------------------------------------------------------
 
-class TestTrainingLoop:
-    """Characterization: training_loop() drives loss downward over lessons."""
+
+class TestBeige:
+    """Beige: training_loop() multi-lesson loss dynamics."""
 
     def test_loss_decreases_over_lessons(self, toy_config, toy_handler, toy_model):
-        from views_hydranet.train.train_model import training_loop
+        from views_hydranet.train.training_engine import training_loop
         from views_hydranet.utils.mtloss import MultiTaskLoss
 
         device = torch.device("cpu")
@@ -234,13 +197,21 @@ class TestTrainingLoop:
         mock_planner.get_lesson.return_value = ("lr_sb_best", 0.0)
 
         with (
-            patch("views_hydranet.train.train_model.VolumeSampler", return_value=mock_sampler),
-            patch("views_hydranet.train.train_model.CurriculumLearner", return_value=mock_planner),
-            patch("views_hydranet.train.train_model.log_curriculum_report"),
+            patch("views_hydranet.train.training_engine.VolumeSampler", return_value=mock_sampler),
+            patch(
+                "views_hydranet.train.training_engine.CurriculumLearner",
+                return_value=mock_planner,
+            ),
+            patch("views_hydranet.train.training_engine.log_curriculum_report"),
         ):
             summary = training_loop(
-                toy_config, toy_model, criterion, optimizer, scheduler,
-                toy_handler, device,
+                toy_config,
+                toy_model,
+                criterion,
+                optimizer,
+                scheduler,
+                toy_handler,
+                device,
             )
 
         assert "loss_history" in summary
@@ -258,7 +229,7 @@ class TestTrainingLoop:
     def test_summary_contains_expected_keys(self, toy_config, toy_handler, toy_model):
         from unittest.mock import patch
 
-        from views_hydranet.train.train_model import training_loop
+        from views_hydranet.train.training_engine import training_loop
         from views_hydranet.utils.mtloss import MultiTaskLoss
 
         device = torch.device("cpu")
@@ -280,19 +251,31 @@ class TestTrainingLoop:
         mock_planner.get_lesson.return_value = ("lr_sb_best", 0.0)
 
         with (
-            patch("views_hydranet.train.train_model.VolumeSampler", return_value=mock_sampler),
-            patch("views_hydranet.train.train_model.CurriculumLearner", return_value=mock_planner),
-            patch("views_hydranet.train.train_model.log_curriculum_report"),
+            patch("views_hydranet.train.training_engine.VolumeSampler", return_value=mock_sampler),
+            patch(
+                "views_hydranet.train.training_engine.CurriculumLearner",
+                return_value=mock_planner,
+            ),
+            patch("views_hydranet.train.training_engine.log_curriculum_report"),
         ):
             summary = training_loop(
-                toy_config, toy_model, criterion, optimizer, scheduler,
-                toy_handler, device,
+                toy_config,
+                toy_model,
+                criterion,
+                optimizer,
+                scheduler,
+                toy_handler,
+                device,
             )
 
         expected_keys = {
-            "final_loss", "min_loss", "max_loss",
-            "max_raw_grad_norm", "loss_history",
-            "weight_norms", "learning_rate",
+            "final_loss",
+            "min_loss",
+            "max_loss",
+            "max_raw_grad_norm",
+            "loss_history",
+            "weight_norms",
+            "learning_rate",
         }
         assert expected_keys.issubset(summary.keys()), (
             f"Missing keys: {expected_keys - summary.keys()}"

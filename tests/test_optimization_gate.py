@@ -4,11 +4,12 @@ import numpy as np
 import pytest
 import torch
 
+from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import ModelOutput
 from views_hydranet.train.train_model import training_loop
 from views_hydranet.utils.volume_handler import VolumeHandler
 
 
-class TestOptimizationGate:
+class TestGreenOptimizationGate:
     """
     Rigorously verifies ADR 014: The Optimization Gate (Gradient Accumulation).
     Ensures parameter updates happen ONLY at the lesson boundary.
@@ -21,12 +22,13 @@ class TestOptimizationGate:
             "windows_per_lesson": 2,
             "np_seed": 4,
             "torch_seed": 4,
-            "window_dim": 1,
+            "window_dim": 2,
             "steps": [1],
             "time_steps": 1,  # Added checksum
             "n_posterior_samples": 10,
             "min_events": 1,
             "max_events": 10,
+            "sampling_strategy": "threshold",
             "slope_ratio": 1.0,
             "roof_ratio": 1.0,
             "identity_cols": ["t"],
@@ -52,10 +54,8 @@ class TestOptimizationGate:
         device = torch.device("cpu")
         model = torch.nn.Linear(2, 1).to(device)  # Changed to 2
         model.base = 1
-        model.init_hTtime = (
-            lambda hidden_channels, H, W: torch.zeros(
-                (1, 1, 1, 1), requires_grad=True
-            )
+        model.init_hTtime = lambda hidden_channels, H, W: torch.zeros(
+            (1, 1, 1, 1), requires_grad=True
         )
 
         def mock_forward(t0, h):
@@ -68,7 +68,7 @@ class TestOptimizationGate:
                 "Identity column 't' must be stripped before the model sees the tensor."
             )
             pred = torch.ones((1, 1, 1, 1), requires_grad=True)
-            return pred, pred, h
+            return ModelOutput(reg=pred, cls=pred, h_next=h)
 
         model.forward = mock_forward
 
@@ -100,8 +100,8 @@ class TestOptimizationGate:
         config, model, criterion, optimizer, scheduler, handler, device = mock_components
 
         with (
-            patch("views_hydranet.train.train_model.CurriculumLearner") as MockPlanner,
-            patch("views_hydranet.train.train_model.VolumeSampler") as MockSampler,
+            patch("views_hydranet.train.training_engine.CurriculumLearner") as MockPlanner,
+            patch("views_hydranet.train.training_engine.VolumeSampler") as MockSampler,
         ):
             planner = MockPlanner.return_value
             planner.get_lesson.return_value = ("f1", 5)
@@ -118,17 +118,26 @@ class TestOptimizationGate:
 
     def test_train_function_is_dumb(self, mock_components):
         """Verify that the train function returns loss without modifying weights (ADR 014)."""
-        from views_hydranet.train.train_model import train
+        from views_hydranet.train.training_engine import TrainingContext, train
 
         config, model, criterion, optimizer, scheduler, handler, device = mock_components
 
         orig_weights = model.weight.clone().detach()
         pbar = MagicMock()
 
-        # Pull criterion components
         cr, cc, mt = criterion
+        ctx = TrainingContext(
+            model=model,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            criterion_reg=cr,
+            criterion_class=cc,
+            multitaskloss_instance=mt,
+            config=config,
+            device=device,
+        )
 
-        losses = train(model, optimizer, scheduler, cr, cc, mt, handler, config, device, pbar)
+        losses = train(ctx, handler, pbar)
 
         assert isinstance(losses, dict)
         assert "total" in losses and isinstance(losses["total"], torch.Tensor)
@@ -175,14 +184,15 @@ class TestOptimizationGate:
             "width": 8,
             "min_events": 0,
             "max_events": 100,
+            "sampling_strategy": "threshold",
             "slope_ratio": 1.0,
             "roof_ratio": 1.0,
             "min_ratio": 0.1,
             "max_ratio": 0.9,
             "run_type": "train",
             "scheduler": "none",
-            "loss_reg": "a",
-            "loss_class": "b",
+            "loss_reg": "mse",
+            "loss_class": "focal",
             "loss_reg_a": 1.0,
             "loss_reg_c": 1.0,
             "loss_class_alpha": 0.25,

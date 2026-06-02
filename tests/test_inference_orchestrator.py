@@ -15,13 +15,8 @@ from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
 # ─── Streaming tests: InferenceOrchestrator.generate_prediction_frames_streaming ─
 
 
-class TestStreamingOrchestrator:
-    """
-    TDD tests for InferenceOrchestrator.generate_prediction_frames_streaming().
-
-    RED before Step 5B: method does not exist.
-    GREEN after Step 5B: method streams origins, calls sink correctly, frees memory.
-    """
+class TestGreen:
+    """Green: InferenceOrchestrator streaming path calls sink, frees memory."""
 
     def test_streaming_calls_sink_once_per_origin(self):
         """origin_sink must be called exactly len(origins) times."""
@@ -31,9 +26,7 @@ class TestStreamingOrchestrator:
         scaler.inverse_transform_volume.side_effect = lambda h: h
 
         origins = [3]
-        orchestrator = InferenceOrchestrator(
-            MEMORY_CFG, inference.model, torch.device("cpu")
-        )
+        orchestrator = InferenceOrchestrator(MEMORY_CFG, inference.model, torch.device("cpu"))
 
         with patch(
             "views_hydranet.utils.inference_orchestrator.HydraNetInference",
@@ -45,8 +38,7 @@ class TestStreamingOrchestrator:
                 scaler,
                 origins=origins,
                 all_targets=(
-                    MEMORY_CFG["regression_targets"]
-                    + MEMORY_CFG["classification_targets"]
+                    MEMORY_CFG["regression_targets"] + MEMORY_CFG["classification_targets"]
                 ),
                 origin_sink=lambda i, d: sink_calls.append(i),
             )
@@ -61,14 +53,9 @@ class TestStreamingOrchestrator:
         scaler = MagicMock()
         scaler.inverse_transform_volume.side_effect = lambda h: h
 
-        all_targets = (
-            MEMORY_CFG["regression_targets"]
-            + MEMORY_CFG["classification_targets"]
-        )
+        all_targets = MEMORY_CFG["regression_targets"] + MEMORY_CFG["classification_targets"]
         origins = [3]
-        orchestrator = InferenceOrchestrator(
-            MEMORY_CFG, inference.model, torch.device("cpu")
-        )
+        orchestrator = InferenceOrchestrator(MEMORY_CFG, inference.model, torch.device("cpu"))
         received_key_sets = []
 
         with patch(
@@ -80,9 +67,7 @@ class TestStreamingOrchestrator:
                 scaler,
                 origins=origins,
                 all_targets=all_targets,
-                origin_sink=lambda i, d: received_key_sets.append(
-                    set(d.keys())
-                ),
+                origin_sink=lambda i, d: received_key_sets.append(set(d.keys())),
             )
 
         assert len(received_key_sets) == 1
@@ -95,10 +80,7 @@ class TestStreamingOrchestrator:
         scaler = MagicMock()
         scaler.inverse_transform_volume.side_effect = lambda h: h
 
-        all_targets = (
-            MEMORY_CFG["regression_targets"]
-            + MEMORY_CFG["classification_targets"]
-        )
+        all_targets = MEMORY_CFG["regression_targets"] + MEMORY_CFG["classification_targets"]
         origins = [3, 2]
 
         weak_refs = []
@@ -108,9 +90,7 @@ class TestStreamingOrchestrator:
                 weak_refs.append(weakref.ref(pf))
             # sink does NOT hold pf_dict
 
-        orchestrator = InferenceOrchestrator(
-            MEMORY_CFG, inference.model, torch.device("cpu")
-        )
+        orchestrator = InferenceOrchestrator(MEMORY_CFG, inference.model, torch.device("cpu"))
 
         with patch(
             "views_hydranet.utils.inference_orchestrator.HydraNetInference",
@@ -143,14 +123,9 @@ class TestStreamingOrchestrator:
         scaler = MagicMock()
         scaler.inverse_transform_volume.side_effect = lambda h: h
 
-        all_targets = (
-            MEMORY_CFG["regression_targets"]
-            + MEMORY_CFG["classification_targets"]
-        )
+        all_targets = MEMORY_CFG["regression_targets"] + MEMORY_CFG["classification_targets"]
         origins = [3]
-        orchestrator = InferenceOrchestrator(
-            MEMORY_CFG, inference.model, torch.device("cpu")
-        )
+        orchestrator = InferenceOrchestrator(MEMORY_CFG, inference.model, torch.device("cpu"))
 
         with patch(
             "views_hydranet.utils.inference_orchestrator.HydraNetInference",
@@ -175,9 +150,7 @@ class TestStreamingOrchestrator:
             )
 
         assert len(batch_pf_dicts) == len(streaming_pf_dicts)
-        for batch_dict, stream_dict in zip(
-            batch_pf_dicts, streaming_pf_dicts
-        ):
+        for batch_dict, stream_dict in zip(batch_pf_dicts, streaming_pf_dicts):
             assert set(batch_dict.keys()) == set(stream_dict.keys())
             for target in batch_dict:
                 np.testing.assert_array_equal(

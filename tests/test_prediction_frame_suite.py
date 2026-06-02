@@ -29,6 +29,9 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
+
+pytest.importorskip("views_pipeline_core")
+
 from views_pipeline_core.data.prediction_frame import PredictionFrame
 
 from views_hydranet.manager.hydranet_manager import HydranetManager
@@ -68,7 +71,7 @@ PF_BASE_CFG = {
     "row_offset": 0,
     "col_offset": 0,
     "model": "HydraBNUNet06_LSTM4",
-    "window_dim": 1,
+    "window_dim": 2,
     "total_hidden_channels": 8,
     "dropout_rate": 0.0,
     "weight_init": "norm",
@@ -79,8 +82,8 @@ PF_BASE_CFG = {
     "scheduler": "none",
     "warmup_steps": 1,
     "clip_grad_norm": True,
-    "loss_reg": "lr_b",
-    "loss_class": "lr_b",
+    "loss_reg": "mse",
+    "loss_class": "bce",
     "loss_reg_a": 1,
     "loss_reg_c": 1,
     "loss_class_gamma": 1,
@@ -95,13 +98,18 @@ PF_BASE_CFG = {
     "max_ratio": 0.9,
     "min_ratio": 0.1,
     "freeze_h": "none",
-    "evaluation_mode": "stochastic",   # overridden per test
+    "sampling_strategy": "threshold",
+    "evaluation_mode": "stochastic",  # overridden per test
     "aggregate_method": "arithmetic_mean",
 }
 
 ALL_TARGETS = [
-    "lr_sb_best", "lr_ns_best", "lr_os_best",
-    "by_sb_best", "by_ns_best", "by_os_best",
+    "lr_sb_best",
+    "lr_ns_best",
+    "lr_os_best",
+    "by_sb_best",
+    "by_ns_best",
+    "by_os_best",
 ]
 
 # 2×2 grid → N=4 spatial cells; 6 output channels (3 reg + 3 cls)
@@ -110,6 +118,7 @@ N_CHANNELS = 6
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
+
 
 def _make_history_df(n_months: int = 21) -> pd.DataFrame:
     """Returns a flat 2×2 grid DataFrame spanning months 100 .. 100+n_months-1."""
@@ -155,15 +164,11 @@ def _run_eval(cfg: dict, posterior: np.ndarray, tmp_path) -> dict:
         manager._wandb_notifications = False
         manager._use_prediction_store = False
 
-        with patch.object(
-            HydranetManager, "configs", new_callable=PropertyMock
-        ) as mock_cfg:
+        with patch.object(HydranetManager, "configs", new_callable=PropertyMock) as mock_cfg:
             mock_cfg.return_value = cfg
 
             with (
-                patch(
-                    "views_hydranet.manager.hydranet_manager.DataFetcher"
-                ) as mock_fetch_cls,
+                patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetch_cls,
                 patch(
                     "views_hydranet.manager.hydranet_manager.ModelArtifactFetcher"
                 ) as mock_art_cls,
@@ -206,21 +211,18 @@ def _run_forecast(cfg: dict, posterior: np.ndarray, tmp_path) -> dict:
         manager._wandb_notifications = False
         manager._use_prediction_store = False
 
-        with patch.object(
-            HydranetManager, "configs", new_callable=PropertyMock
-        ) as mock_cfg:
+        with patch.object(HydranetManager, "configs", new_callable=PropertyMock) as mock_cfg:
             mock_cfg.return_value = cfg
 
             with (
-                patch(
-                    "views_hydranet.manager.hydranet_manager.DataFetcher"
-                ) as mock_fetch_cls,
+                patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetch_cls,
                 patch(
                     "views_hydranet.manager.hydranet_manager.ModelArtifactFetcher"
                 ) as mock_art_cls,
                 patch(
                     "views_hydranet.utils.inference_orchestrator.HydraNetInference"
                 ) as mock_inf_cls,
+                patch("views_hydranet.manager.hydranet_manager.DataSniffer"),
             ):
                 mock_fetch_cls.return_value.fetch_df.return_value = df_hist
                 mock_fetch_cls.standardize_raw_df.side_effect = lambda df, cfg: df
@@ -253,6 +255,7 @@ def orch_env():
 
 
 # ─── Class 1: Green ──────────────────────────────────────────────────────────
+
 
 class TestPredictionFrameGreen:
     """
@@ -392,6 +395,7 @@ class TestPredictionFrameGreen:
 
 # ─── Class 2: Beige ──────────────────────────────────────────────────────────
 
+
 class TestPredictionFrameBeige:
     """
     Edge cases and boundary conditions.
@@ -441,7 +445,10 @@ class TestPredictionFrameBeige:
                     None,
                 )
                 pf_list = orc.generate_prediction_frames(
-                    handler, scaler, origins=[19], all_targets=ALL_TARGETS,
+                    handler,
+                    scaler,
+                    origins=[19],
+                    all_targets=ALL_TARGETS,
                 )
                 results[alias] = pf_list[0]["lr_sb_best"].y_pred
 
@@ -483,7 +490,8 @@ class TestPredictionFrameBeige:
         assert pf_arith.y_pred.shape == (N_CELLS, S)
         assert pf_median.y_pred.shape == (N_CELLS, S)
         np.testing.assert_array_equal(
-            pf_arith.y_pred, pf_median.y_pred,
+            pf_arith.y_pred,
+            pf_median.y_pred,
             err_msg="aggregate_method must have no effect in stochastic mode",
         )
 
@@ -514,6 +522,7 @@ class TestPredictionFrameBeige:
 
 # ─── Class 3: Red Team ───────────────────────────────────────────────────────
 
+
 class TestPredictionFrameRedTeam:
     """
     Adversarial / failure-mode tests.
@@ -529,6 +538,7 @@ class TestPredictionFrameRedTeam:
         The error message must name both the invalid value and the expected options.
         """
         from pydantic import ValidationError
+
         cfg_typo = {**PF_BASE_CFG, "evaluation_mode": "stocastic"}
         with pytest.raises((ValidationError, ValueError)) as exc_info:
             ConfigInitializer(cfg_typo).get_config()
@@ -604,7 +614,7 @@ class TestPredictionFrameRedTeam:
             PredictionFrame(
                 y_pred=np.ones((4, 2)),
                 identifiers={
-                    "time": np.array([1, 2, 3]),   # length 3, not 4
+                    "time": np.array([1, 2, 3]),  # length 3, not 4
                     "unit": np.arange(4),
                 },
             )
@@ -646,7 +656,10 @@ class TestPredictionFrameRedTeam:
                     None,
                 )
                 pf_list = orc.generate_prediction_frames(
-                    handler, scaler, origins=[19], all_targets=ALL_TARGETS,
+                    handler,
+                    scaler,
+                    origins=[19],
+                    all_targets=ALL_TARGETS,
                 )
             pf_results[method] = float(pf_list[0]["lr_sb_best"].y_pred[0, 0])
 

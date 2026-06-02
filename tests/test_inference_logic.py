@@ -1,7 +1,7 @@
-
 import pytest
 import torch
 
+from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import ModelOutput
 from views_hydranet.utils.hydranet_inference import HydraNetInference
 
 
@@ -17,13 +17,15 @@ class MockModel(torch.nn.Module):
         # Dummy predictions
         reg = torch.randn(x.shape[0], 3, x.shape[2], x.shape[3])
         cls = torch.randn(x.shape[0], 3, x.shape[2], x.shape[3])
-        return reg, cls, h_new
+        return ModelOutput(reg=reg, cls=cls, h_next=h_new)
+
 
 @pytest.fixture
 def inf_setup():
     model = MockModel(channels=64)
     cfg = {
         "freeze_h": "none",
+        "sampling_strategy": "threshold",
         "time_steps": 1,
         "steps": [1],
         "regression_targets": ["r1", "r2", "r3"],
@@ -32,6 +34,7 @@ def inf_setup():
     }
     inf = HydraNetInference(model, cfg, device="cpu")
     return inf, model
+
 
 def test_freeze_h_none(inf_setup):
     inf, model = inf_setup
@@ -45,6 +48,7 @@ def test_freeze_h_none(inf_setup):
     # Should be fully updated
     assert torch.allclose(h_out, h + 0.1)
 
+
 def test_freeze_h_all(inf_setup):
     inf, model = inf_setup
     inf.config["freeze_h"] = "all"
@@ -56,6 +60,7 @@ def test_freeze_h_all(inf_setup):
 
     # Should NOT be updated
     assert torch.allclose(h_out, h)
+
 
 def test_freeze_h_hl(inf_setup):
     inf, model = inf_setup
@@ -70,6 +75,7 @@ def test_freeze_h_hl(inf_setup):
     assert torch.allclose(h_out[:, :32], h[:, :32] + 0.1)
     assert torch.allclose(h_out[:, 32:], h[:, 32:])
 
+
 def test_freeze_h_hs(inf_setup):
     inf, model = inf_setup
     inf.config["freeze_h"] = "hs"
@@ -82,6 +88,7 @@ def test_freeze_h_hs(inf_setup):
     # First half (hs) frozen, second half (hl) updated
     assert torch.allclose(h_out[:, :32], h[:, :32])
     assert torch.allclose(h_out[:, 32:], h[:, 32:] + 0.1)
+
 
 def test_freeze_h_random(inf_setup):
     inf, model = inf_setup
@@ -99,7 +106,7 @@ def test_freeze_h_random(inf_setup):
     # Check that for each chunk of 8 channels, it's either 0 or 0.1
     for res in results:
         for i in range(8):
-            chunk = res[:, i*8:(i+1)*8]
+            chunk = res[:, i * 8 : (i + 1) * 8]
             is_old = torch.allclose(chunk, torch.zeros_like(chunk))
             is_new = torch.allclose(chunk, torch.zeros_like(chunk) + 0.1)
             assert is_old or is_new

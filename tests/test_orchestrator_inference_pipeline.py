@@ -17,6 +17,7 @@ from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 def _make_config(mode="stochastic"):
     return {
         "regression_targets": ["lr_sb_best"],
@@ -26,6 +27,7 @@ def _make_config(mode="stochastic"):
         "aggregate_method": "arithmetic_mean",
         "n_posterior_samples": 2,
         "freeze_h": "none",
+        "sampling_strategy": "threshold",
         "time_steps": 2,
         "steps": [1, 2],
     }
@@ -44,7 +46,8 @@ def _make_orchestrator(config=None):
 # RED TESTS — _run_inference_pipeline must exist
 # ---------------------------------------------------------------------------
 
-class TestAdr039PipelineMethodExists:
+
+class TestGreenAdr039PipelineMethodExists:
     """RED GATE: The shared pipeline method must exist after refactor."""
 
     def test_method_exists(self):
@@ -69,7 +72,8 @@ class TestAdr039PipelineMethodExists:
 # STRUCTURAL PARITY TESTS — all three paths must call the shared method
 # ---------------------------------------------------------------------------
 
-class TestAdr039PipelineParity:
+
+class TestGreenAdr039PipelineParity:
     """
     After the refactor, all three public methods must delegate Steps 1-5
     to _run_inference_pipeline. This test verifies the shared method is called.
@@ -82,18 +86,28 @@ class TestAdr039PipelineParity:
             pytest.skip("_run_inference_pipeline not yet implemented")
 
         mock_pred = MagicMock()
-        mock_pred.to_evaluation_pf.return_value = {"lr_sb_best": MagicMock()}
         mock_window = MagicMock()
+        mock_assembler_cls = MagicMock()
+        mock_assembler_cls.return_value.assemble_evaluation.return_value = {
+            "lr_sb_best": MagicMock()
+        }
 
         with (
             patch.object(orch, "_run_inference_pipeline", return_value=(mock_pred, mock_window)),
             patch("views_hydranet.utils.inference_orchestrator.HydraNetInference"),
+            patch(
+                "views_hydranet.utils.inference_orchestrator.PredictionFrameAssembler",
+                mock_assembler_cls,
+            ),
         ):
             handler = MagicMock()
             handler.shape = (10, 4, 4, 5)
             scaler = MagicMock()
             orch.generate_prediction_frames(
-                handler, scaler, origins=[5], all_targets=["lr_sb_best", "by_sb_best"],
+                handler,
+                scaler,
+                origins=[5],
+                all_targets=["lr_sb_best", "by_sb_best"],
             )
             orch._run_inference_pipeline.assert_called_once()
 
@@ -104,19 +118,28 @@ class TestAdr039PipelineParity:
             pytest.skip("_run_inference_pipeline not yet implemented")
 
         mock_pred = MagicMock()
-        mock_pred.to_evaluation_pf.return_value = {"lr_sb_best": MagicMock()}
         mock_window = MagicMock()
+        mock_assembler_cls = MagicMock()
+        mock_assembler_cls.return_value.assemble_evaluation.return_value = {
+            "lr_sb_best": MagicMock()
+        }
 
         with (
             patch.object(orch, "_run_inference_pipeline", return_value=(mock_pred, mock_window)),
             patch("views_hydranet.utils.inference_orchestrator.HydraNetInference"),
+            patch(
+                "views_hydranet.utils.inference_orchestrator.PredictionFrameAssembler",
+                mock_assembler_cls,
+            ),
         ):
             handler = MagicMock()
             handler.shape = (10, 4, 4, 5)
             scaler = MagicMock()
             sink = MagicMock()
             orch.generate_prediction_frames_streaming(
-                handler, scaler, origins=[5],
+                handler,
+                scaler,
+                origins=[5],
                 all_targets=["lr_sb_best", "by_sb_best"],
                 origin_sink=sink,
             )

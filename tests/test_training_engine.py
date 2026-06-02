@@ -46,8 +46,8 @@ TINY_CONFIG = {
     "learning_rate": 1e-3,
     "weight_decay": 0.0,
     "scheduler": "none",
-    "loss_reg": "a",
-    "loss_class": "a",
+    "loss_reg": "mse",
+    "loss_class": "bce",
     "clip_grad_norm": True,
     "random_flips": False,
     "diagnostic_visualizations": False,
@@ -55,6 +55,7 @@ TINY_CONFIG = {
     "dropout_rate": 0.0,
     "weight_init": "xavier_uni",
     "min_events": 1,
+    "sampling_strategy": "threshold",
     "min_ratio": 0.0,
     "max_ratio": 1.0,
     "slope_ratio": 0.5,
@@ -93,111 +94,126 @@ def tiny_handler():
     )
 
 
-# ---------------------------------------------------------------------------
-# RED TEST 1: The module exists
-# ---------------------------------------------------------------------------
-def test_engine_module_importable():
-    """training_engine.py must exist as a separate module."""
-    from views_hydranet.train import training_engine  # noqa: F401
+class TestGreen:
+    """Green: Training engine module structure and smoke test."""
+
+    def test_engine_module_importable(self):
+        """training_engine.py must exist as a separate module."""
+        from views_hydranet.train import training_engine  # noqa: F401
+
+    def test_engine_has_no_pipeline_core_imports(self):
+        """training_engine.py must NOT import views_pipeline_core at module level."""
+        import importlib
+        import sys
+
+        mod_name = "views_hydranet.train.training_engine"
+        if mod_name in sys.modules:
+            del sys.modules[mod_name]
+
+        mod = importlib.import_module(mod_name)
+        source_file = mod.__file__
+        assert source_file is not None
+
+        with open(source_file) as f:
+            source = f.read()
+
+        assert "from views_pipeline_core" not in source, (
+            "training_engine.py must not import views_pipeline_core at module level"
+        )
+        assert "import views_pipeline_core" not in source, (
+            "training_engine.py must not import views_pipeline_core"
+        )
+
+    def test_engine_exports_core_functions(self):
+        """Engine must export: make, _SequenceIndices, _process_sequence, train, training_loop."""
+        from views_hydranet.train.training_engine import (  # noqa: F401
+            _process_sequence,
+            _SequenceIndices,
+            make,
+            train,
+            training_loop,
+        )
+
+    def test_train_model_still_exports_artifact_function(self):
+        """train_model.py must still export train_model_artifact (backward compat)."""
+        from views_hydranet.train.train_model import train_model_artifact  # noqa: F401
+
+    def test_training_smoke_end_to_end(self, tiny_handler):
+        """C-18: Full training_loop on tiny synthetic data."""
+        from views_hydranet.train.training_engine import make, training_loop
+
+        device = torch.device("cpu")
+        model, criterion, optimizer, scheduler = make(TINY_CONFIG, device)
+
+        init_params = {name: param.clone() for name, param in model.named_parameters()}
+
+        summary = training_loop(
+            TINY_CONFIG,
+            model,
+            criterion,
+            optimizer,
+            scheduler,
+            tiny_handler,
+            device,
+        )
+
+        assert "final_loss" in summary
+        assert "loss_history" in summary
+        assert "weight_norms" in summary
+        assert "max_raw_grad_norm" in summary
+        assert len(summary["loss_history"]) > 0, "No losses recorded"
+
+        changed = False
+        for name, param in model.named_parameters():
+            if name in init_params and not torch.equal(param, init_params[name]):
+                changed = True
+                break
+        assert changed, "No model parameters changed during training"
 
 
-# ---------------------------------------------------------------------------
-# RED TEST 2: Engine has no framework imports
-# ---------------------------------------------------------------------------
-def test_engine_has_no_pipeline_core_imports():
-    """
-    training_engine.py must NOT import views_pipeline_core at module level.
-    This is the whole point of the split — the engine is pure.
-    """
-    import importlib
-    import sys
+class TestRed:
+    """Red: Training engine failure modes."""
 
-    # Remove cached module if present
-    mod_name = "views_hydranet.train.training_engine"
-    if mod_name in sys.modules:
-        del sys.modules[mod_name]
+    def test_nan_injection_mid_training_detected(self, tiny_handler):
+        """NaN in model weights must produce non-finite loss, not silent continuation."""
+        from tqdm import tqdm
 
-    mod = importlib.import_module(mod_name)
-    source_file = mod.__file__
-    assert source_file is not None
+        from views_hydranet.train.training_engine import make, train
 
-    with open(source_file) as f:
-        source = f.read()
+        device = torch.device("cpu")
+        model, criterion, optimizer, scheduler = make(TINY_CONFIG, device)
 
-    assert "from views_pipeline_core" not in source, (
-        "training_engine.py must not import views_pipeline_core at module level"
-    )
-    assert "import views_pipeline_core" not in source, (
-        "training_engine.py must not import views_pipeline_core"
-    )
+        seq_len = tiny_handler.shape[0]
+        pbar = tqdm(total=seq_len - 1, disable=True)
 
-
-# ---------------------------------------------------------------------------
-# RED TEST 3: Core functions are accessible from engine
-# ---------------------------------------------------------------------------
-def test_engine_exports_core_functions():
-    """Engine must export: make, _SequenceIndices, _process_sequence, train, training_loop."""
-    from views_hydranet.train.training_engine import (  # noqa: F401
-        _process_sequence,
-        _SequenceIndices,
-        make,
-        train,
-        training_loop,
-    )
-
-
-# ---------------------------------------------------------------------------
-# RED TEST 4: train_model.py still exports train_model_artifact
-# ---------------------------------------------------------------------------
-def test_train_model_still_exports_artifact_function():
-    """train_model.py must still export train_model_artifact (backward compat)."""
-    from views_hydranet.train.train_model import train_model_artifact  # noqa: F401
-
-
-# ---------------------------------------------------------------------------
-# RED TEST 5: C-18 — End-to-end training smoke test
-# ---------------------------------------------------------------------------
-def test_training_smoke_end_to_end(tiny_handler):
-    """
-    C-18: The most critical missing test. Runs a full training_loop on
-    tiny synthetic data (2 lessons, 1 window each, 8x8 grid).
-
-    Verifies:
-    1. training_loop completes without error
-    2. Returns a summary dict with expected keys
-    3. Loss decreases (model learns something, even on noise)
-    4. Model parameters changed from initialization
-    """
-    from views_hydranet.train.training_engine import make, training_loop
-
-    device = torch.device("cpu")
-    model, criterion, optimizer, scheduler = make(TINY_CONFIG, device)
-
-    # Snapshot initial parameters
-    init_params = {
-        name: param.clone() for name, param in model.named_parameters()
-    }
-
-    summary = training_loop(
-        TINY_CONFIG, model, criterion, optimizer, scheduler,
-        tiny_handler, device,
-    )
-
-    # 1. Completes without error (implicit — we got here)
-
-    # 2. Returns expected keys
-    assert "final_loss" in summary
-    assert "loss_history" in summary
-    assert "weight_norms" in summary
-    assert "max_raw_grad_norm" in summary
-
-    # 3. Loss history is non-empty
-    assert len(summary["loss_history"]) > 0, "No losses recorded"
-
-    # 4. Parameters changed (model learned something)
-    changed = False
-    for name, param in model.named_parameters():
-        if name in init_params and not torch.equal(param, init_params[name]):
-            changed = True
+        # Inject NaN into first conv layer weights
+        for param in model.parameters():
+            param.data.fill_(float("nan"))
             break
-    assert changed, "No model parameters changed during training"
+
+        result = train(
+            _make_training_context(TINY_CONFIG, model, criterion, optimizer, scheduler, device),
+            tiny_handler,
+            pbar,
+        )
+
+        assert not torch.isfinite(result["total"]), (
+            "NaN-corrupted model produced finite loss — training should detect corruption"
+        )
+
+
+def _make_training_context(config, model, criterion, optimizer, scheduler, device):
+    """Build a TrainingContext for red team tests."""
+    from views_hydranet.train.training_engine import TrainingContext
+
+    criterion_reg, criterion_class, mtl = criterion
+    return TrainingContext(
+        model=model,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        criterion_reg=criterion_reg,
+        criterion_class=criterion_class,
+        multitaskloss_instance=mtl,
+        config=config,
+        device=device,
+    )

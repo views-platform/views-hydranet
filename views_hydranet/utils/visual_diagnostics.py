@@ -7,6 +7,9 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
@@ -90,23 +93,59 @@ class VisualDiagnostics:
             # Filter for these months only to save memory
             df_slice = df_sorted[df_sorted[self.time_col].isin(global_months)]
 
+            if df_slice.empty:
+                logger.error(
+                    "VisualDiagnostics: no data for selected timestamps — skipping '%s'.",
+                    stage_label,
+                )
+                return
+
             # We need to construct a mini-volume for plotting
             vol_slice = np.zeros((5, self.height, self.width, len(features)))
             vol_slice[:] = np.nan
 
+            r_idx = (df_slice[self.y_col] - self.row_offset).astype(int).values
+            c_idx = (df_slice[self.x_col] - self.col_offset).astype(int).values
+
+            for label, idx_arr, limit, col, offset in [
+                ("row", r_idx, self.height, self.y_col, self.row_offset),
+                ("col", c_idx, self.width, self.x_col, self.col_offset),
+            ]:
+                if idx_arr.min() < 0:
+                    logger.error(
+                        "VisualDiagnostics: %s indices negative after offset. "
+                        "min %s=%s, %s_offset=%s — skipping '%s'.",
+                        label,
+                        label,
+                        df_slice[col].min(),
+                        label,
+                        offset,
+                        stage_label,
+                    )
+                    return
+                if idx_arr.max() >= limit:
+                    logger.error(
+                        "VisualDiagnostics: %s index %d >= %s %d. "
+                        "max %s=%s, %s_offset=%s — skipping '%s'.",
+                        label,
+                        idx_arr.max(),
+                        label,
+                        limit,
+                        label,
+                        df_slice[col].max(),
+                        label,
+                        offset,
+                        stage_label,
+                    )
+                    return
+
+            month_map = {m: idx for idx, m in enumerate(global_months)}
+            t_idx = df_slice[self.time_col].map(month_map).values
+
             for i, feat in enumerate(features):
                 if feat not in df_slice.columns:
-                    # Check if it was part of the index and is now a column
                     continue
 
-                r_idx = (df_slice[self.y_col] - self.row_offset).astype(int).values
-                c_idx = (df_slice[self.x_col] - self.col_offset).astype(int).values
-
-                month_map = {m: idx for idx, m in enumerate(global_months)}
-                t_idx = df_slice[self.time_col].map(month_map).values
-
-                # Collapse list-in-cell (stochastic mode) → scalar mean for plotting.
-                # Mirrors biopsy_volume's nanmean over the S axis.
                 raw_vals = df_slice[feat].values
                 first_valid = next((v for v in raw_vals if v is not None), None)
                 if isinstance(first_valid, (list, np.ndarray)):
@@ -129,7 +168,8 @@ class VisualDiagnostics:
         except Exception:
             logger.error(
                 "VisualDiagnostics: biopsy_dataframe failed at '%s' — skipping plot.",
-                stage_label, exc_info=True,
+                stage_label,
+                exc_info=True,
             )
 
     def biopsy_volume(self, vh: VolumeHandler, stage_label: str) -> None:
@@ -178,8 +218,12 @@ class VisualDiagnostics:
 
             self._plot_grid(vol_slice, interesting, t_indices, stage_label, subdir=target_subdir)
 
-        except Exception as e:
-            logger.error(f"VisualDiagnostics: Failed to biopsy Volume at {stage_label}: {e}")
+        except Exception:
+            logger.error(
+                "VisualDiagnostics: biopsy_volume failed at '%s' — skipping plot.",
+                stage_label,
+                exc_info=True,
+            )
 
     def biopsy_tensor(
         self, tensor: torch.Tensor, stage_label: str, channel_names: List[str]
@@ -211,8 +255,12 @@ class VisualDiagnostics:
                 data, channel_names, t_indices, stage_label, subdir=self.dirs["pipeline"]
             )
 
-        except Exception as e:
-            logger.error(f"VisualDiagnostics: Failed to biopsy Tensor at {stage_label}: {e}")
+        except Exception:
+            logger.error(
+                "VisualDiagnostics: biopsy_tensor failed at '%s' — skipping plot.",
+                stage_label,
+                exc_info=True,
+            )
 
     def biopsy_sample(
         self, sample_vh: VolumeHandler, global_vh: VolumeHandler, stage_label: str
@@ -298,8 +346,12 @@ class VisualDiagnostics:
                 subdir=self.dirs["training"],
             )
 
-        except Exception as e:
-            logger.error(f"VisualDiagnostics: Failed to biopsy sample at {stage_label}: {e}")
+        except Exception:
+            logger.error(
+                "VisualDiagnostics: biopsy_sample failed at '%s' — skipping plot.",
+                stage_label,
+                exc_info=True,
+            )
 
     def biopsy_health_constellation(
         self, weight_norms: Dict[str, float], stage_label: str
@@ -356,9 +408,11 @@ class VisualDiagnostics:
             plt.close()
             logger.info(f"📸 VisualDiagnostics: Saved {save_path}")
 
-        except Exception as e:
+        except Exception:
             logger.error(
-                f"VisualDiagnostics: Failed to plot health constellation at {stage_label}: {e}"
+                "VisualDiagnostics: biopsy_health_constellation failed at '%s' — skipping plot.",
+                stage_label,
+                exc_info=True,
             )
 
     def _select_display_channels(self, vh: VolumeHandler) -> Tuple[List[str], set]:
@@ -380,7 +434,7 @@ class VisualDiagnostics:
                 interesting.append(c)
 
         # 2. Signal Features Group (pulled from ledger — ADR 012)
-        for c in vh._metadata.feature_cols:
+        for c in vh.feature_cols:
             if c in vh.channel_map and c not in interesting:
                 interesting.append(c)
 
@@ -481,9 +535,11 @@ class VisualDiagnostics:
             plt.close()
             logger.info(f"📸 VisualDiagnostics: Saved {save_path}")
 
-        except Exception as e:
+        except Exception:
             logger.error(
-                f"VisualDiagnostics: Failed to biopsy autoregressive loop at {stage_label}: {e}"
+                "VisualDiagnostics: biopsy_autoregressive failed at '%s' — skipping plot.",
+                stage_label,
+                exc_info=True,
             )
 
     def biopsy_training_performance(
@@ -590,8 +646,12 @@ class VisualDiagnostics:
             plt.close()
             logger.info(f"📸 VisualDiagnostics: Saved {save_path}")
 
-        except Exception as e:
-            logger.error(f"VisualDiagnostics: Failed training biopsy at {stage_label}: {e}")
+        except Exception:
+            logger.error(
+                "VisualDiagnostics: biopsy_training_performance failed at '%s' — skipping plot.",
+                stage_label,
+                exc_info=True,
+            )
 
     def biopsy_loss_curves(
         self,
@@ -660,8 +720,11 @@ class VisualDiagnostics:
         try:
             _generate_plot(is_log=False)
             _generate_plot(is_log=True)
-        except Exception as e:
-            logger.error(f"VisualDiagnostics: Failed to plot loss curves: {e}")
+        except Exception:
+            logger.error(
+                "VisualDiagnostics: biopsy_loss_curves failed — skipping plot.",
+                exc_info=True,
+            )
 
     def biopsy_feature_dossier(
         self,
@@ -768,9 +831,11 @@ class VisualDiagnostics:
             plt.close()
             logger.info(f"💾 VisualDiagnostics: Saved {mode_str} dossier to {fname}")
 
-        except Exception as e:
+        except Exception:
             logger.error(
-                f"VisualDiagnostics: Failed to generate joyful dossier for {target_name}: {e}"
+                "VisualDiagnostics: biopsy_feature_dossier failed for '%s' — skipping plot.",
+                target_name,
+                exc_info=True,
             )
 
     def _plot_grid_with_context(

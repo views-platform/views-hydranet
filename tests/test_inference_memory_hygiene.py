@@ -27,6 +27,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import torch
 
+from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import ModelOutput
 from views_hydranet.utils.hydranet_inference import HydraNetInference
 from views_hydranet.utils.volume_handler import VolumeHandler
 
@@ -59,7 +60,7 @@ MEMORY_CFG = {
     "row_offset": 0,
     "col_offset": 0,
     "model": "HydraBNUNet06_LSTM4",
-    "window_dim": 1,
+    "window_dim": 2,
     "total_hidden_channels": 8,
     "dropout_rate": 0.0,
     "weight_init": "norm",
@@ -72,6 +73,7 @@ MEMORY_CFG = {
     "max_ratio": 0.9,
     "min_ratio": 0.1,
     "freeze_h": "none",
+    "sampling_strategy": "threshold",
     "evaluation_mode": "stochastic",
     "aggregate_method": "arithmetic_mean",
 }
@@ -96,7 +98,7 @@ class _MinimalModel(torch.nn.Module):
         B, _, H, W = x.shape
         reg = torch.zeros(B, 3, H, W)
         cls = torch.zeros(B, 3, H, W)
-        return reg, cls, h
+        return ModelOutput(reg=reg, cls=cls, h_next=h)
 
 
 def _make_mock_inference(config=None) -> HydraNetInference:
@@ -116,18 +118,25 @@ def _make_handler() -> VolumeHandler:
     for t in range(100, 105):
         for r in range(2):
             for c in range(2):
-                rows.append({
-                    "month_id": t, "priogrid_gid": r * 2 + c + 1,
-                    "row": float(r), "col": float(c),
-                    "lr_sb_best": 0.5, "lr_ns_best": 0.1, "lr_os_best": 0.0,
-                })
+                rows.append(
+                    {
+                        "month_id": t,
+                        "priogrid_gid": r * 2 + c + 1,
+                        "row": float(r),
+                        "col": float(c),
+                        "lr_sb_best": 0.5,
+                        "lr_ns_best": 0.1,
+                        "lr_os_best": 0.0,
+                    }
+                )
     df = pd.DataFrame(rows)
     return VolumeHandler.from_df(df, MEMORY_CFG)
 
 
 # ─── STRUCTURAL TESTS (RED → GREEN) ──────────────────────────────────────────
 
-class TestStructuralMemoryHygiene:
+
+class TestGreenStructuralMemoryHygiene:
     """
     Verify that explicit tensor lifecycle management is present in the source.
 
@@ -229,6 +238,7 @@ class TestStructuralMemoryHygiene:
     def test_gc_imported_in_hydranet_inference(self):
         """gc must be imported at module level for gc.collect() to work."""
         import views_hydranet.utils.hydranet_inference as _mod
+
         assert hasattr(_mod, "gc") or "import gc" in inspect.getsource(_mod), (
             "hydranet_inference.py must import gc."
         )
@@ -243,6 +253,7 @@ class TestStructuralMemoryHygiene:
         increasing peak RAM.
         """
         from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
+
         source = inspect.getsource(InferenceOrchestrator._run_inference_pipeline)
         del_pos = source.index("del post_reg")
         invert_pos = source.index("scaler.inverse_transform_volume")
@@ -260,6 +271,7 @@ class TestStructuralMemoryHygiene:
         work_data copy, adding 1.75 GB to peak RAM unnecessarily.
         """
         from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
+
         source = inspect.getsource(InferenceOrchestrator._run_inference_pipeline)
         del_pos = source.index("del posterior_zstack")
         invert_pos = source.index("scaler.inverse_transform_volume")
@@ -275,6 +287,7 @@ class TestStructuralMemoryHygiene:
         overlapping with the next origin's memory allocations.
         """
         from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
+
         source = inspect.getsource(InferenceOrchestrator.generate_prediction_frames_streaming)
         assert "del pf_dict" in source, (
             "generate_prediction_frames_streaming() must explicitly 'del pf_dict' after "
@@ -288,43 +301,53 @@ class TestStructuralMemoryHygiene:
         generate_prediction_frames_streaming().
         """
         from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
+
         source = inspect.getsource(InferenceOrchestrator.generate_prediction_frames_streaming)
         assert "gc.collect()" in source, (
             "generate_prediction_frames_streaming() must call gc.collect() inside the "
             "origin loop to promptly release memory after each origin."
         )
 
-
-    def test_valid_cell_indices_does_not_copy_self_data(self):
+    def test_valid_cell_indices_does_not_copy_signal_data(self):
         """
-        _valid_cell_indices() must not call self._data.copy().
+        PredictionFrameAssembler._valid_cell_indices() must not call
+        signal.data.copy() (D-01 extraction moved this from VolumeHandler).
 
         np.transpose() and np.flip() both return non-contiguous views —
         no allocation occurs.  The subsequent fancy indexing in
         _reconstruct_as_pf_dict() gathers only the valid (N, S) cells,
         which is the first — and only — allocation needed.
 
-        Copying self._data first doubles peak RAM for zero benefit:
+        Copying signal data first doubles peak RAM for zero benefit:
         at pgm scale the pred_handler volume is large enough to OOM
         when the copy coexists with the PredictionFrame dict and the
         per-origin posterior numpy arrays.
         """
-        source = inspect.getsource(VolumeHandler._valid_cell_indices)
-        assert "self._data.copy()" not in source, (
-            "_valid_cell_indices() must not call self._data.copy(). "
+        from views_hydranet.utils.prediction_frame_assembler import (
+            PredictionFrameAssembler,
+        )
+
+        source = inspect.getsource(PredictionFrameAssembler._valid_cell_indices)
+        assert "signal.data.copy()" not in source, (
+            "_valid_cell_indices() must not call signal.data.copy(). "
             "np.transpose() and np.flip() return views; the full-grid copy "
             "doubles peak RAM for no benefit."
         )
 
     def test_valid_cell_indices_does_not_copy_provider_data(self):
         """
-        _valid_cell_indices() must not call provider.data.copy().
+        PredictionFrameAssembler._valid_cell_indices() must not call
+        provider.data.copy() (D-01 extraction moved this from VolumeHandler).
 
         The scaffold copy is equally unnecessary — transpose + flip on the
         provider array are also views, and the mask / identity extraction
         reads from the resulting view without mutating it.
         """
-        source = inspect.getsource(VolumeHandler._valid_cell_indices)
+        from views_hydranet.utils.prediction_frame_assembler import (
+            PredictionFrameAssembler,
+        )
+
+        source = inspect.getsource(PredictionFrameAssembler._valid_cell_indices)
         assert "provider.data.copy()" not in source, (
             "_valid_cell_indices() must not call provider.data.copy(). "
             "The scaffold copy is unnecessary; views suffice."
@@ -333,7 +356,8 @@ class TestStructuralMemoryHygiene:
 
 # ─── LIFECYCLE TESTS (regression guards) ─────────────────────────────────────
 
-class TestTensorLifecycle:
+
+class TestGreenTensorLifecycle:
     """
     Verify via weakref that tensors created inside predict() and
     generate_posterior_samples() are collectable after the functions return.
@@ -375,7 +399,6 @@ class TestTensorLifecycle:
                 origin=3,
                 sample_idx=0,
                 feature_names=["lr_sb_best", "lr_ns_best", "lr_os_best"],
-                is_evaluation=False,
             )
 
         # After predict() returns, force GC and verify tensors are freed
@@ -420,7 +443,8 @@ class TestTensorLifecycle:
 
 # ─── STREAMING EVALUATION INTERFACE TESTS (Step 4 TDD) ───────────────────────
 
-class TestStreamingEvalInterface:
+
+class TestGreenStreamingEvalInterface:
     """
     TDD tests for HydranetManager._evaluate_model_artifact_streaming().
 
@@ -432,8 +456,14 @@ class TestStreamingEvalInterface:
     pf_dicts.  All I/O is bypassed.
     """
 
-    _ALL_TARGETS = ["lr_sb_best", "lr_ns_best", "lr_os_best",
-                    "by_sb_best", "by_ns_best", "by_os_best"]
+    _ALL_TARGETS = [
+        "lr_sb_best",
+        "lr_ns_best",
+        "lr_os_best",
+        "by_sb_best",
+        "by_ns_best",
+        "by_os_best",
+    ]
     _N_ORIGINS = 3
 
     def _run_streaming(self, n_origins=None, targets=None):
@@ -485,7 +515,10 @@ class TestStreamingEvalInterface:
             emitted_indices.append(i)
             emitted_dicts.append(pf_dict)
 
-        with patch.object(HydranetManager, "_setup_evaluation", return_value=mock_ctx):
+        with (
+            patch.object(HydranetManager, "_load_model_artifact", return_value=MagicMock()),
+            patch.object(HydranetManager, "_setup_evaluation", return_value=mock_ctx),
+        ):
             manager._evaluate_model_artifact_streaming("calibration", None, sink)
 
         return emitted_indices, emitted_dicts
@@ -537,7 +570,7 @@ class TestStreamingEvalInterface:
                     },
                 )
                 origin_sink(i, {"target": pf})
-                del pf          # streaming implementation frees immediately
+                del pf  # streaming implementation frees immediately
                 gc.collect()
 
         mock_orchestrator.generate_prediction_frames_streaming.side_effect = fake_streaming
@@ -551,10 +584,11 @@ class TestStreamingEvalInterface:
         )
 
         manager = object.__new__(HydranetManager)
-        with patch.object(HydranetManager, "_setup_evaluation", return_value=mock_ctx):
-            manager._evaluate_model_artifact_streaming(
-                "calibration", None, sink_with_weakref
-            )
+        with (
+            patch.object(HydranetManager, "_load_model_artifact", return_value=MagicMock()),
+            patch.object(HydranetManager, "_setup_evaluation", return_value=mock_ctx),
+        ):
+            manager._evaluate_model_artifact_streaming("calibration", None, sink_with_weakref)
 
         gc.collect()
         assert all(r() is None for r in weak_refs), (

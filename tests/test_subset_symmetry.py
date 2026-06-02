@@ -4,6 +4,9 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
+
+pytest.importorskip("views_pipeline_core")
+
 from views_pipeline_core.data.prediction_frame import PredictionFrame
 
 from views_hydranet.manager.hydranet_manager import HydranetManager
@@ -20,6 +23,7 @@ def _pf_dict(values: dict, n: int, month_id: int = 11) -> dict:
         )
         for target, val in values.items()
     }
+
 
 # SUBSET AUDIT CONFIG
 SUBSET_CFG = {
@@ -49,7 +53,7 @@ SUBSET_CFG = {
     "row_offset": 0,
     "col_offset": 0,
     "model": "Dummy",
-    "window_dim": 1,
+    "window_dim": 2,
     "total_hidden_channels": 8,
     "dropout_rate": 0.0,
     "weight_init": "norm",
@@ -60,8 +64,8 @@ SUBSET_CFG = {
     "scheduler": "none",
     "warmup_steps": 1,
     "clip_grad_norm": True,
-    "loss_reg": "lr_b",
-    "loss_class": "lr_b",
+    "loss_reg": "mse",
+    "loss_class": "bce",
     "loss_reg_a": 1,
     "loss_reg_c": 1,
     "loss_class_gamma": 1,
@@ -76,12 +80,13 @@ SUBSET_CFG = {
     "max_ratio": 0.9,
     "min_ratio": 0.1,
     "freeze_h": "none",
+    "sampling_strategy": "threshold",
     "evaluation_mode": "point",
     "aggregate_method": "arithmetic_mean",
 }
 
 
-class TestSubsetSymmetryAudit:
+class TestGreenSubsetSymmetryAudit:
     """Phase 1: Collision & Subset Hard Gates."""
 
     def test_gate_26_to_30_subset_and_collision(self, tmp_path):
@@ -153,10 +158,17 @@ class TestSubsetSymmetryAudit:
                     # Mock Orchestrator output — generate_prediction_frames returns
                     # list[dict[str, PredictionFrame]] (pandas-free path)
                     mock_eval_cls.return_value.generate_prediction_frames.return_value = [
-                        _pf_dict({
-                            "lr_sb_best": 100.0, "lr_ns_best": 100.0, "lr_os_best": 100.0,
-                            "by_sb_best": 0.9,   "by_ns_best": 0.9,   "by_os_best": 0.9,
-                        }, n=20)
+                        _pf_dict(
+                            {
+                                "lr_sb_best": 100.0,
+                                "lr_ns_best": 100.0,
+                                "lr_os_best": 100.0,
+                                "by_sb_best": 0.9,
+                                "by_ns_best": 0.9,
+                                "by_os_best": 0.9,
+                            },
+                            n=20,
+                        )
                     ]
 
                     # RUN EVALUATION

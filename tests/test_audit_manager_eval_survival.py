@@ -4,6 +4,9 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
+
+pytest.importorskip("views_pipeline_core")
+
 from views_pipeline_core.data.prediction_frame import PredictionFrame
 
 from views_hydranet.manager.hydranet_manager import HydranetManager
@@ -20,6 +23,7 @@ def _pf_dict(values: dict[str, float], n: int, month_id: int = 124) -> dict:
         )
         for target, val in values.items()
     }
+
 
 # AUDIT CONFIG: Point mode, arithmetic mean, heterogeneous scales
 AUDIT_CFG = {
@@ -53,7 +57,7 @@ AUDIT_CFG = {
     "row_offset": 0,
     "col_offset": 0,
     "model": "Dummy",
-    "window_dim": 1,
+    "window_dim": 2,
     "total_hidden_channels": 8,
     "dropout_rate": 0.0,
     "weight_init": "norm",
@@ -64,8 +68,8 @@ AUDIT_CFG = {
     "scheduler": "none",
     "warmup_steps": 1,
     "clip_grad_norm": True,
-    "loss_reg": "b",
-    "loss_class": "b",
+    "loss_reg": "mse",
+    "loss_class": "bce",
     "loss_reg_a": 1,
     "loss_reg_c": 1,
     "loss_class_gamma": 1,
@@ -80,12 +84,13 @@ AUDIT_CFG = {
     "max_ratio": 0.9,
     "min_ratio": 0.1,
     "freeze_h": "none",
+    "sampling_strategy": "threshold",
     "evaluation_mode": "point",
     "aggregate_method": "arithmetic_mean",
 }
 
 
-class TestManagerEvalHardAudit:
+class TestRedManagerEvalHardAudit:
     """8 Hard Gates to falsify the Survival Sequence orchestration."""
 
     def test_gates_1_to_8_eval_survival(self, tmp_path):
@@ -141,10 +146,17 @@ class TestManagerEvalHardAudit:
                     # 3. Mock Evaluator — generate_prediction_frames returns
                     # list[dict[str, PredictionFrame]] (pandas-free path)
                     mock_eval_cls.return_value.generate_prediction_frames.return_value = [
-                        _pf_dict({
-                            "lr_sb_best": 100.0, "lr_ns_best": 100.0, "lr_os_best": 100.0,
-                            "by_sb_best": 0.9,   "by_ns_best": 0.9,   "by_os_best": 0.9,
-                        }, n=16)
+                        _pf_dict(
+                            {
+                                "lr_sb_best": 100.0,
+                                "lr_ns_best": 100.0,
+                                "lr_os_best": 100.0,
+                                "by_sb_best": 0.9,
+                                "by_ns_best": 0.9,
+                                "by_os_best": 0.9,
+                            },
+                            n=16,
+                        )
                     ]
 
                     # RUN EVALUATION
@@ -182,53 +194,61 @@ class TestManagerEvalHardAudit:
         )
 
         with patch(
-                    "views_pipeline_core.managers.model.model.ForecastingModelManager.__init__",
-                    return_value=None,
+            "views_pipeline_core.managers.model.model.ForecastingModelManager.__init__",
+            return_value=None,
+        ):
+            manager = HydranetManager(model_path=mpm)
+            manager.device = torch.device("cpu")
+            manager._config_manager = MagicMock()
+            manager._wandb_notifications = False
+            manager._use_prediction_store = False
+            with patch.object(
+                HydranetManager,
+                "configs",
+                new_callable=PropertyMock,
+            ) as mock_cfg:
+                mock_cfg.return_value = AUDIT_CFG
+                with (
+                    patch("views_hydranet.manager.hydranet_manager.DataFetcher") as mock_fetch_cls,
+                    patch(
+                        "views_hydranet.manager.hydranet_manager.ModelArtifactFetcher"
+                    ) as mock_art_fetch_cls,
+                    patch(
+                        "views_hydranet.manager.hydranet_manager.InferenceOrchestrator"
+                    ) as mock_eval_cls,
                 ):
-                    manager = HydranetManager(model_path=mpm)
-                    manager.device = torch.device("cpu")
-                    manager._config_manager = MagicMock()
-                    manager._wandb_notifications = False
-                    manager._use_prediction_store = False
-                    with patch.object(
-                        HydranetManager, "configs",
-                        new_callable=PropertyMock,
-                    ) as mock_cfg:
-                        mock_cfg.return_value = AUDIT_CFG
-                        with (
-                            patch(
-                                "views_hydranet.manager.hydranet_manager.DataFetcher"
-                            ) as mock_fetch_cls,
-                            patch(
-                                "views_hydranet.manager.hydranet_manager.ModelArtifactFetcher"
-                            ) as mock_art_fetch_cls,
-                            patch(
-                                "views_hydranet.manager.hydranet_manager.InferenceOrchestrator"
-                            ) as mock_eval_cls,
-                        ):
-                            mock_fetch_cls.return_value.fetch_df.return_value = df_hist
-                            mock_fetch_cls.standardize_raw_df.side_effect = lambda x, y: x
-                            mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (
-                                MagicMock(),
-                                "audit",
-                            )
+                    mock_fetch_cls.return_value.fetch_df.return_value = df_hist
+                    mock_fetch_cls.standardize_raw_df.side_effect = lambda x, y: x
+                    mock_art_fetch_cls.return_value.fetch_model_artifact.return_value = (
+                        MagicMock(),
+                        "audit",
+                    )
 
-                            mock_eval_cls.return_value.generate_prediction_frames.return_value = [
-                                _pf_dict({
-                                    "lr_sb_best": 10.0, "lr_ns_best": 10.0, "lr_os_best": 10.0,
-                                    "by_sb_best": 0.5,  "by_ns_best": 0.5,  "by_os_best": 0.5,
-                                }, n=16)
-                            ]
+                    mock_eval_cls.return_value.generate_prediction_frames.return_value = [
+                        _pf_dict(
+                            {
+                                "lr_sb_best": 10.0,
+                                "lr_ns_best": 10.0,
+                                "lr_os_best": 10.0,
+                                "by_sb_best": 0.5,
+                                "by_ns_best": 0.5,
+                                "by_os_best": 0.5,
+                            },
+                            n=16,
+                        )
+                    ]
 
-                            results = manager._evaluate_model_artifact(eval_type="audit")
-                            np.testing.assert_allclose(
-                                results["lr_sb_best"][0].y_pred[0, 0],
-                                10.0, rtol=1e-5,
-                            )
-                            np.testing.assert_allclose(
-                                results["lr_ns_best"][0].y_pred[0, 0],
-                                10.0, rtol=1e-5,
-                            )
+                    results = manager._evaluate_model_artifact(eval_type="audit")
+                    np.testing.assert_allclose(
+                        results["lr_sb_best"][0].y_pred[0, 0],
+                        10.0,
+                        rtol=1e-5,
+                    )
+                    np.testing.assert_allclose(
+                        results["lr_ns_best"][0].y_pred[0, 0],
+                        10.0,
+                        rtol=1e-5,
+                    )
 
     def test_gates_9_to_16_forecast_survival(self, tmp_path):
         """Hard Gates 9-16: Falsify the Survival Sequence in the Forecasting path."""
@@ -269,6 +289,7 @@ class TestManagerEvalHardAudit:
                     patch(
                         "views_hydranet.utils.inference_orchestrator.HydraNetInference"
                     ) as mock_inf_cls,
+                    patch("views_hydranet.manager.hydranet_manager.DataSniffer"),
                 ):
                     # 5. EXECUTE (ADR 038 Unified Flow)
                     mock_fetch_cls.return_value.fetch_df.return_value = df_hist

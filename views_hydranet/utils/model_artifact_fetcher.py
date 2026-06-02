@@ -3,6 +3,8 @@ Standalone ModelArtifactFetcher component for the HydraNet pipeline.
 Governed by ADR 026.
 """
 
+import hashlib
+import json
 import logging
 from collections.abc import Callable
 from pathlib import Path
@@ -28,23 +30,15 @@ class ModelArtifactFetcher:
         config: Dict[str, Any],
         add_config_function: Callable[[Dict[str, Any]], None],
         device: torch.device,
+        model_factory: Optional[Callable[[dict, torch.device], torch.nn.Module]] = None,
     ) -> None:
-        """
-        Initializes the fetcher with physical paths and callbacks.
-
-        Args:
-            path_model_artifacts: Root directory where all model artifacts live.
-            path_latest_model_artifacts: Specific path to the 'latest' artifact for the run type.
-            config: Operational configuration dictionary.
-            add_config_function: Callback function to update the global config state.
-            device: Target torch device for model placement.
-        """
         self.path_model_artifacts = path_model_artifacts
         self.path_latest_model_artifacts = path_latest_model_artifacts
         self.configs = config
         self.add_config = add_config_function
         self.run_type = config.get("run_type", "unknown")
         self.device = device
+        self._model_factory = model_factory
 
     def fetch_model_artifact(
         self, model_artifact_name: Optional[str] = None
@@ -89,12 +83,51 @@ class ModelArtifactFetcher:
         # Expected format: ..._YYYYMMDD_HHMMSS.pt
         timestamp = path_model_artifact.stem[-15:]
 
-        # 4. Deserialization and Device Placement
+        # 4. Integrity Verification (SHA-256)
+        hash_path = path_model_artifact.with_suffix(".pt.sha256")
+        if hash_path.exists():
+            expected = hash_path.read_text().strip()
+            actual = hashlib.sha256(path_model_artifact.read_bytes()).hexdigest()
+            if actual != expected:
+                err_msg = (
+                    f"Retriever: Artifact integrity check FAILED for {path_model_artifact}. "
+                    f"Expected sha256={expected[:16]}…, got {actual[:16]}…"
+                )
+                logger.error(err_msg)
+                raise RuntimeError(err_msg)
+            logger.info(f"Retriever: SHA-256 verified for {path_model_artifact.name}")
+        else:
+            logger.warning(
+                f"Retriever: No .sha256 hash file for {path_model_artifact.name}. "
+                f"Skipping integrity check (legacy artifact)."
+            )
+
+        # 5. Deserialization and Device Placement
         logger.debug(f"Retriever: Loading artifact from {path_model_artifact}")
-        model = torch.load(path_model_artifact, map_location="cpu", weights_only=False)
+        config_sidecar = path_model_artifact.with_suffix(".pt.config.json")
+        if config_sidecar.exists():
+            arch_config = json.loads(config_sidecar.read_text())
+            factory = self._model_factory or self._default_model_factory()
+            model = factory(arch_config, torch.device("cpu"))
+            state_dict = torch.load(path_model_artifact, map_location="cpu", weights_only=True)
+            model.load_state_dict(state_dict)
+            logger.info("Retriever: Loaded state_dict artifact (weights_only=True)")
+        else:
+            logger.warning(
+                f"Retriever: No config sidecar for {path_model_artifact.name} — "
+                f"loading legacy full-object (weights_only=False). "
+                f"Re-save with current code to migrate to state_dict format."
+            )
+            model = torch.load(path_model_artifact, map_location="cpu", weights_only=False)
         model.to(self.device)
 
-        # 5. The Handshake: Register the exact model used in the config
+        # 6. The Handshake: Register the exact model used in the config
         self.add_config({"timestamp": timestamp})
 
         return model, timestamp
+
+    @staticmethod
+    def _default_model_factory():
+        from views_hydranet.utils.utils import choose_model
+
+        return choose_model

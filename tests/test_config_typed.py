@@ -3,7 +3,6 @@ Tests for ConfigInitializer.get_config() — validates config via Pydantic,
 returns plain dict (required by parent class ForecastingModelManager.configs setter).
 """
 
-
 from views_hydranet.utils.config_initializer import ConfigInitializer
 
 # Minimal valid config that satisfies all HydraNetConfig validators
@@ -38,7 +37,7 @@ MINIMAL_CONFIG = {
     "row_offset": 0,
     "col_offset": 0,
     "model": "Dummy",
-    "window_dim": 1,
+    "window_dim": 2,
     "total_hidden_channels": 8,
     "dropout_rate": 0.0,
     "weight_init": "norm",
@@ -48,8 +47,8 @@ MINIMAL_CONFIG = {
     "scheduler": "none",
     "warmup_steps": 1,
     "clip_grad_norm": True,
-    "loss_reg": "lr_b",
-    "loss_class": "lr_b",
+    "loss_reg": "mse",
+    "loss_class": "bce",
     "loss_reg_a": 1,
     "loss_reg_c": 1,
     "loss_class_gamma": 1,
@@ -64,12 +63,13 @@ MINIMAL_CONFIG = {
     "max_ratio": 0.9,
     "min_ratio": 0.1,
     "freeze_h": "none",
+    "sampling_strategy": "threshold",
     "evaluation_mode": "point",
     "aggregate_method": "mean",
 }
 
 
-class TestConfigInitializerReturnsDict:
+class TestGreenConfigInitializerReturnsDict:
     """get_config() must return dict (parent class setter requires isinstance(dict))."""
 
     def test_get_config_returns_dict(self):

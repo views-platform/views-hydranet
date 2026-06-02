@@ -24,10 +24,11 @@ The `IntegrityGuardian` is the **Numerical Sentinel** of the HydraNet pipeline. 
 ## 3. Responsibilities and Guarantees
 
 - **Loss Monitoring:** `monitor()` guarantees immediate `RuntimeError` if the loss tensor contains NaN or Inf.
-- **Prediction Magnitude Ceiling:** `monitor()` guarantees immediate `RuntimeError` if any prediction exceeds ±10,000 in absolute value (hard ceiling for log-scaled conflict data).
+- **Prediction Magnitude Ceiling:** `monitor()` guarantees immediate `RuntimeError` if any prediction exceeds ±1,000 in absolute value (`PREDICTION_MAGNITUDE_CEILING`; C-51: lowered from 10,000 for log1p-transformed conflict data).
 - **Gradient Scan:** `monitor()` scans all parameter gradients (where they exist) for NaN/Inf.
 - **Weight Corruption Scan:** `check_weights()` performs a deep scan of all model parameters for NaN/Inf.
-- **Static Methods:** Both public methods are `@staticmethod` — no instance state, no side effects beyond logging and raising.
+- **Numpy Array Monitoring:** `monitor_numpy()` guarantees immediate `RuntimeError` if a numpy array contains any NaN or Inf values.
+- **Static Methods:** All public methods are `@staticmethod` — no instance state, no side effects beyond logging and raising.
 
 ---
 
@@ -51,7 +52,8 @@ The `IntegrityGuardian` is the **Numerical Sentinel** of the HydraNet pipeline. 
 ## 6. Failure Modes and Loudness
 
 - **NaN/Inf Loss:** Immediate `RuntimeError` — "FATAL NUMERICAL EXPLOSION".
-- **Prediction Magnitude >10,000:** Immediate `RuntimeError` — includes the actual max absolute value.
+- **Prediction Magnitude >1,000:** Immediate `RuntimeError` — includes the actual max absolute value. Three-tier escalation in inference: WARNING at 100, ERROR at 500, halt at 1,000.
+- **Non-finite Numpy Array:** `monitor_numpy()` raises `RuntimeError` with count of non-finite values.
 - **Gradient NaN/Inf:** Immediate `RuntimeError` — identifies the specific parameter name.
 - **Weight NaN/Inf:** Immediate `RuntimeError` — identifies the specific parameter name.
 
@@ -86,7 +88,7 @@ IntegrityGuardian.check_weights(model, context="Pre-save checkpoint")
 ## 10. Test Alignment
 
 - **🟩 Green Team:** Clean-pass tests with finite values in `tests/test_integrity_guardian.py`.
-- **🟫 Beige Team:** Boundary tests at magnitude 9,999 and 10,001 in `tests/test_integrity_guardian.py`.
+- **🟫 Beige Team:** Boundary tests at magnitude 999 and 1,001 in `tests/test_integrity_guardian.py`.
 - **🟥 Red Team:** NaN/Inf injection into loss, predictions, gradients, and weights in `tests/test_integrity_guardian.py`.
 
 ---

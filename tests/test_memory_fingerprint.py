@@ -2,9 +2,16 @@ import os
 import time
 from typing import Dict, List
 
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import pytest
+
+pytest.importorskip("polars")
+
 import polars as pl
 import psutil
 

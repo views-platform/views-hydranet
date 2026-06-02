@@ -1,3 +1,4 @@
+import hashlib
 from unittest.mock import MagicMock
 
 import pytest
@@ -35,79 +36,334 @@ def mock_setup(tmp_path):
     return artifacts_dir, latest_path, config, add_config_mock
 
 
-# --- GREEN TEAM: SUCCESSFUL RETRIEVAL ---
+class TestGreen:
+    """Green: Successful artifact retrieval and metadata registration."""
+
+    def test_fetcher_green_path_latest(self, mock_setup):
+        """Prove that the fetcher correctly loads the latest artifact and registers metadata."""
+        artifacts_dir, latest_path, config, add_config_mock = mock_setup
+
+        fetcher = ModelArtifactFetcher(
+            path_model_artifacts=artifacts_dir,
+            path_latest_model_artifacts=latest_path,
+            config=config,
+            add_config_function=add_config_mock,
+            device=torch.device("cpu"),
+        )
+
+        model, timestamp = fetcher.fetch_model_artifact()
+
+        assert isinstance(model, DummyModel)
+        assert timestamp == "20260204_120000"
+        add_config_mock.assert_called_once_with({"timestamp": timestamp})
+
+    def test_fetcher_green_path_specific(self, mock_setup):
+        """Prove that the fetcher correctly loads a specific named artifact."""
+        artifacts_dir, _, config, add_config_mock = mock_setup
+
+        specific_ts = "20250101_000000"
+        specific_name = f"manual_model_{specific_ts}.pt"
+        specific_path = artifacts_dir / specific_name
+        torch.save(DummyModel(), specific_path)
+
+        fetcher = ModelArtifactFetcher(
+            path_model_artifacts=artifacts_dir,
+            path_latest_model_artifacts=MagicMock(),
+            config=config,
+            add_config_function=add_config_mock,
+            device=torch.device("cpu"),
+        )
+
+        model, timestamp = fetcher.fetch_model_artifact(
+            model_artifact_name=f"manual_model_{specific_ts}"
+        )
+
+        assert timestamp == specific_ts
+        add_config_mock.assert_called_once_with({"timestamp": specific_ts})
 
 
-def test_fetcher_green_path_latest(mock_setup):
-    """Prove that the fetcher correctly loads the latest artifact and registers metadata."""
-    artifacts_dir, latest_path, config, add_config_mock = mock_setup
+class TestBeige:
+    """Edge cases in artifact retrieval."""
 
-    fetcher = ModelArtifactFetcher(
-        path_model_artifacts=artifacts_dir,
-        path_latest_model_artifacts=latest_path,
-        config=config,
-        add_config_function=add_config_mock,
-        device=torch.device("cpu"),
-    )
+    def test_beige_artifact_name_without_extension(self, mock_setup):
+        """Artifact name without .pt must still load correctly."""
+        artifacts_dir, _, config, add_config_mock = mock_setup
 
-    # Execute
-    model, timestamp = fetcher.fetch_model_artifact()
+        specific_ts = "20260301_090000"
+        specific_path = artifacts_dir / f"run_model_{specific_ts}.pt"
+        torch.save(DummyModel(), specific_path)
 
-    # Audit
-    assert isinstance(model, DummyModel)
-    assert timestamp == "20260204_120000"
-    # Verify the config handshake
-    add_config_mock.assert_called_once_with({"timestamp": timestamp})
-    print("✅ Green Team: Latest retrieval verified.")
+        fetcher = ModelArtifactFetcher(
+            path_model_artifacts=artifacts_dir,
+            path_latest_model_artifacts=MagicMock(),
+            config=config,
+            add_config_function=add_config_mock,
+            device=torch.device("cpu"),
+        )
 
+        model, timestamp = fetcher.fetch_model_artifact(
+            model_artifact_name=f"run_model_{specific_ts}"
+        )
+        assert timestamp == specific_ts
 
-def test_fetcher_green_path_specific(mock_setup):
-    """Prove that the fetcher correctly loads a specific named artifact."""
-    artifacts_dir, _, config, add_config_mock = mock_setup
+    def test_beige_latest_symlink_broken(self, tmp_path):
+        """Broken symlink for latest must raise FileNotFoundError."""
+        artifacts_dir = tmp_path / "artifacts"
+        artifacts_dir.mkdir()
+        broken_link = artifacts_dir / "latest.pt"
+        broken_link.symlink_to(artifacts_dir / "nonexistent.pt")
 
-    # Create another specific artifact
-    specific_ts = "20250101_000000"
-    specific_name = f"manual_model_{specific_ts}.pt"
-    specific_path = artifacts_dir / specific_name
-    torch.save(DummyModel(), specific_path)
+        fetcher = ModelArtifactFetcher(
+            path_model_artifacts=artifacts_dir,
+            path_latest_model_artifacts=broken_link,
+            config={"run_type": "test"},
+            add_config_function=MagicMock(),
+            device=torch.device("cpu"),
+        )
 
-    fetcher = ModelArtifactFetcher(
-        path_model_artifacts=artifacts_dir,
-        path_latest_model_artifacts=MagicMock(),  # Should not be used
-        config=config,
-        add_config_function=add_config_mock,
-        device=torch.device("cpu"),
-    )
-
-    # Execute with specific name (without extension)
-    model, timestamp = fetcher.fetch_model_artifact(
-        model_artifact_name=f"manual_model_{specific_ts}"
-    )
-
-    # Audit
-    assert timestamp == specific_ts
-    add_config_mock.assert_called_once_with({"timestamp": specific_ts})
-    print("✅ Green Team: Specific retrieval verified.")
+        with pytest.raises(FileNotFoundError, match="Retriever Contract Violation"):
+            fetcher.fetch_model_artifact()
 
 
-# --- BEIGE TEAM: ROBUSTNESS ---
+class TestRed:
+    """Adversarial and failure mode tests (CIC §6)."""
+
+    def test_red_malformed_timestamp_filename(self, tmp_path):
+        """Artifact with non-standard filename: timestamp extraction still runs."""
+        artifacts_dir = tmp_path / "artifacts"
+        artifacts_dir.mkdir()
+        bad_name = "bad_model.pt"
+        torch.save(DummyModel(), artifacts_dir / bad_name)
+
+        fetcher = ModelArtifactFetcher(
+            path_model_artifacts=artifacts_dir,
+            path_latest_model_artifacts=MagicMock(),
+            config={"run_type": "test"},
+            add_config_function=MagicMock(),
+            device=torch.device("cpu"),
+        )
+
+        model, timestamp = fetcher.fetch_model_artifact(model_artifact_name="bad_model")
+        # stem is "bad_model", last 15 chars = "bad_model" (only 9 chars)
+        # This should at minimum not crash — the timestamp is garbage but extractable
+        assert len(timestamp) == 15 or len(timestamp) < 15
+
+    def test_red_empty_artifact_file(self, tmp_path):
+        """Empty .pt file must fail with a clear error, not silently."""
+        artifacts_dir = tmp_path / "artifacts"
+        artifacts_dir.mkdir()
+        empty_path = artifacts_dir / "empty_model_20260101_000000.pt"
+        empty_path.write_bytes(b"")
+
+        fetcher = ModelArtifactFetcher(
+            path_model_artifacts=artifacts_dir,
+            path_latest_model_artifacts=MagicMock(),
+            config={"run_type": "test"},
+            add_config_function=MagicMock(),
+            device=torch.device("cpu"),
+        )
+
+        with pytest.raises(Exception):
+            fetcher.fetch_model_artifact(model_artifact_name="empty_model_20260101_000000")
+
+    def test_red_add_config_callback_receives_timestamp(self, mock_setup):
+        """The config callback must receive exactly {'timestamp': '<15-char>'}."""
+        artifacts_dir, latest_path, config, add_config_mock = mock_setup
+
+        fetcher = ModelArtifactFetcher(
+            path_model_artifacts=artifacts_dir,
+            path_latest_model_artifacts=latest_path,
+            config=config,
+            add_config_function=add_config_mock,
+            device=torch.device("cpu"),
+        )
+
+        _, timestamp = fetcher.fetch_model_artifact()
+        add_config_mock.assert_called_once_with({"timestamp": timestamp})
+        assert len(timestamp) == 15
+
+    def test_red_sha256_mismatch_raises(self, tmp_path):
+        """CIC §6 Checksum Failure: wrong hash must raise RuntimeError."""
+        artifacts_dir = tmp_path / "artifacts"
+        artifacts_dir.mkdir()
+        artifact_path = artifacts_dir / "cal_model_20260401_120000.pt"
+        torch.save(DummyModel(), artifact_path)
+
+        hash_path = artifact_path.with_suffix(".pt.sha256")
+        hash_path.write_text("0000000000000000000000000000000000000000000000000000000000000000")
+
+        fetcher = ModelArtifactFetcher(
+            path_model_artifacts=artifacts_dir,
+            path_latest_model_artifacts=artifact_path,
+            config={"run_type": "test"},
+            add_config_function=MagicMock(),
+            device=torch.device("cpu"),
+        )
+
+        with pytest.raises(RuntimeError, match="integrity check FAILED"):
+            fetcher.fetch_model_artifact()
+
+    def test_red_sha256_valid_loads_successfully(self, tmp_path):
+        """CIC §6: correct hash must pass verification and load."""
+        artifacts_dir = tmp_path / "artifacts"
+        artifacts_dir.mkdir()
+        artifact_path = artifacts_dir / "cal_model_20260401_120000.pt"
+        torch.save(DummyModel(), artifact_path)
+
+        correct_hash = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+        hash_path = artifact_path.with_suffix(".pt.sha256")
+        hash_path.write_text(correct_hash)
+
+        fetcher = ModelArtifactFetcher(
+            path_model_artifacts=artifacts_dir,
+            path_latest_model_artifacts=artifact_path,
+            config={"run_type": "test"},
+            add_config_function=MagicMock(),
+            device=torch.device("cpu"),
+        )
+
+        model, timestamp = fetcher.fetch_model_artifact()
+        assert isinstance(model, DummyModel)
+        assert timestamp == "20260401_120000"
+
+    def test_red_no_hash_file_warns_but_loads(self, mock_setup):
+        """CIC §6: legacy artifact without .sha256 must warn and load."""
+        artifacts_dir, latest_path, config, add_config_mock = mock_setup
+
+        hash_path = latest_path.with_suffix(".pt.sha256")
+        assert not hash_path.exists()
+
+        fetcher = ModelArtifactFetcher(
+            path_model_artifacts=artifacts_dir,
+            path_latest_model_artifacts=latest_path,
+            config=config,
+            add_config_function=add_config_mock,
+            device=torch.device("cpu"),
+        )
+
+        model, _ = fetcher.fetch_model_artifact()
+        assert isinstance(model, DummyModel)
 
 
-def test_fetcher_beige_missing_file(mock_setup):
-    """Prove that missing files raise a contract violation error."""
-    artifacts_dir, _, config, add_config_mock = mock_setup
+def _dummy_model_factory(config: dict, device: torch.device) -> nn.Module:
+    """Test model factory for DummyModel."""
+    m = DummyModel()
+    return m.to(device)
 
-    fetcher = ModelArtifactFetcher(
-        path_model_artifacts=artifacts_dir,
-        path_latest_model_artifacts=artifacts_dir / "non_existent.pt",
-        config=config,
-        add_config_function=add_config_mock,
-        device=torch.device("cpu"),
-    )
 
-    with pytest.raises(FileNotFoundError, match="Retriever Contract Violation"):
-        fetcher.fetch_model_artifact()
-    print("✅ Beige Team: Missing file handled correctly.")
+class TestGreenStateDictSerialization:
+    """C-09: state_dict serialization with config sidecar."""
+
+    def test_state_dict_roundtrip(self, tmp_path):
+        """New-format artifact (state_dict + config sidecar) must load correctly."""
+        import json
+
+        artifacts_dir = tmp_path / "artifacts"
+        artifacts_dir.mkdir()
+        artifact_path = artifacts_dir / "cal_model_20260420_100000.pt"
+
+        model = DummyModel()
+        torch.save(model.state_dict(), artifact_path)
+
+        config_sidecar = artifact_path.with_suffix(".pt.config.json")
+        config_sidecar.write_text(
+            json.dumps(
+                {
+                    "model": "DummyModel",
+                    "input_channels": 1,
+                    "total_hidden_channels": 1,
+                    "output_channels": 1,
+                    "dropout_rate": 0.0,
+                }
+            )
+        )
+
+        sha256 = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+        artifact_path.with_suffix(".pt.sha256").write_text(sha256)
+
+        fetcher = ModelArtifactFetcher(
+            path_model_artifacts=artifacts_dir,
+            path_latest_model_artifacts=artifact_path,
+            config={"run_type": "test"},
+            add_config_function=MagicMock(),
+            device=torch.device("cpu"),
+            model_factory=_dummy_model_factory,
+        )
+
+        model_loaded, ts = fetcher.fetch_model_artifact()
+        assert isinstance(model_loaded, nn.Module)
+        assert ts == "20260420_100000"
+
+    def test_legacy_full_object_logs_deprecation_warning(self, mock_setup, caplog):
+        """Legacy full-object artifact must log a deprecation warning."""
+        import logging
+
+        artifacts_dir, latest_path, config, add_config_mock = mock_setup
+
+        fetcher = ModelArtifactFetcher(
+            path_model_artifacts=artifacts_dir,
+            path_latest_model_artifacts=latest_path,
+            config=config,
+            add_config_function=add_config_mock,
+            device=torch.device("cpu"),
+        )
+
+        with caplog.at_level(logging.WARNING):
+            fetcher.fetch_model_artifact()
+
+        assert any(
+            "legacy" in r.message.lower() and "re-save" in r.message.lower()
+            for r in caplog.records
+        ), "Loading legacy full-object artifact must log deprecation warning with re-save guidance"
+
+    def test_state_dict_format_uses_weights_only_true(self, tmp_path):
+        """New-format load must use weights_only=True (no arbitrary code exec)."""
+        import json
+        from unittest.mock import patch
+
+        artifacts_dir = tmp_path / "artifacts"
+        artifacts_dir.mkdir()
+        artifact_path = artifacts_dir / "cal_model_20260420_100000.pt"
+
+        model = DummyModel()
+        torch.save(model.state_dict(), artifact_path)
+
+        config_sidecar = artifact_path.with_suffix(".pt.config.json")
+        config_sidecar.write_text(
+            json.dumps(
+                {
+                    "model": "DummyModel",
+                    "input_channels": 1,
+                    "total_hidden_channels": 1,
+                    "output_channels": 1,
+                    "dropout_rate": 0.0,
+                }
+            )
+        )
+
+        sha256 = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+        artifact_path.with_suffix(".pt.sha256").write_text(sha256)
+
+        fetcher = ModelArtifactFetcher(
+            path_model_artifacts=artifacts_dir,
+            path_latest_model_artifacts=artifact_path,
+            config={"run_type": "test"},
+            add_config_function=MagicMock(),
+            device=torch.device("cpu"),
+            model_factory=_dummy_model_factory,
+        )
+
+        with patch("views_hydranet.utils.model_artifact_fetcher.torch.load") as mock_load:
+            mock_load.return_value = model.state_dict()
+            try:
+                fetcher.fetch_model_artifact()
+            except Exception:
+                pass
+            mock_load.assert_called_once()
+            _, kwargs = mock_load.call_args
+            assert kwargs.get("weights_only") is True, (
+                "New-format artifacts must be loaded with weights_only=True"
+            )
 
 
 if __name__ == "__main__":

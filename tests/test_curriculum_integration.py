@@ -6,7 +6,7 @@ from views_hydranet.utils.volume_handler import VolumeHandler
 from views_hydranet.utils.volume_sampler import VolumeSampler
 
 
-class TestCurriculumIntegration:
+class TestGreenCurriculumIntegration:
     """
     Verifies the handshake between the Planner (CurriculumLearner)
     and the Lens (VolumeSampler).
@@ -40,13 +40,14 @@ class TestCurriculumIntegration:
             "weight_decay": 0.1,
             "scheduler": "WarmupDecay",
             "warmup_steps": 100,
-            "loss_reg": "lr_b",
-            "loss_class": "lr_b",
+            "loss_reg": "mse",
+            "loss_class": "bce",
             "loss_reg_a": 16,
             "loss_reg_c": 0.05,
             "loss_class_gamma": 1.5,
             "loss_class_alpha": 0.75,
             "freeze_h": "hl",
+            "sampling_strategy": "threshold",
             "evaluation_mode": "stochastic",
             "aggregate_method": "geometric_mean",
             "model": "HydraBNUNet06_LSTM4",

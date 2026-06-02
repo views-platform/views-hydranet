@@ -76,19 +76,50 @@ class HydraNetConfig(BaseModel):
     warmup_steps: int = Field(..., ge=1)
     clip_grad_norm: bool = Field(...)
 
-    # 6. Loss Functions
+    # 6. Loss Functions (names: mse, shrinkage, basu_dpd, lognormal_nll, tobit)
     loss_reg: str = Field(...)
     loss_class: str = Field(...)
-    loss_reg_a: float = Field(...)
-    loss_reg_c: float = Field(...)
-    loss_class_gamma: float = Field(...)
-    loss_class_alpha: float = Field(...)
+    # ShrinkageLoss params (loss_reg='shrinkage')
+    loss_reg_a: float | None = Field(default=None)
+    loss_reg_c: float | None = Field(default=None)
+    # BasuDPDLoss params (loss_reg='basu_dpd')
+    loss_reg_alpha: float | None = Field(default=None)
+    # Shared: BasuDPDLoss / LogNormalFixedSigmaLoss / TobitLoss sigma
+    # Per-target Tobit (issue #44): dict[str, float] maps regression target → sigma.
+    loss_reg_sigma: float | Dict[str, float] | None = Field(default=None)
+    # ParetoLoss params (loss_reg='pareto')
+    loss_reg_pareto_alpha: float | None = Field(default=None)
+    # FocalLoss params (loss_class='focal')
+    loss_class_gamma: float | None = Field(default=None)
+    loss_class_alpha: float | None = Field(default=None)
+    # Classification head bias initialization (C-44)
+    onset_bias_init: float | None = Field(default=None)
+    # Hurdle masking (C-45): None = disabled, 0.0 = standard hurdle (y > 0)
+    hurdle_threshold: float | None = Field(default=None)
+    # QS99 tail regularizer (C-48): strict when hurdle active + weight > 0.
+    qs99_weight: float | None = Field(default=None, ge=0.0)
+    qs99_tau: float | None = Field(default=None, gt=0.0, lt=1.0)
+    # Per-target regression loss weights (C-87): None = uniform.
+    target_weights: Dict[str, float] | None = Field(default=None)
+    # Learnable Tobit sigma (ADR-055): optimizer adjusts sigma during training.
+    learnable_sigma: bool = Field(default=False)
+
+    # 11. Scheduled Sampling (ADR-056): close train/inference gap.
+    ss_schedule: str | None = Field(default=None)
+    ss_epsilon_max: float = Field(default=1.0, ge=0.0, le=1.0)
+    ss_warmup_lessons: int | None = Field(default=None, ge=1)
+    ss_k: float | None = Field(default=None, gt=0.0)
 
     # 7. Sampling & Reproducibility
     total_lessons: int = Field(..., ge=1)
     n_posterior_samples: int = Field(..., ge=1)
     np_seed: int = Field(...)
     torch_seed: int = Field(...)
+    # Sampling strategy (ADR-049): must be explicit — no hidden defaults.
+    sampling_strategy: str = Field(...)
+    sampling_alpha: float | None = Field(default=None)
+    sampling_temperature: float | None = Field(default=None)
+    sampling_steepness: float | None = Field(default=None)
 
     # 8. Strategy & Curriculum
     min_events: int = Field(...)
@@ -98,7 +129,12 @@ class HydraNetConfig(BaseModel):
     min_ratio: float = Field(...)
     freeze_h: str = Field(...)
 
-    # 9. Outbound Evaluation
+    # 9. Runtime Flags
+    sweep: bool = Field(default=False)
+    random_flips: bool = Field(default=True)
+    diagnostic_visualizations: bool = Field(default=False)
+
+    # 10. Outbound Evaluation
     evaluation_mode: str = Field(
         ...,
         description=(
@@ -122,14 +158,23 @@ class HydraNetConfig(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def handle_typos(cls, data: Any) -> Any:
+    def handle_typos_and_missing_guidance(cls, data: Any) -> Any:
         if isinstance(data, dict):
-            if "evalution_mode" in data and "evaluation_mode" not in data:
-                logger.warning(
-                    "Deprecated config key 'evalution_mode' — use 'evaluation_mode'. "
-                    "This shim will be removed in a future release."
-                )
-                data["evaluation_mode"] = data["evalution_mode"]
+            # For fields with registry/enum semantics, inject a sentinel so that
+            # Pydantic continues validating ALL fields (collecting every error)
+            # rather than stopping at the first missing one. The sentinel then
+            # hits the field_validator which produces an informative error.
+            _SENTINEL_FIELDS = {
+                "sampling_strategy": "__MISSING_sampling_strategy__",
+                "run_type": "__MISSING_run_type__",
+                "loss_reg": "__MISSING_loss_reg__",
+                "loss_class": "__MISSING_loss_class__",
+                "evaluation_mode": "__MISSING_evaluation_mode__",
+                "aggregate_method": "__MISSING_aggregate_method__",
+            }
+            for field, sentinel in _SENTINEL_FIELDS.items():
+                if field not in data:
+                    data[field] = sentinel
         return data
 
     @model_validator(mode="after")
@@ -144,6 +189,30 @@ class HydraNetConfig(BaseModel):
 
             logger.error(err_msg)
 
+            raise ValueError(err_msg)
+
+        # Architectural advisory (C-105): autoregressive feedback requires
+        # features == regression_targets (same variables)
+        if set(self.features) != set(self.regression_targets):
+            logger.warning(
+                "features %s != regression_targets %s. During autoregressive "
+                "inference, the model's regression output feeds back as input — "
+                "a mismatch will cause a shape error at inference time.",
+                self.features,
+                self.regression_targets,
+            )
+
+        # Architectural invariant (C-98): autoregressive feedback requires
+        # model regression output (3 heads × output_channels) == input_channels
+        if self.input_channels != 3 * self.output_channels:
+            err_msg = (
+                f"Architectural invariant violation: input_channels ({self.input_channels}) "
+                f"must equal 3 × output_channels ({self.output_channels}) = "
+                f"{3 * self.output_channels}. The model has 3 hardcoded regression heads, "
+                f"each producing output_channels channels. During autoregressive inference, "
+                f"the concatenated regression output feeds back as input."
+            )
+            logger.error(err_msg)
             raise ValueError(err_msg)
 
         # Checksum: time_steps
@@ -213,10 +282,9 @@ class HydraNetConfig(BaseModel):
     def validate_run_type(cls, v: str) -> str:
         valid = ["calibration", "validation", "forecasting", "testing"]
         if v not in valid:
-            err_msg = f"run_type must be in {valid}"
-
+            prefix = "'run_type' is required." if v.startswith("__MISSING_") else f"run_type='{v}'"
+            err_msg = f"{prefix} Valid options: {valid}"
             logger.error(err_msg)
-
             raise ValueError(err_msg)
         return v
 
@@ -225,10 +293,12 @@ class HydraNetConfig(BaseModel):
     def validate_eval_mode(cls, v: str) -> str:
         valid = ["point", "stochastic"]
         if v not in valid:
-            err_msg = (
-                f"evaluation_mode='{v}' is not valid. "
-                f"Expected one of: {valid}."
+            prefix = (
+                "'evaluation_mode' is required."
+                if v.startswith("__MISSING_")
+                else f"evaluation_mode='{v}' is not valid."
             )
+            err_msg = f"{prefix} Expected one of: {valid}."
             logger.error(err_msg)
             raise ValueError(err_msg)
         return v
@@ -243,18 +313,306 @@ class HydraNetConfig(BaseModel):
             )
         return v
 
+    @field_validator("loss_reg")
+    @classmethod
+    def validate_loss_reg(cls, v: str) -> str:
+        from views_hydranet.utils.utils import LOSS_REG_REGISTRY
+
+        if v not in LOSS_REG_REGISTRY:
+            prefix = "'loss_reg' is required." if v.startswith("__MISSING_") else f"loss_reg='{v}'"
+            err_msg = f"{prefix} Available: {list(LOSS_REG_REGISTRY.keys())}"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator("loss_class")
+    @classmethod
+    def validate_loss_class(cls, v: str) -> str:
+        from views_hydranet.utils.utils import LOSS_CLASS_REGISTRY
+
+        if v not in LOSS_CLASS_REGISTRY:
+            prefix = (
+                "'loss_class' is required." if v.startswith("__MISSING_") else f"loss_class='{v}'"
+            )
+            err_msg = f"{prefix} Available: {list(LOSS_CLASS_REGISTRY.keys())}"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator("sampling_strategy")
+    @classmethod
+    def validate_sampling_strategy(cls, v: str) -> str:
+        from views_hydranet.utils.sampling_strategies import SAMPLING_STRATEGY_REGISTRY
+
+        if v.startswith("__MISSING_"):
+            strategies = list(SAMPLING_STRATEGY_REGISTRY.keys())
+            params = {
+                k: entry["params"]
+                for k, entry in SAMPLING_STRATEGY_REGISTRY.items()
+                if entry["params"]
+            }
+            err_msg = (
+                f"'sampling_strategy' is required (ADR-049). "
+                f"Valid strategies: {strategies}. "
+                f"Strategy-specific params (also required): {params}. "
+                f"To preserve current behaviour, add: "
+                f"sampling_strategy='threshold' (no extra params needed)."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        if v not in SAMPLING_STRATEGY_REGISTRY:
+            err_msg = (
+                f"sampling_strategy='{v}' is not registered. "
+                f"Available: {list(SAMPLING_STRATEGY_REGISTRY.keys())}"
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
     @field_validator("aggregate_method")
     @classmethod
     def validate_agg_method(cls, v: str) -> str:
+        valid = ["arithmetic_mean", "geometric_mean", "median"]
         mapper = {"mean": "arithmetic_mean", "median": "median", "max_aposteriori": "median"}
         v = mapper.get(v, v)
-        if v not in ["arithmetic_mean", "geometric_mean", "median"]:
-            err_msg = "Invalid aggregate_method"
-
+        if v not in valid:
+            prefix = (
+                "'aggregate_method' is required."
+                if v.startswith("__MISSING_")
+                else f"aggregate_method='{v}' is not valid."
+            )
+            aliases = "'mean' → 'arithmetic_mean', 'max_aposteriori' → 'median'"
+            err_msg = f"{prefix} Expected one of: {valid}. Aliases: {aliases}."
             logger.error(err_msg)
-
             raise ValueError(err_msg)
         return v
+
+    @field_validator("slope_ratio")
+    @classmethod
+    def validate_slope_ratio(cls, v: float) -> float:
+        if v <= 0.0:
+            err_msg = (
+                f"slope_ratio must be > 0.0 (got {v}). Zero causes division-by-zero in curriculum."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator("roof_ratio")
+    @classmethod
+    def validate_roof_ratio(cls, v: float) -> float:
+        if v <= 0.0:
+            err_msg = f"roof_ratio must be > 0.0 (got {v}). Zero eliminates curriculum variation."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator("window_dim")
+    @classmethod
+    def validate_window_dim(cls, v: int) -> int:
+        if v < 2:
+            err_msg = (
+                f"window_dim must be >= 2 (got {v}). Single-pixel patches have no spatial context."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
+    @model_validator(mode="after")
+    def validate_ratio_ordering(self) -> "HydraNetConfig":
+        if self.min_ratio >= self.max_ratio:
+            err_msg = (
+                f"min_ratio ({self.min_ratio}) must be < max_ratio ({self.max_ratio}). "
+                f"Inverted range breaks curriculum sampling."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_sampling_params(self) -> "HydraNetConfig":
+        from views_hydranet.utils.sampling_strategies import SAMPLING_STRATEGY_REGISTRY
+
+        entry = SAMPLING_STRATEGY_REGISTRY.get(self.sampling_strategy)
+        if entry is None:
+            return self
+        for param in entry["params"]:
+            if getattr(self, param) is None:
+                err_msg = (
+                    f"sampling_strategy='{self.sampling_strategy}' requires '{param}' "
+                    f"but it was not provided. Add '{param}' to your config."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_loss_reg_params(self) -> "HydraNetConfig":
+        from views_hydranet.utils.utils import LOSS_REG_REGISTRY
+
+        entry = LOSS_REG_REGISTRY.get(self.loss_reg)
+        if entry is None:
+            return self
+        for param in entry["params"]:
+            if getattr(self, param) is None:
+                err_msg = (
+                    f"loss_reg='{self.loss_reg}' requires '{param}' "
+                    f"but it was not provided. Add '{param}' to your config."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_basu_dpd_range(self) -> "HydraNetConfig":
+        if self.loss_reg != "basu_dpd":
+            return self
+        if self.loss_reg_alpha is not None and self.loss_reg_alpha <= 0:
+            err_msg = (
+                f"loss_reg='basu_dpd' requires loss_reg_alpha > 0, "
+                f"got {self.loss_reg_alpha}. alpha=0 degenerates to MLE "
+                f"(no robustness), alpha < 0 is undefined."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        if isinstance(self.loss_reg_sigma, (int, float)) and self.loss_reg_sigma <= 0:
+            err_msg = (
+                f"loss_reg='basu_dpd' requires loss_reg_sigma > 0, "
+                f"got {self.loss_reg_sigma}. sigma=0 causes division by zero "
+                f"in the density power divergence formula."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_loss_class_params(self) -> "HydraNetConfig":
+        from views_hydranet.utils.utils import LOSS_CLASS_REGISTRY
+
+        entry = LOSS_CLASS_REGISTRY.get(self.loss_class)
+        if entry is None:
+            return self
+        for param in entry["params"]:
+            if getattr(self, param) is None:
+                err_msg = (
+                    f"loss_class='{self.loss_class}' requires '{param}' "
+                    f"but it was not provided. Add '{param}' to your config."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_hurdle_params(self) -> "HydraNetConfig":
+        if self.loss_reg == "tobit" and self.hurdle_threshold is not None:
+            err_msg = (
+                "loss_reg='tobit' handles zero-inflation internally via "
+                "censored likelihood. Setting hurdle_threshold is contradictory "
+                "— remove hurdle_threshold from your config."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        if (
+            self.hurdle_threshold is not None
+            and self.qs99_weight is not None
+            and self.qs99_weight > 0
+        ):
+            if self.qs99_tau is None:
+                err_msg = (
+                    f"hurdle_threshold={self.hurdle_threshold} with "
+                    f"qs99_weight={self.qs99_weight} requires 'qs99_tau' "
+                    f"but it was not provided. Add 'qs99_tau' to your config."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_target_weights(self) -> "HydraNetConfig":
+        if self.target_weights is None:
+            return self
+        for w in self.target_weights.values():
+            if w < 0:
+                err_msg = f"target_weights values must be >= 0, got {self.target_weights}."
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+        missing = [t for t in self.regression_targets if t not in self.target_weights]
+        if missing:
+            err_msg = (
+                f"target_weights is missing entries for regression targets: "
+                f"{missing}. All regression_targets must have a weight."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        extra = [k for k in self.target_weights if k not in self.regression_targets]
+        if extra:
+            err_msg = (
+                f"target_weights contains keys not in regression_targets: "
+                f"{extra}. Remove them or check for typos."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_per_target_sigma(self) -> "HydraNetConfig":
+        if not isinstance(self.loss_reg_sigma, dict):
+            return self
+        if self.loss_reg != "tobit":
+            err_msg = (
+                f"Per-target loss_reg_sigma (dict) is only supported for "
+                f"loss_reg='tobit', got loss_reg='{self.loss_reg}'."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        for v in self.loss_reg_sigma.values():
+            if v <= 0:
+                err_msg = (
+                    f"All per-target loss_reg_sigma values must be positive, "
+                    f"got {self.loss_reg_sigma}."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+        missing = [t for t in self.regression_targets if t not in self.loss_reg_sigma]
+        if missing:
+            err_msg = (
+                f"Per-target loss_reg_sigma is missing entries for regression "
+                f"targets: {missing}. All regression_targets must have a sigma."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        extra = [k for k in self.loss_reg_sigma if k not in self.regression_targets]
+        if extra:
+            err_msg = (
+                f"Per-target loss_reg_sigma contains keys not in regression_targets: "
+                f"{extra}. Remove them or check for typos."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_scheduled_sampling_params(self) -> "HydraNetConfig":
+        if self.ss_schedule is None:
+            return self
+        valid = ["linear", "inverse_sigmoid", "exponential"]
+        if self.ss_schedule not in valid:
+            err_msg = f"ss_schedule='{self.ss_schedule}' is not valid. Expected one of: {valid}"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        if self.ss_schedule == "linear" and self.ss_warmup_lessons is None:
+            err_msg = "ss_schedule='linear' requires 'ss_warmup_lessons'."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        if self.ss_schedule in ("inverse_sigmoid", "exponential") and self.ss_k is None:
+            err_msg = f"ss_schedule='{self.ss_schedule}' requires 'ss_k'."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        if self.ss_schedule == "exponential" and self.ss_k is not None and self.ss_k >= 1.0:
+            err_msg = f"ss_schedule='exponential' requires ss_k < 1.0, got {self.ss_k}."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
 
     # --- Dict-compatibility layer (gradual migration from config["key"]) ---
 

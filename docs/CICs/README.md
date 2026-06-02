@@ -63,6 +63,9 @@ Contracts must be clear enough that:
 - `CurriculumLearner.md`
 - `VolumeSampler.md`
 
+### Interface Adapters (Entity ↔ Framework)
+- `PredictionFrameAssembler.md`
+
 ---
 
 ## Governance Relationship

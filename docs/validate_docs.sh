@@ -57,7 +57,7 @@ echo "--- Checking cross-ADR references (constitutional: 000-009) ---"
 while IFS= read -r ref; do
     [[ -z "$ref" ]] && continue
     file=$(echo "$ref" | cut -d: -f1)
-    adr_num=$(echo "$ref" | grep -oP 'ADR-00\K[0-9]' | head -1)
+    adr_num=$(echo "$ref" | sed -nE 's/.*ADR-00([0-9]).*/\1/p' | head -1)
     if [ -n "$adr_num" ]; then
         match_count=$(find ADRs -name "00${adr_num}_*.md" 2>/dev/null | wc -l)
         if [ "$match_count" -eq 0 ]; then
@@ -72,7 +72,7 @@ echo "--- Checking protocol file references ---"
 while IFS= read -r ref; do
     [[ -z "$ref" ]] && continue
     file=$(echo "$ref" | cut -d: -f1)
-    proto=$(echo "$ref" | grep -oP 'contributor_protocols/[a-z_]+\.md' | head -1)
+    proto=$(echo "$ref" | sed -nE 's|.*(contributor_protocols/[a-z_]+\.md).*|\1|p' | head -1)
     if [ -n "$proto" ] && [ ! -f "$proto" ]; then
         echo "  ERROR: $file references $proto but file does not exist"
         errors=$((errors + 1))

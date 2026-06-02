@@ -1,25 +1,35 @@
 """
-Unit tests for VolumeHandler.to_evaluation_pf().
+Unit tests for PredictionFrameAssembler.assemble_evaluation().
 
 Verifies:
 1. Correct return type: dict[str, PredictionFrame]
 2. All targets present as dict keys
 3. Correct y_pred shapes (stochastic vs point mode)
 4. Identifiers populated (time, unit arrays)
+
+Extracted from test_volume_handler_pf.py during D-01 partial split (2026-04-11).
 """
 
 import numpy as np
 import pandas as pd
 import pytest
+
+pytest.importorskip("views_pipeline_core")
+
 from views_pipeline_core.data.prediction_frame import PredictionFrame
 
+from views_hydranet.utils.prediction_frame_assembler import PredictionFrameAssembler
 from views_hydranet.utils.volume_handler import VolumeHandler
 
 # ─── Constants ───────────────────────────────────────────────────────────────
 
 TARGETS = [
-    "lr_sb_best", "lr_ns_best", "lr_os_best",
-    "by_sb_best", "by_ns_best", "by_os_best",
+    "lr_sb_best",
+    "lr_ns_best",
+    "lr_os_best",
+    "by_sb_best",
+    "by_ns_best",
+    "by_os_best",
 ]
 
 # Minimal VolumeHandler config — 2×2 grid, no c_id to keep the fixture simple
@@ -35,12 +45,13 @@ CONFIG = {
     "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
 }
 
-N_CELLS = 4   # 2×2, all cells valid (priogrid_gid > 0)
+N_CELLS = 4  # 2×2, all cells valid (priogrid_gid > 0)
 N_MONTHS = 5  # history length; prediction uses last month
-S = 4         # posterior samples (stochastic tests)
+S = 4  # posterior samples (stochastic tests)
 
 
 # ─── Fixtures ────────────────────────────────────────────────────────────────
+
 
 def _make_df(n_months: int = N_MONTHS) -> pd.DataFrame:
     """2×2 grid spanning month_id 100 .. 100+n_months-1."""
@@ -48,15 +59,17 @@ def _make_df(n_months: int = N_MONTHS) -> pd.DataFrame:
     for t in range(100, 100 + n_months):
         for r in range(2):
             for c in range(2):
-                rows.append({
-                    "month_id": t,
-                    "priogrid_gid": r * 2 + c + 1,
-                    "row": float(r),
-                    "col": float(c),
-                    "lr_sb_best": float(r + c + t * 0.01),
-                    "lr_ns_best": 0.5,
-                    "lr_os_best": 0.0,
-                })
+                rows.append(
+                    {
+                        "month_id": t,
+                        "priogrid_gid": r * 2 + c + 1,
+                        "row": float(r),
+                        "col": float(c),
+                        "lr_sb_best": float(r + c + t * 0.01),
+                        "lr_ns_best": 0.5,
+                        "lr_os_best": 0.0,
+                    }
+                )
     return pd.DataFrame(rows)
 
 
@@ -88,29 +101,44 @@ def point_pred_handler(window_handler):
     return stoch.collapse_to_point("arithmetic_mean")
 
 
-# ─── Tests: to_evaluation_pf ─────────────────────────────────────────────────
+# ─── Tests: PredictionFrameAssembler.assemble_evaluation ────────────────────
 
-class TestToEvaluationPF:
-    """Tests for VolumeHandler.to_evaluation_pf()."""
 
-    def test_returns_dict(self, stochastic_pred_handler, window_handler):
-        result = stochastic_pred_handler.to_evaluation_pf(
-            history=window_handler, start_idx=0, all_targets=TARGETS
+@pytest.fixture
+def assembler():
+    return PredictionFrameAssembler()
+
+
+class TestGreen:
+    """Green: PredictionFrameAssembler.assemble_evaluation() contract."""
+
+    def test_returns_dict(self, assembler, stochastic_pred_handler, window_handler):
+        result = assembler.assemble_evaluation(
+            signal=stochastic_pred_handler,
+            history=window_handler,
+            start_idx=0,
+            all_targets=TARGETS,
         )
         assert isinstance(result, dict)
 
-    def test_all_targets_present(self, stochastic_pred_handler, window_handler):
-        result = stochastic_pred_handler.to_evaluation_pf(
-            history=window_handler, start_idx=0, all_targets=TARGETS
+    def test_all_targets_present(self, assembler, stochastic_pred_handler, window_handler):
+        result = assembler.assemble_evaluation(
+            signal=stochastic_pred_handler,
+            history=window_handler,
+            start_idx=0,
+            all_targets=TARGETS,
         )
         for target in TARGETS:
             assert target in result, f"Missing target key: {target}"
             assert isinstance(result[target], PredictionFrame)
 
-    def test_stochastic_shape(self, stochastic_pred_handler, window_handler):
+    def test_stochastic_shape(self, assembler, stochastic_pred_handler, window_handler):
         """Stochastic mode: y_pred.shape == (N_CELLS, S)."""
-        result = stochastic_pred_handler.to_evaluation_pf(
-            history=window_handler, start_idx=0, all_targets=TARGETS
+        result = assembler.assemble_evaluation(
+            signal=stochastic_pred_handler,
+            history=window_handler,
+            start_idx=0,
+            all_targets=TARGETS,
         )
         for target in TARGETS:
             pf = result[target]
@@ -119,10 +147,33 @@ class TestToEvaluationPF:
                 f"{target}: expected ({N_CELLS}, {S}), got {pf.y_pred.shape}"
             )
 
-    def test_point_shape(self, point_pred_handler, window_handler):
+    def test_identifiers_populated(self, assembler, stochastic_pred_handler, window_handler):
+        """identifiers['time'] and identifiers['unit'] are non-empty and correct length."""
+        result = assembler.assemble_evaluation(
+            signal=stochastic_pred_handler,
+            history=window_handler,
+            start_idx=0,
+            all_targets=TARGETS,
+        )
+        pf = result["lr_sb_best"]
+        assert "time" in pf.identifiers
+        assert "unit" in pf.identifiers
+        assert len(pf.identifiers["time"]) == N_CELLS
+        assert len(pf.identifiers["unit"]) == N_CELLS
+        assert not np.any(np.isnan(pf.identifiers["time"].astype(float)))
+        assert not np.any(np.isnan(pf.identifiers["unit"].astype(float)))
+
+
+class TestBeige:
+    """Beige: Mode interactions in PredictionFrameAssembler."""
+
+    def test_point_shape(self, assembler, point_pred_handler, window_handler):
         """Point mode: y_pred.shape == (N_CELLS, 1)."""
-        result = point_pred_handler.to_evaluation_pf(
-            history=window_handler, start_idx=0, all_targets=TARGETS
+        result = assembler.assemble_evaluation(
+            signal=point_pred_handler,
+            history=window_handler,
+            start_idx=0,
+            all_targets=TARGETS,
         )
         for target in TARGETS:
             pf = result[target]
@@ -131,32 +182,27 @@ class TestToEvaluationPF:
                 f"{target}: expected ({N_CELLS}, 1), got {pf.y_pred.shape}"
             )
 
-    def test_identifiers_populated(self, stochastic_pred_handler, window_handler):
-        """identifiers['time'] and identifiers['unit'] are non-empty and correct length."""
-        result = stochastic_pred_handler.to_evaluation_pf(
-            history=window_handler, start_idx=0, all_targets=TARGETS
-        )
-        pf = result["lr_sb_best"]
-        assert "time" in pf.identifiers
-        assert "unit" in pf.identifiers
-        assert len(pf.identifiers["time"]) == N_CELLS
-        assert len(pf.identifiers["unit"]) == N_CELLS
-        # No NaN values
-        assert not np.any(np.isnan(pf.identifiers["time"].astype(float)))
-        assert not np.any(np.isnan(pf.identifiers["unit"].astype(float)))
 
-    def test_bounds_check_raises_on_bad_start_idx(self, stochastic_pred_handler, window_handler):
+class TestRed:
+    """Red: Failure modes in PredictionFrameAssembler."""
+
+    def test_bounds_check_raises_on_bad_start_idx(
+        self, assembler, stochastic_pred_handler, window_handler
+    ):
         """Bounds validation raises on invalid start_idx."""
-        with pytest.raises(ValueError, match="Contract Violation"):
-            stochastic_pred_handler.to_evaluation_pf(
-                history=window_handler, start_idx=999, all_targets=TARGETS
+        with pytest.raises(ValueError, match="PredictionFrameAssembler Contract Violation"):
+            assembler.assemble_evaluation(
+                signal=stochastic_pred_handler,
+                history=window_handler,
+                start_idx=999,
+                all_targets=TARGETS,
             )
-
 
 
 # ─── Tests: wrap_predictions dtype contract ───────────────────────────────────
 
-class TestWrapPredictionsDtype:
+
+class TestGreenWrapPredictionsDtype:
     """
     Guard against silent dtype upcast in wrap_predictions().
 
@@ -185,6 +231,5 @@ class TestWrapPredictionsDtype:
         posterior_4d = np.ones((1, 2, 2, 6), dtype=np.float32)
         pred = window_handler.wrap_predictions(posterior_4d, target_names=TARGETS)
         assert pred._data.dtype == np.float32, (
-            "wrap_predictions() point branch must produce float32. "
-            f"Got {pred._data.dtype}."
+            f"wrap_predictions() point branch must produce float32. Got {pred._data.dtype}."
         )

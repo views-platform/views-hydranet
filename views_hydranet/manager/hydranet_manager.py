@@ -9,7 +9,7 @@ It handles spatiotemporal data volumes and implements rolling-origin evaluation.
 import gc
 import logging
 from datetime import datetime
-from typing import Any, Callable, Dict, List, NamedTuple
+from typing import Any, Callable, NamedTuple
 
 import pandas as pd
 from views_pipeline_core.data.prediction_frame import PredictionFrame
@@ -18,6 +18,7 @@ from views_pipeline_core.managers.model import (
     ModelPathManager,
 )
 
+from views_hydranet.infrastructure.reproducibility_gate import ReproducibilityGate
 from views_hydranet.train.train_model import train_model_artifact
 from views_hydranet.utils.config_initializer import ConfigInitializer
 from views_hydranet.utils.data_fetcher import DataFetcher
@@ -42,8 +43,8 @@ class _EvaluationContext(NamedTuple):
 
     handler: "VolumeHandler"
     scaler: "FeatureScaler"
-    origins: List[int]
-    all_targets: List[str]
+    origins: list[int]
+    all_targets: list[str]
     orchestrator: "InferenceOrchestrator"
 
 
@@ -55,12 +56,14 @@ class HydranetManager(ForecastingModelManager):
     Implements multi-task evaluation and rolling-origin orchestration.
     """
 
-    configs: Dict[str, Any]
+    configs: dict[str, Any]
 
     def _run_data_pipeline(
         self,
         viz: "VisualDiagnostics",
         partition_bound: int | None = None,
+        *,
+        forecast: bool = False,
     ) -> tuple["VolumeHandler", "FeatureScaler", "DataSniffer"]:
         """
         Shared data ingestion pipeline (ADR 039 Steps 1-3).
@@ -75,6 +78,9 @@ class HydranetManager(ForecastingModelManager):
         partition_bound : int, optional
             If set, filters the DataFrame to ``time_col <= partition_bound``
             before constructing the VolumeHandler (evaluation path).
+        forecast : bool
+            If True, passes ``is_forecast=True`` to the sniffer's
+            temporal continuity check.
 
         Returns
         -------
@@ -83,7 +89,7 @@ class HydranetManager(ForecastingModelManager):
         # 1. Ingest
 
         data_fetcher = DataFetcher(self._model_path.data_raw, self.configs)
-        df = data_fetcher.fetch_df()
+        df = data_fetcher.fetch_df(cached_path=getattr(self, "_cached_data_path", None))
 
         # Diagnostic plot features
         plot_feats = (
@@ -126,7 +132,7 @@ class HydranetManager(ForecastingModelManager):
         # DIAGNOSTIC: Stage 3 (Volume)
         viz.biopsy_volume(handler, "Stage 3: Global Volume")
 
-        sniffer.sniff_forecast_alignment(df, handler, is_forecast=False)
+        sniffer.sniff_forecast_alignment(df, handler, is_forecast=forecast)
 
         del df
         gc.collect()
@@ -215,44 +221,8 @@ class HydranetManager(ForecastingModelManager):
 
         return model
 
-    def _setup_evaluation(
-        self, eval_type: str, artifact_name: str | None = None,
-        *, forecast: bool = False,
-    ) -> _EvaluationContext:
-        """
-        Shared setup for evaluation, streaming, and forecasting.
-
-        Fetches the model artifact, loads and scales the data, creates the
-        VolumeHandler, sniffs alignment, computes origin indices,
-        and builds the InferenceOrchestrator.
-
-        Parameters
-        ----------
-        eval_type : str
-            Label for device logging (e.g. "calibration", "forecasting").
-        artifact_name : str | None
-            Specific artifact to load (default: latest).
-        forecast : bool
-            If True, skips partition lookup and uses the single latest
-            time index as the sole origin. Data pipeline runs without
-            partition_bound (uses all available data).
-
-        Returns
-        -------
-        _EvaluationContext
-            handler     : VolumeHandler — spatiotemporal data carrier
-            scaler      : FeatureScaler — fitted, ready for inverse_transform_volume
-            origins     : List[int]     — origin indices (rolling for eval, single for forecast)
-            all_targets : List[str]     — regression_targets + classification_targets
-            orchestrator: InferenceOrchestrator — wired with model, device, visualizer
-        """
-        log_device_report(self.device, eval_type)
-        self.configs = ConfigInitializer(self.configs).get_config()
-        self._run_preflight_check()
-        viz = VisualDiagnostics(self.configs, run_timestamp=self.run_timestamp)
-
-        # ── Model artifact ────────────────────────────────────────────────────
-
+    def _load_model_artifact(self, artifact_name: str | None = None) -> Any:
+        """Load a trained model artifact from disk."""
         add_config_fn = (
             self._config_manager.add_config
             if hasattr(self, "_config_manager")
@@ -264,12 +234,56 @@ class HydranetManager(ForecastingModelManager):
             self.configs,
             add_config_fn,
             self.device,
-        ).fetch_model_artifact()
+        ).fetch_model_artifact(model_artifact_name=artifact_name)
+        return model
+
+    def _setup_evaluation(
+        self,
+        eval_type: str,
+        model: Any,
+        *,
+        forecast: bool = False,
+    ) -> _EvaluationContext:
+        """
+        Shared setup for evaluation, streaming, forecasting, and sweeps.
+
+        Loads and scales the data, creates the VolumeHandler, sniffs
+        alignment, computes origin indices, and builds the
+        InferenceOrchestrator with the provided model.
+
+        Parameters
+        ----------
+        eval_type : str
+            Label for device logging (e.g. "calibration", "forecasting").
+        model : torch.nn.Module
+            Trained model — loaded from disk via ``_load_model_artifact()``
+            or received in-memory from ``_execute_model_sweeping()``.
+        forecast : bool
+            If True, skips partition lookup and uses the single latest
+            time index as the sole origin. Data pipeline runs without
+            partition_bound (uses all available data).
+
+        Returns
+        -------
+        _EvaluationContext
+            handler     : VolumeHandler — spatiotemporal data carrier
+            scaler      : FeatureScaler — fitted, ready for inverse_transform_volume
+            origins     : list[int]     — origin indices (rolling for eval, single for forecast)
+            all_targets : list[str]     — regression_targets + classification_targets
+            orchestrator: InferenceOrchestrator — wired with model, device, visualizer
+        """
+        log_device_report(self.device, eval_type)
+        self.configs = ConfigInitializer(self.configs).get_config()
+        ReproducibilityGate.lock_entropy(
+            np_seed=self.configs["np_seed"], torch_seed=self.configs["torch_seed"]
+        )
+        self._run_preflight_check()
+        viz = VisualDiagnostics(self.configs, run_timestamp=self.run_timestamp)
 
         # ── Data pipeline ──────────────────────────────────────────────────────
 
         if forecast:
-            handler, scaler, sniffer = self._run_data_pipeline(viz)
+            handler, scaler, sniffer = self._run_data_pipeline(viz, forecast=True)
             origins = [handler.shape[0] - 1]
         else:
             run_type = self.configs["run_type"]
@@ -277,9 +291,7 @@ class HydranetManager(ForecastingModelManager):
             partition = getattr(self, "_partition_dict", {}).get(run_type)
             test_end = partition["test"][1] if partition is not None else None
 
-            handler, scaler, sniffer = self._run_data_pipeline(
-                viz, partition_bound=test_end
-            )
+            handler, scaler, sniffer = self._run_data_pipeline(viz, partition_bound=test_end)
 
             if partition is not None:
                 test_start = partition["test"][0]
@@ -290,9 +302,8 @@ class HydranetManager(ForecastingModelManager):
 
         # ── Targets and orchestrator ──────────────────────────────────────────
 
-        all_targets = (
-            self.configs.get("regression_targets", [])
-            + self.configs.get("classification_targets", [])
+        all_targets = self.configs.get("regression_targets", []) + self.configs.get(
+            "classification_targets", []
         )
         orchestrator = InferenceOrchestrator(self.configs, model, self.device, visualizer=viz)
 
@@ -308,7 +319,8 @@ class HydranetManager(ForecastingModelManager):
         self, eval_type: str, artifact_name: str | None = None
     ) -> "dict[str, list[PredictionFrame]]":
         """Orchestrates rolling-origin evaluation via specialized component."""
-        ctx = self._setup_evaluation(eval_type, artifact_name)
+        model = self._load_model_artifact(artifact_name)
+        ctx = self._setup_evaluation(eval_type, model)
         handler, scaler, origins, all_targets, orchestrator = ctx
 
         list_pf_dicts = orchestrator.generate_prediction_frames(
@@ -327,7 +339,7 @@ class HydranetManager(ForecastingModelManager):
         self,
         eval_type: str,
         artifact_name: str | None,
-        origin_sink: Callable[[int, Dict[str, "PredictionFrame"]], None],
+        origin_sink: Callable[[int, dict[str, "PredictionFrame"]], None],
     ) -> None:
         """
         Override of ForecastingModelManager._evaluate_model_artifact_streaming().
@@ -342,7 +354,8 @@ class HydranetManager(ForecastingModelManager):
             Streaming:  1 × T PredictionFrames in RAM at any moment
             Reduction:  M× (e.g. 13× at pgm scale with S=32)
         """
-        ctx = self._setup_evaluation(eval_type, artifact_name)
+        model = self._load_model_artifact(artifact_name)
+        ctx = self._setup_evaluation(eval_type, model)
         ctx.orchestrator.generate_prediction_frames_streaming(
             ctx.handler,
             ctx.scaler,
@@ -355,15 +368,20 @@ class HydranetManager(ForecastingModelManager):
         self, artifact_name: str | None = None
     ) -> "dict[str, PredictionFrame]":
         """Generates operational forecasts."""
-        ctx = self._setup_evaluation("forecasting", artifact_name, forecast=True)
+        model = self._load_model_artifact(artifact_name)
+        ctx = self._setup_evaluation("forecasting", model, forecast=True)
 
         list_pf_dicts = ctx.orchestrator.generate_prediction_frames(
             ctx.handler, ctx.scaler, origins=ctx.origins, all_targets=ctx.all_targets
         )
-        result: dict[str, PredictionFrame] = {
-            t: list_pf_dicts[0][t] for t in ctx.all_targets
-        }
-        logger.info(
-            f"✅ HydranetManager: Forecast complete — {len(result)} targets."
-        )
+        result: dict[str, PredictionFrame] = {t: list_pf_dicts[0][t] for t in ctx.all_targets}
+        logger.info(f"✅ HydranetManager: Forecast complete — {len(result)} targets.")
         return result
+
+    def _evaluate_sweep(self, eval_type: str, model: Any) -> "dict[str, list[PredictionFrame]]":
+        """Evaluate a trained model during a WandB sweep iteration."""
+        ctx = self._setup_evaluation(eval_type, model)
+        list_pf_dicts = ctx.orchestrator.generate_prediction_frames(
+            ctx.handler, ctx.scaler, origins=ctx.origins, all_targets=ctx.all_targets
+        )
+        return {t: [d[t] for d in list_pf_dicts] for t in ctx.all_targets}

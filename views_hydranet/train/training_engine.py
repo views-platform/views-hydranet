@@ -13,13 +13,15 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Any, Dict, Optional, cast
+import math
+from typing import Any, cast
 
 import numpy as np
 import torch
 import torch.nn as nn
 from tqdm import tqdm
 
+from views_hydranet.infrastructure.reproducibility_gate import ReproducibilityGate
 from views_hydranet.utils.curriculum import CurriculumLearner
 from views_hydranet.utils.integrity_guardian import IntegrityGuardian
 from views_hydranet.utils.training_forensics import TrainingForensics
@@ -38,20 +40,53 @@ from views_hydranet.utils.volume_sampler import VolumeSampler
 logger = logging.getLogger(__name__)
 
 
+def _init_classification_head_bias(model: nn.Module, bias_value: float) -> None:
+    """
+    Initialize classification decoder head biases to logit(event_rate).
+
+    Autoresearch Finding F1: sigmoid(0) = 0.50 is a 25-71x overestimate of
+    the true event rate on zero-inflated PRIO-GRID data. Initializing to
+    logit(event_rate) provides 98.5% metric improvement.
+
+    Targets layers named 'dec_conv4_head{N}_class' — the final output
+    Conv2d of each classification decoder branch.
+    """
+    count = 0
+    for name, module in model.named_modules():
+        is_class_head = "dec_conv4" in name and "_class" in name
+        has_bias = hasattr(module, "bias") and module.bias is not None
+        if is_class_head and has_bias:
+            nn.init.constant_(module.bias, bias_value)
+            count += 1
+            logger.debug(f"Classification head '{name}' bias → {bias_value:.2f}")
+
+    sigmoid_val = 1.0 / (1.0 + math.exp(-bias_value))
+    logger.info(
+        f"Onset bias initialization: {count} classification heads set to {bias_value:.2f} "
+        f"(sigmoid = {sigmoid_val:.4f}, i.e. {sigmoid_val * 100:.2f}% prior event probability)"
+    )
+
+
 def make(config: dict, device: torch.device):
     model = choose_model(config, device)
 
-    # Create a partial function with the initialization function and the config parameter
     init_fn = functools.partial(init_weights, config=config)
-
-    # Apply the initialization function to the model
     model.apply(init_fn)
 
-    # choose loss function
-    criterion = choose_loss(config, device)  # this is a tuple of the reg and the class criteria
+    onset_bias = config.get("onset_bias_init")
+    if onset_bias is not None:
+        _init_classification_head_bias(model, onset_bias)
 
-    # choose scheduler - the optimizer is always AdamW right now
+    criterion = choose_loss(config, device)
     optimizer, scheduler = choose_scheduler(config, model)
+
+    # ADR-055: add learnable sigma parameters to the optimizer
+    criterion_reg = criterion[0]
+    if isinstance(criterion_reg, dict):
+        for loss_instance in criterion_reg.values():
+            sigma_params = list(loss_instance.parameters())
+            if sigma_params:
+                optimizer.add_param_group({"params": sigma_params})
 
     return (model, criterion, optimizer, scheduler)
 
@@ -62,9 +97,9 @@ class _SequenceIndices:
     __slots__ = ("reg", "cls", "feat", "n_reg", "n_cls", "reg_names", "cls_names")
 
     def __init__(self, feature_names: list[str], config: dict) -> None:
-        reg_targets = config.get("regression_targets", [])
-        cls_targets = config.get("classification_targets", [])
-        input_features = config.get("features", [])
+        reg_targets = config.get("regression_targets")
+        cls_targets = config.get("classification_targets")
+        input_features = config.get("features")
 
         self.reg = [feature_names.index(t) for t in reg_targets]
         self.cls = [feature_names.index(t) for t in cls_targets]
@@ -79,14 +114,19 @@ def _process_sequence(
     train_tensor: torch.Tensor,
     model: nn.Module,
     h: torch.Tensor,
-    criterion_reg: nn.Module,
+    criterion_reg: nn.Module | dict[str, nn.Module],
     criterion_class: nn.Module,
     multitaskloss_instance: nn.Module,
     idx: "_SequenceIndices",
     device: torch.device,
-    pbar: Optional[tqdm] = None,
-    forensics: Optional[TrainingForensics] = None,
-) -> Dict[str, Any]:
+    pbar: tqdm | None = None,
+    forensics: TrainingForensics | None = None,
+    hurdle_threshold: float | None = None,
+    qs99_weight: float | None = None,
+    qs99_tau: float | None = None,
+    target_weights: dict[str, float] | None = None,
+    ss_epsilon: float = 0.0,
+) -> dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
 
@@ -102,6 +142,14 @@ def _process_sequence(
     step_cls: list[float] = []
     step_total: list[float] = []
 
+    # Censored losses (TobitLoss) need pre-ReLU latent mu — resolve once
+    if isinstance(criterion_reg, dict):
+        use_latent = any(getattr(v, "needs_latent", False) for v in criterion_reg.values())
+    else:
+        use_latent = getattr(criterion_reg, "needs_latent", False) is True
+
+    prev_pred: torch.Tensor | None = None
+
     for i in range(seq_len - 1):
         t0 = train_tensor[:, i, :, :, :]
         t1 = train_tensor[:, i + 1, :, :, :]
@@ -111,15 +159,25 @@ def _process_sequence(
         y_cls = t1[:, idx.cls, :, :]
 
         # Forward pass: Feed ONLY the input features (Zero Magic)
-        t0_input = t0[:, idx.feat, :, :]
-        t1_pred, t1_pred_class, h = cast(Any, model)(t0_input, h)
+        t0_gt = t0[:, idx.feat, :, :]
+
+        # ADR-056: scheduled sampling — may replace ground truth with model prediction
+        if ss_epsilon > 0.0 and prev_pred is not None:
+            mask = torch.rand(t0_gt.shape[0], 1, 1, 1, device=device) < ss_epsilon
+            t0_input = torch.where(mask, prev_pred, t0_gt)
+        else:
+            t0_input = t0_gt
+
+        output = model(t0_input, h)
+        t1_pred, t1_pred_class, h = output.reg, output.cls, output.h_next
+        prev_pred = t1_pred.detach()
+
+        t1_pred_for_loss = output.reg_latent if use_latent else t1_pred
 
         # --- FORENSIC RECORDING (ADR 001 Custodian) ---
         if forensics:
             for j, target_name in enumerate(idx.reg_names):
-                forensics.record(
-                    f"REG:{target_name}", y_reg[:, j : j + 1], t1_pred[:, j : j + 1]
-                )
+                forensics.record(f"REG:{target_name}", y_reg[:, j : j + 1], t1_pred[:, j : j + 1])
             for j, target_name in enumerate(idx.cls_names):
                 forensics.record(
                     f"CLS:{target_name}",
@@ -129,21 +187,65 @@ def _process_sequence(
 
         # Loss computation
         losses_list = []
+        qs99_loss = torch.tensor(0.0, device=device)
         for j in range(idx.n_reg):
-            losses_list.append(criterion_reg(t1_pred[:, j, :, :], y_reg[:, j, :, :]))
+            pred_j = t1_pred_for_loss[:, j, :, :]
+            target_j = y_reg[:, j, :, :]
+
+            # Issue #44: per-target loss instance (or shared single instance)
+            loss_fn_j = (
+                criterion_reg[idx.reg_names[j]]
+                if isinstance(criterion_reg, dict)
+                else criterion_reg
+            )
+
+            # C-87: per-target loss weight (1.0 if not configured)
+            tw = 1.0
+            if target_weights is not None:
+                tw = target_weights[idx.reg_names[j]]
+
+            if hurdle_threshold is not None and not use_latent:
+                # C-45: Regression loss on positive observations only
+                mask = target_j > hurdle_threshold
+                if mask.any():
+                    losses_list.append(tw * loss_fn_j(pred_j[mask], target_j[mask]))
+                else:
+                    losses_list.append(torch.tensor(0.0, device=device))
+
+                # C-48: QS99 regularizer (distribution-free pinball on mu)
+                # Only active when hurdle is enabled and weight > 0
+                qs99_active = (
+                    qs99_weight is not None
+                    and qs99_weight > 0
+                    and qs99_tau is not None
+                    and mask.any()
+                )
+                if qs99_active:
+                    error = target_j[mask] - pred_j[mask]
+                    pinball = torch.where(
+                        error >= 0,
+                        qs99_tau * error,
+                        (qs99_tau - 1.0) * error,
+                    )
+                    qs99_loss = qs99_loss + tw * pinball.mean()
+            else:
+                losses_list.append(tw * loss_fn_j(pred_j, target_j))
+
         for j in range(idx.n_cls):
             losses_list.append(criterion_class(t1_pred_class[:, j, :, :], y_cls[:, j, :, :]))
 
         losses = torch.stack(losses_list)
         loss = cast(Any, multitaskloss_instance)(losses)
+        if qs99_weight is not None and qs99_weight > 0:
+            loss = loss + qs99_weight * qs99_loss
         total_loss += loss
 
         loss_reg = losses[: idx.n_reg].sum()
         loss_class = losses[idx.n_reg :].sum()
 
-        step_reg.append(loss_reg.detach().cpu().numpy().item())
-        step_cls.append(loss_class.detach().cpu().numpy().item())
-        step_total.append(loss.detach().cpu().numpy().item())
+        step_reg.append(loss_reg.detach().item())
+        step_cls.append(loss_class.detach().item())
+        step_total.append(loss.detach().item())
 
         if pbar is not None:
             pbar.update(1)
@@ -157,41 +259,79 @@ def _process_sequence(
     }
 
 
-def train(
-    model: nn.Module,
-    optimizer: torch.optim.Optimizer,
-    scheduler: Optional[torch.optim.lr_scheduler._LRScheduler],
-    criterion_reg: nn.Module,
-    criterion_class: nn.Module,
-    multitaskloss_instance: nn.Module,
-    sample_handler: VolumeHandler,
-    config: dict,
-    device: torch.device,
-    pbar: tqdm,
-    viz: Optional[VisualDiagnostics] = None,
-    stage_label: str = "",
-    forensics: Optional[TrainingForensics] = None,
-) -> Dict[str, torch.Tensor]:  # Returns window losses
+class TrainingContext:
+    """Bundles the 'wired once' training components (C-17).
 
-    model.train()
-    multitaskloss_instance.train()
+    Reduces train() from 13 parameters to 4: ctx, sample_handler, pbar, stage_label.
+    Created once in training_loop(), passed to every train() call.
+    """
+
+    __slots__ = (
+        "model",
+        "optimizer",
+        "scheduler",
+        "criterion_reg",
+        "criterion_class",
+        "multitaskloss_instance",
+        "config",
+        "device",
+        "viz",
+        "forensics",
+    )
+
+    def __init__(
+        self,
+        model: nn.Module,
+        optimizer: torch.optim.Optimizer,
+        scheduler: torch.optim.lr_scheduler._LRScheduler | None,
+        criterion_reg: nn.Module | dict[str, nn.Module],
+        criterion_class: nn.Module,
+        multitaskloss_instance: nn.Module,
+        config: dict,
+        device: torch.device,
+        viz: VisualDiagnostics | None = None,
+        forensics: TrainingForensics | None = None,
+    ):
+        self.model = model
+        self.optimizer = optimizer
+        self.scheduler = scheduler
+        self.criterion_reg = criterion_reg
+        self.criterion_class = criterion_class
+        self.multitaskloss_instance = multitaskloss_instance
+        self.config = config
+        self.device = device
+        self.viz = viz
+        self.forensics = forensics
+
+
+def train(
+    ctx: TrainingContext,
+    sample_handler: VolumeHandler,
+    pbar: tqdm,
+    stage_label: str = "",
+    ss_epsilon: float = 0.0,
+) -> dict[str, torch.Tensor]:
+    ctx.model.train()
+    ctx.multitaskloss_instance.train()
+
+    config = ctx.config
+    model = ctx.model
+    device = ctx.device
+    viz = ctx.viz
+    forensics = ctx.forensics
 
     # 1. Stochastic Data Augmentation (Tube-Level)
-    # We flip the entire spatial-temporal tube together to maintain consistency.
-    if config.get("random_flips", True):
+    if config.get("random_flips"):
         if np.random.rand() < 0.5:
-            sample_handler.flip("H")
+            sample_handler = sample_handler.flip("H")
         if np.random.rand() < 0.5:
-            sample_handler.flip("W")
+            sample_handler = sample_handler.flip("W")
 
     # 2. Model Entry Gate: Transform to PyTorch [B, T, C, H, W]
-    # We strip identity channels here so the model only sees features.
     train_tensor = sample_handler.to_pytorch(device, include_identities=False)
 
     # 3. Pre-compute channel indices (Zero Magic ADR 003)
-    feature_names = [
-        n for n in sample_handler.channel_map if n in sample_handler._metadata.feature_cols
-    ]
+    feature_names = [n for n in sample_handler.channel_map if n in sample_handler.feature_cols]
     idx = _SequenceIndices(feature_names, config)
 
     seq_len = train_tensor.shape[1]
@@ -204,14 +344,10 @@ def train(
         f"GPU Mem: {mem_allocated:.2f} MB"
     )
 
-    # 4. Initialize hidden state (float32 from init_hTtime)
-    h = (
-        cast(Any, model)
-        .init_hTtime(hidden_channels=model.base, H=window_H, W=window_W)
-        .to(device)
-    )
+    # 4. Initialize hidden state
+    h = model.init_hTtime(hidden_channels=model.base, H=window_H, W=window_W).to(device)
 
-    # 5. STAGE 5 DIAGNOSTIC: Accumulate visual biopsy data around midpoint
+    # 5. STAGE 5 DIAGNOSTIC
     acc_y_reg: list[np.ndarray] = []
     acc_yh_reg: list[np.ndarray] = []
     acc_y_cls: list[np.ndarray] = []
@@ -229,9 +365,21 @@ def train(
 
     # --- CORE SEQUENCE PROCESSING ---
     result = _process_sequence(
-        train_tensor, model, h,
-        criterion_reg, criterion_class, multitaskloss_instance,
-        idx, device, pbar=pbar, forensics=forensics,
+        train_tensor,
+        model,
+        h,
+        ctx.criterion_reg,
+        ctx.criterion_class,
+        ctx.multitaskloss_instance,
+        idx,
+        device,
+        pbar=pbar,
+        forensics=forensics,
+        hurdle_threshold=config.get("hurdle_threshold"),
+        qs99_weight=config.get("qs99_weight"),
+        qs99_tau=config.get("qs99_tau"),
+        target_weights=config.get("target_weights"),
+        ss_epsilon=ss_epsilon,
     )
     step_total, step_reg, step_cls = result["per_step_losses"]
 
@@ -242,17 +390,18 @@ def train(
 
         # Re-run the midpoint steps in eval mode for diagnostic capture only
         model.eval()
-        h_diag = (
-            cast(Any, model)
-            .init_hTtime(hidden_channels=model.base, H=window_H, W=window_W)
-            .to(device)
-        )
+        h_diag = model.init_hTtime(hidden_channels=model.base, H=window_H, W=window_W).to(device)
         with torch.no_grad():
             for i in range(seq_len - 1):
                 t0 = train_tensor[:, i, :, :, :]
                 t1 = train_tensor[:, i + 1, :, :, :]
                 t0_input = t0[:, idx.feat, :, :]
-                t1_pred, t1_pred_class, h_diag = cast(Any, model)(t0_input, h_diag)
+                output_diag = model(t0_input, h_diag)
+                t1_pred, t1_pred_class, h_diag = (
+                    output_diag.reg,
+                    output_diag.cls,
+                    output_diag.h_next,
+                )
 
                 if biopsy_start <= i < biopsy_end:
                     y_reg = t1[:, idx.reg, :, :]
@@ -294,7 +443,7 @@ def training_loop(
     model: nn.Module,
     criterion: tuple,
     optimizer: torch.optim.Optimizer,
-    scheduler: Optional[torch.optim.lr_scheduler._LRScheduler],
+    scheduler: torch.optim.lr_scheduler._LRScheduler | None,
     handler: VolumeHandler,
     device: torch.device,
     run_timestamp: str | None = None,
@@ -305,8 +454,7 @@ def training_loop(
     """
     criterion_reg, criterion_class, multitaskloss_instance = criterion
 
-    np.random.seed(config["np_seed"])
-    torch.manual_seed(config["torch_seed"])
+    ReproducibilityGate.lock_entropy(np_seed=config["np_seed"], torch_seed=config["torch_seed"])
     logger.info("🚀 Training initiated...")
 
     # Initialize Visual Truth Engine with Authoritative Timestamp
@@ -314,6 +462,20 @@ def training_loop(
 
     # Initialize Forensic Auditor (ADR 001 Custodian)
     forensics = TrainingForensics(config)
+
+    # C-17: Bundle training components into context
+    ctx = TrainingContext(
+        model=model,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        criterion_reg=criterion_reg,
+        criterion_class=criterion_class,
+        multitaskloss_instance=multitaskloss_instance,
+        config=config,
+        device=device,
+        viz=viz,
+        forensics=forensics,
+    )
 
     # Initialize the Sampler Components
     # 1. The Lens (Mechanical)
@@ -332,6 +494,18 @@ def training_loop(
     loss_history_cls = []
     max_raw_grad_norm = 0.0
 
+    # ADR-056: scheduled sampling mixer (disabled when ss_schedule is None)
+    ss_mixer = None
+    if config.get("ss_schedule") is not None:
+        from views_hydranet.utils.scheduled_sampling import ScheduledSamplingMixer
+
+        ss_mixer = ScheduledSamplingMixer(
+            schedule=config["ss_schedule"],
+            epsilon_max=config.get("ss_epsilon_max", 1.0),
+            warmup_lessons=config.get("ss_warmup_lessons"),
+            k=config.get("ss_k"),
+        )
+
     with tqdm(
         total=total_iterations, desc="👾 Training HydraNet", unit="month", leave=True
     ) as pbar:
@@ -341,6 +515,9 @@ def training_loop(
             lesson_loss = torch.tensor(0.0).to(device)
             lesson_reg = 0.0
             lesson_cls = 0.0
+
+            # ADR-056: compute epsilon once per lesson
+            ss_epsilon = ss_mixer.get_epsilon(lesson_idx) if ss_mixer is not None else 0.0
 
             # Pull one lesson per window in the batch (The Mixed Salad)
             for window_idx in range(config["windows_per_lesson"]):
@@ -371,21 +548,7 @@ def training_loop(
                 # 3. Process Window (Accumulate Loss)
                 # Pass viz to capture training dynamics (Stage 5) for all windows
                 slbl = f"Stage 5: Training Forensic (Lesson {lesson_idx + 1}_Win {window_idx + 1})"
-                losses = train(
-                    model,
-                    optimizer,
-                    scheduler,
-                    criterion_reg,
-                    criterion_class,
-                    multitaskloss_instance,
-                    sample_handler,
-                    config,
-                    device,
-                    pbar,
-                    viz=viz,
-                    stage_label=slbl,
-                    forensics=forensics,
-                )
+                losses = train(ctx, sample_handler, pbar, stage_label=slbl, ss_epsilon=ss_epsilon)
 
                 # --- MEMORY-SAFE ACCUMULATION (ADR 014 Hardening) ---
                 w_loss = losses["total"]
@@ -437,11 +600,42 @@ def training_loop(
                 max_raw_grad_norm = max(max_raw_grad_norm, raw_grad_norm)
 
                 # Gradient Clipping
-                if config.get("clip_grad_norm", False):
+                if config.get("clip_grad_norm"):
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
                 # Optimize (Update Weights)
                 optimizer.step()
+
+                # ADR-055: log per-target sigma once per lesson (after optimizer step)
+                if isinstance(criterion_reg, dict):
+                    import wandb
+
+                    if wandb.run is not None:
+                        wandb.log(
+                            {
+                                f"sigma/{name}": loss_fn.sigma
+                                for name, loss_fn in criterion_reg.items()
+                            }
+                        )
+
+                # Issue #48: log multi-task loss weights once per lesson
+                import wandb
+
+                if wandb.run is not None:
+                    mtl_names = config.get("regression_targets", []) + config.get(
+                        "classification_targets", []
+                    )
+                    mtl_log_vars = multitaskloss_instance.log_vars.detach()
+                    wandb.log(
+                        {f"mtl_log_var/{n}": lv.item() for n, lv in zip(mtl_names, mtl_log_vars)}
+                    )
+
+            # ADR-056: log scheduled sampling epsilon once per lesson (outside loss gate)
+            if ss_mixer is not None:
+                import wandb
+
+                if wandb.run is not None:
+                    wandb.log({"ss_epsilon": ss_epsilon})
 
             # Step scheduler at the end of the lesson if it exists
             if scheduler is not None:

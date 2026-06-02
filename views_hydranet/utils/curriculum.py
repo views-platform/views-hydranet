@@ -42,7 +42,7 @@ class CurriculumLearner:
         self.min_events = config["min_events"]
 
         # 2. Extract targets from Ledger and Record Maxima
-        self.subjects = list(handler._metadata.feature_cols)
+        self.subjects = list(handler.feature_cols)
         if not self.subjects:
             err_msg = "CurriculumLearner: Ledger has no feature columns to target."
 

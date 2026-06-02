@@ -52,6 +52,7 @@ The `DataFetcher` is the **Ingestor** of the HydraNet pipeline. Its primary purp
 - **Missing Index:** Raises a `ContractViolation` if the columns defined in `index_names` are missing from the raw file.
 - **Path Error:** Raises `FileNotFoundError` if the requested partition does not exist on disk.
 - **Sanitization Failure:** Fails loud if the input DataFrame does not contain the specified ID column required for ocean-cell removal.
+- **Blueprint Source Missing:** Raises `ValueError` when a derivation instruction's `from` column is not found in the DataFrame (C-50: changed from skip to raise).
 
 ---
 
@@ -68,8 +69,12 @@ The `DataFetcher` is the **Ingestor** of the HydraNet pipeline. Its primary purp
 ```python
 fetcher = DataFetcher(path_raw, config)
 
-# Fetching a raw partition
+# Fetching a raw partition (default viewser filename construction)
 df_raw = fetcher.fetch_df()
+
+# Fetching via framework-resolved path (viewser or datafactory)
+# Called from within HydranetManager._run_data_pipeline():
+df_raw = fetcher.fetch_df(cached_path=self._get_cached_data_path())
 
 # Standardizing a DataFrame (resetting index + sanitizing)
 df_standard = DataFetcher.standardize_raw_df(df_raw, config)
@@ -86,8 +91,8 @@ df_standard = DataFetcher.standardize_raw_df(df_raw, config)
 
 ## 10. Test Alignment
 
-- **🟩 Green Team:** MultiIndex standardization, ocean cell removal, blueprint execution in `tests/test_data_fetcher.py`.
-- **🟫 Beige Team:** Extra column preservation, missing blueprint source handling in `tests/test_data_fetcher.py`.
+- **🟩 Green Team:** MultiIndex standardization, ocean cell removal, blueprint execution, `fetch_df` path construction, `cached_path` override in `tests/test_data_fetcher.py`.
+- **🟫 Beige Team:** Extra column preservation, `cached_path` ignores `run_type` in `tests/test_data_fetcher.py`.
 - **🟥 Red Team:** Non-MultiIndex rejection, wrong level names, missing config keys, unknown blueprint ops, file-not-found in `tests/test_data_fetcher.py`.
 
 ---
