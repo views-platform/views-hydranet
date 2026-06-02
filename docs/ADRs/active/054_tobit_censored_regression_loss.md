@@ -1,6 +1,6 @@
 # ADR-054: Tobit Censored-Normal Likelihood as Regression Loss
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-05-29
 **Deciders:** Simon / Claude
 **Informed:** MD&D Team
