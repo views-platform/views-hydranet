@@ -136,7 +136,7 @@ def _make_handler() -> VolumeHandler:
 # ─── STRUCTURAL TESTS (RED → GREEN) ──────────────────────────────────────────
 
 
-class TestStructuralMemoryHygiene:
+class TestGreenStructuralMemoryHygiene:
     """
     Verify that explicit tensor lifecycle management is present in the source.
 
@@ -357,7 +357,7 @@ class TestStructuralMemoryHygiene:
 # ─── LIFECYCLE TESTS (regression guards) ─────────────────────────────────────
 
 
-class TestTensorLifecycle:
+class TestGreenTensorLifecycle:
     """
     Verify via weakref that tensors created inside predict() and
     generate_posterior_samples() are collectable after the functions return.
@@ -444,7 +444,7 @@ class TestTensorLifecycle:
 # ─── STREAMING EVALUATION INTERFACE TESTS (Step 4 TDD) ───────────────────────
 
 
-class TestStreamingEvalInterface:
+class TestGreenStreamingEvalInterface:
     """
     TDD tests for HydranetManager._evaluate_model_artifact_streaming().
 

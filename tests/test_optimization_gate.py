@@ -9,7 +9,7 @@ from views_hydranet.train.train_model import training_loop
 from views_hydranet.utils.volume_handler import VolumeHandler
 
 
-class TestOptimizationGate:
+class TestGreenOptimizationGate:
     """
     Rigorously verifies ADR 014: The Optimization Gate (Gradient Accumulation).
     Ensures parameter updates happen ONLY at the lesson boundary.

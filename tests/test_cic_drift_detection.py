@@ -24,7 +24,7 @@ def _read_section6(cic_name: str) -> str:
     return match.group(1)
 
 
-class TestHydraNetConfigSection6:
+class TestGreenHydraNetConfigSection6:
     """HydraNetConfig CIC must document all field_validators."""
 
     def test_documents_loss_reg_validator(self):
@@ -46,7 +46,7 @@ class TestHydraNetConfigSection6:
         )
 
 
-class TestIntegrityGuardianSection6:
+class TestGreenIntegrityGuardianSection6:
     """IntegrityGuardian CIC must document current threshold and monitor_numpy."""
 
     def test_documents_prediction_ceiling_1000(self):
@@ -62,7 +62,7 @@ class TestIntegrityGuardianSection6:
         )
 
 
-class TestModelArtifactFetcherSection6:
+class TestGreenModelArtifactFetcherSection6:
     """ModelArtifactFetcher CIC must document SHA-256, legacy, and state_dict behavior."""
 
     def test_documents_sha256_integrity(self):
@@ -84,7 +84,7 @@ class TestModelArtifactFetcherSection6:
         )
 
 
-class TestDataFetcherSection6:
+class TestGreenDataFetcherSection6:
     """DataFetcher CIC must document blueprint raise behavior."""
 
     def test_documents_blueprint_raise(self):

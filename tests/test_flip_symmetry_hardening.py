@@ -619,7 +619,7 @@ class TestRed:
 # ---------------------------------------------------------------------------
 
 
-class TestDomainKnowledge:
+class TestGreenDomainKnowledge:
     """
     Tests rooted in geographic facts about Earth that no code change
     should be able to "fix away." If the flip is inverted, these fail
@@ -812,7 +812,7 @@ class TestDomainKnowledge:
 # ---------------------------------------------------------------------------
 
 
-class TestAugmentation:
+class TestGreenAugmentation:
     """The flip() augmentation method is independent of North-Up construction."""
 
     @pytest.fixture
@@ -858,7 +858,7 @@ class TestAugmentation:
 # ---------------------------------------------------------------------------
 
 
-class TestVisualization:
+class TestGreenVisualization:
     """The biopsy_dataframe flip is on axis=1 (H in [T,H,W,C] layout), not axis=0."""
 
     def test_visualization_flips_axis_1_not_0(self):

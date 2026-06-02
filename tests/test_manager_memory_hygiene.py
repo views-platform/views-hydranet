@@ -69,7 +69,7 @@ def _mock_manager(tmp_path):
         return mgr
 
 
-class TestRunDataPipelineCallsGcCollect:
+class TestGreenRunDataPipelineCallsGcCollect:
     """Runtime test: _run_data_pipeline must call gc.collect()."""
 
     def test_gc_collect_called(self, tmp_path):
@@ -100,7 +100,7 @@ class TestRunDataPipelineCallsGcCollect:
             )
 
 
-class TestArtifactMethodsDelegateToSharedPipeline:
+class TestGreenArtifactMethodsDelegateToSharedPipeline:
     """Runtime tests: all 3 artifact methods must call _run_data_pipeline."""
 
     def test_train_delegates(self, tmp_path):

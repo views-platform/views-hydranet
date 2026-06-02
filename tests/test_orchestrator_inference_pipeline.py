@@ -47,7 +47,7 @@ def _make_orchestrator(config=None):
 # ---------------------------------------------------------------------------
 
 
-class TestAdr039PipelineMethodExists:
+class TestGreenAdr039PipelineMethodExists:
     """RED GATE: The shared pipeline method must exist after refactor."""
 
     def test_method_exists(self):
@@ -73,7 +73,7 @@ class TestAdr039PipelineMethodExists:
 # ---------------------------------------------------------------------------
 
 
-class TestAdr039PipelineParity:
+class TestGreenAdr039PipelineParity:
     """
     After the refactor, all three public methods must delegate Steps 1-5
     to _run_inference_pipeline. This test verifies the shared method is called.

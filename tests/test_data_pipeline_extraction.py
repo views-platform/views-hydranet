@@ -56,7 +56,7 @@ _DF = pd.DataFrame(
 )
 
 
-class TestDataPipelineMethodExists:
+class TestGreenDataPipelineMethodExists:
     """RED tests: the extraction target must exist."""
 
     def test_run_data_pipeline_exists(self):
@@ -66,7 +66,7 @@ class TestDataPipelineMethodExists:
         assert callable(getattr(HydranetManager, "_run_data_pipeline", None))
 
 
-class TestDataPipelineReturns:
+class TestGreenDataPipelineReturns:
     """Verify _run_data_pipeline returns the expected 3-tuple."""
 
     @pytest.fixture

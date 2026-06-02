@@ -226,7 +226,7 @@ class TestGreen:
         assert len(result) == n_origins
 
 
-class TestReproducibility:
+class TestGreenReproducibility:
     """Pipeline-level reproducibility: same seeds produce identical outputs."""
 
     def test_pipeline_reproducibility_two_runs(self, orch_env):

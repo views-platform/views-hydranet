@@ -9,69 +9,8 @@ target use its optimal sigma based on its zero-inflation ratio.
 import pytest
 import torch
 
+from tests.conftest import tobit_config_3target as _tobit_config
 from views_hydranet.utils.tobit_loss import TobitLoss
-
-
-def _tobit_config(**overrides):
-    base = {
-        "run_type": "calibration",
-        "features": ["lr_sb", "lr_ns", "lr_os"],
-        "regression_targets": ["lr_sb", "lr_ns", "lr_os"],
-        "classification_targets": ["by_sb", "by_ns", "by_os"],
-        "height": 8,
-        "width": 8,
-        "index_names": ["month_id", "priogrid_gid"],
-        "time_col": "month_id",
-        "id_col": "priogrid_gid",
-        "spatial_cols": ["row", "col"],
-        "row_offset": 0,
-        "col_offset": 0,
-        "model": "HydraBNUNet06_LSTM4",
-        "window_dim": 4,
-        "total_hidden_channels": 16,
-        "dropout_rate": 0.1,
-        "weight_init": "xavier_norm",
-        "learning_rate": 0.001,
-        "weight_decay": 0.01,
-        "windows_per_lesson": 2,
-        "scheduler": "plateau",
-        "warmup_steps": 5,
-        "clip_grad_norm": True,
-        "loss_reg": "tobit",
-        "loss_reg_sigma": 1.0,
-        "loss_class": "bce",
-        "total_lessons": 10,
-        "n_posterior_samples": 5,
-        "np_seed": 42,
-        "torch_seed": 42,
-        "min_events": 0,
-        "slope_ratio": 1.0,
-        "roof_ratio": 1.0,
-        "max_ratio": 0.9,
-        "min_ratio": 0.1,
-        "freeze_h": "none",
-        "sampling_strategy": "threshold",
-        "evaluation_mode": "point",
-        "aggregate_method": "arithmetic_mean",
-        "prediction_format": "prediction_frame",
-        "time_steps": 3,
-        "steps": [1, 2, 3],
-        "input_channels": 3,
-        "output_channels": 1,
-        "identity_cols": ["priogrid_gid", "month_id"],
-        "transformations": {
-            "log1p": ["lr_sb", "lr_ns", "lr_os"],
-        },
-        "derivations": {
-            "binary": [
-                {"from": "lr_sb", "to": "by_sb", "threshold": 0},
-                {"from": "lr_ns", "to": "by_ns", "threshold": 0},
-                {"from": "lr_os", "to": "by_os", "threshold": 0},
-            ],
-        },
-    }
-    base.update(overrides)
-    return base
 
 
 class TestGreenConfigAcceptance:

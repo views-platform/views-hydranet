@@ -80,7 +80,7 @@ def _count_quadrants(samples):
 # ---------------------------------------------------------------------------
 # GREEN — per-strategy happy path
 # ---------------------------------------------------------------------------
-class TestThreshold:
+class TestGreenThreshold:
     """Hard threshold strategy (current production behaviour)."""
 
     def test_green_only_above_threshold(self, activity_map):
@@ -190,7 +190,7 @@ class TestPowerLaw:
         assert s1 == s2
 
 
-class TestBoltzmann:
+class TestGreenBoltzmann:
     """Boltzmann strategy: p ∝ exp(activity / τ)."""
 
     def test_green_concentration(self, activity_map):
@@ -228,7 +228,7 @@ class TestBoltzmann:
         assert s1 == s2
 
 
-class TestSigmoid:
+class TestGreenSigmoid:
     """Sigmoid soft threshold: p = σ(k·(activity - threshold))."""
 
     def test_green_concentration(self, activity_map):
@@ -316,7 +316,7 @@ class TestBeigeEdgeCases:
 # ---------------------------------------------------------------------------
 # Cross-strategy: the KEY property test
 # ---------------------------------------------------------------------------
-class TestGracefulDegradation:
+class TestBeigeGracefulDegradation:
     """The central claim: soft strategies degrade gracefully when one cell's
     activity changes by ±1 near the threshold."""
 

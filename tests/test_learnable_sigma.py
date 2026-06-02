@@ -8,6 +8,7 @@ values become initialization points.
 
 import torch
 
+from tests.conftest import tobit_config_3target
 from views_hydranet.utils.tobit_loss import TobitLoss
 
 
@@ -97,105 +98,34 @@ class TestGreenLearnableSigmaForwardCompat:
 class TestGreenConfigAcceptance:
     """Config accepts learnable_sigma flag."""
 
-    def _tobit_config(self, **overrides):
-        base = {
-            "run_type": "calibration",
-            "features": ["lr_sb", "lr_ns", "lr_os"],
-            "regression_targets": ["lr_sb", "lr_ns", "lr_os"],
-            "classification_targets": ["by_sb", "by_ns", "by_os"],
-            "height": 8,
-            "width": 8,
-            "index_names": ["month_id", "priogrid_gid"],
-            "time_col": "month_id",
-            "id_col": "priogrid_gid",
-            "spatial_cols": ["row", "col"],
-            "row_offset": 0,
-            "col_offset": 0,
-            "model": "HydraBNUNet06_LSTM4",
-            "window_dim": 4,
-            "total_hidden_channels": 16,
-            "dropout_rate": 0.1,
-            "weight_init": "xavier_norm",
-            "learning_rate": 0.001,
-            "weight_decay": 0.01,
-            "windows_per_lesson": 2,
-            "scheduler": "plateau",
-            "warmup_steps": 5,
-            "clip_grad_norm": True,
-            "loss_reg": "tobit",
-            "loss_reg_sigma": {"lr_sb": 1.0, "lr_ns": 0.75, "lr_os": 0.5},
-            "loss_class": "bce",
-            "total_lessons": 10,
-            "n_posterior_samples": 5,
-            "np_seed": 42,
-            "torch_seed": 42,
-            "min_events": 0,
-            "slope_ratio": 1.0,
-            "roof_ratio": 1.0,
-            "max_ratio": 0.9,
-            "min_ratio": 0.1,
-            "freeze_h": "none",
-            "sampling_strategy": "threshold",
-            "evaluation_mode": "point",
-            "aggregate_method": "arithmetic_mean",
-            "prediction_format": "prediction_frame",
-            "time_steps": 3,
-            "steps": [1, 2, 3],
-            "input_channels": 3,
-            "output_channels": 1,
-            "identity_cols": ["priogrid_gid", "month_id"],
-            "transformations": {"log1p": ["lr_sb", "lr_ns", "lr_os"]},
-            "derivations": {
-                "binary": [
-                    {"from": "lr_sb", "to": "by_sb", "threshold": 0},
-                    {"from": "lr_ns", "to": "by_ns", "threshold": 0},
-                    {"from": "lr_os", "to": "by_os", "threshold": 0},
-                ]
-            },
-        }
-        base.update(overrides)
-        return base
-
     def test_learnable_sigma_true_accepted(self):
         from views_hydranet.utils.config_initializer import HydraNetConfig
 
-        config = HydraNetConfig(**self._tobit_config(learnable_sigma=True))
+        config = HydraNetConfig(**tobit_config_3target(learnable_sigma=True))
         assert config.learnable_sigma is True
 
     def test_learnable_sigma_false_accepted(self):
         from views_hydranet.utils.config_initializer import HydraNetConfig
 
-        config = HydraNetConfig(**self._tobit_config(learnable_sigma=False))
+        config = HydraNetConfig(**tobit_config_3target(learnable_sigma=False))
         assert config.learnable_sigma is False
 
     def test_learnable_sigma_default_false(self):
         from views_hydranet.utils.config_initializer import HydraNetConfig
 
-        config = HydraNetConfig(**self._tobit_config())
+        config = HydraNetConfig(**tobit_config_3target())
         assert config.learnable_sigma is False
 
 
 class TestGreenChooseLossLearnable:
     """choose_loss creates learnable TobitLoss instances when configured."""
 
-    def _tobit_config(self, **overrides):
-        base = {
-            "run_type": "calibration",
-            "features": ["lr_sb", "lr_ns", "lr_os"],
-            "regression_targets": ["lr_sb", "lr_ns", "lr_os"],
-            "classification_targets": ["by_sb", "by_ns", "by_os"],
-            "loss_reg": "tobit",
-            "loss_reg_sigma": {"lr_sb": 1.0, "lr_ns": 0.75, "lr_os": 0.5},
-            "loss_class": "bce",
-            "learnable_sigma": True,
-        }
-        base.update(overrides)
-        return base
+    _DICT_SIGMA = {"lr_sb": 1.0, "lr_ns": 0.75, "lr_os": 0.5}
 
     def test_learnable_creates_parameter_instances(self):
         from views_hydranet.utils.utils import choose_loss
 
-        config = self._tobit_config()
+        config = tobit_config_3target(loss_reg_sigma=self._DICT_SIGMA, learnable_sigma=True)
         criterion_reg, _, _ = choose_loss(config, torch.device("cpu"))
         assert isinstance(criterion_reg, dict)
         for loss in criterion_reg.values():
@@ -205,7 +135,7 @@ class TestGreenChooseLossLearnable:
     def test_non_learnable_creates_fixed_instances(self):
         from views_hydranet.utils.utils import choose_loss
 
-        config = self._tobit_config(learnable_sigma=False)
+        config = tobit_config_3target(loss_reg_sigma=self._DICT_SIGMA, learnable_sigma=False)
         criterion_reg, _, _ = choose_loss(config, torch.device("cpu"))
         assert isinstance(criterion_reg, dict)
         for loss in criterion_reg.values():

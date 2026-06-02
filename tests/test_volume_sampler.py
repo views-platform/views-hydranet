@@ -142,7 +142,7 @@ class TestBeige:
 # ---------------------------------------------------------------------------
 # GREEN — non-default strategy integration
 # ---------------------------------------------------------------------------
-class TestNonDefaultStrategyIntegration:
+class TestGreenNonDefaultStrategyIntegration:
     """Each non-threshold strategy produces valid batches through VolumeSampler."""
 
     @pytest.mark.parametrize(
@@ -194,7 +194,7 @@ class TestRed:
 # ---------------------------------------------------------------------------
 # C-25: Curriculum→Sampler zero-qualified-cells interaction
 # ---------------------------------------------------------------------------
-class TestCurriculumSamplerInteraction:
+class TestGreenCurriculumSamplerInteraction:
     """
     C-25: When curriculum threshold is too high for sparse targets,
     all cells have zero qualified activity. Sampler must fall back to
@@ -245,7 +245,7 @@ class TestCurriculumSamplerInteraction:
 # ---------------------------------------------------------------------------
 # C-04: Spatial offset round-trip in _generate_window()
 # ---------------------------------------------------------------------------
-class TestSpatialOffsetRoundTrip:
+class TestGreenSpatialOffsetRoundTrip:
     """
     C-04: The spatial offset computed by _generate_window() must correctly
     propagate geographic truth into sub-windows. A cell's absolute geographic
@@ -350,7 +350,7 @@ class TestSpatialOffsetRoundTrip:
 # ---------------------------------------------------------------------------
 # C-32: VolumeSampler CIC failure modes — Geometric Overflow (bounds clamping)
 # ---------------------------------------------------------------------------
-class TestGeometricOverflow:
+class TestBeigeGeometricOverflow:
     """
     C-32: When the importance-sampled anchor is near the grid edge,
     np.clip must constrain the extraction window to valid bounds.

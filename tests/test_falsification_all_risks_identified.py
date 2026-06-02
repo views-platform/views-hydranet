@@ -112,13 +112,13 @@ def test_falsify_01d_adr008_mtloss_log_before_raise(caplog):
 
 def test_falsify_03_volume_sampler_geometric_overflow_untested():
     """Verify C-32: VolumeSampler geometric overflow tests exist."""
-    from tests.test_volume_sampler import TestGeometricOverflow
+    from tests.test_volume_sampler import TestBeigeGeometricOverflow
 
-    assert hasattr(TestGeometricOverflow, "test_edge_anchor_produces_valid_window"), (
-        "TestGeometricOverflow.test_edge_anchor_produces_valid_window must exist"
+    assert hasattr(TestBeigeGeometricOverflow, "test_edge_anchor_produces_valid_window"), (
+        "TestBeigeGeometricOverflow.test_edge_anchor_produces_valid_window must exist"
     )
-    assert hasattr(TestGeometricOverflow, "test_max_dim_produces_single_valid_window"), (
-        "TestGeometricOverflow.test_max_dim_produces_single_valid_window must exist"
+    assert hasattr(TestBeigeGeometricOverflow, "test_max_dim_produces_single_valid_window"), (
+        "TestBeigeGeometricOverflow.test_max_dim_produces_single_valid_window must exist"
     )
 
 

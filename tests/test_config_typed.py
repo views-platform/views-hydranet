@@ -69,7 +69,7 @@ MINIMAL_CONFIG = {
 }
 
 
-class TestConfigInitializerReturnsDict:
+class TestGreenConfigInitializerReturnsDict:
     """get_config() must return dict (parent class setter requires isinstance(dict))."""
 
     def test_get_config_returns_dict(self):

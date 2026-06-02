@@ -102,7 +102,7 @@ def _make_manager(tmp_path):
     return manager
 
 
-class TestArtifactNameSilentlyIgnored:
+class TestRedArtifactNameSilentlyIgnored:
     """P-02 (C-56): artifact_name must reach fetch_model_artifact()."""
 
     def test_artifact_name_forwarded_to_fetcher(self, tmp_path):

@@ -251,7 +251,7 @@ def _dummy_model_factory(config: dict, device: torch.device) -> nn.Module:
     return m.to(device)
 
 
-class TestStateDictSerialization:
+class TestGreenStateDictSerialization:
     """C-09: state_dict serialization with config sidecar."""
 
     def test_state_dict_roundtrip(self, tmp_path):

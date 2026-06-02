@@ -90,7 +90,7 @@ AUDIT_CFG = {
 }
 
 
-class TestManagerEvalHardAudit:
+class TestRedManagerEvalHardAudit:
     """8 Hard Gates to falsify the Survival Sequence orchestration."""
 
     def test_gates_1_to_8_eval_survival(self, tmp_path):

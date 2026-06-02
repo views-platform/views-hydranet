@@ -202,7 +202,7 @@ class TestRed:
 # ─── Tests: wrap_predictions dtype contract ───────────────────────────────────
 
 
-class TestWrapPredictionsDtype:
+class TestGreenWrapPredictionsDtype:
     """
     Guard against silent dtype upcast in wrap_predictions().
 

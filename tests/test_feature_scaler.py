@@ -347,7 +347,7 @@ class TestRed:
 # ─── String Matching Regression Tests ─────────────────────────────────────
 
 
-class TestStringMatching:
+class TestBeigeStringMatching:
     def test_binary_prefix_uses_startswith_not_substring(self):
         """A channel containing 'by_' mid-name must NOT be skipped during inversion."""
         from views_hydranet.utils.volume_handler import VolumeHandler

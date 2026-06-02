@@ -86,7 +86,7 @@ SUBSET_CFG = {
 }
 
 
-class TestSubsetSymmetryAudit:
+class TestGreenSubsetSymmetryAudit:
     """Phase 1: Collision & Subset Hard Gates."""
 
     def test_gate_26_to_30_subset_and_collision(self, tmp_path):
