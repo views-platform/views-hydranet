@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-02                           |
-| Total Concerns    | 104                                  |
-| Open Concerns     | 26                                   |
+| Total Concerns    | 107                                  |
+| Open Concerns     | 29                                   |
 | Resolved Concerns | 78                                   |
 
 ---
@@ -266,6 +266,8 @@ Identical `_SumReducer` and `_make_tiny_model` helpers are defined in two test f
 
 **Path E amplification (2026-05-29):** Scheduled sampling implementation (issue #37) will require another copy of the tiny model fixture for `tests/test_scheduled_sampling.py`. Extract to `conftest.py` before implementing Path E tests to avoid a fourth copy.
 
+**Test review amplification (2026-06-02):** Additionally, `_tobit_config()` helper is duplicated across 3 test files (test_tobit_loss.py, test_per_target_sigma.py, test_learnable_sigma.py) with slightly different base configs. Same DRY concern, different fixture.
+
 Tier 4 rationale: code quality / DRY violation. Single-developer scope. No correctness impact.
 
 ---
@@ -487,6 +489,57 @@ During autoregressive inference, `output.reg` (shape `[B, 3*output_channels, H, 
 A config with `features=['lr_sb', 'lr_ns', 'lr_os', 'temperature']` and `regression_targets=['lr_sb', 'lr_ns', 'lr_os']` would pass all validators but crash during inference with a cryptic Conv2d shape mismatch.
 
 Tier 3 rationale: the trigger is realistic (adding confounder features is a natural researcher action). The error is cryptic, not at the config boundary. Multiple developers could hit this.
+
+---
+
+### C-107: `hydranet_inference.py` (380 lines) has zero unit tests — only integration coverage
+
+| Field | Value |
+|-------|-------|
+| ID | C-107 |
+| Tier | 4 |
+| Source | test-review (2026-06-02) |
+| Trigger | When modifying drift detection thresholds, freeze_h option dispatch, or autoregressive loop logic — no isolated test catches regressions; only discovered through slow integration tests |
+| Location | `views_hydranet/utils/hydranet_inference.py` (380 lines), `tests/` (no test_hydranet_inference.py exists) |
+
+`HydraNetInference` is the 4th largest module (380 lines) implementing the entire autoregressive inference loop: history digestion, seed step, 36-step autoregression, freeze_h dispatch (5 options), and drift detection. All testing is via `InferenceOrchestrator` integration tests — no unit tests verify the individual behaviors. If drift thresholds change (C-51) or freeze_h logic changes, regressions are caught only by slow end-to-end tests.
+
+Tier 4 rationale: integration tests do provide coverage. The gap is speed and isolation, not correctness. Single-developer scope.
+
+---
+
+### C-108: 46% of test classes (82/178) lack ADR-005 taxonomy markers (Green/Beige/Red)
+
+| Field | Value |
+|-------|-------|
+| ID | C-108 |
+| Tier | 4 |
+| Source | test-review (2026-06-02) |
+| Trigger | When auditing test coverage for a specific component — unable to tell from class names whether error paths (Red) are tested, only whether tests exist at all |
+| Location | 30+ test files across `tests/` |
+| Cross-refs | C-60 (resolved — initial taxonomy adoption, 16% → 36%) |
+
+C-60 was resolved in April 2026, bringing taxonomy adoption from 16% to 36%. Since then, 33+ new test files have been added (per-target sigma, learnable sigma, scheduled sampling, falsification stubs) and the overall test count grew from ~350 to 704. Many new tests DO use the taxonomy (TestGreen, TestRed), but 82 classes across 30 files predate the convention or were added without markers.
+
+Tier 4 rationale: test quality, not correctness. All tests run and pass. The gap is visibility — a developer can't quickly assess Red coverage by scanning class names.
+
+---
+
+### C-109: 13 skipped falsification tests are stale investigation artifacts
+
+| Field | Value |
+|-------|-------|
+| ID | C-109 |
+| Tier | 4 |
+| Source | test-review (2026-06-02) |
+| Trigger | When running the full test suite — 13 skipped tests create noise in the output and inflate the "investigated" impression without providing current value |
+| Location | `tests/test_falsification_identical_window_selection.py`, `tests/test_falsification_sensitivity_attribution.py`, `tests/test_falsification_sweep_root_cause.py`, `tests/test_falsification_sweep_understanding.py`, `tests/test_falsification_two_phase_divergence.py` |
+
+13 tests are permanently skipped (`pytest.skip()`) — they reference investigation experiments (purple_alien divergence, sweep root cause) that concluded in May 2026. The investigations produced findings registered in the risk register and resolved. The skipped tests no longer serve as active probes — they're preserved as historical artifacts but add noise to test output.
+
+Triage options: (a) convert to xfail with documented reason, (b) delete and reference the investigation commit, (c) convert to passing verification tests if the underlying claim can now be tested.
+
+Tier 4 rationale: no correctness impact. Test suite hygiene.
 
 ---
 
