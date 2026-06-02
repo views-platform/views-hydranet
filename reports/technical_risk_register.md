@@ -6,8 +6,8 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-02                           |
 | Total Concerns    | 107                                  |
-| Open Concerns     | 29                                   |
-| Resolved Concerns | 78                                   |
+| Open Concerns     | 28                                   |
+| Resolved Concerns | 79                                   |
 
 ---
 
@@ -272,20 +272,13 @@ Tier 4 rationale: code quality / DRY violation. Single-developer scope. No corre
 
 ---
 
-### C-93: `_evaluate_sweep` not implemented — sweep evaluation crashes with `NotImplementedError`
+### C-93: `_evaluate_sweep` not implemented — sweep evaluation crashes with `NotImplementedError` — RESOLVED
 
 | Field | Value |
 |-------|-------|
 | ID | C-93 |
-| Tier | 2 |
-| Source | expert-code-review (2026-05-28), falsify merge-readiness (2026-05-28) |
-| Trigger | Running `python main.py -r calibration --sweep` on any HydraNet model — training completes but evaluation crashes, aborting the sweep agent |
-| Location | `views_hydranet/manager/hydranet_manager.py` (missing override), `views_pipeline_core/managers/model/model.py:780-820` (abstract contract) |
-| Cross-refs | C-01, D-04 |
-
-`HydranetManager` implements `_evaluate_model_artifact` (single runs) but not `_evaluate_sweep` (wandb sweeps). The base class `ForecastingModelManager` marks it `@abstractmethod`. Root cause: `_setup_evaluation()` (lines 224-314) couples model loading (lines 268-279) with data pipeline + orchestrator wiring (lines 281-314). Sweep needs the data pipeline but not the disk load — the model is in-memory. Fix requires decomposing `_setup_evaluation()`: extract model loading into `_load_model_artifact()`, make `model` a required parameter of `_setup_evaluation()`, then add a 5-line `_evaluate_sweep()` override. Sibling managers (views-baseline, views-stepshifter) implement this method; HydraNet is the only one missing it.
-
-Tier 2 rationale: structural fragility — every sweep run crashes today. Clear trigger. Blocks hyperparameter optimization workflow.
+| Resolved | 2026-05-28 |
+| Resolution | Decomposed `_setup_evaluation()` per D-04 consensus: extracted `_load_model_artifact()`, made `model` a required parameter of `_setup_evaluation()`, added `_evaluate_sweep()` override. Commit 9b38532 (ADR-053). Verified by 5 successful wandb sweeps across May-June 2026. |
 
 ---
 
