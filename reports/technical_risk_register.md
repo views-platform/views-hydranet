@@ -4,9 +4,9 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-05-30                           |
-| Total Concerns    | 102                                  |
-| Open Concerns     | 24                                   |
+| Last Updated      | 2026-06-02                           |
+| Total Concerns    | 104                                  |
+| Open Concerns     | 26                                   |
 | Resolved Concerns | 78                                   |
 
 ---
@@ -452,6 +452,41 @@ Tier 4 rationale: code quality. No correctness or reliability impact.
 The CIC for HydraNetConfig does not document: (1) `loss_reg_sigma` now accepts `Dict[str, float]` for per-target Tobit sigma, (2) the `validate_per_target_sigma` validator and its three failure modes (non-tobit, non-positive, missing target), (3) the updated field count (64 → still 64, but type changed).
 
 Tier 4 rationale: documentation drift. Same pattern as C-55 (resolved), but a new instance. No correctness impact.
+
+---
+
+### C-104: ParetoLoss registered in LOSS_REG_REGISTRY but has no test file
+
+| Field | Value |
+|-------|-------|
+| ID | C-104 |
+| Tier | 4 |
+| Source | repo-assimilation (2026-06-02) |
+| Trigger | When a researcher sets `loss_reg='pareto'` in a model config — the loss function is untested and could silently produce wrong gradients |
+| Location | `views_hydranet/utils/pareto_loss.py`, `views_hydranet/utils/utils.py:76-79` (LOSS_REG_REGISTRY entry) |
+
+`ParetoLoss` is registered in `LOSS_REG_REGISTRY` with `loss_reg='pareto'` and config parameter `loss_reg_pareto_alpha`. The config validator accepts it. But no `test_pareto_loss.py` exists — the loss function has zero test coverage. All other 6 loss functions have dedicated test files.
+
+Tier 4 rationale: no production config uses pareto today. Single-developer scope. The risk is dormant until someone enables it.
+
+---
+
+### C-105: No validator enforces `features ⊆ regression_targets` — shape mismatch risk in autoregressive feedback
+
+| Field | Value |
+|-------|-------|
+| ID | C-105 |
+| Tier | 3 |
+| Source | repo-assimilation (2026-06-02) |
+| Trigger | When creating a config where `features` includes columns not in `regression_targets` (e.g., confounders, lagged variables) — the model's regression output has fewer channels than its input, causing a shape mismatch during autoregressive inference |
+| Location | `views_hydranet/utils/config_initializer.py` (missing validator), `views_hydranet/utils/hydranet_inference.py:294` (`t0_autoreg = t1_pred.detach()`) |
+| Cross-refs | C-98 (input_channels == 3 × output_channels), C-03 (hardcoded 3+3 heads) |
+
+During autoregressive inference, `output.reg` (shape `[B, 3*output_channels, H, W]`) feeds back as the next input (expected shape `[B, input_channels, H, W]`). This requires `features` and `regression_targets` to have the same count. The Feature Lifecycle Law (ADR-046) validates that all columns are accounted for in transformations, but it does NOT validate that `features == regression_targets`.
+
+A config with `features=['lr_sb', 'lr_ns', 'lr_os', 'temperature']` and `regression_targets=['lr_sb', 'lr_ns', 'lr_os']` would pass all validators but crash during inference with a cryptic Conv2d shape mismatch.
+
+Tier 3 rationale: the trigger is realistic (adding confounder features is a natural researcher action). The error is cryptic, not at the config boundary. Multiple developers could hit this.
 
 ---
 
