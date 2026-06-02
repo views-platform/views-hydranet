@@ -160,13 +160,6 @@ class HydraNetConfig(BaseModel):
     @classmethod
     def handle_typos_and_missing_guidance(cls, data: Any) -> Any:
         if isinstance(data, dict):
-            if "evalution_mode" in data and "evaluation_mode" not in data:
-                logger.warning(
-                    "Deprecated config key 'evalution_mode' — use 'evaluation_mode'. "
-                    "This shim will be removed in a future release."
-                )
-                data["evaluation_mode"] = data["evalution_mode"]
-
             # For fields with registry/enum semantics, inject a sentinel so that
             # Pydantic continues validating ALL fields (collecting every error)
             # rather than stopping at the first missing one. The sentinel then
@@ -196,6 +189,30 @@ class HydraNetConfig(BaseModel):
 
             logger.error(err_msg)
 
+            raise ValueError(err_msg)
+
+        # Architectural advisory (C-105): autoregressive feedback requires
+        # features == regression_targets (same variables)
+        if set(self.features) != set(self.regression_targets):
+            logger.warning(
+                "features %s != regression_targets %s. During autoregressive "
+                "inference, the model's regression output feeds back as input — "
+                "a mismatch will cause a shape error at inference time.",
+                self.features,
+                self.regression_targets,
+            )
+
+        # Architectural invariant (C-98): autoregressive feedback requires
+        # model regression output (3 heads × output_channels) == input_channels
+        if self.input_channels != 3 * self.output_channels:
+            err_msg = (
+                f"Architectural invariant violation: input_channels ({self.input_channels}) "
+                f"must equal 3 × output_channels ({self.output_channels}) = "
+                f"{3 * self.output_channels}. The model has 3 hardcoded regression heads, "
+                f"each producing output_channels channels. During autoregressive inference, "
+                f"the concatenated regression output feeds back as input."
+            )
+            logger.error(err_msg)
             raise ValueError(err_msg)
 
         # Checksum: time_steps

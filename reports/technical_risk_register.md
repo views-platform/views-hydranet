@@ -6,8 +6,8 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-02                           |
 | Total Concerns    | 107                                  |
-| Open Concerns     | 21                                   |
-| Resolved Concerns | 86                                   |
+| Open Concerns     | 16                                   |
+| Resolved Concerns | 91                                   |
 
 ---
 
@@ -150,20 +150,6 @@ Current decision: stay flat. Revisit when either (a) total config keys exceed 50
 
 ---
 
-### C-73: Legacy `evalution_mode` typo shim in HydraNetConfig
-
-| Field | Value |
-|-------|-------|
-| ID | C-73 |
-| Tier | 4 |
-| Source | manual (2026-04-21) |
-| Trigger | When all model configs in `views-models` have been confirmed to use `evaluation_mode` (not `evalution_mode`), remove the `handle_typos` model_validator shim |
-| Location | `config_initializer.py:143-153` (`handle_typos` model_validator) |
-
-`HydraNetConfig` has a `model_validator(mode="before")` shim that silently rewrites the legacy typo key `evalution_mode` → `evaluation_mode`. One known consumer (`views-models`) has been fixed (2026-04-21), but other model configs in the `views-models` repo may still use the old key. The shim should be removed once a grep across all configs in `views-models` confirms zero remaining instances of `evalution_mode`. Removing it prematurely would break any config still using the typo — Pydantic's `extra="allow"` would silently accept the misspelled key and leave `evaluation_mode` at its default.
-
----
-
 ### C-75: Duplicated derivation logic between DataFetcher and VolumeHandler
 
 | Field | Value |
@@ -248,62 +234,6 @@ Tier 4 rationale: code quality / DRY violation. Single-developer scope. No corre
 
 ---
 
-### C-95: Tobit S2 MCR asymmetry — lr_sb=0.983, lr_os=0.005 — systematic calibration bias
-
-| Field | Value |
-|-------|-------|
-| ID | C-95 |
-| Tier | 3 |
-| Source | S2 Tobit experiment (2026-05-29), wandb run summary |
-| Trigger | When evaluating Path E (scheduled sampling) results against the S2 baseline — MCR asymmetry may persist or worsen, and should be diagnosed before declaring Gate 2 passed |
-| Location | Evaluation metrics (wandb), not a code defect. Upstream: `views_hydranet/utils/tobit_loss.py`, `views_hydranet/train/training_engine.py` |
-| Cross-refs | C-87 (per-target loss weights) |
-
-S2 Tobit experiment (150 lessons, `loss_reg=tobit`, `loss_reg_sigma=1.0`) shows extreme MCR asymmetry across targets: lr_sb MCR_sample=0.983 (nearly all predictions above marginal median — systematic upward bias), lr_os MCR_sample=0.005 (nearly all below — systematic underprediction). The sample-vs-mean gap for lr_sb (0.983 sample vs 0.555 mean) indicates individual posterior samples are consistently biased high while the posterior mean is more centered — the stochastic spread does not straddle the median.
-
-This is not a code defect but a model behavior concern. Possible causes: (1) Tobit censored likelihood with σ=1.0 may overestimate latent z* for zero-cells, pushing predictions upward for the most zero-inflated target (SB ~95% zeros). (2) Per-target loss weights may need recalibration for Tobit (current weights were tuned for hurdle+Basu). (3) The fixed σ may be too large or too small for different targets.
-
-Tier 3 rationale: model quality concern that affects evaluation interpretation, not silent corruption. No code fix needed — requires experimental investigation (σ sensitivity, per-target σ, target_weights recalibration).
-
----
-
-### C-96: Tobit loss converges in ~60 lessons — total_lessons=150 wastes ~60% training compute
-
-| Field | Value |
-|-------|-------|
-| ID | C-96 |
-| Tier | 4 |
-| Source | S2 Tobit experiment (2026-05-29), training loss curves |
-| Trigger | When configuring `total_lessons` for Tobit loss runs — using the MSE/Shrinkage-calibrated default of 20 lessons is too few, but 150 is excessive |
-| Location | Config parameter `total_lessons` in model configs (`views-models`), `views_hydranet/utils/config_initializer.py:105` |
-
-S2 training curves (linear and log-scale) show regression loss plateauing at ~25.8 by lesson 60, with lessons 60-150 oscillating in a ±0.3 noise band (log-scale) around the plateau. Classification loss shows similar convergence by lesson 60 (current: 3.15). Total multi-task loss converges to ~48 by lesson 60.
-
-Tobit converges faster than hurdle+MSE because it provides dense gradient from ALL cells (including y=0 censored observations), eliminating the gradient starvation that slowed MSE convergence. The optimal `total_lessons` for Tobit is likely 60-80, saving ~50-60% training time compared to 150.
-
-Tier 4 rationale: efficiency concern, not correctness. Training produces correct results at 150 lessons, just wastes compute. Single-developer scope.
-
----
-
-### C-98: Implicit `input_channels == 3 × output_channels` constraint — unvalidated architectural invariant
-
-| Field | Value |
-|-------|-------|
-| ID | C-98 |
-| Tier | 3 |
-| Source | Path E exploration (2026-05-29) |
-| Trigger | When creating a new model config where `input_channels ≠ 3 × output_channels` — autoregressive inference will crash with a cryptic Conv2d shape mismatch, and scheduled sampling will crash similarly during training |
-| Location | `views_hydranet/utils/hydranet_inference.py:294` (`t0_autoreg = t1_pred.detach()`), `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:520` (`torch.concat([out_reg1, out_reg2, out_reg3])`), `views_hydranet/utils/config_initializer.py` (missing validation) |
-| Cross-refs | C-03 (hardcoded 3+3 heads), D-02 (architecture extensibility) |
-
-The model architecture has 3 hardcoded regression decoder heads, each producing `output_channels` channels. The concatenated regression output has shape `[B, 3 × output_channels, H, W]`. During autoregressive inference, this output is fed directly as the next input, which expects `[B, input_channels, H, W]`. This requires `input_channels == 3 × output_channels` — an invariant that is never validated at config construction or model initialization.
-
-In practice, all configs use `output_channels=1` and `input_channels=3` (3 features = 3 regression targets), so the constraint holds. But it is enforced only by convention. Scheduled sampling (Path E) will add a second code path that depends on this same invariant during training. A single-line validator in `HydraNetConfig.validate_laws()` would make this explicit: `if self.input_channels != 3 * self.output_channels: raise ValueError(...)`.
-
-Tier 3 rationale: a misconfigured config produces a cryptic error deep in the forward pass. Multiple developers (anyone writing configs) could trigger it. Fix is trivial but the invariant should be documented.
-
----
-
 ### C-99: Tobit `reg_latent` vs `reg` dual-path creates refactoring hazard for scheduled sampling
 
 | Field | Value |
@@ -320,25 +250,6 @@ Tier 3 rationale: a misconfigured config produces a cryptic error deep in the fo
 The two paths are currently distinct (line 150: `t1_pred_for_loss = output.reg_latent if use_latent else t1_pred`, line 147: `t1_pred = output.reg`). But they originate from the same forward pass, and a refactoring that merges variable names or simplifies the output handling could accidentally route `reg_latent` into the scheduled sampling mixer. A unit test should assert that the mixer input is always non-negative.
 
 Tier 4 rationale: no current bug. Single-developer scope. The risk is future-facing and easily mitigated with a test assertion.
-
----
-
-### C-105: No validator enforces `features ⊆ regression_targets` — shape mismatch risk in autoregressive feedback
-
-| Field | Value |
-|-------|-------|
-| ID | C-105 |
-| Tier | 3 |
-| Source | repo-assimilation (2026-06-02) |
-| Trigger | When creating a config where `features` includes columns not in `regression_targets` (e.g., confounders, lagged variables) — the model's regression output has fewer channels than its input, causing a shape mismatch during autoregressive inference |
-| Location | `views_hydranet/utils/config_initializer.py` (missing validator), `views_hydranet/utils/hydranet_inference.py:294` (`t0_autoreg = t1_pred.detach()`) |
-| Cross-refs | C-98 (input_channels == 3 × output_channels), C-03 (hardcoded 3+3 heads) |
-
-During autoregressive inference, `output.reg` (shape `[B, 3*output_channels, H, W]`) feeds back as the next input (expected shape `[B, input_channels, H, W]`). This requires `features` and `regression_targets` to have the same count. The Feature Lifecycle Law (ADR-046) validates that all columns are accounted for in transformations, but it does NOT validate that `features == regression_targets`.
-
-A config with `features=['lr_sb', 'lr_ns', 'lr_os', 'temperature']` and `regression_targets=['lr_sb', 'lr_ns', 'lr_os']` would pass all validators but crash during inference with a cryptic Conv2d shape mismatch.
-
-Tier 3 rationale: the trigger is realistic (adding confounder features is a natural researcher action). The error is cryptic, not at the config boundary. Multiple developers could hit this.
 
 ---
 
@@ -392,6 +303,7 @@ Triage options: (a) convert to xfail with documented reason, (b) delete and refe
 Tier 4 rationale: no correctness impact. Test suite hygiene.
 
 
+
 ## Disagreements
 
 ### D-01: VolumeHandler scope — God Object vs Deep Module
@@ -439,6 +351,95 @@ Tier 4 rationale: no correctness impact. Test suite hygiene.
 ---
 
 ## Resolved Concerns
+
+### C-73: Legacy `evalution_mode` typo shim in HydraNetConfig — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-73 |
+| Tier | 4 |
+| Source | manual (2026-04-21) |
+| Trigger | When all model configs in `views-models` have been confirmed to use `evaluation_mode` (not `evalution_mode`), remove the `handle_typos` model_validator shim |
+| Location | `config_initializer.py:143-153` (`handle_typos` model_validator) |
+
+`HydraNetConfig` has a `model_validator(mode="before")` shim that silently rewrites the legacy typo key `evalution_mode` → `evaluation_mode`. One known consumer (`views-models`) has been fixed (2026-04-21), but other model configs in the `views-models` repo may still use the old key. The shim should be removed once a grep across all configs in `views-models` confirms zero remaining instances of `evalution_mode`. Removing it prematurely would break any config still using the typo — Pydantic's `extra="allow"` would silently accept the misspelled key and leave `evaluation_mode` at its default.
+
+---
+
+### C-95: Tobit S2 MCR asymmetry — lr_sb=0.983, lr_os=0.005 — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-95 |
+| Resolved | 2026-06-02 |
+| Source | S2 Tobit experiment (2026-05-29), wandb run summary |
+| Trigger | When evaluating Path E (scheduled sampling) results against the S2 baseline — MCR asymmetry may persist or worsen, and should be diagnosed before declaring Gate 2 passed |
+| Location | Evaluation metrics (wandb), not a code defect. Upstream: `views_hydranet/utils/tobit_loss.py`, `views_hydranet/train/training_engine.py` |
+| Cross-refs | C-87 (per-target loss weights) |
+
+S2 Tobit experiment (150 lessons, `loss_reg=tobit`, `loss_reg_sigma=1.0`) shows extreme MCR asymmetry across targets: lr_sb MCR_sample=0.983 (nearly all predictions above marginal median — systematic upward bias), lr_os MCR_sample=0.005 (nearly all below — systematic underprediction). The sample-vs-mean gap for lr_sb (0.983 sample vs 0.555 mean) indicates individual posterior samples are consistently biased high while the posterior mean is more centered — the stochastic spread does not straddle the median.
+
+This is not a code defect but a model behavior concern. Possible causes: (1) Tobit censored likelihood with σ=1.0 may overestimate latent z* for zero-cells, pushing predictions upward for the most zero-inflated target (SB ~95% zeros). (2) Per-target loss weights may need recalibration for Tobit (current weights were tuned for hurdle+Basu). (3) The fixed σ may be too large or too small for different targets.
+
+Tier 3 rationale: model quality concern that affects evaluation interpretation, not silent corruption. No code fix needed — requires experimental investigation (σ sensitivity, per-target σ, target_weights recalibration).
+
+---
+
+### C-96: Tobit loss converges in ~60 lessons — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-96 |
+| Resolved | 2026-06-02 |
+| Source | S2 Tobit experiment (2026-05-29), training loss curves |
+| Trigger | When configuring `total_lessons` for Tobit loss runs — using the MSE/Shrinkage-calibrated default of 20 lessons is too few, but 150 is excessive |
+| Location | Config parameter `total_lessons` in model configs (`views-models`), `views_hydranet/utils/config_initializer.py:105` |
+
+S2 training curves (linear and log-scale) show regression loss plateauing at ~25.8 by lesson 60, with lessons 60-150 oscillating in a ±0.3 noise band (log-scale) around the plateau. Classification loss shows similar convergence by lesson 60 (current: 3.15). Total multi-task loss converges to ~48 by lesson 60.
+
+Tobit converges faster than hurdle+MSE because it provides dense gradient from ALL cells (including y=0 censored observations), eliminating the gradient starvation that slowed MSE convergence. The optimal `total_lessons` for Tobit is likely 60-80, saving ~50-60% training time compared to 150.
+
+Tier 4 rationale: efficiency concern, not correctness. Training produces correct results at 150 lessons, just wastes compute. Single-developer scope.
+
+---
+
+### C-98: Implicit `input_channels == 3 × output_channels` constraint — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-98 |
+| Tier | 3 |
+| Source | Path E exploration (2026-05-29) |
+| Trigger | When creating a new model config where `input_channels ≠ 3 × output_channels` — autoregressive inference will crash with a cryptic Conv2d shape mismatch, and scheduled sampling will crash similarly during training |
+| Location | `views_hydranet/utils/hydranet_inference.py:294` (`t0_autoreg = t1_pred.detach()`), `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:520` (`torch.concat([out_reg1, out_reg2, out_reg3])`), `views_hydranet/utils/config_initializer.py` (missing validation) |
+| Cross-refs | C-03 (hardcoded 3+3 heads), D-02 (architecture extensibility) |
+
+The model architecture has 3 hardcoded regression decoder heads, each producing `output_channels` channels. The concatenated regression output has shape `[B, 3 × output_channels, H, W]`. During autoregressive inference, this output is fed directly as the next input, which expects `[B, input_channels, H, W]`. This requires `input_channels == 3 × output_channels` — an invariant that is never validated at config construction or model initialization.
+
+In practice, all configs use `output_channels=1` and `input_channels=3` (3 features = 3 regression targets), so the constraint holds. But it is enforced only by convention. Scheduled sampling (Path E) will add a second code path that depends on this same invariant during training. A single-line validator in `HydraNetConfig.validate_laws()` would make this explicit: `if self.input_channels != 3 * self.output_channels: raise ValueError(...)`.
+
+Tier 3 rationale: a misconfigured config produces a cryptic error deep in the forward pass. Multiple developers (anyone writing configs) could trigger it. Fix is trivial but the invariant should be documented.
+
+---
+
+### C-105: No validator enforces `features ⊆ regression_targets` — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-105 |
+| Tier | 3 |
+| Source | repo-assimilation (2026-06-02) |
+| Trigger | When creating a config where `features` includes columns not in `regression_targets` (e.g., confounders, lagged variables) — the model's regression output has fewer channels than its input, causing a shape mismatch during autoregressive inference |
+| Location | `views_hydranet/utils/config_initializer.py` (missing validator), `views_hydranet/utils/hydranet_inference.py:294` (`t0_autoreg = t1_pred.detach()`) |
+| Cross-refs | C-98 (input_channels == 3 × output_channels), C-03 (hardcoded 3+3 heads) |
+
+During autoregressive inference, `output.reg` (shape `[B, 3*output_channels, H, W]`) feeds back as the next input (expected shape `[B, input_channels, H, W]`). This requires `features` and `regression_targets` to have the same count. The Feature Lifecycle Law (ADR-046) validates that all columns are accounted for in transformations, but it does NOT validate that `features == regression_targets`.
+
+A config with `features=['lr_sb', 'lr_ns', 'lr_os', 'temperature']` and `regression_targets=['lr_sb', 'lr_ns', 'lr_os']` would pass all validators but crash during inference with a cryptic Conv2d shape mismatch.
+
+Tier 3 rationale: the trigger is realistic (adding confounder features is a natural researcher action). The error is cryptic, not at the config boundary. Multiple developers could hit this.
+
+---
 
 ### C-87: Hurdle mechanism applies uniform loss parameters across targets with different rare-event ratios — RESOLVED
 
