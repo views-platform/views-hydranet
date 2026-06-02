@@ -6,8 +6,8 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-02                           |
 | Total Concerns    | 107                                  |
-| Open Concerns     | 28                                   |
-| Resolved Concerns | 79                                   |
+| Open Concerns     | 22                                   |
+| Resolved Concerns | 85                                   |
 
 ---
 
@@ -31,7 +31,7 @@
 | ID | C-01 |
 | Tier | 3 |
 | Source | repo-assimilation (2026-04-08) |
-| Trigger | When adding or removing a component from Manager's initialization sequence, verify file hasn't exceeded pure-wiring scope |
+| Trigger | When adding a new pipeline stage (e.g., post-processing, calibration) that requires Manager wiring — verify the new stage doesn't push Manager past pure-wiring into business logic |
 | Location | `manager/hydranet_manager.py` |
 
 `hydranet_manager.py` imports 12 internal modules and wires all components manually. Any wiring change requires modifying this single 380-line file. Fan-out of 12 — highest in the codebase.
@@ -83,7 +83,7 @@ Per Martin (Clean Architecture Ch 8, p.87-93): this violates OCP — the archite
 | ID | C-35 |
 | Tier | 3 |
 | Source | clean-architecture-review (2026-04-08) |
-| Trigger | Adding a new module — unclear where it belongs; changing a training component forces retest of unrelated data pipeline tests |
+| Trigger | When creating a new utility module (e.g., a new loss function or sampling strategy) — the developer must decide whether it goes in `utils/` alongside 28 other files, with no package structure to guide placement |
 | Location | `views_hydranet/utils/` (20 of 25 source files) |
 
 The `utils/` package contains 20 files spanning 5 distinct domains: data pipeline (fetcher, sniffer, scaler, handler), training strategy (curriculum, sampler, forensics), inference (orchestrator, inference engine), observability (diagnostics, logging, guardian), and configuration. A single generic package name for 80% of the codebase.
@@ -212,27 +212,13 @@ See also C-42 (resolved — entropy locking).
 
 ---
 
-### C-87: Hurdle mechanism applies uniform loss parameters across targets with different rare-event ratios
+### C-87: Hurdle mechanism applies uniform loss parameters across targets with different rare-event ratios — RESOLVED
 
 | Field | Value |
 |-------|-------|
 | ID | C-87 |
-| Tier | 3 (was 2, mitigated by Path A) |
-| Source | manual review (2026-05-27), informed by repeated OS/NS near-zero prediction failures |
-| Trigger | When training with hurdle + Basu DPD on multi-target configs where OS and NS are 3-5x rarer than SB — gradient starvation causes the model to effectively abandon rare-target regression heads |
-| Location | `views_hydranet/train/training_engine.py:169-196` (hurdle loop), `views_hydranet/utils/config_initializer.py` (no per-target param support) |
-
-The hurdle mechanism masks regression loss to positive observations per-target, but all targets share a single `loss_reg` (Basu DPD with global alpha/sigma), a single `qs99_weight`/`qs99_tau`, and no per-target loss weighting. When SB has ~5% non-zero cells and OS/NS have ~1%, the regression gradient signal for rare targets is ~5x weaker. Historical outcome: models predict near-zero for OS and NS.
-
-**Path A (IMPLEMENTED):** Per-target loss weighting via `target_weights` config dict (`Dict[str, float] | None`). Applied inside the hurdle loop at per-target loss computation — multiplies regression loss, QS99 penalty, and non-hurdle loss by the configured weight. Validator enforces all regression targets present and non-negative weights. Tested by 4 integration tests in `test_hurdle_basu_integration.py`.
-
-**Path B (future — per-target Basu parameters):** Separate `alpha`/`sigma` per target. OS gets lower alpha (more sensitivity), SB gets higher alpha (more robustness). More expressive but requires nested config structure (C-49 scaling concern). Deferred until Path A proves insufficient.
-
-Tier 2 → Tier 3: Path A mitigates the immediate gradient starvation. Residual risk is that uniform alpha/sigma may still under-serve rare targets if weight scaling alone is insufficient.
-
-**Test gap (test-review 2026-05-27):** `target_weights` is only tested with a single-target config. No test verifies correct per-target weight application with multiple regression targets — a bug in target-name lookup would pass single-target tests but silently misweight in production. See C-88.
-
-See also ADR-050 (hurdle-decomposed loss), C-49 (flat config scaling).
+| Resolved | 2026-06-01 |
+| Resolution | The hurdle mechanism was replaced by Tobit censored-normal likelihood (ADR-054), which provides dense gradient from ALL cells. Per-target sigma (issue #44, ADR-055) gives each target its own loss scale. Scheduled sampling (ADR-056) closes the exposure bias. The root cause (gradient starvation from hurdle masking) is eliminated. Per-target loss weights (`target_weights` from ADR-050) remain available as an additional lever. |
 
 ---
 
@@ -319,24 +305,13 @@ Tier 4 rationale: efficiency concern, not correctness. Training produces correct
 
 ---
 
-### C-97: Step-wise CRPS degradation quantifies exposure bias — Path E baseline metric
+### C-97: Step-wise CRPS degradation quantifies exposure bias — Path E baseline metric — RESOLVED
 
 | Field | Value |
 |-------|-------|
 | ID | C-97 |
-| Tier | 3 |
-| Source | S2 Tobit experiment (2026-05-29), wandb run summary |
-| Trigger | When evaluating Path E (scheduled sampling) Gate 2 — compare step-wise CRPS against this S2 baseline to determine if scheduled sampling reduces long-horizon degradation |
-| Location | Evaluation metrics (wandb). Code path: `views_hydranet/utils/hydranet_inference.py:292-295` (autoregressive feedback loop) |
-| Cross-refs | Issue #37 (Path E), Issue #42 (roadmap Gate 2) |
-
-S2 Tobit baseline step-wise CRPS: lr_sb=0.166, lr_ns=0.047, lr_os=0.052. Month-wise CRPS: lr_sb=0.147, lr_ns=0.046, lr_os=0.074. The step-wise > month-wise gap for lr_sb (13% degradation) and lr_ns (3%) is consistent with exposure bias: prediction errors compound over the 36-step autoregressive horizon because the model was trained only on ground-truth inputs (teacher forcing) but sees its own predictions during inference.
-
-lr_os shows the opposite pattern (step-wise 0.052 < month-wise 0.074) — likely because one-sided violence is so rare that longer horizons average out noise rather than compounding errors.
-
-This entry serves as the quantitative Gate 2 baseline. Path E (scheduled sampling) should reduce the lr_sb step-wise/month-wise gap. If it does not, escalate to GTF per the roadmap.
-
-Tier 3 rationale: quantified performance gap affecting forecast quality at operational horizons (36 steps). Not a code defect but a structural limitation of pure teacher forcing.
+| Resolved | 2026-06-01 |
+| Resolution | Gate 2 PASSED. Scheduled sampling (ADR-056, PR #50) reduced the step/month MCR gap for lr_sb from 1.60 to 0.02 (99% reduction) at `ss_epsilon_max=0.5`. Step-wise sb CRPS improved 43% (0.265 → 0.152). No escalation to GTF needed. Baseline metrics preserved in `reports/sweep_isolation_plan.md`. |
 
 ---
 
@@ -366,7 +341,7 @@ Tier 3 rationale: a misconfigured config produces a cryptic error deep in the fo
 | ID | C-99 |
 | Tier | 4 |
 | Source | Path E exploration (2026-05-29) |
-| Trigger | When implementing scheduled sampling — ensure the mixer uses `output.reg` (post-ReLU, non-negative) as the feedback input, NOT `output.reg_latent` (pre-ReLU, can be negative). A future refactoring that consolidates the two paths could introduce negative inputs to the autoregressive loop. |
+| Trigger | When refactoring `_process_sequence()` to simplify variable names or consolidate the `t1_pred` / `t1_pred_for_loss` split — verify `prev_pred` (scheduled sampling feedback) still uses `output.reg` (post-ReLU, non-negative), NOT `output.reg_latent` (pre-ReLU, can be negative) |
 | Location | `views_hydranet/train/training_engine.py:150-151` (latent routing for loss), `views_hydranet/train/training_engine.py:145-147` (forward pass output), `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:519-523` (reg_latent vs reg) |
 | Cross-refs | ADR-054 (Tobit loss) |
 
@@ -378,75 +353,43 @@ Tier 4 rationale: no current bug. Single-developer scope. The risk is future-fac
 
 ---
 
-### C-100: `validate_basu_dpd_range` TypeError crash when `loss_reg_sigma` is dict — validator ordering hazard
+### C-100: `validate_basu_dpd_range` TypeError crash when `loss_reg_sigma` is dict — RESOLVED
 
 | Field | Value |
 |-------|-------|
 | ID | C-100 |
-| Tier | 2 |
-| Source | /falsify per-target sigma audit P1 (2026-05-30) |
-| Trigger | When constructing `HydraNetConfig` with `loss_reg='basu_dpd'` and `loss_reg_sigma={'lr_sb': 1.0, ...}` — the basu validator does `self.loss_reg_sigma <= 0` which raises `TypeError: '<=' not supported between instances of 'dict' and 'int'` instead of a clean `ValueError` |
-| Location | `views_hydranet/utils/config_initializer.py:453` (`validate_basu_dpd_range`) |
-| Cross-refs | C-49 (flat config scaling), issue #44 |
-
-After `loss_reg_sigma` was widened from `float | None` to `float | Dict[str, float] | None` for per-target Tobit sigma (issue #44), the existing `validate_basu_dpd_range` validator crashes with a `TypeError` when given a dict. The validator runs before `validate_per_target_sigma` (which would cleanly reject dict sigma for non-tobit losses), so the user gets a cryptic crash instead of a helpful error message.
-
-Fix: guard the comparison with `isinstance(self.loss_reg_sigma, (int, float))` before `<= 0`, or move `validate_per_target_sigma` above `validate_basu_dpd_range`.
-
-Tier 2 rationale: structural fragility — a misconfigured config produces an unhandled TypeError (not a ValueError), which may not be caught by error handlers expecting ValueError. Clear trigger exists.
+| Resolved | 2026-05-30 |
+| Resolution | Added `isinstance(self.loss_reg_sigma, (int, float))` guard before `<= 0` comparison in `validate_basu_dpd_range`. PR #47. Falsification stub `test_P1_basu_dpd_with_dict_sigma_crashes_with_typeerror` verifies the fix. |
 
 ---
 
-### C-101: Extra keys in per-target sigma dict silently accepted — typo masking
+### C-101: Extra keys in per-target sigma dict silently accepted — RESOLVED
 
 | Field | Value |
 |-------|-------|
 | ID | C-101 |
-| Tier | 4 |
-| Source | /falsify per-target sigma audit P5 (2026-05-30) |
-| Trigger | When writing a per-target sigma config with a typo like `'lr_TYPO': 2.0` alongside valid targets — the validator checks for missing targets but not extra ones, so the typo is silently included |
-| Location | `views_hydranet/utils/config_initializer.py:543-548` (`validate_per_target_sigma`) |
-| Cross-refs | Issue #44 |
-
-The `validate_per_target_sigma` validator checks that all `regression_targets` have entries in the dict, but does not check for extra keys. A config with `{'lr_sb': 1.0, 'lr_ns': 0.75, 'lr_os': 0.5, 'lr_TYPO': 2.0}` passes validation. The extra key is harmless at runtime (unused), but masks configuration errors.
-
-Fix: add `extra = [k for k in self.loss_reg_sigma if k not in self.regression_targets]` check.
-
-Tier 4 rationale: no correctness impact (extra keys are ignored). Single-developer scope.
+| Resolved | 2026-05-30 |
+| Resolution | Added extra-key check to `validate_per_target_sigma`. PR #47. Falsification stub `test_P5_extra_keys_in_dict_sigma_rejected` verifies. Also added same check to `validate_target_weights` for consistency. |
 
 ---
 
-### C-102: Stale type annotations for `criterion_reg` after per-target sigma change
+### C-102: Stale type annotations for `criterion_reg` after per-target sigma change — RESOLVED
 
 | Field | Value |
 |-------|-------|
 | ID | C-102 |
-| Tier | 4 |
-| Source | /falsify per-target sigma audit P2 (2026-05-30) |
-| Trigger | When a type checker (mypy, pyright) or IDE inspects `_process_sequence` or `TrainingContext` — the annotation `criterion_reg: nn.Module` will flag dict values as errors, and `choose_loss` return type is wrong |
-| Location | `views_hydranet/train/training_engine.py:109`, `views_hydranet/train/training_engine.py:266`, `views_hydranet/utils/utils.py:108` |
-| Cross-refs | Issue #44 |
-
-Three type annotations still declare `criterion_reg` as `nn.Module` after the per-target sigma change made it `nn.Module | dict[str, nn.Module]`. The `choose_loss` return type annotation `tuple[nn.Module, nn.Module, MultiTaskLoss]` is also stale. No runtime impact (Python doesn't enforce annotations), but misleads static analysis and IDE users.
-
-Tier 4 rationale: code quality. No correctness or reliability impact.
+| Resolved | 2026-05-30 |
+| Resolution | Updated type annotations in 3 locations: `_process_sequence` parameter, `TrainingContext.__init__`, and `choose_loss` return type — all now `nn.Module | dict[str, nn.Module]`. PR #47. |
 
 ---
 
-### C-103: CIC HydraNetConfig.md stale after per-target sigma — missing failure mode and type change
+### C-103: CIC HydraNetConfig.md stale after per-target sigma — RESOLVED
 
 | Field | Value |
 |-------|-------|
 | ID | C-103 |
-| Tier | 4 |
-| Source | /falsify per-target sigma audit P4 (2026-05-30) |
-| Trigger | When a contributor reads the CIC to understand `loss_reg_sigma` validation behavior — the CIC says `loss_reg_sigma` is float and lists no per-target failure modes |
-| Location | `docs/CICs/HydraNetConfig.md` Section 3 and Section 6 |
-| Cross-refs | C-55 (resolved — CIC drift pattern), issue #44 |
-
-The CIC for HydraNetConfig does not document: (1) `loss_reg_sigma` now accepts `Dict[str, float]` for per-target Tobit sigma, (2) the `validate_per_target_sigma` validator and its three failure modes (non-tobit, non-positive, missing target), (3) the updated field count (64 → still 64, but type changed).
-
-Tier 4 rationale: documentation drift. Same pattern as C-55 (resolved), but a new instance. No correctness impact.
+| Resolved | 2026-05-30 |
+| Resolution | CIC Section 3 updated with per-target sigma validation responsibility. Section 6 updated with 4 new failure modes (non-tobit, non-positive, missing target, extra key). Field count updated. PR #47. |
 
 ---
 
