@@ -215,3 +215,6 @@ graphify-out/
 
 # txt logs
 *.txt
+
+# Claude Code session/tooling directory
+.claude/
