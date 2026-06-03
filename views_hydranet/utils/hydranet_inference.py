@@ -7,6 +7,7 @@ import torch
 from torch.nn import Module
 from tqdm import tqdm
 
+from views_hydranet.architectures.locked_dropout import LockedDropout
 from views_hydranet.utils.integrity_guardian import IntegrityGuardian
 from views_hydranet.utils.visual_diagnostics import VisualDiagnostics
 
@@ -77,12 +78,20 @@ class HydraNetInference:
         logger.info("HydraNetInference initialized successfully.")
 
     def _apply_dropout(self, module: torch.nn.Module) -> None:
-        """Applies dropout during inference.
+        """Enables MC-Dropout during inference.
 
-        This enables approximate Bayesian uncertainty estimation (MC Dropout)
-        by keeping dropout layers in training mode during inference.
+        Keeps dropout layers in training mode at inference for approximate
+        Bayesian uncertainty estimation. For ``LockedDropout`` (ADR-057) it
+        also engages locked mode, so the mask is held fixed across each
+        posterior sample's autoregressive roll-forward (refreshed per sample
+        by ``reset_locked_dropout()`` at the top of ``predict()``). This is
+        what prevents per-step dropout noise from compounding into runaway
+        predictions (C-113).
         """
-        if isinstance(module, torch.nn.Dropout):
+        if isinstance(module, LockedDropout):
+            module.locked = True
+            module.train()
+        elif isinstance(module, torch.nn.Dropout):
             module.train()
 
     def execute_freeze_h_option(
@@ -214,6 +223,13 @@ class HydraNetInference:
         Returns:
             A tuple containing magnitudes and probabilities zstacks.
         """
+        # ADR-057: refresh locked dropout masks once per posterior sample, so the
+        # mask is held fixed across this sample's 36-step autoregressive
+        # roll-forward and drawn fresh for the next sample. No-op for the
+        # standard (unlocked) dropout path.
+        if hasattr(self.model, "reset_locked_dropout"):
+            self.model.reset_locked_dropout()
+
         _, seq_len, _, H, W = full_tensor.shape
 
         # ADR 046: Identify input features by name

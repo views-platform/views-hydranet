@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from views_hydranet.architectures.locked_dropout import LockedDropout
+
 
 class ModelOutput(NamedTuple):
     """
@@ -186,8 +188,10 @@ class HydraBNUNet06_LSTM4(nn.Module):
 
         self.dec_conv4_head3_class = nn.Conv2d(base, output_channels, kernel_size, padding=1)
 
-        # Dropout
-        self.dropout = nn.Dropout(p=dropout_rate)
+        # Dropout — LockedDropout (ADR-057): a drop-in for nn.Dropout that can
+        # hold its mask fixed across the autoregressive roll-forward. Behaves
+        # exactly as nn.Dropout until locked (training path unchanged).
+        self.dropout = LockedDropout(p=dropout_rate)
 
         # LSTM parameters initialization...
         # [Implementation details omitted for brevity, logic remains identical]
@@ -521,6 +525,30 @@ class HydraBNUNet06_LSTM4(nn.Module):
         out_class = torch.concat([out_class1, out_class2, out_class3], dim=1)
 
         return ModelOutput(reg=out_reg, cls=out_class, h_next=h, reg_latent=out_reg_latent)
+
+    def set_locked_dropout(self, enabled: bool) -> None:
+        """Enable/disable consistent-mask (variational) dropout (ADR-057).
+
+        When enabled, each ``LockedDropout`` is put in train mode (so MC-dropout
+        sampling is active at inference) and its mask is locked across forwards.
+        Only the dropout submodules are switched to train mode — the rest of the
+        model stays in its current (eval) mode, so BatchNorm running stats and
+        the train-only ``reg_latent`` path are unaffected.
+        """
+        for module in self.modules():
+            if isinstance(module, LockedDropout):
+                module.locked = enabled
+                if enabled:
+                    module.train()
+                    module.reset()
+
+    def reset_locked_dropout(self) -> None:
+        """Refresh all locked dropout masks — call once per posterior sample so
+        each sample's autoregressive trajectory draws a fresh, internally
+        consistent mask."""
+        for module in self.modules():
+            if isinstance(module, LockedDropout):
+                module.reset()
 
     def init_hTtime(self, hidden_channels, H, W):
         """
