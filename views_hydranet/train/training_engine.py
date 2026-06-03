@@ -80,13 +80,28 @@ def make(config: dict, device: torch.device):
     criterion = choose_loss(config, device)
     optimizer, scheduler = choose_scheduler(config, model)
 
-    # ADR-055: add learnable sigma parameters to the optimizer
+    # ADR-055: add learnable sigma parameters to the optimizer.
+    # weight_decay=0.0: like the MultiTaskLoss log_vars below, the learnable
+    # per-target log_sigma values are uncertainty estimates, not model weights —
+    # weight decay would pull them back toward their initialization (same drag
+    # that froze the balancer in C-111).
     criterion_reg = criterion[0]
     if isinstance(criterion_reg, dict):
         for loss_instance in criterion_reg.values():
             sigma_params = list(loss_instance.parameters())
             if sigma_params:
-                optimizer.add_param_group({"params": sigma_params})
+                optimizer.add_param_group({"params": sigma_params, "weight_decay": 0.0})
+
+    # C-111: add the MultiTaskLoss balancer's log_vars to the optimizer so the
+    # Kendall et al. (2018) homoscedastic uncertainty weighting can actually
+    # learn. Without this, log_vars accumulate gradients but are never stepped,
+    # so they stay frozen at their zero initialization and the balancer is inert.
+    # weight_decay=0.0: log_vars are uncertainty estimates, not model weights —
+    # decaying them toward zero defeats their purpose.
+    multitaskloss_instance = criterion[2]
+    log_var_params = list(multitaskloss_instance.parameters())
+    if log_var_params:
+        optimizer.add_param_group({"params": log_var_params, "weight_decay": 0.0})
 
     return (model, criterion, optimizer, scheduler)
 
