@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-02                           |
-| Total Concerns    | 109                                  |
-| Open Concerns     | 15                                   |
+| Total Concerns    | 110                                  |
+| Open Concerns     | 16                                   |
 | Resolved Concerns | 94                                   |
 
 ---
@@ -284,6 +284,23 @@ Tier 4 rationale: integration tests do provide coverage. The gap is speed and is
 The golden_hour ensemble (set up 2026-06-02) concatenates 3 × 64 = 192 posterior samples across members trained with *different loss surfaces*: pink_pirate and violet_visitor use per-target Tobit sigma `{lr_sb: 1.0, lr_ns: 0.75, lr_os: 0.5}`, while blue_stranger uses uniform sigma `1.0`. Sigma directly controls the width of the Tobit predictive distribution, so the uniform-sigma member may produce systematically wider (or narrower) posteriors for ns/os targets than the per-target members. Naive concatenation of samples with different dispersion characteristics could distort the ensemble's aggregate calibration — the MCR could drift even if each member is individually well-calibrated. This is an unverified correctness assumption introduced by the orthogonal-ensemble design (whose diversity is intentional and desirable for ranking, but whose effect on magnitude calibration is untested).
 
 Tier 3 rationale: not silent corruption of a shipped product (the ensemble is experimental and not yet delivered), but a correctness assumption that, if wrong, produces a miscalibrated ensemble whose individual members all look healthy. Affects interpretation of ensemble eval results. Recommend a `/falsify` probe comparing per-member vs ensemble MCR before trusting aggregate metrics.
+
+---
+
+### C-112: C-111 changes training dynamics — pre/post-fix model metrics are not comparable
+
+| Field | Value |
+|-------|-------|
+| ID | C-112 |
+| Tier | 4 |
+| Source | review (PR #64, 2026-06-03) |
+| Trigger | When comparing CRPS/MCR (or any post-training metric) between a model trained before the C-111 merge and one trained after — or when assembling an ensemble whose members straddle the merge boundary — attributing the difference to anything other than the now-active balancer is unsound |
+| Location | `views_hydranet/train/training_engine.py:make()` (optimizer param groups), model artifacts in `views-models/models/*/data/generated/` |
+| Cross-refs | C-111 (resolved — the fix), C-79 (no pipeline reproducibility test) |
+
+The C-111 fix makes the MultiTaskLoss balancer actually learn, which changes trained weights for every run after the merge. Concretely: the golden_hour ensemble evaluated 2026-06-03 (constituents trained pre-fix, sb CRPS 0.1298 / MCR 0.300) is a pre-C-111 baseline. A post-fix retrain will differ, and the difference will conflate (a) the balancer effect with (b) ordinary run-to-run variance (the sweep showed substantial variance: pink_pirate sb MCR ranged 0.029–0.552 across seeds). Any pinned golden-number assertion on post-training metrics would also need re-baselining. The risk is methodological: drawing a causal "C-111 improved X" conclusion from a single pre/post pair, or silently mixing pre- and post-fix artifacts in one ensemble.
+
+Tier 4 rationale: no correctness impact on any single run — each model is internally valid. The risk is interpretation/comparison hygiene, single-developer scope. Mitigation: when measuring the C-111 effect, retrain all members under identical seeds and compare, ideally with >1 seed to separate signal from variance.
 
 ---
 
