@@ -5,9 +5,9 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-02                           |
-| Total Concerns    | 107                                  |
-| Open Concerns     | 16                                   |
-| Resolved Concerns | 91                                   |
+| Total Concerns    | 109                                  |
+| Open Concerns     | 15                                   |
+| Resolved Concerns | 94                                   |
 
 ---
 
@@ -222,13 +222,15 @@ See also C-65 (resolved — `random_flips` added to schema).
 | Tier | 4 |
 | Source | /test-review (Beck W1) (2026-05-27) |
 | Trigger | When modifying `ModelOutput` or the model forward signature — both copies must be updated independently, and forgetting one produces confusing test failures |
-| Location | `tests/test_cluster_e.py:317-340`, `tests/test_hurdle_basu_integration.py:327-346` |
+| Location | `tests/test_per_target_sigma.py`, `tests/test_scheduled_sampling.py` (current `_SumReducer`/`_make_tiny_model` copies) |
 
-Identical `_SumReducer` and `_make_tiny_model` helpers are defined in two test files. A third copy is likely in the next PR that adds `_process_sequence` tests. Should be extracted to `conftest.py` as shared fixtures.
+Identical `_SumReducer` and `_make_tiny_model` helpers are defined in multiple test files. Should be extracted to `conftest.py` as shared fixtures.
 
 **Path E amplification (2026-05-29):** Scheduled sampling implementation (issue #37) will require another copy of the tiny model fixture for `tests/test_scheduled_sampling.py`. Extract to `conftest.py` before implementing Path E tests to avoid a fourth copy.
 
 **Test review amplification (2026-06-02):** Additionally, `_tobit_config()` helper is duplicated across 3 test files (test_tobit_loss.py, test_per_target_sigma.py, test_learnable_sigma.py) with slightly different base configs. Same DRY concern, different fixture.
+
+**Partial resolution (2026-06-02, PR #53):** The `_tobit_config()` portion is resolved — extracted to `conftest.py` as `tobit_config_3target()` and now imported by 5 test files. The original `_SumReducer` and `_make_tiny_model` duplication persists (now in `test_per_target_sigma.py` and `test_scheduled_sampling.py`, not the originally-cited `test_cluster_e.py`/`test_hurdle_basu_integration.py`). `_make_tiny_model` was intentionally left local — it builds the real `HydraBNUNet06_LSTM4`, not the conftest `TinyModel`. Remaining work: extract `_SumReducer` to conftest.
 
 Tier 4 rationale: code quality / DRY violation. Single-developer scope. No correctness impact.
 
@@ -241,7 +243,7 @@ Tier 4 rationale: code quality / DRY violation. Single-developer scope. No corre
 | ID | C-99 |
 | Tier | 4 |
 | Source | Path E exploration (2026-05-29) |
-| Trigger | When refactoring `_process_sequence()` to simplify variable names or consolidate the `t1_pred` / `t1_pred_for_loss` split — verify `prev_pred` (scheduled sampling feedback) still uses `output.reg` (post-ReLU, non-negative), NOT `output.reg_latent` (pre-ReLU, can be negative) |
+| Trigger | Scheduled sampling is now shipped (ADR-056, PR #50) and correctly uses `output.reg`. The remaining risk is future-facing: when refactoring `_process_sequence()` to simplify variable names or consolidate the `t1_pred` / `t1_pred_for_loss` split — verify `prev_pred` (scheduled sampling feedback) still uses `output.reg` (post-ReLU, non-negative), NOT `output.reg_latent` (pre-ReLU, can be negative) |
 | Location | `views_hydranet/train/training_engine.py:150-151` (latent routing for loss), `views_hydranet/train/training_engine.py:145-147` (forward pass output), `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:519-523` (reg_latent vs reg) |
 | Cross-refs | ADR-054 (Tobit loss) |
 
@@ -269,40 +271,21 @@ Tier 4 rationale: integration tests do provide coverage. The gap is speed and is
 
 ---
 
-### C-108: 46% of test classes (82/178) lack ADR-005 taxonomy markers (Green/Beige/Red)
+### C-110: golden_hour ensemble composes posteriors from heterogeneous sigma configs — aggregation correctness unverified
 
 | Field | Value |
 |-------|-------|
-| ID | C-108 |
-| Tier | 4 |
-| Source | test-review (2026-06-02) |
-| Trigger | When auditing test coverage for a specific component — unable to tell from class names whether error paths (Red) are tested, only whether tests exist at all |
-| Location | 30+ test files across `tests/` |
-| Cross-refs | C-60 (resolved — initial taxonomy adoption, 16% → 36%) |
+| ID | C-110 |
+| Tier | 3 |
+| Source | review-rr strategic blind-spot analysis (2026-06-02) |
+| Trigger | When evaluating the golden_hour ensemble's CRPS/MCR for the first time, or before relying on its calibration for delivery — verify the three members' posteriors share scale/support before concatenation, since two members use per-target sigma `{1.0, 0.75, 0.5}` and one uses uniform sigma `1.0` |
+| Location | `views-models/ensembles/golden_hour/`, `views-models/models/{pink_pirate,violet_visitor,blue_stranger}/configs/config_hyperparameters.py` |
 
-C-60 was resolved in April 2026, bringing taxonomy adoption from 16% to 36%. Since then, 33+ new test files have been added (per-target sigma, learnable sigma, scheduled sampling, falsification stubs) and the overall test count grew from ~350 to 704. Many new tests DO use the taxonomy (TestGreen, TestRed), but 82 classes across 30 files predate the convention or were added without markers.
+The golden_hour ensemble (set up 2026-06-02) concatenates 3 × 64 = 192 posterior samples across members trained with *different loss surfaces*: pink_pirate and violet_visitor use per-target Tobit sigma `{lr_sb: 1.0, lr_ns: 0.75, lr_os: 0.5}`, while blue_stranger uses uniform sigma `1.0`. Sigma directly controls the width of the Tobit predictive distribution, so the uniform-sigma member may produce systematically wider (or narrower) posteriors for ns/os targets than the per-target members. Naive concatenation of samples with different dispersion characteristics could distort the ensemble's aggregate calibration — the MCR could drift even if each member is individually well-calibrated. This is an unverified correctness assumption introduced by the orthogonal-ensemble design (whose diversity is intentional and desirable for ranking, but whose effect on magnitude calibration is untested).
 
-Tier 4 rationale: test quality, not correctness. All tests run and pass. The gap is visibility — a developer can't quickly assess Red coverage by scanning class names.
+Tier 3 rationale: not silent corruption of a shipped product (the ensemble is experimental and not yet delivered), but a correctness assumption that, if wrong, produces a miscalibrated ensemble whose individual members all look healthy. Affects interpretation of ensemble eval results. Recommend a `/falsify` probe comparing per-member vs ensemble MCR before trusting aggregate metrics.
 
 ---
-
-### C-109: 13 skipped falsification tests are stale investigation artifacts
-
-| Field | Value |
-|-------|-------|
-| ID | C-109 |
-| Tier | 4 |
-| Source | test-review (2026-06-02) |
-| Trigger | When running the full test suite — 13 skipped tests create noise in the output and inflate the "investigated" impression without providing current value |
-| Location | `tests/test_falsification_identical_window_selection.py`, `tests/test_falsification_sensitivity_attribution.py`, `tests/test_falsification_sweep_root_cause.py`, `tests/test_falsification_sweep_understanding.py`, `tests/test_falsification_two_phase_divergence.py` |
-
-13 tests are permanently skipped (`pytest.skip()`) — they reference investigation experiments (purple_alien divergence, sweep root cause) that concluded in May 2026. The investigations produced findings registered in the risk register and resolved. The skipped tests no longer serve as active probes — they're preserved as historical artifacts but add noise to test output.
-
-Triage options: (a) convert to xfail with documented reason, (b) delete and reference the investigation commit, (c) convert to passing verification tests if the underlying claim can now be tested.
-
-Tier 4 rationale: no correctness impact. Test suite hygiene.
-
-
 
 ## Disagreements
 
@@ -351,6 +334,47 @@ Tier 4 rationale: no correctness impact. Test suite hygiene.
 ---
 
 ## Resolved Concerns
+
+### C-111: MultiTaskLoss log_vars frozen at zero — homoscedastic uncertainty weighting was silently inert — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-111 |
+| Tier | 3 |
+| Resolved | 2026-06-03 (branch `fix/multitask-logvar-weight-decay`) |
+| Source | review-rr strategic blind-spot analysis (2026-06-02), production sweep diagnosis |
+| Location | `views_hydranet/utils/mtloss.py` (MultiTaskLoss log_vars), `views_hydranet/train/training_engine.py:make()` (optimizer construction) |
+| Cross-refs | GitHub views-hydranet #59 |
+
+Across all 8 runs of the production integration sweep (80–200 lessons), the MultiTaskLoss `log_vars` parameters remained at exactly 0.000 — the Kendall et al. (2018) homoscedastic uncertainty weighting never learned.
+
+**Corrected root cause (2026-06-03):** The original GH #59 hypothesis was that `weight_decay=0.1` regularized `log_vars` back to zero. Code inspection during the fix revealed a deeper cause: the optimizer in `choose_scheduler()` is built only from `unet.parameters()`, and `make()` added only the regression sigma params (`criterion[0]`) to it — the `MultiTaskLoss` instance (`criterion[2]`) `log_vars` were **never added to the optimizer at all**. They accumulated gradients during `backward()` but `optimizer.step()` never updated them. The *exactly* 0.000 value (not a small nonzero equilibrium) is the fingerprint of "never stepped," not "decayed."
+
+**Resolution:** `make()` now adds `multitaskloss_instance.parameters()` to the optimizer in a dedicated param group with `weight_decay=0.0` (uncertainty estimates should not be weight-decayed — that would defeat their purpose, addressing the original #59 concern too). Three TDD tests added in `tests/test_learnable_sigma.py::TestGreenMultiTaskBalancerInOptimizer`: log_vars in optimizer, weight_decay=0.0 on that group, and log_vars move after a step.
+
+Tier 3 rationale (retained): not data corruption, but silent ineffectiveness of a documented mechanism — the register's core domain. Affected every training run prior to the fix.
+
+---
+
+### C-108: 46% of test classes lacked ADR-005 taxonomy markers (Green/Beige/Red) — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-108 |
+| Resolved | 2026-06-02 (PR #53) |
+| Resolution | Batch-renamed 45 unmarked test classes to TestGreen/TestBeige/TestRed across ~15 files. Verified: `grep` for unmarked `class Test*` returns 0. The falsification `TestP*` (Proposition) naming was preserved as a valid domain convention. Cross-ref C-60 (April 2026, 16% → 36% adoption); this completes the push to 100%. |
+
+---
+
+### C-109: 13 skipped falsification tests were stale investigation artifacts — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-109 |
+| Resolved | 2026-06-02 (PR #53) |
+| Resolution | Converted 6 investigation-concluded skips (`test_falsification_sweep_understanding.py`, `test_falsification_sweep_root_cause.py`) to `@pytest.mark.xfail(run=False, reason=...)`, preserving intent without execution noise. The 5 remaining bare skips are legitimate conditional skips — 2 `_run_inference_pipeline not yet implemented`, 3 `Calibration parquets not available` — not stale artifacts, correctly left as-is. The triage distinguished investigation-concluded artifacts from data/implementation-gated skips. |
+
+---
 
 ### C-73: Legacy `evalution_mode` typo shim in HydraNetConfig — RESOLVED
 
