@@ -7,7 +7,6 @@ import torch
 from torch.nn import Module
 from tqdm import tqdm
 
-from views_hydranet.architectures.locked_dropout import LockedDropout
 from views_hydranet.utils.integrity_guardian import IntegrityGuardian
 from views_hydranet.utils.visual_diagnostics import VisualDiagnostics
 
@@ -70,29 +69,20 @@ class HydraNetInference:
         self.config = config
         self.viz = visualizer or VisualDiagnostics({"diagnostic_visualizations": False})
 
-        # Step 3: Move model to device and configure for inference
+        # Step 3: Move model to device and configure for inference.
         self.model.to(self.device)
         self.model.eval()
-        self.model.apply(self._apply_dropout)
+        # ADR-057: enable MC-Dropout with a *locked* (consistent) mask. The model
+        # owns its stochastic-dropout state; inference just asks for it. The mask
+        # is then refreshed per posterior sample by reset_locked_dropout() at the
+        # top of predict(), so it is held fixed across each sample's 36-step
+        # autoregressive roll-forward — preventing per-step dropout noise from
+        # compounding into runaway predictions (C-113). hasattr-guarded so bare
+        # mock models (used in tests) skip cleanly.
+        if hasattr(self.model, "set_locked_dropout"):
+            self.model.set_locked_dropout(True)
 
         logger.info("HydraNetInference initialized successfully.")
-
-    def _apply_dropout(self, module: torch.nn.Module) -> None:
-        """Enables MC-Dropout during inference.
-
-        Keeps dropout layers in training mode at inference for approximate
-        Bayesian uncertainty estimation. For ``LockedDropout`` (ADR-057) it
-        also engages locked mode, so the mask is held fixed across each
-        posterior sample's autoregressive roll-forward (refreshed per sample
-        by ``reset_locked_dropout()`` at the top of ``predict()``). This is
-        what prevents per-step dropout noise from compounding into runaway
-        predictions (C-113).
-        """
-        if isinstance(module, LockedDropout):
-            module.locked = True
-            module.train()
-        elif isinstance(module, torch.nn.Dropout):
-            module.train()
 
     def execute_freeze_h_option(
         self, t0: torch.Tensor, h_tt: torch.Tensor
