@@ -1,7 +1,9 @@
 # ADR-057: Variational (Consistent-Mask) Dropout for Autoregressive Stability
 
-**Status:** Proposed
+**Status:** Proposed — **empirically insufficient** (see Outcome note)
 **Date:** 2026-06-03
+
+> **Outcome (2026-06-04):** I2 validation FALSIFIED this fix. With locked-mask dropout at inference (n=16), `violet_visitor` still exploded (lr_sb CRPS 2.13e17) while `pink_pirate` stayed bounded under identical code — implicating the trained recurrent dynamics (spectral radius), not dropout noise, as the driver of C-113. **Do not merge LockedDropout as the fix for C-113.** The module is correct and retained (training byte-identical, inference-only) but is not a stabilizer. Full analysis: `reports/postmortem_locked_dropout_negative_result.md`. Next directions: ADR-028 §2 (cell-state clamp / in-domain feedback bound), generalized teacher forcing (Hess 2023), spectral-radius/Lipschitz control, and bounded-output heads.
 **Branch:** `fix/variational-dropout-autoregressive-stability`
 **Depends on:** ADR-027 (autoregressive inference), ADR-028 (numerical stability guards), ADR-054 (Tobit loss / latent feedback), ADR-056 (scheduled sampling)
 **Working detail:** `reports/preanalysis_autoregressive_stability.md` (mechanical findings, pre-registered hypotheses, full alternative analysis)

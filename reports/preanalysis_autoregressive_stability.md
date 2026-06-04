@@ -99,6 +99,8 @@ A custom locked-mask dropout module replacing bare `nn.Dropout` in the stochasti
 
 ## 3. What we expect that to do, why, and how we will know
 
+> **⛔ OUTCOME (2026-06-04): FALSIFIED.** I2 re-evaluated the existing June-3 artifacts with the locked-mask path (n=16). `pink_pirate` stayed bounded (no regression), but `violet_visitor` exploded across all three heads (lr_sb step-wise CRPS **2.13e17**, lr_ns **2.78e9**, lr_os 54.5) — *worse*, not bounded. Same locked-mask code + same n; pink bounded, violet diverged → the driver is the **trained recurrent dynamics** (spectral radius), not dropout noise. The §3.3 falsifier fired. Full analysis, bias audit, and next-direction literature inventory: **`reports/postmortem_locked_dropout_negative_result.md`**. The predictions below are retained as the pre-registration of record.
+
 ### 3.1 Primary pre-registered prediction
 With consistent-mask dropout and **no magnitude capping of any kind**, the step-wise CRPS trajectory for `blue_stranger/lr_ns_best` and `violet_visitor/lr_sb_best` will **remain bounded across all 36 steps** (no step-12 explosion), and raw predictions will stay within physically plausible range (≲ the data max, expm1(12.1) ≈ 1.8e5, not 1e22).
 
