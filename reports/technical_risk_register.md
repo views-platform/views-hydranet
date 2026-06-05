@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-05                           |
-| Total Concerns    | 121                                  |
-| Open Concerns     | 27                                   |
+| Total Concerns    | 125                                  |
+| Open Concerns     | 31                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 94                                   |
 
@@ -324,9 +324,9 @@ Tier 2 rationale (recalibrated 2026-06-05): this is a **silent-miscalibration** 
 | Source | review (PR #64, 2026-06-03) |
 | Trigger | When comparing CRPS/MCR (or any post-training metric) between a model trained before the C-111 merge and one trained after — or when assembling an ensemble whose members straddle the merge boundary — attributing the difference to anything other than the now-active balancer is unsound |
 | Location | `views_hydranet/train/training_engine.py:make()` (optimizer param groups), model artifacts in `views-models/models/*/data/generated/` |
-| Cross-refs | C-111 (resolved — the fix), C-79 (no pipeline reproducibility test) |
+| Cross-refs | C-111 (resolved — the fix), C-79 (no pipeline reproducibility test), C-124/C-125 (rollout × balancer confound) |
 
-The C-111 fix makes the MultiTaskLoss balancer actually learn, which changes trained weights for every run after the merge. Concretely: the golden_hour ensemble evaluated 2026-06-03 (constituents trained pre-fix, sb CRPS 0.1298 / MCR 0.300) is a pre-C-111 baseline. A post-fix retrain will differ, and the difference will conflate (a) the balancer effect with (b) ordinary run-to-run variance (the sweep showed substantial variance: pink_pirate sb MCR ranged 0.029–0.552 across seeds). Any pinned golden-number assertion on post-training metrics would also need re-baselining. The risk is methodological: drawing a causal "C-111 improved X" conclusion from a single pre/post pair, or silently mixing pre- and post-fix artifacts in one ensemble.
+The C-111 fix makes the MultiTaskLoss balancer actually learn, which changes trained weights for every run after the merge. Concretely: the golden_hour ensemble evaluated 2026-06-03 (constituents trained pre-fix, sb CRPS 0.1298 / MCR 0.300) is a pre-C-111 baseline. A post-fix retrain will differ, and the difference will conflate (a) the balancer effect with (b) ordinary run-to-run variance (the sweep showed substantial variance: pink_pirate sb MCR ranged 0.029–0.552 across seeds). Any pinned golden-number assertion on post-training metrics would also need re-baselining. The risk is methodological: drawing a causal "C-111 improved X" conclusion from a single pre/post pair, or silently mixing pre- and post-fix artifacts in one ensemble. **The same attribution hazard extends forward (folds M-RT6):** enabling Axis-B rollout training (C-125) while the balancer freeze/active question (C-124) is still open would tune two unstable training-dynamics knobs at once and confound which fixed the runaway — sequence the rollout work *after* the balancer verdict closes.
 
 Tier 4 rationale: no correctness impact on any single run — each model is internally valid. The risk is interpretation/comparison hygiene, single-developer scope. Mitigation: when measuring the C-111 effect, retrain all members under identical seeds and compare, ideally with >1 seed to separate signal from variance.
 
@@ -352,6 +352,10 @@ Tier 2 rationale: structural fragility with a confirmed, realistic trigger (it a
 **Update 2026-06-04 — diagnosis sharpened (two empirical results):** (1) ADR-057 (consistent-mask dropout) was **FALSIFIED** — violet still exploded under locked masks (`reports/postmortem_locked_dropout_negative_result.md`); the driver is the deterministic recurrence, not dropout noise. (2) A pre-registered `freeze_h` 2×2 ablation (`reports/results_freezeh_ablation.md`) localized the channel: **all four `freeze_h` modes explode within ~½ order of magnitude on `lr_sb` (2.1–7.0 ×10¹⁷), including `all` (entire recurrent hidden/cell state frozen → 5.13e17).** Therefore the divergence is **not** carried by the recurrent hidden-to-hidden dynamics but by the **prediction→input feedback loop** (the model's gain on its own fed-back prediction > 1). Consequences: `freeze_h` (shipped as `"hl"` in all configs) is **inert** against this failure and is a candidate for retirement (it also creates a train/inference mismatch — training evolves the full state, inference freezes `hl`); the **ADR-028 §2 cell-state clamp is pre-falsified** (`freeze_h="all"` is its extreme and failed); the correct fix targets the **input→output map** — spectral-norm/Lipschitz on the input-to-hidden `Wx*` + U-Net encoder/decoder convs, pushforward/GTF training, and/or an in-domain feedback-input clamp (magnitude-neutral). See `reports/options_catalogue_autoregressive_stability.md` §0 UPDATE. **Axis-0 diagnostic run** (`reports/results_io_gain_diagnostic.md`, `scripts/diagnose_io_gain.py`): standalone retrain-free rollout reproduces the explosion — violet's free-running input→output map settles at an **out-of-range attractor (~log 40 → `expm1` ≈ 1e17, matching the observed CRPS)** while pink stays in-range (~log 10), **state-independently**. The local operator norm `‖∂reg/∂x‖₂` does *not* discriminate (both >1); the discriminator is the attractor level vs data range. **In-domain feedback clamp — TESTED (`reports/results_feedback_clamp.md`):** clamping the fed-back prediction per-target to the log1p data max (`feedback_clamp_log1p`, inference-only) **averts the catastrophe** (violet `lr_sb` 2.13e17 → 798; `lr_ns`/`lr_os` recover to healthy; benign on pink) but is a **safety rail, not a resolution** — it triggers falsifier F2 for `lr_sb` (ramps to the ceiling and pins → MCR ~56,000 over-prediction). C-113 stays **OPEN**; the clamp is retained as an optional guard rail (`feedback_clamp_log1p`, default None=off). Durable fix still required: lower the input→output attractor (spectral-norm/Lipschitz on input→output path, pushforward/GTF, or count-likelihood head).
 
 **Update 2026-06-05 — ACUTE CAUSE FOUND (C-111 balancer bisect, `reports/results_balancer_bisect.md`):** a pre-registered, device-matched (GPU/GPU) bisect on violet found the driver: **the C-111 fix (un-freezing the MultiTaskLoss `log_vars`) is what causes the runaway.** Frozen-balancer retrain settles in-range (free-running attractor log ~4–5 → `expm1` ~1e2); active-balancer control diverges (log ~15–17 → ~1e7) — ~5 orders apart. So the acute explosion is a **C-111 regression**, not a fundamental flaw (the model was stable for years with the balancer effectively frozen). **Fix direction: regularise the balancer (bound/decay `log_vars`, lower its LR), not permanent freeze** — `freeze_multitask_balancer=True` is the safe immediate fallback / the bisect's extreme. Caveat: single seed each (C-112/C-119) — confirm on ≥1 more seed + a real `--evaluate` before production. The **chronic** problem (MCR≪1, no calibrated uncertainty) is orthogonal and still motivates the ZITD distributional-head dossier. `freeze_h` (inert) and the in-domain clamp (bounded-but-degenerate) were both *downstream* of this cause.
+
+**`mtloss.py` audited (2026-06-05, expert-method-review):** the `MultiTaskLoss` is faithful to Kendall 2018 — the `+log σ` self-regularising term (`+ torch.log(stds)`) is **present and correctly signed**, and the per-task coefficients match (`1/2σ²` regression, `1/σ²` classification). So the runaway is **not** a loss-spec bug (hypothesis "M2" cleared); it is the **optimization-trajectory effect** of the active reweighting steering training into a divergent-recurrence basin. Fix direction therefore shifts *away from* adding a prior/decay (redundant with the existing regulariser) *toward* slowing/scheduling the reweighting (lower-LR / warmup) or freezing — pending the benefit check in C-124.
+
+**Update 2026-06-05 — durable fix designed + `freeze_h` retirement gated (expert-method-review, rollout dossier):** the durable fix is now designed as **Axis-B rollout training** (`reports/2026-06-05_rollout_training_dossier/`, ADR-058 candidate; see C-125/C-126) — train the prediction→input feedback operator (the runaway carrier) that is currently detached at `training_engine.py:200`. Retiring the (inert) inference-time `freeze_h` changes the inference path for *every* model, so it must be **gated** behind a `rollout_horizon=1` parity guard + a per-model golden_hour re-eval before merge — not flipped globally blind (folds method-review finding M-RT5). **Characterization gate PASSED 2026-06-05** (`views-models/logs/freezeh_pink_eval_*.log`): pink_pirate evaluated on its existing artifact with the freeze_h-removed path (always-`none`) reproduces the healthy reference to ~3 d.p. — step-wise CRPS lr_sb **0.133** / lr_ns **0.031** / lr_os **0.051** (ref ~0.13/0.03/0.05), MCR healthy. ⇒ removal is non-regressing; M-RT5 cleared. (Branch `chore/retire-freeze-h`: method + config field + 5 capability tests removed; ADR-027/CIC updated; ruff + 699 tests + validate_docs green.)
 
 ---
 
@@ -534,6 +538,80 @@ Tier 3 rationale: maintainability/governance gap that raises the cost and risk o
 `choose_loss` returns three losses as a positional tuple; consumers must *know* index 2 is the `MultiTaskLoss` balancer (the C-111 epicenter). A named structure (dataclass `reg`/`cls`/`balancer`) would remove the positional coupling. Low impact today (callers are internal and tested), but the ZITD head — which replaces the reg+cls pair with one likelihood — is exactly the change that would reshuffle the tuple.
 
 Tier 4 rationale: code-quality/readability; internal, tested callers; no correctness or reliability impact today. Flagged because the imminent ZITD change touches it.
+
+---
+
+### C-124: MultiTaskLoss balancer's predictive benefit is unverified — known to destabilise, not known to help
+
+| Field | Value |
+|-------|-------|
+| ID | C-124 |
+| Tier | 3 |
+| Source | expert-method-review (2026-06-05) |
+| Trigger | Choosing/keeping a balancer regularisation (or re-enabling the active balancer) before comparing frozen vs active on CRPS/MCR/calibration, held-out, ≥1 extra seed |
+| Location | `views_hydranet/train/training_engine.py` (the log_var optimizer param group); `reports/results_balancer_bisect.md` (measured *stability*, not *skill*) |
+| Cross-refs | C-111 (the balancer un-freeze), C-112 (pre/post comparability), C-113 (the runaway) |
+
+The C-111 bisect established the active balancer **destabilises** the autoregressive dynamics (out-of-range attractor) but **never measured whether it improves predictive skill** vs the frozen (equal-weight) baseline. Regularising or re-enabling the balancer therefore risks engineering a fix for a component whose benefit is unverified — and per the panel's strongest dissent (Sutton/Harrell), **"ship frozen" may be the correct endpoint, not a fallback.** The `mtloss.py` audit (see C-113 update) cleared the loss as a defect, so the runaway is an *optimization-trajectory* effect of the active reweighting — which makes "is the reweighting worth its fragility?" the live empirical question.
+
+Tier 3 rationale: methodology / decision-hygiene gap that could mis-direct the acute fix; no silent corruption. Mitigation: a **pre-registered frozen-vs-active CRPS/MCR comparison (≥1 seed)** before choosing among the regularisation options. *(Audit note: the sibling hypothesis "M2 — Kendall-loss mis-implementation" was checked and **cleared** — `mtloss.py` is faithful to Kendall 2018 — so it is recorded in the C-113 update rather than registered as an open defect.)*
+
+**Stage-1 result (2026-06-05, `preanalysis_balancer_benefit.md`):** the FROZEN violet artifact evaluates **healthy** (step-wise CRPS lr_sb 0.197 / lr_ns 0.043 / lr_os 0.052, ~ the pink reference) while ACTIVE is the known 2.13e17 explosion ⇒ the balancer does **not** earn its place; **freeze is the acute C-113 fix**. Single seed (violet/42) — validation upgraded to a **3-seed × 2-balancer-state sweep** (`preanalysis_balancer_sweep.md`); C-124 resolves on confirmation.
+
+**Update 2026-06-05 — sweep complete (5/6), F2 FIRED, freeze falsified as the fix:** the 3×2 seed×balancer sweep finished (`seed99_frozen` crashed on a CUDA wedge; 5/6 cells). **Active explodes 3/3** (prediction held), but **frozen is NOT robust**: `seed4_frozen → inf` (worse than `seed4_active`), seed 99 frozen missing. Per the pre-reg decision rules, **F2 fired → re-open: freezing is insufficient and the balancer is not the sole cause** (`reports/preanalysis_balancer_sweep.md` §RESULT). The "ship `freeze_multitask_balancer=True` as the robust acute fix" conclusion is **falsified** — freezing is seed-fragile and on seed 4 actively harmful. ⇒ the chronic train/inference **exposure-bias** mismatch (Axis-B rollout training, **C-125**) is the root; the balancer is one trigger among seeds. **C-124 stays OPEN** (does not resolve as "freeze ships"); the durable fix is the rollout-training program.
+
+---
+
+### C-125: Rollout-training (Axis B) procedure rests on three unverified methodological premises
+
+| Field | Value |
+|-------|-------|
+| ID | C-125 |
+| Tier | 3 |
+| Source | expert-method-review (2026-06-05, rollout-training dossier `02b`) |
+| Trigger | When implementing rollout training (B1 pushforward / B2 GTF) in `training_engine`, before merging — verify all three: (a) the `L_stability` weight is annealed/small and CRPS reported uncontaminated; (b) the stability readout certifies the **full 36-step** horizon, not just the K≤36 training window; (c) for B2, α is used only as heuristic gradient control unless `λ_max>0` is established for the conflict DGP |
+| Location | `reports/2026-06-05_rollout_training_dossier/02_design.md` §4.2/§5/§7/§8; `views_hydranet/train/training_engine.py` (loss assembly + the rollout loop) |
+| Cross-refs | C-113 (the runaway this fixes), C-124 (balancer benefit), C-112 (attribution confound), ADR-058 (candidate); folds method-review findings M-RT1/M-RT2/M-RT3 |
+
+The Axis-B design adds a multi-step rollout objective to fix the C-113 runaway. The method-review panel flagged three premises that, if unchecked, make the fix subtly wrong. **(a) Proper-score corruption (M-RT1, Gneiting)** — pushforward/GTF stability terms are *regularisers*, not proper scoring rules (Gneiting & Raftery 2007); a fixed nonzero weight moves the training optimum off the true predictive distribution, so the headline CRPS must stay uncontaminated and the weight annealed. **(b) Truncated-horizon blindness (M-RT2, Hochreiter)** — training/certifying to K=12 gives biased gradients and no stability guarantee for steps 13–36, where the runaway compounds; the readout must check the full horizon or a tail falsifier. **(c) Chaos-premise (M-RT3, Sutton/Gneiting)** — GTF's provable `α*=1−1/σ̃_max` bound is valid only for chaotic systems (Hess 2023 / Mikhaeil 2022, not held); the conflict DGP is likely non-chaotic (the explosion is `expm1` out-of-range drift), so α may serve only as heuristic gradient control, not a correctness guarantee.
+
+Tier 3 rationale: design-stage methodology gaps for an as-yet-unbuilt feature; no current silent corruption, but each could mis-direct the C-113 fix or ship a subtly biased forecaster. Mitigation: the pre-analysis plan (`05`) pre-registers (a)/(b)/(c) as binding guardrails + falsifiers before any full retrain; fetch Mikhaeil 2022 to settle (c). Promote to Tier 2 if rollout training is implemented without these guards.
+
+---
+
+### C-126: Rollout-training success metric conflates point-stability with calibration
+
+| Field | Value |
+|-------|-------|
+| ID | C-126 |
+| Tier | 3 |
+| Source | expert-method-review (2026-06-05, rollout-training dossier `02b`) |
+| Trigger | When evaluating the first rollout-training experiment — using the `diagnose_io_gain` free-running attractor magnitude as the sole success criterion, without also reporting PIT/coverage + MCR + zero-rate |
+| Location | `scripts/diagnose_io_gain.py`; `reports/2026-06-05_rollout_training_dossier/02_design.md` §8–9 |
+| Cross-refs | C-113 (point/mean runaway), C-110 (ensemble MCR calibration), ADR-057 + the ZITD distributional-head dossier (chronic MCR); folds method-review finding M-RT4 |
+
+The C-113 runaway is a *point/mean* pathology (the trajectory leaves the data range); the chronic problem (MCR≪1, no calibrated uncertainty) is a *calibration* pathology. The panel (Gneiting + Shi) warned these are independent: multi-step rollout optimisation rewards mean-hedging / regression-to-the-mean (a known ConvLSTM nowcasting failure), which can leave — or *worsen* — calibration and the zero-rate even as the attractor returns in-range. Declaring "C-113 resolved" on attractor magnitude alone would be a category error and could silently degrade the very metric the ZITD head exists to fix. This is the dossier's strongest live dissent (D5), carried forward as a falsifier.
+
+Tier 3 rationale: evaluation/decision-hygiene gap; no silent corruption today, but it gates whether the rollout fix is genuinely progress. Mitigation: the rollout-training readout must include calibration (PIT/coverage) + sharpness (MCR/zero-rate) as first-class metrics, pre-registered in `05`.
+
+---
+
+### C-127: Duplicate dict keys in model configs (F601) — later definition silently shadows the earlier
+
+| Field | Value |
+|-------|-------|
+| ID | C-127 |
+| Tier | 4 |
+| Source | tech-debt-cleanup (ruff F601, 2026-06-06) |
+| Trigger | Editing the *first* occurrence of one of these keys expecting it to take effect — Python keeps the *last* definition, so the earlier edit is silently dead |
+| Location | `views-models/models/{heavy_strider,light_strider,white_ranger}/configs/config_hyperparameters.py` (`skip_predictions_delivery` ×2); `views-models/models/new_rules/configs/config_sweep.py:124,130` (`expansion_coefficient_dim` ×2) |
+| Cross-refs | C-06 (config `extra="allow"` masks unknown keys) — distinct: F601 is linter-visible, not silent passthrough |
+
+Four model configs define a dict key twice; Python silently retains the last assignment. **Severity is Low because the values mostly agree:** all three `skip_predictions_delivery` duplicates are `True` (pure redundancy, no behavioural effect — the earlier "could change delivery" worry is *not* realised). The one real divergence is `new_rules` sweep `expansion_coefficient_dim`: line 124 `[64,128]` is dead, line 130 `[32,64,128]` wins — so the sweep search space is `[32,64,128]` regardless of the misleading earlier line. Sweep-scoped (hyperparameter search), not production delivery → no silent *output* corruption.
+
+Tier 4 rationale: linter-visible (ruff F601, not silent), values mostly identical, the one divergence affects only a sweep search space. Mitigation: delete the dead (earlier) duplicate in each file, preserving current behaviour; confirm `new_rules` intended `[32,64,128]`.
+
+**Fix applied 2026-06-06** (views-models `e9ced12`, pushed to `development`): the earlier (dead) duplicate removed in all four files, current behaviour preserved; ruff F601 clean repo-wide. Open pending merge to main; `new_rules`'s `[32,64,128]` kept as the effective value — author to confirm `[64,128]` was not the intent.
 
 ---
 

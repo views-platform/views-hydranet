@@ -127,7 +127,6 @@ class HydraNetConfig(BaseModel):
     roof_ratio: float = Field(...)
     max_ratio: float = Field(...)
     min_ratio: float = Field(...)
-    freeze_h: str = Field(...)
     feedback_clamp_log1p: list[float] | None = Field(
         default=None,
         description=(
