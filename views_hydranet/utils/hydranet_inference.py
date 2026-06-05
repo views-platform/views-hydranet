@@ -23,9 +23,6 @@ class HydraNetInference:
     Monte Carlo Dropout for uncertainty estimation.
     """
 
-    _RANDOM_FREEZE_NUM_CHUNKS = 8
-    _RANDOM_FREEZE_PROBABILITY = 0.5
-
     def __init__(
         self,
         model: Module,
@@ -67,130 +64,71 @@ class HydraNetInference:
 
         self.model: Module = model
         self.config = config
+        # C-113: optional in-domain feedback clamp (per-target log1p ceiling).
+        # Bounds ONLY the autoregressive feedback copy, never an emitted prediction.
+        # None (default) => no behavior change. See reports/preanalysis_feedback_clamp.md.
+        self.feedback_clamp = self._parse_feedback_clamp(config.get("feedback_clamp_log1p"))
         self.viz = visualizer or VisualDiagnostics({"diagnostic_visualizations": False})
 
-        # Step 3: Move model to device and configure for inference
+        # Step 3: Move model to device and configure for inference.
         self.model.to(self.device)
         self.model.eval()
-        self.model.apply(self._apply_dropout)
+        # ADR-057: enable MC-Dropout with a *locked* (consistent) mask. The model
+        # owns its stochastic-dropout state; inference just asks for it. The mask
+        # is then refreshed per posterior sample by reset_locked_dropout() at the
+        # top of predict(), so it is held fixed across each sample's 36-step
+        # autoregressive roll-forward — preventing per-step dropout noise from
+        # compounding into runaway predictions (C-113). hasattr-guarded so bare
+        # mock models (used in tests) skip cleanly.
+        if hasattr(self.model, "set_locked_dropout"):
+            self.model.set_locked_dropout(True)
 
         logger.info("HydraNetInference initialized successfully.")
 
-    def _apply_dropout(self, module: torch.nn.Module) -> None:
-        """Applies dropout during inference.
+    def _parse_feedback_clamp(self, raw):
+        """Validate the per-target log1p feedback ceiling (C-113). None => disabled.
 
-        This enables approximate Bayesian uncertainty estimation (MC Dropout)
-        by keeping dropout layers in training mode during inference.
+        Fail-loud (no silent correction): must be a non-empty list of positive
+        floats whose length matches regression_targets. Returns a broadcastable
+        [1, C, 1, 1] float32 tensor, or None.
         """
-        if isinstance(module, torch.nn.Dropout):
-            module.train()
-
-    def execute_freeze_h_option(
-        self, t0: torch.Tensor, h_tt: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Handles the freezing of hidden state (`h_tt`) based on configuration.
-
-        This function selectively freezes short-term (`hs`) or long-term (`hl`) memory,
-        or both, based on the `config["freeze_h"]` setting.
-
-        Args:
-            t0: The input tensor for the current time step.
-            h_tt: The hidden state tensor.
-
-        Returns:
-            A tuple containing:
-                - t1_pred: Predicted magnitudes.
-                - t1_pred_class: Predicted probabilities (pre-sigmoid if frozen).
-                - h_tt: Updated (or partially frozen) hidden state.
-
-        Raises:
-            ValueError: If an invalid freeze_h option is provided.
-        """
-
-        freeze_h = self.config.get("freeze_h", "none")  # Default to "none" if key is missing
-
-        # Compute the split index
-        num_channels = h_tt.shape[1]
-        split_size = num_channels // 2  # Half the channels
-
-        if freeze_h == "hl":  # Freeze long-term memory (cell state)
-            logger.debug("Freezing long-term memory (hl).")
-
-            # Split `h_tt` into short-term (`hs_t`) and long-term (`hl_t`) components
-            _, hl_t_frozen = torch.split(h_tt, split_size, dim=1)
-
-            # Run the model
-            output = self.model(t0, h_tt)
-            t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
-
-            # Split the updated hidden state and keep the old `hl_t_frozen`
-            hs_t_updated, _ = torch.split(h_tt, split_size, dim=1)
-
-            # Concatenate the new `hs_t_updated` with the frozen `hl_t_frozen`
-            h_tt = torch.cat((hs_t_updated, hl_t_frozen), dim=1)
-
-        elif freeze_h == "hs":  # Freeze short-term memory
-            logger.debug("Freezing short-term memory (hs).")
-
-            # Split into `hs_t_frozen` and `hl_t`
-            hs_t_frozen, _ = torch.split(h_tt, split_size, dim=1)
-
-            # Run the model
-            output = self.model(t0, h_tt)
-            t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
-
-            # Split the new hidden state and retain the frozen `hs_t_frozen`
-            _, hl_t_updated = torch.split(h_tt, split_size, dim=1)
-
-            # Concatenate `hs_t_frozen` with `hl_t_updated`
-            h_tt = torch.cat((hs_t_frozen, hl_t_updated), dim=1)
-
-        elif freeze_h == "all":  # Freeze both short-term and long-term memory
-            logger.debug("Freezing both hs and hl.")
-            output = self.model(t0, h_tt)
-            t1_pred, t1_pred_class = output.reg, output.cls  # Do not update h_tt
-
-        elif freeze_h == "none":  # No freezing, use normal hidden state update
-            logger.debug("Not freezing any memory.")
-            output = self.model(t0, h_tt)
-            t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
-
-        elif freeze_h == "random":  # Randomly freeze some parts
-            logger.debug("Random freezing mode activated.")
-
-            # Run model first to get new `h_tt_new`
-            output = self.model(t0, h_tt)
-            t1_pred, t1_pred_class, h_tt_new = output.reg, output.cls, output.h_next
-
-            # Vectorized Chunk Selection (ADR 028 Performance Hardening)
-            num_chunks = self._RANDOM_FREEZE_NUM_CHUNKS
-            split_size_small = num_channels // num_chunks
-            B, _, H, W = h_tt.shape
-
-            # Generate binary mask on the correct device
-            mask = (
-                torch.rand(num_chunks, device=self.device) < self._RANDOM_FREEZE_PROBABILITY
-            ).float()
-            mask_expanded = mask.view(1, num_chunks, 1, 1, 1).bool()
-
-            h_tt_reshaped = h_tt.view(B, num_chunks, split_size_small, H, W)
-            h_tt_new_reshaped = h_tt_new.view(B, num_chunks, split_size_small, H, W)
-
-            h_tt = torch.where(mask_expanded, h_tt_reshaped, h_tt_new_reshaped).view(
-                B, num_channels, H, W
-            )
-
-        else:
+        if raw is None:
+            return None
+        if not isinstance(raw, (list, tuple)) or len(raw) == 0:
             err_msg = (
-                f"Invalid freeze_h option: {freeze_h}. "
-                "Must be one of ['hl', 'hs', 'all', 'none', 'random']."
+                "feedback_clamp_log1p must be a non-empty list of positive floats "
+                f"(one per regression target) or None; got {raw!r}."
             )
-
             logger.error(err_msg)
-
             raise ValueError(err_msg)
+        vals = [float(v) for v in raw]
+        if any(v <= 0 for v in vals):
+            err_msg = f"feedback_clamp_log1p values must be positive (log1p space); got {vals}."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        n_targets = len(self.config.get("regression_targets", []))
+        if n_targets and len(vals) != n_targets:
+            err_msg = (
+                f"feedback_clamp_log1p has {len(vals)} entries but there are "
+                f"{n_targets} regression_targets; provide one ceiling per target."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return torch.tensor(vals, dtype=torch.float32).view(1, len(vals), 1, 1)
 
-        return t1_pred, t1_pred_class, h_tt
+    def _clamp_feedback(self, t0_autoreg: torch.Tensor) -> torch.Tensor:
+        """Bound the fed-back prediction to the per-target in-domain ceiling (C-113).
+
+        Clamps ONLY the autoregressive feedback copy — never an emitted prediction —
+        to keep the next-step input within the log1p training range and break the
+        runaway ratchet (violet's free-running map settles at log ~40 -> expm1 ~1e17;
+        see reports/results_io_gain_diagnostic.md). Only the upper bound is applied
+        (ReLU already provides the >=0 floor). Identity when the clamp is unset.
+        """
+        if self.feedback_clamp is None:
+            return t0_autoreg
+        ceiling = self.feedback_clamp.to(device=t0_autoreg.device, dtype=t0_autoreg.dtype)
+        return torch.minimum(t0_autoreg, ceiling)
 
     def predict(
         self,
@@ -214,6 +152,13 @@ class HydraNetInference:
         Returns:
             A tuple containing magnitudes and probabilities zstacks.
         """
+        # ADR-057: refresh locked dropout masks once per posterior sample, so the
+        # mask is held fixed across this sample's 36-step autoregressive
+        # roll-forward and drawn fresh for the next sample. No-op for the
+        # standard (unlocked) dropout path.
+        if hasattr(self.model, "reset_locked_dropout"):
+            self.model.reset_locked_dropout()
+
         _, seq_len, _, H, W = full_tensor.shape
 
         # ADR 046: Identify input features by name
@@ -291,8 +236,16 @@ class HydraNetInference:
 
             else:
                 # 3. AUTOREGRESSION: Pred[k] -> Pred[k+1]
-                t0_autoreg = t1_pred.detach()
-                t1_pred, t1_pred_class, h_tt = self.execute_freeze_h_option(t0_autoreg, h_tt)
+                # C-113: clamp ONLY the fed-back copy to the in-domain ceiling; the
+                # emitted prediction (appended below) is never capped.
+                t0_autoreg = self._clamp_feedback(t1_pred.detach())
+                # freeze_h retired (2026-06-05): the rollout evolves the full ConvLSTM
+                # state every step (the former "none" behaviour) — the only mode that was
+                # not a train/inference mismatch, and the freeze was inert vs the C-113
+                # runaway anyway (rides the prediction→input feedback path, not the state).
+                # Durable fix: Axis-B rollout training (rollout_training_dossier, ADR-058).
+                output = self.model(t0_autoreg, h_tt)
+                t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
                 t1_pred_class = torch.sigmoid(t1_pred_class)
 
                 # C-20: Soft magnitude guard — detect gradual drift

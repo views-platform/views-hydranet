@@ -127,9 +127,26 @@ class HydraNetConfig(BaseModel):
     roof_ratio: float = Field(...)
     max_ratio: float = Field(...)
     min_ratio: float = Field(...)
-    freeze_h: str = Field(...)
+    feedback_clamp_log1p: list[float] | None = Field(
+        default=None,
+        description=(
+            "C-113: optional per-target log1p ceiling for the autoregressive "
+            "feedback INPUT (one value per regression target, in target order). "
+            "Bounds only the fed-back copy of the prediction, never an emitted "
+            "value; None disables. See reports/preanalysis_feedback_clamp.md."
+        ),
+    )
 
     # 9. Runtime Flags
+    freeze_multitask_balancer: bool = Field(
+        default=False,
+        description=(
+            "C-113 bisect: when True, the MultiTaskLoss balancer log_vars are NOT "
+            "added to the optimizer (frozen at zero init = equal weighting, the "
+            "pre-C-111 regime). Default False = C-111 active balancer. See "
+            "reports/preanalysis_balancer_bisect.md."
+        ),
+    )
     sweep: bool = Field(default=False)
     random_flips: bool = Field(default=True)
     diagnostic_visualizations: bool = Field(default=False)
