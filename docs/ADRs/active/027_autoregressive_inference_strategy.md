@@ -4,7 +4,7 @@
 |---------------------|-------------------|
 | Subject             | The Forecasting Feedback Loop |
 | ADR Number          | 027               |
-| Status              | Accepted          |
+| Status              | Accepted (amended 2026-06-05: §2 `freeze_h` retired) |
 | Author              | Gemini CLI        |
 | Date                | 04.02.2026        |
 
@@ -19,11 +19,10 @@ We enforce a standardized execution pattern for multi-step inference, centered o
 *   **The Chain:** For $t > 0$, the model input $X_t$ is the prediction $\hat{y}_{t-1}$ from the previous step.
 *   **Dimensional Symmetry:** Predictions MUST be reshaped and normalized to match the input feature space (e.g., Log-Space) before being fed back as $X_t$.
 
-### 2. Hidden State Management (`hs` vs `hl`)
-To manage model "memory" during long horizons, we implement three explicit freezing strategies:
-1.  **None:** Standard update of both Short-term (`hs`) and Long-term (`hl`) memory.
-2.  **Freezing (`hs` or `hl`):** Selectively prevents the update of specific memory components. This is used to test the stability of spatial features (`hs`) vs. temporal momentum (`hl`).
-3.  **Random Freezing:** A stochastic stability test where hidden state channels are partially updated.
+### 2. Hidden State Management
+The rollout performs a **standard update of both short-term (`hs`) and long-term (`hl`) memory at every step** — the hidden state always evolves freely.
+
+> **Superseded 2026-06-05 — `freeze_h` retired.** This section originally defined three selective hidden-state *freezing* strategies (`none` / `hs`·`hl` / `random`). They were removed: the ablation showed freezing was inert against the C-113 runaway (the divergence rides the prediction→input feedback path, not the recurrent state) while creating a train/inference mismatch. Only the former `none` behaviour remains. See the Rationale update.
 
 ### 3. The Persistence Gate
 *   **Hidden State Initialization:** Hidden states must be initialized spatially based on the target grid resolution (ADR 025). 
