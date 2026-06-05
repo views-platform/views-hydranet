@@ -37,10 +37,21 @@ To manage model "memory" during long horizons, we implement three explicit freez
 
 ### Beige Team (Robustness)
 - Verify that if the model produces non-finite values (`NaN`, `Inf`), the autoregressive loop fails immediately (Panic Check).
-- Verify that `freeze_h` options outside the defined list (`hs`, `hl`, `none`, `random`) raise a `ValueError`.
+- ~~Verify that `freeze_h` options outside the defined list (`hs`, `hl`, `none`, `random`) raise a `ValueError`.~~ **Retired 2026-06-05** — `freeze_h` removed (see Rationale update); the rollout always evolves the full state. Guard: `tests/test_inference_logic.py::test_freeze_h_option_retired`.
 
 ### Red Team (Invincibility)
 - Verify that the hidden state `h` is never "shared" between independent stochastic samples, ensuring each sample path is mathematically isolated.
 
 ## Rationale
-This strategy ensures that HydraNet's forecasting behavior is consistent and auditable. By making the hidden state freezing explicit, we allow researchers to isolate whether model drift is caused by "forgetting" (hl) or "spatial confusion" (hs).
+This strategy ensures that HydraNet's forecasting behavior is consistent and auditable.
+
+> **Update 2026-06-05 — `freeze_h` retired.** The `freeze_h` mechanism (modes
+> `hs`/`hl`/`all`/`none`/`random`) was removed. The pre-registered `freeze_h` ablation
+> (`reports/results_freezeh_ablation.md`) showed every mode — including `all` — explodes
+> identically under the C-113 runaway, proving the divergence rides the prediction→input
+> *feedback* path, not the recurrent state; freezing was therefore **inert** against the
+> failure it was meant to study, while creating a train/inference mismatch (training
+> evolves the full state, inference froze part of it). The rollout now always evolves the
+> full ConvLSTM state (the former `"none"` mode). The durable fix for autoregressive
+> drift is **Axis-B rollout training** (`reports/2026-06-05_rollout_training_dossier/`,
+> ADR-058 candidate; register C-113/C-125/C-126).

@@ -23,9 +23,6 @@ class HydraNetInference:
     Monte Carlo Dropout for uncertainty estimation.
     """
 
-    _RANDOM_FREEZE_NUM_CHUNKS = 8
-    _RANDOM_FREEZE_PROBABILITY = 0.5
-
     def __init__(
         self,
         model: Module,
@@ -132,113 +129,6 @@ class HydraNetInference:
             return t0_autoreg
         ceiling = self.feedback_clamp.to(device=t0_autoreg.device, dtype=t0_autoreg.dtype)
         return torch.minimum(t0_autoreg, ceiling)
-
-    def execute_freeze_h_option(
-        self, t0: torch.Tensor, h_tt: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Handles the freezing of hidden state (`h_tt`) based on configuration.
-
-        This function selectively freezes short-term (`hs`) or long-term (`hl`) memory,
-        or both, based on the `config["freeze_h"]` setting.
-
-        Args:
-            t0: The input tensor for the current time step.
-            h_tt: The hidden state tensor.
-
-        Returns:
-            A tuple containing:
-                - t1_pred: Predicted magnitudes.
-                - t1_pred_class: Predicted probabilities (pre-sigmoid if frozen).
-                - h_tt: Updated (or partially frozen) hidden state.
-
-        Raises:
-            ValueError: If an invalid freeze_h option is provided.
-        """
-
-        freeze_h = self.config.get("freeze_h", "none")  # Default to "none" if key is missing
-
-        # Compute the split index
-        num_channels = h_tt.shape[1]
-        split_size = num_channels // 2  # Half the channels
-
-        if freeze_h == "hl":  # Freeze long-term memory (cell state)
-            logger.debug("Freezing long-term memory (hl).")
-
-            # Split `h_tt` into short-term (`hs_t`) and long-term (`hl_t`) components
-            _, hl_t_frozen = torch.split(h_tt, split_size, dim=1)
-
-            # Run the model
-            output = self.model(t0, h_tt)
-            t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
-
-            # Split the updated hidden state and keep the old `hl_t_frozen`
-            hs_t_updated, _ = torch.split(h_tt, split_size, dim=1)
-
-            # Concatenate the new `hs_t_updated` with the frozen `hl_t_frozen`
-            h_tt = torch.cat((hs_t_updated, hl_t_frozen), dim=1)
-
-        elif freeze_h == "hs":  # Freeze short-term memory
-            logger.debug("Freezing short-term memory (hs).")
-
-            # Split into `hs_t_frozen` and `hl_t`
-            hs_t_frozen, _ = torch.split(h_tt, split_size, dim=1)
-
-            # Run the model
-            output = self.model(t0, h_tt)
-            t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
-
-            # Split the new hidden state and retain the frozen `hs_t_frozen`
-            _, hl_t_updated = torch.split(h_tt, split_size, dim=1)
-
-            # Concatenate `hs_t_frozen` with `hl_t_updated`
-            h_tt = torch.cat((hs_t_frozen, hl_t_updated), dim=1)
-
-        elif freeze_h == "all":  # Freeze both short-term and long-term memory
-            logger.debug("Freezing both hs and hl.")
-            output = self.model(t0, h_tt)
-            t1_pred, t1_pred_class = output.reg, output.cls  # Do not update h_tt
-
-        elif freeze_h == "none":  # No freezing, use normal hidden state update
-            logger.debug("Not freezing any memory.")
-            output = self.model(t0, h_tt)
-            t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
-
-        elif freeze_h == "random":  # Randomly freeze some parts
-            logger.debug("Random freezing mode activated.")
-
-            # Run model first to get new `h_tt_new`
-            output = self.model(t0, h_tt)
-            t1_pred, t1_pred_class, h_tt_new = output.reg, output.cls, output.h_next
-
-            # Vectorized Chunk Selection (ADR 028 Performance Hardening)
-            num_chunks = self._RANDOM_FREEZE_NUM_CHUNKS
-            split_size_small = num_channels // num_chunks
-            B, _, H, W = h_tt.shape
-
-            # Generate binary mask on the correct device
-            mask = (
-                torch.rand(num_chunks, device=self.device) < self._RANDOM_FREEZE_PROBABILITY
-            ).float()
-            mask_expanded = mask.view(1, num_chunks, 1, 1, 1).bool()
-
-            h_tt_reshaped = h_tt.view(B, num_chunks, split_size_small, H, W)
-            h_tt_new_reshaped = h_tt_new.view(B, num_chunks, split_size_small, H, W)
-
-            h_tt = torch.where(mask_expanded, h_tt_reshaped, h_tt_new_reshaped).view(
-                B, num_channels, H, W
-            )
-
-        else:
-            err_msg = (
-                f"Invalid freeze_h option: {freeze_h}. "
-                "Must be one of ['hl', 'hs', 'all', 'none', 'random']."
-            )
-
-            logger.error(err_msg)
-
-            raise ValueError(err_msg)
-
-        return t1_pred, t1_pred_class, h_tt
 
     def predict(
         self,
@@ -349,7 +239,13 @@ class HydraNetInference:
                 # C-113: clamp ONLY the fed-back copy to the in-domain ceiling; the
                 # emitted prediction (appended below) is never capped.
                 t0_autoreg = self._clamp_feedback(t1_pred.detach())
-                t1_pred, t1_pred_class, h_tt = self.execute_freeze_h_option(t0_autoreg, h_tt)
+                # freeze_h retired (2026-06-05): the rollout evolves the full ConvLSTM
+                # state every step (the former "none" behaviour) — the only mode that was
+                # not a train/inference mismatch, and the freeze was inert vs the C-113
+                # runaway anyway (rides the prediction→input feedback path, not the state).
+                # Durable fix: Axis-B rollout training (rollout_training_dossier, ADR-058).
+                output = self.model(t0_autoreg, h_tt)
+                t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
                 t1_pred_class = torch.sigmoid(t1_pred_class)
 
                 # C-20: Soft magnitude guard — detect gradual drift
