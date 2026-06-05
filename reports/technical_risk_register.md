@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-05                           |
-| Total Concerns    | 124                                  |
-| Open Concerns     | 30                                   |
+| Total Concerns    | 125                                  |
+| Open Concerns     | 31                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 94                                   |
 
@@ -593,6 +593,25 @@ Tier 3 rationale: design-stage methodology gaps for an as-yet-unbuilt feature; n
 The C-113 runaway is a *point/mean* pathology (the trajectory leaves the data range); the chronic problem (MCR≪1, no calibrated uncertainty) is a *calibration* pathology. The panel (Gneiting + Shi) warned these are independent: multi-step rollout optimisation rewards mean-hedging / regression-to-the-mean (a known ConvLSTM nowcasting failure), which can leave — or *worsen* — calibration and the zero-rate even as the attractor returns in-range. Declaring "C-113 resolved" on attractor magnitude alone would be a category error and could silently degrade the very metric the ZITD head exists to fix. This is the dossier's strongest live dissent (D5), carried forward as a falsifier.
 
 Tier 3 rationale: evaluation/decision-hygiene gap; no silent corruption today, but it gates whether the rollout fix is genuinely progress. Mitigation: the rollout-training readout must include calibration (PIT/coverage) + sharpness (MCR/zero-rate) as first-class metrics, pre-registered in `05`.
+
+---
+
+### C-127: Duplicate dict keys in model configs (F601) — later definition silently shadows the earlier
+
+| Field | Value |
+|-------|-------|
+| ID | C-127 |
+| Tier | 4 |
+| Source | tech-debt-cleanup (ruff F601, 2026-06-06) |
+| Trigger | Editing the *first* occurrence of one of these keys expecting it to take effect — Python keeps the *last* definition, so the earlier edit is silently dead |
+| Location | `views-models/models/{heavy_strider,light_strider,white_ranger}/configs/config_hyperparameters.py` (`skip_predictions_delivery` ×2); `views-models/models/new_rules/configs/config_sweep.py:124,130` (`expansion_coefficient_dim` ×2) |
+| Cross-refs | C-06 (config `extra="allow"` masks unknown keys) — distinct: F601 is linter-visible, not silent passthrough |
+
+Four model configs define a dict key twice; Python silently retains the last assignment. **Severity is Low because the values mostly agree:** all three `skip_predictions_delivery` duplicates are `True` (pure redundancy, no behavioural effect — the earlier "could change delivery" worry is *not* realised). The one real divergence is `new_rules` sweep `expansion_coefficient_dim`: line 124 `[64,128]` is dead, line 130 `[32,64,128]` wins — so the sweep search space is `[32,64,128]` regardless of the misleading earlier line. Sweep-scoped (hyperparameter search), not production delivery → no silent *output* corruption.
+
+Tier 4 rationale: linter-visible (ruff F601, not silent), values mostly identical, the one divergence affects only a sweep search space. Mitigation: delete the dead (earlier) duplicate in each file, preserving current behaviour; confirm `new_rules` intended `[32,64,128]`.
+
+**Fix applied 2026-06-06** (views-models `e9ced12`, pushed to `development`): the earlier (dead) duplicate removed in all four files, current behaviour preserved; ruff F601 clean repo-wide. Open pending merge to main; `new_rules`'s `[32,64,128]` kept as the effective value — author to confirm `[64,128]` was not the intent.
 
 ---
 
