@@ -4,9 +4,10 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-06-03                           |
-| Total Concerns    | 112                                  |
-| Open Concerns     | 18                                   |
+| Last Updated      | 2026-06-05                           |
+| Total Concerns    | 121                                  |
+| Open Concerns     | 27                                   |
+| — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 94                                   |
 
 ---
@@ -19,6 +20,23 @@
 | 2 | High | Structural fragility that will cause failures under realistic change scenarios. |
 | 3 | Medium | Maintainability or coupling issues that increase cost of change. |
 | 4 | Low | Code quality concerns that do not affect correctness or reliability. |
+
+---
+
+## Causal Clusters (review-rr strategic, 2026-06-05)
+
+Open concerns reduce to **6 root decisions**. Fixing a root advances multiple entries; entries are tagged `[Cx]` informally in this map (not in every entry body).
+
+| # | Root decision | Member entries | Fix scope | Priority |
+|---|---|---|:--:|---|
+| **1** | Inference surface (`predict()`) never contracted/tested/decomposed; guarded only by a log-space ceiling | C-113, C-121, C-122, C-107, C-114 (+D-05, D-06) | 1 coordinated | **★ first — imminent (ZITD edits `predict()`)** |
+| **2** | Training-dynamics changes outran reproducibility/comparability discipline | C-112, C-119, C-79, C-110 | 2 | near-term |
+| **3** | `utils/` accreted multiple domains without package structure / clear ownership | C-35, C-01, C-36, C-37, C-120, C-75, C-76 | 3 (large blast radius) | defer |
+| **4** | Single hardcoded head/loss topology (3+3 heads, positional loss tuple) | C-03, C-123 (+C-122 model facet, D-02) | 2 | decide *with* ZITD planning |
+| **5** | Config is a typed-model-masquerading-as-dict (`extra="allow"`) | C-06, C-117, C-49 (+D-03) | 2 | defer (D-03 tension) |
+| **6** | Operational/GPU fragility on the dev box (no hard CUDA gate; publish-step memory) | C-115, C-116 | 1–2 | near-term |
+
+**Highest-value:** Cluster 1 — largest, contains the only imminent Tier-2 (C-113), single coordinated fix (decompose `predict()` + rollout test + `HydraNetInference` CIC + IntegrityGuardian §6 doc) advances 5 concerns + 2 disagreements before the ZITD head touches it.
 
 ---
 
@@ -49,10 +67,12 @@ Per Martin (Clean Architecture Ch 26, p.228-232): the Manager correctly acts as 
 | Field | Value |
 |-------|-------|
 | ID | C-03 |
-| Tier | 4 |
-| Source | repo-assimilation (2026-04-08) |
-| Trigger | Adding or removing a regression/classification target |
-| Location | `HydraBNrecurrentUnet_06_LSTM4.py:68-167`, `hydranet_manager.py:165-176` |
+| Tier | 3 |
+| Source | repo-assimilation (2026-04-08); recalibrated 4→3 (review-rr 2026-06-05) |
+| Trigger | Adding or removing a regression/classification target — **now imminent**: the distributional-head dossier (P2, `reports/2026-06-05_distributional_head_dossier/`) collapses each reg+cls pair into one ZITD likelihood (4 params), which changes the head count/topology and trips the hardcoded 3+3 preflight |
+| Location | `HydraBNrecurrentUnet_06_LSTM4.py:68-167`, `hydranet_manager.py:165-176` (`_run_preflight_check` raises if n_reg≠3 or n_class≠3) |
+
+**Recalibrated 4→3 (review-rr 2026-06-05):** the trigger is no longer hypothetical — the ZITD head (dossier P2) will collapse reg+cls pairs, so likelihood jumped; expected risk (impact×likelihood) now warrants Tier 3. Member of Cluster 4.
 
 The `HydraBNUNet06_LSTM4` model has 6 decoder heads physically baked into the class definition. Adding a target requires duplicating ~50 lines of layer definitions + forward() code, plus updating the preflight check. Currently stable (no planned target changes).
 
@@ -128,6 +148,8 @@ Per Martin (Clean Architecture Ch 10, p.100-103): ISP says "avoid depending on t
 
 **Residual concern:** VolumeHandler itself still has no abstract base class, Protocol, or interface definition. The core volume operations (transpose/flip/slice/wrap) remain a concrete monolithic class. Resolving the residual would require extracting an `IVolumeHandler` Protocol — out of scope for the partial split. Currently tolerable because the interface is mature and rarely changes.
 
+**[DEMOTED 2026-06-05 → Tech-Debt Backlog]** standing concern (always-true), partial-addressed, Tier 4 — accepted trade-off unless an alternative VolumeHandler implementation is actually needed. Member of Cluster 3.
+
 See also C-36 (ISP partially addressed) and D-01 (resolved — partial split executed).
 
 ---
@@ -147,6 +169,8 @@ See also C-36 (ISP partially addressed) and D-01 (resolved — partial split exe
 The alternative is nested structure: `regularizers: { qs99: { weight: 0.01, tau: 0.99 } }`. This is cleaner for extensibility but breaks the flat-key pattern, complicates Pydantic validation, and requires changes to the genome audit.
 
 Current decision: stay flat. Revisit when either (a) total config keys exceed 50, or (b) a feature requires 4+ related keys that create naming collision risk. The migration is mechanical (rename keys, update configs) but touches every model config in views-models.
+
+**[DEMOTED 2026-06-05 → roadmap / Tech-Debt Backlog]** standing concern (always-true threshold), not an event-triggered risk — better tracked as a refactoring motivation. Member of Cluster 5.
 
 ---
 
@@ -210,6 +234,8 @@ See also C-42 (resolved — entropy locking).
 
 Data augmentation flip on/off is config-driven (`random_flips: bool`), but the flip probability is hardcoded at `0.5` (fair coin). This is the only behavior-affecting numeric literal in `training_engine.py` that isn't sourced from config. Symmetric by definition (H/W flips), so `0.5` is defensible — but a researcher doing augmentation experiments would need to modify source code to test other probabilities.
 
+**[DEMOTED 2026-06-05 → Tech-Debt Backlog]** single-file, near-mechanical (add a config key), Tier 4 — no design decision required.
+
 See also C-65 (resolved — `random_flips` added to schema).
 
 ---
@@ -233,6 +259,8 @@ Identical `_SumReducer` and `_make_tiny_model` helpers are defined in multiple t
 **Partial resolution (2026-06-02, PR #53):** The `_tobit_config()` portion is resolved — extracted to `conftest.py` as `tobit_config_3target()` and now imported by 5 test files. The original `_SumReducer` and `_make_tiny_model` duplication persists (now in `test_per_target_sigma.py` and `test_scheduled_sampling.py`, not the originally-cited `test_cluster_e.py`/`test_hurdle_basu_integration.py`). `_make_tiny_model` was intentionally left local — it builds the real `HydraBNUNet06_LSTM4`, not the conftest `TinyModel`. Remaining work: extract `_SumReducer` to conftest.
 
 Tier 4 rationale: code quality / DRY violation. Single-developer scope. No correctness impact.
+
+**[DEMOTED 2026-06-05 → Tech-Debt Backlog]** mechanical, single-file (conftest), partially done — see backlog index.
 
 ---
 
@@ -276,14 +304,14 @@ Tier 4 rationale: integration tests do provide coverage. The gap is speed and is
 | Field | Value |
 |-------|-------|
 | ID | C-110 |
-| Tier | 3 |
-| Source | review-rr strategic blind-spot analysis (2026-06-02) |
+| Tier | 2 |
+| Source | review-rr strategic blind-spot analysis (2026-06-02); recalibrated 3→2 (review-rr 2026-06-05) |
 | Trigger | When evaluating the golden_hour ensemble's CRPS/MCR for the first time, or before relying on its calibration for delivery — verify the three members' posteriors share scale/support before concatenation, since two members use per-target sigma `{1.0, 0.75, 0.5}` and one uses uniform sigma `1.0` |
 | Location | `views-models/ensembles/golden_hour/`, `views-models/models/{pink_pirate,violet_visitor,blue_stranger}/configs/config_hyperparameters.py` |
 
 The golden_hour ensemble (set up 2026-06-02) concatenates 3 × 64 = 192 posterior samples across members trained with *different loss surfaces*: pink_pirate and violet_visitor use per-target Tobit sigma `{lr_sb: 1.0, lr_ns: 0.75, lr_os: 0.5}`, while blue_stranger uses uniform sigma `1.0`. Sigma directly controls the width of the Tobit predictive distribution, so the uniform-sigma member may produce systematically wider (or narrower) posteriors for ns/os targets than the per-target members. Naive concatenation of samples with different dispersion characteristics could distort the ensemble's aggregate calibration — the MCR could drift even if each member is individually well-calibrated. This is an unverified correctness assumption introduced by the orthogonal-ensemble design (whose diversity is intentional and desirable for ranking, but whose effect on magnitude calibration is untested).
 
-Tier 3 rationale: not silent corruption of a shipped product (the ensemble is experimental and not yet delivered), but a correctness assumption that, if wrong, produces a miscalibrated ensemble whose individual members all look healthy. Affects interpretation of ensemble eval results. Recommend a `/falsify` probe comparing per-member vs ensemble MCR before trusting aggregate metrics.
+Tier 2 rationale (recalibrated 2026-06-05): this is a **silent-miscalibration** risk — the aggregate ensemble can drift while every member looks healthy, with no error signal. That "looks healthy but degraded" character places it with the Tier-2 fragility family rather than the maintainability Tier-3s; it gates trust in any delivered ensemble metric. Still not Tier 1 (the ensemble is experimental, not yet delivered). Member of Cluster 2. Recommend a `/falsify` probe comparing per-member vs ensemble MCR before trusting aggregate metrics.
 
 ---
 
@@ -321,6 +349,10 @@ This is distinct from C-51 (which framed the issue as the 100×-gap *between* wa
 
 Tier 2 rationale: structural fragility with a confirmed, realistic trigger (it already fired on a routine retrain). Not Tier 1 (it surfaced loudly via exploded metrics rather than silently), but it produces grossly wrong forecasts that survive every existing guard and corrupt evaluation. Mitigation path: ADR-057 (consistent-mask dropout, inference-only) first; ADR-028 §2 cell-state clamp / in-domain feedback bounding as the deterministic-recurrence fallback. Output clamping (ADR-028 §3) is explicitly NOT the primary fix — it fights MCR.
 
+**Update 2026-06-04 — diagnosis sharpened (two empirical results):** (1) ADR-057 (consistent-mask dropout) was **FALSIFIED** — violet still exploded under locked masks (`reports/postmortem_locked_dropout_negative_result.md`); the driver is the deterministic recurrence, not dropout noise. (2) A pre-registered `freeze_h` 2×2 ablation (`reports/results_freezeh_ablation.md`) localized the channel: **all four `freeze_h` modes explode within ~½ order of magnitude on `lr_sb` (2.1–7.0 ×10¹⁷), including `all` (entire recurrent hidden/cell state frozen → 5.13e17).** Therefore the divergence is **not** carried by the recurrent hidden-to-hidden dynamics but by the **prediction→input feedback loop** (the model's gain on its own fed-back prediction > 1). Consequences: `freeze_h` (shipped as `"hl"` in all configs) is **inert** against this failure and is a candidate for retirement (it also creates a train/inference mismatch — training evolves the full state, inference freezes `hl`); the **ADR-028 §2 cell-state clamp is pre-falsified** (`freeze_h="all"` is its extreme and failed); the correct fix targets the **input→output map** — spectral-norm/Lipschitz on the input-to-hidden `Wx*` + U-Net encoder/decoder convs, pushforward/GTF training, and/or an in-domain feedback-input clamp (magnitude-neutral). See `reports/options_catalogue_autoregressive_stability.md` §0 UPDATE. **Axis-0 diagnostic run** (`reports/results_io_gain_diagnostic.md`, `scripts/diagnose_io_gain.py`): standalone retrain-free rollout reproduces the explosion — violet's free-running input→output map settles at an **out-of-range attractor (~log 40 → `expm1` ≈ 1e17, matching the observed CRPS)** while pink stays in-range (~log 10), **state-independently**. The local operator norm `‖∂reg/∂x‖₂` does *not* discriminate (both >1); the discriminator is the attractor level vs data range. **In-domain feedback clamp — TESTED (`reports/results_feedback_clamp.md`):** clamping the fed-back prediction per-target to the log1p data max (`feedback_clamp_log1p`, inference-only) **averts the catastrophe** (violet `lr_sb` 2.13e17 → 798; `lr_ns`/`lr_os` recover to healthy; benign on pink) but is a **safety rail, not a resolution** — it triggers falsifier F2 for `lr_sb` (ramps to the ceiling and pins → MCR ~56,000 over-prediction). C-113 stays **OPEN**; the clamp is retained as an optional guard rail (`feedback_clamp_log1p`, default None=off). Durable fix still required: lower the input→output attractor (spectral-norm/Lipschitz on input→output path, pushforward/GTF, or count-likelihood head).
+
+**Update 2026-06-05 — ACUTE CAUSE FOUND (C-111 balancer bisect, `reports/results_balancer_bisect.md`):** a pre-registered, device-matched (GPU/GPU) bisect on violet found the driver: **the C-111 fix (un-freezing the MultiTaskLoss `log_vars`) is what causes the runaway.** Frozen-balancer retrain settles in-range (free-running attractor log ~4–5 → `expm1` ~1e2); active-balancer control diverges (log ~15–17 → ~1e7) — ~5 orders apart. So the acute explosion is a **C-111 regression**, not a fundamental flaw (the model was stable for years with the balancer effectively frozen). **Fix direction: regularise the balancer (bound/decay `log_vars`, lower its LR), not permanent freeze** — `freeze_multitask_balancer=True` is the safe immediate fallback / the bisect's extreme. Caveat: single seed each (C-112/C-119) — confirm on ≥1 more seed + a real `--evaluate` before production. The **chronic** problem (MCR≪1, no calibrated uncertainty) is orthogonal and still motivates the ZITD distributional-head dossier. `freeze_h` (inert) and the in-domain clamp (bounded-but-degenerate) were both *downstream* of this cause.
+
 ---
 
 ### C-114: Undocumented assumption — no dropout on the ConvLSTM recurrent connections, rationale unknown
@@ -337,6 +369,171 @@ Tier 2 rationale: structural fragility with a confirmed, realistic trigger (it a
 HydraNet applies dropout only on the 16 U-Net emission sites; the recurrent cells carry none. Whether this was a deliberate stability choice (the pre-Gal literature found naive recurrent dropout destabilizing), an oversight, or inherited from a predecessor architecture is not recorded or remembered. Until resolved (I5), "no recurrent dropout" must be treated as an undocumented assumption rather than a justified decision, and it gates any recurrent-dropout experiment.
 
 Tier 4 rationale: no current correctness impact (the omission may well be correct); single-developer scope. The risk is purely that an unrecorded rationale could be silently violated by a future change. Resolved by documenting the provenance (I5).
+
+---
+
+### C-115: Silent CPU fallback during training — no fail-loud when CUDA is unavailable
+
+| Field | Value |
+|-------|-------|
+| ID | C-115 |
+| Tier | 2 |
+| Source | repo-assimilation (2026-06-05) + lived incident this session |
+| Trigger | Launching a training run after the GPU's CUDA context has wedged (commonly a laptop lid-suspend/resume, or a prior CUDA crash) — `torch.cuda.is_available()` returns False and training proceeds on CPU with only a WARNING |
+| Location | `views_hydranet/utils/utils_logging.py` (`WARNING - HydraNet running on CPU … severely degraded`); device selection in `training_engine`/manager; cf. `views-models/scripts/run_balancer_frozen_gpu.sh` (gated workaround) |
+| Cross-refs | C-64 (silent NaN propagation — different mechanism); reference-cuda-uvm-wedge-fix (memory) |
+
+Training has no hard CUDA gate: when CUDA is unavailable it logs a warning and continues on CPU. This session a wedged GPU (post lid-suspend / a prior `unspecified launch failure`) caused a ~2h frozen-balancer retrain to run silently on CPU (~4× slower, 33 vs 129 month/s) and — worse for science — produced a CPU-trained artifact device-mismatched against the GPU-trained control, confounding the C-111 bisect. The degradation is recoverable but invisible until someone inspects `nvidia-smi`.
+
+Tier 2 rationale: structural fragility (no fail-loud) with a clear, recurring trigger (lid-suspend wedges CUDA on this hardware); silently degrades runs and can invalidate cross-run comparisons. Not Tier 1 (it warns; no data corruption).
+
+*Test-coverage shadow (test-review 2026-06-05):* no test asserts fail-loud/gate behavior when CUDA is unavailable; the gated driver `views-models/scripts/run_balancer_frozen_gpu.sh` is the only enforcement and is not under test.
+
+---
+
+### C-116: Post-evaluation `queryset pg_metadata` publish OOM — eval process exits 137 after metrics
+
+| Field | Value |
+|-------|-------|
+| ID | C-116 |
+| Tier | 3 |
+| Source | repo-assimilation (2026-06-05) + 4 eval runs this session; recalibrated 2→3 (review-rr 2026-06-05) |
+| Trigger | Running any `--evaluate` on this box — the post-eval queryset-metadata publish step peaks ~12 GB RSS and is OOM-killed (`dmesg: Out of memory: Killed process (python)`), exiting 137 |
+| Location | post-evaluation publish step at the manager / views-pipeline-core boundary (after the wandb run-summary in every eval log; e.g. `…Publishing/Fetching queryset pg_metadata`) |
+| Cross-refs | C-07 (per-window memory cleanup — resolved, different phase) |
+
+Every constituent eval this session exited 137 (SIGKILL) during a post-metrics `Publishing/Fetching queryset pg_metadata` step, OOM-killed at ~12 GB anon-rss. Metrics survive because the kill lands after the wandb summary syncs (proven by exact baseline reproduction), so it reads as a spurious "failure." But it is a real resource fragility: a tighter-RAM environment, a larger grid/model, or any reordering of the publish step relative to the sync would lose the results outright.
+
+Tier 3 rationale (recalibrated 2026-06-05): reproducible process death (4/4 evals) with a clear trigger, **but non-corrupting** — metrics are computed/synced before the OOM, so no result is lost today. Peer-compared to the Tier-2 band (C-113 corrupts forecasts; C-115 silently degrades runs), this is operational/resource fragility that *could* escalate to data loss under modest change — Tier 3 with a watch note, promote to 2 if the publish step ever moves ahead of the metric sync or RAM headroom shrinks. Member of Cluster 6.
+
+---
+
+### C-117: `HydraNetConfig` `extra="allow"` tolerates ghost config keys — silent config drift
+
+| Field | Value |
+|-------|-------|
+| ID | C-117 |
+| Tier | 3 |
+| Source | repo-assimilation (2026-06-05) |
+| Trigger | Adding/renaming a config key in a views-models config (or a typo) that is not a HydraNetConfig field — Pydantic `extra="allow"` accepts and ignores it with no error |
+| Location | `views_hydranet/utils/config_initializer.py` (HydraNetConfig `extra="allow"`, "Tolerant Handshake") |
+| Cross-refs | C-06 (config returns dict after validation); C-101 (extra sigma-dict keys silently accepted — resolved, specific case) |
+
+The config model deliberately allows extra keys (the cross-pipeline "Tolerant Handshake"). The cost is that a typo'd or stale key (e.g. a `prediction_format` ghost key present in tests/configs but absent from the schema) is silently accepted and never applied — a behavior the developer believes is active but isn't. This is config drift with no fail-loud; the narrower per-target-sigma instance was C-101 (resolved).
+
+Tier 3 rationale: maintainability/drift across views-models configs; no direct corruption, but increases the cost and risk of every config change. A deliberate design choice whose downside should be tracked.
+
+---
+
+### C-118: `visual_diagnostics.py` (1050 LOC) — largest module, hot-path coupled, weakly tested
+
+| Field | Value |
+|-------|-------|
+| ID | C-118 |
+| Tier | 3 |
+| Source | repo-assimilation (2026-06-05) |
+| Trigger | Editing diagnostics, or running train/eval on data that yields degenerate slices — a diagnostic computation (e.g. an all-NaN slice) raises/warns inside the train/inference path |
+| Location | `views_hydranet/utils/visual_diagnostics.py` (1050 lines — largest module; biopsy/dossier saves during training/inference); `All-NaN slice encountered` RuntimeWarning observed in the suite (visual_diagnostics.py:479) |
+| Cross-refs | C-16 (catch-all handlers — resolved); C-26 (plot correctness untested — resolved); C-21 (bare except in diagnostics — resolved) |
+
+The diagnostics module is the single largest file and runs inline during training/inference (forensic biopsies, dossiers). Earlier robustness issues (C-16/C-21/C-26) were resolved, but the size/complexity and hot-path coupling remain, and a live `All-NaN slice` numpy RuntimeWarning shows degenerate-data paths still surface from within it. A failure here can interrupt a run that is otherwise about the model, not the plots.
+
+Tier 3 rationale: maintainability + critical-path coupling; concrete (live warning) but no correctness impact on model output. Borderline observation, tracked for surface area.
+
+*Test-coverage shadow (test-review 2026-06-05):* the degenerate-data path that emits the `All-NaN slice` RuntimeWarning (visual_diagnostics.py:479) is unasserted — `test_visual_diagnostics.py` does not characterize it.
+
+---
+
+### C-119: GPU runs are not bit-reproducible despite the reproducibility gate
+
+| Field | Value |
+|-------|-------|
+| ID | C-119 |
+| Tier | 3 |
+| Source | repo-assimilation (2026-06-05) + C-111 bisect observation |
+| Trigger | Re-running a "reproducible" GPU training with identical seed/config and expecting matching outputs — non-deterministic CUDA kernels yield different results run-to-run |
+| Location | `views_hydranet/infrastructure/reproducibility_gate.py` (locks np/torch seeds + deterministic_algorithms, but cannot force bitwise-deterministic CUDA kernels) |
+| Cross-refs | C-112 (pre/post-C-111 comparability); C-79 (no reproducibility comparison test); C-42/C-43 (reproducibility gate — resolved) |
+
+The gate locks seeds and requests deterministic algorithms, but same-config GPU retrains still diverge in magnitude: the C-111-bisect control retrain settled at CRPS ~1e7 vs the June-3 run's ~1e17 (same seed/config). The qualitative outcome (out-of-range vs in-range) reproduces; the numeric value does not. Any bisect/ablation comparing a single GPU retrain to a prior one must therefore treat magnitude deltas as possibly-spurious and rely on device-matched, ideally multi-seed comparisons (cf. C-112).
+
+Tier 3 rationale: reliability of inference *about experiments*; affects how comparisons are designed, not the model's correctness. No silent corruption.
+
+*Test-coverage shadow (test-review 2026-06-05):* the reproducibility envelope is uncharacterized — no test pins what is guaranteed (qualitative outcome) vs not (bitwise magnitude) on GPU; cf. C-79 (no reproducibility comparison test).
+
+---
+
+### C-120: Dual data-layer authority — DataFetcher + DataSniffer (and cross-repo counterparts)
+
+| Field | Value |
+|-------|-------|
+| ID | C-120 |
+| Tier | 3 |
+| Source | repo-assimilation (2026-06-05) + user observation |
+| Trigger | Changing data loading or ingestion validation — `DataFetcher` and `DataSniffer` both touch parquet read/validate, and views-pipeline-core has `ViewsDataLoader`/`CoreDataSniffer` counterparts; ownership is unclear |
+| Location | `views_hydranet/utils/data_fetcher.py` (class DataFetcher, fetch_df), `views_hydranet/utils/data_sniffer.py` (class DataSniffer, sniff_*); cross-repo views-pipeline-core loaders/sniffers |
+| Cross-refs | C-75 (DataFetcher↔VolumeHandler derivation duplication) |
+
+The data layer splits loading/validation across DataFetcher (fetch) and DataSniffer (validate), with overlapping parquet-read and validation responsibilities that also have counterparts in views-pipeline-core (ViewsDataLoader, CoreDataSniffer). A change to ingestion validation could require edits in multiple places, and the duplication invites drift between the hydranet-local and pipeline-core validators. Distinct from C-75 (DataFetcher↔VolumeHandler derivation logic) but the same "data-layer duplication" theme.
+
+Tier 3 rationale: coupling/ownership ambiguity raising change cost across repos; no correctness impact today.
+
+---
+
+### C-121: No automated regression guard for the C-113 autoregressive runaway — the only monitor is contractually blind
+
+| Field | Value |
+|-------|-------|
+| ID | C-121 |
+| Tier | 2 |
+| Source | test-review (2026-06-05) |
+| Trigger | A future change to training dynamics (new loss/head — e.g. the ZITD work — balancer, scheduled sampling, seed) re-introduces or fails to prevent the autoregressive runaway; with no fast test it surfaces only after a ~40-min eval (or reaches production forecasts if an eval is skipped) |
+| Location | `tests/` (no rollout-boundedness test exists), `views_hydranet/utils/hydranet_inference.py` (`predict()` 36-step loop + guard ~L305), `scripts/diagnose_io_gain.py` (the fast attractor seam — zero tests), `views_hydranet/utils/integrity_guardian.py` (guard contract) |
+| Cross-refs | C-113 (the runaway itself); C-62 (IntegrityGuardian in inference — resolved); C-20 (soft magnitude guard — resolved); C-107 (hydranet_inference unit coverage) |
+
+The system's costliest, recurring failure mode (C-113) has **no seconds-level regression test**: the 36-step `predict()` rollout is exercised only through full evaluation, so a regression costs a GPU-hour (or a corrupted forecast) to detect. Worse, the one runtime monitor — `IntegrityGuardian` — is tested and works *as specified* (halt at log-space 1000), but its **contract is structurally blind to the actual mechanism**: the explosion does its damage at log-space ~40 (→ `expm1` ~1e17), below every guard threshold. The fast seam now exists — `scripts/diagnose_io_gain.py` reproduces the runaway retrain-free in ~30 s — but it is untested and not wired into the suite.
+
+Tier 2 rationale: structural fragility (the most expensive recurring failure has no cheap guard, and the existing guard cannot see it) with a clear, realistic trigger (every training-dynamics change, several of which are imminent in the ZITD dossier). Not Tier 1 — it currently surfaces loudly at eval rather than silently corrupting shipped output, but it *would* reach forecasts if eval is ever bypassed.
+
+*Tier-boundary note (review-rr 2026-06-05):* this is the highest-tiered *test-gap* in the register — C-107 and C-79 are also test gaps but sit at Tier 4. The difference justifying Tier 2: C-121 gates the Tier-2 C-113 specifically, and its trigger is imminent (ZITD). Reviewers comparing the three should treat C-121 as "test gap on a Tier-2 failure" rather than a peer of the Tier-4 coverage gaps. Member of Cluster 1.
+
+*Doc-gap (review-base-docs 2026-06-05):* `docs/CICs/IntegrityGuardian.md` §3 advertises the ±1000 magnitude-ceiling `RuntimeError` as a guarantee but §6 (Failure Modes) does **not** note that the ceiling is in log-space and is blind to `expm1`-amplified out-of-range outputs below it — giving false assurance of protection that C-113/C-121 disprove. Remediation: add the blind-spot to IntegrityGuardian.md §6.
+
+---
+
+### C-122: Behavior-rich classes lack CICs — chiefly `HydraNetInference` (the autoregressive engine)
+
+| Field | Value |
+|-------|-------|
+| ID | C-122 |
+| Tier | 3 |
+| Source | review-base-docs (2026-06-05) gap analysis |
+| Trigger | Refactoring or extending the inference loop / balancer / model — e.g. the ZITD head (dossier P2), the `_clamp_feedback`/`freeze_multitask_balancer` work, or any `predict()` change — with no CIC stating the contract to preserve |
+| Location | `views_hydranet/utils/hydranet_inference.py` (HydraNetInference — no CIC), `views_hydranet/utils/mtloss.py` (MultiTaskLoss — no CIC), `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py` (HydraBNUNet06_LSTM4 — no CIC) |
+| Cross-refs | C-107 (HydraNetInference zero unit tests); C-113/C-121 (the runaway lives in the un-contracted inference loop); C-03 (hardcoded heads — model); D-02 (architecture left un-refactored) |
+
+16 classes have no CIC; most are small value/registry types, but three are behavior-rich and undocumented: **`HydraNetInference`** (the 556-LOC autoregressive engine — `predict()`, `freeze_h`, `_clamp_feedback`, posterior sampling, the magnitude guard; the riskiest surface, where C-113/C-121 live and where C-107 already flags zero unit tests), **`MultiTaskLoss`** (the homoscedastic balancer at the centre of C-111 and the `freeze_multitask_balancer` flag), and **`HydraBNUNet06_LSTM4`** (the model whose `forward`/`ModelOutput`/hidden-state contract the ZITD head will change). With no CIC, a developer modifying these has no stated contract to preserve.
+
+Tier 3 rationale: maintainability/governance gap that raises the cost and risk of changing the system's most critical, most-about-to-change classes; no current correctness impact. Not Tier 2 — no failure is imminent purely from the missing docs. Highest-value item: a CIC for `HydraNetInference`.
+
+*SRP/complexity facet (expert-code-review 2026-06-05):* beyond lacking a CIC, `HydraNetInference.predict()` (`hydranet_inference.py:243`, ~200 LOC) is a god-method interleaving dropout-mask reset, feature indexing, hidden-state init, the digest/seed/autoregress loop, `freeze_h`, `_clamp_feedback`, the magnitude guard, and viz/biopsy accumulation. 5 of 8 expert lenses converged here: it is the riskiest (C-113/C-121), least-contracted (this entry), least-unit-tested (C-107), and next-to-change (ZITD dossier P2) surface. Recommended pre-ZITD remediation: extract the per-step bodies into named methods (the seam C-107/C-121 also need) — but keep the shared-accumulator algorithm coherent (see D-05).
+
+---
+
+### C-123: `choose_loss` returns a positional 3-tuple — loss components conflated by index
+
+| Field | Value |
+|-------|-------|
+| ID | C-123 |
+| Tier | 4 |
+| Source | expert-code-review (2026-06-05) |
+| Trigger | Adding/removing a loss component (e.g. the ZITD single-likelihood head collapsing reg+cls) shifts the meaning of `criterion[0]/[1]/[2]`; callers indexing by position break silently or subtly |
+| Location | `views_hydranet/utils/utils.py:106` (`choose_loss` → `tuple[reg\|dict, class, MultiTaskLoss]`), consumed positionally in `views_hydranet/train/training_engine.py` (`criterion[2]` = balancer) |
+| Cross-refs | C-99 (reg vs reg_latent dual-path); C-122 (MultiTaskLoss undocumented) |
+
+`choose_loss` returns three losses as a positional tuple; consumers must *know* index 2 is the `MultiTaskLoss` balancer (the C-111 epicenter). A named structure (dataclass `reg`/`cls`/`balancer`) would remove the positional coupling. Low impact today (callers are internal and tested), but the ZITD head — which replaces the reg+cls pair with one likelihood — is exactly the change that would reshuffle the tuple.
+
+Tier 4 rationale: code-quality/readability; internal, tested callers; no correctness or reliability impact today. Flagged because the imminent ZITD change touches it.
 
 ---
 
@@ -360,7 +557,7 @@ Tier 4 rationale: no current correctness impact (the omission may well be correc
 | ID | D-02 |
 | Source | expert-review (2026-04-08) |
 | Perspectives | GoF (parameterize — 6 copy-pasted decoder blocks is anti-pattern), Beck/Feathers (leave alone — structural regex test guards against bugs, refactoring invalidates all .pt artifacts) |
-| Resolution | Leave as-is. Cost of refactoring (breaking all artifacts) exceeds benefit. Structural test in `tests/test_architecture.py` provides adequate safety — this test is load-bearing infrastructure; do not modify without understanding its role as the guard for this decision. |
+| Resolution | Leave as-is. Cost of refactoring (breaking all artifacts) exceeds benefit. Structural test in `tests/test_architecture.py` provides adequate safety — this test is load-bearing infrastructure; do not modify without understanding its role as the guard for this decision. **⚠ Re-decision due at ZITD dossier P2 (review-rr 2026-06-05):** the "leave alone" basis is about to be challenged — the ZITD head collapses each reg+cls pair into one likelihood (C-03 trigger now imminent), which *forces* a head-topology change and will invalidate artifacts regardless. Make this decision as part of ZITD planning, not by default. |
 
 ---
 
@@ -383,6 +580,41 @@ Tier 4 rationale: no current correctness impact (the omission may well be correc
 | Source | expert-code-review (2026-05-28) |
 | Perspectives | Beck (add `model` param to `_setup_evaluation()` — simplest change), Martin/Hickey (decompose — extract `_load_model_artifact()`, make `model` required param, no boolean branching), Ousterhout (preserve method depth — don't fragment the setup into many shallow pieces) |
 | Resolution | **Consensus: Option C (decompose).** Make `model` a *required* parameter of `_setup_evaluation()`. Extract model loading into `_load_model_artifact()`. Three existing callers load then pass; sweep passes in-memory model. No boolean params, no duplication, no complecting. See C-93. |
+
+---
+
+### D-05: `predict()` decomposition — extract named steps vs preserve algorithm depth
+
+| Field | Value |
+|-------|-------|
+| ID | D-05 |
+| Source | expert-code-review (2026-06-05) |
+| Perspectives | Martin/Feathers (extract the digest/seed/autoregress bodies into named private methods — SRP + testable seams for C-107/C-121/C-122), Ousterhout (caution: the causal loop is a cohesive deep algorithm over shared mutable accumulators; fragmenting into shallow methods that pass accumulators around can *increase* complexity, not reduce it) |
+| Resolution | **Open.** Relevant before the ZITD head edits `predict()`. Likely synthesis: extract per-step *pure-ish* helpers while keeping the accumulator-owning loop in one place (extract steps, not the orchestration). Tie to C-122 (CIC) + C-121 (rollout test). |
+
+---
+
+### D-06: IntegrityGuardian blind spot — deepen the abstraction vs fence with a test
+
+| Field | Value |
+|-------|-------|
+| ID | D-06 |
+| Source | expert-code-review (2026-06-05) |
+| Perspectives | Ousterhout/Nygard (deepen the guard so it reasons in the space where the catastrophe occurs — i.e. post-`expm1`/attractor-aware — rather than a log-space ceiling that hides the real failure), Beck (cheaper: add an external fast regression test (`diagnose_io_gain`) and document the ceiling's limit in IntegrityGuardian.md §6, rather than complicate the guard) |
+| Resolution | **Open.** Cross-refs C-113/C-121 (the blind guard) and the C-121 doc-gap annotation. Decision deferred until the C-111 bisect / ZITD direction clarifies whether the runaway is even being fixed upstream. |
+
+---
+
+## Tech-Debt Backlog (demoted from register, review-rr 2026-06-05)
+
+Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/single-developer scope — kept for traceability (full entries remain tagged `[DEMOTED]` in §Open Concerns) but no longer counted as active risks. Actionable as ordinary tech-debt, not governance risks.
+
+| ID | One-line action | Cluster |
+|----|-----------------|:--:|
+| C-89 | Extract `_SumReducer` to `tests/conftest.py` (the `_tobit_config`/`tobit_config_3target` part is already done). | — |
+| C-49 | Roadmap item: revisit flat→nested config schema if keys exceed ~50 or a feature needs 4+ grouped keys. | 5 |
+| C-37 | Accepted trade-off: extract an `IVolumeHandler` Protocol only if an alternative implementation (lazy/GPU-resident) is needed. | 3 |
+| C-85 | Add a `flip_probability` config key (currently hardcoded `0.5` in `training_engine.py:290-292`). | — |
 
 ---
 

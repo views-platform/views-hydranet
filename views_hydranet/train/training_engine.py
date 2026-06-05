@@ -98,10 +98,22 @@ def make(config: dict, device: torch.device):
     # so they stay frozen at their zero initialization and the balancer is inert.
     # weight_decay=0.0: log_vars are uncertainty estimates, not model weights —
     # decaying them toward zero defeats their purpose.
+    #
+    # C-113 bisect: freeze_multitask_balancer (default False) restores the
+    # pre-C-111 behavior — log_vars stay frozen at zero (equal weighting), the
+    # regime under which the model was stable for years. Used to test whether
+    # C-111's active balancer is what destabilised training. See
+    # reports/preanalysis_balancer_bisect.md.
     multitaskloss_instance = criterion[2]
-    log_var_params = list(multitaskloss_instance.parameters())
-    if log_var_params:
-        optimizer.add_param_group({"params": log_var_params, "weight_decay": 0.0})
+    if config.get("freeze_multitask_balancer", False):
+        logger.info(
+            "C-113 bisect: MultiTaskLoss balancer FROZEN — log_vars excluded from "
+            "the optimizer (pre-C-111 equal-weighting regime)."
+        )
+    else:
+        log_var_params = list(multitaskloss_instance.parameters())
+        if log_var_params:
+            optimizer.add_param_group({"params": log_var_params, "weight_decay": 0.0})
 
     return (model, criterion, optimizer, scheduler)
 

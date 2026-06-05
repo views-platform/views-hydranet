@@ -67,6 +67,10 @@ class HydraNetInference:
 
         self.model: Module = model
         self.config = config
+        # C-113: optional in-domain feedback clamp (per-target log1p ceiling).
+        # Bounds ONLY the autoregressive feedback copy, never an emitted prediction.
+        # None (default) => no behavior change. See reports/preanalysis_feedback_clamp.md.
+        self.feedback_clamp = self._parse_feedback_clamp(config.get("feedback_clamp_log1p"))
         self.viz = visualizer or VisualDiagnostics({"diagnostic_visualizations": False})
 
         # Step 3: Move model to device and configure for inference.
@@ -83,6 +87,51 @@ class HydraNetInference:
             self.model.set_locked_dropout(True)
 
         logger.info("HydraNetInference initialized successfully.")
+
+    def _parse_feedback_clamp(self, raw):
+        """Validate the per-target log1p feedback ceiling (C-113). None => disabled.
+
+        Fail-loud (no silent correction): must be a non-empty list of positive
+        floats whose length matches regression_targets. Returns a broadcastable
+        [1, C, 1, 1] float32 tensor, or None.
+        """
+        if raw is None:
+            return None
+        if not isinstance(raw, (list, tuple)) or len(raw) == 0:
+            err_msg = (
+                "feedback_clamp_log1p must be a non-empty list of positive floats "
+                f"(one per regression target) or None; got {raw!r}."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        vals = [float(v) for v in raw]
+        if any(v <= 0 for v in vals):
+            err_msg = f"feedback_clamp_log1p values must be positive (log1p space); got {vals}."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        n_targets = len(self.config.get("regression_targets", []))
+        if n_targets and len(vals) != n_targets:
+            err_msg = (
+                f"feedback_clamp_log1p has {len(vals)} entries but there are "
+                f"{n_targets} regression_targets; provide one ceiling per target."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return torch.tensor(vals, dtype=torch.float32).view(1, len(vals), 1, 1)
+
+    def _clamp_feedback(self, t0_autoreg: torch.Tensor) -> torch.Tensor:
+        """Bound the fed-back prediction to the per-target in-domain ceiling (C-113).
+
+        Clamps ONLY the autoregressive feedback copy — never an emitted prediction —
+        to keep the next-step input within the log1p training range and break the
+        runaway ratchet (violet's free-running map settles at log ~40 -> expm1 ~1e17;
+        see reports/results_io_gain_diagnostic.md). Only the upper bound is applied
+        (ReLU already provides the >=0 floor). Identity when the clamp is unset.
+        """
+        if self.feedback_clamp is None:
+            return t0_autoreg
+        ceiling = self.feedback_clamp.to(device=t0_autoreg.device, dtype=t0_autoreg.dtype)
+        return torch.minimum(t0_autoreg, ceiling)
 
     def execute_freeze_h_option(
         self, t0: torch.Tensor, h_tt: torch.Tensor
@@ -297,7 +346,9 @@ class HydraNetInference:
 
             else:
                 # 3. AUTOREGRESSION: Pred[k] -> Pred[k+1]
-                t0_autoreg = t1_pred.detach()
+                # C-113: clamp ONLY the fed-back copy to the in-domain ceiling; the
+                # emitted prediction (appended below) is never capped.
+                t0_autoreg = self._clamp_feedback(t1_pred.detach())
                 t1_pred, t1_pred_class, h_tt = self.execute_freeze_h_option(t0_autoreg, h_tt)
                 t1_pred_class = torch.sigmoid(t1_pred_class)
 
