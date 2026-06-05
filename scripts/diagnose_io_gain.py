@@ -25,6 +25,11 @@ from pathlib import Path
 
 import torch
 
+from views_hydranet.utils.rollout_diagnostics import (
+    DATA_LOG_MAX,
+    free_running_attractor,
+    is_out_of_range,
+)
 from views_hydranet.utils.utils import choose_model
 
 
@@ -90,10 +95,6 @@ def part_A(model, H, W, device, label):
     return results
 
 
-DATA_LOG_MAX = 12.1  # log1p of the largest observed count; outputs settling above
-# this are out-of-range and expm1-amplify to catastrophe.
-
-
 @torch.no_grad()
 def part_B(model, H, W, device, label, freeze_h="none", steps=48):
     print(f"\n=== Part B — free-running rollout (freeze_h='{freeze_h}')  [{label}] ===")
@@ -106,28 +107,13 @@ def part_B(model, H, W, device, label, freeze_h="none", steps=48):
         f"{'expm1(final)':>15}   verdict"
     )
     g = torch.Generator(device="cpu").manual_seed(1)
-    split = None
+    update_state = freeze_h != "all"  # 'none' evolves the recurrent state; 'all' freezes it
     for s in [0.5, 1.0, 2.0]:
         h = _zero_state(model, H, W, device)
         x = (torch.rand((1, model_in_ch, H, W), generator=g) * s).to(device)
-        traj = []
-        for t in range(steps):
-            out = model(x, h)
-            new_h = out.h_next
-            if freeze_h == "all":
-                pass  # keep h frozen
-            elif freeze_h == "hl":
-                if split is None:
-                    split = new_h.shape[1] // 2
-                h = torch.cat([new_h[:, :split], h[:, split:]], dim=1)
-            else:  # none
-                h = new_h
-            x = out.reg
-            traj.append(float(x.abs().max()))
-        final = traj[-1]
+        final, traj = free_running_attractor(model, x, h, steps=steps, update_state=update_state)
         raw = torch.expm1(torch.tensor(final)).item()
-        pathological = final > DATA_LOG_MAX + 1
-        verdict = "PATHOLOGICAL (out-of-range)" if pathological else "healthy (in-range)"
+        verdict = "PATHOLOGICAL (out-of-range)" if is_out_of_range(final) else "healthy (in-range)"
         print(
             f"{('U[0,%.1f]' % s):<13}{traj[0]:>8.2f}{traj[11]:>9.2f}{traj[23]:>9.2f}"
             f"{final:>9.2f}{raw:>15.2e}   {verdict}"
