@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-05                           |
-| Total Concerns    | 125                                  |
-| Open Concerns     | 31                                   |
+| Total Concerns    | 126                                  |
+| Open Concerns     | 32                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 94                                   |
 
@@ -612,6 +612,23 @@ Four model configs define a dict key twice; Python silently retains the last ass
 Tier 4 rationale: linter-visible (ruff F601, not silent), values mostly identical, the one divergence affects only a sweep search space. Mitigation: delete the dead (earlier) duplicate in each file, preserving current behaviour; confirm `new_rules` intended `[32,64,128]`.
 
 **Fix applied 2026-06-06** (views-models `e9ced12`, pushed to `development`): the earlier (dead) duplicate removed in all four files, current behaviour preserved; ruff F601 clean repo-wide. Open pending merge to main; `new_rules`'s `[32,64,128]` kept as the effective value — author to confirm `[64,128]` was not the intent.
+
+---
+
+### C-128: Locked-dropout posterior is the inference default, but its calibration is unvalidated across models
+
+| Field | Value |
+|-------|-------|
+| ID | C-128 |
+| Tier | 3 |
+| Source | review-diff (PR #75, 2026-06-06) |
+| Trigger | Trusting or delivering a model's MC-dropout uncertainty (MCR/coverage) from the locked-mask posterior before the per-model calibration analysis (dossier I3) has been run on a model other than `pink_pirate` |
+| Location | `views_hydranet/utils/hydranet_inference.py:83-84` (`set_locked_dropout(True)`, unconditional); `views_hydranet/architectures/locked_dropout.py` |
+| Cross-refs | ADR-057 (the mask change); C-113 (its falsified C-113-fix justification); C-126 (point-stability ≠ calibration); C-110 (the Tier-2 ensemble-calibration cousin) |
+
+ADR-057 makes inference use a **locked** dropout mask (fixed across the 36-step roll-forward, fresh per posterior sample) instead of per-step fresh masks, and PR #75 turns this **on by default** (unconditional at `HydraNetInference.__init__`). The locked mask **narrows the posterior spread** vs per-step dropout, so MCR/coverage can shift. It was **spot-checked benign on `pink_pirate`** (the freeze_h characterization eval reproduced pink's reference CRPS/MCR), but the planned cross-model calibration analysis (dossier I3 — "is the fixed-mask posterior calibrated or too tight?") has **not** been run on the other members. Risk: a delivered posterior could be silently mis-calibrated (too tight) on an unchecked model with no error signal — the C-110-style silent-miscalibration failure mode.
+
+Tier 3 rationale: a **validation gap**, not a known defect — spot-checked benign on pink, MC-dropout was already approximate, and the change is intended (ADR-057, consciously accepted at the #75 merge). Escalate to Tier 2 (à la C-110) if a locked-mask posterior is relied on for delivery before I3. Mitigation: run the I3 calibration analysis (PIT/coverage + MCR) across models; or gate locked dropout behind an opt-in flag if I3 is deferred.
 
 ---
 
