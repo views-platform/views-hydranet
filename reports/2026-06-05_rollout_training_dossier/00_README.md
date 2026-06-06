@@ -44,7 +44,7 @@ option (Professor Forcing), all governed by one config hyperparameter,
 | 01 | `literature` | the three papers + recurrent-stability neighbours, annotated | drafted 2026-06-05 |
 | 02 | `design` | the Axis-B design + the `rollout_horizon` HP + GPU-cost analysis | drafted 2026-06-05 — **reviewed (02b); revised 2026-06-06 (R1–R7 folded, see §10)** |
 | 02b | `method_review` | expert-method-review panel verdict + methodological risks | done 2026-06-05 |
-| 03 | `harness_and_invariants` | guardrails (to build) | TODO |
+| 03 | `harness_and_invariants` | invariants (hard / changed / respect) + standing harness + §3 new-harness gaps + pre-flight checklist | **seeded 2026-06-06** |
 | 04 | `roadmap` | gated implementation/experiment sequence | TODO |
 | 05 | `analysis_plan` | first pre-registered experiment (B1 MVP, active balancer; resolves falsify P2/P4) | **seeded 2026-06-06** |
 | 06 | `glossary` | exposure bias, pushforward, GTF, α, K, zero-stability… | TODO |
@@ -84,7 +84,12 @@ option (Professor Forcing), all governed by one config hyperparameter,
 - [x] `05` pre-registered first experiment (B1 pushforward MVP, **active** balancer, K=12;
       resolves falsify P2/P4 → C-125 note / C-129). Decisions: R6 satisfied; active is the
       primary arm; Axis B sequenced **before** ZITD.
-- [ ] `03` harness — the rollout-loss test harness (the remaining doc gate before B1 impl, #78).
+- [x] `03` harness + pre-flight checklist — invariants, standing harness, and the §3 new-harness
+      gaps to build before B1 (the last *doc* gate).
+- [ ] **Build the §3 harness gaps (TDD)** then **B1 (#78)** — the pushforward path behind
+      `rollout_horizon` (K=1 parity), the feedback-gradient-liveness test, annealed weight +
+      uncontaminated CRPS, gradient clipping, the full-36 boundedness + calibration readouts.
+      *(Training-loop change + GPU — the real build; gated on this checklist going green.)*
 - [x] ~~Sequence after the C-111 balancer verdict closes~~ — **verdict in** (sweep: freeze
       seed-fragile, exposure-bias is root); R6 satisfied, proceed.
 - **Strongest live dissent (D5):** fixing the point runaway may not fix — and could
