@@ -42,11 +42,11 @@ option (Professor Forcing), all governed by one config hyperparameter,
 |---|------|------|--------|
 | 00 | `README` | spine (this file) | living |
 | 01 | `literature` | the three papers + recurrent-stability neighbours, annotated | drafted 2026-06-05 |
-| 02 | `design` | the Axis-B design + the `rollout_horizon` HP + GPU-cost analysis | drafted 2026-06-05 — **reviewed (see 02b); revisions pending** |
+| 02 | `design` | the Axis-B design + the `rollout_horizon` HP + GPU-cost analysis | drafted 2026-06-05 — **reviewed (02b); revised 2026-06-06 (R1–R7 folded, see §10)** |
 | 02b | `method_review` | expert-method-review panel verdict + methodological risks | done 2026-06-05 |
 | 03 | `harness_and_invariants` | guardrails (to build) | TODO |
 | 04 | `roadmap` | gated implementation/experiment sequence | TODO |
-| 05 | `analysis_plan` | first pre-registered experiment | TODO (after review) |
+| 05 | `analysis_plan` | first pre-registered experiment (B1 MVP, active balancer; resolves falsify P2/P4) | **seeded 2026-06-06** |
 | 06 | `glossary` | exposure bias, pushforward, GTF, α, K, zero-stability… | TODO |
 | 07 | `experiment_log` | append-only ledger | TODO |
 
@@ -81,9 +81,12 @@ option (Professor Forcing), all governed by one config hyperparameter,
 - [ ] Kill `freeze_h` (Element 1) — `freeze_h="none"`, remove the inference-time
       state-freeze; **gate behind the `rollout_horizon=1` parity guard + golden_hour
       re-eval** (Operational). Grounded in `reports/results_freezeh_ablation.md` (inert).
-- [ ] `03` harness + `05` pre-registered first experiment (B1 pushforward, K=1 default).
-- [ ] **Sequence the program after the C-111 balancer verdict closes** (don't tune
-      rollout HPs atop the unattributed acute trigger).
+- [x] `05` pre-registered first experiment (B1 pushforward MVP, **active** balancer, K=12;
+      resolves falsify P2/P4 → C-125 note / C-129). Decisions: R6 satisfied; active is the
+      primary arm; Axis B sequenced **before** ZITD.
+- [ ] `03` harness — the rollout-loss test harness (the remaining doc gate before B1 impl, #78).
+- [x] ~~Sequence after the C-111 balancer verdict closes~~ — **verdict in** (sweep: freeze
+      seed-fragile, exposure-bias is root); R6 satisfied, proceed.
 - **Strongest live dissent (D5):** fixing the point runaway may not fix — and could
   worsen (mean-hedging/blurring) — the chronic MCR/zero-rate calibration problem. Carry
   as a falsifier, not a footnote.

@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-05                           |
-| Total Concerns    | 126                                  |
-| Open Concerns     | 32                                   |
+| Total Concerns    | 127                                  |
+| Open Concerns     | 33                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 94                                   |
 
@@ -579,6 +579,8 @@ The Axis-B design adds a multi-step rollout objective to fix the C-113 runaway. 
 
 Tier 3 rationale: design-stage methodology gaps for an as-yet-unbuilt feature; no current silent corruption, but each could mis-direct the C-113 fix or ship a subtly biased forecaster. Mitigation: the pre-analysis plan (`05`) pre-registers (a)/(b)/(c) as binding guardrails + falsifiers before any full retrain; fetch Mikhaeil 2022 to settle (c). Promote to Tier 2 if rollout training is implemented without these guards.
 
+*Update (falsify, 2026-06-06) — sequencing/decision gap (RT-P2):* concluding B1 also requires a **decided MultiTaskLoss balancer config** to retrain under (C-124 open: active destabilises, frozen is seed-fragile) **and** resolution of the **circular R6 gate** — `02_design` §7.0 says "sequence Axis B after the C-111 balancer verdict closes," but C-124 stays open and *defers to Axis B as the fix*, so R6 cannot close on its own terms. Record the balancer-config decision + an explicit "R6 satisfied / proceed" call in the pre-analysis plan (`05`). A RED stub marks the gap: `tests/test_falsification_rollout_plan.py`. Cross-ref C-124.
+
 ---
 
 ### C-126: Rollout-training success metric conflates point-stability with calibration
@@ -631,6 +633,23 @@ Tier 4 rationale: linter-visible (ruff F601, not silent), values mostly identica
 ADR-057 makes inference use a **locked** dropout mask (fixed across the 36-step roll-forward, fresh per posterior sample) instead of per-step fresh masks, and PR #75 turns this **on by default** (unconditional at `HydraNetInference.__init__`). The locked mask **narrows the posterior spread** vs per-step dropout, so MCR/coverage can shift. It was **spot-checked benign on `pink_pirate`** (the freeze_h characterization eval reproduced pink's reference CRPS/MCR), but the planned cross-model calibration analysis (dossier I3 — "is the fixed-mask posterior calibrated or too tight?") has **not** been run on the other members. Risk: a delivered posterior could be silently mis-calibrated (too tight) on an unchecked model with no error signal — the C-110-style silent-miscalibration failure mode.
 
 Tier 3 rationale: a **validation gap**, not a known defect — spot-checked benign on pink, MC-dropout was already approximate, and the change is intended (ADR-057, consciously accepted at the #75 merge). Escalate to Tier 2 (à la C-110) if a locked-mask posterior is relied on for delivery before I3. Mitigation: run the I3 calibration analysis (PIT/coverage + MCR) across models; or gate locked dropout behind an opt-in flag if I3 is deferred.
+
+---
+
+### C-129: Rollout-training (Axis B) × ZITD distributional-head coordination is untracked
+
+| Field | Value |
+|-------|-------|
+| ID | C-129 |
+| Tier | 3 |
+| Source | falsify (2026-06-06, "nothing blocks concluding Axis B" audit, P4) |
+| Trigger | Progressing the Axis-B rollout-training (B1) and the ZITD distributional head independently — each editing `training_engine` and the `log1p` autoregressive feedback — without a coordination plan for how they compose or which lands first |
+| Location | `reports/2026-06-05_rollout_training_dossier/02_design.md` + `reports/2026-06-05_distributional_head_dossier/02_design.md`; `views_hydranet/train/training_engine.py` (rollout loss + feedback); the autoregressive feedback re-encoding |
+| Cross-refs | C-125/C-126 (rollout premises / calibration), C-113 (the shared target), the two dossiers |
+
+The two active research programs both modify the **same** training loop and the **same** autoregressive feedback path, but their **interaction is unanalysed**. The rollout dossier declares itself "distinct from the ZITD dossier"; the ZITD dossier never mentions Axis B. Yet B1's rollout loss would have to train *through* ZITD's feedback re-encoding (`log1p(mean or sample)` from a softplus-link distributional head), and ZITD's softplus link is itself the *other* proposed cure for the same `expm1` runaway. Open questions neither plan owns: do B1 (rollout gradients) and ZITD (output representation) compose or conflict? Which lands first? Does B1's stability term interact with ZITD's NLL/CRPS objective? Left untracked, the two could collide in `training_engine` (merge/sequencing) and in feedback semantics.
+
+Tier 3 rationale: a cross-program coordination/dependency gap (no silent corruption today), but it raises cost-of-change and could mis-sequence the two largest research efforts. Mitigation: a one-paragraph coordination note in each dossier's `02_design` (or a shared sequencing decision) — likely "ship one cure for the runaway first (Axis B *or* the ZITD softplus link), measure, then layer the other," recorded before either retrain.
 
 ---
 
