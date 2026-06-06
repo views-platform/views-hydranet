@@ -45,10 +45,10 @@ option (Professor Forcing), all governed by one config hyperparameter,
 | 02 | `design` | the Axis-B design + the `rollout_horizon` HP + GPU-cost analysis | drafted 2026-06-05 — **reviewed (02b); revised 2026-06-06 (R1–R7 folded, see §10)** |
 | 02b | `method_review` | expert-method-review panel verdict + methodological risks | done 2026-06-05 |
 | 03 | `harness_and_invariants` | invariants (hard / changed / respect) + standing harness + §3 new-harness gaps + pre-flight checklist | **seeded 2026-06-06** |
-| 04 | `roadmap` | gated implementation/experiment sequence | TODO |
+| 04 | `roadmap` | gated phase sequence (P0 decide → P1 harness → P2 B1 wired → P3 MVP → P4 iterate/escalate → P5 ADR-058) + dep-graph + milestones | **seeded 2026-06-06** |
 | 05 | `analysis_plan` | first pre-registered experiment (B1 MVP, active balancer; resolves falsify P2/P4) | **seeded 2026-06-06** |
-| 06 | `glossary` | exposure bias, pushforward, GTF, α, K, zero-stability… | TODO |
-| 07 | `experiment_log` | append-only ledger | TODO |
+| 06 | `glossary` | exposure bias, pushforward, GTF, α, K, zero-stability… | **seeded 2026-06-06** |
+| 07 | `experiment_log` | append-only ledger (precursors + EXP-01 planned) | **seeded (skeleton) 2026-06-06** |
 
 ## 4. Harness at a glance
 
