@@ -52,7 +52,12 @@ def free_running_attractor(
 
     Returns the final-step ``max|reg|`` (the attractor's log-space magnitude) and the
     per-step ``max|reg|`` trajectory. Pair with :func:`is_out_of_range` to gate.
+
+    Raises:
+        ValueError: if ``steps < 1`` (fail loud rather than return an empty trajectory).
     """
+    if steps < 1:
+        raise ValueError(f"free_running_attractor: steps must be >= 1, got {steps}")
     x, h = x0, h0
     trajectory: list[float] = []
     for _ in range(steps):

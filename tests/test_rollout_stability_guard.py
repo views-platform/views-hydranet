@@ -9,11 +9,13 @@ controllable tiny models (contractive → bounded; expansive → flagged), via t
 Register: C-113 (the runaway), C-121 (this guard). ADR-005 Green/Red taxonomy.
 """
 
+import pytest
 import torch
 import torch.nn as nn
 
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import ModelOutput
 from views_hydranet.utils.rollout_diagnostics import (
+    DATA_LOG_MAX,
     free_running_attractor,
     is_out_of_range,
 )
@@ -63,3 +65,20 @@ def test_guard_is_deterministic():
     a, _ = free_running_attractor(_GainModel(0.9), x0, h0, steps=10)
     b, _ = free_running_attractor(_GainModel(0.9), x0, h0, steps=10)
     assert a == b
+
+
+def test_is_out_of_range_boundary_and_nonfinite():
+    """The detector's key paths: in-range boundary, and the runaway → inf/nan cases
+    (a real C-113 blowup yields inf/nan from max|reg|; the guard must catch those)."""
+    assert not is_out_of_range(DATA_LOG_MAX)  # in range
+    assert not is_out_of_range(DATA_LOG_MAX + 1.0)  # at the inclusive margin boundary
+    assert is_out_of_range(DATA_LOG_MAX + 1.01)  # just past the margin
+    assert is_out_of_range(float("inf"))  # runaway diverged to +inf
+    assert is_out_of_range(float("nan"))  # runaway produced nan
+
+
+def test_steps_must_be_positive():
+    """free_running_attractor rejects steps < 1 (fail loud, not a silent IndexError)."""
+    x0, h0 = _seed_inputs()
+    with pytest.raises(ValueError):
+        free_running_attractor(_GainModel(0.5), x0, h0, steps=0)
