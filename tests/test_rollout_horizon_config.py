@@ -3,7 +3,8 @@
 one-step path → parity), and enforces >= 1. No training-loop behavior change yet — the
 field is inert until the pushforward path reads it (increment 2).
 
-ADR-005 Green/Red taxonomy. See reports/2026-06-05_rollout_training_dossier/03_harness_and_invariants.md.
+ADR-005 Green/Red taxonomy. See reports/2026-06-05_rollout_training_dossier/
+03_harness_and_invariants.md.
 """
 
 from views_hydranet.utils.config_initializer import HydraNetConfig
@@ -16,7 +17,7 @@ def test_rollout_horizon_field_exists_and_defaults_to_one():
 
 
 def test_rollout_horizon_enforces_ge_one():
-    """Red-catcher: a horizon < 1 is meaningless → the field must enforce >= 1 (the parity floor)."""
+    """Red-catcher: a horizon < 1 is meaningless → the field must enforce >= 1 (parity floor)."""
     field = HydraNetConfig.model_fields["rollout_horizon"]
     metadata = getattr(field, "metadata", [])
     assert any(getattr(m, "ge", None) == 1 for m in metadata), (

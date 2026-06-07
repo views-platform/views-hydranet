@@ -20,9 +20,7 @@ names the chosen setting. (P4 is tracked as a register finding, not a code test.
 import pathlib
 
 _DOSSIER = (
-    pathlib.Path(__file__).resolve().parents[1]
-    / "reports"
-    / "2026-06-05_rollout_training_dossier"
+    pathlib.Path(__file__).resolve().parents[1] / "reports" / "2026-06-05_rollout_training_dossier"
 )
 
 

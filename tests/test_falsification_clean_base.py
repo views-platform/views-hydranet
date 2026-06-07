@@ -7,8 +7,9 @@ development HEAD 77a3e2e). But the *broad* reading ("ready to barrel ahead")
 is SOFT-falsified: the base still carries OPEN Tier-2 risks — chiefly C-113
 (autoregressive runaway, UNFIXED) with NO automated regression guard (C-121).
 The next step (rollout-training) involves RETRAINS — exactly the trigger under
-which C-113 can silently recur. RESOLVED 2026-06-06: the guard landed (#76 -> tests/test_rollout_stability_guard.py
-+ views_hydranet/utils/rollout_diagnostics.py). This test is now GREEN, retained as a
+which C-113 can silently recur. RESOLVED 2026-06-06: the guard landed (#76 ->
+tests/test_rollout_stability_guard.py + views_hydranet/utils/rollout_diagnostics.py).
+This test is now GREEN, retained as a
 meta-guard that fails if the C-113 runaway guard is ever deleted (C-121).
 
 Observation (P4, FIXED 2026-06-06): ADR-057's `**Branch:**` field still names the now-
