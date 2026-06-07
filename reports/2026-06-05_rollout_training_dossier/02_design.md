@@ -105,6 +105,49 @@ feedback." B3 is the maximal, distribution-matching option — kept in the catal
 not proposed first (cost + the "no benefit < 100 steps" caveat, and our window may be
 short).
 
+### 4.3 B1 relative to ADR-056 scheduled sampling — what actually changes, and the gradient contract
+
+*(Added 2026-06-06, pre-increment-2 design clarification — surfaced when implementation began.)*
+
+**The existing scheduled sampling is already a proto-pushforward.** `_process_sequence`
+(lines 191–200) with `ss_epsilon > 0` feeds `prev_pred = t1_pred.detach()` back as the
+input (Bernoulli@`ss_epsilon`) and computes the per-step loss on the prediction made
+*from that fed-back input*. Because only the **cross-step** link is detached — not the
+current step's `model(t0_input, h)` call — **the model's weights already receive gradient
+at the perturbed (own-prediction) operating point.** That is exactly Brandstetter's
+recipe ("unroll, but backprop only the last step"). So we are **not** adding gradient
+where there is none; we are **refining a term-less, Bernoulli-masked proto-pushforward.**
+
+**Therefore "feedback gradient SEVERED" (§2) is precise but easily mis-read.** What is
+severed is the **cross-step / through-time** feedback gradient (prev_pred → next input).
+The **within-step** operator gradient (fed-back input → output → loss → weights) is live
+whenever `ss_epsilon>0`. B1 does **not** restore the cross-step gradient — **B2 GTF does**
+(it un-detaches and α-bounds it). This distinction sets the test contract below.
+
+**What B1 (pushforward) changes over ADR-056:**
+1. **Always-feed (not Bernoulli):** the stability evaluation uses the model's own
+   one-step-prior prediction every step (or on an annealed schedule), not with prob
+   `ss_epsilon` — so the operator is trained at the operating point it will actually
+   occupy at inference.
+2. **An explicit, annealed `L_stability` term** (weighted, → small; CRPS uncontaminated,
+   R1) — vs SS's implicit "sometimes the input is a prediction."
+3. **K-step coverage** via `rollout_horizon` (reach the step-12 onset).
+4. Gradient stays **last-step-only** (detach across steps) — flat memory in K.
+
+**The gradient contract increment-2 tests must assert (corrected):**
+- ✅ **B1:** under `rollout_horizon>1`, `∂L_stability/∂(model params)` is **non-zero and
+  finite** — i.e. the stability term trains the weights *at the fed-back operating point*.
+  (NOT "the cross-step feedback gradient is live" — that would be testing B2.)
+- The cross-step feedback **remains detached** under B1 (assert it, to keep memory flat
+  and to keep B1 distinct from B2).
+- `rollout_horizon=1` ⇒ byte-identical to today (parity).
+
+**Decision (for the method review to contest):** B1 is the *minimal, honest refinement*
+of machinery we already ship (ADR-056), so it is the right first rung — **unless** the
+panel judges that the cross-step gradient (B2 GTF) is necessary from the outset because
+the runaway rides a *through-time* dependency that last-step-only training cannot reach.
+That is the live question for the `expert-method-review` below.
+
 ## 5. The `rollout_horizon` hyperparameter (K)
 
 A single config knob, the "look-ahead depth" the user described (n-beats-like):

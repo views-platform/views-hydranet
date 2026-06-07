@@ -147,6 +147,16 @@ class HydraNetConfig(BaseModel):
             "reports/preanalysis_balancer_bisect.md."
         ),
     )
+    rollout_horizon: int = Field(
+        default=1,
+        ge=1,
+        description=(
+            "C-113 / Axis B: number of autoregressive steps to train through "
+            "(the rollout-training 'look-ahead'). Default 1 = the current one-step "
+            "path (byte-identical parity); >1 enables the B1 pushforward stability "
+            "term. Candidate K=12. See reports/2026-06-05_rollout_training_dossier/."
+        ),
+    )
     sweep: bool = Field(default=False)
     random_flips: bool = Field(default=True)
     diagnostic_visualizations: bool = Field(default=False)

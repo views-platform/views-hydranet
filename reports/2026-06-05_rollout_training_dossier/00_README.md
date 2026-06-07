@@ -42,13 +42,13 @@ option (Professor Forcing), all governed by one config hyperparameter,
 |---|------|------|--------|
 | 00 | `README` | spine (this file) | living |
 | 01 | `literature` | the three papers + recurrent-stability neighbours, annotated | drafted 2026-06-05 |
-| 02 | `design` | the Axis-B design + the `rollout_horizon` HP + GPU-cost analysis | drafted 2026-06-05 — **reviewed (see 02b); revisions pending** |
+| 02 | `design` | the Axis-B design + the `rollout_horizon` HP + GPU-cost analysis | drafted 2026-06-05 — **reviewed (02b); revised 2026-06-06 (R1–R7 folded, see §10)** |
 | 02b | `method_review` | expert-method-review panel verdict + methodological risks | done 2026-06-05 |
-| 03 | `harness_and_invariants` | guardrails (to build) | TODO |
-| 04 | `roadmap` | gated implementation/experiment sequence | TODO |
-| 05 | `analysis_plan` | first pre-registered experiment | TODO (after review) |
-| 06 | `glossary` | exposure bias, pushforward, GTF, α, K, zero-stability… | TODO |
-| 07 | `experiment_log` | append-only ledger | TODO |
+| 03 | `harness_and_invariants` | invariants (hard / changed / respect) + standing harness + §3 new-harness gaps + pre-flight checklist | **seeded 2026-06-06** |
+| 04 | `roadmap` | gated phase sequence (P0 decide → P1 harness → P2 B1 wired → P3 MVP → P4 iterate/escalate → P5 ADR-058) + dep-graph + milestones | **seeded 2026-06-06** |
+| 05 | `analysis_plan` | first pre-registered experiment (B1 MVP, active balancer; resolves falsify P2/P4) | **seeded 2026-06-06** |
+| 06 | `glossary` | exposure bias, pushforward, GTF, α, K, zero-stability… | **seeded 2026-06-06** |
+| 07 | `experiment_log` | append-only ledger (precursors + EXP-01 planned) | **seeded (skeleton) 2026-06-06** |
 
 ## 4. Harness at a glance
 
@@ -81,9 +81,21 @@ option (Professor Forcing), all governed by one config hyperparameter,
 - [ ] Kill `freeze_h` (Element 1) — `freeze_h="none"`, remove the inference-time
       state-freeze; **gate behind the `rollout_horizon=1` parity guard + golden_hour
       re-eval** (Operational). Grounded in `reports/results_freezeh_ablation.md` (inert).
-- [ ] `03` harness + `05` pre-registered first experiment (B1 pushforward, K=1 default).
-- [ ] **Sequence the program after the C-111 balancer verdict closes** (don't tune
-      rollout HPs atop the unattributed acute trigger).
+- [x] `05` pre-registered first experiment (B1 pushforward MVP, **active** balancer, K=12;
+      resolves falsify P2/P4 → C-125 note / C-129). Decisions: R6 satisfied; active is the
+      primary arm; Axis B sequenced **before** ZITD.
+- [x] `03` harness + pre-flight checklist — invariants, standing harness, and the §3 new-harness
+      gaps to build before B1 (the last *doc* gate).
+- [ ] **Build the §3 harness gaps (TDD) → the real (c) GTF / unroll-K (#78)** — pushforward/GTF
+      behind `rollout_horizon` (K=1 parity), feedback-gradient-liveness test, annealed weight +
+      uncontaminated CRPS, gradient clipping, full-36 boundedness + calibration readouts.
+      *(Training-loop change + GPU — the durable build; gated on the checklist + the EXP-02 verdict.)*
+- [x] ~~Sequence after the C-111 balancer verdict closes~~ — **verdict in**; R6 satisfied, proceed.
+
+**Experiment track** (cheap scheduled-sampling proxy *before* the real (c) build — full log in `07`; reviews in `02c`/`02d`):
+- [x] **EXP-01** always-feed `ss_epsilon_max=1.0`: runaway **gone**, but **collapsed to 0** (bounded-but-useless — the predicted "goes bland"). Axis so far: **0.25 explode / 1.0 collapse**.
+- [ ] **EXP-02** middle ceiling `~0.5` **+ real eval**: does plain-SS have a stable-*nonzero* regime? (VoI gate, pre-registered in `07`). Rule: nonzero ∧ skill → confirm on 2nd seed; else → commit to **(c) GTF**.
+- [ ] **(c)** the durable build (GTF / unroll-K, `05`/#78) — informed by EXP-02; chair's "scheduler" instinct = GTF's α-anneal.
 - **Strongest live dissent (D5):** fixing the point runaway may not fix — and could
   worsen (mean-hedging/blurring) — the chronic MCR/zero-rate calibration problem. Carry
   as a falsifier, not a footnote.
