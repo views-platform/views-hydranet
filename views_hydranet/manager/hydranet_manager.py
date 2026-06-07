@@ -182,10 +182,11 @@ class HydranetManager(ForecastingModelManager):
         else:
             logger.info("✅ Architecture: Head Count Aligned (3+3)")
 
-    def _execute_model_training(self) -> None:
-        """HydraNet specific training override."""
-        self._train_model_artifact()
-
+    # NOTE: _execute_model_training is intentionally NOT overridden. The base
+    # ForecastingModelManager phase template owns the wandb run lifecycle
+    # (initialize_run("train") + TrainingStage.finalize_training + finish_run) and
+    # calls the _train_model_artifact() hook below. Overriding the phase template
+    # silently drops the wandb train run (was C-132). Customize training via the hook.
     def _train_model_artifact(self) -> Any:
         """
         Executes the training lifecycle and returns the trained model object.

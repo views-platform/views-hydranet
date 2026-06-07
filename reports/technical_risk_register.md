@@ -4,9 +4,9 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-06-05                           |
-| Total Concerns    | 127                                  |
-| Open Concerns     | 33                                   |
+| Last Updated      | 2026-06-07                           |
+| Total Concerns    | 132                                  |
+| Open Concerns     | 38                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 94                                   |
 
@@ -653,6 +653,89 @@ Tier 3 rationale: a cross-program coordination/dependency gap (no silent corrupt
 
 ---
 
+### C-130: `aggregate_method` silently inert under `evaluation_mode='stochastic'`
+
+| Field | Value |
+|-------|-------|
+| ID | C-130 |
+| Tier | 4 |
+| Source | review (config_hyperparameters.py sanity check, 2026-06-07) |
+| Trigger | Setting or tuning `aggregate_method` expecting it to affect output while `evaluation_mode='stochastic'`, or switching to `'point'` and assuming the prior `aggregate_method` had been active |
+| Location | `views-models/models/violet_visitor/configs/config_hyperparameters.py:118-119`; behavior in `views_hydranet` `HydraNetConfig` |
+
+The violet config sets both `evaluation_mode='stochastic'` and `aggregate_method='arithmetic_mean'`. In stochastic mode the full posterior is preserved and `aggregate_method` has **no effect** — `HydraNetConfig` emits a warning banner saying so. Harmless redundancy, not a defect, but a developer could tune `aggregate_method` expecting it to matter and be misled. The warning is the safety net.
+
+Tier 4 rationale: a config redundancy with an explicit runtime warning; no correctness or reliability impact. Single-config observation.
+
+---
+
+### C-131: `weight_decay=0.1` is large in absolute terms (intentional, but unflagged)
+
+| Field | Value |
+|-------|-------|
+| ID | C-131 |
+| Tier | 4 |
+| Source | review (config_hyperparameters.py sanity check, 2026-06-07) |
+| Trigger | Investigating posterior calibration/sharpness or regularization strength without accounting for the large `weight_decay` |
+| Location | `views-models/models/violet_visitor/configs/config_hyperparameters.py:51` (and `config_sweep.py`) |
+
+`weight_decay=0.1` is high relative to typical values (1e-4 to 1e-2). It is the **established** value (matches `config_sweep.py` and the test baseline), so not a defect — but it is large enough to materially affect regularization and posterior width, and anyone diagnosing those should know it's intentional and large rather than assume a conventional small value.
+
+Tier 4 rationale: a code/config observation, not a correctness issue; the value is deliberate. No silent corruption. Cross-ref C-126 (calibration metric).
+
+---
+
+### C-132: HydranetManager `_execute_model_training` override silently drops the wandb train-run lifecycle
+
+| Field | Value |
+|-------|-------|
+| ID | C-132 |
+| Tier | 2 |
+| Source | falsify + 3-agent investigation (wandb training-logging bug, 2026-06-07) |
+| Trigger | Running a **single training run** (`main.py -r calibration -t`) and expecting wandb to contain training-phase metrics (loss, `mtl_log_var/*`, sigma, `ss_epsilon`) — or relying on those curves to diagnose a training run |
+| Location | `views-hydranet/views_hydranet/manager/hydranet_manager.py:185-187` (override) vs base `views-pipeline-core/views_pipeline_core/managers/model/model.py:~1186` (`_execute_model_training`) |
+| Cross-refs | C-112 (pre/post-C-111 training-dynamics comparison — affected if training curves are needed) |
+
+`HydranetManager._execute_model_training` overrides the base `ModelManager._execute_model_training` with a bare `self._train_model_artifact()`, dropping the base method's `with self._wandb_module.initialize_run(job_type="train"): ...` wrapper (and also its `TrainingStage.finalize_training` + `ModelTrainingException` handling). Consequently, on the **single-run `-t` path only**, `wandb.run is None` throughout training and every guarded `wandb.log` in `training_engine.py` (L640/651/664) silently no-ops — no error, no warning, no train run on the dashboard. **Scope is path-specific:** the sweep path (`_execute_model_sweeping`) and eval path (`_execute_model_evaluation`) are NOT overridden, so they keep their wandb runs open and log correctly (verified: pink_pirate sweep TRAIN runs + all EVAL runs logged fine through 2026-06-05). No impact on training correctness, artifacts, or eval metrics — observability loss only.
+
+Tier 2 rationale: a silent divergence from a base-class contract (a subclass phase-override drops a lifecycle the base guarantees), with a clear trigger and zero error signal; latent since ~March 2026 and only surfaced when per-lesson training logging was added 2026-06-01 (it had nowhere to land on the `-t` path). Not Tier 1 (no model-output corruption). Fix direction (pending /expert-code-review): wrap the override body in `initialize_run("train")` — NOT a plain delete, since the override deliberately bypasses `finalize_training`. Why-not-caught: workflow is sweep-centric (`-s`) + eval-metric-centric (`-e`), both of which log fine; no test asserts an active train run.
+
+---
+
+### C-133: Overridable phase-template pattern lets subclasses silently drop the wandb/bookkeeping lifecycle
+
+| Field | Value |
+|-------|-------|
+| ID | C-133 |
+| Tier | 2 |
+| Source | expert-code-review (wandb lifecycle, 2026-06-07) |
+| Trigger | A `ModelManager` subclass overriding any base `_execute_*` phase method (`_execute_model_training`/`_evaluation`/`_sweeping`/`_forecasting`), or a new phase added to the base, dropping the wandb-run + post-phase bookkeeping the base guarantees |
+| Location | `views-pipeline-core/views_pipeline_core/managers/model/model.py` phase methods (~L1139/1186/1253/1537); exemplar override `views-hydranet/views_hydranet/manager/hydranet_manager.py:185` |
+| Cross-refs | C-132 (the instance), C-134 (silent no-op), D-07 |
+
+Template-Method shape where the *template* phase methods are freely overridable and `_`-named identically to the *hook* methods (`_train_model_artifact` etc.) subclasses are meant to extend. The LSP postconditions the template guarantees (run created, `finalize_training`, `ModelTrainingException` wrapping — documented at model.py:1178-1181) are doc-only, not enforced. C-132 is one realized instance; this pattern is the reusable trap — the next subclass or new phase reintroduces it silently.
+
+Tier 2 rationale: structural fragility with a clear, recurring trigger and zero error signal; root cause of the C-132 class. Prevention: make templates non-overridable (or `@final`-style), separate hook vs template names, and/or centrally assert the run-lifecycle invariant. Not Tier 1 (no output corruption).
+
+---
+
+### C-134: Silent no-op telemetry when `wandb.run` is None (no fail-loud)
+
+| Field | Value |
+|-------|-------|
+| ID | C-134 |
+| Tier | 2 |
+| Source | expert-code-review (wandb lifecycle, 2026-06-07) |
+| Trigger | A phase (training especially) runs while `wandb.run is None` — the guarded `wandb.log` calls drop all metrics with no warning or error |
+| Location | `views-hydranet/views_hydranet/train/training_engine.py:640/651/664`; `views_hydranet/utils/utils.py:~204` (`train_log`) |
+| Cross-refs | C-132, C-133 |
+
+`if wandb.run is not None:` makes "no observability" indistinguishable from "healthy." A ~90-minute training run can lose all telemetry silently — exactly how C-132 stayed hidden, and it bites during the C-112/C-113 investigations that most need training dynamics. Prevention: emit a one-time WARNING (or assert, in non-sweep/non-test runs) when a training loop proceeds with `wandb.run is None`.
+
+Tier 2 rationale: silent failure mode that masks other defects (defense-in-depth gap); clear trigger, no error signal. Observability-only (no correctness impact) → not Tier 1.
+
+---
+
 ## Disagreements
 
 ### D-01: VolumeHandler scope — God Object vs Deep Module
@@ -718,6 +801,17 @@ Tier 3 rationale: a cross-program coordination/dependency gap (no silent corrupt
 | Source | expert-code-review (2026-06-05) |
 | Perspectives | Ousterhout/Nygard (deepen the guard so it reasons in the space where the catastrophe occurs — i.e. post-`expm1`/attractor-aware — rather than a log-space ceiling that hides the real failure), Beck (cheaper: add an external fast regression test (`diagnose_io_gain`) and document the ceiling's limit in IntegrityGuardian.md §6, rather than complicate the guard) |
 | Resolution | **Open.** Cross-refs C-113/C-121 (the blind guard) and the C-121 doc-gap annotation. Decision deferred until the C-111 bisect / ZITD direction clarifies whether the runaway is even being fixed upstream. |
+
+---
+
+### D-07: C-132/C-133 fix scope — minimal wrap vs structural enforcement
+
+| Field | Value |
+|-------|-------|
+| ID | D-07 |
+| Source | expert-code-review (wandb lifecycle, 2026-06-07) |
+| Perspectives | Side A (Beck/Feathers/Martin-minimal): smallest change — wrap the hydranet `_execute_model_training` override body in `initialize_run("train")` (or delete the override so the base template runs) + a pinning test; ship now and unblock. Side B (GoF/Ousterhout/Hickey): that fixes only the instance; the overridable-template (C-133) + ambient-global-`wandb.run` (C-134) design reproduces the bug on the next subclass/phase — enforce the lifecycle in the base (non-overridable template / central invariant) and/or inject the logger instead of reading global state. |
+| Resolution | **Open.** Cross-refs C-132/C-133/C-134. Decision gated on the "why does the override skip `finalize_training`?" investigation — if hydranet doesn't need to skip it, deleting the override (Side A, but structural) both unblocks and removes the divergence; otherwise a wrap + a cheap fail-loud/test (slice of Side B) is the low-regret middle. |
 
 ---
 

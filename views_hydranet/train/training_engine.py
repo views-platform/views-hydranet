@@ -484,6 +484,19 @@ def training_loop(
     ReproducibilityGate.lock_entropy(np_seed=config["np_seed"], torch_seed=config["torch_seed"])
     logger.info("🚀 Training initiated...")
 
+    # Fail-loud (C-134): per-lesson metrics below are guarded by `if wandb.run is not None`,
+    # which silently no-ops when no run is active. Warn so a missing train run is visible
+    # rather than an empty dashboard. wandb is imported lazily here (C-12 pattern), matching
+    # the per-lesson logging blocks below.
+    import wandb
+
+    if wandb.run is None:
+        logger.warning(
+            "⚠️ wandb.run is None at training start — per-lesson training metrics will NOT be "
+            "logged to wandb. In a real run this means the training phase did not open a wandb "
+            "run (see C-132/C-134); only expected under unit tests."
+        )
+
     # Initialize Visual Truth Engine with Authoritative Timestamp
     viz = VisualDiagnostics(config, run_timestamp=run_timestamp)
 
