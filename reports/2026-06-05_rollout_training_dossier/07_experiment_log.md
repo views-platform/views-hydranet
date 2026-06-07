@@ -26,9 +26,24 @@ Legend: ✅ predictions held · 🔴 falsifier fired · ⚪ inconclusive.
 
 ## Planned
 
-### EXP-01 — B1 pushforward MVP  (planned)
-- Pre-registration: [`05_analysis_plan.md`](05_analysis_plan.md)
-- One variable: `rollout_horizon` (pushforward stability term) on violet/seed-42, **active** balancer.
-- Gated on: `03 §5` pre-flight green (the §3 harness build, P1/P2) + GPU.
-- Baselines: `…233938` (active exploder, stability) · `…051634` (frozen healthy, calibration).
-- *(awaiting execution — no outcome yet; this is the open pre-registration the dossier `status` tracks)*
+### EXP-01 — Scheduled-sampling always-feed (`ss_epsilon_max` 0.25 → 1.0)  (2026-06-06) ⚠️
+- **What & why:** the "just try a fix" cheap stab — crank own-prediction training to the max. The cross-step gradient stays **detached**, so this is the crude *per-step* proxy, **not** the `rollout_horizon` B1 of `05` (which remains the real build). Surfaced via `02c`.
+- **One variable:** `ss_epsilon_max` 0.25 → 1.0 on **violet / seed-42, active balancer**.
+- **Driver / artifact / log:** `views-models/scripts/run_ss_alwaysfeed.sh` · `calibration_model_20260606_190457.pt` · `logs/ss_alwaysfeed_20260606_171806.log`. Config trap-restored to 0.25 after.
+- **Readout (`diagnose_io_gain`, synthetic):** the free-running rollout **stops exploding** — but **collapses to 0.00** by step ~12 (step1 ≈1.0 → step12/24/48 = 0.00; expm1 = 0). Local operator gain still ‖J‖₂>1, but the attractor moved to the trivial **zero fixed point**.
+- **Verdict vs falsifiers:** runaway **gone** (no out-of-range) — but this is the **"bounded but useless"** collapse the panel *and the chair* predicted (C-126 family): bounded by going degenerate, not by forecasting. ⚠️ **partial — cured the explosion by killing the forecast.**
+- **Caveat:** synthetic probe; healthy pink settles nonzero-in-range, this flatlines to 0 → strong collapse signal, but real-data skill not yet confirmed (folded into EXP-02's readout).
+- **Decision:** → method review `02d` → run the **middle ceiling** (EXP-02) with a **real eval**, then build the structured (c) GTF.
+- **Evidence added to the axis:** ceiling **0.25 → explode**, **1.0 → collapse** — brackets the scheduled-sampling-intensity axis.
+
+### EXP-02 — Scheduled-sampling middle ceiling (`ss_epsilon_max` ≈ 0.5) + real eval  (planned · pre-registered here)
+- **Hypothesis:** plain scheduled-sampling has a stable-*nonzero* regime somewhere between explode (0.25) and collapse (1.0). *(Prior is low — see the knife-edge risk RT-knifeedge + Huszár bias; this is a VoI **gate**, not a candidate endpoint.)*
+- **One variable:** `ss_epsilon_max` → ~0.5 on violet/seed-42, active balancer. (The dial already ramps low→ceiling; we only lower the ceiling.)
+- **Readout:** BOTH `diagnose_io_gain` (stability across 36) **and a real `--evaluate`** (CRPS/MCR — *skill*, not just boundedness). **Do not judge on the synthetic probe alone** (the 1.0 collapse read "healthy" at 0.00).
+- **Pre-registered decision rule:**
+  - **stable ∧ nonzero ∧ nontrivial skill** ⇒ plain-SS *has* a regime (cheap, surprising win) → confirm on a 2nd seed.
+  - **explode ∨ collapse ∨ stable-but-zero-skill** ⇒ plain-SS has **no good regime** (confirmed, not assumed) → commit to **(c) GTF**.
+- Baselines: `…233938` (explode) · `…051634` (frozen-healthy, calibration ref).
+
+### Later — the real build (c): controlled unroll-K / GTF
+- Pre-registration: [`05_analysis_plan.md`](05_analysis_plan.md) (the `rollout_horizon` B1/GTF MVP). Gated on the `03 §3` harness build. The chair's "scheduler, start-low-get-higher" instinct **is** GTF's α-anneal ⇒ build **B2-flavoured** (bounded cross-step gradient), not just a deeper pushforward.

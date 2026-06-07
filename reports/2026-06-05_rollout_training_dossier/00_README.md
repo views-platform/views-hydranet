@@ -86,12 +86,16 @@ option (Professor Forcing), all governed by one config hyperparameter,
       primary arm; Axis B sequenced **before** ZITD.
 - [x] `03` harness + pre-flight checklist — invariants, standing harness, and the §3 new-harness
       gaps to build before B1 (the last *doc* gate).
-- [ ] **Build the §3 harness gaps (TDD)** then **B1 (#78)** — the pushforward path behind
-      `rollout_horizon` (K=1 parity), the feedback-gradient-liveness test, annealed weight +
-      uncontaminated CRPS, gradient clipping, the full-36 boundedness + calibration readouts.
-      *(Training-loop change + GPU — the real build; gated on this checklist going green.)*
-- [x] ~~Sequence after the C-111 balancer verdict closes~~ — **verdict in** (sweep: freeze
-      seed-fragile, exposure-bias is root); R6 satisfied, proceed.
+- [ ] **Build the §3 harness gaps (TDD) → the real (c) GTF / unroll-K (#78)** — pushforward/GTF
+      behind `rollout_horizon` (K=1 parity), feedback-gradient-liveness test, annealed weight +
+      uncontaminated CRPS, gradient clipping, full-36 boundedness + calibration readouts.
+      *(Training-loop change + GPU — the durable build; gated on the checklist + the EXP-02 verdict.)*
+- [x] ~~Sequence after the C-111 balancer verdict closes~~ — **verdict in**; R6 satisfied, proceed.
+
+**Experiment track** (cheap scheduled-sampling proxy *before* the real (c) build — full log in `07`; reviews in `02c`/`02d`):
+- [x] **EXP-01** always-feed `ss_epsilon_max=1.0`: runaway **gone**, but **collapsed to 0** (bounded-but-useless — the predicted "goes bland"). Axis so far: **0.25 explode / 1.0 collapse**.
+- [ ] **EXP-02** middle ceiling `~0.5` **+ real eval**: does plain-SS have a stable-*nonzero* regime? (VoI gate, pre-registered in `07`). Rule: nonzero ∧ skill → confirm on 2nd seed; else → commit to **(c) GTF**.
+- [ ] **(c)** the durable build (GTF / unroll-K, `05`/#78) — informed by EXP-02; chair's "scheduler" instinct = GTF's α-anneal.
 - **Strongest live dissent (D5):** fixing the point runaway may not fix — and could
   worsen (mean-hedging/blurring) — the chronic MCR/zero-rate calibration problem. Carry
   as a falsifier, not a footnote.
