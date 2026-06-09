@@ -37,6 +37,12 @@ Legend: ✅ predictions held · 🔴 falsifier fired · ⚪ inconclusive.
 - **Evidence added to the axis:** ceiling **0.25 → explode**, **1.0 → collapse** — brackets the scheduled-sampling-intensity axis.
 
 ### EXP-02 — Scheduled-sampling middle ceiling (`ss_epsilon_max` ≈ 0.5) + real eval  (planned · pre-registered here)
+- **▶ UN-PARKED 2026-06-09 — this IS the live R4 probe (#93).** After Arm-1 un-collapsed magnitude (the hurdle
+  works one-step; the explosion is the **untrained rollout** — C-136), the SS-middle ceiling **on the hurdle config**
+  is exactly the cheap rollout-training probe: does un-collapsing the head break the old explode(0.25)/collapse(1.0)
+  bracket → a stable *nonzero* rollout? **Readout = step-1 + full-36 + positive-subset proper scores** (the R4 readout,
+  #93). If it explodes/collapses → the B1-pushforward MVP (`04` P3). *(Was: ⏸️ PARKED 2026-06-08 as a proxy for the
+  magnitude question — now un-parked, since the hurdle changed the head it runs on.)*
 - **Hypothesis:** plain scheduled-sampling has a stable-*nonzero* regime somewhere between explode (0.25) and collapse (1.0). *(Prior is low — see the knife-edge risk RT-knifeedge + Huszár bias; this is a VoI **gate**, not a candidate endpoint.)*
 - **One variable:** `ss_epsilon_max` → ~0.5 on violet/seed-42, active balancer. (The dial already ramps low→ceiling; we only lower the ceiling.)
 - **Readout:** BOTH `diagnose_io_gain` (stability across 36) **and a real `--evaluate`** (CRPS/MCR — *skill*, not just boundedness). **Do not judge on the synthetic probe alone** (the 1.0 collapse read "healthy" at 0.00).

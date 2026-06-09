@@ -21,6 +21,14 @@ option (Professor Forcing), all governed by one config hyperparameter,
 
 ## 2. Relationship to prior work / ADRs
 
+> **LIVE — joint with the hurdle (2026-06-09; was "gated behind magnitude").** Arm-1's step-1 read showed the
+> hurdle **un-collapsed magnitude** and the failure was the **untrained rollout** (C-136) — so rollout training
+> (Axis B) is now the **live partner** of the hurdle, *not* "sequenced after the magnitude gap is closed." The
+> old worry (training the rollout on a *collapsed* head — D5) is dissolved: the hurdle un-collapses it first.
+> **Cheap entry = the SS-middle probe** (R4 / #93 — the revived EXP-02 in `07`); this dossier's **B1-pushforward
+> MVP** (`04` P3) is the real build if the probe is insufficient. (Rollout = explosion / MCR ≫ 1; the
+> count-likelihood distributional head remains the *escalation-only* fix layered after — `04 §4`.)
+
 - **Complements / supersedes parts of:** ADR-056 (scheduled sampling — the existing,
   *detached + Bernoulli-masked + biased* cousin of these methods); ADR-028 §2
   (deterministic-recurrence stabilizers — clamps, the symptom-level fallback);
@@ -44,6 +52,8 @@ option (Professor Forcing), all governed by one config hyperparameter,
 | 01 | `literature` | the three papers + recurrent-stability neighbours, annotated | drafted 2026-06-05 |
 | 02 | `design` | the Axis-B design + the `rollout_horizon` HP + GPU-cost analysis | drafted 2026-06-05 — **reviewed (02b); revised 2026-06-06 (R1–R7 folded, see §10)** |
 | 02b | `method_review` | expert-method-review panel verdict + methodological risks | done 2026-06-05 |
+| 02c | `method_review_b1_vs_b2` | follow-up review — B1-vs-B2 sequencing + VoI | done 2026-06-06 |
+| 02d | `method_review_next_experiment` | follow-up review — next-experiment (EXP-02 VoI gate) | done 2026-06-06 |
 | 03 | `harness_and_invariants` | invariants (hard / changed / respect) + standing harness + §3 new-harness gaps + pre-flight checklist | **seeded 2026-06-06** |
 | 04 | `roadmap` | gated phase sequence (P0 decide → P1 harness → P2 B1 wired → P3 MVP → P4 iterate/escalate → P5 ADR-058) + dep-graph + milestones | **seeded 2026-06-06** |
 | 05 | `analysis_plan` | first pre-registered experiment (B1 MVP, active balancer; resolves falsify P2/P4) | **seeded 2026-06-06** |
@@ -78,7 +88,7 @@ option (Professor Forcing), all governed by one config hyperparameter,
       plan (DL-engineer); `seq_len`-vs-36 check + a direct-multi-horizon baseline number
       (Sutton); promote the chaos-premise to a B2-blocker.
 - [ ] `register-risk` the 6 methodological risks (M-RT1…M-RT6 in `02b` §7).
-- [ ] Kill `freeze_h` (Element 1) — `freeze_h="none"`, remove the inference-time
+- [x] Kill `freeze_h` (Element 1) — **DONE (git `4e5273a`, 2026-06-05).** `freeze_h="none"`, removed the inference-time
       state-freeze; **gate behind the `rollout_horizon=1` parity guard + golden_hour
       re-eval** (Operational). Grounded in `reports/results_freezeh_ablation.md` (inert).
 - [x] `05` pre-registered first experiment (B1 pushforward MVP, **active** balancer, K=12;

@@ -4,9 +4,24 @@
 |---------------------|----------------------------------------------|
 | Subject             | Loss architecture for training on ~95% zero-inflated data |
 | ADR Number          | 050                                          |
-| Status              | Proposed                                     |
+| Status              | **Superseded by ADR-054** (hurdle + Basu DPD not adopted) |
 | Author              | Simon / Claude                               |
-| Date                | 27.05.2026                                   |
+| Date                | 27.05.2026 · superseded 2026-06-08           |
+
+> ## ⚠️ SUPERSEDED — archived 2026-06-08
+> The hurdle + **Basu DPD** loss proposed here was **NOT adopted.** It was superseded by
+> **[ADR-054 (Tobit censored-normal likelihood)](../active/054_tobit_censored_regression_loss.md)**,
+> which records this explicitly ("ADR-050 superseded for the hurdle approach").
+>
+> **The verdict on Basu DPD (and MSE / shrinkage):** a positive-regime location-scale loss cannot fix
+> the tail-averaging that pulls the magnitude head toward the *conditional mean* — see
+> `reports/path_a_deep_hurdle_asinh_basu.md` (the "mechanism behind this failure" analysis). Basu was
+> implemented (`feature/basu-loss`, PR #14) and configured for isolation testing
+> (`reports/configs_isolation/config_hp_s5_basu_dpd.py`), then dropped in favour of Tobit.
+>
+> **Do not resurrect Basu from this document.** Kept verbatim below for the historical record (FAIR).
+> The live regression loss is Tobit (ADR-054); the magnitude-collapse work continues in
+> `reports/2026-06-08_magnitude_calibration_dossier/`.
 
 ## 1. Context
 

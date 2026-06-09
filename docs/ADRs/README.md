@@ -62,10 +62,17 @@ Architectural decisions specific to the HydraNet system.
 - **[046](active/046_symmetric_feature_lifecycle.md)**: Symmetric Feature Lifecycle (Transformations vs. Derivations)
 - **[047](active/047_pandas_free_prediction_output.md)**: Pandas-Free Prediction Output Path
 - **[048](active/048_technical_risk_register.md)**: Technical Risk Register
+- **[049](active/049_sampling_strategy_registry.md)**: Sampling Strategy Registry for Anchor Selection
+- **[054](active/054_tobit_censored_regression_loss.md)**: ADR-054: Tobit Censored-Normal Likelihood as Regression Loss
+- **[055](active/055_learnable_per_target_tobit_sigma.md)**: ADR-055: Learnable Per-Target Tobit Sigma
+- **[056](active/056_scheduled_sampling.md)**: ADR-056: Scheduled Sampling for Autoregressive Training
+- **[059](active/059_predictive_uncertainty_representation.md)**: ADR-059: Predictive Uncertainty — MC-Dropout Now, Learned Posterior as the Target
 
 ## [Proposed (Emerging)](./proposed/)
 
 - **[029](proposed/029_geographic_anchors.md)**: Geographic Anchors for Autoregressive Stability
+- **[053](proposed/053_build_and_package_management_tooling.md)**: Build and Package Management Tooling
+- **[057](proposed/057_variational_dropout_autoregressive_stability.md)**: ADR-057: Variational (Consistent-Mask) Dropout for Autoregressive Stability
 
 ## [Archive (Historical)](./archive/)
 
@@ -87,6 +94,7 @@ Architectural decisions specific to the HydraNet system.
 - **[024](archive/024_model_artifact_evaluator_specification.md)**: Specification for BacktestOrchestrator (The Backtester)
 - **[033](archive/033_superseded_by_032.md)**: Naming Invariants and Semantic Intent
 - **[041](archive/041_superseded_by_008.md)**: Symmetric Vector Architecture (Task-Specific Targets)
+- **[050](archive/050_hurdle_loss_architecture.md)**: Hurdle-Decomposed Loss Architecture for Zero-Inflated Conflict Data
 - **[023](archive/proposed_023_scalable_reconstruction_polars.md)**: Scalable Spatiotemporal Reconstruction via Polars Bridge
 
 ---

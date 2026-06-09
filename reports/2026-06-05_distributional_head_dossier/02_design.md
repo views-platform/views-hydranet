@@ -9,6 +9,27 @@
 
 ---
 
+## 0.0 ⏭ HURDLE-NB — the ESCALATION head (2026-06-09; build only if hurdle + rollout underdelivers — see `00 §0`)
+
+The escalation is a **hurdle-NB**, not a ZINB-mixture or Tweedie (two method reviews, 2026-06-09: Arm-1 hurdle FAILED by explosion; a second review caught that **reusing the focal classifier as a ZINB π mis-specifies the likelihood** — the classifier learns marginal `P(y>0)`, not a structural zero-inflation gate). The Tweedie/ZITD design (§0–§11) is preserved as the **tail-escalation**. The hurdle-NB is the **probability-coupled hurdle the program has been after all along — now with a proper COUNT positive-part** (no `expm1`-of-a-free-output explosion source, unlike Arm-1's log-space lognormal). **NOTE (2026-06-09): this is the *escalation* design — the live next step is hurdle + rollout training (`00 §0`); build this only if that underdelivers.** Escalation design:
+
+- **Head — reuse the existing 3+3 topology (one new param: θ):**
+  - **Gate** = the **existing classification head**, used *as the hurdle gate* `P(y>0)=sigmoid(cls)` — principled (it IS the gate; trained on `by_*`), not a structural-π reinterpretation.
+  - **μ** = `softplus` on the existing regression heads (replace ReLU) — the **count-space mean of the positive (zero-truncated NB) part**.
+  - **θ** (NB dispersion) = a learnable **per-target scalar** — an MVP simplification; a region/feature-varying θ is a pre-registered ablation (heterogeneous conflict geography — M-Z7).
+  - `ModelOutput` contract preserved.
+- **Loss — hurdle-NB (NEW, count-space, closed-form):** the gate keeps its existing classification loss (focal on `by_*`); the **positive part is a zero-truncated NB NLL** on the raw counts of `y>0` cells (two independent gradient paths — Cragg/Mullahy hurdle). **Closed-form — no Tweedie-density blocker.** `E[y] = P(y>0)·E[NB⁺]`.
+- **Count-target bridge (the #1-danger piece) — a contained, exhaustively-tested raw-target provider:** the NB part needs raw-count `y`, but the pipeline carries `log1p`. Recover it **once** via `expm1(log1p y_true)` — SAFE on the **bounded real target** (`expm1(log1p(x))=x`, exact). **The dangerous `expm1`-on-predictions is NEVER done** (μ stays count-space softplus; rollout feeds back `log1p(E[y])`). Own small class; exhaustive tests (exact round-trip, NaN/Inf guards, asserts it only ever touches targets — never predictions).
+- **Inference:** emit `E[y] = P(y>0)·E[NB⁺|y>0]` (count space); feed back `log1p(E[y])`; existing `inverse_transform_volume` + `_clamp_feedback` unchanged.
+- **Flag + parity:** default-off `output_distribution="hurdle_nb"`; flag-off ⇒ byte-identical to the current head (parity test).
+- **Explosion-check GATE (read-only, NOT a clamp):** after training, run `scripts/diagnose_io_gain.py` on `E[y]` over 36 steps — tests the (unproven) claim that the count-space softplus output stays bounded under autoregression. Bounded → eval; explodes → STOP, and read the **operator gain** (Part A) to see whether the recurrence (not just the link) is the problem (Hochreiter).
+- **Coherent head-swap, NOT one variable:** this changes loss + link + target-space + emission together. The gate isolates *stability*; **skill attribution needs ablations** (global-vs-varying θ; later a dedicated-π proper ZINB if the hurdle underfits). Add a **posterior-predictive check** (does the fitted head reproduce the ~95% zero-rate AND the positive tail?) and **benchmark vs DynAttn's** grid-level numbers.
+- **Escalation by failure mode:** explodes → rollout-training (Axis B) / direct multi-horizon (DynAttn). Stable-but-tail-underfit → Tweedie/ZITD (below) or DEMM GPD tail. Evidence of genuinely structural (two-source) zeros → proper ZINB with a *dedicated* π head.
+
+CICs (contract-first, BEFORE code): `docs/CICs/HurdleNBLoss.md` + `docs/CICs/RawTargetProvider.md`. Methodological risks M-Z1, M-Z5, M-Z6, M-Z7, M-Z8 → `register-risk`.
+
+---
+
 ## 0. Advances since the original proposal (2026-06-05)
 
 The original Path B (below) argued for ZITD on *distributional* grounds — zero-inflation, retransformation bias, probabilistic consistency, uncertainty. Everything in this session since then **strengthens the case from a second, independent direction: stability.** ZITD is not just a better likelihood; its parameterization **structurally removes the C-113 autoregressive-runaway mechanism**.

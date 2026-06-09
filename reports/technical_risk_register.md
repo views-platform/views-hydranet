@@ -4,9 +4,9 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-06-07                           |
-| Total Concerns    | 132                                  |
-| Open Concerns     | 38                                   |
+| Last Updated      | 2026-06-09                           |
+| Total Concerns    | 135                                  |
+| Open Concerns     | 41                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 94                                   |
 
@@ -357,6 +357,8 @@ Tier 2 rationale: structural fragility with a confirmed, realistic trigger (it a
 
 **Update 2026-06-05 — durable fix designed + `freeze_h` retirement gated (expert-method-review, rollout dossier):** the durable fix is now designed as **Axis-B rollout training** (`reports/2026-06-05_rollout_training_dossier/`, ADR-058 candidate; see C-125/C-126) — train the prediction→input feedback operator (the runaway carrier) that is currently detached at `training_engine.py:200`. Retiring the (inert) inference-time `freeze_h` changes the inference path for *every* model, so it must be **gated** behind a `rollout_horizon=1` parity guard + a per-model golden_hour re-eval before merge — not flipped globally blind (folds method-review finding M-RT5). **Characterization gate PASSED 2026-06-05** (`views-models/logs/freezeh_pink_eval_*.log`): pink_pirate evaluated on its existing artifact with the freeze_h-removed path (always-`none`) reproduces the healthy reference to ~3 d.p. — step-wise CRPS lr_sb **0.133** / lr_ns **0.031** / lr_os **0.051** (ref ~0.13/0.03/0.05), MCR healthy. ⇒ removal is non-regressing; M-RT5 cleared. (Branch `chore/retire-freeze-h`: method + config field + 5 capability tests removed; ADR-027/CIC updated; ruff + 699 tests + validate_docs green.)
 
+**Update 2026-06-09 — step-1 read isolates the two axes (the hurdle works; the explosion is purely the rollout):** A teacher-forced **step-1** read of the Arm-1 hurdle eval (`predictions_calibration_20260609_051916` vs the Tobit baseline `…165326`) shows the magnitude head **un-collapsed at step 1** (rollout not yet engaged): MCR_pos `lr_sb` 0.11→**0.19**, `lr_ns` 0.02→**1.29**, `lr_os` 0.03→**0.73**. The explosion appears only from step-2 onward, when the now-nonzero magnitudes feed the **untrained** free-running loop — re-confirming the runaway carrier is the prediction→input feedback (Axis B), **not** the output/magnitude representation. **Corollary (folds M-Z1/M-Z3 from the 2026-06-09 distributional-head method reviews):** the claim that a sub-exponential (softplus / count-head) output link "dissolves the runaway by construction" is **unproven** — the only proof on this data (DynAttn / Iacus 2025) is a *direct* (non-autoregressive) ZINB that never faces the feedback loop; no held paper studies autoregressive stability of a distributional count head. ⇒ any count/hurdle-NB head must be **gated by a `diagnose_io_gain` 36-step explosion check before its eval is trusted** (pre-registered in the distributional-head dossier `05 §0`). See C-136 (the confound this conflation created) and C-129 (sequencing).
+
 ---
 
 ### C-114: Undocumented assumption — no dropout on the ConvLSTM recurrent connections, rationale unknown
@@ -598,6 +600,8 @@ The C-113 runaway is a *point/mean* pathology (the trajectory leaves the data ra
 
 Tier 3 rationale: evaluation/decision-hygiene gap; no silent corruption today, but it gates whether the rollout fix is genuinely progress. Mitigation: the rollout-training readout must include calibration (PIT/coverage) + sharpness (MCR/zero-rate) as first-class metrics, pre-registered in `05`.
 
+**Update 2026-06-09 (folds M-Z5 — count-head facet):** the same guard applies to the count / hurdle-NB head — on ~95%-zero data a degenerate near-zero forecast scores well (the "F5 zero-rate trap"). Judge the count head on **positive-subset proper scores (twCRPS/CRPS on `y>0`) + PIT/coverage + a posterior-predictive zero-rate/tail check**, never aggregate CRPS alone. Pre-registered in the distributional-head dossier `05 §0`; see C-137.
+
 ---
 
 ### C-127: Duplicate dict keys in model configs (F601) — later definition silently shadows the earlier
@@ -650,6 +654,8 @@ Tier 3 rationale: a **validation gap**, not a known defect — spot-checked beni
 The two active research programs both modify the **same** training loop and the **same** autoregressive feedback path, but their **interaction is unanalysed**. The rollout dossier declares itself "distinct from the ZITD dossier"; the ZITD dossier never mentions Axis B. Yet B1's rollout loss would have to train *through* ZITD's feedback re-encoding (`log1p(mean or sample)` from a softplus-link distributional head), and ZITD's softplus link is itself the *other* proposed cure for the same `expm1` runaway. Open questions neither plan owns: do B1 (rollout gradients) and ZITD (output representation) compose or conflict? Which lands first? Does B1's stability term interact with ZITD's NLL/CRPS objective? Left untracked, the two could collide in `training_engine` (merge/sequencing) and in feedback semantics.
 
 Tier 3 rationale: a cross-program coordination/dependency gap (no silent corruption today), but it raises cost-of-change and could mis-sequence the two largest research efforts. Mitigation: a one-paragraph coordination note in each dossier's `02_design` (or a shared sequencing decision) — likely "ship one cure for the runaway first (Axis B *or* the ZITD softplus link), measure, then layer the other," recorded before either retrain.
+
+**Update 2026-06-09 — evidence of coupling + escalation re-scoped (two method reviews + a step-1 read):** The distributional-head escalation is now **hurdle-NB-first**, not Tweedie/ZINB-mixture (a review caught the π mis-specification — see C-137). More importantly, the step-1 read (C-113 update) shows the magnitude fix (hurdle) **works one-step** and the explosion is purely the rollout — so the two programs are not merely "uncoordinated", they are **empirically coupled**: a magnitude fix un-collapses the head, which then *needs* rollout training to stay bounded. **Revised sequencing:** rather than "one cure or the other", the leading plan is **hurdle + scheduled-sampling (rollout training) together** — the hurdle un-collapses the head *first*, which dissolves the old D5/C-126 worry about training the rollout on a collapsed head. Recorded in the distributional-head dossier `00/02/05 §0`. See C-136.
 
 ---
 
@@ -733,6 +739,69 @@ Tier 2 rationale: structural fragility with a clear, recurring trigger and zero 
 `if wandb.run is not None:` makes "no observability" indistinguishable from "healthy." A ~90-minute training run can lose all telemetry silently — exactly how C-132 stayed hidden, and it bites during the C-112/C-113 investigations that most need training dynamics. Prevention: emit a one-time WARNING (or assert, in non-sweep/non-test runs) when a training loop proceeds with `wandb.run is None`.
 
 Tier 2 rationale: silent failure mode that masks other defects (defense-in-depth gap); clear trigger, no error signal. Observability-only (no correctness impact) → not Tier 1.
+
+---
+
+### C-135: Eval of an exploding (C-113) model OOM-killed the process during a sweep — cause unconfirmed
+
+| Field | Value |
+|-------|-------|
+| ID | C-135 |
+| Tier | 3 |
+| Source | overnight sweep OOM (violet posterior-expansion sweep, 2026-06-08); diagnosis CORRECTED after user pushback |
+| Trigger | Evaluating a model whose predictions explode (C-113, ~1e11 / `expm1`→inf) — the eval/posterior-sampling phase can balloon RAM enough to hit the global OOM-killer |
+| Location | eval/posterior-sampling path during `_execute_model_sweeping`/eval; `views_hydranet` inference; root = C-113 explosion |
+| Cross-refs | **C-113 (root cause)**, C-126 |
+
+**RETRACTED first diagnosis:** the original framing ("sweeps accumulate ~2.6 GB/trial across trials → OOM on multi-trial runs") was WRONG. Counter-evidence: healthy-model sweeps (e.g. `pink_pirate`) run dozens of trials over hours without OOM, so sweep trials DO free memory between them — a sweep does not use more RAM than its constituent single run. The accumulation-across-trials mechanism is refuted.
+
+What is known: the process was OOM-killed (`Killed process 2097902 (python) anon-rss ~13 GB, global_oom`, 2026-06-08 ~01:09) **mid-eval** (drawing posterior samples) of an **exploding** model; ~17 GB baseline on a 31 GB box. R1 (a single exploding run) survived its explosion, so OOM is not deterministic per trial. **Leading (UNVERIFIED) hypothesis:** the C-113 explosion inflates eval-phase memory (huge/inf posterior-sample tensors) enough to OOM on some trials — i.e. this is a **symptom/amplification of C-113, not a sweep-infrastructure defect.**
+
+Tier 3 (downgraded from 2): cause unconfirmed and likely a facet of C-113 rather than an independent structural bug. To confirm: measure peak RSS during eval of an exploding vs healthy config (single runs), and within a trial vs across trials. Mitigation is really "fix C-113"; interim, watch memory when evaluating exploding configs.
+
+---
+
+### C-136: Magnitude/output fixes judged on a rollout-confounded test — Arm-1 was mischaracterized as a clean failure
+
+| Field | Value |
+|-------|-------|
+| ID | C-136 |
+| Tier | 3 |
+| Source | user pushback + step-1 readout (2026-06-09) |
+| Trigger | Judging any magnitude/loss/output-head change (hurdle, count-likelihood, sigma) by its **full 36-step free-running** metrics (MCR/CRPS/explosion) without a **teacher-forced / step-1** read to isolate the magnitude axis from the rollout axis |
+| Location | `reports/2026-06-08_magnitude_calibration_dossier/07` (EXP-A1 verdict); `reports/RESULTS_LEDGER.md` (Arm-1 row); the magnitude-vs-rollout axis split |
+| Cross-refs | C-113 (the rollout runaway), C-129 (the coupling), C-112 (attribution hygiene) |
+
+Arm-1 (the lognormal hurdle) was recorded as "FAILED → explosion → go structural." A teacher-forced **step-1** read (C-113 update) shows that is a **conflation of two axes**: at step 1 the hurdle *succeeded* — it un-collapsed magnitude (`lr_ns` MCR_pos 0.02→1.29, `lr_os` 0.03→0.73); it only "failed" because those magnitudes then fed the untrained rollout and exploded (Axis B). On ~95%-zero, 36-step autoregressive data, **any** magnitude fix that un-collapses the head will tend to explode on the free-running rollout — so a full-rollout "FAIL" verdict does not test the magnitude fix, it tests the (separate, untrained) rollout. Realized cost: the hurdle was nearly discarded and several turns were spent designing a from-scratch count-likelihood rebuild on the strength of a confounded verdict.
+
+Tier 3 rationale: decision/attribution-hygiene gap (peer of C-112/C-119/C-126) — no silent output corruption, but it already mis-directed the research and could discard good magnitude fixes again. Mitigation: for any magnitude/output change, report **step-1 (teacher-forced) MCR_pos/CRPS** to isolate the magnitude axis, and judge full-rollout stability only as the *separate* Axis-B question; re-evaluate previously-discarded magnitude fixes (Tobit/lognormal) under rollout training (or a step-1 read) before treating them as dead.
+
+**Update 2026-06-09 — two reviews bound the supporting evidence (folds M-R1, M-R2 + the code-review of `/tmp/step1_mcr.py`).** The reframe is sound in *direction* (the hurdle un-collapsed magnitude; teacher-forcing is symmetric across baseline and Arm-1, so the contrast is controlled) but weak in *strength* and *durability*:
+- **M-R1 (method):** `MCR_pos` is a first-moment **ratio, not a proper score** — "un-collapsed" is supported, "calibrated/succeeded" is not; no positive-subset twCRPS/PIT was computed. *Trigger:* treating step-1 MCR as a skill verdict.
+- **M-R2 (method):** **1 origin, 1 seed, n_pos 50–130, ratio-of-means, no CI** — against the project's own shrinkage-volatility + C-112/C-119 discipline. *Trigger:* a quantitative go/no-go on the step-1 point values without a 2nd seed + bootstrap CI.
+- **Code-review:** the readout lives in an **unversioned/untested** `/tmp` script (provenance gap, cf. C-79) and its **prediction↔actual join is unguarded** (no raw-index uniqueness check, no match-rate assertion, silent NaN-drop) — a subtly wrong join would corrupt the numbers with no signal.
+- **Remediation (folded into R4 / #93):** promote to a version-controlled `scripts/mcr_readout.py` with a guarded join, reporting a positive-subset proper score + bootstrap CI + per-cell distribution, step-1 **and** full-36, multi-seed. Record wording softened to "un-collapsed (directional)" in `07` / `RESULTS_LEDGER` / memory on 2026-06-09.
+
+---
+
+### C-137: Count-likelihood escalation (hurdle-NB / ZINB / Tweedie) carries likelihood-specification + parameterization design risks
+
+| Field | Value |
+|-------|-------|
+| ID | C-137 |
+| Tier | 3 |
+| Source | expert-method-review ×2 (distributional-head design, 2026-06-09) |
+| Trigger | When building the count-likelihood escalation head — specifically (a) reusing the focal classifier as a zero-inflation π, (b) choosing a single global dispersion θ, or (c) pursuing Tweedie over NB |
+| Location | `reports/2026-06-05_distributional_head_dossier/02_design.md §0.0`; `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py` (head); a future `*NBLoss`; `views_hydranet/utils/utils.py` (`LOSS_REG_REGISTRY`) |
+| Cross-refs | C-03 (hardcoded 3+3 head topology), C-113/C-129 (the rollout coupling), C-126 (the F5 calibration guard) |
+
+Three design risks for the count-likelihood head, surfaced by two method reviews and folded here:
+- **(M-Z6) π-specification conflation.** Reusing the focal classifier (`sigmoid(cls)`, trained on `by_*`=`1[y>0]`) as a **ZINB structural zero-inflation π** mis-specifies the likelihood: the classifier learns the *marginal* `P(y>0)`, not the structural gate (in a ZINB-mixture, zeros come from both π *and* the NB). The proven head on this data (DynAttn) uses a *dedicated* π. **Resolved by design** by adopting the **hurdle-NB** framing (classifier *is* the gate `P(y>0)`; positives = a **zero-truncated** NB), which makes the reuse principled and matches "zero = no event" (Mullahy 1986). The risk re-arises if anyone builds a ZINB-mixture reusing the classifier as π.
+- **(M-Z7) Global θ under-parameterization.** A single per-target dispersion θ likely cannot capture the spatial heterogeneity of conflict counts; pre-registered as an MVP simplification with a region/feature-varying-θ ablation queued.
+- **(M-Z2) Tweedie-density blocker.** Tweedie NLL (1<ρ<2) needs the Dunn&Smyth series/saddlepoint evaluation — a real implementation+validation cost. NB / hurdle-NB is closed-form and avoids it; Tweedie is the tail-escalation only.
+- **(M-Z5) F5 zero-rate trap** (see C-126): on ~95%-zero data a near-zero forecast scores well — judge on positive-subset proper scores + zero-rate, not aggregate CRPS.
+
+Tier 3 rationale: design-stage methodology gaps for an as-yet-unbuilt head (peer of C-125); no current corruption, but π-conflation would silently mis-specify uncertainty and the others could ship a subtly biased forecaster. Mitigation: the distributional-head dossier `02 §0.0`/`05 §0` pre-registers the hurdle-NB spec, the θ ablation, and the F5/positive-subset eval; gate the build on review.
 
 ---
 

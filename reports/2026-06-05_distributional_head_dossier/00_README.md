@@ -1,16 +1,29 @@
 # Distributional Output Head — Research & Experimentation Dossier
 
-**Opened:** 2026-06-05 · **Status:** Active — scaffold complete (00–07); next is build (04 P0→P2) · **Owner:** Simon Polichinel von der Maase / Claude
+**Opened:** 2026-06-05 · **Status:** **ESCALATION-ONLY (2026-06-09)** — the live direction is *hurdle + rollout training* (see `../2026-06-08_magnitude_calibration_dossier/`); this count-likelihood head is pursued **only if** that underdelivers · **Owner:** Simon Polichinel von der Maase / Claude
 **Branch:** `fix/variational-dropout-autoregressive-stability` (work area; decision graduates to an ADR)
 **Tracked:** yes (`git add -f` — this dossier is version-controlled despite living under gitignored `reports/`)
 
 ---
+
+## 0. ⏭ 2026-06-09 — this count-likelihood head is now ESCALATION-ONLY (live direction = hurdle + rollout training)
+
+After Arm-1's **step-1 read** (the lognormal hurdle **un-collapsed magnitude**; the failure was the **untrained rollout**, not the head — `../2026-06-08_magnitude_calibration_dossier/07`, risk C-136), the live next step is the **simplest grounded path: the existing hurdle + rollout training** (a cheap scheduled-sampling-middle probe → GTF). **A count-likelihood distributional head (this dossier) is now the ESCALATION — pursued only if hurdle + rollout underdelivers — NOT the immediate next build.**
+- **If escalated, the head is a hurdle-NB:** the existing classifier *as the gate* `P(y>0)` × a **zero-truncated NB** positive part (softplus μ, count-space; closed-form, **no Tweedie-density blocker**). A plain **ZINB-mixture would mis-specify π** (the classifier learns *marginal* `P(y>0)`, not a structural zero-inflation gate — C-137); the proven count head on our data (DynAttn) uses a *dedicated* π. Tweedie/ZITD (§0–§11) is the tail-escalation beyond that.
+- **Escalation triggers:** hurdle + rollout explodes-or-collapses with no stable-*nonzero* regime, OR un-collapses but leaves a quantified tail/calibration gap.
+- **Design lives in `02 §0.0`; pre-registration in `05 §0`** — both retained, but as the *escalation* design, not the next action.
+- **Lineage (honesty note):** re-scoped Tweedie-first → ZINB-first → hurdle-NB-first → (now) escalation-only as evidence accrued. The convergence: don't build a new count head until the cheaper hurdle+rollout path (using machinery we already have) is shown insufficient.
 
 ## 1. Purpose (one paragraph)
 
 Replace HydraNet's current output side — a `log1p`-space point prediction inverted by `expm1`, with a separate BCE classifier — with a **single distributional / count-likelihood head**: the network emits the *parameters* of a distribution over each cell's conflict intensity (a **Zero-Inflated Tweedie**, `π, μ, φ, ρ`, is the lead candidate), trained by negative log-likelihood. Inputs stay `log1p` (good conditioning, no cached stats); the output is **never `expm1`'d into a point** — the forecast is the distribution's mean/quantiles, and the autoregressive feedback re-encodes `log1p(mean or sample)`. With a **sub-exponential link (softplus)** instead of the default log link, a drift becomes *linear* in counts, not exponential — retiring the `expm1` catastrophe at the source while giving calibrated magnitude (attacks chronic MCR ≪ 1) and principled aleatoric uncertainty.
 
 ## 2. How this relates to prior work (read before starting)
+
+> **Gated behind the magnitude-calibration parent dossier** (`../2026-06-08_magnitude_calibration_dossier/`).
+> ZITD is the *escalation* of that program — the heavy distributional fix — and runs only on a
+> pre-registered trigger if the minimal hurdle there falls short. That program reuses this dossier's
+> literature/harness by pointer (it does not duplicate them).
 
 - **This is Path B, revived and sharpened.** `reports/path_b_zero_inflated_tweedie.md` (2026-05-27) already proposed the Zero-Inflated Tweedie head (grounded in Jiang 2023 STTD and Gao/Zhu 2024 STZITD-GNN, both on ~95% zero-inflated spatiotemporal data). That document is **absorbed** into this dossier (→ `02_design`, `01_literature`); the original will be marked superseded with a pointer here.
 - **Path A shipped; this is complementary, not contradictory.** `reports/paths_forward.md` (2026-05-29) chose **Path A (Tobit censored regression)** as the first step → implemented as **ADR-054**. The distributional head is the next, deeper move on the same axis (catalogue "Axis C"). Its **design-constraints/invariants table** (fail-loud/ADR-003, multi-task heads/ADR-020, 36-step autoregression, log1p/expm1, ReLU output, curriculum sampling, MC-dropout eval, pandas-free/ADR-047) is inherited verbatim into `03_harness_and_invariants`.

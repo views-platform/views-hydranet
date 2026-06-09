@@ -7,6 +7,18 @@ Pre-registers the **smallest unambiguous test** of the distributional head, so t
 
 ---
 
+## 0. ⏭ HURDLE-NB MVP pre-registration — the ESCALATION run (2026-06-09; only if hurdle + rollout underdelivers — see `00 §0`)
+
+The Tweedie/ZITD MVP (§1–§8 below) is preserved as the **tail-escalation**. **NOTE (2026-06-09): this is the *escalation* pre-registration — the live next step is hurdle + rollout training (`00 §0` / `../2026-06-08_magnitude_calibration_dossier/`); run this only if that underdelivers.** The escalation run (if triggered) is a **hurdle-NB** (a 2nd review caught that reusing the focal classifier as a ZINB *structural* π mis-specifies the likelihood — see `02 §0.0`).
+
+- **Hypothesis (dual):** a **hurdle-NB** head (gate = the existing classifier `P(y>0)`; positives = a **zero-truncated NB** with softplus μ + learnable θ; `E[y]=P(y>0)·E[NB⁺]`) trained on **violet / seed-42 / 40 lessons** (matched to the Tobit baseline `calibration_model_20260608_165326`) (a) keeps the 36-step free-running `E[y]` **bounded**, and (b) **un-collapses magnitude without exploding** — `MCR_pos` rises toward O(1) (vs Arm-1, where un-collapsing → explosion).
+- **Intervention (a coherent head-swap — NOT one variable; vs the Tobit baseline):** `output_distribution="hurdle_nb"` (gate-as-classifier + the zero-truncated-NB softplus-μ positive part + learnable θ, the hurdle-NB loss, the contained raw-target provider). Everything else matched (40 lessons, seeds, dropout, onset_bias, SS off, log1p **inputs**). Skill attribution needs **ablations** (global-vs-varying θ; a dedicated-π ZINB if the hurdle underfits) — pre-registered as follow-ups.
+- **GATE FIRST (read-only go/no-go):** before *any* scored eval, run `diagnose_io_gain` on `E[y]` over 36 steps. **Explodes → STOP** (Arm-1 proved an un-collapsed head can run away); also read the **operator gain** (Part A); log + escalate, do NOT score. **Bounded → proceed** to eval.
+- **Falsifiers:** reuse **F1 (stability)** + **F5 (zero-rate trap)** below verbatim; add **F-bridge** — the raw-target provider must pass its exact-round-trip + never-touch-predictions tests or the run is invalid. Judge skill on **positive-subset proper scores (twCRPS/CRPS on y>0) + PIT/coverage** + a **posterior-predictive zero-rate/tail check**; **MCR diagnostic only**; **multi-seed** before any adoption claim (shrinkage-volatility lesson); **benchmark vs DynAttn** grid-level numbers.
+- **Decision rules:** gate explodes → rollout-training (Axis B) / direct multi-horizon. Bounded + calibrated, no falsifier → multi-seed → proposed ADR. Bounded but tail-underfit → Tweedie/ZITD (below) or DEMM tail; structural-zeros evidence → dedicated-π ZINB. **No ad-hoc rescue.**
+
+---
+
 ## 1. Hypothesis
 
 **H:** A ZITD output head (`E[y]=(1−π)μ`, sub-exponential **softplus** link, **fixed `ρ≈1.5`**, **mean rollout**) trained on **violet** (the clean exploder) will (a) keep the free-running forecast **in-range** across the 36-step rollout *by construction* (no `expm1` cliff — `02 §0.1`), and simultaneously (b) **improve calibrated magnitude** — CRPS no worse than the healthy baseline and **MCR moving toward 1** from the chronic ≪ 1.
