@@ -4,9 +4,9 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-06-09                           |
-| Total Concerns    | 135                                  |
-| Open Concerns     | 41                                   |
+| Last Updated      | 2026-06-10                           |
+| Total Concerns    | 136                                  |
+| Open Concerns     | 42                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 94                                   |
 
@@ -802,6 +802,23 @@ Three design risks for the count-likelihood head, surfaced by two method reviews
 - **(M-Z5) F5 zero-rate trap** (see C-126): on ~95%-zero data a near-zero forecast scores well — judge on positive-subset proper scores + zero-rate, not aggregate CRPS.
 
 Tier 3 rationale: design-stage methodology gaps for an as-yet-unbuilt head (peer of C-125); no current corruption, but π-conflation would silently mis-specify uncertainty and the others could ship a subtly biased forecaster. Mitigation: the distributional-head dossier `02 §0.0`/`05 §0` pre-registers the hurdle-NB spec, the θ ablation, and the F5/positive-subset eval; gate the build on review.
+
+---
+
+### C-138: Stale test import breaks suite collection — `test_eval_integration_toy` imports a removed `views_evaluation` module
+
+| Field | Value |
+|-------|-------|
+| ID | C-138 |
+| Tier | 3 |
+| Source | full-suite run during R2 verification (2026-06-10) |
+| Trigger | Running the full `pytest` suite (CI or local) **without** `--continue-on-collection-errors` — the import error in `test_eval_integration_toy.py` aborts collection, so the other ~743 tests **do not run** and a real regression elsewhere is masked behind a single loud error |
+| Location | `tests/test_eval_integration_toy.py:6` (`from views_evaluation.evaluation.evaluation_manager import EvaluationManager`) + `:18` (`EvaluationManager()`); installed `views_evaluation/evaluation/` (no `evaluation_manager.py`; exposes `native_evaluator`, `evaluation_frame`, `metric_catalog`, `metrics`, `native_metric_calculators`, `config_schema`, `evaluation_report`) |
+| Cross-refs | C-52 (stale tests — resolved precedent), C-10 (importorskip guards), C-79/C-107 (test-coverage gaps) |
+
+`test_eval_integration_toy.py` imports `views_evaluation.evaluation.evaluation_manager.EvaluationManager`, which **no longer exists** in the installed `views_evaluation` — the `EvaluationManager` class/module was removed or renamed upstream (the current package routes evaluation through `native_evaluator` / `EvaluationFrame`). This is **stale-test vs upstream-API drift**, unrelated to the magnitude/rollout program (surfaced incidentally during R2's pre-commit suite run). It is *loud* (ImportError, nonzero exit) — not silent corruption — but because a collection error **interrupts the whole run** by default, a developer or CI seeing "1 error, interrupted" may not realize the other 743 tests never executed, masking unrelated regressions.
+
+Tier 3 rationale: test-integrity / dependency-drift; no model-output impact, but it degrades the suite's value as a regression gate (the masking-by-interrupt hazard). Mitigation: update `test_eval_integration_toy.py` to the current `views_evaluation` entrypoint (likely `native_evaluator` / `EvaluationFrame`), or `pytest.importorskip` it (C-10 pattern) / remove if the toy integration is obsolete; optionally set `--continue-on-collection-errors` in the CI config as defense-in-depth. Tracked in **#95**.
 
 ---
 
