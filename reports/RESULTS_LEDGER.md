@@ -135,5 +135,8 @@ Metrics filled from `--evaluate`; *Bounded?* from the 36-step rollout / `diagnos
   not values** — MCR is a diagnostic ratio (not a proper score); single-draw, 1 origin/seed, small n (131/59/50) → "un-collapsed"
   holds, "calibrated" does not. Proper-subset score + CI + 2nd seed = R4's readout (#93). **Revised next step:** hurdle +
   **rollout training** (cheap SS-middle probe → GTF), NOT a count-likelihood rebuild. Stopping rule intact (rollout ≠ a new loss).
+  *(Numbers refined 2026-06-10 by the durable `scripts/mcr_readout.py` — see dossier `07`: the all-origins aggregate MCR is
+  mean-dominated, the median positive cell still under-predicts, and sb barely moved. The step-1 figures above are the
+  superseded origin-0 `/tmp` throwaway.)*
 
 *(Append wins/lessons here as runs land — especially negatives and "looked-right-but-wasn't".)*
