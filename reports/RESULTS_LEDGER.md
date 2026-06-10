@@ -139,4 +139,12 @@ Metrics filled from `--evaluate`; *Bounded?* from the 36-step rollout / `diagnos
   mean-dominated, the median positive cell still under-predicts, and sb barely moved. The step-1 figures above are the
   superseded origin-0 `/tmp` throwaway.)*
 
+- **2026-06-10 — R4 (hurdle + scheduled sampling `ss_epsilon_max=0.5`, 40 lessons) → EXPLODED at eval (same as Arm-1).**
+  The cheap rollout-training probe — SS-middle on the hurdle config, one variable vs Arm-1. Trained clean; eval failed
+  "Input contains infinity". Durable readout (`scripts/mcr_readout.py`, `predictions_calibration_20260610_010843`):
+  FULL-rollout MCR ≈ **3.4e33 / 3.1e33 / 7.5e33** (sb/ns/os) — indistinguishable from Arm-1; step-1 magnitude no better
+  (sb 0.21→0.088). **Completes the scheduled-sampling bracket: 0.25→explode, 0.5→explode, 1.0→collapse — plain per-step
+  SS is EXHAUSTED (proven, not assumed), even on the un-collapsed hurdle head.** → the real fix is **GTF / B1 rollout
+  training (#78, cross-step gradients)** or the **count-likelihood head** (ZINB/hurdle-NB). Rollout dossier `07` EXP-02.
+
 *(Append wins/lessons here as runs land — especially negatives and "looked-right-but-wasn't".)*
