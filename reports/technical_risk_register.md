@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-10                           |
-| Total Concerns    | 137                                  |
-| Open Concerns     | 43                                   |
+| Total Concerns    | 143                                  |
+| Open Concerns     | 49                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 94                                   |
 
@@ -845,6 +845,96 @@ Tier 3 rationale: governance / traceability. The risk is process (re-circling), 
 
 ---
 
+### C-140: ZINB count-space `E[y]` would be double-`expm1`'d by the unchanged inverse transform
+
+| Field | Value |
+|-------|-------|
+| ID | C-140 |
+| Tier | 1 |
+| Source | expert-code-review (ZINB Pass-1, 2026-06-10) |
+| Trigger | Implementing #101 to emit count-space `E[y]` while leaving the inference orchestrator's `inverse_transform_volume` call in place, then running the first ZINB eval (#102) |
+| Location | `views_hydranet/utils/hydranet_inference.py:267` (emit); `views_hydranet/utils/feature_scaler.py:239-245` (`inverse_transform_volume` applies `expm1`); dossier `2026-06-10_zinb_distributional_head_dossier/02_design.md §4` |
+| Cross-refs | C-113 (the explosion this re-creates), C-142, D-09 |
+
+The design emits `E[y]=(1−π)·μ` in **count space** *and* says the existing `inverse_transform_volume` is unchanged — but that method `expm1`s the output channels. A count-space `E[y]` `expm1`'d again is a **silent double-transform → magnitude re-explosion at eval**, indistinguishable from C-113 and invisible until the downstream `inf` check rejects it. **Resolve before any ZINB train:** emit `log1p(E[y])` so the existing inverse recovers `E[y]`, or tag the ZINB channel `identity` in the transform config; add a round-trip test. **Tier 1:** silent output corruption with no error signal until the late `inf` rejection.
+
+---
+
+### C-141: ZINB does NOT dissolve the balancer if the focal classification loss is kept separate
+
+| Field | Value |
+|-------|-------|
+| ID | C-141 |
+| Tier | 2 |
+| Source | expert-code-review (ZINB Pass-1, 2026-06-10) |
+| Trigger | Training the ZINB head (#99/#100/#102) with the focal `by_*` loss retained as a separate term routed through `MultiTaskLoss` alongside the ZINB regression NLL |
+| Location | dossier `02_design.md §2`; `views_hydranet/utils/mtloss.py:39-73`; epic #97 premise; closed issue #59 |
+| Cross-refs | C-111 (the balancer regression), C-139 (the pivot premise), D-08 |
+
+The epic's load-bearing claim is that ZINB "**dissolves the balancer / C-111 by construction**." But the design keeps **focal on `by_*` as a separate loss**, and `mtloss.py` still stacks regression + classification losses → the Kendall balancer **still runs over two families** → C-111 instability (and its seed-fragility) is **not** removed. Closing #59 as "mooted" is premature **unless π is trained inside the ZINB NLL** (one unified likelihood, no separate focal). Decide unified-NLL vs two-losses **before #99/#100**. **Tier 2:** an unaddressed wrong premise reintroduces the exact instability the pivot was meant to escape.
+
+---
+
+### C-142: `diagnose_io_gain` explosion-check is unvalidated for the ZINB count-space output
+
+| Field | Value |
+|-------|-------|
+| ID | C-142 |
+| Tier | 2 |
+| Source | expert-code-review (ZINB Pass-1, 2026-06-10) |
+| Trigger | Using `scripts/diagnose_io_gain.py` as the #102 go/no-go on the ZINB head without first confirming it feeds back and measures `E[y]` in the correct space for the new output |
+| Location | `scripts/diagnose_io_gain.py`; dossier `03_harness_and_invariants.md`, `02_design.md §6` |
+| Cross-refs | C-113, C-140 |
+
+`diagnose_io_gain` was built for the log1p point head (it feeds back `output.reg`). The ZINB head composes `E[y]=(1−π)·μ` from two heads in count space; the probe must be adapted/validated to feed and measure *that*, or it can report a **false "bounded."** The plan's entire stop/go rests on this probe (#102). Validate it on the ZINB output before trusting it. **Tier 2:** the safety gate could silently mis-fire, waving through an exploding model.
+
+---
+
+### C-143: train/inference objective mismatch — the composed `(1−π)·μ` is never scored in training
+
+| Field | Value |
+|-------|-------|
+| ID | C-143 |
+| Tier | 2 |
+| Source | expert-code-review (ZINB Pass-1, 2026-06-10) |
+| Trigger | Emitting/feeding back `(1−π)·μ` at #101 while π is trained only by focal and μ only by the NB body — no training loss scores the composed `E[y]` |
+| Location | dossier `02_design.md §2/§4`; `views_hydranet/utils/hydranet_inference.py:267` |
+| Cross-refs | C-137 (count-head calibration risks), C-141 |
+
+π and μ are optimized independently; the emitted and fed-back forecast is their **product**, which no loss sees during training. The composed `E[y]` can be miscalibrated (and can feed instability into the rollout) even when each head trains cleanly. Either score the composed `E[y]` in training, or document the product as an inference-time construct with **no calibration guarantee** and judge it on positive-subset proper scores. **Tier 2:** structural — calibration of the shipped quantity is not guaranteed by construction.
+
+---
+
+### C-144: no validator forbids `hurdle_threshold` × `output_distribution="hurdle_nb"`
+
+| Field | Value |
+|-------|-------|
+| ID | C-144 |
+| Tier | 3 |
+| Source | expert-code-review (ZINB Pass-1, 2026-06-10) |
+| Trigger | A config that sets both `hurdle_threshold` (the C-45 mask) and `output_distribution="hurdle_nb"` |
+| Location | `views_hydranet/utils/config_initializer.py` (loss/hurdle validators ~532-555); `views_hydranet/train/training_engine.py:234` (`use_latent` bypasses the C-45 branch) |
+| Cross-refs | C-141 |
+
+ZINB self-handles the zero/positive split; combining it with the C-45 `hurdle_threshold` mask is contradictory, and if ZINB sets `needs_latent=True` the C-45 branch is silently bypassed anyway. No validator currently forbids the combination → silent double/dropped masking. Add a validator (mirroring the existing tobit+hurdle guard) before #99/#100. **Tier 3:** config-coherence; currently unguarded.
+
+---
+
+### C-145: θ (NB dispersion) as a model head channel would break the architectural invariant
+
+| Field | Value |
+|-------|-------|
+| ID | C-145 |
+| Tier | 3 |
+| Source | expert-code-review (ZINB Pass-1, 2026-06-10) |
+| Trigger | Implementing θ as a model head channel/output (rather than a loss-owned `Parameter`) at #100 |
+| Location | `ModelOutput` (`views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:10-27`); `views_hydranet/utils/config_initializer.py:233` (`input_channels==3×output_channels` invariant); dossier `02_design.md §1` |
+| Cross-refs | C-137 (M-Z7 spatial-θ ablation) |
+
+A per-target θ head would break the invariant `input_channels==3×output_channels` and the feedback shape. The MVP θ is a learnable scalar → implement it as a **loss-owned `Parameter`** (like `LogNormalFixedSigmaLoss`'s sigma), not a head; document this so a later spatial-θ ablation (C-137/M-Z7) knows it must add a head deliberately. **Tier 3:** architecture coupling / maintainability.
+
+---
+
 ## Disagreements
 
 ### D-01: VolumeHandler scope — God Object vs Deep Module
@@ -921,6 +1011,26 @@ Tier 3 rationale: governance / traceability. The risk is process (re-circling), 
 | Source | expert-code-review (wandb lifecycle, 2026-06-07) |
 | Perspectives | Side A (Beck/Feathers/Martin-minimal): smallest change — wrap the hydranet `_execute_model_training` override body in `initialize_run("train")` (or delete the override so the base template runs) + a pinning test; ship now and unblock. Side B (GoF/Ousterhout/Hickey): that fixes only the instance; the overridable-template (C-133) + ambient-global-`wandb.run` (C-134) design reproduces the bug on the next subclass/phase — enforce the lifecycle in the base (non-overridable template / central invariant) and/or inject the logger instead of reading global state. |
 | Resolution | **Open.** Cross-refs C-132/C-133/C-134. Decision gated on the "why does the override skip `finalize_training`?" investigation — if hydranet doesn't need to skip it, deleting the override (Side A, but structural) both unblocks and removes the divergence; otherwise a wrap + a cheap fail-loud/test (slice of Side B) is the low-regret middle. |
+
+### D-08: Does the ZINB head dissolve the balancer (C-111)?
+
+| Field | Value |
+|-------|-------|
+| ID | D-08 |
+| Source | expert-code-review (ZINB Pass-1, 2026-06-10) |
+| Perspectives | Side A (the design / epic #97): a single ZINB likelihood means "nothing to weight" → the multi-task balancer and C-111 are dissolved **by construction**; this is the stated reason ZINB beats the freeze. Side B (Ousterhout/Kleppmann): the design **keeps focal on `by_*` as a separate loss** (`02_design §2`), so `mtloss.py` still stacks reg + cls losses and the Kendall balancer **still runs** — C-111 is only dissolved if π is trained *inside* the ZINB NLL. |
+| Resolution | **Open — must resolve before #99/#100.** See C-141. If two loss families are kept, #59 ("C-111 mooted") was closed prematurely and the seed-fragility risk returns. |
+
+---
+
+### D-09: ZINB emit space — count-space `E[y]` vs `log1p(E[y])`
+
+| Field | Value |
+|-------|-------|
+| ID | D-09 |
+| Source | expert-code-review (ZINB Pass-1, 2026-06-10) |
+| Perspectives | Side A (the design, `02_design §4`): emit `E[y]` in **count space** and leave `inverse_transform_volume` unchanged. Side B (Nygard/Hickey): the inverse `expm1`s output channels (`feature_scaler.py:239-245`), so a count-space `E[y]` is **double-`expm1`'d** → re-explosion; emit `log1p(E[y])` so the existing inverse recovers `E[y]` (or tag the channel `identity`). |
+| Resolution | **Open — must resolve before #101/#102.** See C-140 (Tier 1). Side B is the lower-regret default; whichever is chosen, a round-trip test is mandatory. |
 
 ---
 
