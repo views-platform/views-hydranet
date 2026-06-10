@@ -3,10 +3,17 @@
 **Date:** 2026-06-10 · **Status:** live · **Epic:** #97 · **Checklist (single source of truth):** #104
 
 ## Purpose
-Replace HydraNet's separate regression + classification heads with **one zero-inflated
-negative-binomial (ZINB) likelihood**. This gives calibrated magnitude + uncertainty, absorbs the
-hurdle (as its π gate), and **dissolves the multi-task balancer / C-111 problem by construction**
-(one NLL — nothing to weight).
+Replace HydraNet's separate regression + classification heads with **one hurdle negative-binomial
+(hurdle-NB) likelihood per target**. This gives calibrated magnitude + uncertainty, makes the onset
+classifier the principled hurdle gate, and **dissolves the regression-vs-classification balancer — the
+C-111 instability source** (one joint NLL per target → nothing to weight across families).
+
+> **Stability is NOT claimed "by construction."** The hurdle-NB removes the *balancer* problem; whether
+> it tames the **autoregressive** explosion (C-113) is *unproven* (C-148) and tested empirically by the
+> explosion-check (`02_design §6`), never assumed.
+
+> **Likelihood: hurdle-NB, not ZINB** (gate-resolved 2026-06-10, C-146) — the reused classifier learns the
+> *marginal* `P(y>0)`, which is the hurdle gate; a ZINB needs a *structural* π and would mis-specify.
 
 ## Why this, why now
 After ~3 weeks of loss/rollout experiments that all ended in autoregressive explosion (see the

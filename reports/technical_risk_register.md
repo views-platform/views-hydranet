@@ -845,6 +845,22 @@ Tier 3 rationale: governance / traceability. The risk is process (re-circling), 
 
 ---
 
+### Gate Resolutions (2026-06-10) — #97 gate decisions D1–D5
+
+The five blocking decisions are resolved (see `2026-06-10_zinb_distributional_head_dossier/02_design.md`):
+
+| Concern | Decision | Where |
+|---------|----------|-------|
+| **C-146** | Likelihood = **hurdle-NB** (not ZINB) — reused `cls` learns marginal `P(y>0)` = the hurdle gate; ZINB needs a structural π → mis-spec | 02_design D1/§0 |
+| **C-141, D-08** | **One joint hurdle-NB NLL per target** — a class-weighted Bernoulli gate-term *replaces* focal + a truncated-NB body; both are NLLs → additive → **reg-vs-cls balancer dissolved**; cross-target sum equal-weight/frozen | 02_design D2/§2 |
+| **C-140, D-09** | Emit **`log1p(E[y])`** (the existing `expm1` inverse recovers `E[y]`); count-space emit would double-`expm1` | 02_design D3/§4 |
+| **C-145** | θ = a loss-owned **`Parameter`**, not a head channel (preserves `input_channels==3×output_channels`) | 02_design D4/§1 |
+| **C-148** | Deleted "dissolves by construction"; the 36-step `diagnose_io_gain` **explosion-check is the load-bearing test** | 02_design D5/§6 |
+
+These concerns **remain OPEN until the implementing sub-issue's tests pass** — the decision mitigates the *design* risk; the *code* must honour it. Downstream acceptance (C-142 probe-validation, C-147 π-reliability, C-149 QS99-binding, C-150 PIT/PPC) is tracked on #101/#102 + `05_analysis_plan`.
+
+---
+
 ### C-140: ZINB count-space `E[y]` would be double-`expm1`'d by the unchanged inverse transform
 
 | Field | Value |
@@ -1096,7 +1112,7 @@ The plan has Coverage + F-zero-rate + multi-seed (good) but no **PIT calibration
 | ID | D-08 |
 | Source | expert-code-review (ZINB Pass-1, 2026-06-10) |
 | Perspectives | Side A (the design / epic #97): a single ZINB likelihood means "nothing to weight" → the multi-task balancer and C-111 are dissolved **by construction**; this is the stated reason ZINB beats the freeze. Side B (Ousterhout/Kleppmann): the design **keeps focal on `by_*` as a separate loss** (`02_design §2`), so `mtloss.py` still stacks reg + cls losses and the Kendall balancer **still runs** — C-111 is only dissolved if π is trained *inside* the ZINB NLL. |
-| Resolution | **Open — must resolve before #99/#100.** See C-141. If two loss families are kept, #59 ("C-111 mooted") was closed prematurely and the seed-fragility risk returns. |
+| Resolution | **Resolved 2026-06-10** → hurdle-NB with a class-weighted Bernoulli gate-term trained *inside* one joint NLL (focal replaced); both terms are NLLs → additive → the reg-vs-cls balancer is genuinely dissolved; #59 stays mooted correctly. See Gate Resolutions + 02_design D2/§2. |
 
 ---
 
@@ -1107,7 +1123,7 @@ The plan has Coverage + F-zero-rate + multi-seed (good) but no **PIT calibration
 | ID | D-09 |
 | Source | expert-code-review (ZINB Pass-1, 2026-06-10) |
 | Perspectives | Side A (the design, `02_design §4`): emit `E[y]` in **count space** and leave `inverse_transform_volume` unchanged. Side B (Nygard/Hickey): the inverse `expm1`s output channels (`feature_scaler.py:239-245`), so a count-space `E[y]` is **double-`expm1`'d** → re-explosion; emit `log1p(E[y])` so the existing inverse recovers `E[y]` (or tag the channel `identity`). |
-| Resolution | **Open — must resolve before #101/#102.** See C-140 (Tier 1). Side B is the lower-regret default; whichever is chosen, a round-trip test is mandatory. |
+| Resolution | **Resolved 2026-06-10** → Side B: emit `log1p(E[y])` so the existing `expm1` inverse recovers `E[y]`; a round-trip test is mandatory (#101). See Gate Resolutions + 02_design D3/§4. |
 
 ---
 
