@@ -46,7 +46,14 @@ class HydraBNUNet06_LSTM4(nn.Module):
         base (int): The number of hidden channels used as the architectural baseline.
     """
 
-    def __init__(self, input_channels, total_hidden_channels, output_channels, dropout_rate):
+    def __init__(
+        self,
+        input_channels,
+        total_hidden_channels,
+        output_channels,
+        dropout_rate,
+        output_distribution="standard",
+    ):
         """
         Initializes the HydraNet architecture.
 
@@ -56,8 +63,16 @@ class HydraBNUNet06_LSTM4(nn.Module):
                                          Must be divisible by 8.
             output_channels (int): Number of channels per head (usually 1).
             dropout_rate (float): Probability of dropout for regularization.
+            output_distribution (str): regression-head output activation —
+                "standard" (ReLU, default, pre-#100 behavior) or "hurdle_nb"
+                (softplus, count-space mean mu for the hurdle-NB head).
         """
         super().__init__()
+
+        # #100: hurdle-NB needs a count-space mean mu at the output; softplus keeps it
+        # sub-exponential. Default "standard" => ReLU => byte-identical to pre-#100.
+        self.output_distribution = output_distribution
+        self._reg_activation = F.softplus if output_distribution == "hurdle_nb" else F.relu
 
         kernel_size = 3
         base = total_hidden_channels
@@ -438,7 +453,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
         )
         H1_reg = self.dropout(H1_d1)
         H1_reg = self.dec_conv4_head1_reg(H1_reg)
-        out_reg1 = F.relu(H1_reg)
+        out_reg1 = self._reg_activation(H1_reg)
 
         # H1 class
         H1_d0 = F.relu(
@@ -470,7 +485,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
         )
         H2_reg = self.dropout(H2_d1)
         H2_reg = self.dec_conv4_head2_reg(H2_reg)
-        out_reg2 = F.relu(H2_reg)
+        out_reg2 = self._reg_activation(H2_reg)
 
         # H2 class
         H2_d0 = F.relu(
@@ -502,7 +517,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
         )
         H3_reg = self.dropout(H3_d1)
         H3_reg = self.dec_conv4_head3_reg(H3_reg)
-        out_reg3 = F.relu(H3_reg)
+        out_reg3 = self._reg_activation(H3_reg)
 
         # H3 class
         H3_d0 = F.relu(

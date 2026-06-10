@@ -108,6 +108,8 @@ class HydraNetConfig(BaseModel):
     learnable_theta: bool = Field(default=True)
     # Hurdle-NB gate (loss_class='weighted_bce'): positive-class weight; None = plain BCE.
     loss_class_pos_weight: float | None = Field(default=None, gt=0.0)
+    # Regression-head output activation (#100): "standard" (ReLU) or "hurdle_nb" (softplus mu).
+    output_distribution: str = Field(default="standard")
 
     # 11. Scheduled Sampling (ADR-056): close train/inference gap.
     ss_schedule: str | None = Field(default=None)
@@ -331,6 +333,16 @@ class HydraNetConfig(BaseModel):
                 else f"evaluation_mode='{v}' is not valid."
             )
             err_msg = f"{prefix} Expected one of: {valid}."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator("output_distribution")
+    @classmethod
+    def validate_output_distribution(cls, v: str) -> str:
+        valid = ["standard", "hurdle_nb"]
+        if v not in valid:
+            err_msg = f"output_distribution='{v}' is not valid. Expected one of: {valid}."
             logger.error(err_msg)
             raise ValueError(err_msg)
         return v

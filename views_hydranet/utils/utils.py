@@ -30,6 +30,7 @@ def choose_model(config: dict, device: torch.device) -> nn.Module:
             config["total_hidden_channels"],
             config["output_channels"],
             config["dropout_rate"],
+            output_distribution=config.get("output_distribution", "standard"),
         ).to(device)
     else:
         err_msg = f"Unknown model type: {config['model']}"

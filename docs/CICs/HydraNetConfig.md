@@ -23,7 +23,7 @@ The `HydraNetConfig` is the **Schema** of the HydraNet pipeline. Its primary pur
 
 ## 3. Responsibilities and Guarantees
 
-- **Field Validation:** Guarantees that all 74 fields are type-checked and constraint-validated (e.g., `dropout_rate` in [0.0, 1.0], `input_channels >= 1`, `rollout_horizon >= 1`). *(`freeze_h` retired 2026-06-05; `rollout_horizon` added 2026-06-06 — Axis B / #78; `loss_reg_theta_init`, `learnable_theta`, `loss_class_pos_weight` added 2026-06-10 — hurdle-NB / D2 / #99.)*
+- **Field Validation:** Guarantees that all 75 fields are type-checked and constraint-validated (e.g., `dropout_rate` in [0.0, 1.0], `input_channels >= 1`, `rollout_horizon >= 1`). *(`freeze_h` retired 2026-06-05; `rollout_horizon` added 2026-06-06 — Axis B / #78; `loss_reg_theta_init`, `learnable_theta`, `loss_class_pos_weight` added 2026-06-10 — hurdle-NB / D2 / #99; `output_distribution` added 2026-06-10 — hurdle-NB head activation / #100. The classification head is reused as the hurdle gate `P(y>0)`; θ is the loss-owned Parameter in `TruncatedNBLoss`, not a model head.)*
 - **Feedback Clamp (C-113):** `feedback_clamp_log1p` is an optional per-target log1p ceiling (`list[float] | None`, default `None`) bounding only the autoregressive feedback input, never an emitted prediction. See `reports/preanalysis_feedback_clamp.md`.
 - **Balancer Freeze (C-113 bisect):** `freeze_multitask_balancer` (`bool`, default `False`) excludes the MultiTaskLoss `log_vars` from the optimizer (pre-C-111 equal-weighting regime). See `reports/preanalysis_balancer_bisect.md`.
 - **Checksum Laws (ADR-009):** Guarantees `input_channels == len(features)` and `time_steps == len(steps)`.
