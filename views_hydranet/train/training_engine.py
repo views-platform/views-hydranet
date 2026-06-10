@@ -646,17 +646,21 @@ def training_loop(
                 # Optimize (Update Weights)
                 optimizer.step()
 
-                # ADR-055: log per-target sigma once per lesson (after optimizer step)
+                # ADR-055 / #99: log per-target dispersion once per lesson — sigma for
+                # tobit/lognormal, theta for hurdle-NB (TruncatedNBLoss) — whichever the loss
+                # exposes. (getattr-guarded so a loss without one doesn't crash the logger.)
                 if isinstance(criterion_reg, dict):
                     import wandb
 
                     if wandb.run is not None:
-                        wandb.log(
-                            {
-                                f"sigma/{name}": loss_fn.sigma
-                                for name, loss_fn in criterion_reg.items()
-                            }
-                        )
+                        disp_log = {}
+                        for name, loss_fn in criterion_reg.items():
+                            if hasattr(loss_fn, "sigma"):
+                                disp_log[f"sigma/{name}"] = loss_fn.sigma
+                            if hasattr(loss_fn, "theta"):
+                                disp_log[f"theta/{name}"] = loss_fn.theta
+                        if disp_log:
+                            wandb.log(disp_log)
 
                 # Issue #48: log multi-task loss weights once per lesson
                 import wandb
