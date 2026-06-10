@@ -23,6 +23,7 @@ Usage:
         [--raw <calibration.parquet>] [--targets lr_sb_best lr_ns_best lr_os_best] \
         [--n-boot 1000]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -62,7 +63,9 @@ def load_truth_index(raw_parquet: str, target: str) -> pd.Series:
     return s
 
 
-def aligned_truth(truth_idx: pd.Series, months: np.ndarray, units: np.ndarray, target: str) -> np.ndarray:
+def aligned_truth(
+    truth_idx: pd.Series, months: np.ndarray, units: np.ndarray, target: str
+) -> np.ndarray:
     """Align actuals to (month, unit) prediction keys; FAIL LOUD on any unmatched cell."""
     keys = list(zip(months.tolist(), units.tolist()))
     truth = truth_idx.reindex(keys).to_numpy(dtype=np.float64)
@@ -107,7 +110,10 @@ def _metrics_on_subset(y_true: np.ndarray, y_pred: np.ndarray, n_boot: int, salt
     with np.errstate(divide="ignore", invalid="ignore"):
         cell_ratio = pred_mean / y_true
     out["ratio_median"] = float(np.nanmedian(cell_ratio))
-    out["ratio_iqr"] = (float(np.nanpercentile(cell_ratio, 25)), float(np.nanpercentile(cell_ratio, 75)))
+    out["ratio_iqr"] = (
+        float(np.nanpercentile(cell_ratio, 25)),
+        float(np.nanpercentile(cell_ratio, 75)),
+    )
     out["pred_mean"] = float(pred_mean.mean())
     out["true_mean"] = float(y_true.mean())
     out["mcr_ci"] = _bootstrap_mcr_ci(y_true, pred_mean, n_boot, salt)
@@ -134,7 +140,10 @@ def _collect(pred_dir: str, target: str):
         truth = aligned_truth(_TRUTH[target], tm, un, target)
         finite = np.isfinite(yp).all(axis=1) & np.isfinite(truth)  # later steps may be inf
         seed = int(tm.min())
-        for sel, T, P in ((tm == seed, step1_t, step1_p), (np.ones_like(tm, bool), full_t, full_p)):
+        for sel, T, P in (
+            (tm == seed, step1_t, step1_p),
+            (np.ones_like(tm, bool), full_t, full_p),
+        ):
             m = sel & finite
             T.append(truth[m])
             P.append(yp[m])
@@ -151,10 +160,18 @@ def _collect(pred_dir: str, target: str):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("pred_dir", help="predictions_<run> dir (contains origin_*/{target}/y_pred.npy)")
-    ap.add_argument("--baseline", default=None, help="optional baseline predictions dir to contrast")
-    ap.add_argument("--raw", default=None, help="raw calibration parquet (default: auto-glob data/raw)")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "pred_dir", help="predictions_<run> dir (contains origin_*/{target}/y_pred.npy)"
+    )
+    ap.add_argument(
+        "--baseline", default=None, help="optional baseline predictions dir to contrast"
+    )
+    ap.add_argument(
+        "--raw", default=None, help="raw calibration parquet (default: auto-glob data/raw)"
+    )
     ap.add_argument("--targets", nargs="+", default=DEFAULT_TARGETS)
     ap.add_argument("--n-boot", type=int, default=1000)
     args = ap.parse_args()
@@ -162,7 +179,14 @@ def main():
     raw = args.raw
     if raw is None:
         hits = sorted(glob.glob("data/raw/*calibration*.parquet")) or sorted(
-            glob.glob(os.path.join(os.path.dirname(args.pred_dir.rstrip("/")), "..", "raw", "*calibration*.parquet"))
+            glob.glob(
+                os.path.join(
+                    os.path.dirname(args.pred_dir.rstrip("/")),
+                    "..",
+                    "raw",
+                    "*calibration*.parquet",
+                )
+            )
         )
         if not hits:
             ap.error("could not auto-find a calibration raw parquet; pass --raw")
