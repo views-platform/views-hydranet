@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-10                           |
-| Total Concerns    | 143                                  |
-| Open Concerns     | 49                                   |
+| Total Concerns    | 148                                  |
+| Open Concerns     | 54                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 94                                   |
 
@@ -903,6 +903,8 @@ The epic's load-bearing claim is that ZINB "**dissolves the balancer / C-111 by 
 
 π and μ are optimized independently; the emitted and fed-back forecast is their **product**, which no loss sees during training. The composed `E[y]` can be miscalibrated (and can feed instability into the rollout) even when each head trains cleanly. Either score the composed `E[y]` in training, or document the product as an inference-time construct with **no calibration guarantee** and judge it on positive-subset proper scores. **Tier 2:** structural — calibration of the shipped quantity is not guaranteed by construction.
 
+*Method side (expert-method-review Pass-2, M5):* monitor a **proper score on the issued `E[y]`** — a count-space CRPS and/or PIT — during training, not just the per-head losses (Gneiting: score the predictand you actually ship).
+
 ---
 
 ### C-144: no validator forbids `hurdle_threshold` × `output_distribution="hurdle_nb"`
@@ -932,6 +934,81 @@ ZINB self-handles the zero/positive split; combining it with the C-45 `hurdle_th
 | Cross-refs | C-137 (M-Z7 spatial-θ ablation) |
 
 A per-target θ head would break the invariant `input_channels==3×output_channels` and the feedback shape. The MVP θ is a learnable scalar → implement it as a **loss-owned `Parameter`** (like `LogNormalFixedSigmaLoss`'s sigma), not a head; document this so a later spatial-θ ablation (C-137/M-Z7) knows it must add a head deliberately. **Tier 3:** architecture coupling / maintainability.
+
+---
+
+### C-146: likelihood conflation — "ZINB" vs "hurdle-NB" are different models
+
+| Field | Value |
+|-------|-------|
+| ID | C-146 |
+| Tier | 2 |
+| Source | expert-method-review (ZINB Pass-2, 2026-06-10) |
+| Trigger | Implementing `ZINBLoss` (#99) without first committing to ONE likelihood and writing its exact NLL |
+| Location | dossier `2026-06-10_zinb_distributional_head_dossier/02_design.md §0/§2`; issue #99 |
+| Cross-refs | C-137 (count-head likelihood-spec), D-08 (unified-NLL decision) |
+
+The design names the head both "**ZINB**" (zeros from a Bernoulli gate **and** the NB's own zero mass — Lambert 1992) and "**zero-truncated NB on positives / hurdle_nb**" (zeros **only** from the gate, truncated positive body — Cragg 1971 / Mullahy 1986). **These are distinct likelihoods** with distinct NLLs and identifiability: in ZINB a zero has two explanations → π and the NB zero-prob are partially confounded; the hurdle factorizes cleanly but needs the truncated-NB normaliser. Implementing the wrong NLL for the intended model is a silent spec error (wrong gradients, wrong calibration). **Commit to one and write its exact NLL before #99.** **Tier 2:** structural mis-specification feeding everything downstream.
+
+---
+
+### C-147: π = 1−sigmoid(cls) borrowed from the focal head — calibration unverified
+
+| Field | Value |
+|-------|-------|
+| ID | C-147 |
+| Tier | 2 |
+| Source | expert-method-review (ZINB Pass-2, 2026-06-10) |
+| Trigger | Gating `E[y]=(1−π)·μ` at #101 using `1−sigmoid(cls)` without a reliability/Brier calibration check on π |
+| Location | dossier `02_design.md §1`; issue #101 |
+| Cross-refs | C-143 (composed objective), C-137 |
+
+π is borrowed from the existing classification head trained by **focal** loss, whose effect on probability calibration is **contested** (Lin 2017: focal distorts class probabilities; Mukhoti 2020: focal can improve calibration; Guo 2017: nets miscalibrated by default). So π's calibration *as a zero/onset probability* is unverified. A miscalibrated π **biases the entire emitted magnitude** `(1−π)·μ`. Produce a reliability diagram / Brier on π (zero vs positive cells) before using it as the gate. **Tier 2:** a miscalibrated borrowed gate silently biases every emitted magnitude.
+
+---
+
+### C-148: "softplus dissolves the autoregressive explosion by construction" is unproven
+
+| Field | Value |
+|-------|-------|
+| ID | C-148 |
+| Tier | 2 |
+| Source | expert-method-review (ZINB Pass-2, 2026-06-10) |
+| Trigger | Treating C-113 as solved / soft-pedaling the #102 explosion-check on the strength of the "by construction" prose |
+| Location | dossier `00_README.md`, `02_design.md §0` |
+| Cross-refs | C-142 (the gate), C-113 (the explosion) |
+
+The claim that softplus `E[y]` feedback dissolves the C-113 runaway "**by construction**" is unproven and contested by dynamical-systems theory (Mikhaeil 2022 / Hess 2023 / Durstewitz: the blow-up is a property of the recurrent **operator's gain** / Jacobian spectral radius, not the output nonlinearity alone). `02_design §6` correctly gates on `diagnose_io_gain`, but the "by construction" prose elsewhere invites skipping the gate. Delete the over-claim; treat the explosion-check as the **load-bearing** test. **Tier 2:** an over-claim that, if believed, wastes the build and re-explodes.
+
+---
+
+### C-149: NB upper tail likely under-fits the heavy conflict tail (QS99 the binding guardrail)
+
+| Field | Value |
+|-------|-------|
+| ID | C-149 |
+| Tier | 3 |
+| Source | expert-method-review (ZINB Pass-2, 2026-06-10) |
+| Trigger | Reading a QS99 (tail) guardrail miss at eval (#102/#103) as a whole-model failure rather than an expected NB-tail limitation |
+| Location | dossier `05_analysis_plan.md` |
+| Cross-refs | C-137 (Tweedie/tail escalation) |
+
+Conflict fatality counts are heavy/long-tailed (near power-law); the NB tail decays roughly geometrically and likely under-predicts extremes → **QS99 (tail sanity) is the most probable binding guardrail failure.** Pre-register that expectation + the Tweedie / GPD-tail escalation path, so a tail-miss triggers the right escalation rather than abandoning the model. **Tier 3:** anticipated limitation with a defined escalation.
+
+---
+
+### C-150: analysis plan lacks PIT + positive-tail posterior-predictive check
+
+| Field | Value |
+|-------|-------|
+| ID | C-150 |
+| Tier | 4 |
+| Source | expert-method-review (ZINB Pass-2, 2026-06-10) |
+| Trigger | Finalizing the #102 eval readout without a PIT histogram + a positive-count PPC in the analysis plan |
+| Location | dossier `05_analysis_plan.md` |
+| Cross-refs | C-136 (MCR-not-proper) |
+
+The plan has Coverage + F-zero-rate + multi-seed (good) but no **PIT calibration histogram** and no **posterior-predictive check on the positive-count distribution**. A ZINB/hurdle can match the 95% zero-rate while mis-fitting the positive body; PIT + a positive-tail PPC catch that. Add both to the readout. **Tier 4:** analysis-completeness; improves diagnostic value, no correctness impact.
 
 ---
 
