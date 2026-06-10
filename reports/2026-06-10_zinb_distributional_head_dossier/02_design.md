@@ -53,11 +53,21 @@ loss_target =  weighted_Bernoulli_NLL(cls_logit, 1[y>0])          # the gate ter
 - **Never `expm1` a free prediction** (the C-113 direction). The only `expm1` is on the bounded target.
 - A **contained, exhaustively-tested** provider (round-trip, NaN/Inf guards, targets-only assertion).
 
-## 4. Inference — D3 (C-140, D-09): emit `log1p(E[y])`
-- Compose `E[y] = (1 − π) · μ` (count space), then **emit `log1p(E[y])`.**
+## 4. Inference — D3 (C-140, D-09) + the EXACT hurdle mean (chair decision A, grounded)
+- Compose the **exact zero-truncated hurdle-NB mean** `E[y] = P(y>0) · μ / (1 − NB₀(μ,θ))`
+  (`P(y>0)=sigmoid(cls)`, `μ=softplus(reg)`, `NB₀=(θ/(θ+μ))^θ`), then **emit `log1p(E[y])`.**
+  *(The body is **zero-truncated**, so the conditional mean is `μ/(1−NB₀)`, not μ — Cragg 1971 /
+  Mullahy 1986 / Cameron & Trivedi 1998. The bare `(1−π)·μ` is the **ZINB** mean (Lambert 1992;
+  Iacus 2025) and under-predicts our hurdle by up to ~2× on small-μ cells. As μ→0 the truncated body
+  mean → 1, so `E[y]→P(y>0)` — finite, no 0/0.)*
 - The orchestrator's `inverse_transform_volume` applies `expm1` downstream (`inference_orchestrator.py:113`)
   → it recovers `E[y]`. **Emitting count-space `E[y]` would double-`expm1` → re-explosion (C-140).**
 - Feed back `log1p(E[y])` to the next step (the model's input space). `_clamp_feedback` unchanged.
+- **θ at inference:** the learned per-target θ is **persisted in the artifact sidecar** + attached to the model
+  at load (fetcher) → read by `HydraNetInference` (mirrors the `feedback_clamp` per-target pattern).
+  `train_model` also persists `output_distribution` in the sidecar — **without it a hurdle_nb model reloads as
+  ReLU** (confirmed gap, fixed in #101).
+- **Eval (#102) logs both** the exact mean and `(1−π)·μ` to measure the truncation factor empirically.
 
 ## 5. Flag + parity
 - Default-off flag `output_distribution="hurdle_nb"` (mirrors `freeze_multitask_balancer` / `rollout_horizon`).
@@ -72,6 +82,11 @@ explodes → STOP, escalate (§7). This is the empirical test that replaces the 
 ## 7. Escalation by failure mode (only if the explosion-check or eval fails)
 - **Probe not contractive** → recurrence-deep → **rollout training (parked #77/#78)** / **direct multi-horizon (#41)**.
 - **Stable but tail-underfit** → Tweedie / DEMM GPD tail (parked #60/#38). *(QS99 is the likely binding guardrail — C-149.)*
+- **⭐ If the hurdle-NB (Option A) dead-ends** (calibration or stability) → **Option B: ZINB with a *dedicated* π**
+  (Iacus 2025 DynAttn — a ZINB count head **proven on VIEWS/PRIO**; mean `(1−π)·μ`, **θ-free** at inference,
+  **full** NB body). Cost: rework the loss (truncated → full NB) + add a **structural-π head** (reusing the
+  focal classifier as a ZINB π is mis-specified — C-146). *Chair-requested fallback (2026-06-10): A is the
+  anchor; B stays documented as the future direction if A proves a dead end.*
 - **Epic exhausts without a shippable result** → second exit: **revert to `e029e63`** and ship that.
 
 ## Open ablations (registered, NOT MVP)

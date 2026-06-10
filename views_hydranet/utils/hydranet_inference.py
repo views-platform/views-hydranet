@@ -68,6 +68,10 @@ class HydraNetInference:
         # Bounds ONLY the autoregressive feedback copy, never an emitted prediction.
         # None (default) => no behavior change. See reports/preanalysis_feedback_clamp.md.
         self.feedback_clamp = self._parse_feedback_clamp(config.get("feedback_clamp_log1p"))
+        # #101: hurdle-NB inference compose. The model carries output_distribution (#100); the
+        # learned per-target theta is attached to the model at load time (sidecar -> fetcher).
+        self.output_distribution = getattr(model, "output_distribution", "standard")
+        self.hurdle_theta = self._parse_hurdle_theta(getattr(model, "hurdle_nb_theta", None))
         self.viz = visualizer or VisualDiagnostics({"diagnostic_visualizations": False})
 
         # Step 3: Move model to device and configure for inference.
@@ -129,6 +133,52 @@ class HydraNetInference:
             return t0_autoreg
         ceiling = self.feedback_clamp.to(device=t0_autoreg.device, dtype=t0_autoreg.dtype)
         return torch.minimum(t0_autoreg, ceiling)
+
+    def _parse_hurdle_theta(self, theta):
+        """Per-target NB dispersion theta for the hurdle-NB mean (#101). None unless hurdle_nb.
+
+        Accepts the learned theta dict {target: value} (persisted in the artifact sidecar,
+        attached to the model at load). Orders by regression_targets -> [1, C, 1, 1] tensor.
+        Fail-loud if hurdle_nb is active but theta is missing/incomplete.
+        """
+        if self.output_distribution != "hurdle_nb":
+            return None
+        targets = list(self.config.get("regression_targets", []))
+        if not theta or not targets:
+            err_msg = (
+                "output_distribution='hurdle_nb' requires per-target theta (from the artifact "
+                f"sidecar) and regression_targets; got theta={theta!r}, targets={targets!r}."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        try:
+            vals = [float(theta[t]) for t in targets]
+        except (KeyError, TypeError) as exc:
+            err_msg = f"hurdle_nb theta missing a target entry: {theta!r} vs {targets!r}."
+            logger.error(err_msg)
+            raise ValueError(err_msg) from exc
+        if any(v <= 0 for v in vals):
+            raise ValueError(f"hurdle_nb theta values must be > 0; got {vals}.")
+        return torch.tensor(vals, dtype=torch.float32).view(1, len(vals), 1, 1)
+
+    def _emit_magnitude(self, reg: torch.Tensor, prob: torch.Tensor) -> torch.Tensor:
+        """Map the raw regression-head output to the emitted/fed-back magnitude.
+
+        Standard: identity (reg is already the log1p-space point prediction).
+        Hurdle-NB (#101): reg is the count-space NB mean mu; emit log1p(E[y]) where the EXACT
+        zero-truncated hurdle mean is E[y] = P(y>0) * mu / (1 - NB0(mu, theta))
+        (Cragg/Mullahy/Cameron&Trivedi). log1p so the downstream inverse_transform (expm1)
+        recovers E[y] in count space — we never expm1 a free prediction (C-140).
+        """
+        if self.output_distribution != "hurdle_nb":
+            return reg
+        theta = self.hurdle_theta.to(device=reg.device, dtype=torch.float64)
+        mu = reg.to(torch.float64).clamp_min(0.0)
+        p = prob.to(torch.float64)
+        nb0 = (theta / (theta + mu)) ** theta  # NB(0; mu, theta)
+        # mu/(1-NB0) -> 1 as mu -> 0 (zero-truncated body mean is >= 1); clamp guards 0/0.
+        e_y = p * mu / (1.0 - nb0).clamp_min(1e-8)
+        return torch.log1p(e_y).to(reg.dtype)
 
     def predict(
         self,
@@ -202,6 +252,7 @@ class HydraNetInference:
                 output = self.model(t0_input, h_tt)
                 t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
                 t1_pred_class = torch.sigmoid(t1_pred_class)
+                t1_pred = self._emit_magnitude(t1_pred, t1_pred_class)  # #101: hurdle-NB E[y]
 
                 acc_magnitudes.append(t1_pred)
                 acc_probabilities.append(t1_pred_class)
@@ -247,6 +298,7 @@ class HydraNetInference:
                 output = self.model(t0_autoreg, h_tt)
                 t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
                 t1_pred_class = torch.sigmoid(t1_pred_class)
+                t1_pred = self._emit_magnitude(t1_pred, t1_pred_class)  # #101: hurdle-NB E[y]
 
                 # C-20: Soft magnitude guard — detect gradual drift
                 # C-51: three-tier escalation (100 → 500 → 1000)

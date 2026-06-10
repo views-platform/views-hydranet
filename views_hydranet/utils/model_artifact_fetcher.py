@@ -111,6 +111,10 @@ class ModelArtifactFetcher:
             model = factory(arch_config, torch.device("cpu"))
             state_dict = torch.load(path_model_artifact, map_location="cpu", weights_only=True)
             model.load_state_dict(state_dict)
+            # #101: attach the learned per-target hurdle-NB theta (from the sidecar) for the
+            # inference mean compose; None for standard models. The head's output_distribution
+            # is already set by choose_model(arch_config).
+            model.hurdle_nb_theta = arch_config.get("hurdle_nb_theta")
             logger.info("Retriever: Loaded state_dict artifact (weights_only=True)")
         else:
             logger.warning(

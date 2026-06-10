@@ -83,6 +83,15 @@ def train_model_artifact(
         if missing:
             raise ValueError(f"Config sidecar requires keys {arch_keys}, missing: {missing}")
         config_snapshot = {k: config[k] for k in arch_keys}
+        # #101: persist the head flag (else hurdle_nb reloads as ReLU) + the learned per-target
+        # NB dispersion theta (needed for the exact hurdle-NB mean at inference).
+        config_snapshot["output_distribution"] = config.get("output_distribution", "standard")
+        criterion_reg = criterion[0]
+        is_hurdle = config_snapshot["output_distribution"] == "hurdle_nb"
+        if is_hurdle and isinstance(criterion_reg, dict):
+            config_snapshot["hurdle_nb_theta"] = {
+                t: loss.theta for t, loss in criterion_reg.items()
+            }
         artifact_path.with_suffix(".pt.config.json").write_text(
             json.dumps(config_snapshot, indent=2)
         )
