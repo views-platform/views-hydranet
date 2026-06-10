@@ -12,8 +12,9 @@ class TestF5_CICFieldCountDrift:
 
     def test_cic_field_count_matches_actual(self):
         """CIC §3 field count must match actual model_fields count."""
-        # docs/CICs/HydraNetConfig.md §3 (freeze_h retired -1; rollout_horizon +1, 2026-06-06)
-        CIC_CLAIMED_COUNT = 71
+        # docs/CICs/HydraNetConfig.md §3 (freeze_h -1; rollout_horizon +1, 2026-06-06;
+        # hurdle-NB +3: loss_reg_theta_init, learnable_theta, loss_class_pos_weight; #99)
+        CIC_CLAIMED_COUNT = 74
         actual = len(HydraNetConfig.model_fields)
         assert actual == CIC_CLAIMED_COUNT, (
             f"CIC §3 claims {CIC_CLAIMED_COUNT} fields but HydraNetConfig has {actual}. "

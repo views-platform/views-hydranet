@@ -103,6 +103,11 @@ class HydraNetConfig(BaseModel):
     target_weights: Dict[str, float] | None = Field(default=None)
     # Learnable Tobit sigma (ADR-055): optimizer adjusts sigma during training.
     learnable_sigma: bool = Field(default=False)
+    # Hurdle-NB body (D2, #99): NB dispersion θ init + whether θ is learned (loss_reg='hurdle_nb').
+    loss_reg_theta_init: float | None = Field(default=None, gt=0.0)
+    learnable_theta: bool = Field(default=True)
+    # Hurdle-NB gate (loss_class='weighted_bce'): positive-class weight; None = plain BCE.
+    loss_class_pos_weight: float | None = Field(default=None, gt=0.0)
 
     # 11. Scheduled Sampling (ADR-056): close train/inference gap.
     ss_schedule: str | None = Field(default=None)
