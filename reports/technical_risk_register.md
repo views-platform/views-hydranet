@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-10                           |
-| Total Concerns    | 136                                  |
-| Open Concerns     | 42                                   |
+| Total Concerns    | 137                                  |
+| Open Concerns     | 43                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 94                                   |
 
@@ -819,6 +819,29 @@ Tier 3 rationale: design-stage methodology gaps for an as-yet-unbuilt head (peer
 `test_eval_integration_toy.py` imports `views_evaluation.evaluation.evaluation_manager.EvaluationManager`, which **no longer exists** in the installed `views_evaluation` — the `EvaluationManager` class/module was removed or renamed upstream (the current package routes evaluation through `native_evaluator` / `EvaluationFrame`). This is **stale-test vs upstream-API drift**, unrelated to the magnitude/rollout program (surfaced incidentally during R2's pre-commit suite run). It is *loud* (ImportError, nonzero exit) — not silent corruption — but because a collection error **interrupts the whole run** by default, a developer or CI seeing "1 error, interrupted" may not realize the other 743 tests never executed, masking unrelated regressions.
 
 Tier 3 rationale: test-integrity / dependency-drift; no model-output impact, but it degrades the suite's value as a regression gate (the masking-by-interrupt hazard). Mitigation: update `test_eval_integration_toy.py` to the current `views_evaluation` entrypoint (likely `native_evaluator` / `EvaluationFrame`), or `pytest.importorskip` it (C-10 pattern) / remove if the toy integration is obsolete; optionally set `--continue-on-collection-errors` in the CI config as defense-in-depth. Tracked in **#95**.
+
+---
+
+### C-139: Program pivot — committed to the ZINB distributional head; all other directions parked/superseded
+
+| Field | Value |
+|-------|-------|
+| ID | C-139 |
+| Tier | 3 |
+| Source | chair decision (2026-06-10) + the since-February catalog + the open-issue inventory |
+| Trigger | A future session or contributor **re-opening** a parked direction (rollout training, the inference gate, Tweedie, direct multi-horizon, ADR-057 locked-dropout, or the loss-swap zoo) without realizing it was deliberately parked in favour of the ZINB head — i.e. re-entering the 3-week circle the pivot was meant to end |
+| Location | Closed issues #91 #94 #81–#89 #40 #63 #59 (superseded); #77 #78 #93 #65–#73 #38 #39 #41 #42 #45 #49 #57 #58 #60 #61 #62 (parked); archived dossiers under `reports/archived/`; live: ZINB dossier `reports/2026-06-10_zinb_distributional_head_dossier/`, epic #97, checklist #104 |
+| Cross-refs | C-111 (balancer — **mooted** by ZINB), C-113 (the explosion), C-136, C-137 (count-head design risks — now the *live* direction), `reports/2026-06-10_since_february_catalog.md` |
+
+On 2026-06-10, after a since-February stock-take, the program committed to **ONE direction — the ZINB distributional head** (epic #97) — and parked or superseded every other direction. The 3-week mess was caused by too many open directions at once; this entry exists so the parked ones are **not silently re-opened**.
+
+- **SUPERSEDED (replaced):** the magnitude hurdle/gate program (#81–#89); the reversed "count-likelihood = escalation-only / hurdle+rollout = live" framing (#91, #94); the C-111 balancer question (#59 — **mooted**: a single ZINB likelihood has no regression-vs-classification balancer to freeze); the old ZINB investigation stubs (#40, #63 → recreated as the fresh sub-issues #98–#103).
+- **PARKED (documented fallbacks; revisit only if the ZINB head fails):** rollout training (#77, #78, #93); the ADR-057 locked-dropout / MC-dropout-stability program (#65–#73); the loss/calibration "investigate-X" set (#38, #39, #41, #42, #45, #49, #57, #58, #60, #61, #62).
+- **Three dossiers archived** to `reports/archived/` (distributional-head + magnitude-calibration = superseded; rollout = parked fallback), each with a supersession header + DISPOSITION pointer to the ZINB dossier.
+
+Discipline (the harness): a frozen linear roadmap (checklist #104), one box at a time, findings logged but non-steering, **two exits only** (ship the ZINB head, or revert to commit `e029e63` and ship that), brake word **CIRCLE**.
+
+Tier 3 rationale: governance / traceability. The risk is process (re-circling), not silent data corruption — but without the recorded trail, the failure mode (re-opening parked work) is exactly what cost three weeks.
 
 ---
 
