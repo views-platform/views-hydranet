@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-13                           |
-| Total Concerns    | 153                                  |
-| Open Concerns     | 54                                   |
+| Total Concerns    | 158                                  |
+| Open Concerns     | 59                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 99                                   |
 
@@ -1027,6 +1027,81 @@ The plan has Coverage + F-zero-rate + multi-seed (good) but no **PIT calibration
 ADR-061's "why now" leans on El Jurdi et al. (2021): CoordConv-Unet stabilizes training and evades local minima **under prior-based losses** — and we train a prior-based likelihood (hurdle-NB). The original ADR text said this was *"exactly the regime"* CoordConv was found to help. **That equivocates on "prior":** El Jurdi's "prior" is an **added spatial/shape regularizer** (size/clDice-type) bolted onto a pixel-wise base loss, and CoordConv's role was stabilizing that **two-term interchange**. A hurdle-NB is a **distributional likelihood family** — there is no added spatial term and no equivalent interchange — so the mechanism may simply not exist in our setting. The ADR/dossier text has been **corrected** to "plausibly analogous, not identical," with the disanalogy explicit. The **residual risk** is decision-hygiene: a load-bearing justification that may not transfer could (a) inflate confidence going into the coords experiment, or (b) cause a null/ambiguous result to be mis-attributed to "CoordConv fails here" when the real lesson is "the analogy didn't hold" (→ premature escalation, or wrong placement/ablation conclusions).
 
 **Mitigation:** the §5 pre-registered experiment + its falsifier are the arbiters, **not** the analogy; on a null, ablate placement (the unbacked input+top-skip choice — see dossier `04`) and re-check the gate-forensic before concluding CoordConv is the wrong lever. **Tier 3:** methodology / decision-hygiene; no silent corruption, clear trigger. Already de-risked by the §3 text correction — registered so the analogy isn't silently re-promoted to "received wisdom" as the design hardens.
+
+---
+
+### C-156: `feature_cols` overloads model-inputs and training-targets (root of C-157/158/159)
+
+| Field | Value |
+|-------|-------|
+| ID | C-156 |
+| Tier | 2 |
+| Source | channel-role side-quest — multi-expert review + census-by-test (2026-06-13) |
+| Trigger | Adding any channel that is a model **input** but not a training **target** (coordinates, and the future covariates), OR running with `static_channels` non-empty |
+| Location | `volume_handler.py:159` (`kept_feature_cols = features + static_channels`); consumed at `curriculum.py:45`, `training_engine.py:435`, `train_model.py:75-85` |
+| Cross-refs | C-157 / C-158 / C-159 (its three faces), C-36 (the Custodian it lives in), C-153 (the seam), ADR-060, ADR-062 |
+
+`feature_cols` carries **two roles at once** — "channels fed to the model" *and* "channels the model predicts/trains on." For the bounded baseline those sets were identical, so the overload was invisible; the static-channel seam (#108) broke the identity but only some consumers were taught the difference. The result is one defect with three faces (C-157/158/159) plus a re-break for every future input-only channel. Pinned empirically in `tests/test_channel_role_census.py`. **Mitigation:** ADR-062 §2.1 gives roles a first-class home (`model_input_cols` / `target_cols` / `static_cols`); resolves when that lands and the census `xfail`s flip to XPASS. **Tier 2:** structural fragility, clear trigger, recurs on realistic change.
+
+---
+
+### C-157: training diagnostic biopsy is load-bearing — crashes training with a static-widened model
+
+| Field | Value |
+|-------|-------|
+| ID | C-157 |
+| Tier | 2 |
+| Source | channel-role side-quest census (2026-06-13); empirically confirmed (first coord smoke crashed here) |
+| Trigger | Training with `diagnostic_visualizations=True` and `input_channels > len(features)` (any static channel present) |
+| Location | `training_engine.py:424-436` (Stage-5 diagnostic biopsy) |
+| Cross-refs | C-156 (root), C-118 (visual_diagnostics hot-path), ADR-062 §2.1, Phase-6 harden |
+
+The plotting-only Stage-5 biopsy re-runs the forward with `idx.feat` (dynamic only) into a model built for `[dynamic ⧺ static]` → `RuntimeError` (channel mismatch) in lesson 1. A **diagnostic crashes the production training job**. **Mitigation:** ADR-062 §2.1 (biopsy reads `model_input_cols`) fixes the immediate bug; Phase 6 additionally makes the biopsy non-load-bearing (a diagnostic must never crash the job it observes). **Tier 2:** loud crash, structural, config-coupled.
+
+---
+
+### C-158: curriculum trains on input-only channels — silent window-sampling corruption
+
+| Field | Value |
+|-------|-------|
+| ID | C-158 |
+| Tier | 1 |
+| Source | channel-role side-quest census (2026-06-13); empirically observed (coord run listed coords in subject maxima) |
+| Trigger | Running with `static_channels` non-empty **and** diagnostics off (so C-157 doesn't crash first) — the curriculum then rotates statics in as subjects |
+| Location | `curriculum.py:45` (`self.subjects = list(handler.feature_cols)`), `:97` (subject rotation) |
+| Cross-refs | C-156 (root), ADR-062 §2.1 |
+
+`subjects = feature_cols` includes the input-only statics, so the curriculum rotates coordinates in as **prediction subjects** (~2/5 of windows), distorting which windows are sampled relative to the baseline. **No crash, no error signal** — it silently changes training and therefore results. This is the most dangerous of the three: a model-output-correctness risk with no tripwire (it would quietly invalidate a coords-vs-baseline comparison). **Mitigation:** ADR-062 §2.1 (subjects read `target_cols`). **Tier 1:** silent results corruption.
+
+---
+
+### C-159: artifact sidecar schema drifts from `choose_model` — deferred reload crash
+
+| Field | Value |
+|-------|-------|
+| ID | C-159 |
+| Tier | 2 |
+| Source | channel-role side-quest census (2026-06-13); empirically confirmed (seed42 trained, then eval crashed on reload) |
+| Trigger | Reloading an artifact trained with `static_channels` (e.g. for evaluation), or adding any constructor-affecting config key not in `arch_keys` |
+| Location | `train_model.py:75-85` (`arch_keys` allow-list) vs `utils.py:34` (`choose_model` reads `static_channels`) |
+| Cross-refs | C-156 (root), C-09 (the sidecar mechanism, resolved), ADR-062 §2.3 |
+
+The sidecar `arch_keys` whitelist omits `static_channels`, so `choose_model` rebuilds the model with `n_static=0` (narrower `dec_conv1`) and `load_state_dict` size-mismatches the wider trained checkpoint — eval crashes **after** the full training cost is paid. A deferred, expensive failure from an implicit, unversioned writer↔reader schema. **Mitigation:** ADR-062 §2.3 — derive the persisted keys from the model's actual constructor signature and self-validate on write (reload-after-save preflight). **Tier 2:** loud but deferred; schema-governance fragility.
+
+---
+
+### C-160: the channel-role refactor activates the VolumeHandler god-node blast radius
+
+| Field | Value |
+|-------|-------|
+| ID | C-160 |
+| Tier | 2 |
+| Source | channel-role side-quest planning (2026-06-13) |
+| Trigger | Executing the Phase-4 channel-role refactor / VolumeHandler decomposition — any signature change on the Custodian |
+| Location | `volume_handler.py` (whole class); the 8 creation sites; the role consumers |
+| Cross-refs | C-36 (451-edge god node), C-37 (no Protocol — being reconsidered), C-75 (derivation duplication), ADR-062 |
+
+ADR-062 deliberately refactors the Custodian, which C-36 quantifies as a **451-edge god node bridging 16+ communities** — "any signature change ripples across all communities." The risk: an unintended change to baseline (no-coords) output slips past the unit suite (which gave false confidence before). **Mitigation (the side-quest's defining discipline):** an end-to-end **parity gate** — a no-coords run on current code must be **bit-identical** to a no-coords run on the refactored code (Phases 2/5) — plus the characterization net (Phase 3) and byte-identical-when-off (I5) at every step. Registered so the refactor is executed under that gate, never on the unit suite alone. **Tier 2:** structural fragility under a planned, broad change.
 
 ---
 
