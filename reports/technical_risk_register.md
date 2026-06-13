@@ -6,9 +6,9 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-13                           |
 | Total Concerns    | 153                                  |
-| Open Concerns     | 55                                   |
+| Open Concerns     | 54                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 98                                   |
+| Resolved Concerns | 99                                   |
 
 ---
 
@@ -1030,21 +1030,6 @@ ADR-061's "why now" leans on El Jurdi et al. (2021): CoordConv-Unet stabilizes t
 
 ---
 
-### C-153: ADR-060 static-channel seam is cross-cutting and understated; coords ∉ `features` vs input-built-from-`features` unresolved
-
-| Field | Value |
-|-------|-------|
-| ID | C-153 |
-| Tier | 3 |
-| Source | falsify (epic-planning-readiness audit, P1, 2026-06-13) |
-| Trigger | Starting the coords epic box 1 treating "input_channels 3→5" as a localized arch tweak — when it actually requires coordinated changes to the inference rollout feedback (`predict()`), the scheduled-sampling training feedback (`_process_sequence`, ADR-056), all 16 LSTM `Wx*` convs + `enc_conv0`, the 6 decoder `dec_conv1` top-skips, `FeatureScaler`, **and** a resolution of how coords enter the model input given they are *not* in `config["features"]` |
-| Location | `views_hydranet/utils/hydranet_inference.py:215,246,292`; `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py` (Wx* L213-375, enc_conv0 L87, dec_conv1 top-skips L451 etc.); ADR-060 §2.3 / ADR-061 §6 Q1; coords dossier `02`/`04` |
-| Cross-refs | ADR-060/061, C-152, C-154, C-155, C-142 |
-
-The inference rollout builds the seed input from `config["features"]` (L246) and feeds the **3-channel prediction directly back** as the next input (`t0_autoreg = t1_pred`, L292) — it has **no static-vs-dynamic channel concept**. ADR-060 §2.3 says a static channel is declared in its own block, **not** in `features`; but the input is assembled *from* `features`, so a static channel must be injected by a **new mechanism** into both the seed input and the per-step feedback (ADR-060 I3), and the **same coupling lives in the SS training feedback**. The architecture itself supports input>output cleanly (head out-channels are decoupled from `input_channels`; `e0s` is a real full-resolution skip) — so the design is **feasible** — but the ADRs frame this cross-cutting seam as a minor "Q1 to confirm," understating box-1 scope. **Tier 3:** no corruption; a coupling/scope gap that, if planned as a localized tweak, derails the epic and risks an **incoherent half-seam** (e.g., coords reaching training but not inference, or the seed but not the feedback). Mitigation: box 1 must enumerate every feedback/forward/config/scaler touch-point and resolve coords-vs-`features` *before* code. RED stub: `tests/test_falsification_epic_planning_readiness.py::test_p1_inference_loop_supports_static_input_channels`.
-
----
-
 ## Disagreements
 
 ### D-01: VolumeHandler scope — God Object vs Deep Module
@@ -1158,6 +1143,26 @@ Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/s
 ---
 
 ## Resolved Concerns
+
+### C-153: ADR-060 static-channel seam — built coordinated across the pipeline — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-153 · Tier 3 · Resolved #108, 2026-06-13 |
+| Cross-refs | ADR-060/061, C-142, C-154, C-155 |
+
+The seam was flagged as cross-cutting (an incoherent half-seam being the risk). **Resolved (#108):**
+implemented coordinated across every touch-point — a `static_channels` config block (declared separately,
+**not** in `features`) + validators (I1 not-a-target; `input_channels == len(features) + len(static)` ==
+`3*output_channels + len(static)`); `VolumeHandler.from_df` derives static channels over the full grid and
+appends them **before the North-Up flip** (flip-synced, I6; window-sliced, I4); the model input is
+`[dynamic ⧺ static]` with the static slice **re-attached every step** in BOTH the inference loop and the
+scheduled-sampling training feedback (I3); `FeatureScaler` skips them (unknown ⇒ no inverse, I2); the
+architecture needed no edit (input side already parametrized by `input_channels`). Invariants **I1–I6**
+green in `tests/test_static_channel_seam.py`; `static_channels=[]` is byte-identical (I5); `test_p1`
+flipped to a green guard.
+
+---
 
 ### C-151: bounded 6-run hurdle-NB sweep — intrinsic, not clamp-masked — RESOLVED
 

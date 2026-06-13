@@ -121,16 +121,18 @@ def make(config: dict, device: torch.device):
 class _SequenceIndices:
     """Pre-computed channel indices for the sequence loop (Zero Magic ADR 003)."""
 
-    __slots__ = ("reg", "cls", "feat", "n_reg", "n_cls", "reg_names", "cls_names")
+    __slots__ = ("reg", "cls", "feat", "static", "n_reg", "n_cls", "reg_names", "cls_names")
 
     def __init__(self, feature_names: list[str], config: dict) -> None:
         reg_targets = config.get("regression_targets")
         cls_targets = config.get("classification_targets")
         input_features = config.get("features")
+        static_channels = config.get("static_channels") or []  # ADR-060: input-only channels
 
         self.reg = [feature_names.index(t) for t in reg_targets]
         self.cls = [feature_names.index(t) for t in cls_targets]
         self.feat = [feature_names.index(f) for f in input_features]
+        self.static = [feature_names.index(s) for s in static_channels]
         self.n_reg = len(reg_targets)
         self.n_cls = len(cls_targets)
         self.reg_names = reg_targets
@@ -188,12 +190,20 @@ def _process_sequence(
         # Forward pass: Feed ONLY the input features (Zero Magic)
         t0_gt = t0[:, idx.feat, :, :]
 
-        # ADR-056: scheduled sampling — may replace ground truth with model prediction
+        # ADR-056: scheduled sampling may replace the ground-truth DYNAMIC features with prediction
         if ss_epsilon > 0.0 and prev_pred is not None:
             mask = torch.rand(t0_gt.shape[0], 1, 1, 1, device=device) < ss_epsilon
-            t0_input = torch.where(mask, prev_pred, t0_gt)
+            dyn_input = torch.where(mask, prev_pred, t0_gt)
         else:
-            t0_input = t0_gt
+            dyn_input = t0_gt
+
+        # ADR-060 I3: re-attach static (input-only) channels — geometry-constant, always the true
+        # values (never sampled, never fed from output). Channel order [dynamic ⧺ static] matches
+        # the volume. Empty static => byte-identical to the pre-seam path (I5).
+        if idx.static:
+            t0_input = torch.cat([dyn_input, t0[:, idx.static, :, :]], dim=1)
+        else:
+            t0_input = dyn_input
 
         output = model(t0_input, h)
         t1_pred, t1_pred_class, h = output.reg, output.cls, output.h_next

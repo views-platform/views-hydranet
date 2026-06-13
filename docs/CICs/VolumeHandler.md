@@ -30,6 +30,7 @@ The `VolumeHandler` is the **Custodian** of spatiotemporal data. Its primary pur
 - **Symmetry Preservation:** Ensures that model outputs are "dressed" with the same metadata and identities as the inputs.
 - **Stochastic Preservation:** Guarantees that the sample dimension (`S`) is never silently collapsed or averaged.
 - **Spatial Convention Preservation:** All derived VolumeHandlers (`slice_time`, `extrapolate_time`, `collapse_to_point`, `flip`, `wrap_predictions`) propagate the parent's `spatial_convention` via metadata replacement.
+- **Static Channels (ADR-060, C-153):** `from_df` derives any `config['static_channels']` over the **full grid from geometry** (via `views_hydranet/utils/static_channels.py`) and appends them to `channel_map`/`feature_cols` **before** the North-Up flip — so they are flip-synced (I6) and window-sliced (I4) exactly like the dynamic channels. They are input-only: never a target, never inverse-transformed, never in a prediction frame.
 
 ---
 

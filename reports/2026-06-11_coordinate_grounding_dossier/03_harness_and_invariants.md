@@ -43,8 +43,9 @@ Before the coordinate run is launched or trusted:
   (hurdle_nb) + per-arm env + seeds {42,4} + the C-42 lock; the stale `config_sweep.py` (tobit) **aligned**
   to hurdle_nb; `feedback_clamp_log1p = None` in all 11 baseline runs ⇒ bound **intrinsic** (C-151 resolved).
   Pinned in `05`. **C-155 resolved.**
-- **Cross-cutting seam landed (C-153/P1).** The static-channel seam touches inference + SS-training feedback
-  + arch + scaler (`04` box 1) — all coordinated, not a localized tweak.
+- **Cross-cutting seam landed (C-153/P1) — ✅ DONE (#108).** The `static_channels` seam ships coordinated
+  across config + VolumeHandler (derive before flip) + both feedback paths (I3) — invariants I1–I6 green
+  (`tests/test_static_channel_seam.py`); `static_channels=[]` byte-identical (I5). **C-153 resolved.**
 
 ## Readout protocol (how the experiment is judged — same instruments as the diagnosis)
 The coordinate run is read against the bounded hurdle-NB baseline with the same instruments that produced

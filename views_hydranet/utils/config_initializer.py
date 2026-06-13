@@ -153,6 +153,15 @@ class HydraNetConfig(BaseModel):
             "S3_seed4). None disables (default-off => unchanged behaviour)."
         ),
     )
+    static_channels: list[str] = Field(
+        default_factory=list,
+        description=(
+            "ADR-060: input-only channels (e.g. coordinates) injected into the model, never "
+            "predicted, never in targets, re-injected every autoregressive step. Declared HERE "
+            "(not in `features`); derived in static_channels.py over the full grid. "
+            "input_channels must be 3*output_channels + len(static_channels). Empty => unchanged."
+        ),
+    )
 
     # 9. Runtime Flags
     freeze_multitask_balancer: bool = Field(
@@ -224,11 +233,12 @@ class HydraNetConfig(BaseModel):
     @model_validator(mode="after")
     def validate_laws(self) -> "HydraNetConfig":
         """The Checksum and Scaling Laws."""
-        # Checksum: input_channels
-        if self.input_channels != len(self.features):
+        # Checksum: input_channels == dynamic features + static channels (ADR-060). Static channels
+        # are extra input-only channels carried in the volume (not in `features`).
+        if self.input_channels != len(self.features) + len(self.static_channels):
             err_msg = (
                 f"Checksum Law Violation: input_channels ({self.input_channels}) != "
-                f"features ({len(self.features)})"
+                f"features ({len(self.features)}) + static_channels ({len(self.static_channels)})"
             )
 
             logger.error(err_msg)
@@ -246,15 +256,29 @@ class HydraNetConfig(BaseModel):
                 self.regression_targets,
             )
 
-        # Architectural invariant (C-98): autoregressive feedback requires
-        # model regression output (3 heads × output_channels) == input_channels
-        if self.input_channels != 3 * self.output_channels:
+        # Architectural invariant (C-98, extended by ADR-060/C-153): the 3 regression heads
+        # (3 × output_channels) feed back as the DYNAMIC input; static channels (ADR-060) are
+        # extra input-only channels. So input_channels == 3*output_channels + len(static_channels).
+        n_static = len(self.static_channels)
+        if self.input_channels != 3 * self.output_channels + n_static:
             err_msg = (
                 f"Architectural invariant violation: input_channels ({self.input_channels}) "
-                f"must equal 3 × output_channels ({self.output_channels}) = "
-                f"{3 * self.output_channels}. The model has 3 hardcoded regression heads, "
-                f"each producing output_channels channels. During autoregressive inference, "
-                f"the concatenated regression output feeds back as input."
+                f"must equal 3*output_channels ({self.output_channels}) + len(static_channels) "
+                f"({n_static}) = {3 * self.output_channels + n_static} (3 reg heads feed back as "
+                f"the dynamic input; static channels are extra input-only channels, ADR-060)."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+
+        # ADR-060 I1: a static channel is input-only — it must NEVER be a prediction target.
+        bad_static = set(self.static_channels) & (
+            set(self.regression_targets) | set(self.classification_targets)
+        )
+        if bad_static:
+            err_msg = (
+                f"ADR-060 I1 violation: static_channels {sorted(bad_static)} also appear in "
+                f"regression/classification targets — static channels are input-only and must "
+                f"never be predicted (declare them only in `static_channels`)."
             )
             logger.error(err_msg)
             raise ValueError(err_msg)

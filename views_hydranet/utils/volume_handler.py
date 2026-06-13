@@ -123,6 +123,8 @@ class VolumeHandler:
 
         identity_cols = config.get("identity_cols", [])
         feature_cols = config.get("features", [])
+        # ADR-060: static channels are input-only, derived from grid geometry (not df columns).
+        static_channels = config.get("static_channels", [])
 
         # --- THE STRICT HANDSHAKE (ADR 007 Section 1.2) ---
         required_roles = [time_col, id_col, y_col, x_col]
@@ -145,12 +147,16 @@ class VolumeHandler:
 
             raise ValueError(err_msg)
 
-        # The channel map is ordered: [Primary Keys] + [Metadata] + [Features]
-        # We ensure time_col and id_col are always first.
+        # Channel map order: [keys] + [metadata] + [features] + [static channels (ADR-060)].
+        # We ensure time_col and id_col are always first; static channels go last so the dynamic
+        # feature order (== regression_targets) is preserved for the autoregressive feedback.
         channel_map = [time_col, id_col]
-        for col in list(identity_cols) + list(feature_cols):
+        for col in list(identity_cols) + list(feature_cols) + list(static_channels):
             if col not in channel_map:
                 channel_map.append(col)
+        # Kept (model-input) channels = dynamic features + static channels; statics reach the model
+        # via to_pytorch but config['features'] (the targets-equality set) stays the dynamic ones.
+        kept_feature_cols = list(feature_cols) + list(static_channels)
 
         # 2. Structural Anchoring
         month_min = df[time_col].min()
@@ -216,7 +222,20 @@ class VolumeHandler:
         vol[..., m_chan_idx] = m_vals_global.reshape(1, 1, month_range)
 
         for i, col_name in enumerate(channel_map):
+            if col_name in static_channels:
+                continue  # ADR-060: derived below from grid geometry, not a df column
             vol[r_idx, c_idx, m_idx, i] = df[col_name].values
+
+        # ADR-060: fill static channels over the FULL grid, BEFORE the North-Up flip so they flip
+        # in sync with the data (I6). Geometry-only (I4: window-sliced like the dynamic channels).
+        if static_channels:
+            from views_hydranet.utils.static_channels import GridGeometry, derive
+
+            geom = GridGeometry(
+                height=height, width=width, row_offset=row_offset, col_offset=col_offset
+            )
+            for name in static_channels:
+                vol[:, :, :, channel_map.index(name)] = derive(name, geom)[:, :, None]
 
         # 5. Flip & Layout
         vol = np.flip(vol, axis=0)  # North-Up
@@ -235,7 +254,7 @@ class VolumeHandler:
             id_col=id_col,
             spatial_cols=(y_col, x_col),
             identity_cols=identity_cols,
-            feature_cols=feature_cols,
+            feature_cols=kept_feature_cols,
             spatial_offset=(row_offset, col_offset),
             config=config,
         )

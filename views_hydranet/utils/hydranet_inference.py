@@ -212,6 +212,13 @@ class HydraNetInference:
         input_features = self.config.get("features", [])
         feat_indices = [feature_names.index(f) for f in input_features]
 
+        # ADR-060: static (input-only) channels — appended after the dynamic features in the
+        # model input [dynamic ⧺ static], re-attached unchanged to the AR feedback (I3).
+        static_indices = [
+            feature_names.index(s) for s in self.config.get("static_channels", [])
+        ]
+        model_in_indices = feat_indices + static_indices
+
         reg_targets = self.config.get("regression_targets", [])
         reg_indices = [feature_names.index(t) for t in reg_targets]
 
@@ -240,12 +247,12 @@ class HydraNetInference:
         for t in range(origin + time_steps):
             if t < origin:
                 # 1. HISTORY DIGESTION: Update hidden state only
-                t0_input = full_tensor[:, t, feat_indices, :, :]
+                t0_input = full_tensor[:, t, model_in_indices, :, :]
                 h_tt = self.model(t0_input, h_tt).h_next
 
             elif t == origin:
                 # 2. SEED STEP: Month Origin -> Month Origin + 1 (Step 1)
-                t0_input = full_tensor[:, t, feat_indices, :, :]
+                t0_input = full_tensor[:, t, model_in_indices, :, :]
                 output = self.model(t0_input, h_tt)
                 t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
                 t1_pred_class = torch.sigmoid(t1_pred_class)
@@ -287,6 +294,13 @@ class HydraNetInference:
                 # C-113: clamp ONLY the fed-back copy to the in-domain ceiling; the
                 # emitted prediction (appended below) is never capped.
                 t0_autoreg = self._clamp_feedback(t1_pred.detach())
+                # ADR-060 I3: re-attach the geometry-constant static channels to the feedback,
+                # matching the [dynamic ⧺ static] model-input order. The clamp bounds only the 3
+                # dynamic prediction channels; statics are never clamped. Empty => unchanged.
+                if static_indices:
+                    t0_autoreg = torch.cat(
+                        [t0_autoreg, full_tensor[:, origin, static_indices, :, :]], dim=1
+                    )
                 # freeze_h retired (2026-06-05): the rollout evolves the full ConvLSTM
                 # state every step (the former "none" behaviour) — the only mode that was
                 # not a train/inference mismatch, and the freeze was inert vs the C-113

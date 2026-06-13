@@ -6,10 +6,10 @@ experiment). Each test encodes a falsification found during the audit.
 
 Post-amendment state (2026-06-13): P3 + P6 are GREEN — the dossier roadmap was amended to
 declare the disk budget + enumerate the seam scope / C-142 prerequisite — they now stand as
-regression guards. **P4 (C-142) closed by #106** and **P5 (C-155) closed by #107** — both now
-green guards. **P1 remains the one open** *implementation* gate (the static-channel seam code),
-marked ``xfail`` per the repo convention for known-open falsification gaps; it flips to XPASS when
-#108 lands the seam (tracked as C-153).
+regression guards. **All five are now GREEN:** P4 (C-142) closed by #106, P5 (C-155) by #107, and
+**P1 (C-153) by #108** (the static-channel seam landed). The whole file is now a green regression
+guard on the closed planning gaps; the behavioural seam invariants (I1–I6) live in
+`tests/test_static_channel_seam.py`.
 """
 
 import re
@@ -24,32 +24,19 @@ VIOLET = (
 )  # sibling repo; adjust if relocated
 
 
-# --- P1 (soft): the rollout/training feedback hard-assumes input_channels == output channels ----
-@pytest.mark.xfail(
-    reason="C-153: static-channel seam not yet built into the inference/training feedback path "
-    "(epic box 1). XPASS when the seam lands.",
-    strict=False,
-)
+# --- P1 (was soft): static-channel seam in the inference/training feedback — CLOSED by #108 ------
 def test_p1_inference_loop_supports_static_input_channels():
-    """FALSIFICATION P1. `HydraNetInference.predict()` builds the seed input from
-    `config["features"]` and feeds the 3-channel prediction *directly* back as the next input
-    (`t0_autoreg = t1_pred`). It has no notion of static (input-only) channels, and ADR-060 says
-    coords are NOT in `features`. So input_channels=5 / output_channels=3 cannot run without a new
-    seam that (a) injects static channels into the seed input and (b) re-appends them every
-    autoregressive step (ADR-060 I3). The same coupling exists in the scheduled-sampling training
-    feedback (ADR-056 `_process_sequence`). Turns GREEN when the static-channel seam exists.
-    """
+    """CLOSED by #108 (C-153, ADR-060). The rollout used to feed the 3-channel prediction directly
+    back and slice the seed from `config["features"]` — no notion of input-only channels. The seam
+    now injects static channels at the model input and re-attaches them every autoregressive step
+    (I3) — in both inference and the scheduled-sampling training feedback. The I1–I6 suite lives in
+    `tests/test_static_channel_seam.py`; this is a green guard on it."""
     from views_hydranet.utils import hydranet_inference as hi
 
     src = Path(hi.__file__).read_text()
-    has_static_seam = any(
-        tok in src for tok in ("static_channel", "static_channels", "_assemble_static")
-    )
-    assert has_static_seam, (
-        "predict() has no static-channel seam: the rollout feeds back only the predicted dynamic "
-        "channels and slices the seed input from config['features']. ADR-060/061's input>output "
-        "design is not implementable here without new code touching the inference AND training "
-        "feedback paths — this is more than the 'Q1 to confirm' the ADRs portray."
+    assert "static_indices" in src and "static_channels" in src, (
+        "the inference rollout must carry the static-channel seam (inject at the model input + "
+        "re-attach to the autoregressive feedback) — C-153 / ADR-060 I3"
     )
 
 
