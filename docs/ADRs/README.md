@@ -67,10 +67,11 @@ Architectural decisions specific to the HydraNet system.
 - **[055](active/055_learnable_per_target_tobit_sigma.md)**: ADR-055: Learnable Per-Target Tobit Sigma
 - **[056](active/056_scheduled_sampling.md)**: ADR-056: Scheduled Sampling for Autoregressive Training
 - **[059](active/059_predictive_uncertainty_representation.md)**: ADR-059: Predictive Uncertainty — MC-Dropout Now, Learned Posterior as the Target
+- **[060](active/060_static_exogenous_input_channels.md)**: ADR-060: Static & Architectural Input Channels
+- **[061](active/061_coordinate_channels.md)**: ADR-061: Coordinate Channels for Spatial Grounding (CoordConv)
 
 ## [Proposed (Emerging)](./proposed/)
 
-- **[029](proposed/029_geographic_anchors.md)**: Geographic Anchors for Autoregressive Stability
 - **[053](proposed/053_build_and_package_management_tooling.md)**: Build and Package Management Tooling
 - **[057](proposed/057_variational_dropout_autoregressive_stability.md)**: ADR-057: Variational (Consistent-Mask) Dropout for Autoregressive Stability
 
@@ -92,6 +93,7 @@ Architectural decisions specific to the HydraNet system.
 - **[017](archive/017_superseded_by_017_unified.md)**: Specification for DataFetcher (The Ingestor)
 - **[018](archive/018_superseded_by_017.md)**: Specification for DataSniffer (The Sentinel)
 - **[024](archive/024_model_artifact_evaluator_specification.md)**: Specification for BacktestOrchestrator (The Backtester)
+- **[029](archive/029_geographic_anchors.md)**: Geographic Anchors
 - **[033](archive/033_superseded_by_032.md)**: Naming Invariants and Semantic Intent
 - **[041](archive/041_superseded_by_008.md)**: Symmetric Vector Architecture (Task-Specific Targets)
 - **[050](archive/050_hurdle_loss_architecture.md)**: Hurdle-Decomposed Loss Architecture for Zero-Inflated Conflict Data

@@ -1,10 +1,21 @@
+> ⚠️ **SUPERSEDED — archived 2026-06-12.** This proposal (static CoordConv coordinate channels +
+> land/water mask for autoregressive stability) was the **origin** of the geographic-grounding idea. It
+> is superseded by **ADR-060** (the Static & Architectural Input Channels contract) and **ADR-061** (the
+> coordinate-channel adoption + pre-registered experiment), which **absorb its content**: the land mask
+> (as the first *derivable* covariate, ADR-060 escalation), Islam et al. 2020, the shortcut /
+> channel-dilution risks + the input-dropout mitigation (ADR-061 §4), and the augmentation-sync invariant
+> (ADR-060 I6). Kept verbatim below for the historical record (FAIR). **Do not re-open the design from
+> this document** — see ADR-060/061 and `reports/2026-06-11_coordinate_grounding_dossier/`.
+
+---
+
 # ADR 029: Geographic Anchors for Autoregressive Stability
 
 | ADR Info            | Details           |
 |---------------------|-------------------|
 | Subject             | Positional Embeddings vs Hidden State Freezing |
 | ADR Number          | 029               |
-| Status              | Proposed          |
+| Status              | Superseded (by ADR-060 + ADR-061, 2026-06-12) |
 | Author              | Gemini CLI        |
 | Date                | 04.02.2026        |
 

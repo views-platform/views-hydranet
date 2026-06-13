@@ -4,9 +4,9 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-06-10                           |
-| Total Concerns    | 148                                  |
-| Open Concerns     | 54                                   |
+| Last Updated      | 2026-06-13                           |
+| Total Concerns    | 153                                  |
+| Open Concerns     | 59                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 94                                   |
 
@@ -898,11 +898,13 @@ The epic's load-bearing claim is that ZINB "**dissolves the balancer / C-111 by 
 | ID | C-142 |
 | Tier | 2 |
 | Source | expert-code-review (ZINB Pass-1, 2026-06-10) |
-| Trigger | Using `scripts/diagnose_io_gain.py` as the #102 go/no-go on the ZINB head without first confirming it feeds back and measures `E[y]` in the correct space for the new output |
-| Location | `scripts/diagnose_io_gain.py`; dossier `03_harness_and_invariants.md`, `02_design.md §6` |
-| Cross-refs | C-113, C-140 |
+| Trigger | Using `scripts/diagnose_io_gain.py` / `rollout_diagnostics.free_running_attractor` as the go/no-go on **any count-space head** — the #102 ZINB eval **or the ADR-061 coordinate retrain** — without first confirming it feeds back and measures the emitted `log1p(E[y])` in the correct space for that output |
+| Location | `scripts/diagnose_io_gain.py`; `views_hydranet/utils/rollout_diagnostics.py`; dossier `03_harness_and_invariants.md`, `02_design.md §6`; coords dossier `2026-06-11_coordinate_grounding_dossier/03` |
+| Cross-refs | C-113, C-140, C-153 (the coords seam), C-121 (no CI guard) |
 
 `diagnose_io_gain` was built for the log1p point head (it feeds back `output.reg`). The ZINB head composes `E[y]=(1−π)·μ` from two heads in count space; the probe must be adapted/validated to feed and measure *that*, or it can report a **false "bounded."** The plan's entire stop/go rests on this probe (#102). Validate it on the ZINB output before trusting it. **Tier 2:** the safety gate could silently mis-fire, waving through an exploding model.
+
+**Update 2026-06-13 (falsify P4):** the **coordinate-grounding epic (ADR-061)** *also* relies on this probe for its "Bounded?" readout (coords dossier `03`), but `03` presents it as a **ready** instrument with no C-142 caveat. The hurdle-NB feedback is `log1p(E[y])` (C-140), so the log-space probe *may* transfer — but that is exactly what is unvalidated. Make validating/extending the probe for the hurdle-NB count-space an explicit **box-1 prerequisite** of the coords epic, and flag the gap in `03`. RED stub: `tests/test_falsification_epic_planning_readiness.py::test_p4_explosion_check_validated_for_count_space`.
 
 ---
 
@@ -992,7 +994,7 @@ The design names the head both "**ZINB**" (zeros from a Bernoulli gate **and** t
 | Source | expert-method-review (ZINB Pass-2, 2026-06-10) |
 | Trigger | Treating C-113 as solved / soft-pedaling the #102 explosion-check on the strength of the "by construction" prose |
 | Location | dossier `00_README.md`, `02_design.md §0` |
-| Cross-refs | C-142 (the gate), C-113 (the explosion) |
+| Cross-refs | C-142 (the gate), C-113 (the explosion), C-151 (the empirical post-run clamp-confound sibling), C-152 (the load-bearing-analogy sibling) |
 
 The claim that softplus `E[y]` feedback dissolves the C-113 runaway "**by construction**" is unproven and contested by dynamical-systems theory (Mikhaeil 2022 / Hess 2023 / Durstewitz: the blow-up is a property of the recurrent **operator's gain** / Jacobian spectral radius, not the output nonlinearity alone). `02_design §6` correctly gates on `diagnose_io_gain`, but the "by construction" prose elsewhere invites skipping the gate. Delete the over-claim; treat the explosion-check as the **load-bearing** test. **Tier 2:** an over-claim that, if believed, wastes the build and re-explodes.
 
@@ -1025,6 +1027,87 @@ Conflict fatality counts are heavy/long-tailed (near power-law); the NB tail dec
 | Cross-refs | C-136 (MCR-not-proper) |
 
 The plan has Coverage + F-zero-rate + multi-seed (good) but no **PIT calibration histogram** and no **posterior-predictive check on the positive-count distribution**. A ZINB/hurdle can match the 95% zero-rate while mis-fitting the positive body; PIT + a positive-tail PPC catch that. Add both to the readout. **Tier 4:** analysis-completeness; improves diagnostic value, no correctness impact.
+
+---
+
+### C-151: The bounded 6-run hurdle-NB sweep does not confirm INTRINSIC boundedness — the `feedback_clamp` confound
+
+| Field | Value |
+|-------|-------|
+| ID | C-151 |
+| Tier | 2 |
+| Source | user statement + verify-first analysis (coordinate-grounding session, 2026-06-11) |
+| Trigger | Reading the bounded 6-run hurdle-NB sweep (2026-06-11) as "C-113 solved" without verifying the `feedback_clamp` state; OR retraining/evaluating under ADR-061 (coordinate channels) — which changes the prediction→input rollout dynamics — and trusting boundedness without re-running the clamp-off explosion-check |
+| Location | `views_hydranet/utils/hydranet_inference.py` (`predict()` feedback, `_clamp_feedback` / per-target `feedback_clamp_log1p`); the `violet_visitor` hurdle-NB config; `scripts/diagnose_io_gain.py` / `rollout_diagnostics.free_running_attractor` |
+| Cross-refs | C-148 (the "by construction" prose — this is its empirical post-run sibling), C-152 (the load-bearing-analogy sibling), C-113 (the runaway + the clamp's "safety rail, not resolution" finding), C-142 (explosion-check unvalidated for count-space), C-121 (no CI boundedness guard) |
+
+The 6-run hurdle-NB sweep (2026-06-11) is empirically **bounded** (no `expm1` runaway; FULL MCR 2.4–13) and is being read as evidence the distributional head tamed C-113 — but **bounded ≠ intrinsically bounded.** A `feedback_clamp_log1p` (per-target, inference-only) sits in the rollout feedback path; C-113's 2026-06-04 update established it **averts the catastrophe but is a safety rail, not a resolution** (default `None`=off; when ON it pins `lr_sb` to the ceiling → MCR ~56,000 / falsifier F2). It is **unverified** whether the sweep ran with the clamp off and whether rollout `E[y]`/μ stayed far below it (inert ⇒ intrinsic) or ran into it (load-bearing ⇒ C-113 merely masked, not solved). **Weak prior it is intrinsic:** the observed MCR 2.4–13 does **not** match the clamp's known F2 *pinning* signature (~56,000), suggesting the clamp is not binding — but this is not conclusive (it could be off, or set high enough to cap only the worst).
+
+**Owed verification (the test):** (1) read `feedback_clamp_log1p` in the `violet_visitor` hurdle-NB config; (2) confirm rollout `E[y]`/μ over the 36 steps stayed below it (or that it is off); (3) the decisive check — **ablate the clamp (force off) and confirm the rollout stays bounded** via `diagnose_io_gain` / `free_running_attractor`. Only then may the bound be read as intrinsic. **Principle:** a clamp must be at most a *loud tripwire*, never the load-bearing bound (C-113). **ADR-061 relevance:** coordinate channels change the input→output rollout map, so a coords-induced dynamics change could re-expose divergence that a silent clamp would mask — re-run the explosion-check **clamp-off** after coords.
+
+**Tier 2:** if the clamp is load-bearing, the central premise of the hurdle-NB program (and the coordinate work built atop it) is false — structural fragility with a clear, imminent trigger (the ADR-061 retrain). Not Tier 1 (when the clamp acts it does so loudly via F2 over-prediction, not silent corruption).
+
+---
+
+### C-152: ADR-061's "why now" rests on a literature analogy (El Jurdi prior-loss CoordConv) that may not transfer
+
+| Field | Value |
+|-------|-------|
+| ID | C-152 |
+| Tier | 3 |
+| Source | external ADR review + verify-first reflection (coordinate-grounding session, 2026-06-13) |
+| Trigger | Reading a coordinate-channel **null / ambiguous** experiment result as "CoordConv doesn't work" rather than "the El Jurdi analogy didn't hold"; OR over-weighting the literature in the coords go/no-go instead of the §5 pre-registered falsifier |
+| Location | `docs/ADRs/active/061_coordinate_channels.md` §3 + C2; `reports/2026-06-11_coordinate_grounding_dossier/01_literature.md` |
+| Cross-refs | C-148 (the "by construction" prose over-claim), C-151 (the empirical clamp confound), ADR-061 §3/§5 |
+
+ADR-061's "why now" leans on El Jurdi et al. (2021): CoordConv-Unet stabilizes training and evades local minima **under prior-based losses** — and we train a prior-based likelihood (hurdle-NB). The original ADR text said this was *"exactly the regime"* CoordConv was found to help. **That equivocates on "prior":** El Jurdi's "prior" is an **added spatial/shape regularizer** (size/clDice-type) bolted onto a pixel-wise base loss, and CoordConv's role was stabilizing that **two-term interchange**. A hurdle-NB is a **distributional likelihood family** — there is no added spatial term and no equivalent interchange — so the mechanism may simply not exist in our setting. The ADR/dossier text has been **corrected** to "plausibly analogous, not identical," with the disanalogy explicit. The **residual risk** is decision-hygiene: a load-bearing justification that may not transfer could (a) inflate confidence going into the coords experiment, or (b) cause a null/ambiguous result to be mis-attributed to "CoordConv fails here" when the real lesson is "the analogy didn't hold" (→ premature escalation, or wrong placement/ablation conclusions).
+
+**Mitigation:** the §5 pre-registered experiment + its falsifier are the arbiters, **not** the analogy; on a null, ablate placement (the unbacked input+top-skip choice — see dossier `04`) and re-check the gate-forensic before concluding CoordConv is the wrong lever. **Tier 3:** methodology / decision-hygiene; no silent corruption, clear trigger. Already de-risked by the §3 text correction — registered so the analogy isn't silently re-promoted to "received wisdom" as the design hardens.
+
+---
+
+### C-153: ADR-060 static-channel seam is cross-cutting and understated; coords ∉ `features` vs input-built-from-`features` unresolved
+
+| Field | Value |
+|-------|-------|
+| ID | C-153 |
+| Tier | 3 |
+| Source | falsify (epic-planning-readiness audit, P1, 2026-06-13) |
+| Trigger | Starting the coords epic box 1 treating "input_channels 3→5" as a localized arch tweak — when it actually requires coordinated changes to the inference rollout feedback (`predict()`), the scheduled-sampling training feedback (`_process_sequence`, ADR-056), all 16 LSTM `Wx*` convs + `enc_conv0`, the 6 decoder `dec_conv1` top-skips, `FeatureScaler`, **and** a resolution of how coords enter the model input given they are *not* in `config["features"]` |
+| Location | `views_hydranet/utils/hydranet_inference.py:215,246,292`; `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py` (Wx* L213-375, enc_conv0 L87, dec_conv1 top-skips L451 etc.); ADR-060 §2.3 / ADR-061 §6 Q1; coords dossier `02`/`04` |
+| Cross-refs | ADR-060/061, C-152, C-154, C-155, C-142 |
+
+The inference rollout builds the seed input from `config["features"]` (L246) and feeds the **3-channel prediction directly back** as the next input (`t0_autoreg = t1_pred`, L292) — it has **no static-vs-dynamic channel concept**. ADR-060 §2.3 says a static channel is declared in its own block, **not** in `features`; but the input is assembled *from* `features`, so a static channel must be injected by a **new mechanism** into both the seed input and the per-step feedback (ADR-060 I3), and the **same coupling lives in the SS training feedback**. The architecture itself supports input>output cleanly (head out-channels are decoupled from `input_channels`; `e0s` is a real full-resolution skip) — so the design is **feasible** — but the ADRs frame this cross-cutting seam as a minor "Q1 to confirm," understating box-1 scope. **Tier 3:** no corruption; a coupling/scope gap that, if planned as a localized tweak, derails the epic and risks an **incoherent half-seam** (e.g., coords reaching training but not inference, or the seed but not the feedback). Mitigation: box 1 must enumerate every feedback/forward/config/scaler touch-point and resolve coords-vs-`features` *before* code. RED stub: `tests/test_falsification_epic_planning_readiness.py::test_p1_inference_loop_supports_static_input_channels`.
+
+---
+
+### C-154: Coords experiment has no disk/compute budget; the identical workflow already truncated a run at disk-full
+
+| Field | Value |
+|-------|-------|
+| ID | C-154 |
+| Tier | 3 |
+| Source | falsify (epic-planning-readiness audit, P3, 2026-06-13) |
+| Trigger | Launching the coords experiment (≥2 seeds × ~2.5 GB predictions + diagnostics, possibly + a baseline re-run) on the dev box while the volume is ~97% full, with no headroom check or cleanup step in the roadmap |
+| Location | coords dossier `04_roadmap.md`; `views-models/models/violet_visitor/data/generated/` (~2.5 GB per prediction dir) |
+| Cross-refs | C-115, C-116 (operational/GPU fragility — Cluster 6), C-153 |
+
+One prediction dir ≈ **2.5 GB**; the disk is **~97% full (≈28 GB free)**. The identical 6-run sweep **already hit disk-full and truncated S3_seed4's eval** (lower-confidence, ~30% fewer positive cells). A ≥2-seed coords-vs-baseline campaign with full diagnostics plausibly needs **10–15+ GB**, and the system is volatile at 97%. The roadmap declares **no budget or headroom guard**. **Tier 3:** operational; non-corrupting but can **silently truncate/invalidate a run** (as it already did once). Mitigation: a pre-run headroom check + cleanup/provisioning step in box 3. Member of Cluster 6. RED stub: `…::test_p3_epic_plan_declares_disk_budget`.
+
+---
+
+### C-155: Baseline comparator ambiguous — `config_sweep.py` = tobit vs `config_hyperparameters.py` = hurdle_nb
+
+| Field | Value |
+|-------|-------|
+| ID | C-155 |
+| Tier | 3 |
+| Source | falsify (epic-planning-readiness audit, P5, 2026-06-13) |
+| Trigger | Running the coords one-variable comparison (or re-deriving the baseline for I5 "bit-identical when off") via `config_sweep.py`, which still specifies `loss_reg='tobit'` while `config_hyperparameters.py` specifies `hurdle_nb` — silently benchmarking coords against the wrong (Tobit) baseline |
+| Location | `views-models/models/violet_visitor/configs/config_sweep.py:89` (`loss_reg: tobit`) vs `config_hyperparameters.py:98` (`loss_reg: hurdle_nb`) |
+| Cross-refs | C-151 (baseline clamp confound), C-153, C-42 (reproducibility lock) |
+
+The 6-run baseline was produced by `config_hyperparameters.py` (hurdle_nb) + per-arm env overrides (`HN_THETA_INIT`, pos_weight), but `config_sweep.py` is **stale at `loss_reg='tobit'`**. A clean one-variable test — and I5 "bit-identical when off" — needs the comparator's provenance **pinned** (config + per-arm env + seed + the C-42 reproducibility lock) and the stale sweep config quarantined/aligned, or coords get silently benchmarked against a Tobit baseline. **Tier 3:** decision-hygiene / footgun; no corruption but could invalidate the headline comparison. Mitigation: align or remove `config_sweep.py`; record exact baseline provenance in the dossier before box 3. RED stub: `…::test_p5_baseline_config_unambiguous`.
 
 ---
 
