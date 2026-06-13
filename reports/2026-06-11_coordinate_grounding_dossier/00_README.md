@@ -47,7 +47,9 @@ represent absolute position (Liu et al. 2018), so it cannot learn "this place is
 Brake word: **CIRCLE**.
 
 ## Next action
-`04_roadmap`, box 1: **implement the ADR-060 static-channel seam** (the contract, validated by I1–I5).
+**Opened on GitHub (2026-06-13):** epic **#105**, master-tracker checklist **#112** (+ stories #106–#111).
+Work the checklist top-down — prerequisites **#106** (count-space explosion-check, C-142) and **#107**
+(ops + reproducibility prep) clear *before* the experiment **#110**; the seam **#108** is box 1.
 No code until the box is live and the chair says go.
 
 ## Conventions

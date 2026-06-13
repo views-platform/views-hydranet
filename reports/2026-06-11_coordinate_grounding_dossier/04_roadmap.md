@@ -1,11 +1,21 @@
 # 04 — Roadmap (the epic)
 
-**Date:** 2026-06-11 · Linear sub-issues. One box at a time; do → log → tick → advance. Issue numbers
-assigned when the epic is opened on GitHub (this dossier is the design-of-record meanwhile).
+**Date:** 2026-06-11 · Linear sub-issues. One box at a time; do → log → tick → advance.
+**Opened on GitHub 2026-06-13:** epic **#105**, checklist (master tracker) **#112**.
 
 ## Epic
-**Coordinate grounding for HydraNet** — implement the ADR-060 static-channel seam, add coordinate channels
-(ADR-061), run the one-variable experiment, decide (ship / escalate).
+**Coordinate grounding for HydraNet** (#105) — implement the ADR-060 static-channel seam, add coordinate
+channels (ADR-061), run the one-variable experiment, decide (ship / escalate).
+
+**Issue map** (`views-platform/views-hydranet`):
+| | Issue | |
+|---|---|---|
+| Prereq A | **#106** | validate explosion-check for count-space (C-142) — gates #110 |
+| Prereq B | **#107** | experiment ops + reproducibility prep (C-151/154/155) — gates #110 |
+| Build 1/4 | **#108** | static-channel seam (ADR-060) |
+| Build 2/4 | **#109** | coordinate channels (ADR-061) |
+| Build 3/4 | **#110** | the one-variable experiment (pre-reg `05`) — blocked by #106/#107/#108/#109 |
+| Build 4/4 | **#111** | decide — ship or escalate |
 
 > **Planning prerequisites (folded in from the 2026-06-13 `/falsify` audit — C-142, C-153, C-154, C-155).**
 > The audit confirmed the *design* is feasible (the architecture supports `input>output`; `e0s` is a real
