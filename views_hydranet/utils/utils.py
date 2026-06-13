@@ -31,6 +31,7 @@ def choose_model(config: dict, device: torch.device) -> nn.Module:
             config["output_channels"],
             config["dropout_rate"],
             output_distribution=config.get("output_distribution", "standard"),
+            n_static_channels=len(config.get("static_channels", [])),  # ADR-061 top-skip
         ).to(device)
     else:
         err_msg = f"Unknown model type: {config['model']}"
