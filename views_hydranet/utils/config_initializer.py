@@ -143,6 +143,16 @@ class HydraNetConfig(BaseModel):
             "value; None disables. See reports/preanalysis_feedback_clamp.md."
         ),
     )
+    min_free_disk_gb: float | None = Field(
+        default=None,
+        gt=0.0,
+        description=(
+            "C-154: optional pre-evaluation disk-headroom budget (GiB). When set, the run aborts "
+            "(fail loud) before writing predictions if free space is below this — a run writes "
+            "~2.5 GB/origin-set and otherwise truncates silently (as the 6-run sweep did to "
+            "S3_seed4). None disables (default-off => unchanged behaviour)."
+        ),
+    )
 
     # 9. Runtime Flags
     freeze_multitask_balancer: bool = Field(

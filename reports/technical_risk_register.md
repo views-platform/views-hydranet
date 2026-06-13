@@ -6,9 +6,9 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-13                           |
 | Total Concerns    | 153                                  |
-| Open Concerns     | 58                                   |
+| Open Concerns     | 55                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 95                                   |
+| Resolved Concerns | 98                                   |
 
 ---
 
@@ -1013,25 +1013,6 @@ The plan has Coverage + F-zero-rate + multi-seed (good) but no **PIT calibration
 
 ---
 
-### C-151: The bounded 6-run hurdle-NB sweep does not confirm INTRINSIC boundedness — the `feedback_clamp` confound
-
-| Field | Value |
-|-------|-------|
-| ID | C-151 |
-| Tier | 2 |
-| Source | user statement + verify-first analysis (coordinate-grounding session, 2026-06-11) |
-| Trigger | Reading the bounded 6-run hurdle-NB sweep (2026-06-11) as "C-113 solved" without verifying the `feedback_clamp` state; OR retraining/evaluating under ADR-061 (coordinate channels) — which changes the prediction→input rollout dynamics — and trusting boundedness without re-running the clamp-off explosion-check |
-| Location | `views_hydranet/utils/hydranet_inference.py` (`predict()` feedback, `_clamp_feedback` / per-target `feedback_clamp_log1p`); the `violet_visitor` hurdle-NB config; `scripts/diagnose_io_gain.py` / `rollout_diagnostics.free_running_attractor` |
-| Cross-refs | C-148 (the "by construction" prose — this is its empirical post-run sibling), C-152 (the load-bearing-analogy sibling), C-113 (the runaway + the clamp's "safety rail, not resolution" finding), C-142 (explosion-check unvalidated for count-space), C-121 (no CI boundedness guard) |
-
-The 6-run hurdle-NB sweep (2026-06-11) is empirically **bounded** (no `expm1` runaway; FULL MCR 2.4–13) and is being read as evidence the distributional head tamed C-113 — but **bounded ≠ intrinsically bounded.** A `feedback_clamp_log1p` (per-target, inference-only) sits in the rollout feedback path; C-113's 2026-06-04 update established it **averts the catastrophe but is a safety rail, not a resolution** (default `None`=off; when ON it pins `lr_sb` to the ceiling → MCR ~56,000 / falsifier F2). It is **unverified** whether the sweep ran with the clamp off and whether rollout `E[y]`/μ stayed far below it (inert ⇒ intrinsic) or ran into it (load-bearing ⇒ C-113 merely masked, not solved). **Weak prior it is intrinsic:** the observed MCR 2.4–13 does **not** match the clamp's known F2 *pinning* signature (~56,000), suggesting the clamp is not binding — but this is not conclusive (it could be off, or set high enough to cap only the worst).
-
-**Owed verification (the test):** (1) read `feedback_clamp_log1p` in the `violet_visitor` hurdle-NB config; (2) confirm rollout `E[y]`/μ over the 36 steps stayed below it (or that it is off); (3) the decisive check — **ablate the clamp (force off) and confirm the rollout stays bounded** via `diagnose_io_gain` / `free_running_attractor`. Only then may the bound be read as intrinsic. **Principle:** a clamp must be at most a *loud tripwire*, never the load-bearing bound (C-113). **ADR-061 relevance:** coordinate channels change the input→output rollout map, so a coords-induced dynamics change could re-expose divergence that a silent clamp would mask — re-run the explosion-check **clamp-off** after coords.
-
-**Tier 2:** if the clamp is load-bearing, the central premise of the hurdle-NB program (and the coordinate work built atop it) is false — structural fragility with a clear, imminent trigger (the ADR-061 retrain). Not Tier 1 (when the clamp acts it does so loudly via F2 over-prediction, not silent corruption).
-
----
-
 ### C-152: ADR-061's "why now" rests on a literature analogy (El Jurdi prior-loss CoordConv) that may not transfer
 
 | Field | Value |
@@ -1061,36 +1042,6 @@ ADR-061's "why now" leans on El Jurdi et al. (2021): CoordConv-Unet stabilizes t
 | Cross-refs | ADR-060/061, C-152, C-154, C-155, C-142 |
 
 The inference rollout builds the seed input from `config["features"]` (L246) and feeds the **3-channel prediction directly back** as the next input (`t0_autoreg = t1_pred`, L292) — it has **no static-vs-dynamic channel concept**. ADR-060 §2.3 says a static channel is declared in its own block, **not** in `features`; but the input is assembled *from* `features`, so a static channel must be injected by a **new mechanism** into both the seed input and the per-step feedback (ADR-060 I3), and the **same coupling lives in the SS training feedback**. The architecture itself supports input>output cleanly (head out-channels are decoupled from `input_channels`; `e0s` is a real full-resolution skip) — so the design is **feasible** — but the ADRs frame this cross-cutting seam as a minor "Q1 to confirm," understating box-1 scope. **Tier 3:** no corruption; a coupling/scope gap that, if planned as a localized tweak, derails the epic and risks an **incoherent half-seam** (e.g., coords reaching training but not inference, or the seed but not the feedback). Mitigation: box 1 must enumerate every feedback/forward/config/scaler touch-point and resolve coords-vs-`features` *before* code. RED stub: `tests/test_falsification_epic_planning_readiness.py::test_p1_inference_loop_supports_static_input_channels`.
-
----
-
-### C-154: Coords experiment has no disk/compute budget; the identical workflow already truncated a run at disk-full
-
-| Field | Value |
-|-------|-------|
-| ID | C-154 |
-| Tier | 3 |
-| Source | falsify (epic-planning-readiness audit, P3, 2026-06-13) |
-| Trigger | Launching the coords experiment (≥2 seeds × ~2.5 GB predictions + diagnostics, possibly + a baseline re-run) on the dev box while the volume is ~97% full, with no headroom check or cleanup step in the roadmap |
-| Location | coords dossier `04_roadmap.md`; `views-models/models/violet_visitor/data/generated/` (~2.5 GB per prediction dir) |
-| Cross-refs | C-115, C-116 (operational/GPU fragility — Cluster 6), C-153 |
-
-One prediction dir ≈ **2.5 GB**; the disk is **~97% full (≈28 GB free)**. The identical 6-run sweep **already hit disk-full and truncated S3_seed4's eval** (lower-confidence, ~30% fewer positive cells). A ≥2-seed coords-vs-baseline campaign with full diagnostics plausibly needs **10–15+ GB**, and the system is volatile at 97%. The roadmap declares **no budget or headroom guard**. **Tier 3:** operational; non-corrupting but can **silently truncate/invalidate a run** (as it already did once). Mitigation: a pre-run headroom check + cleanup/provisioning step in box 3. Member of Cluster 6. RED stub: `…::test_p3_epic_plan_declares_disk_budget`.
-
----
-
-### C-155: Baseline comparator ambiguous — `config_sweep.py` = tobit vs `config_hyperparameters.py` = hurdle_nb
-
-| Field | Value |
-|-------|-------|
-| ID | C-155 |
-| Tier | 3 |
-| Source | falsify (epic-planning-readiness audit, P5, 2026-06-13) |
-| Trigger | Running the coords one-variable comparison (or re-deriving the baseline for I5 "bit-identical when off") via `config_sweep.py`, which still specifies `loss_reg='tobit'` while `config_hyperparameters.py` specifies `hurdle_nb` — silently benchmarking coords against the wrong (Tobit) baseline |
-| Location | `views-models/models/violet_visitor/configs/config_sweep.py:89` (`loss_reg: tobit`) vs `config_hyperparameters.py:98` (`loss_reg: hurdle_nb`) |
-| Cross-refs | C-151 (baseline clamp confound), C-153, C-42 (reproducibility lock) |
-
-The 6-run baseline was produced by `config_hyperparameters.py` (hurdle_nb) + per-arm env overrides (`HN_THETA_INIT`, pos_weight), but `config_sweep.py` is **stale at `loss_reg='tobit'`**. A clean one-variable test — and I5 "bit-identical when off" — needs the comparator's provenance **pinned** (config + per-arm env + seed + the C-42 reproducibility lock) and the stale sweep config quarantined/aligned, or coords get silently benchmarked against a Tobit baseline. **Tier 3:** decision-hygiene / footgun; no corruption but could invalidate the headline comparison. Mitigation: align or remove `config_sweep.py`; record exact baseline provenance in the dossier before box 3. RED stub: `…::test_p5_baseline_config_unambiguous`.
 
 ---
 
@@ -1207,6 +1158,40 @@ Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/s
 ---
 
 ## Resolved Concerns
+
+### C-151: bounded 6-run hurdle-NB sweep — intrinsic, not clamp-masked — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-151 · Tier 2 · Resolved #107, 2026-06-13 |
+| Cross-refs | C-142, C-148, C-152, C-113 |
+
+The concern: was the bounded 6-run sweep intrinsically bounded, or masked by the `feedback_clamp`?
+**Resolved (#107):** wandb logged `feedback_clamp_log1p: None` in **all 11** baseline runs ⇒ no clamping occurred ⇒ the observed bound (FULL MCR 2.4–13) is **intrinsic, not clamp-masked**. The "ablate the clamp" check is moot — it was already off. The "is C-113 really solved?" foundation question is answered: **yes, intrinsically.** Provenance pinned in coords dossier `05`.
+
+---
+
+### C-154: coords experiment disk budget — headroom guard added — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-154 · Tier 3 · Resolved #107, 2026-06-13 |
+| Cross-refs | C-115, C-116 (Cluster 6), C-153 |
+
+**Resolved (#107):** added `views_hydranet/utils/disk_guard.py::assert_disk_headroom` + an opt-in config field `min_free_disk_gb` (default `None`=off ⇒ byte-identical), wired into `hydranet_manager._setup_evaluation` to **abort (fail loud) before the ~2.5 GB prediction writes** if free < budget. Tested (`tests/test_disk_headroom_guard.py`). The coords run sets the budget so it cannot silently truncate as S3_seed4 did.
+
+---
+
+### C-155: baseline comparator config ambiguity — stale sweep aligned — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-155 · Tier 3 · Resolved #107, 2026-06-13 |
+| Cross-refs | C-151, C-42, C-153 |
+
+**Resolved (#107):** the stale `config_sweep.py` (tobit/focal) was **aligned** to the canonical `config_hyperparameters.py` (hurdle_nb/weighted_bce), so a sweep can no longer silently benchmark against Tobit. Baseline provenance **pinned** in coords dossier `05` (config + per-arm env `HN_*` + seeds {42,4} + the C-42 reproducibility lock + clamp off). `test_p5` is now a green guard.
+
+---
 
 ### C-142: `diagnose_io_gain` explosion-check unvalidated for the hurdle-NB count-space output — RESOLVED
 

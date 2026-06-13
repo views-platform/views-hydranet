@@ -13,6 +13,19 @@ record, `07` "before"). Nothing else changes.
 > against a Tobit baseline; confirm `feedback_clamp` was **off** in the baseline (C-151) so "bounded" is
 > intrinsic; and demonstrate I5 (toggle-off **bit-identical**) against a re-run, not just the recorded row.
 
+> **Baseline provenance — PINNED (#107, 2026-06-13).**
+> - **Config:** `views-models/models/violet_visitor/configs/config_hyperparameters.py` (`output_distribution`
+>   = `loss_reg` = `hurdle_nb`, `loss_class=weighted_bce`, frozen balancer, SS off). The stale
+>   `config_sweep.py` (tobit/focal) was **aligned to hurdle_nb** (C-155) so it is no longer a footgun.
+> - **Per-arm env:** `HN_SEED∈{42,4}`, `HN_THETA_INIT∈{1.0,0.3}`, `HN_POS_WEIGHT∈{10,25}`, `HN_LESSONS=40`.
+>   The **S1 comparator for the coords run = θ=1.0, pw=10, seeds {42,4}** (the two S1 runs).
+> - **Reproducibility:** seeds locked via `ReproducibilityGate.lock_entropy(np_seed, torch_seed)` (C-42);
+>   fresh process per run (`run.sh` → `main.py`), env read at startup.
+> - **Clamp (C-151):** `feedback_clamp_log1p = None` in **all 11** baseline wandb runs ⇒ no clamping
+>   occurred ⇒ the observed bound is **intrinsic, not clamp-masked**. C-151 resolved.
+> - **Disk (C-154):** the coords run sets `min_free_disk_gb` so the manager aborts before writes if the
+>   volume is short (the guard added in #107).
+
 ## Hypothesis
 HydraNet's spatial over-firing is a symptom of **position-blindness**: a translation-invariant CNN cannot
 represent that most cells are structural zeros. Injecting absolute coordinates lets the model learn a

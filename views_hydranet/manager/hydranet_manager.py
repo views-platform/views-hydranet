@@ -23,6 +23,7 @@ from views_hydranet.train.train_model import train_model_artifact
 from views_hydranet.utils.config_initializer import ConfigInitializer
 from views_hydranet.utils.data_fetcher import DataFetcher
 from views_hydranet.utils.data_sniffer import DataSniffer
+from views_hydranet.utils.disk_guard import assert_disk_headroom
 from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
 from views_hydranet.utils.model_artifact_fetcher import ModelArtifactFetcher
@@ -278,6 +279,9 @@ class HydranetManager(ForecastingModelManager):
         ReproducibilityGate.lock_entropy(
             np_seed=self.configs["np_seed"], torch_seed=self.configs["torch_seed"]
         )
+        # C-154: abort loud before the ~2.5 GB/origin-set prediction writes if disk is short
+        # (opt-in via `min_free_disk_gb`; None => no-op, unchanged behaviour).
+        assert_disk_headroom(self.configs.get("min_free_disk_gb"))
         self._run_preflight_check()
         viz = VisualDiagnostics(self.configs, run_timestamp=self.run_timestamp)
 

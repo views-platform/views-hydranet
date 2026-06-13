@@ -36,11 +36,13 @@ Before the coordinate run is launched or trusted:
   with `_emit_magnitude`). It measures what the hurdle-NB rollout actually feeds back — not count-space `mu`
   against the log-space bound. Validated by `tests/test_rollout_stability_guard.py` (an in-range count is no
   longer mis-flagged; a composed-E[y] runaway is flagged). **C-142 closed.**
-- **Disk headroom (C-154/P3).** ~2.5 GB/prediction-dir; ≥2 seeds + diagnostics + baseline re-run ≈ 10–15+ GB;
-  the dev volume is ~97% full. Pre-run **free-space check + cleanup**; abort if free < budget.
-- **Baseline provenance pinned (C-155/P5).** Comparator = `config_hyperparameters.py` (hurdle_nb) + recorded
-  per-arm env + seed + the C-42 reproducibility lock; **the stale `config_sweep.py` (tobit) quarantined**;
-  `feedback_clamp` confirmed **off** (C-151).
+- **Disk headroom (C-154/P3) — ✅ DONE (#107).** `disk_guard.assert_disk_headroom` + opt-in
+  `min_free_disk_gb` wired into `_setup_evaluation` aborts (fail loud) before the ~2.5 GB writes if free <
+  budget. The coords run sets the budget. **C-154 resolved.**
+- **Baseline provenance pinned (C-155/P5) — ✅ DONE (#107).** Comparator = `config_hyperparameters.py`
+  (hurdle_nb) + per-arm env + seeds {42,4} + the C-42 lock; the stale `config_sweep.py` (tobit) **aligned**
+  to hurdle_nb; `feedback_clamp_log1p = None` in all 11 baseline runs ⇒ bound **intrinsic** (C-151 resolved).
+  Pinned in `05`. **C-155 resolved.**
 - **Cross-cutting seam landed (C-153/P1).** The static-channel seam touches inference + SS-training feedback
   + arch + scaler (`04` box 1) — all coordinated, not a localized tweak.
 

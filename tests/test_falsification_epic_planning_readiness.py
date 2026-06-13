@@ -6,10 +6,10 @@ experiment). Each test encodes a falsification found during the audit.
 
 Post-amendment state (2026-06-13): P3 + P6 are GREEN — the dossier roadmap was amended to
 declare the disk budget + enumerate the seam scope / C-142 prerequisite — they now stand as
-regression guards on the plan. **P4 is now CLOSED by #106** (the count-space explosion-check was
-validated; C-142 resolved) and is a green guard. P1 and P5 remain open *implementation* gates (the
-seam code; the baseline-config alignment), marked ``xfail`` per the repo convention for known-open
-falsification gaps, and flip to XPASS when the epic closes them (tracked as C-153, C-155).
+regression guards. **P4 (C-142) closed by #106** and **P5 (C-155) closed by #107** — both now
+green guards. **P1 remains the one open** *implementation* gate (the static-channel seam code),
+marked ``xfail`` per the repo convention for known-open falsification gaps; it flips to XPASS when
+#108 lands the seam (tracked as C-153).
 """
 
 import re
@@ -97,30 +97,23 @@ def test_p4_explosion_check_validated_for_count_space():
     )
 
 
-# --- P5 (soft): baseline config ambiguous (sweep=tobit vs hyperparams=hurdle_nb) ---
+# --- P5 (was soft): baseline comparator unambiguous — CLOSED by #107 (C-155) -------------------
 _KNOWN_LOSSES = ("hurdle_nb", "tobit", "lognormal_nll", "basu_dpd", "standard")
 
 
 def _loss_reg_of(text: str) -> str | None:
     """First known loss name appearing after a `loss_reg` key — format-agnostic across the direct
-    (`'loss_reg': 'tobit'`) and wandb-sweep (`'loss_reg': {'value': 'tobit'}`) layouts."""
+    (`'loss_reg': 'hurdle_nb'`) and wandb-sweep (`'loss_reg': {'value': 'hurdle_nb'}`) layouts."""
     m = re.search(r"loss_reg.*?(" + "|".join(_KNOWN_LOSSES) + r")", text, re.S)
     return m.group(1) if m else None
 
 
-@pytest.mark.xfail(
-    reason="C-155: config_sweep.py (tobit) not yet aligned/quarantined vs "
-    "config_hyperparameters.py (hurdle_nb) (epic box 3). XPASS when comparator is pinned.",
-    strict=False,
-)
 def test_p5_baseline_config_unambiguous():
-    """FALSIFICATION P5. The one-variable test compares +coords vs the 6-run hurdle-NB baseline,
-    and I5 demands 'bit-identical when off'. But the two config files disagree on the loss:
-    config_hyperparameters.py = 'hurdle_nb', config_sweep.py = 'tobit'. Whichever did NOT run the
-    baseline is a stale footgun, and the comparator's exact provenance must be pinned (incl. the
-    per-arm env overrides and feedback_clamp state) for a clean comparison. GREEN when the two
-    configs agree on loss_reg (or the stale one is removed/quarantined).
-    """
+    """CLOSED by #107 (C-155). The one-variable test compares +coords vs the hurdle-NB baseline; I5
+    needs 'bit-identical when off', so the two violet configs must not disagree on the loss. The
+    stale `config_sweep.py` (tobit/focal) was aligned to the canonical `config_hyperparameters.py`,
+    so a sweep can't silently benchmark against Tobit. Green guard that they agree on `loss_reg`
+    (provenance pinned in dossier `05`; clamp confirmed off)."""
     cfg_dir = VIOLET / "configs"
     if not cfg_dir.exists():
         pytest.skip(f"violet_visitor configs not found at {cfg_dir} (sibling-repo path)")
@@ -128,8 +121,7 @@ def test_p5_baseline_config_unambiguous():
     sweep_loss = _loss_reg_of((cfg_dir / "config_sweep.py").read_text())
     assert hyper_loss and sweep_loss and hyper_loss == sweep_loss, (
         f"Baseline config is ambiguous: hyperparameters loss_reg={hyper_loss} vs "
-        f"sweep loss_reg={sweep_loss}. Pin the comparator (align/quarantine the stale config) "
-        f"before the one-variable test."
+        f"sweep loss_reg={sweep_loss}. Align the stale sweep config before the one-variable test."
     )
 
 
