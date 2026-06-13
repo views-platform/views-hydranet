@@ -25,12 +25,30 @@ from pathlib import Path
 
 import torch
 
+from views_hydranet.utils.hurdle_nb import hurdle_nb_expected_log1p
 from views_hydranet.utils.rollout_diagnostics import (
     DATA_LOG_MAX,
     free_running_attractor,
     is_out_of_range,
 )
 from views_hydranet.utils.utils import choose_model
+
+
+def _build_emit_fn(model, cfg):
+    """For a hurdle-NB artifact, the rollout must feed back ``log1p(E[y])`` (what inference emits,
+    C-140), not the count-space ``out.reg`` — else the attractor level is measured in the wrong
+    space (C-142). Returns ``None`` for the standard head (identity feedback)."""
+    if cfg.get("output_distribution") != "hurdle_nb":
+        return None
+    theta_dict = getattr(model, "hurdle_nb_theta", None)
+    targets = cfg.get("regression_targets", [])
+    if not theta_dict or not targets:
+        raise SystemExit(
+            "hurdle_nb artifact is missing hurdle_nb_theta / regression_targets — "
+            "cannot compose log1p(E[y]) for the explosion-check (C-142)."
+        )
+    theta = torch.tensor([float(theta_dict[t]) for t in targets]).view(1, len(targets), 1, 1)
+    return lambda out: hurdle_nb_expected_log1p(out.reg, torch.sigmoid(out.cls), theta)
 
 
 def load_model(artifact: Path, device):
@@ -96,8 +114,9 @@ def part_A(model, H, W, device, label):
 
 
 @torch.no_grad()
-def part_B(model, H, W, device, label, freeze_h="none", steps=48):
-    print(f"\n=== Part B — free-running rollout (freeze_h='{freeze_h}')  [{label}] ===")
+def part_B(model, H, W, device, label, freeze_h="none", steps=48, emit_fn=None):
+    composed = " (feedback = log1p(E[y]), hurdle-NB)" if emit_fn is not None else ""
+    print(f"\n=== Part B — free-running rollout (freeze_h='{freeze_h}'){composed}  [{label}] ===")
     print(
         "    log-space level the prediction settles at; healthy = within data "
         f"range (<= log {DATA_LOG_MAX}); expm1(level) = raw-count equivalent"
@@ -111,7 +130,9 @@ def part_B(model, H, W, device, label, freeze_h="none", steps=48):
     for s in [0.5, 1.0, 2.0]:
         h = _zero_state(model, H, W, device)
         x = (torch.rand((1, model_in_ch, H, W), generator=g) * s).to(device)
-        final, traj = free_running_attractor(model, x, h, steps=steps, update_state=update_state)
+        final, traj = free_running_attractor(
+            model, x, h, steps=steps, update_state=update_state, emit_fn=emit_fn
+        )
         raw = torch.expm1(torch.tensor(final)).item()
         verdict = "PATHOLOGICAL (out-of-range)" if is_out_of_range(final) else "healthy (in-range)"
         print(
@@ -135,7 +156,10 @@ if __name__ == "__main__":
         f"\n################ {label}  ({args.artifact.name}, {args.hw}x{args.hw}, "
         f"dropout={cfg['dropout_rate']}) ################"
     )
+    emit_fn = _build_emit_fn(model, cfg)
+    # Part A measures the raw-head operator gain ||d(reg)/dx||; for hurdle-NB the fed-back map is
+    # log1p(E[y]) (see emit_fn), so Part B (the attractor) is the authoritative bounded check.
     part_A(model, args.hw, args.hw, device, label)
-    part_B(model, args.hw, args.hw, device, label, freeze_h="none")
-    part_B(model, args.hw, args.hw, device, label, freeze_h="all")
+    part_B(model, args.hw, args.hw, device, label, freeze_h="none", emit_fn=emit_fn)
+    part_B(model, args.hw, args.hw, device, label, freeze_h="all", emit_fn=emit_fn)
     print()

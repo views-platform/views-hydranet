@@ -6,10 +6,10 @@ experiment). Each test encodes a falsification found during the audit.
 
 Post-amendment state (2026-06-13): P3 + P6 are GREEN — the dossier roadmap was amended to
 declare the disk budget + enumerate the seam scope / C-142 prerequisite — they now stand as
-regression guards on the plan. P1, P4, P5 remain open *implementation* gates (the seam code,
-the count-space explosion-check validation, the baseline-config alignment); they are marked
-``xfail`` per the repo convention for known-open falsification gaps, and flip to XPASS when the
-epic closes them (tracked as C-153, C-142, C-155 respectively).
+regression guards on the plan. **P4 is now CLOSED by #106** (the count-space explosion-check was
+validated; C-142 resolved) and is a green guard. P1 and P5 remain open *implementation* gates (the
+seam code; the baseline-config alignment), marked ``xfail`` per the repo convention for known-open
+falsification gaps, and flip to XPASS when the epic closes them (tracked as C-153, C-155).
 """
 
 import re
@@ -74,28 +74,26 @@ def test_p3_epic_plan_declares_disk_budget():
     )
 
 
-# --- P4 (HARD): boundedness/explosion-check is log-space, unvalidated for count-space ---
-@pytest.mark.xfail(
-    reason="C-142: diagnose_io_gain / rollout_diagnostics not yet validated for the hurdle-NB "
-    "count-space output (epic box 1). XPASS when validated + flagged in 03.",
-    strict=False,
-)
+# --- P4 (was HARD): boundedness/explosion-check validated for count-space — CLOSED by #106 -------
 def test_p4_explosion_check_validated_for_count_space():
-    """FALSIFICATION P4 (HARD). The dossier readout (03) relies on `diagnose_io_gain` /
-    `rollout_diagnostics.free_running_attractor` for the 'Bounded?' gate, but those tools are
-    log1p-space by construction (DATA_LOG_MAX, 'expm1-amplifies') and are UNVALIDATED for
-    the hurdle-NB count-space output (C-142, OPEN). 03 presents the gate as a ready instrument
-    without flagging C-142. Turns GREEN when the explosion-check is validated/extended for the
-    hurdle-NB head AND 03 cites that validation (close C-142).
-    """
-    diag = (REPO / "views_hydranet" / "utils" / "rollout_diagnostics.py").read_text().lower()
-    harness = (DOSSIER / "03_harness_and_invariants.md").read_text().lower()
-    validated_for_count = ("hurdle" in diag or "count-space" in diag or "count space" in diag)
-    harness_flags_gap = "c-142" in harness or "count-space" in harness or "unvalidated" in harness
-    assert validated_for_count and harness_flags_gap, (
-        "The boundedness readout is log-space only and unvalidated for the hurdle-NB count-space "
-        "(C-142 open); the harness doc presents it as ready without the caveat. Validate the gate "
-        "for the count-space head and flag/close C-142 in 03 before the epic relies on it."
+    """CLOSED by #106 (C-142). The explosion-check now composes `log1p(E[y])` like inference via
+    `free_running_attractor(emit_fn=...)` — it measures what the hurdle-NB rollout feeds back,
+    not count-space `mu` against the log-space bound. The behavioural count-space validation
+    (in-range count not mis-flagged; composed-E[y] runaway flagged) lives in
+    `tests/test_rollout_stability_guard.py`; now a green regression guard on that closure."""
+    import inspect
+
+    from views_hydranet.utils.rollout_diagnostics import free_running_attractor
+
+    assert "emit_fn" in inspect.signature(free_running_attractor).parameters, (
+        "the explosion-check probe must accept emit_fn to compose the hurdle-NB feedback (C-142)"
+    )
+    guard = (REPO / "tests" / "test_rollout_stability_guard.py").read_text()
+    assert "hurdle_inrange_count_not_falsely_flagged" in guard, (
+        "missing the count-space in-range validation case (C-142)"
+    )
+    assert "hurdle_expansive_eymean_is_flagged" in guard, (
+        "missing the count-space runaway validation case (C-142)"
     )
 
 

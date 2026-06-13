@@ -43,15 +43,23 @@ def free_running_attractor(
     h0: torch.Tensor,
     steps: int = 48,
     update_state: bool = True,
+    emit_fn=None,
 ) -> tuple[float, list[float]]:
     """Run ``steps`` free-running autoregressive steps; return ``(final_level, trajectory)``.
 
-    Each step: ``out = model(x, h)``; ``x <- out.reg`` (fed back as next input);
-    ``h <- out.h_next`` when ``update_state`` (the standard rollout; pass ``False`` to
-    hold the recurrent state fixed — the retired ``freeze_h='all'`` probe variant).
+    Each step: ``out = model(x, h)``; the fed-back next input is ``out.reg`` (the standard
+    log1p point head) unless ``emit_fn`` is given, in which case it is ``emit_fn(out)``.
+    ``h <- out.h_next`` when ``update_state`` (the standard rollout; pass ``False`` to hold the
+    recurrent state fixed — the retired ``freeze_h='all'`` probe variant).
 
-    Returns the final-step ``max|reg|`` (the attractor's log-space magnitude) and the
-    per-step ``max|reg|`` trajectory. Pair with :func:`is_out_of_range` to gate.
+    ``emit_fn`` exists so the probe measures the SAME quantity inference feeds back when the
+    feedback is not the identity (C-142): the hurdle-NB head emits ``log1p(E[y])`` (not the
+    count-space ``out.reg``), so feeding ``out.reg`` raw would compare count-space ``mu`` against
+    the log-space :data:`DATA_LOG_MAX` bound — a category mismatch. ``emit_fn=None`` (default)
+    is byte-identical to the pre-#106 standard path.
+
+    Returns the final-step ``max|·|`` of the fed-back tensor (the attractor's log-space magnitude)
+    and the per-step trajectory. Pair with :func:`is_out_of_range` to gate.
 
     Raises:
         ValueError: if ``steps < 1`` (fail loud rather than return an empty trajectory).
@@ -62,7 +70,7 @@ def free_running_attractor(
     trajectory: list[float] = []
     for _ in range(steps):
         out = model(x, h)
-        x = out.reg
+        x = out.reg if emit_fn is None else emit_fn(out)
         if update_state:
             h = out.h_next
         trajectory.append(float(x.abs().max()))

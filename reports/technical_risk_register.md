@@ -6,9 +6,9 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-13                           |
 | Total Concerns    | 153                                  |
-| Open Concerns     | 59                                   |
+| Open Concerns     | 58                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 94                                   |
+| Resolved Concerns | 95                                   |
 
 ---
 
@@ -891,23 +891,6 @@ The epic's load-bearing claim is that ZINB "**dissolves the balancer / C-111 by 
 
 ---
 
-### C-142: `diagnose_io_gain` explosion-check is unvalidated for the ZINB count-space output
-
-| Field | Value |
-|-------|-------|
-| ID | C-142 |
-| Tier | 2 |
-| Source | expert-code-review (ZINB Pass-1, 2026-06-10) |
-| Trigger | Using `scripts/diagnose_io_gain.py` / `rollout_diagnostics.free_running_attractor` as the go/no-go on **any count-space head** — the #102 ZINB eval **or the ADR-061 coordinate retrain** — without first confirming it feeds back and measures the emitted `log1p(E[y])` in the correct space for that output |
-| Location | `scripts/diagnose_io_gain.py`; `views_hydranet/utils/rollout_diagnostics.py`; dossier `03_harness_and_invariants.md`, `02_design.md §6`; coords dossier `2026-06-11_coordinate_grounding_dossier/03` |
-| Cross-refs | C-113, C-140, C-153 (the coords seam), C-121 (no CI guard) |
-
-`diagnose_io_gain` was built for the log1p point head (it feeds back `output.reg`). The ZINB head composes `E[y]=(1−π)·μ` from two heads in count space; the probe must be adapted/validated to feed and measure *that*, or it can report a **false "bounded."** The plan's entire stop/go rests on this probe (#102). Validate it on the ZINB output before trusting it. **Tier 2:** the safety gate could silently mis-fire, waving through an exploding model.
-
-**Update 2026-06-13 (falsify P4):** the **coordinate-grounding epic (ADR-061)** *also* relies on this probe for its "Bounded?" readout (coords dossier `03`), but `03` presents it as a **ready** instrument with no C-142 caveat. The hurdle-NB feedback is `log1p(E[y])` (C-140), so the log-space probe *may* transfer — but that is exactly what is unvalidated. Make validating/extending the probe for the hurdle-NB count-space an explicit **box-1 prerequisite** of the coords epic, and flag the gap in `03`. RED stub: `tests/test_falsification_epic_planning_readiness.py::test_p4_explosion_check_validated_for_count_space`.
-
----
-
 ### C-143: train/inference objective mismatch — the composed `(1−π)·μ` is never scored in training
 
 | Field | Value |
@@ -1224,6 +1207,20 @@ Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/s
 ---
 
 ## Resolved Concerns
+
+### C-142: `diagnose_io_gain` explosion-check unvalidated for the hurdle-NB count-space output — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-142 |
+| Tier | 2 |
+| Source | expert-code-review (ZINB Pass-1, 2026-06-10) |
+| Resolved | #106 (coordinate-grounding epic box prereq), 2026-06-13 |
+| Cross-refs | C-113, C-140, C-153, C-121 |
+
+The explosion-check (`free_running_attractor` / `diagnose_io_gain`) was built for the log1p point head — it fed back `output.reg` raw. For the hurdle-NB head inference instead feeds back `log1p(E[y])` (`E[y]=P(y>0)·μ/(1−NB0)`, C-140), so feeding `out.reg` raw measured **count-space μ against the log-space `DATA_LOG_MAX` bound** — a category mismatch that could report a false verdict. **Resolved (#106):** the exact mean compose is now a single source of truth — `views_hydranet/utils/hurdle_nb.hurdle_nb_expected_log1p` — called by **both** `HydraNetInference._emit_magnitude` (byte-identical refactor) **and** the probe via `free_running_attractor(emit_fn=…)` (threaded through `diagnose_io_gain` from the artifact's `hurdle_nb_theta`). So the probe now measures exactly what inference feeds back. Validated by `tests/test_rollout_stability_guard.py` (a healthy in-range count is no longer mis-flagged; a composed-E[y] runaway is flagged) and guarded by `tests/test_falsification_epic_planning_readiness.py::test_p4…` (now green). `emit_fn=None` keeps the standard path bit-identical.
+
+---
 
 ### C-111: MultiTaskLoss log_vars frozen at zero — homoscedastic uncertainty weighting was silently inert — RESOLVED
 

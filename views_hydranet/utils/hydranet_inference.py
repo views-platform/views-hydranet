@@ -7,6 +7,7 @@ import torch
 from torch.nn import Module
 from tqdm import tqdm
 
+from views_hydranet.utils.hurdle_nb import hurdle_nb_expected_log1p
 from views_hydranet.utils.integrity_guardian import IntegrityGuardian
 from views_hydranet.utils.visual_diagnostics import VisualDiagnostics
 
@@ -172,13 +173,9 @@ class HydraNetInference:
         """
         if self.output_distribution != "hurdle_nb":
             return reg
-        theta = self.hurdle_theta.to(device=reg.device, dtype=torch.float64)
-        mu = reg.to(torch.float64).clamp_min(0.0)
-        p = prob.to(torch.float64)
-        nb0 = (theta / (theta + mu)) ** theta  # NB(0; mu, theta)
-        # mu/(1-NB0) -> 1 as mu -> 0 (zero-truncated body mean is >= 1); clamp guards 0/0.
-        e_y = p * mu / (1.0 - nb0).clamp_min(1e-8)
-        return torch.log1p(e_y).to(reg.dtype)
+        # Single source of truth for the exact hurdle-NB mean (shared with the explosion-check
+        # probe so it feeds back exactly this — C-142). mu/(1-NB0) -> 1 as mu -> 0.
+        return hurdle_nb_expected_log1p(reg, prob, self.hurdle_theta)
 
     def predict(
         self,

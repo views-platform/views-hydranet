@@ -30,11 +30,12 @@
 
 ## Pre-run prerequisites (folded in from the 2026-06-13 `/falsify` audit)
 Before the coordinate run is launched or trusted:
-- **Explosion-check validated for count-space (C-142/P4).** The "Bounded?" pre-gate below uses
-  `diagnose_io_gain` / `rollout_diagnostics.free_running_attractor`, which are **log1p-space by
-  construction and UNVALIDATED for the hurdle-NB count-space output** (C-142, open). The hurdle-NB feedback
-  is `log1p(E[y])` (C-140) so it *may* transfer — but that must be **confirmed** (a box-1 prerequisite),
-  not assumed. Until then the gate can report a **false "bounded."**
+- **Explosion-check validated for count-space (C-142/P4) — ✅ DONE (#106, 2026-06-13).** The "Bounded?"
+  pre-gate now composes `log1p(E[y])` exactly as inference does, via `free_running_attractor(emit_fn=…)`
+  backed by the shared `views_hydranet.utils.hurdle_nb.hurdle_nb_expected_log1p` (single source of truth
+  with `_emit_magnitude`). It measures what the hurdle-NB rollout actually feeds back — not count-space `mu`
+  against the log-space bound. Validated by `tests/test_rollout_stability_guard.py` (an in-range count is no
+  longer mis-flagged; a composed-E[y] runaway is flagged). **C-142 closed.**
 - **Disk headroom (C-154/P3).** ~2.5 GB/prediction-dir; ≥2 seeds + diagnostics + baseline re-run ≈ 10–15+ GB;
   the dev volume is ~97% full. Pre-run **free-space check + cleanup**; abort if free < budget.
 - **Baseline provenance pinned (C-155/P5).** Comparator = `config_hyperparameters.py` (hurdle_nb) + recorded
@@ -46,9 +47,8 @@ Before the coordinate run is launched or trusted:
 ## Readout protocol (how the experiment is judged — same instruments as the diagnosis)
 The coordinate run is read against the bounded hurdle-NB baseline with the same instruments that produced
 tonight's diagnosis:
-0. **Bounded? (pre-gate).** `diagnose_io_gain` 36-step rollout stays in-range. ⚠ **Validity caveat (C-142):**
-   the probe is log-space and unvalidated for the count-space head — see Pre-run prerequisites; a green here
-   is only trustworthy once C-142 is closed.
+0. **Bounded? (pre-gate).** `diagnose_io_gain` 36-step rollout stays in-range — now **count-space-valid**
+   for the hurdle-NB head (composes `log1p(E[y])` like inference; C-142 closed by #106). Trustworthy.
 1. **Gate forensic** — the classification "Detection Bias Pulse" (event-ratio ŷ_events/y_events over
    lessons). *Looking for:* the climb to 4–16× **flattens** toward ≈1.
 2. **Rollout biopsy** — the autoregressive forensic (ground-truth / prediction / |Δ| over rollout steps,
