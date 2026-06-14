@@ -58,3 +58,29 @@ The lever is **spatial grounding + exposure bias**, not θ or `pos_weight` (the 
 higher pw makes the gate worse). This is the baseline the coordinate experiment must beat.
 
 *(First coordinate entry — EXP-01 — lands when roadmap box 3 runs. Not before.)*
+
+---
+
+## Determinism validation (pre-registered, 2026-06-15) — gate before any coordinate run
+
+**Why first:** the 6-run baseline above is C-119-confounded. Before a single coordinate verdict can stand, the
+pipeline must be proven **bit-reproducible** at real scale (the C-119 fix `daab1c1` is validated on a tiny config in
+`tests/test_training_engine.py`; this confirms it holds on the production violet config).
+
+**Pre-registration.** Two no-coords runs from `views-models/models/violet_visitor/`, same data + same seed (42),
+post-`daab1c1`:
+- **Run 1:** `python main.py -r calibration -t -e -re` (fetches viewser data, caches parquet).
+- **Run 2:** `python main.py -r calibration -t -e -re --saved` (**same cached data**, fresh independent training).
+
+**Pass = bit-identical**, judged by the reliable signals only (procedure + rationale: `../reproducibility_runbook.md`):
+1. weight-**TENSOR** hash of the two artifacts **identical** (NOT `.pt` file sha — that embeds non-deterministic zip
+   mtimes and is unreliable), **and**
+2. every `origin_*/{target}/y_pred.npy` **`np.array_equal`**, **and**
+3. `scripts/mcr_readout.py` MCR/CRPS **match**.
+
+Compare with `scripts/compare_run_determinism.py <artifact1> <artifact2> <preds1> <preds2>`.
+
+**Falsifier:** any difference in weights, `y_pred`, or MCR → the fix does **not** hold at scale → **STOP**, do not
+proceed to #113/#105, re-investigate. **Verdict + Run-1-as-baseline only on a clean pass.**
+
+*Result appended after the runs (also logged in `../reproducibility_runbook.md` §4).*
