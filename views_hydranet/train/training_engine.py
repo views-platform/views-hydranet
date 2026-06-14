@@ -68,6 +68,14 @@ def _init_classification_head_bias(model: nn.Module, bias_value: float) -> None:
 
 
 def make(config: dict, device: torch.device):
+    # C-119: re-seed immediately before construction/init so weight initialization draws from a
+    # fixed RNG state — independent of any RNG consumed earlier in the pipeline between the
+    # manager's lock and here (the cause of run-to-run init drift). Guarded so seedless callers
+    # (some unit tests) are unaffected; production/determinism configs always carry the seeds.
+    if config.get("np_seed") is not None:
+        ReproducibilityGate.lock_entropy(
+            np_seed=config["np_seed"], torch_seed=config.get("torch_seed")
+        )
     model = choose_model(config, device)
 
     init_fn = functools.partial(init_weights, config=config)
