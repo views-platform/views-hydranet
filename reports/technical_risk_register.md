@@ -455,17 +455,27 @@ Tier 3 rationale: maintainability + critical-path coupling; concrete (live warni
 | Field | Value |
 |-------|-------|
 | ID | C-119 |
-| Tier | 3 |
-| Source | repo-assimilation (2026-06-05) + C-111 bisect observation |
-| Trigger | Re-running a "reproducible" GPU training with identical seed/config and expecting matching outputs — non-deterministic CUDA kernels yield different results run-to-run |
-| Location | `views_hydranet/infrastructure/reproducibility_gate.py` (locks np/torch seeds + deterministic_algorithms, but cannot force bitwise-deterministic CUDA kernels) |
-| Cross-refs | C-112 (pre/post-C-111 comparability); C-79 (no reproducibility comparison test); C-42/C-43 (reproducibility gate — resolved) |
+| Tier | **1** (escalated 2026-06-14 from 3 — see Update) |
+| Source | repo-assimilation (2026-06-05) + C-111 bisect observation; **root-caused by the determinism investigation (2026-06-14)** |
+| Trigger | Comparing any two single training runs (baseline-vs-experiment, an FAO eligibility row, a RESULTS_LOG entry, or the channel-role parity gate) **before the init re-seed fix lands** — run-to-run init variance silently confounds the delta |
+| Location | **`views_hydranet/train/training_engine.py` `make()` (~L70-74: `choose_model` + `model.apply(init_fn)`)** draws weights from a torch-RNG state advanced a non-deterministic amount by work between the manager seed-lock (`hydranet_manager.py:279`) and `make()`; the re-seed at `training_engine.py:494` is post-init (too late). `reproducibility_gate.py::lock_entropy` (necessary but mis-placed relative to init). |
+| Cross-refs | C-42/C-43 (reproducibility gate — "resolved" but **necessary-not-sufficient**: placement vs init matters); C-79 (no pipeline reproducibility test — the missing guard); C-160 (the parity gate this breaks); C-158 (volatility/multi-seed theme); C-112 (pre/post comparability); coord experiment #110 (verdict confounded) |
 
 The gate locks seeds and requests deterministic algorithms, but same-config GPU retrains still diverge in magnitude: the C-111-bisect control retrain settled at CRPS ~1e7 vs the June-3 run's ~1e17 (same seed/config). The qualitative outcome (out-of-range vs in-range) reproduces; the numeric value does not. Any bisect/ablation comparing a single GPU retrain to a prior one must therefore treat magnitude deltas as possibly-spurious and rely on device-matched, ideally multi-seed comparisons (cf. C-112).
 
-Tier 3 rationale: reliability of inference *about experiments*; affects how comparisons are designed, not the model's correctness. No silent corruption.
+~~Tier 3 rationale: reliability of inference *about experiments*; affects how comparisons are designed, not the model's correctness. No silent corruption.~~ **Superseded — see Update 2026-06-14.**
 
-*Test-coverage shadow (test-review 2026-06-05):* the reproducibility envelope is uncharacterized — no test pins what is guaranteed (qualitative outcome) vs not (bitwise magnitude) on GPU; cf. C-79 (no reproducibility comparison test).
+**Update 2026-06-14 — ROOT-CAUSED, ESCALATED to Tier 1, FIX VALIDATED.** The 2026-06-05 hypothesis ("non-deterministic CUDA kernels — cannot force bitwise determinism") is **wrong**. A controlled bisection on the bounded hurdle-NB no-coords baseline (frozen data via `--saved`, identical code, seed 42) found the real cause is **init-time RNG drift**, not CUDA:
+- `use_deterministic_algorithms(True, warn_only=False)` did **not raise** → no op lacks a deterministic impl (ConvTranspose2d/pooling are fine).
+- **CPU** runs diverge → not CUDA-specific. **Verified single-thread** (`torch.get_num_threads()==1`) diverges → not threading. **`PYTHONHASHSEED=0`** diverges → not hash-ordering. **`dropout=0`** diverges → not the forward RNG. **Sampled-window data hashes are identical** → not data sampling.
+- `make()` *in isolation* (lock→make immediately) is deterministic, but the **init-weights hash at training start differs across real-pipeline runs** → the model is initialised from a torch-RNG state advanced a non-deterministic amount by work between the manager's `lock_entropy` (`:279`) and `make()`. Different initial weights every run → ~20% downstream variance (no-coords FULL MCR sb **3.69 vs 2.99**, os **6.78 vs 8.47**; CRPS ±~20%).
+- **Fix validated:** re-seeding (`lock_entropy`) immediately **before** init in `make()` yields **bit-identical** weights across two runs on the **real production config** (GPU, multi-threaded, dropout=0.15) — weight-tensor hash `5c8413bd…` identical, training loss identical to 5 decimals. One-line ordering fix (**Path A**); not yet applied.
+
+**Why Tier 1 now:** this is **silent model-output-comparison corruption with no error signal**. It did not merely "affect comparison design" — it silently produced *wrong conclusions*: the coordinate experiment #110 read "coords made it worse" (coord 5.09 vs a baseline 2.55) when the **no-coords baseline alone swings 2.99–3.69 run-to-run**, and the FAO eligibility table / RESULTS_LOG single-run comparisons are likewise confounded. Resolves when Path A lands **and** a pipeline determinism regression test (C-79) pins two-run weight-tensor identity.
+
+**Method caveat (record):** the saved **`.pt` file sha256 is NOT a reliable weight-identity check** — torch's `.pt` is a zip embedding file mtimes, so it differs even for identical weights. Use the **weight-tensor hash** (numpy `tobytes`), the **training loss**, or **MCR** as the determinism signal.
+
+*Test-coverage shadow (test-review 2026-06-05):* the reproducibility envelope is uncharacterized — no test pins what is guaranteed vs not on GPU; cf. C-79. **The Path-A regression test closes this.**
 
 ---
 
