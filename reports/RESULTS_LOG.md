@@ -1,5 +1,12 @@
 # Results Log — HydraNet (FAO Pre-Release Note 05 metrics)
 
+> ⚠️ **C-119 confound (2026-06-15).** Every single-run comparison logged here **before** the determinism
+> fix (commit `daab1c1`) is **confounded**: training was non-deterministic at a fixed seed (~20% run-to-run
+> variance; root cause C-119 — `reports/postmortem_training_nondeterminism_init_rng_drift.md`). The no-coords
+> baseline alone swung FULL MCR sb 2.99–3.69 run-to-run. **Treat all pre-fix deltas — including the
+> coordinate #110 verdict and any FAO eligibility calls — as not trustworthy.** Re-run on the deterministic
+> pipeline (post-`daab1c1`) before drawing any comparative conclusion.
+
 **Every run logged here, one row. Append-only.** Metrics follow FAO PRN-05 (Topic A); this is the
 standing comparison table going forward. (The narrative history lives in `RESULTS_LEDGER.md`; *this* is
 the clean per-run table.)

@@ -1,5 +1,12 @@
 # 07 — Experiment Log (append-only)
 
+> ⚠️ **C-119 confound (2026-06-15).** Everything below was run on a **non-deterministic** training pipeline
+> (~20% run-to-run variance at a fixed seed; root cause C-119, fixed in `daab1c1` —
+> `../postmortem_training_nondeterminism_init_rng_drift.md`). The **6-run "baseline of record" is superseded**
+> and the **coordinate experiment #110 "coords made it worse" verdict is VOID** — the no-coords baseline
+> alone swings FULL MCR sb 2.99–3.69 run-to-run, comparable to the claimed coord effect. The coordinate
+> question must be re-run on the deterministic pipeline before any verdict stands.
+
 **Date:** 2026-06-11 · Negatives first-class. Each entry: one variable, pre-registration link, verdict vs
 falsifiers. Canonical metrics live in `../RESULTS_LOG.md`; this is the narrative ledger.
 

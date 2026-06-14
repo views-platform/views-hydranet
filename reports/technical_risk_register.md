@@ -6,9 +6,9 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-13                           |
 | Total Concerns    | 158                                  |
-| Open Concerns     | 59                                   |
+| Open Concerns     | 57                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 99                                   |
+| Resolved Concerns | 101                                  |
 
 ---
 
@@ -207,6 +207,8 @@ See also C-75 (duplicated derivation logic).
 ---
 
 ### C-79: No pipeline-level reproducibility comparison test
+
+> **RESOLVED 2026-06-15 (`daab1c1`).** Determinism regression test added in `tests/test_training_engine.py` (`test_init_deterministic_regardless_of_prior_rng_state` + `test_training_run_is_reproducible`) — pins two-run weight-TENSOR identity. *(Awaiting physical relocation to §Resolved Concerns in the next register tidy.)*
 
 | Field | Value |
 |-------|-------|
@@ -451,6 +453,8 @@ Tier 3 rationale: maintainability + critical-path coupling; concrete (live warni
 ---
 
 ### C-119: GPU runs are not bit-reproducible despite the reproducibility gate
+
+> **RESOLVED 2026-06-15 (`daab1c1`).** Root cause was **init-time RNG drift** (not CUDA kernels); fix = re-seed before init in `make()` + a determinism regression test (closes C-79). Bit-identical weights confirmed on the real config (GPU, multi-thread, dropout). Confounded prior results flagged in RESULTS_LOG / dossier 07 / #110. *(Awaiting physical relocation to §Resolved Concerns in the next register tidy.)*
 
 | Field | Value |
 |-------|-------|
