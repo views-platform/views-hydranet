@@ -66,7 +66,16 @@ an **exit-137-after-metrics** is the known-spurious **C-116** (metrics + artifac
 
 | Date | Runs (config) | Weight-hash identical? | `y_pred` array-equal? | MCR match? | Verdict |
 |------|---------------|------------------------|------------------------|------------|---------|
-| _pending_ | violet no-coords ×2 (`-t -e`, seed 42; run2 `--saved`), post-`daab1c1` | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
+| 2026-06-15 | violet no-coords ×2 (`-t -e -re`, seed 42; run2 `--saved`), post-`daab1c1` | ✅ `2a7667c5…` (both) | ✅ 78/78 | ✅ sb 3.702 · ns 4.497 · os 7.005 (FULL, both) | ✅ **DETERMINISTIC — fixed-fixed** |
+
+**2026-06-15 result.** The C-119 fix (`daab1c1`) holds at **production scale**, not just on the tiny unit-test
+config. Two independent trainings on identical frozen data (`--saved`) + seed 42 produced **bit-identical** weights
+(`2a7667c5…`), all **78** `origin_*/{target}/y_pred.npy` `np.array_equal`, and identical MCR/CRPS point estimates
+(STEP-1 sb/ns/os 0.369/0.351/0.589; FULL 3.702/4.497/7.005; CRPS identical to 4 dp). Artifacts:
+`calibration_model_20260615_015644.pt` (Run 1, the deterministic no-coords **baseline of record**) and
+`…_025717.pt` (Run 2). Both runs exited 137 *after* metrics+artifact+predictions were written — the known-spurious
+**C-116** publish-OOM, not a failure (verified on disk: 13 origins × 6 targets each). **This is the baseline the
+channel-role side-quest (#113) and the coordinate epic (#105) build on.** The confounded 6-run sweep is superseded.
 
 ## 5. Cross-refs
 - **C-119** (register) — the non-determinism bug + fix. **C-79** — the regression test that guards it.

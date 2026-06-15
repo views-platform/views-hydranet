@@ -83,4 +83,15 @@ Compare with `scripts/compare_run_determinism.py <artifact1> <artifact2> <preds1
 **Falsifier:** any difference in weights, `y_pred`, or MCR → the fix does **not** hold at scale → **STOP**, do not
 proceed to #113/#105, re-investigate. **Verdict + Run-1-as-baseline only on a clean pass.**
 
-*Result appended after the runs (also logged in `../reproducibility_runbook.md` §4).*
+**RESULT (2026-06-15) — ✅ PASS, fixed-fixed.** Two no-coords runs, seed 42, Run 2 `--saved` (identical frozen
+data), post-`daab1c1`:
+- weight-**TENSOR** hash **identical**: `2a7667c5…` (both artifacts), **and**
+- **78/78** `origin_*/{target}/y_pred.npy` `np.array_equal` (13 origins × 6 targets), **and**
+- MCR/CRPS point estimates **identical** — STEP-1 sb/ns/os 0.369/0.351/0.589; **FULL 3.702/4.497/7.005**; CRPS to 4 dp.
+
+No falsifier fired. The C-119 fix holds at **production scale**. Both runs exited 137 *after* everything was written
+(known-spurious C-116 publish-OOM, verified on disk — not a failure). **Run 1
+(`calibration_model_20260615_015644.pt`) is now the deterministic no-coords baseline of record** — the FULL MCR
+sb·ns·os **3.70 · 4.50 · 7.00** any coordinate experiment must beat. The earlier 6-run sweep (C-119-confounded) is
+superseded. → Cleared to resume **#113 Phase 2** on a trustworthy seam → **#105**. (Also logged:
+`../reproducibility_runbook.md` §4.)
