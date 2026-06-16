@@ -404,15 +404,17 @@ Tier 2 rationale: structural fragility (no fail-loud) with a clear, recurring tr
 | Field | Value |
 |-------|-------|
 | ID | C-116 |
-| Tier | 3 |
-| Source | repo-assimilation (2026-06-05) + 4 eval runs this session; recalibrated 2→3 (review-rr 2026-06-05) |
-| Trigger | Running any `--evaluate` on this box — the post-eval queryset-metadata publish step peaks ~12 GB RSS and is OOM-killed (`dmesg: Out of memory: Killed process (python)`), exiting 137 |
+| Tier | 2 (escalated 3→2 on 2026-06-15 — see update) |
+| Source | repo-assimilation (2026-06-05) + 4 eval runs this session; recalibrated 2→3 (review-rr 2026-06-05); **re-escalated 3→2 (2026-06-15, determinism-validation runs)** |
+| Trigger | Running any `--evaluate` on this box — the post-eval queryset-metadata publish step peaks RSS and is OOM-killed (`dmesg: Out of memory: Killed process (python)`), exiting 137 |
 | Location | post-evaluation publish step at the manager / views-pipeline-core boundary (after the wandb run-summary in every eval log; e.g. `…Publishing/Fetching queryset pg_metadata`) |
-| Cross-refs | C-07 (per-window memory cleanup — resolved, different phase) |
+| Cross-refs | C-07 (per-window memory cleanup — resolved, different phase); C-135 (eval-OOM of an exploding model — likely related memory axis) |
 
 Every constituent eval this session exited 137 (SIGKILL) during a post-metrics `Publishing/Fetching queryset pg_metadata` step, OOM-killed at ~12 GB anon-rss. Metrics survive because the kill lands after the wandb summary syncs (proven by exact baseline reproduction), so it reads as a spurious "failure." But it is a real resource fragility: a tighter-RAM environment, a larger grid/model, or any reordering of the publish step relative to the sync would lose the results outright.
 
 Tier 3 rationale (recalibrated 2026-06-05): reproducible process death (4/4 evals) with a clear trigger, **but non-corrupting** — metrics are computed/synced before the OOM, so no result is lost today. Peer-compared to the Tier-2 band (C-113 corrupts forecasts; C-115 silently degrades runs), this is operational/resource fragility that *could* escalate to data loss under modest change — Tier 3 with a watch note, promote to 2 if the publish step ever moves ahead of the metric sync or RAM headroom shrinks. Member of Cluster 6.
+
+**UPDATE 2026-06-15 — escalated to Tier 2; the documented escalation trigger ("RAM headroom shrinks") has fired.** Both determinism-validation runs (violet no-coords, seed 42; `journalctl -k`) were OOM-killed at **anon-rss 16.6 GB** (pids 1421921 @ 02:38:55, 1433425 @ 03:50:36), on a **32 GB box with swap exhausted** (`global_oom, constraint=NONE`) — up from the ~12 GB documented 2026-06-05. The kill stage is confirmed unchanged (`viewser …queryset.py: Publishing/Fetching queryset pg_metadata` → `Processing features [05:26]` → kill, ~24 min after metrics+artifact+predictions were written, so still non-corrupting *today* — the determinism verdict is unaffected). **What is NOT yet established:** the cause of the 12→16.6 GB growth. Regression window is the ZINB epic (commits 2026-06-10..06-13: #99 HurdleNBLoss, #100/#101 hurdle-NB head+inference-mean, #106/#108 coord seam) — but no single recent change is a verified ~4.6 GB allocator (`_emit_magnitude` float64 is per-step/transient; `feature_scaler.inverse_transform_volume` 2× full-volume copy is pre-existing). Could also be partly environmental (swap state). **Do not assert a mechanism without per-stage RSS measurement** (this lineage already mis-diagnosed C-135's OOM and retracted). Coordinate channels will push the peak *higher* (more input channels) → this gates the coord epic. Probe in flight: `n_posterior_samples` dropped 16→3 in the violet config to test whether our posterior/inverse-transform volume (scales with samples) or the viewser publish step (does not) dominates the peak.
 
 ---
 
