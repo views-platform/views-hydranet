@@ -20,6 +20,12 @@
   *Test (Beige):* a flipped/rotated window's coord channel matches the transformed grid position.
   (Carried from ADR-029 — coords that don't flip with the data encode the wrong position.)
 
+> **Coverage bar raised (2026-06-16, GitHub #127).** I3/I4/I6 + range are no longer one-test-each: they require
+> **100% Green/Beige/Red coverage across *every* sampler/handler transform** — North-Up flip
+> (`volume_handler.py:241`), transpose `(2,0,1,3)`, `_permute`, `flip` (torch+numpy), `spatial_offset`,
+> training-time random flips, and the sampler window slice (`volume_sampler.py:_generate_window`). The **Red**
+> cases must prove a *broken* co-transform is **caught**, not silently passed. Owned by **#127**; gates #118.
+
 ## Build-specific checks
 - **Range check.** Coordinate channels lie in `[-1, 1]`; the four grid corners map to the expected
   extremes (a 2×2 corner probe).
