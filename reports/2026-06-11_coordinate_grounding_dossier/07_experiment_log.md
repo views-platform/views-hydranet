@@ -95,3 +95,14 @@ No falsifier fired. The C-119 fix holds at **production scale**. Both runs exite
 sb·ns·os **3.70 · 4.50 · 7.00** any coordinate experiment must beat. The earlier 6-run sweep (C-119-confounded) is
 superseded. → Cleared to resume **#113 Phase 2** on a trustworthy seam → **#105**. (Also logged:
 `../reproducibility_runbook.md` §4.)
+
+---
+
+## Operating point for the coordinate experiment (set 2026-06-16) — see `05` banner + GitHub #110
+
+The coord A/B (#110) runs at **`n_posterior_samples=8`, `WANDB_MODE=offline`, 1 seed (42)**. Rationale: the
+eval-stage OOM (**C-116 / #124**, Tier 2) kills runs at 16 samples on this 32 GB box; 8 is the interim workaround
+(first gate = an 8-sample no-coords run completes without OOM), 16 restored after the C-116 fix. 1 seed is now sound
+because **C-119 is fixed** (#119, fixed-fixed). Comparator = the **8-sample** no-coords run at this operating point
+(the FULL MCR 3.70/4.50/7.00 above was at 16 samples — re-measure the comparator at 8). *(Reached only after the
+channel-role gate #115 → #125 → #118; coords still off in config until then.)*

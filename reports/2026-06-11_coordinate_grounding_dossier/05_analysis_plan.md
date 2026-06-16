@@ -2,6 +2,16 @@
 
 **Date:** 2026-06-11 · Pre-registered **before** the coordinate train (roadmap box 3). Append-only.
 
+> **⚙️ Operating-point update (2026-06-16) — supersedes the seed/sample lines below.** (GitHub #110.)
+> - **`n_posterior_samples = 8`** (was 16) — interim workaround for the eval-stage OOM (C-116 / #124); restore
+>   to 16 once C-116 is fixed. **First acceptance gate:** an 8-sample no-coords run completes **without OOM**.
+> - **`WANDB_MODE=offline`** — avoid the `run.finish()` network-hang (#126).
+> - **1 seed (42), not ≥2.** The multi-seed requirement (and the **F-volatility** falsifier below) existed to
+>   fight run-to-run non-determinism — which **C-119 fixed** (validated *fixed-fixed* 2026-06-15, #119). Single
+>   runs are now bit-reproducible, so a 1-seed A/B (baseline vs +coords, same seed/samples) is a clean
+>   controlled comparison. Re-add a 2nd seed only if the 8-sample signal is ambiguous.
+> - Comparator baseline = the **8-sample no-coords** run at this operating point (not the superseded 6-run sweep).
+
 ## One variable
 The bounded hurdle-NB **S1** config (θ=1.0, `pos_weight`=10, frozen balancer, scheduled sampling off,
 40 lessons) **+ coordinate channels** (ADR-061) **vs** the same config without them (the 6-run baseline of
