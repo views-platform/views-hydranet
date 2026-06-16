@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-13                           |
-| Total Concerns    | 158                                  |
-| Open Concerns     | 57                                   |
+| Total Concerns    | 160                                  |
+| Open Concerns     | 59                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 101                                  |
 
@@ -1118,6 +1118,36 @@ The sidecar `arch_keys` whitelist omits `static_channels`, so `choose_model` reb
 | Cross-refs | C-36 (451-edge god node), C-37 (no Protocol — being reconsidered), C-75 (derivation duplication), ADR-062 |
 
 ADR-062 deliberately refactors the Custodian, which C-36 quantifies as a **451-edge god node bridging 16+ communities** — "any signature change ripples across all communities." The risk: an unintended change to baseline (no-coords) output slips past the unit suite (which gave false confidence before). **Mitigation (the side-quest's defining discipline):** an end-to-end **parity gate** — a no-coords run on current code must be **bit-identical** to a no-coords run on the refactored code (Phases 2/5) — plus the characterization net (Phase 3) and byte-identical-when-off (I5) at every step. Registered so the refactor is executed under that gate, never on the unit suite alone. **Tier 2:** structural fragility under a planned, broad change.
+
+---
+
+### C-161: violet config operating-point drift — `n_posterior_samples=3` while #110/dossier specify 8
+
+| Field | Value |
+|-------|-------|
+| ID | C-161 |
+| Tier | 2 |
+| Source | /falsify (2026-06-16, "two 8-sample runs" readiness) — P1 |
+| Trigger | Launching the #110 baseline run(s) believing the config is at 8 — it still holds the temporary C-116 probe value `3`, never raised |
+| Location | `views-models/models/violet_visitor/configs/config_hyperparameters.py:120` |
+| Cross-refs | C-116/#124 (the probe that set it to 3), C-117 (different drift — ghost keys silently accepted), #110, #127 |
+
+The operating point (8 samples) is recorded in #110, dossier `05`/`07`, and the #112 checklist — but the **executable artifact** still pins `n_posterior_samples=3` (the inline comment: "TEMP … dropped 16→3 … restore once the OOM is understood"). Launching the documented "8-sample" runs would **silently run at 3**, producing a mislabeled experimental record with **no error signal**. Caught by a falsify config-vs-claim probe. **Tier 2:** doc-vs-state structural drift that, under the realistic next action (launch), yields a wrong-operating-point run; one-line fix (set 8), itself gated by the unverified 8-sample OOM headroom (C-116/#124).
+
+---
+
+### C-162: #110 decision rule's run-to-run Δ_noise is identically zero under the C-119 determinism fix
+
+| Field | Value |
+|-------|-------|
+| ID | C-162 |
+| Tier | 2 |
+| Source | /falsify (2026-06-16) — P2/P4 |
+| Trigger | Applying the #110 pre-registered decision rule (run the 8-sample baseline **twice**, set `Δ_noise` = run-to-run difference) to call the coordinate ship/drop verdict |
+| Location | GitHub #110 "Pre-registered DECISION RULE"; dossier `05_analysis_plan.md` operating-point banner |
+| Cross-refs | C-119 (determinism fix — the root of the degeneracy), M-R2 (prior no-CI method risk), `scripts/mcr_readout.py:81` `_bootstrap_mcr_ci` (the correct within-run noise band) |
+
+The rule derives the noise band from **two same-seed `--saved` runs**. But **C-119 made same-seed runs bit-identical** (proven 2026-06-15: 78/78 `y_pred` `np.array_equal`, PREDICTIONS IDENTICAL: True) → `Δ_noise ≡ 0` → the rule has **no noise floor** → coordinates would be accepted on **any** nonzero MCR improvement = a **false-positive verdict with no error signal**. The noise band must instead come from the **within-run bootstrap CI** that `mcr_readout` already computes. **Tier 2:** silent decision-incorrectness (unsound go/no-go) under the realistic action of applying the rule; the two-run framing is a determinism-era leftover. *Fix: rewrite the #110 rule to "coords win iff the improvement clears the baseline's 95% bootstrap CI," from one run.*
 
 ---
 
