@@ -26,20 +26,15 @@ def test_violet_config_operating_point_is_8_samples():
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="#110 decision rule broken: run-to-run Δ_noise ≡ 0 under the C-119 determinism fix",
-)
 def test_noise_band_is_within_run_bootstrap_not_run_to_run():
-    """HARD (P2): #110's decision rule derives Δ_noise from TWO same-seed runs. But C-119 made
-    same-seed `--saved` runs BIT-IDENTICAL — proven 2026-06-15 (78/78 y_pred np.array_equal,
-    PREDICTIONS IDENTICAL: True). So two 8-sample runs ⇒ Δ_noise ≡ 0 ⇒ a degenerate noise floor
-    ⇒ coords 'win' on ANY nonzero improvement (false-positive risk). The noise band must come from
-    mcr_readout's WITHIN-run bootstrap CI (already computed), not a run-to-run diff. Flip #110, then
-    this xfail turns xpass."""
-    raise AssertionError(
-        "#110 must use mcr_readout's within-run bootstrap CI as the noise band; "
-        "run-to-run difference is identically 0 under determinism."
+    """C-162 FIXED (#129): the #110 decision rule now uses mcr_readout's WITHIN-run 95% bootstrap CI
+    as the noise band — not a run-to-run Δ_noise (which is ≡0 under the C-119 determinism fix:
+    two same-seed --saved runs are bit-identical, proven 78/78 y_pred np.array_equal). Guard that the
+    primitive the corrected rule depends on exists. (The doc rewrite in #110/dossier-05 is the real
+    fix, verified by reading those; this guards its code dependency.)"""
+    mcr_readout = Path(__file__).resolve().parents[1] / "scripts" / "mcr_readout.py"
+    assert "_bootstrap_mcr_ci" in mcr_readout.read_text(), (
+        "mcr_readout.py must expose the within-run bootstrap-CI primitive the #110 rule relies on"
     )
 
 

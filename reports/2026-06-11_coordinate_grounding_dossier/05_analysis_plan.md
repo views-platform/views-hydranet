@@ -11,6 +11,12 @@
 >   runs are now bit-reproducible, so a 1-seed A/B (baseline vs +coords, same seed/samples) is a clean
 >   controlled comparison. Re-add a 2nd seed only if the 8-sample signal is ambiguous.
 > - Comparator baseline = the **8-sample no-coords** run at this operating point (not the superseded 6-run sweep).
+> - **Verdict rule (#129, corrected).** Coords **WIN** iff the coords-on FULL-MCR **95% bootstrap CI**
+>   (`scripts/mcr_readout.py::_bootstrap_mcr_ci`) is **non-overlapping and lower** than the no-coords baseline's
+>   CI on **≥2/3** targets **AND** CRPS is non-inferior; overlapping CIs → **inconclusive → escalate**. The noise
+>   band is the **within-run** bootstrap CI from **one** run — NOT a run-to-run difference (which is ≡0 under the
+>   determinism fix; that was the C-162 defect). The **F-volatility** falsifier below is reinterpreted accordingly:
+>   judged by the within-run CI width, not multi-seed spread.
 
 ## One variable
 The bounded hurdle-NB **S1** config (θ=1.0, `pos_weight`=10, frozen balancer, scheduled sampling off,
