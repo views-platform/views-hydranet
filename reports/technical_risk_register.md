@@ -4,11 +4,11 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-06-13                           |
-| Total Concerns    | 160                                  |
-| Open Concerns     | 59                                   |
+| Last Updated      | 2026-06-18                           |
+| Total Concerns    | 163                                  |
+| Open Concerns     | 61                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 101                                  |
+| Resolved Concerns | 102                                  |
 
 ---
 
@@ -397,6 +397,8 @@ Tier 2 rationale: structural fragility (no fail-loud) with a clear, recurring tr
 
 *Test-coverage shadow (test-review 2026-06-05):* no test asserts fail-loud/gate behavior when CUDA is unavailable; the gated driver `views-models/scripts/run_balancer_frozen_gpu.sh` is the only enforcement and is not under test.
 
+**UPDATE 2026-06-18 — the cited gate no longer exists.** `views-models/scripts/run_balancer_frozen_gpu.sh` (the "only enforcement") was **verified absent** this session (`find views-models -name '*.sh'` — gone). So there is currently **no CUDA gate at all**: a lid-suspend/resume wedged `nvidia_uvm` (CUDA `is_available()→False`) and a run ground silently on CPU for hours before detection. The systemic gap is now tracked as **C-163** (rebuild the guarded-run harness). Member of Cluster 6.
+
 ---
 
 ### C-116: Post-evaluation `queryset pg_metadata` publish OOM — eval process exits 137 after metrics
@@ -415,6 +417,8 @@ Every constituent eval this session exited 137 (SIGKILL) during a post-metrics `
 Tier 3 rationale (recalibrated 2026-06-05): reproducible process death (4/4 evals) with a clear trigger, **but non-corrupting** — metrics are computed/synced before the OOM, so no result is lost today. Peer-compared to the Tier-2 band (C-113 corrupts forecasts; C-115 silently degrades runs), this is operational/resource fragility that *could* escalate to data loss under modest change — Tier 3 with a watch note, promote to 2 if the publish step ever moves ahead of the metric sync or RAM headroom shrinks. Member of Cluster 6.
 
 **UPDATE 2026-06-15 — escalated to Tier 2; the documented escalation trigger ("RAM headroom shrinks") has fired.** Both determinism-validation runs (violet no-coords, seed 42; `journalctl -k`) were OOM-killed at **anon-rss 16.6 GB** (pids 1421921 @ 02:38:55, 1433425 @ 03:50:36), on a **32 GB box with swap exhausted** (`global_oom, constraint=NONE`) — up from the ~12 GB documented 2026-06-05. The kill stage is confirmed unchanged (`viewser …queryset.py: Publishing/Fetching queryset pg_metadata` → `Processing features [05:26]` → kill, ~24 min after metrics+artifact+predictions were written, so still non-corrupting *today* — the determinism verdict is unaffected). **What is NOT yet established:** the cause of the 12→16.6 GB growth. Regression window is the ZINB epic (commits 2026-06-10..06-13: #99 HurdleNBLoss, #100/#101 hurdle-NB head+inference-mean, #106/#108 coord seam) — but no single recent change is a verified ~4.6 GB allocator (`_emit_magnitude` float64 is per-step/transient; `feature_scaler.inverse_transform_volume` 2× full-volume copy is pre-existing). Could also be partly environmental (swap state). **Do not assert a mechanism without per-stage RSS measurement** (this lineage already mis-diagnosed C-135's OOM and retracted). Coordinate channels will push the peak *higher* (more input channels) → this gates the coord epic. Probe in flight: `n_posterior_samples` dropped 16→3 in the violet config to test whether our posterior/inverse-transform volume (scales with samples) or the viewser publish step (does not) dominates the peak.
+
+**UPDATE 2026-06-18 — ROOT CAUSE MEASURED (per-stage RSS sampler).** The 12→18+ GB growth is a **sample-scaled double-buffer at the publish tail**, not the model. Measured trajectory (8-sample run, quiet box): flat **~2.7 GB through training AND eval/posterior-sampling** → climbs to ~9 GB during prediction-frame assembly → **doubles 9→18 GB in ~60 s at the publish tail** → OOM at **anon-rss ~18–20 GB** (`min avail 0–1 GB`). Mechanism: `evaluation_mode='stochastic'` (violet config) **skips `collapse_to_point`** (`inference_orchestrator.py:116-117`), so PredictionFrames carry the full **`(N, S)`** matrix (`prediction_frame_assembler.py:178`); the tail then holds **two full copies** of the S-scaled `[T,H,W,C,S]` structure simultaneously — `feature_scaler.inverse_transform_volume`'s `work_data = vh.data…copy()` (`feature_scaler.py:219`, runs *before* any collapse) **and** the viewser pandas materialization (`Processing features`). **Sample-scaled and confirmed by bisection:** 3 samples completes (`Done. Runtime`), 8 OOMs — both **online and offline wandb (~18 vs ~20 GB)**, so wandb is NOT the cause (that hypothesis tested and falsified). The historical 30–300-sample runs fit because S was collapsed before the heavy step; the current path carries S to publish. **Minimal fix:** collapse S→point (or a streaming CRPS accumulator) *before* `inverse_transform_volume`, and transform in place (drop the `.copy()`). **Test-coverage shadow:** no test asserts peak-RSS sub-linearity in `n_posterior_samples` — exactly why this regressed invisibly for two weeks (see new **C-164** seam-test gap, **C-163** runtime-harness gap). GitHub **#124**.
 
 ---
 
@@ -1152,6 +1156,51 @@ The operating point (8 samples) is recorded in #110, dossier `05`/`07`, and the 
 The rule derives the noise band from **two same-seed `--saved` runs**. But **C-119 made same-seed runs bit-identical** (proven 2026-06-15: 78/78 `y_pred` `np.array_equal`, PREDICTIONS IDENTICAL: True) → `Δ_noise ≡ 0` → the rule has **no noise floor** → coordinates would be accepted on **any** nonzero MCR improvement = a **false-positive verdict with no error signal**. The noise band must instead come from the **within-run bootstrap CI** that `mcr_readout` already computes. **Tier 2:** silent decision-incorrectness (unsound go/no-go) under the realistic action of applying the rule; the two-run framing is a determinism-era leftover.
 
 **RESOLVED 2026-06-16 (#129):** #110 body + dossier `05` rewritten — coords win iff the coords-on FULL-MCR 95% bootstrap CI (`mcr_readout._bootstrap_mcr_ci`, one run) is non-overlapping-and-lower than the baseline CI on ≥2/3 targets + CRPS non-inferior; overlapping → escalate. All run-to-run/Δ_noise language removed; falsify guard green.
+
+---
+
+### C-163: No runtime resource/environment harness — runs OOM/wedge/grind silently (the missing guarded-run)
+
+| Field | Value |
+|-------|-------|
+| ID | C-163 |
+| Tier | 2 |
+| Source | expert-code-review (meta, 2026-06-18) — Nygard/GoF; corroborated by this session's lost week |
+| Trigger | Launching any real GPU run (`main.py -t -e -re`) on the dev box — no pre-flight or runtime gate exists, so a wedge/OOM/hang is detected only by a human hours later |
+| Location | run launch path (`views-models/models/violet_visitor/main.py` invocation); the deleted `views-models/scripts/run_balancer_frozen_gpu.sh` (gone — see C-115) |
+| Cross-refs | C-115 (CUDA gate gone), C-116 (publish OOM), C-135 (eval OOM), Cluster 6 |
+
+The repo is *operated like production* (90-min GPU jobs, external services, hard 32 GB limit) with **zero runtime reliability engineering**. This session, three distinct failures each ground/OOM'd **silently** because nothing gated them: a lid-suspend wedged CUDA → multi-hour CPU grind (no health gate); `wandb run.finish()` DNS-hung 38 min (no timeout/circuit-breaker); the publish step OOM'd (no RAM budget/backpressure). Each guard was **re-improvised ad hoc** (systemd-inhibit, RSS sampler, CUDA pre-flight) — and the canonical guarded-run that once held them (`run_balancer_frozen_gpu.sh`) has been deleted. **Tier 2:** structural/operational fragility with a clear trigger (every run), causing repeated multi-hour losses. **Fix:** one reusable guarded-run script — CUDA `is_available()` pre-flight (abort), RAM-headroom budget (abort pre-write), disk check, `systemd-inhibit` (block suspend), **unbuffered** live logs, peak-RSS logging, fast-fail-on-no-GPU-within-N-min. Promote resource "watch" entries (C-116) into this gate.
+
+---
+
+### C-164: No end-to-end output-path seam test (peak-RSS vs samples) — memory regressions ship invisibly
+
+| Field | Value |
+|-------|-------|
+| ID | C-164 |
+| Tier | 3 |
+| Source | expert-code-review (meta, 2026-06-18) — Feathers/Beck/Kleppmann |
+| Trigger | Any change to the eval→invert→assemble→publish output path or `n_posterior_samples` — no test exercises the seam or asserts memory scaling |
+| Location | `views_hydranet/utils/inference_orchestrator.py`, `feature_scaler.py:inverse_transform_volume`, `prediction_frame_assembler.py`; CI `tests/` |
+| Cross-refs | C-116 (the regression this would have caught), C-113 (analogous "no seconds-level seam test" gap, register §C-113) |
+
+The CIC/unit suite tests components in isolation; **every regression this session lived in an untested seam** (eval→publish memory, model→artifact-reload, process→GPU). The C-116 memory regression scaled with `n_posterior_samples` for ~2 weeks invisibly because **no test asserts peak-RSS as a function of S** on the output path. The human had to act as the integration test. **Tier 3** (test-coverage/maintainability gap — but high-value: it directly enabled a Tier-2 failure). **Fix:** a fast end-to-end fixture (1 origin, 2 lessons, saved artifact or tiny CPU grid) through the full output path that asserts peak RSS is **sub-linear in `n_posterior_samples`** (i.e. S is collapsed before the heavy step). This is the single test that catches the C-116 class in seconds. Pair with a fast feedback loop (eval-only on a saved artifact; unbuffered logs) so output-path iteration is minutes, not 90.
+
+---
+
+### C-165: CI "green" is misleading — `--ignore` flags mask real breakage (#95 collection error)
+
+| Field | Value |
+|-------|-------|
+| ID | C-165 |
+| Tier | 3 |
+| Source | expert-code-review (meta, 2026-06-18) + falsify P4 (2026-06-16) |
+| Trigger | Reading "CI green" / "full suite green" as a health signal, or relying on it as the refactor safety net (#114/#115 DoD) |
+| Location | `.github/workflows/ci.yml` (6 `--ignore` flags); `tests/test_eval_integration_toy.py` (#95 stale import → collection error) |
+| Cross-refs | #95 (stale import), C-116/C-164 (false confidence theme) |
+
+CI passes only because `ci.yml` `--ignore`s six files; one of them, `test_eval_integration_toy.py`, is a **real collection error** (#95, stale `views_evaluation.evaluation_manager` import) — `pytest tests/` errors without the flags. So "suite green" means "green modulo silently-excluded breakage," and the channel-role refactor's "full suite green" gate (#114/#115) rests on it. **Tier 3:** false-confidence / maintainability. **Fix:** resolve #95 so a plain `pytest tests/` collects clean, or make the ignore-set explicit and justified in the DoD; distinguish "aspirational falsification stubs" (legitimately ignored) from "broken tests" (must fix).
 
 ---
 
