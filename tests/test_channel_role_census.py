@@ -28,10 +28,7 @@ _STATIC = "row_coord"
 _DEVICE = torch.device("cpu")
 
 
-# bug 1 / C-158 — curriculum treats input-only statics as trainable subjects
-@pytest.mark.xfail(
-    strict=True, reason="C-158: curriculum treats input-only statics as subjects"
-)
+# bug 1 / C-158 — FIXED (#115 4b): curriculum excludes input-only statics from subjects.
 def test_census_bug1_curriculum_excludes_static_subjects():
     from views_hydranet.utils.curriculum import CurriculumLearner
 
