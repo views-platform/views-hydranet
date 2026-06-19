@@ -376,7 +376,9 @@ def train(
     train_tensor = sample_handler.to_pytorch(device, include_identities=False)
 
     # 3. Pre-compute channel indices (Zero Magic ADR 003)
-    feature_names = [n for n in sample_handler.channel_map if n in sample_handler.feature_cols]
+    # ADR-062: indices are read off the kept model tensor (inputs ⧺ targets) = tensor_cols,
+    # the de-overloaded feature_cols (== old feature_cols value → byte-identical).
+    feature_names = [n for n in sample_handler.channel_map if n in sample_handler.tensor_cols]
     idx = _SequenceIndices(feature_names, config)
 
     seq_len = train_tensor.shape[1]

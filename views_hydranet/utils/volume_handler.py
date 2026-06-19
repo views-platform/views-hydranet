@@ -296,11 +296,13 @@ class VolumeHandler:
         if not include_identities:
             # ADR 007 hardening: Strip identity channels by checking the channel map.
             # This ensures only feature_cols reach the model.
+            # ADR-062: the model tensor carries inputs ⧺ targets = tensor_cols (de-overloaded
+            # feature_cols; == old feature_cols value, so byte-identical).
             feature_indices = [
-                i for i, name in enumerate(self.channel_map) if name in self.feature_cols
+                i for i, name in enumerate(self.channel_map) if name in self.tensor_cols
             ]
             assert feature_indices, (
-                "VolumeHandler.to_pytorch: feature_cols is empty — "
+                "VolumeHandler.to_pytorch: tensor_cols (kept channels) is empty — "
                 "handler was not constructed via from_df or config['features'] is missing."
             )
             np_data = np_data[:, :, :, feature_indices]
@@ -466,6 +468,9 @@ class VolumeHandler:
             identity_cols=self.identity_cols,
             feature_cols=self.feature_cols,
             spatial_offset=self.spatial_offset,
+            static_cols=self.static_cols,
+            target_cols=self.target_cols,
+            model_input_cols=self.model_input_cols,
         )
         result._metadata = replace(
             result._metadata, spatial_convention=self._metadata.spatial_convention
@@ -503,6 +508,9 @@ class VolumeHandler:
             identity_cols=self.identity_cols,
             feature_cols=self.feature_cols,
             spatial_offset=self.spatial_offset,
+            static_cols=self.static_cols,
+            target_cols=self.target_cols,
+            model_input_cols=self.model_input_cols,
         )
         result._metadata = replace(
             result._metadata, spatial_convention=self._metadata.spatial_convention
@@ -547,6 +555,9 @@ class VolumeHandler:
             identity_cols=self.identity_cols,
             feature_cols=self.feature_cols,
             spatial_offset=self.spatial_offset,
+            static_cols=self.static_cols,
+            target_cols=self.target_cols,
+            model_input_cols=self.model_input_cols,
         )
         result._metadata = replace(
             result._metadata, spatial_convention=self._metadata.spatial_convention
@@ -576,6 +587,9 @@ class VolumeHandler:
             identity_cols=self.identity_cols,
             feature_cols=self.feature_cols,
             spatial_offset=self.spatial_offset,
+            static_cols=self.static_cols,
+            target_cols=self.target_cols,
+            model_input_cols=self.model_input_cols,
         )
         result._metadata = replace(
             result._metadata,
@@ -604,6 +618,9 @@ class VolumeHandler:
             identity_cols=self.identity_cols,
             feature_cols=self.feature_cols,
             spatial_offset=self.spatial_offset,
+            static_cols=self.static_cols,
+            target_cols=self.target_cols,
+            model_input_cols=self.model_input_cols,
         )
         result._metadata = replace(
             result._metadata,
@@ -669,13 +686,13 @@ class VolumeHandler:
 
     @property
     def tensor_cols(self) -> Tuple[str, ...]:
-        """All non-identity channels in the model tensor = model_input_cols ∪ target_cols,
-        in channel_map order. Falls back to feature_cols for handlers built without explicit
-        roles (bare __init__) so behavior is byte-identical."""
-        roles = set(self._metadata.model_input_cols) | set(self._metadata.target_cols)
-        if not roles:
-            return self._metadata.feature_cols
-        return tuple(c for c in self._metadata.channel_map if c in roles)
+        """All non-identity channels kept in the model tensor (inputs ⧺ targets, incl. derived
+        `by_*`). This is the de-overloaded meaning the `feature_cols` metadata field has always
+        carried, so reading it directly is byte-identical to the pre-ADR-062 `feature_cols`
+        selection and survives the eventual flip of the `feature_cols` accessor to
+        `model_input_cols`. Recomputing from roles would miss channels created via `derivations`
+        rather than declared in `classification_targets`."""
+        return self._metadata.feature_cols
 
     @property
     def identity_cols(self) -> Tuple[str, ...]:
