@@ -45,6 +45,12 @@ class VolumeMetadata:
     history: Tuple[Tuple[str, Any], ...] = field(default_factory=tuple)
     spatial_convention: SpatialConvention = SpatialConvention.GEOGRAPHIC
 
+    # ADR-062 §2.1 channel roles (one authoritative classification; populated by from_df).
+    # Default () for back-compat: bare-__init__ handlers fall back to feature_cols semantics.
+    static_cols: Tuple[str, ...] = ()
+    target_cols: Tuple[str, ...] = ()
+    model_input_cols: Tuple[str, ...] = ()
+
 
 class VolumeHandler:
     def __init__(
@@ -59,6 +65,9 @@ class VolumeHandler:
         feature_cols: Union[List[str], Tuple[str, ...]] = (),
         spatial_offset: Tuple[int, int] = (0, 0),
         config: Optional[Dict[str, Any]] = None,
+        static_cols: Union[List[str], Tuple[str, ...]] = (),
+        target_cols: Union[List[str], Tuple[str, ...]] = (),
+        model_input_cols: Union[List[str], Tuple[str, ...]] = (),
     ) -> None:
         self._data = data
         self._metadata = VolumeMetadata(
@@ -70,6 +79,9 @@ class VolumeHandler:
             identity_cols=tuple(identity_cols),
             feature_cols=tuple(feature_cols),
             spatial_offset=spatial_offset,
+            static_cols=tuple(static_cols),
+            target_cols=tuple(target_cols),
+            model_input_cols=tuple(model_input_cols),
         )
 
         # 1. Validation: Channel dimension must match channel_map
@@ -157,6 +169,13 @@ class VolumeHandler:
         # Kept (model-input) channels = dynamic features + static channels; statics reach the model
         # via to_pytorch but config['features'] (the targets-equality set) stays the dynamic ones.
         kept_feature_cols = list(feature_cols) + list(static_channels)
+
+        # ADR-062 §2.1 explicit channel roles (the single authoritative classification).
+        role_static_cols = list(static_channels)
+        role_target_cols = list(config.get("regression_targets", list(feature_cols))) + list(
+            config.get("classification_targets", [])
+        )
+        role_model_input_cols = list(feature_cols) + list(static_channels)
 
         # 2. Structural Anchoring
         month_min = df[time_col].min()
@@ -257,6 +276,9 @@ class VolumeHandler:
             feature_cols=kept_feature_cols,
             spatial_offset=(row_offset, col_offset),
             config=config,
+            static_cols=role_static_cols,
+            target_cols=role_target_cols,
+            model_input_cols=role_model_input_cols,
         )
         result._metadata = replace(result._metadata, spatial_convention=SpatialConvention.NORTH_UP)
         return result
@@ -628,6 +650,32 @@ class VolumeHandler:
     @property
     def feature_cols(self) -> Tuple[str, ...]:
         return self._metadata.feature_cols
+
+    # --- ADR-062 §2.1 channel-role accessors (single source of truth) -------------------------
+    @property
+    def static_cols(self) -> Tuple[str, ...]:
+        """Input-only static channels (ADR-060 Static class); () when none."""
+        return self._metadata.static_cols
+
+    @property
+    def target_cols(self) -> Tuple[str, ...]:
+        """What the head predicts: regression_targets ⧺ classification_targets. Never a static."""
+        return self._metadata.target_cols
+
+    @property
+    def model_input_cols(self) -> Tuple[str, ...]:
+        """Dynamic features ⧺ static channels, in feed order (what reaches the model input)."""
+        return self._metadata.model_input_cols
+
+    @property
+    def tensor_cols(self) -> Tuple[str, ...]:
+        """All non-identity channels in the model tensor = model_input_cols ∪ target_cols,
+        in channel_map order. Falls back to feature_cols for handlers built without explicit
+        roles (bare __init__) so behavior is byte-identical."""
+        roles = set(self._metadata.model_input_cols) | set(self._metadata.target_cols)
+        if not roles:
+            return self._metadata.feature_cols
+        return tuple(c for c in self._metadata.channel_map if c in roles)
 
     @property
     def identity_cols(self) -> Tuple[str, ...]:

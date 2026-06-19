@@ -46,19 +46,16 @@ def vh_no_coords():
     return VolumeHandler.from_df(_make_history_df(), PF_BASE_CFG)
 
 
-# ── Green: the three roles, partitioned correctly (coords on) ────────────────────────────────
-@_XFAIL
+# ── Green: the three roles, partitioned correctly (coords on) — implemented in #115 (4a) ──────
 def test_static_cols_returns_only_the_statics(vh_coords):
     assert tuple(vh_coords.static_cols) == tuple(_STATICS)
 
 
-@_XFAIL
 def test_model_input_cols_is_features_then_statics_feed_order(vh_coords):
     expected = tuple(PF_BASE_CFG["features"]) + tuple(_STATICS)
     assert tuple(vh_coords.model_input_cols) == expected
 
 
-@_XFAIL
 def test_target_cols_is_reg_plus_cls(vh_coords):
     expected = tuple(PF_BASE_CFG["regression_targets"]) + tuple(
         PF_BASE_CFG["classification_targets"]
@@ -66,7 +63,6 @@ def test_target_cols_is_reg_plus_cls(vh_coords):
     assert tuple(vh_coords.target_cols) == expected
 
 
-@_XFAIL
 def test_classification_targets_present_in_target_cols(vh_coords):
     for cls_target in PF_BASE_CFG["classification_targets"]:
         assert cls_target in vh_coords.target_cols
@@ -78,13 +74,11 @@ def test_feature_cols_is_alias_of_model_input_cols(vh_coords):
 
 
 # ── Red: the partition guarantees (a static is never a target — the C-158 root) ──────────────
-@_XFAIL
 def test_target_cols_excludes_every_static(vh_coords):
     """C-158: an input-only static must NEVER be a target (and thus never a curriculum subject)."""
     assert set(vh_coords.static_cols).isdisjoint(set(vh_coords.target_cols))
 
 
-@_XFAIL
 def test_roles_partition_cleanly(vh_coords):
     static = set(vh_coords.static_cols)
     assert static.issubset(set(vh_coords.model_input_cols))  # statics ARE model inputs
