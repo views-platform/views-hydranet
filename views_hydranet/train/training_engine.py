@@ -147,6 +147,20 @@ class _SequenceIndices:
         self.cls_names = cls_targets
 
 
+def _attach_static_channels(
+    dyn_input: torch.Tensor, t0_step: torch.Tensor, idx: "_SequenceIndices"
+) -> torch.Tensor:
+    """ADR-060 I3: re-attach input-only static channels to the model input as [dynamic ⧺ static].
+
+    Statics (e.g. CoordConv row/col) are geometry-constant — always the true values, never sampled
+    and never fed from the output. The model was widened to expect them, so every forward (main
+    training AND the Stage-5 diagnostic biopsy) must include them. Empty static ⇒ returns dyn_input
+    unchanged, so the pre-seam path is byte-identical (I5)."""
+    if idx.static:
+        return torch.cat([dyn_input, t0_step[:, idx.static, :, :]], dim=1)
+    return dyn_input
+
+
 def _process_sequence(
     train_tensor: torch.Tensor,
     model: nn.Module,
@@ -205,13 +219,8 @@ def _process_sequence(
         else:
             dyn_input = t0_gt
 
-        # ADR-060 I3: re-attach static (input-only) channels — geometry-constant, always the true
-        # values (never sampled, never fed from output). Channel order [dynamic ⧺ static] matches
-        # the volume. Empty static => byte-identical to the pre-seam path (I5).
-        if idx.static:
-            t0_input = torch.cat([dyn_input, t0[:, idx.static, :, :]], dim=1)
-        else:
-            t0_input = dyn_input
+        # ADR-060 I3: re-attach static (input-only) channels [dynamic ⧺ static]. See helper.
+        t0_input = _attach_static_channels(dyn_input, t0, idx)
 
         output = model(t0_input, h)
         t1_pred, t1_pred_class, h = output.reg, output.cls, output.h_next
@@ -442,7 +451,10 @@ def train(
             for i in range(seq_len - 1):
                 t0 = train_tensor[:, i, :, :, :]
                 t1 = train_tensor[:, i + 1, :, :, :]
-                t0_input = t0[:, idx.feat, :, :]
+                # ADR-060 I3 / C-157: the model was widened for statics — the diagnostic biopsy
+                # must re-attach them too, exactly like the main forward, or this forward crashes
+                # (N dynamic channels into an N+static-channel model).
+                t0_input = _attach_static_channels(t0[:, idx.feat, :, :], t0, idx)
                 output_diag = model(t0_input, h_diag)
                 t1_pred, t1_pred_class, h_diag = (
                     output_diag.reg,

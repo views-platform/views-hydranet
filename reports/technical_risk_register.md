@@ -4,9 +4,9 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-06-18                           |
-| Total Concerns    | 163                                  |
-| Open Concerns     | 64                                   |
+| Last Updated      | 2026-06-20                           |
+| Total Concerns    | 164                                  |
+| Open Concerns     | 65                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 99                                   |
 
@@ -1207,6 +1207,21 @@ The CIC/unit suite tests components in isolation; **every regression this sessio
 | Cross-refs | #95 (stale import), C-116/C-164 (false confidence theme) |
 
 CI passes only because `ci.yml` `--ignore`s six files; one of them, `test_eval_integration_toy.py`, is a **real collection error** (#95, stale `views_evaluation.evaluation_manager` import) — `pytest tests/` errors without the flags. So "suite green" means "green modulo silently-excluded breakage," and the channel-role refactor's "full suite green" gate (#114/#115) rests on it. **Tier 3:** false-confidence / maintainability. **Fix:** resolve #95 so a plain `pytest tests/` collects clean, or make the ignore-set explicit and justified in the DoD; distinguish "aspirational falsification stubs" (legitimately ignored) from "broken tests" (must fix).
+
+---
+
+### C-166: diagnostic plots show input-only statics as predicted signal (benign display drift)
+
+| Field | Value |
+|-------|-------|
+| ID | C-166 |
+| Tier | 4 |
+| Source | review-diff (#115 4b·biopsy, 2026-06-20) + census suspectA (`test_channel_role_census.py`) |
+| Trigger | Enabling `diagnostic_visualizations` with `static_channels` non-empty, then reading the Stage-5 biopsy / `_select_display_channels` plots to interpret per-channel signal — the static (geometry) channels appear as if they were predicted targets |
+| Location | `views_hydranet/utils/visual_diagnostics.py` (`_select_display_channels`, ~:437) |
+| Cross-refs | C-156 (root — `feature_cols` overload), C-157 (the crash face, now fixed), C-118 (visual_diagnostics module), ADR-062 §2.1 |
+
+A fourth, **benign** face of the C-156 overload: `_select_display_channels` derives "interesting channels" from `feature_cols`, which now includes input-only statics (CoordConv row/col). The diagnostics therefore plot geometry as if it were model signal. No crash, no model-output or training impact (the C-157 crash face is fixed; this is display-only), but it can mislead a researcher reading the biopsy plots. **Tier 4:** cosmetic/interpretation, no correctness or reliability impact. **Fix:** select display channels from `target_cols` (or exclude `static_cols`) once the role accessors are the single source — natural tidy-up alongside the flip commit or Phase-6 harden. Pinned (CLASSIFY, non-xfail) by `test_census_suspectA_visualdiagnostics_static_classification`.
 
 ---
 

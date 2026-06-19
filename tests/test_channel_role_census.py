@@ -145,9 +145,7 @@ def _biopsy_handler():
     )
 
 
-@pytest.mark.xfail(
-    strict=True, reason="C-157: diagnostic biopsy feeds features-only into a widened model"
-)
+# bug 2 / C-157 — FIXED (#115 4b): biopsy re-attaches statics like the main forward.
 def test_census_bug2_biopsy_handles_static_channels():
     from tqdm import tqdm
 
