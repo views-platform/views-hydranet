@@ -14,7 +14,7 @@ import pytest
 REPO = Path(__file__).resolve().parents[1]
 
 
-@pytest.mark.xfail(strict=True, reason="#95 — stale test_eval_integration_toy import breaks collection")
+@pytest.mark.xfail(strict=True, reason="#95 — stale import breaks bare `pytest tests/` collection")
 def test_suite_collects_clean_without_ignore_flags():
     """SOFT (P4): the channel-role refactor's safety net is "full suite green" (#114/#115 DoD),
     but `pytest tests/` errors during collection (#95: test_eval_integration_toy imports the

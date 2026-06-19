@@ -19,9 +19,9 @@ import time
 
 import numpy as np
 
+from views_hydranet.utils.config_initializer import TRANSFORMS
 from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.volume_handler import VolumeHandler
-from views_hydranet.utils.config_initializer import TRANSFORMS
 
 T, H, W, C = 36, 180, 180, 11
 PRED_TARGETS = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
@@ -113,8 +113,8 @@ def main() -> None:
     vol_gb = lambda s: T * H * W * C * s * 4 / 1e9  # noqa: E731
     print(f"volume [T={T},H={H},W={W},C={C},S] float32 → {vol_gb(1):.2f} GB per sample-slice")
     base = _vmrss_gb()
-    print(f"baseline RSS: {base:.2f} GB | MemAvailable: {_mem_available_gb():.1f} GB\n")
-    print(f"{'S':>3} {'vol_GB':>7} {'copy_path_peak':>15} {'net_after':>10} {'inplace_peak':>13}")
+    print(f"baseline RSS: {base:.2f} GB | MemAvailable: {_mem_available_gb():.1f} GB")
+    print("per-S: copy_peak = extra RSS during inverse_transform_volume; inplace_peak = the fix\n")
 
     scaler = _make_scaler()
     for S in (3, 6, 8):
@@ -140,7 +140,10 @@ def main() -> None:
         del vh2
         gc.collect()
 
-        print(f"{S:>3} {vol_gb(S):>7.2f} {copy_peak:>14.2f}G {net_after:>9.2f}G {inplace_peak:>12.2f}G")
+        print(
+            f"S={S} vol={vol_gb(S):.2f}G copy_peak={copy_peak:.2f}G "
+            f"inplace_peak={inplace_peak:.2f}G net_after={net_after:.2f}G"
+        )
 
     print(
         "\nRead: 'copy_path_peak' = extra RSS held during inverse_transform_volume "

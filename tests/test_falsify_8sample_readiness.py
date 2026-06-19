@@ -27,11 +27,10 @@ def test_violet_config_operating_point_is_8_samples():
 
 
 def test_noise_band_is_within_run_bootstrap_not_run_to_run():
-    """C-162 FIXED (#129): the #110 decision rule now uses mcr_readout's WITHIN-run 95% bootstrap CI
-    as the noise band — not a run-to-run Δ_noise (which is ≡0 under the C-119 determinism fix:
-    two same-seed --saved runs are bit-identical, proven 78/78 y_pred np.array_equal). Guard that the
-    primitive the corrected rule depends on exists. (The doc rewrite in #110/dossier-05 is the real
-    fix, verified by reading those; this guards its code dependency.)"""
+    """C-162 FIXED (#129): the #110 rule now uses mcr_readout's WITHIN-run 95% bootstrap CI
+    as the noise band — not a run-to-run Δ_noise (≡0 under the C-119 determinism fix:
+    same-seed --saved runs are bit-identical, proven 78/78 y_pred array_equal). Guard that
+    the primitive the corrected rule depends on exists (the doc rewrite is the real fix)."""
     mcr_readout = Path(__file__).resolve().parents[1] / "scripts" / "mcr_readout.py"
     assert "_bootstrap_mcr_ci" in mcr_readout.read_text(), (
         "mcr_readout.py must expose the within-run bootstrap-CI primitive the #110 rule relies on"
@@ -39,7 +38,7 @@ def test_noise_band_is_within_run_bootstrap_not_run_to_run():
 
 
 @pytest.mark.skip(
-    reason="runtime gate — cannot unit-test; verify with one real 8-sample run before trusting 'ready'"
+    reason="runtime gate — verify with one real 8-sample run before trusting 'ready'"
 )
 def test_8sample_run_completes_without_oom():
     """SOFT (P3): 8 samples is interpolated between 3 (completes) and 16 (OOM-killed at 16.6 GB,
