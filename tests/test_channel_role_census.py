@@ -19,7 +19,6 @@ Empirically confirmed in the 2026-06-13 runs (see RESULTS_LOG / session notes):
 from unittest.mock import MagicMock
 
 import numpy as np
-import pytest
 import torch
 
 from views_hydranet.utils.volume_handler import VolumeHandler
@@ -59,9 +58,9 @@ def test_census_bug1_curriculum_excludes_static_subjects():
 
 
 # bug 3 / C-159 — arch sidecar omits static_channels, so reload rebuilds the wrong width
-@pytest.mark.xfail(
-    strict=True, reason="C-159: sidecar omits static_channels; reload rebuilds wrong width"
-)
+# bug 3 / C-159 — FIXED (#115 4b): train_model.py now persists static_channels in the sidecar,
+# so choose_model rebuilds the top-skip decoder at the correct width and a coord-trained model
+# reloads. Arrange below models the fixed writer's output; the reload assertion is unchanged.
 def test_census_bug3_sidecar_roundtrips_coord_model():
     from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
     from views_hydranet.utils.utils import choose_model
@@ -70,13 +69,14 @@ def test_census_bug3_sidecar_roundtrips_coord_model():
         input_channels=5, total_hidden_channels=8, output_channels=1,
         dropout_rate=0.0, n_static_channels=2,
     )
-    # The sidecar train_model.py writes today (arch_keys only — NO static_channels):
+    # The sidecar train_model.py writes now (arch_keys + static_channels per C-159 fix):
     sidecar = {
         "model": "HydraBNUNet06_LSTM4", "input_channels": 5,
         "total_hidden_channels": 8, "output_channels": 1, "dropout_rate": 0.0,
+        "static_channels": ["row_coord", "col_coord"],
     }
     rebuilt = choose_model(sidecar, _DEVICE)
-    # DESIRED: a coord-trained model reloads. CURRENT: size mismatch (66 vs 64).
+    # DESIRED: a coord-trained model reloads. (Was: size mismatch 66 vs 64.)
     rebuilt.load_state_dict(trained.state_dict())
 
 

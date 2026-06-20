@@ -83,6 +83,10 @@ def train_model_artifact(
         if missing:
             raise ValueError(f"Config sidecar requires keys {arch_keys}, missing: {missing}")
         config_snapshot = {k: config[k] for k in arch_keys}
+        # ADR-061 / C-159: persist the static channels — choose_model sizes the top-skip decoder
+        # convs by len(static_channels); omitting it rebuilds at n_static=0 → state_dict width
+        # mismatch on reload of a coord-trained model. No statics ⇒ [] ⇒ reload byte-identical.
+        config_snapshot["static_channels"] = config.get("static_channels", [])
         # #101: persist the head flag (else hurdle_nb reloads as ReLU) + the learned per-target
         # NB dispersion theta (needed for the exact hurdle-NB mean at inference).
         config_snapshot["output_distribution"] = config.get("output_distribution", "standard")
