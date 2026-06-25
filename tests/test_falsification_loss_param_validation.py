@@ -15,8 +15,9 @@ class TestF5_CICFieldCountDrift:
         # docs/CICs/HydraNetConfig.md §3 (freeze_h -1; rollout_horizon +1, 2026-06-06;
         # hurdle-NB +3: loss_reg_theta_init, learnable_theta, loss_class_pos_weight; #99;
         # output_distribution +1, #100; min_free_disk_gb +1, #107/C-154;
-        # static_channels +1, #108/ADR-060/C-153)
-        CIC_CLAIMED_COUNT = 77
+        # static_channels +1, #108/ADR-060/C-153;
+        # reg_activation +1, 2026-06-21 Exp-B head decouple)
+        CIC_CLAIMED_COUNT = 78
         actual = len(HydraNetConfig.model_fields)
         assert actual == CIC_CLAIMED_COUNT, (
             f"CIC §3 claims {CIC_CLAIMED_COUNT} fields but HydraNetConfig has {actual}. "

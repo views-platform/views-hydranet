@@ -96,6 +96,9 @@ def train_model_artifact(
             config_snapshot["hurdle_nb_theta"] = {
                 t: loss.theta for t, loss in criterion_reg.items()
             }
+        # generic hurdle-lognormal: persist the fixed sigma (config) for the inference compose.
+        if config_snapshot["output_distribution"] == "hurdle_lognormal":
+            config_snapshot["hurdle_lognormal_sigma"] = config.get("loss_reg_sigma")
         artifact_path.with_suffix(".pt.config.json").write_text(
             json.dumps(config_snapshot, indent=2)
         )

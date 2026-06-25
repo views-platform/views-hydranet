@@ -1,8 +1,17 @@
 # I/O Format Landscape — Data Flow Reference
 
-**Date:** 2026-06-02
+**Date:** 2026-06-02 (PredictionFrame migration note appended 2026-06-24)
 **Status:** Current snapshot — will evolve as FeatureFrame integration proceeds
 **Triggered by:** Discovery of hardcoded `set_dataframe_format(".parquet")` in manager
+
+> **2026-06-24 — views-frames PredictionFrame migration (epic #138; #139/#137/#140/#141/#142).**
+> pipeline-core 3.0.0 (#188) retired its local PredictionFrame and re-exports the
+> `views_frames` leaf. Constructor changed: `PredictionFrame(y_pred=, identifiers={time,unit})`
+> → `PredictionFrame(y_pred=, index=SpatioTemporalIndex(time, unit, level))` with `level`
+> (SpatialLevel.PGM for hydranet) now **required**. Accessor `.y_pred` → `.values`; `.identifiers`
+> survives as a `{time, unit}` compat property. hydranet's single construction point is
+> `PredictionFrameAssembler._reconstruct_as_pf_dict`. Validation note: empty-frame (N=0/S=0)
+> rejection was **dropped** by the leaf (register C-176); integer-dtype on the index is now enforced.
 
 This is a map, not a decision document. It describes the current state of data
 formats, ownership boundaries, and known gaps across the pipeline.
@@ -24,9 +33,9 @@ formats, ownership boundaries, and known gaps across the pipeline.
                  │ reads parquet   │                             │
                  └────────┬────────┘                 ┌───────────┴──────────┐
                           │                          │ PredictionFrame      │
-                          ▼                          │ (pipeline-core)      │
-                 ┌─────────────────┐                 │ y_pred: np.ndarray   │
-                 │ DataFetcher     │  (hydranet)     │ identifiers: dict    │
+                          ▼                          │ (views-frames)       │
+                 ┌─────────────────┐                 │ .values: np.ndarray  │
+                 │ DataFetcher     │  (hydranet)     │ index: STIndex (PGM) │
                  │ fetch_df()      │                 └───────────┬──────────┘
                  │ blueprint       │                             │
                  └────────┬────────┘                             │
@@ -56,7 +65,7 @@ formats, ownership boundaries, and known gaps across the pipeline.
 | Raw data (memory) | pd.DataFrame | DataFetcher | hydranet | MultiIndex | Working |
 | **Future input** | **FeatureFrame** | **views-datafactory** | **datafactory** | **`.npy`/`.npz`** | **Designed, NOT connected** |
 | Features (memory) | np.ndarray | VolumeHandler | hydranet | (T,H,W,C) | Working |
-| Predictions (internal) | PredictionFrame | PredictionFrame | pipeline-core | `.npy`/`.npz` (Track A) | **Authoritative** |
+| Predictions (internal) | PredictionFrame | PredictionFrame | views-frames (re-exported by pipeline-core 3.0.0) | `.npy`/`.npz` (Track A) | **Authoritative** |
 | Predictions (legacy) | Parquet | PredictionFrameConverter | pipeline-core | `.parquet` (Track B) | Optional, gated |
 
 ---

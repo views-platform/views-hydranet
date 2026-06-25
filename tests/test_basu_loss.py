@@ -191,7 +191,7 @@ def test_basu_loss_registered_in_choose_loss():
         "loss_reg_alpha": 0.5,
         "loss_reg_sigma": 1.0,
         "loss_class": "bce",
-        "regression_targets": ["lr_sb_best"],
+        "regression_targets": ["lr_ged_sb"],
         "classification_targets": [],
     }
     device = torch.device("cpu")

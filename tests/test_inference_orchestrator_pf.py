@@ -17,7 +17,7 @@ import torch
 
 pytest.importorskip("views_pipeline_core")
 
-from views_pipeline_core.data.prediction_frame import PredictionFrame
+from views_frames import PredictionFrame
 
 from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
@@ -26,9 +26,9 @@ from views_hydranet.utils.volume_handler import VolumeHandler
 # ─── Config & fixtures ───────────────────────────────────────────────────────
 
 TARGETS = [
-    "lr_sb_best",
-    "lr_ns_best",
-    "lr_os_best",
+    "lr_ged_sb",
+    "lr_ged_ns",
+    "lr_ged_os",
     "by_sb_best",
     "by_ns_best",
     "by_os_best",
@@ -40,16 +40,16 @@ ORCH_CFG = {
     "time_steps": 1,
     "input_channels": 3,
     "output_channels": 1,
-    "regression_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "regression_targets": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
     "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
     "identity_cols": ["row", "col"],
-    "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
-    "transformations": {"identity": ["lr_sb_best", "lr_ns_best", "lr_os_best"]},
+    "features": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
+    "transformations": {"identity": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"]},
     "derivations": {
         "binary": [
-            {"from": "lr_sb_best", "to": "by_sb_best", "threshold": 0},
-            {"from": "lr_ns_best", "to": "by_ns_best", "threshold": 0},
-            {"from": "lr_os_best", "to": "by_os_best", "threshold": 0},
+            {"from": "lr_ged_sb", "to": "by_sb_best", "threshold": 0},
+            {"from": "lr_ged_ns", "to": "by_ns_best", "threshold": 0},
+            {"from": "lr_ged_os", "to": "by_os_best", "threshold": 0},
         ]
     },
     "height": 2,
@@ -107,9 +107,9 @@ def _make_df(n_months: int = 21) -> pd.DataFrame:
                         "priogrid_gid": r * 2 + c + 1,
                         "row": float(r),
                         "col": float(c),
-                        "lr_sb_best": float(r + c + t * 0.01),
-                        "lr_ns_best": 0.5,
-                        "lr_os_best": 0.0,
+                        "lr_ged_sb": float(r + c + t * 0.01),
+                        "lr_ged_ns": 0.5,
+                        "lr_ged_os": 0.0,
                     }
                 )
     return pd.DataFrame(rows)
@@ -176,8 +176,8 @@ class TestGreen:
 
         for target in TARGETS:
             pf = result[0][target]
-            assert pf.y_pred.shape == (N_CELLS, S), (
-                f"{target}: expected ({N_CELLS}, {S}), got {pf.y_pred.shape}"
+            assert pf.values.shape == (N_CELLS, S), (
+                f"{target}: expected ({N_CELLS}, {S}), got {pf.values.shape}"
             )
 
     def test_point_shape(self, orch_env):
@@ -199,8 +199,8 @@ class TestGreen:
 
         for target in TARGETS:
             pf = result[0][target]
-            assert pf.y_pred.shape == (N_CELLS, 1), (
-                f"{target}: expected ({N_CELLS}, 1), got {pf.y_pred.shape}"
+            assert pf.values.shape == (N_CELLS, 1), (
+                f"{target}: expected ({N_CELLS}, 1), got {pf.values.shape}"
             )
 
     def test_multiple_origins(self, orch_env):
@@ -257,7 +257,7 @@ class TestGreenReproducibility:
             pf_1 = results[0][0][target]
             pf_2 = results[1][0][target]
             np.testing.assert_array_equal(
-                pf_1.y_pred,
-                pf_2.y_pred,
+                pf_1.values,
+                pf_2.values,
                 err_msg=f"{target}: outputs differ between identical runs",
             )

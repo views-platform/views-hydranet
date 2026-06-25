@@ -9,6 +9,7 @@ import torch.nn as nn
 
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
 from views_hydranet.utils.basu_loss import BasuDPDLoss
+from views_hydranet.utils.dense_nb_loss import DenseNBLoss
 from views_hydranet.utils.focal_loss import FocalLoss
 from views_hydranet.utils.lognormal_nll_loss import LogNormalFixedSigmaLoss
 from views_hydranet.utils.mtloss import MultiTaskLoss
@@ -32,6 +33,7 @@ def choose_model(config: dict, device: torch.device) -> nn.Module:
             config["dropout_rate"],
             output_distribution=config.get("output_distribution", "standard"),
             n_static_channels=len(config.get("static_channels", [])),  # ADR-061 top-skip
+            reg_activation=config.get("reg_activation"),  # Exp B: decouple emit activation
         ).to(device)
     else:
         err_msg = f"Unknown model type: {config['model']}"
@@ -49,6 +51,22 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
         "cls": nn.MSELoss,
         "params": [],
         "factory": lambda config, device: nn.MSELoss().to(device),
+    },
+    # Non-negative point bodies for the hurdle (trained on positive cells, log1p space; emit via
+    # the point compose, output_distribution='hurdle_shrinkage'). MAE -> conditional median
+    # (robust, under-fires the heavy-tailed mean); Huber -> robust mean, delta in log1p units
+    # (default 1.0; 'loss_reg_huber_delta' is an optional forward-compat hook, not a config field).
+    "mae": {
+        "cls": nn.L1Loss,
+        "params": [],
+        "factory": lambda config, device: nn.L1Loss().to(device),
+    },
+    "huber": {
+        "cls": nn.HuberLoss,
+        "params": [],
+        "factory": lambda config, device: nn.HuberLoss(
+            delta=config.get("loss_reg_huber_delta", 1.0)
+        ).to(device),
     },
     "shrinkage": {
         "cls": ShrinkageLoss,
@@ -98,6 +116,16 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
             learnable=config.get("learnable_theta", True),
         ).to(device),
     },
+    # Dense NB body (C-168 sharpness experiment): plain NB NLL on ALL cells (zeros supervised).
+    # Per-target instances built in choose_loss() so each θ reaches the optimizer.
+    "dense_nb": {
+        "cls": DenseNBLoss,
+        "params": ["loss_reg_theta_init"],
+        "factory": lambda config, device: DenseNBLoss(
+            theta_init=config["loss_reg_theta_init"],
+            learnable=config.get("learnable_theta", True),
+        ).to(device),
+    },
 }
 
 LOSS_CLASS_REGISTRY: dict[str, Any] = {
@@ -137,13 +165,15 @@ def choose_loss(
     """
     loss_reg_sigma = config.get("loss_reg_sigma")
     learnable = config.get("learnable_sigma", False)
-    if config["loss_reg"] == "hurdle_nb":
-        # Per-target hurdle-NB body: one TruncatedNBLoss per regression target, each with its own
-        # learnable θ (reaches the optimizer via the dict-of-losses path in training_engine).
+    if config["loss_reg"] in ("hurdle_nb", "dense_nb"):
+        # Per-target NB body: one loss instance per regression target, each with its own learnable
+        # θ (reaches the optimizer via the dict-of-losses path in training_engine). hurdle_nb =
+        # zero-truncated (TruncatedNBLoss); dense_nb = NB on all cells (DenseNBLoss, C-168 expt).
         theta_init = config.get("loss_reg_theta_init") or 1.0
         learnable_theta = config.get("learnable_theta", True)
+        body_cls = TruncatedNBLoss if config["loss_reg"] == "hurdle_nb" else DenseNBLoss
         criterion_reg = {
-            target: TruncatedNBLoss(theta_init=theta_init, learnable=learnable_theta).to(device)
+            target: body_cls(theta_init=theta_init, learnable=learnable_theta).to(device)
             for target in config.get("regression_targets", [])
         }
     elif isinstance(loss_reg_sigma, dict) and config["loss_reg"] == "tobit":

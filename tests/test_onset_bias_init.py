@@ -107,7 +107,7 @@ def test_training_runs_with_onset_bias():
     from views_hydranet.utils.volume_handler import VolumeHandler
 
     T, H, W = 6, 8, 8
-    features = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
+    features = ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"]
     identity = ["month_id", "priogrid_gid"]
     channel_map = identity + features
 
@@ -188,9 +188,9 @@ def _make_config(**overrides):
         "learning_rate": 1e-3,
         "weight_decay": 0.0,
         "scheduler": "none",
-        "regression_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+        "regression_targets": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
         "classification_targets": [],
-        "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+        "features": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
     }
     config.update(overrides)
     return config

@@ -13,20 +13,20 @@ BASE_CONFIG = {
     "time_steps": 2,
     "input_channels": 3,
     "output_channels": 1,
-    "regression_targets": ["lr_sb_best"],
+    "regression_targets": ["lr_ged_sb"],
     "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
     "identity_cols": ["month_id", "priogrid_gid"],
-    "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "features": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
     "transformations": {
-        "log1p": ["lr_sb_best"],
-        "asinh": ["lr_ns_best"],
-        "identity": ["lr_os_best"],
+        "log1p": ["lr_ged_sb"],
+        "asinh": ["lr_ged_ns"],
+        "identity": ["lr_ged_os"],
     },
     "derivations": {
         "binary": [
-            {"from": "lr_sb_best", "to": "by_sb_best", "threshold": 0},
-            {"from": "lr_ns_best", "to": "by_ns_best", "threshold": 0},
-            {"from": "lr_os_best", "to": "by_os_best", "threshold": 0},
+            {"from": "lr_ged_sb", "to": "by_sb_best", "threshold": 0},
+            {"from": "lr_ged_ns", "to": "by_ns_best", "threshold": 0},
+            {"from": "lr_ged_os", "to": "by_os_best", "threshold": 0},
         ]
     },
     "height": 4,
@@ -74,7 +74,7 @@ BASE_CONFIG = {
 def test_root_scaling_validation():
     """Assert that the scaler fails if a feature is missing from the 'transform' dict."""
     bad = BASE_CONFIG.copy()
-    bad["transformations"] = {"log1p": ["lr_sb_best"]}  # Missing ns and os
+    bad["transformations"] = {"log1p": ["lr_ged_sb"]}  # Missing ns and os
     with pytest.raises(ValidationError, match="Feature Lifecycle Violation"):
         HydraNetConfig(**bad)
 
@@ -90,13 +90,13 @@ def test_root_checksum_input_channels():
 def test_scaler_root_consumption():
     """Assert FeatureScaler correctly uses the 'transform' dict."""
     scaler = FeatureScaler(BASE_CONFIG)
-    df = pd.DataFrame({"lr_sb_best": [10.0], "lr_ns_best": [10.0], "lr_os_best": [10.0]})
+    df = pd.DataFrame({"lr_ged_sb": [10.0], "lr_ged_ns": [10.0], "lr_ged_os": [10.0]})
     semantic = scaler.fit_transform(df)
     # log1p(10) is ~2.39
-    assert semantic["lr_sb_best"].iloc[0] < 3.0
+    assert semantic["lr_ged_sb"].iloc[0] < 3.0
 
     recovered = scaler.inverse_transform(semantic)
-    np.testing.assert_allclose(df["lr_sb_best"], recovered["lr_sb_best"])
+    np.testing.assert_allclose(df["lr_ged_sb"], recovered["lr_ged_sb"])
 
 
 def test_scaler_rejects_nan_input():
@@ -116,7 +116,7 @@ def test_scaler_rejects_nan_input():
 
     # Case A: NaN in a feature column
     df_nan = pd.DataFrame(
-        {"lr_sb_best": [1.0, float("nan")], "lr_ns_best": [2.0, 3.0], "lr_os_best": [4.0, 5.0]}
+        {"lr_ged_sb": [1.0, float("nan")], "lr_ged_ns": [2.0, 3.0], "lr_ged_os": [4.0, 5.0]}
     )
     with pytest.raises(ValueError, match=r"[Nn]aN|[Nn]ull|[Mm]issing|[Pp]oison"):
         scaler.fit_transform(df_nan)
@@ -124,7 +124,7 @@ def test_scaler_rejects_nan_input():
     # Case B: Inf in a feature column
     scaler_b = FeatureScaler(BASE_CONFIG)
     df_inf = pd.DataFrame(
-        {"lr_sb_best": [1.0, float("inf")], "lr_ns_best": [2.0, 3.0], "lr_os_best": [4.0, 5.0]}
+        {"lr_ged_sb": [1.0, float("inf")], "lr_ged_ns": [2.0, 3.0], "lr_ged_os": [4.0, 5.0]}
     )
     with pytest.raises(ValueError, match=r"[Ii]nf|[Pp]oison|[Ii]nvalid"):
         scaler_b.fit_transform(df_inf)

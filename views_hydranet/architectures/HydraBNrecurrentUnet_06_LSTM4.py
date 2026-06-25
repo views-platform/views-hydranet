@@ -54,6 +54,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
         dropout_rate,
         output_distribution="standard",
         n_static_channels=0,
+        reg_activation=None,
     ):
         """
         Initializes the HydraNet architecture.
@@ -73,7 +74,15 @@ class HydraBNUNet06_LSTM4(nn.Module):
         # #100: hurdle-NB needs a count-space mean mu at the output; softplus keeps it
         # sub-exponential. Default "standard" => ReLU => byte-identical to pre-#100.
         self.output_distribution = output_distribution
-        self._reg_activation = F.softplus if output_distribution == "hurdle_nb" else F.relu
+        # Default keys off output_distribution (hurdle_nb=>softplus, else=>relu); reg_activation
+        # overrides it (Exp B: decouple the emit activation from the loss/likelihood). The body
+        # losses softplus the latent internally, so this only changes the EMITTED/fed-back value.
+        if reg_activation == "softplus":
+            self._reg_activation = F.softplus
+        elif reg_activation == "relu":
+            self._reg_activation = F.relu
+        else:
+            self._reg_activation = F.softplus if output_distribution == "hurdle_nb" else F.relu
 
         # ADR-061 top-skip: the last n_static_channels of the input are static (e.g. coordinates);
         # re-injected raw at each decoder head's full-resolution dec_conv1. 0 => byte-identical.

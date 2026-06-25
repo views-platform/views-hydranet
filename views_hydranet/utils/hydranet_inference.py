@@ -7,7 +7,11 @@ import torch
 from torch.nn import Module
 from tqdm import tqdm
 
-from views_hydranet.utils.hurdle_nb import hurdle_nb_expected_log1p
+from views_hydranet.utils.hurdle_nb import (
+    hurdle_lognormal_expected_log1p,
+    hurdle_nb_expected_log1p,
+    hurdle_point_expected_log1p,
+)
 from views_hydranet.utils.integrity_guardian import IntegrityGuardian
 from views_hydranet.utils.visual_diagnostics import VisualDiagnostics
 
@@ -73,6 +77,10 @@ class HydraNetInference:
         # learned per-target theta is attached to the model at load time (sidecar -> fetcher).
         self.output_distribution = getattr(model, "output_distribution", "standard")
         self.hurdle_theta = self._parse_hurdle_theta(getattr(model, "hurdle_nb_theta", None))
+        # generic hurdle bodies: lognormal needs sigma (fixed, from sidecar); point needs nothing.
+        self.lognormal_sigma = self._parse_lognormal_sigma(
+            getattr(model, "hurdle_lognormal_sigma", None)
+        )
         self.viz = visualizer or VisualDiagnostics({"diagnostic_visualizations": False})
 
         # Step 3: Move model to device and configure for inference.
@@ -162,6 +170,33 @@ class HydraNetInference:
             raise ValueError(f"hurdle_nb theta values must be > 0; got {vals}.")
         return torch.tensor(vals, dtype=torch.float32).view(1, len(vals), 1, 1)
 
+    def _parse_lognormal_sigma(self, sigma):
+        """Fixed lognormal scale sigma for the hurdle-lognormal compose. None unless that body.
+
+        Accepts a scalar (shared across targets) or a {target: value} dict (persisted in the
+        artifact sidecar). Orders by regression_targets -> [1, C, 1, 1]. Fail-loud if missing.
+        """
+        if self.output_distribution != "hurdle_lognormal":
+            return None
+        targets = list(self.config.get("regression_targets", []))
+        if sigma is None or not targets:
+            err_msg = (
+                "output_distribution='hurdle_lognormal' requires a fixed sigma (from the artifact "
+                f"sidecar) and regression_targets; got sigma={sigma!r}, targets={targets!r}."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        if isinstance(sigma, dict):
+            try:
+                vals = [float(sigma[t]) for t in targets]
+            except (KeyError, TypeError) as exc:
+                raise ValueError(f"hurdle_lognormal sigma missing a target: {sigma!r}.") from exc
+        else:
+            vals = [float(sigma)] * len(targets)
+        if any(v <= 0 for v in vals):
+            raise ValueError(f"hurdle_lognormal sigma must be > 0; got {vals}.")
+        return torch.tensor(vals, dtype=torch.float32).view(1, len(vals), 1, 1)
+
     def _emit_magnitude(self, reg: torch.Tensor, prob: torch.Tensor) -> torch.Tensor:
         """Map the raw regression-head output to the emitted/fed-back magnitude.
 
@@ -171,11 +206,15 @@ class HydraNetInference:
         (Cragg/Mullahy/Cameron&Trivedi). log1p so the downstream inverse_transform (expm1)
         recovers E[y] in count space — we never expm1 a free prediction (C-140).
         """
-        if self.output_distribution != "hurdle_nb":
-            return reg
-        # Single source of truth for the exact hurdle-NB mean (shared with the explosion-check
-        # probe so it feeds back exactly this — C-142). mu/(1-NB0) -> 1 as mu -> 0.
-        return hurdle_nb_expected_log1p(reg, prob, self.hurdle_theta)
+        # Single source of truth for each hurdle mean (shared with the explosion-check probe so it
+        # feeds back exactly this — C-142). All return log1p(count-space E[y]).
+        if self.output_distribution == "hurdle_nb":  # mu/(1-NB0) -> 1 as mu->0
+            return hurdle_nb_expected_log1p(reg, prob, self.hurdle_theta)
+        if self.output_distribution == "hurdle_lognormal":
+            return hurdle_lognormal_expected_log1p(reg, prob, self.lognormal_sigma)
+        if self.output_distribution == "hurdle_shrinkage":
+            return hurdle_point_expected_log1p(reg, prob)
+        return reg  # standard: identity (reg is already the log1p-space point prediction)
 
     def predict(
         self,

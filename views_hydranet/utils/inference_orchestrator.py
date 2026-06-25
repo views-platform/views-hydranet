@@ -8,7 +8,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 if TYPE_CHECKING:
-    from views_pipeline_core.data.prediction_frame import PredictionFrame
+    from views_frames import PredictionFrame
 
 import numpy as np
 import torch

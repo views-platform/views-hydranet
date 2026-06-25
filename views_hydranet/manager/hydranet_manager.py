@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Any, Callable, NamedTuple
 
 import pandas as pd
-from views_pipeline_core.data.prediction_frame import PredictionFrame
+from views_frames import PredictionFrame
 from views_pipeline_core.managers.model import (
     ForecastingModelManager,
     ModelPathManager,

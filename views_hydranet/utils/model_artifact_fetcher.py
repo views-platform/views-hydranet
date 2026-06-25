@@ -115,6 +115,8 @@ class ModelArtifactFetcher:
             # inference mean compose; None for standard models. The head's output_distribution
             # is already set by choose_model(arch_config).
             model.hurdle_nb_theta = arch_config.get("hurdle_nb_theta")
+            # generic hurdle bodies: lognormal carries a fixed sigma for the inference compose.
+            model.hurdle_lognormal_sigma = arch_config.get("hurdle_lognormal_sigma")
             logger.info("Retriever: Loaded state_dict artifact (weights_only=True)")
         else:
             logger.warning(

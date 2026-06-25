@@ -45,7 +45,7 @@ def test_pareto_loss_registered_in_choose_loss():
         "loss_reg": "pareto",
         "loss_reg_pareto_alpha": 1.0,
         "loss_class": "bce",
-        "regression_targets": ["lr_sb_best"],
+        "regression_targets": ["lr_ged_sb"],
         "classification_targets": [],
     }
     criterion_reg, _, _ = choose_loss(config, torch.device("cpu"))

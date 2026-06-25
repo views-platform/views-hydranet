@@ -20,9 +20,9 @@ from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
 
 def _make_config(mode="stochastic"):
     return {
-        "regression_targets": ["lr_sb_best"],
+        "regression_targets": ["lr_ged_sb"],
         "classification_targets": ["by_sb_best"],
-        "features": ["lr_sb_best"],
+        "features": ["lr_ged_sb"],
         "evaluation_mode": mode,
         "aggregate_method": "arithmetic_mean",
         "n_posterior_samples": 2,
@@ -89,7 +89,7 @@ class TestGreenAdr039PipelineParity:
         mock_window = MagicMock()
         mock_assembler_cls = MagicMock()
         mock_assembler_cls.return_value.assemble_evaluation.return_value = {
-            "lr_sb_best": MagicMock()
+            "lr_ged_sb": MagicMock()
         }
 
         with (
@@ -107,7 +107,7 @@ class TestGreenAdr039PipelineParity:
                 handler,
                 scaler,
                 origins=[5],
-                all_targets=["lr_sb_best", "by_sb_best"],
+                all_targets=["lr_ged_sb", "by_sb_best"],
             )
             orch._run_inference_pipeline.assert_called_once()
 
@@ -121,7 +121,7 @@ class TestGreenAdr039PipelineParity:
         mock_window = MagicMock()
         mock_assembler_cls = MagicMock()
         mock_assembler_cls.return_value.assemble_evaluation.return_value = {
-            "lr_sb_best": MagicMock()
+            "lr_ged_sb": MagicMock()
         }
 
         with (
@@ -140,7 +140,7 @@ class TestGreenAdr039PipelineParity:
                 handler,
                 scaler,
                 origins=[5],
-                all_targets=["lr_sb_best", "by_sb_best"],
+                all_targets=["lr_ged_sb", "by_sb_best"],
                 origin_sink=sink,
             )
             orch._run_inference_pipeline.assert_called_once()

@@ -32,7 +32,7 @@ import torch
 
 pytest.importorskip("views_pipeline_core")
 
-from views_pipeline_core.data.prediction_frame import PredictionFrame
+from views_frames import PredictionFrame, SpatialLevel, SpatioTemporalIndex
 
 from views_hydranet.manager.hydranet_manager import HydranetManager
 from views_hydranet.utils.config_initializer import ConfigInitializer
@@ -50,16 +50,16 @@ PF_BASE_CFG = {
     "time_steps": 1,
     "input_channels": 3,
     "output_channels": 1,
-    "regression_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "regression_targets": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
     "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
     "identity_cols": ["row", "col", "c_id"],
-    "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
-    "transformations": {"identity": ["lr_sb_best", "lr_ns_best", "lr_os_best"]},
+    "features": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
+    "transformations": {"identity": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"]},
     "derivations": {
         "binary": [
-            {"from": "lr_sb_best", "to": "by_sb_best", "threshold": 0},
-            {"from": "lr_ns_best", "to": "by_ns_best", "threshold": 0},
-            {"from": "lr_os_best", "to": "by_os_best", "threshold": 0},
+            {"from": "lr_ged_sb", "to": "by_sb_best", "threshold": 0},
+            {"from": "lr_ged_ns", "to": "by_ns_best", "threshold": 0},
+            {"from": "lr_ged_os", "to": "by_os_best", "threshold": 0},
         ]
     },
     "height": 2,
@@ -104,9 +104,9 @@ PF_BASE_CFG = {
 }
 
 ALL_TARGETS = [
-    "lr_sb_best",
-    "lr_ns_best",
-    "lr_os_best",
+    "lr_ged_sb",
+    "lr_ged_ns",
+    "lr_ged_os",
     "by_sb_best",
     "by_ns_best",
     "by_os_best",
@@ -129,9 +129,9 @@ def _make_history_df(n_months: int = 21) -> pd.DataFrame:
             "row": [0, 0, 1, 1] * n_months,
             "col": [0, 1, 0, 1] * n_months,
             "c_id": [42] * (4 * n_months),
-            "lr_sb_best": np.ones(4 * n_months),
-            "lr_ns_best": np.ones(4 * n_months),
-            "lr_os_best": np.ones(4 * n_months),
+            "lr_ged_sb": np.ones(4 * n_months),
+            "lr_ged_ns": np.ones(4 * n_months),
+            "lr_ged_os": np.ones(4 * n_months),
         }
     )
 
@@ -277,8 +277,8 @@ class TestPredictionFrameGreen:
 
         for target in ALL_TARGETS:
             pf = results[target][0]
-            assert pf.y_pred.shape == (N_CELLS, S), (
-                f"[{target}] expected shape ({N_CELLS}, {S}), got {pf.y_pred.shape}"
+            assert pf.values.shape == (N_CELLS, S), (
+                f"[{target}] expected shape ({N_CELLS}, {S}), got {pf.values.shape}"
             )
             assert pf.sample_count == S
 
@@ -298,9 +298,9 @@ class TestPredictionFrameGreen:
 
         results = _run_eval(cfg, posterior, tmp_path)
 
-        pf = results["lr_sb_best"][0]
-        assert pf.y_pred.shape == (N_CELLS, 1), (
-            f"Point mode must collapse to (N, 1); got {pf.y_pred.shape}"
+        pf = results["lr_ged_sb"][0]
+        assert pf.values.shape == (N_CELLS, 1), (
+            f"Point mode must collapse to (N, 1); got {pf.values.shape}"
         )
         assert pf.sample_count == 1
 
@@ -319,8 +319,8 @@ class TestPredictionFrameGreen:
 
         results = _run_eval(cfg, posterior, tmp_path)
 
-        pf = results["lr_sb_best"][0]
-        assert pf.y_pred.shape == (N_CELLS, 1)
+        pf = results["lr_ged_sb"][0]
+        assert pf.values.shape == (N_CELLS, 1)
         assert pf.sample_count == 1
 
     def test_green_all_six_targets_keyed(self, tmp_path):
@@ -348,7 +348,7 @@ class TestPredictionFrameGreen:
 
         results = _run_eval(cfg, posterior, tmp_path)
 
-        pf = results["lr_sb_best"][0]
+        pf = results["lr_ged_sb"][0]
         assert len(pf.identifiers["time"]) == N_CELLS
         assert len(pf.identifiers["unit"]) == N_CELLS
         assert np.issubdtype(pf.identifiers["time"].dtype, np.integer)
@@ -372,7 +372,7 @@ class TestPredictionFrameGreen:
             assert isinstance(pf, PredictionFrame), (
                 f"[{target}] expected PredictionFrame, got {type(pf)}"
             )
-            assert pf.y_pred.shape == (N_CELLS, S)
+            assert pf.values.shape == (N_CELLS, S)
 
     def test_green_stochastic_sample_values_not_all_identical(self, tmp_path):
         """
@@ -386,9 +386,9 @@ class TestPredictionFrameGreen:
 
         results = _run_eval(cfg, posterior, tmp_path)
 
-        pf = results["lr_sb_best"][0]
+        pf = results["lr_ged_sb"][0]
         # At least some rows must differ across the S axis
-        assert not np.all(pf.y_pred[:, 0] == pf.y_pred[:, 1]), (
+        assert not np.all(pf.values[:, 0] == pf.values[:, 1]), (
             "All sample columns are identical — S axis may have been collapsed or broadcast."
         )
 
@@ -412,10 +412,10 @@ class TestPredictionFrameBeige:
 
         results = _run_eval(cfg, posterior, tmp_path)
 
-        pf = results["lr_sb_best"][0]
-        assert pf.y_pred.ndim == 2, "y_pred must always be 2D"
-        assert pf.y_pred.shape == (N_CELLS, 1), (
-            f"Single-sample stochastic must be (N, 1), got {pf.y_pred.shape}"
+        pf = results["lr_ged_sb"][0]
+        assert pf.values.ndim == 2, "y_pred must always be 2D"
+        assert pf.values.shape == (N_CELLS, 1), (
+            f"Single-sample stochastic must be (N, 1), got {pf.values.shape}"
         )
 
     def test_beige_alias_mean_equals_arithmetic_mean(self, orch_env):
@@ -450,7 +450,7 @@ class TestPredictionFrameBeige:
                     origins=[19],
                     all_targets=ALL_TARGETS,
                 )
-                results[alias] = pf_list[0]["lr_sb_best"].y_pred
+                results[alias] = pf_list[0]["lr_ged_sb"].values
 
         np.testing.assert_array_equal(
             results["mean"],
@@ -484,14 +484,14 @@ class TestPredictionFrameBeige:
             cfg = {**PF_BASE_CFG, "evaluation_mode": "stochastic", "aggregate_method": method}
             results[method] = _run_eval(cfg, posterior.copy(), tmp_path)
 
-        pf_arith = results["arithmetic_mean"]["lr_sb_best"][0]
-        pf_median = results["median"]["lr_sb_best"][0]
+        pf_arith = results["arithmetic_mean"]["lr_ged_sb"][0]
+        pf_median = results["median"]["lr_ged_sb"][0]
 
-        assert pf_arith.y_pred.shape == (N_CELLS, S)
-        assert pf_median.y_pred.shape == (N_CELLS, S)
+        assert pf_arith.values.shape == (N_CELLS, S)
+        assert pf_median.values.shape == (N_CELLS, S)
         np.testing.assert_array_equal(
-            pf_arith.y_pred,
-            pf_median.y_pred,
+            pf_arith.values,
+            pf_median.values,
             err_msg="aggregate_method must have no effect in stochastic mode",
         )
 
@@ -514,9 +514,9 @@ class TestPredictionFrameBeige:
 
         for target in ALL_TARGETS:
             pf = results[target][0]
-            assert pf.y_pred.ndim == 2, f"[{target}] y_pred is not 2D"
-            assert pf.y_pred.shape[1] == 1, (
-                f"[{target}] expected S=1 in point mode, got S={pf.y_pred.shape[1]}"
+            assert pf.values.ndim == 2, f"[{target}] y_pred is not 2D"
+            assert pf.values.shape[1] == 1, (
+                f"[{target}] expected S=1 in point mode, got S={pf.values.shape[1]}"
             )
 
 
@@ -573,50 +573,67 @@ class TestPredictionFrameRedTeam:
         The ndim == 1 reshape guard in _to_pf_dict() exists precisely to prevent
         this; but the class itself must also enforce the contract.
         """
-        with pytest.raises(ValueError, match="2D"):
+        with pytest.raises(ValueError, match="ndim"):
             PredictionFrame(
                 y_pred=np.ones(4),
-                identifiers={"time": np.array([1, 2, 3, 4]), "unit": np.array([1, 2, 3, 4])},
+                index=SpatioTemporalIndex(
+                    time=np.array([1, 2, 3, 4]),
+                    unit=np.array([1, 2, 3, 4]),
+                    level=SpatialLevel.PGM,
+                ),
             )
 
-    def test_red_prediction_frame_rejects_empty_n(self):
-        """y_pred with zero rows (N=0) must be rejected."""
-        with pytest.raises(ValueError):
-            PredictionFrame(
-                y_pred=np.zeros((0, 3)),
-                identifiers={"time": np.array([]), "unit": np.array([])},
-            )
+    def test_views_frames_accepts_empty_n_validation_relaxed(self):
+        """CONTRACT CHANGE (C-176): the old pipeline-core PredictionFrame REJECTED an
+        empty (N=0) frame; views-frames ACCEPTS it. hydranet relied on the loud failure to
+        catch an origin/target that yields zero valid cells. Characterized here so a future
+        views-frames tightening (re-adding the guard) surfaces as a failure to revisit."""
+        pf = PredictionFrame(
+            y_pred=np.zeros((0, 3)),
+            index=SpatioTemporalIndex(
+                time=np.array([], dtype=np.int32),
+                unit=np.array([], dtype=np.int32),
+                level=SpatialLevel.PGM,
+            ),
+        )
+        assert pf.values.shape == (0, 3)
 
-    def test_red_prediction_frame_rejects_empty_s(self):
-        """y_pred with zero sample columns (S=0) must be rejected."""
-        with pytest.raises(ValueError):
-            PredictionFrame(
-                y_pred=np.zeros((4, 0)),
-                identifiers={"time": np.array([1, 2, 3, 4]), "unit": np.array([1, 2, 3, 4])},
-            )
+    def test_views_frames_accepts_empty_s_validation_relaxed(self):
+        """CONTRACT CHANGE (C-176): the old pipeline-core PredictionFrame REJECTED a
+        zero-sample (S=0) frame; views-frames ACCEPTS it. See sibling test for rationale."""
+        pf = PredictionFrame(
+            y_pred=np.zeros((4, 0)),
+            index=SpatioTemporalIndex(
+                time=np.array([1, 2, 3, 4]),
+                unit=np.array([1, 2, 3, 4]),
+                level=SpatialLevel.PGM,
+            ),
+        )
+        assert pf.values.shape == (4, 0)
 
     def test_red_prediction_frame_rejects_nan_in_time(self):
-        """NaN in identifiers['time'] must be rejected (identifiers must be complete)."""
-        with pytest.raises(ValueError):
-            PredictionFrame(
-                y_pred=np.ones((4, 2)),
-                identifiers={
-                    "time": np.array([np.nan, 1.0, 2.0, 3.0]),
-                    "unit": np.arange(4, dtype=float),
-                },
+        """NaN in the time identifier must be rejected. Under views-frames this is enforced
+        by SpatioTemporalIndex's integer-dtype requirement (integers cannot be NaN), which
+        raises TypeError on the float array carrying the NaN — strictly stronger than before."""
+        with pytest.raises(TypeError, match="integer dtype"):
+            SpatioTemporalIndex(
+                time=np.array([np.nan, 1.0, 2.0, 3.0]),
+                unit=np.arange(4, dtype=float),
+                level=SpatialLevel.PGM,
             )
 
     def test_red_prediction_frame_rejects_identifier_length_mismatch(self):
         """
-        If len(identifiers['time']) != y_pred.shape[0], PredictionFrame must raise.
+        If the index length != y_pred.shape[0], PredictionFrame must raise.
         """
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="rows"):
             PredictionFrame(
                 y_pred=np.ones((4, 2)),
-                identifiers={
-                    "time": np.array([1, 2, 3]),  # length 3, not 4
-                    "unit": np.arange(4),
-                },
+                index=SpatioTemporalIndex(
+                    time=np.array([1, 2, 3]),  # length 3, not 4
+                    unit=np.array([1, 2, 3]),
+                    level=SpatialLevel.PGM,
+                ),
             )
 
     def test_red_arithmetic_mean_and_median_diverge_on_skewed_data(self, orch_env):
@@ -628,7 +645,7 @@ class TestPredictionFrameRedTeam:
         This test proves that collapse_to_point() is a live computation —
         not a no-op or a pass-through.
 
-        Setup: channel 0 (lr_sb_best), S=4 samples
+        Setup: channel 0 (lr_ged_sb), S=4 samples
                values = [1.0, 1.0, 1.0, 100.0]
                arithmetic_mean = 25.75
                median           = 1.0
@@ -661,7 +678,7 @@ class TestPredictionFrameRedTeam:
                     origins=[19],
                     all_targets=ALL_TARGETS,
                 )
-            pf_results[method] = float(pf_list[0]["lr_sb_best"].y_pred[0, 0])
+            pf_results[method] = float(pf_list[0]["lr_ged_sb"].values[0, 0])
 
         arith_val = pf_results["arithmetic_mean"]
         median_val = pf_results["median"]

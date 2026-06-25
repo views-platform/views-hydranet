@@ -16,7 +16,7 @@ from views_hydranet.utils.config_initializer import HydraNetConfig
 from views_hydranet.utils.feature_scaler import FeatureScaler
 from views_hydranet.utils.volume_handler import VolumeHandler
 
-_FEATURES = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
+_FEATURES = ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"]
 _SEAM_ROW = "_seam_test_row"  # fixture static channel: value == pre-flip row index
 
 
@@ -47,9 +47,9 @@ def _grid_df(height: int = 4, width: int = 4, t: int = 3) -> pd.DataFrame:
                         "c_id": r * width + c,
                         "row": r,  # row_offset=0 => r_idx == r
                         "col": c,
-                        "lr_sb_best": float(r),
-                        "lr_ns_best": float(c),
-                        "lr_os_best": 0.0,
+                        "lr_ged_sb": float(r),
+                        "lr_ged_ns": float(c),
+                        "lr_ged_os": 0.0,
                     }
                 )
     return pd.DataFrame(rows)
@@ -73,7 +73,7 @@ def _vol_config(height: int = 4, width: int = 4, static: list[str] | None = None
 # ── I1 (Red): a static channel is never a target; input_channels law counts statics ──────────────
 def test_i1_static_channel_in_targets_raises(valid_config_dict):
     cfg = dict(valid_config_dict)
-    cfg["static_channels"] = ["lr_sb_best"]  # a regression target — illegal (I1)
+    cfg["static_channels"] = ["lr_ged_sb"]  # a regression target — illegal (I1)
     cfg["input_channels"] = 3 * cfg["output_channels"] + 1
     with pytest.raises(ValidationError, match="I1"):
         HydraNetConfig(**cfg)
@@ -99,8 +99,8 @@ def test_i4_i6_static_channel_positioned_and_flip_synced(seam_row_derivation):
     # pre-flip value == row r; North-Up flip (axis=H) => post-flip row i holds (height-1-i)
     expected_row = (height - 1) - np.arange(height)
     assert np.allclose(static[0], expected_row[:, None])  # I6: flipped in sync
-    # I6 cross-check: lr_sb_best was set to `row` too -> dynamic + static flip together
-    ci_dyn = vh.channel_map.index("lr_sb_best")
+    # I6 cross-check: lr_ged_sb was set to `row` too -> dynamic + static flip together
+    ci_dyn = vh.channel_map.index("lr_ged_sb")
     assert np.allclose(np.asarray(vh.data)[0, :, :, ci_dyn], static[0])
 
 

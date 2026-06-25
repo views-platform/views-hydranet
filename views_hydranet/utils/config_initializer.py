@@ -110,6 +110,9 @@ class HydraNetConfig(BaseModel):
     loss_class_pos_weight: float | None = Field(default=None, gt=0.0)
     # Regression-head output activation (#100): "standard" (ReLU) or "hurdle_nb" (softplus mu).
     output_distribution: str = Field(default="standard")
+    # Optional emit-activation override, decoupled from output_distribution (Exp B). None => keyed
+    # off output_distribution ('softplus' if hurdle_nb else 'relu'); else 'softplus'/'relu'.
+    reg_activation: str | None = Field(default=None)
 
     # 11. Scheduled Sampling (ADR-056): close train/inference gap.
     ss_schedule: str | None = Field(default=None)
@@ -192,9 +195,9 @@ class HydraNetConfig(BaseModel):
         ...,
         description=(
             "Controls whether the posterior sample axis (S) is preserved or collapsed. "
-            "'stochastic': all S samples are kept → PredictionFrame.y_pred.shape == (N, S). "
+            "'stochastic': all S samples are kept → PredictionFrame.values.shape == (N, S). "
             "'point': collapse_to_point(aggregate_method) folds S to a scalar per cell → "
-            "PredictionFrame.y_pred.shape == (N, 1) regardless of n_posterior_samples."
+            "PredictionFrame.values.shape == (N, 1) regardless of n_posterior_samples."
         ),
     )
     aggregate_method: str = Field(
@@ -374,9 +377,18 @@ class HydraNetConfig(BaseModel):
     @field_validator("output_distribution")
     @classmethod
     def validate_output_distribution(cls, v: str) -> str:
-        valid = ["standard", "hurdle_nb"]
+        valid = ["standard", "hurdle_nb", "hurdle_lognormal", "hurdle_shrinkage"]
         if v not in valid:
             err_msg = f"output_distribution='{v}' is not valid. Expected one of: {valid}."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator("reg_activation")
+    @classmethod
+    def validate_reg_activation(cls, v: str | None) -> str | None:
+        if v is not None and v not in ("softplus", "relu"):
+            err_msg = f"reg_activation='{v}' is not valid. Expected 'softplus', 'relu', or None."
             logger.error(err_msg)
             raise ValueError(err_msg)
         return v

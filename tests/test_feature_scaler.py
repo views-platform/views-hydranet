@@ -20,11 +20,11 @@ from views_hydranet.utils.feature_scaler import FeatureScaler
 def _make_config(**overrides):
     """Minimal valid config for FeatureScaler."""
     cfg = {
-        "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+        "features": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
         "transformations": {
-            "log1p": ["lr_sb_best"],
-            "asinh": ["lr_ns_best"],
-            "identity": ["lr_os_best"],
+            "log1p": ["lr_ged_sb"],
+            "asinh": ["lr_ged_ns"],
+            "identity": ["lr_ged_os"],
         },
     }
     cfg.update(overrides)
@@ -38,9 +38,9 @@ def _make_df(n_rows=10):
         {
             "month_id": np.arange(n_rows),
             "priogrid_gid": np.arange(100, 100 + n_rows),
-            "lr_sb_best": rng.uniform(0.1, 50.0, n_rows),
-            "lr_ns_best": rng.uniform(0.1, 50.0, n_rows),
-            "lr_os_best": rng.uniform(0.1, 50.0, n_rows),
+            "lr_ged_sb": rng.uniform(0.1, 50.0, n_rows),
+            "lr_ged_ns": rng.uniform(0.1, 50.0, n_rows),
+            "lr_ged_os": rng.uniform(0.1, 50.0, n_rows),
         }
     )
 
@@ -70,9 +70,9 @@ def _make_volume_handler(config):
                         "priogrid_gid": r * 2 + c + 1,
                         "row": float(r),
                         "col": float(c),
-                        "lr_sb_best": 10.0 + t + r + c,
-                        "lr_ns_best": 5.0 + t + r,
-                        "lr_os_best": 1.0 + t,
+                        "lr_ged_sb": 10.0 + t + r + c,
+                        "lr_ged_ns": 5.0 + t + r,
+                        "lr_ged_os": 1.0 + t,
                     }
                 )
     df = pd.DataFrame(rows)
@@ -91,18 +91,18 @@ class TestGreen:
     def test_green_log1p_round_trip(self):
         """log1p → expm1 recovers original values."""
         config = _make_config(
-            features=["lr_sb_best"],
-            transformations={"log1p": ["lr_sb_best"]},
+            features=["lr_ged_sb"],
+            transformations={"log1p": ["lr_ged_sb"]},
         )
         df = _make_df()
-        original = df["lr_sb_best"].values.copy()
+        original = df["lr_ged_sb"].values.copy()
 
         scaler = FeatureScaler(config)
         scaled = scaler.fit_transform(df)
         recovered = scaler.inverse_transform(scaled)
 
         np.testing.assert_allclose(
-            recovered["lr_sb_best"].values,
+            recovered["lr_ged_sb"].values,
             original,
             atol=1e-10,
             err_msg="log1p round-trip failed: expm1(log1p(x)) != x",
@@ -111,18 +111,18 @@ class TestGreen:
     def test_green_asinh_round_trip(self):
         """asinh → sinh recovers original values."""
         config = _make_config(
-            features=["lr_ns_best"],
-            transformations={"asinh": ["lr_ns_best"]},
+            features=["lr_ged_ns"],
+            transformations={"asinh": ["lr_ged_ns"]},
         )
         df = _make_df()
-        original = df["lr_ns_best"].values.copy()
+        original = df["lr_ged_ns"].values.copy()
 
         scaler = FeatureScaler(config)
         scaled = scaler.fit_transform(df)
         recovered = scaler.inverse_transform(scaled)
 
         np.testing.assert_allclose(
-            recovered["lr_ns_best"].values,
+            recovered["lr_ged_ns"].values,
             original,
             atol=1e-10,
             err_msg="asinh round-trip failed: sinh(asinh(x)) != x",
@@ -131,17 +131,17 @@ class TestGreen:
     def test_green_identity_round_trip(self):
         """identity transform leaves values unchanged."""
         config = _make_config(
-            features=["lr_os_best"],
-            transformations={"identity": ["lr_os_best"]},
+            features=["lr_ged_os"],
+            transformations={"identity": ["lr_ged_os"]},
         )
         df = _make_df()
-        original = df["lr_os_best"].values.copy()
+        original = df["lr_ged_os"].values.copy()
 
         scaler = FeatureScaler(config)
         scaled = scaler.fit_transform(df)
 
         np.testing.assert_array_equal(
-            scaled["lr_os_best"].values,
+            scaled["lr_ged_os"].values,
             original,
             err_msg="identity transform should not modify values",
         )
@@ -151,7 +151,7 @@ class TestGreen:
         config = _make_config()
         scaler = FeatureScaler(config)
         result = scaler.configured_columns
-        assert set(result) == {"lr_sb_best", "lr_ns_best", "lr_os_best"}
+        assert set(result) == {"lr_ged_sb", "lr_ged_ns", "lr_ged_os"}
 
     def test_green_inverse_transform_volume_preserves_metadata(self):
         """inverse_transform_volume returns VH with same metadata."""
@@ -176,11 +176,11 @@ class TestGreen:
         vh = VolumeHandler(
             data=data,
             axes=("T", "H", "W", "C"),
-            channel_map=("pred_lr_sb_best", "pred_by_sb_best", "pred_lr_ns_best"),
+            channel_map=("pred_lr_ged_sb", "pred_by_sb_best", "pred_lr_ged_ns"),
             time_col="month_id",
             id_col="priogrid_gid",
             spatial_cols=("row", "col"),
-            feature_cols=("pred_lr_sb_best", "pred_by_sb_best", "pred_lr_ns_best"),
+            feature_cols=("pred_lr_ged_sb", "pred_by_sb_best", "pred_lr_ged_ns"),
         )
 
         config = _make_config()
@@ -228,7 +228,7 @@ class TestBeige:
             )
 
     def test_beige_pred_prefix_stripped_in_volume_inversion(self):
-        """pred_lr_sb_best → strips pred_ → looks up lr_sb_best."""
+        """pred_lr_ged_sb → strips pred_ → looks up lr_ged_sb."""
         from views_hydranet.utils.volume_handler import VolumeHandler
 
         # Create volume with pred_ prefixed channels
@@ -236,16 +236,16 @@ class TestBeige:
         vh = VolumeHandler(
             data=data,
             axes=("T", "H", "W", "C"),
-            channel_map=("pred_lr_sb_best",),
+            channel_map=("pred_lr_ged_sb",),
             time_col="month_id",
             id_col="priogrid_gid",
             spatial_cols=("row", "col"),
-            feature_cols=("pred_lr_sb_best",),
+            feature_cols=("pred_lr_ged_sb",),
         )
 
         config = _make_config(
-            features=["lr_sb_best"],
-            transformations={"log1p": ["lr_sb_best"]},
+            features=["lr_ged_sb"],
+            transformations={"log1p": ["lr_ged_sb"]},
         )
         scaler = FeatureScaler(config)
         scaler.fit_transform(_make_df())
@@ -262,13 +262,13 @@ class TestBeige:
         """fit_transform must not modify the input DataFrame."""
         config = _make_config()
         df = _make_df()
-        original_values = df["lr_sb_best"].values.copy()
+        original_values = df["lr_ged_sb"].values.copy()
 
         scaler = FeatureScaler(config)
         scaler.fit_transform(df)
 
         np.testing.assert_array_equal(
-            df["lr_sb_best"].values,
+            df["lr_ged_sb"].values,
             original_values,
             err_msg="fit_transform mutated the input DataFrame in-place",
         )
@@ -302,7 +302,7 @@ class TestRed:
         """NaN in a configured column raises ValueError."""
         config = _make_config()
         df = _make_df()
-        df.loc[0, "lr_sb_best"] = np.nan
+        df.loc[0, "lr_ged_sb"] = np.nan
 
         scaler = FeatureScaler(config)
         with pytest.raises(ValueError, match="NaN"):
@@ -312,7 +312,7 @@ class TestRed:
         """Inf in a configured column raises ValueError."""
         config = _make_config()
         df = _make_df()
-        df.loc[0, "lr_sb_best"] = np.inf
+        df.loc[0, "lr_ged_sb"] = np.inf
 
         scaler = FeatureScaler(config)
         with pytest.raises(ValueError, match="Inf"):
@@ -321,7 +321,7 @@ class TestRed:
     def test_red_unmapped_feature_raises(self):
         """Feature in features list but not in transformations raises ValueError."""
         config = _make_config(
-            features=["lr_sb_best", "lr_ns_best", "lr_os_best", "unmapped_feat"],
+            features=["lr_ged_sb", "lr_ged_ns", "lr_ged_os", "unmapped_feat"],
         )
         df = _make_df()
         df["unmapped_feat"] = 1.0
@@ -334,7 +334,7 @@ class TestRed:
         """Column in transform config but not in DataFrame raises ValueError."""
         config = _make_config(
             transformations={
-                "log1p": ["lr_sb_best", "lr_ns_best", "lr_os_best", "nonexistent_col"],
+                "log1p": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os", "nonexistent_col"],
             },
         )
         df = _make_df()
@@ -357,18 +357,18 @@ class TestBeigeStringMatching:
         vh = VolumeHandler(
             data=data,
             axes=("T", "H", "W", "C"),
-            channel_map=("pred_lr_sb_best", "pred_hereby_x"),
+            channel_map=("pred_lr_ged_sb", "pred_hereby_x"),
             time_col="month_id",
             id_col="priogrid_gid",
             spatial_cols=("row", "col"),
-            feature_cols=("pred_lr_sb_best", "pred_hereby_x"),
+            feature_cols=("pred_lr_ged_sb", "pred_hereby_x"),
         )
 
         config = _make_config(
             transformations={
-                "log1p": ["lr_sb_best", "hereby_x"],
+                "log1p": ["lr_ged_sb", "hereby_x"],
             },
-            features=["lr_sb_best", "hereby_x"],
+            features=["lr_ged_sb", "hereby_x"],
         )
         scaler = FeatureScaler(config)
         scaler.fit_transform(_make_df().assign(hereby_x=np.arange(10, dtype=float) + 1))
@@ -408,8 +408,8 @@ class TestBeigeStringMatching:
         scaler = FeatureScaler(config)
         scaler.fit_transform(
             _make_df()
-            .rename(columns={"lr_sb_best": "pred_x"})[["month_id", "priogrid_gid", "pred_x"]]
-            .assign(**{"lr_ns_best": 0.0, "lr_os_best": 0.0})
+            .rename(columns={"lr_ged_sb": "pred_x"})[["month_id", "priogrid_gid", "pred_x"]]
+            .assign(**{"lr_ged_ns": 0.0, "lr_ged_os": 0.0})
         )
 
         result = scaler.inverse_transform_volume(vh)

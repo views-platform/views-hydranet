@@ -122,8 +122,8 @@ class TestRed:
         cfg = _make_config(
             valid_config_dict,
             transformations={
-                "bogus_transform": ["lr_sb_best"],
-                "log1p": ["lr_ns_best", "lr_os_best"],
+                "bogus_transform": ["lr_ged_sb"],
+                "log1p": ["lr_ged_ns", "lr_ged_os"],
             },
         )
         with pytest.raises(ValidationError, match="Unknown transformation"):

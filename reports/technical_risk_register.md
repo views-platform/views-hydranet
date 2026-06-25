@@ -4,11 +4,11 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-06-20                           |
-| Total Concerns    | 164                                  |
-| Open Concerns     | 65                                   |
+| Last Updated      | 2026-06-24                           |
+| Total Concerns    | 175                                  |
+| Open Concerns     | 70                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 99                                   |
+| Resolved Concerns | 105                                  |
 
 ---
 
@@ -23,9 +23,9 @@
 
 ---
 
-## Causal Clusters (review-rr strategic, 2026-06-05)
+## Causal Clusters (review-rr strategic, 2026-06-05; refreshed 2026-06-24)
 
-Open concerns reduce to **6 root decisions**. Fixing a root advances multiple entries; entries are tagged `[Cx]` informally in this map (not in every entry body).
+Open concerns reduce to **13 root decisions**. Fixing a root advances multiple entries; entries are tagged `[Cx]` informally in this map (not in every entry body). Clusters 1–6 are the original 2026-06-05 map (C-01…C-123); clusters 7–13 were added 2026-06-24 to cover the ~46 entries from the ZINB epic, the channel-role refactor, the over-smoothing investigation, the name-coupling review, and the views-frames migration that the original map predated.
 
 | # | Root decision | Member entries | Fix scope | Priority |
 |---|---|---|:--:|---|
@@ -35,8 +35,15 @@ Open concerns reduce to **6 root decisions**. Fixing a root advances multiple en
 | **4** | Single hardcoded head/loss topology (3+3 heads, positional loss tuple) | C-03, C-123 (+C-122 model facet, D-02) | 2 | decide *with* ZITD planning |
 | **5** | Config is a typed-model-masquerading-as-dict (`extra="allow"`) | C-06, C-117, C-49 (+D-03) | 2 | defer (D-03 tension) |
 | **6** | Operational/GPU fragility on the dev box (no hard CUDA gate; publish-step memory) | C-115, C-116 | 1–2 | near-term |
+| **7** | ZINB/hurdle likelihood never fully committed + train/inference objective mismatch | C-137, C-141, C-143, C-144, C-145, C-146, C-148, C-149, C-150, C-129 (+D-08, D-09; C-140 RESOLVED) | 2–3 | **active research front** |
+| **8** | `feature_cols` overloads model-inputs and training-targets (C-156 is the named root) | C-156, C-160, C-166 (C-157/158/159 RESOLVED 2026-06-24) | 1–2 | mostly closed |
+| **9** | Evaluation is resolution-blind ⇒ in-sample over-smoothing unmeasured/confounded | C-167, C-168, C-169 (+C-136) | 2 | near-term |
+| **10** | Upstream name/format string is the unmediated contract + join-key + role | C-173, C-174, C-175, C-176, C-177 (+D-10, D-11) | 2 | defer (D-11 tension) |
+| **11** | Overridable phase-template silently drops the wandb/bookkeeping lifecycle | C-132, C-133, C-134 (+D-07) | 1–2 | near-term |
+| **12** | #110 baseline-run operational readiness (config drift / decision-rule / runtime harness) | C-162, C-163, C-164 (C-161 RESOLVED 2026-06-25) | 1–2 | unblock before #110 |
+| **13** | Rollout-training & balancer methodology rest on unverified premises | C-124, C-125, C-126, C-128, C-170 | 2 | decide with rollout work |
 
-**Highest-value:** Cluster 1 — largest, contains the only imminent Tier-2 (C-113), single coordinated fix (decompose `predict()` + rollout test + `HydraNetInference` CIC + IntegrityGuardian §6 doc) advances 5 concerns + 2 disagreements before the ZITD head touches it.
+**Highest-value:** Cluster 1 — largest, contains the only imminent Tier-2 (C-113), single coordinated fix (decompose `predict()` + rollout test + `HydraNetInference` CIC + IntegrityGuardian §6 doc) advances 5 concerns + 2 disagreements before the ZITD head touches it. **Live front (2026-06-24):** Cluster 7 (ZINB likelihood) is the active research direction; Clusters 8 & 12 are now mostly closeable (C-157/158/159 shipped; C-161 is a one-line config fix).
 
 ---
 
@@ -134,7 +141,7 @@ Per Martin (Clean Architecture Ch 10, p.100-103): ISP says "avoid depending on t
 
 ---
 
-### C-37: VolumeHandler in SAP "Zone of Pain" — partial abstraction at PF boundary
+### C-37: VolumeHandler in SAP "Zone of Pain" — partial abstraction at PF boundary [DEMOTED]
 
 | Field | Value |
 |-------|-------|
@@ -154,7 +161,7 @@ See also C-36 (ISP partially addressed) and D-01 (resolved — partial split exe
 
 ---
 
-### C-49: Flat config schema may not scale — no nested structure for regularizers, strategies, or per-target settings
+### C-49: Flat config schema may not scale — no nested structure for regularizers, strategies, or per-target settings [DEMOTED]
 
 | Field | Value |
 |-------|-------|
@@ -224,7 +231,7 @@ See also C-42 (resolved — entropy locking).
 
 ---
 
-### C-85: Flip probability 0.5 hardcoded in training_engine — not config-driven
+### C-85: Flip probability 0.5 hardcoded in training_engine — not config-driven [DEMOTED]
 
 | Field | Value |
 |-------|-------|
@@ -242,7 +249,7 @@ See also C-65 (resolved — `random_flips` added to schema).
 
 ---
 
-### C-89: `_SumReducer` and `_make_tiny_model` duplicated across test files
+### C-89: `_SumReducer` and `_make_tiny_model` duplicated across test files [DEMOTED]
 
 | Field | Value |
 |-------|-------|
@@ -406,7 +413,7 @@ Tier 2 rationale: structural fragility (no fail-loud) with a clear, recurring tr
 | Field | Value |
 |-------|-------|
 | ID | C-116 |
-| Tier | 2 (escalated 3→2 on 2026-06-15 — see update) |
+| Tier | 2 |
 | Source | repo-assimilation (2026-06-05) + 4 eval runs this session; recalibrated 2→3 (review-rr 2026-06-05); **re-escalated 3→2 (2026-06-15, determinism-validation runs)** |
 | Trigger | Running any `--evaluate` on this box — the post-eval queryset-metadata publish step peaks RSS and is OOM-killed (`dmesg: Out of memory: Killed process (python)`), exiting 137 |
 | Location | post-evaluation publish step at the manager / views-pipeline-core boundary (after the wandb run-summary in every eval log; e.g. `…Publishing/Fetching queryset pg_metadata`) |
@@ -471,7 +478,7 @@ Tier 3 rationale: maintainability + critical-path coupling; concrete (live warni
 | Field | Value |
 |-------|-------|
 | ID | C-119 |
-| Tier | **1** (escalated 2026-06-14 from 3 — see Update) |
+| Tier | 1 |
 | Source | repo-assimilation (2026-06-05) + C-111 bisect observation; **root-caused by the determinism investigation (2026-06-14)** |
 | Trigger | Comparing any two single training runs (baseline-vs-experiment, an FAO eligibility row, a RESULTS_LOG entry, or the channel-role parity gate) **before the init re-seed fix lands** — run-to-run init variance silently confounds the delta |
 | Location | **`views_hydranet/train/training_engine.py` `make()` (~L70-74: `choose_model` + `model.apply(init_fn)`)** draws weights from a torch-RNG state advanced a non-deterministic amount by work between the manager seed-lock (`hydranet_manager.py:279`) and `make()`; the re-seed at `training_engine.py:494` is post-init (too late). `reproducibility_gate.py::lock_entropy` (necessary but mis-placed relative to init). |
@@ -627,6 +634,8 @@ The C-113 runaway is a *point/mean* pathology (the trajectory leaves the data ra
 Tier 3 rationale: evaluation/decision-hygiene gap; no silent corruption today, but it gates whether the rollout fix is genuinely progress. Mitigation: the rollout-training readout must include calibration (PIT/coverage) + sharpness (MCR/zero-rate) as first-class metrics, pre-registered in `05`.
 
 **Update 2026-06-09 (folds M-Z5 — count-head facet):** the same guard applies to the count / hurdle-NB head — on ~95%-zero data a degenerate near-zero forecast scores well (the "F5 zero-rate trap"). Judge the count head on **positive-subset proper scores (twCRPS/CRPS on `y>0`) + PIT/coverage + a posterior-predictive zero-rate/tail check**, never aggregate CRPS alone. Pre-registered in the distributional-head dossier `05 §0`; see C-137.
+
+**Update 2026-06-22 — F5 timid-prophet CONFIRMED empirically at T=0 (multi-seed); recommendation corrected to the locked framework.** Overnight count-vs-sharp ×3 seeds (`reports/2026-06-22_body_multiseed_dossier/results.md`): the sharp/shrinkage body **wins CRPS on all 3 targets, every seed**, while emitting **~1–4% of the true magnitude (MCR≈0.03)** and **losing the QS (QS99) guardrail to the count body** — i.e. CRPS-based selection picks the timid prophet exactly as F5 warns, and the QS99/MCR guardrails correctly veto it. ⇒ **never select a body/config on CRPS (or visual sharpness) alone.** NOTE: the "twCRPS / positive-subset" recommendation above is **superseded by the locked FAO-02 framework** ([[reference_fao02_locked_eval_framework]], `brain/2_projects/fao02/.../pre_release_note_05`): score on **CRPS + QS99 + Brier + MCR over the FULL dataset** — twCRPS and positive-subset/extremes-conditioning were considered and REJECTED there (the forecaster's dilemma, Lerch2017).
 
 ---
 
@@ -817,7 +826,7 @@ Tier 3 rationale: decision/attribution-hygiene gap (peer of C-112/C-119/C-126) �
 | ID | C-137 |
 | Tier | 3 |
 | Source | expert-method-review ×2 (distributional-head design, 2026-06-09) |
-| Trigger | When building the count-likelihood escalation head — specifically (a) reusing the focal classifier as a zero-inflation π, (b) choosing a single global dispersion θ, or (c) pursuing Tweedie over NB |
+| Trigger | When building the count-likelihood escalation head — specifically (a) reusing the focal classifier as a zero-inflation π, (b) choosing a single global dispersion θ, (c) pursuing Tweedie over NB, (d) adding a GPD/EVT tail head, or (e) a hybrid distributional-NLL + per-cell shrinkage penalty |
 | Location | `reports/2026-06-05_distributional_head_dossier/02_design.md §0.0`; `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py` (head); a future `*NBLoss`; `views_hydranet/utils/utils.py` (`LOSS_REG_REGISTRY`) |
 | Cross-refs | C-03 (hardcoded 3+3 head topology), C-113/C-129 (the rollout coupling), C-126 (the F5 calibration guard) |
 
@@ -825,9 +834,11 @@ Three design risks for the count-likelihood head, surfaced by two method reviews
 - **(M-Z6) π-specification conflation.** Reusing the focal classifier (`sigmoid(cls)`, trained on `by_*`=`1[y>0]`) as a **ZINB structural zero-inflation π** mis-specifies the likelihood: the classifier learns the *marginal* `P(y>0)`, not the structural gate (in a ZINB-mixture, zeros come from both π *and* the NB). The proven head on this data (DynAttn) uses a *dedicated* π. **Resolved by design** by adopting the **hurdle-NB** framing (classifier *is* the gate `P(y>0)`; positives = a **zero-truncated** NB), which makes the reuse principled and matches "zero = no event" (Mullahy 1986). The risk re-arises if anyone builds a ZINB-mixture reusing the classifier as π.
 - **(M-Z7) Global θ under-parameterization.** A single per-target dispersion θ likely cannot capture the spatial heterogeneity of conflict counts; pre-registered as an MVP simplification with a region/feature-varying-θ ablation queued.
 - **(M-Z2) Tweedie-density blocker.** Tweedie NLL (1<ρ<2) needs the Dunn&Smyth series/saddlepoint evaluation — a real implementation+validation cost. NB / hurdle-NB is closed-form and avoids it; Tweedie is the tail-escalation only.
-- **(M-Z5) F5 zero-rate trap** (see C-126): on ~95%-zero data a near-zero forecast scores well — judge on positive-subset proper scores + zero-rate, not aggregate CRPS.
+- **(M-Z5) F5 zero-rate trap** (see C-126): on ~95%-zero data a near-zero forecast scores well — judge on positive-subset proper scores + zero-rate, not aggregate CRPS. **Refinement 2026-06-21 (panel Gneiting/Lerch + the proper-score gate, folds M-6):** but conditioning the score *only* on `y>0` (or extremes) is itself improper — the **forecaster's dilemma** (Lerch 2017): it rewards always-predict-the-event. Use **integrand-weighted threshold-weighted CRPS on ALL cells** (proper; `calculate_twcrps_native`) as the selector, with a positive-cell PIT as a *conditional diagnostic* only. The 2026-06-21 gate (`scripts/proper_score_audit.py`, all-cells) showed the hurdle head's defect — predicted mass leaked onto truly-zero cells — is visible *only* to an all-cells proper score, not to positive-subset scoring.
+- **(M-4) GPD/EVT tail ξ instability.** An end-to-end GPD/GEV tail head collapses the shape ξ to a "safe" (high-scale/low-shape) mode that **underfits the ~200k tail without erroring**, unless built with a threshold-invariant reparameterization (Wang 2023), an ξ-constraint + bias-init (Galib 2022 DeepExtrema), and two-phase freeze-bulk training. Do not add a tail head without these three.
+- **(M-5) Incoherent hybrid.** A "distributional NLL + per-cell shrinkage penalty on the mean" is **not a coherent likelihood** — no posterior corresponds to it, and it double-counts the mean–variance trade-off the dispersion already encodes (Jørgensen 1987 / Bishop). Reading its output as calibrated uncertainty is a silent mis-specification. The coherent alternative is a jointly-trained zero-inflated mixture (clean π₀ + body).
 
-Tier 3 rationale: design-stage methodology gaps for an as-yet-unbuilt head (peer of C-125); no current corruption, but π-conflation would silently mis-specify uncertainty and the others could ship a subtly biased forecaster. Mitigation: the distributional-head dossier `02 §0.0`/`05 §0` pre-registers the hurdle-NB spec, the θ ablation, and the F5/positive-subset eval; gate the build on review.
+Tier 3 rationale: design-stage methodology gaps for an as-yet-unbuilt head (peer of C-125); no current corruption, but π-conflation would silently mis-specify uncertainty and the others could ship a subtly biased forecaster. Mitigation: the distributional-head dossier `02 §0.0`/`05 §0` pre-registers the hurdle-NB spec, the θ ablation, and the F5/positive-subset eval; gate the build on review. **Update 2026-06-21:** M-4/M-5/M-6 added from the `/expert-method-review` slate (dossier `2026-06-21_proper_score_gate_dossier/02_panel_review.md`); the proper-score gate corroborated that the likelihood (not the backbone) is the lever, so this escalation is now live — gate each candidate on all-cells proper scores + positive-cell calibration.
 
 ---
 
@@ -884,21 +895,6 @@ The five blocking decisions are resolved (see `2026-06-10_zinb_distributional_he
 | **C-148** | Deleted "dissolves by construction"; the 36-step `diagnose_io_gain` **explosion-check is the load-bearing test** | 02_design D5/§6 |
 
 These concerns **remain OPEN until the implementing sub-issue's tests pass** — the decision mitigates the *design* risk; the *code* must honour it. Downstream acceptance (C-142 probe-validation, C-147 π-reliability, C-149 QS99-binding, C-150 PIT/PPC) is tracked on #101/#102 + `05_analysis_plan`.
-
----
-
-### C-140: ZINB count-space `E[y]` would be double-`expm1`'d by the unchanged inverse transform
-
-| Field | Value |
-|-------|-------|
-| ID | C-140 |
-| Tier | 1 |
-| Source | expert-code-review (ZINB Pass-1, 2026-06-10) |
-| Trigger | Implementing #101 to emit count-space `E[y]` while leaving the inference orchestrator's `inverse_transform_volume` call in place, then running the first ZINB eval (#102) |
-| Location | `views_hydranet/utils/hydranet_inference.py:267` (emit); `views_hydranet/utils/feature_scaler.py:239-245` (`inverse_transform_volume` applies `expm1`); dossier `2026-06-10_zinb_distributional_head_dossier/02_design.md §4` |
-| Cross-refs | C-113 (the explosion this re-creates), C-142, D-09 |
-
-The design emits `E[y]=(1−π)·μ` in **count space** *and* says the existing `inverse_transform_volume` is unchanged — but that method `expm1`s the output channels. A count-space `E[y]` `expm1`'d again is a **silent double-transform → magnitude re-explosion at eval**, indistinguishable from C-113 and invisible until the downstream `inf` check rejects it. **Resolve before any ZINB train:** emit `log1p(E[y])` so the existing inverse recovers `E[y]`, or tag the ZINB channel `identity` in the transform config; add a round-trip test. **Tier 1:** silent output corruption with no error signal until the late `inf` rejection.
 
 ---
 
@@ -976,23 +972,6 @@ A per-target θ head would break the invariant `input_channels==3×output_channe
 | Cross-refs | C-137 (count-head likelihood-spec), D-08 (unified-NLL decision) |
 
 The design names the head both "**ZINB**" (zeros from a Bernoulli gate **and** the NB's own zero mass — Lambert 1992) and "**zero-truncated NB on positives / hurdle_nb**" (zeros **only** from the gate, truncated positive body — Cragg 1971 / Mullahy 1986). **These are distinct likelihoods** with distinct NLLs and identifiability: in ZINB a zero has two explanations → π and the NB zero-prob are partially confounded; the hurdle factorizes cleanly but needs the truncated-NB normaliser. Implementing the wrong NLL for the intended model is a silent spec error (wrong gradients, wrong calibration). **Commit to one and write its exact NLL before #99.** **Tier 2:** structural mis-specification feeding everything downstream.
-
----
-
-### C-147: π = 1−sigmoid(cls) borrowed from the focal head — calibration unverified
-
-| Field | Value |
-|-------|-------|
-| ID | C-147 |
-| Tier | 2 |
-| Source | expert-method-review (ZINB Pass-2, 2026-06-10) |
-| Trigger | Gating `E[y]=(1−π)·μ` at #101 using `1−sigmoid(cls)` without a reliability/Brier calibration check on π |
-| Location | dossier `02_design.md §1`; issue #101 |
-| Cross-refs | C-143 (composed objective), C-137 |
-
-π is borrowed from the existing classification head trained by **focal** loss, whose effect on probability calibration is **contested** (Lin 2017: focal distorts class probabilities; Mukhoti 2020: focal can improve calibration; Guo 2017: nets miscalibrated by default). So π's calibration *as a zero/onset probability* is unverified. A miscalibrated π **biases the entire emitted magnitude** `(1−π)·μ`. Produce a reliability diagram / Brier on π (zero vs positive cells) before using it as the gate. **Tier 2:** a miscalibrated borrowed gate silently biases every emitted magnitude.
-
-**CHECKED (2026-06-20) — `scripts/gate_reliability.py`, dossier `../2026-06-20_gate_calibration_dossier/`.** The current gate is class-weighted BCE (`weighted_bce`, `pos_weight=10`), not focal. Pre-registered check (EXP-01) on R4/R5, 3 targets: **the gate is CALIBRATED when teacher-forced** (STEP-1: ECE 0.005–0.007, mean π ≈ onset prevalence) and **catastrophically miscalibrated only under the autoregressive rollout** (FULL: mean π ≈ 0.69–0.70, ECE ≈ 0.68–0.70, Brier skill −77 to −239; ~68% of cells pinned at π≈1 with empirical onset ~0.3%). ⇒ **the miscalibration is born in the feedback loop, NOT the gate loss** — the `pos_weight`/focal calibration worry (this entry's hypothesis) is **falsified** as the cause. The bias to `E[y]` is real but its **root is the rollout dynamics** (the C-113 amplifier the old frozen-hidden-state model suppressed); coords worsen it (degrade calibration even at STEP-1). **Disposition:** C-147's narrow "gate loss miscalibrates π" claim is **resolved/falsified**; the live risk migrates to the rollout-feedback dynamics (track as a new pre-registered experiment, not a gate-loss fix). Do **not** drop the class weight as a remedy.
 
 ---
 
@@ -1075,51 +1054,6 @@ ADR-061's "why now" leans on El Jurdi et al. (2021): CoordConv-Unet stabilizes t
 
 ---
 
-### C-157: training diagnostic biopsy is load-bearing — crashes training with a static-widened model
-
-| Field | Value |
-|-------|-------|
-| ID | C-157 |
-| Tier | 2 |
-| Source | channel-role side-quest census (2026-06-13); empirically confirmed (first coord smoke crashed here) |
-| Trigger | Training with `diagnostic_visualizations=True` and `input_channels > len(features)` (any static channel present) |
-| Location | `training_engine.py:424-436` (Stage-5 diagnostic biopsy) |
-| Cross-refs | C-156 (root), C-118 (visual_diagnostics hot-path), ADR-062 §2.1, Phase-6 harden |
-
-The plotting-only Stage-5 biopsy re-runs the forward with `idx.feat` (dynamic only) into a model built for `[dynamic ⧺ static]` → `RuntimeError` (channel mismatch) in lesson 1. A **diagnostic crashes the production training job**. **Mitigation:** ADR-062 §2.1 (biopsy reads `model_input_cols`) fixes the immediate bug; Phase 6 additionally makes the biopsy non-load-bearing (a diagnostic must never crash the job it observes). **Tier 2:** loud crash, structural, config-coupled.
-
----
-
-### C-158: curriculum trains on input-only channels — silent window-sampling corruption
-
-| Field | Value |
-|-------|-------|
-| ID | C-158 |
-| Tier | 1 |
-| Source | channel-role side-quest census (2026-06-13); empirically observed (coord run listed coords in subject maxima) |
-| Trigger | Running with `static_channels` non-empty **and** diagnostics off (so C-157 doesn't crash first) — the curriculum then rotates statics in as subjects |
-| Location | `curriculum.py:45` (`self.subjects = list(handler.feature_cols)`), `:97` (subject rotation) |
-| Cross-refs | C-156 (root), ADR-062 §2.1 |
-
-`subjects = feature_cols` includes the input-only statics, so the curriculum rotates coordinates in as **prediction subjects** (~2/5 of windows), distorting which windows are sampled relative to the baseline. **No crash, no error signal** — it silently changes training and therefore results. This is the most dangerous of the three: a model-output-correctness risk with no tripwire (it would quietly invalidate a coords-vs-baseline comparison). **Mitigation:** ADR-062 §2.1 (subjects read `target_cols`). **Tier 1:** silent results corruption.
-
----
-
-### C-159: artifact sidecar schema drifts from `choose_model` — deferred reload crash
-
-| Field | Value |
-|-------|-------|
-| ID | C-159 |
-| Tier | 2 |
-| Source | channel-role side-quest census (2026-06-13); empirically confirmed (seed42 trained, then eval crashed on reload) |
-| Trigger | Reloading an artifact trained with `static_channels` (e.g. for evaluation), or adding any constructor-affecting config key not in `arch_keys` |
-| Location | `train_model.py:75-85` (`arch_keys` allow-list) vs `utils.py:34` (`choose_model` reads `static_channels`) |
-| Cross-refs | C-156 (root), C-09 (the sidecar mechanism, resolved), ADR-062 §2.3 |
-
-The sidecar `arch_keys` whitelist omits `static_channels`, so `choose_model` rebuilds the model with `n_static=0` (narrower `dec_conv1`) and `load_state_dict` size-mismatches the wider trained checkpoint — eval crashes **after** the full training cost is paid. A deferred, expensive failure from an implicit, unversioned writer↔reader schema. **Mitigation:** ADR-062 §2.3 — derive the persisted keys from the model's actual constructor signature and self-validate on write (reload-after-save preflight). **Tier 2:** loud but deferred; schema-governance fragility.
-
----
-
 ### C-160: the channel-role refactor activates the VolumeHandler god-node blast radius
 
 | Field | Value |
@@ -1132,23 +1066,6 @@ The sidecar `arch_keys` whitelist omits `static_channels`, so `choose_model` reb
 | Cross-refs | C-36 (451-edge god node), C-37 (no Protocol — being reconsidered), C-75 (derivation duplication), ADR-062 |
 
 ADR-062 deliberately refactors the Custodian, which C-36 quantifies as a **451-edge god node bridging 16+ communities** — "any signature change ripples across all communities." The risk: an unintended change to baseline (no-coords) output slips past the unit suite (which gave false confidence before). **Mitigation (the side-quest's defining discipline):** an end-to-end **parity gate** — a no-coords run on current code must be **bit-identical** to a no-coords run on the refactored code (Phases 2/5) — plus the characterization net (Phase 3) and byte-identical-when-off (I5) at every step. Registered so the refactor is executed under that gate, never on the unit suite alone. **Tier 2:** structural fragility under a planned, broad change.
-
----
-
-### C-161: violet config operating-point drift — `n_posterior_samples=3` while #110/dossier specify 8
-
-| Field | Value |
-|-------|-------|
-| ID | C-161 |
-| Tier | 2 |
-| Source | /falsify (2026-06-16, "two 8-sample runs" readiness) — P1 |
-| Trigger | Launching the #110 baseline run(s) believing the config is at 8 — it still holds the temporary C-116 probe value `3`, never raised |
-| Location | `views-models/models/violet_visitor/configs/config_hyperparameters.py:120` |
-| Cross-refs | C-116/#124 (the probe that set it to 3), C-117 (different drift — ghost keys silently accepted), #110, #127 |
-
-The operating point (8 samples) is recorded in #110, dossier `05`/`07`, and the #112 checklist — but the **executable artifact** still pins `n_posterior_samples=3` (the inline comment: "TEMP … dropped 16→3 … restore once the OOM is understood"). Launching the documented "8-sample" runs would **silently run at 3**, producing a mislabeled experimental record with **no error signal**. Caught by a falsify config-vs-claim probe. **Tier 2:** doc-vs-state structural drift that, under the realistic next action (launch), yields a wrong-operating-point run; one-line fix (set 8), itself gated by the unverified 8-sample OOM headroom (C-116/#124).
-
-**2026-06-16 (#128):** config set to `n_posterior_samples=8`; falsify config-vs-claim guard green. Final resolution **gated on the in-flight 8-sample OOM check** completing clean (if 8 OOMs, drop to the largest viable value + re-sync #110/dossier).
 
 ---
 
@@ -1226,6 +1143,183 @@ CI passes only because `ci.yml` `--ignore`s six files; one of them, `test_eval_i
 | Cross-refs | C-156 (root — `feature_cols` overload), C-157 (the crash face, now fixed), C-118 (visual_diagnostics module), ADR-062 §2.1 |
 
 A fourth, **benign** face of the C-156 overload: `_select_display_channels` derives "interesting channels" from `feature_cols`, which now includes input-only statics (CoordConv row/col). The diagnostics therefore plot geometry as if it were model signal. No crash, no model-output or training impact (the C-157 crash face is fixed; this is display-only), but it can mislead a researcher reading the biopsy plots. **Tier 4:** cosmetic/interpretation, no correctness or reliability impact. **Fix:** select display channels from `target_cols` (or exclude `static_cols`) once the role accessors are the single source — natural tidy-up alongside the flip commit or Phase-6 harden. Pinned (CLASSIFY, non-xfail) by `test_census_suspectA_visualdiagnostics_static_classification`.
+
+---
+
+### C-167: no spatial-sharpness / resolution metric — evaluation is calibration-only (resolution-blind)
+
+| Field | Value |
+|-------|-------|
+| ID | C-167 |
+| Tier | 2 |
+| Source | expert-method-review (2026-06-20, Gneiting/Gelman seats) |
+| Trigger | Declaring any head/loss/architecture change "works" on the in-sample over-smoothing using calibration metrics (Brier/ECE/MCR) without a sharpness/resolution score |
+| Location | eval stack (`views_evaluation` native calculators); `scripts/gate_reliability.py`; dossiers `05_analysis_plan` |
+| Cross-refs | C-147 (calibration check that was resolution-blind), C-150 (PIT/PPC — distributional, not spatial), C-126 (rollout readout sharpness=MCR/zero-rate conflation) |
+
+The current evaluation measures **calibration** (Brier/ECE/reliability, C-147) and **magnitude** (MCR/zero-rate, called "sharpness" but it is not spatial sharpness). None of these can see the visually-obvious defect: the in-sample, teacher-forced prediction is **spatially over-smooth** (diffuse blobs vs sharp sparse truth) — exactly why C-147's low ECE wrongly read as "gate fine." A proper **CRPS** (sharpness-subject-to-calibration, Gneiting & Raftery 2007), the **Brier resolution term** (Murphy 1973 decomposition), and a **spatial posterior-predictive statistic** (hot-cell count / blob-size / spatial autocorrelation; cf. Fractions Skill Score, Roberts & Lean 2008 — to fetch) are all absent. **Tier 2:** a resolution-blind audit will certify a spatially-useless model as fine (already caused one wrong conclusion); fix by building the sharpness instrument (EXP-1) before iterating on the head/loss.
+
+**Update 2026-06-21 — instrument BUILT; resolution-blindness closed, with a caveat (folds panel M-1).** The sharpness/proper-score instruments now exist and are unit-tested: `scripts/sharpness_scorecard.py` (FSS/area-ratio) and `scripts/proper_score_audit.py` (CRPS + SCRPS + threshold-weighted CRPS + randomized-PIT, scored on **all** cells; 6 tests; validated — it reproduces the FSS scorecard before its new scores are trusted). Dossier `2026-06-21_proper_score_gate_dossier/`. **Caveat that keeps a thin residual open:** the cheap FSS/area-ratio metric **overstates** the defect (~10× area-ratio vs ~1.4–3.4× on CRPS) and is blind to the zero-vs-positive split — so decide head/loss changes on the **proper scores**, with FSS only corroborating. Largely addressed; do not select on FSS magnitude alone.
+
+---
+
+### C-168: hurdle truncation removes dense per-cell supervision — plausible root of the in-sample over-smoothing; untested vs full ZINB
+
+| Field | Value |
+|-------|-------|
+| ID | C-168 |
+| Tier | 2 |
+| Source | expert-method-review (2026-06-20, Harrell/Bishop seats) + diagnostic plots |
+| Trigger | Committing further to the truncated-NB body without comparing against a full ZINB/NB likelihood scored on **all** cells (the dense-supervision EXP-2) |
+| Location | `views_hydranet/utils/truncated_nb_loss.py` (`positive = raw_y > 0`); dossier `2026-06-10_zinb_distributional_head_dossier/02_design §2` |
+| Cross-refs | C-146 / C-145 (hurdle-vs-ZINB decided on calibration/identifiability, NOT sharpness), M-Z6, C-147, [[project_bloom_is_feedback]] |
+
+The truncated-NB body computes loss **only on `y>0` cells**, so the ~99.7% zero cells give the magnitude head **no gradient** → it smoothly interpolates between events (a conv net's natural low-frequency fill). The old shrinkage loss penalised **every** cell densely → sharp suppression. The hurdle-vs-ZINB choice (C-146) was made on identifiability/calibration grounds and **never examined through the sharpness lens**; a full ZINB/NB scored on all cells supervises zeros (the `P(y=0)` term) and is **still a proper likelihood** — and the in-domain prior (Iacus 2025 DynAttn, ZINB-on-VIEWS) used exactly that and won. **Tier 2:** a structural likelihood choice plausibly causing the over-smooth model output, untested against the proven principled alternative; resolve via EXP-2 (dense-supervision, one-variable, teacher-forced).
+
+**Update 2026-06-21 — over-smoothing CONFIRMED real and likelihood-side; mechanism sharpened (proper-score gate, one seed).** Honest scoring of the count/hurdle run vs a shrinkage run at the out-of-sample first step (`proper_score_audit.md`): the shrinkage model **wins CRPS and twCRPS@1 on all three targets** and full-distribution calibration (PITnc-all 0.001 vs 0.179) — so the smear is *not* a metric artifact, a proper score agrees. **But the truncation framing is only part of it:** the earlier dense-NB experiment (RUN-3) showed dense supervision *tamed magnitude without sharpening*, and here the precise defect is that the hurdle/count model **leaks ~0.14 predicted mass onto truly-zero cells** (no clean zero; MCR-all sb 1.028 achieved by smearing). So the lever is the **zero-mass / clean point-mass-at-0 handling** (a sharper gate or a coherent zero-inflated mixture with a learned π₀), not truncation-vs-dense per se. The gap is ~1.4–3.4× (CRPS), not the ~10× FSS implied; the count head is actually *better* on positive-cell magnitude calibration. One seed/origin set — confirm before closing.
+
+**Update 2026-06-22 — multi-seed confirmation; the binding axis is MAGNITUDE CALIBRATION (MCR), not sharpness.** Count (hurdle-NB) vs sharp (shrinkage) ×3 seeds {42,4,7}, pipeline metrics @ teacher-forced T=0 (`reports/2026-06-22_body_multiseed_dossier/results.md`; matches `proper_score_audit` exactly). The body is confirmed the lever, but the binding *unsolved* axis is **MCR**, not sharpness — **neither body lands near MCR=1**: count **over**-fires (MCR 1.5–6.5×, worst on os) while sharp **under**-fires (MCR≈0.03, a near-zero collapse). **Neither body is FAO-eligible** under the locked criteria ([[reference_fao02_locked_eval_framework]]): sharp wins CRPS but fails the QS99 (tail) + MCR (under) guardrails — the timid prophet (see C-126); count fails CRPS superiority + MCR (over). New reliability observation: here the **count** body is the seed-**volatile** one (CRPS CV 0.17; os MCR ±2.0) — the historical "shrinkage is volatile" did NOT reproduce (shrinkage CV 0.004, but that is likely *stably-collapsed*, not robust). **Next lever:** a body whose magnitude lands near MCR=1 without smearing (count) or collapsing (sharp).
+
+---
+
+### C-169: loss-vs-architecture confound — in-sample smoothness may be the ConvLSTM/U-Net low-pass, not the loss
+
+| Field | Value |
+|-------|-------|
+| ID | C-169 |
+| Tier | 3 |
+| Source | expert-method-review (2026-06-20, Shi dissent) |
+| Trigger | Redesigning the likelihood/loss to fix sharpness before isolating whether the convolutional low-pass (blur-tolerant objective) is the cause |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py` (conv encoder/decoder, up/down-sampling); the loss stack |
+| Cross-refs | C-168 (the competing loss hypothesis), C-113 (distinct: rollout *magnitude*, not spatial smoothness) |
+
+Conv + up/down-sampling is a spatial low-pass; MSE/likelihood objectives tolerate blur — the well-known ConvLSTM "blurry nowcast" problem (the precipitation-nowcasting → DGMR/Ravuri 2021 lineage, to fetch). The old model may have been sharp because shrinkage's per-cell penalty *fought* the blur, not because the backbone is sharp. If EXP-2's dense supervision does **not** sharpen, the cause is architectural/objective (adversarial or sharpness-aware score), and likelihood redesign is wasted effort. **Tier 3:** attribution/methodology gap — misdirects effort if unbroken; no corruption. EXP-2's decision rule (sharpens→loss; stays smooth→architecture) is the discriminator.
+
+**RESOLUTION CANDIDATE 2026-06-21 (proper-score gate; direction = the LOSS; one seed — confirm multi-seed before closing).** This is the panel's M-2, now broken in favour of the loss/objective, not the architecture: (a) a single-tile overfit of the **real** backbone with a plain per-cell MSE reproduced a sharp sparse field **exactly** (MSE→1e-6, area-ratio 1.00×, peak-recovery 1.00, 7/7 cells — `overfit_capacity.png`) ⇒ the conv/U-Net + ConvLSTM backbone CAN represent sharpness; and (b) a single MC-dropout draw is **no sharper** than the 8-draw mean (count sb area 2.97× vs 3.26×) ⇒ not an averaging low-pass either. So no backbone/adversarial redesign is needed; the lever is the likelihood (see C-168 update). `scripts/single_window_overfit.py`, dossier `07_results.md`. Kept Open pending a multi-seed/real-window confirmation per the no-hard-verdict discipline.
+
+---
+
+### C-170: Un-freezing the multi-task balancer to fix ns/os under-firing can STARVE the rare targets (Gaussian homoscedastic assumption on heavy-tailed counts)
+
+| Field | Value |
+|-------|-------|
+| ID | C-170 |
+| Tier | 2 |
+| Source | expert-method-review (2026-06-21, Kendall seat) |
+| Trigger | Setting `freeze_multitask_balancer=False` (or otherwise re-enabling Kendall homoscedastic weighting) to fix the `lr_ns`/`lr_os` under-firing, without logging per-task `log_var` trajectories and a σ-divergence stop rule |
+| Location | `views_hydranet/utils/mtloss.py` (`MultiTaskLoss.forward`, the `1/((is_regression+1)·σ²)` coefficients); `views_hydranet/train/training_engine.py:116` (`freeze_multitask_balancer` gate) |
+| Cross-refs | C-124 (balancer regularisation choice), C-113/C-111 (the explosion the freeze was for — distinct axis: rollout, not step-0 weighting), C-112 (pre/post comparability), [[project_proper_score_gate_finding]] |
+
+The frozen balancer (`log_vars=0`) sums the 6 task losses with fixed weights (regression ×0.5, classification ×1.0), equal-weighting `lr_sb`/`lr_ns`/`lr_os` despite their very different scales — the plausible cause of the rare targets (ns 99.92% / os 99.88% zero) under-firing. The obvious fix is to un-freeze the Kendall (2018) homoscedastic balancer. **But its derivation assumes a Gaussian (homoscedastic) task likelihood**, and the targets are extreme heavy-tailed counts (kurtosis 962–15,543). On such a task the rare-event residuals are huge, so the balancer reads high task *noise* and learns a **large σ_ns/σ_os → coefficient `1/2σ²`→0 → it DOWN-weights the already-starved rare tasks** — the opposite of the intended fix, and silent (visible only as degraded ns/os metrics). Mitigation (pre-register before any unfreeze): log per-task `log_var` trajectories; a stop rule (freeze back if σ_ns or σ_os exceeds σ_sb by >~4× mid-training); try the cheaper static `target_weights` probe first; judge at step-0/T=0 decoupled from the C-113 rollout question. **Tier 2:** a realistic next change (the ns/os fix) that can structurally worsen model output on the rarest, most policy-relevant targets.
+
+---
+
+### C-171: FocalLoss docstring falsely claims it "reduces to BCE when gamma=0 and alpha=0.5" (it is 0.5·BCE)
+
+| Field | Value |
+|-------|-------|
+| ID | C-171 |
+| Tier | 4 |
+| Source | falsify (2026-06-23, gate-loss audit, probe P2) |
+| Trigger | A developer reads the docstring and swaps `focal`↔`bce` (or sets α=0.5 expecting a BCE-equivalent gate) assuming equal loss *scale*, without checking the α constant factor |
+| Location | `views_hydranet/utils/focal_loss.py:13-15` (class docstring) |
+| Cross-refs | C-172 (same file, same audit), [[project_gate_loss_finding]] |
+
+The docstring states FocalLoss "reduces to Binary Cross Entropy (BCE) when gamma=0 and alpha=0.5." Verified false: at α=0.5 the `alpha_t` factor is a constant 0.5, so `focal(γ=0, α=0.5) == 0.5·BCE` (probe P2: ratio exactly 0.5000). True BCE-equivalence needs α disabled (α<0) **and** γ=0. The **computed value is correct** — focal matches `torchvision.ops.sigmoid_focal_loss` exactly (probe P1) — so this is a documentation defect, not a math bug. Practical edge: because α scales the classification loss magnitude, a swap made on the false premise of equal scale would silently shift the multi-task reg-vs-cls balance. **Tier 4:** code-quality/doc inaccuracy, no production correctness impact (gate sweep used `reduction='mean'`, α∈{0.25,0.75}, where the formula is verified). Fix: correct the docstring. Failing stub: `tests/test_falsify_gate_losses.py::test_focal_docstring_bce_equivalence_is_accurate`.
+
+---
+
+### C-172: FocalLoss internal `unsqueeze(0)` leaks a leading dim under `reduction='none'`
+
+| Field | Value |
+|-------|-------|
+| ID | C-172 |
+| Tier | 4 |
+| Source | falsify (2026-06-23, gate-loss audit, probe P5) |
+| Trigger | Any future use of `FocalLoss(reduction='none')` for per-cell/masked/spatially-weighted classification loss (e.g., a hurdle_threshold-style mask on the gate, or a weight-head) — the `[1,*input]` output silently broadcasts against an `[*input]` mask |
+| Location | `views_hydranet/utils/focal_loss.py:44` (`logits, targets = logits.unsqueeze(0), targets.unsqueeze(0)`) |
+| Cross-refs | C-171 (same file, same audit), [[project_gate_loss_finding]] |
+
+`FocalLoss.forward` unsqueezes a leading dim ("matches expected pipeline volume format"), so with `reduction='none'` it returns shape `[1, *input]` instead of `[*input]` (probe P5: input `(4,8,8)` → focal `(1,4,8,8)`; `WeightedBCEWithLogitsLoss` correctly preserves `(4,8,8)`). Harmless under `mean`/`sum` (the scalar is unaffected — production + the gate sweep use `mean`), but it is a latent contract inconsistency: focal is the only loss whose `none`-mode output rank differs from its input, so any per-cell weighting code that works for the other losses would silently mis-broadcast with focal. **Tier 4:** no current correctness impact; latent shape-contract trap. Fix: drop the internal `unsqueeze`. Failing stub: `tests/test_falsify_gate_losses.py::test_focal_reduction_none_preserves_input_shape`.
+
+---
+
+### C-173: Channel ROLE is inferred from the column-name prefix — silent mis-classification of incoming columns
+
+| Field | Value |
+|-------|-------|
+| ID | C-173 |
+| Tier | 2 |
+| Source | expert-code-review (2026-06-24, naming-coupling review) |
+| Trigger | Ingesting a new feature/covariate whose column name begins with a reserved prefix (`by_` / `lr_` / `pred_`) but is NOT that role — e.g. a covariate named `by_region` — with no explicit external→role mapping to override the prefix heuristic |
+| Location | `views_hydranet/utils/data_sniffer.py:362` (`startswith("by_")` → "generated binary"); `views_hydranet/utils/feature_scaler.py:228` (`startswith(BINARY_PREFIX)` → skip inverse-transform), `:235` (`removeprefix(PRED_PREFIX)`); `views_hydranet/utils/volume_handler.py:22` (`BINARY_PREFIX`/`PRED_PREFIX`) |
+| Cross-refs | C-160 (channel-role refactor — the fix vehicle: roles as data, not prefixes), C-174, C-120 |
+
+The model derives a channel's **semantic role** (onset gate vs regression magnitude vs model-prediction) by **parsing the column-name prefix**, not from an explicit role declaration. A future incoming column whose name happens to start with a reserved prefix would be **silently** treated as that role — skipped from inverse-transform (`feature_scaler`) or treated as a generated binary target (`data_sniffer`) — with **no error**, producing wrong outputs. The user explicitly flagged "other features coming in at some point," which is exactly the triggering scenario. **Tier 2:** silent mis-classification (no error signal) under a realistic, anticipated change (new features); becomes Tier-1-like if it ever fires on a real covariate. Fix: resolve role from an explicit boundary schema (external name → {role, target_id, transform}); consume roles, not prefixes (aligns with the ADR-062 channel-role refactor, C-160).
+
+**views-frames migration note (source-checked 2026-06-24, `views-frames/src/views_frames/feature_frame.py`):** the planned `FeatureFrame` does NOT fix this. It carries `feature_names: list[str]` (flat, no per-feature role), `FrameMetadata` (model/run_type/timestamp/seed — frame-level provenance only), and `SpatialLevel` (cm/pgm). It is a deliberately thin typed container (ADR-011/013), so **role stays implicit in the name** — the prefix parsing survives, just reading `frame.feature_names`. ⇒ the fix is hydranet's own ingestion boundary (C-160 + a `feature_names→role` adapter), NOT the migration, and is NOT blocked on upstream.
+
+---
+
+### C-174: Column-name string is the unmediated contract + join-key + role — no boundary adapter ⇒ rename/new-feature ripple
+
+| Field | Value |
+|-------|-------|
+| ID | C-174 |
+| Tier | 3 |
+| Source | expert-code-review (2026-06-24, naming-coupling review) + user observation |
+| Trigger | Any upstream column rename (e.g. views-models#151 → #136: `lr_*_best`→`lr_ged_*`) or a new target/feature added to the data — forcing coordinated edits across config target lists, `channel_map`, `feature_scaler`, `data_sniffer`, and ~465 test-fixture literals |
+| Location | `config_initializer.py:39–42` (`regression_targets`/`classification_targets`) + `:252`/`:629`/`:666` (features/target_weights/loss_reg_sigma all keyed by the same name strings); `volume_handler.py:137–178` (`channel_map` from names); `tests/` (~465 hardcoded `lr_*`/`by_*` literals across 40 files) |
+| Cross-refs | C-120 (dual data-layer authority, cross-repo), C-49 (flat config schema), C-160 (role refactor), io_format_landscape #138 (no unified I/O contract) / #140 (dual sniffers) |
+
+The raw upstream column name is overloaded as (a) the cross-repo **contract**, (b) the internal **join key** (the same strings index `regression_targets`, `features`, `target_weights`, `loss_reg_sigma`, and `channel_map`), and (c) the **role** (prefix, see C-173). There is **no anti-corruption layer / single source of truth** at the data boundary, so the name propagates raw into every layer and into 465 test fixtures. Consequence: a single upstream rename is a high-friction, order-dependent, cross-repo edit (the real data rename #151 must precede hydranet's data-coupled edits) with breakage risk, and adding a feature is an edit (not an extension). **Tier 3:** maintainability/coupling raising change cost across repos and the test surface; no standalone correctness impact (the correctness facet is C-173). Fix: a thin boundary adapter mapping external names → internal `{target_id, role, transform}` (single source of truth), + a fixture factory so the vocabulary appears once.
+
+**views-frames migration note (source-checked 2026-06-24):** the dataframe→views-frames switch is a CONTAINER change, not a naming-contract fix. `FeatureFrame` carries names + `SpatialLevel` (typed level) + `FrameMetadata` (typed provenance) — so the migration *does* decomplect **level** and **provenance** out of the name string (real wins, orthogonal to this entry), but **identity + role stay in the name** → this coupling survives. The adapter/single-source-of-truth fix lives at hydranet's ingestion boundary regardless of the migration; the migration just hands a cleaner validated `feature_names` to adapt from.
+
+---
+
+### C-175: lr_↔by_ pairing convention is unenforced ⇒ partial-rename / inconsistency (demonstrated)
+
+| Field | Value |
+|-------|-------|
+| ID | C-175 |
+| Tier | 3 |
+| Source | expert-code-review (2026-06-24) + user observation |
+| Trigger | Renaming or adding a regression target without its onset companion — as #136 did (`lr_*_best`→`lr_ged_*` while leaving `by_*_best`) — with no validator asserting magnitude↔onset pairing completeness |
+| Location | `config_initializer.py` (no cross-validator pairing `regression_targets` ↔ `classification_targets` by base id); `tests/` (post-#136 state: `lr_ged_sb` alongside `by_sb_best`) |
+| Cross-refs | C-174 (same root: no schema), C-173 |
+
+The naming scheme encodes a paired convention (every magnitude `lr_<x>` has an onset `by_<x>`), but **nothing enforces it**. The #136 rename renamed only the `lr_` regression targets, leaving `by_*_best` — a half-renamed, inconsistent scheme that passed green because the suite has no completeness invariant. **Tier 3:** maintainability + latent config/data-mismatch risk (a true mismatch would likely be caught loudly by the existing `features==regression_targets` cross-checks, hence not Tier 2). Fix: a cheap schema-completeness test (every regression target has a matching onset target and vice-versa) — would have caught the `by_sb_best` inconsistency.
+
+---
+
+### C-176: views-frames PredictionFrame dropped the empty-frame (N=0 / S=0) input validation the old pipeline-core class enforced
+
+| Field | Value |
+|-------|-------|
+| ID | C-176 |
+| Tier | 3 |
+| Source | review-diff + falsify-style API probe during S3 of the views-frames migration (#140, 2026-06-24); assembler-path coverage gap added from external code review (2026-06-24, finding #5) |
+| Trigger | An evaluation/forecast rolling-origin where a target yields **zero valid cells** (e.g. an all-masked window, or a target with no `pred_` channel after a config change) — the assembler builds a `(0, S)` frame and it now flows downstream silently instead of raising at construction |
+| Location | `views_hydranet/utils/prediction_frame_assembler.py:_reconstruct_as_pf_dict` (construction); leaf-level contract characterized in `tests/test_prediction_frame_suite.py::test_views_frames_accepts_empty_n_validation_relaxed` / `::..._empty_s_...` — but the **assembler's own** empty-mask path (`tests/test_prediction_frame_assembler.py`) is UNTESTED |
+| Cross-refs | Migration epic #138 (S2 #137, S3 #140) |
+
+The retired `views_pipeline_core` PredictionFrame **rejected** an empty frame (`N=0` rows or `S=0` sample columns) with a `ValueError`; hydranet relied on that loud failure as a backstop against a degenerate origin/target producing nothing. The `views_frames` leaf (1.3.0) **accepts** both — verified by direct probe. So an empty eval frame would now pass construction and reach downstream scoring/merge as a zero-row frame rather than failing fast at the boundary. **Tier 3, not 2:** in practice the PGM mask always has valid cells and S≥1, so the degenerate case is not expected on the live path — but the safety net that used to catch a misconfiguration is gone, and there is no hydranet-side guard replacing it. Two old "Red" rejection tests were converted to characterization tests (asserting the relaxed acceptance) so that a future views-frames tightening re-surfaces this for revisit. *Note: the integer-dtype requirement on `SpatioTemporalIndex` is strictly stronger than before (NaN-in-time now raises `TypeError` at index construction) — a net validation gain, orthogonal to this gap.* Candidate fix (deferred, not in migration scope): a cheap assertion at the assembler boundary that each produced frame has `N>0` and `S>0`, or an explicit decision to allow empty frames with a logged warning. **Coverage facet (external review #5):** the leaf's N=0 acceptance is now characterized, but `_reconstruct_as_pf_dict` driving an all-masked provider to a `(0, S)`/`(0, 1)` frame is not exercised by the assembler's own test suite — if a guard is added per the candidate fix, add the assembler-level empty-mask test alongside it.
+
+---
+
+### C-177: PredictionFrames are emitted with empty FrameMetadata — no model/run_type/seed/run_id provenance stamped
+
+| Field | Value |
+|-------|-------|
+| ID | C-177 |
+| Tier | 4 |
+| Source | external code review of the #137 assembler migration (2026-06-24, finding #3) |
+| Trigger | A downstream consumer (ensemble assembly, audit, or FAO-facing delivery) needs to attribute a persisted PredictionFrame back to the run that produced it (model, run_type, seed, run_id) — e.g. when merging the 8 ensemble members or tracing a forecast artifact |
+| Location | `views_hydranet/utils/prediction_frame_assembler.py:_reconstruct_as_pf_dict` (`PredictionFrame(y_pred=, index=)` passes no `metadata=`) |
+| Cross-refs | C-176 (same construction site); migration epic #138 |
+
+`PredictionFrame(y_pred=, index=)` omits the optional `metadata=` argument, so every assembled frame carries an empty `FrameMetadata`. The `views_frames` leaf supports run identity (ADR-013; `run_id`/`data_version` added in v1.4.0 — repo is on 1.4.0 though pipeline-core 3.0.0 pins `^1.3`), and the assembler is the natural place to stamp `model`/`run_type`/`seed`/`run_id`. **Tier 4:** no correctness or reliability impact today (downstream does not yet rely on frame-level provenance), purely a missing-capability/quality observation. Explicitly **out of scope for #137** (the reviewer flagged it as a future enhancement). Candidate fix: thread run identity into `assemble_evaluation` and pass `metadata=FrameMetadata(...)` at construction once a downstream consumer needs it (likely with the ensemble-merge work).
 
 ---
 
@@ -1328,6 +1422,28 @@ A fourth, **benign** face of the C-156 overload: `_select_display_channels` deri
 
 ---
 
+### D-10: Cure for the name-coupling — boundary adapter/schema vs needless indirection
+
+| Field | Value |
+|-------|-------|
+| ID | D-10 |
+| Source | expert-code-review (2026-06-24, naming-coupling review) |
+| Perspectives | Hickey: the name complects identity + role + provenance; *decomplect* — pass role/identity as explicit data and an explicit external→internal schema, which is **simpler** and removes the ripple (C-174/C-173). Ousterhout: an adapter pays off **only if it is a deep module** (narrow interface — `role_of`/`targets`/`transform_of` — hiding the prefix mess); a wide or general "feature-registry framework" is needless indirection that adds its own complexity and should be rejected. |
+| Resolution | **Open.** Likely synthesis: a **thin** boundary schema (≤3-method interface) — decomplect (Hickey) while keeping it shallow-to-use/deep-in-hiding (Ousterhout). Tie to C-160 (channel-role refactor is the natural vehicle) and C-174. |
+
+---
+
+### D-11: Is the disease the coupling, or just the 465× duplication?
+
+| Field | Value |
+|-------|-------|
+| ID | D-11 |
+| Source | expert-code-review (2026-06-24, naming-coupling review) |
+| Perspectives | Martin/Kleppmann: the disease is the **coupling** — name-as-contract with no boundary schema; the prefix-role parsing is a latent correctness bug (C-173) a fixture fix does not address; add the contract. Cheapest-win/pragmatist: the disease is mostly the **465× fixture duplication** — a single-source-of-truth + fixture factory removes ~90% of the felt pain at ~10% of the cost; the adapter is a larger, deferrable bet. |
+| Resolution | **Open.** Sequencing answer (not either/or): do the cheap single-source-of-truth + fixture factory **first** (low risk, kills most felt friction); treat the boundary adapter/schema (closes C-173) as the deliberate follow-up. See C-174 fix. |
+
+---
+
 ## Tech-Debt Backlog (demoted from register, review-rr 2026-06-05)
 
 Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/single-developer scope — kept for traceability (full entries remain tagged `[DEMOTED]` in §Open Concerns) but no longer counted as active risks. Actionable as ordinary tech-debt, not governance risks.
@@ -1342,6 +1458,90 @@ Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/s
 ---
 
 ## Resolved Concerns
+
+### C-140: ZINB count-space `E[y]` would be double-`expm1`'d by the unchanged inverse transform — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-140 |
+| Tier | 1 |
+| Source | expert-code-review (ZINB Pass-1, 2026-06-10) |
+| Resolution | **RESOLVED BY CONSTRUCTION + TEST (verified 2026-06-25, read-only).** The emit path `HydraNetInference._emit_magnitude` (`hydranet_inference.py:202-217`) returns **`log1p(E[y])`**, not count-space `E[y]`: `hurdle_nb_expected_log1p` (`hurdle_nb.py`) computes the exact zero-truncated mean `e_y = p·μ/(1−NB0(μ,θ))` then returns `torch.log1p(e_y)`, so the downstream `inverse_transform_volume` (`expm1`) recovers `E[y]` exactly — it never `expm1`s a free prediction. This is C-140 fix-option (a). Round-trip test `tests/test_hurdle_nb_inference.py::test_emit_roundtrip_recovers_e_y_no_double_expm1` (+ the `tests/test_hurdle_compose.py` known-value/round-trip suite for nb/lognormal/point) asserts `expm1(out)==E[y]` — C-140 recommendation (3). 13/13 green (CPU-only run). |
+| Cross-refs | C-113 (the explosion this would have re-created), C-142, D-09 |
+
+The #100/#101 implementation followed the recommended fix: emit `log1p(E[y])` so the existing inverse transform recovers count-space `E[y]`, guarded by a dedicated no-double-`expm1` round-trip test. The Tier-1 silent double-transform never materialized.
+
+---
+
+### C-161: violet config operating-point drift — `n_posterior_samples=3` while #110/dossier specify 8 — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-161 |
+| Tier | 2 |
+| Source | /falsify (2026-06-16, "two 8-sample runs" readiness) — P1 |
+| Resolution | **RESOLVED (config fixed #128 2026-06-16; gating OOM check passed, confirmed 2026-06-25).** The config was set to `n_posterior_samples=8` (#128) and the resolution gate — "an 8-sample run completes clean without the C-116 eval OOM" — is now satisfied empirically: the per_step baseline (8 seeds), the views-frames migration smoke, and the active_window ensemble (seeds 11–12 exit 0, more running) all ran train+eval at 8 samples with no OOM (the C-116 OOM is specific to the `--report/-re` publish stage, which `main.py` guards off; eval-only peaks ~2.4 GB). Floor config confirmed at 8. |
+| Cross-refs | C-116/#124 (the `-re` publish OOM — distinct, still open), #110, #127 |
+
+The executable artifact was raised from the temporary C-116 probe value `3` to `8`, and multiple full 8-sample train+eval runs have since completed clean — so launching the documented "8-sample" #110 runs now runs at the correct operating point. The remaining `-re` publish OOM is tracked separately as C-116.
+
+---
+
+### C-147: π = 1−sigmoid(cls) borrowed from the focal head — calibration unverified — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-147 |
+| Tier | 2 |
+| Source | expert-method-review (ZINB Pass-2, 2026-06-10) |
+| Resolution | **CHECKED/FALSIFIED (2026-06-20)** — `scripts/gate_reliability.py`, dossier `2026-06-20_gate_calibration_dossier/`, commit `eb48924`. The gate (`weighted_bce`, not focal) is **calibrated teacher-forced** (STEP-1 ECE 0.005–0.007, mean π ≈ onset prevalence) and miscalibrates **only under the autoregressive rollout** (mean π≈0.70, ECE≈0.69). The "gate loss miscalibrates π" hypothesis is falsified as the cause; the live miscalibration risk migrates to the **rollout-feedback dynamics** (the C-113 amplifier — see [[project_bloom_is_feedback]]), tracked separately as a new pre-registered experiment. Do NOT drop the class weight as a remedy. |
+| Cross-refs | C-143 (composed objective), C-137; live risk migrated to rollout dynamics (Cluster 13) |
+
+π was hypothesised to be miscalibrated as a zero/onset gate because it is borrowed from a focal-trained head. The pre-registered EXP-01 check on R4/R5 across 3 targets falsified that: the gate is calibrated when teacher-forced and only blooms through the rollout. Resolved as a gate-loss concern.
+
+---
+
+### C-157: training diagnostic biopsy is load-bearing — crashes training with a static-widened model — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-157 |
+| Tier | 2 |
+| Source | channel-role side-quest census (2026-06-13); empirically confirmed (first coord smoke crashed here) |
+| Resolution | **FIXED (2026-06-20, #115 4b, commit `b5a3242`)** — the Stage-5 biopsy re-attaches static channels (reads roles via ADR-062 `model_input_cols`), so the diagnostic forward matches the `[dynamic ⧺ static]` model and no longer crashes training. Census `tests/test_channel_role_census.py` green (per C-156 status note). |
+| Cross-refs | C-156 (root), C-118, ADR-062 §2.1 |
+
+The plotting-only Stage-5 biopsy re-ran the forward with `idx.feat` (dynamic only) into a model built for `[dynamic ⧺ static]` → `RuntimeError` in lesson 1. Fixed by the #115 4b role rewire.
+
+---
+
+### C-158: curriculum trains on input-only channels — silent window-sampling corruption — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-158 |
+| Tier | 1 |
+| Source | channel-role side-quest census (2026-06-13); empirically observed (coord run listed coords in subject maxima) |
+| Resolution | **FIXED (2026-06-20, #115 4b, commit `11dc121`)** — the curriculum builds `subjects` from `target_cols` (ADR-062), excluding input-only statics, so coordinates are no longer rotated in as prediction subjects. The silent window-sampling corruption is removed; census green (per C-156 status note). |
+| Cross-refs | C-156 (root), ADR-062 §2.1 |
+
+`subjects = feature_cols` had included input-only statics, silently distorting which windows were sampled (no crash, no tripwire) — the most dangerous of the three faces. Fixed by reading `target_cols`.
+
+---
+
+### C-159: artifact sidecar schema drifts from `choose_model` — deferred reload crash — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-159 |
+| Tier | 2 |
+| Source | channel-role side-quest census (2026-06-13); empirically confirmed (seed42 trained, then eval crashed on reload) |
+| Resolution | **FIXED (2026-06-20, #115 4b, commit `13239b0`)** — `static_channels` is now persisted in the artifact sidecar so `choose_model` rebuilds the model with the correct `n_static` and `load_state_dict` matches the trained checkpoint; coord models reload for eval. Census green (per C-156 status note). |
+| Cross-refs | C-156 (root), C-09, ADR-062 §2.3 |
+
+The sidecar `arch_keys` whitelist had omitted `static_channels`, so reload rebuilt a narrower model and size-mismatched the checkpoint — a deferred crash after full training cost. Fixed by persisting the key.
+
+---
 
 ### C-153: ADR-060 static-channel seam — built coordinated across the pipeline — RESOLVED
 

@@ -81,7 +81,7 @@ def test_census_bug3_sidecar_roundtrips_coord_model():
 
 
 # bug 2 / C-157 — Stage-5 diagnostic biopsy feeds features-only into a static-widened model
-_FEATURES = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
+_FEATURES = ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"]
 _IDENTITY = ["month_id", "priogrid_gid"]
 _BIOPSY_CONFIG = {
     "model": "HydraBNUNet06_LSTM4",

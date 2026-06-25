@@ -242,9 +242,9 @@ class TestRedTargetWeightsValidation:
 
         cfg = {
             **valid_config_dict,
-            "target_weights": {"lr_sb_best": 1.0, "lr_ns_best": 3.0},
+            "target_weights": {"lr_ged_sb": 1.0, "lr_ged_ns": 3.0},
         }
-        with pytest.raises((ValueError, Exception), match="lr_os_best"):
+        with pytest.raises((ValueError, Exception), match="lr_ged_os"):
             HydraNetConfig(**cfg)
 
     def test_target_weights_negative_raises(self, valid_config_dict):
@@ -253,9 +253,9 @@ class TestRedTargetWeightsValidation:
         cfg = {
             **valid_config_dict,
             "target_weights": {
-                "lr_sb_best": 1.0,
-                "lr_ns_best": -1.0,
-                "lr_os_best": 3.0,
+                "lr_ged_sb": 1.0,
+                "lr_ged_ns": -1.0,
+                "lr_ged_os": 3.0,
             },
         }
         with pytest.raises((ValueError, Exception)):
@@ -400,7 +400,7 @@ class TestGreenTrainEntryPoint:
         from views_hydranet.utils.volume_handler import VolumeHandler
 
         T, H, W = 6, 8, 8
-        FEATURES = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
+        FEATURES = ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"]
         IDENTITY = ["month_id", "priogrid_gid"]
         CHANNEL_MAP = IDENTITY + FEATURES
 
@@ -446,9 +446,9 @@ class TestGreenTrainEntryPoint:
             "qs99_weight": 0.1,
             "qs99_tau": 0.99,
             "target_weights": {
-                "lr_sb_best": 1.0,
-                "lr_ns_best": 3.0,
-                "lr_os_best": 5.0,
+                "lr_ged_sb": 1.0,
+                "lr_ged_ns": 3.0,
+                "lr_ged_os": 5.0,
             },
         }
 

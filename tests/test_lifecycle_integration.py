@@ -19,7 +19,7 @@ import torch
 
 pytest.importorskip("views_pipeline_core")
 
-from views_pipeline_core.data.prediction_frame import PredictionFrame
+from views_frames import PredictionFrame
 
 from views_hydranet.manager.hydranet_manager import HydranetManager
 from views_hydranet.train.training_engine import training_loop
@@ -30,7 +30,7 @@ from views_hydranet.train.training_engine import training_loop
 
 H, W = 4, 4
 N_FEATURES = 3
-REG_TARGETS = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
+REG_TARGETS = ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"]
 CLS_TARGETS = ["by_sb_best", "by_ns_best", "by_os_best"]
 ALL_TARGETS = REG_TARGETS + CLS_TARGETS
 
@@ -47,9 +47,9 @@ LIFECYCLE_CFG = {
     "transformations": {"identity": REG_TARGETS},
     "derivations": {
         "binary": [
-            {"from": "lr_sb_best", "to": "by_sb_best", "threshold": 0},
-            {"from": "lr_ns_best", "to": "by_ns_best", "threshold": 0},
-            {"from": "lr_os_best", "to": "by_os_best", "threshold": 0},
+            {"from": "lr_ged_sb", "to": "by_sb_best", "threshold": 0},
+            {"from": "lr_ged_ns", "to": "by_ns_best", "threshold": 0},
+            {"from": "lr_ged_os", "to": "by_os_best", "threshold": 0},
         ]
     },
     "height": H,
@@ -110,9 +110,9 @@ def _make_history_df(n_months=12, h=H, w=W, base_month=100):
                         "priogrid_gid": gid,
                         "row": r,
                         "col": c,
-                        "lr_sb_best": 1.0 + (t - base_month) * 0.1,
-                        "lr_ns_best": 2.0,
-                        "lr_os_best": 0.5,
+                        "lr_ged_sb": 1.0 + (t - base_month) * 0.1,
+                        "lr_ged_ns": 2.0,
+                        "lr_ged_os": 0.5,
                     }
                 )
     return pd.DataFrame(rows)
@@ -240,9 +240,9 @@ class TestGreen:
         for target, pf_list in results.items():
             pf = pf_list[0]
             assert isinstance(pf, PredictionFrame)
-            assert pf.y_pred.ndim == 2
-            assert np.isfinite(pf.y_pred).all(), f"Target {target}: predictions contain NaN/Inf"
-            assert not np.all(pf.y_pred == 0), f"Target {target}: all predictions are zero"
+            assert pf.values.ndim == 2
+            assert np.isfinite(pf.values).all(), f"Target {target}: predictions contain NaN/Inf"
+            assert not np.all(pf.values == 0), f"Target {target}: all predictions are zero"
 
     def test_train_then_forecast_produces_finite_predictions(self, tmp_path):
         """C-68: Same model, forecast path. Verify finite non-zero output."""
@@ -270,7 +270,7 @@ class TestGreen:
         assert isinstance(results, dict)
         for target, pf in results.items():
             assert isinstance(pf, PredictionFrame)
-            assert np.isfinite(pf.y_pred).all(), f"Target {target}: forecast contains NaN/Inf"
+            assert np.isfinite(pf.values).all(), f"Target {target}: forecast contains NaN/Inf"
 
     def test_identity_columns_have_correct_values(self, tmp_path):
         """C-68 + F3-05: Identity columns must survive the pipeline with
@@ -295,7 +295,7 @@ class TestGreen:
 
             results = manager._evaluate_model_artifact(eval_type="calibration")
 
-        pf = results["lr_sb_best"][0]
+        pf = results["lr_ged_sb"][0]
         assert "time" in pf.identifiers
         assert "unit" in pf.identifiers
         time_vals = pf.identifiers["time"]
@@ -353,7 +353,7 @@ class TestBeige:
         for target, pf_list in results.items():
             pf = pf_list[0]
             assert isinstance(pf, PredictionFrame)
-            assert np.isfinite(pf.y_pred).all(), (
+            assert np.isfinite(pf.values).all(), (
                 f"Validation target {target}: predictions contain NaN/Inf"
             )
 

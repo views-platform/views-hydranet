@@ -25,7 +25,7 @@ class _MockModel(nn.Module):
         raise NotImplementedError
 
 
-def _inf(output_distribution="standard", theta=None, targets=("lr_sb_best",)):
+def _inf(output_distribution="standard", theta=None, targets=("lr_ged_sb",)):
     model = _MockModel(output_distribution, theta)
     return HydraNetInference(model, {"regression_targets": list(targets)}, device="cpu")
 
@@ -38,20 +38,20 @@ def test_emit_standard_is_identity():
 
 def test_emit_hurdle_nb_known_value():
     # mu=2, p=0.5, theta=1 -> NB0=1/3 -> E[y]=0.5*2/(2/3)=1.5 -> emit=log1p(1.5)
-    inf = _inf("hurdle_nb", {"lr_sb_best": 1.0})
+    inf = _inf("hurdle_nb", {"lr_ged_sb": 1.0})
     out = inf._emit_magnitude(torch.tensor([[[[2.0]]]]), torch.tensor([[[[0.5]]]]))
     assert torch.allclose(out, torch.tensor([[[[math.log1p(1.5)]]]]), atol=1e-5)
 
 
 def test_emit_roundtrip_recovers_e_y_no_double_expm1():
-    inf = _inf("hurdle_nb", {"lr_sb_best": 1.0})
+    inf = _inf("hurdle_nb", {"lr_ged_sb": 1.0})
     out = inf._emit_magnitude(torch.tensor([[[[2.0]]]]), torch.tensor([[[[0.5]]]]))
     assert torch.allclose(torch.expm1(out), torch.tensor([[[[1.5]]]]), atol=1e-5)
 
 
 def test_emit_small_mu_is_finite_and_tends_to_p():
     # E[y] -> p as mu -> 0 (truncated body mean -> 1); must be finite (no 0/0 blow-up).
-    inf = _inf("hurdle_nb", {"lr_sb_best": 1.0})
+    inf = _inf("hurdle_nb", {"lr_ged_sb": 1.0})
     out = inf._emit_magnitude(torch.tensor([[[[1e-6]]]]), torch.tensor([[[[0.4]]]]))
     assert torch.isfinite(out).all()
     assert torch.allclose(torch.expm1(out), torch.tensor([[[[0.4]]]]), atol=1e-2)

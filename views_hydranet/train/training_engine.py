@@ -161,6 +161,22 @@ def _attach_static_channels(
     return dyn_input
 
 
+def _active_window_mask(reg_target_window: torch.Tensor, threshold: float) -> torch.Tensor:
+    """Cells active (> ``threshold``) at ANY timestep in the window.
+
+    Args:
+        reg_target_window: regression targets ``[B, T, n_reg, H, W]`` over the window.
+        threshold: hurdle threshold (a cell counts as active where ``y > threshold``).
+
+    Returns:
+        ``[B, n_reg, H, W]`` bool — True for a cell active at any timestep. Used by
+        ``hurdle_mask_mode='active_window'`` to supervise the FULL timeline of ever-active
+        cells (incl. their post-conflict zero steps — the decay signal the per-step mask
+        drops; dossier 15), while never-active (structural-zero) cells stay excluded.
+    """
+    return (reg_target_window > threshold).any(dim=1)
+
+
 def _process_sequence(
     train_tensor: torch.Tensor,
     model: nn.Module,
@@ -177,6 +193,7 @@ def _process_sequence(
     qs99_tau: float | None = None,
     target_weights: dict[str, float] | None = None,
     ss_epsilon: float = 0.0,
+    hurdle_mask_mode: str = "per_step",
 ) -> dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
@@ -198,6 +215,13 @@ def _process_sequence(
         use_latent = any(getattr(v, "needs_latent", False) for v in criterion_reg.values())
     else:
         use_latent = getattr(criterion_reg, "needs_latent", False) is True
+
+    # Opt-in (C-45 successor, dossier 15): supervise the regression loss on the full window
+    # timeline of any cell active anywhere in the window (teaches the conflict→peace decay),
+    # not just per-timestep positives. Computed once; None ⇒ default per-step mask (unchanged).
+    active_cell: torch.Tensor | None = None
+    if hurdle_threshold is not None and not use_latent and hurdle_mask_mode == "active_window":
+        active_cell = _active_window_mask(train_tensor[:, 1:, idx.reg, :, :], hurdle_threshold)
 
     prev_pred: torch.Tensor | None = None
 
@@ -259,8 +283,12 @@ def _process_sequence(
                 tw = target_weights[idx.reg_names[j]]
 
             if hurdle_threshold is not None and not use_latent:
-                # C-45: Regression loss on positive observations only
-                mask = target_j > hurdle_threshold
+                # C-45: per-step positives, OR (hurdle_mask_mode='active_window') the full
+                # timeline of ever-active cells — the decay signal (dossier 15).
+                if active_cell is not None:
+                    mask = active_cell[:, j]
+                else:
+                    mask = target_j > hurdle_threshold
                 if mask.any():
                     losses_list.append(tw * loss_fn_j(pred_j[mask], target_j[mask]))
                 else:
@@ -436,6 +464,7 @@ def train(
         qs99_tau=config.get("qs99_tau"),
         target_weights=config.get("target_weights"),
         ss_epsilon=ss_epsilon,
+        hurdle_mask_mode=config.get("hurdle_mask_mode", "per_step"),
     )
     step_total, step_reg, step_cls = result["per_step_losses"]
 

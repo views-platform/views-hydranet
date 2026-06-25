@@ -26,7 +26,7 @@ from views_hydranet.utils.volume_handler import VolumeHandler
 # ---------------------------------------------------------------------------
 
 T, H, W = 6, 8, 8
-FEATURES = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
+FEATURES = ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"]
 IDENTITY = ["month_id", "priogrid_gid"]
 CHANNEL_MAP = IDENTITY + FEATURES
 N_REG = 3

@@ -24,18 +24,18 @@ MINIMAL_CFG = {
     "time_steps": 1,
     "input_channels": 3,
     "output_channels": 1,
-    "regression_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "regression_targets": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
     "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
     "identity_cols": ["month_id", "priogrid_gid"],
-    "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "features": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
     "transformations": {
-        "identity": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+        "identity": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
     },
     "derivations": {
         "binary": [
-            {"from": "lr_sb_best", "to": "by_sb_best", "threshold": 0},
-            {"from": "lr_ns_best", "to": "by_ns_best", "threshold": 0},
-            {"from": "lr_os_best", "to": "by_os_best", "threshold": 0},
+            {"from": "lr_ged_sb", "to": "by_sb_best", "threshold": 0},
+            {"from": "lr_ged_ns", "to": "by_ns_best", "threshold": 0},
+            {"from": "lr_ged_os", "to": "by_os_best", "threshold": 0},
         ]
     },
     "height": 4,
@@ -159,7 +159,7 @@ class TestPartialProjectionSliceOverflow:
                 origin_idx=0,
                 is_backtest=True,
                 n_origins=1,
-                target_names=["lr_sb_best"],
+                target_names=["lr_ged_sb"],
             )
 
 
@@ -178,9 +178,9 @@ class TestForecastSnifferNeverCalled:
                 "priogrid_gid": list(range(1, 17)) * 12,
                 "row": [0] * 192,
                 "col": [0] * 192,
-                "lr_sb_best": [1.0] * 192,
-                "lr_ns_best": [1.0] * 192,
-                "lr_os_best": [1.0] * 192,
+                "lr_ged_sb": [1.0] * 192,
+                "lr_ged_ns": [1.0] * 192,
+                "lr_ged_os": [1.0] * 192,
             }
         )
 

@@ -18,6 +18,12 @@ from __future__ import annotations
 
 import torch
 
+# Float-overflow guard for the expm1-based composes (lognormal/point). The log1p data range is
+# ~12; 30 is far above any realistic prediction (incl. all teacher-forced T=0) yet far below the
+# float64 expm1 overflow (~709). It caps ONLY pathological autoregressive-rollout values that would
+# otherwise emit inf and make EvaluationFrame reject the whole frame (aborting even finite T=0).
+_EMIT_LOG_CEIL = 30.0
+
 
 def hurdle_nb_expected_log1p(
     reg: torch.Tensor, prob: torch.Tensor, theta: torch.Tensor
@@ -40,3 +46,40 @@ def hurdle_nb_expected_log1p(
     nb0 = (theta64 / (theta64 + mu)) ** theta64  # NB(0; mu, theta)
     e_y = p * mu / (1.0 - nb0).clamp_min(1e-8)
     return torch.log1p(e_y).to(out_dtype)
+
+
+def hurdle_lognormal_expected_log1p(
+    reg: torch.Tensor, prob: torch.Tensor, sigma: torch.Tensor
+) -> torch.Tensor:
+    """``log1p(E[y])`` for a hurdle with a LOGNORMAL (log1p-space Gaussian) positive body.
+
+    The body (``LogNormalFixedSigmaLoss``) trains ``log1p(y) ~ N(reg, sigma^2)`` on positive cells
+    (``reg`` = ReLU log1p head, ``sigma`` fixed). So ``y = expm1(Z), Z~N(reg, sigma^2)`` and
+    ``E[y|y>0] = E[e^Z] - 1 = expm1(reg + sigma^2/2)``. The ``sigma^2/2`` is the exact predictive
+    mean of ``expm1(Gaussian)`` (Jensen, not optional). Hurdle:
+    ``E[y] = P(y>0) * expm1(reg + sigma^2/2)``, returned as ``log1p(E[y])`` (count-space contract).
+
+    Args:
+        reg: log1p-space body mean (ReLU head). prob: ``P(y>0)``. sigma: fixed scale (>0),
+        broadcastable to ``reg`` (e.g. ``[1, C, 1, 1]``).
+    """
+    out_dtype = reg.dtype
+    s2 = sigma.to(device=reg.device, dtype=torch.float64) ** 2
+    mu = reg.to(torch.float64)
+    p = prob.to(torch.float64)
+    e_y = p * torch.expm1((mu + 0.5 * s2).clamp_max(_EMIT_LOG_CEIL))  # overflow guard
+    return torch.log1p(e_y.clamp_min(0.0)).to(out_dtype)
+
+
+def hurdle_point_expected_log1p(reg: torch.Tensor, prob: torch.Tensor) -> torch.Tensor:
+    """``log1p(E[y])`` for a hurdle with a POINT positive body (e.g. shrinkage) in log1p space.
+
+    ``reg`` is the log1p-space point prediction on positive cells, so ``E[y|y>0] = expm1(reg)``
+    and ``E[y] = P(y>0) * expm1(reg)``; returned as ``log1p(E[y])`` (count-space contract). No
+    distribution parameters — the point estimate is the conditional mean.
+    """
+    out_dtype = reg.dtype
+    p = prob.to(torch.float64)
+    arg = reg.to(torch.float64).clamp_min(0.0).clamp_max(_EMIT_LOG_CEIL)  # overflow guard
+    e_y = p * torch.expm1(arg)
+    return torch.log1p(e_y.clamp_min(0.0)).to(out_dtype)
