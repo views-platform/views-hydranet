@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-24                           |
-| Total Concerns    | 178                                  |
-| Open Concerns     | 73                                   |
+| Total Concerns    | 179                                  |
+| Open Concerns     | 74                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 105                                  |
 
@@ -1365,6 +1365,23 @@ The regression-head output activation `reg_activation` changes the forward funct
 | Cross-refs | C-178, ADR-063; the active_window mask (dossier `2026-06-23_body_sweep_dossier/16`) |
 
 `active_cell` is computed only when `not use_latent`, and the masked hurdle-loss branch is likewise gated on `not use_latent`. So a config that asks for `active_window` decay supervision **while using a latent loss** gets **no active-window supervision at all — silently, with no warning or error**. The behaviour is *semantically* defensible (latent losses model the zeros/censoring themselves, so a hurdle mask does not apply), but the silent no-op of an explicitly-set flag means the user believes decay supervision is on when it is not — exactly the kind of invisible config drift that produced a multi-week mis-attribution before. **Tier 3:** no correctness corruption (the latent loss is doing the right thing), but a maintainability/honesty gap that misleads experiment design. Fix: log a warning (or fail-loud reject) when `active_window` is combined with a latent loss. Failing test: `tests/test_falsify_head_mask_round2.py::test_active_window_with_latent_loss_warns_or_raises`.
+
+---
+
+### C-181: classification (gate) loss has no valid-cell mask — the gate trains on ~60% structural-zero ocean cells (train/eval distribution mismatch)
+
+| Field | Value |
+|-------|-------|
+| ID | C-181 |
+| Tier | 4 |
+| Source | /falsify "classification head + mask 100% correct" (2026-06-26) — P5, SOFT; downgraded after the A/B (benign) |
+| Trigger | Training any onset gate; acute when diagnosing gate under-prediction / the ns-os under-firing (the gate hedges low) |
+| Location | `views_hydranet/train/training_engine.py:330` (`criterion_class(t1_pred_class[:, j], y_cls[:, j])` — full grid, unmasked); `views_hydranet/utils/volume_handler.py:236` (`np.zeros` grid fill) |
+| Cross-refs | C-168 / C-170 (gate localization / over-mass on rare targets), C-178 (the reg-side mask findings), ADR-064 |
+
+The classification loss is computed on the **entire** `[H, W]` grid with **no valid-cell mask**, but the grid is **zero-filled** (`np.zeros`), so the ~60% of window cells that are ocean (no priogrid_gid) are supervised as `by_=0` negatives. This is **asymmetric**: the regression body is hurdle-masked (land positives / active cells only) and the evaluation is priogrid-masked (land only), but the gate is **neither**. Because there is no land-mask feature, the gate cannot distinguish quiet land (0 input) from ocean (0 input), so the structural-zero ocean negatives **dilute the learned base rate**, biasing the gate toward under-prediction on land — a plausible contributor to the gate-hedges-low effect behind ns/os under-firing. **Tier 3:** not a silent wrong-output on scored cells (eval masks to land; gate-reliability C-147 found land calibration OK at STEP-1, so the dilution is not catastrophic), but a real, undocumented, **untested** train/eval distribution mismatch on the gate. **Fix is a DECISION** (mask the cls loss to valid/land cells to match reg + eval — changes gate training dynamics, so it needs an A/B to confirm it helps, not a blind change). Failing test: `tests/test_falsify_classification_mask.py::test_classification_loss_restricted_to_valid_cells`.
+
+**UPDATE — A/B RUN (2026-06-26, dossier `2026-06-23_body_sweep_dossier/18`): masking is BENIGN, no benefit.** The opt-in `cls_valid_mask` was implemented and A/B'd (land-masked gate vs full-grid, softplus active_window base, seeds 11/12). Result: MCR_pos / CRPS_pos are **within seed noise on all three targets** (sb 0.448→0.437 / 16.96→17.03, ns/os unchanged at ~0.005/~0.007) — sb marginally *worse* masked. ⇒ the ocean dilution does **not** materially affect outputs (the gate already separates ocean from land via the zero input); the train/eval mismatch is real but immaterial. ns/os under-firing is therefore **NOT** a maskable training artifact — it's the irreducible rare-onset hedge. **Downgraded to Tier 4** (confirmed no correctness/reliability impact). **Disposition: do NOT adopt land-masking as default.** The `cls_valid_mask` opt-in is **KEPT** (off by default, byte-unchanged, tested) as a ready lever for a future smarter gate design that might exploit it. Kept open (not resolved) as that future-work hook.
 
 ---
 

@@ -197,6 +197,7 @@ def _process_sequence(
     target_weights: dict[str, float] | None = None,
     ss_epsilon: float = 0.0,
     hurdle_mask_mode: str = "per_step",
+    cls_valid_mask: torch.Tensor | None = None,
 ) -> dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
@@ -327,7 +328,14 @@ def _process_sequence(
                 losses_list.append(tw * loss_fn_j(pred_j, target_j))
 
         for j in range(idx.n_cls):
-            losses_list.append(criterion_class(t1_pred_class[:, j, :, :], y_cls[:, j, :, :]))
+            pred_cj = t1_pred_class[:, j, :, :]
+            targ_cj = y_cls[:, j, :, :]
+            # C-181 (opt-in A/B): restrict the gate loss to valid (land) cells, matching the
+            # hurdle-masked reg loss and the priogrid-masked eval. None ⇒ full grid (default).
+            if cls_valid_mask is not None:
+                pred_cj = pred_cj[:, cls_valid_mask]
+                targ_cj = targ_cj[:, cls_valid_mask]
+            losses_list.append(criterion_class(pred_cj, targ_cj))
 
         losses = torch.stack(losses_list)
         loss = cast(Any, multitaskloss_instance)(losses)
@@ -460,6 +468,15 @@ def train(
                 exc_info=True,
             )
 
+    # C-181 (opt-in A/B): land mask for the gate loss, read from the priogrid (id_col) channel
+    # via include_identities=True so it is North-Up aligned with the model tensor. None ⇒ off
+    # (gate trained on the full zero-filled grid, the default).
+    cls_valid_mask = None
+    if config.get("cls_valid_mask"):
+        _full = sample_handler.to_pytorch(device, include_identities=True)  # [B, T, C_full, H, W]
+        _pg = sample_handler.channel_map.index(sample_handler.id_col)
+        cls_valid_mask = _full[0, 0, _pg] > 0  # [H, W] bool — land cells
+
     # --- CORE SEQUENCE PROCESSING ---
     result = _process_sequence(
         train_tensor,
@@ -478,6 +495,7 @@ def train(
         target_weights=config.get("target_weights"),
         ss_epsilon=ss_epsilon,
         hurdle_mask_mode=config.get("hurdle_mask_mode", "per_step"),
+        cls_valid_mask=cls_valid_mask,
     )
     step_total, step_reg, step_cls = result["per_step_losses"]
 
