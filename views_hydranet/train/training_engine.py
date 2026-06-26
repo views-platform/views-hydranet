@@ -39,6 +39,9 @@ from views_hydranet.utils.volume_sampler import VolumeSampler
 
 logger = logging.getLogger(__name__)
 
+# C-180: warn-once guard — active_window is a no-op under a latent loss (see _process_sequence).
+_active_window_latent_warned = False
+
 
 def _init_classification_head_bias(model: nn.Module, bias_value: float) -> None:
     """
@@ -220,6 +223,16 @@ def _process_sequence(
     # timeline of any cell active anywhere in the window (teaches the conflict→peace decay),
     # not just per-timestep positives. Computed once; None ⇒ default per-step mask (unchanged).
     active_cell: torch.Tensor | None = None
+    # C-180: active_window is silently inapplicable under a latent loss (the latent loss models
+    # zeros/censoring itself). Warn loudly once so the config flag is not silently a no-op.
+    global _active_window_latent_warned
+    if hurdle_mask_mode == "active_window" and use_latent and not _active_window_latent_warned:
+        logger.warning(
+            "C-180: hurdle_mask_mode='active_window' is IGNORED under a latent loss "
+            "(needs_latent=True) — no active-window decay supervision is applied. Use 'per_step' "
+            "or a non-latent loss if you want the decay mask."
+        )
+        _active_window_latent_warned = True
     if hurdle_threshold is not None and not use_latent and hurdle_mask_mode == "active_window":
         active_cell = _active_window_mask(train_tensor[:, 1:, idx.reg, :, :], hurdle_threshold)
 

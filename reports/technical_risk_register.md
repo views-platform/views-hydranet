@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-24                           |
-| Total Concerns    | 176                                  |
-| Open Concerns     | 71                                   |
+| Total Concerns    | 178                                  |
+| Open Concerns     | 73                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 105                                  |
 
@@ -1334,7 +1334,37 @@ The retired `views_pipeline_core` PredictionFrame **rejected** an empty frame (`
 | Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:85` (`self._reg_activation = F.softplus if output_distribution=="hurdle_nb" else F.relu`); interacts with the active_window zero-supervision in `training_engine.py` |
 | Cross-refs | [[project_body_loss_not_the_lever]] (#66 flatline + #73 shrinkage puzzle — both explained by this); test `tests/test_falsify_reg_head_dead_relu.py` |
 
-The regression head uses **ReLU** for every output_distribution except `hurdle_nb`. Under the active_window mask the rare targets' pre-activation `H_reg` drifts **negative on 100% of cells (including event cells)**, so `ReLU` clamps the body to **identically 0** and — because `ReLU'(<0)=0` — **no gradient flows back**, making it unrecoverably DEAD. Verified by real forward on the aw seed-11 artifact: lr_ns_best / lr_os_best emit `out_reg==0` everywhere (pre-activation max < 0) while the **gate fires normally** (σ up to 1.0) — so the composed `E[y]` is ~0 not because of the gate but because the body is dead. This is the silent mechanism behind the #66 ns/os flatline (MCR_pos=0.000, CRPS_pos=mean_truth exactly) and the #73 shrinkage "puzzle" (no body loss can resurrect a zero-gradient ReLU). **Tier 1:** silent model-output incorrectness with no error signal (the forecast for 2/3 targets is identically 0). **Mitigation already in place for production:** the shipped floor uses `output_distribution='hurdle_nb'` → **softplus** (always positive, non-zero gradient) → NOT affected; the defect is gated to the experimental hurdle point/shrinkage/lognormal bodies. Candidate fix (under test): set `reg_activation='softplus'` for the hurdle point bodies (config-only; `choose_model` already threads it). The failing test asserts this contract.
+The regression head uses **ReLU** for every output_distribution except `hurdle_nb`. Under the active_window mask the rare targets' pre-activation `H_reg` drifts **negative on 100% of cells (including event cells)**, so `ReLU` clamps the body to **identically 0** and — because `ReLU'(<0)=0` — **no gradient flows back**, making it unrecoverably DEAD. Verified by real forward on the aw seed-11 artifact: lr_ns_best / lr_os_best emit `out_reg==0` everywhere (pre-activation max < 0) while the **gate fires normally** (σ up to 1.0) — so the composed `E[y]` is ~0 not because of the gate but because the body is dead. This is the silent mechanism behind the #66 ns/os flatline (MCR_pos=0.000, CRPS_pos=mean_truth exactly) and the #73 shrinkage "puzzle" (no body loss can resurrect a zero-gradient ReLU). **Tier 1:** silent model-output incorrectness with no error signal (the forecast for 2/3 targets is identically 0). **Mitigation already in place for production:** the shipped floor uses `output_distribution='hurdle_nb'` → **softplus** (always positive, non-zero gradient) → NOT affected; the defect is gated to the experimental hurdle point/shrinkage/lognormal bodies. **FIXED (shipped `ee5a593`, ADR-063):** softplus is now the architecture default for ALL hurdle bodies (`HydraBNUNet06_LSTM4:85`, `startswith("hurdle")`); failing test `test_falsify_reg_head_dead_relu.py` is green. The reload-completeness follow-on is **C-179**.
+
+---
+
+### C-179: `reg_activation` is arch-affecting but NOT persisted in the artifact sidecar — silent activation mismatch on reload
+
+| Field | Value |
+|-------|-------|
+| ID | C-179 |
+| Tier | 2 |
+| Source | /falsify "regression head + mask now 100% correct" round 2 (2026-06-26) — Finding A, SOFT |
+| Trigger | Reload (eval/forecast/replay) a model trained with an **explicit `reg_activation` override**, or a pre-#178 relu-trained `hurdle_shrinkage`/`hurdle_lognormal` artifact, while the live config's activation default differs from training |
+| Location | `views_hydranet/train/train_model.py:75-92` (`arch_keys` / `config_snapshot` — persists `output_distribution`, `static_channels`, but NOT `reg_activation`); `views_hydranet/utils/utils.py` `choose_model` (`reg_activation=config.get("reg_activation")`) |
+| Cross-refs | C-159 (same sidecar-drift class — but that one crashed loud; this is silent), C-178 (the softplus fix this completes), ADR-063 |
+
+The regression-head output activation `reg_activation` changes the forward function but is **absent from the persisted sidecar `arch_keys`**. On reload, `choose_model` therefore derives the activation from the *current* default (keyed off `output_distribution`, which IS persisted), **not** from what the model was trained with. Because softplus and ReLU share weight shapes, `load_state_dict` succeeds silently — so a model trained with one activation runs the forward with another, producing **wrong predictions with no error signal**. Demonstrated: a relu-trained `hurdle_shrinkage` artifact reloads as softplus (the round-2 probe hit this). **Tier 2:** silent-but-gated — it bites only when the trained activation differs from the reload-time default (explicit override, or a pre-#178 artifact); the production `hurdle_nb` path defaulted to softplus before and after, so it is unaffected. The fix mirrors the adjacent `output_distribution` line (`train_model.py:92`, whose comment already says "persist the head flag (else hurdle_nb reloads as ReLU)"): add `reg_activation` to the snapshot. Failing test: `tests/test_falsify_head_mask_round2.py::test_reg_activation_round_trips_through_sidecar`.
+
+---
+
+### C-180: `active_window` hurdle mask is silently ignored under a latent loss — config no-op with no warning
+
+| Field | Value |
+|-------|-------|
+| ID | C-180 |
+| Tier | 3 |
+| Source | /falsify "regression head + mask now 100% correct" round 2 (2026-06-26) — Finding B, SOFT |
+| Trigger | Set `hurdle_mask_mode='active_window'` together with a `needs_latent=True` loss (`tobit`, `hurdle_nb`, `dense_nb`) |
+| Location | `views_hydranet/train/training_engine.py:223` (`if hurdle_threshold is not None and not use_latent and hurdle_mask_mode == "active_window"`) |
+| Cross-refs | C-178, ADR-063; the active_window mask (dossier `2026-06-23_body_sweep_dossier/16`) |
+
+`active_cell` is computed only when `not use_latent`, and the masked hurdle-loss branch is likewise gated on `not use_latent`. So a config that asks for `active_window` decay supervision **while using a latent loss** gets **no active-window supervision at all — silently, with no warning or error**. The behaviour is *semantically* defensible (latent losses model the zeros/censoring themselves, so a hurdle mask does not apply), but the silent no-op of an explicitly-set flag means the user believes decay supervision is on when it is not — exactly the kind of invisible config drift that produced a multi-week mis-attribution before. **Tier 3:** no correctness corruption (the latent loss is doing the right thing), but a maintainability/honesty gap that misleads experiment design. Fix: log a warning (or fail-loud reject) when `active_window` is combined with a latent loss. Failing test: `tests/test_falsify_head_mask_round2.py::test_active_window_with_latent_loss_warns_or_raises`.
 
 ---
 

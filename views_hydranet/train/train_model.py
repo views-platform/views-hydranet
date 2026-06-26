@@ -90,6 +90,10 @@ def train_model_artifact(
         # #101: persist the head flag (else hurdle_nb reloads as ReLU) + the learned per-target
         # NB dispersion theta (needed for the exact hurdle-NB mean at inference).
         config_snapshot["output_distribution"] = config.get("output_distribution", "standard")
+        # C-179: persist the RESOLVED reg-head activation (the function actually used) so a reload
+        # uses the trained activation even if the default keyed off output_distribution changes
+        # (ADR-063). softplus/relu share weight shapes => a mismatch loads silently, wrong.
+        config_snapshot["reg_activation"] = model._reg_activation.__name__
         criterion_reg = criterion[0]
         is_hurdle = config_snapshot["output_distribution"] == "hurdle_nb"
         if is_hurdle and isinstance(criterion_reg, dict):
