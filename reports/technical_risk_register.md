@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-06-24                           |
-| Total Concerns    | 175                                  |
-| Open Concerns     | 70                                   |
+| Total Concerns    | 176                                  |
+| Open Concerns     | 71                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 105                                  |
 
@@ -1320,6 +1320,21 @@ The retired `views_pipeline_core` PredictionFrame **rejected** an empty frame (`
 | Cross-refs | C-176 (same construction site); migration epic #138 |
 
 `PredictionFrame(y_pred=, index=)` omits the optional `metadata=` argument, so every assembled frame carries an empty `FrameMetadata`. The `views_frames` leaf supports run identity (ADR-013; `run_id`/`data_version` added in v1.4.0 — repo is on 1.4.0 though pipeline-core 3.0.0 pins `^1.3`), and the assembler is the natural place to stamp `model`/`run_type`/`seed`/`run_id`. **Tier 4:** no correctness or reliability impact today (downstream does not yet rely on frame-level provenance), purely a missing-capability/quality observation. Explicitly **out of scope for #137** (the reviewer flagged it as a future enhancement). Candidate fix: thread run identity into `assemble_evaluation` and pass `metadata=FrameMetadata(...)` at construction once a downstream consumer needs it (likely with the ensemble-merge work).
+
+---
+
+### C-178: dead-ReLU regression body silently emits identically-zero predictions for rare targets under the hurdle mask
+
+| Field | Value |
+|-------|-------|
+| ID | C-178 |
+| Tier | 1 |
+| Source | /falsify "regression head + mask 100% correct" (2026-06-25) — P2, FALSIFIED |
+| Trigger | Training a non-`hurdle_nb` hurdle point body (`output_distribution='hurdle_shrinkage'` or `'hurdle_lognormal'`, with `reg_activation` unset) under the `active_window` mask (heavy zero-supervision) on a sparse target — i.e. exactly the #66/#73 runs |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:85` (`self._reg_activation = F.softplus if output_distribution=="hurdle_nb" else F.relu`); interacts with the active_window zero-supervision in `training_engine.py` |
+| Cross-refs | [[project_body_loss_not_the_lever]] (#66 flatline + #73 shrinkage puzzle — both explained by this); test `tests/test_falsify_reg_head_dead_relu.py` |
+
+The regression head uses **ReLU** for every output_distribution except `hurdle_nb`. Under the active_window mask the rare targets' pre-activation `H_reg` drifts **negative on 100% of cells (including event cells)**, so `ReLU` clamps the body to **identically 0** and — because `ReLU'(<0)=0` — **no gradient flows back**, making it unrecoverably DEAD. Verified by real forward on the aw seed-11 artifact: lr_ns_best / lr_os_best emit `out_reg==0` everywhere (pre-activation max < 0) while the **gate fires normally** (σ up to 1.0) — so the composed `E[y]` is ~0 not because of the gate but because the body is dead. This is the silent mechanism behind the #66 ns/os flatline (MCR_pos=0.000, CRPS_pos=mean_truth exactly) and the #73 shrinkage "puzzle" (no body loss can resurrect a zero-gradient ReLU). **Tier 1:** silent model-output incorrectness with no error signal (the forecast for 2/3 targets is identically 0). **Mitigation already in place for production:** the shipped floor uses `output_distribution='hurdle_nb'` → **softplus** (always positive, non-zero gradient) → NOT affected; the defect is gated to the experimental hurdle point/shrinkage/lognormal bodies. Candidate fix (under test): set `reg_activation='softplus'` for the hurdle point bodies (config-only; `choose_model` already threads it). The failing test asserts this contract.
 
 ---
 

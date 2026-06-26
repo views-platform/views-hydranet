@@ -69,11 +69,14 @@ Architectural decisions specific to the HydraNet system.
 - **[059](active/059_predictive_uncertainty_representation.md)**: ADR-059: Predictive Uncertainty — MC-Dropout Now, Learned Posterior as the Target
 - **[060](active/060_static_exogenous_input_channels.md)**: ADR-060: Static & Architectural Input Channels
 - **[061](active/061_coordinate_channels.md)**: ADR-061: Coordinate Channels for Spatial Grounding (CoordConv)
+- **[063](active/063_regression_head_output_activation.md)**: ADR-063: Regression-head output activation — softplus for hurdle bodies, ReLU for standard
+- **[064](active/064_classification_head_output_activation.md)**: ADR-064: Classification-head output activation — raw logits + sigmoid-via-BCE-with-logits
 
 ## [Proposed (Emerging)](./proposed/)
 
 - **[053](proposed/053_build_and_package_management_tooling.md)**: Build and Package Management Tooling
 - **[057](proposed/057_variational_dropout_autoregressive_stability.md)**: ADR-057: Variational (Consistent-Mask) Dropout for Autoregressive Stability
+- **[062](proposed/062_channel_role_accessors_and_volumehandler_decomposition.md)**: ADR-062: Channel-Role Accessors + VolumeHandler Decomposition
 
 ## [Archive (Historical)](./archive/)
 

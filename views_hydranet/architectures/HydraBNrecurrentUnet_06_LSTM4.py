@@ -74,15 +74,20 @@ class HydraBNUNet06_LSTM4(nn.Module):
         # #100: hurdle-NB needs a count-space mean mu at the output; softplus keeps it
         # sub-exponential. Default "standard" => ReLU => byte-identical to pre-#100.
         self.output_distribution = output_distribution
-        # Default keys off output_distribution (hurdle_nb=>softplus, else=>relu); reg_activation
-        # overrides it (Exp B: decouple the emit activation from the loss/likelihood). The body
-        # losses softplus the latent internally, so this only changes the EMITTED/fed-back value.
+        # Default keys off output_distribution: ALL hurdle bodies => softplus, "standard" => relu.
+        # reg_activation overrides it (Exp B: decouple emit activation from the loss/likelihood).
+        # C-178: a ReLU output head dies on rare targets under the hurdle mask (pre-activation
+        # drifts 100% negative => ReLU==0 with zero gradient => unrecoverable). softplus is always
+        # positive with non-zero gradient, so it cannot die. hurdle_nb already used softplus;
+        # extend to all hurdle bodies. "standard" keeps relu (byte-identical to pre-#100).
         if reg_activation == "softplus":
             self._reg_activation = F.softplus
         elif reg_activation == "relu":
             self._reg_activation = F.relu
         else:
-            self._reg_activation = F.softplus if output_distribution == "hurdle_nb" else F.relu
+            self._reg_activation = (
+                F.softplus if output_distribution.startswith("hurdle") else F.relu
+            )
 
         # ADR-061 top-skip: the last n_static_channels of the input are static (e.g. coordinates);
         # re-injected raw at each decoder head's full-resolution dec_conv1. 0 => byte-identical.
