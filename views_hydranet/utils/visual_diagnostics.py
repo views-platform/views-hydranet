@@ -462,61 +462,79 @@ class VisualDiagnostics:
             pred = np.stack(pred_seq)  # [6, H, W, C]
             delta = np.abs(truth - pred)
 
-            n_times = 6
-
-            # To keep it "Joyful" and not too huge, we'll plot the first signal only
+            # Plot the first signal only (Joyful). truth/pred/delta are [T, H, W, C] over the
+            # full rollout horizon (the caller passes the whole accumulator, padded to >=6).
             feat_idx = 0
             feat_name = channel_names[feat_idx]
+            T = truth.shape[0]
 
-            fig, axes = plt.subplots(3, n_times, figsize=(18, 10))
+            # Horizon columns: t=0 (first forecast step) / early / late snapshots + the full-rollout
+            # TEMPORAL MEAN. Shows t=0 calibrated/sharp while deep-rollout steps inflate & centralize
+            # (the inflation hidden in any single-step view), with 'full' = the aggregate over months.
+            def _mlabel(idx):
+                return (
+                    f" m{int(time_indices[idx])}"
+                    if time_indices and idx < len(time_indices)
+                    else ""
+                )
+
+            i_early, i_late = T // 3, T - 1
+            cols = [
+                (f"t=0{_mlabel(0)}", truth[0], pred[0], delta[0]),
+                (f"early{_mlabel(i_early)}", truth[i_early], pred[i_early], delta[i_early]),
+                (f"late{_mlabel(i_late)}", truth[i_late], pred[i_late], delta[i_late]),
+                ("full (mean)", truth.mean(0), pred.mean(0), delta.mean(0)),
+            ]
+            n_cols = len(cols)
+            fig, axes = plt.subplots(3, n_cols, figsize=(4.5 * n_cols, 10), squeeze=False)
 
             row_labels = ["GROUND TRUTH (y)", "PREDICTION (ŷ)", "ABSOLUTE DELTA (|y-ŷ|)"]
-            data_rows = [truth, pred, delta]
+            # Shared scale for Truth and Pred across all columns; Delta gets its own.
+            v_min = float(
+                np.min([np.nanmin(truth[..., feat_idx]), np.nanmin(pred[..., feat_idx])])
+            )
+            v_max = float(
+                np.max([np.nanmax(truth[..., feat_idx]), np.nanmax(pred[..., feat_idx])])
+            )
+            d_max = float(np.nanmax(delta[..., feat_idx]))
 
-            # Shared scale for Truth and Pred, Delta gets its own
-            v_min = np.min([np.nanmin(truth[..., feat_idx]), np.nanmin(pred[..., feat_idx])])
-            v_max = np.max([np.nanmax(truth[..., feat_idx]), np.nanmax(pred[..., feat_idx])])
-            d_max = np.nanmax(delta[..., feat_idx])
-
-            for r_idx in range(3):
-                row_data = data_rows[r_idx]
-                for t_idx in range(n_times):
-                    ax = axes[r_idx, t_idx]
-                    img = row_data[t_idx, ..., feat_idx]
-
-                    # Style
+            for ci, (ctitle, t_img, p_img, d_img) in enumerate(cols):
+                row_imgs = [t_img[..., feat_idx], p_img[..., feat_idx], d_img[..., feat_idx]]
+                for r_idx in range(3):
+                    ax = axes[r_idx][ci]
                     cmap = "magma" if r_idx < 2 else "Reds"
                     vmx = v_max if r_idx < 2 else d_max
                     vmn = v_min if r_idx < 2 else 0
-
                     ax.imshow(
-                        img, origin="upper", cmap=cmap, vmin=vmn, vmax=vmx, interpolation="nearest"
+                        row_imgs[r_idx],
+                        origin="upper",
+                        cmap=cmap,
+                        vmin=vmn,
+                        vmax=vmx,
+                        interpolation="nearest",
                     )
                     ax.set_xticks([])
                     ax.set_yticks([])
-
-                    # Labels
                     if r_idx == 0:
-                        m_id = int(time_indices[t_idx]) if time_indices else t_idx
-                        suffix = "_seed" if t_idx == 0 else "_out"
-                        ax.set_title(f"{m_id}{suffix}", fontweight="bold")
-
-                    if t_idx == 0:
+                        ax.set_title(ctitle, fontweight="bold")
+                    if ci == 0:
                         ax.set_ylabel(
                             row_labels[r_idx], rotation=0, labelpad=80, fontweight="bold"
                         )
 
             plt.suptitle(
-                f"Autoregressive Forensic: {stage_label} ({feat_name})", fontsize=18, y=0.98
+                f"Autoregressive Forensic: {stage_label} ({feat_name}) — horizon split "
+                f"[{T} steps]",
+                fontsize=16,
+                y=0.98,
             )
             plt.tight_layout(rect=(0, 0.03, 1, 0.95))
 
-            # Add vertical delimitation line correctly (between col 0 and 1)
-            # IMPORTANT: tight_layout must be called BEFORE get_position()
+            # Cyan delimiter before the 'full (mean)' column (separating snapshots from the aggregate).
             fig.canvas.draw()
-            pos0 = axes[0, 0].get_position()
-            pos1 = axes[0, 1].get_position()
-            line_x = (pos0.x1 + pos1.x0) / 2
+            pos2 = axes[0][n_cols - 2].get_position()
+            pos3 = axes[0][n_cols - 1].get_position()
+            line_x = (pos2.x1 + pos3.x0) / 2
             fig.add_artist(
                 plt.Line2D(
                     [line_x, line_x],
