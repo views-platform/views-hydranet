@@ -4,9 +4,9 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-06-24                           |
-| Total Concerns    | 179                                  |
-| Open Concerns     | 74                                   |
+| Last Updated      | 2026-06-27                           |
+| Total Concerns    | 188                                  |
+| Open Concerns     | 83                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 105                                  |
 
@@ -1382,6 +1382,141 @@ The regression-head output activation `reg_activation` changes the forward funct
 The classification loss is computed on the **entire** `[H, W]` grid with **no valid-cell mask**, but the grid is **zero-filled** (`np.zeros`), so the ~60% of window cells that are ocean (no priogrid_gid) are supervised as `by_=0` negatives. This is **asymmetric**: the regression body is hurdle-masked (land positives / active cells only) and the evaluation is priogrid-masked (land only), but the gate is **neither**. Because there is no land-mask feature, the gate cannot distinguish quiet land (0 input) from ocean (0 input), so the structural-zero ocean negatives **dilute the learned base rate**, biasing the gate toward under-prediction on land — a plausible contributor to the gate-hedges-low effect behind ns/os under-firing. **Tier 3:** not a silent wrong-output on scored cells (eval masks to land; gate-reliability C-147 found land calibration OK at STEP-1, so the dilution is not catastrophic), but a real, undocumented, **untested** train/eval distribution mismatch on the gate. **Fix is a DECISION** (mask the cls loss to valid/land cells to match reg + eval — changes gate training dynamics, so it needs an A/B to confirm it helps, not a blind change). Failing test: `tests/test_falsify_classification_mask.py::test_classification_loss_restricted_to_valid_cells`.
 
 **UPDATE — A/B RUN (2026-06-26, dossier `2026-06-23_body_sweep_dossier/18`): masking is BENIGN, no benefit.** The opt-in `cls_valid_mask` was implemented and A/B'd (land-masked gate vs full-grid, softplus active_window base, seeds 11/12). Result: MCR_pos / CRPS_pos are **within seed noise on all three targets** (sb 0.448→0.437 / 16.96→17.03, ns/os unchanged at ~0.005/~0.007) — sb marginally *worse* masked. ⇒ the ocean dilution does **not** materially affect outputs (the gate already separates ocean from land via the zero input); the train/eval mismatch is real but immaterial. ns/os under-firing is therefore **NOT** a maskable training artifact — it's the irreducible rare-onset hedge. **Downgraded to Tier 4** (confirmed no correctness/reliability impact). **Disposition: do NOT adopt land-masking as default.** The `cls_valid_mask` opt-in is **KEPT** (off by default, byte-unchanged, tested) as a ready lever for a future smarter gate design that might exploit it. Kept open (not resolved) as that future-work hook.
+
+---
+
+### C-182: `total_hidden_channels` divisibility-by-8 contract is documented but unenforced — fails late with a cryptic unpack error
+
+| Field | Value |
+|-------|-------|
+| ID | C-182 |
+| Tier | 4 |
+| Source | /falsify "the convolutional lstm is 100% correctly implemented" (2026-06-26) — P4 (contract), SURVIVED as observation |
+| Trigger | When a new config or capacity sweep sets `total_hidden_channels` to a value not divisible by 8 (e.g. tuning recurrent memory width) — the run dies deep in `forward()` instead of at construction |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:65-66` (docstring "Must be divisible by 8"), `:101` (`num_lstm_state_layers = int(total_hidden_channels / 8)`, silent floor), `:426-427` (`split_h = int(h.shape[1] / 8)` + 8-way unpack that raises) |
+| Cross-refs | C-114, C-184 (same recurrent-cell architecture, undocumented/unguarded properties) |
+
+The constructor documents "`total_hidden_channels` Must be divisible by 8" but does **not** validate it. A non-divisible value (e.g. 12) is silently floored by `int(.../8)` when sizing the gate convs, then later **raises `ValueError: too many values to unpack (expected 8)`** from the `torch.split` unpack in `forward()` — a cryptic error far from the cause. **No silent corruption** (P4 confirmed it crashes loud, not wrong-output), so this is **Tier 4 / ergonomic only**: correctness is intact, but a developer tuning capacity gets an opaque failure at the first forward instead of a clear constructor message. Fix (optional): add `if total_hidden_channels % 8: raise ValueError(...)` in `__init__`. No failing test stub — the /falsify verdict was SURVIVED (no hard/soft falsification); registered as a maintainability observation per user request.
+
+---
+
+### C-183: ConvLSTM forget-gate bias is not initialized to 1 (PyTorch default ≈0) — memory starts "off"
+
+| Field | Value |
+|-------|-------|
+| ID | C-183 |
+| Tier | 4 |
+| Source | /falsify "the convolutional lstm is 100% correctly implemented" (2026-06-26) — P5 (adequacy), observation |
+| Trigger | When diagnosing slow/failed long-horizon temporal retention or tuning the recurrence — rule out the near-0 forget-gate warm-start before attributing it to data or architecture |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py` (`self.Wxf_1..4` / `self.Whf_1..4` forget-gate convs — `bias=True`, PyTorch default init; no `forget_bias=1` set) |
+| Cross-refs | C-114, C-184 (recurrent-cell architecture choices that are undocumented/unexamined) |
+
+The forget-gate convs (`Wxf_*`, `Whf_*`) leave their biases at PyTorch's default (≈0, uniform), rather than the common `forget_bias=1` warm-start (Jozefowicz 2015) that starts the cell biased to **retain** memory. This is a **training-speed/optimization convention, not a correctness requirement** — the LSTM is mathematically correct either way (P1/P2 confirmed live memory + BPTT). **Tier 4:** no correctness or reliability impact; flagged so that any future investigation of weak temporal memory considers the warm-start as a cheap lever before larger changes. No failing test stub (SURVIVED verdict).
+
+---
+
+### C-184: BatchNorm runs inside the recurrent loop — running stats accumulate T× per window over temporally-correlated steps
+
+| Field | Value |
+|-------|-------|
+| ID | C-184 |
+| Tier | 2 ⬆ (was 4 — UPGRADED 2026-06-27: confirmed ROOT CAUSE of the seed-bimodal eval collapse) |
+| Source | /falsify ConvLSTM (2026-06-26) P5; **CONFIRMED root cause via BN-recal experiment (2026-06-27)** |
+| Trigger | FIRES NOW on every training run: ~40% of seeds land BN running-stats that over-amplify at eval → gate saturates → composed E[y] explodes (the seed-bimodality + much of C-113). Acute on any retrain. |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py` (`bn_enc_conv0/1`, `bn_bottleneck_conv`, the `bn_dec_conv*` head BNs — all invoked inside the per-timestep `forward`, which the engine calls T times per window) |
+| Cross-refs | C-114 (undocumented recurrent-regularization surface), C-183, C-113 (rollout dynamics) |
+
+The encoder/bottleneck/decoder `BatchNorm2d` layers are inside the single-timestep `forward`, called T× per window over **temporally-correlated** activations (cf. Cooijmans 2016 recurrent BN). Originally logged Tier-4 ("stable design choice"). **⬆ UPGRADED Tier-2 — CONFIRMED ROOT CAUSE (2026-06-27).** The 2026-06-26 perf program found the production floor is **seed-bimodal (~40% of seeds collapse: saturated gate π̄≈0.1–0.36, rollout MCR_pos 30–260×)**. Triangulated the cause: NOT the loss (pos_weight sweep flat), NOT the weights (per-layer spectral norms + gate-head bias identical good-vs-bad), NOT the training trajectory (good/bad train-time gate-logit identical, because **training uses batch-stats BN**). The decisive test (`bn_mode_probe.py`): every seed is calibrated under **train-mode BN** (π̄≈0.002–0.005) but saturates under **eval-mode BN** (π̄ 0.4–0.998), worst for the bad seeds (which have lower BN `running_var` → eval BN over-amplifies). **FIX CONFIRMED + UNIVERSAL:** recompute BN running stats post-training (forward-only over real windows, reset BN + `momentum=None`) flips **6/6 bad seeds BAD→GOOD and preserves 2/2 good** — bad-basin rate ~40%→0%, rollout MCR_pos collapses to 2.5–8.3× (e.g. seed 201: step-1 CRPS 33.8→0.24, MCR 259→5.8). So this is **silent eval-time model-output corruption on ~40% of trained models** (Tier-2: not Tier-1 only because it surfaces as loud explosions, not a quiet wrong answer, and is now fixable). **Resolution paths:** (a) post-training BN-recal pass before artifact save [cheapest, validated], (b) fix the recurrent-BN momentum/update at the root, (c) GroupNorm/LayerNorm (no train/eval gap; needs retrain). Opt-in `bn_recal_from` flag in `training_engine.py` (uncommitted) implements the test. Tools: `/tmp/run_bn_recal_all.sh`, `/tmp/bn_mode_probe.py`, `/tmp/recal_all_score.py`. Cross-ref C-113 (this is a large part of the eval-explosion), C-147 (gate-calibration), the perf program.
+
+---
+
+### C-185: U-Net is only 2 encoder levels deep (÷4) — limited receptive field on large grids
+
+| Field | Value |
+|-------|-------|
+| ID | C-185 |
+| Tier | 4 |
+| Source | /falsify "the U-Net is 100% correctly implemented" (2026-06-26) — P6 (adequacy), observation |
+| Trigger | When scaling to a larger spatial grid, or diagnosing weak long-range spatial context / under-use of distant cells — consider adding encoder depth before attributing it to the loss or data |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:106-123` (enc_conv0 → pool0 → enc_conv1 → pool1 → bottleneck; 2 pooling levels) |
+| Cross-refs | C-169 (the conv low-pass / in-sample smoothness confound — related but distinct: depth/receptive-field vs blur) |
+
+The "U-Net" has only **2 encoder levels** (two `MaxPool2d(2,2)` → total ÷4 downsampling) before the bottleneck. On a large conflict grid the effective receptive field is small relative to the domain, limiting how much distant spatial context any cell's prediction can integrate. This is **documented and intended** ("2 Encoder levels" in the class docstring) and the model has performed acceptably, so it is **not a defect** — **Tier 4:** a design trade-off (depth vs cost/stability) flagged so a future investigation of weak spatial context considers adding encoder depth as a lever. No failing test stub (SURVIVED verdict).
+
+---
+
+### C-186: single bottleneck shared across all 6 heads — per-head representational capacity is coupled
+
+| Field | Value |
+|-------|-------|
+| ID | C-186 |
+| Tier | 4 |
+| Source | /falsify "the U-Net is 100% correctly implemented" (2026-06-26) — P6 (adequacy), observation |
+| Trigger | When one head (e.g. a rare target) needs to diverge representationally from the others, or when adding/removing heads — all 6 decoders branch from the single shared bottleneck `b`, so their capacity is coupled at that point |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:476-477` (`b` computed once), `:481-586` (all 6 heads consume the same `b`, `e1s`, `e0s_topskip`) |
+| Cross-refs | C-03, C-123 (hardcoded 3+3 head topology, Cluster 4 — related but distinct: code-duplication-to-add-a-head vs shared-bottleneck capacity coupling) |
+
+All 6 decoder heads (3 reg + 3 class) branch from the **single shared bottleneck `b`** (and the shared encoder skips `e1s`, `e0s_topskip`). The heads have independent decoder weights (verified head-isolated in P1), but their input representation is a common bottleneck — so per-head representational capacity is **coupled** there: a head that needs features the shared bottleneck does not preserve cannot recover them. This is an intentional parameter-economy choice and **not a correctness defect** (P1/P4/P5 all clean) — **Tier 4:** registered so that if a head (e.g. a rare ns/os target) underperforms in a way that looks representational, the shared-bottleneck coupling is a known candidate. No failing test stub (SURVIVED verdict).
+
+---
+
+### C-187: stride-2 ConvTranspose upsampling — checkerboard-artifact prone
+
+| Field | Value |
+|-------|-------|
+| ID | C-187 |
+| Tier | 4 |
+| Source | /falsify "the U-Net is 100% correctly implemented" (2026-06-26) — P6 (adequacy), observation |
+| Trigger | When investigating grid-periodic / checkerboard artifacts in the spatial predictions, or refreshing the upsampling path — `ConvTranspose2d(stride=2)` can produce them; upsample-then-conv is the standard mitigation |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py` (`upsample0_head*`, `upsample1_head*` — all `nn.ConvTranspose2d(..., stride=2, kernel=2)`) |
+| Cross-refs | C-190 (skip-path high-freq throttle — the sibling efficiency item), C-185/186 |
+
+All 12 decoder upsampling layers (2 per head × 6 heads) use `ConvTranspose2d` with `stride=2`, which is known to produce **checkerboard artifacts** (Odena 2016, "Deconvolution and Checkerboard Artifacts") when kernel size is not divisible by stride and weights are unlucky. Here kernel=2, stride=2 (divisible), which mitigates but does not eliminate the risk. **Measured present (2026-06-27, /falsify skip-effectiveness, P5):** a structured-input forward on a good-basin artifact shows a **~13% even-vs-odd pixel-grid mean asymmetry** in the regression output — the checkerboard is real but small (injects a periodic *artifact* high-freq, distinct from skip-delivered detail). Still **Tier 4:** a periodic artifact, not a correctness defect; the fix (`Upsample`+`Conv` instead of `ConvTranspose`) is a known one-line swap and is the cheapest sharpness-side A/B alongside C-190. No failing test stub.
+
+---
+
+### C-188: U-Net skip geometry has no grid-divisibility guard — non-÷4 grid fails late with a cryptic skip-`cat` error
+
+| Field | Value |
+|-------|-------|
+| ID | C-188 |
+| Tier | 4 |
+| Source | /falsify "the U-Net is 100% correctly implemented" (2026-06-26) — P2 (skip alignment), SURVIVED as observation |
+| Trigger | When a new config or data window uses a spatial grid whose `H` or `W` is not divisible by 4 — the two-pool/two-upsample U-Net dies deep in `forward()` at the first skip `cat`, not at construction |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:471-473` (pool0/pool1 floor-divide), `:483/:490` etc. (`torch.cat([upsampleN(...), skip], 1)` — mismatches when the floored pool size ≠ the transpose-upsampled size) |
+| Cross-refs | C-182 (the LSTM `total_hidden_channels % 8` sibling — same "documented shape contract, no upfront guard, cryptic late crash" pattern, different axis: spatial grid vs hidden channels) |
+
+The U-Net's two `MaxPool2d(2,2)` floor odd sizes while the two `ConvTranspose2d(stride=2)` exactly double, so a grid not divisible by 4 yields skip/upsample size mismatches: P2 confirmed grid 14 raises `RuntimeError: Sizes of tensors must match except in dimension 1. Expected size 6 but got size 7` at the first skip `cat`. **Loud, no silent corruption** (the output is never wrongly cropped/padded), so **Tier 4 / ergonomic only** — but the failure surfaces deep in `forward()` with an opaque message rather than a clear up-front "grid must be divisible by 4" check. Same class as C-182. Optional fix: validate `H % 4 == 0 and W % 4 == 0` at the start of `forward` (or document the constraint on the input contract). No failing test stub (SURVIVED verdict).
+
+---
+
+### C-189: `inverse_sigmoid` scheduled-sampling schedule has no `k≥1` validation — silently wrong curriculum or mid-training crash
+
+| Field | Value |
+|-------|-------|
+| ID | C-189 |
+| Tier | 3 |
+| Source | /falsify "the curriculum learning is 100% correctly implemented" (2026-06-26) — P5, SOFT falsification |
+| Trigger | When a config sets `ss_schedule="inverse_sigmoid"` with `ss_k < 1` (or `0`) — the schedule silently starts at high epsilon (no teacher-forcing warmup, curriculum defeated) for `k∈(0,1)`, or raises `ZeroDivisionError` mid-training for `k=0` |
+| Location | `views_hydranet/utils/scheduled_sampling.py:37-38` (constructor guards `k<1` for `exponential` only), `:56-59` (`k/(k+exp(shifted/k))` — `k=0` divides by zero), `views_hydranet/utils/config_initializer.py:701-704` (validator guards `exponential` k only) |
+| Cross-refs | C-182, C-188 (same missing-validation pattern); C-156 (the adjacent curriculum-subject coupling, P4) |
+
+The scheduled-sampling curriculum (ADR-056, Bengio et al. 2015) validates `k<1` as **invalid for `exponential`** in *both* `ScheduledSamplingMixer.__init__` and `HydraNetConfig.validate_scheduled_sampling_params`, but is **silent on the symmetric Bengio requirement `k≥1` for `inverse_sigmoid`** in *neither*. Confirmed by P5: `inverse_sigmoid` with `k=0.3` is accepted and runs a **silently wrong schedule shape** — epsilon starts at ~0.77 instead of ~0, so there is no teacher-forcing warmup and the curriculum is defeated; `k=0` raises a bare `ZeroDivisionError` deep in `get_epsilon` mid-training. **Tier 3:** not silent corruption on a *correct* config (the production schedules are unaffected; all three schedules are monotone-increasing as designed), but a real validation/robustness gap that mistrains or crashes under a plausible misconfig, asymmetric with the existing `exponential` guard (a copy-paste-asymmetry smell). The `CurriculumLearner` core (cooling, oscillation, relative thresholding) survived all probes — this is the scheduled-sampling sibling only. **Failing tests:** `tests/test_falsify_curriculum_ss.py` (3 stubs, red): mixer rejects `inverse_sigmoid k<1`; `k=0` → clean `ValueError` not `ZeroDivisionError`; config validator adds the `== "inverse_sigmoid"` k-bound guard. Fix: add the symmetric `k<1` reject for `inverse_sigmoid` in both the mixer constructor and the config validator.
+
+---
+
+### C-190: skip-connection high-frequency path is throttled by BatchNorm + dropout (sharpness efficiency headroom)
+
+| Field | Value |
+|-------|-------|
+| ID | C-190 |
+| Tier | 4 |
+| Source | /falsify "the skip connections are correctly and effectively wired up" (2026-06-27) — P1/P2/P4, SOFT (efficiency) |
+| Trigger | When attacking the regression over-smoothing from the **architecture** side (only after the loss-side levers C-168/169), or refreshing the encoder→decoder skip path — the high-freq detail the skips carry is attenuated before the merge |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:467` (`e0s = self.dropout(e0s_)` — finest skip dropped), `:472` (`e1s = self.dropout(F.relu(self.bn_enc_conv1(...)))` — coarse skip BN'd + dropped), decoder cats `:483/:490` etc. |
+| Cross-refs | C-187 (checkerboard — sibling skip-path efficiency item), C-168 / C-169 (the over-smoothing this could marginally help; the LOSS is the primary lever), C-185 / C-186 (other U-Net architecture observations) |
+
+The /falsify **effectiveness** audit confirmed the skips are **correctly wired and heavily load-bearing** — ablation gave **e0s 81% / e1s 27%** L2 output dependence (not dead, not ignored). BUT the high-frequency detail they exist to deliver is **throttled on the path to the decoder**: *both* skips pass through `LockedDropout` (15% zeroed; re-randomised per MC sample at inference), and `e1s` additionally through `BatchNorm` (which normalises away the high-variance detail). Measured (P2): the trained model is a **strong low-pass** — a broadband sparse-impulse input's high-freq power fraction **0.32 → 0.07** at the output (~78% of high-freq energy discarded); and the finest skip currently carries mostly **low**-frequency content (zeroing it *raises* the output high-freq fraction). **Tier 4 — NOT a correctness or wiring defect:** the over-smoothing is **loss-driven, not a hard skip ceiling** — the *same* architecture produced sharp regression heads under shrinkage/MSE (user testimony; consistent with C-169 "backbone overfits a sharp tile trivially" and the intrinsic spectral bias to low frequencies, Rahaman 2019 / Fourier features). Registered as **independent efficiency headroom**, explicitly downstream of the loss work. Cheapest skip-side A/Bs IF pursued: (a) remove dropout from the skip path (keep it on the bottleneck), (b) `Upsample`+`Conv` over stride-2 `ConvTranspose` (C-187). Both one-liners; **need an A/B to confirm a benefit — do not change blind.** No failing test stub (CONTESTED — efficiency hypothesis, not a wiring bug).
 
 ---
 

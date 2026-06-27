@@ -557,6 +557,44 @@ def train(
     }
 
 
+def _reset_bn_stats(model: nn.Module) -> int:
+    """Reset every BatchNorm's running stats and set momentum=None (cumulative average over the
+    subsequent forwards). Returns the number of BN layers reset."""
+    n = 0
+    for m in model.modules():
+        if isinstance(m, nn.modules.batchnorm._BatchNorm):
+            m.reset_running_stats()
+            m.momentum = None
+            n += 1
+    return n
+
+
+def _recalibrate_bn(ctx: "TrainingContext", sampler, planner, config: dict) -> None:
+    """C-184 fix: recompute BatchNorm running statistics post-training.
+
+    The recurrent BN accumulates running stats over T-correlated timesteps during training, biasing
+    them so eval-mode over-amplifies — the seed-bimodal eval collapse (~40% of trained seeds
+    saturate the gate at eval; confirmed root cause + universal fix, register C-184). This resets
+    the running stats and re-accumulates them FORWARD-ONLY (no weight change) over real curriculum
+    windows, so eval-mode matches the true activation distribution. Validated 2026-06-27: flips
+    6/6 bad seeds GOOD and preserves 2/2 good. Disable with config['bn_recalibrate'] = False.
+    """
+    model = ctx.model
+    n_bn = _reset_bn_stats(model)
+    n_windows = config.get("bn_recal_windows", config["windows_per_lesson"] * 10)
+    logger.info(
+        f"🔧 C-184: BN-recalibrating {n_bn} layers over {n_windows} windows "
+        f"(forward-only, no weight change)"
+    )
+    with torch.no_grad():
+        for w in range(n_windows):
+            target, threshold = planner.get_lesson(w)
+            batch, _ = sampler.get_batch(target, threshold, batch_size=1)
+            train(ctx, batch[0], None, stage_label="")  # empty label ⇒ forward only, no biopsy
+            del batch
+    model.eval()
+
+
 def training_loop(
     config: dict,
     model: nn.Module,
@@ -609,6 +647,17 @@ def training_loop(
         forensics=forensics,
     )
 
+    # OPT-IN BN-recalibration (C-184 test, 2026-06-27): load a trained artifact into `model`, reset
+    # BN running stats, then run the lesson loop FORWARD-ONLY (skip backward + optimizer.step) to
+    # re-accumulate BN stats on the real scaled windows. config.bn_recal_from=None (default) ⇒
+    # normal training, byte-unchanged.
+    _bn_recal = config.get("bn_recal_from")
+    if _bn_recal:
+        model.load_state_dict(torch.load(_bn_recal, map_location=device, weights_only=True))
+        _reset_bn_stats(model)
+        model.train()
+        logger.info(f"🔧 BN-recal: loaded {_bn_recal}, reset BN, forward-only recompute")
+
     # Initialize the Sampler Components
     # 1. The Lens (Mechanical)
     sampler = VolumeSampler(handler, config)
@@ -637,6 +686,28 @@ def training_loop(
             warmup_lessons=config.get("ss_warmup_lessons"),
             k=config.get("ss_k"),
         )
+
+    # OPT-IN trajectory diagnostic (bifurcation hunt): per-lesson grad-norm + gate-logit-mean +
+    # losses → CSV. config.trajectory_log_path=None (default) ⇒ no hooks, no file, byte-unchanged.
+    _traj_path = config.get("trajectory_log_path")
+    _traj_file = _traj_writer = None
+    _traj_acc = {"gate_sum": 0.0, "gate_n": 0}
+    if _traj_path:
+        import csv as _csv
+
+        def _gate_hook(_m, _i, _o):
+            if _m.training:  # training forwards only — skip forensic/eval biopsies
+                _traj_acc["gate_sum"] += _o.detach().mean().item()
+                _traj_acc["gate_n"] += 1
+
+        for _hn in ("dec_conv4_head1_class", "dec_conv4_head2_class", "dec_conv4_head3_class"):
+            dict(model.named_modules())[_hn].register_forward_hook(_gate_hook)
+        _traj_file = open(_traj_path, "w", newline="")
+        _traj_writer = _csv.writer(_traj_file)
+        _traj_writer.writerow(
+            ["lesson", "raw_grad_norm", "loss_reg", "loss_cls", "gate_logit_mean"]
+        )
+        logger.info(f"📈 trajectory-log ON → {_traj_path}")
 
     with tqdm(
         total=total_iterations, desc="👾 Training HydraNet", unit="month", leave=True
@@ -684,7 +755,7 @@ def training_loop(
 
                 # --- MEMORY-SAFE ACCUMULATION (ADR 014 Hardening) ---
                 w_loss = losses["total"]
-                if w_loss > 0:
+                if w_loss > 0 and not _bn_recal:  # BN-recal: forward-only, no grad
                     w_loss.backward()
 
                 lesson_loss += w_loss.detach()  # Keep track of magnitude for logging
@@ -731,12 +802,29 @@ def training_loop(
                 raw_grad_norm = total_norm**0.5
                 max_raw_grad_norm = max(max_raw_grad_norm, raw_grad_norm)
 
+                # OPT-IN trajectory row (pre-clip grad-norm + lesson gate-logit-mean + losses)
+                if _traj_writer is not None:
+                    _gm = _traj_acc["gate_sum"] / max(_traj_acc["gate_n"], 1)
+                    _traj_writer.writerow(
+                        [
+                            lesson_idx,
+                            raw_grad_norm,
+                            lesson_reg / config["windows_per_lesson"],
+                            lesson_cls / config["windows_per_lesson"],
+                            _gm,
+                        ]
+                    )
+                    _traj_file.flush()
+                    _traj_acc["gate_sum"] = 0.0
+                    _traj_acc["gate_n"] = 0
+
                 # Gradient Clipping
                 if config.get("clip_grad_norm"):
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
-                # Optimize (Update Weights)
-                optimizer.step()
+                # Optimize (Update Weights) — skipped in BN-recal (weights frozen, BN only)
+                if not _bn_recal:
+                    optimizer.step()
 
                 # ADR-055 / #99: log per-target dispersion once per lesson — sigma for
                 # tobit/lognormal, theta for hurdle-NB (TruncatedNBLoss) — whichever the loss
@@ -778,6 +866,31 @@ def training_loop(
                 scheduler.step()
 
     logger.info("✅ Training complete!")
+
+    if _traj_file is not None:
+        _traj_file.close()
+
+    # C-184 FIX: post-training BN recalibration (default ON). Mutates `model` in place so the saved
+    # artifact has corrected BN running stats (fixes the seed-bimodal eval collapse). Skipped for a
+    # bn_recal_from-only experiment run (its lesson loop already recalibrated). Guarded: a recal
+    # failure must NEVER lose a completed training run — snapshot the BN buffers first and restore
+    # them on any error (so a half-reset model is never saved), then proceed to save as-is.
+    if config.get("bn_recalibrate", True) and not _bn_recal:
+        _bn_snapshot = {
+            k: v.clone()
+            for k, v in model.state_dict().items()
+            if "running_" in k or "num_batches" in k
+        }
+        try:
+            _recalibrate_bn(ctx, sampler, planner, config)
+        except Exception:
+            logger.error(
+                "C-184 BN-recalibration FAILED — restoring pre-recal BN stats and saving the "
+                "trained model as-is (training NOT lost).",
+                exc_info=True,
+            )
+            model.load_state_dict(_bn_snapshot, strict=False)
+            model.eval()
 
     # 4. Final weight audit
     weight_norms = {}

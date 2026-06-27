@@ -563,18 +563,25 @@ class VisualDiagnostics:
             # Inputs are [T, H, W, C]
             n_times = min(6, y_reg.shape[0])
 
-            fig, axes = plt.subplots(4, n_times, figsize=(18, 12))
+            # 5th row: the HURDLE EXPECTATION E[y] = gate-prob x body (what the model emits) — the
+            # blurry raw body (row 2) masked by the sparse gate (row 4). y_hat_cls is already
+            # sigmoid(cls); y_hat_reg is the body mu. The NB zero-truncation is magnitude-only
+            # (no spatial-masking effect), so this product is the faithful visual of the output.
+            y_hat_ey = y_hat_cls * y_hat_reg
+
+            fig, axes = plt.subplots(5, n_times, figsize=(18, 15))
 
             row_labels = [
                 "GROUND TRUTH (Reg)",
                 "PREDICTION (Reg)",
                 "GROUND TRUTH (Cls)",
                 "PREDICTION (Cls)",
+                "PREDICTION (E[y]≈gate·body)",
             ]
-            data_rows = [y_reg, y_hat_reg, y_cls, y_hat_cls]
-            cmaps = ["magma", "magma", "viridis", "viridis"]
+            data_rows = [y_reg, y_hat_reg, y_cls, y_hat_cls, y_hat_ey]
+            cmaps = ["magma", "magma", "viridis", "viridis", "magma"]
 
-            for r_idx in range(4):
+            for r_idx in range(5):
                 row_data = data_rows[r_idx]
                 feat_slice = row_data[..., 0]  # Use first target only
                 vmin, vmax = np.nanmin(feat_slice), np.nanmax(feat_slice)
