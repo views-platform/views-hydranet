@@ -58,22 +58,45 @@ class TrainingForensics:
         # 4. Lesson Accumulators (Reset every lesson)
         self._reset_accumulators()
 
+    # Horizon-step slices for the per-lesson dossier columns (t=0 / early / late vs the full-window
+    # aggregate). Lets the dossier show that t=0 (first forecast step) is calibrated while later
+    # rollout steps inflate — hidden in the full-window average.
+    HORIZON_SLICES = ("t0", "early", "late")
+
     def _init_target_history(self, key: str, metrics: List[str]):
         """Helper to initialize history for a namespaced key."""
         self.history[key] = {"bias_instant": [], "bias_running": [], "y_bar": [], "y_hat_bar": []}
         for m in metrics:
             self.history[key][m] = []
+        # Per-horizon-slice series (t0/early/late): magnitude + calibration + metrics over lessons.
+        for s in self.HORIZON_SLICES:
+            self.history[key][f"{s}_y_bar"] = []
+            self.history[key][f"{s}_y_hat_bar"] = []
+            self.history[key][f"{s}_bias"] = []
+            for m in metrics:
+                self.history[key][f"{s}_{m}"] = []
 
     def _reset_accumulators(self):
         """Prepares empty buffers for a new lesson."""
         all_keys = list(self.target_map.keys())
         self.lesson_y = {key: [] for key in all_keys}
         self.lesson_yh = {key: [] for key in all_keys}
+        # Per-window-timestep buffers: step_idx -> list of flat arrays (the horizon split).
+        self.lesson_y_step = {key: {} for key in all_keys}
+        self.lesson_yh_step = {key: {} for key in all_keys}
 
-    def record(self, namespaced_key: str, y: torch.Tensor, y_hat: torch.Tensor) -> None:
+    def record(
+        self,
+        namespaced_key: str,
+        y: torch.Tensor,
+        y_hat: torch.Tensor,
+        step_idx: int | None = None,
+    ) -> None:
         """
-        Records a single window pass.
+        Records a single window-timestep pass.
         namespaced_key: e.g. 'REG:lr_sb_best'
+        step_idx: the timestep index within the window (0 = first forecast step). When provided,
+            the dossier horizon columns (t0/early/late) are populated; None ⇒ full-window only.
         """
         if namespaced_key not in self.lesson_y:
             err_msg = f"TrainingForensics: Key '{namespaced_key}' not initialized."
@@ -82,8 +105,13 @@ class TrainingForensics:
 
             raise KeyError(err_msg)
 
-        self.lesson_y[namespaced_key].append(y.detach().cpu().numpy().flatten())
-        self.lesson_yh[namespaced_key].append(y_hat.detach().cpu().numpy().flatten())
+        y_flat = y.detach().cpu().numpy().flatten()
+        yh_flat = y_hat.detach().cpu().numpy().flatten()
+        self.lesson_y[namespaced_key].append(y_flat)
+        self.lesson_yh[namespaced_key].append(yh_flat)
+        if step_idx is not None:
+            self.lesson_y_step[namespaced_key].setdefault(step_idx, []).append(y_flat)
+            self.lesson_yh_step[namespaced_key].setdefault(step_idx, []).append(yh_flat)
 
     def finalize_lesson(self) -> None:
         """
@@ -127,6 +155,43 @@ class TrainingForensics:
                 else 1.0
             )
             self.history[key]["bias_running"].append(running_bias)
+
+            # 3. Per-horizon-slice reduction (t0/early/late) for the dossier columns. Pick
+            # representative timestep indices from those recorded this lesson; if none were tagged
+            # with a step_idx, carry the last value so the per-slice series stay lesson-aligned.
+            steps = sorted(self.lesson_y_step[key].keys())
+            chosen = (
+                {"t0": steps[0], "early": steps[len(steps) // 2], "late": steps[-1]}
+                if steps
+                else {}
+            )
+            for sname in self.HORIZON_SLICES:
+                stat_keys = [f"{sname}_y_bar", f"{sname}_y_hat_bar", f"{sname}_bias"] + [
+                    f"{sname}_{m}" for m in meta["metrics"]
+                ]
+                if sname not in chosen:
+                    for sk in stat_keys:
+                        self.history[key][sk].append(
+                            self.history[key][sk][-1] if self.history[key][sk] else 0.0
+                        )
+                    continue
+                ys = np.concatenate(self.lesson_y_step[key][chosen[sname]])
+                yhs = np.concatenate(self.lesson_yh_step[key][chosen[sname]])
+                self.history[key][f"{sname}_y_bar"].append(float(np.mean(ys)))
+                self.history[key][f"{sname}_y_hat_bar"].append(float(np.mean(yhs)))
+                s_y = float(np.sum(ys))
+                self.history[key][f"{sname}_bias"].append(
+                    float(np.sum(yhs)) / s_y if s_y > 0 else 1.0
+                )
+                for m in meta["metrics"]:
+                    if meta["type"] == "REG":
+                        self.history[key][f"{sname}_{m}"].append(
+                            self._calculate_reg_metric(m, ys, yhs)
+                        )
+                    else:
+                        self.history[key][f"{sname}_{m}"].append(
+                            self._calculate_cls_metric(m, ys, yhs)
+                        )
 
         self._reset_accumulators()
 

@@ -267,14 +267,19 @@ def _process_sequence(
         t1_pred_for_loss = output.reg_latent if use_latent else t1_pred
 
         # --- FORENSIC RECORDING (ADR 001 Custodian) ---
+        # step_idx=i tags the within-window timestep so the dossier can split t=0 / early / late
+        # from the full-window aggregate (horizon-split columns).
         if forensics:
             for j, target_name in enumerate(idx.reg_names):
-                forensics.record(f"REG:{target_name}", y_reg[:, j : j + 1], t1_pred[:, j : j + 1])
+                forensics.record(
+                    f"REG:{target_name}", y_reg[:, j : j + 1], t1_pred[:, j : j + 1], step_idx=i
+                )
             for j, target_name in enumerate(idx.cls_names):
                 forensics.record(
                     f"CLS:{target_name}",
                     y_cls[:, j : j + 1],
                     torch.sigmoid(t1_pred_class[:, j : j + 1]),
+                    step_idx=i,
                 )
 
         # Loss computation

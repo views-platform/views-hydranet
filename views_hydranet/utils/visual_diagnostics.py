@@ -763,73 +763,126 @@ class VisualDiagnostics:
         total_rows = n_metrics + n_extra
 
         try:
-            fig, axes = plt.subplots(total_rows, 1, figsize=(10, 4 * total_rows))
-            if total_rows == 1:
-                axes = [axes]
+            # Horizon-split columns: t=0 (first forecast step) / early / late rollout vs the
+            # full-window aggregate. Shows t=0 is calibrated while later steps inflate (hidden in
+            # the full-window average). Per-slice series come from TrainingForensics (h-slices).
+            cols = [
+                ("t0", "t=0 (step-1)"),
+                ("early", "early rollout"),
+                ("late", "late rollout"),
+                ("full", "full window"),
+            ]
+            n_cols = len(cols)
+            fig, axes = plt.subplots(
+                total_rows, n_cols, figsize=(4.5 * n_cols, 3.2 * total_rows), squeeze=False
+            )
 
-            # 1. Plot individual metrics (One per row)
-            for i, m in enumerate(active_metrics):
-                ax = axes[i]
-                ax.plot(dossier[m], label=m.upper(), marker="o", color="royalblue", alpha=0.7)
-                ax.set_title(f"Metric: {m.upper()}", fontweight="bold")
-                ax.set_ylabel("Score")
-                ax.grid(True, alpha=0.3)
-                if not is_reg:
-                    ax.set_ylim(0, 1.05)  # Cls normalization
+            def ck(stat, ckey):
+                # 'full' uses the un-prefixed key; slices use the 't0_'/'early_'/'late_' prefix.
+                return stat if ckey == "full" else f"{ckey}_{stat}"
 
-            # 2. Plot extra Rows
+            def shared_hi(series_list):
+                vals = [v for s in series_list for v in s]
+                return max(vals) if vals else 1.0
+
+            # 1. Metric rows (one per active metric), shared y per row across the 4 columns.
+            for r, m in enumerate(active_metrics):
+                hi = shared_hi([dossier.get(ck(m, c), []) for c, _ in cols])
+                for ci, (ckey, clabel) in enumerate(cols):
+                    ax = axes[r][ci]
+                    ax.plot(dossier.get(ck(m, ckey), []), marker="o", color="royalblue", alpha=0.7)
+                    ax.grid(True, alpha=0.3)
+                    if not is_reg:
+                        ax.set_ylim(0, 1.05)
+                    elif hi > 0:
+                        ax.set_ylim(0, hi * 1.1)
+                    if r == 0:
+                        ax.set_title(clabel, fontweight="bold")
+                    if ci == 0:
+                        ax.set_ylabel(f"Metric: {m.upper()}", fontweight="bold")
+
+            # 2. Magnitude row (reg only): y_bar (actual) vs ŷ_bar (pred), shared scale.
             if is_reg:
-                # Row N: Magnitudes
-                ax_mag = axes[n_metrics]
-                ax_mag.plot(
-                    dossier["y_bar"], label="Actual Mean (y_bar)", color="black", linewidth=2
+                r = n_metrics
+                hi = shared_hi(
+                    [dossier.get(ck("y_bar", c), []) for c, _ in cols]
+                    + [dossier.get(ck("y_hat_bar", c), []) for c, _ in cols]
                 )
-                ax_mag.plot(
-                    dossier["y_hat_bar"],
-                    label="Pred Mean (ŷ_bar)",
-                    color="orange",
-                    linestyle="--",
-                    alpha=0.8,
-                )
-                ax_mag.set_title("Magnitude Pulse (Average Counts)", fontweight="bold")
-                ax_mag.legend()
-                ax_mag.grid(True, alpha=0.3)
+                for ci, (ckey, clabel) in enumerate(cols):
+                    ax = axes[r][ci]
+                    ax.plot(
+                        dossier.get(ck("y_bar", ckey), []),
+                        color="black",
+                        linewidth=2,
+                        label="y_bar",
+                    )
+                    ax.plot(
+                        dossier.get(ck("y_hat_bar", ckey), []),
+                        color="orange",
+                        linestyle="--",
+                        alpha=0.85,
+                        label="ŷ_bar",
+                    )
+                    if hi > 0:
+                        ax.set_ylim(0, hi * 1.1)
+                    ax.grid(True, alpha=0.3)
+                    if r == 0:
+                        ax.set_title(clabel, fontweight="bold")
+                    if ci == 0:
+                        ax.set_ylabel("Magnitude Pulse\n(y_bar vs ŷ_bar)", fontweight="bold")
+                        ax.legend(fontsize=7)
 
-                # Row N+1: Bias
-                ax_bias = axes[n_metrics + 1]
-                ax_bias.plot(
-                    dossier["bias_instant"], label="Instant (Lesson)", color="firebrick", alpha=0.6
-                )
-                ax_bias.plot(
-                    dossier["bias_running"],
-                    label="Running (Global)",
-                    color="royalblue",
-                    linewidth=2,
-                )
-                ax_bias.axhline(1.0, color="gray", linestyle=":", alpha=0.5)
-                ax_bias.set_title("Calibration Pulse (ŷ_bar / y_bar)", fontweight="bold")
-                ax_bias.set_ylabel("Ratio")
-                if any(v > 10 for v in dossier["bias_instant"]):
-                    ax_bias.set_yscale("log")
-                ax_bias.legend()
-                ax_bias.grid(True, alpha=0.3)
-            else:
-                # Cls Bias
-                ax_bias = axes[n_metrics]
-                ax_bias.plot(
-                    dossier["bias_instant"],
-                    label="Event Ratio (ŷ_events / y_events)",
-                    color="seagreen",
-                    alpha=0.8,
-                )
-                ax_bias.axhline(1.0, color="gray", linestyle=":", alpha=0.5)
-                ax_bias.set_title("Detection Bias Pulse", fontweight="bold")
-                ax_bias.legend()
-                ax_bias.grid(True, alpha=0.3)
+            # 3. Calibration row (ŷ_bar/y_bar ratio). full = instant+running; slices = one ratio.
+            r = n_metrics + (1 if is_reg else 0)
+            bias_cols = [
+                dossier.get("bias_instant", []) if c == "full" else dossier.get(f"{c}_bias", [])
+                for c, _ in cols
+            ]
+            hi = shared_hi(bias_cols)
+            use_log = hi > 10
+            for ci, (ckey, clabel) in enumerate(cols):
+                ax = axes[r][ci]
+                if ckey == "full":
+                    ax.plot(
+                        dossier.get("bias_instant", []),
+                        color="firebrick",
+                        alpha=0.6,
+                        label="instant",
+                    )
+                    ax.plot(
+                        dossier.get("bias_running", []),
+                        color="royalblue",
+                        linewidth=2,
+                        label="running",
+                    )
+                else:
+                    ax.plot(
+                        dossier.get(f"{ckey}_bias", []),
+                        color="firebrick",
+                        alpha=0.8,
+                        label="instant",
+                    )
+                ax.axhline(1.0, color="gray", linestyle=":", alpha=0.5)
+                if use_log:
+                    ax.set_yscale("log")
+                    ax.set_ylim(0.5, hi * 1.3)
+                ax.grid(True, alpha=0.3)
+                if r == 0:
+                    ax.set_title(clabel, fontweight="bold")
+                if ci == 0:
+                    lbl = (
+                        "Calibration Pulse\n(ŷ_bar/y_bar)"
+                        if is_reg
+                        else "Detection Bias\n(ŷ/y events)"
+                    )
+                    ax.set_ylabel(lbl, fontweight="bold")
+                    ax.legend(fontsize=7)
 
             mode_str = "REGRESSION" if is_reg else "CLASSIFICATION"
-            plt.suptitle(f"{mode_str} FORENSIC: {target_name} ({stage_label})", fontsize=18)
-            plt.tight_layout(rect=(0, 0.03, 1, 0.97))
+            plt.suptitle(
+                f"{mode_str} FORENSIC: {target_name} ({stage_label}) — horizon split", fontsize=16
+            )
+            plt.tight_layout(rect=(0, 0.02, 1, 0.97))
 
             type_tag = "reg" if is_reg else "cls"
             fname = f"forensic_{type_tag}_{target_name.lower()}.png"
