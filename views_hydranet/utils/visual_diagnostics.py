@@ -468,9 +468,9 @@ class VisualDiagnostics:
             feat_name = channel_names[feat_idx]
             T = truth.shape[0]
 
-            # Horizon columns: t=0 (first forecast step) / early / late snapshots + the full-rollout
-            # TEMPORAL MEAN. Shows t=0 calibrated/sharp while deep-rollout steps inflate & centralize
-            # (the inflation hidden in any single-step view), with 'full' = the aggregate over months.
+            # Horizon columns: t=0 / early / late rollout snapshots + the full-rollout TEMPORAL
+            # MEAN. Shows t=0 sharp/calibrated while deep-rollout steps inflate & centralize (the
+            # inflation hidden in any single-step view); 'full' = the aggregate over the horizon.
             def _mlabel(idx):
                 return (
                     f" m{int(time_indices[idx])}"
@@ -530,7 +530,7 @@ class VisualDiagnostics:
             )
             plt.tight_layout(rect=(0, 0.03, 1, 0.95))
 
-            # Cyan delimiter before the 'full (mean)' column (separating snapshots from the aggregate).
+            # Cyan delimiter before the 'full (mean)' column (snapshots vs the aggregate).
             fig.canvas.draw()
             pos2 = axes[0][n_cols - 2].get_position()
             pos3 = axes[0][n_cols - 1].get_position()
