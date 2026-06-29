@@ -39,6 +39,8 @@ from views_evaluation.evaluation.native_metric_calculators import (
     calculate_mcr_native,
 )
 
+from views_hydranet.utils.grid_naming import grid_id_col  # GH #144: the single grid-name rule
+
 try:  # twCRPS signature is (y_true, y_pred, *, threshold); guard in case it drifts.
     from views_evaluation.evaluation.native_metric_calculators import calculate_twcrps_native
 except Exception:  # pragma: no cover
@@ -48,16 +50,19 @@ DEFAULT_TARGETS = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
 
 
 def load_truth_index(raw_parquet: str, target: str) -> pd.Series:
-    """Return a (month_id, priogrid_gid)->target Series; FAIL LOUD if the index is not unique."""
+    """Return a (month_id, <grid>)->target Series; FAIL LOUD if the index is not unique.
+
+    The grid join key (priogrid_gid <-> priogrid_id, GH #144) is derived from the data."""
     raw = pd.read_parquet(raw_parquet).reset_index()
-    for col in ("month_id", "priogrid_gid", target):
+    grid = grid_id_col(raw.columns)  # GH #144: derive the grid join key from the data
+    for col in ("month_id", grid, target):
         if col not in raw.columns:
             raise ValueError(f"raw parquet missing {col!r}; columns: {list(raw.columns)[:12]}")
-    s = raw.set_index(["month_id", "priogrid_gid"])[target]
+    s = raw.set_index(["month_id", grid])[target]
     if not s.index.is_unique:
         n_dup = int(s.index.duplicated().sum())
         raise ValueError(
-            f"{target}: raw (month_id, priogrid_gid) index is NOT unique ({n_dup} dups) — "
+            f"{target}: raw (month_id, {grid}) index is NOT unique ({n_dup} dups) — "
             f"the join would be ambiguous. Refusing (guard the join, C-136)."
         )
     return s

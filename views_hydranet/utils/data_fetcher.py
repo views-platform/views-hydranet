@@ -11,6 +11,7 @@ import pandas as pd
 from views_pipeline_core.configs.pipeline import PipelineConfig
 from views_pipeline_core.files.utils import read_dataframe
 
+from views_hydranet.utils.grid_naming import grid_id_col
 from views_hydranet.utils.utils_logging import log_data_load_report
 
 logger = logging.getLogger(__name__)
@@ -85,7 +86,7 @@ class DataFetcher:
 
         # 2. Enforce Level Names and Order from Config (ADR 017 Section 1.2)
         try:
-            expected_names = config["index_names"]
+            expected_names = list(config["index_names"])
         except KeyError:
             err_msg = (
                 "DataFetcher Contract Violation: 'index_names' missing from config.\n"
@@ -97,6 +98,14 @@ class DataFetcher:
             raise KeyError(err_msg)
 
         actual_names = list(df.index.names)
+
+        # GH #144: resolve the grid entity from the DATA (priogrid_gid <-> priogrid_id flip), so a
+        # stale config name does not reject a renamed cache. grid_id_col is fail-loud (guards a
+        # malformed index); we then expect that derived name at the grid level (level-0/time below
+        # is still enforced). Backward-compatible: for today's priogrid_gid data this is a no-op.
+        id_col = grid_id_col(actual_names)
+        if len(expected_names) >= 2:
+            expected_names[1] = id_col
 
         if actual_names[: len(expected_names)] != expected_names:
             err_msg = (
@@ -115,7 +124,7 @@ class DataFetcher:
         # 4. Sort-Order Assertion (Hypothesis 5 Probe)
         # We must ensure time is monotonic for the VolumeHandler to work correctly.
         time_col = config.get("time_col", "month_id")
-        id_col = config.get("id_col", "priogrid_gid")
+        # id_col was derived from the data above (GH #144), not the (possibly stale) config name.
 
         if time_col in df_flat.columns:
             if not df_flat[time_col].is_monotonic_increasing:
