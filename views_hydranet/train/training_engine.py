@@ -180,6 +180,29 @@ def _active_window_mask(reg_target_window: torch.Tensor, threshold: float) -> to
     return (reg_target_window > threshold).any(dim=1)
 
 
+def _decay_gate_penalty(
+    gate_logits: torch.Tensor, cls_target: torch.Tensor, decay_active: torch.Tensor
+) -> torch.Tensor:
+    """Mean gate firing probability on DECAY cells (active in window AND zero now).
+
+    The step-1 leak is the gate hedging (~0.38) on recently-active-now-zero cells (it ranks them
+    below true conflict, AUC ~0.75, but does not commit). Penalising this mean sigmoid pushes them
+    toward 0 — suppressing the leak — while leaving true-positive cells (label != 0) untouched.
+
+    Args:
+        gate_logits: ``[B, H, W]`` pre-sigmoid gate output for one classification target.
+        cls_target: ``[B, H, W]`` binary label (a cell is a decay cell only where this is 0).
+        decay_active: ``[B, H, W]`` bool — cell active at any window step (active_window mask).
+
+    Returns:
+        Scalar penalty = mean sigmoid over (decay_active & target==0); 0.0 if there are none.
+    """
+    decay = decay_active & (cls_target == 0)
+    if not decay.any():
+        return gate_logits.new_zeros(())
+    return torch.sigmoid(gate_logits)[decay].mean()
+
+
 def _process_sequence(
     train_tensor: torch.Tensor,
     model: nn.Module,
@@ -198,6 +221,7 @@ def _process_sequence(
     ss_epsilon: float = 0.0,
     hurdle_mask_mode: str = "per_step",
     cls_valid_mask: torch.Tensor | None = None,
+    decay_gate_weight: float = 0.0,
 ) -> dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
@@ -236,6 +260,13 @@ def _process_sequence(
         _active_window_latent_warned = True
     if hurdle_threshold is not None and not use_latent and hurdle_mask_mode == "active_window":
         active_cell = _active_window_mask(train_tensor[:, 1:, idx.reg, :, :], hurdle_threshold)
+
+    # Opt-in gate-side decay penalty (2026-06-28 gate_resolution): suppress the GATE on cells
+    # active in the window but zero now. Keyed only on the true targets (threshold 0), so — unlike
+    # body active_window mask (C-180) — it applies even under a latent body (production hurdle_nb).
+    decay_active: torch.Tensor | None = None
+    if decay_gate_weight > 0:
+        decay_active = _active_window_mask(train_tensor[:, 1:, idx.reg, :, :], 0.0)
 
     prev_pred: torch.Tensor | None = None
 
@@ -332,9 +363,13 @@ def _process_sequence(
             else:
                 losses_list.append(tw * loss_fn_j(pred_j, target_j))
 
+        decay_pen = torch.tensor(0.0, device=device)
         for j in range(idx.n_cls):
             pred_cj = t1_pred_class[:, j, :, :]
             targ_cj = y_cls[:, j, :, :]
+            # Gate-side decay penalty (opt-in): accumulate on the FULL grid BEFORE any valid-mask.
+            if decay_active is not None and j < decay_active.shape[1]:
+                decay_pen = decay_pen + _decay_gate_penalty(pred_cj, targ_cj, decay_active[:, j])
             # C-181 (opt-in A/B): restrict the gate loss to valid (land) cells, matching the
             # hurdle-masked reg loss and the priogrid-masked eval. None ⇒ full grid (default).
             if cls_valid_mask is not None:
@@ -346,6 +381,8 @@ def _process_sequence(
         loss = cast(Any, multitaskloss_instance)(losses)
         if qs99_weight is not None and qs99_weight > 0:
             loss = loss + qs99_weight * qs99_loss
+        if decay_gate_weight > 0:
+            loss = loss + decay_gate_weight * decay_pen
         total_loss += loss
 
         loss_reg = losses[: idx.n_reg].sum()
@@ -501,6 +538,7 @@ def train(
         ss_epsilon=ss_epsilon,
         hurdle_mask_mode=config.get("hurdle_mask_mode", "per_step"),
         cls_valid_mask=cls_valid_mask,
+        decay_gate_weight=config.get("decay_gate_weight", 0.0),
     )
     step_total, step_reg, step_cls = result["per_step_losses"]
 
