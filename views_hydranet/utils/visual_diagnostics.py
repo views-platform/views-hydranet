@@ -373,16 +373,21 @@ class VisualDiagnostics:
                 "Decoder": [],
                 "MultiTaskHead": [],
             }
+            # Map layer names → functional blocks. The model uses short prefixes (enc_/bottleneck_/
+            # dec_/upsample_) and fuses the decoder into per-head paths (dec_conv*_head*), with the
+            # final conv (dec_conv4_head*) as the output head. Match those, NOT literal "encoder"/
+            # "decoder" (which never appear → previously left Encoder & Decoder permanently empty,
+            # rendering a degenerate vertical line).
             for name, norm in weight_norms.items():
                 short = name.replace("module.", "").lower()
-                if "encoder" in short:
-                    blocks["Encoder"].append(norm)
-                elif "bottleneck" in short:
+                if "bottleneck" in short:
                     blocks["Bottleneck"].append(norm)
-                elif "decoder" in short:
-                    blocks["Decoder"].append(norm)
-                elif "head" in short or "multi_task" in short:
+                elif "enc" in short:
+                    blocks["Encoder"].append(norm)
+                elif "conv4" in short:  # final per-head output conv = the prediction heads
                     blocks["MultiTaskHead"].append(norm)
+                elif "dec" in short or "upsample" in short:
+                    blocks["Decoder"].append(norm)
 
             labels = list(blocks.keys())
             values = [float(np.mean(v)) if v else 0.0 for v in blocks.values()]
@@ -851,13 +856,10 @@ class VisualDiagnostics:
                         ax.legend(fontsize=7)
 
             # 3. Calibration row (ŷ_bar/y_bar ratio). full = instant+running; slices = one ratio.
+            # Always log-scaled with FIXED bounds so this row is directly comparable across runs
+            # (e.g. a pos_weight dial sweep) — no per-run linear↔log switch that breaks comparison.
             r = n_metrics + (1 if is_reg else 0)
-            bias_cols = [
-                dossier.get("bias_instant", []) if c == "full" else dossier.get(f"{c}_bias", [])
-                for c, _ in cols
-            ]
-            hi = shared_hi(bias_cols)
-            use_log = hi > 10
+            cal_lo, cal_hi = (0.5, 2000.0) if is_reg else (0.1, 200.0)
             for ci, (ckey, clabel) in enumerate(cols):
                 ax = axes[r][ci]
                 if ckey == "full":
@@ -881,9 +883,8 @@ class VisualDiagnostics:
                         label="instant",
                     )
                 ax.axhline(1.0, color="gray", linestyle=":", alpha=0.5)
-                if use_log:
-                    ax.set_yscale("log")
-                    ax.set_ylim(0.5, hi * 1.3)
+                ax.set_yscale("log")
+                ax.set_ylim(cal_lo, cal_hi)
                 ax.grid(True, alpha=0.3)
                 if r == 0:
                     ax.set_title(clabel, fontweight="bold")

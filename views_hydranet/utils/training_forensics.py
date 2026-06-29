@@ -159,9 +159,11 @@ class TrainingForensics:
             # 3. Per-horizon-slice reduction (t0/early/late) for the dossier columns. Pick
             # representative timestep indices from those recorded this lesson; if none were tagged
             # with a step_idx, carry the last value so the per-slice series stay lesson-aligned.
+            # "early" uses the first-third index (steps[len//3]) to match the eval autoregressive
+            # forensic's T//3 convention, so "early" means the same horizon across both plots.
             steps = sorted(self.lesson_y_step[key].keys())
             chosen = (
-                {"t0": steps[0], "early": steps[len(steps) // 2], "late": steps[-1]}
+                {"t0": steps[0], "early": steps[len(steps) // 3], "late": steps[-1]}
                 if steps
                 else {}
             )
