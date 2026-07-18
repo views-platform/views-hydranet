@@ -2,11 +2,14 @@
 
 C-179: reg_activation must be persisted in the artifact sidecar (else reload silently uses the
        current default activation — wrong forward, no error; softplus/relu share weight shapes).
-C-180: active_window must NOT be a silent no-op under a latent loss — warn loudly.
+C-180: a positives body mask must NOT be a silent no-op under a latent loss — fail loud. Originally
+       a warn-once in training_engine; ADR-065 (Epic #158) promoted it to a fail-loud config
+       validator (validate_body_mask_latent), so this now guards the stronger contract.
 
-These started as failing falsification stubs; the fixes (train_model.py / training_engine.py)
+These started as failing falsification stubs; the fixes (train_model.py / config_initializer.py)
 make them green. They guard against regression of either fix.
 """
+
 from pathlib import Path
 
 import pytest
@@ -34,21 +37,33 @@ def test_reg_activation_respected_on_reload():
     from views_hydranet.utils.utils import choose_model
 
     sidecar = {
-        "model": "HydraBNUNet06_LSTM4", "input_channels": 3, "output_channels": 1,
-        "total_hidden_channels": 32, "dropout_rate": 0.0, "weight_init": "xavier_norm",
-        "h_init": "abs_rand_exp-100", "output_distribution": "hurdle_shrinkage",
+        "model": "HydraBNUNet06_LSTM4",
+        "input_channels": 3,
+        "output_channels": 1,
+        "total_hidden_channels": 32,
+        "dropout_rate": 0.0,
+        "weight_init": "xavier_norm",
+        "h_init": "abs_rand_exp-100",
+        "output_distribution": "hurdle_shrinkage",
         "reg_activation": "relu",
     }
     m = choose_model(sidecar, torch.device("cpu"))
     assert m._reg_activation.__name__ == "relu"
 
 
-# ── C-180: active_window under a latent loss warns (not a silent no-op) ──
-def test_active_window_under_latent_loss_warns():
-    """_process_sequence must warn when hurdle_mask_mode='active_window' is combined with a
-    latent loss (use_latent=True), since the mask is silently inapplicable there (C-180)."""
-    src = (ROOT / "train" / "training_engine.py").read_text()
-    assert "C-180" in src and 'hurdle_mask_mode == "active_window" and use_latent' in src, (
-        "training_engine no longer warns on active_window + latent loss — the flag is silently "
-        "a no-op (C-180)."
-    )
+# ── C-180: a positives body mask under a latent loss fails loud (not a silent no-op) ──
+def test_pos_mask_under_latent_loss_fails_loud(valid_config_dict):
+    """A positives body_mask under a latent loss is a no-op, so the config must REJECT it (ADR-065
+    validate_body_mask_latent) — the stronger successor to the old C-180 warn-once."""
+    import pytest as _pytest
+
+    from views_hydranet.utils.config_initializer import HydraNetConfig
+
+    cfg = {
+        **valid_config_dict,
+        "body_mask": "pos_timelines",
+        "loss_reg": "hurdle_nb",
+        "loss_reg_theta_init": 1.0,
+    }
+    with _pytest.raises(ValueError, match="latent likelihood"):
+        HydraNetConfig(**cfg)

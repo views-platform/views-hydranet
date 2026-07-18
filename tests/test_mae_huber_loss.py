@@ -1,6 +1,6 @@
 """TDD: wire MAE (L1) and Huber regression losses as non-negative point bodies for the hurdle.
 
-Both train the regression head on positive cells only (hurdle_threshold mask), in log1p space, and
+Both train the regression head on positive cells only (body_mask='pos_cells'), in log1p space, and
 emit via the existing point compose (output_distribution='hurdle_shrinkage' →
 hurdle_point_expected_log1p; E[y|y>0]=expm1(reg)). They are thin built-in wrappers, like 'mse'
 (nn.MSELoss): MAE → nn.L1Loss (conditional median), Huber → nn.HuberLoss (robust mean, delta=1.0).

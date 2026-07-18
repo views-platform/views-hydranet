@@ -93,7 +93,16 @@ def train_model_artifact(
         # C-179: persist the RESOLVED reg-head activation (the function actually used) so a reload
         # uses the trained activation even if the default keyed off output_distribution changes
         # (ADR-063). softplus/relu share weight shapes => a mismatch loads silently, wrong.
-        config_snapshot["reg_activation"] = model._reg_activation.__name__
+        # Quantile head sets its own monotone activation from output_distribution (the
+        # reg_activation
+        # arg is ignored); its closure name is not a valid reg_activation on reload, so persist
+        # None +
+        # the quantile count K instead.
+        if config_snapshot["output_distribution"] == "quantile":
+            config_snapshot["reg_activation"] = None
+            config_snapshot["n_quantiles"] = config.get("n_quantiles")
+        else:
+            config_snapshot["reg_activation"] = model._reg_activation.__name__
         criterion_reg = criterion[0]
         is_hurdle = config_snapshot["output_distribution"] == "hurdle_nb"
         if is_hurdle and isinstance(criterion_reg, dict):

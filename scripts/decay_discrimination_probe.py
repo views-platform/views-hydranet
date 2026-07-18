@@ -6,11 +6,13 @@ positives if the model can DISTINGUISH a cell that will keep firing (truth>0) fr
 zero (truth==0). This measures exactly that: restrict to recently-active cells (prior-K-months),
 then score the gate pi as a classifier of (truth>0) at STEP-1.
 
-Reading rule (pre-registered): high AUC / pi clearly higher on fire-vs-decay ⇒ model KNOWS ⇒ targeted
+Reading rule (pre-registered): high AUC / pi clearly higher on fire-vs-decay ⇒ model KNOWS ⇒
+targeted
 reweight can fix the leak without killing positives (gate-side viable). AUC ~0.5 ⇒ model is BLIND
 among decay cells ⇒ representational/feature lever, not a loss tweak.
 
-Usage: python scripts/decay_discrimination_probe.py <pred_dir> [--raw <parquet>] [--targets ...] [--k 12]
+Usage: python scripts/decay_discrimination_probe.py <pred_dir> [--raw <parquet>] [--targets ...]
+[--k 12]
 """
 
 from __future__ import annotations
@@ -65,8 +67,10 @@ def main():
         pi = np.concatenate(pi)
         # restrict to recently-active cells (the population where leak and positives co-live)
         seed_month = None  # STEP-1 month is constant per origin; recompute per cell via its month
-        # all STEP-1 cells share their origin's seed month; we stored only truth/pi/unit, so re-derive
-        # recency using the single seed month present (min over the pooled times is fine: per-origin
+        # all STEP-1 cells share their origin's seed month; we stored only truth/pi/unit, so
+        # re-derive
+        # recency using the single seed month present (min over the pooled times is fine:
+        # per-origin
         # STEP-1 == that origin's seed). To stay exact, recompute month per cell is not needed here
         # because recent_active uses (unit, month); approximate with the global seed set below.
         # Simpler+exact: redo collection keeping months.
@@ -85,7 +89,10 @@ def main():
             f"- gate AUC(fire vs decay)={auc:.3f}  AP={apr:.3f}  "
             f"(base rate={n_fire / (n_fire + n_decay):.3f})"
         )
-        print(f"- mean gate pi:  FIRE={pi_fire:.3f}   DECAY={pi_decay:.3f}   ratio={pi_fire / pi_decay:.2f}\n")
+        print(
+            f"- mean gate pi:  FIRE={pi_fire:.3f}   DECAY={pi_decay:.3f}   "
+            f"ratio={pi_fire / pi_decay:.2f}\n"
+        )
 
 
 def _recent_mask(pred_dir, t, by_target, by_unit, k, truth_idx):

@@ -9,11 +9,14 @@ import torch.nn as nn
 
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
 from views_hydranet.utils.basu_loss import BasuDPDLoss
+from views_hydranet.utils.count_mean_loss import CountMeanMSELoss
 from views_hydranet.utils.dense_nb_loss import DenseNBLoss
 from views_hydranet.utils.focal_loss import FocalLoss
 from views_hydranet.utils.lognormal_nll_loss import LogNormalFixedSigmaLoss
 from views_hydranet.utils.mtloss import MultiTaskLoss
 from views_hydranet.utils.pareto_loss import ParetoLoss
+from views_hydranet.utils.pinball_body_loss import PinballBodyLoss
+from views_hydranet.utils.quantile_head import QuantileLoss, midpoint_levels
 from views_hydranet.utils.shrinkage_loss import ShrinkageLoss
 from views_hydranet.utils.tobit_loss import TobitLoss
 from views_hydranet.utils.truncated_nb_loss import TruncatedNBLoss
@@ -34,6 +37,7 @@ def choose_model(config: dict, device: torch.device) -> nn.Module:
             output_distribution=config.get("output_distribution", "standard"),
             n_static_channels=len(config.get("static_channels", [])),  # ADR-061 top-skip
             reg_activation=config.get("reg_activation"),  # Exp B: decouple emit activation
+            n_quantiles=config.get("n_quantiles"),  # quantile head: K reg channels per target
         ).to(device)
     else:
         err_msg = f"Unknown model type: {config['model']}"
@@ -51,6 +55,15 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
         "cls": nn.MSELoss,
         "params": [],
         "factory": lambda config, device: nn.MSELoss().to(device),
+    },
+    # count_mean: MSE in COUNT space (expm1) — minimizer E[y|x], the count MEAN, vs mse's
+    # log-median
+    # under-fit of the heavy tail (port of views-lstm-lab EXP-07). Pair with
+    # output_distribution='standard' (E[y]=expm1(body)) and NO hurdle mask (unconditional mean).
+    "count_mean": {
+        "cls": CountMeanMSELoss,
+        "params": [],
+        "factory": lambda config, device: CountMeanMSELoss().to(device),
     },
     # Non-negative point bodies for the hurdle (trained on positive cells, log1p space; emit via
     # the point compose, output_distribution='hurdle_shrinkage'). MAE -> conditional median
@@ -116,6 +129,33 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
             learnable=config.get("learnable_theta", True),
         ).to(device),
     },
+    # Winsorized τ-pinball BODY loss (2026-07-16): the bulk-magnitude dial. tau lifts predicted
+    # magnitude
+    # (0.5=median → higher=toward mean); cap winsorizes the target (log1p) so the tail can't drag
+    # the fit.
+    # Point body on positive cells (hurdle mask) with softplus. See pinball_body_loss.py.
+    "pinball": {
+        "cls": PinballBodyLoss,
+        # Only tau is required (the dial). cap (winsorize) is OPTIONAL — an uncapped tau-pinball is
+        # a
+        # valid quantile-regression loss (cap=None => inf => no winsorize), which the A0'/dial
+        # baseline
+        # needs. The factory tolerates a missing cap.
+        "params": ["loss_reg_tau"],
+        "factory": lambda config, device: PinballBodyLoss(
+            tau=config.get("loss_reg_tau", 0.5), cap=config.get("loss_reg_cap")
+        ).to(device),
+    },
+    # Quantile head (2026-07 build): K monotone quantiles/target, multi-tau pinball (Riemann-CRPS).
+    # A single shared instance is built in choose_loss(); the training loop slices K
+    # channels/target.
+    "quantile": {
+        "cls": QuantileLoss,
+        "params": ["n_quantiles"],
+        "factory": lambda config, device: QuantileLoss(midpoint_levels(config["n_quantiles"])).to(
+            device
+        ),
+    },
     # Dense NB body (C-168 sharpness experiment): plain NB NLL on ALL cells (zeros supervised).
     # Per-target instances built in choose_loss() so each θ reaches the optimizer.
     "dense_nb": {
@@ -176,6 +216,15 @@ def choose_loss(
             target: body_cls(theta_init=theta_init, learnable=learnable_theta).to(device)
             for target in config.get("regression_targets", [])
         }
+    elif config["loss_reg"] == "quantile":
+        # Quantile head: a single multi-tau pinball instance shared across targets (the head emits
+        # K
+        # monotone quantiles/target; the training loop slices K channels per target). K =
+        # n_quantiles.
+        k = config.get("n_quantiles")
+        if not k or k < 2:
+            raise ValueError("loss_reg='quantile' requires config['n_quantiles'] >= 2")
+        criterion_reg = QuantileLoss(midpoint_levels(k)).to(device)
     elif isinstance(loss_reg_sigma, dict) and config["loss_reg"] == "tobit":
         criterion_reg = {
             target: TobitLoss(sigma=s, learnable=learnable).to(device)
@@ -189,13 +238,21 @@ def choose_loss(
                 f"Unknown regression loss: '{config['loss_reg']}'. "
                 f"Available: {list(LOSS_REG_REGISTRY.keys())}"
             ) from None
-    try:
-        criterion_class = LOSS_CLASS_REGISTRY[config["loss_class"]]["factory"](config, device)
-    except KeyError:
-        raise ValueError(
-            f"Unknown classification loss: '{config['loss_class']}'. "
-            f"Available: {list(LOSS_CLASS_REGISTRY.keys())}"
-        ) from None
+    _pw = config.get("loss_class_pos_weight")
+    if config["loss_class"] == "weighted_bce" and isinstance(_pw, (list, tuple)):
+        # per-target gate: one WeightedBCEWithLogitsLoss per classification target (sb/ns/os), each
+        # with
+        # its own pos_weight. Applied per-target in the training loop (mirrors the per-target reg
+        # dict).
+        criterion_class = [WeightedBCEWithLogitsLoss(pos_weight=float(p)).to(device) for p in _pw]
+    else:
+        try:
+            criterion_class = LOSS_CLASS_REGISTRY[config["loss_class"]]["factory"](config, device)
+        except KeyError:
+            raise ValueError(
+                f"Unknown classification loss: '{config['loss_class']}'. "
+                f"Available: {list(LOSS_CLASS_REGISTRY.keys())}"
+            ) from None
 
     logger.info(f"Regression loss: {criterion_reg}\n classification loss: {criterion_class}")
 

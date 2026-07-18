@@ -35,6 +35,14 @@ class TestGreen:
         config = HydraNetConfig(**valid_config_dict)
         assert config.run_type == "validation"
 
+    @pytest.mark.parametrize(
+        "dist", ["standard", "hurdle_nb", "hurdle_lognormal", "hurdle_shrinkage", "dense_nb"]
+    )
+    def test_green_valid_output_distributions_accepted(self, valid_config_dict, dist):
+        """All supported output_distribution values pass the validator (incl. dense_nb, C-168)."""
+        cfg = _make_config(valid_config_dict, output_distribution=dist)
+        assert HydraNetConfig(**cfg).output_distribution == dist
+
     def test_green_mse_needs_no_loss_params(self, valid_config_dict):
         """mse/bce require no loss-specific params — absence is fine."""
         cfg = dict(valid_config_dict)

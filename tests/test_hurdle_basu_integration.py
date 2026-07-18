@@ -21,7 +21,7 @@ class TestRedHurdleParamValidation:
     def test_hurdle_enabled_without_qs99_tau_raises(self, valid_config_dict):
         from views_hydranet.utils.config_initializer import HydraNetConfig
 
-        cfg = {**valid_config_dict, "hurdle_threshold": 0.0, "qs99_weight": 0.1}
+        cfg = {**valid_config_dict, "body_mask": "pos_cells", "qs99_weight": 0.1}
         with pytest.raises((ValueError, Exception), match="qs99_tau"):
             HydraNetConfig(**cfg)
 
@@ -47,7 +47,7 @@ class TestRedHurdleParamValidation:
             SumReducer(),
             idx,
             torch.device("cpu"),
-            hurdle_threshold=0.0,
+            body_mask="pos_cells",
             qs99_weight=None,
             qs99_tau=None,
         )
@@ -62,7 +62,7 @@ class TestGreenHurdleConfigPaths:
         from views_hydranet.utils.config_initializer import HydraNetConfig
 
         cfg = {**valid_config_dict}
-        cfg.pop("hurdle_threshold", None)
+        cfg.pop("body_mask", None)  # no positives mask -> qs99 not required
         cfg.pop("qs99_weight", None)
         cfg.pop("qs99_tau", None)
         HydraNetConfig(**cfg)
@@ -70,7 +70,7 @@ class TestGreenHurdleConfigPaths:
     def test_hurdle_qs99_weight_zero_does_not_require_tau(self, valid_config_dict):
         from views_hydranet.utils.config_initializer import HydraNetConfig
 
-        cfg = {**valid_config_dict, "hurdle_threshold": 0.0, "qs99_weight": 0.0}
+        cfg = {**valid_config_dict, "body_mask": "pos_cells", "qs99_weight": 0.0}
         HydraNetConfig(**cfg)
 
 
@@ -104,7 +104,7 @@ class TestGreenHurdleBasuIntegration:
             SumReducer(),
             idx,
             torch.device("cpu"),
-            hurdle_threshold=0.0,
+            body_mask="pos_cells",
             qs99_weight=0.1,
             qs99_tau=0.99,
         )
@@ -136,7 +136,7 @@ class TestGreenHurdleBasuIntegration:
             SumReducer(),
             idx,
             torch.device("cpu"),
-            hurdle_threshold=0.0,
+            body_mask="pos_cells",
         )
 
         reg_loss = result["reg"].item()
@@ -171,7 +171,7 @@ class TestGreenHurdleBasuIntegration:
                 SumReducer(),
                 idx,
                 torch.device("cpu"),
-                hurdle_threshold=0.0,
+                body_mask="pos_cells",
             )
             result["total"].backward()
             return max(p.grad.abs().max().item() for p in model.parameters() if p.grad is not None)
@@ -206,7 +206,7 @@ class TestGreenHurdleBasuIntegration:
             SumReducer(),
             idx,
             torch.device("cpu"),
-            hurdle_threshold=0.0,
+            body_mask="pos_cells",
             qs99_weight=0.0,
             qs99_tau=0.99,
         )
@@ -220,7 +220,7 @@ class TestGreenHurdleBasuIntegration:
             SumReducer(),
             idx,
             torch.device("cpu"),
-            hurdle_threshold=0.0,
+            body_mask="pos_cells",
             qs99_weight=0.1,
             qs99_tau=0.99,
         )
@@ -298,7 +298,7 @@ class TestGreenTargetWeights:
             SumReducer(),
             idx,
             torch.device("cpu"),
-            hurdle_threshold=0.0,
+            body_mask="pos_cells",
         )
 
         result_weighted = _process_sequence(
@@ -310,7 +310,7 @@ class TestGreenTargetWeights:
             SumReducer(),
             idx,
             torch.device("cpu"),
-            hurdle_threshold=0.0,
+            body_mask="pos_cells",
             target_weights={"feat": 5.0},
         )
 
@@ -363,7 +363,7 @@ class TestGreenTargetWeights:
             SumReducer(),
             idx,
             torch.device("cpu"),
-            hurdle_threshold=0.0,
+            body_mask="pos_cells",
             target_weights={"a": 1.0, "b": 1.0},
         )
 
@@ -376,7 +376,7 @@ class TestGreenTargetWeights:
             SumReducer(),
             idx,
             torch.device("cpu"),
-            hurdle_threshold=0.0,
+            body_mask="pos_cells",
             target_weights={"a": 1.0, "b": 5.0},
         )
 
@@ -442,7 +442,7 @@ class TestGreenTrainEntryPoint:
             "id_col": "priogrid_gid",
             "transformations": {"identity": FEATURES},
             "derivations": {},
-            "hurdle_threshold": 0.0,
+            "body_mask": "pos_cells",
             "qs99_weight": 0.1,
             "qs99_tau": 0.99,
             "target_weights": {

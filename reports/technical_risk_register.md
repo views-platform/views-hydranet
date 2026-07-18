@@ -4,9 +4,9 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-06-27                           |
-| Total Concerns    | 188                                  |
-| Open Concerns     | 83                                   |
+| Last Updated      | 2026-07-18                           |
+| Total Concerns    | 194                                  |
+| Open Concerns     | 89                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 105                                  |
 
@@ -1519,6 +1519,91 @@ The scheduled-sampling curriculum (ADR-056, Bengio et al. 2015) validates `k<1` 
 The /falsify **effectiveness** audit confirmed the skips are **correctly wired and heavily load-bearing** — ablation gave **e0s 81% / e1s 27%** L2 output dependence (not dead, not ignored). BUT the high-frequency detail they exist to deliver is **throttled on the path to the decoder**: *both* skips pass through `LockedDropout` (15% zeroed; re-randomised per MC sample at inference), and `e1s` additionally through `BatchNorm` (which normalises away the high-variance detail). Measured (P2): the trained model is a **strong low-pass** — a broadband sparse-impulse input's high-freq power fraction **0.32 → 0.07** at the output (~78% of high-freq energy discarded); and the finest skip currently carries mostly **low**-frequency content (zeroing it *raises* the output high-freq fraction). **Tier 4 — NOT a correctness or wiring defect:** the over-smoothing is **loss-driven, not a hard skip ceiling** — the *same* architecture produced sharp regression heads under shrinkage/MSE (user testimony; consistent with C-169 "backbone overfits a sharp tile trivially" and the intrinsic spectral bias to low frequencies, Rahaman 2019 / Fourier features). Registered as **independent efficiency headroom**, explicitly downstream of the loss work. Cheapest skip-side A/Bs IF pursued: (a) remove dropout from the skip path (keep it on the bottleneck), (b) `Upsample`+`Conv` over stride-2 `ConvTranspose` (C-187). Both one-liners; **need an A/B to confirm a benefit — do not change blind.** No failing test stub (CONTESTED — efficiency hypothesis, not a wiring bug).
 
 ---
+
+### C-191: `output_distribution='hurdle_shrinkage'` is a misnomer — the compose is loss-agnostic (gate·expm1(point)), not shrinkage
+
+| Field | Value |
+|-------|-------|
+| ID | C-191 |
+| Tier | 3 |
+| Source | user observation (2026-07-02) — surfaced during the T=0 calibration reconciliation |
+| Trigger | When configuring or reasoning about a point-body hurdle arm (mae/huber/pareto/shrinkage), or reading ADR-063 — the config value names the compose after ONE loss (shrinkage) although the compose (`hurdle_point_expected_log1p`) is loss-agnostic |
+| Location | `views_hydranet/utils/config_initializer.py:380` (validator whitelist), `views_hydranet/utils/hydranet_inference.py:215` (dispatch), `views_hydranet/utils/hurdle_nb.py:74` (`hurdle_point_expected_log1p`), `docs/ADRs/active/063_regression_head_output_activation.md:29` |
+| Cross-refs | C-149 / C-168 (the T=0 calibration work this naming obscured) |
+
+The `output_distribution` value `hurdle_shrinkage` selects the compose `hurdle_point_expected_log1p(reg, prob) = log1p(P(y>0)·expm1(reg))` — a **hurdle with a log1p-space POINT body**, which is **loss-agnostic**: mae, huber, pareto, and shrinkage all decode through it identically. The name derives from the first loss that happened to use it (`ShrinkageLoss`), not from what it computes — there is no shrinkage in the compose. This actively misled reasoning about the loss↔compose coupling (2026-07-02: an explanation treated the name as if it were meaningful). The underlying function is correctly named (`hurdle_point`); the config value is the misnomer. **Fix:** rename `output_distribution='hurdle_shrinkage'` → `'hurdle_point'` with a back-compat alias in the validator + inference dispatch; update ADR-063. No correctness defect (the compose is right) — clarity/maintainability only. No failing test stub.
+
+---
+
+### C-192: #144 grid-name flip (priogrid_gid→priogrid_id) not wired into DataSniffer — floor config blocks at ingestion
+
+| Field | Value |
+|-------|-------|
+| ID | C-192 |
+| Tier | 2 |
+| Source | bulk-calibration dossier P2 smoke (2026-07-16) — realized failure |
+| Trigger | Launching any hydranet run (train/eval/forecast) from a config whose grid name (`identity_cols`/`index_names`/`id_col`) does not match the current parquet's grid column — e.g. running the on-disk floor config (`priogrid_gid`) against today's `priogrid_id` viewser/parquet data |
+| Location | `views_hydranet/utils/data_sniffer.py:299-320` (`_check_obligatory_columns`, reads hardcoded `config['identity_cols']`/`['features']`/`['spatial_cols']`); the incomplete fix: `views_hydranet/utils/grid_naming.py::grid_id_col` (added by #144 / `1f707d3`) wired only into `data_fetcher.py` + `scripts/mcr_readout.py`; stale config `models/violet_visitor/configs/config_hyperparameters.py` (still `priogrid_gid`) |
+| Cross-refs | C-174 (name-as-contract, no boundary adapter — this is a realized instance), C-120 (dual data-layer authority), C-173 (prefix-role parsing), C-19 (priogrid_gid>0 ingestion assumption) |
+
+The platform grid-entity rename **priogrid_gid → priogrid_id** (GH #144) is now **live** in the data: both the cached `calibration_viewser_df.parquet` and a fresh viewser fetch emit `priogrid_id`. The #144 fix (`1f707d3`) introduced `grid_naming.grid_id_col` (name-set membership, fail-loud) and wired it into `data_fetcher` (load path) and `mcr_readout` (truth-join key) — but **did not wire it into `DataSniffer._check_obligatory_columns`**, which still validates the df against the hardcoded `config['identity_cols']` grid name. Consequence: **any run launched from the on-disk floor config (which still declares `priogrid_gid`) fails at ingestion** with `ValueError: Missing Obligatory Columns: ['priogrid_gid']`, before training starts. **Verified:** the first P2 smoke launch died exactly here; worked around by setting `id_col`/`identity_cols`/`index_names` → `priogrid_id` in the run config. The same hardcode existed in `reports/2026-07-16_bulk_calibration_dossier/tools/bulk_score.py` (`set_index('priogrid_gid')` for the truth join) and was fixed there to derive the grid column from data. **Tier 2:** a realized structural fragility that hard-blocks the primary train/eval workflow from the canonical config; the #144 fix is demonstrably incomplete (2 of 3 grid-name consumers). **Not Tier 1** — fail-loud (ValueError), no silent corruption. **Fix:** wire `grid_naming.grid_id_col` into `DataSniffer._check_obligatory_columns` (derive the grid entity from the df, same pattern as `data_fetcher`) so the sniffer is grid-name-agnostic; and/or update the floor config's grid name to `priogrid_id`. A grep for remaining hardcoded `priogrid_gid` across `views_hydranet/` + configs + fixtures would scope the full #144 residue.
+
+---
+
+### C-193: `body_mask` masking silently ignored under a latent loss — trains dense while config says masked
+
+| Field | Value |
+|-------|-------|
+| ID | C-193 |
+| Tier | 2 |
+| Source | expert-code-review (2026-07-18, `body_mask` design) — Nygard/ADR-008 |
+| Trigger | Sweeping `body_mask` (or setting `hurdle_threshold`+mode) to a masking value while `loss_reg` is a latent likelihood (`hurdle_nb`/`lognormal_nll`/`tobit`) |
+| Location | `views_hydranet/train/training_engine.py:255-263, 343` (`if hurdle_threshold is not None and not use_latent`; warn-once C-180) |
+| Cross-refs | C-194 (same interface), C-180 (the warn-once), ADR-008, ADR-003 Law 1 |
+
+The point-body mask is silently a **no-op under a latent loss** — only a warn-once fires (C-180). A run can be configured "masked" and train **dense**, invisibly, with no error and no metric signal. Violates ADR-003 Law 1 (Fail Loud — it explicitly names "silent truncation") and ADR-008. **Tier 2:** silent wrong-training under a realistic sweep, no error signal. Fix: a hard `ValueError` at config validation when `body_mask ∈ {pos_cells,pos_timelines}` and the loss is latent (mirror the tobit/`hurdle_threshold` contradiction at `config_initializer.py:627`).
+
+### C-194: `hurdle_mask_mode` read raw + un-validated — a typo silently degrades the mask to per_step
+
+| Field | Value |
+|-------|-------|
+| ID | C-194 |
+| Tier | 2 |
+| Source | expert-code-review (2026-07-18, `body_mask` design) — Nygard/ADR-009 |
+| Trigger | Setting `hurdle_mask_mode` in a config with a typo (e.g. `active-window` vs `active_window`) |
+| Location | `views_hydranet/train/training_engine.py:549` (`config.get("hurdle_mask_mode","per_step")`); NO field in `config_initializer.py` |
+| Cross-refs | C-193, ADR-009 (config as validated boundary) |
+
+`hurdle_mask_mode` is not a config field — it's read straight from the dict with a `"per_step"` default, so any typo silently trains the wrong mask (e.g. `active_window` intended, per_step trained). No validation, no error. Violates ADR-009 (all boundaries validated). **Tier 2:** silent mis-training with no signal. Fix: the validated `body_mask` enum becomes the sole front door; the raw `config.get` read is deleted.
+
+### C-195: dual authority over "what is an event" — mask threshold vs binary-derivation threshold can drift
+
+| Field | Value |
+|-------|-------|
+| ID | C-195 |
+| Tier | 3 |
+| Source | expert-code-review (2026-07-18, `body_mask` design) — Martin/Kleppmann/ADR-046 |
+| Trigger | Changing the binary-target derivation threshold (`config['derivations']['binary'][...]['threshold']`) without changing the mask's hardcoded `> threshold` |
+| Location | mask literal in `training_engine.py:263/349` vs `config_initializer.py:53` (`derivations`) |
+| Cross-refs | C-193/C-194, ADR-046 (Transformations vs Derivations), ADR-003 Law 6 |
+
+"A cell is an event where `y > 0`" is defined in **two** places — the binary-target derivation (config `derivations`) and the mask threshold in the training loop. They can silently diverge, so `by_*` labels and the body mask would disagree on which cells are events. **Tier 3:** maintainability/consistency hazard, no current corruption (both are 0 today). Fix: the mask sources its event threshold from the derivation config (single authority).
+
+### C-196: `body_mask='none'` refactor must be byte-identical to the current foundation — else silent drift
+
+| Field | Value |
+|-------|-------|
+| ID | C-196 |
+| Tier | 3 |
+| Source | expert-code-review (2026-07-18, `body_mask` design) — Feathers/Beck |
+| Trigger | Refactoring the two-knob mask into `body_mask` without a characterization net |
+| Location | `training_engine.py` masking path; `tests/` (no end-to-end characterization test today) |
+| Cross-refs | C-193/194/195, ADR-005 |
+
+The foundation (all-cell MSE gated) is the lodestar baseline. If the `body_mask` refactor changes the masked cell-set at `none` even slightly, the foundation shifts silently and every comparison to it is invalidated. There is currently **no** config→behaviour characterization test. **Tier 3:** regression risk on a load-bearing baseline. Fix: a characterization test snapshotting the current masked-cell-set for all three legacy knob-combos BEFORE the refactor, asserted identical after.
+
+---
+
 
 ## Disagreements
 

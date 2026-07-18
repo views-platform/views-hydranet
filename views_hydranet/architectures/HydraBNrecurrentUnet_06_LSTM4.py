@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from views_hydranet.architectures.locked_dropout import LockedDropout
+from views_hydranet.utils.quantile_head import init_quantile_conv_, monotone_quantiles
 
 
 class ModelOutput(NamedTuple):
@@ -55,6 +56,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
         output_distribution="standard",
         n_static_channels=0,
         reg_activation=None,
+        n_quantiles=None,
     ):
         """
         Initializes the HydraNet architecture.
@@ -88,6 +90,26 @@ class HydraBNUNet06_LSTM4(nn.Module):
             self._reg_activation = (
                 F.softplus if output_distribution.startswith("hurdle") else F.relu
             )
+
+        # Quantile head (2026-07 build): each reg head emits K monotone quantiles
+        # (cumulative-softplus
+        # in log1p space) instead of a single activated mu. output_channels stays the
+        # feedback/class
+        # width (1); n_quantiles (K) sizes ONLY the reg heads, so the AR-feedback invariant
+        # (input_channels == 3*output_channels + static) is untouched. See quantile_head.py.
+        self._is_quantile = output_distribution == "quantile"
+        self.n_quantiles = n_quantiles
+        if self._is_quantile:
+            if not n_quantiles or n_quantiles < 2:
+                raise ValueError("output_distribution='quantile' requires n_quantiles >= 2")
+
+            # [B, K, H, W] -> monotone along the channel (quantile) axis
+            def _monotone_channels(x):
+                q = monotone_quantiles(x.permute(0, 2, 3, 1))  # [B, H, W, K]
+                return q.permute(0, 3, 1, 2).contiguous()
+
+            self._reg_activation = _monotone_channels
+        reg_out_ch = n_quantiles if self._is_quantile else output_channels
 
         # ADR-061 top-skip: the last n_static_channels of the input are static (e.g. coordinates);
         # re-injected raw at each decoder head's full-resolution dec_conv1. 0 => byte-identical.
@@ -139,7 +161,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
         )
         self.bn_dec_conv1_head1_reg = nn.BatchNorm2d(base)
 
-        self.dec_conv4_head1_reg = nn.Conv2d(base, output_channels, kernel_size, padding=1)
+        self.dec_conv4_head1_reg = nn.Conv2d(base, reg_out_ch, kernel_size, padding=1)
 
         # HEAD1 class
         self.upsample0_head1_class = nn.ConvTranspose2d(
@@ -177,7 +199,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
         )
         self.bn_dec_conv1_head2_reg = nn.BatchNorm2d(base)
 
-        self.dec_conv4_head2_reg = nn.Conv2d(base, output_channels, 3, padding=1)
+        self.dec_conv4_head2_reg = nn.Conv2d(base, reg_out_ch, 3, padding=1)
 
         # HEAD2 class
         self.upsample0_head2_class = nn.ConvTranspose2d(
@@ -215,7 +237,18 @@ class HydraBNUNet06_LSTM4(nn.Module):
         )
         self.bn_dec_conv1_head3_reg = nn.BatchNorm2d(base)
 
-        self.dec_conv4_head3_reg = nn.Conv2d(base, output_channels, kernel_size, padding=1)
+        self.dec_conv4_head3_reg = nn.Conv2d(base, reg_out_ch, kernel_size, padding=1)
+
+        # Narrow-fan init for the quantile reg heads (channel 0 = base, 1: = pre-softplus gaps) so
+        # the
+        # cumulated softplus opens narrow instead of exploding to a dead, zero-gradient head.
+        if self._is_quantile:
+            for _c in (
+                self.dec_conv4_head1_reg,
+                self.dec_conv4_head2_reg,
+                self.dec_conv4_head3_reg,
+            ):
+                init_quantile_conv_(_c)
 
         # HEAD3 class
         self.upsample0_head3_class = nn.ConvTranspose2d(

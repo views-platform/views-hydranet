@@ -22,8 +22,16 @@ import torch.nn as nn
 from tqdm import tqdm
 
 from views_hydranet.infrastructure.reproducibility_gate import ReproducibilityGate
+from views_hydranet.utils.body_mask import (
+    _active_window_mask as _resolve_active_window_mask,
+)
+from views_hydranet.utils.body_mask import (
+    event_threshold_from_config,
+    resolve_body_mask,
+)
 from views_hydranet.utils.curriculum import CurriculumLearner
 from views_hydranet.utils.integrity_guardian import IntegrityGuardian
+from views_hydranet.utils.quantile_head import QuantileLoss
 from views_hydranet.utils.training_forensics import TrainingForensics
 from views_hydranet.utils.utils import (
     choose_loss,
@@ -38,9 +46,6 @@ from views_hydranet.utils.volume_handler import VolumeHandler
 from views_hydranet.utils.volume_sampler import VolumeSampler
 
 logger = logging.getLogger(__name__)
-
-# C-180: warn-once guard — active_window is a no-op under a latent loss (see _process_sequence).
-_active_window_latent_warned = False
 
 
 def _init_classification_head_bias(model: nn.Module, bias_value: float) -> None:
@@ -164,20 +169,9 @@ def _attach_static_channels(
     return dyn_input
 
 
-def _active_window_mask(reg_target_window: torch.Tensor, threshold: float) -> torch.Tensor:
-    """Cells active (> ``threshold``) at ANY timestep in the window.
-
-    Args:
-        reg_target_window: regression targets ``[B, T, n_reg, H, W]`` over the window.
-        threshold: hurdle threshold (a cell counts as active where ``y > threshold``).
-
-    Returns:
-        ``[B, n_reg, H, W]`` bool — True for a cell active at any timestep. Used by
-        ``hurdle_mask_mode='active_window'`` to supervise the FULL timeline of ever-active
-        cells (incl. their post-conflict zero steps — the decay signal the per-step mask
-        drops; dossier 15), while never-active (structural-zero) cells stay excluded.
-    """
-    return (reg_target_window > threshold).any(dim=1)
+# ADR-065 (Epic #158): the point-body mask now lives in views_hydranet.utils.body_mask. Re-exported
+# here for the decay-gate penalty below and for existing importers (tests/test_active_window_mask).
+_active_window_mask = _resolve_active_window_mask
 
 
 def _decay_gate_penalty(
@@ -214,14 +208,14 @@ def _process_sequence(
     device: torch.device,
     pbar: tqdm | None = None,
     forensics: TrainingForensics | None = None,
-    hurdle_threshold: float | None = None,
     qs99_weight: float | None = None,
     qs99_tau: float | None = None,
     target_weights: dict[str, float] | None = None,
     ss_epsilon: float = 0.0,
-    hurdle_mask_mode: str = "per_step",
     cls_valid_mask: torch.Tensor | None = None,
     decay_gate_weight: float = 0.0,
+    body_mask: str = "none",
+    event_threshold: float = 0.0,
 ) -> dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
@@ -244,22 +238,17 @@ def _process_sequence(
     else:
         use_latent = getattr(criterion_reg, "needs_latent", False) is True
 
-    # Opt-in (C-45 successor, dossier 15): supervise the regression loss on the full window
-    # timeline of any cell active anywhere in the window (teaches the conflict→peace decay),
-    # not just per-timestep positives. Computed once; None ⇒ default per-step mask (unchanged).
-    active_cell: torch.Tensor | None = None
-    # C-180: active_window is silently inapplicable under a latent loss (the latent loss models
-    # zeros/censoring itself). Warn loudly once so the config flag is not silently a no-op.
-    global _active_window_latent_warned
-    if hurdle_mask_mode == "active_window" and use_latent and not _active_window_latent_warned:
-        logger.warning(
-            "C-180: hurdle_mask_mode='active_window' is IGNORED under a latent loss "
-            "(needs_latent=True) — no active-window decay supervision is applied. Use 'per_step' "
-            "or a non-latent loss if you want the decay mask."
-        )
-        _active_window_latent_warned = True
-    if hurdle_threshold is not None and not use_latent and hurdle_mask_mode == "active_window":
-        active_cell = _active_window_mask(train_tensor[:, 1:, idx.reg, :, :], hurdle_threshold)
+    # Point-body training mask (ADR-065, Epic #158): resolve the validated `body_mask` keyword to a
+    # concrete cell set ONCE, here — no `if mode ==` ladder in the loss loop. A positives mask
+    # applies only to a POINT body: a latent loss owns its own zero handling (config-validated by
+    # validate_body_mask_latent), so the mask is a no-op there and we keep the all-cell path
+    # (byte-identical for `none`+latent). `event_threshold` comes from the derivation (C-195).
+    apply_body_mask = body_mask != "none" and not use_latent
+    body_mask_full: torch.Tensor | None = (
+        resolve_body_mask(body_mask, event_threshold)(train_tensor[:, 1:, idx.reg, :, :])
+        if apply_body_mask
+        else None
+    )
 
     # Opt-in gate-side decay penalty (2026-06-28 gate_resolution): suppress the GATE on cells
     # active in the window but zero now. Keyed only on the true targets (threshold 0), so — unlike
@@ -317,9 +306,6 @@ def _process_sequence(
         losses_list = []
         qs99_loss = torch.tensor(0.0, device=device)
         for j in range(idx.n_reg):
-            pred_j = t1_pred_for_loss[:, j, :, :]
-            target_j = y_reg[:, j, :, :]
-
             # Issue #44: per-target loss instance (or shared single instance)
             loss_fn_j = (
                 criterion_reg[idx.reg_names[j]]
@@ -327,25 +313,33 @@ def _process_sequence(
                 else criterion_reg
             )
 
+            # Quantile head: the reg output holds K channels per target; slice this target's K and
+            # move the quantile axis last ([B,H,W,K]) for the multi-tau pinball. Non-quantile heads
+            # keep one channel per target.
+            if isinstance(loss_fn_j, QuantileLoss):
+                k = loss_fn_j.taus.numel()
+                pred_j = t1_pred_for_loss[:, j * k : (j + 1) * k, :, :].permute(0, 2, 3, 1)
+            else:
+                pred_j = t1_pred_for_loss[:, j, :, :]
+            target_j = y_reg[:, j, :, :]
+
             # C-87: per-target loss weight (1.0 if not configured)
             tw = 1.0
             if target_weights is not None:
                 tw = target_weights[idx.reg_names[j]]
 
-            if hurdle_threshold is not None and not use_latent:
-                # C-45: per-step positives, OR (hurdle_mask_mode='active_window') the full
-                # timeline of ever-active cells — the decay signal (dossier 15).
-                if active_cell is not None:
-                    mask = active_cell[:, j]
-                else:
-                    mask = target_j > hurdle_threshold
+            if apply_body_mask:
+                # ADR-065: the pre-resolved point-body mask for target j at this step. `pos_cells`
+                # = per-step positives; `pos_timelines` = the full timeline of ever-active cells
+                # (the decay signal, dossier 15). Resolved once above; here we only index it.
+                mask = body_mask_full[:, i, j]
                 if mask.any():
                     losses_list.append(tw * loss_fn_j(pred_j[mask], target_j[mask]))
                 else:
                     losses_list.append(torch.tensor(0.0, device=device))
 
                 # C-48: QS99 regularizer (distribution-free pinball on mu)
-                # Only active when hurdle is enabled and weight > 0
+                # Only active when the body is masked and weight > 0
                 qs99_active = (
                     qs99_weight is not None
                     and qs99_weight > 0
@@ -375,7 +369,13 @@ def _process_sequence(
             if cls_valid_mask is not None:
                 pred_cj = pred_cj[:, cls_valid_mask]
                 targ_cj = targ_cj[:, cls_valid_mask]
-            losses_list.append(criterion_class(pred_cj, targ_cj))
+            # per-target gate loss (list) OR a shared instance (mirrors the reg per-target dict)
+            crit_cj = (
+                criterion_class[j]
+                if isinstance(criterion_class, (list, tuple))
+                else criterion_class
+            )
+            losses_list.append(crit_cj(pred_cj, targ_cj))
 
         losses = torch.stack(losses_list)
         loss = cast(Any, multitaskloss_instance)(losses)
@@ -531,14 +531,17 @@ def train(
         device,
         pbar=pbar,
         forensics=forensics,
-        hurdle_threshold=config.get("hurdle_threshold"),
         qs99_weight=config.get("qs99_weight"),
         qs99_tau=config.get("qs99_tau"),
         target_weights=config.get("target_weights"),
         ss_epsilon=ss_epsilon,
-        hurdle_mask_mode=config.get("hurdle_mask_mode", "per_step"),
         cls_valid_mask=cls_valid_mask,
         decay_gate_weight=config.get("decay_gate_weight", 0.0),
+        # ADR-065 (Epic #158): the point-body mask is driven ONLY by the validated `body_mask`
+        # now; the raw un-validated `hurdle_mask_mode` read is gone (C-194). Event threshold comes
+        # from the binary-target derivation — the sole authority for "what is an event" (C-195).
+        body_mask=config.get("body_mask", "none"),
+        event_threshold=event_threshold_from_config(config),
     )
     step_total, step_reg, step_cls = result["per_step_losses"]
 

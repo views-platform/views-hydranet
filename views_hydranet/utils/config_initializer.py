@@ -19,6 +19,11 @@ TRANSFORMS: dict[str, tuple[Callable, Callable]] = {
     "identity": (lambda x: x, lambda x: x),
 }
 
+# --- BODY-MASK VALUES (ADR-065, Epic #158) ---
+# The single validated front door for how the POINT body is masked during training. Single
+# authority for the allowed keywords (reused by the S4 resolver). 'none' = the all-cell foundation.
+BODY_MASK_VALUES: tuple[str, ...] = ("none", "pos_cells", "pos_timelines")
+
 
 class HydraNetConfig(BaseModel):
     """
@@ -36,6 +41,9 @@ class HydraNetConfig(BaseModel):
     # 2. Data Slicing & Scaling (The Physics)
     input_channels: int = Field(..., ge=1, description="Checksum for 'features'")
     output_channels: int = Field(..., ge=1, description="Channels per model head")
+    n_quantiles: int | None = Field(
+        default=None, ge=2, description="Quantile head: K monotone quantiles per reg target (K>=2)"
+    )
     regression_targets: list[str] = Field(
         ..., description="Intensity mission (must start with lr_)"
     )
@@ -89,13 +97,20 @@ class HydraNetConfig(BaseModel):
     loss_reg_sigma: float | Dict[str, float] | None = Field(default=None)
     # ParetoLoss params (loss_reg='pareto')
     loss_reg_pareto_alpha: float | None = Field(default=None)
+    # PinballBodyLoss params (loss_reg='pinball') — the bulk-magnitude dial (2026-07-16)
+    loss_reg_tau: float | None = Field(default=None, gt=0.0, lt=1.0)  # τ dial: .5=median
+    loss_reg_cap: float | None = Field(default=None, gt=0.0)  # winsorize cap on target (log1p)
     # FocalLoss params (loss_class='focal')
     loss_class_gamma: float | None = Field(default=None)
     loss_class_alpha: float | None = Field(default=None)
     # Classification head bias initialization (C-44)
     onset_bias_init: float | None = Field(default=None)
-    # Hurdle masking (C-45): None = disabled, 0.0 = standard hurdle (y > 0)
-    hurdle_threshold: float | None = Field(default=None)
+    # body_mask (ADR-065, Epic #158): the single validated front door for the POINT-body training
+    # mask. 'none' = all cells (default; foundation); 'pos_cells' = per-step positives (y>thr);
+    # 'pos_timelines' = cells active anywhere in the curriculum window (active_window decay mask).
+    # S4 resolves it to the mask mechanism; the legacy hurdle_threshold/hurdle_mask_mode knobs
+    # retire in S5. Validated by validate_body_mask (values) + validate_body_mask_latent (C-193).
+    body_mask: str = Field(default="none")
     # QS99 tail regularizer (C-48): strict when hurdle active + weight > 0.
     qs99_weight: float | None = Field(default=None, ge=0.0)
     qs99_tau: float | None = Field(default=None, gt=0.0, lt=1.0)
@@ -107,7 +122,8 @@ class HydraNetConfig(BaseModel):
     loss_reg_theta_init: float | None = Field(default=None, gt=0.0)
     learnable_theta: bool = Field(default=True)
     # Hurdle-NB gate (loss_class='weighted_bce'): positive-class weight; None = plain BCE.
-    loss_class_pos_weight: float | None = Field(default=None, gt=0.0)
+    # scalar (shared across sb/ns/os) OR a list of one per classification target (per-target gate)
+    loss_class_pos_weight: float | list[float] | None = Field(default=None)
     # Regression-head output activation (#100): "standard" (ReLU) or "hurdle_nb" (softplus mu).
     output_distribution: str = Field(default="standard")
     # Optional emit-activation override, decoupled from output_distribution (Exp B). None => keyed
@@ -377,11 +393,39 @@ class HydraNetConfig(BaseModel):
     @field_validator("output_distribution")
     @classmethod
     def validate_output_distribution(cls, v: str) -> str:
-        valid = ["standard", "hurdle_nb", "hurdle_lognormal", "hurdle_shrinkage"]
+        valid = [
+            "standard",
+            "hurdle_nb",
+            "hurdle_lognormal",
+            "hurdle_shrinkage",
+            "dense_nb",
+            "quantile",
+        ]
         if v not in valid:
             err_msg = f"output_distribution='{v}' is not valid. Expected one of: {valid}."
             logger.error(err_msg)
             raise ValueError(err_msg)
+        return v
+
+    @field_validator("body_mask")
+    @classmethod
+    def validate_body_mask(cls, v: str) -> str:
+        # ADR-009/065: the point-body mask is a validated boundary contract — fail loud on any
+        # value outside the closed set (a typo must never silently degrade to another mask; C-194).
+        if v not in BODY_MASK_VALUES:
+            err_msg = f"body_mask='{v}' is not valid. Expected one of: {list(BODY_MASK_VALUES)}."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator("loss_class_pos_weight")
+    @classmethod
+    def validate_pos_weight_positive(cls, v):
+        if v is None:
+            return v
+        vals = v if isinstance(v, list) else [v]
+        if any(x is None or x <= 0 for x in vals):
+            raise ValueError(f"loss_class_pos_weight values must be > 0; got {v}")
         return v
 
     @field_validator("reg_activation")
@@ -554,6 +598,19 @@ class HydraNetConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def validate_pos_weight_length(self) -> "HydraNetConfig":
+        """A per-target pos_weight list needs one entry per classification target (sb/ns/os)."""
+        pw = self.loss_class_pos_weight
+        if isinstance(pw, list):
+            n = len(self.classification_targets or [])
+            if len(pw) != n:
+                raise ValueError(
+                    f"loss_class_pos_weight list has {len(pw)} entries but there are "
+                    f"{n} classification_targets — provide one pos_weight per target."
+                )
+        return self
+
+    @model_validator(mode="after")
     def validate_basu_dpd_range(self) -> "HydraNetConfig":
         if self.loss_reg != "basu_dpd":
             return self
@@ -592,26 +649,59 @@ class HydraNetConfig(BaseModel):
                 raise ValueError(err_msg)
         return self
 
+    @model_validator(mode="before")
+    @classmethod
+    def reject_retired_hurdle_knobs(cls, data):
+        # ADR-065 (Epic #158 S5): hurdle_threshold + hurdle_mask_mode are RETIRED — body_mask is
+        # the sole point-body mask front door. A config still setting them would otherwise be
+        # SILENTLY ignored (worse than before), so reject loud (ADR-008/009) and name the fix.
+        if isinstance(data, dict):
+            retired = [k for k in ("hurdle_threshold", "hurdle_mask_mode") if k in data]
+            if retired:
+                raise ValueError(
+                    f"{retired} is retired (ADR-065). Use body_mask ∈ "
+                    "{'none','pos_cells','pos_timelines'}: hurdle_threshold=None → 'none'; "
+                    "hurdle_threshold=0 per_step → 'pos_cells'; hurdle_mask_mode='active_window' "
+                    "→ 'pos_timelines'."
+                )
+        return data
+
     @model_validator(mode="after")
-    def validate_hurdle_params(self) -> "HydraNetConfig":
-        if self.loss_reg == "tobit" and self.hurdle_threshold is not None:
-            err_msg = (
-                "loss_reg='tobit' handles zero-inflation internally via "
-                "censored likelihood. Setting hurdle_threshold is contradictory "
-                "— remove hurdle_threshold from your config."
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
-        if (
-            self.hurdle_threshold is not None
-            and self.qs99_weight is not None
-            and self.qs99_weight > 0
-        ):
+    def validate_qs99_requires_tau(self) -> "HydraNetConfig":
+        # The QS99 tail regularizer applies on the masked positive cells, so it is gated by the
+        # point-body mask (body_mask != 'none'), not by the retired hurdle_threshold. (The tobit
+        # zero-inflation contradiction is now subsumed by validate_body_mask_latent: tobit is a
+        # latent loss, so body_mask='pos_*' + tobit already fails loud.)
+        if self.body_mask != "none" and self.qs99_weight is not None and self.qs99_weight > 0:
             if self.qs99_tau is None:
                 err_msg = (
-                    f"hurdle_threshold={self.hurdle_threshold} with "
-                    f"qs99_weight={self.qs99_weight} requires 'qs99_tau' "
-                    f"but it was not provided. Add 'qs99_tau' to your config."
+                    f"body_mask='{self.body_mask}' with qs99_weight={self.qs99_weight} requires "
+                    "'qs99_tau' but it was not provided. Add 'qs99_tau' to your config."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_body_mask_latent(self) -> "HydraNetConfig":
+        # C-193 (ADR-008/065): a positives mask on the POINT body is a silent no-op under a latent
+        # likelihood loss — the training loop only masks `if not use_latent` (needs_latent=False),
+        # and a latent body models zeros/censoring/truncation itself. Requesting pos_cells/
+        # pos_timelines there is meaningless, so RAISE (replacing the old warn-once), not ignore.
+        # Single authority for "is this loss latent?" is the loss class's `needs_latent` flag in
+        # LOSS_REG_REGISTRY — NOT a hardcoded name list (which would wrongly forbid lognormal_nll,
+        # a positive-only *point* body that REQUIRES a positives mask).
+        if self.body_mask in ("pos_cells", "pos_timelines"):
+            from views_hydranet.utils.utils import LOSS_REG_REGISTRY
+
+            loss_cls = LOSS_REG_REGISTRY.get(self.loss_reg, {}).get("cls")
+            if loss_cls is not None and getattr(loss_cls, "needs_latent", False):
+                err_msg = (
+                    f"body_mask='{self.body_mask}' masks the POINT body, but loss_reg="
+                    f"'{self.loss_reg}' is a latent likelihood (needs_latent=True) that models "
+                    f"zeros/censoring internally — the point mask would be silently ignored. Use "
+                    f"body_mask='none' with this loss, or a non-latent point body (mse/mae/huber/"
+                    f"shrinkage/lognormal_nll) with a positives mask."
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)

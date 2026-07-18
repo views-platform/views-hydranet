@@ -3,7 +3,7 @@
 The contract (same as hurdle-NB): _emit_magnitude returns log1p(E[y]) so the downstream
 inverse_transform (expm1) recovers E[y] in count space — never expm1 a free prediction (C-140).
 
-Bodies are trained in log1p space on positive cells (hurdle_threshold masking):
+Bodies are trained in log1p space on positive cells (body_mask='pos_cells'):
   - lognormal: log1p(y) ~ N(reg, sigma^2)  ⇒  E[y|y>0] = expm1(reg + sigma^2/2)
   - point/shrinkage: reg is the log1p-space point  ⇒  E[y|y>0] = expm1(reg)
 Hurdle: E[y] = P(y>0) · E[y|y>0].
@@ -44,10 +44,11 @@ def test_point_known_value_and_roundtrip():
 
 def test_composes_finite_at_small_reg():
     for fn, args in [
-        (hurdle_lognormal_expected_log1p,
-         (torch.tensor([[[[1e-6]]]]), torch.tensor([[[[0.4]]]]), torch.tensor([[[[0.9]]]]))),
-        (hurdle_point_expected_log1p,
-         (torch.tensor([[[[1e-6]]]]), torch.tensor([[[[0.4]]]]))),
+        (
+            hurdle_lognormal_expected_log1p,
+            (torch.tensor([[[[1e-6]]]]), torch.tensor([[[[0.4]]]]), torch.tensor([[[[0.9]]]])),
+        ),
+        (hurdle_point_expected_log1p, (torch.tensor([[[[1e-6]]]]), torch.tensor([[[[0.4]]]]))),
     ]:
         out = fn(*args)
         assert torch.isfinite(out).all() and (out >= 0).all()
@@ -83,6 +84,18 @@ def test_dispatch_hurdle_shrinkage():
     out = inf._emit_magnitude(torch.tensor([[[[2.0]]]]), torch.tensor([[[[0.5]]]]))
     ey = 0.5 * math.expm1(2.0)
     assert torch.allclose(torch.expm1(out), torch.tensor([[[[ey]]]]), atol=1e-5)
+
+
+def test_dispatch_dense_nb_emits_mu():
+    # Dense (non-truncated, NO-gate) NB body: E[y] = mu, the raw count-space softplus output (reg).
+    # The gate prob is IGNORED (dense has no hurdle). emit = log1p(mu) so downstream expm1 -> mu.
+    inf = _inf("dense_nb")
+    mu = torch.tensor([[[[7.0]]]])
+    out = inf._emit_magnitude(mu, torch.tensor([[[[0.3]]]]))
+    assert torch.allclose(torch.expm1(out), mu, atol=1e-5)
+    # prob-invariance: dense mean does not depend on the gate
+    out2 = inf._emit_magnitude(mu, torch.tensor([[[[0.95]]]]))
+    assert torch.allclose(out, out2)
 
 
 def test_hurdle_lognormal_requires_sigma():

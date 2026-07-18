@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import argparse
 import glob
-import os
 
 import numpy as np
 from hurdle_decompose import _collect, conditional_body  # reuse validated loader
@@ -81,7 +80,9 @@ def main():
             mcr = float(comp.sum()) / sum_tr if sum_tr > 0 else float("nan")
             leak = float(comp[zero].mean()) if zero.any() else float("nan")
             pos_pred = float(comp[pos].mean()) if pos.any() else float("nan")
-            print(f"  | {T:>3} | {mcr:12.3f} | {leak:14.4f} | {pos_pred:8.2f} | {pos_truth:9.2f} |")
+            print(
+                f"  | {T:>3} | {mcr:12.3f} | {leak:14.4f} | {pos_pred:8.2f} | {pos_truth:9.2f} |"
+            )
         print()
 
 

@@ -20,6 +20,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Data-informed emit ceiling for the quantile head (log1p count). ~13 ≈ 442k counts, ~4× the sb max
+# (113k): keeps the 36-step autoregressive rollout FINITE (rollout only; not scored) and caps a
+# residual
+# top-quantile over-shoot. A well-trained T=0 0.99 quantile sits well below it, so the scored T=0
+# distribution is untouched; this is a rollout/robustness guard, not a scored quantity.
+QUANTILE_EMIT_CEIL = 13.0
+
 
 class HydraNetInference:
     """Handles inference with the HydraNet model.
@@ -214,6 +221,19 @@ class HydraNetInference:
             return hurdle_lognormal_expected_log1p(reg, prob, self.lognormal_sigma)
         if self.output_distribution == "hurdle_shrinkage":
             return hurdle_point_expected_log1p(reg, prob)
+        if self.output_distribution == "dense_nb":  # C-168: dense (non-truncated, NO-gate) NB body
+            # reg is the count-space NB mean mu (softplus emit), so E[y]=mu directly — no P(y>0)
+            # factor, no zero-truncation normalizer. log1p so downstream expm1 recovers mu.
+            return torch.log1p(reg.clamp(min=0.0))
+        if self.output_distribution == "quantile":
+            # reg is the K monotone log1p-space quantiles/target (already the emit space). Bound to
+            # [0, QUANTILE_EMIT_CEIL] — a DATA-informed ceiling (log1p count ~16 ≈ 9M, ~80× the sb
+            # max
+            # 113k) so (a) the 36-step rollout stays finite (C-113 bloom) and (b) an over-inflated
+            # cumulative-softplus fan can't peg predictions at 1e13. A well-trained head's 0.99
+            # quantile
+            # (~log1p 12) sits well below the ceiling, so the scored T=0 tail is untouched.
+            return reg.clamp(min=0.0, max=QUANTILE_EMIT_CEIL)
         return reg  # standard: identity (reg is already the log1p-space point prediction)
 
     def predict(
@@ -253,9 +273,7 @@ class HydraNetInference:
 
         # ADR-060: static (input-only) channels — appended after the dynamic features in the
         # model input [dynamic ⧺ static], re-attached unchanged to the AR feedback (I3).
-        static_indices = [
-            feature_names.index(s) for s in self.config.get("static_channels", [])
-        ]
+        static_indices = [feature_names.index(s) for s in self.config.get("static_channels", [])]
         model_in_indices = feat_indices + static_indices
 
         reg_targets = self.config.get("regression_targets", [])
@@ -332,7 +350,16 @@ class HydraNetInference:
                 # 3. AUTOREGRESSION: Pred[k] -> Pred[k+1]
                 # C-113: clamp ONLY the fed-back copy to the in-domain ceiling; the
                 # emitted prediction (appended below) is never capped.
-                t0_autoreg = self._clamp_feedback(t1_pred.detach())
+                # Quantile head emits K channels/target; feed back only the median quantile
+                # (1/target)
+                # so the AR input keeps the [3 dynamic ⧺ static] width. (Step-1 is unaffected — no
+                # feedback at the seed step; rollout quality is an M2 concern.)
+                fb = t1_pred
+                if self.output_distribution == "quantile":
+                    k = self.config["n_quantiles"]
+                    b, c, hh, ww = fb.shape
+                    fb = fb.view(b, c // k, k, hh, ww)[:, :, k // 2]  # median quantile per target
+                t0_autoreg = self._clamp_feedback(fb.detach())
                 # ADR-060 I3: re-attach the geometry-constant static channels to the feedback,
                 # matching the [dynamic ⧺ static] model-input order. The clamp bounds only the 3
                 # dynamic prediction channels; statics are never clamped. Empty => unchanged.
@@ -521,26 +548,67 @@ class HydraNetInference:
         ) as pbar:
             # HARDENING: Explicitly wrap the whole loop in no_grad
             with torch.no_grad():
-                for sample_idx in range(self.config["n_posterior_samples"]):
-                    pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(
+                if self.output_distribution == "quantile":
+                    # Path A: the quantile head's OWN distribution replaces MC-dropout as the
+                    # sample
+                    # source. Run one pass (the head emits K monotone log1p quantiles/target), then
+                    # inverse-CDF resample K -> n_posterior_samples to fill the (T,H,W,n_reg,S)
+                    # cube —
+                    # byte-compatible with the MC-dropout carrier, so Wrap->Invert->CRPS is
+                    # untouched.
+                    from views_hydranet.utils.quantile_head import (
+                        hurdle_quantiles_to_samples,
+                        midpoint_levels,
+                    )
+
+                    pred_mag, pred_prob = self.predict(
                         full_tensor,
                         origin,
-                        sample_idx,
+                        0,
                         feature_names=feature_names,
                         pbar=pbar,
                         stage_label=window_info,
                         time_indices=time_indices,
                     )
+                    k = self.config["n_quantiles"]
+                    t_n = pred_mag.shape[0]
+                    # [T, n_reg*K, H, W] -> [T, H, W, n_reg, K] (channels are target-major)
+                    q = pred_mag.reshape(t_n, n_reg, k, H, W).transpose(0, 3, 4, 1, 2)
+                    s_n = self.config["n_posterior_samples"]
+                    # [T, H, W, n_cls] = P(y>0), gate order = reg
+                    prob = pred_prob.transpose(0, 2, 3, 1)
+                    # Hurdle compose: gate P(y>0) × positive-magnitude quantiles (mass 1-p at 0).
+                    # The
+                    # magnitude head is trained on positive cells only, so its quantiles fit a
+                    # smooth
+                    # positive distribution (no 99.7%-zero cliff) and the gate supplies occurrence.
+                    samples = hurdle_quantiles_to_samples(
+                        q, midpoint_levels(k), prob[..., :n_reg], s_n
+                    )
+                    posterior_magnitudes_zstack[:] = samples.astype(np.float32)
+                    posterior_probabilities_zstack[:] = np.repeat(prob[..., None], s_n, axis=-1)
+                    del pred_mag, pred_prob
+                else:
+                    for sample_idx in range(self.config["n_posterior_samples"]):
+                        pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(
+                            full_tensor,
+                            origin,
+                            sample_idx,
+                            feature_names=feature_names,
+                            pbar=pbar,
+                            stage_label=window_info,
+                            time_indices=time_indices,
+                        )
 
-                    # Store slices directly without concatenation
-                    posterior_magnitudes_zstack[:, :, :, :, sample_idx] = (
-                        pred_magnitudes_zstack.transpose(0, 2, 3, 1)
-                    )
-                    posterior_probabilities_zstack[:, :, :, :, sample_idx] = (
-                        pred_probabilities_zstack.transpose(0, 2, 3, 1)
-                    )
-                    del pred_magnitudes_zstack
-                    del pred_probabilities_zstack
+                        # Store slices directly without concatenation
+                        posterior_magnitudes_zstack[:, :, :, :, sample_idx] = (
+                            pred_magnitudes_zstack.transpose(0, 2, 3, 1)
+                        )
+                        posterior_probabilities_zstack[:, :, :, :, sample_idx] = (
+                            pred_probabilities_zstack.transpose(0, 2, 3, 1)
+                        )
+                        del pred_magnitudes_zstack
+                        del pred_probabilities_zstack
 
             # Explicit release of the input tensor before returning.
             # del + gc.collect() ensures the PyTorch allocator pool receives the
