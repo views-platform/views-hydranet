@@ -8,14 +8,12 @@ import torch
 import torch.nn as nn
 
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
-from views_hydranet.utils.basu_loss import BasuDPDLoss
 from views_hydranet.utils.count_mean_loss import CountMeanMSELoss
 from views_hydranet.utils.dense_nb_loss import DenseNBLoss
 from views_hydranet.utils.focal_loss import FocalLoss
 from views_hydranet.utils.lognormal_nll_loss import LogNormalFixedSigmaLoss
 from views_hydranet.utils.mtloss import MultiTaskLoss
 from views_hydranet.utils.pareto_loss import ParetoLoss
-from views_hydranet.utils.pinball_body_loss import PinballBodyLoss
 from views_hydranet.utils.quantile_head import QuantileLoss, midpoint_levels
 from views_hydranet.utils.shrinkage_loss import ShrinkageLoss
 from views_hydranet.utils.tobit_loss import TobitLoss
@@ -90,14 +88,6 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
             size_average=True,
         ).to(device),
     },
-    "basu_dpd": {
-        "cls": BasuDPDLoss,
-        "params": ["loss_reg_alpha", "loss_reg_sigma"],
-        "factory": lambda config, device: BasuDPDLoss(
-            alpha=config["loss_reg_alpha"],
-            sigma=config["loss_reg_sigma"],
-        ).to(device),
-    },
     "lognormal_nll": {
         "cls": LogNormalFixedSigmaLoss,
         "params": ["loss_reg_sigma"],
@@ -127,23 +117,6 @@ LOSS_REG_REGISTRY: dict[str, Any] = {
         "factory": lambda config, device: TruncatedNBLoss(
             theta_init=config["loss_reg_theta_init"],
             learnable=config.get("learnable_theta", True),
-        ).to(device),
-    },
-    # Winsorized τ-pinball BODY loss (2026-07-16): the bulk-magnitude dial. tau lifts predicted
-    # magnitude
-    # (0.5=median → higher=toward mean); cap winsorizes the target (log1p) so the tail can't drag
-    # the fit.
-    # Point body on positive cells (hurdle mask) with softplus. See pinball_body_loss.py.
-    "pinball": {
-        "cls": PinballBodyLoss,
-        # Only tau is required (the dial). cap (winsorize) is OPTIONAL — an uncapped tau-pinball is
-        # a
-        # valid quantile-regression loss (cap=None => inf => no winsorize), which the A0'/dial
-        # baseline
-        # needs. The factory tolerates a missing cap.
-        "params": ["loss_reg_tau"],
-        "factory": lambda config, device: PinballBodyLoss(
-            tau=config.get("loss_reg_tau", 0.5), cap=config.get("loss_reg_cap")
         ).to(device),
     },
     # Quantile head (2026-07 build): K monotone quantiles/target, multi-tau pinball (Riemann-CRPS).

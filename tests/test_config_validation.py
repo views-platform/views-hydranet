@@ -49,7 +49,6 @@ class TestGreen:
         for key in [
             "loss_reg_a",
             "loss_reg_c",
-            "loss_reg_alpha",
             "loss_reg_sigma",
             "loss_reg_pareto_alpha",
             "loss_class_gamma",
@@ -221,12 +220,6 @@ class TestRed:
         del cfg["loss_class_gamma"]
         del cfg["loss_class_alpha"]
         with pytest.raises(ValidationError, match="loss_class_"):
-            HydraNetConfig(**cfg)
-
-    def test_red_loss_reg_shared_param_raises(self, valid_config_dict):
-        """basu_dpd with loss_reg_alpha but missing loss_reg_sigma → ValidationError."""
-        cfg = _make_config(valid_config_dict, loss_reg="basu_dpd", loss_reg_alpha=0.5)
-        with pytest.raises(ValidationError, match="loss_reg_sigma"):
             HydraNetConfig(**cfg)
 
     def test_red_missing_lognormal_param_raises(self, valid_config_dict):

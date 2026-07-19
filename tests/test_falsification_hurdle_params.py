@@ -50,27 +50,3 @@ class TestRedQS99Range:
 
 class TestRedBasuDegenerate:
     """Probe 4: ADR-050 §5 — Basu alpha=0/sigma=0 must raise at config time."""
-
-    def test_basu_alpha_zero_rejected(self, valid_config_dict):
-        from views_hydranet.utils.config_initializer import HydraNetConfig
-
-        cfg = {
-            **valid_config_dict,
-            "loss_reg": "basu_dpd",
-            "loss_reg_alpha": 0.0,
-            "loss_reg_sigma": 1.0,
-        }
-        with pytest.raises((ValueError, Exception)):
-            HydraNetConfig(**cfg)
-
-    def test_basu_sigma_zero_rejected(self, valid_config_dict):
-        from views_hydranet.utils.config_initializer import HydraNetConfig
-
-        cfg = {
-            **valid_config_dict,
-            "loss_reg": "basu_dpd",
-            "loss_reg_alpha": 0.5,
-            "loss_reg_sigma": 0.0,
-        }
-        with pytest.raises((ValueError, Exception)):
-            HydraNetConfig(**cfg)

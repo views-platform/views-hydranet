@@ -85,7 +85,7 @@ def test_p4_explosion_check_validated_for_count_space():
 
 
 # --- P5 (was soft): baseline comparator unambiguous — CLOSED by #107 (C-155) -------------------
-_KNOWN_LOSSES = ("hurdle_nb", "tobit", "lognormal_nll", "basu_dpd", "standard")
+_KNOWN_LOSSES = ("hurdle_nb", "tobit", "lognormal_nll", "standard")
 
 
 def _loss_reg_of(text: str) -> str | None:

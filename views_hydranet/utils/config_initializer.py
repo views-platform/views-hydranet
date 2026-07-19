@@ -84,22 +84,17 @@ class HydraNetConfig(BaseModel):
     warmup_steps: int = Field(..., ge=1)
     clip_grad_norm: bool = Field(...)
 
-    # 6. Loss Functions (names: mse, shrinkage, basu_dpd, lognormal_nll, tobit)
+    # 6. Loss Functions (names: mse, shrinkage, lognormal_nll, tobit)
     loss_reg: str = Field(...)
     loss_class: str = Field(...)
     # ShrinkageLoss params (loss_reg='shrinkage')
     loss_reg_a: float | None = Field(default=None)
     loss_reg_c: float | None = Field(default=None)
-    # BasuDPDLoss params (loss_reg='basu_dpd')
-    loss_reg_alpha: float | None = Field(default=None)
-    # Shared: BasuDPDLoss / LogNormalFixedSigmaLoss / TobitLoss sigma
+    # Shared: LogNormalFixedSigmaLoss / TobitLoss sigma
     # Per-target Tobit (issue #44): dict[str, float] maps regression target → sigma.
     loss_reg_sigma: float | Dict[str, float] | None = Field(default=None)
     # ParetoLoss params (loss_reg='pareto')
     loss_reg_pareto_alpha: float | None = Field(default=None)
-    # PinballBodyLoss params (loss_reg='pinball') — the bulk-magnitude dial (2026-07-16)
-    loss_reg_tau: float | None = Field(default=None, gt=0.0, lt=1.0)  # τ dial: .5=median
-    loss_reg_cap: float | None = Field(default=None, gt=0.0)  # winsorize cap on target (log1p)
     # FocalLoss params (loss_class='focal')
     loss_class_gamma: float | None = Field(default=None)
     loss_class_alpha: float | None = Field(default=None)
@@ -608,28 +603,6 @@ class HydraNetConfig(BaseModel):
                     f"loss_class_pos_weight list has {len(pw)} entries but there are "
                     f"{n} classification_targets — provide one pos_weight per target."
                 )
-        return self
-
-    @model_validator(mode="after")
-    def validate_basu_dpd_range(self) -> "HydraNetConfig":
-        if self.loss_reg != "basu_dpd":
-            return self
-        if self.loss_reg_alpha is not None and self.loss_reg_alpha <= 0:
-            err_msg = (
-                f"loss_reg='basu_dpd' requires loss_reg_alpha > 0, "
-                f"got {self.loss_reg_alpha}. alpha=0 degenerates to MLE "
-                f"(no robustness), alpha < 0 is undefined."
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
-        if isinstance(self.loss_reg_sigma, (int, float)) and self.loss_reg_sigma <= 0:
-            err_msg = (
-                f"loss_reg='basu_dpd' requires loss_reg_sigma > 0, "
-                f"got {self.loss_reg_sigma}. sigma=0 causes division by zero "
-                f"in the density power divergence formula."
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
         return self
 
     @model_validator(mode="after")

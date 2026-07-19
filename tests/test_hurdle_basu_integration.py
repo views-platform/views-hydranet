@@ -11,7 +11,6 @@ import torch
 import torch.nn as nn
 
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import ModelOutput
-from views_hydranet.utils.basu_loss import BasuDPDLoss
 
 
 # ---------------------------------------------------------------------------
@@ -72,165 +71,6 @@ class TestGreenHurdleConfigPaths:
 
         cfg = {**valid_config_dict, "body_mask": "pos_cells", "qs99_weight": 0.0}
         HydraNetConfig(**cfg)
-
-
-# ---------------------------------------------------------------------------
-# Green Team: Hurdle + Basu DPD integration
-# ---------------------------------------------------------------------------
-class TestGreenHurdleBasuIntegration:
-    def test_hurdle_basu_dpd_forward_pass(self):
-        from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
-
-        B, T, C, H, W = 1, 3, 1, 4, 4
-        train_tensor = torch.zeros(B, T, C, H, W)
-        train_tensor[0, 1, 0, 0, 0] = 5.0
-        train_tensor[0, 2, 0, 0, 0] = 3.0
-        train_tensor[0, 1, 0, 2, 2] = 10.0
-        train_tensor[0, 2, 0, 2, 2] = 7.0
-        h = torch.zeros(B, 8, H, W)
-
-        model = make_tiny_model()
-        idx = _SequenceIndices(
-            ["feat"],
-            {"regression_targets": ["feat"], "classification_targets": [], "features": ["feat"]},
-        )
-
-        result = _process_sequence(
-            train_tensor,
-            model,
-            h,
-            BasuDPDLoss(alpha=0.5, sigma=1.0),
-            nn.BCELoss(),
-            SumReducer(),
-            idx,
-            torch.device("cpu"),
-            body_mask="pos_cells",
-            qs99_weight=0.1,
-            qs99_tau=0.99,
-        )
-
-        total = result["total"]
-        assert torch.isfinite(total), f"Loss must be finite, got {total.item()}"
-        assert total.item() >= 0, f"Loss must be non-negative, got {total.item()}"
-        assert total.item() > 0, f"Loss must be non-zero with positive targets, got {total.item()}"
-
-    def test_hurdle_basu_dpd_all_zero_batch(self):
-        from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
-
-        B, T, C, H, W = 1, 3, 1, 4, 4
-        train_tensor = torch.zeros(B, T, C, H, W)
-        h = torch.zeros(B, 8, H, W)
-
-        model = make_tiny_model()
-        idx = _SequenceIndices(
-            ["feat"],
-            {"regression_targets": ["feat"], "classification_targets": [], "features": ["feat"]},
-        )
-
-        result = _process_sequence(
-            train_tensor,
-            model,
-            h,
-            BasuDPDLoss(alpha=0.5, sigma=1.0),
-            nn.BCELoss(),
-            SumReducer(),
-            idx,
-            torch.device("cpu"),
-            body_mask="pos_cells",
-        )
-
-        reg_loss = result["reg"].item()
-        assert reg_loss == 0.0, f"All-zero batch with hurdle → reg loss must be 0, got {reg_loss}"
-        assert torch.isfinite(result["total"]), "All-zero batch must not produce NaN/Inf"
-
-    def test_hurdle_basu_dpd_gradient_bounded(self):
-        from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
-
-        B, T, C, H, W = 1, 3, 1, 4, 4
-        train_tensor = torch.zeros(B, T, C, H, W)
-        train_tensor[0, 1, 0, 0, 0] = 1000.0
-        train_tensor[0, 2, 0, 0, 0] = 1000.0
-        h = torch.zeros(B, 8, H, W)
-
-        def _run_with_loss(loss_fn):
-            model = make_tiny_model()
-            idx = _SequenceIndices(
-                ["feat"],
-                {
-                    "regression_targets": ["feat"],
-                    "classification_targets": [],
-                    "features": ["feat"],
-                },
-            )
-            result = _process_sequence(
-                train_tensor.clone(),
-                model,
-                h.clone(),
-                loss_fn,
-                nn.BCELoss(),
-                SumReducer(),
-                idx,
-                torch.device("cpu"),
-                body_mask="pos_cells",
-            )
-            result["total"].backward()
-            return max(p.grad.abs().max().item() for p in model.parameters() if p.grad is not None)
-
-        grad_basu = _run_with_loss(BasuDPDLoss(alpha=0.5, sigma=1.0))
-        grad_mse = _run_with_loss(nn.MSELoss())
-
-        assert grad_basu < grad_mse, (
-            f"Basu gradient ({grad_basu:.4f}) should be < MSE gradient ({grad_mse:.4f}) "
-            f"for extreme outlier — Basu's exponential damping must compress gradients"
-        )
-
-    def test_hurdle_basu_dpd_with_qs99(self):
-        from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
-
-        B, T, C, H, W = 1, 3, 1, 4, 4
-        train_tensor = torch.randn(B, T, C, H, W).abs()
-        h = torch.zeros(B, 8, H, W)
-
-        model = make_tiny_model()
-        idx = _SequenceIndices(
-            ["feat"],
-            {"regression_targets": ["feat"], "classification_targets": [], "features": ["feat"]},
-        )
-
-        result_no_qs = _process_sequence(
-            train_tensor,
-            model,
-            h.clone(),
-            BasuDPDLoss(alpha=0.5, sigma=1.0),
-            nn.BCELoss(),
-            SumReducer(),
-            idx,
-            torch.device("cpu"),
-            body_mask="pos_cells",
-            qs99_weight=0.0,
-            qs99_tau=0.99,
-        )
-
-        result_with_qs = _process_sequence(
-            train_tensor,
-            model,
-            h.clone(),
-            BasuDPDLoss(alpha=0.5, sigma=1.0),
-            nn.BCELoss(),
-            SumReducer(),
-            idx,
-            torch.device("cpu"),
-            body_mask="pos_cells",
-            qs99_weight=0.1,
-            qs99_tau=0.99,
-        )
-
-        loss_no = result_no_qs["total"].item()
-        loss_with = result_with_qs["total"].item()
-        assert loss_no != loss_with, (
-            f"QS99 regularizer should change total loss with Basu DPD: "
-            f"without={loss_no:.6f}, with={loss_with:.6f}"
-        )
 
 
 # ---------------------------------------------------------------------------
@@ -392,8 +232,8 @@ class TestGreenTargetWeights:
 # Green Team: Full ADR-050 combination through train() entry point
 # ---------------------------------------------------------------------------
 class TestGreenTrainEntryPoint:
-    def test_train_with_hurdle_basu_target_weights(self):
-        """C-88: Smoke test exercising train() with the full ADR-050 config path."""
+    def test_train_with_target_weights(self):
+        """C-88: Smoke test exercising train() with target_weights."""
         import numpy as np
 
         from views_hydranet.train.training_engine import TrainingContext, make, train
@@ -420,9 +260,7 @@ class TestGreenTrainEntryPoint:
             "learning_rate": 1e-3,
             "weight_decay": 0.0,
             "scheduler": "none",
-            "loss_reg": "basu_dpd",
-            "loss_reg_alpha": 0.5,
-            "loss_reg_sigma": 1.0,
+            "loss_reg": "mse",
             "loss_class": "bce",
             "clip_grad_norm": True,
             "random_flips": False,
