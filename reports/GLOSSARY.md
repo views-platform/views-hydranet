@@ -9,7 +9,8 @@ Last rebuilt: 2026-07-17 (v2, complete).
 ---
 
 ## 1. The parts of the model
-The forecast for each cell each month = **gate × body**.
+The forecast for each cell each month = **gate × body** — except a **self-zeroed** count body (§2b),
+which produces its own zeros and needs no gate.
 
 | locked name | what it is | banned aliases (I will NOT use these) |
 |---|---|---|
@@ -31,8 +32,17 @@ The **body itself has two parts** (locked):
 | **positives-only** | body trained *only* on cells that actually had conflict | hurdle, hurdle_shrinkage, hurdle-masked, masked body |
 
 Note: I previously blurred "positives-only" (a *training* choice) with "gated" (the *compose*). They are
-separate. The forecast is **always gated** (gate × body); the body can be trained either **all-cell** or
-**positives-only**.
+separate. Until now the forecast has always been gated (gate × body), with the body trained either
+**all-cell** or **positives-only**; the distributional-head work adds **self-zeroed** count bodies as the
+alternative to a separate gate — see §2b.
+
+## 2b. Where the zeros come from (a separate choice again)
+Two ways a cell's predicted zero can arise:
+
+| locked name | what it is | banned aliases |
+|---|---|---|
+| **gated zeros** | the zeros come from the separate **gate** (gate × body) — every model so far | use_gate, gate-on, hurdle |
+| **self-zeroed** | **no separate gate** — the body's own output covers the zeros across all cells. A count body (NB/ZINB) puts probability mass on 0; a plain point body just regresses toward 0 (the default `standard`). | dense_nb, standard ("no gate"), zero_handling=none, use_gate=False |
 
 ## 3. The losses (how the body is scored during training)
 | locked name | what it does | banned aliases |
@@ -42,6 +52,7 @@ separate. The forecast is **always gated** (gate × body); the body can be train
 | **the dial** | pinball loss at a level above 0.5 (0.6/0.7/0.8) — pushes guesses UP. | pinball, tau/τ, PinballBodyLoss, lifter |
 | **count_mean** | MSE computed in count space (not log space) — the one that blows up | count-space MSE |
 | **NB loss** | the negative-binomial likelihood body (the old floor) | hurdle_nb, TruncatedNB |
+| **ZINB** | an **NB** body with an explicit extra spike of probability at exactly 0, sized to the data; always **self-zeroed** (§2b) | zero-inflated NB, zero_inflation |
 
 "No dial" was never a loss — it meant "a plain loss (MSE or MAE), not the dial." I'll say **"plain MSE"** or
 **"plain MAE"**, never "no dial".

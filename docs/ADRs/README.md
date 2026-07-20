@@ -78,7 +78,7 @@ Architectural decisions specific to the HydraNet system.
 - **[057](proposed/057_variational_dropout_autoregressive_stability.md)**: ADR-057: Variational (Consistent-Mask) Dropout for Autoregressive Stability
 - **[062](proposed/062_channel_role_accessors_and_volumehandler_decomposition.md)**: ADR-062: Channel-Role Accessors + VolumeHandler Decomposition
 - **[065](proposed/065_body_mask_training_mask.md)**: ADR-065: `body_mask` — a first-class, validated point-body training-mask setting
-- **[066](proposed/066_output_distribution_decomposition.md)**: ADR-066: Decompose `output_distribution` into orthogonal body_family × zero_handling axes
+- **[067](proposed/067_distribution_family_subsystem.md)**: ADR-067: A distribution-family subsystem + per-cell sampleable NB/ZINB heads
 
 ## [Archive (Historical)](./archive/)
 
@@ -102,6 +102,7 @@ Architectural decisions specific to the HydraNet system.
 - **[033](archive/033_superseded_by_032.md)**: Naming Invariants and Semantic Intent
 - **[041](archive/041_superseded_by_008.md)**: Symmetric Vector Architecture (Task-Specific Targets)
 - **[050](archive/050_hurdle_loss_architecture.md)**: Hurdle-Decomposed Loss Architecture for Zero-Inflated Conflict Data
+- **[066](archive/066_output_distribution_decomposition.md)**: ADR-066: Rename `output_distribution` to a readable `body` setting (and finally make ZINB nameable)
 - **[023](archive/proposed_023_scalable_reconstruction_polars.md)**: Scalable Spatiotemporal Reconstruction via Polars Bridge
 
 ---

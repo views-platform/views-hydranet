@@ -4,9 +4,9 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-07-18                           |
-| Total Concerns    | 194                                  |
-| Open Concerns     | 89                                   |
+| Last Updated      | 2026-07-20                           |
+| Total Concerns    | 199                                  |
+| Open Concerns     | 94                                   |
 | — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 105                                  |
 
@@ -1601,6 +1601,81 @@ The point-body mask is silently a **no-op under a latent loss** — only a warn-
 | Cross-refs | C-193/194/195, ADR-005 |
 
 The foundation (all-cell MSE gated) is the lodestar baseline. If the `body_mask` refactor changes the masked cell-set at `none` even slightly, the foundation shifts silently and every comparison to it is invalidated. There is currently **no** config→behaviour characterization test. **Tier 3:** regression risk on a load-bearing baseline. Fix: a characterization test snapshotting the current masked-cell-set for all three legacy knob-combos BEFORE the refactor, asserted identical after.
+
+---
+
+### C-197: distribution registry / legacy `output_distribution` name collision → silent legacy hijack
+
+| Field | Value |
+|-------|-------|
+| ID | C-197 |
+| Tier | 2 |
+| Source | /falsify adequacy audit of ADR-067 §3 (2026-07-20) |
+| Trigger | Registering a `DistributionFamily` in `DISTRIBUTION_REGISTRY` whose name equals a legacy `output_distribution` value (`standard`/`hurdle_shrinkage`/`hurdle_nb`/`hurdle_lognormal`/`dense_nb`/`quantile`) |
+| Location | `views_hydranet/distributions/registry.py` (planned); `views_hydranet/utils/config_initializer.py` valid-list `~388-403` (`FAMILY_NAMES ∪ legacy`) |
+| Cross-refs | ADR-067 §3; Epic A #167 (A-S2 #169 registry, A-S5 #172 config); C-196 (byte-identical foundation) |
+
+The strangler-fig integration (ADR-067) unions the registry family names with the legacy `output_distribution` values into one valid-list and dispatches via `resolve_family(name)`. If the two name-sets **intersect**, a legacy config value routes to the new family instead of its untouched legacy branch — silently changing a proven, byte-identical model with **no error**, and invalidating every comparison to the lodestar baseline. **Tier 2:** structural fragility with a specific, realistic trigger (a future family author picking a colliding name). Fix: a fail-loud validator + test asserting `FAMILY_NAMES ∩ legacy = ∅` (registry names must be disjoint from legacy values); an acceptance criterion of A-S5.
+
+---
+
+### C-198: per-cell NB/ZINB loss inherits `to_raw_counts` hardcoded `expm1` → silently wrong loss under any non-`log1p` target transform
+
+| Field | Value |
+|-------|-------|
+| ID | C-198 |
+| Tier | 2 |
+| Source | NB/ZINB parameterization design discussion (2026-07-20) |
+| Trigger | Pairing an `nb`/`zinb` body with a target `transformations` other than `log1p` (e.g. `asinh`, identity/`none`), OR reusing `count_target_bridge.to_raw_counts` (hardcoded `torch.expm1`) unchanged in the new per-cell NB/ZINB loss |
+| Location | `views_hydranet/utils/count_target_bridge.py` (`to_raw_counts` hardcodes `expm1`); planned `views_hydranet/distributions/` NB/ZINB `nll` + wiring in `training_engine`/`choose_loss` |
+| Cross-refs | C-140/D-09 (emit-side sibling — count-space `E[y]` double-`expm1`, RESOLVED via `log1p(E[y])`); C-113 (`expm1`-amplified runaway); ADR-067; ADR-021 |
+
+An NB/ZINB likelihood is defined on **raw counts**, so the loss must recover raw counts from the transformed target. `to_raw_counts` applies `expm1` **unconditionally** — i.e. it assumes the configured target transform is `log1p`. Under any other configured transform the recovered "counts" are wrong and the likelihood/gradients are **silently** wrong (no error). This is the loss/target-recovery analogue of the emit-side C-140 (resolved by keeping emit in `log1p(E[y])` so the config inverse recovers it). **Tier 2:** silent training corruption under a realistic config change; the fix must ship with the family. Fix (agreed, ADR-067): de-transform the target at the loss boundary using the **config's declared inverse**. The pipeline already has a config-driven registry — `config_initializer.TRANSFORMS[method] = (forward, inverse)` (`config_initializer.py:16-20`; only 3 methods: `log1p→expm1`, `asinh→sinh`, `identity`), consumed by `FeatureScaler.inverse_transform_volume`. But those are **numpy** funcs and the loss runs on **torch/GPU** tensors, which is why `to_raw_counts` hardcoded `torch.expm1` (log1p only). Fix = add a small **torch mirror** of `TRANSFORMS`' inverse and recover counts via the *configured* method — never a hardcoded `expm1`; and fail-loud at config load if an `nb`/`zinb` body is paired with a target transform whose inverse is not count-compatible. Pinned in ADR-067 §3 + the `NBDistLoss`/`DistributionFamily` CIC; acceptance of A-S3 (#170) + A-S7 (#174).
+
+---
+
+### C-199: per-cell ZINB `θ`/`π` ride on ~1% of cells with dead gradients at the conflict operating point → collapse / seed-instability without informed init
+
+| Field | Value |
+|-------|-------|
+| ID | C-199 |
+| Tier | 2 |
+| Source | /falsify "amortized per-cell ZINB estimation is the right way" (2026-07-20; sim `scratchpad/zinb_falsify.py`) |
+| Trigger | Training a `zinb` (or per-cell-`θ` `nb`) head with default channel init and an **unweighted** mean ZINB NLL |
+| Location | planned `views_hydranet/distributions/` NB/ZINB head init + `nll`; A-S3 (#170) / A-S4 (#171) / A-S7 (#174) |
+| Cross-refs | C-198 (transform), C-146 (ZINB vs hurdle), C-200/C-201; the quantile-head dead-fan init gotcha; F1 falsifier (05_analysis_plan) |
+
+Simulation (N=1e6, zero-rate 0.989, positives 1.13%): **98.8% of the Fisher information about `π` lives in the ~1% positive cells**, and at the conflict operating point the gradients are near-dead — `|dNLL/d logit π|` collapses from 0.30 at π=0.5 to **0.0036 at π=0.99**, and `|dNLL/d η_θ|` **vanishes as θ→∞** (8e-7 at θ=500). So the identifying signal is a tiny, weakly-gradiented sliver; a default/zero-init head starts stuck with almost no signal to escape → `θ`/`π` collapse to constants (the F1 falsifier — reduces to the global-θ baseline this whole ADR exists to beat). **Tier 2:** structural fragility that silently defeats the feature's purpose under the realistic default (no init / unweighted loss). Fix: **informed init** (`π`≈empirical zero-rate, `θ`≈global-`θ`) as a *required* part of the family, active-cell weighting as a first-class `nll` option, and a seed-variance monitor on the `θ`/`π` fields.
+
+---
+
+### C-200: ZINB `π` is non-identified in deep-zero cells (the `π/μ` ridge) — free per-cell `π` needs a prior/penalty
+
+| Field | Value |
+|-------|-------|
+| ID | C-200 |
+| Tier | 3 |
+| Source | /falsify (2026-07-20) |
+| Trigger | Letting per-cell `π` and `μ` be free functions of the **same** features/backbone with no regularization |
+| Location | planned `views_hydranet/distributions/zero_inflated_negative_binomial.py` |
+| Cross-refs | C-199, C-146, C-201 |
+
+For cells that are only ever zero, the likelihood depends solely on `P(Y=0)=π+(1−π)·NB(0)`, so `(π,μ)` is a confounded ridge — `π` is identified only by **excess** zeros beyond what `NB(μ,θ)` explains, which is absent where `μ→0`. With `π` and `μ` both free on the same features, gradient descent can park `π` anywhere on the ridge in deep-zero regions. **Tier 3:** not silent-corruption of a shipped forecast, but a modelling-stability/interpretability risk that inflates variance and can mask whether ZINB is genuinely doing zero-inflation. Fix: a mild prior/penalty on `π` (or a documented deep-zero handling); if `π` will not identify, that is positive evidence for the **hurdle** form (gate owns zeros, no `π`) — the `nb` vs `zinb` vs `hurdle_nb` M2 comparison (#179).
+
+---
+
+### C-201: self-zeroed ZINB decouples the classification (gate) head from the forecast — frozen-ruler AP/Brier then score a head the forecast ignores
+
+| Field | Value |
+|-------|-------|
+| ID | C-201 |
+| Tier | 2 |
+| Source | /falsify (2026-07-20), P5 |
+| Trigger | Scoring a self-zeroed `nb`/`zinb` family on the frozen lodestar ruler's gate metrics (AP/Brier) |
+| Location | the lodestar scorer `reports/2026-07-17_lodestar_eval_dossier/tools/lodestar_score.py`; planned `distributions/` `prob_positive`; A-S11 (#178) eval |
+| Cross-refs | C-199/C-200; ADR-067 (self-zeroed); F1 pre-registration |
+
+A self-zeroed ZINB produces its zeros from the distribution (`P(Y>0)=(1−π)·(1−NB(0))`), **not** from the classification head. But the frozen ruler computes gate quality (AP/Brier) on the cls head. So the reported gate metric describes an occurrence estimate the ZINB forecast does not use — the two can diverge silently, mis-informing the M1/M2 go/no-go. **Tier 2:** silent mis-attribution in the evaluation that gates production decisions. Fix: for self-zeroed families the ruler must score the **distribution-implied** `P(Y>0)` (family exposes `prob_positive`), or the eval must explicitly document that the cls head is decoupled and not the forecast's gate.
 
 ---
 
