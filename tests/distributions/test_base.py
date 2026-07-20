@@ -11,7 +11,7 @@ def test_distribution_family_is_abstract():
     from views_hydranet.distributions.base import DistributionFamily
 
     with pytest.raises(TypeError):
-        DistributionFamily()  # abstract — all six members must be overridden
+        DistributionFamily()  # abstract — all seven members must be overridden
 
 
 def test_minimal_concrete_subclass_satisfies_interface():
@@ -34,6 +34,9 @@ def test_minimal_concrete_subclass_satisfies_interface():
 
         def prob_positive(self, params):
             return torch.zeros(params.shape[:-1])
+
+        def initial_raw_bias(self, *, priors=None):
+            return torch.zeros(self.n_params)
 
     fam = _Toy()
     assert fam.n_params == 1

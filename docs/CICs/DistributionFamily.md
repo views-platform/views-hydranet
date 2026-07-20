@@ -39,7 +39,7 @@ contract that registry returns.
 
 ## 3. Responsibilities and Guarantees
 
-`DistributionFamily(ABC)` declares six members every family must implement, plus one class attribute:
+`DistributionFamily(ABC)` declares seven members every family must implement, plus one class attribute:
 
 - `n_params: int` (property) — parameters the head emits per cell, per target (`nb` = 2 `[mu, theta]`;
   `zinb` = 3 `[+pi]`).
@@ -53,11 +53,15 @@ contract that registry returns.
 - `mean(params) -> [...]` — per-cell `E[Y]` in count space, for AR feedback and point emit.
 - `prob_positive(params) -> [...]` — per-cell `P(Y>0)`, used to score gate metrics on the self-zeroed
   `nb`/`zinb` families where there is no separate gate (C-201).
+- `initial_raw_bias(*, priors=None) -> [n_params]` — pre-activation head bias for informed init
+  (C-199): each family reads the priors it needs (`nb`: `theta`; `zinb`: `theta`, `pi`) with
+  defaults, so the A-S6 head can seed emission channels **family-agnostically** away from a saturated
+  dead-zone (C-203 — promoted here from an NB-only method to the ABC).
 - `needs_latent: bool = False` (class attr) — reuses the repo's existing latent-vs-point dispatch
   convention (`training_engine`, `config_initializer`).
 
-Guarantee: the ABC cannot be instantiated (all six members are `@abstractmethod`); a subclass missing
-any member fails loud at instantiation, never silently.
+Guarantee: the ABC cannot be instantiated (all seven members are `@abstractmethod`); a subclass
+missing any member fails loud at instantiation, never silently.
 
 ---
 
@@ -140,8 +144,10 @@ if fam is not None:
 
 - **Green:** `tests/distributions/test_base.py` (abstract cannot instantiate; a minimal concrete
   subclass satisfies the interface and shape contract). Family-level behaviour (activation ranges,
-  NLL vs reference, sampling mean/determinism, `prob_positive`) lands with `nb` (A-S3,
-  `tests/distributions/test_nb_family.py`) and `zinb` (A-S4).
+  NLL vs independent reference, sampling mean/determinism, `prob_positive`, informed init) lands with
+  `nb` (`tests/distributions/test_negative_binomial.py`, A-S3) and `zinb`
+  (`tests/distributions/test_zero_inflated_negative_binomial.py`, A-S4, incl. the ZINB→NB π=0
+  reduction and the family-agnostic `initial_raw_bias` contract, C-203).
 - **Supporting:** `tests/distributions/test_nb_core.py` (the shared count core `NBCore` — `log_prob`
   vs torch reference, `prob_zero` closed form, sample shape/mean/determinism/boundary-clamp).
 - Regression to protect: the torch-free import chain (asserted in `test_registry.py`) — adding a
@@ -151,7 +157,7 @@ if fam is not None:
 
 ## 11. Evolution Notes
 
-- Stable: the six-method interface and the natural-space / config-inverse parameterization contract.
+- Stable: the seven-member interface and the natural-space / config-inverse parameterization contract.
 - Expected to change: a family needing a shared latent (e.g. a mixture over a learned component) would
   set `needs_latent = True` and consume `reg_latent`; a new count core beyond NB (e.g. a bulk+GPD
   tail) would compose a new core alongside `NBCore`, not subclass a family.

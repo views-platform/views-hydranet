@@ -72,7 +72,8 @@ routed through it — leaving all existing body kinds untouched.
 - **The abstraction — one interface every body kind implements** (`base.py`, `DistributionFamily`). Its
   methods: `n_params` (how many numbers the head emits per cell), `activate` (turn those raw numbers
   into valid parameters), `nll` (the training loss), `sample` (draw outcomes), `mean` (the expected
-  value), and `prob_positive` (`P(Y>0)`, used for gate scoring — see §5); plus the `needs_latent` flag.
+  value), `prob_positive` (`P(Y>0)`, used for gate scoring — see §5), and `initial_raw_bias`
+  (per-family informed-init biases the head applies — C-199/C-203); plus the `needs_latent` flag.
   *Why the wider head is safe:* the head emits `n_params` channels per target, but only the single `mean`
   is fed back into the autoregressive rollout — so the rollout width (and the autoregression invariant) is
   unchanged.

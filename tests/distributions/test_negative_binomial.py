@@ -138,7 +138,7 @@ def test_prob_positive_monotone_increasing_in_mu():
 def test_informed_init_recipe_activates_to_theta_prior():
     """C-199: initial_raw_bias(theta_prior) must activate to theta ~ prior with a live gradient."""
     fam = _family()
-    bias = fam.initial_raw_bias(theta_prior=1.0)  # [n_params]
+    bias = fam.initial_raw_bias(priors={"theta": 1.0})  # [n_params]
     assert bias.shape == (2,)
     raw = bias.clone().detach().requires_grad_(True)
     params = fam.activate(raw)
@@ -216,7 +216,7 @@ def test_initial_raw_bias_finite_for_large_theta_prior():
     """F3: inverse-softplus must stay finite for a large theta_prior (log(expm1(y)) overflowed)."""
     fam = _family()
     for prior in (0.5, 1.0, 50.0, 200.0):
-        bias = fam.initial_raw_bias(theta_prior=prior)
+        bias = fam.initial_raw_bias(priors={"theta": prior})
         assert torch.isfinite(bias).all(), f"non-finite init bias at theta_prior={prior}"
         theta = fam.activate(bias)[1]
         assert theta == pytest.approx(prior, rel=1e-4)
@@ -225,5 +225,5 @@ def test_initial_raw_bias_finite_for_large_theta_prior():
 def test_initial_raw_bias_mu_starts_small_positive():
     """T3: the mu init recipe (softplus(bias)=0.5) must be pinned, not just >0."""
     fam = _family()
-    mu = fam.activate(fam.initial_raw_bias())[0]
+    mu = fam.activate(fam.initial_raw_bias(priors={"theta": 1.0}))[0]
     assert mu == pytest.approx(0.5, abs=1e-4)

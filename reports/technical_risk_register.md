@@ -4,11 +4,11 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-07-20                           |
-| Total Concerns    | 202                                  |
+| Last Updated      | 2026-07-21                           |
+| Total Concerns    | 203                                  |
 | Open Concerns     | 97                                   |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 105                                  |
+| Resolved Concerns | 106                                  |
 
 ---
 
@@ -1694,21 +1694,6 @@ A self-zeroed ZINB produces its zeros from the distribution (`P(Y>0)=(1−π)·(
 
 ---
 
-### C-203: `initial_raw_bias` is an NB-specific head-init recipe bolted onto the concrete family, not the `DistributionFamily` ABC — the head must special-case per family
-
-| Field | Value |
-|-------|-------|
-| ID | C-203 |
-| Tier | 3 |
-| Source | /code-review max (2026-07-20), A-S3 (#170) altitude finder |
-| Trigger | A-S6 (#173) wires head weight-init and needs a family's init recipe; and A-S4 (#171) ZINB needs its own (3-param) init |
-| Location | `views_hydranet/distributions/negative_binomial.py` `initial_raw_bias`; the `DistributionFamily` ABC `base.py`; consumers A-S6 (#173), ZINB A-S4 (#171) |
-| Cross-refs | C-199 (informed init is the requirement this method serves) |
-
-`initial_raw_bias(theta_prior)` (added for the C-199 informed-init requirement) lives only on `NegativeBinomialFamily`, is absent from the `DistributionFamily` ABC, and returns a hardcoded length-2 `[mu, theta]` tensor tied to NB's channel order. When A-S6 wires head init it therefore cannot depend on the abstraction — it must branch on NB specifically, and ZINB (A-S4, 3 params incl. `π`) will need a parallel method with a different length/order. **Tier 3:** a special case layered on shared infrastructure (the head-init seam) that increases coupling and the cost of adding families. Fix: promote to an ABC method returning an `n_params`-length raw-bias vector (each family owns its own recipe) so the head stays family-agnostic — resolve when wiring A-S6 or adding ZINB A-S4. Currently harmless (only its own test consumes it; no head is wired yet).
-
----
-
 ### C-204: `[DEMOTED]` inverse-softplus link now exists in 3 places under 2 names — consolidate when Epic B migrates the legacy losses
 
 | Field | Value |
@@ -1721,6 +1706,21 @@ A self-zeroed ZINB produces its zeros from the distribution (`P(Y>0)=(1−π)·(
 | Cross-refs | Epic B #181 (legacy-loss migration); C-199 (informed init uses it) |
 
 A-S3 added a stable `inverse_softplus` to `nb_core` (the subsystem's shared NB math), fixing the overflow-prone `log(expm1(y))` form — but the identity now also lives, identically, in two legacy loss modules (`dense_nb_loss`, `truncated_nb_loss`). Any fix to the link must be applied in all copies. **Tier 4 / [DEMOTED 2026-07-20 → Tech-Debt Backlog]:** near-mechanical, no design decision; the natural time to consolidate to one shared util is when Epic B (#181) migrates those legacy losses onto the abstraction. Not an active governance risk.
+
+---
+
+### C-205: ZINB `pi_penalty` (the C-200 π-ridge regularizer) is a concrete-`ZINBFamily`-only method, off the `DistributionFamily` ABC — the loss wiring must `isinstance`-branch to reach it
+
+| Field | Value |
+|-------|-------|
+| ID | C-205 |
+| Tier | 3 |
+| Source | /code-review max (2026-07-20), A-S4 (#171) altitude finder |
+| Trigger | A-S7 (#174) loss wiring adds the C-200 π/μ-ridge penalty to the training loss while holding a `DistributionFamily` reference (not a concrete `ZINBFamily`) |
+| Location | `views_hydranet/distributions/zero_inflated_negative_binomial.py` `pi_penalty`; the `DistributionFamily` ABC `base.py` |
+| Cross-refs | C-203 (the symmetric seam just resolved for `initial_raw_bias` — promoted NB-only → ABC); C-200 (the ridge the penalty regularizes); C-146 |
+
+`pi_penalty(params, *, prior_logit, scale, weight=None)` implements the C-200 mild π-ridge prior, but it lives only on the concrete `ZINBFamily`, not the `DistributionFamily` ABC. When A-S7 wires it into the loss, the loss holds the abstraction (ADR-067 DIP; the CIC states consumers "hold the ABC, never a concrete class"), so reaching `pi_penalty` forces an `isinstance(fam, ZINBFamily)` branch — exactly the per-family dispatch the subsystem exists to remove. **Tier 3:** coupling/maintainability — a concrete-only method a family-agnostic consumer must special-case. Fix: promote to a **default-0** ABC hook (e.g. `parameter_penalty(params, *, weight=None, **cfg) -> 0`) that `ZINBFamily` overrides — resolve at A-S7 when the loss-consumption shape (how `prior_logit`/`scale` arrive from config) is known. Deferred now (like C-203 was before its resolution point) rather than force a premature ABC signature. Currently harmless: no loss consumes it yet.
 
 ---
 
@@ -1861,6 +1861,20 @@ Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/s
 ---
 
 ## Resolved Concerns
+
+### C-203: `initial_raw_bias` was an NB-only head-init recipe off the `DistributionFamily` ABC — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-203 |
+| Tier | 3 |
+| Source | /code-review max (2026-07-20), A-S3 (#170) altitude finder |
+| Resolution | **RESOLVED IN A-S4 (#171), 2026-07-20 (user decision to resolve now rather than defer to A-S6).** Promoted `initial_raw_bias` from an NB-only method to an `@abstractmethod` on `DistributionFamily` (`base.py`) with a family-agnostic signature `initial_raw_bias(*, priors: dict \| None = None) -> [n_params]`. `NegativeBinomialFamily` migrated from `theta_prior=…` to reading `priors["theta"]`; `ZINBFamily` reads `priors["theta"]`+`priors["pi"]` → length-3 bias. The A-S6 head can now call it without knowing the concrete family. CIC `DistributionFamily.md` + ADR-067 §2 updated to the 7-member interface; contract test `tests/distributions/test_zero_inflated_negative_binomial.py::test_abc_initial_raw_bias_contract_is_family_agnostic` asserts both families return an `n_params`-length bias via the uniform signature. |
+| Cross-refs | C-199 (informed init is the requirement this method serves); C-205 (the symmetric `pi_penalty` seam, still open) |
+
+The coupling never bit: `initial_raw_bias` is now on the abstraction, so A-S6 head-init stays family-agnostic and adding a family requires no consumer-side branching. Resolved before any head was wired.
+
+---
 
 ### C-140: ZINB count-space `E[y]` would be double-`expm1`'d by the unchanged inverse transform — RESOLVED
 

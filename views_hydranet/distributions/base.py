@@ -70,3 +70,13 @@ class DistributionFamily(ABC):
     @abstractmethod
     def prob_positive(self, params: "torch.Tensor") -> "torch.Tensor":
         """Per-cell ``P(Y>0)`` -> ``[...]``. Scores gate metrics on self-zeroed nb/zinb (C-201)."""
+
+    @abstractmethod
+    def initial_raw_bias(self, *, priors: "dict[str, float] | None" = None) -> "torch.Tensor":
+        """Pre-activation head bias, length ``n_params``, for informed init (C-199 / C-203).
+
+        Each family reads the priors it needs from ``priors`` (e.g. nb: ``theta``; zinb: ``theta``,
+        ``pi``) and falls back to a sensible default for any absent key. The A-S6 head calls this
+        **family-agnostically** to seed each channel away from a saturated dead-zone, so the
+        theta/pi gradients are live from step 0.
+        """

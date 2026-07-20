@@ -13,6 +13,8 @@ vectorised Marsaglia-Tsang Gamma on ``torch.randn``/``torch.rand`` (both take a 
 
 from __future__ import annotations
 
+import math
+
 import torch
 
 _EPS = 1e-6
@@ -28,11 +30,53 @@ def inverse_softplus(y: float) -> float:
     Uses ``y + log1p(-exp(-y))`` (the ``dense_nb_loss`` form) rather than ``log(expm1(y))``, which
     overflows to ``inf`` in float for ``y >~ 88`` — the shared inverse link for informed head init.
     """
-    import math
-
     if y <= 0.0:
         raise ValueError(f"inverse_softplus is defined for y > 0; got {y}.")
     return y + math.log1p(-math.exp(-y))
+
+
+def logit(p: float) -> float:
+    """Return ``x`` such that ``sigmoid(x) == p`` (for ``0 < p < 1``) — the inverse-sigmoid link.
+
+    The scalar companion to ``inverse_softplus`` for informed init of a sigmoid-activated parameter
+    (e.g. ZINB's ``pi`` prior). Fail-loud outside the open interval.
+    """
+    if not 0.0 < p < 1.0:
+        raise ValueError(f"logit is defined for 0 < p < 1; got {p}.")
+    return math.log(p / (1.0 - p))
+
+
+def check_param_target_shape(counts: torch.Tensor, mu: torch.Tensor) -> None:
+    """Fail loud if the recovered count target's shape != the per-cell param shape.
+
+    Shared ``nll`` guard: a target with a trailing singleton (e.g. ``[N, 1]`` vs ``[N]``) would
+    otherwise silently broadcast the NB log-prob into a wrong-rank per-cell loss.
+    """
+    if counts.shape != mu.shape:
+        raise ValueError(
+            f"nll target shape {tuple(counts.shape)} must match the per-cell param shape "
+            f"{tuple(mu.shape)}."
+        )
+
+
+def weighted_nll_mean(
+    per_cell: torch.Tensor,
+    weight: "torch.Tensor | None",
+    eps: float = 1e-8,
+) -> torch.Tensor:
+    """Broadcast-normalized weighted mean of a per-cell loss — the shared family reduction.
+
+    ``weight=None`` -> plain mean. Otherwise ``weight`` is broadcast to ``per_cell``'s shape
+    (moving dtype AND device) so the numerator and the normalizer sum the SAME elements — a
+    per-target ``[1, C, 1, 1]`` weight is a true weighted mean, not a ``B*H*W``-inflated one. An
+    all-zero weight (no supervised cells) yields a graph-connected ``0`` (zero gradient), not an
+    error; ``eps`` guards the divide. ``broadcast_to`` fails loud on an incompatible weight shape.
+    """
+    if weight is None:
+        return per_cell.mean()
+    weight = torch.broadcast_to(weight.to(per_cell), per_cell.shape)
+    total = weight.sum()
+    return (per_cell * weight).sum() / total.clamp_min(eps)
 
 
 def _standard_gamma(
