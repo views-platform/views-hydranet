@@ -22,6 +22,19 @@ def _clamp(mu: torch.Tensor, theta: torch.Tensor) -> tuple[torch.Tensor, torch.T
     return mu.clamp_min(_EPS), theta.clamp_min(_EPS)
 
 
+def inverse_softplus(y: float) -> float:
+    """Return ``x`` such that ``softplus(x) == y`` (for ``y > 0``). Stable for large ``y``.
+
+    Uses ``y + log1p(-exp(-y))`` (the ``dense_nb_loss`` form) rather than ``log(expm1(y))``, which
+    overflows to ``inf`` in float for ``y >~ 88`` — the shared inverse link for informed head init.
+    """
+    import math
+
+    if y <= 0.0:
+        raise ValueError(f"inverse_softplus is defined for y > 0; got {y}.")
+    return y + math.log1p(-math.exp(-y))
+
+
 def _standard_gamma(
     concentration: torch.Tensor, generator: "torch.Generator | None"
 ) -> torch.Tensor:
@@ -65,6 +78,17 @@ class NBCore:
         """``P(Y=0) = (theta/(theta+mu))**theta``."""
         mu, theta = _clamp(mu, theta)
         return (theta / (theta + mu)) ** theta
+
+    @staticmethod
+    def log_prob_zero(mu: torch.Tensor, theta: torch.Tensor) -> torch.Tensor:
+        """``log P(Y=0) = theta * log1p(-mu/(theta+mu))`` (== ``theta*log(theta/(theta+mu))``).
+
+        The ``log1p`` form avoids the float cancellation of ``theta/(theta+mu) -> 1`` when
+        ``mu << theta``, so callers can recover a stable ``P(Y>0) = -expm1(log_prob_zero)`` instead
+        of the lossy ``1 - prob_zero``.
+        """
+        mu, theta = _clamp(mu, theta)
+        return theta * torch.log1p(-mu / (theta + mu))
 
     @staticmethod
     def sample(

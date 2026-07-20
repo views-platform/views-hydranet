@@ -5,9 +5,9 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-07-20                           |
-| Total Concerns    | 199                                  |
-| Open Concerns     | 94                                   |
-| — of which demoted (tech-debt) | 4 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
+| Total Concerns    | 202                                  |
+| Open Concerns     | 97                                   |
+| — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 105                                  |
 
 ---
@@ -1679,6 +1679,51 @@ A self-zeroed ZINB produces its zeros from the distribution (`P(Y>0)=(1−π)·(
 
 ---
 
+### C-202: NB `θ` value-clamp bounds the likelihood but not its gradient — `θ` driven to the `1e-6` floor backprops ~1e6 into the `θ` head channel
+
+| Field | Value |
+|-------|-------|
+| ID | C-202 |
+| Tier | 2 |
+| Source | /code-review max (2026-07-20), A-S3 (#170) finder + numerical verify |
+| Trigger | Training an `nb`/`zinb` head where a per-cell learned `θ` is pushed toward the `NBCore` `_EPS=1e-6` floor (heavy-tailed / near-Poisson-overdispersed cells) |
+| Location | `views_hydranet/distributions/nb_core.py` `_clamp`/`log_prob` (`θ` floor); consumed by `NegativeBinomialFamily.nll` (A-S3 #170) and ZINB (A-S4 #171); loss wiring A-S7 (#174) |
+| Cross-refs | C-199 (the *dead*-gradient extreme — this is the *exploding*-gradient counterpart at the opposite end of the `θ` range); C-200; C-8-style per-cell θ instability |
+
+`NBCore._clamp` floors `θ` at `1e-6` so `log_prob` stays finite, but the value-clamp does **not** bound the gradient: `d log_prob / d θ ≈ digamma(θ) ~ 1/θ`, so as a cell's `θ → 1e-6` the score wrt `θ` explodes — numerically **~1e6 at θ=1e-6, ~1e4 at θ=1e-4** (verified). A cell whose learned `θ` is driven to the floor then backpropagates an enormous gradient through the `θ` head channel. **Tier 2:** structural fragility that can silently destabilize training of the very per-cell `θ` head this epic introduces (esp. under SGD / large LR), with no NaN or error to flag it — the loss stays finite while the update blows up. Fix (decide at A-S7 loss wiring / A-S9 hardening): a **soft** lower bound on `θ` (e.g. `θ_min + softplus(...)`) instead of a hard value-clamp, and/or `θ`-channel gradient clipping, and/or the C-199 prior pulling `θ` toward the global baseline.
+
+---
+
+### C-203: `initial_raw_bias` is an NB-specific head-init recipe bolted onto the concrete family, not the `DistributionFamily` ABC — the head must special-case per family
+
+| Field | Value |
+|-------|-------|
+| ID | C-203 |
+| Tier | 3 |
+| Source | /code-review max (2026-07-20), A-S3 (#170) altitude finder |
+| Trigger | A-S6 (#173) wires head weight-init and needs a family's init recipe; and A-S4 (#171) ZINB needs its own (3-param) init |
+| Location | `views_hydranet/distributions/negative_binomial.py` `initial_raw_bias`; the `DistributionFamily` ABC `base.py`; consumers A-S6 (#173), ZINB A-S4 (#171) |
+| Cross-refs | C-199 (informed init is the requirement this method serves) |
+
+`initial_raw_bias(theta_prior)` (added for the C-199 informed-init requirement) lives only on `NegativeBinomialFamily`, is absent from the `DistributionFamily` ABC, and returns a hardcoded length-2 `[mu, theta]` tensor tied to NB's channel order. When A-S6 wires head init it therefore cannot depend on the abstraction — it must branch on NB specifically, and ZINB (A-S4, 3 params incl. `π`) will need a parallel method with a different length/order. **Tier 3:** a special case layered on shared infrastructure (the head-init seam) that increases coupling and the cost of adding families. Fix: promote to an ABC method returning an `n_params`-length raw-bias vector (each family owns its own recipe) so the head stays family-agnostic — resolve when wiring A-S6 or adding ZINB A-S4. Currently harmless (only its own test consumes it; no head is wired yet).
+
+---
+
+### C-204: `[DEMOTED]` inverse-softplus link now exists in 3 places under 2 names — consolidate when Epic B migrates the legacy losses
+
+| Field | Value |
+|-------|-------|
+| ID | C-204 |
+| Tier | 4 |
+| Source | /code-review max (2026-07-20), A-S3 (#170) reuse finder |
+| Trigger | A future change to the inverse-softplus identity, or Epic B (#181) migrating `DenseNBLoss`/`TruncatedNBLoss` onto the distribution abstraction |
+| Location | `views_hydranet/distributions/nb_core.py` `inverse_softplus` (new subsystem copy) + legacy `views_hydranet/utils/dense_nb_loss.py:34` and `views_hydranet/utils/truncated_nb_loss.py:34` (`_inverse_softplus`) |
+| Cross-refs | Epic B #181 (legacy-loss migration); C-199 (informed init uses it) |
+
+A-S3 added a stable `inverse_softplus` to `nb_core` (the subsystem's shared NB math), fixing the overflow-prone `log(expm1(y))` form — but the identity now also lives, identically, in two legacy loss modules (`dense_nb_loss`, `truncated_nb_loss`). Any fix to the link must be applied in all copies. **Tier 4 / [DEMOTED 2026-07-20 → Tech-Debt Backlog]:** near-mechanical, no design decision; the natural time to consolidate to one shared util is when Epic B (#181) migrates those legacy losses onto the abstraction. Not an active governance risk.
+
+---
+
 
 ## Disagreements
 
@@ -1811,6 +1856,7 @@ Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/s
 | C-49 | Roadmap item: revisit flat→nested config schema if keys exceed ~50 or a feature needs 4+ grouped keys. | 5 |
 | C-37 | Accepted trade-off: extract an `IVolumeHandler` Protocol only if an alternative implementation (lazy/GPU-resident) is needed. | 3 |
 | C-85 | Add a `flip_probability` config key (currently hardcoded `0.5` in `training_engine.py:290-292`). | — |
+| C-204 | Consolidate the inverse-softplus link (`nb_core.inverse_softplus` + `dense_nb_loss`/`truncated_nb_loss` `_inverse_softplus`) into one shared util when Epic B (#181) migrates the legacy losses. | Epic B |
 
 ---
 

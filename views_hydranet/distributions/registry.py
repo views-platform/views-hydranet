@@ -32,9 +32,9 @@ def _lazy(module: str, cls: str) -> Callable[[], "DistributionFamily"]:
     return factory
 
 
-#: name -> lazy factory. A-S3 (#170) adds "nb"; A-S4 (#171) adds "zinb". Empty until then.
+#: name -> lazy factory. A-S4 (#171) adds "zinb".
 DISTRIBUTION_REGISTRY: dict[str, Callable[[], "DistributionFamily"]] = {
-    # "nb":   _lazy("negative_binomial", "NegativeBinomialFamily"),          # A-S3 (#170)
+    "nb": _lazy("negative_binomial", "NegativeBinomialFamily"),  # A-S3 (#170)
     # "zinb": _lazy("zero_inflated_negative_binomial", "ZINBFamily"),        # A-S4 (#171)
 }
 
