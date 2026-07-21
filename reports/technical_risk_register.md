@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-07-21                           |
-| Total Concerns    | 203                                  |
-| Open Concerns     | 97                                   |
+| Total Concerns    | 204                                  |
+| Open Concerns     | 98                                   |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 106                                  |
 
@@ -1721,6 +1721,21 @@ A-S3 added a stable `inverse_softplus` to `nb_core` (the subsystem's shared NB m
 | Cross-refs | C-203 (the symmetric seam just resolved for `initial_raw_bias` — promoted NB-only → ABC); C-200 (the ridge the penalty regularizes); C-146 |
 
 `pi_penalty(params, *, prior_logit, scale, weight=None)` implements the C-200 mild π-ridge prior, but it lives only on the concrete `ZINBFamily`, not the `DistributionFamily` ABC. When A-S7 wires it into the loss, the loss holds the abstraction (ADR-067 DIP; the CIC states consumers "hold the ABC, never a concrete class"), so reaching `pi_penalty` forces an `isinstance(fam, ZINBFamily)` branch — exactly the per-family dispatch the subsystem exists to remove. **Tier 3:** coupling/maintainability — a concrete-only method a family-agnostic consumer must special-case. Fix: promote to a **default-0** ABC hook (e.g. `parameter_penalty(params, *, weight=None, **cfg) -> 0`) that `ZINBFamily` overrides — resolve at A-S7 when the loss-consumption shape (how `prior_logit`/`scale` arrive from config) is known. Deferred now (like C-203 was before its resolution point) rather than force a premature ABC signature. Currently harmless: no loss consumes it yet.
+
+---
+
+### C-206: `n_head_samples` (K) is a config field but is NOT captured in the reproducibility snapshot — a D×K run will not be reproducible from its manifest until A-S8 adds it
+
+| Field | Value |
+|-------|-------|
+| ID | C-206 |
+| Tier | 3 |
+| Source | /code-review (2026-07-21), A-S5 (#172) cross-file finder |
+| Trigger | A-S8 (#175) wires `n_head_samples` into the inference D×K sampler (so K actually changes forecasts) without adding it to the training `config_snapshot` |
+| Location | `views_hydranet/train/train_model.py:85` (`config_snapshot = {k: config[k] for k in arch_keys}`); the new field `views_hydranet/utils/config_initializer.py` `n_head_samples` |
+| Cross-refs | C-43 (manifest audit); A-S8 (#175); the `n_quantiles`/`reg_activation` snapshot precedent (`train_model.py:101-105`) |
+
+The persisted training `config_snapshot` is a **selective** `arch_keys` dict, not a full-config dump — so A-S5 adding `n_head_samples` correctly does NOT perturb legacy manifests (the #172 byte-identical AC holds). **But** once A-S8 makes K change the sampled `[T,H,W,C,S]` cube, a run's forecast depends on `n_head_samples`, and the manifest would omit it (like `n_quantiles`/`reg_activation` are conditionally captured) — two runs with different K would share a manifest, silently defeating reproducibility. **Tier 3:** a reproducibility gap that only bites when A-S8 wires the sampler; harmless at A-S5 (K is unused). Fix: in A-S8, add `n_head_samples` to `config_snapshot` (and, if it gates behaviour, to `reproducibility_gate.audit_manifest`). A-S5 correctly does not wire it.
 
 ---
 

@@ -24,6 +24,18 @@ TRANSFORMS: dict[str, tuple[Callable, Callable]] = {
 # authority for the allowed keywords (reused by the S4 resolver). 'none' = the all-cell foundation.
 BODY_MASK_VALUES: tuple[str, ...] = ("none", "pos_cells", "pos_timelines")
 
+# authority for the LEGACY output_distribution values (ADR-067). The valid set is this tuple
+# UNIONED with the registered distribution-family names (`family_names()`); the two must stay
+# disjoint (C-197) so a legacy config never silently routes to a new family.
+LEGACY_OUTPUT_DISTRIBUTIONS: tuple[str, ...] = (
+    "standard",
+    "hurdle_nb",
+    "hurdle_lognormal",
+    "hurdle_shrinkage",
+    "dense_nb",
+    "quantile",
+)
+
 
 class HydraNetConfig(BaseModel):
     """
@@ -134,6 +146,9 @@ class HydraNetConfig(BaseModel):
     # 7. Sampling & Reproducibility
     total_lessons: int = Field(..., ge=1)
     n_posterior_samples: int = Field(..., ge=1)
+    # K = per-cell head draws (aleatoric) for a sampleable distribution family (ADR-067 D×K).
+    # Legacy point/quantile heads keep K=1; K>1 requires an nb/zinb family (see model validator).
+    n_head_samples: int = Field(default=1, ge=1)
     np_seed: int = Field(...)
     torch_seed: int = Field(...)
     # Sampling strategy (ADR-049): must be explicit — no hidden defaults.
@@ -388,14 +403,13 @@ class HydraNetConfig(BaseModel):
     @field_validator("output_distribution")
     @classmethod
     def validate_output_distribution(cls, v: str) -> str:
-        valid = [
-            "standard",
-            "hurdle_nb",
-            "hurdle_lognormal",
-            "hurdle_shrinkage",
-            "dense_nb",
-            "quantile",
-        ]
+        # ADR-067: the valid set is the LEGACY values unioned with the registered family names.
+        # `family_names()` is torch-free (A-S2), so config validation stays torch-free (CRP). The
+        # family/legacy disjointness invariant (C-197) is enforced in a model_validator, which
+        # always runs (a field_validator is skipped for the default value).
+        from views_hydranet.distributions import family_names
+
+        valid = list(LEGACY_OUTPUT_DISTRIBUTIONS) + sorted(family_names())
         if v not in valid:
             err_msg = f"output_distribution='{v}' is not valid. Expected one of: {valid}."
             logger.error(err_msg)
@@ -650,6 +664,45 @@ class HydraNetConfig(BaseModel):
                 err_msg = (
                     f"body_mask='{self.body_mask}' with qs99_weight={self.qs99_weight} requires "
                     "'qs99_tau' but it was not provided. Add 'qs99_tau' to your config."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_family_legacy_disjoint(self) -> "HydraNetConfig":
+        # C-197 (Tier 2): registered distribution-family names MUST be disjoint from the legacy
+        # output_distribution values. If they intersect, a legacy config value would silently route
+        # to a new family via resolve_family (ADR-067 strangler-fig) — changing a proven, byte-
+        # identical model with no error. A model_validator always runs (even for the default),
+        # so this fires on every config load regardless of output_distribution.
+        from views_hydranet.distributions import family_names
+
+        collisions = family_names() & set(LEGACY_OUTPUT_DISTRIBUTIONS)
+        if collisions:
+            err_msg = (
+                f"distribution-family name(s) {sorted(collisions)} collide with legacy "
+                f"output_distribution values — the two sets must be disjoint (C-197)."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_head_samples_family(self) -> "HydraNetConfig":
+        # ADR-067 (D×K): per-cell head draws (K = n_head_samples > 1) are only meaningful for a
+        # SAMPLEABLE distribution family (nb/zinb). A legacy point/quantile head has no per-cell
+        # sampler, so K>1 there would be silently ignored — RAISE. Single authority for "is this
+        # sampleable?" is the registry's `family_names()` (torch-free), not a hardcoded list.
+        if self.n_head_samples > 1:
+            from views_hydranet.distributions import family_names
+
+            if self.output_distribution not in family_names():
+                err_msg = (
+                    f"n_head_samples={self.n_head_samples} (>1) requires a sampleable "
+                    f"family (output_distribution in {sorted(family_names())}), but "
+                    f"output_distribution='{self.output_distribution}' is a legacy head with no "
+                    f"per-cell sampler. Use n_head_samples=1 with this head, or select nb/zinb."
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
