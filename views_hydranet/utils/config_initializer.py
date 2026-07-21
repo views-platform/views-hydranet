@@ -192,6 +192,22 @@ class HydraNetConfig(BaseModel):
             "the always-on auto RAM guard (assert_cube_fits). None disables the opt-in cap."
         ),
     )
+    pi_penalty_weight: float | None = Field(
+        default=None,
+        ge=0.0,
+        description=(
+            "ADR-067 (A-S9 / C-200): weight of the family parameter-prior ridge added to the reg "
+            "loss (e.g. the ZINB π/μ-ridge regularizing the deep-zero non-identified π). Calls "
+            "the family-agnostic parameter_penalty hook (nb = 0). None/0 disables (no-op)."
+        ),
+    )
+    pi_penalty_prior_logit: float = Field(
+        default=0.0,
+        description=(
+            "ADR-067 (A-S9 / C-200): the logit(pi) prior the pi_penalty ridge pulls toward (0 ⇒ "
+            "pi=0.5). Only consumed when pi_penalty_weight > 0 with a zinb output_distribution."
+        ),
+    )
     static_channels: list[str] = Field(
         default_factory=list,
         description=(

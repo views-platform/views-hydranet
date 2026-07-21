@@ -120,6 +120,17 @@ class ZINBFamily(DistributionFamily):
         pi_bias = logit(float(priors.get("pi", 0.9)))
         return torch.tensor([mu_bias, theta_bias, pi_bias], dtype=torch.float32)
 
+    def parameter_penalty(
+        self,
+        params: "torch.Tensor",
+        *,
+        prior_logit: float = 0.0,
+        scale: float = 0.0,
+        weight: "torch.Tensor | None" = None,
+    ) -> "torch.Tensor":
+        """C-205 ABC hook override → the C-200 π-ridge (:meth:`pi_penalty`). ``scale=0`` ⇒ 0."""
+        return self.pi_penalty(params, prior_logit=prior_logit, scale=scale, weight=weight)
+
     def pi_penalty(
         self,
         params: "torch.Tensor",

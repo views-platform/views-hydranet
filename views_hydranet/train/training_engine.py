@@ -217,6 +217,8 @@ def _process_sequence(
     decay_gate_weight: float = 0.0,
     body_mask: str = "none",
     event_threshold: float = 0.0,
+    pi_penalty_weight: float | None = None,
+    pi_penalty_prior_logit: float = 0.0,
 ) -> dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
@@ -306,6 +308,9 @@ def _process_sequence(
         # Loss computation
         losses_list = []
         qs99_loss = torch.tensor(0.0, device=device)
+        # C-200: family parameter-prior ridge (e.g. ZINB π/μ-ridge), accumulated across targets and
+        # scaled by pi_penalty_weight at the reduction site (qs99/decay additive precedent).
+        pi_pen = torch.tensor(0.0, device=device)
         for j in range(idx.n_reg):
             # Issue #44: per-target loss instance (or shared single instance)
             loss_fn_j = (
@@ -338,18 +343,27 @@ def _process_sequence(
                 # = per-step positives; `pos_timelines` = the full timeline of ever-active cells
                 # (the decay signal, dossier 15). Resolved once above; here we only index it.
                 mask = body_mask_full[:, i, j]
-                if mask.any():
+                if isinstance(loss_fn_j, FamilyLoss):
+                    # C-199: pass the mask as a broadcast weight into family.nll instead of
+                    # boolean-indexing pred_j[mask] — numerically identical for a 0/1 mask, but a
+                    # graph-connected 0 on an all-zero-active batch (not a detached tensor(0.0)).
+                    losses_list.append(
+                        tw * loss_fn_j(pred_j, target_j, weight=mask.to(pred_j.dtype))
+                    )
+                elif mask.any():
                     losses_list.append(tw * loss_fn_j(pred_j[mask], target_j[mask]))
                 else:
                     losses_list.append(torch.tensor(0.0, device=device))
 
-                # C-48: QS99 regularizer (distribution-free pinball on mu)
-                # Only active when the body is masked and weight > 0
+                # C-48: QS99 regularizer (distribution-free pinball on mu). Undefined over a family
+                # param vector [.,n_params] (F-1) → skip for FamilyLoss.
+                # Only active when the body is masked and weight > 0.
                 qs99_active = (
                     qs99_weight is not None
                     and qs99_weight > 0
                     and qs99_tau is not None
                     and mask.any()
+                    and not isinstance(loss_fn_j, FamilyLoss)
                 )
                 if qs99_active:
                     error = target_j[mask] - pred_j[mask]
@@ -361,6 +375,14 @@ def _process_sequence(
                     qs99_loss = qs99_loss + tw * pinball.mean()
             else:
                 losses_list.append(tw * loss_fn_j(pred_j, target_j))
+
+            # C-200/C-205: family parameter-prior ridge (family-agnostic hook — nb returns a
+            # graph-safe 0, zinb the π/μ-ridge). Accumulated on the full-grid params; scaled by
+            # pi_penalty_weight at the reduction site. Byte-identical no-op when weight is None/0.
+            if pi_penalty_weight and isinstance(loss_fn_j, FamilyLoss):
+                pi_pen = pi_pen + tw * loss_fn_j.family.parameter_penalty(
+                    pred_j, prior_logit=pi_penalty_prior_logit, scale=1.0
+                )
 
         decay_pen = torch.tensor(0.0, device=device)
         for j in range(idx.n_cls):
@@ -388,6 +410,8 @@ def _process_sequence(
             loss = loss + qs99_weight * qs99_loss
         if decay_gate_weight > 0:
             loss = loss + decay_gate_weight * decay_pen
+        if pi_penalty_weight:
+            loss = loss + pi_penalty_weight * pi_pen
         total_loss += loss
 
         loss_reg = losses[: idx.n_reg].sum()
@@ -547,6 +571,9 @@ def train(
         # from the binary-target derivation — the sole authority for "what is an event" (C-195).
         body_mask=config.get("body_mask", "none"),
         event_threshold=event_threshold_from_config(config),
+        # C-200 (ADR-067): family parameter-prior ridge weight + prior logit (None ⇒ no-op).
+        pi_penalty_weight=config.get("pi_penalty_weight"),
+        pi_penalty_prior_logit=config.get("pi_penalty_prior_logit", 0.0),
     )
     step_total, step_reg, step_cls = result["per_step_losses"]
 

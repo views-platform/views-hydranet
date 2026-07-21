@@ -6,9 +6,9 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-07-21                           |
 | Total Concerns    | 205                                  |
-| Open Concerns     | 96                                   |
+| Open Concerns     | 92                                   |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 109                                  |
+| Resolved Concerns | 113                                  |
 
 ---
 
@@ -1619,38 +1619,6 @@ The strangler-fig integration (ADR-067) unions the registry family names with th
 
 ---
 
-### C-199: per-cell ZINB `θ`/`π` ride on ~1% of cells with dead gradients at the conflict operating point → collapse / seed-instability without informed init
-
-| Field | Value |
-|-------|-------|
-| ID | C-199 |
-| Tier | 2 |
-| Source | /falsify "amortized per-cell ZINB estimation is the right way" (2026-07-20; sim `scratchpad/zinb_falsify.py`) |
-| Trigger | Training a `zinb` (or per-cell-`θ` `nb`) head with default channel init and an **unweighted** mean ZINB NLL |
-| Location | planned `views_hydranet/distributions/` NB/ZINB head init + `nll`; A-S3 (#170) / A-S4 (#171) / A-S7 (#174) |
-| Cross-refs | C-198 (transform), C-146 (ZINB vs hurdle), C-200/C-201; the quantile-head dead-fan init gotcha; F1 falsifier (05_analysis_plan) |
-
-Simulation (N=1e6, zero-rate 0.989, positives 1.13%): **98.8% of the Fisher information about `π` lives in the ~1% positive cells**, and at the conflict operating point the gradients are near-dead — `|dNLL/d logit π|` collapses from 0.30 at π=0.5 to **0.0036 at π=0.99**, and `|dNLL/d η_θ|` **vanishes as θ→∞** (8e-7 at θ=500). So the identifying signal is a tiny, weakly-gradiented sliver; a default/zero-init head starts stuck with almost no signal to escape → `θ`/`π` collapse to constants (the F1 falsifier — reduces to the global-θ baseline this whole ADR exists to beat). **Tier 2:** structural fragility that silently defeats the feature's purpose under the realistic default (no init / unweighted loss). Fix: **informed init** (`π`≈empirical zero-rate, `θ`≈global-`θ`) as a *required* part of the family, active-cell weighting as a first-class `nll` option, and a seed-variance monitor on the `θ`/`π` fields.
-
-> **Merged 2026-07-21 (/review-diff F-1, A-S7 #174):** the family body-masking path shares this entry's "graceful masking" scope. A family run with `body_mask != "none"` **and** `qs99_weight > 0` reaches `training_engine.py:355` (`error = target_j[mask] - pred_j[mask]`) where `pred_j[mask]` is `[N, n_params]` vs `target_j[mask]` `[N]` → **fail-loud** broadcast crash (not silent). The QS99 μ-pinball is also semantically undefined over a family's `(μ,θ[,π])` param-vector. Low severity (fail-loud, needs a nonsensical config combo; the default family config has `body_mask="none"` + no qs99). **A-S9 hardening action:** when switching family masking to the `nll` `weight=` path, also add a config guard rejecting `family + qs99_weight>0`. Cross-ref C-207 (the sibling multi-channel-slice concern, now resolved).
-
----
-
-### C-200: ZINB `π` is non-identified in deep-zero cells (the `π/μ` ridge) — free per-cell `π` needs a prior/penalty
-
-| Field | Value |
-|-------|-------|
-| ID | C-200 |
-| Tier | 3 |
-| Source | /falsify (2026-07-20) |
-| Trigger | Letting per-cell `π` and `μ` be free functions of the **same** features/backbone with no regularization |
-| Location | planned `views_hydranet/distributions/zero_inflated_negative_binomial.py` |
-| Cross-refs | C-199, C-146, C-201 |
-
-For cells that are only ever zero, the likelihood depends solely on `P(Y=0)=π+(1−π)·NB(0)`, so `(π,μ)` is a confounded ridge — `π` is identified only by **excess** zeros beyond what `NB(μ,θ)` explains, which is absent where `μ→0`. With `π` and `μ` both free on the same features, gradient descent can park `π` anywhere on the ridge in deep-zero regions. **Tier 3:** not silent-corruption of a shipped forecast, but a modelling-stability/interpretability risk that inflates variance and can mask whether ZINB is genuinely doing zero-inflation. Fix: a mild prior/penalty on `π` (or a documented deep-zero handling); if `π` will not identify, that is positive evidence for the **hurdle** form (gate owns zeros, no `π`) — the `nb` vs `zinb` vs `hurdle_nb` M2 comparison (#179).
-
----
-
 ### C-201: self-zeroed ZINB decouples the classification (gate) head from the forecast — frozen-ruler AP/Brier then score a head the forecast ignores
 
 | Field | Value |
@@ -1666,21 +1634,6 @@ A self-zeroed ZINB produces its zeros from the distribution (`P(Y>0)=(1−π)·(
 
 ---
 
-### C-202: NB `θ` value-clamp bounds the likelihood but not its gradient — `θ` driven to the `1e-6` floor backprops ~1e6 into the `θ` head channel
-
-| Field | Value |
-|-------|-------|
-| ID | C-202 |
-| Tier | 2 |
-| Source | /code-review max (2026-07-20), A-S3 (#170) finder + numerical verify |
-| Trigger | Training an `nb`/`zinb` head where a per-cell learned `θ` is pushed toward the `NBCore` `_EPS=1e-6` floor (heavy-tailed / near-Poisson-overdispersed cells) |
-| Location | `views_hydranet/distributions/nb_core.py` `_clamp`/`log_prob` (`θ` floor); consumed by `NegativeBinomialFamily.nll` (A-S3 #170) and ZINB (A-S4 #171); loss wiring A-S7 (#174) |
-| Cross-refs | C-199 (the *dead*-gradient extreme — this is the *exploding*-gradient counterpart at the opposite end of the `θ` range); C-200; C-8-style per-cell θ instability |
-
-`NBCore._clamp` floors `θ` at `1e-6` so `log_prob` stays finite, but the value-clamp does **not** bound the gradient: `d log_prob / d θ ≈ digamma(θ) ~ 1/θ`, so as a cell's `θ → 1e-6` the score wrt `θ` explodes — numerically **~1e6 at θ=1e-6, ~1e4 at θ=1e-4** (verified). A cell whose learned `θ` is driven to the floor then backpropagates an enormous gradient through the `θ` head channel. **Tier 2:** structural fragility that can silently destabilize training of the very per-cell `θ` head this epic introduces (esp. under SGD / large LR), with no NaN or error to flag it — the loss stays finite while the update blows up. Fix (decide at A-S7 loss wiring / A-S9 hardening): a **soft** lower bound on `θ` (e.g. `θ_min + softplus(...)`) instead of a hard value-clamp, and/or `θ`-channel gradient clipping, and/or the C-199 prior pulling `θ` toward the global baseline.
-
----
-
 ### C-204: `[DEMOTED]` inverse-softplus link now exists in 3 places under 2 names — consolidate when Epic B migrates the legacy losses
 
 | Field | Value |
@@ -1693,21 +1646,6 @@ A self-zeroed ZINB produces its zeros from the distribution (`P(Y>0)=(1−π)·(
 | Cross-refs | Epic B #181 (legacy-loss migration); C-199 (informed init uses it) |
 
 A-S3 added a stable `inverse_softplus` to `nb_core` (the subsystem's shared NB math), fixing the overflow-prone `log(expm1(y))` form — but the identity now also lives, identically, in two legacy loss modules (`dense_nb_loss`, `truncated_nb_loss`). Any fix to the link must be applied in all copies. **Tier 4 / [DEMOTED 2026-07-20 → Tech-Debt Backlog]:** near-mechanical, no design decision; the natural time to consolidate to one shared util is when Epic B (#181) migrates those legacy losses onto the abstraction. Not an active governance risk.
-
----
-
-### C-205: ZINB `pi_penalty` (the C-200 π-ridge regularizer) is a concrete-`ZINBFamily`-only method, off the `DistributionFamily` ABC — the loss wiring must `isinstance`-branch to reach it
-
-| Field | Value |
-|-------|-------|
-| ID | C-205 |
-| Tier | 3 |
-| Source | /code-review max (2026-07-20), A-S4 (#171) altitude finder |
-| Trigger | A-S7 (#174) loss wiring adds the C-200 π/μ-ridge penalty to the training loss while holding a `DistributionFamily` reference (not a concrete `ZINBFamily`) |
-| Location | `views_hydranet/distributions/zero_inflated_negative_binomial.py` `pi_penalty`; the `DistributionFamily` ABC `base.py` |
-| Cross-refs | C-203 (the symmetric seam just resolved for `initial_raw_bias` — promoted NB-only → ABC); C-200 (the ridge the penalty regularizes); C-146 |
-
-`pi_penalty(params, *, prior_logit, scale, weight=None)` implements the C-200 mild π-ridge prior, but it lives only on the concrete `ZINBFamily`, not the `DistributionFamily` ABC. When A-S7 wires it into the loss, the loss holds the abstraction (ADR-067 DIP; the CIC states consumers "hold the ABC, never a concrete class"), so reaching `pi_penalty` forces an `isinstance(fam, ZINBFamily)` branch — exactly the per-family dispatch the subsystem exists to remove. **Tier 3:** coupling/maintainability — a concrete-only method a family-agnostic consumer must special-case. Fix: promote to a **default-0** ABC hook (e.g. `parameter_penalty(params, *, weight=None, **cfg) -> 0`) that `ZINBFamily` overrides — resolve at A-S7 when the loss-consumption shape (how `prior_logit`/`scale` arrive from config) is known. Deferred now (like C-203 was before its resolution point) rather than force a premature ABC signature. Currently harmless: no loss consumes it yet.
 
 ---
 
@@ -1848,6 +1786,76 @@ Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/s
 ---
 
 ## Resolved Concerns
+
+### C-199: per-cell ZINB `θ`/`π` ride on ~1% of cells with dead gradients at the conflict operating point → collapse / seed-instability without informed init — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-199 |
+| Tier | 2 |
+| Source | /falsify "amortized per-cell ZINB estimation is the right way" (2026-07-20; sim `scratchpad/zinb_falsify.py`) |
+| Trigger | Training a `zinb` (or per-cell-`θ` `nb`) head with default channel init and an **unweighted** mean ZINB NLL |
+| Location | planned `views_hydranet/distributions/` NB/ZINB head init + `nll`; A-S3 (#170) / A-S4 (#171) / A-S7 (#174) |
+| Cross-refs | C-198 (transform), C-146 (ZINB vs hurdle), C-200/C-201; the quantile-head dead-fan init gotcha; F1 falsifier (05_analysis_plan) |
+
+Simulation (N=1e6, zero-rate 0.989, positives 1.13%): **98.8% of the Fisher information about `π` lives in the ~1% positive cells**, and at the conflict operating point the gradients are near-dead — `|dNLL/d logit π|` collapses from 0.30 at π=0.5 to **0.0036 at π=0.99**, and `|dNLL/d η_θ|` **vanishes as θ→∞** (8e-7 at θ=500). So the identifying signal is a tiny, weakly-gradiented sliver; a default/zero-init head starts stuck with almost no signal to escape → `θ`/`π` collapse to constants (the F1 falsifier — reduces to the global-θ baseline this whole ADR exists to beat). **Tier 2:** structural fragility that silently defeats the feature's purpose under the realistic default (no init / unweighted loss). Fix: **informed init** (`π`≈empirical zero-rate, `θ`≈global-`θ`) as a *required* part of the family, active-cell weighting as a first-class `nll` option, and a seed-variance monitor on the `θ`/`π` fields.
+
+> **Merged 2026-07-21 (/review-diff F-1, A-S7 #174):** the family body-masking path shares this entry's "graceful masking" scope. A family run with `body_mask != "none"` **and** `qs99_weight > 0` reaches `training_engine.py:355` (`error = target_j[mask] - pred_j[mask]`) where `pred_j[mask]` is `[N, n_params]` vs `target_j[mask]` `[N]` → **fail-loud** broadcast crash (not silent). The QS99 μ-pinball is also semantically undefined over a family's `(μ,θ[,π])` param-vector. Low severity (fail-loud, needs a nonsensical config combo; the default family config has `body_mask="none"` + no qs99). **A-S9 hardening action:** when switching family masking to the `nll` `weight=` path, also add a config guard rejecting `family + qs99_weight>0`. Cross-ref C-207 (the sibling multi-channel-slice concern, now resolved).
+
+> **RESOLVED 2026-07-21 (A-S9 #176).** The structural fixes shipped: **informed init** landed already via C-203 (`initial_raw_bias` on the ABC — `π`≈empirical zero-rate, `θ`≈global-`θ`), and **active-cell weighting is now a first-class `nll` option** — the family body-mask path passes `weight=mask` into `family.nll` (`weighted_nll_mean`) instead of boolean-indexing (`training_engine.py`, C-199), and the merged F-1 crash is fixed (qs99 skipped for `FamilyLoss`). Verified by `test_penalty_mask_wiring.py` (`weight=` equals the boolean-index; empty mask = graph-connected 0; family+body_mask step finite with grads). The seed-variance **monitor** (a detection aid, not the fix) rides with the A-S11 GPU smoke where seed-stability is measured on real data.
+
+---
+
+### C-200: ZINB `π` is non-identified in deep-zero cells (the `π/μ` ridge) — free per-cell `π` needs a prior/penalty — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-200 |
+| Tier | 3 |
+| Source | /falsify (2026-07-20) |
+| Trigger | Letting per-cell `π` and `μ` be free functions of the **same** features/backbone with no regularization |
+| Location | planned `views_hydranet/distributions/zero_inflated_negative_binomial.py` |
+| Cross-refs | C-199, C-146, C-201 |
+
+For cells that are only ever zero, the likelihood depends solely on `P(Y=0)=π+(1−π)·NB(0)`, so `(π,μ)` is a confounded ridge — `π` is identified only by **excess** zeros beyond what `NB(μ,θ)` explains, which is absent where `μ→0`. With `π` and `μ` both free on the same features, gradient descent can park `π` anywhere on the ridge in deep-zero regions. **Tier 3:** not silent-corruption of a shipped forecast, but a modelling-stability/interpretability risk that inflates variance and can mask whether ZINB is genuinely doing zero-inflation. Fix: a mild prior/penalty on `π` (or a documented deep-zero handling); if `π` will not identify, that is positive evidence for the **hurdle** form (gate owns zeros, no `π`) — the `nb` vs `zinb` vs `hurdle_nb` M2 comparison (#179).
+
+> **RESOLVED 2026-07-21 (A-S9 #176).** The mild π-ridge prior is wired: `ZINBFamily.pi_penalty` (via the C-205 `parameter_penalty` ABC hook) pulls `logit(pi)` toward `pi_penalty_prior_logit`, added to the reg loss as `pi_penalty_weight * ridge` (qs99/decay additive-penalty precedent, `training_engine.py`), gated by the two config fields (`None`/0 ⇒ byte-identical no-op). A run that wants to break the deep-zero `π/μ` ridge now sets `pi_penalty_weight`; the M2 comparison (#179) will judge whether it earns its place vs the hurdle form. Verified by `test_penalty_mask_wiring.py` (finite, shifts the loss, grads reach the head; nb no-op).
+
+---
+
+### C-202: NB `θ` value-clamp bounds the likelihood but not its gradient — `θ` driven to the `1e-6` floor backprops ~1e6 into the `θ` head channel — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-202 |
+| Tier | 2 |
+| Source | /code-review max (2026-07-20), A-S3 (#170) finder + numerical verify |
+| Trigger | Training an `nb`/`zinb` head where a per-cell learned `θ` is pushed toward the `NBCore` `_EPS=1e-6` floor (heavy-tailed / near-Poisson-overdispersed cells) |
+| Location | `views_hydranet/distributions/nb_core.py` `_clamp`/`log_prob` (`θ` floor); consumed by `NegativeBinomialFamily.nll` (A-S3 #170) and ZINB (A-S4 #171); loss wiring A-S7 (#174) |
+| Cross-refs | C-199 (the *dead*-gradient extreme — this is the *exploding*-gradient counterpart at the opposite end of the `θ` range); C-200; C-8-style per-cell θ instability |
+
+`NBCore._clamp` floors `θ` at `1e-6` so `log_prob` stays finite, but the value-clamp does **not** bound the gradient: `d log_prob / d θ ≈ digamma(θ) ~ 1/θ`, so as a cell's `θ → 1e-6` the score wrt `θ` explodes — numerically **~1e6 at θ=1e-6, ~1e4 at θ=1e-4** (verified). A cell whose learned `θ` is driven to the floor then backpropagates an enormous gradient through the `θ` head channel. **Tier 2:** structural fragility that can silently destabilize training of the very per-cell `θ` head this epic introduces (esp. under SGD / large LR), with no NaN or error to flag it — the loss stays finite while the update blows up. Fix (decide at A-S7 loss wiring / A-S9 hardening): a **soft** lower bound on `θ` (e.g. `θ_min + softplus(...)`) instead of a hard value-clamp, and/or `θ`-channel gradient clipping, and/or the C-199 prior pulling `θ` toward the global baseline.
+
+> **RESOLVED 2026-07-21 (A-S9 #176) — by proof, no forward change.** The feared `~1e6` is `dNLL/dθ` (θ-space), **not** the raw-channel gradient the optimizer sees. The head emits `θ` via `softplus`, and the chain rule `dθ/d(raw) = sigmoid(raw) → 0` as `θ → 0` **cancels** the `1/θ` term at the head channel. Numerically verified: `|dNLL/d(raw_θ)|` stays **≤ 1** in the floor regime (raw_θ ≤ -10 ⇒ θ ≲ 5e-5) for any `y`, and →0 below the `_EPS` floor (`test_theta_gradient_bound.py`, `nb`+`zinb`, y up to 5000). No forward-distorting θ-floor added — it would have harmed the heavy tail (ξ≈0.8) this epic needs. (Large gradients at *moderate* θ with an *extreme* count are legitimate heavy-tail signal, not the floor pathology; the existing opt-in global `clip_grad_norm` at `training_engine.py:873` bounds them as belt-and-suspenders.)
+
+---
+
+### C-205: ZINB `pi_penalty` (the C-200 π-ridge regularizer) is a concrete-`ZINBFamily`-only method, off the `DistributionFamily` ABC — the loss wiring must `isinstance`-branch to reach it — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-205 |
+| Tier | 3 |
+| Source | /code-review max (2026-07-20), A-S4 (#171) altitude finder |
+| Trigger | A-S7 (#174) loss wiring adds the C-200 π/μ-ridge penalty to the training loss while holding a `DistributionFamily` reference (not a concrete `ZINBFamily`) |
+| Location | `views_hydranet/distributions/zero_inflated_negative_binomial.py` `pi_penalty`; the `DistributionFamily` ABC `base.py` |
+| Cross-refs | C-203 (the symmetric seam just resolved for `initial_raw_bias` — promoted NB-only → ABC); C-200 (the ridge the penalty regularizes); C-146 |
+
+`pi_penalty(params, *, prior_logit, scale, weight=None)` implements the C-200 mild π-ridge prior, but it lives only on the concrete `ZINBFamily`, not the `DistributionFamily` ABC. When A-S7 wires it into the loss, the loss holds the abstraction (ADR-067 DIP; the CIC states consumers "hold the ABC, never a concrete class"), so reaching `pi_penalty` forces an `isinstance(fam, ZINBFamily)` branch — exactly the per-family dispatch the subsystem exists to remove. **Tier 3:** coupling/maintainability — a concrete-only method a family-agnostic consumer must special-case. Fix: promote to a **default-0** ABC hook (e.g. `parameter_penalty(params, *, weight=None, **cfg) -> 0`) that `ZINBFamily` overrides — resolve at A-S7 when the loss-consumption shape (how `prior_logit`/`scale` arrive from config) is known. Deferred now (like C-203 was before its resolution point) rather than force a premature ABC signature. Currently harmless: no loss consumes it yet.
+
+> **RESOLVED 2026-07-21 (A-S9 #176).** Promoted to a **default-0 concrete ABC hook** `parameter_penalty(params, *, prior_logit=0.0, scale=0.0, weight=None)` on `DistributionFamily` (`base.py`, torch-free via `params.new_zeros(())`); `ZINBFamily` overrides it → its `pi_penalty`, `NegativeBinomialFamily` inherits the 0. The A-S9 loss wiring calls `loss_fn_j.family.parameter_penalty(...)` **family-agnostically** — no `isinstance(ZINBFamily)`. CIC `DistributionFamily.md` §3 documents the concrete hook (distinct from the abstract seven). Verified by `test_parameter_penalty.py` (nb 0, zinb = its `pi_penalty`, default scale=0 ⇒ 0). Mirrors C-203's `initial_raw_bias` promotion.
+
+---
 
 ### C-206: `n_head_samples` (K) is a config field but is NOT captured in the reproducibility snapshot — a D×K run will not be reproducible from its manifest until A-S8 adds it — RESOLVED
 

@@ -59,9 +59,14 @@ contract that registry returns.
   dead-zone (C-203 — promoted here from an NB-only method to the ABC).
 - `needs_latent: bool = False` (class attr) — reuses the repo's existing latent-vs-point dispatch
   convention (`training_engine`, `config_initializer`).
+- `parameter_penalty(params, *, prior_logit=0.0, scale=0.0, weight=None) -> scalar` — a **concrete
+  (non-abstract) default-0 hook** (C-205) so a family-agnostic loss can add a parameter-prior ridge
+  without `isinstance`-branching to a concrete family. `nb` inherits the 0; `zinb` overrides it with
+  the C-200 π/μ-ridge (`pi_penalty`). Not part of the abstract seven — a family need not override it.
 
 Guarantee: the ABC cannot be instantiated (all seven members are `@abstractmethod`); a subclass
-missing any member fails loud at instantiation, never silently.
+missing any member fails loud at instantiation, never silently. `parameter_penalty` is the one
+concrete hook — a family opts in by overriding it, opts out by inheriting the default 0.
 
 ---
 
@@ -100,6 +105,10 @@ missing any member fails loud at instantiation, never silently.
   edge case.
 - `prob_positive` on a self-zeroed family must be the true `P(Y>0)` (`1 − P(Y=0)`), **not** `1 − gate`
   — conflating them mis-scores the gate metric on nb/zinb (C-201).
+- `activate` raises `ValueError` when the raw head channels' last dim `!= n_params` (nb/zinb) — a
+  head sized for the wrong family fails loud at activation, never silently mis-slices params.
+- `to_cube_samples` (the D×K sampler helper) raises `ValueError` when the params channel dim `!=
+  n_reg * n_params` — a mis-shaped param cube fails loud before sampling, never draws from garbage.
 
 ---
 

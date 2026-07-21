@@ -80,3 +80,22 @@ class DistributionFamily(ABC):
         **family-agnostically** to seed each channel away from a saturated dead-zone, so the
         theta/pi gradients are live from step 0.
         """
+
+    def parameter_penalty(
+        self,
+        params: "torch.Tensor",
+        *,
+        prior_logit: float = 0.0,
+        scale: float = 0.0,
+        weight: "torch.Tensor | None" = None,
+    ) -> "torch.Tensor":
+        """Optional additive per-cell parameter regularizer — **0 by default** (C-205).
+
+        A concrete (non-abstract) hook so a family-agnostic loss can add a parameter prior without
+        ``isinstance``-branching to a concrete family (DIP). The default is a graph-safe scalar 0;
+        ``NegativeBinomialFamily`` inherits it. ``ZINBFamily`` overrides it with the C-200 π-ridge
+        (``pi_penalty``), pulling ``logit(pi)`` toward ``prior_logit`` with strength ``scale`` on
+        the cells selected by ``weight``. The training loop scales the returned term by its own
+        config weight (qs99/decay additive-penalty precedent), so ``scale=0`` here is a full no-op.
+        """
+        return params.new_zeros(())
