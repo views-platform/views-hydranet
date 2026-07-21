@@ -25,6 +25,7 @@ from views_hydranet.utils.data_fetcher import DataFetcher
 from views_hydranet.utils.data_sniffer import DataSniffer
 from views_hydranet.utils.disk_guard import assert_disk_headroom
 from views_hydranet.utils.feature_scaler import FeatureScaler
+from views_hydranet.utils.grid_naming import GRID_ID_ALIASES, canonicalize_config_grid_name
 from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
 from views_hydranet.utils.model_artifact_fetcher import ModelArtifactFetcher
 from views_hydranet.utils.utils_device import setup_device
@@ -91,6 +92,20 @@ class HydranetManager(ForecastingModelManager):
 
         data_fetcher = DataFetcher(self._model_path.data_raw, self.configs)
         df = data_fetcher.fetch_df(cached_path=getattr(self, "_cached_data_path", None))
+
+        # GH #144: canonicalize the config's grid keys to the alias the DATA actually uses, so the
+        # DataSniffer + VolumeHandler (which read config['id_col']/identity_cols/index_names
+        # literally) accept the data even when the model config still says the legacy priogrid_gid.
+        # `self.configs` is a property returning a fresh combined config each access, so we mutate
+        # a copy and persist it back through the setter (the same pattern used at :200/:278).
+        # Fail-SAFE: only act when exactly one grid alias is resolvable from the data (index levels
+        # or columns); otherwise skip and let the existing sniffer/contract fail loud as before. A
+        # no-op when the config already matches the data (byte-identical for priogrid_gid data).
+        _grid_present = {n for n in (*df.index.names, *df.columns) if n in GRID_ID_ALIASES}
+        if len(_grid_present) == 1:
+            _cfg = self.configs
+            canonicalize_config_grid_name(_cfg, next(iter(_grid_present)))
+            self.configs = _cfg
 
         # Diagnostic plot features
         plot_feats = (
