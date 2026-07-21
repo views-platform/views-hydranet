@@ -6,9 +6,9 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-07-21                           |
 | Total Concerns    | 205                                  |
-| Open Concerns     | 99                                   |
+| Open Concerns     | 97                                   |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 106                                  |
+| Resolved Concerns | 108                                  |
 
 ---
 
@@ -1619,21 +1619,6 @@ The strangler-fig integration (ADR-067) unions the registry family names with th
 
 ---
 
-### C-198: per-cell NB/ZINB loss inherits `to_raw_counts` hardcoded `expm1` → silently wrong loss under any non-`log1p` target transform
-
-| Field | Value |
-|-------|-------|
-| ID | C-198 |
-| Tier | 2 |
-| Source | NB/ZINB parameterization design discussion (2026-07-20) |
-| Trigger | Pairing an `nb`/`zinb` body with a target `transformations` other than `log1p` (e.g. `asinh`, identity/`none`), OR reusing `count_target_bridge.to_raw_counts` (hardcoded `torch.expm1`) unchanged in the new per-cell NB/ZINB loss |
-| Location | `views_hydranet/utils/count_target_bridge.py` (`to_raw_counts` hardcodes `expm1`); planned `views_hydranet/distributions/` NB/ZINB `nll` + wiring in `training_engine`/`choose_loss` |
-| Cross-refs | C-140/D-09 (emit-side sibling — count-space `E[y]` double-`expm1`, RESOLVED via `log1p(E[y])`); C-113 (`expm1`-amplified runaway); ADR-067; ADR-021 |
-
-An NB/ZINB likelihood is defined on **raw counts**, so the loss must recover raw counts from the transformed target. `to_raw_counts` applies `expm1` **unconditionally** — i.e. it assumes the configured target transform is `log1p`. Under any other configured transform the recovered "counts" are wrong and the likelihood/gradients are **silently** wrong (no error). This is the loss/target-recovery analogue of the emit-side C-140 (resolved by keeping emit in `log1p(E[y])` so the config inverse recovers it). **Tier 2:** silent training corruption under a realistic config change; the fix must ship with the family. Fix (agreed, ADR-067): de-transform the target at the loss boundary using the **config's declared inverse**. The pipeline already has a config-driven registry — `config_initializer.TRANSFORMS[method] = (forward, inverse)` (`config_initializer.py:16-20`; only 3 methods: `log1p→expm1`, `asinh→sinh`, `identity`), consumed by `FeatureScaler.inverse_transform_volume`. But those are **numpy** funcs and the loss runs on **torch/GPU** tensors, which is why `to_raw_counts` hardcoded `torch.expm1` (log1p only). Fix = add a small **torch mirror** of `TRANSFORMS`' inverse and recover counts via the *configured* method — never a hardcoded `expm1`; and fail-loud at config load if an `nb`/`zinb` body is paired with a target transform whose inverse is not count-compatible. Pinned in ADR-067 §3 + the `NBDistLoss`/`DistributionFamily` CIC; acceptance of A-S3 (#170) + A-S7 (#174).
-
----
-
 ### C-199: per-cell ZINB `θ`/`π` ride on ~1% of cells with dead gradients at the conflict operating point → collapse / seed-instability without informed init
 
 | Field | Value |
@@ -1646,6 +1631,8 @@ An NB/ZINB likelihood is defined on **raw counts**, so the loss must recover raw
 | Cross-refs | C-198 (transform), C-146 (ZINB vs hurdle), C-200/C-201; the quantile-head dead-fan init gotcha; F1 falsifier (05_analysis_plan) |
 
 Simulation (N=1e6, zero-rate 0.989, positives 1.13%): **98.8% of the Fisher information about `π` lives in the ~1% positive cells**, and at the conflict operating point the gradients are near-dead — `|dNLL/d logit π|` collapses from 0.30 at π=0.5 to **0.0036 at π=0.99**, and `|dNLL/d η_θ|` **vanishes as θ→∞** (8e-7 at θ=500). So the identifying signal is a tiny, weakly-gradiented sliver; a default/zero-init head starts stuck with almost no signal to escape → `θ`/`π` collapse to constants (the F1 falsifier — reduces to the global-θ baseline this whole ADR exists to beat). **Tier 2:** structural fragility that silently defeats the feature's purpose under the realistic default (no init / unweighted loss). Fix: **informed init** (`π`≈empirical zero-rate, `θ`≈global-`θ`) as a *required* part of the family, active-cell weighting as a first-class `nll` option, and a seed-variance monitor on the `θ`/`π` fields.
+
+> **Merged 2026-07-21 (/review-diff F-1, A-S7 #174):** the family body-masking path shares this entry's "graceful masking" scope. A family run with `body_mask != "none"` **and** `qs99_weight > 0` reaches `training_engine.py:355` (`error = target_j[mask] - pred_j[mask]`) where `pred_j[mask]` is `[N, n_params]` vs `target_j[mask]` `[N]` → **fail-loud** broadcast crash (not silent). The QS99 μ-pinball is also semantically undefined over a family's `(μ,θ[,π])` param-vector. Low severity (fail-loud, needs a nonsensical config combo; the default family config has `body_mask="none"` + no qs99). **A-S9 hardening action:** when switching family masking to the `nll` `weight=` path, also add a config guard rejecting `family + qs99_weight>0`. Cross-ref C-207 (the sibling multi-channel-slice concern, now resolved).
 
 ---
 
@@ -1736,21 +1723,6 @@ A-S3 added a stable `inverse_softplus` to `nb_core` (the subsystem's shared NB m
 | Cross-refs | C-43 (manifest audit); A-S8 (#175); the `n_quantiles`/`reg_activation` snapshot precedent (`train_model.py:101-105`) |
 
 The persisted training `config_snapshot` is a **selective** `arch_keys` dict, not a full-config dump — so A-S5 adding `n_head_samples` correctly does NOT perturb legacy manifests (the #172 byte-identical AC holds). **But** once A-S8 makes K change the sampled `[T,H,W,C,S]` cube, a run's forecast depends on `n_head_samples`, and the manifest would omit it (like `n_quantiles`/`reg_activation` are conditionally captured) — two runs with different K would share a manifest, silently defeating reproducibility. **Tier 3:** a reproducibility gap that only bites when A-S8 wires the sampler; harmless at A-S5 (K is unused). Fix: in A-S8, add `n_head_samples` to `config_snapshot` (and, if it gates behaviour, to `reproducibility_gate.audit_manifest`). A-S5 correctly does not wire it.
-
----
-
-### C-207: after A-S6 a family reg head is widened to `n_params` channels/target, but the training-engine loss loop still slices 1 channel/target for any non-`QuantileLoss` → a family run trains on silently mis-mapped channels until A-S7
-
-| Field | Value |
-|-------|-------|
-| ID | C-207 |
-| Tier | 2 |
-| Source | /code-review (2026-07-21), A-S6 (#173) cross-file finder |
-| Trigger | Running training with `output_distribution ∈ {nb, zinb}` in the window **after A-S6 (#173) and before A-S7 (#174)** wires the family-aware loss |
-| Location | `views_hydranet/train/training_engine.py:319-323` (the per-target reg slice: `if isinstance(loss_fn_j, QuantileLoss): … else: pred_j = t1_pred_for_loss[:, j]`); consumes the widened `out.reg` from `HydraBNrecurrentUnet_06_LSTM4` (A-S6) |
-| Cross-refs | A-S7 (#174) loss/engine wiring (the fix); C-201 (self-zeroed gate scoring); the v1-review "C-6 scattered-dispatch mis-emit" this concretely realizes at the loss site |
-
-A-S6 correctly widens the reg head to `n_params` channels per target (nb 3×2, zinb 3×3). The training engine, however, only special-cases the **quantile** multi-channel layout (`pred_j = reg[:, j*k:(j+1)*k]`); every other loss falls to `else: pred_j = t1_pred_for_loss[:, j]` — **one channel per target**. So for an `nb` head `reg = [μ_sb, θ_sb, μ_ns, θ_ns, μ_os, θ_os]`, the loop reads `reg[:,0]=μ_sb` (target sb, ok), `reg[:,1]=θ_sb` **as target ns**, `reg[:,2]=μ_ns` **as target os** — shapes match `[B,H,W]`, so it computes a loss with **no error** on mis-mapped channels. Config accepts `nb`/`zinb` (A-S5) and the head builds it (A-S6), so the intermediate state is silently-wrong if run. **Tier 2:** silent model-output incorrectness with no signal, gated only by a clear trigger. Mitigation: the epic runs no family end-to-end until A-S8 (+ the A-S11 GPU smoke); exposure is one story. Fix (A-S7): make the loss/engine reg-slice family-aware (per-target `n_params` stride like the quantile branch) **and** add a fail-loud guard that `out.reg.shape[1]` matches the loss's expected per-target width. A throwaway guard was deliberately NOT added in A-S6 (it would be replaced by the A-S7 wiring one story later).
 
 ---
 
@@ -1891,6 +1863,40 @@ Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/s
 ---
 
 ## Resolved Concerns
+
+### C-198: per-cell NB/ZINB loss inherits `to_raw_counts` hardcoded `expm1` → silently wrong loss under any non-`log1p` target transform — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-198 |
+| Tier | 2 |
+| Source | NB/ZINB parameterization design discussion (2026-07-20) |
+| Trigger | Pairing an `nb`/`zinb` body with a target `transformations` other than `log1p` (e.g. `asinh`, identity/`none`), OR reusing `count_target_bridge.to_raw_counts` (hardcoded `torch.expm1`) unchanged in the new per-cell NB/ZINB loss |
+| Location | `views_hydranet/utils/count_target_bridge.py` (`to_raw_counts` hardcodes `expm1`); planned `views_hydranet/distributions/` NB/ZINB `nll` + wiring in `training_engine`/`choose_loss` |
+| Cross-refs | C-140/D-09 (emit-side sibling — count-space `E[y]` double-`expm1`, RESOLVED via `log1p(E[y])`); C-113 (`expm1`-amplified runaway); ADR-067; ADR-021 |
+
+An NB/ZINB likelihood is defined on **raw counts**, so the loss must recover raw counts from the transformed target. `to_raw_counts` applies `expm1` **unconditionally** — i.e. it assumes the configured target transform is `log1p`. Under any other configured transform the recovered "counts" are wrong and the likelihood/gradients are **silently** wrong (no error). This is the loss/target-recovery analogue of the emit-side C-140 (resolved by keeping emit in `log1p(E[y])` so the config inverse recovers it). **Tier 2:** silent training corruption under a realistic config change; the fix must ship with the family. Fix (agreed, ADR-067): de-transform the target at the loss boundary using the **config's declared inverse**. The pipeline already has a config-driven registry — `config_initializer.TRANSFORMS[method] = (forward, inverse)` (`config_initializer.py:16-20`; only 3 methods: `log1p→expm1`, `asinh→sinh`, `identity`), consumed by `FeatureScaler.inverse_transform_volume`. But those are **numpy** funcs and the loss runs on **torch/GPU** tensors, which is why `to_raw_counts` hardcoded `torch.expm1` (log1p only). Fix = add a small **torch mirror** of `TRANSFORMS`' inverse and recover counts via the *configured* method — never a hardcoded `expm1`; and fail-loud at config load if an `nb`/`zinb` body is paired with a target transform whose inverse is not count-compatible. Pinned in ADR-067 §3 + the `NBDistLoss`/`DistributionFamily` CIC; acceptance of A-S3 (#170) + A-S7 (#174).
+
+> **RESOLVED 2026-07-21 (A-S7 #174).** Closed via the **fail-loud** half (the simpler, sufficient fix): `validate_family_requires_log1p_targets` (`config_initializer.py:691-711`, a `model_validator`) raises at config load if `output_distribution ∈ family_names()` and any regression target is not in `transformations["log1p"]`. `log1p` is the **only** count-compatible transform (its inverse `expm1` yields integer-scale counts; `asinh`/`identity` do not), so requiring it makes `to_raw_counts`' hardcoded `expm1` provably correct — no torch transform-mirror needed. Documented in `docs/CICs/HydraNetConfig.md` §6 (Family Targets Not log1p-Transformed); verified by `tests/distributions/test_loss_wiring.py::test_c198_family_requires_log1p_targets` (nb+log1p constructs; nb+identity raises). The silent-wrong-detransform path no longer exists.
+
+---
+
+### C-207: after A-S6 a family reg head is widened to `n_params` channels/target, but the training-engine loss loop still slices 1 channel/target for any non-`QuantileLoss` → a family run trains on silently mis-mapped channels until A-S7 — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-207 |
+| Tier | 2 |
+| Source | /code-review (2026-07-21), A-S6 (#173) cross-file finder |
+| Trigger | Running training with `output_distribution ∈ {nb, zinb}` in the window **after A-S6 (#173) and before A-S7 (#174)** wires the family-aware loss |
+| Location | `views_hydranet/train/training_engine.py:319-323` (the per-target reg slice: `if isinstance(loss_fn_j, QuantileLoss): … else: pred_j = t1_pred_for_loss[:, j]`); consumes the widened `out.reg` from `HydraBNrecurrentUnet_06_LSTM4` (A-S6) |
+| Cross-refs | A-S7 (#174) loss/engine wiring (the fix); C-201 (self-zeroed gate scoring); the v1-review "C-6 scattered-dispatch mis-emit" this concretely realizes at the loss site |
+
+A-S6 correctly widens the reg head to `n_params` channels per target (nb 3×2, zinb 3×3). The training engine, however, only special-cases the **quantile** multi-channel layout (`pred_j = reg[:, j*k:(j+1)*k]`); every other loss falls to `else: pred_j = t1_pred_for_loss[:, j]` — **one channel per target**. So for an `nb` head `reg = [μ_sb, θ_sb, μ_ns, θ_ns, μ_os, θ_os]`, the loop reads `reg[:,0]=μ_sb` (target sb, ok), `reg[:,1]=θ_sb` **as target ns**, `reg[:,2]=μ_ns` **as target os** — shapes match `[B,H,W]`, so it computes a loss with **no error** on mis-mapped channels. Config accepts `nb`/`zinb` (A-S5) and the head builds it (A-S6), so the intermediate state is silently-wrong if run. **Tier 2:** silent model-output incorrectness with no signal, gated only by a clear trigger. Mitigation: the epic runs no family end-to-end until A-S8 (+ the A-S11 GPU smoke); exposure is one story. Fix (A-S7): make the loss/engine reg-slice family-aware (per-target `n_params` stride like the quantile branch) **and** add a fail-loud guard that `out.reg.shape[1]` matches the loss's expected per-target width. A throwaway guard was deliberately NOT added in A-S6 (it would be replaced by the A-S7 wiring one story later).
+
+> **RESOLVED 2026-07-21 (A-S7 #174).** The training-engine per-target reg loop now branches on `isinstance(loss_fn_j, FamilyLoss)` **ahead of** the quantile branch and slices `t1_pred_for_loss[:, j*n_params:(j+1)*n_params].permute(0,2,3,1)` → `[B,H,W,n_params]` for `family.nll` (`training_engine.py:321-323`); every legacy loss keeps `else: reg[:, j]` (byte-identical). Verified by `tests/distributions/test_loss_wiring.py::test_family_slice_formula_and_shape_guard` (correct-slice `nll` finite + the pre-C-207 single-channel slice raises via the family shape-guard) and the `nb`/`zinb` real-model `_process_sequence` grad-flow tests.
+
+---
 
 ### C-203: `initial_raw_bias` was an NB-only head-init recipe off the `DistributionFamily` ABC — RESOLVED
 

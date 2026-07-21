@@ -176,9 +176,19 @@ def choose_loss(
     adding an entry to the appropriate registry — no modification of
     this function (OCP).
     """
+    # ADR-067 strangler-fig: if output_distribution names a registered distribution family (nb/
+    # zinb), the reg loss is the family NLL (FamilyLoss over family.nll) — loss_reg is irrelevant
+    # for a family. resolve_family returns None for every legacy value, so those keep their
+    # loss_reg path below (byte-identical). A single shared instance (theta/pi are head-emitted).
+    from views_hydranet.distributions import resolve_family
+    from views_hydranet.distributions.family_loss import FamilyLoss
+
+    _family = resolve_family(config.get("output_distribution", "standard"))
     loss_reg_sigma = config.get("loss_reg_sigma")
     learnable = config.get("learnable_sigma", False)
-    if config["loss_reg"] in ("hurdle_nb", "dense_nb"):
+    if _family is not None:
+        criterion_reg = FamilyLoss(_family).to(device)
+    elif config["loss_reg"] in ("hurdle_nb", "dense_nb"):
         # Per-target NB body: one loss instance per regression target, each with its own learnable
         # θ (reaches the optimizer via the dict-of-losses path in training_engine). hurdle_nb =
         # zero-truncated (TruncatedNBLoss); dense_nb = NB on all cells (DenseNBLoss, C-168 expt).

@@ -689,6 +689,28 @@ class HydraNetConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def validate_family_requires_log1p_targets(self) -> "HydraNetConfig":
+        # C-198 (ADR-067): a count family (nb/zinb) recovers raw counts from the target via the
+        # log1p inverse (expm1, `to_raw_counts`). Any other target transform (asinh/identity) would
+        # de-transform to the wrong "counts" with no error, so require log1p for the family's
+        # regression targets — fail loud at config load. (`family_names()` is torch-free.)
+        from views_hydranet.distributions import family_names
+
+        if self.output_distribution in family_names():
+            log1p_cols = set(self.transformations.get("log1p", []))
+            non_log1p = [t for t in self.regression_targets if t not in log1p_cols]
+            if non_log1p:
+                err_msg = (
+                    f"output_distribution='{self.output_distribution}' is a count distribution "
+                    f"family that recovers raw counts via the log1p inverse, but regression "
+                    f"target(s) {non_log1p} are not log1p-transformed (C-198). Use log1p, or "
+                    f"select a legacy output_distribution."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
     def validate_head_samples_family(self) -> "HydraNetConfig":
         # ADR-067 (D×K): per-cell head draws (K = n_head_samples > 1) are only meaningful for a
         # SAMPLEABLE distribution family (nb/zinb). A legacy point/quantile head has no per-cell

@@ -21,6 +21,7 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
+from views_hydranet.distributions.family_loss import FamilyLoss
 from views_hydranet.infrastructure.reproducibility_gate import ReproducibilityGate
 from views_hydranet.utils.body_mask import (
     _active_window_mask as _resolve_active_window_mask,
@@ -313,10 +314,14 @@ def _process_sequence(
                 else criterion_reg
             )
 
-            # Quantile head: the reg output holds K channels per target; slice this target's K and
-            # move the quantile axis last ([B,H,W,K]) for the multi-tau pinball. Non-quantile heads
-            # keep one channel per target.
-            if isinstance(loss_fn_j, QuantileLoss):
+            # ADR-067 (C-207): a distribution family emits n_params channels per target; slice this
+            # target's n_params and move them to the last dim ([B,H,W,n_params]) for family.nll.
+            # Quantile head: K channels per target (multi-tau pinball). Every other head keeps one
+            # channel per target. Registry-first via FamilyLoss, so legacy dispatch is untouched.
+            if isinstance(loss_fn_j, FamilyLoss):
+                npar = loss_fn_j.n_params
+                pred_j = t1_pred_for_loss[:, j * npar : (j + 1) * npar, :, :].permute(0, 2, 3, 1)
+            elif isinstance(loss_fn_j, QuantileLoss):
                 k = loss_fn_j.taus.numel()
                 pred_j = t1_pred_for_loss[:, j * k : (j + 1) * k, :, :].permute(0, 2, 3, 1)
             else:

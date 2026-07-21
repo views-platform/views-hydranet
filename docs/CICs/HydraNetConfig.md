@@ -88,6 +88,7 @@ The `HydraNetConfig` is the **Schema** of the HydraNet pipeline. Its primary pur
 - **Invalid Output Distribution (ADR-067):** Raises `ValueError` when `output_distribution` is not in the LEGACY values unioned with `family_names()` (the registered distribution families), listing the valid union.
 - **Family/Legacy Name Collision (ADR-067 / C-197):** Raises `ValueError` (a `model_validator` that always runs) when a registered distribution-family name equals a legacy `output_distribution` value — the two name-sets must be disjoint, else a legacy config would silently route to a new family.
 - **Head Samples Without a Family (ADR-067):** Raises `ValueError` when `n_head_samples > 1` but `output_distribution` is not a registered family (a legacy point/quantile head has no per-cell sampler, so `K>1` would be silently ignored); legacy heads keep `n_head_samples=1`.
+- **Family Targets Not log1p-Transformed (ADR-067 / C-198):** Raises `ValueError` (a `model_validator`) when `output_distribution` is a registered count family but one or more `regression_targets` is not in `transformations["log1p"]`. A count family's `nll` de-transforms predictions to raw counts via `expm1` (the `log1p` inverse); any other transform silently yields non-integer or wrong-scale "counts", corrupting the likelihood without an error signal.
 
 ---
 
