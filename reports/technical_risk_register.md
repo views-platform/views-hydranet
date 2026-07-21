@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-07-21                           |
-| Total Concerns    | 204                                  |
-| Open Concerns     | 98                                   |
+| Total Concerns    | 205                                  |
+| Open Concerns     | 99                                   |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 106                                  |
 
@@ -1736,6 +1736,21 @@ A-S3 added a stable `inverse_softplus` to `nb_core` (the subsystem's shared NB m
 | Cross-refs | C-43 (manifest audit); A-S8 (#175); the `n_quantiles`/`reg_activation` snapshot precedent (`train_model.py:101-105`) |
 
 The persisted training `config_snapshot` is a **selective** `arch_keys` dict, not a full-config dump — so A-S5 adding `n_head_samples` correctly does NOT perturb legacy manifests (the #172 byte-identical AC holds). **But** once A-S8 makes K change the sampled `[T,H,W,C,S]` cube, a run's forecast depends on `n_head_samples`, and the manifest would omit it (like `n_quantiles`/`reg_activation` are conditionally captured) — two runs with different K would share a manifest, silently defeating reproducibility. **Tier 3:** a reproducibility gap that only bites when A-S8 wires the sampler; harmless at A-S5 (K is unused). Fix: in A-S8, add `n_head_samples` to `config_snapshot` (and, if it gates behaviour, to `reproducibility_gate.audit_manifest`). A-S5 correctly does not wire it.
+
+---
+
+### C-207: after A-S6 a family reg head is widened to `n_params` channels/target, but the training-engine loss loop still slices 1 channel/target for any non-`QuantileLoss` → a family run trains on silently mis-mapped channels until A-S7
+
+| Field | Value |
+|-------|-------|
+| ID | C-207 |
+| Tier | 2 |
+| Source | /code-review (2026-07-21), A-S6 (#173) cross-file finder |
+| Trigger | Running training with `output_distribution ∈ {nb, zinb}` in the window **after A-S6 (#173) and before A-S7 (#174)** wires the family-aware loss |
+| Location | `views_hydranet/train/training_engine.py:319-323` (the per-target reg slice: `if isinstance(loss_fn_j, QuantileLoss): … else: pred_j = t1_pred_for_loss[:, j]`); consumes the widened `out.reg` from `HydraBNrecurrentUnet_06_LSTM4` (A-S6) |
+| Cross-refs | A-S7 (#174) loss/engine wiring (the fix); C-201 (self-zeroed gate scoring); the v1-review "C-6 scattered-dispatch mis-emit" this concretely realizes at the loss site |
+
+A-S6 correctly widens the reg head to `n_params` channels per target (nb 3×2, zinb 3×3). The training engine, however, only special-cases the **quantile** multi-channel layout (`pred_j = reg[:, j*k:(j+1)*k]`); every other loss falls to `else: pred_j = t1_pred_for_loss[:, j]` — **one channel per target**. So for an `nb` head `reg = [μ_sb, θ_sb, μ_ns, θ_ns, μ_os, θ_os]`, the loop reads `reg[:,0]=μ_sb` (target sb, ok), `reg[:,1]=θ_sb` **as target ns**, `reg[:,2]=μ_ns` **as target os** — shapes match `[B,H,W]`, so it computes a loss with **no error** on mis-mapped channels. Config accepts `nb`/`zinb` (A-S5) and the head builds it (A-S6), so the intermediate state is silently-wrong if run. **Tier 2:** silent model-output incorrectness with no signal, gated only by a clear trigger. Mitigation: the epic runs no family end-to-end until A-S8 (+ the A-S11 GPU smoke); exposure is one story. Fix (A-S7): make the loss/engine reg-slice family-aware (per-target `n_params` stride like the quantile branch) **and** add a fail-loud guard that `out.reg.shape[1]` matches the loss's expected per-target width. A throwaway guard was deliberately NOT added in A-S6 (it would be replaced by the A-S7 wiring one story later).
 
 ---
 

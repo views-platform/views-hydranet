@@ -98,9 +98,18 @@ def train_model_artifact(
         # arg is ignored); its closure name is not a valid reg_activation on reload, so persist
         # None +
         # the quantile count K instead.
-        if config_snapshot["output_distribution"] == "quantile":
+        # A distribution family (nb/zinb, ADR-067) or the quantile head installs its OWN activation
+        # (a closure keyed off output_distribution) whose name is not a valid reg_activation string
+        # on reload — persist None; output_distribution reconstructs it. Registry-driven
+        # (resolve_family), so new families need no edit here.
+        from views_hydranet.distributions import resolve_family
+
+        _od = config_snapshot["output_distribution"]
+        if _od == "quantile":
             config_snapshot["reg_activation"] = None
             config_snapshot["n_quantiles"] = config.get("n_quantiles")
+        elif resolve_family(_od) is not None:
+            config_snapshot["reg_activation"] = None
         else:
             config_snapshot["reg_activation"] = model._reg_activation.__name__
         criterion_reg = criterion[0]

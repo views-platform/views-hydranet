@@ -5,7 +5,22 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from views_hydranet.architectures.locked_dropout import LockedDropout
+from views_hydranet.distributions import resolve_family
 from views_hydranet.utils.quantile_head import init_quantile_conv_, monotone_quantiles
+
+
+def _family_activation(family):
+    """Wrap a ``DistributionFamily.activate`` for the channel-first reg head (ADR-067).
+
+    The head emits ``[B, n_params, H, W]`` per target, but ``activate`` takes the params in the
+    LAST dim (``[..., n_params]``) — permute in, activate, permute back (the quantile-head idiom).
+    """
+
+    def _act(x):
+        p = family.activate(x.permute(0, 2, 3, 1))
+        return p.permute(0, 3, 1, 2).contiguous()
+
+    return _act
 
 
 class ModelOutput(NamedTuple):
@@ -76,13 +91,20 @@ class HydraBNUNet06_LSTM4(nn.Module):
         # #100: hurdle-NB needs a count-space mean mu at the output; softplus keeps it
         # sub-exponential. Default "standard" => ReLU => byte-identical to pre-#100.
         self.output_distribution = output_distribution
+        # ADR-067 strangler-fig: if output_distribution names a registered distribution family
+        # (nb/zinb), the head sizes reg channels to family.n_params and the FAMILY owns activation.
+        # resolve_family returns None for every legacy value, so those fall through to the
+        # untouched legacy path below (byte-identical). New families add zero new branches here.
+        self._family = resolve_family(output_distribution)
         # Default keys off output_distribution: ALL hurdle bodies => softplus, "standard" => relu.
         # reg_activation overrides it (Exp B: decouple emit activation from the loss/likelihood).
         # C-178: a ReLU output head dies on rare targets under the hurdle mask (pre-activation
         # drifts 100% negative => ReLU==0 with zero gradient => unrecoverable). softplus is always
         # positive with non-zero gradient, so it cannot die. hurdle_nb already used softplus;
         # extend to all hurdle bodies. "standard" keeps relu (byte-identical to pre-#100).
-        if reg_activation == "softplus":
+        if self._family is not None:
+            self._reg_activation = _family_activation(self._family)
+        elif reg_activation == "softplus":
             self._reg_activation = F.softplus
         elif reg_activation == "relu":
             self._reg_activation = F.relu
@@ -109,7 +131,13 @@ class HydraBNUNet06_LSTM4(nn.Module):
                 return q.permute(0, 3, 1, 2).contiguous()
 
             self._reg_activation = _monotone_channels
-        reg_out_ch = n_quantiles if self._is_quantile else output_channels
+        # A family emits n_params reg channels per target (nb=2 [mu,theta], zinb=3 [+pi]); the
+        # quantile head emits K; every other legacy head emits output_channels (the AR-feedback
+        # width, unchanged so the invariant input_channels == 3*output_channels + static holds).
+        if self._family is not None:
+            reg_out_ch = self._family.n_params
+        else:
+            reg_out_ch = n_quantiles if self._is_quantile else output_channels
 
         # ADR-061 top-skip: the last n_static_channels of the input are static (e.g. coordinates);
         # re-injected raw at each decoder head's full-resolution dec_conv1. 0 => byte-identical.
@@ -239,15 +267,18 @@ class HydraBNUNet06_LSTM4(nn.Module):
 
         self.dec_conv4_head3_reg = nn.Conv2d(base, reg_out_ch, kernel_size, padding=1)
 
-        # Narrow-fan init for the quantile reg heads (channel 0 = base, 1: = pre-softplus gaps) so
-        # the
-        # cumulated softplus opens narrow instead of exploding to a dead, zero-gradient head.
-        if self._is_quantile:
-            for _c in (
-                self.dec_conv4_head1_reg,
-                self.dec_conv4_head2_reg,
-                self.dec_conv4_head3_reg,
-            ):
+        # Informed init (C-199 / C-203): seed each reg head's bias from the family's own recipe so
+        # theta/pi start away from the saturated dead-zone (family DEFAULT priors — the head has no
+        # data; data-derived priors are a later refinement). Narrow-fan init for the quantile heads
+        # (channel 0 = base, 1: = pre-softplus gaps) so the cumulated softplus opens narrow.
+        _reg_convs = (self.dec_conv4_head1_reg, self.dec_conv4_head2_reg, self.dec_conv4_head3_reg)
+        if self._family is not None:
+            _bias = self._family.initial_raw_bias()
+            for _c in _reg_convs:
+                with torch.no_grad():
+                    _c.bias.copy_(_bias.to(_c.bias.dtype))
+        elif self._is_quantile:
+            for _c in _reg_convs:
                 init_quantile_conv_(_c)
 
         # HEAD3 class
