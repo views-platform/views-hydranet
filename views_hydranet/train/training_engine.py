@@ -21,6 +21,7 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
+from views_hydranet.distributions import resolve_family
 from views_hydranet.distributions.family_loss import FamilyLoss
 from views_hydranet.infrastructure.reproducibility_gate import ReproducibilityGate
 from views_hydranet.utils.body_mask import (
@@ -604,7 +605,20 @@ def train(
                     y_reg = t1[:, idx.reg, :, :]
                     y_cls = t1[:, idx.cls, :, :]
                     acc_y_reg.append(y_reg[0].permute(1, 2, 0).cpu().numpy())
-                    acc_yh_reg.append(t1_pred[0].permute(1, 2, 0).cpu().numpy())
+                    # A family head emits n_params channels/target; collapse to per-target
+                    # log1p(E[y]) so the biopsy's body + E[y] rows are 3-channel like the truth
+                    # and gate (else y_hat_cls * y_hat_reg mis-broadcasts and the forensic plot is
+                    # skipped). Mirrors _emit_magnitude's family branch. Legacy = unchanged.
+                    _yh_reg = t1_pred
+                    _fam = resolve_family(config.get("output_distribution", "standard"))
+                    if _fam is not None:
+                        _np = _fam.n_params
+                        _means = [
+                            _fam.mean(t1_pred[:, j * _np : (j + 1) * _np].permute(0, 2, 3, 1))
+                            for j in range(t1_pred.shape[1] // _np)
+                        ]
+                        _yh_reg = torch.log1p(torch.stack(_means, dim=1))  # [B, n_reg, H, W]
+                    acc_yh_reg.append(_yh_reg[0].permute(1, 2, 0).cpu().numpy())
                     acc_y_cls.append(y_cls[0].permute(1, 2, 0).cpu().numpy())
                     acc_yh_cls.append(
                         torch.sigmoid(t1_pred_class[0]).permute(1, 2, 0).cpu().numpy()
