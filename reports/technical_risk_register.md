@@ -6,9 +6,9 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-07-21                           |
 | Total Concerns    | 205                                  |
-| Open Concerns     | 97                                   |
+| Open Concerns     | 96                                   |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 108                                  |
+| Resolved Concerns | 109                                  |
 
 ---
 
@@ -1711,21 +1711,6 @@ A-S3 added a stable `inverse_softplus` to `nb_core` (the subsystem's shared NB m
 
 ---
 
-### C-206: `n_head_samples` (K) is a config field but is NOT captured in the reproducibility snapshot — a D×K run will not be reproducible from its manifest until A-S8 adds it
-
-| Field | Value |
-|-------|-------|
-| ID | C-206 |
-| Tier | 3 |
-| Source | /code-review (2026-07-21), A-S5 (#172) cross-file finder |
-| Trigger | A-S8 (#175) wires `n_head_samples` into the inference D×K sampler (so K actually changes forecasts) without adding it to the training `config_snapshot` |
-| Location | `views_hydranet/train/train_model.py:85` (`config_snapshot = {k: config[k] for k in arch_keys}`); the new field `views_hydranet/utils/config_initializer.py` `n_head_samples` |
-| Cross-refs | C-43 (manifest audit); A-S8 (#175); the `n_quantiles`/`reg_activation` snapshot precedent (`train_model.py:101-105`) |
-
-The persisted training `config_snapshot` is a **selective** `arch_keys` dict, not a full-config dump — so A-S5 adding `n_head_samples` correctly does NOT perturb legacy manifests (the #172 byte-identical AC holds). **But** once A-S8 makes K change the sampled `[T,H,W,C,S]` cube, a run's forecast depends on `n_head_samples`, and the manifest would omit it (like `n_quantiles`/`reg_activation` are conditionally captured) — two runs with different K would share a manifest, silently defeating reproducibility. **Tier 3:** a reproducibility gap that only bites when A-S8 wires the sampler; harmless at A-S5 (K is unused). Fix: in A-S8, add `n_head_samples` to `config_snapshot` (and, if it gates behaviour, to `reproducibility_gate.audit_manifest`). A-S5 correctly does not wire it.
-
----
-
 
 ## Disagreements
 
@@ -1863,6 +1848,23 @@ Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/s
 ---
 
 ## Resolved Concerns
+
+### C-206: `n_head_samples` (K) is a config field but is NOT captured in the reproducibility snapshot — a D×K run will not be reproducible from its manifest until A-S8 adds it — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-206 |
+| Tier | 3 |
+| Source | /code-review (2026-07-21), A-S5 (#172) cross-file finder |
+| Trigger | A-S8 (#175) wires `n_head_samples` into the inference D×K sampler (so K actually changes forecasts) without adding it to the training `config_snapshot` |
+| Location | `views_hydranet/train/train_model.py:85` (`config_snapshot = {k: config[k] for k in arch_keys}`); the new field `views_hydranet/utils/config_initializer.py` `n_head_samples` |
+| Cross-refs | C-43 (manifest audit); A-S8 (#175); the `n_quantiles`/`reg_activation` snapshot precedent (`train_model.py:101-105`) |
+
+The persisted training `config_snapshot` is a **selective** `arch_keys` dict, not a full-config dump — so A-S5 adding `n_head_samples` correctly does NOT perturb legacy manifests (the #172 byte-identical AC holds). **But** once A-S8 makes K change the sampled `[T,H,W,C,S]` cube, a run's forecast depends on `n_head_samples`, and the manifest would omit it (like `n_quantiles`/`reg_activation` are conditionally captured) — two runs with different K would share a manifest, silently defeating reproducibility. **Tier 3:** a reproducibility gap that only bites when A-S8 wires the sampler; harmless at A-S5 (K is unused). Fix: in A-S8, add `n_head_samples` to `config_snapshot` (and, if it gates behaviour, to `reproducibility_gate.audit_manifest`). A-S5 correctly does not wire it.
+
+> **RESOLVED 2026-07-21 (A-S8 #175).** K now (a) changes the sampled cube — `generate_posterior_samples` reads `posterior_K = config["n_head_samples"]` and fills `S = D×K` (`hydranet_inference.py`) — and (b) rides in the manifest: `train_model.py:110-115` adds `config_snapshot["n_head_samples"] = config.get("n_head_samples", 1)` inside the `elif resolve_family(_od) is not None:` branch, so it is captured **only for families** (legacy K=1 is unused ⇒ the selective `arch_keys` snapshot stays byte-identical, preserving the A-S5 #172 AC). Two family runs with different K no longer share a snapshot. Verified: full suite green (1053 passed, only the known 7 pre-existing) + determinism gate (`test_inference_orchestrator_pf`, F3_06).
+
+---
 
 ### C-198: per-cell NB/ZINB loss inherits `to_raw_counts` hardcoded `expm1` → silently wrong loss under any non-`log1p` target transform — RESOLVED
 

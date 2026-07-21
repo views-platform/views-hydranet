@@ -7,6 +7,9 @@ import torch
 from torch.nn import Module
 from tqdm import tqdm
 
+from views_hydranet.distributions import resolve_family
+from views_hydranet.distributions.sampling import to_cube_samples
+from views_hydranet.utils.disk_guard import assert_cube_fits
 from views_hydranet.utils.hurdle_nb import (
     hurdle_lognormal_expected_log1p,
     hurdle_nb_expected_log1p,
@@ -83,6 +86,10 @@ class HydraNetInference:
         # #101: hurdle-NB inference compose. The model carries output_distribution (#100); the
         # learned per-target theta is attached to the model at load time (sidecar -> fetcher).
         self.output_distribution = getattr(model, "output_distribution", "standard")
+        # ADR-067 strangler-fig: a registered family (nb/zinb) owns emit (family.mean) + sampling
+        # (family.sample). resolve_family returns None for every legacy value, so those keep their
+        # exact emit/sampler path below (byte-identical). Head emits activated params per cell.
+        self._family = resolve_family(self.output_distribution)
         self.hurdle_theta = self._parse_hurdle_theta(getattr(model, "hurdle_nb_theta", None))
         # generic hurdle bodies: lognormal needs sigma (fixed, from sidecar); point needs nothing.
         self.lognormal_sigma = self._parse_lognormal_sigma(
@@ -213,6 +220,20 @@ class HydraNetInference:
         (Cragg/Mullahy/Cameron&Trivedi). log1p so the downstream inverse_transform (expm1)
         recovers E[y] in count space — we never expm1 a free prediction (C-140).
         """
+        # ADR-067 (A-S8): a registered family emits per-cell activated params [B, n_reg*n_params,
+        # H, W]; E[y] = family.mean(params) per target, then log1p (emit space) so the downstream
+        # expm1 recovers counts — same contract as the hurdle branches. getattr keeps the A-S2
+        # parity stub (no _family) on the legacy path below, so those stay byte-identical.
+        fam = getattr(self, "_family", None)
+        if fam is not None:
+            npar = fam.n_params
+            n_reg = reg.shape[1] // npar
+            means = [
+                fam.mean(reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1))
+                for j in range(n_reg)
+            ]
+            return torch.log1p(torch.stack(means, dim=1))  # [B, n_reg, H, W]
+
         # Single source of truth for each hurdle mean (shared with the explosion-check probe so it
         # feeds back exactly this — C-142). All return log1p(count-space E[y]).
         if self.output_distribution == "hurdle_nb":  # mu/(1-NB0) -> 1 as mu->0
@@ -245,6 +266,7 @@ class HydraNetInference:
         pbar: Optional[tqdm] = None,
         stage_label: str = "Stage 5",
         time_indices: Optional[List[float]] = None,
+        return_params: bool = False,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Predicts a sequence using the HydraNet model.
 
@@ -254,9 +276,14 @@ class HydraNetInference:
             feature_names: Names of channels in full_tensor.
             pbar: Optional progress bar to update.
             stage_label: Label for visual diagnostics.
+            return_params: ADR-067 (A-S8) — for a distribution family, return the per-step
+                **activated params** ``[T, n_reg*n_params, H, W]`` (pre-emit) in place of the
+                emit-magnitude, so the D×K sampler can draw ``family.sample`` from them. The AR
+                feedback still uses the emit-mean, so the rollout trajectory is identical. Legacy
+                callers omit it (``False``) → the unchanged emit-magnitude 2-tuple.
 
         Returns:
-            A tuple containing magnitudes and probabilities zstacks.
+            A tuple: magnitudes (or params if ``return_params``) and probabilities zstacks.
         """
         # ADR-057: refresh locked dropout masks once per posterior sample, so the
         # mask is held fixed across this sample's 36-step autoregressive
@@ -293,6 +320,8 @@ class HydraNetInference:
         # GPU Accumulators for sequence steps
         acc_magnitudes = []
         acc_probabilities = []
+        # ADR-067 (A-S8): activated family params per emitted step (pre-emit), for the D×K sampler.
+        acc_params = []
 
         # STAGE 5 DIAGNOSTIC: Accumulators
         truth_accumulator = []
@@ -313,6 +342,8 @@ class HydraNetInference:
                 output = self.model(t0_input, h_tt)
                 t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
                 t1_pred_class = torch.sigmoid(t1_pred_class)
+                if return_params:
+                    acc_params.append(t1_pred)  # activated params, pre-emit
                 t1_pred = self._emit_magnitude(t1_pred, t1_pred_class)  # #101: hurdle-NB E[y]
 
                 acc_magnitudes.append(t1_pred)
@@ -375,6 +406,8 @@ class HydraNetInference:
                 output = self.model(t0_autoreg, h_tt)
                 t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
                 t1_pred_class = torch.sigmoid(t1_pred_class)
+                if return_params:
+                    acc_params.append(t1_pred)  # activated params, pre-emit
                 t1_pred = self._emit_magnitude(t1_pred, t1_pred_class)  # #101: hurdle-NB E[y]
 
                 # C-20: Soft magnitude guard — detect gradual drift
@@ -416,6 +449,24 @@ class HydraNetInference:
                 pbar.update(1)
 
         # --- BATCH TRANSFERS (Speed Hardening) ---
+        # ADR-067 (A-S8): the family sampler wants the pre-emit params, not the emit-mean. The
+        # rollout above still fed back the emit-mean, so the trajectory is identical either way.
+        if return_params:
+            full_params = torch.cat(acc_params, dim=0)  # [T_steps, n_reg*n_params, H, W]
+            full_probabilities = torch.cat(acc_probabilities, dim=0)
+            del acc_magnitudes, acc_params, acc_probabilities
+            if not torch.isfinite(full_params).all():
+                err_msg = (
+                    f"Model produced non-finite params during sample {sample_idx}. "
+                    f"Aborting inference (ADR-003: Fail Loud)."
+                )
+                logger.error(err_msg)
+                raise RuntimeError(err_msg)
+            return (
+                full_params.detach().cpu().numpy(),
+                full_probabilities.detach().cpu().numpy(),
+            )
+
         full_magnitudes = torch.cat(acc_magnitudes, dim=0)  # [T_steps, C, H, W]
         del acc_magnitudes  # step tensors no longer needed; free before full+numpy coexist
         full_probabilities = torch.cat(acc_probabilities, dim=0)
@@ -511,32 +562,33 @@ class HydraNetInference:
         n_reg = len(self.config["regression_targets"])
         n_cls = len(self.config["classification_targets"])
 
+        # ADR-067 (A-S8): the posterior width S = D×K. D = n_posterior_samples (MC-dropout, model
+        # uncertainty); K = n_head_samples (per-cell family draws, outcome uncertainty). Legacy
+        # heads keep K=1, so posterior_S == n_posterior_samples (byte-identical). Single source for
+        # every S-width read below.
+        posterior_D = self.config["n_posterior_samples"]
+        posterior_K = self.config.get("n_head_samples", 1)
+        posterior_S = posterior_D * posterior_K
+
+        # RAM preflight: reject an oversize D×K cube BEFORE allocation (auto RAM guard + optional
+        # max_posterior_cube_gb cap) — the 37GB-cache-scar class must fail loud, not OOM-kill.
+        mag_shape = (time_steps, H, W, n_reg, posterior_S)
+        prob_shape = (time_steps, H, W, n_cls, posterior_S)
+        assert_cube_fits(
+            mag_shape,
+            prob_shape,
+            dtype=np.float32,
+            budget_gb=self.config.get("max_posterior_cube_gb"),
+        )
+
         # Pre-allocate memory
-        posterior_magnitudes_zstack = np.zeros(
-            (
-                time_steps,
-                H,
-                W,
-                n_reg,
-                self.config["n_posterior_samples"],
-            ),
-            dtype=np.float32,
-        )
-        posterior_probabilities_zstack = np.zeros(
-            (
-                time_steps,
-                H,
-                W,
-                n_cls,
-                self.config["n_posterior_samples"],
-            ),
-            dtype=np.float32,
-        )
+        posterior_magnitudes_zstack = np.zeros(mag_shape, dtype=np.float32)
+        posterior_probabilities_zstack = np.zeros(prob_shape, dtype=np.float32)
 
         # Progress bar logic
         # Digest (origin) + Seed (1) + Autoreg (time_steps - 1) = origin + time_steps
         steps_per_sample = origin + time_steps
-        total_inference_steps = self.config["n_posterior_samples"] * steps_per_sample
+        total_inference_steps = posterior_D * steps_per_sample
 
         desc_prefix = f"[{window_info}] " if window_info else ""
 
@@ -574,7 +626,7 @@ class HydraNetInference:
                     t_n = pred_mag.shape[0]
                     # [T, n_reg*K, H, W] -> [T, H, W, n_reg, K] (channels are target-major)
                     q = pred_mag.reshape(t_n, n_reg, k, H, W).transpose(0, 3, 4, 1, 2)
-                    s_n = self.config["n_posterior_samples"]
+                    s_n = posterior_S  # quantile is legacy (K=1) => == n_posterior_samples
                     # [T, H, W, n_cls] = P(y>0), gate order = reg
                     prob = pred_prob.transpose(0, 2, 3, 1)
                     # Hurdle compose: gate P(y>0) × positive-magnitude quantiles (mass 1-p at 0).
@@ -588,8 +640,39 @@ class HydraNetInference:
                     posterior_magnitudes_zstack[:] = samples.astype(np.float32)
                     posterior_probabilities_zstack[:] = np.repeat(prob[..., None], s_n, axis=-1)
                     del pred_mag, pred_prob
+                elif self._family is not None:
+                    # Path B': D×K family posterior. Keep the D MC-dropout passes (model
+                    # uncertainty); each pass returns per-cell activated params, from which we draw
+                    # K samples (outcome uncertainty) via family.sample. A single seeded generator
+                    # (from torch_seed) makes the draws deterministic run-to-run (S2 #121 gate) —
+                    # this is the first non-dropout randomness in inference. Fills S = D×K columns.
+                    generator = torch.Generator(device="cpu").manual_seed(
+                        int(self.config["torch_seed"])
+                    )
+                    for d in range(posterior_D):
+                        params_zstack, prob_zstack = self.predict(
+                            full_tensor,
+                            origin,
+                            d,
+                            feature_names=feature_names,
+                            pbar=pbar,
+                            stage_label=window_info,
+                            time_indices=time_indices,
+                            return_params=True,
+                        )
+                        cols = slice(d * posterior_K, (d + 1) * posterior_K)
+                        # [T, H, W, n_reg, K] log1p-space draws for this dropout pass
+                        posterior_magnitudes_zstack[:, :, :, :, cols] = to_cube_samples(
+                            params_zstack, self._family, posterior_K, generator, n_reg
+                        )
+                        # gate stays the classifier P(y>0) (sigmoid(cls)); repeat across the K cols
+                        prob_thwc = prob_zstack.transpose(0, 2, 3, 1)  # [T,H,W,n_cls]
+                        posterior_probabilities_zstack[:, :, :, :, cols] = np.repeat(
+                            prob_thwc[..., None], posterior_K, axis=-1
+                        )
+                        del params_zstack, prob_zstack
                 else:
-                    for sample_idx in range(self.config["n_posterior_samples"]):
+                    for sample_idx in range(posterior_D):
                         pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(
                             full_tensor,
                             origin,

@@ -20,7 +20,8 @@ class TestF5_CICFieldCountDrift:
         # quantile head +n_quantiles, pinball body +loss_reg_tau/loss_reg_cap;
         # ADR-065 / Epic #158: +body_mask, -hurdle_threshold retired -> net 78 => 81)
         # ADR-067 / Epic #167 A-S5 (#172): +n_head_samples -> 79
-        CIC_CLAIMED_COUNT = 79
+        # ADR-067 / Epic #167 A-S8 (#175): +max_posterior_cube_gb -> 80
+        CIC_CLAIMED_COUNT = 80
         actual = len(HydraNetConfig.model_fields)
         assert actual == CIC_CLAIMED_COUNT, (
             f"CIC §3 claims {CIC_CLAIMED_COUNT} fields but HydraNetConfig has {actual}. "

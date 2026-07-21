@@ -182,6 +182,16 @@ class HydraNetConfig(BaseModel):
             "S3_seed4). None disables (default-off => unchanged behaviour)."
         ),
     )
+    max_posterior_cube_gb: float | None = Field(
+        default=None,
+        gt=0.0,
+        description=(
+            "ADR-067 (A-S8): optional hard per-run ceiling (GiB) on the D×K posterior cube "
+            "(S = n_posterior_samples × n_head_samples). When set, generate_posterior_samples "
+            "aborts (fail loud) before allocating if the cube exceeds it — a lower cap on top of "
+            "the always-on auto RAM guard (assert_cube_fits). None disables the opt-in cap."
+        ),
+    )
     static_channels: list[str] = Field(
         default_factory=list,
         description=(

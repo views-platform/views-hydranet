@@ -110,6 +110,11 @@ def train_model_artifact(
             config_snapshot["n_quantiles"] = config.get("n_quantiles")
         elif resolve_family(_od) is not None:
             config_snapshot["reg_activation"] = None
+            # C-206: K (n_head_samples) changes the sampled D×K cube at inference (A-S8), so it
+            # must ride in the manifest — else two runs with different K share a snapshot and
+            # silently defeat reproducibility. Only captured for families (legacy K=1 is unused ⇒
+            # manifest byte-identical, preserving the A-S5 #172 AC).
+            config_snapshot["n_head_samples"] = config.get("n_head_samples", 1)
         else:
             config_snapshot["reg_activation"] = model._reg_activation.__name__
         criterion_reg = criterion[0]
