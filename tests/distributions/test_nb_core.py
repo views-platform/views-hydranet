@@ -79,3 +79,35 @@ def test_boundary_clamp_no_nan_at_degenerate_params():
     assert torch.isfinite(lp).all()
     s = NBCore.sample(mu, theta, 16, torch.Generator().manual_seed(1))
     assert torch.isfinite(s.float()).all() and (s >= 0).all()
+
+
+def test_sample_variance_recovers_nb_dispersion():
+    """C-208: the hand-rolled Gamma-Poisson must recover the NB VARIANCE, not just the mean.
+
+    CRPS (the M2 metric) is spread-driven, so a sampler with the right mean but wrong dispersion
+    would corrupt the calibration verdict while passing the mean-only test. NB Var = mu+mu²/theta.
+    """
+    from views_hydranet.distributions.nb_core import NBCore
+
+    mu = torch.tensor([2.0, 5.0, 20.0, 50.0])
+    theta = torch.tensor([2.0, 0.5, 1.0, 0.3])
+    s = NBCore.sample(mu, theta, 200_000, torch.Generator().manual_seed(0)).float()
+    nb_var = mu + mu**2 / theta
+    assert torch.allclose(s.var(-1), nb_var, rtol=0.05), (
+        f"sample var {s.var(-1).tolist()} != NB mu+mu²/theta {nb_var.tolist()} (rtol 0.05)"
+    )
+
+
+def test_sample_zero_fraction_matches_prob_zero():
+    """C-208 goodness-of-fit: the empirical P(Y=0) must match the analytic NB(0) — an independent
+    check (prob_zero is not used by the sampler) that catches a mis-shaped low-count spread."""
+    from views_hydranet.distributions.nb_core import NBCore
+
+    mu = torch.tensor([1.0, 3.0, 8.0])
+    theta = torch.tensor([0.5, 1.0, 2.0])
+    s = NBCore.sample(mu, theta, 200_000, torch.Generator().manual_seed(3))
+    emp_zero = (s == 0).float().mean(-1)
+    analytic_zero = NBCore.prob_zero(mu, theta)
+    assert torch.allclose(emp_zero, analytic_zero, atol=0.01), (
+        f"empirical P(Y=0) {emp_zero.tolist()} != NB(0) {analytic_zero.tolist()} (atol 0.01)"
+    )

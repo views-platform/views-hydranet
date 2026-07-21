@@ -5,10 +5,10 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-07-21                           |
-| Total Concerns    | 205                                  |
-| Open Concerns     | 92                                   |
+| Total Concerns    | 208                                  |
+| Open Concerns     | 94                                   |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 113                                  |
+| Resolved Concerns | 114                                  |
 
 ---
 
@@ -1649,6 +1649,36 @@ A-S3 added a stable `inverse_softplus` to `nb_core` (the subsystem's shared NB m
 
 ---
 
+### C-209: the D×K sampler folds epistemic + aleatoric uncertainty onto one flat `S` axis with no `(D,K)` factorization recorded
+
+| Field | Value |
+|-------|-------|
+| ID | C-209 |
+| Tier | 3 |
+| Source | /expert-code-review (A-S10 #177), Kleppmann/Hickey |
+| Trigger | A future analysis needing to separate epistemic (MC-dropout `D`) from aleatoric (head-draw `K`) uncertainty from a **stored** PredictionFrame (rather than a fresh run) |
+| Location | `views_hydranet/utils/hydranet_inference.py` `generate_posterior_samples` (`posterior_S = D*K`); the `(N,S)` frame |
+| Cross-refs | C-206 (`n_head_samples` manifest capture); D-12 (per-origin CRN) |
+
+The D×K sampler fills the `[T,H,W,C,S]` cube with `S = D×K` where `D` = MC-dropout passes (model/epistemic) and `K` = per-cell head draws (outcome/aleatoric), but the two are folded onto one **flat** `S` axis with no `(D,K)` factorization stored. `(D=8,K=1)` and `(D=1,K=8)` are indistinguishable once scored, and the epistemic/aleatoric decomposition is unrecoverable without a re-run. **Tier 3:** benign for the committed CRPS M-program (it needs only the marginal `S`), but a lossy, irreversible data-contract choice. Fix: record `(D,K)`/`n_head_samples` in the frame metadata so the axis factorization is recoverable.
+
+---
+
+### C-210: `[DEMOTED]` `_standard_gamma` silently falls back to the region mean on 64-iteration non-acceptance instead of warning
+
+| Field | Value |
+|-------|-------|
+| ID | C-210 |
+| Tier | 4 |
+| Source | /expert-code-review (A-S10 #177), Nygard |
+| Trigger | A degenerate-parameter run where a cell's Gamma concentration never accepts within the 64-iteration Marsaglia-Tsang loop |
+| Location | `views_hydranet/distributions/nb_core.py:91-104` |
+| Cross-refs | C-208 (the same sampler's uncharacterised spread) |
+
+`_standard_gamma`'s rejection loop keeps `out = d.clone()` (the accepted-region mean) for any cell still un-accepted after 64 iterations, degrading **silently** rather than failing/warning. Probability ~`0.05⁶⁴` (astronomically negligible; ~0.95 accept/iteration). **Tier 4 / loudness only:** no realistic correctness impact, but a silent-degradation gap on the CRPS-bearing sampler. Fix: emit a one-time warning if `remaining.any()` after the loop.
+
+---
+
 
 ## Disagreements
 
@@ -1771,6 +1801,17 @@ A-S3 added a stable `inverse_softplus` to `nb_core` (the subsystem's shared NB m
 
 ---
 
+### D-12: per-origin `torch.Generator` re-seed — common-random-numbers across origins
+
+| Field | Value |
+|-------|-------|
+| ID | D-12 |
+| Source | /expert-code-review (A-S10 #177), Kleppmann/Nygard vs the CRPS-program view |
+| Perspectives | Kleppmann/Nygard: the D×K sampler re-seeds its `torch.Generator` from `torch_seed` at the start of **every** `generate_posterior_samples` call (per origin), so all origins draw the **same** random stream — undocumented as deliberate, so a future reader may "fix" it and break the S2 #121 determinism gate. Counter (CRPS-program): deterministic common-random-numbers is a **feature** (variance reduction across origins) and per-cell/per-origin CRPS is unbiased regardless — the reuse changes nothing the M-metrics measure. |
+| Resolution | **Keep the behavior; document intent.** Add a one-line comment at the generator seed site (`hydranet_inference.py` `generate_posterior_samples`) stating the per-origin CRN re-seed is intentional (deterministic + unbiased for per-cell CRPS). Cross-refs C-209 (the S-axis fold) and the A-S8 /review-diff S-2 note. |
+
+---
+
 ## Tech-Debt Backlog (demoted from register, review-rr 2026-06-05)
 
 Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/single-developer scope — kept for traceability (full entries remain tagged `[DEMOTED]` in §Open Concerns) but no longer counted as active risks. Actionable as ordinary tech-debt, not governance risks.
@@ -1786,6 +1827,23 @@ Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/s
 ---
 
 ## Resolved Concerns
+
+### C-208: the hand-rolled generator-aware Gamma-Poisson sampler is guarded only for its MEAN — a future edit could skew the dispersion and silently corrupt CRPS — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-208 |
+| Tier | 2 |
+| Source | /expert-code-review (A-S10 #177), Feathers/Beck/Nygard |
+| Trigger | Refactoring `nb_core._standard_gamma` or `NBCore.sample` (the Marsaglia-Tsang Gamma-Poisson), or changing `_EPS`/the `a<1` boost path, while only the mean-recovery test guards it |
+| Location | `views_hydranet/distributions/nb_core.py:82-106` (`_standard_gamma`), `:137-156` (`NBCore.sample`); guarded only by `tests/distributions/test_nb_core.py:31-40` (mean only) |
+| Cross-refs | C-202 (θ gradient bound); C-3 (generator determinism); A-S12 (#179) CRPS M2 comparison |
+
+The generator-aware Gamma sampler is the subsystem's most intricate numerics (a vectorised Marsaglia-Tsang rejection loop on `torch.randn`/`torch.rand`, chosen because `torch.distributions` ignores a `Generator` — the S2 #121 determinism contract). It is distributionally **correct today** (empirical `Var ≈ mu + mu²/theta` within ~1% across `(mu,theta)`, verified in this review), but **no test pins its variance/dispersion** — only `mean ≈ mu` (`test_nb_core.py:40`). **Tier 2:** CRPS — the spread-driven metric that gates the `nb`-vs-`zinb` M2 decision (#179) — would be silently corrupted by any future edit that preserves the mean while skewing the dispersion; the mean-only test stays green and no error fires. Not an A-S11 blocker (the sampler is correct now). Fix: a `Var[sample] ≈ mu + mu²/theta` regression + a χ²/K-S goodness-of-fit at 2–3 `(mu,theta)`.
+
+> **RESOLVED 2026-07-21 (A-S10 #177), same session as discovery.** Added two regression guards to `tests/distributions/test_nb_core.py`: `test_sample_variance_recovers_nb_dispersion` (asserts `Var[sample] ≈ mu + mu²/theta` within rtol 0.05 across 4 `(mu,theta)`) and `test_sample_zero_fraction_matches_prob_zero` (an **independent** goodness-of-fit — empirical `P(Y=0)` vs the analytic `NBCore.prob_zero`, which the sampler does not use, within atol 0.01). A future edit that skews the dispersion or the low-count spread now fails CI loudly instead of silently corrupting CRPS. The sampler was empirically correct at discovery; this closes the test-coverage gap that let that correctness go unguarded.
+
+---
 
 ### C-199: per-cell ZINB `θ`/`π` ride on ~1% of cells with dead gradients at the conflict operating point → collapse / seed-instability without informed init — RESOLVED
 
