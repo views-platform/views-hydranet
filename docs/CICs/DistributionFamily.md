@@ -39,7 +39,7 @@ contract that registry returns.
 
 ## 3. Responsibilities and Guarantees
 
-`DistributionFamily(ABC)` declares seven members every family must implement, plus one class attribute:
+`DistributionFamily(ABC)` declares seven members every family must implement, plus two class attributes:
 
 - `n_params: int` (property) — parameters the head emits per cell, per target (`nb` = 2 `[mu, theta]`;
   `zinb` = 3 `[+pi]`).
@@ -51,14 +51,21 @@ contract that registry returns.
 - `sample(params, k, generator=None) -> [..., k]` — draw `k` per-cell samples in **count space**,
   deterministic under `generator` (preserves the S2 #121 determinism gate; C-3).
 - `mean(params) -> [...]` — per-cell `E[Y]` in count space, for AR feedback and point emit.
-- `prob_positive(params) -> [...]` — per-cell `P(Y>0)`, used to score gate metrics on the self-zeroed
-  `nb`/`zinb` families where there is no separate gate (C-201).
+- `prob_positive(params) -> [...]` — per-cell `P(Y>0)`, used to score gate metrics on the
+  `nb`/`zinb` families directly from the body (no separate gate is threaded into scoring; C-201).
+  (Distinct from the `self_zeroed` marker below — this bullet is about *scoring* occurrence from the
+  family, not about whether the *forecast* structurally self-zeroes.)
 - `initial_raw_bias(*, priors=None) -> [n_params]` — pre-activation head bias for informed init
   (C-199): each family reads the priors it needs (`nb`: `theta`; `zinb`: `theta`, `pi`) with
   defaults, so the A-S6 head can seed emission channels **family-agnostically** away from a saturated
   dead-zone (C-203 — promoted here from an NB-only method to the ABC).
 - `needs_latent: bool = False` (class attr) — reuses the repo's existing latent-vs-point dispatch
   convention (`training_engine`, `config_initializer`).
+- `self_zeroed: bool = False` (class attr) — does the family produce its zeros STRUCTURALLY, so its
+  `mean` is already the full self-zeroed forecast and must NOT be multiplied by the classification
+  gate? `True` for `zinb` (structural π → forecast `(1−π)μ`); `False` for `nb` (gated_NB → forecast
+  `gate × body`) and legacy. Consumed by the training-forensic biopsy so the plotted forecast is
+  honest per mode (self-zeroed body vs `gate × body`).
 - `parameter_penalty(params, *, prior_logit=0.0, scale=0.0, weight=None) -> scalar` — a **concrete
   (non-abstract) default-0 hook** (C-205) so a family-agnostic loss can add a parameter-prior ridge
   without `isinstance`-branching to a concrete family. `nb` inherits the 0; `zinb` overrides it with

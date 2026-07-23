@@ -5,10 +5,10 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-07-21                           |
-| Total Concerns    | 208                                  |
-| Open Concerns     | 94                                   |
+| Total Concerns    | 210                                  |
+| Open Concerns     | 95                                   |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 114                                  |
+| Resolved Concerns | 115                                  |
 
 ---
 
@@ -1628,7 +1628,7 @@ The strangler-fig integration (ADR-067) unions the registry family names with th
 | Source | /falsify (2026-07-20), P5 |
 | Trigger | Scoring a self-zeroed `nb`/`zinb` family on the frozen lodestar ruler's gate metrics (AP/Brier) |
 | Location | the lodestar scorer `reports/2026-07-17_lodestar_eval_dossier/tools/lodestar_score.py`; planned `distributions/` `prob_positive`; A-S11 (#178) eval |
-| Cross-refs | C-199/C-200; ADR-067 (self-zeroed); F1 pre-registration |
+| Cross-refs | C-199/C-200; ADR-067 (self-zeroed); F1 pre-registration; **C-211 (empirical confirmation — 300-lesson M1: count-only occurrence AP ~0.27 vs cls-gate ~0.44)** |
 
 A self-zeroed ZINB produces its zeros from the distribution (`P(Y>0)=(1−π)·(1−NB(0))`), **not** from the classification head. But the frozen ruler computes gate quality (AP/Brier) on the cls head. So the reported gate metric describes an occurrence estimate the ZINB forecast does not use — the two can diverge silently, mis-informing the M1/M2 go/no-go. **Tier 2:** silent mis-attribution in the evaluation that gates production decisions. Fix: for self-zeroed families the ruler must score the **distribution-implied** `P(Y>0)` (family exposes `prob_positive`), or the eval must explicitly document that the cls head is decoupled and not the forecast's gate.
 
@@ -1676,6 +1676,21 @@ The D×K sampler fills the `[T,H,W,C,S]` cube with `S = D×K` where `D` = MC-dro
 | Cross-refs | C-208 (the same sampler's uncharacterised spread) |
 
 `_standard_gamma`'s rejection loop keeps `out = d.clone()` (the accepted-region mean) for any cell still un-accepted after 64 iterations, degrading **silently** rather than failing/warning. Probability ~`0.05⁶⁴` (astronomically negligible; ~0.95 accept/iteration). **Tier 4 / loudness only:** no realistic correctness impact, but a silent-degradation gap on the CRPS-bearing sampler. Fix: emit a one-time warning if `remaining.any()` after the loop.
+
+---
+
+### C-211: count-only self-zeroed scoring UNDERSELLS the family's occurrence (the sharp cls gate carries spatial precision); the residual crps gap is a BODY-magnitude issue, gate-independent
+
+| Field | Value |
+|-------|-------|
+| ID | C-211 |
+| Tier | 3 |
+| Source | A-S11 M1 300-lesson nb run + training-biopsy inspection + gate-vs-count-only re-score (2026-07-22) |
+| Trigger | Reading a self-zeroed family's count-only AP/Brier (gate = fraction of its own samples > 0) as the family's occurrence ceiling, OR concluding an M1/M2 pass-kill from the metrics without separating the gate (occurrence) contribution from the body (magnitude) contribution |
+| Location | `reports/2026-07-17_lodestar_eval_dossier/tools/lodestar_score.py` (count-only vs the `by_{t}_best` cls-gate template); the family self-zeroed occurrence (`prob_positive`/`samples>0`) vs the classification-head gate; `reports/2026-07-20_distributional_head_dossier/05_analysis_plan.md` M1 decision rule |
+| Cross-refs | C-201 (self-zeroed gate/forecast decoupling — **this is its empirical confirmation + refinement**); C-146 (ZINB vs hurdle); C-209 (D×K axis); the foundation's `hurdle_shrinkage` (sharp gate + timid body won crps) |
+
+Empirical, from the **300-lesson M1 nb** run (3 seeds, frozen ruler, T=0, N=170430): **(1)** the per-cell NB body **fixed the timid magnitude** the epic targeted — size-ratio jumped from ~0.02 (foundation) / 0.0 (40-lesson) to **~0.29** on sb (approaching white_ranger 0.39). **(2)** But the NB's **self-zeroed occurrence** (count-only, samples>0) is spatially **diffuse** — AP ~0.24–0.30; re-scoring the SAME predictions with the sharp classification gate (`by_{t}_best`, hurdle-style) lifts AP to **0.44 / 0.40 / 0.26** (sb/ns/os), **beating white_ranger** (0.33/0.22/0.16) on all 3. So **count-only undersells** the family's achievable occurrence; the sharp cls gate carries the spatial precision (plainly visible in the training-forensic biopsy: the diffuse NB-body row vs the sharp gate×body row). **(3)** Crucially, **crps-all is gate-INDEPENDENT** — computed on the body ensemble, it is **identical** (0.159/0.091/0.046) under count-only and gated scoring; the sharp gate does **not** close the crps gap to the foundation (nb 0.159 vs 0.137 on sb). So the residual crps gap is a **body-magnitude/calibration** issue, not an occurrence/gate one. (Brier trade: the cls gate ranks better — AP↑ — but is less calibrated, Brier 0.006→0.013.) **Tier 3 (evaluation/methodology, not silent-corruption):** the risk is mis-reading the M1/M2 verdict — treating count-only occurrence as the family's ceiling, or attributing the crps gap to the gate. Implication: the strong shape is **hurdle = sharp cls gate (occurrence) × per-cell body (magnitude)**; the self-zeroed nb undersells occurrence, and **ZINB (M2, structural π)** is the candidate fix for the body/crps gap. Reshapes M2 toward the `hurdle_nb` + `zinb` arms. A `hurdle_nb` 3×300 confirmatory run was launched 2026-07-22 to test the sharp-gate×NB-body hypothesis directly.
 
 ---
 
@@ -1827,6 +1842,23 @@ Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/s
 ---
 
 ## Resolved Concerns
+
+### C-212: `NBCore.log_prob_zero`'s `mu/(theta+mu)` float32 saturation → `log1p(-1)` singularity → NaN BACKWARD (finite forward) → killed 2/3 ZINB seeds mid-training — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-212 |
+| Tier | 2 |
+| Source | ZINB 3×300 M1 run failure + numerical falsification/debug (2026-07-23/24) |
+| Trigger | Training a self-zeroed family (`zinb`) — or any future family/loss calling `NBCore.log_prob_zero` — where `theta` drifts to the clamp floor (1e-6) while `mu` grows past ~17 (so float32 `theta+mu` rounds to `mu`); OR any refactor that reintroduces a `mu/(theta+mu)` / `theta/(theta+mu)` form into a differentiated log, reviving the saturation |
+| Location | `views_hydranet/distributions/nb_core.py::NBCore.log_prob_zero` (fix site); `zero_inflated_negative_binomial.py::nll` (the mixture caller whose `logaddexp`/`torch.where` masked the `-inf` forward while the backward went NaN); `negative_binomial.py::prob_positive` (also calls it, but forward-only in scoring → unaffected); `utils/integrity_guardian.py` (the fail-loud catch that made it a crash, not silent corruption) |
+| Cross-refs | C-199 (the NBCore clamp / numerical-stability guard this lives beside); C-202 (θ head-channel gradient bound — related-but-distinct: that one is genuinely fine); C-211 (self-zeroed scoring); C-208 (sampler GoF) |
+
+`NBCore.log_prob_zero` computed `theta * log1p(-mu/(theta+mu))`. In **float32**, once `theta < ½·ULP(mu)` the sum `theta+mu` rounds to `mu`, so `mu/(theta+mu)` becomes **EXACTLY 1.0** and `log1p(-1) = -inf`. The **forward** value survived because ZINB's mixture wraps it in `logaddexp(log_pi, log1m_pi + log_prob_zero)` / `torch.where`, masking the `-inf` to a finite number — but the **backward** hit `d/dz log1p(z)|₋₁ = 1/0 = inf`, and the mask multiplied it by 0 → `0·inf = NaN`, which the mean reduction sprayed to all 85 model params (`enc_conv0` through the LSTM gates). This killed **2 of 3 ZINB seeds** in the first 3×300 M1 run (seed 42 @ lesson 18, seed 44 @ lesson 29; seed 43 survived). **ZINB-specific:** only ZINB's mixture NLL calls `log_prob_zero` — the all-cell NB training NLL uses `NBCore.log_prob` only (delegates to `torch.distributions.NegativeBinomial`, saturation-robust for `y>0`), so all 3 NB seeds trained fine. `clip_grad_norm` was ON but useless: the `IntegrityGuardian` checks raw grads **before** the clip, and norm-clip can't rescue a NaN anyway. **Tier 2:** structural fragility that reliably crashed training under a realistic param regime — loud (fail-loud guardian), not silent, so not Tier 1.
+
+> **RESOLVED 2026-07-24, same session as discovery.** Rewrote `log_prob_zero` to the mathematically-identical, singularity-free `-theta * log1p(mu/theta)` (verified equal to the old form to float precision in all well-conditioned regimes; C-201 small-`mu` accuracy preserved; no new overflow — `mu/theta` overflows only at `mu > 3e32`). Diagnosis chain: exhaustive param×count sweep proved the family NLL gradient is otherwise finite → an instrumented full-run guardian showed **all-NaN** (`inf=0`) from a finite loss (675) originating at the reg head → a 2-cell repro pinned `mu/(theta+mu) == 1.0` exactly. Added 3 regression tests (`test_nb_core.py::test_log_prob_zero_gradient_finite_at_probs_saturation` with a self-validating `ratio==1.0` assert + `test_log_prob_gradient_finite_at_probs_saturation` positive-branch guard; `test_zero_inflated_negative_binomial.py::test_nll_gradient_finite_when_theta_floors_and_mu_large`). Confirmed in **real training**: seed 42 (previously dead @ lesson 18) now completes 40 lessons, final loss 476, no explosion. Full suite green (0 new failures). **Residual (separate concern):** the fix makes training NaN-robust, but the *divergence* that drove `theta→floor`/`mu→large` (a degenerate basin) is a conditioning issue — the A-S9 π-ridge (`pi_penalty_weight`, currently off) is the candidate lever for the ZINB 3×300 re-run if divergence recurs.
+
+---
 
 ### C-208: the hand-rolled generator-aware Gamma-Poisson sampler is guarded only for its MEAN — a future edit could skew the dispersion and silently corrupt CRPS — RESOLVED
 

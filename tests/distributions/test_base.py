@@ -46,3 +46,14 @@ def test_minimal_concrete_subclass_satisfies_interface():
     assert fam.sample(x, 5).shape == (2, 3, 5)
     assert fam.mean(x).shape == (2, 3)
     assert fam.prob_positive(x).shape == (2, 3)
+
+
+def test_self_zeroed_marker_nb_false_zinb_true():
+    """The self_zeroed marker drives the honest-forecast biopsy: NB is gated (gate x body),
+    ZINB is self-zeroed (its mean IS the forecast, never x gate)."""
+    from views_hydranet.distributions import resolve_family
+    from views_hydranet.distributions.base import DistributionFamily
+
+    assert DistributionFamily.self_zeroed is False  # default
+    assert resolve_family("nb").self_zeroed is False
+    assert resolve_family("zinb").self_zeroed is True

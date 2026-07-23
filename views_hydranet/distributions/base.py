@@ -30,6 +30,13 @@ class DistributionFamily(ABC):
     #: activated reg head? Reuses the repo's existing ``needs_latent`` dispatch convention.
     needs_latent: bool = False
 
+    #: Does the family produce its zeros STRUCTURALLY (inside the distribution), so its ``mean`` is
+    #: already the full self-zeroed forecast and must NOT be multiplied by the classification gate?
+    #: ``True`` for ZINB (structural π); ``False`` for NB (zeros handled OUTSIDE, via a gate ->
+    #: forecast is ``gate × body`` = gated_NB). Consumed by the training-forensic biopsy so the
+    #: plotted forecast is honest per mode (self-zeroed body vs gate × body).
+    self_zeroed: bool = False
+
     @property
     @abstractmethod
     def n_params(self) -> int:

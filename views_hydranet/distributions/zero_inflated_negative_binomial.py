@@ -33,6 +33,8 @@ class ZINBFamily(DistributionFamily):
     """Per-cell ZINB: params ``[..., 3]`` = ``(mu, theta, pi)`` in natural space."""
 
     needs_latent = False
+    #: ZINB zeroes STRUCTURALLY via π — mean = (1-π)μ is the full self-zeroed forecast (no ×gate).
+    self_zeroed = True
 
     @property
     def n_params(self) -> int:

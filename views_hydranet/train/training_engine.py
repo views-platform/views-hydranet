@@ -629,6 +629,9 @@ def train(
         model.train()
 
         if acc_y_reg:
+            # self-zeroed families (zinb) forecast the self-zeroed body directly (no ×gate); NB
+            # (and legacy) forecast gate × body. Tell the biopsy which, so its forecast is honest.
+            _bfam = resolve_family(config.get("output_distribution", "standard"))
             viz.biopsy_training_performance(
                 np.stack(acc_y_reg),
                 np.stack(acc_yh_reg),
@@ -636,6 +639,7 @@ def train(
                 np.stack(acc_yh_cls),
                 stage_label,
                 time_indices=acc_months,
+                self_zeroed=bool(_bfam is not None and _bfam.self_zeroed),
             )
 
     # log each sequence/timeline/batch

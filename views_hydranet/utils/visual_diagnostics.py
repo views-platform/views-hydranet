@@ -573,11 +573,16 @@ class VisualDiagnostics:
         y_hat_cls: np.ndarray,
         stage_label: str,
         time_indices: Optional[List[float]] = None,
+        self_zeroed: bool = False,
     ) -> None:
         """
-        4x6 Forensic Grid for Training runs.
-        Rows: [Y_Reg, Y_Hat_Reg, Y_Cls, Y_Hat_Cls]
-        Cols: 6 sequential time steps.
+        5xN Forensic Grid for Training runs.
+        Rows: [truth Reg, body E[y], truth Cls, cls gate, THE FORECAST].
+        The last row is the ACTUAL scored forecast, which differs by mode:
+        - ``self_zeroed=True`` (ZINB): forecast = the self-zeroed body ``y_hat_reg`` (NO ×gate;
+          multiplying would double-count the structural zeros).
+        - ``self_zeroed=False`` (NB=gated_NB, and legacy hurdle): forecast = ``gate × body``.
+        Cols: up to 6 sequential time steps.
         """
         if not self.active:
             return
@@ -586,22 +591,28 @@ class VisualDiagnostics:
             # Inputs are [T, H, W, C]
             n_times = min(6, y_reg.shape[0])
 
-            # 5th row: the HURDLE EXPECTATION E[y] = gate-prob x body (what the model emits) — the
-            # blurry raw body (row 2) masked by the sparse gate (row 4). y_hat_cls is already
-            # sigmoid(cls); y_hat_reg is the body mu. The NB zero-truncation is magnitude-only
-            # (no spatial-masking effect), so this product is the faithful visual of the output.
-            y_hat_ey = y_hat_cls * y_hat_reg
+            # 5th row = THE ACTUAL FORECAST, honest per mode (never double-gate self-zeroed).
+            # - self_zeroed (ZINB): forecast IS the self-zeroed body y_hat_reg=(1-π)μ. Row 2 and
+            #   row 5 coincide by design — for ZINB the body IS the forecast (no separate gate).
+            # - gated (NB=gated_NB, legacy hurdle): forecast = gate × body — the diffuse body
+            #   (row 2) sharpened by the classification gate (row 4).
+            if self_zeroed:
+                y_hat_forecast = y_hat_reg
+                forecast_label = "FORECAST (self-zeroed E[y])"
+            else:
+                y_hat_forecast = y_hat_cls * y_hat_reg
+                forecast_label = "FORECAST (gated: gate·body)"
 
             fig, axes = plt.subplots(5, n_times, figsize=(18, 15))
 
             row_labels = [
                 "GROUND TRUTH (Reg)",
-                "PREDICTION (Reg)",
+                "PREDICTION: body E[y]",
                 "GROUND TRUTH (Cls)",
-                "PREDICTION (Cls)",
-                "PREDICTION (E[y]≈gate·body)",
+                "PREDICTION: cls gate",
+                forecast_label,
             ]
-            data_rows = [y_reg, y_hat_reg, y_cls, y_hat_cls, y_hat_ey]
+            data_rows = [y_reg, y_hat_reg, y_cls, y_hat_cls, y_hat_forecast]
             cmaps = ["magma", "magma", "viridis", "viridis", "magma"]
 
             for r_idx in range(5):
