@@ -81,6 +81,45 @@ def test_boundary_clamp_no_nan_at_degenerate_params():
     assert torch.isfinite(s.float()).all() and (s >= 0).all()
 
 
+def test_log_prob_zero_gradient_finite_at_probs_saturation():
+    """C-212: the ZINB lesson-18 gradient explosion. When ``theta`` drifts to the clamp floor and
+    ``mu`` grows past ~17, float32 rounds ``mu/(theta+mu)`` to EXACTLY 1.0, so the old
+    ``theta*log1p(-mu/(theta+mu))`` hits ``log1p(-1) = -inf`` with a ``1/0`` BACKWARD — a NaN
+    gradient though the forward value looks fine. The stable ``-theta*log1p(mu/theta)`` form keeps
+    BOTH the value and the gradient finite (its true value here is ``~ -3.4e-5``, not ``-inf``)."""
+    from views_hydranet.distributions.nb_core import NBCore
+
+    # mu=1000, theta=1e-5: theta << half-ULP(1000) ~ 6e-5, so mu/(theta+mu) rounds to EXACTLY 1.0
+    # (theta stays above the 1e-6 clamp floor, so the theta-channel gradient must flow).
+    mu = torch.tensor([1000.0], requires_grad=True)
+    theta = torch.tensor([1e-5], requires_grad=True)
+    # self-validate the premise: if this ever stops rounding to exactly 1.0 the test would go
+    # false-green (no longer exercising the log1p(-1) singularity).
+    assert (mu / (theta + mu)).item() == 1.0, "test no longer hits the probs=1.0 saturation regime"
+    lpz = NBCore.log_prob_zero(mu, theta)
+    assert torch.isfinite(lpz).all(), "log_prob_zero forward is -inf at probs saturation"
+    g_mu, g_th = torch.autograd.grad(lpz.sum(), [mu, theta])
+    assert torch.isfinite(g_mu).all(), "log_prob_zero mu-grad NaN at probs saturation"
+    assert torch.isfinite(g_th).all(), "log_prob_zero theta-grad NaN at probs saturation"
+
+
+def test_log_prob_gradient_finite_at_probs_saturation():
+    """C-212 (positive branch — regression guard): unlike the explicit ``log_prob_zero``, the
+    positive NB branch delegates to ``torch.distributions.NegativeBinomial``, which stays finite in
+    forward AND backward even when ``probs = mu/(mu+theta)`` rounds to 1.0 (``mu >> theta``). This
+    guards that property against a future reparametrization of ``log_prob`` regressing it."""
+    from views_hydranet.distributions.nb_core import NBCore
+
+    mu = torch.tensor([1000.0], requires_grad=True)
+    theta = torch.tensor([1e-5], requires_grad=True)
+    lp = NBCore.log_prob(mu, theta, torch.tensor([5.0]))
+    assert torch.isfinite(lp).all(), "log_prob forward not finite at probs saturation"
+    g_mu, g_th = torch.autograd.grad(lp.sum(), [mu, theta])
+    assert torch.isfinite(g_mu).all() and torch.isfinite(g_th).all(), (
+        "log_prob gradient NaN at probs saturation"
+    )
+
+
 def test_sample_variance_recovers_nb_dispersion():
     """C-208: the hand-rolled Gamma-Poisson must recover the NB VARIANCE, not just the mean.
 

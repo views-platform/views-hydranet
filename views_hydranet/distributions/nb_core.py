@@ -125,14 +125,21 @@ class NBCore:
 
     @staticmethod
     def log_prob_zero(mu: torch.Tensor, theta: torch.Tensor) -> torch.Tensor:
-        """``log P(Y=0) = theta * log1p(-mu/(theta+mu))`` (== ``theta*log(theta/(theta+mu))``).
+        """``log P(Y=0) = -theta * log1p(mu/theta)`` (== ``theta*log(theta/(theta+mu))``).
 
-        The ``log1p`` form avoids the float cancellation of ``theta/(theta+mu) -> 1`` when
-        ``mu << theta``, so callers can recover a stable ``P(Y>0) = -expm1(log_prob_zero)`` instead
-        of the lossy ``1 - prob_zero``.
+        Stable in BOTH tails:
+        - ``mu << theta``: ``log1p(mu/theta) -> mu/theta`` avoids the ``theta/(theta+mu) -> 1``
+          cancellation, so ``P(Y>0) = -expm1(log_prob_zero)`` stays accurate (C-201).
+        - ``theta -> floor`` with ``mu`` large: this form has NO singularity, unlike the previous
+          ``theta * log1p(-mu/(theta+mu))``. In float32, once ``theta < ½·ulp(mu)`` the sum
+          ``theta+mu`` rounds to ``mu`` so ``mu/(theta+mu)`` becomes EXACTLY ``1.0`` and
+          ``log1p(-1) = -inf``: the forward value survived (the ZINB ``logaddexp``/``where`` masked
+          it) but the BACKWARD hit ``d/dz log1p(z)|₋₁ = 1/0 = inf`` → ``0·inf = NaN``, sprayed to
+          every upstream param by the mean reduction — the ZINB lesson-18 gradient explosion
+          (C-212; only ZINB's mixture calls this, so all-cell NB was unaffected).
         """
         mu, theta = _clamp(mu, theta)
-        return theta * torch.log1p(-mu / (theta + mu))
+        return -theta * torch.log1p(mu / theta)
 
     @staticmethod
     def sample(

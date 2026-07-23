@@ -70,6 +70,25 @@ def test_nll_finite_and_grad_flows_to_all_three_channels():
         assert g[..., c].abs().sum() > 0, f"no gradient on the {name} channel"
 
 
+def test_nll_gradient_finite_when_theta_floors_and_mu_large():
+    """C-212 — the lesson-18 gradient explosion, in a 2-cell repro. When ``theta`` drifts to the
+    clamp floor and ``mu`` grows past ~17, float32 rounds ``mu/(theta+mu)`` to EXACTLY 1.0, so the
+    mixture NLL's ``log_prob_zero``/``log_prob`` hit a ``log1p(-1)`` singularity: the FORWARD stays
+    finite (the ``logaddexp``/``where`` mask the ``-inf``) but the BACKWARD is NaN, which the mean
+    reduction then sprays to every upstream parameter (2/3 ZINB seeds died this way; NB never calls
+    ``log_prob_zero`` so it survived). The gradient must be finite."""
+    fam = _zinb()
+    # mu = softplus(50) = 50 ; theta = softplus(-20) -> clamp floor ; a zero cell + a positive cell
+    raw = torch.tensor([[50.0, -20.0, 0.0], [50.0, -20.0, 0.0]], requires_grad=True)
+    target = torch.log1p(torch.tensor([0.0, 5.0]))
+    nll = fam.nll(fam.activate(raw), target)
+    assert torch.isfinite(nll), "ZINB nll forward not finite at theta-floor/large-mu"
+    (g,) = torch.autograd.grad(nll, raw)
+    assert torch.isfinite(g).all(), (
+        "ZINB nll gradient is NaN at theta-floor/large-mu (the lesson-18 crash)"
+    )
+
+
 def test_nll_matches_independent_zinb_reference():
     fam = _zinb()
     torch.manual_seed(0)
