@@ -56,6 +56,35 @@ ruler), gate, BN-recal on, seeds.
 - Otherwise STOP, log the negative in `07_experiment_log` with a postmortem, report. Science banked
   (we will have proven whether per-cell θ, sampled, helps at T=0).
 
+## Forecast-composition arms (pre-registered 2026-07-24, PRE-DATA)
+
+**Locked before** the ZINB 3×300 re-run completes and before ANY gated/masked scoring — so these are
+pre-hoc, not fitted to results. Three ways to turn the trained heads (NB body + cls occurrence gate)
+into a scored forecast, judged head-to-head on the SAME frozen ruler (crps-all primary; crps-events,
+crps-none, size-ratio, AP/Brier as diagnostics), 3 seeds each:
+
+1. **ZINB** (self-zeroed): forecast = the structural-π self-zeroed body `(1−π)μ`. Its own 3×300 run
+   (the one now training on the C-212 fix). NOT multiplied by the cls gate.
+2. **gated_NB** (soft): forecast = the NB body gated per draw by `Bernoulli(cls_gate)` — a re-score of
+   the preserved nb 3×300 cubes. This is the proper marginal composition `E[Y]=P(Y>0)·E[Y|Y>0]`.
+3. **masked_NB** (hard): forecast = the NB body with a **hard cls-gate threshold** — zero the body
+   where `cls_gate < τ`, keep the **full** body (no ×gate shrink) where `cls_gate ≥ τ`. Also a re-score
+   of the SAME nb cubes. **Two FIXED a priori thresholds, chosen before results:**
+   - **τ = 0.5** (Bayes decision threshold — precision-favoring),
+   - **τ = per-target base rate** (~0.77% sb / 0.34% ns / 0.41% os — recall-favoring, "retain above chance").
+
+**Pre-committed expectation (the falsifiable claim):** masked_NB trades hedging for decisiveness, so it
+should *win* size-ratio and crps-none (unshrunk magnitude on retained cells; diffuse noise zeroed on
+true-zero cells) but *risk* crps-events via gate false-negatives (a hard-masked real event scores badly
+on CRPS). Whether it nets ahead on **crps-all** is the open question. If ZINB already wins BOTH magnitude
+and locality, masked_NB is moot (do not run it).
+
+**Eval hygiene (binding):** τ is fixed a priori — it is NEVER fit on the frozen-ruler months (Goodhart;
+cf. the different-months scar). The scored object IS the delivered object (no scoring one composition and
+shipping another). masked_NB/gated_NB add ZERO training cost (pure re-scores of existing nb cubes); the
+GPU spend is only the ZINB run. Decision to score masked_NB is gated on the 3-seed ZINB result
+confirming a real magnitude-vs-locality tradeoff to split.
+
 ## Skepticism ledger
 - The lab's monotone-quantile head TIED on CRPS (won guardrails only) — a per-cell NB may likewise only
   win guardrails, not CRPS. That still clears M1 (guardrail-at-parity is an explicit pass).
