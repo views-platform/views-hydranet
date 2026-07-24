@@ -63,5 +63,5 @@ than bypassing it (a departure from the quantile Path A). Legacy heads: K=1 → 
 **Composition-arm comparison DONE (2026-07-24).** ZINB 3×300 seed-stable (crps-all front-runner, timid
 body fixed 0.02→0.25, os the localized weak spot); gated_NB the AP/locality front-runner; the tradeoff
 between them is real. **gated_ZINBcore killed** — the fusion is worst-of-both (crps-all 5–15× worse),
-structurally (π+core non-substitutable), so not extended to 3 seeds. Remaining open: masked_NB (2 fixed
+structurally (π+core non-substitutable), so not extended to 3 seeds. Remaining open: th_gated_NB (2 fixed
 τ re-scores, gated on wanting to split the tradeoff further) and M3 validation-partition graduation.

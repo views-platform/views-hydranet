@@ -67,22 +67,23 @@ crps-none, size-ratio, AP/Brier as diagnostics), 3 seeds each:
    (the one now training on the C-212 fix). NOT multiplied by the cls gate.
 2. **gated_NB** (soft): forecast = the NB body gated per draw by `Bernoulli(cls_gate)` — a re-score of
    the preserved nb 3×300 cubes. This is the proper marginal composition `E[Y]=P(Y>0)·E[Y|Y>0]`.
-3. **masked_NB** (hard): forecast = the NB body with a **hard cls-gate threshold** — zero the body
+3. **th_gated_NB** (hard) *(was `masked_NB`; renamed per ADR-068 — terminology only, arm unchanged)*:
+   forecast = the NB body with a **hard cls-gate threshold** — zero the body
    where `cls_gate < τ`, keep the **full** body (no ×gate shrink) where `cls_gate ≥ τ`. Also a re-score
    of the SAME nb cubes. **Two FIXED a priori thresholds, chosen before results:**
    - **τ = 0.5** (Bayes decision threshold — precision-favoring),
    - **τ = per-target base rate** (~0.77% sb / 0.34% ns / 0.41% os — recall-favoring, "retain above chance").
 
-**Pre-committed expectation (the falsifiable claim):** masked_NB trades hedging for decisiveness, so it
+**Pre-committed expectation (the falsifiable claim):** th_gated_NB trades hedging for decisiveness, so it
 should *win* size-ratio and crps-none (unshrunk magnitude on retained cells; diffuse noise zeroed on
 true-zero cells) but *risk* crps-events via gate false-negatives (a hard-masked real event scores badly
 on CRPS). Whether it nets ahead on **crps-all** is the open question. If ZINB already wins BOTH magnitude
-and locality, masked_NB is moot (do not run it).
+and locality, th_gated_NB is moot (do not run it).
 
 **Eval hygiene (binding):** τ is fixed a priori — it is NEVER fit on the frozen-ruler months (Goodhart;
 cf. the different-months scar). The scored object IS the delivered object (no scoring one composition and
-shipping another). masked_NB/gated_NB add ZERO training cost (pure re-scores of existing nb cubes); the
-GPU spend is only the ZINB run. Decision to score masked_NB is gated on the 3-seed ZINB result
+shipping another). th_gated_NB/gated_NB add ZERO training cost (pure re-scores of existing nb cubes); the
+GPU spend is only the ZINB run. Decision to score th_gated_NB is gated on the 3-seed ZINB result
 confirming a real magnitude-vs-locality tradeoff to split.
 
 ## Skepticism ledger
