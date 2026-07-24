@@ -25,6 +25,20 @@ The **body itself has two parts** (locked):
 | **bulk** | the *typical* conflict magnitudes — the bottom ~97–99% of conflict cells |
 | **tail** | the *extreme* conflict magnitudes — the top ~1–3% of conflict cells (the WALL lives here) |
 
+## 1b. The data structures — input vs output (LOCKED)
+Two big multi-dimensional arrays, deliberately named differently so input and output never blur. "tensor"
+is BANNED as a name for either (everything is a torch tensor — it says nothing about *which*); use it only
+generically ("a tensor", never "the tensor").
+
+| locked name | what it is | banned aliases |
+|---|---|---|
+| **volume** | the **INPUT** spatiotemporal array fed to the model (features × grid × time), and its handling (`VolumeHandler`/`VolumeSampler`) | input cube, input tensor, the tensor |
+| **sample cube** (or **cube**) | the **OUTPUT** posterior samples the model emits — `[T, H, W, n_reg, S]`, S = D×K draws per cell; what the ruler scores (`to_cube_samples`, `assert_cube_fits`, `max_posterior_cube_gb`) | output volume, prediction volume, output tensor, the tensor |
+
+Mnemonic: **input = volume, output = (sample) cube.** Never call the output a "volume" (collides with the
+input) and never call either "the tensor". Prefer the qualified "**sample cube**" in prose; bare "cube" is
+fine once context is set.
+
 ## 2. How the body is TRAINED (a separate choice from §1)
 | locked name | what it means | banned aliases |
 |---|---|---|

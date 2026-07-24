@@ -92,3 +92,31 @@ confirming a real magnitude-vs-locality tradeoff to split.
 - views-baseline ZINB evidence is INDICATIVE (different setup) — hold it loosely.
 - MC-dropout is under-dispersed (C-08); folding aleatoric head draws (K) may over-disperse — the PIT
   check catches both directions.
+
+## Pre-registration — EMIT-TIME composition re-eval (LOCKED 2026-07-24, Epic #183 / ADR-069, PRE-DATA)
+**Locked before any emit-time re-inference.** The composition-arm numbers above were produced by a
+*score-time* re-score, which never actually composed `gate × body` (the ruler's count-CRPS is
+gate-independent, `lodestar_score.py:114-118`) — so "gated_NB" was scored **ungated**. Epic #183 makes
+composition a real config axis applied *inside the model at emit time*. This pre-registers what we expect
+when the three arms are re-scored from the MODEL's composed output (eval-only, no retrain).
+
+**Hypothesis:** the score-time conclusions largely hold, but **gated_NB's numbers move** because the model
+now applies the glossary-defined per-draw `Bernoulli(gate) × body`, which it never did before.
+
+**Pre-registered predictions (falsifiable, committed before looking):**
+1. **gated_NB (soft) crps-none DROPS** vs the banked ungated re-score (sb 0.038): per-draw Bernoulli zeros
+   some draws on low-gate cells → less positive mass on true-zero cells. crps-all should drop too.
+2. **th_gated_NB reproduces** the score-time result within tight tolerance (the emit-time hard threshold =
+   the score-time hard threshold on the same gate/body): sb crps-all ≈ 0.139, ns ≈ 0.080, os ≈ 0.031.
+3. **ZINB (self_zeroed) is byte-identical** to its current cube (passthrough composition changes nothing).
+4. **AP/Brier unchanged** across soft/threshold (same gate; composition is a body transform).
+
+**Falsifiers (any ⇒ investigate before trusting the emit-time arms):**
+- F-EMIT-1: th_gated_NB emit-time crps-all differs from the score-time value by > 5% on any target with no
+  identified cause (would mean the emit composition ≠ the score composition — a bug).
+- F-EMIT-2: ZINB's emit-time cube differs from its stored cube at all (passthrough must be a no-op).
+- F-EMIT-3: gated_NB's crps-none *rises* vs the ungated re-score (would contradict the per-draw mechanism).
+
+**Decision rule:** if predictions 1–4 hold and no falsifier fires, the three arms are validated at T=0
+(calibration) as real model outputs → epic acceptance. Log every moved metric in `07_experiment_log`
+with its cause (esp. gated_NB). If a falsifier fires, STOP and diagnose (do not paper over).
