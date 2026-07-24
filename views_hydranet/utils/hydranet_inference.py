@@ -676,9 +676,17 @@ class HydraNetInference:
                             return_params=True,
                         )
                         cols = slice(d * posterior_K, (d + 1) * posterior_K)
-                        # [T, H, W, n_reg, K] log1p-space draws for this dropout pass
+                        # [T,H,W,n_reg,K] log1p draws for this pass. ADR-068 `emit_family_core`
+                        # (inference-only, default off) draws a zinb's bare NB core (π dropped) for
+                        # gated_ZINBcore — composed with the cls gate at scoring time. Off ⇒ the
+                        # family's own (self-zeroed for zinb) sample, unchanged.
                         posterior_magnitudes_zstack[:, :, :, :, cols] = to_cube_samples(
-                            params_zstack, self._family, posterior_K, generator, n_reg
+                            params_zstack,
+                            self._family,
+                            posterior_K,
+                            generator,
+                            n_reg,
+                            core=bool(self.config.get("emit_family_core", False)),
                         )
                         # gate stays the classifier P(y>0) (sigmoid(cls)); repeat across the K cols
                         prob_thwc = prob_zstack.transpose(0, 2, 3, 1)  # [T,H,W,n_cls]

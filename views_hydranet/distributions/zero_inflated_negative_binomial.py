@@ -95,6 +95,20 @@ class ZINBFamily(DistributionFamily):
         structural_zero = torch.bernoulli(pi_k, generator=generator)
         return counts * (1.0 - structural_zero)
 
+    def sample_core(
+        self,
+        params: "torch.Tensor",
+        k: int,
+        generator: "torch.Generator | None" = None,
+    ) -> "torch.Tensor":
+        """The bare **NB core** ``NB(mu, theta)`` — structural π NOT applied (gated_ZINBcore).
+
+        Composes with an EXTERNAL cls gate for occurrence; applying π here too would double-count
+        the zeros (the same trap as ``(1-π)μ × gate``). π is dropped, not stacked.
+        """
+        mu, theta, _pi = self._split(params)
+        return NBCore.sample(mu, theta, k, generator)
+
     def mean(self, params: "torch.Tensor") -> "torch.Tensor":
         """Per-cell ``E[Y] = (1 - pi) * mu``."""
         mu, _, pi = self._split(params)

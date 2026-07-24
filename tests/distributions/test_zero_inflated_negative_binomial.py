@@ -89,6 +89,28 @@ def test_nll_gradient_finite_when_theta_floors_and_mu_large():
     )
 
 
+def test_sample_core_drops_pi_no_self_zeroing():
+    """ADR-068 gated_ZINBcore: `sample_core` draws the bare NB core (π dropped), so its P(Y>0) is
+    ~`(1-NB(0))` — far above the self-zeroed `sample`'s `(1-π)(1-NB(0))` when π is large. The core
+    composes with an EXTERNAL gate; applying π here too would double-count the zeros."""
+    fam = _zinb()
+    params = fam.activate(torch.tensor([[3.0, 0.0, 2.2]]))  # mu~3, theta~0.69, pi=sigmoid(2.2)=0.9
+    s_self = fam.sample(params, 5000, torch.Generator().manual_seed(0))  # self-zeroed
+    s_core = fam.sample_core(params, 5000, torch.Generator().manual_seed(0))  # bare NB core
+    p_self = (s_self > 0).float().mean().item()
+    p_core = (s_core > 0).float().mean().item()
+    assert p_core > p_self + 0.3, f"core P(>0)={p_core:.3f} not >> self-zeroed P(>0)={p_self:.3f}"
+
+
+def test_nb_sample_core_defaults_to_sample():
+    """A family with no structural π (nb) inherits `sample_core == sample` (byte-equal)."""
+    fam = _nb()
+    params = fam.activate(torch.randn(4, 2))
+    a = fam.sample(params, 100, torch.Generator().manual_seed(3))
+    b = fam.sample_core(params, 100, torch.Generator().manual_seed(3))
+    assert torch.equal(a, b)
+
+
 def test_nll_matches_independent_zinb_reference():
     fam = _zinb()
     torch.manual_seed(0)

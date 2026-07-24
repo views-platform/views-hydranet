@@ -24,6 +24,7 @@ def to_cube_samples(
     k: int,
     generator: "torch.Generator | None",
     n_reg: int,
+    core: bool = False,
 ) -> np.ndarray:
     """Draw K per-cell samples/target from activated family params → log1p-space cube slice.
 
@@ -45,9 +46,13 @@ def to_cube_samples(
             f"to_cube_samples: params channel dim {c} != n_reg*n_params "
             f"({n_reg}*{npar}={n_reg * npar})."
         )
+    # ``core=True`` draws the family's BULK body without structural self-zeroing (gated_ZINBcore:
+    # the bare NB core of a zinb, π dropped — an EXTERNAL gate supplies the zeros). Default = the
+    # family's own ``sample`` (self-zeroed for zinb, plain NB for nb — unchanged, byte-identical).
+    draw = family.sample_core if core else family.sample
     out = np.zeros((t, h, w, n_reg, k), dtype=np.float32)
     for j in range(n_reg):
         pj = params[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1)  # [T,H,W,n_params]
-        counts = family.sample(pj, k, generator)  # [T,H,W,k] count space
+        counts = draw(pj, k, generator)  # [T,H,W,k] count space
         out[:, :, :, j, :] = torch.log1p(counts).numpy()  # -> log1p (emit) space
     return out

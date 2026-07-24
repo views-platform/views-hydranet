@@ -70,6 +70,21 @@ class DistributionFamily(ABC):
         """Draw ``k`` per-cell samples in **count space** -> ``[..., k]``, using ``generator`` for
         determinism (preserves the S2 #121 gate; C-3)."""
 
+    def sample_core(
+        self,
+        params: "torch.Tensor",
+        k: int,
+        generator: "torch.Generator | None" = None,
+    ) -> "torch.Tensor":
+        """Draw ``k`` samples from the family's BULK body, WITHOUT any structural self-zeroing.
+
+        Default = :meth:`sample` (identical for a family with no structural zero, e.g. ``nb``). A
+        self-zeroed family (``zinb``) overrides it to draw its bare NB core (π dropped) — for the
+        **gated_ZINBcore** arm, where an EXTERNAL cls gate supplies the zeros instead of the
+        structural π (self-zeroing here too would double-count; ADR-068).
+        """
+        return self.sample(params, k, generator)
+
     @abstractmethod
     def mean(self, params: "torch.Tensor") -> "torch.Tensor":
         """Per-cell ``E[Y]`` (count space) -> ``[...]``. For AR feedback + point emit."""
