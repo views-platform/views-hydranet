@@ -63,5 +63,10 @@ than bypassing it (a departure from the quantile Path A). Legacy heads: K=1 → 
 **Composition-arm comparison DONE (2026-07-24).** ZINB 3×300 seed-stable (crps-all front-runner, timid
 body fixed 0.02→0.25, os the localized weak spot); gated_NB the AP/locality front-runner; the tradeoff
 between them is real. **gated_ZINBcore killed** — the fusion is worst-of-both (crps-all 5–15× worse),
-structurally (π+core non-substitutable), so not extended to 3 seeds. Remaining open: th_gated_NB (2 fixed
-τ re-scores, gated on wanting to split the tradeoff further) and M3 validation-partition graduation.
+structurally (π+core non-substitutable), so not extended to 3 seeds. **th_gated_NB @ τ=0.5 CLEARS
+(2026-07-24) — strongest all-round arm:** beats soft gated_NB on crps-all (all 3 seeds×targets), ≥ ZINB
+(ties sb, wins ns+os), keeps gated_NB's AP — the fusion gated_ZINBcore missed. Edge is decisive
+occurrence (crps-none −55…−78%), NOT magnitude (crps-events flat, size-ratio drops); os still loses WR by
+a hair. Required an additive, byte-identical extension of the frozen ruler (th-gate body composition,
+selftest re-frozen). τ=baserate ≈ no-op. **Remaining open: M3 validation-partition graduation for
+th_gated_NB @ 0.5 (the graduation candidate).**

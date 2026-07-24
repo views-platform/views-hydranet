@@ -83,3 +83,38 @@ states the verdict against the pre-registered falsifiers (which fired / none), a
   3-seed compute — the failure is structural (see postmortem), so seed variation cannot rescue it. → see
   `postmortem_gated_zinbcore.md`.
 
+## (seed 42/43/44) 2026-07-24 — th_gated_NB — composition arm 3 — **POSITIVE (clears; strongest all-round)**
+- Pre-reg: `05_analysis_plan` §arm 3 (hard cls-gate threshold: full nb body where `gate ≥ τ`, zeroed
+  where `gate < τ`; two FIXED a-priori τ = 0.5 and per-target base rate). Gate to run was met: the ZINB
+  vs gated_NB split confirmed a real magnitude-vs-locality tradeoff (arm not moot).
+- Enabling work: the frozen lodestar scorer computes crps-all on the raw body samples (gate-independent),
+  so a hard-threshold body composition had to be **added** to the ruler. Done TDD, **byte-identical** for
+  all existing arms (HEAD vs extended scorer max|Δ| = 0.00e+00), `--selftest` re-frozen (`apply_threshold_gate`).
+- Variable: composition **soft gated_NB → hard th_gated_NB** (τ zeros the body); pure re-score of the
+  preserved nb 3×300 cubes, ZERO GPU. τ pre-registered a-priori (no Goodhart).
+- Readout (frozen ruler, T=0, mean of seeds 42/43/44; per-seed rock-stable):
+
+  | target | arm | crps-all | AP | crps-events | crps-none |
+  |--------|-----|---------:|---:|------------:|----------:|
+  | sb | gated_NB soft | 0.159 | 0.447 | 15.62 | 0.038 |
+  |    | **th_gated_NB@0.5** | **0.139** | 0.447 | 15.73 | **0.017** |
+  |    | ZINB (banked) | 0.141 | — | — | 0.042 |
+  | ns | gated_NB soft | 0.091 | 0.385 | 22.20 | 0.014 |
+  |    | **th_gated_NB@0.5** | **0.080** | 0.385 | 22.35 | **0.003** |
+  |    | ZINB (banked) | 0.084 | — | — | — |
+  | os | gated_NB soft | 0.046 | 0.259 | 6.24 | 0.020 |
+  |    | **th_gated_NB@0.5** | **0.031** | 0.259 | 6.30 | **0.005** |
+  |    | ZINB (banked) | 0.040 / WR 0.030 | — | — | — |
+
+  th50 beats soft gated_NB on crps-all on **all 3 seeds × 3 targets**; **≥ ZINB** (ties sb, wins ns+os —
+  ZINB's weak targets); keeps gated_NB's **AP** (0.447/0.385/0.259 ≫ WR 0.334/0.223/0.158). The fusion
+  gated_ZINBcore failed at. τ=**baserate** ≈ no-op (base rates ~0.4–0.8% too low to zero anything).
+- Verdict vs falsifiers: **none fired.** The crps-all win is entirely **crps-none** (−55…−78%, confident
+  zeros on true-zero cells); **crps-events flat-to-+1%** (few real events below τ=0.5). Honest limits:
+  th50 is better at aggregate score + occurrence, **not** at sizing — **size-ratio DROPS** (sb 0.29→0.13),
+  so the prereg's "th_gated wins size-ratio" expectation is **falsified** (the body was already unshrunk
+  in this gate-independent ruler; thresholding only adds zeros, incl. on false-negative events). **os still
+  loses crps-all to white_ranger** by a hair (0.0305 vs 0.0299) and on crps-events. Decision: th_gated_NB
+  @ τ=0.5 is the **strongest all-round arm** (best crps-all + AP, seed-stable) — candidate for the M3
+  validation-partition graduation. Its edge is decisive occurrence, not magnitude.
+
