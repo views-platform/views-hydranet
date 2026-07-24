@@ -45,6 +45,8 @@ Investigation (3 read-only agents, file:line in `02_design`) confirmed the user'
   (crps-all front-runner), gated_NB (AP front-runner), **gated_ZINBcore FALSIFIED**.
 - `postmortem_gated_zinbcore` — the falsified fusion arm: ZINB's π-stripped core × external gate blows up
   crps-all 5–15× (crps-none dominated). Confirms π+core are a **non-substitutable coupled object**.
+- `open_threads_parked` — durable holding list of consciously-deferred balls (M3/validation, heavy-tail,
+  os, π-ridge, ensemble design, **the bloom**), each tagged when we return to it. NOT decisions.
 - `observation_flat_loss_moving_internals` — WORKING HYPOTHESIS (2026-07-24): training loss plateaus
   ~lesson 60 but μ̄/π keep moving; candidate causes (zero-dominated loss; μ/π ridge drift); how to dig
   deeper (600–1000 lessons judged by μ̄/crps-events, watch π→1). NOT confirmed.
