@@ -83,6 +83,41 @@ states the verdict against the pre-registered falsifiers (which fired / none), a
   3-seed compute — the failure is structural (see postmortem), so seed variation cannot rescue it. → see
   `postmortem_gated_zinbcore.md`.
 
+## (seed 42/43/44) 2026-07-24 — EMIT-TIME composition re-eval — Epic #183 S8 (#191) — **PASS**
+- Pre-reg: `05_analysis_plan` §"Pre-registration — EMIT-TIME composition re-eval" (ADR-069). The
+  composition-arm numbers above were a *score-time* re-score that never actually composed `gate × body`
+  (the ruler's count-CRPS is gate-independent). Epic #183 made composition a real config axis applied
+  **inside the model at emit time**; this re-scores the three arms from the MODEL's composed output.
+- Variable: composition moved from **score-time re-score → emit-time (in-model)**. Eval-only re-inference
+  of the existing nb ×3 + zinb artifacts (NO retrain); scored count-only on the frozen ruler (composition
+  baked into the cube). Stealth trap-restore, floor md5 verified before+after.
+- Readout (crps-all, mean of seeds 42/43/44):
+
+  | arm | sb | ns | os | vs banked |
+  |-----|---:|---:|---:|-----------|
+  | **gated_NB (real soft_gate)** | **0.138** | **0.080** | **0.031** | banked ungated 0.159/0.091/0.046 — MOVED DOWN |
+  | **th_gated_NB (real τ=0.5)** | **0.141** | **0.079** | **0.031** | banked score-time 0.139/0.080/0.031 — REPRODUCED |
+  | ZINB (self-zeroed, unchanged) | 0.141 | 0.084 | 0.040 | passthrough (unit-parity proven) |
+  | foundation / white_ranger | 0.137/0.191 | 0.083/0.088 | 0.028/0.030 | — |
+
+- Verdict vs the pre-registered F-EMIT falsifiers: **none fired.**
+  - F-EMIT-1 (th_gated differs >5% from score-time): NO — within ~1.5% on all targets (implementation
+    faithful; the emit-time hard threshold = the score-time hard threshold on the same gate/body).
+  - F-EMIT-3 (gated_NB crps-none *rises*): NO — it DROPPED (~0.041 → ~0.015), exactly as predicted:
+    the real per-draw `Bernoulli(gate)` zeros the body on low-gate cells; the score-time re-score never
+    gated the body at all.
+  - Prediction 1 (gated_NB moves down): CONFIRMED. Prediction 2 (th_gated reproduces): CONFIRMED.
+    Prediction 3 (ZINB byte-identical): held by construction (self_zeroed passthrough + S2 unit parity).
+- **Decision / headline:** the three arms are now REAL, honestly-composed model outputs (T=0 calibration,
+  seed-stable). **"th_gated_NB is the uniquely strongest arm" is FALSIFIED** — properly composed,
+  **gated_NB ≈ th_gated_NB** (gated_NB a hair better on sb: 0.138 vs 0.141), because the score-time
+  re-score badly undersold gated_NB (it never applied the per-draw gate). Both beat ZINB on ns+os, tie
+  on sb; all three still lose the foundation on sb/os and win ns (the arms are occurrence plays, not a
+  magnitude fix). AP is gate-head (composition-independent) ~0.447/0.385/0.259 for both.
+- Housekeeping: the nb calibration cubes now hold the last-composed (threshold_gate) samples — the banked
+  numbers are preserved here; the `.pt` artifacts are intact. Scope respected: T=0 calibration, eval-only,
+  no retrain, no M3 validation, no bloom. Epic #183 implementation+T=0 validation COMPLETE.
+
 ## (seed 42/43/44) 2026-07-24 — th_gated_NB — composition arm 3 — **POSITIVE (clears; strongest all-round)**
 - Pre-reg: `05_analysis_plan` §arm 3 (hard cls-gate threshold: full nb body where `gate ≥ τ`, zeroed
   where `gate < τ`; two FIXED a-priori τ = 0.5 and per-target base rate). Gate to run was met: the ZINB

@@ -70,5 +70,12 @@ structurally (π+core non-substitutable), so not extended to 3 seeds. **th_gated
 (ties sb, wins ns+os), keeps gated_NB's AP — the fusion gated_ZINBcore missed. Edge is decisive
 occurrence (crps-none −55…−78%), NOT magnitude (crps-events flat, size-ratio drops); os still loses WR by
 a hair. Required an additive, byte-identical extension of the frozen ruler (th-gate body composition,
-selftest re-frozen). τ=baserate ≈ no-op. **Remaining open: M3 validation-partition graduation for
-th_gated_NB @ 0.5 (the graduation candidate).**
+selftest re-frozen). τ=baserate ≈ no-op.
+
+**Epic #183 (forecast-composition axis) COMPLETE at T=0 (2026-07-24).** Composition is now a real config
+axis (`forecast_composition`: self_zeroed / soft_gate / threshold_gate) applied *inside the model at emit
+time* (ADR-069); the three arms are honest model outputs, not score-time re-scores. The emit-time re-eval
+(S8, 3 seeds, `07_experiment_log` PASS) FALSIFIED "th_gated_NB is uniquely strongest": properly composed,
+**gated_NB ≈ th_gated_NB** (sb 0.138 vs 0.141; both ~0.080/0.031 ns/os) — the score-time re-score never
+applied the per-draw gate and badly undersold gated_NB. Both beat ZINB on ns+os. **Remaining open: M3
+validation-partition graduation** (parked); the arms stay occurrence plays, not a magnitude fix.

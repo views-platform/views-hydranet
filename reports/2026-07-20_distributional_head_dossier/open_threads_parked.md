@@ -15,11 +15,13 @@ intend to return to it. This is a holding list, **not** a decision — decisions
 
 ---
 
-## 1. th_gated_NB — proper integration  **[NOW]**
-Make the MODEL emit the th_gated forecast as a real config option (composition axis: self / soft-gate /
-threshold-gate), TDD, then eval-only re-inference of the existing nb artifacts + score. The current win
-is a *score-time re-score*; this confirms whether it survives an honest emit-time implementation. No
-retrain. → the active build.
+## 1. th_gated_NB — proper integration  **[DONE 2026-07-24 — Epic #183]**
+✅ Composition is now a real config axis (`forecast_composition`, ADR-069) applied inside the model at
+emit time; the three arms are honest model outputs. Emit-time re-eval (S8, 3 seeds) confirmed the
+implementation is faithful (th_gated reproduces) AND falsified "th_gated uniquely best": properly
+composed, **gated_NB ≈ th_gated_NB** (the score-time re-score had undersold gated_NB by never applying
+the per-draw gate). See `07_experiment_log` S8 PASS. Ensemble note (item 6) is now sharper: the two
+sharp-gate arms are nearly identical, so the real diversity is **nb-vs-zinb**, not soft-vs-threshold.
 
 ## 2. ZINB π-ridge on/off decision  **[BEFORE-3-MODELS]**
 Memory: "π-ridge decision open (lean OFF first)." ZINB cannot be a *settled* third arm until the
