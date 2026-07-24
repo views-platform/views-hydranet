@@ -122,16 +122,16 @@ def test_c198_family_requires_log1p_targets(valid_config_dict):
 
     from views_hydranet.utils.config_initializer import HydraNetConfig
 
-    # nb with the fixture's (log1p) target transforms is accepted
-    assert (
-        HydraNetConfig(**{**valid_config_dict, "output_distribution": "nb"}).output_distribution
-        == "nb"
-    )
+    # nb with the fixture's (log1p) target transforms is accepted.
+    # ADR-069/#183: nb must declare a gate composition (else the composition validator raises).
+    nb_ok = {**valid_config_dict, "output_distribution": "nb", "forecast_composition": "soft_gate"}
+    assert HydraNetConfig(**nb_ok).output_distribution == "nb"
     # move one regression target out of log1p -> the C-198 guard fails loud
     t0 = valid_config_dict["regression_targets"][0]
     tf = copy.deepcopy(valid_config_dict["transformations"])
     tf["log1p"] = [c for c in tf.get("log1p", []) if c != t0]
     tf.setdefault("identity", []).append(t0)
-    bad = {**valid_config_dict, "output_distribution": "nb", "transformations": tf}
+    bad = {**valid_config_dict, "output_distribution": "nb", "forecast_composition": "soft_gate",
+           "transformations": tf}
     with pytest.raises(ValidationError, match="log1p|C-198"):
         HydraNetConfig(**bad)

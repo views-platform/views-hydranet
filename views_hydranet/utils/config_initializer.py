@@ -36,6 +36,13 @@ LEGACY_OUTPUT_DISTRIBUTIONS: tuple[str, ...] = (
     "quantile",
 )
 
+# authority for the forecast-composition axis (ADR-069, Epic #183): how a trained gate + body
+# combine into the emitted forecast. self_zeroed = body carries its own zeros (no gate); soft_gate
+# = per-draw Bernoulli(gate) × body; threshold_gate = full body where gate ≥ τ else 0 (τ =
+# gate_threshold).
+FORECAST_COMPOSITIONS: tuple[str, ...] = ("self_zeroed", "soft_gate", "threshold_gate")
+_GATE_COMPOSITIONS: tuple[str, ...] = ("soft_gate", "threshold_gate")  # use an external gate
+
 
 class HydraNetConfig(BaseModel):
     """
@@ -136,6 +143,14 @@ class HydraNetConfig(BaseModel):
     # Optional emit-activation override, decoupled from output_distribution (Exp B). None => keyed
     # off output_distribution ('softplus' if hurdle_nb else 'relu'); else 'softplus'/'relu'.
     reg_activation: str | None = Field(default=None)
+    # ADR-069 (Epic #183): how gate + body compose into the emitted forecast. Default "self_zeroed"
+    # is inert for legacy heads and correct for zinb; it forces every nb config to declare a gate
+    # composition explicitly (soft_gate / threshold_gate). Consumed at emit time (S4).
+    forecast_composition: str = Field(default="self_zeroed")
+    # ADR-069: threshold τ for forecast_composition="threshold_gate" (keep the full body where the
+    # gate ≥ τ, else zero the cell). A float in the OPEN interval (0,1); None otherwise. Fixed
+    # a-priori (never fit on scored months — Goodhart).
+    gate_threshold: float | None = Field(default=None)
 
     # 11. Scheduled Sampling (ADR-056): close train/inference gap.
     ss_schedule: str | None = Field(default=None)
@@ -438,6 +453,20 @@ class HydraNetConfig(BaseModel):
         valid = list(LEGACY_OUTPUT_DISTRIBUTIONS) + sorted(family_names())
         if v not in valid:
             err_msg = f"output_distribution='{v}' is not valid. Expected one of: {valid}."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator("forecast_composition")
+    @classmethod
+    def validate_forecast_composition_value(cls, v: str) -> str:
+        # ADR-069: the composition keyword must be one of the three arms. Cross-field rules
+        # (family interaction, τ) are enforced in a model_validator (always runs, incl. default).
+        if v not in FORECAST_COMPOSITIONS:
+            err_msg = (
+                f"forecast_composition='{v}' is not valid. "
+                f"Expected one of: {list(FORECAST_COMPOSITIONS)}."
+            )
             logger.error(err_msg)
             raise ValueError(err_msg)
         return v
@@ -754,6 +783,66 @@ class HydraNetConfig(BaseModel):
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_forecast_composition(self) -> "HydraNetConfig":
+        # ADR-069 (Epic #183): cross-field rules for the composition axis. Torch-free — reads only
+        # the registry's `family_names()` + `self_zeroed_family_names()` (a torch-free mirror of
+        # the family `self_zeroed` attribute; parity-guarded in test_registry), never
+        # instantiating a family (CRP).
+        from views_hydranet.distributions import family_names
+        from views_hydranet.distributions.registry import self_zeroed_family_names
+
+        comp = self.forecast_composition
+        is_family = self.output_distribution in family_names()
+        is_self_zeroed_family = self.output_distribution in self_zeroed_family_names()
+
+        # (1) a self-zeroed family (zinb) must NOT be gated — π + a gate would double-count zeros.
+        if is_self_zeroed_family and comp in _GATE_COMPOSITIONS:
+            err_msg = (
+                f"forecast_composition='{comp}' gates a self-zeroed family "
+                f"(output_distribution='{self.output_distribution}'): π and a gate would "
+                f"double-count the zeros (ADR-069). Use forecast_composition='self_zeroed'."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        # (2) a non-self-zeroed family (nb) has no self-zeroing — it MUST declare a gate.
+        if is_family and not is_self_zeroed_family and comp == "self_zeroed":
+            err_msg = (
+                f"output_distribution='{self.output_distribution}' is not self-zeroed, so "
+                f"forecast_composition='self_zeroed' has no zero mechanism (ADR-069, glossary §2 "
+                f"matrix). Declare a gate composition: {list(_GATE_COMPOSITIONS)}."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        # (3) composition applies ONLY to families; a gate on a legacy head is inert -> RAISE.
+        if not is_family and comp != "self_zeroed":
+            err_msg = (
+                f"forecast_composition='{comp}' only applies to a distribution family "
+                f"(output_distribution in {sorted(family_names())}); "
+                f"output_distribution='{self.output_distribution}' is a legacy head — leave it at "
+                f"the default 'self_zeroed' (the composer never runs on the legacy path)."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        # (4) threshold_gate needs τ in the OPEN unit interval; τ is meaningless otherwise.
+        if comp == "threshold_gate":
+            if self.gate_threshold is None or not (0.0 < self.gate_threshold < 1.0):
+                err_msg = (
+                    f"forecast_composition='threshold_gate' requires gate_threshold in the open "
+                    f"interval (0,1); got {self.gate_threshold!r} (ADR-069)."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+        elif self.gate_threshold is not None:
+            err_msg = (
+                f"gate_threshold={self.gate_threshold!r} is only consumed by "
+                f"forecast_composition='threshold_gate', but forecast_composition='{comp}'. "
+                f"Remove gate_threshold or select threshold_gate (ADR-069)."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return self
 
     @model_validator(mode="after")

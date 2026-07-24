@@ -30,7 +30,9 @@ def _cfg(valid_config_dict, **overrides):
 
 @pytest.mark.parametrize("fam", ["nb", "zinb"])
 def test_family_output_distributions_accepted(valid_config_dict, fam):
-    cfg = _cfg(valid_config_dict, output_distribution=fam)
+    # ADR-069/#183: nb must declare a gate composition; zinb keeps the default self_zeroed.
+    comp = "soft_gate" if fam == "nb" else "self_zeroed"
+    cfg = _cfg(valid_config_dict, output_distribution=fam, forecast_composition=comp)
     assert HydraNetConfig(**cfg).output_distribution == fam
 
 
@@ -95,13 +97,16 @@ def test_k_gt_1_on_legacy_head_raises(valid_config_dict, legacy):
 
 @pytest.mark.parametrize("fam", ["nb", "zinb"])
 def test_k_gt_1_on_family_accepted(valid_config_dict, fam):
-    cfg = _cfg(valid_config_dict, output_distribution=fam, n_head_samples=3)
+    comp = "soft_gate" if fam == "nb" else "self_zeroed"  # ADR-069/#183: nb must declare a gate
+    cfg = _cfg(valid_config_dict, output_distribution=fam, n_head_samples=3,
+               forecast_composition=comp)
     assert HydraNetConfig(**cfg).n_head_samples == 3
 
 
 def test_family_k1_is_unaffected_by_the_cross_field_rule(valid_config_dict):
     # K=1 on a family (or a legacy head) never trips the K>1 rule
-    cfg = _cfg(valid_config_dict, output_distribution="nb", n_head_samples=1)
+    cfg = _cfg(valid_config_dict, output_distribution="nb", n_head_samples=1,
+               forecast_composition="soft_gate")  # ADR-069/#183: nb must declare a gate
     assert HydraNetConfig(**cfg).n_head_samples == 1
 
 

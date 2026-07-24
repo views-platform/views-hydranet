@@ -39,9 +39,22 @@ DISTRIBUTION_REGISTRY: dict[str, Callable[[], "DistributionFamily"]] = {
 }
 
 
+#: Torch-free MIRROR of ``DistributionFamily.self_zeroed`` — names of families that produce their
+#: own zeros structurally (no external gate). The class attribute is the AUTHORITY; this mirror
+#: exists only so ``config_initializer`` (which must stay torch-free — CRP) can enforce the ADR-069
+#: rules without importing a family. A parity test (``test_registry``) asserts this set equals
+#: ``{n for n in family_names() if get_family(n).self_zeroed}`` so they cannot drift.
+SELF_ZEROED_FAMILIES: frozenset[str] = frozenset({"zinb"})
+
+
 def family_names() -> frozenset[str]:
     """The set of registered family names — the single source of truth (torch-free)."""
     return frozenset(DISTRIBUTION_REGISTRY)
+
+
+def self_zeroed_family_names() -> frozenset[str]:
+    """Registered self-zeroed families (torch-free mirror of the ``self_zeroed`` attribute)."""
+    return SELF_ZEROED_FAMILIES
 
 
 def get_family(name: str) -> "DistributionFamily":
