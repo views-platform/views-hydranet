@@ -76,7 +76,10 @@ states the verdict against the pre-registered falsifiers (which fired / none), a
 
 - Verdict vs falsifiers: **F2 FIRED** (crps-all worse than everything on all 3 targets — 5–15× ZINB, and
   worse than the white_ranger baseline). It DID take gated_NB's AP (0.438 ≈ 0.447, same gate, expected)
-  but crps-all **exploded**. **Worst-of-both, not best-of-both.** Decision: **KILL the arm.** Do NOT spend
+  but crps-all **exploded**. **Worst-of-both, not best-of-both.** (Precision: the frozen ruler's crps-all
+  is **gate-independent** — computed on the raw body samples; the gate feeds only AP/Brier. So 0.981 is the
+  *ungated* ZINB-core body, crps-none-dominated; a soft external gate cannot touch crps-all by construction.
+  See `postmortem_gated_zinbcore`.) Decision: **KILL the arm.** Do NOT spend
   3-seed compute — the failure is structural (see postmortem), so seed variation cannot rescue it. → see
   `postmortem_gated_zinbcore.md`.
 

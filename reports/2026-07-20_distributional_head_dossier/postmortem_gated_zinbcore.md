@@ -23,8 +23,15 @@ would double-count the zeros.
 | ns | **0.488** | 0.084 | 0.088 | 0.389 | 0.415 |
 | os | **0.462** | 0.040 | 0.030 | 0.256 | 0.440 |
 
-AP landed as predicted (0.438 ≈ gated_NB 0.447 — same gate). But **crps-all exploded 5–15×** past ZINB
-and past the white_ranger baseline on all three targets. F2 fired. Worst-of-both.
+AP landed as predicted (0.438 ≈ gated_NB 0.447 — same gate cube feeds AP). But **crps-all exploded 5–15×**
+past ZINB and past the white_ranger baseline on all three targets. F2 fired. Worst-of-both.
+
+## The scorer fact that makes this precise (frozen ruler, `lodestar_score.py:114–118`)
+crps-all/events/none are computed on the **raw count samples** (the `lr_` cube); the `by_` gate feeds
+**only** AP/Brier. **The ruler never composes gate × body into CRPS — crps-all is gate-INDEPENDENT.**
+So gated_ZINBcore's crps-all is the **ungated** ZINB core body scored on all cells; the AP ≈ 0.44 is a
+separate axis that, by construction, *cannot* offset crps-all. This is why "the gate will supply the
+zeros" was doomed against this ruler: the gate does not touch the count-CRPS at all.
 
 ## Root cause — π and the NB core are jointly fit; the gate cannot replace π
 crps-all is dominated by **crps-none** (penalty on TRUE-zero cells): sb 0.870 vs ZINB's 0.042 (**20×**).
@@ -35,18 +42,25 @@ The mechanism:
 1. In a trained ZINB, **π supplies precise, per-cell structural zeros**, so the NB core only ever has to
    model the *positive* part of the distribution. The likelihood therefore drives the core's μ to fire
    **large** (measured: gated_ZINBcore size-ratio ≈ **1.06**, vs the timid all-cell nb body ≈ 0.02–0.25).
-2. gated_ZINBcore strips π and substitutes the **external cls gate** (AP ≈ 0.44 — far coarser than π's
-   per-cell precision). Wherever the gate leaks positive mass onto a true-zero cell, the **large-μ core
-   fires there** → catastrophic crps-none.
-3. **Controlled contrast:** gated_NB uses the *identical* cls gate and gets crps-all 0.159 (sb). The only
-   variable that differs is the body magnitude — gated_NB's all-cell NB body is **timid**, so gate-leak
-   cells cost little. Same leaky gate + large body (ZINB core) = blow-up; same leaky gate + timid body
-   (nb) = fine. This isolates body magnitude on gate-leak cells as the cause.
+2. gated_ZINBcore strips π and, against a gate-independent crps-all, has **nothing left to zero the body**:
+   the sampled core carries no structural zero, so it puts large positive mass on ~99.2% true-zero cells →
+   crps-none 0.870. ZINB avoids this because its π-masked samples put the zeros *inside the body* (its own
+   crps-none is 0.042). The core has no such mechanism, and the external gate cannot inject one into CRPS.
+3. **Controlled contrast:** gated_NB scores crps-all 0.159 (sb) on the **same ruler** — its body is the
+   *timid* all-cell nb (μ zero-diluted → small), so its ungated crps-none is modest. Same gate-independent
+   scoring, purely different body magnitude: large ungated core (ZINBcore) blows up; small ungated body
+   (nb) does not. This isolates **body magnitude on true-zero cells** as the whole cause — not gate leakage.
+
+> **Note on the earlier draft:** an initial version framed this as "the coarse external gate *leaks* onto
+> zero cells." That mis-stated the scorer — the gate never enters crps-all, so there is no leak to speak of;
+> the core body is simply scored ungated. The conclusion is unchanged and in fact stronger: a soft external
+> gate is *structurally incapable* of rescuing crps-all here. (This is precisely why **th_gated_NB** — a
+> HARD threshold that actually zeros the body samples where `gate < τ` — is the only gate composition that
+> *can* move crps-none, and it requires an additive extension to the scorer to evaluate.)
 
 ## Why a 3-seed run cannot rescue it
 The large-μ core is not a seed accident — **any** seed's ZINB drives its NB core large *by construction*,
-because the ZINB likelihood forces π to absorb the zeros and the core to explain only positives. The
-external gate's precision (AP ~0.44) is likewise a property of the cls head, not the seed. So the
+because the ZINB likelihood forces π to absorb the zeros and the core to explain only positives. So the
 mechanism reproduces on every seed. Spending 3-seed GPU on a structurally-doomed arm violates
 ask-before-long-batches for no information gain. **Killed on the single-seed proof.**
 
