@@ -257,6 +257,39 @@ class HydraNetInference:
             return reg.clamp(min=0.0, max=QUANTILE_EMIT_CEIL)
         return reg  # standard: identity (reg is already the log1p-space point prediction)
 
+    def _finalize_ar_forensic(
+        self,
+        truth_accumulator: list,
+        pred_accumulator: list,
+        stage_label: str,
+        time_indices: Optional[List[float]],
+    ) -> None:
+        """Render the Stage-5 autoregressive forensic from the rollout accumulators.
+
+        Called once per `predict()` (guarded by `sample_idx == 0 and self.viz.active`) **before**
+        the `return_params` early-return, so it fires for family (nb/zinb) runs too — C-214 (it was
+        previously positioned after that return, i.e. dead for every family run). The accumulators
+        already hold per-target `log1p(E[y])` (emit-mean) vs truth, so the plot is family-honest.
+        """
+        if not truth_accumulator:
+            logger.warning(f"🧬 Stage 5: no forensic-biopsy data in {stage_label}")
+            return
+        logger.info(
+            f"Stage 5: Finalizing Autoregressive Forensic for {stage_label} "
+            f"({len(truth_accumulator)} steps captured)"
+        )
+        # Ensure we have exactly 6 frames (padding if the model exploded early).
+        while len(truth_accumulator) < 6:
+            truth_accumulator.append(np.zeros_like(truth_accumulator[0]))
+            pred_accumulator.append(np.zeros_like(pred_accumulator[0]))
+        self.viz.biopsy_autoregressive(
+            truth_accumulator,
+            pred_accumulator,
+            stage_label,
+            channel_names=self.config["regression_targets"],
+            time_indices=time_indices if time_indices else [],
+        )
+
     def predict(
         self,
         full_tensor: torch.Tensor,
@@ -448,6 +481,13 @@ class HydraNetInference:
             if pbar:
                 pbar.update(1)
 
+        # STAGE 5 DIAGNOSTIC: finalize the AR forensic HERE — before the return_params early-return
+        # below — so it renders for family (nb/zinb) runs too (C-214: the return skipped it).
+        if sample_idx == 0 and self.viz.active:
+            self._finalize_ar_forensic(
+                truth_accumulator, pred_accumulator, stage_label, time_indices
+            )
+
         # --- BATCH TRANSFERS (Speed Hardening) ---
         # ADR-067 (A-S8): the family sampler wants the pre-emit params, not the emit-mean. The
         # rollout above still fed back the emit-mean, so the trajectory is identical either way.
@@ -484,31 +524,6 @@ class HydraNetInference:
         del full_magnitudes  # tensor no longer needed after numpy copy
         pred_probabilities_zstack = full_probabilities.detach().cpu().numpy()
         del full_probabilities
-
-        # STAGE 5 DIAGNOSTIC: Finalize Biopsy
-        if sample_idx == 0 and self.viz.active:
-            if truth_accumulator:
-                logger.info(
-                    f"Stage 5: Finalizing Autoregressive Forensic for {stage_label} "
-                    f"({len(truth_accumulator)} steps captured)"
-                )
-                # Ensure we have exactly 6 frames (padding if model exploded early)
-                while len(truth_accumulator) < 6:
-                    truth_accumulator.append(np.zeros_like(truth_accumulator[0]))
-                    pred_accumulator.append(np.zeros_like(pred_accumulator[0]))
-
-                raw_channels = self.config["regression_targets"]
-                self.viz.biopsy_autoregressive(
-                    truth_accumulator,
-                    pred_accumulator,
-                    stage_label,
-                    channel_names=raw_channels,
-                    time_indices=time_indices if time_indices else [],
-                )
-            else:
-                logger.warning(
-                    f"🧬 Stage 5: No data accumulated for forensic biopsy in {stage_label}!"
-                )
 
         return pred_magnitudes_zstack, pred_probabilities_zstack
 

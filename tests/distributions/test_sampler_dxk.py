@@ -157,6 +157,28 @@ def test_emit_magnitude_legacy_stub_unchanged():
     assert torch.equal(out, reg)  # standard = identity
 
 
+# ── AR forensic finalize (C-214: was DEAD on the family return_params path) ───
+
+
+def test_predict_return_params_still_renders_ar_forensic():
+    """C-214: the eval autoregressive forensic must render on the family `return_params=True` path.
+    It was DEAD for nb/zinb — `predict()`'s `return_params` early-return skipped the Stage-5
+    finalize, so family runs produced no eval rollout biopsy at all. The finalize now runs BEFORE
+    the return, so the biopsy fires for both paths."""
+    from unittest.mock import MagicMock
+
+    inf = _make_inference("zinb")
+    inf.viz = MagicMock()
+    inf.viz.active = True
+    full = torch.rand(1, 2, len(_FEATURES), 8, 8).abs()  # [B, seq_len>=2, C, H, W]
+    inf.predict(full, origin=0, sample_idx=0, feature_names=list(_FEATURES), return_params=True)
+
+    inf.viz.biopsy_autoregressive.assert_called_once()
+    _, kwargs = inf.viz.biopsy_autoregressive.call_args
+    # honest per-target labels (one channel per target, not per-param)
+    assert kwargs["channel_names"] == inf.config["regression_targets"]
+
+
 # ── predict(return_params=) ──────────────────────────────────────────────
 
 

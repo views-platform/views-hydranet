@@ -5,10 +5,10 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-07-21                           |
-| Total Concerns    | 211                                  |
+| Total Concerns    | 212                                  |
 | Open Concerns     | 95                                   |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 116                                  |
+| Resolved Concerns | 117                                  |
 
 ---
 
@@ -1842,6 +1842,21 @@ Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/s
 ---
 
 ## Resolved Concerns
+
+### C-214: the eval-side autoregressive forensic was silently DEAD for every nb/zinb run (the `return_params` early-return short-circuited its finalize) — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-214 |
+| Tier | 3 |
+| Source | Diagnostic-plotting-suite deep review (multi-agent audit, 2026-07-24) |
+| Trigger | Running an `nb`/`zinb` family and expecting the eval-side autoregressive/rollout forensic PNG (`biopsy_autoregressive`) — it never rendered |
+| Location | `views_hydranet/utils/hydranet_inference.py::predict` (the `return_params=True` early-return at the family/D×K path vs the Stage-5 finalize that follows it) |
+| Cross-refs | C-213 (the training-side family-forensic counterpart); ADR-067 / A-S8 (introduced the `return_params` branch that caused the regression) |
+
+`generate_posterior_samples`'s family branch calls `predict(..., return_params=True)`; inside `predict`, `return_params=True` hits an **early `return`** (the pre-emit params for the D×K sampler) that sits **before** the Stage-5 "Finalize Biopsy" block which calls `self.viz.biopsy_autoregressive(...)`. So for every `nb`/`zinb` run the eval autoregressive rollout forensic was **never produced** — the truth/pred accumulators were even filled during the rollout, then discarded. This is a **regression introduced by ADR-067/A-S8** (the `return_params` family branch): the AR forensic renders only for the quantile (Path A) and legacy/standard/hurdle paths (which pass `return_params=False`). **Tier 3 (diagnostic coverage gap):** a *missing* artifact for the families under active development, not a wrong plot — training/loss/sampler/scoring unaffected. The method itself is family-clean (its `pred_accumulator` holds per-target `log1p(E[y])`).
+
+> **RESOLVED 2026-07-24, same session as discovery.** Extracted the finalize into `_finalize_ar_forensic(...)` and call it **once, right after the rollout loop — before the `return_params` early-return** — guarded by `sample_idx == 0 and self.viz.active`, so it fires for BOTH the family (`return_params=True`) and legacy paths. Regression test `tests/distributions/test_sampler_dxk.py::test_predict_return_params_still_renders_ar_forensic` (a `zinb` `predict(return_params=True)` with a spied viz asserts `biopsy_autoregressive` is called once with per-target `channel_names`). Full inference/sampler suites green; ruff clean. The eval rollout forensic now renders for nb/zinb runs.
 
 ### C-213: the `REGRESSION FORENSIC` dossier is point-head-era — for a family head it plots target-0's `(μ, θ, π)` mislabeled as the 3 targets → silently misled analysis — RESOLVED
 
