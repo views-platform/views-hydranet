@@ -57,6 +57,15 @@ same trained heads can be composed several ways. Two independent knobs define an
   gate** (prefix `th_gated_` — keep the *full* body where `gate ≥ τ`, zero it where `gate < τ`, for a **fixed
   a-priori** probability **τ**).
 
+> ⛔ **HARD LOCK — `th_gated_NB`, NOT `masked_NB`.** The hard-threshold arm is **`th_gated_NB`**. The name
+> **`masked_NB` is RETIRED** (ADR-068) and must **never** appear as a live term — not in code, configs, plot
+> labels, scoring templates, drivers, dossier prose, or commit messages. It is permitted in exactly two
+> places: (1) this glossary's *banned-aliases* column, and (2) ADR-068, each time explicitly labelled
+> "RETIRED". Any other occurrence is **drift** — correct it on sight. *(This lock exists because the retired
+> name resurfaced on 2026-07-24 and had to be scrubbed — `f0ac6cc`.)* The same `th_gated_<body>` rule holds
+> for every body: `th_gated_gamma`, `th_gated_lognormal`, `th_gated_ZINBcore` — there is **no** `masked_*`
+> spelling of any of them.
+
 **`core` — the one tricky word (LOCKED, read this):** the positive body of a *zero-inflated* distribution
 with its structural **π removed**, so it can be composed with an *external* gate instead of self-zeroing.
 - `core` appears **only** on a body taken from a ZI model — e.g. **`ZINBcore`** = the `NB(μ,θ)` *inside* a
@@ -75,7 +84,7 @@ stripped); the **bare distribution name** (`ZINB`, `ZIgamma`) for a *self-zeroed
 |---|---|---|
 | **ZINB** | the self-zeroed standalone (the distribution of §3): NB body + structural-π zero spike; forecast `E[y]=(1−π)μ`, sampled with π-masking, **no external gate** | zero-inflated-NB-as-an-arm, gated ZINB, ZINB×gate |
 | **gated_NB** | **soft**: per draw `Bernoulli(gate) × NB(μ,θ)`, with `(μ,θ)` from the **nb** model | hurdle_nb, hurdle, hurdle_shrinkage, gate×body |
-| **th_gated_NB** | **hard**: full `NB(μ,θ)` body where `gate ≥ τ`, zeroed where `gate < τ`; `(μ,θ)` from the **nb** model; τ fixed a-priori | **masked_NB** (RETIRED), masked, thresholded NB |
+| **th_gated_NB** | **hard**: full `NB(μ,θ)` body where `gate ≥ τ`, zeroed where `gate < τ`; `(μ,θ)` from the **nb** model; τ fixed a-priori | ⛔ **`masked_NB` (RETIRED — never live, see HARD LOCK above)**, masked_nb, masked, thresholded NB, hard_gated_NB |
 | **gated_ZINBcore** | **soft**: per draw `Bernoulli(gate) × NB(μ,θ)`, with `(μ,θ)` from the **zinb** model, **π dropped** | gated ZINB, ZINB×gate, hurdle_zinb, gated_zinb |
 
 **Why `gated_NB` vs `gated_ZINBcore` is a real distinction, not a typo:** both gate a bare `NB(μ,θ)` core; the
