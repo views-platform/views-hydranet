@@ -44,6 +44,57 @@ Two ways a cell's predicted zero can arise:
 | **gated zeros** | the zeros come from the separate **gate** (gate × body) — every model so far | use_gate, gate-on, hurdle |
 | **self-zeroed** | **no separate gate** — the body's own output covers the zeros across all cells. A count body (NB/ZINB) puts probability mass on 0; a plain point body just regresses toward 0 (the default `standard`). | dense_nb, standard ("no gate"), zero_handling=none, use_gate=False |
 
+## 2c. The forecast-composition arms (how a trained gate + body become ONE scored forecast)
+An **arm** is a specific rule for turning a trained **body** and the **gate** into the single scored
+forecast. It is a *compose-time / score-time* choice, layered on top of the §2/§3 training choices — the
+same trained heads can be composed several ways. Two independent knobs define an arm:
+
+- **body source** — *which model's* parameters we use for the body: the plain **NB** `(μ,θ)`, the **ZINB**
+  `(μ,θ,π)` (which additionally learns a structural zero parameter **π**), and later **gamma** / **lognormal** /
+  a zero-inflated continuous. Same *form* of body, but trained under a different objective ⇒ different `μ`.
+- **occurrence rule** — *how the zeros are produced*: **self** (a self-zeroed distribution's own π, no
+  external gate — §2b), **soft gate** (prefix `gated_` — per draw `Bernoulli(gate) × body`), or **threshold
+  gate** (prefix `th_gated_` — keep the *full* body where `gate ≥ τ`, zero it where `gate < τ`, for a **fixed
+  a-priori** probability **τ**).
+
+**`core` — the one tricky word (LOCKED, read this):** the positive body of a *zero-inflated* distribution
+with its structural **π removed**, so it can be composed with an *external* gate instead of self-zeroing.
+- `core` appears **only** on a body taken from a ZI model — e.g. **`ZINBcore`** = the `NB(μ,θ)` *inside* a
+  trained ZINB, with π dropped. A body that has **no** structural π (NB, gamma, lognormal) **never** carries
+  `core` — there is nothing to strip.
+- So the **presence** of `core` is a signal: "a π was stripped here." Its **absence** means "no
+  zero-inflation model was involved" — it does **NOT** mean "the full / non-core body." (This is the
+  asymmetry to not misread: `gated_NB` has no `core` because NB has no π, not because it uses a fuller body.)
+- ⚠️ **Never re-apply a core's own π:** `(1−π)μ × gate` **double-counts** the zeros (π zeros once, the gate
+  again). `core` means π is *gone*; the gate is then the *only* zeroing mechanism.
+
+**Naming pattern:** `[th_]gated_<bodymodel>[core]` for a *composed* forecast (`core` iff a ZI model's π was
+stripped); the **bare distribution name** (`ZINB`, `ZIgamma`) for a *self-zeroed standalone*.
+
+| locked name | the EXACT forecast it scores | banned aliases |
+|---|---|---|
+| **ZINB** | the self-zeroed standalone (the distribution of §3): NB body + structural-π zero spike; forecast `E[y]=(1−π)μ`, sampled with π-masking, **no external gate** | zero-inflated-NB-as-an-arm, gated ZINB, ZINB×gate |
+| **gated_NB** | **soft**: per draw `Bernoulli(gate) × NB(μ,θ)`, with `(μ,θ)` from the **nb** model | hurdle_nb, hurdle, hurdle_shrinkage, gate×body |
+| **th_gated_NB** | **hard**: full `NB(μ,θ)` body where `gate ≥ τ`, zeroed where `gate < τ`; `(μ,θ)` from the **nb** model; τ fixed a-priori | **masked_NB** (RETIRED), masked, thresholded NB |
+| **gated_ZINBcore** | **soft**: per draw `Bernoulli(gate) × NB(μ,θ)`, with `(μ,θ)` from the **zinb** model, **π dropped** | gated ZINB, ZINB×gate, hurdle_zinb, gated_zinb |
+
+**Why `gated_NB` vs `gated_ZINBcore` is a real distinction, not a typo:** both gate a bare `NB(μ,θ)` core; the
+*only* difference is the training that produced `(μ,θ)` — plain-NB (μ zero-diluted → **timid**) vs ZINB (π
+absorbed the zeros in training → μ is the *conditional* magnitude, un-timid). `core` flags that the ZINB one
+had a π we removed; the NB one never had one.
+
+**Extending to new bodies (gamma / lognormal / a future ZI-continuous) — no new convention:** same two knobs,
+same `core` rule. Continuous bodies (gamma, lognormal) have **no** zero mass, so they *must* be gated (there
+is no self-zeroed standalone unless the distribution is ZI-wrapped):
+
+| body model | self-zeroed standalone | soft-gated | threshold-gated |
+|---|---|---|---|
+| NB | — (NB is not self-zeroed) | `gated_NB` | `th_gated_NB` |
+| ZINB | `ZINB` | `gated_ZINBcore` | `th_gated_ZINBcore` |
+| gamma | — (no zero mass) | `gated_gamma` | `th_gated_gamma` |
+| lognormal | — (no zero mass) | `gated_lognormal` | `th_gated_lognormal` |
+| ZI-gamma *(if ever built)* | `ZIgamma` | `gated_ZIgammacore` | `th_gated_ZIgammacore` |
+
 ## 3. The losses (how the body is scored during training)
 | locked name | what it does | banned aliases |
 |---|---|---|

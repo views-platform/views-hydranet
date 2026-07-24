@@ -71,6 +71,7 @@ Architectural decisions specific to the HydraNet system.
 - **[061](active/061_coordinate_channels.md)**: ADR-061: Coordinate Channels for Spatial Grounding (CoordConv)
 - **[063](active/063_regression_head_output_activation.md)**: ADR-063: Regression-head output activation — softplus for hurdle bodies, ReLU for standard
 - **[064](active/064_classification_head_output_activation.md)**: ADR-064: Classification-head output activation — raw logits + sigmoid-via-BCE-with-logits
+- **[068](active/068_forecast_composition_arm_naming.md)**: ADR-068: A naming convention for forecast-composition arms (`[th_]gated_<body>[core]`)
 
 ## [Proposed (Emerging)](./proposed/)
 
