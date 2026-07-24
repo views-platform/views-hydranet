@@ -26,6 +26,7 @@ The `TrainingForensics` class is the **Independent Forensic Auditor** of model p
 - **Threshold Integrity Guard:** Strictly prohibits threshold-dependent metrics (e.g., F1, Recall) to prevent ambiguous reporting without explicit config-driven thresholds.
 - **Dual-Mode Bias Tracking:** Maintains both **Instantaneous Bias** (current lesson) and **Running Average Bias** (cumulative across lessons) for $\bar{\hat{y}} / \bar{y}$.
 - **Lesson-Level Aggregation:** Efficiently reduces high-frequency window-level noise into stable, lesson-level forensic signals.
+- **Family-Aware Recording (ADR-067 / C-213):** For a distribution-family reg head (nb/zinb), the Producer records the per-target self-zeroed forecast `log1p(family.mean)` (so the Magnitude/Calibration rows compare the honest per-target E[y] vs truth, not a raw parameter channel), plus the activated per-cell params via `.record_params(...)` for a **parameter-health** frame — per-target `μ̄`, θ cross-cell CoV (`std/mean` over active cells, the pre-registered F1 falsifier), and π mean/min/max. Point/legacy heads are unaffected (no `record_params`, single-channel `record`).
 
 ---
 
@@ -50,7 +51,7 @@ The `TrainingForensics` class is the **Independent Forensic Auditor** of model p
 ---
 
 ## 7. Boundaries and Interactions
-- **The Producer (`train()`):** Interacts via `.record(namespaced_key, y, y_hat)` per window, where `namespaced_key` follows the format `"REG:target"` or `"CLS:target"`.
+- **The Producer (`train()`):** Interacts via `.record(namespaced_key, y, y_hat)` per window, where `namespaced_key` follows the format `"REG:target"` or `"CLS:target"`. For family reg heads it additionally calls `.record_params(namespaced_key, params, y)` with the activated per-cell params `[..., n_params]` (μ=idx0, θ=idx1, π=idx2) for the parameter-health frame; param-health history keys are created lazily on the first such call (so nb has no π keys).
 - **Lesson Boundary:** `.finalize_lesson()` reduces per-window buffers into stable lesson-level metrics and updates history.
 - **The Consumer (`VisualDiagnostics`):** Interacts via `.get_dossier(target_name)` to retrieve data for the "Feature Dossier" plots.
 

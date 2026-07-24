@@ -5,10 +5,10 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-07-21                           |
-| Total Concerns    | 210                                  |
+| Total Concerns    | 211                                  |
 | Open Concerns     | 95                                   |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 115                                  |
+| Resolved Concerns | 116                                  |
 
 ---
 
@@ -1842,6 +1842,21 @@ Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/s
 ---
 
 ## Resolved Concerns
+
+### C-213: the `REGRESSION FORENSIC` dossier is point-head-era — for a family head it plots target-0's `(μ, θ, π)` mislabeled as the 3 targets → silently misled analysis — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-213 |
+| Tier | 3 |
+| Source | Forensic-plot inspection during the ZINB 3×300 run (2026-07-24) |
+| Trigger | Reading the per-lesson `REGRESSION FORENSIC` dossier (`biopsy_feature_dossier`) for an `n_params>1` distribution family (nb/zinb) before this fix — the panels are per-**param**, not per-target |
+| Location | `views_hydranet/train/training_engine.py` (the `forensics.record` site) + `views_hydranet/utils/training_forensics.py` (`TrainingForensics`) + `views_hydranet/utils/visual_diagnostics.py` (`biopsy_feature_dossier`) |
+| Cross-refs | C-211 (self-zeroed vs gated scoring); C-212 (the ZINB NaN — why the ZINB body is reliable to reuse); ADR-067 (the family subsystem these plots visualize) |
+
+`TrainingForensics.record` was fed `t1_pred[:, j]` — one raw reg channel per target index. That is correct for a point head (1 channel/target) but a distribution family emits `n_params` channels **per target, target-major** (the loss slices `t1_pred[:, j*npar:(j+1)*npar]`). So for ZINB (`n_params=3`) the three "target" panels actually plot **target-0's `μ` (idx0), `θ` (idx1) and `π` (idx2)** under the sb/ns/os labels — and in the wrong space (raw natural-space params vs the log1p-space truth). The dead giveaway is the "os" panel pinned flat ~0.95 (a `sigmoid` π, not a magnitude). This **silently misled analysis**: a per-target "calibration difference" read off the plot was really one target's three parameters. The sibling `biopsy_training_performance` had already been made family-aware (`log1p(family.mean)` per target); this dossier never was. **Tier 3 (diagnostic/methodology):** training, loss, sampler, and the frozen-ruler scoring are all family-aware and correct — zero impact on model or results; the only harm is misreading the diagnostic.
+
+> **RESOLVED 2026-07-24, same session as discovery.** (1) **Calibration fix:** the record site now collapses each target's `n_params` slice via a shared `_family_target_log1p_mean(reg, family)` helper (which also DRY'd the biopsy's inline copy) and records per-target `log1p(family.mean)` — the honest self-zeroed forecast E[y], comparable to the log1p truth. Point/legacy heads keep the single-channel path (byte-identical). (2) **Parameter-health frame (upgrade):** a new `TrainingForensics.record_params` path stores the activated params; `finalize_lesson` computes per-target `μ̄`, θ **cross-cell CoV** (`std/mean` over ACTIVE cells) and π mean/min/max; `biopsy_feature_dossier` renders three new rows (μ̄, θ-CoV with the F1 guide lines **0.10 health / 0.02 collapse**, π mean+[min,max]) for family heads only (auto via key-presence; legacy dossiers unchanged) — turning the pre-registered F1 falsifier into a live per-lesson trace for **all** targets (ns/os params were previously never plotted). 8 regression tests in `tests/test_training_forensics.py` (calibration collapse C-213 + param-health math + point-head parity); render-verified on synthetic zinb/nb/legacy dossiers; full suite green. **Fix lands for future runs** (the current ZINB process runs the old code; its panels are mentally re-mapped to sb's μ/θ/π).
 
 ### C-212: `NBCore.log_prob_zero`'s `mu/(theta+mu)` float32 saturation → `log1p(-1)` singularity → NaN BACKWARD (finite forward) → killed 2/3 ZINB seeds mid-training — RESOLVED
 

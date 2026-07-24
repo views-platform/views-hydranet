@@ -199,6 +199,21 @@ def _decay_gate_penalty(
     return torch.sigmoid(gate_logits)[decay].mean()
 
 
+def _family_target_log1p_mean(reg: torch.Tensor, family) -> torch.Tensor:
+    """Collapse a family head's per-target activated params ``[B, n_reg*n_params, H, W]``
+    (target-major) to per-target ``log1p(E[y])`` ``[B, n_reg, H, W]`` — the self-zeroed mean
+    ``(1-π)μ`` for zinb, ``μ`` for nb. Shared by the training biopsy and the forensic dossier so
+    both plot the honest per-target forecast (C-213), not a raw channel. Mirrors the
+    ``hydranet_inference._emit_magnitude`` family branch.
+    """
+    npar = family.n_params
+    means = [
+        family.mean(reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1))
+        for j in range(reg.shape[1] // npar)
+    ]
+    return torch.log1p(torch.stack(means, dim=1))  # [B, n_reg, H, W]
+
+
 def _process_sequence(
     train_tensor: torch.Tensor,
     model: nn.Module,
@@ -294,10 +309,42 @@ def _process_sequence(
         # step_idx=i tags the within-window timestep so the dossier can split t=0 / early / late
         # from the full-window aggregate (horizon-split columns).
         if forensics:
+            # ADR-067 (C-213): a distribution-family reg head emits n_params channels PER target
+            # (target-major). Collapse to per-target log1p(E[y]) so the forensic plots each
+            # target's OWN self-zeroed forecast (not a raw channel of target-0), and record the
+            # activated params for the param-health frame. Point/legacy heads keep the raw path.
+            _fl = next(
+                (
+                    lf
+                    for lf in (
+                        criterion_reg.values()
+                        if isinstance(criterion_reg, dict)
+                        else [criterion_reg]
+                    )
+                    if isinstance(lf, FamilyLoss)
+                ),
+                None,
+            )
+            _yh_ey = _family_target_log1p_mean(t1_pred, _fl.family) if _fl is not None else None
             for j, target_name in enumerate(idx.reg_names):
-                forensics.record(
-                    f"REG:{target_name}", y_reg[:, j : j + 1], t1_pred[:, j : j + 1], step_idx=i
-                )
+                if _fl is not None:
+                    npar = _fl.n_params
+                    forensics.record(
+                        f"REG:{target_name}", y_reg[:, j : j + 1], _yh_ey[:, j : j + 1], step_idx=i
+                    )
+                    forensics.record_params(
+                        f"REG:{target_name}",
+                        t1_pred[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1),
+                        y_reg[:, j],
+                        step_idx=i,
+                    )
+                else:
+                    forensics.record(
+                        f"REG:{target_name}",
+                        y_reg[:, j : j + 1],
+                        t1_pred[:, j : j + 1],
+                        step_idx=i,
+                    )
             for j, target_name in enumerate(idx.cls_names):
                 forensics.record(
                     f"CLS:{target_name}",
@@ -612,12 +659,7 @@ def train(
                     _yh_reg = t1_pred
                     _fam = resolve_family(config.get("output_distribution", "standard"))
                     if _fam is not None:
-                        _np = _fam.n_params
-                        _means = [
-                            _fam.mean(t1_pred[:, j * _np : (j + 1) * _np].permute(0, 2, 3, 1))
-                            for j in range(t1_pred.shape[1] // _np)
-                        ]
-                        _yh_reg = torch.log1p(torch.stack(_means, dim=1))  # [B, n_reg, H, W]
+                        _yh_reg = _family_target_log1p_mean(t1_pred, _fam)  # [B, n_reg, H, W]
                     acc_yh_reg.append(_yh_reg[0].permute(1, 2, 0).cpu().numpy())
                     acc_y_cls.append(y_cls[0].permute(1, 2, 0).cpu().numpy())
                     acc_yh_cls.append(

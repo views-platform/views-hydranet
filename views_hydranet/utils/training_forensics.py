@@ -6,6 +6,12 @@ import torch
 
 logger = logging.getLogger(__name__)
 
+# Distribution-family parameter-health thresholds (pre-registered F1 falsifier; 05_analysis_plan).
+# The cross-cell coefficient of variation (std/mean) of per-cell θ over ACTIVE cells:
+THETA_HEALTH_COV = 0.10  # pred-1: a healthy heteroscedastic head has θ std/mean > 0.10
+THETA_COLLAPSE_COV = 0.02  # F1 falsifier: θ (or π) collapsing to ~constant, std/mean < 0.02
+_PARAM_EPS = 1e-8
+
 
 class TrainingForensics:
     """
@@ -55,6 +61,11 @@ class TrainingForensics:
         self.running_sum_y = {key: 0.0 for key in all_keys}
         self.running_sum_yh = {key: 0.0 for key in all_keys}
 
+        # 3b. Distribution-family parameter-health (ADR-067 / C-213). Lazily populated: a target's
+        # param-health stat names are registered the first time `record_params` is called for it
+        # (so n_params is known — nb has no π). Persistent across lessons (NOT reset).
+        self._param_health_keys: Dict[str, List[str]] = {}
+
         # 4. Lesson Accumulators (Reset every lesson)
         self._reset_accumulators()
 
@@ -84,6 +95,11 @@ class TrainingForensics:
         # Per-window-timestep buffers: step_idx -> list of flat arrays (the horizon split).
         self.lesson_y_step = {key: {} for key in all_keys}
         self.lesson_yh_step = {key: {} for key in all_keys}
+        # Distribution-family param-health buffers (activated params + truth for active-cell mask).
+        self.lesson_params = {key: [] for key in all_keys}
+        self.lesson_params_y = {key: [] for key in all_keys}
+        self.lesson_params_step = {key: {} for key in all_keys}
+        self.lesson_params_y_step = {key: {} for key in all_keys}
 
     def record(
         self,
@@ -113,13 +129,83 @@ class TrainingForensics:
             self.lesson_y_step[namespaced_key].setdefault(step_idx, []).append(y_flat)
             self.lesson_yh_step[namespaced_key].setdefault(step_idx, []).append(yh_flat)
 
+    @staticmethod
+    def _param_health_stat_names(n_params: int) -> List[str]:
+        """Which param-health series a family with ``n_params`` channels has (θ=idx1, π=idx2)."""
+        names = ["mu_bar", "theta_cov"]
+        if n_params >= 3:  # zinb: structural π present
+            names += ["pi_bar", "pi_min", "pi_max"]
+        return names
+
+    def record_params(
+        self,
+        namespaced_key: str,
+        params: torch.Tensor,
+        y: torch.Tensor,
+        step_idx: int | None = None,
+    ) -> None:
+        """Record a family head's per-cell **activated** params for the parameter-health frame.
+
+        ``params``: activated ``[..., n_params]`` (μ=idx0, θ=idx1, π=idx2 — the locked
+        ``activate()`` order). ``y``: the log1p-space truth for the same cells (drives the
+        active-cell θ mask). Only distribution families (nb/zinb) call this; point heads never do
+        (so no param-health rows). Stat names are registered lazily on the first call (n_params).
+        """
+        if namespaced_key not in self.lesson_y:
+            err_msg = f"TrainingForensics: Key '{namespaced_key}' not initialized."
+            logger.error(err_msg)
+            raise KeyError(err_msg)
+
+        p = params.detach().cpu().numpy()
+        p = p.reshape(-1, p.shape[-1])  # [N, n_params]
+        yv = y.detach().cpu().numpy().reshape(-1)  # [N]
+
+        if namespaced_key not in self._param_health_keys:
+            stat_names = self._param_health_stat_names(p.shape[1])
+            self._param_health_keys[namespaced_key] = stat_names
+            for sn in stat_names:
+                self.history[namespaced_key].setdefault(sn, [])
+                for s in self.HORIZON_SLICES:
+                    self.history[namespaced_key].setdefault(f"{s}_{sn}", [])
+
+        self.lesson_params[namespaced_key].append(p)
+        self.lesson_params_y[namespaced_key].append(yv)
+        if step_idx is not None:
+            self.lesson_params_step[namespaced_key].setdefault(step_idx, []).append(p)
+            self.lesson_params_y_step[namespaced_key].setdefault(step_idx, []).append(yv)
+
+    def _reduce_param_health(self, params: np.ndarray, y: np.ndarray) -> Dict[str, float]:
+        """Reduce per-cell activated params → the param-health stats. θ CoV is over ACTIVE
+        (truth>0) cells (where θ is identified; pred-1/F1); π stats over all cells (degeneracy)."""
+        out: Dict[str, float] = {"mu_bar": float(np.mean(params[:, 0]))}
+        theta = params[:, 1]
+        active = y > 0
+        th = theta[active] if bool(active.any()) else theta
+        m = float(np.mean(th))
+        out["theta_cov"] = float(np.std(th) / m) if m > _PARAM_EPS else 0.0
+        if params.shape[1] >= 3:
+            pi = params[:, 2]
+            out["pi_bar"] = float(np.mean(pi))
+            out["pi_min"] = float(np.min(pi))
+            out["pi_max"] = float(np.max(pi))
+        return out
+
     def finalize_lesson(self) -> None:
         """
         Reduces lesson buffers into final metrics and updates history.
         """
         for key, meta in self.target_map.items():
             if not self.lesson_y[key]:
+                # Param-health keys (record_params) are carried/computed by the dedicated §4 block
+                # below — exclude them here so they are not double-appended.
+                ph_keys = {
+                    sk
+                    for sn in self._param_health_keys.get(key, [])
+                    for sk in [sn, *(f"{s}_{sn}" for s in self.HORIZON_SLICES)]
+                }
                 for m in self.history[key].keys():
+                    if m in ph_keys:
+                        continue
                     last_val = self.history[key][m][-1] if self.history[key][m] else 0.0
                     self.history[key][m].append(last_val)
                 continue
@@ -194,6 +280,42 @@ class TrainingForensics:
                         self.history[key][f"{sname}_{m}"].append(
                             self._calculate_cls_metric(m, ys, yhs)
                         )
+
+        # 4. Family parameter-health reduction (μ̄, θ-CoV, π stats) — C-213 upgrade. Lesson-aligned
+        # with the metric/bias history; carry-forward on an empty lesson (as the §above block).
+        for key, stat_names in self._param_health_keys.items():
+            if not self.lesson_params[key]:
+                for sn in stat_names:
+                    for sk in [sn] + [f"{s}_{sn}" for s in self.HORIZON_SLICES]:
+                        self.history[key][sk].append(
+                            self.history[key][sk][-1] if self.history[key][sk] else 0.0
+                        )
+                continue
+            full = self._reduce_param_health(
+                np.concatenate(self.lesson_params[key]), np.concatenate(self.lesson_params_y[key])
+            )
+            for sn in stat_names:
+                self.history[key][sn].append(full[sn])
+            p_steps = sorted(self.lesson_params_step[key].keys())
+            chosen = (
+                {"t0": p_steps[0], "early": p_steps[len(p_steps) // 3], "late": p_steps[-1]}
+                if p_steps
+                else {}
+            )
+            for sname in self.HORIZON_SLICES:
+                if sname not in chosen:
+                    for sn in stat_names:
+                        sk = f"{sname}_{sn}"
+                        self.history[key][sk].append(
+                            self.history[key][sk][-1] if self.history[key][sk] else 0.0
+                        )
+                    continue
+                sl = self._reduce_param_health(
+                    np.concatenate(self.lesson_params_step[key][chosen[sname]]),
+                    np.concatenate(self.lesson_params_y_step[key][chosen[sname]]),
+                )
+                for sn in stat_names:
+                    self.history[key][f"{sname}_{sn}"].append(sl[sn])
 
         self._reset_accumulators()
 

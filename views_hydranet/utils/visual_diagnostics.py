@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 import torch
 
+from views_hydranet.utils.training_forensics import THETA_COLLAPSE_COV, THETA_HEALTH_COV
 from views_hydranet.utils.volume_handler import VolumeHandler
 
 logger = logging.getLogger(__name__)
@@ -791,9 +792,16 @@ class VisualDiagnostics:
         # Filter for metrics actually in the dossier
         active_metrics = [m for m in metrics if m in dossier]
 
-        # Determine Rows: N metrics + Magnitude + Bias
+        # Determine Rows: N metrics + Magnitude + Bias (+ family parameter-health rows, C-213).
+        # Param-health rows appear ONLY when TrainingForensics recorded family params (nb/zinb):
+        # μ̄ + θ-CoV always, + π (mean/range) for zinb. Non-family dossiers lack the keys → same.
         n_metrics = len(active_metrics)
-        n_extra = 2 if is_reg else 1  # Reg gets Mag+Bias, Cls gets Bias
+        has_param_health = is_reg and "theta_cov" in dossier
+        has_pi = has_param_health and "pi_bar" in dossier
+        n_param_health = 0 if not has_param_health else (3 if has_pi else 2)
+        n_extra = (
+            2 if is_reg else 1
+        ) + n_param_health  # Reg gets Mag+Bias(+param-health), Cls Bias
         total_rows = n_metrics + n_extra
 
         try:
@@ -907,6 +915,87 @@ class VisualDiagnostics:
                     )
                     ax.set_ylabel(lbl, fontweight="bold")
                     ax.legend(fontsize=7)
+
+            # 4. Parameter-health rows (family heads only, C-213): μ̄ (conditional magnitude),
+            # θ cross-cell CoV with the F1 guide lines (health >0.10, collapse <0.02), and — for
+            # zinb — π mean + [min,max] range (degeneracy → 0/1). Turns the pre-registered F1
+            # falsifier into a live per-lesson trace; renders for ALL targets (not just target-0).
+            if has_param_health:
+                base = n_metrics + 2  # after Magnitude (n_metrics) + Calibration (n_metrics+1)
+
+                # μ̄ trajectory
+                hi = shared_hi([dossier.get(ck("mu_bar", c), []) for c, _ in cols])
+                for ci, (ckey, _clabel) in enumerate(cols):
+                    ax = axes[base][ci]
+                    ax.plot(
+                        dossier.get(ck("mu_bar", ckey), []),
+                        color="darkgreen",
+                        marker="o",
+                        alpha=0.7,
+                    )
+                    if hi > 0:
+                        ax.set_ylim(0, hi * 1.1)
+                    ax.grid(True, alpha=0.3)
+                    if ci == 0:
+                        ax.set_ylabel("μ̄ (body mean)\nconditional magnitude", fontweight="bold")
+
+                # θ cross-cell CoV (std/mean over active cells) with the F1 guide lines
+                hi = max(
+                    shared_hi([dossier.get(ck("theta_cov", c), []) for c, _ in cols]),
+                    THETA_HEALTH_COV * 1.5,
+                )
+                for ci, (ckey, _clabel) in enumerate(cols):
+                    ax = axes[base + 1][ci]
+                    ax.plot(
+                        dossier.get(ck("theta_cov", ckey), []),
+                        color="purple",
+                        marker="o",
+                        alpha=0.7,
+                    )
+                    ax.axhline(
+                        THETA_HEALTH_COV,
+                        color="green",
+                        linestyle="--",
+                        alpha=0.6,
+                        label="health >0.10",
+                    )
+                    ax.axhline(
+                        THETA_COLLAPSE_COV,
+                        color="red",
+                        linestyle="--",
+                        alpha=0.6,
+                        label="collapse <0.02",
+                    )
+                    ax.set_ylim(0, hi * 1.1)
+                    ax.grid(True, alpha=0.3)
+                    if ci == 0:
+                        ax.set_ylabel("θ CoV (std/mean)\nheteroscedasticity", fontweight="bold")
+                        ax.legend(fontsize=6)
+
+                # π mean + [min, max] band (zinb only) — degeneracy watch (→0 plain-NB, →1 dead)
+                if has_pi:
+                    for ci, (ckey, _clabel) in enumerate(cols):
+                        ax = axes[base + 2][ci]
+                        pbar = dossier.get(ck("pi_bar", ckey), [])
+                        pmin = dossier.get(ck("pi_min", ckey), [])
+                        pmax = dossier.get(ck("pi_max", ckey), [])
+                        ax.plot(pbar, color="teal", marker="o", alpha=0.8, label="π̄")
+                        if pbar and len(pmin) == len(pbar) == len(pmax):
+                            ax.fill_between(
+                                range(len(pbar)),
+                                pmin,
+                                pmax,
+                                color="teal",
+                                alpha=0.2,
+                                label="[min,max]",
+                            )
+                        ax.set_ylim(-0.02, 1.02)
+                        ax.grid(True, alpha=0.3)
+                        if ci == 0:
+                            ax.set_ylabel(
+                                "π (structural zero)\nmean + [min,max]", fontweight="bold"
+                            )
+                            ax.legend(fontsize=6)
 
             mode_str = "REGRESSION" if is_reg else "CLASSIFICATION"
             plt.suptitle(
