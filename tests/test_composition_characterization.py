@@ -7,10 +7,10 @@ cube) — so S4 can prove it changed only what it meant to. Goldens fall into tw
 * **PARITY-LOCKED** — legacy heads (standard/hurdle_nb/dense_nb) and the **self-zeroed** ``zinb``
   path. S4's composer is a *passthrough* for these, so they MUST stay byte-identical. These tests
   are the parity anchor S4/S6 assert against.
-* **DOCUMENTS-CURRENT** — the ungated ``nb`` emit and ``nb`` sample cube. S4 **deliberately
-  changes** these: an ``nb`` run will require a gate composition (soft/threshold), so the ungated
-  behaviour recorded here is expected to move. These tests exist to make that change *visible and
-  intentional*, not to lock it — when S4 lands they update in lockstep with a comment.
+* **nb PASSTHROUGH** — the ungated ``nb`` emit and ``nb`` sample cube under the default
+  ``self_zeroed`` composition. Post-S4 the composer passes these through unchanged (nb only gates
+  when the config opts into soft/threshold); the *gated* nb behaviour is pinned separately in
+  ``tests/test_composition_wiring.py``.
 
 Seeded and deterministic (the S2 #121 generator gate). Values captured 2026-07-24, pre-S4 tree.
 """
@@ -123,19 +123,21 @@ def test_gate_cube_transform_LOCKED():
 
 
 # ══════════════════════════════════════════════════════════════════════════════════════════════
-# DOCUMENTS-CURRENT — S4 DELIBERATELY CHANGES these (nb becomes gated). Update in lockstep with S4.
+# nb WITH self_zeroed (passthrough) — ungated. Post-S4 the composer defaults to self_zeroed
+# passthrough, so nb stays ungated UNLESS the config opts into soft_gate/threshold_gate. The gated
+# behaviour is pinned in tests/test_composition_wiring.py; these anchor the passthrough path.
 # ══════════════════════════════════════════════════════════════════════════════════════════════
-def test_emit_nb_ungated_DOCUMENTS_CURRENT():
-    # CURRENT: nb emits the UNGATED mean log1p(mu) (no gate at emit). S4 makes nb require a gate
-    # composition, so this WILL change. Recorded to make that change visible.
+def test_emit_nb_ungated_passthrough():
+    # nb + self_zeroed (the _inf default) emits the UNGATED mean log1p(mu). Gated nb is in
+    # test_composition_wiring; here we anchor that passthrough leaves the body ungated.
     nb_reg = torch.tensor([2.0, 1.0]).reshape(1, 2, 1, 1)  # activated [mu=2, theta=1]
     out = _inf("nb")._emit_magnitude(nb_reg, torch.tensor([[[[0.5]]]]))
     assert torch.allclose(out, torch.tensor([[[[math.log1p(2.0)]]]]), atol=ATOL)
 
 
-def test_cube_nb_ungated_DOCUMENTS_CURRENT():
-    # CURRENT: the nb sample cube is the UNGATED body. S4 routes it through the composer
-    # (soft_gate/threshold_gate), so this golden WILL change. Recorded to make that visible.
+def test_cube_nb_ungated_passthrough():
+    # nb sample cube with the default self_zeroed composition = the UNGATED body (passthrough).
+    # Gated cubes are covered by the composer/sampler suites; here we anchor passthrough.
     fam = resolve_family("nb")
     params = _activated_params(fam, 1, 2, 2, 1, seed=0)
     cube = to_cube_samples(params, fam, 3, torch.Generator().manual_seed(7), 1)

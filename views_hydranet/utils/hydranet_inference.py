@@ -8,6 +8,7 @@ from torch.nn import Module
 from tqdm import tqdm
 
 from views_hydranet.distributions import resolve_family
+from views_hydranet.distributions.composition import compose_mean
 from views_hydranet.distributions.sampling import to_cube_samples
 from views_hydranet.utils.disk_guard import assert_cube_fits
 from views_hydranet.utils.hurdle_nb import (
@@ -228,11 +229,21 @@ class HydraNetInference:
         if fam is not None:
             npar = fam.n_params
             n_reg = reg.shape[1] // npar
-            means = [
-                fam.mean(reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1))
-                for j in range(n_reg)
-            ]
-            return torch.log1p(torch.stack(means, dim=1))  # [B, n_reg, H, W]
+            means = torch.stack(
+                [
+                    fam.mean(reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1))
+                    for j in range(n_reg)
+                ],
+                dim=1,
+            )  # [B, n_reg, H, W] count-space E[Y|body]
+            # ADR-069 (#183): compose with the cls gate at emit time so the fed-back point forecast
+            # is the composed arm. self_zeroed => passthrough (byte-identical: zinb (1-π)μ, nb μ).
+            comp = self.config.get("forecast_composition", "self_zeroed")
+            if comp != "self_zeroed":
+                means = compose_mean(
+                    means, prob[:, :n_reg], comp, self.config.get("gate_threshold")
+                )
+            return torch.log1p(means)  # [B, n_reg, H, W]
 
         # Single source of truth for each hurdle mean (shared with the explosion-check probe so it
         # feeds back exactly this — C-142). All return log1p(count-space E[y]).
@@ -676,20 +687,23 @@ class HydraNetInference:
                             return_params=True,
                         )
                         cols = slice(d * posterior_K, (d + 1) * posterior_K)
-                        # [T,H,W,n_reg,K] log1p draws for this pass. ADR-068 `emit_family_core`
-                        # (inference-only, default off) draws a zinb's bare NB core (π dropped) for
-                        # gated_ZINBcore — composed with the cls gate at scoring time. Off ⇒ the
-                        # family's own (self-zeroed for zinb) sample, unchanged.
+                        # gate = classifier P(y>0) (sigmoid(cls)); reused for the composed body and
+                        # the gate cube below.
+                        prob_thwc = prob_zstack.transpose(0, 2, 3, 1)  # [T,H,W,n_cls]
+                        # [T,H,W,n_reg,K] log1p draws for this pass, composed with the gate at emit
+                        # time (ADR-069 #183): self_zeroed => the family's own sample unchanged;
+                        # soft_gate / threshold_gate mask the draws by the cls gate.
                         posterior_magnitudes_zstack[:, :, :, :, cols] = to_cube_samples(
                             params_zstack,
                             self._family,
                             posterior_K,
                             generator,
                             n_reg,
-                            core=bool(self.config.get("emit_family_core", False)),
+                            gate=prob_thwc,
+                            composition=self.config.get("forecast_composition", "self_zeroed"),
+                            threshold=self.config.get("gate_threshold"),
                         )
-                        # gate stays the classifier P(y>0) (sigmoid(cls)); repeat across the K cols
-                        prob_thwc = prob_zstack.transpose(0, 2, 3, 1)  # [T,H,W,n_cls]
+                        # gate cube: the classifier P(y>0), repeated across the K cols
                         posterior_probabilities_zstack[:, :, :, :, cols] = np.repeat(
                             prob_thwc[..., None], posterior_K, axis=-1
                         )

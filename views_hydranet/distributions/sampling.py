@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 import torch
 
+from views_hydranet.distributions.composition import compose_samples
+
 if TYPE_CHECKING:
     from views_hydranet.distributions.base import DistributionFamily
 
@@ -24,7 +26,9 @@ def to_cube_samples(
     k: int,
     generator: "torch.Generator | None",
     n_reg: int,
-    core: bool = False,
+    gate=None,
+    composition: str = "self_zeroed",
+    threshold: "float | None" = None,
 ) -> np.ndarray:
     """Draw K per-cell samples/target from activated family params → log1p-space cube slice.
 
@@ -34,6 +38,12 @@ def to_cube_samples(
         k: per-cell head draws (K).
         generator: seeded ``torch.Generator`` for deterministic sampling (may be ``None``).
         n_reg: number of regression targets (the ``n_reg`` axis width).
+        gate: per-cell ``P(y>0)`` ``[T, H, W, n_cls]`` (torch/numpy); the first ``n_reg`` channels
+            are used. Required when ``composition`` gates the body; ignored for ``self_zeroed``.
+        composition: forecast-composition arm (ADR-069) — ``self_zeroed`` (passthrough, default),
+            ``soft_gate`` (per-draw ``Bernoulli(gate)``), or ``threshold_gate`` (keep cell if
+            ``gate >= threshold``).
+        threshold: τ ∈ (0,1) for ``threshold_gate``.
 
     Returns:
         ``np.ndarray`` ``[T, H, W, n_reg, k]`` float32, in **log1p space** (non-negative).
@@ -46,13 +56,20 @@ def to_cube_samples(
             f"to_cube_samples: params channel dim {c} != n_reg*n_params "
             f"({n_reg}*{npar}={n_reg * npar})."
         )
-    # ``core=True`` draws the family's BULK body without structural self-zeroing (gated_ZINBcore:
-    # the bare NB core of a zinb, π dropped — an EXTERNAL gate supplies the zeros). Default = the
-    # family's own ``sample`` (self-zeroed for zinb, plain NB for nb — unchanged, byte-identical).
-    draw = family.sample_core if core else family.sample
-    out = np.zeros((t, h, w, n_reg, k), dtype=np.float32)
+    draw = family.sample  # the family's own sample (self-zeroed for zinb, plain NB for nb)
+    out = torch.zeros((t, h, w, n_reg, k), dtype=torch.float32)
     for j in range(n_reg):
         pj = params[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1)  # [T,H,W,n_params]
         counts = draw(pj, k, generator)  # [T,H,W,k] count space
-        out[:, :, :, j, :] = torch.log1p(counts).numpy()  # -> log1p (emit) space
-    return out
+        out[:, :, :, j, :] = torch.log1p(counts)  # -> log1p (emit) space
+    # ADR-069 (#183): compose the sample cube with the gate at emit time. self_zeroed =>
+    # passthrough (byte-identical); soft_gate / threshold_gate mask the log1p draws.
+    if composition != "self_zeroed":
+        if gate is None:
+            raise ValueError(
+                f"to_cube_samples: composition '{composition}' needs a gate, got None."
+            )
+        # first n_reg channels of the gate -> [T,H,W,n_reg]
+        gate_t = torch.as_tensor(np.asarray(gate), dtype=torch.float32)[..., :n_reg]
+        out = compose_samples(out, gate_t, composition, threshold, generator)
+    return out.numpy()
