@@ -39,8 +39,12 @@ Investigation (3 read-only agents, file:line in `02_design`) confirmed the user'
 
 ## Document index
 - `02_design` — the head/loss/sampler/config design + the verified ground-truth (file:line).
-- `05_analysis_plan` — LOCKED pre-registration of M1 (all-cell NB vs the foundation).
+- `05_analysis_plan` — LOCKED pre-registration of M1 (all-cell NB vs the foundation); + PRE-DATA
+  amendment pre-registering the composition arms (ZINB / gated_NB / th_gated_NB / gated_ZINBcore).
 - `07_experiment_log` — append-only; negatives first-class.
+- `observation_flat_loss_moving_internals` — WORKING HYPOTHESIS (2026-07-24): training loss plateaus
+  ~lesson 60 but μ̄/π keep moving; candidate causes (zero-dominated loss; μ/π ridge drift); how to dig
+  deeper (600–1000 lessons judged by μ̄/crps-events, watch π→1). NOT confirmed.
 
 ## Sampling design (locked, user choice 2026-07-20): D×K grid
 S = **D** MC-dropout passes (`n_posterior_samples`, epistemic) × **K** per-cell head draws

@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-07-21                           |
-| Total Concerns    | 212                                  |
-| Open Concerns     | 95                                   |
+| Total Concerns    | 213                                  |
+| Open Concerns     | 96                                   |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 117                                  |
 
@@ -1694,6 +1694,21 @@ Empirical, from the **300-lesson M1 nb** run (3 seeds, frozen ruler, T=0, N=1704
 
 ---
 
+
+### C-215: per-lesson TRAINING reg/cls loss (and grad-norm) is not persisted numerically — the loss-balance / gradient-budget of a finished run is unrecoverable post-hoc
+
+| Field | Value |
+|-------|-------|
+| ID | C-215 |
+| Tier | 4 |
+| Source | User request ("nice to know one day") + this-session loss-balance investigation (2026-07-24) |
+| Trigger | Wanting to analyze the reg-vs-cls (or per-target) training loss balance / effective gradient budget of a **past/finished** run — the numeric data isn't there to reconstruct it |
+| Location | `views_hydranet/train/training_engine.py` — `lesson_reg`/`lesson_cls` + `raw_grad_norm` (pre-clip) are computed per lesson but only feed the `biopsy_loss_curves` **PNG** (`02_training_dynamics`); the opt-in `_traj_writer` CSV (lesson_idx/raw_grad_norm/lesson_reg/lesson_cls/gate_mean) exists but is **OFF**; wandb logs only EVAL metrics |
+| Cross-refs | C-111 (MultiTaskLoss balancer / log_vars); the gate `pos_weight` findings; the "timid body" thread |
+
+We wanted to confirm whether reg/cls and per-target losses get a similar effective "step size." The frozen `MultiTaskLoss` balancer applies fixed coefficients (reg ×0.5, cls ×1.0) and `pos_weight=10` amplifies the cls BCE, so a start-of-training probe estimated **cls dominates reg ~5× in effective gradient** (targets balanced within ~2×) — consistent with the long-standing **timid body**. But this could **not** be confirmed on the real trained run: the per-lesson training reg/cls losses (and grad norms) are not logged anywhere readable (wandb = eval only; text log = tqdm-dominated; only the loss-curve PNG exists). So the reg/cls gradient-budget balance of any finished run is unrecoverable without a bespoke re-run. **Tier 4 (observability/convenience — no correctness or reliability impact).** Low-priority fix: default-on a lightweight per-lesson numeric log of reg/cls loss (+ raw grad norm, ideally per-target) — as wandb scalars or by enabling the `_traj_writer` CSV by default — so the loss-balance question is answerable post-hoc.
+
+---
 
 ## Disagreements
 
