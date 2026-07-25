@@ -165,7 +165,29 @@ recursive rollout at every h>1, the entire bloom-fix program is misdirected — 
 stop trying to tame the rollout. The direct-h baseline is cheap insurance against spending the epic on the
 wrong object.
 
-## 7. Methodological risks (register-compatible — for /register-risk)
+## 6b. Chair's resolution (binding — 2026-07-25)
+
+The panel's advice is faithful; the chair rules on two points, overriding the panel where the locked
+framework or the cost accounting says so:
+
+- **twCRPS + PIT are OUT (FAO-02 locked, previously tested negative).** The panel (Gneiting/Lerch) would add
+  twCRPS for the zero-domination guard and PIT/coverage for calibration; both are in FAO-02's **rejected**
+  set and the lab already found them unhelpful. **Ruling:** the Goodhart guard is the **crps_all /
+  crps_events / crps_none split** (affirmed) + the locked **Brier / MCR / QS99** guardrails — NO twCRPS, NO
+  PIT, NO LogScore. Per-horizon calibration is read via **MCR** (a locked guardrail), not PIT. twCRPS may
+  return ONLY after a fresh test re-establishes its usefulness. This supersedes the twCRPS/PIT wording in §4
+  (Gneiting/LeCun) and revises **C-c** and **C-d** below.
+- **Direct-h is NOT a cheap Phase-2 baseline — it's a parked architectural alternative.** Cost accounting:
+  recursive = 1 model, 36 sequential inference passes, accumulates error; "direct = 36 models" = **36×
+  training** (the chair's original, correct reason to choose recursive); "direct = 1 multi-horizon decoder"
+  = ~1× training, 1 inference pass, no accumulation — but a real HydraNet architecture change, not a
+  baseline. **Ruling:** the recursive rollout was the right pragmatic start. The scientific question Hyndman
+  raises (is error-accumulation the problem?) is **already answered by the free−oracle exposure-bias gap** —
+  a large gap *is* the accumulation cost. So we do NOT build a direct baseline now; direct-multi-horizon is
+  **parked as an alternative that a large oracle gap would motivate.** This revises **C-g** to Tier 4 (a
+  deferred architectural option, not a missing baseline). Hyndman's dissent stays *live* but *deferred*.
+
+## 7. Methodological risks (register-compatible — for /register-risk) — as revised by §6b
 
 - **C-a (Tier 2)** — *Partition leakage in the rollout origin set.* Trigger: pre-registering/​scoring the
   free-running curve before confirming origins are validation-side. Location: `02_design §2`, `03 §C-G4`.
@@ -176,17 +198,23 @@ wrong object.
   correct ancestral rollout (Salinas2020); its bloom is partly method artifact. Relabel; gate the skill
   verdict on the ancestral arm.
 - **C-c (Tier 2)** — *crps-all Goodhart on the 99.7%-zero DGP.* Trigger: using crps-all as the headline
-  skill scalar. Location: `02_design §2 metrics`. Narrative: zero-domination lets a timid conservative-zero
-  rollout outscore an honestly-diffuse ensemble (Lerch2017). Headline must be twCRPS + calibration.
+  skill scalar / reporting a single crps-all number as "skill." Location: `02_design §2 metrics`. Narrative:
+  zero-domination lets a timid conservative-zero rollout outscore an honestly-diffuse ensemble (Lerch2017).
+  Guard = the **crps_all/events/none split** + locked **Brier/MCR/QS99** guardrails read per horizon (NOT
+  twCRPS/PIT — FAO-02 rejected, chair-ruled §6b). Never headline crps-all alone.
 - **C-d (Tier 3)** — *Ensemble-vs-mean scoring guard missing.* Trigger: the scorer consuming `E[y]` instead
   of the D×K cube. Location: G1 loader. Narrative: proper scoring requires the sample object; add a guard
-  test (Gneiting2007).
+  test (Gneiting2007). (Calibration read via MCR, not PIT — §6b.)
 - **C-e (Tier 3)** — *Small, temporally-autocorrelated origin set → overconfident CIs.* Trigger: any
   significance/KEEP claim with iid-cell bootstrap. Location: `02_design DQ2`. Narrative: |O|≈12 overlapping
   futures; use block bootstrap over origins.
 - **C-f (Tier 3)** — *free−oracle gap mislabeled as pure exposure bias.* Trigger: attributing the whole gap
   to the fed-back value. Location: `02_design §3`. Narrative: gap = input-exposure-bias ⊕ state-drift
   (Hochreiter); relabel oracle "one-step-conditioned ceiling"; cite the inert freeze_h result.
-- **C-g (Tier 3)** — *Missing recursive-vs-direct baseline.* Trigger: committing to fix the rollout without
-  testing a direct-h forecast. Location: `02_design §2 baselines`. Narrative: direct-h may beat recursive at
-  all h (Makridakis2020); without it the bloom-fix program may target the wrong object.
+- **C-g (Tier 4, deferred)** — *Recursive rollout may not be the optimal product (direct-multi-horizon
+  alternative).* Trigger: a LARGE, growing free−oracle exposure-bias gap that persists after the
+  sample-feedback fix — i.e. accumulation is intrinsic to recursion. Location: `02_design §6 / 02b §6b`.
+  Narrative: recursive was the right pragmatic start (1 model, 36× cheaper training than 36-model direct,
+  horizon-flexible). A single multi-horizon decoder avoids accumulation at ~1× training / 1 inference pass
+  but is an architecture change, not a baseline. The oracle gap already diagnoses whether accumulation is
+  the problem; this option is parked until that gap motivates it. (Makridakis2020.)

@@ -21,21 +21,35 @@ For a fixed origin set `O` (G4) and the frozen truth parquet, for each target �
 horizon `h = 1..36`, score three+ **rollout variants** and two **baselines** on identical (origin,cell)
 support, with the frozen lodestar functions:
 
-**Rollout variants** (same trained artifact; differ only in what is fed back):
-- **free-running** — feed back the emitted prediction (today's deployed behavior; the bloom driver). *Data
-  already on disk.*
-- **teacher-forced-oracle** — feed back the realized `truth[o+t]` each step. Upper bound on rollout skill
-  given the features; measures the predictability ceiling. *Needs G2 + a small re-run.*
-- **(later) fix-variants** — sample-feedback (H-SAMPLE), τ-gated, GTF — each scored the same way, once the
-  ruler exists. These are the *experiments*; the ruler is the *instrument*.
+**Rollout variants** (same trained artifact; differ only in what is fed back). *Revised per method-review
+§6b — the on-disk mean-feedback rollout is NOT the deployed object:*
+- **current mean-feedback** — feed back the emit-mean (today's on-disk behavior; the bloom driver). *Data
+  already on disk (GPU-free).* Scored as a **diagnostic of current behavior**, honestly labeled — **NOT
+  "deployed skill"** (a probabilistic model rolled out by feeding back its mean is broken by construction;
+  Salinas2020).
+- **ancestral (sample-feedback)** — feed back a per-cell family sample each step (the H-SAMPLE probe). **This
+  is the true deployed object** and the arm the *skill verdict* is gated on. *Needs the sample-feedback
+  re-run (small GPU).*
+- **teacher-forced one-step-conditioned ceiling** — feed back the realized `truth[o+t]` each step. Upper
+  bound on rollout skill *given the trained one-step map* (relabeled from "predictability ceiling" per §6b:
+  if the one-step map is biased, the oracle inherits it). *Needs G2 + a small re-run.*
+- **(later) fix-variants** — τ-gated, GTF — scored the same way once the ruler exists. Experiments, not the
+  instrument.
 
 **Baselines** (per horizon, same support):
 - **climatology** (white_ranger) — per-cell historical distribution; horizon-independent (flat in h); the
   hard-to-beat long-horizon reference.
 - **persistence** — `truth[o]` held for all h; trivial, strong at short h.
 
-**Metrics per (variant, target, h):** crps-all / crps-events / crps-none (magnitude), size-ratio
-(magnitude calibration), AP + Brier (occurrence). Same definitions as the frozen ruler — indexed by h.
+**Metrics per (variant, target, h):** the frozen-ruler set, indexed by h — **crps_all / crps_events /
+crps_none** (the split is the Goodhart guard: on a 99.7%-zero DGP, crps_all alone lets a timid
+conservative-zero rollout look skillful, so crps_all is NEVER the headline — it is read with the
+events/none split), **size-ratio** (magnitude calibration), **AP + Brier** (occurrence), **MCR** and
+**QS99** (the locked FAO-02 calibration/tail guardrails). **NO twCRPS, NO PIT, NO LogScore** — FAO-02
+rejected them and the lab tested them negative; they return only if a fresh test re-earns them. Per-horizon
+calibration is read via **MCR**, not PIT. CRPSS (= 1 − crps/crps_clim) is computed **only** for the
+crossover visualization (horizon-comparability), never optimized on and never a decision metric — raw CRPS
++ the split drive decisions. (Method-review §6b chair ruling, 2026-07-25.)
 
 ## 3. The two read-outs (what we actually plot / decide on)
 
@@ -72,17 +86,25 @@ support, with the frozen lodestar functions:
 - Not a rollout *fix*. It is the *instrument* that lets a fix be judged on skill. The fixes
   (sample-feedback, τ, GTF, spectral-norm) come after, each pre-registered against this ruler.
 
-## 6. Open design questions for the method-review (flagged, not settled)
+## 6. Open design questions — RESOLVED by the method-review (`02b`, 2026-07-25)
 
-- **DQ1 — is per-horizon crps-all the right skill scalar,** or should the headline be a proper *skill
-  score* (e.g. CRPSS = 1 − crps_model/crps_climatology) so "beats climatology" is a single sign-test per h?
-  (Leaning: report both — crps-all for continuity with the lodestar, CRPSS for the crossover.)
-- **DQ2 — origin-set size vs horizon reach.** A 36-month future window shrinks `O` to the earliest calib
-  origins. Is `|O|` large enough for a stable per-cell crps mean at h=36, or do we accept widening CIs with
-  h (and report them)? (Leaning: accept + plot bootstrap CIs; the crossover is robust even if h=36 is
-  noisy.)
-- **DQ3 — is teacher-forced-per-step the right ceiling,** or a weaker "feed back the emit-mean of a
-  truth-conditioned step"? (Leaning: realized-truth feedback is the cleanest, most interpretable ceiling.)
-- **DQ4 — climatology adequacy.** white_ranger is per-cell resample; is it the right long-horizon
-  reference, or do we also need the mixture baseline (red/green/yellow_ranger) at horizon? (Leaning: add
-  the mixture baseline; it is the stronger reference and already exists.)
+- **DQ1 — skill scalar. RESOLVED:** headline = the **crps_all/events/none split** + locked **Brier/MCR/QS99**
+  (no twCRPS/PIT — FAO-02 rejected, chair-ruled §6b); **CRPSS only for the crossover plot**, never a
+  decision metric. (See §2 metrics.)
+- **DQ2 — origin-set size. RESOLVED:** accept widening CIs with h, but compute them with a **block bootstrap
+  over origins** (|O|≈12 with overlapping 36-month futures ⇒ severe temporal autocorrelation; iid-cell CIs
+  are fiction). No significance/KEEP claim without the block bootstrap.
+- **DQ3 — the ceiling. RESOLVED:** keep teacher-forced realized-truth feedback, but **relabel it
+  "one-step-conditioned ceiling"** and interpret `gap(h)` as **input-exposure-bias ⊕ induced state-drift**
+  (the ConvLSTM `h_t` diverges too; cite the inert `freeze_h` result as evidence the input path dominates,
+  so the gap is still interpretable). Not pure exposure bias.
+- **DQ4 — baselines. RESOLVED:** add the **mixture baseline** (red/green/yellow_ranger) alongside
+  white_ranger + persistence — score against the *strongest* reference (Bracher2021 hub ethos), not a
+  strawman. **Direct-multi-horizon is NOT a baseline** — parked as an architectural alternative that a large
+  oracle gap would motivate (§6b; the gap already diagnoses recursion's error-accumulation cost).
+
+## 7. Blocker to clear BEFORE pre-registration
+
+- **Partition discipline (method-review C-a).** The 36-future origins sit at the early edge of calibration.
+  **Verify they are on the validation side of the train boundary (FAO-02 / Hegre2019)** before any skill
+  number is trusted — else the read is optimistic/in-sample. This gates Phase 0.

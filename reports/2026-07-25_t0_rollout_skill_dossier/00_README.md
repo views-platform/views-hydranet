@@ -51,12 +51,18 @@ months). **The free-running skill curve costs ZERO GPU** — it is a re-score of
 ## 5. Current state & next actions
 
 - [x] Dossier scaffolded; harness audited; design drafted.
-- [ ] **NEXT: expert-method-review of `02_design`** (is per-horizon crps-all the right skill metric? is the
-      free-running-vs-oracle gap a valid exposure-bias decomposition? baseline adequacy? — before pre-reg).
-- [ ] Then `preregister` (`05`): predictions + falsifiers for the first read (free-running skill curve of
-      the nb foundation + the 3 composition arms, GPU-free).
-- [ ] Build G1 (loader, TDD, h=1==lodestar) → run the free-running curve → *that is the first result*.
-- [ ] Build G2 (oracle flag) → the bloom-cost decomposition (the bug-vs-ceiling verdict).
+- [x] **expert-method-review done** (`02b`): 6-seat panel, DQ1–DQ4 resolved, chair rulings §6b (twCRPS/PIT
+      OUT — FAO-02; direct-h parked, not a baseline), Salinas reframe (mean-feedback ≠ deployed skill),
+      7 register risks C-a..C-g. Design revised (`02` §2/§6/§7).
+- [ ] **NEXT: register the 7 risks** (`register-risk`) → then the pre-flight blocker below.
+- [ ] **BLOCKER (C-a): verify the 36-future origin set is validation-side** (not in-sample) before any
+      skill number is trusted.
+- [ ] `preregister` (`05`): predictions + falsifiers; metrics = crps_all/events/none + Brier/MCR/QS99 (NO
+      twCRPS/PIT); CIs = block bootstrap over origins.
+- [ ] Build G1 (loader, TDD, h=1==lodestar) → Phase 2 *current-behavior* diagnostic (GPU-free) + baselines
+      (climatology + mixture + persistence).
+- [ ] Phase 2b ancestral (sample-feedback) rollout = the **deployed skill verdict**; Phase 3 oracle =
+      bug-vs-ceiling gap.
 
 ## 6. Conventions
 

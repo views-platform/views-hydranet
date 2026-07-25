@@ -4,10 +4,14 @@
 is cheap and comes *before* any re-inference. The expensive oracle re-run is gated on that first result
 motivating it.
 
-## Phase 0 — method-review + pre-register (no code)
-- `expert-method-review` of `02_design` (DQ1–DQ4). → then `preregister` `05_analysis_plan`: predictions +
-  falsifiers for Phase 2's free-running curve, *before looking*.
-- **Gate:** `05` locked.
+## Phase 0 — method-review + partition-verify + pre-register (no experiments)
+- [x] `expert-method-review` of `02_design` (→ `02b`; DQ1–DQ4 resolved, 7 risks, chair rulings §6b).
+- [ ] **BLOCKER — verify partition discipline** (method-review C-a): confirm the 36-future origin set is on
+  the validation side of the train boundary (FAO-02 / Hegre2019). If in-sample, re-pick origins. *No skill
+  number is trusted until this is green.*
+- [ ] `preregister` `05_analysis_plan`: predictions + falsifiers for Phase 2, *before looking*. Metrics =
+  crps_all/events/none split + Brier/MCR/QS99 (no twCRPS/PIT); CIs = block bootstrap over origins.
+- **Gate:** partition verified + `05` locked.
 
 ## Phase 1 — G1 loader + G4 origin set (pure Python, TDD) — the instrument
 - Build `gather_all_horizons` (index by h = month − origin) + the identical-support origin set.
@@ -16,14 +20,22 @@ motivating it.
 - Reuse `crps_ensemble`/AP/Brier verbatim; wrap in a `rollout_skill_score.py` tool.
 - **Gate:** pre-flight checklist §D green (minus the oracle-only rows).
 
-## Phase 2 — the free-running skill curve (GPU-FREE) — the first result
-- Re-score the existing lodestar/eval `origin_*` dirs (nb foundation + the 3 composition arms) at all h.
-- Add climatology (reuse white_ranger) + persistence baselines (G3) on the same support.
-- **Read-out:** skill-vs-horizon per target; locate crossover h_x (free-running vs climatology/mixture).
-- **Log** (`07`) vs the Phase-0 falsifiers. This answers Q1 (depth) with zero new compute.
-- **Multi-seed:** run across seeds 42/43/44 for any KEEP claim; single-seed = INDICATIVE.
-- **Gate/decision:** does free-running beat climatology anywhere (h_x > 1)? If never (h_x = 1), the
-  deployed rollout has no skill past T=0 — a decisive, publishable negative that reframes the whole epic.
+## Phase 2 — the current-behavior diagnostic (GPU-FREE) + baselines
+- Re-score the existing `origin_*` dirs (nb foundation + 3 arms) at all h — the **current mean-feedback**
+  rollout, **honestly labeled a diagnostic of today's behavior, NOT deployed skill** (method-review §6b).
+- Add baselines on the same support (G3): climatology (white_ranger) + **mixture (red/green/yellow_ranger)**
+  + persistence. Score against the *strongest* reference.
+- **Read-out:** current-behavior crps-split vs horizon vs the baselines; where the mean-feedback rollout
+  crosses the baselines. Answers "how bad is today's rollout" with zero compute — but this is the *broken*
+  rollout, so it does NOT settle deployed skill.
+- **Multi-seed** 42/43/44 for any KEEP claim; single-seed = INDICATIVE; CIs = block bootstrap over origins.
+
+## Phase 2b — the ancestral (sample-feedback) rollout — the DEPLOYED skill verdict
+- The H-SAMPLE re-run (feed back a family sample each step). **This is the true deployed object**; the skill
+  crossover h_x is read here, not from Phase 2.
+- Small GPU (inference-only, no retrain). Same scoring as Phase 2.
+- **Gate/decision:** does the ancestral rollout beat the strongest baseline anywhere (h_x > 1)? If never,
+  the deployed rollout has no skill past T=0 — a decisive negative that reframes the epic.
 
 ## Phase 3 — G2 teacher-forced oracle (small GPU re-run) — bug vs ceiling
 - Implement the `rollout_feedback` flag (default `predicted`; `teacher_forced` = realized-truth feedback),

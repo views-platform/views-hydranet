@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-07-25                           |
-| Total Concerns    | 214                                  |
-| Open Concerns     | 97                                   |
+| Total Concerns    | 221                                  |
+| Open Concerns     | 104                                  |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 117                                  |
 
@@ -1722,6 +1722,115 @@ We wanted to confirm whether reg/cls and per-target losses get a similar effecti
 | Cross-refs | C-113 (the bloom / autoregressive feedback); `plan_bloom_fix_sparse_feedback.md` §NEXT; `bloom_investigation.md` |
 
 Setting `feedback_clamp_log1p=[7,7,7]` on a `threshold_gate` nb eval produced a **byte-identical** rollout trajectory to no clamp (τ=0.5+clamp7 == τ=0.5, count/cell @T=35 = 6486.5 in both) — the clamp had **zero effect** even though the fed-back magnitude exceeded the ceiling (log1p 8.78 > 7). The rail either isn't wired into the family eval rollout, isn't consumed for `output_distribution` families, or the injected config value never reached `_parse_feedback_clamp`. **Cause NOT diagnosed** (est. ~15-min check: confirm the field is parsed on the eval path AND `_clamp_feedback` is actually called in the family rollout loop). **Tier 3:** no wrong *scored* output today (we score T=0; the clamp only touches the T>0 feedback we don't score), but **a safety rail that silently does nothing is a latent hazard** — a future bloom-mitigation or an operational forecast that trusts the clamp would be unprotected with no error signal, and it already **misled a rung-2 result** (we recorded "clamp doesn't help" when the truer statement may be "clamp wasn't applied"). Fix: verify the wiring; add a test that the clamp measurably bounds the feedback; if it is intentionally train-only, document that and fail-loud when it is set on an eval-only run.
+
+---
+
+### C-217: rollout-skill origins may leak across the train/validation boundary — every T>0 skill number would be optimistic
+
+| Field | Value |
+|-------|-------|
+| ID | C-217 |
+| Tier | 2 |
+| Source | expert-method-review (T>0 rollout skill ruler, 2026-07-25) — operational seat |
+| Trigger | Pre-registering or scoring the T>0 rollout-skill curve (free-running or ancestral) before confirming the 36-future origin set is on the validation side of the train boundary |
+| Location | `reports/2026-07-25_t0_rollout_skill_dossier/02_design.md` §7; `03_harness_and_invariants.md` §C-G4 |
+| Cross-refs | FAO-02 locked eval (validation partition, `reference_fao02_locked_eval_framework.md`); the frozen lodestar ruler; C-112 (attribution hygiene) |
+
+The T>0 ruler needs origins with a full 36-month realized future. These sit at the **early edge of the calibration partition** (origin + 36 ≤ max truth month), which is precisely where a train/validation boundary can be crossed. If any of those origins/months were seen in training, **every** rollout-skill number is optimistic and the ruler — which gates the whole bloom epic — is untrustworthy. **BLOCKER before pre-registration:** verify the origin set against the FAO-02 train/validation boundary (Hegre2019 partition discipline); if in-sample, re-pick origins from the validation side even at the cost of fewer/shorter-horizon origins. Tier 2: a structural read-validity fragility with a clear, imminent trigger (the first scored read).
+
+---
+
+### C-218: scoring the on-disk MEAN-feedback rollout as "deployed rollout skill" measures a broken-by-construction object
+
+| Field | Value |
+|-------|-------|
+| ID | C-218 |
+| Tier | 2 |
+| Source | expert-method-review (T>0 rollout skill ruler, 2026-07-25) — Salinas seat |
+| Trigger | Reporting the GPU-free re-score of the existing `origin_*` dirs as the model's *deployed* rollout skill, rather than as a diagnostic of current behavior |
+| Location | `reports/2026-07-25_t0_rollout_skill_dossier/04_roadmap.md` Phase 2; `02_design.md` §2 |
+| Cross-refs | C-113 (the bloom); C-136 (rollout-confounded verdicts); C-126 (point-stability ≠ calibration); `plan_bloom_fix_sparse_feedback.md` §NEXT (H-SAMPLE) |
+| Related work | Salinas2020 (DeepAR ancestral sampling) |
+
+The rollout persisted on disk feeds back the **emit-mean**, which is not how a probabilistic recursive model is rolled out — DeepAR (Salinas2020) feeds back **ancestral samples**. The mean-feedback rollout is therefore **broken by construction**, and its bloom is partly a method artifact rather than a property of the model. Scoring it and labeling the result "deployed rollout skill" measures a strawman. The **deployed object is the ancestral (sample-feedback) rollout**; the skill verdict must be gated on that arm (dossier Phase 2b), with the GPU-free mean-feedback read explicitly labeled a *diagnostic of current behavior*. Tier 2: mislabeling here would send a corrupted "the rollout has/lacks skill" conclusion into every downstream fix decision (the exact corrupted-knowledge failure mode this epic exists to avoid).
+
+---
+
+### C-219: crps_all as a headline skill scalar is Goodhart-prone on the 99.7%-zero DGP — rewards timid-but-stable over honest-uncertainty
+
+| Field | Value |
+|-------|-------|
+| ID | C-219 |
+| Tier | 2 |
+| Source | expert-method-review (T>0 rollout skill ruler, 2026-07-25) — Gneiting/LeCun seats |
+| Trigger | Reporting a single `crps_all` number per horizon as "skill", or ranking rollout variants on `crps_all` alone |
+| Location | `reports/2026-07-25_t0_rollout_skill_dossier/02_design.md` §2 (metrics) |
+| Cross-refs | C-211 (count-only self-zeroed underselling — crps-none/gate independence); the frozen lodestar crps-split; FAO-02 (twCRPS/PIT rejected); C-126 |
+| Related work | Lerch2017 (Forecaster's Dilemma) |
+
+On a ~99.7%-zero DGP, `crps_all` is dominated by the true-zero cells, so a **timid conservative-zero rollout** (e.g. τ≥0.8) can outscore an honestly-diffuse ensemble purely by being confidently zero — penalizing honest uncertainty (Lerch2017). **Guard (chair-ruled §6b):** the headline is the **`crps_all` / `crps_events` / `crps_none` split** + the locked FAO-02 **Brier / MCR / QS99** guardrails, read per horizon; `crps_all` is never reported alone. **NOT twCRPS and NOT PIT** — both are FAO-02-rejected and lab-tested-negative; they may return only after a fresh test re-earns them. CRPSS is computed only for the crossover visualization, never a decision metric. Tier 2: a metric-validity fragility that would silently certify the timid-but-stable rollout (τ) as "skillful" — the precise trap that motivates the ruler.
+
+---
+
+### C-220: the per-horizon scorer must consume the D×K sample cube, not the emit-mean
+
+| Field | Value |
+|-------|-------|
+| ID | C-220 |
+| Tier | 3 |
+| Source | expert-method-review (T>0 rollout skill ruler, 2026-07-25) — Gneiting seat |
+| Trigger | The new `gather_all_horizons` loader / `rollout_skill_score.py` consuming `E[y]` instead of the per-cell D×K sample cube |
+| Location | `reports/2026-07-25_t0_rollout_skill_dossier/` G1 loader (`rollout_skill_score.py`, to be built) |
+| Cross-refs | C-219 (the metric-validity cluster); the frozen lodestar `crps_ensemble` |
+| Related work | Gneiting2007 (strictly proper scoring) |
+
+CRPS is strictly proper only when applied to the **predictive distribution** (the emitted D×K sample cube), not a point mean. If the per-horizon loader accidentally scores `E[y]`, the "CRPS" is a disguised absolute error that mis-credits sharpness/calibration. **Guard:** a unit test asserting the scored object is the sample cube; per-horizon calibration read via **MCR** (a locked guardrail), not PIT. Tier 3: a build-time correctness guard for a not-yet-written tool; caught cheaply by the test, but silent if omitted.
+
+---
+
+### C-221: |O|≈12 temporally-autocorrelated origins → iid-over-cells bootstrap CIs are wildly overconfident
+
+| Field | Value |
+|-------|-------|
+| ID | C-221 |
+| Tier | 3 |
+| Source | expert-method-review (T>0 rollout skill ruler, 2026-07-25) — Hyndman seat |
+| Trigger | Computing any significance / KEEP claim on the rollout-skill curve with an iid-over-cells bootstrap |
+| Location | `reports/2026-07-25_t0_rollout_skill_dossier/02_design.md` §6 (DQ2) |
+| Cross-refs | C-112 (attribution hygiene / multi-seed); C-217 (same origin set) |
+
+The 36-month-future window shrinks the origin set to ≈12 origins whose futures **overlap**, so the effective sample size is far below `12 × N_cells`. An iid-over-cells bootstrap ignores the temporal (and spatial) autocorrelation and yields absurdly tight CIs — a false-precision hazard for the crossover-horizon claim. **Fix:** compute CIs with a **block bootstrap over origins**; report widening CIs with horizon honestly. Tier 3: methodological, no silent output corruption, but would manufacture spurious significance.
+
+---
+
+### C-222: the free−oracle gap is not pure exposure bias — it is confounded by induced hidden-state drift
+
+| Field | Value |
+|-------|-------|
+| ID | C-222 |
+| Tier | 3 |
+| Source | expert-method-review (T>0 rollout skill ruler, 2026-07-25) — Hochreiter seat |
+| Trigger | Attributing the entire `crps_free(h) − crps_oracle(h)` gap to the fed-back value, or calling it "the bloom's cost" without hedging |
+| Location | `reports/2026-07-25_t0_rollout_skill_dossier/02_design.md` §3 |
+| Cross-refs | C-113 (the runaway; the `freeze_h` ablation showed the state path is inert vs the runaway) |
+
+Free-running and teacher-forced-oracle differ in the fed-back **input**, but the ConvLSTM hidden state `h_t` evolves from that input every step — so the gap = **input-exposure-bias ⊕ the induced hidden-state trajectory**, not cleanly "the fed-back value." **Fix:** relabel the oracle a *one-step-conditioned ceiling* (not "predictability ceiling"), and interpret the gap with the hedge; cite the retired-but-inert `freeze_h` result (C-113) as evidence the input path dominates, so the gap remains interpretable but not pure. Tier 3: an interpretation/labeling risk that would over-claim a clean exposure-bias decomposition.
+
+---
+
+### C-223: `[DEFERRED]` recursive rollout may not be the optimal product — direct-multi-horizon is a parked architectural alternative
+
+| Field | Value |
+|-------|-------|
+| ID | C-223 |
+| Tier | 4 |
+| Source | expert-method-review (T>0 rollout skill ruler, 2026-07-25) — Hyndman seat (strongest live dissent, deferred) |
+| Trigger | A large, growing free−oracle exposure-bias gap that PERSISTS after the sample-feedback fix (accumulation intrinsic to recursion) |
+| Location | `reports/2026-07-25_t0_rollout_skill_dossier/02_design.md` §6; `02b_method_review.md` §6b |
+| Cross-refs | C-125/C-126 (rollout-training premises); C-222 (the gap that would trigger this) |
+| Related work | Makridakis2020 (M4 — recursive vs direct) |
+
+Recursive rollout accumulates error by construction (the bloom is that pathology). Recursive was the **right pragmatic start** (1 model, ~36× cheaper training than a 36-separate-model direct scheme, horizon-flexible). A **single multi-horizon decoder** avoids accumulation at ~1× training / 1 inference pass but is a real HydraNet **architecture change, not a baseline**. The oracle gap (C-222) already diagnoses whether accumulation is the problem, so no direct baseline is built now; this option is **parked** until that gap motivates it. Tier 4 (deferred architectural option — no current correctness impact); promote if the post-fix oracle gap says recursion is intrinsically capped.
 
 ---
 
