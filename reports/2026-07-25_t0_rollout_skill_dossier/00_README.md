@@ -60,9 +60,15 @@ months). **The free-running skill curve costs ZERO GPU** — it is a re-score of
       recursive-vs-direct cost is ~10%, not 36×; C-223 corrected.)
 - [x] **EXP-1 pre-registered** (`05`): P1–P5 + F1–F5; metrics = crps_all/events/none split + Brier/MCR/QS99
       (NO twCRPS/PIT); CIs = block bootstrap over origins. *Awaiting user sign-off before build.*
-- [ ] **NEXT: build G1** (loader, TDD, h=1==lodestar byte-exact = F1) → run EXP-1 (GPU-free current-behavior
-      diagnostic + climatology/mixture/persistence baselines).
-- [ ] EXP-2 ancestral (sample-feedback) = the **deployed skill verdict**; EXP-3 oracle = bug-vs-ceiling gap.
+- [x] **G1 built + EXP-1 run** (`tools/rollout_skill_score.py`, `results/exp1_skill.csv`, log in `07`).
+      F1 faithfulness PASS (h=1 byte-exact to lodestar). **Finding:** STABILITY≠SKILL confirmed with numbers
+      — nb "beats climatology on crps_all" is the C-219 timid-zero Goodhart trap (crps_events ~14,
+      size_ratio 0, real occurrence/AP skill only to ~h15); zinb blooms (crps_none 0.02→4.6). Diagnostic of
+      the BROKEN mean-feedback object (C-218), not deployed skill.
+- [ ] **NEXT: EXP-2** = ancestral (sample-feedback) rollout = the **deployed skill verdict** (H-SAMPLE
+      re-run, small GPU). Then EXP-3 oracle = bug-vs-ceiling gap.
+- [ ] Follow-ups (noted, not dropped): mixture baseline (`lr_ged_*`), 3-seed + block-bootstrap CIs, the
+      τ≥0.8 *feedback* rollout (proper F3 test).
 
 ## 6. Conventions
 
