@@ -1,5 +1,9 @@
 # Bloom investigation — the T>0 autoregressive runaway (C-113)
 
+> **PROMOTED 2026-07-25 → `reports/2026-07-25_t0_rollout_skill_dossier/`.** The bloom is now its own epic.
+> This doc is retained as prior art (the STABILITY≠SKILL confession + the τ measurements); new bloom work,
+> the T>0 skill ruler, and the sample-feedback probe live in that dossier.
+
 **Dates:** 2026-07-24 → 2026-07-25 · **Status:** ACTIVE, first pass done, NOT closed.
 **Scope of every measurement below:** calibration partition, eval-only re-inference of already-trained
 nb/zinb artifacts (NO retrain), stealth floor-config trap-restore (md5 verified before+after each run).

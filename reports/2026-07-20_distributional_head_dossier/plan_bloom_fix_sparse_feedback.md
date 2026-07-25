@@ -1,5 +1,10 @@
 # Forward plan: the t=1…t=36 bloom — the sparse-feedback fix ladder
 
+> **PROMOTED 2026-07-25 → `reports/2026-07-25_t0_rollout_skill_dossier/`.** Prior art. The fix ladder + the
+> H-SAMPLE probe are absorbed there; per the ruler-first decision, the T>0 skill ruler is built BEFORE any
+> fix is scored (a fix judged only on boundedness = the corrupted-probe trap). §NEXT (H-SAMPLE) becomes a
+> Phase-4 experiment, scored on the new ruler.
+
 **Status (updated 2026-07-25):** FIRST PASS RUN — rungs 1–2 probed inference-only. **Findings + full
 epistemic caveats: `bloom_investigation.md` (read that first).** Short version: sparsity IS the lever
 (confirmed); τ≥0.8 threshold feedback keeps the 36-step rollout bounded (3 seeds) AND beats the foundation
