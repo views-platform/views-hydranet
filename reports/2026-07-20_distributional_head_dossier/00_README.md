@@ -43,8 +43,12 @@ Investigation (3 read-only agents, file:line in `02_design`) confirmed the user'
   amendment pre-registering the composition arms (ZINB / gated_NB / th_gated_NB / gated_ZINBcore).
 - `07_experiment_log` — append-only; negatives first-class. Composition arms logged 2026-07-24: ZINB
   (crps-all front-runner), gated_NB (AP front-runner), **gated_ZINBcore FALSIFIED**.
-- `postmortem_gated_zinbcore` — the falsified fusion arm: ZINB's π-stripped core × external gate blows up
-  crps-all 5–15× (crps-none dominated). Confirms π+core are a **non-substitutable coupled object**.
+- `postmortem_gated_zinbcore` — ~~falsified~~ **KILL REVERSED (2026-07-25)**: the 5–15× blow-up was a
+  score-time-ungated artifact; measured at emit-time gated_ZINBcore = 0.152 sb (a viable arm, weakest
+  cluster by a hair). Corrupted-knowledge scar — a low-fidelity probe converted "weakest" into "dead".
+- `story_zinb_core_gateable_body` — SCOPED next story (eval-only, no retrain): wire `zinb-core` (π-stripped
+  large body) as a legal gateable body so gated_ZINBcore + th_gated_ZINBcore become honest 3-seed arms;
+  pre-committed kill = **ensemble payoff (F2)**, not standalone crps. Precedes the bloom epic.
 - `open_threads_parked` — durable holding list of consciously-deferred balls (M3/validation, heavy-tail,
   os, π-ridge, ensemble design, **the bloom**), each tagged when we return to it. NOT decisions.
 - `observation_flat_loss_moving_internals` — WORKING HYPOTHESIS (2026-07-24): training loss plateaus
