@@ -34,7 +34,7 @@ corrupted knowledge on gated_ZINBcore. This ruler is the precondition for the wh
 | 02 | `02_design` | **DRAFT** — the ruler: per-horizon re-score + free-running-vs-oracle decomposition + baselines |
 | 03 | `03_harness_and_invariants` | **DONE (audit)** — ~70% already exists; gaps G1–G4 named |
 | 04 | `04_roadmap` | **DRAFT** — phased build; the free-running curve is GPU-free (phase 1) |
-| 05 | `05_analysis_plan` | not yet — `preregister` verb, AFTER an expert-method-review of `02` |
+| 05 | `05_analysis_plan` | **PRE-REGISTERED (EXP-1)** — current-behavior rollout-skill curve, GPU-free; P1–P5 + F1–F5 locked |
 | 06 | `06_glossary` | scaffold — new terms (horizon-h, free-running, teacher-forced-oracle, skill-crossover, bloom-cost gap) |
 | 07 | `07_experiment_log` | empty (append-only) |
 
@@ -54,15 +54,15 @@ months). **The free-running skill curve costs ZERO GPU** — it is a re-score of
 - [x] **expert-method-review done** (`02b`): 6-seat panel, DQ1–DQ4 resolved, chair rulings §6b (twCRPS/PIT
       OUT — FAO-02; direct-h parked, not a baseline), Salinas reframe (mean-feedback ≠ deployed skill),
       7 register risks C-a..C-g. Design revised (`02` §2/§6/§7).
-- [ ] **NEXT: register the 7 risks** (`register-risk`) → then the pre-flight blocker below.
-- [ ] **BLOCKER (C-a): verify the 36-future origin set is validation-side** (not in-sample) before any
-      skill number is trusted.
-- [ ] `preregister` (`05`): predictions + falsifiers; metrics = crps_all/events/none + Brier/MCR/QS99 (NO
-      twCRPS/PIT); CIs = block bootstrap over origins.
-- [ ] Build G1 (loader, TDD, h=1==lodestar) → Phase 2 *current-behavior* diagnostic (GPU-free) + baselines
-      (climatology + mixture + persistence).
-- [ ] Phase 2b ancestral (sample-feedback) rollout = the **deployed skill verdict**; Phase 3 oracle =
-      bug-vs-ceiling gap.
+- [x] Registered the 7 risks (C-217..C-223).
+- [x] **BLOCKER CLEARED (C-217):** partition verified — calibration train (121,456) / test (457,504); all
+      13 origins roll 36 steps inside the held-out 457–504 window. No leakage. (Also fixed H≈335 ⇒ the
+      recursive-vs-direct cost is ~10%, not 36×; C-223 corrected.)
+- [x] **EXP-1 pre-registered** (`05`): P1–P5 + F1–F5; metrics = crps_all/events/none split + Brier/MCR/QS99
+      (NO twCRPS/PIT); CIs = block bootstrap over origins. *Awaiting user sign-off before build.*
+- [ ] **NEXT: build G1** (loader, TDD, h=1==lodestar byte-exact = F1) → run EXP-1 (GPU-free current-behavior
+      diagnostic + climatology/mixture/persistence baselines).
+- [ ] EXP-2 ancestral (sample-feedback) = the **deployed skill verdict**; EXP-3 oracle = bug-vs-ceiling gap.
 
 ## 6. Conventions
 

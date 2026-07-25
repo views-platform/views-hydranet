@@ -103,8 +103,15 @@ crossover visualization (horizon-comparability), never optimized on and never a 
   strawman. **Direct-multi-horizon is NOT a baseline** — parked as an architectural alternative that a large
   oracle gap would motivate (§6b; the gap already diagnoses recursion's error-accumulation cost).
 
-## 7. Blocker to clear BEFORE pre-registration
+## 7. Blocker — CLEARED (2026-07-25, C-217)
 
-- **Partition discipline (method-review C-a).** The 36-future origins sit at the early edge of calibration.
-  **Verify they are on the validation side of the train boundary (FAO-02 / Hegre2019)** before any skill
-  number is trusted — else the read is optimistic/in-sample. This gates Phase 0.
+**Partition discipline: verified, no leakage.** `config_partitions.py`: calibration = train **(121, 456)**,
+test **(457, 504)**. The 13 rolling origins (T=0 = 457–469) each roll 36 steps covering months 457–504 —
+**entirely inside the held-out calibration test window**; the model trained only on ≤456. Input history
+uses ≤456 (allowed); every scored horizon-truth (457–504) is held out. **No leakage.**
+- **Remaining guard (carried into `05`):** assert the re-scored artifacts are **calibration**-partition
+  trained (train 121–456), NOT validation-partition (train 121–504 — that WOULD have seen 457–504). A
+  one-line check of each artifact's `config.json` partition.
+- **Note (H≈335):** origin index for T=0=457 ≈ 456−121 = 335 (the biopsy's "origin 335") ⇒ the rollout
+  digests ~335 months of history before decoding — context for the C-223 recursive-vs-direct cost (direct
+  saves only the 35 extra decode passes ≈ ~10% of inference, not 36×).

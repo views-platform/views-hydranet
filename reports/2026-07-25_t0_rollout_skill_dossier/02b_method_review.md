@@ -177,11 +177,14 @@ framework or the cost accounting says so:
   PIT, NO LogScore. Per-horizon calibration is read via **MCR** (a locked guardrail), not PIT. twCRPS may
   return ONLY after a fresh test re-establishes its usefulness. This supersedes the twCRPS/PIT wording in §4
   (Gneiting/LeCun) and revises **C-c** and **C-d** below.
-- **Direct-h is NOT a cheap Phase-2 baseline — it's a parked architectural alternative.** Cost accounting:
-  recursive = 1 model, 36 sequential inference passes, accumulates error; "direct = 36 models" = **36×
-  training** (the chair's original, correct reason to choose recursive); "direct = 1 multi-horizon decoder"
-  = ~1× training, 1 inference pass, no accumulation — but a real HydraNet architecture change, not a
-  baseline. **Ruling:** the recursive rollout was the right pragmatic start. The scientific question Hyndman
+- **Direct-h is NOT a cheap Phase-2 baseline — it's a parked architectural alternative.** Cost accounting
+  (corrected 2026-07-25 with the measured H≈335): recursive = 1 model, 335 history-digest + 36 decode body
+  passes, accumulates error; "direct = 36 models" = **36× training** (the chair's original, correct reason
+  to choose recursive); "direct = **single-shot multi-horizon head**" (body once, 36 horizons off one
+  representation — NOT a decoder loop, which still runs 36 passes) = ~1× training and saves only the **35
+  extra decode passes ≈ ~10% of inference** here (335 digest dominates), at the cost of a real architecture
+  change and likely lower accuracy. **Ruling:** the recursive rollout was the right pragmatic start on cost
+  too (direct's inference win is marginal, not 36×). The scientific question Hyndman
   raises (is error-accumulation the problem?) is **already answered by the free−oracle exposure-bias gap** —
   a large gap *is* the accumulation cost. So we do NOT build a direct baseline now; direct-multi-horizon is
   **parked as an alternative that a large oracle gap would motivate.** This revises **C-g** to Tier 4 (a
