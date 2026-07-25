@@ -52,11 +52,15 @@ gated_NB and th_gated_NB are the SAME trained nb model, composed two ways → lo
 diversity is **nb-model vs zinb-model**. Factor this into any ensemble weighting; don't over-count
 correlated arms.
 
-## 7. The BLOOM (T>0 autoregressive runaway, C-113)  **[BEFORE-BLOOM → becomes NEXT]**
-The 36-month rollout explodes (exposure-bias feedback, input→output gain>1). Plan already drafted:
-`plan_bloom_fix_sparse_feedback.md` — frugal ladder starts with **th_gated-sparse feedback**, which the
-composition infra (item 1) directly enables. This is the intended NEXT big target once the three arms are
-real. Not forgotten — it's the destination.
+## 7. The BLOOM (T>0 autoregressive runaway, C-113)  **[ACTIVE — first pass done 2026-07-25]**
+First pass run (inference-only). **See `bloom_investigation.md` (detailed + honest epistemic table) and
+`plan_bloom_fix_sparse_feedback.md` §NEXT.** State: **sparsity IS the lever** — τ≥0.8 threshold feedback
+keeps the 36-step rollout bounded (3 seeds) and beats the foundation on T=0 crps-all; but this is a
+**conservative-point tool, NOT the solution** (⚠️ stability ≠ skill — we don't score the rollout; ZINB
+blooms too; several results single-seed; the clamp rail was inert). **NEXT = the pre-registered
+sample-feedback (ancestral) rollout** — feed back a *draw* not the mean (decalibration-proof like τ, but
+keeps the distribution). Deeper ceiling (hypothesis): the model has only conflict-history features, so
+long-horizon *skill* may be capped regardless of rollout method (features/world-model gap).
 
 ## 8. Minor / low-priority
 - **C-215** — reg/cls training loss not logged numerically post-hoc (observability, Tier 4). [LATER]

@@ -153,3 +153,21 @@ states the verdict against the pre-registered falsifiers (which fired / none), a
   @ τ=0.5 is the **strongest all-round arm** (best crps-all + AP, seed-stable) — candidate for the M3
   validation-partition graduation. Its edge is decisive occurrence, not magnitude.
 
+
+## (seed 42/43/44) 2026-07-25 — BLOOM investigation (T>0) — first pass — **see `bloom_investigation.md`**
+- Pre-reg: none formal (exploratory diagnostic; the sample-feedback probe IS pre-registered in
+  `plan_bloom_fix_sparse_feedback.md` §NEXT). Eval-only re-inference, calibration partition, stealth.
+- Variable: the AR-feedback composition (soft_gate / threshold_gate τ ∈ {0.5,0.8,0.9} / ZINB self_zeroed),
+  measuring the per-step (T=0..35) rollout magnitude + gate trajectory (13-origin mean).
+- Readout (count/cell @T=35): soft **29e9** · τ0.5 6.5e3 · **τ0.8 0.3** · **τ0.9 0.1** · ZINB **2.8e9**.
+  T=0 crps-all (3 seeds): th_gated @ τ≥0.8 **beats the foundation** on sb+ns, ties os (via crps-none
+  collapse — a decisive-zero win; crps-events slightly WORSE, AP lower).
+- Verdict: **sparsity is the lever** (confirmed 3 seeds for stability). **ZINB blooms too** — its learned
+  π decalibrates in rollout like the classifier gate; only a HARD rule (τ) held. `feedback_clamp_log1p`
+  was **inert** (byte-identical with/without — cause unknown, registered).
+- ⚠️ **Load-bearing caveats (do not drop):** (1) **STABILITY ≠ SKILL** — we do NOT score the T>0 rollout
+  vs truth; a τ=0.9 rollout is bounded partly because it predicts ~nothing. (2) bloom cases are s44-only.
+  (3) calibration partition, T=0-scored, not M3-validated. (4) "bloom is a symptom / sample-feedback is the
+  fix" is an INTERPRETATION + an UNTESTED hypothesis.
+- Decision: τ logged as a **tool, not a solution**. Next = the pre-registered **sample-feedback rollout**
+  probe (feed back a draw, not the mean). Full detail + epistemic table in `bloom_investigation.md`.

@@ -4,9 +4,9 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-07-21                           |
-| Total Concerns    | 213                                  |
-| Open Concerns     | 96                                   |
+| Last Updated      | 2026-07-25                           |
+| Total Concerns    | 214                                  |
+| Open Concerns     | 97                                   |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 117                                  |
 
@@ -1707,6 +1707,21 @@ Empirical, from the **300-lesson M1 nb** run (3 seeds, frozen ruler, T=0, N=1704
 | Cross-refs | C-111 (MultiTaskLoss balancer / log_vars); the gate `pos_weight` findings; the "timid body" thread |
 
 We wanted to confirm whether reg/cls and per-target losses get a similar effective "step size." The frozen `MultiTaskLoss` balancer applies fixed coefficients (reg ×0.5, cls ×1.0) and `pos_weight=10` amplifies the cls BCE, so a start-of-training probe estimated **cls dominates reg ~5× in effective gradient** (targets balanced within ~2×) — consistent with the long-standing **timid body**. But this could **not** be confirmed on the real trained run: the per-lesson training reg/cls losses (and grad norms) are not logged anywhere readable (wandb = eval only; text log = tqdm-dominated; only the loss-curve PNG exists). So the reg/cls gradient-budget balance of any finished run is unrecoverable without a bespoke re-run. **Tier 4 (observability/convenience — no correctness or reliability impact).** Low-priority fix: default-on a lightweight per-lesson numeric log of reg/cls loss (+ raw grad norm, ideally per-target) — as wandb scalars or by enabling the `_traj_writer` CSV by default — so the loss-balance question is answerable post-hoc.
+
+---
+
+### C-216: `feedback_clamp_log1p` (the C-113 autoregressive-feedback safety rail) had ZERO effect on the family eval rollout — a guard that silently no-ops
+
+| Field | Value |
+|-------|-------|
+| ID | C-216 |
+| Tier | 3 |
+| Source | Bloom investigation (2026-07-25), rung-2 τ/clamp sweep — `reports/2026-07-20_distributional_head_dossier/bloom_investigation.md` |
+| Trigger | Relying on `feedback_clamp_log1p` to bound the autoregressive-feedback magnitude — e.g. a future rung-2 bloom mitigation, or any run that sets it expecting the runaway to be capped |
+| Location | `views_hydranet/utils/hydranet_inference.py` — `_parse_feedback_clamp` / `_clamp_feedback` (the rail) vs the family AR-feedback path (~442/86) |
+| Cross-refs | C-113 (the bloom / autoregressive feedback); `plan_bloom_fix_sparse_feedback.md` §NEXT; `bloom_investigation.md` |
+
+Setting `feedback_clamp_log1p=[7,7,7]` on a `threshold_gate` nb eval produced a **byte-identical** rollout trajectory to no clamp (τ=0.5+clamp7 == τ=0.5, count/cell @T=35 = 6486.5 in both) — the clamp had **zero effect** even though the fed-back magnitude exceeded the ceiling (log1p 8.78 > 7). The rail either isn't wired into the family eval rollout, isn't consumed for `output_distribution` families, or the injected config value never reached `_parse_feedback_clamp`. **Cause NOT diagnosed** (est. ~15-min check: confirm the field is parsed on the eval path AND `_clamp_feedback` is actually called in the family rollout loop). **Tier 3:** no wrong *scored* output today (we score T=0; the clamp only touches the T>0 feedback we don't score), but **a safety rail that silently does nothing is a latent hazard** — a future bloom-mitigation or an operational forecast that trusts the clamp would be unprotected with no error signal, and it already **misled a rung-2 result** (we recorded "clamp doesn't help" when the truer statement may be "clamp wasn't applied"). Fix: verify the wiring; add a test that the clamp measurably bounds the feedback; if it is intentionally train-only, document that and fail-loud when it is set on an eval-only run.
 
 ---
 
