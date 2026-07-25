@@ -1,4 +1,37 @@
-# Postmortem — gated_ZINBcore (composition arm 4) — FALSIFIED
+# Postmortem — gated_ZINBcore (composition arm 4) — ~~FALSIFIED~~ **KILL REVERSED — VIABLE ARM (measured 2026-07-25)**
+
+> ## ⚠️ KILL DOWNGRADED — 2026-07-25 — this postmortem's verdict is UNRELIABLE
+> This arm was killed on a **score-time re-score**, and its core argument — *"crps-all is
+> gate-independent, so an external gate can never rescue it"* — was **later proven false** for the real
+> (emit-time) composition. In S8 (`07_experiment_log`, 2026-07-24) we showed the ruler's gate-independence
+> is a property of the *score-time re-score*, NOT of emit-time composition: composed in-model, the
+> per-draw `Bernoulli(gate)` DOES touch crps-all (that is exactly why gated_NB moved 0.159 → 0.138 — its
+> crps-none collapsed). gated_ZINBcore's killer was its crps-none (0.87); the same emit-time mechanism
+> would collapse it.
+>
+> **MEASURED 2026-07-25 (emit-time re-test, seed 44) — THE KILL WAS CORRUPT.** Faithful high-fidelity
+> probe: real ZINB-core samples (`emit_family_core=True`, temp re-wire, since reverted) × the real
+> `compose_samples` per-draw gate × the frozen lodestar ruler. The `self_zeroed` (ungated core) sanity row
+> reproduced the original kill numbers **EXACTLY** (0.9811/0.4885/0.4623 vs the banked 0.981/0.489/0.462),
+> confirming the setup is byte-faithful — so the composed rows are trustworthy:
+>
+> | target | original "kill" (score-time ungated) | **REAL emit-time gated_ZINBcore (soft_gate)** | crps-none: kill → real |
+> |---|---|---|---|
+> | sb | 0.981 | **0.152** | 0.870 → 0.030 |
+> | ns | 0.489 | **0.086** | 0.415 → 0.010 |
+> | os | 0.462 | **0.043** | 0.440 → 0.018 |
+>
+> gated_ZINBcore is **~6× better** than the number it was killed on, and a **viable arm** comparable to the
+> others (gated_NB 0.138 / ZINB 0.141 / foundation 0.137 on sb) — *the weakest of the composed arms by a
+> hair, NOT the "5–15× worse than everything, structurally dead" the probe claimed.* The per-draw gate
+> collapsed crps-none (sb 0.87→0.03) exactly as the gated_NB mechanism predicted; my analytical guess
+> (~0.14) landed at the measured 0.152. The original "structural, gate can't touch crps-all" argument
+> (below) was true only of the *score-time re-score*, not the real emit-time composition. **Methodology
+> scar** (see the 2026-07-25 corrupted-knowledge reflection): a low-fidelity probe converted "weakest by a
+> hair" into "catastrophically dead." Caveats: 1 seed (s44), T=0 calibration — this DISPROVES the kill; it
+> does not crown the arm. To make it a real 4th ensemble arm needs proper wiring (the composition axis
+> currently forbids zinb+gate by validator) + 3 seeds. The original text below is retained as the record of
+> the flawed reasoning.
 
 **Date:** 2026-07-24 · **Seed:** 44 (single-seed proof) · **Ruler:** frozen lodestar (T=0, N=170430)
 **Log entry:** `07_experiment_log.md` → "gated_ZINBcore — NEGATIVE". **Naming:** ADR-068.
@@ -72,7 +105,10 @@ win. **The coupling IS the value.** This is independent evidence for the ZINB de
 gate-plus-body decomposition.
 
 ## Consequences / decisions
-- **gated_ZINBcore: DEAD.** Not re-run, not extended to 3 seeds.
+- ~~**gated_ZINBcore: DEAD.** Not re-run, not extended to 3 seeds.~~ **SUPERSEDED by the 2026-07-25
+  measurement (banner):** emit-time gated_ZINBcore = 0.152/0.086/0.043, a viable arm, not dead. Decision
+  now: *candidate 4th ensemble arm, pending proper zinb+gate wiring + 3 seeds* — NOT killed. The rest of
+  this section reflects the original (flawed) score-time reasoning; kept as the record.
 - The real tradeoff stands unchanged: **ZINB = crps-all/magnitude front-runner; gated_NB = AP/locality
   front-runner.** They do not fuse via core-grafting.
 - **Code kept** (`sample_core`, `emit_family_core`, tests): it executed correctly — it drew exactly the
