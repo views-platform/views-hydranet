@@ -91,6 +91,20 @@ class HydraNetInference:
         # (family.sample). resolve_family returns None for every legacy value, so those keep their
         # exact emit/sampler path below (byte-identical). Head emits activated params per cell.
         self._family = resolve_family(self.output_distribution)
+        # H-SAMPLE (EXP-2, bloom dossier): the autoregressive FEEDBACK copy. 'mean' (default) feeds
+        # back the emit-mean E[y] (today's behavior, byte-identical); 'sample' feeds back a single
+        # seeded family draw per cell (ancestral rollout) — sparse, in-distribution. Only the fed
+        # copy changes; the emitted/scored cube is untouched. Needs a registered family.
+        self.rollout_feedback = config.get("rollout_feedback", "mean")
+        if self.rollout_feedback not in ("mean", "sample"):
+            raise ValueError(
+                f"rollout_feedback must be 'mean' or 'sample'; got {self.rollout_feedback!r}."
+            )
+        if self.rollout_feedback == "sample" and self._family is None:
+            raise ValueError(
+                "rollout_feedback='sample' needs a registered distribution family "
+                f"(output_distribution={self.output_distribution!r} has none)."
+            )
         self.hurdle_theta = self._parse_hurdle_theta(getattr(model, "hurdle_nb_theta", None))
         # generic hurdle bodies: lognormal needs sigma (fixed, from sidecar); point needs nothing.
         self.lognormal_sigma = self._parse_lognormal_sigma(
@@ -268,6 +282,32 @@ class HydraNetInference:
             return reg.clamp(min=0.0, max=QUANTILE_EMIT_CEIL)
         return reg  # standard: identity (reg is already the log1p-space point prediction)
 
+    def _sample_feedback(self, reg: torch.Tensor, generator: "torch.Generator") -> torch.Tensor:
+        """H-SAMPLE (EXP-2): one seeded family draw per cell → log1p space, for the AR feedback.
+
+        Mirrors `_emit_magnitude`'s family branch but SAMPLES (k=1) instead of taking the mean, so
+        the rollout feeds back a sparse, in-distribution realization rather than the diffuse E[y].
+        Drawn on CPU with the caller's seeded generator (S2 #121 determinism), then returned on the
+        model device. `family.sample` self-zeroes for zinb / plain-NB for nb (native composition) —
+        matching the self_zeroed / nb arms this experiment runs. Only the fed-back copy uses this;
+        the scored cube is built from the recorded params, unchanged.
+        """
+        fam = self._family
+        npar = fam.n_params
+        n_reg = reg.shape[1] // npar
+        reg_cpu = reg.detach().to("cpu")
+        draws = torch.stack(
+            [
+                fam.sample(
+                    reg_cpu[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1), 1, generator
+                ).squeeze(-1)
+                for j in range(n_reg)
+            ],
+            dim=1,
+        )  # [B, n_reg, H, W] count space
+        # log1p emit space, on the model device
+        return torch.log1p(draws.clamp(min=0.0)).to(reg.device)
+
     def _finalize_ar_forensic(
         self,
         truth_accumulator: list,
@@ -374,6 +414,15 @@ class HydraNetInference:
         # THE UNIFIED CAUSAL LOOP (ADR 015)
         # Total iterations: Digest History (origin) + Autoregression (time_steps)
         t1_pred = None
+        # H-SAMPLE (EXP-2): the value fed to the next step. 'mean' => the emit-mean (== t1_pred, so
+        # byte-identical to before); 'sample' => a seeded family draw. Generator seeded per dropout
+        # pass (sample_idx) so each path is distinct yet deterministic (S2 #121). None when off.
+        feedback_mag = None
+        fb_gen = (
+            torch.Generator(device="cpu").manual_seed(int(self.config["torch_seed"]) + sample_idx)
+            if self.rollout_feedback == "sample"
+            else None
+        )
         for t in range(origin + time_steps):
             if t < origin:
                 # 1. HISTORY DIGESTION: Update hidden state only
@@ -389,6 +438,12 @@ class HydraNetInference:
                 if return_params:
                     acc_params.append(t1_pred)  # activated params, pre-emit
                 t1_pred = self._emit_magnitude(t1_pred, t1_pred_class)  # #101: hurdle-NB E[y]
+                # H-SAMPLE: what feeds the next step — a sample (from params) or the mean.
+                feedback_mag = (
+                    self._sample_feedback(output.reg, fb_gen)
+                    if self.rollout_feedback == "sample"
+                    else t1_pred
+                )
 
                 acc_magnitudes.append(t1_pred)
                 acc_probabilities.append(t1_pred_class)
@@ -429,7 +484,8 @@ class HydraNetInference:
                 # (1/target)
                 # so the AR input keeps the [3 dynamic ⧺ static] width. (Step-1 is unaffected — no
                 # feedback at the seed step; rollout quality is an M2 concern.)
-                fb = t1_pred
+                # H-SAMPLE: feed back the previous step's chosen copy (mean default; sample if on).
+                fb = feedback_mag
                 if self.output_distribution == "quantile":
                     k = self.config["n_quantiles"]
                     b, c, hh, ww = fb.shape
@@ -453,6 +509,12 @@ class HydraNetInference:
                 if return_params:
                     acc_params.append(t1_pred)  # activated params, pre-emit
                 t1_pred = self._emit_magnitude(t1_pred, t1_pred_class)  # #101: hurdle-NB E[y]
+                # H-SAMPLE: update the fed-back copy for the NEXT step (sample or mean).
+                feedback_mag = (
+                    self._sample_feedback(output.reg, fb_gen)
+                    if self.rollout_feedback == "sample"
+                    else t1_pred
+                )
 
                 # C-20: Soft magnitude guard — detect gradual drift
                 # C-51: three-tier escalation (100 → 500 → 1000)

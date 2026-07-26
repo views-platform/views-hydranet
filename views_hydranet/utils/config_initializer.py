@@ -151,6 +151,11 @@ class HydraNetConfig(BaseModel):
     # gate ≥ τ, else zero the cell). A float in the OPEN interval (0,1); None otherwise. Fixed
     # a-priori (never fit on scored months — Goodhart).
     gate_threshold: float | None = Field(default=None)
+    # H-SAMPLE (EXP-2, bloom dossier): the autoregressive FEEDBACK copy. 'mean' (default) feeds
+    # back the emit-mean E[y] (byte-identical to history); 'sample' feeds back a single seeded
+    # family draw per cell (ancestral rollout). Only the fed-back copy changes; the scored cube is
+    # unchanged. HydraNetInference fails loud on a bad value or 'sample' without a family.
+    rollout_feedback: str = Field(default="mean")
 
     # 11. Scheduled Sampling (ADR-056): close train/inference gap.
     ss_schedule: str | None = Field(default=None)
