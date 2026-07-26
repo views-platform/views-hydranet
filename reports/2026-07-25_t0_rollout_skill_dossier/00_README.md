@@ -76,11 +76,17 @@ months). **The free-running skill curve costs ZERO GPU** — it is a re-score of
       sample collapses 0.29→0.06 ⇒ exposure bias, LARGE recoverable headroom). **MAGNITUDE = a CEILING**
       (oracle size_ratio ~0.3, crps_events ≈ clim, NOT →1 ⇒ intrinsic amount-ceiling wall). **STABILITY =
       bug already fixed** (EXP-2).
-- [ ] **NEXT (motivated by the measured gap):** rollout-training retrain — scheduled sampling / GTF
-      (ADR-056), feed back samples during training so the model recovers from its own feedback → reclaim the
-      AP 0.06→0.30 occurrence headroom. Stacks on sample-feedback. Magnitude parked (ceiling).
-- [ ] Harden first: 3-seed + block-bootstrap; the nb arm (composition-aware `_sample_feedback`).
-- [ ] Scar: eval overwrites cube in place → `…063927` now holds the ORACLE cube (all regenerable; scores banked).
+- [x] **Hardening DONE** (3-model zinb + nb arm; composition-aware `_sample_feedback` `6e089d3`): verdict
+      held with 2 nuances (bloom model-dependent; occurrence headroom model-dependent). Log in `07`.
+- [x] **Magnitude overclaim CORRECTED** (`a6ec436`): NOT one wall — timid-body shrinkage (recoverable head
+      lever, ZINB bulk 0.69) + tail ranking-ceiling (irreducible, 0.035 @100+ deaths). Confirms S3 bulk-vs-tail.
+- [x] **EXP-4 (GTF) SCOPED + pre-registered** (`05d`): variant = scheduled-sampling + **sample**-feedback
+      (not GTF-proper). Key insight: ss (ADR-056) is wired but dormant (ε_max=0) AND feeds back the MEAN/raw
+      params — the load-bearing change is to feed a composition-aware SAMPLE so train-exposure = deploy-exposure.
+      Target = gated_NB (oracle AP 0.46). Guardrails from C-125/C-126; T=0-no-regress is a HARD STOP (F-G2).
+- [ ] **NEXT: build EXP-4** (TDD: sample-feedback in `_process_sequence`, ε=0 parity, config, smoke) → then
+      STOP at the launch gate (ask-before-long-batches; a 3-seed retrain is NOT eval-only).
+- [ ] Separate parked lever (out of scope): bulk-magnitude timid-body (head/loss). Scar: eval overwrites cube in place.
 
 ## 6. Conventions
 
