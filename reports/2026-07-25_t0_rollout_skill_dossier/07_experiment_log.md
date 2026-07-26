@@ -68,3 +68,65 @@ re-run) + EXP-3 = the teacher-forced one-step ceiling (the bug-vs-ceiling gap). 
 silently dropped):** mixture baseline (per-target `lr_ged_*` template); 3-seed + block-bootstrap CIs; the
 τ≥0.8 *feedback* rollout (F3 proper test).
 
+---
+
+## EXP-2 — the ancestral (sample-feedback) rollout — 2026-07-26
+
+**Pre-registration:** `05b_preanalysis_exp2_ancestral.md` (P1–P4, F-S1..F-S4). **One variable:** feedback
+content (`rollout_feedback` = mean vs sample; ADR-flag, parity-proven). **Arm run:** zinb (`…063927`), the
+bloom arm, single-seed s44 INDICATIVE. **A/B:** zinb sample-feedback (this run) vs zinb mean-feedback
+(EXP-1, same artifact). **Result:** `results/exp2_zinb_sample.csv`. **nb NOT run** — the ADR-069 validator
+rejects `nb + self_zeroed` (the old nb dir predates that validator; nb needs a declared gate + a
+composition-aware feedback — deferred, see below).
+
+### Headline: the bloom is a FIXABLE BUG (exposure bias), not intrinsic instability — but STABILITY ≠ SKILL
+| metric (sb) | zinb **mean** (EXP-1) h6/12/24/36 | zinb **SAMPLE** (EXP-2) h6/12/24/36 |
+|---|---|---|
+| crps_all | 1.51 / 3.93 / 4.60 / 5.41 | **0.14 / 0.15 / 0.24 / 1.10** |
+| crps_none | 1.42 / 3.85 / 4.52 / 4.59 | **0.04 / 0.06 / 0.12 / 0.24** |
+| crps_events | 13.9 / 13.6 / 14.1 / 83.9 | 13.4 / 12.2 / 12.9 / 83.5 |
+| size_ratio | 3.3 / 3.9 / 3.7 / 3.1 | 0.19 / 0.23 / 0.19 / 0.13 |
+| AP | 0.05 / 0.02 / 0.02 / 0.02 | 0.19 / 0.14 / 0.08 / 0.06 |
+(ns/os same shape: zinb-mean crps_none blooms to 4.06/2.05 @h36; zinb-SAMPLE stays 0.008/0.064.)
+
+**Reading:**
+1. **P1 CONFIRMED / F-S1 does NOT fire.** Feeding back a *sample* instead of the mean **eliminates the zinb
+   bloom** — crps_none stays bounded (sb 0.02→0.24 vs mean's 0.02→4.59), a ~20× crps_all improvement at
+   h24. The learned-π decalibration runaway is pure **exposure bias** from feeding back the diffuse mean;
+   the sparse draw stays in-distribution. *The bloom is a fixable bug, not an intrinsic map instability.*
+2. **STABILITY ≠ SKILL, again.** The now-bounded rollout is **not a better forecaster**: crps_events is
+   tied with climatology/nb (~14 all h) — **no magnitude skill**; size_ratio ~0.2 (sb) / 0.0 (ns/os long-h)
+   — modestly less timid than nb but no real event magnitude; AP falls below climatology by ~h6 (0.19 vs
+   0.30). Sample-feedback fixes the *stability*; it does **not** buy *magnitude predictability*.
+3. **The bug-vs-ceiling separation (the epic's core question), answered for zinb:** the runaway was a BUG
+   (mean-feedback exposure bias — fixed); the residual "can't predict event sizes past a few horizons" is
+   the **CEILING** (the amount-ceiling wall), and it is *independent of feedback method*. sample-feedback
+   moves zinb from "catastrophic bloom" to "bounded ≈ climatology-magnitude, short-horizon occurrence".
+
+### Verdict vs pre-committed falsifiers
+- **F-S1 (also runs away):** did NOT fire — bounded. H-SAMPLE's core claim holds. ✅
+- **F-S2 (still timid ⇒ body defect):** **effectively FIRES for magnitude** — the bounded rollout has no
+  event-size skill (crps_events tied, size_ratio small). Consistent with F-S2's spirit: the residual is a
+  **body/ceiling** matter, not a feedback one. The feedback fix is necessary (stops the bloom) but not
+  sufficient for magnitude.
+- **P2/P3 (nb less timid / event skill):** NOT tested (nb validator block).
+- **F-S3 (determinism):** the flag is seeded + parity-proven (test suite); the eval rc=0.
+
+### Decision
+- **Sample-feedback is validated as the rollout-stability fix** (for the learned-π family). The bloom is
+  demoted from "mysterious runaway" to "solved exposure-bias bug." This retires the τ-as-solution framing:
+  a *sample* is the principled bounding mechanism (τ was its frugal proxy).
+- **The long-horizon magnitude ceiling stands** — no feedback trick beats it; this is the predictability
+  wall, not a bug. EXP-3 (teacher-forced oracle) would quantify exactly how much headroom remains, but
+  EXP-2 already shows the bounded ancestral rollout sits ≈ climatology on magnitude.
+- **Data-hygiene scar:** the eval OVERWRITES the cube dir in place (name = artifact ts), so the driver's
+  new-dir capture returned empty AND the `…063927` dir now holds the zinb SAMPLE cube (the mean/original
+  self-zeroed cube was overwritten; EXP-1's zinb scores are banked + the `.pt` is intact → regenerable via
+  `rollout_feedback=mean`). Future drivers must write to a fresh `--output`/dir, not re-eval in place.
+
+### Follow-ups (noted, not dropped)
+nb ancestral (needs a declared gate composition + a composition-aware `_sample_feedback` so the mean/sample
+A/B isn't confounded by gated-vs-ungated feedback); 3-seed + block-bootstrap; EXP-3 oracle for the exact
+bug-vs-ceiling gap; a T>0 *skill* graduation on the validation partition.
+
+

@@ -65,10 +65,15 @@ months). **The free-running skill curve costs ZERO GPU** — it is a re-score of
       — nb "beats climatology on crps_all" is the C-219 timid-zero Goodhart trap (crps_events ~14,
       size_ratio 0, real occurrence/AP skill only to ~h15); zinb blooms (crps_none 0.02→4.6). Diagnostic of
       the BROKEN mean-feedback object (C-218), not deployed skill.
-- [ ] **NEXT: EXP-2** = ancestral (sample-feedback) rollout = the **deployed skill verdict** (H-SAMPLE
-      re-run, small GPU). Then EXP-3 oracle = bug-vs-ceiling gap.
-- [ ] Follow-ups (noted, not dropped): mixture baseline (`lr_ged_*`), 3-seed + block-bootstrap CIs, the
-      τ≥0.8 *feedback* rollout (proper F3 test).
+- [x] **EXP-2 (zinb, s44) DONE** — `rollout_feedback=sample` flag built+tested (`5c8757d`), ancestral eval
+      run, scored (`results/exp2_zinb_sample.csv`, log in `07`). **DECISIVE:** sample-feedback **kills the
+      zinb bloom** (crps_none sb 0.02→4.59 mean → 0.02→0.24 sample; ~20× crps_all @h24) — the bloom is a
+      FIXABLE exposure-bias BUG. **But STABILITY≠SKILL:** the bounded rollout has no magnitude skill
+      (crps_events tied ~14, size_ratio ~0.2), AP < climatology by ~h6. Bug (feedback) fixed; ceiling
+      (magnitude) stands.
+- [ ] **NEXT options:** nb ancestral (needs a declared gate + composition-aware `_sample_feedback`);
+      EXP-3 teacher-forced oracle (exact bug-vs-ceiling gap); 3-seed + block-bootstrap; τ≥0.8 feedback (F3).
+- [ ] Scar: eval overwrites cube dir in place → `…063927` now holds the zinb SAMPLE cube (mean regenerable).
 
 ## 6. Conventions
 
