@@ -129,4 +129,57 @@ nb ancestral (needs a declared gate composition + a composition-aware `_sample_f
 A/B isn't confounded by gated-vs-ungated feedback); 3-seed + block-bootstrap; EXP-3 oracle for the exact
 bug-vs-ceiling gap; a T>0 *skill* graduation on the validation partition.
 
+---
+
+## EXP-3 — the teacher-forced oracle — 2026-07-26 — bug-vs-ceiling, FULLY DECOMPOSED
+
+**Pre-registration:** `05c`. **One variable:** `rollout_feedback='teacher_forced'` (feed the REAL month-t
+input each step; zero exposure bias = the one-step-conditioned ceiling). Same zinb `…063927`, s44
+INDICATIVE. **gap(h) = sample − oracle** = the exposure-bias cost; whatever the oracle can't do = the
+ceiling. **Result:** `results/exp3_zinb_oracle.csv`. Floor md5 restored.
+
+### The three-way verdict (sb, indicative; ns/os same shape)
+| metric | oracle h6/12/24/36 | sample (deployed) | climatology | reading |
+|---|---|---|---|---|
+| **AP** | 0.31 / 0.30 / 0.31 / **0.31** | 0.19 / 0.14 / 0.08 / **0.06** | 0.30 / 0.28 / 0.25 / 0.19 | **BUG (exposure bias)** — huge, recoverable |
+| **crps_none** | 0.019 flat | 0.04 → 0.24 | 0.05 → 0.07 | BUG (small residual smear) |
+| **crps_events** | 12.5 / 11.3 / 12.2 / 82 | 13.4 / 12.2 / 12.9 / 83 | 17 / 15 / 15 / 86 | **CEILING** — oracle ≈ sample ≈ clim |
+| **size_ratio** | 0.27 / 0.31 / 0.29 / 0.25 | 0.19 / 0.23 / 0.19 / 0.13 | 0.31 / 0.30 / 0.22 / 0.07 | **CEILING** — oracle ~0.3, NOT →1 |
+
+### Reading — the epic's core question, answered
+1. **OCCURRENCE (where) = a BUG, with LARGE headroom.** The oracle holds **AP flat ~0.30** across all 36
+   horizons and beats climatology at long h; the deployed sample rollout **collapses 0.29→0.056**. The
+   *entire* occurrence decay is exposure bias — with perfect inputs the one-step map keeps locating conflict
+   as well at h36 as h1. **P2 CONFIRMED strongly.** A training fix that teaches recovery from own feedback
+   (scheduled sampling / GTF, ADR-056) has ~0.06→0.30 AP headroom — a big, motivated next lever.
+2. **MAGNITUDE (how big) = a CEILING.** Even with perfect inputs the oracle undershoots event sizes
+   (size_ratio ~0.3, crps_events ~12–15, ≈ climatology) — perfect feedback gives only a modest lift, NOT
+   size_ratio→1. **P1 CONFIRMED, F-O3 does NOT fire.** The amount-ceiling wall
+   ([[project_amount_ceiling_wall]]) is intrinsic; no rollout/feedback trick recovers event magnitude.
+3. **STABILITY = a BUG, already fixed** (EXP-2 sample-feedback). crps_none oracle flat 0.02.
+
+**So the bloom decomposes cleanly:** numerical runaway = bug (fixed by sample-feedback); occurrence-skill
+decay = bug (exposure bias, recoverable by GTF/scheduled-sampling training — the oracle proves the
+headroom); event-magnitude = ceiling (irreducible). The deployed recursive rollout is bounded with ~1yr
+occurrence skill today; a rollout-training fix could push occurrence skill much further; magnitude stays
+capped regardless.
+
+### Verdict vs falsifiers
+- **F-O1 (oracle not better than sample):** did NOT fire — massive AP gap (0.31 vs 0.06 @h36) + crps_none
+  gap. Exposure-bias headroom is real and large. ✅
+- **F-O2 (oracle blooms):** did NOT fire — oracle bounded (crps_none flat 0.02, crps_all ≤ sample all h).
+- **F-O3 (magnitude recoverable, size_ratio→1):** did NOT fire — oracle size_ratio ~0.3. Magnitude ceiling
+  stands.
+
+### Decision
+- **Next lever is a rollout-training retrain (scheduled sampling / GTF, ADR-056)** — the oracle proves large,
+  measurable OCCURRENCE headroom (AP 0.06→0.30). This is rung-3 of the old fix ladder, now *motivated by a
+  measured gap*, not a guess. It stacks on the sample-feedback fix (feed back samples during training).
+- **Magnitude is parked as the ceiling** — do NOT spend rollout effort chasing event sizes; that is the
+  amount-ceiling wall (a features/DGP limit, not a rollout bug).
+- Caveats: zinb only, s44, single-seed INDICATIVE, one-step-conditioned ceiling (C-222: gap ⊇ induced
+  state-drift, not pure input-exposure-bias). Harden with 3 seeds + the nb arm before committing the retrain.
+- **Data:** the `…063927` dir now holds the ORACLE cube (sample was there after EXP-2; both regenerable, all
+  scores banked in `results/`). Same in-place-overwrite scar — future drivers must use fresh dirs.
+
 

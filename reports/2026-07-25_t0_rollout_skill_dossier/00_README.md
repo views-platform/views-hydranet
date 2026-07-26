@@ -71,9 +71,16 @@ months). **The free-running skill curve costs ZERO GPU** — it is a re-score of
       FIXABLE exposure-bias BUG. **But STABILITY≠SKILL:** the bounded rollout has no magnitude skill
       (crps_events tied ~14, size_ratio ~0.2), AP < climatology by ~h6. Bug (feedback) fixed; ceiling
       (magnitude) stands.
-- [ ] **NEXT options:** nb ancestral (needs a declared gate + composition-aware `_sample_feedback`);
-      EXP-3 teacher-forced oracle (exact bug-vs-ceiling gap); 3-seed + block-bootstrap; τ≥0.8 feedback (F3).
-- [ ] Scar: eval overwrites cube dir in place → `…063927` now holds the zinb SAMPLE cube (mean regenerable).
+- [x] **EXP-3 (oracle) DONE** — bug-vs-ceiling **fully decomposed** (`results/exp3_zinb_oracle.csv`, log
+      `07`): **OCCURRENCE (AP) = a BUG** (oracle holds AP flat ~0.30 across 36h + beats climatology; deployed
+      sample collapses 0.29→0.06 ⇒ exposure bias, LARGE recoverable headroom). **MAGNITUDE = a CEILING**
+      (oracle size_ratio ~0.3, crps_events ≈ clim, NOT →1 ⇒ intrinsic amount-ceiling wall). **STABILITY =
+      bug already fixed** (EXP-2).
+- [ ] **NEXT (motivated by the measured gap):** rollout-training retrain — scheduled sampling / GTF
+      (ADR-056), feed back samples during training so the model recovers from its own feedback → reclaim the
+      AP 0.06→0.30 occurrence headroom. Stacks on sample-feedback. Magnitude parked (ceiling).
+- [ ] Harden first: 3-seed + block-bootstrap; the nb arm (composition-aware `_sample_feedback`).
+- [ ] Scar: eval overwrites cube in place → `…063927` now holds the ORACLE cube (all regenerable; scores banked).
 
 ## 6. Conventions
 
