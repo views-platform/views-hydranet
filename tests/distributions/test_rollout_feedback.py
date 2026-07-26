@@ -113,3 +113,16 @@ def test_rollout_feedback_teacher_forced_differs_and_deterministic():
     o2, _ = tf2.generate_posterior_samples(h, origin=1)
     assert not np.array_equal(mag_mean, o1)  # real-input feedback changes the trajectory
     assert np.array_equal(o1, o2)  # deterministic (no extra randomness)
+
+
+def test_rollout_feedback_sample_composes_with_gate_soft():
+    """nb + soft_gate: sample-feedback composes the draw with the gate (not the ungated native
+    draw), so the mean/sample A/B isolates feedback content, not gated-vs-ungated."""
+    h = _mock_handler()
+    inf = _make_inf("nb", rollout_feedback="sample")
+    inf.config["forecast_composition"] = "soft_gate"
+    mag_samp, _ = inf.generate_posterior_samples(h, origin=1)
+    inf_m = _make_inf("nb", rollout_feedback="mean")
+    inf_m.config["forecast_composition"] = "soft_gate"
+    mag_mean, _ = inf_m.generate_posterior_samples(h, origin=1)
+    assert not np.array_equal(mag_mean, mag_samp)  # composed sample-feedback changes the path

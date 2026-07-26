@@ -285,15 +285,17 @@ class HydraNetInference:
             return reg.clamp(min=0.0, max=QUANTILE_EMIT_CEIL)
         return reg  # standard: identity (reg is already the log1p-space point prediction)
 
-    def _sample_feedback(self, reg: torch.Tensor, generator: "torch.Generator") -> torch.Tensor:
-        """H-SAMPLE (EXP-2): one seeded family draw per cell → log1p space, for the AR feedback.
+    def _sample_feedback(
+        self, reg: torch.Tensor, prob: torch.Tensor, generator: "torch.Generator"
+    ) -> torch.Tensor:
+        """H-SAMPLE (EXP-2): one seeded, gate-COMPOSED family draw/cell → log1p, for AR feedback.
 
-        Mirrors `_emit_magnitude`'s family branch but SAMPLES (k=1) instead of taking the mean, so
-        the rollout feeds back a sparse, in-distribution realization rather than the diffuse E[y].
-        Drawn on CPU with the caller's seeded generator (S2 #121 determinism), then returned on the
-        model device. `family.sample` self-zeroes for zinb / plain-NB for nb (native composition) —
-        matching the self_zeroed / nb arms this experiment runs. Only the fed-back copy uses this;
-        the scored cube is built from the recorded params, unchanged.
+        Mirrors `_emit_magnitude`'s family branch but SAMPLES (k=1) not the mean, and applies
+        the SAME `forecast_composition` as the mean path (so a mean/sample A/B isolates the one
+        variable — feedback content — not gated-vs-ungated): self_zeroed => the family's own draw
+        (zinb self-zeroes natively, nb is plain); soft_gate / threshold_gate compose the draw with
+        the cls gate `prob`. Drawn on CPU with the caller's seeded generator (S2 #121). Only the
+        fed-back copy uses this; the scored cube is unchanged.
         """
         fam = self._family
         npar = fam.n_params
@@ -308,6 +310,14 @@ class HydraNetInference:
             ],
             dim=1,
         )  # [B, n_reg, H, W] count space
+        comp = self.config.get("forecast_composition", "self_zeroed")
+        if comp != "self_zeroed":
+            from views_hydranet.distributions.composition import compose_samples
+
+            cube = draws.permute(0, 2, 3, 1).unsqueeze(-1)  # [B,H,W,n_reg,1]
+            gate = prob.detach().to("cpu")[:, :n_reg].permute(0, 2, 3, 1)  # [B,H,W,n_reg]
+            cube = compose_samples(cube, gate, comp, self.config.get("gate_threshold"), generator)
+            draws = cube.squeeze(-1).permute(0, 3, 1, 2)  # -> [B, n_reg, H, W]
         # log1p emit space, on the model device
         return torch.log1p(draws.clamp(min=0.0)).to(reg.device)
 
@@ -443,7 +453,7 @@ class HydraNetInference:
                 t1_pred = self._emit_magnitude(t1_pred, t1_pred_class)  # #101: hurdle-NB E[y]
                 # H-SAMPLE: what feeds the next step — a sample (from params) or the mean.
                 feedback_mag = (
-                    self._sample_feedback(output.reg, fb_gen)
+                    self._sample_feedback(output.reg, t1_pred_class, fb_gen)
                     if self.rollout_feedback == "sample"
                     else t1_pred
                 )
@@ -521,7 +531,7 @@ class HydraNetInference:
                 t1_pred = self._emit_magnitude(t1_pred, t1_pred_class)  # #101: hurdle-NB E[y]
                 # H-SAMPLE: update the fed-back copy for the NEXT step (sample or mean).
                 feedback_mag = (
-                    self._sample_feedback(output.reg, fb_gen)
+                    self._sample_feedback(output.reg, t1_pred_class, fb_gen)
                     if self.rollout_feedback == "sample"
                     else t1_pred
                 )
