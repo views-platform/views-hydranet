@@ -153,7 +153,8 @@ class HydraNetConfig(BaseModel):
     gate_threshold: float | None = Field(default=None)
     # H-SAMPLE (EXP-2, bloom dossier): the autoregressive FEEDBACK copy. 'mean' (default) feeds
     # back the emit-mean E[y] (byte-identical to history); 'sample' feeds back a single seeded
-    # family draw per cell (ancestral rollout). Only the fed-back copy changes; the scored cube is
+    # family draw per cell (ancestral rollout); 'teacher_forced' feeds the REAL month-t input each
+    # step (EXP-3 oracle, zero exposure bias). Only the fed-back copy changes; the scored cube is
     # unchanged. HydraNetInference fails loud on a bad value or 'sample' without a family.
     rollout_feedback: str = Field(default="mean")
 

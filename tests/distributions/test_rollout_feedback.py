@@ -99,3 +99,17 @@ def test_rollout_feedback_sample_is_deterministic():
     a, _ = _make_inf("nb", rollout_feedback="sample").generate_posterior_samples(h, origin=1)
     b, _ = _make_inf("nb", rollout_feedback="sample").generate_posterior_samples(h, origin=1)
     assert np.array_equal(a, b)  # seeded generator (torch_seed + pass idx) → reproducible
+
+
+# ── EXP-3 oracle: teacher_forced feeds real input, differs from mean/sample ───
+
+
+def test_rollout_feedback_teacher_forced_differs_and_deterministic():
+    h = _mock_handler()
+    mag_mean, _ = _make_inf("nb", rollout_feedback="mean").generate_posterior_samples(h, origin=1)
+    tf1 = _make_inf("nb", rollout_feedback="teacher_forced")
+    tf2 = _make_inf("nb", rollout_feedback="teacher_forced")
+    o1, _ = tf1.generate_posterior_samples(h, origin=1)
+    o2, _ = tf2.generate_posterior_samples(h, origin=1)
+    assert not np.array_equal(mag_mean, o1)  # real-input feedback changes the trajectory
+    assert np.array_equal(o1, o2)  # deterministic (no extra randomness)

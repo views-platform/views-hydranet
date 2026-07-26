@@ -95,10 +95,13 @@ class HydraNetInference:
         # back the emit-mean E[y] (today's behavior, byte-identical); 'sample' feeds back a single
         # seeded family draw per cell (ancestral rollout) — sparse, in-distribution. Only the fed
         # copy changes; the emitted/scored cube is untouched. Needs a registered family.
+        # 'teacher_forced' (EXP-3 oracle): feed the REAL month-t input each AR step (zero exposure
+        # bias — the one-step-conditioned ceiling). Needs no family; works for any head.
         self.rollout_feedback = config.get("rollout_feedback", "mean")
-        if self.rollout_feedback not in ("mean", "sample"):
+        if self.rollout_feedback not in ("mean", "sample", "teacher_forced"):
             raise ValueError(
-                f"rollout_feedback must be 'mean' or 'sample'; got {self.rollout_feedback!r}."
+                "rollout_feedback must be 'mean', 'sample', or 'teacher_forced'; "
+                f"got {self.rollout_feedback!r}."
             )
         if self.rollout_feedback == "sample" and self._family is None:
             raise ValueError(
@@ -484,20 +487,27 @@ class HydraNetInference:
                 # (1/target)
                 # so the AR input keeps the [3 dynamic ⧺ static] width. (Step-1 is unaffected — no
                 # feedback at the seed step; rollout quality is an M2 concern.)
-                # H-SAMPLE: feed back the previous step's chosen copy (mean default; sample if on).
-                fb = feedback_mag
-                if self.output_distribution == "quantile":
-                    k = self.config["n_quantiles"]
-                    b, c, hh, ww = fb.shape
-                    fb = fb.view(b, c // k, k, hh, ww)[:, :, k // 2]  # median quantile per target
-                t0_autoreg = self._clamp_feedback(fb.detach())
-                # ADR-060 I3: re-attach the geometry-constant static channels to the feedback,
-                # matching the [dynamic ⧺ static] model-input order. The clamp bounds only the 3
-                # dynamic prediction channels; statics are never clamped. Empty => unchanged.
-                if static_indices:
-                    t0_autoreg = torch.cat(
-                        [t0_autoreg, full_tensor[:, origin, static_indices, :, :]], dim=1
-                    )
+                if self.rollout_feedback == "teacher_forced":
+                    # EXP-3 ORACLE: feed the REAL month-t input (zero exposure bias). The calib
+                    # window is historical, so full_tensor holds real values; this is the
+                    # one-step-conditioned ceiling. No feedback/clamp/static re-attach — the real
+                    # input already carries [dynamic ⧺ static] in model_in_indices order.
+                    t0_autoreg = full_tensor[:, t, model_in_indices, :, :]
+                else:
+                    # H-SAMPLE: feed back the previous step's chosen copy (mean default / sample).
+                    fb = feedback_mag
+                    if self.output_distribution == "quantile":
+                        k = self.config["n_quantiles"]
+                        b, c, hh, ww = fb.shape
+                        fb = fb.view(b, c // k, k, hh, ww)[:, :, k // 2]  # median quantile/target
+                    t0_autoreg = self._clamp_feedback(fb.detach())
+                    # ADR-060 I3: re-attach the geometry-constant static channels to the feedback,
+                    # matching the [dynamic ⧺ static] model-input order. The clamp bounds only the
+                    # 3 dynamic prediction channels; statics are never clamped. Empty => unchanged.
+                    if static_indices:
+                        t0_autoreg = torch.cat(
+                            [t0_autoreg, full_tensor[:, origin, static_indices, :, :]], dim=1
+                        )
                 # freeze_h retired (2026-06-05): the rollout evolves the full ConvLSTM
                 # state every step (the former "none" behaviour) — the only mode that was
                 # not a train/inference mismatch, and the freeze was inert vs the C-113
