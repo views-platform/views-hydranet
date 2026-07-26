@@ -225,3 +225,45 @@ not a zinb quirk — it holds across families, and gated_NB is the most promisin
   training-seed 3× + validation-partition graduation remain for a production claim.
 
 
+
+---
+
+## CORRECTION — "magnitude = a robust ceiling" was OVERCLAIMED — 2026-07-27
+
+**Trigger:** the user challenged the claim that magnitude is "a ceiling — the model cannot predict how big",
+noting a true skill-ceiling would produce a WIDE interval (misses both ways), not a SYSTEMATIC downward bias.
+Correct. size_ratio ≈ 0.13 (predicted mean ~8× *below* the typical event) is not the signature of honest
+uncertainty — it is a systematic under-prediction. My earlier framing collapsed two distinct things.
+
+**Bulk-vs-tail biopsy** (`tmp/bulk_tail.py`, oracle cubes, ~54k event-obs, size_ratio by realized deaths):
+
+| deaths | ZINB oracle | NB-gated oracle |
+|--------|-------------|-----------------|
+| 1–2    | **0.69**    | 0.125 |
+| 3–9    | 0.38        | 0.179 |
+| 10–29  | 0.22        | 0.151 |
+| 30–99  | 0.11        | 0.080 |
+| 100+   | **0.035**   | 0.021 |
+
+**Corrected reading — magnitude is NOT one wall; it is TWO stacked effects:**
+1. **Timid-body shrinkage (a fixable head/loss lever)** — a systematic downward bias in EVERY bin (even
+   1–2 death cells come in < 1.0), the zero-dominated-loss artifact (the long-standing "timid body",
+   size-ratio ~0.02–0.29). ZINB's self-zeroing lets its body fire far larger on the bulk (0.69) than the
+   double-suppressed NB-gated (0.125) — so this component is real, family-dependent, and movable. The
+   oracle inherits the trained weights, so it CANNOT rule this out (my error was reading "oracle still timid"
+   as "irreducible").
+2. **Tail ranking-ceiling (genuinely irreducible)** — the monotonic collapse to 0.035 at 100+ deaths: the
+   model puts ~1/30th of the real mass on the biggest events. Corroborated by the separate amount-ceiling
+   result (size-rank spearman 0.30 < persistence 0.37, confound-clean) — WHICH cell becomes a bloodbath is
+   close to unpredictable. This IS a ceiling, but only for the TAIL, not for magnitude wholesale.
+
+**This CONFIRMS (not challenges) the prior bulk-vs-tail finding** (S3 conditional quantiles: bulk sharp+
+calibrated, tail risk-only, ξ≈0.8): magnitude predictability degrades smoothly with event size — bulk
+substantially recoverable, tail a risk-only ceiling. **Finance analogy (ARCH/GARCH, "predict volatility not
+level") HOLDS**, sharpened: tail *size* ≈ unpredictable (ceiling); *risk/occurrence* predictable+recoverable
+(oracle AP 0.46). Conflict adds the timid-body shrinkage on top (finance models don't train on 99.7% zeros).
+
+**Correct one-liner going forward** (retire "magnitude is a wall"): *occurrence = a recoverable exposure-bias
+bug (GTF target); bulk-magnitude = a recoverable timid-body/head lever (ZINB already ~0.69); tail-magnitude
+= an irreducible ranking ceiling.* Does NOT change the GTF plan (GTF targets occurrence). Flags a SEPARATE,
+independent lever: the head/loss for bulk magnitude (out of scope for the rollout epic; noted for later).
