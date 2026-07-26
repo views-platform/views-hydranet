@@ -182,4 +182,46 @@ capped regardless.
 - **Data:** the `…063927` dir now holds the ORACLE cube (sample was there after EXP-2; both regenerable, all
   scores banked in `results/`). Same in-place-overwrite scar — future drivers must use fresh dirs.
 
+---
+
+## HARDENING — 3-model zinb + the nb arm — 2026-07-26
+
+Composition-aware `_sample_feedback` (`6e089d3`) unblocked the nb arm (mean/sample now both soft_gate-composed
+= clean one-variable A/B). 9 evals, score-after-each (`results/harden_*.csv`): 2 more zinb models
+(`000250`, `032256`) + nb gated_NB (`102130`), each × {mean, sample, oracle}. Floor restored. NOTE: the
+artifacts store no training seed → these are **3 independently-trained models**, not verified seeds 42/43/44.
+
+### The three-way verdict — HELD, with two honest nuances (sb crps_all @ h24 / AP @ h24)
+| model | mean crps_all | sample | oracle | mean AP | sample AP | oracle AP |
+|---|---|---|---|---|---|---|
+| zinb 000250 | 0.31 (no bloom) | 0.23 | 0.15 | 0.009 | 0.009 | 0.018 |
+| zinb 032256 | **15.0 bloom** | 0.39 | 0.14 | 0.010 | 0.059 | 0.293 |
+| zinb 063927 (s44) | **4.60 bloom** | 0.24 | 0.13 | 0.018 | 0.081 | 0.309 |
+| **nb gated_NB** | **5.03 bloom** | 0.13 | 0.14 | 0.011 | **0.238** | **0.467** |
+
+1. **STABILITY (bloom) — sample-feedback bounds ALL 4 models robustly**; mean-feedback blooms **3/4** but NOT
+   `000250`. ⇒ the bloom is **model-dependent** (seed-bimodality, as `bloom_investigation` warned), but the
+   sample FIX is universal. The fix is more reliable than the bug.
+2. **OCCURRENCE — a recoverable BUG, GENERALIZES (esp. to nb).** oracle AP holds high (nb **0.46**, zinb
+   032256/s44 ~**0.30**) while mean collapses to ~0.01; sample recovers much of it (nb **0.24**, ≈ climatology;
+   zinb ~0.06–0.08). **Nuance:** the weak model `000250` has ~0 AP even at the oracle → no occurrence skill to
+   recover (model heterogeneity). Headroom is real for the *good* models.
+3. **MAGNITUDE — a CEILING, ROBUST.** Even the oracle stays timid (nb size_ratio 0.125, crps_events ~13; all
+   models tied ~14). No feedback/oracle recovers event magnitude on any model.
+
+### nb generalization (the strongest case)
+gated_NB (soft_gate) under sample-feedback is a genuinely good bounded rollout on OCCURRENCE: crps_all 5.03→
+0.13 (bloom fixed), **AP 0.01→0.24** (≈ climatology, held to h24), and the oracle shows **0.46** headroom —
+the largest of any arm. Magnitude stays capped (size_ratio 0→0, oracle 0.125). So the three-way split is
+not a zinb quirk — it holds across families, and gated_NB is the most promising rollout arm on occurrence.
+
+### Verdict / decision (hardened)
+- The **sample-feedback fix + the bug(occurrence)-vs-ceiling(magnitude) decomposition HOLD** across 3 zinb
+  models + nb. Two honest caveats now on record: the *bloom* is model-dependent (fix still universal); the
+  *occurrence headroom* is model-dependent (present for good models, absent for the weak `000250`).
+- **Next lever unchanged and reinforced:** a rollout-training retrain (scheduled sampling / GTF, ADR-056) to
+  cash the occurrence headroom — nb gated_NB is the strongest candidate (oracle AP 0.46; sample already 0.24).
+- Still single sampling-seed per model, T=0-calibration, one-step-conditioned oracle (C-222). A true
+  training-seed 3× + validation-partition graduation remain for a production claim.
+
 
