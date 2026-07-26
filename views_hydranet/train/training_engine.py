@@ -214,6 +214,37 @@ def _family_target_log1p_mean(reg: torch.Tensor, family) -> torch.Tensor:
     return torch.log1p(torch.stack(means, dim=1))  # [B, n_reg, H, W]
 
 
+def _family_feedback_log1p(reg, family, mode, gate, composition, threshold):
+    """EXP-4 (GTF): the per-target log1p feedback for scheduled sampling with a family head.
+
+    'mean' => log1p(E[y]) (fixes the legacy ss path, which fed raw n_params channels — shape-
+    mismatched to the n_reg dynamic inputs). 'sample' => one composition-aware family DRAW per
+    target (mirrors inference `_sample_feedback`), so training exposure == deployment exposure.
+    Returns ``[B, n_reg, H, W]`` in log1p space, matching the dynamic input channels.
+    """
+    if mode != "sample":
+        return _family_target_log1p_mean(reg, family)
+    npar = family.n_params
+    n_reg = reg.shape[1] // npar
+    draws = torch.stack(
+        [
+            family.sample(
+                reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1), 1, None
+            ).squeeze(-1)
+            for j in range(n_reg)
+        ],
+        dim=1,
+    )  # [B, n_reg, H, W] count space
+    if composition != "self_zeroed":
+        from views_hydranet.distributions.composition import compose_samples
+
+        cube = draws.permute(0, 2, 3, 1).unsqueeze(-1)  # [B,H,W,n_reg,1]
+        g = gate[:, :n_reg].permute(0, 2, 3, 1)  # [B,H,W,n_reg]
+        cube = compose_samples(cube, g, composition, threshold, None)
+        draws = cube.squeeze(-1).permute(0, 3, 1, 2)  # -> [B, n_reg, H, W]
+    return torch.log1p(draws.clamp(min=0.0))
+
+
 def _process_sequence(
     train_tensor: torch.Tensor,
     model: nn.Module,
@@ -235,6 +266,10 @@ def _process_sequence(
     event_threshold: float = 0.0,
     pi_penalty_weight: float | None = None,
     pi_penalty_prior_logit: float = 0.0,
+    family=None,
+    ss_feedback: str = "mean",
+    forecast_composition: str = "self_zeroed",
+    gate_threshold: float | None = None,
 ) -> dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
@@ -301,7 +336,23 @@ def _process_sequence(
 
         output = model(t0_input, h)
         t1_pred, t1_pred_class, h = output.reg, output.cls, output.h_next
-        prev_pred = t1_pred.detach()
+        # EXP-4 (GTF): only compute the fed-back copy when scheduled sampling is active (ε>0), so
+        # ε=0 stays byte-identical (branch never runs). A family emits n_params channels/target, so
+        # the raw `t1_pred` is shape-mismatched to the n_reg dynamic inputs — collapse it to the
+        # per-target log1p mean ('mean', fixes the legacy family path) or a composition-aware DRAW
+        # ('sample', EXP-4: train exposure == deploy exposure). Legacy point head: raw pred.
+        if ss_epsilon > 0.0:
+            if family is not None:
+                prev_pred = _family_feedback_log1p(
+                    t1_pred,
+                    family,
+                    ss_feedback,
+                    torch.sigmoid(t1_pred_class),
+                    forecast_composition,
+                    gate_threshold,
+                ).detach()
+            else:
+                prev_pred = t1_pred.detach()
 
         t1_pred_for_loss = output.reg_latent if use_latent else t1_pred
 
@@ -622,6 +673,11 @@ def train(
         # C-200 (ADR-067): family parameter-prior ridge weight + prior logit (None ⇒ no-op).
         pi_penalty_weight=config.get("pi_penalty_weight"),
         pi_penalty_prior_logit=config.get("pi_penalty_prior_logit", 0.0),
+        # EXP-4 (GTF): family + composition drive the scheduled-sampling feedback (only when ε>0).
+        family=resolve_family(config.get("output_distribution", "standard")),
+        ss_feedback=config.get("ss_feedback", "mean"),
+        forecast_composition=config.get("forecast_composition", "self_zeroed"),
+        gate_threshold=config.get("gate_threshold"),
     )
     step_total, step_reg, step_cls = result["per_step_losses"]
 

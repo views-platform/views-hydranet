@@ -23,7 +23,7 @@ class TestF5_CICFieldCountDrift:
         # ADR-067 / Epic #167 A-S8 (#175): +max_posterior_cube_gb -> 80
         # ADR-067 / Epic #167 A-S9 (#176): +pi_penalty_weight, +pi_penalty_prior_logit -> 82
         # ADR-069 / Epic #183 S3 (#186): +forecast_composition, +gate_threshold -> 84
-        CIC_CLAIMED_COUNT = 85
+        CIC_CLAIMED_COUNT = 86
         actual = len(HydraNetConfig.model_fields)
         assert actual == CIC_CLAIMED_COUNT, (
             f"CIC §3 claims {CIC_CLAIMED_COUNT} fields but HydraNetConfig has {actual}. "

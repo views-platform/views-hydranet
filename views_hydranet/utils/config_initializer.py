@@ -161,6 +161,10 @@ class HydraNetConfig(BaseModel):
     # 11. Scheduled Sampling (ADR-056): close train/inference gap.
     ss_schedule: str | None = Field(default=None)
     ss_epsilon_max: float = Field(default=1.0, ge=0.0, le=1.0)
+    # EXP-4 (GTF, bloom dossier): what scheduled sampling feeds back for a FAMILY head. 'mean'
+    # (default) = log1p(E[y]); 'sample' = a composition-aware family DRAW (train exposure == deploy
+    # exposure — the load-bearing GTF change). Legacy point heads ignore this (raw pred fed back).
+    ss_feedback: str = Field(default="mean")
     ss_warmup_lessons: int | None = Field(default=None, ge=1)
     ss_k: float | None = Field(default=None, gt=0.0)
 
@@ -942,6 +946,10 @@ class HydraNetConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_scheduled_sampling_params(self) -> "HydraNetConfig":
+        if self.ss_feedback not in ("mean", "sample"):
+            err_msg = f"ss_feedback must be 'mean' or 'sample'; got {self.ss_feedback!r}."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         if self.ss_schedule is None:
             return self
         valid = ["linear", "inverse_sigmoid", "exponential"]
