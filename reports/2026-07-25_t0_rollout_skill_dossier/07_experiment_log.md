@@ -267,3 +267,26 @@ level") HOLDS**, sharpened: tail *size* ≈ unpredictable (ceiling); *risk/occur
 bug (GTF target); bulk-magnitude = a recoverable timid-body/head lever (ZINB already ~0.69); tail-magnitude
 = an irreducible ranking ceiling.* Does NOT change the GTF plan (GTF targets occurrence). Flags a SEPARATE,
 independent lever: the head/loss for bulk magnitude (out of scope for the rollout epic; noted for later).
+
+---
+
+## EXP-4 BUILD + SMOKE — 2026-07-27 (pre-reg `05d`)
+
+**Build (committed `f345984`):** `_family_feedback_log1p` (mean = log1p E[y] / sample = composition-aware
+draw); threaded into `_process_sequence` + `train()`, computed only when ε>0 so ε=0 is byte-identical
+(parity by construction — 189 tests green incl. all training-engine + train-loop + distributions + CIC-86);
+`ss_feedback` config field + validator; 4 TDD unit tests; ruff clean. The load-bearing fix: scheduled
+sampling now feeds a family a composition-aware SAMPLE (was raw n_params, shape-mismatched → untested).
+
+**Smoke (2-lesson nb+soft_gate train, ss_epsilon_max=0.25, ss_feedback=sample):** rc=0, both lessons × 3
+windows trained, forensic dossiers generated, model saved, **finite loss (min 2345 / max 2945), NO real
+NaN/Inf**, floor md5 restored, smoke artifact cleaned. Build integrates end-to-end on GPU. *Honest limit:*
+the offline log printed no ε scalar, so this run doesn't independently prove ε>0 fired in lesson 2 (the
+sample-feedback FUNCTION is unit-tested; the real EXP-4 driver will log ε/lesson). This is a BUILD gate, NOT
+a skill result — 2 lessons can't show occurrence recovery.
+
+**STATUS: at the launch gate.** Per `05d` §Cost (ask-before-long-batches, BINDING): the real EXP-4 =
+retrain gated_NB with ss_feedback=sample (full 40-lesson recipe), then deploy-sample-rollout + T=0 eval,
+scored on the frozen ruler, A/B vs the baseline gated_NB (deployed-sample AP 0.24 → oracle ceiling 0.46).
+Cost ≈ 30–60 min train + ~3 min eval **per seed**; a claim needs 3 seeds (~2–3 GPU-hr). **The retrain does
+NOT fire without explicit user go.**
