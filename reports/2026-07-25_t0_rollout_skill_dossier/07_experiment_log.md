@@ -290,3 +290,42 @@ retrain gated_NB with ss_feedback=sample (full 40-lesson recipe), then deploy-sa
 scored on the frozen ruler, A/B vs the baseline gated_NB (deployed-sample AP 0.24 → oracle ceiling 0.46).
 Cost ≈ 30–60 min train + ~3 min eval **per seed**; a claim needs 3 seeds (~2–3 GPU-hr). **The retrain does
 NOT fire without explicit user go.**
+
+---
+
+## EXP-4 RESULT (1-seed indicative) — GTF REGRESSED occurrence — 2026-07-27
+
+**Run:** gated_NB retrained with `ss_feedback=sample` (ε_max=0.5, warmup 10/40, seed 44) → artifact
+`012051` → deployed sample-feedback rollout → `results/exp4_gtf_nb_sample.csv`. A/B vs baseline gated_NB
+(`102130`, `harden_nb_..._sample`). All rc=0, floor restored.
+
+### Occurrence AP (sb) — GTF WORSE at every horizon (P1 FAILED, F-G1 fired)
+| h | GTF | baseline | oracle ceiling |
+|---|-----|----------|-------|
+| 1 | 0.276 | 0.440 | — |
+| 12 | 0.063 | 0.280 | ~0.30 |
+| 24 | 0.010 | 0.238 | 0.46 |
+(ns/os same: h12 GTF 0.019/0.016 vs baseline 0.133/0.132.) GTF did NOT climb toward 0.46 — it fell below
+baseline, including at T=0.
+
+- **F-G2 (T=0 crps guardrail): HELD** — sb h1 0.147 vs 0.143 (within tol); ns 0.083 vs 0.082; os 0.045 vs
+  0.032. Magnitude/crps fine; it is specifically the GATE/occurrence that degraded (AP down, crps_events
+  tied ~14, crps_none GTF 0.0004 vs 0.0027 — GTF is even MORE timid-zero).
+- **Stability held** — GTF crps_all bounded across h (0.15→0.87), no bloom.
+
+### Mechanism (hypothesis) + the CONFOUND (why this is NOT yet a GTF verdict)
+Pattern (gate down, body tied) is consistent with **ε_max=0.5 too aggressive**: feeding back noisy sparse
+samples 50% of the time corrupts the GATE's input → the occurrence classifier trains on noise → worse gate.
+BUT the A/B is **confounded (C-112)**: (1) SEED — GTF-seed44 vs baseline-102130 (unknown seed; occurrence
+is model-dependent — `000250` had ~0 AP even at oracle), so part of the gap may be seed, not GTF; (2) ε —
+0.5 was an open pre-reg choice. **Cannot cleanly attribute the regression to GTF-per-se.** Declaring GTF
+dead here = the corrupted-probe trap.
+
+### Verdict + decision (pre-reg F-G1 → "escalate or accept the gap")
+The indicative DIRECTION is negative (GTF-ε0.5 regressed occupancy), but ambiguous. Disambiguating options
+(each ~1 train, ~30–60 min): (a) **matched no-GTF seed-44 baseline** — isolates GTF from seed (the clean
+attribution the C-112 guardrail wants); (b) **gentler ε** (e.g. 0.1–0.15) — tests the too-aggressive
+hypothesis; (c) **accept the indicative negative** and stop — the bloom epic's core findings (bloom=fixed
+bug via sample-feedback; occurrence=recoverable-in-principle per the oracle; magnitude=bulk-lever+tail-
+ceiling) stand regardless; GTF-as-implemented does not (yet) cash the occurrence headroom. Caveats
+throughout: single seed, T=0-cal, one-step oracle, ε_max unpinned. Artifact `012051` retained.
