@@ -26,6 +26,12 @@ only as a labelled aside)}:
 Plus a SHARPNESS CROSS-CHECK reusing the old scorecard (area-ratio, FSS@1) computed on the 8-sample
 MEAN field AND on a SINGLE draw — to test whether any "blur" is the MC-average, not the model.
 
+FAO-02 COMPLIANCE (2026-07-27, C-167 close-out): this tool is a DIAGNOSTIC. **`twCRPS` and
+`randomized PIT` are FAO-02-REJECTED and must NEVER enter a selection/decision rule** (see
+`reference_fao02_locked_eval_framework.md`: CRPS primary + QS99/Brier/MCR guardrails only).
+Selection uses CRPS (proper, primary) with `size_ratio` (magnitude) and FSS/conc1% as a
+*directional* anti-smearing guard — twCRPS/PIT are read here only to corroborate, never to decide.
+
 Usage:
     python scripts/proper_score_audit.py <pred_dir> [--baseline <dir>] [--raw <parquet>] \
         [--targets ...] [--out <md>]

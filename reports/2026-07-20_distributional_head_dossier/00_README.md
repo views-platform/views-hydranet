@@ -33,9 +33,26 @@ Investigation (3 read-only agents, file:line in `02_design`) confirmed the user'
   mean-only. The new evidence reverses that call: we build the real per-cell head with per-cell θ (and a
   structural π for ZINB), sampled.
 - **Judged on** the FROZEN lodestar ruler `../2026-07-17_lodestar_eval_dossier/tools/lodestar_score.py`
-  (T=0, identical months/cells/truth). Do NOT re-derive eval.
-- **Eval bar** = `[[reference_fao02_locked_eval_framework]]` + the harder baseline-meta bar (validation
-  partition + ≥3 seeds + active-cell PIT + twCRPS).
+  (T=0, identical months/cells/truth), run **in tandem with** `scripts/sharpness_scorecard.py` for the
+  magnitude effort (the spatial-sharpness anti-smearing guard — see the **Magnitude scoring recipe**
+  below). Do NOT re-derive eval; do NOT modify the frozen ruler (extend alongside).
+- **Eval bar** = `[[reference_fao02_locked_eval_framework]]` (CRPS primary + QS99/Brier/MCR guardrails)
+  + the harder baseline-meta bar (validation partition + ≥3 seeds). **FAO-02 reconciliation (C-167,
+  2026-07-27):** active-cell **PIT** and **twCRPS** are FAO-02-REJECTED for *selection* — they may be
+  read as diagnostics only, never as a gate. The 05_analysis_plan guardrails are QS99/Brier/MCR.
+
+## Magnitude scoring recipe (C-167, 2026-07-27) — run BOTH instruments every readout
+The magnitude effort (lifting the timid body, `size_ratio` → 1) is scored resolution-aware so "bigger"
+can be told from "sharper" (the C-167 anti-Goodhart guard). Every magnitude readout runs **two**
+instruments on the same prediction cube:
+1. Frozen ruler `../2026-07-17_lodestar_eval_dossier/tools/lodestar_score.py` → crps-all/events/none,
+   size-ratio, AP/Brier, QS99 (the **selection** metrics; CRPS decides).
+2. `scripts/sharpness_scorecard.py <pred_dir> --raw <calibration_parquet>` → **FSS@1 / conc1% /
+   area_ratio** per target × {STEP-1, FULL} (the **corroborating** anti-smearing guard; never selects
+   alone).
+**STEP-1 foundation baseline (nb gated, 2026-07-27):** FSS@1 ≈ 0.00–0.01, area_ratio 0.1–0.2× (timid /
+under-firing), conc1% 0.49–0.58, MCR 0.004–0.015 — the reference a magnitude change must improve
+without degrading. Decision + falsifier F2b: `05_analysis_plan` §"Magnitude decision rule".
 
 ## Document index
 - `02_design` — the head/loss/sampler/config design + the verified ground-truth (file:line).

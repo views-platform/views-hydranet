@@ -32,12 +32,25 @@ ruler), gate, BN-recal on, seeds.
   degenerate (all mass at 0 or a spike). → the head cannot express *stable* per-cell spread. (C-199/C-200)
 - **F2 — no calibration/sharpness gain:** crps-all worse than foundation on ≥2 targets, AND no guardrail
   improves. → reproduces the "mean head + dropout" behaviour with extra cost.
+- **F2b — smearing, not sharpening (C-167, 2026-07-27):** crps_events / size_ratio improve BUT the
+  spatial-sharpness guard degrades vs the STEP-1 foundation baseline (FSS@1 drops, OR area_ratio
+  overshoots ≫ 1 = over-firing, OR conc1% falls). → the "magnitude gain" is a diffuse blob, not a
+  sharper forecast; the resolution-blind trap C-167 warns of. Reject the change.
 - **F3 — in-sample only:** any apparent win on the calibration partition that does not survive the M3
   validation partition (deferred check, but pre-named as a kill condition).
 
 ## Method
 - Frozen ruler: `../2026-07-17_lodestar_eval_dossier/tools/lodestar_score.py` (T=0, identical
-  months/cells/truth). Metrics: AP, Brier, crps-all/events/none, size-ratio, pos-mcr, active-cell PIT.
+  months/cells/truth). Metrics: AP, Brier, crps-all/events/none, size-ratio, pos-mcr, **QS99**
+  (FAO-02 guardrail). **~~active-cell PIT~~ REMOVED** — PIT is FAO-02-REJECTED (C-167 close-out,
+  2026-07-27); use QS99/Brier/MCR guardrails instead.
+- **Spatial-sharpness guard (C-167, mandatory each readout):** run `scripts/sharpness_scorecard.py`
+  **alongside** the frozen ruler → **FSS@1 / conc1% / area_ratio** per target × {STEP-1, FULL}. This
+  is the anti-smearing instrument: it distinguishes a genuinely sharper body from a bigger-but-smeared
+  one. Foundation STEP-1 baseline (nb gated, 2026-07-27): FSS@1 ≈ 0.00–0.01, area_ratio 0.1–0.2×
+  (timid/under-firing), conc1% 0.49–0.58, MCR 0.004–0.015 — the reference the magnitude effort must
+  improve without degrading. FSS **corroborates, never selects alone** (C-167 caveat: FSS overstates;
+  a near-zero forecast games it — so CRPS, not FSS, is primary).
 - Smoke first (2 lessons): head trains, per-cell θ varies, sampler non-degenerate, `(N,S)` test green.
 - Then a short calibration run, single seed, D×K sampling. One variable vs foundation.
 - Kill-gate note: also read a **K-only (D=1)** setting so the aleatoric per-cell spread is legible in
@@ -55,6 +68,19 @@ ruler), gate, BN-recal on, seeds.
   AND no falsifier fires.
 - Otherwise STOP, log the negative in `07_experiment_log` with a postmortem, report. Science banked
   (we will have proven whether per-cell θ, sampled, helps at T=0).
+
+### Magnitude decision rule (C-167, spatial-aware + FAO-02-compliant — 2026-07-27)
+For the **magnitude effort** (any change aimed at lifting the timid body, `size_ratio` → 1), a change
+**WINS iff all three hold**, judged against the STEP-1 foundation baseline on the frozen ruler +
+`sharpness_scorecard.py` run in tandem:
+- (a) **crps_events improves** — proper, primary, the selection metric (CRPS decides, FSS never does).
+- (b) **size_ratio → 1** — the magnitude axis actually moves toward the truth's positive mass.
+- (c) **spatial sharpness does NOT degrade** — **FSS@1 / conc1%** hold or improve, and **area_ratio**
+  does not overshoot into over-firing, vs the Step-1 foundation baseline. This is the anti-Goodhart
+  guard: it forbids buying (a)+(b) by smearing a diffuse blob over the sparse truth (falsifier **F2b**).
+FSS **corroborates, never selects alone** — it overstates skill (near-zero forecasts game it), so a
+change that moves FSS but *worsens* crps_events does NOT win. If (a)+(b) hold but (c) degrades ⇒ F2b
+fires ⇒ the "magnitude gain" is smearing ⇒ reject and log the negative.
 
 ## Forecast-composition arms (pre-registered 2026-07-24, PRE-DATA)
 

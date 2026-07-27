@@ -37,18 +37,30 @@ DEFAULT_TARGETS = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
 
 
 # --- grid reconstruction ---
+def _grid_col(df) -> str:
+    """Resolve the PRIO-GRID id column, tolerating the GH#144 rename (`priogrid_gid` -> the
+    viewser-native `priogrid_id`). Same aliasing the frozen lodestar ruler uses."""
+    for c in ("priogrid_gid", "priogrid_id"):
+        if c in df.columns:
+            return c
+    raise ValueError(
+        f"raw parquet has no priogrid_gid/priogrid_id column; has {list(df.columns)[:10]}"
+    )
+
+
 def build_unit_grid(raw_parquet: str) -> dict[int, tuple[int, int]]:
-    """priogrid_gid -> (h, w) with h=row-87, w=col-310. Unique map (verified)."""
+    """priogrid id -> (h, w) with h=row-87, w=col-310. Unique map (verified)."""
     df = pd.read_parquet(raw_parquet).reset_index()
-    for c in ("priogrid_gid", "row", "col"):
+    gc = _grid_col(df)
+    for c in (gc, "row", "col"):
         if c not in df.columns:
             raise ValueError(f"raw parquet missing {c!r}; has {list(df.columns)[:10]}")
-    m = df[["priogrid_gid", "row", "col"]].drop_duplicates()
-    if m["priogrid_gid"].nunique() != len(m):
-        raise ValueError("priogrid_gid -> (row,col) not unique; cannot reconstruct grid (C-136).")
+    m = df[[gc, "row", "col"]].drop_duplicates()
+    if m[gc].nunique() != len(m):
+        raise ValueError(f"{gc} -> (row,col) not unique; cannot reconstruct grid (C-136).")
     return {
         int(g): (int(r) - ROW_OFFSET, int(c) - COL_OFFSET)
-        for g, r, c in zip(m["priogrid_gid"], m["row"], m["col"])
+        for g, r, c in zip(m[gc], m["row"], m["col"])
     }
 
 
@@ -89,9 +101,10 @@ def matched_pred_thresh(pred_grid: np.ndarray, truth_grid: np.ndarray) -> float:
 # --- aggregate over origins/timesteps ---
 def _truth_series(raw_parquet: str, target: str) -> pd.Series:
     raw = pd.read_parquet(raw_parquet).reset_index()
-    s = raw.set_index(["month_id", "priogrid_gid"])[target]
+    gc = _grid_col(raw)
+    s = raw.set_index(["month_id", gc])[target]
     if not s.index.is_unique:
-        raise ValueError(f"{target}: (month_id, priogrid_gid) not unique (C-136).")
+        raise ValueError(f"{target}: (month_id, {gc}) not unique (C-136).")
     return s
 
 

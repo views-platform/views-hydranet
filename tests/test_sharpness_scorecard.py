@@ -83,3 +83,26 @@ def test_build_unit_grid_requires_columns(tmp_path):
     pd.DataFrame({"month_id": [1], "priogrid_gid": [5]}).to_parquet(p)
     with pytest.raises(ValueError, match="missing"):
         ssc.build_unit_grid(str(p))
+
+
+def test_build_unit_grid_accepts_priogrid_id_alias(tmp_path):
+    """GH#144 grid rename: the viewser-native `priogrid_id` column must work as well as the legacy
+    `priogrid_gid` (C-167 — the instrument was stale on the current family parquet)."""
+    import pandas as pd
+
+    p = tmp_path / "new.parquet"
+    pd.DataFrame(
+        {"month_id": [1, 1], "priogrid_id": [5, 6], "row": [87, 88], "col": [310, 311]}
+    ).to_parquet(p)
+    umap = ssc.build_unit_grid(str(p))
+    assert umap == {5: (0, 0), 6: (1, 1)}  # row-87, col-310
+
+
+def test_build_unit_grid_rejects_missing_grid_col(tmp_path):
+    """Neither priogrid_gid nor priogrid_id -> fail loud."""
+    import pandas as pd
+
+    p = tmp_path / "nogrid.parquet"
+    pd.DataFrame({"month_id": [1], "row": [87], "col": [310]}).to_parquet(p)
+    with pytest.raises(ValueError, match="priogrid"):
+        ssc.build_unit_grid(str(p))
