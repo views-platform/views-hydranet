@@ -87,6 +87,11 @@ def train_model_artifact(
         # convs by len(static_channels); omitting it rebuilds at n_static=0 → state_dict width
         # mismatch on reload of a coord-trained model. No statics ⇒ [] ⇒ reload byte-identical.
         config_snapshot["static_channels"] = config.get("static_channels", [])
+        # S5 / Epic #193 (C-112): persist the training seed(s) so the artifact is SELF-IDENTIFYING
+        # — closes the seed-murk that confounded EXP-4 (a cross-model rollout A/B couldn't tell
+        # which seed produced which artifact). Provenance only; reload does not consume these.
+        config_snapshot["torch_seed"] = config.get("torch_seed")
+        config_snapshot["np_seed"] = config.get("np_seed")
         # #101: persist the head flag (else hurdle_nb reloads as ReLU) + the learned per-target
         # NB dispersion theta (needed for the exact hurdle-NB mean at inference).
         config_snapshot["output_distribution"] = config.get("output_distribution", "standard")
