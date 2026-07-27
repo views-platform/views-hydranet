@@ -329,3 +329,43 @@ hypothesis; (c) **accept the indicative negative** and stop — the bloom epic's
 bug via sample-feedback; occurrence=recoverable-in-principle per the oracle; magnitude=bulk-lever+tail-
 ceiling) stand regardless; GTF-as-implemented does not (yet) cash the occurrence headroom. Caveats
 throughout: single seed, T=0-cal, one-step oracle, ε_max unpinned. Artifact `012051` retained.
+
+---
+
+## EXP-4 MATCHED BASELINE — the confound was the story (correction) — 2026-07-27
+
+Trained a no-GTF nb **seed-44** baseline (same recipe, ε=0, only soft_gate declared) → deploy-sample eval →
+`results/exp4_base_s44_sample.csv`. Clean A/B: GTF-s44 (`012051`) vs base-s44 (`015430`) — matched seed,
+same recipe, **GTF the ONLY difference.** All rc=0, floor restored.
+
+### AP(sb): the earlier "regression" was mostly SEED, not GTF
+| h | GTF-s44 | base-s44 (matched) | old-base-102130 |
+|---|---------|--------------------|------|
+| 1 | 0.276 | 0.317 | 0.440 |
+| 12 | 0.063 | 0.033 | 0.280 |
+| 24 | 0.010 | 0.010 | 0.238 |
+
+**base-s44 is itself far below old-base-102130** (h1 0.317 vs 0.440; h12 0.033 vs 0.280) ⇒ **seed 44 is a
+weak-occurrence seed.** The dramatic gap vs 102130 I first read as "GTF regressed" was ~mostly the seed
+confound (C-112). *Running the matched baseline prevented a corrupted "GTF is dead" verdict — the
+methodology worked.*
+
+### GTF's TRUE effect (matched): small, mixed, within single-seed noise
+- T=0 (h1): GTF **slightly worse** (0.276 vs 0.317, −0.04).
+- Mid-horizon (h12): GTF **better on all 3 targets** — sb 0.063 vs 0.033, ns 0.019 vs 0.006, os 0.016 vs
+  0.008 (2–3×), directionally where exposure bias bites (the hypothesized mechanism).
+- Long-h (24/36): tied (both collapse). T=0 crps guardrail HELD (sb 0.147 vs 0.144).
+
+**Honest verdict:** GTF-ε0.5 on seed 44 is **neither the disaster the confounded run implied nor a win.**
+The mid-horizon lift is real-directional but tiny (both models far below old-baseline 0.28 and the 0.46
+oracle), plausibly within single-seed noise (no block-bootstrap CIs), and offset by a small T=0 cost. **GTF
+does NOT cash the occurrence headroom here** — but seed 44 is a weak testbed, and the mechanism points the
+right way at mid-horizon. **F-G1 verdict (nuanced): no material gain, but not a regression either.**
+
+### Decision
+A definitive GTF verdict needs the claim-level run: **≥3 seeds (incl. a strong-occurrence seed) + block-
+bootstrap CIs**, ideally with a **gentler ε** (0.5 may over-corrupt the gate; the mid-horizon-help /
+T=0-cost tradeoff hints at it). That is a real multi-train batch (ask-before-long-batches). Absent that, the
+indicative signal is too weak/noisy to promote GTF. **Core bloom-epic findings stand unchanged** (bloom =
+fixed bug via sample-feedback; occurrence recoverable-in-principle per the oracle; magnitude = bulk-lever +
+tail-ceiling). Artifacts `012051` (GTF), `015430` (matched base) retained.
