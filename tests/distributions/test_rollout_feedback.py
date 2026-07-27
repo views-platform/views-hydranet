@@ -126,3 +126,33 @@ def test_rollout_feedback_sample_composes_with_gate_soft():
     inf_m.config["forecast_composition"] = "soft_gate"
     mag_mean, _ = inf_m.generate_posterior_samples(h, origin=1)
     assert not np.array_equal(mag_mean, mag_samp)  # composed sample-feedback changes the path
+
+
+def test_sample_feedback_threshold_gate_honors_tau():
+    """S3 / th_gated_NB: under threshold_gate, the SAMPLE-feedback path zeros cells where gate < τ
+    and keeps cells where gate ≥ τ — the SAME masking as the emit-mean (_emit_magnitude), so the
+    fed-back sample is composition-consistent with the deployed forecast. (Arm coverage /
+    determinism / fail-loud are covered by test_rollout_feedback_bounds_bloom.py + the existing
+    ADR-069 composition tests; this fills the one gap: τ honored in the sample path.)"""
+    from views_hydranet.distributions import resolve_family
+
+    inf = _make_inf("nb", rollout_feedback="sample")
+    inf.config["forecast_composition"] = "threshold_gate"
+    inf.config["gate_threshold"] = 0.5
+    fam = resolve_family("nb")
+    npar = fam.n_params
+    # small mu so kept-cell draws fire sometimes but stay modest
+    raw = torch.full((1, 8, 8, npar), -1.0)
+    reg = torch.cat([fam.activate(raw).permute(0, 3, 1, 2) for _ in range(3)], dim=1)
+    # mixed gate: rows 0-3 BELOW τ (0.2), rows 4-7 ABOVE τ (0.8), per target channel
+    gate = torch.full((1, 3, 8, 8), 0.8)
+    gate[:, :, :4, :] = 0.2  # rows 0-3 below τ=0.5; rows 4-7 above
+    gen = torch.Generator(device="cpu").manual_seed(3)
+    sample_fb = inf._sample_feedback(reg, gate, gen)  # [B, n_reg, H, W] log1p
+    mean_fb = inf._emit_magnitude(reg, gate)
+    # τ honored + consistent: BOTH are exactly zero in the below-τ region
+    assert (sample_fb[:, :, :4, :] == 0).all(), "sample-feedback did not zero cells below τ"
+    assert (mean_fb[:, :, :4, :] == 0).all(), "emit-mean did not zero cells below τ (control)"
+    # kept region: the mean is nonzero (kept), and the sample fires on at least some kept cells
+    assert (mean_fb[:, :, 4:, :] > 0).all(), "emit-mean should be nonzero in the kept region"
+    assert (sample_fb[:, :, 4:, :] > 0).any(), "sample draws should fire on some kept cells"
