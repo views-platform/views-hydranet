@@ -72,6 +72,8 @@ Architectural decisions specific to the HydraNet system.
 - **[063](active/063_regression_head_output_activation.md)**: ADR-063: Regression-head output activation — softplus for hurdle bodies, ReLU for standard
 - **[064](active/064_classification_head_output_activation.md)**: ADR-064: Classification-head output activation — raw logits + sigmoid-via-BCE-with-logits
 - **[068](active/068_forecast_composition_arm_naming.md)**: ADR-068: A naming convention for forecast-composition arms (`[th_]gated_<body>[core]`)
+- **[069](active/069_forecast_composition_config_axis.md)**: ADR-069: `forecast_composition` — a first-class config axis for how gate + body compose into the emitted forecast
+- **[070](active/070_rollout_feedback_bloom_mitigation.md)**: ADR-070: `rollout_feedback` — inference-time sample-feedback as the C-113 bloom mitigation
 
 ## [Proposed (Emerging)](./proposed/)
 
@@ -80,7 +82,6 @@ Architectural decisions specific to the HydraNet system.
 - **[062](proposed/062_channel_role_accessors_and_volumehandler_decomposition.md)**: ADR-062: Channel-Role Accessors + VolumeHandler Decomposition
 - **[065](proposed/065_body_mask_training_mask.md)**: ADR-065: `body_mask` — a first-class, validated point-body training-mask setting
 - **[067](proposed/067_distribution_family_subsystem.md)**: ADR-067: A distribution-family subsystem + per-cell sampleable NB/ZINB heads
-- **[070](proposed/070_rollout_feedback_bloom_mitigation.md)**: ADR-070: `rollout_feedback` — inference-time sample-feedback as the C-113 bloom mitigation
 
 ## [Archive (Historical)](./archive/)
 

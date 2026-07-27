@@ -1,7 +1,7 @@
 # ADR-070: `rollout_feedback` — inference-time sample-feedback as the C-113 bloom mitigation
 
-**Status:** Proposed
-**Date:** 2026-07-27
+**Status:** Active
+**Date:** 2026-07-27 (accepted 2026-07-27)
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers
 **Epic:** #193 · **Builds on:** ADR-067 (family subsystem), ADR-069 (composition axis) · **Mitigates:** C-113 (autoregressive runaway) · **Relates to:** C-121 (regression guard), `feedback_clamp_log1p` (safety rail), ADR-056/GTF (training-time, separate & parked)
@@ -30,11 +30,13 @@ Adopt **`rollout_feedback ∈ {mean, sample, teacher_forced}`** as an inference 
 - **Fail-loud:** `sample` with a legacy `output_distribution` (no family) raises (a sample needs a family).
 - **`teacher_forced`** feeds the real month-t input (oracle) — diagnostic only; never a production default.
 
-**Valid family × composition arms** (per ADR-069): **gated_NB** (`nb`+`soft_gate`), **th_gated_NB** (`nb`+`threshold_gate`, τ=baserate), **ZINB** (`zinb`+`self_zeroed`).
+**Valid family × composition arms** (per ADR-069): **gated_NB** (`nb`+`soft_gate`), **th_gated_NB** (`nb`+`threshold_gate`, **τ=0.5** — the validated ADR-068 value; τ=baserate is a documented no-op), **ZINB** (`zinb`+`self_zeroed`).
 
 ## 3. Rationale & integrity impact
 
 **T=0-neutral by construction (the decisive property).** In `predict()`, the seed step (`t == origin`) emits the h=1 prediction (= the scored T=0) *before* any feedback value is computed; `rollout_feedback` only affects h≥2. Therefore defaulting `sample` on for family heads **cannot change the frozen-lodestar T=0 scores** — zero cost to the shipped product, all upside on rollout stability. This is what makes sample-on a safe default rather than a risky one.
+
+> **Neutrality is byte-exact at two levels (S8 verification, 2026-07-27).** (1) The T=0 *distribution* — emit-mean `E[y]`, gate, activated params — is byte-identical mean vs sample by the ordering above (in-process test). (2) The scored D×K *sample cube* required one fix: `to_cube_samples` originally drew the whole 36-step trajectory from a single `torch.Generator`, and torch's batched Gamma rejection coupled h=1's draws to the feedback-changed h≥2 params, so the *scored* T=0 was not byte-invariant (S6 flagged this; pre-registered F-B2). Fixed by seeding a per-`(pass, step)` sub-generator (commit `66a95ea`) — the h=1 cube is now byte-identical mean vs sample across all three compositions (regression test in `test_rollout_feedback.py`). F-B2 no longer fires.
 
 **Stability, not skill.** Bounding the rollout ≠ making it accurate. Long-horizon magnitude is a data ceiling (amount-ceiling wall); occurrence skill is recoverable-in-principle but not delivered by this ADR. `rollout_feedback=sample` is the *stability* fix; skill work (GTF/`ss_feedback`, magnitude head) is separate and out of scope.
 
@@ -52,6 +54,8 @@ Adopt **`rollout_feedback ∈ {mean, sample, teacher_forced}`** as an inference 
 
 ## 5. Validation
 Governed by Epic #193: unit + integration/regression tests that `sample` bounds where `mean` blooms across gated_NB/th_gated_NB/ZINB + legacy fail-loud; a pre-registered 3-seed × 3-arm counted verdict (`05e`). Full suite + ruff + determinism green.
+
+**Outcome (S7 verdict, 2026-07-27; `reports/2026-07-25_t0_rollout_skill_dossier/06_bloom_verification_verdict.md`):** on 6 freshly-retrained known-seed artifacts (matched 40-lesson budget), 18 free-running 36-step rollouts (3 arms × 3 seeds × {mean, sample}) scored on the frozen per-horizon ruler — **mean-feedback blooms 9/9 arms; sample-feedback bounded 9/9** (field-wide `crps_none`: mean 36–95 vs sample 0.002–0.35; `M_mean`: mean 285–751 vs sample 0.02–2.49). The bloom is fixed by the sample-on default across every deployable arm and seed. F-B1 did not fire; F-B2 was flagged, root-caused, and fixed (§3). **Mitigates C-113 (evidenced mitigation — the deployed rollout no longer blooms; the underlying input→output io-gain>1 durable fix remains a separate open item); resolves C-121 (the regression guard now covers the fix, not just detection).**
 
 ## 6. Implementation notes
 `views_hydranet/utils/hydranet_inference.py` (`_sample_feedback`, the `predict()` AR loop, the `__init__` validation); `config_initializer.py` (`rollout_feedback` field + validator + the family-default resolution); `docs/CICs/HydraNetConfig.md`. Determinism per S2 #121. Dossier: `reports/2026-07-25_t0_rollout_skill_dossier/` (EXP-2/EXP-3 evidence).
