@@ -137,6 +137,24 @@ def test_sample_variance_recovers_nb_dispersion():
     )
 
 
+def test_inverse_softplus_rejects_nonpositive_domain():
+    """Guard nb_core.py:33-35 — inverse_softplus is defined only for y > 0."""
+    from views_hydranet.distributions.nb_core import inverse_softplus
+
+    with pytest.raises(ValueError, match="y > 0"):
+        inverse_softplus(0.0)
+
+
+def test_logit_rejects_domain_outside_open_unit_interval():
+    """Guard nb_core.py:44-46 — logit is defined only on the open interval 0 < p < 1."""
+    from views_hydranet.distributions.nb_core import logit
+
+    with pytest.raises(ValueError, match="0 < p < 1"):
+        logit(1.0)
+    with pytest.raises(ValueError, match="0 < p < 1"):
+        logit(0.0)
+
+
 def test_sample_zero_fraction_matches_prob_zero():
     """C-208 goodness-of-fit: the empirical P(Y=0) must match the analytic NB(0) — an independent
     check (prob_zero is not used by the sampler) that catches a mis-shaped low-count spread."""

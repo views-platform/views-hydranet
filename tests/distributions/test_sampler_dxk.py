@@ -228,3 +228,35 @@ def test_generate_posterior_samples_legacy_width_unchanged():
     handler = _mock_handler(_FEATURES)
     mag, _ = inf.generate_posterior_samples(handler, origin=1)
     assert mag.shape == (1, 8, 8, 3, 4)
+
+
+# ── fail-loud guards (RED) ───────────────────────────────────────────────
+
+
+def test_to_cube_samples_rejects_channel_dim_mismatch():
+    """Guard sampling.py:57 — params channel dim must equal n_reg*n_params, else fail loud."""
+    fam = resolve_family("nb")  # n_params == 2
+    # c=3 channels with n_reg=1 => expected 1*2=2, got 3
+    params = torch.randn(2, 3, 4, 4)
+    with pytest.raises(ValueError, match="params channel dim"):
+        to_cube_samples(params, fam, 3, torch.Generator().manual_seed(0), n_reg=1)
+
+
+@pytest.mark.parametrize("composition", ["soft_gate", "threshold_gate"])
+def test_to_cube_samples_gated_arm_requires_gate(composition):
+    """Guard sampling.py:67 — a gating composition with gate=None must fail loud (valid params
+    so the channel-dim guard passes and control reaches the gate guard)."""
+    fam = resolve_family("nb")
+    n_reg = 3
+    params = _activated_params(fam, 2, 4, 4, n_reg)
+    with pytest.raises(ValueError, match="needs a gate"):
+        to_cube_samples(
+            params,
+            fam,
+            3,
+            torch.Generator().manual_seed(0),
+            n_reg,
+            gate=None,
+            composition=composition,
+            threshold=0.5,
+        )

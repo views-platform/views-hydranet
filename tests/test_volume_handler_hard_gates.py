@@ -390,6 +390,28 @@ class TestRed:
         )
         VolumeHandler.from_df(df_exact, exact_cfg)  # must not raise
 
+    def test_gate_wrap_predictions_duration_mismatch_raises(self):
+        """C-15/ADR-015: wrap_predictions must raise when the posterior's time
+        dimension (T) differs from the carrier handler's duration."""
+        # Carrier handler duration T=1 (data shape [T=1, H=4, W=4, C=2]).
+        handler = VolumeHandler(
+            data=np.zeros((1, 4, 4, 2)),
+            axes=("T", "H", "W", "C"),
+            channel_map=["month_id", "priogrid_gid"],
+            time_col="month_id",
+            id_col="priogrid_gid",
+            spatial_cols=["row", "col"],
+        )
+
+        # Posterior with T=2 [B=1, T=2, C=4, H=4, W=4] → work_data.shape[0]=2 != 1.
+        posterior = torch.ones((1, 2, 4, 4, 4))
+        target_names = ["lr_a", "lr_b", "by_a", "by_b"]
+
+        with pytest.raises(
+            ValueError, match=r"Signal duration \(2\) does not match Handler duration \(1\)"
+        ):
+            handler.wrap_predictions(posterior, target_names=target_names)
+
     def test_gate_slice_time_beyond_bounds_raises(self):
         """C-24: Time slice beyond handler's temporal extent must raise ValueError."""
         handler = VolumeHandler(

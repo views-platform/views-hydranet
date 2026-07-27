@@ -4,6 +4,7 @@ Tests for IntegrityGuardian: numerical stability monitor.
 Green/Beige/Red taxonomy (ADR-005).
 """
 
+import numpy as np
 import pytest
 import torch
 import torch.nn as nn
@@ -120,3 +121,36 @@ class TestRed:
             tiny_model.bias[2] = float("inf")
         with pytest.raises(RuntimeError, match="WEIGHT"):
             IntegrityGuardian.monitor(tiny_model, healthy_prediction, healthy_loss)
+
+
+# ---------------------------------------------------------------------------
+# RED TEAM — monitor_numpy (the numpy-array finiteness guard, ADR-003 Fail Loud)
+# ---------------------------------------------------------------------------
+class TestRedNumpy:
+    def test_red_monitor_numpy_nan_raises(self):
+        """A NaN in a numpy array trips the fail-loud guard (integrity_guardian.py:86-90)."""
+        arr = np.array([1.0, np.nan, 3.0])
+        with pytest.raises(RuntimeError, match="non-finite"):
+            IntegrityGuardian.monitor_numpy(arr)
+
+    def test_red_monitor_numpy_reports_nonfinite_count(self):
+        """The message reports the COUNT of non-finite values (source line 87-88): here exactly 1.
+        Also assert the [FATAL] banner is present."""
+        arr = np.array([1.0, np.nan, 3.0])
+        with pytest.raises(RuntimeError, match=r"contains 1 non-finite values"):
+            IntegrityGuardian.monitor_numpy(arr)
+        with pytest.raises(RuntimeError, match=r"\[FATAL\]"):
+            IntegrityGuardian.monitor_numpy(arr)
+
+    def test_red_monitor_numpy_inf_counts_all_and_includes_context(self):
+        """Inf is non-finite too, the count aggregates every offender (2 here), and the caller's
+        context string is echoed into the message."""
+        arr = np.array([np.inf, 2.0, -np.inf, 4.0])
+        with pytest.raises(RuntimeError, match=r"contains 2 non-finite values"):
+            IntegrityGuardian.monitor_numpy(arr, context="unit-probe")
+        with pytest.raises(RuntimeError, match="unit-probe"):
+            IntegrityGuardian.monitor_numpy(arr, context="unit-probe")
+
+    def test_green_monitor_numpy_finite_passes(self):
+        """A fully finite array does not raise (guard is silent on healthy input)."""
+        IntegrityGuardian.monitor_numpy(np.array([1.0, 2.0, 3.0]), context="ok")

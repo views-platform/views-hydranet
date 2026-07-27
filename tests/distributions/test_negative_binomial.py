@@ -227,3 +227,11 @@ def test_initial_raw_bias_mu_starts_small_positive():
     fam = _family()
     mu = fam.activate(fam.initial_raw_bias(priors={"theta": 1.0}))[0]
     assert mu == pytest.approx(0.5, abs=1e-4)
+
+
+def test_activate_fails_loud_on_wrong_channel_count():
+    """#2: activate must not silently drop/ignore channels — n_params is the contract (mirrors the
+    ZINB guard at test_zero_inflated_negative_binomial.py:254)."""
+    fam = _family()
+    with pytest.raises(ValueError, match="channels in the last dim"):
+        fam.activate(torch.randn(2, 3))  # 3 channels, expected n_params=2

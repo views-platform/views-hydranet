@@ -98,6 +98,12 @@ class TestRedMixerValidation:
         with pytest.raises(ValueError, match="epsilon_max"):
             ScheduledSamplingMixer(schedule="linear", epsilon_max=-0.1, warmup_lessons=10)
 
+    def test_epsilon_max_above_one_raises(self):
+        from views_hydranet.utils.scheduled_sampling import ScheduledSamplingMixer
+
+        with pytest.raises(ValueError, match="epsilon_max"):
+            ScheduledSamplingMixer("linear", epsilon_max=1.5, warmup_lessons=0)
+
     def test_exponential_k_ge_one_raises(self):
         from views_hydranet.utils.scheduled_sampling import ScheduledSamplingMixer
 

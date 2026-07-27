@@ -266,3 +266,33 @@ class TestRed:
         }
         HydraNetConfig(**cfg)
         assert "features" in caplog.text and "regression_targets" in caplog.text
+
+    def test_red_retired_hurdle_threshold_rejected(self, valid_config_dict):
+        """ADR-065: hurdle_threshold is retired → reject loud (not silently ignored)."""
+        cfg = _make_config(valid_config_dict, hurdle_threshold=0)
+        with pytest.raises(ValidationError, match="retired"):
+            HydraNetConfig(**cfg)
+
+    def test_red_retired_hurdle_mask_mode_rejected(self, valid_config_dict):
+        """ADR-065: hurdle_mask_mode is retired → reject loud (use body_mask instead)."""
+        cfg = _make_config(valid_config_dict, hurdle_mask_mode="active_window")
+        with pytest.raises(ValidationError, match="retired"):
+            HydraNetConfig(**cfg)
+
+    def test_red_invalid_ss_feedback_rejected(self, valid_config_dict):
+        """ss_feedback must be 'mean' or 'sample' → 'bogus' raises."""
+        cfg = _make_config(valid_config_dict, ss_feedback="bogus")
+        with pytest.raises(ValidationError, match="ss_feedback must be 'mean' or 'sample'"):
+            HydraNetConfig(**cfg)
+
+    def test_red_invalid_reg_activation_rejected(self, valid_config_dict):
+        """reg_activation must be softplus/relu/None → 'gelu' raises."""
+        cfg = _make_config(valid_config_dict, reg_activation="gelu")
+        with pytest.raises(ValidationError, match="reg_activation='gelu' is not valid"):
+            HydraNetConfig(**cfg)
+
+    def test_red_negative_pi_penalty_weight_rejected(self, valid_config_dict):
+        """pi_penalty_weight has ge=0.0 constraint → -1.0 raises pydantic ValidationError."""
+        cfg = _make_config(valid_config_dict, pi_penalty_weight=-1.0)
+        with pytest.raises(ValidationError, match="pi_penalty_weight"):
+            HydraNetConfig(**cfg)
