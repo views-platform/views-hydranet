@@ -80,6 +80,7 @@ Architectural decisions specific to the HydraNet system.
 - **[062](proposed/062_channel_role_accessors_and_volumehandler_decomposition.md)**: ADR-062: Channel-Role Accessors + VolumeHandler Decomposition
 - **[065](proposed/065_body_mask_training_mask.md)**: ADR-065: `body_mask` — a first-class, validated point-body training-mask setting
 - **[067](proposed/067_distribution_family_subsystem.md)**: ADR-067: A distribution-family subsystem + per-cell sampleable NB/ZINB heads
+- **[070](proposed/070_rollout_feedback_bloom_mitigation.md)**: ADR-070: `rollout_feedback` — inference-time sample-feedback as the C-113 bloom mitigation
 
 ## [Archive (Historical)](./archive/)
 
