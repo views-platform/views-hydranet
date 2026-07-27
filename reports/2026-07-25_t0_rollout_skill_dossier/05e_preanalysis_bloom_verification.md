@@ -14,7 +14,12 @@ bloom itself is model-dependent.
 ## Matrix (S5 trains, S6 evals)
 
 - **Arms (valid family × composition, ADR-069):** gated_NB (`nb`+`soft_gate`), th_gated_NB
-  (`nb`+`threshold_gate`, τ=baserate), ZINB (`zinb`+`self_zeroed`).
+  (`nb`+`threshold_gate`, **τ=0.5**), ZINB (`zinb`+`self_zeroed`).
+  > **Correction (2026-07-27, S8):** this line originally read "τ=baserate". The validated,
+  > glossary/ADR-068 definition of th_gated_NB is **τ=0.5**; τ=baserate is a documented **no-op**
+  > (base rates 0.4–0.8% are too low to zero anything, collapsing th_gated_NB into ungated nb —
+  > #167 exp-log). S6 ran **τ=0.5**. Wording corrected; the bloom verdict is τ-independent (it is
+  > the mean-vs-sample contrast *within* each arm).
 - **Seeds:** `torch_seed ∈ {42, 43, 44}` — **known & recorded in the artifact sidecar** (S5 fixes the
   seed-murk that confounded EXP-4).
 - **Trained models:** `nb`×3 (serves gated_NB + th_gated_NB via emit composition) + `zinb`×3 = **6 models**.
@@ -67,3 +72,27 @@ Rationale: the fix is **T=0-neutral by construction** (ADR-070 §3 — the seed 
 so sample-on for families has **zero cost to the scored T=0 product** and mitigates the bloom by default —
 all upside, no downside on the shipped metric. Legacy heads cannot sample (no family) and stay byte-identical.
 Overridable via explicit `rollout_feedback` for experiments. Wired in S4; verified T=0-identical in S6 (P3).
+
+## Verification outcome (S8, 2026-07-27) — added after execution; predictions above unedited
+
+- **P1 (sample bounded 9/9): CONFIRMED.** Counted verdict `06_bloom_verification_verdict.md` — mean
+  blooms 9/9, sample bounded 9/9 (crps_none: mean 36–95, sample 0.002–0.35; M_mean: mean 285–751,
+  sample 0.02–2.49). **F-B1 did not fire.**
+- **P2 (mean blooms ≥5/9): CONFIRMED** — mean blooms 9/9.
+- **P3 / F-B2 (T=0-neutrality): FLAGGED, root-caused, then RESOLVED.** The S6 cross-process eval showed
+  h=1 crps_all *not exactly* identical mean vs sample (median Δ=0.002; one os outlier Δ=0.40). Root
+  cause: the T=0 DISTRIBUTION (emit-mean, gate, params) is byte-identical by construction (ADR-070 §3,
+  tested), but the SCORED D×K *sample cube* was not — `to_cube_samples` drew the whole 36-step
+  trajectory from one shared `torch.Generator`, and torch's batched Gamma rejection coupled h=1's
+  draws to the h≥2 params that feedback changes. **Fixed** (per-`(pass, step)` sub-generator seeding,
+  commit `66a95ea`): the h=1 cube is now byte-identical mean vs sample for all 3 deployable
+  compositions (regression test `test_rollout_feedback_t0_neutral_h1_cube_byte_identical`). **F-B2
+  no longer fires; T=0-neutrality holds byte-exact.** The verdict is unaffected (it rests on
+  field-wide magnitude; the S6 cubes are historical evidence, not re-scored).
+- **Criterion note:** the S6 driver's throwaway auto-verdict deviated from this plan (used `M_max` — a
+  single-cell outlier — and dropped the terminal-spike carve-out of §Quantitative criterion),
+  printing a spurious "blooms everywhere". The pre-registered criterion applied **as written**
+  (`M_mean` + carve-out) gives 9/9 & 9/9; corroborated by `crps_none`. Caught pre-report; never
+  asserted as truth. See `06`.
+- **Verdict:** the bloom is **FIXED** by `rollout_feedback=sample` (the productionized default);
+  C-113 → **evidenced mitigation** (S8; the underlying io-gain>1 durable fix is separate/open).
