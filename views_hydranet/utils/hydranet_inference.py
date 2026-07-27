@@ -786,6 +786,7 @@ class HydraNetInference:
                             gate=prob_thwc,
                             composition=self.config.get("forecast_composition", "self_zeroed"),
                             threshold=self.config.get("gate_threshold"),
+                            pass_index=d,  # ADR-070: per-(pass,step) seed → T=0-invariant cube
                         )
                         # gate cube: the classifier P(y>0), repeated across the K cols
                         posterior_probabilities_zstack[:, :, :, :, cols] = np.repeat(

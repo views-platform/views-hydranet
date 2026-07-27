@@ -29,6 +29,7 @@ def to_cube_samples(
     gate=None,
     composition: str = "self_zeroed",
     threshold: "float | None" = None,
+    pass_index: int = 0,
 ) -> np.ndarray:
     """Draw K per-cell samples/target from activated family params → log1p-space cube slice.
 
@@ -44,6 +45,8 @@ def to_cube_samples(
             ``soft_gate`` (per-draw ``Bernoulli(gate)``), or ``threshold_gate`` (keep cell if
             ``gate >= threshold``).
         threshold: τ ∈ (0,1) for ``threshold_gate``.
+        pass_index: MC-dropout pass index (D axis). Combined with the run seed + step index to
+            seed a per-``(pass, step)`` sub-generator (ADR-070 T=0-neutrality — see below).
 
     Returns:
         ``np.ndarray`` ``[T, H, W, n_reg, k]`` float32, in **log1p space** (non-negative).
@@ -58,10 +61,7 @@ def to_cube_samples(
         )
     draw = family.sample  # the family's own sample (self-zeroed for zinb, plain NB for nb)
     out = torch.zeros((t, h, w, n_reg, k), dtype=torch.float32)
-    for j in range(n_reg):
-        pj = params[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1)  # [T,H,W,n_params]
-        counts = draw(pj, k, generator)  # [T,H,W,k] count space
-        out[:, :, :, j, :] = torch.log1p(counts)  # -> log1p (emit) space
+    gate_t = None
     # ADR-069 (#183): compose the sample cube with the gate at emit time. self_zeroed =>
     # passthrough (byte-identical); soft_gate / threshold_gate mask the log1p draws.
     if composition != "self_zeroed":
@@ -71,5 +71,21 @@ def to_cube_samples(
             )
         # first n_reg channels of the gate -> [T,H,W,n_reg]
         gate_t = torch.as_tensor(np.asarray(gate), dtype=torch.float32)[..., :n_reg]
-        out = compose_samples(out, gate_t, composition, threshold, generator)
+    # ADR-070 (T=0-neutrality): draw EACH timestep from its own sub-generator, seeded from the run
+    # seed + (pass, step). A single generator streamed across the 36-step trajectory couples a
+    # step's draws to LATER steps' params — torch's batched Gamma rejection re-draws across the
+    # whole tensor — so rollout_feedback (which only changes h>=2 params) would perturb the SCORED
+    # h=1 cube. Independent per-(pass, step) streams make each step's draw depend only on its own
+    # params, so h=1 is byte-invariant to feedback. Deterministic + reproducible (S2 #121): same
+    # seed, same pass_index => byte-identical cube. For a single step (T=1) this reproduces the
+    # pre-fix draw exactly (LOCKED golden anchors preserved).
+    base = int(generator.initial_seed()) if generator is not None else 0
+    for tt in range(t):
+        seed_t = (base + pass_index * 1_000_003 + tt * 10_007) & 0x7FFF_FFFF_FFFF_FFFF
+        gen_t = torch.Generator().manual_seed(seed_t)
+        for j in range(n_reg):
+            pj = params[tt, j * npar : (j + 1) * npar].permute(1, 2, 0)  # [H,W,n_params]
+            out[tt, :, :, j, :] = torch.log1p(draw(pj, k, gen_t))  # count -> log1p (emit) space
+        if gate_t is not None:
+            out[tt] = compose_samples(out[tt], gate_t[tt], composition, threshold, gen_t)
     return out.numpy()

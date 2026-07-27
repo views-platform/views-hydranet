@@ -113,6 +113,63 @@ def test_rollout_feedback_sample_differs_from_mean():
     assert not np.array_equal(mag_mean, mag_samp)
 
 
+def test_rollout_feedback_t0_neutral_h1_distribution_identical():
+    """F-B2 / T=0-neutrality (05e; ADR-070 §3), at the distribution level.
+
+    The seed step emits h=1 BEFORE any feedback is computed — in ``predict()`` the h=1 params are
+    ``acc_params.append``-ed *before* ``_sample_feedback`` runs, and the feedback draw uses a
+    SEPARATE ``fb_gen`` (which never touches the global RNG). So at h=1 the emitted DISTRIBUTION is
+    byte-identical mean vs sample: the emit-mean E[y] (point forecast), the gate P(y>0), and the
+    activated params are all byte-unchanged. (The scored D×K cube is also byte-invariant after
+    the ADR-070 per-step sampler seeding — asserted in the STRICT test below.)
+    """
+    res = {}
+    for fb in ("mean", "sample"):
+        inf = _make_inf("nb", rollout_feedback=fb)
+        t = _mock_handler().to_pytorch("cpu")
+        mag, prob = inf.predict(t, origin=1, sample_idx=0, feature_names=_FEATURES)
+        par, _ = inf.predict(
+            t, origin=1, sample_idx=0, feature_names=_FEATURES, return_params=True
+        )
+        res[fb] = (mag, prob, par)
+    (mm, pm, am), (ms, ps, as_) = res["mean"], res["sample"]
+    assert np.array_equal(mm[0], ms[0]), "h=1 emit-mean differs mean vs sample → T=0 leak (F-B2)"
+    assert np.array_equal(pm[0], ps[0]), "h=1 gate differs mean vs sample → T=0 leak (F-B2)"
+    assert np.array_equal(am[0], as_[0]), "h=1 params differ mean vs sample → T=0 leak (F-B2)"
+    assert not np.array_equal(mm[1], ms[1])  # h>=2 DOES diverge (feedback works)
+
+
+@pytest.mark.parametrize(
+    "composition,threshold",
+    [("self_zeroed", None), ("soft_gate", None), ("threshold_gate", 0.5)],
+)
+def test_rollout_feedback_t0_neutral_h1_cube_byte_identical(composition, threshold):
+    """F-B2 STRICT (ADR-070): the SCORED h=1 D×K sample cube is byte-identical mean vs sample, for
+    EVERY deployable composition (self_zeroed / soft_gate / threshold_gate — the gated arms also
+    exercise ``compose_samples``' per-timestep Bernoulli).
+
+    The sampled ensemble the CRPS scores must also be feedback-invariant at T=0. This holds because
+    ``to_cube_samples`` seeds a per-``(pass_index, timestep)`` sub-generator (ADR-070 close-out):
+    timestep t=0's draws depend only on t=0 params + a seed carrying NO dependence on the later
+    params that feedback changes. Without it (one generator streamed across the 36-step rollout),
+    batched Gamma rejection couples h=1's draws to h≥2's params → the scored T=0 leaks. Regression
+    guard.
+    """
+
+    def _run(fb):
+        inf = _make_inf("nb", rollout_feedback=fb)
+        inf.config["forecast_composition"] = composition
+        if threshold is not None:
+            inf.config["gate_threshold"] = threshold
+        return inf.generate_posterior_samples(_mock_handler(), origin=1)
+
+    mag_m, prob_m = _run("mean")
+    mag_s, prob_s = _run("sample")
+    assert np.array_equal(mag_m[0], mag_s[0]), "h=1 sample cube differs mean vs sample → T=0 leak"
+    assert np.array_equal(prob_m[0], prob_s[0]), "h=1 gate cube differs mean vs sample → T=0 leak"
+    assert not np.array_equal(mag_m, mag_s)  # h>=2 diverges (feedback works)
+
+
 def test_rollout_feedback_sample_is_deterministic():
     h = _mock_handler()
     a, _ = _make_inf("nb", rollout_feedback="sample").generate_posterior_samples(h, origin=1)

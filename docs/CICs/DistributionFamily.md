@@ -116,6 +116,12 @@ concrete hook — a family opts in by overriding it, opts out by inheriting the 
   head sized for the wrong family fails loud at activation, never silently mis-slices params.
 - `to_cube_samples` (the D×K sampler helper) raises `ValueError` when the params channel dim `!=
   n_reg * n_params` — a mis-shaped param cube fails loud before sampling, never draws from garbage.
+- `to_cube_samples` draws each timestep from its OWN sub-generator, seeded from
+  `generator.initial_seed()` + `(pass_index, timestep)` (ADR-070). A step's draw depends only on its
+  own params, so under an autoregressive rollout the scored T=0 (h=1) cube is **byte-invariant to
+  `rollout_feedback`** (which only alters h≥2 params) — the T=0-neutrality the sample-on default
+  rests on. Reproducibility (same seed + `pass_index` → byte-identical cube) preserves the S2 #121
+  gate; a single-step call (T=1) reproduces the pre-ADR-070 draw exactly (LOCKED golden anchors).
 
 ---
 
