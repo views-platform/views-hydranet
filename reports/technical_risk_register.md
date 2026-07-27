@@ -6,9 +6,9 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-07-27                           |
 | Total Concerns    | 221                                  |
-| Open Concerns     | 103                                  |
+| Open Concerns     | 104                                  |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 118                                  |
+| Resolved Concerns | 117                                  |
 
 ---
 
