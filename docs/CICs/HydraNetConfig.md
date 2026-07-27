@@ -30,7 +30,7 @@ The `HydraNetConfig` is the **Schema** of the HydraNet pipeline. Its primary pur
 - **Balancer Freeze (C-113 bisect):** `freeze_multitask_balancer` (`bool`, default `False`) excludes the MultiTaskLoss `log_vars` from the optimizer (pre-C-111 equal-weighting regime). See `reports/preanalysis_balancer_bisect.md`.
 - **Checksum Laws (ADR-009):** Guarantees `input_channels == len(features)` and `time_steps == len(steps)`.
 - **Feature Lifecycle Law (ADR-046):** Guarantees that all required columns (features + targets) are accounted for in `transformations` or `derivations`.
-- **Typo Correction:** Handles the legacy `evalution_mode` typo via a `model_validator(mode="before")` shim.
+- **Full error collection:** `handle_typos_and_missing_guidance` (a `model_validator(mode="before")`) injects sentinels for registry/enum fields so Pydantic validates ALL fields and reports every error at once, rather than stopping at the first missing one. (There is no `evalution_mode` key-rename shim — value-level typos in `evaluation_mode` are rejected loud by its field validator.)
 - **Enum Validation:** Validates `run_type`, `evaluation_mode`, and `aggregate_method` against strict allowlists, with alias support for `aggregate_method` (e.g., `"mean"` → `"arithmetic_mean"`).
 - **Conditional Parameter Validation:** Guarantees that strategy-specific parameters are explicitly provided for the active choice in `sampling_strategy`, `loss_reg`, `loss_class`, `hurdle_threshold` (QS99 params), and `target_weights` (regression target coverage). No silent defaults — missing parameters raise immediately.
 - **Per-Target Sigma Validation (issue #44):** `loss_reg_sigma` accepts `float` (shared across targets) or `Dict[str, float]` (per-target). Dict form is only valid for `loss_reg='tobit'`. Validates: all regression targets present, no extra keys, all values positive.
@@ -57,7 +57,7 @@ The `HydraNetConfig` is the **Schema** of the HydraNet pipeline. Its primary pur
 
 - **Checksum Mismatch:** Raises `ValueError` with explicit counts (e.g., "input_channels (7) != features (6)").
 - **Feature Lifecycle Violation:** Raises `ValueError` listing unaccounted columns.
-- **Invalid Evaluation Mode:** Raises `ValueError` with valid options listed — no silent typo correction for `evaluation_mode` (only the legacy `evalution_mode` key name is corrected).
+- **Invalid Evaluation Mode:** Raises `ValueError` with the valid options listed — a bad `evaluation_mode` value is rejected loud, never silently corrected.
 - **Invalid Loss Function (Regression):** Raises `ValueError` when `loss_reg` is not in `LOSS_REG_REGISTRY`, listing valid options.
 - **Invalid Loss Function (Classification):** Raises `ValueError` when `loss_class` is not in `LOSS_CLASS_REGISTRY`, listing valid options.
 - **Missing Loss Reg Parameter:** Raises `ValueError` when the active regression loss's required parameter is not provided (e.g., `shrinkage` requires `loss_reg_a` and `loss_reg_c`, `basu_dpd` requires `loss_reg_alpha` and `loss_reg_sigma`, `tobit` requires `loss_reg_sigma`).

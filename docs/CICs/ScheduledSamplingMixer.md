@@ -54,6 +54,7 @@ The `ScheduledSamplingMixer` computes the epsilon schedule for binary scheduled 
 - **Invalid schedule name:** Raises `ValueError` listing valid options.
 - **epsilon_max out of range:** Raises `ValueError` if not in [0, 1].
 - **Exponential k ≥ 1:** Raises `ValueError` — the schedule diverges instead of converging.
+- **Inverse-sigmoid k < 1:** Raises `ValueError` at construction — Bengio 2015 inverse-sigmoid decay requires `k ≥ 1` (`k < 1` is a wrong schedule shape; `k = 0` would divide by zero in `get_epsilon`). Symmetric to the exponential guard.
 - **Missing k for non-linear schedules:** Not caught by the mixer (caught by `HydraNetConfig.validate_scheduled_sampling_params` instead).
 
 All failures are Fail-Loud at construction time. No silent degradation.

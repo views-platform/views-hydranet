@@ -144,9 +144,10 @@ class TestRed:
         )
 
         model, timestamp = fetcher.fetch_model_artifact(model_artifact_name="bad_model")
-        # stem is "bad_model", last 15 chars = "bad_model" (only 9 chars)
-        # This should at minimum not crash — the timestamp is garbage but extractable
-        assert len(timestamp) == 15 or len(timestamp) < 15
+        # Timestamp extraction is best-effort `stem[-15:]` (CIC §6): a non-standard filename does
+        # NOT raise — it yields the (short/garbage) tail verbatim. stem "bad_model" (9 chars) →
+        # the whole stem. Pins the documented tolerant behavior (was a tautological len check).
+        assert timestamp == "bad_model"
 
     def test_red_empty_artifact_file(self, tmp_path):
         """Empty .pt file must fail with a clear error, not silently."""
