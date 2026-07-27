@@ -977,6 +977,12 @@ class HydraNetConfig(BaseModel):
             err_msg = f"ss_schedule='exponential' requires ss_k < 1.0, got {self.ss_k}."
             logger.error(err_msg)
             raise ValueError(err_msg)
+        # Symmetric guard: Bengio 2015 inverse-sigmoid decay requires ss_k >= 1 (k<1 is the wrong
+        # schedule shape; k=0 divides by zero in ScheduledSamplingMixer.get_epsilon).
+        if self.ss_schedule == "inverse_sigmoid" and self.ss_k is not None and self.ss_k < 1.0:
+            err_msg = f"ss_schedule='inverse_sigmoid' requires ss_k >= 1.0, got {self.ss_k}."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return self
 
     # --- Dict-compatibility layer (gradual migration from config["key"]) ---
