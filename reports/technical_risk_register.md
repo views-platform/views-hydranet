@@ -4,11 +4,11 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-07-25                           |
+| Last Updated      | 2026-07-27                           |
 | Total Concerns    | 221                                  |
-| Open Concerns     | 104                                  |
+| Open Concerns     | 103                                  |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 117                                  |
+| Resolved Concerns | 118                                  |
 
 ---
 
@@ -370,6 +370,8 @@ Tier 2 rationale: structural fragility with a confirmed, realistic trigger (it a
 
 ---
 
+**Update 2026-07-27 (S8, Epic #193, ADR-070) — EVIDENCED MITIGATION (bloom bounded 9/9 by the sample-on default; io-gain>1 NOT eliminated).** ADR-070 makes `rollout_feedback=sample` the default for family heads: the AR loop feeds back a sparse, in-distribution family draw instead of the diffuse emit-mean, so the deployed rollout no longer *excites* the >1 input→output gain. Counted verdict (`reports/2026-07-25_t0_rollout_skill_dossier/06_bloom_verification_verdict.md`): on 6 retrained known-seed models (matched 40 lessons), mean-feedback blooms **9/9** arms, sample-feedback bounded **9/9** (field `crps_none` mean 36–95 → sample 0.002–0.35; `M_mean` mean 285–751 → sample 0.02–2.49). **This is a mitigation, not a resolution:** it removes the *trigger* (OOD dense feedback) but the underlying input→output io-gain>1 is unchanged, so a dense-feedback path (`rollout_feedback=mean`, or a future non-sampling consumer) can still bloom. The durable fix (spectral-norm/Lipschitz on the input→output map, or rollout/GTF training) stays **OPEN**; C-113 remains open at Tier 2 as a now-*contained* risk. The seconds-level regression guard that catches a re-introduction is **C-121 (resolved)**. T=0-neutrality of the default is byte-exact (ADR-070 §3; sampler fix `66a95ea`).
+
 ### C-114: Undocumented assumption — no dropout on the ConvLSTM recurrent connections, rationale unknown
 
 | Field | Value |
@@ -520,6 +522,15 @@ Tier 3 rationale: coupling/ownership ambiguity raising change cost across repos;
 ---
 
 ### C-121: No automated regression guard for the C-113 autoregressive runaway — the only monitor is contractually blind
+
+> **RESOLVED 2026-07-27 (S8, Epic #193, ADR-070).** A fast regression guard now exists AND covers
+> the actual fix, not just detection: `tests/distributions/test_rollout_feedback_bounds_bloom.py`
+> (the sample-feedback invariant — the fed-back field is sparser than the mean, parametrized over
+> the 3 deployable arms) + `tests/test_rollout_stability_guard.py` (the free-running attractor guard,
+> `is_out_of_range` vs `DATA_LOG_MAX`), both running in seconds in the suite; `scripts/diagnose_io_gain.py`
+> is the retrain-free attractor seam. A training-dynamics change that re-introduced the runaway now
+> fails the suite in seconds, not after a ~40-min eval. *(Awaiting physical relocation to §Resolved
+> Concerns in the next register tidy.)*
 
 | Field | Value |
 |-------|-------|
