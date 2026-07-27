@@ -6,9 +6,9 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-07-27                           |
 | Total Concerns    | 221                                  |
-| Open Concerns     | 104                                  |
+| Open Concerns     | 99                                  |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 117                                  |
+| Resolved Concerns | 122                                  |
 
 ---
 
@@ -23,27 +23,27 @@
 
 ---
 
-## Causal Clusters (review-rr strategic, 2026-06-05; refreshed 2026-06-24)
+## Causal Clusters (review-rr strategic, 2026-06-05; refreshed 2026-06-24, 2026-07-27)
 
 Open concerns reduce to **13 root decisions**. Fixing a root advances multiple entries; entries are tagged `[Cx]` informally in this map (not in every entry body). Clusters 1–6 are the original 2026-06-05 map (C-01…C-123); clusters 7–13 were added 2026-06-24 to cover the ~46 entries from the ZINB epic, the channel-role refactor, the over-smoothing investigation, the name-coupling review, and the views-frames migration that the original map predated.
 
 | # | Root decision | Member entries | Fix scope | Priority |
 |---|---|---|:--:|---|
-| **1** | Inference surface (`predict()`) never contracted/tested/decomposed; guarded only by a log-space ceiling | C-113, C-121, C-122, C-107, C-114 (+D-05, D-06) | 1 coordinated | **★ first — imminent (ZITD edits `predict()`)** |
-| **2** | Training-dynamics changes outran reproducibility/comparability discipline | C-112, C-119, C-79, C-110 | 2 | near-term |
+| **1** | Inference surface (`predict()`) never contracted/tested/decomposed; guarded only by a log-space ceiling | ~~C-121~~ RESOLVED, C-113 (mitigated), C-122, C-107, C-114 (+D-05, D-06) | 1 coordinated | **largely addressed (2026-07-27):** ZITD head shipped; `predict()` gained the D×K sampler + T=0-neutral rollout_feedback (ADR-070) + IntegrityGuardian weight scan + behavioral non-finite/rollout tests; **C-113→evidenced-mitigation, C-121→resolved**. Residual: C-122/107/114 (unit coverage, model facets) — lower urgency |
+| **2** | Training-dynamics changes outran reproducibility/comparability discipline | ~~C-119, C-79~~ RESOLVED, C-112 (seed-in-sidecar shipped, S5a — verify), C-110 | 2 | **mostly closed (2026-07-27)** — bit-repro + determinism guard shipped; residual C-110 (+ confirm C-112) |
 | **3** | `utils/` accreted multiple domains without package structure / clear ownership | C-35, C-01, C-36, C-37, C-120, C-75, C-76 | 3 (large blast radius) | defer |
 | **4** | Single hardcoded head/loss topology (3+3 heads, positional loss tuple) | C-03, C-123 (+C-122 model facet, D-02) | 2 | decide *with* ZITD planning |
 | **5** | Config is a typed-model-masquerading-as-dict (`extra="allow"`) | C-06, C-117, C-49 (+D-03) | 2 | defer (D-03 tension) |
 | **6** | Operational/GPU fragility on the dev box (no hard CUDA gate; publish-step memory) | C-115, C-116 | 1–2 | near-term |
-| **7** | ZINB/hurdle likelihood never fully committed + train/inference objective mismatch | C-137, C-141, C-143, C-144, C-145, C-146, C-148, C-149, C-150, C-129 (+D-08, D-09; C-140 RESOLVED) | 2–3 | **active research front** |
-| **8** | `feature_cols` overloads model-inputs and training-targets (C-156 is the named root) | C-156, C-160, C-166 (C-157/158/159 RESOLVED 2026-06-24) | 1–2 | mostly closed |
+| **7** | ZINB/hurdle likelihood never fully committed + train/inference objective mismatch | C-137, C-141, C-143, C-144, C-145, C-146, C-148, C-149, C-150, C-129 (+D-08, D-09; C-140 RESOLVED) | 2–3 | **head SHIPPED (ADR-067 nb/zinb + bloom verdict), but all 10 objective/likelihood members still open — NEEDS member-level status review** (several likely closeable post-bloom-epic; not verified) |
+| **8** | `feature_cols` overloads model-inputs and training-targets (C-156 is the named root) | C-156 (root), C-160, C-166 (C-157/158/159 RESOLVED) | 1–2 | mostly closed — C-156/160/166 remain |
 | **9** | Evaluation is resolution-blind ⇒ in-sample over-smoothing unmeasured/confounded | C-167, C-168, C-169 (+C-136) | 2 | near-term |
 | **10** | Upstream name/format string is the unmediated contract + join-key + role | C-173, C-174, C-175, C-176, C-177 (+D-10, D-11) | 2 | defer (D-11 tension) |
 | **11** | Overridable phase-template silently drops the wandb/bookkeeping lifecycle | C-132, C-133, C-134 (+D-07) | 1–2 | near-term |
-| **12** | #110 baseline-run operational readiness (config drift / decision-rule / runtime harness) | C-162, C-163, C-164 (C-161 RESOLVED 2026-06-25) | 1–2 | unblock before #110 |
+| **12** | #110 baseline-run operational readiness (config drift / decision-rule / runtime harness) | ~~C-161, C-162~~ RESOLVED, C-163, C-164 | 1–2 | unblock before #110 — C-163/164 remain |
 | **13** | Rollout-training & balancer methodology rest on unverified premises | C-124, C-125, C-126, C-128, C-170 | 2 | decide with rollout work |
 
-**Highest-value:** Cluster 1 — largest, contains the only imminent Tier-2 (C-113), single coordinated fix (decompose `predict()` + rollout test + `HydraNetInference` CIC + IntegrityGuardian §6 doc) advances 5 concerns + 2 disagreements before the ZITD head touches it. **Live front (2026-06-24):** Cluster 7 (ZINB likelihood) is the active research direction; Clusters 8 & 12 are now mostly closeable (C-157/158/159 shipped; C-161 is a one-line config fix).
+**Highest-value (refreshed 2026-07-27):** Cluster 1 is no longer the priority — the bloom epic (#183/#193) + today's cleanup addressed most of it (C-113 mitigated via ADR-070, C-121 resolved, predict() sampler + tests + IntegrityGuardian shipped). The **live research front is Cluster 7** (ZINB objective/likelihood): the head is built but the train/inference-objective and likelihood-commitment questions are unverified — **the top follow-up is a member-level status review of Cluster 7** to separate genuinely-open from epic-closed. Clusters 2, 8, 12 are mostly closed (residuals: C-110/112; C-156/160/166; C-163/164). The **magnitude/amount-ceiling** (not a register risk) remains the standing research ceiling.
 
 ---
 
@@ -210,24 +210,6 @@ See also C-36 (VolumeHandler ISP), D-01 (VolumeHandler scope).
 `apply_blueprint()` uses an `if op == "binary" ... else raise NotImplementedError` conditional. Adding a new operation (e.g., log-transform, z-score) requires modifying the method body. A strategy pattern or operation registry would make the method open for extension without modification. Currently low urgency — only "binary" is used across all configs.
 
 See also C-75 (duplicated derivation logic).
-
----
-
-### C-79: No pipeline-level reproducibility comparison test
-
-> **RESOLVED 2026-06-15 (`daab1c1`).** Determinism regression test added in `tests/test_training_engine.py` (`test_init_deterministic_regardless_of_prior_rng_state` + `test_training_run_is_reproducible`) — pins two-run weight-TENSOR identity. *(Awaiting physical relocation to §Resolved Concerns in the next register tidy.)*
-
-| Field | Value |
-|-------|-------|
-| ID | C-79 |
-| Tier | 4 |
-| Source | /falsify merge-readiness audit P2 (2026-05-26), originally noted in C-42 resolution |
-| Trigger | When modifying inference orchestrator, posterior sampling, or aggregation logic — no test verifies that two identical runs produce identical outputs |
-| Location | `tests/test_falsification_cradle_to_grave.py` (F3-06 stub), `views_hydranet/utils/hydranet_inference.py`, `views_hydranet/utils/inference_orchestrator.py` |
-
-`ReproducibilityGate.lock_entropy()` sets all RNG seeds (C-42 resolved), but no test actually runs the inference pipeline twice with the same seeds and compares outputs. Pipeline-level determinism is assumed, not proven. The F3-06 falsification stub encodes this gap. Noted as a "residual test gap" in C-42 resolution text but never registered.
-
-See also C-42 (resolved — entropy locking).
 
 ---
 
@@ -473,37 +455,6 @@ Tier 3 rationale: maintainability + critical-path coupling; concrete (live warni
 
 ---
 
-### C-119: GPU runs are not bit-reproducible despite the reproducibility gate
-
-> **RESOLVED 2026-06-15 (`daab1c1`).** Root cause was **init-time RNG drift** (not CUDA kernels); fix = re-seed before init in `make()` + a determinism regression test (closes C-79). Bit-identical weights confirmed on the real config (GPU, multi-thread, dropout). Confounded prior results flagged in RESULTS_LOG / dossier 07 / #110. *(Awaiting physical relocation to §Resolved Concerns in the next register tidy.)*
-
-| Field | Value |
-|-------|-------|
-| ID | C-119 |
-| Tier | 1 |
-| Source | repo-assimilation (2026-06-05) + C-111 bisect observation; **root-caused by the determinism investigation (2026-06-14)** |
-| Trigger | Comparing any two single training runs (baseline-vs-experiment, an FAO eligibility row, a RESULTS_LOG entry, or the channel-role parity gate) **before the init re-seed fix lands** — run-to-run init variance silently confounds the delta |
-| Location | **`views_hydranet/train/training_engine.py` `make()` (~L70-74: `choose_model` + `model.apply(init_fn)`)** draws weights from a torch-RNG state advanced a non-deterministic amount by work between the manager seed-lock (`hydranet_manager.py:279`) and `make()`; the re-seed at `training_engine.py:494` is post-init (too late). `reproducibility_gate.py::lock_entropy` (necessary but mis-placed relative to init). |
-| Cross-refs | C-42/C-43 (reproducibility gate — "resolved" but **necessary-not-sufficient**: placement vs init matters); C-79 (no pipeline reproducibility test — the missing guard); C-160 (the parity gate this breaks); C-158 (volatility/multi-seed theme); C-112 (pre/post comparability); coord experiment #110 (verdict confounded) |
-
-The gate locks seeds and requests deterministic algorithms, but same-config GPU retrains still diverge in magnitude: the C-111-bisect control retrain settled at CRPS ~1e7 vs the June-3 run's ~1e17 (same seed/config). The qualitative outcome (out-of-range vs in-range) reproduces; the numeric value does not. Any bisect/ablation comparing a single GPU retrain to a prior one must therefore treat magnitude deltas as possibly-spurious and rely on device-matched, ideally multi-seed comparisons (cf. C-112).
-
-~~Tier 3 rationale: reliability of inference *about experiments*; affects how comparisons are designed, not the model's correctness. No silent corruption.~~ **Superseded — see Update 2026-06-14.**
-
-**Update 2026-06-14 — ROOT-CAUSED, ESCALATED to Tier 1, FIX VALIDATED.** The 2026-06-05 hypothesis ("non-deterministic CUDA kernels — cannot force bitwise determinism") is **wrong**. A controlled bisection on the bounded hurdle-NB no-coords baseline (frozen data via `--saved`, identical code, seed 42) found the real cause is **init-time RNG drift**, not CUDA:
-- `use_deterministic_algorithms(True, warn_only=False)` did **not raise** → no op lacks a deterministic impl (ConvTranspose2d/pooling are fine).
-- **CPU** runs diverge → not CUDA-specific. **Verified single-thread** (`torch.get_num_threads()==1`) diverges → not threading. **`PYTHONHASHSEED=0`** diverges → not hash-ordering. **`dropout=0`** diverges → not the forward RNG. **Sampled-window data hashes are identical** → not data sampling.
-- `make()` *in isolation* (lock→make immediately) is deterministic, but the **init-weights hash at training start differs across real-pipeline runs** → the model is initialised from a torch-RNG state advanced a non-deterministic amount by work between the manager's `lock_entropy` (`:279`) and `make()`. Different initial weights every run → ~20% downstream variance (no-coords FULL MCR sb **3.69 vs 2.99**, os **6.78 vs 8.47**; CRPS ±~20%).
-- **Fix validated:** re-seeding (`lock_entropy`) immediately **before** init in `make()` yields **bit-identical** weights across two runs on the **real production config** (GPU, multi-threaded, dropout=0.15) — weight-tensor hash `5c8413bd…` identical, training loss identical to 5 decimals. One-line ordering fix (**Path A**); not yet applied.
-
-**Why Tier 1 now:** this is **silent model-output-comparison corruption with no error signal**. It did not merely "affect comparison design" — it silently produced *wrong conclusions*: the coordinate experiment #110 read "coords made it worse" (coord 5.09 vs a baseline 2.55) when the **no-coords baseline alone swings 2.99–3.69 run-to-run**, and the FAO eligibility table / RESULTS_LOG single-run comparisons are likewise confounded. Resolves when Path A lands **and** a pipeline determinism regression test (C-79) pins two-run weight-tensor identity.
-
-**Method caveat (record):** the saved **`.pt` file sha256 is NOT a reliable weight-identity check** — torch's `.pt` is a zip embedding file mtimes, so it differs even for identical weights. Use the **weight-tensor hash** (numpy `tobytes`), the **training loss**, or **MCR** as the determinism signal.
-
-*Test-coverage shadow (test-review 2026-06-05):* the reproducibility envelope is uncharacterized — no test pins what is guaranteed vs not on GPU; cf. C-79. **The Path-A regression test closes this.**
-
----
-
 ### C-120: Dual data-layer authority — DataFetcher + DataSniffer (and cross-repo counterparts)
 
 | Field | Value |
@@ -520,38 +471,6 @@ The data layer splits loading/validation across DataFetcher (fetch) and DataSnif
 Tier 3 rationale: coupling/ownership ambiguity raising change cost across repos; no correctness impact today.
 
 ---
-
-### C-121: No automated regression guard for the C-113 autoregressive runaway — the only monitor is contractually blind
-
-> **RESOLVED 2026-07-27 (S8, Epic #193, ADR-070).** A fast regression guard now exists AND covers
-> the actual fix, not just detection: `tests/distributions/test_rollout_feedback_bounds_bloom.py`
-> (the sample-feedback invariant — the fed-back field is sparser than the mean, parametrized over
-> the 3 deployable arms) + `tests/test_rollout_stability_guard.py` (the free-running attractor guard,
-> `is_out_of_range` vs `DATA_LOG_MAX`), both running in seconds in the suite; `scripts/diagnose_io_gain.py`
-> is the retrain-free attractor seam. A training-dynamics change that re-introduced the runaway now
-> fails the suite in seconds, not after a ~40-min eval. *(Awaiting physical relocation to §Resolved
-> Concerns in the next register tidy.)*
-
-| Field | Value |
-|-------|-------|
-| ID | C-121 |
-| Tier | 2 |
-| Source | test-review (2026-06-05) |
-| Trigger | A future change to training dynamics (new loss/head — e.g. the ZITD work — balancer, scheduled sampling, seed) re-introduces or fails to prevent the autoregressive runaway; with no fast test it surfaces only after a ~40-min eval (or reaches production forecasts if an eval is skipped) |
-| Location | `tests/` (no rollout-boundedness test exists), `views_hydranet/utils/hydranet_inference.py` (`predict()` 36-step loop + guard ~L305), `scripts/diagnose_io_gain.py` (the fast attractor seam — zero tests), `views_hydranet/utils/integrity_guardian.py` (guard contract) |
-| Cross-refs | C-113 (the runaway itself); C-62 (IntegrityGuardian in inference — resolved); C-20 (soft magnitude guard — resolved); C-107 (hydranet_inference unit coverage) |
-
-The system's costliest, recurring failure mode (C-113) has **no seconds-level regression test**: the 36-step `predict()` rollout is exercised only through full evaluation, so a regression costs a GPU-hour (or a corrupted forecast) to detect. Worse, the one runtime monitor — `IntegrityGuardian` — is tested and works *as specified* (halt at log-space 1000), but its **contract is structurally blind to the actual mechanism**: the explosion does its damage at log-space ~40 (→ `expm1` ~1e17), below every guard threshold. The fast seam now exists — `scripts/diagnose_io_gain.py` reproduces the runaway retrain-free in ~30 s — but it is untested and not wired into the suite.
-
-Tier 2 rationale: structural fragility (the most expensive recurring failure has no cheap guard, and the existing guard cannot see it) with a clear, realistic trigger (every training-dynamics change, several of which are imminent in the ZITD dossier). Not Tier 1 — it currently surfaces loudly at eval rather than silently corrupting shipped output, but it *would* reach forecasts if eval is ever bypassed.
-
-*Tier-boundary note (review-rr 2026-06-05):* this is the highest-tiered *test-gap* in the register — C-107 and C-79 are also test gaps but sit at Tier 4. The difference justifying Tier 2: C-121 gates the Tier-2 C-113 specifically, and its trigger is imminent (ZITD). Reviewers comparing the three should treat C-121 as "test gap on a Tier-2 failure" rather than a peer of the Tier-4 coverage gaps. Member of Cluster 1.
-
-*Doc-gap (review-base-docs 2026-06-05):* `docs/CICs/IntegrityGuardian.md` §3 advertises the ±1000 magnitude-ceiling `RuntimeError` as a guarantee but §6 (Failure Modes) does **not** note that the ceiling is in log-space and is blind to `expm1`-amplified out-of-range outputs below it — giving false assurance of protection that C-113/C-121 disprove. Remediation: add the blind-spot to IntegrityGuardian.md §6.
-
-*Update (falsify, 2026-06-06) — now the ACUTE pre-retrain blocker:* a `/falsify` audit of the "clean base, ready to proceed" claim made this concrete. The repo is clean, but the **next planned step (rollout-training, ADR-058 candidate / `reports/2026-06-05_rollout_training_dossier/`) is a RETRAIN** — the exact trigger in this entry. With no guard, a rollout-training retrain could silently re-introduce the runaway. Sharpened trigger: **before any rollout-training (or other training-dynamics) retrain, this guard must exist.** A RED stub now marks the gap — `tests/test_falsification_clean_base.py::test_c113_runaway_regression_guard_exists` — and should turn green when the guard lands (the dossier's boundedness readout is its natural home). This is **step one** of the rollout-training build, not a parallel nicety.
-
-*Update (2026-06-06) — first guard layer LANDED (#76):* the seconds-level mechanism guard now exists — `views_hydranet/utils/rollout_diagnostics.py::free_running_attractor` (SRP extraction, shared with `scripts/diagnose_io_gain.py`) + `tests/test_rollout_stability_guard.py` (contractive→bounded, expansive→flagged out-of-range); the falsify stub is now GREEN as a meta-guard. **Partial resolution:** this guards the runaway *detection mechanism* on controllable tiny models. The **remaining gap** is a real-artifact boundedness check wired into CI (load a `.pt`, assert the 36-step rollout stays in-range) — which folds naturally into the rollout-training *boundedness readout* (#77/#78). C-121 stays **OPEN** (downgraded in practice) until that real-model check runs in CI.
 
 ### C-122: Behavior-rich classes lack CICs — chiefly `HydraNetInference` (the autoregressive engine)
 
@@ -1080,23 +999,6 @@ ADR-062 deliberately refactors the Custodian, which C-36 quantifies as a **451-e
 
 ---
 
-### C-162: #110 decision rule's run-to-run Δ_noise is identically zero under the C-119 determinism fix
-
-| Field | Value |
-|-------|-------|
-| ID | C-162 |
-| Tier | 2 |
-| Source | /falsify (2026-06-16) — P2/P4 |
-| Trigger | Applying the #110 pre-registered decision rule (run the 8-sample baseline **twice**, set `Δ_noise` = run-to-run difference) to call the coordinate ship/drop verdict |
-| Location | GitHub #110 "Pre-registered DECISION RULE"; dossier `05_analysis_plan.md` operating-point banner |
-| Cross-refs | C-119 (determinism fix — the root of the degeneracy), M-R2 (prior no-CI method risk), `scripts/mcr_readout.py:81` `_bootstrap_mcr_ci` (the correct within-run noise band) |
-
-The rule derives the noise band from **two same-seed `--saved` runs**. But **C-119 made same-seed runs bit-identical** (proven 2026-06-15: 78/78 `y_pred` `np.array_equal`, PREDICTIONS IDENTICAL: True) → `Δ_noise ≡ 0` → the rule has **no noise floor** → coordinates would be accepted on **any** nonzero MCR improvement = a **false-positive verdict with no error signal**. The noise band must instead come from the **within-run bootstrap CI** that `mcr_readout` already computes. **Tier 2:** silent decision-incorrectness (unsound go/no-go) under the realistic action of applying the rule; the two-run framing is a determinism-era leftover.
-
-**RESOLVED 2026-06-16 (#129):** #110 body + dossier `05` rewritten — coords win iff the coords-on FULL-MCR 95% bootstrap CI (`mcr_readout._bootstrap_mcr_ci`, one run) is non-overlapping-and-lower than the baseline CI on ≥2/3 targets + CRPS non-inferior; overlapping → escalate. All run-to-run/Δ_noise language removed; falsify guard green.
-
----
-
 ### C-163: No runtime resource/environment harness — runs OOM/wedge/grind silently (the missing guarded-run)
 
 | Field | Value |
@@ -1331,21 +1233,6 @@ The retired `views_pipeline_core` PredictionFrame **rejected** an empty frame (`
 | Cross-refs | C-176 (same construction site); migration epic #138 |
 
 `PredictionFrame(y_pred=, index=)` omits the optional `metadata=` argument, so every assembled frame carries an empty `FrameMetadata`. The `views_frames` leaf supports run identity (ADR-013; `run_id`/`data_version` added in v1.4.0 — repo is on 1.4.0 though pipeline-core 3.0.0 pins `^1.3`), and the assembler is the natural place to stamp `model`/`run_type`/`seed`/`run_id`. **Tier 4:** no correctness or reliability impact today (downstream does not yet rely on frame-level provenance), purely a missing-capability/quality observation. Explicitly **out of scope for #137** (the reviewer flagged it as a future enhancement). Candidate fix: thread run identity into `assemble_evaluation` and pass `metadata=FrameMetadata(...)` at construction once a downstream consumer needs it (likely with the ensemble-merge work).
-
----
-
-### C-178: dead-ReLU regression body silently emits identically-zero predictions for rare targets under the hurdle mask
-
-| Field | Value |
-|-------|-------|
-| ID | C-178 |
-| Tier | 1 |
-| Source | /falsify "regression head + mask 100% correct" (2026-06-25) — P2, FALSIFIED |
-| Trigger | Training a non-`hurdle_nb` hurdle point body (`output_distribution='hurdle_shrinkage'` or `'hurdle_lognormal'`, with `reg_activation` unset) under the `active_window` mask (heavy zero-supervision) on a sparse target — i.e. exactly the #66/#73 runs |
-| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:85` (`self._reg_activation = F.softplus if output_distribution=="hurdle_nb" else F.relu`); interacts with the active_window zero-supervision in `training_engine.py` |
-| Cross-refs | [[project_body_loss_not_the_lever]] (#66 flatline + #73 shrinkage puzzle — both explained by this); test `tests/test_falsify_reg_head_dead_relu.py` |
-
-The regression head uses **ReLU** for every output_distribution except `hurdle_nb`. Under the active_window mask the rare targets' pre-activation `H_reg` drifts **negative on 100% of cells (including event cells)**, so `ReLU` clamps the body to **identically 0** and — because `ReLU'(<0)=0` — **no gradient flows back**, making it unrecoverably DEAD. Verified by real forward on the aw seed-11 artifact: lr_ns_best / lr_os_best emit `out_reg==0` everywhere (pre-activation max < 0) while the **gate fires normally** (σ up to 1.0) — so the composed `E[y]` is ~0 not because of the gate but because the body is dead. This is the silent mechanism behind the #66 ns/os flatline (MCR_pos=0.000, CRPS_pos=mean_truth exactly) and the #73 shrinkage "puzzle" (no body loss can resurrect a zero-gradient ReLU). **Tier 1:** silent model-output incorrectness with no error signal (the forecast for 2/3 targets is identically 0). **Mitigation already in place for production:** the shipped floor uses `output_distribution='hurdle_nb'` → **softplus** (always positive, non-zero gradient) → NOT affected; the defect is gated to the experimental hurdle point/shrinkage/lognormal bodies. **FIXED (shipped `ee5a593`, ADR-063):** softplus is now the architecture default for ALL hurdle bodies (`HydraBNUNet06_LSTM4:85`, `startswith("hurdle")`); failing test `test_falsify_reg_head_dead_relu.py` is green. The reload-completeness follow-on is **C-179**.
 
 ---
 
@@ -1992,6 +1879,122 @@ Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/s
 ---
 
 ## Resolved Concerns
+
+<!-- 2026-07-27 register tidy (review-rr strategic): the entries below were resolved-in-place in §Open and physically relocated here. -->
+
+### C-79: No pipeline-level reproducibility comparison test — RESOLVED
+
+> **RESOLVED 2026-06-15 (`daab1c1`).** Determinism regression test added in `tests/test_training_engine.py` (`test_init_deterministic_regardless_of_prior_rng_state` + `test_training_run_is_reproducible`) — pins two-run weight-TENSOR identity. *(Awaiting physical relocation to §Resolved Concerns in the next register tidy.)*
+
+| Field | Value |
+|-------|-------|
+| ID | C-79 |
+| Tier | 4 |
+| Source | /falsify merge-readiness audit P2 (2026-05-26), originally noted in C-42 resolution |
+| Trigger | When modifying inference orchestrator, posterior sampling, or aggregation logic — no test verifies that two identical runs produce identical outputs |
+| Location | `tests/test_falsification_cradle_to_grave.py` (F3-06 stub), `views_hydranet/utils/hydranet_inference.py`, `views_hydranet/utils/inference_orchestrator.py` |
+
+`ReproducibilityGate.lock_entropy()` sets all RNG seeds (C-42 resolved), but no test actually runs the inference pipeline twice with the same seeds and compares outputs. Pipeline-level determinism is assumed, not proven. The F3-06 falsification stub encodes this gap. Noted as a "residual test gap" in C-42 resolution text but never registered.
+
+See also C-42 (resolved — entropy locking).
+
+---
+
+### C-119: GPU runs are not bit-reproducible despite the reproducibility gate — RESOLVED
+
+> **RESOLVED 2026-06-15 (`daab1c1`).** Root cause was **init-time RNG drift** (not CUDA kernels); fix = re-seed before init in `make()` + a determinism regression test (closes C-79). Bit-identical weights confirmed on the real config (GPU, multi-thread, dropout). Confounded prior results flagged in RESULTS_LOG / dossier 07 / #110. *(Awaiting physical relocation to §Resolved Concerns in the next register tidy.)*
+
+| Field | Value |
+|-------|-------|
+| ID | C-119 |
+| Tier | 1 |
+| Source | repo-assimilation (2026-06-05) + C-111 bisect observation; **root-caused by the determinism investigation (2026-06-14)** |
+| Trigger | Comparing any two single training runs (baseline-vs-experiment, an FAO eligibility row, a RESULTS_LOG entry, or the channel-role parity gate) **before the init re-seed fix lands** — run-to-run init variance silently confounds the delta |
+| Location | **`views_hydranet/train/training_engine.py` `make()` (~L70-74: `choose_model` + `model.apply(init_fn)`)** draws weights from a torch-RNG state advanced a non-deterministic amount by work between the manager seed-lock (`hydranet_manager.py:279`) and `make()`; the re-seed at `training_engine.py:494` is post-init (too late). `reproducibility_gate.py::lock_entropy` (necessary but mis-placed relative to init). |
+| Cross-refs | C-42/C-43 (reproducibility gate — "resolved" but **necessary-not-sufficient**: placement vs init matters); C-79 (no pipeline reproducibility test — the missing guard); C-160 (the parity gate this breaks); C-158 (volatility/multi-seed theme); C-112 (pre/post comparability); coord experiment #110 (verdict confounded) |
+
+The gate locks seeds and requests deterministic algorithms, but same-config GPU retrains still diverge in magnitude: the C-111-bisect control retrain settled at CRPS ~1e7 vs the June-3 run's ~1e17 (same seed/config). The qualitative outcome (out-of-range vs in-range) reproduces; the numeric value does not. Any bisect/ablation comparing a single GPU retrain to a prior one must therefore treat magnitude deltas as possibly-spurious and rely on device-matched, ideally multi-seed comparisons (cf. C-112).
+
+~~Tier 3 rationale: reliability of inference *about experiments*; affects how comparisons are designed, not the model's correctness. No silent corruption.~~ **Superseded — see Update 2026-06-14.**
+
+**Update 2026-06-14 — ROOT-CAUSED, ESCALATED to Tier 1, FIX VALIDATED.** The 2026-06-05 hypothesis ("non-deterministic CUDA kernels — cannot force bitwise determinism") is **wrong**. A controlled bisection on the bounded hurdle-NB no-coords baseline (frozen data via `--saved`, identical code, seed 42) found the real cause is **init-time RNG drift**, not CUDA:
+- `use_deterministic_algorithms(True, warn_only=False)` did **not raise** → no op lacks a deterministic impl (ConvTranspose2d/pooling are fine).
+- **CPU** runs diverge → not CUDA-specific. **Verified single-thread** (`torch.get_num_threads()==1`) diverges → not threading. **`PYTHONHASHSEED=0`** diverges → not hash-ordering. **`dropout=0`** diverges → not the forward RNG. **Sampled-window data hashes are identical** → not data sampling.
+- `make()` *in isolation* (lock→make immediately) is deterministic, but the **init-weights hash at training start differs across real-pipeline runs** → the model is initialised from a torch-RNG state advanced a non-deterministic amount by work between the manager's `lock_entropy` (`:279`) and `make()`. Different initial weights every run → ~20% downstream variance (no-coords FULL MCR sb **3.69 vs 2.99**, os **6.78 vs 8.47**; CRPS ±~20%).
+- **Fix validated:** re-seeding (`lock_entropy`) immediately **before** init in `make()` yields **bit-identical** weights across two runs on the **real production config** (GPU, multi-threaded, dropout=0.15) — weight-tensor hash `5c8413bd…` identical, training loss identical to 5 decimals. One-line ordering fix (**Path A**); not yet applied.
+
+**Why Tier 1 now:** this is **silent model-output-comparison corruption with no error signal**. It did not merely "affect comparison design" — it silently produced *wrong conclusions*: the coordinate experiment #110 read "coords made it worse" (coord 5.09 vs a baseline 2.55) when the **no-coords baseline alone swings 2.99–3.69 run-to-run**, and the FAO eligibility table / RESULTS_LOG single-run comparisons are likewise confounded. Resolves when Path A lands **and** a pipeline determinism regression test (C-79) pins two-run weight-tensor identity.
+
+**Method caveat (record):** the saved **`.pt` file sha256 is NOT a reliable weight-identity check** — torch's `.pt` is a zip embedding file mtimes, so it differs even for identical weights. Use the **weight-tensor hash** (numpy `tobytes`), the **training loss**, or **MCR** as the determinism signal.
+
+*Test-coverage shadow (test-review 2026-06-05):* the reproducibility envelope is uncharacterized — no test pins what is guaranteed vs not on GPU; cf. C-79. **The Path-A regression test closes this.**
+
+---
+
+### C-121: No automated regression guard for the C-113 autoregressive runaway — the only monitor is contractually blind — RESOLVED
+
+> **RESOLVED 2026-07-27 (S8, Epic #193, ADR-070).** A fast regression guard now exists AND covers
+> the actual fix, not just detection: `tests/distributions/test_rollout_feedback_bounds_bloom.py`
+> (the sample-feedback invariant — the fed-back field is sparser than the mean, parametrized over
+> the 3 deployable arms) + `tests/test_rollout_stability_guard.py` (the free-running attractor guard,
+> `is_out_of_range` vs `DATA_LOG_MAX`), both running in seconds in the suite; `scripts/diagnose_io_gain.py`
+> is the retrain-free attractor seam. A training-dynamics change that re-introduced the runaway now
+> fails the suite in seconds, not after a ~40-min eval. *(Awaiting physical relocation to §Resolved
+> Concerns in the next register tidy.)*
+
+| Field | Value |
+|-------|-------|
+| ID | C-121 |
+| Tier | 2 |
+| Source | test-review (2026-06-05) |
+| Trigger | A future change to training dynamics (new loss/head — e.g. the ZITD work — balancer, scheduled sampling, seed) re-introduces or fails to prevent the autoregressive runaway; with no fast test it surfaces only after a ~40-min eval (or reaches production forecasts if an eval is skipped) |
+| Location | `tests/` (no rollout-boundedness test exists), `views_hydranet/utils/hydranet_inference.py` (`predict()` 36-step loop + guard ~L305), `scripts/diagnose_io_gain.py` (the fast attractor seam — zero tests), `views_hydranet/utils/integrity_guardian.py` (guard contract) |
+| Cross-refs | C-113 (the runaway itself); C-62 (IntegrityGuardian in inference — resolved); C-20 (soft magnitude guard — resolved); C-107 (hydranet_inference unit coverage) |
+
+The system's costliest, recurring failure mode (C-113) has **no seconds-level regression test**: the 36-step `predict()` rollout is exercised only through full evaluation, so a regression costs a GPU-hour (or a corrupted forecast) to detect. Worse, the one runtime monitor — `IntegrityGuardian` — is tested and works *as specified* (halt at log-space 1000), but its **contract is structurally blind to the actual mechanism**: the explosion does its damage at log-space ~40 (→ `expm1` ~1e17), below every guard threshold. The fast seam now exists — `scripts/diagnose_io_gain.py` reproduces the runaway retrain-free in ~30 s — but it is untested and not wired into the suite.
+
+Tier 2 rationale: structural fragility (the most expensive recurring failure has no cheap guard, and the existing guard cannot see it) with a clear, realistic trigger (every training-dynamics change, several of which are imminent in the ZITD dossier). Not Tier 1 — it currently surfaces loudly at eval rather than silently corrupting shipped output, but it *would* reach forecasts if eval is ever bypassed.
+
+*Tier-boundary note (review-rr 2026-06-05):* this is the highest-tiered *test-gap* in the register — C-107 and C-79 are also test gaps but sit at Tier 4. The difference justifying Tier 2: C-121 gates the Tier-2 C-113 specifically, and its trigger is imminent (ZITD). Reviewers comparing the three should treat C-121 as "test gap on a Tier-2 failure" rather than a peer of the Tier-4 coverage gaps. Member of Cluster 1.
+
+*Doc-gap (review-base-docs 2026-06-05):* `docs/CICs/IntegrityGuardian.md` §3 advertises the ±1000 magnitude-ceiling `RuntimeError` as a guarantee but §6 (Failure Modes) does **not** note that the ceiling is in log-space and is blind to `expm1`-amplified out-of-range outputs below it — giving false assurance of protection that C-113/C-121 disprove. Remediation: add the blind-spot to IntegrityGuardian.md §6.
+
+*Update (falsify, 2026-06-06) — now the ACUTE pre-retrain blocker:* a `/falsify` audit of the "clean base, ready to proceed" claim made this concrete. The repo is clean, but the **next planned step (rollout-training, ADR-058 candidate / `reports/2026-06-05_rollout_training_dossier/`) is a RETRAIN** — the exact trigger in this entry. With no guard, a rollout-training retrain could silently re-introduce the runaway. Sharpened trigger: **before any rollout-training (or other training-dynamics) retrain, this guard must exist.** A RED stub now marks the gap — `tests/test_falsification_clean_base.py::test_c113_runaway_regression_guard_exists` — and should turn green when the guard lands (the dossier's boundedness readout is its natural home). This is **step one** of the rollout-training build, not a parallel nicety.
+
+*Update (2026-06-06) — first guard layer LANDED (#76):* the seconds-level mechanism guard now exists — `views_hydranet/utils/rollout_diagnostics.py::free_running_attractor` (SRP extraction, shared with `scripts/diagnose_io_gain.py`) + `tests/test_rollout_stability_guard.py` (contractive→bounded, expansive→flagged out-of-range); the falsify stub is now GREEN as a meta-guard. **Partial resolution:** this guards the runaway *detection mechanism* on controllable tiny models. The **remaining gap** is a real-artifact boundedness check wired into CI (load a `.pt`, assert the 36-step rollout stays in-range) — which folds naturally into the rollout-training *boundedness readout* (#77/#78). C-121 stays **OPEN** (downgraded in practice) until that real-model check runs in CI.
+
+### C-162: #110 decision rule's run-to-run Δ_noise is identically zero under the C-119 determinism fix — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-162 |
+| Tier | 2 |
+| Source | /falsify (2026-06-16) — P2/P4 |
+| Trigger | Applying the #110 pre-registered decision rule (run the 8-sample baseline **twice**, set `Δ_noise` = run-to-run difference) to call the coordinate ship/drop verdict |
+| Location | GitHub #110 "Pre-registered DECISION RULE"; dossier `05_analysis_plan.md` operating-point banner |
+| Cross-refs | C-119 (determinism fix — the root of the degeneracy), M-R2 (prior no-CI method risk), `scripts/mcr_readout.py:81` `_bootstrap_mcr_ci` (the correct within-run noise band) |
+
+The rule derives the noise band from **two same-seed `--saved` runs**. But **C-119 made same-seed runs bit-identical** (proven 2026-06-15: 78/78 `y_pred` `np.array_equal`, PREDICTIONS IDENTICAL: True) → `Δ_noise ≡ 0` → the rule has **no noise floor** → coordinates would be accepted on **any** nonzero MCR improvement = a **false-positive verdict with no error signal**. The noise band must instead come from the **within-run bootstrap CI** that `mcr_readout` already computes. **Tier 2:** silent decision-incorrectness (unsound go/no-go) under the realistic action of applying the rule; the two-run framing is a determinism-era leftover.
+
+**RESOLVED 2026-06-16 (#129):** #110 body + dossier `05` rewritten — coords win iff the coords-on FULL-MCR 95% bootstrap CI (`mcr_readout._bootstrap_mcr_ci`, one run) is non-overlapping-and-lower than the baseline CI on ≥2/3 targets + CRPS non-inferior; overlapping → escalate. All run-to-run/Δ_noise language removed; falsify guard green.
+
+---
+
+### C-178: dead-ReLU regression body silently emits identically-zero predictions for rare targets under the hurdle mask — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-178 |
+| Tier | 1 |
+| Source | /falsify "regression head + mask 100% correct" (2026-06-25) — P2, FALSIFIED |
+| Trigger | Training a non-`hurdle_nb` hurdle point body (`output_distribution='hurdle_shrinkage'` or `'hurdle_lognormal'`, with `reg_activation` unset) under the `active_window` mask (heavy zero-supervision) on a sparse target — i.e. exactly the #66/#73 runs |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:85` (`self._reg_activation = F.softplus if output_distribution=="hurdle_nb" else F.relu`); interacts with the active_window zero-supervision in `training_engine.py` |
+| Cross-refs | [[project_body_loss_not_the_lever]] (#66 flatline + #73 shrinkage puzzle — both explained by this); test `tests/test_falsify_reg_head_dead_relu.py` |
+
+The regression head uses **ReLU** for every output_distribution except `hurdle_nb`. Under the active_window mask the rare targets' pre-activation `H_reg` drifts **negative on 100% of cells (including event cells)**, so `ReLU` clamps the body to **identically 0** and — because `ReLU'(<0)=0` — **no gradient flows back**, making it unrecoverably DEAD. Verified by real forward on the aw seed-11 artifact: lr_ns_best / lr_os_best emit `out_reg==0` everywhere (pre-activation max < 0) while the **gate fires normally** (σ up to 1.0) — so the composed `E[y]` is ~0 not because of the gate but because the body is dead. This is the silent mechanism behind the #66 ns/os flatline (MCR_pos=0.000, CRPS_pos=mean_truth exactly) and the #73 shrinkage "puzzle" (no body loss can resurrect a zero-gradient ReLU). **Tier 1:** silent model-output incorrectness with no error signal (the forecast for 2/3 targets is identically 0). **Mitigation already in place for production:** the shipped floor uses `output_distribution='hurdle_nb'` → **softplus** (always positive, non-zero gradient) → NOT affected; the defect is gated to the experimental hurdle point/shrinkage/lognormal bodies. **FIXED (shipped `ee5a593`, ADR-063):** softplus is now the architecture default for ALL hurdle bodies (`HydraBNUNet06_LSTM4:85`, `startswith("hurdle")`); failing test `test_falsify_reg_head_dead_relu.py` is green. The reload-completeness follow-on is **C-179**.
+
+---
+
 
 ### C-214: the eval-side autoregressive forensic was silently DEAD for every nb/zinb run (the `return_params` early-return short-circuited its finalize) — RESOLVED
 
