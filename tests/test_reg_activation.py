@@ -11,7 +11,10 @@ from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUN
 
 def _act(output_distribution, reg_activation):
     m = HydraBNUNet06_LSTM4(
-        3, 8, 1, 0.0,
+        3,
+        8,
+        1,
+        0.0,
         output_distribution=output_distribution,
         reg_activation=reg_activation,
     )

@@ -101,7 +101,7 @@ def _score_field(pred_g, truth_g, scales):
     area = (pred_g > 0.5).sum()
     truth_area = max(1, int((truth_g > 0).sum()))
     pos = pred_g[pred_g > 0]
-    top = np.sort(pos)[-max(1, pos.size // 100):].sum() if pos.size else 0.0
+    top = np.sort(pos)[-max(1, pos.size // 100) :].sum() if pos.size else 0.0
     conc = float(top / pos.sum()) if pos.size else float("nan")
     return f, float(area / truth_area), conc
 
@@ -146,8 +146,13 @@ def score_target(pred_dir, target, truth_idx, umap, scales):
         pp = np.concatenate(mcr_t[tag][0]) if mcr_t[tag][0] else np.array([])
         tp = np.concatenate(mcr_t[tag][1]) if mcr_t[tag][1] else np.array([])
         mcr = float(pp.mean() / tp.mean()) if tp.size and tp.mean() > 0 else float("nan")
-        res[tag] = {"n_fields": len(acc[tag]), "fss": fss_avg, "area_ratio": area,
-                    "conc1pct": conc, "mcr": mcr}
+        res[tag] = {
+            "n_fields": len(acc[tag]),
+            "fss": fss_avg,
+            "area_ratio": area,
+            "conc1pct": conc,
+            "mcr": mcr,
+        }
     res["max"] = gmax
     return res
 
@@ -168,7 +173,8 @@ def read_config_block(pred_dir, sidecar):
 
 def main():
     ap = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("pred_dir")
     ap.add_argument("--raw", default=None)
     ap.add_argument("--sidecar", default=None)
@@ -180,7 +186,8 @@ def main():
     if raw is None:
         base = os.path.dirname(args.pred_dir.rstrip("/"))
         hits = sorted(glob.glob("data/raw/*calibration*.parquet")) or sorted(
-            glob.glob(os.path.join(base, "..", "raw", "*calibration*.parquet")))
+            glob.glob(os.path.join(base, "..", "raw", "*calibration*.parquet"))
+        )
         raw = hits[0] if hits else None
         if raw is None:
             ap.error("pass --raw")
@@ -190,13 +197,27 @@ def main():
     truth_max = {t: float(pd.read_parquet(raw).reset_index()[t].max()) for t in args.targets}
 
     lines = ["# Sharpness scorecard", "", f"pred_dir: `{args.pred_dir}`", ""]
-    keys = ["loss_reg", "loss_class", "output_distribution", "reg_activation", "static_channels",
-            "freeze_multitask_balancer", "dropout_rate", "input_channels"]
-    lines += ["**CONFIG (auto, from sidecar):** " + " · ".join(
-        f"{k}={cfg.get(k)}" for k in keys if k in cfg) or "**CONFIG:** (sidecar not found)", ""]
+    keys = [
+        "loss_reg",
+        "loss_class",
+        "output_distribution",
+        "reg_activation",
+        "static_channels",
+        "freeze_multitask_balancer",
+        "dropout_rate",
+        "input_channels",
+    ]
+    lines += [
+        "**CONFIG (auto, from sidecar):** "
+        + " · ".join(f"{k}={cfg.get(k)}" for k in keys if k in cfg)
+        or "**CONFIG:** (sidecar not found)",
+        "",
+    ]
     sc = ", ".join(str(s) for s in args.scales)
-    lines += [f"| target | subset | FSS@[{sc}] | area_ratio | conc1% | MCR | max (explode?) |",
-              "|--------|--------|-----------|-----------|--------|-----|----------------|"]
+    lines += [
+        f"| target | subset | FSS@[{sc}] | area_ratio | conc1% | MCR | max (explode?) |",
+        "|--------|--------|-----------|-----------|--------|-----|----------------|",
+    ]
     for t in args.targets:
         r = score_target(args.pred_dir, t, _truth_series(raw, t), umap, args.scales)
         tmax = truth_max[t]
@@ -207,9 +228,11 @@ def main():
                 lines.append(f"| {t} | {tag} | n=0 | | | | |")
                 continue
             fss_s = "/".join(f"{d['fss'][s]:.2f}" for s in args.scales)
-            mx = f"{r['max']:.1f} (≤{50*tmax:.0f}{expl})" if tag == "FULL" else ""
-            lines.append(f"| {t} | {tag} | {fss_s} | {d['area_ratio']:.1f}× | "
-                         f"{d['conc1pct']:.2f} | {d['mcr']:.3f} | {mx} |")
+            mx = f"{r['max']:.1f} (≤{50 * tmax:.0f}{expl})" if tag == "FULL" else ""
+            lines.append(
+                f"| {t} | {tag} | {fss_s} | {d['area_ratio']:.1f}× | "
+                f"{d['conc1pct']:.2f} | {d['mcr']:.3f} | {mx} |"
+            )
     report = "\n".join(lines)
     print(report)
     if args.out:

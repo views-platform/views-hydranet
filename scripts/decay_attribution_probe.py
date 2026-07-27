@@ -33,7 +33,7 @@ def active_months_by_unit(raw_parquet, target):
     s = pd.read_parquet(raw_parquet, columns=[target])[target]
     pos = s[s > 0]
     by_unit: dict = {}
-    for (m, u) in pos.index:
+    for m, u in pos.index:
         by_unit.setdefault(u, []).append(m)
     return {u: np.array(sorted(ms)) for u, ms in by_unit.items()}
 

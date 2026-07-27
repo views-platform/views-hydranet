@@ -5,6 +5,7 @@ structural-zero ocean cells — unlike the hurdle-masked reg loss and the priogr
 An opt-in `cls_valid_mask` was added to enable an A/B (gate masked to land vs current). The fix
 (making masking the default) is a DECISION pending that A/B.
 """
+
 import inspect
 
 import pytest
@@ -34,8 +35,8 @@ def test_cls_valid_mask_opt_in_restricts_to_land():
 
     assert "cls_valid_mask" in inspect.signature(_process_sequence).parameters
     assert inspect.signature(_process_sequence).parameters["cls_valid_mask"].default is None
-    pred = torch.randn(2, 4, 4)            # [B, H, W]
+    pred = torch.randn(2, 4, 4)  # [B, H, W]
     land = torch.zeros(4, 4, dtype=torch.bool)
     land[0, 0] = True
     land[1, 1] = True
-    assert pred[:, land].shape == (2, 2)   # B x n_land — the masked-select the loss applies
+    assert pred[:, land].shape == (2, 2)  # B x n_land — the masked-select the loss applies

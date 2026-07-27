@@ -228,9 +228,9 @@ def _family_feedback_log1p(reg, family, mode, gate, composition, threshold):
     n_reg = reg.shape[1] // npar
     draws = torch.stack(
         [
-            family.sample(
-                reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1), 1, None
-            ).squeeze(-1)
+            family.sample(reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1), 1, None).squeeze(
+                -1
+            )
             for j in range(n_reg)
         ],
         dim=1,

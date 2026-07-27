@@ -109,10 +109,15 @@ def main():
     )
 
     os.makedirs(args.out_dir, exist_ok=True)
-    np.savez(os.path.join(args.out_dir, "overfit_fields.npz"), target=target, pred=pred,
-             losses=np.array(losses))
+    np.savez(
+        os.path.join(args.out_dir, "overfit_fields.npz"),
+        target=target,
+        pred=pred,
+        losses=np.array(losses),
+    )
     try:
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 

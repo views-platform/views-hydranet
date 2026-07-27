@@ -13,6 +13,7 @@ These tests encode the defect. They FAIL against current code by design. The fix
 DECISION (e.g. softplus body for the hurdle point/shrinkage compose, which can't die), so the
 assertion below is the proposed contract, not yet ratified.
 """
+
 import pytest
 
 torch = pytest.importorskip("torch")
@@ -20,6 +21,7 @@ torch = pytest.importorskip("torch")
 
 def _build(output_distribution, reg_activation=None):
     from views_hydranet.utils.utils import choose_model
+
     cfg = {
         "model": "HydraBNUNet06_LSTM4",
         "input_channels": 3,

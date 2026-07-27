@@ -82,7 +82,7 @@ def test_target_cols_excludes_every_static(vh_coords):
 def test_roles_partition_cleanly(vh_coords):
     static = set(vh_coords.static_cols)
     assert static.issubset(set(vh_coords.model_input_cols))  # statics ARE model inputs
-    assert static.isdisjoint(set(vh_coords.target_cols))     # statics are NOT targets
+    assert static.isdisjoint(set(vh_coords.target_cols))  # statics are NOT targets
 
 
 # ── Beige: the I5 collapse (no statics ⇒ byte-identical to today's feature_cols) ─────────────

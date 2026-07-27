@@ -91,8 +91,20 @@ def test_cube_zinb_self_zeroed_LOCKED():
     params = _activated_params(fam, 1, 2, 2, 1, seed=0)
     cube = to_cube_samples(params, fam, 3, torch.Generator().manual_seed(7), 1)  # [1,2,2,1,3]
     golden = np.array(
-        [1.3862943649, 0.0, 1.0986123085, 0.0, 0.0, 0.0,
-         0.6931471825, 0.0, 0.6931471825, 0.0, 0.0, 0.0],
+        [
+            1.3862943649,
+            0.0,
+            1.0986123085,
+            0.0,
+            0.0,
+            0.0,
+            0.6931471825,
+            0.0,
+            0.6931471825,
+            0.0,
+            0.0,
+            0.0,
+        ],
         dtype=np.float32,
     ).reshape(1, 2, 2, 1, 3)
     np.testing.assert_allclose(cube, golden, atol=ATOL)
@@ -142,8 +154,20 @@ def test_cube_nb_ungated_passthrough():
     params = _activated_params(fam, 1, 2, 2, 1, seed=0)
     cube = to_cube_samples(params, fam, 3, torch.Generator().manual_seed(7), 1)
     golden = np.array(
-        [1.3862943649, 0.0, 1.0986123085, 0.0, 0.6931471825, 0.0,
-         0.0, 0.0, 0.6931471825, 0.0, 0.6931471825, 0.6931471825],
+        [
+            1.3862943649,
+            0.0,
+            1.0986123085,
+            0.0,
+            0.6931471825,
+            0.0,
+            0.0,
+            0.0,
+            0.6931471825,
+            0.0,
+            0.6931471825,
+            0.6931471825,
+        ],
         dtype=np.float32,
     ).reshape(1, 2, 2, 1, 3)
     np.testing.assert_allclose(cube, golden, atol=ATOL)

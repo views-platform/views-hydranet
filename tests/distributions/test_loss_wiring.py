@@ -131,7 +131,11 @@ def test_c198_family_requires_log1p_targets(valid_config_dict):
     tf = copy.deepcopy(valid_config_dict["transformations"])
     tf["log1p"] = [c for c in tf.get("log1p", []) if c != t0]
     tf.setdefault("identity", []).append(t0)
-    bad = {**valid_config_dict, "output_distribution": "nb", "forecast_composition": "soft_gate",
-           "transformations": tf}
+    bad = {
+        **valid_config_dict,
+        "output_distribution": "nb",
+        "forecast_composition": "soft_gate",
+        "transformations": tf,
+    }
     with pytest.raises(ValidationError, match="log1p|C-198"):
         HydraNetConfig(**bad)

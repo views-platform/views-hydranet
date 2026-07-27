@@ -73,9 +73,7 @@ def scrps_ensemble(y_true: np.ndarray, y_pred: np.ndarray) -> np.ndarray:
     return -(mae / beta) - 0.5 * np.log(beta)
 
 
-def randomized_pit(
-    y_true: np.ndarray, y_pred: np.ndarray, rng: np.random.Generator
-) -> np.ndarray:
+def randomized_pit(y_true: np.ndarray, y_pred: np.ndarray, rng: np.random.Generator) -> np.ndarray:
     """Count-aware randomized PIT: P(X<y) + U*P(X=y), U~Uniform. Uniform under calibration."""
     below = np.mean(y_pred < y_true[:, None], axis=1)
     eq = np.mean(y_pred == y_true[:, None], axis=1)

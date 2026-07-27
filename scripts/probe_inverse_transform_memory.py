@@ -28,10 +28,17 @@ PRED_TARGETS = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
 # 11 channels: 2 identity + 3 features (actuals) + 3 preds + 3 filler — only the
 # .copy() of the whole array matters for memory; naming just needs to be valid.
 CHANNEL_MAP = [
-    "month_id", "priogrid_gid",
-    "lr_sb_best", "lr_ns_best", "lr_os_best",
-    "pred_lr_sb_best", "pred_lr_ns_best", "pred_lr_os_best",
-    "f0", "f1", "f2",
+    "month_id",
+    "priogrid_gid",
+    "lr_sb_best",
+    "lr_ns_best",
+    "lr_os_best",
+    "pred_lr_sb_best",
+    "pred_lr_ns_best",
+    "pred_lr_os_best",
+    "f0",
+    "f1",
+    "f2",
 ]
 assert len(CHANNEL_MAP) == C
 

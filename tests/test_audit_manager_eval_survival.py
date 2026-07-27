@@ -19,9 +19,7 @@ def _pf_dict(values: dict[str, float], n: int, month_id: int = 124) -> dict:
     return {
         target: PredictionFrame(
             y_pred=np.full((n, 1), val),
-            index=SpatioTemporalIndex(
-                time=time_arr, unit=unit_arr, level=SpatialLevel.PGM
-            ),
+            index=SpatioTemporalIndex(time=time_arr, unit=unit_arr, level=SpatialLevel.PGM),
         )
         for target, val in values.items()
     }

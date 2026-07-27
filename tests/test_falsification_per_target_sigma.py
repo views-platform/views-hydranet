@@ -12,6 +12,7 @@ import pytest
 class TestHardFalsifications:
     """These MUST be fixed — they represent silent crashes or wrong behavior."""
 
+
 class TestSoftFalsifications:
     """These SHOULD be fixed — they undermine confidence in the implementation."""
 

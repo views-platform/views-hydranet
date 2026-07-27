@@ -66,13 +66,19 @@ def test_census_bug3_sidecar_roundtrips_coord_model():
     from views_hydranet.utils.utils import choose_model
 
     trained = HydraBNUNet06_LSTM4(
-        input_channels=5, total_hidden_channels=8, output_channels=1,
-        dropout_rate=0.0, n_static_channels=2,
+        input_channels=5,
+        total_hidden_channels=8,
+        output_channels=1,
+        dropout_rate=0.0,
+        n_static_channels=2,
     )
     # The sidecar train_model.py writes now (arch_keys + static_channels per C-159 fix):
     sidecar = {
-        "model": "HydraBNUNet06_LSTM4", "input_channels": 5,
-        "total_hidden_channels": 8, "output_channels": 1, "dropout_rate": 0.0,
+        "model": "HydraBNUNet06_LSTM4",
+        "input_channels": 5,
+        "total_hidden_channels": 8,
+        "output_channels": 1,
+        "dropout_rate": 0.0,
         "static_channels": ["row_coord", "col_coord"],
     }
     rebuilt = choose_model(sidecar, _DEVICE)
@@ -154,9 +160,14 @@ def test_census_bug2_biopsy_handles_static_channels():
     model, criterion, optimizer, scheduler = make(_BIOPSY_CONFIG, _DEVICE)
     criterion_reg, criterion_class, mtl = criterion
     ctx = TrainingContext(
-        model=model, optimizer=optimizer, scheduler=scheduler,
-        criterion_reg=criterion_reg, criterion_class=criterion_class,
-        multitaskloss_instance=mtl, config=_BIOPSY_CONFIG, device=_DEVICE,
+        model=model,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        criterion_reg=criterion_reg,
+        criterion_class=criterion_class,
+        multitaskloss_instance=mtl,
+        config=_BIOPSY_CONFIG,
+        device=_DEVICE,
         viz=MagicMock(),  # truthy viz => the Stage-5 biopsy block runs (no file I/O)
     )
     # DESIRED: the diagnostic biopsy completes. CURRENT: RuntimeError (3 ch into a 4-ch model).

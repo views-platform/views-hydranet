@@ -194,9 +194,7 @@ def main():
             m_pos = float(np.mean(tr[posm])) if posm.any() else float("nan")
             body = conditional_body(ey, pi)
             zm = ~posm
-            lines.append(
-                f"- **{tag}** (n={len(tr)}, rho={rho:.4f}, mean_pos_truth={m_pos:.2f})"
-            )
+            lines.append(f"- **{tag}** (n={len(tr)}, rho={rho:.4f}, mean_pos_truth={m_pos:.2f})")
             if zm.any():
                 zl = attribute_zero_leak(pi[zm], body[zm], rho, m_pos)
                 lines.append(_fmt_zero(tag, zl, rho, m_pos))

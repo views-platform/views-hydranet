@@ -50,9 +50,7 @@ def test_eval_package_contract_acceptance():
 
     # 5. EXECUTE THE REAL EVALUATION
     try:
-        results = eval_manager.evaluate(
-            df_actual, [df_predictions], "lr_ged_sb", pipeline_configs
-        )
+        results = eval_manager.evaluate(df_actual, [df_predictions], "lr_ged_sb", pipeline_configs)
 
         assert "step" in results
         assert "time_series" in results

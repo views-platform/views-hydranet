@@ -29,6 +29,5 @@ def test_suite_collects_clean_without_ignore_flags():
         text=True,
     )
     assert result.returncode == 0, (
-        "pytest tests/ fails collection (#95 stale import). "
-        f"tail:\n{result.stdout[-600:]}"
+        f"pytest tests/ fails collection (#95 stale import). tail:\n{result.stdout[-600:]}"
     )

@@ -31,9 +31,7 @@ def _validate(composition: str, threshold: "float | None") -> None:
             f"expected one of {(SELF_ZEROED, SOFT_GATE, THRESHOLD_GATE)}."
         )
     if composition == THRESHOLD_GATE and (threshold is None or not (0.0 < threshold < 1.0)):
-        raise ValueError(
-            f"threshold_gate requires a gate threshold in (0,1); got {threshold!r}."
-        )
+        raise ValueError(f"threshold_gate requires a gate threshold in (0,1); got {threshold!r}.")
 
 
 def compose_samples(

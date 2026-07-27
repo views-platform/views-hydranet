@@ -132,9 +132,7 @@ def _hurdle_emit(theta_val: float = 50.0):
 
 def test_hurdle_nb_expected_log1p_known_value():
     """E[y]=P(y>0)*mu/(1-NB0); mu=2, p=0.5, theta=1 -> NB0=1/3 -> E[y]=1.5 -> log1p(1.5)."""
-    out = hurdle_nb_expected_log1p(
-        torch.tensor(2.0), torch.tensor(0.5), torch.tensor(1.0)
-    )
+    out = hurdle_nb_expected_log1p(torch.tensor(2.0), torch.tensor(0.5), torch.tensor(1.0))
     assert torch.allclose(out, torch.log1p(torch.tensor(1.5)), atol=1e-6)
 
 
