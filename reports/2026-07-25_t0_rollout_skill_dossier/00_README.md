@@ -84,9 +84,28 @@ months). **The free-running skill curve costs ZERO GPU** — it is a re-score of
       (not GTF-proper). Key insight: ss (ADR-056) is wired but dormant (ε_max=0) AND feeds back the MEAN/raw
       params — the load-bearing change is to feed a composition-aware SAMPLE so train-exposure = deploy-exposure.
       Target = gated_NB (oracle AP 0.46). Guardrails from C-125/C-126; T=0-no-regress is a HARD STOP (F-G2).
-- [ ] **NEXT: build EXP-4** (TDD: sample-feedback in `_process_sequence`, ε=0 parity, config, smoke) → then
-      STOP at the launch gate (ask-before-long-batches; a 3-seed retrain is NOT eval-only).
-- [ ] Separate parked lever (out of scope): bulk-magnitude timid-body (head/loss). Scar: eval overwrites cube in place.
+- [x] **EXP-4 (GTF) BUILT + RUN + inconclusive** (`f345984` build, 189 tests; `05d` pre-reg). 1-seed
+      indicative gated_NB GTF (ε_max=0.5, seed 44) first looked like a big occurrence regression → a MATCHED
+      no-GTF seed-44 baseline showed the confound: **seed 44 is a weak-occurrence seed**, most of the
+      "regression" was SEED (C-112), not GTF. GTF's true matched effect: small+mixed (slightly worse T=0,
+      2–3× better mid-horizon, tied long-h), within single-seed noise, does NOT cash the 0.46 headroom.
+      **F-G1 nuanced: no material gain, not a regression.** Log in `07` (`56a18b1`/`fe7e5c1`).
+
+## EPIC CLOSED — 2026-07-27
+
+**Durable results (shipped):** (1) a frozen per-horizon T>0 **skill ruler** (h=1 byte-matches the lodestar);
+(2) **sample-feedback fixes the bloom** — eliminates the zinb runaway ~20×, replicated across 3 models + nb
+(the `rollout_feedback` flag, tested, in the code); (3) the **bug-vs-ceiling decomposition** via the oracle
+— stability = fixed bug, occurrence = recoverable-in-principle (oracle AP 0.46), magnitude = recoverable
+bulk timid-body + irreducible tail ceiling.
+
+**Banked, not promoted:** the **GTF retrain** (`ss_feedback=sample`, built + parity-safe + smoke-clean) is
+inconclusive on 1 weak seed. A definitive verdict needs a **3-seed sweep (incl. a strong-occurrence seed) +
+block-bootstrap CIs + gentler ε** — re-openable anytime; the code is ready.
+
+**Parked levers (out of scope, on record):** bulk-magnitude timid-body (head/loss, ZINB already ~0.69);
+GTF-proper (α-state) if the curriculum path is revisited. **Scar:** eval overwrites the cube dir in place →
+future drivers must write to fresh dirs. Artifacts: `012051` (GTF-s44), `015430` (matched base-s44).
 
 ## 6. Conventions
 
