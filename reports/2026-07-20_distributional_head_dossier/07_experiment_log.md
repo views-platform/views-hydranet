@@ -171,3 +171,43 @@ states the verdict against the pre-registered falsifiers (which fired / none), a
   fix" is an INTERPRETATION + an UNTESTED hypothesis.
 - Decision: τ logged as a **tool, not a solution**. Next = the pre-registered **sample-feedback rollout**
   probe (feed back a draw, not the mean). Full detail + epistemic table in `bloom_investigation.md`.
+
+---
+
+## EXP — body_mask magnitude sweep (NB, seed 42, 40 lessons) — pre-reg `08_magnitude_bodymask_prereg.md`
+**Date:** 2026-07-27 · **One variable:** `body_mask ∈ {none, pos_cells, pos_timelines}` (NB head) ·
+**Driver:** `mag_sweep.sh` (3 trains + 9 emit-and-score) · **Results:** `results/mag_bodymask/` ·
+**Ruler:** frozen lodestar + `sharpness_scorecard` (C-167). Floor md5 intact; no F-DEGEN.
+
+**Grid — composition `threshold_gate τ=0.5` (the deliverable arm), sb / ns / os:**
+
+| arm | crps_all | crps_events | crps_none | size_ratio | STEP-1 FSS@1 | STEP-1 MCR | STEP-1 area_ratio |
+|-----|----------|-------------|-----------|------------|--------------|------------|-------------------|
+| none (baseline) | 0.140 / 0.082 / 0.030 | 18.10 / 23.72 / 6.64 | 0.0002 / 0.0007 / 0.003 | 0 / 0 / 0 | 0.01 / 0.00 / 0.00 | 0.006 / 0.002 / 0.012 | 0.0× / 0.0× / 0.1× |
+| **pos_cells** | 0.267 / 0.132 / 0.097 | **16.79 / 23.59 / 7.05** | **0.138 / 0.051 / 0.068** | 0.167 / 0 / 0 | **0.21 / 0.19 / 0.11** | **0.69 / 0.65 / 0.85** | 4.4× / 2.7× / 2.9× |
+| pos_timelines | 0.146 / 0.090 / 0.030 | 18.29 / 23.73 / 6.87 | 0.005 / 0.008 / 0.001 | 0 / 0 / 0 | 0.01 / 0.00 / 0.00 | 0.26 / 0.09 / 0.30 | 0.3× / 0.3× / 0.1× |
+
+(ungated τ=1e-6 control: `pos_cells` crps_all **0.480 / 0.577 / 0.413** — 2.8–5× the baseline; the old
+pre-#183 negative reproduced exactly.)
+
+**Verdict against the pre-registered falsifiers:**
+- **Magnitude is RECOVERABLE — the timid body is a supervision artifact, NOT a wall.** `pos_cells`
+  un-collapses the body: STEP-1 MCR 0.006→**0.69/0.65/0.85** (near 1), FSS@1 0.00→**0.21/0.19/0.11**,
+  size_ratio 0→0.167 (sb). (Prediction 1 ✅.)
+- **NOT smearing (F-MAG-1 does NOT fire):** FSS *improved* (0→0.2–0.8) — the C-167 guard says `pos_cells`
+  is genuinely better-*localized*, not a diffuse blob. The problem is the opposite of smearing.
+- **F-MAG-2 FIRES:** gated (τ=0.5) `pos_cells` still blows composed crps-all vs `none` (0.267 vs 0.140
+  sb; +60–220%) because it **over-fires on gate-retained cells** — pos_mcr 2.9–5×, area_ratio 3–4×
+  (STEP-1) → 43–50× (FULL), crps_none 0.0002→0.138 (~550×). The gate halves the ungated blowup
+  (0.480→0.267 sb) but cannot rescue over-cooked magnitude on cells it *keeps*. (Prediction 2 ✅, 3 partial.)
+- **`pos_timelines` is timid** (size_ratio 0, FSS ~0, MCR 0.09–0.30) — no lift; wrong-direction control
+  reproduces the banked negative. (Prediction 4 ✅.)
+
+**Decision (1-seed screen — advance, no kill):** the mask direction is SOUND (un-collapses magnitude +
+improves localization, no smearing) but **over-shoots** (magnitude + area too big). This is exactly the
+setup the robust-trendline targets: keep the un-collapsing, tame the overshoot by training the masked
+body on a robust central level (running mean/median) instead of the raw spike magnitudes → drive
+pos_mcr/area_ratio toward 1 while holding FSS. **NEXT LEVER = robust-trendline target on `pos_cells`.**
+Caveats: 1 seed (BN-recal mitigates, not eliminates); FULL-subset `max` EXPLODED flag fires on ALL arms
+incl. the well-behaved `none` baseline ⇒ a scorecard max-column quirk, not discriminating (STEP-1 is the
+clean read). twCRPS/PIT not used (FAO-02).

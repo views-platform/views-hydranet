@@ -1,0 +1,35 @@
+### lodestar  mag_pos_cells_soft
+
+=== lr_sb_best (N=170430, events=1320) ===
+             model       AP    Brier  crps_all  crps_events  crps_none  size_ratio  pos_mcr  thresh
+mag_pos_cells_soft 0.281871 0.029782  0.254799    16.668916   0.126678    0.271635 2.498591     NaN
+
+=== lr_ns_best (N=170430, events=587) ===
+             model       AP    Brier  crps_all  crps_events  crps_none  size_ratio  pos_mcr  thresh
+mag_pos_cells_soft 0.236844 0.010332  0.129814    23.531543   0.048935    0.002427 5.152847     NaN
+
+=== lr_os_best (N=170430, events=706) ===
+             model       AP    Brier  crps_all  crps_events  crps_none  size_ratio  pos_mcr  thresh
+mag_pos_cells_soft 0.116364 0.014936  0.091867     6.872477   0.063662         0.0 2.855045     NaN
+
+wrote lodestar.csv
+
+
+### sharpness mag_pos_cells_soft
+# Sharpness scorecard
+
+pred_dir: `/home/simon/Documents/scripts/views_platform/views-models/models/violet_visitor/data/generated/predictions_calibration_20260727_200938`
+
+**CONFIG (auto, from sidecar):** output_distribution=nb · reg_activation=None · static_channels=[] · dropout_rate=0.15 · input_channels=3
+
+| target | subset | FSS@[1, 3, 5, 11] | area_ratio | conc1% | MCR | max (explode?) |
+|--------|--------|-----------|-----------|--------|-----|----------------|
+| lr_sb_best | STEP-1 | 0.21/0.56/0.67/0.78 | 6.3× | 0.17 | 0.672 |  |
+| lr_sb_best | FULL | 0.02/0.09/0.15/0.29 | 45.0× | 0.38 | 2.967 | 32818746.0 (≤5669750 💥EXPLODED) |
+| lr_ns_best | STEP-1 | 0.18/0.50/0.63/0.74 | 5.9× | 0.23 | 0.657 |  |
+| lr_ns_best | FULL | 0.01/0.05/0.08/0.19 | 52.5× | 0.53 | 5.181 | 25112422.0 (≤100000 💥EXPLODED) |
+| lr_os_best | STEP-1 | 0.12/0.33/0.42/0.51 | 5.3× | 0.25 | 0.857 |  |
+| lr_os_best | FULL | 0.01/0.05/0.09/0.21 | 6.2× | 0.56 | 27.377 | 34387848.0 (≤8922950 💥EXPLODED) |
+
+[written] /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-07-20_distributional_head_dossier/results/mag_bodymask/sharp_pos_cells_soft.md
+
