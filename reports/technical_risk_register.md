@@ -6,9 +6,9 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-07-27                           |
 | Total Concerns    | 221                                  |
-| Open Concerns     | 99                                  |
+| Open Concerns     | 96                                  |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 122                                  |
+| Resolved Concerns | 125                                  |
 
 ---
 
@@ -726,31 +726,6 @@ Tier 3 (downgraded from 2): cause unconfirmed and likely a facet of C-113 rather
 
 ---
 
-### C-136: Magnitude/output fixes judged on a rollout-confounded test — Arm-1 was mischaracterized as a clean failure
-
-| Field | Value |
-|-------|-------|
-| ID | C-136 |
-| Tier | 3 |
-| Source | user pushback + step-1 readout (2026-06-09) |
-| Trigger | Judging any magnitude/loss/output-head change (hurdle, count-likelihood, sigma) by its **full 36-step free-running** metrics (MCR/CRPS/explosion) without a **teacher-forced / step-1** read to isolate the magnitude axis from the rollout axis |
-| Location | `reports/2026-06-08_magnitude_calibration_dossier/07` (EXP-A1 verdict); `reports/RESULTS_LEDGER.md` (Arm-1 row); the magnitude-vs-rollout axis split |
-| Cross-refs | C-113 (the rollout runaway), C-129 (the coupling), C-112 (attribution hygiene) |
-
-Arm-1 (the lognormal hurdle) was recorded as "FAILED → explosion → go structural." A teacher-forced **step-1** read (C-113 update) shows that is a **conflation of two axes**: at step 1 the hurdle *succeeded* — it un-collapsed magnitude (`lr_ns` MCR_pos 0.02→1.29, `lr_os` 0.03→0.73); it only "failed" because those magnitudes then fed the untrained rollout and exploded (Axis B). On ~95%-zero, 36-step autoregressive data, **any** magnitude fix that un-collapses the head will tend to explode on the free-running rollout — so a full-rollout "FAIL" verdict does not test the magnitude fix, it tests the (separate, untrained) rollout. Realized cost: the hurdle was nearly discarded and several turns were spent designing a from-scratch count-likelihood rebuild on the strength of a confounded verdict.
-
-Tier 3 rationale: decision/attribution-hygiene gap (peer of C-112/C-119/C-126) — no silent output corruption, but it already mis-directed the research and could discard good magnitude fixes again. Mitigation: for any magnitude/output change, report **step-1 (teacher-forced) MCR_pos/CRPS** to isolate the magnitude axis, and judge full-rollout stability only as the *separate* Axis-B question; re-evaluate previously-discarded magnitude fixes (Tobit/lognormal) under rollout training (or a step-1 read) before treating them as dead.
-
-**Update 2026-06-09 — two reviews bound the supporting evidence (folds M-R1, M-R2 + the code-review of `/tmp/step1_mcr.py`).** The reframe is sound in *direction* (the hurdle un-collapsed magnitude; teacher-forcing is symmetric across baseline and Arm-1, so the contrast is controlled) but weak in *strength* and *durability*:
-- **M-R1 (method):** `MCR_pos` is a first-moment **ratio, not a proper score** — "un-collapsed" is supported, "calibrated/succeeded" is not; no positive-subset twCRPS/PIT was computed. *Trigger:* treating step-1 MCR as a skill verdict.
-- **M-R2 (method):** **1 origin, 1 seed, n_pos 50–130, ratio-of-means, no CI** — against the project's own shrinkage-volatility + C-112/C-119 discipline. *Trigger:* a quantitative go/no-go on the step-1 point values without a 2nd seed + bootstrap CI.
-- **Code-review:** the readout lives in an **unversioned/untested** `/tmp` script (provenance gap, cf. C-79) and its **prediction↔actual join is unguarded** (no raw-index uniqueness check, no match-rate assertion, silent NaN-drop) — a subtly wrong join would corrupt the numbers with no signal.
-- **Remediation (folded into R4 / #93):** promote to a version-controlled `scripts/mcr_readout.py` with a guarded join, reporting a positive-subset proper score + bootstrap CI + per-cell distribution, step-1 **and** full-36, multi-seed. Record wording softened to "un-collapsed (directional)" in `07` / `RESULTS_LEDGER` / memory on 2026-06-09.
-
-**Update 2026-07-27 — CLOSEABLE (the axis-split discipline is now institutionalized, not a per-readout reminder).** The confound this entry names — judging a magnitude fix on rollout-confounded metrics — is now structurally prevented by two frozen instruments built since: the **T=0 frozen lodestar ruler** (`2026-07-17_lodestar_eval_dossier`, identical months/cells/truth) isolates the magnitude/calibration axis at step-1, and the **per-horizon rollout-skill ruler** (`2026-07-25_t0_rollout_skill_dossier`, ADR-070) scores the rollout axis separately with a free-vs-oracle exposure-bias split. Magnitude changes are now scored at T=0 with the CRPS-primary + spatial-sharpness rule (C-167 close-out) — a proper score with CI, not step-1 `MCR_pos`. The remediation is delivered; **eligible for §Resolved in the next tidy.** Kept open only pending the physical move.
-
----
-
 ### C-137: Count-likelihood escalation (hurdle-NB / ZINB / Tweedie) carries likelihood-specification + parameterization design risks
 
 | Field | Value |
@@ -907,23 +882,6 @@ The design names the head both "**ZINB**" (zeros from a Bernoulli gate **and** t
 
 ---
 
-### C-148: "softplus dissolves the autoregressive explosion by construction" is unproven
-
-| Field | Value |
-|-------|-------|
-| ID | C-148 |
-| Tier | 2 |
-| Source | expert-method-review (ZINB Pass-2, 2026-06-10) |
-| Trigger | Treating C-113 as solved / soft-pedaling the #102 explosion-check on the strength of the "by construction" prose |
-| Location | dossier `00_README.md`, `02_design.md §0` |
-| Cross-refs | C-142 (the gate), C-113 (the explosion), C-151 (the empirical post-run clamp-confound sibling), C-152 (the load-bearing-analogy sibling) |
-
-The claim that softplus `E[y]` feedback dissolves the C-113 runaway "**by construction**" is unproven and contested by dynamical-systems theory (Mikhaeil 2022 / Hess 2023 / Durstewitz: the blow-up is a property of the recurrent **operator's gain** / Jacobian spectral radius, not the output nonlinearity alone). `02_design §6` correctly gates on `diagnose_io_gain`, but the "by construction" prose elsewhere invites skipping the gate. Delete the over-claim; treat the explosion-check as the **load-bearing** test. **Tier 2:** an over-claim that, if believed, wastes the build and re-explodes.
-
-**Update 2026-07-27 — CLOSEABLE (the over-claim was empirically settled, in the entry's own favor).** The bloom epic replaced "by construction" prose with a measured verdict: the 36-step runaway is a **feedback / exposure-bias bug**, not an output-nonlinearity property — exactly as this entry (and Mikhaeil/Durstewitz) argued. The counted bloom verification (`2026-07-25_t0_rollout_skill_dossier/06_bloom_verification_verdict.md`, 9/9 arms) showed mean-feedback blooms while `rollout_feedback=sample` (ADR-070) is bounded — softplus alone does **not** dissolve it, the feedback content does. The load-bearing explosion-check is now the frozen per-horizon rollout-skill ruler (free-vs-oracle gap), not prose. The concern is resolved in the direction it warned of; **eligible for §Resolved in the next tidy.** Kept open only pending the physical move.
-
----
-
 ### C-149: NB upper tail likely under-fits the heavy conflict tail (QS99 the binding guardrail)
 
 | Field | Value |
@@ -1062,25 +1020,6 @@ CI passes only because `ci.yml` `--ignore`s six files; one of them, `test_eval_i
 | Cross-refs | C-156 (root — `feature_cols` overload), C-157 (the crash face, now fixed), C-118 (visual_diagnostics module), ADR-062 §2.1 |
 
 A fourth, **benign** face of the C-156 overload: `_select_display_channels` derives "interesting channels" from `feature_cols`, which now includes input-only statics (CoordConv row/col). The diagnostics therefore plot geometry as if it were model signal. No crash, no model-output or training impact (the C-157 crash face is fixed; this is display-only), but it can mislead a researcher reading the biopsy plots. **Tier 4:** cosmetic/interpretation, no correctness or reliability impact. **Fix:** select display channels from `target_cols` (or exclude `static_cols`) once the role accessors are the single source — natural tidy-up alongside the flip commit or Phase-6 harden. Pinned (CLASSIFY, non-xfail) by `test_census_suspectA_visualdiagnostics_static_classification`.
-
----
-
-### C-167: no spatial-sharpness / resolution metric — evaluation is calibration-only (resolution-blind)
-
-| Field | Value |
-|-------|-------|
-| ID | C-167 |
-| Tier | 2 |
-| Source | expert-method-review (2026-06-20, Gneiting/Gelman seats) |
-| Trigger | Declaring any head/loss/architecture change "works" on the in-sample over-smoothing using calibration metrics (Brier/ECE/MCR) without a sharpness/resolution score |
-| Location | eval stack (`views_evaluation` native calculators); `scripts/gate_reliability.py`; dossiers `05_analysis_plan` |
-| Cross-refs | C-147 (calibration check that was resolution-blind), C-150 (PIT/PPC — distributional, not spatial), C-126 (rollout readout sharpness=MCR/zero-rate conflation) |
-
-The current evaluation measures **calibration** (Brier/ECE/reliability, C-147) and **magnitude** (MCR/zero-rate, called "sharpness" but it is not spatial sharpness). None of these can see the visually-obvious defect: the in-sample, teacher-forced prediction is **spatially over-smooth** (diffuse blobs vs sharp sparse truth) — exactly why C-147's low ECE wrongly read as "gate fine." A proper **CRPS** (sharpness-subject-to-calibration, Gneiting & Raftery 2007), the **Brier resolution term** (Murphy 1973 decomposition), and a **spatial posterior-predictive statistic** (hot-cell count / blob-size / spatial autocorrelation; cf. Fractions Skill Score, Roberts & Lean 2008 — to fetch) are all absent. **Tier 2:** a resolution-blind audit will certify a spatially-useless model as fine (already caused one wrong conclusion); fix by building the sharpness instrument (EXP-1) before iterating on the head/loss.
-
-**Update 2026-06-21 — instrument BUILT; resolution-blindness closed, with a caveat (folds panel M-1).** The sharpness/proper-score instruments now exist and are unit-tested: `scripts/sharpness_scorecard.py` (FSS/area-ratio) and `scripts/proper_score_audit.py` (CRPS + SCRPS + threshold-weighted CRPS + randomized-PIT, scored on **all** cells; 6 tests; validated — it reproduces the FSS scorecard before its new scores are trusted). Dossier `2026-06-21_proper_score_gate_dossier/`. **Caveat that keeps a thin residual open:** the cheap FSS/area-ratio metric **overstates** the defect (~10× area-ratio vs ~1.4–3.4× on CRPS) and is blind to the zero-vs-positive split — so decide head/loss changes on the **proper scores**, with FSS only corroborating. Largely addressed; do not select on FSS magnitude alone.
-
-**Update 2026-07-27 — residual CLOSED for the magnitude effort (instrument validated on the CURRENT family cube + integrated into the pre-registered decision rule).** The thin residual above blocked starting the magnitude effort resolution-blind. Now closed: (1) `sharpness_scorecard.py` was **stale on the current data** — the GH#144 grid rename (`priogrid_gid`→`priogrid_id`) made it raise `ValueError: raw parquet missing 'priogrid_gid'` on every family cube; fixed with a `_grid_col` alias resolver + 2 tests (10 pass). (2) Validated end-to-end on a fresh nb gated_NB-42 family D×K cube — FSS@{1,3,5,11}/area_ratio/conc1% compute on the `origin_*/y_pred.npy` format. (3) **Foundation STEP-1 baseline recorded** (nb gated): FSS@1 ≈ 0.00–0.01, area_ratio 0.1–0.2× (timid/under-firing), conc1% 0.49–0.58, MCR 0.004–0.015 — the reference the magnitude effort must improve without degrading. (4) **Wired into the pre-registered, FAO-02-compliant magnitude decision rule** (`2026-07-20_distributional_head_dossier/05_analysis_plan.md` §"Magnitude decision rule" + falsifier **F2b**; recipe on that dossier's `00_README`): a magnitude change WINS iff crps_events improves [proper, selects] AND size_ratio→1 [magnitude] AND FSS@1/conc1% do NOT degrade [spatial guard, corroborates — never selects alone]. The resolution-blind mistake this entry warns of can no longer certify a smeared body as a win. **Eligible for relocation to §Resolved in the next register tidy** (kept in Open only pending that physical move).
 
 ---
 
@@ -3496,6 +3435,67 @@ Register header claims 69 total / 19 open / 50 resolved. Actual entry count: 68 
 | ID | C-74 |
 | Resolved | 2026-04-27 |
 | Resolution | `fetch_df()` now accepts an optional `cached_path` parameter. When provided, it loads from that exact path instead of constructing the hardcoded `{run_type}_viewser_df` filename. The single call site in `HydranetManager._run_data_pipeline()` passes `cached_path=self._get_cached_data_path()`, a framework method that returns the source-aware path (viewser or datafactory). Fallback preserved for backward compatibility. Two new tests added (`test_green_fetch_df_cached_path`, `test_beige_cached_path_ignores_run_type`). CIC Section 8 updated with cached_path usage example. |
+
+---
+
+### C-136: Magnitude/output fixes judged on a rollout-confounded test — Arm-1 was mischaracterized as a clean failure — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-136 |
+| Tier | 3 |
+| Source | user pushback + step-1 readout (2026-06-09) |
+| Trigger | Judging any magnitude/loss/output-head change (hurdle, count-likelihood, sigma) by its **full 36-step free-running** metrics (MCR/CRPS/explosion) without a **teacher-forced / step-1** read to isolate the magnitude axis from the rollout axis |
+| Location | `reports/2026-06-08_magnitude_calibration_dossier/07` (EXP-A1 verdict); `reports/RESULTS_LEDGER.md` (Arm-1 row); the magnitude-vs-rollout axis split |
+| Cross-refs | C-113 (the rollout runaway), C-129 (the coupling), C-112 (attribution hygiene) |
+
+Arm-1 (the lognormal hurdle) was recorded as "FAILED → explosion → go structural." A teacher-forced **step-1** read (C-113 update) shows that is a **conflation of two axes**: at step 1 the hurdle *succeeded* — it un-collapsed magnitude (`lr_ns` MCR_pos 0.02→1.29, `lr_os` 0.03→0.73); it only "failed" because those magnitudes then fed the untrained rollout and exploded (Axis B). On ~95%-zero, 36-step autoregressive data, **any** magnitude fix that un-collapses the head will tend to explode on the free-running rollout — so a full-rollout "FAIL" verdict does not test the magnitude fix, it tests the (separate, untrained) rollout. Realized cost: the hurdle was nearly discarded and several turns were spent designing a from-scratch count-likelihood rebuild on the strength of a confounded verdict.
+
+Tier 3 rationale: decision/attribution-hygiene gap (peer of C-112/C-119/C-126) — no silent output corruption, but it already mis-directed the research and could discard good magnitude fixes again. Mitigation: for any magnitude/output change, report **step-1 (teacher-forced) MCR_pos/CRPS** to isolate the magnitude axis, and judge full-rollout stability only as the *separate* Axis-B question; re-evaluate previously-discarded magnitude fixes (Tobit/lognormal) under rollout training (or a step-1 read) before treating them as dead.
+
+**Update 2026-06-09 — two reviews bound the supporting evidence (folds M-R1, M-R2 + the code-review of `/tmp/step1_mcr.py`).** The reframe is sound in *direction* (the hurdle un-collapsed magnitude; teacher-forcing is symmetric across baseline and Arm-1, so the contrast is controlled) but weak in *strength* and *durability*:
+- **M-R1 (method):** `MCR_pos` is a first-moment **ratio, not a proper score** — "un-collapsed" is supported, "calibrated/succeeded" is not; no positive-subset twCRPS/PIT was computed. *Trigger:* treating step-1 MCR as a skill verdict.
+- **M-R2 (method):** **1 origin, 1 seed, n_pos 50–130, ratio-of-means, no CI** — against the project's own shrinkage-volatility + C-112/C-119 discipline. *Trigger:* a quantitative go/no-go on the step-1 point values without a 2nd seed + bootstrap CI.
+- **Code-review:** the readout lives in an **unversioned/untested** `/tmp` script (provenance gap, cf. C-79) and its **prediction↔actual join is unguarded** (no raw-index uniqueness check, no match-rate assertion, silent NaN-drop) — a subtly wrong join would corrupt the numbers with no signal.
+- **Remediation (folded into R4 / #93):** promote to a version-controlled `scripts/mcr_readout.py` with a guarded join, reporting a positive-subset proper score + bootstrap CI + per-cell distribution, step-1 **and** full-36, multi-seed. Record wording softened to "un-collapsed (directional)" in `07` / `RESULTS_LEDGER` / memory on 2026-06-09.
+
+**Update 2026-07-27 — CLOSEABLE (the axis-split discipline is now institutionalized, not a per-readout reminder).** The confound this entry names — judging a magnitude fix on rollout-confounded metrics — is now structurally prevented by two frozen instruments built since: the **T=0 frozen lodestar ruler** (`2026-07-17_lodestar_eval_dossier`, identical months/cells/truth) isolates the magnitude/calibration axis at step-1, and the **per-horizon rollout-skill ruler** (`2026-07-25_t0_rollout_skill_dossier`, ADR-070) scores the rollout axis separately with a free-vs-oracle exposure-bias split. Magnitude changes are now scored at T=0 with the CRPS-primary + spatial-sharpness rule (C-167 close-out) — a proper score with CI, not step-1 `MCR_pos`. The remediation is delivered; **eligible for §Resolved in the next tidy.** Kept open only pending the physical move.
+
+---
+
+### C-148: "softplus dissolves the autoregressive explosion by construction" is unproven — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-148 |
+| Tier | 2 |
+| Source | expert-method-review (ZINB Pass-2, 2026-06-10) |
+| Trigger | Treating C-113 as solved / soft-pedaling the #102 explosion-check on the strength of the "by construction" prose |
+| Location | dossier `00_README.md`, `02_design.md §0` |
+| Cross-refs | C-142 (the gate), C-113 (the explosion), C-151 (the empirical post-run clamp-confound sibling), C-152 (the load-bearing-analogy sibling) |
+
+The claim that softplus `E[y]` feedback dissolves the C-113 runaway "**by construction**" is unproven and contested by dynamical-systems theory (Mikhaeil 2022 / Hess 2023 / Durstewitz: the blow-up is a property of the recurrent **operator's gain** / Jacobian spectral radius, not the output nonlinearity alone). `02_design §6` correctly gates on `diagnose_io_gain`, but the "by construction" prose elsewhere invites skipping the gate. Delete the over-claim; treat the explosion-check as the **load-bearing** test. **Tier 2:** an over-claim that, if believed, wastes the build and re-explodes.
+
+**Update 2026-07-27 — CLOSEABLE (the over-claim was empirically settled, in the entry's own favor).** The bloom epic replaced "by construction" prose with a measured verdict: the 36-step runaway is a **feedback / exposure-bias bug**, not an output-nonlinearity property — exactly as this entry (and Mikhaeil/Durstewitz) argued. The counted bloom verification (`2026-07-25_t0_rollout_skill_dossier/06_bloom_verification_verdict.md`, 9/9 arms) showed mean-feedback blooms while `rollout_feedback=sample` (ADR-070) is bounded — softplus alone does **not** dissolve it, the feedback content does. The load-bearing explosion-check is now the frozen per-horizon rollout-skill ruler (free-vs-oracle gap), not prose. The concern is resolved in the direction it warned of; **eligible for §Resolved in the next tidy.** Kept open only pending the physical move.
+
+---
+
+### C-167: no spatial-sharpness / resolution metric — evaluation is calibration-only (resolution-blind) — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-167 |
+| Tier | 2 |
+| Source | expert-method-review (2026-06-20, Gneiting/Gelman seats) |
+| Trigger | Declaring any head/loss/architecture change "works" on the in-sample over-smoothing using calibration metrics (Brier/ECE/MCR) without a sharpness/resolution score |
+| Location | eval stack (`views_evaluation` native calculators); `scripts/gate_reliability.py`; dossiers `05_analysis_plan` |
+| Cross-refs | C-147 (calibration check that was resolution-blind), C-150 (PIT/PPC — distributional, not spatial), C-126 (rollout readout sharpness=MCR/zero-rate conflation) |
+
+The current evaluation measures **calibration** (Brier/ECE/reliability, C-147) and **magnitude** (MCR/zero-rate, called "sharpness" but it is not spatial sharpness). None of these can see the visually-obvious defect: the in-sample, teacher-forced prediction is **spatially over-smooth** (diffuse blobs vs sharp sparse truth) — exactly why C-147's low ECE wrongly read as "gate fine." A proper **CRPS** (sharpness-subject-to-calibration, Gneiting & Raftery 2007), the **Brier resolution term** (Murphy 1973 decomposition), and a **spatial posterior-predictive statistic** (hot-cell count / blob-size / spatial autocorrelation; cf. Fractions Skill Score, Roberts & Lean 2008 — to fetch) are all absent. **Tier 2:** a resolution-blind audit will certify a spatially-useless model as fine (already caused one wrong conclusion); fix by building the sharpness instrument (EXP-1) before iterating on the head/loss.
+
+**Update 2026-06-21 — instrument BUILT; resolution-blindness closed, with a caveat (folds panel M-1).** The sharpness/proper-score instruments now exist and are unit-tested: `scripts/sharpness_scorecard.py` (FSS/area-ratio) and `scripts/proper_score_audit.py` (CRPS + SCRPS + threshold-weighted CRPS + randomized-PIT, scored on **all** cells; 6 tests; validated — it reproduces the FSS scorecard before its new scores are trusted). Dossier `2026-06-21_proper_score_gate_dossier/`. **Caveat that keeps a thin residual open:** the cheap FSS/area-ratio metric **overstates** the defect (~10× area-ratio vs ~1.4–3.4× on CRPS) and is blind to the zero-vs-positive split — so decide head/loss changes on the **proper scores**, with FSS only corroborating. Largely addressed; do not select on FSS magnitude alone.
+
+**Update 2026-07-27 — residual CLOSED for the magnitude effort (instrument validated on the CURRENT family cube + integrated into the pre-registered decision rule).** The thin residual above blocked starting the magnitude effort resolution-blind. Now closed: (1) `sharpness_scorecard.py` was **stale on the current data** — the GH#144 grid rename (`priogrid_gid`→`priogrid_id`) made it raise `ValueError: raw parquet missing 'priogrid_gid'` on every family cube; fixed with a `_grid_col` alias resolver + 2 tests (10 pass). (2) Validated end-to-end on a fresh nb gated_NB-42 family D×K cube — FSS@{1,3,5,11}/area_ratio/conc1% compute on the `origin_*/y_pred.npy` format. (3) **Foundation STEP-1 baseline recorded** (nb gated): FSS@1 ≈ 0.00–0.01, area_ratio 0.1–0.2× (timid/under-firing), conc1% 0.49–0.58, MCR 0.004–0.015 — the reference the magnitude effort must improve without degrading. (4) **Wired into the pre-registered, FAO-02-compliant magnitude decision rule** (`2026-07-20_distributional_head_dossier/05_analysis_plan.md` §"Magnitude decision rule" + falsifier **F2b**; recipe on that dossier's `00_README`): a magnitude change WINS iff crps_events improves [proper, selects] AND size_ratio→1 [magnitude] AND FSS@1/conc1% do NOT degrade [spatial guard, corroborates — never selects alone]. The resolution-blind mistake this entry warns of can no longer certify a smeared body as a win. **Eligible for relocation to §Resolved in the next register tidy** (kept in Open only pending that physical move).
 
 ---
 
