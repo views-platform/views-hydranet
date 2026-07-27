@@ -105,3 +105,18 @@ class TestRed:
             break  # corrupt just one
         with pytest.raises(RuntimeError, match="GRADIENT"):
             IntegrityGuardian.monitor(tiny_model, healthy_prediction, healthy_loss)
+
+    def test_red_nan_weight(self, tiny_model, healthy_prediction, healthy_loss):
+        """A NaN in the WEIGHTS themselves (not the gradient) is caught at the source — before it
+        corrupts the next forward. Backs the CIC 'Weight NaN/Inf -> RuntimeError' guarantee."""
+        with torch.no_grad():
+            tiny_model.weight[0, 0] = float("nan")
+        with pytest.raises(RuntimeError, match="WEIGHT"):
+            IntegrityGuardian.monitor(tiny_model, healthy_prediction, healthy_loss)
+
+    def test_red_inf_weight(self, tiny_model, healthy_prediction, healthy_loss):
+        """An Inf weight is caught with the FATAL WEIGHT CORRUPTION message."""
+        with torch.no_grad():
+            tiny_model.bias[2] = float("inf")
+        with pytest.raises(RuntimeError, match="WEIGHT"):
+            IntegrityGuardian.monitor(tiny_model, healthy_prediction, healthy_loss)
