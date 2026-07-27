@@ -151,12 +151,12 @@ class HydraNetConfig(BaseModel):
     # gate ≥ τ, else zero the cell). A float in the OPEN interval (0,1); None otherwise. Fixed
     # a-priori (never fit on scored months — Goodhart).
     gate_threshold: float | None = Field(default=None)
-    # H-SAMPLE (EXP-2, bloom dossier): the autoregressive FEEDBACK copy. 'mean' (default) feeds
-    # back the emit-mean E[y] (byte-identical to history); 'sample' feeds back a single seeded
-    # family draw per cell (ancestral rollout); 'teacher_forced' feeds the REAL month-t input each
-    # step (EXP-3 oracle, zero exposure bias). Only the fed-back copy changes; the scored cube is
-    # unchanged. HydraNetInference fails loud on a bad value or 'sample' without a family.
-    rollout_feedback: str = Field(default="mean")
+    # H-SAMPLE (EXP-2/ADR-070): the autoregressive FEEDBACK copy. None (default) = AUTO: resolve
+    # 'sample' for a registered family head, 'mean' for a legacy head (HydraNetInference). 'sample'
+    # feeds a seeded composition-aware family draw (C-113 bloom mitigation, T=0-neutral); 'mean'
+    # feeds the emit-mean E[y] (historical); 'teacher_forced' feeds the REAL month-t input (EXP-3
+    # oracle, diagnostic only). Only the fed-back copy changes; the scored cube is unchanged.
+    rollout_feedback: str | None = Field(default=None)
 
     # 11. Scheduled Sampling (ADR-056): close train/inference gap.
     ss_schedule: str | None = Field(default=None)
@@ -948,6 +948,14 @@ class HydraNetConfig(BaseModel):
     def validate_scheduled_sampling_params(self) -> "HydraNetConfig":
         if self.ss_feedback not in ("mean", "sample"):
             err_msg = f"ss_feedback must be 'mean' or 'sample'; got {self.ss_feedback!r}."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        # ADR-070: rollout_feedback None = AUTO (resolved to sample/mean at inference by family).
+        if self.rollout_feedback not in (None, "mean", "sample", "teacher_forced"):
+            err_msg = (
+                "rollout_feedback must be None (auto), 'mean', 'sample', or 'teacher_forced'; "
+                f"got {self.rollout_feedback!r}."
+            )
             logger.error(err_msg)
             raise ValueError(err_msg)
         if self.ss_schedule is None:

@@ -1,9 +1,10 @@
 """H-SAMPLE / EXP-2 (bloom dossier): the `rollout_feedback` config flag.
 
-`rollout_feedback='mean'` (default) feeds back the emit-mean E[y] in the autoregressive loop — the
-historical behavior (byte-identical). `rollout_feedback='sample'` feeds back a single seeded family
-draw per cell (the ancestral rollout). Only the fed-back copy changes; the scored cube still comes
-from the recorded params. Fail-loud on a bad value or 'sample' without a registered family.
+`rollout_feedback` governs the autoregressive feedback copy. Default `None` = AUTO (ADR-070 / S4):
+resolves to `'sample'` for a registered family head (the C-113 bloom mitigation) and `'mean'` for a
+legacy head (byte-identical). `'sample'` feeds a seeded family draw; `'mean'` the emit-mean E[y];
+`'teacher_forced'` the real month-t input. Only the fed-back copy changes; the scored cube is
+unchanged. Fail-loud on a bad value or `'sample'` without a registered family.
 """
 
 from __future__ import annotations
@@ -75,11 +76,29 @@ def test_rollout_feedback_sample_requires_family():
 # ── parity: default / 'mean' is byte-identical ───────────────────────────
 
 
-def test_rollout_feedback_default_equals_mean_byte_identical():
+def test_rollout_feedback_default_resolves_to_sample_for_family():
+    """ADR-070 / S4: a FAMILY head with rollout_feedback unset (None=auto) resolves to 'sample'
+    (bloom mitigation ON by default) — NOT 'mean'. So the default path == the explicit sample
+    path, and differs from the explicit mean path."""
     h = _mock_handler()
     mag_default, _ = _make_inf("nb").generate_posterior_samples(h, origin=1)
+    inf_s = _make_inf("nb", rollout_feedback="sample")
+    mag_sample, _ = inf_s.generate_posterior_samples(h, origin=1)
     mag_mean, _ = _make_inf("nb", rollout_feedback="mean").generate_posterior_samples(h, origin=1)
-    assert np.array_equal(mag_default, mag_mean)  # unset == 'mean', exactly
+    assert np.array_equal(mag_default, mag_sample)  # family default == sample (mitigation on)
+    assert not np.array_equal(mag_default, mag_mean)  # and NOT the old mean default
+
+
+def test_rollout_feedback_auto_resolution():
+    """ADR-070 / S4: None (auto) resolves to 'sample' for a family head, 'mean' for a legacy head;
+    an explicit value overrides the auto-resolution."""
+    assert _make_inf("nb").rollout_feedback == "sample"  # family unset -> sample (mitigation)
+    assert _make_inf("zinb").rollout_feedback == "sample"  # zinb family too
+    assert _make_inf("standard").rollout_feedback == "mean"  # legacy unset -> mean (parity)
+    assert _make_inf("nb", rollout_feedback="mean").rollout_feedback == "mean"  # explicit override
+    assert _make_inf("standard", rollout_feedback="teacher_forced").rollout_feedback == (
+        "teacher_forced"
+    )  # explicit override on legacy (oracle needs no family)
 
 
 # ── 'sample' changes the trajectory, and is deterministic ────────────────

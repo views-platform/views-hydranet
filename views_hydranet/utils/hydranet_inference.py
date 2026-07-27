@@ -91,16 +91,18 @@ class HydraNetInference:
         # (family.sample). resolve_family returns None for every legacy value, so those keep their
         # exact emit/sampler path below (byte-identical). Head emits activated params per cell.
         self._family = resolve_family(self.output_distribution)
-        # H-SAMPLE (EXP-2, bloom dossier): the autoregressive FEEDBACK copy. 'mean' (default) feeds
-        # back the emit-mean E[y] (today's behavior, byte-identical); 'sample' feeds back a single
-        # seeded family draw per cell (ancestral rollout) — sparse, in-distribution. Only the fed
-        # copy changes; the emitted/scored cube is untouched. Needs a registered family.
-        # 'teacher_forced' (EXP-3 oracle): feed the REAL month-t input each AR step (zero exposure
-        # bias — the one-step-conditioned ceiling). Needs no family; works for any head.
-        self.rollout_feedback = config.get("rollout_feedback", "mean")
+        # H-SAMPLE / ADR-070: the autoregressive FEEDBACK copy — the C-113 bloom mitigation.
+        # None (default) = AUTO: resolve to 'sample' for a registered family head (the mitigation;
+        # T=0-neutral so the scored T=0 product is byte-unchanged), 'mean' for a legacy head (raw
+        # pred — byte-identical to history). Explicit values override: 'sample' (composition-aware
+        # family draw), 'mean' (emit-mean E[y]), 'teacher_forced' (EXP-3 oracle, real input).
+        rf = config.get("rollout_feedback")
+        if rf is None:
+            rf = "sample" if self._family is not None else "mean"
+        self.rollout_feedback = rf
         if self.rollout_feedback not in ("mean", "sample", "teacher_forced"):
             raise ValueError(
-                "rollout_feedback must be 'mean', 'sample', or 'teacher_forced'; "
+                "rollout_feedback must be None (auto), 'mean', 'sample', or 'teacher_forced'; "
                 f"got {self.rollout_feedback!r}."
             )
         if self.rollout_feedback == "sample" and self._family is None:
