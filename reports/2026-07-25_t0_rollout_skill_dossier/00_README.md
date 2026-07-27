@@ -1,6 +1,6 @@
 # T>0 Rollout Skill dossier — the bloom epic
 
-**Opened:** 2026-07-25 · **Status:** SCAFFOLDED (harness audited; design drafted; not yet pre-registered).
+**Opened:** 2026-07-25 · **Status:** CLOSED 2026-07-27 — **bloom FIXED + productionized** (Epic #193; ADR-070 active; C-113 evidenced-mitigation, C-121 resolved). Verdict: `06_bloom_verification_verdict.md`.
 **Container for:** the bloom (C-113) — promoted from a parked sub-thread to a first-class program.
 
 ## 1. Purpose
@@ -106,6 +106,29 @@ block-bootstrap CIs + gentler ε** — re-openable anytime; the code is ready.
 **Parked levers (out of scope, on record):** bulk-magnitude timid-body (head/loss, ZINB already ~0.69);
 GTF-proper (α-state) if the curriculum path is revisited. **Scar:** eval overwrites the cube dir in place →
 future drivers must write to fresh dirs. Artifacts: `012051` (GTF-s44), `015430` (matched base-s44).
+
+## Epic #193 — bloom-fix VERIFIED + productionized (2026-07-27)
+
+**Counted verdict (S6/S7, `06_bloom_verification_verdict.md`):** 6 freshly-retrained known-seed models
+(matched 40 lessons) × 3 arms {gated_NB, th_gated_NB (τ=0.5), ZINB} × {mean, sample}, 18 free-running
+36-step rollouts scored on the frozen ruler — **mean-feedback blooms 9/9, sample-feedback bounded 9/9**
+(crps_none mean 36–95 → sample 0.002–0.35; M_mean mean 285–751 → sample 0.02–2.49). The bloom is fixed by
+the productionized default. T=0-neutrality is byte-exact (distribution + D×K cube via per-`(pass,step)`
+sampler seeding, `66a95ea`) — the pre-registered F-B2 gate flagged a shared-generator coupling; fixed.
+
+**Tooling (this dossier's `tools/`):** `s6_inject.py` (arm-config injector), `s6_eval.sh` (stealth-safe,
+resumable, score-after-each 18-arm eval driver), `s6_score_one.py` (per-arm crps split + M(h) trajectory +
+verdict), `s7_verdict.py` (the counted 9/9 verdict). Evidence CSVs in `results/bloomverify/`.
+
+### Runbook — using `rollout_feedback`
+- **Default (do nothing):** a **family head** (`nb`/`zinb`) auto-resolves `rollout_feedback=None` → `sample`,
+  which mitigates the bloom at inference. Legacy heads → `mean` (byte-identical). This is T=0-neutral:
+  the scored T=0 (h=1) is unchanged.
+- **Override for experiments:** set `rollout_feedback` explicitly — `mean` (diffuse emit-mean; reproduces
+  the bloom), `sample` (the mitigation), or `teacher_forced` (oracle; feeds realized truth — diagnostic,
+  never deploy). `sample` requires a registered family (fails loud otherwise).
+- **Reproduce the verdict:** run `tools/s6_eval.sh all` (needs the 6 artifacts + floor `6c28bdb…`), then
+  `tools/s7_verdict.py`. Deterministic; the h=1 ruler slice byte-matches the frozen lodestar T=0.
 
 ## 6. Conventions
 
