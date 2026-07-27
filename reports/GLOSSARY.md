@@ -155,7 +155,9 @@ is no self-zeroed standalone unless the distribution is ZI-wrapped):
 |---|---|---|
 | **timid** | guesses too small | under-fires, under-shoots, shrinks, timid-prophet |
 | **the drag** | the pull toward zero from training on ~99.7% empty cells | all-zeros drag, zero-pull |
-| **the bloom** | forecasts snowballing to infinity across the 36-month rollout (we ignore it; T=0 only) | C-113, autoregressive explosion, runaway |
+| **the bloom** | forecasts snowballing to infinity across the 36-month rollout. **Mitigated (ADR-070, 2026-07-27):** family heads default to `rollout_feedback=sample`, which bounds it 9/9; T=0 is still the scored product. | C-113, autoregressive explosion, runaway |
+| **rollout_feedback** | what the autoregressive loop feeds back each step: `mean` (the diffuse emit-mean E[y] — the bloom driver), `sample` (a sparse composition-aware family draw — the bloom mitigation, default for family heads), `teacher_forced` (the realized truth — oracle/diagnostic only) | ancestral-feedback |
+| **T=0-neutral** | a change that cannot alter the h=1 / scored-T=0 output; the sample-on default is T=0-neutral (emit-mean/gate/params byte-identical, and the D×K cube too after the per-step sampler seeding) | T0-safe |
 | **calibrated** | honest — a "10% chance" happens ~10% of the time (gate), or guesses are right-sized (body) | — |
 
 ## 6. The models we've actually run (described by their choices — codenames RETIRED)
@@ -171,7 +173,7 @@ I will describe models by their §2/§3 choices, not by codenames. The codenames
 ## 7. Settled facts — do NOT re-open
 - **the WALL** — the data cannot say *how big* a sudden jump will be (no feature predicts it). Proven.
 - **BatchNorm fix** — the instability that collapsed ~40% of random starts; fixed, on by default. Proven.
-- **T=0** — the first forecast month only; the *only* thing we score. Everything past it (the bloom) ignored.
+- **T=0** — the first forecast month only; the *only* thing we score. The rollout past it (the bloom) is now **mitigated** at inference (ADR-070 `rollout_feedback=sample`), not merely ignored; T=0 remains the scored product.
 - **the gate is calibrated** at pos_weight ~1–2 (its own question, largely solved).
 
 ## 8. The targets
