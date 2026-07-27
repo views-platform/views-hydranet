@@ -4,9 +4,9 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-07-27                           |
-| Total Concerns    | 221                                  |
-| Open Concerns     | 96                                  |
+| Last Updated      | 2026-07-28                           |
+| Total Concerns    | 225                                  |
+| Open Concerns     | 100                                  |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 125                                  |
 
@@ -895,6 +895,8 @@ The design names the head both "**ZINB**" (zeros from a Bernoulli gate **and** t
 
 Conflict fatality counts are heavy/long-tailed (near power-law); the NB tail decays roughly geometrically and likely under-predicts extremes → **QS99 (tail sanity) is the most probable binding guardrail failure.** Pre-register that expectation + the Tweedie / GPD-tail escalation path, so a tail-miss triggers the right escalation rather than abandoning the model. **Tier 3:** anticipated limitation with a defined escalation.
 
+**Update 2026-07-28 (expert-method-review, magnitude-fix panel — strengthened AND partially corrected).** Two refinements from the panel (Koenker, Davison seats): (1) it is not merely that the NB tail is "too light" — it is a **family-level veto**: the EVT tail index of ANY negative binomial is ξ=0 (finite variance for all μ,θ), whereas the truth is ξ≈0.8 (α≈1.25 ⇒ **infinite variance**). No loss reweighting or anchor can move ξ off 0; only an explicit ξ>0 component (pooled peaks-over-threshold GPD splice, DXtreMM/DeepExtrema `Abilasha2022`/`Galib2022`) can represent it. (2) **The premise "QS99 is the binding tail guardrail" is WRONG** — with 99.7% zeros the unconditional 99th percentile is 0 (99<99.7), so QS99 sits *inside the zero mass* and measures the onset boundary, not magnitude. The escalation-detection role this entry assigns to QS99 does not exist. The tail-detectability gap is now tracked as **[[C-224]]** (Tier 1). Cross-ref C-137 (Tweedie/GPD escalation), C-224 (eval tail-blindness).
+
 ---
 
 ### C-150: analysis plan lacks PIT + positive-tail posterior-predictive check
@@ -1679,6 +1681,69 @@ Recursive rollout accumulates error by construction (the bloom is that pathology
 
 ---
 
+### C-224: eval governance is TAIL-BLIND — the sanctioned metric set cannot detect a magnitude/tail win
+
+| Field | Value |
+|-------|-------|
+| ID | C-224 |
+| Tier | 1 |
+| Source | expert-method-review (magnitude-fix panel, 2026-07-28; Davison/EVT + Gneiting seats) |
+| Trigger | Declaring ANY magnitude/tail fix (quantile-Δ head, GPD splice, heavier body) a "win" or "null" on the FAO-02 sanctioned set (CRPS + QS99), OR spending GPU on a tail fix before a tail-detecting diagnostic is agreed with the FAO-02 owner |
+| Location | `reference_fao02_locked_eval_framework.md`; frozen `lodestar_score.py`; dossiers `05_analysis_plan.md` / `08_magnitude_bodymask_prereg.md` |
+| Cross-refs | C-149 (NB tail veto), C-150 (PIT/PPC), C-167 (resolution metric), C-136 (rollout-confounded scoring) |
+
+The magnitude effort's target — the ξ≈0.8 surge tail — is **invisible to the metrics we are allowed to select on**, for two independent, proven reasons. (1) **QS99 sits inside the zero mass:** 99th percentile of a 99.7%-zero field is 0, so QS99 measures the zero/positive onset boundary, not deep-tail magnitude (the real tail is above the 99.7th pct). (2) **No proper-score EXPECTATION discriminates tail behaviour:** Taillardat et al. 2023 + Brehmer&Strokorb 2019 prove the expected CRPS — *and even the FAO-02-banned twCRPS* — cannot distinguish forecasts with different ξ; non-tail-equivalent forecasts score almost identically to the ideal. So a real tail improvement (or a real family mis-specification) produces FLAT CRPS, and we cannot tell "fix worked, metric blind" from "family still wrong." **Tier 1 (silent incorrectness of the evaluation):** we would certify or kill magnitude designs on a metric structurally incapable of seeing the thing under test — the resolution-blind trap C-167 named, one level deeper (C-167 fixed spatial sharpness; this is distributional-tail sharpness). Mitigation is a **governance amendment, not a run**: agree an exceedance-conditional tail diagnostic (QS at 99.9 on POSITIVE cells only; exceedance reliability/PIT as a *diagnostic* — note PIT+twCRPS are both FAO-02-selection-banned, so this needs the FAO-02 owner's sign-off) BEFORE any magnitude/tail GPU spend.
+
+---
+
+### C-225: outcome-weighted likelihood (`1+γ|Δ_true|`·NLL) is an improper objective — de-calibrates the emitted distribution
+
+| Field | Value |
+|-------|-------|
+| ID | C-225 |
+| Tier | 2 |
+| Source | expert-method-review (magnitude-fix panel, 2026-07-28; Gneiting/Koenker/Salinas/Harrell seats — unanimous) |
+| Trigger | Multiplying a parametric likelihood (NB/ZINB NLL) by any weight that is a function of the realized outcome y_t (e.g. `1+γ|Δ_true|`, `|y_t|`, an exceedance flag) and then selecting on CRPS |
+| Location | `views_hydranet/train/training_engine.py` (the `weight=` path into `family.nll`); `family_loss.py`; any move/information-weighted body-loss design |
+| Cross-refs | C-136 (scoring-hygiene / proper-score discipline), C-224 (why the resulting mis-calibration is also undetectable), C-149 |
+| Related work | Gneiting&Raftery 2007; Lerch et al. 2017 (forecaster's dilemma); Ehm et al. 2016 (only outcome-INDEPENDENT weights preserve consistency); Salinas 2020 (DeepAR weights the SAMPLING, not the loss) |
+
+An outcome-derived weight makes the objective's population minimizer `f* ∝ w·g` — the true predictive density **tilted toward the up-weighted region** (Euler–Lagrange), i.e. provably de-calibrated μ/θ. You then score on the frozen (un-tilted) CRPS whose optimum is g, so any CRPS movement confounds skill with the tilt, and γ is a free knob tuned straight into that confound (garden-of-forking-paths). It is distinct from the quantile case: a nonnegative weight on a **pinball** loss still elicits a quantile of the *tilted measure* (consistent, Koenker/Ehm), but a weighted **NB NLL** distorts a coupled KL projection and moves μ,θ non-decomposably. DeepAR's own imbalance remedy is `∝`-magnitude **importance sampling of training windows** (which changes what you see, not what a correct density is), never loss reweighting. **Tier 2 (structural fragility of any likelihood-head magnitude design):** the whole "information-weighted body loss" family is unsound on a parametric likelihood; if move-emphasis is wanted, use an outcome-INDEPENDENT weight `w(y_{t-1})` / a forecast-time surge-risk prior, OR do it inside a quantile head, OR importance-sample windows.
+
+---
+
+### C-226: additive persistence anchor `log1p(y_{t-1})+Δ` on a COUNT/NB mean is incoherent + re-imports the C-113 bloom
+
+| Field | Value |
+|-------|-------|
+| ID | C-226 |
+| Tier | 2 |
+| Source | expert-method-review (magnitude-fix panel, 2026-07-28; Salinas/Koenker/Harrell/Hamilton-Tong seats) |
+| Trigger | Reparameterizing the NB/ZINB head to emit `ŷ = log1p(y_{t-1}) + Δ_θ` (additive persistence anchor on the count mean), especially with the anchor updated per rollout step |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py` (head); `hydranet_inference.py` (emit + AR feedback); any persistence-anchored Δ design |
+| Cross-refs | C-113 (autoregressive bloom), C-201 (self-zeroed gate decouple), C-149/C-224 (still doesn't touch the tail), D-13 |
+| Related work | Koenker 2005 (quantile monotone-transform equivariance — the anchor is EXACT for quantiles, Jensen-biased for a mean); Salinas 2020 (DeepAR anchors the SCALE ν, frozen, not the mean additively) |
+
+The persistence anchor is the right *idea* (a true-zero cell anchors at 0 → structurally attacks the crps_none leak) but the wrong *vehicle* on a count likelihood: (1) **Jensen bias** — `E[g(Y)]≠g(E[Y])`, so a log1p-space additive anchor on an NB log-link mean is a link mismatch (a modelling bug, not a nuance); (2) it fixes the mean *location* but leaves θ (dispersion) and the ZINB structural π unanchored → the emitted mean/variance relationship no longer matches the level, and on a true-zero cell (anchor=log1p(0)=0) the anchor supplies the *least* information exactly where the occurrence failure lives; (3) an **additive** anchor updated each rollout step is an unbounded feedback term = the C-113 bloom by another name (DeepAR avoids this precisely by using a *frozen* per-series scale, not a per-step additive anchor). The coherent realizations: additive anchor inside a **quantile head** (exact via equivariance), or DeepAR **frozen mean-scaling** on the NB. **Tier 2 (structural fragility + silent bloom re-introduction):** a persistence-anchored NB as specified is internally inconsistent and rollout-unstable; if built, it must be in a quantile head or as frozen scaling, and F-B2-tested on the free-running curve, not just T=0.
+
+---
+
+### C-227: a single move-weighted / anchored head recreates the up-stable↔down-transition stratum-trade; crps_all hides it
+
+| Field | Value |
+|-------|-------|
+| ID | C-227 |
+| Tier | 3 |
+| Source | expert-method-review (magnitude-fix panel, 2026-07-28; Hamilton-Tong seat; sibling views-lstm-lab doc 19 evidence) |
+| Trigger | Shipping a SINGLE global-γ or single-anchored magnitude head as a champion candidate, and judging it on aggregated crps_all rather than per-regime CRPS |
+| Location | dossier `05_analysis_plan.md` / `08_magnitude_bodymask_prereg.md` (decision rule); any single-head magnitude design |
+| Cross-refs | C-170 (un-freezing the balancer starves rare targets — same crosstalk family), C-136 (crps_all aggregation hid the masking over-cook), C-224, D-13 |
+| Related work | Jacobs et al. 1991 (mixtures-of-experts: shared weights receiving opposite-signed gradients = crosstalk); views-lstm-lab ADR-006 doc 19 (γ=2 fixed declines 200× but blew active_stable 9.99→23.57) |
+
+The sibling lab established empirically that one global |Δ|-weight cannot serve both regimes — "don't move" (active_stable) and "drop hard" (de_escalation) need opposite biases, so a single shared parameter vector receiving opposite-signed gradients trades one stratum for another (Jacobs crosstalk). A single hydranet magnitude head will likely reproduce this. Compounding it, **crps_all aggregation masks the trade** — it is exactly the aggregate that hid the original `pos_cells` true-zero over-cook. **Tier 3 (decision/attribution-hygiene, peer of C-136/C-170):** no silent corruption, but a single-head win/kill judged on crps_all can be a stratum-trade in disguise. Mitigation: report **per-regime CRPS (stable-zero / active-stable / escalation / de-escalation) before any crps_all aggregation**, with the regime threshold declared in the pre-registration (not snooped). The single-head-vs-routed-mixture choice itself is tracked as D-13.
+
+---
+
 ## Disagreements
 
 ### D-01: VolumeHandler scope — God Object vs Deep Module
@@ -1808,6 +1873,17 @@ Recursive rollout accumulates error by construction (the bloom is that pathology
 | Source | /expert-code-review (A-S10 #177), Kleppmann/Nygard vs the CRPS-program view |
 | Perspectives | Kleppmann/Nygard: the D×K sampler re-seeds its `torch.Generator` from `torch_seed` at the start of **every** `generate_posterior_samples` call (per origin), so all origins draw the **same** random stream — undocumented as deliberate, so a future reader may "fix" it and break the S2 #121 determinism gate. Counter (CRPS-program): deterministic common-random-numbers is a **feature** (variance reduction across origins) and per-cell/per-origin CRPS is unbiased regardless — the reuse changes nothing the M-metrics measure. |
 | Resolution | **Keep the behavior; document intent.** Add a one-line comment at the generator seed site (`hydranet_inference.py` `generate_posterior_samples`) stating the per-origin CRN re-seed is intentional (deterministic + unbiased for per-cell CRPS). Cross-refs C-209 (the S-axis fold) and the A-S8 /review-diff S-2 note. |
+
+---
+
+### D-13: single state-conditioned quantile head vs two-expert regime-routed mixture
+
+| Field | Value |
+|-------|-------|
+| ID | D-13 |
+| Source | expert-method-review (magnitude-fix panel, 2026-07-28) |
+| Perspectives | **Side A (Koenker/quantile):** ONE monotone multi-quantile Δ head suffices — the τ-index absorbs the regimes (low-τ slices pin at 0 on true-zero cells, high-τ slices carry the surge), so the "two experts" are just different τ-slices of one monotone curve; regime flexibility can be added via a *state-conditioned* weight `γ(persistence-state)` in the single head. A softmax-routed two-expert mixture (Jacobs 1991) has **no monotonicity guarantee** across τ once you route between two full predictive objects — it reintroduces exactly the quantile-crossing the monotone head was built to kill. State-conditioned γ in one monotone head dominates. **Side B (Hamilton/Tong/regime):** the momentum-routed two-expert mixture **IS** the specified model — a SETAR (self-exciting threshold AR) with NN conditionals, and the Jacobs remedy to weight-crosstalk. The sibling lab proved one global γ can't serve both regimes (doc 19: γ=2 fixed declines 200× but blew active_stable 9.99→23.57), and DS3M (`Xu2021`) shows the ConvLSTM latent does NOT cleanly separate regimes on its own → an explicit hard router supplies discrete identifiability the recurrent latent lacks, at zero GPU cost. A single head is a false economy that will trade one stratum for another. |
+| Resolution | **OPEN.** Both sides agree the eventual object may be regime-aware; they disagree on whether the regime work is done *implicitly by the τ-index in one monotone head* (Side A) or *explicitly by a discrete router over two heads* (Side B), and whether to skip the single head entirely. Cross-refs C-227 (the single-head stratum-trade risk), C-224 (neither is measurable until the tail-detectability gap is closed). Governing choice deferred to the magnitude pre-registration; recommended first step = single state-conditioned head with per-regime CRPS reporting (C-227), escalate to the routed mixture if the stratum-trade fires. |
 
 ---
 
