@@ -211,3 +211,43 @@ pos_mcr/area_ratio toward 1 while holding FSS. **NEXT LEVER = robust-trendline t
 Caveats: 1 seed (BN-recal mitigates, not eliminates); FULL-subset `max` EXPLODED flag fires on ALL arms
 incl. the well-behaved `none` baseline ⇒ a scorecard max-column quirk, not discriminating (STEP-1 is the
 clean read). twCRPS/PIT not used (FAO-02).
+
+---
+
+## EXP — body_supervision window sweep (NB × {all,0/0,0/2,2/2,0/6} × {42,43,44}, 40 lessons) — pre-reg `09`
+**Date:** 2026-07-28 · **Driver:** `mag_sup_sweep.sh` (18 trains + 33 emit-and-score, watched, resumable) ·
+**Results:** `results/sup_window/` · **Ruler:** frozen lodestar + tail_scorecard + sharpness. Floor md5 intact;
+0 F-DEGEN; ran clean once the machine's swap-exhaustion was cleared (peak trainRSS 3.46 GB, no balloon).
+
+**Grid — composition `threshold_gate τ=0.5`, mean over 3 seeds, sb / ns / os:**
+
+| arm (onset,cess) | crps_all | crps_events | crps_none | size_ratio |
+|---|---|---|---|---|
+| `all` (foundation) | **0.143 / 0.084 / 0.030** | 18.15 / 23.69 / 6.67 | 0.0025 / 0.0020 / 0.0022 | 0 / 0 / 0 |
+| `active 0,0` (=pos_cells) | 0.220 / 0.139 / 0.089 | **16.22** / 22.56 / 6.84 | 0.095 / 0.062 / 0.061 | 0.098 / 0 / 0 |
+| `active 0,2` (decay) | 0.195 / 0.111 / 0.062 | 17.67 / 23.06 / 6.85 | 0.059 / 0.032 / 0.034 | 0 / 0 / 0 |
+| `active 2,2` (sym) | 0.183 / 0.112 / 0.056 | 17.92 / 23.26 / 6.65 | 0.044 / 0.032 / 0.029 | 0 / 0 / 0 |
+| `active 0,6` (long decay) | 0.177 / 0.103 / 0.047 | 18.11 / 23.96 / 6.64 | 0.037 / 0.020 / 0.019 | 0 / 0 / 0 |
+
+**Verdict against the pre-registered falsifiers:**
+- **F-SUP-1 FIRES — no active window beats `all` on composed crps-all.** crps-all is *monotone* in window
+  size: `all 0.143 < a06 0.177 < a22 0.183 < a02 0.195 < a00 0.220` (identical ordering on ns, os). The timid
+  foundation wins outright. (Prediction 1 FALSIFIED.)
+- **Prediction 2 CONFIRMED — the window cuts the true-zero over-cook, monotonically:** crps_none `a00 0.095 →
+  a02 0.059 → a22 0.044 → a06 0.037`. The boundary supervision *does* anchor the near-activity zeros.
+- **…but only by RE-TIMIDIFYING.** As the window grows, crps_events climbs back to the foundation
+  (`a00 16.22 → a06 18.11 ≈ all 18.15`) and size_ratio collapses to 0. So `body_supervision=active` is a single
+  **dial between "un-collapsed-but-over-cooked" (a00) and "timid-but-clean" (all)** — every interior point sits
+  on that line; there is **no sweet spot** that keeps the magnitude while killing the over-cook. It is the
+  magnitude-XOR-calibration wall, now isolated on a clean sweepable axis.
+- **F-SEED does NOT fire — seed-stable:** rankings hold across 42/43/44 (`all` always ≈0.14; `a00` worst;
+  interior between). A robust negative, not a basin artifact.
+- **Prediction 4 CONFIRMED — tail dead across ALL radii:** top-bin (truth 549) reach=0%, q90=0 for every arm.
+  The window is orthogonal to the ξ≈0.8 tail, as scoped.
+- ZINB×all reference: crps-all ≈0.16 (sb/ns), between NB-all and NB-pos_cells — no advantage here.
+
+**Decision (per prereg 09):** F-SUP-1 fires ⇒ **the body-supervision region is NOT the lever for the
+bulk-magnitude downward bias.** The knob is built + productionized (a clean negative, not wasted — `all` and the
+endpoints are now one validated axis). **Pivot to the family/tail axis** — the persistence-anchored monotone
+quantile-Δ head (D-13) and/or the heavy tail (C-149/C-224), exactly where the 6-seat method-review panel pointed.
+The magnitude ceiling is the family, not where we supervise it.
