@@ -82,6 +82,7 @@ Architectural decisions specific to the HydraNet system.
 - **[062](proposed/062_channel_role_accessors_and_volumehandler_decomposition.md)**: ADR-062: Channel-Role Accessors + VolumeHandler Decomposition
 - **[065](proposed/065_body_mask_training_mask.md)**: ADR-065: `body_mask` — a first-class, validated point-body training-mask setting
 - **[067](proposed/067_distribution_family_subsystem.md)**: ADR-067: A distribution-family subsystem + per-cell sampleable NB/ZINB heads
+- **[071](proposed/071_violet_visitor_datafactory_provider.md)**: ADR-071: violet_visitor's data provider is views-datafactory (`africa_me_legacy`)
 
 ## [Archive (Historical)](./archive/)
 
