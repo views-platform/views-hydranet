@@ -105,7 +105,7 @@ def test_family_empty_mask_is_graph_connected_zero():
 
 def test_family_body_mask_step_runs_finite():
     # exercise the training-engine apply_body_mask branch with a family (weight= path)
-    model, result = _run("nb", body_mask="pos_cells", event_threshold=0.0)
+    model, result = _run("nb", body_supervision="active", event_threshold=0.0)
     assert result["total"].isfinite()
     result["total"].backward()
     g = model.dec_conv4_head1_reg.weight.grad

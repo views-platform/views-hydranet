@@ -44,6 +44,7 @@ fine once context is set.
 |---|---|---|
 | **all-cell** | body trained on *every* cell (including the empty ones) | dense, standard, no mask |
 | **positives-only** | body trained *only* on cells that actually had conflict | hurdle, hurdle_shrinkage, hurdle-masked, masked body |
+| **supervision window** | the temporal span around conflict where the **body** loss is supervised (ADR-065 amend. 2026-07-28): config `body_supervision ∈ {all, active}` + `onset_lead` (months before onset) + `cessation_lag` (months after cessation). `all` = all-cell; `active,0,0` = positives-only (per-step); `active,W,W` = full active-cell timelines. Sweep the radii; the body owns the boundary dynamics, the gate owns the deep structural zeros. | ⛔ **`body_mask` (RETIRED)**, ⛔ **`pos_cells` (→ `active,0,0`)**, ⛔ **`pos_timelines` (→ `active,W,W`)**, `active_window`, mask, hurdle_mask_mode |
 
 Note: I previously blurred "positives-only" (a *training* choice) with "gated" (the *compose*). They are
 separate. Until now the forecast has always been gated (gate × body), with the body trained either

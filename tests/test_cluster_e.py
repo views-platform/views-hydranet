@@ -81,7 +81,7 @@ def test_pareto_loss_gradient_between_l1_and_mse():
 # ---------------------------------------------------------------------------
 def test_hurdle_masking_reduces_loss_contributors():
     """
-    With body_mask="pos_cells", regression loss should only come from
+    With body_supervision="active", regression loss should only come from
     positive target values. A tensor with all zeros should produce
     zero regression loss.
     """
@@ -107,7 +107,7 @@ def test_hurdle_masking_reduces_loss_contributors():
         SumReducer(),
         idx,
         torch.device("cpu"),
-        body_mask="pos_cells",
+        body_supervision="active",
     )
 
     # With all-zero targets and hurdle masking, no positive pixels exist
@@ -182,7 +182,7 @@ def test_qs99_regularizer_adds_to_loss():
         SumReducer(),
         idx,
         torch.device("cpu"),
-        body_mask="pos_cells",
+        body_supervision="active",
         qs99_weight=0.0,
     )
 
@@ -196,7 +196,7 @@ def test_qs99_regularizer_adds_to_loss():
         SumReducer(),
         idx,
         torch.device("cpu"),
-        body_mask="pos_cells",
+        body_supervision="active",
         qs99_weight=0.1,
         qs99_tau=0.99,
     )
@@ -297,7 +297,7 @@ def test_hurdle_masking_mixed_data():
         SumReducer(),
         idx,
         torch.device("cpu"),
-        body_mask="pos_cells",
+        body_supervision="active",
     )
 
     loss_no = result_no_hurdle["total"].item()

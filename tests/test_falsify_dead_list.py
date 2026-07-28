@@ -16,20 +16,19 @@ def test_count_mean_is_a_retained_transfer_test_lever_not_safe_delete():
     assert "count_mean" in LOSS_REG_REGISTRY
 
 
-def test_body_mask_pos_modes_are_a_shipped_pushed_contract():
-    """F-2 (HARD): body_mask pos_cells/pos_timelines were classified "safe to delete", but they are
-    the ADR-065 epic (commit 850e076, pushed to origin) — 3 production files + 12 test files + a
-    proposed ADR + a CIC — and the field's `none` value IS the all-cell foundation. So it's an epic
-    reversal on pushed code touching a foundation field, not a trim. Guard: the resolver still
-    honors both shipped modes."""
+def test_body_supervision_modes_are_a_shipped_pushed_contract():
+    """F-2 (HARD): the body-supervision window is the ADR-065 epic + amendment (pushed to origin) —
+    production files + tests + ADR + CIC + a foundation `all` value. The retired pos_cells/
+    pos_timelines keywords now live as the endpoints of the graded resolver, not as dead code.
+    Guard: the resolver honors the shipped endpoints (0/0 = per-step; saturated = timelines)."""
     import torch
 
-    from views_hydranet.utils.body_mask import resolve_body_mask
+    from views_hydranet.utils.body_supervision import resolve_body_supervision
 
     w = torch.zeros(1, 2, 1, 1, 1)
     w[0, 0, 0, 0, 0] = 5.0
-    assert resolve_body_mask("pos_cells", 0.0)(w).shape == w.shape
-    assert resolve_body_mask("pos_timelines", 0.0)(w).shape == w.shape
+    assert resolve_body_supervision(0, 0, 0.0)(w).shape == w.shape  # old pos_cells endpoint
+    assert resolve_body_supervision(9, 9, 0.0)(w).shape == w.shape  # old pos_timelines endpoint
 
 
 def test_basu_deletion_is_coupled_to_its_validator():

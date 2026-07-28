@@ -238,12 +238,12 @@ class TestGreenTobitLossRegistry:
         assert config.loss_reg == "tobit"
 
     def test_config_rejects_tobit_with_pos_mask(self):
-        # ADR-065: tobit is a latent likelihood that models zeros itself — a positives body_mask is
-        # contradictory (was the tobit+hurdle check; now subsumed by validate_body_mask_latent).
+        # ADR-065 amend.: tobit is a latent likelihood that models zeros itself — a positives
+        # supervision window is contradictory (subsumed by validate_body_supervision_latent).
         from views_hydranet.utils.config_initializer import HydraNetConfig
 
         with pytest.raises(ValueError, match="latent likelihood"):
-            HydraNetConfig(**_tobit_config(body_mask="pos_cells"))
+            HydraNetConfig(**_tobit_config(body_supervision="active"))
 
 
 class TestGreenModelOutputRegLatent:

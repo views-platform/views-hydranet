@@ -147,3 +147,94 @@
   Contracts), **ADR-008** (Error Propagation), **ADR-009** (Boundary Contracts & Config Validation), **ADR-046**
   (Transformations vs Derivations), **ADR-047** (Pandas-Free Output direction), **ADR-049** (Sampling Strategy
   Registry — the deferred seam), **ADR-054/055/059** (latent/likelihood masking, out of scope here).
+
+---
+
+## Amendment 2026-07-28 — generalize the keyword to a graded, asymmetric **supervision window** (`body_supervision` + `onset_lead` / `cessation_lag`)
+
+**Status of amendment:** Proposed · **Deciders:** Simon Polichinel von der Maase (chair) · **Source:** the
+magnitude effort (dossier `2026-07-20_distributional_head_dossier/08`) + the magnitude-fix expert-method-review
+(2026-07-28, C-224…C-227, D-13).
+
+### A1. Why amend now
+The three-keyword taxonomy (`none` / `pos_cells` / `pos_timelines`) proved too coarse for the magnitude lever:
+- **`pos_cells` over-cooks and is boundary-blind.** `body_mask` masks the **loss, not the input** (`training_engine`
+  runs `model(t0_input)` on the full volume; the mask is a `weight=` on `family.nll`). So the ConvLSTM still *sees*
+  onset/cessation — but the body **head gets zero gradient off the positive support**, so (i) it drifts high on
+  nearby zeros (the measured true-zero over-cook: `E[y]>100` on ~46 ns / 67 os true-zero cells, dossier 08) and
+  (ii) it is never taught to **ramp down toward zero** approaching cessation. These are one root: the body is
+  unsupervised exactly where conflict begins and ends.
+- **`pos_timelines` is timid.** Supervising *every* zero in an ever-active cell's history — including long dead
+  stretches far from any episode — drags μ back toward 0 (measured: size_ratio stays 0).
+- The right region is **neither**: supervise the body on conflict episodes **and their temporal boundaries**
+  (the onset run-up, the cessation decay), delegating only the **deep structural background** to the gate — the
+  chair's stated division of labour ("the gate subdues the obvious structural zeros; the body gets the conflict
+  right and may be wrong elsewhere").
+
+### A2. Decision (the amended Law)
+Retire `body_mask ∈ {none, pos_cells, pos_timelines}`. Replace with **one graded, asymmetric supervision window**:
+
+| Field | Type | Default | Meaning |
+|---|---|---|---|
+| `body_supervision` | `Literal['all','active']` | `'all'` | `all` = every cell (old `none`); `active` = a temporal window around conflict activity |
+| `onset_lead` | `int ≥ 0` | `0` | months **before** onset the body is supervised (the run-up); `active` only |
+| `cessation_lag` | `int ≥ 0` | `0` | months **after** cessation the body is supervised (the decay); `active` only |
+
+**Semantics (asymmetric temporal dilation of the per-step-positive mask).** For a cell, a timestep `t` is
+supervised iff there exists an active month `t'` (`y_{t'} > thr`) with
+
+  **`t − cessation_lag ≤ t' ≤ t + onset_lead`**
+
+i.e. dilate the active months `onset_lead` steps *backward in supervised-time* (run-up) and `cessation_lag`
+steps *forward* (decay), per cell, in the T dimension. (`onset_lead` reaches to *future* active months → it
+supervises the run-up; `cessation_lag` reaches to *past* active months → it supervises the decay.) Values
+`≥ T−1` saturate to the whole window.
+
+### A3. Taxonomy mapping (byte-identical endpoints — the retirement gate, S2)
+| old `body_mask` | new (`body_supervision`, `onset_lead`, `cessation_lag`) | parity |
+|---|---|---|
+| `none` | `('all', —, —)` | all-True; unchanged foundation |
+| `pos_cells` | `('active', 0, 0)` | `t'∈[t,t]` ⇒ `y>thr` at `t` — **byte-identical** to old pos_cells |
+| `pos_timelines` | `('active', ≥T−1, ≥T−1)` | window covers all T ⇒ active-anywhere broadcast — **byte-identical** to old pos_timelines |
+
+The clean-break retirement of the three keywords is gated on a **byte-identical parity test** at both endpoints
+(same discipline as the S2 characterization net that gated the original ADR-065 retirement of the legacy knobs).
+
+### A4. Rationale
+- **Turns Philosophy A vs B into an empirical knob.** `(0,0)` is the pure-hurdle body (occurrence is wholly the
+  gate's job — Philosophy B); larger radii give the body ownership of the boundary dynamics (Philosophy A). We do
+  not argue A vs B; we sweep `(onset_lead, cessation_lag)` and let the frozen ruler pick. `pos_cells` and
+  `pos_timelines` become the two endpoints of that dial, not competing keywords.
+- **Hypothesis (falsifiable):** an interior radius lifts the bulk-magnitude downward bias (µ un-collapsed, since
+  the deep background is excluded) *without* the over-cook (the near-activity zeros teach ramp-down and constrain
+  the drift) — beating both endpoints. A best radius of `(0,0)` is a real, informative null.
+- **Asymmetry is deliberate** (chair): onset (from zero) and cessation (to zero) need not be the body's job to the
+  same degree — the pre-onset quiet is arguably the gate's, the decay is more clearly the body's. `onset_lead=0,
+  cessation_lag>0` is a first-class, expressible setting.
+
+### A5. Scope guards (do not let this masquerade)
+- **Point-body only.** Still `not use_latent`; NB/ZINB are `needs_latent=False`, so `active` applies to them
+  (the C-193 latent no-op RAISE is retained for a latent loss + `active`). Latent-truncation losses unchanged.
+- **NOT a tail fix.** This lever changes *where the body is supervised*, not whether the family can *reach* the
+  ξ≈0.8 surge. The `tail_scorecard` will still show `q90≈0` on the top magnitude bin for every radius — expected,
+  and the evidence that this axis and the heavy-tail axis (C-149/C-224) are orthogonal. Success = bulk-magnitude
+  downward-bias only.
+- **`onset_lead` uses future-active truth to *select training cells*** — a training-time label/weight
+  construction (like the curriculum's window selection), **not** an inference-time feature; the model is never
+  given future info at emit. Noted so no reader mistakes it for leakage.
+- **Retirement is fail-loud.** A config still setting `body_mask=` raises at validation with the migration hint
+  (`none→all`; `pos_cells→active,0,0`; `pos_timelines→active,W,W`) — never a silent shim (ADR-009).
+
+### A6. Enforcement locations (delta from the base ADR)
+- `config_initializer.py`: replace the `body_mask` Literal with `body_supervision` Literal + `onset_lead` /
+  `cessation_lag` int fields (`≥0` validators); the latent-no-op RAISE keys on `body_supervision=='active'`; add
+  the retired-`body_mask` fail-loud.
+- `body_mask.py`: `resolve_body_supervision(onset_lead, cessation_lag, event_threshold) → window→BoolTensor`
+  (asymmetric temporal dilation; `_active_window_mask` reused for the saturated endpoint). Old
+  `resolve_body_mask` retired.
+- `training_engine.py`: `apply_body_mask = body_supervision=='active' and not use_latent`; resolver call updated.
+- CIC (`DistributionFamily` / training docs) + `reports/GLOSSARY.md` (locked term; retired aliases).
+
+**References (amendment):** risk register **C-224…C-227**, **D-13**; dossier
+`2026-07-20_distributional_head_dossier/08`; the `tail_scorecard` diagnostic; supersedes the `pos_cells` /
+`pos_timelines` rows of §2's taxonomy (kept above for provenance).

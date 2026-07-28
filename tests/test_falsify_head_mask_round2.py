@@ -61,7 +61,7 @@ def test_pos_mask_under_latent_loss_fails_loud(valid_config_dict):
 
     cfg = {
         **valid_config_dict,
-        "body_mask": "pos_timelines",
+        "body_supervision": "active",
         "loss_reg": "hurdle_nb",
         "loss_reg_theta_init": 1.0,
     }

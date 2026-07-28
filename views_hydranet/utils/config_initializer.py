@@ -19,10 +19,10 @@ TRANSFORMS: dict[str, tuple[Callable, Callable]] = {
     "identity": (lambda x: x, lambda x: x),
 }
 
-# --- BODY-MASK VALUES (ADR-065, Epic #158) ---
-# The single validated front door for how the POINT body is masked during training. Single
-# authority for the allowed keywords (reused by the S4 resolver). 'none' = the all-cell foundation.
-BODY_MASK_VALUES: tuple[str, ...] = ("none", "pos_cells", "pos_timelines")
+# --- BODY-SUPERVISION VALUES (ADR-065 amend. 2026-07-28) ---
+# The single validated front door for WHERE the POINT body is supervised. Single authority for
+# the allowed keywords (reused by the resolver). 'all' = the all-cell foundation.
+BODY_SUPERVISION_VALUES: tuple[str, ...] = ("all", "active")
 
 # authority for the LEGACY output_distribution values (ADR-067). The valid set is this tuple
 # UNIONED with the registered distribution-family names (`family_names()`); the two must stay
@@ -119,12 +119,16 @@ class HydraNetConfig(BaseModel):
     loss_class_alpha: float | None = Field(default=None)
     # Classification head bias initialization (C-44)
     onset_bias_init: float | None = Field(default=None)
-    # body_mask (ADR-065, Epic #158): the single validated front door for the POINT-body training
-    # mask. 'none' = all cells (default; foundation); 'pos_cells' = per-step positives (y>thr);
-    # 'pos_timelines' = cells active anywhere in the curriculum window (active_window decay mask).
-    # S4 resolves it to the mask mechanism; the legacy hurdle_threshold/hurdle_mask_mode knobs
-    # retire in S5. Validated by validate_body_mask (values) + validate_body_mask_latent (C-193).
-    body_mask: str = Field(default="none")
+    # body_supervision (ADR-065 + amend. 2026-07-28): the single validated front door for WHERE the
+    # POINT body is supervised in training. 'all' = every cell (default; foundation). 'active' = a
+    # supervision WINDOW around conflict activity, with asymmetric temporal radii onset_lead
+    # (months before onset) + cessation_lag (months after cessation). Endpoints: active,0,0 =
+    # per-step positives (=pos_cells); active,W,W = active-cell timelines (=pos_timelines).
+    # Resolved by body_supervision.resolve_body_supervision; validated by validate_body_supervision
+    # (values) + validate_body_supervision_latent (C-193). Retires the 3 body_mask keywords.
+    body_supervision: str = Field(default="all")
+    onset_lead: int = Field(default=0, ge=0)
+    cessation_lag: int = Field(default=0, ge=0)
     # QS99 tail regularizer (C-48): strict when hurdle active + weight > 0.
     qs99_weight: float | None = Field(default=None, ge=0.0)
     qs99_tau: float | None = Field(default=None, gt=0.0, lt=1.0)
@@ -481,13 +485,16 @@ class HydraNetConfig(BaseModel):
             raise ValueError(err_msg)
         return v
 
-    @field_validator("body_mask")
+    @field_validator("body_supervision")
     @classmethod
-    def validate_body_mask(cls, v: str) -> str:
-        # ADR-009/065: the point-body mask is a validated boundary contract — fail loud on any
-        # value outside the closed set (a typo must never silently degrade to another mask; C-194).
-        if v not in BODY_MASK_VALUES:
-            err_msg = f"body_mask='{v}' is not valid. Expected one of: {list(BODY_MASK_VALUES)}."
+    def validate_body_supervision(cls, v: str) -> str:
+        # ADR-009/065: the point-body supervision window is a validated boundary contract — fail
+        # loud on any value outside the closed set (a typo must never silently degrade; C-194).
+        if v not in BODY_SUPERVISION_VALUES:
+            err_msg = (
+                f"body_supervision='{v}' is not valid. Expected one of: "
+                f"{list(BODY_SUPERVISION_VALUES)}."
+            )
             logger.error(err_msg)
             raise ValueError(err_msg)
         return v
@@ -704,30 +711,38 @@ class HydraNetConfig(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def reject_retired_hurdle_knobs(cls, data):
-        # ADR-065 (Epic #158 S5): hurdle_threshold + hurdle_mask_mode are RETIRED — body_mask is
-        # the sole point-body mask front door. A config still setting them would otherwise be
-        # SILENTLY ignored (worse than before), so reject loud (ADR-008/009) and name the fix.
+        # ADR-065 (S5) + amend. 2026-07-28: hurdle_threshold/hurdle_mask_mode AND the body_mask
+        # keyword are RETIRED — body_supervision (+ onset_lead/cessation_lag) is the sole front
+        # door. A config still setting them would otherwise be SILENTLY ignored (worse than
+        # before), so reject loud (ADR-008/009) and name the migration.
         if isinstance(data, dict):
-            retired = [k for k in ("hurdle_threshold", "hurdle_mask_mode") if k in data]
+            retired = [
+                k for k in ("hurdle_threshold", "hurdle_mask_mode", "body_mask") if k in data
+            ]
             if retired:
                 raise ValueError(
-                    f"{retired} is retired (ADR-065). Use body_mask ∈ "
-                    "{'none','pos_cells','pos_timelines'}: hurdle_threshold=None → 'none'; "
-                    "hurdle_threshold=0 per_step → 'pos_cells'; hurdle_mask_mode='active_window' "
-                    "→ 'pos_timelines'."
+                    f"{retired} is retired (ADR-065 amend. 2026-07-28). Use body_supervision ∈ "
+                    "{'all','active'} + onset_lead/cessation_lag: body_mask='none' → "
+                    "body_supervision='all'; 'pos_cells' → ('active', onset_lead=0, "
+                    "cessation_lag=0); 'pos_timelines' → ('active', onset_lead>=T-1, "
+                    "cessation_lag>=T-1). hurdle_threshold/hurdle_mask_mode likewise map to these."
                 )
         return data
 
     @model_validator(mode="after")
     def validate_qs99_requires_tau(self) -> "HydraNetConfig":
-        # The QS99 tail regularizer applies on the masked positive cells, so it is gated by the
-        # point-body mask (body_mask != 'none'), not by the retired hurdle_threshold. (The tobit
-        # zero-inflation contradiction is now subsumed by validate_body_mask_latent: tobit is a
-        # latent loss, so body_mask='pos_*' + tobit already fails loud.)
-        if self.body_mask != "none" and self.qs99_weight is not None and self.qs99_weight > 0:
+        # The QS99 tail regularizer applies on the supervised positive cells, so it is gated by the
+        # supervision window (body_supervision == 'active'), not the retired hurdle_threshold. (The
+        # tobit zero-inflation contradiction is subsumed by validate_body_supervision_latent: tobit
+        # is a latent loss, so body_supervision='active' + tobit already fails loud.)
+        if (
+            self.body_supervision == "active"
+            and self.qs99_weight is not None
+            and self.qs99_weight > 0
+        ):
             if self.qs99_tau is None:
                 err_msg = (
-                    f"body_mask='{self.body_mask}' with qs99_weight={self.qs99_weight} requires "
+                    f"body_supervision='active' with qs99_weight={self.qs99_weight} requires "
                     "'qs99_tau' but it was not provided. Add 'qs99_tau' to your config."
                 )
                 logger.error(err_msg)
@@ -856,25 +871,25 @@ class HydraNetConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def validate_body_mask_latent(self) -> "HydraNetConfig":
-        # C-193 (ADR-008/065): a positives mask on the POINT body is a silent no-op under a latent
-        # likelihood loss — the training loop only masks `if not use_latent` (needs_latent=False),
-        # and a latent body models zeros/censoring/truncation itself. Requesting pos_cells/
-        # pos_timelines there is meaningless, so RAISE (replacing the old warn-once), not ignore.
-        # Single authority for "is this loss latent?" is the loss class's `needs_latent` flag in
+    def validate_body_supervision_latent(self) -> "HydraNetConfig":
+        # C-193 (ADR-008/065): a supervision window on the POINT body is a silent no-op under a
+        # latent likelihood loss — the training loop only masks `if not use_latent`
+        # (needs_latent=False), and a latent body models zeros/censoring/truncation itself.
+        # Requesting body_supervision='active' there is meaningless, so RAISE (not ignore). Single
+        # authority for "is this loss latent?" is the loss class's `needs_latent` flag in
         # LOSS_REG_REGISTRY — NOT a hardcoded name list (which would wrongly forbid lognormal_nll,
-        # a positive-only *point* body that REQUIRES a positives mask).
-        if self.body_mask in ("pos_cells", "pos_timelines"):
+        # a positive-only *point* body that REQUIRES a positives window).
+        if self.body_supervision == "active":
             from views_hydranet.utils.utils import LOSS_REG_REGISTRY
 
             loss_cls = LOSS_REG_REGISTRY.get(self.loss_reg, {}).get("cls")
             if loss_cls is not None and getattr(loss_cls, "needs_latent", False):
                 err_msg = (
-                    f"body_mask='{self.body_mask}' masks the POINT body, but loss_reg="
+                    f"body_supervision='active' supervises the POINT body, but loss_reg="
                     f"'{self.loss_reg}' is a latent likelihood (needs_latent=True) that models "
-                    f"zeros/censoring internally — the point mask would be silently ignored. Use "
-                    f"body_mask='none' with this loss, or a non-latent point body (mse/mae/huber/"
-                    f"shrinkage/lognormal_nll) with a positives mask."
+                    f"zeros/censoring internally — the window would be silently ignored. Use "
+                    f"body_supervision='all' with this loss, or a non-latent point body (mse/mae/"
+                    f"huber/shrinkage/lognormal_nll) with a supervision window."
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)

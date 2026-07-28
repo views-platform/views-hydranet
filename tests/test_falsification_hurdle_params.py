@@ -16,7 +16,7 @@ class TestRedQS99Range:
 
         cfg = {
             **valid_config_dict,
-            "body_mask": "pos_cells",
+            "body_supervision": "active",
             "qs99_weight": -0.5,
             "qs99_tau": 0.99,
         }
@@ -28,7 +28,7 @@ class TestRedQS99Range:
 
         cfg = {
             **valid_config_dict,
-            "body_mask": "pos_cells",
+            "body_supervision": "active",
             "qs99_weight": 0.1,
             "qs99_tau": 5.0,
         }
@@ -40,7 +40,7 @@ class TestRedQS99Range:
 
         cfg = {
             **valid_config_dict,
-            "body_mask": "pos_cells",
+            "body_supervision": "active",
             "qs99_weight": 0.1,
             "qs99_tau": -1.0,
         }

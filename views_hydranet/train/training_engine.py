@@ -24,12 +24,12 @@ from tqdm import tqdm
 from views_hydranet.distributions import resolve_family
 from views_hydranet.distributions.family_loss import FamilyLoss
 from views_hydranet.infrastructure.reproducibility_gate import ReproducibilityGate
-from views_hydranet.utils.body_mask import (
+from views_hydranet.utils.body_supervision import (
     _active_window_mask as _resolve_active_window_mask,
 )
-from views_hydranet.utils.body_mask import (
+from views_hydranet.utils.body_supervision import (
     event_threshold_from_config,
-    resolve_body_mask,
+    resolve_body_supervision,
 )
 from views_hydranet.utils.curriculum import CurriculumLearner
 from views_hydranet.utils.integrity_guardian import IntegrityGuardian
@@ -262,7 +262,9 @@ def _process_sequence(
     ss_epsilon: float = 0.0,
     cls_valid_mask: torch.Tensor | None = None,
     decay_gate_weight: float = 0.0,
-    body_mask: str = "none",
+    body_supervision: str = "all",
+    onset_lead: int = 0,
+    cessation_lag: int = 0,
     event_threshold: float = 0.0,
     pi_penalty_weight: float | None = None,
     pi_penalty_prior_logit: float = 0.0,
@@ -292,14 +294,16 @@ def _process_sequence(
     else:
         use_latent = getattr(criterion_reg, "needs_latent", False) is True
 
-    # Point-body training mask (ADR-065, Epic #158): resolve the validated `body_mask` keyword to a
-    # concrete cell set ONCE, here — no `if mode ==` ladder in the loss loop. A positives mask
-    # applies only to a POINT body: a latent loss owns its own zero handling (config-validated by
-    # validate_body_mask_latent), so the mask is a no-op there and we keep the all-cell path
-    # (byte-identical for `none`+latent). `event_threshold` comes from the derivation (C-195).
-    apply_body_mask = body_mask != "none" and not use_latent
+    # Point-body supervision window (ADR-065 + amend. 2026-07-28): resolve the validated
+    # body_supervision config to a concrete cell-timestep set ONCE, here — no `if mode ==` ladder
+    # in the loss loop. It applies only to a POINT body: a latent loss owns its own zero handling
+    # (validated by validate_body_supervision_latent), so it is a no-op there and we keep the
+    # all-cell path (byte-identical for `all`+latent). `event_threshold` from derivation (C-195).
+    apply_body_mask = body_supervision == "active" and not use_latent
     body_mask_full: torch.Tensor | None = (
-        resolve_body_mask(body_mask, event_threshold)(train_tensor[:, 1:, idx.reg, :, :])
+        resolve_body_supervision(onset_lead, cessation_lag, event_threshold)(
+            train_tensor[:, 1:, idx.reg, :, :]
+        )
         if apply_body_mask
         else None
     )
@@ -665,10 +669,12 @@ def train(
         ss_epsilon=ss_epsilon,
         cls_valid_mask=cls_valid_mask,
         decay_gate_weight=config.get("decay_gate_weight", 0.0),
-        # ADR-065 (Epic #158): the point-body mask is driven ONLY by the validated `body_mask`
-        # now; the raw un-validated `hurdle_mask_mode` read is gone (C-194). Event threshold comes
-        # from the binary-target derivation — the sole authority for "what is an event" (C-195).
-        body_mask=config.get("body_mask", "none"),
+        # ADR-065 amend.: the point-body supervision window is driven ONLY by the validated
+        # body_supervision + onset_lead/cessation_lag (C-194). Event threshold comes from the
+        # binary-target derivation — the sole authority for "what is an event" (C-195).
+        body_supervision=config.get("body_supervision", "all"),
+        onset_lead=config.get("onset_lead", 0),
+        cessation_lag=config.get("cessation_lag", 0),
         event_threshold=event_threshold_from_config(config),
         # C-200 (ADR-067): family parameter-prior ridge weight + prior logit (None ⇒ no-op).
         pi_penalty_weight=config.get("pi_penalty_weight"),
