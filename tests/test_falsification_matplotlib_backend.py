@@ -40,10 +40,10 @@ class TestSoftFalsifications:
 
     def test_P1_visual_diagnostics_sets_agg_backend(self):
         """
-        P1/P2: visual_diagnostics.py must set Agg backend before importing
-        pyplot to prevent tkinter threading crashes in sweep mode.
-
-        Fix: add matplotlib.use("Agg") before line 10 in visual_diagnostics.py.
+        P1/P2: visual_diagnostics.py must set the Agg backend before importing pyplot to prevent
+        tkinter threading crashes in sweep mode. Since #215 the matplotlib imports are LAZY (inside
+        `_load_mpl`); this whole-tree AST check confirms the `matplotlib.use("Agg")` call is still
+        present in the file — it now lives in `_load_mpl`, before that function's pyplot import.
         """
         import ast
         from pathlib import Path
@@ -67,3 +67,40 @@ class TestSoftFalsifications:
             "importing pyplot. Without this, sweep mode crashes with "
             "Tcl_AsyncDelete from tkinter GC in worker thread."
         )
+
+    def test_P4_import_does_not_pull_matplotlib(self):
+        """
+        P4 (issue #215): matplotlib must NOT be imported at module level. Importing the diagnostics
+        module — or the model-run path that imports it — must not require a plotting stack, because
+        VisualDiagnostics is a Null Object (diagnostics default off). Otherwise a clean env without
+        matplotlib dies at `import hydranet_manager` with ModuleNotFoundError. Checked in a fresh
+        interpreter so already-loaded matplotlib in the test session can't mask it.
+        """
+        import subprocess
+        import sys
+
+        for target in (
+            "views_hydranet.utils.visual_diagnostics",
+            "views_hydranet.manager.hydranet_manager",
+        ):
+            code = (
+                f"import sys, {target}; "
+                "assert 'matplotlib' not in sys.modules, "
+                f"'{target} imports matplotlib at module level (issue #215)'"
+            )
+            r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+            assert r.returncode == 0, f"{target} pulled matplotlib at import (#215):\n{r.stderr}"
+
+    def test_P4_inactive_diagnostics_need_no_matplotlib(self):
+        """An inactive VisualDiagnostics constructs without importing matplotlib (#215)."""
+        import subprocess
+        import sys
+
+        code = (
+            "import sys;"
+            "from views_hydranet.utils.visual_diagnostics import VisualDiagnostics;"
+            "VisualDiagnostics({'diagnostic_visualizations': False});"
+            "assert 'matplotlib' not in sys.modules, 'inactive VD loaded matplotlib'"
+        )
+        r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+        assert r.returncode == 0, f"inactive VD loaded matplotlib (#215):\n{r.stderr}"

@@ -7,11 +7,6 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.patches as patches
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
@@ -20,6 +15,29 @@ from views_hydranet.utils.training_forensics import THETA_COLLAPSE_COV, THETA_HE
 from views_hydranet.utils.volume_handler import VolumeHandler
 
 logger = logging.getLogger(__name__)
+
+# issue #215: matplotlib is imported LAZILY via _load_mpl() — NEVER at module level. The model-run
+# path imports this module (manager/inference/training), but VisualDiagnostics is a Null Object
+# (diagnostics default off) → a headless run needs no plotting stack. matplotlib is an optional
+# 'viz' extra, imported only when a plotting method runs.
+_plt = None
+_patches = None
+
+
+def _load_mpl():
+    """Lazy, memoized matplotlib (Agg backend) -> ``(plt, patches)``. Imported only when a plotting
+    method runs (diagnostics active). Agg is set BEFORE pyplot import (headless; prevents the
+    tkinter-thread crash — test_falsification_matplotlib_backend::test_P1)."""
+    global _plt, _patches
+    if _plt is None:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.patches as patches
+        import matplotlib.pyplot as plt
+
+        _plt, _patches = plt, patches
+    return _plt, _patches
 
 
 class VisualDiagnostics:
@@ -366,6 +384,7 @@ class VisualDiagnostics:
         if not self.active:
             return
 
+        plt, _ = _load_mpl()  # #215: lazy matplotlib, only when active
         try:
             # 1. Aggregate raw layer norms into functional blocks
             blocks: Dict[str, List[float]] = {
@@ -461,6 +480,7 @@ class VisualDiagnostics:
         if not self.active:
             return
 
+        plt, _ = _load_mpl()  # #215: lazy matplotlib, only when active
         try:
             # Inputs are lists of arrays [H, W, C]
             # Convert to [Time, Row, Col, Chan]
@@ -588,6 +608,7 @@ class VisualDiagnostics:
         if not self.active:
             return
 
+        plt, _ = _load_mpl()  # #215: lazy matplotlib, only when active
         try:
             # Inputs are [T, H, W, C]
             n_times = min(6, y_reg.shape[0])
@@ -708,6 +729,8 @@ class VisualDiagnostics:
         if not self.active:
             return
 
+        plt, _ = _load_mpl()  # #215: lazy matplotlib (bound before the nested closure below)
+
         def _generate_plot(is_log: bool):
             fig, axes = plt.subplots(3, 1, figsize=(10, 12))
 
@@ -782,6 +805,7 @@ class VisualDiagnostics:
         if not self.active:
             return
 
+        plt, _ = _load_mpl()  # #215: lazy matplotlib, only when active
         is_reg = target_type == "REG"
         metrics = (
             self.config.get("regression_metrics", [])
@@ -1034,6 +1058,7 @@ class VisualDiagnostics:
         n_times = data_5d.shape[0]
         n_feats = data_5d.shape[-1]
 
+        plt, patches = _load_mpl()  # #215: lazy matplotlib (helper runs only via active methods)
         # Grid Setup: 1 row for Global Context + N rows for features
         fig = plt.figure(figsize=(4 * n_times, 3 * (n_feats + 1)))
         gs = fig.add_gridspec(n_feats + 1, n_times)
@@ -1152,6 +1177,7 @@ class VisualDiagnostics:
         n_times = data_5d.shape[0]
         n_feats = data_5d.shape[-1]
 
+        plt, _ = _load_mpl()  # #215: lazy matplotlib (this helper only runs via active methods)
         # Plot Setup: Rows = Features, Cols = Time
         fig, axes = plt.subplots(n_feats, n_times, figsize=(4 * n_times, 3 * n_feats))
         if n_feats == 1:
