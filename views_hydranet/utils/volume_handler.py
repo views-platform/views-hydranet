@@ -247,7 +247,11 @@ class VolumeHandler:
         # the df like a dynamic feature). A name in BOTH is ambiguous → fail loud (rename one)
         # rather than silently taking the raw df column over the derivation. A name in NEITHER is
         # unknown → fail loud. Both roles are input-only, re-injected each AR step.
-        from views_hydranet.utils.static_channels import STATIC_CHANNEL_DERIVATIONS
+        from views_hydranet.utils.static_channels import (
+            STATIC_CHANNEL_DERIVATIONS,
+            GridGeometry,
+            derive,
+        )
 
         geom_static = []
         data_backed_static = []
@@ -325,8 +329,6 @@ class VolumeHandler:
         # (same r_idx/c_idx write path, so they flip in sync too). Unknown static channels (neither
         # a df column nor a registered derivation) fail loud in derive().
         if geom_static:
-            from views_hydranet.utils.static_channels import GridGeometry, derive
-
             geom = GridGeometry(
                 height=height, width=width, row_offset=row_offset, col_offset=col_offset
             )
