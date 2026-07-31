@@ -70,6 +70,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
         dropout_rate,
         output_distribution="standard",
         n_static_channels=0,
+        static_top_skip=True,
         reg_activation=None,
         n_quantiles=None,
     ):
@@ -141,7 +142,12 @@ class HydraBNUNet06_LSTM4(nn.Module):
 
         # ADR-061 top-skip: the last n_static_channels of the input are static (e.g. coordinates);
         # re-injected raw at each decoder head's full-resolution dec_conv1. 0 => byte-identical.
+        # `static_top_skip=False` keeps statics in the ENCODER input but drops them from the
+        # top-skip re-injection (C-228: raw statics at the gate head's dec_conv1 collapse AP). The
+        # encoder still receives them via input_channels; only the head re-injection is removed.
         self.n_static = n_static_channels
+        self.static_top_skip = static_top_skip
+        topskip_static = n_static_channels if static_top_skip else 0
 
         kernel_size = 3
         base = total_hidden_channels
@@ -185,7 +191,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
             base * 2, base, 2, stride=2, padding=0, output_padding=0
         )
         self.dec_conv1_head1_reg = nn.Conv2d(
-            base * 2 + n_static_channels, base, kernel_size, padding=1, bias=False
+            base * 2 + topskip_static, base, kernel_size, padding=1, bias=False
         )
         self.bn_dec_conv1_head1_reg = nn.BatchNorm2d(base)
 
@@ -204,7 +210,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
             base * 2, base, 2, stride=2, padding=0, output_padding=0
         )
         self.dec_conv1_head1_class = nn.Conv2d(
-            base * 2 + n_static_channels, base, kernel_size, padding=1, bias=False
+            base * 2 + topskip_static, base, kernel_size, padding=1, bias=False
         )
         self.bn_dec_conv1_head1_class = nn.BatchNorm2d(base)
 
@@ -223,7 +229,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
             base * 2, base, 2, stride=2, padding=0, output_padding=0
         )
         self.dec_conv1_head2_reg = nn.Conv2d(
-            base * 2 + n_static_channels, base, kernel_size, padding=1, bias=False
+            base * 2 + topskip_static, base, kernel_size, padding=1, bias=False
         )
         self.bn_dec_conv1_head2_reg = nn.BatchNorm2d(base)
 
@@ -242,7 +248,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
             base * 2, base, 2, stride=2, padding=0, output_padding=0
         )
         self.dec_conv1_head2_class = nn.Conv2d(
-            base * 2 + n_static_channels, base, kernel_size, padding=1, bias=False
+            base * 2 + topskip_static, base, kernel_size, padding=1, bias=False
         )
         self.bn_dec_conv1_head2_class = nn.BatchNorm2d(base)
 
@@ -261,7 +267,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
             base * 2, base, 2, stride=2, padding=0, output_padding=0
         )
         self.dec_conv1_head3_reg = nn.Conv2d(
-            base * 2 + n_static_channels, base, kernel_size, padding=1, bias=False
+            base * 2 + topskip_static, base, kernel_size, padding=1, bias=False
         )
         self.bn_dec_conv1_head3_reg = nn.BatchNorm2d(base)
 
@@ -292,7 +298,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
             base * 2, base, 2, stride=2, padding=0, output_padding=0
         )
         self.dec_conv1_head3_class = nn.Conv2d(
-            base * 2 + n_static_channels, base, kernel_size, padding=1, bias=False
+            base * 2 + topskip_static, base, kernel_size, padding=1, bias=False
         )
         self.bn_dec_conv1_head3_class = nn.BatchNorm2d(base)
 
@@ -484,7 +490,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
 
         # ADR-061 top-skip: capture the raw static channels (the last n_static of the input)
         # at full resolution, before x is concatenated with the hidden state. None => no top-skip.
-        coords = x[:, -self.n_static :, :, :] if self.n_static else None
+        coords = x[:, -self.n_static :, :, :] if (self.n_static and self.static_top_skip) else None
 
         # Splitting hidden state into 4 short-term and 4 long-term memory tensors.
         split_h = int(h.shape[1] / 8)

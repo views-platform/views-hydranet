@@ -72,6 +72,45 @@ def test_zinb_with_gate_raises(valid_config_dict, comp):
         HydraNetConfig(**cfg)
 
 
+# ── ADR-068 emit_family_core: a core-emitting zinb IS gated (π stripped) ───────────────────────
+@pytest.mark.parametrize("comp,thr", [("soft_gate", None), ("threshold_gate", 0.5)])
+def test_zinbcore_gated_ok(valid_config_dict, comp, thr):
+    # emit_family_core strips π → the bare core MUST be externally gated (not double-counting).
+    cfg = _cfg(
+        valid_config_dict,
+        output_distribution="zinb",
+        emit_family_core=True,
+        forecast_composition=comp,
+        gate_threshold=thr,
+    )
+    obj = HydraNetConfig(**cfg)
+    assert obj.emit_family_core is True and obj.forecast_composition == comp
+
+
+def test_zinbcore_self_zeroed_raises(valid_config_dict):
+    # core-emitting zinb has no self-zeroing left → self_zeroed has no zero mechanism → RAISE.
+    cfg = _cfg(
+        valid_config_dict,
+        output_distribution="zinb",
+        emit_family_core=True,
+        forecast_composition="self_zeroed",
+    )
+    with pytest.raises(ValidationError, match="self.zeroed|gate|zero mechanism"):
+        HydraNetConfig(**cfg)
+
+
+def test_emit_family_core_on_nb_raises(valid_config_dict):
+    # nb has no structural-π core to strip → emit_family_core is meaningless → RAISE.
+    cfg = _cfg(
+        valid_config_dict,
+        output_distribution="nb",
+        emit_family_core=True,
+        forecast_composition="soft_gate",
+    )
+    with pytest.raises(ValidationError, match="emit_family_core|self-zeroed|core"):
+        HydraNetConfig(**cfg)
+
+
 # ── threshold τ rules ─────────────────────────────────────────────────────────────────────────
 def test_threshold_gate_requires_gate_threshold(valid_config_dict):
     cfg = _cfg(valid_config_dict, output_distribution="nb", forecast_composition="threshold_gate")

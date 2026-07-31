@@ -248,9 +248,12 @@ class HydraNetInference:
         if fam is not None:
             npar = fam.n_params
             n_reg = reg.shape[1] // npar
+            # ADR-068 emit_family_core: feed back the π-stripped core mean (the LARGE body actually
+            # emitted for {gated,th_gated}_ZINBcore), not the small (1-π)μ self-zeroed mean.
+            mean_fn = fam.mean_core if self.config.get("emit_family_core", False) else fam.mean
             means = torch.stack(
                 [
-                    fam.mean(reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1))
+                    mean_fn(reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1))
                     for j in range(n_reg)
                 ],
                 dim=1,
@@ -787,6 +790,7 @@ class HydraNetInference:
                             composition=self.config.get("forecast_composition", "self_zeroed"),
                             threshold=self.config.get("gate_threshold"),
                             pass_index=d,  # ADR-070: per-(pass,step) seed → T=0-invariant cube
+                            core=self.config.get("emit_family_core", False),  # ADR-068 ZINBcore
                         )
                         # gate cube: the classifier P(y>0), repeated across the K cols
                         posterior_probabilities_zstack[:, :, :, :, cols] = np.repeat(

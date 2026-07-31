@@ -114,6 +114,13 @@ class ZINBFamily(DistributionFamily):
         mu, _, pi = self._split(params)
         return (1.0 - pi) * mu
 
+    def mean_core(self, params: "torch.Tensor") -> "torch.Tensor":
+        """The bare **NB core** mean ``E[Y] = mu`` — structural π NOT applied (gated_ZINBcore). The
+        AR-feedback counterpart of :meth:`sample_core`; π dropped, not stacked (the external gate
+        supplies the zeros — stacking π would double-count them)."""
+        mu, _theta, _pi = self._split(params)
+        return mu
+
     def prob_positive(self, params: "torch.Tensor") -> "torch.Tensor":
         """Per-cell ``P(Y>0) = (1 - pi) * (1 - NB(0))`` (C-201 — self-zeroed gate scoring).
 

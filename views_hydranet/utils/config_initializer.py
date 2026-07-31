@@ -155,6 +155,11 @@ class HydraNetConfig(BaseModel):
     # gate ≥ τ, else zero the cell). A float in the OPEN interval (0,1); None otherwise. Fixed
     # a-priori (never fit on scored months — Goodhart).
     gate_threshold: float | None = Field(default=None)
+    # ADR-068 emit_family_core: emit the family's BULK body (π-stripped for zinb) instead of the
+    # self-zeroed forecast, so an EXTERNAL gate supplies the zeros — the {gated,th_gated}_ZINBcore
+    # arms. Emit-time only (read at eval, not baked in the artifact). Requires a self-zeroed family
+    # (zinb) + a gate composition (soft_gate/threshold_gate); no-op/meaningless on nb.
+    emit_family_core: bool = Field(default=False)
     # H-SAMPLE (EXP-2/ADR-070): the autoregressive FEEDBACK copy. None (default) = AUTO: resolve
     # 'sample' for a registered family head, 'mean' for a legacy head (HydraNetInference). 'sample'
     # feeds a seeded composition-aware family draw (C-113 bloom mitigation, T=0-neutral); 'mean'
@@ -821,7 +826,20 @@ class HydraNetConfig(BaseModel):
 
         comp = self.forecast_composition
         is_family = self.output_distribution in family_names()
-        is_self_zeroed_family = self.output_distribution in self_zeroed_family_names()
+        raw_self_zeroed = self.output_distribution in self_zeroed_family_names()
+        # ADR-068 emit_family_core: strips the structural π at emit and gates the bare core
+        # externally, so a core-emitting zinb is NOT self-zeroed at emit — it's a gateable
+        # body (rules below then REQUIRE it to declare a gate). emit_family_core only applies to a
+        # self-zeroed family (the only one with a π core to strip).
+        if self.emit_family_core and not raw_self_zeroed:
+            err_msg = (
+                f"emit_family_core=True requires a self-zeroed family with a structural-π core to "
+                f"strip; output_distribution='{self.output_distribution}' has no π core to strip. "
+                f"Remove emit_family_core."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        is_self_zeroed_family = raw_self_zeroed and not self.emit_family_core
 
         # (1) a self-zeroed family (zinb) must NOT be gated — π + a gate would double-count zeros.
         if is_self_zeroed_family and comp in _GATE_COMPOSITIONS:

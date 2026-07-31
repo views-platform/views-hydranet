@@ -240,20 +240,26 @@ class VolumeHandler:
         m_vals_global = np.arange(month_min, month_max + 1)
         vol[..., m_chan_idx] = m_vals_global.reshape(1, 1, month_range)
 
+        # ADR-060 (S7 amendment): a static channel present as a df COLUMN is DATA-BACKED (e.g. a
+        # per-cell ln_pop) and fills from the df like a dynamic feature; a static channel NOT in
+        # the df is GEOMETRY-DERIVED, filled below. Both are input-only, re-injected each AR step.
+        geom_static = [name for name in static_channels if name not in df.columns]
         for i, col_name in enumerate(channel_map):
-            if col_name in static_channels:
-                continue  # ADR-060: derived below from grid geometry, not a df column
+            if col_name in geom_static:
+                continue  # geometry-derived below, not from a df column
             vol[r_idx, c_idx, m_idx, i] = df[col_name].values
 
-        # ADR-060: fill static channels over the FULL grid, BEFORE the North-Up flip so they flip
-        # in sync with the data (I6). Geometry-only (I4: window-sliced like the dynamic channels).
-        if static_channels:
+        # Fill geometry-derived static channels over the FULL grid, BEFORE the North-Up flip so
+        # they flip in sync with the data (I6). Data-backed statics were filled from the df above
+        # (same r_idx/c_idx write path, so they flip in sync too). Unknown static channels (neither
+        # a df column nor a registered derivation) fail loud in derive().
+        if geom_static:
             from views_hydranet.utils.static_channels import GridGeometry, derive
 
             geom = GridGeometry(
                 height=height, width=width, row_offset=row_offset, col_offset=col_offset
             )
-            for name in static_channels:
+            for name in geom_static:
                 vol[:, :, :, channel_map.index(name)] = derive(name, geom)[:, :, None]
 
         # 5. Flip & Layout

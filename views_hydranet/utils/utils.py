@@ -34,6 +34,7 @@ def choose_model(config: dict, device: torch.device) -> nn.Module:
             config["dropout_rate"],
             output_distribution=config.get("output_distribution", "standard"),
             n_static_channels=len(config.get("static_channels", [])),  # ADR-061 top-skip
+            static_top_skip=config.get("static_top_skip", True),  # C-228: False=encoder-only
             reg_activation=config.get("reg_activation"),  # Exp B: decouple emit activation
             n_quantiles=config.get("n_quantiles"),  # quantile head: K reg channels per target
         ).to(device)

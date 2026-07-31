@@ -4,9 +4,9 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-07-28                           |
-| Total Concerns    | 225                                  |
-| Open Concerns     | 100                                  |
+| Last Updated      | 2026-07-29                           |
+| Total Concerns    | 231                                  |
+| Open Concerns     | 106                                  |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 125                                  |
 
@@ -48,6 +48,53 @@ Open concerns reduce to **13 root decisions**. Fixing a root advances multiple e
 ---
 
 ## Open Concerns
+
+### C-228: ADR-061 top-skip re-injects raw static channels into the GATE heads → occurrence-AP collapse (negative transfer)
+
+| Field | Value |
+|-------|-------|
+| ID | C-228 |
+| Tier | 2 |
+| Source | expert-method-review (covariate-ingestion panel, 2026-07-29) + S8b placebo control (Epic #203) |
+| Trigger | Adding ANY static / data-backed `static_channels` covariate (re-running the population arm, or wiring a new covariate) and trusting occurrence output — the gate silently loses ranking skill with no error signal |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py` (`dec_conv1_head{1,2,3}_class`, `base*2 + n_static`); `views_hydranet/utils/volume_handler.py` (S7 data-backed static fill, ~243–257); `views_hydranet/utils/static_channels.py`; ADR-060/061 |
+| Cross-refs | C-152 (the CoordConv analogy that didn't transfer — now evidenced), C-153/C-156 (the static seam / channel roles), C-149 (NB ξ=0), ADR-060, ADR-061 |
+
+The ADR-061 top-skip concatenates the RAW static channel at every decoder head's full-resolution `dec_conv1` — **including the classification (gate) heads**. Seed-42 controls (S8b) prove this is a **structural defect, not a population fact**: a spatially-shuffled PLACEBO static channel (identical marginal, zero signal) collapses gate AP **sb 0.31→0.13**; real `ln_pop` 0.31→0.20; crps_all inert (0.142 across all arms); no-static+`--saved` is byte-identical to baseline. A raw high-resolution channel injected at the gate's near-final conv is **negative transfer the gate cannot suppress** in 40 lessons; the body (crps) is unharmed, so the damage is gate-specific and **silent** (crps looks fine). Any covariate added through this seam degrades occurrence ranking without an error. **Mitigation direction (panel):** statics do not belong in the U-Net skip (Ronneberger2015 — skips carry spatial detail, not semantics) — remove the top-skip re-injection of `static_channels` (keep encoder-input entry), and/or replace raw concat with learned modulation (FiLM). Verify with the encoder-only diagnosis BEFORE any covariate re-run.
+
+**UPDATE 2026-07-31 — CONFIRMED on structured coords at 300 lessons (v2 `09`/`07` E2) → RETIRE the top-skip seam.** The coord A/B ran BOTH placements × 3 seeds: `top` (static_top_skip=True, top-skip-into-gate) is worse than `enc` (encoder-only) on AP AND markedly more seed-unstable (sb AP h18 top 0.149±.052 vs enc 0.194±.028). So the defect is **not** placebo-specific — the top-skip degrades occurrence even for a maximally-structured channel (coords), and adds instability. This is the direct, non-placebo confirmation the mitigation needed: **remove the ADR-061 top-skip re-injection of `static_channels`** (keep the encoder-input entry). Note `enc` (encoder-only) ALSO underperformed no-coords here — but that is the CoordConv-is-not-a-lever finding (C-152), separate from this placement defect. Recommendation firmed to: retire the top-skip seam; any future covariate uses learned modulation (FiLM), not raw concat (C-230).
+
+---
+
+### C-229: no covariate taxonomy — one `static_channels` concat seam won't scale to the ~78 dynamic covariates
+
+| Field | Value |
+|-------|-------|
+| ID | C-229 |
+| Tier | 3 |
+| Source | expert-method-review (covariate-ingestion panel, 2026-07-29) |
+| Trigger | Adding a TIME-VARYING covariate (vdem / shdi / travel-time) — through `static_channels` (which re-injects it as a constant, wrong) or as a target (blocked by the `features==regression_targets` invariant) |
+| Location | `views_hydranet/utils/static_channels.py`; `views_hydranet/utils/config_initializer.py` (`static_channels`, `features==regression_targets` at :334); ADR-060 |
+| Cross-refs | C-228, C-230, D-14 |
+
+The datafactory exposes ~78 covariates spanning static (population), slowly-varying (shdi) and dynamic governance (vdem) — which per Lim2021 (Temporal Fusion Transformer) need **distinct pathways** (a static-covariate encoder + variable-selection vs the temporal/ConvLSTM path). HydraNet has exactly one input-only mechanism (`static_channels`, geometry-derived until S7's data-backed path) plus a hard `features==regression_targets` invariant that blocks input-only DYNAMIC covariates entirely. Pushing time-varying covariates through the static seam freezes them at a reference vintage (loses their signal) or forces per-covariate hacks. The seam should be designed once for static + dynamic, not per covariate — the nb/zinb-done-right analogue.
+
+---
+
+### C-230: raw-channel concatenation is the wrong conditioning primitive for semantic covariates
+
+| Field | Value |
+|-------|-------|
+| ID | C-230 |
+| Tier | 3 |
+| Source | expert-method-review (covariate-ingestion panel, 2026-07-29) |
+| Trigger | Building a covariate-ingestion seam on raw concatenation (encoder-input or skip) rather than learned modulation (FiLM / conditional-BN), an embedding, or a variable-selection network |
+| Location | `views_hydranet/utils/static_channels.py` (data-backed path); `HydraBNrecurrentUnet_06_LSTM4.py` (input + `dec_conv1`) |
+| Cross-refs | C-228, C-229, C-152 |
+
+Concatenating a raw covariate channel is the weakest conditioning primitive (FiLM — Perez/Dumoulin, **to-fetch**): the network must learn to route a constant channel through spatial convs, and cannot cleanly down-weight a useless one (a variable-selection network would). The CoordConv precedent (Liu2018) that seeded ADR-061 validates concat ONLY for coordinate priors convs provably cannot compute — not arbitrary semantics (see C-152, C-228). The principled primitive is feature-wise modulation (γ,β from a covariate context, applied per-head) or a learned static-covariate encoder + variable selection (Lim2021). Registered so a covariate seam is not built on concat by default.
+
+---
 
 ### C-01: Manager monolith orchestration
 
@@ -353,6 +400,8 @@ Tier 2 rationale: structural fragility with a confirmed, realistic trigger (it a
 ---
 
 **Update 2026-07-27 (S8, Epic #193, ADR-070) — EVIDENCED MITIGATION (bloom bounded 9/9 by the sample-on default; io-gain>1 NOT eliminated).** ADR-070 makes `rollout_feedback=sample` the default for family heads: the AR loop feeds back a sparse, in-distribution family draw instead of the diffuse emit-mean, so the deployed rollout no longer *excites* the >1 input→output gain. Counted verdict (`reports/2026-07-25_t0_rollout_skill_dossier/06_bloom_verification_verdict.md`): on 6 retrained known-seed models (matched 40 lessons), mean-feedback blooms **9/9** arms, sample-feedback bounded **9/9** (field `crps_none` mean 36–95 → sample 0.002–0.35; `M_mean` mean 285–751 → sample 0.02–2.49). **This is a mitigation, not a resolution:** it removes the *trigger* (OOD dense feedback) but the underlying input→output io-gain>1 is unchanged, so a dense-feedback path (`rollout_feedback=mean`, or a future non-sampling consumer) can still bloom. The durable fix (spectral-norm/Lipschitz on the input→output map, or rollout/GTF training) stays **OPEN**; C-113 remains open at Tier 2 as a now-*contained* risk. The seconds-level regression guard that catches a re-introduction is **C-121 (resolved)**. T=0-neutrality of the default is byte-exact (ADR-070 §3; sampler fix `66a95ea`).
+
+**Update 2026-07-30 (v2-scoreboard method-review; Browning/Hawkes + Tong seats) — NEW RE-ARM TRIGGER (folds C-MR4).** A proposed self-exciting / Hawkes-intensity input FEATURE, or a mixture surge-expert, re-arms exactly this io-gain>1 loop IF its input is recomputed from FED-BACK samples during the rollout (Browning's α>1 explosive regime is the same pathology; cf. C-226 for the persistence-anchor re-import). Any such component must use a **bounded, observed-history-anchored kernel held stationary in rollout**, with `crps_none` as the bloom guardrail — do NOT recompute an excitation/intensity term from the model's own fed-back predictions. (Corroborating: the v2 scoreboard showed sample-feedback stabilises the *gated* composition but the *self-zeroed* ZINB still blooms — self-zeroing under AR is the finding-#6 instance of this entry.)
 
 ### C-114: Undocumented assumption — no dropout on the ConvLSTM recurrent connections, rationale unknown
 
@@ -897,6 +946,8 @@ Conflict fatality counts are heavy/long-tailed (near power-law); the NB tail dec
 
 **Update 2026-07-28 (expert-method-review, magnitude-fix panel — strengthened AND partially corrected).** Two refinements from the panel (Koenker, Davison seats): (1) it is not merely that the NB tail is "too light" — it is a **family-level veto**: the EVT tail index of ANY negative binomial is ξ=0 (finite variance for all μ,θ), whereas the truth is ξ≈0.8 (α≈1.25 ⇒ **infinite variance**). No loss reweighting or anchor can move ξ off 0; only an explicit ξ>0 component (pooled peaks-over-threshold GPD splice, DXtreMM/DeepExtrema `Abilasha2022`/`Galib2022`) can represent it. (2) **The premise "QS99 is the binding tail guardrail" is WRONG** — with 99.7% zeros the unconditional 99th percentile is 0 (99<99.7), so QS99 sits *inside the zero mass* and measures the onset boundary, not magnitude. The escalation-detection role this entry assigns to QS99 does not exist. The tail-detectability gap is now tracked as **[[C-224]]** (Tier 1). Cross-ref C-137 (Tweedie/GPD escalation), C-224 (eval tail-blindness).
 
+**Update 2026-07-30 (v2-scoreboard — family-veto EMPIRICALLY CONFIRMED + a caveat on "accept the ceiling"; folds C-MR2).** The 3-seed×300-lesson v2 scoreboard shows `crps_events` **identical across nb / zinb / th_gated** (sb h1 ~15.4–15.7; size_ratio 0.10→0 by h18) — the predicted family-level signature: every NB-family composition is timid in the same way because all share the ξ=0, mean-tied light tail. **But the panel's B-camp (Koenker/Davison/Tong) flag this only demonstrates the ceiling on the conditional MEAN, WITHIN one exponential family — it is NOT demonstrated on a tail-DECOUPLED head** (GPD splice / positives-only upper-quantile / 2-component mixture-density), where the estimable jump-RISK/spread (0.79) could still move a proper, tail-sensitive score. ⇒ **"accept the magnitude ceiling" is currently under-evidenced**: before permanently retiring magnitude work, run one minimal tail-decoupled probe scored on a covariate-stratified proper metric (see C-224 update). Cross-ref C-224, D-13, C-232.
+
 ---
 
 ### C-150: analysis plan lacks PIT + positive-tail posterior-predictive check
@@ -930,6 +981,10 @@ The plan has Coverage + F-zero-rate + multi-seed (good) but no **PIT calibration
 ADR-061's "why now" leans on El Jurdi et al. (2021): CoordConv-Unet stabilizes training and evades local minima **under prior-based losses** — and we train a prior-based likelihood (hurdle-NB). The original ADR text said this was *"exactly the regime"* CoordConv was found to help. **That equivocates on "prior":** El Jurdi's "prior" is an **added spatial/shape regularizer** (size/clDice-type) bolted onto a pixel-wise base loss, and CoordConv's role was stabilizing that **two-term interchange**. A hurdle-NB is a **distributional likelihood family** — there is no added spatial term and no equivalent interchange — so the mechanism may simply not exist in our setting. The ADR/dossier text has been **corrected** to "plausibly analogous, not identical," with the disanalogy explicit. The **residual risk** is decision-hygiene: a load-bearing justification that may not transfer could (a) inflate confidence going into the coords experiment, or (b) cause a null/ambiguous result to be mis-attributed to "CoordConv fails here" when the real lesson is "the analogy didn't hold" (→ premature escalation, or wrong placement/ablation conclusions).
 
 **Mitigation:** the §5 pre-registered experiment + its falsifier are the arbiters, **not** the analogy; on a null, ablate placement (the unbacked input+top-skip choice — see dossier `04`) and re-check the gate-forensic before concluding CoordConv is the wrong lever. **Tier 3:** methodology / decision-hygiene; no silent corruption, clear trigger. Already de-risked by the §3 text correction — registered so the analogy isn't silently re-promoted to "received wisdom" as the design hardens.
+
+**UPDATE 2026-07-29 — the analogy did NOT transfer; the "unbacked input+top-skip placement" is empirically harmful (expert-method-review + S8b).** The S7 data-backed static channel extended the coord-concat seam from geometry (coords) to a **semantic** covariate (population, `ln_pop`). Seed-42 controls prove the placement C-152 flagged is a real defect, not just a decision-hygiene risk: a spatially-shuffled **placebo** static channel collapses gate AP sb 0.31→0.13 (real `ln_pop` 0.31→0.20), crps_all inert. So concatenating a raw semantic channel via the input+top-skip is not merely "analogy may not transfer" — it **actively degrades occurrence**. The concrete architectural defect is tracked as **C-228**; the generalization-overreach and the wrong-primitive framing as **C-230**. C-152 stays open as the decision-hygiene root (don't re-promote the CoordConv analogy to justify covariate concat).
+
+**UPDATE 2026-07-31 — CoordConv now tested DIRECTLY (v2 scoreboard `09`/`07` E2) → clean 3-seed negative; question CLOSED.** The prior "didn't transfer" was inferred from the *population* placebo; the coord A/B tested real geometry coords with the nb head for the first time (gated_NB + row/col × {enc, top} × 3 seeds × 300 lessons). Result: coords **HURT** occurrence — AP < no-coords at every horizon×target (sb AP h1 0.450→enc 0.426→top 0.406; F1 fired, P1+P2 falsified); crps_all inert. So CoordConv is not a lever on the distributional heads: absolute position is already implicit in each fixed-grid cell's own history, and the extra channels are a mild spatial-overfit shortcut. C-152's decision-hygiene concern is now MOOT (no analogy left to re-promote — the lever is empirically dead). Cross-ref C-228 (the placement half of the same result).
 
 ---
 
@@ -1694,6 +1749,8 @@ Recursive rollout accumulates error by construction (the bloom is that pathology
 
 The magnitude effort's target — the ξ≈0.8 surge tail — is **invisible to the metrics we are allowed to select on**, for two independent, proven reasons. (1) **QS99 sits inside the zero mass:** 99th percentile of a 99.7%-zero field is 0, so QS99 measures the zero/positive onset boundary, not deep-tail magnitude (the real tail is above the 99.7th pct). (2) **No proper-score EXPECTATION discriminates tail behaviour:** Taillardat et al. 2023 + Brehmer&Strokorb 2019 prove the expected CRPS — *and even the FAO-02-banned twCRPS* — cannot distinguish forecasts with different ξ; non-tail-equivalent forecasts score almost identically to the ideal. So a real tail improvement (or a real family mis-specification) produces FLAT CRPS, and we cannot tell "fix worked, metric blind" from "family still wrong." **Tier 1 (silent incorrectness of the evaluation):** we would certify or kill magnitude designs on a metric structurally incapable of seeing the thing under test — the resolution-blind trap C-167 named, one level deeper (C-167 fixed spatial sharpness; this is distributional-tail sharpness). Mitigation is a **governance amendment, not a run**: agree an exceedance-conditional tail diagnostic (QS at 99.9 on POSITIVE cells only; exceedance reliability/PIT as a *diagnostic* — note PIT+twCRPS are both FAO-02-selection-banned, so this needs the FAO-02 owner's sign-off) BEFORE any magnitude/tail GPU spend.
 
+**Update 2026-07-30 (v2-scoreboard method-review — the improper-SELECTION corollary + a concrete proper alternative; folds C-MR3).** Two additions. (1) **crps_events (the repo's own truth>0 CRPS split) must never be a SELECTION metric:** subsetting the score on the observed outcome is the Forecaster's Dilemma (Lerch2017, held) — it rewards an exaggerating forecaster — so it is display-only, exactly like the FAO-02-banned twCRPS. (2) **The concrete proper, tail-sensitive alternative (Davison seat):** condition the score on a COVARIATE, not the outcome — evaluate crps_all (or MCR) on the **high-PREDICTED-risk stratum**. This is proper AND tail-sensitive, and is the pre-registerable success criterion for any magnitude/tail probe (with `size_ratio` explicitly NOT a target — Goodhart). This gives C-224's "need a tail-detecting diagnostic" a specific proper construction that does not require the FAO-02-banned metrics.
+
 ---
 
 ### C-225: outcome-weighted likelihood (`1+γ|Δ_true|`·NLL) is an improper objective — de-calibrates the emitted distribution
@@ -1746,7 +1803,64 @@ The sibling lab established empirically that one global |Δ|-weight cannot serve
 
 ---
 
+### C-231: crps_all is zero-dominated — a long-horizon "win" can be a zero-driven pseudo-improvement that hides an occurrence-skill LOSS
+
+| Field | Value |
+|-------|-------|
+| ID | C-231 |
+| Tier | 3 |
+| Source | expert-method-review (v2-scoreboard panel, 2026-07-30; Gneiting/Chevillon seats) |
+| Trigger | Pre-registering or headlining a HORIZON experiment (direct / climatology-blend / residual head) on raw crps_all — declaring a mid/long-horizon crps_all gain a "win" without AP (or a covariate-stratified crps_all) as the primary metric |
+| Location | frozen `lodestar_score.py`; `reports/2026-07-29_v2_scoreboard_dossier/tools/score_v2_horizons.py`; dossier `05_prereg.md` |
+| Cross-refs | C-227 / C-136 (crps_all aggregation hides a specific failure — same family), C-224 (eval tail-blindness), C-167 (resolution-blind eval, resolved) |
+
+The v2 scoreboard demonstrated (07 finding #5) that gated_NB "beats" climatology on crps_all at h36 (0.877 vs 0.960) while being WORSE on AP (0.162 vs 0.195): the proper-score win is carried almost entirely by confident zeros on the 99% empty field (crps_none 0.004 vs 0.068, 17×), NOT by forecasting events. Because ~99.3% of cells are true zeros, crps_all is dominated by zero-cell calibration and can reward a model that has quietly converged to a *degraded* climatology while LOSING the occurrence ranking (AP) that is the actual product. **Tier 3 (decision/measurement-hygiene, peer of C-227):** the AP data already exists so this is not silent corruption — but headlining raw crps_all on a horizon experiment will certify a non-improvement (or an occurrence regression) as a win. Mitigation: for any horizon-decay experiment pre-register **AP@h18/h36 (or covariate-stratified crps_all) as PRIMARY**, with a hard rule that a crps_all gain without an AP improvement does NOT count.
+
+---
+
+### C-232: a 2-component mixture-density head on a 99.3%-zero field has label-switching / identifiability risk
+
+| Field | Value |
+|-------|-------|
+| ID | C-232 |
+| Tier | 3 |
+| Source | expert-method-review (v2-scoreboard panel, 2026-07-30; Hamilton-Tong seat) |
+| Trigger | Building a 2-component (calm/surge) mixture-density or routed-expert magnitude head and trusting the gate's regime assignments without an identifiability constraint or seed-stability check |
+| Location | any mixture / route_star-style head in `views_hydranet/distributions/` |
+| Cross-refs | D-13 (single-head vs routed-mixture choice), C-227 (mixture crosstalk), C-149 (the tail the surge-expert must carry) |
+
+The panel's minimal magnitude proposal is a 2-component mixture-density NB head (a gate routing to a calm-expert and a surge-expert). On a 99.3%-zero field this is a 3-way structure whose two positive components are weakly identified: with few exceedances per cell the likelihood is near-symmetric under a swap of the two experts (label switching), so the learned regime assignments can be arbitrary/unstable across seeds and the "surge expert" may not correspond to surges. **Tier 3:** not silent corruption of a shipped forecast, but it can make a mixture experiment's per-regime interpretation and scoring untrustworthy. Mitigation: an identifiability constraint (ordered component means, or a gate anchored on the *predictable* jump-risk covariate rather than free), plus a seed-stability check on the regime assignment before trusting the surge-expert. Fetch Frühwirth-Schnatter (finite-mixture identifiability).
+
+---
+
+### C-233: teacher-forcing / scheduled-sampling curriculum is a known no-op here — spending a pre-ship experiment on it would be mis-directed
+
+| Field | Value |
+|-------|-------|
+| ID | C-233 |
+| Tier | 3 |
+| Source | expert-method-review (v2-scoreboard panel, 2026-07-30; Salinas/Chevillon seats) |
+| Trigger | Proposing a teacher-forcing / scheduled-sampling CURRICULUM as the fix for the horizon-decay (07 finding #2), consuming one of the scarce ~2 pre-ship experiments |
+| Location | `views_hydranet/train/training_engine.py` (scheduled-sampling path); dossier `05_prereg.md` |
+| Cross-refs | C-125 (rollout training — the pushforward/GTF path, distinct), C-113 (the AR pathology TF does NOT fix) |
+
+Two independent panel seats flagged that a teacher-forcing/scheduled-sampling curriculum will not recover the lost long-horizon skill: (a) Salinas — the DeepAR programme reports scheduled sampling gave "no noteworthy accuracy improvement (and slowed convergence)"; (b) Chevillon — teacher-forcing addresses the train/test input-distribution gap (exposure bias) but NOT the compounding of a *mis-specified* one-step law, which is the operative failure when the one-step head is light-tailed on a ξ≈0.8 DGP. **Tier 3 (decision-hygiene, peer of C-126):** no corruption, but under a 2-experiment budget this burns a slot on a lever literature and theory both predict is inert; the horizon lever with headroom is a direct/climatology-residual head (see C-231's experiment), not TF. Fetch Bengio2015 (scheduled sampling) to formally close it if challenged.
+
+---
+
 ## Disagreements
+
+### D-14: is the exogenous-covariate program worth a conditioning subsystem?
+
+| Field | Value |
+|-------|-------|
+| ID | D-14 |
+| Source | expert-method-review (covariate-ingestion panel, ceiling/parsimony seat vs forecasting seats, 2026-07-29) |
+| Perspectives | **Parsimony/ceiling** (Box + conflict-diffusion, Schutte2011/Buhaug2008): crps_all is INERT to every static channel tried (0.142 across baseline / `ln_pop` / placebo); conflict's spatial persistence makes a static per-cell prior largely redundant with the cell's own history; the magnitude wall is the family/tail (C-149) — a FiLM/TFT covariate subsystem can at best sharpen OCCURRENCE, never the CRPS headline → possibly polishing brass. **Forecasting** (Lim/Salinas): occurrence is *half* the problem (the gate); a sharper gate has decision value for early warning even if CRPS is tail-bound. |
+| Resolution | **Open — keep live.** Gate any covariate-conditioning-seam build (C-228/C-229/C-230 fixes) on a **demonstrated, decision-relevant occurrence gain** from the Step-1 encoder-only diagnosis; if population buys no real occurrence lift once the seam defect is removed, park the covariate program (the parsimony seat wins). |
+| Cross-refs | C-149 (NB ξ=0 magnitude veto), C-224 (eval tail-blindness), C-228 (the seam defect), C-229/C-230, [[amount-ceiling]] |
+
+---
 
 ### D-01: VolumeHandler scope — God Object vs Deep Module
 

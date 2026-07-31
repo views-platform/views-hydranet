@@ -8,6 +8,28 @@ verdict-vs-falsifiers. No run yet — the pre-flight checklist (03 §D) is RED.
 | 2026-07-28 | **Tier-A parity (FRESH pull)** | 05 (LOCKED) | data provider viewser→datafactory (conflict targets) | job tmp `fresh_africa_me_legacy_121_504.parquet`, `parity_fresh.py`, `parity_residual.py` | **PASS — no falsifier fired** | trust the datafactory conflict data; proceed to queryset swap + P2 |
 | 2026-07-28 | **E2 — Tier-A on the PLATFORM-fetched parquet (S3)** | 05 (LOCKED) | violet queryset swapped → pipeline-core `get_data` fetch | `tools/tier_a_parity.py`; violet `data/raw/calibration_datafactory_df.parquet` | **PASS** (identical to E1: exact 99.98/99.99/99.99%, maxima ✓, drift −0.35/+1.25/+0.06%, cell-set identical, coverage 121–504) | the platform datafactory dispatch produces correct data for violet; 2-lesson smoke trains green |
 
+### E5 — S8 population A/B: gated_NB + `ln_pop` static channel vs v2 baseline (2026-07-28) — NEGATIVE
+Pre-reg `08` (locked). gated_NB + `ln_pop` ×3 seeds vs the S5 v2 baseline, v2 ruler. **Result:
+instructive NEGATIVE.** crps_all a wash (sb +0.0051 worse, ns/os ~−0.0007 better); **AP COLLAPSED**
+every seed/target (sb 0.31→0.20, ns 0.23→0.10, os 0.10→0.04); Brier improved on ns/os but worse on sb;
+size_ratio still 0. **Prediction #1 (population lifts occurrence/AP) FALSIFIED** (it hurt AP);
+**#2 (body stays timid) CONFIRMED**. Mechanism: AP↓ + Brier↓ = gate **over-regularized** (probs
+compress to base rate → kills ranking); a static per-cell prior is redundant with conflict history.
+**Decision: PARK static population** (not a win; real occurrence-ranking regression). Next: population
+as a **dynamic** covariate (seam C) and/or fed to the **body only, not the gate**. The S6+S7 build
+(data-backed static channel) stands as a validated reusable capability. Results:
+`results/population_ab/SUMMARY.md`.
+
+### E4 — S6 population external validation: `ghspop_pop_count` (GHS-POP) (2026-07-28)
+No viewser reference for population → validated EXTERNALLY (fresh pull; falsifiers F-P1..F-P5
+pre-committed in `tools/validate_population.py`). **PASS, no falsifier fired:** invariants clean
+(13,110 cells, 0 NaN / 0 neg / 0 non-finite); totals **0.83B (1990) → 1.23B → 1.80B (2021)**, monotone;
+81 countries; per-country magnitude profile **7/10 within ±35%** of known (top-4 near-exact: 219 vs 206
+Nigeria, 124 vs 118 Ethiopia, 111 vs 104 Egypt, 91 vs 92 DRC). The 3 mid-tier misses = GHS-POP
+(gridded/modeled) running higher than UN country totals — expected, not a data error. **Decision:**
+population feature trusted ⇒ proceed to S7 (`ln_pop` = log1p(train-window per-cell mean), data-backed
+static channel). Repeatable: `tools/validate_population.py`.
+
 ### E3 — S5 v2 foundation baseline: gated_NB ×3 seeds on datafactory truth (2026-07-28)
 Arm **gated_NB** (nb family, soft_gate, 40 lessons) × seeds {42,43,44}, trained on datafactory data,
 scored on the **v2 truth** (frozen lodestar functions, new truth). Results: `results/v2_baseline/`

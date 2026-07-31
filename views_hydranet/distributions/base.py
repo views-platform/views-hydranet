@@ -89,6 +89,17 @@ class DistributionFamily(ABC):
     def mean(self, params: "torch.Tensor") -> "torch.Tensor":
         """Per-cell ``E[Y]`` (count space) -> ``[...]``. For AR feedback + point emit."""
 
+    def mean_core(self, params: "torch.Tensor") -> "torch.Tensor":
+        """Per-cell ``E[Y]`` of the BULK body, WITHOUT structural self-zeroing — the AR-feedback /
+        point-emit counterpart of :meth:`sample_core`.
+
+        Default = :meth:`mean` (identical for a family with no structural zero, e.g. ``nb``). A
+        self-zeroed family (``zinb``) overrides it to the bare NB core mean (π dropped), so a
+        core-emitting rollout (``emit_family_core``) feeds back the LARGE core mean it actually
+        emits, not the small ``(1-π)μ`` self-zeroed mean.
+        """
+        return self.mean(params)
+
     @abstractmethod
     def prob_positive(self, params: "torch.Tensor") -> "torch.Tensor":
         """Per-cell ``P(Y>0)`` -> ``[...]``. Scores gate metrics on self-zeroed nb/zinb (C-201)."""

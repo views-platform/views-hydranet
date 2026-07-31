@@ -87,6 +87,10 @@ def train_model_artifact(
         # convs by len(static_channels); omitting it rebuilds at n_static=0 → state_dict width
         # mismatch on reload of a coord-trained model. No statics ⇒ [] ⇒ reload byte-identical.
         config_snapshot["static_channels"] = config.get("static_channels", [])
+        # C-228: persist the top-skip flag too — choose_model sizes the dec_conv1 heads by
+        # static_top_skip (base*2 when False vs base*2+n_static when True); omitting it reloads at
+        # the default True → state_dict width mismatch on an encoder-only-trained model.
+        config_snapshot["static_top_skip"] = config.get("static_top_skip", True)
         # S5 / Epic #193 (C-112): persist the training seed(s) so the artifact is SELF-IDENTIFYING
         # — closes the seed-murk that confounded EXP-4 (a cross-model rollout A/B couldn't tell
         # which seed produced which artifact). Provenance only; reload does not consume these.

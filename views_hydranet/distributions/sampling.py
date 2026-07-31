@@ -30,6 +30,7 @@ def to_cube_samples(
     composition: str = "self_zeroed",
     threshold: "float | None" = None,
     pass_index: int = 0,
+    core: bool = False,
 ) -> np.ndarray:
     """Draw K per-cell samples/target from activated family params → log1p-space cube slice.
 
@@ -59,7 +60,9 @@ def to_cube_samples(
             f"to_cube_samples: params channel dim {c} != n_reg*n_params "
             f"({n_reg}*{npar}={n_reg * npar})."
         )
-    draw = family.sample  # the family's own sample (self-zeroed for zinb, plain NB for nb)
+    # ADR-068 emit_family_core: draw the BULK body (π-stripped for zinb) instead of the self-zeroed
+    # sample, for the externally-gated {gated,th_gated}_ZINBcore arms. nb: sample_core == sample.
+    draw = family.sample_core if core else family.sample
     out = torch.zeros((t, h, w, n_reg, k), dtype=torch.float32)
     gate_t = None
     # ADR-069 (#183): compose the sample cube with the gate at emit time. self_zeroed =>
