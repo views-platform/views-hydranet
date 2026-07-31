@@ -29,8 +29,8 @@ from views_hydranet.utils.volume_handler import VolumeHandler
 
 T, H, W = 4, 3, 3
 N_REG, N_CLS = 1, 1
-INPUT_FEATURES = ["lr_sb_best"]
-REG_TARGETS = ["lr_sb_best"]
+INPUT_FEATURES = ["lr_ged_sb"]
+REG_TARGETS = ["lr_ged_sb"]
 CLS_TARGETS = ["by_sb_best"]
 IDENTITY_COLS = ["c_id", "row", "col"]
 
@@ -57,7 +57,7 @@ def toy_config():
 def toy_handler():
     """
     Create a tiny VolumeHandler with known data.
-    Channel map: [month_id, priogrid_gid, c_id, row, col, lr_sb_best, by_sb_best]
+    Channel map: [month_id, priogrid_gid, c_id, row, col, lr_ged_sb, by_sb_best]
     """
     n_channels = 7  # 2 primary + 3 identity + 1 reg + 1 cls
     data = np.random.RandomState(42).rand(T, H, W, n_channels).astype(np.float32)
@@ -74,12 +74,12 @@ def toy_handler():
     return VolumeHandler(
         data=data,
         axes=("T", "H", "W", "C"),
-        channel_map=["month_id", "priogrid_gid", "c_id", "row", "col", "lr_sb_best", "by_sb_best"],
+        channel_map=["month_id", "priogrid_gid", "c_id", "row", "col", "lr_ged_sb", "by_sb_best"],
         time_col="month_id",
         id_col="priogrid_gid",
         spatial_cols=("row", "col"),
         identity_cols=("c_id", "row", "col"),
-        feature_cols=("lr_sb_best", "by_sb_best"),
+        feature_cols=("lr_ged_sb", "by_sb_best"),
     )
 
 
@@ -192,9 +192,9 @@ class TestBeige:
         mock_sampler.get_batch.return_value = ([toy_handler], 9)
 
         mock_planner = MagicMock()
-        mock_planner.subjects = ["lr_sb_best"]
-        mock_planner.subject_maxima = {"lr_sb_best": 1.0}
-        mock_planner.get_lesson.return_value = ("lr_sb_best", 0.0)
+        mock_planner.subjects = ["lr_ged_sb"]
+        mock_planner.subject_maxima = {"lr_ged_sb": 1.0}
+        mock_planner.get_lesson.return_value = ("lr_ged_sb", 0.0)
 
         with (
             patch("views_hydranet.train.training_engine.VolumeSampler", return_value=mock_sampler),
@@ -246,9 +246,9 @@ class TestBeige:
         mock_sampler.get_batch.return_value = ([toy_handler], 9)
 
         mock_planner = MagicMock()
-        mock_planner.subjects = ["lr_sb_best"]
-        mock_planner.subject_maxima = {"lr_sb_best": 1.0}
-        mock_planner.get_lesson.return_value = ("lr_sb_best", 0.0)
+        mock_planner.subjects = ["lr_ged_sb"]
+        mock_planner.subject_maxima = {"lr_ged_sb": 1.0}
+        mock_planner.get_lesson.return_value = ("lr_ged_sb", 0.0)
 
         with (
             patch("views_hydranet.train.training_engine.VolumeSampler", return_value=mock_sampler),

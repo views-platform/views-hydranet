@@ -1,0 +1,22 @@
+# Conda environment for the GitHub Actions `test` job (ci.yml: environment-file: environment.yml).
+#
+# The whole views-platform stack (views-pipeline-core, views-frames, torch) is distributed via PyPI,
+# not conda, so this env provides only python + pip and defers dependency resolution to
+# `pip install .` (which reads pyproject.toml's dependencies).
+#
+# NOTE (C-165): the `test` job is currently RELEASE-BLOCKED upstream — pyproject requires
+# `views-pipeline-core >=3.0.0`, but PyPI only publishes up to 2.3.0 (GitHub tags stop at 2.3.1) and
+# no 3.x branch is pushed; the 3.0.0 this branch needs exists only as unmerged local work in the
+# views-pipeline-core repo. Until views-pipeline-core 3.0.0 is published, `pip install .` cannot
+# resolve it and this job fails at dependency resolution (not at env setup). It goes green with NO
+# change here the moment 3.0.0 ships. views-frames (>=1.3) resolves fine (PyPI 1.10.2).
+name: views-hydranet-env
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - .
+      - pytest
+      - pytest-cov

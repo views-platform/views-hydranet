@@ -19,8 +19,13 @@ names the chosen setting. (P4 is tracked as a register finding, not a code test.
 
 import pathlib
 
+# Rollout training is PARKED (C-139, 2026-06-10); the dossier moved to reports/archived/.
+# These stubs now verify the parked plan is preserved there (green = the plan still exists).
 _DOSSIER = (
-    pathlib.Path(__file__).resolve().parents[1] / "reports" / "2026-06-05_rollout_training_dossier"
+    pathlib.Path(__file__).resolve().parents[1]
+    / "reports"
+    / "archived"
+    / "2026-06-05_rollout_training_dossier"
 )
 
 

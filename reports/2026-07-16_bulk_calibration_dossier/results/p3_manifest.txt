@@ -1,0 +1,23 @@
+=== P3 A/B BATCH (seed42, 40L) started Thu Jul 16 09:47:54 PM CEST 2026 ===
+=== START A0p Thu Jul 16 09:47:54 PM CEST 2026 ===
+=== DONE A0p exit=0 Thu Jul 16 10:20:55 PM CEST 2026 ===
+    artifact: /home/simon/Documents/scripts/views_platform/views-models/models/violet_visitor/artifacts/calibration_model_20260716_220539.pt
+    predictions: /home/simon/Documents/scripts/views_platform/views-models/models/violet_visitor/data/generated/predictions_calibration_20260716_220539
+=== START A1 Thu Jul 16 10:20:55 PM CEST 2026 ===
+=== DONE A1 exit=0 Thu Jul 16 10:54:23 PM CEST 2026 ===
+    artifact: /home/simon/Documents/scripts/views_platform/views-models/models/violet_visitor/artifacts/calibration_model_20260716_223842.pt
+    predictions: /home/simon/Documents/scripts/views_platform/views-models/models/violet_visitor/data/generated/predictions_calibration_20260716_223842
+=== START A2t6 Thu Jul 16 10:54:23 PM CEST 2026 ===
+=== DONE A2t6 exit=0 Thu Jul 16 11:27:33 PM CEST 2026 ===
+    artifact: /home/simon/Documents/scripts/views_platform/views-models/models/violet_visitor/artifacts/calibration_model_20260716_231143.pt
+    predictions: /home/simon/Documents/scripts/views_platform/views-models/models/violet_visitor/data/generated/predictions_calibration_20260716_231143
+=== START A2t7 Thu Jul 16 11:27:33 PM CEST 2026 ===
+=== DONE A2t7 exit=0 Fri Jul 17 12:00:12 AM CEST 2026 ===
+    artifact: /home/simon/Documents/scripts/views_platform/views-models/models/violet_visitor/artifacts/calibration_model_20260716_234452.pt
+    predictions: /home/simon/Documents/scripts/views_platform/views-models/models/violet_visitor/data/generated/predictions_calibration_20260716_234452
+=== START A2t8 Fri Jul 17 12:00:12 AM CEST 2026 ===
+=== DONE A2t8 exit=0 Fri Jul 17 12:32:38 AM CEST 2026 ===
+    artifact: /home/simon/Documents/scripts/views_platform/views-models/models/violet_visitor/artifacts/calibration_model_20260717_001719.pt
+    predictions: /home/simon/Documents/scripts/views_platform/views-models/models/violet_visitor/data/generated/predictions_calibration_20260717_001719
+=== P3 BATCH COMPLETE Fri Jul 17 12:32:38 AM CEST 2026 ===
+[restore floor] Fri Jul 17 12:32:38 AM CEST 2026 md5=6c28bdb1390fc413d43b2d74d87251f8 OK

@@ -83,6 +83,58 @@ def train_model_artifact(
         if missing:
             raise ValueError(f"Config sidecar requires keys {arch_keys}, missing: {missing}")
         config_snapshot = {k: config[k] for k in arch_keys}
+        # ADR-061 / C-159: persist the static channels — choose_model sizes the top-skip decoder
+        # convs by len(static_channels); omitting it rebuilds at n_static=0 → state_dict width
+        # mismatch on reload of a coord-trained model. No statics ⇒ [] ⇒ reload byte-identical.
+        config_snapshot["static_channels"] = config.get("static_channels", [])
+        # C-228: persist the top-skip flag too — choose_model sizes the dec_conv1 heads by
+        # static_top_skip (base*2 when False vs base*2+n_static when True); omitting it reloads at
+        # the default True → state_dict width mismatch on an encoder-only-trained model.
+        config_snapshot["static_top_skip"] = config.get("static_top_skip", True)
+        # S5 / Epic #193 (C-112): persist the training seed(s) so the artifact is SELF-IDENTIFYING
+        # — closes the seed-murk that confounded EXP-4 (a cross-model rollout A/B couldn't tell
+        # which seed produced which artifact). Provenance only; reload does not consume these.
+        config_snapshot["torch_seed"] = config.get("torch_seed")
+        config_snapshot["np_seed"] = config.get("np_seed")
+        # #101: persist the head flag (else hurdle_nb reloads as ReLU) + the learned per-target
+        # NB dispersion theta (needed for the exact hurdle-NB mean at inference).
+        config_snapshot["output_distribution"] = config.get("output_distribution", "standard")
+        # C-179: persist the RESOLVED reg-head activation (the function actually used) so a reload
+        # uses the trained activation even if the default keyed off output_distribution changes
+        # (ADR-063). softplus/relu share weight shapes => a mismatch loads silently, wrong.
+        # Quantile head sets its own monotone activation from output_distribution (the
+        # reg_activation
+        # arg is ignored); its closure name is not a valid reg_activation on reload, so persist
+        # None +
+        # the quantile count K instead.
+        # A distribution family (nb/zinb, ADR-067) or the quantile head installs its OWN activation
+        # (a closure keyed off output_distribution) whose name is not a valid reg_activation string
+        # on reload — persist None; output_distribution reconstructs it. Registry-driven
+        # (resolve_family), so new families need no edit here.
+        from views_hydranet.distributions import resolve_family
+
+        _od = config_snapshot["output_distribution"]
+        if _od == "quantile":
+            config_snapshot["reg_activation"] = None
+            config_snapshot["n_quantiles"] = config.get("n_quantiles")
+        elif resolve_family(_od) is not None:
+            config_snapshot["reg_activation"] = None
+            # C-206: K (n_head_samples) changes the sampled D×K cube at inference (A-S8), so it
+            # must ride in the manifest — else two runs with different K share a snapshot and
+            # silently defeat reproducibility. Only captured for families (legacy K=1 is unused ⇒
+            # manifest byte-identical, preserving the A-S5 #172 AC).
+            config_snapshot["n_head_samples"] = config.get("n_head_samples", 1)
+        else:
+            config_snapshot["reg_activation"] = model._reg_activation.__name__
+        criterion_reg = criterion[0]
+        is_hurdle = config_snapshot["output_distribution"] == "hurdle_nb"
+        if is_hurdle and isinstance(criterion_reg, dict):
+            config_snapshot["hurdle_nb_theta"] = {
+                t: loss.theta for t, loss in criterion_reg.items()
+            }
+        # generic hurdle-lognormal: persist the fixed sigma (config) for the inference compose.
+        if config_snapshot["output_distribution"] == "hurdle_lognormal":
+            config_snapshot["hurdle_lognormal_sigma"] = config.get("loss_reg_sigma")
         artifact_path.with_suffix(".pt.config.json").write_text(
             json.dumps(config_snapshot, indent=2)
         )

@@ -9,9 +9,16 @@ license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
 dependencies = [
-    "views-pipeline-core (>=2.0.0,<3.0.0)",
+    "views-pipeline-core (>=3.0.0,<4.0.0)",
+    "views-frames (>=1.3,<2.0)",
     "torch>=2.2.1,<3.0.0"
 ]
+
+# issue #215: matplotlib is imported lazily by VisualDiagnostics (optional plotting stack). Declare it
+# as an OPTIONAL extra so models that enable diagnostics (diagnostic_visualizations=True) can pin it via
+# `views-hydranet[viz]`; the default headless run path needs no plotting stack.
+[project.optional-dependencies]
+viz = ["matplotlib>=3.8,<4"]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -23,6 +30,10 @@ mypy = ">=1.19.1,<2.0.0"
 pytest = "<9.0.0"
 pre-commit = ">=4.5.1,<5.0.0"
 pytest-cov = ">=5.0.0,<6.0.0"
+# #215: the test suite renders diagnostics + imports matplotlib at module top (test_visual_diagnostics,
+# test_memory_fingerprint), and conftest fails the run if collection drops below the min count — so
+# matplotlib must be present in the test env even though it's a runtime-optional 'viz' extra.
+matplotlib = ">=3.8,<4"
 
 
 [tool.ruff]

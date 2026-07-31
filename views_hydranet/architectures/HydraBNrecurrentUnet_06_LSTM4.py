@@ -5,6 +5,22 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from views_hydranet.architectures.locked_dropout import LockedDropout
+from views_hydranet.distributions import resolve_family
+from views_hydranet.utils.quantile_head import init_quantile_conv_, monotone_quantiles
+
+
+def _family_activation(family):
+    """Wrap a ``DistributionFamily.activate`` for the channel-first reg head (ADR-067).
+
+    The head emits ``[B, n_params, H, W]`` per target, but ``activate`` takes the params in the
+    LAST dim (``[..., n_params]``) — permute in, activate, permute back (the quantile-head idiom).
+    """
+
+    def _act(x):
+        p = family.activate(x.permute(0, 2, 3, 1))
+        return p.permute(0, 3, 1, 2).contiguous()
+
+    return _act
 
 
 class ModelOutput(NamedTuple):
@@ -46,7 +62,18 @@ class HydraBNUNet06_LSTM4(nn.Module):
         base (int): The number of hidden channels used as the architectural baseline.
     """
 
-    def __init__(self, input_channels, total_hidden_channels, output_channels, dropout_rate):
+    def __init__(
+        self,
+        input_channels,
+        total_hidden_channels,
+        output_channels,
+        dropout_rate,
+        output_distribution="standard",
+        n_static_channels=0,
+        static_top_skip=True,
+        reg_activation=None,
+        n_quantiles=None,
+    ):
         """
         Initializes the HydraNet architecture.
 
@@ -56,8 +83,71 @@ class HydraBNUNet06_LSTM4(nn.Module):
                                          Must be divisible by 8.
             output_channels (int): Number of channels per head (usually 1).
             dropout_rate (float): Probability of dropout for regularization.
+            output_distribution (str): regression-head output activation —
+                "standard" (ReLU, default, pre-#100 behavior) or "hurdle_nb"
+                (softplus, count-space mean mu for the hurdle-NB head).
         """
         super().__init__()
+
+        # #100: hurdle-NB needs a count-space mean mu at the output; softplus keeps it
+        # sub-exponential. Default "standard" => ReLU => byte-identical to pre-#100.
+        self.output_distribution = output_distribution
+        # ADR-067 strangler-fig: if output_distribution names a registered distribution family
+        # (nb/zinb), the head sizes reg channels to family.n_params and the FAMILY owns activation.
+        # resolve_family returns None for every legacy value, so those fall through to the
+        # untouched legacy path below (byte-identical). New families add zero new branches here.
+        self._family = resolve_family(output_distribution)
+        # Default keys off output_distribution: ALL hurdle bodies => softplus, "standard" => relu.
+        # reg_activation overrides it (Exp B: decouple emit activation from the loss/likelihood).
+        # C-178: a ReLU output head dies on rare targets under the hurdle mask (pre-activation
+        # drifts 100% negative => ReLU==0 with zero gradient => unrecoverable). softplus is always
+        # positive with non-zero gradient, so it cannot die. hurdle_nb already used softplus;
+        # extend to all hurdle bodies. "standard" keeps relu (byte-identical to pre-#100).
+        if self._family is not None:
+            self._reg_activation = _family_activation(self._family)
+        elif reg_activation == "softplus":
+            self._reg_activation = F.softplus
+        elif reg_activation == "relu":
+            self._reg_activation = F.relu
+        else:
+            self._reg_activation = (
+                F.softplus if output_distribution.startswith("hurdle") else F.relu
+            )
+
+        # Quantile head (2026-07 build): each reg head emits K monotone quantiles
+        # (cumulative-softplus
+        # in log1p space) instead of a single activated mu. output_channels stays the
+        # feedback/class
+        # width (1); n_quantiles (K) sizes ONLY the reg heads, so the AR-feedback invariant
+        # (input_channels == 3*output_channels + static) is untouched. See quantile_head.py.
+        self._is_quantile = output_distribution == "quantile"
+        self.n_quantiles = n_quantiles
+        if self._is_quantile:
+            if not n_quantiles or n_quantiles < 2:
+                raise ValueError("output_distribution='quantile' requires n_quantiles >= 2")
+
+            # [B, K, H, W] -> monotone along the channel (quantile) axis
+            def _monotone_channels(x):
+                q = monotone_quantiles(x.permute(0, 2, 3, 1))  # [B, H, W, K]
+                return q.permute(0, 3, 1, 2).contiguous()
+
+            self._reg_activation = _monotone_channels
+        # A family emits n_params reg channels per target (nb=2 [mu,theta], zinb=3 [+pi]); the
+        # quantile head emits K; every other legacy head emits output_channels (the AR-feedback
+        # width, unchanged so the invariant input_channels == 3*output_channels + static holds).
+        if self._family is not None:
+            reg_out_ch = self._family.n_params
+        else:
+            reg_out_ch = n_quantiles if self._is_quantile else output_channels
+
+        # ADR-061 top-skip: the last n_static_channels of the input are static (e.g. coordinates);
+        # re-injected raw at each decoder head's full-resolution dec_conv1. 0 => byte-identical.
+        # `static_top_skip=False` keeps statics in the ENCODER input but drops them from the
+        # top-skip re-injection (C-228: raw statics at the gate head's dec_conv1 collapse AP). The
+        # encoder still receives them via input_channels; only the head re-injection is removed.
+        self.n_static = n_static_channels
+        self.static_top_skip = static_top_skip
+        topskip_static = n_static_channels if static_top_skip else 0
 
         kernel_size = 3
         base = total_hidden_channels
@@ -100,10 +190,12 @@ class HydraBNUNet06_LSTM4(nn.Module):
         self.upsample1_head1_reg = nn.ConvTranspose2d(
             base * 2, base, 2, stride=2, padding=0, output_padding=0
         )
-        self.dec_conv1_head1_reg = nn.Conv2d(base * 2, base, kernel_size, padding=1, bias=False)
+        self.dec_conv1_head1_reg = nn.Conv2d(
+            base * 2 + topskip_static, base, kernel_size, padding=1, bias=False
+        )
         self.bn_dec_conv1_head1_reg = nn.BatchNorm2d(base)
 
-        self.dec_conv4_head1_reg = nn.Conv2d(base, output_channels, kernel_size, padding=1)
+        self.dec_conv4_head1_reg = nn.Conv2d(base, reg_out_ch, kernel_size, padding=1)
 
         # HEAD1 class
         self.upsample0_head1_class = nn.ConvTranspose2d(
@@ -117,7 +209,9 @@ class HydraBNUNet06_LSTM4(nn.Module):
         self.upsample1_head1_class = nn.ConvTranspose2d(
             base * 2, base, 2, stride=2, padding=0, output_padding=0
         )
-        self.dec_conv1_head1_class = nn.Conv2d(base * 2, base, kernel_size, padding=1, bias=False)
+        self.dec_conv1_head1_class = nn.Conv2d(
+            base * 2 + topskip_static, base, kernel_size, padding=1, bias=False
+        )
         self.bn_dec_conv1_head1_class = nn.BatchNorm2d(base)
 
         self.dec_conv4_head1_class = nn.Conv2d(base, output_channels, 3, padding=1)
@@ -134,10 +228,12 @@ class HydraBNUNet06_LSTM4(nn.Module):
         self.upsample1_head2_reg = nn.ConvTranspose2d(
             base * 2, base, 2, stride=2, padding=0, output_padding=0
         )
-        self.dec_conv1_head2_reg = nn.Conv2d(base * 2, base, kernel_size, padding=1, bias=False)
+        self.dec_conv1_head2_reg = nn.Conv2d(
+            base * 2 + topskip_static, base, kernel_size, padding=1, bias=False
+        )
         self.bn_dec_conv1_head2_reg = nn.BatchNorm2d(base)
 
-        self.dec_conv4_head2_reg = nn.Conv2d(base, output_channels, 3, padding=1)
+        self.dec_conv4_head2_reg = nn.Conv2d(base, reg_out_ch, 3, padding=1)
 
         # HEAD2 class
         self.upsample0_head2_class = nn.ConvTranspose2d(
@@ -151,7 +247,9 @@ class HydraBNUNet06_LSTM4(nn.Module):
         self.upsample1_head2_class = nn.ConvTranspose2d(
             base * 2, base, 2, stride=2, padding=0, output_padding=0
         )
-        self.dec_conv1_head2_class = nn.Conv2d(base * 2, base, kernel_size, padding=1, bias=False)
+        self.dec_conv1_head2_class = nn.Conv2d(
+            base * 2 + topskip_static, base, kernel_size, padding=1, bias=False
+        )
         self.bn_dec_conv1_head2_class = nn.BatchNorm2d(base)
 
         self.dec_conv4_head2_class = nn.Conv2d(base, output_channels, kernel_size, padding=1)
@@ -168,10 +266,26 @@ class HydraBNUNet06_LSTM4(nn.Module):
         self.upsample1_head3_reg = nn.ConvTranspose2d(
             base * 2, base, 2, stride=2, padding=0, output_padding=0
         )
-        self.dec_conv1_head3_reg = nn.Conv2d(base * 2, base, kernel_size, padding=1, bias=False)
+        self.dec_conv1_head3_reg = nn.Conv2d(
+            base * 2 + topskip_static, base, kernel_size, padding=1, bias=False
+        )
         self.bn_dec_conv1_head3_reg = nn.BatchNorm2d(base)
 
-        self.dec_conv4_head3_reg = nn.Conv2d(base, output_channels, kernel_size, padding=1)
+        self.dec_conv4_head3_reg = nn.Conv2d(base, reg_out_ch, kernel_size, padding=1)
+
+        # Informed init (C-199 / C-203): seed each reg head's bias from the family's own recipe so
+        # theta/pi start away from the saturated dead-zone (family DEFAULT priors — the head has no
+        # data; data-derived priors are a later refinement). Narrow-fan init for the quantile heads
+        # (channel 0 = base, 1: = pre-softplus gaps) so the cumulated softplus opens narrow.
+        _reg_convs = (self.dec_conv4_head1_reg, self.dec_conv4_head2_reg, self.dec_conv4_head3_reg)
+        if self._family is not None:
+            _bias = self._family.initial_raw_bias()
+            for _c in _reg_convs:
+                with torch.no_grad():
+                    _c.bias.copy_(_bias.to(_c.bias.dtype))
+        elif self._is_quantile:
+            for _c in _reg_convs:
+                init_quantile_conv_(_c)
 
         # HEAD3 class
         self.upsample0_head3_class = nn.ConvTranspose2d(
@@ -183,7 +297,9 @@ class HydraBNUNet06_LSTM4(nn.Module):
         self.upsample1_head3_class = nn.ConvTranspose2d(
             base * 2, base, 2, stride=2, padding=0, output_padding=0
         )
-        self.dec_conv1_head3_class = nn.Conv2d(base * 2, base, kernel_size, padding=1, bias=False)
+        self.dec_conv1_head3_class = nn.Conv2d(
+            base * 2 + topskip_static, base, kernel_size, padding=1, bias=False
+        )
         self.bn_dec_conv1_head3_class = nn.BatchNorm2d(base)
 
         self.dec_conv4_head3_class = nn.Conv2d(base, output_channels, kernel_size, padding=1)
@@ -372,6 +488,10 @@ class HydraBNUNet06_LSTM4(nn.Module):
                 tuple unpacking for backward compatibility.
         """
 
+        # ADR-061 top-skip: capture the raw static channels (the last n_static of the input)
+        # at full resolution, before x is concatenated with the hidden state. None => no top-skip.
+        coords = x[:, -self.n_static :, :, :] if (self.n_static and self.static_top_skip) else None
+
         # Splitting hidden state into 4 short-term and 4 long-term memory tensors.
         split_h = int(h.shape[1] / 8)
         hs_1, hs_2, hs_3, hs_4, hl_1, hl_2, hl_3, hl_4 = torch.split(h, split_h, dim=1)
@@ -415,6 +535,9 @@ class HydraBNUNet06_LSTM4(nn.Module):
         # encoder
         e0s_ = F.relu(self.bn_enc_conv0(self.enc_conv0(x)))
         e0s = self.dropout(e0s_)
+        # ADR-061: append the raw coords to the full-resolution skip fed to every head's decision
+        # layer (dec_conv1). Encoder downsampling below uses e0s (no coords). None => unchanged.
+        e0s_topskip = torch.cat([e0s, coords], 1) if coords is not None else e0s
         e0 = self.pool0(e0s)
         e1s = self.dropout(F.relu(self.bn_enc_conv1(self.enc_conv1(e0))))
         e1 = self.pool1(e1s)
@@ -433,12 +556,14 @@ class HydraBNUNet06_LSTM4(nn.Module):
         H1_d0 = self.dropout(H1_d0)
         H1_d1 = F.relu(
             self.bn_dec_conv1_head1_reg(
-                self.dec_conv1_head1_reg(torch.cat([self.upsample1_head1_reg(H1_d0), e0s], 1))
+                self.dec_conv1_head1_reg(
+                    torch.cat([self.upsample1_head1_reg(H1_d0), e0s_topskip], 1)
+                )
             )
         )
         H1_reg = self.dropout(H1_d1)
         H1_reg = self.dec_conv4_head1_reg(H1_reg)
-        out_reg1 = F.relu(H1_reg)
+        out_reg1 = self._reg_activation(H1_reg)
 
         # H1 class
         H1_d0 = F.relu(
@@ -449,7 +574,9 @@ class HydraBNUNet06_LSTM4(nn.Module):
         H1_d0 = self.dropout(H1_d0)
         H1_d1 = F.relu(
             self.bn_dec_conv1_head1_class(
-                self.dec_conv1_head1_class(torch.cat([self.upsample1_head1_class(H1_d0), e0s], 1))
+                self.dec_conv1_head1_class(
+                    torch.cat([self.upsample1_head1_class(H1_d0), e0s_topskip], 1)
+                )
             )
         )
         H1_class = self.dropout(H1_d1)
@@ -465,12 +592,14 @@ class HydraBNUNet06_LSTM4(nn.Module):
         H2_d0 = self.dropout(H2_d0)
         H2_d1 = F.relu(
             self.bn_dec_conv1_head2_reg(
-                self.dec_conv1_head2_reg(torch.cat([self.upsample1_head2_reg(H2_d0), e0s], 1))
+                self.dec_conv1_head2_reg(
+                    torch.cat([self.upsample1_head2_reg(H2_d0), e0s_topskip], 1)
+                )
             )
         )
         H2_reg = self.dropout(H2_d1)
         H2_reg = self.dec_conv4_head2_reg(H2_reg)
-        out_reg2 = F.relu(H2_reg)
+        out_reg2 = self._reg_activation(H2_reg)
 
         # H2 class
         H2_d0 = F.relu(
@@ -481,7 +610,9 @@ class HydraBNUNet06_LSTM4(nn.Module):
         H2_d0 = self.dropout(H2_d0)
         H2_d1 = F.relu(
             self.bn_dec_conv1_head2_class(
-                self.dec_conv1_head2_class(torch.cat([self.upsample1_head2_class(H2_d0), e0s], 1))
+                self.dec_conv1_head2_class(
+                    torch.cat([self.upsample1_head2_class(H2_d0), e0s_topskip], 1)
+                )
             )
         )
         H2_class = self.dropout(H2_d1)
@@ -497,12 +628,14 @@ class HydraBNUNet06_LSTM4(nn.Module):
         H3_d0 = self.dropout(H3_d0)
         H3_d1 = F.relu(
             self.bn_dec_conv1_head3_reg(
-                self.dec_conv1_head3_reg(torch.cat([self.upsample1_head3_reg(H3_d0), e0s], 1))
+                self.dec_conv1_head3_reg(
+                    torch.cat([self.upsample1_head3_reg(H3_d0), e0s_topskip], 1)
+                )
             )
         )
         H3_reg = self.dropout(H3_d1)
         H3_reg = self.dec_conv4_head3_reg(H3_reg)
-        out_reg3 = F.relu(H3_reg)
+        out_reg3 = self._reg_activation(H3_reg)
 
         # H3 class
         H3_d0 = F.relu(
@@ -513,7 +646,9 @@ class HydraBNUNet06_LSTM4(nn.Module):
         H3_d0 = self.dropout(H3_d0)
         H3_d1 = F.relu(
             self.bn_dec_conv1_head3_class(
-                self.dec_conv1_head3_class(torch.cat([self.upsample1_head3_class(H3_d0), e0s], 1))
+                self.dec_conv1_head3_class(
+                    torch.cat([self.upsample1_head3_class(H3_d0), e0s_topskip], 1)
+                )
             )
         )
         H3_class = self.dropout(H3_d1)

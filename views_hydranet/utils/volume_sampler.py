@@ -105,6 +105,9 @@ class VolumeSampler:
             identity_cols=train_vh.identity_cols,
             feature_cols=train_vh.feature_cols,
             spatial_offset=(new_row_offset, p_col + c0),
+            static_cols=train_vh.static_cols,
+            target_cols=train_vh.target_cols,
+            model_input_cols=train_vh.model_input_cols,
         )
         vh._metadata = replace(vh._metadata, spatial_convention=train_vh.spatial_convention)
 

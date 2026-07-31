@@ -7,7 +7,7 @@ import torch
 
 pytest.importorskip("views_pipeline_core")
 
-from views_pipeline_core.data.prediction_frame import PredictionFrame
+from views_frames import PredictionFrame, SpatialLevel, SpatioTemporalIndex
 
 from views_hydranet.manager.hydranet_manager import HydranetManager
 
@@ -19,7 +19,7 @@ def _pf_dict(values: dict, n: int, month_id: int = 11) -> dict:
     return {
         target: PredictionFrame(
             y_pred=np.full((n, 1), val),
-            identifiers={"time": time_arr, "unit": unit_arr},
+            index=SpatioTemporalIndex(time=time_arr, unit=unit_arr, level=SpatialLevel.PGM),
         )
         for target, val in values.items()
     }
@@ -32,16 +32,16 @@ SUBSET_CFG = {
     "time_steps": 1,
     "input_channels": 3,
     "output_channels": 1,
-    "regression_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "regression_targets": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
     "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
     "identity_cols": ["month_id", "priogrid_gid", "row", "col"],
-    "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
-    "transformations": {"log1p": ["lr_sb_best", "lr_ns_best", "lr_os_best"], "identity": []},
+    "features": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
+    "transformations": {"log1p": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"], "identity": []},
     "derivations": {
         "binary": [
-            {"from": "lr_sb_best", "to": "by_sb_best", "threshold": 0},
-            {"from": "lr_ns_best", "to": "by_ns_best", "threshold": 0},
-            {"from": "lr_os_best", "to": "by_os_best", "threshold": 0},
+            {"from": "lr_ged_sb", "to": "by_sb_best", "threshold": 0},
+            {"from": "lr_ged_ns", "to": "by_ns_best", "threshold": 0},
+            {"from": "lr_ged_os", "to": "by_os_best", "threshold": 0},
         ]
     },
     "height": 4,
@@ -103,9 +103,9 @@ class TestGreenSubsetSymmetryAudit:
                 "priogrid_gid": [1] * 10 + [2] * 10,
                 "row": [0] * 20,
                 "col": [0] * 10 + [1] * 10,
-                "lr_sb_best": [10.0] * 20,
-                "lr_ns_best": [0.0] * 20,
-                "lr_os_best": [0.0] * 20,
+                "lr_ged_sb": [10.0] * 20,
+                "lr_ged_ns": [0.0] * 20,
+                "lr_ged_os": [0.0] * 20,
             }
         )
 
@@ -160,9 +160,9 @@ class TestGreenSubsetSymmetryAudit:
                     mock_eval_cls.return_value.generate_prediction_frames.return_value = [
                         _pf_dict(
                             {
-                                "lr_sb_best": 100.0,
-                                "lr_ns_best": 100.0,
-                                "lr_os_best": 100.0,
+                                "lr_ged_sb": 100.0,
+                                "lr_ged_ns": 100.0,
+                                "lr_ged_os": 100.0,
                                 "by_sb_best": 0.9,
                                 "by_ns_best": 0.9,
                                 "by_os_best": 0.9,
@@ -176,20 +176,20 @@ class TestGreenSubsetSymmetryAudit:
 
                     # GATES
                     # Gate 26 (Completeness): ALL regression predictions are keyed in result
-                    assert "lr_sb_best" in results
-                    assert "lr_ns_best" in results
-                    assert "lr_os_best" in results
+                    assert "lr_ged_sb" in results
+                    assert "lr_ged_ns" in results
+                    assert "lr_ged_os" in results
 
                     # Gate 27 (Target Coverage): Classification targets also present
                     assert "by_sb_best" in results
 
                     # Gate 28 (Identifier Integrity): time and unit identifiers preserved
-                    pf_sb = results["lr_sb_best"][0]
+                    pf_sb = results["lr_ged_sb"][0]
                     assert "time" in pf_sb.identifiers
                     assert "unit" in pf_sb.identifiers
 
                     # Gate 29 (Value Correctness): Prediction was 100.0
-                    np.testing.assert_allclose(pf_sb.y_pred[0, 0], 100.0, rtol=1e-5)
+                    np.testing.assert_allclose(pf_sb.values[0, 0], 100.0, rtol=1e-5)
 
                     # Gate 30 (Multi-target): All 6 targets produce PredictionFrames
                     assert len(results) == 6

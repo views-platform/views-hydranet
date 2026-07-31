@@ -80,8 +80,8 @@ class TestGreen:
 
     def test_green_curriculum_report_subjects(self, capsys):
         """Output contains subject names and threshold values."""
-        subjects = ["lr_sb_best", "lr_ns_best"]
-        maxima = {"lr_sb_best": 100.0, "lr_ns_best": 50.0}
+        subjects = ["lr_ged_sb", "lr_ged_ns"]
+        maxima = {"lr_ged_sb": 100.0, "lr_ged_ns": 50.0}
         config = {
             "total_lessons": 10,
             "windows_per_lesson": 5,
@@ -91,8 +91,8 @@ class TestGreen:
         }
         log_curriculum_report(subjects, maxima, config)
         captured = capsys.readouterr().out
-        assert "lr_sb_best" in captured
-        assert "lr_ns_best" in captured
+        assert "lr_ged_sb" in captured
+        assert "lr_ged_ns" in captured
 
     def test_green_training_summary_healthy(self, capsys, healthy_summary):
         """Output contains HEALTHY verdict."""

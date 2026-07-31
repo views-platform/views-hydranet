@@ -30,6 +30,8 @@ The `VolumeHandler` is the **Custodian** of spatiotemporal data. Its primary pur
 - **Symmetry Preservation:** Ensures that model outputs are "dressed" with the same metadata and identities as the inputs.
 - **Stochastic Preservation:** Guarantees that the sample dimension (`S`) is never silently collapsed or averaged.
 - **Spatial Convention Preservation:** All derived VolumeHandlers (`slice_time`, `extrapolate_time`, `collapse_to_point`, `flip`, `wrap_predictions`) propagate the parent's `spatial_convention` via metadata replacement.
+- **Static Channels (ADR-060, C-153):** `from_df` derives any `config['static_channels']` over the **full grid from geometry** (via `views_hydranet/utils/static_channels.py`) and appends them to `channel_map`/`feature_cols` **before** the North-Up flip — so they are flip-synced (I6) and window-sliced (I4) exactly like the dynamic channels. They are input-only: never a target, never inverse-transformed, never in a prediction frame.
+- **Data-backed static hardening (ADR-060 I7, Epic #218):** a static channel that is a **df column** (not a registered geometry derivation, e.g. `ln_pop`) is filled from the df. Role is resolved **authoritatively by the `STATIC_CHANNEL_DERIVATIONS` registry, not by df-column presence** — a name in both is ambiguous and `from_df` **fails loud** (C-237). A data-backed static **MUST** be complete + finite (a NaN/inf raises — C-235/236), model-range magnitude (`|value| > 1e4` raises as looking raw/unscaled — a sanity rail; real scaling deferred to C-244), and **constant per cell across time** (a time-varying value raises — C-238, reinforcing I3). Geometry statics keep their prior behaviour (byte-identical).
 
 ---
 

@@ -154,8 +154,8 @@ class TestGreen:
             assert set(batch_dict.keys()) == set(stream_dict.keys())
             for target in batch_dict:
                 np.testing.assert_array_equal(
-                    batch_dict[target].y_pred,
-                    stream_dict[target].y_pred,
+                    batch_dict[target].values,
+                    stream_dict[target].values,
                     err_msg=(
                         f"y_pred mismatch for target '{target}': "
                         "batch and streaming paths diverged."

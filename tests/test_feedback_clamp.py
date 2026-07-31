@@ -32,9 +32,9 @@ class _MockModel(torch.nn.Module):
 def _cfg(clamp):
     return {
         "freeze_h": "none",
-        "regression_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+        "regression_targets": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
         "classification_targets": ["c1", "c2", "c3"],
-        "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+        "features": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
         "feedback_clamp_log1p": clamp,
     }
 

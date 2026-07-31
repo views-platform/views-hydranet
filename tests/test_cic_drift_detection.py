@@ -95,3 +95,54 @@ class TestGreenDataFetcherSection6:
             "CIC drift: DataFetcher Section 6 missing blueprint-source-missing "
             "raise behavior (changed from skip in C-50)"
         )
+
+
+class TestGreenDistributionFamilySection6:
+    """DistributionFamily CIC §6 must document the family raise/failure paths (ADR-067)."""
+
+    def test_documents_abstract_typeerror(self):
+        s6 = _read_section6("DistributionFamily").lower()
+        assert "typeerror" in s6 and "abstract" in s6, (
+            "CIC drift: DistributionFamily §6 missing the abstract-instantiation TypeError"
+        )
+
+    def test_documents_activate_channel_count_raise(self):
+        s6 = _read_section6("DistributionFamily").lower()
+        assert "activate" in s6 and "valueerror" in s6 and "n_params" in s6, (
+            "CIC drift: DistributionFamily §6 missing the activate channel-count ValueError "
+            "(activate raises when raw.shape[-1] != n_params)"
+        )
+
+    def test_documents_sampler_channel_mismatch_raise(self):
+        s6 = _read_section6("DistributionFamily").lower()
+        assert "to_cube_samples" in s6, (
+            "CIC drift: DistributionFamily §6 missing the to_cube_samples channel-mismatch guard"
+        )
+
+    def test_documents_generator_determinism(self):
+        s6 = _read_section6("DistributionFamily").lower()
+        assert "generator" in s6 and "determin" in s6, (
+            "CIC drift: DistributionFamily §6 missing the sample() generator-determinism failure"
+        )
+
+
+class TestGreenDistributionRegistrySection6:
+    """DistributionRegistry CIC §6 must document the registry lookup/import failure paths."""
+
+    def test_documents_get_family_valueerror(self):
+        s6 = _read_section6("DistributionRegistry").lower()
+        assert "get_family" in s6 and "valueerror" in s6, (
+            "CIC drift: DistributionRegistry §6 missing get_family(unknown) ValueError"
+        )
+
+    def test_documents_resolve_family_returns_none(self):
+        s6 = _read_section6("DistributionRegistry").lower()
+        assert "resolve_family" in s6 and "none" in s6, (
+            "CIC drift: DistributionRegistry §6 missing resolve_family(unknown) -> None by design"
+        )
+
+    def test_documents_torch_free_import(self):
+        s6 = _read_section6("DistributionRegistry").lower()
+        assert "torch" in s6, (
+            "CIC drift: DistributionRegistry §6 missing the torch-free import guarantee (CRP)"
+        )

@@ -62,10 +62,27 @@ Architectural decisions specific to the HydraNet system.
 - **[046](active/046_symmetric_feature_lifecycle.md)**: Symmetric Feature Lifecycle (Transformations vs. Derivations)
 - **[047](active/047_pandas_free_prediction_output.md)**: Pandas-Free Prediction Output Path
 - **[048](active/048_technical_risk_register.md)**: Technical Risk Register
+- **[049](active/049_sampling_strategy_registry.md)**: Sampling Strategy Registry for Anchor Selection
+- **[054](active/054_tobit_censored_regression_loss.md)**: ADR-054: Tobit Censored-Normal Likelihood as Regression Loss
+- **[055](active/055_learnable_per_target_tobit_sigma.md)**: ADR-055: Learnable Per-Target Tobit Sigma
+- **[056](active/056_scheduled_sampling.md)**: ADR-056: Scheduled Sampling for Autoregressive Training
+- **[059](active/059_predictive_uncertainty_representation.md)**: ADR-059: Predictive Uncertainty — MC-Dropout Now, Learned Posterior as the Target
+- **[060](active/060_static_exogenous_input_channels.md)**: ADR-060: Static & Architectural Input Channels
+- **[061](active/061_coordinate_channels.md)**: ADR-061: Coordinate Channels for Spatial Grounding (CoordConv)
+- **[063](active/063_regression_head_output_activation.md)**: ADR-063: Regression-head output activation — softplus for hurdle bodies, ReLU for standard
+- **[064](active/064_classification_head_output_activation.md)**: ADR-064: Classification-head output activation — raw logits + sigmoid-via-BCE-with-logits
+- **[068](active/068_forecast_composition_arm_naming.md)**: ADR-068: A naming convention for forecast-composition arms (`[th_]gated_<body>[core]`)
+- **[069](active/069_forecast_composition_config_axis.md)**: ADR-069: `forecast_composition` — a first-class config axis for how gate + body compose into the emitted forecast
+- **[070](active/070_rollout_feedback_bloom_mitigation.md)**: ADR-070: `rollout_feedback` — inference-time sample-feedback as the C-113 bloom mitigation
 
 ## [Proposed (Emerging)](./proposed/)
 
-- **[029](proposed/029_geographic_anchors.md)**: Geographic Anchors for Autoregressive Stability
+- **[053](proposed/053_build_and_package_management_tooling.md)**: Build and Package Management Tooling
+- **[057](proposed/057_variational_dropout_autoregressive_stability.md)**: ADR-057: Variational (Consistent-Mask) Dropout for Autoregressive Stability
+- **[062](proposed/062_channel_role_accessors_and_volumehandler_decomposition.md)**: ADR-062: Channel-Role Accessors + VolumeHandler Decomposition
+- **[065](proposed/065_body_mask_training_mask.md)**: ADR-065: `body_mask` — a first-class, validated point-body training-mask setting
+- **[067](proposed/067_distribution_family_subsystem.md)**: ADR-067: A distribution-family subsystem + per-cell sampleable NB/ZINB heads
+- **[071](proposed/071_violet_visitor_datafactory_provider.md)**: ADR-071: violet_visitor's data provider is views-datafactory (`africa_me_legacy`)
 
 ## [Archive (Historical)](./archive/)
 
@@ -85,8 +102,11 @@ Architectural decisions specific to the HydraNet system.
 - **[017](archive/017_superseded_by_017_unified.md)**: Specification for DataFetcher (The Ingestor)
 - **[018](archive/018_superseded_by_017.md)**: Specification for DataSniffer (The Sentinel)
 - **[024](archive/024_model_artifact_evaluator_specification.md)**: Specification for BacktestOrchestrator (The Backtester)
+- **[029](archive/029_geographic_anchors.md)**: Geographic Anchors
 - **[033](archive/033_superseded_by_032.md)**: Naming Invariants and Semantic Intent
 - **[041](archive/041_superseded_by_008.md)**: Symmetric Vector Architecture (Task-Specific Targets)
+- **[050](archive/050_hurdle_loss_architecture.md)**: Hurdle-Decomposed Loss Architecture for Zero-Inflated Conflict Data
+- **[066](archive/066_output_distribution_decomposition.md)**: ADR-066: Rename `output_distribution` to a readable `body` setting (and finally make ZINB nameable)
 - **[023](archive/proposed_023_scalable_reconstruction_polars.md)**: Scalable Spatiotemporal Reconstruction via Polars Bridge
 
 ---

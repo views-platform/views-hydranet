@@ -10,8 +10,9 @@ class FocalLoss(nn.Module):
     Focal Loss for addressing extreme class imbalance in binary classification.
 
     This implementation reduces the relative loss for well-classified examples,
-    putting more focus on hard, misclassified examples. It reduces to
-    Binary Cross Entropy (BCE) when gamma=0 and alpha=0.5.
+    putting more focus on hard, misclassified examples. With gamma=0 and alpha
+    DISABLED (alpha<0) it equals Binary Cross Entropy (BCE); at alpha=0.5 the
+    constant alpha_t=0.5 factor makes it 0.5*BCE (matches torchvision).
 
     Paper: https://arxiv.org/abs/1708.02002
 
@@ -38,11 +39,8 @@ class FocalLoss(nn.Module):
 
         Returns:
             torch.Tensor: Scalar loss if reduction is 'mean' or 'sum',
-                          otherwise a tensor of shape [1, *logits.shape].
+                          otherwise a tensor with the same shape as ``logits``.
         """
-        # Internal unsqueeze matches expected pipeline volume format
-        logits, targets = logits.unsqueeze(0), targets.unsqueeze(0)
-
         # since you are not taking log(p) anywhere, you don't need to clamp it
         # for numerical stability.
         p = torch.sigmoid(logits)

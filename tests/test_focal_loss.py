@@ -41,8 +41,9 @@ def test_focal_loss_reduction_none():
     targets = torch.zeros(2, 2)
 
     loss = fl(logits, targets)
-    # The current implementation unsqueezes(0) inside forward
-    assert loss.shape == (1, 2, 2)
+    # reduction='none' preserves the input shape (the vestigial internal unsqueeze(0) was removed
+    # in the tech-debt-cleanup — it leaked a leading dim no other loss has).
+    assert loss.shape == logits.shape
 
 
 def test_focal_loss_gradient_flow():

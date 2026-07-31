@@ -40,7 +40,7 @@ def _make_multiindex_df(n_times=5, n_cells=4, sorted_=True, include_ocean=False)
     idx = pd.MultiIndex.from_arrays([times, cells], names=INDEX_NAMES)
     df = pd.DataFrame(
         {
-            "lr_sb_best": np.random.rand(len(times)),
+            "lr_ged_sb": np.random.rand(len(times)),
             "feat_a": np.random.rand(len(times)),
             "extra_col": np.ones(len(times)),
         },

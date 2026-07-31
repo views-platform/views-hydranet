@@ -14,7 +14,11 @@ import pytest
 pytest.importorskip("views_pipeline_core")
 
 from views_hydranet.utils.data_fetcher import DataFetcher  # noqa: E402
-from views_hydranet.utils.grid_naming import GRID_ID_ALIASES, grid_id_col  # noqa: E402
+from views_hydranet.utils.grid_naming import (  # noqa: E402
+    GRID_ID_ALIASES,
+    canonicalize_config_grid_name,
+    grid_id_col,
+)
 
 
 # ---- grid_id_col: the single rule (semantic, fail-loud) ----
@@ -72,3 +76,62 @@ def test_standardize_tolerates_either_grid_name_with_stale_config(grid_name):
 def test_ocean_filter_uses_the_derived_grid_col(grid_name):
     out = DataFetcher.standardize_raw_df(_df(grid_name, ocean=True), dict(_STALE_CFG))
     assert (out[grid_name] > 0).all()  # grid==0 ocean dropped via the derived col, not the config
+
+
+# ---- canonicalize_config_grid_name: rewrite the config's grid keys to the DATA's alias ----
+# (GH #144 follow-up: the DataSniffer + VolumeHandler read config['id_col']/identity_cols/
+#  index_names literally, so a stale priogrid_gid config rejects priogrid_id data downstream.)
+def test_canonicalize_rewrites_all_grid_keys():
+    cfg = {
+        "id_col": "priogrid_gid",
+        "identity_cols": ["month_id", "priogrid_gid", "c_id", "row", "col"],
+        "index_names": ["month_id", "priogrid_gid"],
+        "time_col": "month_id",
+    }
+    canonicalize_config_grid_name(cfg, "priogrid_id")
+    assert cfg["id_col"] == "priogrid_id"
+    assert cfg["identity_cols"] == ["month_id", "priogrid_id", "c_id", "row", "col"]
+    assert cfg["index_names"] == ["month_id", "priogrid_id"]
+    assert cfg["time_col"] == "month_id"  # non-grid keys untouched
+
+
+def test_canonicalize_only_touches_alias_members():
+    cfg = {"id_col": "priogrid_id", "identity_cols": ["month_id", "priogrid_id", "c_id"]}
+    before = {"id_col": "priogrid_id", "identity_cols": ["month_id", "priogrid_id", "c_id"]}
+    canonicalize_config_grid_name(cfg, "priogrid_id")  # no-op when already canonical
+    assert cfg == before
+
+
+def test_canonicalize_missing_keys_is_safe():
+    cfg = {"time_col": "month_id"}  # no grid keys at all
+    canonicalize_config_grid_name(cfg, "priogrid_id")  # must not raise
+    assert cfg == {"time_col": "month_id"}
+
+
+def test_canonicalize_from_index_names_end_to_end():
+    # the manager wires this as: canonicalize_config_grid_name(cfg, grid_id_col(df.index.names)).
+    # priogrid_gid config + priogrid_id data -> config's grid keys become priogrid_id.
+    cfg = {
+        "id_col": "priogrid_gid",
+        "identity_cols": ["month_id", "priogrid_gid", "c_id", "row", "col"],
+        "index_names": ["month_id", "priogrid_gid"],
+    }
+    df = _df("priogrid_id")
+    canonicalize_config_grid_name(cfg, grid_id_col(df.index.names))
+    assert cfg["id_col"] == "priogrid_id"
+    assert "priogrid_gid" not in cfg["identity_cols"] and "priogrid_id" in cfg["identity_cols"]
+    assert cfg["index_names"] == ["month_id", "priogrid_id"]
+
+
+def test_canonicalize_dedups_when_both_aliases_present():
+    """C-241 (S8): a config listing BOTH grid aliases must canonicalize to a single deduped entry —
+    not a duplicate that trips a false downstream Index Contract Violation."""
+    cfg = {
+        "id_col": "priogrid_gid",
+        "identity_cols": ["month_id", "priogrid_gid", "priogrid_id", "c_id"],
+        "index_names": ["month_id", "priogrid_gid", "priogrid_id"],
+    }
+    canonicalize_config_grid_name(cfg, "priogrid_id")
+    assert cfg["index_names"] == ["month_id", "priogrid_id"]  # deduped, not 3 entries
+    assert cfg["identity_cols"] == ["month_id", "priogrid_id", "c_id"]
+    assert cfg["identity_cols"].count("priogrid_id") == 1

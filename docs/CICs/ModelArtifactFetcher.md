@@ -52,7 +52,8 @@ The `ModelArtifactFetcher` is the **Retriever** of the HydraNet pipeline. Its pr
 - **SHA-256 Integrity Failure:** Raises `RuntimeError` when the `.pt.sha256` sidecar exists and the hash does not match. Legacy artifacts without a hash file log a WARNING and skip verification.
 - **Legacy Full-Object Artifact:** Logs WARNING with re-save guidance when no `.pt.config.json` sidecar is found. Falls back to `weights_only=False` loading (deprecated). Not a fatal error.
 - **State-Dict Load Failure:** Raises on `load_state_dict()` mismatch when config sidecar is present but architecture has changed. Uses `weights_only=True` for security (no arbitrary code execution).
-- **Checksum Failure:** Fails loud if the extracted timestamp does not match the 15-character spatiotemporal standard.
+- **SHA-256 Checksum Failure:** Fails loud (`ValueError`) when a `.pt.sha256` sidecar exists and the recomputed digest does not match — the artifact is corrupt.
+- **Timestamp extraction (best-effort, not validated):** the traceability timestamp is `stem[-15:]`; a non-standard filename yields a short/garbage string but does NOT raise (a missing artifact fails loud earlier via `FileNotFoundError`). Traceability is recorded on a best-effort basis. Pinned by `test_model_artifact_fetcher.py::test_red_malformed_timestamp_filename`.
 - **Incompatible Weights:** Fails if the artifact is incompatible with the current architecture definition.
 
 ---

@@ -764,8 +764,11 @@ def test_vd_biopsy_feature_dossier_logs_error_with_traceback(vd_active, caplog):
     """C-16: biopsy_feature_dossier must log ERROR with exc_info on failure."""
     import logging
 
+    # A malformed value (y_bar an int, not a series) breaks the plotting aggregation inside the
+    # guarded block — exercises the except path. (A missing-key dict no longer fails: the
+    # horizon-split rewrite reads keys via .get() defaults.)
     with caplog.at_level(logging.ERROR):
-        vd_active.biopsy_feature_dossier("broken", {"bad_metric": [None]}, "broken")
+        vd_active.biopsy_feature_dossier("broken", {"y_bar": 5}, "broken")
     errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
     assert errors, "biopsy_feature_dossier must log ERROR on failure"
     assert any(r.exc_info is not None and r.exc_info[0] is not None for r in errors)

@@ -13,6 +13,8 @@ The smoke test (test_training_smoke_end_to_end) is C-18: the single most
 critical missing test in the codebase.
 """
 
+import hashlib
+
 import numpy as np
 import pytest
 import torch
@@ -24,7 +26,7 @@ from views_hydranet.utils.volume_handler import VolumeHandler
 # ---------------------------------------------------------------------------
 
 T, H, W = 6, 8, 8
-FEATURES = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
+FEATURES = ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"]
 IDENTITY = ["month_id", "priogrid_gid"]
 CHANNEL_MAP = IDENTITY + FEATURES
 N_REG = 3
@@ -217,3 +219,60 @@ def _make_training_context(config, model, criterion, optimizer, scheduler, devic
         config=config,
         device=device,
     )
+
+
+# ── C-119 / C-79: training reproducibility (determinism regression) ──────────────────────────────
+# C-119: model weight init must depend ONLY on the seed — not on how much RNG is consumed
+# before make() runs. The real pipeline consumes a NON-deterministic amount of RNG between the
+# manager seed-lock and make(), so init drifts run-to-run (-> ~20% eval variance). These tests
+# reproduce that with a controlled prior-draw count: RED without the make()-internal re-seed, GREEN
+# with it. Judge determinism by the weight-TENSOR hash (numpy tobytes) — NEVER the .pt file sha,
+# which is a zip embedding non-deterministic mtimes.
+
+
+def _state_dict_hash(state_dict) -> str:
+    """Deterministic hash of model weights by tensor bytes (sorted keys)."""
+    h = hashlib.sha256()
+    for key in sorted(state_dict.keys()):
+        h.update(key.encode())
+        h.update(state_dict[key].detach().cpu().numpy().tobytes())
+    return h.hexdigest()
+
+
+def _make_after_prior_rng(prior_draws: int):
+    """Lock the seed, consume `prior_draws` of torch+numpy RNG (mimic pipeline work between
+    the seed-lock and make()), then build+init the model. Returns make()'s tuple."""
+    from views_hydranet.infrastructure.reproducibility_gate import ReproducibilityGate
+    from views_hydranet.train.training_engine import make
+
+    ReproducibilityGate.lock_entropy(
+        np_seed=TINY_CONFIG["np_seed"], torch_seed=TINY_CONFIG["torch_seed"]
+    )
+    if prior_draws:
+        torch.rand(prior_draws)
+        np.random.rand(prior_draws)
+    return make(TINY_CONFIG, torch.device("cpu"))
+
+
+def test_init_deterministic_regardless_of_prior_rng_state():
+    """C-119: weight init must depend only on the seed, not on RNG consumed before make()."""
+    model_a = _make_after_prior_rng(0)[0]
+    model_b = _make_after_prior_rng(137)[0]
+    assert _state_dict_hash(model_a.state_dict()) == _state_dict_hash(model_b.state_dict()), (
+        "Non-deterministic init: make() init drifts with prior RNG state (C-119)"
+    )
+
+
+def test_training_run_is_reproducible(tiny_handler):
+    """C-79: two same-seed trainings produce identical weights, even when a different amount of RNG
+    is consumed before make() (as the real pipeline does)."""
+    from views_hydranet.train.training_engine import training_loop
+
+    device = torch.device("cpu")
+
+    def run(prior_draws: int) -> str:
+        model, criterion, optimizer, scheduler = _make_after_prior_rng(prior_draws)
+        training_loop(TINY_CONFIG, model, criterion, optimizer, scheduler, tiny_handler, device)
+        return _state_dict_hash(model.state_dict())
+
+    assert run(0) == run(137), "Training not reproducible at a fixed seed (C-119/C-79)"

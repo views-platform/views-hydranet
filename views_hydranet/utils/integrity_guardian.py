@@ -24,7 +24,8 @@ class IntegrityGuardian:
         model: nn.Module, prediction: torch.Tensor, loss: torch.Tensor, context: str = ""
     ) -> None:
         """
-        Scans model weights, predictions, and loss for NaNs, Infs, or Magnitude Explosions.
+        Scans loss, predictions, model weights, and gradients for NaNs, Infs, or Magnitude
+        Explosions; raises RuntimeError (fail-loud) on the first violation found.
         """
 
         # 1. Check Loss (The quickest signal)
@@ -52,9 +53,18 @@ class IntegrityGuardian:
 
             raise RuntimeError(err_msg)
 
-        # 3. Check Gradients (Only if backward was just called)
-        # Note: We only check if grads exist.
+        # 3. Check Weights + Gradients. Weights are scanned at the source (a NaN/Inf parameter
+        # corrupts every subsequent forward before it ever reaches predictions/loss); gradients
+        # are scanned only when a backward has populated them.
         for name, param in model.named_parameters():
+            if not torch.isfinite(param).all():
+                err_msg = (
+                    f"[FATAL WEIGHT CORRUPTION] NaN/Inf detected in weights of {name} at {context}"
+                )
+
+                logger.error(err_msg)
+
+                raise RuntimeError(err_msg)
             if param.grad is not None:
                 if not torch.isfinite(param.grad).all():
                     err_msg = (

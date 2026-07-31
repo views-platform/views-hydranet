@@ -54,18 +54,18 @@ TOY_CONFIG = {
     "spatial_cols": ["row", "col"],
     "row_offset": 0,
     "col_offset": 0,
-    "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "features": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
     "identity_cols": ["month_id", "priogrid_gid", "row", "col"],
     # Outbound / Evaluation (ADR 032 Alignment)
     "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
-    "regression_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "regression_targets": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
     # ADR 046 Compliance
-    "transformations": {"log1p": ["lr_sb_best", "lr_ns_best", "lr_os_best"], "identity": []},
+    "transformations": {"log1p": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"], "identity": []},
     "derivations": {
         "binary": [
-            {"from": "lr_sb_best", "to": "by_sb_best", "threshold": 0},
-            {"from": "lr_ns_best", "to": "by_ns_best", "threshold": 0},
-            {"from": "lr_os_best", "to": "by_os_best", "threshold": 0},
+            {"from": "lr_ged_sb", "to": "by_sb_best", "threshold": 0},
+            {"from": "lr_ged_ns", "to": "by_ns_best", "threshold": 0},
+            {"from": "lr_ged_os", "to": "by_os_best", "threshold": 0},
         ]
     },
 }
@@ -84,9 +84,9 @@ def toy_dataframe():
                         "priogrid_gid": r * 4 + c + 1,
                         "row": r,
                         "col": c,
-                        "lr_sb_best": 0.5,
-                        "lr_ns_best": 0.1,
-                        "lr_os_best": 0.0,
+                        "lr_ged_sb": 0.5,
+                        "lr_ged_ns": 0.1,
+                        "lr_ged_os": 0.0,
                     }
                 )
     return pd.DataFrame(rows)
@@ -123,7 +123,7 @@ class TestGreen:
         # Scaler Mock
         mock_scaler = mock_scaler_cls.return_value
         # Matches regression outputs
-        mock_scaler.configured_columns = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
+        mock_scaler.configured_columns = ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"]
         mock_scaler.fit_transform.side_effect = lambda df: df
         mock_scaler.inverse_transform.side_effect = lambda df: df
         # NEW: Support volume inversion in the mock
@@ -164,7 +164,7 @@ class TestGreen:
 
                 # Mock Orchestrator output — generate_prediction_frames returns
                 # list[dict[str, PredictionFrame]] directly (pandas-free path)
-                from views_pipeline_core.data.prediction_frame import PredictionFrame
+                from views_frames import PredictionFrame, SpatialLevel, SpatioTemporalIndex
 
                 N = len(toy_dataframe)
                 time_arr = toy_dataframe["month_id"].values
@@ -172,12 +172,14 @@ class TestGreen:
                 _pf_per_target = {
                     t: PredictionFrame(
                         y_pred=np.full((N, 1), 0.5),
-                        identifiers={"time": time_arr, "unit": unit_arr},
+                        index=SpatioTemporalIndex(
+                            time=time_arr, unit=unit_arr, level=SpatialLevel.PGM
+                        ),
                     )
                     for t in [
-                        "lr_sb_best",
-                        "lr_ns_best",
-                        "lr_os_best",
+                        "lr_ged_sb",
+                        "lr_ged_ns",
+                        "lr_ged_os",
                         "by_sb_best",
                         "by_ns_best",
                         "by_os_best",
@@ -195,19 +197,19 @@ class TestGreen:
                 assert len(predictions) == 6  # 3 reg + 3 cls targets
 
                 # Verify all target keys present
-                assert "lr_sb_best" in predictions
+                assert "lr_ged_sb" in predictions
                 assert "by_sb_best" in predictions
-                assert "lr_ns_best" in predictions
+                assert "lr_ged_ns" in predictions
 
                 # Verify each value is a non-empty list of PredictionFrames
-                pf_sb = predictions["lr_sb_best"][0]
-                assert pf_sb.y_pred.ndim == 2
-                assert len(pf_sb.y_pred) > 0
+                pf_sb = predictions["lr_ged_sb"][0]
+                assert pf_sb.values.ndim == 2
+                assert len(pf_sb.values) > 0
 
                 # Verify prediction values are numerically valid (C-67)
                 for target, pf_list in predictions.items():
                     pf = pf_list[0]
-                    assert np.isfinite(pf.y_pred).all(), (
+                    assert np.isfinite(pf.values).all(), (
                         f"Target {target}: predictions contain NaN/Inf"
                     )
 
@@ -240,7 +242,7 @@ class TestGreen:
         mock_config_init.return_value.get_config.return_value = TOY_CONFIG
 
         mock_scaler = mock_scaler_cls.return_value
-        mock_scaler.configured_columns = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
+        mock_scaler.configured_columns = ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"]
         mock_scaler.fit_transform.side_effect = lambda df: df
         mock_scaler.inverse_transform.side_effect = lambda df: df
         mock_scaler.inverse_transform_volume.side_effect = lambda vh: vh
@@ -289,17 +291,17 @@ class TestGreen:
                 assert isinstance(forecasts, dict)
                 assert len(forecasts) == 6  # 3 reg + 3 cls targets
 
-                assert "lr_sb_best" in forecasts
+                assert "lr_ged_sb" in forecasts
                 assert "by_sb_best" in forecasts
 
-                pf_sb = forecasts["lr_sb_best"]
-                assert pf_sb.y_pred.ndim == 2
-                assert len(pf_sb.y_pred) > 0
+                pf_sb = forecasts["lr_ged_sb"]
+                assert pf_sb.values.ndim == 2
+                assert len(pf_sb.values) > 0
                 assert "time" in pf_sb.identifiers
                 assert "unit" in pf_sb.identifiers
 
                 # Verify prediction values are numerically valid (C-67)
                 for target, pf in forecasts.items():
-                    assert np.isfinite(pf.y_pred).all(), (
+                    assert np.isfinite(pf.values).all(), (
                         f"Target {target}: forecast contains NaN/Inf"
                     )

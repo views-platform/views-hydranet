@@ -1,0 +1,15 @@
+
+=== lr_sb_best (N=170430, events=1343) ===
+       model       AP    Brier  crps_all  crps_events  crps_none  size_ratio  pos_mcr  thresh
+white_ranger 0.335482 0.006604  0.191189    18.974627   0.041998    0.403646 4.093537     NaN
+
+=== lr_ns_best (N=170430, events=595) ===
+       model       AP    Brier  crps_all  crps_events  crps_none  size_ratio  pos_mcr  thresh
+white_ranger 0.223104 0.003136  0.087899    22.277475    0.01016    0.153646 2.494218     NaN
+
+=== lr_os_best (N=170430, events=709) ===
+       model       AP    Brier  crps_all  crps_events  crps_none  size_ratio  pos_mcr  thresh
+white_ranger 0.158573 0.003899  0.030032     5.987539   0.005145    0.046875 0.759692     NaN
+
+wrote lodestar.csv
+

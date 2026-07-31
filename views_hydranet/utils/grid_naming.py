@@ -32,3 +32,31 @@ def grid_id_col(names: Iterable[str]) -> str:
             f"grid id column: expected exactly one of {GRID_ID_ALIASES}, found {found} in {names}"
         )
     return found[0]
+
+
+def canonicalize_config_grid_name(config: dict, grid: str) -> None:
+    """Rewrite ``config``'s grid-entity keys to ``grid`` — the alias the DATA uses (GH #144).
+
+    ``data_fetcher`` (via :func:`grid_id_col`) already resolves the grid name from the data for its
+    own load-contract, but the ``DataSniffer`` and ``VolumeHandler`` read ``config['id_col']`` /
+    ``identity_cols`` / ``index_names`` **literally** — so a stale ``priogrid_gid`` config rejects
+    ``priogrid_id`` data downstream. This closes that complementary gap: only ``GRID_ID_ALIASES``
+    members are replaced (other columns are untouched), it mutates ``config`` in place, and it is a
+    **no-op** when the config already matches (so ``priogrid_gid`` data + ``priogrid_gid`` config
+    stays byte-identical). Missing keys are tolerated. The manager wires this as
+    ``canonicalize_config_grid_name(cfg, grid_id_col(<data grid names>))``.
+    """
+    if config.get("id_col") in GRID_ID_ALIASES:
+        config["id_col"] = grid
+    for key in ("identity_cols", "index_names"):
+        seq = config.get(key)
+        if seq is not None:
+            # C-241: map aliases to `grid`, then DEDUP (order-preserving). A config listing BOTH
+            # aliases (e.g. a hand-merged migration config) would otherwise collapse to a duplicate
+            # `grid` entry, tripping a false downstream Index Contract Violation.
+            out: list = []
+            for x in seq:
+                mapped = grid if x in GRID_ID_ALIASES else x
+                if mapped not in out:
+                    out.append(mapped)
+            config[key] = out

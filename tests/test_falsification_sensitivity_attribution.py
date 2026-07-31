@@ -25,14 +25,14 @@ PA_PARQUET = MODELS_ROOT / "purple_alien" / "data" / "raw" / "calibration_viewse
 BS_PARQUET = (
     MODELS_ROOT / "bright_starship" / "data" / "raw" / "calibration_datafactory_df.parquet"
 )
-EVENT_COLS = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
+EVENT_COLS = ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"]
 
 CONFIG = {
     "time_col": "month_id",
     "id_col": "priogrid_gid",
     "spatial_cols": ["row", "col"],
     "identity_cols": ["month_id", "priogrid_gid", "c_id", "row", "col"],
-    "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "features": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
     "index_names": ["month_id", "priogrid_gid"],
     "input_channels": 3,
     "row_offset": 87,
@@ -50,15 +50,15 @@ CONFIG = {
     "min_events": 5,
     "steps": list(range(1, 37)),
     "transformations": {
-        "log1p": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+        "log1p": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
         "asinh": [],
         "identity": [],
     },
     "derivations": {
         "binary": [
-            {"from": "lr_sb_best", "to": "by_sb_best", "threshold": 0},
-            {"from": "lr_ns_best", "to": "by_ns_best", "threshold": 0},
-            {"from": "lr_os_best", "to": "by_os_best", "threshold": 0},
+            {"from": "lr_ged_sb", "to": "by_sb_best", "threshold": 0},
+            {"from": "lr_ged_ns", "to": "by_ns_best", "threshold": 0},
+            {"from": "lr_ged_os", "to": "by_os_best", "threshold": 0},
         ],
     },
 }
