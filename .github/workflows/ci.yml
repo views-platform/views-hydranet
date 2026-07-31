@@ -12,7 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
-      - run: uv tool install ruff
+      # Pin to the repo's dev-dep ruff (pyproject: ruff = ">=0.14.14,<0.15.0"). Unpinned `ruff`
+      # installs the latest, which reformats files the pinned version leaves clean (version drift).
+      - run: uv tool install ruff==0.14.14
       - run: ruff check .
       - run: ruff format --check .
 
