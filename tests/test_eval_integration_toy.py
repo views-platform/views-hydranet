@@ -1,7 +1,11 @@
 import pandas as pd
 import pytest
 
-pytest.importorskip("views_evaluation")
+# C-138/F-Z1: guard the SUBMODULE actually imported below, not just the top package. The installed
+# views_evaluation top package imports fine, but `evaluation.evaluation_manager` was removed
+# upstream — a top-level importorskip is a no-op and collection hard-errors on the import. Guarding
+# the submodule makes this file SKIP cleanly (so a plain `pytest` collects without --ignore).
+pytest.importorskip("views_evaluation.evaluation.evaluation_manager")
 
 from views_evaluation.evaluation.evaluation_manager import EvaluationManager
 

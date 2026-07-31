@@ -9,10 +9,19 @@ from pathlib import Path
 
 import pytest
 
-VIOLET_CONFIG = Path(
-    "/home/simon/Documents/scripts/views_platform/views-models/"
-    "models/violet_visitor/configs/config_hyperparameters.py"
+# C-247/F-Z2: platform-relative (NEVER a hardcoded machine path), and skip when the sibling
+# views-models repo is absent (CI / fresh clone) — this is a cross-repo deployment check.
+# parents[2] = the views_platform dir that holds both views-hydranet and views-models.
+VIOLET_CONFIG = (
+    Path(__file__).resolve().parents[2]
+    / "views-models/models/violet_visitor/configs/config_hyperparameters.py"
 )
+
+if not VIOLET_CONFIG.exists():
+    pytest.skip(
+        "sibling views-models repo absent (CI/clone); cross-repo violet config check (C-247).",
+        allow_module_level=True,
+    )
 
 
 def test_violet_config_operating_point_is_8_samples():

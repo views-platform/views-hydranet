@@ -9,12 +9,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 REPO = Path(__file__).resolve().parents[1]
 
 
-@pytest.mark.xfail(strict=True, reason="#95 — stale import breaks bare `pytest tests/` collection")
+# #95/C-138 RESOLVED 2026-07-31 (F-Z1): test_eval_integration_toy now guards the SUBMODULE it
+# imports, so a bare `pytest tests/` collects clean — xfail removed; this is now a live guard.
 def test_suite_collects_clean_without_ignore_flags():
     """SOFT (P4): the channel-role refactor's safety net is "full suite green" (#114/#115 DoD),
     but `pytest tests/` errors during collection (#95: test_eval_integration_toy imports the

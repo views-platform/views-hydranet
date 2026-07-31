@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-07-31                           |
-| Total Concerns    | 244                                  |
-| Open Concerns     | 119                                  |
+| Total Concerns    | 245                                  |
+| Open Concerns     | 120                                  |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 125                                  |
 
@@ -812,6 +812,8 @@ Tier 3 rationale: design-stage methodology gaps for an as-yet-unbuilt head (peer
 `test_eval_integration_toy.py` imports `views_evaluation.evaluation.evaluation_manager.EvaluationManager`, which **no longer exists** in the installed `views_evaluation` — the `EvaluationManager` class/module was removed or renamed upstream (the current package routes evaluation through `native_evaluator` / `EvaluationFrame`). This is **stale-test vs upstream-API drift**, unrelated to the magnitude/rollout program (surfaced incidentally during R2's pre-commit suite run). It is *loud* (ImportError, nonzero exit) — not silent corruption — but because a collection error **interrupts the whole run** by default, a developer or CI seeing "1 error, interrupted" may not realize the other 743 tests never executed, masking unrelated regressions.
 
 Tier 3 rationale: test-integrity / dependency-drift; no model-output impact, but it degrades the suite's value as a regression gate (the masking-by-interrupt hazard). Mitigation: update `test_eval_integration_toy.py` to the current `views_evaluation` entrypoint (likely `native_evaluator` / `EvaluationFrame`), or `pytest.importorskip` it (C-10 pattern) / remove if the toy integration is obsolete; optionally set `--continue-on-collection-errors` in the CI config as defense-in-depth. Tracked in **#95**.
+
+**Update 2026-07-31 (/falsify, F-Z1 — precise cause):** the file *already has* `pytest.importorskip("views_evaluation")` on **line 4**, but it guards the **top-level package** while line 6 imports the **submodule** `views_evaluation.evaluation.evaluation_manager`. The installed `views_evaluation` top package imports fine, so importorskip is a **no-op**, and line 6's submodule import still raises → collection hard-errors despite the guard. **Precise fix: `importorskip("views_evaluation.evaluation.evaluation_manager")`** (skip at the granularity of the thing actually imported). Falsification stub: `tests/test_falsify_zero_surprises.py::test_P2_plain_pytest_collects_without_ignore`.
 
 ---
 
@@ -2040,6 +2042,21 @@ Epic #218 S5 closed the acute half of C-236 (a data-backed static now fails loud
 | Cross-refs | C-99 (reg_latent vs reg dual-path in the same loop), C-113 (freeze_h train/inference state mismatch — a specific instance) |
 
 The model's `forward()` is strictly **per-timestep** (`[B,C,H,W]`); the recurrent T-loop that threads hidden state and feeds back predictions lives **outside** the model, implemented **independently** in training (`_process_sequence`) and in inference (`predict`). They legitimately differ (training has teacher-forcing/scheduled-sampling; inference has the free rollout), but the **shared recurrent-state-threading + feedback semantics must stay behaviorally identical** — and nothing asserts that parity. A change to one (feedback composition, static re-attach, hidden-state carry) that isn't mirrored in the other silently produces a train/inference exposure mismatch (the class of bug C-113's freeze_h note and this session's C-234 both instantiate). **Tier 3 (maintainability/drift, not a guaranteed live corruption):** existing parity anchors cover *emit* but not the *recurrent-loop* contract across train/inference. Mitigation direction (not proposed here): a shared step primitive or a train/inference recurrent-parity characterization test.
+
+---
+
+### C-247: `test_score_v2_horizons.py` is non-portable — hardcoded absolute machine path + runtime-loads gitignored `reports/` tools; green ONLY on this machine
+
+| Field | Value |
+|-------|-------|
+| ID | C-247 |
+| Tier | 2 |
+| Source | /falsify (2026-07-31, F-Z2) |
+| Trigger | Running the suite in **CI** or on a **fresh clone** (or any machine other than this one) — the test errors (path/file absent), not skips |
+| Location | `tests/test_score_v2_horizons.py:20` (`_HN = Path("/home/simon/Documents/…/views-hydranet")`), `:22`/`:27` (`spec_from_file_location` on `reports/2026-07-29_v2_scoreboard_dossier/tools/score_v2_horizons.py`), `:99–100` (`sys.path.insert` + `import lodestar_score` from `reports/2026-07-17_lodestar_eval_dossier/tools`) — both `reports/` paths are **gitignored** (absent in a clone). **Second instance:** `tests/test_falsify_8sample_readiness.py:12` hardcoded `/home/simon/…/views-models/…/config_hyperparameters.py` — an absolute path into the **sibling views-models repo** (worse: cross-repo). |
+| Cross-refs | C-138 / C-165 (test-suite collection integrity / CI `--ignore` masking), C-159 (dossier tools not self-validating) |
+
+A **tracked, committed** test hardcodes an absolute path to one developer's machine and, with **no `exists()`/skip guard**, runtime-loads two tool files that live under the **gitignored `reports/`** tree (research-dossier tooling, not part of the shipped package). It therefore passes **only because those files happen to exist locally**; in CI or any fresh clone it raises (path missing / file-not-found), not skips. **Silent false-green:** reported "full suite green / 1254 passing" this session was partly propped up by machine-local state — this test provides **zero** portable/CI coverage while looking like it does. **Tier 2 (structural fragility, clear trigger = CI/clone, false-confidence):** not model-output corruption, but it degrades the suite's value as a gate and will fail the moment CI runs it. Fix: repo-relative path (`Path(__file__).resolve().parents[1]`) + a module-level skip when the gitignored tool is absent (or relocate the scorer tool under the tracked package so the test is real in CI). Falsification stubs: `tests/test_falsify_zero_surprises.py::test_P5a_*` / `test_P5b_*`.
 
 ---
 

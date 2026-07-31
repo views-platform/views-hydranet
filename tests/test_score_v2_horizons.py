@@ -17,9 +17,19 @@ import numpy as np
 import pandas as pd
 import pytest
 
-_HN = Path("/home/simon/Documents/scripts/views_platform/views-hydranet")
+# C-247/F-Z2: repo-relative (tests/ is one level below the repo root) — NEVER a hardcoded machine
+# path. The scorer + lodestar tools live under the gitignored `reports/` dossier tree, so they are
+# absent in a fresh clone / CI; skip this module cleanly there rather than erroring (false-green).
+_HN = Path(__file__).resolve().parents[1]
 _LODE_DIR = _HN / "reports/2026-07-17_lodestar_eval_dossier/tools"
 _V2_TOOL = _HN / "reports/2026-07-29_v2_scoreboard_dossier/tools/score_v2_horizons.py"
+
+if not _V2_TOOL.exists() or not (_LODE_DIR / "lodestar_score.py").exists():
+    pytest.skip(
+        "v2 scoreboard dossier tools are gitignored (absent in a clone/CI); this test scores "
+        "research-dossier tooling and runs only where reports/ exists (C-247).",
+        allow_module_level=True,
+    )
 
 
 def _load_v2_tool():
