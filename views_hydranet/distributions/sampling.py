@@ -60,6 +60,15 @@ def to_cube_samples(
             f"to_cube_samples: params channel dim {c} != n_reg*n_params "
             f"({n_reg}*{npar}={n_reg * npar})."
         )
+    # C-240: the core (π-stripped body) has NO zero mechanism of its own — it MUST be externally
+    # gated. core=True + self_zeroed would draw the ungated NB core (zeros nowhere) → a dense
+    # ~85%-nonzero forecast on a ~99.7%-zero field. Fail loud rather than silently over-forecast
+    # (HydraNetConfig rejects this upstream; this guards a direct/ad-hoc to_cube_samples call).
+    if core and composition == "self_zeroed":
+        raise ValueError(
+            "to_cube_samples: core=True requires an external gate (composition='soft_gate' or "
+            "'threshold_gate'); core + 'self_zeroed' has no zero mechanism and over-forecasts."
+        )
     # ADR-068 emit_family_core: draw the BULK body (π-stripped for zinb) instead of the self-zeroed
     # sample, for the externally-gated {gated,th_gated}_ZINBcore arms. nb: sample_core == sample.
     draw = family.sample_core if core else family.sample

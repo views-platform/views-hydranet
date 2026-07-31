@@ -159,3 +159,20 @@ def test_legacy_head_with_gate_composition_raises(valid_config_dict, comp):
     )
     with pytest.raises(ValidationError, match="forecast_composition|family|legacy"):
         HydraNetConfig(**cfg)
+
+
+def test_zinbcore_self_zeroed_message_is_core_aware(valid_config_dict):
+    # C-242: the message must blame emit_family_core (π strip), NOT claim zinb "is not
+    # self-zeroed" — zinb IS self-zeroed; misdirecting that wastes debugging time.
+    import pytest
+    from pydantic import ValidationError
+
+    cfg = dict(valid_config_dict)
+    cfg.update(
+        output_distribution="zinb", forecast_composition="self_zeroed", emit_family_core=True
+    )
+    with pytest.raises(ValidationError) as ei:
+        HydraNetConfig(**cfg)
+    msg = str(ei.value)
+    assert "emit_family_core" in msg
+    assert "is not self-zeroed" not in msg

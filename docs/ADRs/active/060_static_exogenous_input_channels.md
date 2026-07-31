@@ -96,6 +96,19 @@ is injected at the model boundary.
   absolute position stays consistent with the data. *(Inherited from ADR-029's "deterministic
   augmentation" requirement — a real correctness condition: coordinates/masks that don't flip with the
   features encode the wrong position.)*
+- **I7 — Data-backed static hardening (Epic #218, C-235/236/237/238).** A **data-backed** static (a
+  df column, e.g. `ln_pop`) — as opposed to a geometry-derived one — is filled from the df like a
+  dynamic feature, and `from_df` **MUST fail loud** when it violates the contract:
+  - **Role is authoritative, not df-presence (C-237):** a name in `STATIC_CHANNEL_DERIVATIONS` is
+    geometry-derived; a name that is a df column (and not registered) is data-backed; a name in
+    **both** is ambiguous → raise. A name in neither → raise (unknown).
+  - **Complete + finite (C-235/236):** a NaN/inf in the source column is a coverage hole that would
+    enter the model as a silent 0-hole or an unguarded NaN → raise.
+  - **Model-range magnitude (C-236):** the FeatureScaler does not scale statics, so a data-backed
+    static is trusted **pre-scaled**; a raw/unscaled magnitude (`|value| > 1e4`) → raise (sanity
+    rail only; proper model-side scaling is deferred — C-244 / #229).
+  - **Constant per cell (C-238, reinforces I3):** a data-backed static that varies across time for a
+    cell → raise (it would be digested time-varying in history but pinned to origin in the rollout).
 
 ### 2.3 Scope
 

@@ -51,4 +51,12 @@ def canonicalize_config_grid_name(config: dict, grid: str) -> None:
     for key in ("identity_cols", "index_names"):
         seq = config.get(key)
         if seq is not None:
-            config[key] = [grid if x in GRID_ID_ALIASES else x for x in seq]
+            # C-241: map aliases to `grid`, then DEDUP (order-preserving). A config listing BOTH
+            # aliases (e.g. a hand-merged migration config) would otherwise collapse to a duplicate
+            # `grid` entry, tripping a false downstream Index Contract Violation.
+            out: list = []
+            for x in seq:
+                mapped = grid if x in GRID_ID_ALIASES else x
+                if mapped not in out:
+                    out.append(mapped)
+            config[key] = out

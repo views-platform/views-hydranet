@@ -121,3 +121,17 @@ def test_canonicalize_from_index_names_end_to_end():
     assert cfg["id_col"] == "priogrid_id"
     assert "priogrid_gid" not in cfg["identity_cols"] and "priogrid_id" in cfg["identity_cols"]
     assert cfg["index_names"] == ["month_id", "priogrid_id"]
+
+
+def test_canonicalize_dedups_when_both_aliases_present():
+    """C-241 (S8): a config listing BOTH grid aliases must canonicalize to a single deduped entry —
+    not a duplicate that trips a false downstream Index Contract Violation."""
+    cfg = {
+        "id_col": "priogrid_gid",
+        "identity_cols": ["month_id", "priogrid_gid", "priogrid_id", "c_id"],
+        "index_names": ["month_id", "priogrid_gid", "priogrid_id"],
+    }
+    canonicalize_config_grid_name(cfg, "priogrid_id")
+    assert cfg["index_names"] == ["month_id", "priogrid_id"]  # deduped, not 3 entries
+    assert cfg["identity_cols"] == ["month_id", "priogrid_id", "c_id"]
+    assert cfg["identity_cols"].count("priogrid_id") == 1

@@ -850,13 +850,25 @@ class HydraNetConfig(BaseModel):
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
-        # (2) a non-self-zeroed family (nb) has no self-zeroing — it MUST declare a gate.
+        # (2) a family with no active self-zeroing — nb (never self-zeroed) OR a core-emitting zinb
+        # (emit_family_core stripped its π) — has no zero mechanism, so it MUST declare a gate.
         if is_family and not is_self_zeroed_family and comp == "self_zeroed":
-            err_msg = (
-                f"output_distribution='{self.output_distribution}' is not self-zeroed, so "
-                f"forecast_composition='self_zeroed' has no zero mechanism (ADR-069, glossary §2 "
-                f"matrix). Declare a gate composition: {list(_GATE_COMPOSITIONS)}."
-            )
+            if self.emit_family_core:
+                # C-242: zinb IS self-zeroed; emit_family_core stripped π. Do NOT claim the family
+                # "is not self-zeroed" — that misdirects debugging.
+                err_msg = (
+                    f"emit_family_core=True strips the structural π from "
+                    f"output_distribution='{self.output_distribution}', so the bare core needs an "
+                    f"EXTERNAL gate; forecast_composition='self_zeroed' has no zero mechanism "
+                    f"(ADR-068/069). Add a gate composition {list(_GATE_COMPOSITIONS)}, or drop "
+                    f"emit_family_core."
+                )
+            else:
+                err_msg = (
+                    f"output_distribution='{self.output_distribution}' is not self-zeroed, so "
+                    f"forecast_composition='self_zeroed' has no zero mechanism (ADR-069, glossary "
+                    f"§2 matrix). Declare a gate composition: {list(_GATE_COMPOSITIONS)}."
+                )
             logger.error(err_msg)
             raise ValueError(err_msg)
         # (3) composition applies ONLY to families; a gate on a legacy head is inert -> RAISE.

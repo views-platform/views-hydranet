@@ -299,16 +299,23 @@ class HydraNetInference:
         the SAME `forecast_composition` as the mean path (so a mean/sample A/B isolates the one
         variable — feedback content — not gated-vs-ungated): self_zeroed => the family's own draw
         (zinb self-zeroes natively, nb is plain); soft_gate / threshold_gate compose the draw with
-        the cls gate `prob`. Drawn on CPU with the caller's seeded generator (S2 #121). Only the
+        the cls gate `prob`. Under `emit_family_core` it draws the π-stripped CORE (`sample_core`),
+        mirroring `_emit_magnitude`'s `mean_core` switch, so the fed-back history matches the
+        emitted core (C-234). Drawn on CPU with the caller's seeded generator (S2 #121). Only the
         fed-back copy uses this; the scored cube is unchanged.
         """
         fam = self._family
         npar = fam.n_params
         n_reg = reg.shape[1] // npar
         reg_cpu = reg.detach().to("cpu")
+        # C-234 (S1): mirror _emit_magnitude — under emit_family_core the AR feedback must draw the
+        # π-stripped CORE (the large body actually emitted for {gated,th_gated}_ZINBcore), NOT the
+        # small self-zeroed draw. Feeding back the self-zeroed body while emitting the core makes
+        # the rollout incoherent (h≥2 on a history the model never emitted). nb: core==sample.
+        draw_fn = fam.sample_core if self.config.get("emit_family_core", False) else fam.sample
         draws = torch.stack(
             [
-                fam.sample(
+                draw_fn(
                     reg_cpu[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1), 1, generator
                 ).squeeze(-1)
                 for j in range(n_reg)

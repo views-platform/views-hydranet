@@ -4,9 +4,9 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-07-29                           |
-| Total Concerns    | 231                                  |
-| Open Concerns     | 106                                  |
+| Last Updated      | 2026-07-31                           |
+| Total Concerns    | 242                                  |
+| Open Concerns     | 117                                  |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 125                                  |
 
@@ -1845,6 +1845,171 @@ The panel's minimal magnitude proposal is a 2-component mixture-density NB head 
 | Cross-refs | C-125 (rollout training — the pushforward/GTF path, distinct), C-113 (the AR pathology TF does NOT fix) |
 
 Two independent panel seats flagged that a teacher-forcing/scheduled-sampling curriculum will not recover the lost long-horizon skill: (a) Salinas — the DeepAR programme reports scheduled sampling gave "no noteworthy accuracy improvement (and slowed convergence)"; (b) Chevillon — teacher-forcing addresses the train/test input-distribution gap (exposure bias) but NOT the compounding of a *mis-specified* one-step law, which is the operative failure when the one-step head is light-tailed on a ξ≈0.8 DGP. **Tier 3 (decision-hygiene, peer of C-126):** no corruption, but under a 2-experiment budget this burns a slot on a lever literature and theory both predict is inert; the horizon lever with headroom is a direct/climatology-residual head (see C-231's experiment), not TF. Fetch Bengio2015 (scheduled sampling) to formally close it if challenged.
+
+---
+
+### C-234: emit_family_core rollout is half-wired — emit uses the large π-stripped core, AR feedback uses the small self-zeroed body → silent verdict corruption
+
+| Field | Value |
+|-------|-------|
+| ID | C-234 |
+| Tier | 1 |
+| Source | code-review (max, 2026-07-31; F0 — verified against source) |
+| Trigger | Trusting any h≥2 / horizon or bloom readout of a `{th_,}gated_ZINBcore` run (`emit_family_core=True`), OR shipping emit_family_core more broadly, before `_sample_feedback` is made core-aware |
+| Location | `views_hydranet/utils/hydranet_inference.py` (`_emit_magnitude`:253 uses `mean_core`; `to_cube_samples(core=)`:793 uses `sample_core`; but `_sample_feedback`:311 draws `fam.sample` — self-zeroed) |
+| Cross-refs | C-113 (AR feedback carrier), C-239 (training-side twin), C-240 (compose guard), C-242 (validator message) |
+
+`_emit_magnitude` and the scored D×K cube correctly switch to the π-stripped **core** under `emit_family_core` (`mean_core`/`sample_core`), but `_sample_feedback` — the DEFAULT AR feedback for family heads (`rollout_feedback` auto-resolves to `'sample'`, :101) — was **not** updated and still draws the **self-zeroed** `fam.sample`. So a th_gated_ZINBcore rollout **emits/scores the large core but feeds back the small self-zeroed body**: every horizon h≥2 is conditioned on a history the model never emitted. `_sample_feedback`'s own docstring ("Mirrors `_emit_magnitude`'s family branch") is the evidence this is an unintended miss, not a choice. **Tier 1 (silent verdict incorrectness):** no error fired; it silently invalidated the h≥2 half of the E3 th_gated_ZINBcore verdict (`2026-07-29_v2_scoreboard_dossier/07` — F2 "no bloom" is untrustworthy, the "stability" may be an artifact of the too-small feedback). h=1 readouts (incl. the decisive F1 crps_events @h1) are unaffected (no feedback at h=1). Fix: mirror the `emit_family_core` branch in `_sample_feedback` (draw `sample_core`), TDD it, re-emit the 3 banked zinb seeds, re-derive F2 + the horizon curve. **Scope: `emit_family_core` defaults False → the shipping gated_NB/ZINB are unaffected** (experiment-only bug).
+
+---
+
+### C-235: data-backed static channel leaves silent 0-holes for cells/months absent from the df (geometry statics fill the full grid; data-backed does not)
+
+| Field | Value |
+|-------|-------|
+| ID | C-235 |
+| Tier | 2 |
+| Source | code-review (max, 2026-07-31) |
+| Trigger | Wiring a data-backed `static_channels` covariate (e.g. datafactory `ln_pop`) whose panel is sparser than the conflict panel — a cell/month present in conflict rows but absent from the covariate |
+| Location | `views_hydranet/utils/volume_handler.py` (~250, data-backed static fill into a zeros volume) |
+| Cross-refs | C-228 (same seam, placement defect), C-229 (covariate taxonomy), C-236/C-237/C-238 (sibling data-backed-static gaps) |
+
+The data-backed static path writes the covariate only at observed `(cell, month)` df rows into a zeros volume, so any study cell or month absent from the df keeps a **silent 0** — unlike geometry statics, which fill the full grid at all months. `ln_pop` (the stated near-term use) can enter the panel later than conflict or cover a subset of cells: a cell with conflict at months 100–500 but population only at 300–500 gets `ln_pop=0` (population≈1) for 100–299, digested as a real covariate and — if the origin slice is 0 — re-injected as 0 across the whole rollout. **Tier 2 (silent, realistic near-term trigger):** no error; corrupts a covariate the model treats as real. `test_data_backed_static_channel.py` uses a fully-dense grid so it cannot catch the hole. Fix: fill-completeness contract (forward/mean-fill or fail-loud on missing support) + a sparse-panel test.
+
+---
+
+### C-236: data-backed static channel bypasses both FeatureScaler guards → raw-magnitude / NaN reaches the encoder unscaled and unchecked
+
+| Field | Value |
+|-------|-------|
+| ID | C-236 |
+| Tier | 2 |
+| Source | code-review (max, 2026-07-31) |
+| Trigger | Declaring a data-backed `static_channels` covariate with raw (unlogged) magnitude — e.g. population in [0, 5e7] — without also listing it under `transformations`/`features` |
+| Location | `views_hydranet/utils/volume_handler.py` (~250, static fill); `views_hydranet/utils/feature_scaler.py` (`configured_columns`:51 iterates transform cols; unmapped/gradient guard:79–83 iterates `config['features']`) |
+| Cross-refs | C-235/C-237/C-238 (sibling gaps), C-228 (same seam) |
+
+Neither FeatureScaler guard covers `static_channels`: the NaN/Inf guard iterates transform columns and the unmapped/gradient-explosion guard iterates `config['features']` — a static channel is in neither. So a raw-magnitude static (population ~1e7) reaches the encoder **unscaled**, dominating every log1p-scaled feature (gradient explosion — the exact failure the unmapped-feature guard exists to prevent), and on a bare `from_df` call (the CoordConv A/B harness/tests) even a **NaN** in the static is uncaught. **Tier 2 (structural, silent-to-loud):** trigger is a specific future covariate wiring; surfaces as training instability, not a clean error. Fix: route static channels through (or parallel to) the scaler's scaling + NaN/unmapped guards.
+
+---
+
+### C-237: geometry-vs-df static precedence silently reclassifies a registered geometry static as data-backed when a same-named df column exists
+
+| Field | Value |
+|-------|-------|
+| ID | C-237 |
+| Tier | 2 |
+| Source | code-review (max, 2026-07-31) |
+| Trigger | Declaring a `static_channels` name that also appears as a df column — a datafactory covariate name matching a `STATIC_CHANNEL_DERIVATIONS` registry key, or names like `row`/`col` (literal df spatial_cols) |
+| Location | `views_hydranet/utils/volume_handler.py` (~246, `geom_static = [n for n in static_channels if n not in df.columns]`) |
+| Cross-refs | C-235/C-236/C-238 (sibling gaps), C-228, C-230 (raw concat primitive) |
+
+`geom_static = [n for n in static_channels if n not in df.columns]` silently reclassifies a registered geometry static as data-backed whenever a same-named df column exists — df-column precedence, no warning. Old code always called `derive(name)` (e.g. a coordinate normalized to [-1,1]); new code silently fills from the raw df column (raw indices / arbitrary units) instead, feeding the model a **different, unnormalized channel** with zero diagnostic. **Tier 2 (silent wrong-channel):** trigger is a realistic name collision under the datafactory covariate namespace. Fix: make the geometry-vs-data-backed classification explicit/authoritative (registry wins, or fail-loud on collision), not df-column-presence.
+
+---
+
+### C-238: no invariant enforces "static = constant per cell across time" — a time-varying df column declared static is fed varying in history but pinned in rollout
+
+| Field | Value |
+|-------|-------|
+| ID | C-238 |
+| Tier | 2 |
+| Source | code-review (max, 2026-07-31) |
+| Trigger | Declaring a genuinely time-varying df column (e.g. monthly population, shdi) as a `static_channel` |
+| Location | `views_hydranet/utils/volume_handler.py` (~250, `from_df` writes per-observed-month with no constancy check); `views_hydranet/utils/hydranet_inference.py` (history digest :447 vs rollout pin :522–524); ADR-060 (I3) |
+| Cross-refs | C-229 (covariate-taxonomy root: static seam re-injects time-varying as constant), C-235/C-236/C-237 (sibling gaps) |
+
+`from_df` writes `df[col].values` per observed month with **no constancy check**, so a time-varying "static" is digested with its true varying trajectory during history (t<origin) but pinned to the origin month during the AR rollout — the same channel treated two different ways in one inference, silently violating ADR-060 I3, with no validator rejecting a non-constant static. **Tier 2 (structural, silent):** distinct from C-229 (which is the taxonomy/design gap) — this is the concrete missing *enforcement*. Fix: a validator that rejects a non-constant-per-cell static (or routes it to a proper dynamic-covariate path once C-229 is designed).
+
+---
+
+### C-239: training-time family feedback/target is not core-aware → once C-234 is fixed, ZINBcore train exposure diverges from eval exposure
+
+| Field | Value |
+|-------|-------|
+| ID | C-239 |
+| Tier | 2 |
+| Source | code-review (max, 2026-07-31) |
+| Trigger | Fixing C-234 (core-aware eval feedback) and then trusting a th_gated_ZINBcore verdict, OR training a zinb with scheduled sampling intending to evaluate it as a core-emit arm |
+| Location | `views_hydranet/train/training_engine.py` (~229, `_family_feedback_log1p` / `_family_target_log1p_mean` — self-zeroed, not core-aware); `emit_family_core` is eval-only / not persisted |
+| Cross-refs | C-234 (eval-side twin), C-99 (reg feedback path), C-113 (AR exposure) |
+
+The training-time family feedback and target use the self-zeroed sample/mean and are not core-aware. `emit_family_core` is an eval-only re-interpretation (not persisted to the artifact), so training cannot consult it. Once C-234 makes the *eval* feedback core-consistent, a scheduled-sampling-trained zinb was exposure-trained on sparse self-zeroed feedback but rolled out on dense core feedback — reintroducing the exposure-bias drift the sample-feedback mechanism (ADR-070) was built to remove. **Tier 2 (structural, latent):** an inherent train/eval mismatch the re-emit-banked-artifact approach introduces; must be named in any finalized ZINBcore verdict and decided (retrain a true core model vs accept the caveat). Fix scope tied to C-234.
+
+---
+
+### C-240: to_cube_samples has no guard for the invalid core=True + composition='self_zeroed' combo → silent ungated core draw
+
+| Field | Value |
+|-------|-------|
+| ID | C-240 |
+| Tier | 3 |
+| Source | code-review (max, 2026-07-31) |
+| Trigger | Calling `to_cube_samples(..., composition='self_zeroed', core=True)` from a hand-built dict / ad-hoc driver that bypasses HydraNetConfig validation |
+| Location | `views_hydranet/distributions/sampling.py` (~65–74; the guard rejects a gated composition missing its gate, not the inverse) |
+| Cross-refs | C-234 (same feature), C-242 (config validator message) |
+
+The `to_cube_samples` guard only rejects a gated composition missing its gate, not `core=True + self_zeroed`. That combo silently draws the ungated, un-self-zeroed NB core (zeros nowhere) → ~85% nonzero / mean~5 on a ~99.7%-zero field, a silent ~8× over-forecast, instead of failing loud. HydraNetConfig validation rejects it upstream, so only an ad-hoc dict bypass hits this. **Tier 3 (fail-loud gap, upstream-mitigated):** add the symmetric guard.
+
+---
+
+### C-241: canonicalize_config_grid_name does not dedup → a config listing both grid aliases collapses to a duplicate, tripping a false Index Contract Violation
+
+| Field | Value |
+|-------|-------|
+| ID | C-241 |
+| Tier | 3 |
+| Source | code-review (max, 2026-07-31; on the #144/#216 grid fix) |
+| Trigger | A config whose `index_names`/`identity_cols` list BOTH `priogrid_gid` and `priogrid_id` (e.g. a hand-merged migration config) |
+| Location | `views_hydranet/utils/grid_naming.py` (~54, maps every alias member to `grid` with no dedup); manager guard checks the DATA not the config |
+| Cross-refs | GH #144/#217 (grid-naming), C-228 |
+
+`canonicalize_config_grid_name` maps every `GRID_ID_ALIASES` member to `grid`, so `['month_id','priogrid_gid','priogrid_id']` collapses to `['month_id','priogrid_id','priogrid_id']`. The manager guard checks the data (`len(_grid_present)==1`), not the config, so it does not prevent this; downstream `standardize_raw_df` builds a length-3 expected index that no longer prefix-matches the length-2 data index → a false "Index Contract Violation" on otherwise-valid data. **Tier 3 (fail-loud false-positive on an unusual config):** dedup while preserving order, or fail-loud if both aliases are present.
+
+---
+
+### C-242: config validator emits a factually-wrong message for zinb + emit_family_core=True + self_zeroed ("zinb is not self-zeroed")
+
+| Field | Value |
+|-------|-------|
+| ID | C-242 |
+| Tier | 4 |
+| Source | code-review (max, 2026-07-31) |
+| Trigger | Enabling `emit_family_core` for the first time and leaving `forecast_composition='self_zeroed'` (forgetting the required external gate) |
+| Location | `views_hydranet/utils/config_initializer.py` (~854, rule (2) message) |
+| Cross-refs | C-234, C-240 |
+
+The validator correctly rejects zinb + emit_family_core + self_zeroed but with the wrong reason: "output_distribution=zinb is not self-zeroed…". zinb **is** self-zeroed — it is `emit_family_core` that stripped π — so the message contradicts the glossary/ADRs and misdirects debugging. **Tier 4 (DX, no correctness impact):** reword to "emit_family_core strips zinb's π; add a gate (soft/threshold) or drop emit_family_core".
+
+---
+
+### C-243: VisualDiagnostics is constructed with the config BEFORE grid canonicalization → viz holds the stale grid alias on renamed (priogrid_id) data
+
+| Field | Value |
+|-------|-------|
+| ID | C-243 |
+| Tier | 4 |
+| Source | code-review (max, 2026-07-31; on the #144/#216 grid fix) |
+| Trigger | Running on datafactory `priogrid_id` data with a legacy `priogrid_gid` config and reading the diagnostic biopsies |
+| Location | `views_hydranet/manager/hydranet_manager.py` (~220/303 viz built with `self.configs`; canonicalization at ~106) |
+| Cross-refs | GH #144/#217, C-241 |
+
+`VisualDiagnostics` is built with `self.configs` before/independent of the pipeline's grid-key canonicalization, so viz internally holds the pre-canonicalization alias on renamed data; any grid column it reads mislabels or misses the grid. **Tier 4 (diagnostic-only, does not corrupt pipeline output):** the biopsy plots are silently wrong on migrated data. Fix: build viz from the canonicalized config, or have viz resolve the grid via `grid_id_col`.
+
+---
+
+### C-244: data-backed statics are NOT scaled by the model FeatureScaler — S5 ships a sanity rail only; proper model-side scaling deferred
+
+| Field | Value |
+|-------|-------|
+| ID | C-244 |
+| Tier | 3 |
+| Source | Epic #218 S5 (#223) implementation decision — the residual of C-236 |
+| Trigger | Wiring a data-backed `static_channels` covariate whose natural scale is genuinely large (>1e4 abs) yet legitimate (e.g. a raw count/GDP covariate we DO want), OR relying on the model to standardize a static the way it standardizes its dynamic features |
+| Location | `views_hydranet/utils/volume_handler.py` (data-backed static validation, `_STATIC_SANITY_ABS_CEIL`); `views_hydranet/utils/feature_scaler.py` (does not touch `static_channels`) |
+| Cross-refs | C-236 (parent — NaN/finiteness half now fixed in S4), C-229 (covariate taxonomy — the proper home for a static-covariate scaling pathway), C-235 |
+
+Epic #218 S5 closed the acute half of C-236 (a data-backed static now fails loud on NaN/inf via S4, and on raw/unscaled magnitude via a hard **sanity rail** `_STATIC_SANITY_ABS_CEIL=1e4`). But the rail is a **stopgap, not real scaling**: it assumes a data-backed static arrives PRE-scaled (log/standardized, e.g. `ln_pop`) and merely rejects an obviously-raw channel. It does **not** (a) fit/apply a proper transform to a static the way FeatureScaler does for dynamic features, nor (b) admit a legitimately large covariate — that would trip the rail. **Tier 3 (deferred design, not a live corruption):** the sanity rail prevents the silent-domination failure today, so this is a maintainability/extensibility gap, not a Tier-1/2 risk. The proper fix — a **static-covariate scaling pathway** (fit on the train window, applied to the volume's static channels, with the guards covering them) — belongs with the covariate-taxonomy redesign (**C-229**), not bolted onto the fill site. GH issue: **#229** (S5 follow-up, Epic #218). Do NOT silently scale statics in `volume_handler` in the meantime — surface the decision.
 
 ---
 

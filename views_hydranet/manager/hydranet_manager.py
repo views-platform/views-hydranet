@@ -108,6 +108,10 @@ class HydranetManager(ForecastingModelManager):
             _cfg = self.configs
             canonicalize_config_grid_name(_cfg, next(iter(_grid_present)))
             self.configs = _cfg
+            # C-243: viz was built with the pre-canonicalization config (before this method), so
+            # refresh its config too — otherwise its biopsies read the stale grid alias on renamed
+            # (priogrid_id) data. Diagnostic-only, but keeps the plots correct on migrated data.
+            viz.config = _cfg
 
         # Diagnostic plot features
         plot_feats = (

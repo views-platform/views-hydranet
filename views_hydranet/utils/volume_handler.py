@@ -240,10 +240,81 @@ class VolumeHandler:
         m_vals_global = np.arange(month_min, month_max + 1)
         vol[..., m_chan_idx] = m_vals_global.reshape(1, 1, month_range)
 
-        # ADR-060 (S7 amendment): a static channel present as a df COLUMN is DATA-BACKED (e.g. a
-        # per-cell ln_pop) and fills from the df like a dynamic feature; a static channel NOT in
-        # the df is GEOMETRY-DERIVED, filled below. Both are input-only, re-injected each AR step.
-        geom_static = [name for name in static_channels if name not in df.columns]
+        # ADR-060 (S7 amendment): classify each static channel's role AUTHORITATIVELY by the
+        # derivation REGISTRY, NOT by df-column presence (C-237). A name in
+        # STATIC_CHANNEL_DERIVATIONS is GEOMETRY-DERIVED (filled below from geometry); a name that
+        # is a df COLUMN (and not registered) is DATA-BACKED (e.g. a per-cell ln_pop, filled from
+        # the df like a dynamic feature). A name in BOTH is ambiguous → fail loud (rename one)
+        # rather than silently taking the raw df column over the derivation. A name in NEITHER is
+        # unknown → fail loud. Both roles are input-only, re-injected each AR step.
+        from views_hydranet.utils.static_channels import STATIC_CHANNEL_DERIVATIONS
+
+        geom_static = []
+        data_backed_static = []
+        for name in static_channels:
+            registered = name in STATIC_CHANNEL_DERIVATIONS
+            in_df = name in df.columns
+            if registered and in_df:
+                raise ValueError(
+                    f"static channel {name!r} is BOTH a registered geometry derivation and a df "
+                    f"column — ambiguous role (C-237). Rename one so the source is unambiguous: "
+                    f"keep it in STATIC_CHANNEL_DERIVATIONS for geometry, OR as a df column for a "
+                    f"data-backed static — not both."
+                )
+            if registered:
+                geom_static.append(name)
+            elif in_df:
+                data_backed_static.append(name)
+            else:
+                raise ValueError(
+                    f"unknown static channel {name!r}: not a df column and not in "
+                    f"STATIC_CHANNEL_DERIVATIONS {sorted(STATIC_CHANNEL_DERIVATIONS)} (C-237). "
+                    f"Register a geometry derivation or provide a df column."
+                )
+
+        # C-235/C-236 (S4): a data-backed static must be COMPLETE + FINITE over the panel. A
+        # NaN/inf is a coverage hole (e.g. population not joined for a cell/month) that would
+        # otherwise enter the model as a silent 0-hole (zeros volume, unwritten position) or an
+        # unguarded NaN — the FeatureScaler guards never see static_channels. Fail loud instead.
+        # C-236 (S5): the model's inputs live in log1p space (~[0, 16]); the FeatureScaler does NOT
+        # scale static_channels. A data-backed static is therefore trusted to arrive PRE-SCALED
+        # (e.g. ln_pop, a standardized covariate). This is a SANITY RAIL, not real scaling — it
+        # catches a raw/unscaled channel (e.g. population in the millions) that would dominate the
+        # encoder. Model-side scaling of statics is the deeper fix, tracked in the risk register /
+        # its GH issue (do NOT silently scale here).
+        _STATIC_SANITY_ABS_CEIL = 1.0e4
+        for name in data_backed_static:
+            vals = df[name].to_numpy(dtype=np.float64)
+            if not np.isfinite(vals).all():
+                n_bad = int((~np.isfinite(vals)).sum())
+                raise ValueError(
+                    f"data-backed static channel {name!r} has {n_bad} non-finite (NaN/inf) "
+                    f"value(s) over {vals.size} panel rows — incomplete coverage would enter the "
+                    f"model as a silent 0-hole or an unguarded NaN. Provide a complete, finite "
+                    f"per-cell value for every panel cell (C-235/C-236)."
+                )
+            peak = float(np.abs(vals).max()) if vals.size else 0.0
+            if peak > _STATIC_SANITY_ABS_CEIL:
+                raise ValueError(
+                    f"data-backed static channel {name!r} has |value| up to {peak:.3g}, far above "
+                    f"the model's log1p-scaled input range — it looks RAW/unscaled and would "
+                    f"dominate the encoder (C-236). Pre-scale it (e.g. a log/standardized "
+                    f"covariate like ln_pop). Model-side scaling of statics is the tracked fix."
+                )
+            # C-238 (S6): a static must be CONSTANT per cell across time (ADR-060 I3). A time-
+            # varying df column declared static is digested varying in history but pinned to the
+            # origin month in the AR rollout — treated two ways in one inference. Fail loud
+            # (decision: REJECT; dynamic-covariate path is out of scope — C-229), not mis-handle.
+            per_cell_spread = df.groupby([y_col, x_col])[name].agg(lambda s: s.max() - s.min())
+            worst = float(per_cell_spread.abs().max()) if len(per_cell_spread) else 0.0
+            if worst > 1e-9:
+                raise ValueError(
+                    f"data-backed static channel {name!r} is NOT constant per cell across time "
+                    f"(max within-cell spread {worst:.3g}) — a static must be time-invariant "
+                    f"(ADR-060 I3). It would be digested time-varying in history but pinned to "
+                    f"origin month in the rollout. Provide one value per cell, or model it as a "
+                    f"dynamic covariate (not yet supported — C-229)."
+                )
         for i, col_name in enumerate(channel_map):
             if col_name in geom_static:
                 continue  # geometry-derived below, not from a df column
