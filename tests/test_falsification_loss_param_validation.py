@@ -26,7 +26,8 @@ class TestF5_CICFieldCountDrift:
         # (n_head_samples etc. accounted above; 2026-07-27 baseline -> 86)
         # ADR-065 amend. 2026-07-28: +body_supervision, +onset_lead, +cessation_lag, -body_mask
         #   (net +2) -> 88
-        CIC_CLAIMED_COUNT = 88
+        # ADR-068 emit_family_core (th_gated_ZINBcore, Epic #167/#183): +emit_family_core -> 89
+        CIC_CLAIMED_COUNT = 89
         actual = len(HydraNetConfig.model_fields)
         assert actual == CIC_CLAIMED_COUNT, (
             f"CIC §3 claims {CIC_CLAIMED_COUNT} fields but HydraNetConfig has {actual}. "

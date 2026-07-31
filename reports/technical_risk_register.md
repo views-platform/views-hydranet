@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-07-31                           |
-| Total Concerns    | 242                                  |
-| Open Concerns     | 117                                  |
+| Total Concerns    | 244                                  |
+| Open Concerns     | 119                                  |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 125                                  |
 
@@ -2010,6 +2010,36 @@ The validator correctly rejects zinb + emit_family_core + self_zeroed but with t
 | Cross-refs | C-236 (parent — NaN/finiteness half now fixed in S4), C-229 (covariate taxonomy — the proper home for a static-covariate scaling pathway), C-235 |
 
 Epic #218 S5 closed the acute half of C-236 (a data-backed static now fails loud on NaN/inf via S4, and on raw/unscaled magnitude via a hard **sanity rail** `_STATIC_SANITY_ABS_CEIL=1e4`). But the rail is a **stopgap, not real scaling**: it assumes a data-backed static arrives PRE-scaled (log/standardized, e.g. `ln_pop`) and merely rejects an obviously-raw channel. It does **not** (a) fit/apply a proper transform to a static the way FeatureScaler does for dynamic features, nor (b) admit a legitimately large covariate — that would trip the rail. **Tier 3 (deferred design, not a live corruption):** the sanity rail prevents the silent-domination failure today, so this is a maintainability/extensibility gap, not a Tier-1/2 risk. The proper fix — a **static-covariate scaling pathway** (fit on the train window, applied to the volume's static channels, with the guards covering them) — belongs with the covariate-taxonomy redesign (**C-229**), not bolted onto the fill site. GH issue: **#229** (S5 follow-up, Epic #218). Do NOT silently scale statics in `volume_handler` in the meantime — surface the decision.
+
+---
+
+### C-245: the entire run lifecycle depends on out-of-repo views-pipeline-core base-class hooks pinned only by a version range, with no in-repo contract test
+
+| Field | Value |
+|-------|-------|
+| ID | C-245 |
+| Tier | 3 |
+| Source | repo-assimilation (2026-07-31, R-A1) |
+| Trigger | Bumping `views-pipeline-core` within the `>=3.0.0,<4.0.0` range (a routine minor/patch update), OR the base `ForecastingModelManager` changing a hook name/signature/dispatch order |
+| Location | `views_hydranet/manager/hydranet_manager.py` (hook overrides: `_train_model_artifact`, `_evaluate_model_artifact`, `_forecast_model_artifact`); base `views-pipeline-core/.../managers/model/model.py` (`_execute_model_tasks` dispatch `:1093–1102`); pin in `pyproject.toml:12` |
+| Cross-refs | C-132, C-133 (the outbound side — our overrides silently drop base lifecycle), C-01 (manager monolith) |
+
+`HydranetManager` inherits its whole train/eval/forecast dispatch from the base `ForecastingModelManager` and plugs into it via *hooks* (`_train_model_artifact`, `_evaluate_model_artifact`, …). That base contract lives out-of-repo and is pinned only by a **version range** (`>=3.0.0,<4.0.0`), and **no in-repo test exercises the base dispatch/hook contract**. A minor pipeline-core bump within the range that renames a hook, changes dispatch order, or alters the flag→method mapping (`--train/--evaluate/--saved/--artifact_name` are consumed *in the base class*, not here) would **silently change or break the run path** with no local signal until a full run. C-132/C-133 are the outbound direction of this same seam (our overrides dropping base lifecycle); this is the **inbound** direction (the base changing under us). **Tier 3 (structural coupling, no silent model-output corruption):** fragility surfaces at run time, not as corrupted forecasts. Mitigation direction (not proposed here): a base-contract smoke/pin.
+
+---
+
+### C-246: the per-timestep recurrent T-loop is implemented twice (training vs inference) with no train/inference parity test
+
+| Field | Value |
+|-------|-------|
+| ID | C-246 |
+| Tier | 3 |
+| Source | repo-assimilation (2026-07-31, R-A2) |
+| Trigger | Editing the recurrent step / feedback handling in ONE of the two loops — e.g. changing hidden-state threading, feedback composition, or static re-injection in `training_engine._process_sequence` without the mirror change in `hydranet_inference.predict` (or vice versa) |
+| Location | `views_hydranet/train/training_engine.py` (`_process_sequence`, the `for i in range(seq_len-1)` step loop) and `views_hydranet/utils/hydranet_inference.py` (`predict`, the `range(origin + time_steps)` causal loop) |
+| Cross-refs | C-99 (reg_latent vs reg dual-path in the same loop), C-113 (freeze_h train/inference state mismatch — a specific instance) |
+
+The model's `forward()` is strictly **per-timestep** (`[B,C,H,W]`); the recurrent T-loop that threads hidden state and feeds back predictions lives **outside** the model, implemented **independently** in training (`_process_sequence`) and in inference (`predict`). They legitimately differ (training has teacher-forcing/scheduled-sampling; inference has the free rollout), but the **shared recurrent-state-threading + feedback semantics must stay behaviorally identical** — and nothing asserts that parity. A change to one (feedback composition, static re-attach, hidden-state carry) that isn't mirrored in the other silently produces a train/inference exposure mismatch (the class of bug C-113's freeze_h note and this session's C-234 both instantiate). **Tier 3 (maintainability/drift, not a guaranteed live corruption):** existing parity anchors cover *emit* but not the *recurrent-loop* contract across train/inference. Mitigation direction (not proposed here): a shared step primitive or a train/inference recurrent-parity characterization test.
 
 ---
 
