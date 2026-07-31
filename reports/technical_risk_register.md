@@ -9,7 +9,7 @@
 | Open Concerns     | 108                                  |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 137                                  |
-| Resolved on PR #216 (in-place ✅, pending merge) | 12 (C-138/234/235/236/237/238/239/240/241/242/243/247) — bannered in §Open, counted as resolved; physical relocation on merge |
+| Resolved on PR #216 (in-place ✅, merged) | 12 (C-138/234/235/236/237/238/239/240/241/242/243/247) — bannered in §Open, counted as resolved; relocated on merge to development |
 
 ---
 
@@ -803,7 +803,7 @@ Tier 3 rationale: design-stage methodology gaps for an as-yet-unbuilt head (peer
 
 ### C-138: Stale test import breaks suite collection — `test_eval_integration_toy` imports a removed `views_evaluation` module
 
-**✅ RESOLVED (fix committed on PR #216, pending merge to `development`) — F-Z1: submodule-level `importorskip` → a bare `pytest` collects clean (#95 gone).**
+**✅ RESOLVED (merged to `development` via PR #216) — F-Z1: submodule-level `importorskip` → a bare `pytest` collects clean (#95 gone).**
 
 | Field | Value |
 |-------|-------|
@@ -1859,7 +1859,7 @@ Two independent panel seats flagged that a teacher-forcing/scheduled-sampling cu
 
 ### C-234: emit_family_core rollout is half-wired — emit uses the large π-stripped core, AR feedback uses the small self-zeroed body → silent verdict corruption
 
-**✅ RESOLVED (fix committed on PR #216, pending merge to `development`) — S1: `_sample_feedback` is core-aware (mirrors `_emit_magnitude`); regression test.**
+**✅ RESOLVED (merged to `development` via PR #216) — S1: `_sample_feedback` is core-aware (mirrors `_emit_magnitude`); regression test.**
 
 | Field | Value |
 |-------|-------|
@@ -1876,7 +1876,7 @@ Two independent panel seats flagged that a teacher-forcing/scheduled-sampling cu
 
 ### C-235: data-backed static channel leaves silent 0-holes for cells/months absent from the df (geometry statics fill the full grid; data-backed does not)
 
-**✅ RESOLVED (fix committed on PR #216, pending merge to `development`) — S4: a data-backed static fails loud on NaN/inf coverage holes (no silent 0-hole).**
+**✅ RESOLVED (merged to `development` via PR #216) — S4: a data-backed static fails loud on NaN/inf coverage holes (no silent 0-hole).**
 
 | Field | Value |
 |-------|-------|
@@ -1893,7 +1893,7 @@ The data-backed static path writes the covariate only at observed `(cell, month)
 
 ### C-236: data-backed static channel bypasses both FeatureScaler guards → raw-magnitude / NaN reaches the encoder unscaled and unchecked
 
-**✅ RESOLVED (fix committed on PR #216, pending merge to `development`) — S4/S5: NaN guard + magnitude sanity rail; deeper model-side scaling deferred (C-244/#229).**
+**✅ RESOLVED (merged to `development` via PR #216) — S4/S5: NaN guard + magnitude sanity rail; deeper model-side scaling deferred (C-244/#229).**
 
 | Field | Value |
 |-------|-------|
@@ -1910,7 +1910,7 @@ Neither FeatureScaler guard covers `static_channels`: the NaN/Inf guard iterates
 
 ### C-237: geometry-vs-df static precedence silently reclassifies a registered geometry static as data-backed when a same-named df column exists
 
-**✅ RESOLVED (fix committed on PR #216, pending merge to `development`) — S3: registry-authoritative role classification; registry∧df collision fails loud.**
+**✅ RESOLVED (merged to `development` via PR #216) — S3: registry-authoritative role classification; registry∧df collision fails loud.**
 
 | Field | Value |
 |-------|-------|
@@ -1927,7 +1927,7 @@ Neither FeatureScaler guard covers `static_channels`: the NaN/Inf guard iterates
 
 ### C-238: no invariant enforces "static = constant per cell across time" — a time-varying df column declared static is fed varying in history but pinned in rollout
 
-**✅ RESOLVED (fix committed on PR #216, pending merge to `development`) — S6: constant-per-cell static invariant enforced (fail-loud on time-varying).**
+**✅ RESOLVED (merged to `development` via PR #216) — S6: constant-per-cell static invariant enforced (fail-loud on time-varying).**
 
 | Field | Value |
 |-------|-------|
@@ -1944,7 +1944,7 @@ Neither FeatureScaler guard covers `static_channels`: the NaN/Inf guard iterates
 
 ### C-239: training-time family feedback/target is not core-aware → once C-234 is fixed, ZINBcore train exposure diverges from eval exposure
 
-**✅ RESOLVED (fix committed on PR #216, pending merge to `development`) — accepted — th_gated_ZINBcore DROPPED, so no core arm ships → the train/eval exposure mismatch is moot.**
+**✅ RESOLVED (merged to `development` via PR #216) — accepted — th_gated_ZINBcore DROPPED, so no core arm ships → the train/eval exposure mismatch is moot.**
 
 | Field | Value |
 |-------|-------|
@@ -1961,7 +1961,7 @@ The training-time family feedback and target use the self-zeroed sample/mean and
 
 ### C-240: to_cube_samples has no guard for the invalid core=True + composition='self_zeroed' combo → silent ungated core draw
 
-**✅ RESOLVED (fix committed on PR #216, pending merge to `development`) — S1: `to_cube_samples` fails loud on core=True + self_zeroed.**
+**✅ RESOLVED (merged to `development` via PR #216) — S1: `to_cube_samples` fails loud on core=True + self_zeroed.**
 
 | Field | Value |
 |-------|-------|
@@ -1978,7 +1978,7 @@ The `to_cube_samples` guard only rejects a gated composition missing its gate, n
 
 ### C-241: canonicalize_config_grid_name does not dedup → a config listing both grid aliases collapses to a duplicate, tripping a false Index Contract Violation
 
-**✅ RESOLVED (fix committed on PR #216, pending merge to `development`) — S8: `canonicalize_config_grid_name` dedups both aliases (no false Index Contract Violation).**
+**✅ RESOLVED (merged to `development` via PR #216) — S8: `canonicalize_config_grid_name` dedups both aliases (no false Index Contract Violation).**
 
 | Field | Value |
 |-------|-------|
@@ -1995,7 +1995,7 @@ The `to_cube_samples` guard only rejects a gated composition missing its gate, n
 
 ### C-242: config validator emits a factually-wrong message for zinb + emit_family_core=True + self_zeroed ("zinb is not self-zeroed")
 
-**✅ RESOLVED (fix committed on PR #216, pending merge to `development`) — S1: validator message corrected for zinb + emit_family_core.**
+**✅ RESOLVED (merged to `development` via PR #216) — S1: validator message corrected for zinb + emit_family_core.**
 
 | Field | Value |
 |-------|-------|
@@ -2012,7 +2012,7 @@ The validator correctly rejects zinb + emit_family_core + self_zeroed but with t
 
 ### C-243: VisualDiagnostics is constructed with the config BEFORE grid canonicalization → viz holds the stale grid alias on renamed (priogrid_id) data
 
-**✅ RESOLVED (fix committed on PR #216, pending merge to `development`) — S8: `VisualDiagnostics` config refreshed after grid canonicalization.**
+**✅ RESOLVED (merged to `development` via PR #216) — S8: `VisualDiagnostics` config refreshed after grid canonicalization.**
 
 | Field | Value |
 |-------|-------|
@@ -2074,7 +2074,7 @@ The model's `forward()` is strictly **per-timestep** (`[B,C,H,W]`); the recurren
 
 ### C-247: `test_score_v2_horizons.py` is non-portable — hardcoded absolute machine path + runtime-loads gitignored `reports/` tools; green ONLY on this machine
 
-**✅ RESOLVED (fix committed on PR #216, pending merge to `development`) — F-Z2: repo/platform-relative paths + skip-if-absent guards → CI-portable (both test files).**
+**✅ RESOLVED (merged to `development` via PR #216) — F-Z2: repo/platform-relative paths + skip-if-absent guards → CI-portable (both test files).**
 
 | Field | Value |
 |-------|-------|
