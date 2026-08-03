@@ -157,3 +157,29 @@ def test_gw_only_scores_the_stratum():
     r = m.gw_stratified_test(nb, mix, strat, oid, n_boot=200, seed=0)
     assert r["mean_diff"] == pytest.approx(1.0)  # only the in-stratum d=+1 counted
     assert r["n_stratum"] == 2
+
+
+# ------------------------------------------------------------------ real-parquet-shape guards
+def test_exante_stratum_accepts_index_keyed_frame():
+    """C-256: the real v2 truth parquet keys (month_id, priogrid_id) in the INDEX, not columns.
+    exante_stratum must reset_index so an index-keyed frame yields the SAME stratum as column-form
+    (the reactive fix this session; guard it so a refactor can't silently break real scoring)."""
+    m = _mod()
+    support = [(200, 1), (200, 2), (200, 3), (200, 4)]
+    col_form = _truth_df()
+    idx_form = col_form.set_index(["month_id", "priogrid_id"])  # mirror the real parquet layout
+    s_col = m.exante_stratum(col_form, support, "sb", window=12)
+    s_idx = m.exante_stratum(idx_form, support, "sb", window=12)
+    assert np.array_equal(s_col, s_idx), "index-keyed frame gave a different stratum (reset_index)"
+    assert list(s_idx.astype(bool)) == [True, False, True, False], s_idx
+
+
+def test_score_gw_v2_repo_root_resolves_frozen_primitives():
+    """C-257: score_gw_v2 resolves the frozen lodestar/rollout tools relative to the repo root
+    (gw_stratified.py.parents[3]). Guard the path so a dossier-depth change is caught here, not as
+    a ModuleNotFoundError at finisher time."""
+    m = _mod()
+    hn = Path(m.__file__).resolve().parents[3]
+    lodestar = hn / "reports/2026-07-17_lodestar_eval_dossier/tools/lodestar_score.py"
+    rollout = hn / "reports/2026-07-25_t0_rollout_skill_dossier/tools/rollout_skill_score.py"
+    assert lodestar.exists() and rollout.exists()

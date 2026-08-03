@@ -5,10 +5,10 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-03                           |
-| Total Concerns    | 253                                  |
+| Total Concerns    | 255                                  |
 | Open Concerns     | 128                                  |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 125                                  |
+| Resolved Concerns | 127                                  |
 | Resolved on PR #216 (in-place ✅, merged) | 12 (C-138/234/235/236/237/238/239/240/241/242/243/247) — bannered in §Open and still physically there (so mechanically counted among the 128 Open above), pending relocation to §Resolved on a future curation pass |
 
 ---
@@ -2397,6 +2397,40 @@ Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/s
 ## Resolved Concerns
 
 <!-- 2026-07-27 register tidy (review-rr strategic): the entries below were resolved-in-place in §Open and physically relocated here. -->
+
+### C-256: `exante_stratum` index-keyed-frame branch was untested — RESOLVED
+
+> **RESOLVED 2026-08-03 (this PR).** Added `test_gw_stratified.py::test_exante_stratum_accepts_index_keyed_frame` — feeds an index-keyed frame (the real v2 truth parquet layout) and asserts the stratum matches column-form. Guards the reactive `reset_index` fix against a silent regression.
+
+| Field | Value |
+|-------|-------|
+| ID | C-256 |
+| Tier | 3 |
+| Source | code-review max (2026-08-03, PR mixture-nb-head → development) |
+| Trigger | Refactoring `exante_stratum` such that the `reset_index` guard is dropped/broken |
+| Location | `reports/2026-07-29_v2_scoreboard_dossier/tools/gw_stratified.py` (`exante_stratum`) |
+| Cross-refs | C-248 (the stratum leakage guard), C-247 (gitignored-tool test skip) |
+
+The `reset_index` branch (the fix for the real v2 truth parquet, whose `month_id`/`priogrid_id` are the INDEX not columns) had no regression test — every fixture in `test_gw_stratified.py` was column-form. A refactor could silently break real-parquet stratification while all tests stayed green — the exact reactive-bug class that crashed the finisher this session. **Tier 3 (test-coverage guarding a silent-nullifier).** Fixed in-PR (see above).
+
+---
+
+### C-257: `score_gw_v2` repo-root path resolution (parents[3]) was unexercised — RESOLVED
+
+> **RESOLVED 2026-08-03 (this PR).** Added `test_gw_stratified.py::test_score_gw_v2_repo_root_resolves_frozen_primitives` — asserts the `parents[3]` repo-root locates `lodestar_score.py` + `rollout_skill_score.py`. Guards the path fix so a dossier-depth change is caught in tests, not as a finisher-time `ModuleNotFoundError`.
+
+| Field | Value |
+|-------|-------|
+| ID | C-257 |
+| Tier | 4 |
+| Source | code-review max (2026-08-03, PR mixture-nb-head → development) |
+| Trigger | Changing the dossier directory depth or the `sys.path` inserts in `score_gw_v2` |
+| Location | `reports/2026-07-29_v2_scoreboard_dossier/tools/gw_stratified.py` (`score_gw_v2`) |
+| Cross-refs | C-256 (peer coverage gap), C-247 |
+
+`score_gw_v2`'s `parents[3]` repo-root resolution + the frozen-primitive imports were never exercised (tests skip when the gitignored `reports/` tree is absent). **Tier 4 (loud failure, not silent — a break surfaces as a clear import error at run time).** Fixed in-PR (see above).
+
+---
 
 ### C-79: No pipeline-level reproducibility comparison test — RESOLVED
 
