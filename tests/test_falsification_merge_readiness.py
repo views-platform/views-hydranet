@@ -10,7 +10,10 @@ Two soft falsifications: lint/format violations in PR files, mixed branch scope.
 
 from __future__ import annotations
 
+import shutil
 import subprocess
+
+import pytest
 
 
 class TestFalsifyP1UncommittedWork:
@@ -47,6 +50,10 @@ class TestFalsifyP1UncommittedWork:
         )
 
 
+@pytest.mark.skipif(
+    shutil.which("ruff") is None,
+    reason="ruff not on PATH (e.g. CI test env); the dedicated lint job covers ruff check/format.",
+)
 class TestFalsifyP2LintAndFormat:
     """
     Probe 2 (Category A — Regression): Lint and format violations in PR files.
