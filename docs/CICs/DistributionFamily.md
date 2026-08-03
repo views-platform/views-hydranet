@@ -42,7 +42,7 @@ contract that registry returns.
 `DistributionFamily(ABC)` declares seven members every family must implement, plus two class attributes:
 
 - `n_params: int` (property) — parameters the head emits per cell, per target (`nb` = 2 `[mu, theta]`;
-  `zinb` = 3 `[+pi]`).
+  `zinb` = 3 `[+pi]`; `mixture_nb` = 5 `[w, mu1, theta1, mu2, theta2]`).
 - `activate(raw[..., n_params]) -> params[..., n_params]` — map raw head channels to constrained
   parameters via link functions (softplus/sigmoid), same shape.
 - `nll(params, target, *, weight=None) -> scalar` — mean negative log-likelihood; `params` are the
