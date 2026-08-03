@@ -4,12 +4,12 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-07-31                           |
-| Total Concerns    | 245                                  |
-| Open Concerns     | 108                                  |
+| Last Updated      | 2026-08-03                           |
+| Total Concerns    | 253                                  |
+| Open Concerns     | 128                                  |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 137                                  |
-| Resolved on PR #216 (in-place ✅, merged) | 12 (C-138/234/235/236/237/238/239/240/241/242/243/247) — bannered in §Open, counted as resolved; relocated on merge to development |
+| Resolved Concerns | 125                                  |
+| Resolved on PR #216 (in-place ✅, merged) | 12 (C-138/234/235/236/237/238/239/240/241/242/243/247) — bannered in §Open and still physically there (so mechanically counted among the 128 Open above), pending relocation to §Resolved on a future curation pass |
 
 ---
 
@@ -954,6 +954,8 @@ Conflict fatality counts are heavy/long-tailed (near power-law); the NB tail dec
 **Update 2026-07-28 (expert-method-review, magnitude-fix panel — strengthened AND partially corrected).** Two refinements from the panel (Koenker, Davison seats): (1) it is not merely that the NB tail is "too light" — it is a **family-level veto**: the EVT tail index of ANY negative binomial is ξ=0 (finite variance for all μ,θ), whereas the truth is ξ≈0.8 (α≈1.25 ⇒ **infinite variance**). No loss reweighting or anchor can move ξ off 0; only an explicit ξ>0 component (pooled peaks-over-threshold GPD splice, DXtreMM/DeepExtrema `Abilasha2022`/`Galib2022`) can represent it. (2) **The premise "QS99 is the binding tail guardrail" is WRONG** — with 99.7% zeros the unconditional 99th percentile is 0 (99<99.7), so QS99 sits *inside the zero mass* and measures the onset boundary, not magnitude. The escalation-detection role this entry assigns to QS99 does not exist. The tail-detectability gap is now tracked as **[[C-224]]** (Tier 1). Cross-ref C-137 (Tweedie/GPD escalation), C-224 (eval tail-blindness).
 
 **Update 2026-07-30 (v2-scoreboard — family-veto EMPIRICALLY CONFIRMED + a caveat on "accept the ceiling"; folds C-MR2).** The 3-seed×300-lesson v2 scoreboard shows `crps_events` **identical across nb / zinb / th_gated** (sb h1 ~15.4–15.7; size_ratio 0.10→0 by h18) — the predicted family-level signature: every NB-family composition is timid in the same way because all share the ξ=0, mean-tied light tail. **But the panel's B-camp (Koenker/Davison/Tong) flag this only demonstrates the ceiling on the conditional MEAN, WITHIN one exponential family — it is NOT demonstrated on a tail-DECOUPLED head** (GPD splice / positives-only upper-quantile / 2-component mixture-density), where the estimable jump-RISK/spread (0.79) could still move a proper, tail-sensitive score. ⇒ **"accept the magnitude ceiling" is currently under-evidenced**: before permanently retiring magnitude work, run one minimal tail-decoupled probe scored on a covariate-stratified proper metric (see C-224 update). Cross-ref C-224, D-13, C-232.
+
+**Update 2026-08-02 (Epic #230 — the tail-decoupled MEAN probe is DONE; caveat narrowed to tail SHAPE).** The 2-component mixture-density NB head (mean-DECOUPLED positives, `μ2=μ1+softplus(Δ)`) was run 3-seed×300-lesson and scored on the pre-registered covariate-stratified proper metric + Giacomini–White (`reports/2026-08-01_tail_decoupled_head_dossier`, EXP-02). **Result: NULL** — significant 3/3 on the ex-ante high-risk stratum but sub-5% (1.5–3.4%), h=1-only; F2/F3/F4 all clean. Critically, F4 was **directly measured**: component-2 is genuinely **alive** (median `w|active` 0.71–0.92, median `μ2:μ1` 14×–690×) — the mean-decoupled tail is *used*, not collapsed. ⇒ the C-MR2 caveat is now **half-discharged**: a mean-decoupled head *within the NB family* was tested and is **insufficient**, so the residual open lever is specifically the **tail SHAPE (ξ>0)**, not mean-decoupling — a 2-NB is asymptotically light-tailed (ξ=0) and cannot reach ξ≈0.8 however large μ2 grows. "Accept the ceiling" remains under-evidenced ONLY for an explicit heavy-tail (GPD-splice / PIG) head; the mean-decoupling escape route is now closed. Cross-ref C-224, C-255 (the forensic that nearly misread F4).
 
 ---
 
@@ -2089,6 +2091,128 @@ A **tracked, committed** test hardcodes an absolute path to one developer's mach
 
 ---
 
+### C-248: ex-ante risk-stratum LEAKAGE in the planned GW ruler extension — the easy path stratifies on the outcome
+
+| Field | Value |
+|-------|-------|
+| ID | C-248 |
+| Tier | 1 |
+| Source | expert-code-review (2026-08-01, upfront design review of Epic #230 S3 #233) |
+| Trigger | Implementing S3 (#233) by building the risk-stratum mask from the in-scope `truth` array in `_metric_row` (the only per-cell outcome available there), rather than from a pre-origin covariate that must be separately loaded |
+| Location | `reports/2026-07-29_v2_scoreboard_dossier/tools/score_v2_horizons.py:78` (`truth = tmap[(m0+h-1,u)]` — the outcome), `score_horizons_v2:126` (`months = {m0+h-1 …}` — pre-origin months are NOT loaded into `tmap`) |
+| Cross-refs | C-224 / C-MR3 (the improper-selection methodology + covariate-stratified proper alternative — this is the concrete code-level instance), C-227 (crps_all zero-hygiene), Lerch2017 (Forecaster's Dilemma) |
+
+The pre-registered success metric for the mixture experiment (#230) is a proper CRPS **stratified on an EX-ANTE covariate** (recent conflict intensity), never on the observed outcome. But inside `_metric_row` the only per-cell array that resembles a stratifier is `truth` — *the outcome itself* — and the recommended recent-intensity covariate (`tmap[(m0-1,u)]`) is **not even loaded**, because `tmap` is populated only for the scored-horizon months `{m0+h-1}`. So the path of least resistance — reach for `truth`, subset on it — silently commits the Forecaster's Dilemma: the "proper" score becomes improper, and the Giacomini–White verdict is invalid **with no error signal**. This is the exact silent-nullifier class that has voided experiments here before. **Tier 1 (silent model-output/verdict corruption).** Fix: extend `months`/`_truth_map` to load the pre-origin month(s) for the stratifier; construct the stratum ONLY from `support`/pre-origin truth; add a **leakage regression test** — permuting the current-horizon `truth` must leave the stratum mask byte-identical.
+
+---
+
+### C-249: mixture `log(w)` gradient explosion at the w→{0,1} collapse — NaN fires in the decisive-negative regime
+
+| Field | Value |
+|-------|-------|
+| ID | C-249 |
+| Tier | 1 |
+| Source | expert-code-review (2026-08-01, upfront design review of Epic #230 S2 #232) |
+| Trigger | Implementing the mixture `nll` with `torch.log(torch.sigmoid(raw_w))` (or `torch.log(w)` after activation) for the mixing-weight log terms, then training until the optimizer drives `w→1` (the pre-registered F4 decisive-negative signal) |
+| Location | planned `views_hydranet/distributions/mixture_negative_binomial.py` (`nll`); contrast the stable link forms in `views_hydranet/distributions/nb_core.py` (`inverse_softplus`) |
+| Cross-refs | C-212 (the same NaN-sprayed-by-the-mean-reduction class in `log_prob_zero`, RESOLVED), C-N/D-15 (the clamp-vs-log-sigmoid disagreement) |
+
+The mixture NLL needs `log w` and `log(1-w)`. Computing them as `log(sigmoid(raw_w))` makes `d/d(raw_w)` blow up as `w→0/1` (`1/w` factor), and the mean reduction then sprays the resulting NaN to every upstream parameter — structurally identical to C-212. The aggravating factor unique to this experiment: **`w→1` is not a rare pathology, it is the central OBSERVABLE** — falsifier F4 (collapse to a single NB) is a *decisive-negative* result. So the run would crash **precisely when it is telling us the answer**, converting a clean negative into an uninterpretable failure. **Tier 1 (silent/half — NaN via the reduction, in the signal regime).**
+
+**CORRECTED FIX (2026-08-01, empirically verified — scratch `gradcheck.py`, during S2 impl):** the original fix ("use log-sigmoid `-softplus(∓raw_w)`, no clamp") was based on a form that is **not cleanly available**: `nll` receives the **activated** `w` (a probability in (0,1)), NOT `raw_w`, so it cannot compute log-sigmoid-from-raw without breaking the `activate→nll` contract. Empirically, at `raw_w=20` (`w==1.0` exactly in fp32): **unclamped** `log1p(-w)` → value `-inf`, grad **NaN** (the real trap); **`log1p(-w.clamp(_EPS,1-_EPS))`** → finite value, grad **0** (safe); `-softplus(raw_w)` → finite, grad -1. ⇒ **Fix = clamp `w` to `[_EPS, 1-_EPS]` before the log, EXACTLY as `ZINBFamily` does for `pi`** (`zero_inflated_negative_binomial.py:74-75`) — NaN-safe and codebase-consistent. The only cost vs log-sigmoid is a *live* gradient at exact saturation (a pinned `w→1` cannot recover) — **accepted**: a collapse to NB is a valid F4 outcome, and ZINB accepts the identical trade for `pi`. Red test at `raw_w = ±20` (exact fp32 saturation — NOT `w=±(1e-6)` / `raw_w≈±14`, where fp32 has not yet saturated so even the unclamped form survives and the test would false-pass). See D-15 (reversed).
+
+---
+
+### C-250: non-deterministic mixture sampler if implemented as select-then-sample instead of draw-both-and-select
+
+| Field | Value |
+|-------|-------|
+| ID | C-250 |
+| Tier | 2 |
+| Source | expert-code-review (2026-08-01, upfront design review of Epic #230 S2 #232) |
+| Trigger | Implementing the mixture `sample()` by choosing a component per cell and then sampling only that component (data-dependent RNG consumption), instead of drawing both components and selecting |
+| Location | planned `views_hydranet/distributions/mixture_negative_binomial.py` (`sample`); must compose with `views_hydranet/distributions/sampling.py:94-100` (per-`(pass,step)` sub-generator seeding, ADR-070) |
+| Cross-refs | C-3 (generator-aware determinism), S2 #121 (the determinism gate), `test_sampler_dxk.py` |
+
+A select-then-sample mixture draws a data-dependent number/order of randoms per cell, which cannot be vectorized deterministically under a single shared `torch.Generator` — breaking the D×K cube's byte-reproducibility, the h=1 golden anchor, and cross-arm comparability (all of which the experiment's verdict relies on). **Tier 2 (structural fragility with a clear trigger; would surface as non-reproducible cubes).** Fix: mirror ZINB's draw-then-mask ordering — `s1=NBCore.sample(mu1,theta1,k,gen); s2=NBCore.sample(mu2,theta2,k,gen); sel=torch.bernoulli(w_k,gen); out=torch.where(sel.bool(), s1, s2)` — a fixed RNG-consumption order (`s1,s2,sel`); add determinism + reduces-to-single-NB-at-`w∈{0,1}` tests.
+
+---
+
+### C-251: mixture `prob_positive` numeric cancellation if built from the direct `prob_zero`
+
+| Field | Value |
+|-------|-------|
+| ID | C-251 |
+| Tier | 2 |
+| Source | expert-code-review (2026-08-01, upfront design review of Epic #230 S2 #232) |
+| Trigger | Implementing the mixture `prob_positive` literally as `1 - (w·NB1(0) + (1-w)·NB2(0))` using the direct `NBCore.prob_zero` (`(theta/(theta+mu))**theta`) |
+| Location | planned `views_hydranet/distributions/mixture_negative_binomial.py` (`prob_positive`); contrast `nb_core.py:120-124` (direct `prob_zero`) and `zero_inflated_negative_binomial.py:124-130` (the stable `-expm1(log_prob_zero)` form) |
+| Cross-refs | C-201 (self-zeroed gate scoring / the stable `prob_positive` lesson NB & ZINB already apply) |
+
+`NBCore.prob_zero` cancels catastrophically for small `mu` / large `theta` (`(θ/(θ+μ))**θ → 1` minus a tiny number), which is exactly why `NegativeBinomialFamily`/`ZINBFamily` compute `prob_positive` via the stable `-expm1(NBCore.log_prob_zero(...))`. A literal mixture `prob_positive` re-introduces the cancellation, silently miscalibrating the gate/occurrence metrics the mixture is scored on. **Tier 2 (silent metric miscalibration on the occurrence side; not the primary CRPS but feeds the verdict).** Fix: `prob_positive = w·(-expm1(NBCore.log_prob_zero(mu1,theta1))) + (1-w)·(-expm1(NBCore.log_prob_zero(mu2,theta2)))`; test precision at small `mu`/large `theta`.
+
+---
+
+### C-252: GW pairing must respect the `del g` OOM guard — retaining both arms' cubes will OOM the real run
+
+| Field | Value |
+|-------|-------|
+| ID | C-252 |
+| Tier | 3 |
+| Source | expert-code-review (2026-08-01, upfront design review of Epic #230 S3 #233) |
+| Trigger | Implementing S3's paired Giacomini–White test by holding both arms' full `(N,S)` sample cubes in memory simultaneously to form the per-cell CRPS differential |
+| Location | `reports/2026-07-29_v2_scoreboard_dossier/tools/score_v2_horizons.py:136` (`del g` per-arm OOM guard in `score_horizons_v2`) |
+| Cross-refs | C-247 (same file — non-portability), the D×K cube disk/RAM guards (`disk_guard.assert_cube_fits`) |
+
+`score_horizons_v2` deliberately frees each arm's `(N,S)` cube (`del g`) before gathering the next, because two full cubes do not fit in RAM. A naive GW implementation that keeps both arms' cubes to compute the per-cell CRPS differential defeats this guard and OOMs on the real 3-seed run. **Tier 3 (fails loud — OOM, not silent — but blocks the run).** Fix: retain only the per-cell CRPS `c` vectors (length `N`, cheap) plus the ex-ante instrument for each arm across the registry loop, and continue to `del` the cubes; compute the GW statistic on the paired `c` vectors.
+
+---
+
+### C-253: GW variance estimator understates SE under the origin×cell panel's serial + spatial dependence → false significance
+
+| Field | Value |
+|-------|-------|
+| ID | C-253 |
+| Tier | 2 |
+| Source | expert-method-review (2026-08-01, Epic #230 S1 #231 — decisiveness; Driscoll–Kraay seat) |
+| Trigger | Implementing S3's Giacomini–White test with a plain Newey–West HAC variance on the pooled origin×cell loss differential |
+| Location | planned GW function in `reports/2026-07-29_v2_scoreboard_dossier/tools/score_v2_horizons.py` |
+| Cross-refs | C-248 (the stratum), C-252 (the pairing), Giacomini2006, Driscoll-Kraay1998 (gap-to-fetch) |
+
+The Giacomini–White loss differential over an origin×cell panel is dependent **both** serially (the 36-horizon autoregressive rollout couples horizons within an origin) **and** cross-sectionally/spatially (neighbouring cells co-activate). A plain Newey–West HAC on the pooled series treats these as far more independent than they are, **understating the standard error → manufacturing significance** → a wrong "mixture beats NB" verdict on a real null. **Tier 2 (silent verdict corruption via an anti-conservative test).** Fix: an **origin-block bootstrap** (resample whole origin-months, preserving within-origin dependence) for the GW statistic, or a two-way spatial+time cluster-robust variance; pre-register the estimator in S5.
+
+---
+
+### C-254: GW power binds on the evaluation ORIGIN count P (time dimension), not the cell cross-section — a thin origin set makes a null uninformative
+
+| Field | Value |
+|-------|-------|
+| ID | C-254 |
+| Tier | 3 |
+| Source | expert-method-review (2026-08-01, Epic #230 S1 #231 — decisiveness; Giacomini seat) |
+| Trigger | Running S6/S7 on a small eval origin set and reading a non-significant GW result as a decisive "within-family null" |
+| Location | `reports/2026-07-29_v2_scoreboard_dossier/tools/score_v2_horizons.py` (`score_horizons_v2` origin/`_support_keys` construction) |
+| Cross-refs | C-253 (the variance estimator), C-227 (crps_all hygiene), Giacomini2006 (asymptotics in P) |
+
+Giacomini–White's asymptotics are in the number of out-of-sample forecast periods `P` (the origin/time dimension), **not** the cell cross-section — so despite ~100k stratum cell-months, the effective inferential sample for the GW test is governed by the number of eval origin-months. The empirical sketch confirms the cross-section is abundant (event-rich stratum, 155–169× density lift), so this is **not** a starvation problem — but a thin origin set would still leave the *time-dimension* underpowered, making a null merely suggestive rather than decisive. **Tier 3 (decision/measurement hygiene, peer of C-227):** not silent corruption, but headlining a small-`P` null as "the wall is real within-family" over-claims. Fix: use every origin with ≥36 futures; **report `P`** in the verdict; pre-register that a null at small `P` is suggestive-not-decisive.
+
+---
+
+### C-255: param-health forensic hardcodes the ZINB (μ,θ,π) param layout → the mixture head is silently MISLABELED (and its tail component invisible)
+
+| Field | Value |
+|-------|-------|
+| ID | C-255 |
+| Tier | 2 |
+| Source | user-surfaced forensic review (2026-08-02, Epic #230 S7 — mixture nb-vs-NB verdict; two REGRESSION FORENSIC lr_ns_best L300 plots) |
+| Trigger | Reading a ≥3-param family's REGRESSION/CLASSIFICATION FORENSIC plot (or its biopsy dossier) and interpreting the μ̄ / θ-CoV / π rows as those quantities for any family whose `activate()` idx0/1/2 are not μ/θ/π |
+| Location | `views_hydranet/utils/training_forensics.py:133-138` (`_param_health_stat_names`) + `:177-191` (`_reduce_param_health`, idx0→mu_bar, idx1→theta_cov, idx2→pi_bar); `views_hydranet/utils/visual_diagnostics.py:943-1022` (row labels μ̄/θ-CoV/π hardcoded) |
+| Cross-refs | C-213 (family-aware forensics — this is a gap in it), the mixture family `views_hydranet/distributions/mixture_negative_binomial.py` activate order `[w,μ1,θ1,μ2,θ2]`, Epic #230 F4 falsifier |
+
+`_reduce_param_health` hardcodes the ZINB semantics — `mu_bar=mean(idx0)`, `theta_cov=CoV(idx1)`, `pi_bar=mean(idx2)` — and the plotter hardcodes the labels "μ̄ conditional magnitude / θ CoV / π structural zero". Neither is family-aware. For **mixture_nb** (`activate` = `[w, μ1, θ1, μ2, θ2]`) the forensic therefore plots **mean(w) under the "μ̄" label, CoV(μ1) under "θ CoV", mean(θ1) under "π"**, and **drops μ2, θ2, and (1−w) entirely** — the entire tail/second component is invisible. **Tier 2 (a misleading diagnostic can drive a wrong scientific verdict — the exact failure mode this repo has been burned by):** in Epic #230 the mixture forensic's "μ̄→1.0" is really **field-mean w→1.0**, which reads as "body magnitude saturates" but actually concerns the mixing weight, and — being a field-mean dominated by ~99.3% zeros — cannot distinguish component-2 dead-everywhere from alive-only-on-the-tail (the F4 question). It nearly anchored an over-hasty "F4 clean". Fix: make `_param_health_stat_names`/`_reduce_param_health` + the plotter **family-aware** (label channels by the family's own `param_names`/`activate` order; for the mixture add `w̄`, `w|active`, `min(w|active)`, `μ2:μ1`), or at minimum fail-loud/annotate when `n_params` doesn't match the μ/θ/π template. Interim mitigation: the direct `w|active` probe (Epic #230 S7) reads component-2 activity correctly.
+
+---
+
 ## Disagreements
 
 ### D-14: is the exogenous-covariate program worth a conditioning subsystem?
@@ -2100,6 +2224,18 @@ A **tracked, committed** test hardcodes an absolute path to one developer's mach
 | Perspectives | **Parsimony/ceiling** (Box + conflict-diffusion, Schutte2011/Buhaug2008): crps_all is INERT to every static channel tried (0.142 across baseline / `ln_pop` / placebo); conflict's spatial persistence makes a static per-cell prior largely redundant with the cell's own history; the magnitude wall is the family/tail (C-149) — a FiLM/TFT covariate subsystem can at best sharpen OCCURRENCE, never the CRPS headline → possibly polishing brass. **Forecasting** (Lim/Salinas): occurrence is *half* the problem (the gate); a sharper gate has decision value for early warning even if CRPS is tail-bound. |
 | Resolution | **Open — keep live.** Gate any covariate-conditioning-seam build (C-228/C-229/C-230 fixes) on a **demonstrated, decision-relevant occurrence gain** from the Step-1 encoder-only diagnosis; if population buys no real occurrence lift once the seam defect is removed, park the covariate program (the parsimony seat wins). |
 | Cross-refs | C-149 (NB ξ=0 magnitude veto), C-224 (eval tail-blindness), C-228 (the seam defect), C-229/C-230, [[amount-ceiling]] |
+
+---
+
+### D-15: mixing-weight log — clamp-and-log (ZINB precedent) vs log-sigmoid
+
+| Field | Value |
+|-------|-------|
+| ID | D-15 |
+| Source | expert-code-review (2026-08-01, Epic #230 S2 #232 — Ousterhout/Hickey vs Nygard/Martin/Beck) |
+| Perspectives | **Clamp-and-log (consistency/simplicity):** follow the shipped ZINB template `torch.log(pi.clamp(_PI_EPS, 1-_PI_EPS))` (`zero_inflated_negative_binomial.py:74-75`) for the mixture's `log w` too — one idiom across families, minimal surface. **Log-sigmoid (collapse-regime safety):** ZINB's `pi` rarely pins, so the clamp is benign there; the mixture's `w→1` collapse is the *central pre-registered observable* (F4), so the mixing-weight log MUST use `-softplus(∓raw_w)` to keep the gradient finite in the signal regime. |
+| Resolution | **REVERSED 2026-08-01 (empirically, during S2 impl) → clamp-and-log (ZINB precedent) IS correct.** The initial resolution toward log-sigmoid was wrong on two counts: (1) `nll` receives the *activated* `w`, not `raw_w`, so log-sigmoid-from-raw isn't available without breaking the family contract; (2) `gradcheck.py` shows **clamp-and-log is NaN-safe** at exact saturation (finite value, grad 0) — the trap is *unclamped* `log(w)`, not "not-log-sigmoid." So the mixture clamps `w` before the log exactly as ZINB clamps `pi`. The only concession (dead gradient at exact `w=1`) is acceptable: a pinned collapse is a valid F4 decisive-negative. See the corrected C-249. |
+| Cross-refs | C-249 (the Tier-1 concern this resolves), C-212 (the analogous log-domain NaN class) |
 
 ---
 
