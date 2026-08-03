@@ -1,0 +1,57 @@
+{
+  "verdict": "NULL (within-family uncracked; heavy-tail UNtested)",
+  "n_seeds": 3,
+  "sb_h1_seeds_passing_primary": 0,
+  "primary_rule": ">=5% stratified-CRPS reduction, origin-block-bootstrap CI excludes 0, >=2/3 seeds",
+  "sb_h1_rows": [
+    {
+      "mean_diff": 0.06649465306623009,
+      "pct_reduction": 0.021445703531556726,
+      "ci_lo": 0.026580570737755754,
+      "ci_hi": 0.11005527806542634,
+      "p_boot": 0.0,
+      "n_stratum": 6302,
+      "n_origins": 13,
+      "significant": true,
+      "target": "sb",
+      "h": 1,
+      "crps_stratum_nb": 3.1006048819235588,
+      "crps_stratum_mix": 3.0341102288573283,
+      "stratum_frac": 0.03697705802968961,
+      "seed": 42
+    },
+    {
+      "mean_diff": 0.046550245779504104,
+      "pct_reduction": 0.015051166921719355,
+      "ci_lo": 0.013366507248787081,
+      "ci_hi": 0.08408171551454911,
+      "p_boot": 0.003,
+      "n_stratum": 6302,
+      "n_origins": 13,
+      "significant": true,
+      "target": "sb",
+      "h": 1,
+      "crps_stratum_nb": 3.092799782343154,
+      "crps_stratum_mix": 3.04624953656365,
+      "stratum_frac": 0.03697705802968961,
+      "seed": 43
+    },
+    {
+      "mean_diff": 0.10900979855369601,
+      "pct_reduction": 0.03447431459955785,
+      "ci_lo": 0.06887062441457142,
+      "ci_hi": 0.1472297008031912,
+      "p_boot": 0.0,
+      "n_stratum": 6302,
+      "n_origins": 13,
+      "significant": true,
+      "target": "sb",
+      "h": 1,
+      "crps_stratum_nb": 3.1620584722254095,
+      "crps_stratum_mix": 3.0530486736717135,
+      "stratum_frac": 0.03697705802968961,
+      "seed": 44
+    }
+  ],
+  "honest_scope": "A NULL means mean-decoupled WITHIN-FAMILY (light-tail) flexibility does not crack the wall \u2014 NOT that the wall is real; the heavy-tail head remains untested. Report P (n_origins) per row."
+}

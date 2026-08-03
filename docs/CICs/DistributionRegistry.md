@@ -36,8 +36,9 @@ decorator, chosen at the v1 `/expert-code-review` for fail-loud discovery and or
 
 ## 3. Responsibilities and Guarantees
 
-- `DISTRIBUTION_REGISTRY: dict[str, Callable[[], DistributionFamily]]` — the map. A-S3 (#170) adds one
-  entry `"nb"`; A-S4 (#171) adds one entry `"zinb"`. Empty until then.
+- `DISTRIBUTION_REGISTRY: dict[str, Callable[[], DistributionFamily]]` — the map. A-S3 (#170) adds
+  `"nb"`; A-S4 (#171) `"zinb"`; Epic #230 S2 (#232) `"mixture_nb"` (a 5-param 2-component NB mixture,
+  `self_zeroed=False` → gated like `nb`). Empty until A-S3.
 - `_lazy(module, cls)` returns a factory that `importlib`-imports
   `views_hydranet.distributions.<module>.<cls>` on first call — deferring the torch-heavy import.
 - `family_names() -> frozenset[str]` — the registered names, derived live from the dict keys (one
