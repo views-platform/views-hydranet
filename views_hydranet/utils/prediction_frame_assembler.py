@@ -8,8 +8,9 @@ Extracted from VolumeHandler to:
 - Partially resolve C-37 (SAP): partial abstraction at the entity/framework boundary
 
 The assembler is stateless. Construct once per inference run or per call —
-both are valid. The lazy import of PredictionFrame is isolated to method
-bodies so this module imports cleanly without views_pipeline_core installed.
+both are valid. The lazy import of the views_frames PredictionFrame leaf is
+isolated to method bodies so this module imports cleanly even if views_frames
+is absent (and to keep the entity/framework boundary one-directional).
 """
 
 import logging
@@ -60,7 +61,7 @@ class PredictionFrameAssembler:
             Keys are target names; value is one PredictionFrame per target
             covering this rolling-origin window.
         """
-        from views_pipeline_core.data.prediction_frame import PredictionFrame  # lazy
+        from views_frames import PredictionFrame  # lazy (pipeline-core 3.0.0 re-exports this leaf)
 
         duration = signal.data.shape[signal.get_axis_idx("T")]
 
@@ -166,9 +167,14 @@ class PredictionFrameAssembler:
         flip, mask) then writes directly into numpy arrays — no Polars, no
         pandas, no list-in-cell overhead.
         """
+        # views-frames PredictionFrame takes a typed SpatioTemporalIndex (level REQUIRED), not an
+        # identifiers dict (pipeline-core #188 / 3.0.0). hydranet is grid-based → SpatialLevel.PGM.
+        from views_frames import SpatialLevel, SpatioTemporalIndex
+
         temp_data, indices, time_flat, unit_flat = self._valid_cell_indices(signal, provider)
         has_samples = "S" in signal.axes
-        identifiers = {"time": time_flat, "unit": unit_flat}
+        # Index is identical across targets (shared time_flat/unit_flat) — build once.
+        index = SpatioTemporalIndex(time=time_flat, unit=unit_flat, level=SpatialLevel.PGM)
 
         result: Dict[str, Any] = {}
         for target in all_targets:
@@ -179,8 +185,5 @@ class PredictionFrameAssembler:
             else:
                 y_pred = temp_data[indices[0], indices[1], indices[2], chan_idx]  # (N,)
                 y_pred = y_pred.reshape(-1, 1)  # (N, 1)
-            result[target] = PredictionFrame(
-                y_pred=y_pred,
-                identifiers=identifiers,
-            )
+            result[target] = PredictionFrame(y_pred=y_pred, index=index)
         return result

@@ -36,6 +36,10 @@ class ScheduledSamplingMixer:
             raise ValueError(f"epsilon_max must be in [0, 1], got {epsilon_max}")
         if schedule == "exponential" and k is not None and k >= 1.0:
             raise ValueError(f"exponential schedule requires k < 1.0, got {k}")
+        # Bengio 2015 inverse-sigmoid decay requires k >= 1 (k<1 is a wrong schedule shape; k=0
+        # would divide by zero inside get_epsilon). Symmetric to the exponential k<1 guard above.
+        if schedule == "inverse_sigmoid" and k is not None and k < 1.0:
+            raise ValueError(f"inverse_sigmoid schedule requires k >= 1.0, got {k}")
         self.schedule = schedule
         self.epsilon_max = epsilon_max
         self.warmup_lessons = warmup_lessons or 0

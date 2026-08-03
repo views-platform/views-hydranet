@@ -18,7 +18,7 @@ import torch
 
 pytest.importorskip("views_pipeline_core")
 
-from views_pipeline_core.data.prediction_frame import PredictionFrame
+from views_frames import PredictionFrame
 
 from views_hydranet.manager.hydranet_manager import HydranetManager
 
@@ -28,18 +28,18 @@ INTEGRATION_CFG = {
     "time_steps": 1,
     "input_channels": 3,
     "output_channels": 1,
-    "regression_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "regression_targets": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
     "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
     "identity_cols": ["month_id", "priogrid_gid"],
-    "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "features": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
     "transformations": {
-        "identity": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+        "identity": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
     },
     "derivations": {
         "binary": [
-            {"from": "lr_sb_best", "to": "by_sb_best", "threshold": 0},
-            {"from": "lr_ns_best", "to": "by_ns_best", "threshold": 0},
-            {"from": "lr_os_best", "to": "by_os_best", "threshold": 0},
+            {"from": "lr_ged_sb", "to": "by_sb_best", "threshold": 0},
+            {"from": "lr_ged_ns", "to": "by_ns_best", "threshold": 0},
+            {"from": "lr_ged_os", "to": "by_os_best", "threshold": 0},
         ]
     },
     "height": 4,
@@ -96,9 +96,9 @@ def _make_history_df(n_months=12, h=4, w=4):
                         "priogrid_gid": r * w + c + 1,
                         "row": r,
                         "col": c,
-                        "lr_sb_best": 1.0,
-                        "lr_ns_best": 1.0,
-                        "lr_os_best": 1.0,
+                        "lr_ged_sb": 1.0,
+                        "lr_ged_ns": 1.0,
+                        "lr_ged_os": 1.0,
                     }
                 )
     return pd.DataFrame(rows)
@@ -155,15 +155,15 @@ class TestGreen:
             results = manager._evaluate_model_artifact(eval_type="calibration")
 
         assert isinstance(results, dict)
-        assert "lr_sb_best" in results
+        assert "lr_ged_sb" in results
         assert "by_sb_best" in results
         for target, pf_list in results.items():
             assert isinstance(pf_list, list)
             assert len(pf_list) >= 1
             pf = pf_list[0]
             assert isinstance(pf, PredictionFrame)
-            assert pf.y_pred.ndim == 2
-            assert pf.y_pred.shape[1] == 1  # point mode
+            assert pf.values.ndim == 2
+            assert pf.values.shape[1] == 1  # point mode
 
     def test_forecast_with_real_components(self, tmp_path):
         """Full forecast path with real components."""
@@ -188,10 +188,10 @@ class TestGreen:
             results = manager._forecast_model_artifact()
 
         assert isinstance(results, dict)
-        assert "lr_sb_best" in results
+        assert "lr_ged_sb" in results
         for target, pf in results.items():
             assert isinstance(pf, PredictionFrame)
-            assert pf.y_pred.ndim == 2
+            assert pf.values.ndim == 2
 
 
 class TestBeige:
@@ -219,9 +219,9 @@ class TestBeige:
 
             results = manager._evaluate_model_artifact(eval_type="calibration")
 
-        pf = results["lr_sb_best"][0]
-        assert pf.y_pred.shape[1] == 3, (
-            f"Stochastic mode must preserve S=3 samples, got shape {pf.y_pred.shape}"
+        pf = results["lr_ged_sb"][0]
+        assert pf.values.shape[1] == 3, (
+            f"Stochastic mode must preserve S=3 samples, got shape {pf.values.shape}"
         )
 
     def test_point_mode_collapses_to_single_column(self, tmp_path):
@@ -241,9 +241,9 @@ class TestBeige:
 
             results = manager._evaluate_model_artifact(eval_type="calibration")
 
-        pf = results["lr_sb_best"][0]
-        assert pf.y_pred.shape[1] == 1, (
-            f"Point mode must collapse to 1 column, got shape {pf.y_pred.shape}"
+        pf = results["lr_ged_sb"][0]
+        assert pf.values.shape[1] == 1, (
+            f"Point mode must collapse to 1 column, got shape {pf.values.shape}"
         )
 
 

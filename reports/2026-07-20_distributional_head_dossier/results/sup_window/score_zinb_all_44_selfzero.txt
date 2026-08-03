@@ -1,0 +1,63 @@
+### lodestar zinb_all_44_selfzero
+
+=== lr_sb_best (N=170430, events=1320) ===
+               model       AP    Brier  crps_all  crps_events  crps_none  size_ratio  pos_mcr  thresh
+zinb_all_44_selfzero 0.309197 0.025479  0.164642    18.168466   0.024112         0.0 0.689202     NaN
+
+=== lr_ns_best (N=170430, events=587) ===
+               model       AP   Brier  crps_all  crps_events  crps_none  size_ratio  pos_mcr  thresh
+zinb_all_44_selfzero 0.233374 0.01608  0.095141    23.713453   0.013513         0.0 0.051599     NaN
+
+=== lr_os_best (N=170430, events=706) ===
+               model       AP    Brier  crps_all  crps_events  crps_none  size_ratio  pos_mcr  thresh
+zinb_all_44_selfzero 0.128769 0.014729   0.03317      6.56759   0.005988         0.0 0.210075     NaN
+
+wrote lodestar.csv
+
+
+### tail zinb_all_44_selfzero
+
+=== sb (positive cells, binned by truth magnitude) ===
+         bin     n   truth    E[y]     q90  reach%  cov90%    pin90
+       [1,3)   387       1     0.0       0      19      14      1.4
+      [3,10)   480       5     0.0       0      12       7      5.1
+     [10,30)   301      15     0.0       0       7       3     14.5
+    [30,100)   125      43     0.0       0       2       1     43.7
+   [100,300)    19     134     0.0       0       0       0    139.2
+     [300,∞)     8     549     0.0       0       0       0    767.5
+
+=== ns (positive cells, binned by truth magnitude) ===
+         bin     n   truth    E[y]     q90  reach%  cov90%    pin90
+       [1,3)   160       1     0.0       0       6       2      1.3
+      [3,10)   206       4     0.0       0       4       2      4.3
+     [10,30)   141      15     0.0       0       1       1     14.5
+    [30,100)    56      42     0.0       0       0       0     42.7
+   [100,300)    17     145     0.0       0       0       0    151.3
+     [300,∞)     7     695     0.0       0       0       0    627.9
+
+=== os (positive cells, binned by truth magnitude) ===
+         bin     n   truth    E[y]     q90  reach%  cov90%    pin90
+       [1,3)   369       1     0.0       0       9       6      1.1
+      [3,10)   228       4     0.0       0       7       5      4.3
+     [10,30)    85      16     0.0       0       7       2     13.9
+    [30,100)    22      42     0.0       0       0       0     40.1
+   [100,300)     1     105     0.0       0       0       0     94.5
+     [300,∞)     1     605     0.0       0       0       0    544.5
+
+
+### sharpness zinb_all_44_selfzero
+# Sharpness scorecard
+
+pred_dir: `/home/simon/Documents/scripts/views_platform/views-models/models/violet_visitor/data/generated/predictions_calibration_20260728_111143`
+
+**CONFIG (auto, from sidecar):** output_distribution=zinb · reg_activation=None · static_channels=[] · dropout_rate=0.15 · input_channels=3
+
+| target | subset | FSS@[1, 3, 5, 11] | area_ratio | conc1% | MCR | max (explode?) |
+|--------|--------|-----------|-----------|--------|-----|----------------|
+| lr_sb_best | STEP-1 | 0.06/0.26/0.40/0.61 | 2.9× | 0.49 | 0.140 |  |
+| lr_sb_best | FULL | 0.01/0.07/0.12/0.26 | 17.5× | 0.48 | 0.141 | 255530.4 (≤5669750) |
+| lr_ns_best | STEP-1 | 0.02/0.09/0.14/0.32 | 2.0× | 0.61 | 0.013 |  |
+| lr_ns_best | FULL | 0.00/0.02/0.05/0.15 | 8.8× | 0.52 | 0.035 | 472007.4 (≤100000 💥EXPLODED) |
+| lr_os_best | STEP-1 | 0.06/0.23/0.36/0.59 | 1.9× | 0.42 | 0.096 |  |
+| lr_os_best | FULL | 0.01/0.05/0.09/0.22 | 12.4× | 0.41 | 0.041 | 61142.5 (≤8922950) |
+

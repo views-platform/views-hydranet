@@ -21,9 +21,19 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
+from views_hydranet.distributions import resolve_family
+from views_hydranet.distributions.family_loss import FamilyLoss
 from views_hydranet.infrastructure.reproducibility_gate import ReproducibilityGate
+from views_hydranet.utils.body_supervision import (
+    _active_window_mask as _resolve_active_window_mask,
+)
+from views_hydranet.utils.body_supervision import (
+    event_threshold_from_config,
+    resolve_body_supervision,
+)
 from views_hydranet.utils.curriculum import CurriculumLearner
 from views_hydranet.utils.integrity_guardian import IntegrityGuardian
+from views_hydranet.utils.quantile_head import QuantileLoss
 from views_hydranet.utils.training_forensics import TrainingForensics
 from views_hydranet.utils.utils import (
     choose_loss,
@@ -68,6 +78,14 @@ def _init_classification_head_bias(model: nn.Module, bias_value: float) -> None:
 
 
 def make(config: dict, device: torch.device):
+    # C-119: re-seed immediately before construction/init so weight initialization draws from a
+    # fixed RNG state — independent of any RNG consumed earlier in the pipeline between the
+    # manager's lock and here (the cause of run-to-run init drift). Guarded so seedless callers
+    # (some unit tests) are unaffected; production/determinism configs always carry the seeds.
+    if config.get("np_seed") is not None:
+        ReproducibilityGate.lock_entropy(
+            np_seed=config["np_seed"], torch_seed=config.get("torch_seed")
+        )
     model = choose_model(config, device)
 
     init_fn = functools.partial(init_weights, config=config)
@@ -80,13 +98,40 @@ def make(config: dict, device: torch.device):
     criterion = choose_loss(config, device)
     optimizer, scheduler = choose_scheduler(config, model)
 
-    # ADR-055: add learnable sigma parameters to the optimizer
+    # ADR-055: add learnable sigma parameters to the optimizer.
+    # weight_decay=0.0: like the MultiTaskLoss log_vars below, the learnable
+    # per-target log_sigma values are uncertainty estimates, not model weights —
+    # weight decay would pull them back toward their initialization (same drag
+    # that froze the balancer in C-111).
     criterion_reg = criterion[0]
     if isinstance(criterion_reg, dict):
         for loss_instance in criterion_reg.values():
             sigma_params = list(loss_instance.parameters())
             if sigma_params:
-                optimizer.add_param_group({"params": sigma_params})
+                optimizer.add_param_group({"params": sigma_params, "weight_decay": 0.0})
+
+    # C-111: add the MultiTaskLoss balancer's log_vars to the optimizer so the
+    # Kendall et al. (2018) homoscedastic uncertainty weighting can actually
+    # learn. Without this, log_vars accumulate gradients but are never stepped,
+    # so they stay frozen at their zero initialization and the balancer is inert.
+    # weight_decay=0.0: log_vars are uncertainty estimates, not model weights —
+    # decaying them toward zero defeats their purpose.
+    #
+    # C-113 bisect: freeze_multitask_balancer (default False) restores the
+    # pre-C-111 behavior — log_vars stay frozen at zero (equal weighting), the
+    # regime under which the model was stable for years. Used to test whether
+    # C-111's active balancer is what destabilised training. See
+    # reports/preanalysis_balancer_bisect.md.
+    multitaskloss_instance = criterion[2]
+    if config.get("freeze_multitask_balancer", False):
+        logger.info(
+            "C-113 bisect: MultiTaskLoss balancer FROZEN — log_vars excluded from "
+            "the optimizer (pre-C-111 equal-weighting regime)."
+        )
+    else:
+        log_var_params = list(multitaskloss_instance.parameters())
+        if log_var_params:
+            optimizer.add_param_group({"params": log_var_params, "weight_decay": 0.0})
 
     return (model, criterion, optimizer, scheduler)
 
@@ -94,20 +139,110 @@ def make(config: dict, device: torch.device):
 class _SequenceIndices:
     """Pre-computed channel indices for the sequence loop (Zero Magic ADR 003)."""
 
-    __slots__ = ("reg", "cls", "feat", "n_reg", "n_cls", "reg_names", "cls_names")
+    __slots__ = ("reg", "cls", "feat", "static", "n_reg", "n_cls", "reg_names", "cls_names")
 
     def __init__(self, feature_names: list[str], config: dict) -> None:
         reg_targets = config.get("regression_targets")
         cls_targets = config.get("classification_targets")
         input_features = config.get("features")
+        static_channels = config.get("static_channels") or []  # ADR-060: input-only channels
 
         self.reg = [feature_names.index(t) for t in reg_targets]
         self.cls = [feature_names.index(t) for t in cls_targets]
         self.feat = [feature_names.index(f) for f in input_features]
+        self.static = [feature_names.index(s) for s in static_channels]
         self.n_reg = len(reg_targets)
         self.n_cls = len(cls_targets)
         self.reg_names = reg_targets
         self.cls_names = cls_targets
+
+
+def _attach_static_channels(
+    dyn_input: torch.Tensor, t0_step: torch.Tensor, idx: "_SequenceIndices"
+) -> torch.Tensor:
+    """ADR-060 I3: re-attach input-only static channels to the model input as [dynamic ⧺ static].
+
+    Statics (e.g. CoordConv row/col) are geometry-constant — always the true values, never sampled
+    and never fed from the output. The model was widened to expect them, so every forward (main
+    training AND the Stage-5 diagnostic biopsy) must include them. Empty static ⇒ returns dyn_input
+    unchanged, so the pre-seam path is byte-identical (I5)."""
+    if idx.static:
+        return torch.cat([dyn_input, t0_step[:, idx.static, :, :]], dim=1)
+    return dyn_input
+
+
+# ADR-065 (Epic #158): the point-body mask now lives in views_hydranet.utils.body_mask. Re-exported
+# here for the decay-gate penalty below and for existing importers (tests/test_active_window_mask).
+_active_window_mask = _resolve_active_window_mask
+
+
+def _decay_gate_penalty(
+    gate_logits: torch.Tensor, cls_target: torch.Tensor, decay_active: torch.Tensor
+) -> torch.Tensor:
+    """Mean gate firing probability on DECAY cells (active in window AND zero now).
+
+    The step-1 leak is the gate hedging (~0.38) on recently-active-now-zero cells (it ranks them
+    below true conflict, AUC ~0.75, but does not commit). Penalising this mean sigmoid pushes them
+    toward 0 — suppressing the leak — while leaving true-positive cells (label != 0) untouched.
+
+    Args:
+        gate_logits: ``[B, H, W]`` pre-sigmoid gate output for one classification target.
+        cls_target: ``[B, H, W]`` binary label (a cell is a decay cell only where this is 0).
+        decay_active: ``[B, H, W]`` bool — cell active at any window step (active_window mask).
+
+    Returns:
+        Scalar penalty = mean sigmoid over (decay_active & target==0); 0.0 if there are none.
+    """
+    decay = decay_active & (cls_target == 0)
+    if not decay.any():
+        return gate_logits.new_zeros(())
+    return torch.sigmoid(gate_logits)[decay].mean()
+
+
+def _family_target_log1p_mean(reg: torch.Tensor, family) -> torch.Tensor:
+    """Collapse a family head's per-target activated params ``[B, n_reg*n_params, H, W]``
+    (target-major) to per-target ``log1p(E[y])`` ``[B, n_reg, H, W]`` — the self-zeroed mean
+    ``(1-π)μ`` for zinb, ``μ`` for nb. Shared by the training biopsy and the forensic dossier so
+    both plot the honest per-target forecast (C-213), not a raw channel. Mirrors the
+    ``hydranet_inference._emit_magnitude`` family branch.
+    """
+    npar = family.n_params
+    means = [
+        family.mean(reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1))
+        for j in range(reg.shape[1] // npar)
+    ]
+    return torch.log1p(torch.stack(means, dim=1))  # [B, n_reg, H, W]
+
+
+def _family_feedback_log1p(reg, family, mode, gate, composition, threshold):
+    """EXP-4 (GTF): the per-target log1p feedback for scheduled sampling with a family head.
+
+    'mean' => log1p(E[y]) (fixes the legacy ss path, which fed raw n_params channels — shape-
+    mismatched to the n_reg dynamic inputs). 'sample' => one composition-aware family DRAW per
+    target (mirrors inference `_sample_feedback`), so training exposure == deployment exposure.
+    Returns ``[B, n_reg, H, W]`` in log1p space, matching the dynamic input channels.
+    """
+    if mode != "sample":
+        return _family_target_log1p_mean(reg, family)
+    npar = family.n_params
+    n_reg = reg.shape[1] // npar
+    draws = torch.stack(
+        [
+            family.sample(reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1), 1, None).squeeze(
+                -1
+            )
+            for j in range(n_reg)
+        ],
+        dim=1,
+    )  # [B, n_reg, H, W] count space
+    if composition != "self_zeroed":
+        from views_hydranet.distributions.composition import compose_samples
+
+        cube = draws.permute(0, 2, 3, 1).unsqueeze(-1)  # [B,H,W,n_reg,1]
+        g = gate[:, :n_reg].permute(0, 2, 3, 1)  # [B,H,W,n_reg]
+        cube = compose_samples(cube, g, composition, threshold, None)
+        draws = cube.squeeze(-1).permute(0, 3, 1, 2)  # -> [B, n_reg, H, W]
+    return torch.log1p(draws.clamp(min=0.0))
 
 
 def _process_sequence(
@@ -121,11 +256,22 @@ def _process_sequence(
     device: torch.device,
     pbar: tqdm | None = None,
     forensics: TrainingForensics | None = None,
-    hurdle_threshold: float | None = None,
     qs99_weight: float | None = None,
     qs99_tau: float | None = None,
     target_weights: dict[str, float] | None = None,
     ss_epsilon: float = 0.0,
+    cls_valid_mask: torch.Tensor | None = None,
+    decay_gate_weight: float = 0.0,
+    body_supervision: str = "all",
+    onset_lead: int = 0,
+    cessation_lag: int = 0,
+    event_threshold: float = 0.0,
+    pi_penalty_weight: float | None = None,
+    pi_penalty_prior_logit: float = 0.0,
+    family=None,
+    ss_feedback: str = "mean",
+    forecast_composition: str = "self_zeroed",
+    gate_threshold: float | None = None,
 ) -> dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
@@ -148,6 +294,27 @@ def _process_sequence(
     else:
         use_latent = getattr(criterion_reg, "needs_latent", False) is True
 
+    # Point-body supervision window (ADR-065 + amend. 2026-07-28): resolve the validated
+    # body_supervision config to a concrete cell-timestep set ONCE, here — no `if mode ==` ladder
+    # in the loss loop. It applies only to a POINT body: a latent loss owns its own zero handling
+    # (validated by validate_body_supervision_latent), so it is a no-op there and we keep the
+    # all-cell path (byte-identical for `all`+latent). `event_threshold` from derivation (C-195).
+    apply_body_mask = body_supervision == "active" and not use_latent
+    body_mask_full: torch.Tensor | None = (
+        resolve_body_supervision(onset_lead, cessation_lag, event_threshold)(
+            train_tensor[:, 1:, idx.reg, :, :]
+        )
+        if apply_body_mask
+        else None
+    )
+
+    # Opt-in gate-side decay penalty (2026-06-28 gate_resolution): suppress the GATE on cells
+    # active in the window but zero now. Keyed only on the true targets (threshold 0), so — unlike
+    # body active_window mask (C-180) — it applies even under a latent body (production hurdle_nb).
+    decay_active: torch.Tensor | None = None
+    if decay_gate_weight > 0:
+        decay_active = _active_window_mask(train_tensor[:, 1:, idx.reg, :, :], 0.0)
+
     prev_pred: torch.Tensor | None = None
 
     for i in range(seq_len - 1):
@@ -161,37 +328,93 @@ def _process_sequence(
         # Forward pass: Feed ONLY the input features (Zero Magic)
         t0_gt = t0[:, idx.feat, :, :]
 
-        # ADR-056: scheduled sampling — may replace ground truth with model prediction
+        # ADR-056: scheduled sampling may replace the ground-truth DYNAMIC features with prediction
         if ss_epsilon > 0.0 and prev_pred is not None:
             mask = torch.rand(t0_gt.shape[0], 1, 1, 1, device=device) < ss_epsilon
-            t0_input = torch.where(mask, prev_pred, t0_gt)
+            dyn_input = torch.where(mask, prev_pred, t0_gt)
         else:
-            t0_input = t0_gt
+            dyn_input = t0_gt
+
+        # ADR-060 I3: re-attach static (input-only) channels [dynamic ⧺ static]. See helper.
+        t0_input = _attach_static_channels(dyn_input, t0, idx)
 
         output = model(t0_input, h)
         t1_pred, t1_pred_class, h = output.reg, output.cls, output.h_next
-        prev_pred = t1_pred.detach()
+        # EXP-4 (GTF): only compute the fed-back copy when scheduled sampling is active (ε>0), so
+        # ε=0 stays byte-identical (branch never runs). A family emits n_params channels/target, so
+        # the raw `t1_pred` is shape-mismatched to the n_reg dynamic inputs — collapse it to the
+        # per-target log1p mean ('mean', fixes the legacy family path) or a composition-aware DRAW
+        # ('sample', EXP-4: train exposure == deploy exposure). Legacy point head: raw pred.
+        if ss_epsilon > 0.0:
+            if family is not None:
+                prev_pred = _family_feedback_log1p(
+                    t1_pred,
+                    family,
+                    ss_feedback,
+                    torch.sigmoid(t1_pred_class),
+                    forecast_composition,
+                    gate_threshold,
+                ).detach()
+            else:
+                prev_pred = t1_pred.detach()
 
         t1_pred_for_loss = output.reg_latent if use_latent else t1_pred
 
         # --- FORENSIC RECORDING (ADR 001 Custodian) ---
+        # step_idx=i tags the within-window timestep so the dossier can split t=0 / early / late
+        # from the full-window aggregate (horizon-split columns).
         if forensics:
+            # ADR-067 (C-213): a distribution-family reg head emits n_params channels PER target
+            # (target-major). Collapse to per-target log1p(E[y]) so the forensic plots each
+            # target's OWN self-zeroed forecast (not a raw channel of target-0), and record the
+            # activated params for the param-health frame. Point/legacy heads keep the raw path.
+            _fl = next(
+                (
+                    lf
+                    for lf in (
+                        criterion_reg.values()
+                        if isinstance(criterion_reg, dict)
+                        else [criterion_reg]
+                    )
+                    if isinstance(lf, FamilyLoss)
+                ),
+                None,
+            )
+            _yh_ey = _family_target_log1p_mean(t1_pred, _fl.family) if _fl is not None else None
             for j, target_name in enumerate(idx.reg_names):
-                forensics.record(f"REG:{target_name}", y_reg[:, j : j + 1], t1_pred[:, j : j + 1])
+                if _fl is not None:
+                    npar = _fl.n_params
+                    forensics.record(
+                        f"REG:{target_name}", y_reg[:, j : j + 1], _yh_ey[:, j : j + 1], step_idx=i
+                    )
+                    forensics.record_params(
+                        f"REG:{target_name}",
+                        t1_pred[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1),
+                        y_reg[:, j],
+                        step_idx=i,
+                    )
+                else:
+                    forensics.record(
+                        f"REG:{target_name}",
+                        y_reg[:, j : j + 1],
+                        t1_pred[:, j : j + 1],
+                        step_idx=i,
+                    )
             for j, target_name in enumerate(idx.cls_names):
                 forensics.record(
                     f"CLS:{target_name}",
                     y_cls[:, j : j + 1],
                     torch.sigmoid(t1_pred_class[:, j : j + 1]),
+                    step_idx=i,
                 )
 
         # Loss computation
         losses_list = []
         qs99_loss = torch.tensor(0.0, device=device)
+        # C-200: family parameter-prior ridge (e.g. ZINB π/μ-ridge), accumulated across targets and
+        # scaled by pi_penalty_weight at the reduction site (qs99/decay additive precedent).
+        pi_pen = torch.tensor(0.0, device=device)
         for j in range(idx.n_reg):
-            pred_j = t1_pred_for_loss[:, j, :, :]
-            target_j = y_reg[:, j, :, :]
-
             # Issue #44: per-target loss instance (or shared single instance)
             loss_fn_j = (
                 criterion_reg[idx.reg_names[j]]
@@ -199,26 +422,51 @@ def _process_sequence(
                 else criterion_reg
             )
 
+            # ADR-067 (C-207): a distribution family emits n_params channels per target; slice this
+            # target's n_params and move them to the last dim ([B,H,W,n_params]) for family.nll.
+            # Quantile head: K channels per target (multi-tau pinball). Every other head keeps one
+            # channel per target. Registry-first via FamilyLoss, so legacy dispatch is untouched.
+            if isinstance(loss_fn_j, FamilyLoss):
+                npar = loss_fn_j.n_params
+                pred_j = t1_pred_for_loss[:, j * npar : (j + 1) * npar, :, :].permute(0, 2, 3, 1)
+            elif isinstance(loss_fn_j, QuantileLoss):
+                k = loss_fn_j.taus.numel()
+                pred_j = t1_pred_for_loss[:, j * k : (j + 1) * k, :, :].permute(0, 2, 3, 1)
+            else:
+                pred_j = t1_pred_for_loss[:, j, :, :]
+            target_j = y_reg[:, j, :, :]
+
             # C-87: per-target loss weight (1.0 if not configured)
             tw = 1.0
             if target_weights is not None:
                 tw = target_weights[idx.reg_names[j]]
 
-            if hurdle_threshold is not None and not use_latent:
-                # C-45: Regression loss on positive observations only
-                mask = target_j > hurdle_threshold
-                if mask.any():
+            if apply_body_mask:
+                # ADR-065: the pre-resolved point-body mask for target j at this step. `pos_cells`
+                # = per-step positives; `pos_timelines` = the full timeline of ever-active cells
+                # (the decay signal, dossier 15). Resolved once above; here we only index it.
+                mask = body_mask_full[:, i, j]
+                if isinstance(loss_fn_j, FamilyLoss):
+                    # C-199: pass the mask as a broadcast weight into family.nll instead of
+                    # boolean-indexing pred_j[mask] — numerically identical for a 0/1 mask, but a
+                    # graph-connected 0 on an all-zero-active batch (not a detached tensor(0.0)).
+                    losses_list.append(
+                        tw * loss_fn_j(pred_j, target_j, weight=mask.to(pred_j.dtype))
+                    )
+                elif mask.any():
                     losses_list.append(tw * loss_fn_j(pred_j[mask], target_j[mask]))
                 else:
                     losses_list.append(torch.tensor(0.0, device=device))
 
-                # C-48: QS99 regularizer (distribution-free pinball on mu)
-                # Only active when hurdle is enabled and weight > 0
+                # C-48: QS99 regularizer (distribution-free pinball on mu). Undefined over a family
+                # param vector [.,n_params] (F-1) → skip for FamilyLoss.
+                # Only active when the body is masked and weight > 0.
                 qs99_active = (
                     qs99_weight is not None
                     and qs99_weight > 0
                     and qs99_tau is not None
                     and mask.any()
+                    and not isinstance(loss_fn_j, FamilyLoss)
                 )
                 if qs99_active:
                     error = target_j[mask] - pred_j[mask]
@@ -231,13 +479,42 @@ def _process_sequence(
             else:
                 losses_list.append(tw * loss_fn_j(pred_j, target_j))
 
+            # C-200/C-205: family parameter-prior ridge (family-agnostic hook — nb returns a
+            # graph-safe 0, zinb the π/μ-ridge). Accumulated on the full-grid params; scaled by
+            # pi_penalty_weight at the reduction site. Byte-identical no-op when weight is None/0.
+            if pi_penalty_weight and isinstance(loss_fn_j, FamilyLoss):
+                pi_pen = pi_pen + tw * loss_fn_j.family.parameter_penalty(
+                    pred_j, prior_logit=pi_penalty_prior_logit, scale=1.0
+                )
+
+        decay_pen = torch.tensor(0.0, device=device)
         for j in range(idx.n_cls):
-            losses_list.append(criterion_class(t1_pred_class[:, j, :, :], y_cls[:, j, :, :]))
+            pred_cj = t1_pred_class[:, j, :, :]
+            targ_cj = y_cls[:, j, :, :]
+            # Gate-side decay penalty (opt-in): accumulate on the FULL grid BEFORE any valid-mask.
+            if decay_active is not None and j < decay_active.shape[1]:
+                decay_pen = decay_pen + _decay_gate_penalty(pred_cj, targ_cj, decay_active[:, j])
+            # C-181 (opt-in A/B): restrict the gate loss to valid (land) cells, matching the
+            # hurdle-masked reg loss and the priogrid-masked eval. None ⇒ full grid (default).
+            if cls_valid_mask is not None:
+                pred_cj = pred_cj[:, cls_valid_mask]
+                targ_cj = targ_cj[:, cls_valid_mask]
+            # per-target gate loss (list) OR a shared instance (mirrors the reg per-target dict)
+            crit_cj = (
+                criterion_class[j]
+                if isinstance(criterion_class, (list, tuple))
+                else criterion_class
+            )
+            losses_list.append(crit_cj(pred_cj, targ_cj))
 
         losses = torch.stack(losses_list)
         loss = cast(Any, multitaskloss_instance)(losses)
         if qs99_weight is not None and qs99_weight > 0:
             loss = loss + qs99_weight * qs99_loss
+        if decay_gate_weight > 0:
+            loss = loss + decay_gate_weight * decay_pen
+        if pi_penalty_weight:
+            loss = loss + pi_penalty_weight * pi_pen
         total_loss += loss
 
         loss_reg = losses[: idx.n_reg].sum()
@@ -331,7 +608,9 @@ def train(
     train_tensor = sample_handler.to_pytorch(device, include_identities=False)
 
     # 3. Pre-compute channel indices (Zero Magic ADR 003)
-    feature_names = [n for n in sample_handler.channel_map if n in sample_handler.feature_cols]
+    # ADR-062: indices are read off the kept model tensor (inputs ⧺ targets) = tensor_cols,
+    # the de-overloaded feature_cols (== old feature_cols value → byte-identical).
+    feature_names = [n for n in sample_handler.channel_map if n in sample_handler.tensor_cols]
     idx = _SequenceIndices(feature_names, config)
 
     seq_len = train_tensor.shape[1]
@@ -363,6 +642,15 @@ def train(
                 exc_info=True,
             )
 
+    # C-181 (opt-in A/B): land mask for the gate loss, read from the priogrid (id_col) channel
+    # via include_identities=True so it is North-Up aligned with the model tensor. None ⇒ off
+    # (gate trained on the full zero-filled grid, the default).
+    cls_valid_mask = None
+    if config.get("cls_valid_mask"):
+        _full = sample_handler.to_pytorch(device, include_identities=True)  # [B, T, C_full, H, W]
+        _pg = sample_handler.channel_map.index(sample_handler.id_col)
+        cls_valid_mask = _full[0, 0, _pg] > 0  # [H, W] bool — land cells
+
     # --- CORE SEQUENCE PROCESSING ---
     result = _process_sequence(
         train_tensor,
@@ -375,11 +663,27 @@ def train(
         device,
         pbar=pbar,
         forensics=forensics,
-        hurdle_threshold=config.get("hurdle_threshold"),
         qs99_weight=config.get("qs99_weight"),
         qs99_tau=config.get("qs99_tau"),
         target_weights=config.get("target_weights"),
         ss_epsilon=ss_epsilon,
+        cls_valid_mask=cls_valid_mask,
+        decay_gate_weight=config.get("decay_gate_weight", 0.0),
+        # ADR-065 amend.: the point-body supervision window is driven ONLY by the validated
+        # body_supervision + onset_lead/cessation_lag (C-194). Event threshold comes from the
+        # binary-target derivation — the sole authority for "what is an event" (C-195).
+        body_supervision=config.get("body_supervision", "all"),
+        onset_lead=config.get("onset_lead", 0),
+        cessation_lag=config.get("cessation_lag", 0),
+        event_threshold=event_threshold_from_config(config),
+        # C-200 (ADR-067): family parameter-prior ridge weight + prior logit (None ⇒ no-op).
+        pi_penalty_weight=config.get("pi_penalty_weight"),
+        pi_penalty_prior_logit=config.get("pi_penalty_prior_logit", 0.0),
+        # EXP-4 (GTF): family + composition drive the scheduled-sampling feedback (only when ε>0).
+        family=resolve_family(config.get("output_distribution", "standard")),
+        ss_feedback=config.get("ss_feedback", "mean"),
+        forecast_composition=config.get("forecast_composition", "self_zeroed"),
+        gate_threshold=config.get("gate_threshold"),
     )
     step_total, step_reg, step_cls = result["per_step_losses"]
 
@@ -395,7 +699,10 @@ def train(
             for i in range(seq_len - 1):
                 t0 = train_tensor[:, i, :, :, :]
                 t1 = train_tensor[:, i + 1, :, :, :]
-                t0_input = t0[:, idx.feat, :, :]
+                # ADR-060 I3 / C-157: the model was widened for statics — the diagnostic biopsy
+                # must re-attach them too, exactly like the main forward, or this forward crashes
+                # (N dynamic channels into an N+static-channel model).
+                t0_input = _attach_static_channels(t0[:, idx.feat, :, :], t0, idx)
                 output_diag = model(t0_input, h_diag)
                 t1_pred, t1_pred_class, h_diag = (
                     output_diag.reg,
@@ -407,7 +714,15 @@ def train(
                     y_reg = t1[:, idx.reg, :, :]
                     y_cls = t1[:, idx.cls, :, :]
                     acc_y_reg.append(y_reg[0].permute(1, 2, 0).cpu().numpy())
-                    acc_yh_reg.append(t1_pred[0].permute(1, 2, 0).cpu().numpy())
+                    # A family head emits n_params channels/target; collapse to per-target
+                    # log1p(E[y]) so the biopsy's body + E[y] rows are 3-channel like the truth
+                    # and gate (else y_hat_cls * y_hat_reg mis-broadcasts and the forensic plot is
+                    # skipped). Mirrors _emit_magnitude's family branch. Legacy = unchanged.
+                    _yh_reg = t1_pred
+                    _fam = resolve_family(config.get("output_distribution", "standard"))
+                    if _fam is not None:
+                        _yh_reg = _family_target_log1p_mean(t1_pred, _fam)  # [B, n_reg, H, W]
+                    acc_yh_reg.append(_yh_reg[0].permute(1, 2, 0).cpu().numpy())
                     acc_y_cls.append(y_cls[0].permute(1, 2, 0).cpu().numpy())
                     acc_yh_cls.append(
                         torch.sigmoid(t1_pred_class[0]).permute(1, 2, 0).cpu().numpy()
@@ -418,6 +733,9 @@ def train(
         model.train()
 
         if acc_y_reg:
+            # self-zeroed families (zinb) forecast the self-zeroed body directly (no ×gate); NB
+            # (and legacy) forecast gate × body. Tell the biopsy which, so its forecast is honest.
+            _bfam = resolve_family(config.get("output_distribution", "standard"))
             viz.biopsy_training_performance(
                 np.stack(acc_y_reg),
                 np.stack(acc_yh_reg),
@@ -425,6 +743,7 @@ def train(
                 np.stack(acc_yh_cls),
                 stage_label,
                 time_indices=acc_months,
+                self_zeroed=bool(_bfam is not None and _bfam.self_zeroed),
             )
 
     # log each sequence/timeline/batch
@@ -436,6 +755,44 @@ def train(
         "reg": result["reg"],
         "cls": result["cls"],
     }
+
+
+def _reset_bn_stats(model: nn.Module) -> int:
+    """Reset every BatchNorm's running stats and set momentum=None (cumulative average over the
+    subsequent forwards). Returns the number of BN layers reset."""
+    n = 0
+    for m in model.modules():
+        if isinstance(m, nn.modules.batchnorm._BatchNorm):
+            m.reset_running_stats()
+            m.momentum = None
+            n += 1
+    return n
+
+
+def _recalibrate_bn(ctx: "TrainingContext", sampler, planner, config: dict) -> None:
+    """C-184 fix: recompute BatchNorm running statistics post-training.
+
+    The recurrent BN accumulates running stats over T-correlated timesteps during training, biasing
+    them so eval-mode over-amplifies — the seed-bimodal eval collapse (~40% of trained seeds
+    saturate the gate at eval; confirmed root cause + universal fix, register C-184). This resets
+    the running stats and re-accumulates them FORWARD-ONLY (no weight change) over real curriculum
+    windows, so eval-mode matches the true activation distribution. Validated 2026-06-27: flips
+    6/6 bad seeds GOOD and preserves 2/2 good. Disable with config['bn_recalibrate'] = False.
+    """
+    model = ctx.model
+    n_bn = _reset_bn_stats(model)
+    n_windows = config.get("bn_recal_windows", config["windows_per_lesson"] * 10)
+    logger.info(
+        f"🔧 C-184: BN-recalibrating {n_bn} layers over {n_windows} windows "
+        f"(forward-only, no weight change)"
+    )
+    with torch.no_grad():
+        for w in range(n_windows):
+            target, threshold = planner.get_lesson(w)
+            batch, _ = sampler.get_batch(target, threshold, batch_size=1)
+            train(ctx, batch[0], None, stage_label="")  # empty label ⇒ forward only, no biopsy
+            del batch
+    model.eval()
 
 
 def training_loop(
@@ -457,6 +814,19 @@ def training_loop(
     ReproducibilityGate.lock_entropy(np_seed=config["np_seed"], torch_seed=config["torch_seed"])
     logger.info("🚀 Training initiated...")
 
+    # Fail-loud (C-134): per-lesson metrics below are guarded by `if wandb.run is not None`,
+    # which silently no-ops when no run is active. Warn so a missing train run is visible
+    # rather than an empty dashboard. wandb is imported lazily here (C-12 pattern), matching
+    # the per-lesson logging blocks below.
+    import wandb
+
+    if wandb.run is None:
+        logger.warning(
+            "⚠️ wandb.run is None at training start — per-lesson training metrics will NOT be "
+            "logged to wandb. In a real run this means the training phase did not open a wandb "
+            "run (see C-132/C-134); only expected under unit tests."
+        )
+
     # Initialize Visual Truth Engine with Authoritative Timestamp
     viz = VisualDiagnostics(config, run_timestamp=run_timestamp)
 
@@ -476,6 +846,17 @@ def training_loop(
         viz=viz,
         forensics=forensics,
     )
+
+    # OPT-IN BN-recalibration (C-184 test, 2026-06-27): load a trained artifact into `model`, reset
+    # BN running stats, then run the lesson loop FORWARD-ONLY (skip backward + optimizer.step) to
+    # re-accumulate BN stats on the real scaled windows. config.bn_recal_from=None (default) ⇒
+    # normal training, byte-unchanged.
+    _bn_recal = config.get("bn_recal_from")
+    if _bn_recal:
+        model.load_state_dict(torch.load(_bn_recal, map_location=device, weights_only=True))
+        _reset_bn_stats(model)
+        model.train()
+        logger.info(f"🔧 BN-recal: loaded {_bn_recal}, reset BN, forward-only recompute")
 
     # Initialize the Sampler Components
     # 1. The Lens (Mechanical)
@@ -505,6 +886,28 @@ def training_loop(
             warmup_lessons=config.get("ss_warmup_lessons"),
             k=config.get("ss_k"),
         )
+
+    # OPT-IN trajectory diagnostic (bifurcation hunt): per-lesson grad-norm + gate-logit-mean +
+    # losses → CSV. config.trajectory_log_path=None (default) ⇒ no hooks, no file, byte-unchanged.
+    _traj_path = config.get("trajectory_log_path")
+    _traj_file = _traj_writer = None
+    _traj_acc = {"gate_sum": 0.0, "gate_n": 0}
+    if _traj_path:
+        import csv as _csv
+
+        def _gate_hook(_m, _i, _o):
+            if _m.training:  # training forwards only — skip forensic/eval biopsies
+                _traj_acc["gate_sum"] += _o.detach().mean().item()
+                _traj_acc["gate_n"] += 1
+
+        for _hn in ("dec_conv4_head1_class", "dec_conv4_head2_class", "dec_conv4_head3_class"):
+            dict(model.named_modules())[_hn].register_forward_hook(_gate_hook)
+        _traj_file = open(_traj_path, "w", newline="")
+        _traj_writer = _csv.writer(_traj_file)
+        _traj_writer.writerow(
+            ["lesson", "raw_grad_norm", "loss_reg", "loss_cls", "gate_logit_mean"]
+        )
+        logger.info(f"📈 trajectory-log ON → {_traj_path}")
 
     with tqdm(
         total=total_iterations, desc="👾 Training HydraNet", unit="month", leave=True
@@ -552,7 +955,7 @@ def training_loop(
 
                 # --- MEMORY-SAFE ACCUMULATION (ADR 014 Hardening) ---
                 w_loss = losses["total"]
-                if w_loss > 0:
+                if w_loss > 0 and not _bn_recal:  # BN-recal: forward-only, no grad
                     w_loss.backward()
 
                 lesson_loss += w_loss.detach()  # Keep track of magnitude for logging
@@ -599,24 +1002,45 @@ def training_loop(
                 raw_grad_norm = total_norm**0.5
                 max_raw_grad_norm = max(max_raw_grad_norm, raw_grad_norm)
 
+                # OPT-IN trajectory row (pre-clip grad-norm + lesson gate-logit-mean + losses)
+                if _traj_writer is not None:
+                    _gm = _traj_acc["gate_sum"] / max(_traj_acc["gate_n"], 1)
+                    _traj_writer.writerow(
+                        [
+                            lesson_idx,
+                            raw_grad_norm,
+                            lesson_reg / config["windows_per_lesson"],
+                            lesson_cls / config["windows_per_lesson"],
+                            _gm,
+                        ]
+                    )
+                    _traj_file.flush()
+                    _traj_acc["gate_sum"] = 0.0
+                    _traj_acc["gate_n"] = 0
+
                 # Gradient Clipping
                 if config.get("clip_grad_norm"):
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
-                # Optimize (Update Weights)
-                optimizer.step()
+                # Optimize (Update Weights) — skipped in BN-recal (weights frozen, BN only)
+                if not _bn_recal:
+                    optimizer.step()
 
-                # ADR-055: log per-target sigma once per lesson (after optimizer step)
+                # ADR-055 / #99: log per-target dispersion once per lesson — sigma for
+                # tobit/lognormal, theta for hurdle-NB (TruncatedNBLoss) — whichever the loss
+                # exposes. (getattr-guarded so a loss without one doesn't crash the logger.)
                 if isinstance(criterion_reg, dict):
                     import wandb
 
                     if wandb.run is not None:
-                        wandb.log(
-                            {
-                                f"sigma/{name}": loss_fn.sigma
-                                for name, loss_fn in criterion_reg.items()
-                            }
-                        )
+                        disp_log = {}
+                        for name, loss_fn in criterion_reg.items():
+                            if hasattr(loss_fn, "sigma"):
+                                disp_log[f"sigma/{name}"] = loss_fn.sigma
+                            if hasattr(loss_fn, "theta"):
+                                disp_log[f"theta/{name}"] = loss_fn.theta
+                        if disp_log:
+                            wandb.log(disp_log)
 
                 # Issue #48: log multi-task loss weights once per lesson
                 import wandb
@@ -642,6 +1066,31 @@ def training_loop(
                 scheduler.step()
 
     logger.info("✅ Training complete!")
+
+    if _traj_file is not None:
+        _traj_file.close()
+
+    # C-184 FIX: post-training BN recalibration (default ON). Mutates `model` in place so the saved
+    # artifact has corrected BN running stats (fixes the seed-bimodal eval collapse). Skipped for a
+    # bn_recal_from-only experiment run (its lesson loop already recalibrated). Guarded: a recal
+    # failure must NEVER lose a completed training run — snapshot the BN buffers first and restore
+    # them on any error (so a half-reset model is never saved), then proceed to save as-is.
+    if config.get("bn_recalibrate", True) and not _bn_recal:
+        _bn_snapshot = {
+            k: v.clone()
+            for k, v in model.state_dict().items()
+            if "running_" in k or "num_batches" in k
+        }
+        try:
+            _recalibrate_bn(ctx, sampler, planner, config)
+        except Exception:
+            logger.error(
+                "C-184 BN-recalibration FAILED — restoring pre-recal BN stats and saving the "
+                "trained model as-is (training NOT lost).",
+                exc_info=True,
+            )
+            model.load_state_dict(_bn_snapshot, strict=False)
+            model.eval()
 
     # 4. Final weight audit
     weight_norms = {}

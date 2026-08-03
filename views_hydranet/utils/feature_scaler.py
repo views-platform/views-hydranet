@@ -254,6 +254,9 @@ class FeatureScaler:
             identity_cols=vh.identity_cols,
             feature_cols=vh.feature_cols,
             spatial_offset=vh.spatial_offset,
+            static_cols=vh.static_cols,
+            target_cols=vh.target_cols,
+            model_input_cols=vh.model_input_cols,
         )
         result._metadata = replace(result._metadata, spatial_convention=vh.spatial_convention)
         return result

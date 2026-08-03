@@ -14,9 +14,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-pytest.importorskip("views_pipeline_core")
+pytest.importorskip("views_frames")
 
-from views_pipeline_core.data.prediction_frame import PredictionFrame
+from views_frames import PredictionFrame
 
 from views_hydranet.utils.prediction_frame_assembler import PredictionFrameAssembler
 from views_hydranet.utils.volume_handler import VolumeHandler
@@ -24,9 +24,9 @@ from views_hydranet.utils.volume_handler import VolumeHandler
 # ─── Constants ───────────────────────────────────────────────────────────────
 
 TARGETS = [
-    "lr_sb_best",
-    "lr_ns_best",
-    "lr_os_best",
+    "lr_ged_sb",
+    "lr_ged_ns",
+    "lr_ged_os",
     "by_sb_best",
     "by_ns_best",
     "by_os_best",
@@ -42,7 +42,7 @@ CONFIG = {
     "row_offset": 0,
     "col_offset": 0,
     "identity_cols": ["row", "col"],
-    "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "features": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
 }
 
 N_CELLS = 4  # 2×2, all cells valid (priogrid_gid > 0)
@@ -65,9 +65,9 @@ def _make_df(n_months: int = N_MONTHS) -> pd.DataFrame:
                         "priogrid_gid": r * 2 + c + 1,
                         "row": float(r),
                         "col": float(c),
-                        "lr_sb_best": float(r + c + t * 0.01),
-                        "lr_ns_best": 0.5,
-                        "lr_os_best": 0.0,
+                        "lr_ged_sb": float(r + c + t * 0.01),
+                        "lr_ged_ns": 0.5,
+                        "lr_ged_os": 0.0,
                     }
                 )
     return pd.DataFrame(rows)
@@ -142,9 +142,9 @@ class TestGreen:
         )
         for target in TARGETS:
             pf = result[target]
-            assert pf.y_pred.ndim == 2, f"{target}: expected 2D, got ndim={pf.y_pred.ndim}"
-            assert pf.y_pred.shape == (N_CELLS, S), (
-                f"{target}: expected ({N_CELLS}, {S}), got {pf.y_pred.shape}"
+            assert pf.values.ndim == 2, f"{target}: expected 2D, got ndim={pf.values.ndim}"
+            assert pf.values.shape == (N_CELLS, S), (
+                f"{target}: expected ({N_CELLS}, {S}), got {pf.values.shape}"
             )
 
     def test_identifiers_populated(self, assembler, stochastic_pred_handler, window_handler):
@@ -155,7 +155,7 @@ class TestGreen:
             start_idx=0,
             all_targets=TARGETS,
         )
-        pf = result["lr_sb_best"]
+        pf = result["lr_ged_sb"]
         assert "time" in pf.identifiers
         assert "unit" in pf.identifiers
         assert len(pf.identifiers["time"]) == N_CELLS
@@ -177,9 +177,9 @@ class TestBeige:
         )
         for target in TARGETS:
             pf = result[target]
-            assert pf.y_pred.ndim == 2, f"{target}: expected 2D, got ndim={pf.y_pred.ndim}"
-            assert pf.y_pred.shape == (N_CELLS, 1), (
-                f"{target}: expected ({N_CELLS}, 1), got {pf.y_pred.shape}"
+            assert pf.values.ndim == 2, f"{target}: expected 2D, got ndim={pf.values.ndim}"
+            assert pf.values.shape == (N_CELLS, 1), (
+                f"{target}: expected ({N_CELLS}, 1), got {pf.values.shape}"
             )
 
 

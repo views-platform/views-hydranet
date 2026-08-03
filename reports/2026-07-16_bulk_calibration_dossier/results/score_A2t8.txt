@@ -1,0 +1,22 @@
+BULK-CALIBRATION METRIC (03 §D) — predictions_calibration_20260717_001719
+T=0-only · positives-only · bulk-only · per-cell ratio_med (MCR banned)
+
+=== lr_sb_best ===  T=0 positives=1320  cut(97/98/99)=211/300/545
+    guardrails: CRPS=5.1386  QS99=1.0261  Brier=0.00943
+    cut97: BULK n= 1308  ratio_med=0.780  within2x=14.8  resc=14.6  spearman=0.248  | spread p10/50/90=0.003/0.780/53.221  || TAIL n=12 ratio_med=0.604
+    cut98: BULK n= 1312  ratio_med=0.780  within2x=14.9  resc=14.7  spearman=0.253  | spread p10/50/90=0.003/0.780/52.908  || TAIL n=8 ratio_med=0.467
+    cut99: BULK n= 1315  ratio_med=0.778  within2x=15.0  resc=14.8  spearman=0.256  | spread p10/50/90=0.003/0.778/53.297  || TAIL n=5 ratio_med=0.364
+
+=== lr_ns_best ===  T=0 positives=587  cut(97/98/99)=150/204/318
+    guardrails: CRPS=19.3164  QS99=3.9875  Brier=0.00441
+    cut97: BULK n=  572  ratio_med=1.434  within2x=10.3  resc=10.0  spearman=0.086  | spread p10/50/90=0.001/1.434/580.126  || TAIL n=15 ratio_med=3.787
+    cut98: BULK n=  575  ratio_med=1.468  within2x=10.3  resc=9.9  spearman=0.088  | spread p10/50/90=0.001/1.468/566.768  || TAIL n=12 ratio_med=8.842
+    cut99: BULK n=  580  ratio_med=1.551  within2x=10.3  resc=10.0  spearman=0.105  | spread p10/50/90=0.001/1.551/584.613  || TAIL n=7 ratio_med=2.361
+
+=== lr_os_best ===  T=0 positives=706  cut(97/98/99)=166/232/535
+    guardrails: CRPS=2.4951  QS99=0.6977  Brier=0.00497
+    cut97: BULK n=  705  ratio_med=0.123  within2x=12.8  resc=13.0  spearman=0.094  | spread p10/50/90=0.001/0.123/16.328  || TAIL n=1 ratio_med=2.407
+    cut98: BULK n=  705  ratio_med=0.123  within2x=12.8  resc=13.0  spearman=0.094  | spread p10/50/90=0.001/0.123/16.328  || TAIL n=1 ratio_med=2.407
+    cut99: BULK n=  705  ratio_med=0.123  within2x=12.8  resc=13.0  spearman=0.094  | spread p10/50/90=0.001/0.123/16.328  || TAIL n=1 ratio_med=2.407
+
+

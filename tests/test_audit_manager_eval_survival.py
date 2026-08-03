@@ -7,7 +7,7 @@ import torch
 
 pytest.importorskip("views_pipeline_core")
 
-from views_pipeline_core.data.prediction_frame import PredictionFrame
+from views_frames import PredictionFrame, SpatialLevel, SpatioTemporalIndex
 
 from views_hydranet.manager.hydranet_manager import HydranetManager
 
@@ -19,7 +19,7 @@ def _pf_dict(values: dict[str, float], n: int, month_id: int = 124) -> dict:
     return {
         target: PredictionFrame(
             y_pred=np.full((n, 1), val),
-            identifiers={"time": time_arr, "unit": unit_arr},
+            index=SpatioTemporalIndex(time=time_arr, unit=unit_arr, level=SpatialLevel.PGM),
         )
         for target, val in values.items()
     }
@@ -32,20 +32,20 @@ AUDIT_CFG = {
     "time_steps": 1,
     "input_channels": 3,
     "output_channels": 1,
-    "regression_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "regression_targets": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
     "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
     "identity_cols": ["month_id", "priogrid_gid"],
-    "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "features": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
     "transformations": {
-        "log1p": ["lr_sb_best"],
-        "asinh": ["lr_ns_best"],
-        "identity": ["lr_os_best"],
+        "log1p": ["lr_ged_sb"],
+        "asinh": ["lr_ged_ns"],
+        "identity": ["lr_ged_os"],
     },
     "derivations": {
         "binary": [
-            {"from": "lr_sb_best", "to": "by_sb_best", "threshold": 0},
-            {"from": "lr_ns_best", "to": "by_ns_best", "threshold": 0},
-            {"from": "lr_os_best", "to": "by_os_best", "threshold": 0},
+            {"from": "lr_ged_sb", "to": "by_sb_best", "threshold": 0},
+            {"from": "lr_ged_ns", "to": "by_ns_best", "threshold": 0},
+            {"from": "lr_ged_os", "to": "by_os_best", "threshold": 0},
         ]
     },
     "height": 4,
@@ -105,9 +105,9 @@ class TestRedManagerEvalHardAudit:
                 "priogrid_gid": list(range(1, 17)) * 24,
                 "row": [0] * 384,
                 "col": [0] * 384,
-                "lr_sb_best": [10.0] * 384,
-                "lr_ns_best": [10.0] * 384,
-                "lr_os_best": [10.0] * 384,
+                "lr_ged_sb": [10.0] * 384,
+                "lr_ged_ns": [10.0] * 384,
+                "lr_ged_os": [10.0] * 384,
             }
         )
 
@@ -148,9 +148,9 @@ class TestRedManagerEvalHardAudit:
                     mock_eval_cls.return_value.generate_prediction_frames.return_value = [
                         _pf_dict(
                             {
-                                "lr_sb_best": 100.0,
-                                "lr_ns_best": 100.0,
-                                "lr_os_best": 100.0,
+                                "lr_ged_sb": 100.0,
+                                "lr_ged_ns": 100.0,
+                                "lr_ged_os": 100.0,
                                 "by_sb_best": 0.9,
                                 "by_ns_best": 0.9,
                                 "by_os_best": 0.9,
@@ -161,19 +161,19 @@ class TestRedManagerEvalHardAudit:
 
                     # RUN EVALUATION
                     results = manager._evaluate_model_artifact(eval_type="audit")
-                    pf_sb = results["lr_sb_best"][0]
+                    pf_sb = results["lr_ged_sb"][0]
                     pf_by_sb = results["by_sb_best"][0]
-                    pf_ns = results["lr_ns_best"][0]
+                    pf_ns = results["lr_ged_ns"][0]
 
                     # GATES
-                    np.testing.assert_allclose(pf_sb.y_pred[0, 0], 100.0, rtol=1e-5)
-                    assert isinstance(pf_sb.y_pred[0, 0], (float, np.floating))
-                    assert "lr_sb_best" in results
+                    np.testing.assert_allclose(pf_sb.values[0, 0], 100.0, rtol=1e-5)
+                    assert isinstance(pf_sb.values[0, 0], (float, np.floating))
+                    assert "lr_ged_sb" in results
                     assert "by_sb_best" in results
-                    assert pf_sb.y_pred.ndim == 2
-                    np.testing.assert_allclose(pf_by_sb.y_pred[0, 0], 0.9, rtol=1e-5)
-                    assert pf_sb.y_pred.ndim == 2  # Dense array, no list-in-cell
-                    np.testing.assert_allclose(pf_ns.y_pred[0, 0], 100.0, rtol=1e-5)
+                    assert pf_sb.values.ndim == 2
+                    np.testing.assert_allclose(pf_by_sb.values[0, 0], 0.9, rtol=1e-5)
+                    assert pf_sb.values.ndim == 2  # Dense array, no list-in-cell
+                    np.testing.assert_allclose(pf_ns.values[0, 0], 100.0, rtol=1e-5)
 
     def test_gate_8_nuke_proof_heterogeneous(self, tmp_path):
         """Hard Gate 8: Verify multiple inverse functions in one volume."""
@@ -187,9 +187,9 @@ class TestRedManagerEvalHardAudit:
                 "priogrid_gid": list(range(1, 17)) * 24,
                 "row": [0] * 384,
                 "col": [0] * 384,
-                "lr_sb_best": [1.0] * 384,
-                "lr_ns_best": [1.0] * 384,
-                "lr_os_best": [1.0] * 384,
+                "lr_ged_sb": [1.0] * 384,
+                "lr_ged_ns": [1.0] * 384,
+                "lr_ged_os": [1.0] * 384,
             }
         )
 
@@ -227,9 +227,9 @@ class TestRedManagerEvalHardAudit:
                     mock_eval_cls.return_value.generate_prediction_frames.return_value = [
                         _pf_dict(
                             {
-                                "lr_sb_best": 10.0,
-                                "lr_ns_best": 10.0,
-                                "lr_os_best": 10.0,
+                                "lr_ged_sb": 10.0,
+                                "lr_ged_ns": 10.0,
+                                "lr_ged_os": 10.0,
                                 "by_sb_best": 0.5,
                                 "by_ns_best": 0.5,
                                 "by_os_best": 0.5,
@@ -240,12 +240,12 @@ class TestRedManagerEvalHardAudit:
 
                     results = manager._evaluate_model_artifact(eval_type="audit")
                     np.testing.assert_allclose(
-                        results["lr_sb_best"][0].y_pred[0, 0],
+                        results["lr_ged_sb"][0].values[0, 0],
                         10.0,
                         rtol=1e-5,
                     )
                     np.testing.assert_allclose(
-                        results["lr_ns_best"][0].y_pred[0, 0],
+                        results["lr_ged_ns"][0].values[0, 0],
                         10.0,
                         rtol=1e-5,
                     )
@@ -262,9 +262,9 @@ class TestRedManagerEvalHardAudit:
                 "priogrid_gid": list(range(1, 17)) * 24,
                 "row": [0] * 384,
                 "col": [0] * 384,
-                "lr_sb_best": [10.0] * 384,
-                "lr_ns_best": [10.0] * 384,
-                "lr_os_best": [10.0] * 384,
+                "lr_ged_sb": [10.0] * 384,
+                "lr_ged_ns": [10.0] * 384,
+                "lr_ged_os": [10.0] * 384,
             }
         )
 
@@ -312,11 +312,11 @@ class TestRedManagerEvalHardAudit:
 
                     # RUN FORECAST
                     results = manager._forecast_model_artifact()
-                    pf_sb = results["lr_sb_best"]
+                    pf_sb = results["lr_ged_sb"]
 
                     # GATES
-                    np.testing.assert_allclose(pf_sb.y_pred[0, 0], 50.0, rtol=1e-5)
-                    assert isinstance(pf_sb.y_pred[0, 0], (float, np.floating))
+                    np.testing.assert_allclose(pf_sb.values[0, 0], 50.0, rtol=1e-5)
+                    assert isinstance(pf_sb.values[0, 0], (float, np.floating))
                     assert pf_sb.identifiers["time"][0] == 124
 
 

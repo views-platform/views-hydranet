@@ -160,8 +160,8 @@ def valid_config_dict():
         "np_seed": 4,
         "torch_seed": 4,
         "window_dim": 32,
-        "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
-        "regression_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+        "features": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
+        "regression_targets": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
         "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
         "identity_cols": ["c_id", "row", "col"],
         "time_col": "month_id",
@@ -178,12 +178,12 @@ def valid_config_dict():
         "sampling_strategy": "threshold",
         "evaluation_mode": "point",
         "aggregate_method": "arithmetic_mean",
-        "transformations": {"log1p": ["lr_sb_best", "lr_ns_best", "lr_os_best"], "identity": []},
+        "transformations": {"log1p": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"], "identity": []},
         "derivations": {
             "binary": [
-                {"from": "lr_sb_best", "to": "by_sb_best", "threshold": 0},
-                {"from": "lr_ns_best", "to": "by_ns_best", "threshold": 0},
-                {"from": "lr_os_best", "to": "by_os_best", "threshold": 0},
+                {"from": "lr_ged_sb", "to": "by_sb_best", "threshold": 0},
+                {"from": "lr_ged_ns", "to": "by_ns_best", "threshold": 0},
+                {"from": "lr_ged_os", "to": "by_os_best", "threshold": 0},
             ]
         },
     }

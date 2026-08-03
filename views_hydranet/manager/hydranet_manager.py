@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Any, Callable, NamedTuple
 
 import pandas as pd
-from views_pipeline_core.data.prediction_frame import PredictionFrame
+from views_frames import PredictionFrame
 from views_pipeline_core.managers.model import (
     ForecastingModelManager,
     ModelPathManager,
@@ -23,7 +23,9 @@ from views_hydranet.train.train_model import train_model_artifact
 from views_hydranet.utils.config_initializer import ConfigInitializer
 from views_hydranet.utils.data_fetcher import DataFetcher
 from views_hydranet.utils.data_sniffer import DataSniffer
+from views_hydranet.utils.disk_guard import assert_disk_headroom
 from views_hydranet.utils.feature_scaler import FeatureScaler
+from views_hydranet.utils.grid_naming import GRID_ID_ALIASES, canonicalize_config_grid_name
 from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
 from views_hydranet.utils.model_artifact_fetcher import ModelArtifactFetcher
 from views_hydranet.utils.utils_device import setup_device
@@ -90,6 +92,26 @@ class HydranetManager(ForecastingModelManager):
 
         data_fetcher = DataFetcher(self._model_path.data_raw, self.configs)
         df = data_fetcher.fetch_df(cached_path=getattr(self, "_cached_data_path", None))
+
+        # GH #144: canonicalize the config's grid keys to the alias the DATA actually uses, so the
+        # DataSniffer + VolumeHandler (which read config['id_col']/identity_cols/index_names
+        # literally) accept the data even when the model config still says the legacy priogrid_gid.
+        # This is the downstream-config seam complementing grid_naming.grid_id_col (the load-path
+        # rule, #145): data_fetcher resolves its own contract from the data, but these consumers
+        # read the config literally. `self.configs` is a property returning a fresh combined config
+        # each access, so we mutate a copy and persist it back through the setter (same pattern as
+        # :200/:278). Fail-SAFE: act only when exactly one grid alias is resolvable from the data;
+        # otherwise skip and let the existing sniffer/contract fail loud. No-op (byte-identical)
+        # when config already matches the data (today's priogrid_gid case).
+        _grid_present = {n for n in (*df.index.names, *df.columns) if n in GRID_ID_ALIASES}
+        if len(_grid_present) == 1:
+            _cfg = self.configs
+            canonicalize_config_grid_name(_cfg, next(iter(_grid_present)))
+            self.configs = _cfg
+            # C-243: viz was built with the pre-canonicalization config (before this method), so
+            # refresh its config too — otherwise its biopsies read the stale grid alias on renamed
+            # (priogrid_id) data. Diagnostic-only, but keeps the plots correct on migrated data.
+            viz.config = _cfg
 
         # Diagnostic plot features
         plot_feats = (
@@ -182,10 +204,11 @@ class HydranetManager(ForecastingModelManager):
         else:
             logger.info("✅ Architecture: Head Count Aligned (3+3)")
 
-    def _execute_model_training(self) -> None:
-        """HydraNet specific training override."""
-        self._train_model_artifact()
-
+    # NOTE: _execute_model_training is intentionally NOT overridden. The base
+    # ForecastingModelManager phase template owns the wandb run lifecycle
+    # (initialize_run("train") + TrainingStage.finalize_training + finish_run) and
+    # calls the _train_model_artifact() hook below. Overriding the phase template
+    # silently drops the wandb train run (was C-132). Customize training via the hook.
     def _train_model_artifact(self) -> Any:
         """
         Executes the training lifecycle and returns the trained model object.
@@ -277,6 +300,9 @@ class HydranetManager(ForecastingModelManager):
         ReproducibilityGate.lock_entropy(
             np_seed=self.configs["np_seed"], torch_seed=self.configs["torch_seed"]
         )
+        # C-154: abort loud before the ~2.5 GB/origin-set prediction writes if disk is short
+        # (opt-in via `min_free_disk_gb`; None => no-op, unchanged behaviour).
+        assert_disk_headroom(self.configs.get("min_free_disk_gb"))
         self._run_preflight_check()
         viz = VisualDiagnostics(self.configs, run_timestamp=self.run_timestamp)
 

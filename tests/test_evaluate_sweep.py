@@ -20,7 +20,7 @@ _CFG = {
     "time_col": "month_id",
     "id_col": "priogrid_gid",
     "spatial_cols": ["row", "col"],
-    "regression_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "regression_targets": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
     "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
     "features": ["feat_a"],
     "steps": list(range(1, 37)),
@@ -180,7 +180,7 @@ class TestGreenEvaluateSweep:
         """_evaluate_sweep must return dict[str, list[PredictionFrame]]."""
         mgr = _mock_manager(tmp_path)
         mock_model = MagicMock(spec=torch.nn.Module)
-        targets = ["lr_sb_best", "lr_ns_best", "lr_os_best"]
+        targets = ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"]
 
         mock_pf = MagicMock()
         pf_dict = {t: mock_pf for t in targets}
@@ -207,7 +207,7 @@ class TestGreenEvaluateSweep:
         that reaches _setup_evaluation (identity check)."""
         mgr = _mock_manager(tmp_path)
         sentinel_model = MagicMock(spec=torch.nn.Module)
-        targets = ["lr_sb_best"]
+        targets = ["lr_ged_sb"]
 
         mock_pf = MagicMock()
         mock_orchestrator = MagicMock()
@@ -233,7 +233,7 @@ class TestGreenEvaluateSweep:
     def test_all_targets_present(self, tmp_path):
         """All target names must appear as keys in the returned dict."""
         mgr = _mock_manager(tmp_path)
-        targets = ["lr_sb_best", "lr_ns_best", "lr_os_best", "by_sb_best"]
+        targets = ["lr_ged_sb", "lr_ged_ns", "lr_ged_os", "by_sb_best"]
 
         mock_orchestrator = MagicMock()
         mock_orchestrator.generate_prediction_frames.return_value = [
@@ -258,7 +258,7 @@ class TestGreenEvaluateSweep:
     def test_calls_generate_prediction_frames(self, tmp_path):
         """The orchestrator's generate_prediction_frames must be called exactly once."""
         mgr = _mock_manager(tmp_path)
-        targets = ["lr_sb_best"]
+        targets = ["lr_ged_sb"]
 
         mock_orchestrator = MagicMock()
         mock_orchestrator.generate_prediction_frames.return_value = [

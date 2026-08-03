@@ -97,7 +97,7 @@ def test_lognormal_nll_registered_in_choose_loss():
         "loss_reg": "lognormal_nll",
         "loss_reg_sigma": 0.9,
         "loss_class": "bce",
-        "regression_targets": ["lr_sb_best"],
+        "regression_targets": ["lr_ged_sb"],
         "classification_targets": [],
     }
     criterion_reg, _, _ = choose_loss(config, torch.device("cpu"))

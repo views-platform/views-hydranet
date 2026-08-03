@@ -35,13 +35,20 @@ class TestGreen:
         config = HydraNetConfig(**valid_config_dict)
         assert config.run_type == "validation"
 
+    @pytest.mark.parametrize(
+        "dist", ["standard", "hurdle_nb", "hurdle_lognormal", "hurdle_shrinkage", "dense_nb"]
+    )
+    def test_green_valid_output_distributions_accepted(self, valid_config_dict, dist):
+        """All supported output_distribution values pass the validator (incl. dense_nb, C-168)."""
+        cfg = _make_config(valid_config_dict, output_distribution=dist)
+        assert HydraNetConfig(**cfg).output_distribution == dist
+
     def test_green_mse_needs_no_loss_params(self, valid_config_dict):
         """mse/bce require no loss-specific params — absence is fine."""
         cfg = dict(valid_config_dict)
         for key in [
             "loss_reg_a",
             "loss_reg_c",
-            "loss_reg_alpha",
             "loss_reg_sigma",
             "loss_reg_pareto_alpha",
             "loss_class_gamma",
@@ -122,8 +129,8 @@ class TestRed:
         cfg = _make_config(
             valid_config_dict,
             transformations={
-                "bogus_transform": ["lr_sb_best"],
-                "log1p": ["lr_ns_best", "lr_os_best"],
+                "bogus_transform": ["lr_ged_sb"],
+                "log1p": ["lr_ged_ns", "lr_ged_os"],
             },
         )
         with pytest.raises(ValidationError, match="Unknown transformation"):
@@ -215,12 +222,6 @@ class TestRed:
         with pytest.raises(ValidationError, match="loss_class_"):
             HydraNetConfig(**cfg)
 
-    def test_red_loss_reg_shared_param_raises(self, valid_config_dict):
-        """basu_dpd with loss_reg_alpha but missing loss_reg_sigma → ValidationError."""
-        cfg = _make_config(valid_config_dict, loss_reg="basu_dpd", loss_reg_alpha=0.5)
-        with pytest.raises(ValidationError, match="loss_reg_sigma"):
-            HydraNetConfig(**cfg)
-
     def test_red_missing_lognormal_param_raises(self, valid_config_dict):
         """lognormal_nll without loss_reg_sigma → ValidationError."""
         cfg = _make_config(valid_config_dict, loss_reg="lognormal_nll")
@@ -265,3 +266,33 @@ class TestRed:
         }
         HydraNetConfig(**cfg)
         assert "features" in caplog.text and "regression_targets" in caplog.text
+
+    def test_red_retired_hurdle_threshold_rejected(self, valid_config_dict):
+        """ADR-065: hurdle_threshold is retired → reject loud (not silently ignored)."""
+        cfg = _make_config(valid_config_dict, hurdle_threshold=0)
+        with pytest.raises(ValidationError, match="retired"):
+            HydraNetConfig(**cfg)
+
+    def test_red_retired_hurdle_mask_mode_rejected(self, valid_config_dict):
+        """ADR-065: hurdle_mask_mode is retired → reject loud (use body_mask instead)."""
+        cfg = _make_config(valid_config_dict, hurdle_mask_mode="active_window")
+        with pytest.raises(ValidationError, match="retired"):
+            HydraNetConfig(**cfg)
+
+    def test_red_invalid_ss_feedback_rejected(self, valid_config_dict):
+        """ss_feedback must be 'mean' or 'sample' → 'bogus' raises."""
+        cfg = _make_config(valid_config_dict, ss_feedback="bogus")
+        with pytest.raises(ValidationError, match="ss_feedback must be 'mean' or 'sample'"):
+            HydraNetConfig(**cfg)
+
+    def test_red_invalid_reg_activation_rejected(self, valid_config_dict):
+        """reg_activation must be softplus/relu/None → 'gelu' raises."""
+        cfg = _make_config(valid_config_dict, reg_activation="gelu")
+        with pytest.raises(ValidationError, match="reg_activation='gelu' is not valid"):
+            HydraNetConfig(**cfg)
+
+    def test_red_negative_pi_penalty_weight_rejected(self, valid_config_dict):
+        """pi_penalty_weight has ge=0.0 constraint → -1.0 raises pydantic ValidationError."""
+        cfg = _make_config(valid_config_dict, pi_penalty_weight=-1.0)
+        with pytest.raises(ValidationError, match="pi_penalty_weight"):
+            HydraNetConfig(**cfg)

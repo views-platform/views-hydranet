@@ -49,9 +49,9 @@ The `CurriculumLearner` is the **Planner** of the HydraNet pipeline. Its primary
 
 ## 6. Failure Modes and Loudness
 
-- **Index Overflow:** Raises `ValueError` if the requested step exceeds the total defined lessons.
+- **Step Index (no overflow):** `get_lesson(step)` selects the target subject by `subjects[step % len(subjects)]` — deliberate cyclic **subject oscillation** across an unbounded training-step index (there is no fixed "total lessons" bound to overflow). `total_steps` governs the intensity/cooling schedule (`get_intensity_ratio`), not a hard cap on `get_lesson`. The one construction-time raise is an all-static Ledger (no trainable subjects) → `ValueError`.
 - **Target Mismatch:** Fails loud if a subject requested by the configuration is not present in the volume metadata.
-- **Zero-Max Exception:** Fails if a target subject has a global maximum intensity of 0 (nothing to learn).
+- **Zero-Max Subject (tolerant):** A subject whose global maximum activity is 0 yields `threshold = 0` (the `subject_max > 0` floor deliberately does not force a minimum for a signal-less target) — it does NOT raise; the model simply gets no positive target on that subject's oscillation steps. An all-zero *dataset* is a data-integrity problem caught upstream (DataSniffer), not here. Pinned by `test_curriculum_integration.py::test_planner_to_lens_handshake`.
 
 ---
 

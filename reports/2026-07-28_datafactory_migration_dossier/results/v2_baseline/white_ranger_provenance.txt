@@ -1,0 +1,4 @@
+wr_clone=light_strider (ConflictologyModel, africa_me_legacy)
+run=FRESH end-to-end in views_pipeline env (stale 20260604 cache + .pkl moved aside)
+pred_dir=predictions_calibration_20260728_190755 (13 origins = 457-469, N=170430)
+scored=2026-07-28 19:16

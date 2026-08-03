@@ -45,7 +45,7 @@ def test_pareto_loss_registered_in_choose_loss():
         "loss_reg": "pareto",
         "loss_reg_pareto_alpha": 1.0,
         "loss_class": "bce",
-        "regression_targets": ["lr_sb_best"],
+        "regression_targets": ["lr_ged_sb"],
         "classification_targets": [],
     }
     criterion_reg, _, _ = choose_loss(config, torch.device("cpu"))
@@ -81,7 +81,7 @@ def test_pareto_loss_gradient_between_l1_and_mse():
 # ---------------------------------------------------------------------------
 def test_hurdle_masking_reduces_loss_contributors():
     """
-    With hurdle_threshold=0.0, regression loss should only come from
+    With body_supervision="active", regression loss should only come from
     positive target values. A tensor with all zeros should produce
     zero regression loss.
     """
@@ -107,7 +107,7 @@ def test_hurdle_masking_reduces_loss_contributors():
         SumReducer(),
         idx,
         torch.device("cpu"),
-        hurdle_threshold=0.0,
+        body_supervision="active",
     )
 
     # With all-zero targets and hurdle masking, no positive pixels exist
@@ -120,7 +120,7 @@ def test_hurdle_masking_reduces_loss_contributors():
 
 def test_hurdle_none_processes_all_pixels():
     """
-    With hurdle_threshold=None (default), all pixels contribute to loss.
+    With body_mask='none' (default), all pixels contribute to loss.
     Even all-zero targets should produce non-zero regression loss
     (because predictions are non-zero).
     """
@@ -145,7 +145,6 @@ def test_hurdle_none_processes_all_pixels():
         SumReducer(),
         idx,
         torch.device("cpu"),
-        hurdle_threshold=None,
     )
 
     # Without hurdle, predictions on zero targets still produce non-zero MSE
@@ -183,7 +182,7 @@ def test_qs99_regularizer_adds_to_loss():
         SumReducer(),
         idx,
         torch.device("cpu"),
-        hurdle_threshold=0.0,
+        body_supervision="active",
         qs99_weight=0.0,
     )
 
@@ -197,7 +196,7 @@ def test_qs99_regularizer_adds_to_loss():
         SumReducer(),
         idx,
         torch.device("cpu"),
-        hurdle_threshold=0.0,
+        body_supervision="active",
         qs99_weight=0.1,
         qs99_tau=0.99,
     )
@@ -210,7 +209,7 @@ def test_qs99_regularizer_adds_to_loss():
 
 
 def test_qs99_disabled_when_no_hurdle():
-    """QS99 weight > 0 but hurdle_threshold=None should NOT add regularizer."""
+    """QS99 weight > 0 but body_mask='none' should NOT add regularizer."""
     from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices
 
     B, T, C, H, W = 1, 3, 1, 4, 4
@@ -232,7 +231,6 @@ def test_qs99_disabled_when_no_hurdle():
         SumReducer(),
         idx,
         torch.device("cpu"),
-        hurdle_threshold=None,
         qs99_weight=0.0,
     )
 
@@ -245,7 +243,6 @@ def test_qs99_disabled_when_no_hurdle():
         SumReducer(),
         idx,
         torch.device("cpu"),
-        hurdle_threshold=None,
         qs99_weight=0.1,
     )
 
@@ -289,7 +286,6 @@ def test_hurdle_masking_mixed_data():
         SumReducer(),
         idx,
         torch.device("cpu"),
-        hurdle_threshold=None,
     )
 
     result_hurdle = _process_sequence(
@@ -301,7 +297,7 @@ def test_hurdle_masking_mixed_data():
         SumReducer(),
         idx,
         torch.device("cpu"),
-        hurdle_threshold=0.0,
+        body_supervision="active",
     )
 
     loss_no = result_no_hurdle["total"].item()

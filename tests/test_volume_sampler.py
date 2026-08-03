@@ -21,20 +21,20 @@ CHANNEL_MAP = [
     "c_id",
     "row",
     "col",
-    "lr_sb_best",
+    "lr_ged_sb",
     "by_sb_best",
 ]
-TARGET = "lr_sb_best"
+TARGET = "lr_ged_sb"
 TARGET_IDX = CHANNEL_MAP.index(TARGET)
 
 
 @pytest.fixture(scope="module")
 def sampler_handler():
-    """VolumeHandler [T=10, H=8, W=8, C=7] with mixed activity in lr_sb_best."""
+    """VolumeHandler [T=10, H=8, W=8, C=7] with mixed activity in lr_ged_sb."""
     rng = np.random.RandomState(42)
     data = rng.rand(T, H, W, N_CHANNELS).astype(np.float32)
 
-    # Make some cells have zero activity in lr_sb_best (for importance sampling test)
+    # Make some cells have zero activity in lr_ged_sb (for importance sampling test)
     data[:, 4:, 4:, TARGET_IDX] = 0.0
 
     # Fill identity channels
@@ -52,7 +52,7 @@ def sampler_handler():
         id_col="priogrid_gid",
         spatial_cols=("row", "col"),
         identity_cols=("c_id", "row", "col"),
-        feature_cols=("lr_sb_best", "by_sb_best"),
+        feature_cols=("lr_ged_sb", "by_sb_best"),
     )
 
 

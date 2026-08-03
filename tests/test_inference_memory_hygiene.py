@@ -39,16 +39,16 @@ MEMORY_CFG = {
     "time_steps": 1,
     "input_channels": 3,
     "output_channels": 1,
-    "regression_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "regression_targets": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
     "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
     "identity_cols": ["row", "col"],
-    "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
-    "transformations": {"identity": ["lr_sb_best", "lr_ns_best", "lr_os_best"]},
+    "features": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
+    "transformations": {"identity": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"]},
     "derivations": {
         "binary": [
-            {"from": "lr_sb_best", "to": "by_sb_best", "threshold": 0},
-            {"from": "lr_ns_best", "to": "by_ns_best", "threshold": 0},
-            {"from": "lr_os_best", "to": "by_os_best", "threshold": 0},
+            {"from": "lr_ged_sb", "to": "by_sb_best", "threshold": 0},
+            {"from": "lr_ged_ns", "to": "by_ns_best", "threshold": 0},
+            {"from": "lr_ged_os", "to": "by_os_best", "threshold": 0},
         ]
     },
     "height": 2,
@@ -124,9 +124,9 @@ def _make_handler() -> VolumeHandler:
                         "priogrid_gid": r * 2 + c + 1,
                         "row": float(r),
                         "col": float(c),
-                        "lr_sb_best": 0.5,
-                        "lr_ns_best": 0.1,
-                        "lr_os_best": 0.0,
+                        "lr_ged_sb": 0.5,
+                        "lr_ged_ns": 0.1,
+                        "lr_ged_os": 0.0,
                     }
                 )
     df = pd.DataFrame(rows)
@@ -398,7 +398,7 @@ class TestGreenTensorLifecycle:
                 full_tensor,
                 origin=3,
                 sample_idx=0,
-                feature_names=["lr_sb_best", "lr_ns_best", "lr_os_best"],
+                feature_names=["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
             )
 
         # After predict() returns, force GC and verify tensors are freed
@@ -457,9 +457,9 @@ class TestGreenStreamingEvalInterface:
     """
 
     _ALL_TARGETS = [
-        "lr_sb_best",
-        "lr_ns_best",
-        "lr_os_best",
+        "lr_ged_sb",
+        "lr_ged_ns",
+        "lr_ged_os",
         "by_sb_best",
         "by_ns_best",
         "by_os_best",
@@ -474,7 +474,7 @@ class TestGreenStreamingEvalInterface:
         """
         from types import SimpleNamespace
 
-        from views_pipeline_core.data.prediction_frame import PredictionFrame
+        from views_frames import PredictionFrame, SpatialLevel, SpatioTemporalIndex
 
         from views_hydranet.manager.hydranet_manager import HydranetManager
 
@@ -486,10 +486,11 @@ class TestGreenStreamingEvalInterface:
                 pf_dict = {
                     t: PredictionFrame(
                         y_pred=np.ones((4, 2), dtype=np.float32),
-                        identifiers={
-                            "time": np.array([100, 101, 102, 103], dtype=np.int64),
-                            "unit": np.array([1, 2, 3, 4], dtype=np.int64),
-                        },
+                        index=SpatioTemporalIndex(
+                            time=np.array([100, 101, 102, 103], dtype=np.int64),
+                            unit=np.array([1, 2, 3, 4], dtype=np.int64),
+                            level=SpatialLevel.PGM,
+                        ),
                     )
                     for t in (all_targets or targets)
                 }
@@ -535,7 +536,7 @@ class TestGreenStreamingEvalInterface:
 
     def test_streaming_pf_dict_contains_all_targets(self):
         """Every emitted pf_dict must contain all target keys."""
-        targets = ["lr_sb_best", "lr_ns_best", "by_sb_best"]
+        targets = ["lr_ged_sb", "lr_ged_ns", "by_sb_best"]
         _, dicts = self._run_streaming(n_origins=2, targets=targets)
         for pf_dict in dicts:
             assert set(pf_dict.keys()) == set(targets)
@@ -547,7 +548,7 @@ class TestGreenStreamingEvalInterface:
         """
         from types import SimpleNamespace
 
-        from views_pipeline_core.data.prediction_frame import PredictionFrame
+        from views_frames import PredictionFrame, SpatialLevel, SpatioTemporalIndex
 
         from views_hydranet.manager.hydranet_manager import HydranetManager
 
@@ -564,10 +565,11 @@ class TestGreenStreamingEvalInterface:
             for i in range(2):
                 pf = PredictionFrame(
                     y_pred=np.ones((2, 2), dtype=np.float32),
-                    identifiers={
-                        "time": np.array([100, 101], dtype=np.int64),
-                        "unit": np.array([1, 2], dtype=np.int64),
-                    },
+                    index=SpatioTemporalIndex(
+                        time=np.array([100, 101], dtype=np.int64),
+                        unit=np.array([1, 2], dtype=np.int64),
+                        level=SpatialLevel.PGM,
+                    ),
                 )
                 origin_sink(i, {"target": pf})
                 del pf  # streaming implementation frees immediately

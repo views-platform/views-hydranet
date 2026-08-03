@@ -7,18 +7,37 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.patches as patches
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
 
+from views_hydranet.utils.training_forensics import THETA_COLLAPSE_COV, THETA_HEALTH_COV
 from views_hydranet.utils.volume_handler import VolumeHandler
 
 logger = logging.getLogger(__name__)
+
+# issue #215: matplotlib is imported LAZILY via _load_mpl() — NEVER at module level. The model-run
+# path imports this module (manager/inference/training), but VisualDiagnostics is a Null Object
+# (diagnostics default off) → a headless run needs no plotting stack. matplotlib is an optional
+# 'viz' extra, imported only when a plotting method runs.
+_plt = None
+_patches = None
+
+
+def _load_mpl():
+    """Lazy, memoized matplotlib (Agg backend) -> ``(plt, patches)``. Imported only when a plotting
+    method runs (diagnostics active). Agg is set BEFORE pyplot import (headless; prevents the
+    tkinter-thread crash — test_falsification_matplotlib_backend::test_P1)."""
+    global _plt, _patches
+    if _plt is None:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.patches as patches
+        import matplotlib.pyplot as plt
+
+        _plt, _patches = plt, patches
+    return _plt, _patches
 
 
 class VisualDiagnostics:
@@ -365,6 +384,7 @@ class VisualDiagnostics:
         if not self.active:
             return
 
+        plt, _ = _load_mpl()  # #215: lazy matplotlib, only when active
         try:
             # 1. Aggregate raw layer norms into functional blocks
             blocks: Dict[str, List[float]] = {
@@ -373,16 +393,21 @@ class VisualDiagnostics:
                 "Decoder": [],
                 "MultiTaskHead": [],
             }
+            # Map layer names → functional blocks. The model uses short prefixes (enc_/bottleneck_/
+            # dec_/upsample_) and fuses the decoder into per-head paths (dec_conv*_head*), with the
+            # final conv (dec_conv4_head*) as the output head. Match those, NOT literal "encoder"/
+            # "decoder" (which never appear → previously left Encoder & Decoder permanently empty,
+            # rendering a degenerate vertical line).
             for name, norm in weight_norms.items():
                 short = name.replace("module.", "").lower()
-                if "encoder" in short:
-                    blocks["Encoder"].append(norm)
-                elif "bottleneck" in short:
+                if "bottleneck" in short:
                     blocks["Bottleneck"].append(norm)
-                elif "decoder" in short:
-                    blocks["Decoder"].append(norm)
-                elif "head" in short or "multi_task" in short:
+                elif "enc" in short:
+                    blocks["Encoder"].append(norm)
+                elif "conv4" in short:  # final per-head output conv = the prediction heads
                     blocks["MultiTaskHead"].append(norm)
+                elif "dec" in short or "upsample" in short:
+                    blocks["Decoder"].append(norm)
 
             labels = list(blocks.keys())
             values = [float(np.mean(v)) if v else 0.0 for v in blocks.values()]
@@ -455,6 +480,7 @@ class VisualDiagnostics:
         if not self.active:
             return
 
+        plt, _ = _load_mpl()  # #215: lazy matplotlib, only when active
         try:
             # Inputs are lists of arrays [H, W, C]
             # Convert to [Time, Row, Col, Chan]
@@ -462,61 +488,79 @@ class VisualDiagnostics:
             pred = np.stack(pred_seq)  # [6, H, W, C]
             delta = np.abs(truth - pred)
 
-            n_times = 6
-
-            # To keep it "Joyful" and not too huge, we'll plot the first signal only
+            # Plot the first signal only (Joyful). truth/pred/delta are [T, H, W, C] over the
+            # full rollout horizon (the caller passes the whole accumulator, padded to >=6).
             feat_idx = 0
             feat_name = channel_names[feat_idx]
+            T = truth.shape[0]
 
-            fig, axes = plt.subplots(3, n_times, figsize=(18, 10))
+            # Horizon columns: t=0 / early / late rollout snapshots + the full-rollout TEMPORAL
+            # MEAN. Shows t=0 sharp/calibrated while deep-rollout steps inflate & centralize (the
+            # inflation hidden in any single-step view); 'full' = the aggregate over the horizon.
+            def _mlabel(idx):
+                return (
+                    f" m{int(time_indices[idx])}"
+                    if time_indices and idx < len(time_indices)
+                    else ""
+                )
+
+            i_early, i_late = T // 3, T - 1
+            cols = [
+                (f"t=0{_mlabel(0)}", truth[0], pred[0], delta[0]),
+                (f"early{_mlabel(i_early)}", truth[i_early], pred[i_early], delta[i_early]),
+                (f"late{_mlabel(i_late)}", truth[i_late], pred[i_late], delta[i_late]),
+                ("full (mean)", truth.mean(0), pred.mean(0), delta.mean(0)),
+            ]
+            n_cols = len(cols)
+            fig, axes = plt.subplots(3, n_cols, figsize=(4.5 * n_cols, 10), squeeze=False)
 
             row_labels = ["GROUND TRUTH (y)", "PREDICTION (ŷ)", "ABSOLUTE DELTA (|y-ŷ|)"]
-            data_rows = [truth, pred, delta]
+            # Shared scale for Truth and Pred across all columns; Delta gets its own.
+            v_min = float(
+                np.min([np.nanmin(truth[..., feat_idx]), np.nanmin(pred[..., feat_idx])])
+            )
+            v_max = float(
+                np.max([np.nanmax(truth[..., feat_idx]), np.nanmax(pred[..., feat_idx])])
+            )
+            d_max = float(np.nanmax(delta[..., feat_idx]))
 
-            # Shared scale for Truth and Pred, Delta gets its own
-            v_min = np.min([np.nanmin(truth[..., feat_idx]), np.nanmin(pred[..., feat_idx])])
-            v_max = np.max([np.nanmax(truth[..., feat_idx]), np.nanmax(pred[..., feat_idx])])
-            d_max = np.nanmax(delta[..., feat_idx])
-
-            for r_idx in range(3):
-                row_data = data_rows[r_idx]
-                for t_idx in range(n_times):
-                    ax = axes[r_idx, t_idx]
-                    img = row_data[t_idx, ..., feat_idx]
-
-                    # Style
+            for ci, (ctitle, t_img, p_img, d_img) in enumerate(cols):
+                row_imgs = [t_img[..., feat_idx], p_img[..., feat_idx], d_img[..., feat_idx]]
+                for r_idx in range(3):
+                    ax = axes[r_idx][ci]
                     cmap = "magma" if r_idx < 2 else "Reds"
                     vmx = v_max if r_idx < 2 else d_max
                     vmn = v_min if r_idx < 2 else 0
-
                     ax.imshow(
-                        img, origin="upper", cmap=cmap, vmin=vmn, vmax=vmx, interpolation="nearest"
+                        row_imgs[r_idx],
+                        origin="upper",
+                        cmap=cmap,
+                        vmin=vmn,
+                        vmax=vmx,
+                        interpolation="nearest",
                     )
                     ax.set_xticks([])
                     ax.set_yticks([])
-
-                    # Labels
                     if r_idx == 0:
-                        m_id = int(time_indices[t_idx]) if time_indices else t_idx
-                        suffix = "_seed" if t_idx == 0 else "_out"
-                        ax.set_title(f"{m_id}{suffix}", fontweight="bold")
-
-                    if t_idx == 0:
+                        ax.set_title(ctitle, fontweight="bold")
+                    if ci == 0:
                         ax.set_ylabel(
                             row_labels[r_idx], rotation=0, labelpad=80, fontweight="bold"
                         )
 
             plt.suptitle(
-                f"Autoregressive Forensic: {stage_label} ({feat_name})", fontsize=18, y=0.98
+                f"Autoregressive Forensic: {stage_label} ({feat_name}) — horizon split "
+                f"[{T} steps]",
+                fontsize=16,
+                y=0.98,
             )
             plt.tight_layout(rect=(0, 0.03, 1, 0.95))
 
-            # Add vertical delimitation line correctly (between col 0 and 1)
-            # IMPORTANT: tight_layout must be called BEFORE get_position()
+            # Cyan delimiter before the 'full (mean)' column (snapshots vs the aggregate).
             fig.canvas.draw()
-            pos0 = axes[0, 0].get_position()
-            pos1 = axes[0, 1].get_position()
-            line_x = (pos0.x1 + pos1.x0) / 2
+            pos2 = axes[0][n_cols - 2].get_position()
+            pos3 = axes[0][n_cols - 1].get_position()
+            line_x = (pos2.x1 + pos3.x0) / 2
             fig.add_artist(
                 plt.Line2D(
                     [line_x, line_x],
@@ -550,31 +594,50 @@ class VisualDiagnostics:
         y_hat_cls: np.ndarray,
         stage_label: str,
         time_indices: Optional[List[float]] = None,
+        self_zeroed: bool = False,
     ) -> None:
         """
-        4x6 Forensic Grid for Training runs.
-        Rows: [Y_Reg, Y_Hat_Reg, Y_Cls, Y_Hat_Cls]
-        Cols: 6 sequential time steps.
+        5xN Forensic Grid for Training runs.
+        Rows: [truth Reg, body E[y], truth Cls, cls gate, THE FORECAST].
+        The last row is the ACTUAL scored forecast, which differs by mode:
+        - ``self_zeroed=True`` (ZINB): forecast = the self-zeroed body ``y_hat_reg`` (NO ×gate;
+          multiplying would double-count the structural zeros).
+        - ``self_zeroed=False`` (NB=gated_NB, and legacy hurdle): forecast = ``gate × body``.
+        Cols: up to 6 sequential time steps.
         """
         if not self.active:
             return
 
+        plt, _ = _load_mpl()  # #215: lazy matplotlib, only when active
         try:
             # Inputs are [T, H, W, C]
             n_times = min(6, y_reg.shape[0])
 
-            fig, axes = plt.subplots(4, n_times, figsize=(18, 12))
+            # 5th row = THE ACTUAL FORECAST, honest per mode (never double-gate self-zeroed).
+            # - self_zeroed (ZINB): forecast IS the self-zeroed body y_hat_reg=(1-π)μ. Row 2 and
+            #   row 5 coincide by design — for ZINB the body IS the forecast (no separate gate).
+            # - gated (NB=gated_NB, legacy hurdle): forecast = gate × body — the diffuse body
+            #   (row 2) sharpened by the classification gate (row 4).
+            if self_zeroed:
+                y_hat_forecast = y_hat_reg
+                forecast_label = "FORECAST (self-zeroed E[y])"
+            else:
+                y_hat_forecast = y_hat_cls * y_hat_reg
+                forecast_label = "FORECAST (gated: gate·body)"
+
+            fig, axes = plt.subplots(5, n_times, figsize=(18, 15))
 
             row_labels = [
                 "GROUND TRUTH (Reg)",
-                "PREDICTION (Reg)",
+                "PREDICTION: body E[y]",
                 "GROUND TRUTH (Cls)",
-                "PREDICTION (Cls)",
+                "PREDICTION: cls gate",
+                forecast_label,
             ]
-            data_rows = [y_reg, y_hat_reg, y_cls, y_hat_cls]
-            cmaps = ["magma", "magma", "viridis", "viridis"]
+            data_rows = [y_reg, y_hat_reg, y_cls, y_hat_cls, y_hat_forecast]
+            cmaps = ["magma", "magma", "viridis", "viridis", "magma"]
 
-            for r_idx in range(4):
+            for r_idx in range(5):
                 row_data = data_rows[r_idx]
                 feat_slice = row_data[..., 0]  # Use first target only
                 vmin, vmax = np.nanmin(feat_slice), np.nanmax(feat_slice)
@@ -666,6 +729,8 @@ class VisualDiagnostics:
         if not self.active:
             return
 
+        plt, _ = _load_mpl()  # #215: lazy matplotlib (bound before the nested closure below)
+
         def _generate_plot(is_log: bool):
             fig, axes = plt.subplots(3, 1, figsize=(10, 12))
 
@@ -740,6 +805,7 @@ class VisualDiagnostics:
         if not self.active:
             return
 
+        plt, _ = _load_mpl()  # #215: lazy matplotlib, only when active
         is_reg = target_type == "REG"
         metrics = (
             self.config.get("regression_metrics", [])
@@ -750,79 +816,216 @@ class VisualDiagnostics:
         # Filter for metrics actually in the dossier
         active_metrics = [m for m in metrics if m in dossier]
 
-        # Determine Rows: N metrics + Magnitude + Bias
+        # Determine Rows: N metrics + Magnitude + Bias (+ family parameter-health rows, C-213).
+        # Param-health rows appear ONLY when TrainingForensics recorded family params (nb/zinb):
+        # μ̄ + θ-CoV always, + π (mean/range) for zinb. Non-family dossiers lack the keys → same.
         n_metrics = len(active_metrics)
-        n_extra = 2 if is_reg else 1  # Reg gets Mag+Bias, Cls gets Bias
+        has_param_health = is_reg and "theta_cov" in dossier
+        has_pi = has_param_health and "pi_bar" in dossier
+        n_param_health = 0 if not has_param_health else (3 if has_pi else 2)
+        n_extra = (
+            2 if is_reg else 1
+        ) + n_param_health  # Reg gets Mag+Bias(+param-health), Cls Bias
         total_rows = n_metrics + n_extra
 
         try:
-            fig, axes = plt.subplots(total_rows, 1, figsize=(10, 4 * total_rows))
-            if total_rows == 1:
-                axes = [axes]
+            # Horizon-split columns: t=0 (first forecast step) / early / late rollout vs the
+            # full-window aggregate. Shows t=0 is calibrated while later steps inflate (hidden in
+            # the full-window average). Per-slice series come from TrainingForensics (h-slices).
+            cols = [
+                ("t0", "t=0 (step-1)"),
+                ("early", "early rollout"),
+                ("late", "late rollout"),
+                ("full", "full window"),
+            ]
+            n_cols = len(cols)
+            fig, axes = plt.subplots(
+                total_rows, n_cols, figsize=(4.5 * n_cols, 3.2 * total_rows), squeeze=False
+            )
 
-            # 1. Plot individual metrics (One per row)
-            for i, m in enumerate(active_metrics):
-                ax = axes[i]
-                ax.plot(dossier[m], label=m.upper(), marker="o", color="royalblue", alpha=0.7)
-                ax.set_title(f"Metric: {m.upper()}", fontweight="bold")
-                ax.set_ylabel("Score")
-                ax.grid(True, alpha=0.3)
-                if not is_reg:
-                    ax.set_ylim(0, 1.05)  # Cls normalization
+            def ck(stat, ckey):
+                # 'full' uses the un-prefixed key; slices use the 't0_'/'early_'/'late_' prefix.
+                return stat if ckey == "full" else f"{ckey}_{stat}"
 
-            # 2. Plot extra Rows
+            def shared_hi(series_list):
+                vals = [v for s in series_list for v in s]
+                return max(vals) if vals else 1.0
+
+            # 1. Metric rows (one per active metric), shared y per row across the 4 columns.
+            for r, m in enumerate(active_metrics):
+                hi = shared_hi([dossier.get(ck(m, c), []) for c, _ in cols])
+                for ci, (ckey, clabel) in enumerate(cols):
+                    ax = axes[r][ci]
+                    ax.plot(dossier.get(ck(m, ckey), []), marker="o", color="royalblue", alpha=0.7)
+                    ax.grid(True, alpha=0.3)
+                    if not is_reg:
+                        ax.set_ylim(0, 1.05)
+                    elif hi > 0:
+                        ax.set_ylim(0, hi * 1.1)
+                    if r == 0:
+                        ax.set_title(clabel, fontweight="bold")
+                    if ci == 0:
+                        ax.set_ylabel(f"Metric: {m.upper()}", fontweight="bold")
+
+            # 2. Magnitude row (reg only): y_bar (actual) vs ŷ_bar (pred), shared scale.
             if is_reg:
-                # Row N: Magnitudes
-                ax_mag = axes[n_metrics]
-                ax_mag.plot(
-                    dossier["y_bar"], label="Actual Mean (y_bar)", color="black", linewidth=2
+                r = n_metrics
+                hi = shared_hi(
+                    [dossier.get(ck("y_bar", c), []) for c, _ in cols]
+                    + [dossier.get(ck("y_hat_bar", c), []) for c, _ in cols]
                 )
-                ax_mag.plot(
-                    dossier["y_hat_bar"],
-                    label="Pred Mean (ŷ_bar)",
-                    color="orange",
-                    linestyle="--",
-                    alpha=0.8,
-                )
-                ax_mag.set_title("Magnitude Pulse (Average Counts)", fontweight="bold")
-                ax_mag.legend()
-                ax_mag.grid(True, alpha=0.3)
+                for ci, (ckey, clabel) in enumerate(cols):
+                    ax = axes[r][ci]
+                    ax.plot(
+                        dossier.get(ck("y_bar", ckey), []),
+                        color="black",
+                        linewidth=2,
+                        label="y_bar",
+                    )
+                    ax.plot(
+                        dossier.get(ck("y_hat_bar", ckey), []),
+                        color="orange",
+                        linestyle="--",
+                        alpha=0.85,
+                        label="ŷ_bar",
+                    )
+                    if hi > 0:
+                        ax.set_ylim(0, hi * 1.1)
+                    ax.grid(True, alpha=0.3)
+                    if r == 0:
+                        ax.set_title(clabel, fontweight="bold")
+                    if ci == 0:
+                        ax.set_ylabel("Magnitude Pulse\n(y_bar vs ŷ_bar)", fontweight="bold")
+                        ax.legend(fontsize=7)
 
-                # Row N+1: Bias
-                ax_bias = axes[n_metrics + 1]
-                ax_bias.plot(
-                    dossier["bias_instant"], label="Instant (Lesson)", color="firebrick", alpha=0.6
+            # 3. Calibration row (ŷ_bar/y_bar ratio). full = instant+running; slices = one ratio.
+            # Always log-scaled with FIXED bounds so this row is directly comparable across runs
+            # (e.g. a pos_weight dial sweep) — no per-run linear↔log switch that breaks comparison.
+            r = n_metrics + (1 if is_reg else 0)
+            cal_lo, cal_hi = (0.5, 2000.0) if is_reg else (0.1, 200.0)
+            for ci, (ckey, clabel) in enumerate(cols):
+                ax = axes[r][ci]
+                if ckey == "full":
+                    ax.plot(
+                        dossier.get("bias_instant", []),
+                        color="firebrick",
+                        alpha=0.6,
+                        label="instant",
+                    )
+                    ax.plot(
+                        dossier.get("bias_running", []),
+                        color="royalblue",
+                        linewidth=2,
+                        label="running",
+                    )
+                else:
+                    ax.plot(
+                        dossier.get(f"{ckey}_bias", []),
+                        color="firebrick",
+                        alpha=0.8,
+                        label="instant",
+                    )
+                ax.axhline(1.0, color="gray", linestyle=":", alpha=0.5)
+                ax.set_yscale("log")
+                ax.set_ylim(cal_lo, cal_hi)
+                ax.grid(True, alpha=0.3)
+                if r == 0:
+                    ax.set_title(clabel, fontweight="bold")
+                if ci == 0:
+                    lbl = (
+                        "Calibration Pulse\n(ŷ_bar/y_bar)"
+                        if is_reg
+                        else "Detection Bias\n(ŷ/y events)"
+                    )
+                    ax.set_ylabel(lbl, fontweight="bold")
+                    ax.legend(fontsize=7)
+
+            # 4. Parameter-health rows (family heads only, C-213): μ̄ (conditional magnitude),
+            # θ cross-cell CoV with the F1 guide lines (health >0.10, collapse <0.02), and — for
+            # zinb — π mean + [min,max] range (degeneracy → 0/1). Turns the pre-registered F1
+            # falsifier into a live per-lesson trace; renders for ALL targets (not just target-0).
+            if has_param_health:
+                base = n_metrics + 2  # after Magnitude (n_metrics) + Calibration (n_metrics+1)
+
+                # μ̄ trajectory
+                hi = shared_hi([dossier.get(ck("mu_bar", c), []) for c, _ in cols])
+                for ci, (ckey, _clabel) in enumerate(cols):
+                    ax = axes[base][ci]
+                    ax.plot(
+                        dossier.get(ck("mu_bar", ckey), []),
+                        color="darkgreen",
+                        marker="o",
+                        alpha=0.7,
+                    )
+                    if hi > 0:
+                        ax.set_ylim(0, hi * 1.1)
+                    ax.grid(True, alpha=0.3)
+                    if ci == 0:
+                        ax.set_ylabel("μ̄ (body mean)\nconditional magnitude", fontweight="bold")
+
+                # θ cross-cell CoV (std/mean over active cells) with the F1 guide lines
+                hi = max(
+                    shared_hi([dossier.get(ck("theta_cov", c), []) for c, _ in cols]),
+                    THETA_HEALTH_COV * 1.5,
                 )
-                ax_bias.plot(
-                    dossier["bias_running"],
-                    label="Running (Global)",
-                    color="royalblue",
-                    linewidth=2,
-                )
-                ax_bias.axhline(1.0, color="gray", linestyle=":", alpha=0.5)
-                ax_bias.set_title("Calibration Pulse (ŷ_bar / y_bar)", fontweight="bold")
-                ax_bias.set_ylabel("Ratio")
-                if any(v > 10 for v in dossier["bias_instant"]):
-                    ax_bias.set_yscale("log")
-                ax_bias.legend()
-                ax_bias.grid(True, alpha=0.3)
-            else:
-                # Cls Bias
-                ax_bias = axes[n_metrics]
-                ax_bias.plot(
-                    dossier["bias_instant"],
-                    label="Event Ratio (ŷ_events / y_events)",
-                    color="seagreen",
-                    alpha=0.8,
-                )
-                ax_bias.axhline(1.0, color="gray", linestyle=":", alpha=0.5)
-                ax_bias.set_title("Detection Bias Pulse", fontweight="bold")
-                ax_bias.legend()
-                ax_bias.grid(True, alpha=0.3)
+                for ci, (ckey, _clabel) in enumerate(cols):
+                    ax = axes[base + 1][ci]
+                    ax.plot(
+                        dossier.get(ck("theta_cov", ckey), []),
+                        color="purple",
+                        marker="o",
+                        alpha=0.7,
+                    )
+                    ax.axhline(
+                        THETA_HEALTH_COV,
+                        color="green",
+                        linestyle="--",
+                        alpha=0.6,
+                        label="health >0.10",
+                    )
+                    ax.axhline(
+                        THETA_COLLAPSE_COV,
+                        color="red",
+                        linestyle="--",
+                        alpha=0.6,
+                        label="collapse <0.02",
+                    )
+                    ax.set_ylim(0, hi * 1.1)
+                    ax.grid(True, alpha=0.3)
+                    if ci == 0:
+                        ax.set_ylabel("θ CoV (std/mean)\nheteroscedasticity", fontweight="bold")
+                        ax.legend(fontsize=6)
+
+                # π mean + [min, max] band (zinb only) — degeneracy watch (→0 plain-NB, →1 dead)
+                if has_pi:
+                    for ci, (ckey, _clabel) in enumerate(cols):
+                        ax = axes[base + 2][ci]
+                        pbar = dossier.get(ck("pi_bar", ckey), [])
+                        pmin = dossier.get(ck("pi_min", ckey), [])
+                        pmax = dossier.get(ck("pi_max", ckey), [])
+                        ax.plot(pbar, color="teal", marker="o", alpha=0.8, label="π̄")
+                        if pbar and len(pmin) == len(pbar) == len(pmax):
+                            ax.fill_between(
+                                range(len(pbar)),
+                                pmin,
+                                pmax,
+                                color="teal",
+                                alpha=0.2,
+                                label="[min,max]",
+                            )
+                        ax.set_ylim(-0.02, 1.02)
+                        ax.grid(True, alpha=0.3)
+                        if ci == 0:
+                            ax.set_ylabel(
+                                "π (structural zero)\nmean + [min,max]", fontweight="bold"
+                            )
+                            ax.legend(fontsize=6)
 
             mode_str = "REGRESSION" if is_reg else "CLASSIFICATION"
-            plt.suptitle(f"{mode_str} FORENSIC: {target_name} ({stage_label})", fontsize=18)
-            plt.tight_layout(rect=(0, 0.03, 1, 0.97))
+            plt.suptitle(
+                f"{mode_str} FORENSIC: {target_name} ({stage_label}) — horizon split", fontsize=16
+            )
+            plt.tight_layout(rect=(0, 0.02, 1, 0.97))
 
             type_tag = "reg" if is_reg else "cls"
             fname = f"forensic_{type_tag}_{target_name.lower()}.png"
@@ -855,6 +1058,7 @@ class VisualDiagnostics:
         n_times = data_5d.shape[0]
         n_feats = data_5d.shape[-1]
 
+        plt, patches = _load_mpl()  # #215: lazy matplotlib (helper runs only via active methods)
         # Grid Setup: 1 row for Global Context + N rows for features
         fig = plt.figure(figsize=(4 * n_times, 3 * (n_feats + 1)))
         gs = fig.add_gridspec(n_feats + 1, n_times)
@@ -973,6 +1177,7 @@ class VisualDiagnostics:
         n_times = data_5d.shape[0]
         n_feats = data_5d.shape[-1]
 
+        plt, _ = _load_mpl()  # #215: lazy matplotlib (this helper only runs via active methods)
         # Plot Setup: Rows = Features, Cols = Time
         fig, axes = plt.subplots(n_feats, n_times, figsize=(4 * n_times, 3 * n_feats))
         if n_feats == 1:

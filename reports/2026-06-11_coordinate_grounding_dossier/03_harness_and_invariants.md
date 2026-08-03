@@ -1,0 +1,72 @@
+# 03 — Harness & Invariants
+
+**Date:** 2026-06-11 · The standing checks the build must satisfy and the readout the experiment is judged by.
+
+## Standing invariants (from ADR-060 — the static-channel contract)
+- **I1 — Never a target.** Coordinates never appear in `regression_/classification_targets`;
+  `output_channels` stays 3. *Test (Red):* a config with a coord in a target list → validator raises.
+- **I2 — No inversion, not in the frame.** Coordinates never pass through `transformations` / inverse-
+  transform and never appear in a `PredictionFrame`. *Test (Red):* a coord surfacing in any frame → fail.
+- **I3 — Static across the rollout.** Coordinates are re-injected with true values at every step; never
+  overwritten by model output. *Test (Beige):* assert the coord channels are identical at every rollout
+  step and equal to their source.
+- **I4 — Alignment by construction.** Coordinates are derived over the full grid and sliced with the same
+  window indices as the conflict channels. *Test (Beige):* the coord slice for a window matches the
+  dynamic-channel window indices (a known-corner probe).
+- **I5 — Off-path bit-identity.** With the toggle off, the full pipeline output is **byte-identical** to
+  the pre-coord baseline. *Test (Green):* run the baseline config with the flag off → identical artifact.
+- **I6 — Augmentation sync.** Any spatial transform applied to the conflict channels (training-time
+  flips/rotations, the North-Up orientation flip) is applied identically to the coordinate channels.
+  *Test (Beige):* a flipped/rotated window's coord channel matches the transformed grid position.
+  (Carried from ADR-029 — coords that don't flip with the data encode the wrong position.)
+
+> **Coverage bar raised (2026-06-16, GitHub #127).** I3/I4/I6 + range are no longer one-test-each: they require
+> **100% Green/Beige/Red coverage across *every* sampler/handler transform** — North-Up flip
+> (`volume_handler.py:241`), transpose `(2,0,1,3)`, `_permute`, `flip` (torch+numpy), `spatial_offset`,
+> training-time random flips, and the sampler window slice (`volume_sampler.py:_generate_window`). The **Red**
+> cases must prove a *broken* co-transform is **caught**, not silently passed. Owned by **#127**; gates #118.
+
+## Build-specific checks
+- **Range check.** Coordinate channels lie in `[-1, 1]`; the four grid corners map to the expected
+  extremes (a 2×2 corner probe).
+- **Shape contract.** Input tensor has 5 channels (3 dynamic + 2 static) at the first conv; the output
+  head emits 3; the top-skip tensor gains exactly 2 channels.
+- **No FeatureScaler contact.** Coordinates are not `log1p`'d and do not appear in the scaler's
+  `transformations` (Q4) — they are produced pre-normalized in-model.
+
+## Pre-run prerequisites (folded in from the 2026-06-13 `/falsify` audit)
+Before the coordinate run is launched or trusted:
+- **Explosion-check validated for count-space (C-142/P4) — ✅ DONE (#106, 2026-06-13).** The "Bounded?"
+  pre-gate now composes `log1p(E[y])` exactly as inference does, via `free_running_attractor(emit_fn=…)`
+  backed by the shared `views_hydranet.utils.hurdle_nb.hurdle_nb_expected_log1p` (single source of truth
+  with `_emit_magnitude`). It measures what the hurdle-NB rollout actually feeds back — not count-space `mu`
+  against the log-space bound. Validated by `tests/test_rollout_stability_guard.py` (an in-range count is no
+  longer mis-flagged; a composed-E[y] runaway is flagged). **C-142 closed.**
+- **Disk headroom (C-154/P3) — ✅ DONE (#107).** `disk_guard.assert_disk_headroom` + opt-in
+  `min_free_disk_gb` wired into `_setup_evaluation` aborts (fail loud) before the ~2.5 GB writes if free <
+  budget. The coords run sets the budget. **C-154 resolved.**
+- **Baseline provenance pinned (C-155/P5) — ✅ DONE (#107).** Comparator = `config_hyperparameters.py`
+  (hurdle_nb) + per-arm env + seeds {42,4} + the C-42 lock; the stale `config_sweep.py` (tobit) **aligned**
+  to hurdle_nb; `feedback_clamp_log1p = None` in all 11 baseline runs ⇒ bound **intrinsic** (C-151 resolved).
+  Pinned in `05`. **C-155 resolved.**
+- **Cross-cutting seam landed (C-153/P1) — ✅ DONE (#108).** The `static_channels` seam ships coordinated
+  across config + VolumeHandler (derive before flip) + both feedback paths (I3) — invariants I1–I6 green
+  (`tests/test_static_channel_seam.py`); `static_channels=[]` byte-identical (I5). **C-153 resolved.**
+
+## Readout protocol (how the experiment is judged — same instruments as the diagnosis)
+The coordinate run is read against the bounded hurdle-NB baseline with the same instruments that produced
+tonight's diagnosis:
+0. **Bounded? (pre-gate).** `diagnose_io_gain` 36-step rollout stays in-range — now **count-space-valid**
+   for the hurdle-NB head (composes `log1p(E[y])` like inference; C-142 closed by #106). Trustworthy.
+1. **Gate forensic** — the classification "Detection Bias Pulse" (event-ratio ŷ_events/y_events over
+   lessons). *Looking for:* the climb to 4–16× **flattens** toward ≈1.
+2. **Rollout biopsy** — the autoregressive forensic (ground-truth / prediction / |Δ| over rollout steps,
+   per origin). *Looking for:* blobs **stop blooming in structural-zero regions** specifically.
+3. **MCR readout** (`scripts/mcr_readout.py`) — step-1 + full, per target (sb/ns/os), on the full grid and
+   the positive-cell subset. *Looking for:* **FULL MCR moves toward 1** (diagnostic, not the target).
+4. **FAO metrics** (CRPS primary; QS99 / Brier guardrails) → `../RESULTS_LOG.md`.
+
+## Hard-stops (pause for the chair)
+- Any I1–I6 invariant fails (contract violated) ⇒ stop, fix the seam — *not* the experiment.
+- Off-path **not** bit-identical (I5) ⇒ the seam is wrong; stop.
+- Multi-seed volatility large (the shrinkage lesson) ⇒ volatility disqualifies regardless of mean.

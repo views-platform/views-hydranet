@@ -1,7 +1,11 @@
 import pandas as pd
 import pytest
 
-pytest.importorskip("views_evaluation")
+# C-138/F-Z1: guard the SUBMODULE actually imported below, not just the top package. The installed
+# views_evaluation top package imports fine, but `evaluation.evaluation_manager` was removed
+# upstream — a top-level importorskip is a no-op and collection hard-errors on the import. Guarding
+# the submodule makes this file SKIP cleanly (so a plain `pytest` collects without --ignore).
+pytest.importorskip("views_evaluation.evaluation.evaluation_manager")
 
 from views_evaluation.evaluation.evaluation_manager import EvaluationManager
 
@@ -23,7 +27,7 @@ def test_eval_package_contract_acceptance():
         {
             "month_id": [400, 400, 401, 401],
             "priogrid_gid": [1, 2, 1, 2],
-            "lr_sb_best": [10.0, 50.0, 12.0, 60.0],
+            "lr_ged_sb": [10.0, 50.0, 12.0, 60.0],
         }
     ).set_index(["month_id", "priogrid_gid"])
 
@@ -32,14 +36,14 @@ def test_eval_package_contract_acceptance():
         {
             "month_id": [400, 400, 401, 401],
             "priogrid_gid": [1, 2, 1, 2],
-            "pred_lr_sb_best": [[9.0, 11.0], [48.0, 52.0], [11.0, 13.0], [58.0, 62.0]],
+            "pred_lr_ged_sb": [[9.0, 11.0], [48.0, 52.0], [11.0, 13.0], [58.0, 62.0]],
         }
     ).set_index(["month_id", "priogrid_gid"])
 
     # 4. Mock pipeline configs (eval lib needs steps as a LIST of ints)
     # Add metrics here just in case
     pipeline_configs = {
-        "targets": ["lr_sb_best"],
+        "targets": ["lr_ged_sb"],
         "run_type": "validation",
         "steps": [1],
         "regression_metrics": ["MSE"],
@@ -50,9 +54,7 @@ def test_eval_package_contract_acceptance():
 
     # 5. EXECUTE THE REAL EVALUATION
     try:
-        results = eval_manager.evaluate(
-            df_actual, [df_predictions], "lr_sb_best", pipeline_configs
-        )
+        results = eval_manager.evaluate(df_actual, [df_predictions], "lr_ged_sb", pipeline_configs)
 
         assert "step" in results
         assert "time_series" in results

@@ -81,6 +81,11 @@ It implements the **Null Object pattern**: when `diagnostic_visualizations: Fals
 - **Sibling classes:**
   - `TrainingForensics`: provides dossier dicts consumed by `biopsy_feature_dossier`
   - `VolumeHandler`: provides the data substrate consumed by `biopsy_volume` and `biopsy_sample`
+- **Import contract (issue #215):** `matplotlib` is imported **lazily** (via the module-level `_load_mpl()`
+  helper, Agg backend), **only inside the plotting methods** — never at module level. Because this class is
+  a Null Object (inactive by default), importing this module or constructing/using an inactive instance
+  requires **no plotting stack**. `matplotlib` is therefore a runtime-**optional** `viz` extra
+  (`pip install views-hydranet[viz]`); models that set `diagnostic_visualizations=True` must provide it.
 
 ---
 

@@ -45,6 +45,12 @@ class VolumeMetadata:
     history: Tuple[Tuple[str, Any], ...] = field(default_factory=tuple)
     spatial_convention: SpatialConvention = SpatialConvention.GEOGRAPHIC
 
+    # ADR-062 §2.1 channel roles (one authoritative classification; populated by from_df).
+    # Default () for back-compat: bare-__init__ handlers fall back to feature_cols semantics.
+    static_cols: Tuple[str, ...] = ()
+    target_cols: Tuple[str, ...] = ()
+    model_input_cols: Tuple[str, ...] = ()
+
 
 class VolumeHandler:
     def __init__(
@@ -59,6 +65,9 @@ class VolumeHandler:
         feature_cols: Union[List[str], Tuple[str, ...]] = (),
         spatial_offset: Tuple[int, int] = (0, 0),
         config: Optional[Dict[str, Any]] = None,
+        static_cols: Union[List[str], Tuple[str, ...]] = (),
+        target_cols: Union[List[str], Tuple[str, ...]] = (),
+        model_input_cols: Union[List[str], Tuple[str, ...]] = (),
     ) -> None:
         self._data = data
         self._metadata = VolumeMetadata(
@@ -70,6 +79,9 @@ class VolumeHandler:
             identity_cols=tuple(identity_cols),
             feature_cols=tuple(feature_cols),
             spatial_offset=spatial_offset,
+            static_cols=tuple(static_cols),
+            target_cols=tuple(target_cols),
+            model_input_cols=tuple(model_input_cols),
         )
 
         # 1. Validation: Channel dimension must match channel_map
@@ -123,6 +135,8 @@ class VolumeHandler:
 
         identity_cols = config.get("identity_cols", [])
         feature_cols = config.get("features", [])
+        # ADR-060: static channels are input-only, derived from grid geometry (not df columns).
+        static_channels = config.get("static_channels", [])
 
         # --- THE STRICT HANDSHAKE (ADR 007 Section 1.2) ---
         required_roles = [time_col, id_col, y_col, x_col]
@@ -145,12 +159,23 @@ class VolumeHandler:
 
             raise ValueError(err_msg)
 
-        # The channel map is ordered: [Primary Keys] + [Metadata] + [Features]
-        # We ensure time_col and id_col are always first.
+        # Channel map order: [keys] + [metadata] + [features] + [static channels (ADR-060)].
+        # We ensure time_col and id_col are always first; static channels go last so the dynamic
+        # feature order (== regression_targets) is preserved for the autoregressive feedback.
         channel_map = [time_col, id_col]
-        for col in list(identity_cols) + list(feature_cols):
+        for col in list(identity_cols) + list(feature_cols) + list(static_channels):
             if col not in channel_map:
                 channel_map.append(col)
+        # Kept (model-input) channels = dynamic features + static channels; statics reach the model
+        # via to_pytorch but config['features'] (the targets-equality set) stays the dynamic ones.
+        kept_feature_cols = list(feature_cols) + list(static_channels)
+
+        # ADR-062 §2.1 explicit channel roles (the single authoritative classification).
+        role_static_cols = list(static_channels)
+        role_target_cols = list(config.get("regression_targets", list(feature_cols))) + list(
+            config.get("classification_targets", [])
+        )
+        role_model_input_cols = list(feature_cols) + list(static_channels)
 
         # 2. Structural Anchoring
         month_min = df[time_col].min()
@@ -215,8 +240,100 @@ class VolumeHandler:
         m_vals_global = np.arange(month_min, month_max + 1)
         vol[..., m_chan_idx] = m_vals_global.reshape(1, 1, month_range)
 
+        # ADR-060 (S7 amendment): classify each static channel's role AUTHORITATIVELY by the
+        # derivation REGISTRY, NOT by df-column presence (C-237). A name in
+        # STATIC_CHANNEL_DERIVATIONS is GEOMETRY-DERIVED (filled below from geometry); a name that
+        # is a df COLUMN (and not registered) is DATA-BACKED (e.g. a per-cell ln_pop, filled from
+        # the df like a dynamic feature). A name in BOTH is ambiguous → fail loud (rename one)
+        # rather than silently taking the raw df column over the derivation. A name in NEITHER is
+        # unknown → fail loud. Both roles are input-only, re-injected each AR step.
+        from views_hydranet.utils.static_channels import (
+            STATIC_CHANNEL_DERIVATIONS,
+            GridGeometry,
+            derive,
+        )
+
+        geom_static = []
+        data_backed_static = []
+        for name in static_channels:
+            registered = name in STATIC_CHANNEL_DERIVATIONS
+            in_df = name in df.columns
+            if registered and in_df:
+                raise ValueError(
+                    f"static channel {name!r} is BOTH a registered geometry derivation and a df "
+                    f"column — ambiguous role (C-237). Rename one so the source is unambiguous: "
+                    f"keep it in STATIC_CHANNEL_DERIVATIONS for geometry, OR as a df column for a "
+                    f"data-backed static — not both."
+                )
+            if registered:
+                geom_static.append(name)
+            elif in_df:
+                data_backed_static.append(name)
+            else:
+                raise ValueError(
+                    f"unknown static channel {name!r}: not a df column and not in "
+                    f"STATIC_CHANNEL_DERIVATIONS {sorted(STATIC_CHANNEL_DERIVATIONS)} (C-237). "
+                    f"Register a geometry derivation or provide a df column."
+                )
+
+        # C-235/C-236 (S4): a data-backed static must be COMPLETE + FINITE over the panel. A
+        # NaN/inf is a coverage hole (e.g. population not joined for a cell/month) that would
+        # otherwise enter the model as a silent 0-hole (zeros volume, unwritten position) or an
+        # unguarded NaN — the FeatureScaler guards never see static_channels. Fail loud instead.
+        # C-236 (S5): the model's inputs live in log1p space (~[0, 16]); the FeatureScaler does NOT
+        # scale static_channels. A data-backed static is therefore trusted to arrive PRE-SCALED
+        # (e.g. ln_pop, a standardized covariate). This is a SANITY RAIL, not real scaling — it
+        # catches a raw/unscaled channel (e.g. population in the millions) that would dominate the
+        # encoder. Model-side scaling of statics is the deeper fix, tracked in the risk register /
+        # its GH issue (do NOT silently scale here).
+        _STATIC_SANITY_ABS_CEIL = 1.0e4
+        for name in data_backed_static:
+            vals = df[name].to_numpy(dtype=np.float64)
+            if not np.isfinite(vals).all():
+                n_bad = int((~np.isfinite(vals)).sum())
+                raise ValueError(
+                    f"data-backed static channel {name!r} has {n_bad} non-finite (NaN/inf) "
+                    f"value(s) over {vals.size} panel rows — incomplete coverage would enter the "
+                    f"model as a silent 0-hole or an unguarded NaN. Provide a complete, finite "
+                    f"per-cell value for every panel cell (C-235/C-236)."
+                )
+            peak = float(np.abs(vals).max()) if vals.size else 0.0
+            if peak > _STATIC_SANITY_ABS_CEIL:
+                raise ValueError(
+                    f"data-backed static channel {name!r} has |value| up to {peak:.3g}, far above "
+                    f"the model's log1p-scaled input range — it looks RAW/unscaled and would "
+                    f"dominate the encoder (C-236). Pre-scale it (e.g. a log/standardized "
+                    f"covariate like ln_pop). Model-side scaling of statics is the tracked fix."
+                )
+            # C-238 (S6): a static must be CONSTANT per cell across time (ADR-060 I3). A time-
+            # varying df column declared static is digested varying in history but pinned to the
+            # origin month in the AR rollout — treated two ways in one inference. Fail loud
+            # (decision: REJECT; dynamic-covariate path is out of scope — C-229), not mis-handle.
+            per_cell_spread = df.groupby([y_col, x_col])[name].agg(lambda s: s.max() - s.min())
+            worst = float(per_cell_spread.abs().max()) if len(per_cell_spread) else 0.0
+            if worst > 1e-9:
+                raise ValueError(
+                    f"data-backed static channel {name!r} is NOT constant per cell across time "
+                    f"(max within-cell spread {worst:.3g}) — a static must be time-invariant "
+                    f"(ADR-060 I3). It would be digested time-varying in history but pinned to "
+                    f"origin month in the rollout. Provide one value per cell, or model it as a "
+                    f"dynamic covariate (not yet supported — C-229)."
+                )
         for i, col_name in enumerate(channel_map):
+            if col_name in geom_static:
+                continue  # geometry-derived below, not from a df column
             vol[r_idx, c_idx, m_idx, i] = df[col_name].values
+
+        # Fill geometry-derived static channels over the FULL grid, BEFORE the North-Up flip so
+        # they flip in sync with the data (I6). Data-backed statics were filled from the df above
+        # (same r_idx/c_idx write path, so they flip in sync too). Unknown static channels (neither
+        # a df column nor a registered derivation) fail loud in derive().
+        if geom_static:
+            geom = GridGeometry(
+                height=height, width=width, row_offset=row_offset, col_offset=col_offset
+            )
+            for name in geom_static:
+                vol[:, :, :, channel_map.index(name)] = derive(name, geom)[:, :, None]
 
         # 5. Flip & Layout
         vol = np.flip(vol, axis=0)  # North-Up
@@ -235,9 +352,12 @@ class VolumeHandler:
             id_col=id_col,
             spatial_cols=(y_col, x_col),
             identity_cols=identity_cols,
-            feature_cols=feature_cols,
+            feature_cols=kept_feature_cols,
             spatial_offset=(row_offset, col_offset),
             config=config,
+            static_cols=role_static_cols,
+            target_cols=role_target_cols,
+            model_input_cols=role_model_input_cols,
         )
         result._metadata = replace(result._metadata, spatial_convention=SpatialConvention.NORTH_UP)
         return result
@@ -255,11 +375,13 @@ class VolumeHandler:
         if not include_identities:
             # ADR 007 hardening: Strip identity channels by checking the channel map.
             # This ensures only feature_cols reach the model.
+            # ADR-062: the model tensor carries inputs ⧺ targets = tensor_cols (de-overloaded
+            # feature_cols; == old feature_cols value, so byte-identical).
             feature_indices = [
-                i for i, name in enumerate(self.channel_map) if name in self.feature_cols
+                i for i, name in enumerate(self.channel_map) if name in self.tensor_cols
             ]
             assert feature_indices, (
-                "VolumeHandler.to_pytorch: feature_cols is empty — "
+                "VolumeHandler.to_pytorch: tensor_cols (kept channels) is empty — "
                 "handler was not constructed via from_df or config['features'] is missing."
             )
             np_data = np_data[:, :, :, feature_indices]
@@ -425,6 +547,9 @@ class VolumeHandler:
             identity_cols=self.identity_cols,
             feature_cols=self.feature_cols,
             spatial_offset=self.spatial_offset,
+            static_cols=self.static_cols,
+            target_cols=self.target_cols,
+            model_input_cols=self.model_input_cols,
         )
         result._metadata = replace(
             result._metadata, spatial_convention=self._metadata.spatial_convention
@@ -462,6 +587,9 @@ class VolumeHandler:
             identity_cols=self.identity_cols,
             feature_cols=self.feature_cols,
             spatial_offset=self.spatial_offset,
+            static_cols=self.static_cols,
+            target_cols=self.target_cols,
+            model_input_cols=self.model_input_cols,
         )
         result._metadata = replace(
             result._metadata, spatial_convention=self._metadata.spatial_convention
@@ -506,6 +634,9 @@ class VolumeHandler:
             identity_cols=self.identity_cols,
             feature_cols=self.feature_cols,
             spatial_offset=self.spatial_offset,
+            static_cols=self.static_cols,
+            target_cols=self.target_cols,
+            model_input_cols=self.model_input_cols,
         )
         result._metadata = replace(
             result._metadata, spatial_convention=self._metadata.spatial_convention
@@ -535,6 +666,9 @@ class VolumeHandler:
             identity_cols=self.identity_cols,
             feature_cols=self.feature_cols,
             spatial_offset=self.spatial_offset,
+            static_cols=self.static_cols,
+            target_cols=self.target_cols,
+            model_input_cols=self.model_input_cols,
         )
         result._metadata = replace(
             result._metadata,
@@ -563,6 +697,9 @@ class VolumeHandler:
             identity_cols=self.identity_cols,
             feature_cols=self.feature_cols,
             spatial_offset=self.spatial_offset,
+            static_cols=self.static_cols,
+            target_cols=self.target_cols,
+            model_input_cols=self.model_input_cols,
         )
         result._metadata = replace(
             result._metadata,
@@ -608,6 +745,32 @@ class VolumeHandler:
 
     @property
     def feature_cols(self) -> Tuple[str, ...]:
+        return self._metadata.feature_cols
+
+    # --- ADR-062 §2.1 channel-role accessors (single source of truth) -------------------------
+    @property
+    def static_cols(self) -> Tuple[str, ...]:
+        """Input-only static channels (ADR-060 Static class); () when none."""
+        return self._metadata.static_cols
+
+    @property
+    def target_cols(self) -> Tuple[str, ...]:
+        """What the head predicts: regression_targets ⧺ classification_targets. Never a static."""
+        return self._metadata.target_cols
+
+    @property
+    def model_input_cols(self) -> Tuple[str, ...]:
+        """Dynamic features ⧺ static channels, in feed order (what reaches the model input)."""
+        return self._metadata.model_input_cols
+
+    @property
+    def tensor_cols(self) -> Tuple[str, ...]:
+        """All non-identity channels kept in the model tensor (inputs ⧺ targets, incl. derived
+        `by_*`). This is the de-overloaded meaning the `feature_cols` metadata field has always
+        carried, so reading it directly is byte-identical to the pre-ADR-062 `feature_cols`
+        selection and survives the eventual flip of the `feature_cols` accessor to
+        `model_input_cols`. Recomputing from roles would miss channels created via `derivations`
+        rather than declared in `classification_targets`."""
         return self._metadata.feature_cols
 
     @property

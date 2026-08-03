@@ -40,7 +40,7 @@ def _make_multiindex_df(n_times=5, n_cells=4, sorted_=True, include_ocean=False)
     idx = pd.MultiIndex.from_arrays([times, cells], names=INDEX_NAMES)
     df = pd.DataFrame(
         {
-            "lr_sb_best": np.random.rand(len(times)),
+            "lr_ged_sb": np.random.rand(len(times)),
             "feat_a": np.random.rand(len(times)),
             "extra_col": np.ones(len(times)),
         },
@@ -195,8 +195,12 @@ class TestRed:
             DataFetcher.standardize_raw_df(df, _base_config())
 
     def test_red_wrong_level_names_raises(self):
-        """Wrong MultiIndex names -> ValueError."""
-        idx = pd.MultiIndex.from_arrays([[1, 2], [3, 4]], names=["wrong_a", "wrong_b"])
+        """Wrong TIME level (grid present, derived) still -> Contract Violation ValueError.
+
+        GH #144: the grid level is derived by name, so to exercise the level-0/time contract check
+        we keep a valid grid level and break the time level. (A *missing* grid level is covered by
+        grid_id_col's fail-loud in test_grid_naming.py.)"""
+        idx = pd.MultiIndex.from_arrays([[1, 2], [3, 4]], names=["wrong_time", "priogrid_gid"])
         df = pd.DataFrame({"a": [1, 2]}, index=idx)
         with pytest.raises(ValueError, match="Contract Violation"):
             DataFetcher.standardize_raw_df(df, _base_config())
@@ -208,14 +212,13 @@ class TestRed:
         with pytest.raises(KeyError, match="index_names"):
             DataFetcher.standardize_raw_df(df, cfg)
 
-    def test_red_missing_id_col_raises(self):
-        """id_col absent after reset -> KeyError."""
-        idx = pd.MultiIndex.from_arrays([[1, 2], [3, 4]], names=INDEX_NAMES)
-        df = pd.DataFrame({"a": [1, 2]}, index=idx)
-        # Use a bogus id_col that won't exist after reset
-        cfg = _base_config(id_col="nonexistent_col")
-        with pytest.raises(KeyError, match="nonexistent_col"):
-            DataFetcher.standardize_raw_df(df, cfg)
+    def test_stale_config_id_col_is_ignored_grid_derived_from_data(self):
+        """GH #144: the (possibly stale) config id_col is IGNORED — the grid column is derived from
+        the data. A bogus config id_col no longer raises; the real grid column is used."""
+        df = _make_multiindex_df()  # index = [month_id, priogrid_gid]
+        cfg = _base_config(id_col="nonexistent_col")  # stale/bogus — must be ignored
+        out = DataFetcher.standardize_raw_df(df, cfg)
+        assert "priogrid_gid" in out.columns  # derived from the data, not the config name
 
     def test_red_blueprint_unknown_op_raises(self):
         """Unknown operation -> NotImplementedError."""

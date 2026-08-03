@@ -42,9 +42,15 @@ class CurriculumLearner:
         self.min_events = config["min_events"]
 
         # 2. Extract targets from Ledger and Record Maxima
-        self.subjects = list(handler.feature_cols)
+        # ADR-062 / C-158: input-only static channels (e.g. CoordConv row/col) are appended to
+        # feature_cols but must NEVER be rotated in as trainable subjects. Exclude them, sourced
+        # from config['static_channels'] (the same source from_df uses to populate the statics).
+        # No statics ⇒ this is list(feature_cols) verbatim, so the no-coords trajectory is
+        # byte-identical.
+        static_channels = config.get("static_channels", [])
+        self.subjects = [c for c in handler.feature_cols if c not in static_channels]
         if not self.subjects:
-            err_msg = "CurriculumLearner: Ledger has no feature columns to target."
+            err_msg = "CurriculumLearner: Ledger has no trainable (non-static) columns to target."
 
             logger.error(err_msg)
 

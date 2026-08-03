@@ -279,3 +279,114 @@ def test_forensics_reg_and_cls_history_length_aligned():
 
     assert len(tf.history["REG:lr_feat_a"]["mse"]) == 4
     assert len(tf.history["CLS:by_feat_a"]["ap"]) == 4
+
+
+# ---------------------------------------------------------------------------
+# FAMILY-AWARE (C-213) — calibration collapse + parameter-health frame
+# ---------------------------------------------------------------------------
+
+
+def _params(rows: list) -> torch.Tensor:
+    """[N, n_params] activated-params tensor (mu, theta[, pi])."""
+    return torch.tensor(rows, dtype=torch.float32)
+
+
+def test_family_reg_collapse_records_each_targets_own_ey():
+    """C-213 regression: the family collapse must return each target's OWN self-zeroed E[y]=(1-π)μ,
+    NOT a raw channel. A ZINB reg output is target-major [t0(μ,θ,π), t1(μ,θ,π)] — the old forensic
+    sliced channel j, so target-1 got target-0's θ. The helper must slice j*npar:(j+1)*npar."""
+    from views_hydranet.distributions import resolve_family
+    from views_hydranet.train.training_engine import _family_target_log1p_mean
+
+    fam = resolve_family("zinb")
+    # [B=1, n_reg*3=6, H=1, W=1], target-major: t0=(μ10,θ.5,π.9), t1=(μ4,θ2,π.5)
+    reg = torch.tensor([10.0, 0.5, 0.9, 4.0, 2.0, 0.5]).view(1, 6, 1, 1)
+    out = _family_target_log1p_mean(reg, fam)  # [1, 2, 1, 1] of log1p((1-π)μ) per target
+    assert out.shape == (1, 2, 1, 1)
+    # t0: (1-.9)*10 = 1.0 → log1p(1); t1: (1-.5)*4 = 2.0 → log1p(2). t1 must use its OWN μ,π.
+    assert out[0, 0, 0, 0].item() == pytest.approx(torch.log1p(torch.tensor(1.0)).item(), abs=1e-5)
+    assert out[0, 1, 0, 0].item() == pytest.approx(torch.log1p(torch.tensor(2.0)).item(), abs=1e-5)
+
+
+def test_record_params_theta_cov_flags_collapse():
+    """Param-health: constant θ over active cells → theta_cov ≈ 0 (< 0.02 F1 collapse)."""
+    tf = TrainingForensics(FORENSICS_CFG)
+    tf.record_params(
+        "REG:lr_feat_a",
+        _params([[5.0, 1.0, 0.9], [3.0, 1.0, 0.8], [8.0, 1.0, 0.95]]),
+        _t([2.0, 3.0, 1.0]),
+    )
+    tf.finalize_lesson()
+    assert tf.history["REG:lr_feat_a"]["theta_cov"][0] == pytest.approx(0.0, abs=1e-6)
+
+
+def test_record_params_theta_cov_reflects_spread():
+    """Varied θ over active cells → theta_cov > 0.02 (head learning heteroscedastic dispersion)."""
+    tf = TrainingForensics(FORENSICS_CFG)
+    tf.record_params(
+        "REG:lr_feat_a",
+        _params([[5.0, 0.5, 0.9], [3.0, 1.0, 0.8], [8.0, 2.0, 0.95]]),
+        _t([2.0, 3.0, 1.0]),
+    )
+    tf.finalize_lesson()
+    assert tf.history["REG:lr_feat_a"]["theta_cov"][0] > 0.02
+
+
+def test_record_params_theta_cov_is_over_active_cells_only():
+    """θ CoV must use ACTIVE (truth>0) cells only — zero-cell θ must not leak in (pred-1/F1)."""
+    tf = TrainingForensics(FORENSICS_CFG)
+    # active (y>0) cells have constant θ=1.0; zero cells have wild θ that must NOT affect the CoV
+    tf.record_params(
+        "REG:lr_feat_a",
+        _params([[5.0, 1.0, 0.9], [1.0, 99.0, 0.1], [8.0, 1.0, 0.95], [1.0, 0.01, 0.1]]),
+        _t([2.0, 0.0, 3.0, 0.0]),  # active = idx 0, 2 (θ = 1, 1)
+    )
+    tf.finalize_lesson()
+    assert tf.history["REG:lr_feat_a"]["theta_cov"][0] == pytest.approx(0.0, abs=1e-6)
+
+
+def test_record_params_pi_range_flags_degeneracy():
+    """π stats: a degenerate π (all ≈ 1) → pi_min ≈ pi_max ≈ 1 (F1 π→1 dead-cell degeneracy)."""
+    tf = TrainingForensics(FORENSICS_CFG)
+    tf.record_params(
+        "REG:lr_feat_a",
+        _params([[5.0, 1.0, 0.995], [3.0, 1.0, 0.997], [8.0, 1.0, 0.996]]),
+        _t([2.0, 3.0, 1.0]),
+    )
+    tf.finalize_lesson()
+    h = tf.history["REG:lr_feat_a"]
+    assert h["pi_min"][0] > 0.99 and h["pi_max"][0] > 0.99
+    assert h["pi_bar"][0] == pytest.approx(0.996, abs=1e-3)
+
+
+def test_record_params_mu_bar():
+    """μ̄ = mean of the μ channel (the body's mean conditional magnitude)."""
+    tf = TrainingForensics(FORENSICS_CFG)
+    tf.record_params(
+        "REG:lr_feat_a",
+        _params([[2.0, 1.0, 0.9], [4.0, 1.0, 0.8], [6.0, 1.0, 0.95]]),
+        _t([2.0, 3.0, 1.0]),
+    )
+    tf.finalize_lesson()
+    assert tf.history["REG:lr_feat_a"]["mu_bar"][0] == pytest.approx(4.0)
+
+
+def test_record_params_nb_has_no_pi_stats():
+    """nb (n_params=2) → μ̄ + θ-CoV present, NO π stats (the π row is omitted for nb)."""
+    tf = TrainingForensics(FORENSICS_CFG)
+    tf.record_params(
+        "REG:lr_feat_a", _params([[5.0, 1.0], [3.0, 1.0], [8.0, 1.0]]), _t([2.0, 3.0, 1.0])
+    )
+    tf.finalize_lesson()
+    h = tf.history["REG:lr_feat_a"]
+    assert "mu_bar" in h and "theta_cov" in h
+    assert "pi_bar" not in h
+
+
+def test_point_head_records_no_param_health_keys():
+    """Parity: without record_params (a point head), NO param-health keys appear — unchanged."""
+    tf = TrainingForensics(FORENSICS_CFG)
+    _record_reg(tf, [0.0, 4.0], [0.0, 2.0])
+    tf.finalize_lesson()
+    h = tf.history["REG:lr_feat_a"]
+    assert "theta_cov" not in h and "mu_bar" not in h

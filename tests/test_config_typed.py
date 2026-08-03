@@ -12,20 +12,20 @@ MINIMAL_CONFIG = {
     "time_steps": 2,
     "input_channels": 3,
     "output_channels": 1,
-    "regression_targets": ["lr_sb_best"],
+    "regression_targets": ["lr_ged_sb"],
     "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
     "identity_cols": ["month_id", "priogrid_gid"],
-    "features": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+    "features": ["lr_ged_sb", "lr_ged_ns", "lr_ged_os"],
     "transformations": {
-        "log1p": ["lr_sb_best"],
-        "asinh": ["lr_ns_best"],
-        "identity": ["lr_os_best"],
+        "log1p": ["lr_ged_sb"],
+        "asinh": ["lr_ged_ns"],
+        "identity": ["lr_ged_os"],
     },
     "derivations": {
         "binary": [
-            {"from": "lr_sb_best", "to": "by_sb_best", "threshold": 0},
-            {"from": "lr_ns_best", "to": "by_ns_best", "threshold": 0},
-            {"from": "lr_os_best", "to": "by_os_best", "threshold": 0},
+            {"from": "lr_ged_sb", "to": "by_sb_best", "threshold": 0},
+            {"from": "lr_ged_ns", "to": "by_ns_best", "threshold": 0},
+            {"from": "lr_ged_os", "to": "by_os_best", "threshold": 0},
         ]
     },
     "height": 4,
@@ -101,4 +101,4 @@ class TestGreenConfigInitializerReturnsDict:
         ci = ConfigInitializer(MINIMAL_CONFIG)
         result = ci.get_config()
         assert isinstance(result["regression_targets"], list)
-        assert result["regression_targets"] == ["lr_sb_best"]
+        assert result["regression_targets"] == ["lr_ged_sb"]

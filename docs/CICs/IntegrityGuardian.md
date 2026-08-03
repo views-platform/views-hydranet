@@ -26,7 +26,7 @@ The `IntegrityGuardian` is the **Numerical Sentinel** of the HydraNet pipeline. 
 - **Loss Monitoring:** `monitor()` guarantees immediate `RuntimeError` if the loss tensor contains NaN or Inf.
 - **Prediction Magnitude Ceiling:** `monitor()` guarantees immediate `RuntimeError` if any prediction exceeds ±1,000 in absolute value (`PREDICTION_MAGNITUDE_CEILING`; C-51: lowered from 10,000 for log1p-transformed conflict data).
 - **Gradient Scan:** `monitor()` scans all parameter gradients (where they exist) for NaN/Inf.
-- **Weight Corruption Scan:** `check_weights()` performs a deep scan of all model parameters for NaN/Inf.
+- **Weight Corruption Scan:** `monitor()` scans all model parameters for NaN/Inf **weights** (at the source, before a corrupt parameter reaches the next forward), in the same `named_parameters()` pass that checks gradients.
 - **Numpy Array Monitoring:** `monitor_numpy()` guarantees immediate `RuntimeError` if a numpy array contains any NaN or Inf values.
 - **Static Methods:** All public methods are `@staticmethod` — no instance state, no side effects beyond logging and raising.
 
@@ -61,7 +61,7 @@ The `IntegrityGuardian` is the **Numerical Sentinel** of the HydraNet pipeline. 
 
 ## 7. Boundaries and Interactions
 
-- **Training Loop:** Called by the training loop after each backward pass (`monitor()`) and at checkpoints (`check_weights()`).
+- **Training Loop:** Called by the training loop after each backward pass (`monitor()`, which scans loss, predictions, gradients, and weights in one call).
 - **ADR-028:** Implements only the detection/halting portion. The architectural prevention guards (Sections 1-4) are deferred.
 
 ---
@@ -69,11 +69,8 @@ The `IntegrityGuardian` is the **Numerical Sentinel** of the HydraNet pipeline. 
 ## 8. Examples of Correct Usage
 
 ```python
-# After each training step
+# After each training step — scans loss, predictions, gradients, AND weights
 IntegrityGuardian.monitor(model, prediction, loss, context="Epoch 5, Lesson 42")
-
-# At checkpoints or before saving
-IntegrityGuardian.check_weights(model, context="Pre-save checkpoint")
 ```
 
 ---
