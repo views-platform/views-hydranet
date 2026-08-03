@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-03                           |
-| Total Concerns    | 255                                  |
-| Open Concerns     | 128                                  |
+| Total Concerns    | 256                                  |
+| Open Concerns     | 129                                  |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 127                                  |
 | Resolved on PR #216 (in-place ✅, merged) | 12 (C-138/234/235/236/237/238/239/240/241/242/243/247) — bannered in §Open and still physically there (so mechanically counted among the 128 Open above), pending relocation to §Resolved on a future curation pass |
@@ -654,6 +654,8 @@ Tier 4 rationale: linter-visible (ruff F601, not silent), values mostly identica
 ADR-057 makes inference use a **locked** dropout mask (fixed across the 36-step roll-forward, fresh per posterior sample) instead of per-step fresh masks, and PR #75 turns this **on by default** (unconditional at `HydraNetInference.__init__`). The locked mask **narrows the posterior spread** vs per-step dropout, so MCR/coverage can shift. It was **spot-checked benign on `pink_pirate`** (the freeze_h characterization eval reproduced pink's reference CRPS/MCR), but the planned cross-model calibration analysis (dossier I3 — "is the fixed-mask posterior calibrated or too tight?") has **not** been run on the other members. Risk: a delivered posterior could be silently mis-calibrated (too tight) on an unchecked model with no error signal — the C-110-style silent-miscalibration failure mode.
 
 Tier 3 rationale: a **validation gap**, not a known defect — spot-checked benign on pink, MC-dropout was already approximate, and the change is intended (ADR-057, consciously accepted at the #75 merge). Escalate to Tier 2 (à la C-110) if a locked-mask posterior is relied on for delivery before I3. Mitigation: run the I3 calibration analysis (PIT/coverage + MCR) across models; or gate locked dropout behind an opt-in flag if I3 is deferred.
+
+**Update 2026-08-03 (dev→main release review, PR #252 — the concrete mechanism identified).** The suspected mis-calibration has a named cause: `HydraBNrecurrentUnet_06_LSTM4.py:310` uses **ONE shared `LockedDropout` instance** across all 16 dropout sites, and `LockedDropout.forward` caches the locked mask keyed only by `(shape, device, dtype)` (`locked_dropout.py:66`). So every same-shaped site — encoder `e0s` + the 6 decoder heads (`H1/H2/H3_reg`+`_class`) + intermediates, all `[B,base,H,W]` — reuses **one** mask per forward, giving perfectly **correlated** epistemic dropout across layers/targets instead of the per-layer independent masks ADR-057 / Gal & Ghahramani intend. Per-target marginal expectation is preserved (inverted `1/(1−p)`, reset per posterior sample) so the central forecast + per-target mean are **unbiased**; but the effective epistemic diversity (posterior spread) is reduced/distorted — the exact "too tight" mode this entry anticipated. **Confirmed by code read.** It is the behavior ALL validated results (v2 scoreboard, Epic #230) used ⇒ **NOT a regression**; fixing it (a `LockedDropout` per call site → independent per-layer masks) would **change the scored posterior** and require re-scoring. **Dispositioned at the dev→main merge: track as follow-up, do NOT fix at release time** (preserve scored-result comparability). Folds the release-review finding into this entry (dedup).
 
 ---
 
@@ -2210,6 +2212,24 @@ Giacomini–White's asymptotics are in the number of out-of-sample forecast peri
 | Cross-refs | C-213 (family-aware forensics — this is a gap in it), the mixture family `views_hydranet/distributions/mixture_negative_binomial.py` activate order `[w,μ1,θ1,μ2,θ2]`, Epic #230 F4 falsifier |
 
 `_reduce_param_health` hardcodes the ZINB semantics — `mu_bar=mean(idx0)`, `theta_cov=CoV(idx1)`, `pi_bar=mean(idx2)` — and the plotter hardcodes the labels "μ̄ conditional magnitude / θ CoV / π structural zero". Neither is family-aware. For **mixture_nb** (`activate` = `[w, μ1, θ1, μ2, θ2]`) the forensic therefore plots **mean(w) under the "μ̄" label, CoV(μ1) under "θ CoV", mean(θ1) under "π"**, and **drops μ2, θ2, and (1−w) entirely** — the entire tail/second component is invisible. **Tier 2 (a misleading diagnostic can drive a wrong scientific verdict — the exact failure mode this repo has been burned by):** in Epic #230 the mixture forensic's "μ̄→1.0" is really **field-mean w→1.0**, which reads as "body magnitude saturates" but actually concerns the mixing weight, and — being a field-mean dominated by ~99.3% zeros — cannot distinguish component-2 dead-everywhere from alive-only-on-the-tail (the F4 question). It nearly anchored an over-hasty "F4 clean". Fix: make `_param_health_stat_names`/`_reduce_param_health` + the plotter **family-aware** (label channels by the family's own `param_names`/`activate` order; for the mixture add `w̄`, `w|active`, `min(w|active)`, `μ2:μ1`), or at minimum fail-loud/annotate when `n_params` doesn't match the μ/θ/π template. Interim mitigation: the direct `w|active` probe (Epic #230 S7) reads component-2 activity correctly.
+
+---
+
+### C-258: Release-review low-severity config/diagnostic footguns (dev→main PR #252)
+
+| Field | Value |
+|-------|-------|
+| ID | C-258 |
+| Tier | 4 |
+| Source | code-review max (2026-08-03, dev→main release review PR #252) |
+| Trigger | Relying on `loss_class_pos_weight` with a non-`weighted_bce` class loss; pairing `rollout_feedback='sample'` with a legacy head; or trusting forensic series that include BN-recal windows |
+| Location | `views_hydranet/utils/config_initializer.py` (~:687, ~:993); `views_hydranet/utils/utils.py`; `views_hydranet/train/training_engine.py:589` |
+| Cross-refs | C-128 (the release review's substantive finding), C-197 (family/legacy disjointness) |
+
+Three low-severity items from the prioritized dev→main release review; **none affect a correctly-specified config's outputs** (all fail-loud or diagnostic-only):
+(a) `rollout_feedback='sample'` on a legacy (non-family) `output_distribution` is not rejected at config **load** — it fails loud only at inference-object construction, i.e. after a full training run (wasted GPU run). Fix: a `model_validator` reading `output_distribution` vs `family_names()`.
+(b) `loss_class_pos_weight` passes length-only validation for **any** `loss_class`, but only `weighted_bce` consumes it; with `loss_class='focal'`/`'bce'` it is **silently ignored** (a silently-different objective). Fix: tie `loss_class_pos_weight` to `loss_class=='weighted_bce'`.
+(c) `_recalibrate_bn` runs `model.train()` with forensics attached; `stage_label=''` suppresses the biopsy plot but `forensics.record`/`record_params` are not gated by it, so BN-recal windows **pollute the forensic accumulators** (diagnostic-only; no weight/output impact). **Tier 4.**
 
 ---
 
