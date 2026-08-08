@@ -54,11 +54,15 @@ dirs (S3/S4). **Pre-flight checklist in 03 must be green before S5 (the real 300
 - [x] **S1 #244 DONE** — `gated_NB` foundation config reconstructed + banked at
   `tools/foundation_gated_nb.py` (validated; already trained+emitted in EXP-00, so no new smoke). *Committing it
   onto `violet_visitor` + propagating at S3 is the user's action.*
-- [x] **S2 #245 VALIDATED (2026-08-08):** fresh datafactory pull = **STABLE** (Tier-A PASS, 100% exact vs v2
-  truth, EXP-01) + transitivity from violet's identical-queryset Tier-A. Migration recipe = copy violet's
-  datafactory `config_queryset.py` verbatim to the 3 + add `views-datafactory>=1.9.0,<2.0.0` to each
-  `requirements.txt`. *Applying + committing to views-models is user-gated (their fix/336 branch is mid-work).*
-- [ ] **S3 #246 — NEXT (after S2 applied):** reconfigure the 8 members to the roster on the v2 foundation.
+- [x] **S2 #245 DONE (2026-08-08):** Tier-A PASS (EXP-01) + the 3 querysets migrated viewser→datafactory
+  (`bright_starship` africa template) → **views-models PR #365** (full suite green 7456, ruff clean); holding
+  merge for the user.
+- ⚠️ **FINDING (blocks S3):** `development`'s **violet_visitor is still viewser** — its datafactory migration
+  is *uncommitted scratch, never merged* (dev has **4** datafactory HydraNets, not the epic's assumed 5). violet
+  is a gated_NB member; **S3/S5 need violet on datafactory** (commit its datafactory queryset — same trivial
+  change; it's on the R&D reference so handle deliberately alongside S1's foundation commit).
+- [ ] **S3 #246 — NEXT:** reconfigure the 8 members to the roster on the v2 foundation (after S2 PR #365 merges
+  + violet is on datafactory).
 - [ ] S3/S4 → S5 (300-lesson run) → S6 (score) → S7 (disposition + promote).
 
 ## Conventions
