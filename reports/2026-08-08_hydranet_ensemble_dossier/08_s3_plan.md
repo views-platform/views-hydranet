@@ -28,8 +28,13 @@ dir's grid/region/data (except heavy_freighter's grid, changed deliberately).
    docstring); (b) config → gated_NB foundation (seed 42); (c) since it becomes a *defined* roster member,
    remove `EXPERIMENT_IN_PROGRESS` and **re-pin** `test_datafactory_parity` to its settled value (resolves the
    C-71/C-87 deferral). This is the "re-pin when the roster lands" noted in the hygiene (S1.5).
-2. **heavy_freighter** — global→africa: queryset `REGION land→africa_me_legacy`; grid to the africa block
-   (row_offset 87, col_offset 310, 180×180). The only member changing its data footprint.
+2. **heavy_freighter** — global→africa **(TEMPORARY experiment-scoping)**: queryset `REGION land→africa_me_legacy`;
+   grid to the africa block (row_offset 87, col_offset 310, 180×180). ⚠️ **PRESERVE its global config** — it is
+   the **global proof-of-concept / "how to run global with the datafactory" template** (global+datafactory
+   proven on the server; OOMs locally). Bank the global config (e.g. `tools/heavy_freighter_global.py`) before
+   overwriting, so the post-S6 **global flip** (all 8 → `region="land"`, 360×720, run on the SERVER, SERVE) can
+   restore it fleet-wide. This africa ensemble is the **last local experiment before global-on-server**
+   (see 00 honest scope + memory `project_global_server_endgame`).
 
 ## Validation (before the 300-lesson run)
 - Per-member `config_initializer` validation (K=4⇒family, gate_threshold iff threshold_gate, log1p) — the

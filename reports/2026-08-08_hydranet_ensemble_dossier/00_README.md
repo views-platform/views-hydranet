@@ -6,6 +6,12 @@ posterior-informed `concat` ensemble on `africa_me_legacy`** (13,110 cells), sco
 Giacomini–White readout vs its members and vs `light_strider` climatology. This is the execution dossier for
 **Epic #242** (stories #243–251); this doc set is its **S0 pre-registration** (#243).
 
+**Trajectory (why this matters):** this **africa** ensemble is the **LAST local de-risking experiment** (on the
+RTX 4070) before the real target — a **GLOBAL (`region="land"`, 360×720) 8-member ensemble on the SERVER,
+served in production**. `heavy_freighter` is the global proof-of-concept (global+datafactory proven on the
+server; OOMs locally); its config is the global template. As soon as the africa ensemble works as expected,
+we flip scope to global and run/serve on the server. (Memory: `project_global_server_endgame`.)
+
 **Honest scope (non-negotiable):** every current head shares the **ξ=0 magnitude ceiling** (v2 scoreboard;
 Epic #230). This ensemble buys **variance reduction + occurrence calibration + a short/long-horizon hedge + a
 small structural hedge** — **not** a magnitude fix, and it will not beat climatology past ~h18. The mixture
