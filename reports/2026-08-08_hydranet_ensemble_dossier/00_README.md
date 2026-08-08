@@ -50,9 +50,12 @@ dirs (S3/S4). **Pre-flight checklist in 03 must be green before S5 (the real 300
 - [x] **NEEDS-DECISION resolved (2026-08-08):** roster = **3 gated / 2 th_gated / 3 mixture**; **`S` = 16 (4×4)**.
 - [x] **05 LOCKED** (2026-08-08) — roster + region + combiner + `S` + scoring plan + F1–F4 + honest ξ=0 scope.
   **S0 acceptance criteria met** (pending git-tracking + epic link).
-- [ ] **git-track the dossier** (`git add -f`) + link from epic #243 — *pending user go*.
-- [ ] **S1 #244 — NEXT:** reconstruct + bank the `gated_NB` foundation config (2-lesson smoke).
-- [ ] S2 #245 — migrate 3 viewser → datafactory + Tier-A (fresh pull).
+- [x] **git-tracked** (`git add -f`, commit `6203fd9`) + linked from epic #243.
+- [x] **S1 #244 DONE** — `gated_NB` foundation config reconstructed + banked at
+  `tools/foundation_gated_nb.py` (validated; already trained+emitted in EXP-00, so no new smoke). *Committing it
+  onto `violet_visitor` + propagating at S3 is the user's action.*
+- [ ] **S2 #245 — NEXT:** migrate 3 viewser (pink_pirate/blue_stranger/purple_alien) → datafactory + Tier-A
+  **on a fresh pull**.
 - [ ] S3/S4 → S5 (300-lesson run) → S6 (score) → S7 (disposition + promote).
 
 ## Conventions
