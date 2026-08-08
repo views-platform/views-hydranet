@@ -54,8 +54,11 @@ dirs (S3/S4). **Pre-flight checklist in 03 must be green before S5 (the real 300
 - [x] **S1 #244 DONE** — `gated_NB` foundation config reconstructed + banked at
   `tools/foundation_gated_nb.py` (validated; already trained+emitted in EXP-00, so no new smoke). *Committing it
   onto `violet_visitor` + propagating at S3 is the user's action.*
-- [ ] **S2 #245 — NEXT:** migrate 3 viewser (pink_pirate/blue_stranger/purple_alien) → datafactory + Tier-A
-  **on a fresh pull**.
+- [x] **S2 #245 VALIDATED (2026-08-08):** fresh datafactory pull = **STABLE** (Tier-A PASS, 100% exact vs v2
+  truth, EXP-01) + transitivity from violet's identical-queryset Tier-A. Migration recipe = copy violet's
+  datafactory `config_queryset.py` verbatim to the 3 + add `views-datafactory>=1.9.0,<2.0.0` to each
+  `requirements.txt`. *Applying + committing to views-models is user-gated (their fix/336 branch is mid-work).*
+- [ ] **S3 #246 — NEXT (after S2 applied):** reconfigure the 8 members to the roster on the v2 foundation.
 - [ ] S3/S4 → S5 (300-lesson run) → S6 (score) → S7 (disposition + promote).
 
 ## Conventions

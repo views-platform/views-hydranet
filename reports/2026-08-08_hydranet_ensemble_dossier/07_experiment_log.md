@@ -21,4 +21,22 @@ per-experiment prereg) and its verdict vs the pre-committed falsifiers. No succe
 
 ---
 
-*(next entry: S5 member runs / S6 ensemble score, once 05 is LOCKED)*
+## EXP-01 — S2 datafactory freshness / Tier-A (transitivity path) · 2026-08-08
+- **Pre-registration:** F1–F4 (05); Tier-A falsifiers F-A1..F-A4 (migration dossier 05). Rigor path chosen:
+  **fresh datafactory pull + transitivity** (the 3 viewser models' queryset is byte-identical to violet's
+  pre-migration queryset → same dataset violet already Tier-A-PASSed vs viewser 2026-07-28).
+- **One variable:** the datafactory source freshness (is it still live + stable since 2026-07-28?).
+- **Setup:** FRESH datafactory pull (`africa_me_legacy`, months 121–504, remote `last_valid=559`, NOT cached) vs
+  the frozen v2 truth; Tier-A scorecard (`tools/s2_df_freshness_check.py` reusing `tier_a_parity.py`).
+- **Readout:** cell-set identical (0 diff), index identical, coverage 121–504 (384 mo), **exact-match 100.000%**
+  on lr_sb/ns/os_best (corr 1.0, maxima identical, 0.000% drift, 0 mismatches).
+- **Verdict vs falsifiers:** F-A1..F-A4 all **quiet** → **Tier-A PASS**; the datafactory source is STABLE (no
+  vintage drift since the v2 freeze). Combined with violet's identical-queryset Tier-A PASS (df-vs-viewser),
+  **transitivity holds** → migrating the 3 models preserves the viewser conflict truth.
+- **Decision:** S2 validated. The migration itself = copy violet's model-name-agnostic datafactory
+  `config_queryset.py` verbatim to pink_pirate/blue_stranger/purple_alien + add `views-datafactory>=1.9.0,<2.0.0`
+  to each `requirements.txt`. Applying + committing to views-models is the next action (user-gated).
+
+---
+
+*(next entry: S5 member runs / S6 ensemble score)*
