@@ -48,9 +48,14 @@ per-experiment prereg) and its verdict vs the pre-committed falsifiers. No succe
   disk-preflight): train+emit each (keep the 16-cube) → pool the 8 into rusty_bucket (expect 128 draws).
   Configs live in worktree `_s3_worktree` (uncommitted; S3 PR pending). `/falsify` pre-launch caught the missing
   driver + a 2.5× time-estimate error before this run. ETA ~19h (fits the 25–26h compute window).
-- **Readout / verdict:** PENDING (run in flight). Scoring (S6: GW vs members + vs `light_strider`) is the next
-  step once cubes land; the S4 D×K-vs-`n_posterior_samples` contract reconciliation is owed before the config
-  is committed but does NOT block runtime train/emit/pool (smoke-proven).
+- **Readout / verdict:** **RUN COMPLETE 2026-08-09 19:21** (`pool_rc=0 poolok=1`). 8/8 members trained (160L,
+  ~1.1h each) + emitted 16-cubes; ensemble pooled **(471960, 128)** finite = 8×16 draws. No failures.
+  **Incident:** an unattended-upgrades reboot ~5.5h into the FIRST launch (04:07) wiped it (0 output, /tmp
+  cleared); relaunched 09:46, machine stable thereafter, completed in ~9.6h. Artifacts + cubes live in the
+  **worktree** `_s3_worktree` (models/*/data/generated + ensembles/rusty_bucket/data/generated;
+  gitignored, survive on /home). **Plumbing verdict: PASS** (the full 8→128 ensemble runs end-to-end at africa
+  scale). **Skill verdict (F1–F4) PENDING** — needs S6 scoring (GW vs best member + vs `light_strider`), which
+  needs the S4 D×K-vs-`n_posterior_samples` reconciliation. That is the next session's first job.
 
 ---
 
