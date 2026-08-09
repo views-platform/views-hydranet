@@ -39,4 +39,19 @@ per-experiment prereg) and its verdict vs the pre-committed falsifiers. No succe
 
 ---
 
-*(next entry: S5 member runs / S6 ensemble score)*
+## EXP-02 — S5 africa ensemble run LAUNCHED · 2026-08-09 04:07
+- **Pre-registration:** 05 (LOCKED + 2026-08-09 amendment: 160 lessons, window-constrained).
+- **One variable:** ensembling (8 roster members `concat`-pooled) vs each member.
+- **Setup:** 8 roster members (gated_NB 42/43/44, th_gated_NB 45/46, mixture_NB 42/43/44), **160 lessons**,
+  D×K=4×4=16, all `africa_me_legacy` datafactory (violet migrated; heavy_freighter global→africa, global config
+  banked at `tools/heavy_freighter_global_config.py`). Driver `scratchpad/s5_run.sh` (setsid, manifest-resumable,
+  disk-preflight): train+emit each (keep the 16-cube) → pool the 8 into rusty_bucket (expect 128 draws).
+  Configs live in worktree `_s3_worktree` (uncommitted; S3 PR pending). `/falsify` pre-launch caught the missing
+  driver + a 2.5× time-estimate error before this run. ETA ~19h (fits the 25–26h compute window).
+- **Readout / verdict:** PENDING (run in flight). Scoring (S6: GW vs members + vs `light_strider`) is the next
+  step once cubes land; the S4 D×K-vs-`n_posterior_samples` contract reconciliation is owed before the config
+  is committed but does NOT block runtime train/emit/pool (smoke-proven).
+
+---
+
+*(next: S5 verdict once the sentinel lands → S6 scoring)*

@@ -3,6 +3,13 @@
 **LOCKED 2026-08-08, before any member run.** The two `needs-decision` items are resolved (below); predictions +
 falsifiers here precede S5/S6. Roster = **3 gated_NB / 2 th_gated_NB / 3 mixture_NB**; **`S` = 16 (4×4)**.
 
+> **AMENDMENT 2026-08-09 (deliberate, pre-run): `total_lessons` 300 → 160.** The local africa run is bounded by
+> a **25–26h uninterrupted compute window**; the full 8×300 run is ~30 GPU-hours (does not fit; would leave
+> 1–2 members unfinished → an unscoreable ensemble). 8×160 ≈ ~18h fits with margin. Valid because this is the
+> **local dress-rehearsal** and the readout is **relative** (ensemble vs its own members vs `light_strider`,
+> **all at 160 lessons**); it is NOT number-for-number comparable to the v2 **300**-lesson scoreboard (not the
+> goal tonight). The production **global-on-server** run restores the full lesson budget. F1–F4 unchanged.
+
 ## Hypothesis
 Pooling 8 independent HydraNet posteriors (the v2 `gated_NB` family, seed- and composition-diverse) into an
 equal-weight `concat` ensemble on `africa_me_legacy` **reduces variance and improves occurrence calibration**
