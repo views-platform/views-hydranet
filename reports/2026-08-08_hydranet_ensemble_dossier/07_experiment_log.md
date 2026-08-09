@@ -107,6 +107,33 @@ the gate-pooling gap** — it determines whether the ensemble's occurrence story
 `light_strider` scoring deferred until the gate question is settled (an ungated ensemble's AP isn't worth a
 formal test). Members' sb-h1 crps_all ~0.13 already beats the v2 climatology reference ~0.19 (indicative, P2).
 
+### UPDATE 2026-08-10 — gate-pooling gap CONFIRMED as the AP cause, and FIXED
+- **Root cause (code-confirmed):** `PredictionFrameEnsembleManager._build_context` sets
+  `ctx.targets = c.get("targets", c.get("regression_targets", []))` (prediction_frame_ensemble.py:373), and the
+  HydraNet ensembles (rusty_bucket, golden_hour, stellar_horizon) declare **only `regression_targets`** (the 3
+  `lr_`) — **no classification targets**. The pool loops `for target in ctx.targets`, so it concats the 3
+  magnitude channels and **never touches `by_`**. `_aggregate` is generic (`np.concatenate(axis=1)`), so the
+  framework CAN pool `by_` (it's per-sample `(N,16)`, same shape) — it simply is never asked to.
+- **Fix + test (no retrain):** added a `"targets"` list (`lr_*` + `by_*`) to rusty_bucket's meta and re-pooled
+  the cached member cubes → the ensemble now emits a pooled gate `by_sb_best (471960,128)`. Re-scored with the
+  gate:
+
+  | target | AP ungated h1 | **AP gated h1** | best-member h1 |
+  |---|---|---|---|
+  | sb | 0.316 | **0.456** | 0.474 |
+  | ns | 0.177 | **0.355** | 0.404 |
+  | os | 0.135 | **0.225** | 0.267 |
+
+  AP recovered from crippled → **near-best** at h1 (2nd of 9, like crps_all). The collapse was 100% the dropped
+  channel; **zero code change** needed.
+- **Corrected verdict:** the ensemble is robustly **near-best on BOTH crps_all AND AP** (doesn't beat the
+  standout member, violet s42) with the **cleanest bloom** — the honest equal-weight-pooling result (robustness,
+  not a frontier). ξ=0 scope holds; no overclaim.
+- **Two follow-ups:** (1) the gate-pooling gap is a **silent-correctness bug in the ensemble framework** — every
+  HydraNet ensemble's occurrence (AP) is understated until the gate is pooled by default → **registered** (see
+  risk register). (2) violet s42 dominates both axes but is **single-seed** — "genuinely best vs seed luck" is
+  undecidable without the multi-seed run.
+
 ---
 
-*(next: chase the gate-pooling gap — does concat pool the occurrence channel? then GW + light_strider)*
+*(next: fix the gate-pooling framework bug properly; multi-seed decision; then GW significance + light_strider)*
