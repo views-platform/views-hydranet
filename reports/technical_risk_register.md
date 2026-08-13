@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-03                           |
-| Total Concerns    | 256                                  |
-| Open Concerns     | 129                                  |
+| Total Concerns    | 257                                  |
+| Open Concerns     | 130                                  |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 127                                  |
 | Resolved on PR #216 (in-place ✅, merged) | 12 (C-138/234/235/236/237/238/239/240/241/242/243/247) — bannered in §Open and still physically there (so mechanically counted among the 128 Open above), pending relocation to §Resolved on a future curation pass |
@@ -2230,6 +2230,21 @@ Three low-severity items from the prioritized dev→main release review; **none 
 (a) `rollout_feedback='sample'` on a legacy (non-family) `output_distribution` is not rejected at config **load** — it fails loud only at inference-object construction, i.e. after a full training run (wasted GPU run). Fix: a `model_validator` reading `output_distribution` vs `family_names()`.
 (b) `loss_class_pos_weight` passes length-only validation for **any** `loss_class`, but only `weighted_bce` consumes it; with `loss_class='focal'`/`'bce'` it is **silently ignored** (a silently-different objective). Fix: tie `loss_class_pos_weight` to `loss_class=='weighted_bce'`.
 (c) `_recalibrate_bn` runs `model.train()` with forensics attached; `stage_label=''` suppresses the biopsy plot but `forensics.record`/`record_params` are not gated by it, so BN-recal windows **pollute the forensic accumulators** (diagnostic-only; no weight/output impact). **Tier 4.**
+
+---
+
+### C-259: ADR-072 amends ADR-019's forward FeatureScaler contract — ADR-019 + the FeatureScaler CIC must be updated in lockstep when frame-native input lands
+
+| Field | Value |
+|-------|-------|
+| ID | C-259 |
+| Tier | 3 |
+| Source | falsification-audit (ADR-072 section-consistency `/falsify`, 2026-08-13, hard falsification P1) |
+| Trigger | Implementing proposed ADR-072 — specifically, changing `FeatureScaler.fit_transform` / `inverse_transform` to consume a views-frames `FeatureFrame` instead of a `pd.DataFrame` |
+| Location | `docs/ADRs/proposed/072_frame_native_input_ingestion.md` (Amends-scope + §4.2 Transform role); `docs/ADRs/active/019_feature_scaler_specification.md` (forward contract — Invariant 4 "fail loud on a missing column from the DataFrame"; test-alignment "does not mutate the input DataFrame in-place"); FeatureScaler CIC (`docs/CICs/FeatureScaler.md` if present) |
+| Cross-refs | ADR-019, ADR-072, ADR-000/007 (no semantic change without a same-PR contract update); C-160/C-156 (ADR-062 channel-role — a related but distinct input-boundary coupling) |
+
+Proposed ADR-072 (frame-native input ingestion) amends ADR-019's **forward** FeatureScaler contract from DataFrame-keyed to `FeatureFrame`(`feature_name`)-keyed. ADR-072 now **declares** this amendment (added during the `/falsify` pass that found it), but **ADR-019 itself and the FeatureScaler CIC still describe the DataFrame contract** (Invariant 4 references a missing *column* in the DataFrame; the test-alignment asserts the scaler "does not mutate the input DataFrame in-place"). Per ADR-000 §1 / ADR-007 (no semantic change without a same-PR contract update), the PR that implements ADR-072 **MUST** update ADR-019 (forward Role → `FeatureFrame`; Invariant 4 → "missing `feature_name`") **and** the FeatureScaler CIC in lockstep, or the authoritative FeatureScaler spec will silently contradict the code. This is **not** silent data corruption — the mismatch is loud the moment anyone reads either doc — so **Tier 3** (contract-drift / maintainability), and it is caught now at review rather than at runtime. ADR-019 Role-4 `inverse_transform_volume` is already numpy and is **not** affected. Fix: amend ADR-019 + the CIC in the implementing PR, and add a contract-vs-code test asserting the scaler's forward input type.
 
 ---
 
