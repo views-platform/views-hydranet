@@ -22,8 +22,9 @@ if TYPE_CHECKING:
 class DistributionFamily(ABC):
     """A per-cell output distribution: how the head emits, activates, scores, samples, summarises.
 
-    Subclasses (A-S3 ``NegativeBinomialFamily``, A-S4 ``ZINBFamily``) implement all abstract
-    members. Consumers depend on this ABC, never on a concrete family (DIP).
+    The concrete families in this package (``NegativeBinomialFamily``, ``ZINBFamily``,
+    ``MixtureNBFamily``, ``TruncatedNBFamily``) implement all abstract members. Consumers depend
+    on this ABC, never on a concrete family (DIP).
     """
 
     #: Does the training loss consume the pre-activation latent (``reg_latent``) instead of the

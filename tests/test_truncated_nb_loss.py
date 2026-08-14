@@ -10,12 +10,13 @@ import math
 import pytest
 import torch
 
-from views_hydranet.utils.truncated_nb_loss import TruncatedNBLoss, _inverse_softplus
+from views_hydranet.distributions.nb_core import inverse_softplus
+from views_hydranet.utils.truncated_nb_loss import TruncatedNBLoss
 
 
 def _latent_for_mu(mu: float) -> float:
     """Pre-softplus latent x such that softplus(x) == mu."""
-    return _inverse_softplus(mu)
+    return inverse_softplus(mu)
 
 
 def test_needs_latent_flag():

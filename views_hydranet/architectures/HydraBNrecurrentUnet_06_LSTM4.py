@@ -42,7 +42,6 @@ class ModelOutput(NamedTuple):
     reg_latent: torch.Tensor | None = None  # [B, n_reg, H, W] pre-ReLU latent mu
 
 
-# give everything better names at some point
 class HydraBNUNet06_LSTM4(nn.Module):
     """
     Recurrent U-Net with Batch Normalization and Quad-LSTM temporal memory.
@@ -83,9 +82,10 @@ class HydraBNUNet06_LSTM4(nn.Module):
                                          Must be divisible by 8.
             output_channels (int): Number of channels per head (usually 1).
             dropout_rate (float): Probability of dropout for regularization.
-            output_distribution (str): regression-head output activation —
-                "standard" (ReLU, default, pre-#100 behavior) or "hurdle_nb"
-                (softplus, count-space mean mu for the hurdle-NB head).
+            output_distribution (str): regression-head output distribution/activation —
+                "standard" (ReLU, default, pre-#100 behavior) or a family/head name
+                (nb, zinb, quantile, hurdle_nb, hurdle_lognormal, hurdle_shrinkage), which
+                selects the ADR-067 family activation / head param count.
         """
         super().__init__()
 
@@ -334,8 +334,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
             {site: LockedDropout(p=dropout_rate) for site in _dropout_sites}
         )
 
-        # LSTM parameters initialization...
-        # [Implementation details omitted for brevity, logic remains identical]
+        # LSTM parameters initialization (gate weights for the 4 stacked ConvLSTM cells).
         self.Wxi_1 = nn.Conv2d(
             input_channels, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True
         )
@@ -521,7 +520,6 @@ class HydraBNUNet06_LSTM4(nn.Module):
         split_h = int(h.shape[1] / 8)
         hs_1, hs_2, hs_3, hs_4, hl_1, hl_2, hl_3, hl_4 = torch.split(h, split_h, dim=1)
 
-        # ... [LSTM Logic remains identical] ...
         # ----------------- LSTM 1 -----------------
         i_t_1 = torch.sigmoid(self.Wxi_1(x) + self.Whi_1(hs_1))
         f_t_1 = torch.sigmoid(self.Wxf_1(x) + self.Whf_1(hs_1))
@@ -571,7 +569,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
         b = F.relu(self.bn_bottleneck_conv(self.bottleneck_conv(e1)))
         b = self.dropout["b"](b)
 
-        # DECODERS (H1, H2, H3 logic remains identical)
+        # DECODERS (H1, H2, H3)
         # H1 reg
         H1_d0 = F.relu(
             self.bn_dec_conv0_head1_reg(

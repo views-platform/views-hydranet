@@ -142,7 +142,9 @@ class HydraNetConfig(BaseModel):
     # Hurdle-NB gate (loss_class='weighted_bce'): positive-class weight; None = plain BCE.
     # scalar (shared across sb/ns/os) OR a list of one per classification target (per-target gate)
     loss_class_pos_weight: float | list[float] | None = Field(default=None)
-    # Regression-head output activation (#100): "standard" (ReLU) or "hurdle_nb" (softplus mu).
+    # Regression-head output distribution/activation (#100). "standard" (ReLU) or a family/head
+    # name (nb, zinb, dense_nb, quantile, hurdle_nb, hurdle_lognormal, hurdle_shrinkage) —
+    # validate_output_distribution is the authority on the accepted set.
     output_distribution: str = Field(default="standard")
     # Optional emit-activation override, decoupled from output_distribution (Exp B). None => keyed
     # off output_distribution ('softplus' if hurdle_nb else 'relu'); else 'softplus'/'relu'.
@@ -1066,7 +1068,7 @@ class HydraNetConfig(BaseModel):
                 logger.error(err_msg)
                 raise ValueError(err_msg)
             # The AR substitution feeds the n_reg target forecasts into the feature channels
-            # POSITIONALLY (training_engine.py:329-334); features must equal regression_targets in
+            # POSITIONALLY (training_engine.py:334-339); features must equal regression_targets in
             # ORDER, not just as sets (validate_laws only set-warns — C-260).
             if list(self.features) != list(self.regression_targets):
                 err_msg = (
