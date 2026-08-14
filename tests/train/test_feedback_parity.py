@@ -5,7 +5,9 @@ Enabling scheduled sampling (ss_epsilon_max>0) makes the TRAINING feedback
 (`hydranet_inference._sample_feedback`) for the first time in a real run. The exposure-bias premise
 is only meaningful if the two construct the SAME object. This pins that: for
 `truncated_nb`/`nb` + `soft_gate` + `emit_family_core=False`, with a shared seeded generator, the
-two feedbacks must be BYTE-EQUAL. A divergence here silently invalidates any SS verdict.
+two feedbacks must be BYTE-EQUAL (this test runs on CPU; production byte-equality holds only on
+the SAME device — on GPU the CUDA vs CPU generator streams differ, so parity is then
+distributional, not byte-exact). A divergence here silently invalidates any SS verdict.
 """
 
 from __future__ import annotations

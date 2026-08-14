@@ -223,9 +223,10 @@ def _family_feedback_log1p(reg, family, mode, gate, composition, threshold, gene
     target (mirrors inference `_sample_feedback`), so training exposure == deployment exposure.
     Returns ``[B, n_reg, H, W]`` in log1p space, matching the dynamic input channels.
 
-    ``generator`` (C-261): seeds the family draw + composition Bernoulli so SS training is
-    reproducible AND a train/inference parity test can assert byte-equality against
-    ``hydranet_inference._sample_feedback`` (which is seeded). ``None`` = global RNG (legacy).
+    ``generator`` (C-261): seeds the family draw + composition Bernoulli so a parity test can
+    assert byte-equality against ``hydranet_inference._sample_feedback`` (seeded). NOTE: the
+    production call site passes ``None`` (global RNG), so SS training feedback is NOT
+    byte-reproducible today — the seeded path is exercised only by the parity test (C-261).
     """
     if mode != "sample":
         return _family_target_log1p_mean(reg, family)

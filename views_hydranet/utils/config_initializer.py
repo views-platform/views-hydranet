@@ -1097,6 +1097,25 @@ class HydraNetConfig(BaseModel):
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
+            # emit_family_core (ADR-068) re-interprets the family as its π-stripped BULK core at
+            # EMIT/inference time, but the TRAINING feedback (_family_feedback_log1p) always draws
+            # the plain family.sample — it is NOT core-aware. For a self_zeroed family (zinb),
+            # sample_core != sample, so SS would train on the self-zeroed draw while inference
+            # rolls out on the dense core: a silent train/deploy exposure mismatch (C-234/C-239
+            # axis the other guards above miss). Reject until _family_feedback_log1p is core-aware.
+            if self.emit_family_core:
+                from views_hydranet.distributions.registry import self_zeroed_family_names
+
+                if self.output_distribution in self_zeroed_family_names():
+                    err_msg = (
+                        "SS active with emit_family_core=True and a self_zeroed "
+                        f"family ({self.output_distribution!r}): feedback draws the "
+                        "self-zeroed sample but inference rolls out on the π-stripped core "
+                        "(sample_core != sample) — a silent train/deploy exposure mismatch "
+                        "(C-234/C-239). Make _family_feedback_log1p core-aware before enabling it."
+                    )
+                    logger.error(err_msg)
+                    raise ValueError(err_msg)
         return self
 
     # --- Dict-compatibility layer (gradual migration from config["key"]) ---
