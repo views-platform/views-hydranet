@@ -2321,6 +2321,8 @@ Every family implements a `priors` dict lookup (`theta`/`pi`/`w`/`tail_gap`), bu
 
 `rollout_horizon` (`ge=1`, default 1) advertises real multi-step behavior at K>1, but grep confirms nothing reads it. This is exactly the silent-degradation class the config layer otherwise **fails loud** on — three sibling validators raise when a knob would be silently ignored; `rollout_horizon` is the one behavior-promising knob left with no consumer and no guard. `tests/test_rollout_horizon_config.py` asserts only that the field exists / defaults to 1, not any behavior, so it won't catch the trap. **Tier 3 (silent no-op of an experiment premise; clear trigger).** Fix direction: either a fail-loud validator rejecting `rollout_horizon != 1` until the ADR-058 B1 path lands, or a docstring/register note marking it a parked scaffold.
 
+> **Guard added 2026-08-14 (tech-debt Commit C; entry stays in §Open pending a §Resolved relocation pass).** Added a fail-loud validator `reject_unwired_rollout_horizon` in `config_initializer.py` that raises if `rollout_horizon != 1` until the ADR-058 B1 consumer is wired (default 1 → every current config passes); the field description now says K>1 is rejected. Tests in `test_rollout_horizon_config.py` (K=2 raises, K=1 constructs). Fix-in-code done; the silent-no-op trigger is closed.
+
 ---
 
 ### C-265: VolumeHandler derivation-chaining parity gap vs DataFetcher (stale `channel_map` inside the derivation loop)
@@ -2350,6 +2352,8 @@ Every family implements a `priors` dict lookup (`theta`/`pi`/`w`/`tail_gap`), bu
 | Cross-refs | C-234/C-239/C-240/C-242 (emit_family_core cluster; C-240 is the symmetric guard already added) |
 
 `sampling.py` fails loud on the `core=True + self_zeroed` double-count (C-240) but nothing checks a `self_zeroed` family drawn with `core=False` under a gating composition: the family applies its structural π inside `sample()` **and** the cube is then re-masked by the gate at `:102` → zeros applied twice. Today only upstream `HydraNetConfig` prevents this pairing; a non-config-mediated `to_cube_samples` call (the exact scenario the C-240 guard was added to defend) is unprotected for the symmetric direction. **Tier 4 (latent; config currently prevents it — flagged low-confidence-as-new, adjacent to C-240).** Fix direction: mirror the C-240 guard for `family.self_zeroed and composition in {soft_gate, threshold_gate}`.
+
+> **Guard attempted + REVERTED 2026-08-14 (tech-debt Commit C) — stays OPEN.** A sampler-level fail-loud guard (`not core and family.self_zeroed and composition != 'self_zeroed'`) was added then reverted: it collides with `test_to_cube_samples_core_uses_bulk_body`, which legitimately draws a self_zeroed family under `soft_gate` with `core=False` as a mass-comparison probe — the sampler supports that tensor op by design. The invalid-*forecast* prevention already lives upstream in `HydraNetConfig`; a blanket sampler guard is over-reaching. Left as a documented low-tier risk (guard only a direct/ad-hoc `to_cube_samples` misuse, if ever needed).
 
 ---
 

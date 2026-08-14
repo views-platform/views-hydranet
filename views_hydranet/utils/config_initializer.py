@@ -270,8 +270,9 @@ class HydraNetConfig(BaseModel):
         description=(
             "C-113 / Axis B: number of autoregressive steps to train through "
             "(the rollout-training 'look-ahead'). Default 1 = the current one-step "
-            "path (byte-identical parity); >1 enables the B1 pushforward stability "
-            "term. Candidate K=12. See reports/2026-06-05_rollout_training_dossier/."
+            "path (byte-identical parity). >1 is REJECTED by a validator until the B1 "
+            "pushforward path is wired — nothing reads this knob yet (C-264). "
+            "Candidate K=12. See reports/2026-06-05_rollout_training_dossier/."
         ),
     )
     sweep: bool = Field(default=False)
@@ -683,6 +684,22 @@ class HydraNetConfig(BaseModel):
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def reject_unwired_rollout_horizon(self) -> "HydraNetConfig":
+        """C-264: `rollout_horizon` has NO runtime consumer yet — the ADR-058 B1 pushforward
+        path is unwired, so `training_loop`/`_process_sequence` always take the one-step path.
+        A K>1 config would therefore SILENTLY train one-step (the experiment's premise invalid).
+        Fail loud until the consumer lands (mirrors the other reject-if-ignored guards)."""
+        if self.rollout_horizon != 1:
+            err_msg = (
+                f"rollout_horizon={self.rollout_horizon} but the multi-step rollout-training "
+                "path (ADR-058 B1) is NOT wired — nothing reads this knob, so K>1 would "
+                "silently run one-step training. Set rollout_horizon=1 until it lands (C-264)."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return self
 
     @model_validator(mode="after")
