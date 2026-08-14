@@ -171,8 +171,9 @@ def _attach_static_channels(
     return dyn_input
 
 
-# ADR-065 (Epic #158): the point-body mask now lives in views_hydranet.utils.body_mask. Re-exported
-# here for the decay-gate penalty below and for existing importers (tests/test_active_window_mask).
+# ADR-065 (Epic #158): the point-body mask now lives in views_hydranet.utils.body_supervision.
+# Re-exported here for the decay-gate penalty below and for existing importers
+# (tests/test_active_window_mask).
 _active_window_mask = _resolve_active_window_mask
 
 
@@ -222,9 +223,10 @@ def _family_feedback_log1p(reg, family, mode, gate, composition, threshold, gene
     target (mirrors inference `_sample_feedback`), so training exposure == deployment exposure.
     Returns ``[B, n_reg, H, W]`` in log1p space, matching the dynamic input channels.
 
-    ``generator`` (C-261): seeds the family draw + composition Bernoulli so SS training is
-    reproducible AND a train/inference parity test can assert byte-equality against
-    ``hydranet_inference._sample_feedback`` (which is seeded). ``None`` = global RNG (legacy).
+    ``generator`` (C-261): seeds the family draw + composition Bernoulli so a parity test can
+    assert byte-equality against ``hydranet_inference._sample_feedback`` (seeded). NOTE: the
+    production call site passes ``None`` (global RNG), so SS training feedback is NOT
+    byte-reproducible today — the seeded path is exercised only by the parity test (C-261).
     """
     if mode != "sample":
         return _family_target_log1p_mean(reg, family)
@@ -543,7 +545,7 @@ def _process_sequence(
 class TrainingContext:
     """Bundles the 'wired once' training components (C-17).
 
-    Reduces train() from 13 parameters to 4: ctx, sample_handler, pbar, stage_label.
+    Reduces train() from 13 parameters to 5: ctx, sample_handler, pbar, stage_label, ss_epsilon.
     Created once in training_loop(), passed to every train() call.
     """
 

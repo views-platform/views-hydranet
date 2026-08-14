@@ -2,7 +2,7 @@
 
 **Status:** Active
 **Owner:** HydraNet maintainers
-**Last reviewed:** 2026-07-20
+**Last reviewed:** 2026-08-14
 **Related ADRs:** ADR-067 (distribution-family subsystem — per-cell NB/ZINB), ADR-008 (Error
 Propagation), ADR-009 (Boundary Contracts & Configuration Validation)
 
@@ -38,7 +38,8 @@ decorator, chosen at the v1 `/expert-code-review` for fail-loud discovery and or
 
 - `DISTRIBUTION_REGISTRY: dict[str, Callable[[], DistributionFamily]]` — the map. A-S3 (#170) adds
   `"nb"`; A-S4 (#171) `"zinb"`; Epic #230 S2 (#232) `"mixture_nb"` (a 5-param 2-component NB mixture,
-  `self_zeroed=False` → gated like `nb`). Empty until A-S3.
+  `self_zeroed=False` → gated like `nb`); #258 `"truncated_nb"` (a 2-param zero-truncated NB body,
+  `self_zeroed=False` → gated). Four families registered.
 - `_lazy(module, cls)` returns a factory that `importlib`-imports
   `views_hydranet.distributions.<module>.<cls>` on first call — deferring the torch-heavy import.
 - `family_names() -> frozenset[str]` — the registered names, derived live from the dict keys (one
@@ -47,6 +48,10 @@ decorator, chosen at the v1 `/expert-code-review` for fail-loud discovery and or
   listing available names on an unknown name.
 - `resolve_family(name) -> DistributionFamily | None` — the single dispatch seam: the family for a
   registered name, else `None`.
+- `SELF_ZEROED_FAMILIES: frozenset[str]` + `self_zeroed_family_names() -> frozenset[str]` — the
+  **torch-free mirror** of each family's `self_zeroed` class attribute (currently `{"zinb"}`), so config
+  validators (`validate_forecast_composition`) can check occurrence-ownership without importing torch.
+  Guarantee: this set MUST match the families whose `self_zeroed` is `True` — pinned by a parity test.
 - Guarantee: `family_names()` and the set of names `resolve_family` returns non-`None` for are always
   the same set (both are `DISTRIBUTION_REGISTRY` keys) — no second source to desync.
 

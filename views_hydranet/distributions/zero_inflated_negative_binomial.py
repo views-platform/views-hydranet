@@ -133,9 +133,10 @@ class ZINBFamily(DistributionFamily):
         """Raw-space head bias ``[mu, theta, pi]`` for informed init (C-199 / C-203).
 
         Reads ``priors["theta"]`` (default 1.0, global-theta baseline) and ``priors["pi"]``
-        (default 0.9, ~ the empirical zero-rate the A-S6 head supplies from data) so
-        ``softplus(bias_theta) ~= theta`` and ``sigmoid(bias_pi) ~= pi``, both away from the
-        saturated dead-zone that starves the theta/pi gradients (the C-199 collapse).
+        (default 0.9; ``priors["pi"]`` would carry the empirical zero-rate, but in production the
+        head passes NO priors so the default is used — C-263) so ``softplus(bias_theta) ~= theta``
+        and ``sigmoid(bias_pi) ~= pi``, both away from the saturated dead-zone that starves the
+        theta/pi gradients (the C-199 collapse).
         """
         priors = priors or {}
         mu_bias = inverse_softplus(0.5)  # small positive starting mean

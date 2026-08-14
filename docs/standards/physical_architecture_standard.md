@@ -18,7 +18,8 @@ This standard defines the mandatory structural rules for this repository to ensu
 
 Files must be located in directories that match their **functional category**.
 
-- `models/`: Architecture definitions and trainers.
+- `architectures/`: Model/architecture definitions (training loop lives in `train/`).
+- `distributions/`: The ADR-067 output-distribution family subsystem.
 - `utils/`: Mathematical operations, loss functions, and optimizers.
 - `infrastructure/`: Callbacks, logging, and hardware management.
 - `data/`: Data loading and transformation pipelines.
@@ -29,16 +30,19 @@ Files must be located in directories that match their **functional category**.
 
 Heterogeneous logic (patches, third-party callbacks, exceptions) must be consolidated into **Symmetrical Hubs** to prevent logic fragmentation.
 
-- `utils/patches.py`: All monkey-patches or framework fixes.
-- `utils/callbacks.py`: All Pytorch Lightning or Darts callbacks.
-- `utils/exceptions.py`: All custom project-wide exceptions.
+These are **reserved conventions** — create the module when the need first arises; none exist today:
+
+- `utils/patches.py`: monkey-patches or framework fixes.
+- `utils/callbacks.py`: framework/third-party training callbacks (this repo currently uses none — no
+  PyTorch Lightning or Darts).
+- `utils/exceptions.py`: custom project-wide exceptions (errors are currently raised inline per ADR-008).
 
 ---
 
 ## 4. Import Conventions
 
 - **Explicit Imports:** Avoid `from module import *`.
-- **Circular Dependency Guard:** Follow ADR-002 to ensure a hierarchical dependency tree. Components in `utils/` must not depend on `models/`.
+- **Circular Dependency Guard:** Follow ADR-002 to ensure a hierarchical dependency tree. Components in `utils/` must not depend on `architectures/`.
 
 ---
 

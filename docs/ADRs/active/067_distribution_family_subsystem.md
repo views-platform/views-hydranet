@@ -1,6 +1,6 @@
 # ADR-067: A distribution-family subsystem + per-cell sampleable NB/ZINB heads
 
-**Status:** Proposed
+**Status:** Active (promoted from Proposed 2026-08-14 — the subsystem is in production; ADRs 069/070 build on it)
 **Date:** 2026-07-20
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers
@@ -83,12 +83,16 @@ routed through it — leaving all existing body kinds untouched.
   unknown name) and `resolve_family()` — the **single place dispatch happens**, returning the registered
   family, or `None` for any name that is **not** a registered family (the existing `output_distribution`
   values, which keep their own code path).
-- **The families — `nb` and `zinb`, both self-zeroed** (`negative_binomial.py`,
-  `zero_inflated_negative_binomial.py`). `nb` emits 2 parameters per cell (`mu`, `theta`); `zinb` emits 3
-  (`mu`, `theta`, `pi`). Both are built on a shared `NBCore` (composition, not inheritance).
-  **Self-zeroed** means the count distribution produces its own zeros over all cells, so these families
-  need **no separate gate** — unlike the existing `hurdle_*` bodies, which multiply a positive body by a
-  gate. And `theta`/`pi` are emitted **per cell** — the whole point of the change.
+- **The families.** Four are registered on the shared `NBCore` (composition, not inheritance):
+  `nb` (`negative_binomial.py`, 2 params `mu`, `theta`), `zinb` (`zero_inflated_negative_binomial.py`,
+  3 params `mu`, `theta`, `pi`), `mixture_nb` (`mixture_negative_binomial.py`, 5 params — 2-component
+  NB, Epic #230), and `truncated_nb` (`truncated_negative_binomial.py`, 2 params — the zero-truncated
+  body, #258). **Only `zinb` is self-zeroed** (`SELF_ZEROED_FAMILIES = {zinb}`): its structural `pi`
+  produces zeros over all cells, so it needs **no separate gate**. `nb`, `mixture_nb`, and
+  `truncated_nb` are **NOT self-zeroed** and MUST be externally gated (the body is composed with the
+  classification gate — ADR-069). *(This corrects the original draft's "`nb` and `zinb` both
+  self-zeroed" claim, which the code + ADR-069 superseded.)* `theta`/`pi` are emitted **per cell** —
+  the whole point of the change.
   *Why ZINB's `pi` is not `1 − gate`:* `pi` is the **structural** zero-inflation probability (the extra
   always-off mass), whereas the gate's complement is the *total* zero probability —
   `1 − gate = π + (1−π)·NB(0)` — which mixes structural zeros with the NB's own zeros. Setting `pi = 1 −
@@ -223,7 +227,8 @@ hypothesis is falsified (the subsystem still stands, but NB/ZINB are not the win
 ## 6. Implementation Notes
 
 - **Location.** New package `views_hydranet/distributions/` (`base.py`, `nb_core.py`, `registry.py`,
-  `negative_binomial.py`, `zero_inflated_negative_binomial.py`, `sampling.py`); wiring at the ~11 sites via
+  `negative_binomial.py`, `zero_inflated_negative_binomial.py`, `mixture_negative_binomial.py`,
+  `truncated_negative_binomial.py`, `composition.py`, `family_loss.py`, `sampling.py`); wiring at the ~11 sites via
   `resolve_family`; config in `config_initializer.py`; tests under `tests/distributions/`; CICs
   (Component Interface Contracts) `docs/CICs/DistributionFamily.md` + `DistributionRegistry.md`.
 - **References.** Epic **#167** (stories A-S1…A-S13, #168–#180); tracking **#182**; Epic-B draft **#181**.

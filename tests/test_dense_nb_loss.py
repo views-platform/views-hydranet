@@ -10,11 +10,12 @@ import math
 import pytest
 import torch
 
-from views_hydranet.utils.dense_nb_loss import DenseNBLoss, _inverse_softplus
+from views_hydranet.distributions.nb_core import inverse_softplus
+from views_hydranet.utils.dense_nb_loss import DenseNBLoss
 
 
 def _latent_for_mu(mu: float) -> float:
-    return _inverse_softplus(mu)
+    return inverse_softplus(mu)
 
 
 def test_needs_latent_flag():

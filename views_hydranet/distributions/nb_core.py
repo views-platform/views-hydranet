@@ -136,7 +136,9 @@ class NBCore:
           ``log1p(-1) = -inf``: the forward value survived (the ZINB ``logaddexp``/``where`` masked
           it) but the BACKWARD hit ``d/dz log1p(z)|₋₁ = 1/0 = inf`` → ``0·inf = NaN``, sprayed to
           every upstream param by the mean reduction — the ZINB lesson-18 gradient explosion
-          (C-212; only ZINB's mixture calls this, so all-cell NB was unaffected).
+          (C-212). Only ZINB's NLL *differentiates through* this; NB/mixture/truncated call it
+          too but NB uses it only in the no-backward ``prob_positive`` scoring path, so all-cell
+          NB training was unaffected.
         """
         mu, theta = _clamp(mu, theta)
         return -theta * torch.log1p(mu / theta)

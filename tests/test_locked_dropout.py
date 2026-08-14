@@ -174,3 +174,44 @@ class TestGreenLockedDropoutModelIntegration:
         assert not torch.allclose(out1, out2), (
             "unlocked model dropout resamples per forward (training unchanged)"
         )
+
+
+class TestGreenLockedDropoutPerSite:
+    """C-128: each dropout SITE has its own LockedDropout, so locked masks are
+    independent per layer (the shared shape-keyed instance collided same-shaped
+    sites onto one mask). set/reset iterate self.modules(); the per-site
+    instances register no params/buffers, so existing artifacts load unchanged."""
+
+    def test_model_dropout_is_per_site_moduledict(self):
+        model = _make_real_model(dropout_rate=0.5)
+        assert isinstance(model.dropout, torch.nn.ModuleDict), (
+            "dropout must be a per-site ModuleDict, not one shared LockedDropout"
+        )
+        sites = list(model.dropout.values())
+        assert len(sites) == 15, f"expected 15 dropout sites, got {len(sites)}"
+        assert all(isinstance(m, LockedDropout) for m in sites)
+        # every site is a DISTINCT instance (no sharing → no shape collision)
+        assert len({id(m) for m in sites}) == 15, "dropout sites must be distinct instances"
+
+    def test_locked_masks_are_independent_across_sites(self):
+        """Two locked sites fed the SAME-shaped input draw INDEPENDENT masks — the
+        property the single shared shape-keyed instance violated."""
+        torch.manual_seed(0)
+        a, b = LockedDropout(p=0.5), LockedDropout(p=0.5)
+        for d in (a, b):
+            d.locked = True
+            d.train()
+            d.reset()
+        x = torch.ones(1, 16, 8, 8)
+        ma, mb = a(x), b(x)
+        assert not torch.equal(ma, mb), (
+            "distinct locked sites must draw independent masks (C-128); a shared "
+            "shape-keyed instance would return the identical cached mask"
+        )
+
+    def test_per_site_dropout_adds_no_statedict_keys(self):
+        """LockedDropout has no params/buffers, so the 15 per-site instances add
+        nothing to the state_dict → existing .pt artifacts load unchanged (F4)."""
+        model = _make_real_model(dropout_rate=0.5)
+        dropout_keys = [k for k in model.state_dict() if "dropout" in k.lower()]
+        assert dropout_keys == [], f"per-site dropout leaked state_dict keys: {dropout_keys}"

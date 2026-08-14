@@ -157,7 +157,6 @@ class TestPartialProjectionSliceOverflow:
                 inference,
                 origin=7,
                 origin_idx=0,
-                is_backtest=True,
                 n_origins=1,
                 target_names=["lr_ged_sb"],
             )

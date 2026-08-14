@@ -95,6 +95,17 @@ for i in range(seq_len - 1):
 5. **`ss_schedule=None` is bit-identical to current code** — the mixing branch
    is gated on `ss_epsilon > 0.0 and prev_pred is not None`.
 
+### Update (2026-08): the `ss_feedback` axis for distribution-family heads
+The 7-line mixer above always fed back `output.reg.detach()`. For an **ADR-067 family head** the
+fed-back object is now built by `_family_feedback_log1p(...)` (`train/training_engine.py`) under an
+`ss_feedback ∈ {mean, sample}` axis (mirrors ADR-070's `rollout_feedback`): `mean` = the composed
+`log1p E[y]`, `sample` = a composition-aware draw (so **train-exposure == deploy-exposure**). Legacy
+point heads keep the `output.reg` path unchanged. **Coupling (C-259/C-260/C-261):** when
+`ss_epsilon_max > 0`, `validate_scheduled_sampling_params` requires `ss_feedback` to equal the resolved
+`rollout_feedback`, rejects a gated `ss_feedback='mean'`, and requires `features == regression_targets`
+in ORDER (the AR substitution is positional); the family feedback draw is seeded for reproducibility.
+See CIC `HydraNetConfig.md` §6 and register C-259/C-260/C-261.
+
 ## Experimental Validation
 
 Sweep over `ss_epsilon_max` ∈ {0.0, 0.25, 0.5, 0.75}, linear schedule,

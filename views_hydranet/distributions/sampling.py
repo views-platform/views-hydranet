@@ -48,6 +48,9 @@ def to_cube_samples(
         threshold: τ ∈ (0,1) for ``threshold_gate``.
         pass_index: MC-dropout pass index (D axis). Combined with the run seed + step index to
             seed a per-``(pass, step)`` sub-generator (ADR-070 T=0-neutrality — see below).
+        core: draw the π-stripped BULK body (``family.sample_core``) instead of the self-zeroed
+            sample, for the externally-gated {gated,th_gated}_ZINBcore arms (ADR-068). Requires an
+            external gate — ``core=True`` + ``self_zeroed`` fails loud (C-240). ``nb``: no-op.
 
     Returns:
         ``np.ndarray`` ``[T, H, W, n_reg, k]`` float32, in **log1p space** (non-negative).

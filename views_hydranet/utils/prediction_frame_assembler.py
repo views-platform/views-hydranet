@@ -89,7 +89,7 @@ class PredictionFrameAssembler:
         - temp_data  : signal.data after transpose + North-Up flip  [H, W, T, C, (S)]
         - indices    : (h_arr, w_arr, t_arr) from np.where(valid_mask)
         - time_flat  : 1-D array of month_id values for each valid cell  (N,)
-        - unit_flat  : 1-D array of priogrid_gid values for each valid cell  (N,)
+        - unit_flat  : 1-D array of provider id_col values (e.g. priogrid_id) per valid cell  (N,)
         """
         from views_hydranet.utils.volume_handler import SpatialConvention
 

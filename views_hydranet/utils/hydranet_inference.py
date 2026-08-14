@@ -281,12 +281,11 @@ class HydraNetInference:
             return torch.log1p(reg.clamp(min=0.0))
         if self.output_distribution == "quantile":
             # reg is the K monotone log1p-space quantiles/target (already the emit space). Bound to
-            # [0, QUANTILE_EMIT_CEIL] — a DATA-informed ceiling (log1p count ~16 ≈ 9M, ~80× the sb
-            # max
-            # 113k) so (a) the 36-step rollout stays finite (C-113 bloom) and (b) an over-inflated
-            # cumulative-softplus fan can't peg predictions at 1e13. A well-trained head's 0.99
-            # quantile
-            # (~log1p 12) sits well below the ceiling, so the scored T=0 tail is untouched.
+            # [0, QUANTILE_EMIT_CEIL] — a DATA-informed ceiling (log1p count ~13 ≈ 442k, ~4× the sb
+            # max 113k) so (a) the 36-step rollout stays finite (C-113 bloom) and (b) an
+            # over-inflated cumulative-softplus fan can't peg predictions at 1e13. A well-trained
+            # head's 0.99 quantile (~log1p 12) sits below the ceiling, so the scored T=0 tail is
+            # untouched.
             return reg.clamp(min=0.0, max=QUANTILE_EMIT_CEIL)
         return reg  # standard: identity (reg is already the log1p-space point prediction)
 
@@ -646,7 +645,8 @@ class HydraNetInference:
             window_info: Text for progress reporting.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray]: (posterior_zstack, metadata_zstack)
+            Tuple[np.ndarray, np.ndarray]:
+                (posterior_magnitudes_zstack, posterior_probabilities_zstack)
         """
 
         # 1. Model Entry Gate: Standardized PyTorch Layout

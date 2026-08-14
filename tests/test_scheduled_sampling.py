@@ -264,6 +264,16 @@ class TestSSExposureParityValidation:
         with pytest.raises(ValueError, match="C-260"):
             HydraNetConfig(**self._ss_base(features=["lr_ns", "lr_sb", "lr_os"]))
 
+    def test_emit_family_core_selfzeroed_under_ss_raises(self):
+        """/review-diff finding: emit_family_core + a self_zeroed family (zinb) under active SS —
+        the training feedback (_family_feedback_log1p) draws the self-zeroed sample while inference
+        rolls out on the π-stripped core (sample_core != sample) → silent exposure mismatch. The
+        other C-259/C-260 guards miss this axis; fail loud (C-234/C-239)."""
+        from views_hydranet.utils.config_initializer import HydraNetConfig
+
+        with pytest.raises(ValueError, match="C-234|C-239|core-aware"):
+            HydraNetConfig(**self._ss_base(output_distribution="zinb", emit_family_core=True))
+
 
 class TestRedConfigValidation:
     """Config rejects invalid scheduled sampling parameters."""

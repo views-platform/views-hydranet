@@ -142,7 +142,9 @@ class HydraNetConfig(BaseModel):
     # Hurdle-NB gate (loss_class='weighted_bce'): positive-class weight; None = plain BCE.
     # scalar (shared across sb/ns/os) OR a list of one per classification target (per-target gate)
     loss_class_pos_weight: float | list[float] | None = Field(default=None)
-    # Regression-head output activation (#100): "standard" (ReLU) or "hurdle_nb" (softplus mu).
+    # Regression-head output distribution/activation (#100). "standard" (ReLU) or a family/head
+    # name (nb, zinb, dense_nb, quantile, hurdle_nb, hurdle_lognormal, hurdle_shrinkage) —
+    # validate_output_distribution is the authority on the accepted set.
     output_distribution: str = Field(default="standard")
     # Optional emit-activation override, decoupled from output_distribution (Exp B). None => keyed
     # off output_distribution ('softplus' if hurdle_nb else 'relu'); else 'softplus'/'relu'.
@@ -268,8 +270,9 @@ class HydraNetConfig(BaseModel):
         description=(
             "C-113 / Axis B: number of autoregressive steps to train through "
             "(the rollout-training 'look-ahead'). Default 1 = the current one-step "
-            "path (byte-identical parity); >1 enables the B1 pushforward stability "
-            "term. Candidate K=12. See reports/2026-06-05_rollout_training_dossier/."
+            "path (byte-identical parity). >1 is REJECTED by a validator until the B1 "
+            "pushforward path is wired — nothing reads this knob yet (C-264). "
+            "Candidate K=12. See reports/2026-06-05_rollout_training_dossier/."
         ),
     )
     sweep: bool = Field(default=False)
@@ -684,6 +687,22 @@ class HydraNetConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def reject_unwired_rollout_horizon(self) -> "HydraNetConfig":
+        """C-264: `rollout_horizon` has NO runtime consumer yet — the ADR-058 B1 pushforward
+        path is unwired, so `training_loop`/`_process_sequence` always take the one-step path.
+        A K>1 config would therefore SILENTLY train one-step (the experiment's premise invalid).
+        Fail loud until the consumer lands (mirrors the other reject-if-ignored guards)."""
+        if self.rollout_horizon != 1:
+            err_msg = (
+                f"rollout_horizon={self.rollout_horizon} but the multi-step rollout-training "
+                "path (ADR-058 B1) is NOT wired — nothing reads this knob, so K>1 would "
+                "silently run one-step training. Set rollout_horizon=1 until it lands (C-264)."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
     def validate_pos_weight_length(self) -> "HydraNetConfig":
         """A per-target pos_weight list needs one entry per classification target (sb/ns/os)."""
         pw = self.loss_class_pos_weight
@@ -1066,7 +1085,7 @@ class HydraNetConfig(BaseModel):
                 logger.error(err_msg)
                 raise ValueError(err_msg)
             # The AR substitution feeds the n_reg target forecasts into the feature channels
-            # POSITIONALLY (training_engine.py:329-334); features must equal regression_targets in
+            # POSITIONALLY (training_engine.py:334-339); features must equal regression_targets in
             # ORDER, not just as sets (validate_laws only set-warns — C-260).
             if list(self.features) != list(self.regression_targets):
                 err_msg = (
@@ -1078,6 +1097,25 @@ class HydraNetConfig(BaseModel):
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
+            # emit_family_core (ADR-068) re-interprets the family as its π-stripped BULK core at
+            # EMIT/inference time, but the TRAINING feedback (_family_feedback_log1p) always draws
+            # the plain family.sample — it is NOT core-aware. For a self_zeroed family (zinb),
+            # sample_core != sample, so SS would train on the self-zeroed draw while inference
+            # rolls out on the dense core: a silent train/deploy exposure mismatch (C-234/C-239
+            # axis the other guards above miss). Reject until _family_feedback_log1p is core-aware.
+            if self.emit_family_core:
+                from views_hydranet.distributions.registry import self_zeroed_family_names
+
+                if self.output_distribution in self_zeroed_family_names():
+                    err_msg = (
+                        "SS active with emit_family_core=True and a self_zeroed "
+                        f"family ({self.output_distribution!r}): feedback draws the "
+                        "self-zeroed sample but inference rolls out on the π-stripped core "
+                        "(sample_core != sample) — a silent train/deploy exposure mismatch "
+                        "(C-234/C-239). Make _family_feedback_log1p core-aware before enabling it."
+                    )
+                    logger.error(err_msg)
+                    raise ValueError(err_msg)
         return self
 
     # --- Dict-compatibility layer (gradual migration from config["key"]) ---

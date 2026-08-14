@@ -1,6 +1,6 @@
 # ADR-065: `body_mask` — a first-class, validated point-body training-mask setting
 
-**Status:** Proposed
+**Status:** Active (promoted from Proposed 2026-08-14 — the body_supervision resolver is shipped; see `docs/CICs/BodySupervisionResolver.md`)
 **Date:** 2026-07-18
 **Deciders:** Simon Polichinel von der Maase
 **Informed:** HydraNet maintainers

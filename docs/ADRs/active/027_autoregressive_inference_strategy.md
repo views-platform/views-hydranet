@@ -53,4 +53,6 @@ This strategy ensures that HydraNet's forecasting behavior is consistent and aud
 > evolves the full state, inference froze part of it). The rollout now always evolves the
 > full ConvLSTM state (the former `"none"` mode). The durable fix for autoregressive
 > drift is **Axis-B rollout training** (`reports/2026-06-05_rollout_training_dossier/`,
-> ADR-058 candidate; register C-113/C-125/C-126).
+> ADR-058 candidate — **PARKED** (no ADR-058 file was written; the direction is parked, and
+> `rollout_horizon > 1` is guarded off by C-264 until the pushforward path is wired); register
+> C-113/C-125/C-126).
