@@ -93,9 +93,11 @@ class NegativeBinomialFamily(DistributionFamily):
         """Raw-space head bias ``[mu, theta]`` for informed init (C-199 / C-203).
 
         Reads ``priors["theta"]`` (default 1.0, the global-theta near-geometric baseline) so
-        ``softplus(bias_theta) ~= theta`` and ``mu`` starts small-positive. The A-S6 head inits its
-        theta channel from this instead of zero/default, keeping the theta gradient live from
-        step 0 (theta is identified by few cells; it dies if it saturates).
+        ``softplus(bias_theta) ~= theta`` and ``mu`` starts small-positive. The A-S6 head seeds its
+        reg-head bias from this recipe, keeping the theta gradient live from step 0 (theta is
+        identified by few cells; it dies if it saturates). NOTE (C-263): in production the head
+        calls this with NO ``priors`` (the family DEFAULT theta=1.0 is used); ``priors=`` is a
+        reserved extension point for data-derived init, currently exercised only by tests.
         """
         priors = priors or {}
         mu_bias = inverse_softplus(0.5)  # softplus(bias) = 0.5 -> a small positive starting mean

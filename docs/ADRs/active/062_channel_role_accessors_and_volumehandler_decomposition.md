@@ -1,6 +1,9 @@
 # ADR-062: Channel-Role Accessors + VolumeHandler Decomposition
 
-**Status:** Proposed
+**Status:** Active — PARTIAL (promoted from Proposed 2026-08-14). The channel-role **accessor contract**
+landed (`volume_handler.py` `static_cols`/`target_cols`/`model_input_cols`, consumed by `feature_scaler.py`).
+The full **VolumeHandler decomposition** and 3 census bugs (C-157/C-159 cluster) remain **open** — the
+census test still `xfail(strict=True)`. Promoted to reflect the shipped accessor contract, NOT completion.
 **Date:** 2026-06-13
 **Deciders:** Simon (chair), Claude (pair)
 **Extends:** ADR-060 (Static & Architectural Input Channels — implements its ontology as a contract)

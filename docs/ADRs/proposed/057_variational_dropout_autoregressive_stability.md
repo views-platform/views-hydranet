@@ -28,6 +28,17 @@ Adopt **variational (consistent-mask) dropout** in the inference path, via a `Lo
 
 This intervention is **magnitude-neutral**: it changes the temporal correlation of the dropout noise, not the values the heads may emit. That is essential because we are simultaneously fighting under-prediction (MCR ≪ 1); any magnitude cap would worsen MCR.
 
+> **Update (2026-08-14, C-128 S2 — per-site migration, banked/UN-ADOPTED).** The original design used
+> **one shared `LockedDropout`** whose mask is cached by `(shape, device, dtype)`. That was later found
+> to make every same-shaped site reuse **one** mask per forward → *correlated* epistemic dropout across
+> layers/targets, not the per-layer-independent masks Gal & Ghahramani intend (register C-113/C-128). The
+> fix replaces the shared instance with an `nn.ModuleDict` of **15 per-site `LockedDropout` instances**
+> (`architectures/HydraBNrecurrentUnet_06_LSTM4.py`), so each site draws an independent mask;
+> `set/reset_locked_dropout` iterate `self.modules()` so all sites are handled, and `LockedDropout` holds
+> no params/buffers so existing artifacts still load. **Committed but UN-ADOPTED**: per-site masks change
+> the MC-dropout posterior spread that every validated result was scored under, so the artifact is not
+> adopted until the C-128 S3–S5 A/B re-score. See register C-128.
+
 ## Alternatives considered (preserved, not discarded)
 
 | Alt | Description | Disposition | Revisit when |

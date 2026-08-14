@@ -24,6 +24,13 @@ if not VIOLET_CONFIG.exists():
     )
 
 
+@pytest.mark.skip(
+    reason="SUPERSEDED (2026-08-14) — the coordinate-grounding epic's 'two 8-sample no-coords "
+    "runs' plan is dead. violet_visitor is now EXPERIMENT_IN_PROGRESS on the v2 gated_NB "
+    "foundation (output_distribution=nb, soft_gate, n_posterior_samples=4 — intentionally in-flux "
+    "per Epic #242 S1.5). The 8-sample coord-epic operating point no longer applies; forcing it "
+    "would revert the live africa/datafactory config. Kept as a record of the closed gate."
+)
 def test_violet_config_operating_point_is_8_samples():
     """HARD (P1): the claimed operating point is 8 samples, but the config still pins 3
     (the C-116 memory-probe value). The "two 8-sample runs" would silently run at 3, and

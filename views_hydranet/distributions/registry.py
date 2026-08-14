@@ -37,6 +37,9 @@ DISTRIBUTION_REGISTRY: dict[str, Callable[[], "DistributionFamily"]] = {
     "nb": _lazy("negative_binomial", "NegativeBinomialFamily"),  # A-S3 (#170)
     "zinb": _lazy("zero_inflated_negative_binomial", "ZINBFamily"),  # A-S4 (#171)
     "mixture_nb": _lazy("mixture_negative_binomial", "MixtureNBFamily"),  # Epic #230 S2 (#232)
+    "truncated_nb": _lazy(
+        "truncated_negative_binomial", "TruncatedNBFamily"
+    ),  # #258 double-zero fix
 }
 
 

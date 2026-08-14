@@ -50,21 +50,40 @@ Contracts must be clear enough that:
 
 ## Active Contracts
 
+### Model & Training Core
+- `HydraBNUNet06LSTM4.md` — the recurrent BN-U-Net + Quad-ConvLSTM model (per-timestep `forward`).
+- `LockedDropout.md` — consistent-mask (variational) dropout for the AR rollout (ADR-057).
+- `TrainingEngine.md` — the recurrent training loop, scheduled-sampling feedback, BN recalibration.
+- `CurriculumLearner.md`
+- `ScheduledSamplingMixer.md`
+- `BodySupervisionResolver.md`
+- `TrainingForensics.md`
+
+### Distribution Families & Output Heads (ADR-067)
+- `DistributionFamily.md` — the per-cell output-distribution ABC.
+- `DistributionRegistry.md` — the `name → family` registry + self-zeroed mirror.
+- `NBCore.md` — the shared Negative-Binomial count-math authority.
+- `ForecastComposer.md` — gate × body composition (ADR-069).
+- `PosteriorCubeSampler.md` — the D×K posterior-cube sampler `to_cube_samples` (ADR-067/070).
+
 ### The Spine (Orchestration & Data)
 - `HydranetManager.md`
 - `VolumeHandler.md`
-- `DataSniffer.md`
-
-### The Actors (Logic & Training)
-- `InferenceOrchestrator.md`
-- `FeatureScaler.md`
-- `ModelArtifactFetcher.md`
-- `DataFetcher.md`
-- `CurriculumLearner.md`
 - `VolumeSampler.md`
+- `DataSniffer.md`
+- `DataFetcher.md`
+- `FeatureScaler.md`
 
-### Interface Adapters (Entity ↔ Framework)
+### Inference & Prediction Output
+- `InferenceOrchestrator.md`
 - `PredictionFrameAssembler.md`
+- `ModelArtifactFetcher.md`
+
+### Config, Guards & Diagnostics
+- `HydraNetConfig.md`
+- `ConfigInitializer.md`
+- `IntegrityGuardian.md`
+- `VisualDiagnostics.md`
 
 ---
 

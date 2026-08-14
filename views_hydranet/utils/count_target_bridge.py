@@ -14,8 +14,8 @@ Design invariants (ZINB/hurdle-NB dossier ``02_design`` §3; risk C-140):
   * **GPU-native.** Uses ``torch.expm1``; ``FeatureScaler``'s inverse is numpy/pandas-only and
     cannot run inside the training loss on-device.
 
-Intentionally tiny and exhaustively tested; #99 (HurdleNBLoss) consumes it. Not wired into the
-training/inference path here — that happens in #99 (so the flag-off path is untouched).
+Intentionally tiny and exhaustively tested; consumed by the legacy hurdle losses (#99) and the
+ADR-067 distribution families (nb/zinb/mixture_nb/truncated_nb, via ``to_raw_counts`` in ``nll``).
 """
 
 from __future__ import annotations

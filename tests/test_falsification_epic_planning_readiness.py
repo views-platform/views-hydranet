@@ -95,6 +95,12 @@ def _loss_reg_of(text: str) -> str | None:
     return m.group(1) if m else None
 
 
+@pytest.mark.skip(
+    reason="SUPERSEDED (2026-08-14) — the +coords-vs-hurdle_nb one-variable experiment "
+    "(coordinate-grounding epic #105) is superseded. violet_visitor moved to the gated_NB "
+    "foundation (loss_reg='mse', EXPERIMENT_IN_PROGRESS) while config_sweep.py retains the dead "
+    "hurdle_nb coord sweep; the loss-agreement guard no longer applies. Kept as a record."
+)
 def test_p5_baseline_config_unambiguous():
     """CLOSED by #107 (C-155). The one-variable test compares +coords vs the hurdle-NB baseline; I5
     needs 'bit-identical when off', so the two violet configs must not disagree on the loss. The

@@ -42,7 +42,6 @@ class ModelOutput(NamedTuple):
     reg_latent: torch.Tensor | None = None  # [B, n_reg, H, W] pre-ReLU latent mu
 
 
-# give everything better names at some point
 class HydraBNUNet06_LSTM4(nn.Module):
     """
     Recurrent U-Net with Batch Normalization and Quad-LSTM temporal memory.
@@ -83,9 +82,10 @@ class HydraBNUNet06_LSTM4(nn.Module):
                                          Must be divisible by 8.
             output_channels (int): Number of channels per head (usually 1).
             dropout_rate (float): Probability of dropout for regularization.
-            output_distribution (str): regression-head output activation —
-                "standard" (ReLU, default, pre-#100 behavior) or "hurdle_nb"
-                (softplus, count-space mean mu for the hurdle-NB head).
+            output_distribution (str): regression-head output distribution/activation —
+                "standard" (ReLU, default, pre-#100 behavior) or a family/head name
+                (nb, zinb, quantile, hurdle_nb, hurdle_lognormal, hurdle_shrinkage), which
+                selects the ADR-067 family activation / head param count.
         """
         super().__init__()
 
@@ -304,13 +304,37 @@ class HydraBNUNet06_LSTM4(nn.Module):
 
         self.dec_conv4_head3_class = nn.Conv2d(base, output_channels, kernel_size, padding=1)
 
-        # Dropout — LockedDropout (ADR-057): a drop-in for nn.Dropout that can
-        # hold its mask fixed across the autoregressive roll-forward. Behaves
-        # exactly as nn.Dropout until locked (training path unchanged).
-        self.dropout = LockedDropout(p=dropout_rate)
+        # Dropout — per-site LockedDropout (ADR-057; C-128 fix). Each of the 15
+        # dropout sites gets its OWN instance, so locked (MC-dropout inference)
+        # masks are independent PER LAYER. The previous single shared instance
+        # cached masks by (shape,device,dtype), so same-shaped sites collided on
+        # one mask — correlated epistemic dropout, not the per-layer masks
+        # Gal & Ghahramani intend. set/reset_locked_dropout iterate self.modules(),
+        # so every site is handled; LockedDropout has no params/buffers, so
+        # existing artifacts load unchanged. Training is unchanged (locked=False
+        # → a fresh mask every call, byte-identical to nn.Dropout, same RNG order).
+        _dropout_sites = (
+            "e0s",
+            "e1s",
+            "b",
+            "h1_reg_d0",
+            "h1_reg",
+            "h1_class_d0",
+            "h1_class",
+            "h2_reg_d0",
+            "h2_reg",
+            "h2_class_d0",
+            "h2_class",
+            "h3_reg_d0",
+            "h3_reg",
+            "h3_class_d0",
+            "h3_class",
+        )
+        self.dropout = nn.ModuleDict(
+            {site: LockedDropout(p=dropout_rate) for site in _dropout_sites}
+        )
 
-        # LSTM parameters initialization...
-        # [Implementation details omitted for brevity, logic remains identical]
+        # LSTM parameters initialization (gate weights for the 4 stacked ConvLSTM cells).
         self.Wxi_1 = nn.Conv2d(
             input_channels, num_lstm_state_layers, kernel_size, padding=lstm_padding, bias=True
         )
@@ -496,7 +520,6 @@ class HydraBNUNet06_LSTM4(nn.Module):
         split_h = int(h.shape[1] / 8)
         hs_1, hs_2, hs_3, hs_4, hl_1, hl_2, hl_3, hl_4 = torch.split(h, split_h, dim=1)
 
-        # ... [LSTM Logic remains identical] ...
         # ----------------- LSTM 1 -----------------
         i_t_1 = torch.sigmoid(self.Wxi_1(x) + self.Whi_1(hs_1))
         f_t_1 = torch.sigmoid(self.Wxf_1(x) + self.Whf_1(hs_1))
@@ -534,26 +557,26 @@ class HydraBNUNet06_LSTM4(nn.Module):
 
         # encoder
         e0s_ = F.relu(self.bn_enc_conv0(self.enc_conv0(x)))
-        e0s = self.dropout(e0s_)
+        e0s = self.dropout["e0s"](e0s_)
         # ADR-061: append the raw coords to the full-resolution skip fed to every head's decision
         # layer (dec_conv1). Encoder downsampling below uses e0s (no coords). None => unchanged.
         e0s_topskip = torch.cat([e0s, coords], 1) if coords is not None else e0s
         e0 = self.pool0(e0s)
-        e1s = self.dropout(F.relu(self.bn_enc_conv1(self.enc_conv1(e0))))
+        e1s = self.dropout["e1s"](F.relu(self.bn_enc_conv1(self.enc_conv1(e0))))
         e1 = self.pool1(e1s)
 
         # bottleneck
         b = F.relu(self.bn_bottleneck_conv(self.bottleneck_conv(e1)))
-        b = self.dropout(b)
+        b = self.dropout["b"](b)
 
-        # DECODERS (H1, H2, H3 logic remains identical)
+        # DECODERS (H1, H2, H3)
         # H1 reg
         H1_d0 = F.relu(
             self.bn_dec_conv0_head1_reg(
                 self.dec_conv0_head1_reg(torch.cat([self.upsample0_head1_reg(b), e1s], 1))
             )
         )
-        H1_d0 = self.dropout(H1_d0)
+        H1_d0 = self.dropout["h1_reg_d0"](H1_d0)
         H1_d1 = F.relu(
             self.bn_dec_conv1_head1_reg(
                 self.dec_conv1_head1_reg(
@@ -561,7 +584,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
                 )
             )
         )
-        H1_reg = self.dropout(H1_d1)
+        H1_reg = self.dropout["h1_reg"](H1_d1)
         H1_reg = self.dec_conv4_head1_reg(H1_reg)
         out_reg1 = self._reg_activation(H1_reg)
 
@@ -571,7 +594,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
                 self.dec_conv0_head1_class(torch.cat([self.upsample0_head1_class(b), e1s], 1))
             )
         )
-        H1_d0 = self.dropout(H1_d0)
+        H1_d0 = self.dropout["h1_class_d0"](H1_d0)
         H1_d1 = F.relu(
             self.bn_dec_conv1_head1_class(
                 self.dec_conv1_head1_class(
@@ -579,7 +602,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
                 )
             )
         )
-        H1_class = self.dropout(H1_d1)
+        H1_class = self.dropout["h1_class"](H1_d1)
         H1_class = self.dec_conv4_head1_class(H1_class)
         out_class1 = H1_class
 
@@ -589,7 +612,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
                 self.dec_conv0_head2_reg(torch.cat([self.upsample0_head2_reg(b), e1s], 1))
             )
         )
-        H2_d0 = self.dropout(H2_d0)
+        H2_d0 = self.dropout["h2_reg_d0"](H2_d0)
         H2_d1 = F.relu(
             self.bn_dec_conv1_head2_reg(
                 self.dec_conv1_head2_reg(
@@ -597,7 +620,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
                 )
             )
         )
-        H2_reg = self.dropout(H2_d1)
+        H2_reg = self.dropout["h2_reg"](H2_d1)
         H2_reg = self.dec_conv4_head2_reg(H2_reg)
         out_reg2 = self._reg_activation(H2_reg)
 
@@ -607,7 +630,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
                 self.dec_conv0_head2_class(torch.cat([self.upsample0_head2_class(b), e1s], 1))
             )
         )
-        H2_d0 = self.dropout(H2_d0)
+        H2_d0 = self.dropout["h2_class_d0"](H2_d0)
         H2_d1 = F.relu(
             self.bn_dec_conv1_head2_class(
                 self.dec_conv1_head2_class(
@@ -615,7 +638,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
                 )
             )
         )
-        H2_class = self.dropout(H2_d1)
+        H2_class = self.dropout["h2_class"](H2_d1)
         H2_class = self.dec_conv4_head2_class(H2_class)
         out_class2 = H2_class
 
@@ -625,7 +648,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
                 self.dec_conv0_head3_reg(torch.cat([self.upsample0_head3_reg(b), e1s], 1))
             )
         )
-        H3_d0 = self.dropout(H3_d0)
+        H3_d0 = self.dropout["h3_reg_d0"](H3_d0)
         H3_d1 = F.relu(
             self.bn_dec_conv1_head3_reg(
                 self.dec_conv1_head3_reg(
@@ -633,7 +656,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
                 )
             )
         )
-        H3_reg = self.dropout(H3_d1)
+        H3_reg = self.dropout["h3_reg"](H3_d1)
         H3_reg = self.dec_conv4_head3_reg(H3_reg)
         out_reg3 = self._reg_activation(H3_reg)
 
@@ -643,7 +666,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
                 self.dec_conv0_head3_class(torch.cat([self.upsample0_head3_class(b), e1s], 1))
             )
         )
-        H3_d0 = self.dropout(H3_d0)
+        H3_d0 = self.dropout["h3_class_d0"](H3_d0)
         H3_d1 = F.relu(
             self.bn_dec_conv1_head3_class(
                 self.dec_conv1_head3_class(
@@ -651,7 +674,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
                 )
             )
         )
-        H3_class = self.dropout(H3_d1)
+        H3_class = self.dropout["h3_class"](H3_d1)
         H3_class = self.dec_conv4_head3_class(H3_class)
         out_class3 = H3_class
 

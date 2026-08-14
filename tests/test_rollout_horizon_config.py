@@ -7,6 +7,9 @@ ADR-005 Green/Red taxonomy. See reports/2026-06-05_rollout_training_dossier/
 03_harness_and_invariants.md.
 """
 
+import pytest
+from pydantic import ValidationError
+
 from views_hydranet.utils.config_initializer import HydraNetConfig
 
 
@@ -23,3 +26,19 @@ def test_rollout_horizon_enforces_ge_one():
     assert any(getattr(m, "ge", None) == 1 for m in metadata), (
         "rollout_horizon must enforce >= 1 (ge=1); K=1 is the parity floor."
     )
+
+
+def test_rollout_horizon_greater_than_one_is_rejected(valid_config_dict):
+    """C-264 (red-catcher): nothing consumes rollout_horizon yet, so K>1 must FAIL LOUD
+    rather than silently run one-step training. The guard holds until the ADR-058 B1 path."""
+    cfg = dict(valid_config_dict)
+    cfg["rollout_horizon"] = 2
+    with pytest.raises(ValidationError, match="C-264"):
+        HydraNetConfig(**cfg)
+
+
+def test_rollout_horizon_one_still_constructs(valid_config_dict):
+    """Green: K=1 (the parity floor) must construct cleanly."""
+    cfg = dict(valid_config_dict)
+    cfg["rollout_horizon"] = 1
+    assert HydraNetConfig(**cfg).rollout_horizon == 1

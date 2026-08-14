@@ -4,9 +4,9 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-08-03                           |
-| Total Concerns    | 256                                  |
-| Open Concerns     | 129                                  |
+| Last Updated      | 2026-08-14                           |
+| Total Concerns    | 267                                  |
+| Open Concerns     | 140                                  |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 127                                  |
 | Resolved on PR #216 (in-place ✅, merged) | 12 (C-138/234/235/236/237/238/239/240/241/242/243/247) — bannered in §Open and still physically there (so mechanically counted among the 128 Open above), pending relocation to §Resolved on a future curation pass |
@@ -655,7 +655,7 @@ ADR-057 makes inference use a **locked** dropout mask (fixed across the 36-step 
 
 Tier 3 rationale: a **validation gap**, not a known defect — spot-checked benign on pink, MC-dropout was already approximate, and the change is intended (ADR-057, consciously accepted at the #75 merge). Escalate to Tier 2 (à la C-110) if a locked-mask posterior is relied on for delivery before I3. Mitigation: run the I3 calibration analysis (PIT/coverage + MCR) across models; or gate locked dropout behind an opt-in flag if I3 is deferred.
 
-**Update 2026-08-03 (dev→main release review, PR #252 — the concrete mechanism identified).** The suspected mis-calibration has a named cause: `HydraBNrecurrentUnet_06_LSTM4.py:310` uses **ONE shared `LockedDropout` instance** across all 16 dropout sites, and `LockedDropout.forward` caches the locked mask keyed only by `(shape, device, dtype)` (`locked_dropout.py:66`). So every same-shaped site — encoder `e0s` + the 6 decoder heads (`H1/H2/H3_reg`+`_class`) + intermediates, all `[B,base,H,W]` — reuses **one** mask per forward, giving perfectly **correlated** epistemic dropout across layers/targets instead of the per-layer independent masks ADR-057 / Gal & Ghahramani intend. Per-target marginal expectation is preserved (inverted `1/(1−p)`, reset per posterior sample) so the central forecast + per-target mean are **unbiased**; but the effective epistemic diversity (posterior spread) is reduced/distorted — the exact "too tight" mode this entry anticipated. **Confirmed by code read.** It is the behavior ALL validated results (v2 scoreboard, Epic #230) used ⇒ **NOT a regression**; fixing it (a `LockedDropout` per call site → independent per-layer masks) would **change the scored posterior** and require re-scoring. **Dispositioned at the dev→main merge: track as follow-up, do NOT fix at release time** (preserve scored-result comparability). Folds the release-review finding into this entry (dedup).
+**Update 2026-08-03 (dev→main release review, PR #252 — the concrete mechanism identified).** The suspected mis-calibration has a named cause: `HydraBNrecurrentUnet_06_LSTM4.py:310` uses **ONE shared `LockedDropout` instance** across all 15 dropout sites, and `LockedDropout.forward` caches the locked mask keyed only by `(shape, device, dtype)` (`locked_dropout.py:66`). So every same-shaped site — encoder `e0s` + the 6 decoder heads (`H1/H2/H3_reg`+`_class`) + intermediates, all `[B,base,H,W]` — reuses **one** mask per forward, giving perfectly **correlated** epistemic dropout across layers/targets instead of the per-layer independent masks ADR-057 / Gal & Ghahramani intend. Per-target marginal expectation is preserved (inverted `1/(1−p)`, reset per posterior sample) so the central forecast + per-target mean are **unbiased**; but the effective epistemic diversity (posterior spread) is reduced/distorted — the exact "too tight" mode this entry anticipated. **Confirmed by code read.** It is the behavior ALL validated results (v2 scoreboard, Epic #230) used ⇒ **NOT a regression**; fixing it (a `LockedDropout` per call site → independent per-layer masks) would **change the scored posterior** and require re-scoring. **Dispositioned at the dev→main merge: track as follow-up, do NOT fix at release time** (preserve scored-result comparability). Folds the release-review finding into this entry (dedup).
 
 ---
 
@@ -2068,9 +2068,9 @@ Epic #218 S5 closed the acute half of C-236 (a data-backed static now fails loud
 | ID | C-246 |
 | Tier | 3 |
 | Source | repo-assimilation (2026-07-31, R-A2) |
-| Trigger | Editing the recurrent step / feedback handling in ONE of the two loops — e.g. changing hidden-state threading, feedback composition, or static re-injection in `training_engine._process_sequence` without the mirror change in `hydranet_inference.predict` (or vice versa) |
-| Location | `views_hydranet/train/training_engine.py` (`_process_sequence`, the `for i in range(seq_len-1)` step loop) and `views_hydranet/utils/hydranet_inference.py` (`predict`, the `range(origin + time_steps)` causal loop) |
-| Cross-refs | C-99 (reg_latent vs reg dual-path in the same loop), C-113 (freeze_h train/inference state mismatch — a specific instance) |
+| Trigger | Editing the recurrent step / feedback handling in ONE of the two loops (changing hidden-state threading, feedback composition, or static re-injection in `training_engine._process_sequence` without the mirror in `hydranet_inference.predict`); **OR enabling scheduled sampling (`ss_epsilon_max>0`) — which exercises `_family_feedback_log1p` against inference's `_sample_feedback` for the first time in a real run** |
+| Location | `views_hydranet/train/training_engine.py` (`_process_sequence` step loop; `_family_feedback_log1p:217-245`) and `views_hydranet/utils/hydranet_inference.py` (`predict` causal loop; `_sample_feedback:293-334`) |
+| Cross-refs | C-99 (reg_latent vs reg dual-path), C-113 (freeze_h train/inference state mismatch), C-259 (the config-decoupling root a parity test would catch), C-239 (the ZINBcore twin closed by arm-drop) |
 
 The model's `forward()` is strictly **per-timestep** (`[B,C,H,W]`); the recurrent T-loop that threads hidden state and feeds back predictions lives **outside** the model, implemented **independently** in training (`_process_sequence`) and in inference (`predict`). They legitimately differ (training has teacher-forcing/scheduled-sampling; inference has the free rollout), but the **shared recurrent-state-threading + feedback semantics must stay behaviorally identical** — and nothing asserts that parity. A change to one (feedback composition, static re-attach, hidden-state carry) that isn't mirrored in the other silently produces a train/inference exposure mismatch (the class of bug C-113's freeze_h note and this session's C-234 both instantiate). **Tier 3 (maintainability/drift, not a guaranteed live corruption):** existing parity anchors cover *emit* but not the *recurrent-loop* contract across train/inference. Mitigation direction (not proposed here): a shared step primitive or a train/inference recurrent-parity characterization test.
 
@@ -2230,6 +2230,177 @@ Three low-severity items from the prioritized dev→main release review; **none 
 (a) `rollout_feedback='sample'` on a legacy (non-family) `output_distribution` is not rejected at config **load** — it fails loud only at inference-object construction, i.e. after a full training run (wasted GPU run). Fix: a `model_validator` reading `output_distribution` vs `family_names()`.
 (b) `loss_class_pos_weight` passes length-only validation for **any** `loss_class`, but only `weighted_bce` consumes it; with `loss_class='focal'`/`'bce'` it is **silently ignored** (a silently-different objective). Fix: tie `loss_class_pos_weight` to `loss_class=='weighted_bce'`.
 (c) `_recalibrate_bn` runs `model.train()` with forensics attached; `stage_label=''` suppresses the biopsy plot but `forensics.record`/`record_params` are not gated by it, so BN-recal windows **pollute the forensic accumulators** (diagnostic-only; no weight/output impact). **Tier 4.**
+
+---
+
+### C-259: scheduled-sampling train/inference exposure DECOUPLED by two config keys (ss_feedback vs rollout_feedback) + ungated mean path
+
+| Field | Value |
+|-------|-------|
+| ID | C-259 |
+| Tier | 2 |
+| Source | expert-code-review (2026-08-14, ADR-056 scheduled-sampling pre-run correctness review) |
+| Trigger | Setting `ss_epsilon_max > 0` to run scheduled sampling on a family head while relying on the `ss_feedback` default (`"mean"`) — with `rollout_feedback` auto-resolving to `"sample"` for family heads, so training exposure ≠ deployment exposure |
+| Location | `views_hydranet/utils/config_initializer.py:992-1028` (`validate_scheduled_sampling_params` — no coupling check); `views_hydranet/train/training_engine.py:684` (`ss_feedback` default `"mean"`), `:204-214` (`_family_target_log1p_mean` — UNGATED); `views_hydranet/utils/hydranet_inference.py:264-267` (inference mean IS gated via `compose_mean`), `:100-101` (`rollout_feedback` auto-resolve `None`→`"sample"`) |
+| Cross-refs | C-234 (eval-side emit_family_core half-wire), C-239 (training-side twin, closed by ZINBcore arm-drop), C-240/C-242 (gating asymmetry), C-246 (the missing parity test that would catch this) |
+
+`ss_feedback` (training) and `rollout_feedback` (inference) are **independent config keys with independent defaults** (`ss_feedback="mean"`; `rollout_feedback=None`→auto `"sample"` for family heads) and **no validator couples them**. The `"mean"` training feedback path (`_family_target_log1p_mean`) is **ungated** whereas inference's mean path composes the gate (`_emit_magnitude:264-267`). So a scheduled-sampling run left on the `ss_feedback="mean"` default while `rollout_feedback` auto-resolves to `"sample"` **trains on an ungated mean the model never emits** — a silent train/deploy exposure mismatch that makes any scheduled-sampling verdict measure a different object than it deploys. This **generalizes the C-234/C-239 `emit_family_core` mismatch** — which was closed by *dropping the ZINBcore arm + keeping `ss_epsilon_max=0`*, never by fixing the mechanism — to the **default config the moment `ss_epsilon_max>0`**. **Tier 2 (structural fragility, silent exposure mismatch, clear trigger; invalidates the experiment, not a correctly-specified forecast).** Fix direction: a raise in `validate_scheduled_sampling_params` (`ss_epsilon_max>0` ⇒ `ss_feedback == resolved(rollout_feedback)`); gate `_family_target_log1p_mean` + honor `emit_family_core`.
+
+> **Update 2026-08-15 (/review-diff finding, ADDRESSED).** The `validate_scheduled_sampling_params` coupling landed (ss_feedback==resolved rollout_feedback; gated-`mean` reject; order-strict features==regression_targets — C-259/C-260). The `/review-diff` pre-merge pass found the ONE remaining un-guarded axis: `_family_feedback_log1p` is NOT core-aware, so `emit_family_core=True` + a self_zeroed family (zinb) under active SS would still mismatch (train on the self-zeroed sample, roll out on the π-stripped core — the C-234/C-239 axis). Now **guarded**: the validator raises for `ss_epsilon_max>0 + emit_family_core + self_zeroed family` (test `test_emit_family_core_selfzeroed_under_ss_raises`). Residual deferred: the ungated `_family_target_log1p_mean` (can't fire — gated `ss_feedback='mean'` is rejected) and the production `generator=None` non-reproducibility (C-261, docstring corrected).
+
+---
+
+### C-260: scheduled-sampling channel substitution assumes features == regression_targets in ORDER (set-based warning misses it)
+
+| Field | Value |
+|-------|-------|
+| ID | C-260 |
+| Tier | 2 |
+| Source | expert-code-review (2026-08-14, ADR-056 scheduled-sampling pre-run correctness review) |
+| Trigger | Setting `ss_epsilon_max > 0` with a config whose `features` and `regression_targets` are the same length but a DIFFERENT order (e.g. reordering targets, or adding a dynamic covariate so the lists diverge) |
+| Location | `views_hydranet/train/training_engine.py:329-334` (`t0_gt = t0[:, idx.feat]`; `torch.where(mask, prev_pred[:n_reg], t0_gt)`); `views_hydranet/utils/config_initializer.py:322-346` (`validate_laws` — set-based `logger.warning` only) |
+| Cross-refs | C-98, C-105 (the count constraint, both marked RESOLVED via the set-based warning), C-259 (same SS-enablement trigger) |
+
+The scheduled-sampling substitution replaces `t0_gt` (the `idx.feat` input channels) with `prev_pred` (the `n_reg` target forecasts) via `torch.where`. This assumes `features == regression_targets` in **count AND order**. `validate_laws` only `logger.warning`s on `set(features) != set(regression_targets)` (the "resolution" for C-98/C-105) — a **set** check that (a) never raises and (b) **passes same-length-different-order**, which would silently feed the `sb`-forecast into the `ns`-input channel (cross-target corruption). For the current conflict-only configs (`features == regression_targets`, same order) it is benign; enabling `ss_epsilon_max>0` on any reordered/extended config makes it a live silent corruption. **Tier 2 (silent model-input corruption under a realistic non-default config; clear trigger).** Fix direction: order-strict `list(features) == list(regression_targets)` **raise** when `ss_epsilon_max>0`.
+
+---
+
+### C-261: scheduled-sampling training feedback draw uses generator=None (global RNG) → non-reproducible; blocks byte-exact parity
+
+| Field | Value |
+|-------|-------|
+| ID | C-261 |
+| Tier | 3 |
+| Source | expert-code-review (2026-08-14, ADR-056 scheduled-sampling pre-run correctness review) |
+| Trigger | Running scheduled sampling (`ss_epsilon_max>0`, `ss_feedback='sample'`) and expecting byte-reproducibility under the S2 #121 determinism gate, OR asserting train↔inference feedback byte-equality in a test |
+| Location | `views_hydranet/train/training_engine.py:231/243` (`family.sample(...,1,None)`; `compose_samples(...,None)`), call site `:348-357`; vs `views_hydranet/utils/hydranet_inference.py:319` + `:446-450` (seeded `fb_gen = torch_seed + sample_idx`) |
+| Cross-refs | C-250 (RNG-consumption-order determinism), C-112 (seed-in-sidecar reproducibility), D-12 (per-origin generator re-seed), S2 #121 (determinism gate) |
+
+The training-time scheduled-sampling feedback draw (`_family_feedback_log1p`, `sample` mode) passes `generator=None` → it consumes the **global** RNG, while the inference feedback draw uses a **seeded** `fb_gen` (`torch_seed + sample_idx`, the S2 #121 gate). So SS-trained runs are **not byte-reproducible** on the feedback path, and the pre-run parity test (C-246/C-259) **cannot assert byte-equality** against inference without a seed match. **Tier 3 (reproducibility/comparability, not a live forecast corruption).** Fix direction: thread a seeded `generator` into `_family_feedback_log1p` and its call site (mirroring inference's `fb_gen`).
+
+---
+
+### C-262: scheduled-sampling ε=0 byte-identical no-op is unpinned (only "finite loss" is tested)
+
+| Field | Value |
+|-------|-------|
+| ID | C-262 |
+| Tier | 4 |
+| Source | expert-code-review (2026-08-14, ADR-056 scheduled-sampling pre-run correctness review) |
+| Trigger | Refactoring the scheduled-sampling substitution / feedback branches (`training_engine.py:332/348`) and relying on `ss_epsilon_max=0` (or `ss_schedule=None`) remaining byte-identical to scheduled-sampling-absent |
+| Location | `views_hydranet/train/training_engine.py:332` (`if ss_epsilon > 0.0 and prev_pred is not None`), `:348` (`if ss_epsilon > 0.0` fed-back-copy); `tests/test_scheduled_sampling.py:362` (`test_epsilon_zero_produces_finite_loss` — asserts finite, not byte-identical) |
+| Cross-refs | C-246 (train/inference parity discipline), C-259 (same SS piping) |
+
+The ε=0 parity anchor — scheduled sampling being a true no-op ⇒ **byte-identical** training to the scheduled-sampling-absent path — holds only **by construction** (the `if ss_epsilon>0` branch skip). No test pins the byte-identity; the existing `test_epsilon_zero_produces_finite_loss` asserts only *finite* loss. A future refactor of the substitution/feedback branches could silently break the no-op, corrupting the ε=0 baseline of any scheduled-sampling A/B (the 1-variable anchor). **Tier 4 (test-coverage gap; no current corruption).** Fix direction: a byte-identical ε=0 characterization test.
+
+---
+
+### C-263: informed head-init `priors=` is a dead extension point in production — data-derived init unwired; docstrings overclaim (C-199 closure partially overstated)
+
+| Field | Value |
+|-------|-------|
+| ID | C-263 |
+| Tier | 3 |
+| Source | repo-assimilation (2026-08-14, delegated tech-debt pass — distributions subsystem) |
+| Trigger | Tuning head init to cure a θ/π gradient-death, or expecting `π` to be seeded from the empirical zero-rate — the production head silently uses the hardcoded family defaults instead |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:282` (`initial_raw_bias()` — no priors); `initial_raw_bias` in all four families (`negative_binomial.py:92`, `zero_inflated_negative_binomial.py:132`, `mixture_negative_binomial.py:130`, `truncated_negative_binomial.py:152`); overclaiming docstrings `negative_binomial.py:96-98`, `zero_inflated_negative_binomial.py:135-138` |
+| Cross-refs | C-199 (informed init — its RESOLVED note is partially overstated; see below), C-203 (`initial_raw_bias` promotion to ABC) |
+
+Every family implements a `priors` dict lookup (`theta`/`pi`/`w`/`tail_gap`), but the sole production caller passes **no argument**, so `priors` is always `None` and the hardcoded defaults (θ=1.0, π=0.9, w=0.9, tail_gap=5.0) always win; every `priors={…}` call-site is under `tests/`. C-199's "RESOLVED — informed init landed (π≈empirical zero-rate, θ≈global-θ)" is therefore **partially overstated**: the *dead-gradient* fix is delivered by the non-saturated **defaults**, but the advertised **data-derived** init (π from the empirical zero-rate) is **not wired** — the head's own comment admits "the head has no data; data-derived priors are a later refinement," while the family docstrings still say "the A-S6 head inits its theta channel from this" / "the empirical zero-rate the A-S6 head supplies from data." **Tier 3 (maintainability + a latent init-sensitivity trap; no live corruption — the defaults are reasonable, which is exactly why the gap is invisible).** Fix direction: either wire the empirical-zero-rate / global-θ priors through at construction, or soften the docstrings to say the family *defaults* are used and `priors=` is a reserved extension point (and footnote C-199).
+
+---
+
+### C-264: `rollout_horizon` config knob has no runtime consumer (silent no-op)
+
+| Field | Value |
+|-------|-------|
+| ID | C-264 |
+| Tier | 3 |
+| Source | repo-assimilation (2026-08-14, delegated tech-debt pass — train/inference/config seam) |
+| Trigger | Running rollout-training with `rollout_horizon=K>1` (the value its own docstring names — "Candidate K=12 … the B1 pushforward stability term") expecting multi-step pushforward training, and silently getting ordinary one-step training |
+| Location | `views_hydranet/utils/config_initializer.py:265-274` (field definition — the ONLY occurrence in `views_hydranet/`); no reader in `training_engine`/`hydranet_inference` (`training_loop`/`_process_sequence` always take the one-step path) |
+| Cross-refs | C-125/C-126 (Axis-B rollout training / ADR-058 — the path that would consume it); the fail-loud-on-ignored-knob pattern (`reject_retired_hurdle_knobs`, `validate_head_samples_family`, `validate_scheduled_sampling_params`) |
+
+`rollout_horizon` (`ge=1`, default 1) advertises real multi-step behavior at K>1, but grep confirms nothing reads it. This is exactly the silent-degradation class the config layer otherwise **fails loud** on — three sibling validators raise when a knob would be silently ignored; `rollout_horizon` is the one behavior-promising knob left with no consumer and no guard. `tests/test_rollout_horizon_config.py` asserts only that the field exists / defaults to 1, not any behavior, so it won't catch the trap. **Tier 3 (silent no-op of an experiment premise; clear trigger).** Fix direction: either a fail-loud validator rejecting `rollout_horizon != 1` until the ADR-058 B1 path lands, or a docstring/register note marking it a parked scaffold.
+
+> **Guard added 2026-08-14 (tech-debt Commit C; entry stays in §Open pending a §Resolved relocation pass).** Added a fail-loud validator `reject_unwired_rollout_horizon` in `config_initializer.py` that raises if `rollout_horizon != 1` until the ADR-058 B1 consumer is wired (default 1 → every current config passes); the field description now says K>1 is rejected. Tests in `test_rollout_horizon_config.py` (K=2 raises, K=1 constructs). Fix-in-code done; the silent-no-op trigger is closed.
+
+---
+
+### C-265: VolumeHandler derivation-chaining parity gap vs DataFetcher (stale `channel_map` inside the derivation loop)
+
+| Field | Value |
+|-------|-------|
+| ID | C-265 |
+| Tier | 3 |
+| Source | repo-assimilation (2026-08-14, delegated tech-debt pass — utils subsystem) |
+| Trigger | A `derivations` config whose `from` references another derivation's `to` (chained derivations) — the DataFrame training path succeeds, the VolumeHandler path raises "Source feature not found in volume" |
+| Location | `views_hydranet/utils/volume_handler.py:813/821` (`_execute_derivations` reads the stale `self.channel_map`; `self._metadata` committed once at `:871`) vs `views_hydranet/utils/data_fetcher.py:178` (`apply_blueprint` reads `df_out.columns` live) |
+| Cross-refs | — (`test_derivation_parity` covers both-raise-if-missing but not chaining) |
+
+`_execute_derivations` appends derived channels to a **local** `new_channels`/`new_features` and only commits `self._metadata` at the end, so the in-loop source check reads the pre-derivation `channel_map` and cannot see a channel produced earlier in the same loop. Its declared parity sibling `DataFetcher.apply_blueprint` reads `df_out.columns` **live**, so it CAN chain. A chained-derivation config therefore trains on the DataFrame path but raises on the volume path — a silent train/eval divergence `test_derivation_parity` (both-raise-if-missing) does not cover. **Tier 3 (config-gated latent divergence; not a current live corruption because no shipped config chains derivations).** Fix direction: consult the running `new_channels` (or a merged view) for the source check inside the loop, and add a chained-derivation parity test.
+
+---
+
+### C-266: `to_cube_samples` guards `core=True`+self_zeroed but not the mirror (self_zeroed family under a gating composition) → zeros applied twice
+
+| Field | Value |
+|-------|-------|
+| ID | C-266 |
+| Tier | 4 |
+| Source | repo-assimilation (2026-08-14, delegated tech-debt pass — distributions subsystem) |
+| Trigger | A direct/ad-hoc `to_cube_samples(...)` call (NOT mediated by `HydraNetConfig`) drawing a `self_zeroed` family (zinb) with `core=False` under `soft_gate`/`threshold_gate` |
+| Location | `views_hydranet/distributions/sampling.py:67-71` (guards core+self_zeroed, C-240) vs `:79-102` (no `family.self_zeroed` × `composition` check); `zero_inflated_negative_binomial.py:96` (structural π applied inside `sample()`) |
+| Cross-refs | C-234/C-239/C-240/C-242 (emit_family_core cluster; C-240 is the symmetric guard already added) |
+
+`sampling.py` fails loud on the `core=True + self_zeroed` double-count (C-240) but nothing checks a `self_zeroed` family drawn with `core=False` under a gating composition: the family applies its structural π inside `sample()` **and** the cube is then re-masked by the gate at `:102` → zeros applied twice. Today only upstream `HydraNetConfig` prevents this pairing; a non-config-mediated `to_cube_samples` call (the exact scenario the C-240 guard was added to defend) is unprotected for the symmetric direction. **Tier 4 (latent; config currently prevents it — flagged low-confidence-as-new, adjacent to C-240).** Fix direction: mirror the C-240 guard for `family.self_zeroed and composition in {soft_gate, threshold_gate}`.
+
+> **Guard attempted + REVERTED 2026-08-14 (tech-debt Commit C) — stays OPEN.** A sampler-level fail-loud guard (`not core and family.self_zeroed and composition != 'self_zeroed'`) was added then reverted: it collides with `test_to_cube_samples_core_uses_bulk_body`, which legitimately draws a self_zeroed family under `soft_gate` with `core=False` as a mass-comparison probe — the sampler supports that tensor op by design. The invalid-*forecast* prevention already lives upstream in `HydraNetConfig`; a blanket sampler guard is over-reaching. Left as a documented low-tier risk (guard only a direct/ad-hoc `to_cube_samples` misuse, if ever needed).
+
+---
+
+### C-267: per-`(pass,step)` sub-generator seed mixing can collide for large D×T
+
+| Field | Value |
+|-------|-------|
+| ID | C-267 |
+| Tier | 4 |
+| Source | repo-assimilation (2026-08-14, delegated tech-debt pass — distributions subsystem) |
+| Trigger | Scaling MC-dropout passes or rollout horizon substantially, so two distinct `(pass, step)` pairs land on the same mixed seed |
+| Location | `views_hydranet/distributions/sampling.py:94-97` (`base + pass_index*1_000_003 + tt*10_007`) |
+| Cross-refs | C-250 (sampler determinism); the ADR-070 per-`(pass,step)` seeding fix (`66a95ea`) |
+
+The per-stream seed is a **linear** mix, not a hash, so distinct `(pass, step)` pairs are not guaranteed collision-free; two streams could share a seed and correlate their aleatoric draws. Harmless at current ranges (~tens of passes × ~36 steps) and only mildly correlates draws if it ever hits, but a latent fragility if pass/step counts grow. **Tier 4 (minor; no current impact).** Fix direction: a proper hash of `(base, pass, step)` (or a per-stream `Generator` fork) if pass/step counts scale.
+
+---
+
+### C-268: diagnostic plotters under-guarded — unguarded index swallowed by a broad try/except, log-scale without a positivity guard, mutable default arg
+
+| Field | Value |
+|-------|-------|
+| ID | C-268 |
+| Tier | 4 |
+| Source | repo-assimilation (2026-08-14, delegated tech-debt pass — utils subsystem) |
+| Trigger | Calling the biopsy/forensics plotters with a non-empty-but-short `time_indices` (shorter than the plotted timestep count), or with all-zero/non-positive loss data, during a diagnostics run |
+| Location | `views_hydranet/utils/visual_diagnostics.py:662` (`int(time_indices[t_idx]) if time_indices else t_idx` — truthiness not length; sibling guards `t_idx < len(time_indices)` at `:500`; `IndexError` swallowed by the `:612→:712` try/except → silent "skipping plot"); `:763` (`ax.set_yscale("log")` on unfiltered loss; the `:750` comment claims a filter that never happens); `:86` (`features: List[str] = []` mutable default) |
+| Cross-refs | — (diagnostics-only; never touches the scored forecast) |
+
+Three small robustness gaps in the diagnostic plotters, all diagnostic-only: a length-unchecked index that raises `IndexError` silently swallowed into a "skipped plot" (asymmetric with the guarded siblings), a log-scale plot with no positivity guard despite a comment asserting one, and a mutable default argument (currently read-only, so harmless, but the standard latent-bug pattern). **Tier 4 (diagnostic-only; no correctness impact).** Fix direction: length-check `time_indices`, filter non-positive before `set_yscale("log")` (or delete the misleading comment), normalize the default to `None`.
+
+---
+
+### C-269: ADR-072 amends ADR-019's forward FeatureScaler contract — ADR-019 + the FeatureScaler CIC must be updated in lockstep when frame-native input lands
+
+| Field | Value |
+|-------|-------|
+| ID | C-269 (renumbered from C-259 on the docs/adr-072 branch merge 2026-08-15 — that branch's C-259 collided with this register's SS-parity C-259) |
+| Tier | 3 |
+| Source | falsification-audit (ADR-072 section-consistency `/falsify`, 2026-08-13, hard falsification P1) |
+| Trigger | Implementing proposed ADR-072 — specifically, changing `FeatureScaler.fit_transform` / `inverse_transform` to consume a views-frames `FeatureFrame` instead of a `pd.DataFrame` |
+| Location | `docs/ADRs/proposed/072_frame_native_input_ingestion.md` (Amends-scope + §4.2 Transform role); `docs/ADRs/active/019_feature_scaler_specification.md` (forward contract — Invariant 4 "fail loud on a missing column from the DataFrame"; test-alignment "does not mutate the input DataFrame in-place"); FeatureScaler CIC (`docs/CICs/FeatureScaler.md`) |
+| Cross-refs | ADR-019, ADR-072, ADR-000/007 (no semantic change without a same-PR contract update); C-160/C-156 (ADR-062 channel-role — a related but distinct input-boundary coupling) |
+
+Proposed ADR-072 (frame-native input ingestion) amends ADR-019's **forward** FeatureScaler contract from DataFrame-keyed to `FeatureFrame`(`feature_name`)-keyed. ADR-072 now **declares** this amendment (added during the `/falsify` pass that found it), but **ADR-019 itself and the FeatureScaler CIC still describe the DataFrame contract** (Invariant 4 references a missing *column* in the DataFrame; the test-alignment asserts the scaler "does not mutate the input DataFrame in-place"). Per ADR-000 §1 / ADR-007 (no semantic change without a same-PR contract update), the PR that implements ADR-072 **MUST** update ADR-019 (forward Role → `FeatureFrame`; Invariant 4 → "missing `feature_name`") **and** the FeatureScaler CIC in lockstep, or the authoritative FeatureScaler spec will silently contradict the code. This is **not** silent data corruption — the mismatch is loud the moment anyone reads either doc — so **Tier 3** (contract-drift / maintainability), and it is caught now at review rather than at runtime. ADR-019 Role-4 `inverse_transform_volume` is already numpy and is **not** affected. Fix: amend ADR-019 + the CIC in the implementing PR, and add a contract-vs-code test asserting the scaler's forward input type.
 
 ---
 

@@ -55,7 +55,6 @@ class InferenceOrchestrator:
         inference: "HydraNetInference",
         origin: int,
         origin_idx: int,
-        is_backtest: bool,
         n_origins: int,
         target_names: List[str],
     ) -> tuple:
@@ -160,7 +159,6 @@ class InferenceOrchestrator:
                 inference,
                 origin,
                 i,
-                is_backtest,
                 len(origins),
                 all_targets,
             )
@@ -223,7 +221,6 @@ class InferenceOrchestrator:
                 inference,
                 origin,
                 i,
-                is_backtest,
                 len(origins),
                 all_targets,
             )

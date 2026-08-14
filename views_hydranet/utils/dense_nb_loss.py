@@ -20,20 +20,15 @@ per-target ``theta``, float64 internals. Parameterization matches
 from __future__ import annotations
 
 import logging
-import math
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from views_hydranet.distributions.nb_core import inverse_softplus
 from views_hydranet.utils.count_target_bridge import to_raw_counts
 
 logger = logging.getLogger(__name__)
-
-
-def _inverse_softplus(y: float) -> float:
-    """Return x such that softplus(x) == y (for y > 0). Stable for large y."""
-    return y + math.log1p(-math.exp(-y))
 
 
 class DenseNBLoss(nn.Module):
@@ -53,7 +48,7 @@ class DenseNBLoss(nn.Module):
         super().__init__()
         if theta_init <= 0:
             raise ValueError(f"theta_init must be > 0, got {theta_init}")
-        raw = torch.tensor(_inverse_softplus(theta_init), dtype=torch.float32)
+        raw = torch.tensor(inverse_softplus(theta_init), dtype=torch.float32)
         if learnable:
             self.raw_theta = nn.Parameter(raw)
         else:

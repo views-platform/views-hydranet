@@ -40,6 +40,27 @@ def _load_mpl():
     return _plt, _patches
 
 
+def _safe_stage_label(stage_label: str) -> str:
+    """Filesystem-safe form of a stage label (lowercase; spaces/slashes → underscores)."""
+    return stage_label.lower().replace(" ", "_").replace("/", "_")
+
+
+def _add_cyan_divider(plt, fig, ax_left, ax_right):
+    """Draw a dashed cyan vertical delimiter midway between two subplot columns."""
+    fig.canvas.draw()
+    line_x = (ax_left.get_position().x1 + ax_right.get_position().x0) / 2
+    fig.add_artist(
+        plt.Line2D(
+            [line_x, line_x],
+            [0.05, 0.9],
+            color="cyan",
+            linestyle="--",
+            linewidth=2,
+            alpha=0.8,
+        )
+    )
+
+
 class VisualDiagnostics:
     """
     A unified observer for generating 'Visual Biopsies' of spatiotemporal data
@@ -427,7 +448,7 @@ class VisualDiagnostics:
             ax.set_title(f"Health Constellation: {stage_label}", fontsize=14, pad=20)
 
             # 4. Save
-            safe_label = stage_label.lower().replace(" ", "_").replace("/", "_")
+            safe_label = _safe_stage_label(stage_label)
             save_path = os.path.join(self.dirs["training"], f"constellation_{safe_label}.png")
             plt.savefig(save_path, dpi=100)
             plt.close()
@@ -557,23 +578,10 @@ class VisualDiagnostics:
             plt.tight_layout(rect=(0, 0.03, 1, 0.95))
 
             # Cyan delimiter before the 'full (mean)' column (snapshots vs the aggregate).
-            fig.canvas.draw()
-            pos2 = axes[0][n_cols - 2].get_position()
-            pos3 = axes[0][n_cols - 1].get_position()
-            line_x = (pos2.x1 + pos3.x0) / 2
-            fig.add_artist(
-                plt.Line2D(
-                    [line_x, line_x],
-                    [0.05, 0.9],
-                    color="cyan",
-                    linestyle="--",
-                    linewidth=2,
-                    alpha=0.8,
-                )
-            )
+            _add_cyan_divider(plt, fig, axes[0][n_cols - 2], axes[0][n_cols - 1])
 
             # Sanitize label for filesystem
-            safe_label = stage_label.lower().replace(" ", "_").replace("/", "_")
+            safe_label = _safe_stage_label(stage_label)
             save_path = os.path.join(self.dirs["reasoning"], f"biopsy_{safe_label}.png")
             plt.savefig(save_path, dpi=100)
             plt.close()
@@ -688,22 +696,9 @@ class VisualDiagnostics:
 
             # Vertical line between History (3) and Forecast (3)
             if n_times > 3:
-                fig.canvas.draw()
-                pos2 = axes[0, 2].get_position()
-                pos3 = axes[0, 3].get_position()
-                line_x = (pos2.x1 + pos3.x0) / 2
-                fig.add_artist(
-                    plt.Line2D(
-                        [line_x, line_x],
-                        [0.05, 0.9],
-                        color="cyan",
-                        linestyle="--",
-                        linewidth=2,
-                        alpha=0.8,
-                    )
-                )
+                _add_cyan_divider(plt, fig, axes[0, 2], axes[0, 3])
 
-            safe_label = stage_label.lower().replace(" ", "_").replace("/", "_")
+            safe_label = _safe_stage_label(stage_label)
             save_path = os.path.join(self.dirs["training"], f"biopsy_{safe_label}.png")
             plt.savefig(save_path, dpi=100)
             plt.close()
@@ -747,7 +742,8 @@ class VisualDiagnostics:
 
             for i in range(3):
                 ax = axes[i]
-                # Filter out non-positive for log plot to avoid matplotlib warnings
+                # NOTE (C-268): no positivity filter is applied here; the log-scale plot below
+                # can emit matplotlib warnings / clip on non-positive loss values.
                 plot_data = data[i]
                 ax.plot(
                     plot_data, marker="o", linestyle="-", color=colors[i], markersize=4, alpha=0.7
@@ -1152,7 +1148,7 @@ class VisualDiagnostics:
         plt.tight_layout(rect=(0, 0.03, 1, 0.95))
 
         # Sanitize label for filesystem
-        safe_label = stage_label.lower().replace(" ", "_").replace("/", "_")
+        safe_label = _safe_stage_label(stage_label)
 
         # ADR 045 Routing
         target_dir = subdir if subdir else self.save_dir
@@ -1233,7 +1229,7 @@ class VisualDiagnostics:
         plt.tight_layout(rect=(0, 0.03, 1, 0.95))
 
         # Sanitize label for filesystem
-        safe_label = stage_label.lower().replace(" ", "_").replace("/", "_")
+        safe_label = _safe_stage_label(stage_label)
 
         # ADR 045 Routing
         target_dir = subdir if subdir else self.save_dir
