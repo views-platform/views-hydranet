@@ -38,7 +38,7 @@ from views_hydranet.utils.count_target_bridge import to_raw_counts
 _EPS = 1e-6  # shared boundary guard (matches NBCore._EPS): clamps 1-NB(0) away from 0 for log/÷.
 
 #: Max rejection rounds for the MODERATE-mu region of the zero-truncated sampler (see ``sample``).
-#: Preflight (2026-08-13): zero-free everywhere; sample-mean bias <1% over the realistic (mu, theta)
+#: Preflight (2026-08-13): zero-free everywhere; sample-mean bias <1% over the realistic (mu,theta)
 #: range, ~4% only in the heavy-overdispersion / small-mu corner. The emitted forecast uses the
 #: CLOSED-FORM ``mean`` (E[Y|Y>0]) — the sampler feeds only the cube — so any residual bias never
 #: touches the point forecast.
@@ -114,10 +114,10 @@ class TruncatedNBFamily(DistributionFamily):
 
         Two-regime rejection (PERF, 2026-08-14): the mu->0 background (``P(Y=0) > _MODERATE_P0``,
         the ~99%-zero grid) has ``E[Y|Y>0] -> 1``, so any zero there floors to 1 EXACTLY — no
-        rejection. Only the MODERATE-mu zeros are rejection-redrawn, scatter-style (cost scales with
-        that small subset, not the whole grid — the flat full-grid loop was ~112 s/call at 180×180,
-        the #258 emit blocker). Deterministic under ``generator`` (same seed+params -> same draws ->
-        same indices -> same output; C-3, the S2 #121 gate)."""
+        rejection. Only the MODERATE-mu zeros are rejection-redrawn, scatter-style (cost scales
+        with that small subset, not the whole grid — the flat full-grid loop was ~112 s/call at
+        180×180, the #258 emit blocker). Deterministic under ``generator`` (same seed+params ->
+        same draws -> same indices -> same output; C-3, the S2 #121 gate)."""
         mu, theta = self._split(params)
         out = NBCore.sample(mu, theta, k, generator)
         p0 = NBCore.prob_zero(mu, theta).unsqueeze(-1).expand_as(out)  # [*cells, k]
