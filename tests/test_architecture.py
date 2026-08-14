@@ -179,7 +179,7 @@ def test_no_cross_head_variable_leakage():
     import re
 
     source = inspect.getsource(HydraBNUNet06_LSTM4.forward)
-    pattern = r"(H(\d)_\w+)\s*=\s*self\.dropout\(H(\d)_\w+\)"
+    pattern = r"(H(\d)_\w+)\s*=\s*self\.dropout\[[^\]]+\]\(H(\d)_\w+\)"
     violations = []
     for match in re.finditer(pattern, source):
         lhs_head = match.group(2)
