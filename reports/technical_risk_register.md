@@ -4,9 +4,9 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-08-03                           |
-| Total Concerns    | 256                                  |
-| Open Concerns     | 129                                  |
+| Last Updated      | 2026-08-14                           |
+| Total Concerns    | 260                                  |
+| Open Concerns     | 133                                  |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 127                                  |
 | Resolved on PR #216 (in-place ✅, merged) | 12 (C-138/234/235/236/237/238/239/240/241/242/243/247) — bannered in §Open and still physically there (so mechanically counted among the 128 Open above), pending relocation to §Resolved on a future curation pass |
@@ -2068,9 +2068,9 @@ Epic #218 S5 closed the acute half of C-236 (a data-backed static now fails loud
 | ID | C-246 |
 | Tier | 3 |
 | Source | repo-assimilation (2026-07-31, R-A2) |
-| Trigger | Editing the recurrent step / feedback handling in ONE of the two loops — e.g. changing hidden-state threading, feedback composition, or static re-injection in `training_engine._process_sequence` without the mirror change in `hydranet_inference.predict` (or vice versa) |
-| Location | `views_hydranet/train/training_engine.py` (`_process_sequence`, the `for i in range(seq_len-1)` step loop) and `views_hydranet/utils/hydranet_inference.py` (`predict`, the `range(origin + time_steps)` causal loop) |
-| Cross-refs | C-99 (reg_latent vs reg dual-path in the same loop), C-113 (freeze_h train/inference state mismatch — a specific instance) |
+| Trigger | Editing the recurrent step / feedback handling in ONE of the two loops (changing hidden-state threading, feedback composition, or static re-injection in `training_engine._process_sequence` without the mirror in `hydranet_inference.predict`); **OR enabling scheduled sampling (`ss_epsilon_max>0`) — which exercises `_family_feedback_log1p` against inference's `_sample_feedback` for the first time in a real run** |
+| Location | `views_hydranet/train/training_engine.py` (`_process_sequence` step loop; `_family_feedback_log1p:217-245`) and `views_hydranet/utils/hydranet_inference.py` (`predict` causal loop; `_sample_feedback:293-334`) |
+| Cross-refs | C-99 (reg_latent vs reg dual-path), C-113 (freeze_h train/inference state mismatch), C-259 (the config-decoupling root a parity test would catch), C-239 (the ZINBcore twin closed by arm-drop) |
 
 The model's `forward()` is strictly **per-timestep** (`[B,C,H,W]`); the recurrent T-loop that threads hidden state and feeds back predictions lives **outside** the model, implemented **independently** in training (`_process_sequence`) and in inference (`predict`). They legitimately differ (training has teacher-forcing/scheduled-sampling; inference has the free rollout), but the **shared recurrent-state-threading + feedback semantics must stay behaviorally identical** — and nothing asserts that parity. A change to one (feedback composition, static re-attach, hidden-state carry) that isn't mirrored in the other silently produces a train/inference exposure mismatch (the class of bug C-113's freeze_h note and this session's C-234 both instantiate). **Tier 3 (maintainability/drift, not a guaranteed live corruption):** existing parity anchors cover *emit* but not the *recurrent-loop* contract across train/inference. Mitigation direction (not proposed here): a shared step primitive or a train/inference recurrent-parity characterization test.
 
@@ -2230,6 +2230,66 @@ Three low-severity items from the prioritized dev→main release review; **none 
 (a) `rollout_feedback='sample'` on a legacy (non-family) `output_distribution` is not rejected at config **load** — it fails loud only at inference-object construction, i.e. after a full training run (wasted GPU run). Fix: a `model_validator` reading `output_distribution` vs `family_names()`.
 (b) `loss_class_pos_weight` passes length-only validation for **any** `loss_class`, but only `weighted_bce` consumes it; with `loss_class='focal'`/`'bce'` it is **silently ignored** (a silently-different objective). Fix: tie `loss_class_pos_weight` to `loss_class=='weighted_bce'`.
 (c) `_recalibrate_bn` runs `model.train()` with forensics attached; `stage_label=''` suppresses the biopsy plot but `forensics.record`/`record_params` are not gated by it, so BN-recal windows **pollute the forensic accumulators** (diagnostic-only; no weight/output impact). **Tier 4.**
+
+---
+
+### C-259: scheduled-sampling train/inference exposure DECOUPLED by two config keys (ss_feedback vs rollout_feedback) + ungated mean path
+
+| Field | Value |
+|-------|-------|
+| ID | C-259 |
+| Tier | 2 |
+| Source | expert-code-review (2026-08-14, ADR-056 scheduled-sampling pre-run correctness review) |
+| Trigger | Setting `ss_epsilon_max > 0` to run scheduled sampling on a family head while relying on the `ss_feedback` default (`"mean"`) — with `rollout_feedback` auto-resolving to `"sample"` for family heads, so training exposure ≠ deployment exposure |
+| Location | `views_hydranet/utils/config_initializer.py:992-1028` (`validate_scheduled_sampling_params` — no coupling check); `views_hydranet/train/training_engine.py:684` (`ss_feedback` default `"mean"`), `:204-214` (`_family_target_log1p_mean` — UNGATED); `views_hydranet/utils/hydranet_inference.py:264-267` (inference mean IS gated via `compose_mean`), `:100-101` (`rollout_feedback` auto-resolve `None`→`"sample"`) |
+| Cross-refs | C-234 (eval-side emit_family_core half-wire), C-239 (training-side twin, closed by ZINBcore arm-drop), C-240/C-242 (gating asymmetry), C-246 (the missing parity test that would catch this) |
+
+`ss_feedback` (training) and `rollout_feedback` (inference) are **independent config keys with independent defaults** (`ss_feedback="mean"`; `rollout_feedback=None`→auto `"sample"` for family heads) and **no validator couples them**. The `"mean"` training feedback path (`_family_target_log1p_mean`) is **ungated** whereas inference's mean path composes the gate (`_emit_magnitude:264-267`). So a scheduled-sampling run left on the `ss_feedback="mean"` default while `rollout_feedback` auto-resolves to `"sample"` **trains on an ungated mean the model never emits** — a silent train/deploy exposure mismatch that makes any scheduled-sampling verdict measure a different object than it deploys. This **generalizes the C-234/C-239 `emit_family_core` mismatch** — which was closed by *dropping the ZINBcore arm + keeping `ss_epsilon_max=0`*, never by fixing the mechanism — to the **default config the moment `ss_epsilon_max>0`**. **Tier 2 (structural fragility, silent exposure mismatch, clear trigger; invalidates the experiment, not a correctly-specified forecast).** Fix direction: a raise in `validate_scheduled_sampling_params` (`ss_epsilon_max>0` ⇒ `ss_feedback == resolved(rollout_feedback)`); gate `_family_target_log1p_mean` + honor `emit_family_core`.
+
+---
+
+### C-260: scheduled-sampling channel substitution assumes features == regression_targets in ORDER (set-based warning misses it)
+
+| Field | Value |
+|-------|-------|
+| ID | C-260 |
+| Tier | 2 |
+| Source | expert-code-review (2026-08-14, ADR-056 scheduled-sampling pre-run correctness review) |
+| Trigger | Setting `ss_epsilon_max > 0` with a config whose `features` and `regression_targets` are the same length but a DIFFERENT order (e.g. reordering targets, or adding a dynamic covariate so the lists diverge) |
+| Location | `views_hydranet/train/training_engine.py:329-334` (`t0_gt = t0[:, idx.feat]`; `torch.where(mask, prev_pred[:n_reg], t0_gt)`); `views_hydranet/utils/config_initializer.py:322-346` (`validate_laws` — set-based `logger.warning` only) |
+| Cross-refs | C-98, C-105 (the count constraint, both marked RESOLVED via the set-based warning), C-259 (same SS-enablement trigger) |
+
+The scheduled-sampling substitution replaces `t0_gt` (the `idx.feat` input channels) with `prev_pred` (the `n_reg` target forecasts) via `torch.where`. This assumes `features == regression_targets` in **count AND order**. `validate_laws` only `logger.warning`s on `set(features) != set(regression_targets)` (the "resolution" for C-98/C-105) — a **set** check that (a) never raises and (b) **passes same-length-different-order**, which would silently feed the `sb`-forecast into the `ns`-input channel (cross-target corruption). For the current conflict-only configs (`features == regression_targets`, same order) it is benign; enabling `ss_epsilon_max>0` on any reordered/extended config makes it a live silent corruption. **Tier 2 (silent model-input corruption under a realistic non-default config; clear trigger).** Fix direction: order-strict `list(features) == list(regression_targets)` **raise** when `ss_epsilon_max>0`.
+
+---
+
+### C-261: scheduled-sampling training feedback draw uses generator=None (global RNG) → non-reproducible; blocks byte-exact parity
+
+| Field | Value |
+|-------|-------|
+| ID | C-261 |
+| Tier | 3 |
+| Source | expert-code-review (2026-08-14, ADR-056 scheduled-sampling pre-run correctness review) |
+| Trigger | Running scheduled sampling (`ss_epsilon_max>0`, `ss_feedback='sample'`) and expecting byte-reproducibility under the S2 #121 determinism gate, OR asserting train↔inference feedback byte-equality in a test |
+| Location | `views_hydranet/train/training_engine.py:231/243` (`family.sample(...,1,None)`; `compose_samples(...,None)`), call site `:348-357`; vs `views_hydranet/utils/hydranet_inference.py:319` + `:446-450` (seeded `fb_gen = torch_seed + sample_idx`) |
+| Cross-refs | C-250 (RNG-consumption-order determinism), C-112 (seed-in-sidecar reproducibility), D-12 (per-origin generator re-seed), S2 #121 (determinism gate) |
+
+The training-time scheduled-sampling feedback draw (`_family_feedback_log1p`, `sample` mode) passes `generator=None` → it consumes the **global** RNG, while the inference feedback draw uses a **seeded** `fb_gen` (`torch_seed + sample_idx`, the S2 #121 gate). So SS-trained runs are **not byte-reproducible** on the feedback path, and the pre-run parity test (C-246/C-259) **cannot assert byte-equality** against inference without a seed match. **Tier 3 (reproducibility/comparability, not a live forecast corruption).** Fix direction: thread a seeded `generator` into `_family_feedback_log1p` and its call site (mirroring inference's `fb_gen`).
+
+---
+
+### C-262: scheduled-sampling ε=0 byte-identical no-op is unpinned (only "finite loss" is tested)
+
+| Field | Value |
+|-------|-------|
+| ID | C-262 |
+| Tier | 4 |
+| Source | expert-code-review (2026-08-14, ADR-056 scheduled-sampling pre-run correctness review) |
+| Trigger | Refactoring the scheduled-sampling substitution / feedback branches (`training_engine.py:332/348`) and relying on `ss_epsilon_max=0` (or `ss_schedule=None`) remaining byte-identical to scheduled-sampling-absent |
+| Location | `views_hydranet/train/training_engine.py:332` (`if ss_epsilon > 0.0 and prev_pred is not None`), `:348` (`if ss_epsilon > 0.0` fed-back-copy); `tests/test_scheduled_sampling.py:362` (`test_epsilon_zero_produces_finite_loss` — asserts finite, not byte-identical) |
+| Cross-refs | C-246 (train/inference parity discipline), C-259 (same SS piping) |
+
+The ε=0 parity anchor — scheduled sampling being a true no-op ⇒ **byte-identical** training to the scheduled-sampling-absent path — holds only **by construction** (the `if ss_epsilon>0` branch skip). No test pins the byte-identity; the existing `test_epsilon_zero_produces_finite_loss` asserts only *finite* loss. A future refactor of the substitution/feedback branches could silently break the no-op, corrupting the ε=0 baseline of any scheduled-sampling A/B (the 1-variable anchor). **Tier 4 (test-coverage gap; no current corruption).** Fix direction: a byte-identical ε=0 characterization test.
 
 ---
 

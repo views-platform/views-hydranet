@@ -202,7 +202,7 @@ def test_predict_return_params_shape_and_tuple_preserved():
 # ── D×K sampler + determinism + legacy ───────────────────────────────────
 
 
-@pytest.mark.parametrize("fam_name", ["nb", "zinb"])
+@pytest.mark.parametrize("fam_name", ["nb", "zinb", "truncated_nb"])
 def test_generate_posterior_samples_dxk_fill(fam_name):
     d, k = 2, 3
     inf = _make_inference(fam_name, n_posterior_samples=d, n_head_samples=k)

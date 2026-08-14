@@ -216,6 +216,55 @@ class TestGreenConfigAcceptance:
         assert config.ss_warmup_lessons is None
 
 
+class TestSSExposureParityValidation:
+    """C-259/C-260 (2026-08-14): when scheduled sampling is ACTIVE the training feedback must match
+    inference exposure, and the AR channel substitution must be order-aligned — fail loud else."""
+
+    def _ss_base(self, **overrides):
+        base = TestGreenConfigAcceptance()._base_config(
+            output_distribution="nb",
+            forecast_composition="soft_gate",
+            ss_schedule="linear",
+            ss_warmup_lessons=5,
+            ss_epsilon_max=0.25,
+            ss_feedback="sample",
+            rollout_feedback="sample",
+        )
+        base.update(overrides)
+        return base
+
+    def test_active_sample_sample_accepted(self):
+        from views_hydranet.utils.config_initializer import HydraNetConfig
+
+        cfg = HydraNetConfig(**self._ss_base())
+        assert cfg.ss_feedback == "sample" and cfg.ss_epsilon_max == 0.25
+
+    def test_epsilon0_skips_coupling_checks(self):
+        # the teacher-forced arm: ss_feedback default 'mean' != rollout 'sample' is FINE at eps=0
+        from views_hydranet.utils.config_initializer import HydraNetConfig
+
+        cfg = HydraNetConfig(**self._ss_base(ss_epsilon_max=0.0, ss_feedback="mean"))
+        assert cfg.ss_epsilon_max == 0.0
+
+    def test_feedback_neq_rollout_feedback_raises(self):
+        from views_hydranet.utils.config_initializer import HydraNetConfig
+
+        with pytest.raises(ValueError, match="C-259"):
+            HydraNetConfig(**self._ss_base(ss_feedback="sample", rollout_feedback="mean"))
+
+    def test_mean_feedback_under_gate_raises(self):
+        from views_hydranet.utils.config_initializer import HydraNetConfig
+
+        with pytest.raises(ValueError, match="C-259"):
+            HydraNetConfig(**self._ss_base(ss_feedback="mean", rollout_feedback="mean"))
+
+    def test_feature_order_mismatch_raises(self):
+        from views_hydranet.utils.config_initializer import HydraNetConfig
+
+        with pytest.raises(ValueError, match="C-260"):
+            HydraNetConfig(**self._ss_base(features=["lr_ns", "lr_sb", "lr_os"]))
+
+
 class TestRedConfigValidation:
     """Config rejects invalid scheduled sampling parameters."""
 
