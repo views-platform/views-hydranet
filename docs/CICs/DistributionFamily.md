@@ -2,7 +2,7 @@
 
 **Status:** Active
 **Owner:** HydraNet maintainers
-**Last reviewed:** 2026-07-20
+**Last reviewed:** 2026-08-14
 **Related ADRs:** ADR-067 (distribution-family subsystem — per-cell NB/ZINB), ADR-008 (Error
 Propagation), ADR-009 (Boundary Contracts & Configuration Validation), ADR-002 (Layering)
 
@@ -42,7 +42,8 @@ contract that registry returns.
 `DistributionFamily(ABC)` declares seven members every family must implement, plus two class attributes:
 
 - `n_params: int` (property) — parameters the head emits per cell, per target (`nb` = 2 `[mu, theta]`;
-  `zinb` = 3 `[+pi]`; `mixture_nb` = 5 `[w, mu1, theta1, mu2, theta2]`).
+  `zinb` = 3 `[+pi]`; `mixture_nb` = 5 `[w, mu1, theta1, mu2, theta2]`; `truncated_nb` = 2 `[mu, theta]`,
+  the zero-truncated body — #258).
 - `activate(raw[..., n_params]) -> params[..., n_params]` — map raw head channels to constrained
   parameters via link functions (softplus/sigmoid), same shape.
 - `nll(params, target, *, weight=None) -> scalar` — mean negative log-likelihood; `params` are the
@@ -70,6 +71,10 @@ contract that registry returns.
   (non-abstract) default-0 hook** (C-205) so a family-agnostic loss can add a parameter-prior ridge
   without `isinstance`-branching to a concrete family. `nb` inherits the 0; `zinb` overrides it with
   the C-200 π/μ-ridge (`pi_penalty`). Not part of the abstract seven — a family need not override it.
+- `sample_core(params, k, generator=None)` / `mean_core(params)` — **concrete** hooks (default =
+  `sample`/`mean`) that draw / mean the **π-stripped bulk body** for the `emit_family_core` core-emit
+  rollout (ADR-068). `ZINBFamily` overrides them to expose the NB core without its structural zero;
+  `nb`/`mixture_nb`/`truncated_nb` inherit the no-op. Not part of the abstract seven.
 
 Guarantee: the ABC cannot be instantiated (all seven members are `@abstractmethod`); a subclass
 missing any member fails loud at instantiation, never silently. `parameter_penalty` is the one
@@ -116,6 +121,9 @@ concrete hook — a family opts in by overriding it, opts out by inheriting the 
   head sized for the wrong family fails loud at activation, never silently mis-slices params.
 - `to_cube_samples` (the D×K sampler helper) raises `ValueError` when the params channel dim `!=
   n_reg * n_params` — a mis-shaped param cube fails loud before sampling, never draws from garbage.
+- `to_cube_samples` accepts `core=` (draw the π-stripped body via `sample_core`, ADR-068) and raises
+  `ValueError` on the invalid `core=True` + `composition='self_zeroed'` pairing (C-240: an ungated core
+  has no zero mechanism → would over-forecast a ~99.7%-zero field).
 - `to_cube_samples` draws each timestep from its OWN sub-generator, seeded from
   `generator.initial_seed()` + `(pass_index, timestep)` (ADR-070). A step's draw depends only on its
   own params, so under an autoregressive rollout the scored T=0 (h=1) cube is **byte-invariant to

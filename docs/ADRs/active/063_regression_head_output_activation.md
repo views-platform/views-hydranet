@@ -28,6 +28,11 @@
 - **Statement:** "The regression-head output activation defaults to **softplus** for all hurdle output
   distributions (`hurdle_nb`, `hurdle_shrinkage`, `hurdle_lognormal`) and **ReLU** for `standard`. An explicit
   `reg_activation` config key still overrides the default."
+- **Family precedence (ADR-067, added later):** for a registered distribution-family `output_distribution`
+  (`nb`/`zinb`/`mixture_nb`/`truncated_nb`), the FAMILY owns activation (`_family_activation`) and is
+  selected **before** the hurdle/standard default AND before the `reg_activation` override
+  (`HydraBNrecurrentUnet_06_LSTM4.py`). So this ADR's default + override rules apply to **legacy** heads;
+  **ADR-067 governs family heads.**
 - **In-Scope:** the *output/link* activation of the 3 regression heads (`_reg_activation`, applied to
   `H{1,2,3}_reg → out_reg{1,2,3}`); the default-selection logic keyed off `output_distribution`.
 - **Out-of-Scope:** the network's **internal** activations (encoder/decoder/bottleneck `F.relu`, the ConvLSTM
