@@ -5,8 +5,8 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-14                           |
-| Total Concerns    | 266                                  |
-| Open Concerns     | 139                                  |
+| Total Concerns    | 267                                  |
+| Open Concerns     | 140                                  |
 | — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | Resolved Concerns | 127                                  |
 | Resolved on PR #216 (in-place ✅, merged) | 12 (C-138/234/235/236/237/238/239/240/241/242/243/247) — bannered in §Open and still physically there (so mechanically counted among the 128 Open above), pending relocation to §Resolved on a future curation pass |
@@ -2386,6 +2386,21 @@ The per-stream seed is a **linear** mix, not a hash, so distinct `(pass, step)` 
 | Cross-refs | — (diagnostics-only; never touches the scored forecast) |
 
 Three small robustness gaps in the diagnostic plotters, all diagnostic-only: a length-unchecked index that raises `IndexError` silently swallowed into a "skipped plot" (asymmetric with the guarded siblings), a log-scale plot with no positivity guard despite a comment asserting one, and a mutable default argument (currently read-only, so harmless, but the standard latent-bug pattern). **Tier 4 (diagnostic-only; no correctness impact).** Fix direction: length-check `time_indices`, filter non-positive before `set_yscale("log")` (or delete the misleading comment), normalize the default to `None`.
+
+---
+
+### C-269: ADR-072 amends ADR-019's forward FeatureScaler contract — ADR-019 + the FeatureScaler CIC must be updated in lockstep when frame-native input lands
+
+| Field | Value |
+|-------|-------|
+| ID | C-269 (renumbered from C-259 on the docs/adr-072 branch merge 2026-08-15 — that branch's C-259 collided with this register's SS-parity C-259) |
+| Tier | 3 |
+| Source | falsification-audit (ADR-072 section-consistency `/falsify`, 2026-08-13, hard falsification P1) |
+| Trigger | Implementing proposed ADR-072 — specifically, changing `FeatureScaler.fit_transform` / `inverse_transform` to consume a views-frames `FeatureFrame` instead of a `pd.DataFrame` |
+| Location | `docs/ADRs/proposed/072_frame_native_input_ingestion.md` (Amends-scope + §4.2 Transform role); `docs/ADRs/active/019_feature_scaler_specification.md` (forward contract — Invariant 4 "fail loud on a missing column from the DataFrame"; test-alignment "does not mutate the input DataFrame in-place"); FeatureScaler CIC (`docs/CICs/FeatureScaler.md`) |
+| Cross-refs | ADR-019, ADR-072, ADR-000/007 (no semantic change without a same-PR contract update); C-160/C-156 (ADR-062 channel-role — a related but distinct input-boundary coupling) |
+
+Proposed ADR-072 (frame-native input ingestion) amends ADR-019's **forward** FeatureScaler contract from DataFrame-keyed to `FeatureFrame`(`feature_name`)-keyed. ADR-072 now **declares** this amendment (added during the `/falsify` pass that found it), but **ADR-019 itself and the FeatureScaler CIC still describe the DataFrame contract** (Invariant 4 references a missing *column* in the DataFrame; the test-alignment asserts the scaler "does not mutate the input DataFrame in-place"). Per ADR-000 §1 / ADR-007 (no semantic change without a same-PR contract update), the PR that implements ADR-072 **MUST** update ADR-019 (forward Role → `FeatureFrame`; Invariant 4 → "missing `feature_name`") **and** the FeatureScaler CIC in lockstep, or the authoritative FeatureScaler spec will silently contradict the code. This is **not** silent data corruption — the mismatch is loud the moment anyone reads either doc — so **Tier 3** (contract-drift / maintainability), and it is caught now at review rather than at runtime. ADR-019 Role-4 `inverse_transform_volume` is already numpy and is **not** affected. Fix: amend ADR-019 + the CIC in the implementing PR, and add a contract-vs-code test asserting the scaler's forward input type.
 
 ---
 
