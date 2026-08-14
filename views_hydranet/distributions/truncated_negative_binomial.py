@@ -37,14 +37,18 @@ from views_hydranet.utils.count_target_bridge import to_raw_counts
 
 _EPS = 1e-6  # shared boundary guard (matches NBCore._EPS): clamps 1-NB(0) away from 0 for log/÷.
 
-#: Max rejection rounds in the zero-truncated sampler. Each round redraws the still-zero cells; a
-#: residual that survives all rounds is floored to 1 (exact as mu->0, where E[Y|Y>0]->1). Preflight
-#: (2026-08-13): zero-free everywhere; sample-mean bias <1% over the realistic (mu, theta) range,
-#: ~4% only in the heavy-overdispersion / small-mu corner, shrinking to <0.2% with more rounds. The
-#: emitted forecast uses the CLOSED-FORM ``mean`` (E[Y|Y>0]) — the sampler feeds only the cube — so
-#: this residual bias never touches the point forecast. NOTE (perf, global scale): the full-tensor
-#: redraw is O(rounds × cells); a scatter-only-zeros redraw would make higher round counts cheap.
+#: Max rejection rounds for the MODERATE-mu region of the zero-truncated sampler (see ``sample``).
+#: Preflight (2026-08-13): zero-free everywhere; sample-mean bias <1% over the realistic (mu, theta)
+#: range, ~4% only in the heavy-overdispersion / small-mu corner. The emitted forecast uses the
+#: CLOSED-FORM ``mean`` (E[Y|Y>0]) — the sampler feeds only the cube — so any residual bias never
+#: touches the point forecast.
 _MAX_REJECT_ROUNDS = 128
+
+#: PERF (2026-08-14): cells with ``P(Y=0) > _MODERATE_P0`` are the mu->0 background (the ~99%-zero
+#: conflict grid), where ``E[Y|Y>0] -> 1`` so a residual zero floors to 1 EXACTLY — rejection there
+#: is pointless and O(rounds × whole-grid) (~112 s/call at 180×180, the #258 emit blocker). So we
+#: rejection-redraw ONLY the moderate-mu zeros (a small subset), scatter-style, and floor the rest.
+_MODERATE_P0 = 0.95
 
 
 class TruncatedNBFamily(DistributionFamily):
@@ -108,19 +112,24 @@ class TruncatedNBFamily(DistributionFamily):
     ) -> "torch.Tensor":
         """Draw ``k`` counts per cell from ``NB(mu, theta) | Y>0`` -> ``[..., k]``, never 0.
 
-        Rejection: draw, then redraw the still-zero cells for up to ``_MAX_REJECT_ROUNDS`` rounds;
-        a residual zero (the mu->0 regime, where P(Y=0)->1) is floored to 1 — exact there, since
-        ``E[Y|Y>0]->1`` as mu->0. Deterministic under ``generator`` (same seed+params -> same
-        draws -> same zeros -> same round count -> same output; C-3, the S2 #121 gate)."""
+        Two-regime rejection (PERF, 2026-08-14): the mu->0 background (``P(Y=0) > _MODERATE_P0``,
+        the ~99%-zero grid) has ``E[Y|Y>0] -> 1``, so any zero there floors to 1 EXACTLY — no
+        rejection. Only the MODERATE-mu zeros are rejection-redrawn, scatter-style (cost scales with
+        that small subset, not the whole grid — the flat full-grid loop was ~112 s/call at 180×180,
+        the #258 emit blocker). Deterministic under ``generator`` (same seed+params -> same draws ->
+        same indices -> same output; C-3, the S2 #121 gate)."""
         mu, theta = self._split(params)
         out = NBCore.sample(mu, theta, k, generator)
+        p0 = NBCore.prob_zero(mu, theta).unsqueeze(-1).expand_as(out)  # [*cells, k]
+        mu_e = mu.unsqueeze(-1).expand_as(out)
+        theta_e = theta.unsqueeze(-1).expand_as(out)
         for _ in range(_MAX_REJECT_ROUNDS):
-            zeros = out == 0
-            if not bool(zeros.any()):
+            redo = (out == 0) & (p0 <= _MODERATE_P0)  # moderate-mu zeros only
+            idx = redo.nonzero(as_tuple=True)
+            if idx[0].numel() == 0:
                 break
-            redraw = NBCore.sample(mu, theta, k, generator)
-            out = torch.where(zeros, redraw, out)
-        return out.clamp_min(1.0)  # floor any residual zero (mu->0 tail) -> guarantees Y>=1.
+            out[idx] = NBCore.sample(mu_e[idx], theta_e[idx], 1, generator).reshape(-1)
+        return out.clamp_min(1.0)  # floor residual (mu->0 background + any leftover) -> Y>=1.
 
     def mean(self, params: "torch.Tensor") -> "torch.Tensor":
         """Per-cell conditional magnitude ``E[Y | Y>0] = mu / (1 - NB(0))``.

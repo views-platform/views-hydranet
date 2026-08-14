@@ -214,13 +214,17 @@ def _family_target_log1p_mean(reg: torch.Tensor, family) -> torch.Tensor:
     return torch.log1p(torch.stack(means, dim=1))  # [B, n_reg, H, W]
 
 
-def _family_feedback_log1p(reg, family, mode, gate, composition, threshold):
+def _family_feedback_log1p(reg, family, mode, gate, composition, threshold, generator=None):
     """EXP-4 (GTF): the per-target log1p feedback for scheduled sampling with a family head.
 
     'mean' => log1p(E[y]) (fixes the legacy ss path, which fed raw n_params channels — shape-
     mismatched to the n_reg dynamic inputs). 'sample' => one composition-aware family DRAW per
     target (mirrors inference `_sample_feedback`), so training exposure == deployment exposure.
     Returns ``[B, n_reg, H, W]`` in log1p space, matching the dynamic input channels.
+
+    ``generator`` (C-261): seeds the family draw + composition Bernoulli so SS training is
+    reproducible AND a train/inference parity test can assert byte-equality against
+    ``hydranet_inference._sample_feedback`` (which is seeded). ``None`` = global RNG (legacy).
     """
     if mode != "sample":
         return _family_target_log1p_mean(reg, family)
@@ -228,9 +232,9 @@ def _family_feedback_log1p(reg, family, mode, gate, composition, threshold):
     n_reg = reg.shape[1] // npar
     draws = torch.stack(
         [
-            family.sample(reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1), 1, None).squeeze(
-                -1
-            )
+            family.sample(
+                reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1), 1, generator
+            ).squeeze(-1)
             for j in range(n_reg)
         ],
         dim=1,
@@ -240,7 +244,7 @@ def _family_feedback_log1p(reg, family, mode, gate, composition, threshold):
 
         cube = draws.permute(0, 2, 3, 1).unsqueeze(-1)  # [B,H,W,n_reg,1]
         g = gate[:, :n_reg].permute(0, 2, 3, 1)  # [B,H,W,n_reg]
-        cube = compose_samples(cube, g, composition, threshold, None)
+        cube = compose_samples(cube, g, composition, threshold, generator)
         draws = cube.squeeze(-1).permute(0, 3, 1, 2)  # -> [B, n_reg, H, W]
     return torch.log1p(draws.clamp(min=0.0))
 

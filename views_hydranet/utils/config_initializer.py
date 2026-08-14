@@ -1028,6 +1028,55 @@ class HydraNetConfig(BaseModel):
             err_msg = f"ss_schedule='inverse_sigmoid' requires ss_k >= 1.0, got {self.ss_k}."
             logger.error(err_msg)
             raise ValueError(err_msg)
+
+        # 2026-08-14 (C-259 / C-260 / C-234 cluster): when scheduled sampling is ACTIVE
+        # (schedule set AND epsilon_max > 0) the TRAINING feedback must be constructed identically
+        # to the INFERENCE feedback, else the model trains on a different exposure than it deploys,
+        # silently invalidating any SS verdict (the exact class C-234/C-239 were closed around by
+        # dropping ZINBcore + keeping ss_epsilon_max=0). Enforce that identity here, fail-loud.
+        if self.ss_epsilon_max > 0:
+            from views_hydranet.distributions import family_names
+
+            is_family = self.output_distribution in family_names()
+            # inference auto-resolves rollout_feedback None -> 'sample' for a family head,
+            # else 'mean' (hydranet_inference.py:100-101). Mirror that to compare like-for-like.
+            resolved_rf = self.rollout_feedback or ("sample" if is_family else "mean")
+            if self.ss_feedback != resolved_rf:
+                err_msg = (
+                    f"scheduled sampling is active (ss_schedule={self.ss_schedule!r}, "
+                    f"ss_epsilon_max={self.ss_epsilon_max}) but ss_feedback={self.ss_feedback!r} "
+                    f"!= resolved rollout_feedback={resolved_rf!r}: training would feed back a "
+                    f"different object than inference rolls out on (C-259). Set "
+                    f"ss_feedback == rollout_feedback (both 'sample' for a gated family head)."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+            # The 'mean' TRAINING feedback path (_family_target_log1p_mean) is UNGATED, but
+            # inference's mean path composes the gate (_emit_magnitude). So 'mean' feedback is only
+            # valid under self_zeroed composition; under a gate it silently mismatches — reject it
+            # until a gated-mean training feedback exists (C-259, deferred fix).
+            if self.forecast_composition != "self_zeroed" and self.ss_feedback == "mean":
+                err_msg = (
+                    "scheduled sampling is active with a GATED forecast_composition "
+                    f"({self.forecast_composition!r}) but ss_feedback='mean': the training mean "
+                    "feedback is UNGATED while inference's mean is gated (C-259). Use "
+                    "ss_feedback='sample' under a gate."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+            # The AR substitution feeds the n_reg target forecasts into the feature channels
+            # POSITIONALLY (training_engine.py:329-334); features must equal regression_targets in
+            # ORDER, not just as sets (validate_laws only set-warns — C-260).
+            if list(self.features) != list(self.regression_targets):
+                err_msg = (
+                    "scheduled sampling is active but features != regression_targets "
+                    f"(order-strict): features={self.features} vs "
+                    f"regression_targets={self.regression_targets}. The AR substitution replaces "
+                    "feature channels with target forecasts positionally, so a reorder/mismatch "
+                    "silently mis-feeds channels (C-260)."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
         return self
 
     # --- Dict-compatibility layer (gradual migration from config["key"]) ---
