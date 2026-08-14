@@ -7,7 +7,7 @@ prior body — ``nb``, ``zinb``'s bare core, the mixture — can itself draw a 0
 that collapses the 36-step rollout: views-hydranet#258). This family removes the body's own zero
 mass: it is the NB conditioned on ``Y>0``, so the **gate is the only zero source**.
 
-Per-cell law (Cragg 1971 / Mullahy 1986 zero-truncated NB, same parmeterisation as ``NBCore``):
+Per-cell law (Cragg 1971 / Mullahy 1986 zero-truncated NB, same parameterisation as ``NBCore``):
     P(Y=y | Y>0) = NB(y; mu, theta) / (1 - NB(0)),   y = 1, 2, ...   (0 has probability 0)
     E[Y | Y>0]   = mu / (1 - NB(0))                                  (the magnitude the head emits)
     P(Y>0)       = 1  (degenerate — the body NEVER draws 0; occurrence belongs to the gate)

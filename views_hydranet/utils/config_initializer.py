@@ -1046,8 +1046,9 @@ class HydraNetConfig(BaseModel):
                     f"scheduled sampling is active (ss_schedule={self.ss_schedule!r}, "
                     f"ss_epsilon_max={self.ss_epsilon_max}) but ss_feedback={self.ss_feedback!r} "
                     f"!= resolved rollout_feedback={resolved_rf!r}: training would feed back a "
-                    f"different object than inference rolls out on (C-259). Set "
-                    f"ss_feedback == rollout_feedback (both 'sample' for a gated family head)."
+                    f"different object than inference rolls out on (C-259). Set ss_feedback to "
+                    f"match the resolved rollout_feedback ({resolved_rf!r}) — for a gated family "
+                    f"head both are 'sample'."
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
