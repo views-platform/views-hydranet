@@ -5,12 +5,12 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-15                           |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`. `C-34`/`C-188` are intentional numbering gaps (merged entries). |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test). `C-34`/`C-188` are intentional numbering gaps (merged entries). |
 | Total Concerns    | 284                                  |
-| Open Concerns     | 133                                  |
+| Open Concerns     | 132                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 120                                 |
-| Resolved Concerns | 151                                  |
+| — net active risks | 119                                 |
+| Resolved Concerns | 152                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
 ---
@@ -1895,21 +1895,6 @@ Three low-severity items from the prioritized dev→main release review; **none 
 
 ---
 
-### C-260: scheduled-sampling channel substitution assumes features == regression_targets in ORDER (set-based warning misses it)
-
-| Field | Value |
-|-------|-------|
-| ID | C-260 |
-| Tier | 2 |
-| Source | expert-code-review (2026-08-14, ADR-056 scheduled-sampling pre-run correctness review) |
-| Trigger | Setting `ss_epsilon_max > 0` with a config whose `features` and `regression_targets` are the same length but a DIFFERENT order (e.g. reordering targets, or adding a dynamic covariate so the lists diverge) |
-| Location | `views_hydranet/train/training_engine.py:329-334` (`t0_gt = t0[:, idx.feat]`; `torch.where(mask, prev_pred[:n_reg], t0_gt)`); `views_hydranet/utils/config_initializer.py:322-346` (`validate_laws` — set-based `logger.warning` only) |
-| Cross-refs | C-98, C-105 (the count constraint, both marked RESOLVED via the set-based warning), C-259 (same SS-enablement trigger) |
-
-The scheduled-sampling substitution replaces `t0_gt` (the `idx.feat` input channels) with `prev_pred` (the `n_reg` target forecasts) via `torch.where`. This assumes `features == regression_targets` in **count AND order**. `validate_laws` only `logger.warning`s on `set(features) != set(regression_targets)` (the "resolution" for C-98/C-105) — a **set** check that (a) never raises and (b) **passes same-length-different-order**, which would silently feed the `sb`-forecast into the `ns`-input channel (cross-target corruption). For the current conflict-only configs (`features == regression_targets`, same order) it is benign; enabling `ss_epsilon_max>0` on any reordered/extended config makes it a live silent corruption. **Tier 2 (silent model-input corruption under a realistic non-default config; clear trigger).** Fix direction: order-strict `list(features) == list(regression_targets)` **raise** when `ss_epsilon_max>0`.
-
----
-
 ### C-261: scheduled-sampling training feedback draw uses generator=None (global RNG) → non-reproducible; blocks byte-exact parity
 
 | Field | Value |
@@ -2554,6 +2539,25 @@ Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/s
 ## Resolved Concerns
 
 <!-- 2026-07-27 register tidy (review-rr strategic): the entries below were resolved-in-place in §Open and physically relocated here. -->
+
+### C-260: scheduled-sampling channel substitution assumes features == regression_targets in ORDER (set-based warning misses it) — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-260 |
+| Tier | 2 |
+| Source | expert-code-review (2026-08-14, ADR-056 scheduled-sampling pre-run correctness review) |
+| Trigger | Setting `ss_epsilon_max > 0` with a config whose `features` and `regression_targets` are the same length but a DIFFERENT order (e.g. reordering targets, or adding a dynamic covariate so the lists diverge) |
+| Location | `views_hydranet/train/training_engine.py:329-334` (`t0_gt = t0[:, idx.feat]`; `torch.where(mask, prev_pred[:n_reg], t0_gt)`); `views_hydranet/utils/config_initializer.py:322-346` (`validate_laws` — set-based `logger.warning` only) |
+| Cross-refs | C-98, C-105 (the count constraint, both marked RESOLVED via the set-based warning), C-259 (same SS-enablement trigger) |
+
+The scheduled-sampling substitution replaces `t0_gt` (the `idx.feat` input channels) with `prev_pred` (the `n_reg` target forecasts) via `torch.where`. This assumes `features == regression_targets` in **count AND order**. `validate_laws` only `logger.warning`s on `set(features) != set(regression_targets)` (the "resolution" for C-98/C-105) — a **set** check that (a) never raises and (b) **passes same-length-different-order**, which would silently feed the `sb`-forecast into the `ns`-input channel (cross-target corruption). For the current conflict-only configs (`features == regression_targets`, same order) it is benign; enabling `ss_epsilon_max>0` on any reordered/extended config makes it a live silent corruption. **Tier 2 (silent model-input corruption under a realistic non-default config; clear trigger).** Fix direction: order-strict `list(features) == list(regression_targets)` **raise** when `ss_epsilon_max>0`.
+
+**RESOLVED (verified 2026-08-15).** The fix direction named above landed: `config_initializer.py:1090-1097` raises when scheduled sampling is active and `list(features) != list(regression_targets)`, with the `C-260` marker in the message, and `tests/test_scheduled_sampling.py:264` asserts `pytest.raises(ValueError, match="C-260")`. The set-based `validate_laws` warning is unchanged and still only a warning — it is no longer load-bearing, because the order-strict raise fires first whenever the substitution can run.
+
+**Its three siblings stay OPEN and were re-verified in the same pass:** C-259 is mitigated by rejection, not fixed (the gated-mean training feedback is marked a deferred fix in source); C-261 is open on its own terms — `training_engine.py:228-229` states that the production call site passes `generator=None`, so SS training feedback is not byte-reproducible and only the parity test exercises the seeded path; C-262 is open — only `test_epsilon_zero_produces_finite_loss` exists, with no byte-identical pin.
+
+---
 
 ### C-197: distribution registry / legacy `output_distribution` name collision → silent legacy hijack — RESOLVED
 

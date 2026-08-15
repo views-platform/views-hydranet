@@ -7,6 +7,7 @@ Each test below encodes a specific falsifying observation. Tests are RED
 stubs — they FAIL to document the gap. When the gap is fixed, flip to GREEN.
 """
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -166,4 +167,75 @@ class TestF4_06_DoubleSeparators:
 
         assert len(doubles) == 0, (
             f"SOFT FALSIFICATION F4-06: {len(doubles)} double separator(s) at line(s) {doubles}"
+        )
+
+
+# ── F4-07: HARD — Tracked code depending on untracked `reports/` files ───────
+
+
+class TestF4_07_UntrackedDependencies:
+    """A tracked test or tool must never depend on a file that is not in the repository.
+
+    `reports/` is gitignored, but the scorers under it are force-tracked (`git add -f`) so their
+    tests run in CI. When one is missed, nothing goes red: the dependent test carries a
+    `pytest.skip(allow_module_level=True)` guard and silently reports success while measuring
+    nothing. That has now happened three times — the Epic #263 ruler shipped with zero portable
+    coverage, and `activation_metrics.py` / `score_v2_horizons.py` were both unreachable from a
+    clean clone while their tests "passed". The second of those is loaded at runtime by
+    `rescore_v2.py`, a tracked driver, so the shipped ruler could not run in a fresh checkout.
+
+    The rule is derived, not listed, so a new dependency is covered without anyone remembering to
+    add it here. A prose reference counts as a dependency too: `tail_index.py` cites
+    `s5_tail.py::gpd_xi` as the remedy for C-284, which is a dead pointer for every reader but the
+    author if the file is not in the repo.
+
+    **Known limit:** it can only flag a file that exists on the machine running it, so it catches
+    the mistake where it is made (authoring) rather than in CI, where an untracked file is simply
+    absent and indistinguishable from one that was never there.
+    """
+
+    @staticmethod
+    def _tracked(root: Path) -> set:
+        out = subprocess.run(
+            ["git", "ls-files"], capture_output=True, text=True, cwd=root, check=True
+        )
+        return set(out.stdout.split())
+
+    @staticmethod
+    def _referenced_report_paths(text: str) -> set:
+        """Literal `reports/.../x.py` paths appearing in a source file."""
+        return set(re.findall(r"reports/[\w./-]+?\.py", text))
+
+    def test_no_tracked_file_depends_on_an_untracked_report_tool(self):
+        """F4-07: every `reports/*.py` reachable from tracked code must itself be tracked."""
+        root = Path(__file__).parent.parent
+        tracked = self._tracked(root)
+        missing = []
+
+        # 1. Tracked tests / scripts naming a dossier tool by path.
+        for rel in sorted(tracked):
+            if not rel.endswith(".py") or not (
+                rel.startswith("tests/") or rel.startswith("scripts/")
+            ):
+                continue
+            for dep in self._referenced_report_paths((root / rel).read_text()):
+                if dep not in tracked and (root / dep).exists():
+                    missing.append(f"{rel} -> {dep}")
+
+        # 2. Tracked dossier tools importing a sibling module from their own `tools/` dir.
+        for rel in sorted(t for t in tracked if "/tools/" in t and t.endswith(".py")):
+            src = (root / rel).read_text()
+            tools_dir = Path(rel).parent
+            for dep in self._referenced_report_paths(src):
+                if dep not in tracked and (root / dep).exists():
+                    missing.append(f"{rel} -> {dep}")
+            for mod in re.findall(r"^\s*from\s+(\w+)\s+import\s", src, re.M):
+                sibling = str(tools_dir / f"{mod}.py")
+                if (root / sibling).exists() and sibling not in tracked:
+                    missing.append(f"{rel} -> {sibling} (sibling import)")
+
+        assert not missing, (
+            "HARD FALSIFICATION F4-07: tracked code depends on untracked `reports/` file(s). "
+            "Their guard tests will skip in CI and report success while measuring nothing. "
+            "Fix with `git add -f <path>`.\n  " + "\n  ".join(sorted(set(missing)))
         )
