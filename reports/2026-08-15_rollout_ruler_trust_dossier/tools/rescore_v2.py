@@ -118,7 +118,16 @@ def rescore(registry, targets, horizons=HORIZONS, n_samples=64, seed=42, window_
             for h, r in by_h.items():
                 ref = per_arm[CLIM][h]
                 if label == CLIM:
-                    r.update(crpss_vs_clim=0.0, zero_share_of_gap=0.0, delta_AP=0.0)
+                    # The reference against itself: zero gap by construction, and its CI
+                    # trivially contains zero. These are measurements, not defaults.
+                    r.update(
+                        crpss_vs_clim=0.0,
+                        zero_share_of_gap=0.0,
+                        delta_AP=0.0,
+                        ci_lo=0.0,
+                        ci_hi=0.0,
+                        ci_excludes_zero=False,
+                    )
                 else:
                     d = crps_gap_decomposition(r, ref)
                     r["crpss_vs_clim"] = crps_skill_score(
@@ -132,33 +141,58 @@ def rescore(registry, targets, horizons=HORIZONS, n_samples=64, seed=42, window_
                 rows.append(r)
 
         # --- origin-block CI on the CRPS differential vs climatology (C-221/C-254) ---------
-        # Without this every row would carry ci_excludes_zero=False and the pre-registered
-        # REAL branch could never fire — a decision rule starved of an input is a rule biased
-        # by omission. Computed only at CI_HORIZONS: it needs per-cell CRPS vectors, which
-        # _metric_row does not return, so it re-reads just those horizons' rows.
-        _add_origin_block_ci(rows, registry, tgt, tmap, hist, horizons, n_samples, seed)
+        # EVERY horizon gets one. A rule that cannot receive an input is a rule biased by
+        # omission, and restricting this to three horizons is what left 48 of 84 rows unable
+        # to reach REAL. Hoisting the climatology (below) makes all seven cheaper than three
+        # were, so there is no cost argument for partial coverage.
+        _add_origin_block_ci(rows, registry, tgt, tmap, hist, support, horizons, n_samples, seed)
     return rows
 
 
-def _add_origin_block_ci(rows, registry, tgt, tmap, hist, horizons, n_samples, seed):
-    """Fill ci_lo / ci_hi / ci_excludes_zero for the CI_HORIZONS rows of this target."""
+def _add_origin_block_ci(rows, registry, tgt, tmap, hist, support, horizons, n_samples, seed):
+    """Fill ci_lo / ci_hi / ci_excludes_zero for EVERY (arm, horizon) row of this target.
+
+    Two things this deliberately does not do, both of which it used to:
+
+    * **It does not build the climatology per arm.** Under a fixed ``window_anchor`` the draws
+      depend only on the cell, so they are identical across arms *and* horizons
+      (`climatology_resample` stores the same array object for every h). Rebuilding it inside
+      the arm loop was ~83% of this function's cost for no difference in result.
+    * **It does not derive the cell universe from one arm's coverage.** That is C-277: the CI
+      would then describe a different population than the point estimate it annotates, which
+      is computed on the cross-arm intersection (G4). The caller's `support` is passed in.
+    """
     mde = _load("mde", Path(__file__).resolve().parent / "mde.py")
     gw = _load("gw_stratified", _V2T / "gw_stratified.py")
     from lodestar_score import crps_ensemble
 
-    for h in (x for x in CI_HORIZONS if x in horizons):
+    # One climatology for this target, on the INTERSECTED support, for all horizons at once.
+    gclim = climatology_resample(
+        hist, support, horizons, n_samples=n_samples, seed=seed, window_anchor=456
+    )
+    by_origin = {}
+    for m0, u in support:
+        by_origin.setdefault(m0, []).append(u)
+
+    for h in horizons:
         for label, pdir, *_ in registry:
             a = mde.per_origin_crps(Path(pdir), tgt, h, tmap)
-            sup = [(m0, int(u)) for m0, (_c, _t, uu) in a.items() for u in uu]
-            gclim = climatology_resample(
-                hist, sup, (h,), n_samples=n_samples, seed=seed, window_anchor=456
-            )
             d, gid = [], []
-            for m0, (cube, tt, uu) in a.items():
-                clim = np.stack([gclim[(m0, h, int(u))][0] for u in uu])
-                dd = crps_ensemble(tt, cube) - crps_ensemble(tt, clim)
+            for m0, units in by_origin.items():
+                if m0 not in a:
+                    continue
+                cube, tt, uu = a[m0]
+                pos = {int(x): i for i, x in enumerate(uu)}
+                idx = [pos[u] for u in units if u in pos]
+                if not idx:
+                    continue
+                keep = [u for u in units if u in pos]
+                clim = np.stack([gclim[(m0, h, int(u))][0] for u in keep])
+                dd = crps_ensemble(tt[idx], cube[idx]) - crps_ensemble(tt[idx], clim)
                 d.append(dd)
                 gid.append(np.full(dd.size, m0))
+            if not d:
+                raise ValueError(f"[{tgt}] {label} h={h}: no cells on the intersected support")
             d, gid = np.concatenate(d), np.concatenate(gid)
             lo, hi, _ = gw._bootstrap_mean_ci(d, gid, 2000, seed, 0.90, "origin")
             for r in rows:
@@ -180,6 +214,19 @@ def main() -> int:
         registry.append((lab, pth, "lr_{t}_best", "by_{t}_best"))
 
     rows = rescore(registry, tuple(args.targets.split(",")))
+
+    # Persist the verdict. It is the epic's deliverable (SCOPE.md: "a number and a verdict
+    # token"), and until now it existed only on stdout — so the published tables were hand
+    # transcriptions with nothing to diff or re-derive against. Computing it here also runs
+    # the decision rule over EVERY row, so a missing input raises at write time instead of
+    # silently defaulting inside some downstream consumer.
+    for r in rows:
+        r["verdict"] = verdict_token(
+            zero_share=float(r["zero_share_of_gap"]),
+            delta_ap=float(r["delta_AP"]),
+            crpss=float(r["crpss_vs_clim"]),
+            ci_excludes_zero=bool(r["ci_excludes_zero"]),
+        )
 
     cols = sorted({k for r in rows for k in r})
     out = Path(args.out)
@@ -208,7 +255,7 @@ def main() -> int:
         print(
             f"  {r['model']:<18} {r['h']:>3} {r['crps_all']:>9.4f} "
             f"{r['crpss_vs_clim']:>8.4f} {r['zero_share_of_gap']:>8.3f} "
-            f"{r['delta_AP']:>7.3f} {verdict_token(r):>12}"
+            f"{r['delta_AP']:>7.3f} {r['verdict']:>12}"
         )
     return 0
 

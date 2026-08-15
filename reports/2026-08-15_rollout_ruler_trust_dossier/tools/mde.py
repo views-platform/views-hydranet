@@ -112,7 +112,13 @@ def main() -> int:
         support = [(m0, int(u)) for m0, (_c, _t, uu) in a.items() for u in uu]
         hist_months = {m for (m0, _u) in support for m in range(m0 - 36, m0)}
         hist = roll._truth_map(str(v2.V2_TRUTH), f"lr_{args.target}_best", hist_months)
-        gathered = climatology_resample(hist, support, (args.h,), window=36, n_samples=16, seed=0)
+        # CANONICAL params, stated explicitly. Omitting window_anchor selects the SLIDING
+        # pool by default, which would score this against a different reference than
+        # rescore.csv uses — the two conventions must not be mixed by accident (C-279,
+        # views-baseline #82).
+        gathered = climatology_resample(
+            hist, support, (args.h,), window=36, n_samples=64, seed=42, window_anchor=456
+        )
         b = {}
         for m0, (_c, tt, uu) in a.items():
             cube = np.stack([gathered[(m0, args.h, int(u))][0] for u in uu])
@@ -205,9 +211,12 @@ def main() -> int:
         "",
         "The models are trained **once** and scored at 13 rolling origins, so the forecasting "
         'scheme is **fixed**, satisfying Giacomini & White 2006 §3.2 Comment 3 (*"Expanding '
-        'window forecasting schemes are ruled out by assumption"*). That assumption is asserted '
-        "mechanically by `partition_audit.py` — one artifact sha per arm across all 13 origins — "
-        "not assumed.",
+        'window forecasting schemes are ruled out by assumption"*). That holds **by '
+        "construction**: one prediction directory is the output of one training run, so its 13 "
+        "origins necessarily share an artifact — nothing checks them pairwise, because there is "
+        "nothing that could differ. What `partition_audit.py` adds is that the artifact's "
+        "sha256 is resolved and recorded, and now fails loud when it cannot be, so the claim is "
+        "auditable after the fact rather than merely asserted.",
         "",
         "But `gw_stratified` is a **bootstrap on the mean loss differential**, not a GW "
         "conditional-predictive-ability regression: there is no analytic variance estimator and "

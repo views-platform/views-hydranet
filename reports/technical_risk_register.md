@@ -6,10 +6,10 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-15                           |
 | ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day. `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 276                                  |
-| Open Concerns     | 125                                  |
+| Total Concerns    | 279                                  |
+| Open Concerns     | 128                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 112                                 |
+| — net active risks | 115                                 |
 | Resolved Concerns | 151                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -2174,6 +2174,9 @@ All 120 open concerns are **pre-deployment**: training dynamics, evaluation meth
 
 **Deliberately pinned, NOT fixed** (Epic #263 `SCOPE.md`, "the one sanctioned edit" rule). Epic #263 S6 uses `gw_stratified.score_gw_v2`, which computes support correctly, so `block_bootstrap_crps` is unused there — fixing an unused function mid-epic is scope creep, and leaving it undocumented is a trap. The honest middle is a failing test that the suite knows about: `tests/test_rollout_ruler_trust.py::test_block_bootstrap_uses_cross_arm_support`, marked `xfail(strict=True)` with this ID in its reason. Fix direction (2 lines): pass the already-intersected `support` into `block_bootstrap_crps` instead of recomputing it, and flip the test to green.
 
+
+> **Second instance found and FIXED 2026-08-15 (PR #273 review).** `/review-diff` + a deep read found the same defect re-implemented in `reports/2026-08-15_rollout_ruler_trust_dossier/tools/rescore_v2.py::_add_origin_block_ci`, which derived the bootstrap's cell universe from **one arm's** coverage while annotating a point estimate computed on the cross-arm intersection. Unlike the `block_bootstrap_crps` instance, this one was **on a live path** — it produced the CIs in `results/rescore.csv`. Fixed by passing the caller's intersected `support` in, which also allowed the climatology to be hoisted out of the arm loop (it is horizon- and arm-invariant under a fixed anchor), making a 7-horizon pass cheaper than the previous 3-horizon one. Guarded by `tests/test_rollout_ruler_trust.py::test_ci_pass_uses_the_caller_support_not_per_arm_coverage`. **The `block_bootstrap_crps` instance remains open and `xfail`-pinned** — still unused. That the same defect was written twice, once while explicitly registering the other, is the argument for fixing rather than only pinning it.
+
 ---
 
 
@@ -2215,6 +2218,52 @@ Three divergences existed on first write, all now closed or documented: `n_sampl
 **Fidelity is now evidenced, not assumed:** under the canonical convention the reimplementation scores **0.9591** vs `light_strider`'s archived **0.9601** — 0.1% apart. But that is a one-off manual comparison, **not a test**. Nothing prevents the two from drifting apart on the next change to either.
 
 **Tier 3:** no wrong output today (the Epic #263 verdict is ARTIFACT under all four parameterisations tested, so it does not turn on this), but two implementations of a *governance baseline* with no parity gate is precisely the C-75/C-265 shape, and this one sits on the selection path. Fix direction, in preference order: (a) declare `views-baseline` a dependency and consume `ConflictologyModel` directly, deleting the local copy; (b) if the cube-availability constraint makes that impractical, add a parity test pinning the reimplementation against a stored canonical output; (c) at minimum, keep the 0.9591-vs-0.9601 check as a documented, re-runnable comparison rather than a one-off.
+
+---
+
+
+### C-280: `partition_audit` renders an unrun provenance check as `"n/a"`, which reads as *not applicable*
+
+| Field | Value |
+|-------|-------|
+| ID | C-280 |
+| Tier | 4 |
+| Source | `/expert-code-review` + deep read, PR #273 |
+| Trigger | Renaming or removing `v2_ruler.V2_TRUTH_SHA256`, or running the audit where the truth parquet is absent — the sha comparison silently does not run and the report prints `n/a` |
+| Location | `reports/2026-08-15_rollout_ruler_trust_dossier/tools/partition_audit.py:157` (`if truth_parquet is not None and Path(truth_parquet).exists()`), `:160` (`pin = getattr(v2, "V2_TRUTH_SHA256", None)`, then `if pin is not None and sha != pin`), `:229` (`'ok' if r['truth_matches_pin'] else 'n/a'`) |
+| Cross-refs | C-278 (the same "a guard nobody can follow" family), the C-219 pattern of a guard that does not cover its own inputs |
+
+The truth-substrate check degrades silently in two ways: a missing parquet skips it, and a renamed constant turns it off via `getattr(..., None)`. Either leaves `truth_matches_pin=None`, which the markdown renders as **`n/a`** — indistinguishable from "not applicable to this arm". A reader sees a completed audit table. **Tier 4:** inert today (all 6 arms report `True` against a present pin), and the failure is toward *not asserting* rather than asserting something false. Fix: render three states, and raise when a pin exists but the parquet does not.
+
+---
+
+### C-281: `csv_decompose` drops unmatched rows silently, so the denominator of "N of M arms beat climatology" is unreported
+
+| Field | Value |
+|-------|-------|
+| ID | C-281 |
+| Tier | 4 |
+| Source | `/expert-code-review` + deep read, PR #273 |
+| Trigger | Decomposing a board where the reference arm was not scored at every (target, h) — those arm-rows vanish from `csv_decomposition.csv` with no count and no warning |
+| Location | `reports/2026-08-15_rollout_ruler_trust_dossier/tools/csv_decompose.py:83` (`if b is None: continue`) |
+| Cross-refs | C-219 (headline completeness), C-280 |
+
+189 rows were written from 198 archived rows; nothing reports how many were dropped or why. The dossier makes claims of the form *"12 of 13 arms beat climatology"*, whose denominator comes from this file. A silent drop moves that denominator invisibly. **Tier 4:** no wrong value, and the current drop count is explicable (the reference is not scored against itself), but a count belongs in the output. Fix: count and log the skips; fail if the drop rate exceeds a threshold.
+
+---
+
+### C-282: `float(x or "nan")` is falsy-triggered, and `size_ratio == 0.0` is load-bearing evidence
+
+| Field | Value |
+|-------|-------|
+| ID | C-282 |
+| Tier | 3 |
+| Source | `/expert-code-review` + deep read, PR #273 |
+| Trigger | Any refactor that feeds `decompose_all` float-valued rows instead of `csv.DictReader` strings — every genuine `size_ratio == 0.0` then silently becomes `nan` |
+| Location | `reports/2026-08-15_rollout_ruler_trust_dossier/tools/csv_decompose.py:102-103` (`float(r.get("size_ratio") or "nan")`, `float(r.get("mcr_all") or "nan")`) |
+| Cross-refs | C-231 (`size_ratio 0.0` is part of the ARTIFACT evidence), C-280/C-281 |
+
+The `or` fires on **falsiness**, not absence. It is correct today only because `csv.DictReader` yields strings and `"0.0"` is truthy. **124 of 189 rows have `size_ratio_model == 0.0`**, and that zero is quoted as evidence in the ARTIFACT verdict — the model predicts no magnitude at all. One refactor to float rows would erase exactly the datum the conclusion rests on, silently, in the direction of "no data" rather than "zero". **Tier 3** rather than 4 because the failure mode destroys load-bearing evidence rather than merely under-reporting. Fix: `float(v) if (v := r.get("size_ratio")) not in (None, "") else float("nan")`.
 
 ---
 

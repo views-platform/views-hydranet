@@ -13,9 +13,13 @@ config once*, never by an assertion:
   silently degenerates to absolute error.
 
 Plus two provenance checks: the truth parquet's sha must match the pinned ``V2_TRUTH_SHA256``,
-and each arm must resolve to exactly **one** trained artifact across all 13 origins — which is
-Giacomini & White 2006 §3.2 Comment 3 ("expanding window forecasting schemes are ruled out by
-assumption") converted from a stated assumption into a check.
+and each arm's trained artifact must be **resolvable and recorded** (it fails loud if not).
+
+On Giacomini & White 2006 §3.2 Comment 3 ("expanding window forecasting schemes are ruled out
+by assumption"): the fixed-scheme property holds **by construction** — one prediction directory
+is the output of one training run, so its 13 origins necessarily share an artifact. This module
+does not *verify* that (there is nothing that could differ); it makes the claim **auditable**
+by pinning which artifact, and refusing to proceed when that cannot be established.
 
 Cheap by design: it reads ``identifiers.npz`` and array *headers* only, never a 2.5 GB cube, so
 a bad arm fails before any expensive load.
@@ -92,11 +96,19 @@ def resolve_artifact(model_dir: Path, pred_dir: Path, run_type: str) -> dict:
     """Map a prediction dir to its single trained artifact by the shared run timestamp."""
     m = re.search(r"predictions_\w+?_(\d{8}_\d{6})$", pred_dir.name)
     if not m:
-        return {"timestamp": None, "artifact_sha": None, "note": "unparsable pred-dir name"}
+        raise ValueError(
+            f"cannot resolve the artifact for {pred_dir.name}: the directory name does not "
+            "carry a run timestamp, so the scored predictions cannot be tied to a training "
+            "run. Provenance unestablished — refusing to record it as audited."
+        )
     ts = m.group(1)
     sha_file = model_dir / "artifacts" / f"{run_type}_model_{ts}.pt.sha256"
     if not sha_file.exists():
-        return {"timestamp": ts, "artifact_sha": None, "note": "no .sha256 sidecar"}
+        raise FileNotFoundError(
+            f"no .sha256 sidecar at {sha_file}. The artifact behind these predictions cannot "
+            "be identified, so the Giacomini fixed-scheme claim is unauditable for this arm. "
+            "Returning a None sha here would have recorded 'audited' for something unchecked."
+        )
     return {"timestamp": ts, "artifact_sha": sha_file.read_text().strip(), "note": None}
 
 

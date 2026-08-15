@@ -497,30 +497,55 @@ def test_index_is_undefined_when_the_two_tails_do_not_overlap():
 
 
 def test_verdict_token_applies_the_preregistered_rule():
-    base = {c: 0.0 for c in rrc.HEADLINE_COLUMNS}
-    artifact = {**base, "zero_share_of_gap": 0.73, "delta_AP": -0.036, "crpss_vs_clim": 0.08}
-    assert rrc.verdict_token(artifact) == "ARTIFACT"
-    real = {
-        **base,
-        "zero_share_of_gap": 0.2,
-        "delta_AP": 0.05,
-        "crpss_vs_clim": 0.09,
-        "ci_excludes_zero": True,
-    }
-    assert rrc.verdict_token(real) == "REAL"
-    undecided = {
-        **base,
-        "zero_share_of_gap": 0.2,
-        "delta_AP": 0.05,
-        "crpss_vs_clim": 0.09,
-        "ci_excludes_zero": False,
-    }
-    assert rrc.verdict_token(undecided) == "UNDECIDABLE"
+    artifact = dict(zero_share=0.73, delta_ap=-0.036, crpss=0.08, ci_excludes_zero=True)
+    assert rrc.verdict_token(**artifact) == "ARTIFACT"
+    real = dict(zero_share=0.2, delta_ap=0.05, crpss=0.09, ci_excludes_zero=True)
+    assert rrc.verdict_token(**real) == "REAL"
+    assert rrc.verdict_token(**{**real, "ci_excludes_zero": False}) == "UNDECIDABLE"
+    assert rrc.verdict_token(**{**real, "crpss": 0.04}) == "UNDECIDABLE"
+    assert rrc.verdict_token(**{**real, "delta_ap": -0.01}) == "UNDECIDABLE"
 
 
-def test_verdict_token_refuses_an_incomplete_row():
-    with pytest.raises(KeyError, match="C-219"):
-        rrc.verdict_token({"crps_all": 0.1})
+@pytest.mark.parametrize("omit", ["zero_share", "delta_ap", "crpss", "ci_excludes_zero"])
+def test_verdict_token_refuses_a_missing_decision_input(omit):
+    """Omitting any decision input must be a TypeError, never a silent default.
+
+    This is the defect class the signature exists to delete. It previously read two of its
+    four inputs as `row.get(key, default)`; both defaults biased the same way, so a row
+    missing them could only fail toward non-REAL — silently, with nothing in the output to
+    say so. 48 of 84 committed rows were in that state. Requiring the inputs is what closes
+    the class; supplying them at three horizons (the first fix) left four horizons broken.
+    """
+    full = dict(zero_share=0.2, delta_ap=0.05, crpss=0.09, ci_excludes_zero=True)
+    del full[omit]
+    with pytest.raises(TypeError, match=omit):
+        rrc.verdict_token(**full)
+
+
+def test_verdict_token_takes_no_positional_row():
+    """A dict cannot be passed positionally — the old shape is gone, not merely discouraged."""
+    with pytest.raises(TypeError):
+        rrc.verdict_token({"zero_share_of_gap": 0.2})
+
+
+def test_verdict_token_does_not_coerce_a_string_ci_flag():
+    """`bool("False") is True` — a CSV consumer must convert, not hand the string over.
+
+    `csv.DictReader` yields strings, so a downstream reader passing `row["ci_excludes_zero"]`
+    straight through would have turned a genuine False into True under the old `bool(...)`
+    call. Here the caller must decide, and the committed CSV contains literal "False" values.
+    """
+    truthy_string = rrc.verdict_token(
+        zero_share=0.2, delta_ap=0.05, crpss=0.09, ci_excludes_zero="False"
+    )
+    assert truthy_string == "REAL", (
+        "a non-empty string is truthy — this test documents that the rule does NOT guess. "
+        "Converting it is the caller's job, and rescore_v2 does so explicitly."
+    )
+    assert (
+        rrc.verdict_token(zero_share=0.2, delta_ap=0.05, crpss=0.09, ci_excludes_zero=False)
+        == "UNDECIDABLE"
+    )
 
 
 # --------------------- the canonical (fixed-pool) climatology convention
@@ -550,7 +575,7 @@ def test_fixed_anchor_never_draws_from_the_test_window():
     )
     draws = g[(469, 1, 1)][0]
     assert draws.max() <= 456.0, f"pool reached into the test window: max={draws.max()}"
-    assert draws.min() >= 421.0
+    assert draws.min() >= 421.0, f"pool started too early: min={draws.min()}"
 
 
 def test_both_conventions_agree_at_the_first_origin():

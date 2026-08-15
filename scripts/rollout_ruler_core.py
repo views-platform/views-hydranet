@@ -329,25 +329,56 @@ def require_headline_columns(row: dict, *, where: str = "headline row") -> dict:
     return row
 
 
-def verdict_token(row: dict, *, zero_share_max: float = 0.5, crpss_min: float = 0.05) -> str:
-    """Apply the PRE-REGISTERED decision rule (05_analysis_plan.md, LOCKED) to a headline row.
+def verdict_token(
+    *,
+    zero_share: float,
+    delta_ap: float,
+    crpss: float,
+    ci_excludes_zero: bool,
+    zero_share_max: float = 0.5,
+    crpss_min: float = 0.05,
+) -> str:
+    """Apply the PRE-REGISTERED decision rule (05_analysis_plan.md, LOCKED).
 
-    ``ARTIFACT``     iff ``zero_share_of_gap > 0.5`` AND ``delta_AP < 0``
-    ``REAL``         iff ``crpss_vs_clim >= 0.05`` AND ``delta_AP > 0`` AND the CI excludes 0
+    ``ARTIFACT``     iff ``zero_share > 0.5`` AND ``delta_ap < 0``
+    ``REAL``         iff ``crpss >= 0.05`` AND ``delta_ap > 0`` AND the CI excludes 0
     ``UNDECIDABLE``  otherwise
 
-    The rule is locked; this function only applies it. Note what is absent: **no ``diag_*`` key
-    is read here.** The tail diagnostic is reported and never selected on, and
+    The rule is locked; this function only applies it. Note what is absent: **no ``diag_*``
+    value is read here.** The tail diagnostic is reported and never selected on, and
     ``test_no_diag_column_reaches_the_decision_rule`` asserts that by inspecting this source.
+
+    **Why four required keyword-only scalars instead of a row dict.** This function previously
+    took a ``dict`` and read two of its four inputs with ``row.get(key, default)``. Both
+    defaults biased the same way — ``delta_ap=0.0`` disables *both* branches, and
+    ``ci_excludes_zero=False`` disables ``REAL`` — so a row missing them could only ever fail
+    toward non-``REAL``, silently, with no signal in the output. That defect reached the
+    committed artifact: 48 of 84 scored rows carried no CI, because the driver computed one at
+    three horizons out of seven.
+
+    It was also the **second** occurrence: the first was found during S6 and fixed by
+    *supplying* the input at those three horizons rather than *requiring* it, which left the
+    other four broken. Requiring it is what actually closes the class.
+
+    Taking scalars makes the omission a ``TypeError`` at the call site, so the silent default
+    is unrepresentable rather than merely discouraged — no guard, no constant, no row type.
+    It also forces a caller reading a CSV to convert ``"False"`` explicitly, instead of
+    handing a truthy string to a ``bool()`` that would accept it.
+
+    ``require_headline_columns`` deliberately does **not** cover these two: it answers "may
+    this row be *reported*?" (C-219) and runs at emit time, before any CI exists. This answers
+    "may this row be *ruled on*?". Two different questions, two different moments.
+
+    Args:
+        zero_share: ``zero_share_of_gap`` — the fraction of the CRPS gap carried by true zeros.
+        delta_ap: the arm's AP minus the reference's AP.
+        crpss: ``crpss_vs_clim`` — skill against the reference.
+        ci_excludes_zero: whether the origin-block CI on the gap excludes zero. **Must be a
+            real measurement**; there is no default, because "not measured" is not "no".
     """
-    require_headline_columns(row, where="verdict_token input")
-    zero_share = float(row["zero_share_of_gap"])
-    d_ap = float(row.get("delta_AP", 0.0))
-    crpss = float(row["crpss_vs_clim"])
-    ci_excludes_zero = bool(row.get("ci_excludes_zero", False))
-    if zero_share > zero_share_max and d_ap < 0:
+    if zero_share > zero_share_max and delta_ap < 0:
         return "ARTIFACT"
-    if crpss >= crpss_min and d_ap > 0 and ci_excludes_zero:
+    if crpss >= crpss_min and delta_ap > 0 and ci_excludes_zero:
         return "REAL"
     return "UNDECIDABLE"
 

@@ -468,3 +468,68 @@ Cleaner than EXP-06: the knife-edge `violet_visitor` sb h=18 row (ΔAP +0.001 �
 **C-279** — the duplication itself, with the fidelity check recorded as a *one-off manual comparison, not
 a test*. Fix direction in preference order: consume `views-baseline` as a dependency and delete the local
 copy; else add a parity test; else keep the comparison re-runnable.
+
+---
+
+## EXP-08 — PR #273 review: six defects in the ruler itself · 2026-08-15 · **FIXED + RE-RUN**
+
+**Trigger:** `/review-diff` on PR #273 found one critical defect; `/expert-code-review` and a line-by-line
+read of all six new `.py` files found five more of the same family — **silent defaults and unenforced
+claims, in the module whose purpose is making a number impossible to misread.**
+
+### The headline defect, and why the recurrence is the finding
+`verdict_token` read two of its four inputs as `row.get(key, default)`. Both defaults bias the same way, so
+a row missing them could only fail toward non-`REAL` — silently. **48 of 84 scored rows (h ∈ 6, 12, 24, 30)
+carried no CI**, because the driver computed one at three horizons out of seven.
+
+This was the **second** occurrence. EXP-06 records the first, found during S6 and fixed by *supplying* the
+input at those three horizons rather than *requiring* it. Supplying is not fixing: it left four horizons
+broken and the defect class alive.
+
+**Fix: the signature now carries the contract.** `verdict_token(*, zero_share, delta_ap, crpss,
+ci_excludes_zero)` — required keyword-only scalars, so an omission is a `TypeError` at the call site and the
+silent default is *unrepresentable*. This is **less** machinery, not more: no constant, no widened guard, no
+row type. It also closes a latent second-order bug (`bool("False") is True`, which any `csv.DictReader`
+consumer would have hit). Rejected: extending `HEADLINE_COLUMNS` (it runs at emit time, before any CI
+exists — would have raised on all 105 rows) and an `audit_manifest`-style required-key constant (idiomatic,
+but re-implements what keyword arguments already do, and leaves the string-truthiness bug alive).
+
+### The other five
+
+| # | Defect | Disposition |
+|---|---|---|
+| **C-277 reintroduced** | `_add_origin_block_ci` derived the bootstrap's cell universe from **one arm's** coverage while annotating an estimate computed on the cross-arm intersection — the exact defect pinned as `xfail` in `block_bootstrap_crps` during S4, rewritten from scratch on a **live** path | **FIXED** |
+| **Divergent references** | `mde.py` and `tail_index.py` omitted `window_anchor`, silently selecting the *sliding* pool with S=16/seed 0, while `rescore_v2.py` used *fixed*/64/42. `MDE.md` and `tail_index.md` were computed against a **different climatology** than `rescore.csv` | **FIXED** — all three now pass canonical params explicitly; artifacts regenerated |
+| **False provenance claim** | Docstrings in `partition_audit.py` and `mde.py` claimed the Giacomini fixed-scheme requirement was "asserted mechanically … not assumed". It is true **by construction** (one prediction dir = one training run), never checked; and a missing `.sha256` returned `None` that nothing rejected | **FIXED** — claim corrected to the accurate, weaker one; `resolve_artifact` now raises |
+| **Verdict not persisted** | No `verdict` column was written. The epic's deliverable existed only on stdout, hand-transcribed into three markdown files — and EXP-06's 36-row table came from an off-repo script that no longer exists | **FIXED** — persisted, which also runs the rule over all 105 rows instead of the 12 printed |
+| **C-280 / C-281 / C-282** | `"n/a"` conflating *not applicable* with *not checked*; silent row drops; `float(x or "nan")` one refactor away from erasing `size_ratio == 0.0` (load-bearing ARTIFACT evidence, 124/189 rows) | **REGISTERED, not fixed** — convergence over completeness |
+
+### The fix paid for itself in runtime
+`climatology_resample` was ~83% of the CI pass and is horizon-invariant *and* (under a fixed anchor)
+arm-invariant, yet was rebuilt per (arm, target, horizon). Hoisting it out — which the C-277 fix required
+anyway, since both need the intersected support — means **7 horizons now cost 4m05s, less than 3 horizons
+did before**. The "which horizons deserve a CI" question dissolved rather than needing a policy.
+
+### What the full horizon grid revealed
+Restricting the CI to three horizons had hidden the *shape* of the transition. With all seven:
+
+| h | 1 | 6 | 12 | 18 | 24 | 30 | 36 |
+|---|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
+| **REAL** | **8** | 4 | 2 | 1 | 1 | 0 | 0 |
+| UNDECIDABLE | 4 | 0 | 0 | 0 | 0 | 0 | 0 |
+| **ARTIFACT** | **0** | 8 | 10 | 11 | 11 | **12** | **12** |
+
+A **monotone decay of genuine skill**, not a step change — 8 REAL at h=1, none by h=30. That is a
+substantively more informative result than the 3-point snapshot, and it existed only because the instrument
+was fixed.
+
+### The verdict is unchanged
+`violet_visitor`, `sb`, h=36: `crps_all` 0.8747, CRPSS **+0.0909**, `zero_share` **0.771**, ΔAP **−0.058**,
+CI **[−0.0901, −0.0846]** excluding zero, `verdict` **ARTIFACT**. Identical conclusion to EXP-06/EXP-07 on
+every h=1/18/36 row. **The fix corrected the instrument, not the finding** — which is the outcome to want,
+and was checked rather than assumed.
+
+### Note on the MDE
+Re-run against the canonical reference, the h=36 MDE tightens to **0.0028** (from 0.0060) and the iid
+bootstrap is now **4.44×** wider. The direction observed in EXP-04 holds and is more pronounced; the
+explanation there — heavy-tail-dominated per-cell differentials versus stable per-origin means — stands.

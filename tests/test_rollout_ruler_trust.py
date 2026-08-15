@@ -50,6 +50,11 @@ def _make_model(tmp_path: Path, *, train=(121, 456), feedback="sample") -> Path:
     (model / "configs" / "config_hyperparameters.py").write_text(
         f"def get_hp_config():\n    return {{'rollout_feedback': {feedback!r}}}\n"
     )
+    # resolve_artifact now RAISES when provenance cannot be established, so a usable model
+    # fixture must carry the sha sidecar its prediction dir's timestamp points at.
+    arts = model / "artifacts"
+    arts.mkdir(exist_ok=True)
+    (arts / "calibration_model_20260812_191742.pt.sha256").write_text("0" * 64)
     return model
 
 
@@ -331,3 +336,86 @@ def test_block_bootstrap_uses_cross_arm_support():
         "of the cross-arm intersection (_support_keys), so its CI annotates a different cell "
         "set than the estimate. See register C-277."
     )
+
+
+# ---------------------------- PR #273 review findings: the CI path and provenance
+
+
+def _rescore():
+    p = _DOSSIER / "tools" / "rescore_v2.py"
+    if not p.exists():
+        pytest.skip("rescore_v2.py absent (reports/ gitignored)")
+    spec = importlib.util.spec_from_file_location("rescore_v2", p)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
+def test_ci_pass_uses_the_caller_support_not_per_arm_coverage():
+    """C-277's shape, in the CI path — the guard that `block_bootstrap_crps` still fails.
+
+    The point estimate is computed on the cross-arm intersection (G4). If the bootstrap builds
+    its cell universe from one arm's own coverage instead, the interval describes a different
+    population than the number it annotates. `_add_origin_block_ci` previously did exactly
+    that; it now takes `support` from the caller.
+    """
+    import inspect
+
+    src = inspect.getsource(_rescore()._add_origin_block_ci)
+    assert "support" in inspect.signature(_rescore()._add_origin_block_ci).parameters, (
+        "_add_origin_block_ci must receive the intersected support, not derive it (C-277)"
+    )
+    assert "for m0, (_c, _t, uu) in a.items() for u in uu" not in src, (
+        "the per-arm support comprehension is back — that is C-277 reintroduced"
+    )
+
+
+def test_ci_pass_covers_every_horizon():
+    """Restricting the CI to a subset of horizons is what starved the rule on 48 of 84 rows."""
+    import inspect
+
+    m = _rescore()
+    src = inspect.getsource(m._add_origin_block_ci)
+    assert "CI_HORIZONS" not in src, (
+        "the CI pass is horizon-restricted again; every scored horizon needs an interval or "
+        "its rows cannot reach REAL"
+    )
+    assert "for h in horizons" in src
+
+
+def test_resolve_artifact_raises_when_provenance_cannot_be_established(tmp_path):
+    """A missing sha sidecar must fail loud, not record None as if audited."""
+    m = _mod()
+    model = _make_model(tmp_path)
+    for sidecar in (model / "artifacts").glob("*.sha256"):
+        sidecar.unlink()  # the fixture supplies one; this test is about its absence
+    good = tmp_path / "predictions_calibration_20260812_191742"
+    good.mkdir()
+    with pytest.raises(FileNotFoundError, match="no .sha256 sidecar"):
+        m.resolve_artifact(model, good, "calibration")
+
+    bad = tmp_path / "not_a_prediction_dir"
+    bad.mkdir()
+    with pytest.raises(ValueError, match="does not carry a run timestamp"):
+        m.resolve_artifact(model, bad, "calibration")
+
+
+def test_every_scored_row_carries_a_verdict_and_a_measured_ci():
+    """The artifact must be self-contained: no row may rely on a downstream default."""
+    f = _DOSSIER / "results" / "rescore.csv"
+    if not f.exists():
+        pytest.skip("rescore.csv not generated yet")
+    import csv
+
+    rows = list(csv.DictReader(f.open()))
+    assert rows, "rescore.csv is empty"
+    assert "verdict" in rows[0], (
+        "the verdict is the epic's deliverable and must be persisted, not printed — otherwise "
+        "the published tables are hand transcriptions with nothing to re-derive against"
+    )
+    for r in rows:
+        assert r["verdict"] in ("REAL", "ARTIFACT", "UNDECIDABLE"), r
+        assert r["ci_excludes_zero"] in ("True", "False"), (
+            f"{r['model']} {r['target']} h={r['h']} has ci_excludes_zero="
+            f"{r['ci_excludes_zero']!r} — an unmeasured CI silently forces non-REAL"
+        )
