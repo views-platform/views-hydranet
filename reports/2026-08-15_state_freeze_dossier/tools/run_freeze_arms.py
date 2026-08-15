@@ -59,6 +59,20 @@ def run_arm(
     model_dir = models_root / model
     before = _prediction_dirs(model_dir)
 
+    # The pipeline names the prediction dir after the ARTIFACT timestamp, not the run — so every
+    # arm of this batch writes to the SAME path. That is safe only because each arm's cubes are
+    # deleted before the next starts. If a dir survives (a crash, --keep-cubes, an interrupted
+    # run), the next arm would write into it and silently mix two arms' cubes into one score.
+    # Refuse rather than contaminate.
+    if before and not keep_cubes:
+        raise SystemExit(
+            f"refusing to start arm {arm!r}: {len(before)} prediction dir(s) already exist under "
+            f"{model_dir / 'data' / 'generated'} "
+            f"({', '.join(sorted(p.name for p in before))}). Every arm writes to the same path "
+            "(named after the artifact), so a leftover dir would be mixed into this arm's cubes. "
+            "Delete it, or re-run the batch from the start."
+        )
+
     free = _free_gb(model_dir)
     if free < MIN_FREE_GB:
         raise SystemExit(

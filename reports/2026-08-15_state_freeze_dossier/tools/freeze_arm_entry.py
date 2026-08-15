@@ -70,8 +70,21 @@ def main() -> int:
     # given a string the validator would have to special-case.
     manager.freeze_recurrent = None if args.arm == "none" else args.arm
 
-    run_args = ForecastingModelArgs.parse_args(
-        ["--run_type", "calibration", "--evaluate", "--saved", "--artifact_name", args.artifact]
+    # `ForecastingModelArgs.parse_args()` takes no argument list — it reads sys.argv, which this
+    # script has already consumed for its own flags. Building the namespace from the parser keeps
+    # the pipeline's own validation while avoiding a sys.argv rewrite (hidden global state, and it
+    # would fight the argparse above).
+    run_args = ForecastingModelArgs.from_namespace(
+        ForecastingModelArgs._create_parser().parse_args(
+            [
+                "--run_type",
+                "calibration",
+                "--evaluate",
+                "--saved",
+                "--artifact_name",
+                args.artifact,
+            ]
+        )
     )
     manager.execute_single_run(run_args)
     return 0
