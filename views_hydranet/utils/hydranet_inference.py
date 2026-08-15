@@ -31,6 +31,65 @@ logger = logging.getLogger(__name__)
 # distribution is untouched; this is a rollout/robustness guard, not a scored quantity.
 QUANTILE_EMIT_CEIL = 13.0
 
+# The ConvLSTM packs its recurrent state into ONE tensor of 8 equal channel groups:
+# hs_1..hs_4 (short-term / hidden) then hl_1..hl_4 (long-term / cell) — see
+# HydraBNrecurrentUnet_06_LSTM4.forward's `torch.split(h, split_h, dim=1)`. Freezing a memory type
+# is therefore a channel slice, and the halves are contiguous.
+_STATE_GROUPS = 8
+FREEZE_RECURRENT_MODES = ("hidden", "cell", "all")
+
+
+def blend_recurrent_state(new: torch.Tensor, anchor: torch.Tensor, mode: str) -> torch.Tensor:
+    """Return the evolved state with the ``mode`` memory type held at ``anchor``.
+
+    **A diagnostic, not a mechanism.** ``freeze_h`` was retired (ADR-027, 2026-06-05) and stays
+    retired: this is reachable only from an explicit ``HydraNetInference`` argument, never from a
+    model config, so no production run can enable it.
+
+    It exists because the question ``freeze_h``'s ablation answered is not the question now being
+    asked. `reports/results_freezeh_ablation.md` (2026-06-04) measured **regression CRPS** on a
+    pre-ADR-070 artifact that exploded at ~1e17 in every arm, and concluded freezing was inert
+    against the C-113 runaway. It never measured **classification**, and activation-aware metrics
+    did not exist until 2026-08. Whether holding the state preserves *gate* skill across the
+    horizon is untested, not refuted (C-222).
+
+    Args:
+        new: the state the model just produced, ``[B, C, H, W]``.
+        anchor: the state to hold, same shape — in the rollout, the state at the end of the seed
+            step, i.e. everything learned from real observations.
+        mode: ``"hidden"`` (hold the short-term half), ``"cell"`` (hold the long-term half), or
+            ``"all"`` (hold both — the full hard prior).
+
+    Returns:
+        A new tensor. Neither input is mutated.
+
+    Raises:
+        ValueError: unknown ``mode``, mismatched shapes, or a channel count that is not divisible
+            by 8 (the split would silently mis-assign memory types).
+    """
+    if mode not in FREEZE_RECURRENT_MODES:
+        raise ValueError(
+            f"blend_recurrent_state: mode must be one of {FREEZE_RECURRENT_MODES}; got {mode!r}."
+        )
+    if new.shape != anchor.shape:
+        raise ValueError(
+            f"blend_recurrent_state: shape mismatch, new={tuple(new.shape)} vs "
+            f"anchor={tuple(anchor.shape)}. Both must be the same recurrent state tensor."
+        )
+    channels = new.shape[1]
+    if channels % _STATE_GROUPS != 0:
+        raise ValueError(
+            f"blend_recurrent_state: {channels} channels is not divisible by {_STATE_GROUPS}. "
+            "The ConvLSTM state is 4 short-term + 4 long-term groups; an uneven split would "
+            "silently hold the wrong memory type."
+        )
+    if mode == "all":
+        return anchor.clone()
+    half = channels // 2  # hs_1..hs_4 | hl_1..hl_4
+    if mode == "hidden":
+        return torch.cat([anchor[:, :half], new[:, half:]], dim=1)
+    return torch.cat([new[:, :half], anchor[:, half:]], dim=1)
+
 
 class HydraNetInference:
     """Handles inference with the HydraNet model.
@@ -45,6 +104,7 @@ class HydraNetInference:
         config: dict,
         device: Optional[str] = None,
         visualizer: Optional["VisualDiagnostics"] = None,
+        freeze_recurrent: Optional[str] = None,
     ) -> None:
         """Initializes the inference pipeline for HydraNet.
 
@@ -54,9 +114,16 @@ class HydraNetInference:
             device: The device to run inference on ('cuda' or 'cpu').
                 If not specified, it is automatically detected.
             visualizer: Optional VisualDiagnostics observer.
+            freeze_recurrent: **Diagnostic only.** ``None`` (default) evolves the full ConvLSTM
+                state — the only production behaviour, byte-identical to before this argument
+                existed. ``"hidden"`` / ``"cell"`` / ``"all"`` hold that memory type at its
+                end-of-seed-step value for the whole free-running rollout; see
+                :func:`blend_recurrent_state`. Deliberately **not** a config key, so no model
+                config can enable it and ADR-027's retirement of ``freeze_h`` is untouched.
 
         Raises:
             TypeError: If model or config are of incorrect types.
+            ValueError: If ``freeze_recurrent`` is not None or a known mode.
         """
         # Step 1: Determine the best available device
         self.device = torch.device(
@@ -110,6 +177,16 @@ class HydraNetInference:
                 "rollout_feedback='sample' needs a registered distribution family "
                 f"(output_distribution={self.output_distribution!r} has none)."
             )
+        # Diagnostic recurrent-state freeze (see blend_recurrent_state). Validated here rather
+        # than at the call site so a typo fails loud instead of silently running the control arm —
+        # a silent no-op would make an experiment report "no effect" when it never ran.
+        if freeze_recurrent is not None and freeze_recurrent not in FREEZE_RECURRENT_MODES:
+            raise ValueError(
+                f"freeze_recurrent must be None or one of {FREEZE_RECURRENT_MODES}; "
+                f"got {freeze_recurrent!r}."
+            )
+        self.freeze_recurrent = freeze_recurrent
+
         self.hurdle_theta = self._parse_hurdle_theta(getattr(model, "hurdle_nb_theta", None))
         # generic hurdle bodies: lognormal needs sigma (fixed, from sidecar); point needs nothing.
         self.lognormal_sigma = self._parse_lognormal_sigma(
@@ -447,6 +524,10 @@ class HydraNetInference:
             if self.rollout_feedback == "sample"
             else None
         )
+        # Diagnostic state freeze: the state at the END of the seed step (t == origin) — everything
+        # digested from REAL observations. Held for t > origin only, so h=1 is untouched by
+        # construction and must come out byte-identical across every mode.
+        state_anchor = None
         for t in range(origin + time_steps):
             if t < origin:
                 # 1. HISTORY DIGESTION: Update hidden state only
@@ -458,6 +539,8 @@ class HydraNetInference:
                 t0_input = full_tensor[:, t, model_in_indices, :, :]
                 output = self.model(t0_input, h_tt)
                 t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
+                if self.freeze_recurrent:
+                    state_anchor = h_tt.clone()  # the last state built from real observations
                 t1_pred_class = torch.sigmoid(t1_pred_class)
                 if return_params:
                     acc_params.append(t1_pred)  # activated params, pre-emit
@@ -529,13 +612,20 @@ class HydraNetInference:
                         t0_autoreg = torch.cat(
                             [t0_autoreg, full_tensor[:, origin, static_indices, :, :]], dim=1
                         )
-                # freeze_h retired (2026-06-05): the rollout evolves the full ConvLSTM
-                # state every step (the former "none" behaviour) — the only mode that was
-                # not a train/inference mismatch, and the freeze was inert vs the C-113
-                # runaway anyway (rides the prediction→input feedback path, not the state).
+                # freeze_h retired (2026-06-05): production always evolves the full ConvLSTM
+                # state (the former "none" behaviour) — the only mode that was not a
+                # train/inference mismatch, and the freeze was inert vs the C-113 runaway
+                # (which rides the prediction→input feedback path, not the state).
                 # Durable fix: Axis-B rollout training (rollout_training_dossier, ADR-058).
+                #
+                # `freeze_recurrent` below does NOT reinstate it: it is an explicit diagnostic
+                # argument with no config key, default None (this line then runs unchanged). It
+                # exists because the 2026-06 ablation scored regression CRPS and never measured
+                # whether holding the state preserves GATE skill (C-222, #258/#262).
                 output = self.model(t0_autoreg, h_tt)
                 t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
+                if self.freeze_recurrent:
+                    h_tt = blend_recurrent_state(h_tt, state_anchor, self.freeze_recurrent)
                 t1_pred_class = torch.sigmoid(t1_pred_class)
                 if return_params:
                     acc_params.append(t1_pred)  # activated params, pre-emit
