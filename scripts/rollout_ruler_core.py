@@ -1,10 +1,15 @@
 """rollout_ruler_core.py — pure, I/O-free primitives for the T>0 rollout-skill ruler.
 
 Epic #263 (risk-register cluster 16). **Deliberately tracked and dependency-light** so its
-tests run in CI without a skip guard: ``reports/`` is gitignored, so anything living in a
-dossier's ``tools/`` is invisible to a clean clone and its guard tests silently
-``pytest.skip(allow_module_level=True)`` — which is how the ruler that gates ship decisions
-ended up with zero portable coverage.
+tests run in CI without a skip guard.
+
+*Correction (PR #274 review).* An earlier version of this docstring justified the split by
+claiming ``reports/`` tools are "invisible to a clean clone". **That is false** — ``reports/``
+is gitignored, but 437 files under it are force-tracked with ``git add -f``, including every
+frozen scorer and all five of this dossier's drivers. The real reason to keep the pure core
+here is narrower and still sufficient: a dossier is a dated, frozen record, and a module
+imported by three drivers and 47 tests is neither. The drivers additionally depend on cube
+paths and a sibling repo, which the tests here do not.
 
 The split (see the dossier's ``03_harness_and_invariants.md``):
 
@@ -31,12 +36,17 @@ __all__ = [
     "cvm_omega",
     "gpd_cdf",
     "gpd_pwm_fit",
+    "reference_sample_width",
     "require_headline_columns",
     "taillardat_index",
     "verdict_token",
 ]
 
 import numpy as np
+
+# Above this fitted shape, gpd_pwm_fit is saturated and its output is a lower bound (see its
+# docstring for the measured bias curve). Not a threshold anything is selected on.
+_PWM_CEILING = 0.9
 
 # Required keys on each arm dict passed to crps_gap_decomposition.
 _REQUIRED = ("crps_all", "crps_none", "crps_events", "N", "n_event")
@@ -85,6 +95,54 @@ def assert_sample_cube(shape, *, where: str = "y_pred") -> None:
             "it silently degenerates to absolute error (this is what makes a 1-sample "
             "persistence baseline score like MAE). Refusing to score it as CRPS."
         )
+
+
+def reference_sample_width(arm_widths, *, where: str = "arms") -> int:
+    """The reference's ``S``, **derived from the arms' cube widths** rather than chosen.
+
+    The reference must be drawn at the same width as the forecasts it is scored against.
+    ``crps_ensemble`` normalises its spread term by ``2/(m*m)`` — the biased estimator — so
+    ``E[CRPS_hat] = CRPS + E|X-X'|/(2S)``, and that inflation cancels between two arms only
+    when their ``S`` agree. It does not cancel between an arm at S=16 and a reference at S=64;
+    ``crps_skill_score`` does not correct for it either (its ``ref_n_samples`` guards the
+    degenerate S<2 case, nothing more). The same mismatch moves ``delta_AP``, whose sign is
+    the only thing separating ``REAL`` from ``ARTIFACT`` on every row of the shipped board.
+
+    This is what ``05_analysis_plan.md`` pins: "Climatology draws | S = 16 **(matches the
+    arms' cube width)**". The parenthetical is the invariant; 16 was only its value when the
+    plan was written. Deriving it keeps the pin satisfied when the arms are re-run wider,
+    instead of requiring an edit to a locked document.
+
+    Args:
+        arm_widths: the ``S`` of every arm being scored, e.g. from
+            ``np.load(..., mmap_mode="r").shape[1]``.
+        where: label for the error message.
+
+    Returns:
+        The single width shared by all arms.
+
+    Raises:
+        ValueError: no widths given, the arms disagree, or a width is < 2.
+    """
+    widths = sorted({int(w) for w in arm_widths})
+    if not widths:
+        raise ValueError(
+            f"reference_sample_width: no cube widths given for {where}. The reference's S is "
+            "derived from the arms and cannot be defaulted."
+        )
+    if len(widths) > 1:
+        raise ValueError(
+            f"reference_sample_width: {where} have differing cube widths {widths}. One "
+            "reference cannot match all of them, and CRPS's 2/(m*m) estimator bias does not "
+            "cancel across unequal S — so the arms are not comparable to each other either. "
+            "Re-run them at a common width before scoring."
+        )
+    if widths[0] < 2:
+        raise ValueError(
+            f"reference_sample_width: {where} have S={widths[0]}. CRPS on a 1-sample cube is "
+            "absolute error, not CRPS (C-220)."
+        )
+    return widths[0]
 
 
 def crps_gap_decomposition(a: dict, b: dict) -> dict:
@@ -174,10 +232,10 @@ def climatology_resample(
     support,
     horizons,
     *,
-    window=36,
-    n_samples=64,
-    seed=42,
-    window_anchor=None,
+    n_samples: int,
+    seed: int,
+    window_anchor,
+    window: int = 36,
 ):
     """A scorer-side FAO-02 empirical conflictology reference.
 
@@ -195,8 +253,19 @@ def climatology_resample(
     **1-sample** forecast whose CRPS is just absolute error, so ``crps_all`` had no usable
     denominator and no skill score was computable *inside the scorer*.
 
-    **Fidelity:** under the canonical fixed pool this scores 0.9591 against
-    ``light_strider``'s archived 0.9601 — 0.1% apart. A faithful stand-in, not an invention.
+    **Fidelity:** measured, not asserted here. ``test_stand_in_matches_the_archived_baseline``
+    reads the shipped ``rescore.csv`` and the archived ``light_strider`` number and pins the
+    gap. No figure is quoted in this docstring on purpose: the previous one (0.9591, "0.1%
+    apart") was a stale intermediate that the shipped artifact contradicted by a factor of two,
+    and it had been copied into five files with nothing able to detect the drift (C-279).
+
+    **The reference's ``n_samples`` must equal the arms' cube width.** ``crps_ensemble``
+    normalises the spread term by ``2/(m*m)``, the *biased* estimator, so
+    ``E[CRPS_hat] = CRPS + E|X-X'|/(2S)``: the inflation shrinks with S and therefore does
+    **not** cancel between a reference and an arm of different widths. It also moves ``AP``,
+    because a gate-less reference is ranked by ``(cs > 0).mean(1)``, which takes only ``S + 1``
+    distinct values — and ``delta_AP``'s *sign* is the sole discriminator between ``REAL`` and
+    ``ARTIFACT``. Both effects push the same way. Use ``reference_sample_width``.
 
     Draws come from the ``window`` months ending at and **including** ``end``, where ``end``
     is ``m0 - 1`` (sliding) or ``window_anchor`` (fixed). The inclusive upper bound matches
@@ -210,9 +279,12 @@ def climatology_resample(
     ``h``, because a climatology has no horizon-dependent information. That is the correct
     null: a model earns skill by beating "what this cell usually does", at every horizon.
 
-    Determinism is per-cell, not per-iteration: the RNG is seeded from ``(seed, m0, u)``, so
-    the output does not depend on the order ``support`` is traversed in and is reproducible
-    across runs and machines (the S2 #121 determinism gate).
+    Determinism is per-*pool*, not per-iteration, so the output never depends on the order
+    ``support`` is traversed in (the S2 #121 determinism gate). The RNG key is the pool's
+    identity: ``(seed, u)`` under a fixed anchor — every origin shares one pool, so every
+    origin must share one set of draws, which is what makes the canonical model's forecast
+    constant across the test window — and ``(seed, m0, u)`` when sliding, where each origin
+    has its own pool.
 
     Missing history months count as 0.0 — the same convention ``_persistence_gathered`` uses,
     and correct here: an absent cell-month in a conflict panel means no recorded fatalities.
@@ -221,21 +293,29 @@ def climatology_resample(
         truth_map: ``{(month, unit): value}`` from ``rollout_skill_score._truth_map``.
         support: iterable of ``(m0, unit)`` keys — the shared cross-arm support.
         horizons: iterable of horizons to emit.
-        window: months of history to resample from (FAO-02: 36).
-        n_samples: draws per cell, ``S``. Must be >= 2. Default 64 = the canonical model.
-        seed: base seed. Default 42 = the canonical model.
-        window_anchor: **which convention.** ``None`` slides the pool per origin,
-            ``[m0 - window, m0 - 1]``. An **int** pins it to ``[anchor - window, anchor - 1]``
-            for every origin — the canonical ``ConflictologyModel`` behaviour, where
-            ``anchor = train_end`` (456 for the pgm calibration partition). Which is correct
-            is an OPEN QUESTION (views-baseline #82); both are offered rather than one being
-            silently chosen.
+        n_samples: draws per cell, ``S``. **Required** — derive it from the arms with
+            ``reference_sample_width``; see the estimator-bias note above. Must be >= 2.
+        seed: base seed. **Required.** Pre-registered as 0 (``05_analysis_plan.md``).
+        window_anchor: **which convention. Required, because there is no safe default.**
+            ``None`` slides the pool per origin, ``[m0 - window, m0 - 1]``. An **int** pins it
+            to ``[anchor - window + 1, anchor]`` — inclusive at the top — for every origin,
+            which is the canonical ``ConflictologyModel`` behaviour with ``anchor = train_end``
+            (456 for the pgm calibration partition, giving 421-456). Which is correct is an
+            OPEN QUESTION (views-baseline #82).
+
+            All three of these were keyword arguments with defaults until the PR #274 review.
+            Two of the three drivers then selected the *non*-canonical convention by omitting
+            the keyword, and published nine ``diag_Tu`` numbers against a different reference
+            than the headline — while the experiment log recorded the divergence as fixed in
+            "all three". Requiring them makes that unrepresentable rather than discouraged.
 
     Returns:
-        ``{(m0, h, u): (samples[S], None)}`` — the gathered-dict shape that
-        ``score_v2_horizons._metric_row`` and ``gw_stratified.score_gw_v2`` already consume,
-        so the climatology arm drops into both with **no change to either**. The second
-        element is the gate, which a climatology does not have.
+        ``{(m0, h, u): (samples[S], None)}`` — the gathered-dict shape
+        ``score_v2_horizons._metric_row`` consumes, so the climatology arm drops into the
+        scorer with no change to it. The second element is the gate, which a climatology does
+        not have. (``gw_stratified.score_gw_v2`` does **not** accept a gathered dict — it takes
+        registry entries and builds its own — which is why the origin-block CI in
+        ``rescore_v2`` hand-rolls its bootstrap instead of calling it.)
 
     Raises:
         ValueError: ``n_samples < 2`` (that would be a point forecast, not a reference), or
@@ -313,18 +393,35 @@ def require_headline_columns(row: dict, *, where: str = "headline row") -> dict:
         row: the candidate row.
         where: label for the error message.
 
+    A **NaN counts as missing.** It is the form absence actually takes here: ``_metric_row``
+    emits ``float("nan")`` for ``crps_events`` when a slice has no events, and
+    ``average_precision`` returns NaN when the label vector is all-zero — both reachable on
+    the ``ns``/``os`` targets, a narrower region, or a shorter origin set. Checking only for
+    ``None`` let an all-NaN row pass the guard whose entire purpose is refusing to report an
+    uninterpretable headline.
+
+    Args:
+        row: the candidate row.
+        where: label for the error message.
+
     Returns:
         ``row`` unchanged, so this can wrap an emit call inline.
 
     Raises:
-        KeyError: any of ``HEADLINE_COLUMNS`` is missing or None.
+        KeyError: any of ``HEADLINE_COLUMNS`` is missing, None, or non-finite.
     """
     missing = [c for c in HEADLINE_COLUMNS if row.get(c) is None]
-    if missing:
+    nonfinite = [
+        c
+        for c in HEADLINE_COLUMNS
+        if c not in missing and not np.isfinite(np.asarray(row[c], dtype=float)).all()
+    ]
+    if missing or nonfinite:
         raise KeyError(
-            f"C-219: {where} is missing {missing}. A headline crps_all may never be reported "
-            "without its all/events/none split, AP, the skill score, and zero_share_of_gap — "
-            "on this DGP the bare number is dominated by true zeros."
+            f"C-219: {where} is unreportable — missing {missing}, non-finite {nonfinite}. "
+            "A headline crps_all may never be reported without its all/events/none split, "
+            "AP, the skill score, and zero_share_of_gap — on this DGP the bare number is "
+            "dominated by true zeros, and a NaN in any of them means the row cannot be read."
         )
     return row
 
@@ -375,7 +472,26 @@ def verdict_token(
         crpss: ``crpss_vs_clim`` — skill against the reference.
         ci_excludes_zero: whether the origin-block CI on the gap excludes zero. **Must be a
             real measurement**; there is no default, because "not measured" is not "no".
+
+    Raises:
+        ValueError: any of the three numeric inputs is non-finite. Every comparison below is
+            ``False`` against NaN, so a NaN ``zero_share`` would silently disable the
+            ``ARTIFACT`` branch and return ``UNDECIDABLE`` — a row that reads as "we looked
+            and could not tell" when in fact the rule never ran. That is the same
+            omission-bias this signature was introduced to delete, arriving by value instead
+            of by absence, so it is rejected at the same boundary.
     """
+    nonfinite = [
+        n
+        for n, v in (("zero_share", zero_share), ("delta_ap", delta_ap), ("crpss", crpss))
+        if not np.isfinite(v)
+    ]
+    if nonfinite:
+        raise ValueError(
+            f"verdict_token: {nonfinite} is non-finite. The pre-registered rule cannot be "
+            "applied to a row whose inputs were not measured; returning UNDECIDABLE here "
+            "would report an unrun rule as an inconclusive one."
+        )
     if zero_share > zero_share_max and delta_ap < 0:
         return "ARTIFACT"
     if crpss >= crpss_min and delta_ap > 0 and ci_excludes_zero:
@@ -398,6 +514,21 @@ def gpd_pwm_fit(exceed):
 
     Returns ``(gamma, sigma)`` for ``H(v) = 1 - (1 + gamma*v/sigma)**(-1/gamma)``; ``gamma``
     is the Pickands shape (``xi``). Returns ``(nan, nan)`` if the moments are degenerate.
+
+    **Validity range — this estimator saturates, and the saturation is inside our data.** PWM
+    is consistent only for ``gamma < 0.5``, and ``a1 = E[Y(1-F)]`` ceases to exist at
+    ``gamma >= 1``. Measured on exact GPD quantiles (n=200k, no sampling noise) the bias is
+    one-sided and grows without bound::
+
+        gamma_true  0.30 0.50 0.70 0.90 0.95 1.00 1.10 1.30
+        gamma_hat   0.30 0.50 0.69 0.86 0.89 0.92 0.96 0.99
+
+    So any fitted ``gamma`` above ~0.9 is a **lower bound**, not an estimate: 0.96 is equally
+    consistent with a true 1.1 or 1.3, and ``gamma >= 1`` is the infinite-mean regime — which
+    is precisely the heavy-tail question C-224 exists to ask. ``taillardat_index`` flags rows
+    in this regime via ``diag_gamma_at_pwm_ceiling``. ``reports/2026-07-15_volatility_ceiling
+    _dossier/tools/s5_tail.py::gpd_xi`` fits by scipy MLE and stays valid here; nothing
+    currently cross-checks the two (registered).
     """
     y = np.sort(np.asarray(exceed, dtype=float))
     m = y.size
@@ -492,4 +623,17 @@ def taillardat_index(crps_model, crps_ref, *, q: float = 0.99, min_exceedances: 
     om_f, om_g = cvm_omega(ef, gf, sf), cvm_omega(eg, gg, sg)
     out.update(diag_omega_model=om_f, diag_omega_ref=om_g, diag_gamma_model=gf, diag_gamma_ref=gg)
     out["diag_Tu"] = float("nan") if (not np.isfinite(om_f) or om_f == 0) else 1.0 - om_g / om_f
+    # A fitted gamma above the PWM ceiling is a lower bound, not an estimate (see gpd_pwm_fit).
+    # Reported alongside the number rather than left for a reader to know, because the affected
+    # rows are exactly the heavy-tail ones this diagnostic exists for.
+    at_ceiling = [
+        n for n, gv in (("model", gf), ("ref", gg)) if np.isfinite(gv) and gv > _PWM_CEILING
+    ]
+    out["diag_gamma_at_pwm_ceiling"] = bool(at_ceiling)
+    if at_ceiling:
+        out["reason"] = (
+            f"gamma at the PWM saturation ceiling ({', '.join(at_ceiling)}; >{_PWM_CEILING}): "
+            "treat it as a lower bound — a true shape of 1.1+ fits to ~0.96 — so this row "
+            "cannot distinguish a heavy tail from an infinite-mean one"
+        )
     return out

@@ -124,13 +124,26 @@ def main() -> int:
     rows = load_rows(Path(args.results))
     dec = decompose_all(rows, args.ref)
 
-    worst = max(abs(d["residual"]) for d in dec)
-    if worst >= 1e-9:
-        # Pre-registered falsifier F1 (05_analysis_plan.md): the archived board would be
-        # internally inconsistent, a bigger finding than this epic. Fail loud, emit nothing.
+    # Pre-registered falsifier F1 (05_analysis_plan.md): a non-reconciling identity means the
+    # archived board is internally inconsistent, a bigger finding than this epic. Fail loud.
+    #
+    # A NaN residual counts as a FAILURE, not as a pass. Python's `max` silently skips NaN
+    # (`max(1e-15, nan, 2e-15)` returns 2e-15), so the gate used to fail *open* on exactly the
+    # condition it exists to catch — and a residual goes NaN whenever an archived row carries a
+    # NaN crps_events, which `_metric_row` emits by design when a slice has no events.
+    if not dec:
         raise SystemExit(
-            f"F1 FIRED: CRPS split identity does not reconcile (worst residual "
-            f"{worst:.3e} >= 1e-9). The archived v2 numbers cannot be trusted. STOP."
+            "F1 cannot be evaluated: no rows to decompose. Every archived row was dropped for "
+            "want of a matching reference — check --ref and the archived board."
+        )
+    resid = [abs(d["residual"]) for d in dec]
+    n_nonfinite = sum(1 for v in resid if not (v == v and v not in (float("inf"),)))
+    worst = max((v for v in resid if v == v), default=float("nan"))
+    if n_nonfinite or not (worst < 1e-9):
+        raise SystemExit(
+            f"F1 FIRED: CRPS split identity does not reconcile — {n_nonfinite} non-finite "
+            f"residual(s), worst finite {worst:.3e} (threshold 1e-9). The archived v2 numbers "
+            "cannot be trusted. STOP."
         )
 
     out_path = Path(args.out)

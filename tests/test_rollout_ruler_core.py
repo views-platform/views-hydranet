@@ -165,35 +165,46 @@ def _truth(cells=(1, 2, 3), months=range(400, 500), fn=None):
     return {(m, u): fn(m, u) for m in months for u in cells}
 
 
-def test_climatology_is_leakage_free_under_outcome_permutation():
+@pytest.mark.parametrize("anchor", [None, 456])
+@pytest.mark.parametrize("n_samples", [8, 16, 64, 256])
+def test_climatology_is_leakage_free_under_outcome_permutation(anchor, n_samples):
     """C-248 class: the reference must not see a single post-origin observation.
 
     Permute AND x1000-scale every truth at months >= m0. A leak-free climatology is
     byte-identical. Mirrors gw_stratified's green exante_stratum permutation test.
+
+    **The permutation is per-origin, and that is the whole point.** A single global cutoff is
+    wrong the moment `support` spans more than one origin: with `support` containing m0=460,
+    months 457-459 are *legitimately* inside 460's sliding pool, so tampering everything
+    `>= 457` and demanding byte-identity asks the climatology not to see its own history. The
+    original fixture did exactly that and passed only by luck — 3 of its 36 pool indices
+    happened not to be drawn for cell 3 at `n_samples=16`. It reports a spurious LEAK at 32 and
+    above, i.e. at the width the drivers actually run, so the guard cited as making leak-freedom
+    "provable rather than asserted" would have gone red on any bump to the sample count and been
+    read as a real regression. Parametrised over both conventions and a range of widths so it
+    cannot pass by draw-count luck again.
     """
     support = [(457, 1), (457, 2), (460, 3)]
     tm = _truth()
-    a = rrc.climatology_resample(tm, support, (1, 36), n_samples=16, seed=0)
+    kw = dict(n_samples=n_samples, seed=0, window_anchor=anchor)
+    a = rrc.climatology_resample(tm, support, (1, 36), **kw)
 
-    rng = random.Random(1)
-    tampered = dict(tm)
-    for m, u in list(tampered):
-        if m >= 457:
-            tampered[(m, u)] = rng.random() * 1000.0
-    b = rrc.climatology_resample(tampered, support, (1, 36), n_samples=16, seed=0)
-
-    for k in a:
-        assert np.array_equal(a[k][0], b[k][0]), (
-            f"LEAK: {k} changed when post-origin truth changed"
-        )
+    for m0 in sorted({m for m, _u in support}):
+        rng = random.Random(1)
+        tampered = {k: (rng.random() * 1000.0 if k[0] >= m0 else v) for k, v in tm.items()}
+        b = rrc.climatology_resample(tampered, support, (1, 36), **kw)
+        for key in (k for k in a if k[0] == m0):
+            assert np.array_equal(a[key][0], b[key][0]), (
+                f"LEAK: {key} changed when truth at months >= its own origin {m0} changed"
+            )
 
 
 def test_climatology_is_deterministic_under_seed():
     support = [(457, 1), (458, 2)]
     tm = _truth()
-    a = rrc.climatology_resample(tm, support, (1,), seed=7)
-    b = rrc.climatology_resample(tm, support, (1,), seed=7)
-    c = rrc.climatology_resample(tm, support, (1,), seed=8)
+    a = rrc.climatology_resample(tm, support, (1,), n_samples=16, seed=7, window_anchor=None)
+    b = rrc.climatology_resample(tm, support, (1,), n_samples=16, seed=7, window_anchor=None)
+    c = rrc.climatology_resample(tm, support, (1,), n_samples=16, seed=8, window_anchor=None)
     for k in a:
         assert np.array_equal(a[k][0], b[k][0])
     assert not all(np.array_equal(a[k][0], c[k][0]) for k in a), "seed had no effect"
@@ -202,15 +213,21 @@ def test_climatology_is_deterministic_under_seed():
 def test_climatology_is_order_independent():
     """Determinism must not depend on how support is traversed."""
     tm = _truth()
-    fwd = rrc.climatology_resample(tm, [(457, 1), (458, 2)], (1,), seed=0)
-    rev = rrc.climatology_resample(tm, [(458, 2), (457, 1)], (1,), seed=0)
+    fwd = rrc.climatology_resample(
+        tm, [(457, 1), (458, 2)], (1,), n_samples=16, seed=0, window_anchor=None
+    )
+    rev = rrc.climatology_resample(
+        tm, [(458, 2), (457, 1)], (1,), n_samples=16, seed=0, window_anchor=None
+    )
     for k in fwd:
         assert np.array_equal(fwd[k][0], rev[k][0])
 
 
 def test_climatology_is_horizon_invariant():
     """A climatology has no horizon-dependent information — the correct null at every h."""
-    g = rrc.climatology_resample(_truth(), [(457, 1)], (1, 18, 36), seed=0)
+    g = rrc.climatology_resample(
+        _truth(), [(457, 1)], (1, 18, 36), n_samples=16, seed=0, window_anchor=None
+    )
     assert np.array_equal(g[(457, 1, 1)][0], g[(457, 36, 1)][0])
     assert np.array_equal(g[(457, 18, 1)][0], g[(457, 36, 1)][0])
 
@@ -218,7 +235,9 @@ def test_climatology_is_horizon_invariant():
 def test_climatology_draws_only_from_the_window():
     """Every draw must come from [m0-window, m0-1] — nothing else is in scope."""
     tm = _truth(cells=(1,), months=range(400, 500), fn=lambda m, u: float(m))
-    g = rrc.climatology_resample(tm, [(457, 1)], (1,), window=36, n_samples=64, seed=0)
+    g = rrc.climatology_resample(
+        tm, [(457, 1)], (1,), window=36, n_samples=64, seed=0, window_anchor=None
+    )
     draws = g[(457, 1, 1)][0]
     assert draws.min() >= 421.0 and draws.max() <= 456.0, (
         f"out of window: {draws.min()}-{draws.max()}"
@@ -228,7 +247,7 @@ def test_climatology_draws_only_from_the_window():
 def test_climatology_constant_history_gives_mae():
     """A cell whose history is a constant c ⇒ every draw is c ⇒ CRPS == |truth - c| exactly."""
     tm = _truth(cells=(1,), months=range(400, 500), fn=lambda m, u: 3.0)
-    g = rrc.climatology_resample(tm, [(457, 1)], (1,), n_samples=16, seed=0)
+    g = rrc.climatology_resample(tm, [(457, 1)], (1,), n_samples=16, seed=0, window_anchor=None)
     draws = g[(457, 1, 1)][0]
     assert np.all(draws == 3.0)
     truth_val = 10.0
@@ -240,13 +259,15 @@ def test_climatology_constant_history_gives_mae():
 
 def test_climatology_missing_history_is_zero():
     """An absent cell-month means no recorded fatalities — 0.0, matching _persistence_gathered."""
-    g = rrc.climatology_resample({}, [(457, 1)], (1,), n_samples=8, seed=0)
+    g = rrc.climatology_resample({}, [(457, 1)], (1,), n_samples=8, seed=0, window_anchor=None)
     assert np.all(g[(457, 1, 1)][0] == 0.0)
 
 
 def test_climatology_rejects_a_degenerate_sample_count():
     with pytest.raises(ValueError, match="point forecast"):
-        rrc.climatology_resample(_truth(), [(457, 1)], (1,), n_samples=1)
+        rrc.climatology_resample(
+            _truth(), [(457, 1)], (1,), n_samples=1, seed=0, window_anchor=None
+        )
 
 
 def test_skill_score_hand_computed():
@@ -290,7 +311,9 @@ def test_degenerate_all_zero_forecast_scores_badly_on_skill():
     for u in range(n):
         for m in range(421, 456):
             tm[(m, u)] = float(truth[u]) if rng.random() < 0.5 else 0.0
-    clim = rrc.climatology_resample(tm, [(457, u) for u in range(n)], (1,), seed=0)
+    clim = rrc.climatology_resample(
+        tm, [(457, u) for u in range(n)], (1,), n_samples=16, seed=0, window_anchor=None
+    )
     clim_cube = np.stack([clim[(457, 1, u)][0] for u in range(n)])
 
     crps_zero = float(crps(all_zero, truth).mean())
@@ -581,19 +604,177 @@ def test_fixed_anchor_never_draws_from_the_test_window():
 def test_both_conventions_agree_at_the_first_origin():
     """They differ only after the first origin — pinned so the divergence is understood."""
     tm = _truth(cells=(1, 2), months=range(400, 500))
-    a = rrc.climatology_resample(tm, [(457, 1)], (1,), window_anchor=456, seed=42)
-    b = rrc.climatology_resample(tm, [(457, 1)], (1,), window_anchor=None, seed=42)
+    a = rrc.climatology_resample(tm, [(457, 1)], (1,), window_anchor=456, seed=42, n_samples=64)
+    b = rrc.climatology_resample(tm, [(457, 1)], (1,), window_anchor=None, seed=42, n_samples=64)
     assert set(a[(457, 1, 1)][0]) == set(b[(457, 1, 1)][0]), (
         "at m0=457 both conventions draw from [421,456]; the POOLS must match "
         "(draw order may differ because the seed key differs by design)"
     )
 
 
-def test_defaults_match_the_canonical_model():
-    """n_samples=64 and seed=42 mirror views-models white_ranger / light_strider."""
+@pytest.mark.parametrize("omitted", ["n_samples", "seed", "window_anchor"])
+def test_climatology_convention_cannot_be_selected_by_omission(omitted):
+    """The three parameters that diverged across drivers must have NO default.
+
+    This replaces a test that asserted `n_samples=64` and `seed=42` were the defaults. That
+    test was green while `tail_index.py` published nine numbers against the wrong reference,
+    because it pinned the two defaults that were harmless and never checked `window_anchor` —
+    whose default (`None`, sliding) was the *non*-canonical one. A default that two of three
+    call sites got wrong is not a convenience, so there is nothing left to default to: a
+    missing keyword is now a TypeError at the call site.
+    """
     import inspect
 
-    d = inspect.signature(rrc.climatology_resample).parameters
-    assert d["n_samples"].default == 64
-    assert d["seed"].default == 42
-    assert d["window"].default == 36
+    kw = {"n_samples": 16, "seed": 0, "window_anchor": 456}
+    kw.pop(omitted)
+    with pytest.raises(TypeError, match=omitted):
+        rrc.climatology_resample(_truth(), [(457, 1)], (1,), **kw)
+
+    p = inspect.signature(rrc.climatology_resample).parameters
+    assert p[omitted].default is inspect.Parameter.empty
+    assert p[omitted].kind is inspect.Parameter.KEYWORD_ONLY
+    # `window` never diverged and stays defaulted — FAO-02 pins it at 36.
+    assert p["window"].default == 36
+
+
+# --------------------------- the reference must match the arms it is scored against
+
+
+def test_reference_sample_width_derives_the_single_shared_width():
+    assert rrc.reference_sample_width([16, 16, 16]) == 16
+    assert rrc.reference_sample_width(iter([64])) == 64
+
+
+def test_reference_sample_width_rejects_disagreeing_arms():
+    """Unequal-width arms are not comparable to each other, let alone to one reference."""
+    with pytest.raises(ValueError, match=r"differing cube widths \[16, 64\]"):
+        rrc.reference_sample_width([16, 64, 16])
+
+
+def test_reference_sample_width_rejects_empty_and_degenerate():
+    with pytest.raises(ValueError, match="no cube widths"):
+        rrc.reference_sample_width([])
+    with pytest.raises(ValueError, match="C-220"):
+        rrc.reference_sample_width([1, 1])
+
+
+def test_crps_estimator_bias_does_not_cancel_across_unequal_sample_counts():
+    """Why the reference's S must equal the arms'. This is the defect, measured.
+
+    `lodestar_score.crps_ensemble` normalises its spread term by `2/(m*m)` — the biased
+    estimator — so `E[CRPS_hat] = CRPS + E|X-X'|/(2S)`. Scoring the SAME distribution at two
+    widths therefore gives two different numbers, and the difference does not cancel in a
+    skill score between a 16-draw arm and a 64-draw reference. The shipped 2026-08-15 board
+    did exactly that. Pinned here so the pairing cannot silently drift apart again.
+    """
+    lode = os.path.join(
+        _HERE, "..", "reports", "2026-07-17_lodestar_eval_dossier", "tools", "lodestar_score.py"
+    )
+    if not os.path.exists(lode):
+        pytest.skip("lodestar_score.py needs reports/")
+    spec = importlib.util.spec_from_file_location("lodestar_score", lode)
+    ls = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ls)
+
+    rng = np.random.default_rng(0)
+    n = 4000
+    truth = (rng.random(n) < 0.01) * rng.gamma(2.0, 5.0, n)
+    pool = np.concatenate([np.zeros(99), [40.0]])  # a 1%-event climatology
+
+    scores = {}
+    for s in (16, 64):
+        draws = rng.choice(pool, size=(n, s), replace=True)
+        scores[s] = float(ls.crps_ensemble(truth, draws).mean())
+
+    rel = abs(scores[16] - scores[64]) / scores[64]
+    assert rel > 0.01, (
+        f"expected a material O(1/S) estimator gap, got {rel:.4%} "
+        f"(S=16 {scores[16]:.5f}, S=64 {scores[64]:.5f})"
+    )
+
+
+def test_reference_ap_rank_resolution_depends_on_sample_count():
+    """The second half of the mismatch: delta_AP's SIGN is the sole REAL/ARTIFACT discriminator.
+
+    A gate-less reference is ranked by `(cs > 0).mean(1)`, which takes exactly `S + 1` distinct
+    values. Average precision is rank-based, so more draws resolve the reference's ranking more
+    finely and move its AP — and therefore move `delta_AP` for reasons that have nothing to do
+    with the model.
+    """
+    rng = np.random.default_rng(1)
+    pool = np.concatenate([np.zeros(99), [40.0]])
+    levels = {}
+    for s in (16, 64):
+        cs = rng.choice(pool, size=(3000, s), replace=True)
+        levels[s] = len(np.unique((cs > 0).mean(1)))
+    assert levels[16] <= 17 and levels[64] > levels[16], levels
+
+
+# ----------------------------------- non-finite inputs are absence, not a value
+
+
+def test_headline_guard_rejects_nan_not_only_none():
+    """NaN is the form absence actually takes: _metric_row emits it for an event-free slice."""
+    row = {c: 1.0 for c in rrc.HEADLINE_COLUMNS}
+    rrc.require_headline_columns(row)  # baseline: a complete row passes
+
+    for col in rrc.HEADLINE_COLUMNS:
+        bad = dict(row, **{col: float("nan")})
+        with pytest.raises(KeyError, match="C-219"):
+            rrc.require_headline_columns(bad)
+
+
+def test_verdict_token_refuses_non_finite_inputs():
+    """A NaN would silently disable the ARTIFACT branch and report an unrun rule as UNDECIDABLE.
+
+    Every comparison in the rule is False against NaN, so `zero_share=nan` turns a row that
+    measures ARTIFACT into one that reads "we looked and could not tell".
+    """
+    ok = dict(zero_share=0.73, delta_ap=-0.05, crpss=0.08, ci_excludes_zero=True)
+    assert rrc.verdict_token(**ok) == "ARTIFACT"
+
+    for key in ("zero_share", "delta_ap", "crpss"):
+        with pytest.raises(ValueError, match=key):
+            rrc.verdict_token(**dict(ok, **{key: float("nan")}))
+        with pytest.raises(ValueError, match=key):
+            rrc.verdict_token(**dict(ok, **{key: float("inf")}))
+
+
+# ------------------------------------------- the PWM estimator's validity range
+
+
+def test_gpd_pwm_fit_saturates_above_the_ceiling_and_says_so():
+    """All nine published h=36 gammas sit in this regime, so the limit is not hypothetical."""
+    n = 50_000
+    p = (np.arange(1, n + 1) - 0.5) / n
+
+    def _exact(gamma):
+        return (np.power(1 - p, -gamma) - 1) / gamma
+
+    assert rrc.gpd_pwm_fit(_exact(0.3))[0] == pytest.approx(0.3, abs=0.01)
+    assert rrc.gpd_pwm_fit(_exact(0.5))[0] == pytest.approx(0.5, abs=0.02)
+
+    # Saturation: distinct true shapes collapse toward a common ceiling, so a fitted 0.96 is a
+    # LOWER BOUND and cannot be told apart from the infinite-mean regime (gamma >= 1).
+    g_1_0 = rrc.gpd_pwm_fit(_exact(1.0))[0]
+    g_1_3 = rrc.gpd_pwm_fit(_exact(1.3))[0]
+    assert g_1_0 < 1.0 and g_1_3 < 1.0, (g_1_0, g_1_3)
+    assert abs(g_1_3 - g_1_0) < 0.3 * (1.3 - 1.0), (
+        f"expected saturation, got a faithful spread: {g_1_0:.3f} vs {g_1_3:.3f}"
+    )
+
+
+def test_taillardat_index_flags_a_ceiling_gamma():
+    """The caveat must travel with the number, not live only in a docstring."""
+    n = 4000
+    p = (np.arange(1, n + 1) - 0.5) / n
+    heavy = (np.power(1 - p, -1.2) - 1) / 1.2
+    light = (np.power(1 - p, -0.2) - 1) / 0.2
+
+    hi = rrc.taillardat_index(heavy, heavy, q=0.5, min_exceedances=50)
+    assert hi["diag_gamma_at_pwm_ceiling"] is True
+    assert "lower bound" in hi["reason"]
+
+    lo = rrc.taillardat_index(light, light, q=0.5, min_exceedances=50)
+    assert lo["diag_gamma_at_pwm_ceiling"] is False
+    assert lo["reason"] is None
