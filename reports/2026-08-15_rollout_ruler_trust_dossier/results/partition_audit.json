@@ -1,0 +1,182 @@
+[
+  {
+    "arm": "violet_visitor",
+    "pred_dir": "/home/simon/Documents/scripts/views_platform/views-models/models/violet_visitor/data/generated/predictions_calibration_20260812_191742",
+    "run_type": "calibration",
+    "partition": {
+      "train": [
+        121,
+        456
+      ],
+      "test": [
+        457,
+        504
+      ]
+    },
+    "n_origins": 13,
+    "min_emitted_month": 457,
+    "max_emitted_month": 504,
+    "leak": false,
+    "rollout_feedback": "sample",
+    "diagnostic_only": false,
+    "sample_widths": [
+      16
+    ],
+    "n_cubes_checked": 78,
+    "artifact_timestamp": "20260812_191742",
+    "artifact_sha": "909f44c0096ee6b5c675f65539fcc31977bbe3ea6bb52438f2ed7b165237ddcb",
+    "artifact_note": null,
+    "truth_sha256": "620f4aa3722fec9fb3965ada5ed3f041ae45a72a5937b5ac748453847d2ce84b",
+    "truth_matches_pin": true
+  },
+  {
+    "arm": "bright_starship",
+    "pred_dir": "/home/simon/Documents/scripts/views_platform/views-models/models/bright_starship/data/generated/predictions_calibration_20260813_174320",
+    "run_type": "calibration",
+    "partition": {
+      "train": [
+        121,
+        456
+      ],
+      "test": [
+        457,
+        504
+      ]
+    },
+    "n_origins": 13,
+    "min_emitted_month": 457,
+    "max_emitted_month": 504,
+    "leak": false,
+    "rollout_feedback": "sample",
+    "diagnostic_only": false,
+    "sample_widths": [
+      16
+    ],
+    "n_cubes_checked": 78,
+    "artifact_timestamp": "20260813_174320",
+    "artifact_sha": "61bc5973f8853c17675c82a5401a7c9d9008b181675e6b9392e2ff76aeb361f6",
+    "artifact_note": null,
+    "truth_sha256": "620f4aa3722fec9fb3965ada5ed3f041ae45a72a5937b5ac748453847d2ce84b",
+    "truth_matches_pin": true
+  },
+  {
+    "arm": "blazing_meteor",
+    "pred_dir": "/home/simon/Documents/scripts/views_platform/views-models/models/blazing_meteor/data/generated/predictions_calibration_20260812_232850",
+    "run_type": "calibration",
+    "partition": {
+      "train": [
+        121,
+        456
+      ],
+      "test": [
+        457,
+        504
+      ]
+    },
+    "n_origins": 13,
+    "min_emitted_month": 457,
+    "max_emitted_month": 504,
+    "leak": false,
+    "rollout_feedback": "sample",
+    "diagnostic_only": false,
+    "sample_widths": [
+      16
+    ],
+    "n_cubes_checked": 78,
+    "artifact_timestamp": "20260812_232850",
+    "artifact_sha": "a9c7136234c26be0f5378af252e59b6c661c93e2d2cc5b9a65482f20721f4067",
+    "artifact_note": null,
+    "truth_sha256": "620f4aa3722fec9fb3965ada5ed3f041ae45a72a5937b5ac748453847d2ce84b",
+    "truth_matches_pin": true
+  },
+  {
+    "arm": "pink_pirate",
+    "pred_dir": "/home/simon/Documents/scripts/views_platform/views-models/models/pink_pirate/data/generated/predictions_calibration_20260813_025117",
+    "run_type": "calibration",
+    "partition": {
+      "train": [
+        121,
+        456
+      ],
+      "test": [
+        457,
+        504
+      ]
+    },
+    "n_origins": 13,
+    "min_emitted_month": 457,
+    "max_emitted_month": 504,
+    "leak": false,
+    "rollout_feedback": "sample",
+    "diagnostic_only": false,
+    "sample_widths": [
+      16
+    ],
+    "n_cubes_checked": 78,
+    "artifact_timestamp": "20260813_025117",
+    "artifact_sha": "300ca131854cc2bb428c0e1f2f1f1c3ff3279b1fe99393b549552f666881aa79",
+    "artifact_note": null,
+    "truth_sha256": "620f4aa3722fec9fb3965ada5ed3f041ae45a72a5937b5ac748453847d2ce84b",
+    "truth_matches_pin": true
+  },
+  {
+    "arm": "blue_stranger",
+    "pred_dir": "/home/simon/Documents/scripts/views_platform/views-models/models/blue_stranger/data/generated/predictions_calibration_20260813_042946",
+    "run_type": "calibration",
+    "partition": {
+      "train": [
+        121,
+        456
+      ],
+      "test": [
+        457,
+        504
+      ]
+    },
+    "n_origins": 13,
+    "min_emitted_month": 457,
+    "max_emitted_month": 504,
+    "leak": false,
+    "rollout_feedback": "sample",
+    "diagnostic_only": false,
+    "sample_widths": [
+      16
+    ],
+    "n_cubes_checked": 78,
+    "artifact_timestamp": "20260813_042946",
+    "artifact_sha": "2b51feda86ab6723fbd7b71480c82344d48974c007f05f53e776e6e6e6a50fbe",
+    "artifact_note": null,
+    "truth_sha256": "620f4aa3722fec9fb3965ada5ed3f041ae45a72a5937b5ac748453847d2ce84b",
+    "truth_matches_pin": true
+  },
+  {
+    "arm": "purple_alien",
+    "pred_dir": "/home/simon/Documents/scripts/views_platform/views-models/models/purple_alien/data/generated/predictions_calibration_20260813_062540",
+    "run_type": "calibration",
+    "partition": {
+      "train": [
+        121,
+        456
+      ],
+      "test": [
+        457,
+        504
+      ]
+    },
+    "n_origins": 13,
+    "min_emitted_month": 457,
+    "max_emitted_month": 504,
+    "leak": false,
+    "rollout_feedback": "sample",
+    "diagnostic_only": false,
+    "sample_widths": [
+      16
+    ],
+    "n_cubes_checked": 78,
+    "artifact_timestamp": "20260813_062540",
+    "artifact_sha": "89135913e0ada7a407e00a302439bf182247f025cb2a14e9c68a6e0d8618b577",
+    "artifact_note": null,
+    "truth_sha256": "620f4aa3722fec9fb3965ada5ed3f041ae45a72a5937b5ac748453847d2ce84b",
+    "truth_matches_pin": true
+  }
+]

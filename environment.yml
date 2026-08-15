@@ -20,3 +20,10 @@ dependencies:
       - .
       - pytest
       - pytest-cov
+      # tests/test_falsification_repo_clean.py shells out to the `ruff` BINARY
+      # (TestF4_02_LintViolations, TestF4_03_DeadCode). pyproject declares ruff only in the
+      # poetry dev group, which `pip install .` does not install — so those three tests died
+      # with `FileNotFoundError: 'ruff'` in every CI test run, independently of the code under
+      # test. Pinned to the same version ci.yml's lint job installs, so the two jobs cannot
+      # disagree about what "clean" means (the version-drift trap that pin was added for).
+      - ruff==0.14.14

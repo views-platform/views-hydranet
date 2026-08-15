@@ -1,31 +1,59 @@
-# Evaluating sparse, heavy-tailed, autoregressive spatiotemporal count forecasts — a catalog of blind spots, Goodhart traps, and the metric battery we actually need
+# 02 — Design: why the T>0 ruler is untrustworthy, and the three additions that fix it
 
-> **⚠️ SUPERSEDED 2026-08-15 — absorbed into a dossier.** This file's content now lives in
-> `reports/2026-08-15_rollout_ruler_trust_dossier/`: §1–3 → `02_design.md` (verbatim, annotated with the
-> cluster-16 `C-xxx` IDs each entry instantiates), §4–5 → `03_harness_and_invariants.md` (the metric battery
-> **with a scope column**, and the red-team's status — `tests/test_activation_metrics.py` already implements
-> 4 of its 6 degenerates), §6–7 → `SCOPE.md` (PARKED).
->
-> **The dossier is authoritative.** This file is retained as the dated provenance of the thinking — do not edit
-> it further, and do not promote it to a second dossier. Its request *"This should later be promoted to a
-> proper dossier"* is now fulfilled by Epic
-> [#263](https://github.com/views-platform/views-hydranet/issues/263).
->
-> One citation was corrected during absorption: `C-1830` → **C-231** (two occurrences). The DRAFT's own caveat
-> that several other citations are from memory still stands — verifying them is parked as `SCOPE.md` P4.
-
-**Status: DRAFT / brain-dump (2026-08-13).** Purpose: (1) a *catalog* of every way we have seen the
-evaluation of HydraNet-class models go blind, be fooled, or be gamed over ~3 months of optimization, and
-(2) a *forward-looking* skeleton for a research article on what evaluation schemes/metrics/strategies this
-task class actually requires. **Get everything in; do not polish.** Entries are grounded in our own
-dossiers / risk register where possible (IDs in `C-xxx`, dossier dates). Some citations are approximate —
-verify before quoting. This should later be promoted to a proper dossier and cross-checked.
-
-The trigger: issue #258 (2026-08-13) — the full-roster 36-month rollout decays to near-zero, and *every
-headline metric we had trusted for months was blind to it*. That is not an anomaly; it is the latest and
-loudest instance of a pattern this document catalogs.
+**Date:** 2026-08-15 · **Epic:** #263 · **Status:** S0
 
 ---
+
+## 1. The design problem
+
+The ruler can report a **zero-driven artifact as a win**, and has already done so once.
+
+`crps_all` on a 99.3–99.7% zero field is dominated by the zeros. The V2 scoreboard's headline —
+`gated_NB` h36 `crps_all` 0.877 vs climatology 0.960 — decomposes exactly (S1):
+
+```
+Δcrps_all = (1 − pₑ)·Δcrps_none  +  pₑ·Δcrps_events
+          = 0.98956 × (−0.0639)  +  0.010438 × (−1.9268)
+          =        −0.06323      +        −0.02011        = −0.08334   ✔ (observed −0.0833)
+```
+
+**75.9% of the "win" is confident zeros.** Meanwhile AP is *worse* (0.162 vs 0.195) and `size_ratio = 0.0000`.
+A number that means "the model has learned to be confidently empty" was read as skill.
+
+## 2. The three additions
+
+Everything else is imports. These three are what the ruler lacks:
+
+| # | Addition | Closes | Story |
+|---|---|---|---|
+| **A1** | **A reference forecast the scorer can build itself.** FAO-02's baseline **is** implemented — as `ConflictologyModel` in views-baseline (`white_ranger` / `light_strider`) — but scoring against it needs its prediction cubes, which are deleted after scoring. The scorer's only in-process baseline was a 1-sample persistence whose CRPS is just MAE, so `crps_all` had no usable denominator *inside the ruler*. `climatology_resample` is a stand-in matched to the canonical parameters (0.9591 vs its archived 0.9601). Duplication risk: **C-279**. | C-219 | S3 |
+| **A2** | **The zero-share decomposition, emitted by default** — every headline row carries `zero_share_of_gap`, and the assembler *raises* on a row without the all/events/none split + AP. Makes "never headline a bare `crps_all`" a code invariant rather than a norm. | C-219, C-231 | S1, S3 |
+| **A3** | **Provenance asserted, not assumed** — partition non-leak, `rollout_feedback == 'sample'`, cube-not-mean, truth hash, and one-artifact-per-arm (Giacomini's fixed-scheme requirement) all become raises. | C-217, C-218, C-220 | S2 |
+
+Plus one bounded diagnostic (**S5**, C-224) and the driver that joins them (**S6**).
+
+## 3. The ask we are NOT making yet
+
+The absorbed catalog below makes a strong case that FAO-02's blessed metrics (CRPS, MCR) were blind to the
+#258 failure, and that some of its rejected ones deserve re-examination. **This dossier does not make that
+ask.** It produces the evidence — a decomposition showing where a proper-score win actually came from, and a
+tail diagnostic that does not violate FAO-02's twCRPS rejection — and stops there.
+
+Reopening FAO-02 is a governance conversation with its owner, out of scope (`SCOPE.md` #7). What this dossier
+contributes to it is: *here is a case where the sanctioned set said "win" and the decomposition said
+"confident zeros", measured, on the sanctioned substrate.*
+
+---
+
+# Absorbed from the 2026-08-13 DRAFT
+
+> Absorbed **verbatim** from `reports/2026-08-13_evaluation_pitfalls_and_metric_battery_DRAFT.md`
+> (§1 DGP, §2 catalog A–I, §3 meta-patterns), which is superseded by this dossier. The one bad citation
+> (`C-1830`) is corrected to **C-231** below. The remaining citations are unverified — the DRAFT's own header
+> says several are from memory; verifying them is a `/verify-sources` job, parked as `SCOPE.md` P4.
+>
+> **Do not re-litigate individual entries.** They are the design rationale, not open questions. Where an entry
+> is directly instantiated by a cluster-16 register concern, it is annotated `[→ C-xxx]`.
 
 ## 1. Why this task is a metric minefield (the data-generating process)
 
@@ -69,12 +97,12 @@ Grouped. Each: **what it is → the instance we hit → the lesson.**
 - **A2 — MCR/CRPS are blind to activation frequency.** Nothing in the headline set measured
   `P(y_pred>0)` vs `P(y_true>0)` per step — the one quantity that was 4–115× wrong. **Lesson: activation
   frequency (occurrence rate) must be a first-class metric.**
-- **A3 — CRPS goes flat once the field is sparse.** From ~step 6 onward all 8 roster models had CRPS
+- **A3 — CRPS goes flat once the field is sparse.** From ~step 6 onward all 8 roster models had CRPS  `[→ C-219]`
   identical to **3 decimals**; pooled CRPS spanned **0.9%** while MCR spanned **10×**. Once every model
   predicts ≈0 on a mostly-zero target, CRPS measures the *actuals*, not the model. *Instance: #258 comment
   2.* **Lesson: a proper score can be simultaneously "proper" and non-discriminating; check its dynamic
   range across the model set before ranking on it.**
-- **A4 — "confident zeros, not event skill."** crps-all (all-cell CRPS) rewards predicting zero on a
+- **A4 — "confident zeros, not event skill."** crps-all (all-cell CRPS) rewards predicting zero on a  `[→ C-231]`
   99.5%-zero field; the long-horizon "win" of gated_NB was driven by confident zeros, not by getting events
   right (register C-231 / similar). **Lesson: on sparse targets, an all-cell proper score is an occurrence-
   free lunch.**
@@ -93,13 +121,13 @@ Grouped. Each: **what it is → the instance we hit → the lesson.**
 
 ### B. The mean/sample split & the horizon (you evaluate a different object than the one that acts)
 
-- **B1 — scored-emit ≠ fed-back-input.** The scored/emitted product is the **mean composition**
+- **B1 — scored-emit ≠ fed-back-input.** The scored/emitted product is the **mean composition**  `[→ C-220]`
   `compose_mean = gate·μ` (dense, well-behaved first moment). The autoregressive rollout feeds back the
   **sample composition** `compose_samples = Bernoulli(gate)·NB_draw` (sparse, degenerate). Two different
   random variables (`distributions/composition.py`). A thorough T=0 read of the mean can be spotless while
   the fed-back sample is garbage. *Instance: #258.* **Lesson: score the object you deploy (the sample /
   the rollout), not the convenient proxy (the mean).**
-- **B2 — T=0-only evaluation.** After the bloom made rollout scores untrustworthy, we scored **T=0 only**
+- **B2 — T=0-only evaluation.** After the bloom made rollout scores untrustworthy, we scored **T=0 only**  `[→ C-218]`
   (the frozen lodestar ruler). The horizon was rarely the object of evaluation; the activation deficit is
   present at T=0 too, but MCR≈1 hid it there. **Lesson: a defect can be present at T=0 and invisible at
   T=0 simultaneously — you must measure the *right statistic* at T=0, not just "evaluate at T=0."**
@@ -111,11 +139,11 @@ Grouped. Each: **what it is → the instance we hit → the lesson.**
 
 ### C. Goodhart / metric-gaming (optimizing the metric ≠ optimizing the thing)
 
-- **C1 — Forecaster's Dilemma / subset-on-outcome.** Selecting or scoring on the positive subset
+- **C1 — Forecaster's Dilemma / subset-on-outcome.** Selecting or scoring on the positive subset  `[→ C-219]`
   (`crps_events`) is improper (Gneiting2011 Eq 2.10; Lerch2017). *Instance:* nb "beats climatology" on
   `crps_events` ≈14 with `size_ratio` 0.0 — the timid-zero Goodhart trap; the all/events/none split caught
   it. **Lesson: NEVER select on an outcome-conditioned score. Pre-commit the split.**
-- **C2 — proper-score low power on the tail.** twCRPS / threshold-weighted scores lose power to **zero**
+- **C2 — proper-score low power on the tail.** twCRPS / threshold-weighted scores lose power to **zero**  `[→ C-224, C-254]`
   at extreme thresholds in exactly our regime (Lerch2017 Scenario B: heavy-tailed truth, forecasts differ
   on the positive half-axis). A null on twCRPS can mean "no difference" OR "no power." **Lesson: report the
   *power* / minimum detectable effect, not just the p-value; a stratified conditional-predictive-ability
@@ -133,7 +161,7 @@ Grouped. Each: **what it is → the instance we hit → the lesson.**
 - **C6 — a "win" that was a bug.** dense-mse "beats baseline" was a **mismatched-months + dead-body
   artifact** (corrected). **Lesson: a surprising win is a bug until proven otherwise; check the harness
   before believing the number.**
-- **C7 — the different-months bug.** Comparing models on different month sets inflated a comparison; the
+- **C7 — the different-months bug.** Comparing models on different month sets inflated a comparison; the  `[→ C-217]`
   **frozen ruler** (identical months/cells/truth) killed it. **Lesson: freeze the comparison substrate
   (months, cells, truth) into one immutable ruler; never compare across substrates.**
 
@@ -283,109 +311,13 @@ Grouped. Each: **what it is → the instance we hit → the lesson.**
 
 ---
 
-## 4. What a trustworthy evaluation needs (forward-looking — the metric battery)
-
-Design principle: **a scalar is a summary of a decomposition you must also report.** For this DGP:
-
-1. **Decompose, always.** Report three independent axes, never a single scalar:
-   - **Occurrence:** `P(y_pred>0)` vs `P(y_true>0)` per step (activation frequency); gate **AP / AUPRC**
-     (ranking of real cells above empty); **recall on true positives** and **precision / false-alarm** —
-     separates "gate won't fire" from "gate fires wrong."
-   - **Conditional magnitude:** `E[y_pred | y_pred>0]` vs `E[y_true | y_true>0]`; quantiles/intervals of the
-     positive part; tail (exceedance, ξ).
-   - **Calibration:** PIT/coverage **restricted to active cells**; reliability of the gate probability.
-2. **Score the deployed object, per step, over the full horizon.** The **sample** field (what rolls out), not
-   just the emitted mean; per-step (never pooled); h=1…36.
-3. **Spatial verification** (borrow from meteorology): Fractions Skill Score (neighborhood), object-based
-   verification (SAL / MODE), spatial-concentration (Gini/entropy of the predicted field) — to catch A1
-   (over-concentration) directly.
-4. **Discrimination that survives sparsity:** AUPRC / precision-recall for occurrence; do NOT rank on a proper
-   score whose dynamic range across the model set is < a few % (check range first — A3).
-5. **Proper scores WITH a power statement:** stratified Giacomini–White conditional predictive ability on an
-   ex-ante high-risk stratum, reporting the minimum detectable effect (C2); acknowledge the Lerch tail-power
-   decay.
-6. **Reproducibility gates:** ≥3 seeds, validation partition, determinism gate, no in-sample rankings, cache
-   fingerprinting (D1–D3, C5).
-7. **Predictability baselines** (I1/I2): report the persistence/climatology confound and the measured
-   predictability of each axis, so "model error" is separated from "task limit."
-8. **The oracle-input rollout, every time you diagnose a rollout** (G5/I4). Emit the SAME model twice — free
-   (`rollout_feedback='sample'`) and oracle (`='teacher_forced'`, real inputs each step) — and report both AP
-   curves. The oracle curve is the model's *achievable* skill given in-distribution inputs; the gap to the free
-   curve is the self-poisoning cost. This single cheap (emit-only) comparison decides bug-vs-ceiling and stops a
-   rollout collapse being misread as either exposure bias or an information ceiling.
-9. **Implementation verification is part of the evaluation, not a precondition to it** (meta-pattern 8). A
-   train/inference feedback **parity test** (the fed-back object is byte-identical train vs deploy), a sampler
-   sanity check (never-zero, unbiased, and *fast enough to run at grid scale*), and ≥N origins so the verdict
-   isn't a small-sample artifact — these gate the metrics, because a wrong implementation makes every metric lie
-   in unison.
-
 ---
 
-## 5. The key methodological proposal — a degenerate-forecast red-team for the metric suite
+## PARKED — DRAFT §6 (research article)
 
-The unifying fix for "how did we miss it": **treat the metric suite itself as software under test, and unit-test
-it with adversarial/degenerate forecasts whose true quality is known.** Before trusting a metric set, feed it:
+The DRAFT's §6 research-article outline (working title *"When the ruler lies: failure modes in evaluating
+sparse, heavy-tailed, autoregressive spatiotemporal count forecasts — and a metric battery that doesn't"*) is
+**parked verbatim in the original DRAFT file** and is out of scope for this dossier (`SCOPE.md` #22).
 
-- **all-zero** (predict 0 everywhere),
-- **climatology** (per-cell historical rate/magnitude),
-- **persistence** (last observed),
-- **over-concentrated spiky** (right total, all mass on 1/30th of cells) — *the #258 failure*,
-- **frequency-right / magnitude-wrong** and **magnitude-right / frequency-wrong** (the two halves separated),
-- **a known-good calibrated reference.**
-
-**A metric that cannot separate these is blind and must not be used for selection.** Concretely: MCR fails
-(all-zero and over-concentrated both ≈ climatology on MCR); CRPS fails on sparse (all collapse together); AUPRC +
-activation-frequency + spatial-concentration *pass* (they separate all six). This "metric red-team" is the
-reusable contribution — it would have flagged the #258 defect *on day one*, on synthetic data, before any model
-run.
-
----
-
-## 6. Toward a research article
-
-**Working title:** *"When the ruler lies: failure modes in evaluating sparse, heavy-tailed, autoregressive
-spatiotemporal count forecasts — and a metric battery that doesn't."*
-
-**Contribution (proposed):**
-1. A **taxonomy** of evaluation failure modes for this DGP class (§2–§3 here) — novel as a consolidated
-   catalog; individually some are folklore (Forecaster's Dilemma, Goodhart), but the *composition + rollout +
-   sparsity* interaction and the *mean-vs-sample* object mismatch are underserved.
-2. The **degenerate-forecast red-team** (§5) as a general, cheap, model-agnostic method for auditing a metric
-   suite before use.
-3. The recommended **decomposed metric battery** (§4).
-4. **Empirical demonstration on conflict forecasting (HydraNet):** the same 8 models ranked "flat/identical" by
-   CRPS and "fine" by MCR are cleanly separated by the battery; the activation deficit + double-zero-inflation +
-   sample/mean split are shown end-to-end. This is a strong, honest case study *because we were fooled by it*.
-
-**Related-work anchors (held / to fetch):** Gneiting2011 (proper scoring / improper weighting), Lerch2017
-(Forecaster's Dilemma, tail power decay), Giacomini2006 (conditional predictive ability), Gneiting2007 (strictly
-proper), spatial verification (Ebert FSS; Wernli SAL; Davis MODE), Roberts2008 (FSS), calibration/PIT
-(Gneiting-Balabdaoui-Raftery), intermittent-demand (Syntetos-Boylan), EVT (Coles/Davison). *(Do a proper library
-pass.)*
-
-**Framing angle:** this is not just "conflict forecasting is hard"; it is "the standard proper-scoring toolkit is
-*insufficient and actively misleading* for zero-inflated heavy-tailed autoregressive spatiotemporal counts, and
-here is a constructive remedy" — which generalizes to precipitation nowcasting, disease outbreak, extreme-event,
-and intermittent-demand forecasting.
-
----
-
-## 7. Open questions / TODO (draft)
-
-- Reconcile with **FAO-02**: which of its choices (CRPS-primary, twCRPS/PIT-rejected) survive this catalog? Likely
-  a formal amendment.
-- Run the **degenerate red-team** as actual code (synthetic fields) and tabulate which metric separates which
-  degenerate — that table is the paper's Figure 1.
-- Fold in the **gate-recall vs body-zero probe** (#258) results once they land — they instantiate E1 empirically.
-- Pull the real numbers/tables from: `2026-07-14_amount_ceiling`, `2026-07-18_body_mask_sweep`,
-  `2026-07-20_distributional_head`, `2026-07-29_v2_scoreboard`, `2026-08-01_tail_decoupled_head`,
-  `2026-08-08_hydranet_ensemble`, the volatility-predictable finding, and issue #258 (both comments).
-- Decide venue framing: methods paper (evaluation) vs applied (conflict) — probably methods with conflict as the
-  worked example.
-- **Honest scars to include (not hide):** every retracted claim in the register is data about the failure mode —
-  the paper's credibility comes from having been fooled and having the receipts.
-
----
-
-*Draft only. Nothing here is a verified result; several citations are from memory and must be checked against the
-dossiers before anything is quoted. Promote to a dossier + do a literature pass when this moves past brain-dump.*
+It is not deleted, not rewritten, and not worked on. When the programme has a validated ruler and a body of
+results, it is a separate decision.

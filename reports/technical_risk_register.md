@@ -4,12 +4,14 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-08-14                           |
-| Total Concerns    | 267                                  |
-| Open Concerns     | 140                                  |
-| — of which demoted (tech-debt) | 5 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| Resolved Concerns | 127                                  |
-| Resolved on PR #216 (in-place ✅, merged) | 12 (C-138/234/235/236/237/238/239/240/241/242/243/247) — bannered in §Open and still physically there (so mechanically counted among the 128 Open above), pending relocation to §Resolved on a future curation pass |
+| Last Updated      | 2026-08-15                           |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day. `C-34`/`C-188` are intentional numbering gaps (merged entries). |
+| Total Concerns    | 280                                  |
+| Open Concerns     | 129                                  |
+| — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
+| — net active risks | 116                                 |
+| Resolved Concerns | 151                                  |
+| Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
 ---
 
@@ -45,6 +47,22 @@ Open concerns reduce to **13 root decisions**. Fixing a root advances multiple e
 | **11** | Overridable phase-template silently drops the wandb/bookkeeping lifecycle | C-132, C-133, C-134 (+D-07) | 1–2 | near-term |
 | **12** | #110 baseline-run operational readiness (config drift / decision-rule / runtime harness) | ~~C-161, C-162~~ RESOLVED, C-163, C-164 | 1–2 | unblock before #110 — C-163/164 remain |
 | **13** | Rollout-training & balancer methodology rest on unverified premises | C-124, C-125, C-126, C-128, C-170 | 2 | decide with rollout work |
+
+**2026-08-15 refresh (review-rr strategic) — 2 new clusters + a register↔code reconciliation:**
+
+| # | Root decision | Member entries | Fix scope | Priority |
+|---|---|---|:--:|---|
+| **14** | **Positional coupling — ordinal position substitutes for a named binding** | C-270 (gate↔body `prob[:, :n_reg]`), C-260 (SS channel substitution by position), C-123 (`choose_loss` positional 3-tuple), C-03 (hardcoded 3+3 topology), C-255 (hardcoded ZINB param layout in the forensic) | 1–2 | **near-term — C-270 is the acute member** (the only Tier 2 with a silent model-output consequence and a one-validator fix). Doing it as the head of this cluster reframes C-03/C-123 from "deferred god-refactor" to "incremental de-positioning" |
+| **15** | **Register↔code sync debt — the code cites concern IDs faithfully; the register did not read them back** | Closed on this pass: C-132/146/179/180/193/194/195/196/197/201/251 + the 12 PR-#216 bannered entries + C-184 (residual → C-273). Still live: C-274 (self-contradicting test verdicts) | done (this pass) | **largely CLOSED 2026-08-15** — 24 entries relocated to §Resolved, open count 145→120. Recurrence guard: a trigger that provably cannot fire is a resolution candidate; re-run the `grep -rhoE 'C-[0-9]{2,3}'`-vs-§Open cross-check each curation pass |
+
+**2026-08-15b (review-rr prioritize) — 2 LATENT clusters promoted.** The prioritize pass found **60 of 109 active entries unclustered, including all 3 Tier 1s** — the map had not kept pace with the expert-method-review intake (28 entries) or the operational-readiness intake. The two largest latent groups outrank every mapped cluster:
+
+| # | Root decision | Member entries | Fix scope | Priority |
+|---|---|---|:--:|---|
+| **16** | **Rollout-skill measurement integrity** — ✅ **LARGELY CLOSED 2026-08-15 by Epic #263** (S0–S7). Corrections to this row's original text: **|O| = 13, not ≈12** (the ≈12 came from `02b_method_review.md:72`, written *before* the partition was verified); the guard tests numbered **10, not 12** (that conflated `test_gw_stratified.py` with `test_score_v2_horizons.py`); and C-217 was already **cleared-with-residual**, not open. | C-217 ✅ asserted · C-218 ✅ asserted (runtime) · C-219 ✅ enforced in code · C-220 ✅ first-ever test · C-221 ✅ MDE stated · C-224 ✅ diagnostic exists (**Tier-1 governance ask UNCHANGED, still open**) · C-231 ✅ metric exists · C-248 ✅ inherited by the climatology · C-252 ✅ explicit · C-253 reused untouched · C-254 ✅ power stated. New: **C-277**. **Guard accounting: 10 pytest + 1 runtime** (C-218 cannot be a portable pytest without a cross-repo path — the C-247 sin). | done | **VERDICT DELIVERED:** the h36 "win" is an **ARTIFACT** — unanimous across 12/12 arm×target rows. See `reports/2026-08-15_rollout_ruler_trust_dossier/07_experiment_log.md`. |
+| **17** | **Global-server deploy readiness — every guard in this register fires before deployment, none after** | C-115 (silent CPU fallback), C-116 (publish-tail OOM — mechanism asserted and retracted twice; MEASURE first), C-163 + C-164 (no runtime harness / no peak-RSS seam test), C-192 (grid-name flip not wired into DataSniffer — gates the S2 commit), C-245 (out-of-repo pipeline-core hooks pinned by range only), C-272 (rolling-origin silently truncated), C-275 (no data-vintage record), C-276 (no forecast monitoring), C-110 (heterogeneous-member ensemble aggregation unverified) | 2 (parallelisable; disjoint files from cluster 16) | **IMMINENT.** `heavy_freighter` (global grid) is explicitly untested in the ensemble smoke, and the flip is 8× the cells of africa. Sequence by cost: C-115 (≈10-line hard CUDA gate) → C-192 (unblocks S2) → C-275 → C-116/163/164 → C-276 before serving. |
+
+**Cluster 7 status note (2026-08-15):** the register calls this "the live research front", but the V2 scoreboard has since delivered a verdict (gated_NB ≡ th_gated_NB ships; ZINB falsified as the crps_all front-runner and blooms in the free-running rollout). C-146 is now closed by the committed-likelihood docstring; several remaining members are likely mooted by that empirical result rather than by code. The member-level status review this map has requested since 2026-07-27 is still outstanding for the other 9.
 
 **Highest-value (refreshed 2026-07-27):** Cluster 1 is no longer the priority — the bloom epic (#183/#193) + today's cleanup addressed most of it (C-113 mitigated via ADR-070, C-121 resolved, predict() sampler + tests + IntegrityGuardian shipped). The **live research front is Cluster 7** (ZINB objective/likelihood): the head is built but the train/inference-objective and likelihood-commitment questions are unverified — **the top follow-up is a member-level status review of Cluster 7** to separate genuinely-open from epic-closed. Clusters 2, 8, 12 are mostly closed (residuals: C-110/112; C-156/160/166; C-163/164). The **magnitude/amount-ceiling** (not a register risk) remains the standing research ceiling.
 
@@ -191,8 +209,7 @@ Per Martin (Clean Architecture Ch 10, p.100-103): ISP says "avoid depending on t
 
 ---
 
-### C-37: VolumeHandler in SAP "Zone of Pain" — partial abstraction at PF boundary [DEMOTED]
-
+### C-37: `[DEMOTED]` VolumeHandler in SAP "Zone of Pain" — partial abstraction at PF boundary
 | Field | Value |
 |-------|-------|
 | ID | C-37 |
@@ -211,8 +228,7 @@ See also C-36 (ISP partially addressed) and D-01 (resolved — partial split exe
 
 ---
 
-### C-49: Flat config schema may not scale — no nested structure for regularizers, strategies, or per-target settings [DEMOTED]
-
+### C-49: `[DEMOTED]` Flat config schema may not scale — no nested structure for regularizers, strategies, or per-target settings
 | Field | Value |
 |-------|-------|
 | ID | C-49 |
@@ -263,8 +279,7 @@ See also C-75 (duplicated derivation logic).
 
 ---
 
-### C-85: Flip probability 0.5 hardcoded in training_engine — not config-driven [DEMOTED]
-
+### C-85: `[DEMOTED]` Flip probability 0.5 hardcoded in training_engine — not config-driven
 | Field | Value |
 |-------|-------|
 | ID | C-85 |
@@ -281,8 +296,7 @@ See also C-65 (resolved — `random_flips` added to schema).
 
 ---
 
-### C-89: `_SumReducer` and `_make_tiny_model` duplicated across test files [DEMOTED]
-
+### C-89: `[DEMOTED]` `_SumReducer` and `_make_tiny_model` duplicated across test files
 | Field | Value |
 |-------|-------|
 | ID | C-89 |
@@ -621,7 +635,7 @@ Tier 3 rationale: evaluation/decision-hygiene gap; no silent corruption today, b
 
 ---
 
-### C-127: Duplicate dict keys in model configs (F601) — later definition silently shadows the earlier
+### C-127: `[DEMOTED]` Duplicate dict keys in model configs (F601) — later definition silently shadows the earlier
 
 | Field | Value |
 |-------|-------|
@@ -637,6 +651,8 @@ Four model configs define a dict key twice; Python silently retains the last ass
 Tier 4 rationale: linter-visible (ruff F601, not silent), values mostly identical, the one divergence affects only a sweep search space. Mitigation: delete the dead (earlier) duplicate in each file, preserving current behaviour; confirm `new_rules` intended `[32,64,128]`.
 
 **Fix applied 2026-06-06** (views-models `e9ced12`, pushed to `development`): the earlier (dead) duplicate removed in all four files, current behaviour preserved; ruff F601 clean repo-wide. Open pending merge to main; `new_rules`'s `[32,64,128]` kept as the effective value — author to confirm `[64,128]` was not the intent.
+
+> **`[DEMOTED]` to the Tech-Debt Backlog 2026-08-15 (review-rr strategic signal-to-noise pass).** Tier 4, mechanical, single-file, no correctness or reliability impact — actionable as ordinary tech debt rather than a governance risk. Full entry retained here for traceability; indexed in §Tech-Debt Backlog; no longer counted as an active risk.
 
 ---
 
@@ -694,7 +710,7 @@ Tier 4 rationale: a config redundancy with an explicit runtime warning; no corre
 
 ---
 
-### C-131: `weight_decay=0.1` is large in absolute terms (intentional, but unflagged)
+### C-131: `[DEMOTED]` `weight_decay=0.1` is large in absolute terms (intentional, but unflagged)
 
 | Field | Value |
 |-------|-------|
@@ -708,22 +724,7 @@ Tier 4 rationale: a config redundancy with an explicit runtime warning; no corre
 
 Tier 4 rationale: a code/config observation, not a correctness issue; the value is deliberate. No silent corruption. Cross-ref C-126 (calibration metric).
 
----
-
-### C-132: HydranetManager `_execute_model_training` override silently drops the wandb train-run lifecycle
-
-| Field | Value |
-|-------|-------|
-| ID | C-132 |
-| Tier | 2 |
-| Source | falsify + 3-agent investigation (wandb training-logging bug, 2026-06-07) |
-| Trigger | Running a **single training run** (`main.py -r calibration -t`) and expecting wandb to contain training-phase metrics (loss, `mtl_log_var/*`, sigma, `ss_epsilon`) — or relying on those curves to diagnose a training run |
-| Location | `views-hydranet/views_hydranet/manager/hydranet_manager.py:185-187` (override) vs base `views-pipeline-core/views_pipeline_core/managers/model/model.py:~1186` (`_execute_model_training`) |
-| Cross-refs | C-112 (pre/post-C-111 training-dynamics comparison — affected if training curves are needed) |
-
-`HydranetManager._execute_model_training` overrides the base `ModelManager._execute_model_training` with a bare `self._train_model_artifact()`, dropping the base method's `with self._wandb_module.initialize_run(job_type="train"): ...` wrapper (and also its `TrainingStage.finalize_training` + `ModelTrainingException` handling). Consequently, on the **single-run `-t` path only**, `wandb.run is None` throughout training and every guarded `wandb.log` in `training_engine.py` (L640/651/664) silently no-ops — no error, no warning, no train run on the dashboard. **Scope is path-specific:** the sweep path (`_execute_model_sweeping`) and eval path (`_execute_model_evaluation`) are NOT overridden, so they keep their wandb runs open and log correctly (verified: pink_pirate sweep TRAIN runs + all EVAL runs logged fine through 2026-06-05). No impact on training correctness, artifacts, or eval metrics — observability loss only.
-
-Tier 2 rationale: a silent divergence from a base-class contract (a subclass phase-override drops a lifecycle the base guarantees), with a clear trigger and zero error signal; latent since ~March 2026 and only surfaced when per-lesson training logging was added 2026-06-01 (it had nowhere to land on the `-t` path). Not Tier 1 (no model-output corruption). Fix direction (pending /expert-code-review): wrap the override body in `initialize_run("train")` — NOT a plain delete, since the override deliberately bypasses `finalize_training`. Why-not-caught: workflow is sweep-centric (`-s`) + eval-metric-centric (`-e`), both of which log fine; no test asserts an active train run.
+> **`[DEMOTED]` to the Tech-Debt Backlog 2026-08-15 (review-rr strategic signal-to-noise pass).** Tier 4, mechanical, single-file, no correctness or reliability impact — actionable as ordinary tech debt rather than a governance risk. Full entry retained here for traceability; indexed in §Tech-Debt Backlog; no longer counted as an active risk.
 
 ---
 
@@ -749,7 +750,7 @@ Tier 2 rationale: structural fragility with a clear, recurring trigger and zero 
 | Field | Value |
 |-------|-------|
 | ID | C-134 |
-| Tier | 2 |
+| Tier | 3 (downgraded from 2 on 2026-08-15 — partial mitigation landed, see banner) |
 | Source | expert-code-review (wandb lifecycle, 2026-06-07) |
 | Trigger | A phase (training especially) runs while `wandb.run is None` — the guarded `wandb.log` calls drop all metrics with no warning or error |
 | Location | `views-hydranet/views_hydranet/train/training_engine.py:640/651/664`; `views_hydranet/utils/utils.py:~204` (`train_log`) |
@@ -757,7 +758,9 @@ Tier 2 rationale: structural fragility with a clear, recurring trigger and zero 
 
 `if wandb.run is not None:` makes "no observability" indistinguishable from "healthy." A ~90-minute training run can lose all telemetry silently — exactly how C-132 stayed hidden, and it bites during the C-112/C-113 investigations that most need training dynamics. Prevention: emit a one-time WARNING (or assert, in non-sweep/non-test runs) when a training loop proceeds with `wandb.run is None`.
 
-Tier 2 rationale: silent failure mode that masks other defects (defense-in-depth gap); clear trigger, no error signal. Observability-only (no correctness impact) → not Tier 1.
+Tier 2 rationale (original): silent failure mode that masks other defects (defense-in-depth gap); clear trigger, no error signal. Observability-only (no correctness impact) → not Tier 1.
+
+> **Partial mitigation landed; ⬇ Tier 2 → 3 on 2026-08-15 (review-rr strategic).** `training_engine.py:827-834` now lazily imports wandb at training start and emits `logger.warning("⚠️ wandb.run is None at training start — per-lesson training metrics will NOT be logged…")`, tagged "Fail-loud (C-134)" in the source. **This is the WARNING half of the prevention this entry asked for, not the assert half** — a non-sweep, non-test training run still proceeds to completion with no telemetry, so "no observability" is now *distinguishable* in the logs but not *refused*. The remaining gap is narrow (promote the warning to a hard fail outside sweeps/tests) and the masking risk that motivated Tier 2 is substantially reduced, so this is re-tiered to 3 rather than resolved. Note the guarded `wandb.log` sites cited in Location have since moved (now `training_engine.py:1041-1068` and `utils.py:306`).
 
 ---
 
@@ -800,27 +803,6 @@ Three design risks for the count-likelihood head, surfaced by two method reviews
 - **(M-5) Incoherent hybrid.** A "distributional NLL + per-cell shrinkage penalty on the mean" is **not a coherent likelihood** — no posterior corresponds to it, and it double-counts the mean–variance trade-off the dispersion already encodes (Jørgensen 1987 / Bishop). Reading its output as calibrated uncertainty is a silent mis-specification. The coherent alternative is a jointly-trained zero-inflated mixture (clean π₀ + body).
 
 Tier 3 rationale: design-stage methodology gaps for an as-yet-unbuilt head (peer of C-125); no current corruption, but π-conflation would silently mis-specify uncertainty and the others could ship a subtly biased forecaster. Mitigation: the distributional-head dossier `02 §0.0`/`05 §0` pre-registers the hurdle-NB spec, the θ ablation, and the F5/positive-subset eval; gate the build on review. **Update 2026-06-21:** M-4/M-5/M-6 added from the `/expert-method-review` slate (dossier `2026-06-21_proper_score_gate_dossier/02_panel_review.md`); the proper-score gate corroborated that the likelihood (not the backbone) is the lever, so this escalation is now live — gate each candidate on all-cells proper scores + positive-cell calibration.
-
----
-
-### C-138: Stale test import breaks suite collection — `test_eval_integration_toy` imports a removed `views_evaluation` module
-
-**✅ RESOLVED (merged to `development` via PR #216) — F-Z1: submodule-level `importorskip` → a bare `pytest` collects clean (#95 gone).**
-
-| Field | Value |
-|-------|-------|
-| ID | C-138 |
-| Tier | 3 |
-| Source | full-suite run during R2 verification (2026-06-10) |
-| Trigger | Running the full `pytest` suite (CI or local) **without** `--continue-on-collection-errors` — the import error in `test_eval_integration_toy.py` aborts collection, so the other ~743 tests **do not run** and a real regression elsewhere is masked behind a single loud error |
-| Location | `tests/test_eval_integration_toy.py:6` (`from views_evaluation.evaluation.evaluation_manager import EvaluationManager`) + `:18` (`EvaluationManager()`); installed `views_evaluation/evaluation/` (no `evaluation_manager.py`; exposes `native_evaluator`, `evaluation_frame`, `metric_catalog`, `metrics`, `native_metric_calculators`, `config_schema`, `evaluation_report`) |
-| Cross-refs | C-52 (stale tests — resolved precedent), C-10 (importorskip guards), C-79/C-107 (test-coverage gaps) |
-
-`test_eval_integration_toy.py` imports `views_evaluation.evaluation.evaluation_manager.EvaluationManager`, which **no longer exists** in the installed `views_evaluation` — the `EvaluationManager` class/module was removed or renamed upstream (the current package routes evaluation through `native_evaluator` / `EvaluationFrame`). This is **stale-test vs upstream-API drift**, unrelated to the magnitude/rollout program (surfaced incidentally during R2's pre-commit suite run). It is *loud* (ImportError, nonzero exit) — not silent corruption — but because a collection error **interrupts the whole run** by default, a developer or CI seeing "1 error, interrupted" may not realize the other 743 tests never executed, masking unrelated regressions.
-
-Tier 3 rationale: test-integrity / dependency-drift; no model-output impact, but it degrades the suite's value as a regression gate (the masking-by-interrupt hazard). Mitigation: update `test_eval_integration_toy.py` to the current `views_evaluation` entrypoint (likely `native_evaluator` / `EvaluationFrame`), or `pytest.importorskip` it (C-10 pattern) / remove if the toy integration is obsolete; optionally set `--continue-on-collection-errors` in the CI config as defense-in-depth. Tracked in **#95**.
-
-**Update 2026-07-31 (/falsify, F-Z1 — precise cause):** the file *already has* `pytest.importorskip("views_evaluation")` on **line 4**, but it guards the **top-level package** while line 6 imports the **submodule** `views_evaluation.evaluation.evaluation_manager`. The installed `views_evaluation` top package imports fine, so importorskip is a **no-op**, and line 6's submodule import still raises → collection hard-errors despite the guard. **Precise fix: `importorskip("views_evaluation.evaluation.evaluation_manager")`** (skip at the granularity of the thing actually imported). Falsification stub: `tests/test_falsify_zero_surprises.py::test_P2_plain_pytest_collects_without_ignore`.
 
 ---
 
@@ -922,21 +904,6 @@ ZINB self-handles the zero/positive split; combining it with the C-45 `hurdle_th
 | Cross-refs | C-137 (M-Z7 spatial-θ ablation) |
 
 A per-target θ head would break the invariant `input_channels==3×output_channels` and the feedback shape. The MVP θ is a learnable scalar → implement it as a **loss-owned `Parameter`** (like `LogNormalFixedSigmaLoss`'s sigma), not a head; document this so a later spatial-θ ablation (C-137/M-Z7) knows it must add a head deliberately. **Tier 3:** architecture coupling / maintainability.
-
----
-
-### C-146: likelihood conflation — "ZINB" vs "hurdle-NB" are different models
-
-| Field | Value |
-|-------|-------|
-| ID | C-146 |
-| Tier | 2 |
-| Source | expert-method-review (ZINB Pass-2, 2026-06-10) |
-| Trigger | Implementing `ZINBLoss` (#99) without first committing to ONE likelihood and writing its exact NLL |
-| Location | dossier `2026-06-10_zinb_distributional_head_dossier/02_design.md §0/§2`; issue #99 |
-| Cross-refs | C-137 (count-head likelihood-spec), D-08 (unified-NLL decision) |
-
-The design names the head both "**ZINB**" (zeros from a Bernoulli gate **and** the NB's own zero mass — Lambert 1992) and "**zero-truncated NB on positives / hurdle_nb**" (zeros **only** from the gate, truncated positive body — Cragg 1971 / Mullahy 1986). **These are distinct likelihoods** with distinct NLLs and identifiability: in ZINB a zero has two explanations → π and the NB zero-prob are partially confounded; the hurdle factorizes cleanly but needs the truncated-NB normaliser. Implementing the wrong NLL for the intended model is a silent spec error (wrong gradients, wrong calibration). **Commit to one and write its exact NLL before #99.** **Tier 2:** structural mis-specification feeding everything downstream.
 
 ---
 
@@ -1078,7 +1045,7 @@ CI passes only because `ci.yml` `--ignore`s six files; one of them, `test_eval_i
 
 **Update 2026-07-31b (partial fix landed + the DEEPER blocker named):** the `lint` job is now fixable and fixed — `ci.yml` pins `uv tool install ruff==0.14.14` (verified: `ruff 0.14.14` → `ruff check .` clean + `ruff format --check .` = "234 files already formatted") → **lint goes GREEN**. A tracked `environment.yml` (python 3.11 + pip → `pip install .`) was added, which converts the opaque `ENOENT` into a precise, self-documenting failure. But the `test` job remains RED on a **cross-repo release-ordering blocker that nothing in this repo can fix**: pyproject requires `views-pipeline-core >=3.0.0` (the code uses the 3.x `ForecastingModelManager` API), yet **3.0.0 is unpublished** — PyPI tops out at **2.3.0**, GitHub tags at **2.3.1**, and no 3.x branch is pushed; the 3.0.0 the branch depends on exists ONLY as unmerged local work (`views-pipeline-core` branch `docs/322-adr046-realign`). So `pip install .` cannot resolve the core dep, and **the `test` job (and a CI-green merge of PR #216) is gated on the upstream `views-pipeline-core 3.0.0` release** — a maintainer/coordination action, not a views-hydranet code fix. The `environment.yml` auto-greens the job the moment 3.0.0 publishes. **Merge disposition:** either wait for the upstream release, or admin-merge past the release-blocked `test` job with the code verified locally (1258 passing). Location adds: `pyproject.toml` (`views-pipeline-core (>=3.0.0,<4.0.0)`); upstream `views-platform/views-pipeline-core` (no 3.x on PyPI/tags/branches).
 
-### C-166: diagnostic plots show input-only statics as predicted signal (benign display drift)
+### C-166: `[DEMOTED]` diagnostic plots show input-only statics as predicted signal (benign display drift)
 
 | Field | Value |
 |-------|-------|
@@ -1090,6 +1057,8 @@ CI passes only because `ci.yml` `--ignore`s six files; one of them, `test_eval_i
 | Cross-refs | C-156 (root — `feature_cols` overload), C-157 (the crash face, now fixed), C-118 (visual_diagnostics module), ADR-062 §2.1 |
 
 A fourth, **benign** face of the C-156 overload: `_select_display_channels` derives "interesting channels" from `feature_cols`, which now includes input-only statics (CoordConv row/col). The diagnostics therefore plot geometry as if it were model signal. No crash, no model-output or training impact (the C-157 crash face is fixed; this is display-only), but it can mislead a researcher reading the biopsy plots. **Tier 4:** cosmetic/interpretation, no correctness or reliability impact. **Fix:** select display channels from `target_cols` (or exclude `static_cols`) once the role accessors are the single source — natural tidy-up alongside the flip commit or Phase-6 harden. Pinned (CLASSIFY, non-xfail) by `test_census_suspectA_visualdiagnostics_static_classification`.
+
+> **`[DEMOTED]` to the Tech-Debt Backlog 2026-08-15 (review-rr strategic signal-to-noise pass).** Tier 4, mechanical, single-file, no correctness or reliability impact — actionable as ordinary tech debt rather than a governance risk. Full entry retained here for traceability; indexed in §Tech-Debt Backlog; no longer counted as an active risk.
 
 ---
 
@@ -1144,7 +1113,7 @@ The frozen balancer (`log_vars=0`) sums the 6 task losses with fixed weights (re
 
 ---
 
-### C-171: FocalLoss docstring falsely claims it "reduces to BCE when gamma=0 and alpha=0.5" (it is 0.5·BCE)
+### C-171: `[DEMOTED]` FocalLoss docstring falsely claims it "reduces to BCE when gamma=0 and alpha=0.5" (it is 0.5·BCE)
 
 | Field | Value |
 |-------|-------|
@@ -1157,9 +1126,11 @@ The frozen balancer (`log_vars=0`) sums the 6 task losses with fixed weights (re
 
 The docstring states FocalLoss "reduces to Binary Cross Entropy (BCE) when gamma=0 and alpha=0.5." Verified false: at α=0.5 the `alpha_t` factor is a constant 0.5, so `focal(γ=0, α=0.5) == 0.5·BCE` (probe P2: ratio exactly 0.5000). True BCE-equivalence needs α disabled (α<0) **and** γ=0. The **computed value is correct** — focal matches `torchvision.ops.sigmoid_focal_loss` exactly (probe P1) — so this is a documentation defect, not a math bug. Practical edge: because α scales the classification loss magnitude, a swap made on the false premise of equal scale would silently shift the multi-task reg-vs-cls balance. **Tier 4:** code-quality/doc inaccuracy, no production correctness impact (gate sweep used `reduction='mean'`, α∈{0.25,0.75}, where the formula is verified). Fix: correct the docstring. Failing stub: `tests/test_falsify_gate_losses.py::test_focal_docstring_bce_equivalence_is_accurate`.
 
+> **`[DEMOTED]` to the Tech-Debt Backlog 2026-08-15 (review-rr strategic signal-to-noise pass).** Tier 4, mechanical, single-file, no correctness or reliability impact — actionable as ordinary tech debt rather than a governance risk. Full entry retained here for traceability; indexed in §Tech-Debt Backlog; no longer counted as an active risk.
+
 ---
 
-### C-172: FocalLoss internal `unsqueeze(0)` leaks a leading dim under `reduction='none'`
+### C-172: `[DEMOTED]` FocalLoss internal `unsqueeze(0)` leaks a leading dim under `reduction='none'`
 
 | Field | Value |
 |-------|-------|
@@ -1171,6 +1142,8 @@ The docstring states FocalLoss "reduces to Binary Cross Entropy (BCE) when gamma
 | Cross-refs | C-171 (same file, same audit), [[project_gate_loss_finding]] |
 
 `FocalLoss.forward` unsqueezes a leading dim ("matches expected pipeline volume format"), so with `reduction='none'` it returns shape `[1, *input]` instead of `[*input]` (probe P5: input `(4,8,8)` → focal `(1,4,8,8)`; `WeightedBCEWithLogitsLoss` correctly preserves `(4,8,8)`). Harmless under `mean`/`sum` (the scalar is unaffected — production + the gate sweep use `mean`), but it is a latent contract inconsistency: focal is the only loss whose `none`-mode output rank differs from its input, so any per-cell weighting code that works for the other losses would silently mis-broadcast with focal. **Tier 4:** no current correctness impact; latent shape-contract trap. Fix: drop the internal `unsqueeze`. Failing stub: `tests/test_falsify_gate_losses.py::test_focal_reduction_none_preserves_input_shape`.
+
+> **`[DEMOTED]` to the Tech-Debt Backlog 2026-08-15 (review-rr strategic signal-to-noise pass).** Tier 4, mechanical, single-file, no correctness or reliability impact — actionable as ordinary tech debt rather than a governance risk. Full entry retained here for traceability; indexed in §Tech-Debt Backlog; no longer counted as an active risk.
 
 ---
 
@@ -1186,6 +1159,8 @@ The docstring states FocalLoss "reduces to Binary Cross Entropy (BCE) when gamma
 | Cross-refs | C-160 (channel-role refactor — the fix vehicle: roles as data, not prefixes), C-174, C-120 |
 
 The model derives a channel's **semantic role** (onset gate vs regression magnitude vs model-prediction) by **parsing the column-name prefix**, not from an explicit role declaration. A future incoming column whose name happens to start with a reserved prefix would be **silently** treated as that role — skipped from inverse-transform (`feature_scaler`) or treated as a generated binary target (`data_sniffer`) — with **no error**, producing wrong outputs. The user explicitly flagged "other features coming in at some point," which is exactly the triggering scenario. **Tier 2:** silent mis-classification (no error signal) under a realistic, anticipated change (new features); becomes Tier-1-like if it ever fires on a real covariate. Fix: resolve role from an explicit boundary schema (external name → {role, target_id, transform}); consume roles, not prefixes (aligns with the ADR-062 channel-role refactor, C-160).
+
+**Second facet added 2026-08-15 (repo-assimilation, Phase 3 invert-step trace) — the `feature_scaler.py:228` guard is MIS-ORDERED and therefore DEAD for prediction channels.** The prefix heuristic is not only over-broad (the original narrative above), it is also evaluated against the **pre-strip** name: `if channel_name.startswith(BINARY_PREFIX)` runs at `:228`, but `removeprefix(PRED_PREFIX)` only happens at `:235`. The channels the guard exists to protect are named `pred_by_sb` / `pred_by_ns` / `pred_by_os` (built at `volume_handler.py:404` as `f"{PRED_PREFIX}{n}"`), which do **not** start with `by_` — so the "binary/probability heads are never inverse-transformed" guard **never fires for a prediction channel**. Those gate-probability channels are currently safe only incidentally: `by_*` targets are produced by `derivations` rather than listed in `transformations`, so the subsequent `method_lookup.get(base_name)` returns `None` and the channel is skipped anyway. Correct behaviour therefore depends on a config *convention*, not on the guard — and `validate_laws` (`config_initializer.py:412`) explicitly permits accounting for a target via **either** `transformations` **or** `derivations`, so a config listing `by_sb` under a non-identity transform would `expm1` a probability on the output path with no error. **No live trigger in current configs (defence-in-depth only), so this facet does not change C-173's Tier 2** — it strengthens the case that role must come from an explicit schema rather than prefix parsing. Narrow fix if taken separately: move the prefix check after `removeprefix`, or key it off `classification_targets` instead of the string prefix.
 
 **views-frames migration note (source-checked 2026-06-24, `views-frames/src/views_frames/feature_frame.py`):** the planned `FeatureFrame` does NOT fix this. It carries `feature_names: list[str]` (flat, no per-feature role), `FrameMetadata` (model/run_type/timestamp/seed — frame-level provenance only), and `SpatialLevel` (cm/pgm). It is a deliberately thin typed container (ADR-011/013), so **role stays implicit in the name** — the prefix parsing survives, just reading `frame.feature_names`. ⇒ the fix is hydranet's own ingestion boundary (C-160 + a `feature_names→role` adapter), NOT the migration, and is NOT blocked on upstream.
 
@@ -1253,36 +1228,6 @@ The retired `views_pipeline_core` PredictionFrame **rejected** an empty frame (`
 
 ---
 
-### C-179: `reg_activation` is arch-affecting but NOT persisted in the artifact sidecar — silent activation mismatch on reload
-
-| Field | Value |
-|-------|-------|
-| ID | C-179 |
-| Tier | 2 |
-| Source | /falsify "regression head + mask now 100% correct" round 2 (2026-06-26) — Finding A, SOFT |
-| Trigger | Reload (eval/forecast/replay) a model trained with an **explicit `reg_activation` override**, or a pre-#178 relu-trained `hurdle_shrinkage`/`hurdle_lognormal` artifact, while the live config's activation default differs from training |
-| Location | `views_hydranet/train/train_model.py:75-92` (`arch_keys` / `config_snapshot` — persists `output_distribution`, `static_channels`, but NOT `reg_activation`); `views_hydranet/utils/utils.py` `choose_model` (`reg_activation=config.get("reg_activation")`) |
-| Cross-refs | C-159 (same sidecar-drift class — but that one crashed loud; this is silent), C-178 (the softplus fix this completes), ADR-063 |
-
-The regression-head output activation `reg_activation` changes the forward function but is **absent from the persisted sidecar `arch_keys`**. On reload, `choose_model` therefore derives the activation from the *current* default (keyed off `output_distribution`, which IS persisted), **not** from what the model was trained with. Because softplus and ReLU share weight shapes, `load_state_dict` succeeds silently — so a model trained with one activation runs the forward with another, producing **wrong predictions with no error signal**. Demonstrated: a relu-trained `hurdle_shrinkage` artifact reloads as softplus (the round-2 probe hit this). **Tier 2:** silent-but-gated — it bites only when the trained activation differs from the reload-time default (explicit override, or a pre-#178 artifact); the production `hurdle_nb` path defaulted to softplus before and after, so it is unaffected. The fix mirrors the adjacent `output_distribution` line (`train_model.py:92`, whose comment already says "persist the head flag (else hurdle_nb reloads as ReLU)"): add `reg_activation` to the snapshot. Failing test: `tests/test_falsify_head_mask_round2.py::test_reg_activation_round_trips_through_sidecar`.
-
----
-
-### C-180: `active_window` hurdle mask is silently ignored under a latent loss — config no-op with no warning
-
-| Field | Value |
-|-------|-------|
-| ID | C-180 |
-| Tier | 3 |
-| Source | /falsify "regression head + mask now 100% correct" round 2 (2026-06-26) — Finding B, SOFT |
-| Trigger | Set `hurdle_mask_mode='active_window'` together with a `needs_latent=True` loss (`tobit`, `hurdle_nb`, `dense_nb`) |
-| Location | `views_hydranet/train/training_engine.py:223` (`if hurdle_threshold is not None and not use_latent and hurdle_mask_mode == "active_window"`) |
-| Cross-refs | C-178, ADR-063; the active_window mask (dossier `2026-06-23_body_sweep_dossier/16`) |
-
-`active_cell` is computed only when `not use_latent`, and the masked hurdle-loss branch is likewise gated on `not use_latent`. So a config that asks for `active_window` decay supervision **while using a latent loss** gets **no active-window supervision at all — silently, with no warning or error**. The behaviour is *semantically* defensible (latent losses model the zeros/censoring themselves, so a hurdle mask does not apply), but the silent no-op of an explicitly-set flag means the user believes decay supervision is on when it is not — exactly the kind of invisible config drift that produced a multi-week mis-attribution before. **Tier 3:** no correctness corruption (the latent loss is doing the right thing), but a maintainability/honesty gap that misleads experiment design. Fix: log a warning (or fail-loud reject) when `active_window` is combined with a latent loss. Failing test: `tests/test_falsify_head_mask_round2.py::test_active_window_with_latent_loss_warns_or_raises`.
-
----
-
 ### C-181: classification (gate) loss has no valid-cell mask — the gate trains on ~60% structural-zero ocean cells (train/eval distribution mismatch)
 
 | Field | Value |
@@ -1300,7 +1245,7 @@ The classification loss is computed on the **entire** `[H, W]` grid with **no va
 
 ---
 
-### C-182: `total_hidden_channels` divisibility-by-8 contract is documented but unenforced — fails late with a cryptic unpack error
+### C-182: `[DEMOTED]` architecture dimensional contracts documented but unenforced — `total_hidden_channels` divisibility-by-8 contract is documented but unenforced — fails late with a cryptic unpack error
 
 | Field | Value |
 |-------|-------|
@@ -1312,6 +1257,13 @@ The classification loss is computed on the **entire** `[H, W]` grid with **no va
 | Cross-refs | C-114, C-184 (same recurrent-cell architecture, undocumented/unguarded properties) |
 
 The constructor documents "`total_hidden_channels` Must be divisible by 8" but does **not** validate it. A non-divisible value (e.g. 12) is silently floored by `int(.../8)` when sizing the gate convs, then later **raises `ValueError: too many values to unpack (expected 8)`** from the `torch.split` unpack in `forward()` — a cryptic error far from the cause. **No silent corruption** (P4 confirmed it crashes loud, not wrong-output), so this is **Tier 4 / ergonomic only**: correctness is intact, but a developer tuning capacity gets an opaque failure at the first forward instead of a clear constructor message. Fix (optional): add `if total_hidden_channels % 8: raise ValueError(...)` in `__init__`. No failing test stub — the /falsify verdict was SURVIVED (no hard/soft falsification); registered as a maintainability observation per user request.
+
+> **Merged with C-188 on 2026-08-15 (review-rr strategic) — one entry, two axes.** C-188 ("U-Net skip geometry has no grid-divisibility guard") was an independently-found instance of the identical pattern: a dimensional contract that is documented but unenforced, floored silently at construction, and surfacing as a cryptic tensor error deep in `forward()`. Its evidence is folded in here:
+>
+> * **Hidden-channel axis (original C-182):** `total_hidden_channels` must be divisible by 8; `HydraBNrecurrentUnet_06_LSTM4.py:101` silently floors via `int(total_hidden_channels / 8)`, then `torch.split` raises `ValueError: too many values to unpack (expected 8)` in `forward()`.
+> * **Spatial-grid axis (was C-188):** `H`/`W` must be divisible by 4; `:471-473` two `MaxPool2d(2,2)` floor odd sizes while two `ConvTranspose2d(stride=2)` exactly double, so `:483/:490` `torch.cat([upsampleN(...), skip], 1)` mismatches. P2 confirmed grid 14 raises `RuntimeError: Sizes of tensors must match except in dimension 1. Expected size 6 but got size 7` at the first skip `cat`. Trigger: a new config or data window whose grid is not ÷4 — **live for the global flip (360×720 is ÷4; a cropped region may not be).**
+>
+> Both are **loud, never silent corruption** — the output is never wrongly cropped or padded — so the merged entry stays **Tier 4 / ergonomic**. One fix closes both: validate both contracts in `__init__` with a message naming the offending value. `[DEMOTED]` to the Tech-Debt Backlog on the same pass (Tier 4, single-file, mechanical).
 
 ---
 
@@ -1327,21 +1279,6 @@ The constructor documents "`total_hidden_channels` Must be divisible by 8" but d
 | Cross-refs | C-114, C-184 (recurrent-cell architecture choices that are undocumented/unexamined) |
 
 The forget-gate convs (`Wxf_*`, `Whf_*`) leave their biases at PyTorch's default (≈0, uniform), rather than the common `forget_bias=1` warm-start (Jozefowicz 2015) that starts the cell biased to **retain** memory. This is a **training-speed/optimization convention, not a correctness requirement** — the LSTM is mathematically correct either way (P1/P2 confirmed live memory + BPTT). **Tier 4:** no correctness or reliability impact; flagged so that any future investigation of weak temporal memory considers the warm-start as a cheap lever before larger changes. No failing test stub (SURVIVED verdict).
-
----
-
-### C-184: BatchNorm runs inside the recurrent loop — running stats accumulate T× per window over temporally-correlated steps
-
-| Field | Value |
-|-------|-------|
-| ID | C-184 |
-| Tier | 2 ⬆ (was 4 — UPGRADED 2026-06-27: confirmed ROOT CAUSE of the seed-bimodal eval collapse) |
-| Source | /falsify ConvLSTM (2026-06-26) P5; **CONFIRMED root cause via BN-recal experiment (2026-06-27)** |
-| Trigger | FIRES NOW on every training run: ~40% of seeds land BN running-stats that over-amplify at eval → gate saturates → composed E[y] explodes (the seed-bimodality + much of C-113). Acute on any retrain. |
-| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py` (`bn_enc_conv0/1`, `bn_bottleneck_conv`, the `bn_dec_conv*` head BNs — all invoked inside the per-timestep `forward`, which the engine calls T times per window) |
-| Cross-refs | C-114 (undocumented recurrent-regularization surface), C-183, C-113 (rollout dynamics) |
-
-The encoder/bottleneck/decoder `BatchNorm2d` layers are inside the single-timestep `forward`, called T× per window over **temporally-correlated** activations (cf. Cooijmans 2016 recurrent BN). Originally logged Tier-4 ("stable design choice"). **⬆ UPGRADED Tier-2 — CONFIRMED ROOT CAUSE (2026-06-27).** The 2026-06-26 perf program found the production floor is **seed-bimodal (~40% of seeds collapse: saturated gate π̄≈0.1–0.36, rollout MCR_pos 30–260×)**. Triangulated the cause: NOT the loss (pos_weight sweep flat), NOT the weights (per-layer spectral norms + gate-head bias identical good-vs-bad), NOT the training trajectory (good/bad train-time gate-logit identical, because **training uses batch-stats BN**). The decisive test (`bn_mode_probe.py`): every seed is calibrated under **train-mode BN** (π̄≈0.002–0.005) but saturates under **eval-mode BN** (π̄ 0.4–0.998), worst for the bad seeds (which have lower BN `running_var` → eval BN over-amplifies). **FIX CONFIRMED + UNIVERSAL:** recompute BN running stats post-training (forward-only over real windows, reset BN + `momentum=None`) flips **6/6 bad seeds BAD→GOOD and preserves 2/2 good** — bad-basin rate ~40%→0%, rollout MCR_pos collapses to 2.5–8.3× (e.g. seed 201: step-1 CRPS 33.8→0.24, MCR 259→5.8). So this is **silent eval-time model-output corruption on ~40% of trained models** (Tier-2: not Tier-1 only because it surfaces as loud explosions, not a quiet wrong answer, and is now fixable). **Resolution paths:** (a) post-training BN-recal pass before artifact save [cheapest, validated], (b) fix the recurrent-BN momentum/update at the root, (c) GroupNorm/LayerNorm (no train/eval gap; needs retrain). Opt-in `bn_recal_from` flag in `training_engine.py` (uncommitted) implements the test. Tools: `/tmp/run_bn_recal_all.sh`, `/tmp/bn_mode_probe.py`, `/tmp/recal_all_score.py`. Cross-ref C-113 (this is a large part of the eval-explosion), C-147 (gate-calibration), the perf program.
 
 ---
 
@@ -1387,21 +1324,6 @@ All 6 decoder heads (3 reg + 3 class) branch from the **single shared bottleneck
 | Cross-refs | C-190 (skip-path high-freq throttle — the sibling efficiency item), C-185/186 |
 
 All 12 decoder upsampling layers (2 per head × 6 heads) use `ConvTranspose2d` with `stride=2`, which is known to produce **checkerboard artifacts** (Odena 2016, "Deconvolution and Checkerboard Artifacts") when kernel size is not divisible by stride and weights are unlucky. Here kernel=2, stride=2 (divisible), which mitigates but does not eliminate the risk. **Measured present (2026-06-27, /falsify skip-effectiveness, P5):** a structured-input forward on a good-basin artifact shows a **~13% even-vs-odd pixel-grid mean asymmetry** in the regression output — the checkerboard is real but small (injects a periodic *artifact* high-freq, distinct from skip-delivered detail). Still **Tier 4:** a periodic artifact, not a correctness defect; the fix (`Upsample`+`Conv` instead of `ConvTranspose`) is a known one-line swap and is the cheapest sharpness-side A/B alongside C-190. No failing test stub.
-
----
-
-### C-188: U-Net skip geometry has no grid-divisibility guard — non-÷4 grid fails late with a cryptic skip-`cat` error
-
-| Field | Value |
-|-------|-------|
-| ID | C-188 |
-| Tier | 4 |
-| Source | /falsify "the U-Net is 100% correctly implemented" (2026-06-26) — P2 (skip alignment), SURVIVED as observation |
-| Trigger | When a new config or data window uses a spatial grid whose `H` or `W` is not divisible by 4 — the two-pool/two-upsample U-Net dies deep in `forward()` at the first skip `cat`, not at construction |
-| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:471-473` (pool0/pool1 floor-divide), `:483/:490` etc. (`torch.cat([upsampleN(...), skip], 1)` — mismatches when the floored pool size ≠ the transpose-upsampled size) |
-| Cross-refs | C-182 (the LSTM `total_hidden_channels % 8` sibling — same "documented shape contract, no upfront guard, cryptic late crash" pattern, different axis: spatial grid vs hidden channels) |
-
-The U-Net's two `MaxPool2d(2,2)` floor odd sizes while the two `ConvTranspose2d(stride=2)` exactly double, so a grid not divisible by 4 yields skip/upsample size mismatches: P2 confirmed grid 14 raises `RuntimeError: Sizes of tensors must match except in dimension 1. Expected size 6 but got size 7` at the first skip `cat`. **Loud, no silent corruption** (the output is never wrongly cropped/padded), so **Tier 4 / ergonomic only** — but the failure surfaces deep in `forward()` with an opaque message rather than a clear up-front "grid must be divisible by 4" check. Same class as C-182. Optional fix: validate `H % 4 == 0 and W % 4 == 0` at the start of `forward` (or document the constraint on the input contract). No failing test stub (SURVIVED verdict).
 
 ---
 
@@ -1465,90 +1387,6 @@ The platform grid-entity rename **priogrid_gid → priogrid_id** (GH #144) is no
 
 ---
 
-### C-193: `body_mask` masking silently ignored under a latent loss — trains dense while config says masked
-
-| Field | Value |
-|-------|-------|
-| ID | C-193 |
-| Tier | 2 |
-| Source | expert-code-review (2026-07-18, `body_mask` design) — Nygard/ADR-008 |
-| Trigger | Sweeping `body_mask` (or setting `hurdle_threshold`+mode) to a masking value while `loss_reg` is a latent likelihood (`hurdle_nb`/`lognormal_nll`/`tobit`) |
-| Location | `views_hydranet/train/training_engine.py:255-263, 343` (`if hurdle_threshold is not None and not use_latent`; warn-once C-180) |
-| Cross-refs | C-194 (same interface), C-180 (the warn-once), ADR-008, ADR-003 Law 1 |
-
-The point-body mask is silently a **no-op under a latent loss** — only a warn-once fires (C-180). A run can be configured "masked" and train **dense**, invisibly, with no error and no metric signal. Violates ADR-003 Law 1 (Fail Loud — it explicitly names "silent truncation") and ADR-008. **Tier 2:** silent wrong-training under a realistic sweep, no error signal. Fix: a hard `ValueError` at config validation when `body_mask ∈ {pos_cells,pos_timelines}` and the loss is latent (mirror the tobit/`hurdle_threshold` contradiction at `config_initializer.py:627`).
-
-### C-194: `hurdle_mask_mode` read raw + un-validated — a typo silently degrades the mask to per_step
-
-| Field | Value |
-|-------|-------|
-| ID | C-194 |
-| Tier | 2 |
-| Source | expert-code-review (2026-07-18, `body_mask` design) — Nygard/ADR-009 |
-| Trigger | Setting `hurdle_mask_mode` in a config with a typo (e.g. `active-window` vs `active_window`) |
-| Location | `views_hydranet/train/training_engine.py:549` (`config.get("hurdle_mask_mode","per_step")`); NO field in `config_initializer.py` |
-| Cross-refs | C-193, ADR-009 (config as validated boundary) |
-
-`hurdle_mask_mode` is not a config field — it's read straight from the dict with a `"per_step"` default, so any typo silently trains the wrong mask (e.g. `active_window` intended, per_step trained). No validation, no error. Violates ADR-009 (all boundaries validated). **Tier 2:** silent mis-training with no signal. Fix: the validated `body_mask` enum becomes the sole front door; the raw `config.get` read is deleted.
-
-### C-195: dual authority over "what is an event" — mask threshold vs binary-derivation threshold can drift
-
-| Field | Value |
-|-------|-------|
-| ID | C-195 |
-| Tier | 3 |
-| Source | expert-code-review (2026-07-18, `body_mask` design) — Martin/Kleppmann/ADR-046 |
-| Trigger | Changing the binary-target derivation threshold (`config['derivations']['binary'][...]['threshold']`) without changing the mask's hardcoded `> threshold` |
-| Location | mask literal in `training_engine.py:263/349` vs `config_initializer.py:53` (`derivations`) |
-| Cross-refs | C-193/C-194, ADR-046 (Transformations vs Derivations), ADR-003 Law 6 |
-
-"A cell is an event where `y > 0`" is defined in **two** places — the binary-target derivation (config `derivations`) and the mask threshold in the training loop. They can silently diverge, so `by_*` labels and the body mask would disagree on which cells are events. **Tier 3:** maintainability/consistency hazard, no current corruption (both are 0 today). Fix: the mask sources its event threshold from the derivation config (single authority).
-
-### C-196: `body_mask='none'` refactor must be byte-identical to the current foundation — else silent drift
-
-| Field | Value |
-|-------|-------|
-| ID | C-196 |
-| Tier | 3 |
-| Source | expert-code-review (2026-07-18, `body_mask` design) — Feathers/Beck |
-| Trigger | Refactoring the two-knob mask into `body_mask` without a characterization net |
-| Location | `training_engine.py` masking path; `tests/` (no end-to-end characterization test today) |
-| Cross-refs | C-193/194/195, ADR-005 |
-
-The foundation (all-cell MSE gated) is the lodestar baseline. If the `body_mask` refactor changes the masked cell-set at `none` even slightly, the foundation shifts silently and every comparison to it is invalidated. There is currently **no** config→behaviour characterization test. **Tier 3:** regression risk on a load-bearing baseline. Fix: a characterization test snapshotting the current masked-cell-set for all three legacy knob-combos BEFORE the refactor, asserted identical after.
-
----
-
-### C-197: distribution registry / legacy `output_distribution` name collision → silent legacy hijack
-
-| Field | Value |
-|-------|-------|
-| ID | C-197 |
-| Tier | 2 |
-| Source | /falsify adequacy audit of ADR-067 §3 (2026-07-20) |
-| Trigger | Registering a `DistributionFamily` in `DISTRIBUTION_REGISTRY` whose name equals a legacy `output_distribution` value (`standard`/`hurdle_shrinkage`/`hurdle_nb`/`hurdle_lognormal`/`dense_nb`/`quantile`) |
-| Location | `views_hydranet/distributions/registry.py` (planned); `views_hydranet/utils/config_initializer.py` valid-list `~388-403` (`FAMILY_NAMES ∪ legacy`) |
-| Cross-refs | ADR-067 §3; Epic A #167 (A-S2 #169 registry, A-S5 #172 config); C-196 (byte-identical foundation) |
-
-The strangler-fig integration (ADR-067) unions the registry family names with the legacy `output_distribution` values into one valid-list and dispatches via `resolve_family(name)`. If the two name-sets **intersect**, a legacy config value routes to the new family instead of its untouched legacy branch — silently changing a proven, byte-identical model with **no error**, and invalidating every comparison to the lodestar baseline. **Tier 2:** structural fragility with a specific, realistic trigger (a future family author picking a colliding name). Fix: a fail-loud validator + test asserting `FAMILY_NAMES ∩ legacy = ∅` (registry names must be disjoint from legacy values); an acceptance criterion of A-S5.
-
----
-
-### C-201: self-zeroed ZINB decouples the classification (gate) head from the forecast — frozen-ruler AP/Brier then score a head the forecast ignores
-
-| Field | Value |
-|-------|-------|
-| ID | C-201 |
-| Tier | 2 |
-| Source | /falsify (2026-07-20), P5 |
-| Trigger | Scoring a self-zeroed `nb`/`zinb` family on the frozen lodestar ruler's gate metrics (AP/Brier) |
-| Location | the lodestar scorer `reports/2026-07-17_lodestar_eval_dossier/tools/lodestar_score.py`; planned `distributions/` `prob_positive`; A-S11 (#178) eval |
-| Cross-refs | C-199/C-200; ADR-067 (self-zeroed); F1 pre-registration; **C-211 (empirical confirmation — 300-lesson M1: count-only occurrence AP ~0.27 vs cls-gate ~0.44)** |
-
-A self-zeroed ZINB produces its zeros from the distribution (`P(Y>0)=(1−π)·(1−NB(0))`), **not** from the classification head. But the frozen ruler computes gate quality (AP/Brier) on the cls head. So the reported gate metric describes an occurrence estimate the ZINB forecast does not use — the two can diverge silently, mis-informing the M1/M2 go/no-go. **Tier 2:** silent mis-attribution in the evaluation that gates production decisions. Fix: for self-zeroed families the ruler must score the **distribution-implied** `P(Y>0)` (family exposes `prob_positive`), or the eval must explicitly document that the cls head is decoupled and not the forecast's gate.
-
----
-
 ### C-204: `[DEMOTED]` inverse-softplus link now exists in 3 places under 2 names — consolidate when Epic B migrates the legacy losses
 
 | Field | Value |
@@ -1608,7 +1446,6 @@ The D×K sampler fills the `[T,H,W,C,S]` cube with `S = D×K` where `D` = MC-dro
 Empirical, from the **300-lesson M1 nb** run (3 seeds, frozen ruler, T=0, N=170430): **(1)** the per-cell NB body **fixed the timid magnitude** the epic targeted — size-ratio jumped from ~0.02 (foundation) / 0.0 (40-lesson) to **~0.29** on sb (approaching white_ranger 0.39). **(2)** But the NB's **self-zeroed occurrence** (count-only, samples>0) is spatially **diffuse** — AP ~0.24–0.30; re-scoring the SAME predictions with the sharp classification gate (`by_{t}_best`, hurdle-style) lifts AP to **0.44 / 0.40 / 0.26** (sb/ns/os), **beating white_ranger** (0.33/0.22/0.16) on all 3. So **count-only undersells** the family's achievable occurrence; the sharp cls gate carries the spatial precision (plainly visible in the training-forensic biopsy: the diffuse NB-body row vs the sharp gate×body row). **(3)** Crucially, **crps-all is gate-INDEPENDENT** — computed on the body ensemble, it is **identical** (0.159/0.091/0.046) under count-only and gated scoring; the sharp gate does **not** close the crps gap to the foundation (nb 0.159 vs 0.137 on sb). So the residual crps gap is a **body-magnitude/calibration** issue, not an occurrence/gate one. (Brier trade: the cls gate ranks better — AP↑ — but is less calibrated, Brier 0.006→0.013.) **Tier 3 (evaluation/methodology, not silent-corruption):** the risk is mis-reading the M1/M2 verdict — treating count-only occurrence as the family's ceiling, or attributing the crps gap to the gate. Implication: the strong shape is **hurdle = sharp cls gate (occurrence) × per-cell body (magnitude)**; the self-zeroed nb undersells occurrence, and **ZINB (M2, structural π)** is the candidate fix for the body/crps gap. Reshapes M2 toward the `hurdle_nb` + `zinb` arms. A `hurdle_nb` 3×300 confirmatory run was launched 2026-07-22 to test the sharp-gate×NB-body hypothesis directly.
 
 ---
-
 
 ### C-215: per-lesson TRAINING reg/cls loss (and grad-norm) is not persisted numerically — the loss-balance / gradient-budget of a finished run is unrecoverable post-hoc
 
@@ -1764,6 +1601,16 @@ The magnitude effort's target — the ξ≈0.8 surge tail — is **invisible to 
 
 **Update 2026-07-30 (v2-scoreboard method-review — the improper-SELECTION corollary + a concrete proper alternative; folds C-MR3).** Two additions. (1) **crps_events (the repo's own truth>0 CRPS split) must never be a SELECTION metric:** subsetting the score on the observed outcome is the Forecaster's Dilemma (Lerch2017, held) — it rewards an exaggerating forecaster — so it is display-only, exactly like the FAO-02-banned twCRPS. (2) **The concrete proper, tail-sensitive alternative (Davison seat):** condition the score on a COVARIATE, not the outcome — evaluate crps_all (or MCR) on the **high-PREDICTED-risk stratum**. This is proper AND tail-sensitive, and is the pre-registerable success criterion for any magnitude/tail probe (with `size_ratio` explicitly NOT a target — Goodhart). This gives C-224's "need a tail-detecting diagnostic" a specific proper construction that does not require the FAO-02-banned metrics.
 
+
+> **Update 2026-08-15 (Epic #263 S5, #269) — a DIAGNOSTIC now exists; the Tier-1 governance ask is UNCHANGED and still open.**
+> `scripts/rollout_ruler_core.py` implements the Taillardat2023 §3.3 index `T_u(F,G) = 1 − Ω_G/Ω_F`: CRPS treated as a *random variable*, its **distribution** compared via a PWM-fitted GPD on the exceedances and a Cramér–von Mises statistic. This detects tail behaviour **without a threshold weight**, so it does not violate FAO-02's twCRPS rejection. Nine numbers computed for `violet_visitor` vs the FAO-02 climatology (`sb`, h∈{1,18,36}, q∈{0.99,0.995,0.999}) in `reports/2026-08-15_rollout_ruler_trust_dossier/results/tail_index.md`.
+>
+> **Three structural railguards, because this is a Tier 1 whose failure mode is misuse, not absence:** (a) `taillardat_index` *requires* the reference vector, so no standalone sortable per-model number can exist; (b) every output is `diag_`-prefixed and carries `role="DIAGNOSTIC"`; (c) the pre-registered decision rule (`verdict_token`) reads **no** `diag_*` key, asserted by `test_no_diag_column_reaches_the_decision_rule` inspecting its source. Additionally `test_extremist_forecast_gets_a_HIGH_index` pins Taillardat's own caveat — an inflated, mis-calibrated forecaster scores **higher** — so its *passing condition is that the metric is gameable*, and promoting `diag_Tu` to a selection metric would require deleting a green test.
+>
+> **What has NOT changed:** the entry's Tier-1 governance ask — that a tail-detecting diagnostic be **agreed with the FAO-02 owner before magnitude/tail GPU spend** — is untouched. This dossier produced evidence, not an amendment (Epic #263 `SCOPE.md` #7). C-224 stays OPEN.
+>
+> **Known limitations, recorded rather than smoothed:** `T_u` is **not monotone in q** on real data (h=1: −0.296 at q=0.99, −1.013 at 0.995, +0.548 at 0.999), which is exactly why q was pre-registered as a fixed set with **no optimisation over q**. And the index is **undefined** (not "bad") when the pooled threshold leaves one arm with <50 exceedances — pinned by `test_index_is_undefined_when_the_two_tails_do_not_overlap`.
+
 ---
 
 ### C-225: outcome-weighted likelihood (`1+γ|Δ_true|`·NLL) is an improper objective — de-calibrates the emitted distribution
@@ -1861,176 +1708,6 @@ Two independent panel seats flagged that a teacher-forcing/scheduled-sampling cu
 
 ---
 
-### C-234: emit_family_core rollout is half-wired — emit uses the large π-stripped core, AR feedback uses the small self-zeroed body → silent verdict corruption
-
-**✅ RESOLVED (merged to `development` via PR #216) — S1: `_sample_feedback` is core-aware (mirrors `_emit_magnitude`); regression test.**
-
-| Field | Value |
-|-------|-------|
-| ID | C-234 |
-| Tier | 1 |
-| Source | code-review (max, 2026-07-31; F0 — verified against source) |
-| Trigger | Trusting any h≥2 / horizon or bloom readout of a `{th_,}gated_ZINBcore` run (`emit_family_core=True`), OR shipping emit_family_core more broadly, before `_sample_feedback` is made core-aware |
-| Location | `views_hydranet/utils/hydranet_inference.py` (`_emit_magnitude`:253 uses `mean_core`; `to_cube_samples(core=)`:793 uses `sample_core`; but `_sample_feedback`:311 draws `fam.sample` — self-zeroed) |
-| Cross-refs | C-113 (AR feedback carrier), C-239 (training-side twin), C-240 (compose guard), C-242 (validator message) |
-
-`_emit_magnitude` and the scored D×K cube correctly switch to the π-stripped **core** under `emit_family_core` (`mean_core`/`sample_core`), but `_sample_feedback` — the DEFAULT AR feedback for family heads (`rollout_feedback` auto-resolves to `'sample'`, :101) — was **not** updated and still draws the **self-zeroed** `fam.sample`. So a th_gated_ZINBcore rollout **emits/scores the large core but feeds back the small self-zeroed body**: every horizon h≥2 is conditioned on a history the model never emitted. `_sample_feedback`'s own docstring ("Mirrors `_emit_magnitude`'s family branch") is the evidence this is an unintended miss, not a choice. **Tier 1 (silent verdict incorrectness):** no error fired; it silently invalidated the h≥2 half of the E3 th_gated_ZINBcore verdict (`2026-07-29_v2_scoreboard_dossier/07` — F2 "no bloom" is untrustworthy, the "stability" may be an artifact of the too-small feedback). h=1 readouts (incl. the decisive F1 crps_events @h1) are unaffected (no feedback at h=1). Fix: mirror the `emit_family_core` branch in `_sample_feedback` (draw `sample_core`), TDD it, re-emit the 3 banked zinb seeds, re-derive F2 + the horizon curve. **Scope: `emit_family_core` defaults False → the shipping gated_NB/ZINB are unaffected** (experiment-only bug).
-
----
-
-### C-235: data-backed static channel leaves silent 0-holes for cells/months absent from the df (geometry statics fill the full grid; data-backed does not)
-
-**✅ RESOLVED (merged to `development` via PR #216) — S4: a data-backed static fails loud on NaN/inf coverage holes (no silent 0-hole).**
-
-| Field | Value |
-|-------|-------|
-| ID | C-235 |
-| Tier | 2 |
-| Source | code-review (max, 2026-07-31) |
-| Trigger | Wiring a data-backed `static_channels` covariate (e.g. datafactory `ln_pop`) whose panel is sparser than the conflict panel — a cell/month present in conflict rows but absent from the covariate |
-| Location | `views_hydranet/utils/volume_handler.py` (~250, data-backed static fill into a zeros volume) |
-| Cross-refs | C-228 (same seam, placement defect), C-229 (covariate taxonomy), C-236/C-237/C-238 (sibling data-backed-static gaps) |
-
-The data-backed static path writes the covariate only at observed `(cell, month)` df rows into a zeros volume, so any study cell or month absent from the df keeps a **silent 0** — unlike geometry statics, which fill the full grid at all months. `ln_pop` (the stated near-term use) can enter the panel later than conflict or cover a subset of cells: a cell with conflict at months 100–500 but population only at 300–500 gets `ln_pop=0` (population≈1) for 100–299, digested as a real covariate and — if the origin slice is 0 — re-injected as 0 across the whole rollout. **Tier 2 (silent, realistic near-term trigger):** no error; corrupts a covariate the model treats as real. `test_data_backed_static_channel.py` uses a fully-dense grid so it cannot catch the hole. Fix: fill-completeness contract (forward/mean-fill or fail-loud on missing support) + a sparse-panel test.
-
----
-
-### C-236: data-backed static channel bypasses both FeatureScaler guards → raw-magnitude / NaN reaches the encoder unscaled and unchecked
-
-**✅ RESOLVED (merged to `development` via PR #216) — S4/S5: NaN guard + magnitude sanity rail; deeper model-side scaling deferred (C-244/#229).**
-
-| Field | Value |
-|-------|-------|
-| ID | C-236 |
-| Tier | 2 |
-| Source | code-review (max, 2026-07-31) |
-| Trigger | Declaring a data-backed `static_channels` covariate with raw (unlogged) magnitude — e.g. population in [0, 5e7] — without also listing it under `transformations`/`features` |
-| Location | `views_hydranet/utils/volume_handler.py` (~250, static fill); `views_hydranet/utils/feature_scaler.py` (`configured_columns`:51 iterates transform cols; unmapped/gradient guard:79–83 iterates `config['features']`) |
-| Cross-refs | C-235/C-237/C-238 (sibling gaps), C-228 (same seam) |
-
-Neither FeatureScaler guard covers `static_channels`: the NaN/Inf guard iterates transform columns and the unmapped/gradient-explosion guard iterates `config['features']` — a static channel is in neither. So a raw-magnitude static (population ~1e7) reaches the encoder **unscaled**, dominating every log1p-scaled feature (gradient explosion — the exact failure the unmapped-feature guard exists to prevent), and on a bare `from_df` call (the CoordConv A/B harness/tests) even a **NaN** in the static is uncaught. **Tier 2 (structural, silent-to-loud):** trigger is a specific future covariate wiring; surfaces as training instability, not a clean error. Fix: route static channels through (or parallel to) the scaler's scaling + NaN/unmapped guards.
-
----
-
-### C-237: geometry-vs-df static precedence silently reclassifies a registered geometry static as data-backed when a same-named df column exists
-
-**✅ RESOLVED (merged to `development` via PR #216) — S3: registry-authoritative role classification; registry∧df collision fails loud.**
-
-| Field | Value |
-|-------|-------|
-| ID | C-237 |
-| Tier | 2 |
-| Source | code-review (max, 2026-07-31) |
-| Trigger | Declaring a `static_channels` name that also appears as a df column — a datafactory covariate name matching a `STATIC_CHANNEL_DERIVATIONS` registry key, or names like `row`/`col` (literal df spatial_cols) |
-| Location | `views_hydranet/utils/volume_handler.py` (~246, `geom_static = [n for n in static_channels if n not in df.columns]`) |
-| Cross-refs | C-235/C-236/C-238 (sibling gaps), C-228, C-230 (raw concat primitive) |
-
-`geom_static = [n for n in static_channels if n not in df.columns]` silently reclassifies a registered geometry static as data-backed whenever a same-named df column exists — df-column precedence, no warning. Old code always called `derive(name)` (e.g. a coordinate normalized to [-1,1]); new code silently fills from the raw df column (raw indices / arbitrary units) instead, feeding the model a **different, unnormalized channel** with zero diagnostic. **Tier 2 (silent wrong-channel):** trigger is a realistic name collision under the datafactory covariate namespace. Fix: make the geometry-vs-data-backed classification explicit/authoritative (registry wins, or fail-loud on collision), not df-column-presence.
-
----
-
-### C-238: no invariant enforces "static = constant per cell across time" — a time-varying df column declared static is fed varying in history but pinned in rollout
-
-**✅ RESOLVED (merged to `development` via PR #216) — S6: constant-per-cell static invariant enforced (fail-loud on time-varying).**
-
-| Field | Value |
-|-------|-------|
-| ID | C-238 |
-| Tier | 2 |
-| Source | code-review (max, 2026-07-31) |
-| Trigger | Declaring a genuinely time-varying df column (e.g. monthly population, shdi) as a `static_channel` |
-| Location | `views_hydranet/utils/volume_handler.py` (~250, `from_df` writes per-observed-month with no constancy check); `views_hydranet/utils/hydranet_inference.py` (history digest :447 vs rollout pin :522–524); ADR-060 (I3) |
-| Cross-refs | C-229 (covariate-taxonomy root: static seam re-injects time-varying as constant), C-235/C-236/C-237 (sibling gaps) |
-
-`from_df` writes `df[col].values` per observed month with **no constancy check**, so a time-varying "static" is digested with its true varying trajectory during history (t<origin) but pinned to the origin month during the AR rollout — the same channel treated two different ways in one inference, silently violating ADR-060 I3, with no validator rejecting a non-constant static. **Tier 2 (structural, silent):** distinct from C-229 (which is the taxonomy/design gap) — this is the concrete missing *enforcement*. Fix: a validator that rejects a non-constant-per-cell static (or routes it to a proper dynamic-covariate path once C-229 is designed).
-
----
-
-### C-239: training-time family feedback/target is not core-aware → once C-234 is fixed, ZINBcore train exposure diverges from eval exposure
-
-**✅ RESOLVED (merged to `development` via PR #216) — accepted — th_gated_ZINBcore DROPPED, so no core arm ships → the train/eval exposure mismatch is moot.**
-
-| Field | Value |
-|-------|-------|
-| ID | C-239 |
-| Tier | 2 |
-| Source | code-review (max, 2026-07-31) |
-| Trigger | Fixing C-234 (core-aware eval feedback) and then trusting a th_gated_ZINBcore verdict, OR training a zinb with scheduled sampling intending to evaluate it as a core-emit arm |
-| Location | `views_hydranet/train/training_engine.py` (~229, `_family_feedback_log1p` / `_family_target_log1p_mean` — self-zeroed, not core-aware); `emit_family_core` is eval-only / not persisted |
-| Cross-refs | C-234 (eval-side twin), C-99 (reg feedback path), C-113 (AR exposure) |
-
-The training-time family feedback and target use the self-zeroed sample/mean and are not core-aware. `emit_family_core` is an eval-only re-interpretation (not persisted to the artifact), so training cannot consult it. Once C-234 makes the *eval* feedback core-consistent, a scheduled-sampling-trained zinb was exposure-trained on sparse self-zeroed feedback but rolled out on dense core feedback — reintroducing the exposure-bias drift the sample-feedback mechanism (ADR-070) was built to remove. **Tier 2 (structural, latent):** an inherent train/eval mismatch the re-emit-banked-artifact approach introduces; must be named in any finalized ZINBcore verdict and decided (retrain a true core model vs accept the caveat). Fix scope tied to C-234.
-
----
-
-### C-240: to_cube_samples has no guard for the invalid core=True + composition='self_zeroed' combo → silent ungated core draw
-
-**✅ RESOLVED (merged to `development` via PR #216) — S1: `to_cube_samples` fails loud on core=True + self_zeroed.**
-
-| Field | Value |
-|-------|-------|
-| ID | C-240 |
-| Tier | 3 |
-| Source | code-review (max, 2026-07-31) |
-| Trigger | Calling `to_cube_samples(..., composition='self_zeroed', core=True)` from a hand-built dict / ad-hoc driver that bypasses HydraNetConfig validation |
-| Location | `views_hydranet/distributions/sampling.py` (~65–74; the guard rejects a gated composition missing its gate, not the inverse) |
-| Cross-refs | C-234 (same feature), C-242 (config validator message) |
-
-The `to_cube_samples` guard only rejects a gated composition missing its gate, not `core=True + self_zeroed`. That combo silently draws the ungated, un-self-zeroed NB core (zeros nowhere) → ~85% nonzero / mean~5 on a ~99.7%-zero field, a silent ~8× over-forecast, instead of failing loud. HydraNetConfig validation rejects it upstream, so only an ad-hoc dict bypass hits this. **Tier 3 (fail-loud gap, upstream-mitigated):** add the symmetric guard.
-
----
-
-### C-241: canonicalize_config_grid_name does not dedup → a config listing both grid aliases collapses to a duplicate, tripping a false Index Contract Violation
-
-**✅ RESOLVED (merged to `development` via PR #216) — S8: `canonicalize_config_grid_name` dedups both aliases (no false Index Contract Violation).**
-
-| Field | Value |
-|-------|-------|
-| ID | C-241 |
-| Tier | 3 |
-| Source | code-review (max, 2026-07-31; on the #144/#216 grid fix) |
-| Trigger | A config whose `index_names`/`identity_cols` list BOTH `priogrid_gid` and `priogrid_id` (e.g. a hand-merged migration config) |
-| Location | `views_hydranet/utils/grid_naming.py` (~54, maps every alias member to `grid` with no dedup); manager guard checks the DATA not the config |
-| Cross-refs | GH #144/#217 (grid-naming), C-228 |
-
-`canonicalize_config_grid_name` maps every `GRID_ID_ALIASES` member to `grid`, so `['month_id','priogrid_gid','priogrid_id']` collapses to `['month_id','priogrid_id','priogrid_id']`. The manager guard checks the data (`len(_grid_present)==1`), not the config, so it does not prevent this; downstream `standardize_raw_df` builds a length-3 expected index that no longer prefix-matches the length-2 data index → a false "Index Contract Violation" on otherwise-valid data. **Tier 3 (fail-loud false-positive on an unusual config):** dedup while preserving order, or fail-loud if both aliases are present.
-
----
-
-### C-242: config validator emits a factually-wrong message for zinb + emit_family_core=True + self_zeroed ("zinb is not self-zeroed")
-
-**✅ RESOLVED (merged to `development` via PR #216) — S1: validator message corrected for zinb + emit_family_core.**
-
-| Field | Value |
-|-------|-------|
-| ID | C-242 |
-| Tier | 4 |
-| Source | code-review (max, 2026-07-31) |
-| Trigger | Enabling `emit_family_core` for the first time and leaving `forecast_composition='self_zeroed'` (forgetting the required external gate) |
-| Location | `views_hydranet/utils/config_initializer.py` (~854, rule (2) message) |
-| Cross-refs | C-234, C-240 |
-
-The validator correctly rejects zinb + emit_family_core + self_zeroed but with the wrong reason: "output_distribution=zinb is not self-zeroed…". zinb **is** self-zeroed — it is `emit_family_core` that stripped π — so the message contradicts the glossary/ADRs and misdirects debugging. **Tier 4 (DX, no correctness impact):** reword to "emit_family_core strips zinb's π; add a gate (soft/threshold) or drop emit_family_core".
-
----
-
-### C-243: VisualDiagnostics is constructed with the config BEFORE grid canonicalization → viz holds the stale grid alias on renamed (priogrid_id) data
-
-**✅ RESOLVED (merged to `development` via PR #216) — S8: `VisualDiagnostics` config refreshed after grid canonicalization.**
-
-| Field | Value |
-|-------|-------|
-| ID | C-243 |
-| Tier | 4 |
-| Source | code-review (max, 2026-07-31; on the #144/#216 grid fix) |
-| Trigger | Running on datafactory `priogrid_id` data with a legacy `priogrid_gid` config and reading the diagnostic biopsies |
-| Location | `views_hydranet/manager/hydranet_manager.py` (~220/303 viz built with `self.configs`; canonicalization at ~106) |
-| Cross-refs | GH #144/#217, C-241 |
-
-`VisualDiagnostics` is built with `self.configs` before/independent of the pipeline's grid-key canonicalization, so viz internally holds the pre-canonicalization alias on renamed data; any grid column it reads mislabels or misses the grid. **Tier 4 (diagnostic-only, does not corrupt pipeline output):** the biopsy plots are silently wrong on migrated data. Fix: build viz from the canonicalized config, or have viz resolve the grid via `grid_id_col`.
-
----
-
 ### C-244: data-backed statics are NOT scaled by the model FeatureScaler — S5 ships a sanity rail only; proper model-side scaling deferred
 
 | Field | Value |
@@ -2076,23 +1753,6 @@ The model's `forward()` is strictly **per-timestep** (`[B,C,H,W]`); the recurren
 
 ---
 
-### C-247: `test_score_v2_horizons.py` is non-portable — hardcoded absolute machine path + runtime-loads gitignored `reports/` tools; green ONLY on this machine
-
-**✅ RESOLVED (merged to `development` via PR #216) — F-Z2: repo/platform-relative paths + skip-if-absent guards → CI-portable (both test files).**
-
-| Field | Value |
-|-------|-------|
-| ID | C-247 |
-| Tier | 2 |
-| Source | /falsify (2026-07-31, F-Z2) |
-| Trigger | Running the suite in **CI** or on a **fresh clone** (or any machine other than this one) — the test errors (path/file absent), not skips |
-| Location | `tests/test_score_v2_horizons.py:20` (`_HN = Path("/home/simon/Documents/…/views-hydranet")`), `:22`/`:27` (`spec_from_file_location` on `reports/2026-07-29_v2_scoreboard_dossier/tools/score_v2_horizons.py`), `:99–100` (`sys.path.insert` + `import lodestar_score` from `reports/2026-07-17_lodestar_eval_dossier/tools`) — both `reports/` paths are **gitignored** (absent in a clone). **Second instance:** `tests/test_falsify_8sample_readiness.py:12` hardcoded `/home/simon/…/views-models/…/config_hyperparameters.py` — an absolute path into the **sibling views-models repo** (worse: cross-repo). |
-| Cross-refs | C-138 / C-165 (test-suite collection integrity / CI `--ignore` masking), C-159 (dossier tools not self-validating) |
-
-A **tracked, committed** test hardcodes an absolute path to one developer's machine and, with **no `exists()`/skip guard**, runtime-loads two tool files that live under the **gitignored `reports/`** tree (research-dossier tooling, not part of the shipped package). It therefore passes **only because those files happen to exist locally**; in CI or any fresh clone it raises (path missing / file-not-found), not skips. **Silent false-green:** reported "full suite green / 1254 passing" this session was partly propped up by machine-local state — this test provides **zero** portable/CI coverage while looking like it does. **Tier 2 (structural fragility, clear trigger = CI/clone, false-confidence):** not model-output corruption, but it degrades the suite's value as a gate and will fail the moment CI runs it. Fix: repo-relative path (`Path(__file__).resolve().parents[1]`) + a module-level skip when the gitignored tool is absent (or relocate the scorer tool under the tracked package so the test is real in CI). Falsification stubs: `tests/test_falsify_zero_surprises.py::test_P5a_*` / `test_P5b_*`.
-
----
-
 ### C-248: ex-ante risk-stratum LEAKAGE in the planned GW ruler extension — the easy path stratifies on the outcome
 
 | Field | Value |
@@ -2134,24 +1794,9 @@ The mixture NLL needs `log w` and `log(1-w)`. Computing them as `log(sigmoid(raw
 | Source | expert-code-review (2026-08-01, upfront design review of Epic #230 S2 #232) |
 | Trigger | Implementing the mixture `sample()` by choosing a component per cell and then sampling only that component (data-dependent RNG consumption), instead of drawing both components and selecting |
 | Location | planned `views_hydranet/distributions/mixture_negative_binomial.py` (`sample`); must compose with `views_hydranet/distributions/sampling.py:94-100` (per-`(pass,step)` sub-generator seeding, ADR-070) |
-| Cross-refs | C-3 (generator-aware determinism), S2 #121 (the determinism gate), `test_sampler_dxk.py` |
+| Cross-refs | *v1-review finding "C-3" (generator-aware determinism) — NOT register entry C-03; see §Register Conventions*; S2 #121 (the determinism gate), `test_sampler_dxk.py` |
 
 A select-then-sample mixture draws a data-dependent number/order of randoms per cell, which cannot be vectorized deterministically under a single shared `torch.Generator` — breaking the D×K cube's byte-reproducibility, the h=1 golden anchor, and cross-arm comparability (all of which the experiment's verdict relies on). **Tier 2 (structural fragility with a clear trigger; would surface as non-reproducible cubes).** Fix: mirror ZINB's draw-then-mask ordering — `s1=NBCore.sample(mu1,theta1,k,gen); s2=NBCore.sample(mu2,theta2,k,gen); sel=torch.bernoulli(w_k,gen); out=torch.where(sel.bool(), s1, s2)` — a fixed RNG-consumption order (`s1,s2,sel`); add determinism + reduces-to-single-NB-at-`w∈{0,1}` tests.
-
----
-
-### C-251: mixture `prob_positive` numeric cancellation if built from the direct `prob_zero`
-
-| Field | Value |
-|-------|-------|
-| ID | C-251 |
-| Tier | 2 |
-| Source | expert-code-review (2026-08-01, upfront design review of Epic #230 S2 #232) |
-| Trigger | Implementing the mixture `prob_positive` literally as `1 - (w·NB1(0) + (1-w)·NB2(0))` using the direct `NBCore.prob_zero` (`(theta/(theta+mu))**theta`) |
-| Location | planned `views_hydranet/distributions/mixture_negative_binomial.py` (`prob_positive`); contrast `nb_core.py:120-124` (direct `prob_zero`) and `zero_inflated_negative_binomial.py:124-130` (the stable `-expm1(log_prob_zero)` form) |
-| Cross-refs | C-201 (self-zeroed gate scoring / the stable `prob_positive` lesson NB & ZINB already apply) |
-
-`NBCore.prob_zero` cancels catastrophically for small `mu` / large `theta` (`(θ/(θ+μ))**θ → 1` minus a tiny number), which is exactly why `NegativeBinomialFamily`/`ZINBFamily` compute `prob_positive` via the stable `-expm1(NBCore.log_prob_zero(...))`. A literal mixture `prob_positive` re-introduces the cancellation, silently miscalibrating the gate/occurrence metrics the mixture is scored on. **Tier 2 (silent metric miscalibration on the occurrence side; not the primary CRPS but feeds the verdict).** Fix: `prob_positive = w·(-expm1(NBCore.log_prob_zero(mu1,theta1))) + (1-w)·(-expm1(NBCore.log_prob_zero(mu2,theta2)))`; test precision at small `mu`/large `theta`.
 
 ---
 
@@ -2336,7 +1981,7 @@ Every family implements a `priors` dict lookup (`theta`/`pi`/`w`/`tail_gap`), bu
 | Source | repo-assimilation (2026-08-14, delegated tech-debt pass — utils subsystem) |
 | Trigger | A `derivations` config whose `from` references another derivation's `to` (chained derivations) — the DataFrame training path succeeds, the VolumeHandler path raises "Source feature not found in volume" |
 | Location | `views_hydranet/utils/volume_handler.py:813/821` (`_execute_derivations` reads the stale `self.channel_map`; `self._metadata` committed once at `:871`) vs `views_hydranet/utils/data_fetcher.py:178` (`apply_blueprint` reads `df_out.columns` live) |
-| Cross-refs | — (`test_derivation_parity` covers both-raise-if-missing but not chaining) |
+| Cross-refs | **C-75 (ROOT — the duplicated derivation logic this is a divergence instance of; linked 2026-08-15 review-rr)**; `test_derivation_parity` covers both-raise-if-missing but not chaining |
 
 `_execute_derivations` appends derived channels to a **local** `new_channels`/`new_features` and only commits `self._metadata` at the end, so the in-loop source check reads the pre-derivation `channel_map` and cannot see a channel produced earlier in the same loop. Its declared parity sibling `DataFetcher.apply_blueprint` reads `df_out.columns` **live**, so it CAN chain. A chained-derivation config therefore trains on the DataFrame path but raises on the volume path — a silent train/eval divergence `test_derivation_parity` (both-raise-if-missing) does not cover. **Tier 3 (config-gated latent divergence; not a current live corruption because no shipped config chains derivations).** Fix direction: consult the running `new_channels` (or a merged view) for the source check inside the loop, and add a chained-derivation parity test.
 
@@ -2374,7 +2019,7 @@ The per-stream seed is a **linear** mix, not a hash, so distinct `(pass, step)` 
 
 ---
 
-### C-268: diagnostic plotters under-guarded — unguarded index swallowed by a broad try/except, log-scale without a positivity guard, mutable default arg
+### C-268: `[DEMOTED]` diagnostic plotters under-guarded — unguarded index swallowed by a broad try/except, log-scale without a positivity guard, mutable default arg
 
 | Field | Value |
 |-------|-------|
@@ -2386,6 +2031,8 @@ The per-stream seed is a **linear** mix, not a hash, so distinct `(pass, step)` 
 | Cross-refs | — (diagnostics-only; never touches the scored forecast) |
 
 Three small robustness gaps in the diagnostic plotters, all diagnostic-only: a length-unchecked index that raises `IndexError` silently swallowed into a "skipped plot" (asymmetric with the guarded siblings), a log-scale plot with no positivity guard despite a comment asserting one, and a mutable default argument (currently read-only, so harmless, but the standard latent-bug pattern). **Tier 4 (diagnostic-only; no correctness impact).** Fix direction: length-check `time_indices`, filter non-positive before `set_yscale("log")` (or delete the misleading comment), normalize the default to `None`.
+
+> **`[DEMOTED]` to the Tech-Debt Backlog 2026-08-15 (review-rr strategic signal-to-noise pass).** Tier 4, mechanical, single-file, no correctness or reliability impact — actionable as ordinary tech debt rather than a governance risk. Full entry retained here for traceability; indexed in §Tech-Debt Backlog; no longer counted as an active risk.
 
 ---
 
@@ -2404,31 +2051,244 @@ Proposed ADR-072 (frame-native input ingestion) amends ADR-019's **forward** Fea
 
 ---
 
+### C-270: gate↔body target pairing is positional and unenforced — a reordered `classification_targets` silently mis-pairs every composed forecast
+
+| Field | Value |
+|-------|-------|
+| ID | C-270 |
+| Tier | 2 |
+| Source | repo-assimilation (2026-08-15, Phase 5 invariant sweep) |
+| Trigger | Declaring `classification_targets` in a different ORDER from `regression_targets` (e.g. `[by_ns, by_sb, by_os]` against `[lr_sb, lr_ns, lr_os]`) — both lists complete, correctly named, every validator green — and running any gated `forecast_composition` |
+| Location | `views_hydranet/utils/hydranet_inference.py:266` (`compose_mean(means, prob[:, :n_reg], …)`), `:329` (`gate = prob…[:, :n_reg]`); `views_hydranet/distributions/sampling.py:88` (`gate_t = …[..., :n_reg]`); `views_hydranet/train/training_engine.py:248` (`g = gate[:, :n_reg]`), `:501` (`decay_active[:, j]`); no pairing validator in `views_hydranet/utils/config_initializer.py` |
+| Cross-refs | C-175 (lr_↔by_ *naming* completeness — necessary but not sufficient), C-260 (order-strict `features == regression_targets`, but only under active SS), C-03/C-123 (hardcoded 3+3 topology, cluster 4), C-174 (name-as-contract) |
+
+Four independent code paths slice the classification gate positionally by `[:n_reg]` and assume gate channel *j* corresponds to regression target *j*. **Nothing validates this.** C-175 covers the *naming* convention (every `lr_<x>` has a `by_<x>`) and C-260 added an order-strict check for `features` vs `regression_targets` — but neither closes the reg↔cls **ordering** axis: a config can be complete, correctly paired by name, and pass every validator while multiplying `lr_sb`'s body by `by_ns`'s gate. The failure is fully silent — shapes match, values are finite, `IntegrityGuardian` is satisfied, and the emitted forecast is superficially plausible. Note C-175's own reasoning ("a true mismatch would likely be caught loudly by the existing `features==regression_targets` cross-checks, hence not Tier 2") does **not** hold on this axis: those cross-checks constrain reg-vs-features, never reg-vs-cls. **Tier 2:** structural fragility with a model-output-correctness consequence, reachable through an ordinary config edit; not Tier 1 only because current production configs happen to be consistently ordered, so no shipped forecast is known to be affected. Fix direction: an order-strict cross-validator pairing `regression_targets[i]` ↔ `classification_targets[i]` by base id, mirroring the C-260 pattern (cheap, one validator, closes C-175's completeness facet at the same time).
+
+---
+
+### C-271: `ReproducibilityGate.audit_manifest` has no production caller — the genome audit C-43 shipped never runs
+
+| Field | Value |
+|-------|-------|
+| ID | C-271 |
+| Tier | 3 |
+| Source | repo-assimilation (2026-08-15, Phase 2 reachability sweep) |
+| Trigger | Running training with a config missing a core-genome key or with one set to `None` (e.g. `clip_grad_norm`, `dropout_rate`, a loss-specific `params` entry) and expecting the documented fail-fast — the run instead proceeds on implicit defaults with an incomplete provenance record |
+| Location | `views_hydranet/infrastructure/reproducibility_gate.py:87-160` (the method; its own docstring at `:98` states "Must be called before `lock_entropy()` and `training_loop()`"). `lock_entropy` **is** called at `hydranet_manager.py:300`, `training_engine.py:86`, `:820`; `audit_manifest` is called **only** from `tests/test_genome_audit.py` — grep finds no call site in `views_hydranet/` |
+| Cross-refs | C-43 (RESOLVED — the entry this finding partially invalidates; annotated there), cluster 5 (C-06/C-117/C-49 — config-as-dict), C-112 (seed provenance in the sidecar) |
+
+The 16-key `CORE_GENOME` audit — plus its `LOSS_REG_REGISTRY`/`LOSS_CLASS_REGISTRY` completeness checks — is fully implemented and fully tested (94% coverage, 7 tests) but **dead in production**. The reproducibility contract it advertises therefore rests entirely on `HydraNetConfig` Pydantic validation, which is *not* equivalent: Pydantic permits `extra="allow"` (`config_initializer.py:1141`) and does not check the loss-specific `params` lists the registry declares. C-43 was closed on the mechanism's *existence*; its *reachability* was never verified, and the test suite is green precisely because the tests call it directly. **Tier 3:** no correctness impact on a well-formed config, but a documented safety mechanism that does not run, plus a green suite that implies otherwise (the same false-confidence class as C-165). **Caveat:** an external caller in `views-models` cannot be ruled out from this repository — verify before treating as a defect. Fix direction: call it from `_train_model_artifact()` immediately before `lock_entropy`, or demote the docstring and re-scope C-43's resolution to "library helper provided, not wired".
+
+---
+
+### C-272: rolling-origin window count is silently truncated by a bare `min()` when the partition outruns available history
+
+| Field | Value |
+|-------|-------|
+| ID | C-272 |
+| Tier | 3 |
+| Source | repo-assimilation (2026-08-15, Phase 3 evaluation-flow trace) |
+| Trigger | Evaluating a partition whose declared test span exceeds what the volume supplies — e.g. a data pull returning fewer months than the partition dict assumes, an off-by-one in `_partition_dict`, or a `partition_bound` filter that drops months — the run scores FEWER origins than the partition declares and reports success |
+| Location | `views_hydranet/manager/hydranet_manager.py:322-327` (`num_windows = test_end - (test_start - 1) - time_steps + 1`, passed to `get_rolling_origin_indices`); `views_hydranet/utils/utils_orchestration.py:31` (`last_origin = total_months - time_steps - 1`), `:38` (`actual_windows = min(num_windows, last_origin + 1)`); completion log at `hydranet_manager.py:358` reports only the realised count, with no declared-vs-realised comparison |
+| Cross-refs | C-154 (disk-headroom truncation — the same silent-partial-result class, which WAS given a fail-loud guard), C-149-adjacent evaluation-completeness concerns, cluster 12 |
+
+The number of evaluation windows is derived **twice** from independent sources — from the partition dict's month arithmetic in the manager, and from the volume's own length inside `get_rolling_origin_indices` — then reconciled with a bare `min()`. Nothing asserts the two agree, and nothing logs when they disagree: the function warns only in the total-failure case (`last_origin < 0`, `:34`). A short pull or a partition-boundary drift therefore yields a quietly smaller backtest, which downstream scoring averages over without noticing — and, because scores are reported per horizon rather than per origin, the shortfall is invisible in the results. This is precisely the class C-154 was raised and guarded for on the disk axis; the evaluation axis has no equivalent guard. **Tier 3:** silently degraded evaluation with a clear trigger; no data corruption and no wrong per-cell values, so not Tier 2. Fix direction: `logger.warning` (or raise, matching C-154's fail-loud choice) when `actual_windows < num_windows`, and surface declared-vs-realised origin counts in the manager's completion log.
+
+---
+
+### C-273: BN recalibration (C-184's fix, default ON) re-accumulates statistics on the curriculum's hottest windows only
+
+| Field | Value |
+|-------|-------|
+| ID | C-273 |
+| Tier | 3 |
+| Source | repo-assimilation (2026-08-15, Phase 3 training-tail trace) — **flagged low-confidence-as-new; may be deliberate** |
+| Trigger | Investigating residual eval-time miscalibration on a BN-recalibrated artifact, or tuning `bn_recal_windows`, and assuming the recalibration set is representative of the eval-time activation distribution — it is drawn exclusively from the high-intensity head of the curriculum |
+| Location | `views_hydranet/train/training_engine.py:796-800` (`for w in range(n_windows): target, threshold = planner.get_lesson(w)` — indices start at 0); `:790` (`n_windows = config.get("bn_recal_windows", config["windows_per_lesson"] * 10)`); intensity schedule at `views_hydranet/utils/curriculum.py:85-94` (`ratio` decreases monotonically from `max_ratio*roof_ratio`, so low `w` ⇒ high threshold ⇒ busiest cells) |
+| Cross-refs | C-184 (the root cause and this fix — Tier 2, "CONFIRMED root cause + universal fix"), C-113 (rollout stability), C-190 (BatchNorm on the skip path) |
+
+`_recalibrate_bn` is on by default (`bn_recalibrate=True`) and mutates the saved artifact's BN buffers, so it determines the eval-mode activation statistics of every shipped model. Its window sampler is driven by `planner.get_lesson(w)` starting at `w=0`, and `get_intensity_ratio` decreases monotonically — so the recalibration set is drawn entirely from the highest-threshold (busiest-cell) end of the curriculum, while inference runs over the full global volume (~99.7% zero). The BN running statistics eval-mode then uses are consequently estimated on an activation distribution denser than the one inference encounters — the *direction* of the very train/eval BN gap C-184 exists to close. **Countervailing evidence:** the fix was empirically validated (6/6 bad seeds flipped BAD→GOOD, 2/2 good preserved, `training_engine.py:786`), so the effect may be immaterial or the head-of-curriculum choice may be deliberate; it is documented nowhere as a choice, and `bn_recal_windows` carries no guidance. **Tier 3** pending verification. Verification direction: A/B the recal window set (curriculum head, as today, vs. `get_lesson(w)` sampled across the full step range vs. uniform full-grid windows) against the frozen T=0 lodestar ruler before treating this as a defect. **Do not change blind** — C-184's fix is validated as-is.
+
+---
+
+### C-274: falsification tests assert on other tests' SOURCE TEXT, not behaviour — one file passes while self-describing as RED
+
+| Field | Value |
+|-------|-------|
+| ID | C-274 |
+| Tier | 4 |
+| Source | repo-assimilation (2026-08-15, Phase 6 test-quality audit) |
+| Trigger | Reading the suite as evidence that a previously-falsified claim is still falsified (or now closed), or relying on these tests to catch a regression in the gap they document — e.g. deleting the validation-partition coverage in `test_lifecycle_integration.py` and expecting F3-01 to go red |
+| Location | `tests/test_falsification_cradle_to_grave.py` — module docstring `:8` ("Verdict: FALSIFIED … Tests are RED stubs — they FAIL to document the gap") vs. actual result (6 passed in 0.03 s); dead condition at `:44-49` (`"run_type.*validation" in source` is a regex written as a literal substring — it can never match — inside an unparenthesised `A or B and C`). Same `read_text()`-and-grep pattern in `tests/test_falsification_repo_clean.py`, `tests/test_falsification_magic_numbers.py`, `tests/test_falsify_dead_list.py` |
+| Cross-refs | C-165 (CI `--ignore` set / "distinguish aspirational falsification stubs from broken tests" — the adjacent false-confidence entry), C-247 (collection integrity), ADR-005 (testing as critical infrastructure) |
+
+Several falsification files verify claims by grepping other test files' source rather than by exercising behaviour. In `test_falsification_cradle_to_grave.py` the stated verdict and the observed result now contradict each other: the file announces itself as failing RED stubs, and every test passes. The underlying F3-01 claim **is** genuinely satisfied — `tests/test_lifecycle_integration.py:315,368` exercises `run_type="validation"` through `_evaluate_model_artifact`, and the register already records this at C-43-era resolution notes — but the test would not have detected its absence either: its first condition is unreachable and its precedence is accidental. These tests are structurally brittle (they break on any rename of the files they grep) and give assurance they cannot back. **Tier 4:** documentation/assurance quality; no runtime correctness impact, and the claims they cover are independently true today. Fix direction: convert to behavioural assertions, or migrate the resolved verdicts into the register/ADRs and delete the stubs, so the suite stops carrying self-contradicting status text. Note this file is one of the four CI `--ignore`s (C-165), so it is currently verified only in local runs.
+
+---
+
+### C-275: no record of the upstream data VINTAGE — a re-pull silently moves both the training data and the frozen lodestar ruler's truth
+
+| Field | Value |
+|-------|-------|
+| ID | C-275 |
+| Tier | 2 |
+| Source | review-rr strategic blind-spot analysis (2026-08-15) — B1 |
+| Trigger | Re-pulling `<run_type>_viewser_df.parquet` (or re-running the datafactory queryset) between a baseline run and a comparison run, then comparing their scores on the frozen T=0 lodestar ruler as if the truth were held constant |
+| Location | `views_hydranet/utils/data_fetcher.py:36-64` (`fetch_df` — reads the parquet, logs a load report, records no vintage/hash); `views_hydranet/train/train_model.py:75-137` (`config_snapshot` sidecar — persists architecture, seeds and head config, but no data fingerprint); `reports/2026-07-28_datafactory_migration_dossier/` (the measurement) |
+| Cross-refs | C-112 (seed provenance in the sidecar — the same "artifact must be self-identifying" principle, applied to weights but not to data), C-177 (empty FrameMetadata — no provenance on emitted frames), C-30 (artifact SHA-256 — integrity for the model, absent for its input), C-110 (heterogeneous-config ensemble composition) |
+
+Nothing in this repository records **which vintage of the upstream panel a run was trained or scored on**. The Tier-A parity work measured that this is not hypothetical: a fresh pull against the same nominal queryset moved totals by **sb −0.35% / ns +1.25% / os +0.06%**, attributed to L1 nokgi + L2 vintage + L3 geocoding revisions — a real, quantified, non-bug drift in UCDP-derived truth. Two consequences follow. **(1) Comparability:** the frozen T=0 lodestar ruler is frozen in *code* (`lodestar_score.py`) but its *truth* is whatever parquet is on disk, so a "gated_NB beats climatology by 28% on sb h1" claim is anchored to an unrecorded data state and is not reproducible across a re-pull. **(2) Silent regression:** a revision that removes or reclassifies events changes the target field with no error, no warning, and no diff — the `DataSniffer` checks structure and finiteness, never content identity. **Tier 2:** structural fragility that will cause failures (specifically, false or unfalsifiable comparisons) under a realistic and *scheduled* change — the global-server flip will re-pull at a new scale. Not Tier 1 because it corrupts *comparisons* rather than any single forecast, and the direction is a known small drift rather than an arbitrary one. Fix direction: hash the loaded frame (rows × the target columns) at `fetch_df`, log it in the load report, and persist it in the `.pt.config.json` sidecar alongside the seeds — making an artifact self-identifying in its data as it already is in its weights (C-112); optionally fail loud when a scoring run's data hash differs from the artifact's.
+
+---
+
+### C-276: no production forecast monitoring — every guard in this register fires before deployment, none after
+
+| Field | Value |
+|-------|-------|
+| ID | C-276 |
+| Tier | 3 |
+| Source | review-rr strategic blind-spot analysis (2026-08-15) — B2 |
+| Trigger | Shipping the global (`region="land"`, 360×720) ensemble to the server and running operational `_forecast_model_artifact()` on a monthly cadence — the first month whose 36-step rollout degrades has no signal that would surface it |
+| Location | `views_hydranet/manager/hydranet_manager.py:393-405` (`_forecast_model_artifact` — returns PredictionFrames and logs a count; no distributional check on what it emitted); `views_hydranet/utils/hydranet_inference.py:550-564` (the only rollout-health signal is a per-step `logger.warning`/`logger.error` on `max |pred|` > 100/500, and `IntegrityGuardian`'s hard ceiling at 1000); no artifact records a reference forecast distribution to compare against |
+| Cross-refs | C-113 (the bloom — a failure that manifests **only** in the free-running rollout, i.e. exactly the regime operational forecasting runs in), C-163 (no runtime resource/environment harness — the operational-readiness sibling), C-177 (no provenance on emitted frames), C-219 (crps_all is Goodhart-prone — the metric a naive monitor would reach for first) |
+
+All 120 open concerns are **pre-deployment**: training dynamics, evaluation methodology, artifact integrity, config validation. None asks *"how would we know that a deployed 36-month forecast has gone wrong?"* The gap is sharp because the system's best-documented failure mode is rollout-specific: the C-113 bloom is invisible at T=0 (where every scored gate lives) and appears only in the free-running trajectory that operational forecasting actually emits — and the V2 scoreboard confirmed ZINB still blooms there (crps_none 34× by h36, seed-42 catastrophic 2.61) even after the ADR-070 mitigation stabilised the gated arms. Today the sole runtime signal is a magnitude threshold on `|pred|`, which the bloom can stay under while the *field* degrades (the bloom's real signature is field-wide `crps_none` + `M_mean`, not `M_max` — established in Epic #193). **Tier 3:** no current correctness impact, since nothing is deployed operationally yet and the trigger is a planned future action; escalate to Tier 2 the moment the global-server ensemble serves. Fix direction: persist a reference forecast summary (per-horizon nonzero rate, mean, and a high quantile) with each artifact, and have `_forecast_model_artifact` compare the emitted frames against it and fail loud on a threshold breach — reusing the free-running-attractor probe in `utils/rollout_diagnostics.py`, which already computes the right quantity but is currently only reachable from `scripts/diagnose_io_gain.py`.
+
+---
+
+
+### C-277: `block_bootstrap_crps` computes single-arm support where the point estimate uses the cross-arm intersection → a CI that annotates a different cell set
+
+| Field | Value |
+|-------|-------|
+| ID | C-277 |
+| Tier | 3 |
+| Source | repo-assimilation → Epic #263 S4 (#268), found while building the rollout-ruler MDE |
+| Trigger | Calling `block_bootstrap_crps` to put a confidence interval on a `score_horizons` / `score_horizons_v2` point estimate when the compared arms do **not** have identical coverage — the CI is then computed over a larger cell set than the number it annotates |
+| Location | `reports/2026-07-25_t0_rollout_skill_dossier/tools/rollout_skill_score.py:216` (`support = _fixed_support({label: g}, horizons)` — one arm) vs `:126` `score_horizons` and `reports/2026-07-29_v2_scoreboard_dossier/tools/score_v2_horizons.py:132` (`set.intersection(*[_support_keys(e[1], …) for e in registry])` — all arms) |
+| Cross-refs | C-221 (the origin-block bootstrap this function implements), C-253 (variance estimation), C-217/G4 (the identical-support rule this violates), catalog C7 "different-months bug" |
+
+`score_horizons` and `score_horizons_v2` deliberately intersect `_support_keys` across **every** arm in the registry before scoring, so all arms are compared on one cell set (the G4 identical-support rule; comparing across substrates is the "different-months bug"). `block_bootstrap_crps` does not: it gathers a single arm and calls `_fixed_support({label: g}, horizons)`, so its resampling universe is that arm's own coverage. Where arms differ in coverage — which is exactly when the intersection matters — the interval describes a different population than the point estimate it is attached to.
+
+**It has never fired**, because the current arms have identical coverage (all 13 origins × 13,110 cells; verified 6/6 in `partition_audit.json`, Epic #263 S2), so the two supports coincide. **Tier 3:** latent, not silent-corrupting today, but it is a correctness trap sitting on the inference path.
+
+**Deliberately pinned, NOT fixed** (Epic #263 `SCOPE.md`, "the one sanctioned edit" rule). Epic #263 S6 uses `gw_stratified.score_gw_v2`, which computes support correctly, so `block_bootstrap_crps` is unused there — fixing an unused function mid-epic is scope creep, and leaving it undocumented is a trap. The honest middle is a failing test that the suite knows about: `tests/test_rollout_ruler_trust.py::test_block_bootstrap_uses_cross_arm_support`, marked `xfail(strict=True)` with this ID in its reason. Fix direction (2 lines): pass the already-intersected `support` into `block_bootstrap_crps` instead of recomputing it, and flip the test to green.
+
+
+> **Second instance found and FIXED 2026-08-15 (PR #273 review).** `/review-diff` + a deep read found the same defect re-implemented in `reports/2026-08-15_rollout_ruler_trust_dossier/tools/rescore_v2.py::_add_origin_block_ci`, which derived the bootstrap's cell universe from **one arm's** coverage while annotating a point estimate computed on the cross-arm intersection. Unlike the `block_bootstrap_crps` instance, this one was **on a live path** — it produced the CIs in `results/rescore.csv`. Fixed by passing the caller's intersected `support` in, which also allowed the climatology to be hoisted out of the arm loop (it is horizon- and arm-invariant under a fixed anchor), making a 7-horizon pass cheaper than the previous 3-horizon one. Guarded by `tests/test_rollout_ruler_trust.py::test_ci_pass_uses_the_caller_support_not_per_arm_coverage`. **The `block_bootstrap_crps` instance remains open and `xfail`-pinned** — still unused. That the same defect was written twice, once while explicitly registering the other, is the argument for fixing rather than only pinning it.
+
+---
+
+
+### C-278: FAO-02 — the LOCKED evaluation framework — is not in the repository, and every in-repo citation is a dangling path
+
+| Field | Value |
+|-------|-------|
+| ID | C-278 |
+| Tier | 3 |
+| Source | Epic #263 S0/S7 (#264/#271) — surfaced while sourcing the climatology baseline FAO-02 mandates |
+| Trigger | Anyone (a new contributor, a reviewer, a future session, CI) trying to check a selection decision against the framework that governs it — following any of the 6 in-repo citations lands on a path that does not exist in the tree |
+| Location | Cited from `scripts/proper_score_audit.py:29-33`, `scripts/tail_scorecard.py:4,20`, `docs/ADRs/proposed/071_violet_visitor_datafactory_provider.md:83`, `views_hydranet/utils/count_mean_loss.py:11`, `views_hydranet/utils/lognormal_nll_loss.py:5` — all naming `reference_fao02_locked_eval_framework.md`, which resolves to **nothing** inside the repo. The only copies are a Claude memory file and a PDF under `~/brain/2_projects/fao02/`. |
+| Cross-refs | C-224 (Tier 1 — its governance ask is *to the FAO-02 owner*), C-219/C-231 (the metrics FAO-02 blesses), C-275 (data vintage — the same "the substrate is not versioned in git" class) |
+
+FAO-02 is the **LOCKED** framework governing every selection decision: CRPS primary, QS99/Brier/MCR guardrails, twCRPS/LogScore/PIT rejected, evaluation on the full dataset, an empirical conflictology baseline, 5%/1% margins, decisions on the validation partition. Five source files enforce it by name. **None of them can be followed**: the referenced document is outside the git tree, unversioned, and its in-repo pointer is dead.
+
+Two consequences, both live. (1) **Unverifiable governance** — a reviewer cannot confirm that a claimed FAO-02 compliance is real. (2) **Silent drift** — the framework can change (or be misremembered) with no diff, no review, and no way for a test to notice; Epic #263 found the mandated climatology baseline had **never been implemented at all**, which is exactly the failure mode an unversioned contract produces.
+
+**Tier 3:** no silent output corruption, and the framework's content is currently applied correctly where it is applied — but it is a governance contract that cannot be audited from the repository that depends on it. **Deliberately not fixed by Epic #263** (`SCOPE.md` #8: vendoring FAO-02 is a separate scope). Fix direction: vendor it into `docs/specs/` (or an ADR) with a version/date header, repoint the 5 citations, and add a link-integrity test — the repo already has the pattern in `test_risk_register_integrity.py`.
+
+---
+
+
+### C-279: `climatology_resample` duplicates views-baseline's `ConflictologyModel` with no parity test
+
+| Field | Value |
+|-------|-------|
+| ID | C-279 |
+| Tier | 3 |
+| Source | maintainer challenge during Epic #263 review (2026-08-15) — the claim "the FAO-02 climatology was never implemented in code" was **false** and was corrected |
+| Trigger | Any future comparison that scores one arm against `scripts/rollout_ruler_core.climatology_resample` and another against a deployed `ConflictologyModel` run (`white_ranger` / `light_strider`) — two objects with the same name and no guarantee they agree |
+| Location | `scripts/rollout_ruler_core.py::climatology_resample` vs `views-baseline/views_baseline/model/models/distributional/conflictology.py::ConflictologyModel` (+ `model/frames/pooling.py::window_pool`); deployed as `views-models/models/{white_ranger,light_strider}` (`window_months=36`, `n_samples=64`, `seed=42`) |
+| Cross-refs | C-75 / C-265 (the same duplicated-logic-with-a-parity-gap shape, for derivations), C-278 (FAO-02 outside the repo — the reason the duplication was not noticed), views-baseline **#82** (which window convention is correct) |
+
+The FAO-02 empirical conflictology baseline **is** implemented — as `ConflictologyModel` in views-baseline, deployed as `white_ranger` and `light_strider`. Epic #263 nevertheless built a second implementation inside the hydranet scorer, because scoring against the deployed model requires its prediction cubes and those are deleted after scoring. The *need* is real; the **duplication** is the risk.
+
+Three divergences existed on first write, all now closed or documented: `n_samples` 16 vs 64 and `seed` 0 vs 42 (**fixed** — defaults now match the canonical model); an **off-by-one** in the pool bound (`range(end-window, end)` vs the canonical `time <= train_end`, i.e. 420–455 instead of 421–456 — **fixed**, the bound is now inclusive); and the pool **anchor** — canonical fixes it at `train_end`, the hydranet version originally slid it per origin (now `window_anchor`, defaulting to the canonical fixed behaviour, with the sliding variant retained and the question raised upstream as views-baseline #82).
+
+**Fidelity is now evidenced, not assumed:** under the canonical convention the reimplementation scores **0.9591** vs `light_strider`'s archived **0.9601** — 0.1% apart. But that is a one-off manual comparison, **not a test**. Nothing prevents the two from drifting apart on the next change to either.
+
+**Tier 3:** no wrong output today (the Epic #263 verdict is ARTIFACT under all four parameterisations tested, so it does not turn on this), but two implementations of a *governance baseline* with no parity gate is precisely the C-75/C-265 shape, and this one sits on the selection path. Fix direction, in preference order: (a) declare `views-baseline` a dependency and consume `ConflictologyModel` directly, deleting the local copy; (b) if the cube-availability constraint makes that impractical, add a parity test pinning the reimplementation against a stored canonical output; (c) at minimum, keep the 0.9591-vs-0.9601 check as a documented, re-runnable comparison rather than a one-off.
+
+---
+
+
+### C-280: `partition_audit` renders an unrun provenance check as `"n/a"`, which reads as *not applicable*
+
+| Field | Value |
+|-------|-------|
+| ID | C-280 |
+| Tier | 4 |
+| Source | `/expert-code-review` + deep read, PR #273 |
+| Trigger | Renaming or removing `v2_ruler.V2_TRUTH_SHA256`, or running the audit where the truth parquet is absent — the sha comparison silently does not run and the report prints `n/a` |
+| Location | `reports/2026-08-15_rollout_ruler_trust_dossier/tools/partition_audit.py:157` (`if truth_parquet is not None and Path(truth_parquet).exists()`), `:160` (`pin = getattr(v2, "V2_TRUTH_SHA256", None)`, then `if pin is not None and sha != pin`), `:229` (`'ok' if r['truth_matches_pin'] else 'n/a'`) |
+| Cross-refs | C-278 (the same "a guard nobody can follow" family), the C-219 pattern of a guard that does not cover its own inputs |
+
+The truth-substrate check degrades silently in two ways: a missing parquet skips it, and a renamed constant turns it off via `getattr(..., None)`. Either leaves `truth_matches_pin=None`, which the markdown renders as **`n/a`** — indistinguishable from "not applicable to this arm". A reader sees a completed audit table. **Tier 4:** inert today (all 6 arms report `True` against a present pin), and the failure is toward *not asserting* rather than asserting something false. Fix: render three states, and raise when a pin exists but the parquet does not.
+
+---
+
+### C-281: `csv_decompose` drops unmatched rows silently, so the denominator of "N of M arms beat climatology" is unreported
+
+| Field | Value |
+|-------|-------|
+| ID | C-281 |
+| Tier | 4 |
+| Source | `/expert-code-review` + deep read, PR #273 |
+| Trigger | Decomposing a board where the reference arm was not scored at every (target, h) — those arm-rows vanish from `csv_decomposition.csv` with no count and no warning |
+| Location | `reports/2026-08-15_rollout_ruler_trust_dossier/tools/csv_decompose.py:83` (`if b is None: continue`) |
+| Cross-refs | C-219 (headline completeness), C-280 |
+
+189 rows were written from 198 archived rows; nothing reports how many were dropped or why. The dossier makes claims of the form *"12 of 13 arms beat climatology"*, whose denominator comes from this file. A silent drop moves that denominator invisibly. **Tier 4:** no wrong value, and the current drop count is explicable (the reference is not scored against itself), but a count belongs in the output. Fix: count and log the skips; fail if the drop rate exceeds a threshold.
+
+---
+
+### C-282: `float(x or "nan")` is falsy-triggered, and `size_ratio == 0.0` is load-bearing evidence
+
+| Field | Value |
+|-------|-------|
+| ID | C-282 |
+| Tier | 3 |
+| Source | `/expert-code-review` + deep read, PR #273 |
+| Trigger | Any refactor that feeds `decompose_all` float-valued rows instead of `csv.DictReader` strings — every genuine `size_ratio == 0.0` then silently becomes `nan` |
+| Location | `reports/2026-08-15_rollout_ruler_trust_dossier/tools/csv_decompose.py:102-103` (`float(r.get("size_ratio") or "nan")`, `float(r.get("mcr_all") or "nan")`) |
+| Cross-refs | C-231 (`size_ratio 0.0` is part of the ARTIFACT evidence), C-280/C-281 |
+
+The `or` fires on **falsiness**, not absence. It is correct today only because `csv.DictReader` yields strings and `"0.0"` is truthy. **124 of 189 rows have `size_ratio_model == 0.0`**, and that zero is quoted as evidence in the ARTIFACT verdict — the model predicts no magnitude at all. One refactor to float rows would erase exactly the datum the conclusion rests on, silently, in the direction of "no data" rather than "zero". **Tier 3** rather than 4 because the failure mode destroys load-bearing evidence rather than merely under-reporting. Fix: `float(v) if (v := r.get("size_ratio")) not in (None, "") else float("nan")`.
+
+---
+
+
+### C-283: three repo-hygiene tests shell out to a `ruff` binary the CI test environment never installed — guaranteed-red, independently of the code
+
+| Field | Value |
+|-------|-------|
+| ID | C-283 |
+| Tier | 3 |
+| Source | PR #273 CI investigation (2026-08-15) — the branch's `test` job failed; the same three tests fail identically on `development`'s own tip (60ed69f) |
+| Trigger | Reading the CI `test` job's result to decide whether a change is safe to merge — it has been red since at least 2026-08-14 for an environment reason, so a genuine regression would be indistinguishable from the standing failure |
+| Location | `environment.yml` (the `pip:` list installs `.`, `pytest`, `pytest-cov` — not `ruff`); `pyproject.toml` declares `ruff` only under `[tool.poetry.group.dev.dependencies]`, which `pip install .` does not install; consumed by `tests/test_falsification_repo_clean.py::TestF4_02_LintViolations::{test_ruff_check_passes,test_ruff_format_passes}` and `::TestF4_03_DeadCode::test_no_unused_imports_or_variables`, all of which `subprocess.run(["ruff", ...])` |
+| Cross-refs | C-165 (the same file's other CI blocker, and the same class: "suite green" meaning something other than what it appears to), C-247 (test portability) |
+
+Three tests invoke the `ruff` **binary** through `subprocess`. The GitHub Actions `test` job runs inside the conda env built from `environment.yml`, which has no `ruff`, so all three raise `FileNotFoundError: [Errno 2] No such file or directory: 'ruff'` on **every** run. Verified on two independent commits: PR #273's head and `development`'s tip.
+
+Locally they pass, because a developer machine usually has a `ruff` on PATH — which is how the divergence persisted: the failure is invisible where the code is written and unavoidable where it is checked. Worse, a local binary can be a *different version* from the `ruff==0.14.14` the `lint` job pins, so the two jobs can disagree about what "clean" means.
+
+**Tier 3:** no wrong output, but it is a false-confidence and signal-loss problem on the merge gate — exactly C-165's shape. **Fixed in this PR** by adding `ruff==0.14.14` to `environment.yml`'s pip list, matching the lint job's pin. Registered rather than merely fixed because the *class* — a test asserting on tooling the test environment does not provide — is worth having on record, and because it means every CI `test` result before 2026-08-15 should be read as "red for this reason unless shown otherwise".
+
+---
+
+
 ## Disagreements
-
-### D-14: is the exogenous-covariate program worth a conditioning subsystem?
-
-| Field | Value |
-|-------|-------|
-| ID | D-14 |
-| Source | expert-method-review (covariate-ingestion panel, ceiling/parsimony seat vs forecasting seats, 2026-07-29) |
-| Perspectives | **Parsimony/ceiling** (Box + conflict-diffusion, Schutte2011/Buhaug2008): crps_all is INERT to every static channel tried (0.142 across baseline / `ln_pop` / placebo); conflict's spatial persistence makes a static per-cell prior largely redundant with the cell's own history; the magnitude wall is the family/tail (C-149) — a FiLM/TFT covariate subsystem can at best sharpen OCCURRENCE, never the CRPS headline → possibly polishing brass. **Forecasting** (Lim/Salinas): occurrence is *half* the problem (the gate); a sharper gate has decision value for early warning even if CRPS is tail-bound. |
-| Resolution | **Open — keep live.** Gate any covariate-conditioning-seam build (C-228/C-229/C-230 fixes) on a **demonstrated, decision-relevant occurrence gain** from the Step-1 encoder-only diagnosis; if population buys no real occurrence lift once the seam defect is removed, park the covariate program (the parsimony seat wins). |
-| Cross-refs | C-149 (NB ξ=0 magnitude veto), C-224 (eval tail-blindness), C-228 (the seam defect), C-229/C-230, [[amount-ceiling]] |
-
----
-
-### D-15: mixing-weight log — clamp-and-log (ZINB precedent) vs log-sigmoid
-
-| Field | Value |
-|-------|-------|
-| ID | D-15 |
-| Source | expert-code-review (2026-08-01, Epic #230 S2 #232 — Ousterhout/Hickey vs Nygard/Martin/Beck) |
-| Perspectives | **Clamp-and-log (consistency/simplicity):** follow the shipped ZINB template `torch.log(pi.clamp(_PI_EPS, 1-_PI_EPS))` (`zero_inflated_negative_binomial.py:74-75`) for the mixture's `log w` too — one idiom across families, minimal surface. **Log-sigmoid (collapse-regime safety):** ZINB's `pi` rarely pins, so the clamp is benign there; the mixture's `w→1` collapse is the *central pre-registered observable* (F4), so the mixing-weight log MUST use `-softplus(∓raw_w)` to keep the gradient finite in the signal regime. |
-| Resolution | **REVERSED 2026-08-01 (empirically, during S2 impl) → clamp-and-log (ZINB precedent) IS correct.** The initial resolution toward log-sigmoid was wrong on two counts: (1) `nll` receives the *activated* `w`, not `raw_w`, so log-sigmoid-from-raw isn't available without breaking the family contract; (2) `gradcheck.py` shows **clamp-and-log is NaN-safe** at exact saturation (finite value, grad 0) — the trap is *unclamped* `log(w)`, not "not-log-sigmoid." So the mixture clamps `w` before the log exactly as ZINB clamps `pi`. The only concession (dead gradient at exact `w=1`) is acceptable: a pinned collapse is a valid F4 decisive-negative. See the corrected C-249. |
-| Cross-refs | C-249 (the Tier-1 concern this resolves), C-212 (the analogous log-domain NaN class) |
-
----
 
 ### D-01: VolumeHandler scope — God Object vs Deep Module
 
@@ -2571,6 +2431,31 @@ Proposed ADR-072 (frame-native input ingestion) amends ADR-019's **forward** Fea
 
 ---
 
+### D-14: is the exogenous-covariate program worth a conditioning subsystem?
+
+| Field | Value |
+|-------|-------|
+| ID | D-14 |
+| Source | expert-method-review (covariate-ingestion panel, ceiling/parsimony seat vs forecasting seats, 2026-07-29) |
+| Perspectives | **Parsimony/ceiling** (Box + conflict-diffusion, Schutte2011/Buhaug2008): crps_all is INERT to every static channel tried (0.142 across baseline / `ln_pop` / placebo); conflict's spatial persistence makes a static per-cell prior largely redundant with the cell's own history; the magnitude wall is the family/tail (C-149) — a FiLM/TFT covariate subsystem can at best sharpen OCCURRENCE, never the CRPS headline → possibly polishing brass. **Forecasting** (Lim/Salinas): occurrence is *half* the problem (the gate); a sharper gate has decision value for early warning even if CRPS is tail-bound. |
+| Resolution | **Open — keep live.** Gate any covariate-conditioning-seam build (C-228/C-229/C-230 fixes) on a **demonstrated, decision-relevant occurrence gain** from the Step-1 encoder-only diagnosis; if population buys no real occurrence lift once the seam defect is removed, park the covariate program (the parsimony seat wins). |
+| Cross-refs | C-149 (NB ξ=0 magnitude veto), C-224 (eval tail-blindness), C-228 (the seam defect), C-229/C-230, [[amount-ceiling]] |
+
+---
+
+### D-15: mixing-weight log — clamp-and-log (ZINB precedent) vs log-sigmoid
+
+| Field | Value |
+|-------|-------|
+| ID | D-15 |
+| Source | expert-code-review (2026-08-01, Epic #230 S2 #232 — Ousterhout/Hickey vs Nygard/Martin/Beck) |
+| Perspectives | **Clamp-and-log (consistency/simplicity):** follow the shipped ZINB template `torch.log(pi.clamp(_PI_EPS, 1-_PI_EPS))` (`zero_inflated_negative_binomial.py:74-75`) for the mixture's `log w` too — one idiom across families, minimal surface. **Log-sigmoid (collapse-regime safety):** ZINB's `pi` rarely pins, so the clamp is benign there; the mixture's `w→1` collapse is the *central pre-registered observable* (F4), so the mixing-weight log MUST use `-softplus(∓raw_w)` to keep the gradient finite in the signal regime. |
+| Resolution | **REVERSED 2026-08-01 (empirically, during S2 impl) → clamp-and-log (ZINB precedent) IS correct.** The initial resolution toward log-sigmoid was wrong on two counts: (1) `nll` receives the *activated* `w`, not `raw_w`, so log-sigmoid-from-raw isn't available without breaking the family contract; (2) `gradcheck.py` shows **clamp-and-log is NaN-safe** at exact saturation (finite value, grad 0) — the trap is *unclamped* `log(w)`, not "not-log-sigmoid." So the mixture clamps `w` before the log exactly as ZINB clamps `pi`. The only concession (dead gradient at exact `w=1`) is acceptable: a pinned collapse is a valid F4 decisive-negative. See the corrected C-249. |
+| Cross-refs | C-249 (the Tier-1 concern this resolves), C-212 (the analogous log-domain NaN class) |
+
+---
+
+
 ## Tech-Debt Backlog (demoted from register, review-rr 2026-06-05)
 
 Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/single-developer scope — kept for traceability (full entries remain tagged `[DEMOTED]` in §Open Concerns) but no longer counted as active risks. Actionable as ordinary tech-debt, not governance risks.
@@ -2582,12 +2467,413 @@ Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/s
 | C-37 | Accepted trade-off: extract an `IVolumeHandler` Protocol only if an alternative implementation (lazy/GPU-resident) is needed. | 3 |
 | C-85 | Add a `flip_probability` config key (currently hardcoded `0.5` in `training_engine.py:290-292`). | — |
 | C-204 | Consolidate the inverse-softplus link (`nb_core.inverse_softplus` + `dense_nb_loss`/`truncated_nb_loss` `_inverse_softplus`) into one shared util when Epic B (#181) migrates the legacy losses. | Epic B |
+| C-210 | Warn (don't silently fall back to the region mean) when `_standard_gamma`'s 64-iteration Marsaglia-Tsang loop fails to accept — `nb_core.py:91-104`. *(Was tagged `[DEMOTED]` in §Open but missing from this index — added on the 2026-08-15 review-rr pass.)* | — |
+| C-127 | Remove the duplicate dict keys in model configs (ruff F601) — the later definition silently shadows the earlier. | — |
+| C-131 | Document (or config-surface) that `weight_decay=0.1` is deliberate and large in absolute terms. | — |
+| C-166 | Stop rendering input-only static channels as predicted signal in the diagnostic plots (display drift only). | 8 |
+| C-171 | Correct the `FocalLoss` docstring — it is `0.5·BCE` at γ=0/α=0.5, not BCE. | — |
+| C-172 | Drop `FocalLoss`'s internal `unsqueeze(0)` so `reduction='none'` preserves input rank. | — |
+| C-182 | Validate both architecture dimensional contracts in `__init__` — `total_hidden_channels % 8` and grid `H`/`W` `% 4` (absorbs the former C-188). | 4 |
+| C-268 | Harden the diagnostic plotters — narrow the broad `try/except`, add a positivity guard before log-scale, replace the mutable default arg. | — |
+
+**Backlog total: 13** (5 from the 2026-06-05 demotion pass, 1 index repair, 7 added 2026-08-15).
 
 ---
 
 ## Resolved Concerns
 
 <!-- 2026-07-27 register tidy (review-rr strategic): the entries below were resolved-in-place in §Open and physically relocated here. -->
+
+### C-197: distribution registry / legacy `output_distribution` name collision → silent legacy hijack — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-197 |
+| Tier | 2 |
+| Source | /falsify adequacy audit of ADR-067 §3 (2026-07-20) |
+| Trigger | Registering a `DistributionFamily` in `DISTRIBUTION_REGISTRY` whose name equals a legacy `output_distribution` value (`standard`/`hurdle_shrinkage`/`hurdle_nb`/`hurdle_lognormal`/`dense_nb`/`quantile`) |
+| Location | `views_hydranet/distributions/registry.py` (planned); `views_hydranet/utils/config_initializer.py` valid-list `~388-403` (`FAMILY_NAMES ∪ legacy`) |
+| Cross-refs | ADR-067 §3; Epic A #167 (A-S2 #169 registry, A-S5 #172 config); C-196 (byte-identical foundation) |
+
+The strangler-fig integration (ADR-067) unions the registry family names with the legacy `output_distribution` values into one valid-list and dispatches via `resolve_family(name)`. If the two name-sets **intersect**, a legacy config value routes to the new family instead of its untouched legacy branch — silently changing a proven, byte-identical model with **no error**, and invalidating every comparison to the lodestar baseline. **Tier 2:** structural fragility with a specific, realistic trigger (a future family author picking a colliding name). Fix: a fail-loud validator + test asserting `FAMILY_NAMES ∩ legacy = ∅` (registry names must be disjoint from legacy values); an acceptance criterion of A-S5.
+
+> **✅ RESOLVED — verified in source 2026-08-15 (review-rr strategic).** `config_initializer.py:777-793` `validate_family_legacy_disjoint` is a `model_validator(mode="after")` that raises when `family_names() & set(LEGACY_OUTPUT_DISTRIBUTIONS)` is non-empty; the code comment cites C-197 verbatim. It fires on every config load regardless of `output_distribution`, so the silent legacy-hijack path is closed. Relocated on the register↔code reconciliation pass.
+
+---
+### C-193: `body_mask` masking silently ignored under a latent loss — trains dense while config says masked — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-193 |
+| Tier | 2 |
+| Source | expert-code-review (2026-07-18, `body_mask` design) — Nygard/ADR-008 |
+| Trigger | Sweeping `body_mask` (or setting `hurdle_threshold`+mode) to a masking value while `loss_reg` is a latent likelihood (`hurdle_nb`/`lognormal_nll`/`tobit`) |
+| Location | `views_hydranet/train/training_engine.py:255-263, 343` (`if hurdle_threshold is not None and not use_latent`; warn-once C-180) |
+| Cross-refs | C-194 (same interface), C-180 (the warn-once), ADR-008, ADR-003 Law 1 |
+
+The point-body mask is silently a **no-op under a latent loss** — only a warn-once fires (C-180). A run can be configured "masked" and train **dense**, invisibly, with no error and no metric signal. Violates ADR-003 Law 1 (Fail Loud — it explicitly names "silent truncation") and ADR-008. **Tier 2:** silent wrong-training under a realistic sweep, no error signal. Fix: a hard `ValueError` at config validation when `body_mask ∈ {pos_cells,pos_timelines}` and the loss is latent (mirror the tobit/`hurdle_threshold` contradiction at `config_initializer.py:627`).
+
+> **✅ RESOLVED — verified in source 2026-08-15 (review-rr strategic).** `config_initializer.py:922-946` `validate_body_supervision_latent` raises exactly the `ValueError` this entry prescribed, keyed off the loss class's `needs_latent` flag in `LOSS_REG_REGISTRY` (not a hardcoded name list); the code comment cites C-193. The `body_mask` keyword itself is additionally rejected by `reject_retired_hurdle_knobs` (`:735-754`). Merged with C-180 (the same defect in its earlier `hurdle_mask_mode`/`active_window` form) and relocated.
+
+---
+### C-180: `active_window` hurdle mask is silently ignored under a latent loss — config no-op with no warning — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-180 |
+| Tier | 3 |
+| Source | /falsify "regression head + mask now 100% correct" round 2 (2026-06-26) — Finding B, SOFT |
+| Trigger | Set `hurdle_mask_mode='active_window'` together with a `needs_latent=True` loss (`tobit`, `hurdle_nb`, `dense_nb`) |
+| Location | `views_hydranet/train/training_engine.py:223` (`if hurdle_threshold is not None and not use_latent and hurdle_mask_mode == "active_window"`) |
+| Cross-refs | C-178, ADR-063; the active_window mask (dossier `2026-06-23_body_sweep_dossier/16`) |
+
+`active_cell` is computed only when `not use_latent`, and the masked hurdle-loss branch is likewise gated on `not use_latent`. So a config that asks for `active_window` decay supervision **while using a latent loss** gets **no active-window supervision at all — silently, with no warning or error**. The behaviour is *semantically* defensible (latent losses model the zeros/censoring themselves, so a hurdle mask does not apply), but the silent no-op of an explicitly-set flag means the user believes decay supervision is on when it is not — exactly the kind of invisible config drift that produced a multi-week mis-attribution before. **Tier 3:** no correctness corruption (the latent loss is doing the right thing), but a maintainability/honesty gap that misleads experiment design. Fix: log a warning (or fail-loud reject) when `active_window` is combined with a latent loss. Failing test: `tests/test_falsify_head_mask_round2.py::test_active_window_with_latent_loss_warns_or_raises`.
+
+> **✅ RESOLVED — merged into C-193 and verified in source 2026-08-15 (review-rr strategic).** Same defect, earlier knob generation: `hurdle_mask_mode`/`active_window` are now rejected outright by `reject_retired_hurdle_knobs` (`config_initializer.py:735-754`), and the latent-loss silent no-op is raised on by `validate_body_supervision_latent` (`:922-946`). Both the knobs and the silent path are gone. See C-193 for the surviving record.
+
+---
+### C-194: `hurdle_mask_mode` read raw + un-validated — a typo silently degrades the mask to per_step — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-194 |
+| Tier | 2 |
+| Source | expert-code-review (2026-07-18, `body_mask` design) — Nygard/ADR-009 |
+| Trigger | Setting `hurdle_mask_mode` in a config with a typo (e.g. `active-window` vs `active_window`) |
+| Location | `views_hydranet/train/training_engine.py:549` (`config.get("hurdle_mask_mode","per_step")`); NO field in `config_initializer.py` |
+| Cross-refs | C-193, ADR-009 (config as validated boundary) |
+
+`hurdle_mask_mode` is not a config field — it's read straight from the dict with a `"per_step"` default, so any typo silently trains the wrong mask (e.g. `active_window` intended, per_step trained). No validation, no error. Violates ADR-009 (all boundaries validated). **Tier 2:** silent mis-training with no signal. Fix: the validated `body_mask` enum becomes the sole front door; the raw `config.get` read is deleted.
+
+> **✅ RESOLVED — verified in source 2026-08-15 (review-rr strategic).** `config_initializer.py:735-754` `reject_retired_hurdle_knobs` is a `model_validator(mode="before")` that raises if `hurdle_threshold`, `hurdle_mask_mode` or `body_mask` appear in the config at all, naming the `body_supervision` migration. A typo in the key can no longer silently degrade the mask — the key itself is refused. This entry's trigger is now unreachable.
+
+---
+### C-179: `reg_activation` is arch-affecting but NOT persisted in the artifact sidecar — silent activation mismatch on reload — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-179 |
+| Tier | 2 |
+| Source | /falsify "regression head + mask now 100% correct" round 2 (2026-06-26) — Finding A, SOFT |
+| Trigger | Reload (eval/forecast/replay) a model trained with an **explicit `reg_activation` override**, or a pre-#178 relu-trained `hurdle_shrinkage`/`hurdle_lognormal` artifact, while the live config's activation default differs from training |
+| Location | `views_hydranet/train/train_model.py:75-92` (`arch_keys` / `config_snapshot` — persists `output_distribution`, `static_channels`, but NOT `reg_activation`); `views_hydranet/utils/utils.py` `choose_model` (`reg_activation=config.get("reg_activation")`) |
+| Cross-refs | C-159 (same sidecar-drift class — but that one crashed loud; this is silent), C-178 (the softplus fix this completes), ADR-063 |
+
+The regression-head output activation `reg_activation` changes the forward function but is **absent from the persisted sidecar `arch_keys`**. On reload, `choose_model` therefore derives the activation from the *current* default (keyed off `output_distribution`, which IS persisted), **not** from what the model was trained with. Because softplus and ReLU share weight shapes, `load_state_dict` succeeds silently — so a model trained with one activation runs the forward with another, producing **wrong predictions with no error signal**. Demonstrated: a relu-trained `hurdle_shrinkage` artifact reloads as softplus (the round-2 probe hit this). **Tier 2:** silent-but-gated — it bites only when the trained activation differs from the reload-time default (explicit override, or a pre-#178 artifact); the production `hurdle_nb` path defaulted to softplus before and after, so it is unaffected. The fix mirrors the adjacent `output_distribution` line (`train_model.py:92`, whose comment already says "persist the head flag (else hurdle_nb reloads as ReLU)"): add `reg_activation` to the snapshot. Failing test: `tests/test_falsify_head_mask_round2.py::test_reg_activation_round_trips_through_sidecar`.
+
+> **✅ RESOLVED — verified in source 2026-08-15 (review-rr strategic).** `train_model.py:102-118` persists the RESOLVED reg-head activation into the `.pt.config.json` sidecar (`config_snapshot["reg_activation"]`), with `None` written for family/quantile heads whose activation is a closure reconstructed from `output_distribution` on reload; the code comment cites C-179. The silent activation-swap-on-reload path is closed.
+
+---
+### C-132: HydranetManager `_execute_model_training` override silently drops the wandb train-run lifecycle — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-132 |
+| Tier | 2 |
+| Source | falsify + 3-agent investigation (wandb training-logging bug, 2026-06-07) |
+| Trigger | Running a **single training run** (`main.py -r calibration -t`) and expecting wandb to contain training-phase metrics (loss, `mtl_log_var/*`, sigma, `ss_epsilon`) — or relying on those curves to diagnose a training run |
+| Location | `views-hydranet/views_hydranet/manager/hydranet_manager.py:185-187` (override) vs base `views-pipeline-core/views_pipeline_core/managers/model/model.py:~1186` (`_execute_model_training`) |
+| Cross-refs | C-112 (pre/post-C-111 training-dynamics comparison — affected if training curves are needed) |
+
+`HydranetManager._execute_model_training` overrides the base `ModelManager._execute_model_training` with a bare `self._train_model_artifact()`, dropping the base method's `with self._wandb_module.initialize_run(job_type="train"): ...` wrapper (and also its `TrainingStage.finalize_training` + `ModelTrainingException` handling). Consequently, on the **single-run `-t` path only**, `wandb.run is None` throughout training and every guarded `wandb.log` in `training_engine.py` (L640/651/664) silently no-ops — no error, no warning, no train run on the dashboard. **Scope is path-specific:** the sweep path (`_execute_model_sweeping`) and eval path (`_execute_model_evaluation`) are NOT overridden, so they keep their wandb runs open and log correctly (verified: pink_pirate sweep TRAIN runs + all EVAL runs logged fine through 2026-06-05). No impact on training correctness, artifacts, or eval metrics — observability loss only.
+
+Tier 2 rationale: a silent divergence from a base-class contract (a subclass phase-override drops a lifecycle the base guarantees), with a clear trigger and zero error signal; latent since ~March 2026 and only surfaced when per-lesson training logging was added 2026-06-01 (it had nowhere to land on the `-t` path). Not Tier 1 (no model-output corruption). Fix direction (pending /expert-code-review): wrap the override body in `initialize_run("train")` — NOT a plain delete, since the override deliberately bypasses `finalize_training`. Why-not-caught: workflow is sweep-centric (`-s`) + eval-metric-centric (`-e`), both of which log fine; no test asserts an active train run.
+
+> **✅ RESOLVED — verified in source 2026-08-15 (review-rr strategic).** `hydranet_manager.py:207-211` carries an explicit NOTE that `_execute_model_training` is intentionally NOT overridden, so the base `ForecastingModelManager` phase template retains ownership of the wandb run lifecycle (`initialize_run("train")` + `TrainingStage.finalize_training` + `finish_run`); training is customised through the `_train_model_artifact()` hook instead. The comment names C-132 as the reason. **C-133 (the general overridable-phase-template pattern risk) remains legitimately open.**
+
+---
+### C-201: self-zeroed ZINB decouples the classification (gate) head from the forecast — frozen-ruler AP/Brier then score a head the forecast ignores — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-201 |
+| Tier | 2 |
+| Source | /falsify (2026-07-20), P5 |
+| Trigger | Scoring a self-zeroed `nb`/`zinb` family on the frozen lodestar ruler's gate metrics (AP/Brier) |
+| Location | the lodestar scorer `reports/2026-07-17_lodestar_eval_dossier/tools/lodestar_score.py`; planned `distributions/` `prob_positive`; A-S11 (#178) eval |
+| Cross-refs | C-199/C-200; ADR-067 (self-zeroed); F1 pre-registration; **C-211 (empirical confirmation — 300-lesson M1: count-only occurrence AP ~0.27 vs cls-gate ~0.44)** |
+
+A self-zeroed ZINB produces its zeros from the distribution (`P(Y>0)=(1−π)·(1−NB(0))`), **not** from the classification head. But the frozen ruler computes gate quality (AP/Brier) on the cls head. So the reported gate metric describes an occurrence estimate the ZINB forecast does not use — the two can diverge silently, mis-informing the M1/M2 go/no-go. **Tier 2:** silent mis-attribution in the evaluation that gates production decisions. Fix: for self-zeroed families the ruler must score the **distribution-implied** `P(Y>0)` (family exposes `prob_positive`), or the eval must explicitly document that the cls head is decoupled and not the forecast's gate.
+
+> **✅ RESOLVED — verified in source 2026-08-15 (review-rr strategic).** `prob_positive` is now an abstract member of the `DistributionFamily` ABC (`distributions/base.py:104-106`, docstring cites C-201) and implemented by every family — `zero_inflated_negative_binomial.py:125` as `(1-pi)*(1-NB(0))`, `nb_core.py:132` via the numerically-stable `-expm1(log_prob_zero)`. A self-zeroed family can therefore supply the gate quantity the frozen-ruler AP/Brier metrics need, without an external classification head. Relocated on the register↔code reconciliation pass.
+
+---
+### C-251: mixture `prob_positive` numeric cancellation if built from the direct `prob_zero` — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-251 |
+| Tier | 2 |
+| Source | expert-code-review (2026-08-01, upfront design review of Epic #230 S2 #232) |
+| Trigger | Implementing the mixture `prob_positive` literally as `1 - (w·NB1(0) + (1-w)·NB2(0))` using the direct `NBCore.prob_zero` (`(theta/(theta+mu))**theta`) |
+| Location | planned `views_hydranet/distributions/mixture_negative_binomial.py` (`prob_positive`); contrast `nb_core.py:120-124` (direct `prob_zero`) and `zero_inflated_negative_binomial.py:124-130` (the stable `-expm1(log_prob_zero)` form) |
+| Cross-refs | C-201 (self-zeroed gate scoring / the stable `prob_positive` lesson NB & ZINB already apply) |
+
+`NBCore.prob_zero` cancels catastrophically for small `mu` / large `theta` (`(θ/(θ+μ))**θ → 1` minus a tiny number), which is exactly why `NegativeBinomialFamily`/`ZINBFamily` compute `prob_positive` via the stable `-expm1(NBCore.log_prob_zero(...))`. A literal mixture `prob_positive` re-introduces the cancellation, silently miscalibrating the gate/occurrence metrics the mixture is scored on. **Tier 2 (silent metric miscalibration on the occurrence side; not the primary CRPS but feeds the verdict).** Fix: `prob_positive = w·(-expm1(NBCore.log_prob_zero(mu1,theta1))) + (1-w)·(-expm1(NBCore.log_prob_zero(mu2,theta2)))`; test precision at small `mu`/large `theta`.
+
+> **✅ RESOLVED (pre-empted by construction) — verified in source 2026-08-15 (review-rr strategic).** `mixture_negative_binomial.py:122-123` builds each component's `P(Y>0)` from the stable `-expm1(log_prob_zero)` rather than the direct `prob_zero`, with the cancellation hazard named in the docstring. Pinned by `tests/distributions/test_mixture_negative_binomial.py:216-234` ("mixture prob_positive must use -expm1(log_prob_zero), not the direct prob_zero"). The anticipated defect was never built.
+
+---
+### C-195: dual authority over "what is an event" — mask threshold vs binary-derivation threshold can drift — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-195 |
+| Tier | 3 |
+| Source | expert-code-review (2026-07-18, `body_mask` design) — Martin/Kleppmann/ADR-046 |
+| Trigger | Changing the binary-target derivation threshold (`config['derivations']['binary'][...]['threshold']`) without changing the mask's hardcoded `> threshold` |
+| Location | mask literal in `training_engine.py:263/349` vs `config_initializer.py:53` (`derivations`) |
+| Cross-refs | C-193/C-194, ADR-046 (Transformations vs Derivations), ADR-003 Law 6 |
+
+"A cell is an event where `y > 0`" is defined in **two** places — the binary-target derivation (config `derivations`) and the mask threshold in the training loop. They can silently diverge, so `by_*` labels and the body mask would disagree on which cells are events. **Tier 3:** maintainability/consistency hazard, no current corruption (both are 0 today). Fix: the mask sources its event threshold from the derivation config (single authority).
+
+> **✅ RESOLVED — verified in source 2026-08-15 (review-rr strategic).** `body_supervision.py:75-76` `event_threshold_from_config` is now the single authority for "what is an event", sourcing the threshold from the binary-target derivation config, and `training_engine.py:307,680-684` reads it from there rather than a literal. Both the module docstring (`body_supervision.py:22`) and the call site cite C-195. The dual-authority split is closed.
+
+---
+### C-146: likelihood conflation — "ZINB" vs "hurdle-NB" are different models — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-146 |
+| Tier | 2 |
+| Source | expert-method-review (ZINB Pass-2, 2026-06-10) |
+| Trigger | Implementing `ZINBLoss` (#99) without first committing to ONE likelihood and writing its exact NLL |
+| Location | dossier `2026-06-10_zinb_distributional_head_dossier/02_design.md §0/§2`; issue #99 |
+| Cross-refs | C-137 (count-head likelihood-spec), D-08 (unified-NLL decision) |
+
+The design names the head both "**ZINB**" (zeros from a Bernoulli gate **and** the NB's own zero mass — Lambert 1992) and "**zero-truncated NB on positives / hurdle_nb**" (zeros **only** from the gate, truncated positive body — Cragg 1971 / Mullahy 1986). **These are distinct likelihoods** with distinct NLLs and identifiability: in ZINB a zero has two explanations → π and the NB zero-prob are partially confounded; the hurdle factorizes cleanly but needs the truncated-NB normaliser. Implementing the wrong NLL for the intended model is a silent spec error (wrong gradients, wrong calibration). **Commit to one and write its exact NLL before #99.** **Tier 2:** structural mis-specification feeding everything downstream.
+
+> **✅ RESOLVED — verified in source 2026-08-15 (review-rr strategic).** The likelihood commitment this entry demanded was made and is recorded at the head of the implementing module: `distributions/zero_inflated_negative_binomial.py:7` — "Committed likelihood (C-146): ZINB (Lambert 1992), NOT hurdle" — followed by the exact per-cell pmf. `hurdle_nb` survives as a separate, separately-named legacy `output_distribution`, and `validate_family_legacy_disjoint` (C-197) enforces that the two name-spaces cannot collide.
+
+---
+### C-196: `body_mask='none'` refactor must be byte-identical to the current foundation — else silent drift — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-196 |
+| Tier | 3 |
+| Source | expert-code-review (2026-07-18, `body_mask` design) — Feathers/Beck |
+| Trigger | Refactoring the two-knob mask into `body_mask` without a characterization net |
+| Location | `training_engine.py` masking path; `tests/` (no end-to-end characterization test today) |
+| Cross-refs | C-193/194/195, ADR-005 |
+
+The foundation (all-cell MSE gated) is the lodestar baseline. If the `body_mask` refactor changes the masked cell-set at `none` even slightly, the foundation shifts silently and every comparison to it is invalidated. There is currently **no** config→behaviour characterization test. **Tier 3:** regression risk on a load-bearing baseline. Fix: a characterization test snapshotting the current masked-cell-set for all three legacy knob-combos BEFORE the refactor, asserted identical after.
+
+> **✅ RESOLVED — verified in source 2026-08-15 (review-rr strategic).** The characterization net exists: `tests/test_body_supervision_contract.py:6` asserts `body_supervision='all'` equals the all-cell foundation to numerical equality, and refers to the concern in the past tense ("was C-196"). The two-knob mask refactor has since been superseded a second time (`body_mask` → `body_supervision`, ADR-065 amend. 2026-07-28) with the byte-identity requirement pinned throughout.
+
+---
+### C-184: BatchNorm runs inside the recurrent loop — running stats accumulate T× per window over temporally-correlated steps — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-184 |
+| Tier | 2 (upgraded from 4 on 2026-06-27 — see narrative) |
+| Source | /falsify ConvLSTM (2026-06-26) P5; **CONFIRMED root cause via BN-recal experiment (2026-06-27)** |
+| Trigger | FIRES NOW on every training run: ~40% of seeds land BN running-stats that over-amplify at eval → gate saturates → composed E[y] explodes (the seed-bimodality + much of C-113). Acute on any retrain. |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py` (`bn_enc_conv0/1`, `bn_bottleneck_conv`, the `bn_dec_conv*` head BNs — all invoked inside the per-timestep `forward`, which the engine calls T times per window) |
+| Cross-refs | C-114 (undocumented recurrent-regularization surface), C-183, C-113 (rollout dynamics) |
+
+The encoder/bottleneck/decoder `BatchNorm2d` layers are inside the single-timestep `forward`, called T× per window over **temporally-correlated** activations (cf. Cooijmans 2016 recurrent BN). Originally logged Tier-4 ("stable design choice"). **⬆ UPGRADED Tier-2 — CONFIRMED ROOT CAUSE (2026-06-27).** The 2026-06-26 perf program found the production floor is **seed-bimodal (~40% of seeds collapse: saturated gate π̄≈0.1–0.36, rollout MCR_pos 30–260×)**. Triangulated the cause: NOT the loss (pos_weight sweep flat), NOT the weights (per-layer spectral norms + gate-head bias identical good-vs-bad), NOT the training trajectory (good/bad train-time gate-logit identical, because **training uses batch-stats BN**). The decisive test (`bn_mode_probe.py`): every seed is calibrated under **train-mode BN** (π̄≈0.002–0.005) but saturates under **eval-mode BN** (π̄ 0.4–0.998), worst for the bad seeds (which have lower BN `running_var` → eval BN over-amplifies). **FIX CONFIRMED + UNIVERSAL:** recompute BN running stats post-training (forward-only over real windows, reset BN + `momentum=None`) flips **6/6 bad seeds BAD→GOOD and preserves 2/2 good** — bad-basin rate ~40%→0%, rollout MCR_pos collapses to 2.5–8.3× (e.g. seed 201: step-1 CRPS 33.8→0.24, MCR 259→5.8). So this is **silent eval-time model-output corruption on ~40% of trained models** (Tier-2: not Tier-1 only because it surfaces as loud explosions, not a quiet wrong answer, and is now fixable). **Resolution paths:** (a) post-training BN-recal pass before artifact save [cheapest, validated], (b) fix the recurrent-BN momentum/update at the root, (c) GroupNorm/LayerNorm (no train/eval gap; needs retrain). Opt-in `bn_recal_from` flag in `training_engine.py` (uncommitted) implements the test. Tools: `/tmp/run_bn_recal_all.sh`, `/tmp/bn_mode_probe.py`, `/tmp/recal_all_score.py`. Cross-ref C-113 (this is a large part of the eval-explosion), C-147 (gate-calibration), the perf program.
+
+> **✅ RESOLVED WITH RESIDUAL — status corrected 2026-08-15 (review-rr strategic).** This entry's text still describes the fix as an "opt-in `bn_recal_from` flag in `training_engine.py` (uncommitted)". That is **stale**: the fix is committed and **default-ON** — `training_engine.py:1084` runs `_recalibrate_bn` under `config.get("bn_recalibrate", True)`, snapshotting the BN buffers first and restoring them on any failure so a recal error can never lose a completed training run (`:1085-1099`). The seed-bimodal eval collapse is therefore mitigated by default on every new artifact. **Residual tracked as C-273** (the recalibration windows are drawn from the curriculum's high-intensity head, not a representative slice) — that entry remains open in §Open Concerns.
+
+---
+### C-138: Stale test import breaks suite collection — `test_eval_integration_toy` imports a removed `views_evaluation` module — RESOLVED
+
+**✅ RESOLVED (merged to `development` via PR #216) — F-Z1: submodule-level `importorskip` → a bare `pytest` collects clean (#95 gone).**
+
+| Field | Value |
+|-------|-------|
+| ID | C-138 |
+| Tier | 3 |
+| Source | full-suite run during R2 verification (2026-06-10) |
+| Trigger | Running the full `pytest` suite (CI or local) **without** `--continue-on-collection-errors` — the import error in `test_eval_integration_toy.py` aborts collection, so the other ~743 tests **do not run** and a real regression elsewhere is masked behind a single loud error |
+| Location | `tests/test_eval_integration_toy.py:6` (`from views_evaluation.evaluation.evaluation_manager import EvaluationManager`) + `:18` (`EvaluationManager()`); installed `views_evaluation/evaluation/` (no `evaluation_manager.py`; exposes `native_evaluator`, `evaluation_frame`, `metric_catalog`, `metrics`, `native_metric_calculators`, `config_schema`, `evaluation_report`) |
+| Cross-refs | C-52 (stale tests — resolved precedent), C-10 (importorskip guards), C-79/C-107 (test-coverage gaps) |
+
+`test_eval_integration_toy.py` imports `views_evaluation.evaluation.evaluation_manager.EvaluationManager`, which **no longer exists** in the installed `views_evaluation` — the `EvaluationManager` class/module was removed or renamed upstream (the current package routes evaluation through `native_evaluator` / `EvaluationFrame`). This is **stale-test vs upstream-API drift**, unrelated to the magnitude/rollout program (surfaced incidentally during R2's pre-commit suite run). It is *loud* (ImportError, nonzero exit) — not silent corruption — but because a collection error **interrupts the whole run** by default, a developer or CI seeing "1 error, interrupted" may not realize the other 743 tests never executed, masking unrelated regressions.
+
+Tier 3 rationale: test-integrity / dependency-drift; no model-output impact, but it degrades the suite's value as a regression gate (the masking-by-interrupt hazard). Mitigation: update `test_eval_integration_toy.py` to the current `views_evaluation` entrypoint (likely `native_evaluator` / `EvaluationFrame`), or `pytest.importorskip` it (C-10 pattern) / remove if the toy integration is obsolete; optionally set `--continue-on-collection-errors` in the CI config as defense-in-depth. Tracked in **#95**.
+
+**Update 2026-07-31 (/falsify, F-Z1 — precise cause):** the file *already has* `pytest.importorskip("views_evaluation")` on **line 4**, but it guards the **top-level package** while line 6 imports the **submodule** `views_evaluation.evaluation.evaluation_manager`. The installed `views_evaluation` top package imports fine, so importorskip is a **no-op**, and line 6's submodule import still raises → collection hard-errors despite the guard. **Precise fix: `importorskip("views_evaluation.evaluation.evaluation_manager")`** (skip at the granularity of the thing actually imported). Falsification stub: `tests/test_falsify_zero_surprises.py::test_P2_plain_pytest_collects_without_ignore`.
+
+---
+### C-234: emit_family_core rollout is half-wired — emit uses the large π-stripped core, AR feedback uses the small self-zeroed body → silent verdict corruption — RESOLVED
+
+**✅ RESOLVED (merged to `development` via PR #216) — S1: `_sample_feedback` is core-aware (mirrors `_emit_magnitude`); regression test.**
+
+| Field | Value |
+|-------|-------|
+| ID | C-234 |
+| Tier | 1 |
+| Source | code-review (max, 2026-07-31; F0 — verified against source) |
+| Trigger | Trusting any h≥2 / horizon or bloom readout of a `{th_,}gated_ZINBcore` run (`emit_family_core=True`), OR shipping emit_family_core more broadly, before `_sample_feedback` is made core-aware |
+| Location | `views_hydranet/utils/hydranet_inference.py` (`_emit_magnitude`:253 uses `mean_core`; `to_cube_samples(core=)`:793 uses `sample_core`; but `_sample_feedback`:311 draws `fam.sample` — self-zeroed) |
+| Cross-refs | C-113 (AR feedback carrier), C-239 (training-side twin), C-240 (compose guard), C-242 (validator message) |
+
+`_emit_magnitude` and the scored D×K cube correctly switch to the π-stripped **core** under `emit_family_core` (`mean_core`/`sample_core`), but `_sample_feedback` — the DEFAULT AR feedback for family heads (`rollout_feedback` auto-resolves to `'sample'`, :101) — was **not** updated and still draws the **self-zeroed** `fam.sample`. So a th_gated_ZINBcore rollout **emits/scores the large core but feeds back the small self-zeroed body**: every horizon h≥2 is conditioned on a history the model never emitted. `_sample_feedback`'s own docstring ("Mirrors `_emit_magnitude`'s family branch") is the evidence this is an unintended miss, not a choice. **Tier 1 (silent verdict incorrectness):** no error fired; it silently invalidated the h≥2 half of the E3 th_gated_ZINBcore verdict (`2026-07-29_v2_scoreboard_dossier/07` — F2 "no bloom" is untrustworthy, the "stability" may be an artifact of the too-small feedback). h=1 readouts (incl. the decisive F1 crps_events @h1) are unaffected (no feedback at h=1). Fix: mirror the `emit_family_core` branch in `_sample_feedback` (draw `sample_core`), TDD it, re-emit the 3 banked zinb seeds, re-derive F2 + the horizon curve. **Scope: `emit_family_core` defaults False → the shipping gated_NB/ZINB are unaffected** (experiment-only bug).
+
+---
+### C-235: data-backed static channel leaves silent 0-holes for cells/months absent from the df (geometry statics fill the full grid; data-backed does not) — RESOLVED
+
+**✅ RESOLVED (merged to `development` via PR #216) — S4: a data-backed static fails loud on NaN/inf coverage holes (no silent 0-hole).**
+
+| Field | Value |
+|-------|-------|
+| ID | C-235 |
+| Tier | 2 |
+| Source | code-review (max, 2026-07-31) |
+| Trigger | Wiring a data-backed `static_channels` covariate (e.g. datafactory `ln_pop`) whose panel is sparser than the conflict panel — a cell/month present in conflict rows but absent from the covariate |
+| Location | `views_hydranet/utils/volume_handler.py` (~250, data-backed static fill into a zeros volume) |
+| Cross-refs | C-228 (same seam, placement defect), C-229 (covariate taxonomy), C-236/C-237/C-238 (sibling data-backed-static gaps) |
+
+The data-backed static path writes the covariate only at observed `(cell, month)` df rows into a zeros volume, so any study cell or month absent from the df keeps a **silent 0** — unlike geometry statics, which fill the full grid at all months. `ln_pop` (the stated near-term use) can enter the panel later than conflict or cover a subset of cells: a cell with conflict at months 100–500 but population only at 300–500 gets `ln_pop=0` (population≈1) for 100–299, digested as a real covariate and — if the origin slice is 0 — re-injected as 0 across the whole rollout. **Tier 2 (silent, realistic near-term trigger):** no error; corrupts a covariate the model treats as real. `test_data_backed_static_channel.py` uses a fully-dense grid so it cannot catch the hole. Fix: fill-completeness contract (forward/mean-fill or fail-loud on missing support) + a sparse-panel test.
+
+---
+### C-236: data-backed static channel bypasses both FeatureScaler guards → raw-magnitude / NaN reaches the encoder unscaled and unchecked — RESOLVED
+
+**✅ RESOLVED (merged to `development` via PR #216) — S4/S5: NaN guard + magnitude sanity rail; deeper model-side scaling deferred (C-244/#229).**
+
+| Field | Value |
+|-------|-------|
+| ID | C-236 |
+| Tier | 2 |
+| Source | code-review (max, 2026-07-31) |
+| Trigger | Declaring a data-backed `static_channels` covariate with raw (unlogged) magnitude — e.g. population in [0, 5e7] — without also listing it under `transformations`/`features` |
+| Location | `views_hydranet/utils/volume_handler.py` (~250, static fill); `views_hydranet/utils/feature_scaler.py` (`configured_columns`:51 iterates transform cols; unmapped/gradient guard:79–83 iterates `config['features']`) |
+| Cross-refs | C-235/C-237/C-238 (sibling gaps), C-228 (same seam) |
+
+Neither FeatureScaler guard covers `static_channels`: the NaN/Inf guard iterates transform columns and the unmapped/gradient-explosion guard iterates `config['features']` — a static channel is in neither. So a raw-magnitude static (population ~1e7) reaches the encoder **unscaled**, dominating every log1p-scaled feature (gradient explosion — the exact failure the unmapped-feature guard exists to prevent), and on a bare `from_df` call (the CoordConv A/B harness/tests) even a **NaN** in the static is uncaught. **Tier 2 (structural, silent-to-loud):** trigger is a specific future covariate wiring; surfaces as training instability, not a clean error. Fix: route static channels through (or parallel to) the scaler's scaling + NaN/unmapped guards.
+
+---
+### C-237: geometry-vs-df static precedence silently reclassifies a registered geometry static as data-backed when a same-named df column exists — RESOLVED
+
+**✅ RESOLVED (merged to `development` via PR #216) — S3: registry-authoritative role classification; registry∧df collision fails loud.**
+
+| Field | Value |
+|-------|-------|
+| ID | C-237 |
+| Tier | 2 |
+| Source | code-review (max, 2026-07-31) |
+| Trigger | Declaring a `static_channels` name that also appears as a df column — a datafactory covariate name matching a `STATIC_CHANNEL_DERIVATIONS` registry key, or names like `row`/`col` (literal df spatial_cols) |
+| Location | `views_hydranet/utils/volume_handler.py` (~246, `geom_static = [n for n in static_channels if n not in df.columns]`) |
+| Cross-refs | C-235/C-236/C-238 (sibling gaps), C-228, C-230 (raw concat primitive) |
+
+`geom_static = [n for n in static_channels if n not in df.columns]` silently reclassifies a registered geometry static as data-backed whenever a same-named df column exists — df-column precedence, no warning. Old code always called `derive(name)` (e.g. a coordinate normalized to [-1,1]); new code silently fills from the raw df column (raw indices / arbitrary units) instead, feeding the model a **different, unnormalized channel** with zero diagnostic. **Tier 2 (silent wrong-channel):** trigger is a realistic name collision under the datafactory covariate namespace. Fix: make the geometry-vs-data-backed classification explicit/authoritative (registry wins, or fail-loud on collision), not df-column-presence.
+
+---
+### C-238: no invariant enforces "static = constant per cell across time" — a time-varying df column declared static is fed varying in history but pinned in rollout — RESOLVED
+
+**✅ RESOLVED (merged to `development` via PR #216) — S6: constant-per-cell static invariant enforced (fail-loud on time-varying).**
+
+| Field | Value |
+|-------|-------|
+| ID | C-238 |
+| Tier | 2 |
+| Source | code-review (max, 2026-07-31) |
+| Trigger | Declaring a genuinely time-varying df column (e.g. monthly population, shdi) as a `static_channel` |
+| Location | `views_hydranet/utils/volume_handler.py` (~250, `from_df` writes per-observed-month with no constancy check); `views_hydranet/utils/hydranet_inference.py` (history digest :447 vs rollout pin :522–524); ADR-060 (I3) |
+| Cross-refs | C-229 (covariate-taxonomy root: static seam re-injects time-varying as constant), C-235/C-236/C-237 (sibling gaps) |
+
+`from_df` writes `df[col].values` per observed month with **no constancy check**, so a time-varying "static" is digested with its true varying trajectory during history (t<origin) but pinned to the origin month during the AR rollout — the same channel treated two different ways in one inference, silently violating ADR-060 I3, with no validator rejecting a non-constant static. **Tier 2 (structural, silent):** distinct from C-229 (which is the taxonomy/design gap) — this is the concrete missing *enforcement*. Fix: a validator that rejects a non-constant-per-cell static (or routes it to a proper dynamic-covariate path once C-229 is designed).
+
+---
+### C-239: training-time family feedback/target is not core-aware → once C-234 is fixed, ZINBcore train exposure diverges from eval exposure — RESOLVED
+
+**✅ RESOLVED (merged to `development` via PR #216) — accepted — th_gated_ZINBcore DROPPED, so no core arm ships → the train/eval exposure mismatch is moot.**
+
+| Field | Value |
+|-------|-------|
+| ID | C-239 |
+| Tier | 2 |
+| Source | code-review (max, 2026-07-31) |
+| Trigger | Fixing C-234 (core-aware eval feedback) and then trusting a th_gated_ZINBcore verdict, OR training a zinb with scheduled sampling intending to evaluate it as a core-emit arm |
+| Location | `views_hydranet/train/training_engine.py` (~229, `_family_feedback_log1p` / `_family_target_log1p_mean` — self-zeroed, not core-aware); `emit_family_core` is eval-only / not persisted |
+| Cross-refs | C-234 (eval-side twin), C-99 (reg feedback path), C-113 (AR exposure) |
+
+The training-time family feedback and target use the self-zeroed sample/mean and are not core-aware. `emit_family_core` is an eval-only re-interpretation (not persisted to the artifact), so training cannot consult it. Once C-234 makes the *eval* feedback core-consistent, a scheduled-sampling-trained zinb was exposure-trained on sparse self-zeroed feedback but rolled out on dense core feedback — reintroducing the exposure-bias drift the sample-feedback mechanism (ADR-070) was built to remove. **Tier 2 (structural, latent):** an inherent train/eval mismatch the re-emit-banked-artifact approach introduces; must be named in any finalized ZINBcore verdict and decided (retrain a true core model vs accept the caveat). Fix scope tied to C-234.
+
+---
+### C-240: to_cube_samples has no guard for the invalid core=True + composition='self_zeroed' combo → silent ungated core draw — RESOLVED
+
+**✅ RESOLVED (merged to `development` via PR #216) — S1: `to_cube_samples` fails loud on core=True + self_zeroed.**
+
+| Field | Value |
+|-------|-------|
+| ID | C-240 |
+| Tier | 3 |
+| Source | code-review (max, 2026-07-31) |
+| Trigger | Calling `to_cube_samples(..., composition='self_zeroed', core=True)` from a hand-built dict / ad-hoc driver that bypasses HydraNetConfig validation |
+| Location | `views_hydranet/distributions/sampling.py` (~65–74; the guard rejects a gated composition missing its gate, not the inverse) |
+| Cross-refs | C-234 (same feature), C-242 (config validator message) |
+
+The `to_cube_samples` guard only rejects a gated composition missing its gate, not `core=True + self_zeroed`. That combo silently draws the ungated, un-self-zeroed NB core (zeros nowhere) → ~85% nonzero / mean~5 on a ~99.7%-zero field, a silent ~8× over-forecast, instead of failing loud. HydraNetConfig validation rejects it upstream, so only an ad-hoc dict bypass hits this. **Tier 3 (fail-loud gap, upstream-mitigated):** add the symmetric guard.
+
+---
+### C-241: canonicalize_config_grid_name does not dedup → a config listing both grid aliases collapses to a duplicate, tripping a false Index Contract Violation — RESOLVED
+
+**✅ RESOLVED (merged to `development` via PR #216) — S8: `canonicalize_config_grid_name` dedups both aliases (no false Index Contract Violation).**
+
+| Field | Value |
+|-------|-------|
+| ID | C-241 |
+| Tier | 3 |
+| Source | code-review (max, 2026-07-31; on the #144/#216 grid fix) |
+| Trigger | A config whose `index_names`/`identity_cols` list BOTH `priogrid_gid` and `priogrid_id` (e.g. a hand-merged migration config) |
+| Location | `views_hydranet/utils/grid_naming.py` (~54, maps every alias member to `grid` with no dedup); manager guard checks the DATA not the config |
+| Cross-refs | GH #144/#217 (grid-naming), C-228 |
+
+`canonicalize_config_grid_name` maps every `GRID_ID_ALIASES` member to `grid`, so `['month_id','priogrid_gid','priogrid_id']` collapses to `['month_id','priogrid_id','priogrid_id']`. The manager guard checks the data (`len(_grid_present)==1`), not the config, so it does not prevent this; downstream `standardize_raw_df` builds a length-3 expected index that no longer prefix-matches the length-2 data index → a false "Index Contract Violation" on otherwise-valid data. **Tier 3 (fail-loud false-positive on an unusual config):** dedup while preserving order, or fail-loud if both aliases are present.
+
+---
+### C-242: config validator emits a factually-wrong message for zinb + emit_family_core=True + self_zeroed ("zinb is not self-zeroed") — RESOLVED
+
+**✅ RESOLVED (merged to `development` via PR #216) — S1: validator message corrected for zinb + emit_family_core.**
+
+| Field | Value |
+|-------|-------|
+| ID | C-242 |
+| Tier | 4 |
+| Source | code-review (max, 2026-07-31) |
+| Trigger | Enabling `emit_family_core` for the first time and leaving `forecast_composition='self_zeroed'` (forgetting the required external gate) |
+| Location | `views_hydranet/utils/config_initializer.py` (~854, rule (2) message) |
+| Cross-refs | C-234, C-240 |
+
+The validator correctly rejects zinb + emit_family_core + self_zeroed but with the wrong reason: "output_distribution=zinb is not self-zeroed…". zinb **is** self-zeroed — it is `emit_family_core` that stripped π — so the message contradicts the glossary/ADRs and misdirects debugging. **Tier 4 (DX, no correctness impact):** reword to "emit_family_core strips zinb's π; add a gate (soft/threshold) or drop emit_family_core".
+
+---
+### C-243: VisualDiagnostics is constructed with the config BEFORE grid canonicalization → viz holds the stale grid alias on renamed (priogrid_id) data — RESOLVED
+
+**✅ RESOLVED (merged to `development` via PR #216) — S8: `VisualDiagnostics` config refreshed after grid canonicalization.**
+
+| Field | Value |
+|-------|-------|
+| ID | C-243 |
+| Tier | 4 |
+| Source | code-review (max, 2026-07-31; on the #144/#216 grid fix) |
+| Trigger | Running on datafactory `priogrid_id` data with a legacy `priogrid_gid` config and reading the diagnostic biopsies |
+| Location | `views_hydranet/manager/hydranet_manager.py` (~220/303 viz built with `self.configs`; canonicalization at ~106) |
+| Cross-refs | GH #144/#217, C-241 |
+
+`VisualDiagnostics` is built with `self.configs` before/independent of the pipeline's grid-key canonicalization, so viz internally holds the pre-canonicalization alias on renamed data; any grid column it reads mislabels or misses the grid. **Tier 4 (diagnostic-only, does not corrupt pipeline output):** the biopsy plots are silently wrong on migrated data. Fix: build viz from the canonicalized config, or have viz resolve the grid via `grid_id_col`.
+
+---
+### C-247: `test_score_v2_horizons.py` is non-portable — hardcoded absolute machine path + runtime-loads gitignored `reports/` tools; green ONLY on this machine — RESOLVED
+
+**✅ RESOLVED (merged to `development` via PR #216) — F-Z2: repo/platform-relative paths + skip-if-absent guards → CI-portable (both test files).**
+
+| Field | Value |
+|-------|-------|
+| ID | C-247 |
+| Tier | 2 |
+| Source | /falsify (2026-07-31, F-Z2) |
+| Trigger | Running the suite in **CI** or on a **fresh clone** (or any machine other than this one) — the test errors (path/file absent), not skips |
+| Location | `tests/test_score_v2_horizons.py:20` (`_HN = Path("/home/simon/Documents/…/views-hydranet")`), `:22`/`:27` (`spec_from_file_location` on `reports/2026-07-29_v2_scoreboard_dossier/tools/score_v2_horizons.py`), `:99–100` (`sys.path.insert` + `import lodestar_score` from `reports/2026-07-17_lodestar_eval_dossier/tools`) — both `reports/` paths are **gitignored** (absent in a clone). **Second instance:** `tests/test_falsify_8sample_readiness.py:12` hardcoded `/home/simon/…/views-models/…/config_hyperparameters.py` — an absolute path into the **sibling views-models repo** (worse: cross-repo). |
+| Cross-refs | C-138 / C-165 (test-suite collection integrity / CI `--ignore` masking), C-159 (dossier tools not self-validating) |
+
+A **tracked, committed** test hardcodes an absolute path to one developer's machine and, with **no `exists()`/skip guard**, runtime-loads two tool files that live under the **gitignored `reports/`** tree (research-dossier tooling, not part of the shipped package). It therefore passes **only because those files happen to exist locally**; in CI or any fresh clone it raises (path missing / file-not-found), not skips. **Silent false-green:** reported "full suite green / 1254 passing" this session was partly propped up by machine-local state — this test provides **zero** portable/CI coverage while looking like it does. **Tier 2 (structural fragility, clear trigger = CI/clone, false-confidence):** not model-output corruption, but it degrades the suite's value as a gate and will fail the moment CI runs it. Fix: repo-relative path (`Path(__file__).resolve().parents[1]`) + a module-level skip when the gitignored tool is absent (or relocate the scorer tool under the tracked package so the test is real in CI). Falsification stubs: `tests/test_falsify_zero_surprises.py::test_P5a_*` / `test_P5b_*`.
+
+---
 
 ### C-256: `exante_stratum` index-keyed-frame branch was untested — RESOLVED
 
@@ -2736,7 +3022,6 @@ The regression head uses **ReLU** for every output_distribution except `hurdle_n
 
 ---
 
-
 ### C-214: the eval-side autoregressive forensic was silently DEAD for every nb/zinb run (the `return_params` early-return short-circuited its finalize) — RESOLVED
 
 | Field | Value |
@@ -2793,7 +3078,7 @@ The regression head uses **ReLU** for every output_distribution except `hurdle_n
 | Source | /expert-code-review (A-S10 #177), Feathers/Beck/Nygard |
 | Trigger | Refactoring `nb_core._standard_gamma` or `NBCore.sample` (the Marsaglia-Tsang Gamma-Poisson), or changing `_EPS`/the `a<1` boost path, while only the mean-recovery test guards it |
 | Location | `views_hydranet/distributions/nb_core.py:82-106` (`_standard_gamma`), `:137-156` (`NBCore.sample`); guarded only by `tests/distributions/test_nb_core.py:31-40` (mean only) |
-| Cross-refs | C-202 (θ gradient bound); C-3 (generator determinism); A-S12 (#179) CRPS M2 comparison |
+| Cross-refs | C-202 (θ gradient bound); *v1-review "C-3" (generator determinism) — NOT register C-03*; A-S12 (#179) CRPS M2 comparison |
 
 The generator-aware Gamma sampler is the subsystem's most intricate numerics (a vectorised Marsaglia-Tsang rejection loop on `torch.randn`/`torch.rand`, chosen because `torch.distributions` ignores a `Generator` — the S2 #121 determinism contract). It is distributionally **correct today** (empirical `Var ≈ mu + mu²/theta` within ~1% across `(mu,theta)`, verified in this review), but **no test pins its variance/dispersion** — only `mean ≈ mu` (`test_nb_core.py:40`). **Tier 2:** CRPS — the spread-driven metric that gates the `nb`-vs-`zinb` M2 decision (#179) — would be silently corrupted by any future edit that preserves the mean while skewing the dispersion; the mean-only test stays green and no error fires. Not an A-S11 blocker (the sampler is correct now). Fix: a `Var[sample] ≈ mu + mu²/theta` regression + a χ²/K-S goodness-of-fit at 2–3 `(mu,theta)`.
 
@@ -2846,7 +3131,7 @@ For cells that are only ever zero, the likelihood depends solely on `P(Y=0)=π+(
 | Source | /code-review max (2026-07-20), A-S3 (#170) finder + numerical verify |
 | Trigger | Training an `nb`/`zinb` head where a per-cell learned `θ` is pushed toward the `NBCore` `_EPS=1e-6` floor (heavy-tailed / near-Poisson-overdispersed cells) |
 | Location | `views_hydranet/distributions/nb_core.py` `_clamp`/`log_prob` (`θ` floor); consumed by `NegativeBinomialFamily.nll` (A-S3 #170) and ZINB (A-S4 #171); loss wiring A-S7 (#174) |
-| Cross-refs | C-199 (the *dead*-gradient extreme — this is the *exploding*-gradient counterpart at the opposite end of the `θ` range); C-200; C-8-style per-cell θ instability |
+| Cross-refs | C-199 (the *dead*-gradient extreme — this is the *exploding*-gradient counterpart at the opposite end of the `θ` range); C-200; *v1-review "C-8"*-style per-cell θ instability |
 
 `NBCore._clamp` floors `θ` at `1e-6` so `log_prob` stays finite, but the value-clamp does **not** bound the gradient: `d log_prob / d θ ≈ digamma(θ) ~ 1/θ`, so as a cell's `θ → 1e-6` the score wrt `θ` explodes — numerically **~1e6 at θ=1e-6, ~1e4 at θ=1e-4** (verified). A cell whose learned `θ` is driven to the floor then backpropagates an enormous gradient through the `θ` head channel. **Tier 2:** structural fragility that can silently destabilize training of the very per-cell `θ` head this epic introduces (esp. under SGD / large LR), with no NaN or error to flag it — the loss stays finite while the update blows up. Fix (decide at A-S7 loss wiring / A-S9 hardening): a **soft** lower bound on `θ` (e.g. `θ_min + softplus(...)`) instead of a hard value-clamp, and/or `θ`-channel gradient clipping, and/or the C-199 prior pulling `θ` toward the global baseline.
 
@@ -4040,6 +4325,8 @@ Register header claims 69 total / 19 open / 50 resolved. Actual entry count: 68 
 | Resolved | 2026-04-10 |
 | Resolution | Added `ReproducibilityGate.audit_manifest(config)` that validates config completeness before training. Checks 16 core genome parameters (presence + non-None), validates loss_reg/loss_class against `LOSS_REG_REGISTRY`/`LOSS_CLASS_REGISTRY`, and validates loss-specific params from registry `"params"` lists. Raises `ValueError` with clear message on missing parameters. 7 TDD tests. |
 
+> ⚠️ **Resolution PARTIALLY INVALIDATED 2026-08-15 (repo-assimilation reachability sweep) — see C-271.** The mechanism exists and is tested, but grep finds **no caller in `views_hydranet/`**: `audit_manifest` is invoked only by `tests/test_genome_audit.py`, despite its own docstring stating "Must be called before `lock_entropy()` and `training_loop()`". This closure was granted on the mechanism's *existence*, not its *reachability*. Tracked as **C-271** (Tier 3, §Open) rather than reopened here; an external caller in `views-models` has not been ruled out.
+
 ---
 
 ### C-17: `train()` function has 13 parameters — RESOLVED
@@ -4299,4 +4586,6 @@ The current evaluation measures **calibration** (Brier/ECE/reliability, C-147) a
 - **Sources:** `repo-assimilation`, `expert-review`, `test-review`, `falsification-audit`, `clean-architecture-review`, `pr-review`, `tech-debt-audit`, `incident`
 - **Resolution:** Move to "Resolved Concerns" with resolution date and summary when addressed
 - **Header counts:** `Total Concerns` and `Open Concerns` in the register header are manually maintained — update them whenever a concern is added or resolved
+- **Foreign numbering schemes:** an `/expert-code-review` run emits its own `C-1`, `C-2`, … finding list that is **not** this register's numbering. Unpadded citations (`C-3`, `C-6`, `C-8`) in some narratives refer to that v1-review list, **not** to register entries `C-03`/`C-06`/`C-08`, which are unrelated concerns. When quoting a foreign finding, italicise it and say so (`*v1-review "C-6"*`); register IDs are always zero-padded below 10. *(Convention added 2026-08-15 after a review-rr cross-reference audit found 4 such collisions.)*
+- **Demotion:** Tier-4 + mechanical + single-file/single-developer entries are tagged `[DEMOTED]` in their §Open title, given a demotion banner, and indexed in §Tech-Debt Backlog. They stay physically in §Open for traceability but are **not** counted as active risks — the header carries a separate demoted count. Keep the tag and the index in sync.
 - **Governed by:** ADR-048
