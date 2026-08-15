@@ -6,10 +6,10 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-15                           |
 | ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day. `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 279                                  |
-| Open Concerns     | 128                                  |
+| Total Concerns    | 280                                  |
+| Open Concerns     | 129                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 115                                 |
+| — net active risks | 116                                 |
 | Resolved Concerns | 151                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -2264,6 +2264,26 @@ The truth-substrate check degrades silently in two ways: a missing parquet skips
 | Cross-refs | C-231 (`size_ratio 0.0` is part of the ARTIFACT evidence), C-280/C-281 |
 
 The `or` fires on **falsiness**, not absence. It is correct today only because `csv.DictReader` yields strings and `"0.0"` is truthy. **124 of 189 rows have `size_ratio_model == 0.0`**, and that zero is quoted as evidence in the ARTIFACT verdict — the model predicts no magnitude at all. One refactor to float rows would erase exactly the datum the conclusion rests on, silently, in the direction of "no data" rather than "zero". **Tier 3** rather than 4 because the failure mode destroys load-bearing evidence rather than merely under-reporting. Fix: `float(v) if (v := r.get("size_ratio")) not in (None, "") else float("nan")`.
+
+---
+
+
+### C-283: three repo-hygiene tests shell out to a `ruff` binary the CI test environment never installed — guaranteed-red, independently of the code
+
+| Field | Value |
+|-------|-------|
+| ID | C-283 |
+| Tier | 3 |
+| Source | PR #273 CI investigation (2026-08-15) — the branch's `test` job failed; the same three tests fail identically on `development`'s own tip (60ed69f) |
+| Trigger | Reading the CI `test` job's result to decide whether a change is safe to merge — it has been red since at least 2026-08-14 for an environment reason, so a genuine regression would be indistinguishable from the standing failure |
+| Location | `environment.yml` (the `pip:` list installs `.`, `pytest`, `pytest-cov` — not `ruff`); `pyproject.toml` declares `ruff` only under `[tool.poetry.group.dev.dependencies]`, which `pip install .` does not install; consumed by `tests/test_falsification_repo_clean.py::TestF4_02_LintViolations::{test_ruff_check_passes,test_ruff_format_passes}` and `::TestF4_03_DeadCode::test_no_unused_imports_or_variables`, all of which `subprocess.run(["ruff", ...])` |
+| Cross-refs | C-165 (the same file's other CI blocker, and the same class: "suite green" meaning something other than what it appears to), C-247 (test portability) |
+
+Three tests invoke the `ruff` **binary** through `subprocess`. The GitHub Actions `test` job runs inside the conda env built from `environment.yml`, which has no `ruff`, so all three raise `FileNotFoundError: [Errno 2] No such file or directory: 'ruff'` on **every** run. Verified on two independent commits: PR #273's head and `development`'s tip.
+
+Locally they pass, because a developer machine usually has a `ruff` on PATH — which is how the divergence persisted: the failure is invisible where the code is written and unavoidable where it is checked. Worse, a local binary can be a *different version* from the `ruff==0.14.14` the `lint` job pins, so the two jobs can disagree about what "clean" means.
+
+**Tier 3:** no wrong output, but it is a false-confidence and signal-loss problem on the merge gate — exactly C-165's shape. **Fixed in this PR** by adding `ruff==0.14.14` to `environment.yml`'s pip list, matching the lint job's pin. Registered rather than merely fixed because the *class* — a test asserting on tooling the test environment does not provide — is worth having on record, and because it means every CI `test` result before 2026-08-15 should be read as "red for this reason unless shown otherwise".
 
 ---
 
