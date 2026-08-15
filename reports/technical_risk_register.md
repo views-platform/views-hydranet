@@ -6,10 +6,10 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-15                           |
 | ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day. `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 273                                  |
-| Open Concerns     | 122                                  |
+| Total Concerns    | 276                                  |
+| Open Concerns     | 125                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 109                                 |
+| — net active risks | 112                                 |
 | Resolved Concerns | 151                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -59,7 +59,7 @@ Open concerns reduce to **13 root decisions**. Fixing a root advances multiple e
 
 | # | Root decision | Member entries | Fix scope | Priority |
 |---|---|---|:--:|---|
-| **16** | **Rollout-skill measurement integrity — the T>0 ruler is not yet trustworthy enough to judge a rollout intervention** | C-217 (origin leak across train/val), C-218 (scoring a broken-by-construction mean-feedback rollout), C-219 + C-231 (crps_all Goodhart / zero-dominated), C-220 (scorer must consume the D×K cube), C-221 + C-253 + C-254 (iid-over-cells bootstrap overconfident; GW power binds on origin count P), C-224 **(T1 — sanctioned metric set is tail-blind)**, C-248 **(T1 — ex-ante stratum leakage)**, C-252 (GW pairing must respect the `del g` OOM guard) | 2 (one coordinated ruler build) | **HIGHEST — binding prerequisite.** EXP-SS-2 (2026-08-14) eliminated every cheaper rollout lever and named distribution-matching / rollout-aware training as the sole survivor; **none of it can be judged on the current ruler.** Cheapest entry: the C-248/C-252/C-253 invariant guards are ALREADY GREEN (`tests/test_gw_stratified.py`, 12 passing) — this is a build, not a design. Blocked only at C-224, whose own trigger requires FAO-02 owner sign-off on a tail diagnostic before GPU spend. |
+| **16** | **Rollout-skill measurement integrity** — ✅ **LARGELY CLOSED 2026-08-15 by Epic #263** (S0–S7). Corrections to this row's original text: **|O| = 13, not ≈12** (the ≈12 came from `02b_method_review.md:72`, written *before* the partition was verified); the guard tests numbered **10, not 12** (that conflated `test_gw_stratified.py` with `test_score_v2_horizons.py`); and C-217 was already **cleared-with-residual**, not open. | C-217 ✅ asserted · C-218 ✅ asserted (runtime) · C-219 ✅ enforced in code · C-220 ✅ first-ever test · C-221 ✅ MDE stated · C-224 ✅ diagnostic exists (**Tier-1 governance ask UNCHANGED, still open**) · C-231 ✅ metric exists · C-248 ✅ inherited by the climatology · C-252 ✅ explicit · C-253 reused untouched · C-254 ✅ power stated. New: **C-277**. **Guard accounting: 10 pytest + 1 runtime** (C-218 cannot be a portable pytest without a cross-repo path — the C-247 sin). | done | **VERDICT DELIVERED:** the h36 "win" is an **ARTIFACT** — unanimous across 12/12 arm×target rows. See `reports/2026-08-15_rollout_ruler_trust_dossier/07_experiment_log.md`. |
 | **17** | **Global-server deploy readiness — every guard in this register fires before deployment, none after** | C-115 (silent CPU fallback), C-116 (publish-tail OOM — mechanism asserted and retracted twice; MEASURE first), C-163 + C-164 (no runtime harness / no peak-RSS seam test), C-192 (grid-name flip not wired into DataSniffer — gates the S2 commit), C-245 (out-of-repo pipeline-core hooks pinned by range only), C-272 (rolling-origin silently truncated), C-275 (no data-vintage record), C-276 (no forecast monitoring), C-110 (heterogeneous-member ensemble aggregation unverified) | 2 (parallelisable; disjoint files from cluster 16) | **IMMINENT.** `heavy_freighter` (global grid) is explicitly untested in the ensemble smoke, and the flip is 8× the cells of africa. Sequence by cost: C-115 (≈10-line hard CUDA gate) → C-192 (unblocks S2) → C-275 → C-116/163/164 → C-276 before serving. |
 
 **Cluster 7 status note (2026-08-15):** the register calls this "the live research front", but the V2 scoreboard has since delivered a verdict (gated_NB ≡ th_gated_NB ships; ZINB falsified as the crps_all front-runner and blooms in the free-running rollout). C-146 is now closed by the committed-likelihood docstring; several remaining members are likely mooted by that empirical result rather than by code. The member-level status review this map has requested since 2026-07-27 is still outstanding for the other 9.
@@ -1601,6 +1601,16 @@ The magnitude effort's target — the ξ≈0.8 surge tail — is **invisible to 
 
 **Update 2026-07-30 (v2-scoreboard method-review — the improper-SELECTION corollary + a concrete proper alternative; folds C-MR3).** Two additions. (1) **crps_events (the repo's own truth>0 CRPS split) must never be a SELECTION metric:** subsetting the score on the observed outcome is the Forecaster's Dilemma (Lerch2017, held) — it rewards an exaggerating forecaster — so it is display-only, exactly like the FAO-02-banned twCRPS. (2) **The concrete proper, tail-sensitive alternative (Davison seat):** condition the score on a COVARIATE, not the outcome — evaluate crps_all (or MCR) on the **high-PREDICTED-risk stratum**. This is proper AND tail-sensitive, and is the pre-registerable success criterion for any magnitude/tail probe (with `size_ratio` explicitly NOT a target — Goodhart). This gives C-224's "need a tail-detecting diagnostic" a specific proper construction that does not require the FAO-02-banned metrics.
 
+
+> **Update 2026-08-15 (Epic #263 S5, #269) — a DIAGNOSTIC now exists; the Tier-1 governance ask is UNCHANGED and still open.**
+> `scripts/rollout_ruler_core.py` implements the Taillardat2023 §3.3 index `T_u(F,G) = 1 − Ω_G/Ω_F`: CRPS treated as a *random variable*, its **distribution** compared via a PWM-fitted GPD on the exceedances and a Cramér–von Mises statistic. This detects tail behaviour **without a threshold weight**, so it does not violate FAO-02's twCRPS rejection. Nine numbers computed for `violet_visitor` vs the FAO-02 climatology (`sb`, h∈{1,18,36}, q∈{0.99,0.995,0.999}) in `reports/2026-08-15_rollout_ruler_trust_dossier/results/tail_index.md`.
+>
+> **Three structural railguards, because this is a Tier 1 whose failure mode is misuse, not absence:** (a) `taillardat_index` *requires* the reference vector, so no standalone sortable per-model number can exist; (b) every output is `diag_`-prefixed and carries `role="DIAGNOSTIC"`; (c) the pre-registered decision rule (`verdict_token`) reads **no** `diag_*` key, asserted by `test_no_diag_column_reaches_the_decision_rule` inspecting its source. Additionally `test_extremist_forecast_gets_a_HIGH_index` pins Taillardat's own caveat — an inflated, mis-calibrated forecaster scores **higher** — so its *passing condition is that the metric is gameable*, and promoting `diag_Tu` to a selection metric would require deleting a green test.
+>
+> **What has NOT changed:** the entry's Tier-1 governance ask — that a tail-detecting diagnostic be **agreed with the FAO-02 owner before magnitude/tail GPU spend** — is untouched. This dossier produced evidence, not an amendment (Epic #263 `SCOPE.md` #7). C-224 stays OPEN.
+>
+> **Known limitations, recorded rather than smoothed:** `T_u` is **not monotone in q** on real data (h=1: −0.296 at q=0.99, −1.013 at 0.995, +0.548 at 0.999), which is exactly why q was pre-registered as a fixed set with **no optimisation over q**. And the index is **undefined** (not "bad") when the pooled threshold leaves one arm with <50 exceedances — pinned by `test_index_is_undefined_when_the_two_tails_do_not_overlap`.
+
 ---
 
 ### C-225: outcome-weighted likelihood (`1+γ|Δ_true|`·NLL) is an improper objective — de-calibrates the emitted distribution
@@ -2143,6 +2153,68 @@ Nothing in this repository records **which vintage of the upstream panel a run w
 | Cross-refs | C-113 (the bloom — a failure that manifests **only** in the free-running rollout, i.e. exactly the regime operational forecasting runs in), C-163 (no runtime resource/environment harness — the operational-readiness sibling), C-177 (no provenance on emitted frames), C-219 (crps_all is Goodhart-prone — the metric a naive monitor would reach for first) |
 
 All 120 open concerns are **pre-deployment**: training dynamics, evaluation methodology, artifact integrity, config validation. None asks *"how would we know that a deployed 36-month forecast has gone wrong?"* The gap is sharp because the system's best-documented failure mode is rollout-specific: the C-113 bloom is invisible at T=0 (where every scored gate lives) and appears only in the free-running trajectory that operational forecasting actually emits — and the V2 scoreboard confirmed ZINB still blooms there (crps_none 34× by h36, seed-42 catastrophic 2.61) even after the ADR-070 mitigation stabilised the gated arms. Today the sole runtime signal is a magnitude threshold on `|pred|`, which the bloom can stay under while the *field* degrades (the bloom's real signature is field-wide `crps_none` + `M_mean`, not `M_max` — established in Epic #193). **Tier 3:** no current correctness impact, since nothing is deployed operationally yet and the trigger is a planned future action; escalate to Tier 2 the moment the global-server ensemble serves. Fix direction: persist a reference forecast summary (per-horizon nonzero rate, mean, and a high quantile) with each artifact, and have `_forecast_model_artifact` compare the emitted frames against it and fail loud on a threshold breach — reusing the free-running-attractor probe in `utils/rollout_diagnostics.py`, which already computes the right quantity but is currently only reachable from `scripts/diagnose_io_gain.py`.
+
+---
+
+
+### C-277: `block_bootstrap_crps` computes single-arm support where the point estimate uses the cross-arm intersection → a CI that annotates a different cell set
+
+| Field | Value |
+|-------|-------|
+| ID | C-277 |
+| Tier | 3 |
+| Source | repo-assimilation → Epic #263 S4 (#268), found while building the rollout-ruler MDE |
+| Trigger | Calling `block_bootstrap_crps` to put a confidence interval on a `score_horizons` / `score_horizons_v2` point estimate when the compared arms do **not** have identical coverage — the CI is then computed over a larger cell set than the number it annotates |
+| Location | `reports/2026-07-25_t0_rollout_skill_dossier/tools/rollout_skill_score.py:216` (`support = _fixed_support({label: g}, horizons)` — one arm) vs `:126` `score_horizons` and `reports/2026-07-29_v2_scoreboard_dossier/tools/score_v2_horizons.py:132` (`set.intersection(*[_support_keys(e[1], …) for e in registry])` — all arms) |
+| Cross-refs | C-221 (the origin-block bootstrap this function implements), C-253 (variance estimation), C-217/G4 (the identical-support rule this violates), catalog C7 "different-months bug" |
+
+`score_horizons` and `score_horizons_v2` deliberately intersect `_support_keys` across **every** arm in the registry before scoring, so all arms are compared on one cell set (the G4 identical-support rule; comparing across substrates is the "different-months bug"). `block_bootstrap_crps` does not: it gathers a single arm and calls `_fixed_support({label: g}, horizons)`, so its resampling universe is that arm's own coverage. Where arms differ in coverage — which is exactly when the intersection matters — the interval describes a different population than the point estimate it is attached to.
+
+**It has never fired**, because the current arms have identical coverage (all 13 origins × 13,110 cells; verified 6/6 in `partition_audit.json`, Epic #263 S2), so the two supports coincide. **Tier 3:** latent, not silent-corrupting today, but it is a correctness trap sitting on the inference path.
+
+**Deliberately pinned, NOT fixed** (Epic #263 `SCOPE.md`, "the one sanctioned edit" rule). Epic #263 S6 uses `gw_stratified.score_gw_v2`, which computes support correctly, so `block_bootstrap_crps` is unused there — fixing an unused function mid-epic is scope creep, and leaving it undocumented is a trap. The honest middle is a failing test that the suite knows about: `tests/test_rollout_ruler_trust.py::test_block_bootstrap_uses_cross_arm_support`, marked `xfail(strict=True)` with this ID in its reason. Fix direction (2 lines): pass the already-intersected `support` into `block_bootstrap_crps` instead of recomputing it, and flip the test to green.
+
+---
+
+
+### C-278: FAO-02 — the LOCKED evaluation framework — is not in the repository, and every in-repo citation is a dangling path
+
+| Field | Value |
+|-------|-------|
+| ID | C-278 |
+| Tier | 3 |
+| Source | Epic #263 S0/S7 (#264/#271) — surfaced while sourcing the climatology baseline FAO-02 mandates |
+| Trigger | Anyone (a new contributor, a reviewer, a future session, CI) trying to check a selection decision against the framework that governs it — following any of the 6 in-repo citations lands on a path that does not exist in the tree |
+| Location | Cited from `scripts/proper_score_audit.py:29-33`, `scripts/tail_scorecard.py:4,20`, `docs/ADRs/proposed/071_violet_visitor_datafactory_provider.md:83`, `views_hydranet/utils/count_mean_loss.py:11`, `views_hydranet/utils/lognormal_nll_loss.py:5` — all naming `reference_fao02_locked_eval_framework.md`, which resolves to **nothing** inside the repo. The only copies are a Claude memory file and a PDF under `~/brain/2_projects/fao02/`. |
+| Cross-refs | C-224 (Tier 1 — its governance ask is *to the FAO-02 owner*), C-219/C-231 (the metrics FAO-02 blesses), C-275 (data vintage — the same "the substrate is not versioned in git" class) |
+
+FAO-02 is the **LOCKED** framework governing every selection decision: CRPS primary, QS99/Brier/MCR guardrails, twCRPS/LogScore/PIT rejected, evaluation on the full dataset, an empirical conflictology baseline, 5%/1% margins, decisions on the validation partition. Five source files enforce it by name. **None of them can be followed**: the referenced document is outside the git tree, unversioned, and its in-repo pointer is dead.
+
+Two consequences, both live. (1) **Unverifiable governance** — a reviewer cannot confirm that a claimed FAO-02 compliance is real. (2) **Silent drift** — the framework can change (or be misremembered) with no diff, no review, and no way for a test to notice; Epic #263 found the mandated climatology baseline had **never been implemented at all**, which is exactly the failure mode an unversioned contract produces.
+
+**Tier 3:** no silent output corruption, and the framework's content is currently applied correctly where it is applied — but it is a governance contract that cannot be audited from the repository that depends on it. **Deliberately not fixed by Epic #263** (`SCOPE.md` #8: vendoring FAO-02 is a separate scope). Fix direction: vendor it into `docs/specs/` (or an ADR) with a version/date header, repoint the 5 citations, and add a link-integrity test — the repo already has the pattern in `test_risk_register_integrity.py`.
+
+---
+
+
+### C-279: `climatology_resample` duplicates views-baseline's `ConflictologyModel` with no parity test
+
+| Field | Value |
+|-------|-------|
+| ID | C-279 |
+| Tier | 3 |
+| Source | maintainer challenge during Epic #263 review (2026-08-15) — the claim "the FAO-02 climatology was never implemented in code" was **false** and was corrected |
+| Trigger | Any future comparison that scores one arm against `scripts/rollout_ruler_core.climatology_resample` and another against a deployed `ConflictologyModel` run (`white_ranger` / `light_strider`) — two objects with the same name and no guarantee they agree |
+| Location | `scripts/rollout_ruler_core.py::climatology_resample` vs `views-baseline/views_baseline/model/models/distributional/conflictology.py::ConflictologyModel` (+ `model/frames/pooling.py::window_pool`); deployed as `views-models/models/{white_ranger,light_strider}` (`window_months=36`, `n_samples=64`, `seed=42`) |
+| Cross-refs | C-75 / C-265 (the same duplicated-logic-with-a-parity-gap shape, for derivations), C-278 (FAO-02 outside the repo — the reason the duplication was not noticed), views-baseline **#82** (which window convention is correct) |
+
+The FAO-02 empirical conflictology baseline **is** implemented — as `ConflictologyModel` in views-baseline, deployed as `white_ranger` and `light_strider`. Epic #263 nevertheless built a second implementation inside the hydranet scorer, because scoring against the deployed model requires its prediction cubes and those are deleted after scoring. The *need* is real; the **duplication** is the risk.
+
+Three divergences existed on first write, all now closed or documented: `n_samples` 16 vs 64 and `seed` 0 vs 42 (**fixed** — defaults now match the canonical model); an **off-by-one** in the pool bound (`range(end-window, end)` vs the canonical `time <= train_end`, i.e. 420–455 instead of 421–456 — **fixed**, the bound is now inclusive); and the pool **anchor** — canonical fixes it at `train_end`, the hydranet version originally slid it per origin (now `window_anchor`, defaulting to the canonical fixed behaviour, with the sliding variant retained and the question raised upstream as views-baseline #82).
+
+**Fidelity is now evidenced, not assumed:** under the canonical convention the reimplementation scores **0.9591** vs `light_strider`'s archived **0.9601** — 0.1% apart. But that is a one-off manual comparison, **not a test**. Nothing prevents the two from drifting apart on the next change to either.
+
+**Tier 3:** no wrong output today (the Epic #263 verdict is ARTIFACT under all four parameterisations tested, so it does not turn on this), but two implementations of a *governance baseline* with no parity gate is precisely the C-75/C-265 shape, and this one sits on the selection path. Fix direction, in preference order: (a) declare `views-baseline` a dependency and consume `ConflictologyModel` directly, deleting the local copy; (b) if the cube-availability constraint makes that impractical, add a parity test pinning the reimplementation against a stored canonical output; (c) at minimum, keep the 0.9591-vs-0.9601 check as a documented, re-runnable comparison rather than a one-off.
 
 ---
 
