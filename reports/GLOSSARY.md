@@ -4,7 +4,7 @@
 used before for the same thing — listed so you can map old messages onto the locked name. I never introduce
 a new synonym. If I drift, you type **"drift"** and I stop and correct.
 
-Last rebuilt: 2026-07-17 (v2, complete).
+Last rebuilt: 2026-07-17 (v2, complete). **Amended 2026-08-15:** added *the feedback realism gap* (the parent cause) and *the zero collapse* (its under-firing child); *the bloom* is now defined as the over-firing child of the same cause.
 
 ---
 
@@ -156,7 +156,9 @@ is no self-zeroed standalone unless the distribution is ZI-wrapped):
 |---|---|---|
 | **timid** | guesses too small | under-fires, under-shoots, shrinks, timid-prophet |
 | **the drag** | the pull toward zero from training on ~99.7% empty cells | all-zeros drag, zero-pull |
-| **the bloom** | forecasts snowballing to infinity across the 36-month rollout. **Mitigated (ADR-070, 2026-07-27):** family heads default to `rollout_feedback=sample`, which bounds it 9/9; T=0 is still the scored product. | C-113, autoregressive explosion, runaway |
+| **the feedback realism gap** | the model's emitted field is not distributed like real conflict history (sparse, **persistent**, integer, spatially coherent), so feeding it back puts the model off the input distribution it trained on, and the error compounds. **The parent cause, not a failure mode** — its children are *the bloom* (over-firing), *the zero collapse* (under-firing), and plain skill loss. `mean` feedback gives act_ratio ~96× at h36, `sample` gives 0.27; **both sit at gate AP ~0.01**. Compounds **steeply then saturates**: gate AP 0.298 → 0.028 by h6, then flat 0.006–0.008 to h36 (EXP-01) — so ~5 steps holds most of it. Measured share flowing through the corrupted cell state: **~23%** (EXP-02); the rest is the direct input→prediction path. | exposure bias, the distributional gap, autoregressive DGP warp, generated≠DGP, self-poisoning |
+| **the zero collapse** | the *under-firing* child of the feedback realism gap: under `rollout_feedback=sample` the rollout goes quiet — act_ratio 1.41 → 0.27 and `size_ratio` 0.0000 from h6 — while `crps_all` *improves* (the zero-domination trap). The mirror of *the bloom*, not a separate mechanism. | timid rollout, rollout collapse, going quiet |
+| **the bloom** | forecasts snowballing to infinity across the 36-month rollout. The *over-firing* child of **the feedback realism gap**. **Mitigated (ADR-070, 2026-07-27):** family heads default to `rollout_feedback=sample`, which bounds it 9/9 — but that trades it for *the zero collapse*, it does not remove the parent cause. T=0 is still the scored product. | C-113, autoregressive explosion, runaway |
 | **rollout_feedback** | what the autoregressive loop feeds back each step: `mean` (the diffuse emit-mean E[y] — the bloom driver), `sample` (a sparse composition-aware family draw — the bloom mitigation, default for family heads), `teacher_forced` (the realized truth — oracle/diagnostic only) | ancestral-feedback |
 | **T=0-neutral** | a change that cannot alter the h=1 / scored-T=0 output; the sample-on default is T=0-neutral (emit-mean/gate/params byte-identical, and the D×K cube too after the per-step sampler seeding) | T0-safe |
 | **calibrated** | honest — a "10% chance" happens ~10% of the time (gate), or guesses are right-sized (body) | — |
