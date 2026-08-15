@@ -5,7 +5,11 @@ blind to. So each test feeds a hand-built DEGENERATE forecast and asserts the me
 stays silent) as it must: collapse, bloom, a perfect oracle, and — the crucial one — the named #258
 risk (an imprecise gate whose false positives receive FULL magnitude once the body is truncated).
 
-Tool lives under the gitignored ``reports/`` tree, so skip cleanly where it is absent (C-247).
+The tool is **force-tracked** (``git add -f``), so these tests run in CI. They did not until
+2026-08-15: ``reports/`` is gitignored and ``activation_metrics.py`` had never been added, so the
+whole module skipped in every clean clone — the readout for the #258 rollout-gate programme with
+none of its red-team coverage running. The guard below survives only for a genuinely sparse
+checkout; ``test_falsification_repo_clean`` now pins the tracking so it cannot silently return.
 """
 
 from __future__ import annotations
@@ -21,7 +25,8 @@ _TOOL = _HN / "reports/2026-07-29_v2_scoreboard_dossier/tools/activation_metrics
 
 if not _TOOL.exists():
     pytest.skip(
-        "activation_metrics is a gitignored dossier tool (absent in a clone/CI); C-247.",
+        "activation_metrics.py is absent — it is force-tracked, so this means a sparse or "
+        "partial checkout, not a normal clone (C-247).",
         allow_module_level=True,
     )
 
