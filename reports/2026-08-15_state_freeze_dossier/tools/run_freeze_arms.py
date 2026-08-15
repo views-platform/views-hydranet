@@ -121,12 +121,12 @@ def run_arm(
             sys.executable,
             str(_V2T / "score_v2_horizons.py"),
             f"{arm}|{pred_dir}|lr_{{t}}_best|by_{{t}}_best",
-            "--targets",
-            "sb",
-            "--horizons",
-            HORIZONS,
-            "--out",
-            str(score_csv),
+            # `=` form is REQUIRED: score_v2_horizons parses with `a.split("=", 1)[1]`, so the
+            # space-separated form its own docstring shows raises IndexError. Cost the first
+            # control arm its scoring pass (the cubes survived — deletion is post-scoring).
+            "--targets=sb",
+            f"--horizons={HORIZONS}",
+            f"--out={score_csv}",
         ],
         capture_output=True,
         text=True,

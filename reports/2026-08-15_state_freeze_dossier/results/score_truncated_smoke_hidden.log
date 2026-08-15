@@ -1,0 +1,6 @@
+wrote /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-08-15_state_freeze_dossier/results/score_truncated_smoke_hidden.csv  (7 rows: 1 models × 1 targets × 7 h)
+
+=== sb: crps_all / mcr_none by horizon ===
+h          1      6      12     18     24     30     36
+model                                                  
+hidden 0.1508 0.1178 0.1123 0.1352 0.1337 0.1694 0.8753

@@ -1,6 +1,6 @@
 # Recurrent-state freeze probe — does the rollout gate collapse live in the model's memory?
 
-**Status:** built, pre-registered, not yet run.
+**Status:** **RUN — verdict STATE-IMPLICATED** on `truncated_smoke` (40L, indicative). `violet_visitor` confirmation not yet run.
 **Parent:** #258 (rollout collapse) / #262 (the training-lever handoff). **Register:** C-222.
 
 ## The question in one line
@@ -31,6 +31,19 @@ long-term half held, both held, and neither (the control). Hold starts after the
 identical in every arm by construction — which is the probe's own self-test.
 
 Pre-registration and decision rule: **`05_analysis_plan.md` (LOCKED)**. Results: `07_experiment_log.md`.
+
+## Result (2026-08-15, `truncated_smoke`)
+
+**STATE-IMPLICATED** by the pre-registered rule, threshold untouched. Gate AP at h36:
+`none` 0.008 → `hidden` 0.025 → `cell` 0.067 → `all` 0.069, against an oracle ceiling of ~0.271.
+
+* **It is the long-term (cell) memory** — `cell` alone carries 89% of the combined effect.
+* **23% of the oracle gap** is recovered by a total freeze, so state corruption is *a* mechanism, not
+  *the* mechanism. #262's distributional-gap thesis still holds most of the remainder.
+* **Magnitude is untouched** (`size_ratio` 0.0000 at h≥18 in every arm) — P3 as pre-registered.
+* **`crps_all` is blind to all of it** — the four arms agree to 3 decimals at h18 while gate AP spans 13×.
+
+Full numbers and the falsifier verdicts: `07_experiment_log.md` EXP-02.
 
 ## What a result means
 
