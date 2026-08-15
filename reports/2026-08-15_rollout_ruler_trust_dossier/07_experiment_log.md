@@ -198,7 +198,7 @@ code invariant. The other five degenerates were already covered by `tests/test_a
 ## EXP-04 — Minimum detectable effect at P = 13, and two guards · 2026-08-15 · **MEASURED**
 
 **Pre-registration:** `05_analysis_plan.md` (LOCKED) — prediction P6. **Story:** S4 (#268).
-**Driver:** `tools/mde.py` → `results/MDE.md` (+ `results/mde_h{1,18,36}/`). Reuses
+**Driver:** `tools/mde.py` → `results/mde_h{1,18,36}/MDE.md`. Reuses
 `gw_stratified._bootstrap_mean_ci(resample="origin")` and the frozen `lodestar_score.crps_ensemble`
 verbatim. Cubes are memmapped and only the requested horizon's ~13k rows are read.
 
@@ -235,7 +235,7 @@ this case).
 
 **This does not license using the iid bootstrap.** The origin block is the correct unit because adjacent
 origins' 36-month futures overlap — a structural fact about the design, not an empirical result about
-which interval happens to be wider on one pair. `MDE.md` now states the direction it actually observes.
+which interval happens to be wider on one pair. `MDE.md` states the direction it actually observes at each horizon (EXP-09 finds it flips sign across horizons once the per-cell pairing is fixed).
 
 Note also that the MDE *shrinks* with horizon (0.0108 → 0.0060) — because the model converges to
 uniformly all-zero, so its per-origin means become extremely stable. Tighter intervals around a forecast
@@ -437,6 +437,13 @@ Under the canonical convention the stand-in scores **0.9591** against `light_str
 **0.9601** — 0.1% apart. It reproduces the real model. *(Pre-registered P5 said it would not reproduce
 0.960; that was true only of the sliding variant, and is hereby narrowed.)*
 
+> ⚠️ **CORRECTED in EXP-09.** `0.9591` was a stale intermediate: the run this table describes wrote
+> **0.96216** to `results/rescore.csv`, i.e. **0.21%** from `light_strider`, not 0.1% — and the figure
+> was copied into five files, including a tracked module docstring, with nothing able to detect the
+> drift. The conclusion (a faithful stand-in) survives and in fact improves once the reference is drawn
+> at the arms' width: **0.96157 vs 0.96014 = 0.149%**. The number now lives in
+> `test_stand_in_matches_the_archived_baseline`, which reads both shipped artifacts, rather than in prose.
+
 ### The open question, raised upstream not decided here
 Whether the pool should be **fixed at `train_end`** (canonical: clean train/test separation) or **slide
 with the origin** (like-for-like: HydraNet itself digests observed history up to its origin, so at origin
@@ -463,6 +470,14 @@ proposed there.** The ruler now offers both and **defaults to canonical**.
 
 Cleaner than EXP-06: the knife-edge `violet_visitor` sb h=18 row (ΔAP +0.001 → REAL) resolves to
 **ΔAP −0.002 → ARTIFACT**, so h=18 is now unanimous too. **The verdict is unchanged: ARTIFACT.**
+
+> ⚠️ **CORRECTED in EXP-09.** Reading "h=18 is now unanimous too" as a *cleaner* result was wrong, and
+> the sentence above is the tell: an h=18 row moved from REAL to ARTIFACT on a ΔAP swing of **0.003**,
+> caused not by anything about the model but by drawing the reference at S=64 against arms at S=16. A
+> gate-less reference is ranked by `(cs > 0).mean(1)`, which has only `S + 1` rank levels, so more draws
+> raise its AP and push ΔAP negative. At the matched width the row reads **REAL (ΔAP +0.032)** again.
+> The h=36 verdict — the only cell the plan pre-registers — is **ARTIFACT under every parameterisation
+> tried**, and that is what this epic concluded. The horizon grid is not stable enough to narrate.
 
 ### Registered
 **C-279** — the duplication itself, with the fidelity check recorded as a *one-off manual comparison, not
@@ -499,7 +514,7 @@ but re-implements what keyword arguments already do, and leaves the string-truth
 | # | Defect | Disposition |
 |---|---|---|
 | **C-277 reintroduced** | `_add_origin_block_ci` derived the bootstrap's cell universe from **one arm's** coverage while annotating an estimate computed on the cross-arm intersection — the exact defect pinned as `xfail` in `block_bootstrap_crps` during S4, rewritten from scratch on a **live** path | **FIXED** |
-| **Divergent references** | `mde.py` and `tail_index.py` omitted `window_anchor`, silently selecting the *sliding* pool with S=16/seed 0, while `rescore_v2.py` used *fixed*/64/42. `MDE.md` and `tail_index.md` were computed against a **different climatology** than `rescore.csv` | **FIXED** — all three now pass canonical params explicitly; artifacts regenerated |
+| **Divergent references** | `mde.py` and `tail_index.py` omitted `window_anchor`, silently selecting the *sliding* pool with S=16/seed 0, while `rescore_v2.py` used *fixed*/64/42. `MDE.md` and `tail_index.md` were computed against a **different climatology** than `rescore.csv` | ⚠️ **PARTIAL — see EXP-09.** Fixed in **two** of three: `tail_index.py` was left calling `n_samples=16, seed=0` with no `window_anchor`, so all nine published `diag_Tu` numbers stayed on the wrong reference while this row claimed otherwise. Closed in EXP-09 by making the three parameters **required**. |
 | **False provenance claim** | Docstrings in `partition_audit.py` and `mde.py` claimed the Giacomini fixed-scheme requirement was "asserted mechanically … not assumed". It is true **by construction** (one prediction dir = one training run), never checked; and a missing `.sha256` returned `None` that nothing rejected | **FIXED** — claim corrected to the accurate, weaker one; `resolve_artifact` now raises |
 | **Verdict not persisted** | No `verdict` column was written. The epic's deliverable existed only on stdout, hand-transcribed into three markdown files — and EXP-06's 36-row table came from an off-repo script that no longer exists | **FIXED** — persisted, which also runs the rule over all 105 rows instead of the 12 printed |
 | **C-280 / C-281 / C-282** | `"n/a"` conflating *not applicable* with *not checked*; silent row drops; `float(x or "nan")` one refactor away from erasing `size_ratio == 0.0` (load-bearing ARTIFACT evidence, 124/189 rows) | **REGISTERED, not fixed** — convergence over completeness |
@@ -533,3 +548,111 @@ and was checked rather than assumed.
 Re-run against the canonical reference, the h=36 MDE tightens to **0.0028** (from 0.0060) and the iid
 bootstrap is now **4.44×** wider. The direction observed in EXP-04 holds and is more pronounced; the
 explanation there — heavy-tail-dominated per-cell differentials versus stable per-origin means — stands.
+
+---
+
+## EXP-09 — PR #274 `/code-review max`: the ruler was biased toward its own conclusion · 2026-08-15 · **FIXED + RE-RUN**
+
+**Trigger:** `/code-review max` on the release PR (#274, `development` → `main`). Fifteen findings, of
+which the load-bearing one is a **measurement-instrument bias in the direction of the epic's own
+headline** — the failure mode meta-pattern 8 names, arriving for the third time in this programme.
+
+### The finding: the reference was drawn at a different width than the arms
+
+`rescore()` drew the climatology at **S = 64** while every arm's cube is **S = 16**
+(`partition_audit.json`). That is not a free choice:
+
+* `lodestar_score.crps_ensemble` normalises its spread term by `2/(m*m)` — the **biased** estimator, so
+  `E[CRPS_hat] = CRPS + E|X−X'|/(2S)`. The inflation shrinks with `S` and therefore **does not cancel**
+  between a 16-draw arm and a 64-draw reference. `crps_skill_score`'s `ref_n_samples` is a guard against
+  the degenerate `S < 2` case, not a bias correction — nothing corrected for it.
+* A gate-less reference is ranked by `(cs > 0).mean(1)`, which takes exactly `S + 1` distinct values —
+  **17 levels at S=16, 65 at S=64**. `average_precision` is rank-based, so more draws resolve the
+  reference's ranking more finely and raise its AP.
+
+Both effects push `crpss` down and `ΔAP` negative — **toward ARTIFACT**, the direction of the epic's
+conclusion. And `ΔAP`'s *sign* is the sole discriminator: **every REAL row on the shipped board had
+`zero_share_of_gap > 0.5`** (16/16 then, 18/18 now), and `verdict_token`'s REAL branch never reads
+`zero_share`, so the entire REAL/ARTIFACT partition rests on one sign.
+
+It also silently overrode the LOCKED plan, which pins `S = 16` and `seed 0`. EXP-07 recorded the change
+as a *divergence closed*, treating the plan's values as the bug — but the plan's own parenthetical is
+**"S = 16 (matches the arms' cube width)"**. The match *is* the pre-registration; 16 was only its value
+at the time.
+
+### The fix: derive, don't pin
+
+`rescore()` has **no `n_samples` parameter**. The reference's width comes from the arms' cubes via
+`reference_sample_width`, which raises if the arms disagree with each other. Re-running the hydranets at
+a different width now moves the reference with them, satisfying the locked pin without editing a locked
+document. `seed` returns to the pre-registered **0**.
+
+`climatology_resample`'s `n_samples`, `seed` and `window_anchor` are now **required keyword-only** — the
+same medicine `verdict_token` got in EXP-08, for the same reason and after the same kind of recurrence.
+
+### Does the verdict survive? Yes, at the cell it was registered for
+
+`05_analysis_plan.md:95` pre-registers the rule at **one cell: sb, h36**. Re-scored at the matched width:
+
+| arm | sb h36 `crps_all` | CRPSS | `zero_share` | ΔAP | verdict |
+|---|---:|---:|---:|---:|---|
+| `violet_visitor` | 0.8747 | +0.0904 | 0.746 | −0.030 | **ARTIFACT** |
+| `bright_starship` | 1.3898 | −0.4453 | 1.063 | −0.155 | **ARTIFACT** |
+| `blazing_meteor` | 0.8747 | +0.0904 | 0.746 | −0.154 | **ARTIFACT** |
+| `purple_alien` | 0.8746 | +0.0904 | 0.739 | −0.047 | **ARTIFACT** |
+
+**Unchanged, 4/4, and now measured at matched width where the bias does not exist.** Fidelity improves
+too: the stand-in scores **0.96157** against `light_strider`'s **0.96014**, **0.149%** apart (it was
+0.21% at S=64) — matching the arms made the stand-in *more* faithful, not less.
+
+### What does NOT survive: the 84-cell grid
+
+EXP-08 read the full horizon grid as a result ("a monotone decay of genuine skill", REAL 8/4/2/1/1/0/0).
+That reading is withdrawn:
+
+* the rule is pre-registered at **one** cell; applying it to 84 with no multiplicity control converts the
+  pre-registration's protection into a comparison surface;
+* the grid is **not stable** — `violet_visitor` sb h=18 flips REAL ⇄ ARTIFACT on a ΔAP swing of 0.003
+  driven purely by the reference's draw count;
+* every REAL row is a row whose `zero_share > 0.5`, i.e. one sign-flip away from ARTIFACT.
+
+`rescore.csv` now carries a **`prereg`** column, `True` on exactly the sb/h36 rows. The climatology's own
+rows carry `verdict = "reference"` instead of a token computed from its self-comparison constants — 21 of
+the previous board's 25 `UNDECIDABLE` tokens were the reference ruling on itself.
+
+The sb decay under the corrected reference, **reported as exploratory**: REAL 4/2/1/1/0/0/0 at
+h = 1/6/12/18/24/30/36.
+
+### The other fourteen
+
+| # | Defect | Disposition |
+|---|---|---|
+| **`tail_index.py` never fixed** | EXP-08's table says the divergent-reference defect was fixed in "all three" tools. It was fixed in two: `tail_index.py:69` still selected the sliding pool at S=16/seed 0. All nine published `diag_Tu` were against the wrong reference — h=1/q=0.99 moves from **+0.0406 to −7.5787**, sign included | **FIXED** — and made unrepresentable by the required keywords |
+| **Stale fidelity number** | "0.9591 … 0.1% apart" contradicted by the shipped `rescore.csv` (0.96216, 0.21%); copied into five files including a tracked docstring; C-279 recorded the check as "a one-off manual comparison, not a test" | **FIXED** — no figure in prose; `test_stand_in_matches_the_archived_baseline` reads both artifacts |
+| **`mde.py` positional cell pairing** | `np.isin` masks preserve each arm's own row order; they do not reindex to the intersection, so the differential paired cell-by-position. Origin sums survive it, the per-cell vector does not — and `mde_iid`, the width ratio and the "heavy-tail cells" narrative are computed from that vector | **FIXED** — explicit unit→index map. The iid/block ratio now **flips sign by horizon** (1.40× narrower at h=1, 4.25× wider at h=36); the old artifact showed only the h=36 direction |
+| **`mde.py` history window** | `hist_months` built for the *sliding* window while requesting the *fixed* pool; `truth_map.get(..., 0.0)` fabricates zeros for the gap. Inert only because the earliest origin is 457 | **FIXED** — anchor pool unioned in, and a total miss now raises |
+| **Four NaN holes** | `require_headline_columns` tested `is None` only, so an all-NaN headline row passed; every `verdict_token` comparison is False on NaN, so a NaN `zero_share` silently disabled the ARTIFACT branch; `bool(nan > 0 or nan < 0)` recorded *unmeasurable* as *no*; `max()` skips NaN, so falsifier **F1 failed open** on exactly the condition it exists to catch | **FIXED** — all four reject non-finite input rather than absorbing it |
+| **CI described a different forecast** | `_add_origin_block_ci` hardcoded `window_anchor=456` (discarding the caller's) and unpacked `label, pdir, *_`, dropping the threshold spec `rescore` applies at emit time | **FIXED** — every parameter arrives from the caller; a threshold arm now raises rather than being annotated by an ungated CI |
+| **Leakage guard green by luck** | `test_climatology_is_leakage_free_under_outcome_permutation` — cited as making leak-freedom "provable rather than asserted" — used one global cutoff for a multi-origin support, so it tampered with months legitimately inside origin 460's own pool. It passed at n=16 because 3 of 36 pool indices happened not to be drawn, and reports a **spurious LEAK at 32+**, i.e. at the width the drivers run | **FIXED** — permutes per-origin, parametrised over both conventions × {8, 16, 64, 256} |
+| **`gpd_pwm_fit` outside its validity range** | PWM is consistent only for `gamma < 0.5` and its `a1` moment dies at `gamma >= 1`. Measured on exact quantiles it **saturates**: true 0.9/1.0/1.1/1.3 → 0.86/0.92/0.96/0.99. All nine published `gamma` sit at 0.51–0.96, and the h=36 rows are **at the ceiling** — they cannot distinguish a heavy tail from an infinite-mean one, which is the question C-224 exists to ask. The only test pinned `gamma=0.5`, the last accurate point | **FLAGGED + REGISTERED** — `diag_gamma_at_pwm_ceiling` travels with the number, `tail_index.md` marks the rows `†`; swapping in the existing scipy MLE is not this PR's scope |
+| **False premise in the PR + module docstring** | Both claimed `reports/` tools are "invisible to a clean clone". **437 `reports/` files are force-tracked**, including all five drivers, so the skip guard never fires | **CORRECTED** — the split is justified on its real (narrower) grounds |
+| **Docstring contract claims** | Pool bounds documented as `[anchor - window, anchor - 1]` when the code yields `[421, 456]` (pre-fix text left behind); RNG "seeded from `(seed, m0, u)`" true only on the sliding branch; the returned dict claimed consumable by `score_gw_v2`, which takes registry entries and builds its own | **FIXED** — all three corrected |
+| **D1 falsifier ran after the write** | A failing falsifier still left a published `rescore.csv` behind; `csv_decompose.py` already had this ordering right | **FIXED** — D1 moved before the write |
+| **Duplicate / degenerate artifacts** | `results/MDE.md` byte-duplicated `mde_h36/MDE.md`; `tail_index.py` was the only tool without `parent.mkdir` (discarding all work on its final line); `mde.py` raised `ZeroDivisionError` on an identical-arm run | **FIXED** — duplicate removed and references repointed; mkdir added; degenerate CI raises with a reason |
+| **Dead `CI_HORIZONS`** | Left over from when the CI ran at three horizons; contradicted by the code and its own comment | **FIXED** — removed |
+| **Vacuous defaults test** | `test_defaults_match_the_canonical_model` pinned the two harmless defaults and never checked `window_anchor`, whose default was the non-canonical one — green throughout the defect it should have caught | **REPLACED** — asserts the three have no default at all |
+
+### Registered, not fixed
+**C-284** (PWM saturation vs the existing scipy MLE, uncross-checked) · **C-285** (`matplotlib` required by
+`pyproject.toml`'s test extra but absent from `environment.yml`; the ruff pin now lives in three
+unsynchronised places) · **C-286** (`partition_audit`'s `leak` field can only ever be `False` — the raise
+precedes it — and `truth_matches_pin` records `False` when the pin is merely *absent*) · **C-287**
+(`--diagnostic-only` is run-global while the C-218 gate it disables is per-arm).
+
+### The pattern, stated plainly
+Three review rounds, three instances of one class: **an input that was not measured being absorbed as a
+value rather than refused** — `row.get(key, default)` in EXP-08, a defaulted keyword and a NaN comparison
+here. Each time the absorbed value biased toward the conclusion already written down. The countermeasure
+that has actually worked is the same each time and it is not a guard: **delete the representation**. A
+required keyword-only argument cannot be omitted; a `ValueError` on non-finite input cannot be read as a
+verdict. Machinery added: none.

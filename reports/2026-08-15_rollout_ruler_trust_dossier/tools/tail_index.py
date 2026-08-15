@@ -29,7 +29,11 @@ for _p in (str(_LODE), str(_HN / "scripts")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 from lodestar_score import crps_ensemble  # noqa: E402
-from rollout_ruler_core import climatology_resample, taillardat_index  # noqa: E402
+from rollout_ruler_core import (  # noqa: E402
+    climatology_resample,
+    reference_sample_width,
+    taillardat_index,
+)
 
 _spec = importlib.util.spec_from_file_location("mde", _HERE / "mde.py")
 _mde = importlib.util.module_from_spec(_spec)
@@ -64,9 +68,25 @@ def main() -> int:
         a = _mde.per_origin_crps(pred, args.target, h, tmap)
 
         support = [(m0, int(u)) for m0, (_c, _t, uu) in a.items() for u in uu]
-        hist_months = {m for (m0, _u) in support for m in range(m0 - 36, m0)}
+        # CANONICAL, matching rescore_v2 and mde. This call previously omitted window_anchor
+        # entirely and hardcoded n_samples=16 — so it selected the SLIDING pool and published
+        # nine diag_Tu numbers against a different climatology than the headline, while the
+        # experiment log recorded the divergence as fixed in "all three" tools. It was fixed in
+        # two. climatology_resample now requires all three keywords for that reason.
+        anchor_pool = set(range(_mde.CLIM_ANCHOR - 36 + 1, _mde.CLIM_ANCHOR + 1))
+        hist_months = anchor_pool | {m for (m0, _u) in support for m in range(m0 - 36, m0)}
         hist = roll._truth_map(str(v2.V2_TRUTH), f"lr_{args.target}_best", hist_months)
-        gathered = climatology_resample(hist, support, (h,), window=36, n_samples=16, seed=0)
+        gathered = climatology_resample(
+            hist,
+            support,
+            (h,),
+            window=36,
+            n_samples=reference_sample_width(
+                (c.shape[1] for _m0, (c, _t, _u) in a.items()), where=label
+            ),
+            seed=_mde.CLIM_SEED,
+            window_anchor=_mde.CLIM_ANCHOR,
+        )
 
         cf, cg = [], []
         for m0, (cube, tt, uu) in a.items():
@@ -95,9 +115,11 @@ def main() -> int:
     ]
     for r in rows:
         tu = "n/a" if not np.isfinite(r["diag_Tu"]) else f"**{r['diag_Tu']:+.4f}**"
+        cap = " †" if r.get("diag_gamma_at_pwm_ceiling") else ""
         lines.append(
             f"| {r['h']} | {r['diag_q']} | {r['diag_u']:.4g} | {r['diag_m_model']} | "
-            f"{r['diag_m_ref']} | {r['diag_gamma_model']:.3f} | {r['diag_gamma_ref']:.3f} | {tu} |"
+            f"{r['diag_m_ref']} | {r['diag_gamma_model']:.3f}{cap} | "
+            f"{r['diag_gamma_ref']:.3f}{cap} | {tu} |"
         )
     lines += [
         "",
@@ -110,8 +132,21 @@ def main() -> int:
         "`n/a` means the index is **undefined**, not bad: the pooled threshold left one arm "
         "with fewer than 50 exceedances, so no GPD could be fitted to it.",
         "",
+        "**† marks a row where the fitted `gamma` is at the PWM saturation ceiling.** "
+        "`gpd_pwm_fit` is a probability-weighted-moment estimator: it is consistent only for "
+        "`gamma < 0.5`, and its `a1` moment ceases to exist at `gamma >= 1`. Measured on exact "
+        "GPD quantiles it saturates — a true shape of 0.9/1.0/1.1/1.3 fits to "
+        "0.86/0.92/0.96/0.99. A marked `gamma` is therefore a **lower bound**, not an "
+        "estimate, and cannot distinguish a heavy tail from an infinite-mean one (`gamma >= 1`) "
+        "— which is the regime this diagnostic exists to probe. A scipy MLE fit valid across "
+        "this range already exists at "
+        "`reports/2026-07-15_volatility_ceiling_dossier/tools/s5_tail.py::gpd_xi`; nothing "
+        "cross-checks the two (registered).",
+        "",
     ]
-    Path(args.out).write_text("\n".join(lines))
+    out_path = Path(args.out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text("\n".join(lines))
     print(f"wrote {args.out}  ({len(rows)} rows)")
     for r in rows:
         print(

@@ -45,6 +45,12 @@ if str(_LODE) not in sys.path:
     sys.path.insert(0, str(_LODE))
 from lodestar_score import crps_ensemble  # noqa: E402
 
+# The climatology's convention, identical to rescore_v2's. Kept as named constants in both
+# rather than passed between them: these two tools are independent entry points, and the
+# invariant that matters is that they name the same values, which a test asserts.
+CLIM_SEED = 0  # pre-registered in 05_analysis_plan.md
+CLIM_ANCHOR = 456  # pgm calibration train_end
+
 
 def _load(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
@@ -109,15 +115,36 @@ def main() -> int:
             sys.path.insert(0, str(_HN / "scripts"))
         from rollout_ruler_core import climatology_resample
 
+        from rollout_ruler_core import reference_sample_width
+
         support = [(m0, int(u)) for m0, (_c, _t, uu) in a.items() for u in uu]
-        hist_months = {m for (m0, _u) in support for m in range(m0 - 36, m0)}
+        # The pool actually requested is [ANCHOR-35, ANCHOR], so the anchor's months must be
+        # fetched explicitly. Deriving hist_months from the sliding window alone happened to
+        # cover it only because the earliest origin is 457; point this at origins starting
+        # later and truth_map.get(..., 0.0) would silently pad the reference with zeros and
+        # make it too timid, with no exception. rescore_v2 unions the anchor in; this did not.
+        anchor_pool = set(range(CLIM_ANCHOR - 36 + 1, CLIM_ANCHOR + 1))
+        hist_months = anchor_pool | {m for (m0, _u) in support for m in range(m0 - 36, m0)}
         hist = roll._truth_map(str(v2.V2_TRUTH), f"lr_{args.target}_best", hist_months)
-        # CANONICAL params, stated explicitly. Omitting window_anchor selects the SLIDING
-        # pool by default, which would score this against a different reference than
-        # rescore.csv uses — the two conventions must not be mixed by accident (C-279,
-        # views-baseline #82).
+        missing = anchor_pool - set(m for (m, _u) in hist)
+        if missing == anchor_pool:
+            raise SystemExit(
+                f"the climatology pool {min(anchor_pool)}-{max(anchor_pool)} has no truth at "
+                "all; the reference would be resampled entirely from zero-padding."
+            )
+        # CANONICAL params, stated explicitly — climatology_resample requires all three, so a
+        # convention can no longer be selected by omitting a keyword (which is how this file's
+        # sibling tail_index.py published nine numbers against a different reference).
         gathered = climatology_resample(
-            hist, support, (args.h,), window=36, n_samples=64, seed=42, window_anchor=456
+            hist,
+            support,
+            (args.h,),
+            window=36,
+            n_samples=reference_sample_width(
+                (c.shape[1] for _m0, (c, _t, _u) in a.items()), where=labels[0]
+            ),
+            seed=CLIM_SEED,
+            window_anchor=CLIM_ANCHOR,
         )
         b = {}
         for m0, (_c, tt, uu) in a.items():
@@ -133,9 +160,20 @@ def main() -> int:
     for m0 in shared:
         ca, ta, ua = a[m0]
         cb, tb, ub = b[m0]
-        keep = np.intersect1d(ua, ub)
-        ia = np.isin(ua, keep)
-        ib = np.isin(ub, keep)
+        # Align by cell id, NOT by position. Boolean masking preserves each source array's own
+        # order; it does not reindex to `keep`. With ua=[3,1,2] and ub=[1,2,3] both masks are
+        # all-True, no shape error fires, and the subtraction silently pairs cell 3 against
+        # cell 1. The origin means survive that (each origin's sum is unchanged) but the
+        # per-cell vector does not — and it is the per-cell vector the iid bootstrap and the
+        # heavy-tail reading below are computed from. rescore_v2 uses an explicit unit->index
+        # map; this did not.
+        pa = {int(x): i for i, x in enumerate(ua)}
+        pb = {int(x): i for i, x in enumerate(ub)}
+        if len(pa) != len(ua) or len(pb) != len(ub):
+            raise SystemExit(f"origin {m0}: duplicate unit ids — the pairing is ambiguous")
+        keep = sorted(set(pa) & set(pb))
+        ia = np.array([pa[u] for u in keep], dtype=int)
+        ib = np.array([pb[u] for u in keep], dtype=int)
         d = crps_ensemble(ta[ia], ca[ia]) - crps_ensemble(tb[ib], cb[ib])
         diffs.append(d)
         group_ids.append(np.full(d.size, m0))
@@ -150,6 +188,12 @@ def main() -> int:
     observed = float(d_all.mean())
     mde = (hi_o - lo_o) / 2.0
     mde_iid = (hi_i - lo_i) / 2.0
+    if mde <= 0 or mde_iid <= 0:
+        raise SystemExit(
+            f"degenerate CI (origin half-width {mde:.6g}, iid {mde_iid:.6g}). Both are zero "
+            "when the two arms are identical, which makes the width ratio undefined rather "
+            "than infinite — scoring an arm against itself is not a measurable comparison."
+        )
 
     lines = [
         "# Minimum detectable effect at P = 13",

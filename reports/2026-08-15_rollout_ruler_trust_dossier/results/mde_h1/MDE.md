@@ -4,37 +4,37 @@ Epic #263 / S4 (#268). Pair: `violet_visitor` − `climatology`, target `sb`, h 
 
 | quantity | value |
 |---|---:|
-| observed mean CRPS differential | -0.0589839 |
-| origin-block CI | [-0.0743686, -0.0432933] |
-| **MDE (origin-block, half-width)** | **0.0155376** |
-| iid-over-cells CI (for contrast only) | [-0.0717186, -0.0468652] |
-| iid half-width | 0.0124267 |
-| **origin-block ÷ iid width** | **1.25×** |
+| observed mean CRPS differential | -0.0580025 |
+| origin-block CI | [-0.0731323, -0.0425963] |
+| **MDE (origin-block, half-width)** | **0.015268** |
+| iid-over-cells CI (for contrast only) | [-0.0690732, -0.0472763] |
+| iid half-width | 0.0108984 |
+| **origin-block ÷ iid width** | **1.40×** |
 | separable from 0 at 90%? | YES |
 
 ## Per-origin mean differential
 
 | origin (m0) | mean Δcrps |
 |---:|---:|
-| 457 | -0.00134421 |
-| 458 | -0.016971 |
-| 459 | -0.0231373 |
-| 460 | -0.00406547 |
-| 461 | -0.0401856 |
-| 462 | -0.0610353 |
-| 463 | -0.0704127 |
-| 464 | -0.0886922 |
-| 465 | -0.0887262 |
-| 466 | -0.101892 |
-| 467 | -0.0868345 |
-| 468 | -0.093816 |
-| 469 | -0.0896776 |
+| 457 | +0.00145315 |
+| 458 | -0.01804 |
+| 459 | -0.0214984 |
+| 460 | -0.00832618 |
+| 461 | -0.0417385 |
+| 462 | -0.0552465 |
+| 463 | -0.0703113 |
+| 464 | -0.0857066 |
+| 465 | -0.0883149 |
+| 466 | -0.0997575 |
+| 467 | -0.0862539 |
+| 468 | -0.0924464 |
+| 469 | -0.0878456 |
 
 ## Reading this
 
-An effect smaller than **0.0155376** cannot be distinguished from zero at 90% with 13 origins, however many cells there are. A null on this pair therefore means *either* no difference *or* no power — the distinction C-254 exists to preserve.
+An effect smaller than **0.015268** cannot be distinguished from zero at 90% with 13 origins, however many cells there are. A null on this pair therefore means *either* no difference *or* no power — the distinction C-254 exists to preserve.
 
-The iid-over-cells bootstrap gives a CI **1.25× narrower**. That is the overconfidence C-221/C-253 warn about: it treats ~13k spatially co-active cells per origin as independent observations.
+The iid-over-cells bootstrap gives a CI **1.40× narrower**. That is the overconfidence C-221/C-253 warn about: it treats ~13k spatially co-active cells per origin as independent observations.
 
 **Neither reading licenses using the iid bootstrap.** It is reported as a contrast only. The origin block is the correct unit because the 36-month futures of adjacent origins overlap; that is a structural fact about the design, not an empirical result about which interval happens to be wider on one pair.
 

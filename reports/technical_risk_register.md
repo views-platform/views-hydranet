@@ -5,11 +5,11 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-15                           |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day. `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 280                                  |
-| Open Concerns     | 129                                  |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`. `C-34`/`C-188` are intentional numbering gaps (merged entries). |
+| Total Concerns    | 284                                  |
+| Open Concerns     | 133                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 116                                 |
+| — net active risks | 120                                 |
 | Resolved Concerns | 151                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -2213,9 +2213,13 @@ Two consequences, both live. (1) **Unverifiable governance** — a reviewer cann
 
 The FAO-02 empirical conflictology baseline **is** implemented — as `ConflictologyModel` in views-baseline, deployed as `white_ranger` and `light_strider`. Epic #263 nevertheless built a second implementation inside the hydranet scorer, because scoring against the deployed model requires its prediction cubes and those are deleted after scoring. The *need* is real; the **duplication** is the risk.
 
-Three divergences existed on first write, all now closed or documented: `n_samples` 16 vs 64 and `seed` 0 vs 42 (**fixed** — defaults now match the canonical model); an **off-by-one** in the pool bound (`range(end-window, end)` vs the canonical `time <= train_end`, i.e. 420–455 instead of 421–456 — **fixed**, the bound is now inclusive); and the pool **anchor** — canonical fixes it at `train_end`, the hydranet version originally slid it per origin (now `window_anchor`, defaulting to the canonical fixed behaviour, with the sliding variant retained and the question raised upstream as views-baseline #82).
+Three divergences existed on first write. Two were **mis-diagnosed**: `n_samples` and `seed` were aligned *to the canonical model* (64 / 42) when the correct target is the **arms' cube width** — `05_analysis_plan.md` pins "S = 16 (matches the arms' cube width)", and the parenthetical is the invariant. Drawing the reference at 64 against arms at 16 left an uncancelled `O(1/S)` CRPS estimator bias and a coarser AP rank resolution, both biasing toward the epic's own conclusion (**corrected in PR #274**: `rescore` derives S from the cubes via `reference_sample_width` and has no `n_samples` parameter; seed returns to the pre-registered 0). The third was real: an **off-by-one** in the pool bound (`range(end-window, end)` vs the canonical `time <= train_end`, i.e. 420–455 instead of 421–456 — **fixed**, the bound is now inclusive); and the pool **anchor** — canonical fixes it at `train_end`, the hydranet version originally slid it per origin (now `window_anchor`, defaulting to the canonical fixed behaviour, with the sliding variant retained and the question raised upstream as views-baseline #82).
 
-**Fidelity is now evidenced, not assumed:** under the canonical convention the reimplementation scores **0.9591** vs `light_strider`'s archived **0.9601** — 0.1% apart. But that is a one-off manual comparison, **not a test**. Nothing prevents the two from drifting apart on the next change to either.
+**Fidelity is now a test, and the manual number had already drifted.** The recorded "0.9591 vs `light_strider`'s 0.9601 — 0.1% apart" was a stale intermediate: the run it described wrote **0.96216** (0.21%), and the figure had been copied into five files including a tracked module docstring, with nothing able to detect the divergence — the predicted consequence of "a one-off manual comparison, not a test", realised inside the same PR that registered it.
+
+PR #274 replaces the prose figure with `test_stand_in_matches_the_archived_baseline`, which reads the shipped `rescore.csv` and `csv_decomposition.csv` and fails above 1%. At the corrected matched width the stand-in scores **0.96157** vs **0.96014** — **0.149%** apart, i.e. matching the arms made it *more* faithful, not less.
+
+**Still open:** this pins agreement on one cell of one shipped artifact, not agreement between the two implementations. The preference order is unchanged — consume views-baseline as a dependency and delete the local copy; else a real parity test against a live `ConflictologyModel`.
 
 **Tier 3:** no wrong output today (the Epic #263 verdict is ARTIFACT under all four parameterisations tested, so it does not turn on this), but two implementations of a *governance baseline* with no parity gate is precisely the C-75/C-265 shape, and this one sits on the selection path. Fix direction, in preference order: (a) declare `views-baseline` a dependency and consume `ConflictologyModel` directly, deleting the local copy; (b) if the cube-availability constraint makes that impractical, add a parity test pinning the reimplementation against a stored canonical output; (c) at minimum, keep the 0.9591-vs-0.9601 check as a documented, re-runnable comparison rather than a one-off.
 
@@ -2284,6 +2288,73 @@ Three tests invoke the `ruff` **binary** through `subprocess`. The GitHub Action
 Locally they pass, because a developer machine usually has a `ruff` on PATH — which is how the divergence persisted: the failure is invisible where the code is written and unavoidable where it is checked. Worse, a local binary can be a *different version* from the `ruff==0.14.14` the `lint` job pins, so the two jobs can disagree about what "clean" means.
 
 **Tier 3:** no wrong output, but it is a false-confidence and signal-loss problem on the merge gate — exactly C-165's shape. **Fixed in this PR** by adding `ruff==0.14.14` to `environment.yml`'s pip list, matching the lint job's pin. Registered rather than merely fixed because the *class* — a test asserting on tooling the test environment does not provide — is worth having on record, and because it means every CI `test` result before 2026-08-15 should be read as "red for this reason unless shown otherwise".
+
+---
+### C-284: `gpd_pwm_fit` is run entirely outside its validity range, and the saturation is not cross-checked against the repo's own MLE fit
+
+| Field | Value |
+|-------|-------|
+| ID | C-284 |
+| Tier | 3 |
+| Source | `/code-review max`, PR #274 (2026-08-15); saturation curve re-measured independently before registering |
+| Trigger | Reading a `diag_gamma_*` at or above ~0.9 as an estimate — e.g. concluding from `tail_index.md`'s h=36 rows that the tail is heavy-but-finite-mean, or comparing two arms' fitted shapes in that regime |
+| Location | `scripts/rollout_ruler_core.py::gpd_pwm_fit`; consumed by `taillardat_index`; published in `reports/2026-08-15_rollout_ruler_trust_dossier/results/tail_index.md`. The alternative fit is `reports/2026-07-15_volatility_ceiling_dossier/tools/s5_tail.py::gpd_xi` (scipy MLE) |
+| Cross-refs | C-224 (the tail diagnostic this serves), C-279 (duplicated implementations with no parity test — the same shape) |
+
+Probability-weighted moments are consistent only for `gamma < 0.5`, and the `a1 = E[Y(1-F)]` moment ceases to exist at `gamma >= 1`. Measured on exact GPD quantiles (n=200k, no sampling noise) the estimator saturates one-sidedly: true `gamma` 0.30/0.50/0.70/0.90/1.00/1.10/1.30 fits to 0.30/0.50/0.69/0.86/0.92/0.96/0.99.
+
+All nine published shapes sit at 0.51–0.965, and the **three h=36 rows (0.951–0.965) are at the ceiling** — they cannot distinguish a heavy tail from the infinite-mean regime (`gamma >= 1`), which is precisely the question C-224 exists to ask. The only test pinned `gamma=0.5`, the last point where the estimator is still accurate, so no test covered the regime every published number occupies.
+
+**Mitigated, not resolved, in PR #274:** `taillardat_index` now emits `diag_gamma_at_pwm_ceiling` and `tail_index.md` marks the affected rows `†` with the bias curve stated, so the caveat travels with the number. The estimator itself is unchanged, and **nothing cross-checks it against `s5_tail.gpd_xi`**, which is valid across this range. Swapping or cross-checking the fit is the open work. `diag_Tu` reaches no decision rule, which is why this is Tier 3 and not higher.
+
+---
+
+### C-285: the test environment and the lint environment are specified in three unsynchronised places, and `matplotlib` is in none of them
+
+| Field | Value |
+|-------|-------|
+| ID | C-285 |
+| Tier | 3 |
+| Source | `/code-review max`, PR #274 (2026-08-15) |
+| Trigger | Adding a test that imports `matplotlib`, or bumping the ruff pin in one file and not the others — the CI `test` job then fails for an environment reason that looks like a code regression |
+| Location | `environment.yml` (pip list: `.`, `pytest`, `pytest-cov`, `ruff==0.14.14`); `pyproject.toml:33-36` (test extra, declares `matplotlib`); `.github/workflows/` (the `lint` job's own ruff pin) |
+| Cross-refs | C-283 (the same file, the same class — fixed one instance of it), C-165 |
+
+C-283 fixed the missing `ruff`. The underlying condition is unchanged: `pip install .` installs neither the test extra nor the dev group, so `pyproject.toml`'s declaration that `matplotlib` belongs to the test environment is not honoured by the environment CI actually builds — the next test to import it fails identically to C-283. And the ruff version is now pinned in `environment.yml`, `pyproject.toml` and the workflow independently, so the `lint` and `test` jobs can silently disagree about what "clean" means.
+
+**Not fixed here** — the right fix is one source of truth for the test environment, which is a repo-wide change and outside this PR's scope (`SCOPE.md`).
+
+---
+
+### C-286: `partition_audit` records two fields that cannot express the state they name
+
+| Field | Value |
+|-------|-------|
+| ID | C-286 |
+| Tier | 4 |
+| Source | `/code-review max`, PR #274 (2026-08-15) |
+| Trigger | Reading `partition_audit.json` to establish that the leak check ran and passed, or filtering arms on `truth_matches_pin == False` expecting to find mismatches |
+| Location | `reports/2026-08-15_rollout_ruler_trust_dossier/tools/partition_audit.py` — `leak` (raises on True immediately above, so the recorded value is always `False`), `truth_matches_pin` (`False` both when the sha mismatches and when the pin is simply absent) |
+| Cross-refs | C-280 (the `"n/a"` rendering of the same field — the same *not applicable vs not checked* conflation) |
+
+Neither field can carry bad news: a genuine leak raises before the record is built, so `leak: false` means "the audit completed", not "the leak check ran and found nothing" — indistinguishable from an audit where the check was somehow skipped. `truth_matches_pin` conflates *checked and mismatched* with *no pin to check against*; a mismatch also raises, so the only reachable `False` is the second meaning.
+
+Tier 4: no wrong number today, and the raises do the real work. It is on record because the audit's stated purpose is making claims **auditable after the fact**, and a field that can only hold one value audits nothing.
+
+---
+
+### C-287: `--diagnostic-only` is run-global while the C-218 gate it disables is per-arm
+
+| Field | Value |
+|-------|-------|
+| ID | C-287 |
+| Tier | 3 |
+| Source | `/code-review max`, PR #274 (2026-08-15) |
+| Trigger | Auditing a mixed batch — one known `mean`-feedback arm alongside `sample`-feedback arms — and passing `--diagnostic-only` to get the first one through |
+| Location | `reports/2026-08-15_rollout_ruler_trust_dossier/tools/partition_audit.py` — `main()` passes `args.diagnostic_only` to every `audit_arm` call; `audit_arm` applies it per arm |
+| Cross-refs | C-218 (the invariant), C-286 (the same file's audit-record weaknesses) |
+
+The flag exists so a broken-by-construction rollout can be scored as a **labelled diagnostic** rather than as deployed skill. Applied run-globally it suspends that gate for *every* arm in the batch, so a second arm that unexpectedly carries `rollout_feedback='mean'` passes silently and is recorded `diagnostic_only: true` — a true record of a decision nobody made about it. The gate should be opted out of per arm, e.g. `arm=dir:diagnostic`.
 
 ---
 

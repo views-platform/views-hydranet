@@ -60,13 +60,13 @@ chain-of-custody, not tidiness. Do not refactor the four tools into one (`SCOPE.
 | **C-218** | 2 | ✅ **ASSERTED (S2)** — was read by hand | raises unless `rollout_feedback == 'sample'` or `diagnostic_only=True`; 6/6 arms `sample` | 2 pytest (synthetic model dirs — the cross-repo read stays runtime-only) | S2 |
 | **C-219** | 2 | ✅ **ENFORCED (S3)** — was a norm with no code | `require_headline_columns` **raises** on a row lacking the split, AP, CRPSS or `zero_share_of_gap` | 2 pytest, CI-visible | S3 |
 | **C-220** | 3 | ✅ **ASSERTED (S2)** — was **never tested at all** | pure `assert_sample_cube` in tracked `scripts/`; 468 cubes checked, all `(N, 16)` | 4 pytest, **CI-visible (never skips)** | S2 |
-| **C-221** | 3 | ✅ **MDE STATED (S4)** | `results/MDE.md` — MDE **0.00596** at sb/h36, 90%, P=13; the latent single-arm-support defect pinned as **C-277** (`xfail(strict=True)`, not fixed) | 1 pytest (xfail) + doc | S4 |
+| **C-221** | 3 | ✅ **MDE STATED (S4)** | `results/mde_h36/MDE.md` — MDE **0.00258** at sb/h36, 90%, P=13; the latent single-arm-support defect pinned as **C-277** (`xfail(strict=True)`, not fixed) | 1 pytest (xfail) + doc | S4 |
 | **C-224** | **1** | ✅ **DIAGNOSTIC EXISTS (S5)** — Tier-1 governance ask **UNCHANGED, still open** | Taillardat §3.3 index; 9 numbers in `results/tail_index.md`; 3 structural railguards | 8 pytest, CI-visible; impl 109/120, test 118/120 | S5 |
 | **C-231** | 3 | ✅ **METRIC EXISTS (S1)** — was a finding with no metric | `crps_gap_decomposition` → `zero_share_of_gap`; identity holds to 8.9e-16 | 6 pytest, CI-visible | S1, S3 |
 | **C-248** | **1** | **CLOSED** — and now **inherited (S3)** | the climatology draws strictly pre-origin; proven byte-identical under post-origin outcome permutation | existing + 1 pytest | S3 |
 | **C-252** | 3 | ✅ **EXPLICIT (S4)** — was implicit only | `tracemalloc` asserts the significance path grows far below an (N,16) cube at N=195k | 1 pytest | S4 |
 | **C-253** | 2 | **CLOSED** | reuse, **do not touch** | existing | — |
-| **C-254** | 3 | ✅ **POWER STATED (S4)** | `MDE.md` states the MDE and the Giacomini fixed-scheme sentence; a null can no longer be read as 'no difference' by default | doc | S4 |
+| **C-254** | 3 | ✅ **POWER STATED (S4)** | `mde_h{1,18,36}/MDE.md` state the MDE and the Giacomini fixed-scheme sentence; a null can no longer be read as 'no difference' by default | doc | S4 |
 
 **Accounting: 10 pytest guards + 1 runtime guard.** That is the honest reading of the epic's "10 unblocked
 invariants" — C-218 cannot be a portable pytest without an env var that would make it skip in CI, which is the
@@ -83,7 +83,7 @@ Before **any** cube is scored (S6):
       truth sha matches the pin, one artifact per arm — **S2**
 - [x] climatology is byte-identical under post-origin outcome permutation — **S3**
 - [x] `crps_skill_score` raises on a 1-sample reference — **S3**
-- [x] `MDE.md` states a number (**0.00596** at sb/h36) — **S4**
+- [x] `mde_h36/MDE.md` states a number (**0.00258** at sb/h36) — **S4**
 - [x] no `diag_*` key reaches the decision rule — **S5**
 - [x] full suite green (1362); `scripts/`-backed tests **run, not skip** with `reports/` absent — **S4**
 
@@ -100,7 +100,7 @@ the point** — the battery is a research agenda; this dossier delivers a bounde
 | 2 | **Score the deployed object, per step, over the full horizon** — the sample field, never pooled | **DELIVERED** — C-220 assertion (S2) + 7 pre-registered horizons. *Not* all 36 (`SCOPE.md` #17). |
 | 3 | **Spatial verification** — FSS, SAL/MODE, Gini/entropy | **OUT** — `SCOPE.md` #13. Not in cluster 16. |
 | 4 | **Discrimination that survives sparsity** — AUPRC; check dynamic range before ranking | **PARTLY** — AP is in `_metric_row`; the dynamic-range check is what `zero_share_of_gap` operationalises. |
-| 5 | **Proper scores WITH a power statement** — stratified GW on an ex-ante stratum, reporting the MDE | **DELIVERED** — `gw_stratified` (C-248/C-253 closed) + `MDE.md` (S4). Explicitly *not* upgraded to an HAC regression (`SCOPE.md` #12). |
+| 5 | **Proper scores WITH a power statement** — stratified GW on an ex-ante stratum, reporting the MDE | **DELIVERED** — `gw_stratified` (C-248/C-253 closed) + `mde_h{1,18,36}/MDE.md` (S4). Explicitly *not* upgraded to an HAC regression (`SCOPE.md` #12). |
 | 6 | **Reproducibility gates** — ≥3 seeds, validation partition, determinism, cache fingerprinting | **PARTLY.** Truth-hash pin delivered (S2). ≥3 seeds: only 2 gated_NB seeds survive ⇒ results labelled INDICATIVE. Validation partition is **OUT** (`SCOPE.md` #10 — it would leak). |
 | 7 | **Predictability baselines** — persistence/climatology confound, per-axis predictability | ✅ **DELIVERED (S3)** — `climatology_resample`, a scorer-side stand-in for views-baseline's `ConflictologyModel` (canonical params; 0.9591 vs its archived 0.9601). Drops into the frozen `_metric_row` unchanged. Duplication tracked as **C-279**. |
 | 8 | **The oracle-input rollout, every time you diagnose a rollout** | **ALREADY EXISTS** — `rollout_feedback='teacher_forced'`; EXP-SS-2 (2026-08-14) used it to localise the root by elimination. Nothing to build. |

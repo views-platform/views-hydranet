@@ -11,7 +11,7 @@ is green. **If a story exceeds 1.5× its estimate: stop, log the partial in `07`
 | S1 | #265 | Exact CRPS-gap decomposition from archived CSVs | max `\|residual\|` < 1e-9 on every archived row; provisional finding in `07` | 1.5h |
 | S2 | #266 | Partition & provenance audit | `partition_audit.json` per arm, all `leak: false`, `rollout_feedback: 'sample'`, truth sha matches | 2.5h |
 | S3 | #267 | FAO-02 climatology + skill score | climatology passes unchanged through `_metric_row`; S>1; `crpss` raises on a 1-sample ref | 3.5h |
-| S4 | #268 | MDE, C-252 memory assertion, pin the CI-support bug | `MDE.md` states a number; the bug is `xfail(strict=True)` + registered, **not fixed** | 2.5h |
+| S4 | #268 | MDE, C-252 memory assertion, pin the CI-support bug | `mde_h*/MDE.md` state a number; the bug is `xfail(strict=True)` + registered, **not fixed** | 2.5h |
 | S5 | #269 | C-224 Taillardat index (DIAGNOSTIC-only) | 9 numbers in one table; tests #17–#20 green; **≤120+120 lines** | 3.5h |
 | S6 | #270 | Re-score surviving cubes + verdict | `rescore.csv` complete; verdict token addressing `crps_all` **and** AP | 4.0h |
 | S7 | #271 | Close-out | register integrity green; promote-vs-park recorded; #262/#249 cross-linked | 1.0h |

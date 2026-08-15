@@ -4,37 +4,37 @@ Epic #263 / S4 (#268). Pair: `violet_visitor` − `climatology`, target `sb`, h 
 
 | quantity | value |
 |---|---:|
-| observed mean CRPS differential | -0.0590562 |
-| origin-block CI | [-0.0681057, -0.0491837] |
-| **MDE (origin-block, half-width)** | **0.00946098** |
-| iid-over-cells CI (for contrast only) | [-0.0725563, -0.0465807] |
-| iid half-width | 0.0129878 |
-| **origin-block ÷ iid width** | **0.73×** |
+| observed mean CRPS differential | -0.0588059 |
+| origin-block CI | [-0.0674615, -0.0493745] |
+| **MDE (origin-block, half-width)** | **0.00904349** |
+| iid-over-cells CI (for contrast only) | [-0.0701058, -0.0474895] |
+| iid half-width | 0.0113081 |
+| **origin-block ÷ iid width** | **0.80×** |
 | separable from 0 at 90%? | YES |
 
 ## Per-origin mean differential
 
 | origin (m0) | mean Δcrps |
 |---:|---:|
-| 457 | -0.0390129 |
-| 458 | -0.0268787 |
-| 459 | -0.0366381 |
-| 460 | -0.0883964 |
-| 461 | -0.0811709 |
-| 462 | -0.0598364 |
-| 463 | -0.0672389 |
-| 464 | -0.0370496 |
-| 465 | -0.0341013 |
-| 466 | -0.0618035 |
-| 467 | -0.0835584 |
-| 468 | -0.0734334 |
-| 469 | -0.0786117 |
+| 457 | -0.0438599 |
+| 458 | -0.0286247 |
+| 459 | -0.038775 |
+| 460 | -0.0881567 |
+| 461 | -0.0791577 |
+| 462 | -0.0595538 |
+| 463 | -0.0645869 |
+| 464 | -0.0371579 |
+| 465 | -0.0311609 |
+| 466 | -0.0617474 |
+| 467 | -0.0817241 |
+| 468 | -0.0722355 |
+| 469 | -0.0777356 |
 
 ## Reading this
 
-An effect smaller than **0.00946098** cannot be distinguished from zero at 90% with 13 origins, however many cells there are. A null on this pair therefore means *either* no difference *or* no power — the distinction C-254 exists to preserve.
+An effect smaller than **0.00904349** cannot be distinguished from zero at 90% with 13 origins, however many cells there are. A null on this pair therefore means *either* no difference *or* no power — the distinction C-254 exists to preserve.
 
-The iid-over-cells bootstrap gives a CI **1.37× WIDER** here, not narrower. That is the opposite of the direction C-221/C-253 anticipate, and it is worth stating plainly rather than asserting the expected sign: the per-cell CRPS differential on this pair is dominated by a handful of heavy-tail conflict cells, so resampling 170k individual cells shakes those extremes in and out and inflates the spread, while the 13 per-origin means are comparatively stable. Which bootstrap is wider depends on the balance between within-origin correlation (favours origin-block being wider, the C-253 synthetic case) and tail heaviness (favours iid being wider, this case).
+The iid-over-cells bootstrap gives a CI **1.25× WIDER** here, not narrower. That is the opposite of the direction C-221/C-253 anticipate, and it is worth stating plainly rather than asserting the expected sign: the per-cell CRPS differential on this pair is dominated by a handful of heavy-tail conflict cells, so resampling 170k individual cells shakes those extremes in and out and inflates the spread, while the 13 per-origin means are comparatively stable. Which bootstrap is wider depends on the balance between within-origin correlation (favours origin-block being wider, the C-253 synthetic case) and tail heaviness (favours iid being wider, this case).
 
 **Neither reading licenses using the iid bootstrap.** It is reported as a contrast only. The origin block is the correct unit because the 36-month futures of adjacent origins overlap; that is a structural fact about the design, not an empirical result about which interval happens to be wider on one pair.
 

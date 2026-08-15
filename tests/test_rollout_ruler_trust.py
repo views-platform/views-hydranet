@@ -1,9 +1,16 @@
 """Guard tests for the rollout-ruler-trust dossier's drivers (Epic #263).
 
-These load code from the gitignored `reports/` tree, so they are skip-guarded — the same C-247
-pattern as `test_gw_stratified.py` / `test_score_v2_horizons.py`. The *pure* half of the ruler
-lives in tracked `scripts/rollout_ruler_core.py` and is tested by `test_rollout_ruler_core.py`,
-which never skips.
+These load code from the `reports/` tree and are skip-guarded, the same C-247 pattern as
+`test_gw_stratified.py` / `test_score_v2_horizons.py`. The *pure* half of the ruler lives in
+`scripts/rollout_ruler_core.py` and is tested by `test_rollout_ruler_core.py`.
+
+**What the guard actually protects against — corrected (PR #274 review).** These files were
+described as "gitignored, absent in a clone/CI". `reports/` *is* in `.gitignore`, but the
+drivers are force-tracked with `git add -f` (437 files under `reports/` are), so the
+module-level guard never fires and every test here does run in CI. It stays as a genuine
+safety net for a sparse or partial checkout, but it is not why the pure core was split out —
+that reason is stated in `rollout_ruler_core`'s own docstring. The guards that do real work
+here are the per-test ones on `results/`, whose artifacts are genuinely untracked.
 
 Repo root is resolved with `parents[1]` — **never** a hardcoded machine path (C-247).
 """
@@ -222,7 +229,9 @@ def test_climatology_passes_through_metric_row_unchanged():
         for m in range(421, 494):
             tmap[(m, u)] = float(rng.gamma(2.0, 5.0)) if rng.random() < 0.2 else 0.0
 
-    gathered = climatology_resample(tmap, support, (1,), window=36, n_samples=16, seed=0)
+    gathered = climatology_resample(
+        tmap, support, (1,), window=36, n_samples=16, seed=0, window_anchor=456
+    )
     row = mod._metric_row("climatology", gathered, support, tmap, "sb", 1, None)
 
     assert np.isfinite(row["crps_all"]), f"crps_all not finite: {row['crps_all']}"
@@ -245,7 +254,7 @@ def test_climatology_crps_is_not_its_mae():
     from rollout_ruler_core import climatology_resample
 
     tmap = {(m, 1): float(m % 7) for m in range(400, 500)}
-    g = climatology_resample(tmap, [(457, 1)], (1,), n_samples=16, seed=0)
+    g = climatology_resample(tmap, [(457, 1)], (1,), n_samples=16, seed=0, window_anchor=456)
     draws = g[(457, 1, 1)][0]
     assert len(np.unique(draws)) > 1, "history was constant; pick a varying fixture"
 
@@ -414,8 +423,121 @@ def test_every_scored_row_carries_a_verdict_and_a_measured_ci():
         "the published tables are hand transcriptions with nothing to re-derive against"
     )
     for r in rows:
-        assert r["verdict"] in ("REAL", "ARTIFACT", "UNDECIDABLE"), r
+        # "reference" is the climatology's own rows: the reference does not rule on itself.
+        assert r["verdict"] in ("REAL", "ARTIFACT", "UNDECIDABLE", "reference"), r
+        assert (r["verdict"] == "reference") == (r["model"] == "climatology"), (
+            f"{r['model']} carries verdict={r['verdict']!r}; the 'reference' token belongs to "
+            "the climatology rows and to nothing else"
+        )
         assert r["ci_excludes_zero"] in ("True", "False"), (
             f"{r['model']} {r['target']} h={r['h']} has ci_excludes_zero="
             f"{r['ci_excludes_zero']!r} — an unmeasured CI silently forces non-REAL"
         )
+
+
+# ------------------- one climatology convention across every driver, asserted
+
+
+def _tool(name):
+    spec = importlib.util.spec_from_file_location(name, _DOSSIER / "tools" / f"{name}.py")
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
+def test_all_drivers_name_the_same_climatology_convention():
+    """`tail_index.py` published nine numbers against a different reference than the headline.
+
+    It omitted `window_anchor` (selecting the sliding pool) and hardcoded `n_samples=16,
+    seed=0` while `rescore_v2.py` used fixed/64/42 — and `07_experiment_log.md` recorded the
+    divergence as fixed in "all three" tools when it was fixed in two. The seed and anchor are
+    now named constants; this asserts the drivers agree on them, and `n_samples` is no longer
+    nameable at all because it is derived from the arms.
+    """
+    import inspect
+
+    rescore, mde = _tool("rescore_v2"), _tool("mde")
+    assert rescore.CLIM_SEED == mde.CLIM_SEED == 0, "05_analysis_plan.md pins the seed at 0"
+    assert rescore.CLIM_ANCHOR == mde.CLIM_ANCHOR == 456, "pgm calibration train_end"
+
+    # No driver may reintroduce an n_samples knob on the scoring entry point: the reference's
+    # width is derived from the arms' cubes, which is what keeps the two in step.
+    assert "n_samples" not in inspect.signature(rescore.rescore).parameters
+
+    src = (_DOSSIER / "tools" / "tail_index.py").read_text()
+    assert "window_anchor=" in src, "tail_index must state its convention explicitly"
+
+
+def test_mde_pairs_cells_by_id_not_by_position():
+    """Boolean masks preserve each array's own order; they do not reindex to the intersection.
+
+    With ua=[3,1,2] and ub=[1,2,3] both masks are all-True, no shape error fires, and the
+    differential silently pairs cell 3 against cell 1. Every origin's SUM survives that, so the
+    origin-block MDE looked fine while the per-cell vector — which the iid bootstrap and the
+    "heavy-tail cells" reading are computed from — was scrambled.
+    """
+    src = (_DOSSIER / "tools" / "mde.py").read_text()
+    assert "np.isin(ua, keep)" not in src and "np.isin(ub, keep)" not in src, (
+        "positional alignment reintroduced in mde.py"
+    )
+    assert "pa = {int(x): i for i, x in enumerate(ua)}" in src
+
+    mde = _tool("mde")
+    body = mde.main.__code__.co_consts
+    assert any(isinstance(c, str) and "duplicate unit ids" in c for c in body), (
+        "duplicate unit ids must be rejected, not silently broadcast"
+    )
+
+
+def test_stand_in_matches_the_archived_baseline():
+    """The fidelity claim, as a test rather than a number copied into five files.
+
+    The docstring used to assert "0.9591 vs light_strider's 0.9601 — 0.1% apart". The shipped
+    `rescore.csv` said 0.96216 (0.21%), 0.9591 appeared in no artifact, and nothing could
+    detect the drift (C-279). The comparison now reads both shipped artifacts.
+    """
+    import csv
+
+    rescore_csv = _DOSSIER / "results" / "rescore.csv"
+    decomp_csv = _DOSSIER / "results" / "csv_decomposition.csv"
+    if not (rescore_csv.exists() and decomp_csv.exists()):
+        pytest.skip("results not generated yet")
+
+    ours = [
+        float(r["crps_all"])
+        for r in csv.DictReader(rescore_csv.open())
+        if r["model"] == "climatology" and r["target"] == "sb" and r["h"] == "36"
+    ]
+    archived = [
+        float(r["crps_all_ref"])
+        for r in csv.DictReader(decomp_csv.open())
+        if r["ref"] == "light_strider" and r["target"] == "sb" and r["h"] == 36
+    ]
+    if not ours or not archived:
+        pytest.skip("no sb/h36 climatology row in the shipped artifacts")
+
+    rel = abs(ours[0] - archived[0]) / archived[0]
+    assert rel < 0.01, (
+        f"the stand-in has drifted from the archived ConflictologyModel: ours {ours[0]:.5f} "
+        f"vs light_strider {archived[0]:.5f} ({rel:.2%}). It is a faithful stand-in or it is "
+        "not presented as one (C-279)."
+    )
+
+
+def test_only_the_preregistered_cell_is_marked_prereg():
+    """05_analysis_plan.md:95 registers the rule at sb/h36. The other 84 cells are exploratory."""
+    import csv
+
+    f = _DOSSIER / "results" / "rescore.csv"
+    if not f.exists():
+        pytest.skip("rescore.csv not generated yet")
+    rows = list(csv.DictReader(f.open()))
+    if "prereg" not in rows[0]:
+        pytest.skip("rescore.csv predates the prereg column")
+
+    marked = {(r["target"], r["h"]) for r in rows if r["prereg"] == "True"}
+    assert marked == {("sb", "36")}, f"pre-registration is at sb/h36 only, got {marked}"
+    assert all(r["verdict"] == "reference" for r in rows if r["model"] == "climatology"), (
+        "the reference must not be given a verdict computed from its own self-comparison "
+        "constants — 21 of the shipped board's 25 UNDECIDABLE tokens were exactly that"
+    )
