@@ -31,7 +31,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-_HN = "/home/simon/Documents/scripts/views_platform/views-hydranet"
+# C-247: repo-relative, NEVER a hardcoded machine path (reports/<dossier>/tools/ → 3 up), the
+# pattern proven by gw_stratified.py:128. Kept a `str` so the f-strings below are unchanged.
+# This file carried an absolute /home/... path until 2026-08-15; it survived because the file was
+# untracked, so CI never imported it and the C-247 sweep that fixed the *tests* could not see the
+# *tool* they load. Tracking it made the import fail in CI immediately.
+_HN = str(Path(__file__).resolve().parents[3])
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # own dir (activation_metrics)
 sys.path.insert(0, f"{_HN}/reports/2026-07-17_lodestar_eval_dossier/tools")
 sys.path.insert(0, f"{_HN}/reports/2026-07-25_t0_rollout_skill_dossier/tools")

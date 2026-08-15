@@ -5,11 +5,11 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-15                           |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test). `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 284                                  |
-| Open Concerns     | 132                                  |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure. `C-34`/`C-188` are intentional numbering gaps (merged entries). |
+| Total Concerns    | 285                                  |
+| Open Concerns     | 133                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 119                                 |
+| — net active risks | 120                                 |
 | Resolved Concerns | 152                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -2340,6 +2340,24 @@ Tier 4: no wrong number today, and the raises do the real work. It is on record 
 | Cross-refs | C-218 (the invariant), C-286 (the same file's audit-record weaknesses) |
 
 The flag exists so a broken-by-construction rollout can be scored as a **labelled diagnostic** rather than as deployed skill. Applied run-globally it suspends that gate for *every* arm in the batch, so a second arm that unexpectedly carries `rollout_feedback='mean'` passes silently and is recorded `diagnostic_only: true` — a true record of a decision nobody made about it. The gate should be opted out of per arm, e.g. `arm=dir:diagnostic`.
+
+---
+### C-288: seven tracked `reports/` tools still hardcode `/home/simon/...`; C-247's sweep fixed the tests, not the tools they load
+
+| Field | Value |
+|-------|-------|
+| ID | C-288 |
+| Tier | 3 |
+| Source | PR #276 CI failure (2026-08-15) — tracking `score_v2_horizons.py` made it import in CI, which failed instantly on its absolute path |
+| Trigger | Force-tracking any further `reports/**/tools/*.py`, or running one of the seven below on any machine but this one (CI, a colleague's clone, the server) — the import or the artifact read fails, or silently reads nothing |
+| Location | `2026-07-17_densemse_mechanics_grid/tools/insample_probe.py:17,23,29`; `2026-07-25_t0_rollout_skill_dossier/tools/rollout_skill_score.py:32`, `s6_score_one.py:24,27`, `s7_verdict.py:20`; `2026-08-08_hydranet_ensemble_dossier/tools/s2_df_freshness_check.py:14` |
+| Cross-refs | C-247 (same defect, resolved for the *test* files only), F4-07 / `test_P5a_no_tracked_test_hardcodes_absolute_machine_path` (the two guards that each cover half of this) |
+
+C-247 is marked RESOLVED and its fix was real — but it covered `tests/test_score_v2_horizons.py` and its sibling, **not the dossier tool they load**. `score_v2_horizons.py` kept `_HN = "/home/simon/..."` and nothing caught it, because the file was untracked: CI never imported it, and `test_P5a_no_tracked_test_hardcodes_absolute_machine_path` only scans `tests/*.py`. Tracking it in PR #276 surfaced the defect in one CI run (`ModuleNotFoundError: No module named 'lodestar_score'`) and it was fixed there with the repo's own `Path(__file__).resolve().parents[3]` pattern.
+
+**Seven tracked tools still carry the same hardcoded prefix.** None breaks CI today: no test imports them, and `rollout_skill_score.py:32`'s insert is a harmless no-op because whatever imports it has already put the lodestar directory on `sys.path`. That is luck, not design — `rollout_skill_score.py` is on the live import chain of both the v2 scoreboard and the Epic #263 ruler, so a change in import order turns it into a failure.
+
+**Not fixed in PR #276, deliberately.** Four of the seven are frozen scorers that Epic #263's `SCOPE.md` explicitly ring-fences; sweeping them is a separate, reviewable change rather than collateral work on a PR about tracking. **Fix direction:** replace each with `Path(__file__).resolve().parents[3]`, then widen `test_P5a` (or F4-07) from `tests/*.py` to every tracked `.py`, which makes the guard match the concern.
 
 ---
 
