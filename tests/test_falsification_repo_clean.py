@@ -212,27 +212,26 @@ class TestF4_07_UntrackedDependencies:
         tracked = self._tracked(root)
         missing = []
 
-        # 1. Tracked tests / scripts naming a dossier tool by path.
-        for rel in sorted(tracked):
-            if not rel.endswith(".py") or not (
-                rel.startswith("tests/") or rel.startswith("scripts/")
-            ):
-                continue
-            for dep in self._referenced_report_paths((root / rel).read_text()):
-                if dep not in tracked and (root / dep).exists():
-                    missing.append(f"{rel} -> {dep}")
-
-        # 2. Tracked dossier tools importing a sibling module from their own `tools/` dir.
-        for rel in sorted(t for t in tracked if "/tools/" in t and t.endswith(".py")):
+        depends_on_reports = [
+            rel
+            for rel in sorted(tracked)
+            if rel.endswith(".py") and (rel.startswith(("tests/", "scripts/")) or "/tools/" in rel)
+        ]
+        for rel in depends_on_reports:
             src = (root / rel).read_text()
-            tools_dir = Path(rel).parent
+
+            # A dossier tool named by path — how tests and drivers reach one.
             for dep in self._referenced_report_paths(src):
                 if dep not in tracked and (root / dep).exists():
                     missing.append(f"{rel} -> {dep}")
-            for mod in re.findall(r"^\s*from\s+(\w+)\s+import\s", src, re.M):
-                sibling = str(tools_dir / f"{mod}.py")
-                if (root / sibling).exists() and sibling not in tracked:
-                    missing.append(f"{rel} -> {sibling} (sibling import)")
+
+            # A tool importing a sibling from its own `tools/` dir after a sys.path insert —
+            # a plain `from x import y`, so the path form above cannot see it.
+            if "/tools/" in rel:
+                for mod in re.findall(r"^\s*from\s+(\w+)\s+import\s", src, re.M):
+                    sibling = str(Path(rel).parent / f"{mod}.py")
+                    if (root / sibling).exists() and sibling not in tracked:
+                        missing.append(f"{rel} -> {sibling} (sibling import)")
 
         assert not missing, (
             "HARD FALSIFICATION F4-07: tracked code depends on untracked `reports/` file(s). "
