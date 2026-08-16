@@ -259,3 +259,78 @@ assumes independence. Coords were never touching the failing mechanism. C-152's 
 now has a mechanism behind it.
 
 ---
+
+## EXP-05 — correlated feedback sampling · 2026-08-16 · **NULL, and it corrects EXP-03's framing**
+
+**Motivated by EXP-04:** independent Bernoulli sampling is ~10× more destructive on a diffuse gate than a
+sharp one. If coherent feedback broke the loop, it would be a fix needing **no retraining**.
+
+**Built:** a Gaussian copula sampler (`views_hydranet/utils/correlated_bernoulli.py`) — smooth a white-noise
+field, map through Φ, threshold at the gate probability. `P(active_i) == gate_i` **exactly**, whatever the
+correlation, because Φ(z) is uniform for standard normal z. Applied to the **feedback path only**;
+`to_cube_samples` keeps independent sampling, so any effect would be the model behaving differently rather
+than the ruler being handed a prettier cube (asserted by a test).
+
+### Calibration, on the CONTROL, before the treatment
+Swept ℓ on the oracle gate against the real field's clustering (0.449). Result was already negative:
+
+| sampler | clustering | n_active | error vs 0.449 |
+|---|--:|--:|--:|
+| **independent** | **0.329** | 184 | **0.120** |
+| ℓ=1.0 | 0.663 | 181 | 0.214 |
+| ℓ=3.0 | 0.958 | 176 | 0.509 |
+| ℓ=8.0 | 0.805 | 150 | 0.356 |
+
+On a *healthy* gate, independent sampling is **closer to realistic clustering than any correlated version** —
+they all overshoot. `n_active` is flat across scales on the same gate, confirming the marginal guarantee on
+real data. And no single ℓ can serve both regimes: the oracle gap is 1.4×, the free-running gap is 45×, and
+the correlation needed depends on how concentrated the gate already is.
+
+Because a single calibrated point would have been a weak test, the treatment was run as a **pre-committed
+sweep with all arms reported**.
+
+### The result
+
+| arm | fed clustering | AP h6 | AP h18 | AP h36 |
+|---|--:|--:|--:|--:|
+| independent (control) | 0.011 | 0.0284 | 0.0070 | 0.0083 |
+| ℓ=0.5 | 0.047 | 0.0230 | 0.0069 | 0.0084 |
+| **ℓ=1.0** | **0.494** | 0.0200 | **0.0069** | 0.0083 |
+| ℓ=3.0 | 1.064 | 0.0191 | 0.0075 | 0.0087 |
+| oracle | 0.449 | 0.3043 | 0.3008 | 0.2711 |
+
+**Clustering spans 100× — straight through the real value 0.449 — and gate AP does not move.** At ℓ=1.0 the
+fed-back field has essentially perfect realistic clustering and skill is 0.0069 against a control of 0.0070.
+If anything h6 degrades slightly with more clumping.
+
+### This corrects EXP-03's framing
+EXP-03 concluded "the target is the spatial coherence of the occurrence field". **Too loose.**
+
+* EXP-03: correct places + destroyed clustering → collapse. Clustering matters *given* correct places.
+* EXP-05: wrong places + correct clustering → **no recovery**. Clustering is worthless *without* them.
+
+**Clustering was a proxy for correct placement, not an independently sufficient property.**
+`spatial_scramble` hurt because it destroyed the *correctness* of placement; restoring clumpiness to an
+already-misplaced field produces realistic-looking clumps in the wrong locations.
+
+### What it rules out
+**A distribution-matching loss that penalises the field's clustering statistic will not work.** It would
+produce exactly this: matching statistics, no skill. The same objection applies to any realism critic that
+can be satisfied by marginal or summary statistics rather than by placement — which is most of the cheap
+formulations of #262's option 3.
+
+The null is credible *because* the implementation was tight: marginals preserved (verified on the oracle at
+fixed gate), the realistic clustering target actually hit, and the scored path untouched. A weaker sampler
+would have left "perhaps it did not clump enough" open.
+
+### One measurement note
+`active_fraction` differs across treatment arms (0.0027–0.0038). That is **not** a marginal violation — each
+arm's gate has evolved under a different history, so the gates differ. The marginal check is the oracle
+calibration above, where the gate is held fixed and `n_active` is flat.
+
+### Where this leaves the programme
+The sampler is not the lever; the gate's own diffusion is. That points to the training-side work — Professor
+Forcing on state trajectories, or K=5 rollout training — and away from inference-time patches. It also
+narrows distribution matching to formulations that constrain *placement*, not summary statistics.
+
+---

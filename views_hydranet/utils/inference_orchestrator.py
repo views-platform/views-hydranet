@@ -56,6 +56,8 @@ class InferenceOrchestrator:
         self.freeze_recurrent: Optional[str] = None
         # Diagnostic feedback-field transform spec (#258/#262); see HydraNetInference.
         self.feedback_transform: Optional[str] = None
+        # DIAGNOSTIC: correlated feedback sampler; None = independent Bernoulli.
+        self.feedback_length_scale: Optional[float] = None
         self.inference: Optional[HydraNetInference] = None
 
     def _run_inference_pipeline(
@@ -163,6 +165,7 @@ class InferenceOrchestrator:
             visualizer=self.viz,
             freeze_recurrent=self.freeze_recurrent,
             feedback_transform=self.feedback_transform,
+            feedback_length_scale=self.feedback_length_scale,
         )
         # Kept so a diagnostic driver can read `inference.feedback_field_stats` after the run —
         # the per-step record of the field each arm ACTUALLY fed. Production ignores it.
@@ -234,6 +237,7 @@ class InferenceOrchestrator:
             visualizer=self.viz,
             freeze_recurrent=self.freeze_recurrent,
             feedback_transform=self.feedback_transform,
+            feedback_length_scale=self.feedback_length_scale,
         )
         # Kept so a diagnostic driver can read `inference.feedback_field_stats` after the run —
         # the per-step record of the field each arm ACTUALLY fed. Production ignores it.

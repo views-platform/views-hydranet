@@ -45,10 +45,12 @@ class RealismArmManager(HydranetManager):
     """
 
     feedback_transform: str | None = None
+    feedback_length_scale: float | None = None
 
     def _setup_evaluation(self, *args, **kwargs):
         ctx = super()._setup_evaluation(*args, **kwargs)
         ctx.orchestrator.feedback_transform = self.feedback_transform
+        ctx.orchestrator.feedback_length_scale = self.feedback_length_scale
         self._realism_ctx = ctx
         logger.info(
             "🧪 RealismArmManager: feedback arm = %r (None = production, the model's own field)",
@@ -66,6 +68,9 @@ def main() -> int:
     ap.add_argument("--artifact", required=True, help="exact artifact filename")
     ap.add_argument("--stats-out", required=True, help="CSV for the fed-field statistics")
     ap.add_argument("--gate-out", default=None, help="CSV for the gate-structure record")
+    # DIAGNOSTIC: correlation length for the fed-back gate draw. Omitted = production
+    # independent Bernoulli. Applies to the FEEDBACK path only.
+    ap.add_argument("--length-scale", type=float, default=None)
     args, _ = ap.parse_known_args()
 
     # Fail on a bad spec before loading anything — a typo must never run the control silently.
@@ -77,6 +82,7 @@ def main() -> int:
 
     manager = RealismArmManager(model_path=ModelPathManager(Path(args.model_dir) / "main.py"))
     manager.feedback_transform = args.arm
+    manager.feedback_length_scale = args.length_scale
 
     run_args = ForecastingModelArgs.from_namespace(
         ForecastingModelArgs._create_parser().parse_args(
