@@ -47,6 +47,13 @@ class InferenceOrchestrator:
         self.viz = visualizer or VisualDiagnostics(
             {"diagnostic_visualizations": False}
         )  # Null Object Fallback
+        # Diagnostic recurrent-state freeze, forwarded to every HydraNetInference this
+        # orchestrator builds. None = production behaviour (the full state evolves). Set as an
+        # attribute rather than a constructor argument because the only caller that wants it is a
+        # research driver that already holds the orchestrator; adding a parameter to the manager
+        # as well would thread an experiment knob through a third layer for no gain.
+        # See HydraNetInference.freeze_recurrent / blend_recurrent_state.
+        self.freeze_recurrent: Optional[str] = None
 
     def _run_inference_pipeline(
         self,
@@ -147,7 +154,11 @@ class InferenceOrchestrator:
         )
 
         inference = HydraNetInference(
-            self.model, self.config, device=str(self.device), visualizer=self.viz
+            self.model,
+            self.config,
+            device=str(self.device),
+            visualizer=self.viz,
+            freeze_recurrent=self.freeze_recurrent,
         )
         assembler = PredictionFrameAssembler()
         list_pf_dicts: List[Dict[str, "PredictionFrame"]] = []
@@ -210,7 +221,11 @@ class InferenceOrchestrator:
         )
 
         inference = HydraNetInference(
-            self.model, self.config, device=str(self.device), visualizer=self.viz
+            self.model,
+            self.config,
+            device=str(self.device),
+            visualizer=self.viz,
+            freeze_recurrent=self.freeze_recurrent,
         )
         assembler = PredictionFrameAssembler()
 

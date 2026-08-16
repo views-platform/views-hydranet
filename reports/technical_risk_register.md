@@ -5,11 +5,11 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-15                           |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure. `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 285                                  |
-| Open Concerns     | 133                                  |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted. `C-34`/`C-188` are intentional numbering gaps (merged entries). |
+| Total Concerns    | 289                                  |
+| Open Concerns     | 137                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 120                                 |
+| — net active risks | 124                                 |
 | Resolved Concerns | 152                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -1568,6 +1568,26 @@ The 36-month-future window shrinks the origin set to ≈12 origins whose futures
 
 Free-running and teacher-forced-oracle differ in the fed-back **input**, but the ConvLSTM hidden state `h_t` evolves from that input every step — so the gap = **input-exposure-bias ⊕ the induced hidden-state trajectory**, not cleanly "the fed-back value." **Fix:** relabel the oracle a *one-step-conditioned ceiling* (not "predictability ceiling"), and interpret the gap with the hedge; cite the retired-but-inert `freeze_h` result (C-113) as evidence the input path dominates, so the gap remains interpretable but not pure. Tier 3: an interpretation/labeling risk that would over-claim a clean exposure-bias decomposition.
 
+
+**CONFIRMED, INDICATIVE 2026-08-16 (`reports/2026-08-15_state_freeze_dossier`).** This concern was
+recorded as OVERTURNED by #262 on the strength of the oracle probe ("NOT hidden-state / recurrent drift").
+**That inference does not hold**, for exactly the reason recorded here: the oracle varies the *input* while
+the state evolves normally, so it shows the state is healthy when never polluted and says nothing about the
+polluted case.
+
+Measured directly by holding the state during free-running: **~23% of the oracle gap is recovered**
+(`all` +0.084 ΔAP at h18, +0.061 at h36; `hidden` alone +0.027). So the state path is a real mediator, not
+inert, and the confound this entry names was doing exactly what it said.
+
+**Two limits on that number, both material.** (1) **Which memory half carries it is NOT established** —
+`hs` is a readout of `hl` in this ConvLSTM, so freezing the cell also constrains the hidden half and
+`cell ≈ all` is architecturally predetermined (C-292). (2) The arms are compared only against the collapsed
+control, with **no naive baseline**, so "the state carried information" is not yet separated from "a
+frozen static risk map beats a collapsed gate" (C-293).
+
+Scope: 40 lessons, one seed, one origin set, one target, one vehicle — and the pre-registration requires a
+second vehicle before this is reported as anything but **INDICATIVE**. `violet_visitor` has not been run.
+
 ---
 
 ### C-223: `[DEFERRED]` recursive rollout may not be the optimal product — direct-multi-horizon is a parked architectural alternative
@@ -2342,6 +2362,115 @@ Tier 4: no wrong number today, and the raises do the real work. It is on record 
 The flag exists so a broken-by-construction rollout can be scored as a **labelled diagnostic** rather than as deployed skill. Applied run-globally it suspends that gate for *every* arm in the batch, so a second arm that unexpectedly carries `rollout_feedback='mean'` passes silently and is recorded `diagnostic_only: true` — a true record of a decision nobody made about it. The gate should be opted out of per arm, e.g. `arm=dir:diagnostic`.
 
 ---
+### C-292: the recurrent-state arms cannot attribute damage to a memory half — `hs` is a readout of `hl`
+
+| Field | Value |
+|-------|-------|
+| ID | C-292 |
+| Tier | 2 |
+| Source | `/code-review medium` on PR #277 (2026-08-16) |
+| Trigger | Reading the `hidden` / `cell` / `all` arm ordering as evidence that one memory type carries the damage, or designing a soft prior on the cell state on that basis |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:527-529`; `reports/2026-08-15_state_freeze_dossier/07_experiment_log.md` EXP-02 |
+| Cross-refs | C-222 (the mediator this bears on), C-289 (the same class: a diagnostic whose result is predetermined) |
+
+The ConvLSTM computes `hl = f·hl + i·hl_tilde` and then **`hs = o ⊙ tanh(hl)`**. The hidden half is a
+*readout* of the cell half. Pinning `hl` to the anchor therefore re-derives `hs` from the anchor every step,
+so the `cell` arm structurally approximates the `all` arm **whatever the truth about where damage
+accumulates**. The reverse does not hold — under `hidden`, `hl` integrates freely.
+
+The published conclusion "it is the long-term memory, `cell` carries 89%" was withdrawn on this basis
+(EXP-02 corrected in place). What survives is that the state path recovers ~23% of the oracle gap and that
+freezing the short-term half alone recovers least.
+
+**Fix direction:** an arm that holds `hl` *and* recomputes `hs` from the anchored `hl` (or the mirror)
+separates them. No arm in the current set does. Until then, no claim about *which* memory carries the
+damage is supported.
+
+---
+
+### C-293: rollout arms are scored only against the collapsed control — no naive baseline exists
+
+| Field | Value |
+|-------|-------|
+| ID | C-293 |
+| Tier | 2 |
+| Source | `/code-review medium` on PR #277 (2026-08-16); independently raised by the Hyndman seat in the 2026-08-16 `expert-method-review` |
+| Trigger | Reading any rollout arm's AP as *skill* rather than as *better than the collapsed arm* |
+| Location | `reports/2026-08-15_state_freeze_dossier/tools/run_freeze_arms.py`; `reports/2026-08-16_feedback_realism_dossier/tools/run_realism_arms.py` — neither passes `--persistence` |
+| Cross-refs | C-222, C-292, FAO-02 (which mandates an empirical baseline) |
+
+Every rollout number in both dossiers is reported against the free-running control or the oracle, never
+against persistence or a held-constant last-observed map. A totally frozen state makes the gate's
+contribution constant — approximately a static risk map — and `all`'s AP is **flat at 0.069–0.091 from h6 to
+h36**, exactly the signature of a static forecast scored against moving truth. Nothing in the design
+separates "the state carried real information" from "a degenerate static map beats a collapsed gate".
+
+`score_v2_horizons.py` has supported `--persistence` throughout and no driver has ever passed it. FAO-02
+mandates an empirical baseline; the rollout programme has never had one. **Flagged twice — by an expert
+method review and by a code review — before being acted on.**
+
+**MEASURED 2026-08-16, and it fires.** Persistence (repeat the last observed map) scores gate AP
+**0.112 / 0.108 / 0.083** at h6 / h18 / h36. Every state-freeze arm is **below** it from h6 onward — best
+arm `all` reaches 0.091 at h18 against persistence's 0.108, and the free-running control (0.007) is **15×
+worse** than the trivial baseline. So the ~23% oracle-gap recovery is real *relative to the collapsed
+control* and still **does not reach a naive baseline**. Any rollout claim that does not clear persistence is
+not a skill claim. (AP is a ranking statistic so the comparison is valid; note persistence is a 1-sample
+forecast, so its CRPS is MAE and must not be used as a CRPS denominator — C-220.)
+
+---
+
+### C-294: the four ConvLSTM cells are identically configured and parallel — capacity, not structure
+
+| Field | Value |
+|-------|-------|
+| ID | C-294 |
+| Tier | 3 |
+| Source | architecture read prompted by the PR #277 review (2026-08-16) |
+| Trigger | Reasoning about "the four LSTMs" as if they were stacked layers or multi-scale cells — e.g. attributing a per-cell role, freezing one, or adding a fifth expecting a new scale |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:338-470` (the four `Wx*_n`/`Wh*_n` blocks), `:523-553` (the forward), `:556` (`torch.cat([x, hs_1..hs_4], 1)`) |
+| Cross-refs | C-292 (the memory-half confound found the same way), C-295 |
+
+All four cells take the **same** `input_channels`, `num_lstm_state_layers`, `kernel_size` and padding, all
+consume the **same** `x`, and none consumes another's output. They are not stacked, not multi-scale, and not
+differently parameterised — they differ **only by random initialisation**, and their hidden states are
+concatenated onto the input before the U-Net.
+
+That is close to one cell with 4× the channels minus the cross-mixing: extra capacity arranged as a
+block-diagonal constraint, not extra structure. Nothing forces the four to specialise.
+
+**Not a defect** — the LSTM math is textbook-correct (gates read the old hidden state, `o_t` is computed
+before `h` is overwritten, the old cell is on the RHS) and these are genuine ConvLSTMs (`nn.Conv2d` gates).
+Registered because the name `LSTM4` invites reading them as four *layers* or four *scales*, and a design
+decision inherited by default should be made deliberately or simplified.
+
+---
+
+### C-295: memory is single-scale and local (3x3) while perception is multi-scale and memoryless
+
+| Field | Value |
+|-------|-------|
+| ID | C-295 |
+| Tier | 3 |
+| Source | architecture read prompted by the PR #277 review (2026-08-16) |
+| Trigger | Expecting the recurrent state to carry long-range spatial structure across rollout steps, or designing a fix that assumes it can |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:152` (`kernel_size = 3`, hardcoded), `:556` (LSTM output concatenated into the U-Net input), `:560-600` (encoder → bottleneck → decoders with skips) |
+| Cross-refs | C-294, and the spatial-structure findings in `reports/2026-08-16_feedback_realism_dossier` |
+
+The recurrence sits **in front of** the U-Net, not inside it: `x → 4 ConvLSTMs → concat → U-Net → heads`.
+So **all** recurrence happens at full resolution through a **3×3** convolution — memory can propagate
+information one cell outward per timestep — while all long-range spatial reasoning happens in the U-Net,
+which is **memoryless** and re-derived from the current input every step.
+
+The model therefore *perceives* at several scales but *remembers* at one, locally.
+
+**Hypothesis, not a finding:** this is at least consistent with the measured failure — the gate's spatial
+structure smears out under free-running (Moran's I 0.50 → 0.16 by h6), and the component that could carry
+that structure across steps has a 3-cell horizon while the component that builds it has no memory at all.
+**Untested.** Recorded so the idea is available and clearly labelled, not so it can be cited as evidence;
+one architectural conclusion has already been withdrawn today for reasoning ahead of the evidence (C-292).
+
+---
+
 ### C-288: seven tracked `reports/` tools still hardcode `/home/simon/...`; C-247's sweep fixed the tests, not the tools they load
 
 | Field | Value |
