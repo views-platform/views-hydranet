@@ -58,6 +58,10 @@ class InferenceOrchestrator:
         self.feedback_transform: Optional[str] = None
         # DIAGNOSTIC: correlated feedback sampler; None = independent Bernoulli.
         self.feedback_length_scale: Optional[float] = None
+        # DIAGNOSTIC: the gate-structure probe. OPT-IN and expensive (a randperm, a topk and, on
+        # sample 0, five correlated draws per origin x step x target) — it is not implied by a
+        # feedback arm. See HydraNetInference.record_gate_probe.
+        self.record_gate_probe: bool = False
         self.inference: Optional[HydraNetInference] = None
 
     def _run_inference_pipeline(
@@ -166,6 +170,7 @@ class InferenceOrchestrator:
             freeze_recurrent=self.freeze_recurrent,
             feedback_transform=self.feedback_transform,
             feedback_length_scale=self.feedback_length_scale,
+            record_gate_probe=self.record_gate_probe,
         )
         # Kept so a diagnostic driver can read `inference.feedback_field_stats` after the run —
         # the per-step record of the field each arm ACTUALLY fed. Production ignores it.
@@ -238,6 +243,7 @@ class InferenceOrchestrator:
             freeze_recurrent=self.freeze_recurrent,
             feedback_transform=self.feedback_transform,
             feedback_length_scale=self.feedback_length_scale,
+            record_gate_probe=self.record_gate_probe,
         )
         # Kept so a diagnostic driver can read `inference.feedback_field_stats` after the run —
         # the per-step record of the field each arm ACTUALLY fed. Production ignores it.

@@ -225,3 +225,56 @@ def test_small_grids_do_not_raise_even_when_the_length_scale_exceeds_them(size):
     out = correlated_bernoulli(torch.full(size, 0.3), length_scale=8.0, generator=_gen())
     assert out.shape == size
     assert set(out.unique().tolist()) <= {0.0, 1.0}
+
+
+@pytest.mark.parametrize("size", [(4, 4), (6, 6), (9, 5), (11, 7)])
+def test_the_marginal_survives_a_length_scale_that_exceeds_the_grid(size):
+    """The guard against crashing must not quietly break the guarantee it protects.
+
+    Clamping the kernel so it merely fits (``pad < dim``) still allows a width up to
+    ``2*min(h,w)-1``, which wraps onto itself under circular padding: outputs then sum over
+    REPEATED noise indices, ``Var != sum(k^2)``, the renormalisation under-corrects, and ``Phi(z)``
+    stops being uniform — dragging every marginal toward 0.5. That is the module's headline failure
+    mode arriving through the fix for a different one.
+
+    p=0.05 is chosen because the drift is toward 0.5, so a low marginal makes it loud: the broken
+    version fires several times too often here.
+    """
+    p = 0.05
+    gate = torch.full(size, p)
+    gen = _gen()
+    draws = torch.stack(
+        [correlated_bernoulli(gate, length_scale=8.0, generator=gen) for _ in range(4000)]
+    )
+    rate = draws.mean().item()
+    # 4000 draws x cells; the standard error on the pooled rate is tiny, but the field is spatially
+    # correlated so cells are not independent. Bound generously — the defect moves 0.05 toward 0.5,
+    # which is an order of magnitude away, not a few standard errors.
+    assert 0.5 * p < rate < 2.0 * p, (
+        f"marginal drifted to {rate:.4f} from p={p} on a {size} grid: the kernel is wrapping onto "
+        "itself and the unit-variance renormalisation is under-correcting"
+    )
+
+
+@pytest.mark.parametrize("size", [(4, 4), (6, 6), (9, 5), (11, 7), (32, 32)])
+def test_the_smoothed_field_stays_unit_variance_on_any_grid(size):
+    """The invariant one level below the marginal, checked through the real call path.
+
+    ``Phi(z)`` is uniform only when ``z`` is standard normal, so unit variance IS the marginal
+    guarantee. Asserting it here says *why* the rate test fails when the kernel wraps, rather than
+    leaving the cause to be inferred from a firing rate.
+
+    Deliberately not a test of ``_gaussian_kernel`` with a hand-passed bound — that version passed
+    while the call site was sabotaged, because it supplied the very bound under test.
+    """
+    gen = _gen()
+    fields = torch.stack(
+        [smooth_gaussian_field(size, length_scale=8.0, generator=gen) for _ in range(400)]
+    )
+    # Pool across draws: per-cell variance across independent draws is unbiased regardless of the
+    # spatial correlation within a draw.
+    var = fields.var(dim=0, unbiased=True).mean().item()
+    assert 0.85 < var < 1.15, (
+        f"smoothed field variance {var:.3f} != 1 on a {size} grid; Phi(z) is then not uniform and "
+        "every Bernoulli marginal drifts toward 0.5"
+    )

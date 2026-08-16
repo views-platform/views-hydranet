@@ -47,6 +47,10 @@ QUANTILE_EMIT_CEIL = 13.0
 # is therefore a channel slice, and the halves are contiguous.
 # Offset so the feedback-transform RNG cannot share a stream with the sample-feedback RNG.
 _FB_TRANSFORM_SEED_NAMESPACE = 10_000_019
+# A THIRD stream, for the correlated-feedback copula. It must not share with fb_gen (which drives
+# family.sample and compose_samples) nor with the transform RNG, for the same reason those two are
+# separated: an intervention drawn from the stream it perturbs correlates with what it measures.
+_FB_CORRELATED_SEED_NAMESPACE = 20_000_033
 
 _STATE_GROUPS = 8
 FREEZE_RECURRENT_MODES = ("hidden", "cell", "all")
@@ -120,6 +124,7 @@ class HydraNetInference:
         freeze_recurrent: Optional[str] = None,
         feedback_transform: Optional[str] = None,
         feedback_length_scale: Optional[float] = None,
+        record_gate_probe: bool = False,
     ) -> None:
         """Initializes the inference pipeline for HydraNet.
 
@@ -229,15 +234,42 @@ class HydraNetInference:
                     "are not in transformations['log1p']. Every arm would be run on mis-scaled "
                     "counts and would look plausible."
                 )
+            # The E4 splice arms read the MODEL's field out of `t0_autoreg`, which is assembled
+            # after both rollout_feedback branches. Under 'teacher_forced' that tensor holds the
+            # REAL field, so "real occurrence x model magnitude" would splice real with real and
+            # report an E4 decomposition in which the model never appeared. Nothing downstream can
+            # detect it: the arm runs, scores, and looks like a result.
+            if (
+                self._feedback_arm[0]
+                in (
+                    "occurrence_real_magnitude_model",
+                    "occurrence_model_magnitude_real",
+                )
+                and self.rollout_feedback == "teacher_forced"
+            ):
+                raise ValueError(
+                    f"feedback_transform={feedback_transform!r} splices the model's field with "
+                    "the real one, but rollout_feedback='teacher_forced' already feeds the real "
+                    "— the arm would splice real with real and report an E4 result that never "
+                    "involved the model. Use rollout_feedback='sample' or 'mean'."
+                )
         # Every arm self-reports the field it actually fed, per (sample, step). This is not
         # instrumentation for one experiment — it is how we check on REAL data that a transform did
         # what its fixture tests say it does. A `thin` arm whose active fraction did not fall is a
         # silent no-op, and would otherwise be published as "this axis does not matter".
         self.feedback_field_stats: List[dict] = []
-        # Recorded alongside, whenever an arm is set: does the GATE still carry the spatial
-        # structure that `compose_samples`' independent Bernoulli then discards? Two fixes with
-        # nothing in common hang on the answer — a correlated sampler (no retraining) vs
-        # training-side work. See views_hydranet/utils/gate_field_structure.py.
+        # Does the GATE still carry the spatial structure that `compose_samples`' independent
+        # Bernoulli then discards? Two fixes with nothing in common hang on the answer — a
+        # correlated sampler (no retraining) vs training-side work. See
+        # views_hydranet/utils/gate_field_structure.py.
+        #
+        # OPT-IN, not implied by an arm. Each record runs a randperm over the grid, a topk, and (on
+        # sample 0) five correlated draws whose kernels reach 49x49 at the calibration length
+        # scales — per origin x step x target, on every arm including ones with nothing to do with
+        # the gate. The first probe run was SIGKILLed (rc=137, `gateprobe_manifest.txt`), which is
+        # consistent with the instrumentation being the resource problem rather than the model.
+        self.record_gate_probe = bool(record_gate_probe)
+        self._record_gate_probe = self.record_gate_probe
         self.gate_structure_stats: List[dict] = []
         # DIAGNOSTIC: correlation length for the fed-back gate draw. None = production's
         # independent Bernoulli. Applies to the FEEDBACK path only; the scored cube is untouched.
@@ -245,7 +277,24 @@ class HydraNetInference:
             raise ValueError(
                 f"feedback_length_scale must be > 0 or None, got {feedback_length_scale}."
             )
+        if feedback_length_scale is not None:
+            # The copula is reachable only from _sample_feedback, and only on the soft_gate branch.
+            # Under any other configuration a run launched with a correlation length executes the
+            # CONTROL end to end and reports "correlated sampling is NULL" — a null manufactured by
+            # the harness rather than measured. Fail here, as freeze_recurrent and
+            # parse_feedback_transform already do, so a diagnostic can never silently no-op.
+            comp = self.config.get("forecast_composition", "self_zeroed")
+            if self.rollout_feedback != "sample" or comp != "soft_gate":
+                raise ValueError(
+                    "feedback_length_scale needs rollout_feedback='sample' and "
+                    f"forecast_composition='soft_gate' to have any effect; got "
+                    f"rollout_feedback={self.rollout_feedback!r}, forecast_composition={comp!r}. "
+                    "Under this configuration the correlated sampler is never reached and the run "
+                    "would silently produce the independent-Bernoulli control."
+                )
         self._feedback_length_scale = feedback_length_scale
+        # Set per rollout in `predict`; declared here so the attribute always exists.
+        self._fb_correlated_gen: torch.Generator | None = None
 
         self.hurdle_theta = self._parse_hurdle_theta(getattr(model, "hurdle_nb_theta", None))
         # generic hurdle bodies: lognormal needs sigma (fixed, from sidecar); point needs nothing.
@@ -428,12 +477,17 @@ class HydraNetInference:
                         "n_cells": int(a.numel()),
                         "n_active": n_active,
                         "active_fraction": n_active / a.numel(),
+                        # -1 = UNDEFINED (no active cells), matching `persistence` below rather
+                        # than colliding with a real measurement. 0.0 would be indistinguishable
+                        # from "the field was scattered", and averaging the column would then mix
+                        # empty fields with scattered ones — biasing the clustering statistic
+                        # downward exactly in the collapse regime this study is about.
                         "mean_magnitude_on_active": (
-                            float(counts[b, c][a].mean()) if n_active else 0.0
+                            float(counts[b, c][a].mean()) if n_active else -1.0
                         ),
                         # P(on | on at the previous step). -1 = no previous step.
                         "persistence": persistence,
-                        "neighbour_pairs_per_active": (pairs / n_active) if n_active else 0.0,
+                        "neighbour_pairs_per_active": (pairs / n_active) if n_active else -1.0,
                     }
                 )
         return active
@@ -441,7 +495,13 @@ class HydraNetInference:
     def _record_gate_structure(self, gate, *, origin: int, sample_idx: int, step: int):
         """Record, per (origin, sample, step, target), what a coherent sampler COULD do with this
         gate versus what the independent Bernoulli in ``compose_samples`` actually does."""
+        # Slice to n_reg, mirroring _sample_feedback's defensive `prob[..., :n_reg]`. The cls head
+        # is not guaranteed to carry exactly n_reg channels; an extra one would be written as
+        # target_idx=3 and silently corrupt any per-target aggregate over the column.
+        n_reg = len(self.config.get("regression_targets", []) or [])
         g = gate.detach().cpu()
+        if n_reg:
+            g = g[:, :n_reg]
         for b in range(g.shape[0]):
             for c in range(g.shape[1]):
                 rec = gate_structure_stats(
@@ -610,10 +670,19 @@ class HydraNetInference:
                 # of the SAME marginals (Gaussian copula). Applied here and ONLY here — the scored
                 # cube keeps independent sampling via `to_cube_samples`, so any effect is the model
                 # behaving differently, not the metric being handed a prettier cube.
+                #
+                # Advance `generator` exactly as the control does, then DISCARD the result. The
+                # copula consumes a different number of variates than compose_samples' bernoulli,
+                # so without this every LATER step's body draw (`draw_fn`, same generator) would
+                # come from a different stream than the control's — and the arm would confound
+                # "coherent placement" with "different body noise". The copula itself draws from a
+                # third, namespaced stream. Same defect class as the C-113 generator coupling, and
+                # as the fb_gen/transform separation documented in `predict`.
+                compose_samples(cube, gate, comp, self.config.get("gate_threshold"), generator)
                 mask = correlated_bernoulli(
                     gate.permute(0, 3, 1, 2),  # [B,H,W,n_reg] -> [B,n_reg,H,W] for the (H,W) tail
                     length_scale=self._feedback_length_scale,
-                    generator=generator,
+                    generator=self._fb_correlated_gen,
                 ).permute(0, 2, 3, 1)  # back to [B,H,W,n_reg]
                 cube = cube * mask.unsqueeze(-1)
             else:
@@ -748,6 +817,19 @@ class HydraNetInference:
         # "which month order" are properties of the experimental ARM, not of a posterior draw —
         # every sample must see the same scrambling or the arm is not one intervention.
         fb_prev_active = None
+        # The copula stream is seeded independently of `_feedback_arm`: a correlation length can be
+        # set on its own (the sweep's control is `identity`, but nothing requires an arm), and the
+        # generator must exist before the first step either way.
+        if self._feedback_length_scale is not None:
+            self._fb_correlated_gen = torch.Generator(device="cpu").manual_seed(
+                int(self.config["torch_seed"]) + _FB_CORRELATED_SEED_NAMESPACE + sample_idx
+            )
+        # The gate probe draws from the transform RNG too, and is now independent of
+        # `_feedback_arm` — so seed it whenever either is active, not only when an arm is set.
+        if self._record_gate_probe and not self._feedback_arm:
+            self._fb_transform_gen = torch.Generator(device="cpu").manual_seed(
+                int(self.config["torch_seed"]) + _FB_TRANSFORM_SEED_NAMESPACE + sample_idx
+            )
         if self._feedback_arm:
             seed = int(self.config["torch_seed"])
             # NAMESPACED away from fb_gen (line ~648), which is seeded `torch_seed +
@@ -899,7 +981,7 @@ class HydraNetInference:
                 if self.freeze_recurrent:
                     h_tt = blend_recurrent_state(h_tt, state_anchor, self.freeze_recurrent)
                 t1_pred_class = torch.sigmoid(t1_pred_class)
-                if self._feedback_arm:
+                if self._record_gate_probe:
                     self._record_gate_structure(
                         t1_pred_class, origin=origin, sample_idx=sample_idx, step=t - origin
                     )

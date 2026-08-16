@@ -46,17 +46,46 @@ class RealismArmManager(HydranetManager):
 
     feedback_transform: str | None = None
     feedback_length_scale: float | None = None
+    record_gate_probe: bool = False
 
     def _setup_evaluation(self, *args, **kwargs):
         ctx = super()._setup_evaluation(*args, **kwargs)
         ctx.orchestrator.feedback_transform = self.feedback_transform
         ctx.orchestrator.feedback_length_scale = self.feedback_length_scale
+        ctx.orchestrator.record_gate_probe = self.record_gate_probe
         self._realism_ctx = ctx
         logger.info(
             "🧪 RealismArmManager: feedback arm = %r (None = production, the model's own field)",
             self.feedback_transform,
         )
         return ctx
+
+
+#: Written where a record does not carry a key that other records do. Deliberately NOT blank and
+#: not 0.0 — a consumer reading `corr_ls3.0_clustering` must not be able to confuse "this row never
+#: measured it" with a measured zero.
+NOT_MEASURED = "NA"
+
+
+def _write_records(path: Path, records: list[dict]) -> None:
+    """Write records with the UNION of their keys as the header.
+
+    ``gate_structure_stats`` emits the ``corr_ls*`` sweep only for ``sample_idx == 0``, so the
+    record schema is conditional. Taking the header from ``records[0]`` alone has two failure
+    modes, both silent-then-fatal: rows from other samples write blanks that read as measured
+    zeros, and if the first record is ever a non-sweep one, ``DictWriter`` raises ``ValueError:
+    dict contains fields not in fieldnames`` at the FINAL write — discarding a multi-hour run.
+    """
+    fieldnames: list[str] = []
+    for rec in records:
+        for k in rec:
+            if k not in fieldnames:
+                fieldnames.append(k)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=fieldnames, restval=NOT_MEASURED)
+        w.writeheader()
+        w.writerows(records)
 
 
 def main() -> int:
@@ -83,6 +112,9 @@ def main() -> int:
     manager = RealismArmManager(model_path=ModelPathManager(Path(args.model_dir) / "main.py"))
     manager.feedback_transform = args.arm
     manager.feedback_length_scale = args.length_scale
+    # The probe is opt-in and expensive; --gate-out is the request for it. Without this the flag
+    # would write an empty file and the run would raise at the very end.
+    manager.record_gate_probe = bool(args.gate_out)
 
     run_args = ForecastingModelArgs.from_namespace(
         ForecastingModelArgs._create_parser().parse_args(
@@ -102,15 +134,11 @@ def main() -> int:
     stats = stats.orchestrator.inference.feedback_field_stats if stats else []
     if not stats:
         raise SystemExit(
-            f"arm {args.arm!r} recorded NO fed-field statistics. Either the transform never ran or "
-            "the orchestrator handle was lost — in both cases the arm's score is uninterpretable."
+            f"arm {args.arm!r} recorded NO fed-field statistics. Either the transform never ran "
+            "or the orchestrator handle was lost — either way the arm's score is uninterpretable."
         )
     out = Path(args.stats_out)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    with open(out, "w", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(stats[0]))
-        w.writeheader()
-        w.writerows(stats)
+    _write_records(out, stats)
     print(f"wrote {out} ({len(stats)} field records)")
 
     if args.gate_out:
@@ -121,11 +149,7 @@ def main() -> int:
                 "report nothing while appearing to have run."
             )
         gp = Path(args.gate_out)
-        gp.parent.mkdir(parents=True, exist_ok=True)
-        with open(gp, "w", newline="") as fh:
-            w = csv.DictWriter(fh, fieldnames=list(gate[0]))
-            w.writeheader()
-            w.writerows(gate)
+        _write_records(gp, gate)
         print(f"wrote {gp} ({len(gate)} gate records)")
     return 0
 

@@ -44,10 +44,15 @@ def _gaussian_kernel(
 ) -> torch.Tensor:
     """Normalised 2-D Gaussian kernel; radius 3*sigma, always odd-sized.
 
-    ``max_radius`` clamps the kernel to fit the grid: circular padding requires the pad to be
-    smaller than the dimension, so a correlation length comparable to the grid would otherwise
-    raise. Truncation is safe for the marginal guarantee — the variance renormalisation is computed
-    from the ACTUAL kernel, so ``sum(k^2)`` still matches whatever kernel was used.
+    ``max_radius`` clamps the kernel to fit the grid. The bound is ``(min(h, w) - 1) // 2``, i.e.
+    kernel **width** at most ``min(h, w)`` — not merely ``pad < dim``. A wider kernel wraps onto
+    itself under circular padding, so each output sums over *repeated* noise indices, ``Var`` no
+    longer equals ``sum(k^2)``, and dividing by ``sqrt(sum(k*k))`` leaves variance > 1. ``Phi(z)``
+    is then non-uniform and every marginal drifts toward 0.5 — exactly the failure this module
+    exists to prevent, arriving through the guard meant to avoid it.
+
+    Truncation itself is safe for the marginal guarantee: the renormalisation is computed from the
+    ACTUAL kernel, so ``sum(k^2)`` matches whatever kernel was used.
     """
     radius = max(1, int(math.ceil(3.0 * length_scale)))
     if max_radius is not None:
@@ -79,8 +84,10 @@ def smooth_gaussian_field(
         raise ValueError(f"length_scale must be > 0, got {length_scale}")
     h, w = shape
     noise = torch.randn(1, 1, h, w, generator=generator, dtype=dtype).to(device)
-    # circular padding requires pad < dim; clamp so a small grid cannot raise
-    k = _gaussian_kernel(length_scale, noise.device, dtype, max_radius=min(h, w) - 1)
+    # Clamp to kernel WIDTH <= min(h, w), not just pad < dim: a kernel that wraps onto itself
+    # under circular padding breaks the unit-variance renormalisation and silently drags every
+    # marginal toward 0.5. See _gaussian_kernel's docstring.
+    k = _gaussian_kernel(length_scale, noise.device, dtype, max_radius=(min(h, w) - 1) // 2)
     pad = k.shape[0] // 2
     padded = torch.nn.functional.pad(noise, (pad, pad, pad, pad), mode="circular")
     z = torch.nn.functional.conv2d(padded, k[None, None])

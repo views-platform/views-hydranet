@@ -59,7 +59,11 @@ structure and its geographic grounding", not "structure alone".
 
 from __future__ import annotations
 
+import logging
+
 import torch
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "FEEDBACK_TRANSFORMS",
@@ -235,8 +239,24 @@ def splice_occurrence_magnitude(
     if on_empty_donor == "zeros" and not (magnitude_field > 0).any():
         # The rollout arm feeds the MODEL's field as donor, and the phenomenon under study is that
         # the model goes quiet. Raising here would abort the run at exactly the moment the effect
-        # appears — hours into an unattended batch. Degrade to an empty field; the caller's
-        # fed-field statistics record the zero so it is visible, not silent.
+        # appears — hours into an unattended batch. Degrade to an empty field instead.
+        #
+        # In COUNT space this is not a loss of the occurrence pattern: a cell that is "active with
+        # magnitude zero" is a zero cell, so "real occurrence x an empty donor's magnitudes" IS the
+        # empty field. What is genuinely lost is the arm's MEANING — at such a step it no longer
+        # decomposes occurrence against magnitude, because one side has nothing to contribute.
+        #
+        # The step is therefore UNDEFINED for the arm, not a measurement of it. It is made visible
+        # two ways: the caller's fed-field record carries n_active=0 for that (sample, step), and
+        # the warning below names it in the run log. Any read of the arm must exclude those steps
+        # rather than average through them.
+        #
+        # Measured on the shipped E4 arms: 0 of 5460 records. The path never fired.
+        logger.warning(
+            "splice_occurrence_magnitude: donor field is entirely zero — this step is UNDEFINED "
+            "for the arm and is fed as an empty field. Exclude it (n_active=0) rather than "
+            "reading it as a measurement."
+        )
         return torch.zeros_like(occurrence_field)
     pool = _active_pool(magnitude_field)
     mask = occurrence_field > 0

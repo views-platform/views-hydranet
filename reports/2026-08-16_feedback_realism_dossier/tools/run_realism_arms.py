@@ -55,7 +55,14 @@ def _prediction_dirs(model_dir: Path) -> set[Path]:
 
 
 def run_arm(
-    model: str, arm: str, artifact: str, models_root: Path, out: Path, keep_cubes: bool
+    model: str,
+    arm: str,
+    artifact: str,
+    models_root: Path,
+    out: Path,
+    keep_cubes: bool,
+    length_scale: float | None = None,
+    gate_probe: bool = False,
 ) -> dict:
     """Run one arm end to end. Returns the manifest record; raises on any failure."""
     model_dir = models_root / model
@@ -92,6 +99,8 @@ def run_arm(
             artifact,
             "--stats-out",
             str(stats_csv),
+            *(["--length-scale", str(length_scale)] if length_scale is not None else []),
+            *(["--gate-out", str(out / f"gate_{model}_{label}.csv")] if gate_probe else []),
         ],
         cwd=str(model_dir),
         capture_output=True,
@@ -141,6 +150,11 @@ def run_arm(
         "fedfield_csv": stats_csv.name,
         "elapsed_s": round(elapsed, 1),
         "cubes_deleted": not keep_cubes,
+        # Recorded because an arm's identity is the spec PLUS the diagnostic knobs. The batch-1/2
+        # manifests carry only model+arm, so reconstructing which run had a correlation length set
+        # meant reading the fed-field CSVs — the manifest could not answer it.
+        "length_scale": length_scale,
+        "gate_probe": gate_probe,
     }
 
 
@@ -153,6 +167,20 @@ def main() -> int:
     ap.add_argument("--out", default=str(Path(__file__).resolve().parents[1] / "results"))
     ap.add_argument("--keep-cubes", action="store_true", help="debug only; skips the disk guard")
     ap.add_argument("--tag", default="batch", help="label for the sentinel and manifest")
+    # DIAGNOSTIC: the correlated feedback sampler. Omitted = production independent Bernoulli.
+    # Without this the corr sweep had no reproducible entry point and was run ad hoc.
+    ap.add_argument(
+        "--length-scale",
+        type=float,
+        default=None,
+        help="correlation length for the fed-back gate draw (the copula arm)",
+    )
+    # DIAGNOSTIC: the gate-structure probe. Opt-in and expensive — see HydraNetInference.
+    ap.add_argument(
+        "--gate-probe",
+        action="store_true",
+        help="also record the gate-structure CSV per arm (expensive)",
+    )
     args = ap.parse_args()
 
     arms = [a.strip() for a in args.arms.split(",") if a.strip()]
@@ -162,7 +190,16 @@ def main() -> int:
 
     for arm in arms:
         print(f"===== ARM {arm} ({args.model}) =====", flush=True)
-        rec = run_arm(args.model, arm, args.artifact, Path(args.models_root), out, args.keep_cubes)
+        rec = run_arm(
+            args.model,
+            arm,
+            args.artifact,
+            Path(args.models_root),
+            out,
+            args.keep_cubes,
+            length_scale=args.length_scale,
+            gate_probe=args.gate_probe,
+        )
         with open(manifest_path, "a") as fh:
             fh.write(json.dumps(rec) + "\n")
         print(f"  done in {rec['elapsed_s']}s -> {rec['score_csv']}", flush=True)

@@ -334,3 +334,91 @@ Forcing on state trajectories, or K=5 rollout training — and away from inferen
 narrows distribution matching to formulations that constrain *placement*, not summary statistics.
 
 ---
+
+## EXP-06 — `/code-review medium` on the whole branch · 2026-08-16 · **10 findings; NO conclusion overturned, ONE weakened**
+
+Run as part of the PR-#278 merge ritual, after every arm had been scored. Ten findings. The
+important discipline here is that **each one was checked against the shipped data before anything
+was changed** — a finding that describes a real defect is not the same as a finding that corrupted
+a result, and conflating the two would have retracted conclusions that are fine.
+
+### Verified against the runs: three real defects that provably did not fire
+
+| # | defect | why the result survives |
+|---|---|---|
+| 1 | `feedback_length_scale` silently no-ops unless `rollout_feedback='sample'` **and** `forecast_composition='soft_gate'`. Under `self_zeroed` — the code's own default — a sweep would run the **control** end to end and report "correlated sampling is NULL". | The sampler verifiably **engaged**: fed clustering 0.049 → 0.490 → 1.050, monotone in ℓ. A silent no-op would have been flat at the control's 0.011. |
+| 4 | The E4 splice arms read the model's field out of `t0_autoreg`, which under `teacher_forced` holds the **real** field — so the arm would splice real with real and report a decomposition the model never entered. | The arms fed **model** magnitudes (6.15 on active cells vs the real field's 13.07) and **model** occurrence (560 active vs the real 72). Not teacher-forced. |
+| 5 | `on_empty_donor="zeros"` makes the step undefined for the arm rather than a measurement of it. | Fired **0 times in 5460 records**. |
+
+In all three the check was possible *only* because every arm self-reports the field it actually
+fed. That design decision was made to catch silent no-ops in the transforms; it turned out to be
+what makes a post-hoc code review conclusive instead of speculative.
+
+### The one that weakens a claim (finding 2)
+
+`correlated_bernoulli` consumes a different number of variates from the shared generator than
+`compose_samples`' Bernoulli does. Every **later** step's body draw therefore came from a different
+stream in the treatment arm than in the control — so the corr-vs-identity comparison mixed
+"coherent placement" with "different body noise". This is the same defect class as the C-113
+generator coupling, and as the fb_gen/transform separation this file's own comments describe.
+
+**What changes:** the null stands, its *precision* does not. It is no longer correct to read
+"0.0069 against a control of 0.0070" as a byte-paired difference — the arms were not paired.
+
+**What does not change:** clustering spans 100× and brackets the real value while AP stays ~0.007
+against an oracle of 0.30. For RNG noise to be hiding a real clustering effect it would have to
+cancel a 40× gap, which is not a plausible amount of noise. The **direction and magnitude** of the
+null survive; only the two-significant-figure comparison does not.
+
+**Fixed** by advancing the shared generator exactly as the control does (and discarding the draw),
+with the copula drawing from a third namespaced stream. Not re-run — the fix would only tighten a
+null that is already an order of magnitude clear of its threshold.
+
+### A genuine latent bug (finding 3)
+
+The small-grid clamp allowed a kernel up to `2*min(h,w)-1` wide, which **wraps onto itself** under
+circular padding: outputs then sum over repeated noise indices, `Var != sum(k^2)`, and the
+renormalisation under-corrects. Measured under sabotage: **p=0.05 fires at 0.1385** (2.8×) and the
+smoothed field's variance reaches **3.394** instead of 1 — the module's headline failure mode
+arriving through the guard written to prevent a different one. Production's 180×180 grid at ℓ≤8 is
+unaffected, so no result moves; fixture-scale use was silently corrupt. Clamped to kernel *width*
+≤ `min(h, w)` and pinned by two tests, both confirmed to fail under the old bound.
+
+### Sentinel change — affects how the committed CSVs must be read
+
+`neighbour_pairs_per_active` and `mean_magnitude_on_active` returned **0.0** when a field had no
+active cells, colliding with the real measurement for a *scattered* field. Averaging either column
+therefore mixed "no cells" with "cells that touch nothing", biasing clustering downward exactly in
+the collapse regime. Both now return **-1.0**, matching `persistence`.
+
+⚠️ **The CSVs committed in this dossier predate the change and use 0.0.** Any re-analysis of them
+must filter on `n_active > 0` rather than trusting the column — which is what the EXP-05 numbers
+above already do.
+
+### Reproducibility (finding 8)
+
+`run_realism_arms.py` passed neither `--length-scale` nor `--gate-out`, so **the corr sweep and the
+gate probe — the two arms carrying this dossier's headline conclusions — had no reproducible entry
+point** and were run ad hoc. Both flags are now on the driver, and the manifest records
+`length_scale` and `gate_probe`, so an arm's identity is the spec *plus* its diagnostic knobs. The
+batch-1/2 manifests carry only model+arm, which is why verifying finding 1 above had to go through
+the fed-field CSVs.
+
+### Remaining fixes, no result affected
+
+- **6** — the gate probe wrote every cls channel as a target; now sliced to `n_reg`.
+- **7** — the gate CSV header came from the first record, whose schema is conditional on
+  `sample_idx == 0`; a non-sweep first record would have raised at the FINAL write and discarded
+  the whole run. Header is now the union, with an explicit `NA` for not-measured.
+- **10** — the probe rode on any feedback arm. It is `record_gate_probe`, opt-in, and off by
+  default; `gateprobe_manifest.txt`'s `identity rc=137` (SIGKILL) is consistent with the
+  instrumentation, not the model, having been the resource problem.
+
+### A method note
+
+The first sabotage check of the new splice guard reported **zero** failures and looked like a pass.
+The `-k` filter had matched no tests. A verification that selects nothing is indistinguishable from
+one that succeeds — the same class as **C-289**, arriving in the tooling used to check for it.
+Sabotage checks must assert on the number of tests selected, not only on the outcome.
+
+---

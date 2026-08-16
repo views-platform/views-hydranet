@@ -48,11 +48,16 @@ def neighbour_pairs_per_active(mask: torch.Tensor) -> float:
 
     Deliberately the SAME statistic the fed-field records use, so a gate-derived field and a fed
     field are directly comparable rather than merely analogous.
+
+    Returns **-1.0 when the mask is empty** — the quantity is undefined, not zero. 0.0 would be
+    indistinguishable from "active cells that touch nothing", so averaging the column would mix
+    empty fields with scattered ones and bias clustering downward exactly in the collapse regime
+    this statistic exists to describe. Same sentinel as `persistence` in the fed-field records.
     """
     a = mask.to(torch.float32)
     n = float(a.sum())
     if n == 0:
-        return 0.0
+        return -1.0
     pairs = float((a[:, :-1] * a[:, 1:]).sum() + (a[:-1, :] * a[1:, :]).sum())
     return pairs / n
 

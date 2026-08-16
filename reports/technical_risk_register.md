@@ -5,9 +5,9 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-15                           |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 292                                  |
-| Open Concerns     | 140                                  |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
+| Total Concerns    | 294                                  |
+| Open Concerns     | 142                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | — net active risks | 124                                 |
 | Resolved Concerns | 152                                  |
@@ -2416,9 +2416,13 @@ Two measured facts keep this from being a straightforward fix:
    there is less joint structure to preserve than at h=1. Independent sampling is ~10× more destructive on a
    diffuse gate than a sharp one (25× vs 2.6×), so the two compound in a loop.
 2. **A coherent sampler alone is not sufficient.** A Gaussian-copula sampler with exactly-preserved marginals
-   was built and swept over length scale: it moves fed-field clustering from 0.010 toward the 0.449 target
-   and gate AP **does not move**. Clustering is a *proxy* for correct placement, not a substitute — a field
-   can be perfectly clustered in the wrong places.
+   was built and swept over length scale: fed-field clustering spans **0.011 → 1.064, a 100× range that
+   brackets the real value of 0.449**, and gate AP **stays at ~0.007** against an oracle of 0.30. The null is
+   credible because the sweep *overshot* the target — "it did not clump enough" is not available as an
+   explanation. Clustering is a *proxy* for correct placement, not a substitute: a field can be perfectly
+   clustered in the wrong places. **Read at one significant figure:** a generator desynchronisation (C-296)
+   left treatment and control unpaired, so the direction and magnitude hold but "0.0069 vs 0.0070" is not a
+   paired difference.
 
 **Consequence, and the reason for Tier 2:** this converts a family of proposals into a known null. Any
 intervention acting on marginals inherits C-152's result unless it also changes the joint *or* the sampler —
@@ -2450,6 +2454,63 @@ ran rather than discovered afterwards, which is the only reason the arm is reada
 **Fix direction:** a scramble constrained to permute only among cells with matching static covariates would
 hold grounding fixed while destroying structure. Not built; it may not be feasible at this grid resolution
 if the matching classes are too small to permute within.
+
+---
+
+### C-296: a diagnostic that consumes RNG differently from its control silently unpairs the comparison
+
+| Field | Value |
+|-------|-------|
+| ID | C-296 |
+| Tier | 2 |
+| Source | `/code-review medium` on PR #278 (2026-08-16) |
+| Trigger | Adding any inference-time diagnostic that replaces a sampling step, rather than only observing one — a different sampler, an extra draw, a skipped draw |
+| Location | `views_hydranet/utils/hydranet_inference.py` (`_sample_feedback`, the correlated branch) |
+| Cross-refs | C-290 (the arm this affected), C-113 (the original shared-generator coupling), C-289 |
+
+`correlated_bernoulli` consumes a different number of variates from the shared generator than
+`compose_samples`' Bernoulli. Every **later** step's body draw therefore came from a different stream in the
+treatment arm than in the control, so the comparison mixed "coherent placement" with "different body noise" —
+in an experiment whose entire content is a small difference between two arms.
+
+This is the **third appearance of one defect class** in this codebase: C-113's shared `torch.Generator` across
+the rollout, the fb_gen/transform separation this file's own comments document, and now this. The pattern is
+that a *replacement* diagnostic is written as if it were an *observational* one.
+
+**Fixed** by advancing the shared generator exactly as the control does (discarding the draw) and giving the
+copula a third namespaced stream. **Registered rather than closed** because the rule generalises and is not
+enforceable by a test on any single call site: *a diagnostic that replaces a sampling step must leave the
+shared stream in the state the control would have left it.*
+
+**Effect on the shipped result:** the EXP-05 null holds in direction and magnitude (clustering spans 100× while
+AP stays ~0.007 against an oracle of 0.30 — RNG noise cannot cancel a 40x gap) but its two-significant-figure
+comparison does not. Dossier and C-290 both amended.
+
+---
+
+### C-297: a sabotage check that selects no tests is indistinguishable from one that passes
+
+| Field | Value |
+|-------|-------|
+| ID | C-297 |
+| Tier | 3 |
+| Source | authoring the PR #278 fixes (2026-08-16) |
+| Trigger | Verifying a new guard by disabling it and running a filtered test selection (`pytest -k`, a single node id, a marker) |
+| Location | process — the falsifier -> guard -> **sabotage** discipline used across `reports/*_dossier/03_harness_and_invariants.md` |
+| Cross-refs | C-289 (a diagnostic that cannot fail), C-292 |
+
+The sabotage check for the new splice guard reported **zero failures** and read as "the guard is redundant".
+The `-k` filter had matched no tests: the name contained *splicing*, the filter said *splice*. Disabling a
+guard and observing no failures is the exact signal the check exists to produce, so the tooling error and the
+finding are the same observation.
+
+The discipline this repo relies on — *a guard never seen to fail is not a guard* — has a blind spot: it
+verifies the **outcome** of the sabotage run and not its **coverage**. Registered because every dossier's
+harness section uses this method.
+
+**Fix direction:** a sabotage check must assert on the number of tests **selected**, not only on the number
+that failed. `pytest --collect-only -q -k <filter>` before the run, or drop `-k` and compare full-suite
+failure counts.
 
 ---
 

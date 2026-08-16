@@ -55,8 +55,23 @@ def test_neighbour_pairs_is_high_for_a_block_and_low_for_scatter():
     assert neighbour_pairs_per_active(scatter) == 0.0
 
 
-def test_neighbour_pairs_is_zero_on_an_empty_mask():
-    assert neighbour_pairs_per_active(torch.zeros(8, 8, dtype=torch.bool)) == 0.0
+def test_neighbour_pairs_is_undefined_not_zero_on_an_empty_mask():
+    """An empty field must NOT share a value with a scattered one.
+
+    The test above pins a genuinely scattered mask at 0.0 — a real measurement. If an empty mask
+    also returned 0.0 the two would be indistinguishable, and any average over the column would mix
+    "no cells" with "cells that touch nothing", biasing clustering downward exactly in the collapse
+    regime this statistic exists to describe.
+    """
+    empty = neighbour_pairs_per_active(torch.zeros(8, 8, dtype=torch.bool))
+    assert empty == -1.0
+
+    scatter = torch.zeros(16, 16, dtype=torch.bool)
+    scatter[::4, ::4] = True
+    assert neighbour_pairs_per_active(scatter) == 0.0
+    assert empty != neighbour_pairs_per_active(scatter), (
+        "undefined and 'scattered' must not collide on the same value"
+    )
 
 
 # ------------------------------------------------------- topk

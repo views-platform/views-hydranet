@@ -20,8 +20,30 @@ Sparsity is survivable on its own: `thin:0.75` matches the collapse's activation
 **A follow-up probe falsified the obvious mechanism.** The gate does not merely have its structure discarded
 by the independent-Bernoulli sampler — the gate's own probability field smears out (Moran's I 0.50 → 0.16 by
 step 6). But independent sampling is **~10× more destructive on a diffuse gate than a sharp one** (25× vs
-2.6×), so the two compound in a loop. A coherent sampler would move the fed field from 0.010 to ~0.25
-clustering (target 0.449) with no retraining; whether that breaks the loop has to be run.
+2.6×), so the two compound in a loop.
+
+**And then the coherent sampler was built and run — it is a NULL.** A Gaussian copula with exactly-preserved
+marginals, swept over length scale, moves fed-field clustering **0.011 → 1.064, a 100× span that brackets the
+real value of 0.449** — and gate AP stays at ~0.007 against an oracle of 0.30. The null is credible *because*
+the sweep overshot the target rather than falling short of it; "it did not clump enough" is not available as
+an explanation.
+
+⚠️ **Read the null at one significant figure, not two.** A generator desynchronisation (EXP-06, finding 2)
+means the treatment and control arms were **not byte-paired**: the copula consumed a different number of
+variates than the control's Bernoulli, so later steps' body draws came from a different stream. The
+direction and magnitude survive — RNG noise cannot cancel a 40× gap — but "0.0069 against 0.0070" is not a
+paired difference and must not be quoted as one. Fixed in the code; not re-run.
+
+**This corrects the framing above.** Clustering was a **proxy for correct placement, not an independently
+sufficient property**: `spatial_scramble` (right places, no clustering) collapses, and the copula (wrong
+places, right clustering) does not recover. Restoring clumpiness to an already-misplaced field just produces
+realistic-looking clumps in the wrong locations.
+
+**What that rules out:** a distribution-matching loss penalising the field's clustering statistic would
+produce exactly this — matching statistics, no skill. The objection generalises to any realism critic
+satisfiable by marginal or summary statistics rather than by placement, which is most of the cheap
+formulations of #262's option 3. The lever is not the sampler; it is the gate's own diffusion, which is
+training-side.
 
 This also explains why coordinate channels never helped (C-152): coords improve *which cells are likely* —
 a marginal property — while what fails is the **joint** spatial coherence plus an independence-assuming

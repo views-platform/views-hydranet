@@ -199,3 +199,79 @@ def test_recorded_statistics_show_thin_actually_thinned():
 def test_unknown_arm_raises_before_any_rollout():
     with pytest.raises(ValueError, match="unknown feedback transform"):
         _run(feedback_transform="thinn:0.5")
+
+
+# ------------------------------------------------ the correlated-feedback diagnostic
+
+
+def _corr_run(*, length_scale, rollout_feedback="sample", composition="soft_gate"):
+    cfg = _cfg()
+    cfg["rollout_feedback"] = rollout_feedback
+    cfg["forecast_composition"] = composition
+    model = _RecordingModel()
+    # rollout_feedback='sample' requires a registered family; the default 'standard' has none and
+    # would raise before the guard under test is reached. Read off the MODEL, not the config.
+    model.output_distribution = "nb"
+    return HydraNetInference(model, cfg, device="cpu", feedback_length_scale=length_scale)
+
+
+@pytest.mark.parametrize(
+    "rollout_feedback,composition",
+    [
+        ("mean", "soft_gate"),
+        ("teacher_forced", "soft_gate"),
+        ("sample", "self_zeroed"),
+        ("sample", "threshold_gate"),
+    ],
+)
+def test_a_length_scale_that_cannot_bite_raises_instead_of_running_the_control(
+    rollout_feedback, composition
+):
+    """The copula lives on ONE branch of ``_sample_feedback``. Everywhere else a run launched with
+    ``--length-scale 3.0`` executes the independent-Bernoulli control end to end and would report
+    "correlated sampling is NULL" — a null manufactured by the harness rather than measured.
+
+    This is the same contract ``freeze_recurrent`` and ``parse_feedback_transform`` already hold: a
+    diagnostic must never silently no-op. Note ``self_zeroed`` is the code's own default, so the
+    unguarded version failed open on the most likely misconfiguration.
+    """
+    with pytest.raises(ValueError, match="silently produce the independent-Bernoulli control"):
+        _corr_run(length_scale=3.0, rollout_feedback=rollout_feedback, composition=composition)
+
+
+def test_the_reachable_configuration_is_accepted():
+    """The guard must not reject the arm the sweep actually ran."""
+    inf = _corr_run(length_scale=3.0)
+    assert inf._feedback_length_scale == 3.0
+
+
+def test_length_scale_none_is_unaffected_by_the_guard():
+    """Production sets no length scale under any composition; the guard must be inert there."""
+    for comp in ("self_zeroed", "soft_gate", "threshold_gate"):
+        inf = _corr_run(length_scale=None, rollout_feedback="mean", composition=comp)
+        assert inf._feedback_length_scale is None
+
+
+@pytest.mark.parametrize(
+    "arm", ["occurrence_real_magnitude_model", "occurrence_model_magnitude_real"]
+)
+def test_a_splice_arm_under_teacher_forced_raises_rather_than_splicing_real_with_real(arm):
+    """E4 reads the model's field out of ``t0_autoreg``, which is assembled AFTER both
+    ``rollout_feedback`` branches. Under 'teacher_forced' that tensor is the real field, so the
+    splice would combine real with real and report a decomposition of "occurrence vs magnitude" in
+    which the model never participated — while running, scoring and looking entirely healthy.
+
+    Verified against the shipped run: the E4 arms fed model magnitudes (mean 6.15 on active cells
+    against the real field's 13.07) and model occurrence (560 active against the real 72), so this
+    never fired in the results — but nothing in the harness would have said so.
+    """
+    with pytest.raises(ValueError, match="splice real with real"):
+        _run(feedback_transform=arm, rollout_feedback="teacher_forced")
+
+
+@pytest.mark.parametrize(
+    "arm", ["occurrence_real_magnitude_model", "occurrence_model_magnitude_real"]
+)
+def test_splice_arms_are_accepted_under_the_feedback_modes_they_are_defined_for(arm):
+    seen, _, _ = _run(feedback_transform=arm, rollout_feedback="mean")
+    assert seen, "the arm did not run"
