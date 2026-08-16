@@ -14,13 +14,23 @@ identical active count and identical magnitudes.
 | of which: occurrence merely being **plausible** | 43% |
 | magnitude | 8% |
 
-Sparsity is survivable on its own: `thin:0.75` matches the collapse's activation rate (0.33 vs 0.27) with
-**32× the AP**. Under-firing is not what kills the gate; misplacement is.
+Sparsity is survivable on its own: at h18 `thin:0.75` fires at a comparable rate (`act_ratio` 0.332 vs the
+collapse's 0.291) with **32× the AP** (0.2244 vs 0.0070); at h36, 0.317 vs 0.266 with **23×** (0.1898 vs
+0.0083). Under-firing is not what kills the gate; misplacement is.
+
+⚠️ **Corrected 2026-08-17.** This line previously read "matches the collapse's activation rate (0.33 vs
+0.27)", which paired `thin` at **h18** with the collapse at **h36** — a cross-horizon conflation, the same
+error class as the Moran's I figure below. The conclusion holds at matched horizons; the quoted pair did not
+exist in any single cell.
 
 **A follow-up probe falsified the obvious mechanism.** The gate does not merely have its structure discarded
 by the independent-Bernoulli sampler — the gate's own probability field smears out. On target `sb`, Moran's I
 falls **0.409 → 0.192 by step 6** and then saturates (0.178 at step 35). But independent sampling is **~10×
-more destructive on a diffuse gate than a sharp one** (25× vs 2.6×), so the two compound in a loop.
+more destructive on a diffuse gate than a sharp one**, so the two compound in a loop. The ratio of what the
+gate's own top-K would place to what the independent draw actually places is a stable **2.2–2.6× on the
+sharp (oracle) gate at every step**, against **4.4× at step 1 rising to 14–27× from step 6** once the gate
+has smeared. (An earlier version quoted "25× vs 2.6×", which is the free-running **peak** rather than its
+range; the range is given here because the free-running ratio is not stable.)
 
 **The recurrence is not what smears it (corrected 2026-08-17).** Under the oracle the *same* architecture,
 the *same* 3×3 recurrent kernel and the *same* 35 steps hold the gate perfectly flat: **0.507 → 0.494 at

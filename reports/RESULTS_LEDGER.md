@@ -7,6 +7,118 @@ sanity record; wandb holds the curves, this holds the *conclusions*.
 
 **Living doc.** Append rows; never rewrite history. git-tracked via `git add -f` (reports/ is gitignored).
 
+> ⚠️ **GAP: 2026-06-20 → 2026-08-17.** This ledger was not maintained for two months. Everything in
+> that window — the ZINB epic (#167), the bloom epic (#193), the composition axis (#183), the v2
+> scoreboard, the rollout-ruler artifact verdict (#263), the state-freeze probe (#277) and the
+> feedback-realism probes (#278) — was recorded **only in per-dossier logs**. Each dossier reasons
+> locally and correctly; nothing forced a claim to survive contact with the others, and that is
+> exactly where narrative drift lives. The §Claims Ledger below is back-filled for the
+> **rollout-collapse programme only**. The rest of the window is **NOT back-filled** — treat its
+> conclusions as living in their dossiers until someone does the work, and do not read silence here
+> as agreement.
+
+---
+
+## Claims Ledger — the rollout collapse (#258 / #262)
+
+**Why this section exists.** The run ledger below is per-*run* and the narrative is chronological, and
+chronological prose is what drifts: five mechanism stories were retracted on 2026-08-16/17 alone. This
+table is per-*claim* and answers one question — **what do we believe right now, and how much weight can
+it carry?**
+
+**The distinction that does the work:**
+
+- **MEASUREMENT** — a number a run produced. Overturned only by a bug in the harness or a re-run.
+- **INFERENCE** — a story built on measurements. Overturned by thinking, and repeatedly has been.
+
+Every claim below carries its scope. **The entire rollout-collapse programme to date is single-seed,
+single-vehicle**, which is *below this project's own evidentiary bar* (≥3 seeds on validation; the v2
+scoreboard ran 3 seeds × 300 lessons). Nothing here is a verdict. The dossiers say INDICATIVE and then
+get reasoned from as though they did not — this table exists to make that impossible.
+
+**Shared scope unless a row says otherwise:** seed 42 · 40 lessons · `truncated_smoke` ·
+artifact `calibration_model_20260814_003058.pt` · 13 origins · 4 posterior samples · 35 steps ·
+target `sb` where a single target is named · calibration partition.
+
+### LIVE — measurements
+
+| # | Claim | Evidence | Confidence |
+|---|-------|----------|------------|
+| M1 | **Persistence beats every arm from h6 on.** h6 0.112 / h18 0.108 / h36 0.083 vs the best held arm 0.087 / 0.091 / 0.069 and free-running 0.028 / 0.007 / 0.008. At h1 the model is genuinely good (0.298 vs 0.146). | state-freeze EXP-03 | **High** — a baseline, not a comparison between arms. The single-seed caveat bites least here. |
+| M2 | **Gate AP collapses steeply then saturates:** 0.298 (h1) → 0.028 (h6) → 0.007 (h18), flat thereafter. ~5 steps hold most of the damage. | realism EXP-01 | **High** — large effect, reproduced across every arm's control. |
+| M3 | **Scrambling only the LOCATIONS of a perfect field reproduces the collapse:** AP 0.3008 → 0.0097, against free-running 0.0070 — with active count and magnitudes held identical. | realism EXP-03 | **High** — 31× effect; direct manipulation. Confounded with geographic grounding (C-291). |
+| M4 | **Sparsity alone is survivable.** At matched horizon, `thin:0.75` fires at a *similar* rate to the collapse and scores far better — h18: AP 0.2244 vs 0.0070 (**32×**) at `act_ratio` 0.332 vs 0.291; h36: AP 0.1898 vs 0.0083 (**23×**) at 0.317 vs 0.266. | realism EXP-03 | **High** — large, direct, holds at both horizons. ⚠️ EXP-03 quoted "0.33 vs 0.27", which pairs `thin` at **h18** with `identity` at **h36** — a cross-horizon conflation. The conclusion survives at matched horizons; the quoted pair did not exist in any single cell. |
+| M5 | **Clustering spanning 100× moves AP not at all.** Fed clustering 0.011 → 1.064 (brackets the real 0.449); AP flat at ~0.007. | realism EXP-05 | **Medium-high** — a null over a wide dose range, but arms were **not byte-paired** (C-296), so read at one significant figure. |
+| M6 | **The recurrence does not smear the gate.** Oracle holds Moran's I flat over 35 steps (sb 0.507 → 0.494 → 0.516); free-running over identical steps falls 0.409 → 0.192 → 0.178. | realism EXP-04 data, analysed 2026-08-17 | **High** — same architecture, same kernel, same step count; only the fed content differs. |
+| M7 | **The gate's ranking stays structured while the draw does not.** At equal expected count, top-K clustering vs independent-draw clustering: 4.4× (step 1) → 15.5× (step 6) → 26.8× (step 12). | realism EXP-04 | **High** — same gate, same count, two draw rules. |
+| M8 | **Freezing recurrent state partially recovers AP:** h18 0.0070 → 0.0912, h36 0.0083 → 0.0693. Ordering `all` ≥ `cell` > `hidden` > `none`. | state-freeze EXP-02 | **Medium** — real and pre-registered, but see I-D and C-292 for what it does *not* license. |
+| M9 | **`crps_all` is blind to all of it.** Four arms score 0.1353 / 0.1352 / 0.1350 / 0.1346 at h18 while gate AP spans **13×**. | state-freeze EXP-02 | **High** — corroborates Epic #263 independently. |
+
+### LIVE — inferences
+
+| # | Claim | Rests on | Confidence |
+|---|-------|----------|------------|
+| I-A | **Occurrence carries ~89% of the damage, magnitude ~8%.** | M3, M4, E4 splice arms | **Low-medium.** The *ordering* (occurrence ≫ magnitude) is robust — the effects are 30×. The **89/8 split is a single-seed decomposition and should not be quoted as a number.** |
+| I-B | **Clustering is a proxy for correct placement, not an independently sufficient property.** Right places + no clustering → collapse (M3); wrong places + right clustering → no recovery (M5). | M3 + M5 | **Medium-high** — the two arms bracket the claim from opposite ends. |
+| I-C | **Coordinate channels never helped because they act on marginals while the failure is joint.** | M3, M5, C-152's 3-seed negative | **Medium** — a mechanism fitted to an already-established null. It explains, it does not predict. |
+| I-D | **Some of the gap flows through the recurrent state (~23% of the oracle gap).** | M8 | **Low.** INDICATIVE. Recovers 23% *relative to a collapsed control* and still does not reach persistence (M1), so it is not a skill claim. **Which memory half is NOT established** (C-292). |
+| I-E | **The independent Bernoulli draw discards usable ranking information.** | M7 | **Medium** — the information gap is measured (M7). That fixing it would help is **untested**, and M5 is a warning that a plausible fix can do nothing. |
+
+### RETIRED — kept so they stay dead
+
+| Claim | Retired | Why |
+|-------|---------|-----|
+| "It is the **cell state** — `cell` carries 89% of the freeze effect" | 2026-08-16 | Architecturally predetermined: `hs = o ⊙ tanh(hl)`, so hidden is a *readout* of cell and freezing cell constrains hidden by construction. No arm in the set separates them (C-292). |
+| "The state result quantifies the mediator — **CONFIRMED AND QUANTIFIED**" | 2026-08-16 | Overclaimed against its own pre-registration, and no naive baseline existed. Persistence then beat every arm (M1). Downgraded to I-D. |
+| "**The recurrence diffuses the gate**" (C-295's hypothesis) | 2026-08-17 | Falsified by M6 using data already on disk. Also backwards on its own terms: smoothing *raises* spatial autocorrelation — it is how `correlated_bernoulli` manufactures clustering from white noise — so diffusion predicts Moran's I going **up**, and it goes **down**. |
+| "The target is **the spatial coherence** of the occurrence field" (EXP-03's framing) | 2026-08-16 | Too loose; corrected by M5. Superseded by I-B. |
+| "Moran's I falls **0.50 → 0.16** by step 6" | 2026-08-17 | Not a trajectory. Paired the **oracle's** 0.507 with the **free-running** 0.16–0.19 as though one run produced both. Real free-running trajectory is 0.409 → 0.192 (M6). |
+| "gated_NB beats climatology at h36" | 2026-08-15 | ARTIFACT 4/4 — zero-driven; 74.6% of the gap is true zeros, ΔAP −0.030, `size_ratio` 0.0 (Epic #263). |
+
+### What is NOT established
+
+- **No arm anywhere in this programme beats persistence at any horizon ≥ 6.** Every "improvement" to date is measured against a collapsed control.
+- **No result here is multi-seed or multi-vehicle.** Positive findings at n=1 have historically evaporated on proper runs; the same standard applies to everything above.
+- **Nothing has been shown to fix the collapse.** Two inference-time interventions have been tried (copula M5, state freeze M8); neither reaches persistence.
+
+### Verification pass, 2026-08-17
+
+Every headline number above was recomputed from the committed CSVs rather than copied from the dossier
+prose. Results:
+
+| figure | verdict |
+|---|---|
+| persistence vs arms, all horizons (M1) | ✅ exact |
+| freeze-arm AP ladder (M8) | ✅ exact |
+| `crps_all` blindness, 4 arms at h18 (M9) | ✅ exact |
+| oracle / scramble / free-running AP (M3) | ✅ exact |
+| copula sweep AP flatness (M5) | ✅ exact |
+| E4 decomposition **89% / 43% / 8%** | ✅ 88.6% / 42.6% / 7.9% |
+| Moran's I "0.50 → 0.16" | ❌ **two arms quoted as one trajectory** — retired |
+| `thin` activation "0.33 vs 0.27" | ❌ **two horizons quoted as one comparison** — corrected |
+| "25× vs 2.6×" | ⚠️ true but the **peak**, not the range (4.4×→27×→14×) — restated as a range |
+
+Three of nine headline figures were wrong or misleading, and **all three failed the same way**: values
+pulled from different cells of the results grid and presented as a single comparison. None of the three
+changed a conclusion — the effects are large enough to survive — but each was quotable, and two had already
+propagated into the risk register. Registered as **C-298**.
+
+One near-miss worth recording: "occurrence merely being **plausible** — 43%" looked wrong against
+`spatial_scramble` (0.9%) until traced; "plausible" means `wrong_month:-60`, a *real* field from the wrong
+month, and the figure is correct. **A verification pass produces false positives too** — the fix is to
+trace the number to its arm, not to "correct" it on suspicion.
+
+### Standing rule adopted 2026-08-17
+
+Cheap single-seed probes here have been **reliable at killing hypotheses and unreliable at establishing
+them** — every retirement above has held, while the one positive claim (I-A's 89%) is the least
+trustworthy line in the table. So:
+
+1. Design cheap experiments to **eliminate**, and read a null as the informative outcome.
+2. A **positive** result from a single-seed probe triggers **escalation** (≥3 seeds, second vehicle),
+   never a conclusion.
+3. A claim enters this table as MEASUREMENT or INFERENCE **before** it is argued from.
+
 ---
 
 ## Evaluation & selection criteria — adopted from FAO Pre-Release Note 05 (Topics C & D)

@@ -5,9 +5,9 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-15                           |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 294                                  |
-| Open Concerns     | 142                                  |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
+| Total Concerns    | 295                                  |
+| Open Concerns     | 143                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | — net active risks | 124                                 |
 | Resolved Concerns | 152                                  |
@@ -2454,6 +2454,40 @@ ran rather than discovered afterwards, which is the only reason the arm is reada
 **Fix direction:** a scramble constrained to permute only among cells with matching static covariates would
 hold grounding fixed while destroying structure. Not built; it may not be feasible at this grid resolution
 if the matching classes are too small to permute within.
+
+---
+
+### C-298: headline figures are assembled from different cells of the results grid and quoted as one comparison
+
+| Field | Value |
+|-------|-------|
+| ID | C-298 |
+| Tier | 2 |
+| Source | verification pass while building the Claims Ledger (2026-08-17) |
+| Trigger | Writing a dossier README, an issue comment or a PR body that quotes a "X → Y" pair or an "A vs B" ratio drawn from a results grid with more than one axis (horizon x arm x target x step) |
+| Location | `reports/RESULTS_LEDGER.md` §Verification pass; `reports/2026-08-16_feedback_realism_dossier/00_README.md` |
+| Cross-refs | C-289 (a diagnostic whose rule manufactures its answer), C-291, C-296 |
+
+Recomputing all nine headline figures of the feedback-realism dossier from the committed CSVs found **three
+wrong or misleading, all failing the same way** — values taken from different cells of the results grid and
+presented as a single comparison:
+
+- **"Moran's I 0.50 → 0.16 by step 6"** paired the **oracle's** value (0.507) with the **free-running** one
+  (0.16–0.19) as though one run produced both. Real free-running trajectory: 0.409 → 0.192.
+- **"`thin:0.75` matches the collapse's activation rate (0.33 vs 0.27)"** paired `thin` at **h18** with the
+  collapse at **h36**. At matched horizons the pairs are 0.332/0.291 (h18) and 0.317/0.266 (h36).
+- **"25× vs 2.6×"** quoted the free-running **peak** (26.8× at step 12) against a genuinely stable oracle
+  value, without noting that the free-running ratio runs 4.4× → 27× → 14×.
+
+None changed a conclusion — the underlying effects are 20-30x and survive — but each was quotable, and two
+had already propagated into this register. The results grid here is four-dimensional (arm x horizon x target
+x step) and the prose is one-dimensional, so **every sentence silently collapses three axes**. That is the
+mechanism, and it is not a lapse of care: the same author wrote the correct number in the log and the
+conflated one in the summary.
+
+**Fix direction:** a figure quoted in prose must name its cell — arm, horizon, target — or be a range across
+the axis it collapses. The Claims Ledger's verification pass is the check; run it before a dossier's
+conclusions are cited anywhere outside the dossier, not after they have propagated.
 
 ---
 
