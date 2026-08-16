@@ -1,1 +1,0 @@
-/tmp/claude-1000/gateprobe.sh: line 5: 3048890 Killed                  conda run -n views-hydranet-env python $D/tools/realism_arm_entry.py --arm $arm --model-dir $M --artifact calibration_model_20260814_003058.pt --stats-out $D/results/gateprobe_fed_$arm.csv --gate-out $D/results/gate_$arm.csv > $D/results/gateprobe_$arm.log 2>&1

@@ -1,6 +1,0 @@
-wrote /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-08-16_feedback_realism_dossier/results/score_truncated_smoke_inject_0.01.csv  (7 rows: 1 models × 1 targets × 7 h)
-
-=== sb: crps_all / mcr_none by horizon ===
-h               1      6      12     18     24     30     36
-model                                                       
-inject_0.01 0.1508 0.1560 0.1385 0.1591 0.1781 0.1974 0.9060
