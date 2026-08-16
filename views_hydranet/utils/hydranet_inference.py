@@ -10,6 +10,7 @@ from tqdm import tqdm
 from views_hydranet.distributions import resolve_family
 from views_hydranet.distributions.composition import compose_mean
 from views_hydranet.distributions.sampling import to_cube_samples
+from views_hydranet.utils.correlated_bernoulli import correlated_bernoulli
 from views_hydranet.utils.disk_guard import assert_cube_fits
 from views_hydranet.utils.feedback_field_transforms import (
     inject,
@@ -118,6 +119,7 @@ class HydraNetInference:
         visualizer: Optional["VisualDiagnostics"] = None,
         freeze_recurrent: Optional[str] = None,
         feedback_transform: Optional[str] = None,
+        feedback_length_scale: Optional[float] = None,
     ) -> None:
         """Initializes the inference pipeline for HydraNet.
 
@@ -237,6 +239,13 @@ class HydraNetInference:
         # nothing in common hang on the answer — a correlated sampler (no retraining) vs
         # training-side work. See views_hydranet/utils/gate_field_structure.py.
         self.gate_structure_stats: List[dict] = []
+        # DIAGNOSTIC: correlation length for the fed-back gate draw. None = production's
+        # independent Bernoulli. Applies to the FEEDBACK path only; the scored cube is untouched.
+        if feedback_length_scale is not None and feedback_length_scale <= 0:
+            raise ValueError(
+                f"feedback_length_scale must be > 0 or None, got {feedback_length_scale}."
+            )
+        self._feedback_length_scale = feedback_length_scale
 
         self.hurdle_theta = self._parse_hurdle_theta(getattr(model, "hurdle_nb_theta", None))
         # generic hurdle bodies: lognormal needs sigma (fixed, from sidecar); point needs nothing.
@@ -435,7 +444,14 @@ class HydraNetInference:
         g = gate.detach().cpu()
         for b in range(g.shape[0]):
             for c in range(g.shape[1]):
-                rec = gate_structure_stats(g[b, c], generator=self._fb_transform_gen)
+                rec = gate_structure_stats(
+                    g[b, c],
+                    generator=self._fb_transform_gen,
+                    # The sweep is ~5 extra correlated draws per record; restricting it to the
+                    # first posterior sample keeps the cost off every arm while still giving
+                    # 13 origins x 35 steps of calibration data.
+                    sweep_length_scales=(sample_idx == 0),
+                )
                 rec.update(origin=origin, sample_idx=sample_idx, step=step, target_idx=c)
                 self.gate_structure_stats.append(rec)
 
@@ -589,7 +605,21 @@ class HydraNetInference:
 
             cube = draws.permute(0, 2, 3, 1).unsqueeze(-1)  # [B,H,W,n_reg,1]
             gate = prob.detach().to("cpu")[:, :n_reg].permute(0, 2, 3, 1)  # [B,H,W,n_reg]
-            cube = compose_samples(cube, gate, comp, self.config.get("gate_threshold"), generator)
+            if self._feedback_length_scale is not None and comp == "soft_gate":
+                # DIAGNOSTIC: replace the independent Bernoulli with a spatially-correlated draw
+                # of the SAME marginals (Gaussian copula). Applied here and ONLY here — the scored
+                # cube keeps independent sampling via `to_cube_samples`, so any effect is the model
+                # behaving differently, not the metric being handed a prettier cube.
+                mask = correlated_bernoulli(
+                    gate.permute(0, 3, 1, 2),  # [B,H,W,n_reg] -> [B,n_reg,H,W] for the (H,W) tail
+                    length_scale=self._feedback_length_scale,
+                    generator=generator,
+                ).permute(0, 2, 3, 1)  # back to [B,H,W,n_reg]
+                cube = cube * mask.unsqueeze(-1)
+            else:
+                cube = compose_samples(
+                    cube, gate, comp, self.config.get("gate_threshold"), generator
+                )
             draws = cube.squeeze(-1).permute(0, 3, 1, 2)  # -> [B, n_reg, H, W]
         # log1p emit space, on the model device
         return torch.log1p(draws.clamp(min=0.0)).to(reg.device)

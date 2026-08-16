@@ -33,6 +33,13 @@ from __future__ import annotations
 
 import torch
 
+from views_hydranet.utils.correlated_bernoulli import correlated_bernoulli
+
+# Candidate correlation lengths swept on the ORACLE arm, so the length scale used in the
+# treatment is fixed by matching the REAL field's clustering on the control — never chosen by
+# looking at the treatment's outcome.
+CALIBRATION_LENGTH_SCALES = (1.0, 2.0, 3.0, 5.0, 8.0)
+
 __all__ = ["gate_structure_stats", "moran_i", "neighbour_pairs_per_active", "topk_mask"]
 
 
@@ -99,7 +106,9 @@ def moran_i(field: torch.Tensor) -> float:
     return (x.numel() / (2.0 * n_pairs)) * (2.0 * cross) / denom
 
 
-def gate_structure_stats(gate: torch.Tensor, *, generator: torch.Generator) -> dict:
+def gate_structure_stats(
+    gate: torch.Tensor, *, generator: torch.Generator, sweep_length_scales: bool = False
+) -> dict:
     """Compare what the sampler DOES to a gate against what a coherent sampler COULD do.
 
     Args:
@@ -116,9 +125,17 @@ def gate_structure_stats(gate: torch.Tensor, *, generator: torch.Generator) -> d
         raise ValueError(
             f"gate_structure_stats expects a 2-D [H, W] gate, got {tuple(gate.shape)}"
         )
-    indep = torch.bernoulli(gate.detach().cpu(), generator=generator).to(torch.bool)
-    top = topk_mask(gate.detach().cpu(), generator=generator)
+    g = gate.detach().cpu()
+    indep = torch.bernoulli(g, generator=generator).to(torch.bool)
+    top = topk_mask(g, generator=generator)
+    sweep = {}
+    if sweep_length_scales:
+        for ls in CALIBRATION_LENGTH_SCALES:
+            m = correlated_bernoulli(g, length_scale=ls, generator=generator).to(torch.bool)
+            sweep[f"corr_ls{ls}_clustering"] = neighbour_pairs_per_active(m)
+            sweep[f"corr_ls{ls}_n_active"] = int(m.sum())
     return {
+        **sweep,
         "gate_mass": float(gate.sum()),
         "gate_mean": float(gate.mean()),
         "gate_moran_i": moran_i(gate.detach().cpu()),
