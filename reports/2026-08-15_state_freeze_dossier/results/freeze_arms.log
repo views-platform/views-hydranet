@@ -1,8 +1,0 @@
-===== ARM hidden (truncated_smoke) =====
-  done in 1642.6s -> score_truncated_smoke_hidden.csv
-===== ARM cell (truncated_smoke) =====
-  done in 1787.1s -> score_truncated_smoke_cell.csv
-===== ARM all (truncated_smoke) =====
-  done in 2169.8s -> score_truncated_smoke_all.csv
-wrote /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-08-15_state_freeze_dossier/results/manifest_truncated_smoke.jsonl
-

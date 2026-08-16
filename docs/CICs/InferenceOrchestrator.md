@@ -28,6 +28,14 @@ The `InferenceOrchestrator` is the **Unified Symmetry Engine** of the HydraNet p
 - **Law of Sequence (ADR-039):** Guarantees the immutable order: Predict -> Align -> Wrap -> Invert -> Collapse -> Reconstruct.
 - **Identity Integrity:** Ensures that every prediction is anchored to the correct geographic and temporal scaffold provided by the history.
 - **Stochastic Awareness:** Correctly handles the 5th dimension (`S`) across the inference sequence without silent collapse.
+- **Diagnostic Neutrality (2026-08-16):** Carries optional **research diagnostics** that are forwarded to
+  every `HydraNetInference` it builds — currently `freeze_recurrent` (hold a ConvLSTM memory half during
+  free-running, #258/C-222). Each defaults to `None`, in which case the production path is
+  **byte-identical** to before the seam existed. None is a config key, so no model config can enable one and
+  ADR-027's retirement of `freeze_h` is untouched. The **Unification Guarantee** is preserved because the
+  value is set once on the orchestrator and consumed identically by both construction sites. The constructed
+  inference object is retained as `.inference` so a diagnostic driver can read its per-run records;
+  production ignores it.
 
 ---
 

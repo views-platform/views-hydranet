@@ -1,7 +1,0 @@
-wrote reports/2026-08-15_state_freeze_dossier/results/score_truncated_smoke_none.csv  (7 rows: 1 models × 1 targets × 7 h)
-
-=== sb: crps_all / mcr_none by horizon ===
-h         1      6      12     18     24     30     36
-model                                                 
-none  0.1508 0.1179 0.1126 0.1353 0.1337 0.1693 0.8753
-
