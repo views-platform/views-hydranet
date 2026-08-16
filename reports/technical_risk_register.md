@@ -964,7 +964,7 @@ ADR-061's "why now" leans on El Jurdi et al. (2021): CoordConv-Unet stabilizes t
 
 **UPDATE 2026-07-31 — CoordConv now tested DIRECTLY (v2 scoreboard `09`/`07` E2) → clean 3-seed negative; question CLOSED.** The prior "didn't transfer" was inferred from the *population* placebo; the coord A/B tested real geometry coords with the nb head for the first time (gated_NB + row/col × {enc, top} × 3 seeds × 300 lessons). Result: coords **HURT** occurrence — AP < no-coords at every horizon×target (sb AP h1 0.450→enc 0.426→top 0.406; F1 fired, P1+P2 falsified); crps_all inert. So CoordConv is not a lever on the distributional heads: absolute position is already implicit in each fixed-grid cell's own history, and the extra channels are a mild spatial-overfit shortcut. C-152's decision-hygiene concern is now MOOT (no analogy left to re-promote — the lever is empirically dead). Cross-ref C-228 (the placement half of the same result).
 
-**UPDATE 2026-08-16 — the MECHANISM, supplied by the feedback-realism probe (`reports/2026-08-16_feedback_realism_dossier/`).** The July closure was a clean empirical negative with **no explanation**, which left the null looking like bad luck and the lever re-openable by anyone with a new placement idea. It is not bad luck. Coordinate channels change *which cells are likely* — a **marginal** property of the field. What actually fails in the rollout is the **joint** structure: `spatial_scramble` reproduces the collapse (gate AP 0.3008 → 0.0097 vs free-running 0.0070) with the active count and the magnitudes held identical, so 89% of the damage is cells being in the **wrong places**, not the wrong cells being individually more or less likely. Compounding it, the emitted field is drawn by an **independence-assuming** sampler, and the gate's own probability field diffuses (Moran's I 0.50 → 0.16 by step 6). **A marginal fix cannot repair a joint failure** — which is why coords were inert on `crps_all` *and* on AP regardless of placement. Recorded because it converts C-152 from "we tried it and it didn't work" into a **class statement**: any future proposal that improves per-cell marginals (more statics, more covariate channels, richer position encodings) inherits this null unless it also changes the joint or the sampler. Scope: 40 lessons, seed 42, one vehicle — **INDICATIVE**. Cross-ref C-290 (the sampler independence assumption).
+**UPDATE 2026-08-16 — the MECHANISM, supplied by the feedback-realism probe (`reports/2026-08-16_feedback_realism_dossier/`).** The July closure was a clean empirical negative with **no explanation**, which left the null looking like bad luck and the lever re-openable by anyone with a new placement idea. It is not bad luck. Coordinate channels change *which cells are likely* — a **marginal** property of the field. What actually fails in the rollout is the **joint** structure: `spatial_scramble` reproduces the collapse (gate AP 0.3008 → 0.0097 vs free-running 0.0070) with the active count and the magnitudes held identical, so 89% of the damage is cells being in the **wrong places**, not the wrong cells being individually more or less likely. Compounding it, the emitted field is drawn by an **independence-assuming** sampler, and the gate's own probability field diffuses (Moran's I 0.409 → 0.192 by step 6 on target sb, while the ORACLE holds 0.507 → 0.494). **A marginal fix cannot repair a joint failure** — which is why coords were inert on `crps_all` *and* on AP regardless of placement. Recorded because it converts C-152 from "we tried it and it didn't work" into a **class statement**: any future proposal that improves per-cell marginals (more statics, more covariate channels, richer position encodings) inherits this null unless it also changes the joint or the sampler. Scope: 40 lessons, seed 42, one vehicle — **INDICATIVE**. Cross-ref C-290 (the sampler independence assumption).
 
 ---
 
@@ -2412,7 +2412,7 @@ free-running 0.0070).
 
 Two measured facts keep this from being a straightforward fix:
 
-1. The gate's **own probability field** diffuses during the rollout (Moran's I 0.50 → 0.16 by step 6), so
+1. The gate's **own probability field** diffuses during the rollout (Moran's I 0.409 → 0.192 by step 6 on target sb, while the ORACLE holds 0.507 → 0.494), so
    there is less joint structure to preserve than at h=1. Independent sampling is ~10× more destructive on a
    diffuse gate than a sharp one (25× vs 2.6×), so the two compound in a loop.
 2. **A coherent sampler alone is not sufficient.** A Gaussian-copula sampler with exactly-preserved marginals
@@ -2616,10 +2616,30 @@ which is **memoryless** and re-derived from the current input every step.
 The model therefore *perceives* at several scales but *remembers* at one, locally.
 
 **Hypothesis, not a finding:** this is at least consistent with the measured failure — the gate's spatial
-structure smears out under free-running (Moran's I 0.50 → 0.16 by h6), and the component that could carry
+structure smears out under free-running (Moran's I 0.409 → 0.192 by h6 on target sb, against an oracle that holds 0.507 → 0.494), and the component that could carry
 that structure across steps has a 3-cell horizon while the component that builds it has no memory at all.
 **Untested.** Recorded so the idea is available and clearly labelled, not so it can be cited as evidence;
 one architectural conclusion has already been withdrawn today for reasoning ahead of the evidence (C-292).
+
+**UPDATE 2026-08-17 — the hypothesis is FALSIFIED; the description stands.** Tested against the gate-probe
+data already in the dossier, before any GPU time was spent. Under the oracle the **same** architecture, the
+**same** 3×3 recurrent kernel and the **same** 35 steps hold the gate's structure flat on target `sb`:
+Moran's I **0.507 → 0.494 at step 6, 0.516 at step 35**. Free-running over identical steps falls **0.409 →
+0.192**. A 3-cell memory horizon that can preserve spatial structure for 35 steps when fed a realistic field
+cannot be what destroys it when fed the model's own.
+
+The reasoning was also backwards on its own terms: repeated convolution is a **smoothing** operator, and
+smoothing *raises* spatial autocorrelation — it is how `correlated_bernoulli` manufactures clustering from
+white noise. A diffusion mechanism predicts Moran's I going **up**; the measurement shows it going **down**.
+The hypothesis was inconsistent with the observation it was invented to explain.
+
+**What survives:** the structural description — recurrence is single-scale, local, and in front of a
+memoryless U-Net — is accurate and worth knowing. What is dead is the inference that this causes the gate to
+smear. The smearing is driven by fed-back *content*, which is C-290's territory, not the architecture's.
+
+**Consequence for planning:** "move recurrence inside the U-Net" is no longer motivated by this evidence. It
+may still be a better architecture, but nothing measured here argues for it, and it must not be justified by
+the smearing.
 
 ---
 

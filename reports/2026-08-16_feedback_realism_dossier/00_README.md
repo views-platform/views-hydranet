@@ -18,9 +18,20 @@ Sparsity is survivable on its own: `thin:0.75` matches the collapse's activation
 **32× the AP**. Under-firing is not what kills the gate; misplacement is.
 
 **A follow-up probe falsified the obvious mechanism.** The gate does not merely have its structure discarded
-by the independent-Bernoulli sampler — the gate's own probability field smears out (Moran's I 0.50 → 0.16 by
-step 6). But independent sampling is **~10× more destructive on a diffuse gate than a sharp one** (25× vs
-2.6×), so the two compound in a loop.
+by the independent-Bernoulli sampler — the gate's own probability field smears out. On target `sb`, Moran's I
+falls **0.409 → 0.192 by step 6** and then saturates (0.178 at step 35). But independent sampling is **~10×
+more destructive on a diffuse gate than a sharp one** (25× vs 2.6×), so the two compound in a loop.
+
+**The recurrence is not what smears it (corrected 2026-08-17).** Under the oracle the *same* architecture,
+the *same* 3×3 recurrent kernel and the *same* 35 steps hold the gate perfectly flat: **0.507 → 0.494 at
+step 6, 0.516 at step 35**. Repeated convolution cannot be the cause, and in any case would push Moran's I
+**up** — smoothing *creates* spatial autocorrelation, it does not destroy it. The smearing is caused by what
+is fed back, not by the memory. This retires the "memory is a diffusion operator" reading of **C-295**; the
+architectural description in C-295 stands, its proposed consequence does not.
+
+⚠️ An earlier version of this line read "Moran's I 0.50 → 0.16", which silently paired the **oracle's** value
+(0.507) with the **free-running** one (0.16–0.19) and read as a single trajectory over time. The two numbers
+came from different arms. Corrected here, in C-152, C-290 and C-295.
 
 **And then the coherent sampler was built and run — it is a NULL.** A Gaussian copula with exactly-preserved
 marginals, swept over length scale, moves fed-field clustering **0.011 → 1.064, a 100× span that brackets the
