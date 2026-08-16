@@ -151,16 +151,33 @@ arm ran, and it is cleared at both required horizons.
   precision@k. The arms share a common history.
 - **F2 did not fire** (EXP-01). **F3 did not fire** — the arms are far outside seed noise.
 
-### It is the LONG-TERM memory
+### ⚠️ CORRECTED — the arm ordering does NOT localise the damage to the cell state
 
-| arm | Δ AP @h18 | share of the combined effect |
-|---|--:|--:|
-| `hidden` (short-term held) | +0.0272 | 32% |
-| `cell` (long-term held) | +0.0751 | **89%** |
-| `all` (both held) | +0.0842 | 100% |
+**Original claim (retained for the record):** `hidden` +0.0272, `cell` +0.0751, `all` +0.0842 ΔAP at h18,
+therefore "the damage accumulates in the cell state; `cell` carries 89% of the effect; this is a specific
+channel, not the recurrent state in general."
 
-`all` ≈ `cell`; holding the short-term half on top adds little. **The damage accumulates in the cell state.**
-This is the actionable part: it is a specific channel, not "the recurrent state" in general.
+**That claim is withdrawn.** `/code-review medium` on PR #277 checked the arms against the ConvLSTM's own
+equations (`HydraBNrecurrentUnet_06_LSTM4.forward:527-529`):
+
+```
+hl = f_t * hl + i_t * hl_tilde        # the cell update
+hs = o_t * tanh(hl)                   # the hidden state is a READOUT of the cell
+```
+
+Because `hs` is derived from `hl`, pinning `hl` to the anchor also constrains `hs` — the short-term half is
+re-derived from the anchored cell every step. **`cell` therefore structurally approximates `all`, whatever
+the truth about where damage accumulates.** The reverse does not hold: under `hidden`, `hl` still integrates
+freely, which is why that arm is the only clean single-channel intervention in the set.
+
+So the observed `cell ≈ all` is predicted by the architecture and is **not evidence** that the cell state is
+the locus.
+
+**What survives:** holding the recurrent state recovers ~23% of the oracle gap at h18/h36 (`all` +0.0842 /
++0.0609), and freezing the short-term half alone recovers the least (+0.0272). The state path is a real
+mediator. **Which half carries it is not established by this design**, and separating them needs an arm that
+holds `hl` *and* recomputes `hs` from the anchored `hl` (or the mirror) — no arm does that. Registered as
+C-292.
 
 ### Corroborating signal — the fired cells are real
 
