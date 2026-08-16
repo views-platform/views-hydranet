@@ -57,6 +57,12 @@ def run_arm(
 ) -> dict:
     """Run one arm end to end. Returns the manifest record; raises on a failed run."""
     model_dir = models_root / model
+    if not model_dir.is_dir():
+        raise SystemExit(
+            f"model directory not found: {model_dir}. A mistyped --model otherwise surfaces as an "
+            "unhandled FileNotFoundError from the disk preflight, because globbing a nonexistent "
+            "path returns an empty set without complaint."
+        )
     before = _prediction_dirs(model_dir)
 
     # The pipeline names the prediction dir after the ARTIFACT timestamp, not the run — so every
@@ -157,7 +163,13 @@ def main() -> int:
     ap.add_argument("--arms", default=",".join(ARMS))
     ap.add_argument("--models-root", default=str(_MODELS_ROOT))
     ap.add_argument("--out", default=str(Path(__file__).resolve().parents[1] / "results"))
-    ap.add_argument("--keep-cubes", action="store_true", help="debug only; skips the disk guard")
+    ap.add_argument(
+        "--keep-cubes",
+        action="store_true",
+        help="DEBUG ONLY. Keeps each arm's cubes AND disables the leftover-prediction-dir check, "
+        "so a second arm will write into the first arm's directory and the two are scored as one. "
+        "It does NOT skip the free-space preflight. Never use it to work around a disk refusal.",
+    )
     args = ap.parse_args()
 
     arms = tuple(a.strip() for a in args.arms.split(","))
@@ -168,6 +180,14 @@ def main() -> int:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     manifest_path = out / f"manifest_{args.model}.jsonl"
+    # Appended across runs, so a re-run would otherwise interleave records with no way to tell
+    # which pass produced which. A batch marker makes that legible; the committed manifest already
+    # carries two incompatible schemas (the `none` row was hand-assembled after an out-of-band
+    # rescore) with nothing saying so.
+    with open(manifest_path, "a") as fh:
+        fh.write(
+            json.dumps({"batch_start": True, "arms": list(arms), "artifact": args.artifact}) + "\n"
+        )
 
     for arm in arms:
         print(f"===== ARM {arm} ({args.model}) =====", flush=True)

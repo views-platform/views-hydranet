@@ -1,5 +1,0 @@
-scoring arm 'none' failed; see /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-08-15_state_freeze_dossier/results/score_truncated_smoke_none.log
-
-ERROR conda.cli.main_run:execute(47): `conda run python reports/2026-08-15_state_freeze_dossier/tools/run_freeze_arms.py --model truncated_smoke --artifact calibration_model_20260814_003058.pt --arms none` failed. (See above for error)
-===== ARM none (truncated_smoke) =====
-

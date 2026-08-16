@@ -1,5 +1,0 @@
-Traceback (most recent call last):
-  File "/home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-07-29_v2_scoreboard_dossier/tools/score_v2_horizons.py", line 174, in <module>
-    targets = a.split("=", 1)[1].split(",")
-              ~~~~~~~~~~~~~~~^^^
-IndexError: list index out of range

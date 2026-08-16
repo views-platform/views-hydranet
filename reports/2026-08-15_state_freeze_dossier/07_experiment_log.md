@@ -151,16 +151,33 @@ arm ran, and it is cleared at both required horizons.
   precision@k. The arms share a common history.
 - **F2 did not fire** (EXP-01). **F3 did not fire** — the arms are far outside seed noise.
 
-### It is the LONG-TERM memory
+### ⚠️ CORRECTED — the arm ordering does NOT localise the damage to the cell state
 
-| arm | Δ AP @h18 | share of the combined effect |
-|---|--:|--:|
-| `hidden` (short-term held) | +0.0272 | 32% |
-| `cell` (long-term held) | +0.0751 | **89%** |
-| `all` (both held) | +0.0842 | 100% |
+**Original claim (retained for the record):** `hidden` +0.0272, `cell` +0.0751, `all` +0.0842 ΔAP at h18,
+therefore "the damage accumulates in the cell state; `cell` carries 89% of the effect; this is a specific
+channel, not the recurrent state in general."
 
-`all` ≈ `cell`; holding the short-term half on top adds little. **The damage accumulates in the cell state.**
-This is the actionable part: it is a specific channel, not "the recurrent state" in general.
+**That claim is withdrawn.** `/code-review medium` on PR #277 checked the arms against the ConvLSTM's own
+equations (`HydraBNrecurrentUnet_06_LSTM4.forward:527-529`):
+
+```
+hl = f_t * hl + i_t * hl_tilde        # the cell update
+hs = o_t * tanh(hl)                   # the hidden state is a READOUT of the cell
+```
+
+Because `hs` is derived from `hl`, pinning `hl` to the anchor also constrains `hs` — the short-term half is
+re-derived from the anchored cell every step. **`cell` therefore structurally approximates `all`, whatever
+the truth about where damage accumulates.** The reverse does not hold: under `hidden`, `hl` still integrates
+freely, which is why that arm is the only clean single-channel intervention in the set.
+
+So the observed `cell ≈ all` is predicted by the architecture and is **not evidence** that the cell state is
+the locus.
+
+**What survives:** holding the recurrent state recovers ~23% of the oracle gap at h18/h36 (`all` +0.0842 /
++0.0609), and freezing the short-term half alone recovers the least (+0.0272). The state path is a real
+mediator. **Which half carries it is not established by this design**, and separating them needs an arm that
+holds `hl` *and* recomputes `hs` from the anchored `hl` (or the mirror) — no arm does that. Registered as
+C-292.
 
 ### Corroborating signal — the fired cells are real
 
@@ -213,5 +230,46 @@ hidden-vs-cell asymmetry are large enough to survive a lot of noise; the magnitu
 Reinstating `freeze_h`. A hard freeze is a train/inference mismatch and buys 23% of the gap. What the result
 argues for is a **soft prior on the cell state** — decay or confidence-weight its update while the model is
 feeding on its own output — which is a new pre-registration, not an extension of this one.
+
+---
+
+## EXP-03 — the persistence baseline · 2026-08-16 · **NO ARM CLEARS IT**
+
+Run because `/code-review medium` on PR #277 pointed out that every arm was scored only against the
+collapsed control, and that `all`'s flat AP (0.069–0.091 from h6 to h36) is the signature of a static map.
+`score_v2_horizons.py` has supported `--persistence` throughout; no driver had ever passed it. The same gap
+was raised earlier by the `expert-method-review`'s Hyndman seat and not acted on.
+
+| h | **persistence** | `none` | `hidden` | `cell` | `all` | oracle |
+|--:|--:|--:|--:|--:|--:|--:|
+| 1 | 0.1461 | 0.2979 | 0.2979 | 0.2979 | 0.2979 | 0.2979 |
+| 6 | **0.1122** | 0.0284 | 0.0507 | 0.0716 | 0.0865 | 0.3043 |
+| 18 | **0.1077** | 0.0070 | 0.0342 | 0.0821 | 0.0912 | 0.3008 |
+| 36 | **0.0834** | 0.0083 | 0.0253 | 0.0671 | 0.0693 | 0.2711 |
+
+**Persistence beats every arm at every horizon from h6 on.** The free-running control is **15× worse** than
+repeating the last observed map. The best held arm reaches 0.091 at h18 against persistence's 0.108.
+
+### What this does to the verdict
+
+`STATE-IMPLICATED` stands **as stated** — the pre-registered rule compares held arms to `none`, and that
+comparison is unchanged. But the rule was the wrong comparison to have pre-registered. The ~23% oracle-gap
+recovery is real *relative to a collapsed control* and **still does not reach a naive baseline**, so it is
+not a skill claim.
+
+Read together with the h1 row, the shape is clear: at h1 the model is genuinely good (0.298 vs persistence
+0.146, **2×**). By h6 it has fallen below persistence and never recovers. **The rollout does not merely
+degrade — it becomes worse than assuming nothing changes.**
+
+### Corrections to this dossier, in order
+1. "It is the long-term memory, `cell` carries 89%" — **withdrawn** (C-292): `hs` is a readout of `hl`, so
+   `cell ≈ all` is architecturally predetermined.
+2. "CONFIRMED AND QUANTIFIED" in the register and "~23%" in the locked glossary — **downgraded to
+   INDICATIVE**, per this dossier's own pre-registration, which requires a second vehicle.
+3. The verdict now carries the persistence comparison, without which "+23%" reads as skill.
+
+Each correction made the claim weaker and truer. The instrument and the arms are sound; the reporting was
+ahead of the evidence three times, and the checks that caught it were a code review and a baseline the plan
+should have contained from the start.
 
 ---
