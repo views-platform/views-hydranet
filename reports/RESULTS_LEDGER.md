@@ -44,7 +44,7 @@ target `sb` where a single target is named · calibration partition.
 
 | # | Claim | Evidence | Confidence |
 |---|-------|----------|------------|
-| M1 | **Persistence beats every arm from h6 on.** h6 0.112 / h18 0.108 / h36 0.083 vs the best held arm 0.087 / 0.091 / 0.069 and free-running 0.028 / 0.007 / 0.008. At h1 the model is genuinely good (0.298 vs 0.146). | state-freeze EXP-03 | **High** — a baseline, not a comparison between arms. The single-seed caveat bites least here. |
+| M1 | **On occurrence (AP), persistence beats every arm from h6 on.** h6 0.112 / h18 0.108 / h36 0.083 vs the best held arm 0.087 / 0.091 / 0.069 and free-running 0.028 / 0.007 / 0.008. At h1 the model wins (0.298 vs 0.146). **On `crps_all` the arms beat persistence at every horizon (CRPSS +0.20/+0.45/+0.41/+0.11) — and that win is an ARTIFACT at h6/18/36** by the audited rule; see §The persistence re-reference. | state-freeze EXP-03 | **High** — a baseline, not an inter-arm comparison. Metric-qualified: an unqualified version of this row was wrong. |
 | M2 | **Gate AP collapses steeply then saturates:** 0.298 (h1) → 0.028 (h6) → 0.007 (h18), flat thereafter. ~5 steps hold most of the damage. | realism EXP-01 | **High** — large effect, reproduced across every arm's control. |
 | M3 | **Scrambling only the LOCATIONS of a perfect field reproduces the collapse:** AP 0.3008 → 0.0097, against free-running 0.0070 — with active count and magnitudes held identical. | realism EXP-03 | **High** — 31× effect; direct manipulation. Confounded with geographic grounding (C-291). |
 | M4 | **Sparsity alone is survivable.** At matched horizon, `thin:0.75` fires at a *similar* rate to the collapse and scores far better — h18: AP 0.2244 vs 0.0070 (**32×**) at `act_ratio` 0.332 vs 0.291; h36: AP 0.1898 vs 0.0083 (**23×**) at 0.317 vs 0.266. | realism EXP-03 | **High** — large, direct, holds at both horizons. ⚠️ EXP-03 quoted "0.33 vs 0.27", which pairs `thin` at **h18** with `identity` at **h36** — a cross-horizon conflation. The conclusion survives at matched horizons; the quoted pair did not exist in any single cell. |
@@ -75,9 +75,50 @@ target `sb` where a single target is named · calibration partition.
 | "Moran's I falls **0.50 → 0.16** by step 6" | 2026-08-17 | Not a trajectory. Paired the **oracle's** 0.507 with the **free-running** 0.16–0.19 as though one run produced both. Real free-running trajectory is 0.409 → 0.192 (M6). |
 | "gated_NB beats climatology at h36" | 2026-08-15 | ARTIFACT 4/4 — zero-driven; 74.6% of the gap is true zeros, ΔAP −0.030, `size_ratio` 0.0 (Epic #263). |
 
+### The persistence re-reference, 2026-08-17 — and a correction to this table
+
+The first version of this section said, flatly, *"no arm anywhere beats persistence at any horizon ≥ 6."*
+**That was unqualified and therefore wrong** — the sentence this table exists to prevent, written into the
+table itself on day one. On `crps_all`, the **FAO-02 primary metric**, every arm beats persistence at every
+horizon: CRPSS **+0.20 / +0.45 / +0.41 / +0.11** at h1/6/18/36.
+
+So the honest question is not "does it beat persistence" but "**is the win real**" — and this repo already
+has an audited, pre-registered rule for exactly that (`scripts/rollout_ruler_core.py`, Epic #263, 86 tests).
+Applied to the best arm against persistence on `sb`:
+
+| h | CRPSS | ΔAP | zero-share of the gap | verdict |
+|--:|--:|--:|--:|---|
+| 1 | +0.197 | **+0.1519** | 69.9% | **UNDECIDABLE** — no CI computed |
+| 6 | +0.446 | −0.0257 | 79.9% | **ARTIFACT** |
+| 18 | +0.409 | −0.0165 | 82.4% | **ARTIFACT** |
+| 36 | +0.111 | −0.0141 | 73.4% | **ARTIFACT** |
+
+**The model's CRPS win over persistence is an artifact at every horizon from h6** — the same verdict Epic
+#263 reached for gated_NB against climatology, now reached against the naive baseline as well. The win is
+bought by predicting near-zero on the 99% of cells that are zero, while occurrence gets *worse*.
+
+**h1 is the only non-artifact signal in the entire programme.** It reads UNDECIDABLE solely because
+`ci_excludes_zero=False` was passed — no bootstrap CI exists — while both point estimates say REAL
+(CRPSS +0.197, ΔAP +0.152). It must not be read as a negative.
+
+**Method caveat, stated rather than buried.** Persistence is scored as a **1-sample** forecast
+(`_persistence_gathered` → `np.array([last])`) with `gate_source = frac(samples>0)`, i.e. a **binary**
+ranking, while the arms use the continuous `gate-head`. That violates Epic #263's own method rule (*the
+reference's S must equal the arms' cube width*). **Both biases run the same way as the conclusion:**
+
+- On **AP**, persistence is *handicapped* — a binary ranking cannot order within its active set — and it
+  still beats the model 15× at h18. Correcting would widen the gap.
+- On **CRPS**, the arms' `2/(m*m)` estimator is biased *upward* at S>1, so the model's CRPS win is
+  *understated*. Correcting would make the win bigger — and the ARTIFACT verdict does not depend on the
+  win's size, only on ΔAP and zero-share.
+
+The conclusion is therefore robust to the S mismatch. A matched-S re-score would sharpen the numbers, not
+overturn them.
+
 ### What is NOT established
 
-- **No arm anywhere in this programme beats persistence at any horizon ≥ 6.** Every "improvement" to date is measured against a collapsed control.
+- **On occurrence (AP), no arm beats persistence at any horizon ≥ 6** — free-running reaches 7–25% of it, the best frozen arm 77–85%. Every "improvement" reported to date is measured against a collapsed control, not against this.
+- **On `crps_all` the arms do beat persistence, and that win is an ARTIFACT** at h6/18/36 by the audited rule.
 - **No result here is multi-seed or multi-vehicle.** Positive findings at n=1 have historically evaporated on proper runs; the same standard applies to everything above.
 - **Nothing has been shown to fix the collapse.** Two inference-time interventions have been tried (copula M5, state freeze M8); neither reaches persistence.
 
@@ -107,6 +148,30 @@ One near-miss worth recording: "occurrence merely being **plausible** — 43%" l
 `spatial_scramble` (0.9%) until traced; "plausible" means `wrong_month:-60`, a *real* field from the wrong
 month, and the figure is correct. **A verification pass produces false positives too** — the fix is to
 trace the number to its arm, not to "correct" it on suspicion.
+
+### The only work that is not measured against a collapsed control
+
+Follows directly from the table above.
+
+**1. Establish whether the h1 win is real — the single highest-value open question.** It is the only
+non-artifact signal in the programme and it is currently UNDECIDABLE for a purely procedural reason: no
+bootstrap CI was computed. Both point estimates say REAL. Needs a re-run (score-then-delete removed the
+cubes) emitting **per-origin** scores so an origin-bootstrap CI can be formed, at matched S. Cheap,
+decisive, and it either establishes the project's first genuine win over a naive baseline or removes the
+last one.
+
+**2. Stop treating the long-horizon rollout as having demonstrated value.** h6–h36 are ARTIFACT against
+persistence. Any further rollout work should be justified as *research toward a future capability*, not as
+improving something that currently works. This is a framing change, not an experiment.
+
+**3. Make the collapsed control unusable as a reference.** Persistence and climatology should be emitted by
+the scorer on every run, and the artifact verdict applied automatically, so no future dossier can report a
+win against `none` without the naive comparison sitting beside it. Structural, cheap, and it prevents the
+exact error this ledger was created to catch.
+
+**Deferred until the above:** the top-K feedback arm, and every other inference-time intervention. They
+compete to improve a rollout whose value over persistence is currently negative on occurrence and artifactual
+on CRPS. Worth doing *after* there is a reference worth beating — not before.
 
 ### Standing rule adopted 2026-08-17
 
