@@ -1568,6 +1568,21 @@ The 36-month-future window shrinks the origin set to ≈12 origins whose futures
 
 Free-running and teacher-forced-oracle differ in the fed-back **input**, but the ConvLSTM hidden state `h_t` evolves from that input every step — so the gap = **input-exposure-bias ⊕ the induced hidden-state trajectory**, not cleanly "the fed-back value." **Fix:** relabel the oracle a *one-step-conditioned ceiling* (not "predictability ceiling"), and interpret the gap with the hedge; cite the retired-but-inert `freeze_h` result (C-113) as evidence the input path dominates, so the gap remains interpretable but not pure. Tier 3: an interpretation/labeling risk that would over-claim a clean exposure-bias decomposition.
 
+
+**CONFIRMED AND QUANTIFIED 2026-08-16 (`reports/2026-08-15_state_freeze_dossier`).** This concern was
+recorded as OVERTURNED by #262 on the strength of the oracle probe ("NOT hidden-state / recurrent drift").
+**That inference does not hold**, for exactly the reason recorded here: the oracle varies the *input* while
+the state evolves normally, so it shows the state is healthy when never polluted and says nothing about the
+polluted case.
+
+Measured directly by holding the state during free-running: **~23% of the oracle gap is recovered**, and the
+**cell (long-term) half carries 89% of it** — `hidden` +0.027, `cell` +0.075, `all` +0.084 ΔAP at h18. So
+the state path is a real mediator, not inert, and the confound this entry names was doing exactly what it
+said. The 77% that survives a *total* freeze is the direct input→prediction path.
+
+Superseded framing: the gap is not "pure exposure bias" *or* "hidden-state drift" — it is both, in a ~77/23
+split, with the state share concentrated in the cell state.
+
 ---
 
 ### C-223: `[DEFERRED]` recursive rollout may not be the optimal product — direct-multi-horizon is a parked architectural alternative
