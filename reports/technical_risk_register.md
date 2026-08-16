@@ -5,11 +5,11 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-15                           |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review. `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 287                                  |
-| Open Concerns     | 135                                  |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted. `C-34`/`C-188` are intentional numbering gaps (merged entries). |
+| Total Concerns    | 289                                  |
+| Open Concerns     | 137                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 122                                 |
+| — net active risks | 124                                 |
 | Resolved Concerns | 152                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -2408,6 +2408,66 @@ separates "the state carried real information" from "a degenerate static map bea
 `score_v2_horizons.py` has supported `--persistence` throughout and no driver has ever passed it. FAO-02
 mandates an empirical baseline; the rollout programme has never had one. **Flagged twice — by an expert
 method review and by a code review — before being acted on.**
+
+**MEASURED 2026-08-16, and it fires.** Persistence (repeat the last observed map) scores gate AP
+**0.112 / 0.108 / 0.083** at h6 / h18 / h36. Every state-freeze arm is **below** it from h6 onward — best
+arm `all` reaches 0.091 at h18 against persistence's 0.108, and the free-running control (0.007) is **15×
+worse** than the trivial baseline. So the ~23% oracle-gap recovery is real *relative to the collapsed
+control* and still **does not reach a naive baseline**. Any rollout claim that does not clear persistence is
+not a skill claim. (AP is a ranking statistic so the comparison is valid; note persistence is a 1-sample
+forecast, so its CRPS is MAE and must not be used as a CRPS denominator — C-220.)
+
+---
+
+### C-294: the four ConvLSTM cells are identically configured and parallel — capacity, not structure
+
+| Field | Value |
+|-------|-------|
+| ID | C-294 |
+| Tier | 3 |
+| Source | architecture read prompted by the PR #277 review (2026-08-16) |
+| Trigger | Reasoning about "the four LSTMs" as if they were stacked layers or multi-scale cells — e.g. attributing a per-cell role, freezing one, or adding a fifth expecting a new scale |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:338-470` (the four `Wx*_n`/`Wh*_n` blocks), `:523-553` (the forward), `:556` (`torch.cat([x, hs_1..hs_4], 1)`) |
+| Cross-refs | C-292 (the memory-half confound found the same way), C-295 |
+
+All four cells take the **same** `input_channels`, `num_lstm_state_layers`, `kernel_size` and padding, all
+consume the **same** `x`, and none consumes another's output. They are not stacked, not multi-scale, and not
+differently parameterised — they differ **only by random initialisation**, and their hidden states are
+concatenated onto the input before the U-Net.
+
+That is close to one cell with 4× the channels minus the cross-mixing: extra capacity arranged as a
+block-diagonal constraint, not extra structure. Nothing forces the four to specialise.
+
+**Not a defect** — the LSTM math is textbook-correct (gates read the old hidden state, `o_t` is computed
+before `h` is overwritten, the old cell is on the RHS) and these are genuine ConvLSTMs (`nn.Conv2d` gates).
+Registered because the name `LSTM4` invites reading them as four *layers* or four *scales*, and a design
+decision inherited by default should be made deliberately or simplified.
+
+---
+
+### C-295: memory is single-scale and local (3x3) while perception is multi-scale and memoryless
+
+| Field | Value |
+|-------|-------|
+| ID | C-295 |
+| Tier | 3 |
+| Source | architecture read prompted by the PR #277 review (2026-08-16) |
+| Trigger | Expecting the recurrent state to carry long-range spatial structure across rollout steps, or designing a fix that assumes it can |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:152` (`kernel_size = 3`, hardcoded), `:556` (LSTM output concatenated into the U-Net input), `:560-600` (encoder → bottleneck → decoders with skips) |
+| Cross-refs | C-294, and the spatial-structure findings in `reports/2026-08-16_feedback_realism_dossier` |
+
+The recurrence sits **in front of** the U-Net, not inside it: `x → 4 ConvLSTMs → concat → U-Net → heads`.
+So **all** recurrence happens at full resolution through a **3×3** convolution — memory can propagate
+information one cell outward per timestep — while all long-range spatial reasoning happens in the U-Net,
+which is **memoryless** and re-derived from the current input every step.
+
+The model therefore *perceives* at several scales but *remembers* at one, locally.
+
+**Hypothesis, not a finding:** this is at least consistent with the measured failure — the gate's spatial
+structure smears out under free-running (Moran's I 0.50 → 0.16 by h6), and the component that could carry
+that structure across steps has a 3-cell horizon while the component that builds it has no memory at all.
+**Untested.** Recorded so the idea is available and clearly labelled, not so it can be cited as evidence;
+one architectural conclusion has already been withdrawn today for reasoning ahead of the evidence (C-292).
 
 ---
 

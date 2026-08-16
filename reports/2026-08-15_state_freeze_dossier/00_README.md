@@ -1,6 +1,14 @@
 # Recurrent-state freeze probe — does the rollout gate collapse live in the model's memory?
 
-**Status:** **RUN — verdict STATE-IMPLICATED** on `truncated_smoke` (40L, indicative). `violet_visitor` confirmation not yet run.
+**Status:** **RUN — verdict STATE-IMPLICATED, but NO ARM CLEARS A PERSISTENCE BASELINE.** `truncated_smoke`
+(40 lessons, one seed) — **INDICATIVE**; `violet_visitor` confirmation not run.
+
+> **Read this before the numbers.** Holding the recurrent state recovers ~23% of the oracle gap relative to
+> the collapsed control — and every arm still scores **below persistence** (repeat the last observed map)
+> from h6 onward. It is not a skill claim. Two further corrections are recorded in `07_experiment_log.md`:
+> the damage is **not** localised to the cell state (C-292 — `hs` is a readout of `hl`, so `cell ≈ all` is
+> architecturally predetermined), and the earlier "CONFIRMED AND QUANTIFIED" phrasing overclaimed against
+> this dossier's own pre-registration.
 **Parent:** #258 (rollout collapse) / #262 (the training-lever handoff). **Register:** C-222.
 
 ## The question in one line
