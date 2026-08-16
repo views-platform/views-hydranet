@@ -1,0 +1,18 @@
+===== ARM thin:0.25 (truncated_smoke) =====
+  done in 1494.8s -> score_truncated_smoke_thin_0.25.csv
+===== ARM thin:0.75 (truncated_smoke) =====
+  done in 1398.2s -> score_truncated_smoke_thin_0.75.csv
+===== ARM inject:0.002 (truncated_smoke) =====
+  done in 1564.9s -> score_truncated_smoke_inject_0.002.csv
+===== ARM inject:0.01 (truncated_smoke) =====
+  done in 1770.9s -> score_truncated_smoke_inject_0.01.csv
+===== ARM magnitude_perturb:0.5 (truncated_smoke) =====
+  done in 1503.0s -> score_truncated_smoke_magnitude_perturb_0.5.csv
+===== ARM magnitude_perturb:1.5 (truncated_smoke) =====
+  done in 1456.4s -> score_truncated_smoke_magnitude_perturb_1.5.csv
+===== ARM spatial_scramble (truncated_smoke) =====
+  done in 1517.3s -> score_truncated_smoke_spatial_scramble.csv
+===== ARM shuffle_months (truncated_smoke) =====
+  done in 1526.4s -> score_truncated_smoke_shuffle_months.csv
+wrote /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-08-16_feedback_realism_dossier/results/manifest_truncated_smoke_batch2.jsonl
+

@@ -19,6 +19,7 @@ from views_hydranet.utils.feedback_field_transforms import (
     splice_occurrence_magnitude,
     thin,
 )
+from views_hydranet.utils.gate_field_structure import gate_structure_stats
 from views_hydranet.utils.hurdle_nb import (
     hurdle_lognormal_expected_log1p,
     hurdle_nb_expected_log1p,
@@ -231,6 +232,11 @@ class HydraNetInference:
         # what its fixture tests say it does. A `thin` arm whose active fraction did not fall is a
         # silent no-op, and would otherwise be published as "this axis does not matter".
         self.feedback_field_stats: List[dict] = []
+        # Recorded alongside, whenever an arm is set: does the GATE still carry the spatial
+        # structure that `compose_samples`' independent Bernoulli then discards? Two fixes with
+        # nothing in common hang on the answer — a correlated sampler (no retraining) vs
+        # training-side work. See views_hydranet/utils/gate_field_structure.py.
+        self.gate_structure_stats: List[dict] = []
 
         self.hurdle_theta = self._parse_hurdle_theta(getattr(model, "hurdle_nb_theta", None))
         # generic hurdle bodies: lognormal needs sigma (fixed, from sidecar); point needs nothing.
@@ -422,6 +428,16 @@ class HydraNetInference:
                     }
                 )
         return active
+
+    def _record_gate_structure(self, gate, *, origin: int, sample_idx: int, step: int):
+        """Record, per (origin, sample, step, target), what a coherent sampler COULD do with this
+        gate versus what the independent Bernoulli in ``compose_samples`` actually does."""
+        g = gate.detach().cpu()
+        for b in range(g.shape[0]):
+            for c in range(g.shape[1]):
+                rec = gate_structure_stats(g[b, c], generator=self._fb_transform_gen)
+                rec.update(origin=origin, sample_idx=sample_idx, step=step, target_idx=c)
+                self.gate_structure_stats.append(rec)
 
     def _parse_hurdle_theta(self, theta):
         """Per-target NB dispersion theta for the hurdle-NB mean (#101). None unless hurdle_nb.
@@ -853,6 +869,10 @@ class HydraNetInference:
                 if self.freeze_recurrent:
                     h_tt = blend_recurrent_state(h_tt, state_anchor, self.freeze_recurrent)
                 t1_pred_class = torch.sigmoid(t1_pred_class)
+                if self._feedback_arm:
+                    self._record_gate_structure(
+                        t1_pred_class, origin=origin, sample_idx=sample_idx, step=t - origin
+                    )
                 if return_params:
                     acc_params.append(t1_pred)  # activated params, pre-emit
                 t1_pred = self._emit_magnitude(t1_pred, t1_pred_class)  # #101: hurdle-NB E[y]

@@ -1,6 +1,34 @@
 # Measuring the feedback realism gap — which statistic does rollout skill depend on?
 
-**Status:** batch 1 running (2026-08-16). **Parent:** #258 / #262. **Glossary:** `the feedback realism gap`.
+**Status:** **COMPLETE** (2026-08-16) — 13 arms + a gate-structure probe.
+
+## Result
+
+**The rollout collapse is a spatial-structure failure.** Scrambling only the *locations* of an otherwise
+perfect field reproduces it almost exactly (gate AP 0.3008 → 0.0097, against free-running 0.0070) — with
+identical active count and identical magnitudes.
+
+| what carries the damage | share |
+|---|--:|
+| occurrence being **correct** (right places) | 89% |
+| of which: occurrence merely being **plausible** | 43% |
+| magnitude | 8% |
+
+Sparsity is survivable on its own: `thin:0.75` matches the collapse's activation rate (0.33 vs 0.27) with
+**32× the AP**. Under-firing is not what kills the gate; misplacement is.
+
+**A follow-up probe falsified the obvious mechanism.** The gate does not merely have its structure discarded
+by the independent-Bernoulli sampler — the gate's own probability field smears out (Moran's I 0.50 → 0.16 by
+step 6). But independent sampling is **~10× more destructive on a diffuse gate than a sharp one** (25× vs
+2.6×), so the two compound in a loop. A coherent sampler would move the fed field from 0.010 to ~0.25
+clustering (target 0.449) with no retraining; whether that breaks the loop has to be run.
+
+This also explains why coordinate channels never helped (C-152): coords improve *which cells are likely* —
+a marginal property — while what fails is the **joint** spatial coherence plus an independence-assuming
+sampler.
+
+**Scope:** 40 lessons, seed 42, one origin set, one target, one vehicle. Indicative; the ordering is the
+result, not the magnitudes. **Parent:** #258 / #262. **Glossary:** `the feedback realism gap`.
 
 ## The question in one line
 

@@ -155,3 +155,107 @@ and it agrees with E1's finding that clustering is the dominant drift (40.8×). 
 *sensitivity* follows that drift, which is the other half of the product and is not yet measured.
 
 ---
+
+## EXP-03 — batch 2 dose-response · 2026-08-16 · **SPATIAL STRUCTURE, DECISIVELY**
+
+Degrade the *real* field one axis at a time; ΔAP at h18 against the oracle (0.3008). Free-running is 0.0070.
+
+| axis | ΔAP h18 | resulting AP | verdict |
+|---|--:|--:|---|
+| **`spatial_scramble`** | **−0.2911** | 0.0097 | clears the 0.05 bar 6× over |
+| `thin:0.75` | −0.0764 | 0.2244 | clears |
+| ~~`shuffle_months`~~ | ~~−0.0415~~ | ~~0.2593~~ | **VOID — F6 fires, see below** |
+| `inject:0.01` | −0.0299 | 0.2709 | |
+| `thin:0.25` | −0.0268 | 0.2740 | |
+| `magnitude_perturb:1.5` | −0.0203 | 0.2805 | |
+| `inject:0.002` | −0.0090 | 0.2918 | |
+| `magnitude_perturb:0.5` | −0.0021 | 0.2987 | |
+
+**Destroying spatial structure alone reproduces the collapse.** 0.3008 → 0.0097, within 0.003 of free-running
+— from a field with **identical active count and identical magnitudes**. The fed-field record proves the
+intervention was clean: active 0.00321 (unchanged), mean magnitude 11.87 (unchanged), clustering
+0.447 → 0.009.
+
+**P2 CONFIRMED. F4 does not fire.** Decision rule returns **NAMED-STATISTIC-SUFFICIENT**: the target is the
+spatial coherence of the occurrence field.
+
+### F6 FIRES on `shuffle_months` — that arm is VOID
+It was to destroy temporal persistence. It moved it **0.424 → 0.404 (5%)**. The intervention barely
+happened, and its −0.0415 is *not* the cost of breaking persistence. The score alone reads as a plausible
+middling effect and would have been written up as "persistence matters somewhat"; only the fed-field record
+exposed it.
+
+**Why it failed is a finding about the DGP:** real conflict is geographically sticky over *years*, so
+permuting months inside a 36-month window lands on a month whose conflict is in much the same places. The
+temporal axis cannot be broken this way, by construction. `wrong_month:-60` is the arm that actually
+decorrelates (persistence 0.527, from a genuinely different era).
+
+### Orthogonality held on real data
+`spatial_scramble` left persistence at **0.424** (oracle 0.424) while destroying clustering — the guarantee
+the transform was designed around, confirmed outside the fixtures. `magnitude_perturb` left clustering at
+0.447 (unchanged) and cost ~nothing: a clean control in the opposite direction.
+
+### Confound, recorded
+`thin` and `inject` both *also* damage clustering as a side effect (0.447 → 0.137 and → 0.135). Part of
+their measured damage is likely clustering-mediated. This strengthens rather than weakens the reading — the
+axis that disturbs **only** clustering does the most harm, the axis that disturbs **only** magnitude does
+almost none.
+
+---
+
+## EXP-04 — the gate-structure probe · 2026-08-16 · **HYPOTHESIS FALSIFIED; A REFINED MECHANISM SURVIVES**
+
+**Motivated by a maintainer challenge:** if the failure is spatial, why have repeated coordinate-channel
+attempts (ADR-061, C-152) never helped? Proposed answer: coords act on the **marginals**, while
+`compose_samples` draws `torch.bernoulli(gate)` **independently per cell** — so the *joint* structure is
+discarded at sampling. Hypothesis: the gate still knows, and the sampler throws it away.
+
+### The metric would have manufactured the expected answer
+The first `topk` reference used `torch.topk`, which breaks ties by **flat index order** — on any uniform
+region it returns a *contiguous run*, which the clustering statistic scores as highly structured. Measured
+on hand-built gates: structured **1.00**, smeared **1.06**. Indistinguishable, and it would have reported
+"the gate knows" from a pure artifact. Fixed with random tie-breaking; the probe now separates the two
+cases 1.50 vs 0.025. **Caught by the discriminating test, before any real data.**
+
+### The result
+
+| step | oracle Moran's I | oracle coherent | free Moran's I | free coherent | free independent |
+|--:|--:|--:|--:|--:|--:|
+| 1 | 0.504 | 0.847 | 0.406 | 0.749 | 0.147 |
+| 6 | 0.491 | 0.821 | **0.161** | **0.295** | 0.011 |
+| 35 | 0.509 | 0.820 | **0.161** | 0.262 | 0.018 |
+
+The oracle gate holds Moran's I ~0.50 across all 36 steps. **The free-running gate collapses to 0.16 by
+step 6** — the same cliff as everything else. And a *maximally coherent* sampler on the free-running gate
+reaches only 0.25 clustering, against real 0.449.
+
+**The hypothesis as stated is FALSIFIED: the structure is not there to recover.**
+
+### The refined mechanism, which survives and is actionable
+
+| gate | coherent | independent | ratio |
+|---|--:|--:|--:|
+| oracle (sharp) | 0.819 | 0.317 | **2.6×** |
+| free-running (diffuse) | 0.249 | 0.010 | **25×** |
+
+**Independent sampling is ~10× more destructive on a diffuse gate than a sharp one.** Concentrated mass
+still yields clumps under independent draws; smeared mass yields confetti. So two effects compound in a
+loop: the gate smears → independent sampling converts a mildly-smeared gate into pure scatter → the scatter
+is fed back → the gate smears further.
+
+A coherent sampler alone would move the fed field from **0.010 to ~0.25** clustering (target 0.449) with
+**no retraining**. Whether that breaks the loop is not measurable from this data — the loop has to be run.
+
+### Why the control was necessary
+Run only on the free-running arm, we would have seen a smeared gate *and* a scattered sample and could have
+blamed either. The oracle arm shows independent sampling of a *healthy* gate yields 0.33 against a real
+0.449 — the sampler is not inherently destructive, which is what makes the 25× amplification on a diffuse
+gate the interesting quantity rather than a foregone conclusion.
+
+### On the coordinate-channel puzzle
+Coords improve *which cells are likely* — a marginal, per-cell property, and every metric they were judged
+on is per-cell. What fails here is the **spatial coherence of the probability field** plus a sampler that
+assumes independence. Coords were never touching the failing mechanism. C-152's "CoordConv is not a lever"
+now has a mechanism behind it.
+
+---

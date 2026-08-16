@@ -65,6 +65,7 @@ def main() -> int:
     # is the eps=0.1 scheduled-sampling arm, NOT the EXP-SS-2 artifact the control must reproduce.
     ap.add_argument("--artifact", required=True, help="exact artifact filename")
     ap.add_argument("--stats-out", required=True, help="CSV for the fed-field statistics")
+    ap.add_argument("--gate-out", default=None, help="CSV for the gate-structure record")
     args, _ = ap.parse_known_args()
 
     # Fail on a bad spec before loading anything — a typo must never run the control silently.
@@ -105,6 +106,21 @@ def main() -> int:
         w.writeheader()
         w.writerows(stats)
     print(f"wrote {out} ({len(stats)} field records)")
+
+    if args.gate_out:
+        gate = manager._realism_ctx.orchestrator.inference.gate_structure_stats
+        if not gate:
+            raise SystemExit(
+                "--gate-out was requested but no gate-structure records exist; the probe would "
+                "report nothing while appearing to have run."
+            )
+        gp = Path(args.gate_out)
+        gp.parent.mkdir(parents=True, exist_ok=True)
+        with open(gp, "w", newline="") as fh:
+            w = csv.DictWriter(fh, fieldnames=list(gate[0]))
+            w.writeheader()
+            w.writerows(gate)
+        print(f"wrote {gp} ({len(gate)} gate records)")
     return 0
 
 
