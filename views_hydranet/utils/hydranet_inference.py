@@ -10,7 +10,17 @@ from tqdm import tqdm
 from views_hydranet.distributions import resolve_family
 from views_hydranet.distributions.composition import compose_mean
 from views_hydranet.distributions.sampling import to_cube_samples
+from views_hydranet.utils.correlated_bernoulli import correlated_bernoulli
 from views_hydranet.utils.disk_guard import assert_cube_fits
+from views_hydranet.utils.feedback_field_transforms import (
+    inject,
+    magnitude_perturb,
+    parse_feedback_transform,
+    spatial_scramble,
+    splice_occurrence_magnitude,
+    thin,
+)
+from views_hydranet.utils.gate_field_structure import gate_structure_stats
 from views_hydranet.utils.hurdle_nb import (
     hurdle_lognormal_expected_log1p,
     hurdle_nb_expected_log1p,
@@ -35,6 +45,13 @@ QUANTILE_EMIT_CEIL = 13.0
 # hs_1..hs_4 (short-term / hidden) then hl_1..hl_4 (long-term / cell) — see
 # HydraBNrecurrentUnet_06_LSTM4.forward's `torch.split(h, split_h, dim=1)`. Freezing a memory type
 # is therefore a channel slice, and the halves are contiguous.
+# Offset so the feedback-transform RNG cannot share a stream with the sample-feedback RNG.
+_FB_TRANSFORM_SEED_NAMESPACE = 10_000_019
+# A THIRD stream, for the correlated-feedback copula. It must not share with fb_gen (which drives
+# family.sample and compose_samples) nor with the transform RNG, for the same reason those two are
+# separated: an intervention drawn from the stream it perturbs correlates with what it measures.
+_FB_CORRELATED_SEED_NAMESPACE = 20_000_033
+
 _STATE_GROUPS = 8
 FREEZE_RECURRENT_MODES = ("hidden", "cell", "all")
 
@@ -105,6 +122,9 @@ class HydraNetInference:
         device: Optional[str] = None,
         visualizer: Optional["VisualDiagnostics"] = None,
         freeze_recurrent: Optional[str] = None,
+        feedback_transform: Optional[str] = None,
+        feedback_length_scale: Optional[float] = None,
+        record_gate_probe: bool = False,
     ) -> None:
         """Initializes the inference pipeline for HydraNet.
 
@@ -120,6 +140,11 @@ class HydraNetInference:
                 end-of-seed-step value for the whole free-running rollout; see
                 :func:`blend_recurrent_state`. Deliberately **not** a config key, so no model
                 config can enable it and ADR-027's retirement of ``freeze_h`` is untouched.
+            feedback_transform: **Diagnostic only.** ``None`` (default) feeds back exactly what
+                ``rollout_feedback`` produces — byte-identical to before this argument existed. A
+                spec string (e.g. ``"thin:0.25"``, ``"use_real"``, ``"wrong_month:-60"``) replaces
+                the fed-back **dynamic** channels; statics are never touched. Also not a config
+                key. See :mod:`views_hydranet.utils.feedback_field_transforms`.
 
         Raises:
             TypeError: If model or config are of incorrect types.
@@ -187,6 +212,90 @@ class HydraNetInference:
             )
         self.freeze_recurrent = freeze_recurrent
 
+        # Diagnostic feedback-field transform (#258/#262 — measuring `the feedback realism gap`).
+        # Same contract as freeze_recurrent: explicit argument, no config key, default None =
+        # byte-identical production path. Parsed here so an unknown arm raises before any GPU time.
+        self.feedback_transform = feedback_transform
+        self._feedback_arm = (
+            parse_feedback_transform(feedback_transform) if feedback_transform else None
+        )
+        if self._feedback_arm:
+            # The transforms convert with expm1/log1p, which is the round-trip ONLY if every
+            # dynamic feature is log1p-transformed. `validate_family_requires_log1p_targets` covers
+            # family heads' regression_targets and nothing else, so an asinh/identity feature would
+            # run every arm on mis-scaled counts and emit plausible, wrong dose-response numbers —
+            # the one failure the transforms module declares must be impossible.
+            log1p_cols = set((config.get("transformations") or {}).get("log1p", []))
+            not_log1p = [f for f in config.get("features", []) if f not in log1p_cols]
+            if not_log1p:
+                raise ValueError(
+                    f"feedback_transform={feedback_transform!r} needs every dynamic feature in "
+                    f"log1p space (the transforms round-trip with expm1/log1p), but {not_log1p} "
+                    "are not in transformations['log1p']. Every arm would be run on mis-scaled "
+                    "counts and would look plausible."
+                )
+            # The E4 splice arms read the MODEL's field out of `t0_autoreg`, which is assembled
+            # after both rollout_feedback branches. Under 'teacher_forced' that tensor holds the
+            # REAL field, so "real occurrence x model magnitude" would splice real with real and
+            # report an E4 decomposition in which the model never appeared. Nothing downstream can
+            # detect it: the arm runs, scores, and looks like a result.
+            if (
+                self._feedback_arm[0]
+                in (
+                    "occurrence_real_magnitude_model",
+                    "occurrence_model_magnitude_real",
+                )
+                and self.rollout_feedback == "teacher_forced"
+            ):
+                raise ValueError(
+                    f"feedback_transform={feedback_transform!r} splices the model's field with "
+                    "the real one, but rollout_feedback='teacher_forced' already feeds the real "
+                    "— the arm would splice real with real and report an E4 result that never "
+                    "involved the model. Use rollout_feedback='sample' or 'mean'."
+                )
+        # Every arm self-reports the field it actually fed, per (sample, step). This is not
+        # instrumentation for one experiment — it is how we check on REAL data that a transform did
+        # what its fixture tests say it does. A `thin` arm whose active fraction did not fall is a
+        # silent no-op, and would otherwise be published as "this axis does not matter".
+        self.feedback_field_stats: List[dict] = []
+        # Does the GATE still carry the spatial structure that `compose_samples`' independent
+        # Bernoulli then discards? Two fixes with nothing in common hang on the answer — a
+        # correlated sampler (no retraining) vs training-side work. See
+        # views_hydranet/utils/gate_field_structure.py.
+        #
+        # OPT-IN, not implied by an arm. Each record runs a randperm over the grid, a topk, and (on
+        # sample 0) five correlated draws whose kernels reach 49x49 at the calibration length
+        # scales — per origin x step x target, on every arm including ones with nothing to do with
+        # the gate. The first probe run was SIGKILLed (rc=137, `gateprobe_manifest.txt`), which is
+        # consistent with the instrumentation being the resource problem rather than the model.
+        self.record_gate_probe = bool(record_gate_probe)
+        self._record_gate_probe = self.record_gate_probe
+        self.gate_structure_stats: List[dict] = []
+        # DIAGNOSTIC: correlation length for the fed-back gate draw. None = production's
+        # independent Bernoulli. Applies to the FEEDBACK path only; the scored cube is untouched.
+        if feedback_length_scale is not None and feedback_length_scale <= 0:
+            raise ValueError(
+                f"feedback_length_scale must be > 0 or None, got {feedback_length_scale}."
+            )
+        if feedback_length_scale is not None:
+            # The copula is reachable only from _sample_feedback, and only on the soft_gate branch.
+            # Under any other configuration a run launched with a correlation length executes the
+            # CONTROL end to end and reports "correlated sampling is NULL" — a null manufactured by
+            # the harness rather than measured. Fail here, as freeze_recurrent and
+            # parse_feedback_transform already do, so a diagnostic can never silently no-op.
+            comp = self.config.get("forecast_composition", "self_zeroed")
+            if self.rollout_feedback != "sample" or comp != "soft_gate":
+                raise ValueError(
+                    "feedback_length_scale needs rollout_feedback='sample' and "
+                    f"forecast_composition='soft_gate' to have any effect; got "
+                    f"rollout_feedback={self.rollout_feedback!r}, forecast_composition={comp!r}. "
+                    "Under this configuration the correlated sampler is never reached and the run "
+                    "would silently produce the independent-Bernoulli control."
+                )
+        self._feedback_length_scale = feedback_length_scale
+        # Set per rollout in `predict`; declared here so the attribute always exists.
+        self._fb_correlated_gen: torch.Generator | None = None
+
         self.hurdle_theta = self._parse_hurdle_theta(getattr(model, "hurdle_nb_theta", None))
         # generic hurdle bodies: lognormal needs sigma (fixed, from sidecar); point needs nothing.
         self.lognormal_sigma = self._parse_lognormal_sigma(
@@ -253,6 +362,158 @@ class HydraNetInference:
             return t0_autoreg
         ceiling = self.feedback_clamp.to(device=t0_autoreg.device, dtype=t0_autoreg.dtype)
         return torch.minimum(t0_autoreg, ceiling)
+
+    def _real_dynamic(self, full_tensor, model_in_indices, n_dyn: int, step: int):
+        """The REAL dynamic channels at ``step``, log1p space — the same expression the
+        ``teacher_forced`` branch feeds, sliced to the dynamic prefix.
+
+        Reusing that expression rather than re-deriving a month offset is deliberate: an
+        off-by-one here would compare the wrong month and every arm built on it would be
+        confidently wrong while looking healthy.
+        """
+        n_months = full_tensor.shape[1]
+        if not 0 <= step < n_months:
+            raise ValueError(
+                f"feedback transform asked for month index {step}, outside the loaded window "
+                f"[0, {n_months - 1}]. Refusing to clamp — a silently substituted month would "
+                "make the arm uninterpretable."
+            )
+        return full_tensor[:, step, model_in_indices, :, :][:, :n_dyn]
+
+    def _apply_feedback_transform(
+        self, t0_autoreg, full_tensor, model_in_indices, n_static: int, step: int
+    ):
+        """Replace the fed-back DYNAMIC channels per the diagnostic arm. Statics are untouched.
+
+        All field manipulation happens in **count space** (``expm1`` in, ``log1p`` out) because
+        the model's dynamic inputs are ``log1p(counts)`` with no standardisation. See
+        :mod:`views_hydranet.utils.feedback_field_transforms`.
+        """
+        name, param = self._feedback_arm
+        n_dyn = t0_autoreg.shape[1] - n_static
+        model_log1p = t0_autoreg[:, :n_dyn]
+
+        # --- step remappings: choose WHICH month's real field, change nothing about it ---------
+        if name == "identity":
+            return t0_autoreg
+        if name in ("use_real", "wrong_month", "shuffle_months"):
+            src = {
+                "use_real": step,
+                "wrong_month": step + int(param or 0),
+                "shuffle_months": self._month_shuffle.get(step, step),
+            }[name]
+            if name == "use_real":
+                # The FULL slice, exactly what the teacher_forced branch feeds — including its
+                # statics from month `t`. The feedback branch attaches statics from month `origin`
+                # instead, so reusing those would make F1's byte-identity depend on the statics
+                # being time-invariant, which nothing here asserts.
+                return full_tensor[:, src, model_in_indices, :, :]
+            real = self._real_dynamic(full_tensor, model_in_indices, n_dyn, src)
+            return torch.cat([real, t0_autoreg[:, n_dyn:]], dim=1)
+
+        # --- field transforms: degrade the REAL field (E2) or splice the two (E4) -------------
+        real_counts = torch.expm1(
+            self._real_dynamic(full_tensor, model_in_indices, n_dyn, step)
+        ).clamp(min=0.0)
+        model_counts = torch.expm1(model_log1p).clamp(min=0.0)
+        g = self._fb_transform_gen
+
+        if name == "thin":
+            out = thin(real_counts, p=float(param), generator=g)
+        elif name == "inject":
+            out = inject(real_counts, q=float(param), generator=g)
+        elif name == "magnitude_perturb":
+            out = magnitude_perturb(real_counts, sigma=float(param), generator=g)
+        elif name == "spatial_scramble":
+            out = spatial_scramble(real_counts, permutation=self._scramble_perm)
+        elif name == "occurrence_real_magnitude_model":
+            out = splice_occurrence_magnitude(
+                real_counts, model_counts, generator=g, on_empty_donor="zeros"
+            )
+        elif name == "occurrence_model_magnitude_real":
+            out = splice_occurrence_magnitude(
+                model_counts, real_counts, generator=g, on_empty_donor="zeros"
+            )
+        else:  # pragma: no cover - parse_feedback_transform already rejects unknown names
+            raise ValueError(f"unhandled feedback transform {name!r}")
+
+        return torch.cat([torch.log1p(out), t0_autoreg[:, n_dyn:]], dim=1)
+
+    def _record_feedback_stats(
+        self, field_log1p, *, origin: int, sample_idx: int, step: int, prev_active
+    ):
+        """Summarise the field fed at this step, PER TARGET; return its mask for the next call.
+
+        Recorded for EVERY arm, not just the observer one: a `thin` arm whose active fraction did
+        not fall, or a `shuffle_months` arm whose persistence did not drop, is a silent no-op that
+        would otherwise be published as "this axis does not matter".
+
+        **Per target, not pooled.** An earlier version divided a channel-0 neighbour count by an
+        active count summed over batch *and* all three targets — off by 1/(B*C) on the very
+        statistic that verifies `spatial_scramble` destroyed clustering — and pooled sb/ns/os into
+        one active fraction, hiding a per-target collapse. Both are computed per (batch, channel)
+        now.
+        """
+        counts = torch.expm1(field_log1p).clamp(min=0.0)
+        active = counts > 0
+        for b in range(active.shape[0]):
+            for c in range(active.shape[1]):
+                a = active[b, c]
+                n_active = int(a.sum())
+                af = a.float()
+                pairs = float((af[:, :-1] * af[:, 1:]).sum() + (af[:-1, :] * af[1:, :]).sum())
+                if prev_active is None:
+                    persistence, prev_n = -1.0, 0
+                else:
+                    prev = prev_active[b, c]
+                    prev_n = int(prev.sum())
+                    persistence = (float((a & prev).sum()) / prev_n) if prev_n else -1.0
+                self.feedback_field_stats.append(
+                    {
+                        "origin": origin,
+                        "sample_idx": sample_idx,
+                        "step": step,
+                        "target_idx": c,
+                        "n_cells": int(a.numel()),
+                        "n_active": n_active,
+                        "active_fraction": n_active / a.numel(),
+                        # -1 = UNDEFINED (no active cells), matching `persistence` below rather
+                        # than colliding with a real measurement. 0.0 would be indistinguishable
+                        # from "the field was scattered", and averaging the column would then mix
+                        # empty fields with scattered ones — biasing the clustering statistic
+                        # downward exactly in the collapse regime this study is about.
+                        "mean_magnitude_on_active": (
+                            float(counts[b, c][a].mean()) if n_active else -1.0
+                        ),
+                        # P(on | on at the previous step). -1 = no previous step.
+                        "persistence": persistence,
+                        "neighbour_pairs_per_active": (pairs / n_active) if n_active else -1.0,
+                    }
+                )
+        return active
+
+    def _record_gate_structure(self, gate, *, origin: int, sample_idx: int, step: int):
+        """Record, per (origin, sample, step, target), what a coherent sampler COULD do with this
+        gate versus what the independent Bernoulli in ``compose_samples`` actually does."""
+        # Slice to n_reg, mirroring _sample_feedback's defensive `prob[..., :n_reg]`. The cls head
+        # is not guaranteed to carry exactly n_reg channels; an extra one would be written as
+        # target_idx=3 and silently corrupt any per-target aggregate over the column.
+        n_reg = len(self.config.get("regression_targets", []) or [])
+        g = gate.detach().cpu()
+        if n_reg:
+            g = g[:, :n_reg]
+        for b in range(g.shape[0]):
+            for c in range(g.shape[1]):
+                rec = gate_structure_stats(
+                    g[b, c],
+                    generator=self._fb_transform_gen,
+                    # The sweep is ~5 extra correlated draws per record; restricting it to the
+                    # first posterior sample keeps the cost off every arm while still giving
+                    # 13 origins x 35 steps of calibration data.
+                    sweep_length_scales=(sample_idx == 0),
+                )
+                rec.update(origin=origin, sample_idx=sample_idx, step=step, target_idx=c)
+                self.gate_structure_stats.append(rec)
 
     def _parse_hurdle_theta(self, theta):
         """Per-target NB dispersion theta for the hurdle-NB mean (#101). None unless hurdle_nb.
@@ -404,7 +665,30 @@ class HydraNetInference:
 
             cube = draws.permute(0, 2, 3, 1).unsqueeze(-1)  # [B,H,W,n_reg,1]
             gate = prob.detach().to("cpu")[:, :n_reg].permute(0, 2, 3, 1)  # [B,H,W,n_reg]
-            cube = compose_samples(cube, gate, comp, self.config.get("gate_threshold"), generator)
+            if self._feedback_length_scale is not None and comp == "soft_gate":
+                # DIAGNOSTIC: replace the independent Bernoulli with a spatially-correlated draw
+                # of the SAME marginals (Gaussian copula). Applied here and ONLY here — the scored
+                # cube keeps independent sampling via `to_cube_samples`, so any effect is the model
+                # behaving differently, not the metric being handed a prettier cube.
+                #
+                # Advance `generator` exactly as the control does, then DISCARD the result. The
+                # copula consumes a different number of variates than compose_samples' bernoulli,
+                # so without this every LATER step's body draw (`draw_fn`, same generator) would
+                # come from a different stream than the control's — and the arm would confound
+                # "coherent placement" with "different body noise". The copula itself draws from a
+                # third, namespaced stream. Same defect class as the C-113 generator coupling, and
+                # as the fb_gen/transform separation documented in `predict`.
+                compose_samples(cube, gate, comp, self.config.get("gate_threshold"), generator)
+                mask = correlated_bernoulli(
+                    gate.permute(0, 3, 1, 2),  # [B,H,W,n_reg] -> [B,n_reg,H,W] for the (H,W) tail
+                    length_scale=self._feedback_length_scale,
+                    generator=self._fb_correlated_gen,
+                ).permute(0, 2, 3, 1)  # back to [B,H,W,n_reg]
+                cube = cube * mask.unsqueeze(-1)
+            else:
+                cube = compose_samples(
+                    cube, gate, comp, self.config.get("gate_threshold"), generator
+                )
             draws = cube.squeeze(-1).permute(0, 3, 1, 2)  # -> [B, n_reg, H, W]
         # log1p emit space, on the model device
         return torch.log1p(draws.clamp(min=0.0)).to(reg.device)
@@ -528,6 +812,62 @@ class HydraNetInference:
         # digested from REAL observations. Held for t > origin only, so h=1 is untouched by
         # construction and must come out byte-identical across every mode.
         state_anchor = None
+        # Diagnostic feedback transform: per-rollout RNG, plus the two rollout-constant objects.
+        # Both are seeded from torch_seed ALONE (not sample_idx) because "which permutation" and
+        # "which month order" are properties of the experimental ARM, not of a posterior draw —
+        # every sample must see the same scrambling or the arm is not one intervention.
+        fb_prev_active = None
+        # The copula stream is seeded independently of `_feedback_arm`: a correlation length can be
+        # set on its own (the sweep's control is `identity`, but nothing requires an arm), and the
+        # generator must exist before the first step either way.
+        if self._feedback_length_scale is not None:
+            self._fb_correlated_gen = torch.Generator(device="cpu").manual_seed(
+                int(self.config["torch_seed"]) + _FB_CORRELATED_SEED_NAMESPACE + sample_idx
+            )
+        # The gate probe draws from the transform RNG too, and is now independent of
+        # `_feedback_arm` — so seed it whenever either is active, not only when an arm is set.
+        if self._record_gate_probe and not self._feedback_arm:
+            self._fb_transform_gen = torch.Generator(device="cpu").manual_seed(
+                int(self.config["torch_seed"]) + _FB_TRANSFORM_SEED_NAMESPACE + sample_idx
+            )
+        if self._feedback_arm:
+            seed = int(self.config["torch_seed"])
+            # NAMESPACED away from fb_gen (line ~648), which is seeded `torch_seed +
+            # sample_idx`. Two Generators with the same seed emit the same stream, so an
+            # un-namespaced transform would draw the SAME uniforms that drive family.sample
+            # and compose_samples' bernoulli — correlating the intervention with the quantity
+            # it measures. Same defect class as the C-113 shared-generator coupling.
+            self._fb_transform_gen = torch.Generator(device="cpu").manual_seed(
+                seed + _FB_TRANSFORM_SEED_NAMESPACE + sample_idx
+            )
+            arm_gen = torch.Generator(device="cpu").manual_seed(seed)
+            _, _, hh, ww = full_tensor.shape[0], full_tensor.shape[1], H, W
+            self._scramble_perm = torch.randperm(hh * ww, generator=arm_gen)
+            steps = list(range(origin + 1, origin + time_steps))
+            # A plain randperm leaves fixed points (~1 expected over 35 steps): those steps would
+            # feed the TRUE month while being scored as "persistence destroyed" — a silent control
+            # inside the treatment arm. Resample until deranged.
+            for _ in range(1000):
+                order = torch.randperm(len(steps), generator=arm_gen).tolist()
+                if all(i != j for i, j in enumerate(order)):
+                    break
+            else:  # pragma: no cover - astronomically unlikely
+                raise RuntimeError("could not draw a derangement for shuffle_months")
+            self._month_shuffle = dict(zip(steps, [steps[i] for i in order]))
+            # Pre-flight the month range this arm will need. The per-step check would otherwise
+            # fire ~30 autoregressive steps into the first origin, wasting GPU on an arm that was
+            # mis-specified before it started.
+            name, param = self._feedback_arm
+            if name in ("use_real", "wrong_month", "shuffle_months") or name not in ("identity",):
+                offset = int(param) if name == "wrong_month" else 0
+                needed = [s + offset for s in steps] + [origin + offset]
+                oob = [m for m in needed if not 0 <= m < full_tensor.shape[1]]
+                if oob:
+                    raise ValueError(
+                        f"feedback arm {self.feedback_transform!r} needs month indices "
+                        f"{min(needed)}..{max(needed)}, outside the loaded window "
+                        f"[0, {full_tensor.shape[1] - 1}] (e.g. {oob[:3]}). Refusing to start."
+                    )
         for t in range(origin + time_steps):
             if t < origin:
                 # 1. HISTORY DIGESTION: Update hidden state only
@@ -612,6 +952,20 @@ class HydraNetInference:
                         t0_autoreg = torch.cat(
                             [t0_autoreg, full_tensor[:, origin, static_indices, :, :]], dim=1
                         )
+                # Diagnostic feedback transform (#258/#262). Applied AFTER both branches so it
+                # composes with any rollout_feedback, and it replaces only the dynamic prefix —
+                # statics stay exactly as attached above.
+                if self._feedback_arm:
+                    t0_autoreg = self._apply_feedback_transform(
+                        t0_autoreg, full_tensor, model_in_indices, len(static_indices), t
+                    )
+                    fb_prev_active = self._record_feedback_stats(
+                        t0_autoreg[:, : t0_autoreg.shape[1] - len(static_indices)],
+                        origin=origin,
+                        sample_idx=sample_idx,
+                        step=t - origin,
+                        prev_active=fb_prev_active,
+                    )
                 # freeze_h retired (2026-06-05): production always evolves the full ConvLSTM
                 # state (the former "none" behaviour) — the only mode that was not a
                 # train/inference mismatch, and the freeze was inert vs the C-113 runaway
@@ -627,6 +981,10 @@ class HydraNetInference:
                 if self.freeze_recurrent:
                     h_tt = blend_recurrent_state(h_tt, state_anchor, self.freeze_recurrent)
                 t1_pred_class = torch.sigmoid(t1_pred_class)
+                if self._record_gate_probe:
+                    self._record_gate_structure(
+                        t1_pred_class, origin=origin, sample_idx=sample_idx, step=t - origin
+                    )
                 if return_params:
                     acc_params.append(t1_pred)  # activated params, pre-emit
                 t1_pred = self._emit_magnitude(t1_pred, t1_pred_class)  # #101: hurdle-NB E[y]

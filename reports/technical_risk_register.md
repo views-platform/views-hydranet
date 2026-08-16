@@ -5,9 +5,9 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-15                           |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted. `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 289                                  |
-| Open Concerns     | 137                                  |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
+| Total Concerns    | 294                                  |
+| Open Concerns     | 142                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | — net active risks | 124                                 |
 | Resolved Concerns | 152                                  |
@@ -963,6 +963,8 @@ ADR-061's "why now" leans on El Jurdi et al. (2021): CoordConv-Unet stabilizes t
 **UPDATE 2026-07-29 — the analogy did NOT transfer; the "unbacked input+top-skip placement" is empirically harmful (expert-method-review + S8b).** The S7 data-backed static channel extended the coord-concat seam from geometry (coords) to a **semantic** covariate (population, `ln_pop`). Seed-42 controls prove the placement C-152 flagged is a real defect, not just a decision-hygiene risk: a spatially-shuffled **placebo** static channel collapses gate AP sb 0.31→0.13 (real `ln_pop` 0.31→0.20), crps_all inert. So concatenating a raw semantic channel via the input+top-skip is not merely "analogy may not transfer" — it **actively degrades occurrence**. The concrete architectural defect is tracked as **C-228**; the generalization-overreach and the wrong-primitive framing as **C-230**. C-152 stays open as the decision-hygiene root (don't re-promote the CoordConv analogy to justify covariate concat).
 
 **UPDATE 2026-07-31 — CoordConv now tested DIRECTLY (v2 scoreboard `09`/`07` E2) → clean 3-seed negative; question CLOSED.** The prior "didn't transfer" was inferred from the *population* placebo; the coord A/B tested real geometry coords with the nb head for the first time (gated_NB + row/col × {enc, top} × 3 seeds × 300 lessons). Result: coords **HURT** occurrence — AP < no-coords at every horizon×target (sb AP h1 0.450→enc 0.426→top 0.406; F1 fired, P1+P2 falsified); crps_all inert. So CoordConv is not a lever on the distributional heads: absolute position is already implicit in each fixed-grid cell's own history, and the extra channels are a mild spatial-overfit shortcut. C-152's decision-hygiene concern is now MOOT (no analogy left to re-promote — the lever is empirically dead). Cross-ref C-228 (the placement half of the same result).
+
+**UPDATE 2026-08-16 — the MECHANISM, supplied by the feedback-realism probe (`reports/2026-08-16_feedback_realism_dossier/`).** The July closure was a clean empirical negative with **no explanation**, which left the null looking like bad luck and the lever re-openable by anyone with a new placement idea. It is not bad luck. Coordinate channels change *which cells are likely* — a **marginal** property of the field. What actually fails in the rollout is the **joint** structure: `spatial_scramble` reproduces the collapse (gate AP 0.3008 → 0.0097 vs free-running 0.0070) with the active count and the magnitudes held identical, so 89% of the damage is cells being in the **wrong places**, not the wrong cells being individually more or less likely. Compounding it, the emitted field is drawn by an **independence-assuming** sampler, and the gate's own probability field diffuses (Moran's I 0.50 → 0.16 by step 6). **A marginal fix cannot repair a joint failure** — which is why coords were inert on `crps_all` *and* on AP regardless of placement. Recorded because it converts C-152 from "we tried it and it didn't work" into a **class statement**: any future proposal that improves per-cell marginals (more statics, more covariate channels, richer position encodings) inherits this null unless it also changes the joint or the sampler. Scope: 40 lessons, seed 42, one vehicle — **INDICATIVE**. Cross-ref C-290 (the sampler independence assumption).
 
 ---
 
@@ -2362,6 +2364,156 @@ Tier 4: no wrong number today, and the raises do the real work. It is on record 
 The flag exists so a broken-by-construction rollout can be scored as a **labelled diagnostic** rather than as deployed skill. Applied run-globally it suspends that gate for *every* arm in the batch, so a second arm that unexpectedly carries `rollout_feedback='mean'` passes silently and is recorded `diagnostic_only: true` — a true record of a decision nobody made about it. The gate should be opted out of per arm, e.g. `arm=dir:diagnostic`.
 
 ---
+### C-289: a diagnostic's tie-breaking rule can manufacture the answer it is built to measure
+
+| Field | Value |
+|-------|-------|
+| ID | C-289 |
+| Tier | 2 |
+| Source | authoring review of the gate-structure probe (feedback-realism dossier, 2026-08-16) |
+| Trigger | Adding a new field-structure statistic, or reusing `topk_mask` on a field with many equal values (a saturated gate, a thresholded mask, an integer count field) |
+| Location | `views_hydranet/utils/gate_field_structure.py` (`topk_mask`); `tests/test_gate_field_structure.py` |
+| Cross-refs | C-292 (the same class: a diagnostic whose result is predetermined), C-290 |
+
+`topk_mask` selects the k most probable cells to measure how clustered the gate's belief is. The first
+implementation used `argsort`'s default ordering, which breaks ties **by flat index** — i.e. in raster order,
+which is *spatially contiguous by construction*. On a gate field where thousands of cells share a value
+(common: the gate saturates toward 0 over most of the map), the tie-break itself would have supplied the
+clustering the probe was built to detect. Measured on real data before the fix: **1.00 against a true 1.06** —
+a null manufactured out of the sort order.
+
+Fixed by breaking ties **randomly** from the probe's own seeded generator. Registered rather than closed
+silently because the defect class is not specific to `topk`: **any diagnostic that resolves ambiguity by a
+rule correlated with the quantity under test will confirm itself.** The same trap sits in nearest-neighbour
+selection, quantile binning on discrete counts, and any `argmax` over a plateau.
+
+**Fix direction:** for every new structure statistic, ask what happens when the input is *constant*, and add
+that as a test. A structure metric on a constant field must return the no-structure value, not a value
+inherited from the traversal order.
+
+---
+
+### C-290: the emitted field is sampled per-cell independently — the joint structure is discarded by construction
+
+| Field | Value |
+|-------|-------|
+| ID | C-290 |
+| Tier | 2 |
+| Source | feedback-realism dossier EXP-03 + the correlated-sampler follow-up (2026-08-16) |
+| Trigger | Proposing any fix that improves per-cell **marginal** probabilities (new statics, covariate channels, position encodings, a better-calibrated gate) as a remedy for rollout collapse |
+| Location | `views_hydranet/utils/hydranet_inference.py` (the rollout draw); `views_hydranet/utils/correlated_bernoulli.py` (the tested alternative) |
+| Cross-refs | C-152 (why coords were inert — the mechanism), C-289, C-222 |
+
+The fed-back occurrence field is drawn cell-by-cell from independent Bernoullis. Real conflict is spatially
+clustered, so the drawn field is **correct in its marginals and wrong in its joint** — right number of active
+cells, wrong arrangement. `spatial_scramble` shows this is where the damage is: holding active count and
+magnitudes fixed and moving only the *locations* reproduces the collapse (gate AP 0.3008 → 0.0097 against a
+free-running 0.0070).
+
+Two measured facts keep this from being a straightforward fix:
+
+1. The gate's **own probability field** diffuses during the rollout (Moran's I 0.50 → 0.16 by step 6), so
+   there is less joint structure to preserve than at h=1. Independent sampling is ~10× more destructive on a
+   diffuse gate than a sharp one (25× vs 2.6×), so the two compound in a loop.
+2. **A coherent sampler alone is not sufficient.** A Gaussian-copula sampler with exactly-preserved marginals
+   was built and swept over length scale: fed-field clustering spans **0.011 → 1.064, a 100× range that
+   brackets the real value of 0.449**, and gate AP **stays at ~0.007** against an oracle of 0.30. The null is
+   credible because the sweep *overshot* the target — "it did not clump enough" is not available as an
+   explanation. Clustering is a *proxy* for correct placement, not a substitute: a field can be perfectly
+   clustered in the wrong places. **Read at one significant figure:** a generator desynchronisation (C-296)
+   left treatment and control unpaired, so the direction and magnitude hold but "0.0069 vs 0.0070" is not a
+   paired difference.
+
+**Consequence, and the reason for Tier 2:** this converts a family of proposals into a known null. Any
+intervention acting on marginals inherits C-152's result unless it also changes the joint *or* the sampler —
+and the sampler alone is now measured as insufficient. Scope: 40 lessons, seed 42, one vehicle;
+**INDICATIVE**.
+
+---
+
+### C-291: `spatial_scramble` cannot separate spatial structure from geographic grounding
+
+| Field | Value |
+|-------|-------|
+| ID | C-291 |
+| Tier | 3 |
+| Source | feedback-realism dossier `SCOPE.md`, stated before the run (2026-08-16) |
+| Trigger | Quoting the 89% occurrence share as the damage attributable to *clustering*, or designing a fix that targets clustering alone on the strength of that arm |
+| Location | `views_hydranet/utils/feedback_field_transforms.py` (`spatial_scramble`); `reports/2026-08-16_feedback_realism_dossier/SCOPE.md` |
+| Cross-refs | C-290, C-152 |
+
+Permuting the positions of active cells necessarily breaks the field's alignment with the static channels,
+because in this data the plausible locations **are** the clustering — they are not two properties that can be
+varied independently. The arm therefore measures "spatial structure **and** its geographic grounding" as one
+quantity, and no experiment in the current set splits them.
+
+This is an **irreducible confound of the design, not a defect of the implementation** — registered so the
+89% figure is not later quoted as a clustering-specific number. It was stated in `SCOPE.md` before the arm
+ran rather than discovered afterwards, which is the only reason the arm is readable at all.
+
+**Fix direction:** a scramble constrained to permute only among cells with matching static covariates would
+hold grounding fixed while destroying structure. Not built; it may not be feasible at this grid resolution
+if the matching classes are too small to permute within.
+
+---
+
+### C-296: a diagnostic that consumes RNG differently from its control silently unpairs the comparison
+
+| Field | Value |
+|-------|-------|
+| ID | C-296 |
+| Tier | 2 |
+| Source | `/code-review medium` on PR #278 (2026-08-16) |
+| Trigger | Adding any inference-time diagnostic that replaces a sampling step, rather than only observing one — a different sampler, an extra draw, a skipped draw |
+| Location | `views_hydranet/utils/hydranet_inference.py` (`_sample_feedback`, the correlated branch) |
+| Cross-refs | C-290 (the arm this affected), C-113 (the original shared-generator coupling), C-289 |
+
+`correlated_bernoulli` consumes a different number of variates from the shared generator than
+`compose_samples`' Bernoulli. Every **later** step's body draw therefore came from a different stream in the
+treatment arm than in the control, so the comparison mixed "coherent placement" with "different body noise" —
+in an experiment whose entire content is a small difference between two arms.
+
+This is the **third appearance of one defect class** in this codebase: C-113's shared `torch.Generator` across
+the rollout, the fb_gen/transform separation this file's own comments document, and now this. The pattern is
+that a *replacement* diagnostic is written as if it were an *observational* one.
+
+**Fixed** by advancing the shared generator exactly as the control does (discarding the draw) and giving the
+copula a third namespaced stream. **Registered rather than closed** because the rule generalises and is not
+enforceable by a test on any single call site: *a diagnostic that replaces a sampling step must leave the
+shared stream in the state the control would have left it.*
+
+**Effect on the shipped result:** the EXP-05 null holds in direction and magnitude (clustering spans 100× while
+AP stays ~0.007 against an oracle of 0.30 — RNG noise cannot cancel a 40x gap) but its two-significant-figure
+comparison does not. Dossier and C-290 both amended.
+
+---
+
+### C-297: a sabotage check that selects no tests is indistinguishable from one that passes
+
+| Field | Value |
+|-------|-------|
+| ID | C-297 |
+| Tier | 3 |
+| Source | authoring the PR #278 fixes (2026-08-16) |
+| Trigger | Verifying a new guard by disabling it and running a filtered test selection (`pytest -k`, a single node id, a marker) |
+| Location | process — the falsifier -> guard -> **sabotage** discipline used across `reports/*_dossier/03_harness_and_invariants.md` |
+| Cross-refs | C-289 (a diagnostic that cannot fail), C-292 |
+
+The sabotage check for the new splice guard reported **zero failures** and read as "the guard is redundant".
+The `-k` filter had matched no tests: the name contained *splicing*, the filter said *splice*. Disabling a
+guard and observing no failures is the exact signal the check exists to produce, so the tooling error and the
+finding are the same observation.
+
+The discipline this repo relies on — *a guard never seen to fail is not a guard* — has a blind spot: it
+verifies the **outcome** of the sabotage run and not its **coverage**. Registered because every dossier's
+harness section uses this method.
+
+**Fix direction:** a sabotage check must assert on the number of tests **selected**, not only on the number
+that failed. `pytest --collect-only -q -k <filter>` before the run, or drop `-k` and compare full-suite
+failure counts.
+
+---
+
 ### C-292: the recurrent-state arms cannot attribute damage to a memory half — `hs` is a readout of `hl`
 
 | Field | Value |

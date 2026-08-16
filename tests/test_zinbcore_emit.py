@@ -91,6 +91,9 @@ def test_sample_feedback_is_core_aware_under_emit_family_core():
         obj = SimpleNamespace(
             _family=z,
             config={"emit_family_core": emit_core, "forecast_composition": "soft_gate"},
+            # production default: independent Bernoulli. The correlated-feedback diagnostic
+            # (#258/#262) is opt-in, and this mock must carry the real object's contract.
+            _feedback_length_scale=None,
         )
         g = torch.Generator().manual_seed(7)
         out = HydraNetInference._sample_feedback(obj, reg, prob, g)
