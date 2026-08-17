@@ -94,6 +94,32 @@ trigger** — second seed, third vehicle — not a conclusion.
 
 ---
 
+### INFERENCE-TIME FIXES — CLOSED 2026-08-17
+
+`reports/2026-08-17_placement_intervention_dossier/`. All three candidate families are closed, each for a
+different understood reason. **You cannot repair at inference time a gate that has stopped committing.**
+
+| # | Claim | Evidence | Confidence |
+|---|-------|----------|------------|
+| M15 | **The model feeds back 2 cells where reality has 116** — a 57× shortfall. `thin:0.75` shows **29 well-placed cells recover 95%** of the oracle gap, so the model does not need to be nearly right; it needs to answer. | intervention EXP-02 | **High** — direct count, and it is what closes top-K. |
+| M16 | **The gate keeps its shape and loses its nerve.** Moran's I dips to 0.458 at step 12 and **recovers to 0.593** by step 35, while `gate_mean` falls **12×** and committed cells fall 92 → 9. | intervention EXP-02 | **High** — direct, and it separates *zero collapse* from smearing. |
+| M17 | **No marginal-preserving sampler can move a decided gate.** A 16× length-scale range plateaus at 25% of real clustering; AP flat and uniformly negative (best −0.0023). Mechanism established on a controlled synthetic sweep, not inferred. | intervention EXP-01 + `tools/marginal_skew_bound.py` | **Medium-high** — the null replicates M5 on a non-floor-limited vehicle *and* supplies its cause. |
+
+**RETIRED by M16:** *"the gate's spatial structure diffuses during the rollout"* — load-bearing in the
+reasoning since 2026-08-16 and the stated motivation for every coherent-sampling idea. It was measured on
+`truncated_smoke` (0.409 → 0.178, stayed down). On the production vehicle the gate does **not** smear. M6
+survives in its original form (the *oracle* holds structure) but its free-running half does not generalise.
+
+**Two reasoning defects recorded with the results:**
+
+* the first explanation for the copula's saturation was **backwards** — "too diffuse" when the bound is
+  **skew** (too *decided*); a uniform gate reaches 13× the clustering the real run achieved;
+* a build was nearly recommended on top-K's **14–19× headroom**, which is real as a ratio and worthless as
+  a lever because it is measured on an essentially empty field. Same class as the floor-limited smoke
+  measurements: a ratio between two numbers both near zero. **Check the absolute count under a percentage.**
+
+---
+
 ### RETIRED — kept so they stay dead
 
 | Claim | Retired | Why |

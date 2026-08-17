@@ -106,3 +106,79 @@ know was diffuse and floor-limited. **Measure violet's gate structure before bui
 One seed (42), one vehicle, one target (`sb`), 13 origins, S=16. **Not byte-paired** (C-296): the copula
 consumes different RNG than the control, so read at one significant figure — which is why a −0.003 delta
 is reported as a null, not as a small negative effect.
+
+---
+
+### EXP-02 · gate-structure probe on `violet_visitor` · 2026-08-17 · **top-K ABANDONED before it was built**
+
+- **Purpose:** decide whether top-K feedback has headroom on this vehicle *before* spending a build on
+  it. M7's "top-K is 4–27× more clustered than the draw" was measured on `truncated_smoke`, whose gate
+  we now know was diffuse and floor-limited.
+- **Cost:** one arm, `--gate-probe`. It survived; the `rc=137` SIGKILL that this probe caused on smoke
+  did not recur (the probe is opt-in since #278, and this vehicle is `nb`, not the slow `truncated_nb`).
+
+#### Readout — target `sb`, free-running
+
+| step | `gate_mean` | Moran's I | cells the gate commits to | top-K vs draw |
+|--:|--:|--:|--:|--:|
+| 1 | 0.00285 | 0.600 | 92 | 2.6× |
+| 6 | 0.00131 | 0.503 | 47 | 4.6× |
+| 12 | 0.00067 | 0.458 | 22 | 14.0× |
+| 18 | 0.00044 | 0.471 | 15 | 18.6× |
+| 35 | 0.00024 | **0.593** | 9 | 8.3× |
+
+#### Finding 1 — the gate does NOT smear on the production vehicle
+
+Moran's I dips to 0.458 at step 12 and **recovers to 0.593 by step 35**. On `truncated_smoke` it fell
+0.409 → 0.178 and stayed down.
+
+**"The gate's spatial structure diffuses during the rollout" is a smoke-vehicle artifact.** It has been
+load-bearing in the reasoning since 2026-08-16 (it is the surviving half of M6/M7 and the stated
+motivation for every coherent-sampling idea). On the vehicle with skill, the gate **keeps its shape**.
+
+#### Finding 2 — it loses its nerve instead
+
+`gate_mean` falls **12×** (0.00285 → 0.00024) and the committed cell count falls **92 → 9**, against
+roughly 116 truly active cells per origin-step. The model does not become confused about *where*; it
+**stops committing at all**. This is the glossary's *zero collapse*, now measured on the production
+vehicle and separated cleanly from smearing.
+
+#### Finding 3 — top-K is dead on arrival, and the ratio hid it
+
+| | cells fed back per origin-step |
+|---|--:|
+| reality (`use_real`) | 115.9 |
+| `thin:0.75` — recovered **95%** of the gap | 29.3 |
+| **the model itself (control)** | **2.0** |
+
+The model feeds back **two cells** where reality has 116 — a **57× shortfall**. Top-K rearranges *which*
+cells are fed; there are two. **No rearrangement of two cells can close a 57× shortfall.**
+
+The 14–19× top-K headroom is real as a ratio and worthless as a lever: it is a ratio measured on an
+essentially empty field. Recorded as a defect of my own reasoning — a build was about to be recommended
+on the strength of a percentage without checking the absolute count underneath it, which is the same
+error class as the floor-limited smoke measurements (a ratio between two numbers both near zero).
+
+`thin:0.75` is the counterpoint that makes the diagnosis precise: **29 well-placed cells recover 95% of
+the gap.** The model does not need to be nearly right. It needs to *answer*.
+
+#### Decision
+
+**Top-K feedback is abandoned, unbuilt.** With the copula closed by the skew bound (EXP-01) and
+coordinate channels closed by C-152, **all three inference-time interventions are now closed — each for
+a different, understood reason**:
+
+| family | why it is closed |
+|---|---|
+| coordinate channels | act on marginals; the failure is joint (C-152, I-C) |
+| coherent sampling | no marginal-preserving sampler can move a decided gate (EXP-01) |
+| top-K | nothing to rearrange — the gate commits to 2 cells (EXP-02) |
+
+The common cause: **you cannot repair at inference time a gate that has stopped committing.** That is a
+training-side problem, and it is where the programme goes next.
+
+#### Scope
+
+One seed (42), one vehicle, target `sb`, 13 origins, S=16, sample 0 for the length-scale sweep columns.
+The Moran's I contrast against `truncated_smoke` is across two vehicles differing on **two** axes (40 vs
+160 lessons, `truncated_nb` vs `nb`) and cannot attribute the difference to either.
