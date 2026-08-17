@@ -1,0 +1,17 @@
+FLOOR GATE: FAIL
+  thresholds md5: 6d5714d5ceda147ed16f53143abe7e37
+  FG-A [         FAIL] AP 0.01962 / prevalence 0.009077 = 2.16x (need >= 5.0x)
+  FG-B [         FAIL] AP(h1) 0.28887 / clim 0.29798 = 0.969x (want >= 1.2)
+  FG-C [         PASS] a 30% effect is 0.01374 AP; 3x MDE is 0.00742
+  binding failures: FG-A: the control ranks at 2.16x chance at h18
+{
+  "verdict": "FAIL",
+  "reasons": [
+    "FG-A: the control ranks at 2.16x chance at h18"
+  ],
+  "horizon": 18,
+  "target": "sb",
+  "ap_control": 0.019622288747132736,
+  "prevalence": 0.009077040427154844,
+  "threshold_md5": "6d5714d5ceda147ed16f53143abe7e37"
+}
