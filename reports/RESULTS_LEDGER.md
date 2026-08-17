@@ -111,6 +111,20 @@ trigger** — second seed, third vehicle — not a conclusion.
 
 ---
 
+### THE SKILL ENVELOPE — 2026-08-18 — where the model is actually worth using
+
+| # | Claim | Evidence | Confidence |
+|---|-------|----------|------------|
+| M23 | **The model beats climatology to ~month 18 and loses from month 24.** Gate AP, `sb`, `violet_visitor` free-running vs `climatology`: h1 +0.176, h6 +0.130, h12 +0.078, h18 +0.032, **h24 −0.006, h30 −0.028, h36 −0.030**. The crossover sits around **month 20**. Past it you would do better with "fighting happens where it usually happens". | `rescore.csv` (Epic #263, origin-block CI) | **High** — this is the shipped board's own data, stated plainly for the first time. It is implicit in its ARTIFACT verdicts from h24; the plain statement was missing. |
+| M24 | **The ceiling is ~0.47 at EVERY horizon, and the rollout throws away two thirds of it.** Fed the true field each month, the same 160-lesson model holds AP 0.474 → 0.479 → 0.458 across 36 steps. Left to feed on itself it goes 0.474 → 0.257 → 0.137. **160 lessons does not fix the rollout; it produces a model with skill to lose.** | replication EXP-02 + M10 | **High** — same model, same steps, only the fed content differs. |
+| M25 | **Extra training buys robustness, not accuracy.** 40L vs 160L on an otherwise identical config: at h1 the ratio is **1.6×** (0.289 → 0.474), at h18 it is **13×** (0.020 → 0.257). The one-step-ahead ability barely moves; the ability to survive its own output transforms. ⚠️ The *ratio* is sensitive because 0.020 is small; the absolute gap (0.237 AP) is the sturdier statement. | ss-retention Stage A vs A′ | **Medium-high** — single-variable, one seed each, but the effect dwarfs seed spread. |
+
+**The practical read.** The gap worth attacking is **~0.2 AP at h36** — the distance between the rollout
+(0.137) and the ceiling (0.458). That is **larger than the entire distance between the current model and
+climatology at any horizon**, and per I-A it is ~90–95% a *placement* problem.
+
+---
+
 ### TRAINING LENGTH — 2026-08-17 — steep below 160, UNKNOWN above it
 
 | # | Claim | Evidence | Confidence |
