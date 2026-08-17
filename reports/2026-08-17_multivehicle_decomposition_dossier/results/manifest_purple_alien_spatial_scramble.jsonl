@@ -1,0 +1,1 @@
+{"model": "purple_alien", "arm": "spatial_scramble", "artifact": "calibration_model_20260813_062540.pt", "pred_dir": "predictions_calibration_20260813_062540", "score_csv": "score_purple_alien_spatial_scramble.csv", "fedfield_csv": "fedfield_purple_alien_spatial_scramble.csv", "elapsed_s": 1444.0, "cubes_deleted": true, "length_scale": null, "gate_probe": false}

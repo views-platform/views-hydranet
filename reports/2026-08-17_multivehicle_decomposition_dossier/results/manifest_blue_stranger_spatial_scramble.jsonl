@@ -1,0 +1,1 @@
+{"model": "blue_stranger", "arm": "spatial_scramble", "artifact": "calibration_model_20260813_042946.pt", "pred_dir": "predictions_calibration_20260813_042946", "score_csv": "score_blue_stranger_spatial_scramble.csv", "fedfield_csv": "fedfield_blue_stranger_spatial_scramble.csv", "elapsed_s": 817.5, "cubes_deleted": true, "length_scale": null, "gate_probe": false}

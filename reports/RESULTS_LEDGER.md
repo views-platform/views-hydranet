@@ -47,7 +47,7 @@ get reasoned from as though they did not — this table exists to make that impo
 > | **survives** | M1, M9 | M1 is a baseline the floor makes *true*; M9 is about the metric, corroborated by Epic #263 |
 > | **understated, replicated** | M3, M4, M6-oracle | re-measured on `violet_visitor`; cite the corrected number |
 > | **rescued by re-run** | M5 | uninformative as run; re-derived as M17 |
-> | ⛔ **uninformative and NOT re-derived** | **M7, M8, I-B, I-C, I-E** | **owed a re-derivation on a vehicle with range. Do not cite as support.** |
+> | ⛔ **uninformative and NOT re-derived** | **M7, M8, I-B, I-C, I-E** | **owed a re-derivation on a vehicle with range. Do not cite as support.** (I-A **was** re-derived — 4/4 vehicles, 2026-08-18.) |
 > | ⛔ **confounded** | M20 | see its row — the roster's SS-on models were trained under a C-259-forbidden mismatch (C-300) |
 >
 > C-299 is the defect class. I-C's floored form was written into the register as C-152's mechanism update
@@ -75,7 +75,7 @@ target `sb` where a single target is named · calibration partition.
 
 | # | Claim | Rests on | Confidence |
 |---|-------|----------|------------|
-| I-A | **Occurrence carries ~89% of the damage, magnitude ~8%.** | M3, M4, E4 splice arms | **Low-medium.** The *ordering* (occurrence ≫ magnitude) is robust — the effects are 30×. The **89/8 split is a single-seed decomposition and should not be quoted as a number.** |
+| I-A | **Occurrence carries ~90–95% of the gap; magnitude carries ZERO.** ⬆️ **UPGRADED 2026-08-18 — replicated 4/4 vehicles.** occurrence 89.5–95.3%, magnitude −1.0% to +1.4%, across two body families, two compositions, four seeds and a 3× range in baseline retention. All four predictions and all falsifiers passed on every vehicle. | multivehicle EXP-01 (+ M3, M4) | **High for the ORDERING.** The occurrence share is stable (89–95%); magnitude is indistinguishable from zero everywhere. ⚠️ `spatial_scramble`'s magnitude is **not** stable (−21% to −94%, 4× spread) — quote its sign, never its size. Different configurations, not different seeds. |
 | I-B | **Clustering is a proxy for correct placement, not an independently sufficient property.** Right places + no clustering → collapse (M3); wrong places + right clustering → no recovery (M5). | M3 + M5 | **Medium-high** — the two arms bracket the claim from opposite ends. |
 | I-C | **Coordinate channels never helped because they act on marginals while the failure is joint.** | M3, M5, C-152's 3-seed negative | **Medium** — a mechanism fitted to an already-established null. It explains, it does not predict. |
 | I-D | **Some of the gap flows through the recurrent state (~23% of the oracle gap).** | M8 | **Low.** INDICATIVE. Recovers 23% *relative to a collapsed control* and still does not reach persistence (M1), so it is not a skill claim. **Which memory half is NOT established** (C-292). |
@@ -108,6 +108,37 @@ tests whether M3/M4/I-A above were artifacts of an undertrained vehicle. **They 
 quote the number" to **replicated across two vehicles with the ordering robust and magnitude's share
 falling to ~0**. It remains one seed per vehicle, so under the standing rule this is an **escalation
 trigger** — second seed, third vehicle — not a conclusion.
+
+---
+
+### TRAINING LENGTH — 2026-08-17 — steep below 160, UNKNOWN above it
+
+| # | Claim | Evidence | Confidence |
+|---|-------|----------|------------|
+| M21 | **Training length is the dominant cause of the floor.** A clone of `violet_visitor` differing in **exactly one key** (`total_lessons` 160 → 40, verified by symmetric-difference on the resolved config dicts) collapses retention **0.54 → 0.068**. The residual 0.068 → 0.02 is what `truncated_nb` and `body_supervision` contribute. | ss-retention Stage A | **High** — single-variable, 8× effect, one seed but far above seed spread. |
+| M22 | **Training is bit-reproducible at fixed seed on this box.** Retraining violet at HEAD gave **190 weight tensors with an identical sha256** and predictions matching to 15 d.p. at all 7 horizons, 5 days and 5 commits later. The 8 commits touching the training path since 2026-08-12 are **no-ops for this configuration**. ⚠️ The two identical models have **different `.pt` file shas** — torch stamps mtimes into the zip, so file shas are an invalid identity check. | ss-retention Stage A′ | **High** — exact. |
+
+**⛔ What is NOT established, and it undercuts an assumption everything rests on.**
+
+*Nothing above 160 lessons is known.* Specifically:
+
+* **600 lessons: no evidence exists in this repo** — no config, no result, one passing mention in a
+  planning doc. The historical recollection that it worked well is currently the only evidence.
+* **300 lessons: the v2 board is not a controlled comparison.** It is `gated_NB`, 3 seeds, trained
+  2026-07-29 on a different data snapshot from `violet_visitor`. Comparing it to violet at 160L
+  compares two unrelated runs, not two lesson counts. Its own seed spread at h36 is **0.048 — 34% of
+  the mean** — and violet at 160L sits *above* the whole 300L range at h18 and *below* it at h36, i.e.
+  outside the spread in **opposite directions**, which is what noise looks like.
+
+**So the claim "160 → 300 buys nothing" is NOT supported.** It was stated twice in conversation on
+2026-08-17 and does not survive checking; recorded here so it is not repeated.
+
+**Why it matters:** the ladder 600 → 300 → 160 → 40 was a cost-saving decision, never validated as
+monotone. M21 shows the bottom of it is catastrophic, which is direct evidence the curve is *not* flat
+where it was assumed to be. **Whether 160 is on the plateau or still on the slope is unknown** — and if
+it is still climbing, every experiment at 160 (including the parked SS sweep) measures a
+partially-trained model, and a null there may only mean "this does not help a model that has not
+finished learning."
 
 ---
 
