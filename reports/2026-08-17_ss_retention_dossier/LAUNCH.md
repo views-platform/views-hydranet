@@ -58,6 +58,16 @@ than restarts. Cubes are deleted after scoring, so peak disk is ~2.5 GB.
 - **The floor gate is re-run on the sweep's own ε=0 controls afterwards.** If they fail, the sweep is
   VOID whatever the treatment arms did.
 
+## ⚠️ A caveat added after parking (2026-08-17)
+
+This sweep runs at **160 lessons**, and **whether 160 is converged is unknown** (ledger M21/M22 and the
+"NOT established" note beside them). The 600 → 300 → 160 → 40 ladder was a cost-saving decision that was
+never validated as monotone, and Stage A showed the bottom of it collapses retention 8×.
+
+If 160 is still on the slope, a **null here means "SS does not help a partially-trained model"**, which is
+a weaker statement than it will look like. Consider settling the lesson curve first — it is the same
+shape of single-variable experiment, and it *gates* this question rather than competing with it.
+
 ## If something goes wrong
 
 `results/run.log` is the narrative; `results/<arm>_run.log` is the raw pipeline output for one arm.
