@@ -14,8 +14,8 @@ Written before the run, so that nothing here is a retrofit.
    `blazing_meteor` and `bright_starship` are scored in `rescore.csv` but no realism arm has ever been
    run on them.
 
-3. **The vehicle contrast confounds two variables.** `truncated_smoke` differs from `violet_visitor` in
-   *both* training length (40 vs 160 lessons) *and* body family (`truncated_nb` vs `nb`). This
+3. **The vehicle contrast confounds three variables** (recorded as two until 2026-08-17). `truncated_smoke` differs from `violet_visitor` in
+   training length (40 vs 160 lessons), body family (`truncated_nb` vs `nb`), **and `body_supervision` (`active` vs `all`)**. This
    experiment cannot separate them, and no existing run can either — all four models in `rescore.csv`
    are 160-lesson and none is `truncated_nb`. Every comparison here reads "smoke vehicle vs production
    vehicle", **never** "training length".

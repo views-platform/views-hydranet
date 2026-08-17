@@ -100,6 +100,7 @@ be known without measuring — and now it is on the record.
 ## Scope
 
 One seed (42), one vehicle for the treatment arms, one target (`sb`), 13 origins, S=16, calibration
-partition. `truncated_smoke` differs from `violet_visitor` on **two** axes at once — 40 vs 160 lessons
-*and* `truncated_nb` vs `nb` — and this cannot separate them. Per the standing rule adopted 2026-08-17,
+partition. `truncated_smoke` differs from `violet_visitor` on **three** axes at once — 40 vs 160 lessons,
+`truncated_nb` vs `nb`, *and* `body_supervision` `active` vs `all` — and this cannot separate them.
+(Recorded as two axes until 2026-08-17; the third was missed. See `postmortem_floor_limited_vehicle.md`.) Per the standing rule adopted 2026-08-17,
 a replication is an **escalation trigger** (second seed, third vehicle), **not** a conclusion.

@@ -36,6 +36,23 @@ single-vehicle**, which is *below this project's own evidentiary bar* (≥3 seed
 scoreboard ran 3 seeds × 300 lessons). Nothing here is a verdict. The dossiers say INDICATIVE and then
 get reasoned from as though they did not — this table exists to make that impossible.
 
+> ⛔ **FLOOR STATUS (2026-08-17) — read `reports/postmortem_floor_limited_vehicle.md` before citing M1–M9.**
+> The shared vehicle below, `truncated_smoke`, has **no dynamic range**: its control at h18 scores 0.0070
+> against a prevalence of 0.009077 — **0.77×, below random ranking**. That breaks measurements in both
+> directions (nulls uninformative, positives understated), and it is why `spatial_scramble` read **+0.9%**
+> here and **−93.7%** on `violet_visitor`. Per-row disposition:
+>
+> | status | rows | meaning |
+> |---|---|---|
+> | **survives** | M1, M9 | M1 is a baseline the floor makes *true*; M9 is about the metric, corroborated by Epic #263 |
+> | **understated, replicated** | M3, M4, M6-oracle | re-measured on `violet_visitor`; cite the corrected number |
+> | **rescued by re-run** | M5 | uninformative as run; re-derived as M17 |
+> | ⛔ **uninformative and NOT re-derived** | **M7, M8, I-B, I-C, I-E** | **owed a re-derivation on a vehicle with range. Do not cite as support.** |
+> | ⛔ **confounded** | M20 | see its row — the roster's SS-on models were trained under a C-259-forbidden mismatch (C-300) |
+>
+> C-299 is the defect class. I-C's floored form was written into the register as C-152's mechanism update
+> and is annotated there.
+
 **Shared scope unless a row says otherwise:** seed 42 · 40 lessons · `truncated_smoke` ·
 artifact `calibration_model_20260814_003058.pt` · 13 origins · 4 posterior samples · 35 steps ·
 target `sb` where a single target is named · calibration partition.
@@ -128,7 +145,7 @@ survives in its original form (the *oracle* holds structure) but its free-runnin
 |---|-------|----------|------------|
 | M18 | **No gate-structure metric predicts rollout retention.** Retention varies **11×** (0.02–0.54) while commitment (24× span), confidence decay (1.2–7×) and shape retention (70–86%) all vary independently of it. All six start within AP h1 0.38–0.47, so they differ almost entirely in retention. | EXP-03, 6 models | **High** — a negative across the whole roster, and the reason to stop looking at gate structure. |
 | M19 | **The gate keeps its spatial shape in all six** (Moran's I 70–86% of h1). The one family-level property found. | EXP-03 | **High** — 6/6. |
-| M20 | **Scheduled sampling separates retention perfectly** — SS-off {0.54, 0.45} vs SS-on {0.33, 0.21, 0.05, 0.02}; means 0.50 vs 0.15; p≈0.067 (1 of 15). Holds *within* each output-distribution family. Seed 42 produces **both extremes** (violet SS-off 0.54, pink_pirate SS-on 0.02), so seed is unlikely to be the driver. | EXP-03 | **LEAD, NOT A FINDING.** Observational — no pair differs by SS alone. The controlled ε sweep exists but ran on floor-limited `truncated_smoke` (all arms 0.02–0.04) and cannot discriminate. |
+| M20 | ⛔ **CONFOUNDED — do not read as evidence about scheduled sampling.** The retention separation is real (SS-off {0.54, 0.45} vs SS-on {0.33, 0.21, 0.05, 0.02}) but **all four SS-on models were trained 2026-08-12/13, before the C-259 validator landed 2026-08-14 04:19**, with `ss_feedback` unset → defaulting to `'mean'` → an **ungated** mean field in training against a gated sample at inference. That is the mismatch C-259 forbids (C-300). Two further weaknesses: `violet_visitor` is a config outlier on **six** axes, and dropping it leaves SS-off at **n=1** with p 0.067 → 0.2; the tightest pair (`purple_alien` vs `pink_pirate`, differing only in ε and seed) is confounded by the same mismatch. **The only SS data with a correct `ss_feedback` is `truncated_smoke`'s sweep, which is floor-limited — so there is no valid, non-floored SS measurement anywhere.** | EXP-03 + config/date audit | **NOT A LEAD ABOUT SS.** A sweep with `ss_feedback='sample'` tests a different intervention and cannot settle it. |
 
 **RETIRED by M18 — two of my own claims from the same day:**
 

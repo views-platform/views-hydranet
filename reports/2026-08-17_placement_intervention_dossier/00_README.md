@@ -89,7 +89,7 @@ too few. **The marginals the copula must preserve have already chosen the cells.
 
 One seed (42), one vehicle (`violet_visitor`), one target (`sb`), 13 origins, S=16. Not byte-paired
 (C-296) — read AP at one significant figure. The Moran's I contrast against `truncated_smoke` spans two
-vehicles differing on **two** axes (40 vs 160 lessons, `truncated_nb` vs `nb`) and cannot attribute the
+vehicles differing on **three** axes (40 vs 160 lessons, `truncated_nb` vs `nb`, `body_supervision` `active` vs `all`) and cannot attribute the
 difference to either.
 
 ## Roster check (EXP-03) — and the retraction of the line above

@@ -126,6 +126,7 @@ Any future decomposition must state whether an arm falls outside the interval be
 ### Scope
 
 One seed (42), one vehicle for the treatment arms, one target (`sb`), 13 origins, S=16, calibration
-partition. `truncated_smoke` differs from `violet_visitor` on **two** axes (40 vs 160 lessons *and*
-`truncated_nb` vs `nb`) and this cannot separate them. Per the standing rule of 2026-08-17, a
+partition. `truncated_smoke` differs from `violet_visitor` on **three** axes (40 vs 160 lessons,
+`truncated_nb` vs `nb`, and `body_supervision` `active` vs `all` — the third missed until 2026-08-17)
+and this cannot separate them. Per the standing rule of 2026-08-17, a
 replication is an **escalation trigger** — second seed, third vehicle — not a conclusion.

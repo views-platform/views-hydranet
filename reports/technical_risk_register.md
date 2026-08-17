@@ -5,9 +5,9 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-15                           |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 295                                  |
-| Open Concerns     | 143                                  |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
+| Total Concerns    | 297                                  |
+| Open Concerns     | 145                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | — net active risks | 124                                 |
 | Resolved Concerns | 152                                  |
@@ -964,7 +964,7 @@ ADR-061's "why now" leans on El Jurdi et al. (2021): CoordConv-Unet stabilizes t
 
 **UPDATE 2026-07-31 — CoordConv now tested DIRECTLY (v2 scoreboard `09`/`07` E2) → clean 3-seed negative; question CLOSED.** The prior "didn't transfer" was inferred from the *population* placebo; the coord A/B tested real geometry coords with the nb head for the first time (gated_NB + row/col × {enc, top} × 3 seeds × 300 lessons). Result: coords **HURT** occurrence — AP < no-coords at every horizon×target (sb AP h1 0.450→enc 0.426→top 0.406; F1 fired, P1+P2 falsified); crps_all inert. So CoordConv is not a lever on the distributional heads: absolute position is already implicit in each fixed-grid cell's own history, and the extra channels are a mild spatial-overfit shortcut. C-152's decision-hygiene concern is now MOOT (no analogy left to re-promote — the lever is empirically dead). Cross-ref C-228 (the placement half of the same result).
 
-**UPDATE 2026-08-16 — the MECHANISM, supplied by the feedback-realism probe (`reports/2026-08-16_feedback_realism_dossier/`).** The July closure was a clean empirical negative with **no explanation**, which left the null looking like bad luck and the lever re-openable by anyone with a new placement idea. It is not bad luck. Coordinate channels change *which cells are likely* — a **marginal** property of the field. What actually fails in the rollout is the **joint** structure: `spatial_scramble` reproduces the collapse (gate AP 0.3008 → 0.0097 vs free-running 0.0070) with the active count and the magnitudes held identical, so 89% of the damage is cells being in the **wrong places**, not the wrong cells being individually more or less likely. Compounding it, the emitted field is drawn by an **independence-assuming** sampler, and the gate's own probability field diffuses (Moran's I 0.409 → 0.192 by step 6 on target sb, while the ORACLE holds 0.507 → 0.494). **A marginal fix cannot repair a joint failure** — which is why coords were inert on `crps_all` *and* on AP regardless of placement. Recorded because it converts C-152 from "we tried it and it didn't work" into a **class statement**: any future proposal that improves per-cell marginals (more statics, more covariate channels, richer position encodings) inherits this null unless it also changes the joint or the sampler. Scope: 40 lessons, seed 42, one vehicle — **INDICATIVE**. Cross-ref C-290 (the sampler independence assumption).
+**UPDATE 2026-08-16 — the MECHANISM, supplied by the feedback-realism probe (`reports/2026-08-16_feedback_realism_dossier/`).** The July closure was a clean empirical negative with **no explanation**, which left the null looking like bad luck and the lever re-openable by anyone with a new placement idea. It is not bad luck. Coordinate channels change *which cells are likely* — a **marginal** property of the field. What actually fails in the rollout is the **joint** structure: `spatial_scramble` reproduces the collapse (gate AP 0.3008 → 0.0097 vs free-running 0.0070) with the active count and the magnitudes held identical, so 89% of the damage is cells being in the **wrong places**, not the wrong cells being individually more or less likely. Compounding it, the emitted field is drawn by an **independence-assuming** sampler, and the gate's own probability field diffuses (Moran's I 0.409 → 0.192 by step 6 on target sb, while the ORACLE holds 0.507 → 0.494). **A marginal fix cannot repair a joint failure** — which is why coords were inert on `crps_all` *and* on AP regardless of placement. Recorded because it converts C-152 from "we tried it and it didn't work" into a **class statement**: any future proposal that improves per-cell marginals (more statics, more covariate channels, richer position encodings) inherits this null unless it also changes the joint or the sampler. Scope: 40 lessons, seed 42, one vehicle — **INDICATIVE**. Cross-ref C-290 (the sampler independence assumption). ⛔ **ANNOTATED 2026-08-17 (C-299):** every figure in this update (0.3008 / 0.0097 / 0.0070, 0.409 → 0.192) was measured on `truncated_smoke`, whose control at h18 scores **below random ranking** (0.77× prevalence). The *direction* survives — replication on `violet_visitor` made the placement effect **stronger** (−93.7% vs +0.9%) — but these numbers are floor-limited and the class statement rests on I-C, which has **not** been re-derived on a vehicle with range. See `postmortem_floor_limited_vehicle.md`.
 
 ---
 
@@ -2488,6 +2488,79 @@ conflated one in the summary.
 **Fix direction:** a figure quoted in prose must name its cell — arm, horizon, target — or be a range across
 the axis it collapses. The Claims Ledger's verification pass is the check; run it before a dossier's
 conclusions are cited anywhere outside the dossier, not after they have propagated.
+
+---
+
+### C-299: a vehicle with no dynamic range makes nulls uninformative and positives understated
+
+| Field | Value |
+|-------|-------|
+| ID | C-299 |
+| Tier | 2 |
+| Source | `reports/postmortem_floor_limited_vehicle.md` (2026-08-17) |
+| Trigger | Choosing a vehicle for an intervention experiment, or reading a null off one — especially inheriting a vehicle from a previous dossier because it is fast |
+| Location | `reports/2026-08-14_scheduled_sampling_dossier/` (VOID as run); `RESULTS_LEDGER.md` M1–M9, I-B/I-C/I-E |
+| Cross-refs | C-293 (the sibling: a collapsed *reference*), C-298, C-300 |
+
+Three days of experiments ran on `truncated_smoke`, whose control at h18 scores **0.0070 against a
+prevalence of 0.009077 — 0.77×, i.e. BELOW random ranking**. A control with no room to move breaks
+measurements **in both directions, asymmetrically**:
+
+* a **null** is uninformative — nothing can move a number already at zero, and the readout cannot separate
+  "no effect" from "no resolution";
+* a **positive** is understated — a degradation arm cannot fall below a control that has already fallen.
+
+Decisive case: `spatial_scramble` (active count and magnitudes held byte-identical, only locations
+permuted) read **+0.9% of the gap** on `truncated_smoke` and **−93.7%** on `violet_visitor`. Same code,
+same arms, different vehicle.
+
+**Cost:** it voided a *correctly-designed* experiment — the 2026-08-14 ε sweep, one variable, seed fixed,
+four doses, six GPU-hours, with three of its four arms at or below random ranking.
+
+**Why nothing caught it:** every falsifier in that plan (F1, F2, F-DEGEN) assumes the readout is valid.
+**No existing falsifier fires on an uninformative measurement.** A pre-registration can be perfect about
+what would refute the hypothesis and silent about whether the instrument can see anything at all.
+
+**Fix direction — a pre-registered floor gate on the control arm, checked before any treatment arm runs:**
+
+* **FG-A** `AP_ctrl(h*) ≥ 5 × prevalence(h*)` — the ranker must beat chance at the readout horizon;
+* **FG-C** `(1 − θ)·AP_ctrl(h*) ≥ 3 × MDE_AP(h*)` — the pre-registered effect must exceed the resolution.
+
+Validated on committed data: `truncated_smoke` 0.77× (FAIL), `violet_visitor` 28.30× (PASS) — a 36×
+separation. Computable from the control's own score CSV, zero extra GPU. **Not yet wired into any driver.**
+
+---
+
+### C-300: four shipped roster models were trained under a configuration the codebase now rejects
+
+| Field | Value |
+|-------|-------|
+| ID | C-300 |
+| Tier | 2 |
+| Source | config/date audit while planning the SS successor experiment (2026-08-17) |
+| Trigger | Citing `rescore.csv` rows for `blazing_meteor`, `bright_starship`, `pink_pirate` or `blue_stranger`; or reading the roster's scheduled-sampling/retention pattern as evidence about scheduled sampling |
+| Location | `views-models/models/{blazing_meteor,bright_starship,pink_pirate,blue_stranger}/configs/`; `reports/2026-08-15_rollout_ruler_trust_dossier/results/rescore.csv` |
+| Cross-refs | C-259 (the rule they violate), C-299, views-models#404 |
+
+All four scheduled-sampling-on roster models were trained **2026-08-12/13**. The C-259 validator coupling
+`ss_feedback` to `rollout_feedback` landed **2026-08-14 04:19** (`c07a352`). `ss_feedback` defaults to
+`"mean"` (`config_initializer.py:178`) and `training_engine.py:231` returns an **ungated** mean for any
+mode other than `sample`.
+
+So all four trained on an **ungated mean field while rolling out on a gated sample** — exactly the mismatch
+C-259 was written to forbid. Their published rows are compromised twice: **un-rerunnable** (their configs
+no longer load — views-models#404) *and* **produced under a rejected configuration**.
+
+**Consequence for the research programme:** the roster's retention pattern (SS-off {0.54, 0.45} vs SS-on
+{0.33, 0.21, 0.05, 0.02}) is **not** evidence that scheduled sampling hurts. It is evidence about the
+mismatch. A sweep with `ss_feedback='sample'` — the only value the validator permits — tests a *different*
+intervention and cannot settle it. The only SS data with a correct `ss_feedback` is `truncated_smoke`'s
+sweep, which is floor-limited (C-299). **There is no valid, non-floored SS measurement anywhere.**
+
+**Fix direction:** views-models#404 asks whether `ss_feedback: 'sample'` or `ss_epsilon_max: 0.0` is the
+intended repair. This entry argues for the latter on the grounds that the *artifacts* were produced under
+ε>0 with mean feedback, so setting ε=0 preserves the semantics the weights were trained under while
+`ss_feedback='sample'` describes a model that was never trained.
 
 ---
 

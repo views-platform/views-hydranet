@@ -180,7 +180,7 @@ training-side problem, and it is where the programme goes next.
 #### Scope
 
 One seed (42), one vehicle, target `sb`, 13 origins, S=16, sample 0 for the length-scale sweep columns.
-The Moran's I contrast against `truncated_smoke` is across two vehicles differing on **two** axes (40 vs
+The Moran's I contrast against `truncated_smoke` is across two vehicles differing on **three** axes (40 vs
 160 lessons, `truncated_nb` vs `nb`) and cannot attribute the difference to either.
 
 ---
