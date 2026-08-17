@@ -66,7 +66,15 @@ def run_arm(
 ) -> dict:
     """Run one arm end to end. Returns the manifest record; raises on any failure."""
     model_dir = models_root / model
+    # An arm's identity is the spec PLUS its diagnostic knobs, so the OUTPUT NAME must carry both.
+    # `--length-scale` was added 2026-08-16 without this, and the omission is silent-then-wrong: a
+    # sweep over length scales runs three arms that all write `..._identity.csv`, each overwriting
+    # the last, leaving one file that looks like a complete result. Caught 2026-08-17 only because
+    # the arms were run one at a time. `--tag` does not help — it names the manifest and the
+    # sentinel, not these files.
     label = _safe(arm)
+    if length_scale is not None:
+        label = f"{label}_ls{length_scale}"
     before = _prediction_dirs(model_dir)
 
     # Every arm writes the SAME prediction path (named after the artifact, not the run), so a
