@@ -120,6 +120,30 @@ survives in its original form (the *oracle* holds structure) but its free-runnin
 
 ---
 
+### ROSTER CHECK — 2026-08-17 — gate structure is CLOSED as an explanatory axis
+
+`reports/2026-08-17_placement_intervention_dossier/` EXP-03. Gate probe on all six roster models.
+
+| # | Claim | Evidence | Confidence |
+|---|-------|----------|------------|
+| M18 | **No gate-structure metric predicts rollout retention.** Retention varies **11×** (0.02–0.54) while commitment (24× span), confidence decay (1.2–7×) and shape retention (70–86%) all vary independently of it. All six start within AP h1 0.38–0.47, so they differ almost entirely in retention. | EXP-03, 6 models | **High** — a negative across the whole roster, and the reason to stop looking at gate structure. |
+| M19 | **The gate keeps its spatial shape in all six** (Moran's I 70–86% of h1). The one family-level property found. | EXP-03 | **High** — 6/6. |
+| M20 | **Scheduled sampling separates retention perfectly** — SS-off {0.54, 0.45} vs SS-on {0.33, 0.21, 0.05, 0.02}; means 0.50 vs 0.15; p≈0.067 (1 of 15). Holds *within* each output-distribution family. Seed 42 produces **both extremes** (violet SS-off 0.54, pink_pirate SS-on 0.02), so seed is unlikely to be the driver. | EXP-03 | **LEAD, NOT A FINDING.** Observational — no pair differs by SS alone. The controlled ε sweep exists but ran on floor-limited `truncated_smoke` (all arms 0.02–0.04) and cannot discriminate. |
+
+**RETIRED by M18 — two of my own claims from the same day:**
+
+* *"the model doesn't need to be nearly right, it needs to answer"* (the quiet-gate diagnosis, EXP-02).
+  Commitment spans 24× and the model committing **fewest** cells retains **best**; `pink_pirate` commits
+  342 cells (3× reality) and retains worst at 0.02. True of `violet_visitor`, false of the family.
+* *"the gate loses confidence"* as a family property — `pink_pirate`'s is **stable** (1.2×).
+
+**Also recorded:** four of six roster models have configs that fail C-259 validation and could not be
+loaded at all (`ss_epsilon_max: 0.5` with `ss_feedback` unset → defaults to `'mean'`). All four are in the
+shipped `rescore.csv`, so **those rows are currently un-rerunnable**. Fixed in the working tree only,
+uncommitted, raised as **views-models#404**.
+
+---
+
 ### RETIRED — kept so they stay dead
 
 | Claim | Retired | Why |

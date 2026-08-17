@@ -1,0 +1,1 @@
+{"model": "pink_pirate", "arm": "identity", "artifact": "calibration_model_20260813_025117.pt", "pred_dir": "predictions_calibration_20260813_025117", "score_csv": "score_pink_pirate_identity.csv", "fedfield_csv": "fedfield_pink_pirate_identity.csv", "elapsed_s": 1032.8, "cubes_deleted": true, "length_scale": null, "gate_probe": true}

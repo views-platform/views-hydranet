@@ -1,7 +1,11 @@
 # Placement interventions — can the rollout be fixed at inference time?
 
-**Status: COMPLETE / CLOSED (2026-08-17).** Four arms, ~40 minutes of GPU. The answer is **no**, and all
-three candidate families are now closed for different, understood reasons.
+**Status: COMPLETE / CLOSED (2026-08-17).** Ten arms across six models, ~2 h of GPU. The answer is **no**,
+and all three candidate families are closed for different, understood reasons.
+
+> ⚠️ **Read §Roster check (EXP-03) before the two sections below it.** EXP-02's quiet-gate diagnosis
+> ("the model needs to answer") held on `violet_visitor` and was **falsified on the full roster**. It is
+> kept here, marked, because the reasoning that produced it is part of the record.
 
 ## Result
 
@@ -13,7 +17,7 @@ three candidate families are now closed for different, understood reasons.
 
 The common cause: **you cannot repair at inference time a gate that has stopped committing.**
 
-## The number that ends it
+## The number that ends top-K (VEHICLE-SPECIFIC — see EXP-03)
 
 | | cells fed back per origin-step |
 |---|--:|
@@ -21,13 +25,19 @@ The common cause: **you cannot repair at inference time a gate that has stopped 
 | `thin:0.75` — which recovered **95%** of the gap | 29 |
 | **the model itself** | **2** |
 
-The model feeds back **two cells** where reality has 116 — a **57× shortfall**. Top-K rearranges *which*
-cells get fed; there are two of them. And `thin:0.75` shows **29 well-placed cells recover 95%** of the
-oracle gap. The model does not need to be nearly right. **It needs to answer.**
+On `violet_visitor` the model feeds back **two cells** where reality has 116 — a **57× shortfall**. Top-K
+rearranges *which* cells get fed; there are two of them. That argument **still stands for this vehicle**
+and is why top-K was not built.
 
-## What the gate actually does (EXP-02)
+⚠️ **But the generalisation drawn from it does not.** "The model does not need to be nearly right, it
+needs to answer" was **falsified by EXP-03**: across six models commitment spans 24× and the model
+committing *fewest* cells retains *best*. `pink_pirate` commits 342 cells — 3× reality — and retains
+worst on the roster.
 
-It **keeps its shape and loses its nerve**:
+## What the gate does on `violet_visitor` (EXP-02 — only the first half generalises)
+
+It **keeps its shape and loses its nerve**. Of these two, only *keeps its shape* holds across the roster;
+`pink_pirate`'s confidence is **stable**:
 
 * Moran's I dips to 0.458 at step 12 and **recovers to 0.593** by step 35 — it still knows where conflict
   clusters.
@@ -82,6 +92,41 @@ One seed (42), one vehicle (`violet_visitor`), one target (`sb`), 13 origins, S=
 vehicles differing on **two** axes (40 vs 160 lessons, `truncated_nb` vs `nb`) and cannot attribute the
 difference to either.
 
-## Where the programme goes
+## Roster check (EXP-03) — and the retraction of the line above
 
-Training-side. The gate stops committing; nothing downstream of it can put that back.
+An earlier version of this README ended "Training-side. The gate stops committing; nothing downstream of
+it can put that back." **That was wrong, and EXP-03 retracts it.**
+
+The gate probe was run on all six roster models. Commitment spans **24×** (14.5 → 342 cells, from 8× under
+to 3× over) and **does not track skill**: the model committing fewest cells retains best, and
+`pink_pirate` commits 342 and retains worst (0.02). "The model needs to answer" was true of
+`violet_visitor` and false of the family.
+
+**The negative that matters:** *no* gate-structure metric predicts retention. Retention varies 11×
+(0.02–0.54) while commitment, confidence decay and shape retention all vary independently of it. All six
+models start within AP h1 0.38–0.47 — they differ almost entirely in how much they keep. **Gate structure
+is closed as an explanatory axis.**
+
+What survives: the gate **keeps its spatial shape** in all six (Moran's I 70–86% of h1).
+
+## The one live lead — from the configs, not the probe
+
+| | retention |
+|---|---|
+| scheduled sampling **OFF** (2 models) | 0.54, 0.45 |
+| scheduled sampling **ON** (4 models) | 0.33, 0.21, 0.05, 0.02 |
+
+Perfect rank separation, p≈0.067, holding within each output-distribution family; seed 42 produces both
+extremes, so seed is unlikely to be driving it. Scheduled sampling exists to make rollouts robust to
+feeding back the model's own output; this suggests it does the opposite here.
+
+**It is a lead, not a finding.** No pair differs by SS alone, and the controlled ε sweep that would settle
+it ran on floor-limited `truncated_smoke` where all four arms sit at 0.02–0.04. Settling it needs that
+sweep re-run on a vehicle with real retention — which means **training**, hours per arm.
+
+## Blocked first, and that is a finding too
+
+Four of six models have configs that **fail C-259 validation** and cannot be loaded: `ss_epsilon_max: 0.5`
+with `ss_feedback` never set, defaulting to `'mean'` against a resolved `'sample'`. All four are in the
+shipped `rescore.csv` with verified cubes and matching artifact shas, so **those published rows are
+currently un-rerunnable**. Fixed in the working tree only, uncommitted, raised as **views-models#404**.

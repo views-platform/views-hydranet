@@ -182,3 +182,99 @@ training-side problem, and it is where the programme goes next.
 One seed (42), one vehicle, target `sb`, 13 origins, S=16, sample 0 for the length-scale sweep columns.
 The Moran's I contrast against `truncated_smoke` is across two vehicles differing on **two** axes (40 vs
 160 lessons, `truncated_nb` vs `nb`) and cannot attribute the difference to either.
+
+---
+
+### EXP-03 · gate probe across the full roster (6 models) · 2026-08-17 · **THE DIAGNOSIS DOES NOT GENERALISE**
+
+- **Purpose:** decide whether EXP-02's quiet-gate diagnosis is a property of `violet_visitor` or of the
+  model family, *before* designing a training change on the strength of it.
+- **Blocked first, and that is a finding:** four of six models have configs that **fail C-259
+  validation** — `ss_epsilon_max: 0.5` with `ss_feedback` never set, so it defaults to `'mean'` against a
+  resolved `rollout_feedback: 'sample'`. All four are in the shipped `rescore.csv` with verified cubes
+  and matching artifact shas, so **their published rows are currently un-rerunnable**. Fixed in the
+  working tree only (one line each), uncommitted, raised as **views-models#404** for review.
+
+#### Readout
+
+| model | SS | AP h1 | AP h18 | retention | cells @h18 (reality ≈ 116) | confidence | shape |
+|---|--:|--:|--:|--:|--:|---|---|
+| `violet_visitor` | **0.0** | 0.4745 | 0.2569 | **0.54** | 14.5 | falls 7× | holds 78% |
+| `purple_alien` | **0.0** | 0.4342 | 0.1962 | **0.45** | 93.9 | falls 3× | holds 75% |
+| `blue_stranger` | 0.5 | 0.3814 | 0.1257 | 0.33 | 83.9 | falls 4× | holds 81% |
+| `blazing_meteor` | 0.5 | 0.4117 | 0.0873 | 0.21 | 25.0 | falls 7× | holds 86% |
+| `bright_starship` | 0.5 | 0.4173 | 0.0200 | 0.05 | 54.3 | falls 6× | holds 70% |
+| `pink_pirate` | 0.5 | 0.4145 | 0.0080 | 0.02 | **342.2** | **stable 1.2×** | holds 86% |
+
+#### Finding 1 — the quiet-gate diagnosis is DEAD
+
+Commitment spans **24×** (14.5 → 342.2 cells, from 8× under-firing to 3× over-firing) and does not track
+skill in any direction. **The model that commits fewest cells retains best.** `pink_pirate` commits 342
+and retains **0.02** — the worst on the roster.
+
+EXP-02's framing ("the model doesn't need to be nearly right, it needs to answer") **does not survive the
+second model, let alone the sixth.** It was true of `violet_visitor` and is not a property of the family.
+
+#### Finding 2 — "the gate loses confidence" is also not universal
+
+`pink_pirate`'s confidence is **stable** (1.2× over 35 steps) while every other model's falls 3–7×. Of the
+two claims EXP-02 offered, only one survives.
+
+#### Finding 3 — what does survive: the gate keeps its shape
+
+Moran's I retains **70–86% of its h1 value in all six**. This is the one family-level property found, and
+it corroborates the retirement of the smoke-derived "the gate diffuses" claim (`truncated_smoke`: 0.409 →
+0.178, and it stayed down).
+
+#### Finding 4 — the negative that matters most
+
+**No gate-structure metric measured here predicts rollout retention.** Not commitment, not confidence
+decay, not shape retention. Retention varies **11×** across the roster (0.02 → 0.54) while every gate
+statistic varies independently of it.
+
+All six models start within a narrow band (AP h1 0.38–0.47). **They differ almost entirely in retention**,
+and the gate probe — a real, reproducible measurement — explains none of that difference. This closes
+gate structure as an explanatory axis and is the reason to stop looking there.
+
+#### The lead that did appear — from the configs, not the probe
+
+| | retention |
+|---|---|
+| scheduled sampling **OFF** (2 models) | 0.54, 0.45 — mean **0.50** |
+| scheduled sampling **ON** (4 models) | 0.33, 0.21, 0.05, 0.02 — mean **0.15** |
+
+**Perfect rank separation.** Every SS-off model out-retains every SS-on model; p ≈ 0.067 under a
+permutation test (1 of 15 arrangements). It holds *within* each output-distribution family — `nb`: 0.54 vs
+{0.21, 0.05}; `mixture_nb`: 0.45 vs {0.33, 0.02}.
+
+**Seed is unlikely to be the driver.** Seed 42 appears twice and produces **both extremes** —
+`violet_visitor` (SS off) at 0.54 and `pink_pirate` (SS on) at 0.02.
+
+This is uncomfortable: scheduled sampling exists precisely to make rollouts robust to feeding back the
+model's own output. The pattern suggests it does the opposite on this architecture.
+
+#### Why it is NOT established
+
+1. **Observational.** No pair in the roster differs by SS *alone*; every comparison carries a seed and
+   often an output-distribution difference.
+2. **The controlled experiment exists and cannot discriminate.** The SS sweep
+   (`reports/2026-08-14_scheduled_sampling_dossier/`, one variable, seed 42, ε ∈ {0, 0.1, 0.25, 0.5}) was
+   run on **`truncated_smoke`**, whose retention is 0.02 at the floor. All four arms land at 0.02–0.04.
+   A correctly-designed single-variable experiment, run on the one vehicle that could not answer it —
+   the floor-limitation problem costing a whole experiment rather than a misread number.
+3. n=6, one origin set, one target.
+
+**Settling it requires the ε sweep re-run on a vehicle with real retention, which means TRAINING** — hours
+per arm, not the minutes these inference probes cost.
+
+#### Decision
+
+Gate structure is closed as an explanatory axis (Finding 4). The scheduled-sampling pattern is the only
+live lead and is **explicitly not a finding**. Nothing should be built on it until the controlled sweep
+runs on a non-floor-limited vehicle.
+
+#### Scope
+
+Six models, 13 origins, target `sb`, S=16, one artifact each (shas verified against
+`partition_audit.json` before every run). `pink_pirate` and `blue_stranger` were absent from
+`rescore.csv`; their AP was computed here from their preserved cubes with the same scorer.

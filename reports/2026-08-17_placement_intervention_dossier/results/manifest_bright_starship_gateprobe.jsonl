@@ -1,0 +1,1 @@
+{"model": "bright_starship", "arm": "identity", "artifact": "calibration_model_20260813_174320.pt", "pred_dir": "predictions_calibration_20260813_174320", "score_csv": "score_bright_starship_identity.csv", "fedfield_csv": "fedfield_bright_starship_identity.csv", "elapsed_s": 552.6, "cubes_deleted": true, "length_scale": null, "gate_probe": true}

@@ -1,0 +1,1 @@
+{"model": "blue_stranger", "arm": "identity", "artifact": "calibration_model_20260813_042946.pt", "pred_dir": "predictions_calibration_20260813_042946", "score_csv": "score_blue_stranger_identity.csv", "fedfield_csv": "fedfield_blue_stranger_identity.csv", "elapsed_s": 668.5, "cubes_deleted": true, "length_scale": null, "gate_probe": true}
