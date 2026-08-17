@@ -109,3 +109,40 @@ Report `violet_visitor`'s occurrence/magnitude/placement shares beside `truncate
 4. **Code has moved since the artifact was trained.** Seven commits touched `views_hydranet/` after
    2026-08-12. F1 passing exactly shows the *scoring* path is unchanged; F4 is what guards the *inference*
    path.
+
+---
+
+## AMENDMENT 1 — 2026-08-17 02:58 CEST, after the batch launched, before any arm completed
+
+**The control changes from the preserved cubes to an `identity` arm run tonight.**
+
+**Why.** The preserved cubes were written **2026-08-12 19:18**. Three commits touching the inference
+path landed *after* them:
+
+| commit | when | what |
+|---|---|---|
+| `d3a2626` | 2026-08-13 21:42 | `truncated_nb` body |
+| `c07a352` | 2026-08-14 04:19 | SS piping + `truncated_nb` sampler |
+| **`a2eabeb`** | **2026-08-14 19:28** | **per-site LockedDropout — independent MC-dropout masks per layer (C-128 S2)** |
+
+`violet_visitor` evaluates with `evaluation_mode: 'stochastic'` and `dropout_rate: 0.15`, so MC-dropout
+is **live at inference** and per-site masks change the posterior draws. Comparing today's treatment arms
+against a control generated before that change would confound **each transform's effect** with **a
+dropout change** — the exact class of defect this dossier exists to avoid, and one that would have been
+invisible in every output except F4.
+
+**What changes.** `identity` is queued as a sixth arm (chained after the batch via
+`tools/chain_identity.sh`, because the batch had already launched) and **becomes the control**. Control
+and treatment then share code, an artifact and a seed.
+
+**What does not change.** No prediction or falsifier is edited. F4 stays exactly as locked and is now
+*also* the cross-check on this amendment: if h=1 AP differs between `identity`-today and the preserved
+cubes, that difference **is** the dropout change, measured.
+
+**What the preserved cubes are still for.** (i) F1 — they proved `rescore.csv` reproduces bit-for-bit,
+which stands. (ii) `identity`-today minus cubes-2026-08-12 now **measures what those three commits did
+to the free-running path**, which is a byproduct worth having and was not otherwise on anyone's list.
+
+**Scope note added.** Any share computed against the preserved cubes rather than against `identity`
+would be contaminated; the verifier's control is the `identity` score CSV once it exists, and the
+preserved-cube row is reported separately and labelled as 2026-08-12 code.

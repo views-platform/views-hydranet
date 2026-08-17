@@ -1,0 +1,1 @@
+{"model": "violet_visitor", "arm": "spatial_scramble", "artifact": "calibration_model_20260812_191742.pt", "pred_dir": "predictions_calibration_20260812_191742", "score_csv": "score_violet_visitor_spatial_scramble.csv", "fedfield_csv": "fedfield_violet_visitor_spatial_scramble.csv", "elapsed_s": 596.3, "cubes_deleted": true, "length_scale": null, "gate_probe": false}

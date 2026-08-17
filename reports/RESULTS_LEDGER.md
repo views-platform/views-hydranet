@@ -64,6 +64,36 @@ target `sb` where a single target is named · calibration partition.
 | I-D | **Some of the gap flows through the recurrent state (~23% of the oracle gap).** | M8 | **Low.** INDICATIVE. Recovers 23% *relative to a collapsed control* and still does not reach persistence (M1), so it is not a skill claim. **Which memory half is NOT established** (C-292). |
 | I-E | **The independent Bernoulli draw discards usable ranking information.** | M7 | **Medium** — the information gap is measured (M7). That fixing it would help is **untested**, and M5 is a warning that a plausible fix can do nothing. |
 
+### REPLICATED on a vehicle with skill — 2026-08-17
+
+`reports/2026-08-17_vehicle_replication_dossier/`. Six arms on **`violet_visitor`** (160 lessons, `nb`,
+REAL against climatology through h18 by the audited verdict), all falsifiers pass, GREEN. This directly
+tests whether M3/M4/I-A above were artifacts of an undertrained vehicle. **They were not.**
+
+| # | Claim | Evidence | Confidence |
+|---|-------|----------|------------|
+| M10 | **The oracle does not degrade at all.** Fed the real field, gate AP holds 0.4745 → 0.4793 (h18) → 0.4577 (h36) over 36 steps. All free-running decay is attributable to fed-back content, not to the recurrence or the horizon. | replication EXP-02 | **High** — direct, large, and corroborates M6 on the headline metric. |
+| M11 | **Occurrence is ~95% of the gap; magnitude ~0%.** E4a (real occurrence × the model's own **71%-inflated** magnitudes) recovers 95.3% at h18; E4b recovers 1.4% and is **negative at 4 of 6 horizons**. On smoke: 88.6 / 7.9. | replication EXP-02 | **Medium-high** — replicates across two vehicles, near-additive (86–99%). Still one seed each. |
+| M12 | **Wrong placement is worse than the model's own errors.** `spatial_scramble` scores 0.0486 at h18 against a control of 0.2569 — 5× worse — while `thin:0.75` discards ¾ of true events and recovers 95.5%. | replication EXP-02 | **High** — 5× effect, direct manipulation, F6 confirms the transform bit. |
+| M13 | **The Epic #263 board reproduces bit-for-bit** from preserved cubes: worst \|ΔAP\| = 0.00e+00 over 7 horizons, `N` identical. | replication EXP-00 | **High** — exact. |
+| M14 | **The post-2026-08-12 inference commits are a no-op on this vehicle's free-running path** (incl. `a2eabeb` per-site LockedDropout): `identity` today vs cubes from 08-12, worst \|ΔAP\| = 0.00e+00. | replication EXP-02 | **High** — exact, on 7 horizons. |
+
+**Two corrections this forces on earlier work:**
+
+* **M3/I-A were measured under a floor effect.** On `truncated_smoke` the control was already at 0.0070,
+  so `spatial_scramble`'s "+0.9% of the gap" was the distance between two numbers both pinned near zero —
+  never a measurement of placement's importance. The smoke run **understated** it.
+* **The share statistic `(arm − control)/(oracle − control)` does not apply to arms outside that
+  interval.** `spatial_scramble` falls *below* the control on both vehicles, so its share is negative and
+  meaningless as a fraction. Any decomposition must check the interval before quoting a share.
+
+**Re-scoping, per the pre-committed decision rule:** I-A moves from "single-seed decomposition, do not
+quote the number" to **replicated across two vehicles with the ordering robust and magnitude's share
+falling to ~0**. It remains one seed per vehicle, so under the standing rule this is an **escalation
+trigger** — second seed, third vehicle — not a conclusion.
+
+---
+
 ### RETIRED — kept so they stay dead
 
 | Claim | Retired | Why |
