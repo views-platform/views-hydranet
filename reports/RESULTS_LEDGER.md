@@ -154,6 +154,20 @@ it is still climbing, every experiment at 160 (including the parked SS sweep) me
 partially-trained model, and a null there may only mean "this does not help a model that has not
 finished learning."
 
+**Being answered: `reports/2026-08-18_lesson_curve_dossier/` (pre-registered 2026-08-18, LOCKED).**
+Controls **and** oracles at L = 160 / 300 / 600 (900 conditional), one variable (`total_lessons`),
+splitting any change into a **ceiling** part and a **retention** part via `log F = log C + log R`. It
+spends its first stage measuring **σ_seed** — the seed-to-seed SD of retention across four training runs
+at L=160, which this programme has never measured on this vehicle — because without it a one-seed
+lesson point is a number rather than an effect or a null. Pre-registered θ = 0.14 (30% of the measured
+0.4687 gap from R(160)=0.5415 to the oracle's 1.0101) and four decision states, so **PLATEAU is
+declarable rather than assumed**. σ_seed is a deliverable in its own right: it bounds what *any*
+single-seed experiment on this vehicle can see.
+
+⚠️ Confound declared before the run (**C-301**): `curriculum.py:85` normalises the difficulty schedule
+by `total_lessons`, so a longer run is the same curriculum **stretched**, not continued. The experiment
+answers "does a longer budget help", never "do more gradient steps help".
+
 ---
 
 ### INFERENCE-TIME FIXES — CLOSED 2026-08-17

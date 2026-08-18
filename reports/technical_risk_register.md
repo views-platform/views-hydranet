@@ -4,12 +4,12 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-08-15                           |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 297                                  |
-| Open Concerns     | 145                                  |
+| Last Updated      | 2026-08-18                           |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
+| Total Concerns    | 299                                  |
+| Open Concerns     | 147                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 124                                 |
+| — net active risks | 126                                 |
 | Resolved Concerns | 152                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -2528,6 +2528,79 @@ what would refute the hypothesis and silent about whether the instrument can see
 
 Validated on committed data: `truncated_smoke` 0.77× (FAIL), `violet_visitor` 28.30× (PASS) — a 36×
 separation. Computable from the control's own score CSV, zero extra GPU. **Not yet wired into any driver.**
+
+---
+
+### C-301: `total_lessons` silently reshapes the curriculum, so "train longer" is never one variable
+
+| Field | Value |
+|-------|-------|
+| ID | C-301 |
+| Tier | 3 |
+| Source | code read during `reports/2026-08-18_lesson_curve_dossier` pre-registration (2026-08-18) |
+| Trigger | Comparing two runs that differ in `total_lessons` — a lesson curve, a convergence check, or quoting a 300-lesson result against a 160-lesson one |
+| Location | `views_hydranet/utils/curriculum.py:34,85`; every `config_hyperparameters.py` carrying `total_lessons` |
+| Cross-refs | C-299 (the 40-lesson vehicle this interacts with), C-184 (BN recalibration) |
+
+`CurriculumLearner.get_intensity_ratio` computes its cooling slope as
+
+```python
+self.total_steps = config["total_lessons"] * config["windows_per_lesson"]   # :34
+b = (-self.max_ratio + self.min_ratio) / (self.total_steps * self.slope_ratio)   # :85
+```
+
+so **the difficulty schedule is normalised by the training length**. A 600-lesson run is therefore *not*
+a 160-lesson run continued — it is the same curriculum shape stretched over 600 lessons, and every
+lesson index sees a different event threshold than it would at another length. Changing `total_lessons`
+changes two things at once, and only one of them is in the config key's name.
+
+This is not a defect to fix — normalising the curriculum to the budget is a defensible design, and it is
+what "set `total_lessons` higher" means in production. It is a **confound to declare**: any lesson-count
+comparison answers "does a longer budget help", never "do more gradient steps help", and the two
+questions have different answers if the curriculum is doing work.
+
+**What is NOT coupled, checked at the same time so the scope is honest:** the LR schedule
+(`warmup_decay_lr_scheduler.py:13`) is a fixed inverse-sqrt law stepped once per lesson
+(`training_engine.py:1070`), so a longer run is a strict prefix-extension in learning rate. And BN
+recalibration (`training_engine.py:778-801`) draws its 30 windows through the same `get_intensity_ratio`,
+but those steps are roof-clipped at `max_ratio × roof_ratio` for every `total_lessons ≥ ~114` — so the
+recal windows coincide across 160/300/600/900 and differ **only** against the 40-lesson rung.
+
+Declared in `reports/2026-08-18_lesson_curve_dossier/05_analysis_plan.md` §2 and `SCOPE.md` §3.
+
+---
+
+### C-302: an opt-in training diagnostic is unreachable — its config key is dropped by schema validation
+
+| Field | Value |
+|-------|-------|
+| ID | C-302 |
+| Tier | 3 |
+| Source | code read during `reports/2026-08-18_lesson_curve_dossier` pre-registration (2026-08-18) |
+| Trigger | Setting `trajectory_log_path` in a config to diagnose a training trajectory, and concluding from the absent CSV that the run was fine |
+| Location | `views_hydranet/train/training_engine.py:896-916`; `views_hydranet/utils/config_initializer.py:47,1166-1167` |
+| Cross-refs | C-299 (the class: an instrument that cannot see is worse than no instrument) |
+
+`training_engine.py:898` reads `config.get("trajectory_log_path")` and, when set, registers forward hooks
+and writes a per-lesson CSV of grad-norm, losses and gate-logit mean — a genuinely useful convergence
+instrument, and the only per-lesson trajectory record the codebase has (the training report keeps just
+`final_loss` / `min_loss` / `max_loss`).
+
+But `trajectory_log_path` is **not a field on `HydraNetConfig`**, and the resolved config is produced by
+
+```python
+config_obj = HydraNetConfig(**self._raw)   # :1166
+return config_obj.model_dump()             # :1167
+```
+
+Pydantic's default `extra="ignore"` drops unknown keys, so the flag never reaches `training_engine`.
+Setting it does nothing, silently — the failure mode is an absent file, which reads as "the diagnostic
+ran and found nothing to report".
+
+**Not fixed here.** The fix is one optional field on the schema plus a test, but it touches a shared
+config surface for a diagnostic no current experiment needs; the lesson-curve programme was re-scoped to
+read convergence from the rollout metrics and the three summary losses instead. Registered so the next
+person to reach for the flag learns it is dead before they trust its silence.
 
 ---
 

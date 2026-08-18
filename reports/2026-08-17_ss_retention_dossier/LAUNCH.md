@@ -65,8 +65,18 @@ This sweep runs at **160 lessons**, and **whether 160 is converged is unknown** 
 never validated as monotone, and Stage A showed the bottom of it collapses retention 8×.
 
 If 160 is still on the slope, a **null here means "SS does not help a partially-trained model"**, which is
-a weaker statement than it will look like. Consider settling the lesson curve first — it is the same
-shape of single-variable experiment, and it *gates* this question rather than competing with it.
+a weaker statement than it will look like.
+
+**Update 2026-08-18 — the lesson curve is now pre-registered and gates this sweep:**
+`reports/2026-08-18_lesson_curve_dossier/` (LOCKED). Run it first. Two consequences for this file:
+
+1. **Three of the seven arms below may already be done.** The curve's stage 1 runs
+   `longzero_fortythree` / `_fortyfour` / `_fortyfive` through **this dossier's unmodified
+   `run_arm.sh`** into **this dossier's `results/`**, to measure σ_seed at L=160. `run_sweep.sh` skips
+   any arm whose `score_<label>.csv` exists, so a relaunch after the curve continues rather than
+   repeats — ~3.5 h already paid, leaving ~19 h of ε=0.5 arms.
+2. **Read `results/VERDICT.md` of the curve before reading this sweep's.** If the curve returns RISING,
+   a null here is about a partially-trained model and must be re-scoped, not quoted.
 
 ## If something goes wrong
 

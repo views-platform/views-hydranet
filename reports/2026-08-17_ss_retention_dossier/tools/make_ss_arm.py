@@ -50,7 +50,13 @@ _INTENDED = {"ss_epsilon_max", "ss_feedback", "torch_seed", "np_seed", "total_le
 #: words, no digits, one underscore. So the arm's parameters cannot appear literally in the directory
 #: name; they are encoded through these tables instead, and ``arm.json`` carries the authoritative
 #: values. Deterministic both ways, so a name is still a reliable handle in a log or the process table.
-_LESSON_WORD = {40: "short", 160: "long", 300: "full"}
+_LESSON_WORD = {2: "tiny", 40: "short", 160: "long", 300: "full", 600: "sixhundred",
+                900: "ninehundred"}
+#: 2 = the smoke rung. The ensemble dossier's harness checklist makes a 2-lesson smoke the
+#: precondition for a long run; it exercises every seam in ~20 min instead of hours.
+#: 600/900 break the short/long/full style deliberately: nobody will remember an invented
+#: adjective for 900, and an unambiguous name beats a pretty one (lesson-curve dossier,
+#: reports/2026-08-18_lesson_curve_dossier).
 _EPS_WORD = {0.0: "zero", 0.1: "tenth", 0.25: "quarter", 0.5: "half"}
 _SEED_WORD = {42: "fortytwo", 43: "fortythree", 44: "fortyfour", 45: "fortyfive"}
 
