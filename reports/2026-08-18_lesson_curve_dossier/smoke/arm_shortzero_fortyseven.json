@@ -1,0 +1,15 @@
+{
+  "label": "shortzero_fortyseven",
+  "artifact": "calibration_model_20260819_111701.pt",
+  "pred_dir": "predictions_calibration_20260819_111701",
+  "weight_sha256": "ba03a6bb4e6dfdab0c1d23e2678648e371c648a1dfae7f2efe6ffeb99a199969",
+  "total_lessons": 40,
+  "ss_epsilon_max": 0.0,
+  "ss_feedback": "sample",
+  "torch_seed": 47,
+  "output_distribution": "nb",
+  "forecast_composition": "soft_gate",
+  "resumed_from_artifact": false,
+  "head": "eb388f90528fa86d26936004ccf87d50b90b734a",
+  "emit_head": "eb388f90528fa86d26936004ccf87d50b90b734a"
+}

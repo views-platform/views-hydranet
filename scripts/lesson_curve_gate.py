@@ -49,6 +49,7 @@ import math
 
 __all__ = [
     "ANCHOR_L",
+    "REF_SEED",
     "G1_STOP",
     "H_BASE",
     "H_STAR",
@@ -63,9 +64,26 @@ H_BASE = 1
 H_STAR = 18
 REF_N = 170430
 ANCHOR_L = 160
+REF_SEED = 42  # §5 pins the measurement-floor comparison to this seed
 THETA = 0.14  # 0.30 * (1.010134 - 0.541482), both measured; see the module docstring
-K_PRED = 2.631  # t(3, 0.95) * sqrt(1 + 1/4) — one-sided 95% prediction bound for a NEW run
+K_PRED = 2.631  # the n=4 REFERENCE multiplier, pinned in rule_md5; see _k_for_n
 G1_STOP = 0.30  # k * sigma_seed(R) at/above this: nothing learnable at one seed per point
+
+#: t(n-1, 0.95), one-sided. The prediction-bound multiplier is
+#: `t(n-1,0.95) * sqrt(1 + 1/n)` and has ALWAYS depended on n — 05_analysis_plan.md §5
+#: states it as a formula and AMENDMENT 2 tabulates it for n=5,6. Hard-coding the n=4
+#: value was an implementation shortcut that silently discarded the power the extra seeds
+#: were run to buy. It is conservative, so it never manufactured a positive — but it made
+#: a declarable null look undeclarable. A table rather than scipy: this module carries no
+#: third-party dependency, and eight numbers are auditable by eye.
+_T95 = {3: 2.9200, 4: 2.3534, 5: 2.1318, 6: 2.0150, 7: 1.9432, 8: 1.8946, 9: 1.8595, 10: 1.8331}
+
+
+def _k_for_n(n: int) -> float:
+    """One-sided 95% prediction-bound multiplier for a NEW run, given n anchor runs."""
+    lo, hi = min(_T95), max(_T95)
+    return _T95[min(max(n, lo), hi)] * (1.0 + 1.0 / n) ** 0.5
+
 
 _STATES = ("RISING", "PLATEAU", "UNDERPOWERED", "G1-STOP", "VOID")
 
@@ -131,10 +149,27 @@ def _falsifiers(arms: list[dict], *, ref_n: int) -> list[str]:
             )
         seen[h] = a["label"]
 
-    # F6 — arms built at different repo HEADs are not comparable
-    heads = {a["head"] for a in arms if a.get("head")}
-    if len(heads) > 1:
-        problems.append(f"F6: arms span {len(heads)} repo HEADs — not comparable")
+    # F6 — arms built from different result-producing CODE are not comparable.
+    # AMENDMENT 2026-08-18: this compared raw commit ids and fired on four arms whose
+    # `views_hydranet/` tree hash was byte-identical (ca41c3f5) — the intervening commits were docs
+    # and analysis tooling. A commit id is not the thing that makes two arms incomparable; the code
+    # is. Callers pass `code_fingerprint` (git tree hash of the training/inference package plus the
+    # scorer blob); `head` remains the fallback when no fingerprint is supplied. This NARROWS the
+    # check to its stated intent — it still fires, and fires correctly, on any real code change.
+    key = "code_fingerprint" if any(a.get("code_fingerprint") for a in arms) else "head"
+    missing = [a["label"] for a in arms if not a.get(key)]
+    if missing:
+        # Silently exempting an arm with no fingerprint would let a mixed-provenance set pass the
+        # comparability check while its siblings were compared. Unknown provenance is not evidence
+        # of sameness.
+        problems.append(
+            f"F6: {len(missing)} arm(s) have no {key} — provenance unknown, so comparability "
+            f"cannot be asserted: {', '.join(sorted(missing))}"
+        )
+    fps = {a[key] for a in arms if a.get(key)}
+    if len(fps) > 1:
+        what = "result-producing code versions" if key == "code_fingerprint" else "repo HEADs"
+        problems.append(f"F6: arms span {len(fps)} {what} — not comparable")
 
     # F4 — a control that cannot show an effect is not evidence (C-299)
     try:
@@ -199,7 +234,9 @@ def curve_verdict(
         "mde_f": None,
         "anchor": [],
         "longest": None,
+        "ref_seed_label": None,
         "decomposition": [],
+        "k_used": None,
         "rule_md5": rule_md5(theta=theta, k_pred=k_pred, g1_stop=g1_stop, anchor_l=anchor_l),
     }
     if not arms:
@@ -254,12 +291,18 @@ def curve_verdict(
     fs = [a["F"] for a in anchor]
     mean_r, mean_f = sum(rs) / len(rs), sum(fs) / len(fs)
     sigma_r, sigma_f = _sd(rs), _sd(fs)
-    mdes = [float(a["mde_f"]) for a in anchor if a.get("mde_f")]
+    # `is not None`, not truthiness: an MDE of exactly 0.0 is a measurement, and dropping it would
+    # silently shrink the set the mean is taken over.
+    mdes = [float(a["mde_f"]) for a in anchor if a.get("mde_f") is not None]
+    # the multiplier tracks n; `k_pred` is only the default/reference value (n=4)
+    if k_pred == K_PRED:
+        k_pred = _k_for_n(len(anchor))
     out.update(
         sigma_seed_r=sigma_r,
         sigma_seed_f=sigma_f,
         mean_r=mean_r,
         mean_f=mean_f,
+        k_used=k_pred,
         bound_r=mean_r + k_pred * sigma_r,
         bound_f=mean_f + k_pred * sigma_f,
         mde_f=sum(mdes) / len(mdes) if mdes else None,
@@ -284,7 +327,22 @@ def curve_verdict(
     out["longest"] = top["label"]
     r_ok = top["R"] > out["bound_r"]
     f_ok = top["F"] > out["bound_f"]
-    mde_ok = out["mde_f"] is not None and (top["F"] - base["F"]) > 3 * out["mde_f"]
+
+    # §5 pins the measurement-floor comparison to the REFERENCE SEED (42), not to the anchor mean,
+    # so it is selected by seed rather than by sort position — `anchor[0]` happened to be seed 42
+    # and would silently become a different arm if that seed were ever absent. A one-seed reference
+    # is fragile (SCOPE.md §11 records that); it is kept because it is what was pre-registered, and
+    # if the reference is missing the condition is reported as unevaluable rather than substituted.
+    ref = next((a for a in anchor if int(a["torch_seed"]) == REF_SEED), None)
+    out["ref_seed_label"] = ref["label"] if ref else None
+    if ref is None:
+        mde_ok, mde_why = False, f"the reference seed {REF_SEED} is not among the anchor arms"
+    elif out["mde_f"] is None:
+        mde_ok = False
+        mde_why = "no anchor arm carries an MDE, so the measurement floor is unknown"
+    else:
+        mde_ok = (top["F"] - ref["F"]) > 3 * out["mde_f"]
+        mde_why = ""
 
     if r_ok and f_ok and mde_ok:
         out["state"] = "RISING"
@@ -301,9 +359,20 @@ def curve_verdict(
         )
     else:
         out["state"] = "UNDERPOWERED"
-        out["detail"] = (
-            f"the prediction bound ({k_pred * sigma_r:.4f}) is not narrower than theta "
-            f"({theta}), or the endpoints disagree. 'No effect' and 'could not tell' are not "
-            "distinguishable here."
-        )
+        # Name the actual reason. The old text asserted "the bound is not narrower than theta, or
+        # the endpoints disagree" even when the real cause was an unmeasured MDE — a false
+        # explanation is worse than a vague one, because it sends the reader to the wrong fix.
+        if mde_why:
+            out["detail"] = f"cannot evaluate the measurement floor: {mde_why}."
+        elif k_pred * sigma_r >= theta:
+            out["detail"] = (
+                f"the prediction bound ({k_pred * sigma_r:.4f}) is not narrower than theta "
+                f"({theta}), so a null is not declarable. More anchor seeds would fix this."
+            )
+        else:
+            out["detail"] = (
+                f"the endpoints disagree (R {'over' if r_ok else 'inside'} its bound, F "
+                f"{'over' if f_ok else 'inside'} its), or the rise does not clear 3 x MDE. "
+                "'No effect' and 'could not tell' are not distinguishable here."
+            )
     return out

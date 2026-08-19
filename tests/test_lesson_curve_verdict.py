@@ -23,6 +23,7 @@ from scripts.lesson_curve_gate import (
     K_PRED,
     REF_N,
     THETA,
+    _k_for_n,
     curve_verdict,
     rule_md5,
 )
@@ -226,3 +227,51 @@ def test_relaxing_a_threshold_moves_the_rule_hash():
 def test_the_verdict_reports_the_hash_of_the_rule_it_applied():
     v = curve_verdict(_anchor())
     assert v["rule_md5"] == rule_md5()
+
+
+def test_the_multiplier_reported_is_the_multiplier_applied():
+    """The bound, the annotation and the verdict must all use the SAME k.
+
+    Reading one from `K_PRED` (the n=4 reference) and another from `_k_for_n(n)` let VERDICT.md
+    print "too wide for a null" directly beneath a PLATEAU heading — found by code review, after
+    the n-dependent-k fix had already been called done.
+    """
+    for n in (4, 5, 6):
+        seeds = tuple(range(42, 42 + n))
+        arms = [
+            _arm(f"a{s}", ANCHOR_L, s, 0.4745, 0.4745 * r)
+            for s, r in zip(seeds, [0.54, 0.55, 0.53, 0.56, 0.545, 0.552][:n])
+        ]
+        v = curve_verdict(arms)
+        assert v["k_used"] == pytest.approx(_k_for_n(n)), f"n={n}"
+        # the bound must be reconstructible from the k that was reported
+        assert v["bound_r"] == pytest.approx(v["mean_r"] + v["k_used"] * v["sigma_seed_r"])
+        assert v["bound_f"] == pytest.approx(v["mean_f"] + v["k_used"] * v["sigma_seed_f"])
+
+
+def test_a_missing_reference_seed_is_reported_not_substituted():
+    """§5 pins the measurement floor to seed 42; another seed must not quietly stand in."""
+    arms = [
+        _arm(f"a{s}", ANCHOR_L, s, 0.4745, 0.4745 * r)
+        for s, r in zip((43, 44, 45, 46), (0.54, 0.55, 0.53, 0.56))
+    ]
+    arms.append(_arm("long600", 600, 43, 0.49, 0.392))
+    v = curve_verdict(arms)
+    assert v["state"] != "RISING"
+    assert "reference seed 42" in v["detail"]
+
+
+def test_an_arm_with_no_provenance_is_flagged_not_exempted():
+    """A resumed arm records no train-time head; unknown provenance is not evidence of sameness."""
+    arms = [
+        _arm(f"a{s}", ANCHOR_L, s, 0.4745, 0.4745 * r)
+        for s, r in zip((42, 43, 44, 45), (0.54, 0.55, 0.53, 0.56))
+    ]
+    for a in arms:
+        a["code_fingerprint"] = "treeA"
+    resumed = _arm("resumed", 300, 42, 0.4745, 0.27)
+    resumed["code_fingerprint"] = None
+    arms.append(resumed)
+    v = curve_verdict(arms)
+    assert v["state"] == "VOID"
+    assert any("provenance unknown" in p for p in v["problems"])

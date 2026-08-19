@@ -134,6 +134,77 @@ be worth more than the curve.
   investigate above 3·MDE. Advisory by design — the two runs differ in model directory and the
   equivalence is unverified, so a hard VOID on it would be the wrong call.
 
+### AMENDMENT 1 — 2026-08-18 09:20, F6 narrowed to its stated intent
+
+**F6 fired on stage 1 and the verdict was VOID.** Recorded here because a falsifier was changed after
+data was seen, which is the one move that most needs a paper trail.
+
+*What fired:* the four L=160 arms span two commit ids — seed 42 was trained at `5ed6c223`, seeds 43–45
+at `eb388f9`.
+
+*The objective evidence it was nominal:* `git rev-parse <head>:views_hydranet` returns
+**`ca41c3f59769525b5a8bebfb0a94bbc4ea778d30` at both commits** — the training/inference package is
+byte-identical. So is the scorer blob (`ef7ee1da`). `git diff 5ed6c223 eb388f9 -- views_hydranet/` is
+**0 lines**. The seven intervening commits are documentation, a pre-registration, and this dossier's own
+analysis tooling.
+
+*The change:* F6 now compares a **code fingerprint** — the git tree hash of `views_hydranet/` plus the
+scorer blob at each arm's HEAD — instead of the commit id. `head` remains the fallback where no
+fingerprint can be computed.
+
+*Why this is a narrowing, not a relaxation:* F6's stated purpose is "arms built at different code are
+not comparable". A commit id answers a different question, and answers it wrongly in both directions —
+it fires on docs-only commits **and** it would pass two arms built from the same commit id in a dirty
+working tree. The fingerprint is strictly closer to the intent. It is sabotage-tested: two arms with
+different `views_hydranet` trees still return VOID.
+
+*What was NOT changed:* θ, k, G1, the anchor length, h\*, and F1–F5. The pinned decision-rule md5
+`5d6a256bb2b41485220d033cd0bfbc87` is unchanged, because none of its inputs moved.
+
+---
+
+### AMENDMENT 2 — 2026-08-18 09:40, two anchor seeds added for power
+
+**sigma_seed(R) measured 0.0544** at L=160 (n=4: 0.5415 / 0.6284 / 0.5780 / 0.6648). §5 pre-registered
+the boundary at **0.0532** — above it, `k · sigma > theta` and PLATEAU is unreachable by construction.
+We landed 2% over: `k · sigma = 0.1431` against `theta = 0.140`.
+
+**Change:** two more anchor seeds (46, 47) at L=160, ε=0, appended after the curve. The decision rule is
+untouched — its multiplier already depends on n through `t(n-1, 0.95) · sqrt(1 + 1/n)`:
+
+| n | k | k · sigma | PLATEAU declarable |
+|--:|--:|--:|---|
+| 4 | 2.631 | 0.1431 | no |
+| 5 | 2.335 | 0.1270 | yes |
+| 6 | 2.177 | 0.1184 | yes, with margin |
+
+**Why this is not fishing:** the decision was taken on the **noise floor alone**, before any arm above
+L=160 had been read — the L=300 arm had crashed and the L=600 arm was at lesson 7. §5 anticipated this
+exact contingency in writing. Adding observations to an estimator whose penalty already shrinks with n
+is not a threshold relaxation; theta, k's formula, G1 and the anchor length are unchanged, and the
+pinned decision-rule md5 does not move.
+
+**What it buys:** the difference between reporting "training is done as a lever" and reporting "we could
+not tell" — which, on a flat result, is the whole value of the experiment.
+
+---
+
+### AMENDMENT 3 — 2026-08-19 08:45, the multiplier now tracks n as §5 always specified
+
+`K_PRED` was hard-coded at **2.631** (the n=4 value) while §5 defines the multiplier as
+`t(n-1, 0.95) · sqrt(1 + 1/n)` and AMENDMENT 2 tabulates it for n=5 and n=6. This is a **bug fix, not a
+rule change**: the implementation did not match the pre-registration it claimed to implement.
+
+Direction of the error matters. A too-large multiplier widens the bound, which makes **both** RISING and
+PLATEAU harder — it can never have manufactured a positive. What it did do is discard the power the
+extra seed was run to buy: at n=5 it reported `k·sigma = 0.1254` (a null NOT declarable) where the
+pre-registered formula gives **0.1113** (declarable).
+
+`rule_md5` is **unchanged** — `K_PRED` remains the pinned n=4 reference value, and n was always a free
+parameter of the stated formula rather than a pinned constant.
+
+---
+
 **Two pinned hashes.** Floor-gate thresholds md5 **`6d5714d5ceda147ed16f53143abe7e37`** (h\*=18,
 target `sb`, θ=0.30, r=5.0, b=1.2, k=3.0). Decision-rule md5
 **`5d6a256bb2b41485220d033cd0bfbc87`** (`scripts.lesson_curve_gate.rule_md5()` over θ=0.14, k=2.631,

@@ -58,7 +58,8 @@ _LESSON_WORD = {2: "tiny", 40: "short", 160: "long", 300: "full", 600: "sixhundr
 #: adjective for 900, and an unambiguous name beats a pretty one (lesson-curve dossier,
 #: reports/2026-08-18_lesson_curve_dossier).
 _EPS_WORD = {0.0: "zero", 0.1: "tenth", 0.25: "quarter", 0.5: "half"}
-_SEED_WORD = {42: "fortytwo", 43: "fortythree", 44: "fortyfour", 45: "fortyfive"}
+_SEED_WORD = {42: "fortytwo", 43: "fortythree", 44: "fortyfour", 45: "fortyfive",
+              46: "fortysix", 47: "fortyseven"}
 
 
 def arm_label(*, lessons: int, eps: float, seed: int) -> str:
