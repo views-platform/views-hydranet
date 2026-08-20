@@ -19,6 +19,18 @@ sanity record; wandb holds the curves, this holds the *conclusions*.
 
 ---
 
+## 🏁 TRAINING LENGTH — ANSWERED 2026-08-20
+
+**Retention plateaus at ~300 lessons; training is closed as a retention lever.**
+`0.03 (40L, no skill) → 0.600 (160L) → 0.690 (300L) → 0.692 (600L)`. The last step is +0.0014 against a
+seed sd of 0.046. **T=0 skill and the ceiling keep rising** (+0.0213 vs sd 0.0077), so the model keeps
+improving and stops becoming more robust. The gate still loses **31%** of itself to its own feedback and
+no amount of training recovers it. **40 lessons = smoke only** (matches climatology at h1, 10–25× worse
+at h18). **160 lessons is not converged** and is only 14% above climatology at h18 — the parked SS sweep
+must move to L=300. Rows **M26–M29**; dossier `reports/2026-08-18_lesson_curve_dossier/`.
+
+---
+
 ## Claims Ledger — the rollout collapse (#258 / #262)
 
 **Why this section exists.** The run ledger below is per-*run* and the narrative is chronological, and
@@ -132,7 +144,11 @@ climatology at any horizon**, and per I-A it is ~90–95% a *placement* problem.
 | M21 | **Training length is the dominant cause of the floor.** A clone of `violet_visitor` differing in **exactly one key** (`total_lessons` 160 → 40, verified by symmetric-difference on the resolved config dicts) collapses retention **0.54 → 0.068**. The residual 0.068 → 0.02 is what `truncated_nb` and `body_supervision` contribute. | ss-retention Stage A | **High** — single-variable, 8× effect, one seed but far above seed spread. |
 | M22 | **Training is bit-reproducible at fixed seed on this box.** Retraining violet at HEAD gave **190 weight tensors with an identical sha256** and predictions matching to 15 d.p. at all 7 horizons, 5 days and 5 commits later. The 8 commits touching the training path since 2026-08-12 are **no-ops for this configuration**. ⚠️ The two identical models have **different `.pt` file shas** — torch stamps mtimes into the zip, so file shas are an invalid identity check. | ss-retention Stage A′ | **High** — exact. |
 
-**⛔ What is NOT established, and it undercuts an assumption everything rests on.**
+**✅ RESOLVED 2026-08-20 by `reports/2026-08-18_lesson_curve_dossier/` EXP-01 — see M26–M29 below.**
+Retention plateaus at ~300 lessons; T=0 skill and the ceiling keep rising; 160 is **not** converged for
+retention. The block below is kept as the question that was asked.
+
+**⛔ What WAS not established (superseded, kept for the record).**
 
 *Nothing above 160 lessons is known.* Specifically:
 
@@ -153,6 +169,26 @@ where it was assumed to be. **Whether 160 is on the plateau or still on the slop
 it is still climbing, every experiment at 160 (including the parked SS sweep) measures a
 partially-trained model, and a null there may only mean "this does not help a model that has not
 finished learning."
+
+### TRAINING LENGTH — ANSWERED 2026-08-20 (EXP-01, lesson-curve dossier)
+
+| # | Claim | Evidence | Confidence |
+|---|---|---|---|
+| **M26** | **Retention saturates at ~300 lessons.** `AP(h18)/AP(h1)`, free-running, `sb`: 40L **0.03–0.07** (2 seeds, both floor-gate FAIL) → 160L **0.600 ± 0.046** (n=6) → 300L **0.690** → 600L **0.692**. The 300→600 step is **+0.0014**, one **thirty-third** of the anchor's seed sd. | lesson-curve EXP-01 | **High for the shape** (5 lesson counts, anchor n=6, seed noise measured). One seed at 300 and 600, so the plateau itself is a two-point claim. |
+| **M27** | **T=0 skill and the ceiling do NOT saturate.** 300→600 moves T=0 **+0.0213** against a seed sd of **0.0077** (~3×, real) and the ceiling (oracle h18) 0.4974 → 0.5072. **The model keeps improving with training; it stops becoming more robust.** Every gain past 300 lessons comes from being better to begin with, not from surviving its own output better. | lesson-curve EXP-01 | **Medium-high** — one seed per point above 160, but the T=0 move is ~3× the measured seed noise. |
+| **M28** | **A 40-lesson model has NO skill, at any horizon — it is a smoke test, never a result.** Month 1 it *matches* climatology (0.97× / 1.03×); month 18 it is **10–25× WORSE** than climatology (0.09× / 0.04×). Both 40L arms fail the floor gate (2.16× and 0.99× chance) and their two seeds sit 2.3× apart. | lesson-curve EXP-01 + `scripts/floor_gate.py` | **High** — two seeds, both floored, and the gate rejects them by an objective threshold. |
+| **M29** | **160 lessons is NOT converged for retention, and is marginal at the rollout horizon.** Retention 0.600 against its own 0.690 plateau, and h18 AP beats climatology by only **14%** (vs 47% at 300L). **Any rollout/retention experiment at 160 measures a partially-robust model that barely clears the trivial baseline where it is read out.** | lesson-curve EXP-01 | **High** — direct, and it re-scopes the parked SS sweep. |
+
+**What this closes and what it opens.** **Training is closed as a retention lever**: it took retention
+from ~0.03 to 0.69 and stopped. The residual **31%** the gate loses to its own feedback is structural
+and needs a different lever. **L=900 is deprioritised** — retention is the quantity of interest and it
+stopped moving two rungs earlier; 900 would measure T=0 and the ceiling, which is not what the rollout
+programme is trying to fix. It becomes interesting again only after retention moves by some other means.
+
+⚠️ **Action carried to the parked SS sweep:** `2026-08-17_ss_retention_dossier` must run at **L=300**,
+not 160 (M29). Same design, one config value.
+
+---
 
 **Being answered: `reports/2026-08-18_lesson_curve_dossier/` (pre-registered 2026-08-18, LOCKED).**
 Controls **and** oracles at L = 160 / 300 / 600 (900 conditional), one variable (`total_lessons`),

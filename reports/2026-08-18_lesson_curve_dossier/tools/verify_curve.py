@@ -211,7 +211,7 @@ def _render(arms: list[dict], v: dict, notes: list[str]) -> str:
             f"**Decomposition** `log F = log C + log R`, against L={ANCHOR_L} seed "
             f"{sorted(a['torch_seed'] for a in arms if a['total_lessons'] == ANCHOR_L)[0]}:",
             "",
-            "| L | dlog F | from the ceiling | from retention | oracle O(L) |",
+            "| L | dlog F | from T=0 skill | from retention | the ceiling O(L) |",
             "|--:|--:|--:|--:|--:|",
         ]
         for d in v["decomposition"]:

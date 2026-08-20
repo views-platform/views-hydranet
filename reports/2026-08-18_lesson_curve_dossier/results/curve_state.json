@@ -1,0 +1,10 @@
+{
+  "state": "UNDERPOWERED",
+  "rule_md5": "5d6a256bb2b41485220d033cd0bfbc87",
+  "n_arms": 8,
+  "n_anchor": 6,
+  "sigma_seed_r": 0.04582009066228459,
+  "bound_r": 0.6993650299951575,
+  "longest": "sixhundredzero_fortytwo",
+  "problems": []
+}

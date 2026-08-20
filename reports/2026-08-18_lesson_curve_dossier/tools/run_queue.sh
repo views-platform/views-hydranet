@@ -35,8 +35,17 @@ mkdir -p "$RES"
 rm -f "$RES/QUEUE_DONE"
 exec 7>"$RES/.queue.lock"
 flock -n 7 || { echo "another queue holds the lock — refusing to run two schedulers"; exit 11; }
-# the queue owns run.log, so it tees; it does NOT also write to stderr (see run_lesson_arm.sh)
-log(){ echo "[$(date '+%F %T')] queue: $*" | tee -a "$RES/run.log"; }
+# NEVER stdout. `ensure_arm` returns the arm label on stdout and the caller captures it, so a log
+# line written to stdout is captured AS THE ARM NAME. That happened on 2026-08-20: this function
+# tee'd to stdout, `label=$(ensure_arm ...)` swallowed "queue: building longzero_fortyseven", and the
+# 160-seed-47 arm was built and then never run. Introduced by me while fixing DOUBLE logging in
+# run_lesson_arm.sh — a cosmetic fix in one file that broke a working thing in another.
+log(){
+  _m="[$(date '+%F %T')] queue: $*"
+  echo "$_m" >> "$RES/run.log"
+  [ -t 2 ] && echo "$_m" >&2
+  return 0
+}
 
 HEAD_SHA=$(cd "$HYD" && git rev-parse HEAD)
 log "=== queue start · HEAD ${HEAD_SHA:0:12} · $# arm(s): $* ==="
@@ -67,8 +76,12 @@ assert_head(){
 
 # Build the arm if absent; if present, PROVE it matches before reusing it. Reusing a directory by
 # name alone is how an old configuration gets silently relabelled.
+# Sets ARM_LABEL rather than echoing it. Command substitution around a function that also logs is
+# the trap above; removing the substitution removes the whole class, not just today's instance.
+ARM_LABEL=""
 ensure_arm(){
   local L=$1 S=$2 label got
+  ARM_LABEL=""
   label=$($CENV python -c "
 import sys; sys.path.insert(0,'$SSD/tools')
 from make_ss_arm import arm_label; print(arm_label(lessons=$L, eps=0.0, seed=$S))" 2>/dev/null)
@@ -89,7 +102,13 @@ print(f\"{hp['total_lessons']}:{hp['torch_seed']}:{hp['ss_epsilon_max']}\")" 2>/
     $CENV python "$SSD/tools/make_ss_arm.py" --lessons "$L" --eps 0.0 --seed "$S" \
       >>"$RES/run.log" 2>&1 || { log "ABORT — make_ss_arm refused $label"; return 1; }
   fi
-  echo "$label"
+  # a label must look like a pipeline-legal model name; anything else means something upstream
+  # leaked into it (see the log() note) and must stop the arm, not name it
+  case "$label" in
+    [a-z]*_[a-z]*) ;;
+    *) log "ABORT — computed arm label is not a legal model name: '$label'"; return 1 ;;
+  esac
+  ARM_LABEL="$label"
 }
 
 DONE=""; FAILED=""
@@ -100,7 +119,8 @@ for spec in "$@"; do
   assert_head   || { FAILED="$FAILED $spec"; break; }
   wait_for_disk || { FAILED="$FAILED $spec"; break; }
 
-  label=$(ensure_arm "$L" "$S") || { FAILED="$FAILED $spec"; continue; }
+  ensure_arm "$L" "$S" || { FAILED="$FAILED $spec"; continue; }
+  label="$ARM_LABEL"
 
   if [ -s "$RES/score_${label}.csv" ] && [ -s "$RES/score_${label}_use_real.csv" ]; then
     log "SKIP $label — control and oracle both already scored"

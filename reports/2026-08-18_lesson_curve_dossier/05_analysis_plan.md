@@ -66,7 +66,8 @@ Taken verbatim from `2026-08-17_ss_retention_dossier/05_analysis_plan.md` §4 (P
 * **Co-primary** — retention `R(L) = AP(h18)/AP(h1)`. **Must agree in sign with the primary**, because a
   ratio of two noisy quantities can move on its denominator.
 * **Decomposition** — `log F = log C + log R` splits any change in free-running skill exactly into a
-  ceiling part and a retention part. `O(L)` says whether the achievable-at-h18 ceiling itself moves.
+  **T=0** part and a **retention** part. (Not a *ceiling* part — the ceiling is the oracle's score,
+  a different number; conflating them was corrected 2026-08-21.) `O(L)` says whether the achievable-at-h18 ceiling itself moves.
 
 **Pre-registered effect size θ = 0.14 on retention.** Derived only from numbers already on disk:
 `0.30 × (R_oracle(160) − R(160)) = 0.30 × (1.010134 − 0.541482) = 0.140595`. The floor-limited 40-lesson

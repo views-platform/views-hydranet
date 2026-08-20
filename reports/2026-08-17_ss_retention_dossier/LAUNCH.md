@@ -58,7 +58,29 @@ than restarts. Cubes are deleted after scoring, so peak disk is ~2.5 GB.
 - **The floor gate is re-run on the sweep's own ε=0 controls afterwards.** If they fail, the sweep is
   VOID whatever the treatment arms did.
 
-## ⚠️ A caveat added after parking (2026-08-17)
+## ⛔ RE-SCOPE REQUIRED before launch (2026-08-20) — run at L=300, not L=160
+
+The caveat below asked whether 160 lessons is converged. **It is not.** `2026-08-18_lesson_curve_dossier`
+EXP-01 measured the curve:
+
+| | retention | h18 AP vs climatology |
+|---|--:|--:|
+| L=160 | **0.600** (n=6, sd 0.046) | **1.14×** |
+| L=300 | **0.690** | 1.47× |
+| L=600 | 0.692 | 1.53× |
+
+At 160 lessons the model sits **below its own retention plateau** and beats the trivial baseline at the
+readout horizon by only 14%. This sweep proposes to detect a 30% retention change on exactly that model.
+
+**Change `--lessons 160` to `--lessons 300` in the arm list, and re-derive the arm labels**
+(`fullzero_*` rather than `longzero_*`). One config value; the design, the pre-registration, the
+falsifiers and the decision rule are unaffected. The floor-gate licence must be re-taken on a 300-lesson
+control, since the pinned `FLOORGATE_longzero_fortytwo_PASS` licenses the 160-lesson vehicle only.
+
+⚠️ Cost: at L=300 an ε=0 arm is ~1.9 h and an ε=0.5 arm ~3.3× that. Re-estimate before committing a
+window — and note the 3 ε=0 seed arms already run at L=160 do **not** transfer.
+
+## ⚠️ The original caveat (2026-08-17), now resolved
 
 This sweep runs at **160 lessons**, and **whether 160 is converged is unknown** (ledger M21/M22 and the
 "NOT established" note beside them). The 600 → 300 → 160 → 40 ladder was a cost-saving decision that was

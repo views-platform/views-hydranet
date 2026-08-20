@@ -39,6 +39,23 @@ that lived only in a dossier would be a rule with no test in CI.
 * **Extends**: `2026-08-17_ss_retention_dossier/tools/make_ss_arm.py` (`_LESSON_WORD` += 600/900, additive
   only — the SS sweep uses 160 and is unaffected).
 
+## Result (2026-08-20)
+
+**Retention plateaus at ~300 lessons. T=0 skill and the ceiling do not.**
+
+| lessons | retention | T=0 | the ceiling |
+|--:|--:|--:|--:|
+| 40 | 0.03–0.07 *(floor gate FAIL)* | 0.289–0.306 | — |
+| 160 | 0.600 ± 0.046 *(n=6)* | 0.4624 | 0.4793 |
+| 300 | **0.690** | 0.4779 | 0.4974 |
+| 600 | **0.692** | 0.4991 | 0.5072 |
+
+300→600 moves retention **+0.0014** — a thirty-third of the anchor's seed noise. It moves T=0
+**+0.0213**, about 3× that quantity's seed noise. **Training keeps making the model better and stops
+making it more robust.**
+
+Full write-up and falsifier verdicts: `07_experiment_log.md` EXP-01. Ledger rows **M26–M29**.
+
 ## Status
 
 - [x] Pre-registration LOCKED
@@ -51,7 +68,8 @@ that lived only in a dossier would be a rule with no test in CI.
 - [x] Harness dry-run on a 2-lesson arm — full seam PASS; F1 byte-exact (0.000e+00);
       floor gate correctly FAILED it at 1.17x chance; arm deleted afterwards
 - [ ] ⛔ **BLOCKED: 24 GB free, the driver needs 25.** See `LAUNCH.md` §Disk
-- [ ] Stage 1 — σ_seed at L=160 (gate G1)
-- [ ] Stage 2 — L=300
-- [ ] Stage 3 — L=600
-- [ ] Stage 4 — branch on stage 3
+- [x] Stage 1 — σ_seed at L=160, n=6, sd(retention) 0.0458; G1 did not fire
+- [x] Stage 2 — L=300 (recovered from its artifact after a timeout kill)
+- [x] Stage 3 — L=600 (3rd attempt; two earlier ones lost to a CUDA fault and a timeout)
+- [x] Stage 4 — **L=900 DEPRIORITISED**: retention stopped moving two rungs earlier, so 900 would
+      measure T=0 and the ceiling, not the quantity the rollout programme is trying to fix

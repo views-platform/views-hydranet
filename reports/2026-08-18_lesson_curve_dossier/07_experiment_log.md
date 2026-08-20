@@ -392,3 +392,83 @@ it first. Found by reading the script, before it ran.
 
 ---
 
+### EXP-01 · the lesson curve · 2026-08-18 → 2026-08-20 · **RETENTION PLATEAUS AT ~300 LESSONS**
+
+- **Plan (pre-reg):** `05_analysis_plan.md`, LOCKED before any arm ran. Amendments 1–3 recorded there.
+- **Arms:** 6 seeds at L=160 (the anchor), 1 seed each at L=300 and L=600, plus oracles at 160/300/600.
+  All controls **PASS** the floor gate. Two 40-lesson arms are reported for context and **FAIL** it.
+
+#### Falsifiers — recorded first
+
+F1 (h1 identical, control vs oracle) held **byte-exactly, 0.000e+00, on every point**. F2 `N = 170430`
+and 13 origins throughout. F3 no shared weight hash. F4 every curve arm PASSES FG-A. F5 no arm built
+with an unintended config difference. F6 one `views_hydranet` tree hash across all arms
+(`ca41c3f5`) — verified rather than assumed, after it fired on a nominal commit-id difference
+(AMENDMENT 1).
+
+#### The curve
+
+| lessons | seed(s) | T=0 (AP h1) | AP h18 | **retention** | the ceiling (oracle h18) | vs climatology h18 | gate |
+|--:|---|--:|--:|--:|--:|--:|---|
+| 40 | 42 | 0.2889 | 0.0196 | **0.068** | — | 0.09× | **FAIL** |
+| 40 | 47 | 0.3061 | 0.0090 | **0.029** | — | 0.04× | **FAIL** |
+| 160 | 42 | 0.4745 | 0.2569 | **0.542** | 0.4793 | 1.14× | PASS |
+| 160 | n=6 mean | 0.4624 | 0.2771 | **0.600 ± 0.046** | — | — | PASS |
+| 300 | 42 | 0.4779 | 0.3298 | **0.690** | 0.4974 | 1.47× | PASS |
+| 600 | 42 | 0.4991 | 0.3452 | **0.692** | 0.5072 | 1.53× | PASS |
+
+#### The result
+
+**Retention saturates.** 40→160 buys ~+0.47; 160→300 buys +0.15; **300→600 buys +0.0014** — one
+thirty-third of the seed noise at the anchor (sd 0.0458). That is not a small effect, it is no effect.
+
+**T=0 skill and the ceiling do NOT saturate.** 300→600 moves T=0 **+0.0213** against a seed sd of
+**0.0077** (≈3×, real) and the ceiling +0.0097. So the model keeps getting better with training; it
+just stops getting more *robust*. Every gain past 300 lessons comes from being better to begin with,
+not from surviving its own output any better.
+
+The decomposition says the same thing in one line — against L=160 seed 42, the retention contribution
+to `Δlog F` is **+0.2427 at 300 and +0.2448 at 600** (frozen), while the T=0 contribution goes
++0.0072 → +0.0507.
+
+#### Formal verdict: UNDERPOWERED — and why that is the rule working
+
+`k·σ = 0.0997` against `θ = 0.14`, so a null **is** declarable at n=6. The state is UNDERPOWERED only
+because the pre-registered rule requires the primary (AP h18) and co-primary (retention) to agree in
+sign, and at L=600 the primary clears its bound (0.3452 > 0.3173) while retention does not
+(0.6916 < 0.6994). The rule refuses to call that a rise. It is right to: the *shape* across five
+lesson counts is what carries the finding, not one bound crossing.
+
+#### What 40 lessons actually is
+
+**Not a weak result — no result.** At month 1 a 40-lesson model *matches* climatology (0.97× / 1.03×);
+at month 18 it is **10–25× worse** than climatology. It cannot support a skill claim at any horizon.
+Its retention figure (0.03–0.07, and 2.3× apart across two seeds) is two floored numbers divided by two
+healthy ones — the floor gate rejects both arms, and correctly.
+
+#### Consequence: 160 lessons is NOT converged, and that re-scopes the parked SS sweep
+
+At L=160 the model beats climatology at h18 by **14%**, and its retention (0.600) sits well below its
+own plateau (0.690). `reports/2026-08-17_ss_retention_dossier/LAUNCH.md` carried the caveat *"whether
+160 is converged is unknown"*. **It is now known: for retention, it is not.** That sweep proposes to
+detect a 30% retention change on a partially-robust model that is marginal against the trivial baseline
+at its own readout horizon. **It should run at L=300.** Same design, one config value.
+
+#### Scope
+
+One seed at 300 and at 600, so the plateau is a **two-point claim on the co-primary**; the anchor is
+n=6 and the seed noise is measured, which is what makes the flatness readable at all. Calibration
+partition, target `sb`, h\*=18, 13 origins, S=16. Lesson count and curriculum-cooling rate move
+together by construction (C-301). Nothing here is a validation-partition or ship claim.
+
+#### Disposition
+
+* **L=900 is deprioritised.** Retention is the quantity of interest and it stopped moving two rungs
+  ago; 900 would measure T=0 and the ceiling, which are not what the rollout programme is trying to fix.
+  It becomes interesting again only *after* retention is improved by some other lever.
+* **Training is closed as a retention lever.** It took retention 0.03 → 0.69 and stopped. The residual
+  31% loss is structural.
+* **The parked SS sweep is re-scoped to L=300** before it runs.
+
+---
+
