@@ -65,6 +65,7 @@ def _ship_cols(row: dict) -> dict:
 def _read_arms() -> tuple[list[dict], list[str]]:
     """One record per arm that has both a config record and a score CSV."""
     notes: list[str] = []
+    treated: list[str] = []
     arms: list[dict] = []
     for res_dir in (SS_RES, RES):
         if not res_dir.is_dir():
@@ -78,6 +79,14 @@ def _read_arms() -> tuple[list[dict], list[str]]:
             label = meta.get("label")
             if not label:
                 notes.append(f"{meta_path.name}: no label field")
+                continue
+            # The lesson curve is the eps=0 axis. The SS sweep writes its arms into the SS
+            # dossier's results, which this reader also scans, so eps>0 arms appear here. They are
+            # a different intervention: SCOPED OUT with a note, never silently dropped and never
+            # pooled. The gate's own eps check stays as a backstop for anything that reaches it by
+            # another route.
+            if float(meta.get("ss_epsilon_max", 0.0)) != 0.0:
+                treated.append(label)
                 continue
             score = res_dir / f"score_{label}.csv"
             if not score.exists():
@@ -126,6 +135,11 @@ def _read_arms() -> tuple[list[dict], list[str]]:
                     "retention_ci": _retention_ci(label),
                 }
             )
+    if treated:
+        notes.append(
+            f"{len(treated)} scheduled-sampling arm(s) (eps>0) scoped out — the lesson "
+            f"curve is the eps=0 axis: {', '.join(sorted(treated))}"
+        )
     return arms, notes
 
 
@@ -297,8 +311,11 @@ def main() -> int:
         )
         + "\n"
     )
-    n_bad = len(v["problems"] + notes)
-    print(f"verify_curve: {v['state']} ({len(arms)} arms, {n_bad} problem(s))")
+    # blocking and non-blocking counted separately — see the note in verify_sweep.py
+    print(
+        f"verify_curve: {v['state']} ({len(arms)} arms, {len(v['problems'])} blocking, "
+        f"{len(notes)} note(s))"
+    )
     return 0
 
 

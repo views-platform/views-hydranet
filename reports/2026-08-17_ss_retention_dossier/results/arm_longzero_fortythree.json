@@ -1,0 +1,13 @@
+{
+  "label": "longzero_fortythree",
+  "artifact": "calibration_model_20260818_060952.pt",
+  "pred_dir": "predictions_calibration_20260818_060952",
+  "weight_sha256": "357df968085a23983d3a1f6b4716df7050b045e0e287e2242831c8163e7db65a",
+  "total_lessons": 160,
+  "ss_epsilon_max": 0.0,
+  "ss_feedback": "sample",
+  "torch_seed": 43,
+  "output_distribution": "nb",
+  "forecast_composition": "soft_gate",
+  "head": "eb388f90528fa86d26936004ccf87d50b90b734a"
+}

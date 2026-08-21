@@ -347,7 +347,17 @@ def sweep_verdict(
         )
     else:
         out["state"] = "UNDERPOWERED"
-        if not out["endpoints_agree"]:
+        if p <= alpha and out["mde_h18"] is not None and not mde_ok:
+            # Significant by the rank test, but inside the pre-registered effect-size floor. Saying
+            # "the interval does not exclude a 30% effect" here would be the NULL branch's language
+            # applied to a case that is not a null — a false explanation, the same defect class the
+            # lesson-curve gate had.
+            why = (
+                f"p={p:.4f} IS significant, but the drop of {abs(diff):.4f} does not clear "
+                f"{mde_k} x MDE = {mde_k * out['mde_h18']:.4f}. The direction is established; the "
+                f"MAGNITUDE is inside the measurement resolution this design can assert"
+            )
+        elif not out["endpoints_agree"]:
             why = (
                 f"the endpoints disagree in sign (dAP(h18) {diff:+.4f}, dretention "
                 f"{out['diff_retention']:+.4f})"

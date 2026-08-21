@@ -234,9 +234,12 @@ def main() -> int:
         )
         + "\n"
     )
+    # blocking and non-blocking counted SEPARATELY. Merging them made a clean run read as
+    # "1 problem(s)" when it had zero problems and one note, which is exactly the ambiguity the
+    # rendered VERDICT.md was split to avoid.
     print(
         f"verify_sweep: {v['state']} ({v['n_control']}c/{v['n_treated']}t, "
-        f"{len(v['problems'] + notes)} problem(s))"
+        f"{len(v['problems'])} blocking, {len(notes)} note(s))"
     )
     return 0
 

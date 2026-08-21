@@ -31,6 +31,23 @@ must move to L=300. Rows **M26–M29**; dossier `reports/2026-08-18_lesson_curve
 
 ---
 
+## 🧪 SCHEDULED SAMPLING — ANSWERED 2026-08-21
+
+**Training on its own output makes the rollout WORSE, and it is the PLACEMENT that costs.**
+At L=300, 4v4 seeds, one variable: `ε=0.5` lowers AP@h18 from **0.3257 → 0.2831** (**−0.0426**,
+exact one-sided **p = 0.0286**), retention −0.053, all four seed-pairs down on both endpoints, and the
+**anchor guard passes** (ΔAP h1 −0.0277 vs a 0.0440 limit) — so this is retention, not a trade.
+Formally **UNDERPOWERED**: significant, but the drop does not clear 3×MDE (0.0541). Direction
+established, magnitude not.
+
+**The twist:** SS largely **fixed** the zero collapse — `act_ratio` at h18 went **0.0093 → 0.0875
+(9.4×)**, at h36 **28×** — and AP fell at *every* horizon anyway. The placement probe splits the damage
+**56% the model itself / 44% the field it emits**, and `thin:0.75` shows the SS model uses a *good*
+field slightly **better** than the control. **It answered more, in worse places, and lost.**
+Rows **M30–M33**; dossier `reports/2026-08-17_ss_retention_dossier/`.
+
+---
+
 ## Claims Ledger — the rollout collapse (#258 / #262)
 
 **Why this section exists.** The run ledger below is per-*run* and the narrative is chronological, and
@@ -206,6 +223,26 @@ answers "does a longer budget help", never "do more gradient steps help".
 
 ---
 
+### SCHEDULED SAMPLING — ANSWERED 2026-08-21 (EXP-01/EXP-02, SS-retention dossier)
+
+| # | Claim | Evidence | Confidence |
+|---|---|---|---|
+| **M30** | **Scheduled sampling makes the free-running rollout WORSE.** L=300, seeds 42–45, `ss_epsilon_max` 0 vs 0.5 as the only variable: mean AP@h18 **0.3257 → 0.2831** (**−0.0426**), retention **0.6833 → 0.6303** (−0.053), **exact one-sided p = 0.0286**, and **all four seed-pairs fall on both endpoints**. The §4 **anchor guard passes** (ΔAP h1 −0.0277 against a 0.0440 limit), so it is not a one-step-for-many trade. Formally **UNDERPOWERED** — the drop does not clear 3×MDE (0.0541), so the DIRECTION is established and the MAGNITUDE is not. | SS EXP-01, rule md5 `d1432db9a7611cf349f1009225365027` | **High for direction** (4v4, pre-registered, one-sided, guard passed, unanimous by seed). **None for magnitude** — the gate says so by its own rule. |
+| **M31** | **SS largely FIXED the zero collapse and lost skill anyway.** `act_ratio` (fed-back activity ÷ real): h18 **0.0093 → 0.0875 (9.4×)**, h36 **0.0007 → 0.0204 (28×)**. AP fell at **every** horizon (h1 −0.029, h6 −0.040, h18 −0.050, h36 −0.032). **The under-firing symptom and the skill loss are separable — treating the symptom did not treat the disease.** | SS EXP-01 | **High** — a large, monotone move on the diagnostic, against a uniform loss on the endpoint. |
+| **M32** | **The damage splits ~50/50 between the model and the field it emits, and placement is the half that was actionable.** Handing both models perfect occurrence leaves **56%** of the h18 gap standing (+0.0132 of +0.0234); **44%** (+0.0102) is attributable to the field SS emits. The **ceiling** drop (oracle h18, −0.0149) independently reproduces the residual to 0.002. Pre-registered P1 (>60% placement) and P2 (<30%) **both FAIL** — the answer is "both, roughly half each". **This CORRECTS M15**: the model does not merely need to answer; *where* it answers decides the score. | SS EXP-02 (placement probe) | **Medium-high** — two independent routes to the residual agree, but **one seed**; the sweep's significance rests on the other four. |
+| **M33** | **SS did NOT damage the model's ability to use a good input — that hypothesis is falsified.** `thin:0.75` recovers **90%** of the control's own gap and **93%** of the SS model's (P4 HOLDS). `spatial_scramble` sits far below both controls (−0.237, −0.211) — destroying placement is worse than either model's own output, replicating M12 on a third pair (P3 HOLDS). | SS EXP-02 | **Medium-high** — clean, large margins; one seed; `spatial_scramble` inherits C-291's confound. |
+
+**What this closes and what it opens.** **Exposure-bias training is closed as a retention lever on this
+vehicle**, at this dose, in this form — the one untested lever from the 2026-08-17 review is now tested
+and it points the wrong way. Consistent with **Huszár (2015)**: scheduled sampling is a statistically
+inconsistent estimator, and here its target is partly unlearnable (the model is asked for the real next
+month from a degraded field that does not contain it) while the compounding regime is wrong (ε=0.5 gives
+an expected run of 2 synthetic steps against an 18–36-step inference face). **What it opens** is the
+narrower question M32 poses: a lever that improves *placement* without also making the model worse as a
+model. Dose shape (ε ∈ {0.1, 0.25}) was pre-registered as *after* an effect is demonstrated — the effect
+is demonstrated, in the wrong direction, so a smaller dose now asks "is there a dose that does not hurt"
+rather than "is there a dose that helps".
+
 ### INFERENCE-TIME FIXES — CLOSED 2026-08-17
 
 `reports/2026-08-17_placement_intervention_dossier/`. All three candidate families are closed, each for a
@@ -213,7 +250,7 @@ different understood reason. **You cannot repair at inference time a gate that h
 
 | # | Claim | Evidence | Confidence |
 |---|-------|----------|------------|
-| M15 | **The model feeds back 2 cells where reality has 116** — a 57× shortfall. `thin:0.75` shows **29 well-placed cells recover 95%** of the oracle gap, so the model does not need to be nearly right; it needs to answer. | intervention EXP-02 | **High** — direct count, and it is what closes top-K. |
+| M15 | **The model feeds back 2 cells where reality has 116** — a 57× shortfall. `thin:0.75` shows **29 well-placed cells recover 95%** of the oracle gap, so the model does not need to be nearly right; it needs to answer. ⚠️ **The second clause is CORRECTED by M32** — answering is necessary, not sufficient; answering in the wrong places is worse than staying quiet. | intervention EXP-02 | **High** — direct count, and it is what closes top-K. |
 | M16 | **The gate keeps its shape and loses its nerve.** Moran's I dips to 0.458 at step 12 and **recovers to 0.593** by step 35, while `gate_mean` falls **12×** and committed cells fall 92 → 9. | intervention EXP-02 | **High** — direct, and it separates *zero collapse* from smearing. |
 | M17 | **No marginal-preserving sampler can move a decided gate.** A 16× length-scale range plateaus at 25% of real clustering; AP flat and uniformly negative (best −0.0023). Mechanism established on a controlled synthetic sweep, not inferred. | intervention EXP-01 + `tools/marginal_skew_bound.py` | **Medium-high** — the null replicates M5 on a non-floor-limited vehicle *and* supplies its cause. |
 
