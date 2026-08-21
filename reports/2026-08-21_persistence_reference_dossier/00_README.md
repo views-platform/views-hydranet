@@ -59,14 +59,33 @@ AP quantisation but not the CRPS bias term; (b) an empirical persistence *distri
 history; (c) restrict the claim to a rank-invariant statistic where S cannot bite. None is obviously
 right and the choice must be locked before any arm runs.
 
-## Sequencing
+## Sequencing — #281 does NOT gate this. Measure first.
 
-1. **Settle the matched-S reference** (§3 above). Method question — a candidate for
-   `expert-method-review` before pre-registration.
-2. **Check #281** — the design's MDE is 0.0541 and M1's arm-vs-persistence gaps are ~0.02. This
-   experiment may be unresolvable by the current design *before it is run*. Establish that first;
-   it may change the origin set.
-3. Pre-register. 4. Re-emit + score. 5. Log, including a negative.
+An earlier draft of this file said the design might be too underpowered to run the experiment,
+citing "arm-vs-persistence gaps of ~0.02". **That number was imported from the wrong experiment** —
+it is M1's *best held arm* vs persistence on the *collapsed* vehicle (0.091 vs 0.108). The
+comparison here is **L=300 free-running vs persistence on our own origins**, and the arm side is
+already measured at **AP h18 = 0.3257**. If persistence is anywhere near M1's 0.108 the gap is
+**~0.22, four times the 0.0541 MDE.** Power is not the binding constraint.
+
+**Measure persistence at S=1 first.** The S=1 handicap (2 rank levels ⇒ tie-heavy ⇒ AP understated)
+biases *in our favour*, which is what makes the cheap version informative:
+
+| outcome | what it costs us next |
+|---|---|
+| **we LOSE to a handicapped persistence** | decisive. No matched-S work, no #281. The programme's framing is settled and the news is bad |
+| **we win NARROWLY** | both the matched-S fix and #281 bite. Do them |
+| **we win HUGELY** | direction is safe; matched-S only sizes how much of the margin is real |
+
+One measurement says which of the three worlds we are in, and only one of them needs #281.
+
+**Cost: ~10 min of GPU, not zero.** `_support_keys` reads `identifiers.npz` from the deleted
+prediction dirs, so persistence cannot be built from truth alone — it needs **one control arm
+re-emitted** to recover the support set, after which persistence is CPU-only. That re-emit also
+regenerates a cube for any later matched-S work, so nothing is wasted.
+
+1. Re-emit one ε=0 L=300 control → recover support. 2. Score persistence at S=1 against it.
+3. **Branch on the table above.** 4. Pre-register whatever step 3 selects. 5. Log, negatives included.
 
 ## Related
 
