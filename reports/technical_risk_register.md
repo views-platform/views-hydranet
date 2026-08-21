@@ -4,12 +4,12 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-08-18                           |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 299                                  |
-| Open Concerns     | 147                                  |
+| Last Updated      | 2026-08-22                           |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
+| Total Concerns    | 301                                  |
+| Open Concerns     | 149                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 126                                 |
+| — net active risks | 128                                 |
 | Resolved Concerns | 152                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -1788,6 +1788,25 @@ The model's `forward()` is strictly **per-timestep** (`[B,C,H,W]`); the recurren
 
 The pre-registered success metric for the mixture experiment (#230) is a proper CRPS **stratified on an EX-ANTE covariate** (recent conflict intensity), never on the observed outcome. But inside `_metric_row` the only per-cell array that resembles a stratifier is `truth` — *the outcome itself* — and the recommended recent-intensity covariate (`tmap[(m0-1,u)]`) is **not even loaded**, because `tmap` is populated only for the scored-horizon months `{m0+h-1}`. So the path of least resistance — reach for `truth`, subset on it — silently commits the Forecaster's Dilemma: the "proper" score becomes improper, and the Giacomini–White verdict is invalid **with no error signal**. This is the exact silent-nullifier class that has voided experiments here before. **Tier 1 (silent model-output/verdict corruption).** Fix: extend `months`/`_truth_map` to load the pre-origin month(s) for the stratifier; construct the stratum ONLY from `support`/pre-origin truth; add a **leakage regression test** — permuting the current-horizon `truth` must leave the stratum mask byte-identical.
 
+**SECOND SYMPTOM FOUND AND MEASURED, 2026-08-21 (GH #282, PR #283).** The same unloaded pre-origin
+month already breaks a shipped code path, not just a planned one: `_persistence_gathered` reads
+`truth_map.get((m0 - 1, u), 0.0)` for the **persistence baseline**. Month `m0-1` is present only *by
+accident* — origins are consecutive, so origin *k*'s history is origin *k−1*'s h=1 forecast month —
+so the **first origin's entire persistence forecast is silently all zeros**. Reproduced to four
+decimals on 13 origins: persistence AP h1 **0.1461 vs 0.1632** correct, h18 0.1077 vs 0.1152, h36
+0.0834 vs 0.0870 — it **understates the baseline by 4–10%**, and the error scales with
+`1/n_origins`, so a **single-origin study scores persistence as all zeros with no error signal**.
+Direction is always *flattering to the arms*, which is why it survived: every comparison looked
+better than it was. **This raises the entry from "planned S3 risk" to "already wrong in every
+persistence comparison ever run here", including the C-293 measurement and ledger M1.** The fix is
+the same one this entry already prescribes — load the pre-origin months — plus making the absence
+*loud*: a missing **cell** inside a loaded month is a legitimate 0.0, a missing **month** is not, and
+`.get(..., 0.0)` cannot tell them apart. Repaired in the dossier's own tool
+(`fair_persistence.persistence_scores(..., months_loaded=)` raises) and regression-tested
+(`tests/test_fair_persistence.py::test_unloaded_month_raises_instead_of_scoring_zeros`); **the shared
+scorer itself is NOT yet fixed** — that is #282 and it should land before any new claim leans on
+`score_v2_horizons --persistence`.
+
 ---
 
 ### C-249: mixture `log(w)` gradient explosion at the w→{0,1} collapse — NaN fires in the decisive-negative regime
@@ -2748,6 +2767,87 @@ worse** than the trivial baseline. So the ~23% oracle-gap recovery is real *rela
 control* and still **does not reach a naive baseline**. Any rollout claim that does not clear persistence is
 not a skill claim. (AP is a ranking statistic so the comparison is valid; note persistence is a 1-sample
 forecast, so its CRPS is MAE and must not be used as a CRPS denominator — C-220.)
+
+**CORRECTION 2026-08-21 (PR #283): "AP is a ranking statistic so the comparison is valid" is
+INCOMPLETE, and the error runs against persistence.** `score_v2_horizons` forms the AP score as
+`p = gate if has_gate else (cs > 0).mean(1)`. `_persistence_gathered` supplies **no gate**, so at S=1
+persistence is ranked on a **two-level** score (`p ∈ {0.0, 1.0}`) while gated arms are ranked on a
+continuous probability. AP cannot order within a tied set, so persistence is handicapped to the
+maximum — the Epic #263 matched-reference rule (*the reference's S must equal the arms' cube width*)
+applies to **AP's score resolution**, not only to CRPS. Ranking persistence by the persisted **value**
+`truth[m0-1]` instead lifts h18 **0.1152 → 0.1416 (+23%)**; with the C-248/#282 month fix as well,
+**0.1077 → 0.1416, +31%**. **Consequence for this entry: the measured numbers above understate
+persistence, so C-293's conclusion was even stronger than recorded** — the arms were further below the
+baseline than stated. **Consequence for M1:** same. Direction asserted over 200 random draws
+(`test_binary_never_beats_value_on_a_random_sweep`). At L=300 with both fixes the model does finally
+clear persistence at every horizon (ledger M34, n=4) — which is what this entry demanded all along.
+
+---
+
+### C-303: prose asserts a guard the code does not implement — third occurrence, all in decision-bearing text
+
+| Field | Value |
+|-------|-------|
+| ID | C-303 |
+| Tier | 2 |
+| Source | `/code-review medium` on PR #283 (2026-08-22) |
+| Trigger | Writing a docstring, verdict string, or ledger row that describes what a rule/guard checks, without a test that fails when the described check is removed |
+| Location | `reports/2026-08-21_persistence_reference_dossier/tools/aggregate_seeds.py` (docstring vs `main`); `reports/RESULTS_LEDGER.md` M37; previously `scripts/lesson_curve_gate.py` and `scripts/ss_sweep_gate.py` verdict text |
+| Cross-refs | C-148 (the "by construction" prose over-claim), C-291, C-298 |
+
+`aggregate_seeds.py`'s docstring stated *"Refuses rather than averages when the supports differ.
+Persistence identical across seeds is the evidence that the support is shared"* — and ledger row
+**M37** repeated it as a method claim. The implemented check compared **only the per-horizon row
+count `N`**, and `read_arm` explicitly *skipped* the persistence rows, so the stated evidence was
+never read. Two seeds scored on different origin windows with equal `N` would have aggregated
+silently, and the worst-seed verdict would have been computed across incomparable supports.
+
+**This is the third instance of the same class in this programme, all within a week**, and all in
+text a reader uses to decide: (1) the lesson-curve gate asserted "bound not narrower than theta" when
+the real blocker was an unmeasured MDE; (2) the SS-sweep gate printed NULL-branch language for a
+significant-but-undersized result; (3) this. **Tier 2 (structural fragility with no error signal):**
+prose is the only interface most readers have to a rule, so a false description is a false result
+that no test catches — none of the three were found by the suite, all three by a human or agent
+re-reading the text against the code.
+
+**Fixed on PR #283** — the persistence-equality check is now implemented (and sabotage-verified:
+perturbing one seed's persistence by 0.01 makes it refuse by name), the docstring describes what the
+code does, and M37 was rewritten. **Standing mitigation:** when a docstring or ledger row describes a
+check, the check needs a test that fails when it is deleted. `tests/test_aggregate_seeds.py::test_refuses_when_persistence_differs_between_seeds`
+and `::test_equal_N_does_not_excuse_different_persistence` are that test for this instance.
+
+---
+
+### C-304: dossier result directories accumulate state across runs — keyed by index, never cleared, silently mixable
+
+| Field | Value |
+|-------|-------|
+| ID | C-304 |
+| Tier | 3 |
+| Source | `/code-review medium` + `/review-diff` on PR #283 (2026-08-22) |
+| Trigger | Running a dossier driver a second time over the same `results/` dir with a different arm, seed, or origin count — especially after a partial emit that still exited 0 |
+| Location | `reports/2026-08-21_persistence_reference_dossier/results/` (`identifiers/`, `run.log`, `repo.head`); the pattern generalises to every dossier `results/` tree |
+| Cross-refs | C-159, C-291, C-298 |
+
+Three instances in one dossier, each a different flavour of the same shape — **run-scoped state written
+to a run-agnostic path**:
+
+1. **`identifiers/` keyed by origin INDEX and shared across seeds.** A later seed emitting fewer
+   origins leaves the earlier seed's extras in place, and the support becomes part seed A, part seed
+   B. `support_from_identifiers`'s `n_origins == len(files)` guard **still passes** on such a mixed
+   directory, so it cannot detect it.
+2. **`run.log` is append-only across runs.** Grepping it for `ABORT` reports a failure fixed hours
+   earlier — this misled the author mid-run during EXP-03. The scripts signal correctly through exit
+   codes and per-seed `PERSIST_DONE_<model>` sentinels; the log is not a status source and reads like
+   one.
+3. **`repo.head` overwritten per seed**, so a multi-seed run records only the last seed's HEAD.
+
+**Tier 3 (no silent corruption in the runs actually performed — support identity was independently
+verified — but a realistic re-run mixes results with no error signal).** Fixed for (1) and (3) on PR
+#283 (`rm -f identifiers/*.npz` before preserving; `repo.head` appends `HEAD  <model>`); (2) is
+documented in `07_experiment_log.md` rather than changed, because append-only history is worth more
+than a clean grep. **Standing rule for new dossier drivers:** clear or namespace any directory a
+second run would write into, and never make a log the status source.
 
 ---
 
