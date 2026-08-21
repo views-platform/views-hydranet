@@ -69,15 +69,28 @@ def support_from_identifiers(idir: str, horizons: tuple[int, ...]) -> set[tuple[
     return {k for k, hs in seen.items() if set(horizons).issubset(hs)}
 
 
-def persistence_scores(truth_map, support, h: int):
+def persistence_scores(truth_map, support, h: int, months_loaded=None):
     """Return (y_bin, value_score, binary_score) for horizon h.
 
     Persistence forecasts `truth[m0-1]` at every horizon, so the score does not depend on h — but
-    the TRUTH does, and so does nothing else. Missing history is 0.0, the convention
-    `_persistence_gathered` uses.
+    the TRUTH does, and so does nothing else.
+
+    **A missing CELL is 0.0; a missing MONTH is an error.** `_truth_map` builds a dense per-month
+    dict, so a cell absent from a loaded month legitimately means no recorded fatalities. A month
+    that was never loaded is not a measurement at all, and defaulting it to 0.0 is precisely defect
+    **#282** — the arm's own scorer (`_metric_row`) indexes `tmap[...]` and raises here. Pass
+    `months_loaded` to get that behaviour; without it the two cases stay indistinguishable,
+    which is why every caller in this dossier passes it.
     """
+    if months_loaded is not None:
+        need = {m0 + h - 1 for m0, _ in support} | {m0 - 1 for m0, _ in support}
+        missing = sorted(need - set(months_loaded))
+        if missing:
+            raise ValueError(
+                f"h{h}: months {missing} never loaded — refusing to score them as zeros (#282)"
+            )
     y, val = [], []
-    for (m0, u) in sorted(support):
+    for m0, u in sorted(support):
         y.append(1.0 if truth_map.get((m0 + h - 1, u), 0.0) > 0 else 0.0)
         val.append(truth_map.get((m0 - 1, u), 0.0))
     y = np.asarray(y)
@@ -92,7 +105,11 @@ def main() -> int:
     ap.add_argument("--target", default="sb")
     ap.add_argument("--horizons", default="1,6,12,18,24,30,36")
     ap.add_argument("--arm-csv", default=None, help="score CSV to read the arm's AP from")
-    ap.add_argument("--arm-label", default="l300_seed43")
+    ap.add_argument(
+        "--arm-label",
+        default=None,
+        help="model label in --arm-csv; default: the file's single non-persistence arm",
+    )
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
 
@@ -108,8 +125,12 @@ def main() -> int:
             truth = str(V2_TRUTH)
         except Exception:  # noqa: BLE001
             truth = str(
-                _HN / "reports" / "2026-07-28_datafactory_migration_dossier" / "tools"
-                / "v2_truth" / "calibration_datafactory_df.parquet"
+                _HN
+                / "reports"
+                / "2026-07-28_datafactory_migration_dossier"
+                / "tools"
+                / "v2_truth"
+                / "calibration_datafactory_df.parquet"
             )
     if not Path(truth).exists():
         raise FileNotFoundError(f"truth parquet not found: {truth}")
@@ -121,13 +142,23 @@ def main() -> int:
 
     arm = {}
     if a.arm_csv:
-        for r in csv.DictReader(open(a.arm_csv)):
-            if r["target"] == a.target and r["model"] == a.arm_label:
-                arm[int(r["h"])] = float(r["AP"])
+        with open(a.arm_csv) as fh:
+            rows = [r for r in csv.DictReader(fh) if r["target"] == a.target]
+        labels = {r["model"] for r in rows} - {"persistence"}
+        label = a.arm_label
+        if label is None:
+            if len(labels) != 1:
+                raise SystemExit(f"{a.arm_csv}: expected 1 arm, found {sorted(labels)}")
+            label = next(iter(labels))
+        elif label not in labels:
+            # A label matching nothing used to yield AP_arm=None and print "—" with no error, so a
+            # renamed arm looked like a missing column instead of a wrong invocation.
+            raise SystemExit(f"{a.arm_csv}: no rows for arm {label!r}; present: {sorted(labels)}")
+        arm = {int(r["h"]): float(r["AP"]) for r in rows if r["model"] == label}
 
     rows = []
     for h in horizons:
-        y, val, binr = persistence_scores(tmap, support, h)
+        y, val, binr = persistence_scores(tmap, support, h, months_loaded=months)
         rows.append(
             {
                 "target": a.target,

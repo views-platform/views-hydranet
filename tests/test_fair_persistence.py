@@ -155,3 +155,25 @@ def test_missing_history_month_silently_degrades_persistence():
     assert list(y_f) == list(y_g), "the OUTCOME is unaffected; only the forecast is"
     assert val_f[0] == 8.0 and val_g[0] == 0.0, "origin 100 loses its history to the gap"
     assert fp.average_precision(y_g, val_g) <= fp.average_precision(y_f, val_f)
+
+
+def test_unloaded_month_raises_instead_of_scoring_zeros():
+    """The #282 repair applied to THIS tool. A missing MONTH is not a measurement; only a missing
+    CELL inside a loaded month legitimately means no recorded fatalities."""
+    support = [(100, 1), (100, 2)]
+    tmap = {(99, 1): 5.0, (100, 1): 1.0}
+    months = {99, 100}
+    # h=1 needs months {99, 100} -> fine
+    fp.persistence_scores(tmap, support, h=1, months_loaded=months)
+    # h=6 needs month 105, which was never loaded
+    with pytest.raises(ValueError, match="never loaded"):
+        fp.persistence_scores(tmap, support, h=6, months_loaded=months)
+
+
+def test_missing_cell_inside_a_loaded_month_is_still_zero():
+    """The other half of the distinction: unit 2 is absent from month 99, which is a real zero."""
+    support = [(100, 1), (100, 2)]
+    tmap = {(99, 1): 5.0, (100, 1): 1.0, (100, 2): 0.0}
+    y, val, _ = fp.persistence_scores(tmap, support, h=1, months_loaded={99, 100})
+    assert list(val) == [5.0, 0.0]
+    assert list(y) == [1.0, 0.0]

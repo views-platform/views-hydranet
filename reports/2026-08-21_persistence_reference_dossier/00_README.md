@@ -1,9 +1,9 @@
 # Is persistence still the thing to beat? — a re-reference at L=300
 
-**Status: ANSWERED 2026-08-21.** Ledger rows **M34–M36**. Full detail in `07_experiment_log.md`.
+**Status: ANSWERED 2026-08-21.** Ledger rows **M34–M37**. Full detail in `07_experiment_log.md`.
 
 > ## The model beats persistence at every horizon out to 36 months.
-> **2.0–2.5×**, every gap **2.5–4.5× the MDE** — against a persistence baseline scored *fairly*,
+> **Worst of four seeds: 2.0–2.3×**, every gap **2.1–4.3× the MDE** — against a persistence baseline scored *fairly*,
 > after fixing two defects that were both understating it. **M1 is overturned for a converged
 > model**; it remains true of the 40-lesson vehicle it measured.
 >

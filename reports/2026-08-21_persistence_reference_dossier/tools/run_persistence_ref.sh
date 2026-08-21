@@ -26,6 +26,7 @@ CENV="conda run --no-capture-output -n views-hydranet-env"
 M="${1:-fullzero_fortythree}"
 ART="${2:-calibration_model_20260821_045948.pt}"
 HORIZONS=1,6,12,18,24,30,36
+TARGET=sb  # the head the arm is scored on; the preserved support MUST come from this one
 [ -n "$M" ] && [ -n "$ART" ] || { echo "usage: $0 [<model> <artifact.pt>]"; exit 2; }
 
 mkdir -p "$RES/identifiers"; rm -f "$RES/PERSIST_DONE_$M"
@@ -63,14 +64,16 @@ else
   log "emit OK in $(( ($(date +%s)-t0)/60 )) min"
 fi
 
-PRED=$(ls -d "$MODELS/$M"/data/generated/predictions_* 2>/dev/null | head -1)
-[ -n "$PRED" ] || { log "ABORT — no cube after emit"; exit 5; }
+# Use the cube we validated, NOT `ls | head -1`. The stray guard runs BEFORE the emit, so a
+# directory appearing during it would otherwise be scored and then rm -rf'd by this script.
+PRED="$EXPECT"
+[ -d "$PRED" ] || { log "ABORT — no cube at $PRED after emit"; exit 5; }
 log "cube: $(basename "$PRED")"
 
 log "--- scoring arm + persistence on ONE support ---"
 $CENV python "$V2T/score_v2_horizons.py" \
     "$M|$PRED|lr_{t}_best|by_{t}_best" \
-    --targets=sb --horizons="$HORIZONS" --persistence \
+    --targets="$TARGET" --horizons="$HORIZONS" --persistence \
     --out="$RES/score_persistence_ref_$M.csv" >> "$RES/score.log" 2>&1
 rc=$?
 [ $rc -eq 0 ] && [ -s "$RES/score_persistence_ref_$M.csv" ] || {
@@ -81,16 +84,24 @@ log "scored OK"
 # was `cp "$PRED"/origin_*/lr_*/identifiers.npz "$RES/"`, which collapsed 13 origins onto one
 # filename and destroyed exactly the thing it was trying to keep — support is the set of
 # (origin, unit) pairs present at EVERY horizon, so it cannot be rebuilt from one origin.
-mkdir -p "$RES/identifiers"
+# CLEARED first: the dir is shared across seeds and keyed by origin index, so without this a seed
+# that emitted fewer origins would leave its predecessor's extras behind and the support would be
+# part one seed, part another — which `support_from_identifiers` cannot detect, because
+# n_origins == len(files) still holds for a mixed directory.
+rm -f "$RES/identifiers"/*.npz
+# Explicitly the SCORED head. `ls "$od"/lr_*/` returns lr_ns_best before lr_sb_best, so the support
+# preserved for the fair reference came from a different head than the one that produced AP_arm.
+# It agreed here, but agreement is not the invariant — identity is.
 for od in "$PRED"/origin_*; do
   [ -d "$od" ] || continue
-  src=$(ls "$od"/lr_*/identifiers.npz 2>/dev/null | head -1)
-  [ -n "$src" ] && cp "$src" "$RES/identifiers/$(basename "$od").npz"
+  src="$od/lr_${TARGET}_best/identifiers.npz"
+  [ -f "$src" ] || { log "ABORT — $(basename "$od") has no lr_${TARGET}_best identifiers"; exit 8; }
+  cp "$src" "$RES/identifiers/$(basename "$od").npz"
 done
 nid=$(ls "$RES/identifiers"/*.npz 2>/dev/null | wc -l)
 [ "$nid" -gt 0 ] || { log "ABORT — no identifiers preserved; keeping cube"; exit 7; }
 log "preserved $nid origin identifier file(s) — support is reconstructible without a re-emit"
 rm -rf "$PRED"; log "cube deleted after both scores landed"
-echo "$HEAD_SHA" > "$RES/repo.head"
+echo "$HEAD_SHA  $M" >> "$RES/repo.head"
 touch "$RES/PERSIST_DONE_$M"
 log "=== DONE ==="
