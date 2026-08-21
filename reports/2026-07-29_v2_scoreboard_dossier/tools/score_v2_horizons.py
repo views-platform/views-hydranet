@@ -141,7 +141,11 @@ def score_horizons_v2(
         )
         if not support:
             raise ValueError(f"[{tgt}] EMPTY fixed support across models/horizons — FAIL")
+        # `| {m0-1}` is the persistence baseline's history month. Without it the FIRST origin
+        # (which has no predecessor to supply it as a forecast month) silently scored as all
+        # zeros — GH #282.
         months = {m0 + h - 1 for (m0, _u) in support for h in horizons}
+        months |= {m0 - 1 for (m0, _u) in support}
         tmap = _truth_map(truth_parquet, lr_full, months)
         for entry in list(registry):
             label, pdir, lr_tmpl, by_tmpl = entry[0], entry[1], entry[2], entry[3]
@@ -153,7 +157,7 @@ def score_horizons_v2(
                 rows.append(_metric_row(label, g, support, tmap, tgt, h, thr))
             del g  # free this arm's cubes before the next (OOM guard)
         if add_persistence:
-            gp = _persistence_gathered(tmap, support, horizons)
+            gp = _persistence_gathered(tmap, support, horizons, months_loaded=months)
             for h in horizons:
                 rows.append(_metric_row("persistence", gp, support, tmap, tgt, h, None))
     return rows
