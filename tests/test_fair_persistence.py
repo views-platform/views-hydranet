@@ -67,8 +67,16 @@ def test_value_ranking_beats_binary_when_magnitude_is_informative():
     support = [(100, u) for u in range(1, 5)]
     # history: unit1=50, unit2=40 (big) ; unit3=1, unit4=1 (small)
     # outcome: the big-history units are the events
-    tmap = {(99, 1): 50.0, (99, 2): 40.0, (99, 3): 1.0, (99, 4): 1.0,
-            (100, 1): 7.0, (100, 2): 3.0, (100, 3): 0.0, (100, 4): 0.0}
+    tmap = {
+        (99, 1): 50.0,
+        (99, 2): 40.0,
+        (99, 3): 1.0,
+        (99, 4): 1.0,
+        (100, 1): 7.0,
+        (100, 2): 3.0,
+        (100, 3): 0.0,
+        (100, 4): 0.0,
+    }
     y, val, binr = fp.persistence_scores(tmap, support, h=1)
     assert list(y) == [1.0, 1.0, 0.0, 0.0]
     ap_val = fp.average_precision(y, val)
@@ -102,8 +110,7 @@ def test_binary_never_beats_value_on_a_random_sweep():
 def test_persistence_forecast_is_h_invariant_but_truth_is_not():
     """Persistence feeds truth[m0-1] at EVERY horizon, so only the outcome moves with h."""
     support = [(100, 1), (100, 2)]
-    tmap = {(99, 1): 5.0, (99, 2): 0.0, (100, 1): 1.0, (100, 2): 0.0,
-            (105, 1): 0.0, (105, 2): 9.0}
+    tmap = {(99, 1): 5.0, (99, 2): 0.0, (100, 1): 1.0, (100, 2): 0.0, (105, 1): 0.0, (105, 2): 9.0}
     _, v1, _ = fp.persistence_scores(tmap, support, h=1)
     y1, _, _ = fp.persistence_scores(tmap, support, h=1)
     y6, v6, _ = fp.persistence_scores(tmap, support, h=6)
@@ -133,9 +140,12 @@ def test_missing_history_month_silently_degrades_persistence():
     """
     support = [(100, 1), (100, 2), (101, 1), (101, 2)]
     full = {
-        (99, 1): 8.0, (99, 2): 0.0,      # origin 100's history  <- the month a scorer would omit
-        (100, 1): 6.0, (100, 2): 0.0,    # origin 101's history AND origin 100's h=1 outcome
-        (101, 1): 5.0, (101, 2): 0.0,
+        (99, 1): 8.0,
+        (99, 2): 0.0,  # origin 100's history  <- the month a scorer would omit
+        (100, 1): 6.0,
+        (100, 2): 0.0,  # origin 101's history AND origin 100's h=1 outcome
+        (101, 1): 5.0,
+        (101, 2): 0.0,
     }
     gapped = {k: v for k, v in full.items() if k[0] != 99}  # emulate the missing m0-1
 

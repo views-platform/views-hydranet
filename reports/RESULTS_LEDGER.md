@@ -48,6 +48,21 @@ Rows **M30–M33**; dossier `reports/2026-08-17_ss_retention_dossier/`.
 
 ---
 
+## 🏆 PERSISTENCE RE-REFERENCE — 2026-08-21 — the dumb baseline no longer beats us
+
+**M1 is overturned for a converged model.** At L=300 the model beats a *fairly-scored* persistence at
+**every horizon out to 36 months** — h1 2.02×, h18 2.34×, h36 2.41×, every gap 2.5–4.5× the MDE. M1
+was true of the **40-lesson** vehicle it measured (**M28**: a smoke test) and nobody had re-run the
+race. Persistence itself barely moved (matches M1's column to ~1%) — **the ruler is stable; the model
+changed**, free-running h18 0.007 → 0.3318, **47×**. Along the way the baseline was found to be
+understated by **two** scoring defects (binary ranking at S=1; `m0-1` never loaded → the first
+origin's persistence is silently all-zeros, **#282**), together worth **+31%** at h18 — so M1 was
+*stronger* than written, not weaker. **Caveats: one seed, AP only** — the `crps_all` ARTIFACT verdict
+is untouched, and retention is still stuck at 0.69. Rows **M34–M36**; dossier
+`reports/2026-08-21_persistence_reference_dossier/`.
+
+---
+
 ## Claims Ledger — the rollout collapse (#258 / #262)
 
 **Why this section exists.** The run ledger below is per-*run* and the narrative is chronological, and
@@ -90,7 +105,7 @@ target `sb` where a single target is named · calibration partition.
 
 | # | Claim | Evidence | Confidence |
 |---|-------|----------|------------|
-| M1 | **On occurrence (AP), persistence beats every arm from h6 on.** h6 0.112 / h18 0.108 / h36 0.083 vs the best held arm 0.087 / 0.091 / 0.069 and free-running 0.028 / 0.007 / 0.008. At h1 the model wins (0.298 vs 0.146). **On `crps_all` the arms beat persistence at every horizon (CRPSS +0.20/+0.45/+0.41/+0.11) — and that win is an ARTIFACT at h6/18/36** by the audited rule; see §The persistence re-reference. | state-freeze EXP-03 | **High** — a baseline, not an inter-arm comparison. Metric-qualified: an unqualified version of this row was wrong. |
+| M1 | **On occurrence (AP), persistence beats every arm from h6 on.** h6 0.112 / h18 0.108 / h36 0.083 vs the best held arm 0.087 / 0.091 / 0.069 and free-running 0.028 / 0.007 / 0.008. At h1 the model wins (0.298 vs 0.146). **On `crps_all` the arms beat persistence at every horizon (CRPSS +0.20/+0.45/+0.41/+0.11) — and that win is an ARTIFACT at h6/18/36** by the audited rule; see §The persistence re-reference. | state-freeze EXP-03 | ⚠️ **VEHICLE-QUALIFIED by M34 (2026-08-21): true for the 40-lesson vehicle it measured, FALSE at L=300.** Also note this row's persistence column was **understated** by two scoring defects (binary ranking + #282), so as written the claim was *stronger* than it should have been, not weaker. | **High** — a baseline, not an inter-arm comparison. Metric-qualified: an unqualified version of this row was wrong. |
 | M2 | **Gate AP collapses steeply then saturates:** 0.298 (h1) → 0.028 (h6) → 0.007 (h18), flat thereafter. ~5 steps hold most of the damage. | realism EXP-01 | **High** — large effect, reproduced across every arm's control. |
 | M3 | **Scrambling only the LOCATIONS of a perfect field reproduces the collapse:** AP 0.3008 → 0.0097, against free-running 0.0070 — with active count and magnitudes held identical. | realism EXP-03 | **High** — 31× effect; direct manipulation. Confounded with geographic grounding (C-291). |
 | M4 | **Sparsity alone is survivable.** At matched horizon, `thin:0.75` fires at a *similar* rate to the collapse and scores far better — h18: AP 0.2244 vs 0.0070 (**32×**) at `act_ratio` 0.332 vs 0.291; h36: AP 0.1898 vs 0.0083 (**23×**) at 0.317 vs 0.266. | realism EXP-03 | **High** — large, direct, holds at both horizons. ⚠️ EXP-03 quoted "0.33 vs 0.27", which pairs `thin` at **h18** with `identity` at **h36** — a cross-horizon conflation. The conclusion survives at matched horizons; the quoted pair did not exist in any single cell. |
@@ -243,6 +258,22 @@ model. Dose shape (ε ∈ {0.1, 0.25}) was pre-registered as *after* an effect i
 is demonstrated, in the wrong direction, so a smaller dose now asks "is there a dose that does not hurt"
 rather than "is there a dose that helps".
 
+### PERSISTENCE RE-REFERENCE — 2026-08-21 (EXP-01/EXP-02, persistence-reference dossier)
+
+| # | Claim | Evidence | Confidence |
+|---|---|---|---|
+| **M34** | **A 300-lesson model BEATS persistence at every horizon out to 36 months.** Scored on ONE support in one call, `sb`, N=170430: AP h1 **0.4774 vs 0.2364 (2.02×)**, h6 0.4071 vs 0.1675 (2.43×), h18 **0.3318 vs 0.1416 (2.34×)**, h36 0.2287 vs 0.0951 (**2.41×**). Every gap is **2.5×–4.5× the MDE**. **This overturns M1 for a converged model** — M1 remains true of the 40-lesson vehicle it measured. | persistence-ref EXP-01+02 | **Medium-high** — margins are far outside the MDE and the re-emit reproduced the archived control to <5e-5, but it is **one seed, one vehicle**. The other three ε=0 seeds are 3 × 7 min away and have not been run. |
+| **M35** | **The persistence baseline was being understated by two independent scoring defects, both fixed here.** (a) `_persistence_gathered` supplies no gate, so AP ranked it on a **two-level** `(cs>0).mean(1)` at S=1 while gated arms got a continuous probability; ranking by the persisted *value* lifts h18 0.1152 → 0.1416. (b) `score_v2_horizons` never loads month `m0-1`, so the **first origin's persistence forecast is silently all-zeros** (**#282**); loading it lifts h18 0.1077 → 0.1152. Combined **+31%** at h18. | persistence-ref EXP-02; #282 reproduced to 4 dp | **High** — the defect reproduces the scorer's exact output, and the direction is asserted over 200 random draws. |
+| **M36** | **Persistence is a stable ruler, and that is what makes the comparison legitimate.** Persistence on our origins matches M1's column to ~1% (h6 0.1122 vs 0.112, h18 0.1077 vs 0.108, h36 0.0834 vs 0.083) when scored **the same defective way**. Persistence is truth-only, so this is what it must do iff the origin and cell sets are comparable — they are. **The ruler did not move; the model did**: free-running h18 went **0.007 → 0.3318, a factor of 47.** | persistence-ref EXP-01 | **High** — three independent horizons agreeing to ~1% on a truth-only baseline. |
+
+**What this closes and what it opens.** The programme has spent weeks under the belief that the
+long-horizon rollout had **no demonstrated value** because a dumb baseline beat it. That was measured
+on a vehicle **M28** now classifies as a smoke test, and **nobody re-ran the race**. It cost 7 minutes
+of GPU to find out. **What it does NOT do** is rescue retention: the model still loses 31% of itself
+to its own feedback (**M26**), it is still one seed, and this is an **AP** claim only — the `crps_all`
+ARTIFACT verdict stands untouched. **The immediate cheap work** is the other three ε=0 seeds
+(3 × 7 min), which would turn M34 from n=1 into n=4.
+
 ### INFERENCE-TIME FIXES — CLOSED 2026-08-17
 
 `reports/2026-08-17_placement_intervention_dossier/`. All three candidate families are closed, each for a
@@ -346,10 +377,10 @@ overturn them.
 
 ### What is NOT established
 
-- **On occurrence (AP), no arm beats persistence at any horizon ≥ 6** — free-running reaches 7–25% of it, the best frozen arm 77–85%. Every "improvement" reported to date is measured against a collapsed control, not against this.
-- **On `crps_all` the arms do beat persistence, and that win is an ARTIFACT** at h6/18/36 by the audited rule.
+- ~~**On occurrence (AP), no arm beats persistence at any horizon ≥ 6.**~~ **SETTLED 2026-08-21 — see M34.** A 300-lesson model beats a *fairly-scored* persistence at **every** horizon out to h36 (2.0–2.5×, gaps 2.5–4.5× MDE). The old bullet was true of the 40-lesson vehicle it was written from. **What follows is that the long-horizon rollout is no longer to be described as having no demonstrated value on AP** — it has one, on one seed.
+- **On `crps_all` the arms do beat persistence, and that win is an ARTIFACT** at h6/18/36 by the audited rule. **Unchanged** — M34 is an **AP** result and makes no CRPS claim; a 1-sample reference is the degenerate path `assert_sample_cube` refuses (C-220).
 - **No result here is multi-seed or multi-vehicle.** Positive findings at n=1 have historically evaporated on proper runs; the same standard applies to everything above.
-- **Nothing has been shown to fix the collapse.** Two inference-time interventions have been tried (copula M5, state freeze M8); neither reaches persistence.
+- **Nothing has been shown to fix the collapse *by intervention*.** Two inference-time interventions have been tried (copula M5, state freeze M8); neither reaches persistence. **Training to 300 lessons did** — but as M27 shows that is the model being better to begin with, not surviving its own output better. Retention itself is still stuck at 0.69.
 
 ### Verification pass, 2026-08-17
 

@@ -1,7 +1,17 @@
 # Is persistence still the thing to beat? — a re-reference at L=300
 
-**Status: SCAFFOLD.** No arm has run. The pre-registration is not written, and it must not be
-written until §3 is settled.
+**Status: ANSWERED 2026-08-21.** Ledger rows **M34–M36**. Full detail in `07_experiment_log.md`.
+
+> ## The model beats persistence at every horizon out to 36 months.
+> **2.0–2.5×**, every gap **2.5–4.5× the MDE** — against a persistence baseline scored *fairly*,
+> after fixing two defects that were both understating it. **M1 is overturned for a converged
+> model**; it remains true of the 40-lesson vehicle it measured.
+>
+> Persistence itself barely moved (~1% from M1's column). **The ruler is stable; the model changed** —
+> free-running h18 **0.007 → 0.3318, 47×**. Cost: **13 minutes of GPU**, on weights that already existed.
+>
+> **Caveats that matter: one seed, one vehicle, AP only.** The `crps_all` ARTIFACT verdict is
+> untouched, and retention is still stuck at 0.69.
 
 ## The question
 
