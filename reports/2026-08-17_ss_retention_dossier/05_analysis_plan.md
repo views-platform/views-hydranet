@@ -9,6 +9,70 @@ has been trained.
 
 ---
 
+## AMENDMENT 1 — 2026-08-21: the sweep runs at **L=300**, not L=160
+
+**What changed:** `total_lessons` 160 → 300 in every arm. Nothing else. Hypothesis, intervention,
+endpoints, the exact permutation test, the four decision states and F1–F6 are unchanged.
+
+**Why.** §3.4 and §9 both flagged that this runs at 160L, "not the 300L the production board uses",
+and §6 accepted 160 because 40 had failed the gate. `2026-08-18_lesson_curve_dossier` EXP-01 has since
+measured the curve, and 160 is the wrong length for *this* experiment:
+
+| | retention | AP h18 vs climatology |
+|---|--:|--:|
+| L=160 | **0.600** (n=6, sd 0.046) | **1.14×** |
+| L=300 | **0.690** | 1.47× |
+| L=600 | 0.692 | 1.53× |
+
+Retention **plateaus at ~300** (ledger M26); at 160 the model sits below its own plateau and clears the
+trivial baseline at the readout horizon by only 14% (M29). Testing a 30% retention effect there would
+measure a partially-robust model near the floor of its own usefulness.
+
+**Consequences, all bookkeeping:**
+
+* Arm labels become `fullzero_*` / `fullhalf_*` (`make_ss_arm.py` `_LESSON_WORD[300] = "full"`).
+* The floor-gate licence must be a **300-lesson** control. It exists:
+  `FLOORGATE_fullzero_fortytwo_PASS` — FG-A **36.34×** chance, FG-B 1.604×, FG-C pass, threshold md5
+  `6d5714d5ceda147ed16f53143abe7e37`, i.e. the value §5 pins.
+* **One arm is already done.** `fullzero_fortytwo` (L=300, ε=0, seed 42) was produced by the lesson
+  curve, is identical in construction to an ε=0 sweep arm, and counts as the seed-42 control rather
+  than being retrained. `verify_sweep.py` reads it from that dossier and labels its source.
+* The three ε=0 arms already run at L=160 (`longzero_forty{three,four,five}`) **do not transfer**. They
+  remain in this dossier's results and are explicitly *ignored with a note*, never silently dropped;
+  the mixed-lesson-count falsifier is a backstop for anything that slips through by another route.
+* Cost rises. An ε=0 arm at L=300 is ~1.9 h; an ε=0.5 arm is 3.3–4.7× that (the multiplier cited in §4
+  is 3.32×, but the raw 40-lesson logs give 3.8–4.7× and the two have not been reconciled — so the
+  estimate is a **range**, ~27–35 h for the seven remaining arms, not a point).
+
+## AMENDMENT 2 — 2026-08-21: the §4 guard is now implemented, and two limitations are stated
+
+**The guard was pre-registered and not implemented.** §4 requires
+`|ΔAP(h1)| ≤ 3 × MDE_AP(h1)`, and *"if violated, SS damaged the anchor and 'retention' is the wrong
+frame — report as a traded failure, not a retention result"*. `verify_sweep.py` as parked read h1 only
+to form the retention ratio. **A run in which scheduled sampling wrecked one-step skill would have been
+reported as a retention effect.** The rule now lives in `scripts/ss_sweep_gate.py` — tracked,
+22 unit tests, sabotage-verified, with a pinned `rule_md5` **`d1432db9a7611cf349f1009225365027`** — and
+the guard VOIDs the sweep with that wording. Two lesser defects fixed with it: the MDE was taken from
+one arbitrary control rather than averaged, and the crash handler exited 0.
+
+**Two limitations carried, not fixed:**
+
+1. **ε>0 arms are not bit-reproducible.** `_family_feedback_log1p` is called with `generator=None` in
+   production, so SS training feedback draws from the global RNG, while ε=0 arms are bit-reproducible
+   (M22). This adds variance to the **treated side only**, which makes the one-sided test *harder* to
+   pass. Conservative, and stated rather than discovered in the numbers.
+2. **§3.2's RNG-displacement concern stands.** At ε=0 the family sampler never executes, so every later
+   draw is displaced in ε>0 arms. The placebo arm (ε=1e-7) remains a pre-registered **contingency**,
+   triggered only if the observed effect is smaller than 2× the between-seed SD.
+
+**What was verified before spending the hours** (the maintainer's condition): train↔inference feedback
+parity passes (`tests/train/test_feedback_parity.py`, 5 tests — `_family_feedback_log1p(mode='sample')`
+and `hydranet_inference._sample_feedback` build the same object, byte-equal on CPU under a shared
+generator, distributional on GPU); the ε mixer, the mixing site (`training_engine.py:338`, per-timestep
+field-level Bernoulli) and the ε=0 byte-identity guard all read correctly; 138 SS tests pass.
+
+---
+
 ## 1. Hypothesis
 
 **H:** Scheduled sampling, configured as the codebase now requires (`ss_feedback='sample'`), changes

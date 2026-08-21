@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
-# run_queue.sh <lessons>:<seed>[:resume[@<train-head>]] ...  — run arms, one at a time, in order.
+# run_queue.sh <lessons>:<seed>:<eps>[:resume[@<train-head>]] ...  — arms, one at a time, in order.
 #
-#   run_queue.sh 40:47                      a fresh 40-lesson arm at seed 47
-#   run_queue.sh 300:42:resume@eb388f9      emit from the saved artifact trained at that commit
-#   run_queue.sh 160:47 600:42              two arms, in that order
+#   run_queue.sh 40:47:0.0                     a fresh 40-lesson arm, seed 47, no scheduled sampling
+#   run_queue.sh 300:42:0.5                    scheduled sampling at eps_max=0.5
+#   run_queue.sh 300:42:0.0:resume@eb388f9     emit from the artifact trained at that commit
+#   run_queue.sh 160:47:0.0 600:42:0.0         two arms, in that order
+#
+# eps is REQUIRED, never defaulted. C-259 and C-300 both trace to a scheduled-sampling parameter
+# that was implicit: four shipped roster models trained with an unset `ss_feedback` that silently
+# became 'mean'. The dose is exactly the value that must be stated out loud every time.
 #
 # This REPLACES run_curve.sh + run_followup{,2,3,4}.sh. Those grew by accretion — each written while
 # an arm was running, each patching the previous one's blind spot — and the accretion was itself the
@@ -14,7 +19,7 @@
 #     strings, which matched unrelated shells (a status command containing "main.py -r calibration"
 #     read as a live arm) and could not see a SIBLING driver between arms, so two schedulers could
 #     run concurrently. One sequential queue holding one lock cannot race with itself.
-#   * No stale-state reads. verify_curve's exit code is checked, so a crashed verifier stops the
+#   * No stale-state reads. The verifier's exit code is checked, so a crashed verifier stops the
 #     queue instead of leaving the previous stage's verdict to be acted on.
 #   * No lying sentinel. QUEUE_DONE records what actually completed; a skipped or failed arm is
 #     named, not silently absorbed.
@@ -26,10 +31,23 @@ RES="${RES_DIR:-$D/results}"; T="$D/tools"
 SSD="$HYD/reports/2026-08-17_ss_retention_dossier"
 MODELS=/home/simon/Documents/scripts/views_platform/views-models/models
 CENV="conda run --no-capture-output -n views-hydranet-env"
+# Which verifier owns these results. RES_DIR and VERIFIER travel together: pointing the queue at
+# another experiment's results while silently running THIS experiment's verifier over them is the
+# same class as the C-259 implicit default. If you redirect one you must state the other.
+VERIFIER="${VERIFIER:-}"
+if [ -z "$VERIFIER" ]; then
+  if [ -n "${RES_DIR:-}" ]; then
+    echo "run_queue.sh: RES_DIR is set but VERIFIER is not — refusing to run the lesson-curve" >&2
+    echo "              verifier over another experiment's results. Set VERIFIER explicitly." >&2
+    exit 65
+  fi
+  VERIFIER="$T/verify_curve.py"
+fi
+[ -f "$VERIFIER" ] || { echo "run_queue.sh: no such verifier: $VERIFIER" >&2; exit 66; }
 MIN_FREE_GB="${MIN_FREE_GB:-25}"
 DISK_WAIT_MAX_MIN="${DISK_WAIT_MAX_MIN:-720}"
 
-[ $# -gt 0 ] || { echo "usage: run_queue.sh <lessons>:<seed>[:resume[@head]] ..." >&2; exit 64; }
+[ $# -gt 0 ] || { echo "usage: run_queue.sh <lessons>:<seed>:<eps>[:resume[@head]] ..." >&2; exit 64; }
 
 mkdir -p "$RES"
 rm -f "$RES/QUEUE_DONE"
@@ -80,11 +98,11 @@ assert_head(){
 # the trap above; removing the substitution removes the whole class, not just today's instance.
 ARM_LABEL=""
 ensure_arm(){
-  local L=$1 S=$2 label got
+  local L=$1 S=$2 E=$3 label got
   ARM_LABEL=""
   label=$($CENV python -c "
 import sys; sys.path.insert(0,'$SSD/tools')
-from make_ss_arm import arm_label; print(arm_label(lessons=$L, eps=0.0, seed=$S))" 2>/dev/null)
+from make_ss_arm import arm_label; print(arm_label(lessons=$L, eps=$E, seed=$S))" 2>/dev/null)
   [ -n "$label" ] || { log "ABORT — no legal arm name for lessons=$L seed=$S"; return 1; }
   if [ -d "$MODELS/$label" ]; then
     got=$($CENV python -c "
@@ -93,13 +111,13 @@ from pathlib import Path
 t=(Path('$MODELS/$label')/'configs/config_hyperparameters.py').read_text()
 ast.parse(t); ns={}; exec(compile(t,'cfg','exec'),ns); hp=ns['get_hp_config']()
 print(f\"{hp['total_lessons']}:{hp['torch_seed']}:{hp['ss_epsilon_max']}\")" 2>/dev/null)
-    if [ "$got" != "$L:$S:0.0" ]; then
-      log "ABORT — $label exists but its config reads '$got', wanted '$L:$S:0.0'"
+    if [ "$got" != "$L:$S:$E" ]; then
+      log "ABORT — $label exists but its config reads '$got', wanted '$L:$S:$E'"
       return 1
     fi
   else
-    log "building $label (lessons=$L seed=$S)"
-    $CENV python "$SSD/tools/make_ss_arm.py" --lessons "$L" --eps 0.0 --seed "$S" \
+    log "building $label (lessons=$L seed=$S eps=$E)"
+    $CENV python "$SSD/tools/make_ss_arm.py" --lessons "$L" --eps "$E" --seed "$S" \
       >>"$RES/run.log" 2>&1 || { log "ABORT — make_ss_arm refused $label"; return 1; }
   fi
   # a label must look like a pipeline-legal model name; anything else means something upstream
@@ -113,13 +131,14 @@ print(f\"{hp['total_lessons']}:{hp['torch_seed']}:{hp['ss_epsilon_max']}\")" 2>/
 
 DONE=""; FAILED=""
 for spec in "$@"; do
-  IFS=: read -r L S MODE <<<"$spec"
+  IFS=: read -r L S E MODE <<<"$spec"
   case "$L:$S" in *[!0-9]*:*|*:*[!0-9]*) log "SKIP '$spec' — malformed"; FAILED="$FAILED $spec"; continue;; esac
+  case "$E" in ''|*[!0-9.]*) log "SKIP '$spec' — eps missing or malformed; it is required"; FAILED="$FAILED $spec"; continue;; esac
 
   assert_head   || { FAILED="$FAILED $spec"; break; }
   wait_for_disk || { FAILED="$FAILED $spec"; break; }
 
-  ensure_arm "$L" "$S" || { FAILED="$FAILED $spec"; continue; }
+  ensure_arm "$L" "$S" "$E" || { FAILED="$FAILED $spec"; continue; }
   label="$ARM_LABEL"
 
   if [ -s "$RES/score_${label}.csv" ] && [ -s "$RES/score_${label}_use_real.csv" ]; then
@@ -137,16 +156,16 @@ for spec in "$@"; do
            "$MODELS/$label"/data/generated/_pf_staging 2>/dev/null
   fi
 
-  log "--- $label (L=$L seed=$S ${MODE:-fresh}) ---"
+  log "--- $label (L=$L seed=$S eps=$E ${MODE:-fresh}) ---"
   bash "$T/run_lesson_arm.sh" "$label" "${ARGS[@]}" >>"$RES/run.log" 2>&1
   rc=$?
   if [ $rc -eq 0 ]; then log "$label OK"; DONE="$DONE $label"
   else                   log "$label FAILED rc=$rc"; FAILED="$FAILED $label"; fi
 
   # verify after every arm so the verdict is never stale; a crashed verifier stops the queue
-  $CENV python "$T/verify_curve.py" >>"$RES/run.log" 2>&1
+  $CENV python "$VERIFIER" >>"$RES/run.log" 2>&1
   if [ $? -ne 0 ]; then
-    log "ABORT — verify_curve failed; not starting another arm on an unknown verdict"
+    log "ABORT — $(basename "$VERIFIER") failed; not starting another arm on an unknown verdict"
     FAILED="$FAILED verify"; break
   fi
 done

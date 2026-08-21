@@ -3,13 +3,26 @@
 **Parked 2026-08-17 for a ~26 h window.** Everything below is built, tested and gated. This file exists
 so the sweep is a command, not a reconstruction.
 
-## One command
+## One command (updated 2026-08-21 — L=300, and a different driver)
 
 ```bash
 cd /home/simon/Documents/scripts/views_platform/views-hydranet
-setsid nohup bash reports/2026-08-17_ss_retention_dossier/tools/run_sweep.sh \
-  > reports/2026-08-17_ss_retention_dossier/results/sweep_launcher.log 2>&1 < /dev/null &
+setsid nohup env \
+  RES_DIR=$PWD/reports/2026-08-17_ss_retention_dossier/results \
+  VERIFIER=$PWD/reports/2026-08-17_ss_retention_dossier/tools/verify_sweep.py \
+  bash reports/2026-08-18_lesson_curve_dossier/tools/run_queue.sh \
+  300:42:0.5 300:43:0.0 300:43:0.5 300:44:0.0 300:44:0.5 300:45:0.0 300:45:0.5 \
+  > reports/2026-08-17_ss_retention_dossier/results/queue_launcher.log 2>&1 < /dev/null &
 ```
+
+`run_sweep.sh` is **retired**. It carried the pre-audit defects (hard-coded licence filename,
+unchecked exit codes, `pgrep` state detection) that the 2026-08-19 harness audit removed; keeping two
+schedulers alive is what caused that audit. `run_queue.sh` is the single scheduler — `RES_DIR` and
+`VERIFIER` point it at this dossier, and it refuses to start if only one of the two is set.
+
+Arms are ordered **in pairs**, so every prefix is a complete n-vs-n test: 1v1 → 2v2 → **3v3 (first
+testable, min p = 0.05)** → **4v4 (min p = 0.014)**. `fullzero_fortytwo` is already done and supplies
+the seed-42 control.
 
 Then confirm it started — the one check that catches a silent non-launch:
 
