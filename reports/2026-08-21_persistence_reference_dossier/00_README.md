@@ -10,8 +10,9 @@
 > Persistence itself barely moved (~1% from M1's column). **The ruler is stable; the model changed** —
 > free-running h18 **0.007 → 0.3318, 47×**. Cost: **13 minutes of GPU**, on weights that already existed.
 >
-> **Caveats that matter: one seed, one vehicle, AP only.** The `crps_all` ARTIFACT verdict is
-> untouched, and retention is still stuck at 0.69.
+> **All four ε=0 seeds ran** (EXP-03): the **worst** of them beats persistence at every horizon,
+> 2.1–4.3× the MDE, seed sd ≤ 0.019. **Remaining caveats: one vehicle, AP only.** The `crps_all`
+> ARTIFACT verdict is untouched, and retention is still stuck at 0.69.
 
 ## The question
 

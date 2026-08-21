@@ -57,8 +57,7 @@ race. Persistence itself barely moved (matches M1's column to ~1%) — **the rul
 changed**, free-running h18 0.007 → 0.3318, **47×**. Along the way the baseline was found to be
 understated by **two** scoring defects (binary ranking at S=1; `m0-1` never loaded → the first
 origin's persistence is silently all-zeros, **#282**), together worth **+31%** at h18 — so M1 was
-*stronger* than written, not weaker. **Caveats: one seed, AP only** — the `crps_all` ARTIFACT verdict
-is untouched, and retention is still stuck at 0.69. Rows **M34–M36**; dossier
+*stronger* than written, not weaker. **All four ε=0 seeds ran** — the **worst** seed still beats persistence at every horizon (2.1–4.3× MDE, seed sd ≤0.019). **Remaining caveats: one vehicle, AP only** — the `crps_all` ARTIFACT verdict is untouched, and retention is still stuck at 0.69. Rows **M34–M37**; dossier
 `reports/2026-08-21_persistence_reference_dossier/`.
 
 ---
@@ -262,17 +261,18 @@ rather than "is there a dose that helps".
 
 | # | Claim | Evidence | Confidence |
 |---|---|---|---|
-| **M34** | **A 300-lesson model BEATS persistence at every horizon out to 36 months.** Scored on ONE support in one call, `sb`, N=170430: AP h1 **0.4774 vs 0.2364 (2.02×)**, h6 0.4071 vs 0.1675 (2.43×), h18 **0.3318 vs 0.1416 (2.34×)**, h36 0.2287 vs 0.0951 (**2.41×**). Every gap is **2.5×–4.5× the MDE**. **This overturns M1 for a converged model** — M1 remains true of the 40-lesson vehicle it measured. | persistence-ref EXP-01+02 | **Medium-high** — margins are far outside the MDE and the re-emit reproduced the archived control to <5e-5, but it is **one seed, one vehicle**. The other three ε=0 seeds are 3 × 7 min away and have not been run. |
+| **M34** | **A 300-lesson model BEATS persistence at every horizon out to 36 months — on ALL FOUR seeds.** One shared support (`sb`, N=170430 on every seed). **The WORST of four seeds** beats persistence everywhere: h1 0.4716 vs 0.2364 (**1.99×**), h6 (**2.26×**), h18 0.3058 vs 0.1416 (**2.16×**), h36 0.2108 vs 0.0951 (**2.22×**) — margins **2.1×–4.3× the MDE**. Seed sd 0.0035–0.0189, an order of magnitude below the gap. **This overturns M1 for a converged model**; M1 remains true of the 40-lesson vehicle it measured. | persistence-ref EXP-01/02/**03** | **High** — n=4, worst-case not mean-case, one shared support, and the re-emits reproduced two archived controls exactly (seed 43 to <5e-5; seed 42's h18 AP 0.3298 on the nose). Still **one vehicle** and **AP only**. |
 | **M35** | **The persistence baseline was being understated by two independent scoring defects, both fixed here.** (a) `_persistence_gathered` supplies no gate, so AP ranked it on a **two-level** `(cs>0).mean(1)` at S=1 while gated arms got a continuous probability; ranking by the persisted *value* lifts h18 0.1152 → 0.1416. (b) `score_v2_horizons` never loads month `m0-1`, so the **first origin's persistence forecast is silently all-zeros** (**#282**); loading it lifts h18 0.1077 → 0.1152. Combined **+31%** at h18. | persistence-ref EXP-02; #282 reproduced to 4 dp | **High** — the defect reproduces the scorer's exact output, and the direction is asserted over 200 random draws. |
 | **M36** | **Persistence is a stable ruler, and that is what makes the comparison legitimate.** Persistence on our origins matches M1's column to ~1% (h6 0.1122 vs 0.112, h18 0.1077 vs 0.108, h36 0.0834 vs 0.083) when scored **the same defective way**. Persistence is truth-only, so this is what it must do iff the origin and cell sets are comparable — they are. **The ruler did not move; the model did**: free-running h18 went **0.007 → 0.3318, a factor of 47.** | persistence-ref EXP-01 | **High** — three independent horizons agreeing to ~1% on a truth-only baseline. |
+
+| **M37** | **Seed variance is not a threat to M34, and the n=1 draw was mildly flattering.** Across 4 seeds the arm's AP sd is **0.0035 (h1) to 0.0189 (h12)**, while the gap it would have to cross is **0.14–0.24**. The single seed reported first (43) read **2.41×** at h36 against a 4-seed worst of **2.22×** — high, but inside the noise. **The aggregator refuses to summarise unless the support is identical across seeds**; persistence being a truth-only baseline means its constancy across seeds *is* that check. | persistence-ref EXP-03 | **High** — direct measurement of the quantity in question. |
 
 **What this closes and what it opens.** The programme has spent weeks under the belief that the
 long-horizon rollout had **no demonstrated value** because a dumb baseline beat it. That was measured
 on a vehicle **M28** now classifies as a smoke test, and **nobody re-ran the race**. It cost 7 minutes
 of GPU to find out. **What it does NOT do** is rescue retention: the model still loses 31% of itself
 to its own feedback (**M26**), it is still one seed, and this is an **AP** claim only — the `crps_all`
-ARTIFACT verdict stands untouched. **The immediate cheap work** is the other three ε=0 seeds
-(3 × 7 min), which would turn M34 from n=1 into n=4.
+ARTIFACT verdict stands untouched. **The n=1 caveat is now discharged** (EXP-03, 41 min): all four ε=0 seeds ran and the **worst** of them still beats persistence everywhere. What remains open is **one vehicle** and **AP only**.
 
 ### INFERENCE-TIME FIXES — CLOSED 2026-08-17
 

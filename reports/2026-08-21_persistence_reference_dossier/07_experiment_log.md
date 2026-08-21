@@ -175,3 +175,67 @@ three ε=0 seeds costs 3 × ~7 min of emit and no new method.
 
 ---
 
+### EXP-03 · all four ε=0 seeds · 2026-08-21 23:12 → 23:54 · **n=1 → n=4, and it holds**
+
+EXP-01/02 rested on **one seed**. The ledger's own standard, in the section M34 edits, is
+*"positive findings at n=1 have historically evaporated on proper runs"* — and **M8 was demoted on
+exactly that count** hours earlier (#280). A good result does not get a pass a bad one was denied.
+
+Three more emit-only passes on existing weights (seeds 42, 44, 45), ~14 min each, **no failures**.
+
+#### The question the summary asks
+
+Not *"does the mean beat persistence"* — a mean can be carried by one lucky draw, which is what the
+n=1 warning is actually about — but **"does the WORST seed beat persistence at every horizon."**
+
+| h | mean | sd | **worst** | persistence | worst/persist | (worst−p)/MDE |
+|--:|--:|--:|--:|--:|--:|--:|
+| 1 | 0.4767 | 0.0035 | 0.4716 | 0.2364 | **1.99×** | 4.3 |
+| 6 | 0.3961 | 0.0123 | 0.3786 | 0.1675 | **2.26×** | 3.9 |
+| 12 | 0.3565 | 0.0189 | 0.3312 | 0.1667 | **1.99×** | 3.0 |
+| 18 | 0.3257 | 0.0134 | 0.3058 | 0.1416 | **2.16×** | 3.0 |
+| 24 | 0.2993 | 0.0092 | 0.2881 | 0.1234 | **2.33×** | 3.0 |
+| 30 | 0.2657 | 0.0099 | 0.2528 | 0.1082 | **2.34×** | 2.7 |
+| 36 | 0.2250 | 0.0122 | 0.2108 | 0.0951 | **2.22×** | 2.1 |
+
+**The worst seed beats persistence at every horizon**, by **2.1×–4.3× the MDE**. Seed sd is
+0.0035–0.0189 — an order of magnitude below the gap it would have to cross.
+
+#### Why this is n=4 and not 4×n=1
+
+`aggregate_seeds.py` **refuses to aggregate unless the support is identical across seeds**. It is:
+`N = 170430` on all four. Persistence is a **truth-only** baseline, so given one support it returns
+one number — which is why the persistence column is a single value rather than a mean, and why its
+constancy *is* the evidence that the seeds are comparable. Had it varied, the seeds would not have
+been measuring the same thing and no summary of them would have meant anything.
+
+Independent consistency check: seed 42's h18 AP of **0.3298** reproduces its archived value from the
+SS dossier exactly, on a run that shares no code path with the one that produced it.
+
+#### Verdict
+
+**M34 is upgraded from n=1 to n=4** and the ratio settles at **~2.0–2.3×** (the n=1 seed-43 draw read
+slightly high at h36: 2.41× against a 4-seed worst of 2.22×). The claim survives the standard that
+demoted M8.
+
+#### Cost and estimate error
+
+**41 minutes wall-clock** for three seeds; I predicted 21. The emit is ~6 min but the surrounding
+score/setup is ~8 more, and I had costed only the emit. **Fourth consecutive run-time estimate that
+came in low.** The standing correction — state estimates as ranges — did not help here because I
+quoted a point again.
+
+#### Trap left by these runs, recorded rather than left as a landmine
+
+`results/run.log` is **append-only across runs**, so it still contains the `ABORT` line from the
+EXP-01 `--out` bug. Grepping that file for `ABORT` reports a failure that was fixed hours ago — it
+misled *me* mid-run. The script never relies on it: it signals through **exit codes** and per-seed
+**`PERSIST_DONE_<model>`** sentinels. Any caller checking these runs must do the same.
+
+#### Scope
+
+Unchanged otherwise: one vehicle, `sb`, calibration partition, **AP only**. The `crps_all` ARTIFACT
+verdict stands untouched. Retention is still 0.69.
+
+---
+

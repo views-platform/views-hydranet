@@ -22,11 +22,13 @@ V2T="$HYD/reports/2026-07-29_v2_scoreboard_dossier/tools"
 MODELS=/home/simon/Documents/scripts/views_platform/views-models/models
 CENV="conda run --no-capture-output -n views-hydranet-env"
 
-M=fullzero_fortythree
-ART=calibration_model_20260821_045948.pt
+# One seed per invocation. Defaults reproduce EXP-01 so the original command still works.
+M="${1:-fullzero_fortythree}"
+ART="${2:-calibration_model_20260821_045948.pt}"
 HORIZONS=1,6,12,18,24,30,36
+[ -n "$M" ] && [ -n "$ART" ] || { echo "usage: $0 [<model> <artifact.pt>]"; exit 2; }
 
-mkdir -p "$RES"; rm -f "$RES/PERSIST_DONE"
+mkdir -p "$RES/identifiers"; rm -f "$RES/PERSIST_DONE_$M"
 exec 6>"$RES/.persist.lock"; flock -n 6 || { echo "another run holds the lock"; exit 11; }
 log(){ _m="[$(date '+%F %T')] persist: $*"; echo "$_m" >> "$RES/run.log"; [ -t 2 ] && echo "$_m" >&2; return 0; }
 
@@ -67,11 +69,11 @@ log "cube: $(basename "$PRED")"
 
 log "--- scoring arm + persistence on ONE support ---"
 $CENV python "$V2T/score_v2_horizons.py" \
-    "l300_seed43|$PRED|lr_{t}_best|by_{t}_best" \
+    "$M|$PRED|lr_{t}_best|by_{t}_best" \
     --targets=sb --horizons="$HORIZONS" --persistence \
-    --out="$RES/score_persistence_ref.csv" >> "$RES/score.log" 2>&1
+    --out="$RES/score_persistence_ref_$M.csv" >> "$RES/score.log" 2>&1
 rc=$?
-[ $rc -eq 0 ] && [ -s "$RES/score_persistence_ref.csv" ] || {
+[ $rc -eq 0 ] && [ -s "$RES/score_persistence_ref_$M.csv" ] || {
     log "ABORT — scoring failed rc=$rc (cube KEPT at $PRED for re-score)"; exit 6; }
 log "scored OK"
 
@@ -90,5 +92,5 @@ nid=$(ls "$RES/identifiers"/*.npz 2>/dev/null | wc -l)
 log "preserved $nid origin identifier file(s) — support is reconstructible without a re-emit"
 rm -rf "$PRED"; log "cube deleted after both scores landed"
 echo "$HEAD_SHA" > "$RES/repo.head"
-touch "$RES/PERSIST_DONE"
+touch "$RES/PERSIST_DONE_$M"
 log "=== DONE ==="
