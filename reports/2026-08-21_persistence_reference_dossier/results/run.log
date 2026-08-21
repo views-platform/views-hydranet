@@ -1,0 +1,13 @@
+[2026-08-21 21:28:26] persist: === persistence re-reference · HEAD 7cb5f05af9a6 · fullzero_fortythree / calibration_model_20260821_045948.pt ===
+[2026-08-21 21:28:26] persist: --- emitting identity (free-running control) on calibration_model_20260821_045948.pt ---
+[2026-08-21 21:35:56] persist: emit OK in 7 min
+[2026-08-21 21:35:56] persist: cube: predictions_calibration_20260821_045948
+[2026-08-21 21:35:56] persist: --- scoring arm + persistence on ONE support ---
+[2026-08-21 21:35:57] persist: ABORT — scoring failed rc=1 (cube KEPT at /home/simon/Documents/scripts/views_platform/views-models/models/fullzero_fortythree/data/generated/predictions_calibration_20260821_045948 for re-score)
+[2026-08-21 21:36:54] persist: === persistence re-reference · HEAD fc8fa84b2be4 · fullzero_fortythree / calibration_model_20260821_045948.pt ===
+[2026-08-21 21:36:54] persist: RESUME — cube for calibration_model_20260821_045948.pt already on disk, skipping the emit
+[2026-08-21 21:36:54] persist: cube: predictions_calibration_20260821_045948
+[2026-08-21 21:36:54] persist: --- scoring arm + persistence on ONE support ---
+[2026-08-21 21:37:06] persist: scored OK
+[2026-08-21 21:37:07] persist: cube deleted after both scores landed
+[2026-08-21 21:37:07] persist: === DONE ===
