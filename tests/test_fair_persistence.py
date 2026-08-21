@@ -117,3 +117,31 @@ def test_absent_history_is_zero_not_a_crash():
     support = [(100, 1)]
     y, val, _ = fp.persistence_scores({(100, 1): 3.0}, support, h=1)
     assert val[0] == 0.0 and y[0] == 1.0
+
+
+def test_missing_history_month_silently_degrades_persistence():
+    """C-30x: the defect this dossier found in `score_v2_horizons`.
+
+    `score_horizons_v2` loads `months = {m0 + h - 1}` and `_persistence_gathered` then reads
+    `truth_map.get((m0 - 1, u), 0.0)`. Month `m0 - 1` is present only BY ACCIDENT, because the
+    origins happen to be consecutive so one origin's history is another's forecast month. The
+    FIRST origin has no such neighbour, and its persistence forecast silently becomes all-zeros.
+
+    `.get(..., 0.0)` absorbing an unloaded month as a real value is the recurring defect class:
+    an unmeasured input read as a measurement. The test pins the DIRECTION — the gap can only
+    understate persistence — because that is what the "M1 understated persistence" claim rests on.
+    """
+    support = [(100, 1), (100, 2), (101, 1), (101, 2)]
+    full = {
+        (99, 1): 8.0, (99, 2): 0.0,      # origin 100's history  <- the month a scorer would omit
+        (100, 1): 6.0, (100, 2): 0.0,    # origin 101's history AND origin 100's h=1 outcome
+        (101, 1): 5.0, (101, 2): 0.0,
+    }
+    gapped = {k: v for k, v in full.items() if k[0] != 99}  # emulate the missing m0-1
+
+    y_f, val_f, _ = fp.persistence_scores(full, support, h=1)
+    y_g, val_g, _ = fp.persistence_scores(gapped, support, h=1)
+
+    assert list(y_f) == list(y_g), "the OUTCOME is unaffected; only the forecast is"
+    assert val_f[0] == 8.0 and val_g[0] == 0.0, "origin 100 loses its history to the gap"
+    assert fp.average_precision(y_g, val_g) <= fp.average_precision(y_f, val_f)

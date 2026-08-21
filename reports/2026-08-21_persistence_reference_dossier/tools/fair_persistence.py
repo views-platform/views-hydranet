@@ -40,6 +40,7 @@ _HN = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_HN / "reports" / "2026-07-25_t0_rollout_skill_dossier" / "tools"))
 sys.path.insert(0, str(_HN / "reports" / "2026-07-17_lodestar_eval_dossier" / "tools"))
 sys.path.insert(0, str(_HN / "reports" / "2026-07-29_v2_scoreboard_dossier" / "tools"))
+sys.path.insert(0, str(_HN / "reports" / "2026-07-28_datafactory_migration_dossier" / "tools"))
 
 from lodestar_score import average_precision  # noqa: E402
 from rollout_skill_score import _truth_map  # noqa: E402
@@ -98,9 +99,20 @@ def main() -> int:
     horizons = tuple(int(x) for x in a.horizons.split(","))
     truth = a.truth
     if truth is None:
-        from v2_ruler import V2_TRUTH  # noqa: PLC0415
+        # Same default and same fallback as score_v2_horizons, so both tools read ONE truth.
+        # Diverging here would silently compare the arm and persistence against different
+        # ground truth, which is the failure this whole dossier exists to rule out.
+        try:
+            from v2_ruler import V2_TRUTH  # noqa: PLC0415
 
-        truth = str(V2_TRUTH)
+            truth = str(V2_TRUTH)
+        except Exception:  # noqa: BLE001
+            truth = str(
+                _HN / "reports" / "2026-07-28_datafactory_migration_dossier" / "tools"
+                / "v2_truth" / "calibration_datafactory_df.parquet"
+            )
+    if not Path(truth).exists():
+        raise FileNotFoundError(f"truth parquet not found: {truth}")
 
     support = support_from_identifiers(a.identifiers, horizons)
     origins = sorted({m0 for m0, _ in support})

@@ -104,3 +104,74 @@ but their cubes are deleted; extending to 4 seeds is 4 × 7 min. No CRPS claim i
 to refuse (C-220), and Epic #263 already ruled that class ARTIFACT.
 
 ---
+
+### EXP-02 · scoring persistence FAIRLY · 2026-08-21 22:10 → 22:35 · **the win survives, at 2.0–2.5× not 3×**
+
+EXP-01 left one claim unearned: the margin. Persistence was scored from a two-level binary signal
+while the arm got a continuous gate probability. This gives persistence its ranking back, and found a
+second, independent way the baseline was being understated.
+
+#### Two corrections, both in the same direction
+
+**1. Rank by the persisted VALUE, not the indicator.** `p = (cs > 0).mean(1)` at S=1 can only be 0.0
+or 1.0. Ranking by `truth[m0-1]` uses the same data with more of its information; AP is invariant to
+monotone transforms, so the raw value *is* the ranking — nothing is scaled or calibrated.
+
+**2. `score_v2_horizons` never loads month `m0-1`** (→ **#282**). It builds
+`months = {m0 + h - 1}`, while `_persistence_gathered` reads `truth_map.get((m0 - 1, u), 0.0)`.
+That month is present only *by accident* — the origins are consecutive, so each origin's history is
+its predecessor's h=1 forecast month. **The first origin (457, needing 456) has no predecessor**, so
+its persistence forecast is silently all zeros. Reproduced to four decimals before being believed:
+
+| h | scorer | with `m0-1` loaded |
+|--:|--:|--:|
+| 1 | 0.1461 | 0.1632 |
+| 18 | 0.1077 | 0.1152 |
+| 36 | 0.0834 | 0.0870 |
+
+#### The honest table
+
+| h | L=300 arm | persistence (fair) | ratio | Δ | Δ/MDE | *EXP-01 ratio* |
+|--:|--:|--:|--:|--:|--:|--:|
+| 1 | 0.4774 | 0.2364 | **2.02×** | +0.2410 | 4.5× | *3.27×* |
+| 6 | 0.4071 | 0.1675 | **2.43×** | +0.2396 | 4.4× | *3.63×* |
+| 12 | 0.3596 | 0.1667 | **2.16×** | +0.1929 | 3.6× | *2.78×* |
+| 18 | 0.3318 | 0.1416 | **2.34×** | +0.1902 | 3.5× | *3.08×* |
+| 24 | 0.3027 | 0.1234 | **2.45×** | +0.1793 | 3.3× | *3.13×* |
+| 30 | 0.2748 | 0.1082 | **2.54×** | +0.1666 | 3.1× | *3.25×* |
+| 36 | 0.2287 | 0.0951 | **2.41×** | +0.1336 | 2.5× | *2.74×* |
+
+Persistence at h18 rises **0.1077 → 0.1416 (+31%)** once scored properly. **The margin falls from
+~3.1× to ~2.3×, and the verdict does not change**: the model beats persistence at every horizon out
+to 36 months, with every gap **2.5×–4.5× the MDE**.
+
+`N = 170430`, `n_event` 1343 / 1547 / 1779 at h1/18/36 — **identical** between the dossier's path and
+the scorer's, which is what localised the discrepancy to the score rather than to the support or the
+truth.
+
+#### Falsifier: is the value-ranking simply a better-informed reference, or a thumb on the scale?
+
+Pre-committed direction: collapsing a score to its indicator can only lose ranking information, so
+value-ranking must be **≥** binary. Asserted over 200 random draws
+(`test_binary_never_beats_value_on_a_random_sweep`), not on one hand-made example — **0/200
+failures**. That is what licenses reporting EXP-01's 3× as an *upper bound* rather than as a result.
+
+#### Both numbers stay in the table
+
+The binary column is what **M1** was built on. Dropping it would hide the size of the correction
+rather than show it — and the correction runs *against* us, which is the reason to keep it visible.
+
+#### What this does to M1
+
+M1's persistence column inherited **both** defects. So M1 **understated persistence twice over**: its
+claim that persistence beat every arm from h6 on was *stronger* than it was written. M1 was **true**
+for the vehicle it measured — and is **false** for a converged one.
+
+#### Scope
+
+Unchanged from EXP-01: one seed, one vehicle, `sb`, calibration partition. The fair reference is
+CPU-only and reusable — `results/identifiers/` now holds all 13 origins, so extending to the other
+three ε=0 seeds costs 3 × ~7 min of emit and no new method.
+
+---
+

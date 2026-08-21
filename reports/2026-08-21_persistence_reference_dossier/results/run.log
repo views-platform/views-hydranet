@@ -11,3 +11,12 @@
 [2026-08-21 21:37:06] persist: scored OK
 [2026-08-21 21:37:07] persist: cube deleted after both scores landed
 [2026-08-21 21:37:07] persist: === DONE ===
+[2026-08-21 22:10:39] persist: === persistence re-reference · HEAD 42321d403ea6 · fullzero_fortythree / calibration_model_20260821_045948.pt ===
+[2026-08-21 22:10:39] persist: --- emitting identity (free-running control) on calibration_model_20260821_045948.pt ---
+[2026-08-21 22:16:58] persist: emit OK in 6 min
+[2026-08-21 22:16:58] persist: cube: predictions_calibration_20260821_045948
+[2026-08-21 22:16:58] persist: --- scoring arm + persistence on ONE support ---
+[2026-08-21 22:17:11] persist: scored OK
+[2026-08-21 22:17:11] persist: preserved 13 origin identifier file(s) — support is reconstructible without a re-emit
+[2026-08-21 22:17:11] persist: cube deleted after both scores landed
+[2026-08-21 22:17:11] persist: === DONE ===
