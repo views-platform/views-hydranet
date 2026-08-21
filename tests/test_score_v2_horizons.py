@@ -131,3 +131,61 @@ def test_h1_matches_frozen_lodestar(fixture):
     assert h1["crps_none"] == pytest.approx(lode["crps_none"])
     assert h1["size_ratio"] == pytest.approx(lode["size_ratio"])
     assert h1["pos_mcr"] == pytest.approx(lode["pos_mcr"])
+
+
+# --- GH #282: the persistence baseline's history month was never loaded -------------------------
+
+
+def _rollout_skill_mod():
+    """Import the sibling that owns `_persistence_gathered` (dossier tool, force-tracked)."""
+    p = _HN / "reports/2026-07-25_t0_rollout_skill_dossier/tools/rollout_skill_score.py"
+    if not p.exists():
+        pytest.skip("rollout_skill_score.py absent — sparse checkout (C-247)")
+    spec = importlib.util.spec_from_file_location("rollout_skill_score", p)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["rollout_skill_score"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_persistence_refuses_when_the_history_month_was_never_loaded():
+    """GH #282, the guard.
+
+    `score_horizons_v2` built `tmap` from `{m0+h-1}` only. `_persistence_gathered` reads
+    `truth_map[(m0-1, u)]`, which is present ONLY because origins are usually consecutive — origin
+    k's history is origin k-1's h=1 forecast month. The FIRST origin has no predecessor, so its
+    history fell through `.get(..., 0.0)` and its whole persistence forecast became zeros, with no
+    error. Understated the baseline by 4-10% at 13 origins, and by everything at one.
+    """
+    rs = _rollout_skill_mod()
+    support = [(100, 1), (101, 1)]
+    tmap = {(100, 1): 5.0, (101, 1): 6.0}
+    with pytest.raises(ValueError, match="never loaded"):
+        rs._persistence_gathered(tmap, support, (1,), months_loaded={100, 101})
+
+
+def test_persistence_accepts_a_truth_map_that_includes_the_history_months():
+    rs = _rollout_skill_mod()
+    support = [(100, 1), (101, 1)]
+    tmap = {(99, 1): 5.0, (100, 1): 7.0, (101, 1): 6.0}
+    got = rs._persistence_gathered(tmap, support, (1,), months_loaded={99, 100, 101})
+    assert float(got[(100, 1, 1)][0][0]) == 5.0  # truth[m0-1], not truth[m0]
+    assert float(got[(101, 1, 1)][0][0]) == 7.0
+
+
+def test_both_scorers_load_the_pre_origin_month():
+    """The fix must live in BOTH scorers, or one of them silently keeps the defect.
+
+    Asserted on source text because the alternative is building two full cube fixtures for a
+    one-line set-union; the runtime guard above is what actually protects the number.
+    """
+    for tool in (
+        _V2_TOOL,
+        _HN / "reports/2026-07-25_t0_rollout_skill_dossier/tools/rollout_skill_score.py",
+    ):
+        if not tool.exists():
+            pytest.skip(f"{tool.name} absent — sparse checkout (C-247)")
+        src = tool.read_text()
+        assert "months |= {m0 - 1 for (m0, _u) in support}" in src, (
+            f"{tool.name} does not load the persistence history month — GH #282 regressed"
+        )

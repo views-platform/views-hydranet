@@ -105,8 +105,29 @@ def _truth_map(truth_parquet: str, lr_full: str, months: set):
     return tm
 
 
-def _persistence_gathered(truth_map, support, horizons=HORIZONS):
-    """Persistence 'model': feed the last OBSERVED value truth[m0-1] as a 1-sample forecast at every h."""
+def _persistence_gathered(truth_map, support, horizons=HORIZONS, months_loaded=None):
+    """Persistence 'model': feed truth[m0-1] as a 1-sample forecast at every h.
+
+    **GH #282.** `truth_map` is built from the SCORED months `{m0+h-1}`, which do not include the
+    history month `m0-1`. It is present only *by accident* — origins are usually consecutive, so
+    origin k's history is origin k-1's h=1 forecast month — and the FIRST origin has no such
+    neighbour. Its history therefore fell through `.get(..., 0.0)` and its entire persistence
+    forecast became zeros, silently understating the baseline by 4-10% at 13 origins and by
+    everything at one.
+
+    A missing **cell** inside a loaded month is a legitimate 0.0 (`_truth_map` builds a dense
+    per-month dict). A missing **month** is not a measurement at all. Pass `months_loaded` to keep
+    them distinguishable; callers in this repo do. Left optional rather than required so that
+    archived analyses that reconstruct this call still run — but they run WRONG, which is why every
+    live caller passes it.
+    """
+    if months_loaded is not None:
+        missing = sorted({m0 - 1 for (m0, _u) in support} - set(months_loaded))
+        if missing:
+            raise ValueError(
+                f"persistence needs history months {missing}, which were never loaded — "
+                f"refusing to score them as zeros (GH #282)"
+            )
     out = {}
     for (m0, u) in support:
         last = truth_map.get((m0 - 1, u), 0.0)  # last observed month before T=0
@@ -130,7 +151,9 @@ def score_horizons(truth_parquet, registry, targets, horizons=HORIZONS, add_pers
         )
         if not support:
             raise ValueError(f"[{tgt}] EMPTY fixed support across models/horizons — FAIL")
+        # history months included for the persistence baseline — see GH #282
         months = {m0 + h - 1 for (m0, _u) in support for h in horizons}
+        months |= {m0 - 1 for (m0, _u) in support}
         tmap = _truth_map(truth_parquet, lr_full, months)
         # (2) stream arm-by-arm: load one arm's cubes, score all h, FREE before next (OOM guard)
         arms = list(registry)
