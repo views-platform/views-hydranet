@@ -98,10 +98,10 @@ def test_empty_results_dir_raises(tmp_path):
 
 
 def test_weighted_arms_are_parsed_not_silently_skipped(tmp_path):
-    """`cell@0.5` reaches disk as `score_<seed>_cell_0.5.csv`. The first regex matched only
-    the four bare modes, so the decay-dial arms were dropped from the summary WITHOUT a word — the correct
-    "ignore unparseable, do not guess" behaviour turned into silent incompleteness once new arms
-    existed."""
+    """`cell@0.5` reaches disk as `score_<seed>_cell_0.5.csv`, which the original regex
+    did not match — so the four decay-dial arms were dropped from the summary without a
+    word. Correct "ignore unparseable, do not guess" behaviour that became silent
+    incompleteness the moment new arms existed."""
     d = tmp_path / "res"
     d.mkdir()
     for seed in ("fullzero_fortythree", "fullzero_fortytwo"):
