@@ -1,0 +1,11 @@
+[2026-08-22 00:49:36] freeze300: === state-freeze at L=300 · HEAD 0d44fd91c739 · 2 seeds x 4 arms ===
+[2026-08-22 00:49:36] freeze300: --- fullzero_fortythree (calibration_model_20260821_045948.pt) · arms none,hidden,cell,all ---
+[2026-08-22 01:42:07] freeze300: fullzero_fortythree OK in 52 min
+[2026-08-22 01:42:07] freeze300: --- fullzero_fortytwo (calibration_model_20260818_221401.pt) · arms none,hidden,cell,all ---
+[2026-08-22 02:23:18] freeze300: fullzero_fortytwo OK in 41 min
+[2026-08-22 02:23:18] freeze300: === DONE ===
+[2026-08-22 06:29:30] reemit: --- emitting none (keeping cubes) ---
+[2026-08-22 06:34:59] reemit: none OK in 5 min → paired_none
+[2026-08-22 06:34:59] reemit: --- emitting cell (keeping cubes) ---
+[2026-08-22 06:40:36] reemit: cell OK in 5 min → paired_cell
+[2026-08-22 06:40:36] reemit: === both cubes ready for the paired bootstrap ===
