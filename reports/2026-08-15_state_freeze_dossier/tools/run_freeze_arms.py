@@ -42,6 +42,21 @@ _V2T = _HN / "reports" / "2026-07-29_v2_scoreboard_dossier" / "tools"
 ARMS = ("none", "hidden", "cell", "all")
 
 
+def _parse_arm(spec: str):
+    """The child's own parser, imported so parent and child cannot disagree about a spec.
+
+    Imported lazily inside the function: `freeze_arm_entry` pulls in the model package, and a
+    module-level import would make this driver's `--help` pay for a torch import.
+    """
+    import importlib.util
+
+    _p = Path(__file__).resolve().parent / "freeze_arm_entry.py"
+    _s = importlib.util.spec_from_file_location("freeze_arm_entry", _p)
+    _m = importlib.util.module_from_spec(_s)
+    _s.loader.exec_module(_m)
+    return _m.parse_arm(spec)
+
+
 def _safe(arm: str) -> str:
     """`cell@0.5` -> `cell_0.5`: `@` is legal in a filename but reads badly in globs
     and in the seed-vs-arm filename parsing `freeze_table.py` does."""
@@ -180,10 +195,12 @@ def main() -> int:
     )
     args = ap.parse_args()
 
+    # Validate here as well as in the child: the child raises per-arm inside a subprocess, so a
+    # typo in arm 3 of 4 would otherwise surface only after two arms had already burned GPU time.
+    # Delegates to the child's parser so the two can never disagree about what a spec means.
     arms = tuple(a.strip() for a in args.arms.split(","))
-    bad = [a for a in arms if a not in ARMS]
-    if bad:
-        raise SystemExit(f"unknown arm(s) {bad}; valid: {list(ARMS)}")
+    for a in arms:
+        _parse_arm(a)  # raises SystemExit on anything malformed
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)

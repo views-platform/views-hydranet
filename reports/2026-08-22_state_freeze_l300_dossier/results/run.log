@@ -9,3 +9,9 @@
 [2026-08-22 06:34:59] reemit: --- emitting cell (keeping cubes) ---
 [2026-08-22 06:40:36] reemit: cell OK in 5 min → paired_cell
 [2026-08-22 06:40:36] reemit: === both cubes ready for the paired bootstrap ===
+[2026-08-22 09:19:14] dial: === decay dial · HEAD 4580e6278e1c · fullzero_fortythree · cell@0.25,cell@0.5,cell@0.75 ===
+[2026-08-22 09:19:15] dial: FAILED rc=1
+[2026-08-22 09:20:13] dial: === decay dial · HEAD 4580e6278e1c · fullzero_fortythree · cell@0.25,cell@0.5,cell@0.75 ===
+[2026-08-22 09:57:06] dial: === decay dial · HEAD 4580e6278e1c · fullzero_fortythree · cell@0.5 ===
+[2026-08-22 10:17:43] dial: OK in 20 min
+[2026-08-22 10:17:43] dial: === DONE ===
