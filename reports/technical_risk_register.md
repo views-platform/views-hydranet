@@ -5,11 +5,11 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-22                           |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 303                                  |
-| Open Concerns     | 151                                  |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
+| Total Concerns    | 304                                  |
+| Open Concerns     | 152                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 130                                 |
+| — net active risks | 131                                 |
 | Resolved Concerns | 152                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -2838,6 +2838,56 @@ natural defence — the reader's only check on a provenance claim is the prose i
 **Mitigation that would have caught it:** a provenance claim about *when* something existed is checkable
 mechanically (`git log --diff-filter=A`). Any "pre-committed"/"pre-registered" assertion should cite the
 commit that proves it, as §5 of that same document does correctly for the dial's decision table.
+
+---
+
+### C-307: a cheap screen's NO is recorded as a closure, with no false-negative mode and no reopen trigger
+
+| Field | Value |
+|-------|-------|
+| ID | C-307 |
+| Tier | 2 |
+| Source | user observation, 2026-08-23, on the #290/#291/#294 falsifier checks |
+| Trigger | Closing an investigative issue, or writing "the correspondence is superficial" / "the method is aimed at the wrong problem", on the strength of a **proxy** measurement rather than a trial of the thing itself |
+| Location | `reports/2026-08-23_falsifier_checks/07_experiment_log.md` (all four checks); GitHub #290, #291, #294 |
+| Cross-refs | C-303, C-305, C-306 (the same family: a claim stronger than what was measured) |
+
+**The user's report of the pattern, which predates this session:** *"we have dropped multiple things on
+the floor — and I keep telling you so — by doing quick smart tests to see if real implementation makes
+sense, then dropping real implementation because the test told us to. Then me later insisting that we
+try for real, and then it turns out that it in fact works. This happens so much."*
+
+A cheap screen answers a **proxy** question. Its NO is evidence against the real thing only in
+proportion to how tightly the proxy is coupled to it — and **that coupling has never been recorded**.
+The write-ups state the verdict and the falsifiers on the *check*, but not the **false-negative mode of
+the check itself**: the specific way the proxy could say no while the real method says yes.
+
+**The instance that makes this Tier 2 rather than a style note.** #294 measured σ_max = 1.60, derived
+GTF's α = 0.375, compared it to our measured w ≈ 0.10, and concluded *"correspondence superficial"*.
+**The issue's own body had already listed why that comparison is invalid** — *"GTF re-anchors every
+step; we anchor once … **these are not the same operator**"* — and the numeric comparison was made
+anyway. Three independent reasons the screen can be a false negative there:
+
+1. **σ_max was measured on the wrong model.** α is a *training* parameter and training under GTF
+   *reshapes the Jacobian* — that is the method's entire mechanism. σ_max on a teacher-forced model is
+   the σ_max of the model GTF would replace.
+2. **The paper does not recommend a fixed α.** aGTF derives it per batch and anneals from α=1 downward,
+   so "the paper predicts 0.375" is a static simplification the authors themselves supersede.
+3. **The two weights parameterise different operators** (frozen anchor vs moving target), so there is no
+   reason their optima should coincide even if the mechanism transfers.
+
+**Tier 2 (structural, with a demonstrated history):** the failure is silent — a closed issue looks
+settled, and the cost lands weeks later as work redone or a real effect never found. It compounds with
+C-303/C-305/C-306, all of which are "the claim outran the measurement".
+
+**Standing rule adopted 2026-08-23.** An investigative issue closed on a proxy must carry both:
+
+* **the false-negative mode** — the specific way this screen could say no while the real method says
+  yes; and
+* **a reopen trigger** — a concrete condition that would make revisiting correct.
+
+"CLOSED" then means *"screened out, here is what would bring it back"*, not *"settled"*. Applied
+retroactively to #290, #291 and #294.
 
 ---
 

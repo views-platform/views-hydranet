@@ -216,3 +216,64 @@ drift is precisely what a gentle restoring force can correct.
 One seed, one vehicle, **six consecutive states from one origin** — σ_max is a supremum over *all*
 states and this is a sample of six. Widening it is cheap (the hook takes `--n-states`) but would not
 move 1.60 into [1.05, 1.20]; the gap is 3.75×, not marginal.
+
+---
+
+## ⚠️ POSTMORTEM — what these four checks are actually worth (C-307)
+
+Added 2026-08-23 after the user pointed out a pattern that **predates this session**:
+
+> *"We have dropped multiple things on the floor — and I keep telling you so — by doing quick smart
+> tests to see if real implementation makes sense, then dropping real implementation because the test
+> told us to. Then me later insisting that we try for real, and then it turns out that it in fact
+> works. This happens so much."*
+
+**Every check in this document is a proxy.** None of them tried the method being screened. A proxy's NO
+is evidence against the real thing only in proportion to how tightly the two are coupled — and this
+document originally recorded the verdicts and the falsifiers *on the checks*, but never the
+**false-negative mode of the checks themselves**.
+
+**The worst instance is CHECK D, and it is self-inflicted.** Issue #294's body states, in its own words,
+*"GTF re-anchors every step; we anchor once … **these are not the same operator**"* — and the check then
+compared their α against our w as though they were. Three independent reasons that comparison was
+invalid are now recorded on the issue: σ_max was measured on a teacher-forced model when α governs a
+GTF-trained one; the paper's adaptive variant does not use a fixed α at all; and the two weights
+parameterise different operators. **"GTF's theory does not predict our result" is withdrawn.** The
+number stands; the inference does not.
+
+### What survives, and what does not
+
+| | status |
+|---|---|
+| front-loading 3.15–4.22×, n=4, unanimous (A) | ✅ measurement stands |
+| decoupling 2.76–2.91σ vs 0.03–0.18σ, both series (B) | ✅ measurement stands |
+| `torch.poisson` severs the gradient, silently (C) | ✅ **fact about code — the one check that is not a proxy** |
+| σ_max = 1.60, converged (D) | ✅ measurement stands |
+| "Professor Forcing is aimed at the wrong part of the curve" | ⚠️ weakened — measured on the untreated model |
+| "Horizon Forcing's premise fails ⇒ it would not help" | ⚠️ weakened — a wrong justification is not a wrong method |
+| "the GTF correspondence is superficial" | ❌ **withdrawn** |
+
+**CHECK C is the exception and it is worth naming why.** It is not a proxy: it establishes what the code
+*does*, and un-detaching the feedback really would be a silent no-op. That check is safe to act on. The
+other three screen a *method* through a *measurement of our current model*, which is a much weaker
+instrument than the write-ups implied.
+
+### Standing rule adopted (C-307)
+
+An investigative issue closed on a proxy must carry **both**:
+
+1. **the false-negative mode** — the specific way this screen could say no while the real method says
+   yes; and
+2. **a reopen trigger** — a concrete condition that would make revisiting correct.
+
+**"CLOSED" means *screened out, here is what brings it back* — never *settled*.** Applied retroactively
+to #290, #291 and #294 on 2026-08-23.
+
+### The honest expected-value statement
+
+These four checks cost ~35 minutes and no GPU, against ~36 GPU-hours for #287. That trade was worth
+making. But the correct summary is **"three methods deprioritised, one code fact established"** — not
+*"two ideas closed"*. The deprioritisation is a **prior update**, not a verdict, and the reopen triggers
+above are deliberately low bars because the base rate of this programme reopening such decisions is
+high.
+
