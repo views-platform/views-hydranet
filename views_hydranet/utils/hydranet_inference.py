@@ -130,11 +130,10 @@ def blend_recurrent_state(
     # allocation, on ONLY the half that survives. The first version wrote
     # `weight * anchor + (1 - weight) * new` across the FULL state and then sliced half of it away.
     # Benchmarked at the real state shape: 36.2 ms/call full-blend vs 12.3 ms/call here, against
-    # 7.1 ms for the weight==1.0 `cat` above. NOTE the honest scale — at ~36 rollout steps that is
-    # seconds per origin, not minutes. A 4x wall-clock regression observed while first running this
-    # path was traced to an unrelated 10-core job on a shared machine, NOT to this arithmetic; the
-    # microbenchmark said so before the machine was checked, and the machine should have been
-    # checked first.
+    # 7.1 ms for the weight==1.0 `cat` above — at ~36 rollout steps that is seconds per origin,
+    # not minutes.
+    # (The wall-clock investigation behind those numbers is in the state-freeze-l300 dossier, not
+    # here.)
     if mode == "all":
         return torch.lerp(new, anchor, weight)
     half = channels // 2

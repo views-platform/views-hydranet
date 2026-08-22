@@ -42,19 +42,26 @@ _V2T = _HN / "reports" / "2026-07-29_v2_scoreboard_dossier" / "tools"
 ARMS = ("none", "hidden", "cell", "all")
 
 
+_ARM_PARSER = None
+
+
 def _parse_arm(spec: str):
     """The child's own parser, imported so parent and child cannot disagree about a spec.
 
-    Imported lazily inside the function: `freeze_arm_entry` pulls in the model package, and a
-    module-level import would make this driver's `--help` pay for a torch import.
+    Imported lazily so `--help` does not pay for the torch import `freeze_arm_entry` pulls in, and
+    **cached** so the validation loop does not pay for it once per arm — the first version re-exec'd
+    the whole model package for every spec it checked, which defeated the laziness it claimed.
     """
-    import importlib.util
+    global _ARM_PARSER
+    if _ARM_PARSER is None:
+        import importlib.util
 
-    _p = Path(__file__).resolve().parent / "freeze_arm_entry.py"
-    _s = importlib.util.spec_from_file_location("freeze_arm_entry", _p)
-    _m = importlib.util.module_from_spec(_s)
-    _s.loader.exec_module(_m)
-    return _m.parse_arm(spec)
+        _p = Path(__file__).resolve().parent / "freeze_arm_entry.py"
+        _s = importlib.util.spec_from_file_location("freeze_arm_entry", _p)
+        _m = importlib.util.module_from_spec(_s)
+        _s.loader.exec_module(_m)
+        _ARM_PARSER = _m.parse_arm
+    return _ARM_PARSER(spec)
 
 
 def _safe(arm: str) -> str:

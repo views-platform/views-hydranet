@@ -117,16 +117,29 @@ def _persistence_gathered(truth_map, support, horizons=HORIZONS, months_loaded=N
 
     A missing **cell** inside a loaded month is a legitimate 0.0 (`_truth_map` builds a dense
     per-month dict). A missing **month** is not a measurement at all. Pass `months_loaded` to keep
-    them distinguishable; callers in this repo do. Left optional rather than required so that
-    archived analyses that reconstruct this call still run — but they run WRONG, which is why every
-    live caller passes it.
+    them distinguishable. Left optional rather than required so that archived analyses which
+    reconstruct this call still run — but they run WRONG, so **both production callers pass it**
+    (`score_horizons` here and `score_v2_horizons.score_horizons_v2`). An earlier version of this
+    docstring claimed every live caller passed it while `score_horizons` did not — the guard was
+    wired into one scorer and asserted for both.
     """
     if months_loaded is not None:
-        missing = sorted({m0 - 1 for (m0, _u) in support} - set(months_loaded))
+        needed = {m0 - 1 for (m0, _u) in support}
+        missing = sorted(needed - set(months_loaded))
         if missing:
             raise ValueError(
                 f"persistence needs history months {missing}, which were never loaded — "
                 f"refusing to score them as zeros (GH #282)"
+            )
+        # `months_loaded` is what was REQUESTED. `_truth_map` yields no keys for a month absent
+        # from the parquet, so an origin whose history predates the truth data would pass the check
+        # above and be scored as zeros anyway — the exact #282 failure, one level down. Verify the
+        # month actually MATERIALISED.
+        absent = sorted(m for m in needed if not any((m, u) in truth_map for (_m0, u) in support))
+        if absent:
+            raise ValueError(
+                f"persistence history months {absent} were requested but the truth frame yielded "
+                f"no cells for them — refusing to score them as zeros (GH #282)"
             )
     out = {}
     for (m0, u) in support:
@@ -200,7 +213,7 @@ def score_horizons(truth_parquet, registry, targets, horizons=HORIZONS, add_pers
             del g  # free this arm's cubes before loading the next (OOM guard)
         # persistence: last observed truth[m0-1] held for all h (cheap; streamed last)
         if add_persistence:
-            gp = _persistence_gathered(tmap, support, horizons)
+            gp = _persistence_gathered(tmap, support, horizons, months_loaded=months)
             for h in horizons:
                 cs = np.stack([gp[(m0, h, u)][0] for (m0, u) in support])
                 p = (cs > 0).mean(1)

@@ -5,11 +5,11 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-22                           |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 301                                  |
-| Open Concerns     | 149                                  |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
+| Total Concerns    | 303                                  |
+| Open Concerns     | 151                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 128                                 |
+| — net active risks | 130                                 |
 | Resolved Concerns | 152                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -2784,7 +2784,7 @@ clear persistence at every horizon (ledger M34, n=4) — which is what this entr
 
 ---
 
-### C-303: prose asserts a guard the code does not implement — third occurrence, all in decision-bearing text
+### C-303: prose asserts a guard the code does not implement — FIVE occurrences, all in decision-bearing text
 
 | Field | Value |
 |-------|-------|
@@ -2815,6 +2815,93 @@ perturbing one seed's persistence by 0.01 makes it refuse by name), the docstrin
 code does, and M37 was rewritten. **Standing mitigation:** when a docstring or ledger row describes a
 check, the check needs a test that fails when it is deleted. `tests/test_aggregate_seeds.py::test_refuses_when_persistence_differs_between_seeds`
 and `::test_equal_N_does_not_excuse_different_persistence` are that test for this instance.
+
+**FOURTH AND FIFTH INSTANCE, 2026-08-22 (PR #292) — and the fourth landed inside the document written
+to prevent exactly this.** `05_analysis_plan.md` was added to the state-freeze-l300 dossier
+specifically to stamp honest provenance on a partly-unregistered experiment. It asserted the falsifiers
+were **"PRE-COMMITTED for all experiments, because they were enforced in code before any result was
+read."** They were not: `tools/freeze_table.py` first enters git at `b18f177` (06:44) **in the same
+commit as the score CSVs**, four hours after the overnight run finished (02:23). For EXP-01/02 the
+falsifier enforcement is **retrospective**; only the M34 baseline *values* were written down beforehand,
+as a comment, and the h1 invariant appears nowhere pre-run.
+
+The fifth: the same §6 quoted h1 as **"0.47737082595880015 across all six arms"** as a falsifier for
+*all* experiments. That is seed 43's value; seed 42 holds **0.4778833881292755**. The check itself is
+correctly **per-seed** in code — so the *prose* would have made a reader auditing seed 42 conclude the
+falsifier had failed when it had passed.
+
+**What this escalates:** the class is no longer "a docstring drifted from its function". It now includes
+**a provenance document overstating its own provenance**, which is the failure mode with the least
+natural defence — the reader's only check on a provenance claim is the prose itself. Both were caught by
+`/code-review medium` reading git timestamps against the text, not by any test.
+
+**Mitigation that would have caught it:** a provenance claim about *when* something existed is checkable
+mechanically (`git log --diff-filter=A`). Any "pre-committed"/"pre-registered" assertion should cite the
+commit that proves it, as §5 of that same document does correctly for the dial's decision table.
+
+---
+
+### C-305: a pre-registered decision rule was overridden post-hoc, then documented as "no branch matched"
+
+| Field | Value |
+|-------|-------|
+| ID | C-305 |
+| Tier | 2 |
+| Source | `/code-review medium` on PR #292 (2026-08-22) |
+| Trigger | Reading a pre-registered decision table's output and finding the fired branch inconvenient — the moment a post-hoc criterion (an MDE, a noise argument, a "within tolerance") is introduced to reach a different verdict |
+| Location | `reports/2026-08-22_state_freeze_l300_dossier/05_analysis_plan.md` §5; ledger **M41** |
+| Cross-refs | C-303 (the prose half of the same failure), C-298, C-291 |
+
+The dial's decision table was **genuinely pre-registered** (`DIAL_PAUSED.md`, `da3156d` 10:58:07,
+8.5 h before the first arm). Its branch 1 read: *`cell@0.5` > 0.3709 ⇒ a dial with an interior optimum*.
+The measured value was **0.3715866** against a boundary of **0.3709158** — **branch 1 fired**, and its
+prescribed follow-up ("sweep 0.25 and 0.75 next") is exactly what was run.
+
+The verdict recorded was **"switch, not a dial"**, reached by introducing a **minimum-detectable-effect
+argument that was not part of the registered rule**, and the write-up then stated *"a shape none of the
+three branches predicted"* — building a process lesson on a premise contradicted by the data.
+
+**Tier 2 (structural fragility with no error signal).** A registered rule that can be overridden by an
+unregistered criterion provides none of the protection it was written for, and the override is invisible
+because the write-up asserted no branch matched. Note the aggravating context: the *same document*
+criticises EXP-01/02 for choosing a decision rule after seeing data.
+
+**The override may well be correct** — 0.0007 is small — but that is a separate question from whether it
+was licensed. Corrected on PR #292: §5 now states that branch 1 fired and was overridden, and the
+override's premise is being *measured* (§5a) rather than asserted.
+
+**Standing rule this earns:** when a registered branch fires and the outcome looks wrong, record *"the
+rule returned X and I am overriding it because Y"*. Never re-describe the data so that no branch matched.
+
+---
+
+### C-306: an MDE from one contrast was used to declare a different, far more correlated contrast indistinguishable
+
+| Field | Value |
+|-------|-------|
+| ID | C-306 |
+| Tier | 2 |
+| Source | `/code-review medium` on PR #292 (2026-08-22) |
+| Trigger | Reusing a published MDE or CI half-width to judge a comparison **other than the one it was computed for** — especially between two arms that share more structure than the original pair did |
+| Location | `reports/2026-08-22_state_freeze_l300_dossier/00_README.md`, `05_analysis_plan.md` §5a; ledger **M41**; `results/paired_ci.json` |
+| Cross-refs | C-221 (block bootstrap over origins, never iid over cells), C-263/#263 (matched-reference rule), M40 |
+
+**M41** declared the decay dial's interior points "indistinguishable" by comparing a 0.0022 spread
+against a paired MDE of **0.0086**. That MDE is from `paired_ci.json` and is the interval for
+**`cell` vs `none`** — two arms whose recurrent states diverge completely.
+
+The contrast actually judged is **`cell@0.5` vs `cell`**, which differ only in a blend weight and are
+therefore far more correlated. **M40's own argument** — that pairing cut the MDE 6.3× *because* the arms
+share weights and origins — implies the correct interval for the interior contrast is **tighter still**,
+possibly far below 0.0022.
+
+**Tier 2:** the conclusion may be true but was **not established by the number cited**, and the error is
+invisible because both quantities are called "the paired MDE at h18". It is the same family as the
+**#263 matched-reference** rule: a yardstick is only valid for the comparison it was built for.
+
+`scripts/ap_block_bootstrap.ap_diff_origin_block_ci` already computes the right interval; on PR #292 it
+is being run on `cell@0.5` vs `cell` with the verdict **registered in advance** so the override in C-305
+is not repeated.
 
 ---
 

@@ -76,7 +76,16 @@ def check_control_reproduces(data, tol: float = 5e-4) -> list[str]:
     for seed, arms in data.items():
         exp = BASELINE_H18.get(seed)
         got = arms.get("none", {}).get(18)
-        if exp is None or got is None:
+        if exp is None:
+            # A seed with no published baseline cannot be checked — say so, because `render` prints
+            # "every `none` arm reproduces its published value" and would otherwise assert a
+            # falsifier that never ran for this seed.
+            problems.append(
+                f"{seed}: no published baseline in BASELINE_H18 — the control check did NOT run"
+            )
+            continue
+        if got is None:
+            problems.append(f"{seed}: no `none` arm at h18 — the control check could not run")
             continue
         if abs(got - exp) > tol:
             problems.append(

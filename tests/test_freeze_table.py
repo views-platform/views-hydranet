@@ -122,3 +122,18 @@ def test_weighted_arms_sort_by_ascending_weight_after_the_bare_modes():
     """A dose-response table read out of order is a table nobody can read."""
     got = ft._order({"cell@0.75", "none", "cell@0.1", "cell", "cell@0.5"})
     assert got == ["none", "cell", "cell@0.1", "cell@0.5", "cell@0.75"]
+
+
+def test_a_seed_with_no_published_baseline_is_reported_not_silently_skipped(tmp_path):
+    """`render` prints "every `none` arm reproduces its published free-running value". If a
+    seed has no entry in BASELINE_H18 the check cannot run — and silently `continue`-ing made
+    the summary assert a falsifier that never executed for that seed."""
+    d = tmp_path / "res"
+    d.mkdir()
+    _write(d, "fullzero_fortythree", "none", {1: 0.4774, 18: 0.3318})
+    _write(d, "fullzero_fortythree", "cell", {1: 0.4774, 18: 0.3709})
+    _write(d, "fullzero_ninetynine", "none", {1: 0.4774, 18: 0.3318})  # unknown seed
+    _write(d, "fullzero_ninetynine", "cell", {1: 0.4774, 18: 0.3709})
+    out = ft.render(ft.read_results(str(d)))
+    assert "FALSIFIER FAILED" in out
+    assert "did NOT run" in out and "fullzero_ninetynine" in out

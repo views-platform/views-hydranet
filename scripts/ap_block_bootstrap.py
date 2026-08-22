@@ -275,7 +275,8 @@ def ap_diff_origin_block_ci(
     unpaired reading is "unresolvable" for an effect that is identical in sign and close in size on
     every seed.
 
-    Both arms MUST share a support, and it is intersected rather than assumed: ``_load_indexed``
+    Both arms MUST share a support, and it is **compared and refused** rather than silently
+    intersected: ``_load_indexed``
     derives the support per directory, and a mismatch raises instead of scoring different cell sets
     against each other.
 
@@ -311,6 +312,16 @@ def ap_diff_origin_block_ci(
         )
     if sorted(org_a) != sorted(org_b):
         raise ValueError("ap_diff_origin_block_ci: the two arms do not share an origin set")
+    if gate_a != gate_b:
+        # `_ap_fn` ranks on the gate probability when a gate cube exists and on `(cs > 0).mean(1)`
+        # when it does not. Pairing a gated arm against an ungated one therefore differences TWO
+        # DIFFERENT STATISTICS and reports it as an arm effect, with no error — the same class as
+        # the S=1 binary-vs-continuous mismatch that understated persistence (#282, C-293).
+        raise ValueError(
+            f"ap_diff_origin_block_ci: arm A has_gate={gate_a} but arm B has_gate={gate_b}. "
+            "The two arms would be ranked on different statistics and the difference would not be "
+            "an arm effect."
+        )
 
     ap_a_fn = _ap_fn(ga, tmap, gate_a, h)
     ap_b_fn = _ap_fn(gb, tmap, gate_b, h)

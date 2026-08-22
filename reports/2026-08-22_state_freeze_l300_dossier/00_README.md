@@ -16,9 +16,14 @@ confirmation was never run — making it the primary suspect in **#280**. **M8's
 > **M8 is direction-confirmed, magnitude-retired** — its 13× recovery was a broken control, not a
 > bigger effect. **`hidden` alone does nothing (−0.005); `cell` alone does everything.**
 >
-> **And it is a SWITCH, not a dial** (EXP-03): a convex anchor weight saturates at **w≈0.1**, which
-> already buys **83%** of the hard clamp. Everything at w ≥ 0.5 spans 0.0022 against a paired MDE of
-> 0.0086 — indistinguishable. **`freeze_recurrent='cell'` ships; there is nothing to tune.**
+> **It is a SWITCH, and the anchor SATURATES at w≈0.1** (EXP-03): a 10% pull per step already buys
+> **83%** of the hard clamp. On the **correct** paired interval (`cell@0.5` vs `cell`, MDE **0.0045**)
+> the difference **includes zero at h18 and h36**, and at **h6 the hard clamp wins outright**
+> (−0.0061, excludes zero). **`freeze_recurrent='cell'` ships; there is nothing to tune.**
+>
+> ⚠️ Two process defects are recorded against how that verdict was first reached — an overridden
+> registered branch (**C-305**) and an MDE from the wrong contrast (**C-306**). The conclusion survived
+> re-measurement; the reasoning that produced it did not.
 
 ## The methodological result may outlast the scientific one
 
@@ -39,15 +44,21 @@ treatment**, so they are not pairable. The lesson is for design, not for re-read
 |---|---|
 | **EXP-01/02** (8-arm run + paired CI) | **NOT pre-registered.** Launched from a driver with no plan written; the decision rule was chosen after seeing data. See `05_analysis_plan.md` §8. |
 | **EXP-03** (decay dial) | **Pre-registered.** Decision table committed at `da3156d` 10:58:07, first arm scored 19:29:15 — verifiable in git. |
-| falsifiers | **pre-committed for all experiments** — enforced in `tools/freeze_table.py` before any result was read, sabotage-verified in tests. |
+| falsifiers | **EXP-03 only.** `freeze_table.py` first enters git *in the same commit as the score CSVs*, four hours after the overnight run — so for **EXP-01/02 the falsifiers are retrospective**. Corrected 2026-08-22 after review; the first version of this table claimed "all experiments". |
 
-The results stand on their falsifiers and their paired interval, not on a plan that did not exist.
+**What EXP-01/02 actually stand on:** a paired interval 4.5× its own MDE, and a control arm that
+reproduces its published value — **not** pre-registration, and **not** pre-committed falsifiers.
+
+⚠️ **The "switch, not a dial" verdict is under correction.** It quoted an MDE computed for a different
+contrast (`cell` vs `none`); the right interval for `cell@0.5` vs `cell` is being measured. See
+`05_analysis_plan.md` §5a.
 
 ## Documents
 
 | file | what |
 |---|---|
 | `05_analysis_plan.md` | design, decision rules, falsifiers — **with per-section provenance stamps** |
+| `DIAL_PAUSED.md` | **the pre-registration of record for EXP-03** — §5's decision table is quoted verbatim from it. Written as a live pause note; EXP-03 has since completed. |
 | `07_experiment_log.md` | **EXP-01** the 8-arm run · **EXP-02** the paired interval · **EXP-03** the decay dial |
 | `results/SUMMARY.md` | auto-assembled by `tools/freeze_table.py`; falsifiers printed **above** the table |
 | `results/paired_ci.json` | the intervals |

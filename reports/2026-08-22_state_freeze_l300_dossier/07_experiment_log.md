@@ -112,8 +112,10 @@ Registered before the run, in `DIAL_PAUSED.md`: **> 0.3709 ⇒ a dial** with an 
 
 #### Falsifier
 
-**h1 is identical across all six arms** (0.47737082595880015). There is no feedback at step 1, so the
-anchor cannot reach it — any movement would have meant the arms were not what they claim.
+**h1 is identical across all arms *of this seed*** (0.47737082595880015 across seed 43's eight arms).
+The check is deliberately **per-seed** — h1 is a property of the weights, and seed 42 holds a different
+value (0.4778833881292755) across its four arms. Both held. There is no feedback at step 1, so the
+anchor cannot reach it; any movement would have meant the arms were not what they claim.
 
 #### Result
 
@@ -126,13 +128,25 @@ anchor cannot reach it — any movement would have meant the arms were not what 
 | 0.75 | 0.4774 | 0.4247 | 0.3731 | 0.2916 | +0.0413 | 106% |
 | 1.00 | 0.4774 | 0.4300 | 0.3709 | 0.2891 | +0.0391 | 100% |
 
-**Everything at w ≥ 0.5 spans 0.0022 at h18, against a paired MDE of 0.0086 — indistinguishable.**
-There is no interior optimum this design can resolve. **`freeze_recurrent='cell'` is the answer, and the
-dial has nothing to give.**
+⚠️ **The MDE cited here is from the wrong contrast (C-306).** Everything at w ≥ 0.5 spans 0.0022 at
+h18; the 0.0086 figure is the paired interval for **`cell` vs `none`** — arms whose states diverge
+completely — not for **`cell@0.5` vs `cell`**, which differ only in a blend weight and are far more
+correlated. By M40's own argument the correct interval is **tighter**, so "indistinguishable" was not
+established by that number. It is being computed properly; the verdict is registered in advance in
+`05_analysis_plan.md` §5a.
 
-#### The shape was none of the three registered outcomes
+#### ⚠️ CORRECTED 2026-08-22 after review — the registered rule DID fire, and I overrode it
 
-It is not monotone, not peaked, and not inverted: it is **sharply saturating**. A **10% pull per step
+An earlier version of this entry claimed the shape matched none of the three registered branches.
+**That was false.** `cell@0.5` scored **0.3715866** against the registered boundary **0.3709158**, so
+**branch 1 fired: the rule said DIAL**, and its prescribed follow-up ("sweep 0.25 and 0.75") is exactly
+what was run. What actually happened is that **I overrode a registered rule with a
+minimum-detectable-effect argument that was not part of it** (registered as **C-305**).
+
+Whether the override is correct is being *measured*, not asserted — see `05_analysis_plan.md` §5a and
+**C-306**: the MDE quoted below is from the **wrong contrast**.
+
+Descriptively, the curve is **sharply saturating**: not monotone, not peaked, not inverted. A **10% pull per step
 already buys 83%** of what a hard clamp buys.
 
 **That changes the mechanism story.** The cell state does not catastrophically diverge under
@@ -163,6 +177,49 @@ is strictly less work for identical maths, but it repaired nothing.
 
 **Method rule this earns:** on a shared machine, `uptime` and `ps --sort=-pcpu` **before** any timing
 claim. "Measure over an interval" is not enough when the interval's conditions are unknown.
+
+---
+
+### EXP-04 · the interior interval, on the right yardstick · 2026-08-22 20:41 → 21:20 · **switch CONFIRMED, and stronger**
+
+EXP-03's switch verdict quoted a paired MDE of **0.0086**. A code review established that number is the
+interval for **`cell` vs `none`** — arms whose states diverge completely — while the contrast being
+judged was **`cell@0.5` vs `cell`**, which differ only in a blend weight. **M40's own argument** (pairing
+cut the MDE 6.3× *because* arms share weights and origins) implies the correct interval is tighter, so
+"indistinguishable" was never established by the number cited. Registered as **C-306**.
+
+Two cubes re-emitted (10 + 15 min), `ap_diff_origin_block_ci` run on the actual contrast. **Verdict
+registered in `05_analysis_plan.md` §5a before the run**, so C-305's override was not repeated.
+
+| h | `cell@0.5` | `cell` | diff | 90% CI | excludes 0 |
+|--:|--:|--:|--:|---|:--:|
+| 6 | 0.4238 | 0.4300 | **−0.0061** | [−0.0107, −0.0011] | **YES** |
+| 18 | 0.3716 | 0.3709 | +0.0007 | [−0.0039, +0.0051] | no |
+| 36 | 0.2886 | 0.2891 | −0.0005 | [−0.0046, +0.0037] | no |
+
+**Interior MDE at h18: 0.0045**, against the 0.0086 wrongly cited — tighter, as predicted. The review's
+reasoning was right; the conclusion happened to survive it.
+
+**The correct yardstick shows what the coarse one hid.** At **h6 the hard clamp is significantly
+better** — the interval excludes zero. This is not merely "no interior optimum": at short horizons the
+interior point **actively loses**. The switch verdict is **stronger** than the version that cited the
+wrong number.
+
+#### On the override, recorded rather than quietly absorbed
+
+The **+0.0007** that fired registered branch 1 (0.3715866 > 0.3709158) sits inside its own interval — it
+was noise, and **the override reached the right answer**. That does not license it. It was made on
+grounds the registered rule did not contain, and the write-up then claimed no branch had fired.
+**Being right by luck is exactly what C-305 exists to distinguish from being right by rule**, and the
+distinction only survives because the boundary value was on record to check against.
+
+#### Self-inflicted, recorded
+
+`reemit_for_paired_ci.sh` died `rc=127` at 21:04:12 (`line 49: CENV: command not found`) because **I
+edited it at 21:04:11 while it was running** — bash reads scripts incrementally and the edit shifted the
+byte offsets. This is the exact hazard cited that morning as the reason not to touch the working tree
+during the overnight run. The emit had already completed and both cubes survived, so only the sentinel
+was lost. **Never edit a running script; branch the file or wait.**
 
 ---
 
