@@ -2,8 +2,9 @@
 
 The original built its table from the CSV's `model` column — `none`/`hidden`/`cell`/`all`, which
 does not identify the seed. Both seeds collapsed onto four rows (last-write-wins) and the baseline
-lookup matched nothing, so the comparison section rendered empty. Same class as the `aggregate_seeds`
-label collision: **keying on a label that does not identify the run when the filename does.**
+lookup matched nothing, so the comparison section rendered empty. Same class as the
+`aggregate_seeds` label collision: **keying on a label that does not identify the run when the
+filename does.**
 """
 
 from __future__ import annotations
