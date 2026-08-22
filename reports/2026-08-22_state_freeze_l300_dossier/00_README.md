@@ -15,6 +15,10 @@ confirmation was never run — making it the primary suspect in **#280**. **M8's
 >
 > **M8 is direction-confirmed, magnitude-retired** — its 13× recovery was a broken control, not a
 > bigger effect. **`hidden` alone does nothing (−0.005); `cell` alone does everything.**
+>
+> **And it is a SWITCH, not a dial** (EXP-03): a convex anchor weight saturates at **w≈0.1**, which
+> already buys **83%** of the hard clamp. Everything at w ≥ 0.5 spans 0.0022 against a paired MDE of
+> 0.0086 — indistinguishable. **`freeze_recurrent='cell'` ships; there is nothing to tune.**
 
 ## The methodological result may outlast the scientific one
 
@@ -29,11 +33,22 @@ demonstration**, and it cost no GPU time.
 ⚠️ It does **not** retroactively rescue the SS sweep: those arms differ by **seed as well as
 treatment**, so they are not pairable. The lesson is for design, not for re-reading old results.
 
+## ⚠️ Pre-registration status — read before citing anything here
+
+| experiment | status |
+|---|---|
+| **EXP-01/02** (8-arm run + paired CI) | **NOT pre-registered.** Launched from a driver with no plan written; the decision rule was chosen after seeing data. See `05_analysis_plan.md` §8. |
+| **EXP-03** (decay dial) | **Pre-registered.** Decision table committed at `da3156d` 10:58:07, first arm scored 19:29:15 — verifiable in git. |
+| falsifiers | **pre-committed for all experiments** — enforced in `tools/freeze_table.py` before any result was read, sabotage-verified in tests. |
+
+The results stand on their falsifiers and their paired interval, not on a plan that did not exist.
+
 ## Documents
 
 | file | what |
 |---|---|
-| `07_experiment_log.md` | **EXP-01** the 8-arm run · **EXP-02** the paired interval |
+| `05_analysis_plan.md` | design, decision rules, falsifiers — **with per-section provenance stamps** |
+| `07_experiment_log.md` | **EXP-01** the 8-arm run · **EXP-02** the paired interval · **EXP-03** the decay dial |
 | `results/SUMMARY.md` | auto-assembled by `tools/freeze_table.py`; falsifiers printed **above** the table |
 | `results/paired_ci.json` | the intervals |
 
