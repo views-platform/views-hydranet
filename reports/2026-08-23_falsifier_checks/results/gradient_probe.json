@@ -1,0 +1,27 @@
+{
+  "torch": "2.6.0+cu124",
+  "ops": [
+    {
+      "op": "torch.poisson",
+      "graph_connected": true,
+      "grad_fn": "PoissonBackward0",
+      "grad_abs_sum": 0.0
+    },
+    {
+      "op": "torch.bernoulli",
+      "graph_connected": true,
+      "grad_fn": "BernoulliBackward0",
+      "grad_abs_sum": 0.0
+    }
+  ],
+  "family_path": {
+    "_standard_gamma": {
+      "graph_connected": true,
+      "grad_fn": "WhereBackward0",
+      "grad_abs_sum": 2.9178788661956787
+    }
+  },
+  "severed": true,
+  "fails_silently": true,
+  "reparameterised_rate_available": true
+}
