@@ -40,6 +40,34 @@ _MODELS_ROOT = _HN.parent / "views-models" / "models"
 _V2T = _HN / "reports" / "2026-07-29_v2_scoreboard_dossier" / "tools"
 
 ARMS = ("none", "hidden", "cell", "all")
+
+
+_ARM_PARSER = None
+
+
+def _parse_arm(spec: str):
+    """The child's own parser, imported so parent and child cannot disagree about a spec.
+
+    Imported lazily so `--help` does not pay for the torch import `freeze_arm_entry` pulls in, and
+    **cached** so the validation loop does not pay for it once per arm — the first version re-exec'd
+    the whole model package for every spec it checked, which defeated the laziness it claimed.
+    """
+    global _ARM_PARSER
+    if _ARM_PARSER is None:
+        import importlib.util
+
+        _p = Path(__file__).resolve().parent / "freeze_arm_entry.py"
+        _s = importlib.util.spec_from_file_location("freeze_arm_entry", _p)
+        _m = importlib.util.module_from_spec(_s)
+        _s.loader.exec_module(_m)
+        _ARM_PARSER = _m.parse_arm
+    return _ARM_PARSER(spec)
+
+
+def _safe(arm: str) -> str:
+    """`cell@0.5` -> `cell_0.5`: `@` is legal in a filename but reads badly in globs
+    and in the seed-vs-arm filename parsing `freeze_table.py` does."""
+    return arm.replace("@", "_")
 HORIZONS = "1,6,12,18,24,30,36"
 MIN_FREE_GB = 25.0  # ~2.5 GB/arm plus headroom; refuse to start rather than fill the disk
 
@@ -106,7 +134,7 @@ def run_arm(
         capture_output=True,
         text=True,
     )
-    (out / f"{model}_{arm}.log").write_text(proc.stdout + proc.stderr)
+    (out / f"{model}_{_safe(arm)}.log").write_text(proc.stdout + proc.stderr)
     if proc.returncode != 0:
         raise SystemExit(
             f"arm {arm!r} failed (rc={proc.returncode}); see {out / f'{model}_{arm}.log'}"
@@ -121,7 +149,7 @@ def run_arm(
         )
     pred_dir = new.pop()
 
-    score_csv = out / f"score_{model}_{arm}.csv"
+    score_csv = out / f"score_{model}_{_safe(arm)}.csv"
     scored = subprocess.run(
         [
             sys.executable,
@@ -137,9 +165,11 @@ def run_arm(
         capture_output=True,
         text=True,
     )
-    (out / f"score_{model}_{arm}.log").write_text(scored.stdout + scored.stderr)
+    (out / f"score_{model}_{_safe(arm)}.log").write_text(scored.stdout + scored.stderr)
     if scored.returncode != 0:
-        raise SystemExit(f"scoring arm {arm!r} failed; see {out / f'score_{model}_{arm}.log'}")
+        raise SystemExit(
+            f"scoring arm {arm!r} failed; see {out / f'score_{model}_{_safe(arm)}.log'}"
+        )
 
     if not keep_cubes:
         shutil.rmtree(pred_dir)  # score-then-delete: two arms' cubes never coexist
@@ -172,10 +202,12 @@ def main() -> int:
     )
     args = ap.parse_args()
 
+    # Validate here as well as in the child: the child raises per-arm inside a subprocess, so a
+    # typo in arm 3 of 4 would otherwise surface only after two arms had already burned GPU time.
+    # Delegates to the child's parser so the two can never disagree about what a spec means.
     arms = tuple(a.strip() for a in args.arms.split(","))
-    bad = [a for a in arms if a not in ARMS]
-    if bad:
-        raise SystemExit(f"unknown arm(s) {bad}; valid: {list(ARMS)}")
+    for a in arms:
+        _parse_arm(a)  # raises SystemExit on anything malformed
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)

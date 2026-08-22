@@ -248,6 +248,109 @@ def ap_ratio_origin_block_ci(
     }
 
 
+def ap_diff_origin_block_ci(
+    *,
+    pred_dir_a: str,
+    pred_dir_b: str,
+    truth_parquet: str,
+    target: str,
+    h: int,
+    lr_tmpl: str = "lr_{t}_best",
+    by_tmpl: str | None = "by_{t}_best",
+    n_boot: int = 400,
+    seed: int = 0,
+    ci: float = 0.90,
+) -> dict[str, float]:
+    """Paired origin-block bootstrap CI on ``AP_a(h) - AP_b(h)`` for two arms on ONE support.
+
+    The companion to :func:`ap_ratio_origin_block_ci`, pairing across **arms** instead of across
+    **horizons**. One origin draw per replicate scores *both* arms on the same resampled cell set,
+    so the correlation between them is carried rather than assumed away. That correlation is the
+    whole point here: two arms of the same model on the same origins move together, and an
+    unpaired interval built from two independent bootstraps throws that away, reporting a width
+    dominated by variance the comparison does not actually face.
+
+    This is the construction #281 argues for. On the state-freeze arms the unpaired MDE (0.0541,
+    inherited from the SS sweep's between-seed design) exceeds the measured effect (~0.036), so the
+    unpaired reading is "unresolvable" for an effect that is identical in sign and close in size on
+    every seed.
+
+    Both arms MUST share a support, and it is **compared and refused** rather than silently
+    intersected: ``_load_indexed``
+    derives the support per directory, and a mismatch raises instead of scoring different cell sets
+    against each other.
+
+    Returns ``{"diff", "lo", "hi", "mde", "ap_a", "ap_b", "h", "n_origins", "n_support"}``.
+    Deterministic given ``seed``.
+
+    Raises:
+        ValueError: fewer than 3 origins; a non-finite AP in either arm; or supports that differ
+            between the two prediction directories.
+    """
+    ga, sup_a, org_a, byo_a, tmap, gate_a = _load_indexed(
+        pred_dir=pred_dir_a,
+        truth_parquet=truth_parquet,
+        target=target,
+        horizons=(h,),
+        lr_tmpl=lr_tmpl,
+        by_tmpl=by_tmpl,
+        who="ap_diff_origin_block_ci",
+    )
+    gb, sup_b, org_b, _byo_b, _tmap_b, gate_b = _load_indexed(
+        pred_dir=pred_dir_b,
+        truth_parquet=truth_parquet,
+        target=target,
+        horizons=(h,),
+        lr_tmpl=lr_tmpl,
+        by_tmpl=by_tmpl,
+        who="ap_diff_origin_block_ci",
+    )
+    if set(sup_a) != set(sup_b):
+        raise ValueError(
+            f"ap_diff_origin_block_ci: the two arms do not share a support "
+            f"({len(sup_a)} vs {len(sup_b)} cells) — a paired draw would score different cell sets"
+        )
+    if sorted(org_a) != sorted(org_b):
+        raise ValueError("ap_diff_origin_block_ci: the two arms do not share an origin set")
+    if gate_a != gate_b:
+        # `_ap_fn` ranks on the gate probability when a gate cube exists and on `(cs > 0).mean(1)`
+        # when it does not. Pairing a gated arm against an ungated one therefore differences TWO
+        # DIFFERENT STATISTICS and reports it as an arm effect, with no error — the same class as
+        # the S=1 binary-vs-continuous mismatch that understated persistence (#282, C-293).
+        raise ValueError(
+            f"ap_diff_origin_block_ci: arm A has_gate={gate_a} but arm B has_gate={gate_b}. "
+            "The two arms would be ranked on different statistics and the difference would not be "
+            "an arm effect."
+        )
+
+    ap_a_fn = _ap_fn(ga, tmap, gate_a, h)
+    ap_b_fn = _ap_fn(gb, tmap, gate_b, h)
+    point_a, point_b = ap_a_fn(sup_a), ap_b_fn(sup_a)
+    for name, v in (("a", point_a), ("b", point_b)):
+        if not np.isfinite(v):
+            raise ValueError(f"ap_diff_origin_block_ci: AP is not finite for arm {name} at h={h}")
+
+    rng = np.random.default_rng(seed)
+    vals = np.empty(n_boot)
+    for i in range(n_boot):
+        pick = rng.choice(org_a, size=len(org_a), replace=True)
+        cells = [c for o in pick for c in byo_a[o]]  # ONE draw, scored by both arms
+        vals[i] = ap_a_fn(cells) - ap_b_fn(cells)
+    lo_q, hi_q = 100 * (1 - ci) / 2, 100 * (1 + ci) / 2
+    lo, hi = float(np.percentile(vals, lo_q)), float(np.percentile(vals, hi_q))
+    return {
+        "diff": point_a - point_b,
+        "lo": lo,
+        "hi": hi,
+        "mde": (hi - lo) / 2.0,
+        "ap_a": point_a,
+        "ap_b": point_b,
+        "h": float(h),
+        "n_origins": float(len(org_a)),
+        "n_support": float(len(sup_a)),
+    }
+
+
 def mde_ap(ci_row: dict[str, float]) -> float:
     """The half-width — the smallest AP difference this setup could resolve."""
     return ci_row["mde"]

@@ -62,6 +62,21 @@ origin's persistence is silently all-zeros, **#282**), together worth **+31%** a
 
 ---
 
+## 🧊 STATE-FREEZE AT L=300 — 2026-08-22 — it helps, it is the CELL, and pairing settles it
+
+**Freezing the cell state buys +0.039 AP@h18 on a converged model** (both seeds; +0.060 at h36), and
+the **paired origin-block CI excludes zero at h6/h18/h36**. **M8 is direction-confirmed and
+magnitude-retired** — its 13× recovery was a broken control, not a bigger effect. **`hidden` does
+nothing, `cell` does everything** (M39), and the anchor is a **switch that saturates at w≈0.1** — no
+dial to tune (M41). And pairing cut the MDE **0.0541 → 0.0086, 6.3× on identical
+data** — the same effect reads UNDERPOWERED unpaired and EFFECT paired, which **answers #281 by
+demonstration** (it does *not* rescue the SS sweep, whose arms differ by seed too). ⚠️ Caveats: CI is
+one seed, one vehicle, **AP only**; this is a rollout-time intervention, **not a fix** — C-293's
+static-map worry is untouched. Rows **M38–M41**; dossier
+`reports/2026-08-22_state_freeze_l300_dossier/`.
+
+---
+
 ## Claims Ledger — the rollout collapse (#258 / #262)
 
 **Why this section exists.** The run ledger below is per-*run* and the narrative is chronological, and
@@ -111,7 +126,7 @@ target `sb` where a single target is named · calibration partition.
 | M5 | **Clustering spanning 100× moves AP not at all.** Fed clustering 0.011 → 1.064 (brackets the real 0.449); AP flat at ~0.007. | realism EXP-05 | **Medium-high** — a null over a wide dose range, but arms were **not byte-paired** (C-296), so read at one significant figure. |
 | M6 | **The recurrence does not smear the gate.** Oracle holds Moran's I flat over 35 steps (sb 0.507 → 0.494 → 0.516); free-running over identical steps falls 0.409 → 0.192 → 0.178. | realism EXP-04 data, analysed 2026-08-17 | **High** — same architecture, same kernel, same step count; only the fed content differs. |
 | M7 | **The gate's ranking stays structured while the draw does not.** At equal expected count, top-K clustering vs independent-draw clustering: 4.4× (step 1) → 15.5× (step 6) → 26.8× (step 12). | realism EXP-04 | **High** — same gate, same count, two draw rules. |
-| M8 | **Freezing recurrent state partially recovers AP:** h18 0.0070 → 0.0912, h36 0.0083 → 0.0693. Ordering `all` ≥ `cell` > `hidden` > `none`. | state-freeze EXP-02 | **Medium** — real and pre-registered, but see I-D and C-292 for what it does *not* license. |
+| M8 | **Freezing recurrent state partially recovers AP:** h18 0.0070 → 0.0912, h36 0.0083 → 0.0693. Ordering `all` ≥ `cell` > `hidden` > `none`. ⚠️ **DIRECTION CONFIRMED, MAGNITUDE RETIRED by M38 (2026-08-22).** Measured on a 40-lesson vehicle **M28** calls a smoke test; the 13× recovery looked spectacular only because the control was broken — this row's *recovered* 0.0912 is **3.6× BELOW** an L=300 model's untouched free-running 0.3298. On a converged vehicle the same intervention buys **~+13% relative**. Quote the direction, never these numbers. | state-freeze EXP-02 | **Medium** — real and pre-registered, but see I-D and C-292 for what it does *not* license. |
 | M9 | **`crps_all` is blind to all of it.** Four arms score 0.1353 / 0.1352 / 0.1350 / 0.1346 at h18 while gate AP spans **13×**. | state-freeze EXP-02 | **High** — corroborates Epic #263 independently. |
 
 ### LIVE — inferences
@@ -121,7 +136,7 @@ target `sb` where a single target is named · calibration partition.
 | I-A | **Occurrence carries ~90–95% of the gap; magnitude carries ZERO.** ⬆️ **UPGRADED 2026-08-18 — replicated 4/4 vehicles.** occurrence 89.5–95.3%, magnitude −1.0% to +1.4%, across two body families, two compositions, four seeds and a 3× range in baseline retention. All four predictions and all falsifiers passed on every vehicle. | multivehicle EXP-01 (+ M3, M4) | **High for the ORDERING.** The occurrence share is stable (89–95%); magnitude is indistinguishable from zero everywhere. ⚠️ `spatial_scramble`'s magnitude is **not** stable (−21% to −94%, 4× spread) — quote its sign, never its size. Different configurations, not different seeds. |
 | I-B | **Clustering is a proxy for correct placement, not an independently sufficient property.** Right places + no clustering → collapse (M3); wrong places + right clustering → no recovery (M5). | M3 + M5 | **Medium-high** — the two arms bracket the claim from opposite ends. |
 | I-C | **Coordinate channels never helped because they act on marginals while the failure is joint.** | M3, M5, C-152's 3-seed negative | **Medium** — a mechanism fitted to an already-established null. It explains, it does not predict. |
-| I-D | **Some of the gap flows through the recurrent state (~23% of the oracle gap).** | M8 | **Low.** INDICATIVE. Recovers 23% *relative to a collapsed control* and still does not reach persistence (M1), so it is not a skill claim. **Which memory half is NOT established** (C-292). |
+| I-D | **Some of the gap flows through the recurrent state (~23% of the oracle gap).** ⚠️ The **23%** is the floor-limited figure; on a converged vehicle it is **+0.039 of a ~0.17 oracle gap at h18** (M38). | M8 | **Low.** INDICATIVE. Recovers 23% *relative to a collapsed control* and still does not reach persistence (M1), so it is not a skill claim. **Which memory half is NOT established** (C-292). |
 | I-E | **The independent Bernoulli draw discards usable ranking information.** | M7 | **Medium** — the information gap is measured (M7). That fixing it would help is **untested**, and M5 is a warning that a plausible fix can do nothing. |
 
 ### REPLICATED on a vehicle with skill — 2026-08-17
@@ -272,6 +287,25 @@ on a vehicle **M28** now classifies as a smoke test, and **nobody re-ran the rac
 of GPU to find out. **What it does NOT do** is rescue retention: the model still loses 31% of itself
 to its own feedback (**M26**), it is **one vehicle**, and this is an **AP** claim only — the `crps_all`
 ARTIFACT verdict stands untouched. **The n=1 caveat is now discharged** (EXP-03, 41 min): all four ε=0 seeds ran and the **worst** of them still beats persistence everywhere. What remains open is **one vehicle** and **AP only**.
+
+### STATE-FREEZE AT L=300 — 2026-08-22 (EXP-01/02, state-freeze-l300 dossier)
+
+| # | Claim | Evidence | Confidence |
+|---|---|---|---|
+| **M38** | **Freezing the CELL state helps a converged model — +0.039 AP@h18, and the interval excludes zero.** L=300, 2 seeds, `sb`: h18 mean `none` 0.3308 → `cell` 0.3666 (**+0.036**, both seeds agree: +0.0391 / +0.0323); h36 **+0.060**. Paired origin-block 90% CI (seed 43, 13 origins, 400 reps): h6 **[+0.0163, +0.0286]**, h18 **[+0.0297, +0.0469]**, h36 **[+0.0500, +0.0704]** — **all exclude zero**, effect **4.5× its own MDE**. **M8's direction replicates on a real vehicle; its magnitude framing does not** (13× there vs ~+13% relative here). | state-freeze-l300 EXP-01/02 | **High for direction** — 2 seeds, both falsifiers passed (h1 identical across arms; every `none` arm reproduces its published free-running value), interval excludes 0 at three horizons. **Medium for size** — the CI is one seed. |
+| **M39** | **It is the CELL state, and only the cell.** `hidden` alone does **nothing** (−0.005), `cell` alone does **everything** (+0.036), `all` adds **+0.001** over `cell`. This does **not** contradict **C-292** — that entry retires the *decomposition* claim (`hs = o ⊙ tanh(hl)` makes freezing cell constrain hidden by construction, so "cell carries 89%" was predetermined). An **ablation ordering in the other direction** is not predicted by that argument and stands. | state-freeze-l300 EXP-01 | **High** — a clean 4-arm ablation, replicated on 2 seeds. |
+| **M40** | **The PAIRED construction resolves what the unpaired one cannot — #281 answered by demonstration.** Identical data, identical 13 origins: unpaired MDE **0.0541** (the SS sweep's between-seed design) vs paired **0.0086** at h18 — **6.3× tighter**. The same +0.039 effect reads **UNDERPOWERED** unpaired and **EFFECT** paired under the identical `3 × MDE` rule. ⚠️ **Does NOT retroactively rescue the SS sweep** — those arms differ by seed *as well as* treatment, so they are not pairable. The lesson is for **design**, not for re-reading old results. | `scripts/ap_block_bootstrap.ap_diff_origin_block_ci`, 9 tests | **High** — measured on real arms; the estimator's own test bootstraps two arms independently and asserts the paired interval is tighter. |
+| **M41** | **The cell anchor is a SWITCH, not a dial — and it saturates at w≈0.1.** Convex weight `w·anchor + (1−w)·new` on the cell half, seed 43, `sb`, AP@h18: w=0 **0.3318** → 0.10 **0.3643 (83% of the full-clamp gain)** → 0.25 0.3678 (92%) → 0.50 0.3716 → 0.75 0.3731 → 1.00 0.3709. **Verdict CONFIRMED on the correct yardstick 2026-08-22 (§5a).** The paired interval for the actual contrast — `cell@0.5` vs `cell`, MDE **0.0045**, not the 0.0086 wrongly cited (C-306) — **includes zero at h18** ([−0.0039, +0.0051]) and h36, so there is no resolvable interior optimum. **At h6 the hard clamp is significantly BETTER** (−0.0061, [−0.0107, −0.0011], excludes zero), which the coarser wrong yardstick hid: the interior point does not merely fail to win, it **loses** at short horizons. Two process defects stand regardless: the registered rule fired branch 1 (0.3715866 > 0.3709158) and was **overridden on grounds it did not contain**, then written up as "no branch matched" (**C-305**) — the +0.0007 turns out to be noise, so the override was right by luck, not by rule. The curve is **sharply saturating**, which says the cell **drifts** rather than diverging and a light restoring force nearly matches a hard clamp. **Consequence for learning w:** headroom above a crude constant is ~17% of a +0.039 effect ≈ **0.007 AP, below the MDE** — a learned *scalar* has nothing measurable to win; only a state- or horizon-dependent function could (#290, #291). | state-freeze-l300 EXP-03 + §5a | **Medium-high** — the switch verdict is now established on the correct paired interval (MDE 0.0045) and is *stronger* than first stated (the clamp wins outright at h6). Falsifier passed (h1 identical **per seed**). Still **one seed**, and the two process defects C-305/C-306 are recorded against how it was reached. The conclusion is a negative and the shipping decision is unchanged, so it does not need the replication a positive would. |
+
+**What this closes and what it opens.** **#280's primary suspect survives, qualified** — M8 is
+direction-confirmed and magnitude-retired, not withdrawn, which is the more useful outcome: the
+floor-limited vehicle inflated a **headline**, it did not invent an **effect**. **#281 is answered** —
+pair the design and it costs no GPU time. **What this does NOT do is fix the collapse.** +0.039 at h18
+sits against an oracle ceiling near 0.50; freezing is a rollout-time intervention, not a trained fix;
+and a frozen state is a **static risk map by construction**, which is exactly the degenerate-forecast
+worry **C-293** raised. That the effect *grows* with horizon (+0.023 → +0.039 → +0.060) is consistent
+with both "the state carries real information" and "a static map beats a degrading gate", and this
+design does not separate them.
 
 ### INFERENCE-TIME FIXES — CLOSED 2026-08-17
 

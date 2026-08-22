@@ -1,0 +1,30 @@
+[2026-08-22 00:49:36] freeze300: === state-freeze at L=300 · HEAD 0d44fd91c739 · 2 seeds x 4 arms ===
+[2026-08-22 00:49:36] freeze300: --- fullzero_fortythree (calibration_model_20260821_045948.pt) · arms none,hidden,cell,all ---
+[2026-08-22 01:42:07] freeze300: fullzero_fortythree OK in 52 min
+[2026-08-22 01:42:07] freeze300: --- fullzero_fortytwo (calibration_model_20260818_221401.pt) · arms none,hidden,cell,all ---
+[2026-08-22 02:23:18] freeze300: fullzero_fortytwo OK in 41 min
+[2026-08-22 02:23:18] freeze300: === DONE ===
+[2026-08-22 06:29:30] reemit: --- emitting none (keeping cubes) ---
+[2026-08-22 06:34:59] reemit: none OK in 5 min → paired_none
+[2026-08-22 06:34:59] reemit: --- emitting cell (keeping cubes) ---
+[2026-08-22 06:40:36] reemit: cell OK in 5 min → paired_cell
+[2026-08-22 06:40:36] reemit: === both cubes ready for the paired bootstrap ===
+[2026-08-22 09:19:14] dial: === decay dial · HEAD 4580e6278e1c · fullzero_fortythree · cell@0.25,cell@0.5,cell@0.75 ===
+[2026-08-22 09:19:15] dial: FAILED rc=1
+[2026-08-22 09:20:13] dial: === decay dial · HEAD 4580e6278e1c · fullzero_fortythree · cell@0.25,cell@0.5,cell@0.75 ===
+[2026-08-22 09:57:06] dial: === decay dial · HEAD 4580e6278e1c · fullzero_fortythree · cell@0.5 ===
+[2026-08-22 10:17:43] dial: OK in 20 min
+[2026-08-22 10:17:43] dial: === DONE ===
+[2026-08-22 19:23:11] dial: === decay dial · HEAD da3156db0c0c · fullzero_fortythree · cell@0.5 ===
+[2026-08-22 19:29:05] dial: === decay dial · HEAD da3156db0c0c · fullzero_fortythree · cell@0.1,cell@0.25,cell@0.75 ===
+[2026-08-22 19:29:05] dial: ABORT — 1 leftover cube(s) would be mixed in
+[2026-08-22 19:29:15] dial: OK in 6 min
+[2026-08-22 19:29:15] dial: === DONE ===
+[2026-08-22 19:29:42] dial: === decay dial · HEAD da3156db0c0c · fullzero_fortythree · cell@0.1,cell@0.25,cell@0.75 ===
+[2026-08-22 19:55:29] dial: OK in 25 min
+[2026-08-22 19:55:29] dial: === DONE ===
+[2026-08-22 20:41:51] reemit: --- emitting cell (keeping cubes) ---
+[2026-08-22 20:49:11] reemit: cell OK in 7 min → paired_cell
+[2026-08-22 20:49:11] reemit: --- emitting cell@0.5 (keeping cubes) ---
+[2026-08-22 21:04:12] reemit: cell@0.5 OK in 15 min → paired_cell_0.5
+[2026-08-22 21:04:12] reemit: ABORT — cell@0.5 failed rc=127

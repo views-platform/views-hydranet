@@ -38,10 +38,12 @@ class FreezeArmManager(HydranetManager):
     """
 
     freeze_recurrent: str | None = None
+    freeze_recurrent_weight: float = 1.0
 
     def _setup_evaluation(self, *args, **kwargs):
         ctx = super()._setup_evaluation(*args, **kwargs)
         ctx.orchestrator.freeze_recurrent = self.freeze_recurrent
+        ctx.orchestrator.freeze_recurrent_weight = self.freeze_recurrent_weight
         logger.info(
             "🧊 FreezeArmManager: recurrent-state arm = %r (None = production behaviour, the "
             "full ConvLSTM state evolves)",
@@ -50,9 +52,40 @@ class FreezeArmManager(HydranetManager):
         return ctx
 
 
+def parse_arm(spec: str) -> tuple[str | None, float]:
+    """``"cell@0.5"`` -> ``("cell", 0.5)``; ``"cell"`` -> ``("cell", 1.0)``;
+    ``"none"`` -> ``(None, 1.0)``.
+
+    Raises rather than falling back, because a typo that silently produced the control would be
+    reported as "no effect" — the failure `test_invalid_mode_raises_rather_than_silently_running_
+    the_control` was written to prevent.
+    """
+    mode, _, w = spec.partition("@")
+    if mode == "none":
+        if w:
+            raise SystemExit(f"arm {spec!r}: `none` is the control and takes no weight")
+        return None, 1.0
+    if mode not in ("hidden", "cell", "all"):
+        raise SystemExit(f"arm {spec!r}: mode must be none|hidden|cell|all, got {mode!r}")
+    if not w:
+        return mode, 1.0
+    try:
+        weight = float(w)
+    except ValueError:
+        raise SystemExit(f"arm {spec!r}: weight {w!r} is not a number") from None
+    if not 0.0 <= weight <= 1.0:
+        raise SystemExit(f"arm {spec!r}: weight must be in [0, 1], got {weight}")
+    return mode, weight
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--arm", required=True, choices=["none", "hidden", "cell", "all"])
+    # `mode@weight` (e.g. `cell@0.5`) as well as a bare mode. A bare mode is weight 1.0 — a hard
+    # freeze, byte-identical to every arm published before the dial existed (M38/M39), so the
+    # `choices=` list could not simply be widened without silently changing what `cell` means.
+    ap.add_argument(
+        "--arm", required=True, help="none | hidden | cell | all, optionally @<weight>"
+    )
     ap.add_argument("--model-dir", required=True)
     # REQUIRED, not defaulted. `truncated_smoke` carries two calibration artifacts and the most
     # recent is the eps=0.1 scheduled-sampling arm, NOT the EXP-SS-2 artifact this probe must
@@ -68,7 +101,9 @@ def main() -> int:
     manager = FreezeArmManager(model_path=ModelPathManager(Path(args.model_dir) / "main.py"))
     # "none" is the control: production behaviour, so the argument stays None rather than being
     # given a string the validator would have to special-case.
-    manager.freeze_recurrent = None if args.arm == "none" else args.arm
+    mode, weight = parse_arm(args.arm)
+    manager.freeze_recurrent = mode
+    manager.freeze_recurrent_weight = weight
 
     # `ForecastingModelArgs.parse_args()` takes no argument list — it reads sys.argv, which this
     # script has already consumed for its own flags. Building the namespace from the parser keeps
