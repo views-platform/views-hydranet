@@ -15,3 +15,11 @@
 [2026-08-22 09:57:06] dial: === decay dial · HEAD 4580e6278e1c · fullzero_fortythree · cell@0.5 ===
 [2026-08-22 10:17:43] dial: OK in 20 min
 [2026-08-22 10:17:43] dial: === DONE ===
+[2026-08-22 19:23:11] dial: === decay dial · HEAD da3156db0c0c · fullzero_fortythree · cell@0.5 ===
+[2026-08-22 19:29:05] dial: === decay dial · HEAD da3156db0c0c · fullzero_fortythree · cell@0.1,cell@0.25,cell@0.75 ===
+[2026-08-22 19:29:05] dial: ABORT — 1 leftover cube(s) would be mixed in
+[2026-08-22 19:29:15] dial: OK in 6 min
+[2026-08-22 19:29:15] dial: === DONE ===
+[2026-08-22 19:29:42] dial: === decay dial · HEAD da3156db0c0c · fullzero_fortythree · cell@0.1,cell@0.25,cell@0.75 ===
+[2026-08-22 19:55:29] dial: OK in 25 min
+[2026-08-22 19:55:29] dial: === DONE ===

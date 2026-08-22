@@ -95,3 +95,30 @@ def test_empty_results_dir_raises(tmp_path):
     with pytest.raises(SystemExit, match="no score_"):
         sys.argv = ["freeze_table", "--results", str(d), "--out", str(tmp_path / "o.md")]
         ft.main()
+
+
+def test_weighted_arms_are_parsed_not_silently_skipped(tmp_path):
+    """`cell@0.5` reaches disk as `score_<seed>_cell_0.5.csv`. The first regex matched only
+    the four bare modes, so the decay-dial arms were dropped from the summary WITHOUT a word — the correct
+    "ignore unparseable, do not guess" behaviour turned into silent incompleteness once new arms
+    existed."""
+    d = tmp_path / "res"
+    d.mkdir()
+    for seed in ("fullzero_fortythree", "fullzero_fortytwo"):
+        _write(d, seed, "none", {1: 0.4774, 18: 0.3318})
+        _write(d, seed, "cell", {1: 0.4774, 18: 0.3709})
+    # weighted arms, filename form
+    with open(d / "score_fullzero_fortythree_cell_0.5.csv", "w", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(["target", "model", "h", "AP"])
+        for h, v in {1: 0.4774, 18: 0.3716}.items():
+            w.writerow(["sb", "cell@0.5", h, v])
+    data = ft.read_results(str(d))
+    assert "cell@0.5" in data["fullzero_fortythree"], "the weighted arm was dropped"
+    assert data["fullzero_fortythree"]["cell@0.5"][18] == 0.3716
+
+
+def test_weighted_arms_sort_by_ascending_weight_after_the_bare_modes():
+    """A dose-response table read out of order is a table nobody can read."""
+    got = ft._order({"cell@0.75", "none", "cell@0.1", "cell", "cell@0.5"})
+    assert got == ["none", "cell", "cell@0.1", "cell@0.5", "cell@0.75"]

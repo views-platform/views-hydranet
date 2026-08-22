@@ -100,3 +100,69 @@ horizon (+0.023 → +0.039 → +0.060) is consistent with both "carries real inf
 a degrading gate", and this design does not separate those.
 
 ---
+
+### EXP-03 · is the freeze a switch or a dial? · 2026-08-22 19:23 → 19:55 · **a SWITCH — and it saturates at w≈0.1**
+
+**Why.** EXP-01/02 measured only the two endpoints: `weight=0` (`none`) and `weight=1` (a hard clamp).
+The freeze recovers 23% of the oracle gap and leaves **77% open**, so a hard clamp was the most extreme
+setting of a dial nobody had turned. Four interior points, seed 43, ~6 min each, no training.
+
+Registered before the run, in `DIAL_PAUSED.md`: **> 0.3709 ⇒ a dial** with an interior optimum;
+**between 0.3318 and 0.3709 ⇒ monotone, a switch**; **< 0.3318 ⇒** the mechanism is not what we think.
+
+#### Falsifier
+
+**h1 is identical across all six arms** (0.47737082595880015). There is no feedback at step 1, so the
+anchor cannot reach it — any movement would have meant the arms were not what they claim.
+
+#### Result
+
+| w | h1 | h6 | h18 | h36 | Δ@h18 | % of full-clamp gain |
+|--:|--:|--:|--:|--:|--:|--:|
+| 0.00 | 0.4774 | 0.4071 | 0.3318 | 0.2287 | — | 0% |
+| **0.10** | 0.4774 | 0.4172 | 0.3643 | 0.2834 | **+0.0325** | **83%** |
+| 0.25 | 0.4774 | 0.4200 | 0.3678 | 0.2852 | +0.0360 | 92% |
+| 0.50 | 0.4774 | 0.4238 | 0.3716 | 0.2886 | +0.0398 | 102% |
+| 0.75 | 0.4774 | 0.4247 | 0.3731 | 0.2916 | +0.0413 | 106% |
+| 1.00 | 0.4774 | 0.4300 | 0.3709 | 0.2891 | +0.0391 | 100% |
+
+**Everything at w ≥ 0.5 spans 0.0022 at h18, against a paired MDE of 0.0086 — indistinguishable.**
+There is no interior optimum this design can resolve. **`freeze_recurrent='cell'` is the answer, and the
+dial has nothing to give.**
+
+#### The shape was none of the three registered outcomes
+
+It is not monotone, not peaked, and not inverted: it is **sharply saturating**. A **10% pull per step
+already buys 83%** of what a hard clamp buys.
+
+**That changes the mechanism story.** The cell state does not catastrophically diverge under
+free-running — it **drifts**, and a light restoring force is nearly as good as nailing it down. The
+apparent rise at 0.75 (+0.0413, 106%) is inside the same 0.0022 band and must not be read as an optimum.
+
+#### What it says about learning the parameter
+
+Headroom above a crude constant is **~17% of a +0.039 effect ≈ 0.007 AP — below the paired MDE of
+0.0086**. **A learned scalar has nothing measurable to win here.** Learning would only pay as a
+*state-* or *horizon-dependent* function, which is a different and much larger piece of work (#290,
+#291). Recorded so those issues inherit a measured prior rather than an assumption: the correction
+needed is **small**, which makes it an easier target and a smaller prize at the same time.
+
+#### Scope
+
+**One seed.** EXP-01 showed the endpoint effect replicates across seeds 42/43, but this curve does not —
+and it does not need to, because its conclusion is a *negative* (no resolvable interior optimum) and the
+shipping decision is unchanged. `sb`, calibration partition, AP only.
+
+#### Cost, and a correction carried from the paused run
+
+Four arms in 32 min on an idle machine — **20 s/origin, ~3× FASTER than the overnight hard-freeze arms
+managed (55 s/origin)**. The interior-weight path is not slow. The 240 s/origin measured on 2026-08-22
+morning was **entirely** machine contention (a 10-core `library_rebuild` from another session; load
+average 20.3), and the `torch.lerp` change made in response was a fix to a non-problem — kept because it
+is strictly less work for identical maths, but it repaired nothing.
+
+**Method rule this earns:** on a shared machine, `uptime` and `ps --sort=-pcpu` **before** any timing
+claim. "Measure over an interval" is not enough when the interval's conditions are unknown.
+
+---
+

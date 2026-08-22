@@ -23,10 +23,24 @@ import statistics
 import sys
 
 ARMS = ("none", "hidden", "cell", "all")
+
+
+def _order(arms):
+    """Bare modes in canonical order, then weighted arms by ascending weight."""
+    bare = [a for a in ARMS if a in arms]
+    weighted = sorted((a for a in arms if "@" in a), key=lambda a: float(a.split("@")[1]))
+    return bare + weighted
+
+
 HS = (1, 6, 18, 36)
 #: published free-running AP@h18 (ledger M34) — the `none` arm must reproduce these
 BASELINE_H18 = {"fullzero_fortythree": 0.3318, "fullzero_fortytwo": 0.3298}
-_FNAME = re.compile(r"^score_(?P<seed>fullzero_[a-z]+)_(?P<arm>none|hidden|cell|all)\.csv$")
+# `cell_0.5` is the weighted-anchor arm (`cell@0.5`, `@`->`_` for the filename). Without the
+# optional suffix these were silently skipped — correct per "ignore, do not guess", but the
+# summary then omitted four measured arms without saying so.
+_FNAME = re.compile(
+    r"^score_(?P<seed>fullzero_[a-z]+)_(?P<arm>none|hidden|cell|all)(?P<w>_[0-9.]+)?\.csv$"
+)
 
 
 def read_results(results_dir: str, target: str = "sb") -> dict[str, dict[str, dict[int, float]]]:
@@ -41,7 +55,8 @@ def read_results(results_dir: str, target: str = "sb") -> dict[str, dict[str, di
                 int(r["h"]): float(r["AP"]) for r in csv.DictReader(fh) if r["target"] == target
             }
         if rows:
-            out.setdefault(m["seed"], {})[m["arm"]] = rows
+            arm = m["arm"] + (m["w"].replace("_", "@") if m["w"] else "")
+            out.setdefault(m["seed"], {})[arm] = rows
     return out
 
 
@@ -90,7 +105,7 @@ def render(data) -> str:
             "|---|" + "--:|" * (len(HS) + 1),
         ]
         none18 = data[seed].get("none", {}).get(18)
-        for arm in ARMS:
+        for arm in _order(data[seed]):
             r = data[seed].get(arm)
             if not r:
                 continue
@@ -102,7 +117,8 @@ def render(data) -> str:
             )
         L.append("")
     L += ["## Mean over seeds (h18)", "", "| arm | mean | seeds |", "|---|--:|---|"]
-    for arm in ARMS:
+    all_arms = _order({a for s in data for a in data[s]})
+    for arm in all_arms:
         v = [data[s][arm][18] for s in sorted(data) if arm in data[s] and 18 in data[s][arm]]
         if v:
             L.append(
