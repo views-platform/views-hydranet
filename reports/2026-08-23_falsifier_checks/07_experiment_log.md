@@ -117,3 +117,102 @@ depth, which is already paid because `h` is never detached.
 Three checks, **zero GPU**, ~20 minutes. They close two of five investigative issues and re-scope a
 third, which was the information-theoretic case for running them before committing ~36 GPU-hours to
 #287.
+
+---
+
+### CHECK D · #294 Generalized Teacher Forcing · 2026-08-22 23:08 → 23:45 · **correspondence is SUPERFICIAL**
+
+Threshold registered in **GitHub issue #294 (2026-08-22)**, estimator in **AMENDMENT 1** (`e631f74`,
+23:08:39) — both before any measurement. **Unlike Checks A and B, this one was genuinely blind.**
+
+**The question.** Hess et al. derive `α = 1 − 1/σ_max` for the same interpolation our
+`blend_recurrent_state` performs. **M41** measured our empirical optimum at **w ≈ 0.1**. If `w ≡ α`,
+that implies `σ_max ≈ 1.11`. So the paper *predicts* our knob — a rare chance for an independently
+derived theory to land on a hand-swept result.
+
+#### Stage 1 — the analytic bound: INCONCLUSIVE, and structurally so
+
+Recurrent convolution **operator** norms (power iteration on the conv as an operator at the true field
+size, data-free; 0.48% drift between 50 and 200 iterations — converged):
+
+| cell | Whi | Whf | Whc | Who |
+|---|--:|--:|--:|--:|
+| 1 | 1.95 | **3.61** | 1.92 | 2.40 |
+| 2 | 1.97 | 2.91 | 1.87 | 1.76 |
+| 3 | 1.81 | 2.61 | 2.13 | 1.69 |
+| 4 | 2.25 | 2.34 | 2.13 | 1.73 |
+
+Bound at M=1: **5.32**. AMENDMENT 1 registered that *"an upper bound above 1 licenses nothing"*, so this
+is INCONCLUSIVE by the rule — **and the estimator turns out to be structurally incapable of ever
+answering.** Its dominant term is `¼·M·‖Whf‖ + ¼·‖Whi‖ + ‖Whc‖`, which floors near **2.5 even as M → 0**.
+The bound assumes every gate saturates simultaneously; with recurrent operator norms of 1.7–3.6 that
+assumption is far too generous to be informative here. **Recorded rather than dropped: an estimator
+registered in good faith that could not do the job.**
+
+*(This stage was first run at a 180×720 field. The captured states show the true field is **180×180** —
+africa, not global. A convolution's operator norm depends on field size, so it was re-run at 180×180;
+the verdict is unchanged.)*
+
+#### Stage 2 — the true Jacobian at production-path states
+
+Six consecutive states captured by a **forward hook on a live free-running rollout** with **no
+diagnostic flag set** (`tools/capture_states.py`, the same manager seam `freeze_arm_entry.py` uses), so
+these are production-path states. `h_next` is assembled purely from the LSTM block
+(`HydraBNrecurrentUnet_06_LSTM4.py:555`), so `∂h_next/∂h` is exactly the recurrent map's Jacobian and
+the U-Net decoder does not enter it. Power iteration on `JᵀJ`, matrix-free (one jvp + one vjp per step).
+
+| state | σ | drift (last 10 iters) | max\|h\| |
+|---|--:|--:|--:|
+| 0 | 1.5139 | 0.00% | 0.000 |
+| 1 | 1.4388 | 0.02% | 0.995 |
+| 2 | 1.4823 | 0.00% | 1.833 |
+| 3 | **1.6000** | 0.00% | 1.928 |
+| 4 | 1.5552 | 0.00% | 2.517 |
+| 5 | 1.5016 | 0.00% | 2.867 |
+
+**σ_max = 1.6000** (sup over states).
+
+#### The falsifier fired once, and was obeyed
+
+A first run at **60 iterations** returned σ_max = 1.6000 with one state drifting **1.11%** against the
+registered **≤1%** convergence bar — **VOID**. The number was already on screen and would have been
+reported unchanged. It was not read; the run was repeated at **250 iterations**, where every state
+settles to ≤0.02%. Same answer, now earned. *(This is the third time today a registered rule has stood
+between a convenient number and the write-up. **C-305** is what happens when one does not.)*
+
+#### Verdict: CORRESPONDENCE SUPERFICIAL
+
+```
+α = 1 − 1/1.6000 = 0.3750        M41 measured w ≈ 0.10
+```
+
+The registered "striking" band was **σ_max ∈ [1.05, 1.20]**, i.e. the range in which the derived α would
+have matched our measured optimum. **1.60 is outside it, and the predicted α is ~3.75× our measured
+value.** The two methods share a functional form; **the paper's theory does not predict our result.**
+
+**What this does and does not establish.** It does *not* show GTF would fail here — it shows the
+**specific reason to expect it to work is absent**. The excitement was that an independently derived α
+landed on a hand-swept optimum; it does not. Any future GTF work must be justified on other grounds and
+should note that **#294's own differences 1–4** (GTF re-anchors every step, we anchor once; training vs
+inference; shPLRNN vs ConvLSTM; chaotic vs not) remain untested.
+
+**σ_max ≥ 1 is confirmed**, so the formula is at least *defined* for us — the third registered branch
+("σ_max < 1 closes the issue") did not fire. The question was fair; the answer is no.
+
+#### The finding worth keeping
+
+**We watched the drift happen.** `max|h|` across six consecutive free-running steps:
+
+```
+0.000 → 0.995 → 1.833 → 1.928 → 2.517 → 2.867
+```
+
+M38/M39 inferred cell-state drift from its *consequences*; this is the first direct observation of it.
+It is a **steady creep, not an explosion** — consistent with M41's saturation at w≈0.1, since a gentle
+drift is precisely what a gentle restoring force can correct.
+
+#### Scope
+
+One seed, one vehicle, **six consecutive states from one origin** — σ_max is a supremum over *all*
+states and this is a sample of six. Widening it is cheap (the hook takes `--n-states`) but would not
+move 1.60 into [1.05, 1.20]; the gap is 3.75×, not marginal.
