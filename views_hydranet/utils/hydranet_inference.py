@@ -56,8 +56,10 @@ _STATE_GROUPS = 8
 FREEZE_RECURRENT_MODES = ("hidden", "cell", "all")
 
 
-def blend_recurrent_state(new: torch.Tensor, anchor: torch.Tensor, mode: str) -> torch.Tensor:
-    """Return the evolved state with the ``mode`` memory type held at ``anchor``.
+def blend_recurrent_state(
+    new: torch.Tensor, anchor: torch.Tensor, mode: str, weight: float = 1.0
+) -> torch.Tensor:
+    """Return the evolved state with the ``mode`` memory type pulled ``weight`` toward ``anchor``.
 
     **A diagnostic, not a mechanism.** ``freeze_h`` was retired (ADR-027, 2026-06-05) and stays
     retired: this is reachable only from an explicit ``HydraNetInference`` argument, never from a
@@ -76,13 +78,21 @@ def blend_recurrent_state(new: torch.Tensor, anchor: torch.Tensor, mode: str) ->
             step, i.e. everything learned from real observations.
         mode: ``"hidden"`` (hold the short-term half), ``"cell"`` (hold the long-term half), or
             ``"all"`` (hold both — the full hard prior).
+        weight: how far to pull the selected half back toward the anchor at each step, as a convex
+            blend ``weight * anchor + (1 - weight) * new``. **1.0 (default) is a hard freeze and is
+            byte-identical to the pre-dial behaviour**; 0.0 is a no-op. Values in between apply an
+            exponential pull, so the free evolution decays toward the anchor rather than being
+            replaced by it — which is the shape the L=300 result argues for: freezing the cell
+            recovers 23% of the oracle gap (M38/M39), leaving 77% open, and a hard freeze is the
+            most extreme setting of a dial nobody had turned.
 
     Returns:
         A new tensor. Neither input is mutated.
 
     Raises:
-        ValueError: unknown ``mode``, mismatched shapes, or a channel count that is not divisible
-            by 8 (the split would silently mis-assign memory types).
+        ValueError: unknown ``mode``, mismatched shapes, a channel count not divisible by 8 (the
+            split would silently mis-assign memory types), or a ``weight`` outside [0, 1] — an
+            extrapolating blend is not a decay and would leave the state off the segment entirely.
     """
     if mode not in FREEZE_RECURRENT_MODES:
         raise ValueError(
@@ -100,12 +110,29 @@ def blend_recurrent_state(new: torch.Tensor, anchor: torch.Tensor, mode: str) ->
             "The ConvLSTM state is 4 short-term + 4 long-term groups; an uneven split would "
             "silently hold the wrong memory type."
         )
+    if not 0.0 <= weight <= 1.0:
+        raise ValueError(
+            f"blend_recurrent_state: weight must be in [0, 1]; got {weight!r}. Outside that range "
+            "the result is an extrapolation, not a blend, and the state leaves the segment "
+            "between what the model produced and what it learned from real observations."
+        )
+    # weight == 1.0 takes the original branches verbatim, so the hard-freeze arms already measured
+    # (M38/M39) stay byte-identical rather than passing through new float arithmetic.
+    if weight == 1.0:
+        if mode == "all":
+            return anchor.clone()
+        half = channels // 2  # hs_1..hs_4 | hl_1..hl_4
+        if mode == "hidden":
+            return torch.cat([anchor[:, :half], new[:, half:]], dim=1)
+        return torch.cat([new[:, :half], anchor[:, half:]], dim=1)
+
+    blended = weight * anchor + (1.0 - weight) * new
     if mode == "all":
-        return anchor.clone()
-    half = channels // 2  # hs_1..hs_4 | hl_1..hl_4
+        return blended
+    half = channels // 2
     if mode == "hidden":
-        return torch.cat([anchor[:, :half], new[:, half:]], dim=1)
-    return torch.cat([new[:, :half], anchor[:, half:]], dim=1)
+        return torch.cat([blended[:, :half], new[:, half:]], dim=1)
+    return torch.cat([new[:, :half], blended[:, half:]], dim=1)
 
 
 class HydraNetInference:
@@ -122,6 +149,7 @@ class HydraNetInference:
         device: Optional[str] = None,
         visualizer: Optional["VisualDiagnostics"] = None,
         freeze_recurrent: Optional[str] = None,
+        freeze_recurrent_weight: float = 1.0,
         feedback_transform: Optional[str] = None,
         feedback_length_scale: Optional[float] = None,
         record_gate_probe: bool = False,
@@ -210,7 +238,12 @@ class HydraNetInference:
                 f"freeze_recurrent must be None or one of {FREEZE_RECURRENT_MODES}; "
                 f"got {freeze_recurrent!r}."
             )
+        if not 0.0 <= freeze_recurrent_weight <= 1.0:
+            raise ValueError(
+                f"freeze_recurrent_weight must be in [0, 1]; got {freeze_recurrent_weight!r}."
+            )
         self.freeze_recurrent = freeze_recurrent
+        self.freeze_recurrent_weight = freeze_recurrent_weight
 
         # Diagnostic feedback-field transform (#258/#262 — measuring `the feedback realism gap`).
         # Same contract as freeze_recurrent: explicit argument, no config key, default None =
@@ -979,7 +1012,9 @@ class HydraNetInference:
                 output = self.model(t0_autoreg, h_tt)
                 t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
                 if self.freeze_recurrent:
-                    h_tt = blend_recurrent_state(h_tt, state_anchor, self.freeze_recurrent)
+                    h_tt = blend_recurrent_state(
+                        h_tt, state_anchor, self.freeze_recurrent, self.freeze_recurrent_weight
+                    )
                 t1_pred_class = torch.sigmoid(t1_pred_class)
                 if self._record_gate_probe:
                     self._record_gate_structure(

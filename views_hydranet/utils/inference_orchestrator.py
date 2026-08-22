@@ -54,6 +54,9 @@ class InferenceOrchestrator:
         # as well would thread an experiment knob through a third layer for no gain.
         # See HydraNetInference.freeze_recurrent / blend_recurrent_state.
         self.freeze_recurrent: Optional[str] = None
+        # How far to pull the frozen half back to the anchor each step; 1.0 = hard freeze
+        # (byte-identical to the pre-dial behaviour), 0.0 = no-op. See blend_recurrent_state.
+        self.freeze_recurrent_weight: float = 1.0
         # Diagnostic feedback-field transform spec (#258/#262); see HydraNetInference.
         self.feedback_transform: Optional[str] = None
         # DIAGNOSTIC: correlated feedback sampler; None = independent Bernoulli.
@@ -168,6 +171,7 @@ class InferenceOrchestrator:
             device=str(self.device),
             visualizer=self.viz,
             freeze_recurrent=self.freeze_recurrent,
+            freeze_recurrent_weight=self.freeze_recurrent_weight,
             feedback_transform=self.feedback_transform,
             feedback_length_scale=self.feedback_length_scale,
             record_gate_probe=self.record_gate_probe,
@@ -241,6 +245,7 @@ class InferenceOrchestrator:
             device=str(self.device),
             visualizer=self.viz,
             freeze_recurrent=self.freeze_recurrent,
+            freeze_recurrent_weight=self.freeze_recurrent_weight,
             feedback_transform=self.feedback_transform,
             feedback_length_scale=self.feedback_length_scale,
             record_gate_probe=self.record_gate_probe,

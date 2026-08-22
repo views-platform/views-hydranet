@@ -40,6 +40,12 @@ _MODELS_ROOT = _HN.parent / "views-models" / "models"
 _V2T = _HN / "reports" / "2026-07-29_v2_scoreboard_dossier" / "tools"
 
 ARMS = ("none", "hidden", "cell", "all")
+
+
+def _safe(arm: str) -> str:
+    """`cell@0.5` -> `cell_0.5`: `@` is legal in a filename but reads badly in globs
+    and in the seed-vs-arm filename parsing `freeze_table.py` does."""
+    return arm.replace("@", "_")
 HORIZONS = "1,6,12,18,24,30,36"
 MIN_FREE_GB = 25.0  # ~2.5 GB/arm plus headroom; refuse to start rather than fill the disk
 
@@ -106,7 +112,7 @@ def run_arm(
         capture_output=True,
         text=True,
     )
-    (out / f"{model}_{arm}.log").write_text(proc.stdout + proc.stderr)
+    (out / f"{model}_{_safe(arm)}.log").write_text(proc.stdout + proc.stderr)
     if proc.returncode != 0:
         raise SystemExit(
             f"arm {arm!r} failed (rc={proc.returncode}); see {out / f'{model}_{arm}.log'}"
@@ -121,7 +127,7 @@ def run_arm(
         )
     pred_dir = new.pop()
 
-    score_csv = out / f"score_{model}_{arm}.csv"
+    score_csv = out / f"score_{model}_{_safe(arm)}.csv"
     scored = subprocess.run(
         [
             sys.executable,
@@ -137,9 +143,11 @@ def run_arm(
         capture_output=True,
         text=True,
     )
-    (out / f"score_{model}_{arm}.log").write_text(scored.stdout + scored.stderr)
+    (out / f"score_{model}_{_safe(arm)}.log").write_text(scored.stdout + scored.stderr)
     if scored.returncode != 0:
-        raise SystemExit(f"scoring arm {arm!r} failed; see {out / f'score_{model}_{arm}.log'}")
+        raise SystemExit(
+            f"scoring arm {arm!r} failed; see {out / f'score_{model}_{_safe(arm)}.log'}"
+        )
 
     if not keep_cubes:
         shutil.rmtree(pred_dir)  # score-then-delete: two arms' cubes never coexist
