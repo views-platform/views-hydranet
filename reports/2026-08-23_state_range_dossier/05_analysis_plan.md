@@ -315,3 +315,35 @@ If F3 hard-stops, the follow-up is a **new pre-registration**, not an amendment 
 That tests the same hypothesis (does the model hold state over territory it never trained on?) with the
 confound removed by construction. **It is written down here, before F3 runs, so that if F3 does fail the
 successor cannot be presented as a fresh idea that happened to arrive after an inconvenient result.**
+
+---
+
+# AMENDMENT 5 — closing two gaps in §4 before `f` is computed
+
+§4 says "build, per channel, the R1 interval" but **R1 is three ratio points, and the state has two
+halves**. Left unspecified, both would be choices made after seeing `f` — the C-305 shape again. Fixed
+here, before the analysis step runs.
+
+**(a) The interval pools all three ratios.** `ratio = 0.665 / 0.35 / 0.05` are three points on **one**
+schedule the model traverses within a single run, so the union is the training diet it actually
+experienced. Per-ratio `f` is reported as **secondary** and **may not be substituted into the verdict**.
+
+**(b) The verdict is rendered on the CELL half.** Justified externally by **M39**: freezing `cell` alone
+reproduces the entire freeze effect (+0.036 of +0.036) while `hidden` alone does nothing (−0.005). The
+cell is therefore the half whose regime demonstrably matters for rollout skill. **`hidden` is reported
+beside it, always.** If the two halves land in different §4 branches, the result is reported as
+**HALF-SPLIT** and the cell branch is *not* silently taken as the answer.
+
+## F4 disclosure
+
+F4's registered wording — windows at `ratio=0.665` must have "measurably higher" event density than at
+`0.05` — **is qualitative, and the capture has already shown me the values**: mean event density
+**4.548** (thr=143) / **5.985** (thr=75) / **3.966** (thr=10), identical across both seeds (anchor
+selection depends on the data and the tool's own RNG, not on the model — a consistency check that
+passed).
+
+**F4 PASSES on its registered comparison** (4.548 > 3.966) but **only by 15%, and non-monotonically** —
+the middle ratio is the densest. Recorded as a **weak pass with a caveat**, not a clean one: the
+production `sigmoid` anchor strategy plus up-to-`dim` spatial jitter evidently blunts the threshold, so
+**the curriculum separates the training diet far less than its 0.665 → 0.05 range suggests**. That is
+itself a finding about the curriculum and is carried into the write-up regardless of what `f` does.
