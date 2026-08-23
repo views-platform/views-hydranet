@@ -153,69 +153,73 @@ registered in good faith that could not do the job.**
 africa, not global. A convolution's operator norm depends on field size, so it was re-run at 180×180;
 the verdict is unchanged.)*
 
-#### Stage 2 — the true Jacobian at production-path states
+#### Stage 2 — the true Jacobian. **First attempt measured the WRONG PHASE.**
 
-Six consecutive states captured by a **forward hook on a live free-running rollout** with **no
-diagnostic flag set** (`tools/capture_states.py`, the same manager seam `freeze_arm_entry.py` uses), so
-these are production-path states. `h_next` is assembled purely from the LSTM block
-(`HydraBNrecurrentUnet_06_LSTM4.py:555`), so `∂h_next/∂h` is exactly the recurrent map's Jacobian and
-the U-Net decoder does not enter it. Power iteration on `JᵀJ`, matrix-free (one jvp + one vjp per step).
+⚠️ **The first run of this stage is retracted.** The capture hook took the **first six** forward calls,
+but the rollout loop is `for t in range(origin + time_steps)` (`hydranet_inference.py:913`) with
+`origin = seq_len - 1`: it digests **335 steps of real history first**, *then* runs 36 autoregressive
+steps. Calls 0–5 are the **teacher-forced warm-up**. Found independently by `/code-review medium` and by
+reading the loop while preparing the ritual.
 
-| state | σ | drift (last 10 iters) | max\|h\| |
-|---|--:|--:|--:|
-| 0 | 1.5139 | 0.00% | 0.000 |
-| 1 | 1.4388 | 0.02% | 0.995 |
-| 2 | 1.4823 | 0.00% | 1.833 |
-| 3 | **1.6000** | 0.00% | 1.928 |
-| 4 | 1.5552 | 0.00% | 2.517 |
-| 5 | 1.5016 | 0.00% | 2.867 |
+**Two claims fall with it:**
 
-**σ_max = 1.6000** (sup over states).
+1. **σ_max = 1.60 characterised the warm-up, not the rollout.** The question was about the free-running
+   regime.
+2. **The headline observation was backwards.** The log previously read *"we watched the drift happen …
+   the first direct observation of it"*, from `max|h|` rising 0.000 → 2.867. **That was the state filling
+   from zero initialisation.** It is not drift, and the real direction is the opposite (below).
 
-#### The falsifier fired once, and was obeyed
+**Locating the phase boundary without hard-coding `origin`** (it is `seq_len - 1`, a data property, not
+a config constant): the recurrent state is re-zeroed at the start of every posterior sample, so
+`max|h| == 0` marks a sample boundary and the distance between boundaries is `origin + time_steps`.
+Measured period = **371**, so with `time_steps = 36`, **`origin = 335`** and the autoregressive phase is
+calls **335–370**.
 
-A first run at **60 iterations** returned σ_max = 1.6000 with one state drifting **1.11%** against the
-registered **≤1%** convergence bar — **VOID**. The number was already on screen and would have been
-reported unchanged. It was not read; the run was repeated at **250 iterations**, where every state
-settles to ≤0.02%. Same answer, now earned. *(This is the third time today a registered rule has stood
-between a convenient number and the write-up. **C-305** is what happens when one does not.)*
+#### Stage 2 (corrected) — 8 states spanning the true free-running phase
 
-#### Verdict: CORRESPONDENCE SUPERFICIAL
+`--skip 335 --stride 5`, so the captures span the rollout rather than clustering at its start — σ_max is
+a **supremum over the trajectory**, and sampling only the first steps would understate it.
 
-```
-α = 1 − 1/1.6000 = 0.3750        M41 measured w ≈ 0.10
-```
+| call | rollout step | max\|h\| | σ | drift |
+|--:|--:|--:|--:|--:|
+| 335 | 1 | 65.622 | 3.4120 | 0.00% |
+| 340 | 6 | 56.621 | **7.7628** | 0.00% |
+| 345 | 11 | 19.737 | 4.6363 | 0.00% |
+| 350 | 16 | 8.186 | 1.8734 | 0.00% |
+| 355 | 21 | 5.125 | 1.4820 | 0.00% |
+| 360 | 26 | 3.017 | 1.4795 | 0.00% |
+| 365 | 31 | 1.832 | 1.4769 | 0.00% |
+| 370 | 36 | 1.598 | 1.4744 | 0.00% |
 
-The registered "striking" band was **σ_max ∈ [1.05, 1.20]**, i.e. the range in which the derived α would
-have matched our measured optimum. **1.60 is outside it, and the predicted α is ~3.75× our measured
-value.** The two methods share a functional form; **the paper's theory does not predict our result.**
+**σ_max = 7.7628**, every state converged to 0.00% drift.
 
-**What this does and does not establish.** It does *not* show GTF would fail here — it shows the
-**specific reason to expect it to work is absent**. The excitement was that an independently derived α
-landed on a hand-swept optimum; it does not. Any future GTF work must be justified on other grounds and
-should note that **#294's own differences 1–4** (GTF re-anchors every step, we anchor once; training vs
-inference; shPLRNN vs ConvLSTM; chaotic vs not) remain untested.
-
-**σ_max ≥ 1 is confirmed**, so the formula is at least *defined* for us — the third registered branch
-("σ_max < 1 closes the issue") did not fire. The question was fair; the answer is no.
-
-#### The finding worth keeping
-
-**We watched the drift happen.** `max|h|` across six consecutive free-running steps:
+#### The state COLLAPSES during free-running — the opposite of what was first reported
 
 ```
-0.000 → 0.995 → 1.833 → 1.928 → 2.517 → 2.867
+max|h|:  65.6 → 56.6 → 19.7 → 8.2 → 5.1 → 3.0 → 1.8 → 1.6
 ```
 
-M38/M39 inferred cell-state drift from its *consequences*; this is the first direct observation of it.
-It is a **steady creep, not an explosion** — consistent with M41's saturation at w≈0.1, since a gentle
-drift is precisely what a gentle restoring force can correct.
+**A ~40× decay over 36 steps.** The recurrent state is *large* at the anchor — everything digested from
+real observations — and then **drains away** as the model feeds on itself. This is a direct observation
+of **M16**'s *"the gate keeps its shape and loses its nerve"*, and it is what the earlier claim got
+exactly backwards.
+
+It also reframes **M38/M39/M41**: the cell anchor helps not by *restraining* a growing state but by
+**refilling a draining one**. A 10% pull per step (M41's saturation point) is enough because the state
+is losing information, not accumulating error.
+
+#### σ is strongly state-dependent, and a single number flattens that
+
+**3.4–7.8 early in the rollout, when the state is large; ~1.47 once it has collapsed.** Quoting one
+"σ_max" hides a 5× swing that tracks `max|h|` almost monotonically. Any future use of σ_max here should
+say *which part of the rollout* it refers to.
 
 #### Scope
 
-One seed, one vehicle, **six consecutive states from one origin** — σ_max is a supremum over *all*
-states and this is a sample of six. Widening it is cheap (the hook takes `--n-states`) but would not
-move 1.60 into [1.05, 1.20]; the gap is 3.75×, not marginal.
+One seed, one vehicle, **8 states spanning one origin's autoregressive phase** — σ_max is a supremum
+over *all* states and this samples 8 of 36, at one origin of 13, for one posterior sample. Widening it
+is cheap (`--n-states`, `--stride`) and, given the 5× swing across the rollout, **a denser sample would
+likely raise σ_max further** — it would not move it toward [1.05, 1.20].
 
 ---
 
@@ -248,7 +252,10 @@ number stands; the inference does not.
 | front-loading 3.15–4.22×, n=4, unanimous (A) | ✅ measurement stands |
 | decoupling 2.76–2.91σ vs 0.03–0.18σ, both series (B) | ✅ measurement stands |
 | `torch.poisson` severs the gradient, silently (C) | ✅ **fact about code — the one check that is not a proxy** |
-| σ_max = 1.60, converged (D) | ✅ measurement stands |
+| ~~σ_max = 1.60~~ (D) | ❌ **retracted — measured on the teacher-forced warm-up, not the rollout** |
+| **σ_max = 7.7628** on 8 free-running states, converged (D, corrected) | ✅ measurement stands |
+| ~~"we watched the drift happen", max\|h\| 0.000 → 2.867~~ | ❌ **retracted, and backwards** — that was the warm-up filling from zero |
+| **the state COLLAPSES ~40× during free-running** (65.6 → 1.6) | ✅ the corrected observation, and it matches M16 |
 | "Professor Forcing is aimed at the wrong part of the curve" | ⚠️ weakened — measured on the untreated model |
 | "Horizon Forcing's premise fails ⇒ it would not help" | ⚠️ weakened — a wrong justification is not a wrong method |
 | "the GTF correspondence is superficial" | ❌ **withdrawn** |
@@ -257,6 +264,14 @@ number stands; the inference does not.
 *does*, and un-detaching the feedback really would be a silent no-op. That check is safe to act on. The
 other three screen a *method* through a *measurement of our current model*, which is a much weaker
 instrument than the write-ups implied.
+
+**CHECK D adds a second failure mode, worse than being a proxy: it measured the wrong part of the
+process.** The probe was pointed at the teacher-forced warm-up while the question was about the
+free-running rollout, and **nothing in the numbers looked wrong** — σ_max = 1.60 is a perfectly
+plausible value, and a rising `max|h|` read as a satisfying confirmation of drift. It was caught by
+reading the rollout loop, not by any guard. **A plausible number from the wrong measurement is harder to
+catch than a wrong number**, because every downstream check passes: the iteration converged, the
+falsifier was satisfied, and the write-up was internally consistent. Registered as **C-308**.
 
 ### Standing rule adopted (C-307)
 
