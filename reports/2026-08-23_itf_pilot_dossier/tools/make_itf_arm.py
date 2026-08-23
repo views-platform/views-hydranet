@@ -118,7 +118,15 @@ def arm_label(*, lessons: int, eps: float, seed: int) -> str:
     # L=300/eps=0.5/seed=42 would otherwise be named `fullhalf_fortytwo`, which is the DECREASING-TF
     # arm we are comparing against. Same lessons, same peak dose, opposite curriculum — the one
     # collision guaranteed to be catastrophic and invisible.
-    return f"itf_{_LESSON_WORD[lessons]}{_EPS_WORD[eps]}_{_SEED_WORD[seed]}"
+    # The pipeline requires `adjective_noun` — EXACTLY two lowercase parts
+    # (`views_pipeline_core/data/model_path.py:_process_model_name`). So the marker prefixes the
+    # ADJECTIVE, not the label: `itf_fullhalf_fortytwo` is three parts and is rejected at startup.
+    #
+    # The prefix is still required: the SS sweep already owns `{lessons}{eps}_{seed}`, so an ITF arm
+    # at L=300/eps=0.5/seed=42 would otherwise be named `fullhalf_fortytwo` — the DECREASING-TF arm
+    # it is compared against. Same lessons, same peak dose, opposite curriculum: the one collision
+    # guaranteed to be both catastrophic and invisible.
+    return f"itf{_LESSON_WORD[lessons]}{_EPS_WORD[eps]}_{_SEED_WORD[seed]}"
 
 
 def _set_key(text: str, key: str, literal: str) -> str:

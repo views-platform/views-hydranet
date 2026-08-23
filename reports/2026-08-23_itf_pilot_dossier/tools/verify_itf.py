@@ -35,12 +35,12 @@ H_STAR = 18
 #: seed -> (itf arm label, published control AP@h18 and its score CSV)
 PAIRS = {
     42: (
-        "itf_fullhalf_fortytwo",
+        "itffullhalf_fortytwo",
         0.3298,
         "2026-08-18_lesson_curve_dossier/results/score_fullzero_fortytwo.csv",
     ),
     43: (
-        "itf_fullhalf_fortythree",
+        "itffullhalf_fortythree",
         0.3318,
         "2026-08-17_ss_retention_dossier/results/score_fullzero_fortythree.csv",
     ),

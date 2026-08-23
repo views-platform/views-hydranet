@@ -132,7 +132,12 @@ print(f\"{hp['total_lessons']}:{hp['torch_seed']}:{hp['ss_epsilon_max']}:{bool(h
   fi
   # a label must look like a pipeline-legal model name; anything else means something upstream
   # leaked into it (see the log() note) and must stop the arm, not name it
+  # EXACTLY two lowercase parts. The pipeline enforces `adjective_noun`
+  # (views_pipeline_core model_path._process_model_name) and rejects anything else at startup —
+  # `[a-z]*_[a-z]*` accepted the three-part `itf_fullhalf_fortytwo`, so this guard was weaker than
+  # the rule it exists to anticipate and the arm died after the queue had already accepted it.
   case "$label" in
+    *_*_*) log "ABORT — arm label '$label' has >2 parts; the pipeline requires adjective_noun"; return 1 ;;
     [a-z]*_[a-z]*) ;;
     *) log "ABORT — computed arm label is not a legal model name: '$label'"; return 1 ;;
   esac
