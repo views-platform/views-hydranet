@@ -158,3 +158,43 @@ changes the sign of the effect"* — a single-variable claim the design does not
 **C-303/C-305/C-306 family**: a claim outrunning what was measured. Catching it before the run is the
 whole point of writing the rule down first; the correction costs nothing now and would have cost a
 retraction later.
+
+---
+
+# AMENDMENT 2 — F6 fired between the two arms. Why the arms are still comparable.
+
+*Added 2026-08-23 after arm 1 completed and arm 2 was refused.*
+
+**What happened.** Arm 1 (`itffullhalf_fortytwo`) trained and passed the floor gate. The queue then
+**aborted arm 2** with:
+
+```
+ABORT — HEAD moved d940b4fd5754 -> 7b6d2a3c228d; arms would not be comparable (F6)
+```
+
+**The cause was mine:** I committed the arm-naming fix *while the queue was running*, which moved HEAD
+under it. F6 exists precisely to stop arms that were built from different code being compared, and it
+did its job.
+
+**Why the arms are nevertheless comparable, checked rather than assumed:**
+
+```
+d940b4fd5754  views_hydranet tree: 7643194c8e3d529dbafa66b615da7b25d9b99667
+7b6d2a3c228d  views_hydranet tree: 7643194c8e3d529dbafa66b615da7b25d9b99667
+```
+
+**Identical.** The entire diff is harness — `run_queue.sh`'s label guard, `make_itf_arm.py`'s naming,
+and `verify_itf.py`'s label strings. **No model, training, or inference code changed.**
+
+**F6 is a whole-repo HEAD check, and the invariant it protects is the model tree.** For this programme
+those usually coincide; here they did not, because the fix was to experiment tooling.
+
+**What is done about it:** arm 2 is run at the current HEAD with **no further commits until the queue
+finishes**, and the model-tree equality above is recorded here as the evidence that the pair is
+comparable. §6 falsifier 3 ("one `views_hydranet` tree hash across the pilot's arms") is the invariant
+that actually matters and it **holds** — it is verified directly, not inferred from HEAD.
+
+**Not silently overridden.** The abort was correct given what F6 can see. The finer check is recorded so
+a reader can disagree with it.
+
+**Rule for the rest of this pilot: no commits while the queue is running.**
