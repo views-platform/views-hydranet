@@ -187,3 +187,32 @@ numbers is exactly C-305.
 **F3 is unchanged and remains a HARD STOP**, and under this amendment it becomes the *licence* for the
 whole comparison: it holds location fixed and varies only patch-vs-full-grid, so passing it is what
 permits R1 and R2 to be read as differing in *selection* rather than in *image size*.
+
+---
+
+# AMENDMENT 2 — F2 was premised on determinism the inference path does not have (before any tool ran)
+
+**Defect in the locked §5.** F2 required reproducing seed 43's published collapse (**65.6 → 1.6**)
+**within 5%**, justified as "a deterministic re-run of the same artifact over the same months". **That
+premise is false.** `hydranet_inference.py:350-359` calls `model.eval()` **and then**
+`set_locked_dropout(True)`, with `reset_locked_dropout()` refreshing the mask **once per posterior
+sample** (ADR-057). The production rollout is therefore **MC-dropout stochastic**, and the published
+65.6 came from one posterior sample's mask. Reproducing it to 5% would require restoring a global RNG
+state that depends on everything executed before it — unreproducible in a standalone probe. **As
+written, F2 would have aborted a correct run for the wrong reason.**
+
+**Fix, two parts.**
+
+1. **The measurement runs with dropout OFF** — `model.eval()` and `set_locked_dropout` left untouched
+   (standard dropout is identity under `eval()`). This makes all regimes **deterministic and directly
+   comparable**, so the one variable stays the *input*, not the dropout mask. Dropout noise would
+   otherwise inflate both R1's and R2's spreads and blur `f` in an uncontrolled way.
+2. **F2 is re-specified** as: on seed 43, R3's collapse ratio `‖state at origin‖ / ‖state at last free
+   step‖` must be **≥ 10×**. The published value is ~40×; **10× is a deliberate factor-of-4 slack**. Its
+   job is to catch *"wrong vehicle / wrong phase"* — which would show a ratio near **1** — not to certify
+   numerical agreement with a dropout-active run it cannot match. The measured ratio is reported
+   verbatim next to the published 40× so any drift is visible rather than absorbed.
+
+**This makes F2 weaker, and that is the honest trade.** It no longer proves we are on the identical
+trajectory; it proves we are on a trajectory that collapses. Recorded as a **registered limitation**, not
+presented as an equivalent check.
