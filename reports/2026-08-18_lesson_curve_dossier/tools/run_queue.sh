@@ -97,32 +97,47 @@ assert_head(){
 # Sets ARM_LABEL rather than echoing it. Command substitution around a function that also logs is
 # the trap above; removing the substitution removes the whole class, not just today's instance.
 ARM_LABEL=""
+# Which builder makes an arm, and where it lives. Defaults reproduce the SS/lesson-curve behaviour
+# exactly. The ITF pilot (#287) sets ARM_MODULE=make_itf_arm + ARM_TOOLS=<itf dossier>/tools rather
+# than adding a second scheduler — keeping two schedulers is what caused the 2026-08-19 audit.
+ARM_MODULE="${ARM_MODULE:-make_ss_arm}"
+ARM_TOOLS="${ARM_TOOLS:-$SSD/tools}"
+
 ensure_arm(){
-  local L=$1 S=$2 E=$3 label got
+  local L=$1 S=$2 E=$3 label got want
   ARM_LABEL=""
   label=$($CENV python -c "
-import sys; sys.path.insert(0,'$SSD/tools')
-from make_ss_arm import arm_label; print(arm_label(lessons=$L, eps=$E, seed=$S))" 2>/dev/null)
+import sys; sys.path.insert(0,'$ARM_TOOLS')
+from $ARM_MODULE import arm_label; print(arm_label(lessons=$L, eps=$E, seed=$S))" 2>/dev/null)
   [ -n "$label" ] || { log "ABORT — no legal arm name for lessons=$L seed=$S"; return 1; }
   if [ -d "$MODELS/$label" ]; then
+    # ss_reverse is part of the arm's IDENTITY, not decoration: an SS arm and an ITF arm at the
+    # same lessons/seed/eps both read "300:42:0.5", so without it this check would accept a
+    # decreasing-TF arm where an increasing-TF one was asked for — the two the pilot compares.
     got=$($CENV python -c "
 import ast,sys
 from pathlib import Path
 t=(Path('$MODELS/$label')/'configs/config_hyperparameters.py').read_text()
 ast.parse(t); ns={}; exec(compile(t,'cfg','exec'),ns); hp=ns['get_hp_config']()
-print(f\"{hp['total_lessons']}:{hp['torch_seed']}:{hp['ss_epsilon_max']}\")" 2>/dev/null)
-    if [ "$got" != "$L:$S:$E" ]; then
-      log "ABORT — $label exists but its config reads '$got', wanted '$L:$S:$E'"
+print(f\"{hp['total_lessons']}:{hp['torch_seed']}:{hp['ss_epsilon_max']}:{bool(hp.get('ss_reverse', False))}\")" 2>/dev/null)
+    want="$L:$S:$E:$([ "$ARM_MODULE" = "make_itf_arm" ] && echo True || echo False)"
+    if [ "$got" != "$want" ]; then
+      log "ABORT — $label exists but its config reads '$got', wanted '$want'"
       return 1
     fi
   else
     log "building $label (lessons=$L seed=$S eps=$E)"
-    $CENV python "$SSD/tools/make_ss_arm.py" --lessons "$L" --eps "$E" --seed "$S" \
-      >>"$RES/run.log" 2>&1 || { log "ABORT — make_ss_arm refused $label"; return 1; }
+    $CENV python "$ARM_TOOLS/$ARM_MODULE.py" --lessons "$L" --eps "$E" --seed "$S" \
+      >>"$RES/run.log" 2>&1 || { log "ABORT — $ARM_MODULE refused $label"; return 1; }
   fi
   # a label must look like a pipeline-legal model name; anything else means something upstream
   # leaked into it (see the log() note) and must stop the arm, not name it
+  # EXACTLY two lowercase parts. The pipeline enforces `adjective_noun`
+  # (views_pipeline_core model_path._process_model_name) and rejects anything else at startup —
+  # `[a-z]*_[a-z]*` accepted the three-part `itf_fullhalf_fortytwo`, so this guard was weaker than
+  # the rule it exists to anticipate and the arm died after the queue had already accepted it.
   case "$label" in
+    *_*_*) log "ABORT — arm label '$label' has >2 parts; the pipeline requires adjective_noun"; return 1 ;;
     [a-z]*_[a-z]*) ;;
     *) log "ABORT — computed arm label is not a legal model name: '$label'"; return 1 ;;
   esac

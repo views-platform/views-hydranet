@@ -891,6 +891,7 @@ def training_loop(
             epsilon_max=config.get("ss_epsilon_max", 1.0),
             warmup_lessons=config.get("ss_warmup_lessons"),
             k=config.get("ss_k"),
+            reverse=config.get("ss_reverse", False),
         )
 
     # OPT-IN trajectory diagnostic (bifurcation hunt): per-lesson grad-norm + gate-logit-mean +
