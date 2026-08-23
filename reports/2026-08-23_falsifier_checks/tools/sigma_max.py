@@ -117,18 +117,26 @@ def main() -> int:
         rows[m] = b
         print(f"  {m:>6.0f} " + " ".join(f"{x:>10.4f}" for x in b) + f" {max(b):>10.4f}")
 
-    # where does the bound cross 1?
-    lo, hi = 0.0, 1e6
-    for _ in range(200):
-        mid = (lo + hi) / 2
-        bm = max(
-            jacobian_bound({g: norms[f"{g}_{k}"] for g in GATES}, mid)["bound"] for k in CELLS
+    # Where does the bound cross 1? It may not: `dhl_dhl` and `dhs_dhl` are both bounded by 1, so
+    # the Frobenius combination is >= sqrt(2) for EVERY M, including M=0. An unbracketed bisection
+    # would then halve `hi` 200 times and report ~1e-55 as a "crossing" — which happens to read
+    # correctly as "exceeds 1 from M=0" but would report a wrong root for any other shape.
+    def _bound_at(m):
+        return max(
+            jacobian_bound({g: norms[f"{g}_{k}"] for g in GATES}, m)["bound"] for k in CELLS
         )
-        if bm < 1.0:
-            lo = mid
-        else:
-            hi = mid
-    crossing = hi
+
+    lo, hi = 0.0, 1e6
+    if _bound_at(lo) >= 1.0 or _bound_at(hi) < 1.0:
+        crossing = None  # not bracketed: the bound never crosses 1 on [0, 1e6]
+    else:
+        for _ in range(200):
+            mid = (lo + hi) / 2
+            if _bound_at(mid) < 1.0:
+                lo = mid
+            else:
+                hi = mid
+        crossing = hi
 
     b_at_1 = max(rows[1.0])
     verdict = (
@@ -136,7 +144,8 @@ def main() -> int:
         if b_at_1 < 1.0
         else "INCONCLUSIVE — an upper bound above 1 licenses nothing (AMENDMENT 1)"
     )
-    print(f"\nbound crosses 1.0 at M = {crossing:.4f}")
+    xing = f"{crossing:.4f}" if crossing is not None else "NEVER (>= 1 at every M, including 0)"
+    print(f"\nbound crosses 1.0 at M = {xing}")
     print(f"bound at M=1: {b_at_1:.4f}")
     print(f"\nVERDICT: {verdict}")
     if not converged:

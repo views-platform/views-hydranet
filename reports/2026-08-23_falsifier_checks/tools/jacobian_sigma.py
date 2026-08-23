@@ -30,6 +30,12 @@ sys.path.insert(0, str(_HN))
 
 def power_iterate(f, h: torch.Tensor, iters: int, seed: int) -> tuple[float, float]:
     """Largest singular value of J = df/dh at h, and the relative change over the last 10 steps."""
+    if iters < 11:
+        # `prev` is sampled at iters-11; below that it would stay 0.0, the drift would compute as
+        # 0.0, and the registered convergence falsifier would pass VACUOUSLY — closing #294 on an
+        # iteration that never ran. Refuse rather than return a sentinel that reads as a
+        # measurement (the "unmeasured input absorbed as a value" class the register tracks).
+        raise ValueError(f"iters must be >= 11 to measure drift; got {iters}")
     g = torch.Generator(device=h.device).manual_seed(seed)
     v = torch.randn(h.shape, generator=g, device=h.device, dtype=h.dtype)
     v /= v.norm()
@@ -41,13 +47,20 @@ def power_iterate(f, h: torch.Tensor, iters: int, seed: int) -> tuple[float, flo
         (jtjv,) = vjp_fn(jv)
         n = jtjv.norm()
         if n == 0:
-            return 0.0, 0.0
+            # A zero J^T J v means the iterate fell in the null space — the iteration has not
+            # measured sigma, it has died. Returning (0.0, 0.0) here would read as "sigma < 1,
+            # converged" and close the issue.
+            raise ValueError(
+                f"power iteration collapsed to zero at step {i} — J^T J v vanished, so no "
+                "spectral norm was measured"
+            )
         v = jtjv / n
         if i == iters - 11:
             prev = float(sig)
         sigma = float(sig)
-    drift = abs(sigma - prev) / sigma if sigma and prev else 0.0
-    return sigma, drift
+    if not sigma or not prev:
+        raise ValueError("power iteration produced a zero singular value — nothing was measured")
+    return sigma, abs(sigma - prev) / sigma
 
 
 def main() -> int:
@@ -73,14 +86,14 @@ def main() -> int:
     config = mod.get_hp_config()
 
     model = choose_model(config, torch.device("cpu"))
-    sd = torch.load(
-        Path(a.model_dir) / "artifacts" / a.artifact, map_location="cpu", weights_only=False
-    )
+    art_path = Path(a.model_dir) / "artifacts" / a.artifact
+    sd = torch.load(art_path, map_location="cpu", weights_only=False)
     sd = sd.get("model_state_dict", sd) if isinstance(sd, dict) else sd
     missing, unexpected = model.load_state_dict(sd, strict=False)
     if missing or unexpected:
         raise SystemExit(
-            f"state_dict mismatch — missing {list(missing)[:4]}, unexpected {list(unexpected)[:4]}. "
+            f"state_dict mismatch — missing {list(missing)[:3]}, "
+            f"unexpected {list(unexpected)[:3]}. "
             "Refusing rather than probing a partially-loaded model."
         )
     model.eval()
@@ -94,6 +107,15 @@ def main() -> int:
     results = []
     for f in files:
         st = torch.load(f, map_location="cpu", weights_only=False)
+        # Provenance: measuring a real Jacobian at states from a DIFFERENT model is silent and
+        # plausible. This model dir holds several artifacts, which is why `freeze_arm_entry.py`
+        # makes --artifact required for the same reason.
+        src = st.get("artifact")
+        if src is not None and Path(src).name != art_path.name:
+            raise SystemExit(
+                f"{f.name} was captured from {Path(src).name} but this run loads "
+                f"{art_path.name} — refusing to measure one model's Jacobian at another's states"
+            )
         x, h = st["x"], st["h"]
 
         def step(hh, _x=x):

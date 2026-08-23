@@ -44,7 +44,18 @@ class CaptureManager(HydranetManager):
 
     out_dir: Path = Path(".")
     n_states: int = 6
+    #: Calls to SKIP before capturing. The rollout is `for t in range(origin + time_steps)` —
+    #: `origin` steps of HISTORY DIGESTION on real data, THEN `time_steps` autoregressive steps
+    #: (`hydranet_inference.py:913`, with `origin = seq_len - 1`). Capturing from call 0 therefore
+    #: samples the TEACHER-FORCED burn-in, not the free-running rollout — which is what the first
+    #: version of this probe did, invalidating both the sigma_max measurement and a claim that the
+    #: rising max|h| was cell-state drift (it was the state filling from zero init).
+    skip: int = 0
+    find_period: bool = False
+    stride: int = 1
+    artifact_name: str = ""
     _seen: int = 0
+    _captured: int = 0
 
     def _setup_evaluation(self, *args, **kwargs):
         ctx = super()._setup_evaluation(*args, **kwargs)
@@ -54,15 +65,43 @@ class CaptureManager(HydranetManager):
             # forward(self, x, h) -> inputs == (x, h)
             if len(inputs) < 2:
                 return
+            call = self._seen
+            self._seen += 1
+            hmax = float(inputs[1].abs().max())
+            # The state is re-zeroed at the start of every posterior sample, so max|h| == 0 marks
+            # a sample boundary. The distance between two boundaries is `origin + time_steps`,
+            # which is how `--find-period` locates the autoregressive tail WITHOUT needing to know
+            # `origin` (it is `seq_len - 1`, a data property, not a config constant).
+            if hmax == 0.0 and call > 0:
+                logger.info("PERIOD: state reset at call %d", call)
+                if self.find_period:
+                    raise _Enough(f"period = {call}")
+            if call % 200 == 0:
+                logger.info("call %d (capturing from %d)", call, self.skip)
+            if call < self.skip or (call - self.skip) % self.stride:
+                # `stride` spreads the captures across the autoregressive phase. sigma_max is a
+                # SUPREMUM over the trajectory, so sampling only its first few steps would
+                # understate it — the state degrades as the rollout proceeds.
+                return
             x, h = inputs[0], inputs[1]
             torch.save(
-                {"x": x.detach().cpu(), "h": h.detach().cpu(), "step": self._seen},
-                self.out_dir / f"state_{self._seen:02d}.pt",
+                {
+                    "x": x.detach().cpu(),
+                    "h": h.detach().cpu(),
+                    "call": call,
+                    "artifact": self.artifact_name,
+                },
+                self.out_dir / f"state_{self._captured:02d}.pt",
             )
-            logger.info("captured state %d: x%s h%s", self._seen, tuple(x.shape), tuple(h.shape))
-            self._seen += 1
-            if self._seen >= self.n_states:
-                raise _Enough(f"captured {self._seen} states — stopping the probe")
+            logger.info(
+                "captured state %d at call %d: max|h|=%.3f",
+                self._captured,
+                call,
+                float(h.abs().max()),
+            )
+            self._captured += 1
+            if self._captured >= self.n_states:
+                raise _Enough(f"captured {self._captured} states from call {self.skip} — stopping")
 
         model.register_forward_hook(hook)
         logger.info("CaptureManager: hook attached, will capture %d states", self.n_states)
@@ -75,6 +114,23 @@ def main() -> int:
     ap.add_argument("--artifact", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--n-states", type=int, default=6)
+    ap.add_argument(
+        "--stride",
+        type=int,
+        default=1,
+        help="capture every Nth call after --skip, to span the autoregressive phase",
+    )
+    ap.add_argument(
+        "--find-period",
+        action="store_true",
+        help="stop at the first state reset and report the sample period",
+    )
+    ap.add_argument(
+        "--skip",
+        type=int,
+        default=0,
+        help="calls to skip; must exceed `origin` to reach the free-running phase",
+    )
     args, _ = ap.parse_known_args()
 
     out = Path(args.out)
@@ -86,6 +142,10 @@ def main() -> int:
     mgr = CaptureManager(model_path=ModelPathManager(Path(args.model_dir) / "main.py"))
     mgr.out_dir = out
     mgr.n_states = args.n_states
+    mgr.skip = args.skip
+    mgr.find_period = args.find_period
+    mgr.stride = args.stride
+    mgr.artifact_name = args.artifact
 
     # `parse_args()` takes no argument list — it reads sys.argv, which this script has already
     # consumed. Build the namespace from the parser instead, exactly as `freeze_arm_entry.py`
@@ -107,7 +167,8 @@ def main() -> int:
     except _Enough as e:
         logger.info("%s", e)
     n = len(list(out.glob("state_*.pt")))
-    print(f"captured {n} states into {out}")
+    print(f"captured {n} states into {out} (skipped {args.skip} calls)")
+    print(f"total forward calls seen: {mgr._seen}")
     return 0 if n else 1
 
 
