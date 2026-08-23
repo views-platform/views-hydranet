@@ -23,6 +23,28 @@ seeds and both halves; no seed split, no half split.
 **H is refuted. Free-running does not begin from an out-of-distribution state.** The zero collapse is a
 **dynamical** property of the rollout, not distribution shift at the origin.
 
+## The state starts healthy and then decays — recorded as a finding, not just as F2
+
+The refutation above is about the **starting** state. It says nothing about what happens next, and what
+happens next is not subtle. Free-running trajectory, seed 43, production path
+(`results/state_decay_fortythree.csv`):
+
+| free step | 0 | 5 | 10 | 15 | 20 | 25 | 30 |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| `max\|state\|` | **65.62** | 56.62 | 19.74 | 8.19 | 5.13 | 3.02 | **1.83** |
+
+**A 35.8× collapse, and most of it lands between steps 5 and 15** — 56.6 → 8.2, a 7× drop in ten steps,
+after barely moving for the first five. This is measured on the production rollout with dropout on; it
+appears here as F2's vehicle check, but the shape is a result in its own right and is easy to lose in a
+falsifier table.
+
+Together with the verdict: **the state is in-distribution when free-running begins, and decays toward
+zero as it proceeds.** The failure is in the dynamics, not the starting point. Note the ordering — the
+AP damage measured under **#290** is *front-loaded* (steps 1–6 carry 3.15–4.22× the per-step damage of
+later blocks), whereas this collapse is *slowest* over the first five steps. **The two curves do not line
+up**, so "the state collapses" is not yet an explanation for "skill drops early", and this log does not
+claim it is.
+
 ## Falsifiers
 
 | | result |
