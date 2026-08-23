@@ -27,6 +27,7 @@ class TestF5_CICFieldCountDrift:
         # ADR-065 amend. 2026-07-28: +body_supervision, +onset_lead, +cessation_lag, -body_mask
         #   (net +2) -> 88
         # ADR-068 emit_family_core (th_gated_ZINBcore, Epic #167/#183): +emit_family_core -> 89
+        # #287 ss_reverse (Teutsch 2022 ITF, increasing teacher forcing): +ss_reverse -> 90
         CIC_CLAIMED_COUNT = 90
         actual = len(HydraNetConfig.model_fields)
         assert actual == CIC_CLAIMED_COUNT, (

@@ -2784,7 +2784,7 @@ clear persistence at every horizon (ledger M34, n=4) — which is what this entr
 
 ---
 
-### C-303: prose asserts a guard the code does not implement — SEVEN occurrences, incl. two fixes reported as applied that were not
+### C-303: prose asserts a guard the code does not implement — EIGHT occurrences, incl. two fixes reported as applied that were not
 
 | Field | Value |
 |-------|-------|
@@ -2792,7 +2792,7 @@ clear persistence at every horizon (ledger M34, n=4) — which is what this entr
 | Tier | 2 |
 | Source | `/code-review medium` on PR #283 (2026-08-22) |
 | Trigger | Writing a docstring, verdict string, or ledger row that describes what a rule/guard checks, without a test that fails when the described check is removed |
-| Location | `reports/2026-08-21_persistence_reference_dossier/tools/aggregate_seeds.py` (docstring vs `main`); `reports/RESULTS_LEDGER.md` M37; previously `scripts/lesson_curve_gate.py` and `scripts/ss_sweep_gate.py` verdict text |
+| Location | `reports/2026-08-21_persistence_reference_dossier/tools/aggregate_seeds.py` (docstring vs `main`); `reports/RESULTS_LEDGER.md` M37; `reports/2026-08-23_itf_pilot_dossier/07_experiment_log.md` (the "12 of 12 orderings" count, 8th occurrence); previously `scripts/lesson_curve_gate.py` and `scripts/ss_sweep_gate.py` verdict text |
 | Cross-refs | C-148 (the "by construction" prose over-claim), C-291, C-298 |
 
 `aggregate_seeds.py`'s docstring stated *"Refuses rather than averages when the supports differ.
@@ -2856,6 +2856,16 @@ mechanically (`git log --diff-filter=A`). Any "pre-committed"/"pre-registered" a
 commit that proves it, as §5 of that same document does correctly for the dial's decision table.
 
 ---
+
+**Eighth occurrence (2026-08-23, itf-pilot `07`).** The experiment log was written asserting the
+ordering `control > ITF > SS` held at *"h6, h18 and h36 on both seeds — 12 of 12 orderings"* **before
+that count had been computed**. It was verified immediately afterwards and was correct, and the same
+pass found a real exception the prose had not mentioned (`act_ratio` at h1 orders
+`ITF < control < SS` on seed 43). **Correct-by-luck is the failure mode, not the exception** — this
+is the identical shape as C-305, where a rule was overridden on grounds it did not contain and the
+override turned out right by luck. The count is now stated with the h1 exception beside it.
+**Rule reaffirmed: a specific number does not go into a write-up until the command that produces it
+has been run.**
 
 ### C-308: a probe measured the wrong phase of the rollout, and every downstream guard still passed
 

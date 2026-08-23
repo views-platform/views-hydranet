@@ -103,3 +103,38 @@ def test_training_engine_forwards_ss_reverse_to_the_mixer():
     assert 'reverse=config.get("ss_reverse", False)' in text, (
         "training_engine does not forward ss_reverse — the mixer would silently run forward"
     )
+
+
+def test_decay_schedules_refuse_a_missing_k_at_construction():
+    """`k` is required by `exponential` and `inverse_sigmoid`, not optional.
+
+    Before this guard the constructor accepted `k=None` and `get_epsilon` raised TypeError the
+    first time the schedule left its warmup — i.e. hundreds of lessons into a run, long after the
+    config was validated. The unusable combination is refused at construction instead of being
+    carried as a value.
+    """
+    import pytest
+
+    from views_hydranet.utils.scheduled_sampling import ScheduledSamplingMixer
+
+    for schedule in ("exponential", "inverse_sigmoid"):
+        with pytest.raises(ValueError, match="requires k"):
+            ScheduledSamplingMixer(schedule, 0.5, warmup_lessons=10, k=None)
+
+
+def test_reverse_epsilon_stays_a_probability_on_every_schedule():
+    """The ITF path must never emit an epsilon outside [0, epsilon_max].
+
+    `reverse` returns `(1 - raw) * epsilon_max`, which is only a probability while `raw <= 1`.
+    This walks every valid schedule past its warmup and pins the range, so a future schedule whose
+    `raw` overshoots is caught here rather than silently feeding a negative probability to the
+    Bernoulli draw (where it would read as plain teacher forcing).
+    """
+    from views_hydranet.utils.scheduled_sampling import ScheduledSamplingMixer
+
+    cases = [("linear", None), ("exponential", 0.9), ("inverse_sigmoid", 12.0)]
+    for schedule, k in cases:
+        mixer = ScheduledSamplingMixer(schedule, 0.5, warmup_lessons=100, k=k, reverse=True)
+        values = [mixer.get_epsilon(i) for i in range(400)]
+        assert min(values) >= 0.0, f"{schedule}: negative epsilon {min(values)}"
+        assert max(values) <= 0.5, f"{schedule}: epsilon {max(values)} above epsilon_max"

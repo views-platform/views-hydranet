@@ -35,6 +35,12 @@ class ScheduledSamplingMixer:
             raise ValueError(f"Invalid schedule '{schedule}'. Must be one of: {VALID_SCHEDULES}")
         if epsilon_max < 0 or epsilon_max > 1:
             raise ValueError(f"epsilon_max must be in [0, 1], got {epsilon_max}")
+        # `k` is not optional for the two decay schedules: get_epsilon divides by it and
+        # exponentiates it, so a None here does not fall back to anything — it raises TypeError
+        # deep inside the training loop, hundreds of lessons after the config was accepted.
+        # Refuse the unusable combination at construction rather than carrying it as a value.
+        if schedule in ("exponential", "inverse_sigmoid") and k is None:
+            raise ValueError(f"{schedule} schedule requires k; got None.")
         if schedule == "exponential" and k is not None and k >= 1.0:
             raise ValueError(f"exponential schedule requires k < 1.0, got {k}")
         # Bengio 2015 inverse-sigmoid decay requires k >= 1 (k<1 is a wrong schedule shape; k=0
