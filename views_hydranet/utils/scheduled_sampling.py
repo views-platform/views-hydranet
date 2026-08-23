@@ -29,6 +29,7 @@ class ScheduledSamplingMixer:
         epsilon_max: float,
         warmup_lessons: int | None = None,
         k: float | None = None,
+        reverse: bool = False,
     ):
         if schedule not in VALID_SCHEDULES:
             raise ValueError(f"Invalid schedule '{schedule}'. Must be one of: {VALID_SCHEDULES}")
@@ -44,9 +45,11 @@ class ScheduledSamplingMixer:
         self.epsilon_max = epsilon_max
         self.warmup_lessons = warmup_lessons or 0
         self.k = k
+        self.reverse = reverse
         logger.info(
-            f"ScheduledSamplingMixer: schedule={schedule}, "
-            f"epsilon_max={epsilon_max}, warmup={self.warmup_lessons}, k={k}"
+            f"ScheduledSamplingMixer: schedule={schedule}, epsilon_max={epsilon_max}, "
+            f"warmup={self.warmup_lessons}, k={k}, reverse={reverse}"
+            + (" (INCREASING teacher forcing — Teutsch 2022 ITF, #287)" if reverse else "")
         )
 
     def get_epsilon(self, lesson_idx: int) -> float:
@@ -67,4 +70,16 @@ class ScheduledSamplingMixer:
         else:
             raw = 0.0
 
+        if self.reverse:
+            # INCREASING teacher forcing (Teutsch et al. 2022, #287): epsilon starts at
+            # `epsilon_max` and DECAYS to 0, so the model begins near free-running and is given
+            # progressively more ground truth. The forward direction — epsilon rising from 0 — is
+            # the decreasing-TF curriculum that Teutsch reports failing on time series and that
+            # our own SS sweep measured as harmful (M30-M33).
+            #
+            # `warmup_lessons` is the linear ramp length, so an ITF arm sets it to the TOTAL
+            # lesson count: the paper's method ramps across training, not over a short warmup.
+            # See `2026-08-23_itf_pilot_dossier/05_analysis_plan.md` AMENDMENT 1 for why a strict
+            # mirror of our constant-dose SS arm was rejected.
+            return min((1.0 - raw) * self.epsilon_max, self.epsilon_max)
         return min(raw * self.epsilon_max, self.epsilon_max)
