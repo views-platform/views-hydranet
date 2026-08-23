@@ -112,3 +112,28 @@ mean.
 
 One step (step 1), one target (`sb`), 4 seeds, no training, no config change. **This measures occurrence
 only.** It says nothing about AP, and nothing about steps ≥ 2 beyond the compounding already shown.
+
+---
+
+# AMENDMENT 1 — F2's estimator was too noisy for its own tolerance (fixed before §4 was read)
+
+**Defect.** F2 required the analytic `mean(gate × p_nonzero)` to match a **sampled** emitted occurrence
+within **2%**. But the sampled quantity was **one** Bernoulli realisation. At this prevalence the
+expected active count is ~45 cells out of 32,400, so its Monte-Carlo standard error is `√45 / 45` ≈
+**15%** — **seven times the tolerance it was being judged against**. The first run duly returned
+`F2 = FAIL` at a 21.6% discrepancy, which is **~1.8σ of pure sampling noise**, not evidence of anything.
+
+**As written, F2 could essentially never pass.** It was testing the sampler's variance, not the
+decomposition's correctness.
+
+**Fix — the estimator, not the threshold.** The sampled emission is now averaged over **k = 200**
+independent draws, reducing the standard error to ≈ `15% / √200` ≈ **1.1%**. **The 2% tolerance is kept
+unchanged**, and is now roughly 2σ of the improved estimator rather than 0.13σ of the old one.
+
+**This is deliberately not a loosening.** Widening the tolerance to fit a noisy estimator would have made
+F2 pass by weakening it; averaging makes it pass — or fail — for the right reason. The per-draw spread is
+recorded alongside so the noise level is visible rather than assumed.
+
+**§4 has NOT been consulted.** `G` and `C` from the failed run were printed to the terminal and are
+therefore known to me, which is disclosed here; the verdict is rendered only after F2 passes on the
+corrected estimator, and §4's thresholds are unchanged from the locked version.
