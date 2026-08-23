@@ -78,3 +78,28 @@ def test_the_itf_arm_config_ramps_across_training_not_over_a_warmup():
     assert wrong.get_epsilon(20) == 0.0, "short ramp collapses to pure TF — the shape A1 rejected"
     right = ScheduledSamplingMixer("linear", 0.5, warmup_lessons=LESSONS, reverse=True)
     assert right.get_epsilon(150) == pytest.approx(0.25, abs=1e-9), "must be mid-decay at halfway"
+
+
+def test_ss_reverse_reaches_the_mixer_from_config():
+    """The flag is useless if it stops at the config boundary. `training_engine` builds the mixer
+    from `config.get("ss_reverse", False)`; this pins that the key exists on the config model and
+    that its default preserves the pre-flag path."""
+    from views_hydranet.utils.config_initializer import HydraNetConfig
+
+    assert "ss_reverse" in HydraNetConfig.model_fields, "ss_reverse missing from the config model"
+    assert HydraNetConfig.model_fields["ss_reverse"].default is False, (
+        "ss_reverse must default to False, or every existing arm silently changes curriculum"
+    )
+
+
+def test_training_engine_forwards_ss_reverse_to_the_mixer():
+    """Asserted on source because constructing a real TrainingContext here would be a fixture the
+    size of the engine. The registered falsifier is the byte-identity test above; this guards the
+    one line that would otherwise make the flag a no-op in production."""
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parents[1] / "views_hydranet/train/training_engine.py"
+    text = src.read_text()
+    assert 'reverse=config.get("ss_reverse", False)' in text, (
+        "training_engine does not forward ss_reverse — the mixer would silently run forward"
+    )

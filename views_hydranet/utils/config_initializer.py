@@ -178,6 +178,12 @@ class HydraNetConfig(BaseModel):
     ss_feedback: str = Field(default="mean")
     ss_warmup_lessons: int | None = Field(default=None, ge=1)
     ss_k: float | None = Field(default=None, gt=0.0)
+    # #287 (Teutsch et al. 2022): INCREASING teacher forcing. False (default) is the ADR-056
+    # decreasing-TF curriculum and is byte-identical to the pre-flag behaviour; True starts at
+    # ss_epsilon_max and decays to 0, so the model begins near free-running and is given
+    # progressively more ground truth. An ITF arm sets ss_warmup_lessons to the TOTAL lesson count,
+    # because that is the linear ramp length — see the itf-pilot dossier's AMENDMENT 1.
+    ss_reverse: bool = Field(default=False)
 
     # 7. Sampling & Reproducibility
     total_lessons: int = Field(..., ge=1)
