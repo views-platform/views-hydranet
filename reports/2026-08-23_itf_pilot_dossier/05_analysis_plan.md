@@ -105,3 +105,56 @@ M38/M39/M41.
 
 **2 seeds (42, 43)**, one vehicle, L=300, `sb`, **AP only**. ~5 h/arm ⇒ **~10 h**. The `crps_all`
 ARTIFACT verdict (#263) is untouched. A 2v2 screens direction; it does not measure an effect.
+
+---
+
+# AMENDMENT 1 — the "reversed twin" framing was wrong. Corrected before any arm ran.
+
+*Added 2026-08-23, after reading the SS arm's actual schedule and before implementing anything.*
+
+## What §1 got wrong
+
+§1 claimed the pilot is *"the direction-reversed twin of an arm we have already run, at the same peak
+dose"*, making direction the single variable. **It is not.** The SS arms
+(`ss_schedule='linear'`, `ss_warmup_lessons=15`, `ss_epsilon_max=0.5`) produce:
+
+```
+lesson:    0      5      10     15     50     150    299
+epsilon:   0.000  0.167  0.333  0.500  0.500  0.500  0.500
+```
+
+**ε ramps over 15 lessons and then holds at 0.5 for the remaining 285.** The SS arm was effectively a
+**constant dose**, not a decreasing-TF *curriculum*. Teutsch's ITF is a genuine ramp across training.
+
+So a true ITF arm differs from our SS arm in **two** ways — direction *and* schedule shape — and the
+single-variable claim does not hold against it.
+
+## The choice, and why
+
+| option | shape | verdict |
+|---|---|---|
+| **A. strict mirror of the SS arm** | ε = 0.5 for 285 lessons, ramp to 0 over the last 15 | **rejected.** A strict reversal of a constant dose is "free-running for most of training, then a brief TF finish" — neither the paper's method nor obviously sensible. It would test a mirror artefact. |
+| **B. genuine ITF** *(adopted)* | ε decays **0.5 → 0 linearly across all 300 lessons** | tests what Teutsch actually reports. |
+
+**Implementation of B:** `reverse=True` with `warmup_lessons = total_lessons = 300`. The `linear`
+schedule already ramps `raw` from 0 to 1 across `warmup_lessons`, so `ε = (1 − raw)·ε_max` decays
+0.5 → 0 across the whole run. **No new schedule type is needed**, and `warmup_lessons` is used as what
+the code already treats it as — the linear ramp length.
+
+## What this does to the comparisons
+
+| comparison | status |
+|---|---|
+| **ITF vs `fullzero_*` (ε=0)** — *curriculum vs no curriculum* | ✅ **clean. This is the PRIMARY endpoint** and §4's decision rule applies to it unchanged. |
+| **ITF vs `fullhalf_*` (SS)** | ⚠️ **CONFOUNDED** — differs in direction *and* in ramp-vs-constant. Demoted to descriptive; **no verdict may rest on it**, and it must not be described as isolating direction. |
+
+§3's "Reference" line is amended accordingly: the seed-matched `fullhalf_*` arm is reported for context,
+not as a controlled contrast.
+
+## Why this is recorded rather than quietly fixed
+
+The original framing would have produced a headline of the form *"reversing the curriculum direction
+changes the sign of the effect"* — a single-variable claim the design does not support. That is the
+**C-303/C-305/C-306 family**: a claim outrunning what was measured. Catching it before the run is the
+whole point of writing the rule down first; the correction costs nothing now and would have cost a
+retraction later.
