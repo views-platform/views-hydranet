@@ -6,8 +6,8 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-22                           |
 | ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 305                                  |
-| Open Concerns     | 153                                  |
+| Total Concerns    | 306                                  |
+| Open Concerns     | 154                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | — net active risks | 132                                 |
 | Resolved Concerns | 152                                  |
@@ -3153,6 +3153,47 @@ C-247 is marked RESOLVED and its fix was real — but it covered `tests/test_sco
 
 ---
 
+
+### C-309: a confident NEGATIVE claim about the codebase, made without a search in the same message
+
+| Field | Value |
+|-------|-------|
+| ID | C-309 |
+| Tier | 2 |
+| Source | User escalation, 2026-08-23 — *"How did you not know this existed? If you don't know that this exists what else are you missing?"* |
+| Trigger | About to write **"we have never tested X"**, **"X does not exist"**, **"there is no Y in this repo"**, **"nothing measures Z"**, or **"I can't find a rationale for W"** — in a message, an issue, a dossier, a ledger row or a commit — without having run a search **in that same message** |
+| Location | Behavioural; instances: the `CurriculumLearner` exchange (2026-08-23); see narrative |
+| Cross-refs | C-303 (prose outruns the code), C-305 (rule overridden on grounds it did not contain), C-306, C-307, C-308 — the "claim outran the measurement" family |
+
+Asked whether a *data-sampling* curriculum had been tried, the answer given was **"We have not tested
+that. It is a real, untested axis"** — with no search run first. `views_hydranet/utils/curriculum.py`
+implements exactly that: `CurriculumLearner` decays an intensity **threshold** from `max_ratio=0.95` to
+`min_ratio=0.05`, so training **starts on only the most active windows and opens up to sparse ones**.
+It has its own CIC (`docs/CICs/CurriculumLearner.md`), its own active ADR
+(`011_curriculum_and_training_topology.md`), and config fields in `HydraNetConfig` — **a file edited
+earlier in the same session**, whose contract doc states the inverted-range rule on line 69. It runs in
+every arm of every experiment in this repo.
+
+A second negative claim in the same breath compounded it: *"somebody locked the direction in and I can't
+find a measurement behind that"* — stated before opening ADR-011, which **does** give a rationale
+("Signal Anchorage"). The accurate, narrower claim (found the stated goal, found no measurement
+**comparing directions**) only became sayable after reading the file.
+
+**Why Tier 2 rather than a style note.** A false negative about the codebase does not fail loudly. It
+redirects work: it proposes rebuilding what exists, spends GPU-hours re-deriving a settled thing, or —
+worse — frames an inherited, never-measured choice as *absent* rather than as *untested*, which are
+different research findings with different next steps. **Failure to retrieve is indistinguishable from
+absence from the inside**, which is precisely why the claim cannot be self-certified.
+
+**The rule.** *No negative claim about this codebase without a search in the same message.* If the search
+is not worth running, the claim is not worth making — downgrade it to a question ("does this exist?")
+rather than an assertion. This is mechanical and checkable after the fact by rereading the message: a
+negative assertion with no accompanying tool call is a violation regardless of whether it was true.
+
+**Standing corollary (the asymmetry that makes this tractable):** claims backed by a shown command and
+its output are a different reliability class from claims made from memory. **Positive, evidenced claims
+are the reliable ones; unevidenced negative ones are the unreliable ones.** Treat that asymmetry as the
+default calibration when reporting to the user, and say which class a statement is in when it matters.
 
 ## Disagreements
 
