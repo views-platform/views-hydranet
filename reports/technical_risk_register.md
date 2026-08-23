@@ -2867,7 +2867,7 @@ override turned out right by luck. The count is now stated with the h1 exception
 **Rule reaffirmed: a specific number does not go into a write-up until the command that produces it
 has been run.**
 
-### C-308: a probe measured the wrong phase of the rollout, and every downstream guard still passed
+### C-308: a probe measured the wrong phase of the rollout, and every downstream guard still passed — TWO occurrences
 
 | Field | Value |
 |-------|-------|
@@ -2914,6 +2914,25 @@ sample, so `max|h| == 0` marks a boundary and the inter-boundary distance is `or
 index and source artifact into every capture.
 
 ---
+
+**Second occurrence (2026-08-23, state-range EXP-01) — the same defect, a different axis.**
+`capture_regimes.py` replicated `predict()`'s origin resolution including its fallback,
+`origin = seq_len - 1 = 383`. But that fallback applies only when **no** origin is passed; production
+scoring rolls over `ctx.origins`, and the free-running phase actually begins at **335** (measured: sample
+period 371, `time_steps` 36). The probe therefore built the state from **48 extra months of history** and
+labelled it *"the state free-running inherits"*.
+
+**It reported seed 43's `|R2|max` as 21.59. At the true origin it is 66.08** — against an independently
+published **65.6**. **A 3× error in the headline quantity, and every falsifier still passed**: F1, F3, F4
+and F5 were all green on the wrong-origin run, and its §4 verdict (IN-RANGE) was the same one the correct
+run produced. **Nothing in the experiment could have caught it.** It surfaced only because the F2 vehicle
+check went looking for the sample period and the number disagreed with a value published from other work.
+
+**What generalises:** C-308's first instance was *"which phase"*; this is *"which origin"*. Both are
+**a probe inheriting a default that is only correct when the caller supplies nothing**. The mitigation is
+the same and now has two data points behind it: **a probe must assert the regime/index it sampled against
+an independently sourced value, not against its own internal consistency** — every internal check agreed
+with the wrong answer both times.
 
 ### C-307: a cheap screen's NO is recorded as a closure, with no false-negative mode and no reopen trigger
 
