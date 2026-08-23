@@ -154,3 +154,36 @@ run and changes rollout behaviour, which would imply the input distribution matt
 
 Two seeds, one architecture, `sb`. No training. No config changes. No claim about AP — this measures **states**,
 not skill; any link to AP is inference and must be labelled as such.
+
+---
+
+# AMENDMENT 1 — R1 moves onto the same months as R2 (recorded before any tool ran)
+
+**Defect in the locked §3.** R1 was specified as windows drawn by `VolumeSampler` from the **training
+volume**, while R2 runs on the **evaluation** volume. Those are different months. The comparison would
+therefore vary **two** things at once — spatial selection **and** partition — violating §2's "one
+variable" and making any `f` uninterpretable: an out-of-range result could be months, not geometry.
+
+**Fix.** R1 is drawn from **the same handler and the same months as R2**. The only thing that differs
+between R1 and R2 is then **which cells the state is run over**: activity-selected 32×32 patches (R1)
+versus the entire map (R2). Patch anchors are chosen by the **same** `SAMPLING_STRATEGY_REGISTRY`
+function and the same `min_events` the real sampler uses, at the same three schedule points
+(`ratio = 0.665 / 0.35 / 0.05`), so the *selection rule* is production; only the months are shared with
+R2 rather than taken from the training partition.
+
+**What this costs, stated plainly.** R1 is no longer literally "input the model trained on" — it is
+"input distributed the way training input was *selected*, on the months R2 uses". The hypothesis is
+about **spatial selection**, and this isolates exactly that.
+
+**R1b (added, cheap).** The same activity-selected patches on the **training** months. This measures the
+months axis directly instead of leaving it as an assumption. If R1 ≈ R1b, months are irrelevant and the
+§4 verdict rests on selection alone. If R1 ≠ R1b, that is itself a finding and the write-up must say the
+two axes are not separable in this design.
+
+**§4 is unchanged** and is computed on **R1 (shared months)**. R1b is reported alongside and **may not be
+substituted into the decision rule** — swapping which arm feeds a registered rule after seeing the
+numbers is exactly C-305.
+
+**F3 is unchanged and remains a HARD STOP**, and under this amendment it becomes the *licence* for the
+whole comparison: it holds location fixed and varies only patch-vs-full-grid, so passing it is what
+permits R1 and R2 to be read as differing in *selection* rather than in *image size*.
