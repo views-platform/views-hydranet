@@ -216,3 +216,53 @@ written, F2 would have aborted a correct run for the wrong reason.**
 **This makes F2 weaker, and that is the honest trade.** It no longer proves we are on the identical
 trajectory; it proves we are on a trajectory that collapses. Recorded as a **registered limitation**, not
 presented as an equivalent check.
+
+---
+
+# AMENDMENT 3 — F3 gets a numeric rule, and a disclosure
+
+## ⚠️ Disclosure first
+
+**F3's locked wording — "if they differ materially" — is qualitative**, and a smoke run of
+`capture_regimes.py` (2 patches, 2 locations, seed 42) **has already shown me F3 values before any
+numeric threshold existed**: `rel_abs_diff ≈ 0.09–0.10`, with patch |state| mean 0.1434 vs the same
+cells of the full grid 0.1458.
+
+**This is the C-305 shape** — a qualitative registered rule with room for a post-hoc criterion — and it
+is disclosed here rather than resolved silently. Everything below is therefore **not blind**. The
+threshold is set from an argument that does not reference those numbers, and **the expected outcome is
+stated up front** so this cannot later be presented as a blind test.
+
+## The design flaw the smoke run exposed
+
+A 32×32 patch and the full grid **must** disagree near the patch edge: the patch's border cells have no
+neighbours where the full grid does, and the model is convolutional. **A single pooled `rel_abs_diff`
+therefore confounds an unavoidable boundary artifact with the thing F3 is meant to detect** (whether
+input *extent* changes the state where the data is identical). ~10% pooled over a 32×32 patch is exactly
+what a boundary ring of a few cells would produce, and the locked F3 cannot tell that apart from a real
+geometry effect.
+
+## The rule
+
+Split each F3 patch into **border** (cells within `b` of the edge) and **interior** (the rest), and
+report `rel_abs_diff` separately for each. `b` is set to the model's receptive-field radius, read off
+the architecture — **not tuned**. F3 is judged on the **interior** only:
+
+| interior `rel_abs_diff` | F3 |
+|---|---|
+| **≤ 0.02** | **PASS** — where data is identical and boundary effects are excluded, patch and full grid produce the same state. R1-vs-R2 differences are then attributable to *selection*, not image size. |
+| **> 0.10** | **FAIL → HARD STOP.** Input extent alone moves the state; §4 is not consulted and no verdict is rendered. |
+| 0.02–0.10 | **HARD STOP as well**, reported as *"geometry contributes an amount comparable to what we are trying to measure."* |
+
+**Justification, independent of the observed values:** `f` in §4 asks whether R2 sits outside a 98%
+interval built from R1. For that comparison to mean anything, any *systematic* patch-vs-full-grid offset
+must be small next to the interval's own width. 0.02 is the same order as the 2% tail mass the interval
+is defined by; anything at 0.10 is five times that and would dominate. The 0.02/0.10 pair is read off
+§4's own construction, not off the smoke output.
+
+**Expected outcome, stated before the run:** interior **PASSES** and the border carries most of the
+pooled ~10%. **If that is what happens, it is a confirmed expectation, not a discovery** — and if the
+interior fails, the run stops and this experiment produces no verdict at all.
+
+**The pooled number is still reported** next to the split, so the border effect is visible rather than
+defined away.
