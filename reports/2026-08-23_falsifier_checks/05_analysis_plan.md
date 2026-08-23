@@ -145,3 +145,64 @@ than reasoning about them. Report:
 No GPU. No change to `views_hydranet/`. No confidence interval on `gap(h)` — that needs two cubes
 present simultaneously and every `predictions_*` cube has been deleted; the point estimates need
 nothing. #287's off-the-floor arm.
+
+---
+
+# AMENDMENT 1 — Check D (#294, GTF): the σ_max estimator
+
+*Added 2026-08-23, **before the measurement**. The threshold itself was registered earlier, in GitHub
+issue #294 (created 2026-08-22), whose timestamp precedes this file. **Check D is therefore genuinely
+blind**, unlike Checks A and B.*
+
+## The registered threshold (from #294, restated)
+
+Hess et al. 2023 derive `α = 1 − 1/σ_max`, **requiring σ_max ≥ 1**. M41 measured our empirical optimum
+at **w ≈ 0.1**, which if `w ≡ α` implies **σ_max ≈ 1.11**.
+
+| measured σ_max | verdict |
+|---|---|
+| **1.05 – 1.20** | striking — a derived α lands on a hand-swept optimum. Correspondence likely real. |
+| **≫ 1.2** | correspondence superficial; needs explaining before anything is built. |
+| **< 1.0** | **α is undefined for us — CLOSE #294.** The paper's formula yields a negative α below 1. |
+
+## The estimator, chosen before running
+
+σ_max is *"the supremum of spectral norms over all RNN Jacobians"*. The recurrent state map for LSTM
+cell *k* (`HydraBNrecurrentUnet_06_LSTM4.py:524-529`), with state `(hs, hl)` and input `x`:
+
+```
+i = σ(Wxi·x + Whi·hs)   f = σ(Wxf·x + Whf·hs)   c̃ = tanh(Wxc·x + Whc·hs)
+hl' = f ⊙ hl + i ⊙ c̃    o = σ(Wxo·x + Who·hs)   hs' = o ⊙ tanh(hl')
+```
+
+**The four cells are independent given `x`** — cell *k* reads only `hs_k, hl_k` — so the Jacobian is
+**block-diagonal** and `σ_max = max_k σ_max(block k)`.
+
+**Step 1 (data-free, exact for the operator): spectral norms of the 16 recurrent convolutions.** Power
+iteration on each `Wh*` as a *convolution operator* at the real spatial size, not on the weight matrix —
+a conv's operator norm is not its kernel's matrix norm. This needs **no data at all**.
+
+**Step 2: the analytic Jacobian bound.** Using `|σ'| ≤ ¼`, `|tanh'| ≤ 1`, `|f|,|i|,|o| ≤ 1`,
+`|c̃|,|tanh(hl')| ≤ 1`:
+
+```
+‖∂hl'/∂hl‖ ≤ max f  < 1                      (the cell's self-coupling is ALWAYS contractive)
+‖∂hl'/∂hs‖ ≤ ¼·M·‖Whf‖ + ¼·‖Whi‖ + ‖Whc‖     M = max|hl|, the one term needing data
+‖∂hs'/∂hl‖ ≤ max(o · tanh'(hl') · f) ≤ 1
+‖∂hs'/∂hs‖ ≤ ¼·‖Who‖ + ‖∂hl'/∂hs‖
+```
+
+**What each outcome licenses — registered now so it cannot be chosen later:**
+
+| result | reading |
+|---|---|
+| the bound is **< 1 even at generous M** | **σ_max < 1 definitively ⇒ CLOSE #294.** An upper bound below 1 is decisive; no data needed. |
+| the bound is **> 1** | **INCONCLUSIVE — an upper bound above 1 licenses nothing.** The bound is loose (it assumes every gate saturates simultaneously). Reporting "σ_max ≥ 1, so GTF applies" from a loose bound would be C-306 again: the wrong yardstick for the question. A verdict then requires **power iteration on the true Jacobian at states from a real rollout**, which needs an inference pass. |
+
+**M is the one term requiring data.** `max|hl|` is unbounded analytically for an LSTM. The bound will be
+reported **as a function of M**, with the M at which it crosses 1 stated explicitly, so the reader can
+see how much cell-state magnitude the contractive conclusion would tolerate.
+
+**Falsifier on the check itself:** the 16 conv operator norms must be **stable under power-iteration
+count** (report at 50 and 200 iterations; a drift > 1% means the iteration has not converged and no
+bound built on it is readable).

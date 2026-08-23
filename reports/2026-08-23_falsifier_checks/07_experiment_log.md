@@ -117,3 +117,178 @@ depth, which is already paid because `h` is never detached.
 Three checks, **zero GPU**, ~20 minutes. They close two of five investigative issues and re-scope a
 third, which was the information-theoretic case for running them before committing ~36 GPU-hours to
 #287.
+
+---
+
+### CHECK D · #294 Generalized Teacher Forcing · 2026-08-22 23:08 → 23:45 · **correspondence is SUPERFICIAL**
+
+Threshold registered in **GitHub issue #294 (2026-08-22)**, estimator in **AMENDMENT 1** (`e631f74`,
+23:08:39) — both before any measurement. **Unlike Checks A and B, this one was genuinely blind.**
+
+**The question.** Hess et al. derive `α = 1 − 1/σ_max` for the same interpolation our
+`blend_recurrent_state` performs. **M41** measured our empirical optimum at **w ≈ 0.1**. If `w ≡ α`,
+that implies `σ_max ≈ 1.11`. So the paper *predicts* our knob — a rare chance for an independently
+derived theory to land on a hand-swept result.
+
+#### Stage 1 — the analytic bound: INCONCLUSIVE, and structurally so
+
+Recurrent convolution **operator** norms (power iteration on the conv as an operator at the true field
+size, data-free; 0.48% drift between 50 and 200 iterations — converged):
+
+| cell | Whi | Whf | Whc | Who |
+|---|--:|--:|--:|--:|
+| 1 | 1.95 | **3.61** | 1.92 | 2.40 |
+| 2 | 1.97 | 2.91 | 1.87 | 1.76 |
+| 3 | 1.81 | 2.61 | 2.13 | 1.69 |
+| 4 | 2.25 | 2.34 | 2.13 | 1.73 |
+
+Bound at M=1: **5.32**. AMENDMENT 1 registered that *"an upper bound above 1 licenses nothing"*, so this
+is INCONCLUSIVE by the rule — **and the estimator turns out to be structurally incapable of ever
+answering.** Its dominant term is `¼·M·‖Whf‖ + ¼·‖Whi‖ + ‖Whc‖`, which floors near **2.5 even as M → 0**.
+The bound assumes every gate saturates simultaneously; with recurrent operator norms of 1.7–3.6 that
+assumption is far too generous to be informative here. **Recorded rather than dropped: an estimator
+registered in good faith that could not do the job.**
+
+*(This stage was first run at a 180×720 field. The captured states show the true field is **180×180** —
+africa, not global. A convolution's operator norm depends on field size, so it was re-run at 180×180;
+the verdict is unchanged.)*
+
+#### Stage 2 — the true Jacobian. **First attempt measured the WRONG PHASE.**
+
+⚠️ **The first run of this stage is retracted.** The capture hook took the **first six** forward calls,
+but the rollout loop is `for t in range(origin + time_steps)` (`hydranet_inference.py:913`) with
+`origin = seq_len - 1`: it digests **335 steps of real history first**, *then* runs 36 autoregressive
+steps. Calls 0–5 are the **teacher-forced warm-up**. Found independently by `/code-review medium` and by
+reading the loop while preparing the ritual.
+
+**Two claims fall with it:**
+
+1. **σ_max = 1.60 characterised the warm-up, not the rollout.** The question was about the free-running
+   regime.
+2. **The headline observation was backwards.** The log previously read *"we watched the drift happen …
+   the first direct observation of it"*, from `max|h|` rising 0.000 → 2.867. **That was the state filling
+   from zero initialisation.** It is not drift, and the real direction is the opposite (below).
+
+**Locating the phase boundary without hard-coding `origin`** (it is `seq_len - 1`, a data property, not
+a config constant): the recurrent state is re-zeroed at the start of every posterior sample, so
+`max|h| == 0` marks a sample boundary and the distance between boundaries is `origin + time_steps`.
+Measured period = **371**, so with `time_steps = 36`, **`origin = 335`** and the autoregressive phase is
+calls **335–370**.
+
+#### Stage 2 (corrected) — 8 states spanning the true free-running phase
+
+`--skip 335 --stride 5`, so the captures span the rollout rather than clustering at its start — σ_max is
+a **supremum over the trajectory**, and sampling only the first steps would understate it.
+
+| call | rollout step | max\|h\| | σ | drift |
+|--:|--:|--:|--:|--:|
+| 335 | 1 | 65.622 | 3.4120 | 0.00% |
+| 340 | 6 | 56.621 | **7.7628** | 0.00% |
+| 345 | 11 | 19.737 | 4.6363 | 0.00% |
+| 350 | 16 | 8.186 | 1.8734 | 0.00% |
+| 355 | 21 | 5.125 | 1.4820 | 0.00% |
+| 360 | 26 | 3.017 | 1.4795 | 0.00% |
+| 365 | 31 | 1.832 | 1.4769 | 0.00% |
+| 370 | 36 | 1.598 | 1.4744 | 0.00% |
+
+**σ_max = 7.7628**, every state converged to 0.00% drift.
+
+#### The state COLLAPSES during free-running — the opposite of what was first reported
+
+```
+max|h|:  65.6 → 56.6 → 19.7 → 8.2 → 5.1 → 3.0 → 1.8 → 1.6
+```
+
+**A ~40× decay over 36 steps.** The recurrent state is *large* at the anchor — everything digested from
+real observations — and then **drains away** as the model feeds on itself. This is a direct observation
+of **M16**'s *"the gate keeps its shape and loses its nerve"*, and it is what the earlier claim got
+exactly backwards.
+
+It also reframes **M38/M39/M41**: the cell anchor helps not by *restraining* a growing state but by
+**refilling a draining one**. A 10% pull per step (M41's saturation point) is enough because the state
+is losing information, not accumulating error.
+
+#### σ is strongly state-dependent, and a single number flattens that
+
+**3.4–7.8 early in the rollout, when the state is large; ~1.47 once it has collapsed.** Quoting one
+"σ_max" hides a 5× swing that tracks `max|h|` almost monotonically. Any future use of σ_max here should
+say *which part of the rollout* it refers to.
+
+#### Scope
+
+One seed, one vehicle, **8 states spanning one origin's autoregressive phase** — σ_max is a supremum
+over *all* states and this samples 8 of 36, at one origin of 13, for one posterior sample. Widening it
+is cheap (`--n-states`, `--stride`) and, given the 5× swing across the rollout, **a denser sample would
+likely raise σ_max further** — it would not move it toward [1.05, 1.20].
+
+---
+
+## ⚠️ POSTMORTEM — what these four checks are actually worth (C-307)
+
+Added 2026-08-23 after the user pointed out a pattern that **predates this session**:
+
+> *"We have dropped multiple things on the floor — and I keep telling you so — by doing quick smart
+> tests to see if real implementation makes sense, then dropping real implementation because the test
+> told us to. Then me later insisting that we try for real, and then it turns out that it in fact
+> works. This happens so much."*
+
+**Every check in this document is a proxy.** None of them tried the method being screened. A proxy's NO
+is evidence against the real thing only in proportion to how tightly the two are coupled — and this
+document originally recorded the verdicts and the falsifiers *on the checks*, but never the
+**false-negative mode of the checks themselves**.
+
+**The worst instance is CHECK D, and it is self-inflicted.** Issue #294's body states, in its own words,
+*"GTF re-anchors every step; we anchor once … **these are not the same operator**"* — and the check then
+compared their α against our w as though they were. Three independent reasons that comparison was
+invalid are now recorded on the issue: σ_max was measured on a teacher-forced model when α governs a
+GTF-trained one; the paper's adaptive variant does not use a fixed α at all; and the two weights
+parameterise different operators. **"GTF's theory does not predict our result" is withdrawn.** The
+number stands; the inference does not.
+
+### What survives, and what does not
+
+| | status |
+|---|---|
+| front-loading 3.15–4.22×, n=4, unanimous (A) | ✅ measurement stands |
+| decoupling 2.76–2.91σ vs 0.03–0.18σ, both series (B) | ✅ measurement stands |
+| `torch.poisson` severs the gradient, silently (C) | ✅ **fact about code — the one check that is not a proxy** |
+| ~~σ_max = 1.60~~ (D) | ❌ **retracted — measured on the teacher-forced warm-up, not the rollout** |
+| **σ_max = 7.7628** on 8 free-running states, converged (D, corrected) | ✅ measurement stands |
+| ~~"we watched the drift happen", max\|h\| 0.000 → 2.867~~ | ❌ **retracted, and backwards** — that was the warm-up filling from zero |
+| **the state COLLAPSES ~40× during free-running** (65.6 → 1.6) | ✅ the corrected observation, and it matches M16 |
+| "Professor Forcing is aimed at the wrong part of the curve" | ⚠️ weakened — measured on the untreated model |
+| "Horizon Forcing's premise fails ⇒ it would not help" | ⚠️ weakened — a wrong justification is not a wrong method |
+| "the GTF correspondence is superficial" | ❌ **withdrawn** |
+
+**CHECK C is the exception and it is worth naming why.** It is not a proxy: it establishes what the code
+*does*, and un-detaching the feedback really would be a silent no-op. That check is safe to act on. The
+other three screen a *method* through a *measurement of our current model*, which is a much weaker
+instrument than the write-ups implied.
+
+**CHECK D adds a second failure mode, worse than being a proxy: it measured the wrong part of the
+process.** The probe was pointed at the teacher-forced warm-up while the question was about the
+free-running rollout, and **nothing in the numbers looked wrong** — σ_max = 1.60 is a perfectly
+plausible value, and a rising `max|h|` read as a satisfying confirmation of drift. It was caught by
+reading the rollout loop, not by any guard. **A plausible number from the wrong measurement is harder to
+catch than a wrong number**, because every downstream check passes: the iteration converged, the
+falsifier was satisfied, and the write-up was internally consistent. Registered as **C-308**.
+
+### Standing rule adopted (C-307)
+
+An investigative issue closed on a proxy must carry **both**:
+
+1. **the false-negative mode** — the specific way this screen could say no while the real method says
+   yes; and
+2. **a reopen trigger** — a concrete condition that would make revisiting correct.
+
+**"CLOSED" means *screened out, here is what brings it back* — never *settled*.** Applied retroactively
+to #290, #291 and #294 on 2026-08-23.
+
+### The honest expected-value statement
+
+These four checks cost ~35 minutes and no GPU, against ~36 GPU-hours for #287. That trade was worth
+making. But the correct summary is **"three methods deprioritised, one code fact established"** — not
+*"two ideas closed"*. The deprioritisation is a **prior update**, not a verdict, and the reopen triggers
+above are deliberately low bars because the base rate of this programme reopening such decisions is
+high.
+

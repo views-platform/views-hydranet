@@ -5,11 +5,11 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-22                           |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 303                                  |
-| Open Concerns     | 151                                  |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
+| Total Concerns    | 305                                  |
+| Open Concerns     | 153                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 130                                 |
+| — net active risks | 132                                 |
 | Resolved Concerns | 152                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -2784,7 +2784,7 @@ clear persistence at every horizon (ledger M34, n=4) — which is what this entr
 
 ---
 
-### C-303: prose asserts a guard the code does not implement — FIVE occurrences, all in decision-bearing text
+### C-303: prose asserts a guard the code does not implement — SEVEN occurrences, incl. two fixes reported as applied that were not
 
 | Field | Value |
 |-------|-------|
@@ -2835,9 +2835,123 @@ falsifier had failed when it had passed.
 natural defence — the reader's only check on a provenance claim is the prose itself. Both were caught by
 `/code-review medium` reading git timestamps against the text, not by any test.
 
+**SIXTH AND SEVENTH INSTANCE, 2026-08-23 — and this pair is a *mechanical* variant worth separating.**
+On `exp/gtf-sigma-max`, two fixes were **reported to the user as applied when they had not been**. Both
+were `str.replace()` edits whose `old` text did not match (ruff had reflowed it), and **`str.replace`
+returns the string unchanged rather than raising**. The report said "fixed"; the file was untouched.
+
+* the `--stride`/provenance patch to `capture_states.py` — caught when the run failed with
+  `AttributeError: 'Namespace' object has no attribute 'stride'`;
+* the self-describing-JSON patch to `jacobian_sigma.py` — reported fixed **twice**, and both times the
+  committed artifact still lacked `iters`/`n_states`/`artifact`. Caught only by grepping the source
+  after claiming success.
+
+**This is the same class as the rest of C-303 (a claim about code that the code does not support) but
+with a mechanical cause and a mechanical fix:** every scripted edit must `assert t.count(old) == 1`
+before replacing, and the result must be **verified in the file** — not inferred from the edit script
+exiting cleanly. Where the edit changes an output artifact, regenerate the artifact and check it.
+
 **Mitigation that would have caught it:** a provenance claim about *when* something existed is checkable
 mechanically (`git log --diff-filter=A`). Any "pre-committed"/"pre-registered" assertion should cite the
 commit that proves it, as §5 of that same document does correctly for the dial's decision table.
+
+---
+
+### C-308: a probe measured the wrong phase of the rollout, and every downstream guard still passed
+
+| Field | Value |
+|-------|-------|
+| ID | C-308 |
+| Tier | 2 |
+| Source | `/code-review medium` on `exp/gtf-sigma-max` (2026-08-23), found independently while preparing the ritual |
+| Trigger | Attaching a hook or probe to a model that is called in **more than one regime** — history digestion vs autoregression, seed vs rollout, warm-up vs steady state — without asserting which regime the captured samples came from |
+| Location | `reports/2026-08-23_falsifier_checks/tools/capture_states.py`; `hydranet_inference.py:913` (`for t in range(origin + time_steps)`) |
+| Cross-refs | C-303, C-305, C-306, C-307 (the "claim outran the measurement" family) |
+
+`capture_states.py` hooked the model's forward and kept the **first six** calls. The rollout loop is
+`for t in range(origin + time_steps)` with `origin = seq_len - 1` — **335 steps of history digestion on
+real data, then 36 autoregressive steps.** The probe therefore sampled the **teacher-forced warm-up**
+while the question (#294) was about the **free-running** regime.
+
+**What makes this Tier 2 is that nothing looked wrong.** σ_max = 1.60 is a plausible value. The power
+iteration converged. The registered convergence falsifier was satisfied. The write-up was internally
+consistent. And the rising `max|h|` (0.000 → 2.867) read as a *satisfying confirmation* of cell-state
+drift — it was published as *"the first direct observation of it"*. **On the real free-running phase the
+state does the opposite: it collapses ~40×** (65.6 → 1.6). Direction, phase and interpretation were all
+wrong, and **every downstream guard passed**.
+
+**A plausible number from the wrong measurement is harder to catch than a wrong number.** No guard in
+the chain can detect it, because each one is checking a property *of the measurement* rather than *of
+what was measured*.
+
+**Corrected values:** σ_max = **7.7628** on 8 states spanning the true autoregressive phase (calls
+335–370), all converged to 0.00% drift — and σ is strongly state-dependent (3.4–7.8 early, ~1.47 late),
+so a single scalar flattens a 5× swing.
+
+**THE FIRST FIX DID NOT CLOSE THE FAILURE MODE — it moved the window without bounding it.** Adding
+`--skip`/`--stride` put the captures in the autoregressive phase, but nothing stopped them running past
+its end. The phase is calls 335–370 and the sample period is 371, so `--n-states 8 --stride 5` from 335
+ends at exactly 370 — **it fits by luck**. `--n-states 10` would have captured 375 and 380, which are the
+*next sample's* history digestion: the identical defect, silently. Caught by `/review-diff` on the
+corrected branch. The window is now bounded by the **same `max|h| == 0` reset signal** that locates the
+period, and stops **loudly and short** rather than mixing regimes.
+
+**Standing rule adopted 2026-08-23.** Any probe attached to a model called in more than one regime must
+**record the regime with each sample and assert it**, not infer it from call order. The phase boundary
+here is discoverable without hard-coding a data property: the recurrent state is re-zeroed per posterior
+sample, so `max|h| == 0` marks a boundary and the inter-boundary distance is `origin + time_steps`
+(measured: 371 ⇒ origin = 335). `capture_states.py` now takes `--skip`/`--stride` and stamps the call
+index and source artifact into every capture.
+
+---
+
+### C-307: a cheap screen's NO is recorded as a closure, with no false-negative mode and no reopen trigger
+
+| Field | Value |
+|-------|-------|
+| ID | C-307 |
+| Tier | 2 |
+| Source | user observation, 2026-08-23, on the #290/#291/#294 falsifier checks |
+| Trigger | Closing an investigative issue, or writing "the correspondence is superficial" / "the method is aimed at the wrong problem", on the strength of a **proxy** measurement rather than a trial of the thing itself |
+| Location | `reports/2026-08-23_falsifier_checks/07_experiment_log.md` (all four checks); GitHub #290, #291, #294 |
+| Cross-refs | C-303, C-305, C-306 (the same family: a claim stronger than what was measured) |
+
+**The user's report of the pattern, which predates this session:** *"we have dropped multiple things on
+the floor — and I keep telling you so — by doing quick smart tests to see if real implementation makes
+sense, then dropping real implementation because the test told us to. Then me later insisting that we
+try for real, and then it turns out that it in fact works. This happens so much."*
+
+A cheap screen answers a **proxy** question. Its NO is evidence against the real thing only in
+proportion to how tightly the proxy is coupled to it — and **that coupling has never been recorded**.
+The write-ups state the verdict and the falsifiers on the *check*, but not the **false-negative mode of
+the check itself**: the specific way the proxy could say no while the real method says yes.
+
+**The instance that makes this Tier 2 rather than a style note.** #294 measured σ_max = 1.60, derived
+GTF's α = 0.375, compared it to our measured w ≈ 0.10, and concluded *"correspondence superficial"*.
+**The issue's own body had already listed why that comparison is invalid** — *"GTF re-anchors every
+step; we anchor once … **these are not the same operator**"* — and the numeric comparison was made
+anyway. Three independent reasons the screen can be a false negative there:
+
+1. **σ_max was measured on the wrong model.** α is a *training* parameter and training under GTF
+   *reshapes the Jacobian* — that is the method's entire mechanism. σ_max on a teacher-forced model is
+   the σ_max of the model GTF would replace.
+2. **The paper does not recommend a fixed α.** aGTF derives it per batch and anneals from α=1 downward,
+   so "the paper predicts 0.375" is a static simplification the authors themselves supersede.
+3. **The two weights parameterise different operators** (frozen anchor vs moving target), so there is no
+   reason their optima should coincide even if the mechanism transfers.
+
+**Tier 2 (structural, with a demonstrated history):** the failure is silent — a closed issue looks
+settled, and the cost lands weeks later as work redone or a real effect never found. It compounds with
+C-303/C-305/C-306, all of which are "the claim outran the measurement".
+
+**Standing rule adopted 2026-08-23.** An investigative issue closed on a proxy must carry both:
+
+* **the false-negative mode** — the specific way this screen could say no while the real method says
+  yes; and
+* **a reopen trigger** — a concrete condition that would make revisiting correct.
+
+"CLOSED" then means *"screened out, here is what would bring it back"*, not *"settled"*. Applied
+retroactively to #290, #291 and #294.
 
 ---
 
