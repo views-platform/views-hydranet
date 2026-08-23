@@ -169,6 +169,14 @@ def main() -> int:
                 "gtf_alpha": alpha,
                 "m41_w": 0.10,
                 "verdict": verdict,
+                # Self-describing. A first run at iters=60 on the WRONG rollout phase was VOID,
+                # and a later one at 250 on the autoregressive phase was accepted; without these
+                # fields the two artifacts are indistinguishable on disk (C-308). `states_dir` is
+                # what identifies the PHASE the Jacobian was measured in.
+                "iters": a.iters,
+                "n_states": len(sigmas),
+                "artifact": str(art_path),
+                "states_dir": str(a.states),
             },
             indent=2,
         )

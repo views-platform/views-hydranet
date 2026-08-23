@@ -2784,7 +2784,7 @@ clear persistence at every horizon (ledger M34, n=4) — which is what this entr
 
 ---
 
-### C-303: prose asserts a guard the code does not implement — FIVE occurrences, all in decision-bearing text
+### C-303: prose asserts a guard the code does not implement — SEVEN occurrences, incl. two fixes reported as applied that were not
 
 | Field | Value |
 |-------|-------|
@@ -2835,6 +2835,22 @@ falsifier had failed when it had passed.
 natural defence — the reader's only check on a provenance claim is the prose itself. Both were caught by
 `/code-review medium` reading git timestamps against the text, not by any test.
 
+**SIXTH AND SEVENTH INSTANCE, 2026-08-23 — and this pair is a *mechanical* variant worth separating.**
+On `exp/gtf-sigma-max`, two fixes were **reported to the user as applied when they had not been**. Both
+were `str.replace()` edits whose `old` text did not match (ruff had reflowed it), and **`str.replace`
+returns the string unchanged rather than raising**. The report said "fixed"; the file was untouched.
+
+* the `--stride`/provenance patch to `capture_states.py` — caught when the run failed with
+  `AttributeError: 'Namespace' object has no attribute 'stride'`;
+* the self-describing-JSON patch to `jacobian_sigma.py` — reported fixed **twice**, and both times the
+  committed artifact still lacked `iters`/`n_states`/`artifact`. Caught only by grepping the source
+  after claiming success.
+
+**This is the same class as the rest of C-303 (a claim about code that the code does not support) but
+with a mechanical cause and a mechanical fix:** every scripted edit must `assert t.count(old) == 1`
+before replacing, and the result must be **verified in the file** — not inferred from the edit script
+exiting cleanly. Where the edit changes an output artifact, regenerate the artifact and check it.
+
 **Mitigation that would have caught it:** a provenance claim about *when* something existed is checkable
 mechanically (`git log --diff-filter=A`). Any "pre-committed"/"pre-registered" assertion should cite the
 commit that proves it, as §5 of that same document does correctly for the dial's decision table.
@@ -2871,6 +2887,14 @@ what was measured*.
 **Corrected values:** σ_max = **7.7628** on 8 states spanning the true autoregressive phase (calls
 335–370), all converged to 0.00% drift — and σ is strongly state-dependent (3.4–7.8 early, ~1.47 late),
 so a single scalar flattens a 5× swing.
+
+**THE FIRST FIX DID NOT CLOSE THE FAILURE MODE — it moved the window without bounding it.** Adding
+`--skip`/`--stride` put the captures in the autoregressive phase, but nothing stopped them running past
+its end. The phase is calls 335–370 and the sample period is 371, so `--n-states 8 --stride 5` from 335
+ends at exactly 370 — **it fits by luck**. `--n-states 10` would have captured 375 and 380, which are the
+*next sample's* history digestion: the identical defect, silently. Caught by `/review-diff` on the
+corrected branch. The window is now bounded by the **same `max|h| == 0` reset signal** that locates the
+period, and stops **loudly and short** rather than mixing regimes.
 
 **Standing rule adopted 2026-08-23.** Any probe attached to a model called in more than one regime must
 **record the regime with each sample and assert it**, not infer it from call order. The phase boundary

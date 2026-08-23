@@ -76,6 +76,18 @@ class CaptureManager(HydranetManager):
                 logger.info("PERIOD: state reset at call %d", call)
                 if self.find_period:
                     raise _Enough(f"period = {call}")
+                if self._captured:
+                    # A reset means this sample's autoregressive phase is OVER — the next calls
+                    # are the following sample's history digestion. Capturing past here is exactly
+                    # C-308 (a probe sampling the wrong regime), and `--skip/--stride` bound the
+                    # window's START but not its END: `--n-states 10 --stride 5` from 335 would
+                    # reach 380, which is history again. Stop LOUDLY and short rather than
+                    # silently mixing regimes.
+                    raise _Enough(
+                        f"state reset at call {call}: the autoregressive phase ended after "
+                        f"{self._captured} of {self.n_states} requested captures. Reduce "
+                        "--n-states or --stride; capturing further would sample history digestion."
+                    )
             if call % 200 == 0:
                 logger.info("call %d (capturing from %d)", call, self.skip)
             if call < self.skip or (call - self.skip) % self.stride:

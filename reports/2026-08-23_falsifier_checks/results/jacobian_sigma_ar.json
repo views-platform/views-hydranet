@@ -53,5 +53,9 @@
   "converged": true,
   "gtf_alpha": 0.8711803630447978,
   "m41_w": 0.1,
-  "verdict": "CORRESPONDENCE SUPERFICIAL \u2014 sigma_max outside [1.05, 1.20] and >= 1"
+  "verdict": "CORRESPONDENCE SUPERFICIAL \u2014 sigma_max outside [1.05, 1.20] and >= 1",
+  "iters": 250,
+  "n_states": 8,
+  "artifact": "/home/simon/Documents/scripts/views_platform/views-models/models/fullzero_fortythree/artifacts/calibration_model_20260821_045948.pt",
+  "states_dir": "/home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-08-23_falsifier_checks/results/states_ar"
 }
