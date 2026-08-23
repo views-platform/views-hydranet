@@ -266,3 +266,52 @@ interior fails, the run stops and this experiment produces no verdict at all.
 
 **The pooled number is still reported** next to the split, so the border effect is visible rather than
 defined away.
+
+---
+
+# AMENDMENT 4 — the expectation in AMENDMENT 3 is withdrawn; F3 will probably HARD STOP
+
+Written **before** the F3 run, because the reasoning changed and the prediction must change with it.
+
+## The receptive field compounds across timesteps
+
+Reading `HydraBNrecurrentUnet_06_LSTM4.py`: 3×3 convs (`padding=1`), two `MaxPool2d(2,2)`, a bottleneck
+conv, two `ConvTranspose2d(2, stride=2)` and decoder 3×3 convs. Accumulating jump and radius gives a
+**single-pass receptive-field radius of ≈ 12–13 cells**.
+
+**But the state is recurrent.** `h_t` feeds the forward pass that produces `h_{t+1}`, so the region of
+input influencing a cell's state **grows by ~12 cells per timestep**. R1/R2/F3 digest **384** steps.
+After ~2 steps the influence region already spans a 32×32 patch; after 384 it vastly exceeds it.
+
+**Therefore a 32×32 patch run for 384 recurrent steps has no boundary-free interior.** AMENDMENT 3's
+`b = receptive-field radius` would leave a 6×6 "interior" that is, after two timesteps, just as
+boundary-contaminated as the border. **AMENDMENT 3's stated expectation — "interior PASSES" — is
+withdrawn. The honest prediction is that F3 FAILS and the run HARD STOPS.**
+
+## Why this is not a reason to weaken F3
+
+The temptation is to loosen F3 so the experiment can produce a number. **That is precisely what F3 exists
+to prevent**, and C-308 is what it looks like when a confounded measurement is published because it
+looked plausible. **F3 stands as written in AMENDMENT 3.** If it fails, this design yields **no verdict**,
+and that is the correct result rather than a disappointing one.
+
+## What the failure would actually mean — a real finding, not just a dead end
+
+If F3 fails, it says something true and non-obvious: **boundary effects are not a nuisance in this
+design, they are a property of training.** Training runs the state over 32×32 patches for the full
+sequence, so the training states genuinely *are* boundary-dominated, while deployment states are not.
+**Geometry is not separable from "training-like" here — it is part of what training-like means.** R1 and
+R2 would then differ in selection *and* in geometry inseparably, which is exactly what §2 forbids.
+
+## The successor design, named now so it cannot be reverse-engineered later
+
+If F3 hard-stops, the follow-up is a **new pre-registration**, not an amendment to this one:
+
+> Within the **single full-grid R2 run** — no patches anywhere, so no geometry variable exists — compare
+> the state distribution over cells that **would** have qualified inside a selected training window
+> against cells that **never** would. Same run, same months, same image size; the only thing that varies
+> is which cells are read out.
+
+That tests the same hypothesis (does the model hold state over territory it never trained on?) with the
+confound removed by construction. **It is written down here, before F3 runs, so that if F3 does fail the
+successor cannot be presented as a fresh idea that happened to arrive after an inconvenient result.**
