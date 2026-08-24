@@ -29,11 +29,11 @@ by `'model':` in `config_hyperparameters.py`. **Everything else in the config is
 | # | name | change | params vs incumbent | evidence |
 |---|---|---|---|---|
 | 1 | **AntiAliasedPool** | both `MaxPool2d(2,2)` → `MaxBlurPool` (dense max, then blur, then subsample) | **+0** | `Zhang2019_AntiAliasedCNN` |
-| 2 | **DynamicTopSkip** | raw-concat the 3 dynamic input channels onto `e0s` feeding every `dec_conv1` | +small (6 × 3 × base × 9) | ADR-061 seam, dynamic content |
-| 3 | **FiLMSkip** | same information as **learned modulation** — a small conv predicts per-channel (γ, β) from the dynamic input, applied to `e0s` | +small | C-230's "learned modulation, not raw concat" |
-| 4 | **ShallowPool** | drop `pool1`; bottleneck at **½** not ¼; `bottleneck_conv` dilated to hold receptive field | ≈0 | DeepLab atrous; `Dumoulin2016` |
-| 5 | **DualStream** | a parallel full-resolution stream (no downsampling) fused with `e0s_topskip` before each head | **+large** | `Sun2019_HRNet` (lite) |
-| 6 | **WideMemory** | ConvLSTM hidden channels widened (32 → 128, i.e. 16 per cell instead of 4) | **+large in the memory** | the 0.5% measurement above |
+| 2 | **DynamicTopSkip** | raw-concat the 3 dynamic input channels onto `e0s` feeding every `dec_conv1` | **+0.6%** | ADR-061 seam, dynamic content |
+| 3 | **FiLMSkip** | same information as **learned modulation** — a small conv predicts per-channel (γ, β) from the dynamic input, applied to `e0s`; **zero-init, so it starts as the identity** | **+0.2%** | C-230's "learned modulation, not raw concat" |
+| 4 | **ShallowPool** | drop `pool1`; bottleneck at **½** not ¼; `bottleneck_conv` dilated to hold receptive field | **−16.3%** | DeepLab atrous; `Dumoulin2016` |
+| 5 | **DualStream** | a parallel full-resolution stream (no downsampling) fused into the top-skip before each head | **+1.9%** | `Sun2019_HRNet` (lite) |
+| 6 | **WideMemory** | ConvLSTM state widened 32 → 128 (16 per cell, not 4); conv stack unchanged | **+6.0%** (LSTM ×10.6) | the 0.5% measurement above |
 
 ### Why these six and not others
 
@@ -52,13 +52,32 @@ keep a stream that never had one. (4) is nearly free in parameters; (5) is not.
 thing carrying placement across the rollout has enough capacity to carry anything. Given the state
 freeze is our only win, a 4,160-parameter memory is a live suspect.
 
-## The capacity confound, stated not hidden
+## The capacity confound — MEASURED, and smaller than assumed
 
-(5) and (6) **add substantial parameters**; (1) adds none; (2), (3), (4) add little. If (5) or (6) wins
-we will not know whether the gain is the inductive bias or the capacity. **This is registered now as a
-known limitation of those two arms**, and the write-up must report parameter counts beside every result
-rather than comparing architectures as if capacity were held constant. A capacity-matched control for a
-winning (5)/(6) is follow-up work, not part of this program.
+Written first as "(5) and (6) add substantial parameters". **Measured after implementation, that was
+wrong**, and the correction is recorded rather than quietly edited:
+
+| candidate | params | Δ vs incumbent |
+|---|--:|--:|
+| incumbent | 905,289 | — |
+| (1) AntiAliasedPool | 905,289 | **+0.0%** |
+| (3) FiLMSkip | 907,081 | +0.2% |
+| (2) DynamicTopSkip | 910,473 | +0.6% |
+| (5) DualStream | 922,217 | +1.9% |
+| (6) WideMemory | 959,241 | +6.0% |
+| (4) ShallowPool | 757,449 | **−16.3%** |
+
+**No arm is capacity-confounded in the way first feared.** (1) is exactly zero by construction — the
+blur filter is a buffer, not a parameter. (5) is +1.9%, not "large", because the fusion returns to
+`base` channels so the six decoder paths are untouched. (6) widens the LSTM **10.6×** (4,160 →
+44,288) for **+6%** of total parameters, precisely because the memory was such a small share to begin
+with — which is the measurement that motivated it.
+
+**(4) is the one asymmetric case**: it has **16% FEWER** parameters, because `upsample0` becomes a 1×1
+channel projection. So a (4) **win** cannot be capacity; a (4) **loss** might be. Stated in that
+direction, not glossed.
+
+Parameter counts are still reported beside every result.
 
 ## What is deliberately NOT changed
 

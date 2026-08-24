@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
+from views_hydranet.architectures.registry import get_architecture
 from views_hydranet.utils.count_mean_loss import CountMeanMSELoss
 from views_hydranet.utils.dense_nb_loss import DenseNBLoss
 from views_hydranet.utils.focal_loss import FocalLoss
@@ -26,25 +26,21 @@ logger = logging.getLogger(__name__)
 
 def choose_model(config: dict, device: torch.device) -> nn.Module:
     """Factory for model instantiation."""
-    if config["model"] == "HydraBNUNet06_LSTM4":
-        model = HydraBNUNet06_LSTM4(
-            config["input_channels"],
-            config["total_hidden_channels"],
-            config["output_channels"],
-            config["dropout_rate"],
-            output_distribution=config.get("output_distribution", "standard"),
-            n_static_channels=len(config.get("static_channels", [])),  # ADR-061 top-skip
-            static_top_skip=config.get("static_top_skip", True),  # C-228: False=encoder-only
-            reg_activation=config.get("reg_activation"),  # Exp B: decouple emit activation
-            n_quantiles=config.get("n_quantiles"),  # quantile head: K reg channels per target
-        ).to(device)
-    else:
-        err_msg = f"Unknown model type: {config['model']}"
-
-        logger.error(err_msg)
-
-        raise ValueError(err_msg)
-    return model
+    # ADR-061 top-skip / C-228 encoder-only / Exp B emit activation / quantile head width are all
+    # passed to EVERY architecture, so the registry stays a name lookup rather than a per-model
+    # argument table. get_architecture raises on an unknown name, naming what is registered.
+    model_cls = get_architecture(config["model"])
+    return model_cls(
+        config["input_channels"],
+        config["total_hidden_channels"],
+        config["output_channels"],
+        config["dropout_rate"],
+        output_distribution=config.get("output_distribution", "standard"),
+        n_static_channels=len(config.get("static_channels", [])),  # ADR-061 top-skip
+        static_top_skip=config.get("static_top_skip", True),  # C-228: False=encoder-only
+        reg_activation=config.get("reg_activation"),  # Exp B: decouple emit activation
+        n_quantiles=config.get("n_quantiles"),  # quantile head: K reg channels per target
+    ).to(device)
 
 
 # Loss registries: add new losses here, not in choose_loss().

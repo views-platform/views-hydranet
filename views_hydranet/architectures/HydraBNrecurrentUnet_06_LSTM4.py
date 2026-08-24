@@ -72,6 +72,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
         static_top_skip=True,
         reg_activation=None,
         n_quantiles=None,
+        state_channels=None,
     ):
         """
         Initializes the HydraNet architecture.
@@ -146,21 +147,39 @@ class HydraBNUNet06_LSTM4(nn.Module):
         # top-skip re-injection (C-228: raw statics at the gate head's dec_conv1 collapse AP). The
         # encoder still receives them via input_channels; only the head re-injection is removed.
         self.n_static = n_static_channels
+        #: dynamic (non-static) input channels — the conflict field. Subclass seams slice these as
+        #: `x[:, :self.n_dynamic]`; statics are the LAST n_static, which is why the two differ.
+        self.n_dynamic = input_channels - n_static_channels
         self.static_top_skip = static_top_skip
         topskip_static = n_static_channels if static_top_skip else 0
 
         kernel_size = 3
+        # byte-identical to the pre-seam model (pinned by test_architecture_registry.py);
+        # the WideMemory candidate passes a wider state to vary the memory ALONE.
+        # the same number, which is why raising `total_hidden_channels` widens the whole network
+        # rather than just its memory. `state_channels=None` keeps them identical and therefore
+        # byte-identical to the pre-seam model (pinned by test_architecture_registry.py); the
+        # WideMemory candidate passes a wider state to vary the memory ALONE.
         base = total_hidden_channels
+        state = total_hidden_channels if state_channels is None else int(state_channels)
+        if state % 8:
+            raise ValueError(
+                f"state_channels={state} is not divisible by 8 (4 short-term + 4 long-term "
+                "groups); blend_recurrent_state would silently mis-assign memory types."
+            )
         lstm_padding = kernel_size // 2
 
         num_lstm_cells = 4
-        num_lstm_state_layers = int(total_hidden_channels / (num_lstm_cells * 2))
+        num_lstm_state_layers = int(state / (num_lstm_cells * 2))
 
-        self.base = base
+        #: The RECURRENT width. Callers size the state from this (`init_hTtime(model.base, ...)`),
+        #: so it must be the state width, not the conv width.
+        self.base = state
+        self.conv_base = base
 
         # encoder (downsampling)
         self.enc_conv0 = nn.Conv2d(
-            input_channels + int(total_hidden_channels / 2),
+            input_channels + int(state / 2),
             base,
             kernel_size,
             padding=1,
@@ -499,6 +518,26 @@ class HydraBNUNet06_LSTM4(nn.Module):
             bias=True,
         )
 
+    def _topskip(self, e0s, coords, x):
+        """Build the full-resolution skip fed to every head's ``dec_conv1``.
+
+        **An extension seam, not a behaviour change.** The default is exactly the ADR-061 rule it
+        replaced — concat the raw statics when there are any, otherwise pass ``e0s`` through — and
+        `tests/architectures/test_architecture_registry.py` pins that the incumbent stays
+        byte-identical through it.
+
+        It exists because three bake-off candidates (DynamicTopSkip, FiLMSkip, DualStream) differ
+        from the incumbent ONLY here, and the alternative was four near-identical copies of a
+        90-line `forward` with six spelled-out decoder paths. Subclasses override this one method.
+
+        Args:
+            e0s: the full-resolution encoder feature, ``[B, base, H, W]``.
+            coords: the raw static channels, or ``None`` when there are none.
+            x: the encoder input, ``[B, in + 4*state, H, W]`` — the raw dynamic channels are its
+                FIRST ``self.n_dynamic``, which is what the dynamic-skip candidates consume.
+        """
+        return torch.cat([e0s, coords], 1) if coords is not None else e0s
+
     def forward(self, x, h):
         """
         Performs a forward pass for a single time step.
@@ -560,7 +599,7 @@ class HydraBNUNet06_LSTM4(nn.Module):
         e0s = self.dropout["e0s"](e0s_)
         # ADR-061: append the raw coords to the full-resolution skip fed to every head's decision
         # layer (dec_conv1). Encoder downsampling below uses e0s (no coords). None => unchanged.
-        e0s_topskip = torch.cat([e0s, coords], 1) if coords is not None else e0s
+        e0s_topskip = self._topskip(e0s, coords, x)
         e0 = self.pool0(e0s)
         e1s = self.dropout["e1s"](F.relu(self.bn_enc_conv1(self.enc_conv1(e0))))
         e1 = self.pool1(e1s)
