@@ -119,3 +119,48 @@ shortfall is absent there; or anyone wants `threshold_gate` instead of `soft_gat
 4 seeds, one architecture, `sb`, L=300, calibration partition. **No curriculum change. No
 `body_supervision` change.** The ZINB cross-check is deliberately **not** bundled here — it is a
 different question and would confound the write-up.
+
+---
+
+# AMENDMENT 1 — §5's permutation test could not express a NEGATIVE effect
+
+## ⚠️ Disclosure first
+
+**This defect was found AFTER the four arms were scored, and I had already seen the numbers.** It is
+disclosed here rather than quietly corrected. The justification below is taken from §5's own
+registered prose, not from the observed values.
+
+## The defect
+
+`verify_trunc._permutation_p` computes the exact one-sided p for **`treatment > control`**. §5's
+EFFECT row requires `p ≤ 0.05`. **A strongly NEGATIVE effect therefore scores `p = 1.0` and can never
+reach the EFFECT branch** — it falls into `NULL / UNDERPOWERED` instead.
+
+That is what happened: mean ΔAP@h18 = **−0.2376**, which is **7.5×** the `3×MDE` bar of 0.0317, with
+all four seeds agreeing in sign — and the rendered verdict read *"NULL / UNDERPOWERED, p=1.0000"*.
+**As implemented, the rule was incapable of reporting the result the experiment actually produced.**
+
+## Why the fix is the registered rule, not a new one
+
+Two pieces of the locked text show the intent was **two-directional** and only the implementation was
+one-directional:
+
+* §5's EFFECT row reads *"…**and all four seeds agree in sign**"*. A clause about *which* sign the
+  seeds agree on is meaningless if only one sign can ever fire.
+* The code itself contains `state = "EFFECT" if mean_d > 0 else "EFFECT (NEGATIVE)"` — a branch I
+  wrote and which was **unreachable**, because the `p ≤ 0.05` guard above it excludes `mean_d < 0`.
+
+**Fix:** the permutation p is computed **in the observed direction** (equivalently, a two-sided test
+with the direction reported). `3×MDE` is compared on `|mean ΔAP|`, which it already was. No threshold
+moves: `p ≤ 0.05`, `3×MDE`, and sign agreement are all unchanged.
+
+**This makes the rule harder to satisfy in no direction and easier in none** — it makes a previously
+unreachable branch reachable. It cannot be used to convert this result into a favourable one: the
+effect is negative either way, and the change is what allows it to be *called* an effect rather than
+misreported as a null.
+
+## Consequence for the verdict
+
+In the observed direction `p = 0.0143` — the exact `1/C(8,4)` floor, i.e. **maximum separation: all
+four treatment arms fall below all four controls.** With `|mean ΔAP| = 0.2376 ≥ 3×MDE = 0.0317` and
+unanimous sign, §5 returns **EFFECT (NEGATIVE)**.

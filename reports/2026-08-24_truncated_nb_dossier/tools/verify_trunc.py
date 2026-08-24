@@ -168,8 +168,15 @@ def main() -> int:
     else:
         treat = [r["trunc"] for r in done]
         ctrl = [r["control"] for r in done]
-        p = _permutation_p(treat, ctrl)
+        # AMENDMENT 1: the p must be computed in the OBSERVED direction. The original call tested
+        # only `treatment > control`, so a strongly negative effect scored p=1.0 and fell into
+        # NULL/UNDERPOWERED — the `EFFECT (NEGATIVE)` branch below was unreachable. §5's "all four
+        # seeds agree in sign" presupposes either sign; only the implementation was one-directional.
         deltas = [r["delta"] for r in done]
+        mean_d_dir = sum(deltas) / len(deltas)
+        p = (
+            _permutation_p(treat, ctrl) if mean_d_dir >= 0 else _permutation_p(ctrl, treat)
+        )
         same_sign = all(d > 0 for d in deltas) or all(d < 0 for d in deltas)
         mean_d = sum(deltas) / len(deltas)
         # MDE from the per-seed paired bootstrap when present; else unavailable, and §5 says an
@@ -191,8 +198,8 @@ def main() -> int:
         elif p <= 0.05 and abs(mean_d) >= 3 * mde and same_sign:
             state = "EFFECT" if mean_d > 0 else "EFFECT (NEGATIVE)"
             detail = (
-                f"p={p:.4f} (floor 0.0143), mean ΔAP={mean_d:+.4f} ≥ 3×MDE={3 * mde:.4f}, all "
-                "four seeds agree in sign."
+                f"p={p:.4f} (one-sided in the OBSERVED direction; floor 0.0143), mean ΔAP="
+                f"{mean_d:+.4f}, |mean ΔAP| ≥ 3×MDE={3 * mde:.4f}, all four seeds agree in sign."
             )
         else:
             state = "NULL / UNDERPOWERED"
@@ -253,8 +260,35 @@ def main() -> int:
     return 0
 
 
+def _self_test() -> int:
+    """Assert BOTH signs of the EFFECT branch are reachable (C-303, ninth occurrence).
+
+    The defect this guards: the permutation p was one-sided for `treatment > control`, so a
+    negative effect scored p=1.0, could never satisfy §5's `p <= 0.05`, and the `EFFECT (NEGATIVE)`
+    branch was unreachable — the rule rendered `NULL / UNDERPOWERED` for a −0.24 effect at 7.5× MDE.
+    An unreachable branch was the tell, and it was available before any data.
+    """
+    hi, lo = [0.33, 0.33, 0.31, 0.34], [0.11, 0.10, 0.05, 0.09]
+    # `_permutation_p(a, b)` tests "a > b", so the WRONG-direction call correctly returns 1.0.
+    # That asymmetry is the whole defect: main() must select the direction, not assume one.
+    assert _permutation_p(hi, lo) == 1.0 / 70, "max separation must hit the exact floor"
+    assert _permutation_p(lo, hi) == 1.0, "the wrong-direction test must NOT be significant"
+    # the observed-direction selection must pick the SMALL p in both directions
+    for treat, ctrl, want_sign in ((hi, lo, +1), (lo, hi, -1)):
+        mean_d = sum(treat) / len(treat) - sum(ctrl) / len(ctrl)
+        p = _permutation_p(treat, ctrl) if mean_d >= 0 else _permutation_p(ctrl, treat)
+        assert (mean_d > 0) == (want_sign > 0)
+        assert p <= 0.05, f"sign {want_sign}: p={p} — this branch is UNREACHABLE"
+    # and a genuine null must NOT reach significance
+    assert _permutation_p([0.30, 0.31, 0.30, 0.31], [0.30, 0.31, 0.30, 0.31]) > 0.05
+    print("self-test OK: EFFECT reachable for BOTH signs; null does not reach significance")
+    return 0
+
+
 if __name__ == "__main__":
     try:
+        if "--self-test" in sys.argv:
+            sys.exit(_self_test())
         sys.exit(main())
     except Exception as exc:  # noqa: BLE001 - a crashed verifier must stop the queue, not pass it
         print(f"verify_trunc: CRASHED -> VOID: {type(exc).__name__}: {exc}", file=sys.stderr)

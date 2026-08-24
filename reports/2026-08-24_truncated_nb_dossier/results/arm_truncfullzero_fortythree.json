@@ -1,0 +1,15 @@
+{
+  "label": "truncfullzero_fortythree",
+  "artifact": "calibration_model_20260824_034439.pt",
+  "pred_dir": "predictions_calibration_20260824_034439",
+  "weight_sha256": "c22a08fce474aa61e6651b221989fdcd8a4f95de465bdb05f032f527b236c8a0",
+  "total_lessons": 300,
+  "ss_epsilon_max": 0.0,
+  "ss_feedback": "sample",
+  "torch_seed": 43,
+  "output_distribution": "truncated_nb",
+  "forecast_composition": "soft_gate",
+  "resumed_from_artifact": false,
+  "head": "e541b29974f500b9cb7a6b4077b3a991b2fa962d",
+  "emit_head": "e541b29974f500b9cb7a6b4077b3a991b2fa962d"
+}
