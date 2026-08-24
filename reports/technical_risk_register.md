@@ -3196,7 +3196,7 @@ C-247 is marked RESOLVED and its fix was real — but it covered `tests/test_sco
 ---
 
 
-### C-309: a confident NEGATIVE claim about the codebase, made without a search in the same message
+### C-309: a confident NEGATIVE claim, made without a search — or from a search whose non-empty case was never seen
 
 | Field | Value |
 |-------|-------|
@@ -3236,6 +3236,27 @@ negative assertion with no accompanying tool call is a violation regardless of w
 its output are a different reliability class from claims made from memory. **Positive, evidenced claims
 are the reliable ones; unevidenced negative ones are the unreliable ones.** Treat that asymmetry as the
 default calibration when reporting to the user, and say which class a statement is in when it matters.
+
+**Second occurrence (2026-08-24) — and it defeats the first fix.** Surveying the paper library for
+architecture work, I reported *"none of the 26 relevant papers has a single extracted claim"* and
+built a recommendation on it (extract 4-5 by hand before designing anything). **All of them had
+claims** — 70 across the 20 I later checked. The glob was `claims/<id>*.json` from the library root;
+there is no `claims/` directory there. The real path is `papers/_claims/<id>.json`. Every lookup
+returned empty, and I read empty as absent.
+
+**This is the important part: I DID run a search, in the same message, as C-309 requires — and the
+rule still failed.** A query whose **non-empty case has never been observed** carries no evidence at
+all; an empty result from it is indistinguishable from a broken path. The mitigation as first written
+is therefore insufficient.
+
+**The tell was in the data and I walked past it:** a result of *exactly zero for all 26 papers*,
+including four the library's own `status` had reported as added minutes earlier, is not a finding
+about the library — it is a finding about the query. **A uniform-zero result across a heterogeneous
+population should be treated as instrument failure until proven otherwise.**
+
+**Amended rule:** a negative claim requires a search **plus a positive control** — the same query
+shape must be shown returning a non-empty result for a case known to exist. If nothing in the
+population returns anything, report the instrument as untrusted, not the population as empty.
 
 ### C-310: wall-clock estimates are made from too little evidence, and guards get sized from them
 
