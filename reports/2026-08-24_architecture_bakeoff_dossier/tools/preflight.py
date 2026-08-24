@@ -6,7 +6,7 @@ Checks, in order, and **all of them before any 300-lesson arm**:
 1. **CUDA is available and usable.** The repo's device report WARNS on CPU but does not
    raise; a CPU fallback would not fail, it would burn the 12.5 h `TRAIN_TIMEOUT` — twelve
    times.
-   **peak GPU memory** measured. An architecture that OOMs would do so ~2 h into its own arm.
+   Peak memory is RECORDED but deliberately NOT gated here — the real memory gate is `smoke.sh`.
 3. **A 300-lesson cost projection** from measured per-step time, vs the timeout and window.
 4. **Every arm directory exists and is single-variable** against its own-seed control.
 
@@ -162,11 +162,12 @@ def main() -> int:
         if base_step:
             m["cost_ratio_vs_incumbent"] = m["sec_per_step"] / base_step
             m["projected_arm_hours"] = INCUMBENT_ARM_HOURS * m["cost_ratio_vs_incumbent"]
-        if m["peak_mib"] > 0.8 * total_mib:
-            problems.append(
-                f"{arch}: peak {m['peak_mib']:.0f} MiB is >80% of {total_mib:.0f} MiB. NOTE this "
-                "is a single-window probe and UNDERSTATES the real training footprint."
-            )
+        # NO memory GATE here, deliberately. A `/falsify guard` audit measured this check's margin
+        # at x292 — a 64x-wider recurrent state still passed it silently — because a single-window
+        # forward/backward is not the training footprint. A threshold that cannot fire is worse
+        # than none: it reads as verified headroom. The peak stays as INFORMATION only; the real
+        # memory gate is `smoke.sh`, which allocates through the real pipeline. Footprint does not
+        # depend on lesson count, so a 2-lesson arm measures a 300-lesson arm exactly.
         if base_step and m["projected_arm_hours"] > args.timeout_hours:
             problems.append(
                 f"{arch}: projected {m['projected_arm_hours']:.1f} h exceeds the "

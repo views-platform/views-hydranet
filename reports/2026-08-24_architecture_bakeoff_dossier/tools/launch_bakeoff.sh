@@ -22,12 +22,22 @@ die(){ echo "LAUNCH REFUSED: $*" >&2; exit 1; }
 
 [ -f "$RES/PREFLIGHT_OK" ] || die "no PREFLIGHT_OK sentinel. Run tools/preflight.py first."
 
+# SMOKE_OK is the load-bearing one. preflight profiles a synthetic single window; smoke runs the
+# REAL pipeline for 2 lessons per architecture, which is the only measurement of actual training
+# footprint and the only check that exercises the emit path, the scorer's view of the cube, and
+# BatchNorm recalibration. Footprint does not scale with lesson count, so 2 lessons measures 300.
+[ -f "$RES/SMOKE_OK" ] || die "no SMOKE_OK sentinel. Run tools/smoke.sh first — it is the real gate."
+smoke_epoch=$(stat -c %Y "$RES/SMOKE_OK")
+
 # A preflight measured before the last commit describes code that no longer exists. Silent staleness
 # is how a gate becomes decorative: it passes because it is old, not because it is true.
 head_epoch=$(cd "$HYD" && git log -1 --format=%ct)
 pf_epoch=$(stat -c %Y "$RES/PREFLIGHT_OK")
 if [ "$pf_epoch" -lt "$head_epoch" ]; then
-  die "PREFLIGHT_OK predates HEAD ($(date -d @"$pf_epoch" '+%F %T') < $(date -d @"$head_epoch" '+%F %T')) — re-run the preflight."
+  die "PREFLIGHT_OK predates HEAD — re-run the preflight."
+fi
+if [ "$smoke_epoch" -lt "$head_epoch" ]; then
+  die "SMOKE_OK predates HEAD — the architectures changed since they were smoked. Re-run smoke.sh."
 fi
 
 [ -z "$(cd "$HYD" && git status --porcelain)" ] || die "working tree is dirty; run_queue aborts on HEAD drift (F6). Commit first."
