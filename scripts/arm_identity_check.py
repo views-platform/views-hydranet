@@ -66,10 +66,11 @@ def legacy_got(hp: dict) -> dict:
     """Read the legacy identity keys applying the OLD defaulting, exactly.
 
     `ss_reverse` post-dates every arm built before #287, so those configs simply do not carry the
-    key and the previous check read it as ``bool(hp.get('ss_reverse', False))``. `identity_mismatches`
-    deliberately treats an absent key as a MISMATCH — right for a newly declared contract, wrong
+    key, and the previous check read it as ``bool(hp.get('ss_reverse', False))``.
+    `identity_mismatches` deliberately treats an absent key as a MISMATCH — right for a
+    newly declared contract, wrong
     here, where it would abort reuse of every arm in the SS, ITF and lesson-curve dossiers. So the
-    legacy path keeps its documented default and strictness applies only to keys a builder declares.
+    legacy path keeps its documented default; strictness applies only to declared keys.
     """
     return {
         "total_lessons": hp.get("total_lessons"),

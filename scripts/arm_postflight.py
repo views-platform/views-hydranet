@@ -6,13 +6,13 @@ done, and leave a truncated CSV, a missing bootstrap, a NaN, or a support set th
 from the baseline it will be compared against. On a 12-arm queue that fault is discovered at the
 write-up, ~29 GPU-hours later.
 
-`run_queue.sh` already re-runs the verifier after every arm **and checks its exit code**, so this
-audit plugs into a hook that already stops the queue. The point is to stop it at arm 2, while ten
-arms are still unspent.
+`run_queue.sh` re-runs the verifier after every arm **and checks its exit code**. A dossier
+verifier that CALLS this audit inherits a hook that already stops the queue — but it must
+actually call it. **This module does nothing on its own.**
 
 Lives in tracked `scripts/` so CI exercises it (`tests/test_arm_postflight.py`), and is validated
-against already-completed arms as a positive control before it is trusted to gate anything — a guard
-whose passing case has never been observed is not a guard (C-309).
+against completed arms as a positive control before it gates anything — a guard whose passing
+case has never been observed is not a guard (C-309).
 """
 
 from __future__ import annotations
@@ -23,8 +23,8 @@ import json
 import math
 from pathlib import Path
 
-#: Written by `run_lesson_arm.sh` for every arm. Absence of any one means the arm did not finish the
-#: pipeline, regardless of what its `ARM_DONE` sentinel says.
+#: Written by `run_lesson_arm.sh` for every arm. Absence of any one means the arm did not
+#: finish the pipeline, regardless of what its `ARM_DONE` sentinel says.
 REQUIRED = ("score_{arm}.csv", "score_{arm}_use_real.csv", "ap_ci_{arm}.json", "ret_ci_{arm}.json")
 
 DEFAULT_HORIZONS = (1, 6, 12, 18, 24, 30, 36)
@@ -103,8 +103,9 @@ def audit_arm(
             for col in ("N", "n_event"):
                 if int(r[col]) != int(ref[h][col]):
                     problems.append(
-                        f"{col} at h={h} is {r[col]} but the reference has {ref[h][col]} — the arms "
-                        "are not scored on the same support, so any paired comparison is invalid"
+                        f"{col} at h={h} is {r[col]} but the reference has "
+                        f"{ref[h][col]} — the arms are not scored on the same support, "
+                        "so any paired comparison is invalid"
                     )
 
     for name in (f"ap_ci_{arm}.json", f"ret_ci_{arm}.json"):
