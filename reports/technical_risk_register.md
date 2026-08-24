@@ -6,8 +6,8 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-22                           |
 | ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 306                                  |
-| Open Concerns     | 154                                  |
+| Total Concerns    | 307                                  |
+| Open Concerns     | 155                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | — net active risks | 132                                 |
 | Resolved Concerns | 152                                  |
@@ -2784,7 +2784,7 @@ clear persistence at every horizon (ledger M34, n=4) — which is what this entr
 
 ---
 
-### C-303: prose asserts a guard the code does not implement — EIGHT occurrences, incl. two fixes reported as applied that were not
+### C-303: prose asserts a guard the code does not implement — NINE occurrences, one of which rendered a WRONG VERDICT
 
 | Field | Value |
 |-------|-------|
@@ -2866,6 +2866,29 @@ is the identical shape as C-305, where a rule was overridden on grounds it did n
 override turned out right by luck. The count is now stated with the h1 exception beside it.
 **Rule reaffirmed: a specific number does not go into a write-up until the command that produces it
 has been run.**
+
+**Ninth occurrence (2026-08-24, truncated-nb EXP-01) — and the first to produce a WRONG VERDICT
+rather than merely misleading prose.**
+
+`05_analysis_plan.md` §5 registered: *"EFFECT: p ≤ 0.05 **and** mean ΔAP ≥ 3·MDE **and all four seeds
+agree in sign**"*. The implementation computed the exact permutation p **one-sided for
+`treatment > control`**. A strongly NEGATIVE effect therefore scores **p = 1.0** and can never reach
+the EFFECT branch — and `verify_trunc.py` contained `state = "EFFECT" if mean_d > 0 else "EFFECT
+(NEGATIVE)"`, a branch **I wrote and which was unreachable**, because the `p ≤ 0.05` guard above it
+excludes `mean_d < 0`.
+
+**The verdict it rendered was `NULL / UNDERPOWERED, p=1.0000` for a mean ΔAP of −0.2376 — an effect
+7.5× the 3×MDE bar with all four seeds unanimous.** Had that been read and written up as published,
+the programme's record would say *"removing the double-counted zero has no measurable effect"* when
+the truth is that it collapses rollout AP by 70%. **The previous eight occurrences produced prose that
+overstated a guard; this one produced a decision.**
+
+**What generalises beyond the earlier instances:** a registered rule's *prose* can be two-directional
+while its *implementation* is one-directional, and nothing in the harness compares them. The
+tell was available before the data: **an unreachable branch in the verdict code**. Rule: **every
+branch of a decision rule must be reachable by some input, and that should be demonstrated with a
+unit test over synthetic verdict inputs — not left to whichever direction the experiment happens to
+take.** The fix is recorded in that dossier's AMENDMENT 1, disclosed as post-hoc.
 
 ### C-308: a probe measured the wrong phase of the rollout, and every downstream guard still passed — TWO occurrences
 
@@ -3213,6 +3236,40 @@ negative assertion with no accompanying tool call is a violation regardless of w
 its output are a different reliability class from claims made from memory. **Positive, evidenced claims
 are the reliable ones; unevidenced negative ones are the unreliable ones.** Treat that asymmetry as the
 default calibration when reporting to the user, and say which class a statement is in when it matters.
+
+### C-310: wall-clock estimates are made from too little evidence, and guards get sized from them
+
+| Field | Value |
+|-------|-------|
+| ID | C-310 |
+| Tier | 3 |
+| Source | truncated-nb EXP-01 run notes (2026-08-24), plus the 2026-08-18 timeout losses |
+| Trigger | Choosing a `timeout`, a finisher's wait ceiling, a disk-wait maximum, or telling the user how long a queue will take — from fewer than ~3 observations of the *same* configuration on the *same* box |
+| Location | `reports/2026-08-24_truncated_nb_dossier/tools/finish_trunc.sh` (12 h ceiling); `reports/2026-08-18_lesson_curve_dossier/tools/run_lesson_arm.sh` (`TRAIN_TIMEOUT`, raised 36 → 72 → 150 s/lesson) |
+| Cross-refs | C-163 (no runtime resource harness) |
+
+Three instances, same shape. **(1)** `TRAIN_TIMEOUT` was sized at 36 s/lesson, then 72, then 150 —
+**three arms were SIGKILLed by their own timeout, ~12 GPU-hours lost**, because there is no
+mid-training checkpoint (`train_model.py` saves once, at the end) so a killed arm is lost entirely.
+**(2)** During this session the user was told a seed would cost "~5 GPU-h"; the measured figure was
+~2 h — a **2.5× overestimate** that would have discouraged a 4-seed design had it been believed.
+**(3)** `finish_trunc.sh` was given a 12 h ceiling from a ~2 h/arm estimate; arms took ~2.4 h, the
+ceiling expired mid-run, and the finisher **refused to assemble**.
+
+**Instance (3) is the encouraging one and shows the correct shape:** the guard *failed safe*, writing
+*"QUEUE_DONE never appeared — refusing to assemble a possibly stale verdict"* rather than emitting a
+verdict built from three of four arms. **The estimate was wrong and nothing was corrupted.** That is
+the property to preserve — the defect is the estimate, not the guard.
+
+**Tier 3, not higher:** the failures are expensive and annoying rather than silently wrong, precisely
+because the guards refuse instead of guessing. It is registered because the *estimate* keeps being
+made from one or two observations under uncontrolled conditions (the same emit measured **6 min cool
+and 24 min throttled**), and because a ceiling sized that way is the thing standing between a long run
+and a stale result.
+
+**Mitigation:** size a wait ceiling from the *measured* worst case × 2, not the expected case; state
+the sample size behind any duration quoted to the user; and prefer a guard that refuses over one that
+proceeds on a lapsed assumption.
 
 ## Disagreements
 

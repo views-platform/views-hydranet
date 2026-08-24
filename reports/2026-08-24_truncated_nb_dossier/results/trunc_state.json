@@ -1,0 +1,42 @@
+{
+  "state": "EFFECT (NEGATIVE)",
+  "detail": "p=0.0143 (one-sided in the OBSERVED direction; floor 0.0143), mean \u0394AP=-0.2376, |mean \u0394AP| \u2265 3\u00d7MDE=0.0317, all four seeds agree in sign.",
+  "rows": [
+    {
+      "seed": 42,
+      "arm": "truncfullzero_fortytwo",
+      "control": 0.3298395823400329,
+      "trunc": 0.11126138228362203,
+      "delta": -0.21857820005641088,
+      "h1_delta": -0.021236196154380382,
+      "floor": "PASS"
+    },
+    {
+      "seed": 43,
+      "arm": "truncfullzero_fortythree",
+      "control": 0.33182533398580893,
+      "trunc": 0.09701912484692818,
+      "delta": -0.23480620913888076,
+      "h1_delta": -0.027729805130824625,
+      "floor": "PASS"
+    },
+    {
+      "seed": 44,
+      "arm": "truncfullzero_fortyfour",
+      "control": 0.30576567170457364,
+      "trunc": 0.04970793575721105,
+      "delta": -0.2560577359473626,
+      "h1_delta": -0.027337641272553115,
+      "floor": "PASS"
+    },
+    {
+      "seed": 45,
+      "arm": "truncfullzero_fortyfive",
+      "control": 0.3351699130292337,
+      "trunc": 0.09434892693477716,
+      "delta": -0.24082098609445657,
+      "h1_delta": -0.035146444295215795,
+      "floor": "PASS"
+    }
+  ]
+}
