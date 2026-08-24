@@ -104,31 +104,51 @@ ARM_MODULE="${ARM_MODULE:-make_ss_arm}"
 ARM_TOOLS="${ARM_TOOLS:-$SSD/tools}"
 
 ensure_arm(){
-  local L=$1 S=$2 E=$3 label got want
+  local L=$1 S=$2 E=$3 V="${4:-}" label vopt=""
   ARM_LABEL=""
+  [ -n "$V" ] && vopt=", variant='$V'"
   label=$($CENV python -c "
 import sys; sys.path.insert(0,'$ARM_TOOLS')
-from $ARM_MODULE import arm_label; print(arm_label(lessons=$L, eps=$E, seed=$S))" 2>/dev/null)
-  [ -n "$label" ] || { log "ABORT — no legal arm name for lessons=$L seed=$S"; return 1; }
+from $ARM_MODULE import arm_label; print(arm_label(lessons=$L, eps=$E, seed=$S$vopt))" 2>/dev/null)
+  [ -n "$label" ] || { log "ABORT — no legal arm name for lessons=$L seed=$S variant=${V:-none}"; return 1; }
   if [ -d "$MODELS/$label" ]; then
-    # ss_reverse is part of the arm's IDENTITY, not decoration: an SS arm and an ITF arm at the
-    # same lessons/seed/eps both read "300:42:0.5", so without it this check would accept a
-    # decreasing-TF arm where an increasing-TF one was asked for — the two the pilot compares.
-    got=$($CENV python -c "
-import ast,sys
-from pathlib import Path
-t=(Path('$MODELS/$label')/'configs/config_hyperparameters.py').read_text()
-ast.parse(t); ns={}; exec(compile(t,'cfg','exec'),ns); hp=ns['get_hp_config']()
-print(f\"{hp['total_lessons']}:{hp['torch_seed']}:{hp['ss_epsilon_max']}:{bool(hp.get('ss_reverse', False))}\")" 2>/dev/null)
-    want="$L:$S:$E:$([ "$ARM_MODULE" = "make_itf_arm" ] && echo True || echo False)"
-    if [ "$got" != "$want" ]; then
-      log "ABORT — $label exists but its config reads '$got', wanted '$want'"
+    # IDENTITY CHECK. The builder DECLARES which config keys constitute an arm's identity, via an
+    # optional `arm_identity(lessons, eps, seed, variant) -> dict`. The queue used to hardcode
+    # `total_lessons:torch_seed:ss_epsilon_max:ss_reverse`, which meant a key that mattered to a NEW
+    # experiment was invisible here: the truncated-nb program had to bolt `output_distribution`
+    # onto its own verifier, and the architecture bake-off would have had the same hole for `model`
+    # — a resumed queue silently reusing an arm built on a different architecture. Builders without
+    # `arm_identity` keep the legacy tuple exactly, so the SS/ITF/lesson-curve dossiers are
+    # unaffected.
+    # The WANT dict comes from the builder (`arm_identity`) when it declares one, else the legacy
+    # tuple. The comparison itself lives in tracked `scripts/arm_identity_check.py` so CI exercises
+    # it in both directions — see tests/test_arm_identity_check.py.
+    local want legacy=""
+    want=$($CENV python -c "
+import json, sys
+sys.path.insert(0,'$ARM_TOOLS'); sys.path.insert(0,'$HYD')
+from scripts.arm_identity_check import legacy_want
+mod = __import__('$ARM_MODULE')
+fn = getattr(mod, 'arm_identity', None)
+print(json.dumps(fn(lessons=$L, eps=$E, seed=$S$vopt) if fn else
+      legacy_want(lessons=$L, seed=$S, eps=$E, ss_reverse='$ARM_MODULE'=='make_itf_arm')))" 2>>"$RES/run.log")
+    # builders WITHOUT arm_identity get the pre-#287 defaulting; declared contracts stay strict
+    $CENV python -c "
+import sys; sys.path.insert(0,'$ARM_TOOLS')
+sys.exit(0 if getattr(__import__('$ARM_MODULE'), 'arm_identity', None) else 1)" 2>/dev/null || legacy="--legacy"
+    if [ -z "$want" ]; then
+      log "ABORT — could not determine the identity contract for $label"; return 1
+    fi
+    if ! $CENV python "$HYD/scripts/arm_identity_check.py" \
+         --arm-dir "$MODELS/$label" --want "$want" $legacy 2>>"$RES/run.log"; then
+      log "ABORT — $label exists but its config does not match the requested arm (see run.log)"
       return 1
     fi
   else
-    log "building $label (lessons=$L seed=$S eps=$E)"
+    log "building $label (lessons=$L seed=$S eps=$E variant=${V:-none})"
     $CENV python "$ARM_TOOLS/$ARM_MODULE.py" --lessons "$L" --eps "$E" --seed "$S" \
-      >>"$RES/run.log" 2>&1 || { log "ABORT — $ARM_MODULE refused $label"; return 1; }
+      ${V:+--variant "$V"} >>"$RES/run.log" 2>&1 \
+      || { log "ABORT — $ARM_MODULE refused $label"; return 1; }
   fi
   # a label must look like a pipeline-legal model name; anything else means something upstream
   # leaked into it (see the log() note) and must stop the arm, not name it
@@ -146,14 +166,14 @@ print(f\"{hp['total_lessons']}:{hp['torch_seed']}:{hp['ss_epsilon_max']}:{bool(h
 
 DONE=""; FAILED=""
 for spec in "$@"; do
-  IFS=: read -r L S E MODE <<<"$spec"
+  IFS=: read -r L S E MODE VARIANT <<<"$spec"
   case "$L:$S" in *[!0-9]*:*|*:*[!0-9]*) log "SKIP '$spec' — malformed"; FAILED="$FAILED $spec"; continue;; esac
   case "$E" in ''|*[!0-9.]*) log "SKIP '$spec' — eps missing or malformed; it is required"; FAILED="$FAILED $spec"; continue;; esac
 
   assert_head   || { FAILED="$FAILED $spec"; break; }
   wait_for_disk || { FAILED="$FAILED $spec"; break; }
 
-  ensure_arm "$L" "$S" "$E" || { FAILED="$FAILED $spec"; continue; }
+  ensure_arm "$L" "$S" "$E" "${VARIANT:-}" || { FAILED="$FAILED $spec"; continue; }
   label="$ARM_LABEL"
 
   if [ -s "$RES/score_${label}.csv" ] && [ -s "$RES/score_${label}_use_real.csv" ]; then
@@ -171,7 +191,7 @@ for spec in "$@"; do
            "$MODELS/$label"/data/generated/_pf_staging 2>/dev/null
   fi
 
-  log "--- $label (L=$L seed=$S eps=$E ${MODE:-fresh}) ---"
+  log "--- $label (L=$L seed=$S eps=$E ${VARIANT:+variant=$VARIANT }${MODE:-fresh}) ---"
   bash "$T/run_lesson_arm.sh" "$label" "${ARGS[@]}" >>"$RES/run.log" 2>&1
   rc=$?
   if [ $rc -eq 0 ]; then log "$label OK"; DONE="$DONE $label"
