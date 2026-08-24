@@ -1,0 +1,71 @@
+{
+  "gpu_total_mib": 7942.6875,
+  "timed_steps": 40,
+  "per_arch": {
+    "HydraBNUNet06_LSTM4": {
+      "params": 905289,
+      "state_width": 32,
+      "peak_mib": 19.26708984375,
+      "sec_per_step": 0.010757018049480394,
+      "headroom_mib": 7923.42041015625,
+      "cost_ratio_vs_incumbent": 1.0,
+      "projected_arm_hours": 1.8166666666666667
+    },
+    "AntiAliasedPool": {
+      "params": 905289,
+      "state_width": 32,
+      "peak_mib": 19.93896484375,
+      "sec_per_step": 0.010612643900094554,
+      "headroom_mib": 7922.74853515625,
+      "cost_ratio_vs_incumbent": 0.9865786086142326,
+      "projected_arm_hours": 1.792284472315856
+    },
+    "DynamicTopSkip": {
+      "params": 910473,
+      "state_width": 32,
+      "peak_mib": 19.482421875,
+      "sec_per_step": 0.010930768775870093,
+      "headroom_mib": 7923.205078125,
+      "cost_ratio_vs_incumbent": 1.016152313363283,
+      "projected_arm_hours": 1.8460100359432976
+    },
+    "FiLMSkip": {
+      "params": 907081,
+      "state_width": 32,
+      "peak_mib": 19.4140625,
+      "sec_per_step": 0.011366922025626992,
+      "headroom_mib": 7923.2734375,
+      "cost_ratio_vs_incumbent": 1.056698238614191,
+      "projected_arm_hours": 1.9196684668157802
+    },
+    "ShallowPool": {
+      "params": 757449,
+      "state_width": 32,
+      "peak_mib": 17.82861328125,
+      "sec_per_step": 0.011615104625525419,
+      "headroom_mib": 7924.85888671875,
+      "cost_ratio_vs_incumbent": 1.0797699299283479,
+      "projected_arm_hours": 1.961582039369832
+    },
+    "DualStream": {
+      "params": 922217,
+      "state_width": 32,
+      "peak_mib": 20.47509765625,
+      "sec_per_step": 0.01343834125000285,
+      "headroom_mib": 7922.21240234375,
+      "cost_ratio_vs_incumbent": 1.249262684899183,
+      "projected_arm_hours": 2.269493877566849
+    },
+    "WideMemory": {
+      "params": 959241,
+      "state_width": 128,
+      "peak_mib": 21.74560546875,
+      "sec_per_step": 0.01381256669992581,
+      "headroom_mib": 7920.94189453125,
+      "cost_ratio_vs_incumbent": 1.2840516429730273,
+      "projected_arm_hours": 2.3326938180676664
+    }
+  },
+  "projected_total_queue_hours_2_seeds": 24.24346542015856,
+  "problems": []
+}

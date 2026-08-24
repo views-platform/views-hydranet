@@ -46,8 +46,8 @@ def resolve_hp(config_path: Path) -> dict:
 def identity_mismatches(hp: dict, want: dict) -> dict[str, tuple]:
     """Return ``{key: (found, wanted)}`` for every declared key that disagrees.
 
-    A key **absent** from the config counts as a mismatch rather than a pass: if identity depends on
-    a key the config does not carry, the arm is not the arm that was requested.
+    A key **absent** from the config counts as a mismatch rather than a pass: if identity
+    depends on a key the config does not carry, the arm is not the arm that was requested.
     """
     return {k: (hp.get(k), v) for k, v in want.items() if hp.get(k) != v}
 
