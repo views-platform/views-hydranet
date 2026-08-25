@@ -1,0 +1,126 @@
+{
+  "state": "IN PROGRESS (0/12)",
+  "problems": [],
+  "rows": [
+    {
+      "arch": "AntiAliasedPool",
+      "seed": 42,
+      "arm": "aafullzero_fortytwo",
+      "params": null,
+      "control": 0.3298395823400329,
+      "arm_ap": null,
+      "oracle": null,
+      "floor": "\u2014"
+    },
+    {
+      "arch": "AntiAliasedPool",
+      "seed": 43,
+      "arm": "aafullzero_fortythree",
+      "params": null,
+      "control": 0.33182533398580893,
+      "arm_ap": null,
+      "oracle": null,
+      "floor": "\u2014"
+    },
+    {
+      "arch": "DynamicTopSkip",
+      "seed": 42,
+      "arm": "dynfullzero_fortytwo",
+      "params": null,
+      "control": 0.3298395823400329,
+      "arm_ap": null,
+      "oracle": null,
+      "floor": "\u2014"
+    },
+    {
+      "arch": "DynamicTopSkip",
+      "seed": 43,
+      "arm": "dynfullzero_fortythree",
+      "params": null,
+      "control": 0.33182533398580893,
+      "arm_ap": null,
+      "oracle": null,
+      "floor": "\u2014"
+    },
+    {
+      "arch": "FiLMSkip",
+      "seed": 42,
+      "arm": "filmfullzero_fortytwo",
+      "params": null,
+      "control": 0.3298395823400329,
+      "arm_ap": null,
+      "oracle": null,
+      "floor": "\u2014"
+    },
+    {
+      "arch": "FiLMSkip",
+      "seed": 43,
+      "arm": "filmfullzero_fortythree",
+      "params": null,
+      "control": 0.33182533398580893,
+      "arm_ap": null,
+      "oracle": null,
+      "floor": "\u2014"
+    },
+    {
+      "arch": "ShallowPool",
+      "seed": 42,
+      "arm": "shalfullzero_fortytwo",
+      "params": null,
+      "control": 0.3298395823400329,
+      "arm_ap": null,
+      "oracle": null,
+      "floor": "\u2014"
+    },
+    {
+      "arch": "ShallowPool",
+      "seed": 43,
+      "arm": "shalfullzero_fortythree",
+      "params": null,
+      "control": 0.33182533398580893,
+      "arm_ap": null,
+      "oracle": null,
+      "floor": "\u2014"
+    },
+    {
+      "arch": "DualStream",
+      "seed": 42,
+      "arm": "dualfullzero_fortytwo",
+      "params": null,
+      "control": 0.3298395823400329,
+      "arm_ap": null,
+      "oracle": null,
+      "floor": "\u2014"
+    },
+    {
+      "arch": "DualStream",
+      "seed": 43,
+      "arm": "dualfullzero_fortythree",
+      "params": null,
+      "control": 0.33182533398580893,
+      "arm_ap": null,
+      "oracle": null,
+      "floor": "\u2014"
+    },
+    {
+      "arch": "WideMemory",
+      "seed": 42,
+      "arm": "widefullzero_fortytwo",
+      "params": null,
+      "control": 0.3298395823400329,
+      "arm_ap": null,
+      "oracle": null,
+      "floor": "\u2014"
+    },
+    {
+      "arch": "WideMemory",
+      "seed": 43,
+      "arm": "widefullzero_fortythree",
+      "params": null,
+      "control": 0.33182533398580893,
+      "arm_ap": null,
+      "oracle": null,
+      "floor": "\u2014"
+    }
+  ]
+}

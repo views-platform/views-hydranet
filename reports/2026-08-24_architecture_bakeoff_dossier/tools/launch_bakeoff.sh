@@ -31,11 +31,18 @@ smoke_epoch=$(stat -c %Y "$RES/SMOKE_OK")
 
 # A preflight measured before the last commit describes code that no longer exists. Silent staleness
 # is how a gate becomes decorative: it passes because it is old, not because it is true.
-# Freshness is measured against the last commit that touched CODE, not any commit. A docs-only
-# commit (the pre-registration, a README) cannot invalidate a smoke run, and forcing a 2.5 h
-# re-smoke for one would be the kind of friction that gets a gate switched off. Anything under
-# `views_hydranet/`, `scripts/`, or this dossier's `tools/` counts as code.
-head_epoch=$(cd "$HYD" && git log -1 --format=%ct -- views_hydranet scripts   reports/2026-08-24_architecture_bakeoff_dossier/tools)
+# Freshness is measured against the last commit touching anything that could change WHAT THE
+# SENTINELS MEASURED: the model code, the guards, the arm builder, and the two probe scripts.
+# Deliberately EXCLUDED are this launcher and `verify_bakeoff.py` — both run strictly AFTER the
+# probes and cannot alter their result — and docs/results, which are not executable.
+#
+# The scope is narrow on purpose and must stay honest: widening it to make a refusal go away is
+# exactly the anti-pattern this gate exists to prevent. If in doubt, re-run the probe.
+head_epoch=$(cd "$HYD" && git log -1 --format=%ct -- \
+  views_hydranet scripts \
+  reports/2026-08-24_architecture_bakeoff_dossier/tools/make_arch_arm.py \
+  reports/2026-08-24_architecture_bakeoff_dossier/tools/preflight.py \
+  reports/2026-08-24_architecture_bakeoff_dossier/tools/smoke.sh)
 pf_epoch=$(stat -c %Y "$RES/PREFLIGHT_OK")
 if [ "$pf_epoch" -lt "$head_epoch" ]; then
   die "PREFLIGHT_OK predates HEAD — re-run the preflight."
