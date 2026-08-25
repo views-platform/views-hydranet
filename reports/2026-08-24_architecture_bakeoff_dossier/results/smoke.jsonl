@@ -1,0 +1,6 @@
+{"arch":"AntiAliasedPool","label":"aatinyzero_fortytwo","rc":0,"peak_mib":4315,"seconds":1448,"cube":true,"ok":1}
+{"arch":"DynamicTopSkip","label":"dyntinyzero_fortytwo","rc":0,"peak_mib":4136,"seconds":1607,"cube":true,"ok":1}
+{"arch":"FiLMSkip","label":"filmtinyzero_fortytwo","rc":0,"peak_mib":4253,"seconds":1476,"cube":true,"ok":1}
+{"arch":"ShallowPool","label":"shaltinyzero_fortytwo","rc":0,"peak_mib":4188,"seconds":1621,"cube":true,"ok":1}
+{"arch":"DualStream","label":"dualtinyzero_fortytwo","rc":0,"peak_mib":4539,"seconds":1295,"cube":true,"ok":1}
+{"arch":"WideMemory","label":"widetinyzero_fortytwo","rc":0,"peak_mib":4739,"seconds":1308,"cube":true,"ok":1}

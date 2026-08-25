@@ -31,7 +31,11 @@ smoke_epoch=$(stat -c %Y "$RES/SMOKE_OK")
 
 # A preflight measured before the last commit describes code that no longer exists. Silent staleness
 # is how a gate becomes decorative: it passes because it is old, not because it is true.
-head_epoch=$(cd "$HYD" && git log -1 --format=%ct)
+# Freshness is measured against the last commit that touched CODE, not any commit. A docs-only
+# commit (the pre-registration, a README) cannot invalidate a smoke run, and forcing a 2.5 h
+# re-smoke for one would be the kind of friction that gets a gate switched off. Anything under
+# `views_hydranet/`, `scripts/`, or this dossier's `tools/` counts as code.
+head_epoch=$(cd "$HYD" && git log -1 --format=%ct -- views_hydranet scripts   reports/2026-08-24_architecture_bakeoff_dossier/tools)
 pf_epoch=$(stat -c %Y "$RES/PREFLIGHT_OK")
 if [ "$pf_epoch" -lt "$head_epoch" ]; then
   die "PREFLIGHT_OK predates HEAD — re-run the preflight."
