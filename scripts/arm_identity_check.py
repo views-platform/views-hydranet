@@ -29,6 +29,18 @@ from pathlib import Path
 #: lessons/seed/eps are otherwise indistinguishable — and those are the two arms a pilot compares.
 LEGACY_KEYS = ("total_lessons", "torch_seed", "ss_epsilon_max", "ss_reverse")
 
+#: `ModelPathManager` raises at import if any of these is missing, so an arm without them dies four
+#: seconds into its slot with a traceback that names a path, not a cause. Checked here because the
+#: reuse path previously validated only the CONFIG: `dualfullzero_fortythree` had a completely
+#: correct config, passed the identity check, and then failed instantly with `artifacts/` missing —
+#: costing an overnight queue slot (arch-bakeoff EXP-01 run notes).
+REQUIRED_DIRS = ("artifacts", "configs", "data/generated", "data/processed", "data/raw", "logs")
+
+
+def missing_dirs(arm_dir: Path) -> list[str]:
+    """Required subdirectories absent from an arm directory, in declaration order."""
+    return [d for d in REQUIRED_DIRS if not (Path(arm_dir) / d).is_dir()]
+
 
 def resolve_hp(config_path: Path) -> dict:
     """Exec a `config_hyperparameters.py` and return its resolved dict.
@@ -92,6 +104,15 @@ def main() -> int:
         "and strict absent-is-mismatch would abort reuse of every one of them.",
     )
     args = ap.parse_args()
+
+    gone = missing_dirs(args.arm_dir)
+    if gone:
+        print(
+            f"MISMATCH: {args.arm_dir} is structurally incomplete — missing {gone}. "
+            "ModelPathManager raises at import, so this arm would fail instantly.",
+            file=sys.stderr,
+        )
+        return 1
 
     cfg = Path(args.arm_dir) / "configs" / "config_hyperparameters.py"
     if not cfg.is_file():

@@ -16,6 +16,7 @@ from scripts.arm_identity_check import (
     identity_mismatches,
     legacy_got,
     legacy_want,
+    missing_dirs,
     resolve_hp,
 )
 
@@ -32,10 +33,18 @@ def get_hp_config():
 """
 
 
-def _arm(tmp_path: Path, body: str = _CONFIG) -> Path:
+def _arm(tmp_path: Path, body: str = _CONFIG, complete: bool = True) -> Path:
+    """A fixture arm. `complete=True` builds the real skeleton `ModelPathManager` requires.
+
+    Fixtures default to complete because the queue only ever hands this real arm directories; an
+    incomplete one is the specific defect `test_structurally_incomplete_arm_is_refused` covers.
+    """
     d = tmp_path / "someone_somewhere" / "configs"
     d.mkdir(parents=True)
     (d / "config_hyperparameters.py").write_text(body)
+    if complete:
+        for sub in ("artifacts", "data/generated", "data/processed", "data/raw", "logs"):
+            (d.parent / sub).mkdir(parents=True, exist_ok=True)
     return d.parent
 
 
@@ -130,3 +139,24 @@ def test_cli_refuses_a_missing_or_broken_config(tmp_path):
     broken = _arm(tmp_path, body="def get_hp_config(:\n")  # deliberate syntax error
     res = _cli(broken, {"model": "X"})
     assert res.returncode == 1 and "MISMATCH" in res.stderr
+
+
+def test_structurally_incomplete_arm_is_refused(tmp_path):
+    """An arm with a perfect config but missing skeleton dirs must NOT be reused.
+
+    This is not hypothetical: `dualfullzero_fortythree` had an entirely correct config (DualStream,
+    seed 43, 300 lessons), passed the identity check on the queue's reuse path, and then died four
+    seconds in because `artifacts/` was absent — `ModelPathManager` raises at import. It cost an
+    overnight queue slot. The config was never the problem, so checking only the config never
+    could have caught it.
+    """
+    arm = _arm(tmp_path, complete=False)  # config present, skeleton absent
+    assert "artifacts" in missing_dirs(arm)
+    res = _cli(arm, {"model": "AntiAliasedPool"})
+    assert res.returncode == 1
+    assert "structurally incomplete" in res.stderr
+
+    for d in ("artifacts", "data/generated", "data/processed", "data/raw", "logs"):
+        (arm / d).mkdir(parents=True)
+    assert missing_dirs(arm) == []
+    assert _cli(arm, {"model": "AntiAliasedPool"}).returncode == 0
