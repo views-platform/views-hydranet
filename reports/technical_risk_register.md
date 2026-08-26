@@ -3458,9 +3458,21 @@ holds a ~383-step autograd graph through 4 ConvLSTMs, a U-Net and six decoder br
 backward. That is consistent with the 4.1–4.7 GiB the bake-off smoke measured.
 
 This is a deliberate design and, on the evidence below, a *justified* one — but it was undocumented,
-untested, and it bounds what can be added to the step loop. **Any per-step auxiliary term
-approximately doubles the largest object in the run**; `#289`'s pushforward does exactly that, with
-`pf_h = h` un-detached by default.
+untested, and it bounds what can be added to the step loop.
+
+**Measured cost of adding one** (`#289` pushforward, one production-shaped window — `window_dim=32`,
+`T=336`, RTX 4070):
+
+| | peak allocated | fwd | fwd+bwd |
+|---|---|---|---|
+| `pushforward_weight=0` | 2524 MiB | 2.46 s | 4.58 s |
+| `=1`, state attached | 3993 MiB | 4.24 s | 7.58 s |
+| `=1`, state detached | 3993 MiB | 4.04 s | 7.34 s |
+
+So **+58% memory and ×1.65 wall-clock**, not the doubling a first reading of the graph suggests —
+the extra step is one level deep from a detached field, not a second full sequence. Extrapolating
+from the incumbent's measured 1.82 h/arm gives **~3.0 h/arm**. `pushforward_detach_state` costs
+nothing either way, so that fork is free to test.
 
 **The reach is real, and this corrects a prior.** Measuring `d||h_final||²/dx_i` at T=120 — which
 isolates the recurrent path, since a frame can only reach `h_final` through memory:
