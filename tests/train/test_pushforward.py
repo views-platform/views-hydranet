@@ -137,19 +137,66 @@ def test_the_loss_is_scored_at_t_plus_2_not_t_plus_1():
 
 
 def test_the_second_step_consumes_the_models_own_field_not_ground_truth():
-    """The extra step must be fed the model's emitted field.
+    """Recompute the pushforward term independently and require an exact match.
 
-    Feeding `t0` again would train a two-step teacher-forced model: the loss would still change and
-    still scale, so only inspecting the call can distinguish them. The source is read directly.
+    The previous version of this test grepped the source for `_family_feedback_log1p(`. A mutation
+    that left that line in place and fed `t0_input` to the model instead **passed all seven tests** —
+    the string was present, the property was gone. That is the same grep-the-source failure the
+    project keeps registering, so this recomputes the term from first principles instead.
+
+    Uses `ss_feedback='mean'`, which is analytic and needs no RNG, so the reference is exact. The
+    plumbing under test — WHICH tensor reaches the second forward — is identical on both paths.
     """
-    import inspect
+    from views_hydranet.train.training_engine import (
+        _attach_static_channels,
+        _family_feedback_log1p,
+    )
 
-    src = inspect.getsource(_process_sequence)
-    pf = src[src.index("PUSHFORWARD (Brandstetter"):]
-    pf = pf[: pf.index("losses = torch.stack")]
-    assert "_family_feedback_log1p(" in pf, "the extra step is not fed the model's emitted field"
-    assert ".detach()" in pf, "the fed field is not detached — the gradient is not cut"
-    assert "i + 2" in pf, "the target is not t+2"
+    x, model, h, idx, fam = _fixture(seed=21)
+    short = x[:, :3].clone()
+    crit = FamilyLoss(fam)
+
+    def run(w):
+        m, hh = _fixture(seed=21)[1], _fixture(seed=21)[2]
+        return _process_sequence(
+            short, m, hh, criterion_reg=crit, criterion_class=nn.BCEWithLogitsLoss(),
+            multitaskloss_instance=_MTL(), idx=idx, device=torch.device("cpu"),
+            family=fam, ss_feedback="mean", forecast_composition="soft_gate",
+            pushforward_weight=w,
+        )["total"]
+
+    observed = (run(1.0) - run(0.0)).item()
+
+    # --- independent reference: step 0 only, since `i + 2 < 3` fires just once ---
+    m, hh = _fixture(seed=21)[1], _fixture(seed=21)[2]
+    t0 = short[:, 0]
+    t0_input = _attach_static_channels(t0[:, idx.feat], t0, idx)
+    out0 = m(t0_input, hh)
+    fed = _family_feedback_log1p(
+        out0.reg, fam, "mean", torch.sigmoid(out0.cls), "soft_gate", None
+    ).detach()
+
+    def pf_from(inp, state):
+        o = m(inp, state)
+        y2 = short[:, 2, idx.reg]
+        n = crit.n_params
+        return sum(
+            crit(o.reg[:, j * n : (j + 1) * n].permute(0, 2, 3, 1), y2[:, j])
+            for j in range(len(idx.reg_names))
+        ).item()
+
+    from_own_field = pf_from(_attach_static_channels(fed, t0, idx), out0.h_next)
+    from_ground_truth = pf_from(t0_input, out0.h_next)
+
+    assert observed == pytest.approx(from_own_field, rel=1e-4), (
+        f"the pushforward term ({observed:.6f}) does not match a second step fed the model's own "
+        f"field ({from_own_field:.6f})"
+    )
+    # and the two must be far enough apart that the check above could ever fail
+    assert abs(from_own_field - from_ground_truth) / abs(from_own_field) > 1e-2, (
+        "feeding ground truth and feeding the model's own field give nearly the same loss here, "
+        "so this fixture cannot discriminate — the test would be vacuous"
+    )
 
 
 def test_gradient_into_the_fed_field_is_cut():
