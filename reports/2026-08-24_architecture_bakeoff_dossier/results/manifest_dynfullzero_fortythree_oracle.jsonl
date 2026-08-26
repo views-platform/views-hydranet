@@ -1,0 +1,1 @@
+{"model": "dynfullzero_fortythree", "arm": "use_real", "artifact": "calibration_model_20260825_151803.pt", "pred_dir": "predictions_calibration_20260825_151803", "score_csv": "score_dynfullzero_fortythree_use_real.csv", "fedfield_csv": "fedfield_dynfullzero_fortythree_use_real.csv", "elapsed_s": 673.8, "cubes_deleted": true, "length_scale": null, "gate_probe": false}

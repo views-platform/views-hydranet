@@ -1,0 +1,21 @@
+Expected model path /home/simon/Documents/scripts/views_platform/views-models/models/dualfullzero_fortythree/artifacts does not exist. Create it (e.g. via `make_new_model.py`) or construct ModelPathManager with `validate=False`.
+Traceback (most recent call last):
+  File "/home/simon/Documents/scripts/views_platform/views-models/models/dualfullzero_fortythree/main.py", line 9, in <module>
+    model_path = ModelPathManager(Path(__file__))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/data/model_path.py", line 386, in __init__
+    self._initialize_directories()
+  File "/home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/data/model_path.py", line 452, in _initialize_directories
+    self.artifacts = self._build_absolute_directory(Path("artifacts"))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/data/model_path.py", line 941, in _build_absolute_directory
+    raise FileNotFoundError(error)
+FileNotFoundError: Expected model path /home/simon/Documents/scripts/views_platform/views-models/models/dualfullzero_fortythree/artifacts does not exist. Create it (e.g. via `make_new_model.py`) or construct ModelPathManager with `validate=False`.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/simon/Documents/scripts/views_platform/views-models/models/dualfullzero_fortythree/main.py", line 12, in <module>
+    raise RuntimeError(
+RuntimeError: File not found: Expected model path /home/simon/Documents/scripts/views_platform/views-models/models/dualfullzero_fortythree/artifacts does not exist. Create it (e.g. via `make_new_model.py`) or construct ModelPathManager with `validate=False`.. Check the file path and try again.
+ERROR conda.cli.main_run:execute(47): `conda run python main.py -r calibration -t -e -sa` failed. (See above for error)

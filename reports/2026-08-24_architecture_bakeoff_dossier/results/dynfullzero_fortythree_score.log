@@ -1,0 +1,33 @@
+wrote /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-08-24_architecture_bakeoff_dossier/results/score_dynfullzero_fortythree.csv  (7 rows: 1 models × 1 targets × 7 h)
+
+=== sb: crps_all / mcr_none by horizon ===
+h                          1      6      12     18     24     30     36
+model                                                                  
+dynfullzero_fortythree 0.1250 0.1125 0.1101 0.1336 0.1328 0.1686 0.8746
+{
+  "1": {
+    "ap": 0.4807143002208258,
+    "lo": 0.46564658567745554,
+    "hi": 0.4950177863540818,
+    "mde": 0.01468560033831312,
+    "n_origins": 13.0
+  },
+  "18": {
+    "ap": 0.3349553172714768,
+    "lo": 0.31501552601861904,
+    "hi": 0.3568957530974017,
+    "mde": 0.02094011353939132,
+    "n_origins": 13.0
+  }
+}
+{
+  "ratio": 0.6967866716625829,
+  "lo": 0.6482223543560924,
+  "hi": 0.7501941521042444,
+  "mde": 0.05098589887407601,
+  "ap_num": 0.3349553172714768,
+  "ap_den": 0.4807143002208258,
+  "numerator_h": 18.0,
+  "denominator_h": 1.0,
+  "n_origins": 13.0
+}

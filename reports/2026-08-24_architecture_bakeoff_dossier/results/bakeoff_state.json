@@ -1,5 +1,5 @@
 {
-  "state": "IN PROGRESS (0/12)",
+  "state": "IN PROGRESS (11/12)",
   "problems": [],
   "rows": [
     {
@@ -8,9 +8,9 @@
       "arm": "aafullzero_fortytwo",
       "params": null,
       "control": 0.3298395823400329,
-      "arm_ap": null,
-      "oracle": null,
-      "floor": "\u2014"
+      "arm_ap": 0.32139153233866335,
+      "oracle": 0.4990980975262515,
+      "floor": "PASS"
     },
     {
       "arch": "AntiAliasedPool",
@@ -18,9 +18,9 @@
       "arm": "aafullzero_fortythree",
       "params": null,
       "control": 0.33182533398580893,
-      "arm_ap": null,
-      "oracle": null,
-      "floor": "\u2014"
+      "arm_ap": 0.33258435726830393,
+      "oracle": 0.501698050747531,
+      "floor": "PASS"
     },
     {
       "arch": "DynamicTopSkip",
@@ -28,9 +28,9 @@
       "arm": "dynfullzero_fortytwo",
       "params": null,
       "control": 0.3298395823400329,
-      "arm_ap": null,
-      "oracle": null,
-      "floor": "\u2014"
+      "arm_ap": 0.3308970802176967,
+      "oracle": 0.499297550801463,
+      "floor": "PASS"
     },
     {
       "arch": "DynamicTopSkip",
@@ -38,9 +38,9 @@
       "arm": "dynfullzero_fortythree",
       "params": null,
       "control": 0.33182533398580893,
-      "arm_ap": null,
-      "oracle": null,
-      "floor": "\u2014"
+      "arm_ap": 0.3349553172714768,
+      "oracle": 0.49437842010507216,
+      "floor": "PASS"
     },
     {
       "arch": "FiLMSkip",
@@ -48,9 +48,9 @@
       "arm": "filmfullzero_fortytwo",
       "params": null,
       "control": 0.3298395823400329,
-      "arm_ap": null,
-      "oracle": null,
-      "floor": "\u2014"
+      "arm_ap": 0.31412641833453137,
+      "oracle": 0.5003905049861771,
+      "floor": "PASS"
     },
     {
       "arch": "FiLMSkip",
@@ -58,9 +58,9 @@
       "arm": "filmfullzero_fortythree",
       "params": null,
       "control": 0.33182533398580893,
-      "arm_ap": null,
-      "oracle": null,
-      "floor": "\u2014"
+      "arm_ap": 0.34001576115351806,
+      "oracle": 0.4989944303048517,
+      "floor": "PASS"
     },
     {
       "arch": "ShallowPool",
@@ -68,9 +68,9 @@
       "arm": "shalfullzero_fortytwo",
       "params": null,
       "control": 0.3298395823400329,
-      "arm_ap": null,
-      "oracle": null,
-      "floor": "\u2014"
+      "arm_ap": 0.31200126580405724,
+      "oracle": 0.49089035472679715,
+      "floor": "PASS"
     },
     {
       "arch": "ShallowPool",
@@ -78,9 +78,9 @@
       "arm": "shalfullzero_fortythree",
       "params": null,
       "control": 0.33182533398580893,
-      "arm_ap": null,
-      "oracle": null,
-      "floor": "\u2014"
+      "arm_ap": 0.3168725339424875,
+      "oracle": 0.4991075408092834,
+      "floor": "PASS"
     },
     {
       "arch": "DualStream",
@@ -88,9 +88,9 @@
       "arm": "dualfullzero_fortytwo",
       "params": null,
       "control": 0.3298395823400329,
-      "arm_ap": null,
-      "oracle": null,
-      "floor": "\u2014"
+      "arm_ap": 0.31745074296953113,
+      "oracle": 0.49284106560655455,
+      "floor": "PASS"
     },
     {
       "arch": "DualStream",
@@ -108,9 +108,9 @@
       "arm": "widefullzero_fortytwo",
       "params": null,
       "control": 0.3298395823400329,
-      "arm_ap": null,
-      "oracle": null,
-      "floor": "\u2014"
+      "arm_ap": 0.3187661527592472,
+      "oracle": 0.5076721030137463,
+      "floor": "PASS"
     },
     {
       "arch": "WideMemory",
@@ -118,9 +118,9 @@
       "arm": "widefullzero_fortythree",
       "params": null,
       "control": 0.33182533398580893,
-      "arm_ap": null,
-      "oracle": null,
-      "floor": "\u2014"
+      "arm_ap": 0.3406990456577003,
+      "oracle": 0.5093504833340338,
+      "floor": "PASS"
     }
   ]
 }

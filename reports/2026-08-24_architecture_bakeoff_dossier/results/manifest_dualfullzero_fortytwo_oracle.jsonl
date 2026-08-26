@@ -1,0 +1,1 @@
+{"model": "dualfullzero_fortytwo", "arm": "use_real", "artifact": "calibration_model_20260826_014222.pt", "pred_dir": "predictions_calibration_20260826_014222", "score_csv": "score_dualfullzero_fortytwo_use_real.csv", "fedfield_csv": "fedfield_dualfullzero_fortytwo_use_real.csv", "elapsed_s": 1136.0, "cubes_deleted": true, "length_scale": null, "gate_probe": false}
