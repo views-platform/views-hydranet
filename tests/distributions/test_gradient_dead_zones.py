@@ -15,7 +15,7 @@ This matters because it reinstates the failure mode C-178 was opened for and
     positive with non-zero gradient, so it cannot die."
 
 Softplus alone cannot die. Softplus *followed by* ``clamp_min(1e-6)`` can, and the transition is
-abrupt, not gradual — measured on an active cell (``y=2``):
+abrupt, not gradual — measured at ``raw_theta = 0`` on an active cell:
 
 ===================  ===========================
 ``raw_mu``           ``dNLL/d(raw_mu)``
@@ -23,6 +23,9 @@ abrupt, not gradual — measured on an active cell (``y=2``):
 -13.81               -6.389
 -13.82               **exactly 0.0**
 ===================  ===========================
+
+(at ``raw_theta = 0``, count 6.39. The magnitude is theta-dependent — see C-313 — but the drop to
+exactly zero below the edge is not.)
 
 Below the edge there is no gradient in either direction, so the unit cannot climb back out.
 
@@ -49,16 +52,22 @@ from views_hydranet.distributions.nb_core import _EPS  # noqa: E402
 EDGE = math.log(math.expm1(_EPS))
 
 
-def _grad_wrt_raw(raw_mu: float, raw_theta: float, y: float = 2.0):
-    """``dNLL/d(raw)`` through the REAL path: ``activate`` then ``nll``.
+def _grad_wrt_raw(raw_mu: float, raw_theta: float, count: float = 6.0):
+    """``dNLL/d(raw)`` through the REAL path, with the target in the space the loss expects.
 
-    Calling ``nll`` on raw values directly would silently measure a different function — the
-    family's contract is that ``nll`` receives *activated* params. Getting that wrong is how an
-    earlier pass of this audit produced a flat, meaningless gradient surface.
+    Two contracts are easy to get wrong here, and this audit got both wrong once before fixing them:
+
+    * ``nll`` receives **activated** params, not raw ones. Passing raw values measures a different
+      function entirely and yields a flat, meaningless gradient surface.
+    * ``target`` is in **log1p space** — ``nll`` recovers counts via ``to_raw_counts``. Passing a
+      raw count of 50 actually asks about a count of ``expm1(50) ≈ 5e21``, which manufactures a
+      spurious explosion.
+
+    ``count`` is therefore a real count and is log1p-transformed here.
     """
     family = get_family("nb")
     raw = torch.tensor([[raw_mu, raw_theta]], requires_grad=True)
-    nll = family.nll(family.activate(raw), torch.tensor([y]))
+    nll = family.nll(family.activate(raw), torch.log1p(torch.tensor([count])))
     (grad,) = torch.autograd.grad(nll, raw)
     return grad[0, 0].item(), grad[0, 1].item()
 
@@ -75,24 +84,27 @@ def test_the_dead_zone_edge_is_where_softplus_meets_the_clamp_floor():
 def test_mu_gradient_dies_abruptly_not_gradually_characterisation():
     """CHARACTERISATION (C-178 reinstated): the gradient does not fade, it stops.
 
-    The magnitude just above the edge is ~6.4 on an active cell. If the clamp merely damped a
-    gradient that was already negligible, this would be harmless bookkeeping; it does not.
+    Measured at ``raw_theta = 0`` (theta ~ 0.693) the magnitude just above the edge is ~6.4 — if
+    the clamp merely damped an already-negligible gradient this would be harmless bookkeeping, and
+    it does not. Note the magnitude is strongly theta-dependent: at the *incumbent's* operating
+    point (``raw_theta = -9.99``) it is ~0.2 at count 100 and points away from the cliff, which is
+    why C-313 is registered as remote rather than acute.
     """
-    alive, _ = _grad_wrt_raw(EDGE + 0.01, 0.0, y=2.0)
+    alive, _ = _grad_wrt_raw(EDGE + 0.01, 0.0, count=6.0)
     assert abs(alive) > 1.0, (
         f"gradient just above the clamp edge is only {alive:.3e}; the abrupt-cutoff framing of "
         "this finding no longer holds — re-measure before trusting the docstring above."
     )
     for depth in (0.01, 1.0, 5.0, 10.0):
-        dead, _ = _grad_wrt_raw(EDGE - depth, 0.0, y=2.0)
+        dead, _ = _grad_wrt_raw(EDGE - depth, 0.0, count=6.0)
         assert dead == 0.0, f"raw_mu={EDGE - depth:.4f}: expected exactly 0.0, got {dead}"
 
 
 def test_the_dead_zone_is_irrecoverable_in_both_directions():
     """No gradient means no way back. Confirms it is a trap, not a soft floor."""
-    for y in (0.0, 1.0, 10.0):
-        dead, _ = _grad_wrt_raw(EDGE - 2.0, 0.0, y=y)
-        assert dead == 0.0, f"y={y}: a target of any size should not revive the unit, got {dead}"
+    for count in (0.0, 1.0, 10.0):
+        dead, _ = _grad_wrt_raw(EDGE - 2.0, 0.0, count=count)
+        assert dead == 0.0, f"count={count}: no target size should revive the unit, got {dead}"
 
 
 def test_theta_dies_at_the_same_edge():

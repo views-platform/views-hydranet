@@ -3340,7 +3340,7 @@ given a plausible cause.
 | Source | training-loop gradient audit (2026-08-26) |
 | Trigger | Writing a new arm config without `freeze_multitask_balancer: True`, or deliberately re-enabling the C-111 active balancer to revisit the C-113 bisect |
 | Location | `views_hydranet/utils/mtloss.py:66`; `views_hydranet/train/training_engine.py:1015` (`if w_loss > 0`) and `:1027` (`if lesson_loss > 0`) |
-| Cross-refs | C-111 (added `log_vars` to the optimizer), C-113 (the bisect the freeze flag exists for), C-314 |
+| Cross-refs | C-111 (added `log_vars` to the optimizer), C-113 (the bisect the freeze flag exists for), **C-170 and C-124 — the SAME trigger (un-freezing the balancer), different mechanism**: C-170 is about the Kendall weighting *starving* the rare targets, this is about the guards below it *stopping training altogether*. Anyone acting on C-170's mitigation must read this too.**, C-314 |
 
 `MultiTaskLoss.forward` returns `coeffs * losses + torch.log(stds + eps)`. The second term is
 **negative whenever `log_var < 0`**. Per task, `term(L, v) = L/((r+1)e^v) + v/2` is minimised at
@@ -3378,17 +3378,33 @@ backward-pass counter. Mutation-verified: removing either guard, or the `log(std
 | Source | training-loop gradient audit (2026-08-26) |
 | Trigger | Raising `_EPS`, changing `reg_activation` or the head's bias init, or training long/hard enough that the reg head's raw output approaches -13.8 |
 | Location | `views_hydranet/distributions/nb_core.py:20-24`; false claim at `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:104-106` |
-| Cross-refs | C-178 (the original dead-ReLU root cause), C-199 / C-203 (theta dies if it saturates), C-303 (tenth occurrence) |
+| Cross-refs | **C-202 — same clamp, examined for `theta` ONLY and resolved on a theta-specific argument; `mu` was never in scope**; C-178 (the original dead-ReLU root cause), C-199 / C-203 (theta dies if it saturates), C-314 (the clip is the belt-and-braces C-202's resolution leans on), C-303 (tenth occurrence) |
 
 `_clamp` applies `clamp_min(_EPS)` with `_EPS = 1e-6` to both activated NB parameters. `clamp_min`
 passes zero gradient below its floor, so with a `softplus` head the dead-zone edge sits at exactly
 `softplus(raw) == 1e-6`, i.e. `raw == log(expm1(1e-6)) ≈ -13.8155`.
 
-The transition is **abrupt, not gradual**, and therefore a trap rather than a soft floor. On an
-active cell (`y=2`): `dNLL/d(raw_mu) = -6.389` at `raw_mu = -13.81`, and **exactly `0.0`** at
-`-13.82`, in both directions and for any target size. A unit that steps past the edge cannot climb
-back out. This is mechanically the failure C-178 was opened for and fixed by ReLU→softplus; the
-clamp reinstates it 13.8 nats lower down.
+The transition is **abrupt, not gradual**, and therefore a trap rather than a soft floor: the
+gradient is finite immediately above the edge and **exactly `0.0`** immediately below, in both
+directions and for any target. A unit that steps past the edge cannot climb back out. This is
+mechanically the failure C-178 was opened for and fixed by ReLU→softplus; the clamp reinstates it
+13.8 nats lower down.
+
+**Relationship to C-202 — the real gap.** C-202 asked whether this same `_EPS` floor causes a
+head-channel gradient explosion, and answered *no*, correctly: `dtheta/d(raw) = sigmoid(raw) -> 0`
+cancels the `1/theta` term. But that argument, its test and its Location field are all about
+**`theta`**. The identical clamp applies to **`mu`**, where the cancellation does not occur —
+measured, with targets in log1p space as the loss expects, `|dNLL/d(raw_mu)|` just above the floor
+is approximately **the observed count** (5.0 at count 5, 5000.0 at count 5000), against C-202's
+`1.5` theta bound. C-202 is not wrong; it is **incomplete**, and its resolution note reads as
+though the clamp question is settled for the head as a whole.
+
+**How remote, measured rather than asserted.** Severity depends strongly on `theta`. The -6.389
+figure quoted in early notes on this entry is at `theta = 0.693`; at the **incumbent's** measured
+operating point (`raw_mu = -3.81`, `raw_theta = -9.99`) the mu-channel gradient is `-0.207` at
+count 100 and `-2.07` at count 1000 — and its **sign pushes `mu` away from the cliff**, since any
+positive count raises `raw_mu`. The gap to the edge is 10.0 nats, i.e. ~48,000 unclipped
+`lr=1e-3` steps *in the wrong direction*. Tier 3 is if anything generous.
 
 **Latent, not active — measured, not assumed.** Running the trained L=300 incumbent
 (`fullzero_fortytwo`) forward on a sparse field, the reg heads' minimum raw outputs are `mu` **-3.81**
@@ -3416,7 +3432,7 @@ removing the clamp, fails.
 | Source | training-loop gradient audit (2026-08-26) |
 | Trigger | Tuning the clip threshold from config, or diagnosing an explosion by reading `max_raw_grad_norm` |
 | Location | `views_hydranet/train/training_engine.py:1080-1081` (clip), `:1053-1060` (raw-norm audit); `config_initializer.py` (`clip_grad_norm: bool`) |
-| Cross-refs | C-312 (the same parameters, unbounded in the loss), C-184 |
+| Cross-refs | C-312 (the same parameters, unbounded in the loss), **C-202 — its resolution explicitly leans on this clip as the belt-and-braces for legitimate large-count gradients, so an untested clip weakened a closed entry**, C-215 (per-lesson grad-norm not persisted), C-184 |
 
 Three distinct gaps in one guard:
 
