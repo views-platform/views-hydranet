@@ -42,3 +42,38 @@ def test_rollout_horizon_one_still_constructs(valid_config_dict):
     cfg = dict(valid_config_dict)
     cfg["rollout_horizon"] = 1
     assert HydraNetConfig(**cfg).rollout_horizon == 1
+
+
+# ---------------------------------------------------------------------------
+# #289 pushforward_weight — the same "reject if nothing will read it" guard,
+# for a knob that IS wired but only on the family-head path.
+# ---------------------------------------------------------------------------
+def test_pushforward_weight_without_a_family_head_is_rejected(valid_config_dict):
+    """`_process_sequence` guards the pushforward term on `family is not None`.
+
+    A legacy / point / quantile head with `pushforward_weight > 0` would therefore train with NO
+    pushforward at all and report a clean run — the experiment's premise silently invalid, which
+    is exactly the failure `reject_unwired_rollout_horizon` above exists to prevent.
+    """
+    cfg = dict(valid_config_dict)
+    cfg["output_distribution"] = "standard"
+    cfg["pushforward_weight"] = 0.3
+    with pytest.raises(ValidationError, match="pushforward"):
+        HydraNetConfig(**cfg)
+
+
+def test_pushforward_weight_with_a_family_head_constructs(valid_config_dict):
+    """Green: the combination the flag is FOR must construct cleanly."""
+    cfg = dict(valid_config_dict)
+    cfg["output_distribution"] = "nb"
+    cfg["forecast_composition"] = "soft_gate"  # ADR-069: nb is not self-zeroed, so declare a gate
+    cfg["pushforward_weight"] = 0.3
+    assert HydraNetConfig(**cfg).pushforward_weight == 0.3
+
+
+def test_pushforward_weight_zero_is_allowed_on_any_head(valid_config_dict):
+    """The default must never be the thing that rejects a legacy config."""
+    cfg = dict(valid_config_dict)
+    cfg["output_distribution"] = "standard"
+    cfg["pushforward_weight"] = 0.0
+    assert HydraNetConfig(**cfg).pushforward_weight == 0.0

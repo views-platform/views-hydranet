@@ -376,3 +376,131 @@ def test_the_pushforward_is_skipped_when_gradients_are_off():
         "The term is still being computed on a path that cannot use it — pure cost during BN "
         "recalibration."
     )
+
+
+def _fixture_with_statics(seed=0, T=4):
+    """Like ``_fixture`` but with one static channel, so tests can tell WHICH frame it was read from.
+
+    The static channel is given a different constant per frame — physically wrong (statics are
+    geometry-constant by definition) and deliberately so: it is the only way to observe which time
+    index ``_attach_static_channels`` was handed. With the production ``static_channels: []`` the
+    helper is a no-op and the question is unobservable.
+    """
+    torch.manual_seed(seed)
+    static = ["coord_row"]
+    cfg = {
+        "features": FEATS,
+        "regression_targets": FEATS,
+        "classification_targets": CLS,
+        "static_channels": static,
+    }
+    names = FEATS + CLS + static
+    idx = _SequenceIndices(names, cfg)
+    model = (
+        get_architecture("HydraBNUNet06_LSTM4")(
+            len(FEATS) + len(static), 32, 1, 0.0, output_distribution="nb"
+        )
+        .float()
+        .train()
+    )
+    h = model.init_hTtime(model.base, H, W).float()
+    x = (
+        (torch.rand(1, T, len(names), H, W) < 0.25).float()
+        * torch.rand(1, T, len(names), H, W)
+        * 8
+    )
+    for t in range(T):  # a distinct constant per frame
+        x[:, t, idx.static] = float(t + 1)
+    return x, model, h, idx, get_family("nb")
+
+
+def test_the_fed_field_gets_its_statics_from_t_plus_one_not_t():
+    """The fed field stands in for t+1, so its statics must come from t1.
+
+    Inert today (production runs ``static_channels: []``, making the helper a no-op) and a real bug
+    the moment a channel that varies in time is declared static. Observable only with a static
+    channel present, which is why this test builds one.
+    """
+    x, model, h, idx, fam = _fixture_with_statics(seed=17)
+    assert idx.static, "the fixture declares no static channel — this test cannot bite"
+
+    out = _process_sequence(
+        x,
+        model,
+        h,
+        criterion_reg=FamilyLoss(fam),
+        criterion_class=nn.BCEWithLogitsLoss(),
+        multitaskloss_instance=_MTL(),
+        idx=idx,
+        device=torch.device("cpu"),
+        family=fam,
+        ss_feedback="mean",
+        forecast_composition="soft_gate",
+        pushforward_weight=1.0,
+    )
+
+    # Rebuild the same run with the per-frame static constants shifted by one, so a t0-indexed
+    # read produces the value a t1-indexed read produced before. If the engine reads t0, the
+    # pushforward term is unchanged by the shift; if it reads t1, it moves.
+    x2, model2, h2, idx2, fam2 = _fixture_with_statics(seed=17)
+    for t in range(x2.shape[1]):
+        x2[:, t, idx2.static] = float(t + 2)
+    out2 = _process_sequence(
+        x2,
+        model2,
+        h2,
+        criterion_reg=FamilyLoss(fam2),
+        criterion_class=nn.BCEWithLogitsLoss(),
+        multitaskloss_instance=_MTL(),
+        idx=idx2,
+        device=torch.device("cpu"),
+        family=fam2,
+        ss_feedback="mean",
+        forecast_composition="soft_gate",
+        pushforward_weight=1.0,
+    )
+    assert not torch.equal(out["total"], out2["total"]), (
+        "shifting the static channel by one frame left the loss identical — the statics are not "
+        "being read per-frame at all, so this test cannot detect which frame the pushforward used"
+    )
+
+
+def test_the_pushforward_term_honours_target_weights():
+    """C-87 parity: the auxiliary term must use the same per-target weights as the primary loss.
+
+    Without this the pushforward silently re-weights the targets relative to the main objective —
+    inert while ``target_weights`` is None (the production default), wrong as soon as it is set.
+    """
+    kwargs = dict(
+        criterion_class=nn.BCEWithLogitsLoss(),
+        multitaskloss_instance=_MTL(),
+        device=torch.device("cpu"),
+        ss_feedback="mean",
+        forecast_composition="soft_gate",
+    )
+
+    def run(weights, pf):
+        x, model, h, idx, fam = _fixture(seed=23)
+        return _process_sequence(
+            x,
+            model,
+            h,
+            criterion_reg=FamilyLoss(fam),
+            idx=idx,
+            family=fam,
+            target_weights=weights,
+            pushforward_weight=pf,
+            **kwargs,
+        )["total"].item()
+
+    flat = {name: 1.0 for name in FEATS}
+    tilted = dict(flat, **{FEATS[0]: 5.0})
+
+    # the weight change must move the pushforward CONTRIBUTION, not just the primary loss
+    pf_contrib_flat = run(flat, 1.0) - run(flat, 0.0)
+    pf_contrib_tilted = run(tilted, 1.0) - run(tilted, 0.0)
+    assert abs(pf_contrib_tilted - pf_contrib_flat) > 1e-6 * abs(pf_contrib_flat), (
+        f"target_weights changed the primary loss but not the pushforward term "
+        f"({pf_contrib_flat:.6f} vs {pf_contrib_tilted:.6f}) — the auxiliary objective is "
+        "weighting the targets differently from the primary one (C-87)."
+    )
