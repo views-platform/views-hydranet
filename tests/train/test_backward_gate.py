@@ -105,8 +105,15 @@ def test_the_sign_boundary_is_where_the_task_loss_falls_below_one_over_e(loss, e
     )
 
 
-def _run_lessons(*, freeze: bool, lessons: int, pin_log_vars: bool, caplog=None):
-    """Drive the real ``training_loop`` and count how many lessons actually produced an update."""
+def _run_lessons(*, freeze: bool, lessons: int, pin_log_vars: bool, count_backwards: bool = False):
+    """Drive the real ``training_loop``; count optimizer updates, or backward passes.
+
+    ``count_backwards`` counts gradient *accumulations* on a single parameter via a
+    post-accumulate-grad hook. That is the only way to observe the ``if w_loss > 0`` guard at
+    ``:1015`` on its own: the ``if lesson_loss > 0`` guard at ``:1027`` independently suppresses
+    the optimizer step, so counting steps cannot distinguish the two. Removing the backward guard
+    alone left an earlier version of this file entirely green.
+    """
     cfg = loop_config(
         clip_grad_norm=True,
         freeze_multitask_balancer=freeze,
@@ -125,11 +132,36 @@ def _run_lessons(*, freeze: bool, lessons: int, pin_log_vars: bool, caplog=None)
         with torch.no_grad():
             balancer.log_vars.copy_(torch.log(raw / (balancer.is_regression + 1.0)))
 
-    steps: list[int] = []
-    original_step = optimizer.step
-    optimizer.step = lambda *a, **k: (steps.append(1), original_step(*a, **k))[1]
+    events: list[int] = []
+    if count_backwards:
+        probe = next(p for p in model.parameters() if p.requires_grad)
+        probe.register_post_accumulate_grad_hook(lambda _p: events.append(1))
+    else:
+        original_step = optimizer.step
+        optimizer.step = lambda *a, **k: (events.append(1), original_step(*a, **k))[1]
     training_loop(cfg, model, criterion, optimizer, scheduler, loop_handler(cfg), device)
-    return len(steps)
+    return len(events)
+
+
+def test_the_backward_guard_itself_stops_firing_not_just_the_optimizer_step():
+    """Isolates the ``if w_loss > 0`` guard from the ``if lesson_loss > 0`` guard below it.
+
+    Counts gradient accumulations rather than optimizer steps. With the frozen balancer every
+    window backpropagates; with the balancer at its fixed point most windows do not, and the
+    compute spent on those forward passes is discarded.
+
+    This test exists because a mutation that deleted the backward guard entirely — leaving only
+    the lesson-level guard — passed every other test in this file.
+    """
+    frozen = _run_lessons(freeze=True, lessons=6, pin_log_vars=False, count_backwards=True)
+    active = _run_lessons(freeze=False, lessons=6, pin_log_vars=True, count_backwards=True)
+    assert frozen == 6, (
+        f"the frozen control backpropagated {frozen} times, expected one per lesson"
+    )
+    assert active < frozen, (
+        f"the active balancer still backpropagated {active} times out of {frozen}: the guard at "
+        "training_engine.py:1015 is no longer skipping non-positive windows."
+    )
 
 
 def test_the_frozen_balancer_trains_every_lesson():
