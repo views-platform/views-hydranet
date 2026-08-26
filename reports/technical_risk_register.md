@@ -5,11 +5,11 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-26                           |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 312                                  |
-| Open Concerns     | 160                                  |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
+| Total Concerns    | 313                                  |
+| Open Concerns     | 161                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 136                                 |
+| — net active risks | 137                                 |
 | Resolved Concerns | 152                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -3331,7 +3331,7 @@ with both directions tested. **Not fixed:** what emptied that directory is unkno
 timestamps say 02:08 and no rebuild appears in the queue log. Recorded as unexplained rather than
 given a plausible cause.
 
-### C-312: the multi-task balancer can drive the loss negative, and two guards then stop training in silence
+### C-312: the multi-task balancer can drive the loss negative, and two guards then stop training in silence — FIXED
 
 | Field | Value |
 |-------|-------|
@@ -3363,9 +3363,23 @@ every term is non-negative. No past result is in question. But the **config defa
 (`config_initializer.py:274`), so the exposure is one omitted line away, and 114 of the 156 model
 configs in views-models do not mention the flag at all.
 
-**Not fixed** (C-112: changing the loss would make pre/post metrics incomparable). Pinned by
-`tests/train/test_backward_gate.py`, 8 tests including a frozen-balancer control and a
-backward-pass counter. Mutation-verified: removing either guard, or the `log(stds)` term, fails.
+> **FIXED 2026-08-26.** The guards now ask ADR-014's actual question. A window backpropagates
+> unless its loss is **exactly zero** (the empty-window case ADR-014 means); a **non-finite** loss
+> now **raises** instead of being skipped like an empty window (a NaN used to fail `> 0` silently —
+> C-212 was exactly such a bug); and the optimization gate keys on `windows_trained > 0`, i.e.
+> whether gradient was actually produced. Measured after the fix: **6 of 6** lessons update, where
+> the old guards gave 2.
+>
+> **The C-112 comparability question is answered by measurement, not assertion.** Under
+> `freeze_multitask_balancer: True` the balancer contributes `log(stds) = 0` and every task term is
+> non-negative, so the old `> 0` and new `!= 0` select the same windows.
+> `test_the_new_guard_is_byte_identical_when_frozen` proves it by observing every window's total
+> during a real frozen-balancer run rather than re-deriving the algebra, so it stays true if the
+> loss composition changes. **No existing result moves.**
+>
+> Pinned by `tests/train/test_backward_gate.py` (10 tests). Mutation-verified: restoring the sign
+> guard, removing the empty-window skip, removing the optimization gate, removing the non-finite
+> check, and removing the `log(stds)` term are all caught.
 
 ---
 
@@ -3447,11 +3461,18 @@ Three distinct gaps in one guard:
    unclipped `log_vars` is an unbounded amplifier on every task loss, unwatched by the guard whose
    job is to notice exactly that.
 
-(1) and (3) are **not fixed** (C-112). (2) is closed:
-`tests/train/test_gradient_health.py` observes the gradient norm the optimizer is actually handed,
-which is what makes it survive the mutations — a test that patched `clip_grad_norm_` would have
-verified we call a function, not that the gradient is bounded. Mutation-verified: deleting the call
-and raising `max_norm` to 100.0 both fail.
+> **(1) and (2) FIXED 2026-08-26; (3) REMAINS OPEN.**
+>
+> (1) `clip_grad_max_norm: float = Field(default=1.0, gt=0.0)` replaces the literal. The default
+> keeps every pre-existing config byte-identical (`test_the_clip_default_is_unchanged_at_one`).
+> (2) `tests/train/test_gradient_health.py` observes the gradient norm the optimizer is actually
+> handed — a test that patched `clip_grad_norm_` would have verified we call a function, not that
+> the gradient is bounded. Mutation-verified: deleting the call, raising `max_norm` to 100.0, and
+> ignoring the new config field are all caught.
+>
+> **(3) is deliberately NOT fixed:** clipping `log_vars` changes training dynamics whenever the
+> balancer is active, which is a C-112 decision, not an audit side effect. The engine now carries
+> a comment saying so at the clip site. **This entry stays open on (3) alone.**
 
 ---
 
@@ -3511,6 +3532,37 @@ recurrence.
 vanishing, so a future change that collapses the recurrence back toward the random-init regime would
 be silent. Pinned by `tests/train/test_bptt_reach.py`; mutation-verified (inserting `.detach()` in
 the state carry fails).
+
+### C-316: a test deleted a live module from `sys.modules`, silently disarming every later monkeypatch of it
+
+| Field | Value |
+|-------|-------|
+| ID | C-316 |
+| Tier | 3 |
+| Source | training-loop gradient audit (2026-08-26), found while three new tests failed only in full-suite runs |
+| Trigger | Writing a test that reloads or removes a module from `sys.modules` in order to re-read it, when other modules already hold bound references into it |
+| Location | `tests/test_reproducibility_gate.py::test_training_engine_uses_lock_entropy`; guard added as `::test_the_live_training_engine_module_is_the_one_training_loop_uses` |
+| Cross-refs | C-303 / C-309 / C-311 (guards that check less than a reader assumes) |
+
+`test_training_engine_uses_lock_entropy` did `del sys.modules["views_hydranet.train.training_engine"]`
+and re-imported, purely so it could read the module's `__file__` and grep the source text. The
+delete was never needed for that, and it was never undone: for the rest of the session
+`views_hydranet.train.training_engine` was a **new** module object, while
+`train_model.training_loop` — already bound — kept executing against the **old** module's globals.
+
+**The consequence is exactly the failure mode this register keeps recording:** any later test that
+monkeypatched a `training_engine` attribute was patching an object nothing called. The patch
+appeared to succeed, the test ran, and it asserted against unpatched behaviour. Three tests in
+`tests/train/test_backward_gate.py` passed in isolation and failed **only** in a full-suite run,
+which is how it surfaced; a test written to be *less* strict would simply have passed, wrongly, in
+both.
+
+**Fixed** by reading the source through `Path(mod.__file__).read_text()` without touching
+`sys.modules`. **Guarded** by an assertion that `training_loop.__globals__` *is* the `__dict__` of
+the module currently in `sys.modules` — added because re-introducing the delete, once the three
+tests had been hardened to patch `training_loop.__globals__` directly, **survived the entire
+suite**. Hardening the victims removed the only signal that the defect existed; the guard restores
+it, and the mutation is now caught.
 
 ## Disagreements
 
