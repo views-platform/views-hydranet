@@ -184,6 +184,16 @@ class HydraNetConfig(BaseModel):
     # progressively more ground truth. An ITF arm sets ss_warmup_lessons to the TOTAL lesson count,
     # because that is the linear ramp length — see the itf-pilot dossier's AMENDMENT 1.
     ss_reverse: bool = Field(default=False)
+    # #289 (Brandstetter et al. 2022): pushforward. An AUXILIARY loss — one extra unrolled step
+    # from the model's own emitted field, scored against ground truth at t+2. 0.0 (default) is
+    # byte-identical to the pre-flag model: the term is never computed. The main training loop
+    # stays teacher-forced either way; this does not change the trajectory, only the objective.
+    pushforward_weight: float = Field(default=0.0, ge=0.0)
+    # The paper's solver is stateless, so cutting the fed-back input cuts every gradient path.
+    # Ours is recurrent: `h` carries gradient, so False (default) lets the pushforward loss train
+    # the RECURRENCE to produce states that survive one step of self-feeding. True reproduces the
+    # stateless reading. Recorded as a fork the paper cannot settle for a recurrent model.
+    pushforward_detach_state: bool = Field(default=False)
 
     # 7. Sampling & Reproducibility
     total_lessons: int = Field(..., ge=1)

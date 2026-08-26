@@ -278,6 +278,8 @@ def _process_sequence(
     ss_feedback: str = "mean",
     forecast_composition: str = "self_zeroed",
     gate_threshold: float | None = None,
+    pushforward_weight: float = 0.0,
+    pushforward_detach_state: bool = False,
 ) -> dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
@@ -513,8 +515,54 @@ def _process_sequence(
             )
             losses_list.append(crit_cj(pred_cj, targ_cj))
 
+        # ── PUSHFORWARD (Brandstetter et al. 2022, #289) ────────────────────────────────────
+        # An AUXILIARY loss, not a change to the trajectory: the main loop above stays exactly
+        # teacher-forced, so `pushforward_weight == 0.0` is byte-identical to the pre-flag model.
+        #
+        # Take one extra step from the model's OWN emitted field and score it against ground truth
+        # at t+2 — "unroll 2 steps, cut the gradient after the first, compute the loss at the
+        # pushforward time". The gradient cut is `.detach()` on the fed field, which on the
+        # `sample` path is already unavoidable (`torch.poisson` severs it; measured as exactly 0.0),
+        # so on that path that half of the paper's method is a NO-OP and the SECOND UNROLL is the
+        # entire intervention. Recorded because implementing only the detach would have done
+        # nothing while looking correct.
+        #
+        # `pushforward_detach_state` is a fork the paper cannot settle: its solver is stateless, so
+        # cutting the input cuts every path. Ours is recurrent and `h` carries gradient, so False
+        # (default) lets the pushforward loss train the RECURRENCE to produce states that survive
+        # one step of self-feeding. True reproduces the stateless reading.
+        pf_loss = None
+        if pushforward_weight > 0.0 and family is not None and i + 2 < seq_len:
+            fed = _family_feedback_log1p(
+                t1_pred,
+                family,
+                ss_feedback,
+                torch.sigmoid(t1_pred_class),
+                forecast_composition,
+                gate_threshold,
+            ).detach()
+            pf_in = _attach_static_channels(fed, t0, idx)
+            pf_h = h.detach() if pushforward_detach_state else h
+            pf_out = model(pf_in, pf_h)
+            y2_reg = train_tensor[:, i + 2, idx.reg, :, :]
+            pf_terms = []
+            for j, name in enumerate(idx.reg_names):
+                loss_fn_j = (
+                    criterion_reg[name] if isinstance(criterion_reg, dict) else criterion_reg
+                )
+                npar = getattr(loss_fn_j, "n_params", 1)
+                pf_terms.append(
+                    loss_fn_j(
+                        pf_out.reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1),
+                        y2_reg[:, j],
+                    )
+                )
+            pf_loss = torch.stack(pf_terms).sum()
+
         losses = torch.stack(losses_list)
         loss = cast(Any, multitaskloss_instance)(losses)
+        if pf_loss is not None:
+            loss = loss + pushforward_weight * pf_loss
         if qs99_weight is not None and qs99_weight > 0:
             loss = loss + qs99_weight * qs99_loss
         if decay_gate_weight > 0:
@@ -690,6 +738,8 @@ def train(
         ss_feedback=config.get("ss_feedback", "mean"),
         forecast_composition=config.get("forecast_composition", "self_zeroed"),
         gate_threshold=config.get("gate_threshold"),
+        pushforward_weight=config.get("pushforward_weight", 0.0),
+        pushforward_detach_state=config.get("pushforward_detach_state", False),
     )
     step_total, step_reg, step_cls = result["per_step_losses"]
 
