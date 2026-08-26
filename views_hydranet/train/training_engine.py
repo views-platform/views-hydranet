@@ -522,7 +522,8 @@ def _process_sequence(
         # Take one extra step from the model's OWN emitted field and score it against ground truth
         # at t+2 — "unroll 2 steps, cut the gradient after the first, compute the loss at the
         # pushforward time". The gradient cut is `.detach()` on the fed field, which on the
-        # `sample` path is already unavoidable (`torch.poisson` severs it; measured as exactly 0.0),
+        # `sample` path is already unavoidable (`torch.poisson` severs it; measured as
+        # exactly 0.0),
         # so on that path that half of the paper's method is a NO-OP and the SECOND UNROLL is the
         # entire intervention. Recorded because implementing only the detach would have done
         # nothing while looking correct.

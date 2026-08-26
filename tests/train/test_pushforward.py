@@ -3,11 +3,13 @@
 Every test here exists because a plausible-looking implementation could pass without doing the
 thing. The specific traps, all real:
 
-* **The gradient cut is already free on our `sample` path.** `torch.poisson` severs it — measured as
+* **The gradient cut is already free on our `sample` path.** `torch.poisson` severs it —
+  measured as
   exactly 0.0 while the tensor stays graph-connected. An implementation consisting of a `.detach()`
   would be a NO-OP that looks correct, so the tests below check the SECOND UNROLL, which is the
   entire intervention here.
-* **The second step must consume the model's OWN field, not ground truth.** Feeding `t0` again would
+* **The second step must consume the model's OWN field, not ground truth.** Feeding `t0`
+  again would
   train an ordinary two-step teacher-forced model and still change the loss.
 * **The loss must be scored at t+2.** Scoring it at t+1 would duplicate the main term and still
   "work".
@@ -24,7 +26,7 @@ import torch.nn as nn  # noqa: E402
 from views_hydranet.architectures.registry import get_architecture  # noqa: E402
 from views_hydranet.distributions import get_family  # noqa: E402
 from views_hydranet.distributions.family_loss import FamilyLoss  # noqa: E402
-from views_hydranet.train.training_engine import _SequenceIndices, _process_sequence  # noqa: E402
+from views_hydranet.train.training_engine import _process_sequence, _SequenceIndices  # noqa: E402
 
 H = W = 8
 T = 6
@@ -42,17 +44,25 @@ class _MTL(nn.Module):
 def _fixture(seed=0):
     torch.manual_seed(seed)
     cfg = {
-        "features": FEATS, "regression_targets": FEATS, "classification_targets": CLS,
+        "features": FEATS,
+        "regression_targets": FEATS,
+        "classification_targets": CLS,
         "static_channels": [],
     }
     names = FEATS + CLS
     idx = _SequenceIndices(names, cfg)
-    model = get_architecture("HydraBNUNet06_LSTM4")(
-        len(FEATS), 32, 1, 0.0, output_distribution="nb"
-    ).float().train()
+    model = (
+        get_architecture("HydraBNUNet06_LSTM4")(len(FEATS), 32, 1, 0.0, output_distribution="nb")
+        .float()
+        .train()
+    )
     h = model.init_hTtime(model.base, H, W).float()
     # log1p-space counts, mostly zero like the real grid
-    x = (torch.rand(1, T, len(names), H, W) < 0.05).float() * torch.rand(1, T, len(names), H, W) * 3
+    x = (
+        (torch.rand(1, T, len(names), H, W) < 0.05).float()
+        * torch.rand(1, T, len(names), H, W)
+        * 3
+    )
     return x, model, h, idx, get_family("nb")
 
 
@@ -61,11 +71,20 @@ def _run(pf_weight=0.0, detach_state=False, seed=0, tensor=None, **kw):
     if tensor is not None:
         x = tensor
     out = _process_sequence(
-        x, model, h,
-        criterion_reg=FamilyLoss(fam), criterion_class=nn.BCEWithLogitsLoss(),
-        multitaskloss_instance=_MTL(), idx=idx, device=torch.device("cpu"),
-        family=fam, ss_feedback="sample", forecast_composition="soft_gate",
-        pushforward_weight=pf_weight, pushforward_detach_state=detach_state, **kw,
+        x,
+        model,
+        h,
+        criterion_reg=FamilyLoss(fam),
+        criterion_class=nn.BCEWithLogitsLoss(),
+        multitaskloss_instance=_MTL(),
+        idx=idx,
+        device=torch.device("cpu"),
+        family=fam,
+        ss_feedback="sample",
+        forecast_composition="soft_gate",
+        pushforward_weight=pf_weight,
+        pushforward_detach_state=detach_state,
+        **kw,
     )
     return out, model, x
 
@@ -140,7 +159,8 @@ def test_the_second_step_consumes_the_models_own_field_not_ground_truth():
     """Recompute the pushforward term independently and require an exact match.
 
     The previous version of this test grepped the source for `_family_feedback_log1p(`. A mutation
-    that left that line in place and fed `t0_input` to the model instead **passed all seven tests** —
+    that left that line in place and fed `t0_input` to the model instead **passed all seven
+    tests** —
     the string was present, the property was gone. That is the same grep-the-source failure the
     project keeps registering, so this recomputes the term from first principles instead.
 
@@ -159,9 +179,17 @@ def test_the_second_step_consumes_the_models_own_field_not_ground_truth():
     def run(w):
         m, hh = _fixture(seed=21)[1], _fixture(seed=21)[2]
         return _process_sequence(
-            short, m, hh, criterion_reg=crit, criterion_class=nn.BCEWithLogitsLoss(),
-            multitaskloss_instance=_MTL(), idx=idx, device=torch.device("cpu"),
-            family=fam, ss_feedback="mean", forecast_composition="soft_gate",
+            short,
+            m,
+            hh,
+            criterion_reg=crit,
+            criterion_class=nn.BCEWithLogitsLoss(),
+            multitaskloss_instance=_MTL(),
+            idx=idx,
+            device=torch.device("cpu"),
+            family=fam,
+            ss_feedback="mean",
+            forecast_composition="soft_gate",
             pushforward_weight=w,
         )["total"]
 
@@ -218,7 +246,7 @@ def test_gradient_into_the_fed_field_is_cut():
 
 
 def test_detach_state_changes_the_gradient_but_not_the_loss():
-    """The recurrent fork: detaching `h` must alter gradients while leaving the forward value alone.
+    """The recurrent fork: detaching `h` must alter gradients but not the forward value.
 
     If the two settings produced identical gradients the flag would be decorative; if they produced
     different losses it would be doing something other than cutting a gradient path.
