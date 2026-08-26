@@ -102,8 +102,16 @@ class HydraBNUNet06_LSTM4(nn.Module):
         # reg_activation overrides it (Exp B: decouple emit activation from the loss/likelihood).
         # C-178: a ReLU output head dies on rare targets under the hurdle mask (pre-activation
         # drifts 100% negative => ReLU==0 with zero gradient => unrecoverable). softplus is always
-        # positive with non-zero gradient, so it cannot die. hurdle_nb already used softplus;
+        # positive with non-zero gradient, so IT cannot die. hurdle_nb already used softplus;
         # extend to all hurdle bodies. "standard" keeps relu (byte-identical to pre-#100).
+        #
+        # C-313: that last clause is about the ACTIVATION, not the path. For the family heads,
+        # `nb_core._clamp` applies `clamp_min(1e-6)` downstream, and `clamp_min` passes exactly
+        # zero gradient below its floor — so the path CAN die, at raw <= log(expm1(1e-6)) ~ -13.82.
+        # Latent on the current vehicle (the trained incumbent's min raw_mu is -3.81, and the
+        # gradient there points away from the edge), pinned by
+        # tests/distributions/test_gradient_dead_zones.py. Do not read this comment as a guarantee
+        # that the emitted mu/theta cannot reach a zero-gradient state.
         if self._family is not None:
             self._reg_activation = _family_activation(self._family)
         elif reg_activation == "softplus":

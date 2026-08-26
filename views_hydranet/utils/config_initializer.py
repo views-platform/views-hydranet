@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from views_hydranet.distributions import resolve_family
+
 logger = logging.getLogger(__name__)
 
 
@@ -102,6 +104,17 @@ class HydraNetConfig(BaseModel):
     scheduler: str = Field(...)
     warmup_steps: int = Field(..., ge=1)
     clip_grad_norm: bool = Field(...)
+    clip_grad_max_norm: float = Field(
+        default=1.0,
+        gt=0.0,
+        description=(
+            "C-314: the max_norm passed to clip_grad_norm_ when clip_grad_norm is True. "
+            "Was a literal 1.0 in training_engine, so the threshold could not be tuned from a "
+            "config at all; 1.0 is the default so every pre-existing config is unchanged. "
+            "Covers model.parameters() only — the MultiTaskLoss log_vars are a separate optimizer "
+            "param group and remain unclipped (C-314, open)."
+        ),
+    )
 
     # 6. Loss Functions (names: mse, shrinkage, lognormal_nll, tobit)
     loss_reg: str = Field(...)
@@ -184,6 +197,16 @@ class HydraNetConfig(BaseModel):
     # progressively more ground truth. An ITF arm sets ss_warmup_lessons to the TOTAL lesson count,
     # because that is the linear ramp length — see the itf-pilot dossier's AMENDMENT 1.
     ss_reverse: bool = Field(default=False)
+    # #289 (Brandstetter et al. 2022): pushforward. An AUXILIARY loss — one extra unrolled step
+    # from the model's own emitted field, scored against ground truth at t+2. 0.0 (default) is
+    # byte-identical to the pre-flag model: the term is never computed. The main training loop
+    # stays teacher-forced either way; this does not change the trajectory, only the objective.
+    pushforward_weight: float = Field(default=0.0, ge=0.0)
+    # The paper's solver is stateless, so cutting the fed-back input cuts every gradient path.
+    # Ours is recurrent: `h` carries gradient, so False (default) lets the pushforward loss train
+    # the RECURRENCE to produce states that survive one step of self-feeding. True reproduces the
+    # stateless reading. Recorded as a fork the paper cannot settle for a recurrent model.
+    pushforward_detach_state: bool = Field(default=False)
 
     # 7. Sampling & Reproducibility
     total_lessons: int = Field(..., ge=1)
@@ -694,8 +717,10 @@ class HydraNetConfig(BaseModel):
 
     @model_validator(mode="after")
     def reject_unwired_rollout_horizon(self) -> "HydraNetConfig":
-        """C-264: `rollout_horizon` has NO runtime consumer yet — the ADR-058 B1 pushforward
-        path is unwired, so `training_loop`/`_process_sequence` always take the one-step path.
+        """C-264: `rollout_horizon` has NO runtime consumer yet — the ADR-058 B1 multi-step
+        rollout-training path is unwired, so `training_loop`/`_process_sequence` always take the
+        one-step path. (Distinct from `pushforward_weight` (#289), which IS wired: that is a
+        TWO-step auxiliary loss on a teacher-forced trajectory, not a K-step rollout.)
         A K>1 config would therefore SILENTLY train one-step (the experiment's premise invalid).
         Fail loud until the consumer lands (mirrors the other reject-if-ignored guards)."""
         if self.rollout_horizon != 1:
@@ -703,6 +728,24 @@ class HydraNetConfig(BaseModel):
                 f"rollout_horizon={self.rollout_horizon} but the multi-step rollout-training "
                 "path (ADR-058 B1) is NOT wired — nothing reads this knob, so K>1 would "
                 "silently run one-step training. Set rollout_horizon=1 until it lands (C-264)."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def reject_pushforward_without_a_family(self) -> "HydraNetConfig":
+        """The #289 pushforward term is only computed when the head resolves to a distribution
+        family — `_process_sequence` guards on `family is not None`. A legacy / point / quantile
+        head with `pushforward_weight > 0` would therefore train with NO pushforward at all and
+        report a clean run, leaving the experiment's premise silently invalid. Mirrors
+        `reject_unwired_rollout_horizon`, which exists for exactly this failure mode."""
+        if self.pushforward_weight > 0.0 and resolve_family(self.output_distribution) is None:
+            err_msg = (
+                f"pushforward_weight={self.pushforward_weight} but output_distribution="
+                f"'{self.output_distribution}' does not resolve to a distribution family, so the "
+                "pushforward term is never computed — the run would look clean and train nothing "
+                "extra. Use a family head (e.g. 'nb'), or set pushforward_weight=0.0 (#289)."
             )
             logger.error(err_msg)
             raise ValueError(err_msg)

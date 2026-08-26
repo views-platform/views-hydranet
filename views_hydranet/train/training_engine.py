@@ -11,6 +11,7 @@ All functions here are importable and testable without views_pipeline_core.
 
 from __future__ import annotations
 
+import contextlib
 import functools
 import logging
 import math
@@ -157,6 +158,32 @@ class _SequenceIndices:
         self.cls_names = cls_targets
 
 
+@contextlib.contextmanager
+def _batchnorm_eval(model: nn.Module):
+    """Run a forward without letting it touch BatchNorm running statistics.
+
+    ``model.eval()`` on the whole model would also disable dropout and change the forward; this
+    flips only the ``_BatchNorm`` modules that are currently training, and restores exactly those.
+    ``torch.no_grad()`` is NOT a substitute — it stops gradients, not buffer updates.
+
+    Used by the pushforward auxiliary step (#289), whose extra forward would otherwise write
+    self-fed, off-distribution activations into buffers that are saved with the artifact and
+    recomputed by the C-184 BN recalibration.
+    """
+    flipped = [
+        m
+        for m in model.modules()
+        if isinstance(m, torch.nn.modules.batchnorm._BatchNorm) and m.training
+    ]
+    for m in flipped:
+        m.eval()
+    try:
+        yield
+    finally:
+        for m in flipped:
+            m.train()
+
+
 def _attach_static_channels(
     dyn_input: torch.Tensor, t0_step: torch.Tensor, idx: "_SequenceIndices"
 ) -> torch.Tensor:
@@ -278,6 +305,8 @@ def _process_sequence(
     ss_feedback: str = "mean",
     forecast_composition: str = "self_zeroed",
     gate_threshold: float | None = None,
+    pushforward_weight: float = 0.0,
+    pushforward_detach_state: bool = False,
 ) -> dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
@@ -513,8 +542,94 @@ def _process_sequence(
             )
             losses_list.append(crit_cj(pred_cj, targ_cj))
 
+        # ── PUSHFORWARD (Brandstetter et al. 2022, #289) ────────────────────────────────────
+        # An AUXILIARY loss. It does not change the recurrent trajectory — `h` is threaded by the
+        # main teacher-forced loop only — and at `pushforward_weight == 0.0` the branch is never
+        # entered, so that setting is byte-identical to the pre-flag model.
+        #
+        # It is NOT side-effect-free, and two side effects have to be suppressed explicitly:
+        #
+        # 1. **BatchNorm.** The model is in `train()` mode, so an extra `model(...)` call updates
+        #    `running_mean`/`running_var`/`num_batches_tracked` on all 15 BN layers — measured at
+        #    `num_batches_tracked` 5 -> 9 on a T=6 window, i.e. roughly HALF the saved BN
+        #    statistics would come from self-fed, off-distribution inputs. Those buffers are model
+        #    state: they go into the artifact and are used at eval. Worse, `train()` is also the
+        #    workhorse of `_recalibrate_bn` (the C-184 fix, `bn_recalibrate: True` by default),
+        #    which resets BN and recomputes with `momentum=None` — a cumulative average, so the
+        #    pushforward forwards would carry EQUAL weight rather than an EMA discount. An arm with
+        #    `pushforward_weight > 0` would then differ from its control at the BN layer for
+        #    reasons unrelated to the auxiliary loss, confounding the A/B. Suppressed by running
+        #    the extra forward with BN in eval mode.
+        # 2. **The recalibration pass itself.** `_recalibrate_bn` calls this under `no_grad`, where
+        #    the pushforward loss is computed and discarded — pure cost. Skipped via
+        #    `torch.is_grad_enabled()`.
+        #
+        # Dropout still advances the global RNG stream on the extra forward. Harmless (it cannot
+        # reach the `pushforward_weight == 0.0` control, which never enters this branch), but two
+        # arms differing only in `pushforward_weight` do not share a dropout stream.
+        #
+        # Take one extra step from the model's OWN emitted field and score it against ground truth
+        # at t+2 — "unroll 2 steps, cut the gradient after the first, compute the loss at the
+        # pushforward time". The gradient cut is `.detach()` on the fed field, which on the
+        # `sample` path is already unavoidable (`torch.poisson` severs it; measured as
+        # exactly 0.0),
+        # so on that path that half of the paper's method is a NO-OP and the SECOND UNROLL is the
+        # entire intervention. Recorded because implementing only the detach would have done
+        # nothing while looking correct.
+        #
+        # `pushforward_detach_state` is a fork the paper cannot settle: its solver is stateless, so
+        # cutting the input cuts every path. Ours is recurrent and `h` carries gradient, so False
+        # (default) lets the pushforward loss train the RECURRENCE to produce states that survive
+        # one step of self-feeding. True reproduces the stateless reading.
+        pf_loss = None
+        if (
+            pushforward_weight > 0.0
+            and family is not None
+            and i + 2 < seq_len
+            and torch.is_grad_enabled()  # see (2) above: no-op under _recalibrate_bn's no_grad
+        ):
+            fed = _family_feedback_log1p(
+                t1_pred,
+                family,
+                ss_feedback,
+                torch.sigmoid(t1_pred_class),
+                forecast_composition,
+                gate_threshold,
+            ).detach()
+            # The fed field stands in for t+1, so its static channels come from t1, matching how
+            # the main path pairs `dyn_input` with its own `t0`. A no-op while statics are
+            # geometry-constant, but the inconsistent pairing would become a real bug the moment a
+            # time-varying "static" channel is added.
+            pf_in = _attach_static_channels(fed, t1, idx)
+            pf_h = h.detach() if pushforward_detach_state else h
+            with _batchnorm_eval(model):  # see (1) above
+                pf_out = model(pf_in, pf_h)
+            y2_reg = train_tensor[:, i + 2, idx.reg, :, :]
+            pf_terms = []
+            for j, name in enumerate(idx.reg_names):
+                loss_fn_j = (
+                    criterion_reg[name] if isinstance(criterion_reg, dict) else criterion_reg
+                )
+                # `family is not None` guarantees FamilyLoss, which always exposes n_params.
+                # Indexed rather than getattr-with-default: a default of 1 would silently
+                # mis-slice a multi-channel head instead of failing.
+                npar = loss_fn_j.n_params
+                # C-87 parity with the main reg loop: the same per-target weight, or the auxiliary
+                # term silently re-weights the targets relative to the primary objective.
+                tw_pf = 1.0 if target_weights is None else target_weights[name]
+                pf_terms.append(
+                    tw_pf
+                    * loss_fn_j(
+                        pf_out.reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1),
+                        y2_reg[:, j],
+                    )
+                )
+            pf_loss = torch.stack(pf_terms).sum()
+
         losses = torch.stack(losses_list)
         loss = cast(Any, multitaskloss_instance)(losses)
+        if pf_loss is not None:
+            loss = loss + pushforward_weight * pf_loss
         if qs99_weight is not None and qs99_weight > 0:
             loss = loss + qs99_weight * qs99_loss
         if decay_gate_weight > 0:
@@ -690,6 +805,8 @@ def train(
         ss_feedback=config.get("ss_feedback", "mean"),
         forecast_composition=config.get("forecast_composition", "self_zeroed"),
         gate_threshold=config.get("gate_threshold"),
+        pushforward_weight=config.get("pushforward_weight", 0.0),
+        pushforward_detach_state=config.get("pushforward_detach_state", False),
     )
     step_total, step_reg, step_cls = result["per_step_losses"]
 
@@ -916,15 +1033,26 @@ def training_loop(
         )
         logger.info(f"📈 trajectory-log ON → {_traj_path}")
 
-    with tqdm(
-        total=total_iterations, desc="👾 Training HydraNet", unit="month", leave=True
-    ) as pbar:
+    # The optional trajectory CSV must close on ANY exit from the lesson loop, not just the happy
+    # one. `IntegrityGuardian.monitor` has always been able to raise from inside this loop, and the
+    # C-312 non-finite check adds a second such exit; neither reached the `close()` below.
+    _traj_cleanup = contextlib.ExitStack()
+    if _traj_file is not None:
+        _traj_cleanup.callback(_traj_file.close)
+
+    with (
+        _traj_cleanup,
+        tqdm(
+            total=total_iterations, desc="👾 Training HydraNet", unit="month", leave=True
+        ) as pbar,
+    ):
         # Loop over Strategic Lessons
         for lesson_idx in range(config["total_lessons"]):
             optimizer.zero_grad()  # Reset gradients at start of Lesson
             lesson_loss = torch.tensor(0.0).to(device)
             lesson_reg = 0.0
             lesson_cls = 0.0
+            windows_trained = 0  # C-312: how many windows actually backpropagated
 
             # ADR-056: compute epsilon once per lesson
             ss_epsilon = ss_mixer.get_epsilon(lesson_idx) if ss_mixer is not None else 0.0
@@ -961,9 +1089,49 @@ def training_loop(
                 losses = train(ctx, sample_handler, pbar, stage_label=slbl, ss_epsilon=ss_epsilon)
 
                 # --- MEMORY-SAFE ACCUMULATION (ADR 014 Hardening) ---
+                # C-312: this guard used to read `if w_loss > 0`, which is NOT the question
+                # ADR-014 means to ask. MultiTaskLoss adds `log(stds)`, negative once a task fits
+                # well (per task, the term is negative for `L < (r+1)/e`), so with the balancer
+                # unfrozen a perfectly healthy window scores below zero and the whole backward was
+                # skipped in silence — measured at 2 updates across 6 lessons. The question is
+                # "did this window have anything to learn from", i.e. is the loss exactly zero,
+                # which is what an all-masked / empty window produces. Under the production config
+                # (`freeze_multitask_balancer=True` pins log_vars at 0, so every term is >= 0)
+                # `!= 0` and `> 0` select identically. NOTE "every term is >= 0" holds in float32,
+                # where mtloss's `log(stds + eps)` = `log(1 + 1e-8)` rounds to exactly 0.0; in
+                # float64 it is +1e-8 per task, still >= 0, so the equivalence survives either way.
+                # The test does not re-derive this — it observes every window's actual total. See
+                # tests/train/test_backward_gate.py
+                # ::test_the_new_guard_is_byte_identical_when_frozen.
                 w_loss = losses["total"]
-                if w_loss > 0 and not _bn_recal:  # BN-recal: forward-only, no grad
+                if _bn_recal:
+                    # BN-recal is forward-only: no backward, and no reason to abort the pass over
+                    # a non-finite loss nobody consumes. Kept OUT of the finiteness check below so
+                    # a `bn_recal_from` run behaves exactly as it did before this fix.
+                    pass
+                elif not torch.isfinite(w_loss):
+                    # RuntimeError, not ValueError: IntegrityGuardian.monitor raises RuntimeError
+                    # on the same condition a few lines below, and one fail-loud channel is worth
+                    # more than a more precise exception type nobody catches.
+                    raise RuntimeError(
+                        f"Lesson {lesson_idx + 1} window {window_idx + 1}: loss is "
+                        f"{w_loss.item()}, not a finite number. Refusing to backpropagate NaN/inf "
+                        "into the model — this is a bug upstream in the loss (cf. C-212), not a "
+                        "skippable window. The old `if w_loss > 0` guard swallowed it silently."
+                    )
+                elif w_loss.item() == 0.0:
+                    # Reachable only when EVERY term is exactly zero. Under the production config
+                    # the classification terms are scored on the full grid with no mask, so an
+                    # all-zero target still yields a small non-zero BCE and this branch does not
+                    # fire — i.e. in production every window backpropagates, which is the intent.
+                    # It stays because a masked / genuinely empty window must not cost a backward.
+                    logger.debug(
+                        f"Lesson {lesson_idx + 1} window {window_idx + 1}: loss is exactly 0 "
+                        "(nothing supervised) — no backward, as ADR-014 intends."
+                    )
+                else:
                     w_loss.backward()
+                    windows_trained += 1
 
                 lesson_loss += w_loss.detach()  # Keep track of magnitude for logging
                 lesson_reg += losses["reg"].item()
@@ -973,7 +1141,10 @@ def training_loop(
                 del sample_handler, losses, w_loss
 
             # --- THE OPTIMIZATION GATE (ADR 014) ---
-            if lesson_loss > 0:
+            # C-312: gated on whether gradient was actually produced, not on the SIGN of the
+            # accumulated loss. `or _bn_recal` preserves the pre-fix behaviour of the recal pass,
+            # which enters this block for its diagnostics but is separately barred from stepping.
+            if windows_trained > 0 or _bn_recal:
                 # NUMERICAL AUDIT: Hard stop on explosion
                 IntegrityGuardian.monitor(
                     model, torch.tensor([0.0]), lesson_loss, context=f"Lesson {lesson_idx}"
@@ -1025,9 +1196,15 @@ def training_loop(
                     _traj_acc["gate_sum"] = 0.0
                     _traj_acc["gate_n"] = 0
 
-                # Gradient Clipping
+                # Gradient Clipping. C-314: the threshold used to be the literal 1.0 while the
+                # only config field was the on/off bool, so it could not be tuned from a config at
+                # all. `clip_grad_max_norm` defaults to 1.0, so every existing config is unchanged.
+                # NOTE (still open, C-314): this covers `model.parameters()` only — the balancer's
+                # `log_vars` are a separate optimizer param group and are clipped by nothing.
                 if config.get("clip_grad_norm"):
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                    torch.nn.utils.clip_grad_norm_(
+                        model.parameters(), max_norm=config.get("clip_grad_max_norm", 1.0)
+                    )
 
                 # Optimize (Update Weights) — skipped in BN-recal (weights frozen, BN only)
                 if not _bn_recal:
@@ -1074,8 +1251,7 @@ def training_loop(
 
     logger.info("✅ Training complete!")
 
-    if _traj_file is not None:
-        _traj_file.close()
+    # (the trajectory CSV is closed by _traj_cleanup on every exit path, including exceptions)
 
     # C-184 FIX: post-training BN recalibration (default ON). Mutates `model` in place so the saved
     # artifact has corrected BN running stats (fixes the seed-bimodal eval collapse). Skipped for a

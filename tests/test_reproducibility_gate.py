@@ -103,14 +103,16 @@ def test_training_engine_uses_lock_entropy():
     np.random.seed / torch.manual_seed calls should be replaced.
     """
     import importlib
-    import sys
+    from pathlib import Path
 
-    mod_name = "views_hydranet.train.training_engine"
-    if mod_name in sys.modules:
-        del sys.modules[mod_name]
-
-    mod = importlib.import_module(mod_name)
-    source = open(mod.__file__).read()
+    # This assertion is over the module's SOURCE TEXT, so the module object is irrelevant.
+    # It used to `del sys.modules[...]` first and re-import, which replaced the live
+    # training_engine module for the rest of the session: `train_model.training_loop` kept
+    # referring to the OLD module's globals, so any later test that patched a training_engine
+    # attribute was silently patching an object nothing called. Three tests in
+    # tests/train/test_backward_gate.py failed only in a full-suite run because of it.
+    mod = importlib.import_module("views_hydranet.train.training_engine")
+    source = Path(mod.__file__).read_text()
 
     # Should NOT have manual seed calls
     assert "np.random.seed(" not in source, (
@@ -122,6 +124,31 @@ def test_training_engine_uses_lock_entropy():
 
     # Should import and use lock_entropy
     assert "lock_entropy" in source, "training_engine.py does not reference lock_entropy"
+
+
+def test_the_live_training_engine_module_is_the_one_training_loop_uses():
+    """Guard on the fix above: no test may leave a stale training_engine in sys.modules.
+
+    ``test_training_engine_uses_lock_entropy`` used to ``del sys.modules[...]`` before
+    re-importing. That swapped the module object for the rest of the session while
+    ``train_model.training_loop`` — already bound — kept using the OLD module's globals. Any later
+    test that patched a ``training_engine`` attribute was then patching an object nothing called,
+    and three tests in ``tests/train/test_backward_gate.py`` failed **only** in full-suite runs.
+
+    Those tests are now written against ``training_loop.__globals__`` and so are immune, which is
+    exactly why this guard is needed: with them hardened, re-introducing the delete breaks nothing
+    and nothing notices. This asserts the invariant directly.
+    """
+    import sys
+
+    from views_hydranet.train.train_model import training_loop
+
+    live = sys.modules["views_hydranet.train.training_engine"]
+    assert training_loop.__globals__ is live.__dict__, (
+        "training_loop is running against a DIFFERENT training_engine module object than the one "
+        "in sys.modules. Something deleted or reloaded the module without rebinding its "
+        "importers; monkeypatching training_engine attributes will silently do nothing."
+    )
 
 
 # ---------------------------------------------------------------------------
