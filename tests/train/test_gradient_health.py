@@ -32,7 +32,7 @@ from views_hydranet.train.training_engine import _process_sequence  # noqa: E402
 from .conftest import SumLoss, grad_norm, loop_config, loop_handler, make_sequence  # noqa: E402
 
 
-def _norms_at_step(clip: bool):
+def _norms_at_step(clip: bool, max_norm: float | None = None):
     """Run the real ``training_loop`` and record the gradient norm as the optimizer sees it.
 
     The spy wraps ``optimizer.step`` rather than ``clip_grad_norm_`` deliberately: patching the
@@ -41,6 +41,8 @@ def _norms_at_step(clip: bool):
     and fatal to the latter.
     """
     cfg = loop_config(clip_grad_norm=clip)
+    if max_norm is not None:
+        cfg["clip_grad_max_norm"] = max_norm
     device = torch.device("cpu")
     torch.manual_seed(cfg["torch_seed"])
     model, criterion, optimizer, scheduler = make(cfg, device)
@@ -199,3 +201,33 @@ def test_the_accumulated_gradient_is_finite_and_bounded():
     assert n > 0.0, "the accumulated gradient is exactly zero — nothing trained"
     assert n == n and n != float("inf"), f"non-finite accumulated gradient norm: {n}"
     assert n < 1e3, f"accumulated gradient norm {n:.4f} looks like an explosion, not training"
+
+
+def test_the_clip_threshold_is_configurable():
+    """C-314 regression: ``max_norm`` used to be a literal, so no config could tune it.
+
+    The bool field could only say on/off. ``clip_grad_max_norm`` defaults to 1.0 — which is why
+    the two tests above still read 1.0 and every pre-existing config is unchanged — but a config
+    that sets it must actually move the bound.
+
+    3.0 is chosen to sit strictly between the clipped 1.0 and the measured unclipped ~5.6, so a
+    threshold that is silently ignored fails in either direction.
+    """
+    norms = _norms_at_step(clip=True, max_norm=3.0)
+    assert norms, "optimizer.step was never called — the vehicle did not train"
+    for i, n in enumerate(norms):
+        assert n == pytest.approx(3.0, abs=1e-4), (
+            f"lesson {i}: asked for max_norm=3.0 and the optimizer saw {n:.4f}. The engine is "
+            "ignoring clip_grad_max_norm and using its old hardcoded threshold."
+        )
+
+
+def test_the_clip_default_is_unchanged_at_one():
+    """The C-112 half of C-314's fix: a config that never heard of the new field is untouched."""
+    from views_hydranet.utils.config_initializer import HydraNetConfig
+
+    field = HydraNetConfig.model_fields["clip_grad_max_norm"]
+    assert field.default == 1.0, (
+        f"clip_grad_max_norm now defaults to {field.default}, not 1.0 — every existing config "
+        "silently changes its clip threshold and results stop being comparable (C-112)."
+    )

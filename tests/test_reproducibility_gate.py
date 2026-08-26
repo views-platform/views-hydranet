@@ -103,14 +103,16 @@ def test_training_engine_uses_lock_entropy():
     np.random.seed / torch.manual_seed calls should be replaced.
     """
     import importlib
-    import sys
+    from pathlib import Path
 
-    mod_name = "views_hydranet.train.training_engine"
-    if mod_name in sys.modules:
-        del sys.modules[mod_name]
-
-    mod = importlib.import_module(mod_name)
-    source = open(mod.__file__).read()
+    # This assertion is over the module's SOURCE TEXT, so the module object is irrelevant.
+    # It used to `del sys.modules[...]` first and re-import, which replaced the live
+    # training_engine module for the rest of the session: `train_model.training_loop` kept
+    # referring to the OLD module's globals, so any later test that patched a training_engine
+    # attribute was silently patching an object nothing called. Three tests in
+    # tests/train/test_backward_gate.py failed only in a full-suite run because of it.
+    mod = importlib.import_module("views_hydranet.train.training_engine")
+    source = Path(mod.__file__).read_text()
 
     # Should NOT have manual seed calls
     assert "np.random.seed(" not in source, (

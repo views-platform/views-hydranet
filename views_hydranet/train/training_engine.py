@@ -976,6 +976,7 @@ def training_loop(
             lesson_loss = torch.tensor(0.0).to(device)
             lesson_reg = 0.0
             lesson_cls = 0.0
+            windows_trained = 0  # C-312: how many windows actually backpropagated
 
             # ADR-056: compute epsilon once per lesson
             ss_epsilon = ss_mixer.get_epsilon(lesson_idx) if ss_mixer is not None else 0.0
@@ -1012,9 +1013,35 @@ def training_loop(
                 losses = train(ctx, sample_handler, pbar, stage_label=slbl, ss_epsilon=ss_epsilon)
 
                 # --- MEMORY-SAFE ACCUMULATION (ADR 014 Hardening) ---
+                # C-312: this guard used to read `if w_loss > 0`, which is NOT the question
+                # ADR-014 means to ask. MultiTaskLoss adds `log(stds)`, negative once a task fits
+                # well (per task, the term is negative for `L < (r+1)/e`), so with the balancer
+                # unfrozen a perfectly healthy window scores below zero and the whole backward was
+                # skipped in silence — measured at 2 updates across 6 lessons. The question is
+                # "did this window have anything to learn from", i.e. is the loss exactly zero,
+                # which is what an all-masked / empty window produces. Under the production config
+                # (`freeze_multitask_balancer=True` pins log_vars at 0, so every term is >= 0)
+                # `!= 0` and `> 0` select identically — see
+                # tests/train/test_backward_gate.py
+                # ::test_the_new_guard_is_byte_identical_when_frozen.
                 w_loss = losses["total"]
-                if w_loss > 0 and not _bn_recal:  # BN-recal: forward-only, no grad
+                if not torch.isfinite(w_loss):
+                    raise ValueError(
+                        f"Lesson {lesson_idx + 1} window {window_idx + 1}: loss is "
+                        f"{w_loss.item()}, not a finite number. Refusing to backpropagate NaN/inf "
+                        "into the model — this is a bug upstream in the loss, not a skippable "
+                        "window."
+                    )
+                if _bn_recal:  # BN-recal: forward-only, no grad
+                    pass
+                elif w_loss.item() == 0.0:
+                    logger.debug(
+                        f"Lesson {lesson_idx + 1} window {window_idx + 1}: loss is exactly 0 "
+                        "(no supervised cells) — no backward, as ADR-014 intends."
+                    )
+                else:
                     w_loss.backward()
+                    windows_trained += 1
 
                 lesson_loss += w_loss.detach()  # Keep track of magnitude for logging
                 lesson_reg += losses["reg"].item()
@@ -1024,7 +1051,10 @@ def training_loop(
                 del sample_handler, losses, w_loss
 
             # --- THE OPTIMIZATION GATE (ADR 014) ---
-            if lesson_loss > 0:
+            # C-312: gated on whether gradient was actually produced, not on the SIGN of the
+            # accumulated loss. `or _bn_recal` preserves the pre-fix behaviour of the recal pass,
+            # which enters this block for its diagnostics but is separately barred from stepping.
+            if windows_trained > 0 or _bn_recal:
                 # NUMERICAL AUDIT: Hard stop on explosion
                 IntegrityGuardian.monitor(
                     model, torch.tensor([0.0]), lesson_loss, context=f"Lesson {lesson_idx}"
@@ -1076,9 +1106,15 @@ def training_loop(
                     _traj_acc["gate_sum"] = 0.0
                     _traj_acc["gate_n"] = 0
 
-                # Gradient Clipping
+                # Gradient Clipping. C-314: the threshold used to be the literal 1.0 while the
+                # only config field was the on/off bool, so it could not be tuned from a config at
+                # all. `clip_grad_max_norm` defaults to 1.0, so every existing config is unchanged.
+                # NOTE (still open, C-314): this covers `model.parameters()` only — the balancer's
+                # `log_vars` are a separate optimizer param group and are clipped by nothing.
                 if config.get("clip_grad_norm"):
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                    torch.nn.utils.clip_grad_norm_(
+                        model.parameters(), max_norm=config.get("clip_grad_max_norm", 1.0)
+                    )
 
                 # Optimize (Update Weights) — skipped in BN-recal (weights frozen, BN only)
                 if not _bn_recal:

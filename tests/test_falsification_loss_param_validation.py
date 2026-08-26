@@ -30,7 +30,8 @@ class TestF5_CICFieldCountDrift:
         # #287 ss_reverse (Teutsch 2022 ITF, increasing teacher forcing): +ss_reverse -> 90
         # #289 pushforward (Brandstetter 2022): +pushforward_weight,
         # +pushforward_detach_state -> 92
-        CIC_CLAIMED_COUNT = 92
+        # C-314 (training-loop gradient audit): +clip_grad_max_norm -> 93
+        CIC_CLAIMED_COUNT = 93
         actual = len(HydraNetConfig.model_fields)
         assert actual == CIC_CLAIMED_COUNT, (
             f"CIC §3 claims {CIC_CLAIMED_COUNT} fields but HydraNetConfig has {actual}. "

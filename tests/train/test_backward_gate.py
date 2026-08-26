@@ -21,15 +21,20 @@ Measured (2026-08-26), per task, ``term(L, v) = L / ((r+1) e^v) + v/2``. Minimis
 That is not an exotic regime; it is what a well-fitted task looks like. A balancer that converges
 therefore drives the total negative and silently switches training off.
 
-**Production is not currently exposed**: every live arm config sets
-``freeze_multitask_balancer: True``, which keeps ``log_vars`` pinned at 0 (``log(stds) = 0``, all
-terms non-negative). But the config default is ``False``, so the exposure is one forgotten line
-away. These tests pin the mechanism and the boundary.
+**Production was never exposed**: every live arm config sets ``freeze_multitask_balancer: True``,
+which keeps ``log_vars`` pinned at 0 (``log(stds) = 0``, all terms non-negative). But the config
+default is ``False``, so the exposure was one forgotten line away.
+
+**FIXED (C-312).** The guards now ask the question ADR-014 means to ask — *did this window have
+anything to learn from?* — rather than testing a sign. A window backpropagates unless its loss is
+exactly zero; a non-finite loss raises instead of being skipped; and the optimization gate keys on
+whether any window actually produced gradient. Measured on the same vehicle: **6 updates across 6
+lessons**, where the old guards gave 2. Under the frozen balancer the old and new predicates select
+identically, so no existing result moves — proved by
+:func:`test_the_new_guard_is_byte_identical_when_frozen` rather than asserted.
 """
 
 from __future__ import annotations
-
-import logging
 
 import pytest
 
@@ -143,66 +148,137 @@ def _run_lessons(*, freeze: bool, lessons: int, pin_log_vars: bool, count_backwa
     return len(events)
 
 
-def test_the_backward_guard_itself_stops_firing_not_just_the_optimizer_step():
-    """Isolates the ``if w_loss > 0`` guard from the ``if lesson_loss > 0`` guard below it.
+def test_the_backward_guard_fires_on_every_window_that_has_data():
+    """C-312 regression: an active balancer must no longer suppress backward passes.
 
-    Counts gradient accumulations rather than optimizer steps. With the frozen balancer every
-    window backpropagates; with the balancer at its fixed point most windows do not, and the
-    compute spent on those forward passes is discarded.
+    Counts gradient accumulations rather than optimizer steps, because the optimization gate is a
+    *second*, independent guard — counting steps cannot see this one. (A mutation deleting the
+    backward guard passed every other test in this file until this was added.)
 
-    This test exists because a mutation that deleted the backward guard entirely — leaving only
-    the lesson-level guard — passed every other test in this file.
+    Pre-fix this vehicle backpropagated on 2 of 6 windows with the balancer at its fixed point.
     """
     frozen = _run_lessons(freeze=True, lessons=6, pin_log_vars=False, count_backwards=True)
     active = _run_lessons(freeze=False, lessons=6, pin_log_vars=True, count_backwards=True)
     assert frozen == 6, (
         f"the frozen control backpropagated {frozen} times, expected one per lesson"
     )
-    assert active < frozen, (
-        f"the active balancer still backpropagated {active} times out of {frozen}: the guard at "
-        "training_engine.py:1015 is no longer skipping non-positive windows."
+    assert active == frozen, (
+        f"the active balancer backpropagated {active} times out of {frozen}: a negative total is "
+        "suppressing backward again (C-312)."
     )
 
 
-def test_the_frozen_balancer_trains_every_lesson():
-    """Control: production (``freeze_multitask_balancer: True``) updates once per lesson."""
-    assert _run_lessons(freeze=True, lessons=6, pin_log_vars=False) == 6, (
-        "the frozen-balancer control no longer trains every lesson — the comparison below is void"
-    )
+def test_an_active_balancer_no_longer_stops_training_partway_through_the_run():
+    """C-312 regression, at the level that matters: every lesson still updates the weights.
 
-
-def test_an_active_balancer_silently_stops_training_partway_through_the_run(caplog):
-    """CHARACTERISATION, and the finding: the run keeps going, the model stops learning.
-
-    Same vehicle, same seed, same number of lessons — only the balancer differs. With
-    ``log_vars`` at the balancer's own fixed point, the total goes negative after a couple of
-    lessons, ``if w_loss > 0`` stops calling ``backward()`` and ``if lesson_loss > 0`` stops
-    calling ``optimizer.step()``. Measured here: **2 updates out of 6 lessons**, versus 6 of 6
-    for the frozen control.
-
-    Nothing above DEBUG is logged when this happens, which is the part that makes it dangerous:
-    the progress bar advances, the loss curve is written, wandb receives rows, and the run looks
-    healthy from the outside.
-
-    Not currently reachable in production — every live arm config pins
-    ``freeze_multitask_balancer: True``. But the *config default is* ``False``
-    (``config_initializer.py:274``), so a new arm config that omits the line gets this regime.
+    Same vehicle, same seed, only the balancer differs. Pre-fix: 2 updates across 6 lessons, with
+    nothing logged — the run looked healthy from the outside while the model had stopped learning.
     """
     lessons = 6
-    with caplog.at_level(logging.DEBUG):
-        updates = _run_lessons(freeze=False, lessons=lessons, pin_log_vars=True)
+    updates = _run_lessons(freeze=False, lessons=lessons, pin_log_vars=True)
+    assert updates == lessons, (
+        f"only {updates} of {lessons} lessons produced an update. The optimization gate is keying "
+        "on the sign of the accumulated loss again (C-312)."
+    )
 
-    assert updates < lessons, (
-        f"all {lessons} lessons produced an update — the total never went non-positive, so this "
-        "characterisation no longer reproduces. Re-measure MEASURED_TASK_LOSSES."
+
+def test_the_new_guard_is_byte_identical_when_frozen():
+    """The C-112 comparability proof: under production config the two predicates cannot differ.
+
+    C-112 records that changing training dynamics makes pre/post-fix model metrics incomparable,
+    so this fix is only safe if it is a no-op on the configuration every existing result was
+    produced under. With ``freeze_multitask_balancer: True`` the balancer contributes
+    ``log(stds) = 0`` and every task term is non-negative, so ``w_loss >= 0`` always and the old
+    ``> 0`` and new ``!= 0`` select the same windows.
+
+    Asserted by observing every window's total during a real run rather than by re-deriving the
+    algebra, so it stays true if the loss composition changes.
+    """
+    cfg = loop_config(
+        clip_grad_norm=True, freeze_multitask_balancer=True, total_lessons=4, bn_recalibrate=False
     )
-    complaints = [
-        r.getMessage()
-        for r in caplog.records
-        if r.levelno >= logging.WARNING
-        and any(w in r.getMessage().lower() for w in ("skip", "negative", "non-positive"))
-    ]
-    assert not complaints, (
-        f"{lessons - updates} lessons were skipped and something now warns about it — good, but "
-        f"this test documented the SILENCE. Update it deliberately. Got: {complaints[:3]}"
+    device = torch.device("cpu")
+    torch.manual_seed(cfg["torch_seed"])
+    model, criterion, optimizer, scheduler = make(cfg, device)
+
+    totals: list[float] = []
+    original_train = training_loop.__globals__["train"]
+
+    def spy(ctx, handler, pbar, **kwargs):
+        result = original_train(ctx, handler, pbar, **kwargs)
+        totals.append(result["total"].item())
+        return result
+
+    training_loop.__globals__["train"] = spy
+    try:
+        training_loop(cfg, model, criterion, optimizer, scheduler, loop_handler(cfg), device)
+    finally:
+        training_loop.__globals__["train"] = original_train
+
+    assert totals, "no windows ran — the vehicle did not train"
+    assert all(t >= 0.0 for t in totals), (
+        f"a frozen-balancer window scored below zero (min {min(totals):.6f}). The equal-weighting "
+        "regime no longer guarantees a non-negative total, so this fix is NOT a no-op on the "
+        "configuration every existing result was produced under — stop and re-derive."
     )
+    disagreements = [t for t in totals if (t > 0.0) != (t != 0.0)]
+    assert not disagreements, (
+        f"old predicate (> 0) and new predicate (!= 0) disagree on {len(disagreements)} windows: "
+        f"{disagreements[:3]}"
+    )
+
+
+def test_an_empty_window_still_skips_backward():
+    """ADR-014's actual intent survives the fix: a zero loss means no supervised cells, so no step.
+
+    Guards against 'fixing' C-312 by simply always backpropagating, which would spend a full
+    backward pass on windows with nothing in them.
+    """
+    cfg = loop_config(freeze_multitask_balancer=True, total_lessons=1, bn_recalibrate=False)
+    device = torch.device("cpu")
+    torch.manual_seed(cfg["torch_seed"])
+    model, criterion, optimizer, scheduler = make(cfg, device)
+
+    original_train = training_loop.__globals__["train"]
+
+    def zero_loss(ctx, handler, pbar, **kwargs):
+        result = original_train(ctx, handler, pbar, **kwargs)
+        result["total"] = torch.zeros((), requires_grad=True)
+        return result
+
+    training_loop.__globals__["train"] = zero_loss
+    steps: list[int] = []
+    original_step = optimizer.step
+    optimizer.step = lambda *a, **k: (steps.append(1), original_step(*a, **k))[1]
+    try:
+        training_loop(cfg, model, criterion, optimizer, scheduler, loop_handler(cfg), device)
+    finally:
+        training_loop.__globals__["train"] = original_train
+
+    assert not steps, "an all-zero (empty) window still triggered an optimizer step"
+
+
+def test_a_non_finite_loss_raises_instead_of_being_skipped():
+    """A NaN loss used to fail ``w_loss > 0`` and be silently skipped like an empty window.
+
+    Silently discarding a NaN window hides the upstream bug that produced it — C-212 was exactly
+    such a bug — so the fix raises rather than skipping.
+    """
+    cfg = loop_config(freeze_multitask_balancer=True, total_lessons=1, bn_recalibrate=False)
+    device = torch.device("cpu")
+    torch.manual_seed(cfg["torch_seed"])
+    model, criterion, optimizer, scheduler = make(cfg, device)
+
+    original_train = training_loop.__globals__["train"]
+
+    def nan_loss(ctx, handler, pbar, **kwargs):
+        result = original_train(ctx, handler, pbar, **kwargs)
+        result["total"] = torch.tensor(float("nan"), requires_grad=True)
+        return result
+
+    training_loop.__globals__["train"] = nan_loss
+    try:
+        with pytest.raises(ValueError, match="not a finite number"):
+            training_loop(cfg, model, criterion, optimizer, scheduler, loop_handler(cfg), device)
+    finally:
+        training_loop.__globals__["train"] = original_train

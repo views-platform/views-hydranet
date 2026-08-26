@@ -102,6 +102,17 @@ class HydraNetConfig(BaseModel):
     scheduler: str = Field(...)
     warmup_steps: int = Field(..., ge=1)
     clip_grad_norm: bool = Field(...)
+    clip_grad_max_norm: float = Field(
+        default=1.0,
+        gt=0.0,
+        description=(
+            "C-314: the max_norm passed to clip_grad_norm_ when clip_grad_norm is True. "
+            "Was a literal 1.0 in training_engine, so the threshold could not be tuned from a "
+            "config at all; 1.0 is the default so every pre-existing config is unchanged. "
+            "Covers model.parameters() only — the MultiTaskLoss log_vars are a separate optimizer "
+            "param group and remain unclipped (C-314, open)."
+        ),
+    )
 
     # 6. Loss Functions (names: mse, shrinkage, lognormal_nll, tobit)
     loss_reg: str = Field(...)

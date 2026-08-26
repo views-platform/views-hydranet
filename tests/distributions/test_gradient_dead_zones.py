@@ -55,7 +55,7 @@ EDGE = math.log(math.expm1(_EPS))
 def _grad_wrt_raw(raw_mu: float, raw_theta: float, count: float = 6.0):
     """``dNLL/d(raw)`` through the REAL path, with the target in the space the loss expects.
 
-    Two contracts are easy to get wrong here, and this audit got both wrong once before fixing them:
+    Two contracts are easy to get wrong, and this audit got both wrong once before fixing them:
 
     * ``nll`` receives **activated** params, not raw ones. Passing raw values measures a different
       function entirely and yields a flat, meaningless gradient surface.
