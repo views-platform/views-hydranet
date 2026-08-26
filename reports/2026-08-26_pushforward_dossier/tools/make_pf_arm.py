@@ -118,6 +118,10 @@ _PF_TAG = {
     #: the rest of the programme already uses. It writes `pushforward_weight: 0.0` explicitly
     #: rather than relying on the field default, so the control's config states its own condition.
     "0.0": "",
+    #: The control-reuse GATE (05_analysis_plan §3). Identical to `0.0` in every config value; it
+    #: exists only so the fresh build gets its own directory instead of colliding with the archived
+    #: `fullzero_*` it must be compared against.
+    "0.0-recheck": "re",
     "0.1": "pf",  # weight 0.1, state attached (the default fork)
     "0.1-detach": "pfd",  # weight 0.1, state detached (Brandstetter's stateless reading)
     "0.5": "pfhalf",
@@ -126,6 +130,7 @@ _PF_TAG = {
 #: variant -> (pushforward_weight, pushforward_detach_state)
 _PF_SPEC = {
     "0.0": (0.0, False),
+    "0.0-recheck": (0.0, False),
     "0.1": (0.1, False),
     "0.1-detach": (0.1, True),
     "0.5": (0.5, False),
