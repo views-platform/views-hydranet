@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from views_hydranet.distributions import resolve_family
+
 logger = logging.getLogger(__name__)
 
 
@@ -715,8 +717,10 @@ class HydraNetConfig(BaseModel):
 
     @model_validator(mode="after")
     def reject_unwired_rollout_horizon(self) -> "HydraNetConfig":
-        """C-264: `rollout_horizon` has NO runtime consumer yet — the ADR-058 B1 pushforward
-        path is unwired, so `training_loop`/`_process_sequence` always take the one-step path.
+        """C-264: `rollout_horizon` has NO runtime consumer yet — the ADR-058 B1 multi-step
+        rollout-training path is unwired, so `training_loop`/`_process_sequence` always take the
+        one-step path. (Distinct from `pushforward_weight` (#289), which IS wired: that is a
+        TWO-step auxiliary loss on a teacher-forced trajectory, not a K-step rollout.)
         A K>1 config would therefore SILENTLY train one-step (the experiment's premise invalid).
         Fail loud until the consumer lands (mirrors the other reject-if-ignored guards)."""
         if self.rollout_horizon != 1:
@@ -724,6 +728,24 @@ class HydraNetConfig(BaseModel):
                 f"rollout_horizon={self.rollout_horizon} but the multi-step rollout-training "
                 "path (ADR-058 B1) is NOT wired — nothing reads this knob, so K>1 would "
                 "silently run one-step training. Set rollout_horizon=1 until it lands (C-264)."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def reject_pushforward_without_a_family(self) -> "HydraNetConfig":
+        """The #289 pushforward term is only computed when the head resolves to a distribution
+        family — `_process_sequence` guards on `family is not None`. A legacy / point / quantile
+        head with `pushforward_weight > 0` would therefore train with NO pushforward at all and
+        report a clean run, leaving the experiment's premise silently invalid. Mirrors
+        `reject_unwired_rollout_horizon`, which exists for exactly this failure mode."""
+        if self.pushforward_weight > 0.0 and resolve_family(self.output_distribution) is None:
+            err_msg = (
+                f"pushforward_weight={self.pushforward_weight} but output_distribution="
+                f"'{self.output_distribution}' does not resolve to a distribution family, so the "
+                "pushforward term is never computed — the run would look clean and train nothing "
+                "extra. Use a family head (e.g. 'nb'), or set pushforward_weight=0.0 (#289)."
             )
             logger.error(err_msg)
             raise ValueError(err_msg)

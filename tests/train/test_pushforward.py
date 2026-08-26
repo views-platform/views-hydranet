@@ -160,20 +160,27 @@ def test_the_second_step_consumes_the_models_own_field_not_ground_truth():
 
     The previous version of this test grepped the source for `_family_feedback_log1p(`. A mutation
     that left that line in place and fed `t0_input` to the model instead **passed all seven
-    tests** —
-    the string was present, the property was gone. That is the same grep-the-source failure the
-    project keeps registering, so this recomputes the term from first principles instead.
+    tests** — the string was present, the property was gone. That is the same grep-the-source
+    failure the project keeps registering, so this recomputes the term from first principles.
 
     Uses `ss_feedback='mean'`, which is analytic and needs no RNG, so the reference is exact. The
     plumbing under test — WHICH tensor reaches the second forward — is identical on both paths.
+
+    The field here is deliberately DENSER and larger than the real grid. This test is about
+    plumbing, not about a realistic regime, and on a near-empty field every candidate input
+    produces nearly the same loss, leaving too little margin to tell a correct implementation from
+    a wrong one. Measured on this fixture: feeding the model's own field differs from feeding `t0`
+    by 2.8e-2 and from feeding ground truth at t+1 by 1.3e-2, both ~100x the 1e-4 match tolerance.
     """
     from views_hydranet.train.training_engine import (
         _attach_static_channels,
+        _batchnorm_eval,
         _family_feedback_log1p,
     )
 
     x, model, h, idx, fam = _fixture(seed=21)
-    short = x[:, :3].clone()
+    torch.manual_seed(21)
+    short = (torch.rand(1, 3, 6, H, W) < 0.25).float() * torch.rand(1, 3, 6, H, W) * 8
     crit = FamilyLoss(fam)
 
     def run(w):
@@ -205,7 +212,10 @@ def test_the_second_step_consumes_the_models_own_field_not_ground_truth():
     ).detach()
 
     def pf_from(inp, state):
-        o = m(inp, state)
+        # mirrors the engine: the extra forward runs with BN frozen so it cannot write running
+        # statistics (see the C-184 note in _process_sequence)
+        with _batchnorm_eval(m):
+            o = m(inp, state)
         y2 = short[:, 2, idx.reg]
         n = crit.n_params
         return sum(
@@ -213,18 +223,23 @@ def test_the_second_step_consumes_the_models_own_field_not_ground_truth():
             for j in range(len(idx.reg_names))
         ).item()
 
-    from_own_field = pf_from(_attach_static_channels(fed, t0, idx), out0.h_next)
-    from_ground_truth = pf_from(t0_input, out0.h_next)
+    t1 = short[:, 1]
+    from_own_field = pf_from(_attach_static_channels(fed, t1, idx), out0.h_next)
+    # the two implementations this must rule out
+    fed_t0_again = pf_from(t0_input, out0.h_next)
+    fed_truth_at_t1 = pf_from(_attach_static_channels(t1[:, idx.feat], t1, idx), out0.h_next)
 
     assert observed == pytest.approx(from_own_field, rel=1e-4), (
         f"the pushforward term ({observed:.6f}) does not match a second step fed the model's own "
         f"field ({from_own_field:.6f})"
     )
-    # and the two must be far enough apart that the check above could ever fail
-    assert abs(from_own_field - from_ground_truth) / abs(from_own_field) > 1e-2, (
-        "feeding ground truth and feeding the model's own field give nearly the same loss here, "
-        "so this fixture cannot discriminate — the test would be vacuous"
-    )
+    for label, wrong in (("t0 again", fed_t0_again), ("ground truth at t+1", fed_truth_at_t1)):
+        margin = abs(from_own_field - wrong) / abs(from_own_field)
+        assert margin > 1e-2, (
+            f"feeding {label} gives nearly the same loss as the model's own field "
+            f"(relative gap {margin:.2e}), so the assertion above could not tell them apart — "
+            "the test would be vacuous on this fixture"
+        )
 
 
 def test_gradient_into_the_fed_field_is_cut():
@@ -270,3 +285,94 @@ def test_the_last_step_is_skipped_rather_than_indexing_past_the_end():
     """`i + 2 < seq_len` must hold; an off-by-one here would crash mid-training, hours in."""
     out, _, _ = _run(pf_weight=1.0, seed=13)
     assert torch.isfinite(out["total"]).all()
+
+
+def _bn_state(model):
+    """Snapshot every BatchNorm running buffer, so a test can prove none of them moved."""
+    out = {}
+    for name, m in model.named_modules():
+        if isinstance(m, torch.nn.modules.batchnorm._BatchNorm):
+            out[name] = (
+                m.running_mean.clone(),
+                m.running_var.clone(),
+                m.num_batches_tracked.clone(),
+            )
+    return out
+
+
+def test_the_extra_forward_does_not_touch_batchnorm_running_statistics():
+    """The pushforward must not write model STATE — only a loss term.
+
+    Found by review, and it was real: the extra ``model(...)`` call runs while the model is in
+    ``train()`` mode, so it updated ``running_mean``/``running_var``/``num_batches_tracked`` on all
+    15 BN layers. Measured before the fix on a T=6 window: ``num_batches_tracked`` 5 -> 9, and
+    ``bn_enc_conv0.running_mean`` moved by 0.054. Roughly half the saved BN statistics would have
+    come from self-fed, off-distribution inputs.
+
+    That is not a cosmetic leak. BN buffers go into the artifact and are used at eval, and the
+    C-184 recalibration (``bn_recalibrate: True`` by default) recomputes them with
+    ``momentum=None`` — a cumulative average, so the pushforward forwards would carry EQUAL weight.
+    An arm with ``pushforward_weight > 0`` would then differ from its ``0.0`` control at the BN
+    layer for reasons having nothing to do with the auxiliary loss: the A/B confounded, silently.
+
+    ``torch.no_grad()`` is not a defence — it stops gradients, not buffer updates.
+    """
+    counts = {}
+    for weight in (0.0, 0.5):
+        x, model, h, idx, fam = _fixture(seed=11)
+        before = _bn_state(model)
+        _process_sequence(
+            x,
+            model,
+            h,
+            criterion_reg=FamilyLoss(fam),
+            criterion_class=nn.BCEWithLogitsLoss(),
+            multitaskloss_instance=_MTL(),
+            idx=idx,
+            device=torch.device("cpu"),
+            family=fam,
+            ss_feedback="mean",
+            forecast_composition="soft_gate",
+            pushforward_weight=weight,
+        )
+        after = _bn_state(model)
+        assert before, "the fixture model has no BatchNorm layers — this test cannot bite"
+        counts[weight] = {k: int(v[2]) for k, v in after.items()}
+
+    assert counts[0.0] == counts[0.5], (
+        "the pushforward changed how many batches BatchNorm has seen "
+        f"({counts[0.0]} vs {counts[0.5]}). Its extra forward is updating BN running statistics, "
+        "which are model state saved into the artifact and recomputed by the C-184 recalibration "
+        "— an arm would differ from its control at the BN layer for reasons unrelated to the loss."
+    )
+
+
+def test_the_pushforward_is_skipped_when_gradients_are_off():
+    """Under ``no_grad`` the term is computed and thrown away — that is pure cost.
+
+    ``_recalibrate_bn`` drives the same ``train()`` code path under ``no_grad`` to recompute BN
+    statistics. Nothing there can consume a loss, so the extra forward buys nothing and costs a
+    full second pass per step.
+    """
+    x, model, h, idx, fam = _fixture(seed=13)
+    kwargs = dict(
+        criterion_reg=FamilyLoss(fam),
+        criterion_class=nn.BCEWithLogitsLoss(),
+        multitaskloss_instance=_MTL(),
+        idx=idx,
+        device=torch.device("cpu"),
+        family=fam,
+        ss_feedback="mean",
+        forecast_composition="soft_gate",
+    )
+    with torch.no_grad():
+        off = _process_sequence(x, model, h, pushforward_weight=0.0, **kwargs)["total"]
+    x2, model2, h2, _, _ = _fixture(seed=13)
+    with torch.no_grad():
+        on = _process_sequence(x2, model2, h2, pushforward_weight=1.0, **kwargs)["total"]
+
+    assert torch.equal(off, on), (
+        f"under no_grad, pushforward_weight=1.0 changed the loss ({on.item()} vs {off.item()}). "
+        "The term is still being computed on a path that cannot use it — pure cost during BN "
+        "recalibration."
+    )

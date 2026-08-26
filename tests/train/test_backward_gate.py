@@ -262,7 +262,8 @@ def test_a_non_finite_loss_raises_instead_of_being_skipped():
     """A NaN loss used to fail ``w_loss > 0`` and be silently skipped like an empty window.
 
     Silently discarding a NaN window hides the upstream bug that produced it — C-212 was exactly
-    such a bug — so the fix raises rather than skipping.
+    such a bug — so the fix raises rather than skipping. ``RuntimeError`` to match
+    ``IntegrityGuardian.monitor``, which raises on the same condition twenty lines further down.
     """
     cfg = loop_config(freeze_multitask_balancer=True, total_lessons=1, bn_recalibrate=False)
     device = torch.device("cpu")
@@ -278,7 +279,7 @@ def test_a_non_finite_loss_raises_instead_of_being_skipped():
 
     training_loop.__globals__["train"] = nan_loss
     try:
-        with pytest.raises(ValueError, match="not a finite number"):
+        with pytest.raises(RuntimeError, match="not a finite number"):
             training_loop(cfg, model, criterion, optimizer, scheduler, loop_handler(cfg), device)
     finally:
         training_loop.__globals__["train"] = original_train
