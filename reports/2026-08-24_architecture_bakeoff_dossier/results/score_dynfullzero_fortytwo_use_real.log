@@ -1,0 +1,6 @@
+wrote /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-08-24_architecture_bakeoff_dossier/results/score_dynfullzero_fortytwo_use_real.csv  (7 rows: 1 models × 1 targets × 7 h)
+
+=== sb: crps_all / mcr_none by horizon ===
+h            1      6      12     18     24     30     36
+model                                                    
+use_real 0.1239 0.1033 0.0989 0.1184 0.1196 0.1578 0.8598

@@ -6,8 +6,8 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-22                           |
 | ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 307                                  |
-| Open Concerns     | 155                                  |
+| Total Concerns    | 308                                  |
+| Open Concerns     | 156                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
 | — net active risks | 132                                 |
 | Resolved Concerns | 152                                  |
@@ -3291,6 +3291,36 @@ and a stale result.
 **Mitigation:** size a wait ceiling from the *measured* worst case × 2, not the expected case; state
 the sample size behind any duration quoted to the user; and prefer a guard that refuses over one that
 proceeds on a lapsed assumption.
+
+### C-311: a reuse guard that validates configuration but not structure
+
+| Field | Value |
+|-------|-------|
+| ID | C-311 |
+| Tier | 3 |
+| Source | arch-bakeoff EXP-01 run notes (2026-08-26) |
+| Trigger | Writing or extending a guard that decides whether an existing artifact may be REUSED — checking its declared contents without checking that the artifact is structurally usable |
+| Location | `reports/2026-08-18_lesson_curve_dossier/tools/run_queue.sh` (`ensure_arm` reuse branch); fixed in `scripts/arm_identity_check.py::missing_dirs` |
+| Cross-refs | C-303, C-309 (guards that check less than a reader assumes) |
+
+`run_queue.sh` reuses an arm directory when the label matches, gated on an identity check over config
+keys. `dualfullzero_fortythree` had an **entirely correct** config — `DualStream`, seed 43, 300
+lessons — and was accepted. It then failed **four seconds** later: `artifacts/`, `logs/`,
+`notebooks/` and `reports/` were absent, so `ModelPathManager` raised at import.
+
+**The config was never the problem, so a config check could never have caught it.** The failure was
+cheap in compute and expensive in wall-clock: it consumed the last overnight slot of a 24-hour queue,
+and the result was only available the following morning.
+
+**What generalises.** A reuse guard answers *"is this the artifact I asked for?"* — but the question
+that matters is *"is this artifact **usable**?"*. Identity and integrity are different properties and
+checking the first reads as having checked both. Same family as C-303/C-309: the guard checks less
+than its name implies, and nothing in the harness compares the two.
+
+**Fixed** by `missing_dirs()`, which refuses an arm lacking any directory `ModelPathManager` requires,
+with both directions tested. **Not fixed:** what emptied that directory is unknown — the config
+timestamps say 02:08 and no rebuild appears in the queue log. Recorded as unexplained rather than
+given a plausible cause.
 
 ## Disagreements
 

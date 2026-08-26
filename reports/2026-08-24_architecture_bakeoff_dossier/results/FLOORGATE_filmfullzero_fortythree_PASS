@@ -1,0 +1,5 @@
+FLOOR GATE: PASS
+  thresholds md5: 6d5714d5ceda147ed16f53143abe7e37
+  FG-A [         PASS] AP 0.34002 / prevalence 0.009077 = 37.46x (need >= 5.0x)
+  FG-B [         PASS] AP(h1) 0.48057 / clim 0.29798 = 1.613x (want >= 1.2)
+  FG-C [         PASS] a 30% effect is 0.23801 AP; 3x MDE is 0.05228
