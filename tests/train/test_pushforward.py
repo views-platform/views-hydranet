@@ -417,51 +417,70 @@ def _fixture_with_statics(seed=0, T=4):
 def test_the_fed_field_gets_its_statics_from_t_plus_one_not_t():
     """The fed field stands in for t+1, so its statics must come from t1.
 
-    Inert today (production runs ``static_channels: []``, making the helper a no-op) and a real bug
-    the moment a channel that varies in time is declared static. Observable only with a static
-    channel present, which is why this test builds one.
+    Recomputed, not compared-against-a-perturbation: shifting the static values changes the loss
+    under EITHER reading, so a "did it move?" test cannot tell t0 from t1. This builds the
+    reference twice — once with t1's statics, once with t0's — and requires the engine to match
+    the first and differ from the second.
+
+    Inert today (production runs ``static_channels: []``, making the helper a no-op) and a real
+    bug the moment a channel that varies in time is declared static.
     """
-    x, model, h, idx, fam = _fixture_with_statics(seed=17)
+    from views_hydranet.train.training_engine import (
+        _attach_static_channels,
+        _batchnorm_eval,
+        _family_feedback_log1p,
+    )
+
+    x, _model, _h, idx, fam = _fixture_with_statics(seed=17, T=3)
     assert idx.static, "the fixture declares no static channel — this test cannot bite"
+    crit = FamilyLoss(fam)
 
-    out = _process_sequence(
-        x,
-        model,
-        h,
-        criterion_reg=FamilyLoss(fam),
-        criterion_class=nn.BCEWithLogitsLoss(),
-        multitaskloss_instance=_MTL(),
-        idx=idx,
-        device=torch.device("cpu"),
-        family=fam,
-        ss_feedback="mean",
-        forecast_composition="soft_gate",
-        pushforward_weight=1.0,
-    )
+    def run(w):
+        _, m, hh, _, _ = _fixture_with_statics(seed=17, T=3)
+        return _process_sequence(
+            x,
+            m,
+            hh,
+            criterion_reg=crit,
+            criterion_class=nn.BCEWithLogitsLoss(),
+            multitaskloss_instance=_MTL(),
+            idx=idx,
+            device=torch.device("cpu"),
+            family=fam,
+            ss_feedback="mean",
+            forecast_composition="soft_gate",
+            pushforward_weight=w,
+        )["total"]
 
-    # Rebuild the same run with the per-frame static constants shifted by one, so a t0-indexed
-    # read produces the value a t1-indexed read produced before. If the engine reads t0, the
-    # pushforward term is unchanged by the shift; if it reads t1, it moves.
-    x2, model2, h2, idx2, fam2 = _fixture_with_statics(seed=17)
-    for t in range(x2.shape[1]):
-        x2[:, t, idx2.static] = float(t + 2)
-    out2 = _process_sequence(
-        x2,
-        model2,
-        h2,
-        criterion_reg=FamilyLoss(fam2),
-        criterion_class=nn.BCEWithLogitsLoss(),
-        multitaskloss_instance=_MTL(),
-        idx=idx2,
-        device=torch.device("cpu"),
-        family=fam2,
-        ss_feedback="mean",
-        forecast_composition="soft_gate",
-        pushforward_weight=1.0,
+    observed = (run(1.0) - run(0.0)).item()
+
+    # --- reference: step 0 only, since `i + 2 < 3` fires exactly once ---
+    _, m, hh, _, _ = _fixture_with_statics(seed=17, T=3)
+    t0, t1 = x[:, 0], x[:, 1]
+    out0 = m(_attach_static_channels(t0[:, idx.feat], t0, idx), hh)
+    fed = _family_feedback_log1p(
+        out0.reg, fam, "mean", torch.sigmoid(out0.cls), "soft_gate", None
+    ).detach()
+
+    def pf_with(static_source):
+        with _batchnorm_eval(m):
+            o = m(_attach_static_channels(fed, static_source, idx), out0.h_next)
+        y2 = x[:, 2, idx.reg]
+        n = crit.n_params
+        return sum(
+            crit(o.reg[:, j * n : (j + 1) * n].permute(0, 2, 3, 1), y2[:, j])
+            for j in range(len(idx.reg_names))
+        ).item()
+
+    from_t1, from_t0 = pf_with(t1), pf_with(t0)
+    margin = abs(from_t1 - from_t0) / abs(from_t1)
+    assert margin > 1e-3, (
+        f"t0 and t1 statics give nearly the same pushforward loss (gap {margin:.2e}) — this "
+        "fixture cannot tell them apart, so the assertion below would be vacuous"
     )
-    assert not torch.equal(out["total"], out2["total"]), (
-        "shifting the static channel by one frame left the loss identical — the statics are not "
-        "being read per-frame at all, so this test cannot detect which frame the pushforward used"
+    assert observed == pytest.approx(from_t1, rel=1e-4), (
+        f"the pushforward term ({observed:.6f}) matches neither a t1-static reference "
+        f"({from_t1:.6f}); the t0-static value is {from_t0:.6f}"
     )
 
 
