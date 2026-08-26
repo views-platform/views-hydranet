@@ -379,7 +379,7 @@ def test_the_pushforward_is_skipped_when_gradients_are_off():
 
 
 def _fixture_with_statics(seed=0, T=4):
-    """Like ``_fixture`` but with one static channel, so tests can tell WHICH frame it was read from.
+    """Like ``_fixture`` but with one static channel, so a test can tell WHICH frame it used.
 
     The static channel is given a different constant per frame — physically wrong (statics are
     geometry-constant by definition) and deliberately so: it is the only way to observe which time

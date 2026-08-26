@@ -3502,14 +3502,15 @@ untested, and it bounds what can be added to the step loop.
 
 | | peak allocated | fwd | fwd+bwd |
 |---|---|---|---|
-| `pushforward_weight=0` | 2524 MiB | 2.46 s | 4.58 s |
-| `=1`, state attached | 3993 MiB | 4.24 s | 7.58 s |
-| `=1`, state detached | 3993 MiB | 4.04 s | 7.34 s |
+| `pushforward_weight=0` | 2524 MiB | 3.22 s | 5.83 s |
+| `=1`, state attached | 3990 MiB | 6.01 s | 10.24 s |
+| `=1`, state detached | 3990 MiB | 5.97 s | 10.02 s |
 
-So **+58% memory and ×1.65 wall-clock**, not the doubling a first reading of the graph suggests —
+So **+58% memory and ×1.76 wall-clock**, not the doubling a first reading of the graph suggests —
 the extra step is one level deep from a detached field, not a second full sequence. Extrapolating
-from the incumbent's measured 1.82 h/arm gives **~3.0 h/arm**. `pushforward_detach_state` costs
-nothing either way, so that fork is free to test.
+from the incumbent's measured 1.82 h/arm gives **~3.2 h/arm**. `pushforward_detach_state` costs
+nothing either way, so that fork is free to test. (Re-measured after the BatchNorm-freeze fix,
+which adds a per-step module walk; the earlier figures were ×1.65 / ~3.0 h.)
 
 **The reach is real, and this corrects a prior.** Measuring `d||h_final||²/dx_i` at T=120 — which
 isolates the recurrent path, since a frame can only reach `h_final` through memory:
