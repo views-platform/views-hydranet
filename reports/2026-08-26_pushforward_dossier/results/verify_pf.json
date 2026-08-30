@@ -1,0 +1,6 @@
+{
+  "rows": [],
+  "problems": [
+    "F1 CONTROL REUSE FAILED: refullzero_fortytwo AP@h18=0.339840 vs archived 0.329840 (|\u0394|=1.00e-02 > 5e-04). The code moved under the controls, so the 4v4 contrast is VOID and the controls must be retrained. This is NOT a pushforward result and must not be reported as one."
+  ]
+}

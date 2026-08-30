@@ -67,30 +67,20 @@ done
 if [ "$fail" -eq 0 ]; then
   cp "$RES/smoke_pf.jsonl" "$RES/SMOKE_PF_OK"
   $CENV python - <<'PY'
-import json, pathlib, sys
+import json, pathlib
 D = pathlib.Path("/home/simon/Documents/scripts/views_platform/views-hydranet/"
                  "reports/2026-08-26_pushforward_dossier")
-sys.path.insert(0, str(D / "tools"))
-from train_time import training_seconds
-
 rows = [json.loads(l) for l in (D / "results/smoke_pf.jsonl").read_text().splitlines()]
 by = {r["variant"]: r for r in rows}
 if "0.0" in by and "0.1" in by:
     c, t = by["0.0"], by["0.1"]
-    # TRAINING time, not total. On a 2-lesson smoke the run is ~95% emit and scoring, which the
-    # pushforward does not touch, so a ratio of totals reads x1.17 while training is x2.02 — and a
-    # 300-lesson arm is almost all training. Reporting the total ratio here would have understated
-    # the GPU budget by 60%.
-    ct = training_seconds(D / f"results/smoke_{c['label']}.log")
-    tt = training_seconds(D / f"results/smoke_{t['label']}.log")
-    emit = c["seconds"] - ct
-    n = 300 // 2
-    a, b = ct * n + emit, tt * n + emit
-    print(f"  TRAINING  {ct}s -> {tt}s  = x{tt/ct:.2f}   (total runtime would say "
-          f"x{t['seconds']/max(c['seconds'],1):.2f} — emit dominates a 2-lesson run)")
-    print(f"  PEAK      {c['peak_mib']} -> {t['peak_mib']} MiB = x{t['peak_mib']/c['peak_mib']:.2f}")
-    print(f"  PROJECTED 300-lesson arm: control {a/3600:.2f} h -> treatment {b/3600:.2f} h "
-          f"= x{b/a:.2f}")
+    print(f"  PEAK   {c['peak_mib']} -> {t['peak_mib']} MiB = x{t['peak_mib']/c['peak_mib']:.2f} "
+          f"({t['peak_mib']/8188:.0%} of the card)")
+    # NO time ratio here, deliberately. A 2-lesson run is ~95% emit and scoring, and the emit time
+    # is noisy enough that on one smoke the CONTROL was slower than the treatment. Scraping tqdm to
+    # separate training out was tried and was wrong (it matched emit bars). The training cost is
+    # measured directly by tools/pf_cost.py instead.
+    print(f"  TIME   not derived here — see tools/pf_cost.py (direct, repeated, production shapes)")
 PY
   echo "SMOKE_PF OK — sentinel written"
 else
