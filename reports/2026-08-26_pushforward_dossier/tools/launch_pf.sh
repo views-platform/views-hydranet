@@ -7,9 +7,10 @@
 #   3. the working tree is clean (run_queue aborts on HEAD drift mid-flight, F6)
 #   4. ruff + the pushforward/guard tests are green
 #
-# Order is pre-registered: the control-reuse GATE runs FIRST. If refullzero_fortytwo does not
-# reproduce its archived twin, verify_pf.py fails and the queue stops before spending 15 h on
-# treatments that could not be interpreted.
+# The control-reuse gate (refullzero_fortytwo) already ran and PASSED under Amendment 1, so it is
+# no longer in the queue; the queue would SKIP it anyway. Amendment 2: the tested weight is 0.01
+# after w=0.1 came back VOID. Arm 1 is seed 42 and verify_pf.py halts the queue if F5 or F6 fires —
+# that is the pre-committed stop rule, enforced by the harness rather than by my judgement.
 set -uo pipefail
 HYD=/home/simon/Documents/scripts/views_platform/views-hydranet
 D="$HYD/reports/2026-08-26_pushforward_dossier"
@@ -46,6 +47,5 @@ exec setsid nohup env \
   ARM_MODULE=make_pf_arm \
   ARM_TOOLS="$D/tools" \
   bash "$HYD/reports/2026-08-18_lesson_curve_dossier/tools/run_queue.sh" \
-  300:42:0.0::0.0-recheck \
-  300:42:0.0::0.1 300:43:0.0::0.1 300:44:0.0::0.1 300:45:0.0::0.1 \
+  300:42:0.0::0.01 300:43:0.0::0.01 300:44:0.0::0.01 300:45:0.0::0.01 \
   > "$RES/launcher.log" 2>&1 < /dev/null &

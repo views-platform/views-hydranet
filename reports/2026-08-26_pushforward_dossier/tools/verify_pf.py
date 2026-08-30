@@ -51,7 +51,11 @@ CONTROL = {
 REUSE_K = 3.0
 #: §3: measured control seed sd of AP@h18 (n=4). Used by F5/F6 as the "did not move" band.
 SIGMA = 0.0134
-TREATMENT_WEIGHT = 0.1
+#: Amendment 2: the tested weight is 0.01. The w=0.1 arm (`pffullzero_fortytwo`) is VOID — F5 and
+#: F6 fired — and its verdict is recorded in 07_experiment_log.md. It is deliberately NOT in the
+#: active set below: re-checking a settled VOID would abort the queue after every future arm.
+TREATMENT_WEIGHT = 0.01
+VOID_ARMS = {"pffullzero_fortytwo": "EXP-01, w=0.1, VOID (F5+F6) — see 07_experiment_log.md"}
 
 
 def _hp(model: str) -> dict | None:
@@ -124,7 +128,7 @@ def main() -> int:
     problems += check_reuse_gate()
 
     arms = [("refullzero_fortytwo", 42, 0.0)] + [
-        (f"pffullzero_{w}", s, TREATMENT_WEIGHT) for s, w in SEEDS.items()
+        (f"pflowfullzero_{w}", s, TREATMENT_WEIGHT) for s, w in SEEDS.items()
     ]
     for arm, seed, want_w in arms:
         word = SEEDS[seed]
