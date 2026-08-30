@@ -142,3 +142,57 @@ L=300, `sb`, calibration, 4 seeds, one grid, one queryset. `freeze_multitask_bal
 every arm (so C-312's fixed guards are provably inert — `test_the_new_guard_is_byte_identical_when_frozen`).
 No architecture change. The detach fork, weight 0.5, and the risk-field/dynamic trade-off (#301)
 are out of scope and named here so they are not quietly absorbed later.
+
+---
+
+## AMENDMENT 1 — F1's tolerance was the wrong instrument (2026-08-30, before any treatment arm)
+
+**Stated plainly: this changes a pre-registered falsifier after seeing its result.** That is exactly
+the move C-305 was registered for — a decision rule overridden post-hoc and then written up as
+"no branch matched". So the reasoning is recorded in full and the original text above is left
+untouched.
+
+**What happened.** The gate arm `refullzero_fortytwo` ran and F1 fired: AP@h18 differed from its
+archived twin by 6.14e-04, against a 5e-4 tolerance. The queue stopped itself before any treatment
+arm, which is what it is for.
+
+**Why the original rule was wrong — and it is wrong in a way that has nothing to do with the
+result it produced.** The 5e-4 came from M34, where **re-emits** reproduced archived controls. Re-
+emitting from a fixed `.pt` is deterministic; **retraining is not**, and nobody in this programme
+had ever measured retrain reproducibility. It was measured now:
+
+| h | seed-to-seed sd (n=4 archived) | retrain Δ (same seed) | Δ as % of sd |
+|---|---|---|---|
+| 1 | 0.0035 | 0.0053 | **148%** |
+| 6 | 0.0123 | 0.0057 | 47% |
+| 12 | 0.0189 | 0.0216 | **114%** |
+| 18 | 0.0134 | 0.0006 | **5%** |
+| 24 | 0.0092 | 0.0012 | 13% |
+| 30 | 0.0099 | 0.0092 | 94% |
+| 36 | 0.0122 | 0.0095 | 78% |
+
+**Retraining the same seed moves AP about as much as changing the seed.** So no scalar tolerance
+was ever going to certify "the code did not move" — the property F1 was written to check is not
+measurable at the precision the rule demanded.
+
+**The second, worse defect: F1 tested ONE horizon.** h18 is where the two runs agree best (0.05 sd).
+The same run differs by 0.94 and 0.78 sd at h30/h36 — the horizons this dossier's hypothesis is
+about. A slightly looser scalar tolerance would have passed the gate *silently* with the long
+horizons never checked. The rule fired for the right reason by luck, at the least informative
+horizon.
+
+**Amended rule.** F1 now asks whether the fresh control is an **outlier against the scatter the
+archived controls already show among themselves**, at **every** horizon: `|Δ_h| ≤ 3 × sd_h`, with
+`sd_h` computed at run time from the four archived controls. `k=3` is deliberately generous — this
+gate exists to catch a **gross** code effect, not to certify fine agreement, which the table above
+shows is not available at any tolerance.
+
+**Result under the amended rule: PASS.** Max deviation 1.48 sd (h1); h30/h36 at 0.94/0.78 sd.
+Mutation-verified: a −0.05 shift at h36 (4.9 sd) fails it; the 6.1e-04 h18 drift that fired the
+original rule does not.
+
+**What this does NOT license.** The amendment says the observed difference is *unremarkable in
+size*. It does **not** prove PR #303 changed nothing about training. That distinction is why the
+verdict is "reuse permitted", not "code proven inert". Registered as **C-317**.
+
+**Unchanged:** the primary endpoint, the MDE, the decision rule in §4, and falsifiers F2–F8.

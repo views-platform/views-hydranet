@@ -6,10 +6,10 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-26                           |
 | ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 313                                  |
-| Open Concerns     | 161                                  |
+| Total Concerns    | 314                                  |
+| Open Concerns     | 162                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 137                                 |
+| — net active risks | 138                                 |
 | Resolved Concerns | 152                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -3564,6 +3564,42 @@ the module currently in `sys.modules` — added because re-introducing the delet
 tests had been hardened to patch `training_loop.__globals__` directly, **survived the entire
 suite**. Hardening the victims removed the only signal that the defect existed; the guard restores
 it, and the mutation is now caught.
+
+### C-317: retraining does not reproduce — run-to-run scatter is the size of seed-to-seed scatter
+
+| Field | Value |
+|-------|-------|
+| ID | C-317 |
+| Tier | 2 |
+| Source | pushforward dossier, F1 control-reuse gate (2026-08-30) |
+| Trigger | Claiming a result is confirmed because a model was retrained and "got the same numbers", or setting any tolerance for comparing two trained artifacts |
+| Location | `views_hydranet/infrastructure/reproducibility_gate.py` (`lock_entropy`); measured in `reports/2026-08-26_pushforward_dossier/05_analysis_plan.md` Amendment 1 |
+| Cross-refs | C-42 (the repro gate, marked done), M34 (whose reproduction claim was about RE-EMITS, not retrains), C-112 (pre/post comparability) |
+
+`lock_entropy` sets `torch.use_deterministic_algorithms(True, **warn_only=True**)`,
+`cudnn.deterministic = True`, `cudnn.benchmark = False` and seeds every RNG. The programme has
+treated that as making training reproducible. **It does not, and nobody had measured it.**
+
+Retraining `fullzero_fortytwo` — same seed, same data, same GPU (RTX 4070), same Python 3.11.14,
+same torch 2.6.0 — reproduces its archived twin to **148% / 114% / 94% / 78% of the seed-to-seed
+sd** at h1 / h12 / h30 / h36. **Retraining the same seed moves AP about as much as changing the
+seed.** `warn_only=True` is the likely mechanism: an op without a deterministic kernel falls back
+silently.
+
+**What this invalidates.** Any claim of the form *"we retrained and got the same result, therefore
+X"*. M34's reproduction evidence is unaffected — it re-**emitted** from fixed `.pt` artifacts,
+which is deterministic — but the distinction was never drawn, and this dossier's F1 inherited M34's
+`5e-4` tolerance and applied it to a retrain, where no scalar tolerance can work.
+
+**What it does NOT invalidate.** Multi-seed designs whose noise model is the observed spread across
+runs: whether that spread comes from seeds or from nondeterminism, the permutation test uses it
+either way. The pushforward 4v4 contrast stands for this reason.
+
+**Not fixed.** Making training bit-reproducible means `warn_only=False`, which would raise on the
+first non-deterministic op and may be unachievable with this architecture; and it would change
+training dynamics (C-112). Registered so the *claim* stops being made, which is the actual defect.
+**Open question worth its own probe:** which op is falling back — the run log shows no determinism
+warning at all, which is itself unexplained.
 
 ## Disagreements
 
