@@ -196,3 +196,36 @@ size*. It does **not** prove PR #303 changed nothing about training. That distin
 verdict is "reuse permitted", not "code proven inert". Registered as **C-317**.
 
 **Unchanged:** the primary endpoint, the MDE, the decision rule in §4, and falsifiers F2–F8.
+
+---
+
+## AMENDMENT 2 — the tested weight drops to 0.01, with a hard stop (2026-08-30)
+
+**What happened.** `pffullzero_fortytwo` (w=0.1) ran and **F5 and F6 both fired**: the oracle —
+the teacher-forced ceiling, no rollout involved — fell ~0.03 at *every* horizon, and h1 AP fell
+0.0245. The auxiliary loss damaged the **model**, so the free-running comparison cannot be
+attributed to a rollout effect. **That arm is VOID**, exactly as §4 pre-registered.
+
+Free-running AP fell hard (−0.100 at h18, −0.141 at h30) and `act_ratio` collapsed to 0.33× at h18
+and 0.20× at h30 — the model became drastically more conservative. §7 predicted the conservatism
+and predicted AP would *rise* with it; AP fell instead. Recorded as dose evidence, not as a result.
+
+**F5 is NOT amended.** It did exactly its job and its rationale is unchanged. F1 was amended
+earlier because its *instrument* was demonstrably wrong (a re-emit tolerance applied to a retrain);
+nothing comparable is true here. Loosening F5 after seeing its verdict would be moving goalposts.
+
+**What changes:** the tested weight, from `0.1` to **`0.01`**. Everything else in §1–§9 stands —
+primary endpoint AP@h18, MDE 0.024, the §4 decision rule, falsifiers F1–F8.
+
+### Stop rule, pre-committed here
+
+| arm 1 (`pflowfullzero_fortytwo`, w=0.01) | then |
+|---|---|
+| **F5 and F6 both PASS** | run seeds 43, 44, 45 and report per §4 (POSITIVE / NEGATIVE / NULL / UNDERPOWERED) |
+| **F5 or F6 fires** | **STOP.** M47 = *"pushforward damages the base model at both weights tested (0.1 and 0.01); not testable on this vehicle."* No third weight. |
+
+**Arm 1's point estimate is not consulted when deciding whether to continue.** Only the falsifiers
+decide. Looking at the effect size first and then choosing whether to spend 10 more hours is the
+garden of forking paths, and C-305 is already registered for a post-hoc override of a decision rule.
+
+**Budget: 17 GPU-hours total.** This is the last pushforward experiment either way.

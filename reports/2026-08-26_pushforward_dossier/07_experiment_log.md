@@ -95,3 +95,41 @@ The existing 300-lesson `fullzero_*` controls were trained **before PR #303**. R
 argument and a test for that (`test_the_new_guard_is_byte_identical_when_frozen`, plus the
 pushforward branch is never entered at weight 0), but no end-to-end evidence. Resolved in the
 pre-registration, not here.
+
+
+## EXP-01 — pushforward at w=0.1, seed 42 (2026-08-30) — **VOID**
+
+**Pre-registration:** `05_analysis_plan.md` (LOCKED `bd1f1ec`), Amendment 1.
+
+**Verdict: VOID.** F5 and F6 both fired. Not "pushforward is worse" — the arm did not test the
+hypothesis.
+
+| h | AP control | AP w=0.1 | ΔAP | **oracle** ctl → pf | Δoracle | act_ratio |
+|---|---|---|---|---|---|---|
+| 1 | 0.4779 | 0.4534 | −0.0245 | 0.4779 → 0.4534 | −0.0245 | 0.83× |
+| 6 | 0.4008 | 0.3334 | −0.0673 | 0.4854 → 0.4593 | −0.0262 | 0.54× |
+| 12 | 0.3770 | 0.2670 | −0.1100 | 0.4961 → 0.4600 | −0.0361 | 0.40× |
+| 18 | 0.3298 | 0.2297 | −0.1001 | 0.4974 → 0.4657 | −0.0318 | 0.33× |
+| 24 | 0.2967 | 0.1715 | −0.1252 | 0.4890 → 0.4658 | −0.0232 | 0.33× |
+| 30 | 0.2631 | 0.1218 | −0.1413 | 0.4916 → 0.4634 | −0.0282 | 0.20× |
+| 36 | 0.2208 | 0.0967 | −0.1241 | 0.4667 → 0.4365 | −0.0302 | 0.43× |
+
+Retention `AP(h18)/AP(h1)`: 0.690 → 0.507. `crps_all` essentially unmoved (≤ +0.005).
+
+**Why VOID and not NEGATIVE.** The oracle is scored teacher-forced — the model is fed real data at
+every step, so no rollout is involved. It dropped at *every* horizon. F5 exists for precisely this:
+an auxiliary loss that moves the ceiling changed the **model**, and the free-running collapse
+cannot then be read as a rollout effect. F6 says the same thing at h1, which is nearly
+teacher-forced.
+
+**What it does establish, and it is worth keeping.** At w=0.1 the term is strong enough to trade
+away one-step skill and make the model drastically more conservative — firing 0.20–0.33× as often
+at long horizons — with AP falling alongside. §7 predicted the conservatism but predicted AP would
+*rise* with fewer false positives. It fell. Read against **M45** (AP falls when the model
+*over*-fires), this brackets the operating point: **moving firing in either direction from here
+hurts.**
+
+**Falsifiers:** F1 PASS (Amendment 1, max 1.48 sd), F2 PASS, F3 floor gate PASS, F4 PASS,
+**F5 FIRED**, **F6 FIRED**, F7 n/a (VOID), F8 not evaluated.
+
+**Next, per Amendment 2:** one arm at w=0.01, seed 42. Hard stop either way.

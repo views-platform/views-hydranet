@@ -122,7 +122,10 @@ _PF_TAG = {
     #: exists only so the fresh build gets its own directory instead of colliding with the archived
     #: `fullzero_*` it must be compared against.
     "0.0-recheck": "re",
-    "0.1": "pf",  # weight 0.1, state attached (the default fork)
+    #: The weight D1 actually tests. 0.1 damaged the base model (oracle -0.03 at every horizon,
+    #: F5/F6 both fired) so its arm is VOID; 0.01 is the last weight this programme will try.
+    "0.01": "pflow",
+    "0.1": "pf",  # weight 0.1 — VOID, kept so the arm can still be rebuilt for the dose record
     "0.1-detach": "pfd",  # weight 0.1, state detached (Brandstetter's stateless reading)
     "0.5": "pfhalf",
 }
@@ -131,6 +134,7 @@ _PF_TAG = {
 _PF_SPEC = {
     "0.0": (0.0, False),
     "0.0-recheck": (0.0, False),
+    "0.01": (0.01, False),
     "0.1": (0.1, False),
     "0.1-detach": (0.1, True),
     "0.5": (0.5, False),
