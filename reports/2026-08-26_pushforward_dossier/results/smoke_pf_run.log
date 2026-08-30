@@ -1,6 +1,0 @@
-  0.0    tinyzero_fortytwo        rc=0   peak=3952   MiB   1337s  cube=yes  OK
-  0.1    pftinyzero_fortytwo      rc=0   peak=5433   MiB   1159s  cube=yes  OK
-  TRAINING  63s -> 63s  = x1.00   (total runtime would say x0.87 — emit dominates a 2-lesson run)
-  PEAK      3952 -> 5433 MiB = x1.37
-  PROJECTED 300-lesson arm: control 2.98 h -> treatment 2.98 h = x1.00
-SMOKE_PF OK — sentinel written
