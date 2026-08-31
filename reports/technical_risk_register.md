@@ -3331,6 +3331,23 @@ with both directions tested. **Not fixed:** what emptied that directory is unkno
 timestamps say 02:08 and no rebuild appears in the queue log. Recorded as unexplained rather than
 given a plausible cause.
 
+> **RECURRED 2026-08-31, on four more arms — and the cause is still unknown.** All four
+> `fullzero_{fortytwo,fortythree,fortyfour,fortyfive}` arms had lost `data/processed`, `notebooks`
+> and `reports`. Those directories hold nothing but `.gitkeep`; `ModelPathManager` validates their
+> existence and raises, so EXP-04's first launch died in seconds on all four seeds at once. The arms
+> trained successfully in August, so the directories existed then.
+>
+> **This is now a pattern, not an incident**: it has struck an arm built by the bake-off builder and
+> four arms built months apart by a different path. Nothing in this repo deletes them — the smoke
+> harness removes only `data/generated/predictions_*`, and `make_*_arm.py` creates rather than
+> removes. The likely culprit is something outside the repo that prunes empty directories (a backup,
+> sync or cleanup tool on this machine), which would explain why only the `.gitkeep`-only ones go.
+> **That is a hypothesis and has not been verified.**
+>
+> **Cheap mitigation not yet built:** `missing_dirs()` exists and is tested, but nothing calls it
+> before an *emit*-only run — only the training queue's reuse path uses it. A one-line preflight in
+> the emit drivers would have converted four silent failures into one clear refusal.
+
 ### C-312: the multi-task balancer can drive the loss negative, and two guards then stop training in silence — FIXED
 
 | Field | Value |
