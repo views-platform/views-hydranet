@@ -185,3 +185,67 @@ nothing here — a code review did, by comparing a number in the prose against a
 
 **Rule for the next run in this dossier:** no arm launches without a `05_analysis_plan.md` section
 carrying a numeric decision rule and a commit timestamp that precedes it.
+
+---
+
+## AMENDMENT / EXP-04 — confirm the cell anchor at four seeds (2026-08-31)
+
+**Why this exists.** M38–M41 are the **only** positive results the rollout programme has produced.
+Everything since has been negative: six architectures (M46), four feeding schemes (SS, ITF,
+truncated_nb, pushforward — M26–M33, M42, M45, M47). Across all of them the teacher-forced oracle
+never moves, so the model is not the problem and the free-running state is. The cell anchor is the
+one intervention that touches the state, and it has never been confirmed beyond two seeds.
+
+**This is the last experiment before shipping.** Its job is to turn a 2-seed finding into shipping
+evidence, or to refuse to.
+
+**Intervention:** `freeze_recurrent='cell'` at inference. **Emit only — no training.** The four
+`fullzero_*` artifacts already exist; this is a deployment switch on `InferenceOrchestrator`, not a
+trained behaviour, which is exactly why it is cheap and why it can ship without retraining anything.
+
+**Design:** 4 seeds (42–45) × 2 arms (`none`, `cell`), paired origin-block CI per seed on
+AP@h18 (`ap_diff_origin_block_ci`, 13 origins, 400 reps, 90%).
+
+### The test, and why NOT a seed-level permutation
+
+With 4 paired seeds an exact sign-flip test has a floor of `1/2⁴ = 0.0625` **and therefore cannot
+reach p ≤ 0.05 at any effect size.** Registering it as the primary would guarantee a
+non-significant result regardless of the truth — the same trap as the 2v2 architecture screen
+(floor 0.167), which was at least declared a screen up front.
+
+**Primary is therefore the per-seed paired origin-block CI**, which is what M38/M40 used and what
+`ap_diff_origin_block_ci` was written for. The paired MDE at h18 is **0.0086** (M40); the effect
+measured on two seeds is **+0.032 / +0.039**, i.e. ~4× MDE.
+
+### Decision rule — registered before running
+
+| verdict | condition |
+|---|---|
+| **CONFIRMED** | all 4 seeds Δ > 0, **and** the paired 90% CI excludes zero on **≥3 of 4** seeds |
+| **PARTIAL** | 3 of 4 seeds Δ > 0, or CI excludes zero on exactly 2 |
+| **NOT CONFIRMED** | any seed Δ ≤ 0 beyond the paired MDE, or CI excludes zero on ≤1 |
+
+**Only CONFIRMED ships.** PARTIAL means the anchor is real but not reliable enough to switch on for
+an ensemble, and it stays a research finding.
+
+### Falsifiers
+
+* **G1 re-emit fidelity** — seeds 42 and 43 are being re-emitted on today's code. Their `none` arm
+  must reproduce the archived M38 values (0.32984, 0.33183) to within 5e-4. Emit from a fixed
+  artifact IS deterministic (unlike retraining — **C-317**), so a mismatch means the emit path
+  changed and every number here is suspect. **VOID if it fires.**
+* **G2 support** — `N` and `n_event` identical between `none` and `cell` within each seed; a
+  differing support invalidates the pairing.
+* **G3 no training** — the artifact mtimes must be unchanged after the run. This is an emit-only
+  experiment and must be provably so.
+
+### Budget and stop rule
+
+**~2 hours, 8 emits.** If G1 fires the run is VOID and the cell anchor is not shipped on this
+evidence. There is no second attempt: this is the last experiment.
+
+### Scope
+
+`sb`, h18 primary (h1/6/12/24/30/36 reported), calibration, one grid, one queryset, w=1.0 (the full
+clamp). M41 showed the anchor saturates at w≈0.1; the **dial is not re-tested here** — this
+confirms the switch, and the operating point is a shipping decision, not an experiment.

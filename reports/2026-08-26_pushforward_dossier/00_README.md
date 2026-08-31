@@ -1,6 +1,8 @@
 # Pushforward (#289) — dossier
 
-**Status: SMOKE. No scored arm has run. No result exists.**
+**Status: CLOSED. M47 in the ledger; #289 closed. See `07_experiment_log.md` for the science and
+`08_postmortem.md` for how the programme was run — the latter written because it took four days
+and 22 hours to reach a result that took thirteen hours once an endpoint existed.**
 
 ## The question
 
@@ -69,3 +71,21 @@ Every one exists because something specific went wrong before:
    claimed pre-commitment it did not have.
 3. Then: which architectures are pushforward candidates, and the risk-field vs dynamic-forecast
    trade-off (#301).
+
+
+---
+
+## Outcome
+
+**The pushforward does not help. It makes the 36-month forecasts worse.**
+
+Four seeds at L=300, weight 0.01: the ability to pick conflict cells 18 months out fell ~7%
+(0.3257 → 0.3037), all four seeds worse, p=0.0429. Formally UNDERPOWERED — 0.0220 against a
+pre-registered MDE of 0.024 — so the direction is established and the magnitude is not.
+
+**The mechanism is the finding: the model itself is undamaged.** Teacher-forced skill is unchanged.
+It is only worse when running on its own predictions — the exact situation the method exists to fix.
+A stronger weight (0.1) damaged the model outright and was VOID.
+
+**Not closed:** the horizon-of-the-loss idea. Reopen triggers registered in `05` §8 — the detach
+fork and a longer unroll.
