@@ -223,3 +223,77 @@ was lost. **Never edit a running script; branch the file or wait.**
 
 ---
 
+
+---
+
+## EXP-04 — the cell anchor at four seeds (2026-08-31) — **CONFIRMED**
+
+**Pre-registration:** `05_analysis_plan.md`, the EXP-04 amendment, committed before any emit ran.
+**Emit only — no training.** Artifact mtimes recorded before and after: identical (G3 PASS).
+
+### Primary — AP@h18, paired origin-block CI per seed (13 origins, 400 reps, 90%)
+
+| seed | none | cell | Δ | 90% CI | paired MDE | CI excludes 0 |
+|---|---|---|---|---|---|---|
+| 42 | 0.3298 | 0.3622 | **+0.0323** | [0.0228, 0.0421] | 0.0096 | yes |
+| 43 | 0.3318 | 0.3709 | **+0.0391** | [0.0297, 0.0469] | 0.0086 | yes |
+| 44 | 0.3058 | 0.3518 | **+0.0460** | [0.0327, 0.0561] | 0.0117 | yes |
+| 45 | 0.3352 | 0.3644 | **+0.0292** | [0.0185, 0.0412] | 0.0114 | yes |
+
+**Verdict: CONFIRMED.** The registered rule required 4/4 positive **and** ≥3/4 intervals excluding
+zero. Both are 4/4, and every effect is 3–4× its own MDE.
+
+### The horizon shape — the strongest corroboration
+
+| h | none | cell | Δ | seeds positive |
+|---|---|---|---|---|
+| 1 | 0.4767 | 0.4767 | **+0.0000** | 0/4 |
+| 6 | 0.3961 | 0.4118 | +0.0157 | 4/4 |
+| 12 | 0.3565 | 0.3837 | +0.0272 | 4/4 |
+| 18 | 0.3257 | 0.3623 | +0.0367 | 4/4 |
+| 24 | 0.2993 | 0.3376 | +0.0383 | 4/4 |
+| 30 | 0.2657 | 0.3135 | +0.0478 | 4/4 |
+| 36 | 0.2250 | 0.2841 | **+0.0591** | 4/4 |
+
+**Exactly zero at h1, monotonically rising to +26% relative at h36.** This was not imposed by the
+design and it is the shape a drift-correction should have: nothing to fix at the first step, most to
+fix at the last. An intervention that had simply made the model better would have lifted h1 too.
+
+Recovers **~22% of the oracle gap** (teacher-forced 0.4974 vs free-running 0.3257).
+
+### Falsifiers
+
+* **G1 re-emit fidelity — PASS, and unusually informative.** Seeds 42 and 43 re-emitted on today's
+  code reproduced their archived August `none` values **to the last digit**
+  (`0.3298395823400329`, `0.33182533398580893`). Beyond validating the vehicle, this demonstrates
+  that **emitting from a fixed artifact is bit-deterministic even though training is not**
+  (**C-317**) — the distinction that Amendment 1 of the pushforward dossier got wrong.
+* **G2 support — PASS.** `n_support` = 170,430 on every arm and seed.
+* **G3 no training — PASS.** Artifact mtimes byte-identical before and after.
+
+### What this closes
+
+**The state axis.** With M38 (the effect), M39 (cell only, not hidden), M41 (a switch saturating at
+w≈0.1) and now M48 (four seeds, paired CIs), recurrent-state anchoring is the **only** intervention
+in the rollout programme with a replicated positive result.
+
+Set against the negatives — six architectures (M46), four feeding schemes (M26–M33, M42, M45, M47),
+with the teacher-forced oracle never moving in any of them — the programme's shape is now legible:
+**the model is not the problem, the free-running state is, and this is the one lever that touches
+it.**
+
+### What it does NOT close
+
+1. **The mechanism is unknown.** M43 refuted the obvious explanation — the rollout does not begin
+   from an out-of-distribution state. This is an effect without a cause, and shipping it is a
+   judgement about tolerating that.
+2. **`sb` and AP only**, one grid, one queryset, w=1.0. M41's dial (saturating at w≈0.1) was not
+   re-tested here; the operating point is a shipping decision, not an experiment.
+3. **It is not a config field.** `freeze_recurrent` is set on `InferenceOrchestrator`
+   programmatically. Wiring it for the ensemble is a small code change — and, per C-303's history in
+   this repo, it needs a test that fails when the wiring is removed.
+
+### Cost
+
+**100 minutes, 8 emits, no training.** For comparison: the pushforward programme (M47, negative)
+cost roughly 20 GPU-hours.
