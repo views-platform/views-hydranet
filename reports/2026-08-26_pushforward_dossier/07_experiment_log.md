@@ -133,3 +133,99 @@ hurts.**
 **F5 FIRED**, **F6 FIRED**, F7 n/a (VOID), F8 not evaluated.
 
 **Next, per Amendment 2:** one arm at w=0.01, seed 42. Hard stop either way.
+
+---
+
+## EXP-02 — pushforward at w=0.01, 4 seeds (2026-08-31) — **UNDERPOWERED (negative direction)**
+
+**Pre-registration:** `05_analysis_plan.md` LOCKED `bd1f1ec`, Amendments 1 and 2. All four arms
+completed; queue reported `failed/skipped: none`.
+
+### Primary endpoint — AP@h18, free-running, `sb`, calibration
+
+| seed | control | pushforward | Δ |
+|---|---|---|---|
+| 42 | 0.3298 | 0.3026 | −0.0272 |
+| 43 | 0.3318 | 0.3125 | −0.0194 |
+| 44 | 0.3058 | 0.2798 | −0.0259 |
+| 45 | 0.3352 | 0.3198 | −0.0154 |
+| **mean** | **0.3257** | **0.3037** | **−0.0220** |
+
+Exact one-sided permutation **in the observed direction**: **p = 0.0429** (floor 0.0143).
+Paired 95% interval **[−0.0308, −0.0131]**.
+
+### Verdict: UNDERPOWERED, per §4 as written
+
+`|ΔAP| = 0.0220 < MDE = 0.024`, and the interval does **not** exclude −MDE. §4 requires
+`ΔAP ≤ −MDE` **and** `p ≤ 0.05` for EFFECT NEGATIVE; the first condition fails by 0.004.
+
+**This is deliberately not rounded up.** Four of four seeds negative and p=0.043 is a real signal,
+and it would be easy to call it EFFECT NEGATIVE — but the MDE was declared before running precisely
+so that this call could not be made afterwards. C-305 and C-306 are on the register for post-hoc
+rule overrides. The honest statement is: **a replicated, significant negative effect whose magnitude
+is not established to reach the threshold we pre-declared meaningful.**
+
+### The mechanism — this is the part worth keeping
+
+**The oracle does not move.** Teacher-forced AP@h18 across seeds: −0.0024, −0.0065, −0.0015,
++0.0019 — all inside σ=0.0134, F5 PASS 4/4. h1 is unchanged (+0.0012).
+
+So the model is **equally good teacher-forced and worse free-running** — the exact opposite of what
+the pushforward is designed to do. This is a clean negative for the method's core claim on this
+vehicle, not a confounded one: at w=0.1 the same term damaged the model (EXP-01, VOID) and at 0.01
+it leaves the model alone and still degrades the rollout.
+
+### F7 does NOT fire — this is not an M45 artifact
+
+| seed | act_ratio ctl → pf | ratio | ΔAP |
+|---|---|---|---|
+| 42 | 0.00699 → 0.01054 | 1.51× | −0.0272 |
+| 43 | 0.01042 → 0.05733 | **5.50×** | −0.0194 |
+| 44 | 0.01398 → 0.05329 | 3.81× | −0.0259 |
+| 45 | 0.00586 → 0.00792 | 1.35× | −0.0154 |
+
+`r(firing increase, ΔAP) = +0.008`. Firing rose by anywhere from 1.35× to 5.50× while the AP loss
+stayed flat at −0.015 to −0.027. **The damage does not scale with the dose**, so M45's mechanism
+does not explain this one and the two results are independent.
+
+### Horizon curve
+
+| h | ΔAP | p | act_ratio |
+|---|---|---|---|
+| 1 | +0.0012 | 0.371 | 1.16× |
+| 6 | −0.0086 | 0.200 | 1.57× |
+| 12 | −0.0188 | 0.086 | 2.38× |
+| 18 | **−0.0220** | **0.043** | 3.47× |
+| 24 | −0.0264 | 0.057 | 5.58× |
+| 30 | −0.0213 | 0.100 | 8.36× |
+| 36 | −0.0198 | 0.157 | 9.39× |
+
+Damage is absent at h1 and appears from h12 on — consistent with a rollout effect rather than a
+model effect, and consistent with F5.
+
+### Two caveats, on the record
+
+1. **The paired interval is a seed-level t-interval, not the pre-registered origin-block
+   bootstrap.** `ap_diff_origin_block_ci` needs the prediction cubes, and the queue deletes each
+   cube after scoring. The registered statistic was **not computable** after the fact. Recorded as
+   a substitution rather than presented as the registered one; re-running it would require
+   re-emitting eight arms.
+2. **The controls predate PR #303.** Reuse was validated by a fresh control landing within 1.48 sd
+   of its archived twin (Amendment 1), not by bit-reproduction — which **C-317** establishes is not
+   available on this pipeline at all.
+
+### Falsifiers
+
+F1 PASS (max 1.48 sd, Amendment 1) · F2 PASS · F3 floor gate PASS 4/4 · F4 PASS · **F5 PASS 4/4** ·
+**F6 PASS** · **F7 does not fire** (r=+0.008) · F8 not evaluated.
+
+### What this closes, and what it does not
+
+**Closes:** pushforward as a rollout remedy on this vehicle, at the only two weights that are
+usable — 0.1 damages the model, 0.01 leaves it intact and makes the rollout worse. Per Amendment 2
+there is no third weight.
+
+**Does not close:** the horizon-of-the-loss idea. The reopen triggers registered in §8 stand — the
+**detach fork** (`pushforward_detach_state=True`, the stateless reading, measured free in the
+smoke) and a **longer unroll**. This result says a 2-step auxiliary term does not help; it does not
+say a longer or differently-coupled one cannot.
