@@ -14,8 +14,10 @@ D="$HYD/reports/2026-08-22_state_freeze_l300_dossier"; RES="$D/results"
 FT="$HYD/reports/2026-08-15_state_freeze_dossier/tools"
 MODELS=/home/simon/Documents/scripts/views_platform/views-models/models
 CENV="conda run --no-capture-output -n views-hydranet-env"
-M=fullzero_fortythree
-ART=calibration_model_20260821_045948.pt
+# EXP-04 (2026-08-31): parameterised so the same script serves all four seeds. Defaults are the
+# original seed-43 pair, so any earlier invocation is unchanged.
+M="${MODEL:-fullzero_fortythree}"
+ART="${ARTIFACT:-calibration_model_20260821_045948.pt}"
 # Which two arms to pair. Defaults reproduce the cell-vs-none interval (EXP-02); override to
 # compare two INTERIOR points, where the arms are far more correlated and the cell-vs-none MDE
 # is the wrong yardstick entirely.
