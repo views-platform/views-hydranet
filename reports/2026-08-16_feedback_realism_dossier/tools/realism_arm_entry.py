@@ -47,16 +47,25 @@ class RealismArmManager(HydranetManager):
     feedback_transform: str | None = None
     feedback_length_scale: float | None = None
     record_gate_probe: bool = False
+    #: Optional recurrent-state clamp, composed with the feedback arm (#301 fade test, 2026-09-01).
+    #: `freeze_recurrent` and `feedback_transform` are independent attributes on the orchestrator,
+    #: forwarded into the same HydraNetInference and acting at different points of one loop
+    #: iteration — the transform at hydranet_inference.py:1000, the state blend at :1023. None
+    #: leaves the state evolving freely, which is the pre-existing behaviour of every realism arm.
+    freeze_recurrent: str | None = None
 
     def _setup_evaluation(self, *args, **kwargs):
         ctx = super()._setup_evaluation(*args, **kwargs)
         ctx.orchestrator.feedback_transform = self.feedback_transform
         ctx.orchestrator.feedback_length_scale = self.feedback_length_scale
         ctx.orchestrator.record_gate_probe = self.record_gate_probe
+        if self.freeze_recurrent is not None:
+            ctx.orchestrator.freeze_recurrent = self.freeze_recurrent
         self._realism_ctx = ctx
         logger.info(
-            "🧪 RealismArmManager: feedback arm = %r (None = production, the model's own field)",
+            "🧪 RealismArmManager: feedback arm = %r (None = production, the model's own field)%s",
             self.feedback_transform,
+            f", freeze_recurrent = {self.freeze_recurrent!r}" if self.freeze_recurrent else "",
         )
         return ctx
 
@@ -100,6 +109,16 @@ def main() -> int:
     # DIAGNOSTIC: correlation length for the fed-back gate draw. Omitted = production
     # independent Bernoulli. Applies to the FEEDBACK path only.
     ap.add_argument("--length-scale", type=float, default=None)
+    # #301 fade test: clamp the recurrent state while still recording the fed-field statistics.
+    # A plain freeze run records nothing — `_record_feedback_stats` sits inside
+    # `if self._feedback_arm:` — so the two have to be composed to ask whether clamping stops the
+    # field collapsing. Default None keeps every pre-existing realism arm byte-identical.
+    ap.add_argument(
+        "--freeze",
+        default=None,
+        choices=("hidden", "cell", "all"),
+        help="clamp this half of the recurrent state to its last real-data value",
+    )
     args, _ = ap.parse_known_args()
 
     # Fail on a bad spec before loading anything — a typo must never run the control silently.
@@ -115,6 +134,7 @@ def main() -> int:
     # The probe is opt-in and expensive; --gate-out is the request for it. Without this the flag
     # would write an empty file and the run would raise at the very end.
     manager.record_gate_probe = bool(args.gate_out)
+    manager.freeze_recurrent = args.freeze
 
     run_args = ForecastingModelArgs.from_namespace(
         ForecastingModelArgs._create_parser().parse_args(
