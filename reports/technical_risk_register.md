@@ -6,10 +6,10 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-08-26                           |
 | ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 314                                  |
-| Open Concerns     | 162                                  |
+| Total Concerns    | 315                                  |
+| Open Concerns     | 163                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 138                                 |
+| — net active risks | 139                                 |
 | Resolved Concerns | 152                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -3617,6 +3617,47 @@ first non-deterministic op and may be unachievable with this architecture; and i
 training dynamics (C-112). Registered so the *claim* stops being made, which is the actual defect.
 **Open question worth its own probe:** which op is falling back — the run log shows no determinism
 warning at all, which is itself unexplained.
+
+### C-318: a sentinel value averaged as a measurement, into a published ledger row
+
+| Field | Value |
+|-------|-------|
+| ID | C-318 |
+| Tier | 2 |
+| Source | `/expert-code-review` commissioned to design the next experiment (2026-09-02) |
+| Trigger | Aggregating any column that encodes "undefined" as an in-band numeric value — in this repo `mean_magnitude_on_active`, `persistence` and `neighbour_pairs_per_active` all use `-1.0` |
+| Location | `views_hydranet/utils/hydranet_inference.py:521-535`; consumed wrongly in `reports/2026-09-01_fade_mechanism_dossier/07_experiment_log.md` and `reports/RESULTS_LEDGER.md` (M50) |
+| Cross-refs | C-303 (prose asserting what the code does not do), C-308 (a plausible number from the wrong measurement) |
+
+`_record_feedback_stats` writes `-1.0` for `mean_magnitude_on_active` when `n_active == 0`. M50
+averaged the column unfiltered and published *"magnitude 18.4 → −0.8"* as evidence that the fed
+field collapses on magnitude as well as occurrence. By step 30, **97% of the control's records are
+the sentinel**. Filtered, magnitude is **18.4 → 13.5 unclamped and 18.4 → 13.8 clamped** — the two
+arms are the same, and **magnitude does not collapse at all**.
+
+**Three separate signals were available and all were missed:**
+
+1. **The column's own code comment warns against exactly this** — *"averaging the column would then
+   mix empty fields with scattered ones — biasing the statistic downward exactly in the collapse
+   regime this study is about."*
+2. **The value is arithmetically impossible.** `counts = expm1(field).clamp(min=0.0)`, so a mean of
+   clamped non-negatives cannot be negative.
+3. **It was noticed and filed as a mystery.** M50's write-up records it under *"an anomaly,
+   recorded not explained"* — the anomaly was the diagnosis, and writing it down was mistaken for
+   handling it.
+
+Worse than a wrong number, the published table compared the clamped arm's **15.71** (a real mean
+over 153/156 records) against the control's **−0.74** (97% sentinel) as if they were one quantity.
+
+**The finding survives.** `active_fraction` is `n_active / n_cells` and cannot be a sentinel, so the
+1,547×-versus-2× occurrence result is untouched, as are the state numbers from a separate capture
+path. **Corrected**: the collapse is purely occurrence, and the clamp preserves *where* the model
+fires, not *how loudly* — which sits better with M32/M45 (placement is everything; magnitude is not).
+
+**Standing rule:** an in-band sentinel must be filtered at the point of aggregation, and any
+analysis touching these three columns asserts `n_active > 0` before reducing. **Noticing an
+impossible value and recording it as unexplained is not handling it** — that is the specific
+behaviour this entry exists to stop.
 
 ## Disagreements
 
