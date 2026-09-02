@@ -143,3 +143,53 @@ def test_dump_without_a_family_fails_loud(tmp_path):
     }
     with pytest.raises(ValueError, match="needs a registered distribution family"):
         HydraNetInference(model, config, device="cpu", body_mean_dump_dir=str(tmp_path))
+
+
+def test_dump_honours_the_adr068_core_switch(tmp_path):
+    """Under ``emit_family_core`` the dumped body must be the CORE mean, not the self-zeroed one.
+
+    ADR-068's {gated,th_gated}_ZINBcore arms emit the pi-stripped bulk body. If the dump used
+    ``family.mean`` there, the decomposition would attribute the pi factor to magnitude, and the
+    silence-vs-fade verdict would be wrong for exactly the arms whose zero handling is the point.
+    """
+    inf = _make_inference(tmp_path, dist="zinb")
+    inf.config["emit_family_core"] = True
+    fam = resolve_family("zinb")
+    params = _activated_params(fam, 2, 4, 4, 3, seed=11)
+
+    inf._dump_body_mean(params, torch.rand(2, 4, 4, 3), origin=1)
+    mu = torch.as_tensor(np.load(tmp_path / "bodymean_origin1.npz")["mu"])
+
+    npar = fam.n_params
+    expected_core = torch.stack(
+        [
+            fam.mean_core(params[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1))
+            for j in range(3)
+        ],
+        dim=1,
+    )
+    self_zeroed = torch.stack(
+        [fam.mean(params[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1)) for j in range(3)],
+        dim=1,
+    )
+    torch.testing.assert_close(mu, expected_core, rtol=1e-6, atol=1e-6)
+    assert not torch.allclose(expected_core, self_zeroed), "fixture cannot tell the two apart"
+
+
+def test_dump_writes_exactly_one_field_per_origin(tmp_path):
+    """Pass 0 only — otherwise later MC passes silently overwrite the field being analysed.
+
+    Each pass is individually valid, so an overwrite raises no error and produces a plausible
+    number; the artifact would just no longer be the pass the analysis says it is. That is the
+    silent-substitution class this repo keeps getting caught by, so it is asserted rather than
+    assumed.
+    """
+    inf = _make_inference(tmp_path, d=3, k=2)
+    written = []
+    real_dump = inf._dump_body_mean
+    inf._dump_body_mean = lambda *a, **kw: (written.append(a[2]), real_dump(*a, **kw))[1]
+
+    inf.generate_posterior_samples(_mock_handler(_FEATURES), origin=1)
+
+    assert written == [1], f"expected one dump for origin 1, got {written}"
+    assert len(list(tmp_path.glob("bodymean_origin*.npz"))) == 1
