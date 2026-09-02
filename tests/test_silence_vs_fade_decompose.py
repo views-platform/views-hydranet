@@ -169,7 +169,6 @@ def test_tau_selection_matches_the_production_threshold_gate():
     exists to model the production `threshold_gate` composition, and a sweep using a different
     comparison is modelling a composition the repo does not implement.
     """
-    n = 4
     mu = np.array([10.0, 20.0, 30.0, 40.0])
     gate = np.array([0.5, 0.5, 0.4, 0.4])  # two cells exactly ON tau=0.5
     mu_f, gate_f = _fields(mu, mu, gate, gate)
