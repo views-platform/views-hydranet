@@ -256,3 +256,65 @@ recovers clamp-level AP. If it is producing rubbish, it does not. That single re
 
 **Artifacts:** `results/score_fullzero_fortytwo_identity_freezecell_roll{3,15,90}.csv`,
 `results/bodymean_fullzero_fortytwo_identity_freezecell_roll{3,15,90}/`.
+
+---
+
+## EXP-3b — displaced or broken? · **DISPLACED, measured** · 2026-09-03
+
+**No new GPU data** — a re-analysis of EXP-3's field dumps with a new instrument
+(`tools/roll_diagnosis.py`), validated on synthetic fields before touching real data (9 tests,
+**7/7 mutations caught**).
+
+### Why the obvious test was refused
+
+EXP-3 proposed "roll the truth back and re-score". That is **not valid here**, and would have
+produced a confident wrong answer three separate ways: `torch.roll` wraps on a torus while only
+13,110 of 32,400 cells are study cells, so rolling truth wraps land onto ocean; the model's *input*
+was never rolled, only its memory, so a clean displacement was never guaranteed; and AP scores study
+cells only, so a displaced forecast could score zero merely by landing outside the mask.
+
+Circular cross-correlation of the **fields** avoids all three — it is the operation exactly matched
+to `torch.roll`, and involves no mask, no truth, and no score.
+
+### Result — the clamp's forecast, moved
+
+| roll | h | peak offset | peak r | r at (0,0) |
+|---|---|---|---|---|
+| 3 | 6 / 18 / 36 | **(3,3)** every horizon | 0.907 / 0.922 / 0.911 | 0.19 / 0.17 / 0.18 |
+| 15 | 6 / 18 / 36 | **(15,15)** every horizon | 0.927 / 0.926 / 0.933 | 0.004 / 0.002 / 0.001 |
+| 90 | 6 / 18 / 36 | **(90,90)** every horizon | 0.906 / 0.928 / 0.896 | −0.010 / −0.010 / −0.010 |
+
+**The peak sits at exactly the roll distance, at every horizon, for every dose, at r ≈ 0.90–0.93 —
+while correlation at zero offset is ~0.** At h2 all arms are still identical to the clamp (r = 1.000
+at offset 0), as they must be: the blend applies to the state carried *forward*, so its effect on the
+output appears one step later.
+
+**Control:** clamp vs *unclamped* peaks at **(0,0)** with r = 0.71–0.78 — two genuinely different
+forecasts in the *same place*. So the instrument distinguishes "different" from "displaced", which
+is the discrimination the whole test depends on.
+
+### Verdict
+
+**The rolled model is not broken. It produces a structurally intact forecast, displaced by exactly
+the distance its memory was displaced.** The off-distribution reading of EXP-3 — that a rolled state
+simply breaks the model — is **refuted by measurement**, not argued away.
+
+That closes the chain M48 → M53:
+
+> The cell state functions as a **map**. Move the map by 90 cells and the forecast moves by 90 cells
+> (r ≈ 0.9) while skill collapses 48×. The clamp helps because it supplies a *correct* map that
+> free-running otherwise loses. Nothing about the state's scale is doing the work.
+
+### A second reading, offered as indicative only
+
+The peak is ~0.90, not 1.00, and the input was never rolled — so roughly a tenth of the emitted
+field's spatial structure follows the (unrolled) input while the rest follows the (rolled) memory.
+That says **the recurrent state dominates the emitted field's spatial structure**. ⚠️ A correlation
+of 0.9 does not decompose linearly into "90% memory", and this was not pre-registered; it is a
+direction for a designed experiment, not a result.
+
+### It also explains EXP-3's fired gate
+
+FR-4 expected alignment to fall when the map was wrong. It did not, because a displaced forecast is
+**internally perfectly coherent** — the gate and body still agree with each other, about the wrong
+cells. This is the mechanism behind the blindness the glossary now records.
