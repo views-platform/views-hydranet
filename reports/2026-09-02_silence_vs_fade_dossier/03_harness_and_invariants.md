@@ -108,13 +108,23 @@ aggregate. A direct, mechanical descendant of C-318.
 
 ## D. Pre-flight checklist — all must be green before EXP-1
 
-- [ ] `05` pre-registration written **and committed** (locked before any GPU second)
-- [ ] C.1 dump implemented, default off
-- [ ] C.2 parity test green — dump off ≡ today, dump on ≡ dump off
-- [ ] C.4 sentinel guard in the analysis script, with a test
-- [ ] `ruff` + full `pytest` green
-- [ ] Working tree clean (no commits while a queue runs — the runner aborts on HEAD drift)
-- [ ] Disk preflight for `--keep-cubes` (cubes are large; a prior run filled the disk)
-- [ ] Identity anchor confirmed: the rerun `identity` arm reproduces `AP@h18 = 0.3298395823400329`
+- [x] `05` pre-registration written **and committed** (`db20868`), amended `8e3b99c` — both before any GPU second
+- [x] C.1 dump implemented, default off (`819578d`), wired through orchestrator + both runners (`6d06a42`, `782997f`)
+- [x] C.2 parity test green — dump off ≡ dump on, byte-identical cube
+- [x] C.4 sentinel guard in the analysis script, with tests that assert the guard can fail
+- [x] `ruff` clean; full `pytest` 1838 passed
+- [x] Working tree clean
+- [ ] Disk preflight for `--keep-cubes` — checked by the runner at arm start (`MIN_FREE_GB`)
+- [ ] Identity anchor: the rerun `identity` arm reproduces `AP@h18 = 0.3298395823400329`  ← **checked at EXP-1 step (a)**
+
+### D.1 Mutation testing (not in the original checklist; added because the guards had to be shown to fire)
+
+| target | mutations | caught | survivors, and what was done |
+|---|---|---|---|
+| the dump (`_dump_body_mean`) | 7 | **7/7** | 2 survived the first pass: dropping the ADR-068 core switch, and dumping on every MC pass instead of pass 0. Both now covered. |
+| the analysis (`decompose.py`) | 8 | **8/8** | 1 survived: `gate > tau` instead of `>=`, which models a composition the repo does not implement. Now pinned. |
+
+The mutation that matters most is caught: inserting `self.model.train()` into the dump **fails** the
+parity test. That is the historical failure this gate exists for.
 
 **G1 (C.3) is checked after EXP-1 emits but before any claim is read off it.**

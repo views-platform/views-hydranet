@@ -64,6 +64,7 @@ def run_arm(
     length_scale: float | None = None,
     gate_probe: bool = False,
     freeze: str | None = None,
+    body_mean_dump: bool = False,
 ) -> dict:
     """Run one arm end to end. Returns the manifest record; raises on any failure."""
     model_dir = models_root / model
@@ -97,6 +98,11 @@ def run_arm(
         )
 
     stats_csv = out / f"fedfield_{model}_{label}.csv"
+    # Derived from the arm label, never taken from the caller. A flat caller-supplied directory
+    # would let two arms of one batch write `bodymean_origin*.npz` over each other and leave a
+    # complete-looking result that is silently half one arm and half the other — the exact
+    # silent-then-wrong failure --length-scale caused before the label carried it.
+    dump_dir = out / f"bodymean_{model}_{label}" if body_mean_dump else None
     t0 = time.time()
     proc = subprocess.run(
         [
@@ -113,6 +119,7 @@ def run_arm(
             *(["--length-scale", str(length_scale)] if length_scale is not None else []),
             *(["--gate-out", str(out / f"gate_{model}_{label}.csv")] if gate_probe else []),
             *(["--freeze", freeze] if freeze is not None else []),
+            *(["--body-mean-dump", str(dump_dir)] if dump_dir else []),
         ],
         cwd=str(model_dir),
         capture_output=True,
@@ -168,6 +175,7 @@ def run_arm(
         "length_scale": length_scale,
         "gate_probe": gate_probe,
         "freeze_recurrent": freeze,
+        "body_mean_dump": str(dump_dir) if dump_dir else None,
     }
 
 
@@ -187,6 +195,14 @@ def main() -> int:
     ap.add_argument("--models-root", default=str(_MODELS_ROOT))
     ap.add_argument("--out", default=str(Path(__file__).resolve().parents[1] / "results"))
     ap.add_argument("--keep-cubes", action="store_true", help="debug only; skips the disk guard")
+    # silence-vs-fade: dump the un-composed body mean and gate per arm, so occurrence and
+    # magnitude can be read apart offline. The directory is DERIVED from the arm label, so two
+    # arms of one batch cannot overwrite each other.
+    ap.add_argument(
+        "--body-mean-dump",
+        action="store_true",
+        help="write the un-composed body-mean + gate fields for each arm (diagnostic)",
+    )
     ap.add_argument("--tag", default="batch", help="label for the sentinel and manifest")
     # DIAGNOSTIC: the correlated feedback sampler. Omitted = production independent Bernoulli.
     # Without this the corr sweep had no reproducible entry point and was run ad hoc.
@@ -221,6 +237,7 @@ def main() -> int:
             length_scale=args.length_scale,
             gate_probe=args.gate_probe,
             freeze=args.freeze,
+            body_mean_dump=args.body_mean_dump,
         )
         with open(manifest_path, "a") as fh:
             fh.write(json.dumps(rec) + "\n")
