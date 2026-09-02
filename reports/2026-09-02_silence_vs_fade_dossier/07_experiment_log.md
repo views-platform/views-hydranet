@@ -117,3 +117,66 @@ the chair authorised proceeding with it on the record.
 `results/g1_control/g1_use_real_CONTROL.txt`, `results/bodymean_fullzero_fortytwo_{identity,use_real}/`.
 **Not yet replicated** — seed 43 is the next step, and 05 §7 makes replication a condition of the
 finding, not an optional extra.
+
+---
+
+## EXP-2 — does the cell clamp restore the alignment? · **H SURVIVES (weakly, by design)** · 2026-09-03
+
+**Pre-registration:** [`05b_analysis_plan_exp2.md`](05b_analysis_plan_exp2.md), locked `31f14af`
+before the run. **One variable:** `freeze_recurrent='cell'` added to the `identity` arm. Seed 42,
+same artifact, 13 origins, emit-only, 355.6 s.
+
+### Gates, in the registered order
+
+* **F-B (anchor)** — `AP@h18 = 0.3621885544392029`, the archived M48 `cell` value, **exact**. PASS.
+* **F-C (h1 identity)** — occurrence, gate-weighted and plain magnitude all **identical to 9 s.f.**
+  between clamped and unclamped at h1. The clamp acts only for `t > origin`, as it must. PASS.
+* **F-A** — **did not fire.**
+
+### Result
+
+`A(h) = gate-weighted mu / plain-mean mu`, the alignment between where the model fires and where it
+predicts large values:
+
+| h | 1 | 6 | 12 | 18 | 24 | 30 | 36 |
+|---|---|---|---|---|---|---|---|
+| unclamped | 66.6 | 73.1 | 46.8 | 21.5 | 11.3 | 7.3 | **4.3** |
+| **clamped** | 66.6 | 67.1 | 66.1 | 66.0 | 62.6 | 64.2 | **69.3** |
+
+**Recovery fraction R = 1.042** — fully restored, against a pre-registered bar of 0.25 for support
+and 0.07 for death. The clamped curve does not decay at all; it is flat within noise across 36
+horizons and ends marginally above where it started.
+
+Both collapses are also substantially arrested (P2 confirmed):
+
+| h1 → h36 | occurrence | plain magnitude | gate-weighted magnitude |
+|---|---|---|---|
+| unclamped | ×0.0360 (28× fewer) | ×0.2219 (4.5× smaller) | ×0.0144 (69×) |
+| **clamped** | **×0.7152** | **×0.6510** | **×0.6765** |
+
+**What the arithmetic actually says.** Alignment is a *ratio*, so "fully preserved" means the two
+magnitudes decline **proportionally** under the clamp (0.677 / 0.651 = 1.04). Without it, the
+gate-weighted magnitude falls **15× further** than the plain mean (0.0144 / 0.2219 = 0.065). So the
+claim is precisely: **with the cell held, the gate keeps tracking magnitude; without it, the gate
+loses track of where the large values are.** The clamp does *not* stop the field fading — it still
+loses ~29% of its firing and ~35% of its magnitude — it stops the field firing in the *wrong places*.
+
+### What this does NOT establish — registered in §2 before the run, restated unchanged
+
+1. **Not causation.** AP was already known to rise (M48, 4 seeds). Now alignment is also known to
+   hold. That is **two known effects of one intervention**, not evidence that one produces the other.
+2. **AP is not evidence here** and was used only as the identity check. Reading it as support would
+   be circular.
+3. **This was the expected outcome, which is what makes it weak.** `hs = o ⊙ tanh(hl)` (C-292) means
+   holding the cell can bound the hidden half — M50 measured that. A restored alignment is therefore
+   unsurprising if the story is right, so it discriminates poorly. Had F-A fired it would have been
+   decisive; surviving is worth much less.
+4. **Seed 42 only**, against M48's four.
+
+Per `05b` §5 this is recorded as **consistent with**, and is **not** promoted further.
+
+### What would actually settle it
+
+An intervention that **restores alignment without clamping**, or **clamps without restoring
+alignment**. Until one exists, "the clamp works by preserving alignment" and "the clamp does
+something else that happens to preserve alignment too" fit this data equally well.
