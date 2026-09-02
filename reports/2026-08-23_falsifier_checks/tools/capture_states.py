@@ -54,11 +54,19 @@ class CaptureManager(HydranetManager):
     find_period: bool = False
     stride: int = 1
     artifact_name: str = ""
+    #: Optional recurrent-state clamp (#301 fade test, 2026-09-01). The docstring above records
+    #: leaving this unset as the DEFAULT, so that the probe observes the production rollout — that
+    #: is still true with `--freeze` absent. Set, it uses the same seam FreezeArmManager uses, and
+    #: the forward hook fires BEFORE the blend (hydranet_inference.py:1023), so each capture is the
+    #: state actually carried into that step.
+    freeze_recurrent: str | None = None
     _seen: int = 0
     _captured: int = 0
 
     def _setup_evaluation(self, *args, **kwargs):
         ctx = super()._setup_evaluation(*args, **kwargs)
+        if self.freeze_recurrent is not None:
+            ctx.orchestrator.freeze_recurrent = self.freeze_recurrent
         model = ctx.orchestrator.model
 
         def hook(_mod, inputs, _output):
@@ -143,6 +151,15 @@ def main() -> int:
         default=0,
         help="calls to skip; must exceed `origin` to reach the free-running phase",
     )
+    # #301 fade test: capture the state trajectory WITH the clamp applied, to ask whether the
+    # clamp stops the ~40x drain measured on the untreated model. Default None keeps every prior
+    # invocation observing the production rollout unchanged.
+    ap.add_argument(
+        "--freeze",
+        default=None,
+        choices=("hidden", "cell", "all"),
+        help="clamp this half of the recurrent state to its last real-data value",
+    )
     args, _ = ap.parse_known_args()
 
     out = Path(args.out)
@@ -158,6 +175,7 @@ def main() -> int:
     mgr.find_period = args.find_period
     mgr.stride = args.stride
     mgr.artifact_name = args.artifact
+    mgr.freeze_recurrent = args.freeze
 
     # `parse_args()` takes no argument list — it reads sys.argv, which this script has already
     # consumed. Build the namespace from the parser instead, exactly as `freeze_arm_entry.py`

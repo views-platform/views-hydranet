@@ -63,6 +63,7 @@ def run_arm(
     keep_cubes: bool,
     length_scale: float | None = None,
     gate_probe: bool = False,
+    freeze: str | None = None,
 ) -> dict:
     """Run one arm end to end. Returns the manifest record; raises on any failure."""
     model_dir = models_root / model
@@ -75,6 +76,8 @@ def run_arm(
     label = _safe(arm)
     if length_scale is not None:
         label = f"{label}_ls{length_scale}"
+    if freeze is not None:
+        label = f"{label}_freeze{freeze}"
     before = _prediction_dirs(model_dir)
 
     # Every arm writes the SAME prediction path (named after the artifact, not the run), so a
@@ -109,6 +112,7 @@ def run_arm(
             str(stats_csv),
             *(["--length-scale", str(length_scale)] if length_scale is not None else []),
             *(["--gate-out", str(out / f"gate_{model}_{label}.csv")] if gate_probe else []),
+            *(["--freeze", freeze] if freeze is not None else []),
         ],
         cwd=str(model_dir),
         capture_output=True,
@@ -163,6 +167,7 @@ def run_arm(
         # meant reading the fed-field CSVs — the manifest could not answer it.
         "length_scale": length_scale,
         "gate_probe": gate_probe,
+        "freeze_recurrent": freeze,
     }
 
 
@@ -171,6 +176,14 @@ def main() -> int:
     ap.add_argument("--model", required=True, help="views-models model dir name")
     ap.add_argument("--artifact", required=True, help="exact artifact filename to score")
     ap.add_argument("--arms", required=True, help="comma-separated arm specs")
+    # #301 fade test. Composes with the feedback arm; the label carries it, for the same
+    # silent-overwrite reason --length-scale does.
+    ap.add_argument(
+        "--freeze",
+        default=None,
+        choices=("hidden", "cell", "all"),
+        help="clamp this half of the recurrent state to its last real-data value",
+    )
     ap.add_argument("--models-root", default=str(_MODELS_ROOT))
     ap.add_argument("--out", default=str(Path(__file__).resolve().parents[1] / "results"))
     ap.add_argument("--keep-cubes", action="store_true", help="debug only; skips the disk guard")
@@ -207,6 +220,7 @@ def main() -> int:
             args.keep_cubes,
             length_scale=args.length_scale,
             gate_probe=args.gate_probe,
+            freeze=args.freeze,
         )
         with open(manifest_path, "a") as fh:
             fh.write(json.dumps(rec) + "\n")
