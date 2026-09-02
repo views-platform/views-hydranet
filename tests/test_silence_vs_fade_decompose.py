@@ -159,3 +159,23 @@ def test_mismatched_shapes_are_refused():
             np.ones((2, 1, 3, 3), dtype=np.float32),
             np.full((2, 4, 4, 1), 0.5, dtype=np.float32),
         )
+
+
+def test_tau_selection_matches_the_production_threshold_gate():
+    """`compose_samples` keeps a cell where `gate >= tau`. The sweep must use the same boundary.
+
+    Found by mutation: swapping `>=` for `>` survived every other test, because a gate landing
+    exactly on tau is measure-zero in random fixtures. It is not measure-zero in intent — the sweep
+    exists to model the production `threshold_gate` composition, and a sweep using a different
+    comparison is modelling a composition the repo does not implement.
+    """
+    n = 4
+    mu = np.array([10.0, 20.0, 30.0, 40.0])
+    gate = np.array([0.5, 0.5, 0.4, 0.4])  # two cells exactly ON tau=0.5
+    mu_f, gate_f = _fields(mu, mu, gate, gate)
+
+    rec = _by_horizon(dc.decompose(mu_f, gate_f))[1]
+    assert rec["n_above_0p5"] == 2, (
+        "cells exactly on tau must be KEPT, as compose_samples keeps them"
+    )
+    assert rec["mag_tau_0p5"] == pytest.approx(15.0)
