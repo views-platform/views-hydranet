@@ -32,13 +32,13 @@ F3_BAND = 0.10
 MODELS = Path("../views-models/models/fullzero_fortytwo")
 CUBE = MODELS / "data/generated/predictions_calibration_20260818_221401"
 RAW = MODELS / "data/raw/calibration_datafactory_df.parquet"
-DUMP = Path(
-    "reports/2026-09-02_silence_vs_fade_dossier/results/bodymean_fullzero_fortytwo_identity"
-)
+ARM = sys.argv[1] if len(sys.argv) > 1 else "identity"
+DUMP = Path(f"reports/2026-09-02_silence_vs_fade_dossier/results/bodymean_fullzero_fortytwo_{ARM}")
 TARGET, TIDX = "sb_best", 0
 
 
 def main() -> int:
+    print(f"ARM: {ARM}\n")
     umap = build_unit_grid(str(RAW))
     dumps = sorted(DUMP.glob("bodymean_origin*.npz"), key=lambda p: int(p.stem.split("origin")[1]))
     cubes = sorted(CUBE.glob("origin_*"), key=lambda p: int(p.name.split("_")[1]))
