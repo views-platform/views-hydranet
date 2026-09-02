@@ -1,6 +1,6 @@
 # Silence vs Fade — is the free-running collapse occurrence-only?
 
-**Opened** 2026-09-02 · **Branch** `exp/silence-vs-fade` · **Status** EXP-1 COMPLETE — **C1 FALSIFIED** (seed 42; replication pending)
+**Opened** 2026-09-02 · **Branch** `exp/silence-vs-fade` · **Status** EXP-1/2/3/3b COMPLETE — C1 falsified; the cell state is a **map** (seed 42; replication pending)
 
 ## Purpose
 
@@ -68,6 +68,28 @@ the plain mean falls 4.5×.
 **Why the old claim looked true:** at h36 the conditioned "active cell" set holds **1 cell** at
 τ=0.1 and **0** at every higher τ. The statistic that produced it had no support.
 
+## What the four experiments found (2026-09-02/03)
+
+| exp | question | outcome | ledger |
+|---|---|---|---|
+| **EXP-1** | does the field lose cells, or size? | **BOTH.** occurrence ×0.036, magnitude ×0.222. "Fewer, not smaller" is **false**. | M51 |
+| **EXP-2** | does the cell clamp preserve gate–body alignment? | yes, fully (66.6 → 69.3 vs 66.6 → 4.3) — but registered in advance as a **weak confirmer** | M52 |
+| **EXP-3** | is it the anchor's *scale* or its *map*? | **the map.** A rolled anchor is 44× *worse* than not clamping. **H-scale refuted.** | M53 |
+| **EXP-3b** | is the rolled model broken, or just displaced? | **displaced** — peak at exactly the roll distance, r ≈ 0.90 | M54 |
+
+**The chain:** the cell state carries a spatial layout of where conflict will be. Free-running loses
+it; clamping hands it back. Move that layout 90 cells and the whole forecast moves 90 cells, intact,
+while skill collapses 48×.
+
+**The methodological finding, which cost more than any result:** *every* field statistic here —
+occurrence, magnitude, alignment — is **blind to placement**. All three survive a roll that destroys
+the forecast. Registered as **C-319**; the glossary carries the measured warning.
+
+**Two pre-registered gates fired, both mis-specified, both left fired on the record:** F3's agreement
+band was tighter than its own reference's noise (**C-320**), and FR-4 assumed alignment tracks
+placement correctness — which EXP-3 disproved. Same root cause: a falsifier written from an untested
+assumption about what a statistic measures.
+
 ## Next actions
 
 - [x] **LOCK** `05` before a single GPU second — `db20868`, amended `8e3b99c`
@@ -75,9 +97,13 @@ the plain mean falls 4.5×.
 - [x] G1 — **F3 fired and is left fired**; shown by measurement to be unsatisfiable (it fires on the
       known-good control). Chair authorised proceeding with it on the record.
 - [x] EXP-1 seed 42, treatment `identity` + control `use_real`
-- [ ] **Replicate on seed 43** — 05 §7 makes replication a condition of the finding
-- [ ] Retract M50's mechanism sentence; correct the #262 comment that rests on it
-- [ ] Register: the grid-orientation trap, and the unsatisfiable-band defect in F3
+- [x] Retract M50's mechanism sentence — done, twice-retracted row
+- [x] Register the findings — **C-319** (statistics blind to placement), **C-320** (unsatisfiable
+      agreement band), **C-321** (`--keep-cubes` disables the multi-arm guard), **C-322** (grid
+      orientation flip)
+- [ ] **Replicate on seed 43** — `05` §7 makes replication a condition, and none of M51–M54 has it
+- [ ] Correct the #262 comment, which still rests on the retracted M50 sentence
+- [ ] Designed test for the indicative M54 reading: does the state dominate the input?
 
 ## Conventions
 

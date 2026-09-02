@@ -3661,6 +3661,88 @@ behaviour this entry exists to stop.
 
 ## Disagreements
 
+### C-319: a field statistic that cannot see placement, used to explain a placement effect
+
+| Field | Value |
+|-------|-------|
+| ID | C-319 |
+| Tier | 2 |
+| Source | EXP-3/EXP-3b, silence-vs-fade dossier (2026-09-03) |
+| Trigger | Explaining *why* an intervention changes AP/CRPS using any statistic computed from the emitted field alone — occurrence, body magnitude, gate–body alignment, `act_ratio`, `size_ratio` |
+| Location | `reports/2026-09-02_silence_vs_fade_dossier/tools/decompose.py`; `reports/GLOSSARY.md` §4; consumed wrongly in `RESULTS_LEDGER.md` (M52) |
+| Cross-refs | C-318 (a statistic read past its support), C-303 (prose asserting what the code does not do), C-126 (rollout sharpness conflation) |
+
+Rolling the clamp anchor 90 cells left **every** field statistic essentially unchanged — occurrence
+0.718 vs the clamp's 0.715, plain magnitude 0.628 vs 0.651, alignment 61.5 vs 69.3 — while `AP@h18`
+fell **0.362 → 0.0075**, a 48× collapse. EXP-3b then measured *why*: the forecast is the clamp's
+forecast **displaced**, matching at r ≈ 0.90 with the cross-correlation peak at exactly (90, 90).
+
+These statistics are **marginal and internal**. They describe the shape of the emitted field and
+whether the gate and body agree *with each other*; none references truth, so none can distinguish a
+good forecast from the same forecast in the wrong place. M52 used alignment to explain the clamp's
+AP benefit, which is invalid on its own terms — the rolled arms preserve alignment just as well and
+score 1/48th. **Any causal story about a truth-referenced score must be closed by a truth-referenced
+statistic.**
+
+### C-320: a pre-registered falsifier whose band is tighter than its own reference's noise
+
+| Field | Value |
+|-------|-------|
+| ID | C-320 |
+| Tier | 3 |
+| Source | EXP-1 G1 check, silence-vs-fade dossier (2026-09-02) |
+| Trigger | Writing an agreement threshold (`within X%`) between two instruments without first bounding the *reference's* sampling error in the regime where the comparison will be made |
+| Location | `reports/2026-09-02_silence_vs_fade_dossier/05_analysis_plan.md` (F3); `tools/exp1_g1.py` |
+| Cross-refs | C-319 (the sibling: a falsifier built on an untested assumption about a statistic), C-307 (cheap screens recorded as closures) |
+
+F3 required two instruments to agree within 10% at every horizon. It fired — and then fired on the
+**known-good control** too (2 of 36 horizons, 13.1% and 10.7%). The reference is a 16-sample
+estimator of a heavy-tailed quantity whose nonzero-draw count collapses 599 → 13 → 1 → **0** across
+h1/h18/h30/h36, so at late horizons no instrument can agree with it to 10% regardless of
+correctness. The gate was **unsatisfiable by a correct instrument**. The statistically correct form —
+agreement within the *reference's own* uncertainty — was available at drafting and was not written;
+the dump passes it 4/4. Recorded fired rather than amended, and the chair authorised proceeding on
+the record.
+
+### C-321: `--keep-cubes` silently disables the multi-arm contamination guard
+
+| Field | Value |
+|-------|-------|
+| ID | C-321 |
+| Tier | 2 |
+| Source | EXP-1 batch run (2026-09-02) |
+| Trigger | Passing `--keep-cubes` to `run_realism_arms.py` with more than one arm in `--arms` |
+| Location | `reports/2026-08-16_feedback_realism_dossier/tools/run_realism_arms.py` (the `if before and not keep_cubes` guard) |
+| Cross-refs | C-154 (disk), C-318 (a complete-looking artifact that is not what it claims) |
+
+Every arm writes the **same** prediction path, named after the artifact rather than the run. The
+start-of-arm guard refuses when a prediction directory already exists — but it is skipped entirely
+when `--keep-cubes` is set. So a two-arm batch with `--keep-cubes` runs arm 1, keeps its cubes, and
+lets arm 2 **overwrite them**; verified by file mtimes (arm 1 finished 22:13, its `origin_0` files
+were stamped 22:15 by arm 2). The corruption surfaced only at the *scoring* step, as "expected
+exactly one new prediction dir, found 0" — late, after ~35 minutes of GPU, and only because a second
+guard happened to catch it. The flag that disables the guard is documented as "debug only; skips the
+disk guard", which understates what it skips.
+
+### C-322: grid orientation is flipped between priogrid placement and the model field
+
+| Field | Value |
+|-------|-------|
+| ID | C-322 |
+| Tier | 2 |
+| Source | EXP-1 G1 check (2026-09-02) |
+| Trigger | Comparing any grid built by `sharpness_scorecard.to_grid` / `build_unit_grid` against a model-native `[H, W]` field — a dumped state, a body-mean field, an attention map |
+| Location | `scripts/sharpness_scorecard.py::to_grid` / `build_unit_grid`; `reports/2026-09-02_silence_vs_fade_dossier/tools/exp1_g1.py` |
+| Cross-refs | C-136 (grid reconstruction uniqueness), C-319 (spatial statistics read off the wrong cells) |
+
+The model field's `H` axis runs **opposite** to priogrid row order. Placing study cells at the
+naive `(row − 87, col − 310)` correlates **0.026** against the model's own gate cube; with
+`(179 − row, col)` the correlation is **1.0000** and the max difference is exactly **0**. A global
+flip **cancels** inside FSS and Moran's I because both grids are built the same way, which is why
+`to_grid` has never needed to care and why this was invisible until now. It does **not** cancel the
+moment a grid is compared against a model-native field, and the failure is silent: every downstream
+number is well-formed, plausible, and computed on the wrong cells.
+
 ### D-01: VolumeHandler scope — God Object vs Deep Module
 
 | Field | Value |
