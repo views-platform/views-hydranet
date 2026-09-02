@@ -86,3 +86,63 @@ where this experiment runs and nothing is written down.
 ## 8. Budget
 
 Emit-only, no training. Two arms × ~12 min, seed 42. Seed 43 only on survival. Hours, not days.
+
+---
+
+## AMENDMENT A1 — 2026-09-02, before any run
+
+**Raised by the chair:** the repo has both gate compositions as a config axis
+(`forecast_composition` ∈ {`self_zeroed`, `soft_gate`, `threshold_gate`}, with `gate_threshold` τ).
+Why is the rival only defended against, and not measured?
+
+**Confirmed first:** both vehicles under test are `forecast_composition: soft_gate`,
+`output_distribution: nb`, `gate_threshold` absent — so the §2 identity applies to them unchanged.
+Nothing already locked is invalidated by this amendment; it **adds** a test.
+
+### A1.1 Why this strengthens the design
+
+`threshold_gate` composes as `(gate >= τ) · body`. Its "active set" is exactly `{cells : g >= τ}`,
+so its magnitude statistic is **conditioned on clearing a bar** — the precise shape of the statistic
+that produced the suspect claim, and the precise mechanism R1 (survivorship) proposes. R1 was
+previously defended against by construction (the §2 identity conditions on nothing). It can instead
+be **measured**, by varying the strength of the selection and watching what the statistic does.
+
+### A1.2 Zero marginal cost
+
+Composition is applied at **emit time** (ADR-069), after the gate field and the body params exist.
+Both are dumped by this program already (I1's gate cube, I2's `mu` field). Every τ is therefore a
+pure **offline** function of fields from a single emit. No extra GPU, no extra arm.
+
+### A1.3 Scope — what the sweep does and does not test
+
+* **Does test:** whether "flat magnitude among active cells" is an artifact of *selection*, by
+  varying the selection strength on a fixed trajectory.
+* **Does NOT test:** what a model actually *fed back* under `threshold_gate` would do. Composition
+  changes what is fed back, hence the trajectory itself. That is a different experiment and is not
+  claimed here.
+
+This distinction is load-bearing and is the kind of conflation that produced C-318. Any write-up
+that reports the sweep must state it.
+
+### A1.4 Additional pre-registered prediction
+
+| ID | prediction |
+|---|---|
+| **P6** | Across τ ∈ {0.1, 0.3, 0.5, 0.7, 0.9}, the conditioned magnitude ratio `MAG_τ(h36)/MAG_τ(h1)` is **flat in τ** — no monotone trend, spread across τ smaller than the `[0.7, 1.4]` band's half-width. |
+
+### A1.5 Additional falsifier
+
+| ID | fires when | consequence |
+|---|---|---|
+| **F9** | `MAG_τ(h36)/MAG_τ(h1)` **rises monotonically with τ** across the five values, and the spread from τ=0.1 to τ=0.9 exceeds 0.3 | **R1 CONFIRMED as a live mechanism.** Selection is measurably propping the statistic up. Any claim of flat magnitude that rests on a conditioned statistic — including the current M50 sentence — is unsupported, *independently* of what the unconditioned §2 identity shows. |
+
+**Interaction with F1/F2, pre-committed now:** F9 firing while the unconditioned identity still shows
+flat magnitude is **not** a contradiction. It would mean the model's magnitude genuinely holds *and*
+the old conditioned statistic was propped up anyway — i.e. C1 is right for the wrong reason, and the
+evidence previously offered for it was invalid. That combination must be reported in exactly those
+words, not collapsed into "C1 confirmed".
+
+### A1.6 Reading order
+
+The τ sweep is read **after** the treatment arm's primary number (`05` §6.3 step e), as step (f).
+It cannot be used to select the primary reading.
