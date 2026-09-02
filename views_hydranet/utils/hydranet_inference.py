@@ -1,5 +1,6 @@
 import gc
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
 import numpy as np
@@ -162,6 +163,7 @@ class HydraNetInference:
         feedback_transform: Optional[str] = None,
         feedback_length_scale: Optional[float] = None,
         record_gate_probe: bool = False,
+        body_mean_dump_dir: Optional[str] = None,
     ) -> None:
         """Initializes the inference pipeline for HydraNet.
 
@@ -253,6 +255,21 @@ class HydraNetInference:
             )
         self.freeze_recurrent = freeze_recurrent
         self.freeze_recurrent_weight = freeze_recurrent_weight
+
+        # Diagnostic body-mean dump (silence-vs-fade dossier, 2026-09-02). Same contract as
+        # freeze_recurrent: explicit argument, no config key, default None = byte-identical
+        # production path. When set, writes the family's count-space body mean E[Y|body] and the
+        # gate P(y>0) as raw fields, for the MC-dropout pass 0 only. It reads tensors the family
+        # path already computes and adds NO forward pass and NO train()-mode work, so it cannot
+        # perturb the run it measures (the BatchNorm scar: an extra train()-mode forward silently
+        # wrote running stats). Every statistic is derived OFFLINE from these fields, so no
+        # analysis logic sits in the inference path.
+        self.body_mean_dump_dir = body_mean_dump_dir
+        if body_mean_dump_dir is not None and self._family is None:
+            raise ValueError(
+                "body_mean_dump_dir needs a registered distribution family "
+                f"(output_distribution={self.output_distribution!r} has none)."
+            )
 
         # Diagnostic feedback-field transform (#258/#262 — measuring `the feedback realism gap`).
         # Same contract as freeze_recurrent: explicit argument, no config key, default None =
@@ -610,6 +627,45 @@ class HydraNetInference:
         if any(v <= 0 for v in vals):
             raise ValueError(f"hurdle_lognormal sigma must be > 0; got {vals}.")
         return torch.tensor(vals, dtype=torch.float32).view(1, len(vals), 1, 1)
+
+    def _dump_body_mean(self, params_zstack, gate_thwc, origin: int) -> None:
+        """Write the raw body mean ``E[Y|body]`` and the gate ``P(y>0)`` as fields (diagnostic).
+
+        The silence-vs-fade question — does the free-running field lose CELLS or lose SIZE — needs
+        the body mean **un-composed**, because every composed readout conflates the two. The cube
+        cannot supply it: ``compose_samples`` applies a per-draw ``Bernoulli(gate)`` mask to family
+        DRAWS, so ``expm1(cube)/gate`` is unbiased for ``mu`` but its variance is inflated by
+        ``1/gate`` — unusable exactly in the collapsed-gate regime the question is about.
+
+        So dump the two factors separately and derive everything offline. Writes MC-dropout pass 0
+        only (the fields are per-pass; one pass is enough for a field-level ratio and keeps the
+        artifact small). No forward pass is added and no ``train()``-mode work is done — these are
+        tensors the family path already computed.
+        """
+        fam = self._family
+        npar = fam.n_params
+        params = torch.as_tensor(np.asarray(params_zstack), dtype=torch.float32)
+        n_reg = params.shape[1] // npar
+        # ADR-068: mirror _emit_magnitude's core switch, or the dumped body is not the one
+        # actually emitted.
+        mean_fn = fam.mean_core if self.config.get("emit_family_core", False) else fam.mean
+        mu = torch.stack(
+            [
+                mean_fn(params[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1))
+                for j in range(n_reg)
+            ],
+            dim=1,
+        )  # [T, n_reg, H, W] count-space E[Y|body], NOT composed with the gate
+        out_dir = Path(self.body_mean_dump_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        gate = torch.as_tensor(np.asarray(gate_thwc), dtype=torch.float32)
+        np.savez_compressed(
+            out_dir / f"bodymean_origin{origin}.npz",
+            mu=mu.detach().cpu().numpy().astype(np.float32),
+            gate=gate.detach().cpu().numpy().astype(np.float32),
+            origin=np.int64(origin),
+            n_reg=np.int64(n_reg),
+        )
 
     def _emit_magnitude(self, reg: torch.Tensor, prob: torch.Tensor) -> torch.Tensor:
         """Map the raw regression-head output to the emitted/fed-back magnitude.
@@ -1276,6 +1332,8 @@ class HydraNetInference:
                         # gate = classifier P(y>0) (sigmoid(cls)); reused for the composed body and
                         # the gate cube below.
                         prob_thwc = prob_zstack.transpose(0, 2, 3, 1)  # [T,H,W,n_cls]
+                        if self.body_mean_dump_dir is not None and d == 0:
+                            self._dump_body_mean(params_zstack, prob_thwc, origin)
                         # [T,H,W,n_reg,K] log1p draws for this pass, composed with the gate at emit
                         # time (ADR-069 #183): self_zeroed => the family's own sample unchanged;
                         # soft_gate / threshold_gate mask the draws by the cls gate.
