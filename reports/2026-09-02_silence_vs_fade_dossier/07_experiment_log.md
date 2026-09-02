@@ -3,4 +3,117 @@
 Append-only. Every entry links its pre-registration and states which falsifiers fired.
 Negatives are entered in full, with a postmortem, and are never softened or omitted.
 
-*(no entries yet — EXP-1 is pre-registered in `05` and not yet run)*
+---
+
+## EXP-1 — silence vs fade, seed 42 · **C1 FALSIFIED** · 2026-09-02
+
+**Pre-registration:** [`05_analysis_plan.md`](05_analysis_plan.md), locked `db20868`, amended `8e3b99c`.
+Both committed before any GPU second. **One variable:** `feedback_transform`
+(`identity` = free-running treatment, `use_real` = real-data control). Seed 42,
+`fullzero_fortytwo`, `calibration_model_20260818_221401.pt`, 13 origins, emit-only.
+
+### The claim under test
+
+> *"The model doesn't make smaller forecasts as it goes forward. It makes fewer of them. The handful
+> it still makes are the same size as at month one."*
+
+### Result — it is false
+
+Free-running, h1 → h36, primary target `sb`, over every cell with no conditioning:
+
+| quantity | h1 | h36 | ratio |
+|---|---|---|---|
+| **occurrence** (mean gate) | 4.146e-03 | 1.492e-04 | **0.036** — 28× fewer |
+| **magnitude, plain mean of `mu`** | 0.0961 | 0.0213 | **0.222** — 4.5× smaller |
+| **magnitude, gate-weighted** | 6.4035 | 0.0924 | **0.0144** — 69× smaller |
+
+The model fires **far less often AND predicts substantially smaller amounts**. Both halves collapse.
+"Fewer, not smaller" is wrong.
+
+**Control (`use_real`)**: occurrence ×1.19, gate-weighted magnitude ×0.91, plain magnitude ×1.12 —
+flat across all 36 horizons. So the collapse is a property of free-running, not of the readout.
+The two arms are *identical* at h1 (4.146378e-03 / 6.4035 / 0.0961), as they must be before any
+feedback has acted — a free internal consistency check that passed.
+
+### A third finding, not predicted by anyone
+
+The gate's **alignment with magnitude** decays. `gate-weighted mu / plain-mean mu` measures how
+concentrated firing is on the cells where the body predicts a lot:
+
+| h | 1 | 6 | 12 | 18 | 24 | 30 | 36 |
+|---|---|---|---|---|---|---|---|
+| concentration | **66.6×** | 73.1× | 46.8× | 21.5× | 11.3× | 7.3× | **4.3×** |
+
+At h1 the model fires where it expects a lot. By h36 that alignment has largely dissolved: the gate
+becomes close to uninformative about where the large values are. This is why the gate-weighted
+magnitude falls so much harder (69×) than the plain mean (4.5×) — **the cells that keep firing are
+the small ones.** That is survivorship running *downward*, the opposite of the rival R1 predicted.
+
+### Verdict against the pre-registered falsifiers
+
+| ID | fired? | value |
+|---|---|---|
+| **F1** — magnitude ratio < 0.5 | **FIRED** | 0.0144, far below |
+| F2 — unweighted falls while gate-weighted holds | no | both fell; the rival's *specific* signature is absent |
+| **F3** — instruments disagree > 10% | **FIRED** | see below; recorded as fired, not amended |
+| F4 — control drifts | no | control flat, 0.91 |
+| F5 — occurrence does not collapse | no | 0.036, it collapses |
+| F7 — anchor | passed | `AP@h18 = 0.3298395823400329`, exact |
+| F9 — conditioned magnitude rises with tau | **undefined** | no support at h36; see below |
+
+**Decision rule applied (05 §7):** F1 ⇒ C1 **falsified**; retract M50's mechanism sentence; correct
+what rests on it.
+
+### Why the original claim looked true — the tau sweep answers it
+
+The old statistic conditioned on cells that fired. Its support at h36:
+
+| tau | 0.1 | 0.3 | 0.5 | 0.7 | 0.9 |
+|---|---|---|---|---|---|
+| cells above tau at **h1** | 3840 | 1417 | 740 | 379 | 125 |
+| cells above tau at **h36** | **1** | **0** | **0** | **0** | **0** |
+
+At h36 the conditioned set is empty or a single cell. A mean over one arbitrary cell — or over none,
+which is what produced the `-1.0` sentinel — is not a measurement. **This is the direct, measured
+explanation of C-318**, and of why the corrected version still misled: filtering the sentinel out
+left `n=2 of 156`, and two cells cannot speak for a field.
+
+F9 could not be evaluated: with zero support at four of five tau values, the dose-response has
+nothing to respond with. The sweep did its job anyway — it showed the conditioned statistic has no
+support, which is the finding.
+
+### F3 — fired, and left fired
+
+The cube reference disagreed with the dump on magnitude by up to 949% at late horizons. Diagnosed as
+**noise, not bias**: the dump lies inside the cube's ±2 s.e. at every horizon, per-origin ratios
+scatter symmetrically about 1, and the reference's nonzero-draw count collapses 599 (h1) → 13 (h18)
+→ 1 (h30) → **0** (h36). It cannot measure what is not there.
+
+Re-running the check on the **control**, where the field stays busy, gives the decisive comparison:
+
+| | treatment | control |
+|---|---|---|
+| gate, exact check | 0.000e+00 | 0.000e+00 |
+| occurrence, worst | 3.5% | 0.8% |
+| **mass at h36** | 949% off, **0 draws** | **5.4% off, 796 draws** |
+
+Same code, same horizon index — the dump's magnitude computation is correct at h36. But **F3 fires on
+the control too** (2 of 36 horizons, 13.1% and 10.7%, ~620 draws each): the 10% band is tighter than
+the reference's own sampling noise at S=16, so it fires on a case that is demonstrably fine.
+
+That is a defect in the pre-registration, demonstrated by measurement rather than argued. The
+statistically correct form — agreement within the *reference's own* uncertainty — was available when
+the plan was drafted and was not written; the dump passes it 4/4 on the treatment. Adopting it after
+seeing results would be the post-hoc override already on the register, so **F3 stands fired** and
+the chair authorised proceeding with it on the record.
+
+### What now replaces the claim
+
+> During free-running the emitted field collapses on **both** axes: the model fires ~28× less often
+> **and** the amount it would predict falls ~4.5×. Beyond that, the *alignment* between firing and
+> magnitude decays 67× → 4.3×, so what survives is disproportionately the small stuff.
+
+**Artifacts:** `results/EXP1_READOUT.txt`, `results/g1/g1_identity_TREATMENT.txt`,
+`results/g1_control/g1_use_real_CONTROL.txt`, `results/bodymean_fullzero_fortytwo_{identity,use_real}/`.
+**Not yet replicated** — seed 43 is the next step, and 05 §7 makes replication a condition of the
+finding, not an optional extra.

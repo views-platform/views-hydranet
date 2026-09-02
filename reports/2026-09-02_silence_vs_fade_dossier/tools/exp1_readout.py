@@ -73,10 +73,9 @@ def check_anchor(score_csv: Path) -> tuple[bool, float | None]:
         return False, None
     with score_csv.open() as fh:
         for row in csv.DictReader(fh):
-            if str(row.get("step", row.get("horizon", ""))).strip() in ("18",):
-                for k in ("ap", "AP", "average_precision", "ap_sb", "ap_sb_best"):
-                    if k in row and row[k]:
-                        return abs(float(row[k]) - ANCHOR_AP_H18) < 1e-12, float(row[k])
+            if row.get("target") == "sb" and row.get("h") == "18":
+                ap = float(row["AP"])
+                return abs(ap - ANCHOR_AP_H18) < 1e-12, ap
     return False, None
 
 

@@ -1,6 +1,6 @@
 # Silence vs Fade — is the free-running collapse occurrence-only?
 
-**Opened** 2026-09-02 · **Branch** `exp/silence-vs-fade` · **Status** PRE-REGISTRATION (nothing run)
+**Opened** 2026-09-02 · **Branch** `exp/silence-vs-fade` · **Status** EXP-1 COMPLETE — **C1 FALSIFIED** (seed 42; replication pending)
 
 ## Purpose
 
@@ -54,13 +54,30 @@ operate on it. That identity is the spine of the design (`02` §2).
 `01_literature` and `06_glossary` are deliberately not seeded: this program introduces no new method
 and no new vocabulary. It uses `reports/GLOSSARY.md` unchanged.
 
+## Result (2026-09-02)
+
+**The claim is false.** Free-running does not merely make the model quieter — it makes it quieter
+*and* smaller. h1 → h36: occurrence ×0.036 (28× fewer), plain body magnitude ×0.222 (4.5× smaller).
+Both halves collapse. Full entry and falsifier verdicts in [`07`](07_experiment_log.md).
+
+The unlooked-for finding is a third one: the **alignment** between where the model fires and where
+it predicts large values decays 66.6× → 4.3×, so the cells that keep firing are disproportionately
+the small ones. That, not survivorship upward, is why the gate-weighted magnitude falls 69× while
+the plain mean falls 4.5×.
+
+**Why the old claim looked true:** at h36 the conditioned "active cell" set holds **1 cell** at
+τ=0.1 and **0** at every higher τ. The statistic that produced it had no support.
+
 ## Next actions
 
-- [ ] **LOCK** `05` (commit it) before a single GPU second is spent
-- [ ] Build the `mu`-field dump (`03` §C.1) — the only new code, default-off
-- [ ] G1 identity check: two instruments must agree within 10% or the program halts
-- [ ] EXP-1 seed 42, treatment `identity` + control `use_real`
-- [ ] Replicate on seed 43 **only if** EXP-1 survives its falsifiers
+- [x] **LOCK** `05` before a single GPU second — `db20868`, amended `8e3b99c`
+- [x] Build the `mu`-field dump (`03` §C.1), default-off, parity-tested, 15/15 mutations caught
+- [x] G1 — **F3 fired and is left fired**; shown by measurement to be unsatisfiable (it fires on the
+      known-good control). Chair authorised proceeding with it on the record.
+- [x] EXP-1 seed 42, treatment `identity` + control `use_real`
+- [ ] **Replicate on seed 43** — 05 §7 makes replication a condition of the finding
+- [ ] Retract M50's mechanism sentence; correct the #262 comment that rests on it
+- [ ] Register: the grid-orientation trap, and the unsatisfiable-band defect in F3
 
 ## Conventions
 
