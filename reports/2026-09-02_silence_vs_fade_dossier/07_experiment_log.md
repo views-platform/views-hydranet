@@ -180,3 +180,79 @@ Per `05b` §5 this is recorded as **consistent with**, and is **not** promoted f
 An intervention that **restores alignment without clamping**, or **clamps without restoring
 alignment**. Until one exists, "the clamp works by preserving alignment" and "the clamp does
 something else that happens to preserve alignment too" fit this data equally well.
+
+---
+
+## EXP-3 — the rolled anchor · **H-scale REFUTED; FR-4 FIRED and taught the real lesson** · 2026-09-03
+
+**Pre-registration:** [`05c_analysis_plan_exp3.md`](05c_analysis_plan_exp3.md), locked `25efb8b`
+before the run. **One variable:** `freeze_anchor_roll ∈ {3, 15, 90}` on the EXP-2 arm. Seed 42,
+13 origins, emit-only, 427/776/613 s.
+
+### Result
+
+| arm | occurrence ratio | plain magnitude ratio | alignment @h36 | **AP@h18** | B |
+|---|---|---|---|---|---|
+| unclamped | 0.0360 | 0.2219 | 4.3 | 0.32984 | 0.00 |
+| clamp | 0.7152 | 0.6510 | 69.3 | **0.36219** | 1.00 |
+| roll 3 | 0.7264 | 0.6526 | 60.6 | **0.04040** | −8.95 |
+| roll 15 | — | — | 67.6 | **0.01062** | −9.87 |
+| roll 90 | 0.7177 | 0.6279 | 61.5 | **0.00753** | −9.96 |
+
+**The roll arms are indistinguishable from the clamp on every field statistic in this dossier, and
+have 1/48th of its skill.** They are also far *below* the unclamped baseline — rolling is much worse
+than not clamping at all.
+
+### Verdict against the pre-registered falsifiers
+
+| ID | fired? | |
+|---|---|---|
+| **FR-1** — `B(90) ≥ 0.7` would kill H-place | **no** | `B(90) = −9.96` |
+| **FR-2** — total collapse with no ordering ⇒ inconclusive | **no** | the dose is monotone: −8.95 > −9.87 > −9.96 |
+| **FR-3** — h1 must be identical | **passed** | identical to 9 s.f. across all five arms |
+| **FR-4** — alignment must fall in the roll-90 arm | **FIRED** | 61.5, essentially the clamp's 69.3 |
+
+### The primary question is answered, and it does not depend on FR-4
+
+**H-scale is refuted.** Holding a state with *identical* scale, structure and marginals but the wrong
+geography does not merely forfeit the clamp's benefit — it is **catastrophically worse than not
+clamping**. The anchor's **spatial content is load-bearing**; steadying the state's magnitudes is not
+what the clamp buys. That conclusion rests only on the AP comparison and the h1 identity check, both
+of which are clean.
+
+### FR-4 fired because the check was wrong, and that is the bigger finding
+
+I predicted alignment would fall when the map was wrong. It did not — and the reason is that
+**alignment is an *internal* statistic.** It measures whether the gate and the body agree *with each
+other*, not whether the cells they agree on are the right ones. A rolled model is perfectly
+self-consistent about the wrong places.
+
+The same is true of **occurrence** and **body magnitude**. All three survive a 90-cell roll unchanged
+while the forecast is destroyed. So:
+
+> **No statistic in this dossier can distinguish a good forecast from the same forecast in the wrong
+> place.**
+
+This directly qualifies **M52**. "The clamp preserves alignment" is true and is *not an explanation*:
+the roll arms preserve alignment just as well and are useless. Alignment is **not sufficient** for
+skill. It may still be necessary — this does not refute H-place, it refutes the sufficiency reading I
+put on it.
+
+This is the second mis-specified gate in this dossier (after F3's band). Both share a cause: a
+falsifier written from an assumption about what a statistic measures, never itself tested. The
+glossary now carries the measured warning (`0d4d079`).
+
+### The caveat that remains, and the cheap test for it
+
+Whether the roll destroys skill because **placement matters** or because a rolled state is simply
+**off-distribution** is not settled. For placement: the dose is monotone, and AP on a ~0.4%-positive
+field is extremely sensitive to exact cell match, so a 3-cell shift plausibly misses most hotspots.
+For off-distribution: a 3-cell shift already costs 8×, which is a lot for so small a displacement.
+
+**A decisive test costs no GPU:** re-score the roll-90 arm against a truth field rolled by the same
+90 cells. If the model is producing an intact forecast in the wrong place, rolling the truth to match
+recovers clamp-level AP. If it is producing rubbish, it does not. That single re-score separates
+"displaced" from "broken", and it is the next thing to run.
+
+**Artifacts:** `results/score_fullzero_fortytwo_identity_freezecell_roll{3,15,90}.csv`,
+`results/bodymean_fullzero_fortytwo_identity_freezecell_roll{3,15,90}/`.
