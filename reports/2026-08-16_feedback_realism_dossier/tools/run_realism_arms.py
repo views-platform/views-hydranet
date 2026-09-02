@@ -65,6 +65,7 @@ def run_arm(
     gate_probe: bool = False,
     freeze: str | None = None,
     body_mean_dump: bool = False,
+    anchor_roll: int | None = None,
 ) -> dict:
     """Run one arm end to end. Returns the manifest record; raises on any failure."""
     model_dir = models_root / model
@@ -79,6 +80,11 @@ def run_arm(
         label = f"{label}_ls{length_scale}"
     if freeze is not None:
         label = f"{label}_freeze{freeze}"
+    if anchor_roll is not None:
+        # MUST be in the label: the EXP-3 dose series runs roll 3, 15 and 90 as three arms of one
+        # batch, and without this they all write `..._freezecell.csv` over each other and leave one
+        # file that looks like a complete result. Same failure --length-scale caused in 2026-08.
+        label = f"{label}_roll{anchor_roll}"
     before = _prediction_dirs(model_dir)
 
     # Every arm writes the SAME prediction path (named after the artifact, not the run), so a
@@ -120,6 +126,7 @@ def run_arm(
             *(["--gate-out", str(out / f"gate_{model}_{label}.csv")] if gate_probe else []),
             *(["--freeze", freeze] if freeze is not None else []),
             *(["--body-mean-dump", str(dump_dir)] if dump_dir else []),
+            *(["--anchor-roll", str(anchor_roll)] if anchor_roll is not None else []),
         ],
         cwd=str(model_dir),
         capture_output=True,
@@ -176,6 +183,7 @@ def run_arm(
         "gate_probe": gate_probe,
         "freeze_recurrent": freeze,
         "body_mean_dump": str(dump_dir) if dump_dir else None,
+        "anchor_roll": anchor_roll,
     }
 
 
@@ -191,6 +199,12 @@ def main() -> int:
         default=None,
         choices=("hidden", "cell", "all"),
         help="clamp this half of the recurrent state to its last real-data value",
+    )
+    # EXP-3: comma-separated roll distances, run as one arm each (the dose series).
+    ap.add_argument(
+        "--anchor-rolls",
+        default=None,
+        help="comma-separated anchor roll distances, one arm per value (needs --freeze)",
     )
     ap.add_argument("--models-root", default=str(_MODELS_ROOT))
     ap.add_argument("--out", default=str(Path(__file__).resolve().parents[1] / "results"))
@@ -221,12 +235,23 @@ def main() -> int:
     args = ap.parse_args()
 
     arms = [a.strip() for a in args.arms.split(",") if a.strip()]
+    # [None] = no roll dimension, which is every pre-EXP-3 batch and keeps them byte-identical.
+    rolls = (
+        [int(r.strip()) for r in args.anchor_rolls.split(",") if r.strip()]
+        if args.anchor_rolls
+        else [None]
+    )
+    if args.anchor_rolls and args.freeze is None:
+        raise SystemExit(
+            "--anchor-rolls needs --freeze: rolling an anchor nobody holds is a no-op."
+        )
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     manifest_path = out / f"manifest_{args.model}_{args.tag}.jsonl"
 
-    for arm in arms:
-        print(f"===== ARM {arm} ({args.model}) =====", flush=True)
+    for arm, roll in ((a, r) for a in arms for r in rolls):
+        suffix = f" roll={roll}" if roll is not None else ""
+        print(f"===== ARM {arm}{suffix} ({args.model}) =====", flush=True)
         rec = run_arm(
             args.model,
             arm,
@@ -238,6 +263,7 @@ def main() -> int:
             gate_probe=args.gate_probe,
             freeze=args.freeze,
             body_mean_dump=args.body_mean_dump,
+            anchor_roll=roll,
         )
         with open(manifest_path, "a") as fh:
             fh.write(json.dumps(rec) + "\n")

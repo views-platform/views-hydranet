@@ -58,6 +58,8 @@ class RealismArmManager(HydranetManager):
     #: composition is a per-draw Bernoulli mask on family DRAWS — so separating "fires less" from
     #: "fires smaller" needs the two factors raw. None writes nothing.
     body_mean_dump_dir: str | None = None
+    #: EXP-3: spatially roll the clamp anchor (permutation — same scale, wrong map).
+    freeze_anchor_roll: int | None = None
 
     def _setup_evaluation(self, *args, **kwargs):
         ctx = super()._setup_evaluation(*args, **kwargs)
@@ -68,6 +70,8 @@ class RealismArmManager(HydranetManager):
             ctx.orchestrator.freeze_recurrent = self.freeze_recurrent
         if self.body_mean_dump_dir is not None:
             ctx.orchestrator.body_mean_dump_dir = self.body_mean_dump_dir
+        if self.freeze_anchor_roll is not None:
+            ctx.orchestrator.freeze_anchor_roll = self.freeze_anchor_roll
         self._realism_ctx = ctx
         logger.info(
             "🧪 RealismArmManager: feedback arm = %r (None = production, the model's own field)%s",
@@ -133,6 +137,14 @@ def main() -> int:
         default=None,
         help="directory for the un-composed body-mean + gate field dump (diagnostic)",
     )
+    # EXP-3 dissociation arm. Composes with --freeze; meaningless without it, and HydraNetInference
+    # raises rather than running a silent no-op.
+    ap.add_argument(
+        "--anchor-roll",
+        type=int,
+        default=None,
+        help="spatially roll the clamp anchor by N cells (same scale, wrong map)",
+    )
     args, _ = ap.parse_known_args()
 
     # Fail on a bad spec before loading anything — a typo must never run the control silently.
@@ -150,6 +162,7 @@ def main() -> int:
     manager.record_gate_probe = bool(args.gate_out)
     manager.freeze_recurrent = args.freeze
     manager.body_mean_dump_dir = args.body_mean_dump
+    manager.freeze_anchor_roll = args.anchor_roll
 
     run_args = ForecastingModelArgs.from_namespace(
         ForecastingModelArgs._create_parser().parse_args(

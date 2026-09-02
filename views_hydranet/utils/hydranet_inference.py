@@ -164,6 +164,7 @@ class HydraNetInference:
         feedback_length_scale: Optional[float] = None,
         record_gate_probe: bool = False,
         body_mean_dump_dir: Optional[str] = None,
+        freeze_anchor_roll: Optional[int] = None,
     ) -> None:
         """Initializes the inference pipeline for HydraNet.
 
@@ -255,6 +256,35 @@ class HydraNetInference:
             )
         self.freeze_recurrent = freeze_recurrent
         self.freeze_recurrent_weight = freeze_recurrent_weight
+
+        # DIAGNOSTIC (silence-vs-fade EXP-3): spatially roll the anchor before holding it. The
+        # clamp pins the state to its last real-observation value, which tangles two things — the
+        # state's SCALE and its MAP of which cells are hot. A roll is a permutation: it preserves
+        # every scalar property of the anchor exactly (norm, mean, variance, per-channel
+        # distribution, internal spatial smoothness) and destroys only its correspondence to the
+        # geography. So the arm clamps just as hard, to a state just as well-behaved, that is
+        # simply about the wrong places — which is what separates "the clamp preserves placement"
+        # from "the clamp steadies the state's scale".
+        if freeze_anchor_roll is not None:
+            if not isinstance(freeze_anchor_roll, int) or isinstance(freeze_anchor_roll, bool):
+                raise ValueError(
+                    f"freeze_anchor_roll must be an int or None; got {freeze_anchor_roll!r}."
+                )
+            if freeze_anchor_roll == 0:
+                # A zero roll is the plain clamp wearing a rolled arm's label — it would write a
+                # duplicate of the control into a file named for the treatment.
+                raise ValueError(
+                    "freeze_anchor_roll=0 is the identity and reproduces the plain clamp arm; "
+                    "run freeze_recurrent alone for that control instead."
+                )
+            if freeze_recurrent is None:
+                # Rolling an anchor nobody holds changes nothing. A silent no-op here would make
+                # the arm report "no effect" when it never ran.
+                raise ValueError(
+                    "freeze_anchor_roll needs freeze_recurrent set — the anchor is only read when "
+                    "a memory half is held, so rolling it without a clamp is a no-op."
+                )
+        self.freeze_anchor_roll = freeze_anchor_roll
 
         # Diagnostic body-mean dump (silence-vs-fade dossier, 2026-09-02). Same contract as
         # freeze_recurrent: explicit argument, no config key, default None = byte-identical
@@ -628,6 +658,29 @@ class HydraNetInference:
             raise ValueError(f"hurdle_lognormal sigma must be > 0; got {vals}.")
         return torch.tensor(vals, dtype=torch.float32).view(1, len(vals), 1, 1)
 
+    def _roll_anchor(self, anchor: torch.Tensor) -> torch.Tensor:
+        """Spatially roll the clamp anchor — the EXP-3 dissociation arm.
+
+        The clamp's benefit could come from the anchor's SCALE (holding the state's magnitudes
+        steady) or from its MAP (which cells are hot). Rolling separates them: ``torch.roll`` is a
+        permutation, so the returned anchor is byte-identical to the original as a multiset — same
+        norm, same mean, same variance, same per-channel distribution, same internal spatial
+        structure — and differs only in where that structure sits relative to the geography.
+
+        Raises:
+            ValueError: if the shift is a whole number of grid widths, which rolls the tensor back
+                onto itself and would silently run the control arm under the treatment's label.
+        """
+        shift = self.freeze_anchor_roll
+        h, w = anchor.shape[-2], anchor.shape[-1]
+        if shift % h == 0 and shift % w == 0:
+            raise ValueError(
+                f"freeze_anchor_roll={shift} is a whole number of grid periods for a {h}x{w} "
+                f"field, so torch.roll returns the anchor unchanged — this would run the plain "
+                f"clamp under a rolled arm's label. Choose a shift that is not a multiple of both."
+            )
+        return torch.roll(anchor, shifts=(shift, shift), dims=(-2, -1))
+
     def _dump_body_mean(self, params_zstack, gate_thwc, origin: int) -> None:
         """Write the raw body mean ``E[Y|body]`` and the gate ``P(y>0)`` as fields (diagnostic).
 
@@ -979,6 +1032,8 @@ class HydraNetInference:
                 t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
                 if self.freeze_recurrent:
                     state_anchor = h_tt.clone()  # the last state built from real observations
+                    if self.freeze_anchor_roll is not None:
+                        state_anchor = self._roll_anchor(state_anchor)
                 t1_pred_class = torch.sigmoid(t1_pred_class)
                 if return_params:
                     acc_params.append(t1_pred)  # activated params, pre-emit
