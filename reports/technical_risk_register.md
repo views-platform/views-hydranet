@@ -6,10 +6,10 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-09-03                           |
 | ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). **C-319..C-322 added 2026-09-03 from the silence-vs-fade dossier: C-319 (field statistics blind to placement — occurrence, magnitude and alignment ALL survive a roll that destroys the forecast, so an internal statistic cannot close a causal claim about a truth-referenced score); C-320 (a falsifier band tighter than its own reference's sampling noise, which fired on the known-good control); C-321 (`--keep-cubes` silently disables the multi-arm contamination guard); C-322 (the model field's H axis runs opposite to priogrid row order — naive placement correlates 0.026, the flip gives 1.0000).** |
-| Total Concerns    | 319                                  |
-| Open Concerns     | 167                                  |
+| Total Concerns    | 320                                  |
+| Open Concerns     | 168                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 143                                 |
+| — net active risks | 144                                 |
 | Resolved Concerns | 152                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -3759,6 +3759,38 @@ flip **cancels** inside FSS and Moran's I because both grids are built the same 
 `to_grid` has never needed to care and why this was invisible until now. It does **not** cancel the
 moment a grid is compared against a model-native field, and the failure is silent: every downstream
 number is well-formed, plausible, and computed on the wrong cells.
+### C-323: an ablation that perturbs a component the architecture REGENERATES measures nothing
+
+| Field | Value |
+|-------|-------|
+| ID | C-323 |
+| Tier | 2 |
+| Source | architecture read prompted by the chair, 2026-09-03 |
+| Trigger | Designing any ablation, freeze, roll, dropout or lesion arm on a recurrent component — before running it, ask whether the component is *carried forward* or *recomputed* each step |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:568-603`; consumed wrongly in `RESULTS_LEDGER.md` (M56 hidden arm, M60 hidden roll) |
+| Cross-refs | C-292 (`hs` is a readout of `hl` — this makes it concrete), C-319 (a statistic that cannot see what the claim is about), C-320 (a gate whose statistic cannot deliver the verdict) |
+
+`hs = o_t * tanh(hl)`: the hidden half is **recomputed from the cell every step**. So any perturbation
+of `hs` — a roll, a freeze, a lesion — is regenerated from the *undisturbed* cell on the next step and
+**self-heals**. Wave 2's hidden-roll arm returned **0/26 for every horizon**, and that result was
+architecturally guaranteed: it would read 0/26 however much work the hidden state does. It was
+reported (M60) as though it measured hidden's contribution.
+
+The mirror failure is M56's `freeze hidden` arm. Holding `hs` at its anchor while the cell keeps
+evolving does not *isolate* hidden — it feeds a stale readout to four gates and to the encoder input,
+**breaking the LSTM's own recurrence**. Its +0.019 AP is real and replicated 4/4, but it measures
+"what happens when you jam the readout", not "what hidden contributes".
+
+**The general rule, which is what makes this Tier 2 rather than a note:** an intervention on a
+component only measures that component if the architecture *carries the component forward*. Where a
+component is a deterministic function of another, perturbing it tests the one-step map, not its role
+in the dynamics — and the null it returns is indistinguishable from "this part does not matter".
+Both readings were live in this programme for a day.
+
+**What survives from the two arms:** the narrower and still-useful claim that **hidden carries no
+spatial information across steps**, so it cannot be what drains during free-running. The cell-side
+results are the trustworthy half throughout.
+
 
 ## Disagreements
 

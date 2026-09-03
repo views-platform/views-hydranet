@@ -33,6 +33,7 @@ nothing measured before this dossier could tell the difference.
 | # | File | Status |
 |---|------|--------|
 | 00 | `00_README.md` | living |
+| 02 | `02_design.md` | **what to build next** — the training/deployment gap, grounded in the library |
 | 01 | `01_plain_answers.md` | **the chair's questions, in his words, answered** |
 | 03 | `03_harness_and_invariants.md` | **written** — the unattended launcher, the instruments, the red-team findings |
 | 05 | `05_analysis_plan.md` | **LOCKED before Wave 1** |
@@ -54,6 +55,8 @@ it: alignment, occurrence and magnitude were all identical between a good foreca
 - [x] Cross-seed assembly — `results/FINDINGS{,_ns,_os}.md`
 - [x] Ledger rows **M56–M59**, decision rule applied per question
 - [x] D.2 — holds on `ns`/`os` at zero GPU; the `sb`-only caveat is lifted
-- [ ] **Wave 2 (attribution)** — needs a new per-step roll seam in `hydranet_inference.py`;
+- [x] **Wave 2 (attribution)** — M60; hidden's 0/26 later qualified as architecturally guaranteed (**C-323**)
+- [ ] **Next:** BPTT-SA, then Professor Forcing — see `02_design.md`. Both are training-time; C-112 applies.
+- [ ] ~~Wave 2~~ — needs a new per-step roll seam in `hydranet_inference.py`;
       runs **only** if it passes tests and mutations first
 - [ ] Branch `exp/silence-vs-fade` is **local only** — never pushed
