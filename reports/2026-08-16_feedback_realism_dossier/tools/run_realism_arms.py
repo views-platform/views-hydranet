@@ -66,6 +66,7 @@ def run_arm(
     freeze: str | None = None,
     body_mean_dump: bool = False,
     anchor_roll: int | None = None,
+    per_step_roll: str | None = None,
 ) -> dict:
     """Run one arm end to end. Returns the manifest record; raises on any failure."""
     model_dir = models_root / model
@@ -80,6 +81,10 @@ def run_arm(
         label = f"{label}_ls{length_scale}"
     if freeze is not None:
         label = f"{label}_freeze{freeze}"
+    if per_step_roll is not None:
+        # In the label for the same reason every other knob is: the Wave 2 series runs input/hidden/
+        # cell as three arms of one batch and they would otherwise overwrite each other.
+        label = f"{label}_psr{per_step_roll.replace(':', '')}"
     if anchor_roll is not None:
         # MUST be in the label: the EXP-3 dose series runs roll 3, 15 and 90 as three arms of one
         # batch, and without this they all write `..._freezecell.csv` over each other and leave one
@@ -127,6 +132,7 @@ def run_arm(
             *(["--freeze", freeze] if freeze is not None else []),
             *(["--body-mean-dump", str(dump_dir)] if dump_dir else []),
             *(["--anchor-roll", str(anchor_roll)] if anchor_roll is not None else []),
+            *(["--per-step-roll", per_step_roll] if per_step_roll else []),
         ],
         cwd=str(model_dir),
         capture_output=True,
@@ -184,6 +190,7 @@ def run_arm(
         "freeze_recurrent": freeze,
         "body_mean_dump": str(dump_dir) if dump_dir else None,
         "anchor_roll": anchor_roll,
+        "per_step_roll": per_step_roll,
     }
 
 
@@ -205,6 +212,11 @@ def main() -> int:
         "--anchor-rolls",
         default=None,
         help="comma-separated anchor roll distances, one arm per value (needs --freeze)",
+    )
+    ap.add_argument(
+        "--per-step-roll",
+        default=None,
+        help='roll one driver each step, "<input|hidden|cell>:<shift>"',
     )
     ap.add_argument("--models-root", default=str(_MODELS_ROOT))
     ap.add_argument("--out", default=str(Path(__file__).resolve().parents[1] / "results"))
@@ -264,6 +276,7 @@ def main() -> int:
             freeze=args.freeze,
             body_mean_dump=args.body_mean_dump,
             anchor_roll=roll,
+            per_step_roll=args.per_step_roll,
         )
         with open(manifest_path, "a") as fh:
             fh.write(json.dumps(rec) + "\n")

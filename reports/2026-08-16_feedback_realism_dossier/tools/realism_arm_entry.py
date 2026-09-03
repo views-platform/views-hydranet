@@ -60,6 +60,8 @@ class RealismArmManager(HydranetManager):
     body_mean_dump_dir: str | None = None
     #: EXP-3: spatially roll the clamp anchor (permutation — same scale, wrong map).
     freeze_anchor_roll: int | None = None
+    #: Wave 2 attribution: roll ONE driver per step, "<input|hidden|cell>:<shift>".
+    per_step_roll: str | None = None
 
     def _setup_evaluation(self, *args, **kwargs):
         ctx = super()._setup_evaluation(*args, **kwargs)
@@ -72,6 +74,8 @@ class RealismArmManager(HydranetManager):
             ctx.orchestrator.body_mean_dump_dir = self.body_mean_dump_dir
         if self.freeze_anchor_roll is not None:
             ctx.orchestrator.freeze_anchor_roll = self.freeze_anchor_roll
+        if self.per_step_roll is not None:
+            ctx.orchestrator.per_step_roll = self.per_step_roll
         self._realism_ctx = ctx
         logger.info(
             "🧪 RealismArmManager: feedback arm = %r (None = production, the model's own field)%s",
@@ -145,6 +149,12 @@ def main() -> int:
         default=None,
         help="spatially roll the clamp anchor by N cells (same scale, wrong map)",
     )
+    # Wave 2 attribution. Independent of --freeze: this rolls a LIVE driver every step.
+    ap.add_argument(
+        "--per-step-roll",
+        default=None,
+        help='roll one driver each step, "<input|hidden|cell>:<shift>" e.g. cell:90',
+    )
     args, _ = ap.parse_known_args()
 
     # Fail on a bad spec before loading anything — a typo must never run the control silently.
@@ -163,6 +173,7 @@ def main() -> int:
     manager.freeze_recurrent = args.freeze
     manager.body_mean_dump_dir = args.body_mean_dump
     manager.freeze_anchor_roll = args.anchor_roll
+    manager.per_step_roll = args.per_step_roll
 
     run_args = ForecastingModelArgs.from_namespace(
         ForecastingModelArgs._create_parser().parse_args(

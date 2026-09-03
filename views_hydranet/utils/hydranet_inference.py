@@ -165,6 +165,7 @@ class HydraNetInference:
         record_gate_probe: bool = False,
         body_mean_dump_dir: Optional[str] = None,
         freeze_anchor_roll: Optional[int] = None,
+        per_step_roll: Optional[str] = None,
     ) -> None:
         """Initializes the inference pipeline for HydraNet.
 
@@ -285,6 +286,30 @@ class HydraNetInference:
                     "a memory half is held, so rolling it without a clamp is a no-op."
                 )
         self.freeze_anchor_roll = freeze_anchor_roll
+
+        # DIAGNOSTIC (Wave 2 attribution): spatially roll exactly ONE driver at EVERY step, then
+        # measure how far the emitted field follows it. Which driver drags the forecast is the
+        # attribution. A roll is a permutation, so the driver keeps its scale, distribution and
+        # internal structure and loses only its correspondence to the geography -- the same
+        # operation EXP-3b validated for the anchor, applied per step to a live driver.
+        # Spec is "<driver>:<shift>", e.g. "cell:90".
+        self.per_step_roll = None
+        if per_step_roll is not None:
+            try:
+                which, raw = str(per_step_roll).split(":")
+                shift = int(raw)
+            except ValueError as exc:
+                raise ValueError(
+                    f"per_step_roll must look like 'cell:90'; got {per_step_roll!r}."
+                ) from exc
+            if which not in ("input", "hidden", "cell"):
+                raise ValueError(f"per_step_roll driver must be input|hidden|cell; got {which!r}.")
+            if shift == 0:
+                # A zero roll is the control arm wearing the treatment's label.
+                raise ValueError(
+                    "per_step_roll shift 0 is the identity; run the plain arm instead."
+                )
+            self.per_step_roll = (which, shift)
 
         # Diagnostic body-mean dump (silence-vs-fade dossier, 2026-09-02). Same contract as
         # freeze_recurrent: explicit argument, no config key, default None = byte-identical
@@ -705,6 +730,34 @@ class HydraNetInference:
             dim=1,
         )  # [T, n_reg, H, W] count-space E[Y|body], NOT composed with the gate
         return mu.detach().cpu().numpy().astype(np.float64)
+
+    def _roll_driver(self, inp: torch.Tensor, state: torch.Tensor):
+        """Roll exactly one of {input, hidden, cell} spatially — the Wave 2 attribution arm.
+
+        Returns ``(input, state)`` with one of them displaced and the other untouched, so the
+        comparison across arms varies only *which* driver was moved. The state's channel layout is
+        ``hs_1..hs_4 | hl_1..hl_4`` (see ``blend_recurrent_state``), so the split is at the midpoint.
+
+        Raises:
+            ValueError: if the shift is a whole number of grid periods, which rolls the tensor back
+                onto itself and would run the control under the treatment's label.
+        """
+        which, shift = self.per_step_roll
+        h, w = inp.shape[-2], inp.shape[-1]
+        if shift % h == 0 and shift % w == 0:
+            raise ValueError(
+                f"per_step_roll shift {shift} is a whole number of grid periods for {h}x{w}, so "
+                f"torch.roll returns the tensor unchanged."
+            )
+        if which == "input":
+            return torch.roll(inp, shifts=(shift, shift), dims=(-2, -1)), state
+        half = state.shape[1] // 2
+        hid, cell = state[:, :half], state[:, half:]
+        if which == "hidden":
+            hid = torch.roll(hid, shifts=(shift, shift), dims=(-2, -1))
+        else:
+            cell = torch.roll(cell, shifts=(shift, shift), dims=(-2, -1))
+        return inp, torch.cat([hid, cell], dim=1)
 
     def _dump_body_mean(self, mu_mean, gate_mean, origin: int, n_passes: int) -> None:
         """Write the POSTERIOR-MEAN body and gate fields for one origin (diagnostic).
@@ -1143,6 +1196,8 @@ class HydraNetInference:
                 # argument with no config key, default None (this line then runs unchanged). It
                 # exists because the 2026-06 ablation scored regression CRPS and never measured
                 # whether holding the state preserves GATE skill (C-222, #258/#262).
+                if self.per_step_roll is not None:
+                    t0_autoreg, h_tt = self._roll_driver(t0_autoreg, h_tt)
                 output = self.model(t0_autoreg, h_tt)
                 t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
                 if self.freeze_recurrent:
