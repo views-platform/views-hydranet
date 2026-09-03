@@ -207,6 +207,7 @@ class HydraNetConfig(BaseModel):
     # the RECURRENCE to produce states that survive one step of self-feeding. True reproduces the
     # stateless reading. Recorded as a fork the paper cannot settle for a recurrent model.
     pushforward_detach_state: bool = Field(default=False)
+    ss_backprop_through_feedback: bool = Field(default=False)
 
     # 7. Sampling & Reproducibility
     total_lessons: int = Field(..., ge=1)

@@ -307,6 +307,7 @@ def _process_sequence(
     gate_threshold: float | None = None,
     pushforward_weight: float = 0.0,
     pushforward_detach_state: bool = False,
+    ss_backprop_through_feedback: bool = False,
 ) -> dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
@@ -381,17 +382,26 @@ def _process_sequence(
         # per-target log1p mean ('mean', fixes the legacy family path) or a composition-aware DRAW
         # ('sample', EXP-4: train exposure == deploy exposure). Legacy point head: raw pred.
         if ss_epsilon > 0.0:
+            # BPTT-SA (#308, Vlachas2023). The `.detach()` below is the ONLY cut in the training
+            # graph's feedback path: the recurrent state `h` already flows across steps undetached
+            # (~383-step graph, one backward() -- 2026-08-26 audit), so with it the model is told
+            # "step i was wrong" but never "and step i-1 produced the input that made it wrong".
+            # That is standard scheduled sampling, and it is a mechanical account of why M26-M33
+            # failed: the fed-back prediction is a constant, so no credit reaches its producer.
+            # Leaving it attached lets the gradient reach back through the handoff.
+            # Default False keeps every existing arm byte-identical.
             if family is not None:
-                prev_pred = _family_feedback_log1p(
+                fed = _family_feedback_log1p(
                     t1_pred,
                     family,
                     ss_feedback,
                     torch.sigmoid(t1_pred_class),
                     forecast_composition,
                     gate_threshold,
-                ).detach()
+                )
             else:
-                prev_pred = t1_pred.detach()
+                fed = t1_pred
+            prev_pred = fed if ss_backprop_through_feedback else fed.detach()
 
         t1_pred_for_loss = output.reg_latent if use_latent else t1_pred
 
@@ -807,6 +817,7 @@ def train(
         gate_threshold=config.get("gate_threshold"),
         pushforward_weight=config.get("pushforward_weight", 0.0),
         pushforward_detach_state=config.get("pushforward_detach_state", False),
+        ss_backprop_through_feedback=config.get("ss_backprop_through_feedback", False),
     )
     step_total, step_reg, step_cls = result["per_step_losses"]
 
