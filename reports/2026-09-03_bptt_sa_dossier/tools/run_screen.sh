@@ -14,7 +14,12 @@ MODELS=/home/simon/Documents/scripts/views_platform/views-models/models
 D="$HYD/reports/2026-09-03_bptt_sa_dossier"; RES="$D/results"; OVN="$RES/overnight"
 CENV="conda run --no-capture-output -n views-hydranet-env"
 export WANDB_MODE=offline WANDB_SILENT=true          # C-163: wandb.finish() has DNS-hung 38 min here
-ARM_TIMEOUT=${ARM_TIMEOUT:-18000}                    # 5 h
+# 12.5 h, matching run_lesson_arm.sh's max(150*L, 21600) for L=300. Deliberately generous: Wave 1
+# taught that a timeout set from an ESTIMATE kills working arms (a 30-min ceiling against a
+# measured 35-min arm), and a killed arm leaves artefacts that cascade. A real hang is caught fast
+# by the stall watchdog instead, which is the right division of labour.
+ARM_TIMEOUT=${ARM_TIMEOUT:-45000}
+STALL_MAX=${STALL_MAX:-1800}                         # 30 min of no log growth = stuck
 ARMS=(ssdetached_fortytwo ssattached_fortytwo)       # detached FIRST: it reproduces the known result
 mkdir -p "$OVN"; START=$(date +%s)
 log(){ echo "[$(date '+%F %T')] $*" >> "$OVN/run.log"; return 0; }
@@ -45,9 +50,20 @@ for ARM in "${ARMS[@]}"; do
   guard "$ARM" || { FAILED="$FAILED ${ARM}:guard"; continue; }
   rm -rf "$A"/data/generated/predictions_* "$A"/data/generated/_pf_staging 2>/dev/null
   phase "TRAIN $ARM (elapsed $(( ($(date +%s)-START)/60 )) min)"
+  LOG="$OVN/arm_${ARM}.log"; : > "$LOG"
   ( cd "$A" && timeout -k 120 "$ARM_TIMEOUT" $CENV python main.py -r calibration -t -e -sa ) \
-      >> "$OVN/arm_${ARM}.log" 2>&1
-  rc=$?
+      >> "$LOG" 2>&1 &
+  APID=$!
+  # Training writes a tqdm line per lesson, so the log grows continuously. 30 min of silence at
+  # L=300 (~30 s/lesson) means stuck, not slow.
+  ( while kill -0 $APID 2>/dev/null; do
+      s1=$(stat -c %s "$LOG" 2>/dev/null || echo 0); sleep "$STALL_MAX"
+      kill -0 $APID 2>/dev/null || break
+      s2=$(stat -c %s "$LOG" 2>/dev/null || echo 0)
+      [ "$s1" = "$s2" ] && { echo "$(date '+%F %T') STALLED $ARM at ${s2}B" >> "$OVN/ANOMALIES.txt"
+                             kill -TERM $APID 2>/dev/null; break; }
+    done ) & WD=$!
+  wait $APID; rc=$?; kill $WD 2>/dev/null; wait $WD 2>/dev/null
   if [ $rc -eq 0 ] && ls "$A"/artifacts/*.pt >/dev/null 2>&1; then
     log "$ARM OK ($(ls "$A"/artifacts/*.pt | wc -l) artifact)"; OK=$((OK+1))
   else
