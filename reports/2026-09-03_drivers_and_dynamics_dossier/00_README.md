@@ -33,10 +33,12 @@ nothing measured before this dossier could tell the difference.
 | # | File | Status |
 |---|------|--------|
 | 00 | `00_README.md` | living |
+| 01 | `01_plain_answers.md` | **the chair's questions, in his words, answered** |
 | 03 | `03_harness_and_invariants.md` | **written** — the unattended launcher, the instruments, the red-team findings |
 | 05 | `05_analysis_plan.md` | **LOCKED before Wave 1** |
 | 06 | `06_question_battery.md` | absorbed from the predecessor dossier (original marked superseded) |
-| 07 | `07_experiment_log.md` | append-only; carries the seed-42 interim |
+| 07 | `07_experiment_log.md` | append-only — seed-42 interim, Wave 1, D.2, Wave 2 |
+| 08 | `08_answers.md` | the battery answered in its own numbering, with evidence and limits |
 
 ## Standing rule adopted from C-319
 
