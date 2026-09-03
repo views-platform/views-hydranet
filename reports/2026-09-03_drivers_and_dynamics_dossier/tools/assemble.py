@@ -57,6 +57,10 @@ def verdict(deltas):
         )
     a = np.array(d)
     pos, neg = int((a > 0).sum()), int((a < 0).sum())
+    if pos == 0 and neg == 0:
+        # Every delta is exactly zero. "signs split 0+/0-" would read as disagreement, which is
+        # the opposite of what an identical result across four seeds means.
+        return f"NO EFFECT (all {len(a)} deltas exactly 0)", 0.0, 0.0, len(a)
     mean, sd = float(a.mean()), float(a.std(ddof=1))
     if len(a) == 4 and (pos == 4 or neg == 4) and abs(mean) > sd:
         return f"SUPPORTED ({pos}/4 positive)", mean, sd, len(a)

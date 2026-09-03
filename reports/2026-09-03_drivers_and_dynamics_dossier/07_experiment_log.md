@@ -4,7 +4,7 @@ Append-only. Negatives and unanswerables are entered in full.
 
 ---
 
-## INTERIM — seed 42 only, 2026-09-03 03:40. **Not a result: n=1 of a planned 4.**
+## INTERIM — seed 42 only. **SUPERSEDED by the n=4 entry below**; kept as the record of what n=1 looked like.
 
 Four arms complete for `fullzero_fortytwo` (`none`, `hidden`, `cell`, `all`), 13 origins each,
 posterior-mean dumps (`n_passes = 4`). Seeds 43/44/45 still running. The programme's own decision
@@ -74,3 +74,97 @@ is partly because there was little to lose.
 ### Still open at this timestamp
 
 Seeds 43/44/45; the `all`-vs-`cell` redundancy question (B.2); whether any arm ever *hurts* (B.3).
+
+---
+
+## WAVE 1 — 4 arms × 4 seeds · **COMPLETE, 16/16, zero failures** · 2026-09-03
+
+**Pre-registration:** [`05_analysis_plan.md`](05_analysis_plan.md), locked at commit `0a76a6a`
+before the first arm. **One variable:** `freeze_recurrent` ∈ {*none*, `hidden`, `cell`, `all`}.
+Seeds 42/43/44/45, 13 origins, emit-only, 167 min unattended. No arm failed, no guard fired, no
+stall. **Decision rule:** 4/4 sign agreement **and** |mean| > seed sd; no p-value claimed, because a
+paired sign-flip at n=4 floors at 1/16 = 0.0625.
+
+**Both reproduction falsifiers EXACT** — seed-42 *none* and `cell` reproduced their archived
+`AP@h18` to the last digit, so the posterior-mean dump change provably did not perturb the cube path.
+
+### The headline: C.4 — the clamp is NOT a continuation-only trick
+
+`cell` minus *none*, AP within each origin-state universe, **4/4 seeds in both universes**:
+
+| | h18 | h36 |
+|---|---|---|
+| **continuation** (active at origin) | **+0.0437** SUPPORTED | **+0.0614** SUPPORTED |
+| **onset** (quiet at origin) | **+0.0224** SUPPORTED | **+0.0459** SUPPORTED |
+
+The question was whether the clamp's headline AP gain is entirely conflict that was *already there* —
+which would make it close to worthless for the product. **It is not.** Onset improves on every seed
+at both horizons, by roughly **38% relative** at h36 against an onset base rate of ~0.008.
+
+The absolute gain is larger on continuation, so the pre-registered prediction ("disproportionately
+on continuing cells") survives on that measure — but the defensible claim is **"it helps both"**,
+because the measure choice was never pinned (see the C.4 defect in `05`).
+
+### B.1 — the clamp does something small for the body, and nothing for its calibration
+
+| | verdict |
+|---|---|
+| `size_ratio` | **NO EFFECT — all 16 deltas exactly 0.** The median conflict cell gets nothing, in every arm, every seed, every horizon. The pre-registered falsifier did not fire. |
+| `crps_events` | **improves 4/4 seeds in every arm** — `cell` −6.7/−6.1/−6.5/−4.1 % at h18, but only −0.62/−0.55/−0.67/−0.49 % at h36 |
+
+⚠️ **This corrects the seed-42 interim above, and M55.** I wrote that the clamp does "nothing" for
+the body. That was too strong: `crps_events` improves *consistently* — unanimous across seeds — just
+by a small relative amount that fades to ~0.6% by h36. The accurate statement is **the clamp buys a
+small, replicated improvement in the body's proper score and moves its calibration not at all.**
+
+### B.2 — `all` is redundant; the cell carries it
+
+AP at h36: `cell` **+0.0591**, `all` **+0.0578** (seed sd 0.007). Dispersion at h36: `cell` −0.659,
+`all` −0.667. Indistinguishable. Freezing both halves buys nothing over freezing the cell — **M39's
+89% attribution confirmed at n=4**, and its falsifier (that `all` exceeds `cell` beyond seed spread)
+did not fire.
+
+`hidden` alone is real but minor: AP +0.0186 at h36 (4/4) against `cell`'s +0.0591, and **contested
+at h18** (2 seeds negative). So the long-horizon benefit is roughly **3× larger from the cell**.
+
+### B.3 — does freezing ever hurt? Not consistently
+
+The only negatives are `hidden` at h18 on two of four seeds (−0.0090, −0.0002), which the rule calls
+CONTESTED. No arm is consistently worse than *none* on any head at any horizon. The clamp appears
+**strictly non-harmful** here — which `05` pre-committed to treating as a finding in its own right.
+
+### Q0.1 / C.1–C.3 — freezing flattens the dynamics and costs no direction skill
+
+**Q0.1 (the gate on the rest):** direction skill is weak but real and *rises* with horizon —
+rho ≈ 0.14 at h36 — clearing the 0.05 unanswerable-threshold from h18 on. So C.1–C.3 are
+answerable at long horizons and **marginal at h6–h12**.
+
+| `cell` minus *none* | h18 | h36 |
+|---|---|---|
+| **dispersion** of predicted per-cell change | **−0.4563** SUPPORTED (4/4) | **−0.6593** SUPPORTED (4/4) |
+| **rho** (direction skill) | **+0.0137** SUPPORTED (4/4) | −0.0020 CONTESTED |
+
+**C.2 — yes, and it is specifically the cell.** Freezing the cell compresses the spread of predicted
+change on every seed; freezing *hidden* has no consistent effect (contested at both horizons). The
+same cell-versus-hidden asymmetry M39 found for AP, now visible in the dynamics.
+
+**C.3 — the compression costs nothing.** Direction skill is *slightly better* under the clamp at h18
+(4/4 seeds) and indistinguishable at h36. So the trade-off this question was designed to catch —
+placement bought at the price of dynamics — **does not exist**.
+
+⚠️ Honest caveat: rho ≈ 0.14 is weak skill in absolute terms, so "no cost" partly reflects that
+there was little to lose.
+
+### What Wave 1 establishes
+
+> The cell clamp is a **placement and ordering** fix. At n=4 it improves the gate on *both* new and
+> continuing conflict, compresses how much the model says magnitudes will change without disturbing
+> *which* places it says will worsen, buys a small consistent gain in the body's proper score, and
+> moves magnitude calibration **not at all**. Freezing the hidden half is a weak shadow of it, and
+> freezing both adds nothing to freezing the cell.
+
+### Not answered by Wave 1
+
+Attribution proper (Block A) — whether the fed-back **input** or the **state** drives each head, and
+in what share. Wave 1 answers it only coarsely, through interventions. `hs = o ⊙ tanh(cl)` (C-292)
+also means the hidden/cell split here is the caveated half throughout. And everything is `sb`.
