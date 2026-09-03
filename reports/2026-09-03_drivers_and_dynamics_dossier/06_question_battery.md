@@ -1,5 +1,3 @@
-> **SUPERSEDED 2026-09-03** — absorbed into `reports/2026-09-03_drivers_and_dynamics_dossier/06_question_battery.md`, which is the live copy.
-
 # 06 — Question battery for the driver/dynamics programme (FOR REVIEW, not locked)
 
 **Drafted 2026-09-03.** Nothing here is committed until the chair reviews it and it is split into
