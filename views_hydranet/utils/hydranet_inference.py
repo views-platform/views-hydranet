@@ -736,7 +736,8 @@ class HydraNetInference:
 
         Returns ``(input, state)`` with one of them displaced and the other untouched, so the
         comparison across arms varies only *which* driver was moved. The state's channel layout is
-        ``hs_1..hs_4 | hl_1..hl_4`` (see ``blend_recurrent_state``), so the split is at the midpoint.
+        ``hs_1..hs_4 | hl_1..hl_4`` (see ``blend_recurrent_state``), so the split is at the
+        midpoint.
 
         Raises:
             ValueError: if the shift is a whole number of grid periods, which rolls the tensor back
