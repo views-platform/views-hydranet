@@ -81,3 +81,29 @@ is worth much less (#310's framing).
   that matters for shipping is B vs the ε=0 production model, and that needs seeds.
 * **C-112 applies:** this changes training dynamics, so no inference-time result from the drivers or
   silence-vs-fade dossiers is comparable. Both arms are new vehicles.
+
+
+---
+
+## AMENDMENT A1 — 2026-09-03, during SCREEN-2, before any result is read
+
+**Raised by the chair:** why straight-through rather than the reparameterisation trick?
+
+**Recorded now because it changes how a NULL must be read**, and recording it after seeing the
+result would be worthless.
+
+The straight-through estimator is **biased** — it substitutes the composed mean's gradient for the
+draw's. Reparameterisation is unbiased where it applies, but our feedback contains **two discrete
+steps** and neither is reparameterisable (measured: `Gamma.has_rsample=True`, but
+`Poisson`/`NegativeBinomial`/`Bernoulli` all False). Feeding back the latent Gamma rate λ instead of
+the count would be unbiased, and would break the train-exposure == deploy-exposure principle C-259
+enforces — a design change, not a flag. Filed as a follow-up on #308.
+
+**Consequence for this screen's decision rule, committed before the result:**
+
+* a **positive** Δ stands as it is, and the unbiased version becomes the natural next question
+* a **null or negative** Δ may NOT be reported as *"BPTT-SA does not help here"*. The estimator's
+  bias is a live alternative explanation, and the write-up must name it. A null from a biased
+  estimator is weaker evidence than a null from an unbiased one.
+
+This is **C-324 at one remove**: a null that is actually a fact about the apparatus.
