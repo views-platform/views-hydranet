@@ -43,6 +43,18 @@ guard(){ local m="$1"
     || { log "GUARD FAIL: repo HEAD moved mid-run — the arms would not be comparable"; return 1; }
   return 0; }
 
+# C-324 LAUNCH PRECONDITION. #308's first run burned 276 min training two arms to byte-identical
+# weights because the treatment was INERT on the family + sampled-feedback path C-259 forces
+# production to use. Two seconds here would have caught it. A gate with a demonstrated ability to
+# fire, not decoration: it reproduces that failure exactly as off=0.0, on=0.0 -> INERT.
+phase "POTENCY PRE-FLIGHT"
+if ! $CENV python "$D/tools/preflight_potency.py" "${ARMS[@]}" >> "$OVN/run.log" 2>&1; then
+  log "ABORT: potency pre-flight FAILED — the knob cannot act on this configuration."
+  log "       Any result would be a fact about the harness, not the hypothesis (C-324)."
+  exit 12
+fi
+log "potency pre-flight PASSED"
+
 OK=0; FAILED=""
 for ARM in "${ARMS[@]}"; do
   A="$MODELS/$ARM"
@@ -71,6 +83,36 @@ for ARM in "${ARMS[@]}"; do
     log "$ARM FAILED ($R)"; FAILED="$FAILED ${ARM}:${R}"
   fi
 done
+# POST-CONDITION. The signature of "the treatment did nothing" must be distinguishable from the
+# signature of "the treatment did nothing USEFUL" -- that is C-324's whole principle. Identical
+# weights mean the screen is void again, and this must be known BEFORE any score is read.
+if [ "$OK" -eq 2 ]; then
+  phase "WEIGHT-HASH CHECK"
+  $CENV python - "${ARMS[@]}" >> "$OVN/run.log" 2>&1 <<'PYEOF'
+import hashlib, sys, glob, torch
+hashes = {}
+for m in sys.argv[1:]:
+    f = sorted(glob.glob(f"/home/simon/Documents/scripts/views_platform/views-models/models/{m}/artifacts/*.pt"))[-1]
+    sd = torch.load(f, map_location="cpu", weights_only=False)
+    sd = sd.get("model_state_dict", sd) if isinstance(sd, dict) else sd
+    h = hashlib.sha256()
+    for k in sorted(sd):
+        h.update(sd[k].detach().cpu().numpy().tobytes())
+    hashes[m] = h.hexdigest()
+    print(f"weight-hash {m}: {hashes[m][:24]}")
+if len(set(hashes.values())) == 1:
+    print("VOID: the arms trained to IDENTICAL weights — the treatment was inert again (C-324). "
+          "Do NOT read the scores; they would describe the harness.")
+    sys.exit(3)
+print("weights differ — the arms are genuinely distinct")
+PYEOF
+  if [ $? -ne 0 ]; then
+    log "!! WEIGHT-HASH CHECK FAILED — arms are identical. SCREEN IS VOID; scores must not be read."
+    echo "$(date '+%F %T') VOID: identical trained weights" >> "$OVN/ANOMALIES.txt"
+  else
+    log "weight-hash check PASSED — the arms are genuinely distinct"
+  fi
+fi
 log "=== $OK ok | failed:${FAILED:- none} ==="
 { echo "# BPTT-SA screen — run summary"; echo
   echo "- finished: $(date '+%F %T')"; echo "- elapsed: $(( ($(date +%s)-START)/60 )) min"
