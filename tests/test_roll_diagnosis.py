@@ -67,7 +67,7 @@ def test_a_shifted_field_still_matches_under_noise():
 
 
 def test_constant_field_is_refused():
-    """A constant field has no structure to align, so an argmax would be an arbitrary noise pick."""
+    """A constant field has no structure to align; an argmax would be arbitrary noise."""
     with pytest.raises(ValueError, match="constant"):
         rd.circular_xcorr_peak(np.ones((8, 8)), _smooth_field(4, 8))
 

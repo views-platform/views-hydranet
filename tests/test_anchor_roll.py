@@ -50,8 +50,8 @@ def _make(**kw):
 def test_roll_preserves_every_scalar_property_of_the_anchor():
     """The whole design rests on this: same state, wrong place.
 
-    If the roll changed the anchor's magnitudes, a null result would be ambiguous between "placement
-    matters" and "we damaged the state", and the arm would answer nothing.
+    If the roll changed the anchor's magnitudes, a null result would be ambiguous between
+    "placement matters" and "we damaged the state", and the arm would answer nothing.
     """
     inf = _make(freeze_recurrent="cell", freeze_anchor_roll=15)
     a = torch.randn(1, 32, 12, 12)

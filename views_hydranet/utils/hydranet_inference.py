@@ -682,7 +682,7 @@ class HydraNetInference:
         return torch.roll(anchor, shifts=(shift, shift), dims=(-2, -1))
 
     def _body_mean_field(self, params_zstack) -> np.ndarray:
-        """Count-space ``E[Y|body]`` per target for one MC pass — ``[T, n_reg, H, W]``, un-composed.
+        """Count-space ``E[Y|body]`` per target, one MC pass — ``[T, n_reg, H, W]``.
 
         Split out from the writer so the caller can average it across MC-dropout passes. That
         matters: the scorer ranks on the gate averaged over all D x K posterior columns, and a
@@ -709,7 +709,8 @@ class HydraNetInference:
     def _dump_body_mean(self, mu_mean, gate_mean, origin: int, n_passes: int) -> None:
         """Write the POSTERIOR-MEAN body and gate fields for one origin (diagnostic).
 
-        The silence-vs-fade question -- does the free-running field lose CELLS or lose SIZE -- needs
+        The silence-vs-fade question -- does the free-running field lose CELLS or lose SIZE --
+        needs
         the body mean **un-composed**, because every composed readout conflates the two. The cube
         cannot supply it: ``compose_samples`` applies a per-draw ``Bernoulli(gate)`` mask to family
         DRAWS, so ``expm1(cube)/gate`` is unbiased for ``mu`` but its variance is inflated by
@@ -719,8 +720,8 @@ class HydraNetInference:
         No forward pass is added and no ``train()``-mode work is done -- these are tensors the
         family path already computed.
 
-        Note ``mean(gate) * mean(mu) != mean(gate * mu)``: these are the posterior means of the two
-        factors, not the posterior mean of the composed forecast, which is not stored.
+        Note ``mean(gate) * mean(mu) != mean(gate * mu)``: these are the posterior means of the
+        two factors, not the posterior mean of the composed forecast, which is not stored.
         """
         out_dir = Path(self.body_mean_dump_dir)
         out_dir.mkdir(parents=True, exist_ok=True)

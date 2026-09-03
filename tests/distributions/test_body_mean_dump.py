@@ -199,9 +199,9 @@ def test_dump_writes_exactly_one_field_per_origin(tmp_path):
 def test_dump_is_the_posterior_mean_over_all_passes_not_pass_zero(tmp_path):
     """The dumped gate must be averaged over all D MC-dropout passes, as the scorer's is.
 
-    Measured on seed 42: a SINGLE pass reproduces the scorer's AP only to ~11%, because one dropout
-    pass is a noisier ranker than the posterior mean. Analysis read off a one-pass dump is therefore
-    not comparable to the headline scores, which is what this asserts against.
+    Measured on seed 42: a SINGLE pass reproduces the scorer's AP only to ~11%, because one
+    dropout pass is a noisier ranker than the posterior mean. Analysis read off a one-pass dump
+    is therefore not comparable to the headline scores, which is what this asserts against.
     """
     handler = _mock_handler(_FEATURES)
     inf = _make_inference(tmp_path, d=3, k=1)
