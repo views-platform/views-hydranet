@@ -69,10 +69,10 @@ def partition_ap(score, truth_h, truth_origin):
     return out
 
 
-def arm_table(arm_dir, origins, umap, tm, horizons=HS):
+def arm_table(arm_dir, origins, umap, tm, horizons=HS, target=0):
     """Pool all origins, then compute AP once per horizon per universe."""
     per_h = {h: {"score": [], "th": [], "t0": []} for h in horizons}
-    for m0, units, gate, _mu in arm_fields(arm_dir, origins, umap):
+    for m0, units, gate, _mu in arm_fields(arm_dir, origins, umap, target=target):
         t0 = truth_vec(tm, m0, units, -1)
         for h in horizons:
             per_h[h]["score"].append(gate[h - 1])
@@ -93,26 +93,28 @@ def main() -> int:
     ap.add_argument(
         "--arms", default="identity,identity_freezehidden,identity_freezecell,identity_freezeall"
     )
+    ap.add_argument("--target", default="sb", choices=("sb", "ns", "os"))
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
 
     origins = load_origins()
     umap = build_unit_grid(str(RAW))
-    tm = load_truth(origins, HS)
+    tm = load_truth(origins, HS, a.target)
     labels = [x.strip() for x in a.arms.split(",") if x.strip()]
 
     recs = []
     for lb in labels:
         d = RESULTS / f"bodymean_{a.model}_{lb}"
+        ti = ("sb", "ns", "os").index(a.target)
         if not d.is_dir():
             print(f"skip {lb}: no dump")
             continue
         try:
-            rows = arm_table(d, origins, umap, tm)
+            rows = arm_table(d, origins, umap, tm, target=ti)
         except ValueError as exc:
             print(f"skip {lb}: {exc}")
             continue
-        print(f"\n=== {a.model} / {lb} ===")
+        print(f"\n=== {a.model} / {lb} / {a.target} ===")
         print(
             f"{'h':>3} {'AP all':>9} {'AP cont':>9} {'AP onset':>9} "
             f"{'base cont':>10} {'base onset':>11} {'pos cont':>9} {'pos onset':>10}"
@@ -123,7 +125,7 @@ def main() -> int:
                 f"{r['base_cont']:>10.4f} {r['base_onset']:>11.6f} "
                 f"{r['pos_cont']:>9} {r['pos_onset']:>10}"
             )
-            recs.append({"model": a.model, "arm": lb, "h": h, **r})
+            recs.append({"model": a.model, "target": a.target, "arm": lb, "h": h, **r})
 
     if a.out and recs:
         with open(a.out, "w", newline="") as fh:

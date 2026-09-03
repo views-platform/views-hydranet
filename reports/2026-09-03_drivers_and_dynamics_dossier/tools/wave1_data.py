@@ -76,7 +76,10 @@ def load_origins():
     return out
 
 
-def load_truth(origins, horizons):
+TARGETS = ("sb", "ns", "os")  # regression_targets order; index into mu/gate
+
+
+def load_truth(origins, horizons, target="sb"):
     """Truth map covering every scored month AND every origin month (m0-1).
 
     ``m0-1`` is defect #282's month: the arm's own scorer never loaded it, so the first origin's
@@ -84,7 +87,7 @@ def load_truth(origins, horizons):
     and its absence is an error rather than a zero.
     """
     months = {m0 + h - 1 for m0, _ in origins for h in horizons} | {m0 - 1 for m0, _ in origins}
-    tm = _truth_map(str(TRUTH), "lr_sb_best", months)
+    tm = _truth_map(str(TRUTH), f"lr_{target}_best", months)
     missing = sorted(
         m for m in months if not any((m, int(u)) in tm for _, us in origins for u in us[:1])
     )

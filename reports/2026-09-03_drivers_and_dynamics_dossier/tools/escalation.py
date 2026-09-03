@@ -81,10 +81,10 @@ def dispersion(mu_1, mu_h, truth_1):
     return float(np.std(r))
 
 
-def arm_rows(arm_dir, origins, umap, tm, horizons=HS):
+def arm_rows(arm_dir, origins, umap, tm, horizons=HS, target=0):
     """Pool the cohort across origins, then measure once per horizon."""
     acc = {h: {"mu1": [], "muh": [], "t1": [], "th": []} for h in horizons}
-    for m0, units, _gate, mu in arm_fields(arm_dir, origins, umap):
+    for m0, units, _gate, mu in arm_fields(arm_dir, origins, umap, target=target):
         t1 = truth_vec(tm, m0, units, 0)  # truth at h=1
         for h in horizons:
             acc[h]["mu1"].append(mu[0])
@@ -105,28 +105,30 @@ def main() -> int:
     ap.add_argument(
         "--arms", default="identity,identity_freezehidden,identity_freezecell,identity_freezeall"
     )
+    ap.add_argument("--target", default="sb", choices=("sb", "ns", "os"))
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
 
     origins = load_origins()
     umap = build_unit_grid(str(RAW))
-    tm = load_truth(origins, (1,) + HS)
+    tm = load_truth(origins, (1,) + HS, a.target)
     recs = []
     for lb in [x.strip() for x in a.arms.split(",") if x.strip()]:
         d = RESULTS / f"bodymean_{a.model}_{lb}"
+        ti = ("sb", "ns", "os").index(a.target)
         if not d.is_dir():
             print(f"skip {lb}: no dump")
             continue
         try:
-            rows = arm_rows(d, origins, umap, tm)
+            rows = arm_rows(d, origins, umap, tm, target=ti)
         except ValueError as exc:
             print(f"skip {lb}: {exc}")
             continue
-        print(f"\n=== {a.model} / {lb} ===")
+        print(f"\n=== {a.model} / {lb} / {a.target} ===")
         print(f"{'h':>3} {'rho (Q0.1)':>12} {'dispersion':>12} {'cohort n':>10}")
         for h, r in rows.items():
             print(f"{h:>3} {r['rho']:>12.4f} {r['dispersion']:>12.4f} {r['n_cohort']:>10}")
-            recs.append({"model": a.model, "arm": lb, "h": h, **r})
+            recs.append({"model": a.model, "target": a.target, "arm": lb, "h": h, **r})
     if a.out and recs:
         with open(a.out, "w", newline="") as fh:
             w = csv.DictWriter(fh, fieldnames=list(recs[0].keys()))

@@ -168,3 +168,54 @@ there was little to lose.
 Attribution proper (Block A) — whether the fed-back **input** or the **state** drives each head, and
 in what share. Wave 1 answers it only coarsely, through interventions. `hs = o ⊙ tanh(cl)` (C-292)
 also means the hidden/cell split here is the caveated half throughout. And everything is `sb`.
+
+---
+
+## D.2 — does any of it hold for `ns` and `os`? · **YES, and it is STRONGER there** · 2026-09-03
+
+**Zero GPU.** The body-mean dumps carry all three targets (`mu` is `[36, 3, 180, 180]`); only the
+*score CSVs* were sb-only, because the wave scored with `--targets=sb`. So this is pure re-analysis
+of data already on disk, with the same instruments that were mutation-tested before it landed.
+
+**Validity check first:** after parameterising the tools by target, `sb` reproduces its previous
+numbers **identically** (+0.0614 / +0.0459 at h36), so the refactor is provably inert on the
+established results.
+
+### C.4 — the onset gain is not an `sb` artefact
+
+`cell` minus *none*, mean over 4 seeds. **Every one of these twelve lines is SUPPORTED at 4/4.**
+
+| target | h18 cont | h18 onset | h36 cont | h36 onset |
+|---|---|---|---|---|
+| `sb` | +0.0437 | +0.0224 | +0.0614 | +0.0459 |
+| `ns` | **+0.1700** | +0.0423 | **+0.1401** | +0.0357 |
+| `os` | +0.0505 | +0.0353 | **+0.1582** | +0.0579 |
+
+The clamp improves **both** universes on **all three targets**, and its effect on continuation is
+**2.3–2.6× larger** on `ns`/`os` than on `sb`.
+
+### C.3 — on `ns` and `os` the clamp *improves* direction skill
+
+| target | rho at h36, `cell` − *none* | verdict |
+|---|---|---|
+| `sb` | −0.0020 | CONTESTED |
+| `ns` | **+0.0177** | **SUPPORTED (4/4)** |
+| `os` | **+0.0598** | **SUPPORTED (4/4)** |
+
+On `sb` the flattening cost nothing. On `ns` and `os` it is better than free: the clamp compresses
+the predicted amplitude of change (dispersion −0.90 / −0.87, 4/4) **and improves the ordering of
+which places worsen**, unanimously.
+
+### C.2 and cell-dominance both generalise
+
+Dispersion falls 4/4 under `cell` on every target. `hidden` also flattens `ns`/`os` (−0.34 / −0.51,
+4/4 — unlike `sb`, where it was contested) but always **less than the cell**: −0.34 vs −0.90 on `ns`.
+And on onset at h36 the cell beats hidden on every target — `sb` 0.0459 vs 0.0183, `ns` 0.0357 vs
+0.0203, `os` 0.0579 vs 0.0411 — though the margin narrows on `os`.
+
+### What this changes
+
+The **"`sb` only"** caveat carried by M56, M57 and M58 is **lifted**: the placement finding, the
+onset gain, the dispersion flattening and the cell-over-hidden ordering all hold on three targets at
+n=4. The one thing that changes with target is the *sign of the dynamics trade-off* — neutral on
+`sb`, positive on `ns`/`os`.

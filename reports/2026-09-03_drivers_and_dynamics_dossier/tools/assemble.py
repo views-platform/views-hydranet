@@ -74,7 +74,8 @@ def verdict(deltas):
     return f"CONTESTED — signs split {pos}+/{neg}-", mean, sd, len(a)
 
 
-def main() -> int:
+def main(target="sb") -> int:
+    ti = ("sb", "ns", "os").index(target)
     out = [
         "# Wave 1 — cross-seed findings",
         "",
@@ -120,7 +121,7 @@ def main() -> int:
     if have:
         origins = load_origins()
         umap = build_unit_grid(str(RAW))
-        tm = load_truth(origins, HS)
+        tm = load_truth(origins, HS, target)
         out += [
             "## C.4 — onset vs continuation AP, freeze arm minus `none`",
             "",
@@ -132,7 +133,9 @@ def main() -> int:
         cache = {}
         for s in have:
             for _a, lb in ARMS:
-                cache[(s, lb)] = sub_table(RESULTS / f"bodymean_{s}_{lb}", origins, umap, tm)
+                cache[(s, lb)] = sub_table(
+                    RESULTS / f"bodymean_{s}_{lb}", origins, umap, tm, target=ti
+                )
         for arm, lb in ARMS[1:]:
             for h in (18, 36):
                 for uni in ("cont", "onset"):
@@ -159,7 +162,9 @@ def main() -> int:
         ecache = {}
         for s in have:
             for _a, lb in ARMS:
-                ecache[(s, lb)] = esc_rows(RESULTS / f"bodymean_{s}_{lb}", origins, umap, tm)
+                ecache[(s, lb)] = esc_rows(
+                    RESULTS / f"bodymean_{s}_{lb}", origins, umap, tm, target=ti
+                )
         for arm, lb in ARMS[1:]:
             for h in (18, 36):
                 for key in ("dispersion", "rho"):
@@ -172,11 +177,13 @@ def main() -> int:
                     )
         out.append("")
 
-    p = RESULTS / "FINDINGS.md"
+    p = RESULTS / (f"FINDINGS_{target}.md" if target != "sb" else "FINDINGS.md")
     p.write_text("\n".join(out) + "\n")
     print(f"wrote {p}")
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    import sys as _s
+
+    raise SystemExit(main(_s.argv[1] if len(_s.argv) > 1 else "sb"))
