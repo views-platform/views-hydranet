@@ -219,3 +219,59 @@ The **"`sb` only"** caveat carried by M56, M57 and M58 is **lifted**: the placem
 onset gain, the dispersion flattening and the cell-over-hidden ordering all hold on three targets at
 n=4. The one thing that changes with target is the *sign of the dynamics trade-off* — neutral on
 `sb`, positive on `ns`/`os`.
+
+---
+
+## WAVE 2 — attribution by per-step roll · **THE CELL DRIVES PLACEMENT; THE INPUT DOES NOT** · 2026-09-03
+
+6 arms (cell / input / hidden × seeds 42, 43), 13 origins each, 78 min, **6/6 OK**, no failures.
+Roll ONE live driver by 90 cells at **every** step, then ask — with the cross-correlation instrument
+validated in EXP-3b — whether the emitted gate field followed it.
+
+### Result: fraction of the 26 origin-seed pairs whose field peaks at the roll offset
+
+| driver | h2 | h4 | h6 | h12 | h24 | h36 |
+|---|---|---|---|---|---|---|
+| **cell** | **26/26** | **26/26** | **26/26** | **26/26** | 16/26 | 9/26 |
+| **input** | **0/26** | **0/26** | **0/26** | **0/26** | **0/26** | **0/26** |
+| **hidden** | 0/26 | 0/26 | 0/26 | 0/26 | 0/26 | 10/26 |
+
+**Displace the cell state and the forecast moves with it — every origin, both seeds, out to h12.
+Displace what the model is fed and the forecast does not move, at any horizon, ever.** The
+input-rolled arm stays 0.79–0.93 correlated with the unrolled baseline at zero offset: rolling the
+input barely perturbs the emitted field at all.
+
+Hidden's lone 10/26 at h36 sits at r = 0.47 — the weakest correlation in the table, on one seed
+only, where no coherent displacement survives in any arm. It is not read as a signal.
+
+### This answers A.1 and A.2
+
+**The emitted field's spatial pattern is set by the recurrent CELL state, not by the input.**
+Wave 1 said the cell matters more than hidden through an *intervention*; this says it directly, and
+adds the part Wave 1 could not: the fed-back input contributes essentially **nothing** to where the
+model points on the current step.
+
+**That is not a contradiction of `use_real`,** which restores skill dramatically (M51: occurrence
+×1.19 against ×0.036). The reconciliation is that the input acts **through the state over time**, not
+on the present step's placement: corrupt the input and the state degrades across steps, which is the
+feedback loop this whole programme has been chasing. Displacing the input for one step — or even
+every step — does not move the placement the state is already holding.
+
+### Correction to my own reading, recorded because it was wrong in the direction of a finding
+
+Reading **a single origin** (335) mid-run, I saw `(0,0)` peaks at h18/h36 and concluded the 90-cell
+shift was **aliasing** — 90 + 90 = 180 ≡ 0 on a 180-cell grid, so cumulative displacement returns to
+the origin. **That was wrong.** The 13-origin aggregate shows 26/26 following at h2, h4, h6 *and*
+h12 — horizons whose roll counts differ in parity, which no aliasing rule can produce. The decay
+after h12 is the rolled pattern losing **coherence** through repeated rolling and the network's own
+non-linearity, not an arithmetic artefact.
+
+The lesson is the plainer one: **a single origin is not a measurement.** I drew a mechanism from
+n=1 when the instrument's own design pools 13.
+
+### Limits
+
+Seeds 42 and 43 only (Wave 1's four were not available inside the window). One shift (90) — a shift
+coprime with 180 would separate coherence-decay from residual aliasing more cleanly, and remains
+worth running. Gate field, `sb`. And the h24/h36 decay means this attribution is established for
+**short-to-mid horizons**, not across the whole rollout.
