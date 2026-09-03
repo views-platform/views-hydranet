@@ -543,7 +543,8 @@ def test_INTEGRATION_the_forward_loss_is_unchanged_on_a_family_head():
         )
         losses.append(float(res["total"]))
     assert losses[0] == pytest.approx(losses[1], rel=1e-9), (
-        f"the forward loss moved ({losses[0]} vs {losses[1]}) — the arms differ for a second reason"
+        f"the forward loss moved ({losses[0]} vs {losses[1]}) — the arms differ for a "
+        "second reason"
     )
 
 
@@ -624,7 +625,6 @@ def test_C259_makes_the_mean_plus_sampling_configuration_unreachable():
     train. This test pins that reachability claim, so if C-259 is ever relaxed the justification
     fails here instead of the mutant quietly becoming live.
     """
-    import ast
     from pathlib import Path as _P
 
     from views_hydranet.utils.config_initializer import HydraNetConfig

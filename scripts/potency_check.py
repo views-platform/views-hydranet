@@ -1,9 +1,11 @@
 """Potency gate — prove an experimental knob MOVES something before spending on it.
 
 **The failure this exists for.** On 2026-09-03 a training change (#308) was implemented, unit
-tested, mutation tested 5/5, lint clean, full suite green — and was a **no-op on the path production
+tested, mutation tested 5/5, lint clean, full suite green — and was a **no-op on the path
+production
 uses**. Two arms trained for 276 minutes and produced byte-identical weights. It was caught only
-because identical-to-the-last-bit is *impossible*; a half-connected knob would have produced a small
+because identical-to-the-last-bit is *impossible*; a half-connected knob would have produced a
+small
 number, the pre-registered rule would have read it as "hypothesis dead", and a wrong conclusion
 about the *idea* would have entered the ledger as a fact about the world.
 
@@ -11,8 +13,10 @@ about the *idea* would have entered the ledger as a fact about the world.
 "the knob does nothing" and "the knob does nothing useful" look the same in the readout, every null
 is ambiguous.
 
-**What this does that tests do not.** Unit tests check the code against the paths the author thought
-to test. A potency check asks a different question: *in the exact configuration this experiment will
+**What this does that tests do not.** Unit tests check the code against the paths the author
+thought
+to test. A potency check asks a different question: *in the exact configuration this experiment
+will
 run, does flipping the knob change a number?* It is run on the arm's own config, never a fixture,
 because the whole class of error is "verified on a path production never takes" (**C-323**).
 

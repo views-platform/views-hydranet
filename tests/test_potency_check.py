@@ -35,7 +35,8 @@ def test_it_refuses_non_finite_readings():
 
 
 def test_two_zeros_are_inert_not_a_division_error():
-    """Both readings zero is the commonest inert case; it must refuse, not raise ZeroDivisionError."""
+    """Both readings zero is the commonest inert case; it must refuse, not raise
+    ZeroDivisionError."""
     with pytest.raises(pc.PotencyError, match="INERT"):
         pc.assert_potent(lambda _: 0.0, off=False, on=True, name="zero knob")
 
