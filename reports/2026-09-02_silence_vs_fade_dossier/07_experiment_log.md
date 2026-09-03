@@ -318,3 +318,55 @@ direction for a designed experiment, not a result.
 FR-4 expected alignment to fall when the map was wrong. It did not, because a displaced forecast is
 **internally perfectly coherent** — the gate and body still agree with each other, about the wrong
 cells. This is the mechanism behind the blindness the glossary now records.
+
+---
+
+## EXP-3c — is the clamp just buying persistence? · **NO** · 2026-09-03
+
+**No new GPU, and not pre-registered** — a comparison against the fair-persistence baseline computed
+on **2026-08-21**, i.e. before this dossier existed. Support verified identical at every horizon
+(`N = 170430`, and `n_event` matching 1343/1336/1379/1547/1590/1655/1779), so the two are scored on
+the same cells against the same truth.
+
+### The worry
+
+The clamp pins the state built from the **last real observations**. Conflict is highly persistent,
+so "where conflict was at the origin" is already a good guess at "where it is 36 months later". The
+clamp could therefore be buying a **persistence prior on placement** rather than model skill — a fix
+that works by stopping the model doing something stupid, not by it doing something right.
+
+### Result
+
+| h | fair persistence | unclamped | clamped | clamped ÷ persistence |
+|---|---|---|---|---|
+| 1 | 0.2364 | 0.4779 | 0.4779 | 2.02× |
+| 6 | 0.1675 | 0.4008 | 0.4118 | 2.46× |
+| 12 | 0.1667 | 0.3770 | 0.3944 | 2.37× |
+| 18 | 0.1416 | 0.3298 | **0.3622** | **2.56×** |
+| 24 | 0.1234 | 0.2967 | 0.3350 | 2.71× |
+| 30 | 0.1082 | 0.2631 | 0.3142 | 2.90× |
+| 36 | 0.0951 | 0.2208 | **0.2828** | **2.97×** |
+
+**The clamped model beats fair persistence by ~3× at h36, and its advantage GROWS with horizon**
+(2.02× → 2.97×). If the frozen state were merely persistence-equivalent, the ratio would be flat or
+falling. It rises.
+
+The decay rates say the same thing more directly — fraction of h1 skill retained at h36:
+
+| | persistence | unclamped | **clamped** |
+|---|---|---|---|
+| retained | 40.2% | 46.2% | **59.2%** |
+
+**The clamped model degrades more slowly than the observed field its anchor was built from.** A pure
+persistence fallback cannot do that.
+
+### Verdict
+
+**The clamp does not work for a bad reason.** The frozen state carries substantially more about
+where conflict will be than "where it was", and that surplus widens with horizon. Combined with M54
+(the state is a map) the reading is: the cell state holds a *learned* spatial prior, not a copy of
+the last observation, and free-running destroys it.
+
+⚠️ **Not pre-registered.** The baseline predates the dossier and the support was verified identical
+before the numbers were read, so there is no researcher degree of freedom in the comparison — but it
+was not a committed prediction and is not reported as one. Seed 42, `sb`, AP only.
