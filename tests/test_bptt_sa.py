@@ -245,3 +245,61 @@ def test_at_epsilon_zero_the_feedback_machinery_does_not_run_at_all():
         family=fam,
         ss_backprop_through_feedback=True,
     )
+
+
+# ── the limitation that voided the first screen ──────────────────────────
+
+
+@pytest.mark.parametrize("mode,expect_gradient", [("mean", True), ("sample", False)])
+def test_the_feedback_is_only_differentiable_under_mean(mode, expect_gradient):
+    """BPTT-SA is INERT under `ss_feedback="sample"`, and this is why.
+
+    Reconnecting the wire only matters if a gradient can travel it. A DRAW from the family is not
+    reparameterised, so d(fed)/d(params) is exactly 0 — the tensor carries a grad_fn from the
+    log1p wrapper, which makes it *look* connected, and delivers nothing.
+
+    Measured 2026-09-03: mean -> 167.8, sample -> 0.0. The first screen trained two arms whose
+    weights came out byte-identical for exactly this reason, and C-259 REQUIRES sample whenever
+    eps > 0 — so the production path is the one where the change cannot do anything.
+
+    This test exists so that is a stated property with a number on it rather than a surprise, and
+    so any future reparameterised or straight-through feedback flips it and is noticed.
+    """
+    from views_hydranet.distributions import resolve_family
+    from views_hydranet.train.training_engine import _family_feedback_log1p
+
+    fam = resolve_family("nb")
+    raw = torch.randn(1, 3 * fam.n_params, 4, 4, requires_grad=True)
+    gate = torch.rand(1, 3, 4, 4, requires_grad=True)
+
+    out = _family_feedback_log1p(raw, fam, mode, gate, "soft_gate", None)
+    g = torch.autograd.grad(out.sum(), raw, allow_unused=True)[0]
+    total = 0.0 if g is None else float(g.abs().sum())
+
+    if expect_gradient:
+        assert total > 0, f"{mode!r} feedback carries no gradient — BPTT-SA cannot work at all"
+    else:
+        assert total == 0.0, (
+            f"{mode!r} feedback now carries gradient ({total}) — if the draw was made "
+            "reparameterised or straight-through, BPTT-SA is no longer inert here and the "
+            "screen that assumed it was must be re-run"
+        )
+
+
+def test_a_grad_fn_is_not_evidence_the_wire_carries_anything():
+    """The trap directly: the sampled feedback HAS a grad_fn and still delivers zero gradient.
+
+    The earlier tests in this file checked `grad_fn is not None` on the POINT-head path and
+    concluded the wire was connected. That is the C-323 error in a new place — a property was
+    verified on a path production never takes.
+    """
+    from views_hydranet.distributions import resolve_family
+    from views_hydranet.train.training_engine import _family_feedback_log1p
+
+    fam = resolve_family("nb")
+    raw = torch.randn(1, 3 * fam.n_params, 4, 4, requires_grad=True)
+    out = _family_feedback_log1p(raw, fam, "sample", torch.rand(1, 3, 4, 4), "soft_gate", None)
+
+    assert out.grad_fn is not None, "fixture no longer reproduces the misleading appearance"
+    g = torch.autograd.grad(out.sum(), raw, allow_unused=True)[0]
+    assert g is None or float(g.abs().sum()) == 0.0
