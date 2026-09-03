@@ -29,7 +29,7 @@ def _make(**kw):
     torch.manual_seed(0)
     model = HydraBNUNet06_LSTM4(3, 16, 1, 0.0, output_distribution="nb").float()
     config = {
-        "steps": [1, 2, 3, 4, 5, 6],
+        "steps": list(range(1, 7)),
         "time_steps": 6,
         "regression_targets": ["lr_sb", "lr_ns", "lr_os"],
         "classification_targets": ["by_sb", "by_ns", "by_os"],
@@ -114,7 +114,7 @@ def test_default_is_off_and_byte_identical():
 
 
 def test_rolled_arm_differs_from_the_plain_clamp():
-    """If the rolled arm reproduced the clamp, the experiment would be comparing a thing to itself."""
+    """A rolled arm reproducing the clamp would mean comparing a thing to itself."""
     handler = _mock_handler(_FEATURES, seq_len=8, h=16, w=16)
     plain, _ = _make(freeze_recurrent="cell").generate_posterior_samples(handler, origin=1)
     rolled, _ = _make(freeze_recurrent="cell", freeze_anchor_roll=3).generate_posterior_samples(

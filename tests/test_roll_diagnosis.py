@@ -49,7 +49,7 @@ def test_identical_fields_peak_at_zero():
 
 
 def test_unrelated_fields_have_no_strong_peak():
-    """'Broken' must be distinguishable from 'moved' — an unrelated field must not fake a match."""
+    """'Broken' must be distinguishable from 'moved': no fake match on unrelated fields."""
     _, peak, _ = rd.circular_xcorr_peak(_smooth_field(2), _smooth_field(99))
     assert peak < 0.5, (
         f"unrelated fields correlated at {peak:.3f}; the test cannot tell them apart"

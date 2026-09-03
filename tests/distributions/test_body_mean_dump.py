@@ -98,7 +98,7 @@ def test_dumped_mu_is_the_body_that_was_emitted(tmp_path):
     params = _activated_params(fam, t, h, w, n_reg, seed=7)
     gate = torch.rand(t, h, w, n_reg)
 
-    inf._dump_body_mean(params, gate, origin=5)
+    inf._dump_body_mean(inf._body_mean_field(params), gate.numpy(), origin=5, n_passes=1)
     loaded = np.load(tmp_path / "bodymean_origin5.npz")
     mu = torch.as_tensor(loaded["mu"])  # [T, n_reg, H, W]
 
@@ -115,7 +115,7 @@ def test_dumped_gate_is_stored_verbatim(tmp_path):
     params = _activated_params(fam, 2, 4, 4, 3, seed=3)
     gate = torch.rand(2, 4, 4, 3)
 
-    inf._dump_body_mean(params, gate, origin=0)
+    inf._dump_body_mean(inf._body_mean_field(params), gate.numpy(), origin=0, n_passes=1)
     loaded = np.load(tmp_path / "bodymean_origin0.npz")
 
     np.testing.assert_array_equal(loaded["gate"], gate.numpy())
@@ -157,7 +157,7 @@ def test_dump_honours_the_adr068_core_switch(tmp_path):
     fam = resolve_family("zinb")
     params = _activated_params(fam, 2, 4, 4, 3, seed=11)
 
-    inf._dump_body_mean(params, torch.rand(2, 4, 4, 3), origin=1)
+    inf._dump_body_mean(inf._body_mean_field(params), np.zeros((2, 4, 4, 3)), origin=1, n_passes=1)
     mu = torch.as_tensor(np.load(tmp_path / "bodymean_origin1.npz")["mu"])
 
     npar = fam.n_params
@@ -193,3 +193,28 @@ def test_dump_writes_exactly_one_field_per_origin(tmp_path):
 
     assert written == [1], f"expected one dump for origin 1, got {written}"
     assert len(list(tmp_path.glob("bodymean_origin*.npz"))) == 1
+    assert int(np.load(next(tmp_path.glob("*.npz")))["n_passes"]) == 3
+
+
+def test_dump_is_the_posterior_mean_over_all_passes_not_pass_zero(tmp_path):
+    """The dumped gate must be averaged over all D MC-dropout passes, as the scorer's is.
+
+    Measured on seed 42: a SINGLE pass reproduces the scorer's AP only to ~11%, because one dropout
+    pass is a noisier ranker than the posterior mean. Analysis read off a one-pass dump is therefore
+    not comparable to the headline scores, which is what this asserts against.
+    """
+    handler = _mock_handler(_FEATURES)
+    inf = _make_inference(tmp_path, d=3, k=1)
+    seen = []
+    real = inf._body_mean_field
+    inf._body_mean_field = lambda p: (lambda m: (seen.append(m), m)[1])(real(p))
+
+    inf.generate_posterior_samples(handler, origin=1)
+    z = np.load(next(tmp_path.glob("bodymean_origin*.npz")))
+
+    assert len(seen) == 3, f"expected one body-mean per MC pass, got {len(seen)}"
+    assert int(z["n_passes"]) == 3
+    expected = np.mean(seen, axis=0)
+    np.testing.assert_allclose(z["mu"], expected.astype(np.float32), rtol=1e-5)
+    # and it must NOT be pass 0 alone -- the failure this replaced
+    assert not np.allclose(z["mu"], seen[0].astype(np.float32)), "dump is still pass 0 only"

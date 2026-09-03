@@ -681,19 +681,14 @@ class HydraNetInference:
             )
         return torch.roll(anchor, shifts=(shift, shift), dims=(-2, -1))
 
-    def _dump_body_mean(self, params_zstack, gate_thwc, origin: int) -> None:
-        """Write the raw body mean ``E[Y|body]`` and the gate ``P(y>0)`` as fields (diagnostic).
+    def _body_mean_field(self, params_zstack) -> np.ndarray:
+        """Count-space ``E[Y|body]`` per target for one MC pass — ``[T, n_reg, H, W]``, un-composed.
 
-        The silence-vs-fade question — does the free-running field lose CELLS or lose SIZE — needs
-        the body mean **un-composed**, because every composed readout conflates the two. The cube
-        cannot supply it: ``compose_samples`` applies a per-draw ``Bernoulli(gate)`` mask to family
-        DRAWS, so ``expm1(cube)/gate`` is unbiased for ``mu`` but its variance is inflated by
-        ``1/gate`` — unusable exactly in the collapsed-gate regime the question is about.
-
-        So dump the two factors separately and derive everything offline. Writes MC-dropout pass 0
-        only (the fields are per-pass; one pass is enough for a field-level ratio and keeps the
-        artifact small). No forward pass is added and no ``train()``-mode work is done — these are
-        tensors the family path already computed.
+        Split out from the writer so the caller can average it across MC-dropout passes. That
+        matters: the scorer ranks on the gate averaged over all D x K posterior columns, and a
+        SINGLE pass reproduces its AP only to ~11% (measured, seed 42) because one dropout pass is
+        a noisier ranker. Analysis read off a one-pass dump would therefore not be comparable to
+        the headline scores.
         """
         fam = self._family
         npar = fam.n_params
@@ -709,15 +704,33 @@ class HydraNetInference:
             ],
             dim=1,
         )  # [T, n_reg, H, W] count-space E[Y|body], NOT composed with the gate
+        return mu.detach().cpu().numpy().astype(np.float64)
+
+    def _dump_body_mean(self, mu_mean, gate_mean, origin: int, n_passes: int) -> None:
+        """Write the POSTERIOR-MEAN body and gate fields for one origin (diagnostic).
+
+        The silence-vs-fade question -- does the free-running field lose CELLS or lose SIZE -- needs
+        the body mean **un-composed**, because every composed readout conflates the two. The cube
+        cannot supply it: ``compose_samples`` applies a per-draw ``Bernoulli(gate)`` mask to family
+        DRAWS, so ``expm1(cube)/gate`` is unbiased for ``mu`` but its variance is inflated by
+        ``1/gate`` -- unusable exactly in the collapsed-gate regime the question is about.
+
+        Both fields are averaged over all D MC-dropout passes, matching what the scorer ranks on.
+        No forward pass is added and no ``train()``-mode work is done -- these are tensors the
+        family path already computed.
+
+        Note ``mean(gate) * mean(mu) != mean(gate * mu)``: these are the posterior means of the two
+        factors, not the posterior mean of the composed forecast, which is not stored.
+        """
         out_dir = Path(self.body_mean_dump_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
-        gate = torch.as_tensor(np.asarray(gate_thwc), dtype=torch.float32)
         np.savez_compressed(
             out_dir / f"bodymean_origin{origin}.npz",
-            mu=mu.detach().cpu().numpy().astype(np.float32),
-            gate=gate.detach().cpu().numpy().astype(np.float32),
+            mu=np.asarray(mu_mean, dtype=np.float32),
+            gate=np.asarray(gate_mean, dtype=np.float32),
             origin=np.int64(origin),
-            n_reg=np.int64(n_reg),
+            n_reg=np.int64(np.asarray(mu_mean).shape[1]),
+            n_passes=np.int64(n_passes),
         )
 
     def _emit_magnitude(self, reg: torch.Tensor, prob: torch.Tensor) -> torch.Tensor:
@@ -1372,6 +1385,7 @@ class HydraNetInference:
                     generator = torch.Generator(device="cpu").manual_seed(
                         int(self.config["torch_seed"])
                     )
+                    _dump_mu = _dump_gate = None
                     for d in range(posterior_D):
                         params_zstack, prob_zstack = self.predict(
                             full_tensor,
@@ -1387,8 +1401,17 @@ class HydraNetInference:
                         # gate = classifier P(y>0) (sigmoid(cls)); reused for the composed body and
                         # the gate cube below.
                         prob_thwc = prob_zstack.transpose(0, 2, 3, 1)  # [T,H,W,n_cls]
-                        if self.body_mean_dump_dir is not None and d == 0:
-                            self._dump_body_mean(params_zstack, prob_thwc, origin)
+                        if self.body_mean_dump_dir is not None:
+                            mu_d = self._body_mean_field(params_zstack)
+                            if _dump_mu is None:
+                                # copy, not alias: the in-place += below would otherwise mutate the
+                                # array the caller still holds, which is fine today only because
+                                # _body_mean_field happens to return a fresh array every call.
+                                _dump_mu = mu_d.copy()
+                                _dump_gate = prob_thwc.astype(np.float64).copy()
+                            else:
+                                _dump_mu += mu_d
+                                _dump_gate += prob_thwc
                         # [T,H,W,n_reg,K] log1p draws for this pass, composed with the gate at emit
                         # time (ADR-069 #183): self_zeroed => the family's own sample unchanged;
                         # soft_gate / threshold_gate mask the draws by the cls gate.
@@ -1409,6 +1432,11 @@ class HydraNetInference:
                             prob_thwc[..., None], posterior_K, axis=-1
                         )
                         del params_zstack, prob_zstack
+                    if _dump_mu is not None:
+                        self._dump_body_mean(
+                            _dump_mu / posterior_D, _dump_gate / posterior_D, origin, posterior_D
+                        )
+                        del _dump_mu, _dump_gate
                 else:
                     for sample_idx in range(posterior_D):
                         pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(
