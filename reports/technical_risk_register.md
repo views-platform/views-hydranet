@@ -6,10 +6,10 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-09-03                           |
 | ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). **C-319..C-322 added 2026-09-03 from the silence-vs-fade dossier: C-319 (field statistics blind to placement — occurrence, magnitude and alignment ALL survive a roll that destroys the forecast, so an internal statistic cannot close a causal claim about a truth-referenced score); C-320 (a falsifier band tighter than its own reference's sampling noise, which fired on the known-good control); C-321 (`--keep-cubes` silently disables the multi-arm contamination guard); C-322 (the model field's H axis runs opposite to priogrid row order — naive placement correlates 0.026, the flip gives 1.0000).** |
-| Total Concerns    | 320                                  |
-| Open Concerns     | 168                                  |
+| Total Concerns    | 321                                  |
+| Open Concerns     | 169                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 144                                 |
+| — net active risks | 145                                 |
 | Resolved Concerns | 152                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -3790,6 +3790,55 @@ Both readings were live in this programme for a day.
 **What survives from the two arms:** the narrower and still-useful claim that **hidden carries no
 spatial information across steps**, so it cannot be what drains during free-running. The cell-side
 results are the trustworthy half throughout.
+
+### C-324: an intervention verified on a path production never takes — "inert but tested"
+
+| Field | Value |
+|-------|-------|
+| ID | C-324 |
+| Tier | **1** |
+| Source | #308 BPTT-SA, 2026-09-03 |
+| Trigger | Any experimental knob, flag, ablation or intervention, **before** the run that will read it |
+| Location | `scripts/potency_check.py` (the gate); `views_hydranet/train/training_engine.py` (the instance); `tests/test_bptt_sa.py` (what a sufficient test looks like) |
+| Cross-refs | C-323 (the same error in an ablation arm — this is its general form), C-319, C-320, C-318 |
+
+**Tier 1, not 2.** The failure mode is a *wrong scientific conclusion recorded as a fact*, with no
+error signal anywhere. It is the only class in this register that corrupts the ledger rather than a
+run.
+
+A training change was implemented, **unit tested (7), mutation tested (5/5), lint clean, full suite
+green (1,901)** — and was a **no-op on the configuration production uses**. Two arms trained 276
+minutes and produced **byte-identical weights**. The tests drove the point-head path, where the fed
+value is the raw prediction and differentiable. Production is a family head with **sampled**
+feedback, where `d(draw)/d(params)` is **exactly 0** — the tensor carries a `grad_fn` from a `log1p`
+wrapper, so it *looks* connected, and delivers nothing. `C-259` then **requires** sampled feedback,
+so the single mode the change could not affect is the only one allowed.
+
+**Why it was caught, and why that is not reassuring.** The result was *impossible* (identical to the
+last bit), not merely disappointing. **A half-connected knob would have produced a small number, the
+pre-registered rule would have read it as "hypothesis dead", and a wrong conclusion about the IDEA
+would have entered the ledger as a fact about the world.** The chair's estimate — that this
+programme has likely rejected workable ideas on broken implementations — is consistent with every
+mechanism in this entry.
+
+**The principle:** *a broken implementation must not produce the same signature as a null result.*
+Where "the knob does nothing" and "the knob does nothing useful" look alike in the readout, every
+null is ambiguous, and no amount of after-the-fact analysis can separate them.
+
+**Mandatory mitigation, before any run that costs more than the check:**
+
+1. **Potency gate** (`scripts/potency_check.py::assert_potent`) — prove the knob changes a measured
+   quantity **on the arm's own configuration**, never a fixture. Two seconds. It reproduces this
+   failure exactly: `off=0.0, on=0.0 → INERT`.
+2. **Positive control** (`assert_control_fires`) — prove the *readout* can see a known effect. A
+   null from a harness whose control does not fire is not a null.
+3. **Integration test at the call site, on the production path.** Unit tests on helpers missed
+   this entirely: with only those, 4 of 5 call-site mutations survived — *including the original
+   bug reintroduced verbatim*. With one family-head integration test, 4 of those 5 were caught.
+
+**What did NOT catch it, recorded because the negative result is the useful part:** unit tests,
+mutation testing, lint, the full suite, type correctness, and code review. Mutation testing only
+probes the code the author already thought to test; it was 5/5 green while the change was inert.
 
 
 ## Disagreements

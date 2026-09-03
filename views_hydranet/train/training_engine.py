@@ -242,6 +242,28 @@ def _family_target_log1p_mean(reg: torch.Tensor, family) -> torch.Tensor:
     return torch.log1p(torch.stack(means, dim=1))  # [B, n_reg, H, W]
 
 
+def _family_composed_mean_log1p(reg, family, gate, composition, threshold):
+    """``log1p(compose_mean(E[Y|body], gate))`` — the DIFFERENTIABLE analogue of a composed draw.
+
+    Used as the straight-through surrogate for BPTT-SA (#308). It must be the *composed* mean, not
+    ``_family_target_log1p_mean``: that one ignores the gate entirely, so it is the analogue of an
+    UNCOMPOSED draw and would push gradient for a quantity the forward pass never produced.
+
+    Mirrors ``hydranet_inference._emit_magnitude``'s family branch, which is what deployment emits.
+    """
+    npar = family.n_params
+    n_reg = reg.shape[1] // npar
+    mus = torch.stack(
+        [family.mean(reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1)) for j in range(n_reg)],
+        dim=1,
+    )
+    if composition != "self_zeroed":
+        from views_hydranet.distributions.composition import compose_mean
+
+        mus = compose_mean(mus, gate[:, :n_reg], composition, threshold)
+    return torch.log1p(mus)
+
+
 def _family_feedback_log1p(reg, family, mode, gate, composition, threshold, generator=None):
     """EXP-4 (GTF): the per-target log1p feedback for scheduled sampling with a family head.
 
@@ -391,14 +413,26 @@ def _process_sequence(
             # Leaving it attached lets the gradient reach back through the handoff.
             # Default False keeps every existing arm byte-identical.
             if family is not None:
+                gate_p = torch.sigmoid(t1_pred_class)
                 fed = _family_feedback_log1p(
-                    t1_pred,
-                    family,
-                    ss_feedback,
-                    torch.sigmoid(t1_pred_class),
-                    forecast_composition,
-                    gate_threshold,
+                    t1_pred, family, ss_feedback, gate_p, forecast_composition, gate_threshold
                 )
+                if ss_backprop_through_feedback and ss_feedback == "sample":
+                    # STRAIGHT-THROUGH. A DRAW is not reparameterised: d(draw)/d(params) is exactly
+                    # 0 (measured -- 167.8 under 'mean', 0.0 under 'sample'), so simply leaving it
+                    # attached is a NO-OP. The first attempt at #308 did exactly that and trained
+                    # two arms to byte-identical weights over 276 minutes.
+                    #
+                    # C-259 requires 'sample' whenever eps>0, so the differentiable mode is not
+                    # available and the draw must be kept in the FORWARD pass. Straight-through
+                    # gives forward = the draw, backward = the mean's gradient:
+                    #     fed = mean + (draw - mean).detach()
+                    # The added term is exactly zero in value, so the forward pass is unchanged --
+                    # which keeps the arms differing in credit assignment ONLY.
+                    surrogate = _family_composed_mean_log1p(
+                        t1_pred, family, gate_p, forecast_composition, gate_threshold
+                    )
+                    fed = surrogate + (fed - surrogate).detach()
             else:
                 fed = t1_pred
             prev_pred = fed if ss_backprop_through_feedback else fed.detach()
