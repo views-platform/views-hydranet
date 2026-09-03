@@ -275,3 +275,45 @@ Seeds 42 and 43 only (Wave 1's four were not available inside the window). One s
 coprime with 180 would separate coherence-decay from residual aliasing more cleanly, and remains
 worth running. Gate field, `sb`. And the h24/h36 decay means this attribution is established for
 **short-to-mid horizons**, not across the whole rollout.
+
+---
+
+## ARCHITECTURE READ — what the hidden state actually is · 2026-09-03
+
+Prompted by the chair asking "what does the hidden state even do? is it working? is it implemented
+correctly?" Answered from `HydraBNUNet06_LSTM4.forward` (lines 568–603), not from inference behaviour.
+
+**It is a textbook ConvLSTM and it is correct.** Per block, four times over:
+
+```
+i_t = σ(Wxi(x) + Whi(hs));  f_t = σ(Wxf(x) + Whf(hs));  h̃l = tanh(Wxc(x) + Whc(hs))
+hl  = f_t * hl + i_t * h̃l          ← the CELL accumulates
+o_t = σ(Wxo(x) + Who(hs))
+hs  = o_t * tanh(hl)                ← the HIDDEN is RECOMPUTED from the cell
+h   = cat([hs_1..4, hl_1..4])       ← repack order matches blend_recurrent_state's split
+x   = cat([x, hs_1..4])             ← hidden ALSO feeds the encoder directly
+```
+
+**Hidden does two real jobs:** it drives all four gates at the next step, and it is concatenated onto
+the U-Net input, so it shapes what the encoder sees. It is not a passive readout.
+
+**But it has no memory of its own.** Every step `hs` is overwritten by `o_t * tanh(hl)`. Only the
+cell persists, through `f*hl + i*h̃l`. That is the textbook long-term/short-term division, correctly
+implemented.
+
+### This qualifies two of my own results
+
+**M60's "hidden 0/26" is architecturally guaranteed, not a measurement of hidden's importance.** A
+displaced `hs` is regenerated from the *undisplaced* cell on the very next step — the perturbation
+self-heals. The roll test would return 0/26 no matter how much work hidden does. What survives is the
+narrower, still-useful claim: **hidden carries no spatial information across steps**, so it cannot be
+the thing that drains during free-running.
+
+**M56's `hidden` freeze arm is an architecturally abnormal operation.** Holding `hs` at the anchor
+while the cell evolves feeds a stale hidden to the gates and the encoder, breaking the LSTM's own
+recurrence. Its +0.019 AP is real and replicated (4/4) but should not be read as "what the hidden
+state contributes" — it is "what happens when you jam the readout".
+
+**The C-292 caveat, which `05` carried throughout, is now concrete rather than a formula:** `hs` is a
+function of `hl`, so hidden-vs-cell was never a clean two-way split, and the cell-side results are
+the trustworthy half.
