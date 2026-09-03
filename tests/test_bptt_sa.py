@@ -1,7 +1,8 @@
 """BPTT-SA (#308): let the gradient reach back THROUGH the fed-back prediction.
 
 The training graph's feedback path had exactly one cut in it — a `.detach()` on the prediction that
-scheduled sampling feeds to the next step. The recurrent state already flows across steps undetached
+scheduled sampling feeds to the next step. The recurrent state already flows across steps
+undetached
 (a ~383-step graph under one `backward()`, measured 2026-08-26), so with that cut the model is told
 "step i was wrong" and never "step i-1 produced the input that made it wrong". That is a mechanical
 account of why scheduled sampling failed here (M26-M33), and removing the cut is the whole change.
@@ -11,7 +12,8 @@ What these tests have to establish, in order of what would hurt most if wrong:
 1. **Production is untouched.** Every shipped arm runs `ss_epsilon = 0`, where the feedback branch
    never executes. The flag must be provably inert there.
 2. **Off means off.** With the flag false the fed value is detached, exactly as before.
-3. **On means on.** With it true the fed value carries a grad_fn — the wire is actually reconnected.
+3. **On means on.** With it true the fed value carries a grad_fn — the wire is actually
+reconnected.
 4. **It changes learning, not just plumbing.** The parameter gradients must actually differ.
 """
 
@@ -162,3 +164,84 @@ def test_config_default_is_off(valid_config_dict):
     from views_hydranet.utils.config_initializer import HydraNetConfig
 
     assert HydraNetConfig(**valid_config_dict).ss_backprop_through_feedback is False
+
+
+def test_at_epsilon_zero_the_model_never_receives_a_prediction_as_input():
+    """Found by mutation (B4): the eps guard is duplicated — one on producing the fed value, one on
+    consuming it — and pinning only the producer let a mutation through.
+
+    This pins the PROPERTY that actually protects production rather than either implementation of
+    it: with scheduled sampling off, every input the model sees must be the ground-truth dynamic
+    features. If a future change relaxes the consumer guard, shipped arms would silently begin
+    training on their own output and nothing else here would notice.
+    """
+    torch.manual_seed(0)
+    idx = _SequenceIndices(_FEATURE_NAMES, _CONFIG)
+    tensor = torch.rand(1, _T, len(_FEATURE_NAMES), _H, _W)
+    model = _LinearModel(idx.n_reg, idx.n_cls)
+    inputs = []
+    real = model.forward
+    model.forward = lambda x, h: (inputs.append(x.clone()), real(x, h))[1]
+
+    _process_sequence(
+        train_tensor=tensor,
+        model=model,
+        h=torch.zeros(1, 1, 1, 1),
+        criterion_reg=torch.nn.MSELoss(),
+        criterion_class=lambda pred, targ: (pred * 0.0).sum(),
+        multitaskloss_instance=lambda losses: losses.sum(),
+        idx=idx,
+        device=torch.device("cpu"),
+        event_threshold=0.0,
+        ss_epsilon=0.0,
+        ss_backprop_through_feedback=True,  # even with the new flag ON
+    )
+
+    for i, got in enumerate(inputs):
+        want = tensor[:, i][:, idx.feat, :, :]
+        torch.testing.assert_close(
+            got,
+            want,
+            rtol=0,
+            atol=0,
+            msg=f"step {i}: model was fed something other than ground truth at ss_epsilon=0",
+        )
+
+
+def test_at_epsilon_zero_the_feedback_machinery_does_not_run_at_all():
+    """Mutation B4 survived every behavioural test: a SECOND guard blocks the fed value's USE, so
+    computing it changes nothing observable — with a point head.
+
+    With a FAMILY head it is not harmless. `_family_feedback_log1p` under `ss_feedback="sample"`
+    DRAWS, so running it at ss_epsilon=0 consumes RNG and shifts every subsequent random draw in
+    the
+    run. Production arms are family heads at eps=0 with sample feedback, so the property worth
+    pinning is stronger than "the fed value is unused": at eps=0 the branch must never be ENTERED.
+
+    Detected by shape: a family is passed whose n_params does not divide the stub's single output
+    channel. If the guard holds, the branch never runs and nothing raises. If it is ever relaxed,
+    the feedback call fails loudly here instead of silently reseeding a production run.
+    """
+    from views_hydranet.distributions import resolve_family
+
+    fam = resolve_family("nb")
+    assert fam.n_params > 1, "fixture assumes a multi-parameter family"
+
+    torch.manual_seed(0)
+    idx = _SequenceIndices(_FEATURE_NAMES, _CONFIG)
+    model = _LinearModel(idx.n_reg, idx.n_cls)  # emits 1 reg channel; nb needs n_params per target
+    _process_sequence(
+        train_tensor=torch.rand(1, _T, len(_FEATURE_NAMES), _H, _W),
+        model=model,
+        h=torch.zeros(1, 1, 1, 1),
+        criterion_reg=torch.nn.MSELoss(),
+        criterion_class=lambda pred, targ: (pred * 0.0).sum(),
+        multitaskloss_instance=lambda losses: losses.sum(),
+        idx=idx,
+        device=torch.device("cpu"),
+        event_threshold=0.0,
+        ss_epsilon=0.0,
+        ss_feedback="sample",
+        family=fam,
+        ss_backprop_through_feedback=True,
+    )
