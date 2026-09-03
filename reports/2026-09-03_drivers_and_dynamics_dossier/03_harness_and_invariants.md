@@ -63,3 +63,17 @@ had to re-baseline `repo.head` by hand. The guard is right — it exists to catc
 changing code mid-run — but it cannot tell my dossier-tool commit from a change to the inference
 path. Procedure for the rest of the wave: commit, then immediately re-baseline and log it in
 `ANOMALIES.txt`. Every re-baseline is recorded with its justification.
+
+### D.2 — the inference tree is FROZEN for the duration of the wave
+
+Each arm is a fresh process importing `views_hydranet` from the working tree. So an **uncommitted**
+edit to `views_hydranet/` would make later arms run different code from earlier ones, silently — the
+git-HEAD guard only sees *committed* changes and would never fire.
+
+Consequence, and it is binding: **Wave 2's per-step roll seam cannot be developed while Wave 1 runs**,
+because building it means editing `hydranet_inference.py`. Dossier tools and tests are safe to edit
+(nothing in the inference path imports them); `views_hydranet/` is not. The tree was verified clean
+at the point this was written.
+
+This is the sharper sibling of D.1: D.1 costs a queue abort and is loud, D.2 costs a
+non-comparable wave and is silent.
