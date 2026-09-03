@@ -128,3 +128,30 @@ def test_each_arm_changes_the_emitted_cube_and_they_differ_from_each_other():
         assert not np.array_equal(cubes[which], base), f"{which} roll had no effect on the cube"
     assert not np.array_equal(cubes["hidden"], cubes["cell"]), "hidden and cell arms are identical"
     assert not np.array_equal(cubes["input"], cubes["cell"]), "input and cell arms are identical"
+
+
+@pytest.mark.parametrize("which", ["input", "hidden", "cell"])
+def test_every_roll_is_spatial_and_matches_torch_roll(which):
+    """Found by mutation (P3): rolling the INPUT on the channel axis survived every other test.
+
+    A channel roll would permute the three targets into each other rather than displace the field,
+    so the arm would measure something entirely different while still producing a plausible number
+    — and the cross-correlation readout, which looks for a spatial peak, would find nothing and be
+    read as "this driver does not drive the forecast".
+    """
+    inf = _make(per_step_roll=f"{which}:3")
+    inp = torch.randn(1, 3, 11, 11)
+    state = torch.randn(1, 32, 11, 11)
+    out_i, out_s = inf._roll_driver(inp, state)
+
+    if which == "input":
+        torch.testing.assert_close(out_i, torch.roll(inp, shifts=(3, 3), dims=(-2, -1)))
+    else:
+        half = state.shape[1] // 2
+        sl = slice(None, half) if which == "hidden" else slice(half, None)
+        torch.testing.assert_close(
+            out_s[:, sl], torch.roll(state[:, sl], shifts=(3, 3), dims=(-2, -1))
+        )
+    # a channel roll would change per-channel means; a spatial one cannot
+    torch.testing.assert_close(inp.mean(dim=(-2, -1)), out_i.mean(dim=(-2, -1)))
+    torch.testing.assert_close(state.mean(dim=(-2, -1)), out_s.mean(dim=(-2, -1)))
