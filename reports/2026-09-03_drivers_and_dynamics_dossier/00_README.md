@@ -1,6 +1,6 @@
 # Drivers & Dynamics — what moves the gate, what moves the body, what freezing costs
 
-**Opened** 2026-09-03 · **Branch** `exp/silence-vs-fade` · **Status** Wave 1 running (16 arms, 4 seeds)
+**Opened** 2026-09-03 · **Branch** `exp/silence-vs-fade` · **Status** Wave 1 COMPLETE (16/16) · D.2 complete · **M56–M59 logged**
 
 ## Purpose
 
@@ -49,6 +49,9 @@ it: alignment, occurrence and magnitude were all identical between a good foreca
 
 - [x] Wave 1 launched — 4 arms × 4 seeds, unattended, hardened after a red-team review
 - [x] Instruments built and mutation-tested before the data landed (7/7, 7/7, 7/7)
-- [ ] Cross-seed assembly once all 16 arms land (`tools/assemble.py`)
-- [ ] Ledger rows, and the decision-rule verdict per question
-- [ ] Wave 2 (roll attribution) **only** if its harness passes tests and mutations first
+- [x] Cross-seed assembly — `results/FINDINGS{,_ns,_os}.md`
+- [x] Ledger rows **M56–M59**, decision rule applied per question
+- [x] D.2 — holds on `ns`/`os` at zero GPU; the `sb`-only caveat is lifted
+- [ ] **Wave 2 (attribution)** — needs a new per-step roll seam in `hydranet_inference.py`;
+      runs **only** if it passes tests and mutations first
+- [ ] Branch `exp/silence-vs-fade` is **local only** — never pushed

@@ -3682,7 +3682,7 @@ AP benefit, which is invalid on its own terms — the rolled arms preserve align
 score 1/48th. **Any causal story about a truth-referenced score must be closed by a truth-referenced
 statistic.**
 
-### C-320: a pre-registered falsifier whose band is tighter than its own reference's noise
+### C-320: pre-registered falsifiers written without checking what the statistic can deliver (THREE instances)
 
 | Field | Value |
 |-------|-------|
@@ -3701,6 +3701,25 @@ correctness. The gate was **unsatisfiable by a correct instrument**. The statist
 agreement within the *reference's own* uncertainty — was available at drafting and was not written;
 the dump passes it 4/4. Recorded fired rather than amended, and the chair authorised proceeding on
 the record.
+
+**GENERALISED 2026-09-03 — this is a class, not an incident. Three instances in eight days:**
+
+| # | gate | defect | found by |
+|---|---|---|---|
+| 1 | **F3** (silence-vs-fade) | a 10% agreement band tighter than the reference's own sampling noise — it fired on the known-good control | running the control |
+| 2 | **FR-4** (EXP-3) | required alignment to fall when placement was wrong, assuming alignment measures placement correctness — which the same experiment disproved | the experiment itself |
+| 3 | **C.4** (drivers) | "the gain on new cells is at least as large" without naming the measure; absolute gain and skill-above-base favour continuation, relative gain favours onset | computing all three |
+
+The common cause is not carelessness about thresholds — all three were written deliberately. It is
+that **a falsifier encodes an assumption about what its statistic can deliver, and that assumption
+is never itself tested**. Each was caught only by measurement after the fact, and each was recorded
+fired/ambiguous rather than amended, which is the only reason the record is still trustworthy.
+
+**Mitigation to apply at the next pre-registration, not retroactively:** for every numeric gate,
+state (a) the measure, explicitly, when more than one is available, and (b) what the reference
+instrument's own noise floor is in the regime where the gate will be evaluated. A gate that cannot
+be passed by a correct instrument, or whose verdict flips with an unstated measure choice, is not a
+falsifier — it is a coin toss with a citation.
 
 ### C-321: `--keep-cubes` silently disables the multi-arm contamination guard
 
