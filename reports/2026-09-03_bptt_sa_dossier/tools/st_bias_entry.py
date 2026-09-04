@@ -55,8 +55,23 @@ class _WindowManager(HydranetManager):
         # Mirrors `_train_model_artifact` steps 0 and 1 exactly: config handshake, preflight,
         # then the shared data pipeline. Anything less and the window would not be the window
         # training sees.
+        # `run_type` normally arrives from the CLI args a production run is launched with; this
+        # entry has no such args, and the config schema requires it. The setter merges at highest
+        # priority. calibration is the partition every arm in this dossier trained and scored on.
+        self.configs = {"run_type": "calibration"}
         self.configs = ConfigInitializer(self.configs).get_config()
-        self._run_preflight_check()
+        # DataFetcher's default filename is `<run_type>_viewser_df`, but this fleet is on
+        # views-datafactory and its file is `calibration_datafactory_df.parquet`. Production
+        # supplies the override through `_cached_data_path`; resolve it from disk instead of
+        # hardcoding either name, and REFUSE if it is ambiguous rather than picking one.
+        raw = Path(self._model_path.data_raw)
+        found = sorted(raw.glob(f"{self.configs['run_type']}_*_df.parquet"))
+        if len(found) != 1:
+            raise SystemExit(
+                f"st_bias_entry: expected exactly one {self.configs['run_type']} parquet in "
+                f"{raw}, found {[f.name for f in found]}"
+            )
+        self._cached_data_path = found[0]
         viz = VisualDiagnostics(self.configs, run_timestamp=self.run_timestamp)
         handler, _scaler, _sniffer = self._run_data_pipeline(viz)
         sampler = VolumeSampler(handler, self.configs)
