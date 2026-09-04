@@ -313,3 +313,23 @@ def test_the_nb_part_of_the_score_matches_torch_distributions_with_mu_and_theta_
         params.flip(1).contiguous(), torch.zeros(1, 1, 2, 2), counts, None, fam, 1
     )
     assert abs(float(got) - float(swapped)) > 1e-3, "mu and theta are interchangeable here"
+
+
+def test_the_score_sums_over_ALL_regression_targets():
+    """Survivor of mutation M14: `range(1)` in place of `range(n_reg)` passed everything.
+
+    Production carries three targets (sb/ns/os), so scoring only the first would drop two thirds
+    of the density and silently rescale d_SF -- and a cosine is scale-free, so the number would
+    look perfectly reasonable while describing one target's credit instead of the field's.
+    """
+    fam = resolve_family("nb")
+    one = torch.zeros(1, 2, 2, 2)
+    one[:, 0], one[:, 1] = 2.5, 0.75
+    counts1 = torch.full((1, 1, 2, 2), 3.0)
+    single = st_bias.score_log_prob(one, torch.zeros(1, 1, 2, 2), counts1, None, fam, 1)
+
+    two = torch.cat([one, one], dim=1)
+    counts2 = torch.cat([counts1, counts1], dim=1)
+    double = st_bias.score_log_prob(two, torch.zeros(1, 2, 2, 2), counts2, None, fam, 2)
+
+    assert float(double) == pytest.approx(2.0 * float(single), rel=1e-5)
