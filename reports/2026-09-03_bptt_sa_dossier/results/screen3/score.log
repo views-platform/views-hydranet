@@ -1,0 +1,49 @@
+[2026-09-04 14:46:42] === scoring arms: screendetached_fortytwo screenattached_fortytwo ===
+[2026-09-04 14:46:42] screendetached_fortytwo -> calibration_model_20260904_124656.pt
+[2026-09-04 14:56:35] screendetached_fortytwo emit OK
+[2026-09-04 14:56:35] screenattached_fortytwo -> calibration_model_20260904_143617.pt
+[2026-09-04 15:06:40] screenattached_fortytwo emit OK
+[2026-09-04 15:06:40] === emit done — applying the pre-registered rule ===
+==============================================================================
+SCREEN-3 readout — #308, rule from 05_analysis_plan.md as amended by A1 and A2
+==============================================================================
+control : screendetached_fortytwo   (7 scored rows)
+treated : screenattached_fortytwo   (7 scored rows)
+
+PRIMARY  AP@h18 (sb, free-running)
+  control 0.3064   treated 0.1997   Delta = -0.1066
+
+SECONDARY (reported always, never used to override the primary)
+  metric           h     control     treated       delta
+  AP               1      0.4502      0.3788     -0.0715
+  crps_events      1     15.6473     16.4472     +0.7999
+  size_ratio       1      0.0938      0.0866     -0.0071
+  act_ratio        1      0.3908      0.4928     +0.1020
+  Brier            1      0.0060      0.0121     +0.0061
+  AP              18      0.3064      0.1997     -0.1066
+  crps_events     18     14.5074     14.5008     -0.0065
+  size_ratio      18      0.0000      0.0000     +0.0000
+  act_ratio       18      0.0362      0.1071     +0.0709
+  Brier           18      0.0079      0.0081     +0.0002
+  AP              36      0.1908      0.1004     -0.0904
+  crps_events     36     83.7863     83.7453     -0.0409
+  size_ratio      36      0.0000      0.0000     +0.0000
+  act_ratio       36      0.0026      0.0249     +0.0223
+  Brier           36      0.0102      0.0102     +0.0000
+
+------------------------------------------------------------------------------
+VERDICT: **Δ ≤ 0** (-0.1066) — the treated arm did not beat plain scheduled
+         sampling on the primary measure.
+
+         ⛔ The original rule read this cell as 'H is dead. Do NOT buy seeds.'
+         THAT READING IS SUPERSEDED by A1 and A2, both committed before the data:
+           A1  the straight-through estimator is BIASED — the gradient delivered
+               is not the one BPTT-SA specifies;
+           A2  the clip attenuates the feedback gradient ~10x on every step, so
+               the wire carries a fraction of its signal.
+         Either alone is sufficient to produce this result from a hypothesis that
+         is true. REQUIRED NEXT STEP: the threshold ladder, clip in {1, 10, 100},
+         with the top rung shown to still train. Only after that may anything be
+         concluded about the idea.
+------------------------------------------------------------------------------
+STANDING SCOPE: n=1 per arm, one configuration, one seed. A SCREEN, not a verdict.

@@ -236,3 +236,74 @@ the straight-through arithmetic (the JUMP branch) would not have been fixed by a
 **Does not:** say anything about skill. `loss_reg` is in-sample *training* loss, and this dossier's
 own M32/M45 history is a series of arms that improved a training number and lost AP. The screen is
 still the only thing that can answer #308, and it has still never run to completion.
+
+---
+
+## SCREEN-3 — the screen finally RAN. **The wire HURTS, substantially.** · 2026-09-04
+
+Both arms trained 300 lessons. Weight hashes differ (`54b5b215…` vs `0d9b59a5…`) so the treatment
+acted — not void by the C-324 route. Neither arm crashed, so **BRANCH 0 does not apply**. This is
+the first time #308's question has actually been answered.
+
+### Primary — `AP@h18`, `sb`, free-running, 13-origin support
+
+| | control (wire cut) | treated (wire on, bounded) | Δ |
+|---|---|---|---|
+| **AP@h18** | **0.3064** | **0.1997** | **−0.1066** |
+
+**−0.1066 is not a null.** It is **5×** the pre-registered `+0.02` decision threshold and roughly
+**1.8×** the ~20% training variance (C-119/C-184) that limits this n=1 design. A 35% relative loss.
+
+### It is worse at every horizon, and the mechanism is FIRING
+
+| h | ΔAP | Δact_ratio | Δ crps_events | Δ size_ratio |
+|---|---|---|---|---|
+| 1 | −0.0715 | **+0.1020** | +0.80 | −0.007 |
+| 18 | **−0.1066** | **+0.0709 (0.036 → 0.107, ×3.0)** | −0.01 | 0.000 |
+| 36 | −0.0904 | **+0.0223 (0.0026 → 0.0249, ×9.6)** | −0.04 | 0.000 |
+
+The treated model **fires far more and places far worse**. Magnitude is untouched (`size_ratio` 0.000
+in both at h18/h36) and `crps_events` is unchanged, so nothing about the body moved — this is
+entirely an occurrence/placement effect.
+
+**That is M45 again, exactly.** "AP loss scales with how much the model FIRES" — `truncated_nb`
+×1170 firing cost −0.238 AP. Here ×3.0 firing at h18 costs −0.107. BPTT-SA-via-straight-through has
+landed on the same lever four other interventions already fell off, and it falls the same way.
+
+**Vehicle sanity check:** the control's 0.3064 is where it should be. The untouched L=300
+free-running reference is 0.3318 (M34–M37) and M30–M33 measured plain SS at ε=0.5 costing −0.0426,
+predicting ≈0.289. The control sits between, within seed noise. The ruler is not broken.
+
+### ⚡ The result discriminates between its own two pre-registered confounds
+
+A2 committed the required next step on a null: a threshold ladder, because the clip attenuates the
+feedback gradient ~10×. **The data now argues against A2 being the explanation, and the argument is
+directional, not convenient:**
+
+> Attenuating the feedback gradient toward zero makes the treated arm **approach the control** — with
+> no signal on the wire it *is* plain scheduled sampling. Throttling predicts **convergence**. What
+> was measured is a 35% **divergence**. Attenuation cannot manufacture harm of this size; at worst it
+> manufactures sameness.
+
+**A1 survives and is now the leading explanation.** A biased estimator does not merely weaken the
+signal, it points it in a *wrong direction* — and more of a wrong direction is actively harmful. The
+straight-through surrogate substitutes the composed **mean's** gradient for the **draw's**. That is a
+systematically incorrect credit signal, and this is what training on one looks like.
+
+**So the ladder changes purpose.** A2 wrote it as a rescue attempt. It is now a **discriminating
+test** with opposed predictions, which is worth far more:
+
+* if **A1 (bias)** is the story, raising the clip feeds *more* wrong gradient ⇒ **worse, or unstable**
+* if **A2 (throttling)** is the story, raising the clip feeds *more real* gradient ⇒ **better**
+
+### What is established, and what is still not
+
+**Established:** on this vehicle, at this seed, connecting the feedback gradient through a
+straight-through estimator and bounding it at 1.0 **costs 0.107 AP@h18** and does so by making the
+model fire more. The effect is far outside what this design can confuse with noise.
+
+**NOT established, and the amendments still bind:** this is **not** "BPTT-SA does not work". A1's
+bias is unrefuted and is now the *prime suspect for the harm itself* — which means the honest reading
+is that **the straight-through approximation may be the thing that failed, and the idea underneath it
+is untested.** An unbiased feedback (the reparameterisation follow-up) remains the open question.
+n=1, one seed, one configuration.
