@@ -72,3 +72,59 @@ Route 3 is the smallest and is what most of this literature does in practice. **
 BPTT-SA-the-idea failing; it is BPTT-SA-my-implementation being a no-op.**
 
 **Cost of the lesson: 276 min of training plus ~13 min of emit.**
+
+---
+
+## SCREEN-2 — BPTT-SA, straight-through · **ARM B DID NOT TRAIN** · 2026-09-03/04
+
+**Pre-registration:** `05_analysis_plan.md` (`4424f26`) + amendment **A1** (`88fb223`, the STE-bias
+caveat, recorded before any result). Potency gate passed at launch — `off=0, on=66.63`.
+
+### What happened
+
+| arm | wire | outcome |
+|---|---|---|
+| A `ssdetached` | **cut** (plain scheduled sampling) | trained 300 lessons, 184 min, **artifact produced** |
+| B `ssattached` | **connected** (BPTT-SA, straight-through) | **`[FATAL GRADIENT EXPLOSION] NaN/Inf in enc_conv0.weight at Lesson 48`** |
+
+Single variable. Same ε, seed, data, code. **Connecting the gradient path destabilises training.**
+Gradient clipping is on in this config and did not save it — clipping bounds large values, it cannot
+repair a NaN. The `IntegrityGuardian` caught it and failed loud, which is the system working.
+
+### The pre-registered rule CANNOT be applied
+
+It needs `AP@h18` from both arms. Arm B has no artifact. This is a **fourth outcome the plan did not
+enumerate** — not `Δ ≥ +0.02`, not `Δ ≤ 0`, not the grey zone, but *"the arm does not train"*.
+Another **C-320**-class gap: a decision rule that enumerates results and not failures.
+
+**H is still not tested.** Twice now.
+
+### Three candidate mechanisms tested, none reproduces it
+
+| hypothesis | test | result |
+|---|---|---|
+| gradient explodes with sequence length (Jacobian product) | grad-norm vs 1…31 steps, toy head | ratio **0.999–1.000**, no growth |
+| …on the real architecture | same, `HydraBNUNet06_LSTM4` + nb, 31 steps | ratio **1.001**, all finite |
+| the surrogate overflows where the draw cannot | `mu` swept to 99 via raw-scale ×80 | **both finite throughout** |
+
+At initialisation the extra gradient path contributes **~0.1%** of the total norm. So this is an
+**emergent training-dynamics instability**, not an initialisation-time or overflow one, and the
+mechanism is **unknown**. Recorded as unknown rather than attributed to the nearest plausible story
+(σ_max ≈ 7.76 from #294 predicts an exploding Jacobian product — *consistent, but not evidence*, and
+the two static tests above are mildly against it).
+
+### What is genuinely established
+
+* Connecting the feedback gradient **destabilises training on this vehicle** at ε=0.5. Clean
+  single-variable comparison.
+* **Arm A is a usable by-product**: a fresh scheduled-sampling arm on *today's* code, which removes
+  the "the ε=0 baseline was trained in August on different code" confound that SCREEN-1's reading
+  carried. Worth scoring on its own.
+
+### What is NOT established, and must not be written as if it were
+
+Per **amendment A1**, committed before this result: the straight-through estimator is **biased**, so
+*"BPTT-SA is unstable here"* is **not** a supported claim. The supported claim is *"this
+straight-through implementation of BPTT-SA is unstable here."* An unbiased reparameterised feedback
+(#308's follow-up) could behave differently, and the two discrete sampling steps are why that route
+is not free.
