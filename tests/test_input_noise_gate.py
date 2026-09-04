@@ -183,3 +183,91 @@ def test_origins_are_grouped_separately():
     assert [r.origin for r in rates] == [100, 200]
     assert rates[0].fn_rate == pytest.approx(0.0)
     assert rates[1].fn_rate == pytest.approx(1.0)
+
+
+# ---------------------------------------------------------------------------
+# Added after the 2026-09-04 mutation audit. Every test below closes a specific
+# survivor: the thresholds were tested TAUTOLOGICALLY (inputs built FROM the
+# constants), so the pre-registered values could be changed freely; the lock
+# token locked nothing; and several guard clauses were never exercised.
+# ---------------------------------------------------------------------------
+
+
+def test_the_PRE_REGISTERED_thresholds_are_these_exact_numbers():
+    """Survivors GT-01/17/18/19: `DOMINANCE_FACTOR` 2.0 → 3.0 and `MAX_CV` 0.5 → 0.7 both passed
+    every test, because the threshold tests built their inputs *from* the constants
+    (`cv_dominant=MAX_CV + 0.01`) and were therefore tautological. These are the values locked in
+    `05_analysis_plan.md` §5 before S1 ran; changing one is a pre-registration violation, so it is
+    pinned as a literal here."""
+    assert DOMINANCE_FACTOR == 2.0
+    assert MAX_CV == 0.5
+
+
+def test_the_lock_token_has_this_exact_value():
+    """Survivor GT-01/GT-19 again: `rule_md5` was described as a lock, but no test asserted an
+    absolute hash — so the thresholds could be relaxed after seeing the data and the suite stayed
+    green. That is prose claiming a guarantee the code does not provide (C-303). This is the guard
+    that makes the claim true."""
+    assert rule_md5() == "e7cf96f499fb892133255c0bccd2b9ba"
+
+
+def test_the_FP_dominance_boundary_is_inclusive_too():
+    """Survivor GT-04: only the FN side of `>=` was pinned; the symmetric FP flip survived."""
+    r = select_design(fn_rate=0.05, fp_rate=DOMINANCE_FACTOR * 0.05, cv_dominant=0.1)
+    assert r["design"] == "occurrence_injection"
+
+
+def test_a_CV_exactly_AT_the_gate_does_not_stop():
+    """Survivor GT-07: `>` vs `>=` at the gate that decides whether to spend GPU was unpinned."""
+    assert select_design(0.9, 0.01, MAX_CV)["stop"] is False
+    assert select_design(0.9, 0.01, MAX_CV + 1e-9)["stop"] is True
+
+
+@pytest.mark.parametrize(
+    ("fn", "fp"),
+    [(None, 0.01), (0.9, None), (float("nan"), 0.01), (0.9, float("nan"))],
+)
+def test_either_rate_being_undefined_stops(fn, fp):
+    """Survivors GT-12/GT-13: only `fn_rate=NaN` was ever tested. `None` was never passed (GT-12
+    would turn it into a TypeError crash), and an undefined `fp_rate` could select a design."""
+    assert select_design(fn, fp, 0.1)["stop"] is True
+
+
+def test_every_return_path_has_the_same_keys():
+    """Non-mutation finding: the undefined-rate path omitted `why`, so a consumer reading
+    `r["why"]` raised KeyError on exactly the stop path."""
+    results = [
+        select_design(0.9, 0.01, 0.1),
+        select_design(0.01, 0.9, 0.1),
+        select_design(0.1, 0.09, 0.1),
+        select_design(0.9, 0.01, 0.9),
+        select_design(float("nan"), 0.01, 0.1),
+    ]
+    for r in results:
+        assert {"design", "stop", "reason", "why"} <= set(r), f"missing keys in {r}"
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        [0.4, float("nan"), float("nan"), float("nan"), 0.41],
+        [0.4, float("inf"), 0.41],
+        [0.4, "n/a", 0.41],
+        [0.4, None, 0.41],
+        [True, False, True],
+    ],
+)
+def test_cv_refuses_anything_unmeasurable_rather_than_dropping_it(values):
+    """Survivors CV-10/CV-11 and the audit's sharpest non-mutation finding: the old version
+    silently filtered bad entries, so `cv([0.4, nan, nan, nan, 0.41])` returned **0.0175** — three
+    unmeasurable origins out of five reading as exquisitely stable, and passing the STOP-gate that
+    decides whether to spend GPU. Booleans were accepted as rates because `isinstance(True, int)`.
+
+    An unmeasurable origin makes the spread unmeasurable. Delete the representation, do not filter
+    it away."""
+    assert math.isnan(cv(values))
+
+
+def test_cv_still_works_on_fully_measured_input():
+    """The mirror of the test above: refusing bad input must not refuse good input."""
+    assert cv([0.20, 0.21, 0.19]) == pytest.approx(0.05, abs=1e-6)

@@ -186,3 +186,58 @@ def test_ON_changes_the_loss():
 
 def test_the_same_dropout_is_reproducible_under_the_same_seed():
     assert _run(0.5) == _run(0.5)
+
+
+# ---------------------------------------------------------------------------
+# The config field. Added after the 2026-09-04 audit found SEVEN survivors here:
+# nothing instantiated HydraNetConfig with this field at all, so the bounds could
+# be removed, inverted to accept negatives, or the default flipped to ON for the
+# whole fleet — all with 1973 tests green.
+# ---------------------------------------------------------------------------
+
+
+def test_the_field_exists_under_exactly_this_name():
+    """Survivor CI-05: renaming the field kept the field COUNT identical, so the only thing
+    watching it (the CIC drift test) stayed green while every config silently lost the knob."""
+    from views_hydranet.utils.config_initializer import HydraNetConfig
+
+    assert "input_noise_dropout" in HydraNetConfig.model_fields
+
+
+def test_the_default_is_OFF():
+    """Survivors CI-03/CI-07: a default of 0.204 (or a non-optional 0.5) turns the noise ON for
+    every arm in the fleet, and nothing failed."""
+    from views_hydranet.utils.config_initializer import HydraNetConfig
+
+    assert HydraNetConfig.model_fields["input_noise_dropout"].default is None
+
+
+@pytest.mark.parametrize("bad", [0.0, 1.0, 1.5, -0.1, -1.0])
+def test_out_of_range_dropouts_are_REJECTED(bad, valid_config_dict):
+    """Survivors CI-01/CI-02/CI-04/CI-08: the bounds could be removed outright or widened to accept
+    negatives. `0.0` matters most — the comment beside the field says `gt` rather than `ge` was
+    chosen because a 0.0 dropout is a no-op indistinguishable from off, which is the C-324
+    inert-knob signature that cost 276 min of GPU on #308. That reasoning had no guard."""
+    from views_hydranet.utils.config_initializer import HydraNetConfig
+
+    with pytest.raises(Exception):  # noqa: B017 - pydantic ValidationError
+        HydraNetConfig(**{**valid_config_dict, "input_noise_dropout": bad})
+
+
+def test_an_in_range_dropout_is_accepted(valid_config_dict):
+    """The mirror: rejecting bad values must not reject good ones."""
+    from views_hydranet.utils.config_initializer import HydraNetConfig
+
+    cfg = HydraNetConfig(**{**valid_config_dict, "input_noise_dropout": 0.204})
+    assert cfg.input_noise_dropout == pytest.approx(0.204)
+
+
+def test_the_helper_returns_a_NEW_mask_and_does_not_mutate_the_callers(_=None):
+    """Survivor AN-09: `keep.clone()` → `keep` was invisible because the single call site rebinds
+    the result immediately — but the helper then mutates its caller's tensor in place, and any
+    second caller would get silent corruption."""
+    x = _ones()
+    keep = torch.ones_like(x)
+    before = keep.clone()
+    _apply_input_noise(x, keep, 1.0, [0, 1])
+    assert torch.equal(keep, before), "the helper mutated the caller's mask in place"

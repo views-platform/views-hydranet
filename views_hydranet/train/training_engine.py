@@ -426,7 +426,7 @@ def _process_sequence(
     ss_feedback_grad_clip: float | None = None,
     ss_feedback_grad_sink: list[float] | None = None,
     input_noise_dropout: float | None = None,
-    input_noise_segment: int = 36,
+    input_noise_segment: int | None = None,
     input_noise_channels: list[int] | None = None,
 ) -> dict[str, Any]:
     """
@@ -473,6 +473,16 @@ def _process_sequence(
 
     prev_pred: torch.Tensor | None = None
     _noise_keep: torch.Tensor | None = None  # accumulating keep-mask, reset per segment
+    # No usable default for the segment: a literal would be a shadow default (C-85) and would
+    # silently differ from the caller's `time_steps`. Demanded only when the noise is on.
+    _noise_segment = 0
+    if input_noise_dropout is not None:
+        if not isinstance(input_noise_segment, int) or input_noise_segment < 1:
+            raise ValueError(
+                "input_noise_dropout is set but input_noise_segment is "
+                f"{input_noise_segment!r}; it must be a positive int (the deployment horizon)"
+            )
+        _noise_segment = input_noise_segment
 
     for i in range(seq_len - 1):
         t0 = train_tensor[:, i, :, :, :]
@@ -497,7 +507,7 @@ def _process_sequence(
         # would leave the eps>0 arm unaugmented and make the arms incomparable), and BEFORE the
         # static re-attach so geometry is never touched.
         if input_noise_dropout is not None:
-            if i % input_noise_segment == 0:
+            if i % _noise_segment == 0:
                 _noise_keep = torch.ones_like(dyn_input)
             dyn_input, _noise_keep = _apply_input_noise(
                 dyn_input, _noise_keep, input_noise_dropout, input_noise_channels or []
@@ -978,7 +988,7 @@ def train(
         # and callers without it keep working), while an enabled arm missing it fails loud rather
         # than silently falling back to a shadow default (C-85).
         input_noise_dropout=_input_noise,
-        input_noise_segment=config["time_steps"] if _input_noise is not None else 0,
+        input_noise_segment=config["time_steps"] if _input_noise is not None else None,
         input_noise_channels=_noisable_channels(config) if _input_noise is not None else None,
     )
     step_total, step_reg, step_cls = result["per_step_losses"]
