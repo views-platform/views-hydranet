@@ -166,3 +166,75 @@ Seed, data, lesson count (300), primary measure (AP@h18, free-running, 13-origin
 floor, and the SCREEN-not-verdict framing in §1 all stand. **n=1 per arm**: training variance is
 ~20% (C-119/C-184), so only a large effect is visible, and a null remains *inconclusive* rather than
 *negative* — which after A1 and A2 is now overdetermined.
+
+---
+
+## AMENDMENT A3 — 2026-09-04, PHASE 1 (EXP-BIAS), before the instrument exists
+
+SCREEN-3 answered #308 with a large negative (−0.1066 AP@h18, firing ×3.0). Three explanations
+survive and **two imply opposite next moves**: **A1** the straight-through estimator is biased and
+points the wrong way ⇒ my approximation broke it and the idea is untested; **A3** the objective
+genuinely does this ⇒ the direction is dead. (**A2**, the clip throttling, is argued against
+directionally — throttling predicts the arms *converging*, and they diverged 35%.)
+
+**SCREEN-3's outcome cannot separate A1 from A3.** Inferring a mechanism from an outcome is exactly
+**C-325**. So this phase *measures* it.
+
+### The quantity
+
+At a handoff the objective is `J(θ) = E_z~p_θ[L(z;θ)]`:
+
+```
+∇J = E[∇_θ L(z;θ)]                (pathwise, z fixed)
+   + E[L(z;θ) · ∇_θ log p_θ(z)]   (score-function — credit for HAVING DRAWN z)
+```
+
+Straight-through keeps the pathwise term and **replaces the score term** with
+`(∂L/∂fed) · ∇_θ log1p(compose_mean(µ, gate))`.
+
+⛔ **The full gradients must NOT be compared.** They share the pathwise term, which dominates, so
+their cosine would sit near 1 whatever the truth is — a statistic blind to the claim (**C-319**).
+Only what straight-through *adds* is compared, both averaged over the **same** draws:
+
+* `Δ_ST = mean_n[ g_on(z_n) − g_cut(z_n) ]`
+* `Δ_SF = mean_n[ (L_n − b) · ∇_θ log p_θ(z_n) ]`, `b = mean_n L_n`
+
+**Readout: `cos(Δ_ST, Δ_SF)`.**
+
+### Verdict rule — committed now, with an inconclusive branch (C-320)
+
+| `cos(Δ_ST, Δ_SF)` | reading |
+|---|---|
+| **≥ +0.3** | straight-through points broadly the right way ⇒ **A1 weakened, A3 leading** — the idea fails here |
+| **\|cos\| < 0.1** | orthogonal noise ⇒ **A1 CONFIRMED** |
+| **≤ −0.3** | points *against* the truth ⇒ **A1 STRONGLY confirmed**; explains active harm |
+| otherwise | **AMBIGUOUS**, reported as such and not rounded |
+
+### Blocking instrument gates — the number is not read until these pass (C-324)
+
+1. **Exact-truth positive control.** For `z ~ Bernoulli(p)`, `E[f(z)] = p·f(1) + (1−p)·f(0)`, so
+   `dE/dp = f(1) − f(0)` in closed form. The score-function machinery **must** converge to that
+   exact value. A discrete case with known ground truth — the estimator's riskiest part, pinned.
+2. **Reparameterisation cross-check.** On a Gaussian, the score-function estimate must agree with
+   the exact reparameterised gradient (`cos → 1` as N grows). Two independent routes to one answer.
+3. **Split-half agreement of `Δ_SF` with itself** — *load-bearing*. The estimator is high-variance;
+   if it cannot agree across two disjoint halves of its own samples it cannot meaningfully disagree
+   with `Δ_ST`. **`cos(Δ_SF^A, Δ_SF^B)` bounds the smallest interpretable |cos|.** Same discipline as
+   C-320: a gate must be wider than its own reference's noise.
+4. **Negative control:** `cos(Δ_ST, random)` ≈ 0.
+5. **Plateau:** `cos` reported at N ∈ {32, 64, 128, 256}. **No plateau ⇒ INCONCLUSIVE, not a number.**
+6. **Forward-value identity:** `L_cut == L_on` exactly, since straight-through changes only the
+   backward. A free correctness check on every draw; a mismatch voids the measurement.
+
+### Weights — the C-325 constraint, and it is the point
+
+Measured on **trained** artifacts: `screenattached_fortytwo` (the state where the harm happened) and
+`screendetached_fortytwo` (a healthy model), both at 300 lessons. Random init is a **contrast only** —
+yesterday two mechanism tests were run at initialisation and recorded as ruling a mechanism out,
+which is what C-325 exists to prevent.
+
+### Scope, stated before the result
+
+One handoff with K-step lookahead, not the full 383-step chain. The straight-through substitution is
+identical at every handoff so its bias is a **local** property, but this measures one. Repeated at a
+second seed and a second window; **a verdict that flips between them is INCONCLUSIVE.**
