@@ -300,9 +300,9 @@ def _family_feedback_log1p(reg, family, mode, gate, composition, threshold, gene
     return torch.log1p(draws.clamp(min=0.0))
 
 
-def _clip_feedback_grad(
+def _attach_feedback_grad_clip(
     fed: torch.Tensor, max_norm: float | None, sink: list[float] | None
-) -> torch.Tensor:
+) -> None:
     """Bound the gradient leaving the scheduled-sampling handoff, ONE STEP AT A TIME.
 
     `fed` is the sole tensor through which credit crosses from step i+1 back to step i, so it is
@@ -319,9 +319,15 @@ def _clip_feedback_grad(
     `max_norm=None` observes without acting, so the natural scale can be MEASURED before a
     threshold is chosen rather than guessed. `sink` is appended to only when supplied, because
     reading the norm forces a device sync on every one of the ~383 steps in a window.
+
+    Returns None ON PURPOSE. `register_hook` mutates the tensor, so an earlier version that
+    returned `fed` worked identically whether or not the caller assigned the result — mutation
+    testing found that dropping the assignment at the call site changed nothing, i.e. the
+    signature advertised a transformation the function does not perform. A future edit returning a
+    NEW tensor would then have broken silently. Named and typed as the side effect it is.
     """
     if not fed.requires_grad or (max_norm is None and sink is None):
-        return fed
+        return
 
     def _hook(grad: torch.Tensor) -> torch.Tensor:
         norm = grad.norm(2)
@@ -334,7 +340,6 @@ def _clip_feedback_grad(
         return grad * (max_norm / (norm + 1e-12)) if norm > max_norm else grad
 
     fed.register_hook(_hook)
-    return fed
 
 
 def _process_sequence(
@@ -477,7 +482,7 @@ def _process_sequence(
             if ss_backprop_through_feedback:
                 # Only when the wire is connected: with it cut, `fed` is detached below and
                 # carries no gradient for a hook to see.
-                fed = _clip_feedback_grad(fed, ss_feedback_grad_clip, ss_feedback_grad_sink)
+                _attach_feedback_grad_clip(fed, ss_feedback_grad_clip, ss_feedback_grad_sink)
             prev_pred = fed if ss_backprop_through_feedback else fed.detach()
 
         t1_pred_for_loss = output.reg_latent if use_latent else t1_pred

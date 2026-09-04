@@ -671,10 +671,10 @@ def test_C259_makes_the_mean_plus_sampling_configuration_unreachable():
 
 def _grad_of(x, *, clip, sink=None):
     """Backward a fixed scalar through `x` after attaching the limiter; return dL/dx."""
-    from views_hydranet.train.training_engine import _clip_feedback_grad
+    from views_hydranet.train.training_engine import _attach_feedback_grad_clip
 
-    out = _clip_feedback_grad(x, clip, sink)
-    (out * _FIXED_UPSTREAM).sum().backward()
+    _attach_feedback_grad_clip(x, clip, sink)
+    (x * _FIXED_UPSTREAM).sum().backward()
     return x.grad.clone()
 
 
@@ -698,10 +698,10 @@ def test_the_clip_rescales_to_exactly_the_threshold_and_does_not_rotate():
     # direction preserved: an element-wise clamp would flatten these to equal values, which they
     # already are -- so use an asymmetric upstream to make rotation detectable.
     y = torch.ones(4, requires_grad=True)
-    from views_hydranet.train.training_engine import _clip_feedback_grad
+    from views_hydranet.train.training_engine import _attach_feedback_grad_clip
 
-    out = _clip_feedback_grad(y, 1.0, None)
-    (out * torch.tensor([1.0, 2.0, 3.0, 4.0]) * 100.0).sum().backward()
+    _attach_feedback_grad_clip(y, 1.0, None)
+    (y * torch.tensor([1.0, 2.0, 3.0, 4.0]) * 100.0).sum().backward()
     unit = y.grad / y.grad.norm(2)
     expected = torch.tensor([1.0, 2.0, 3.0, 4.0])
     expected = expected / expected.norm(2)
@@ -735,11 +735,13 @@ def test_a_sink_with_no_clip_observes_without_acting():
     assert pytest.approx(float(g.norm(2)), rel=1e-6) == sink[0]
 
 
-def test_a_tensor_that_carries_no_gradient_is_returned_untouched():
-    from views_hydranet.train.training_engine import _clip_feedback_grad
+def test_a_tensor_that_carries_no_gradient_gets_no_hook():
+    from views_hydranet.train.training_engine import _attach_feedback_grad_clip
 
+    sink: list[float] = []
     x = torch.ones(4)  # requires_grad False, as `fed` is when the wire is cut
-    assert _clip_feedback_grad(x, 1.0, []) is x
+    assert _attach_feedback_grad_clip(x, 1.0, sink) is None
+    assert sink == [], "a hook was attached to a tensor that carries no gradient"
 
 
 def test_INTEGRATION_POTENCY_the_clip_bounds_the_gradient_on_a_family_head():
