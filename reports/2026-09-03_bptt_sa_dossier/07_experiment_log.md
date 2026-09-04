@@ -128,3 +128,63 @@ Per **amendment A1**, committed before this result: the straight-through estimat
 straight-through implementation of BPTT-SA is unstable here."* An unbiased reparameterised feedback
 (#308's follow-up) could behave differently, and the two discrete sampling steps are why that route
 is not free.
+
+---
+
+## GRAD-TRAJ — the mechanism family: **CREEP**, not JUMP · 2026-09-04
+
+**Pre-registration:** the rule, its windows, its thresholds and its AMBIGUOUS branch were committed
+in `fe856b1` **before the run**, and all three verdict branches were fired on synthetic fixtures
+first (CREEP 4.0×/11.1×, JUMP 1.04×/1.00×, AMBIGUOUS 1.59×/1.68×). 36 min, two throwaway clones.
+
+### The result
+
+| | median grad norm, lessons 15–25 | median, lessons 38–47 | Spearman ρ(grad, lesson) |
+|---|---|---|---|
+| **attached** (wire on) | 133,465 | **9.4 × 10⁹** | **+0.561** |
+| **detached** (control) | 859 | **312** | **−0.764** |
+
+`late/early = 70,468×` · `attached/control at the late window = 3.0 × 10⁷×`
+
+**VERDICT: CREEP.** Both bars (≥3× on each comparison) cleared by four to seven orders of magnitude.
+
+**The control is the finding, as much as the treatment.** Its gradient norm *falls* over training —
+ρ = **−0.764**, 859 → 312 — which is what a healthy run looks like. The attached arm's *rises*. And
+the two have already separated **155×** by the early window (lessons 15–25), i.e. immediately after
+ε saturates at 0.5 (lesson 15). So the divergence begins the moment the dose stops changing, and
+compounds for 33 lessons until float32 gives out: 7.6 × 10¹⁸ squared is 5.8 × 10³⁷, against a
+float32 ceiling of 3.4 × 10³⁸.
+
+### Two things this kills
+
+**"It reproduced exactly."** Lesson 48 again, on a fresh clone. The failure is deterministic, not a
+numerical fluke — which JUMP would have needed.
+
+**The loss tells you nothing.** `loss_reg` *falls* 655 → 255 across the same 48 lessons and the gate
+logit drifts smoothly −6.87 → −6.67. A run whose gradient is at 10¹⁸ looks, on every curve a human
+would watch, like a run that is training well. Gradient clipping is on and bounds the *step*; it
+cannot bound the *intermediate gradient*, and it is the intermediate that overflows.
+
+### ⛔ Correction to this dossier's own SCREEN-2 entry
+
+SCREEN-2 recorded three candidate mechanisms as "tested, none reproduces it", the first two being
+gradient-norm-vs-sequence-length on a toy head (ratio 0.999) and on the real `HydraBNUNet06_LSTM4`
+at 31 steps (1.001). **Those measurements are correct and the conclusion drawn from them was wrong.**
+Both were taken on a network at **initialisation**. The instability is something *training builds* —
+at init the extra path is ~0.1% of the gradient norm, exactly as measured, and 48 lessons later it
+is seven orders of magnitude above the control. **An untrained network cannot exhibit an instability
+that training creates**, so those two tests never had the power to see it. Registered as **C-325**.
+
+The σ_max ≈ 7.76 reading (#294) is now **consistent and no longer contradicted** — but it is still
+not *established* as the mechanism. CREEP names a family, not a cause: any route to a compounding
+gradient produces this signature, and this probe cannot separate them.
+
+### What is now worth GPU, and what still is not
+
+A stabiliser is worth buying — that was **not** true before this line, and would not have been if the
+verdict had been JUMP. The measured failure is specifically **intermediate-gradient overflow inside
+the recurrence**, not an unbounded optimiser step, because clipping already bounds the step. So the
+fix must bound the gradient **per step inside the feedback wire**, not at the end of the lesson.
+
+Still out of scope, per amendment **A1**: none of this licenses a claim about **BPTT-SA**. The
+estimator is biased; what has been characterised is *this straight-through implementation*.

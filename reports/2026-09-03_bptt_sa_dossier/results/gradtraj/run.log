@@ -1,0 +1,50 @@
+[2026-09-04 08:59:27] === GRAD-TRAJ probe: 2 arms, timeout 5400s ===
+[2026-09-04 08:59:27] PHASE: POTENCY PRE-FLIGHT
+POTENT   trajattached_fortytwo: gradient off=0 on=66.63
+POTENT   trajdetached_fortytwo: gradient off=0 on=66.63
+[2026-09-04 08:59:29] potency pre-flight PASSED
+[2026-09-04 08:59:30] PHASE: TRAIN trajattached_fortytwo (cap 80 lessons, elapsed 0 min)
+[2026-09-04 09:16:03] trajattached_fortytwo CRASHED as expected at lesson 48 — trajectory captured
+[2026-09-04 09:16:05] PHASE: TRAIN trajdetached_fortytwo (cap 60 lessons, elapsed 16 min)
+2026-09-04 09:35:46 CAP trajdetached_fortytwo at 60 lessons — killing, this is intended
+[2026-09-04 09:35:46] trajdetached_fortytwo CAPPED at 60 lessons (intended)
+[2026-09-04 09:35:46] PHASE: READOUT
+==============================================================================
+GRAD-TRAJ readout — CREEP or JUMP?
+==============================================================================
+attached :  48 lessons logged, last lesson index 47.0
+detached :  60 lessons logged, last lesson index 59.0
+
+windows: early = lessons 15-25, late = lessons 38-47
+
+attached  median grad early  133465.3904   late 9405005699.8604   late/early = 70467.75x
+control   median grad early     858.7507   late     311.9986   attached/control late = 30144381.20x
+  (supporting) attached  spearman rho(grad, lesson) post-warmup = +0.561 over 33 lessons
+  (supporting) detached  spearman rho(grad, lesson) post-warmup = -0.764 over 45 lessons
+
+last 12 lessons of the attached arm:
+   lesson     grad_norm    loss_reg    loss_cls  gate_logit
+       36 14334032.7732    266.3822     35.3550     -6.7192
+       37 46764039533.7576    281.5110     56.9110     -6.7125
+       38    93794.4183    321.0338     94.7645     -6.7117
+       39  3478097.7535    293.4124     56.3984     -6.7147
+       40   590874.0109    306.7125     81.0405     -6.7054
+       41  2734415.6765    286.4432     66.1044     -6.7052
+       42  9021299.1331    391.9803     99.2391     -6.6843
+       43 34781873251.9152    261.5653     61.0221     -6.6929
+       44 18800990100.5876    301.3290     70.5221     -6.6809
+       45 3361128724030987.5000    324.9037     87.2758     -6.6668
+       46 7565630969627500544.0000    270.2502     84.3326     -6.6582
+       47 13659598643763.3086    255.3677     70.7361     -6.6580
+
+------------------------------------------------------------------------------
+VERDICT: CREEP — the gradient grew 70467.7x over its own post-warmup
+         baseline and ran 30144381.2x the control. A real explosion that
+         develops during training. A stabiliser (feedback-path clipping, GTF alpha)
+         is now worth GPU time; it was not before this line.
+------------------------------------------------------------------------------
+SCOPE: n=1 seed, one configuration. This separates two mechanism FAMILIES. It does not
+       identify the mechanism, and CREEP would not on its own single out the Jacobian-
+       product story (sigma_max=7.76, #294) over any other route to a growing gradient.
+[2026-09-04 09:35:46] === 2 ok | failed: none ===
+[2026-09-04 09:35:46] === RUN_COMPLETE ===
