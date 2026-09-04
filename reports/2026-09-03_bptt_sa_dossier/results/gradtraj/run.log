@@ -48,3 +48,13 @@ SCOPE: n=1 seed, one configuration. This separates two mechanism FAMILIES. It do
        product story (sigma_max=7.76, #294) over any other route to a growing gradient.
 [2026-09-04 09:35:46] === 2 ok | failed: none ===
 [2026-09-04 09:35:46] === RUN_COMPLETE ===
+[2026-09-04 10:07:22] === GRAD-TRAJ probe: 1 arms, timeout 5400s ===
+[2026-09-04 10:07:22] PHASE: POTENCY PRE-FLIGHT
+POTENT   clipattached_fortytwo: gradient off=0 on=66.63
+[2026-09-04 10:07:23] potency pre-flight PASSED
+[2026-09-04 10:07:25] PHASE: TRAIN clipattached_fortytwo (cap 80 lessons, elapsed 0 min)
+2026-09-04 10:37:46 CAP clipattached_fortytwo at 80 lessons — killing, this is intended
+[2026-09-04 10:37:49] clipattached_fortytwo CAPPED at 80 lessons (intended)
+[2026-09-04 10:37:49] custom ARMSPEC — no automatic readout; the CSVs are the deliverable
+[2026-09-04 10:37:49] === 1 ok | failed: none ===
+[2026-09-04 10:37:49] === RUN_COMPLETE ===

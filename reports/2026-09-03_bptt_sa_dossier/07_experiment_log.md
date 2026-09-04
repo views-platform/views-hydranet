@@ -188,3 +188,51 @@ fix must bound the gradient **per step inside the feedback wire**, not at the en
 
 Still out of scope, per amendment **A1**: none of this licenses a claim about **BPTT-SA**. The
 estimator is biased; what has been characterised is *this straight-through implementation*.
+
+---
+
+## CLIP-CHECK — the per-step limiter holds · 2026-09-04
+
+One arm, wire connected, `ss_feedback_grad_clip = 1.0` (the same bound the model already applies to
+its whole-model gradient), capped at 80 lessons. 30 min. The unclipped arm died at lesson 48 twice.
+
+| arm | n | grad L15–25 | grad L38–47 | late/early | ρ(grad, lesson) | outcome |
+|---|---|---|---|---|---|---|
+| attached, no clip | 48 | 133,465 | 9.4 × 10⁹ | **70,468×** | **+0.561** | **NaN at L48** |
+| detached (control) | 69 | 859 | 312 | 0.363× | −0.836 | stable |
+| **attached + clip 1.0** | **80** | **913** | **834** | **0.914×** | **−0.306** | **stable, capped** |
+
+The clipped arm's gradient sits **on the control's scale** — 913 against the control's 859 at the
+same window — and trends *down*, not up. Peak over all 80 lessons is 13,021 against the unclipped
+arm's 7.6 × 10¹⁸: **fifteen orders of magnitude**. `loss_reg` keeps falling (655 → 109).
+
+**The limiter is acting, not decorating.** The new `fed_grad_max` column records the feedback
+gradient *before* clipping: median **5.7** (L15–25), **12.5** (L38–47), **17.5** (L70–79), peak
+**1,774**, against a threshold of 1.0. So it bites on essentially every step.
+
+### ⚠️ Pre-registered BEFORE the screen (amendment **A2**)
+
+That last number is the catch. Clipping at 1.0 against a natural norm of 5–18 **attenuates the
+feedback gradient by roughly an order of magnitude on every step**. The wire is connected, but it is
+carrying a fraction of its signal. Therefore:
+
+> **A null result on the screen may NOT be reported as "BPTT-SA does not help here."** "The clip was
+> too tight" is a live alternative explanation, and it is the *same* class of confound as **A1**'s
+> estimator bias — an intervention weakened until it cannot show an effect is indistinguishable from
+> an intervention that has none.
+
+A null obliges a **threshold ladder** (e.g. 1 / 10 / 100) before any conclusion about the idea. A
+*positive* result is not affected: an attenuated wire that still helps has helped.
+
+This is recorded now, before the data, because it is exactly the kind of caveat that reads as an
+excuse when written afterwards.
+
+### What this does and does not establish
+
+**Does:** the instability is *controllable*, and controllable by bounding precisely the quantity
+GRAD-TRAJ measured. That is a second, independent confirmation of the CREEP diagnosis — a defect in
+the straight-through arithmetic (the JUMP branch) would not have been fixed by a gradient bound.
+
+**Does not:** say anything about skill. `loss_reg` is in-sample *training* loss, and this dossier's
+own M32/M45 history is a series of arms that improved a training number and lost AP. The screen is
+still the only thing that can answer #308, and it has still never run to completion.
