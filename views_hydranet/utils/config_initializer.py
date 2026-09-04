@@ -313,6 +313,14 @@ class HydraNetConfig(BaseModel):
         ),
     )
     sweep: bool = Field(default=False)
+    # #311 (Sanchez-Gonzalez et al. 2020, adapted): per-step probability that a surviving input
+    # event is silenced, accumulating within one deployment horizon and resetting between. NOT the
+    # paper's Gaussian: S1 (#313) measured this model's free-running error as near-total SILENCING
+    # (FN 0.9959 vs FP 0.000027 at h18), so dense noise would model a failure that does not occur.
+    # None (default) is a no-op => every existing config is byte-identical. `gt=0.0` rather than
+    # `ge=0.0` because a dropout of 0.0 is a no-op indistinguishable from off, which is exactly the
+    # C-324 inert-knob signature that cost 276 min of GPU on #308.
+    input_noise_dropout: float | None = Field(default=None, gt=0.0, lt=1.0)
     random_flips: bool = Field(default=True)
     diagnostic_visualizations: bool = Field(default=False)
 

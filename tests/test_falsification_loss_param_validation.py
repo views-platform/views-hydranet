@@ -33,7 +33,8 @@ class TestF5_CICFieldCountDrift:
         # C-314 (training-loop gradient audit): +clip_grad_max_norm -> 93
         # #308 BPTT-SA: +ss_backprop_through_feedback -> 94
         # #308 GRAD-TRAJ follow-up: +ss_feedback_grad_clip -> 95
-        CIC_CLAIMED_COUNT = 95
+        # #311 input noise (Sanchez-Gonzalez 2020, adapted): +input_noise_dropout -> 96
+        CIC_CLAIMED_COUNT = 96
         actual = len(HydraNetConfig.model_fields)
         assert actual == CIC_CLAIMED_COUNT, (
             f"CIC §3 claims {CIC_CLAIMED_COUNT} fields but HydraNetConfig has {actual}. "

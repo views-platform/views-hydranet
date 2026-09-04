@@ -56,6 +56,7 @@ types (module docstring `training_engine.py:1`).
   (`hydranet_inference.py:292`). The premise of scheduled sampling ("train exposure == deploy
   exposure") holds only if the two construct the same object; a mismatch silently invalidates any
   SS verdict (C-246 / C-259; test `tests/train/test_feedback_parity.py`).
+- **Input noise touches DYNAMIC channels only (invariant):** `input_noise_dropout` (#311) is applied to `dyn_input` after the scheduled-sampling resolution and **before** the static re-attach, and `_noisable_channels` excludes any feature also declared static. Geometry is *"always the true values, never sampled"*. The Stage-5 diagnostic biopsy is never noised — it is a clean-performance probe. ⚠️ No arm in this fleet declares statics, so the exclusion branch is covered by a synthetic-config test (C-309).
 - **Static-channel re-attach (invariant):** every forward re-attaches input-only static channels
   as `[dynamic ⧺ static]` via `_attach_static_channels` (`training_engine.py:160`, called at `:344`
   in the main loop and `:710` in the diagnostic biopsy) — statics are geometry-constant, always the

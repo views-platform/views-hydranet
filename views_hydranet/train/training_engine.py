@@ -184,6 +184,57 @@ def _batchnorm_eval(model: nn.Module):
             m.train()
 
 
+def _noisable_channels(config: dict) -> list[int]:
+    """Positions within the DYNAMIC input that input noise may touch — i.e. not geometry.
+
+    `dyn_input` is `t0[:, idx.feat]`, so its channel j is `config["features"][j]`. Statics are
+    normally a disjoint list re-attached afterwards, in which case this returns every position; but
+    `_SequenceIndices` builds `feat` and `static` as two independent index lists over the same axis
+    (`training_engine.py` ~:153), so an overlap is representable and would silently noise CoordConv
+    geometry — "always the true values, never sampled".
+
+    Measured 2026-09-04: `static_channels` is EMPTY on every arm in this fleet, so the exclusion
+    branch below cannot be exercised by any real config. It is covered by a synthetic-config test
+    instead — C-309: a guard whose firing case has never been observed is not a guard.
+    """
+    statics = set(config.get("static_channels") or [])
+    return [j for j, name in enumerate(config.get("features") or []) if name not in statics]
+
+
+def _apply_input_noise(
+    dyn_input: torch.Tensor,
+    keep: torch.Tensor,
+    dropout: float,
+    channels: list[int],
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Silence input events the way free-running silences them (#311, S1 #313).
+
+    S1 measured what the model's own error actually is: at h18 it silences **99.6%** of true events
+    while firing on 0.003% of true zeros — FN/FP = 36,870x. It does not jitter, so Gaussian noise
+    (`SanchezGonzalez2020`'s instantiation for dense standardised fields) would model the wrong
+    failure. The rollout-induced part of that silencing fits a constant per-step dropout of
+    **p = 0.204** (relative residual 5% at h18); see `02_design.md`.
+
+    ACCUMULATING, because rollout error accumulates and the paper's own ablation found random-walk
+    noise beat i.i.d.: `keep` carries forward, so a dropped cell **stays dropped**. The caller
+    resets it every `time_steps` steps — a training window is 348 steps while deployment rolls 36,
+    and accumulating unbounded would leave 0.796^347 ~ 1e-35 of the input.
+
+    Only removes. It cannot manufacture occurrence (M45's lever), and it writes 0, where
+    `log1p(0) = 0` is on-manifold — so the negative-log-count hazard cannot arise.
+
+    `channels` lists the positions of `dyn_input` that may be noised; static geometry channels are
+    excluded by the caller because they are "always the true values, never sampled".
+    """
+    if not channels:
+        return dyn_input, keep
+    sel = dyn_input[:, channels]
+    survives = (torch.rand_like(sel) >= dropout).to(sel.dtype)
+    new_keep = keep.clone()
+    new_keep[:, channels] = keep[:, channels] * survives
+    return dyn_input * new_keep, new_keep
+
+
 def _attach_static_channels(
     dyn_input: torch.Tensor, t0_step: torch.Tensor, idx: "_SequenceIndices"
 ) -> torch.Tensor:
@@ -374,6 +425,9 @@ def _process_sequence(
     ss_backprop_through_feedback: bool = False,
     ss_feedback_grad_clip: float | None = None,
     ss_feedback_grad_sink: list[float] | None = None,
+    input_noise_dropout: float | None = None,
+    input_noise_segment: int = 36,
+    input_noise_channels: list[int] | None = None,
 ) -> dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
@@ -418,6 +472,7 @@ def _process_sequence(
         decay_active = _active_window_mask(train_tensor[:, 1:, idx.reg, :, :], 0.0)
 
     prev_pred: torch.Tensor | None = None
+    _noise_keep: torch.Tensor | None = None  # accumulating keep-mask, reset per segment
 
     for i in range(seq_len - 1):
         t0 = train_tensor[:, i, :, :, :]
@@ -436,6 +491,17 @@ def _process_sequence(
             dyn_input = torch.where(mask, prev_pred, t0_gt)
         else:
             dyn_input = t0_gt
+
+        # #311: silence input events the way free-running silences them. AFTER the scheduled-
+        # sampling resolution so both branches are augmented identically (noising only the `else`
+        # would leave the eps>0 arm unaugmented and make the arms incomparable), and BEFORE the
+        # static re-attach so geometry is never touched.
+        if input_noise_dropout is not None:
+            if i % input_noise_segment == 0:
+                _noise_keep = torch.ones_like(dyn_input)
+            dyn_input, _noise_keep = _apply_input_noise(
+                dyn_input, _noise_keep, input_noise_dropout, input_noise_channels or []
+            )
 
         # ADR-060 I3: re-attach static (input-only) channels [dynamic ⧺ static]. See helper.
         t0_input = _attach_static_channels(dyn_input, t0, idx)
@@ -866,6 +932,7 @@ def train(
         cls_valid_mask = _full[0, 0, _pg] > 0  # [H, W] bool — land cells
 
     # --- CORE SEQUENCE PROCESSING ---
+    _input_noise = config.get("input_noise_dropout")
     result = _process_sequence(
         train_tensor,
         model,
@@ -905,6 +972,14 @@ def train(
         # no-op, so every existing arm is byte-identical.
         ss_feedback_grad_clip=config.get("ss_feedback_grad_clip"),
         ss_feedback_grad_sink=fed_grad_sink,
+        # #311 input noise. `time_steps` is the DEPLOYMENT horizon, read explicitly rather than
+        # hardcoded: the dropout accumulates over one rollout's worth of steps and then resets.
+        # Read ONLY when the noise is on — so the off path never touches the key (byte-identical,
+        # and callers without it keep working), while an enabled arm missing it fails loud rather
+        # than silently falling back to a shadow default (C-85).
+        input_noise_dropout=_input_noise,
+        input_noise_segment=config["time_steps"] if _input_noise is not None else 0,
+        input_noise_channels=_noisable_channels(config) if _input_noise is not None else None,
     )
     step_total, step_reg, step_cls = result["per_step_losses"]
 
