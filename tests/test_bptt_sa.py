@@ -469,7 +469,14 @@ class _LatentMSE(torch.nn.MSELoss):
     needs_latent = True
 
 
-def _run_family(*, backprop: bool, seed: int = 0):
+def _run_family(
+    *,
+    backprop: bool,
+    seed: int = 0,
+    clip: float | None = None,
+    sink: list[float] | None = None,
+    return_loss: bool = False,
+):
     from views_hydranet.distributions import resolve_family
 
     fam = resolve_family("nb")
@@ -491,9 +498,13 @@ def _run_family(*, backprop: bool, seed: int = 0):
         forecast_composition="soft_gate",
         family=fam,
         ss_backprop_through_feedback=backprop,
+        ss_feedback_grad_clip=clip,
+        ss_feedback_grad_sink=sink,
     )
+    loss = float(res["total"])
     res["total"].backward()
-    return torch.cat([p.grad.flatten() for p in model.parameters() if p.grad is not None])
+    grads = torch.cat([p.grad.flatten() for p in model.parameters() if p.grad is not None])
+    return (grads, loss) if return_loss else grads
 
 
 def test_INTEGRATION_the_flag_changes_gradients_on_a_family_head():
@@ -641,3 +652,132 @@ def test_C259_makes_the_mean_plus_sampling_configuration_unreachable():
     raw.update(run_type="calibration", ss_epsilon_max=0.5, ss_feedback="mean")
     with pytest.raises(Exception, match="C-259"):
         HydraNetConfig(**raw)
+
+
+# ---------------------------------------------------------------------------
+# #308 GRAD-TRAJ follow-up: the per-step feedback-gradient limiter.
+#
+# GRAD-TRAJ measured the attached arm's pre-clip gradient norm rising 133,465 -> 9.4e9 between
+# lessons 15-25 and 38-47 while its control's FELL 859 -> 312, until float32 gave out at lesson 48.
+# `clip_grad_norm_` was on throughout and could not help: it runs ONCE at the end of the backward
+# pass, after the product has already overflowed. `_clip_feedback_grad` bounds the same gradient
+# per step, at the one tensor credit crosses on.
+#
+# The helper tests below are necessary and NOT sufficient — helper-level tests left 4 of 5
+# call-site mutations alive on this very file's earlier work, including the original bug
+# reintroduced verbatim. The tests that matter are the two INTEGRATION ones at the end.
+# ---------------------------------------------------------------------------
+
+
+def _grad_of(x, *, clip, sink=None):
+    """Backward a fixed scalar through `x` after attaching the limiter; return dL/dx."""
+    from views_hydranet.train.training_engine import _clip_feedback_grad
+
+    out = _clip_feedback_grad(x, clip, sink)
+    (out * _FIXED_UPSTREAM).sum().backward()
+    return x.grad.clone()
+
+
+_FIXED_UPSTREAM = 100.0
+
+
+def test_a_clip_of_None_and_no_sink_leaves_the_gradient_bit_identical():
+    with_helper = torch.ones(4, requires_grad=True)
+    without_helper = torch.ones(4, requires_grad=True)
+    ga = _grad_of(with_helper, clip=None)
+    (without_helper * _FIXED_UPSTREAM).sum().backward()
+    assert torch.equal(ga, without_helper.grad), (
+        "the default must be a no-op, or every existing arm changes"
+    )
+
+
+def test_the_clip_rescales_to_exactly_the_threshold_and_does_not_rotate():
+    x = torch.ones(4, requires_grad=True)
+    g = _grad_of(x, clip=1.0)
+    assert pytest.approx(float(g.norm(2)), rel=1e-5) == 1.0
+    # direction preserved: an element-wise clamp would flatten these to equal values, which they
+    # already are -- so use an asymmetric upstream to make rotation detectable.
+    y = torch.ones(4, requires_grad=True)
+    from views_hydranet.train.training_engine import _clip_feedback_grad
+
+    out = _clip_feedback_grad(y, 1.0, None)
+    (out * torch.tensor([1.0, 2.0, 3.0, 4.0]) * 100.0).sum().backward()
+    unit = y.grad / y.grad.norm(2)
+    expected = torch.tensor([1.0, 2.0, 3.0, 4.0])
+    expected = expected / expected.norm(2)
+    assert torch.allclose(unit, expected, atol=1e-6), "the clip rotated the gradient"
+
+
+def test_a_gradient_already_under_the_threshold_is_untouched():
+    x = torch.ones(4, requires_grad=True)
+    g = _grad_of(x, clip=1e9)
+    assert pytest.approx(float(g.norm(2)), rel=1e-6) == float(
+        torch.full((4,), _FIXED_UPSTREAM).norm(2)
+    )
+
+
+def test_the_sink_records_the_norm_BEFORE_clipping():
+    """If it recorded the post-clip value it would read as flat at the threshold for every
+    exploding step -- i.e. the instrument would hide exactly what it exists to show."""
+    sink: list[float] = []
+    x = torch.ones(4, requires_grad=True)
+    _grad_of(x, clip=1.0, sink=sink)
+    assert len(sink) == 1
+    assert pytest.approx(sink[0], rel=1e-5) == float(torch.full((4,), _FIXED_UPSTREAM).norm(2))
+    assert sink[0] > 1.0, "the recorded norm is the clipped one, not the raw one"
+
+
+def test_a_sink_with_no_clip_observes_without_acting():
+    sink: list[float] = []
+    x = torch.ones(4, requires_grad=True)
+    g = _grad_of(x, clip=None, sink=sink)
+    assert len(sink) == 1
+    assert pytest.approx(float(g.norm(2)), rel=1e-6) == sink[0]
+
+
+def test_a_tensor_that_carries_no_gradient_is_returned_untouched():
+    from views_hydranet.train.training_engine import _clip_feedback_grad
+
+    x = torch.ones(4)  # requires_grad False, as `fed` is when the wire is cut
+    assert _clip_feedback_grad(x, 1.0, []) is x
+
+
+def test_INTEGRATION_POTENCY_the_clip_bounds_the_gradient_on_a_family_head():
+    """The gate this work needed. Threshold derived from the arm's OWN measured norms, not guessed.
+
+    C-324: an intervention must be shown to ACT on the configuration production runs before any
+    result built on it is believed. #308's first implementation was inert on this exact path.
+    """
+    sink: list[float] = []
+    unclipped = _run_family(backprop=True, sink=sink)
+    assert sink, "the sink recorded nothing — the hook never fired on the family path"
+    threshold = max(sink) / 10.0
+    assert threshold > 0
+
+    clipped = _run_family(backprop=True, clip=threshold)
+    assert torch.isfinite(clipped).all()
+    delta = float((clipped - unclipped).abs().sum())
+    assert delta > 0, (
+        "the clip changed NO gradient on a family head with sampled feedback — it is inert on "
+        "the production path, exactly as #308's first implementation was"
+    )
+    assert float(clipped.norm(2)) < float(unclipped.norm(2)), (
+        "the clip acted but did not REDUCE the gradient, which is the one thing it is for"
+    )
+
+
+def test_INTEGRATION_the_clip_is_backward_only_and_never_moves_the_loss():
+    """If clipping moved the forward pass, a stabilised arm would differ from an unstabilised one
+    for a second reason and the comparison would be confounded — the same trap C-184's BatchNorm
+    finding and the pushforward's train()-mode forward both sprang."""
+    _, loss_off = _run_family(backprop=True, clip=None, return_loss=True)
+    _, loss_on = _run_family(backprop=True, clip=1e-6, return_loss=True)
+    assert loss_off == loss_on, "clipping changed the forward loss; it must touch gradients only"
+
+
+def test_the_clip_does_nothing_when_the_wire_is_cut():
+    """With backprop off, `fed` is detached and there is no gradient to bound. A clip that
+    somehow acted there would silently alter every plain scheduled-sampling arm."""
+    off_plain = _run_family(backprop=False, clip=None)
+    off_clipped = _run_family(backprop=False, clip=1e-9)
+    assert torch.equal(off_plain, off_clipped)

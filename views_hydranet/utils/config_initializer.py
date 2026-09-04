@@ -208,6 +208,13 @@ class HydraNetConfig(BaseModel):
     # stateless reading. Recorded as a fork the paper cannot settle for a recurrent model.
     pushforward_detach_state: bool = Field(default=False)
     ss_backprop_through_feedback: bool = Field(default=False)
+    # #308 GRAD-TRAJ follow-up. Max L2 norm of the gradient leaving the scheduled-sampling
+    # handoff, applied PER STEP. None (default) is a no-op. `clip_grad_norm` cannot substitute:
+    # it runs once at the END of the backward pass, and GRAD-TRAJ measured the intermediate
+    # gradient reaching 9.4e9 -- overflowing float32 at lesson 48 -- with it switched on
+    # throughout. `gt=0` because a clip of 0 would zero the feedback gradient entirely, which is
+    # not "bounded" but "the wire cut again", and would be indistinguishable from the C-324 no-op.
+    ss_feedback_grad_clip: float | None = Field(default=None, gt=0.0)
 
     # 7. Sampling & Reproducibility
     total_lessons: int = Field(..., ge=1)

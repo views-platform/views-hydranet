@@ -300,6 +300,43 @@ def _family_feedback_log1p(reg, family, mode, gate, composition, threshold, gene
     return torch.log1p(draws.clamp(min=0.0))
 
 
+def _clip_feedback_grad(
+    fed: torch.Tensor, max_norm: float | None, sink: list[float] | None
+) -> torch.Tensor:
+    """Bound the gradient leaving the scheduled-sampling handoff, ONE STEP AT A TIME.
+
+    `fed` is the sole tensor through which credit crosses from step i+1 back to step i, so it is
+    the exact bottleneck of the BPTT product chain. Clipping here bounds the per-step
+    amplification; `clip_grad_norm_` in the lesson loop cannot, because it runs once at the END of
+    the backward pass, long after the product has already overflowed. That distinction is the whole
+    reason this exists — the GRAD-TRAJ probe (#308, 2026-09-04) measured the attached arm's
+    pre-clip gradient norm rising 133,465 -> 9.4e9 between lessons 15-25 and 38-47 while its
+    control's FELL 859 -> 312, and float32 gave out at lesson 48. Clipping was on the whole time.
+
+    Scales, never truncates: an element-wise clamp would rotate the gradient, which is
+    Pascanu et al. 2013's argument for norm-rescaling inside a recurrence.
+
+    `max_norm=None` observes without acting, so the natural scale can be MEASURED before a
+    threshold is chosen rather than guessed. `sink` is appended to only when supplied, because
+    reading the norm forces a device sync on every one of the ~383 steps in a window.
+    """
+    if not fed.requires_grad or (max_norm is None and sink is None):
+        return fed
+
+    def _hook(grad: torch.Tensor) -> torch.Tensor:
+        norm = grad.norm(2)
+        if sink is not None:
+            sink.append(norm.item())
+        if max_norm is None:
+            return grad
+        # `norm` can be 0 (a step that reached no supervised target) — the epsilon keeps the
+        # no-op branch from dividing by it rather than guarding the ratio afterwards.
+        return grad * (max_norm / (norm + 1e-12)) if norm > max_norm else grad
+
+    fed.register_hook(_hook)
+    return fed
+
+
 def _process_sequence(
     train_tensor: torch.Tensor,
     model: nn.Module,
@@ -330,6 +367,8 @@ def _process_sequence(
     pushforward_weight: float = 0.0,
     pushforward_detach_state: bool = False,
     ss_backprop_through_feedback: bool = False,
+    ss_feedback_grad_clip: float | None = None,
+    ss_feedback_grad_sink: list[float] | None = None,
 ) -> dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
@@ -435,6 +474,10 @@ def _process_sequence(
                     fed = surrogate + (fed - surrogate).detach()
             else:
                 fed = t1_pred
+            if ss_backprop_through_feedback:
+                # Only when the wire is connected: with it cut, `fed` is detached below and
+                # carries no gradient for a hook to see.
+                fed = _clip_feedback_grad(fed, ss_feedback_grad_clip, ss_feedback_grad_sink)
             prev_pred = fed if ss_backprop_through_feedback else fed.detach()
 
         t1_pred_for_loss = output.reg_latent if use_latent else t1_pred
@@ -752,6 +795,7 @@ def train(
     pbar: tqdm,
     stage_label: str = "",
     ss_epsilon: float = 0.0,
+    fed_grad_sink: list[float] | None = None,
 ) -> dict[str, torch.Tensor]:
     ctx.model.train()
     ctx.multitaskloss_instance.train()
@@ -852,6 +896,10 @@ def train(
         pushforward_weight=config.get("pushforward_weight", 0.0),
         pushforward_detach_state=config.get("pushforward_detach_state", False),
         ss_backprop_through_feedback=config.get("ss_backprop_through_feedback", False),
+        # #308 GRAD-TRAJ follow-up: bound the feedback gradient per step. None (default) is a
+        # no-op, so every existing arm is byte-identical.
+        ss_feedback_grad_clip=config.get("ss_feedback_grad_clip"),
+        ss_feedback_grad_sink=fed_grad_sink,
     )
     step_total, step_reg, step_cls = result["per_step_losses"]
 
@@ -1060,7 +1108,7 @@ def training_loop(
     # losses → CSV. config.trajectory_log_path=None (default) ⇒ no hooks, no file, byte-unchanged.
     _traj_path = config.get("trajectory_log_path")
     _traj_file = _traj_writer = None
-    _traj_acc = {"gate_sum": 0.0, "gate_n": 0}
+    _traj_acc = {"gate_sum": 0.0, "gate_n": 0, "fed_max": 0.0}
     if _traj_path:
         import csv as _csv
 
@@ -1074,9 +1122,15 @@ def training_loop(
         _traj_file = open(_traj_path, "w", newline="")
         _traj_writer = _csv.writer(_traj_file)
         _traj_writer.writerow(
-            ["lesson", "raw_grad_norm", "loss_reg", "loss_cls", "gate_logit_mean"]
+            ["lesson", "raw_grad_norm", "loss_reg", "loss_cls", "gate_logit_mean", "fed_grad_max"]
         )
         logger.info(f"📈 trajectory-log ON → {_traj_path}")
+
+    # The feedback-gradient sink exists ONLY while the trajectory log does: reading each step's
+    # norm forces a device sync ~383 times per window, which is not a cost a production arm should
+    # pay for a diagnostic it never reads. `ss_feedback_grad_clip` is independent of it — the clip
+    # acts whether or not anything is watching.
+    _fed_sink: list[float] | None = [] if _traj_writer is not None else None
 
     # The optional trajectory CSV must close on ANY exit from the lesson loop, not just the happy
     # one. `IntegrityGuardian.monitor` has always been able to raise from inside this loop, and the
@@ -1131,7 +1185,14 @@ def training_loop(
                 # 3. Process Window (Accumulate Loss)
                 # Pass viz to capture training dynamics (Stage 5) for all windows
                 slbl = f"Stage 5: Training Forensic (Lesson {lesson_idx + 1}_Win {window_idx + 1})"
-                losses = train(ctx, sample_handler, pbar, stage_label=slbl, ss_epsilon=ss_epsilon)
+                losses = train(
+                    ctx,
+                    sample_handler,
+                    pbar,
+                    stage_label=slbl,
+                    ss_epsilon=ss_epsilon,
+                    fed_grad_sink=_fed_sink,
+                )
 
                 # --- MEMORY-SAFE ACCUMULATION (ADR 014 Hardening) ---
                 # C-312: this guard used to read `if w_loss > 0`, which is NOT the question
@@ -1177,6 +1238,13 @@ def training_loop(
                 else:
                     w_loss.backward()
                     windows_trained += 1
+                    # The hooks fire DURING backward, so the sink is only populated here. Max, not
+                    # mean: one step's blow-up is what overflows float32, and a mean over ~383
+                    # steps would bury it.
+                    if _fed_sink:
+                        _traj_acc["fed_max"] = max(_traj_acc["fed_max"], max(_fed_sink))
+                if _fed_sink is not None:
+                    _fed_sink.clear()
 
                 lesson_loss += w_loss.detach()  # Keep track of magnitude for logging
                 lesson_reg += losses["reg"].item()
@@ -1235,11 +1303,13 @@ def training_loop(
                             lesson_reg / config["windows_per_lesson"],
                             lesson_cls / config["windows_per_lesson"],
                             _gm,
+                            _traj_acc["fed_max"],
                         ]
                     )
                     _traj_file.flush()
                     _traj_acc["gate_sum"] = 0.0
                     _traj_acc["gate_n"] = 0
+                    _traj_acc["fed_max"] = 0.0
 
                 # Gradient Clipping. C-314: the threshold used to be the literal 1.0 while the
                 # only config field was the on/off bool, so it could not be tuned from a config at
