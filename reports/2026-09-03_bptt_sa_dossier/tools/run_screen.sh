@@ -20,7 +20,9 @@ export WANDB_MODE=offline WANDB_SILENT=true          # C-163: wandb.finish() has
 # by the stall watchdog instead, which is the right division of labour.
 ARM_TIMEOUT=${ARM_TIMEOUT:-45000}
 STALL_MAX=${STALL_MAX:-1800}                         # 30 min of no log growth = stuck
-ARMS=(ssdetached_fortytwo ssattached_fortytwo)       # detached FIRST: it reproduces the known result
+# Overridable so a re-run does not need a code edit. Control FIRST, always: it reproduces the
+# known result, so if it moves, the vehicle changed and the treated arm means nothing.
+ARMS=(${SCREEN_ARMS:-ssdetached_fortytwo ssattached_fortytwo})
 mkdir -p "$OVN"; START=$(date +%s)
 log(){ echo "[$(date '+%F %T')] $*" >> "$OVN/run.log"; return 0; }
 phase(){ echo "$(date '+%F %T') $*" > "$OVN/PHASE"; log "PHASE: $*"; }

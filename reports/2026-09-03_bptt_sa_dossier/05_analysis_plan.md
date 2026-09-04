@@ -107,3 +107,62 @@ enforces — a design change, not a flag. Filed as a follow-up on #308.
   estimator is weaker evidence than a null from an unbiased one.
 
 This is **C-324 at one remove**: a null that is actually a fact about the apparatus.
+
+---
+
+## AMENDMENT A2 — 2026-09-04, before SCREEN-3 is launched, before any data exists
+
+SCREEN-2's treated arm **did not train** (NaN gradients, lesson 48, twice, deterministically). The
+GRAD-TRAJ probe identified why — the gradient CREEPs seven orders of magnitude above its control —
+and a per-step bound on the feedback gradient (`ss_feedback_grad_clip`) runs 80 clean lessons with
+the gradient back on the control's scale. SCREEN-3 is that arm, at 300 lessons, against a freshly
+retrained control.
+
+### A2.1 — The treated arm now differs by TWO config keys, and that is the honest description
+
+`ss_backprop_through_feedback: True` **and** `ss_feedback_grad_clip: 1.0`. This is not a second
+variable smuggled in: the builder refuses `--clip` on the detached arm because the clip has nothing
+to act on there, and the *unclipped* connected arm **does not exist as a runnable arm** — it dies at
+lesson 48. The contrast is therefore:
+
+> **wire cut** vs **wire connected, bounded** — not wire cut vs wire connected.
+
+A positive result is attributable to that package. It may **not** be reported as "BPTT-SA helps"
+without the qualifier, and the clip's contribution cannot be separated from the wire's by this
+design.
+
+### A2.2 — A null is NOT readable as "the idea does not help" (compounding A1)
+
+The clip bites on essentially every step: the pre-clip feedback-gradient norm runs at median
+**5.7–17.5** against a threshold of **1.0**, peaking at 1,774. The wire is connected but carrying
+roughly a tenth of its signal. So on a null there are now **two** live alternative explanations:
+
+1. **A1** — the straight-through estimator is biased; the gradient it delivers is not the one BPTT-SA
+   specifies.
+2. **A2** — the clip is throttling the signal below the level at which an effect could appear.
+
+An intervention weakened until it cannot show an effect is indistinguishable from one that has none.
+**A null therefore obliges a threshold ladder (clip ∈ {1, 10, 100}) before any conclusion about the
+idea**, and the ladder's top rung must be shown to still train. A positive result is unaffected: an
+attenuated wire that helps has helped.
+
+### A2.3 — The decision rule gains a non-numeric branch (C-320, fourth instance)
+
+SCREEN-2's rule enumerated `Δ ≥ +0.02` / `Δ ≤ 0` / grey zone and had **no branch for what actually
+happened**. Added now, in advance:
+
+> **BRANCH 0 — the arm produced no artifact.** If either arm fails to train, is killed, or produces
+> no scoreable artifact, the screen is **VOID, not negative**. It is reported as a harness or
+> stability outcome and **no Δ is quoted, estimated, or implied**. A crash is never evidence about
+> the hypothesis, and the failure signature must stay distinguishable from an unfavourable result
+> after the fact.
+
+The existing weight-hash post-condition stands and runs *before* any score is read: identical
+trained weights mean the treatment was inert again (C-324) and the screen is void by that route too.
+
+### A2.4 — Unchanged
+
+Seed, data, lesson count (300), primary measure (AP@h18, free-running, 13-origin support), the noise
+floor, and the SCREEN-not-verdict framing in §1 all stand. **n=1 per arm**: training variance is
+~20% (C-119/C-184), so only a large effect is visible, and a null remains *inconclusive* rather than
+*negative* — which after A1 and A2 is now overdetermined.
