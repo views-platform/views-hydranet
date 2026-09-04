@@ -1,6 +1,6 @@
 # Input-noise: make the training inputs look like what the model feeds itself
 
-**Opened** 2026-09-04 · **Branch** `exp/silence-vs-fade` · **Status** S0 in progress ·
+**Opened** 2026-09-04 · **Branch** `exp/silence-vs-fade` · **Status** S1 complete; S2 next ·
 **Epic #311** · **Tracking #320** · **This story: #312**
 
 ## Purpose
@@ -56,7 +56,7 @@ invention**. Several good gates are CI-tested and invoked by *no recent dossier*
 ## Next actions
 
 - [x] S0 — dossier scaffolded; harness audited; plan locked *(this story, #312)*
-- [ ] S1 #313 — measure the free-running error distribution ⛔ blocks S2
+- [x] S1 #313 — measured: **FN 0.9959 vs FP 0.000027 at h18 (36,870×), CV 0.002** ⇒ design `occurrence_dropout`, STOP-gate (a) passes
 - [ ] S2 #314 — design + implement
 - [ ] S3 #315 — adversarial audit, non-author, clean context
 - [ ] S4 #316 — smoke + potency **at a trained checkpoint**

@@ -1,0 +1,5 @@
+[2026-09-04 21:27:42] emit fullzero_fortytwo <- calibration_model_20260818_221401.pt (cubes retained)
+===== ARM identity (fullzero_fortytwo) =====
+  done in 326.4s -> score_fullzero_fortytwo_identity.csv
+wrote /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-09-04_input_noise_dossier/results/s1/manifest_fullzero_fortytwo_s1.jsonl
+[2026-09-04 21:33:19] emit rc=0
