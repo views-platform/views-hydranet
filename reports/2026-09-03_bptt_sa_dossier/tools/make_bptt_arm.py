@@ -65,8 +65,27 @@ def _resolve(path: Path, fn: str) -> dict:
     return ns[fn]()
 
 
-def build(which: str, *, out_root: Path = _MODELS) -> Path:
-    label, backprop = _ARMS[which]
+def build(
+    which: str,
+    *,
+    out_root: Path = _MODELS,
+    label: str | None = None,
+    traj: str | None = None,
+) -> Path:
+    """Build one arm.
+
+    `label` renames the destination directory, and `traj` turns on the engine's opt-in
+    per-lesson trajectory CSV (`trajectory_log_path`). Both exist for the GRAD-TRAJ probe, which
+    needs a THROWAWAY clone of an arm: re-running in the original directory would either destroy
+    `ssdetached_fortytwo`'s artifact or leave its config no longer describing the run that
+    produced it. A clone costs 9.5 MB of `data/raw` and keeps provenance exact.
+
+    `trajectory_log_path` is observational — the engine registers read-only forward hooks and
+    writes a CSV. It does not touch the forward math, the RNG, or the optimiser, so a clone with
+    `traj` set trains the same trajectory as the arm it clones.
+    """
+    default_label, backprop = _ARMS[which]
+    label = label or default_label
     dest = out_root / label
     if dest.exists():
         raise SystemExit(f"make_bptt_arm: {dest} exists — refusing to overwrite an arm")
@@ -94,6 +113,12 @@ def build(which: str, *, out_root: Path = _MODELS) -> Path:
         "ss_feedback",
         f"'ss_backprop_through_feedback': {backprop!r},  # #308 BPTT-SA: the ONE variable",
     )
+    if traj:
+        text = _insert_after(
+            text,
+            "ss_backprop_through_feedback",
+            f"'trajectory_log_path': {traj!r},  # GRAD-TRAJ probe: observational, per-lesson CSV",
+        )
     hp.write_text(text)
 
     # Queryset identity. config_queryset derives model_name from its own path and feeds the C-61
@@ -139,16 +164,17 @@ def build(which: str, *, out_root: Path = _MODELS) -> Path:
     )
     meta.write_text(mtext)
 
-    _verify(dest, backprop=backprop)
+    _verify(dest, backprop=backprop, traj=traj)
     return dest
 
 
-def _verify(dest: Path, *, backprop: bool) -> None:
+def _verify(dest: Path, *, backprop: bool, traj: str | None = None) -> None:
     floor = _resolve(_FLOOR / "configs" / "config_hyperparameters.py", "get_hp_config")
     arm = _resolve(dest / "configs" / "config_hyperparameters.py", "get_hp_config")
 
+    intended = _INTENDED | ({"trajectory_log_path"} if traj else set())
     diff = {k for k in set(floor) | set(arm) if floor.get(k) != arm.get(k)}
-    expected = {k for k in _INTENDED if arm.get(k) != floor.get(k)}
+    expected = {k for k in intended if arm.get(k) != floor.get(k)}
     if diff != expected:
         raise SystemExit(
             f"make_bptt_arm: config differs from the floor in {sorted(diff)}, expected exactly "
@@ -157,6 +183,7 @@ def _verify(dest: Path, *, backprop: bool) -> None:
 
     assert arm["ss_epsilon_max"] == _EPS, arm["ss_epsilon_max"]
     assert arm["ss_backprop_through_feedback"] is backprop
+    assert arm.get("trajectory_log_path") == traj, arm.get("trajectory_log_path")
     # the screen compares ONE boolean; everything that could confound it is asserted equal
     for k in (
         "torch_seed",
@@ -181,8 +208,13 @@ def _verify(dest: Path, *, backprop: bool) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("which", choices=sorted(_ARMS), help="detached = plain SS; attached = BPTT-SA")
+    ap.add_argument("--label", help="destination directory name (default: the arm's own name)")
+    ap.add_argument("--traj", help="path for the engine's opt-in per-lesson trajectory CSV")
     a = ap.parse_args()
-    dest = build(a.which)
+    if a.label and not re.fullmatch(r"[a-z]+_[a-z]+", a.label):
+        # ModelPathManager enforces this and fails much later, after the copytree.
+        raise SystemExit(f"make_bptt_arm: --label {a.label!r} must match ^[a-z]+_[a-z]+$")
+    dest = build(a.which, label=a.label, traj=a.traj)
     print(f"built {dest}")
     return 0
 
