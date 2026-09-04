@@ -285,3 +285,31 @@ def test_cosine_normalises_and_is_not_a_bare_dot_product():
     c = torch.tensor([10.0, 0.0])
     assert st_bias.cosine(c, torch.tensor([0.0, 7.0])) == pytest.approx(0.0, abs=1e-6)
     assert st_bias.cosine(c, torch.tensor([2.0, 0.0])) == pytest.approx(1.0)
+
+
+def test_the_nb_part_of_the_score_matches_torch_distributions_with_mu_and_theta_DISTINCT():
+    """Survivor of mutation M12: using `mu` in place of `theta` passed every test.
+
+    Every earlier case drew mu and theta from the same random tensor, so a swap moved the number
+    without breaking any assertion that looked at it. Here they are pinned to clearly different
+    constants and checked against torch.distributions, so the two channels cannot be confused.
+    """
+    fam = resolve_family("nb")
+    mu_val, theta_val, y_val = 2.5, 0.75, 3.0
+    params = torch.zeros(1, 2, 2, 2)
+    params[:, 0] = mu_val
+    params[:, 1] = theta_val
+    counts = torch.full((1, 1, 2, 2), y_val)
+
+    got = st_bias.score_log_prob(params, torch.zeros(1, 1, 2, 2), counts, None, fam, 1)
+    ref = torch.distributions.NegativeBinomial(
+        total_count=torch.tensor(theta_val),
+        probs=torch.tensor(mu_val / (mu_val + theta_val)),
+        validate_args=False,
+    ).log_prob(torch.tensor(y_val))
+    assert float(got) == pytest.approx(float(ref) * counts.numel(), rel=1e-5)
+
+    swapped = st_bias.score_log_prob(
+        params.flip(1).contiguous(), torch.zeros(1, 1, 2, 2), counts, None, fam, 1
+    )
+    assert abs(float(got) - float(swapped)) > 1e-3, "mu and theta are interchangeable here"
