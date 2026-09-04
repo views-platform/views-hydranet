@@ -1,0 +1,136 @@
+{
+  "model_dir": "/home/simon/Documents/scripts/views_platform/views-hydranet/../views-models/models/screenattached_fortytwo",
+  "artifact": "calibration_model_20260904_143617.pt",
+  "composition": "soft_gate",
+  "family": "nb",
+  "window_shape": [
+    1,
+    348,
+    6,
+    32,
+    32
+  ],
+  "n_params": 905289,
+  "handoffs": [
+    {
+      "step_i": 1,
+      "n_draws": 1024,
+      "cos_st_sf": 0.8820880651473999,
+      "split_half_cos_sf": 0.8603556156158447,
+      "split_half_cos_sf_permuted": 0.891200065612793,
+      "reliability_full": 0.9424704258605483,
+      "negative_control_cos": 0.0005705926450900733,
+      "curve": [
+        {
+          "n": 32,
+          "cos": 0.6199834942817688
+        },
+        {
+          "n": 64,
+          "cos": 0.622934877872467
+        },
+        {
+          "n": 128,
+          "cos": 0.7025153636932373
+        },
+        {
+          "n": 256,
+          "cos": 0.8181658983230591
+        },
+        {
+          "n": 512,
+          "cos": 0.8899097442626953
+        },
+        {
+          "n": 1024,
+          "cos": 0.8820880651473999
+        }
+      ],
+      "plateaued": true,
+      "max_forward_gap": 5.513429641723633e-07,
+      "norm_d_st": 2.95223069190979,
+      "norm_d_sf": 1.2568892240524292,
+      "mean_loss": 0.16387002110423055
+    },
+    {
+      "step_i": 3,
+      "n_draws": 1024,
+      "cos_st_sf": 0.7646347880363464,
+      "split_half_cos_sf": 0.9361814260482788,
+      "split_half_cos_sf_permuted": 0.8688323497772217,
+      "reliability_full": 0.9298130459704347,
+      "negative_control_cos": -0.0011130364146083593,
+      "curve": [
+        {
+          "n": 32,
+          "cos": 0.4309576451778412
+        },
+        {
+          "n": 64,
+          "cos": 0.5887920260429382
+        },
+        {
+          "n": 128,
+          "cos": 0.5819061994552612
+        },
+        {
+          "n": 256,
+          "cos": 0.6085905432701111
+        },
+        {
+          "n": 512,
+          "cos": 0.6862841248512268
+        },
+        {
+          "n": 1024,
+          "cos": 0.7646347880363464
+        }
+      ],
+      "plateaued": false,
+      "max_forward_gap": 1.6391277313232422e-07,
+      "norm_d_st": 0.677379310131073,
+      "norm_d_sf": 0.28589895367622375,
+      "mean_loss": 0.09022377368091838
+    },
+    {
+      "step_i": 5,
+      "n_draws": 1024,
+      "cos_st_sf": 0.7558775544166565,
+      "split_half_cos_sf": 0.8379597663879395,
+      "split_half_cos_sf_permuted": 0.8371215462684631,
+      "reliability_full": 0.911340404197875,
+      "negative_control_cos": -0.00123025628272444,
+      "curve": [
+        {
+          "n": 32,
+          "cos": -0.5792509913444519
+        },
+        {
+          "n": 64,
+          "cos": 0.014166336506605148
+        },
+        {
+          "n": 128,
+          "cos": 0.5295473337173462
+        },
+        {
+          "n": 256,
+          "cos": 0.6697068214416504
+        },
+        {
+          "n": 512,
+          "cos": 0.7537504434585571
+        },
+        {
+          "n": 1024,
+          "cos": 0.7558775544166565
+        }
+      ],
+      "plateaued": true,
+      "max_forward_gap": 4.842877388000488e-08,
+      "norm_d_st": 0.3067582845687866,
+      "norm_d_sf": 0.07736539095640182,
+      "mean_loss": 0.04761578036413994
+    }
+  ]
+}

@@ -307,3 +307,67 @@ bias is unrefuted and is now the *prime suspect for the harm itself* — which m
 is that **the straight-through approximation may be the thing that failed, and the idea underneath it
 is untested.** An unbiased feedback (the reparameterisation follow-up) remains the open question.
 n=1, one seed, one configuration.
+
+---
+
+## EXP-BIAS (Phase 1) — **A1 REFUTED. The estimator points the right way.** · 2026-09-04
+
+Rule pre-registered in **A3** (`5202cf8`), committed before the instrument existed. n=1024 draws,
+three handoffs, both trained 300-lesson artifacts, on each arm's **own real data** through the
+production pipeline (5,034,240 rows), 905,289 parameters, `nb` + `soft_gate`.
+
+### Readout — `cos(Δ_ST, Δ_SF)`
+
+| arm | step 1 | step 3 | step 5 |
+|---|---|---|---|
+| **attached** (trained WITH the wire — where the harm happened) | **+0.882** | **+0.765** | **+0.756** |
+| detached (control) | +0.213 | +0.707 | +0.782 |
+
+Threshold was **≥ +0.3 ⇒ A1 weakened, A3 leading**. Five of six handoffs clear it by a wide margin;
+**all three on the arm that actually trained under the estimator are ≥ +0.75.**
+
+### Every instrument gate passed
+
+| gate | result |
+|---|---|
+| split-half reliability of `Δ_SF` | **0.79 – 0.99** (parity and permuted splits agree: 0.86/0.89, 0.94/0.87, 0.84/0.84) |
+| negative control `cos(Δ_ST, random)` | **≤ 0.0018** in all six |
+| forward identity `L_cut == L_on` | **≤ 5.5e-07** — float32 noise; straight-through touches only the backward |
+| exact-truth Bernoulli control | passes (`dE/dp = f(1) − f(0)`) |
+| exact-truth Gaussian control | passes (`dE[z²]/dμ = 2μ`) |
+| plateau | 3 of 6 formally; see below |
+
+**The plateau gate is the one soft spot, and its failure direction is known.** The cosine *rises*
+with N (attached step 5: −0.579 → +0.014 → +0.530 → +0.670 → +0.754 → +0.756) because a noisy
+reference can only drag a correlation **toward zero**. So an observed +0.76 is a **lower bound**:
+more samples move these numbers further above the threshold, never below. The verdict direction does
+not depend on closing that gate.
+
+**⛔ My earlier n=256 reading was wrong and the gate caught it.** At n=256 the control's split-half
+came back +0.50 / −0.06 / −0.17, and I suspected my even/odd split was manufacturing it from
+adjacent RNG seeds. It was not — a permuted split at n=1024 agrees with parity to ~0.05. It was
+simply sample size. Recorded because I published the suspicion.
+
+### What this establishes
+
+**A1 is refuted.** The straight-through estimator does **not** point the wrong way; it aligns with
+the true gradient at 0.76–0.88 on the arm trained under it. The −0.1066 AP@h18 loss is therefore
+**not** explained by my approximation being backwards.
+
+**A3 leads: the objective genuinely does this.** BPTT-SA on this problem really does train the model
+to fire more — and firing is the lever M32/M45 and three other interventions have already shown to
+cost AP. This is a fifth confirmation of that finding, not a novel failure.
+
+⚠️ `cos ≈ 0.8` is not 1.0; ~0.6 rad of misalignment remains. The claim is "not backwards", **not**
+"unbiased". A perfectly unbiased feedback could still behave differently, and #308's follow-up
+(reparameterised / REINFORCE) is untouched by this.
+
+### ⛔ DEFECT FOUND IN MY OWN PHASE-2 DESIGN (see C-327)
+
+A2/A4 pre-registered the clip ladder as a **discriminator**, predicting AP *decreasing* under A1 and
+*increasing* under A3. **That derivation was wrong.** Under A3 the gradient is correct and points at
+an optimum that involves MORE firing, so more of it also gives **worse** AP. A1 and A3 make the
+**same** prediction and the ladder cannot separate them. It never could have.
+
+It did not cost anything — Phase 1 answered the question directly, and the ladder was never run —
+but a gate that cannot deliver its verdict is exactly **C-320**, and this is the fifth instance.
