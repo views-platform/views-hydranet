@@ -45,10 +45,16 @@ DET_MAX_LESSONS=${DET_MAX_LESSONS:-60}               # control only needs to spa
 
 # attached FIRST: it carries the result, and if it fails to reproduce the crash that is the
 # headline and the control can be skipped.
-ARMS=(trajattached_fortytwo trajdetached_fortytwo)
-declare -A CAP=( [trajattached_fortytwo]=$ATT_MAX_LESSONS [trajdetached_fortytwo]=$DET_MAX_LESSONS )
-declare -A CSV=( [trajattached_fortytwo]="$RES/traj_attached.csv" \
-                 [trajdetached_fortytwo]="$RES/traj_detached.csv" )
+# Arms are overridable so a follow-up probe (e.g. the ss_feedback_grad_clip check) reuses these
+# guards instead of copying them into a third near-identical launcher. Format: name:cap:csv-stem.
+ARMSPEC=${ARMSPEC:-"trajattached_fortytwo:$ATT_MAX_LESSONS:attached trajdetached_fortytwo:$DET_MAX_LESSONS:detached"}
+ARMS=(); declare -A CAP=(); declare -A CSV=()
+for spec in $ARMSPEC; do
+  IFS=: read -r _n _c _s <<< "$spec"
+  case "${_c:-}" in ''|*[!0-9]*) echo "bad ARMSPEC entry: $spec" >&2; exit 10;; esac
+  [ -n "${_n:-}" ] && [ -n "${_s:-}" ] || { echo "bad ARMSPEC entry: $spec" >&2; exit 10; }
+  ARMS+=("$_n"); CAP[$_n]=$_c; CSV[$_n]="$RES/traj_${_s}.csv"
+done
 
 mkdir -p "$RES"; START=$(date +%s)
 log(){ echo "[$(date '+%F %T')] $*" >> "$RES/run.log"; return 0; }
@@ -147,7 +153,13 @@ for ARM in "${ARMS[@]}"; do
                               echo "$(date '+%F %T') EMPTY TRAJECTORY $ARM" >> "$RES/ANOMALIES.txt"; }
 done
 
-phase "READOUT"
-$CENV python "$D/tools/read_gradtraj.py" >> "$RES/run.log" 2>&1 \
-  || log "!! readout failed — the CSVs are still on disk and can be read by hand"
+# The CREEP/JUMP readout is specific to the attached-vs-detached pair; a different ARMSPEC has
+# its own question and must not be handed this one's verdict.
+if [ "${ARMSPEC}" = "trajattached_fortytwo:$ATT_MAX_LESSONS:attached trajdetached_fortytwo:$DET_MAX_LESSONS:detached" ]; then
+  phase "READOUT"
+  $CENV python "$D/tools/read_gradtraj.py" >> "$RES/run.log" 2>&1 \
+    || log "!! readout failed — the CSVs are still on disk and can be read by hand"
+else
+  log "custom ARMSPEC — no automatic readout; the CSVs are the deliverable"
+fi
 log "=== $OK ok | failed:${FAILED:- none} ==="

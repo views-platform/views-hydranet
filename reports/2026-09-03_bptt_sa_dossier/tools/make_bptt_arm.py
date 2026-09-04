@@ -71,6 +71,7 @@ def build(
     out_root: Path = _MODELS,
     label: str | None = None,
     traj: str | None = None,
+    clip: float | None = None,
 ) -> Path:
     """Build one arm.
 
@@ -119,6 +120,12 @@ def build(
             "ss_backprop_through_feedback",
             f"'trajectory_log_path': {traj!r},  # GRAD-TRAJ probe: observational, per-lesson CSV",
         )
+    if clip is not None:
+        text = _insert_after(
+            text,
+            "ss_backprop_through_feedback",
+            f"'ss_feedback_grad_clip': {clip!r},  # per-step bound on the feedback gradient",
+        )
     hp.write_text(text)
 
     # Queryset identity. config_queryset derives model_name from its own path and feeds the C-61
@@ -164,15 +171,18 @@ def build(
     )
     meta.write_text(mtext)
 
-    _verify(dest, backprop=backprop, traj=traj)
+    _verify(dest, backprop=backprop, traj=traj, clip=clip)
     return dest
 
 
-def _verify(dest: Path, *, backprop: bool, traj: str | None = None) -> None:
+def _verify(
+    dest: Path, *, backprop: bool, traj: str | None = None, clip: float | None = None
+) -> None:
     floor = _resolve(_FLOOR / "configs" / "config_hyperparameters.py", "get_hp_config")
     arm = _resolve(dest / "configs" / "config_hyperparameters.py", "get_hp_config")
 
     intended = _INTENDED | ({"trajectory_log_path"} if traj else set())
+    intended |= {"ss_feedback_grad_clip"} if clip is not None else set()
     diff = {k for k in set(floor) | set(arm) if floor.get(k) != arm.get(k)}
     expected = {k for k in intended if arm.get(k) != floor.get(k)}
     if diff != expected:
@@ -184,6 +194,11 @@ def _verify(dest: Path, *, backprop: bool, traj: str | None = None) -> None:
     assert arm["ss_epsilon_max"] == _EPS, arm["ss_epsilon_max"]
     assert arm["ss_backprop_through_feedback"] is backprop
     assert arm.get("trajectory_log_path") == traj, arm.get("trajectory_log_path")
+    assert arm.get("ss_feedback_grad_clip") == clip, arm.get("ss_feedback_grad_clip")
+    if clip is not None and not backprop:
+        # The clip only acts on a connected wire; a clipped detached arm would be a silently
+        # ordinary scheduled-sampling arm wearing a misleading name.
+        raise SystemExit("make_bptt_arm: --clip is meaningless on the detached arm")
     # the screen compares ONE boolean; everything that could confound it is asserted equal
     for k in (
         "torch_seed",
@@ -210,11 +225,12 @@ def main() -> int:
     ap.add_argument("which", choices=sorted(_ARMS), help="detached = plain SS; attached = BPTT-SA")
     ap.add_argument("--label", help="destination directory name (default: the arm's own name)")
     ap.add_argument("--traj", help="path for the engine's opt-in per-lesson trajectory CSV")
+    ap.add_argument("--clip", type=float, help="per-step max L2 norm for the feedback gradient")
     a = ap.parse_args()
     if a.label and not re.fullmatch(r"[a-z]+_[a-z]+", a.label):
         # ModelPathManager enforces this and fails much later, after the copytree.
         raise SystemExit(f"make_bptt_arm: --label {a.label!r} must match ^[a-z]+_[a-z]+$")
-    dest = build(a.which, label=a.label, traj=a.traj)
+    dest = build(a.which, label=a.label, traj=a.traj, clip=a.clip)
     print(f"built {dest}")
     return 0
 
