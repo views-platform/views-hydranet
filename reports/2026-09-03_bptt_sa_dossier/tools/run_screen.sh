@@ -30,6 +30,14 @@ log "=== BPTT-SA screen: ${#ARMS[@]} training arms, timeout ${ARM_TIMEOUT}s ==="
 ( while :; do date '+%s %F %T' > "$OVN/HEARTBEAT"; sleep 30; done ) & HB=$!
 trap 'kill $HB 2>/dev/null; echo "ended=$(date "+%F %T") elapsed_min=$(( ($(date +%s)-START)/60 ))" > "$OVN/RUN_COMPLETE"; log "=== RUN_COMPLETE ==="' EXIT
 
+# `$APID` is the SUBSHELL; killing it leaves `timeout -> conda run -> python` alive beneath it.
+# Measured in run_gradtraj.sh 2026-09-04: an arm reported killed went on training for 7 more
+# lessons on the GPU. This watchdog has never fired (no STALLED line in any ANOMALIES.txt), so no
+# past result is affected -- but if it ever did, it would log a kill and leave the process running,
+# and the next arm's <3000 MiB GPU guard would fail loud for a reason nobody would connect to this.
+kill_tree(){ local p=$1 c; for c in $(pgrep -P "$p" 2>/dev/null); do kill_tree "$c"; done
+             kill -TERM "$p" 2>/dev/null; }
+
 guard(){ local m="$1"
   $CENV python -c 'import torch,sys; sys.exit(0 if torch.cuda.is_available() else 1)' 2>/dev/null \
     || { log "GUARD FAIL: no CUDA — refusing a silent CPU grind (C-163)"; return 1; }
@@ -73,7 +81,7 @@ for ARM in "${ARMS[@]}"; do
       kill -0 $APID 2>/dev/null || break
       s2=$(stat -c %s "$LOG" 2>/dev/null || echo 0)
       [ "$s1" = "$s2" ] && { echo "$(date '+%F %T') STALLED $ARM at ${s2}B" >> "$OVN/ANOMALIES.txt"
-                             kill -TERM $APID 2>/dev/null; break; }
+                             kill_tree $APID; break; }
     done ) & WD=$!
   wait $APID; rc=$?; kill $WD 2>/dev/null; wait $WD 2>/dev/null
   if [ $rc -eq 0 ] && ls "$A"/artifacts/*.pt >/dev/null 2>&1; then

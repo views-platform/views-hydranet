@@ -72,6 +72,14 @@ guard(){
     || { log "GUARD FAIL: repo HEAD moved mid-run — the arms would not be comparable"; return 1; }
   return 0; }
 
+# DEFECT FOUND IN THIS SCRIPT'S FIRST RUN, fixed here. `$APID` is the SUBSHELL, and killing it
+# leaves the `timeout -> conda run -> python` tree beneath it alive: the control arm was reported
+# CAPPED at 60 lessons and went on training to lesson 67 on the GPU, unwatched, after the launcher
+# had moved on. It did not corrupt the result (the read windows end at lesson 47) but it would have
+# failed the next run's own <3000 MiB GPU guard, or silently shared the card with it.
+kill_tree(){ local p=$1 c; for c in $(pgrep -P "$p" 2>/dev/null); do kill_tree "$c"; done
+             kill -TERM "$p" 2>/dev/null; }
+
 # The knob must be live on THIS clone, not on the arm it was cloned from (C-324). Two seconds.
 phase "POTENCY PRE-FLIGHT"
 if ! $CENV python "$D/tools/preflight_potency.py" "${ARMS[@]}" >> "$RES/run.log" 2>&1; then
@@ -101,7 +109,7 @@ for ARM in "${ARMS[@]}"; do
       if [ "${n:-0}" -gt "$LIM" ]; then
         echo "$(date '+%F %T') CAP $ARM at $((n-1)) lessons — killing, this is intended" >> "$RES/run.log"
         touch "$RES/${ARM}.capped"
-        kill -TERM $APID 2>/dev/null; break
+        kill_tree $APID; break
       fi
     done ) & CAPW=$!
   # Stall watchdog, independent of the cap: a hang produces neither log growth nor CSV rows.
@@ -110,10 +118,18 @@ for ARM in "${ARMS[@]}"; do
       kill -0 $APID 2>/dev/null || break
       s2=$(stat -c %s "$LOG" 2>/dev/null || echo 0)
       [ "$s1" = "$s2" ] && { echo "$(date '+%F %T') STALLED $ARM at ${s2}B" >> "$RES/ANOMALIES.txt"
-                             kill -TERM $APID 2>/dev/null; break; }
+                             kill_tree $APID; break; }
     done ) & WD=$!
   wait $APID; rc=$?
   kill $CAPW $WD 2>/dev/null; wait $CAPW $WD 2>/dev/null
+
+  # POST-CONDITION for the defect above: nothing of this arm may survive into the next one.
+  kill_tree $APID
+  sleep 3
+  if pgrep -af "main.py -r calibration" | grep -qv "bin/bash -c"; then
+    echo "$(date '+%F %T') ORPHAN survived $ARM — a later arm would share the GPU" >> "$RES/ANOMALIES.txt"
+    log "!! ORPHAN: a training process outlived $ARM. Kill it before trusting a later arm."
+  fi
 
   rows=$(( $(wc -l < "$C" 2>/dev/null || echo 1) - 1 ))
   if [ -f "$RES/${ARM}.capped" ]; then
