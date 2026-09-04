@@ -110,6 +110,13 @@ def measure(model, family, x, idx, *, step_i, n_draws, seed, composition, device
     params = [p for p in model.parameters() if p.requires_grad]
     H, W = x.shape[-2], x.shape[-1]
     full, half_a, half_b = st_bias._Accumulator(), st_bias._Accumulator(), st_bias._Accumulator()
+    rand_a, rand_b = st_bias._Accumulator(), st_bias._Accumulator()
+    # Two independent ways to split the samples. The parity split pairs consecutive draws, whose
+    # seeds differ by 1 -- if seed parity interacted with the sampler at all, the parity split
+    # would manufacture the very (anti)correlation it is meant to detect. The permuted split has
+    # no such structure. Reporting both means a disagreement between them is visible instead of
+    # being silently inherited by the verdict.
+    assign = torch.randperm(n_draws, generator=torch.Generator().manual_seed(seed)) % 2
     curve, max_fwd_gap = [], 0.0
 
     for n in range(n_draws):
@@ -141,7 +148,8 @@ def measure(model, family, x, idx, *, step_i, n_draws, seed, composition, device
 
         full.add(float(loss_cut), g_logp, d_st)
         (half_a if n % 2 == 0 else half_b).add(float(loss_cut), g_logp, d_st)
-        if (n + 1) in (32, 64, 128, 256, n_draws):
+        (rand_a if int(assign[n]) == 0 else rand_b).add(float(loss_cut), g_logp, d_st)
+        if (n + 1) in (32, 64, 128, 256, 512, 1024, 2048, n_draws):
             curve.append({"n": n + 1, "cos": st_bias.cosine(full.d_st(), full.d_sf())})
 
     return {
@@ -149,6 +157,15 @@ def measure(model, family, x, idx, *, step_i, n_draws, seed, composition, device
         "n_draws": n_draws,
         "cos_st_sf": st_bias.cosine(full.d_st(), full.d_sf()),
         "split_half_cos_sf": st_bias.cosine(half_a.d_sf(), half_b.d_sf()),
+        "split_half_cos_sf_permuted": st_bias.cosine(rand_a.d_sf(), rand_b.d_sf()),
+        # Two noisy measurements cannot correlate above their own reliability. Spearman-Brown
+        # lifts the half-sample reliability to the full sample, and the attenuation correction
+        # then says what the cosine would be if the reference were measured without error. Both
+        # are reported; NEITHER is the pre-registered readout, which stays the raw cos.
+        "reliability_full": (
+            2 * st_bias.cosine(rand_a.d_sf(), rand_b.d_sf())
+            / (1 + st_bias.cosine(rand_a.d_sf(), rand_b.d_sf()))
+        ),
         "negative_control_cos": st_bias.cosine(full.d_st(), torch.randn_like(full.d_st())),
         "curve": curve,
         "plateaued": st_bias.plateaued([c["cos"] for c in curve]),
