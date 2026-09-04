@@ -74,7 +74,9 @@ def main() -> int:
 
     p = per_h[PRIMARY_H]
     dominant_cv = p["cv_fn"] if p["fn_rate"] >= p["fp_rate"] else p["cv_fp"]
-    verdict = select_design(p["fn_rate"], p["fp_rate"], dominant_cv)
+    verdict = select_design(
+        fn_rate=p["fn_rate"], fp_rate=p["fp_rate"], cv_dominant=dominant_cv
+    )
 
     out = {
         "pred_dir": a.pred_dir,

@@ -477,7 +477,15 @@ def _process_sequence(
     # silently differ from the caller's `time_steps`. Demanded only when the noise is on.
     _noise_segment = 0
     if input_noise_dropout is not None:
-        if not isinstance(input_noise_segment, int) or input_noise_segment < 1:
+        # `bool` is excluded explicitly: isinstance(True, int) is True, and `segment=True` would
+        # give segment 1 — the mask resetting every step, silently turning the accumulating design
+        # into the i.i.d. one the paper's ablation found WORSE. `cv()` rejects bools for the same
+        # reason; the pattern was known here and not applied.
+        if (
+            isinstance(input_noise_segment, bool)
+            or not isinstance(input_noise_segment, int)
+            or input_noise_segment < 1
+        ):
             raise ValueError(
                 "input_noise_dropout is set but input_noise_segment is "
                 f"{input_noise_segment!r}; it must be a positive int (the deployment horizon)"

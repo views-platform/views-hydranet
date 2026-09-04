@@ -121,11 +121,18 @@ def test_a_dropout_of_zero_still_runs_rather_than_being_treated_as_off(monkeypat
 
 
 def test_the_arguments_are_not_transposed(monkeypatch):
-    """Mutation CS-08: swapping `dyn_input` and the keep-mask type-checks and stays green."""
-    calls = _run(monkeypatch)
-    for c in calls:
-        assert c["width"] == c["keep_width"]
-    assert calls[0]["keep_all_ones"], "the first call must receive a fresh all-ones mask"
+    """Mutation CS-08: swapping `dyn_input` and the keep-mask type-checks and stays green.
+
+    The earlier version of this test asserted `width == keep_width`, which can never fail — the two
+    always have the same shape, transposed or not. Found by the second audit as a vacuous assertion
+    whose docstring named a tell it did not check. The real tell is the CONTENT: the mask is all
+    ones on a reset step, and the data is not.
+    """
+    calls = _run(monkeypatch, dropout=0.0, segment=100)
+    assert calls[0]["keep_all_ones"], "the first argument is the mask, not the input"
+    assert not bool((calls[0]["input"] == 1).all()), (
+        "the input the helper received was all ones — the mask was passed in its place"
+    )
 
 
 # --- the segment and accumulation (CS-02, CS-03, CS-07, CS-11, CS-12, PS-01) ---

@@ -119,10 +119,13 @@ def test_the_drop_rate_is_approximately_the_requested_one():
     """Potency with a number: the knob must move the measured quantity to roughly where it is set,
     not merely move it."""
     torch.manual_seed(3)
-    x = torch.ones(1, 1, 200, 200)
+    x = torch.ones(1, 1, 400, 400)  # n=160k; sd of the estimate ~0.001
     out, _ = _apply_input_noise(x, torch.ones_like(x), 0.204, [0])
     dropped = float((out == 0).float().mean())
-    assert dropped == pytest.approx(0.204, abs=0.01)
+    # abs=0.004 is ~4 sd here. The earlier abs=0.01 on n=40k was ~5.4 sd, so it tolerated a
+    # systematic bias of +-0.008 on a rate whose pre-registered value is 0.204 — about 4%. The
+    # second audit found a +0.005 bias surviving this test and being caught only by RNG accident.
+    assert dropped == pytest.approx(0.204, abs=0.004)
 
 
 # ---------------------------------------------------------------------------

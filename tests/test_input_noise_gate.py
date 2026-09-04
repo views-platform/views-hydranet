@@ -219,8 +219,8 @@ def test_the_FP_dominance_boundary_is_inclusive_too():
 
 def test_a_CV_exactly_AT_the_gate_does_not_stop():
     """Survivor GT-07: `>` vs `>=` at the gate that decides whether to spend GPU was unpinned."""
-    assert select_design(0.9, 0.01, MAX_CV)["stop"] is False
-    assert select_design(0.9, 0.01, MAX_CV + 1e-9)["stop"] is True
+    assert select_design(fn_rate=0.9, fp_rate=0.01, cv_dominant=MAX_CV)["stop"] is False
+    assert select_design(fn_rate=0.9, fp_rate=0.01, cv_dominant=MAX_CV + 1e-9)["stop"] is True
 
 
 @pytest.mark.parametrize(
@@ -230,18 +230,22 @@ def test_a_CV_exactly_AT_the_gate_does_not_stop():
 def test_either_rate_being_undefined_stops(fn, fp):
     """Survivors GT-12/GT-13: only `fn_rate=NaN` was ever tested. `None` was never passed (GT-12
     would turn it into a TypeError crash), and an undefined `fp_rate` could select a design."""
-    assert select_design(fn, fp, 0.1)["stop"] is True
+    r = select_design(fn_rate=fn, fp_rate=fp, cv_dominant=0.1)
+    assert r["stop"] is True
+    # Survivor GT-22: the path could return stop=True while NAMING a design, and a consumer reading
+    # `design` without honouring `stop` would then act on a measurement that never happened.
+    assert r["design"] is None, "a design was named for an unmeasured rate"
 
 
 def test_every_return_path_has_the_same_keys():
     """Non-mutation finding: the undefined-rate path omitted `why`, so a consumer reading
     `r["why"]` raised KeyError on exactly the stop path."""
     results = [
-        select_design(0.9, 0.01, 0.1),
-        select_design(0.01, 0.9, 0.1),
-        select_design(0.1, 0.09, 0.1),
-        select_design(0.9, 0.01, 0.9),
-        select_design(float("nan"), 0.01, 0.1),
+        select_design(fn_rate=0.9, fp_rate=0.01, cv_dominant=0.1),
+        select_design(fn_rate=0.01, fp_rate=0.9, cv_dominant=0.1),
+        select_design(fn_rate=0.1, fp_rate=0.09, cv_dominant=0.1),
+        select_design(fn_rate=0.9, fp_rate=0.01, cv_dominant=0.9),
+        select_design(fn_rate=float("nan"), fp_rate=0.01, cv_dominant=0.1),
     ]
     for r in results:
         assert {"design", "stop", "reason", "why"} <= set(r), f"missing keys in {r}"

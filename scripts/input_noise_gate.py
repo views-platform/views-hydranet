@@ -28,8 +28,15 @@ DOMINANCE_FACTOR = 2.0
 MAX_CV = 0.5
 
 
-def rule_md5(*, dominance_factor: float = DOMINANCE_FACTOR, max_cv: float = MAX_CV) -> str:
-    """Lock hash over the rule's thresholds — relaxing one after seeing the data invalidates it."""
+def rule_md5(*, dominance_factor: float | None = None, max_cv: float | None = None) -> str:
+    """Lock hash over the rule's thresholds — relaxing one after seeing the data invalidates it.
+
+    The constants are read at CALL time, not bound as parameter defaults. As defaults they were
+    frozen at import, so replacing them with literals decoupled the hash from the module state and
+    the "lock" would keep returning the pinned value while the rule applied something else.
+    """
+    dominance_factor = DOMINANCE_FACTOR if dominance_factor is None else dominance_factor
+    max_cv = MAX_CV if max_cv is None else max_cv
     blob = json.dumps({"dominance_factor": dominance_factor, "max_cv": max_cv}, sort_keys=True)
     return hashlib.md5(blob.encode()).hexdigest()  # noqa: S324 - provenance token, not a secret
 
@@ -61,12 +68,18 @@ def cv(values) -> float:
     return math.sqrt(var) / abs(mean)
 
 
-def select_design(fn_rate: float, fp_rate: float, cv_dominant: float) -> dict:
+def select_design(*, fn_rate: float, fp_rate: float, cv_dominant: float) -> dict:
     """Apply the pre-registered selection rule. Returns design, stop flag, and the reason.
 
     ``fn_rate`` — expected fraction of TRUE events the model silences.
     ``fp_rate`` — expected fraction of TRUE zeros the model fires on.
     ``cv_dominant`` — coefficient of variation of the dominant rate across origins.
+
+    KEYWORD-ONLY on purpose. The 2026-09-04 audit found that swapping the first two positional
+    parameters left every test green — the tests asserting a *design* all passed keywords, and the
+    ones calling positionally asserted only ``stop``. A positional caller would then have selected
+    ``occurrence_injection`` where the measurement says ``occurrence_dropout``. Deleting the
+    positional form removes the failure mode rather than testing for it.
     """
     if any(x is None or math.isnan(x) for x in (fn_rate, fp_rate)):
         return {
