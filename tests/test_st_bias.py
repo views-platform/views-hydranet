@@ -240,3 +240,48 @@ def test_threshold_gate_is_REFUSED_rather_than_silently_measured():
     act, gate = _activated(fam)
     with pytest.raises(ValueError, match="soft_gate"):
         st_bias.draw_feedback(act, gate, fam, _N_REG, "threshold_gate")
+
+
+def test_the_score_INCLUDES_the_gate_term_and_equals_its_two_parts():
+    """Survivor of mutation M4: dropping the Bernoulli term entirely left all 13 tests green.
+
+    The gate is the whole firing mechanism, so a score function blind to it would compute d_SF
+    from the body alone and the cosine against it would answer a different question. Pinned two
+    ways: the total must equal nb + bernoulli exactly, and it must MOVE when only the gate moves.
+    """
+    fam = resolve_family("nb")
+    act, gate = _activated(fam)
+    torch.manual_seed(11)
+    _, counts, mask = st_bias.draw_feedback(act, gate, fam, _N_REG, "soft_gate")
+
+    total = st_bias.score_log_prob(act, gate, counts, mask, fam, _N_REG)
+    nb_only = st_bias.score_log_prob(act, gate, counts, None, fam, _N_REG)
+    bern = st_bias.bernoulli_log_prob(mask, gate[:, :_N_REG].clamp(1e-6, 1 - 1e-6)).sum()
+
+    assert float(total) == pytest.approx(float(nb_only) + float(bern), rel=1e-5)
+    assert abs(float(total) - float(nb_only)) > 1e-3, "the gate term contributes nothing"
+
+
+def test_the_score_gradient_reaches_the_gate():
+    """The mask's credit must flow back to the gate logits, or the estimator cannot see the very
+    channel through which BPTT-SA changes firing behaviour."""
+    fam = resolve_family("nb")
+    act, gate = _activated(fam)
+    torch.manual_seed(12)
+    _, counts, mask = st_bias.draw_feedback(act, gate, fam, _N_REG, "soft_gate")
+    g = torch.autograd.grad(
+        st_bias.score_log_prob(act, gate, counts, mask, fam, _N_REG), gate, allow_unused=True
+    )[0]
+    assert g is not None and float(g.abs().sum()) > 0.0
+
+
+def test_cosine_normalises_and_is_not_a_bare_dot_product():
+    """Survivor of mutation M7: every earlier case used unit vectors, where a @ b IS the cosine,
+    so removing the normalisation changed nothing the suite could see."""
+    a = torch.tensor([3.0, 4.0])  # norm 5
+    b = torch.tensor([3.0, 4.0])
+    assert st_bias.cosine(a, b) == pytest.approx(1.0)
+    assert float(a @ b) == pytest.approx(25.0)  # the bare dot product is nowhere near 1
+    c = torch.tensor([10.0, 0.0])
+    assert st_bias.cosine(c, torch.tensor([0.0, 7.0])) == pytest.approx(0.0, abs=1e-6)
+    assert st_bias.cosine(c, torch.tensor([2.0, 0.0])) == pytest.approx(1.0)
