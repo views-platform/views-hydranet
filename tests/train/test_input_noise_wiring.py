@@ -57,13 +57,17 @@ def _run(monkeypatch, **overrides):
 def test_the_segment_comes_from_time_steps_and_is_not_hardcoded(monkeypatch):
     """Survivors TR-02/TR-03. `time_steps` is set to a value no literal would guess, so a hardcoded
     36 — or a `config.get("time_steps", 36)` shadow default — is visible."""
-    # `steps` is set alongside `time_steps`: HydraNetConfig enforces `time_steps == len(steps)`, and
+    # `steps` is set alongside `time_steps`: HydraNetConfig enforces time_steps == len(steps), and
     # the second audit noted the earlier fixture pinned the segment against a config shape
     # production could not produce. 3 rather than 7 because the fixture's volume is 5 months long.
     cfg, _, segments = _run(monkeypatch, input_noise_dropout=0.5, time_steps=3, steps=[1, 2, 3])
     assert cfg["time_steps"] == 3 == len(cfg["steps"])
     assert cfg["time_steps"] != 36, "the value must differ from any literal a mutation would use"
-    assert segments and all(s == 3 for s in segments), f"segments were {set(segments)}, expected 3"
+    # `None` entries are the C-184 BN-recalibration pass, which is deliberately un-noised (#311);
+    # the training calls are the ones that must carry the config's value.
+    training = [s for s in segments if s is not None]
+    assert training, "no training call carried a segment"
+    assert all(s == 3 for s in training), f"segments were {set(training)}, expected 3"
 
 
 def test_the_configured_dropout_reaches_the_loop(monkeypatch):
@@ -133,3 +137,75 @@ def test_with_the_noise_OFF_the_loop_never_reaches_the_helper(monkeypatch):
     _, calls, segments = _run(monkeypatch)
     assert calls == []
     assert all(s is None for s in segments), "a segment was demanded while the noise was off"
+
+
+def test_EVERY_non_static_channel_is_noised_not_just_a_prefix(monkeypatch):
+    """Survivor TR-11: `_noisable_channels(config)[:1]` noises only the first target and survives.
+    The sentinel test above pins that the helper is CALLED; a 1-element sentinel happens to agree
+    with a `[:1]` slice. Nothing pinned that the full list arrives."""
+    cfg, calls, _ = _run(monkeypatch, input_noise_dropout=0.5)
+    assert calls, "the noise helper was never reached"
+    n_dynamic = len(cfg["features"])
+    assert n_dynamic > 1, "this test cannot discriminate with a single dynamic channel"
+    assert all(len(c["channels"]) == n_dynamic for c in calls), (
+        f"only {len(calls[0]['channels'])} of {n_dynamic} dynamic channels were noised"
+    )
+
+
+def test_process_sequence_defaults_to_noise_OFF(monkeypatch):
+    """Survivor PS-02: defaulting the signature to 0.204/36 makes every OTHER caller of
+    `_process_sequence` — pushforward, BPTT, the gradient-health tests — train under noise, and
+    they all still pass because each compares two runs that are both noised under a fixed seed.
+    'Off unless asked' has to be pinned at the function's own boundary."""
+    import inspect
+
+    from views_hydranet.train.training_engine import _process_sequence
+
+    sig = inspect.signature(_process_sequence).parameters
+    assert sig["input_noise_dropout"].default is None
+    assert sig["input_noise_segment"].default is None
+    assert sig["input_noise_channels"].default is None
+
+
+def test_the_diagnostic_biopsy_is_NEVER_noised(monkeypatch):
+    """Survivor BP-01. `docs/CICs/TrainingEngine.md` states as an invariant that the Stage-5
+    diagnostic biopsy is never noised — it is a *clean-performance* probe, and corrupting it
+    destroys the thing it measures. Noising it left all 2015 tests green: the invariant was prose.
+
+    The tell is grad state: the main loop runs with autograd enabled, the biopsy under `no_grad`.
+    So the noise must never be applied while grad is off.
+
+    Written to be non-vacuous: it first proves the biopsy actually RAN in this configuration (by
+    observing static re-attach calls under `no_grad`) before asserting the noise stayed out of it.
+    An assertion that cannot fail is what round 3 found two of.
+    """
+    noise_grad_states: list[bool] = []
+    attach_grad_states: list[bool] = []
+    real_noise = te._apply_input_noise
+    real_attach = te._attach_static_channels
+
+    def _rec_noise(dyn_input, keep, dropout, channels):
+        noise_grad_states.append(torch.is_grad_enabled())
+        return real_noise(dyn_input, keep, dropout, channels)
+
+    def _rec_attach(dyn_input, t0_step, idx):
+        attach_grad_states.append(torch.is_grad_enabled())
+        return real_attach(dyn_input, t0_step, idx)
+
+    monkeypatch.setattr(te, "_apply_input_noise", _rec_noise)
+    monkeypatch.setattr(te, "_attach_static_channels", _rec_attach)
+
+    cfg = loop_config(input_noise_dropout=0.5)
+    device = torch.device("cpu")
+    torch.manual_seed(cfg["torch_seed"])
+    model, criterion, optimizer, scheduler = make(cfg, device)
+    training_loop(cfg, model, criterion, optimizer, scheduler, loop_handler(cfg), device)
+
+    assert any(not g for g in attach_grad_states), (
+        "no forward ran under no_grad — the biopsy did not execute, so this test would be vacuous"
+    )
+    assert noise_grad_states, "the noise helper never ran at all"
+    assert all(noise_grad_states), (
+        "input noise was applied under no_grad — it reached the diagnostic biopsy, which the "
+        "TrainingEngine CIC declares must stay a clean-performance probe"
+    )

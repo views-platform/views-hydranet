@@ -119,13 +119,14 @@ def test_the_drop_rate_is_approximately_the_requested_one():
     """Potency with a number: the knob must move the measured quantity to roughly where it is set,
     not merely move it."""
     torch.manual_seed(3)
-    x = torch.ones(1, 1, 400, 400)  # n=160k; sd of the estimate ~0.001
+    x = torch.ones(1, 1, 700, 700)  # n=490k; sd of the estimate ~0.00058
     out, _ = _apply_input_noise(x, torch.ones_like(x), 0.204, [0])
     dropped = float((out == 0).float().mean())
-    # abs=0.004 is ~4 sd here. The earlier abs=0.01 on n=40k was ~5.4 sd, so it tolerated a
-    # systematic bias of +-0.008 on a rate whose pre-registered value is 0.204 — about 4%. The
-    # second audit found a +0.005 bias surviving this test and being caught only by RNG accident.
-    assert dropped == pytest.approx(0.204, abs=0.004)
+    # abs=0.0025 is ~4.3 sd at n=490k. The history matters: abs=0.01 on n=40k tolerated a +-0.008
+    # systematic bias (~4% of a pre-registered 0.204); round 2 tightened it to 0.004 on n=160k and
+    # claimed that closed it; round 3 showed a +0.003 bias still passing, caught only by an
+    # unseeded 32-element test with ~9% power, i.e. 1 run in 8. This bound is ~1.2% of the value.
+    assert dropped == pytest.approx(0.204, abs=0.0025)
 
 
 # ---------------------------------------------------------------------------
@@ -244,3 +245,49 @@ def test_the_helper_returns_a_NEW_mask_and_does_not_mutate_the_callers(_=None):
     before = keep.clone()
     _apply_input_noise(x, keep, 1.0, [0, 1])
     assert torch.equal(keep, before), "the helper mutated the caller's mask in place"
+
+
+def test_the_rate_SURVIVES_the_config_to_dict_handshake(valid_config_dict):
+    """The headline finding of the third audit, and the one that sits on the path a real run takes.
+
+    `ConfigInitializer.get_config()` is *"the single Handshake point for the whole pipeline"* — it
+    validates and then returns `model_dump()`. Adding `exclude=True` to the field makes it vanish
+    from that dict: the field still exists, its default is still `None`, its bounds still reject
+    0.0/1.0/−0.1, so **all three config tests pass** — and `train()`'s
+    `config.get("input_noise_dropout")` returns `None`, so **no real run is ever noised**.
+
+    That is the C-324 inert-knob signature, reached through the one layer none of the four test
+    files exercised: the config tests read `model_fields`, and the seam and wiring tests use raw
+    dicts that bypass pydantic entirely. Nothing asserted on the resolved dict.
+    """
+    from views_hydranet.utils.config_initializer import ConfigInitializer
+
+    resolved = ConfigInitializer({**valid_config_dict, "input_noise_dropout": 0.204}).get_config()
+    assert "input_noise_dropout" in resolved, (
+        "the field did not survive into the resolved config; every run would be un-noised"
+    )
+    assert resolved["input_noise_dropout"] == pytest.approx(0.204)
+    # And the off case must resolve to a value `train()` reads as off, not to a missing key.
+    off = ConfigInitializer(dict(valid_config_dict)).get_config()
+    assert off.get("input_noise_dropout") is None
+
+
+def test_a_TYPO_in_the_config_key_is_not_silently_accepted_as_the_real_one(valid_config_dict):
+    """`HydraNetConfig` sets `extra="allow"`, so `input_noise_droput: 0.204` validates cleanly
+    and the arm trains with the augmentation OFF and no warning — the same inert signature,
+    reached by a plausible authoring slip.
+
+    This is NOT fixed here: changing `extra` is repo-wide and out of this epic's scope. The test
+    pins the behaviour so it is visible rather than surprising, and the mitigation that does catch
+    it is the S4 potency gate, which runs on the arm's own config and aborts on an inert knob.
+    """
+    from views_hydranet.utils.config_initializer import ConfigInitializer
+
+    resolved = ConfigInitializer({**valid_config_dict, "input_noise_droput": 0.204}).get_config()
+    assert resolved.get("input_noise_dropout") is None, (
+        "a typo'd key was somehow bound to the real field"
+    )
+    assert resolved.get("input_noise_droput") == 0.204, (
+        "extra='allow' no longer keeps unknown keys — if that changed, the typo now fails loud "
+        "and this test should become an expectation of that, not of silent acceptance"
+    )

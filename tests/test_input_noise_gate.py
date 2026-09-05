@@ -275,3 +275,16 @@ def test_cv_refuses_anything_unmeasurable_rather_than_dropping_it(values):
 def test_cv_still_works_on_fully_measured_input():
     """The mirror of the test above: refusing bad input must not refuse good input."""
     assert cv([0.20, 0.21, 0.19]) == pytest.approx(0.05, abs=1e-6)
+
+
+def test_select_design_is_KEYWORD_ONLY():
+    """Survivor GT-24. The docstring says making it keyword-only 'removes the failure mode rather
+    than testing for it' — but nothing enforced the signature, so the positional form could be
+    reinstated silently and round 2's argument-swap survivor would come back."""
+    import inspect
+
+    params = inspect.signature(select_design).parameters
+    for name in ("fn_rate", "fp_rate", "cv_dominant"):
+        assert params[name].kind is inspect.Parameter.KEYWORD_ONLY, f"{name} is positional again"
+    with pytest.raises(TypeError):
+        select_design(0.9, 0.01, 0.1)  # type: ignore[misc]

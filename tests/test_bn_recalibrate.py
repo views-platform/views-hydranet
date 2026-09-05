@@ -40,7 +40,10 @@ def test_recalibrate_bn_resets_recomputes_and_evals(monkeypatch):
     w_before = model.enc_conv0.weight.detach().clone()
 
     # Monkeypatch train() to a forward that updates BN (no real data handler needed).
-    monkeypatch.setattr(te, "train", lambda ctx, sh, pbar, stage_label="": model(x, h0))
+    # **kw so the stub keeps accepting new keyword arguments as `train` grows; #311 added
+    # `apply_input_noise=False` here, which this pass passes precisely so BN statistics are
+    # recomputed on CLEAN inputs.
+    monkeypatch.setattr(te, "train", lambda ctx, sh, pbar, stage_label="", **kw: model(x, h0))
     ctx = SimpleNamespace(model=model)
     sampler = SimpleNamespace(get_batch=lambda t, th, batch_size=1: ([None], None))
     planner = SimpleNamespace(get_lesson=lambda w: ("lr_sb_best", 0))

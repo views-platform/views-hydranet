@@ -147,3 +147,53 @@ Whether noise helps **at 4 seeds**. Whether **direct multi-horizon** (#310) — 
 `Aceituno2025_TemporalHorizons` actually argues for — is better; that is the next epic. Whether a
 *different* noise family would work, if the one S1 selects does not. And nothing here revisits
 BPTT-SA, which is closed.
+
+---
+
+## AMENDMENT A1 — 2026-09-05, before S5 is launched, before any arm exists
+
+### A1.1 — the pushforward arm is DROPPED, and the premise for it was false
+
+The epic carried a pushforward companion arm on the stated grounds that it is *"implemented,
+merged, audited 20/20, and has never been run."* **That was false when written.**
+`reports/2026-08-26_pushforward_dossier/07_experiment_log.md` records:
+
+| | verdict |
+|---|---|
+| **EXP-01** — w=0.1, seed 42 (2026-08-30) | **VOID** — F5 and F6 both fired; the term damaged the base model |
+| **EXP-02** — w=0.01, **4 seeds** (2026-08-31) | **UNDERPOWERED (negative)** — ΔAP@h18 **−0.0220**, 4/4 negative, p=0.0429, CI [−0.0308, −0.0131] |
+
+EXP-02's mechanism settles it: **the oracle does not move** (teacher-forced ΔAP across seeds
+−0.0024/−0.0065/−0.0015/+0.0019, all inside σ=0.0134, F5 PASS 4/4). The model is equally good
+teacher-forced and *worse* free-running — the opposite of what a pushforward term is for. That
+dossier's own Amendment 2 pre-registered the stop: **"No third weight."**
+
+An n=1 pushforward arm here would be a **weaker re-run of a 4-seed result**. Dropped. S5 runs **two**
+arms; GPU falls from ~6–8 h to ~4 h. The noise result is read against **EXP-02's** numbers as the
+same-family comparator — 4 seeds instead of the 1 the companion arm would have given.
+
+**How it got in:** a memory note reading *"pushforward merged, no experiment run yet"* — true on
+2026-08-26, stale by 2026-08-31 — carried into the epic without re-reading the dossier it referred
+to. **C-303**: prose asserting a state the system is not in. Caught before any GPU was spent.
+
+### A1.2 — how `floor_gate` is used, decided now rather than after seeing it
+
+* **FG-A is BINDING.** The control must rank above chance at h18. If it does not, the vehicle cannot
+  carry the experiment and the screen is **VOID before the treatment arm runs**.
+* **FG-C is REPORTED, not binding.** It asks whether the pre-registered effect exceeds what the setup
+  can resolve — and this plan *opens* by saying it cannot resolve a small one: n=1 against a ±0.06
+  band whose own decision threshold (+0.02) sits **inside** it. FG-C failing would restate a
+  limitation §"THIS IS A SCREEN" already declares, not reveal a new one.
+
+  Making FG-C binding now, when the plan was locked without it, would be a rule change decided at
+  3am in the direction of my own convenience. Recording the split **in advance** is the only thing
+  that distinguishes this from **C-305/C-306**, both of which are post-hoc rule overrides. `MDE_AP`
+  is fixed at **0.06** — the ±20% training-variance band (C-119/C-184) — and is the input, not a
+  knob to be tuned once the number is seen.
+
+### A1.3 — unchanged
+
+Seed, data, 300 lessons, `AP@h18` on the 13-origin support, the decision rule and its **BRANCH 0**,
+the six falsifiers, and the n=1 scope all stand. Both arms are **retrained**, control included:
+reusing the floor's artifact would save ~110 min by assuming today's code changes did not touch the
+ε=0 path, and that assumption is what the C-324 episode punished.

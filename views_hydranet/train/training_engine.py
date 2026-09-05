@@ -885,6 +885,7 @@ def train(
     stage_label: str = "",
     ss_epsilon: float = 0.0,
     fed_grad_sink: list[float] | None = None,
+    apply_input_noise: bool = True,
 ) -> dict[str, torch.Tensor]:
     ctx.model.train()
     ctx.multitaskloss_instance.train()
@@ -950,7 +951,13 @@ def train(
         cls_valid_mask = _full[0, 0, _pg] > 0  # [H, W] bool — land cells
 
     # --- CORE SEQUENCE PROCESSING ---
-    _input_noise = config.get("input_noise_dropout")
+    # #311: this is a TRAINING augmentation. `apply_input_noise=False` is passed by the C-184
+    # BatchNorm recalibration pass, whose whole purpose is to recompute BN running statistics —
+    # buffers saved into the artifact and used at inference. Recomputing them on deliberately
+    # corrupted inputs would put the treatment arm's BN layer on a different footing from the
+    # control's for a reason that is not the hypothesis, and the run would look clean. Same defect
+    # class as #289's, where the pushforward's extra forward wrote BN stats.
+    _input_noise = config.get("input_noise_dropout") if apply_input_noise else None
     result = _process_sequence(
         train_tensor,
         model,
@@ -1104,7 +1111,9 @@ def _recalibrate_bn(ctx: "TrainingContext", sampler, planner, config: dict) -> N
         for w in range(n_windows):
             target, threshold = planner.get_lesson(w)
             batch, _ = sampler.get_batch(target, threshold, batch_size=1)
-            train(ctx, batch[0], None, stage_label="")  # empty label ⇒ forward only, no biopsy
+            # apply_input_noise=False: this pass recomputes BN statistics on CLEAN data (#311).
+            # Noising it would bake the augmentation into buffers that ship in the artifact.
+            train(ctx, batch[0], None, stage_label="", apply_input_noise=False)
             del batch
     model.eval()
 

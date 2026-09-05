@@ -104,12 +104,14 @@ def test_the_channel_restriction_actually_reaches_the_helper(monkeypatch):
 
 def test_an_empty_channel_list_is_not_silently_widened(monkeypatch):
     calls = _run(monkeypatch, channels=())
+    assert calls, "the helper was never called — `all(...)` over an empty list proves nothing"
     assert all(c["channels"] == [] for c in calls)
 
 
 def test_the_configured_dropout_reaches_the_helper_unchanged(monkeypatch):
     """Mutation TR-04/AN-15: a hardcoded or dropped rate."""
     calls = _run(monkeypatch, dropout=0.37)
+    assert calls, "the helper was never called — `all(...)` over an empty list proves nothing"
     assert all(c["dropout"] == pytest.approx(0.37) for c in calls)
 
 
@@ -160,7 +162,11 @@ def test_the_fresh_mask_is_ones_not_zeros(monkeypatch):
 
 def test_a_missing_segment_fails_loud_when_the_noise_is_on(monkeypatch):
     """Mutation PS-01: a literal default would silently differ from the caller's `time_steps`."""
-    for bad in (None, 0, -1, 2.5):
+    # `True` is in the list because isinstance(True, int) is True: `segment=True` gives 1, the mask
+    # resets every step, and the accumulating design silently becomes the i.i.d. one the paper's
+    # ablation found WORSE. The engine's comment argues for this guard at length and nothing tested
+    # it — C-303, in a comment that says "the pattern was known here and not applied".
+    for bad in (None, 0, -1, 2.5, True, False):
         with pytest.raises(ValueError, match="input_noise_segment"):
             _run(monkeypatch, dropout=0.5, segment=bad)
 
@@ -194,3 +200,21 @@ def test_the_noise_sees_the_scheduled_sampling_SUBSTITUTION(monkeypatch):
         "the helper saw the same input with and without scheduled sampling — the noise is "
         "reading ground truth rather than the substituted input"
     )
+
+
+def test_each_noised_channel_gets_its_OWN_random_mask(monkeypatch):
+    """Survivors AN-12/AN-16: drawing one [B,1,H,W] mask and broadcasting it silences the SAME
+    cells in every target at once. The marginal drop rate stays exactly right, so the rate test
+    passes — but the augmentation's correlation structure is different, and the model is trained on
+    a different thing. Independence has to be asserted, not inferred from the rate."""
+    from views_hydranet.train.training_engine import _apply_input_noise
+
+    torch.manual_seed(4)
+    x = torch.ones(1, 3, 64, 64)
+    out, _ = _apply_input_noise(x, torch.ones_like(x), 0.5, [0, 1, 2])
+    dropped = (out == 0).float()
+    agree01 = float((dropped[:, 0] == dropped[:, 1]).float().mean())
+    agree02 = float((dropped[:, 0] == dropped[:, 2]).float().mean())
+    # Independent Bernoulli(0.5) masks agree on ~50% of cells; a shared mask agrees on 100%.
+    assert agree01 < 0.65, f"channels 0 and 1 share a mask (agreement {agree01:.3f})"
+    assert agree02 < 0.65, f"channels 0 and 2 share a mask (agreement {agree02:.3f})"
