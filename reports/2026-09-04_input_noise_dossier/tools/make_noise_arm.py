@@ -159,7 +159,11 @@ def _verify(dest: Path, *, dropout: float | None, lessons: int | None = None) ->
         "pushforward_weight",
     ) + (() if lessons is not None else ("total_lessons",))
     for k in pinned:
-        assert arm[k] == floor[k], f"{k} drifted from the floor: {arm[k]} vs {floor[k]}"
+        # .get on BOTH sides: a key absent from the floor's raw hp config (e.g. pushforward_weight,
+        # which only exists as a schema default) must compare equal, not raise. The symmetric-diff
+        # check above is what actually catches an unintended change; this loop pins the ones that
+        # would silently ruin the comparison.
+        assert arm.get(k) == floor.get(k), f"{k} drifted from the floor: {arm.get(k)} vs {floor.get(k)}"
     if list(arm["features"]) != list(arm["regression_targets"]):
         raise SystemExit("make_noise_arm: C-260 — features must equal regression_targets in order")
     m = _resolve(dest / "configs" / "config_meta.py", "get_meta_config")
