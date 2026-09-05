@@ -72,3 +72,83 @@ apply; the single-arm precondition is asserted in `tools/emit_s1.sh`, not assume
 **Instrument:** 18 tests, **15/15 mutations caught**, including the truth-month off-by-one, FN counting
 `q` instead of `1−q`, the magnitude channel silently absorbing silenced cells, and the STOP-gate never
 firing. Restored from file backups rather than `git checkout`, so no uncommitted work was at risk.
+
+---
+
+## S5/S6 (#317/#318) — **the noise arm is much worse, and it is the FIRING lever again** · 2026-09-05
+
+**Pre-registration:** `05_analysis_plan.md` locked `47d66af` before S1 ran; amendment A1 (`2d9cd72`)
+before S5 launched. Both arms retrained, ε=0, 300 lessons, seed 42, one variable
+(`input_noise_dropout: 0.204`). Weight hashes differ (`cab486bc…` / `64a75eab…`).
+
+### Gates, all passed before the number was read
+
+| gate | result |
+|---|---|
+| SMOKE (2 lessons) | PASS |
+| POTENCY, arm's own config, **trained checkpoint** (C-324/C-325) | **POTENT** — loss 265.80 → 106.27, rel 0.600 |
+| **FG-A** — control ranks above chance (C-299) | **PASS** |
+| FG-C — the effect exceeds what the setup resolves (reported, not binding per A1.2) | **PASS** — a 30% effect is 0.2305 AP; 3×MDE is 0.1800 |
+| Weight-hash, before any score was read | **PASS** — arms genuinely distinct |
+
+**Vehicle sanity:** control `AP@h18 = 0.3292` against the known ε=0 reference **0.3318** (M34–M37).
+
+### Primary
+
+| | control | noise | Δ |
+|---|---|---|---|
+| **AP@h18** (`sb`, free-running, 13 origins) | **0.3292** | **0.1329** | **−0.1963** |
+
+**−0.1963 is 3.3× the ±0.06 band this design cannot see inside.** It is worse at every horizon
+(h1 −0.118, h18 −0.196, h36 −0.118).
+
+### The mechanism — F5 fired, and it is the lever again
+
+| h | act_ratio control → noise | factor |
+|---|---|---|
+| 1 | 0.4067 → 0.8168 | ×2.0 |
+| **18** | **0.0123 → 0.6903** | **×56** |
+| 36 | 0.0005 → 0.5899 | ×1,180 |
+
+**The model fires 56× more at h18.** `size_ratio` also rises (0.0000 → 0.0250) and `Brier` worsens at
+every horizon, while `crps_events` barely moves — so this is occurrence, not magnitude.
+
+**This is M45 for the sixth time**: *AP loss scales with how much the model FIRES.*
+
+### ⛔ Why it fired more, when the augmentation only ever SILENCES
+
+This is the part worth keeping, and it is a **design** error, not an implementation one.
+
+The augmentation deletes events from the **input** while the **target keeps them**. So the task
+becomes: *given a field with a fifth of its events missing, predict a field that still has them all.*
+The optimal response to that task is **to invent occurrence** — and the model learned exactly that.
+
+The "no target adjustment" decision came from `SanchezGonzalez2020`'s own supplement, which states it
+*"happens implicitly when the loss is defined directly on next-step ground-truth"*. That sentence is
+true, and it was verified against our loss structure — **but it does not survive the change from
+their corruption to ours.** Their noise is small symmetric jitter on a dense field: zero-mean, so the
+implicit target is unbiased. **Deletion is not zero-mean.** Silencing a fifth of the events makes the
+input systematically sparser than the target, and the unbiased response to a systematically sparse
+input is to over-predict.
+
+S1 measured the right thing and the selection rule chose the right *family*. What was wrong is the
+step from "the model silences events" to "so silence events in its input" — that mimics the
+**symptom** the model produces, not the **conditions** it faces. The model's own errors arrive with
+matching degraded targets downstream; a training corruption with intact targets does not.
+
+### Verdict against the locked rule
+
+`Δ ≤ 0` ⇒ **does not survive the screen.** The rule's own wording — *"INCONCLUSIVE, not 'input noise
+does not work'"* — was written to stop a **null** being converted into a closure (C-307). This is not
+a null: −0.1963 at 3.3× the band, worse at every horizon, with a coherent mechanism and a 56× firing
+signal. So the honest split is:
+
+* **Well supported:** *this design, at this rate, on this vehicle, is substantially harmful, and the
+  reason is that it trains the model to invent occurrence.* The mechanism raises confidence rather
+  than resting on the effect size alone.
+* **NOT supported, and the rule rightly forbids it:** any claim about input-noise augmentation in
+  general, about other rates, or about a variant that degrades the target alongside the input. One
+  design, one rate, one seed, one vehicle.
+
+A 4-seed confirmation is **not** worth buying: the pre-registered trigger for seeds was `Δ ≥ +0.02`,
+and re-measuring a −0.196 more precisely buys nothing.

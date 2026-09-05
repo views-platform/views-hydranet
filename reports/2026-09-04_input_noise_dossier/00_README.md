@@ -1,6 +1,6 @@
 # Input-noise: make the training inputs look like what the model feeds itself
 
-**Opened** 2026-09-04 · **Branch** `exp/silence-vs-fade` · **Status** S1 complete; S2 next ·
+**Opened** 2026-09-04 · **Branch** `exp/silence-vs-fade` · **Status** S5/S6 COMPLETE — **Δ AP@h18 = −0.1963, the noise arm is much worse** (M64) ·
 **Epic #311** · **Tracking #320** · **This story: #312**
 
 ## Purpose
@@ -57,9 +57,9 @@ invention**. Several good gates are CI-tested and invoked by *no recent dossier*
 
 - [x] S0 — dossier scaffolded; harness audited; plan locked *(this story, #312)*
 - [x] S1 #313 — measured: **FN 0.9959 vs FP 0.000027 at h18 (36,870×), CV 0.002** ⇒ design `occurrence_dropout`, STOP-gate (a) passes
-- [ ] S2 #314 — design + implement
-- [ ] S3 #315 — adversarial audit, non-author, clean context
-- [ ] S4 #316 — smoke + potency **at a trained checkpoint**
-- [ ] S5 #317 — 3 arms × 300 lessons
-- [ ] S6 #318 — score against the locked rule
+- [x] S2 #314 — design + implement
+- [x] S3 #315 — adversarial audit — 3 rounds; found a real BN bug (C-328)
+- [x] S4 #316 — smoke + potency at a trained checkpoint — PASS (rel 0.600)
+- [x] S5 #317 — 2 arms × 300 lessons (pushforward dropped, A1) — FG-A PASS
+- [x] S6 #318 — **control 0.3292 → noise 0.1329, Δ = −0.1963; act_ratio ×56**
 - [ ] S7 #319 — disposition
