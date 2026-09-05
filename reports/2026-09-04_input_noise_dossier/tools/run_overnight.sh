@@ -76,7 +76,9 @@ done
 # ---- 3. SMOKE --------------------------------------------------------------
 phase "SMOKE (2 lessons, $SMOKE)"
 if ! ls "$MODELS/$SMOKE"/artifacts/*.pt >/dev/null 2>&1; then
-  ( cd "$MODELS/$SMOKE" && timeout -k 120 3600 $CENV python main.py -r calibration -t -s ) \
+  # -t train, -sa use the locally cached parquet. NOT -s: that is --sweep, and a sweep
+  # deliberately does not save artifacts, so every arm would train and write nothing.
+  ( cd "$MODELS/$SMOKE" && timeout -k 120 3600 $CENV python main.py -r calibration -t -sa ) \
       >> "$RES/smoke.log" 2>&1
   ls "$MODELS/$SMOKE"/artifacts/*.pt >/dev/null 2>&1 \
     || abort "SMOKE failed — the noise arm's config does not train. See results/s5/smoke.log" 13
@@ -98,7 +100,7 @@ train_arm(){ local ARM=$1
   ls "$MODELS/$ARM"/artifacts/*.pt >/dev/null 2>&1 && { log "$ARM already trained — skipping"; return 0; }
   phase "TRAIN $ARM (elapsed $(( ($(date +%s)-START)/60 )) min)"
   local LOG="$RES/train_${ARM}.log"; : > "$LOG"
-  ( cd "$MODELS/$ARM" && timeout -k 120 "$TRAIN_TIMEOUT" $CENV python main.py -r calibration -t -s ) \
+  ( cd "$MODELS/$ARM" && timeout -k 120 "$TRAIN_TIMEOUT" $CENV python main.py -r calibration -t -sa ) \
       >> "$LOG" 2>&1 & local P=$!
   ( while kill -0 $P 2>/dev/null; do
       s1=$(stat -c %s "$LOG" 2>/dev/null || echo 0); sleep "$STALL_MAX"
