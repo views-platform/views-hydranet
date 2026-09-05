@@ -5,11 +5,11 @@
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-09-05                           |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). **C-319..C-322 added 2026-09-03 from the silence-vs-fade dossier: C-319 (field statistics blind to placement — occurrence, magnitude and alignment ALL survive a roll that destroys the forecast, so an internal statistic cannot close a causal claim about a truth-referenced score); C-320 (a falsifier band tighter than its own reference's sampling noise, which fired on the known-good control); C-321 (`--keep-cubes` silently disables the multi-arm contamination guard); C-322 (the model field's H axis runs opposite to priogrid row order — naive placement correlates 0.026, the flip gives 1.0000). **C-325 added 2026-09-04: two SCREEN-2 mechanism tests measured the network at INITIALISATION and were recorded as ruling a mechanism out; the arm's gradient does explode, 33 lessons later.** **C-328 added 2026-09-05: #311's input noise leaked into the C-184 BatchNorm recalibration pass, which would have confounded the S5 screen at the BN layer with every log looking clean; second instance of the mechanism after #289's, and found by a test written for a different prose invariant.** **C-329 added 2026-09-05 from the implementation-practice post-mortem: tests that cannot fail (tautology, vacuity, zero power) — invisible to mutation testing by construction, detected by the deletion test.** **C-326 added the same day: launcher watchdogs kill the subshell, not the process tree — an arm reported CAPPED trained on for 7 more lessons; latent everywhere else (no `STALLED` line exists in any `ANOMALIES.txt`).** **C-327 added 2026-09-04: #308's Phase-2 clip ladder was pre-registered as a discriminator whose two hypotheses, derived properly, predict the SAME outcome — C-320's fifth instance, found before it was run and at no cost.** **C-320 escalated 2026-09-04 from three to FOUR occurrences, the fourth a distinct sub-form: #308's SCREEN rule enumerated three numeric outcomes and no failure branch, so when arm B died with NaN gradients at lesson 48 no branch of the rule could be evaluated.** |
-| Total Concerns    | 326                                  |
-| Open Concerns     | 174                                  |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). **C-319..C-322 added 2026-09-03 from the silence-vs-fade dossier: C-319 (field statistics blind to placement — occurrence, magnitude and alignment ALL survive a roll that destroys the forecast, so an internal statistic cannot close a causal claim about a truth-referenced score); C-320 (a falsifier band tighter than its own reference's sampling noise, which fired on the known-good control); C-321 (`--keep-cubes` silently disables the multi-arm contamination guard); C-322 (the model field's H axis runs opposite to priogrid row order — naive placement correlates 0.026, the flip gives 1.0000). **C-325 added 2026-09-04: two SCREEN-2 mechanism tests measured the network at INITIALISATION and were recorded as ruling a mechanism out; the arm's gradient does explode, 33 lessons later.** **C-328 added 2026-09-05: #311's input noise leaked into the C-184 BatchNorm recalibration pass, which would have confounded the S5 screen at the BN layer with every log looking clean; second instance of the mechanism after #289's, and found by a test written for a different prose invariant.** **C-329 added 2026-09-05 from the implementation-practice post-mortem: tests that cannot fail (tautology, vacuity, zero power) — invisible to mutation testing by construction, detected by the deletion test.** **C-330/C-331/C-332 added 2026-09-05 from `/code-review max` (partial — 11 finders, no expert panel); the same pass ESCALATED C-328 to four instances (the `bn_recal_from` path and `random_flips`, the latter left unfixed by decision), C-303 to TWELVE occurrences with a new sub-form (the false prose describes a safety gate, making an absent control look present), and C-329 with two further instances, both inside the commit that registered it.** **C-326 added the same day: launcher watchdogs kill the subshell, not the process tree — an arm reported CAPPED trained on for 7 more lessons; latent everywhere else (no `STALLED` line exists in any `ANOMALIES.txt`).** **C-327 added 2026-09-04: #308's Phase-2 clip ladder was pre-registered as a discriminator whose two hypotheses, derived properly, predict the SAME outcome — C-320's fifth instance, found before it was run and at no cost.** **C-320 escalated 2026-09-04 from three to FOUR occurrences, the fourth a distinct sub-form: #308's SCREEN rule enumerated three numeric outcomes and no failure branch, so when arm B died with NaN gradients at lesson 48 no branch of the rule could be evaluated.** |
+| Total Concerns    | 329                                  |
+| Open Concerns     | 177                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 150                                 |
+| — net active risks | 153                                 |
 | Resolved Concerns | 152                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -3799,6 +3799,29 @@ The two arms would then have differed at the BatchNorm layer for a reason that i
 form: *an auxiliary or diagnostic forward that traverses the training input path inherits whatever
 was added to it, including things that must never reach an artifact.*
 
+**⬆ ESCALATED 2026-09-05 by `/code-review max` — the fix covered ONE of TWO recalibration paths,
+and a THIRD augmentation was never covered at all.**
+
+* **Instance 3 (FIXED here):** the `bn_recal_from` standalone path (`training_engine.py:1307`) drives
+  the *normal lesson loop* forward-only to re-accumulate BN statistics, and never received
+  `apply_input_noise=False`. The guard test could not reach it because that path leaves autograd
+  **enabled** (it skips `backward()`, it does not disable grad), while the test asserts on
+  `torch.is_grad_enabled()`. A defect created by the fix for this very entry, on the one path its
+  own guard is blind to.
+* **Instance 4 (NOT FIXED — raised for decision):** `random_flips` (`training_engine.py:912`,
+  default **True**) flips the tube inside `train()`, which `_recalibrate_bn` calls. With
+  `momentum=None` (equal cumulative weighting) roughly **half of every BatchNorm running statistic
+  in every shipped artifact is accumulated on H/W-flipped fields** — a distribution inference never
+  produces. Convolution is not flip-equivariant. This partially defeats the fix C-184 exists to be,
+  whose entire purpose is matching the eval-time activation distribution, and it has been live for
+  as long as `random_flips` and BN recalibration have coexisted.
+
+  **Deliberately not fixed in the #311 branch.** It is pre-existing, orthogonal to input noise, and
+  the fix changes the BatchNorm statistics of every future artifact — a production behaviour change
+  that belongs to its own decision, not to collateral work inside an augmentation branch. It also
+  raises whether artifacts already in hand should be re-recalibrated. **The TrainingEngine CIC now
+  states the exemption honestly rather than implying the passes are clean.**
+
 **Fix applied:** `train()` takes an explicit `apply_input_noise` flag (default True, so every
 existing caller is unchanged) and `_recalibrate_bn` passes False. Explicit rather than an implicit
 "skip when `torch.is_grad_enabled()` is False", which would be behaviour steered from elsewhere.
@@ -3844,9 +3867,101 @@ assembly, then run the suite. Anything still green is not testing the feature. I
 sub-forms in one pass. Round 3's per-file result: one of four test files passed with the feature
 entirely removed, and **27 of 40 individual tests** passed with the call site deleted.
 
+**⬆ TWO FURTHER INSTANCES — 2026-09-05, `/code-review max`, both in the fix for this entry:**
+
+* `tests/train/test_input_noise_wiring.py::test_the_diagnostic_biopsy_is_NEVER_noised` — its
+  anti-vacuity guard proved "the biopsy ran" by observing a static re-attach under `no_grad`, but
+  `_recalibrate_bn` also runs under `no_grad`, so the guard was satisfiable by the **wrong pass** and
+  would have gone vacuous the moment the biopsy stopped running. Written deliberately to be
+  non-vacuous, in the commit that registered this entry. **FIXED** by discriminating on
+  `model.training` — the biopsy runs `(no_grad, eval)`, BN-recal runs `(no_grad, train)`.
+* `tests/test_anchor_roll.py::test_default_is_off_and_byte_identical` — asserts nothing about
+  byte-identity. Its only cube assertion compares two *treatment* arms, which was true before the
+  branch existed and is insensitive to any corruption of the default path. **OPEN.**
+
 **Mitigation:** never derive an expected value from the expression under test; assert a collection is
 non-empty before asserting over it; assert what a value changed *to*, not that it changed; and run the
 deletion test before believing a coverage claim.
+
+### C-330: a per-step gradient hook attached to a tensor the loss also consumes
+
+| Field | Value |
+|-------|-------|
+| ID | C-330 |
+| Tier | **1** |
+| Source | `/code-review max` on `exp/silence-vs-fade`, 2026-09-05 |
+| Trigger | Calling `register_hook` on a **non-leaf** tensor — before doing so, enumerate every consumer of that tensor in the graph |
+| Location | `views_hydranet/train/training_engine.py:571` (`fed = t1_pred`), `:575` (hook), `:578` / `:653` (loss consumers) |
+| Cross-refs | C-324 (a knob whose reading is a fact about the harness), C-303 (the helper's docstring asserted the opposite) |
+
+**FIXED 2026-09-05.** On the legacy point head `fed = t1_pred`, and `t1_pred_for_loss = t1_pred`
+whenever `use_latent` is False — so the scheduled-sampling feedback tensor **is** the regression
+loss's input. `register_hook` on a non-leaf fires **once, on the gradient accumulated from every
+consumer**, so `ss_feedback_grad_clip` rescaled the *primary supervised gradient*, and `fed_grad_max`
+logged reg + gate + qs99 + feedback rather than the handoff the column is named for.
+
+Tier 1 because it corrupts **trained weights**, not a measurement, and does so silently: the run
+completes, the loss falls, and nothing distinguishes a clipped-supervision arm from a healthy one.
+Reachable through a validated config; nothing narrowed the flag to family heads; no test exercised
+the clip with `family=None`. The helper's own docstring asserted the opposite — *"`fed` is the sole
+tensor through which credit crosses"* — which is true for a family head, where `fed` is derived, and
+false on the copy-pasted `else`.
+
+**Fix:** the hook is attached only when `family is not None`, and a config validator rejects
+`ss_feedback_grad_clip` without `ss_backprop_through_feedback` outright.
+
+### C-331: diagnostic arms that silently collapse into each other, or into their own control
+
+| Field | Value |
+|-------|-------|
+| ID | C-331 |
+| Tier | 2 |
+| Source | `/code-review max` on `exp/silence-vs-fade`, 2026-09-05 |
+| Trigger | Adding a second orthogonal switch to an existing diagnostic — validate the *composition*, not only each switch |
+| Location | `views_hydranet/utils/hydranet_inference.py:281`, `:701`, `:748`, `:755`, `:1170`, `:1201` |
+| Cross-refs | C-323 (an ablation on a regenerated component), C-319, C-309, M60 |
+
+**OPEN.** Five compositions in the freeze/roll diagnostic family are unvalidated:
+
+* `freeze_anchor_roll` refuses to run without a clamp — the guard's stated reason is that a silent
+  no-op *"would make the arm report no effect when it never ran"* — but does **not** check
+  `freeze_recurrent_weight`, whose documented `0.0` is itself a no-op. So a rolled arm can be
+  byte-identical to free-running while writing its output under the treatment's filename, which is
+  precisely what the sibling `freeze_anchor_roll=0` guard exists to prevent.
+* `per_step_roll` under a clamp rolls a **constant** anchor (the clamp restores the frozen half at the
+  top of every step), collapsing the Wave-2 per-step arm into the EXP-3 anchor-roll arm and removing
+  the accumulation the docstring describes.
+* The three attribution arms are **not perturbation-matched**: the `input` arm rolls *after* statics
+  are concatenated, so it displaces geometry, while `hidden`/`cell` touch none. The sibling
+  training-side helper `_noisable_channels` goes to explicit lengths to exclude exactly those
+  channels. **This bears directly on M60's "input 0/26" reading.**
+* The `hs|hl` split uses a bare `// 2` while `blend_recurrent_state` raises on `channels % 8 != 0`
+  for the identical split, with the reason *"an uneven split would silently hold the wrong memory
+  type"*.
+* Two period guards need H and W and so fire on the first autoregressive step — after model load,
+  handler load, cube preallocation and history digestion — rather than at construction like every
+  other guard in the family.
+
+### C-332: a positive control that reports the wrong component as broken
+
+| Field | Value |
+|-------|-------|
+| ID | C-332 |
+| Tier | 2 |
+| Source | `/code-review max` on `exp/silence-vs-fade`, 2026-09-05 |
+| Trigger | Reusing an assertion helper for a second purpose — check that its *failure message* still names the right component |
+| Location | `scripts/potency_check.py:90` (`assert_control_fires`) |
+| Cross-refs | C-324 (whose gate this is), C-303 |
+
+**OPEN.** `assert_control_fires` delegates to `assert_potent`, so a failing **positive control**
+raises the treatment-side message verbatim: *"The knob is INERT on this configuration, so any result
+would be a fact about the harness, not about the hypothesis."* That is the opposite diagnosis from
+what the function exists to test. Only the `name` prefix differentiates them.
+
+Consequence: a broken **readout** reads as a dead **treatment**. The operator records the hypothesis
+as unmeasurable, abandons it, and the actually-broken measurement survives into every subsequent arm
+— while this module's whole stated principle is that **two different failures must not produce the
+same signature.** The gate that enforces that principle violates it.
 
 ### C-320: pre-registered decision rules that cannot deliver a verdict on the run that actually happens (FOUR instances)
 
@@ -3867,6 +3982,24 @@ correctness. The gate was **unsatisfiable by a correct instrument**. The statist
 agreement within the *reference's own* uncertainty — was available at drafting and was not written;
 the dump passes it 4/4. Recorded fired rather than amended, and the chair authorised proceeding on
 the record.
+
+**⬆ OCCURRENCES 11 AND 12 — 2026-09-05, `/code-review max`. A NEW SUB-FORM: the asserted guard is
+a governance artifact this repo authored for that purpose.**
+
+11. `docs/CICs/HydraNetConfig.md` stated that `input_noise_dropout` is *"guarded by a potency gate
+    (`scripts/potency_check.py`) as a launch precondition."* It is not. `grep -rI potency` finds the
+    module, its tests, and that sentence — **zero callers** in `views_hydranet/`, in any launcher, or
+    in any model's `main.py`. The only invocation is a dossier tool that archives with its dossier.
+    Combined with `_apply_input_noise`'s silent empty-channels no-op, an arm could train ~110 minutes,
+    differ from its control only by RNG, and report *"input noise has no effect"* — verbatim what
+    `potency_check.py`'s own docstring says it exists to prevent. **This is the worst sub-form yet:
+    the false prose describes a safety gate, so it does not merely mislead a reader, it makes an
+    absent control look present.** CIC corrected 2026-09-05.
+12. `HydraNetInference.__init__` documents the body-mean dump as *"for the MC-dropout pass 0 only"*
+    while `_dump_body_mean` and the accumulator average over **all D passes**, and the test at
+    `tests/distributions/test_body_mean_dump.py` carries a docstring contradicting its own assertion.
+    Three statements of one contract, two wrong — including the only one a caller reads before wiring
+    the diagnostic.
 
 **GENERALISED 2026-09-03 — this is a class, not an incident. Three instances in eight days:**
 

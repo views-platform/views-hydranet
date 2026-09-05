@@ -144,8 +144,13 @@ def test_the_mask_resets_exactly_on_segment_boundaries(monkeypatch):
     """Mutations CS-02 (never resets) and CS-03/CS-12 (resets every step). CS-03 turns the design's
     central claim — accumulating, because the paper's ablation found i.i.d. worse — into i.i.d."""
     calls = _run(monkeypatch, dropout=0.5, segment=3)
+    # The segment START is now left CLEAN — deployment feeds a real observation at the seed step,
+    # and the design fits survival as (1-p)^(h-1), i.e. horizon 1 unnoised. So the helper is not
+    # called at i % 3 == 0 at all; with T=8 it runs at i = 1,2,4,5 and receives a FRESH all-ones
+    # mask on the first call after each reset.
     fresh = [i for i, c in enumerate(calls) if c["keep_all_ones"]]
-    assert fresh == [0, 3, 6], f"reset points were {fresh}, expected every 3 steps"
+    assert len(calls) == 4, f"expected 4 noised steps (i=1,2,4,5), got {len(calls)}"
+    assert fresh == [0, 2], f"fresh masks at call {fresh}, expected the first after each reset"
 
 
 def test_the_mask_is_carried_forward_between_resets(monkeypatch):
@@ -218,3 +223,18 @@ def test_each_noised_channel_gets_its_OWN_random_mask(monkeypatch):
     # Independent Bernoulli(0.5) masks agree on ~50% of cells; a shared mask agrees on 100%.
     assert agree01 < 0.65, f"channels 0 and 1 share a mask (agreement {agree01:.3f})"
     assert agree02 < 0.65, f"channels 0 and 2 share a mask (agreement {agree02:.3f})"
+
+
+def test_the_segment_START_is_left_CLEAN(monkeypatch):
+    """Survivor F5, and it qualifies M64. The design fits survival as S(h) = (1-p)^(h-1) — horizon
+    1 clean — and deployment matches it: inference feeds the real observation at the seed step. The
+    first implementation dropped on the segment start too, so implemented survival was 0.796 at h1
+    against a fitted 1.0: a flat 20.4% over-silencing at every horizon, four times the design's own
+    5% residual tolerance. The S5 arm therefore ran a harsher schedule than the one it was
+    designed to.
+    """
+    calls = _run(monkeypatch, dropout=1.0, segment=4)
+    # p=1.0 makes the effect unmissable: a noised step silences everything, a clean one silences
+    # nothing. With T=8 and segment 4, starts are i=0 and i=4 and must produce no call at all.
+    assert len(calls) == 5, f"expected 5 noised steps (i=1,2,3,5,6), got {len(calls)}"
+    assert all(c["dropout"] == 1.0 for c in calls)

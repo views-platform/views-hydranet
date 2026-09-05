@@ -24,7 +24,12 @@ from .conftest import loop_config, loop_handler  # noqa: E402
 
 
 def _run(monkeypatch, **overrides):
-    """Run the real loop, recording every argument the call site passes to the noise helper."""
+    """Run the real loop, recording every argument the call site passes to the noise helper.
+
+    `time_steps` defaults to 2 here, not `loop_config`'s 1: the segment start is left clean, so at
+    `time_steps=1` every step is a start and the augmentation can never apply. A config validator
+    now rejects that combination outright; these tests need a horizon where it CAN apply.
+    """
     calls = []
     real = te._apply_input_noise
 
@@ -44,6 +49,9 @@ def _run(monkeypatch, **overrides):
     monkeypatch.setattr(te, "_process_sequence", _seq)
 
     drop = overrides.pop("_drop_keys", ())
+    if overrides.get("input_noise_dropout") is not None:
+        overrides.setdefault("time_steps", 2)
+        overrides.setdefault("steps", [1, 2])
     cfg = loop_config(**overrides)
     for k in drop:
         cfg.pop(k, None)
@@ -168,43 +176,49 @@ def test_process_sequence_defaults_to_noise_OFF(monkeypatch):
 
 def test_the_diagnostic_biopsy_is_NEVER_noised(monkeypatch):
     """Survivor BP-01. `docs/CICs/TrainingEngine.md` states as an invariant that the Stage-5
-    diagnostic biopsy is never noised — it is a *clean-performance* probe, and corrupting it
-    destroys the thing it measures. Noising it left all 2015 tests green: the invariant was prose.
+    diagnostic biopsy is never noised — it is a *clean-performance* probe. Noising it left all
+    tests green: the invariant was prose.
 
-    The tell is grad state: the main loop runs with autograd enabled, the biopsy under `no_grad`.
-    So the noise must never be applied while grad is off.
+    ⚠️ The anti-vacuity guard here was itself wrong in an earlier version, and the review caught
+    it. It proved "the biopsy ran" by observing a `_attach_static_channels` call under `no_grad` —
+    but `_recalibrate_bn` also runs under `no_grad`, so the guard stayed satisfied by BN-recal and
+    would have gone vacuous with respect to the biopsy the moment the biopsy stopped running. That
+    is C-329 (a test that cannot fail) inside the fix for it.
 
-    Written to be non-vacuous: it first proves the biopsy actually RAN in this configuration (by
-    observing static re-attach calls under `no_grad`) before asserting the noise stayed out of it.
-    An assertion that cannot fail is what round 3 found two of.
+    The discriminator is the model's own mode: the Stage-5 biopsy runs under `model.eval()`, while
+    the BN-recalibration loop runs in `train()` mode precisely so it can accumulate statistics. So
+    `(no_grad, eval)` identifies the biopsy uniquely, and `(no_grad, train)` is BN-recal.
     """
     noise_grad_states: list[bool] = []
-    attach_grad_states: list[bool] = []
+    attach_states: list[tuple[bool, bool]] = []
     real_noise = te._apply_input_noise
     real_attach = te._attach_static_channels
+
+    cfg = loop_config(input_noise_dropout=0.5, time_steps=2, steps=[1, 2])
+    device = torch.device("cpu")
+    torch.manual_seed(cfg["torch_seed"])
+    model, criterion, optimizer, scheduler = make(cfg, device)
 
     def _rec_noise(dyn_input, keep, dropout, channels):
         noise_grad_states.append(torch.is_grad_enabled())
         return real_noise(dyn_input, keep, dropout, channels)
 
     def _rec_attach(dyn_input, t0_step, idx):
-        attach_grad_states.append(torch.is_grad_enabled())
+        attach_states.append((torch.is_grad_enabled(), model.training))
         return real_attach(dyn_input, t0_step, idx)
 
     monkeypatch.setattr(te, "_apply_input_noise", _rec_noise)
     monkeypatch.setattr(te, "_attach_static_channels", _rec_attach)
-
-    cfg = loop_config(input_noise_dropout=0.5)
-    device = torch.device("cpu")
-    torch.manual_seed(cfg["torch_seed"])
-    model, criterion, optimizer, scheduler = make(cfg, device)
     training_loop(cfg, model, criterion, optimizer, scheduler, loop_handler(cfg), device)
 
-    assert any(not g for g in attach_grad_states), (
-        "no forward ran under no_grad — the biopsy did not execute, so this test would be vacuous"
+    biopsy = [s for s in attach_states if s == (False, False)]
+    assert biopsy, (
+        "no forward ran under (no_grad, eval) — the Stage-5 biopsy did not execute, so this test "
+        "would be vacuous. It must not be satisfied by the BN-recal pass, which runs (no_grad, "
+        "train)"
     )
     assert noise_grad_states, "the noise helper never ran at all"
     assert all(noise_grad_states), (
-        "input noise was applied under no_grad — it reached the diagnostic biopsy, which the "
-        "TrainingEngine CIC declares must stay a clean-performance probe"
+        "input noise was applied under no_grad — it reached the diagnostic biopsy or a "
+        "recalibration pass, both of which must stay clean"
     )

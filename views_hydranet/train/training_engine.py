@@ -522,10 +522,16 @@ def _process_sequence(
         # static re-attach so geometry is never touched.
         if input_noise_dropout is not None:
             if i % _noise_segment == 0:
+                # Segment start = the deployment seed step, which is fed a REAL observation
+                # (`hydranet_inference` feeds the true field at `t == origin`). The design fits
+                # survival S(h) = (1-p)^(h-1), i.e. horizon 1 is clean; dropping on this step made
+                # the implemented curve 0.796 at h1 against a fitted 1.0 — a flat 20.4%
+                # over-silencing at every horizon, four times the design's own residual tolerance.
                 _noise_keep = torch.ones_like(dyn_input)
-            dyn_input, _noise_keep = _apply_input_noise(
-                dyn_input, _noise_keep, input_noise_dropout, input_noise_channels or []
-            )
+            else:
+                dyn_input, _noise_keep = _apply_input_noise(
+                    dyn_input, _noise_keep, input_noise_dropout, input_noise_channels or []
+                )
 
         # ADR-060 I3: re-attach static (input-only) channels [dynamic ⧺ static]. See helper.
         t0_input = _attach_static_channels(dyn_input, t0, idx)
@@ -569,9 +575,16 @@ def _process_sequence(
                     fed = surrogate + (fed - surrogate).detach()
             else:
                 fed = t1_pred
-            if ss_backprop_through_feedback:
-                # Only when the wire is connected: with it cut, `fed` is detached below and
-                # carries no gradient for a hook to see.
+            if ss_backprop_through_feedback and family is not None:
+                # Only when the wire is connected AND only on a family head. On the legacy point
+                # path `fed = t1_pred` (above) and `t1_pred_for_loss = t1_pred` when `use_latent`
+                # is False, so `fed` IS the regression loss's input. `register_hook` on a non-leaf
+                # fires once on the gradient accumulated from ALL consumers, so the clip would
+                # rescale the primary supervised gradient and `fed_grad_max` would report
+                # reg + gate + qs99 + feedback rather than the handoff it is named for. The helper
+                # promises `fed` is "the sole tensor through which credit crosses"; that is true
+                # for a family head, where `fed` is derived, and false here. A config validator
+                # rejects the combination outright, so this branch is defence in depth.
                 _attach_feedback_grad_clip(fed, ss_feedback_grad_clip, ss_feedback_grad_sink)
             prev_pred = fed if ss_backprop_through_feedback else fed.detach()
 
@@ -1311,6 +1324,13 @@ def training_loop(
                     stage_label=slbl,
                     ss_epsilon=ss_epsilon,
                     fed_grad_sink=_fed_sink,
+                    # #311/C-328: a `bn_recal_from` run drives THIS loop forward-only to
+                    # re-accumulate BatchNorm statistics, so it is a recalibration pass even though
+                    # it is not `_recalibrate_bn`. It leaves autograd ENABLED (it skips backward,
+                    # it does not disable grad), which is why the grad-state assertion in
+                    # tests/train/test_input_noise_wiring.py cannot reach it — the first fix for
+                    # C-328 covered one of the two recalibration paths.
+                    apply_input_noise=not _bn_recal,
                 )
 
                 # --- MEMORY-SAFE ACCUMULATION (ADR 014 Hardening) ---

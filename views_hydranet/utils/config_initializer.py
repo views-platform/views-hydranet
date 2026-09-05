@@ -750,6 +750,62 @@ class HydraNetConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def reject_input_noise_that_cannot_apply(self):
+        """Input noise needs a horizon of at least 2, or it never applies (#311).
+
+        The dropout accumulates within one deployment horizon and resets at each segment start,
+        and the segment start is left CLEAN because deployment feeds a real observation at the seed
+        step. With `time_steps == 1` every step is a segment start, so the augmentation is a total
+        no-op while the config records it as on — the C-324 inert-knob signature, created by the
+        fix for the off-by-one that used to noise the seed step.
+        """
+        if self.input_noise_dropout is not None and self.time_steps < 2:
+            raise ValueError(
+                f"input_noise_dropout={self.input_noise_dropout} with time_steps="
+                f"{self.time_steps}: every step would be a segment start, which is left clean, "
+                "so the augmentation could never apply."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def reject_feedback_clip_without_the_wire(self):
+        """`ss_feedback_grad_clip` does nothing unless the feedback wire is connected (#308).
+
+        `_attach_feedback_grad_clip` is called only inside `if ss_backprop_through_feedback`, so a
+        config that sets the clip alone is silently unclipped, `fed_grad_max` logs a constant 0.0
+        that reads as a healthy gradient, and the arm is scored as a treatment. Mirrors
+        `reject_pushforward_without_a_family`, which exists for exactly this failure mode.
+        """
+        if self.ss_feedback_grad_clip is not None and not self.ss_backprop_through_feedback:
+            raise ValueError(
+                "ss_feedback_grad_clip is set but ss_backprop_through_feedback is False, so the "
+                "clip is never applied and fed_grad_max would log a constant 0.0. Set the flag, "
+                "or remove the clip."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def reject_bptt_sa_that_cannot_run(self):
+        """BPTT-SA needs scheduled sampling to be active, or its whole block never executes (#308).
+
+        The feedback branch sits behind `if ss_epsilon > 0.0`, and `ss_epsilon` is 0 whenever
+        `ss_schedule` is None or `ss_epsilon_max` is 0.0 — the state every arm in the #311 fleet
+        pins. The config validates, the sidecar records the treatment as ON, and the weights are
+        NOT byte-identical (the RNG still advances), so even the weight-hash VOID gate passes. That
+        is C-324's signature with the one check that caught it in #308 disabled.
+        """
+        if self.ss_backprop_through_feedback and (
+            self.ss_schedule is None or not self.ss_epsilon_max
+        ):
+            raise ValueError(
+                "ss_backprop_through_feedback is True but scheduled sampling is inactive "
+                f"(ss_schedule={self.ss_schedule!r}, ss_epsilon_max={self.ss_epsilon_max!r}), so "
+                "the feedback branch never runs and the arm would be scored as a treatment it "
+                "never received."
+            )
+        return self
+
+    @model_validator(mode="after")
     def reject_pushforward_without_a_family(self) -> "HydraNetConfig":
         """The #289 pushforward term is only computed when the head resolves to a distribution
         family — `_process_sequence` guards on `family is not None`. A legacy / point / quantile

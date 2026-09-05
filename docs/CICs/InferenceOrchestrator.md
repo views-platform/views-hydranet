@@ -32,7 +32,7 @@ The `InferenceOrchestrator` is the **Unified Symmetry Engine** of the HydraNet p
   diagnostics** that are forwarded to every `HydraNetInference` it builds — `freeze_recurrent` (hold a
   ConvLSTM memory half during free-running, #258/C-222), `freeze_recurrent_weight` (how far to pull that
   half back toward the anchor each step; **1.0 = the hard hold**, #280), `feedback_transform` and
-  `feedback_length_scale` (#258/#262), `record_gate_probe`, and `body_mean_dump_dir` (write the
+  `feedback_length_scale` (#258/#262), `record_gate_probe`, `freeze_anchor_roll` and `per_step_roll` (the only entry in this list that **mutates** the forward pass rather than observing it), and `body_mean_dump_dir` (write the
   un-composed body mean and the gate as separate fields, so occurrence and magnitude can be read apart —
   the cube cannot do this, because its `soft_gate` composition is a per-draw Bernoulli mask on family
   draws). **Each defaults to the value that reproduces the pre-seam path**

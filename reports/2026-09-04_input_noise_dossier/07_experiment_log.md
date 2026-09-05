@@ -189,3 +189,28 @@ predicting all horizons at once has no recursion to backpropagate through. Six f
 mitigate-the-recursion family is now a lot of evidence.
 
 **Epic #311 closed.**
+
+---
+
+## ⛔ Correction to S5/S6, from `/code-review max` · 2026-09-05
+
+**The arm ran a harsher schedule than `02_design.md` specifies.** The implementation dropped on the
+first step of every segment; the design fits survival as `S(h) = (1-p)^(h-1)` — horizon 1 **clean** —
+and deployment matches that, because inference feeds the real observation at the seed step.
+
+| h | fitted survival | implemented |
+|---|---|---|
+| 1 | 1.0 | **0.796** |
+| 18 | 0.02068 | 0.01646 |
+| 36 | 0.00034 | 0.00027 |
+
+A flat **20.4% over-silencing at every horizon** — four times the design's own 5% residual tolerance.
+
+**What this does and does not change.** The **direction stands**: the mechanism is over-firing caused
+by *intact targets*, and the schedule does not change that — the model is asked to predict events its
+input lacks either way. What is **not** attributable is the effect size: −0.1963 is the loss at a
+schedule ~20% harsher than p=0.204 as designed.
+
+Fixed in code (the segment start is now clean, and a validator rejects `time_steps < 2`, where every
+step would be a start and the augmentation could never apply). **A re-run was not bought:** the
+pre-registered trigger for more GPU was `Δ ≥ +0.02`, and the measured Δ is −0.196.
