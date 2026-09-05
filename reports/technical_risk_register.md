@@ -4,12 +4,12 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-08-26                           |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). |
-| Total Concerns    | 314                                  |
-| Open Concerns     | 162                                  |
+| Last Updated      | 2026-09-05                           |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). **C-319..C-322 added 2026-09-03 from the silence-vs-fade dossier: C-319 (field statistics blind to placement — occurrence, magnitude and alignment ALL survive a roll that destroys the forecast, so an internal statistic cannot close a causal claim about a truth-referenced score); C-320 (a falsifier band tighter than its own reference's sampling noise, which fired on the known-good control); C-321 (`--keep-cubes` silently disables the multi-arm contamination guard); C-322 (the model field's H axis runs opposite to priogrid row order — naive placement correlates 0.026, the flip gives 1.0000). **C-325 added 2026-09-04: two SCREEN-2 mechanism tests measured the network at INITIALISATION and were recorded as ruling a mechanism out; the arm's gradient does explode, 33 lessons later.** **C-328 added 2026-09-05: #311's input noise leaked into the C-184 BatchNorm recalibration pass, which would have confounded the S5 screen at the BN layer with every log looking clean; second instance of the mechanism after #289's, and found by a test written for a different prose invariant.** **C-329 added 2026-09-05 from the implementation-practice post-mortem: tests that cannot fail (tautology, vacuity, zero power) — invisible to mutation testing by construction, detected by the deletion test.** **C-330/C-331/C-332 added 2026-09-05 from `/code-review max` (partial — 11 finders, no expert panel); the same pass ESCALATED C-328 to four instances (the `bn_recal_from` path and `random_flips`, the latter left unfixed by decision), C-303 to TWELVE occurrences with a new sub-form (the false prose describes a safety gate, making an absent control look present), and C-329 with two further instances, both inside the commit that registered it.** **C-326 added the same day: launcher watchdogs kill the subshell, not the process tree — an arm reported CAPPED trained on for 7 more lessons; latent everywhere else (no `STALLED` line exists in any `ANOMALIES.txt`).** **C-327 added 2026-09-04: #308's Phase-2 clip ladder was pre-registered as a discriminator whose two hypotheses, derived properly, predict the SAME outcome — C-320's fifth instance, found before it was run and at no cost.** **C-320 escalated 2026-09-04 from three to FOUR occurrences, the fourth a distinct sub-form: #308's SCREEN rule enumerated three numeric outcomes and no failure branch, so when arm B died with NaN gradients at lesson 48 no branch of the rule could be evaluated.** |
+| Total Concerns    | 329                                  |
+| Open Concerns     | 177                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 138                                 |
+| — net active risks | 153                                 |
 | Resolved Concerns | 152                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -3618,7 +3618,540 @@ training dynamics (C-112). Registered so the *claim* stops being made, which is 
 **Open question worth its own probe:** which op is falling back — the run log shows no determinism
 warning at all, which is itself unexplained.
 
+### C-318: a sentinel value averaged as a measurement, into a published ledger row
+
+| Field | Value |
+|-------|-------|
+| ID | C-318 |
+| Tier | 2 |
+| Source | `/expert-code-review` commissioned to design the next experiment (2026-09-02) |
+| Trigger | Aggregating any column that encodes "undefined" as an in-band numeric value — in this repo `mean_magnitude_on_active`, `persistence` and `neighbour_pairs_per_active` all use `-1.0` |
+| Location | `views_hydranet/utils/hydranet_inference.py:521-535`; consumed wrongly in `reports/2026-09-01_fade_mechanism_dossier/07_experiment_log.md` and `reports/RESULTS_LEDGER.md` (M50) |
+| Cross-refs | C-303 (prose asserting what the code does not do), C-308 (a plausible number from the wrong measurement) |
+
+`_record_feedback_stats` writes `-1.0` for `mean_magnitude_on_active` when `n_active == 0`. M50
+averaged the column unfiltered and published *"magnitude 18.4 → −0.8"* as evidence that the fed
+field collapses on magnitude as well as occurrence. By step 30, **97% of the control's records are
+the sentinel**. Filtered, magnitude is **18.4 → 13.5 unclamped and 18.4 → 13.8 clamped** — the two
+arms are the same, and **magnitude does not collapse at all**.
+
+**Three separate signals were available and all were missed:**
+
+1. **The column's own code comment warns against exactly this** — *"averaging the column would then
+   mix empty fields with scattered ones — biasing the statistic downward exactly in the collapse
+   regime this study is about."*
+2. **The value is arithmetically impossible.** `counts = expm1(field).clamp(min=0.0)`, so a mean of
+   clamped non-negatives cannot be negative.
+3. **It was noticed and filed as a mystery.** M50's write-up records it under *"an anomaly,
+   recorded not explained"* — the anomaly was the diagnosis, and writing it down was mistaken for
+   handling it.
+
+Worse than a wrong number, the published table compared the clamped arm's **15.71** (a real mean
+over 153/156 records) against the control's **−0.74** (97% sentinel) as if they were one quantity.
+
+**The finding survives.** `active_fraction` is `n_active / n_cells` and cannot be a sentinel, so the
+1,547×-versus-2× occurrence result is untouched, as are the state numbers from a separate capture
+path. **Corrected**: the collapse is purely occurrence, and the clamp preserves *where* the model
+fires, not *how loudly* — which sits better with M32/M45 (placement is everything; magnitude is not).
+
+**Standing rule:** an in-band sentinel must be filtered at the point of aggregation, and any
+analysis touching these three columns asserts `n_active > 0` before reducing. **Noticing an
+impossible value and recording it as unexplained is not handling it** — that is the specific
+behaviour this entry exists to stop.
+
+### C-319: a field statistic that cannot see placement, used to explain a placement effect
+
+| Field | Value |
+|-------|-------|
+| ID | C-319 |
+| Tier | 2 |
+| Source | EXP-3/EXP-3b, silence-vs-fade dossier (2026-09-03) |
+| Trigger | Explaining *why* an intervention changes AP/CRPS using any statistic computed from the emitted field alone — occurrence, body magnitude, gate–body alignment, `act_ratio`, `size_ratio` |
+| Location | `reports/2026-09-02_silence_vs_fade_dossier/tools/decompose.py`; `reports/GLOSSARY.md` §4; consumed wrongly in `RESULTS_LEDGER.md` (M52) |
+| Cross-refs | C-318 (a statistic read past its support), C-303 (prose asserting what the code does not do), C-126 (rollout sharpness conflation) |
+
+Rolling the clamp anchor 90 cells left **every** field statistic essentially unchanged — occurrence
+0.718 vs the clamp's 0.715, plain magnitude 0.628 vs 0.651, alignment 61.5 vs 69.3 — while `AP@h18`
+fell **0.362 → 0.0075**, a 48× collapse. EXP-3b then measured *why*: the forecast is the clamp's
+forecast **displaced**, matching at r ≈ 0.90 with the cross-correlation peak at exactly (90, 90).
+
+These statistics are **marginal and internal**. They describe the shape of the emitted field and
+whether the gate and body agree *with each other*; none references truth, so none can distinguish a
+good forecast from the same forecast in the wrong place. M52 used alignment to explain the clamp's
+AP benefit, which is invalid on its own terms — the rolled arms preserve alignment just as well and
+score 1/48th. **Any causal story about a truth-referenced score must be closed by a truth-referenced
+statistic.**
+
+### C-325: a mechanism ruled out by measuring the UNTRAINED network
+
+| Field | Value |
+|-------|-------|
+| ID | C-325 |
+| Tier | 2 |
+| Source | GRAD-TRAJ probe, #308 (2026-09-04) |
+| Trigger | Testing whether a proposed mechanism for a training-time failure is real by measuring a freshly constructed model, a toy fixture, or any state the failure has not had time to reach |
+| Location | `reports/2026-09-03_bptt_sa_dossier/07_experiment_log.md` (SCREEN-2 mechanism table, rows 1-2) |
+| Cross-refs | C-324 (the general form: verifying on a path the phenomenon never takes), C-323, C-320 |
+
+SCREEN-2 recorded three candidate mechanisms as tested and non-reproducing. Two of them measured
+gradient norm against sequence length on a model at **initialisation** — a toy head, then the real
+`HydraBNUNet06_LSTM4` at 31 steps — and returned ratios of 0.999 and 1.001. Both numbers are
+**correct**. The conclusion drawn from them was wrong: the arm's gradient *does* explode, to seven
+orders of magnitude above its control, but it takes ~33 lessons of training to get there. At
+initialisation the extra path is ~0.1% of the gradient norm, exactly as measured.
+
+**An untrained network cannot exhibit an instability that training creates.** The tests had no power
+to detect the thing they were used to rule out, and "none of my hypotheses reproduced it" went into
+the log as if the hypothesis space had been narrowed when it had not.
+
+This is C-324's principle pointed at *diagnosis* rather than at *verification*: there, an
+intervention was verified on a path production never takes; here, a mechanism was rejected on a
+model state the failure never occupies. The mitigation has the same shape as the potency gate —
+before a negative diagnostic is believed, show the probe firing on a state where the phenomenon is
+known to be present. GRAD-TRAJ did that by carrying a control arm, and the control is what made the
+treatment's curve legible.
+
+### C-326: a watchdog that kills the wrapper, not the process tree
+
+| Field | Value |
+|-------|-------|
+| ID | C-326 |
+| Tier | 3 |
+| Source | GRAD-TRAJ probe launcher, #308 (2026-09-04) — found by noticing a committed CSV kept growing |
+| Trigger | Adding or reusing a launcher watchdog that terminates a background arm by `kill -TERM $APID`, where `$APID` is a subshell wrapping `timeout` / `conda run` / `python` |
+| Location | `reports/2026-09-03_bptt_sa_dossier/tools/run_gradtraj.sh` (FIXED), `tools/run_screen.sh` (FIXED); still present in `reports/2026-09-03_drivers_and_dynamics_dossier/tools/run_wave1.sh:124` and `run_wave2.sh:60` |
+| Cross-refs | C-321 (a harness guard silently not doing its job), C-163 (a wedged GPU context read as slow progress) |
+
+The established launcher idiom backgrounds an arm as a subshell — `( cd "$A" && timeout ... conda run
+... python main.py ) & APID=$!` — and every watchdog stops it with `kill -TERM $APID`. That signals
+the **subshell**, not the `timeout -> conda run -> python` tree beneath it. The arm keeps training.
+
+Measured, not theorised: GRAD-TRAJ's lesson-cap watcher fired at 60 lessons, the launcher logged
+`CAPPED at 60 lessons (intended)`, ran its readout, wrote `RUN_COMPLETE` and exited — and the
+control arm went on training to lesson 67 on the GPU, appending rows to a CSV that had already been
+committed. The verdict was unaffected (both read windows end at lesson 47, and re-running the readout
+on the longer file reproduces every figure exactly), so this cost nothing here.
+
+**It has never fired anywhere else.** The three other instances are all *stall* watchdogs, which
+only trigger on a hang, and no `ANOMALIES.txt` in the repo contains a `STALLED` line. The cap watcher
+is the only one that fires by design on a normal run, which is why the defect surfaced now and not
+in any earlier dossier.
+
+Consequence if it did fire: the launcher reports an arm stopped while it holds the GPU, and the next
+arm's `<3000 MiB` guard fails loud for a reason no one would connect back to the watchdog — a
+correct guard producing an unreadable diagnosis. The two drivers-dossier launchers are left unfixed
+deliberately: those experiments are complete, and editing their tools now would change the
+provenance of results already logged. Fix them if either is ever re-run.
+
+### C-327: a discriminating test whose two hypotheses predict the SAME outcome
+
+| Field | Value |
+|-------|-------|
+| ID | C-327 |
+| Tier | 3 |
+| Source | #308 EXP-BIAS Phase 2 design, caught 2026-09-04 while reading Phase 1's result |
+| Trigger | Pre-registering a "discriminating" experiment without deriving each hypothesis's predicted outcome *separately and explicitly*, and checking that they actually differ |
+| Cross-refs | C-320 (a gate that cannot deliver its verdict — this is the fifth instance), C-319, C-325 |
+| Location | `reports/2026-09-03_bptt_sa_dossier/05_analysis_plan.md` amendments A2/A4 (the clip-ladder prediction table) |
+
+The Phase-2 clip ladder was pre-registered as the test that would separate **A1** (the estimator is
+biased and points the wrong way) from **A3** (the objective genuinely trains the model to fire
+more), with a table reading: under A1, AP decreases as the clip loosens; under A3, AP increases.
+
+**The A3 row is wrong.** Under A3 the gradient is *correct* and points toward an optimum that
+involves MORE firing — and more firing costs AP (M45). So A3 also predicts AP decreasing. The two
+hypotheses make the **same** prediction and the ladder cannot separate them. It never could have.
+
+Cost: none. Phase 1 measured the mechanism directly and answered the question, and the ladder was
+never run. The defect was found by deriving A3's prediction properly *after* Phase 1 forced
+attention onto what A3 actually implies.
+
+What makes it register-worthy rather than a private slip: the plan was reviewed, approved and
+committed with a table that *looked* like a discriminating design because it had two rows pointing
+opposite ways. Opposite-looking rows are not the check — the check is deriving each row from its own
+hypothesis and confirming they differ. The mitigation is mechanical and cheap: for any test claimed
+to discriminate, write the derivation for each hypothesis in the pre-registration, not just the
+conclusion.
+
+### C-328: a training-time augmentation leaking into the BatchNorm recalibration pass
+
+| Field | Value |
+|-------|-------|
+| ID | C-328 |
+| Tier | 2 |
+| Source | #311 S3 round-3 audit, 2026-09-05 — found by a test written for a *different* invariant |
+| Trigger | Adding any augmentation, corruption, dropout or perturbation to the training input path, without asking which **non-training** forwards also traverse it |
+| Location | `views_hydranet/train/training_engine.py` — `train()`'s `apply_input_noise`, and `_recalibrate_bn`'s call |
+| Cross-refs | C-184 (recurrent BatchNorm; the recal pass this leaked into exists *because* of it), C-324, C-303 |
+
+`_recalibrate_bn` (the C-184 mitigation) runs forward-only over real windows to **recompute
+BatchNorm running statistics**, which are saved into the artifact and used at inference. #311's input
+noise was applied on that pass — measured, 30 calls with autograd disabled — so a treatment arm's BN
+buffers would have been computed on **deliberately corrupted** inputs while the control's were
+computed on clean ones.
+
+The two arms would then have differed at the BatchNorm layer for a reason that is not the hypothesis,
+**and every log, gate and score would have looked clean**. The screen was ~20 minutes from launch.
+
+**This is the second instance of the mechanism**, and the first is in the same register neighbourhood:
+#289's pushforward ran its extra forward in `train()` mode and wrote BN running stats
+(`num_batches_tracked` 5→9) — caught by a code review, not by its 13 mechanism tests. The general
+form: *an auxiliary or diagnostic forward that traverses the training input path inherits whatever
+was added to it, including things that must never reach an artifact.*
+
+**⬆ ESCALATED 2026-09-05 by `/code-review max` — the fix covered ONE of TWO recalibration paths,
+and a THIRD augmentation was never covered at all.**
+
+* **Instance 3 (FIXED here):** the `bn_recal_from` standalone path (`training_engine.py:1307`) drives
+  the *normal lesson loop* forward-only to re-accumulate BN statistics, and never received
+  `apply_input_noise=False`. The guard test could not reach it because that path leaves autograd
+  **enabled** (it skips `backward()`, it does not disable grad), while the test asserts on
+  `torch.is_grad_enabled()`. A defect created by the fix for this very entry, on the one path its
+  own guard is blind to.
+* **Instance 4 (NOT FIXED — raised for decision):** `random_flips` (`training_engine.py:912`,
+  default **True**) flips the tube inside `train()`, which `_recalibrate_bn` calls. With
+  `momentum=None` (equal cumulative weighting) roughly **half of every BatchNorm running statistic
+  in every shipped artifact is accumulated on H/W-flipped fields** — a distribution inference never
+  produces. Convolution is not flip-equivariant. This partially defeats the fix C-184 exists to be,
+  whose entire purpose is matching the eval-time activation distribution, and it has been live for
+  as long as `random_flips` and BN recalibration have coexisted.
+
+  **Deliberately not fixed in the #311 branch.** It is pre-existing, orthogonal to input noise, and
+  the fix changes the BatchNorm statistics of every future artifact — a production behaviour change
+  that belongs to its own decision, not to collateral work inside an augmentation branch. It also
+  raises whether artifacts already in hand should be re-recalibrated. **The TrainingEngine CIC now
+  states the exemption honestly rather than implying the passes are clean.**
+
+**Fix applied:** `train()` takes an explicit `apply_input_noise` flag (default True, so every
+existing caller is unchanged) and `_recalibrate_bn` passes False. Explicit rather than an implicit
+"skip when `torch.is_grad_enabled()` is False", which would be behaviour steered from elsewhere.
+
+**How it was found, because the method transfers:** a test written to pin a *different* prose
+invariant — `docs/CICs/TrainingEngine.md`'s "the Stage-5 diagnostic biopsy is never noised" — used
+grad state as its tell and failed on the real assertion. Neither three rounds of mutation testing nor
+the author's own review found it; **writing a test for an untested prose claim did.** The register
+already holds ten C-303 occurrences of prose asserting what the code does not do; this is evidence
+that turning such prose into tests finds defects beyond the prose itself.
+
+### C-329: tests that cannot fail — tautology, vacuity, and zero discriminating power
+
+| Field | Value |
+|-------|-------|
+| ID | C-329 |
+| Tier | 2 |
+| Source | #311 S3, audit rounds 2 and 3 (2026-09-04/05); `reports/postmortem_implementation_practice_2026-09.md` §5 |
+| Trigger | Writing a test whose expected value is computed by the same expression as the code, or which asserts over a possibly-empty collection, or which asserts only that a value *changed* |
+| Location | `tests/test_input_noise*.py`, `tests/train/test_input_noise_wiring.py` (all instances fixed); the class is general |
+| Cross-refs | C-303 (prose asserting what the code does not do — this is its executable twin), C-324, C-320 |
+
+**A test that cannot fail is invisible to mutation testing by construction**: mutating the code
+cannot make a test fail if the test does not examine that code. So this class survives the very
+technique the repo relies on most, and it was found only by asking a different question — *would this
+test still pass if the feature were deleted?*
+
+Three sub-forms, all measured in this span:
+
+1. **Tautology.** The expected value is derived from the expression under test. A test computing
+   `list(range(len(config["features"])))` agrees by construction with a mutant that replaces
+   `_noisable_channels(config)` with exactly that. Committed **twice** — the second instance inside
+   the fix for the first. Also: threshold tests built as `cv_dominant = MAX_CV + 0.01`, which pass for
+   any value of `MAX_CV`.
+2. **Vacuity.** `all(... for c in calls)` where `calls` is never asserted non-empty. Both such tests
+   **passed with the call site deleted**. Likewise an assertion that two tensors share a shape, when
+   they always do.
+3. **Zero power.** A determinism test that passes for any deterministic implementation, feature
+   present or absent.
+
+**Detection, and it is cheap:** the **deletion test** — remove the config field, the call site and the
+assembly, then run the suite. Anything still green is not testing the feature. It found all three
+sub-forms in one pass. Round 3's per-file result: one of four test files passed with the feature
+entirely removed, and **27 of 40 individual tests** passed with the call site deleted.
+
+**⬆ TWO FURTHER INSTANCES — 2026-09-05, `/code-review max`, both in the fix for this entry:**
+
+* `tests/train/test_input_noise_wiring.py::test_the_diagnostic_biopsy_is_NEVER_noised` — its
+  anti-vacuity guard proved "the biopsy ran" by observing a static re-attach under `no_grad`, but
+  `_recalibrate_bn` also runs under `no_grad`, so the guard was satisfiable by the **wrong pass** and
+  would have gone vacuous the moment the biopsy stopped running. Written deliberately to be
+  non-vacuous, in the commit that registered this entry. **FIXED** by discriminating on
+  `model.training` — the biopsy runs `(no_grad, eval)`, BN-recal runs `(no_grad, train)`.
+* `tests/test_anchor_roll.py::test_default_is_off_and_byte_identical` — asserts nothing about
+  byte-identity. Its only cube assertion compares two *treatment* arms, which was true before the
+  branch existed and is insensitive to any corruption of the default path. **OPEN.**
+
+**Mitigation:** never derive an expected value from the expression under test; assert a collection is
+non-empty before asserting over it; assert what a value changed *to*, not that it changed; and run the
+deletion test before believing a coverage claim.
+
+### C-330: a per-step gradient hook attached to a tensor the loss also consumes
+
+| Field | Value |
+|-------|-------|
+| ID | C-330 |
+| Tier | **1** |
+| Source | `/code-review max` on `exp/silence-vs-fade`, 2026-09-05 |
+| Trigger | Calling `register_hook` on a **non-leaf** tensor — before doing so, enumerate every consumer of that tensor in the graph |
+| Location | `views_hydranet/train/training_engine.py:571` (`fed = t1_pred`), `:575` (hook), `:578` / `:653` (loss consumers) |
+| Cross-refs | C-324 (a knob whose reading is a fact about the harness), C-303 (the helper's docstring asserted the opposite) |
+
+**FIXED 2026-09-05.** On the legacy point head `fed = t1_pred`, and `t1_pred_for_loss = t1_pred`
+whenever `use_latent` is False — so the scheduled-sampling feedback tensor **is** the regression
+loss's input. `register_hook` on a non-leaf fires **once, on the gradient accumulated from every
+consumer**, so `ss_feedback_grad_clip` rescaled the *primary supervised gradient*, and `fed_grad_max`
+logged reg + gate + qs99 + feedback rather than the handoff the column is named for.
+
+Tier 1 because it corrupts **trained weights**, not a measurement, and does so silently: the run
+completes, the loss falls, and nothing distinguishes a clipped-supervision arm from a healthy one.
+Reachable through a validated config; nothing narrowed the flag to family heads; no test exercised
+the clip with `family=None`. The helper's own docstring asserted the opposite — *"`fed` is the sole
+tensor through which credit crosses"* — which is true for a family head, where `fed` is derived, and
+false on the copy-pasted `else`.
+
+**Fix:** the hook is attached only when `family is not None`, and a config validator rejects
+`ss_feedback_grad_clip` without `ss_backprop_through_feedback` outright.
+
+### C-331: diagnostic arms that silently collapse into each other, or into their own control
+
+| Field | Value |
+|-------|-------|
+| ID | C-331 |
+| Tier | 2 |
+| Source | `/code-review max` on `exp/silence-vs-fade`, 2026-09-05 |
+| Trigger | Adding a second orthogonal switch to an existing diagnostic — validate the *composition*, not only each switch |
+| Location | `views_hydranet/utils/hydranet_inference.py:281`, `:701`, `:748`, `:755`, `:1170`, `:1201` |
+| Cross-refs | C-323 (an ablation on a regenerated component), C-319, C-309, M60 |
+
+**OPEN.** Five compositions in the freeze/roll diagnostic family are unvalidated:
+
+* `freeze_anchor_roll` refuses to run without a clamp — the guard's stated reason is that a silent
+  no-op *"would make the arm report no effect when it never ran"* — but does **not** check
+  `freeze_recurrent_weight`, whose documented `0.0` is itself a no-op. So a rolled arm can be
+  byte-identical to free-running while writing its output under the treatment's filename, which is
+  precisely what the sibling `freeze_anchor_roll=0` guard exists to prevent.
+* `per_step_roll` under a clamp rolls a **constant** anchor (the clamp restores the frozen half at the
+  top of every step), collapsing the Wave-2 per-step arm into the EXP-3 anchor-roll arm and removing
+  the accumulation the docstring describes.
+* The three attribution arms are **not perturbation-matched**: the `input` arm rolls *after* statics
+  are concatenated, so it displaces geometry, while `hidden`/`cell` touch none. The sibling
+  training-side helper `_noisable_channels` goes to explicit lengths to exclude exactly those
+  channels. **This bears directly on M60's "input 0/26" reading.**
+* The `hs|hl` split uses a bare `// 2` while `blend_recurrent_state` raises on `channels % 8 != 0`
+  for the identical split, with the reason *"an uneven split would silently hold the wrong memory
+  type"*.
+* Two period guards need H and W and so fire on the first autoregressive step — after model load,
+  handler load, cube preallocation and history digestion — rather than at construction like every
+  other guard in the family.
+
+### C-332: a positive control that reports the wrong component as broken
+
+| Field | Value |
+|-------|-------|
+| ID | C-332 |
+| Tier | 2 |
+| Source | `/code-review max` on `exp/silence-vs-fade`, 2026-09-05 |
+| Trigger | Reusing an assertion helper for a second purpose — check that its *failure message* still names the right component |
+| Location | `scripts/potency_check.py:90` (`assert_control_fires`) |
+| Cross-refs | C-324 (whose gate this is), C-303 |
+
+**OPEN.** `assert_control_fires` delegates to `assert_potent`, so a failing **positive control**
+raises the treatment-side message verbatim: *"The knob is INERT on this configuration, so any result
+would be a fact about the harness, not about the hypothesis."* That is the opposite diagnosis from
+what the function exists to test. Only the `name` prefix differentiates them.
+
+Consequence: a broken **readout** reads as a dead **treatment**. The operator records the hypothesis
+as unmeasurable, abandons it, and the actually-broken measurement survives into every subsequent arm
+— while this module's whole stated principle is that **two different failures must not produce the
+same signature.** The gate that enforces that principle violates it.
+
+### C-320: pre-registered decision rules that cannot deliver a verdict on the run that actually happens (FOUR instances)
+
+| Field | Value |
+|-------|-------|
+| ID | C-320 |
+| Tier | 3 |
+| Source | EXP-1 G1 check, silence-vs-fade dossier (2026-09-02) |
+| Trigger | Writing an agreement threshold (`within X%`) between two instruments without first bounding the *reference's* sampling error in the regime where the comparison will be made; **or writing a decision rule whose branches are all numeric outcomes, with no branch for "the arm produced no number"** |
+| Location | `reports/2026-09-02_silence_vs_fade_dossier/05_analysis_plan.md` (F3); `tools/exp1_g1.py`; `reports/2026-09-03_bptt_sa_dossier/05_analysis_plan.md` (the SCREEN rule) |
+| Cross-refs | C-319 (the sibling: a falsifier built on an untested assumption about a statistic), C-307 (cheap screens recorded as closures) |
+
+F3 required two instruments to agree within 10% at every horizon. It fired — and then fired on the
+**known-good control** too (2 of 36 horizons, 13.1% and 10.7%). The reference is a 16-sample
+estimator of a heavy-tailed quantity whose nonzero-draw count collapses 599 → 13 → 1 → **0** across
+h1/h18/h30/h36, so at late horizons no instrument can agree with it to 10% regardless of
+correctness. The gate was **unsatisfiable by a correct instrument**. The statistically correct form —
+agreement within the *reference's own* uncertainty — was available at drafting and was not written;
+the dump passes it 4/4. Recorded fired rather than amended, and the chair authorised proceeding on
+the record.
+
+**⬆ OCCURRENCES 11 AND 12 — 2026-09-05, `/code-review max`. A NEW SUB-FORM: the asserted guard is
+a governance artifact this repo authored for that purpose.**
+
+11. `docs/CICs/HydraNetConfig.md` stated that `input_noise_dropout` is *"guarded by a potency gate
+    (`scripts/potency_check.py`) as a launch precondition."* It is not. `grep -rI potency` finds the
+    module, its tests, and that sentence — **zero callers** in `views_hydranet/`, in any launcher, or
+    in any model's `main.py`. The only invocation is a dossier tool that archives with its dossier.
+    Combined with `_apply_input_noise`'s silent empty-channels no-op, an arm could train ~110 minutes,
+    differ from its control only by RNG, and report *"input noise has no effect"* — verbatim what
+    `potency_check.py`'s own docstring says it exists to prevent. **This is the worst sub-form yet:
+    the false prose describes a safety gate, so it does not merely mislead a reader, it makes an
+    absent control look present.** CIC corrected 2026-09-05.
+12. `HydraNetInference.__init__` documents the body-mean dump as *"for the MC-dropout pass 0 only"*
+    while `_dump_body_mean` and the accumulator average over **all D passes**, and the test at
+    `tests/distributions/test_body_mean_dump.py` carries a docstring contradicting its own assertion.
+    Three statements of one contract, two wrong — including the only one a caller reads before wiring
+    the diagnostic.
+
+**GENERALISED 2026-09-03 — this is a class, not an incident. Three instances in eight days:**
+
+| # | gate | defect | found by |
+|---|---|---|---|
+| 1 | **F3** (silence-vs-fade) | a 10% agreement band tighter than the reference's own sampling noise — it fired on the known-good control | running the control |
+| 2 | **FR-4** (EXP-3) | required alignment to fall when placement was wrong, assuming alignment measures placement correctness — which the same experiment disproved | the experiment itself |
+| 3 | **C.4** (drivers) | "the gain on new cells is at least as large" without naming the measure; absolute gain and skill-above-base favour continuation, relative gain favours onset | computing all three |
+| 4 | **the #308 SCREEN rule** | enumerated three RESULTS (`Δ ≥ +0.02` / `Δ ≤ 0` / grey zone) and no FAILURES — arm B died at lesson 48 with NaN gradients, so `AP@h18` does not exist for it and no branch of the rule can be evaluated | the arm crashing |
+
+**The fourth instance is a distinct sub-form and the cheapest to prevent.** The first three are gates
+whose *statistic* could not deliver the verdict. The fourth is a rule whose *outcome space* was
+incomplete: it partitioned the real line and forgot that a training run can decline to produce a
+number at all. A pre-registered rule should therefore enumerate at least one non-numeric branch —
+**the arm did not train / the artifact is missing / the run was killed** — and say in advance what
+that outcome means, so a crash cannot later be narrated as whichever result is convenient. Without
+it, the failure signature is indistinguishable from an unfavourable result *after the fact*, which is
+exactly the property pre-registration exists to remove.
+
+The common cause is not carelessness about thresholds — all three were written deliberately. It is
+that **a falsifier encodes an assumption about what its statistic can deliver, and that assumption
+is never itself tested**. Each was caught only by measurement after the fact, and each was recorded
+fired/ambiguous rather than amended, which is the only reason the record is still trustworthy.
+
+**Mitigation to apply at the next pre-registration, not retroactively:** for every numeric gate,
+state (a) the measure, explicitly, when more than one is available, and (b) what the reference
+instrument's own noise floor is in the regime where the gate will be evaluated. A gate that cannot
+be passed by a correct instrument, or whose verdict flips with an unstated measure choice, is not a
+falsifier — it is a coin toss with a citation.
+
+### C-321: `--keep-cubes` silently disables the multi-arm contamination guard
+
+| Field | Value |
+|-------|-------|
+| ID | C-321 |
+| Tier | 2 |
+| Source | EXP-1 batch run (2026-09-02) |
+| Trigger | Passing `--keep-cubes` to `run_realism_arms.py` with more than one arm in `--arms` |
+| Location | `reports/2026-08-16_feedback_realism_dossier/tools/run_realism_arms.py` (the `if before and not keep_cubes` guard) |
+| Cross-refs | C-154 (disk), C-318 (a complete-looking artifact that is not what it claims) |
+
+Every arm writes the **same** prediction path, named after the artifact rather than the run. The
+start-of-arm guard refuses when a prediction directory already exists — but it is skipped entirely
+when `--keep-cubes` is set. So a two-arm batch with `--keep-cubes` runs arm 1, keeps its cubes, and
+lets arm 2 **overwrite them**; verified by file mtimes (arm 1 finished 22:13, its `origin_0` files
+were stamped 22:15 by arm 2). The corruption surfaced only at the *scoring* step, as "expected
+exactly one new prediction dir, found 0" — late, after ~35 minutes of GPU, and only because a second
+guard happened to catch it. The flag that disables the guard is documented as "debug only; skips the
+disk guard", which understates what it skips.
+
+### C-322: grid orientation is flipped between priogrid placement and the model field
+
+| Field | Value |
+|-------|-------|
+| ID | C-322 |
+| Tier | 2 |
+| Source | EXP-1 G1 check (2026-09-02) |
+| Trigger | Comparing any grid built by `sharpness_scorecard.to_grid` / `build_unit_grid` against a model-native `[H, W]` field — a dumped state, a body-mean field, an attention map |
+| Location | `scripts/sharpness_scorecard.py::to_grid` / `build_unit_grid`; `reports/2026-09-02_silence_vs_fade_dossier/tools/exp1_g1.py` |
+| Cross-refs | C-136 (grid reconstruction uniqueness), C-319 (spatial statistics read off the wrong cells) |
+
+The model field's `H` axis runs **opposite** to priogrid row order. Placing study cells at the
+naive `(row − 87, col − 310)` correlates **0.026** against the model's own gate cube; with
+`(179 − row, col)` the correlation is **1.0000** and the max difference is exactly **0**. A global
+flip **cancels** inside FSS and Moran's I because both grids are built the same way, which is why
+`to_grid` has never needed to care and why this was invisible until now. It does **not** cancel the
+moment a grid is compared against a model-native field, and the failure is silent: every downstream
+number is well-formed, plausible, and computed on the wrong cells.
+### C-323: an ablation that perturbs a component the architecture REGENERATES measures nothing
+
+| Field | Value |
+|-------|-------|
+| ID | C-323 |
+| Tier | 2 |
+| Source | architecture read prompted by the chair, 2026-09-03 |
+| Trigger | Designing any ablation, freeze, roll, dropout or lesion arm on a recurrent component — before running it, ask whether the component is *carried forward* or *recomputed* each step |
+| Location | `views_hydranet/architectures/HydraBNrecurrentUnet_06_LSTM4.py:568-603`; consumed wrongly in `RESULTS_LEDGER.md` (M56 hidden arm, M60 hidden roll) |
+| Cross-refs | C-292 (`hs` is a readout of `hl` — this makes it concrete), C-319 (a statistic that cannot see what the claim is about), C-320 (a gate whose statistic cannot deliver the verdict) |
+
+`hs = o_t * tanh(hl)`: the hidden half is **recomputed from the cell every step**. So any perturbation
+of `hs` — a roll, a freeze, a lesion — is regenerated from the *undisturbed* cell on the next step and
+**self-heals**. Wave 2's hidden-roll arm returned **0/26 for every horizon**, and that result was
+architecturally guaranteed: it would read 0/26 however much work the hidden state does. It was
+reported (M60) as though it measured hidden's contribution.
+
+The mirror failure is M56's `freeze hidden` arm. Holding `hs` at its anchor while the cell keeps
+evolving does not *isolate* hidden — it feeds a stale readout to four gates and to the encoder input,
+**breaking the LSTM's own recurrence**. Its +0.019 AP is real and replicated 4/4, but it measures
+"what happens when you jam the readout", not "what hidden contributes".
+
+**The general rule, which is what makes this Tier 2 rather than a note:** an intervention on a
+component only measures that component if the architecture *carries the component forward*. Where a
+component is a deterministic function of another, perturbing it tests the one-step map, not its role
+in the dynamics — and the null it returns is indistinguishable from "this part does not matter".
+Both readings were live in this programme for a day.
+
+**What survives from the two arms:** the narrower and still-useful claim that **hidden carries no
+spatial information across steps**, so it cannot be what drains during free-running. The cell-side
+results are the trustworthy half throughout.
+
+### C-324: an intervention verified on a path production never takes — "inert but tested"
+
+| Field | Value |
+|-------|-------|
+| ID | C-324 |
+| Tier | **1** |
+| Source | #308 BPTT-SA, 2026-09-03 |
+| Trigger | Any experimental knob, flag, ablation or intervention, **before** the run that will read it |
+| Location | `scripts/potency_check.py` (the gate); `views_hydranet/train/training_engine.py` (the instance); `tests/test_bptt_sa.py` (what a sufficient test looks like) |
+| Cross-refs | C-323 (the same error in an ablation arm — this is its general form), C-319, C-320, C-318 |
+
+**Tier 1, not 2.** The failure mode is a *wrong scientific conclusion recorded as a fact*, with no
+error signal anywhere. It is the only class in this register that corrupts the ledger rather than a
+run.
+
+A training change was implemented, **unit tested (7), mutation tested (5/5), lint clean, full suite
+green (1,901)** — and was a **no-op on the configuration production uses**. Two arms trained 276
+minutes and produced **byte-identical weights**. The tests drove the point-head path, where the fed
+value is the raw prediction and differentiable. Production is a family head with **sampled**
+feedback, where `d(draw)/d(params)` is **exactly 0** — the tensor carries a `grad_fn` from a `log1p`
+wrapper, so it *looks* connected, and delivers nothing. `C-259` then **requires** sampled feedback,
+so the single mode the change could not affect is the only one allowed.
+
+**Why it was caught, and why that is not reassuring.** The result was *impossible* (identical to the
+last bit), not merely disappointing. **A half-connected knob would have produced a small number, the
+pre-registered rule would have read it as "hypothesis dead", and a wrong conclusion about the IDEA
+would have entered the ledger as a fact about the world.** The chair's estimate — that this
+programme has likely rejected workable ideas on broken implementations — is consistent with every
+mechanism in this entry.
+
+**The principle:** *a broken implementation must not produce the same signature as a null result.*
+Where "the knob does nothing" and "the knob does nothing useful" look alike in the readout, every
+null is ambiguous, and no amount of after-the-fact analysis can separate them.
+
+**Mandatory mitigation, before any run that costs more than the check:**
+
+1. **Potency gate** (`scripts/potency_check.py::assert_potent`) — prove the knob changes a measured
+   quantity **on the arm's own configuration**, never a fixture. Two seconds. It reproduces this
+   failure exactly: `off=0.0, on=0.0 → INERT`.
+2. **Positive control** (`assert_control_fires`) — prove the *readout* can see a known effect. A
+   null from a harness whose control does not fire is not a null.
+3. **Integration test at the call site, on the production path.** Unit tests on helpers missed
+   this entirely: with only those, 4 of 5 call-site mutations survived — *including the original
+   bug reintroduced verbatim*. With one family-head integration test, 4 of those 5 were caught.
+
+**What did NOT catch it, recorded because the negative result is the useful part:** unit tests,
+mutation testing, lint, the full suite, type correctness, and code review. Mutation testing only
+probes the code the author already thought to test; it was 5/5 green while the change was inert.
+
+
 ## Disagreements
+
 
 ### D-01: VolumeHandler scope — God Object vs Deep Module
 

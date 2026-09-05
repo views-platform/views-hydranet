@@ -83,3 +83,73 @@ log1p space where a fed count should not be negative. The clamped arm never does
 separate defect in the feedback path; it is not load-bearing for anything above.
 
 **Cost: ~15 minutes, emit only, no training.**
+
+---
+
+## CORRECTION (2026-09-02) — the magnitude claim above is wrong; the finding is sharper without it
+
+Found by an `/expert-code-review` commissioned to design the next experiment, which read the CSVs
+instead of the write-up. **The mechanism holds. One clause of its description does not.**
+
+### What was wrong
+
+`mean_magnitude_on_active` carries an explicit **`-1.0` UNDEFINED sentinel** when `n_active == 0`
+(`views_hydranet/utils/hydranet_inference.py:527-533`). The column's own code comment warns:
+
+> *"averaging the column would then mix empty fields with scattered ones — biasing the statistic
+> downward exactly in the collapse regime this study is about."*
+
+That is precisely what the table above does. `counts = expm1(field).clamp(min=0.0)`, so a mean of
+clamped non-negatives **cannot be negative** — the −0.74 was the tell, and it was recorded as an
+"anomaly, recorded not explained" rather than recognised as a sentinel.
+
+| step | control: % records that are sentinel | raw mean (as published) | filtered mean |
+|---|---|---|---|
+| 1 | 0% | 18.37 | 18.37 |
+| 18 | 79% | 1.92 | 12.82 |
+| 30 | 97% | **−0.74** | 7.20 |
+| 35 | 99% | **−0.81** | 13.50 (n=2 records) |
+
+Worse than a wrong number: the table compared the **clamped arm's 15.71** — a real mean over
+153/156 records — against the **control's −0.74**, which is 97% sentinel. Two different quantities
+placed side by side as if they were one.
+
+### What is actually true
+
+| | control | clamped |
+|---|---|---|
+| active fraction, step 1 → 35 | 0.000612 → 0.0000004 (**1,547×**) | 0.000612 → 0.000315 (**2×**) |
+| magnitude on cells that fired | 18.37 → 13.50 | 18.37 → 13.84 |
+
+**Magnitude does not collapse, and the clamp does not restore it — the two arms end up at
+essentially the same magnitude (13.5 vs 13.8).** The entire effect is **occurrence**.
+
+`active_fraction` is `n_active / n_cells` and can never be a sentinel, so the 1,547× and 2× figures
+— the load-bearing ones — are unaffected. The state numbers come from a separate capture path
+(`state_*.pt`) and are untouched.
+
+### The corrected mechanism
+
+```
+clamp the cell  →  state stops draining (41×  →  1.0×)
+                →  the model keeps firing SOMEWHERE (1547× → 2× collapse in occurrence)
+                →  AP rises, 0.000 at h1 to +0.059 at h36
+```
+
+**The clamp preserves *where* the model fires, not *how loudly*.** That is a cleaner claim than the
+one it replaces, and it sits better with the rest of the programme: M32/M45 already established
+that **placement is everything** — thinning events costs 3% of the oracle, scrambling their
+locations costs 81%.
+
+### What this changes about M43 and M49
+
+The original said *"neither asked about magnitude, which is what actually decays."* **That sentence
+is now wrong in its own right.** M43 asked about range, M49 about spatial structure, and this asked
+about magnitude — and magnitude turns out not to be the answer either. The property that decays is
+**occurrence**, and none of the three asked about it directly.
+
+### Registered as C-318
+
+A sentinel value averaged as a measurement, in a published ledger row, with the tell (a negative
+mean of a non-negative quantity) visible in the output and written down as an unexplained anomaly
+instead of chased.

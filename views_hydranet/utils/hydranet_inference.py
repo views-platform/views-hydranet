@@ -1,5 +1,6 @@
 import gc
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
 import numpy as np
@@ -162,6 +163,9 @@ class HydraNetInference:
         feedback_transform: Optional[str] = None,
         feedback_length_scale: Optional[float] = None,
         record_gate_probe: bool = False,
+        body_mean_dump_dir: Optional[str] = None,
+        freeze_anchor_roll: Optional[int] = None,
+        per_step_roll: Optional[str] = None,
     ) -> None:
         """Initializes the inference pipeline for HydraNet.
 
@@ -253,6 +257,74 @@ class HydraNetInference:
             )
         self.freeze_recurrent = freeze_recurrent
         self.freeze_recurrent_weight = freeze_recurrent_weight
+
+        # DIAGNOSTIC (silence-vs-fade EXP-3): spatially roll the anchor before holding it. The
+        # clamp pins the state to its last real-observation value, which tangles two things — the
+        # state's SCALE and its MAP of which cells are hot. A roll is a permutation: it preserves
+        # every scalar property of the anchor exactly (norm, mean, variance, per-channel
+        # distribution, internal spatial smoothness) and destroys only its correspondence to the
+        # geography. So the arm clamps just as hard, to a state just as well-behaved, that is
+        # simply about the wrong places — which is what separates "the clamp preserves placement"
+        # from "the clamp steadies the state's scale".
+        if freeze_anchor_roll is not None:
+            if not isinstance(freeze_anchor_roll, int) or isinstance(freeze_anchor_roll, bool):
+                raise ValueError(
+                    f"freeze_anchor_roll must be an int or None; got {freeze_anchor_roll!r}."
+                )
+            if freeze_anchor_roll == 0:
+                # A zero roll is the plain clamp wearing a rolled arm's label — it would write a
+                # duplicate of the control into a file named for the treatment.
+                raise ValueError(
+                    "freeze_anchor_roll=0 is the identity and reproduces the plain clamp arm; "
+                    "run freeze_recurrent alone for that control instead."
+                )
+            if freeze_recurrent is None:
+                # Rolling an anchor nobody holds changes nothing. A silent no-op here would make
+                # the arm report "no effect" when it never ran.
+                raise ValueError(
+                    "freeze_anchor_roll needs freeze_recurrent set — the anchor is only read when "
+                    "a memory half is held, so rolling it without a clamp is a no-op."
+                )
+        self.freeze_anchor_roll = freeze_anchor_roll
+
+        # DIAGNOSTIC (Wave 2 attribution): spatially roll exactly ONE driver at EVERY step, then
+        # measure how far the emitted field follows it. Which driver drags the forecast is the
+        # attribution. A roll is a permutation, so the driver keeps its scale, distribution and
+        # internal structure and loses only its correspondence to the geography -- the same
+        # operation EXP-3b validated for the anchor, applied per step to a live driver.
+        # Spec is "<driver>:<shift>", e.g. "cell:90".
+        self.per_step_roll = None
+        if per_step_roll is not None:
+            try:
+                which, raw = str(per_step_roll).split(":")
+                shift = int(raw)
+            except ValueError as exc:
+                raise ValueError(
+                    f"per_step_roll must look like 'cell:90'; got {per_step_roll!r}."
+                ) from exc
+            if which not in ("input", "hidden", "cell"):
+                raise ValueError(f"per_step_roll driver must be input|hidden|cell; got {which!r}.")
+            if shift == 0:
+                # A zero roll is the control arm wearing the treatment's label.
+                raise ValueError(
+                    "per_step_roll shift 0 is the identity; run the plain arm instead."
+                )
+            self.per_step_roll = (which, shift)
+
+        # Diagnostic body-mean dump (silence-vs-fade dossier, 2026-09-02). Same contract as
+        # freeze_recurrent: explicit argument, no config key, default None = byte-identical
+        # production path. When set, writes the family's count-space body mean E[Y|body] and the
+        # gate P(y>0) as raw fields, for the MC-dropout pass 0 only. It reads tensors the family
+        # path already computes and adds NO forward pass and NO train()-mode work, so it cannot
+        # perturb the run it measures (the BatchNorm scar: an extra train()-mode forward silently
+        # wrote running stats). Every statistic is derived OFFLINE from these fields, so no
+        # analysis logic sits in the inference path.
+        self.body_mean_dump_dir = body_mean_dump_dir
+        if body_mean_dump_dir is not None and self._family is None:
+            raise ValueError(
+                "body_mean_dump_dir needs a registered distribution family "
+                f"(output_distribution={self.output_distribution!r} has none)."
+            )
 
         # Diagnostic feedback-field transform (#258/#262 — measuring `the feedback realism gap`).
         # Same contract as freeze_recurrent: explicit argument, no config key, default None =
@@ -611,6 +683,111 @@ class HydraNetInference:
             raise ValueError(f"hurdle_lognormal sigma must be > 0; got {vals}.")
         return torch.tensor(vals, dtype=torch.float32).view(1, len(vals), 1, 1)
 
+    def _roll_anchor(self, anchor: torch.Tensor) -> torch.Tensor:
+        """Spatially roll the clamp anchor — the EXP-3 dissociation arm.
+
+        The clamp's benefit could come from the anchor's SCALE (holding the state's magnitudes
+        steady) or from its MAP (which cells are hot). Rolling separates them: ``torch.roll`` is a
+        permutation, so the returned anchor is byte-identical to the original as a multiset — same
+        norm, same mean, same variance, same per-channel distribution, same internal spatial
+        structure — and differs only in where that structure sits relative to the geography.
+
+        Raises:
+            ValueError: if the shift is a whole number of grid widths, which rolls the tensor back
+                onto itself and would silently run the control arm under the treatment's label.
+        """
+        shift = self.freeze_anchor_roll
+        h, w = anchor.shape[-2], anchor.shape[-1]
+        if shift % h == 0 and shift % w == 0:
+            raise ValueError(
+                f"freeze_anchor_roll={shift} is a whole number of grid periods for a {h}x{w} "
+                f"field, so torch.roll returns the anchor unchanged — this would run the plain "
+                f"clamp under a rolled arm's label. Choose a shift that is not a multiple of both."
+            )
+        return torch.roll(anchor, shifts=(shift, shift), dims=(-2, -1))
+
+    def _body_mean_field(self, params_zstack) -> np.ndarray:
+        """Count-space ``E[Y|body]`` per target, one MC pass — ``[T, n_reg, H, W]``.
+
+        Split out from the writer so the caller can average it across MC-dropout passes. That
+        matters: the scorer ranks on the gate averaged over all D x K posterior columns, and a
+        SINGLE pass reproduces its AP only to ~11% (measured, seed 42) because one dropout pass is
+        a noisier ranker. Analysis read off a one-pass dump would therefore not be comparable to
+        the headline scores.
+        """
+        fam = self._family
+        npar = fam.n_params
+        params = torch.as_tensor(np.asarray(params_zstack), dtype=torch.float32)
+        n_reg = params.shape[1] // npar
+        # ADR-068: mirror _emit_magnitude's core switch, or the dumped body is not the one
+        # actually emitted.
+        mean_fn = fam.mean_core if self.config.get("emit_family_core", False) else fam.mean
+        mu = torch.stack(
+            [
+                mean_fn(params[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1))
+                for j in range(n_reg)
+            ],
+            dim=1,
+        )  # [T, n_reg, H, W] count-space E[Y|body], NOT composed with the gate
+        return mu.detach().cpu().numpy().astype(np.float64)
+
+    def _roll_driver(self, inp: torch.Tensor, state: torch.Tensor):
+        """Roll exactly one of {input, hidden, cell} spatially — the Wave 2 attribution arm.
+
+        Returns ``(input, state)`` with one of them displaced and the other untouched, so the
+        comparison across arms varies only *which* driver was moved. The state's channel layout is
+        ``hs_1..hs_4 | hl_1..hl_4`` (see ``blend_recurrent_state``), so the split is at the
+        midpoint.
+
+        Raises:
+            ValueError: if the shift is a whole number of grid periods, which rolls the tensor back
+                onto itself and would run the control under the treatment's label.
+        """
+        which, shift = self.per_step_roll
+        h, w = inp.shape[-2], inp.shape[-1]
+        if shift % h == 0 and shift % w == 0:
+            raise ValueError(
+                f"per_step_roll shift {shift} is a whole number of grid periods for {h}x{w}, so "
+                f"torch.roll returns the tensor unchanged."
+            )
+        if which == "input":
+            return torch.roll(inp, shifts=(shift, shift), dims=(-2, -1)), state
+        half = state.shape[1] // 2
+        hid, cell = state[:, :half], state[:, half:]
+        if which == "hidden":
+            hid = torch.roll(hid, shifts=(shift, shift), dims=(-2, -1))
+        else:
+            cell = torch.roll(cell, shifts=(shift, shift), dims=(-2, -1))
+        return inp, torch.cat([hid, cell], dim=1)
+
+    def _dump_body_mean(self, mu_mean, gate_mean, origin: int, n_passes: int) -> None:
+        """Write the POSTERIOR-MEAN body and gate fields for one origin (diagnostic).
+
+        The silence-vs-fade question -- does the free-running field lose CELLS or lose SIZE --
+        needs
+        the body mean **un-composed**, because every composed readout conflates the two. The cube
+        cannot supply it: ``compose_samples`` applies a per-draw ``Bernoulli(gate)`` mask to family
+        DRAWS, so ``expm1(cube)/gate`` is unbiased for ``mu`` but its variance is inflated by
+        ``1/gate`` -- unusable exactly in the collapsed-gate regime the question is about.
+
+        Both fields are averaged over all D MC-dropout passes, matching what the scorer ranks on.
+        No forward pass is added and no ``train()``-mode work is done -- these are tensors the
+        family path already computed.
+
+        Note ``mean(gate) * mean(mu) != mean(gate * mu)``: these are the posterior means of the
+        two factors, not the posterior mean of the composed forecast, which is not stored.
+        """
+        out_dir = Path(self.body_mean_dump_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(
+            out_dir / f"bodymean_origin{origin}.npz",
+            mu=np.asarray(mu_mean, dtype=np.float32),
+            gate=np.asarray(gate_mean, dtype=np.float32),
+            origin=np.int64(origin),
+            n_reg=np.int64(np.asarray(mu_mean).shape[1]),
+            n_passes=np.int64(n_passes),
+        )
+
     def _emit_magnitude(self, reg: torch.Tensor, prob: torch.Tensor) -> torch.Tensor:
         """Map the raw regression-head output to the emitted/fed-back magnitude.
 
@@ -923,6 +1100,8 @@ class HydraNetInference:
                 t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
                 if self.freeze_recurrent:
                     state_anchor = h_tt.clone()  # the last state built from real observations
+                    if self.freeze_anchor_roll is not None:
+                        state_anchor = self._roll_anchor(state_anchor)
                 t1_pred_class = torch.sigmoid(t1_pred_class)
                 if return_params:
                     acc_params.append(t1_pred)  # activated params, pre-emit
@@ -1018,6 +1197,8 @@ class HydraNetInference:
                 # argument with no config key, default None (this line then runs unchanged). It
                 # exists because the 2026-06 ablation scored regression CRPS and never measured
                 # whether holding the state preserves GATE skill (C-222, #258/#262).
+                if self.per_step_roll is not None:
+                    t0_autoreg, h_tt = self._roll_driver(t0_autoreg, h_tt)
                 output = self.model(t0_autoreg, h_tt)
                 t1_pred, t1_pred_class, h_tt = output.reg, output.cls, output.h_next
                 if self.freeze_recurrent:
@@ -1261,6 +1442,7 @@ class HydraNetInference:
                     generator = torch.Generator(device="cpu").manual_seed(
                         int(self.config["torch_seed"])
                     )
+                    _dump_mu = _dump_gate = None
                     for d in range(posterior_D):
                         params_zstack, prob_zstack = self.predict(
                             full_tensor,
@@ -1276,6 +1458,17 @@ class HydraNetInference:
                         # gate = classifier P(y>0) (sigmoid(cls)); reused for the composed body and
                         # the gate cube below.
                         prob_thwc = prob_zstack.transpose(0, 2, 3, 1)  # [T,H,W,n_cls]
+                        if self.body_mean_dump_dir is not None:
+                            mu_d = self._body_mean_field(params_zstack)
+                            if _dump_mu is None:
+                                # copy, not alias: the in-place += below would otherwise mutate the
+                                # array the caller still holds, which is fine today only because
+                                # _body_mean_field happens to return a fresh array every call.
+                                _dump_mu = mu_d.copy()
+                                _dump_gate = prob_thwc.astype(np.float64).copy()
+                            else:
+                                _dump_mu += mu_d
+                                _dump_gate += prob_thwc
                         # [T,H,W,n_reg,K] log1p draws for this pass, composed with the gate at emit
                         # time (ADR-069 #183): self_zeroed => the family's own sample unchanged;
                         # soft_gate / threshold_gate mask the draws by the cls gate.
@@ -1296,6 +1489,11 @@ class HydraNetInference:
                             prob_thwc[..., None], posterior_K, axis=-1
                         )
                         del params_zstack, prob_zstack
+                    if _dump_mu is not None:
+                        self._dump_body_mean(
+                            _dump_mu / posterior_D, _dump_gate / posterior_D, origin, posterior_D
+                        )
+                        del _dump_mu, _dump_gate
                 else:
                     for sample_idx in range(posterior_D):
                         pred_magnitudes_zstack, pred_probabilities_zstack = self.predict(

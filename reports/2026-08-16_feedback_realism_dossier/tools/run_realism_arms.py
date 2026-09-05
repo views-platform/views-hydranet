@@ -64,6 +64,9 @@ def run_arm(
     length_scale: float | None = None,
     gate_probe: bool = False,
     freeze: str | None = None,
+    body_mean_dump: bool = False,
+    anchor_roll: int | None = None,
+    per_step_roll: str | None = None,
 ) -> dict:
     """Run one arm end to end. Returns the manifest record; raises on any failure."""
     model_dir = models_root / model
@@ -78,6 +81,15 @@ def run_arm(
         label = f"{label}_ls{length_scale}"
     if freeze is not None:
         label = f"{label}_freeze{freeze}"
+    if per_step_roll is not None:
+        # In the label for the same reason every other knob is: the Wave 2 series runs input/hidden/
+        # cell as three arms of one batch and they would otherwise overwrite each other.
+        label = f"{label}_psr{per_step_roll.replace(':', '')}"
+    if anchor_roll is not None:
+        # MUST be in the label: the EXP-3 dose series runs roll 3, 15 and 90 as three arms of one
+        # batch, and without this they all write `..._freezecell.csv` over each other and leave one
+        # file that looks like a complete result. Same failure --length-scale caused in 2026-08.
+        label = f"{label}_roll{anchor_roll}"
     before = _prediction_dirs(model_dir)
 
     # Every arm writes the SAME prediction path (named after the artifact, not the run), so a
@@ -97,6 +109,11 @@ def run_arm(
         )
 
     stats_csv = out / f"fedfield_{model}_{label}.csv"
+    # Derived from the arm label, never taken from the caller. A flat caller-supplied directory
+    # would let two arms of one batch write `bodymean_origin*.npz` over each other and leave a
+    # complete-looking result that is silently half one arm and half the other — the exact
+    # silent-then-wrong failure --length-scale caused before the label carried it.
+    dump_dir = out / f"bodymean_{model}_{label}" if body_mean_dump else None
     t0 = time.time()
     proc = subprocess.run(
         [
@@ -113,6 +130,9 @@ def run_arm(
             *(["--length-scale", str(length_scale)] if length_scale is not None else []),
             *(["--gate-out", str(out / f"gate_{model}_{label}.csv")] if gate_probe else []),
             *(["--freeze", freeze] if freeze is not None else []),
+            *(["--body-mean-dump", str(dump_dir)] if dump_dir else []),
+            *(["--anchor-roll", str(anchor_roll)] if anchor_roll is not None else []),
+            *(["--per-step-roll", per_step_roll] if per_step_roll else []),
         ],
         cwd=str(model_dir),
         capture_output=True,
@@ -168,6 +188,9 @@ def run_arm(
         "length_scale": length_scale,
         "gate_probe": gate_probe,
         "freeze_recurrent": freeze,
+        "body_mean_dump": str(dump_dir) if dump_dir else None,
+        "anchor_roll": anchor_roll,
+        "per_step_roll": per_step_roll,
     }
 
 
@@ -184,9 +207,28 @@ def main() -> int:
         choices=("hidden", "cell", "all"),
         help="clamp this half of the recurrent state to its last real-data value",
     )
+    # EXP-3: comma-separated roll distances, run as one arm each (the dose series).
+    ap.add_argument(
+        "--anchor-rolls",
+        default=None,
+        help="comma-separated anchor roll distances, one arm per value (needs --freeze)",
+    )
+    ap.add_argument(
+        "--per-step-roll",
+        default=None,
+        help='roll one driver each step, "<input|hidden|cell>:<shift>"',
+    )
     ap.add_argument("--models-root", default=str(_MODELS_ROOT))
     ap.add_argument("--out", default=str(Path(__file__).resolve().parents[1] / "results"))
     ap.add_argument("--keep-cubes", action="store_true", help="debug only; skips the disk guard")
+    # silence-vs-fade: dump the un-composed body mean and gate per arm, so occurrence and
+    # magnitude can be read apart offline. The directory is DERIVED from the arm label, so two
+    # arms of one batch cannot overwrite each other.
+    ap.add_argument(
+        "--body-mean-dump",
+        action="store_true",
+        help="write the un-composed body-mean + gate fields for each arm (diagnostic)",
+    )
     ap.add_argument("--tag", default="batch", help="label for the sentinel and manifest")
     # DIAGNOSTIC: the correlated feedback sampler. Omitted = production independent Bernoulli.
     # Without this the corr sweep had no reproducible entry point and was run ad hoc.
@@ -205,12 +247,23 @@ def main() -> int:
     args = ap.parse_args()
 
     arms = [a.strip() for a in args.arms.split(",") if a.strip()]
+    # [None] = no roll dimension, which is every pre-EXP-3 batch and keeps them byte-identical.
+    rolls = (
+        [int(r.strip()) for r in args.anchor_rolls.split(",") if r.strip()]
+        if args.anchor_rolls
+        else [None]
+    )
+    if args.anchor_rolls and args.freeze is None:
+        raise SystemExit(
+            "--anchor-rolls needs --freeze: rolling an anchor nobody holds is a no-op."
+        )
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     manifest_path = out / f"manifest_{args.model}_{args.tag}.jsonl"
 
-    for arm in arms:
-        print(f"===== ARM {arm} ({args.model}) =====", flush=True)
+    for arm, roll in ((a, r) for a in arms for r in rolls):
+        suffix = f" roll={roll}" if roll is not None else ""
+        print(f"===== ARM {arm}{suffix} ({args.model}) =====", flush=True)
         rec = run_arm(
             args.model,
             arm,
@@ -221,6 +274,9 @@ def main() -> int:
             length_scale=args.length_scale,
             gate_probe=args.gate_probe,
             freeze=args.freeze,
+            body_mean_dump=args.body_mean_dump,
+            anchor_roll=roll,
+            per_step_roll=args.per_step_roll,
         )
         with open(manifest_path, "a") as fh:
             fh.write(json.dumps(rec) + "\n")

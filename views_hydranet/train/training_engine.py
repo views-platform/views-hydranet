@@ -184,6 +184,63 @@ def _batchnorm_eval(model: nn.Module):
             m.train()
 
 
+def _noisable_channels(config: dict) -> list[int]:
+    """Positions within the DYNAMIC input that input noise may touch — i.e. not geometry.
+
+    `dyn_input` is `t0[:, idx.feat]`, so its channel j is `config["features"][j]`. Statics are a
+    disjoint list re-attached afterwards, so in practice this returns every position.
+
+    ⚠️ The exclusion branch is defence in depth, and its reachability is narrower than an earlier
+    version of this docstring claimed. `_SequenceIndices` builds `feat` and `static` as two
+    independent index lists over the same axis (~:153), so an overlap is *structurally*
+    representable — but no **validated** config can produce one: the validator requires
+    `features == regression_targets`, rejects statics appearing in targets (ADR-060 I1), and
+    enforces `input_channels == 3*output_channels + len(static_channels)`. Measured 2026-09-04:
+    `static_channels` is EMPTY on every arm in this fleet.
+
+    So the branch is covered by a synthetic-config test rather than a real one — C-309, a guard
+    whose firing case has never been observed is not a guard. It is kept because the two index
+    lists are independent at this layer, and this function should not depend on a validator three
+    modules away staying the way it is.
+    """
+    statics = set(config.get("static_channels") or [])
+    return [j for j, name in enumerate(config.get("features") or []) if name not in statics]
+
+
+def _apply_input_noise(
+    dyn_input: torch.Tensor,
+    keep: torch.Tensor,
+    dropout: float,
+    channels: list[int],
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Silence input events the way free-running silences them (#311, S1 #313).
+
+    S1 measured what the model's own error actually is: at h18 it silences **99.6%** of true events
+    while firing on 0.003% of true zeros — FN/FP = 36,870x. It does not jitter, so Gaussian noise
+    (`SanchezGonzalez2020`'s instantiation for dense standardised fields) would model the wrong
+    failure. The rollout-induced part of that silencing fits a constant per-step dropout of
+    **p = 0.204** (relative residual 5% at h18); see `02_design.md`.
+
+    ACCUMULATING, because rollout error accumulates and the paper's own ablation found random-walk
+    noise beat i.i.d.: `keep` carries forward, so a dropped cell **stays dropped**. The caller
+    resets it every `time_steps` steps — a training window is 348 steps while deployment rolls 36,
+    and accumulating unbounded would leave 0.796^347 ~ 1e-35 of the input.
+
+    Only removes. It cannot manufacture occurrence (M45's lever), and it writes 0, where
+    `log1p(0) = 0` is on-manifold — so the negative-log-count hazard cannot arise.
+
+    `channels` lists the positions of `dyn_input` that may be noised; static geometry channels are
+    excluded by the caller because they are "always the true values, never sampled".
+    """
+    if not channels:
+        return dyn_input, keep
+    sel = dyn_input[:, channels]
+    survives = (torch.rand_like(sel) >= dropout).to(sel.dtype)
+    new_keep = keep.clone()
+    new_keep[:, channels] = keep[:, channels] * survives
+    return dyn_input * new_keep, new_keep
+
+
 def _attach_static_channels(
     dyn_input: torch.Tensor, t0_step: torch.Tensor, idx: "_SequenceIndices"
 ) -> torch.Tensor:
@@ -242,6 +299,28 @@ def _family_target_log1p_mean(reg: torch.Tensor, family) -> torch.Tensor:
     return torch.log1p(torch.stack(means, dim=1))  # [B, n_reg, H, W]
 
 
+def _family_composed_mean_log1p(reg, family, gate, composition, threshold):
+    """``log1p(compose_mean(E[Y|body], gate))`` — the DIFFERENTIABLE analogue of a composed draw.
+
+    Used as the straight-through surrogate for BPTT-SA (#308). It must be the *composed* mean, not
+    ``_family_target_log1p_mean``: that one ignores the gate entirely, so it is the analogue of an
+    UNCOMPOSED draw and would push gradient for a quantity the forward pass never produced.
+
+    Mirrors ``hydranet_inference._emit_magnitude``'s family branch, which is what deployment emits.
+    """
+    npar = family.n_params
+    n_reg = reg.shape[1] // npar
+    mus = torch.stack(
+        [family.mean(reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1)) for j in range(n_reg)],
+        dim=1,
+    )
+    if composition != "self_zeroed":
+        from views_hydranet.distributions.composition import compose_mean
+
+        mus = compose_mean(mus, gate[:, :n_reg], composition, threshold)
+    return torch.log1p(mus)
+
+
 def _family_feedback_log1p(reg, family, mode, gate, composition, threshold, generator=None):
     """EXP-4 (GTF): the per-target log1p feedback for scheduled sampling with a family head.
 
@@ -278,6 +357,48 @@ def _family_feedback_log1p(reg, family, mode, gate, composition, threshold, gene
     return torch.log1p(draws.clamp(min=0.0))
 
 
+def _attach_feedback_grad_clip(
+    fed: torch.Tensor, max_norm: float | None, sink: list[float] | None
+) -> None:
+    """Bound the gradient leaving the scheduled-sampling handoff, ONE STEP AT A TIME.
+
+    `fed` is the sole tensor through which credit crosses from step i+1 back to step i, so it is
+    the exact bottleneck of the BPTT product chain. Clipping here bounds the per-step
+    amplification; `clip_grad_norm_` in the lesson loop cannot, because it runs once at the END of
+    the backward pass, long after the product has already overflowed. That distinction is the whole
+    reason this exists — the GRAD-TRAJ probe (#308, 2026-09-04) measured the attached arm's
+    pre-clip gradient norm rising 133,465 -> 9.4e9 between lessons 15-25 and 38-47 while its
+    control's FELL 859 -> 312, and float32 gave out at lesson 48. Clipping was on the whole time.
+
+    Scales, never truncates: an element-wise clamp would rotate the gradient, which is
+    Pascanu et al. 2013's argument for norm-rescaling inside a recurrence.
+
+    `max_norm=None` observes without acting, so the natural scale can be MEASURED before a
+    threshold is chosen rather than guessed. `sink` is appended to only when supplied, because
+    reading the norm forces a device sync on every one of the ~383 steps in a window.
+
+    Returns None ON PURPOSE. `register_hook` mutates the tensor, so an earlier version that
+    returned `fed` worked identically whether or not the caller assigned the result — mutation
+    testing found that dropping the assignment at the call site changed nothing, i.e. the
+    signature advertised a transformation the function does not perform. A future edit returning a
+    NEW tensor would then have broken silently. Named and typed as the side effect it is.
+    """
+    if not fed.requires_grad or (max_norm is None and sink is None):
+        return
+
+    def _hook(grad: torch.Tensor) -> torch.Tensor:
+        norm = grad.norm(2)
+        if sink is not None:
+            sink.append(norm.item())
+        if max_norm is None:
+            return grad
+        # `norm` can be 0 (a step that reached no supervised target) — the epsilon keeps the
+        # no-op branch from dividing by it rather than guarding the ratio afterwards.
+        return grad * (max_norm / (norm + 1e-12)) if norm > max_norm else grad
+
+    fed.register_hook(_hook)
+
+
 def _process_sequence(
     train_tensor: torch.Tensor,
     model: nn.Module,
@@ -307,6 +428,12 @@ def _process_sequence(
     gate_threshold: float | None = None,
     pushforward_weight: float = 0.0,
     pushforward_detach_state: bool = False,
+    ss_backprop_through_feedback: bool = False,
+    ss_feedback_grad_clip: float | None = None,
+    ss_feedback_grad_sink: list[float] | None = None,
+    input_noise_dropout: float | None = None,
+    input_noise_segment: int | None = None,
+    input_noise_channels: list[int] | None = None,
 ) -> dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
@@ -351,6 +478,25 @@ def _process_sequence(
         decay_active = _active_window_mask(train_tensor[:, 1:, idx.reg, :, :], 0.0)
 
     prev_pred: torch.Tensor | None = None
+    _noise_keep: torch.Tensor | None = None  # accumulating keep-mask, reset per segment
+    # No usable default for the segment: a literal would be a shadow default (C-85) and would
+    # silently differ from the caller's `time_steps`. Demanded only when the noise is on.
+    _noise_segment = 0
+    if input_noise_dropout is not None:
+        # `bool` is excluded explicitly: isinstance(True, int) is True, and `segment=True` would
+        # give segment 1 — the mask resetting every step, silently turning the accumulating design
+        # into the i.i.d. one the paper's ablation found WORSE. `cv()` rejects bools for the same
+        # reason; the pattern was known here and not applied.
+        if (
+            isinstance(input_noise_segment, bool)
+            or not isinstance(input_noise_segment, int)
+            or input_noise_segment < 1
+        ):
+            raise ValueError(
+                "input_noise_dropout is set but input_noise_segment is "
+                f"{input_noise_segment!r}; it must be a positive int (the deployment horizon)"
+            )
+        _noise_segment = input_noise_segment
 
     for i in range(seq_len - 1):
         t0 = train_tensor[:, i, :, :, :]
@@ -370,6 +516,23 @@ def _process_sequence(
         else:
             dyn_input = t0_gt
 
+        # #311: silence input events the way free-running silences them. AFTER the scheduled-
+        # sampling resolution so both branches are augmented identically (noising only the `else`
+        # would leave the eps>0 arm unaugmented and make the arms incomparable), and BEFORE the
+        # static re-attach so geometry is never touched.
+        if input_noise_dropout is not None:
+            if i % _noise_segment == 0:
+                # Segment start = the deployment seed step, which is fed a REAL observation
+                # (`hydranet_inference` feeds the true field at `t == origin`). The design fits
+                # survival S(h) = (1-p)^(h-1), i.e. horizon 1 is clean; dropping on this step made
+                # the implemented curve 0.796 at h1 against a fitted 1.0 — a flat 20.4%
+                # over-silencing at every horizon, four times the design's own residual tolerance.
+                _noise_keep = torch.ones_like(dyn_input)
+            else:
+                dyn_input, _noise_keep = _apply_input_noise(
+                    dyn_input, _noise_keep, input_noise_dropout, input_noise_channels or []
+                )
+
         # ADR-060 I3: re-attach static (input-only) channels [dynamic ⧺ static]. See helper.
         t0_input = _attach_static_channels(dyn_input, t0, idx)
 
@@ -381,17 +544,49 @@ def _process_sequence(
         # per-target log1p mean ('mean', fixes the legacy family path) or a composition-aware DRAW
         # ('sample', EXP-4: train exposure == deploy exposure). Legacy point head: raw pred.
         if ss_epsilon > 0.0:
+            # BPTT-SA (#308, Vlachas2023). The `.detach()` below is the ONLY cut in the training
+            # graph's feedback path: the recurrent state `h` already flows across steps undetached
+            # (~383-step graph, one backward() -- 2026-08-26 audit), so with it the model is told
+            # "step i was wrong" but never "and step i-1 produced the input that made it wrong".
+            # That is standard scheduled sampling, and it is a mechanical account of why M26-M33
+            # failed: the fed-back prediction is a constant, so no credit reaches its producer.
+            # Leaving it attached lets the gradient reach back through the handoff.
+            # Default False keeps every existing arm byte-identical.
             if family is not None:
-                prev_pred = _family_feedback_log1p(
-                    t1_pred,
-                    family,
-                    ss_feedback,
-                    torch.sigmoid(t1_pred_class),
-                    forecast_composition,
-                    gate_threshold,
-                ).detach()
+                gate_p = torch.sigmoid(t1_pred_class)
+                fed = _family_feedback_log1p(
+                    t1_pred, family, ss_feedback, gate_p, forecast_composition, gate_threshold
+                )
+                if ss_backprop_through_feedback and ss_feedback == "sample":
+                    # STRAIGHT-THROUGH. A DRAW is not reparameterised: d(draw)/d(params) is exactly
+                    # 0 (measured -- 167.8 under 'mean', 0.0 under 'sample'), so simply leaving it
+                    # attached is a NO-OP. The first attempt at #308 did exactly that and trained
+                    # two arms to byte-identical weights over 276 minutes.
+                    #
+                    # C-259 requires 'sample' whenever eps>0, so the differentiable mode is not
+                    # available and the draw must be kept in the FORWARD pass. Straight-through
+                    # gives forward = the draw, backward = the mean's gradient:
+                    #     fed = mean + (draw - mean).detach()
+                    # The added term is exactly zero in value, so the forward pass is unchanged --
+                    # which keeps the arms differing in credit assignment ONLY.
+                    surrogate = _family_composed_mean_log1p(
+                        t1_pred, family, gate_p, forecast_composition, gate_threshold
+                    )
+                    fed = surrogate + (fed - surrogate).detach()
             else:
-                prev_pred = t1_pred.detach()
+                fed = t1_pred
+            if ss_backprop_through_feedback and family is not None:
+                # Only when the wire is connected AND only on a family head. On the legacy point
+                # path `fed = t1_pred` (above) and `t1_pred_for_loss = t1_pred` when `use_latent`
+                # is False, so `fed` IS the regression loss's input. `register_hook` on a non-leaf
+                # fires once on the gradient accumulated from ALL consumers, so the clip would
+                # rescale the primary supervised gradient and `fed_grad_max` would report
+                # reg + gate + qs99 + feedback rather than the handoff it is named for. The helper
+                # promises `fed` is "the sole tensor through which credit crosses"; that is true
+                # for a family head, where `fed` is derived, and false here. A config validator
+                # rejects the combination outright, so this branch is defence in depth.
+                _attach_feedback_grad_clip(fed, ss_feedback_grad_clip, ss_feedback_grad_sink)
+            prev_pred = fed if ss_backprop_through_feedback else fed.detach()
 
         t1_pred_for_loss = output.reg_latent if use_latent else t1_pred
 
@@ -600,6 +795,12 @@ def _process_sequence(
             # the main path pairs `dyn_input` with its own `t0`. A no-op while statics are
             # geometry-constant, but the inconsistent pairing would become a real bug the moment a
             # time-varying "static" channel is added.
+            # #289 x #311: `fed` is deliberately NOT passed through `_apply_input_noise`. With
+            # both knobs enabled the pushforward step would train on un-noised inputs while the
+            # main step trains on noised ones. Recorded rather than accidental: pushforward's input
+            # is already the model's own output, so it carries the model's real errors, and a
+            # training corruption on top would stack two different perturbations. Unreachable today
+            # (`pushforward_weight` defaults to 0.0); revisit before ever enabling both.
             pf_in = _attach_static_channels(fed, t1, idx)
             pf_h = h.detach() if pushforward_detach_state else h
             with _batchnorm_eval(model):  # see (1) above
@@ -708,6 +909,8 @@ def train(
     pbar: tqdm,
     stage_label: str = "",
     ss_epsilon: float = 0.0,
+    fed_grad_sink: list[float] | None = None,
+    apply_input_noise: bool = True,
 ) -> dict[str, torch.Tensor]:
     ctx.model.train()
     ctx.multitaskloss_instance.train()
@@ -773,6 +976,13 @@ def train(
         cls_valid_mask = _full[0, 0, _pg] > 0  # [H, W] bool — land cells
 
     # --- CORE SEQUENCE PROCESSING ---
+    # #311: this is a TRAINING augmentation. `apply_input_noise=False` is passed by the C-184
+    # BatchNorm recalibration pass, whose whole purpose is to recompute BN running statistics —
+    # buffers saved into the artifact and used at inference. Recomputing them on deliberately
+    # corrupted inputs would put the treatment arm's BN layer on a different footing from the
+    # control's for a reason that is not the hypothesis, and the run would look clean. Same defect
+    # class as #289's, where the pushforward's extra forward wrote BN stats.
+    _input_noise = config.get("input_noise_dropout") if apply_input_noise else None
     result = _process_sequence(
         train_tensor,
         model,
@@ -807,6 +1017,19 @@ def train(
         gate_threshold=config.get("gate_threshold"),
         pushforward_weight=config.get("pushforward_weight", 0.0),
         pushforward_detach_state=config.get("pushforward_detach_state", False),
+        ss_backprop_through_feedback=config.get("ss_backprop_through_feedback", False),
+        # #308 GRAD-TRAJ follow-up: bound the feedback gradient per step. None (default) is a
+        # no-op, so every existing arm is byte-identical.
+        ss_feedback_grad_clip=config.get("ss_feedback_grad_clip"),
+        ss_feedback_grad_sink=fed_grad_sink,
+        # #311 input noise. `time_steps` is the DEPLOYMENT horizon, read explicitly rather than
+        # hardcoded: the dropout accumulates over one rollout's worth of steps and then resets.
+        # Read ONLY when the noise is on — so the off path never touches the key (byte-identical,
+        # and callers without it keep working), while an enabled arm missing it fails loud rather
+        # than silently falling back to a shadow default (C-85).
+        input_noise_dropout=_input_noise,
+        input_noise_segment=config["time_steps"] if _input_noise is not None else None,
+        input_noise_channels=_noisable_channels(config) if _input_noise is not None else None,
     )
     step_total, step_reg, step_cls = result["per_step_losses"]
 
@@ -913,7 +1136,9 @@ def _recalibrate_bn(ctx: "TrainingContext", sampler, planner, config: dict) -> N
         for w in range(n_windows):
             target, threshold = planner.get_lesson(w)
             batch, _ = sampler.get_batch(target, threshold, batch_size=1)
-            train(ctx, batch[0], None, stage_label="")  # empty label ⇒ forward only, no biopsy
+            # apply_input_noise=False: this pass recomputes BN statistics on CLEAN data (#311).
+            # Noising it would bake the augmentation into buffers that ship in the artifact.
+            train(ctx, batch[0], None, stage_label="", apply_input_noise=False)
             del batch
     model.eval()
 
@@ -1015,7 +1240,7 @@ def training_loop(
     # losses → CSV. config.trajectory_log_path=None (default) ⇒ no hooks, no file, byte-unchanged.
     _traj_path = config.get("trajectory_log_path")
     _traj_file = _traj_writer = None
-    _traj_acc = {"gate_sum": 0.0, "gate_n": 0}
+    _traj_acc = {"gate_sum": 0.0, "gate_n": 0, "fed_max": 0.0}
     if _traj_path:
         import csv as _csv
 
@@ -1029,9 +1254,15 @@ def training_loop(
         _traj_file = open(_traj_path, "w", newline="")
         _traj_writer = _csv.writer(_traj_file)
         _traj_writer.writerow(
-            ["lesson", "raw_grad_norm", "loss_reg", "loss_cls", "gate_logit_mean"]
+            ["lesson", "raw_grad_norm", "loss_reg", "loss_cls", "gate_logit_mean", "fed_grad_max"]
         )
         logger.info(f"📈 trajectory-log ON → {_traj_path}")
+
+    # The feedback-gradient sink exists ONLY while the trajectory log does: reading each step's
+    # norm forces a device sync ~383 times per window, which is not a cost a production arm should
+    # pay for a diagnostic it never reads. `ss_feedback_grad_clip` is independent of it — the clip
+    # acts whether or not anything is watching.
+    _fed_sink: list[float] | None = [] if _traj_writer is not None else None
 
     # The optional trajectory CSV must close on ANY exit from the lesson loop, not just the happy
     # one. `IntegrityGuardian.monitor` has always been able to raise from inside this loop, and the
@@ -1086,7 +1317,21 @@ def training_loop(
                 # 3. Process Window (Accumulate Loss)
                 # Pass viz to capture training dynamics (Stage 5) for all windows
                 slbl = f"Stage 5: Training Forensic (Lesson {lesson_idx + 1}_Win {window_idx + 1})"
-                losses = train(ctx, sample_handler, pbar, stage_label=slbl, ss_epsilon=ss_epsilon)
+                losses = train(
+                    ctx,
+                    sample_handler,
+                    pbar,
+                    stage_label=slbl,
+                    ss_epsilon=ss_epsilon,
+                    fed_grad_sink=_fed_sink,
+                    # #311/C-328: a `bn_recal_from` run drives THIS loop forward-only to
+                    # re-accumulate BatchNorm statistics, so it is a recalibration pass even though
+                    # it is not `_recalibrate_bn`. It leaves autograd ENABLED (it skips backward,
+                    # it does not disable grad), which is why the grad-state assertion in
+                    # tests/train/test_input_noise_wiring.py cannot reach it — the first fix for
+                    # C-328 covered one of the two recalibration paths.
+                    apply_input_noise=not _bn_recal,
+                )
 
                 # --- MEMORY-SAFE ACCUMULATION (ADR 014 Hardening) ---
                 # C-312: this guard used to read `if w_loss > 0`, which is NOT the question
@@ -1132,6 +1377,13 @@ def training_loop(
                 else:
                     w_loss.backward()
                     windows_trained += 1
+                    # The hooks fire DURING backward, so the sink is only populated here. Max, not
+                    # mean: one step's blow-up is what overflows float32, and a mean over ~383
+                    # steps would bury it.
+                    if _fed_sink:
+                        _traj_acc["fed_max"] = max(_traj_acc["fed_max"], max(_fed_sink))
+                if _fed_sink is not None:
+                    _fed_sink.clear()
 
                 lesson_loss += w_loss.detach()  # Keep track of magnitude for logging
                 lesson_reg += losses["reg"].item()
@@ -1190,11 +1442,13 @@ def training_loop(
                             lesson_reg / config["windows_per_lesson"],
                             lesson_cls / config["windows_per_lesson"],
                             _gm,
+                            _traj_acc["fed_max"],
                         ]
                     )
                     _traj_file.flush()
                     _traj_acc["gate_sum"] = 0.0
                     _traj_acc["gate_n"] = 0
+                    _traj_acc["fed_max"] = 0.0
 
                 # Gradient Clipping. C-314: the threshold used to be the literal 1.0 while the
                 # only config field was the on/off bool, so it could not be tuned from a config at

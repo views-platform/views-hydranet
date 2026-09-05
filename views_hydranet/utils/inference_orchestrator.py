@@ -65,6 +65,16 @@ class InferenceOrchestrator:
         # sample 0, five correlated draws per origin x step x target) — it is not implied by a
         # feedback arm. See HydraNetInference.record_gate_probe.
         self.record_gate_probe: bool = False
+        # DIAGNOSTIC: directory for the un-composed body-mean + gate field dump (silence-vs-fade,
+        # 2026-09-02). None = production, nothing written. See HydraNetInference._dump_body_mean.
+        self.body_mean_dump_dir: Optional[str] = None
+        # DIAGNOSTIC (EXP-3): spatially roll the clamp anchor, so the arm holds the state just
+        # as hard but about the WRONG PLACES. Separates "the clamp preserves placement" from "the
+        # clamp steadies the state's scale". Requires freeze_recurrent; fails loud without it.
+        self.freeze_anchor_roll: Optional[int] = None
+        # DIAGNOSTIC (Wave 2): roll ONE driver per step ("input"|"hidden"|"cell" : shift) and
+        # measure which one the emitted field follows. See HydraNetInference._roll_driver.
+        self.per_step_roll: Optional[str] = None
         self.inference: Optional[HydraNetInference] = None
 
     def _run_inference_pipeline(
@@ -175,6 +185,9 @@ class InferenceOrchestrator:
             feedback_transform=self.feedback_transform,
             feedback_length_scale=self.feedback_length_scale,
             record_gate_probe=self.record_gate_probe,
+            body_mean_dump_dir=self.body_mean_dump_dir,
+            freeze_anchor_roll=self.freeze_anchor_roll,
+            per_step_roll=self.per_step_roll,
         )
         # Kept so a diagnostic driver can read `inference.feedback_field_stats` after the run —
         # the per-step record of the field each arm ACTUALLY fed. Production ignores it.
@@ -249,6 +262,9 @@ class InferenceOrchestrator:
             feedback_transform=self.feedback_transform,
             feedback_length_scale=self.feedback_length_scale,
             record_gate_probe=self.record_gate_probe,
+            body_mean_dump_dir=self.body_mean_dump_dir,
+            freeze_anchor_roll=self.freeze_anchor_roll,
+            per_step_roll=self.per_step_roll,
         )
         # Kept so a diagnostic driver can read `inference.feedback_field_stats` after the run —
         # the per-step record of the field each arm ACTUALLY fed. Production ignores it.
