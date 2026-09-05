@@ -20,7 +20,7 @@ import pytest
 torch = pytest.importorskip("torch")
 
 import views_hydranet.train.training_engine as te  # noqa: E402
-from views_hydranet.train.training_engine import make, training_loop  # noqa: E402
+from views_hydranet.train.training_engine import make, train, training_loop  # noqa: E402
 
 from .conftest import loop_config, loop_handler  # noqa: E402
 
@@ -133,3 +133,18 @@ def test_a_bn_recal_from_run_suppresses_augmentation(monkeypatch, tmp_path):
         f"a bn_recal_from run made an augmented forward: {calls}. Every pass in that run "
         "re-accumulates BatchNorm statistics that ship in the artifact."
     )
+
+
+def test_the_flag_defaults_to_augmenting():
+    """`training_augmentation` must default **True** — the value that leaves training alone.
+
+    Every call site in the repo passes it explicitly, so this default is only reached by a
+    caller added later. That is exactly the caller C-328 is about: *adding a path through the
+    training input transform without asking what it does*. Defaulting False would silently
+    disable both augmentations for any such caller, and no other test in the suite would fail
+    — a mutation that survived the audit until this test existed.
+    """
+    import inspect
+
+    default = inspect.signature(train).parameters["training_augmentation"].default
+    assert default is True, f"training_augmentation defaults to {default!r}, not True"
