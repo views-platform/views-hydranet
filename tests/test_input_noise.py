@@ -188,8 +188,12 @@ def test_ON_changes_the_loss():
     assert off != on, "the flag changed nothing at the call site — the C-324 inert signature"
 
 
-def test_the_same_dropout_is_reproducible_under_the_same_seed():
-    assert _run(0.5) == _run(0.5)
+def test_the_same_dropout_is_reproducible_AND_a_different_one_is_not():
+    """The reproducibility half had zero discriminating power: it passed with the feature deleted,
+    and cannot fail for any deterministic implementation. Determinism is worth pinning, but only
+    alongside the half that requires the knob to actually do something."""
+    assert _run(0.5) == _run(0.5), "the same seed and rate did not reproduce"
+    assert _run(0.5) != _run(0.9), "two different rates gave the same loss — the knob is inert"
 
 
 # ---------------------------------------------------------------------------

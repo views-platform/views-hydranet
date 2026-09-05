@@ -62,7 +62,6 @@ def test_the_segment_comes_from_time_steps_and_is_not_hardcoded(monkeypatch):
     # production could not produce. 3 rather than 7 because the fixture's volume is 5 months long.
     cfg, _, segments = _run(monkeypatch, input_noise_dropout=0.5, time_steps=3, steps=[1, 2, 3])
     assert cfg["time_steps"] == 3 == len(cfg["steps"])
-    assert cfg["time_steps"] != 36, "the value must differ from any literal a mutation would use"
     # `None` entries are the C-184 BN-recalibration pass, which is deliberately un-noised (#311);
     # the training calls are the ones that must carry the config's value.
     training = [s for s in segments if s is not None]

@@ -8,7 +8,7 @@ different reasons to change (this one with the pre-registration, that one with t
 
 ⚠️ The sibling gates justify the split by saying a tracked test *cannot* load the gitignored
 ``reports/`` tree. That is too strong — a force-added dossier tool is tracked and importable, and
-``tests/test_input_noise_plumbing.py`` does exactly that. The real reason is the one above:
+``tests/test_input_noise_gate.py`` does exactly that. The real reason is the one above:
 governance artifacts should not depend on a dossier's lifetime.
 
 Pre-registered in ``reports/2026-09-04_input_noise_dossier/05_analysis_plan.md`` §5, committed in
@@ -95,6 +95,8 @@ def select_design(*, fn_rate: float, fp_rate: float, cv_dominant: float) -> dict
     elif fp_rate >= DOMINANCE_FACTOR * fn_rate:
         design = "occurrence_injection"
         why = f"FP {fp_rate:.4g} >= {DOMINANCE_FACTOR}x FN {fn_rate:.4g} — the model OVER-fires"
+        # "OVER-fires" and "SILENT" are asserted by tests: `reason` is what a human reads when
+        # deciding whether to spend GPU, and a blanked string reads as no reason at all.
     else:
         design = "magnitude_only"
         why = (

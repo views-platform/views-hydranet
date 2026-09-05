@@ -288,3 +288,26 @@ def test_select_design_is_KEYWORD_ONLY():
         assert params[name].kind is inspect.Parameter.KEYWORD_ONLY, f"{name} is positional again"
     with pytest.raises(TypeError):
         select_design(0.9, 0.01, 0.1)  # type: ignore[misc]
+
+
+def test_every_branch_states_a_READABLE_reason():
+    """Survivors GT-43/GT-44. Only the FN branch ("SILENT") and the magnitude branch ("M45") had
+    their rationale asserted; the FP branch's `why` and the success path's `reason` could both be
+    blanked to "" with the suite green. `reason` is what a human reads when deciding whether to
+    spend GPU — an empty one reads as no reason at all."""
+    # (field, needle) per case: on the STOP path `reason` carries the gate text while `why` keeps
+    # the design rationale, so each case names the field it belongs in.
+    cases = [
+        (dict(fn_rate=0.9, fp_rate=0.01, cv_dominant=0.1), "why", "SILENT"),
+        (dict(fn_rate=0.01, fp_rate=0.9, cv_dominant=0.1), "why", "OVER-fires"),
+        (dict(fn_rate=0.1, fp_rate=0.09, cv_dominant=0.1), "why", "M45"),
+        (dict(fn_rate=0.9, fp_rate=0.01, cv_dominant=0.9), "reason", "STOP-gate"),
+    ]
+    for kwargs, field, needle in cases:
+        r = select_design(**kwargs)
+        assert needle in r[field], f"{needle!r} missing from {field}: {r[field]!r}"
+        assert r["reason"].strip(), f"empty reason for {kwargs}"
+        assert r["why"].strip(), f"empty why for {kwargs}"
+    # the threshold a reader would check must survive into the stop text
+    stopped = select_design(fn_rate=0.9, fp_rate=0.01, cv_dominant=0.9)
+    assert str(MAX_CV) in stopped["reason"], "the gate's threshold is not stated in its reason"
