@@ -114,7 +114,9 @@ train_arm(){ local ARM=$1
   log "$ARM trained (rc=$rc)"; return 0
 }
 score_arm(){ local ARM=$1
-  [ -s "$RES/score_${ARM}_s5.csv" ] && { log "$ARM already scored"; return 0; }
+  # run_realism_arms.py writes score_<model>_<ARM-LABEL>.csv and the arm label is "identity";
+  # --tag only names the manifest. Assuming "_s5" here cost one aborted chain at 04:11.
+  [ -s "$RES/score_${ARM}_identity.csv" ] && { log "$ARM already scored"; return 0; }
   phase "EMIT+SCORE $ARM"
   local ART; ART=$(ls -t "$MODELS/$ARM"/artifacts/*.pt | head -1)
   rm -rf "$MODELS/$ARM"/data/generated/predictions_* 2>/dev/null
@@ -124,7 +126,7 @@ score_arm(){ local ARM=$1
     >> "$RES/emit_${ARM}.log" 2>&1
   local rc=$?
   rm -rf "$MODELS/$ARM"/data/generated/predictions_* 2>/dev/null
-  [ -s "$RES/score_${ARM}_s5.csv" ] || return 1
+  [ -s "$RES/score_${ARM}_identity.csv" ] || return 1
   log "$ARM scored (rc=$rc)"; return 0
 }
 
@@ -133,7 +135,7 @@ train_arm "$CTRL" || abort "control arm did not train — BRANCH 0: the screen i
 score_arm "$CTRL" || abort "control arm produced no score — BRANCH 0: VOID, not negative" 20
 
 phase "FLOOR GATE on the control (C-299)"
-$CENV python "$T/check_floor.py" --score-csv "$RES/score_${CTRL}_s5.csv" >> "$RES/floor_gate.log" 2>&1
+$CENV python "$T/check_floor.py" --score-csv "$RES/score_${CTRL}_identity.csv" >> "$RES/floor_gate.log" 2>&1
 fg=$?
 cat "$RES/floor_gate.log" >> "$RES/run.log"
 [ $fg -eq 1 ] && abort "FG-A FAILED on the control — it does not rank above chance. The vehicle cannot carry this experiment; VOID before the treatment arm runs (C-299)." 21

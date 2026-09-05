@@ -29,7 +29,8 @@ NOISE_BAND = 0.06
 
 
 def _rows(model: str) -> list[dict]:
-    f = RES / f"score_{model}_s5.csv"
+    # score_<model>_<arm-label>.csv; the arm label is "identity". See run_overnight.sh.
+    f = RES / f"score_{model}_identity.csv"
     if not f.is_file():
         return []
     with f.open() as fh:
