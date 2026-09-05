@@ -187,15 +187,21 @@ def _batchnorm_eval(model: nn.Module):
 def _noisable_channels(config: dict) -> list[int]:
     """Positions within the DYNAMIC input that input noise may touch — i.e. not geometry.
 
-    `dyn_input` is `t0[:, idx.feat]`, so its channel j is `config["features"][j]`. Statics are
-    normally a disjoint list re-attached afterwards, in which case this returns every position; but
-    `_SequenceIndices` builds `feat` and `static` as two independent index lists over the same axis
-    (`training_engine.py` ~:153), so an overlap is representable and would silently noise CoordConv
-    geometry — "always the true values, never sampled".
+    `dyn_input` is `t0[:, idx.feat]`, so its channel j is `config["features"][j]`. Statics are a
+    disjoint list re-attached afterwards, so in practice this returns every position.
 
-    Measured 2026-09-04: `static_channels` is EMPTY on every arm in this fleet, so the exclusion
-    branch below cannot be exercised by any real config. It is covered by a synthetic-config test
-    instead — C-309: a guard whose firing case has never been observed is not a guard.
+    ⚠️ The exclusion branch is defence in depth, and its reachability is narrower than an earlier
+    version of this docstring claimed. `_SequenceIndices` builds `feat` and `static` as two
+    independent index lists over the same axis (~:153), so an overlap is *structurally*
+    representable — but no **validated** config can produce one: the validator requires
+    `features == regression_targets`, rejects statics appearing in targets (ADR-060 I1), and
+    enforces `input_channels == 3*output_channels + len(static_channels)`. Measured 2026-09-04:
+    `static_channels` is EMPTY on every arm in this fleet.
+
+    So the branch is covered by a synthetic-config test rather than a real one — C-309, a guard
+    whose firing case has never been observed is not a guard. It is kept because the two index
+    lists are independent at this layer, and this function should not depend on a validator three
+    modules away staying the way it is.
     """
     statics = set(config.get("static_channels") or [])
     return [j for j, name in enumerate(config.get("features") or []) if name not in statics]
@@ -776,6 +782,12 @@ def _process_sequence(
             # the main path pairs `dyn_input` with its own `t0`. A no-op while statics are
             # geometry-constant, but the inconsistent pairing would become a real bug the moment a
             # time-varying "static" channel is added.
+            # #289 x #311: `fed` is deliberately NOT passed through `_apply_input_noise`. With
+            # both knobs enabled the pushforward step would train on un-noised inputs while the
+            # main step trains on noised ones. Recorded rather than accidental: pushforward's input
+            # is already the model's own output, so it carries the model's real errors, and a
+            # training corruption on top would stack two different perturbations. Unreachable today
+            # (`pushforward_weight` defaults to 0.0); revisit before ever enabling both.
             pf_in = _attach_static_channels(fed, t1, idx)
             pf_h = h.detach() if pushforward_detach_state else h
             with _batchnorm_eval(model):  # see (1) above

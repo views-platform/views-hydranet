@@ -152,3 +152,40 @@ signal. So the honest split is:
 
 A 4-seed confirmation is **not** worth buying: the pre-registered trigger for seeds was `Δ ≥ +0.02`,
 and re-measuring a −0.196 more precisely buys nothing.
+
+---
+
+## S7 (#319) — disposition · 2026-09-05
+
+**No ADR.** The design is harmful on this vehicle and the mechanism is understood; there is nothing
+to promote.
+
+**The code stays, default-off.** `input_noise_dropout` is merged, `None` by default, byte-identity
+proven by test, 2,029 tests green, three independent mutation audits. Removing it would discard a
+tested seam that the obvious follow-up needs — and the follow-up is specific: **degrade the target
+alongside the input**, so the model is asked to predict what a degraded field implies rather than to
+hallucinate what was deleted from it. That is the variant this result argues for, and it is *not*
+what was tested here.
+
+**What this epic bought, beyond the negative:**
+
+* **M64** — the sixth confirmation that AP loss tracks firing, now with a *causal* account rather
+  than a correlation: an augmentation that only ever silences made the model fire **56×** more,
+  because silencing the input while keeping the target trains it to invent occurrence.
+* **M63/S1** — a truth-referenced characterisation of the model's free-running error (FN 0.9959 vs
+  FP 0.000027 at h18, CV 0.002 across origins) that did not exist before and is reusable by #309/#310.
+* **C-328** — a Tier-2 defect class, and the second instance of an auxiliary forward inheriting the
+  training input path.
+* **`scripts/floor_gate.py` back in service** — first dossier to invoke it since August, and it
+  passed both clauses.
+* A method result worth more than the experiment: **three independent audit rounds each found
+  defects the author's own checking had missed**, and the one that mattered — the BatchNorm leak —
+  was found by *writing a test for an untested prose invariant*, not by mutation testing.
+
+**Next**, per the library work that opened this epic: **#310, direct multi-horizon**. It is the road
+`Aceituno2025_TemporalHorizons` argues for on proven grounds — long-horizon minima generalise, short
+ones do not — and it sidesteps the exponential-gradient barrier rather than fighting it, because
+predicting all horizons at once has no recursion to backpropagate through. Six failures on the
+mitigate-the-recursion family is now a lot of evidence.
+
+**Epic #311 closed.**
