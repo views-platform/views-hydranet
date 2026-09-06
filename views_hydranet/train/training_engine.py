@@ -1517,7 +1517,9 @@ def training_loop(
     # bn_recal_from-only experiment run (its lesson loop already recalibrated). Guarded: a recal
     # failure must NEVER lose a completed training run — snapshot the BN buffers first and restore
     # them on any error (so a half-reset model is never saved), then proceed to save as-is.
-    if config.get("bn_recalibrate", True) and not _bn_recal:
+    # No shadow default: HydraNetConfig owns it (default True). Repeating it here would mean a
+    # schema change silently failed to reach the C-184 mitigation.
+    if config.get("bn_recalibrate") and not _bn_recal:
         _bn_snapshot = {
             k: v.clone()
             for k, v in model.state_dict().items()
