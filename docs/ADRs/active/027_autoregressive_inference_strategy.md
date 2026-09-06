@@ -64,9 +64,20 @@ note, not discovered by a user.
 
 **Scope of the permission.** `"cell"` only. `"hidden"` has no consistent effect (**M58**, contested
 at both horizons) and `"all"` is not evidenced; both remain available for diagnostics and neither is
-recommended for production. `freeze_recurrent_weight` stays a field so the clamp is a dial rather
-than a hard prior — **M41's saturation at w≈0.1 was measured on the 40-lesson vehicle and has never
-been re-tested at L=300**, so the production default is the measured `1.0` and the dial is open.
+recommended for production. `freeze_recurrent_weight` stays a field so the clamp is
+expressible as a dial, but **the dial is CLOSED and `1.0` is the right default on evidence, not
+merely by default.**
+
+⚠️ **Correction, 2026-09-06.** This passage originally read *"M41's saturation at w≈0.1 was measured
+on the 40-lesson vehicle and has never been re-tested at L=300, so the dial is open."* **That was
+false, and it was false inside an accepted ADR** — the **C-303** pattern this register already
+carries twelve times. **M41 was measured at L=300** (its `w=0` value is 0.3318, the L=300 reference),
+seed 43, over `w ∈ {0, 0.1, 0.25, 0.5, 0.75, 1.0}`, and was re-verified on the corrected yardstick
+2026-08-22. Its finding is the opposite of "open": the paired interval for `cell@0.5` vs `cell`
+(MDE **0.0045**) **includes zero at h18 and h36**, so there is no resolvable interior optimum — and
+**at h6 the hard clamp is significantly BETTER** ([−0.0107, −0.0011], excluding zero). The interior
+point does not merely fail to win, it loses at short horizons. Found by a method-review seat reading
+the ledger, 2026-09-06 — not by me, and not by the tests.
 
 **What this section does not claim.** The clamp is a **mitigation, not a fix**. It does not close
 #258, it does not touch the magnitude ceiling (`size_ratio` is exactly 0 in all 16 arm-seeds), and
