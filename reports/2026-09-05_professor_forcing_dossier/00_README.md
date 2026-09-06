@@ -1,6 +1,6 @@
 # Professor Forcing — constrain the free-running STATE, not the fed-back field
 
-**Issue:** [#309](https://github.com/views-platform/views-hydranet/issues/309) · **Opened:** 2026-09-05 · **Status:** SCAFFOLDED — harness audited, nothing implemented, nothing run
+**Issue:** [#309](https://github.com/views-platform/views-hydranet/issues/309) · **Opened:** 2026-09-05 · **Status:** **METHOD-REVIEWED — the panel ruled AGAINST building PF first.** Nothing implemented, nothing run. See `02_design.md` for the rulings and the sequence the panel converged on.
 
 ## Purpose
 
@@ -24,8 +24,9 @@ PF trains it not to drift.
 
 | candidate | disposition |
 |---|---|
-| **Professor Forcing** (#309) | **PURSUED — this dossier.** Targets the state, which every measurement implicates. |
+| **Professor Forcing** (#309) | **DEMOTED to last, 2026-09-05, by a 7-seat method review.** The target (the state) is right; the instrument is wrong. PF's own paper reports no benefit below ~100 steps (**C-265**) and our horizon is 36, in the *inverted* regime (we train on ~383 steps and generate 36; PF's case is train-short/generate-long). |
 | **Horizon Forcing** (`Zhuang2025`) | **DISQUALIFIED 2026-09-05**, not deferred — see `01_literature`. Its objective degenerates on our data. |
+| **GTF** (#294) | **PROMOTED — proposed independently by three seats, never considered by this dossier.** Same target as PF, one interpolation line, and a theorem (**C-499**) bounding the Jacobian product series that killed #308. |
 | **Direct multi-horizon** (#310) | **PARKED — a chair decision, not an experiment.** Removes exposure bias entirely but forfeits the recurrent state, the one mechanism this programme has established as working (M55: 2.97× fair persistence at h36, gap widening). |
 
 ## What our own measurements say to constrain
@@ -77,13 +78,14 @@ free-running segment length that is a config field rather than a constant.
 
 - [x] Library pass: PF read in full; HF read in full and disqualified
 - [x] Harness audit against the real repo
-- [ ] **Write `02_design`** — the open design forks are listed there; this blocks everything
-- [ ] `expert-method-review` on `02_design` — **the panel should be seated before pre-registration**
-- [ ] `05_analysis_plan` pre-registration, including the **stability gate** and a VOID branch
-- [ ] Implement behind a default-off flag; byte-identical when off
-- [ ] Adversarial audit in a clean context (a non-author) + mutation testing to exhaustion
-- [ ] Smoke + potency on the arm's own config **and at a trained checkpoint** (C-324/C-325)
-- [ ] Screen: control vs PF, 300 lessons, n=1
+- [x] `02_design` written
+- [x] `expert-method-review` — 7 seats, **ruled against building PF first**
+- [ ] **The C-319 blindness probe** — offline, no training. Could kill the whole distribution-matching family for minutes of GPU. **Do this first.**
+- [ ] **Recompute the seed σ** from artifacts already on disk; re-derive the MDE. Costs nothing.
+- [ ] The emit-only state-restoration sweep — answers M50's own open question at zero training cost
+- [ ] Productionise `freeze_recurrent='cell'` (never used in a delivered forecast), disclosing M58's dispersion cost
+- [ ] GTF (#294) if a training-time state intervention is still wanted
+- [ ] PF last, and on C-265 arguably not at all at 36 steps
 
 ## Conventions
 

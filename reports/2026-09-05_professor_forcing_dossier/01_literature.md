@@ -72,7 +72,7 @@ useful prior against the fear that a rollout-targeted objective must cost us h1.
 | `Aceituno2025_TemporalHorizons` | **proven**: long-horizon minima generalise short, not vice versa; gradient scales `O(e^{λT})`. Explains #308's explosion and prices PF's free-running unroll. |
 | `Bengio2015_ScheduledSampling` | the baseline PF is defined against; Lamb notes it "is not a consistent estimation strategy". Our own M30–M33 closed it independently (ε=0.5 at L=300, −0.0426 AP@h18). |
 | `SanchezGonzalez2020_GraphNetworkSimulators` | #311's source. Its "no target adjustment" advice is what M64's postmortem showed does not survive the change from symmetric jitter to deletion. |
-| `Brandstetter2022` (pushforward) | implemented, audited, **never run**. Its code branch is the seam PF reuses. |
+| `Brandstetter2022` (pushforward) | **RUN, and negative — M47.** `w=0.1` was VOID (it damaged the model, not the rollout); `w=0.01` at **4 seeds** gave ΔAP@h18 **−0.0220**, all four seeds negative, p=0.0429, labelled UNDERPOWERED because the effect did not reach the pre-registered MDE. The oracle did not move and h1 was unchanged, i.e. **equally good teacher-forced and worse free-running — the precise opposite of what pushforward is for.** Its code branch is still the seam PF reuses. **C-311 also records that in Brandstetter's own ablation, Gaussian noise perturbation was worse than no intervention — the library predicted M64 before we ran it.** |
 
 ## Gaps to fetch or extract
 
