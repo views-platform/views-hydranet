@@ -1,1 +1,3 @@
 ===== ARM hold_last_real (fullzero_fortythree) =====
+  done in 860.6s -> score_fullzero_fortythree_hold_last_real.csv
+wrote /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-09-05_direct_multi_horizon_dossier/results/manifest_fullzero_fortythree_probea_fortythree_free.jsonl
