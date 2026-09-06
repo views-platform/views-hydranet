@@ -47,16 +47,30 @@ class InferenceOrchestrator:
         self.viz = visualizer or VisualDiagnostics(
             {"diagnostic_visualizations": False}
         )  # Null Object Fallback
-        # Diagnostic recurrent-state freeze, forwarded to every HydraNetInference this
-        # orchestrator builds. None = production behaviour (the full state evolves). Set as an
-        # attribute rather than a constructor argument because the only caller that wants it is a
-        # research driver that already holds the orchestrator; adding a parameter to the manager
-        # as well would thread an experiment knob through a third layer for no gain.
+        # Recurrent-state clamp, forwarded to every HydraNetInference this orchestrator builds.
+        # ADR-027 §2.1 (2026-09-05) promoted this from diagnostic-only to a production setting, so
+        # it is now READ FROM CONFIG rather than hardcoded to None. A config that omits the key
+        # still gets None — the §2 behaviour, byte-identical — which is the property the amendment
+        # rests on. A research driver may still override the attribute after construction.
         # See HydraNetInference.freeze_recurrent / blend_recurrent_state.
-        self.freeze_recurrent: Optional[str] = None
-        # How far to pull the frozen half back to the anchor each step; 1.0 = hard freeze
-        # (byte-identical to the pre-dial behaviour), 0.0 = no-op. See blend_recurrent_state.
-        self.freeze_recurrent_weight: float = 1.0
+        self.freeze_recurrent: Optional[str] = config.get("freeze_recurrent")
+        # How far to pull the clamped half back to the anchor each step; 1.0 = hard freeze (the
+        # value every measurement used), 0.0 = no-op. See blend_recurrent_state.
+        #
+        # No shadow default: `HydraNetConfig` owns 1.0, and repeating it here would mean a schema
+        # change silently failed to reach inference. A dict that asks for the clamp WITHOUT the
+        # weight never went through the schema, and must fail loud rather than have this layer
+        # pick a blend strength on its behalf. The literal below is reachable only when the clamp
+        # is off, where the value is unused — so it cannot shadow anything observable.
+        _weight = config.get("freeze_recurrent_weight")
+        if self.freeze_recurrent is not None and _weight is None:
+            raise ValueError(
+                "freeze_recurrent is set but freeze_recurrent_weight is missing. Build the "
+                "config through HydraNetConfig (ADR-027 §2.1), which supplies the default, "
+                "rather than passing a bare dict — otherwise the clamp strength is whatever "
+                "this layer happens to guess."
+            )
+        self.freeze_recurrent_weight: float = 1.0 if _weight is None else _weight
         # Diagnostic feedback-field transform spec (#258/#262); see HydraNetInference.
         self.feedback_transform: Optional[str] = None
         # DIAGNOSTIC: correlated feedback sampler; None = independent Bernoulli.
