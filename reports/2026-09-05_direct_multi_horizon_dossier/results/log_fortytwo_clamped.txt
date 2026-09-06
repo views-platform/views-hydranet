@@ -1,5 +1,0 @@
-===== ARM identity (fullzero_fortytwo) =====
-  done in 395.8s -> score_fullzero_fortytwo_identity_freezecell.csv
-===== ARM hold_last_real (fullzero_fortytwo) =====
-  done in 408.6s -> score_fullzero_fortytwo_hold_last_real_freezecell.csv
-wrote /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-09-05_direct_multi_horizon_dossier/results/manifest_fullzero_fortytwo_probea_fortytwo_clamped.jsonl
