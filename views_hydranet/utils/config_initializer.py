@@ -322,6 +322,18 @@ class HydraNetConfig(BaseModel):
     # C-324 inert-knob signature that cost 276 min of GPU on #308.
     input_noise_dropout: float | None = Field(default=None, gt=0.0, lt=1.0)
     random_flips: bool = Field(default=True)
+    # ADR-027 §2.1 (2026-09-05): the cell clamp, promoted from a diagnostic constructor argument to
+    # a production setting. None (default) evolves the full ConvLSTM state — the §2 behaviour, and
+    # byte-identical for every config that omits this key, which is what stops the amendment
+    # silently changing every existing model. "cell" is the EVIDENCED production value (M48/M56:
+    # +0.0591 AP@h36, 4/4 seeds; M65 re-verified). "hidden" has no consistent effect (M58) and
+    # "all" is not evidenced — both remain legal for diagnostics, neither is recommended.
+    freeze_recurrent: str | None = Field(default=None)
+    # How far to pull the clamped half back to its anchor each step. 1.0 = hard freeze, the value
+    # every measurement used; 0.0 = no-op. A field rather than a constant because M41's saturation
+    # at w~0.1 was measured on the 40-lesson vehicle and never re-tested at L=300 (C-85: a scale
+    # is a config field from day one).
+    freeze_recurrent_weight: float = Field(default=1.0, ge=0.0, le=1.0)
     diagnostic_visualizations: bool = Field(default=False)
 
     # 10. Outbound Evaluation
@@ -366,6 +378,23 @@ class HydraNetConfig(BaseModel):
                 if field not in data:
                     data[field] = sentinel
         return data
+
+    @model_validator(mode="after")
+    def reject_unknown_freeze_recurrent_mode(self) -> "HydraNetConfig":
+        """ADR-027 §2.1 Beige Team: an unknown clamp mode must fail loud, not silently no-op.
+
+        A typo like ``freeze_recurent="cell"`` or ``freeze_recurrent="Cell"`` would otherwise leave
+        the rollout evolving freely while the config claims it is clamped — an arm that looks
+        treated and is not, which is the C-324 inert-knob signature.
+        """
+        allowed = ("hidden", "cell", "all")
+        if self.freeze_recurrent is not None and self.freeze_recurrent not in allowed:
+            raise ValueError(
+                f"freeze_recurrent must be None or one of {allowed}; got "
+                f"{self.freeze_recurrent!r}. ADR-027 §2.1 permits 'cell' in production; "
+                f"'hidden' and 'all' are diagnostics."
+            )
+        return self
 
     @model_validator(mode="after")
     def validate_laws(self) -> "HydraNetConfig":
