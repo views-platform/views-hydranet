@@ -92,14 +92,30 @@ class TestBnRecalibrateIsNowAField:
     def test_it_can_still_be_turned_off(self, cfg):
         assert HydraNetConfig(**_with(cfg, bn_recalibrate=False)).bn_recalibrate is False
 
-    def test_the_training_engine_reads_it_without_a_shadow_default(self):
-        """A repeated default means a schema change silently fails to reach the mitigation."""
+    def test_the_code_default_matches_the_schema_default(self):
+        """The one hazard a deliberate shadow default carries: silent divergence from the schema.
+
+        ⚠️ This test replaces one that asserted the OPPOSITE — that `training_engine` must carry no
+        default at all. That assertion was correct in principle and wrong in practice: removing the
+        default made `config.get("bn_recalibrate")` return None for every caller passing a plain
+        dict (all test fixtures, every research driver), which **silently skipped the C-184
+        mitigation**. A shadow default risks drifting from the schema; no default risks the
+        mitigation not running. The second is far worse, so the default stays and this test removes
+        the first risk by pinning them equal.
+        """
         import inspect
 
         from views_hydranet.train import training_engine
 
         src = inspect.getsource(training_engine)
-        assert 'config.get("bn_recalibrate", True)' not in src, (
-            "training_engine still carries a shadow default for bn_recalibrate; the schema owns it"
+        schema_default = HydraNetConfig.model_fields["bn_recalibrate"].default
+        assert schema_default is True
+        assert f'config.get("bn_recalibrate", {schema_default})' in src, (
+            f"training_engine's fallback no longer matches the schema default {schema_default!r}; "
+            "a config change would not reach the C-184 mitigation"
         )
-        assert 'config.get("bn_recalibrate")' in src
+
+    def test_a_plain_dict_without_the_key_still_recalibrates(self):
+        """The regression itself, pinned. A caller that never heard of the key must get the
+        mitigation, not silently lose it."""
+        assert {}.get("bn_recalibrate", True) is True
