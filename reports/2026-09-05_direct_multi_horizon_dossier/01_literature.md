@@ -141,17 +141,18 @@ ingested for the record.
 
 ## Remaining gaps
 
-### Still missing
-
-
-1. **`Shi2017`, *Deep Learning for Precipitation Nowcasting: A Benchmark and A New Model*** —
-   **ABSENT, and so is every other primary ConvLSTM/nowcasting source** (no Shi 2015, no DGMR, no
-   PredRNN, no Earthformer) across 567 held papers. Its **encoder-forecaster** protocol is the
-   closest published precedent to this exact design — a forecasting network unrolled with **no input
-   feedback**, only state carried forward — and its B-MSE/B-MAE rare-event weighting is the nearest
-   published treatment of a heavily-zero field. **We would be designing our backbone's successor
-   with our backbone's own paper missing from the evidence base.** Blocks the design freeze.
-2. **Lim et al. 2021, Temporal Fusion Transformer** — absent. The modern standard for direct
-   multi-horizon with known-future covariates, and the natural comparison to MQRNN. Not a blocker.
-3. **`Wen2017_MQRNN` has claims but no key passages.** Extract the global-decoder and
-   forking-sequences formulations verbatim before `02` freezes.
+1. **Ingest `Shi2017` and `Shi2015` properly.** Both are in `~/brain/9_library/incoming/` and have
+   been read in full; **claims are not yet extracted**, so every citation to them in this dossier is
+   a read, not a citable claim. A stability or design argument resting on an uningested PDF is the
+   **C-303** pattern. Ingest before the design freeze.
+2. **No multivariate proper score anywhere in the library** — no variogram score, no energy score.
+   **This is a blocking gap for F6**, not a nice-to-have: the design's admitted cost is the loss of
+   joint coherence across horizons, and the entire scoring battery is per-horizon marginal. We are
+   about to trade away a property we own no instrument to measure.
+3. **`Wen2017_MQRNN` key passages still unextracted.** They gate the (B) branch of the F0 ablation.
+4. **Nothing on proper scoring for discrete / zero-inflated predictive distributions.** How CRPS
+   behaves at `S=16` on a 99.94%-zero count field — where the predictive mass at zero is itself
+   estimated from 16 draws — has no citation behind it, and the last artifact was 74.6% zeros.
+5. **No encoder-forecaster precedent besides Shi's own and Dreamer.** Dreamer is a *learned latent*
+   RSSM at low spatial dimension, not a 180×180 ConvLSTM — adjacent, not precedent.
+6. **DGMR, PredRNN, Earthformer, TFT** — still absent. None blocks this epic's path.
