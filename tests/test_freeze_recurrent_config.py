@@ -54,6 +54,57 @@ class TestTheOffPathIsUnchanged:
         assert orch.freeze_recurrent is None
 
 
+class TestTheClampActuallyReachesInference:
+    """The promotion itself. Without this, the amendment is prose.
+
+    A mutation audit found that reverting the orchestrator to `self.freeze_recurrent = None` —
+    undoing the entire ADR-027 §2.1 change — left every other test in this file green. The config
+    field validated, the CIC claimed the field existed, and nothing checked that a config asking
+    for the clamp ever switched it on. That is **C-303** (prose asserting a check the code does not
+    implement), which the register carries twelve times.
+    """
+
+    def test_a_config_asking_for_the_clamp_gets_it(self, cfg):
+        from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
+
+        built = HydraNetConfig(**_with(cfg, freeze_recurrent="cell")).model_dump()
+        orch = InferenceOrchestrator.__new__(InferenceOrchestrator)
+        InferenceOrchestrator.__init__(
+            orch, config=built, model=_DummyModel(), device=_cpu(), visualizer=None
+        )
+        assert orch.freeze_recurrent == "cell", (
+            "a config with freeze_recurrent='cell' produced an orchestrator with "
+            f"{orch.freeze_recurrent!r} — the setting never reaches inference, so ADR-027 §2.1 "
+            "is documentation only"
+        )
+        assert orch.freeze_recurrent_weight == 1.0
+
+    def test_the_weight_reaches_inference_too(self, cfg):
+        """A dial nobody can turn is not a dial."""
+        from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
+
+        built = HydraNetConfig(
+            **_with(cfg, freeze_recurrent="cell", freeze_recurrent_weight=0.25)
+        ).model_dump()
+        orch = InferenceOrchestrator.__new__(InferenceOrchestrator)
+        InferenceOrchestrator.__init__(
+            orch, config=built, model=_DummyModel(), device=_cpu(), visualizer=None
+        )
+        assert orch.freeze_recurrent_weight == 0.25
+
+    def test_the_clamp_without_a_weight_fails_loud(self, cfg):
+        """No shadow default: a bare dict must not have the blend strength guessed for it."""
+        from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
+
+        bare = _with(cfg, freeze_recurrent="cell")
+        bare.pop("freeze_recurrent_weight", None)
+        orch = InferenceOrchestrator.__new__(InferenceOrchestrator)
+        with pytest.raises(ValueError, match="freeze_recurrent_weight is missing"):
+            InferenceOrchestrator.__init__(
+                orch, config=bare, model=_DummyModel(), device=_cpu(), visualizer=None
+            )
+
+
 class TestTheModeIsValidated:
     """ADR-027 §2.1 Beige Team: an unknown mode fails loud, it does not silently no-op."""
 
