@@ -1,6 +1,6 @@
 # Direct multi-horizon — delete the recursion instead of mitigating it
 
-**Issue:** [#310](https://github.com/views-platform/views-hydranet/issues/310) · **Opened:** 2026-09-05
+**Epic:** [#324](https://github.com/views-platform/views-hydranet/issues/324) · **Tracking:** [#336](https://github.com/views-platform/views-hydranet/issues/336) · **Strategy decision:** [#310](https://github.com/views-platform/views-hydranet/issues/310)
 **Status:** SCAFFOLDED — chair decision recorded (PURSUE), nothing implemented, nothing run
 
 ## Purpose
