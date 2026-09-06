@@ -76,7 +76,73 @@ horizons simultaneously, so this is a cost we adopt knowingly, not one we escape
 | `Hegre2019_ViEWS` | dynamic simulation is one of three estimation strategies, not the mandated one. |
 | `Hess2023_GeneralizedTeacherForcing` | **C-499/C-502** — the fallback if a direct head disappoints and a *training-time* state intervention is still wanted. Filed as #294. |
 
-## Gaps to fetch — the first is serious
+## FETCHED 2026-09-05 — and it changes the design
+
+### `Shi2017`, *Deep Learning for Precipitation Nowcasting: A Benchmark and A New Model*
+
+Read in full (17pp, `~/brain/9_library/incoming/`, not yet ingested). Three things transfer, and the
+first reopens the central design fork.
+
+**1. §3.1, the encoding-forecasting structure — a THIRD option, distinct from both the incumbent and
+the MQRNN design in `02`.** Verbatim:
+
+> *"Our encoding-forecasting network first encodes the observations into n layers of RNN states:
+> `H_t^1, ..., H_t^n = h(I_{t-J+1}, ..., I_t)`, and then uses another n layers of RNNs to generate
+> the predictions based on these encoded states: `Î_{t+1}, ..., Î_{t+K} = g(H_t^1, ..., H_t^n)`."*
+
+A **separate forecasting RNN stack** produces all K predictions from the encoded states. **No input
+feedback anywhere** — the forecaster's own recurrence carries it from horizon k to k+1, and a
+prediction is never fed back as an input.
+
+This matters because it **removes the cost `02` identified as the real trade**. The MQRNN design
+decodes each horizon independently from the origin state, so horizons are *marginal* — nothing links
+month 7 to month 8. The encoder-forecaster deletes exposure bias **and keeps horizon-to-horizon
+coherence**, because the state still evolves; it is simply never contaminated by a prediction.
+
+The cost it reintroduces: a K-step chain for gradients, i.e. Aceituno **C-458**'s `O(e^{λT})` and
+#308's ghost. Mitigating evidence — Shi trains exactly this at **K = 20** without special measures,
+and the chain carries *state*, not fed-back predictions, so the error-compounding is different in
+kind from the incumbent's.
+
+**A non-obvious architectural detail worth having:** the forecasting network's layer order is
+**reversed** relative to the encoder, *"because the high-level states, which have captured the global
+spatiotemporal representation, could guide the update of the low-level states"* — and it removes the
+need for skip connections to aggregate low-level information.
+
+**2. B-MSE / B-MAE — the nearest published treatment of a heavily-imbalanced field, and the finding
+is stronger than "it helps".** Weights are assigned per pixel by intensity band —
+`w(x) = 1, 2, 5, 10, 30` for `x < 2, [2,5), [5,10), [10,30), ≥ 30` — with masked pixels at 0.
+
+> *"training with the balanced loss functions is **essential** for deep learning models to achieve
+> good performance at higher rain-rate thresholds."*
+
+And the sharp version: **ConvGRU trained without the balanced loss — the configuration that "best
+represents" the original ConvLSTM paper — scores *worse than the optical-flow baselines* at the
+10 mm/h and 30 mm/h thresholds.** On an imbalanced field, an unweighted loss makes a deep model lose
+to a simple baseline **precisely on the rare, high-impact events**.
+
+That is our situation (99.94% zeros; the rare events are the entire point), and it bears directly on
+`02`'s **F5** (per-horizon loss weighting) — which should now be read as *per-horizon **and**
+per-intensity* weighting.
+
+**3. Seed discipline, comparable to M65.** Shi trains each model at **3 random seeds** and treats a
+difference as significant only when it exceeds **three times the standard deviation**. Independent
+support for this dossier's paired 2-seed design over the repo's habitual n=1.
+
+*Noted, not adopted:* **TrajGRU** learns *location-variant* recurrent connection structure, on the
+argument that convolutional recurrence is location-invariant while real motion is not. Interesting
+against **M54** (our state holds a spatial map), but a larger architectural change than this epic
+scopes.
+
+### `Shi2015_ConvolutionalLSTMNetwork` — also fetched
+
+The backbone's original paper, fetched to close the same gap. Not load-bearing for this design;
+ingested for the record.
+
+## Remaining gaps
+
+### Still missing
+
 
 1. **`Shi2017`, *Deep Learning for Precipitation Nowcasting: A Benchmark and A New Model*** —
    **ABSENT, and so is every other primary ConvLSTM/nowcasting source** (no Shi 2015, no DGMR, no
