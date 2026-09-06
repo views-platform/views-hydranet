@@ -93,12 +93,43 @@ the clamped arm.**
 
 | # | fork | why it is live |
 |---|---|---|
+| **F0** | **⚠️ THE PRIMARY FORK, opened 2026-09-05 by reading `Shi2017`. Marginal decode (B) or encoder-forecaster (C)?** See the table below. **This supersedes "The shape" above, which described (B) as settled. It is not.** |
 | **F1** | **How is the horizon encoded?** A scalar broadcast channel, a learned per-horizon embedding, sinusoidal, or FiLM modulation off a horizon index. FiLM already exists here and is zero-initialised. |
 | **F2** | **Which state is the context — the full `h`, the cell half, or the hidden half?** The clamp evidence says the **cell** carries placement (M54/M60); the encoder feeds the U-Net only `hs` (`:604`). This is the same disagreement the PF panel split on and it recurs here. |
 | **F3** | **Does `h_origin` get gradient from all K horizons?** It must, or the encoder never learns to build a state that serves horizon 36. But that is K paths into one tensor — a gradient-magnitude question with #308's ghost on it, even though there is no *chain*. |
 | **F4** | **Which horizons are trained?** All 36 every step is K× the decoder cost. Sampling a subset per step is cheaper and is closer to forking sequences. Cost model required before this is settled. |
 | **F5** | **Is the loss per-horizon-weighted?** Equal weight lets 36 easy long horizons swamp h1. Aceituno C-459 argues long horizons carry the short ones; that is a testable prediction, not an assumption. |
 | **F6** | **What replaces the rollout in evaluation?** The scoring path assumes a 36-step cube from a rollout. A direct head produces the same cube by a different route — the ruler must be proven to treat them identically before any arm is scored. |
+
+### F0 in full — the three architectures
+
+| | how the 36 horizons are produced | exposure bias | horizon coherence | gradient chain |
+|---|---|---|---|---|
+| **(A) recursive** — today | loop 36×, each step fed its own prediction, state evolves | **present, and it is the failure** | yes | 36 steps + feedback |
+| **(B) marginal decode** — MQRNN, this doc as first written | K decodes from the **same** origin state, horizon as covariate | **absent** | **no — each horizon is marginal** | 1 step |
+| **(C) encoder-forecaster** — `Shi2017` §3.1 | a **separate forecasting RNN stack** unrolls K steps from the encoded states, **no input feedback** | **absent** | **yes — the forecaster's own recurrence carries k→k+1** | K steps, but of *state*, not of fed-back predictions |
+
+**(C) removes the cost this document identified as the real trade** — marginal horizons — while
+still deleting exposure bias. It is what the ConvLSTM seat meant by *"the nowcasting-native answer is
+the parked one"*, and it is a published, benchmarked protocol rather than an adaptation of one.
+
+**What (C) costs:** a K-step gradient chain — Aceituno **C-458**'s `O(e^{λT})` and #308's ghost; a
+second RNN stack rather than a horizon covariate, so a larger build; and it does **not** preserve the
+registry contract as cleanly as (B).
+
+**What argues (C) is nonetheless safe:** Shi trains it at **K = 20** with no special measures, and
+the chain carries *state* only — a prediction is never an input, so the compounding is different in
+kind from (A). Our K is 36.
+
+**A cheap discriminator, available before committing:** **(B) is a strict special case of (C)** with
+the forecaster's recurrence disabled. Building (C) behind a flag that zeroes the forecaster's state
+transition yields (B) for free, making **F0 an ablation rather than a bet** — and `Shi2017`'s own
+`ConvGRU-nobal` ablation is the precedent for isolating one design choice exactly this way.
+
+**F5 is upgraded by the same paper.** Shi's B-MSE/B-MAE weight each pixel by intensity band
+(`w = 1, 2, 5, 10, 30`), and he reports that *without* it a ConvGRU scores **worse than optical flow**
+at the rare high-intensity thresholds. On a 99.94%-zero field, F5 must be read as **per-horizon *and*
+per-intensity** weighting, not horizon weighting alone.
 
 ## What would falsify this before it is built
 
