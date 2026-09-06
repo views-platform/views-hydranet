@@ -3808,7 +3808,7 @@ and a THIRD augmentation was never covered at all.**
   **enabled** (it skips `backward()`, it does not disable grad), while the test asserts on
   `torch.is_grad_enabled()`. A defect created by the fix for this very entry, on the one path its
   own guard is blind to.
-* **Instance 4 (NOT FIXED — raised for decision):** `random_flips` (`training_engine.py:912`,
+* **Instance 4 (FIXED 2026-09-05, on its own branch):** `random_flips` (`training_engine.py:912`,
   default **True**) flips the tube inside `train()`, which `_recalibrate_bn` calls. With
   `momentum=None` (equal cumulative weighting) roughly **half of every BatchNorm running statistic
   in every shipped artifact is accumulated on H/W-flipped fields** — a distribution inference never
@@ -3816,15 +3816,26 @@ and a THIRD augmentation was never covered at all.**
   whose entire purpose is matching the eval-time activation distribution, and it has been live for
   as long as `random_flips` and BN recalibration have coexisted.
 
-  **Deliberately not fixed in the #311 branch.** It is pre-existing, orthogonal to input noise, and
-  the fix changes the BatchNorm statistics of every future artifact — a production behaviour change
-  that belongs to its own decision, not to collateral work inside an augmentation branch. It also
-  raises whether artifacts already in hand should be re-recalibrated. **The TrainingEngine CIC now
-  states the exemption honestly rather than implying the passes are clean.**
+  Held out of the #311 branch deliberately — pre-existing, orthogonal to input noise, and a change
+  to the BatchNorm statistics of every future artifact is a production behaviour change that belongs
+  to its own decision rather than to collateral work inside an augmentation branch. **Fixed
+  separately on `fix/bn-recal-augmentation`** once that decision was taken.
 
-**Fix applied:** `train()` takes an explicit `apply_input_noise` flag (default True, so every
-existing caller is unchanged) and `_recalibrate_bn` passes False. Explicit rather than an implicit
+  ⚠️ **Still open, and it is a decision, not a defect:** artifacts already in hand were recalibrated
+  under the old behaviour and their BN buffers are unchanged by this fix. Re-recalibrating them
+  would move every historical number; not re-recalibrating leaves them on a different footing from
+  anything trained after this commit. **Comparisons that span the commit are the thing at risk.**
+
+**Fix applied.** First cut: `train()` took an `apply_input_noise` flag (default True, so every
+existing caller was unchanged) and `_recalibrate_bn` passed False. Explicit rather than an implicit
 "skip when `torch.is_grad_enabled()` is False", which would be behaviour steered from elsewhere.
+
+**Generalised in the instance-4 fix**, because a per-augmentation flag reproduces this entry's own
+trigger: the flag is now `training_augmentation`, and it gates **every** training-only augmentation
+on those passes — the noise and the flip alike. The first fix named one augmentation and left the
+older one, which is exactly the failure the entry describes. Behaviourally pinned by
+`tests/train/test_bn_recal_augmentation.py`: no suppressed call may flip the tube, and — as
+anti-vacuity, per **C-329** — ordinary training calls must.
 
 **How it was found, because the method transfers:** a test written to pin a *different* prose
 invariant — `docs/CICs/TrainingEngine.md`'s "the Stage-5 diagnostic biopsy is never noised" — used

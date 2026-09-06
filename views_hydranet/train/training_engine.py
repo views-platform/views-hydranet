@@ -910,7 +910,7 @@ def train(
     stage_label: str = "",
     ss_epsilon: float = 0.0,
     fed_grad_sink: list[float] | None = None,
-    apply_input_noise: bool = True,
+    training_augmentation: bool = True,
 ) -> dict[str, torch.Tensor]:
     ctx.model.train()
     ctx.multitaskloss_instance.train()
@@ -922,7 +922,11 @@ def train(
     forensics = ctx.forensics
 
     # 1. Stochastic Data Augmentation (Tube-Level)
-    if config.get("random_flips"):
+    # `training_augmentation` gates EVERY training-only augmentation, not one of them. C-328's own
+    # trigger is "adding any augmentation without asking which non-training forwards also traverse
+    # it", and a per-augmentation flag invites the next instance: the first fix for C-328 named
+    # `apply_input_noise` and left this flip — older than the noise — polluting the same passes.
+    if config.get("random_flips") and training_augmentation:
         if np.random.rand() < 0.5:
             sample_handler = sample_handler.flip("H")
         if np.random.rand() < 0.5:
@@ -976,13 +980,13 @@ def train(
         cls_valid_mask = _full[0, 0, _pg] > 0  # [H, W] bool — land cells
 
     # --- CORE SEQUENCE PROCESSING ---
-    # #311: this is a TRAINING augmentation. `apply_input_noise=False` is passed by the C-184
+    # #311: this is a TRAINING augmentation. `training_augmentation=False` is passed by the C-184
     # BatchNorm recalibration pass, whose whole purpose is to recompute BN running statistics —
     # buffers saved into the artifact and used at inference. Recomputing them on deliberately
     # corrupted inputs would put the treatment arm's BN layer on a different footing from the
     # control's for a reason that is not the hypothesis, and the run would look clean. Same defect
     # class as #289's, where the pushforward's extra forward wrote BN stats.
-    _input_noise = config.get("input_noise_dropout") if apply_input_noise else None
+    _input_noise = config.get("input_noise_dropout") if training_augmentation else None
     result = _process_sequence(
         train_tensor,
         model,
@@ -1136,9 +1140,11 @@ def _recalibrate_bn(ctx: "TrainingContext", sampler, planner, config: dict) -> N
         for w in range(n_windows):
             target, threshold = planner.get_lesson(w)
             batch, _ = sampler.get_batch(target, threshold, batch_size=1)
-            # apply_input_noise=False: this pass recomputes BN statistics on CLEAN data (#311).
-            # Noising it would bake the augmentation into buffers that ship in the artifact.
-            train(ctx, batch[0], None, stage_label="", apply_input_noise=False)
+            # training_augmentation=False: this pass recomputes BN statistics on CLEAN data.
+            # Every training-only augmentation is suppressed — the input noise (#311) AND the
+            # random H/W flips, which are older and were polluting these buffers for as long as
+            # `random_flips` and BN recalibration have coexisted (C-328 instance 4).
+            train(ctx, batch[0], None, stage_label="", training_augmentation=False)
             del batch
     model.eval()
 
@@ -1324,13 +1330,12 @@ def training_loop(
                     stage_label=slbl,
                     ss_epsilon=ss_epsilon,
                     fed_grad_sink=_fed_sink,
-                    # #311/C-328: a `bn_recal_from` run drives THIS loop forward-only to
-                    # re-accumulate BatchNorm statistics, so it is a recalibration pass even though
-                    # it is not `_recalibrate_bn`. It leaves autograd ENABLED (it skips backward,
-                    # it does not disable grad), which is why the grad-state assertion in
-                    # tests/train/test_input_noise_wiring.py cannot reach it — the first fix for
-                    # C-328 covered one of the two recalibration paths.
-                    apply_input_noise=not _bn_recal,
+                    # C-328: a `bn_recal_from` run drives THIS loop forward-only to re-accumulate
+                    # BatchNorm statistics, so it is a recalibration pass even though it is not
+                    # `_recalibrate_bn`. It leaves autograd ENABLED (it skips backward, it does not
+                    # disable grad), which is why a grad-state assertion cannot reach it — the
+                    # first fix for C-328 covered one of the two recalibration paths.
+                    training_augmentation=not _bn_recal,
                 )
 
                 # --- MEMORY-SAFE ACCUMULATION (ADR 014 Hardening) ---
