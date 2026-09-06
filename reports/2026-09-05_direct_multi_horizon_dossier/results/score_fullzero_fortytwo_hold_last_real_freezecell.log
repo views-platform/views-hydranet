@@ -1,0 +1,6 @@
+wrote /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-09-05_direct_multi_horizon_dossier/results/score_fullzero_fortytwo_hold_last_real_freezecell.csv  (7 rows: 1 models × 1 targets × 7 h)
+
+=== sb: crps_all / mcr_none by horizon ===
+h                             1      6      12     18     24     30     36
+model                                                                     
+hold_last_real_freezecell 0.1238 0.1092 0.1050 0.1261 0.1287 0.1677 0.8743

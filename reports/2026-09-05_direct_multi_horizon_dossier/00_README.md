@@ -5,15 +5,34 @@
 
 ## Purpose
 
-Seven interventions have attacked the training/deployment gap. **Every one of them mitigated the
-autoregressive loop.** Six failed, four of them on the same lever (**M45**: AP loss scales with how
-much the model fires), and the one that worked — clamping the cell state (**M48/M56**, +0.0591
-AP@h36, shipped 2026-09-05 as ADR-027 §2.1) — works by *stopping the loop's damage*, not by
-improving the forecast.
+**The one measurement this programme rests on — M51.** Same model, same seed, emit-only, one flag
+changed, arms **identical at h1** as they must be before feedback acts:
 
-This programme deletes the loop. The ConvLSTM encoder still digests history; what goes is the
-**state evolving during the forecast**. Every horizon is decoded from the origin state, with the
-horizon as an input covariate. **No feedback ⇒ no exposure bias at all — not reduced, absent.**
+| what the model is fed each step | occurrence over 36 steps | magnitude | firing↔size alignment |
+|---|---|---|---|
+| **its own forecasts** (deployment) | **×0.036** — 28× fewer | ×0.222 | 66.6 → 4.3 |
+| **real observations** (oracle) | **×1.19 — flat** | ×0.91 | ×1.12 |
+
+**Feed the model real data at every step and the collapse does not happen at all.** The 36-month
+degradation is not a property of the model, the horizon, or the data — it is a property of **what
+the model is fed after step 1**. That is the train/deployment input mismatch, measured cleanly on
+this vehicle.
+
+**And the prize is the largest this programme has ever had in front of it.** AP@h18, `sb`, seed 42:
+
+| arm | h1 | h18 | h36 |
+|---|---|---|---|
+| fed **real observations** (the ceiling) | 0.4779 | **0.4974** | **0.4667** |
+| **clamped rollout** — what production ships today | 0.4779 | 0.3622 | 0.2828 |
+| **gap** | — | **0.1352** | **0.1839** |
+
+Note the ceiling **does not decay with horizon** (0.4779 → 0.4974 → 0.4667). Nothing about month 36
+is intrinsically harder. **The gap at h18 is 3.7× the cell clamp — the best result this programme
+has produced in its history — and at h36 it is 4.6×.**
+
+This epic deletes the mechanism that creates that gap: the model stops being fed its own forecasts.
+Every horizon is decoded from the origin state, with the horizon supplied as an input covariate.
+**No feedback ⇒ no mismatch.**
 
 ## The framing that makes this coherent with what we just shipped
 
@@ -41,18 +60,19 @@ forfeits is the *evolution* of that state — the thing measured as broken (**M5
 
 ## What is different about this programme's economics
 
-**M65 (2026-09-05, zero GPU):** the seed variance every recent screen was sized against (~20%,
-C-119/C-184) is **stale by ~5×**. Measured on four same-config seeds at L=300: sd **0.0134 (4.1%)**
-at h18. Consequences, at one-sided α=0.05 and 80% power:
+Two things, and together they invert the usual problem.
 
-| design | MDE at h18 | can it see the cell freeze (+0.0367)? |
-|---|---|---|
-| unpaired n=1 | 0.0473 | **no** |
-| unpaired n=2 | 0.0334 | marginal |
-| **paired n=2** | **0.0131** | **yes, 2.8× margin** |
+**The effect we are chasing is large.** The gap to the oracle is **0.135 at h18**. Measured seed sd
+is **0.0134** (M65, four same-config seeds at L=300). So even capturing **a quarter** of the gap
+(0.034) is detectable at 2 unpaired seeds (MDE 0.0334); capturing half is detectable at n=1. **This
+is the first programme here whose target effect is comfortably above its own noise floor** — every
+prior screen was chasing effects at or below the MDE, which is why they could only detect disasters.
 
-**So this programme pre-registers a paired 2-seed design, not an n=1 screen.** Every prior screen in
-this repo was a harm detector; this one can detect a benefit.
+**But the pre-registered MDE in an earlier draft of this dossier was wrong** and is corrected here:
+M65's *paired* sd (0.0075) came from an **emit-only** flag applied to one artifact. A new
+architecture is a training-time treatment whose arms cannot share weights, so that pairing does not
+transfer. Use the **unpaired 0.0134**, pair on **origins** (route-agnostic) rather than on seeds, and
+size against a stated share of the 0.135 gap rather than against the clamp's +0.037.
 
 ## The baseline to beat is no longer the unclamped rollout
 

@@ -1,0 +1,1868 @@
+[33m [0m[35m#[0m[31m#[0m[34m#[0m[33m#[0m[33m#[0m[33m#[0m[32m#[0m[34m [0m[31m [0m[36m#[0m[34m#[0m[34m [0m[31m [0m[33m#[0m[34m#[0m[36m#[0m[32m [0m[33m [0m[34m [0m[32m#[0m[32m#[0m[36m [0m[35m [0m[36m [0m[31m [0m[32m [0m[31m [0m[33m [0m[32m#[0m[32m#[0m[34m [0m[31m [0m[35m [0m[35m [0m[33m [0m[35m [0m[32m#[0m[36m#[0m[36m#[0m[35m#[0m[36m#[0m[34m#[0m[36m [0m[32m [0m[34m [0m[36m#[0m[35m#[0m[31m#[0m[35m#[0m[36m#[0m[32m#[0m[32m#[0m[35m [0m[34m [0m[31m#[0m[33m#[0m[35m#[0m[35m#[0m[36m#[0m[35m#[0m[33m [0m[35m [0m[36m [0m[33m#[0m[31m#[0m[31m#[0m[35m#[0m[33m#[0m[36m#[0m[35m#[0m[36m [0m[32m [0m[36m [0m[36m [0m[35m [0m[31m [0m[33m [0m[35m [0m[34m [0m[31m [0m[31m [0m[31m#[0m[31m#[0m[36m#[0m[35m#[0m[32m#[0m[35m#[0m[33m#[0m[31m [0m[36m [0m[35m#[0m[33m#[0m[35m#[0m[35m#[0m[35m#[0m[31m#[0m[32m#[0m[33m [0m[32m [0m[34m#[0m[32m#[0m[31m#[0m[32m#[0m[33m#[0m[34m#[0m[36m [0m[34m [0m[35m [0m[36m#[0m[36m#[0m[35m#[0m[31m#[0m[32m#[0m[34m#[0m[36m#[0m[31m [0m[32m [0m[33m#[0m[33m#[0m[34m [0m[31m [0m[31m#[0m[35m#[0m[33m#[0m[35m [0m[35m [0m[31m#[0m[32m#[0m[36m#[0m[36m#[0m[31m#[0m[32m#[0m[34m#[0m[35m [0m[34m [0m[34m#[0m[35m#[0m[32m#[0m[35m [0m[34m [0m[36m#[0m[34m#[0m[31m [0m[35m [0m[33m#[0m[31m#[0m[35m#[0m[32m#[0m[33m#[0m[34m#[0m[35m [0m[33m [0m[35m [0m[36m#[0m[34m#[0m[36m#[0m[33m#[0m[34m#[0m[31m#[0m[32m#[0m[32m [0m[33m [0m[32m#[0m[31m#[0m[32m#[0m[34m#[0m[36m#[0m[31m#[0m[34m#[0m[36m [0m[35m
+[0m[33m [0m[34m#[0m[32m#[0m[32m [0m[32m [0m[36m [0m[35m [0m[32m [0m[32m [0m[33m [0m[35m#[0m[34m#[0m[33m [0m[33m [0m[35m#[0m[32m#[0m[33m#[0m[33m [0m[34m [0m[36m [0m[35m#[0m[32m#[0m[36m [0m[32m [0m[34m [0m[36m [0m[34m [0m[33m [0m[36m [0m[35m#[0m[35m#[0m[36m [0m[34m [0m[35m [0m[31m [0m[35m [0m[32m [0m[32m [0m[34m [0m[36m [0m[32m [0m[31m#[0m[35m#[0m[35m [0m[36m [0m[32m [0m[34m#[0m[34m#[0m[36m [0m[36m [0m[36m [0m[33m [0m[34m [0m[36m [0m[31m [0m[32m#[0m[36m#[0m[36m [0m[31m [0m[35m#[0m[31m#[0m[35m [0m[32m [0m[32m [0m[32m#[0m[32m#[0m[32m [0m[32m [0m[34m [0m[36m#[0m[35m#[0m[32m [0m[36m [0m[35m [0m[33m [0m[32m [0m[33m [0m[35m [0m[33m [0m[35m [0m[34m [0m[31m [0m[35m#[0m[32m#[0m[34m [0m[35m [0m[35m [0m[32m [0m[31m [0m[34m [0m[32m [0m[32m#[0m[32m#[0m[31m [0m[35m [0m[33m [0m[34m#[0m[35m#[0m[35m [0m[32m [0m[36m#[0m[31m#[0m[31m [0m[34m [0m[34m#[0m[33m#[0m[35m [0m[33m [0m[36m [0m[33m [0m[31m [0m[35m#[0m[33m#[0m[34m#[0m[32m [0m[34m [0m[31m [0m[36m [0m[35m#[0m[33m#[0m[31m [0m[35m [0m[34m#[0m[34m#[0m[32m#[0m[33m [0m[32m [0m[34m [0m[36m [0m[35m#[0m[36m#[0m[36m#[0m[33m [0m[32m [0m[32m [0m[34m [0m[34m#[0m[32m#[0m[36m#[0m[36m [0m[35m [0m[33m#[0m[31m#[0m[35m [0m[36m [0m[34m#[0m[36m#[0m[33m [0m[32m [0m[33m#[0m[36m#[0m[32m [0m[32m [0m[34m [0m[35m#[0m[33m#[0m[33m [0m[31m [0m[32m [0m[31m [0m[34m [0m[36m [0m[31m [0m[33m#[0m[33m#[0m[31m [0m[31m [0m[32m [0m[36m [0m[34m [0m[31m [0m[33m
+[0m[31m [0m[36m#[0m[35m#[0m[32m [0m[35m [0m[32m [0m[33m [0m[32m [0m[34m [0m[35m [0m[31m#[0m[36m#[0m[32m [0m[36m [0m[31m#[0m[31m#[0m[35m#[0m[34m [0m[31m [0m[33m [0m[35m#[0m[35m#[0m[32m [0m[33m [0m[31m [0m[36m [0m[33m [0m[34m [0m[34m [0m[31m#[0m[33m#[0m[36m [0m[35m [0m[31m [0m[34m [0m[32m [0m[31m [0m[32m [0m[31m [0m[31m [0m[35m#[0m[36m#[0m[33m [0m[35m [0m[36m [0m[36m [0m[32m#[0m[32m#[0m[32m [0m[34m [0m[31m [0m[34m [0m[32m [0m[32m [0m[32m [0m[36m#[0m[36m#[0m[36m [0m[33m [0m[35m#[0m[35m#[0m[36m [0m[35m [0m[34m [0m[33m#[0m[34m#[0m[32m [0m[35m [0m[33m [0m[31m#[0m[31m#[0m[31m [0m[33m [0m[32m [0m[34m [0m[34m [0m[34m [0m[36m [0m[35m [0m[35m [0m[31m [0m[31m [0m[31m#[0m[35m#[0m[34m [0m[36m [0m[32m [0m[34m [0m[33m [0m[35m [0m[31m [0m[35m#[0m[32m#[0m[36m [0m[33m [0m[36m [0m[33m#[0m[33m#[0m[34m [0m[31m [0m[31m#[0m[31m#[0m[34m [0m[34m [0m[34m#[0m[33m#[0m[35m [0m[31m [0m[36m [0m[31m [0m[32m [0m[35m#[0m[31m#[0m[35m#[0m[34m [0m[31m [0m[31m [0m[32m [0m[32m#[0m[36m#[0m[34m [0m[34m [0m[35m#[0m[33m#[0m[33m#[0m[36m [0m[34m [0m[33m [0m[36m [0m[35m#[0m[35m#[0m[35m#[0m[36m [0m[34m [0m[34m [0m[33m [0m[36m#[0m[36m#[0m[34m#[0m[32m [0m[33m [0m[36m#[0m[35m#[0m[31m [0m[35m [0m[31m#[0m[35m#[0m[36m [0m[34m [0m[32m#[0m[34m#[0m[31m [0m[34m [0m[32m [0m[35m#[0m[32m#[0m[33m [0m[36m [0m[31m [0m[33m [0m[32m [0m[31m [0m[31m [0m[36m#[0m[34m#[0m[36m [0m[33m [0m[31m [0m[35m [0m[36m [0m[32m [0m[32m
+[0m[34m [0m[35m#[0m[31m#[0m[35m#[0m[34m#[0m[33m#[0m[33m#[0m[32m#[0m[36m [0m[31m [0m[32m#[0m[36m#[0m[36m [0m[31m [0m[36m#[0m[32m#[0m[33m#[0m[35m [0m[31m [0m[34m#[0m[32m#[0m[31m#[0m[35m [0m[32m [0m[33m [0m[34m [0m[32m [0m[36m [0m[32m#[0m[33m#[0m[34m#[0m[32m [0m[34m [0m[33m [0m[34m [0m[35m [0m[31m [0m[33m [0m[33m [0m[33m#[0m[31m#[0m[32m [0m[33m [0m[35m [0m[33m [0m[34m [0m[35m#[0m[34m#[0m[31m#[0m[33m#[0m[36m#[0m[33m#[0m[33m#[0m[35m [0m[33m [0m[35m#[0m[36m#[0m[32m#[0m[34m#[0m[35m#[0m[36m#[0m[33m#[0m[36m [0m[35m [0m[35m#[0m[32m#[0m[33m [0m[32m [0m[33m#[0m[36m#[0m[34m#[0m[34m [0m[31m [0m[34m [0m[32m [0m[36m [0m[35m [0m[31m [0m[35m [0m[35m [0m[34m [0m[32m [0m[35m#[0m[32m#[0m[36m#[0m[32m#[0m[33m#[0m[34m#[0m[32m#[0m[36m [0m[34m [0m[34m#[0m[31m#[0m[32m [0m[31m [0m[31m#[0m[34m#[0m[34m#[0m[34m [0m[31m [0m[32m#[0m[35m#[0m[31m#[0m[34m#[0m[36m#[0m[33m#[0m[31m#[0m[36m [0m[35m [0m[34m [0m[35m [0m[36m#[0m[34m#[0m[33m#[0m[33m [0m[31m [0m[32m [0m[32m [0m[31m#[0m[36m#[0m[32m#[0m[36m#[0m[36m#[0m[36m#[0m[33m#[0m[36m [0m[31m [0m[34m [0m[33m [0m[34m#[0m[32m#[0m[31m#[0m[35m [0m[36m [0m[34m [0m[36m [0m[33m#[0m[36m#[0m[36m#[0m[35m#[0m[31m#[0m[35m#[0m[34m#[0m[34m [0m[35m [0m[33m#[0m[31m#[0m[33m#[0m[35m#[0m[31m#[0m[31m#[0m[32m#[0m[33m [0m[33m [0m[36m#[0m[33m#[0m[36m#[0m[33m#[0m[32m#[0m[33m#[0m[36m#[0m[34m [0m[35m [0m[33m#[0m[33m#[0m[35m#[0m[34m#[0m[35m#[0m[36m#[0m[31m#[0m[33m [0m[35m
+[0m[34m [0m[36m#[0m[31m#[0m[33m#[0m[31m [0m[36m [0m[36m [0m[36m [0m[33m [0m[31m [0m[33m#[0m[35m#[0m[34m [0m[35m [0m[31m#[0m[36m#[0m[34m#[0m[31m [0m[34m [0m[36m#[0m[32m#[0m[34m#[0m[36m [0m[31m [0m[36m [0m[34m [0m[34m [0m[33m [0m[35m#[0m[31m#[0m[31m#[0m[35m [0m[36m [0m[32m [0m[33m [0m[34m [0m[33m [0m[35m [0m[32m#[0m[32m#[0m[36m [0m[31m [0m[36m [0m[32m [0m[32m [0m[32m [0m[33m#[0m[36m#[0m[33m#[0m[31m [0m[33m [0m[36m [0m[34m [0m[33m [0m[32m [0m[36m#[0m[31m#[0m[33m#[0m[33m [0m[33m#[0m[33m#[0m[31m#[0m[31m [0m[35m [0m[33m#[0m[31m#[0m[33m [0m[36m [0m[32m#[0m[36m#[0m[33m#[0m[31m [0m[33m [0m[35m [0m[35m [0m[36m [0m[34m [0m[32m [0m[32m [0m[31m [0m[34m [0m[36m [0m[32m#[0m[35m#[0m[35m#[0m[31m [0m[35m [0m[35m [0m[34m [0m[35m [0m[32m [0m[33m#[0m[34m#[0m[35m [0m[32m [0m[32m#[0m[31m#[0m[34m#[0m[32m [0m[31m [0m[33m#[0m[31m#[0m[36m#[0m[32m [0m[31m#[0m[31m#[0m[31m#[0m[36m [0m[33m [0m[31m [0m[33m [0m[32m#[0m[36m#[0m[34m#[0m[34m [0m[31m [0m[33m [0m[32m [0m[31m [0m[36m [0m[34m#[0m[33m#[0m[34m#[0m[33m [0m[36m [0m[34m [0m[35m [0m[32m [0m[31m [0m[35m#[0m[31m#[0m[33m#[0m[32m [0m[35m [0m[35m [0m[34m [0m[33m#[0m[32m#[0m[31m#[0m[34m [0m[34m [0m[32m#[0m[31m#[0m[36m [0m[36m [0m[33m#[0m[36m#[0m[32m#[0m[36m [0m[35m#[0m[35m#[0m[32m#[0m[33m [0m[32m [0m[36m#[0m[31m#[0m[35m#[0m[34m [0m[35m [0m[32m [0m[36m [0m[35m [0m[36m [0m[34m#[0m[33m#[0m[33m#[0m[35m [0m[33m [0m[36m [0m[36m [0m[31m [0m[36m
+[0m[32m [0m[31m#[0m[36m#[0m[35m#[0m[35m [0m[32m [0m[32m [0m[32m [0m[35m [0m[35m [0m[34m#[0m[31m#[0m[33m [0m[35m [0m[33m#[0m[31m#[0m[32m#[0m[35m [0m[34m [0m[31m#[0m[36m#[0m[34m#[0m[33m [0m[35m [0m[32m [0m[36m [0m[35m [0m[31m [0m[34m#[0m[32m#[0m[32m#[0m[33m [0m[32m [0m[33m [0m[35m [0m[36m [0m[31m [0m[34m#[0m[32m#[0m[33m#[0m[32m#[0m[34m#[0m[32m#[0m[33m [0m[31m [0m[32m [0m[31m#[0m[32m [0m[31m#[0m[33m [0m[36m [0m[32m [0m[32m [0m[31m [0m[33m [0m[34m#[0m[33m#[0m[31m#[0m[36m [0m[36m#[0m[32m#[0m[35m#[0m[36m [0m[34m [0m[34m#[0m[33m#[0m[32m [0m[34m [0m[34m#[0m[31m#[0m[35m#[0m[34m [0m[36m [0m[33m [0m[32m [0m[34m [0m[34m [0m[33m [0m[34m [0m[32m [0m[31m [0m[32m [0m[32m#[0m[32m#[0m[31m#[0m[33m [0m[36m [0m[36m [0m[33m [0m[33m [0m[31m [0m[31m#[0m[34m#[0m[33m [0m[32m [0m[31m#[0m[31m#[0m[34m#[0m[34m [0m[32m [0m[34m#[0m[32m#[0m[34m#[0m[35m [0m[35m#[0m[33m#[0m[33m#[0m[34m [0m[35m [0m[31m [0m[33m [0m[36m#[0m[34m#[0m[35m#[0m[31m [0m[33m [0m[35m [0m[31m [0m[33m [0m[34m [0m[33m#[0m[33m#[0m[32m#[0m[31m [0m[32m [0m[32m [0m[32m [0m[35m [0m[31m [0m[34m#[0m[33m#[0m[34m#[0m[35m [0m[35m [0m[31m [0m[35m [0m[36m#[0m[36m#[0m[35m#[0m[33m [0m[35m [0m[33m#[0m[34m#[0m[33m [0m[33m [0m[35m#[0m[32m#[0m[36m#[0m[35m [0m[33m#[0m[34m#[0m[32m#[0m[32m [0m[36m [0m[35m#[0m[34m [0m[33m#[0m[33m [0m[33m [0m[33m [0m[33m [0m[36m [0m[31m [0m[36m#[0m[34m [0m[33m#[0m[33m [0m[31m [0m[33m [0m[36m [0m[32m [0m[36m
+[0m[31m [0m[36m#[0m[35m#[0m[34m#[0m[32m [0m[34m [0m[31m [0m[33m [0m[34m [0m[34m [0m[36m#[0m[34m#[0m[31m#[0m[32m#[0m[34m#[0m[35m#[0m[36m#[0m[36m [0m[32m [0m[35m#[0m[36m#[0m[33m#[0m[36m#[0m[36m#[0m[33m#[0m[35m [0m[33m [0m[33m [0m[33m#[0m[33m#[0m[31m#[0m[34m#[0m[34m#[0m[34m#[0m[32m [0m[35m [0m[32m [0m[34m#[0m[36m#[0m[34m#[0m[36m#[0m[36m#[0m[33m#[0m[33m [0m[33m [0m[35m [0m[36m#[0m[31m#[0m[33m#[0m[34m#[0m[34m#[0m[33m#[0m[36m#[0m[32m [0m[35m [0m[32m#[0m[36m#[0m[34m#[0m[32m [0m[36m#[0m[34m#[0m[32m#[0m[31m [0m[35m [0m[36m#[0m[31m#[0m[31m#[0m[33m#[0m[33m#[0m[34m#[0m[31m#[0m[32m [0m[36m#[0m[36m#[0m[36m#[0m[31m#[0m[33m#[0m[33m#[0m[32m#[0m[31m#[0m[36m [0m[35m [0m[35m#[0m[34m#[0m[36m#[0m[35m [0m[31m [0m[34m [0m[33m [0m[31m [0m[31m [0m[35m#[0m[34m#[0m[36m#[0m[33m#[0m[31m#[0m[31m#[0m[36m#[0m[35m [0m[36m [0m[32m#[0m[36m#[0m[36m#[0m[31m [0m[36m#[0m[32m#[0m[36m#[0m[36m [0m[33m [0m[35m [0m[33m [0m[32m#[0m[31m#[0m[32m#[0m[31m [0m[32m [0m[31m [0m[35m [0m[31m [0m[36m [0m[31m#[0m[33m#[0m[35m#[0m[35m [0m[33m [0m[32m [0m[33m [0m[32m [0m[35m [0m[36m#[0m[35m#[0m[32m#[0m[33m [0m[35m [0m[35m [0m[31m [0m[32m#[0m[34m#[0m[35m#[0m[35m [0m[34m [0m[31m#[0m[35m#[0m[33m [0m[31m [0m[34m#[0m[35m#[0m[33m#[0m[33m [0m[33m#[0m[33m#[0m[36m#[0m[31m [0m[32m [0m[36m#[0m[35m#[0m[33m#[0m[32m#[0m[35m#[0m[31m#[0m[33m#[0m[36m [0m[32m [0m[32m#[0m[32m#[0m[31m#[0m[35m#[0m[35m#[0m[36m#[0m[32m#[0m[32m [0m[36m
+[0m[33m [0m[34m [0m[33m [0m[35m [0m[33m [0m[31m [0m[32m [0m[33m [0m[34m [0m[31m [0m[32m [0m[32m [0m[34m [0m[31m [0m[35m [0m[34m [0m[35m [0m[35m [0m[34m [0m[32m [0m[32m [0m[33m [0m[33m [0m[36m [0m[34m [0m[33m [0m[36m [0m[34m [0m[35m [0m[32m [0m[33m [0m[35m [0m[36m [0m[33m [0m[35m [0m[33m [0m[33m [0m[32m [0m[36m [0m[31m [0m[32m [0m[31m [0m[31m [0m[31m [0m[34m [0m[32m [0m[36m [0m[33m [0m[35m [0m[36m [0m[31m [0m[36m [0m[34m [0m[36m [0m[34m [0m[32m [0m[34m [0m[34m [0m[35m [0m[36m [0m[32m [0m[35m [0m[33m [0m[32m [0m[34m [0m[31m [0m[36m [0m[32m [0m[36m [0m[35m [0m[31m [0m[34m [0m[35m [0m[34m [0m[34m [0m[36m [0m[36m [0m[31m [0m[34m [0m[32m [0m[35m [0m[32m [0m[32m [0m[31m [0m[34m [0m[33m [0m[31m [0m[35m [0m[31m [0m[31m [0m[31m [0m[33m [0m[36m [0m[34m [0m[31m [0m[31m [0m[35m [0m[36m [0m[31m [0m[32m [0m[32m [0m[32m [0m[33m [0m[33m [0m[33m [0m[35m [0m[31m [0m[34m [0m[33m [0m[33m [0m[32m [0m[34m [0m[31m [0m[31m [0m[35m [0m[34m [0m[31m [0m[31m [0m[34m [0m[36m [0m[32m [0m[34m [0m[32m [0m[32m [0m[33m [0m[34m [0m[31m [0m[33m [0m[35m [0m[36m [0m[36m [0m[35m [0m[33m [0m[34m [0m[31m [0m[36m [0m[34m [0m[32m [0m[33m [0m[34m [0m[36m [0m[34m [0m[33m [0m[36m [0m[33m [0m[32m [0m[35m [0m[36m [0m[36m [0m[33m [0m[32m [0m[33m [0m[32m [0m[31m [0m[36m [0m[32m [0m[34m [0m[34m [0m[32m [0m[36m [0m[31m [0m[33m [0m[34m [0m[31m [0m[32m [0m[31m [0m[34m [0m[34m [0m[32m [0m[32m [0m[35m [0m[36m
+[0m[34m[0m[33mv[0m[34mi[0m[31me[0m[35mw[0m[33ms[0m[36m-[0m[31mp[0m[36mi[0m[36mp[0m[35me[0m[32ml[0m[34mi[0m[31mn[0m[31me[0m[34m-[0m[32mc[0m[32mo[0m[34mr[0m[32me[0m[32m [0m[32mv[0m[32m3[0m[36m.[0m[36m1[0m[33m.[0m[35m2[0m[36m[0m[32m
+[0m
+2026-09-06 18:49:05,907 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/manager/hydranet_manager.py [hydranet_manager.py:175] [289998] [MainThread] - INFO - 🕒 HydranetManager: Initialized run with timestamp 060926_1849
+2026-09-06 18:49:05,908 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/modules/validation/core_config_sniffer.py [core_config_sniffer.py:481] [289998] [MainThread] - WARNING - Model 'fullzero_fortythree' uses the legacy deployment_status='shadow'. This is accepted during the ADR-057 transition window and reads as maturity='candidate'. Rename config_deployment.py to config_maturity.py and replace the key. The window closes when views-models reports no configs on the legacy vocabulary; after that this becomes an error.
+2026-09-06 18:49:05,908 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/modules/validation/core_config_sniffer.py [core_config_sniffer.py:680] [289998] [MainThread] - INFO - CoreConfigSniffer: Evaluation contract verified — 13 rolling-origin sequence(s), stride=1.
+2026-09-06 18:49:05,908 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/modules/validation/core_config_sniffer.py [core_config_sniffer.py:684] [289998] [MainThread] - INFO -   Seq   0: origin 456, months 457..492
+2026-09-06 18:49:05,908 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/modules/validation/core_config_sniffer.py [core_config_sniffer.py:690] [289998] [MainThread] - INFO -   Seq  12: origin 468, months 469..504
+2026-09-06 18:49:05,908 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/modules/validation/core_config_sniffer.py [core_config_sniffer.py:251] [289998] [MainThread] - INFO - CoreConfigSniffer: Config audited (run_type='calibration').
+2026-09-06 18:49:08,932 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/modules/dataloaders/dataloaders.py [dataloaders.py:1071] [289998] [MainThread] - INFO - Reading saved data from /home/simon/Documents/scripts/views_platform/views-models/models/fullzero_fortythree/data/raw/calibration_datafactory_df.parquet
+2026-09-06 18:49:08,996 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/modules/validation/core_data_sniffer.py [core_data_sniffer.py:130] [289998] [MainThread] - INFO - CoreDataSniffer: Loaded data audited (partition='calibration', level='pgm').
+2026-09-06 18:49:08,996 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/modules/wandb/wandb.py [wandb.py:254] [289998] [MainThread] - INFO - WandB alert sent: Queryset Fetch Complete (calibration)
+2026-09-06 18:49:12,565 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/managers/model/model.py [model.py:1414] [289998] [MainThread] - INFO - Evaluating model fullzero_fortythree...
+2026-09-06 18:49:12,565 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/managers/model/model.py [model.py:1424] [289998] [MainThread] - INFO - Declared temporal window: base_origin=456, step 1 → month 457, step 36 → month 492 (36 steps total). Model inference starting.
+2026-09-06 18:49:12,565 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/data/model_path.py [model_path.py:795] [289998] [MainThread] - INFO - Artifact used (named): /home/simon/Documents/scripts/views_platform/views-models/models/fullzero_fortythree/artifacts/calibration_model_20260821_045948.pt
+2026-09-06 18:49:12,565 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/data/model_path.py [model_path.py:766] [289998] [MainThread] - INFO - Artifact used: /home/simon/Documents/scripts/views_platform/views-models/models/fullzero_fortythree/artifacts/calibration_model_20260821_045948.pt
+2026-09-06 18:49:12,565 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/model_artifact_fetcher.py [model_artifact_fetcher.py:61] [289998] [MainThread] - INFO - Retriever: Using specific model artifact: calibration_model_20260821_045948.pt
+2026-09-06 18:49:12,568 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/model_artifact_fetcher.py [model_artifact_fetcher.py:98] [289998] [MainThread] - INFO - Retriever: SHA-256 verified for calibration_model_20260821_045948.pt
+2026-09-06 18:49:12,683 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/model_artifact_fetcher.py [model_artifact_fetcher.py:120] [289998] [MainThread] - INFO - Retriever: Loaded state_dict artifact (weights_only=True)
+
+👾====================================================================================================
+  DEVICE REPORT — STANDARD
+  --------------------------------------------------------------------------------------------------
+  Device:    cuda  (GPU)
+  GPU Name:  NVIDIA GeForce RTX 4070 Laptop GPU
+  VRAM:      7,942 MiB
+  GPU Count: 1
+👾====================================================================================================
+
+2026-09-06 18:49:12,757 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/config_initializer.py [config_initializer.py:500] [289998] [MainThread] - WARNING - 
+╔══════════════════════════════════════════════════════════════╗
+║  HydraNetConfig WARNING: aggregate_method is IGNORED         ║
+║                                                              ║
+║  evaluation_mode='stochastic' preserves the full posterior.  ║
+║  The aggregate_method='arithmetic_mean' setting has NO effect.       ║
+║                                                              ║
+║  To activate aggregation, set evaluation_mode='point'.       ║
+╚══════════════════════════════════════════════════════════════╝
+2026-09-06 18:49:12,758 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/infrastructure/reproducibility_gate.py [reproducibility_gate.py:82] [289998] [MainThread] - INFO - Entropy locked: numpy/random seed=43, torch seed=43, deterministic_algorithms=True
+2026-09-06 18:49:12,758 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/disk_guard.py [disk_guard.py:52] [289998] [MainThread] - INFO - disk-headroom check: 114.7 GB free at '.' (budget 10.0 GB)
+2026-09-06 18:49:12,758 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/manager/hydranet_manager.py [hydranet_manager.py:190] [289998] [MainThread] - INFO - 🛡️  Running Pre-Flight Validation...
+2026-09-06 18:49:12,758 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/manager/hydranet_manager.py [hydranet_manager.py:205] [289998] [MainThread] - INFO - ✅ Architecture: Head Count Aligned (3+3)
+2026-09-06 18:49:12,758 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/data_fetcher.py [data_fetcher.py:58] [289998] [MainThread] - INFO - DataFetcher: Loading calibration from /home/simon/Documents/scripts/views_platform/views-models/models/fullzero_fortythree/data/raw/calibration_datafactory_df.parquet
+
+👾====================================================================================================
+  DATA LOAD COMPLETE: CALIBRATION
+  --------------------------------------------------------------------------------------------------
+  Source Path: /home/simon/Documents/scripts/views_platform/views-models/models/fullzero_fortythree/data/raw/calibration_datafactory_df.parquet
+  Rows Loaded: 5,034,240
+  Columns:     ['lr_sb_best', 'lr_ns_best', 'lr_os_best', 'c_id', 'row', 'col']
+👾====================================================================================================
+
+2026-09-06 18:49:13,303 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/data_sniffer.py [data_sniffer.py:51] [289998] [MainThread] - INFO - DataSniffer: Starting Ingestion Suite (Raw Space)
+2026-09-06 18:49:13,560 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/data_sniffer.py [data_sniffer.py:59] [289998] [MainThread] - INFO - DataSniffer: Ingestion Suite Passed.
+2026-09-06 18:49:13,746 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/feature_scaler.py [feature_scaler.py:99] [289998] [MainThread] - INFO - 💫 FeatureScaler: Entering Semantic Space (3 features to transform)
+2026-09-06 18:49:13,746 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/feature_scaler.py [feature_scaler.py:108] [289998] [MainThread] - INFO -   → Applying [log1p] to 3 features
+2026-09-06 18:49:13,965 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/feature_scaler.py [feature_scaler.py:153] [289998] [MainThread] - INFO - 
+
+➡️==============================================================================
+  FEATURE SCALER: SEMANTIC SPACE REPORT
+  ----------------------------------------------------------------------------
+  [  log1p   ] lr_sb_best.................... min:     0.0000 | max:    11.6386
+  [  log1p   ] lr_ns_best.................... min:     0.0000 | max:     7.6014
+  [  log1p   ] lr_os_best.................... min:     0.0000 | max:    12.0921
+➡️==============================================================================
+
+2026-09-06 18:49:15,554 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/data_sniffer.py [data_sniffer.py:68] [289998] [MainThread] - INFO - DataSniffer: Starting History Alignment Suite
+2026-09-06 18:49:15,618 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/data_sniffer.py [data_sniffer.py:158] [289998] [MainThread] - INFO - DataSniffer: Temporal and Geographic Alignment Passed.
+2026-09-06 18:49:15,708 /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-08-16_feedback_realism_dossier/tools/realism_arm_entry.py [realism_arm_entry.py:80] [289998] [MainThread] - INFO - 🧪 RealismArmManager: feedback arm = 'identity' (None = production, the model's own field), freeze_recurrent = 'cell'
+2026-09-06 18:49:15,708 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/inference_orchestrator.py [inference_orchestrator.py:264] [289998] [MainThread] - INFO - 💠 InferenceOrchestrator: Initiating BACKTEST streaming pass (13 origins) [pandas-free PredictionFrame path].
+2026-09-06 18:49:15,709 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/hydranet_inference.py [hydranet_inference.py:198] [289998] [MainThread] - INFO - Using device: cuda
+2026-09-06 18:49:15,710 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/hydranet_inference.py [hydranet_inference.py:433] [289998] [MainThread] - INFO - HydraNetInference initialized successfully.
+2026-09-06 18:49:16,015 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/disk_guard.py [disk_guard.py:109] [289998] [MainThread] - INFO - cube-fit check: 0.42 GB needed vs 14.30 GB available RAM (headroom 0.85)
+2026-09-06 18:49:40,522 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/feature_scaler.py [feature_scaler.py:210] [289998] [MainThread] - INFO - 🔙 FeatureScaler: Inverting Volume (36, 180, 180, 11, 16) to Raw Space
+2026-09-06 18:49:42,536 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/disk_guard.py [disk_guard.py:109] [289998] [MainThread] - INFO - cube-fit check: 0.42 GB needed vs 13.64 GB available RAM (headroom 0.85)
+2026-09-06 18:50:06,375 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/feature_scaler.py [feature_scaler.py:210] [289998] [MainThread] - INFO - 🔙 FeatureScaler: Inverting Volume (36, 180, 180, 11, 16) to Raw Space
+2026-09-06 18:50:08,279 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/disk_guard.py [disk_guard.py:109] [289998] [MainThread] - INFO - cube-fit check: 0.42 GB needed vs 13.36 GB available RAM (headroom 0.85)
+2026-09-06 18:50:32,763 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/feature_scaler.py [feature_scaler.py:210] [289998] [MainThread] - INFO - 🔙 FeatureScaler: Inverting Volume (36, 180, 180, 11, 16) to Raw Space
+2026-09-06 18:50:34,751 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/disk_guard.py [disk_guard.py:109] [289998] [MainThread] - INFO - cube-fit check: 0.42 GB needed vs 13.10 GB available RAM (headroom 0.85)
+2026-09-06 18:50:57,715 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/feature_scaler.py [feature_scaler.py:210] [289998] [MainThread] - INFO - 🔙 FeatureScaler: Inverting Volume (36, 180, 180, 11, 16) to Raw Space
+2026-09-06 18:50:59,580 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/disk_guard.py [disk_guard.py:109] [289998] [MainThread] - INFO - cube-fit check: 0.42 GB needed vs 12.68 GB available RAM (headroom 0.85)
+2026-09-06 18:51:24,230 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/feature_scaler.py [feature_scaler.py:210] [289998] [MainThread] - INFO - 🔙 FeatureScaler: Inverting Volume (36, 180, 180, 11, 16) to Raw Space
+2026-09-06 18:51:26,191 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/disk_guard.py [disk_guard.py:109] [289998] [MainThread] - INFO - cube-fit check: 0.42 GB needed vs 12.33 GB available RAM (headroom 0.85)
+2026-09-06 18:51:49,126 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/feature_scaler.py [feature_scaler.py:210] [289998] [MainThread] - INFO - 🔙 FeatureScaler: Inverting Volume (36, 180, 180, 11, 16) to Raw Space
+2026-09-06 18:51:50,994 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/disk_guard.py [disk_guard.py:109] [289998] [MainThread] - INFO - cube-fit check: 0.42 GB needed vs 11.86 GB available RAM (headroom 0.85)
+2026-09-06 18:52:15,475 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/feature_scaler.py [feature_scaler.py:210] [289998] [MainThread] - INFO - 🔙 FeatureScaler: Inverting Volume (36, 180, 180, 11, 16) to Raw Space
+2026-09-06 18:52:17,398 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/disk_guard.py [disk_guard.py:109] [289998] [MainThread] - INFO - cube-fit check: 0.42 GB needed vs 11.52 GB available RAM (headroom 0.85)
+2026-09-06 18:52:42,370 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/feature_scaler.py [feature_scaler.py:210] [289998] [MainThread] - INFO - 🔙 FeatureScaler: Inverting Volume (36, 180, 180, 11, 16) to Raw Space
+2026-09-06 18:52:44,397 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/disk_guard.py [disk_guard.py:109] [289998] [MainThread] - INFO - cube-fit check: 0.42 GB needed vs 11.02 GB available RAM (headroom 0.85)
+2026-09-06 18:53:10,190 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/feature_scaler.py [feature_scaler.py:210] [289998] [MainThread] - INFO - 🔙 FeatureScaler: Inverting Volume (36, 180, 180, 11, 16) to Raw Space
+2026-09-06 18:53:12,126 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/disk_guard.py [disk_guard.py:109] [289998] [MainThread] - INFO - cube-fit check: 0.42 GB needed vs 10.66 GB available RAM (headroom 0.85)
+2026-09-06 18:53:37,133 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/feature_scaler.py [feature_scaler.py:210] [289998] [MainThread] - INFO - 🔙 FeatureScaler: Inverting Volume (36, 180, 180, 11, 16) to Raw Space
+2026-09-06 18:53:39,093 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/disk_guard.py [disk_guard.py:109] [289998] [MainThread] - INFO - cube-fit check: 0.42 GB needed vs 10.25 GB available RAM (headroom 0.85)
+2026-09-06 18:54:02,330 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/feature_scaler.py [feature_scaler.py:210] [289998] [MainThread] - INFO - 🔙 FeatureScaler: Inverting Volume (36, 180, 180, 11, 16) to Raw Space
+2026-09-06 18:54:04,327 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/disk_guard.py [disk_guard.py:109] [289998] [MainThread] - INFO - cube-fit check: 0.42 GB needed vs 9.95 GB available RAM (headroom 0.85)
+2026-09-06 18:54:28,064 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/feature_scaler.py [feature_scaler.py:210] [289998] [MainThread] - INFO - 🔙 FeatureScaler: Inverting Volume (36, 180, 180, 11, 16) to Raw Space
+2026-09-06 18:54:29,937 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/disk_guard.py [disk_guard.py:109] [289998] [MainThread] - INFO - cube-fit check: 0.42 GB needed vs 9.59 GB available RAM (headroom 0.85)
+2026-09-06 18:54:54,801 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/feature_scaler.py [feature_scaler.py:210] [289998] [MainThread] - INFO - 🔙 FeatureScaler: Inverting Volume (36, 180, 180, 11, 16) to Raw Space
+2026-09-06 18:54:56,509 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/utils/inference_orchestrator.py [inference_orchestrator.py:316] [289998] [MainThread] - INFO - ✅ InferenceOrchestrator: Streamed 13 origin(s) [pandas-free PredictionFrame streaming path].
+2026-09-06 18:54:56,509 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/modules/wandb/wandb.py [wandb.py:254] [289998] [MainThread] - INFO - WandB alert sent: Evaluation Predictions Saved
+2026-09-06 18:54:56,509 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/files/utils.py [utils.py:147] [289998] [MainThread] - INFO - Log file created at /home/simon/Documents/scripts/views_platform/views-models/models/fullzero_fortythree/data/generated/calibration_log.txt
+2026-09-06 18:54:57,140 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/managers/evaluation/stage.py [stage.py:289] [289998] [MainThread] - INFO - Raw data read from /home/simon/Documents/scripts/views_platform/views-models/models/fullzero_fortythree/data/raw/calibration_datafactory_df.parquet
+2026-09-06 18:54:57,140 /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/manager/hydranet_manager.py [hydranet_manager.py:183] [289998] [MainThread] - INFO - 🛠️ HydranetManager: Manufacturing derived signals for evaluation.
+2026-09-06 18:54:57,566 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/managers/evaluation/stage.py [stage.py:128] [289998] [MainThread] - INFO - Processing regression tasks for evaluation...
+2026-09-06 18:54:57,566 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/managers/evaluation/stage.py [stage.py:131] [289998] [MainThread] - INFO - Calculating regression evaluation metrics for lr_sb_best
+2026-09-06 18:55:07,842 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/managers/evaluation/stage.py [stage.py:446] [289998] [MainThread] - INFO - Persisted MetricFrame (evaluation-of-record) for 'lr_sb_best' -> /home/simon/Documents/scripts/views_platform/views-models/models/fullzero_fortythree/data/generated/fullzero_fortythree/calibration/metricframe_lr_sb_best
+2026-09-06 18:55:09,026 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/modules/wandb/wandb.py [wandb.py:254] [289998] [MainThread] - INFO - WandB alert sent: Model Outputs Saved
+2026-09-06 18:55:09,026 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/managers/evaluation/stage.py [stage.py:131] [289998] [MainThread] - INFO - Calculating regression evaluation metrics for lr_ns_best
+2026-09-06 18:55:18,985 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/managers/evaluation/stage.py [stage.py:446] [289998] [MainThread] - INFO - Persisted MetricFrame (evaluation-of-record) for 'lr_ns_best' -> /home/simon/Documents/scripts/views_platform/views-models/models/fullzero_fortythree/data/generated/fullzero_fortythree/calibration/metricframe_lr_ns_best
+2026-09-06 18:55:19,791 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/modules/wandb/wandb.py [wandb.py:254] [289998] [MainThread] - INFO - WandB alert sent: Model Outputs Saved
+2026-09-06 18:55:19,791 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/managers/evaluation/stage.py [stage.py:131] [289998] [MainThread] - INFO - Calculating regression evaluation metrics for lr_os_best
+2026-09-06 18:55:29,665 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/managers/evaluation/stage.py [stage.py:446] [289998] [MainThread] - INFO - Persisted MetricFrame (evaluation-of-record) for 'lr_os_best' -> /home/simon/Documents/scripts/views_platform/views-models/models/fullzero_fortythree/data/generated/fullzero_fortythree/calibration/metricframe_lr_os_best
+2026-09-06 18:55:30,479 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/modules/wandb/wandb.py [wandb.py:254] [289998] [MainThread] - INFO - WandB alert sent: Model Outputs Saved
+2026-09-06 18:55:30,479 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/managers/evaluation/stage.py [stage.py:128] [289998] [MainThread] - INFO - Processing classification tasks for evaluation...
+2026-09-06 18:55:30,479 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/managers/evaluation/stage.py [stage.py:131] [289998] [MainThread] - INFO - Calculating classification evaluation metrics for by_sb_best
+2026-09-06 18:55:36,059 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/managers/evaluation/stage.py [stage.py:446] [289998] [MainThread] - INFO - Persisted MetricFrame (evaluation-of-record) for 'by_sb_best' -> /home/simon/Documents/scripts/views_platform/views-models/models/fullzero_fortythree/data/generated/fullzero_fortythree/calibration/metricframe_by_sb_best
+2026-09-06 18:55:36,912 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/modules/wandb/wandb.py [wandb.py:254] [289998] [MainThread] - INFO - WandB alert sent: Model Outputs Saved
+2026-09-06 18:55:36,912 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/managers/evaluation/stage.py [stage.py:131] [289998] [MainThread] - INFO - Calculating classification evaluation metrics for by_ns_best
+2026-09-06 18:55:42,413 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/managers/evaluation/stage.py [stage.py:446] [289998] [MainThread] - INFO - Persisted MetricFrame (evaluation-of-record) for 'by_ns_best' -> /home/simon/Documents/scripts/views_platform/views-models/models/fullzero_fortythree/data/generated/fullzero_fortythree/calibration/metricframe_by_ns_best
+2026-09-06 18:55:43,245 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/modules/wandb/wandb.py [wandb.py:254] [289998] [MainThread] - INFO - WandB alert sent: Model Outputs Saved
+2026-09-06 18:55:43,245 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/managers/evaluation/stage.py [stage.py:131] [289998] [MainThread] - INFO - Calculating classification evaluation metrics for by_os_best
+2026-09-06 18:55:48,845 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/managers/evaluation/stage.py [stage.py:446] [289998] [MainThread] - INFO - Persisted MetricFrame (evaluation-of-record) for 'by_os_best' -> /home/simon/Documents/scripts/views_platform/views-models/models/fullzero_fortythree/data/generated/fullzero_fortythree/calibration/metricframe_by_os_best
+2026-09-06 18:55:49,630 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/modules/wandb/wandb.py [wandb.py:254] [289998] [MainThread] - INFO - WandB alert sent: Model Outputs Saved
+2026-09-06 18:55:49,637 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/managers/prediction/io.py [io.py:258] [289998] [MainThread] - INFO - Evaluation metrics:
++----+---------------------------------------------------+--------------+
+|    | Metric                                            |        Value |
++====+===================================================+==============+
+| 65 | month-wise/by_ns_best/Brier_cls_sample            |   0.00236206 |
++----+---------------------------------------------------+--------------+
+|  7 | month-wise/by_ns_best/Brier_cls_sample_mean       |   0.00258789 |
++----+---------------------------------------------------+--------------+
+| 15 | month-wise/by_os_best/Brier_cls_sample            |   0.00461558 |
++----+---------------------------------------------------+--------------+
+|  9 | month-wise/by_os_best/Brier_cls_sample_mean       |   0.00401148 |
++----+---------------------------------------------------+--------------+
+|  6 | month-wise/by_sb_best/Brier_cls_sample            |   0.00942476 |
++----+---------------------------------------------------+--------------+
+| 51 | month-wise/by_sb_best/Brier_cls_sample_mean       |   0.00696725 |
++----+---------------------------------------------------+--------------+
+| 70 | month-wise/lr_ns_best/CRPS                        |   0.0212776  |
++----+---------------------------------------------------+--------------+
+| 25 | month-wise/lr_ns_best/CRPS_mean                   |   0.045621   |
++----+---------------------------------------------------+--------------+
+| 71 | month-wise/lr_ns_best/MCR_sample                  |   0.249318   |
++----+---------------------------------------------------+--------------+
+| 57 | month-wise/lr_ns_best/MCR_sample_mean             |   0.14489    |
++----+---------------------------------------------------+--------------+
+| 29 | month-wise/lr_ns_best/QS_sample                   |   0.0201805  |
++----+---------------------------------------------------+--------------+
+| 50 | month-wise/lr_ns_best/QS_sample_mean              |   0.0414132  |
++----+---------------------------------------------------+--------------+
+| 61 | month-wise/lr_os_best/CRPS                        |   0.0868892  |
++----+---------------------------------------------------+--------------+
+|  8 | month-wise/lr_os_best/CRPS_mean                   |   0.043092   |
++----+---------------------------------------------------+--------------+
+| 39 | month-wise/lr_os_best/MCR_sample                  |   0.0673575  |
++----+---------------------------------------------------+--------------+
+| 30 | month-wise/lr_os_best/MCR_sample_mean             |   0.188325   |
++----+---------------------------------------------------+--------------+
+| 38 | month-wise/lr_os_best/QS_sample                   |   0.0780908  |
++----+---------------------------------------------------+--------------+
+| 40 | month-wise/lr_os_best/QS_sample_mean              |   0.0396186  |
++----+---------------------------------------------------+--------------+
+| 24 | month-wise/lr_sb_best/CRPS                        |   8.79868    |
++----+---------------------------------------------------+--------------+
+| 11 | month-wise/lr_sb_best/CRPS_mean                   |   0.326218   |
++----+---------------------------------------------------+--------------+
+| 33 | month-wise/lr_sb_best/MCR_sample                  |   0.00197059 |
++----+---------------------------------------------------+--------------+
+| 54 | month-wise/lr_sb_best/MCR_sample_mean             |   0.210998   |
++----+---------------------------------------------------+--------------+
+| 46 | month-wise/lr_sb_best/QS_sample                   |   8.7007     |
++----+---------------------------------------------------+--------------+
+|  3 | month-wise/lr_sb_best/QS_sample_mean              |   0.30108    |
++----+---------------------------------------------------+--------------+
+| 28 | month-wise/month                                  | 504          |
++----+---------------------------------------------------+--------------+
+| 59 | step-wise/by_ns_best/Brier_cls_sample             |   0.00218156 |
++----+---------------------------------------------------+--------------+
+| 60 | step-wise/by_ns_best/Brier_cls_sample_mean        |   0.0026099  |
++----+---------------------------------------------------+--------------+
+|  2 | step-wise/by_os_best/Brier_cls_sample             |   0.00433318 |
++----+---------------------------------------------------+--------------+
+| 66 | step-wise/by_os_best/Brier_cls_sample_mean        |   0.00409255 |
++----+---------------------------------------------------+--------------+
+| 64 | step-wise/by_sb_best/Brier_cls_sample             |   0.00858758 |
++----+---------------------------------------------------+--------------+
+| 31 | step-wise/by_sb_best/Brier_cls_sample_mean        |   0.00682716 |
++----+---------------------------------------------------+--------------+
+| 20 | step-wise/lr_ns_best/CRPS                         |   0.0274059  |
++----+---------------------------------------------------+--------------+
+| 67 | step-wise/lr_ns_best/CRPS_mean                    |   0.0428446  |
++----+---------------------------------------------------+--------------+
+| 49 | step-wise/lr_ns_best/MCR_sample                   |   0.146456   |
++----+---------------------------------------------------+--------------+
+|  5 | step-wise/lr_ns_best/MCR_sample_mean              |   0.116185   |
++----+---------------------------------------------------+--------------+
+| 48 | step-wise/lr_ns_best/QS_sample                    |   0.0262357  |
++----+---------------------------------------------------+--------------+
+| 22 | step-wise/lr_ns_best/QS_sample_mean               |   0.0392971  |
++----+---------------------------------------------------+--------------+
+| 13 | step-wise/lr_os_best/CRPS                         |   0.0668679  |
++----+---------------------------------------------------+--------------+
+| 14 | step-wise/lr_os_best/CRPS_mean                    |   0.0446896  |
++----+---------------------------------------------------+--------------+
+| 26 | step-wise/lr_os_best/MCR_sample                   |   0.0781441  |
++----+---------------------------------------------------+--------------+
+| 68 | step-wise/lr_os_best/MCR_sample_mean              |   0.138271   |
++----+---------------------------------------------------+--------------+
+| 36 | step-wise/lr_os_best/QS_sample                    |   0.0633758  |
++----+---------------------------------------------------+--------------+
+| 37 | step-wise/lr_os_best/QS_sample_mean               |   0.0413679  |
++----+---------------------------------------------------+--------------+
+| 17 | step-wise/lr_sb_best/CRPS                         |   0.871637   |
++----+---------------------------------------------------+--------------+
+| 47 | step-wise/lr_sb_best/CRPS_mean                    |   0.152087   |
++----+---------------------------------------------------+--------------+
+| 42 | step-wise/lr_sb_best/MCR_sample                   |   0.0255776  |
++----+---------------------------------------------------+--------------+
+| 34 | step-wise/lr_sb_best/MCR_sample_mean              |   0.184523   |
++----+---------------------------------------------------+--------------+
+| 56 | step-wise/lr_sb_best/QS_sample                    |   0.849282   |
++----+---------------------------------------------------+--------------+
+| 19 | step-wise/lr_sb_best/QS_sample_mean               |   0.129991   |
++----+---------------------------------------------------+--------------+
+| 69 | step-wise/step                                    |  36          |
++----+---------------------------------------------------+--------------+
+| 32 | time-series-wise/by_ns_best/Brier_cls_sample      |   0.0025059  |
++----+---------------------------------------------------+--------------+
+| 52 | time-series-wise/by_ns_best/Brier_cls_sample_mean |   0.0026099  |
++----+---------------------------------------------------+--------------+
+| 16 | time-series-wise/by_os_best/Brier_cls_sample      |   0.00408541 |
++----+---------------------------------------------------+--------------+
+| 23 | time-series-wise/by_os_best/Brier_cls_sample_mean |   0.00409255 |
++----+---------------------------------------------------+--------------+
+| 41 | time-series-wise/by_sb_best/Brier_cls_sample      |   0.00722458 |
++----+---------------------------------------------------+--------------+
+| 74 | time-series-wise/by_sb_best/Brier_cls_sample_mean |   0.00682716 |
++----+---------------------------------------------------+--------------+
+|  1 | time-series-wise/lr_ns_best/CRPS                  |   0.0337928  |
++----+---------------------------------------------------+--------------+
+| 72 | time-series-wise/lr_ns_best/CRPS_mean             |   0.0428446  |
++----+---------------------------------------------------+--------------+
+| 21 | time-series-wise/lr_ns_best/MCR_sample            |   0.123522   |
++----+---------------------------------------------------+--------------+
+| 58 | time-series-wise/lr_ns_best/MCR_sample_mean       |   0.109563   |
++----+---------------------------------------------------+--------------+
+| 35 | time-series-wise/lr_ns_best/QS_sample             |   0.0308744  |
++----+---------------------------------------------------+--------------+
+| 55 | time-series-wise/lr_ns_best/QS_sample_mean        |   0.0392971  |
++----+---------------------------------------------------+--------------+
+| 44 | time-series-wise/lr_os_best/CRPS                  |   0.0488804  |
++----+---------------------------------------------------+--------------+
+| 73 | time-series-wise/lr_os_best/CRPS_mean             |   0.0446896  |
++----+---------------------------------------------------+--------------+
+| 27 | time-series-wise/lr_os_best/MCR_sample            |   0.125722   |
++----+---------------------------------------------------+--------------+
+| 62 | time-series-wise/lr_os_best/MCR_sample_mean       |   0.117929   |
++----+---------------------------------------------------+--------------+
+| 45 | time-series-wise/lr_os_best/QS_sample             |   0.0443186  |
++----+---------------------------------------------------+--------------+
+| 63 | time-series-wise/lr_os_best/QS_sample_mean        |   0.0413679  |
++----+---------------------------------------------------+--------------+
+| 10 | time-series-wise/lr_sb_best/CRPS                  |   0.390095   |
++----+---------------------------------------------------+--------------+
+| 43 | time-series-wise/lr_sb_best/CRPS_mean             |   0.152087   |
++----+---------------------------------------------------+--------------+
+| 18 | time-series-wise/lr_sb_best/MCR_sample            |   0.0498574  |
++----+---------------------------------------------------+--------------+
+| 12 | time-series-wise/lr_sb_best/MCR_sample_mean       |   0.176133   |
++----+---------------------------------------------------+--------------+
+| 53 | time-series-wise/lr_sb_best/QS_sample             |   0.367685   |
++----+---------------------------------------------------+--------------+
+|  4 | time-series-wise/lr_sb_best/QS_sample_mean        |   0.129991   |
++----+---------------------------------------------------+--------------+
+|  0 | time-series-wise/time-series                      |  12          |
++----+---------------------------------------------------+--------------+
+2026-09-06 18:55:49,637 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/modules/wandb/wandb.py [wandb.py:254] [289998] [MainThread] - INFO - WandB alert sent: Metrics for fullzero_fortythree
+2026-09-06 18:55:49,960 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/modules/wandb/wandb.py [wandb.py:254] [289998] [MainThread] - INFO - WandB alert sent: Evaluation for model fullzero_fortythree completed successfully.
+2026-09-06 18:55:53,738 /home/simon/Documents/scripts/views_platform/views-pipeline-core/views_pipeline_core/managers/model/model.py [model.py:1235] [289998] [MainThread] - INFO - Done. Runtime: 6.698 minutes.
+
+wrote /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-09-05_direct_multi_horizon_dossier/results/fedfield_fullzero_fortythree_identity_freezecell.csv (5460 field records)
+wandb: Using wandb-core as the SDK backend.  Please refer to https://wandb.me/wandb-core for more information.
+wandb: Currently logged in as: simpol (nornir). Use `wandb login --relogin` to force relogin
+wandb: Currently logged in as: simpol (views_pipeline). Use `wandb login --relogin` to force relogin
+wandb: Tracking run with wandb version 0.18.7
+wandb: Run data is saved locally in /home/simon/Documents/scripts/views_platform/views-models/models/fullzero_fortythree/wandb/run-20260906_184907-ieigk6e7
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run fresh-salad-71
+wandb: ⭐️ View project at https://wandb.ai/views_pipeline/fullzero_fortythree_calibration
+wandb: 🚀 View run at https://wandb.ai/views_pipeline/fullzero_fortythree_calibration/runs/ieigk6e7
+wandb:                                                                                
+wandb: 🚀 View run fresh-salad-71 at: https://wandb.ai/views_pipeline/fullzero_fortythree_calibration/runs/ieigk6e7
+wandb: ⭐️ View project at: https://wandb.ai/views_pipeline/fullzero_fortythree_calibration
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260906_184907-ieigk6e7/logs
+wandb: Tracking run with wandb version 0.18.7
+wandb: Run data is saved locally in /home/simon/Documents/scripts/views_platform/views-models/models/fullzero_fortythree/wandb/run-20260906_184911-5t5n4sd7
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run swift-pine-72
+wandb: ⭐️ View project at https://wandb.ai/views_pipeline/fullzero_fortythree_calibration
+wandb: 🚀 View run at https://wandb.ai/views_pipeline/fullzero_fortythree_calibration/runs/5t5n4sd7
+
+[Origin 1/13] 🎲 Drawing Posterior Samples:   0%|          | 0/1484 [00:00<?, ?step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:   0%|          | 1/1484 [00:00<06:35,  3.75step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:   1%|          | 17/1484 [00:00<00:25, 57.04step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:   2%|▏         | 32/1484 [00:00<00:16, 86.37step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:   3%|▎         | 47/1484 [00:00<00:13, 104.93step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:   4%|▍         | 63/1484 [00:00<00:11, 120.26step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:   5%|▌         | 78/1484 [00:00<00:10, 128.74step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:   6%|▋         | 94/1484 [00:00<00:10, 136.44step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:   7%|▋         | 109/1484 [00:00<00:09, 140.17step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:   8%|▊         | 124/1484 [00:01<00:09, 142.18step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:   9%|▉         | 139/1484 [00:01<00:09, 143.40step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  10%|█         | 154/1484 [00:01<00:09, 143.68step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  11%|█▏        | 169/1484 [00:01<00:09, 143.77step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  12%|█▏        | 185/1484 [00:01<00:08, 145.53step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  13%|█▎        | 200/1484 [00:01<00:08, 145.50step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  15%|█▍        | 216/1484 [00:01<00:08, 147.29step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  16%|█▌        | 231/1484 [00:01<00:08, 147.56step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  17%|█▋        | 246/1484 [00:01<00:08, 147.77step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  18%|█▊        | 261/1484 [00:02<00:08, 147.35step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  19%|█▊        | 276/1484 [00:02<00:08, 145.94step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  20%|█▉        | 291/1484 [00:02<00:08, 145.51step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  21%|██        | 306/1484 [00:02<00:08, 145.65step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  22%|██▏       | 321/1484 [00:02<00:08, 144.84step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  23%|██▎       | 336/1484 [00:02<00:08, 138.36step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  24%|██▎       | 350/1484 [00:02<00:14, 78.58step/s] 
+[Origin 1/13] 🎲 Drawing Posterior Samples:  24%|██▍       | 361/1484 [00:03<00:15, 72.25step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  25%|██▌       | 371/1484 [00:03<00:16, 67.76step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  26%|██▌       | 380/1484 [00:05<01:29, 12.40step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  27%|██▋       | 394/1484 [00:06<01:00, 18.03step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  28%|██▊       | 409/1484 [00:06<00:41, 25.80step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  29%|██▊       | 424/1484 [00:06<00:30, 35.33step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  30%|██▉       | 440/1484 [00:06<00:21, 47.60step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  31%|███       | 455/1484 [00:06<00:17, 60.12step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  32%|███▏      | 471/1484 [00:06<00:13, 74.47step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  33%|███▎      | 486/1484 [00:06<00:11, 87.63step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  34%|███▍      | 501/1484 [00:06<00:09, 99.65step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  35%|███▍      | 516/1484 [00:06<00:08, 110.00step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  36%|███▌      | 531/1484 [00:06<00:08, 118.27step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  37%|███▋      | 546/1484 [00:07<00:07, 125.46step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  38%|███▊      | 561/1484 [00:07<00:07, 130.50step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  39%|███▉      | 577/1484 [00:07<00:06, 136.34step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  40%|███▉      | 592/1484 [00:07<00:06, 139.44step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  41%|████      | 607/1484 [00:07<00:06, 141.76step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  42%|████▏     | 623/1484 [00:07<00:05, 144.78step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  43%|████▎     | 638/1484 [00:07<00:05, 144.32step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  44%|████▍     | 654/1484 [00:07<00:05, 146.98step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  45%|████▌     | 669/1484 [00:07<00:05, 145.39step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  46%|████▌     | 684/1484 [00:08<00:05, 146.01step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  47%|████▋     | 699/1484 [00:08<00:05, 146.12step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  48%|████▊     | 714/1484 [00:08<00:06, 116.11step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  49%|████▉     | 727/1484 [00:08<00:08, 87.25step/s] 
+[Origin 1/13] 🎲 Drawing Posterior Samples:  50%|████▉     | 738/1484 [00:08<00:10, 71.11step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  50%|█████     | 747/1484 [00:11<00:51, 14.40step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  51%|█████▏    | 761/1484 [00:11<00:35, 20.48step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  52%|█████▏    | 776/1484 [00:11<00:24, 28.78step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  53%|█████▎    | 791/1484 [00:11<00:17, 38.81step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  54%|█████▍    | 806/1484 [00:11<00:13, 50.57step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  55%|█████▌    | 821/1484 [00:11<00:10, 63.11step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  56%|█████▋    | 836/1484 [00:11<00:08, 76.70step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  57%|█████▋    | 851/1484 [00:11<00:07, 90.09step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  58%|█████▊    | 866/1484 [00:12<00:06, 102.06step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  59%|█████▉    | 881/1484 [00:12<00:05, 111.66step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  60%|██████    | 896/1484 [00:12<00:04, 119.17step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  61%|██████▏   | 911/1484 [00:12<00:04, 125.97step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  62%|██████▏   | 927/1484 [00:12<00:04, 132.70step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  63%|██████▎   | 942/1484 [00:12<00:03, 136.21step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  65%|██████▍   | 958/1484 [00:12<00:03, 140.51step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  66%|██████▌   | 973/1484 [00:12<00:03, 141.99step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  67%|██████▋   | 988/1484 [00:12<00:03, 143.87step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  68%|██████▊   | 1003/1484 [00:12<00:03, 144.01step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  69%|██████▊   | 1018/1484 [00:13<00:03, 143.61step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  70%|██████▉   | 1033/1484 [00:13<00:03, 143.79step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  71%|███████   | 1048/1484 [00:13<00:03, 143.41step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  72%|███████▏  | 1063/1484 [00:13<00:02, 142.30step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  73%|███████▎  | 1078/1484 [00:13<00:02, 139.61step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  74%|███████▎  | 1093/1484 [00:13<00:04, 95.02step/s] 
+[Origin 1/13] 🎲 Drawing Posterior Samples:  74%|███████▍  | 1105/1484 [00:14<00:05, 73.34step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  75%|███████▌  | 1115/1484 [00:16<00:25, 14.59step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  76%|███████▌  | 1129/1484 [00:16<00:17, 20.38step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  77%|███████▋  | 1142/1484 [00:16<00:12, 27.11step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  78%|███████▊  | 1156/1484 [00:16<00:09, 36.25step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  79%|███████▉  | 1171/1484 [00:16<00:06, 47.89step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  80%|███████▉  | 1186/1484 [00:17<00:04, 60.69step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  81%|████████  | 1201/1484 [00:17<00:03, 74.01step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  82%|████████▏ | 1215/1484 [00:17<00:03, 85.70step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  83%|████████▎ | 1230/1484 [00:17<00:02, 97.48step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  84%|████████▍ | 1245/1484 [00:17<00:02, 108.36step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  85%|████████▍ | 1260/1484 [00:17<00:01, 116.27step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  86%|████████▌ | 1274/1484 [00:17<00:01, 122.05step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  87%|████████▋ | 1288/1484 [00:17<00:01, 126.44step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  88%|████████▊ | 1303/1484 [00:17<00:01, 131.59step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  89%|████████▉ | 1318/1484 [00:17<00:01, 135.05step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  90%|████████▉ | 1333/1484 [00:18<00:01, 138.49step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  91%|█████████ | 1348/1484 [00:18<00:00, 139.53step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  92%|█████████▏| 1363/1484 [00:18<00:00, 141.01step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  93%|█████████▎| 1378/1484 [00:18<00:00, 142.88step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  94%|█████████▍| 1393/1484 [00:18<00:00, 144.09step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  95%|█████████▍| 1408/1484 [00:18<00:00, 143.38step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  96%|█████████▌| 1423/1484 [00:18<00:00, 144.14step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  97%|█████████▋| 1438/1484 [00:18<00:00, 144.00step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  98%|█████████▊| 1453/1484 [00:19<00:00, 107.15step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples:  99%|█████████▉| 1466/1484 [00:19<00:00, 57.30step/s] 
+[Origin 1/13] 🎲 Drawing Posterior Samples:  99%|█████████▉| 1476/1484 [00:19<00:00, 41.94step/s]
+[Origin 1/13] 🎲 Drawing Posterior Samples: 100%|██████████| 1484/1484 [00:20<00:00, 34.64step/s]
+                                                                                                 
+
+[Origin 2/13] 🎲 Drawing Posterior Samples:   0%|          | 0/1488 [00:00<?, ?step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:   1%|          | 14/1488 [00:00<00:10, 137.24step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:   2%|▏         | 28/1488 [00:00<00:10, 135.11step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:   3%|▎         | 43/1488 [00:00<00:10, 138.78step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:   4%|▍         | 58/1488 [00:00<00:10, 141.63step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:   5%|▍         | 73/1488 [00:00<00:09, 141.83step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:   6%|▌         | 88/1488 [00:00<00:09, 141.28step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:   7%|▋         | 103/1488 [00:00<00:09, 143.10step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:   8%|▊         | 118/1488 [00:00<00:09, 142.93step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:   9%|▉         | 133/1488 [00:00<00:09, 143.42step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  10%|▉         | 148/1488 [00:01<00:09, 143.80step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  11%|█         | 163/1488 [00:01<00:09, 143.03step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  12%|█▏        | 178/1488 [00:01<00:09, 141.98step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  13%|█▎        | 193/1488 [00:01<00:09, 142.80step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  14%|█▍        | 208/1488 [00:01<00:09, 141.24step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  15%|█▍        | 223/1488 [00:01<00:08, 142.64step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  16%|█▌        | 238/1488 [00:01<00:08, 142.74step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  17%|█▋        | 253/1488 [00:01<00:08, 144.14step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  18%|█▊        | 268/1488 [00:01<00:08, 144.84step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  19%|█▉        | 283/1488 [00:01<00:08, 145.27step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  20%|██        | 298/1488 [00:02<00:08, 145.64step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  21%|██        | 313/1488 [00:02<00:08, 145.29step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  22%|██▏       | 328/1488 [00:02<00:08, 144.80step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  23%|██▎       | 343/1488 [00:02<00:10, 107.33step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  24%|██▍       | 356/1488 [00:02<00:13, 84.90step/s] 
+[Origin 2/13] 🎲 Drawing Posterior Samples:  25%|██▍       | 367/1488 [00:02<00:15, 70.78step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  25%|██▌       | 376/1488 [00:05<01:21, 13.62step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  26%|██▋       | 391/1488 [00:05<00:55, 19.84step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  27%|██▋       | 405/1488 [00:05<00:39, 27.16step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  28%|██▊       | 420/1488 [00:05<00:28, 37.02step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  29%|██▉       | 435/1488 [00:05<00:21, 48.62step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  30%|███       | 450/1488 [00:06<00:16, 61.49step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  31%|███▏      | 466/1488 [00:06<00:13, 76.22step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  32%|███▏      | 481/1488 [00:06<00:11, 88.82step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  33%|███▎      | 496/1488 [00:06<00:09, 101.05step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  34%|███▍      | 512/1488 [00:06<00:08, 112.79step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  35%|███▌      | 527/1488 [00:06<00:07, 120.53step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  36%|███▋      | 542/1488 [00:06<00:07, 126.85step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  37%|███▋      | 557/1488 [00:06<00:07, 130.42step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  38%|███▊      | 572/1488 [00:06<00:06, 134.17step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  39%|███▉      | 587/1488 [00:06<00:06, 136.63step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  40%|████      | 602/1488 [00:07<00:06, 139.81step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  41%|████▏     | 617/1488 [00:07<00:06, 139.92step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  42%|████▏     | 632/1488 [00:07<00:06, 141.26step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  43%|████▎     | 647/1488 [00:07<00:05, 142.04step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  44%|████▍     | 662/1488 [00:07<00:05, 143.40step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  45%|████▌     | 677/1488 [00:07<00:05, 142.31step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  47%|████▋     | 692/1488 [00:07<00:05, 141.62step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  48%|████▊     | 707/1488 [00:07<00:05, 141.15step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  49%|████▊     | 722/1488 [00:08<00:09, 81.82step/s] 
+[Origin 2/13] 🎲 Drawing Posterior Samples:  49%|████▉     | 734/1488 [00:08<00:12, 60.50step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  50%|████▉     | 743/1488 [00:08<00:15, 48.65step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  50%|█████     | 751/1488 [00:11<01:02, 11.78step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  51%|█████▏    | 764/1488 [00:11<00:42, 16.87step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  52%|█████▏    | 777/1488 [00:11<00:30, 23.43step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  53%|█████▎    | 792/1488 [00:11<00:21, 32.96step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  54%|█████▍    | 807/1488 [00:11<00:15, 44.36step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  55%|█████▌    | 822/1488 [00:11<00:11, 57.27step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  56%|█████▋    | 838/1488 [00:12<00:09, 71.98step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  57%|█████▋    | 853/1488 [00:12<00:07, 85.14step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  58%|█████▊    | 868/1488 [00:12<00:06, 97.77step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  59%|█████▉    | 883/1488 [00:12<00:05, 108.54step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  60%|██████    | 898/1488 [00:12<00:05, 115.75step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  61%|██████▏   | 913/1488 [00:12<00:04, 123.50step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  62%|██████▏   | 928/1488 [00:12<00:04, 128.98step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  63%|██████▎   | 944/1488 [00:12<00:04, 135.26step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  64%|██████▍   | 959/1488 [00:12<00:03, 139.24step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  65%|██████▌   | 974/1488 [00:12<00:03, 141.15step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  66%|██████▋   | 989/1488 [00:13<00:03, 143.39step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  68%|██████▊   | 1005/1488 [00:13<00:03, 145.85step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  69%|██████▊   | 1020/1488 [00:13<00:03, 145.89step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  70%|██████▉   | 1035/1488 [00:13<00:03, 145.92step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  71%|███████   | 1050/1488 [00:13<00:03, 144.49step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  72%|███████▏  | 1065/1488 [00:13<00:02, 144.97step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  73%|███████▎  | 1080/1488 [00:13<00:02, 145.14step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  74%|███████▎  | 1095/1488 [00:13<00:04, 97.78step/s] 
+[Origin 2/13] 🎲 Drawing Posterior Samples:  74%|███████▍  | 1107/1488 [00:14<00:04, 78.70step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  75%|███████▌  | 1117/1488 [00:17<00:29, 12.79step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  76%|███████▌  | 1131/1488 [00:17<00:19, 17.96step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  77%|███████▋  | 1144/1488 [00:17<00:14, 24.11step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  78%|███████▊  | 1157/1488 [00:17<00:10, 31.80step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  79%|███████▉  | 1172/1488 [00:17<00:07, 42.68step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  80%|███████▉  | 1187/1488 [00:17<00:05, 54.91step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  81%|████████  | 1202/1488 [00:17<00:04, 68.28step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  82%|████████▏ | 1217/1488 [00:17<00:03, 81.63step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  83%|████████▎ | 1232/1488 [00:17<00:02, 94.35step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  84%|████████▍ | 1247/1488 [00:18<00:02, 105.06step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  85%|████████▍ | 1262/1488 [00:18<00:01, 114.36step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  86%|████████▌ | 1277/1488 [00:18<00:01, 120.49step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  87%|████████▋ | 1292/1488 [00:18<00:01, 125.89step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  88%|████████▊ | 1307/1488 [00:18<00:01, 130.67step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  89%|████████▉ | 1322/1488 [00:18<00:01, 133.11step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  90%|████████▉ | 1337/1488 [00:18<00:01, 136.96step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  91%|█████████ | 1352/1488 [00:18<00:00, 138.24step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  92%|█████████▏| 1367/1488 [00:18<00:00, 138.11step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  93%|█████████▎| 1382/1488 [00:19<00:00, 140.64step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  94%|█████████▍| 1397/1488 [00:19<00:00, 140.43step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  95%|█████████▍| 1412/1488 [00:19<00:00, 142.62step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  96%|█████████▌| 1427/1488 [00:19<00:00, 139.50step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  97%|█████████▋| 1442/1488 [00:19<00:00, 141.09step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  98%|█████████▊| 1457/1488 [00:19<00:00, 113.59step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples:  99%|█████████▉| 1470/1488 [00:19<00:00, 73.67step/s] 
+[Origin 2/13] 🎲 Drawing Posterior Samples:  99%|█████████▉| 1480/1488 [00:20<00:00, 56.84step/s]
+[Origin 2/13] 🎲 Drawing Posterior Samples: 100%|██████████| 1488/1488 [00:20<00:00, 48.55step/s]
+                                                                                                 
+
+[Origin 3/13] 🎲 Drawing Posterior Samples:   0%|          | 0/1492 [00:00<?, ?step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:   1%|          | 15/1492 [00:00<00:10, 143.03step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:   2%|▏         | 30/1492 [00:00<00:10, 143.62step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:   3%|▎         | 45/1492 [00:00<00:10, 141.75step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:   4%|▍         | 60/1492 [00:00<00:10, 142.91step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:   5%|▌         | 76/1492 [00:00<00:09, 145.71step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:   6%|▌         | 92/1492 [00:00<00:09, 146.86step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:   7%|▋         | 107/1492 [00:00<00:09, 147.51step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:   8%|▊         | 122/1492 [00:00<00:09, 147.25step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:   9%|▉         | 137/1492 [00:00<00:09, 147.16step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  10%|█         | 152/1492 [00:01<00:09, 145.38step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  11%|█         | 167/1492 [00:01<00:09, 146.01step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  12%|█▏        | 182/1492 [00:01<00:09, 143.01step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  13%|█▎        | 198/1492 [00:01<00:08, 145.48step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  14%|█▍        | 213/1492 [00:01<00:08, 143.98step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  15%|█▌        | 228/1492 [00:01<00:08, 145.13step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  16%|█▋        | 243/1492 [00:01<00:08, 145.03step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  17%|█▋        | 258/1492 [00:01<00:08, 146.07step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  18%|█▊        | 273/1492 [00:01<00:08, 145.75step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  19%|█▉        | 288/1492 [00:01<00:08, 146.93step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  20%|██        | 303/1492 [00:02<00:08, 145.87step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  21%|██▏       | 318/1492 [00:02<00:08, 144.49step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  22%|██▏       | 333/1492 [00:02<00:07, 145.14step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  23%|██▎       | 348/1492 [00:02<00:13, 83.61step/s] 
+[Origin 3/13] 🎲 Drawing Posterior Samples:  24%|██▍       | 360/1492 [00:02<00:16, 70.27step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  25%|██▍       | 370/1492 [00:03<00:19, 57.14step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  25%|██▌       | 378/1492 [00:06<01:57,  9.46step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  26%|██▋       | 392/1492 [00:06<01:18, 13.94step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  27%|██▋       | 407/1492 [00:06<00:53, 20.24step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  28%|██▊       | 422/1492 [00:06<00:37, 28.30step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  29%|██▉       | 437/1492 [00:07<00:27, 38.22step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  30%|███       | 452/1492 [00:07<00:20, 49.79step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  31%|███▏      | 467/1492 [00:07<00:16, 62.57step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  32%|███▏      | 483/1492 [00:07<00:13, 77.14step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  33%|███▎      | 498/1492 [00:07<00:11, 89.89step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  34%|███▍      | 513/1492 [00:07<00:09, 101.74step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  35%|███▌      | 528/1492 [00:07<00:08, 111.36step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  36%|███▋      | 543/1492 [00:07<00:07, 119.33step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  37%|███▋      | 558/1492 [00:07<00:07, 127.11step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  38%|███▊      | 573/1492 [00:08<00:07, 131.15step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  39%|███▉      | 588/1492 [00:08<00:06, 136.19step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  40%|████      | 603/1492 [00:08<00:06, 138.99step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  41%|████▏     | 618/1492 [00:08<00:06, 140.90step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  42%|████▏     | 634/1492 [00:08<00:05, 144.14step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  43%|████▎     | 649/1492 [00:08<00:05, 144.25step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  45%|████▍     | 664/1492 [00:08<00:05, 144.92step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  46%|████▌     | 679/1492 [00:08<00:05, 145.07step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  47%|████▋     | 694/1492 [00:08<00:05, 144.48step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  48%|████▊     | 709/1492 [00:08<00:05, 144.79step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  49%|████▊     | 724/1492 [00:09<00:07, 99.40step/s] 
+[Origin 3/13] 🎲 Drawing Posterior Samples:  49%|████▉     | 736/1492 [00:09<00:09, 80.43step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  50%|█████     | 746/1492 [00:09<00:10, 69.45step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  51%|█████     | 755/1492 [00:11<00:51, 14.44step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  52%|█████▏    | 769/1492 [00:12<00:34, 20.73step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  53%|█████▎    | 784/1492 [00:12<00:24, 29.20step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  54%|█████▎    | 799/1492 [00:12<00:17, 39.62step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  54%|█████▍    | 813/1492 [00:12<00:13, 50.57step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  55%|█████▌    | 828/1492 [00:12<00:10, 63.67step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  57%|█████▋    | 843/1492 [00:12<00:08, 77.16step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  58%|█████▊    | 858/1492 [00:12<00:07, 90.42step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  59%|█████▊    | 874/1492 [00:12<00:05, 103.83step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  60%|█████▉    | 889/1492 [00:12<00:05, 111.59step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  61%|██████    | 905/1492 [00:12<00:04, 121.32step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  62%|██████▏   | 920/1492 [00:13<00:04, 126.74step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  63%|██████▎   | 935/1492 [00:13<00:04, 132.15step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  64%|██████▎   | 950/1492 [00:13<00:03, 135.94step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  65%|██████▍   | 965/1492 [00:13<00:03, 139.31step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  66%|██████▌   | 980/1492 [00:13<00:03, 141.60step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  67%|██████▋   | 995/1492 [00:13<00:03, 142.98step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  68%|██████▊   | 1011/1492 [00:13<00:03, 145.77step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  69%|██████▉   | 1026/1492 [00:13<00:03, 143.45step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  70%|██████▉   | 1041/1492 [00:13<00:03, 144.61step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  71%|███████   | 1056/1492 [00:14<00:03, 143.42step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  72%|███████▏  | 1071/1492 [00:14<00:02, 144.75step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  73%|███████▎  | 1086/1492 [00:14<00:03, 125.98step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  74%|███████▎  | 1100/1492 [00:14<00:05, 75.63step/s] 
+[Origin 3/13] 🎲 Drawing Posterior Samples:  74%|███████▍  | 1111/1492 [00:14<00:06, 59.23step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  75%|███████▌  | 1120/1492 [00:17<00:27, 13.30step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  76%|███████▌  | 1134/1492 [00:17<00:18, 18.93step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  77%|███████▋  | 1148/1492 [00:17<00:13, 26.16step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  78%|███████▊  | 1163/1492 [00:17<00:09, 35.73step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  79%|███████▉  | 1178/1492 [00:17<00:06, 46.94step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  80%|███████▉  | 1193/1492 [00:17<00:05, 59.37step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  81%|████████  | 1208/1492 [00:18<00:03, 72.21step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  82%|████████▏ | 1223/1492 [00:18<00:03, 85.81step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  83%|████████▎ | 1238/1492 [00:18<00:02, 98.37step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  84%|████████▍ | 1253/1492 [00:18<00:02, 108.72step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  85%|████████▍ | 1268/1492 [00:18<00:01, 117.32step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  86%|████████▌ | 1283/1492 [00:18<00:01, 123.98step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  87%|████████▋ | 1298/1492 [00:18<00:01, 129.49step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  88%|████████▊ | 1313/1492 [00:18<00:01, 134.88step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  89%|████████▉ | 1328/1492 [00:18<00:01, 138.13step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  90%|█████████ | 1343/1492 [00:19<00:01, 140.67step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  91%|█████████ | 1358/1492 [00:19<00:00, 142.41step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  92%|█████████▏| 1373/1492 [00:19<00:00, 142.74step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  93%|█████████▎| 1388/1492 [00:19<00:00, 144.05step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  94%|█████████▍| 1403/1492 [00:19<00:00, 143.50step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  95%|█████████▌| 1418/1492 [00:19<00:00, 143.71step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  96%|█████████▌| 1433/1492 [00:19<00:00, 143.38step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  97%|█████████▋| 1448/1492 [00:19<00:00, 144.55step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  98%|█████████▊| 1463/1492 [00:19<00:00, 109.53step/s]
+[Origin 3/13] 🎲 Drawing Posterior Samples:  99%|█████████▉| 1476/1492 [00:20<00:00, 77.06step/s] 
+[Origin 3/13] 🎲 Drawing Posterior Samples: 100%|█████████▉| 1486/1492 [00:20<00:00, 63.06step/s]
+                                                                                                 
+
+[Origin 4/13] 🎲 Drawing Posterior Samples:   0%|          | 0/1496 [00:00<?, ?step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:   1%|          | 15/1496 [00:00<00:10, 144.30step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:   2%|▏         | 30/1496 [00:00<00:10, 144.50step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:   3%|▎         | 45/1496 [00:00<00:10, 142.43step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:   4%|▍         | 60/1496 [00:00<00:10, 143.20step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:   5%|▌         | 75/1496 [00:00<00:09, 143.82step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:   6%|▌         | 90/1496 [00:00<00:09, 143.63step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:   7%|▋         | 106/1496 [00:00<00:09, 145.00step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:   8%|▊         | 121/1496 [00:00<00:09, 145.63step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:   9%|▉         | 136/1496 [00:00<00:09, 144.92step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  10%|█         | 151/1496 [00:01<00:09, 145.93step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  11%|█         | 166/1496 [00:01<00:09, 144.32step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  12%|█▏        | 181/1496 [00:01<00:09, 145.34step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  13%|█▎        | 196/1496 [00:01<00:08, 145.91step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  14%|█▍        | 211/1496 [00:01<00:08, 146.09step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  15%|█▌        | 226/1496 [00:01<00:08, 146.80step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  16%|█▌        | 241/1496 [00:01<00:08, 147.20step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  17%|█▋        | 256/1496 [00:01<00:08, 147.30step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  18%|█▊        | 271/1496 [00:01<00:08, 147.49step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  19%|█▉        | 286/1496 [00:01<00:08, 146.68step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  20%|██        | 301/1496 [00:02<00:08, 145.48step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  21%|██        | 316/1496 [00:02<00:08, 146.42step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  22%|██▏       | 331/1496 [00:02<00:08, 145.45step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  23%|██▎       | 346/1496 [00:02<00:10, 106.82step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  24%|██▍       | 359/1496 [00:02<00:15, 74.56step/s] 
+[Origin 4/13] 🎲 Drawing Posterior Samples:  25%|██▍       | 369/1496 [00:03<00:19, 59.01step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  25%|██▌       | 377/1496 [00:05<01:29, 12.50step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  26%|██▌       | 391/1496 [00:05<01:01, 18.10step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  27%|██▋       | 405/1496 [00:05<00:43, 25.30step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  28%|██▊       | 419/1496 [00:05<00:31, 34.12step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  29%|██▉       | 435/1496 [00:06<00:22, 46.47step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  30%|███       | 450/1496 [00:06<00:17, 58.98step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  31%|███       | 465/1496 [00:06<00:14, 72.59step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  32%|███▏      | 480/1496 [00:06<00:11, 85.80step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  33%|███▎      | 495/1496 [00:06<00:10, 98.59step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  34%|███▍      | 510/1496 [00:06<00:09, 108.31step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  35%|███▌      | 525/1496 [00:06<00:08, 116.96step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  36%|███▌      | 540/1496 [00:06<00:07, 123.99step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  37%|███▋      | 555/1496 [00:06<00:07, 127.43step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  38%|███▊      | 571/1496 [00:07<00:06, 133.84step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  39%|███▉      | 586/1496 [00:07<00:06, 137.26step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  40%|████      | 601/1496 [00:07<00:06, 139.75step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  41%|████      | 616/1496 [00:07<00:06, 141.14step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  42%|████▏     | 631/1496 [00:07<00:06, 142.64step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  43%|████▎     | 646/1496 [00:07<00:05, 143.46step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  44%|████▍     | 661/1496 [00:07<00:05, 142.50step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  45%|████▌     | 676/1496 [00:07<00:05, 144.27step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  46%|████▌     | 691/1496 [00:07<00:05, 142.47step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  47%|████▋     | 706/1496 [00:07<00:05, 143.28step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  48%|████▊     | 721/1496 [00:08<00:07, 107.48step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  49%|████▉     | 734/1496 [00:08<00:09, 78.07step/s] 
+[Origin 4/13] 🎲 Drawing Posterior Samples:  50%|████▉     | 744/1496 [00:08<00:11, 65.69step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  50%|█████     | 753/1496 [00:11<00:53, 13.88step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  51%|█████▏    | 767/1496 [00:11<00:36, 19.88step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  52%|█████▏    | 781/1496 [00:11<00:26, 27.47step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  53%|█████▎    | 796/1496 [00:11<00:18, 37.54step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  54%|█████▍    | 811/1496 [00:11<00:13, 49.11step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  55%|█████▌    | 825/1496 [00:11<00:11, 60.73step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  56%|█████▌    | 841/1496 [00:11<00:08, 75.61step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  57%|█████▋    | 856/1496 [00:11<00:07, 88.35step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  58%|█████▊    | 871/1496 [00:11<00:06, 100.96step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  59%|█████▉    | 886/1496 [00:12<00:05, 111.09step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  60%|██████    | 901/1496 [00:12<00:05, 118.90step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  61%|██████    | 916/1496 [00:12<00:04, 126.53step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  62%|██████▏   | 931/1496 [00:12<00:04, 131.17step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  63%|██████▎   | 946/1496 [00:12<00:04, 134.68step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  64%|██████▍   | 961/1496 [00:12<00:03, 137.71step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  65%|██████▌   | 976/1496 [00:12<00:03, 139.41step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  66%|██████▌   | 991/1496 [00:12<00:03, 142.16step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  67%|██████▋   | 1006/1496 [00:12<00:03, 142.80step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  68%|██████▊   | 1021/1496 [00:12<00:03, 144.07step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  69%|██████▉   | 1036/1496 [00:13<00:03, 144.28step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  70%|███████   | 1051/1496 [00:13<00:03, 144.68step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  71%|███████▏  | 1066/1496 [00:13<00:02, 145.48step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  72%|███████▏  | 1081/1496 [00:13<00:02, 145.26step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  73%|███████▎  | 1096/1496 [00:13<00:03, 111.56step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  74%|███████▍  | 1109/1496 [00:13<00:05, 69.90step/s] 
+[Origin 4/13] 🎲 Drawing Posterior Samples:  75%|███████▍  | 1119/1496 [00:14<00:06, 58.31step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  75%|███████▌  | 1127/1496 [00:16<00:29, 12.45step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  76%|███████▋  | 1141/1496 [00:16<00:19, 18.05step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  77%|███████▋  | 1155/1496 [00:16<00:13, 25.25step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  78%|███████▊  | 1170/1496 [00:17<00:09, 34.87step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  79%|███████▉  | 1185/1496 [00:17<00:06, 46.29step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  80%|████████  | 1200/1496 [00:17<00:05, 59.00step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  81%|████████  | 1215/1496 [00:17<00:03, 72.46step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  82%|████████▏ | 1230/1496 [00:17<00:03, 86.11step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  83%|████████▎ | 1245/1496 [00:17<00:02, 98.00step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  84%|████████▍ | 1260/1496 [00:17<00:02, 108.98step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  85%|████████▌ | 1275/1496 [00:17<00:01, 116.68step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  86%|████████▌ | 1290/1496 [00:17<00:01, 124.43step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  87%|████████▋ | 1305/1496 [00:18<00:01, 129.30step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  88%|████████▊ | 1320/1496 [00:18<00:01, 134.13step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  89%|████████▉ | 1335/1496 [00:18<00:01, 137.12step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  90%|█████████ | 1350/1496 [00:18<00:01, 138.16step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  91%|█████████ | 1365/1496 [00:18<00:00, 141.48step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  92%|█████████▏| 1380/1496 [00:18<00:00, 142.27step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  93%|█████████▎| 1395/1496 [00:18<00:00, 143.96step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  94%|█████████▍| 1410/1496 [00:18<00:00, 142.99step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  95%|█████████▌| 1425/1496 [00:18<00:00, 144.08step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  96%|█████████▋| 1440/1496 [00:18<00:00, 143.43step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  97%|█████████▋| 1455/1496 [00:19<00:00, 143.27step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  98%|█████████▊| 1470/1496 [00:19<00:00, 106.68step/s]
+[Origin 4/13] 🎲 Drawing Posterior Samples:  99%|█████████▉| 1483/1496 [00:19<00:00, 79.38step/s] 
+[Origin 4/13] 🎲 Drawing Posterior Samples: 100%|█████████▉| 1493/1496 [00:19<00:00, 65.71step/s]
+                                                                                                 
+
+[Origin 5/13] 🎲 Drawing Posterior Samples:   0%|          | 0/1500 [00:00<?, ?step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:   1%|          | 15/1500 [00:00<00:09, 149.57step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:   2%|▏         | 30/1500 [00:00<00:10, 144.91step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:   3%|▎         | 45/1500 [00:00<00:09, 145.63step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:   4%|▍         | 60/1500 [00:00<00:09, 146.72step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:   5%|▌         | 75/1500 [00:00<00:09, 146.03step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:   6%|▌         | 90/1500 [00:00<00:09, 143.76step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:   7%|▋         | 105/1500 [00:00<00:09, 143.12step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:   8%|▊         | 120/1500 [00:00<00:09, 144.15step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:   9%|▉         | 135/1500 [00:00<00:09, 142.71step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  10%|█         | 150/1500 [00:01<00:09, 142.67step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  11%|█         | 165/1500 [00:01<00:09, 141.58step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  12%|█▏        | 180/1500 [00:01<00:09, 140.35step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  13%|█▎        | 195/1500 [00:01<00:09, 141.05step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  14%|█▍        | 210/1500 [00:01<00:09, 140.60step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  15%|█▌        | 225/1500 [00:01<00:08, 141.82step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  16%|█▌        | 240/1500 [00:01<00:08, 141.13step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  17%|█▋        | 255/1500 [00:01<00:08, 139.71step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  18%|█▊        | 270/1500 [00:01<00:08, 141.40step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  19%|█▉        | 285/1500 [00:02<00:08, 141.10step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  20%|██        | 300/1500 [00:02<00:08, 142.17step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  21%|██        | 315/1500 [00:02<00:08, 140.17step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  22%|██▏       | 330/1500 [00:02<00:08, 139.36step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  23%|██▎       | 344/1500 [00:02<00:11, 101.74step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  24%|██▎       | 356/1500 [00:02<00:19, 59.33step/s] 
+[Origin 5/13] 🎲 Drawing Posterior Samples:  24%|██▍       | 365/1500 [00:03<00:23, 48.36step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  25%|██▍       | 373/1500 [00:03<00:24, 45.32step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  25%|██▌       | 380/1500 [00:06<02:01,  9.24step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  26%|██▋       | 394/1500 [00:06<01:17, 14.27step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  27%|██▋       | 408/1500 [00:06<00:52, 20.81step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  28%|██▊       | 423/1500 [00:06<00:36, 29.70step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  29%|██▉       | 438/1500 [00:06<00:26, 40.46step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  30%|███       | 453/1500 [00:07<00:19, 52.56step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  31%|███▏      | 469/1500 [00:07<00:15, 66.98step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  32%|███▏      | 484/1500 [00:07<00:12, 80.20step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  33%|███▎      | 499/1500 [00:07<00:10, 93.19step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  34%|███▍      | 514/1500 [00:07<00:09, 104.32step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  35%|███▌      | 529/1500 [00:07<00:08, 113.14step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  36%|███▋      | 544/1500 [00:07<00:07, 120.60step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  37%|███▋      | 559/1500 [00:07<00:07, 126.37step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  38%|███▊      | 574/1500 [00:07<00:07, 131.64step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  39%|███▉      | 589/1500 [00:07<00:06, 135.45step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  40%|████      | 604/1500 [00:08<00:06, 138.64step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  41%|████▏     | 619/1500 [00:08<00:06, 141.41step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  42%|████▏     | 634/1500 [00:08<00:06, 143.45step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  43%|████▎     | 649/1500 [00:08<00:05, 144.17step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  44%|████▍     | 664/1500 [00:08<00:05, 144.80step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  45%|████▌     | 679/1500 [00:08<00:05, 143.80step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  46%|████▋     | 694/1500 [00:08<00:05, 143.40step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  47%|████▋     | 709/1500 [00:08<00:05, 143.59step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  48%|████▊     | 724/1500 [00:09<00:07, 110.16step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  49%|████▉     | 737/1500 [00:09<00:09, 83.88step/s] 
+[Origin 5/13] 🎲 Drawing Posterior Samples:  50%|████▉     | 748/1500 [00:09<00:10, 69.45step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  50%|█████     | 757/1500 [00:11<00:53, 13.95step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  51%|█████▏    | 770/1500 [00:12<00:37, 19.42step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  52%|█████▏    | 784/1500 [00:12<00:26, 26.91step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  53%|█████▎    | 799/1500 [00:12<00:19, 36.81step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  54%|█████▍    | 813/1500 [00:12<00:14, 47.44step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  55%|█████▌    | 828/1500 [00:12<00:11, 60.25step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  56%|█████▌    | 843/1500 [00:12<00:08, 73.56step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  57%|█████▋    | 857/1500 [00:12<00:07, 85.17step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  58%|█████▊    | 871/1500 [00:12<00:06, 96.21step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  59%|█████▉    | 885/1500 [00:12<00:05, 105.79step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  60%|██████    | 900/1500 [00:12<00:05, 114.99step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  61%|██████    | 914/1500 [00:13<00:04, 120.78step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  62%|██████▏   | 929/1500 [00:13<00:04, 126.72step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  63%|██████▎   | 943/1500 [00:13<00:04, 130.07step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  64%|██████▍   | 957/1500 [00:13<00:04, 131.98step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  65%|██████▍   | 972/1500 [00:13<00:03, 135.94step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  66%|██████▌   | 987/1500 [00:13<00:03, 136.89step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  67%|██████▋   | 1002/1500 [00:13<00:03, 137.42step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  68%|██████▊   | 1016/1500 [00:13<00:03, 138.04step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  69%|██████▊   | 1030/1500 [00:13<00:03, 138.24step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  70%|██████▉   | 1044/1500 [00:14<00:03, 138.50step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  71%|███████   | 1059/1500 [00:14<00:03, 139.06step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  72%|███████▏  | 1074/1500 [00:14<00:03, 138.70step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  73%|███████▎  | 1088/1500 [00:14<00:02, 138.55step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  73%|███████▎  | 1102/1500 [00:14<00:06, 65.68step/s] 
+[Origin 5/13] 🎲 Drawing Posterior Samples:  74%|███████▍  | 1113/1500 [00:15<00:09, 42.40step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  75%|███████▍  | 1122/1500 [00:15<00:10, 36.46step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  75%|███████▌  | 1129/1500 [00:18<00:33, 11.15step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  76%|███████▌  | 1143/1500 [00:18<00:21, 16.73step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  77%|███████▋  | 1158/1500 [00:18<00:13, 24.44step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  78%|███████▊  | 1173/1500 [00:18<00:09, 33.94step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  79%|███████▉  | 1188/1500 [00:18<00:06, 45.24step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  80%|████████  | 1204/1500 [00:18<00:05, 58.91step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  81%|████████▏ | 1219/1500 [00:18<00:03, 71.94step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  82%|████████▏ | 1234/1500 [00:18<00:03, 85.16step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  83%|████████▎ | 1249/1500 [00:18<00:02, 97.62step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  84%|████████▍ | 1264/1500 [00:19<00:02, 107.51step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  85%|████████▌ | 1279/1500 [00:19<00:01, 116.16step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  86%|████████▋ | 1294/1500 [00:19<00:01, 123.25step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  87%|████████▋ | 1309/1500 [00:19<00:01, 129.25step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  88%|████████▊ | 1324/1500 [00:19<00:01, 133.79step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  89%|████████▉ | 1339/1500 [00:19<00:01, 136.74step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  90%|█████████ | 1354/1500 [00:19<00:01, 139.42step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  91%|█████████▏| 1369/1500 [00:19<00:00, 142.31step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  92%|█████████▏| 1384/1500 [00:19<00:00, 142.62step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  93%|█████████▎| 1399/1500 [00:19<00:00, 143.67step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  94%|█████████▍| 1414/1500 [00:20<00:00, 142.87step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  95%|█████████▌| 1429/1500 [00:20<00:00, 143.64step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  96%|█████████▋| 1444/1500 [00:20<00:00, 143.29step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  97%|█████████▋| 1459/1500 [00:20<00:00, 142.94step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples:  98%|█████████▊| 1474/1500 [00:20<00:00, 99.62step/s] 
+[Origin 5/13] 🎲 Drawing Posterior Samples:  99%|█████████▉| 1486/1500 [00:20<00:00, 80.36step/s]
+[Origin 5/13] 🎲 Drawing Posterior Samples: 100%|█████████▉| 1496/1500 [00:21<00:00, 67.52step/s]
+                                                                                                 
+
+[Origin 6/13] 🎲 Drawing Posterior Samples:   0%|          | 0/1504 [00:00<?, ?step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:   1%|          | 16/1504 [00:00<00:10, 148.08step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:   2%|▏         | 31/1504 [00:00<00:09, 147.39step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:   3%|▎         | 46/1504 [00:00<00:09, 145.95step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:   4%|▍         | 61/1504 [00:00<00:09, 146.68step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:   5%|▌         | 76/1504 [00:00<00:09, 145.83step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:   6%|▌         | 91/1504 [00:00<00:09, 147.01step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:   7%|▋         | 106/1504 [00:00<00:09, 146.67step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:   8%|▊         | 121/1504 [00:00<00:09, 146.53step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:   9%|▉         | 136/1504 [00:00<00:09, 146.25step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  10%|█         | 151/1504 [00:01<00:09, 144.09step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  11%|█         | 166/1504 [00:01<00:09, 143.58step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  12%|█▏        | 181/1504 [00:01<00:09, 145.21step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  13%|█▎        | 196/1504 [00:01<00:09, 144.56step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  14%|█▍        | 211/1504 [00:01<00:08, 145.48step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  15%|█▌        | 226/1504 [00:01<00:08, 144.93step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  16%|█▌        | 241/1504 [00:01<00:08, 145.41step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  17%|█▋        | 256/1504 [00:01<00:08, 146.05step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  18%|█▊        | 271/1504 [00:01<00:08, 145.31step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  19%|█▉        | 286/1504 [00:01<00:08, 145.37step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  20%|██        | 301/1504 [00:02<00:08, 143.77step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  21%|██        | 316/1504 [00:02<00:08, 143.40step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  22%|██▏       | 331/1504 [00:02<00:08, 144.00step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  23%|██▎       | 346/1504 [00:02<00:11, 104.33step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  24%|██▍       | 358/1504 [00:02<00:14, 80.10step/s] 
+[Origin 6/13] 🎲 Drawing Posterior Samples:  24%|██▍       | 368/1504 [00:02<00:16, 68.10step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  25%|██▌       | 377/1504 [00:05<01:33, 12.06step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  26%|██▌       | 391/1504 [00:05<01:03, 17.46step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  27%|██▋       | 406/1504 [00:05<00:43, 24.97step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  28%|██▊       | 421/1504 [00:06<00:31, 34.23step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  29%|██▉       | 436/1504 [00:06<00:23, 45.35step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  30%|██▉       | 451/1504 [00:06<00:18, 57.92step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  31%|███       | 466/1504 [00:06<00:14, 71.00step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  32%|███▏      | 481/1504 [00:06<00:12, 84.47step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  33%|███▎      | 496/1504 [00:06<00:10, 96.81step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  34%|███▍      | 511/1504 [00:06<00:09, 108.06step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  35%|███▍      | 526/1504 [00:06<00:08, 115.08step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  36%|███▌      | 541/1504 [00:06<00:07, 123.25step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  37%|███▋      | 556/1504 [00:07<00:07, 128.17step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  38%|███▊      | 571/1504 [00:07<00:07, 133.27step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  39%|███▉      | 586/1504 [00:07<00:06, 137.30step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  40%|███▉      | 601/1504 [00:07<00:06, 139.61step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  41%|████      | 616/1504 [00:07<00:06, 141.76step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  42%|████▏     | 631/1504 [00:07<00:06, 142.27step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  43%|████▎     | 646/1504 [00:07<00:05, 144.15step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  44%|████▍     | 661/1504 [00:07<00:05, 141.79step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  45%|████▍     | 676/1504 [00:07<00:05, 142.73step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  46%|████▌     | 691/1504 [00:07<00:05, 141.61step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  47%|████▋     | 706/1504 [00:08<00:05, 143.07step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  48%|████▊     | 721/1504 [00:08<00:06, 119.39step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  49%|████▉     | 734/1504 [00:08<00:09, 84.11step/s] 
+[Origin 6/13] 🎲 Drawing Posterior Samples:  50%|████▉     | 745/1504 [00:08<00:11, 67.74step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  50%|█████     | 754/1504 [00:11<00:54, 13.68step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  51%|█████     | 768/1504 [00:11<00:37, 19.52step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  52%|█████▏    | 782/1504 [00:11<00:26, 26.98step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  53%|█████▎    | 796/1504 [00:11<00:19, 36.08step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  54%|█████▍    | 811/1504 [00:11<00:14, 47.78step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  55%|█████▍    | 826/1504 [00:11<00:11, 60.67step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  56%|█████▌    | 841/1504 [00:11<00:08, 73.88step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  57%|█████▋    | 857/1504 [00:11<00:07, 88.19step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  58%|█████▊    | 872/1504 [00:12<00:06, 99.68step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  59%|█████▉    | 887/1504 [00:12<00:05, 110.14step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  60%|█████▉    | 902/1504 [00:12<00:05, 118.07step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  61%|██████    | 917/1504 [00:12<00:04, 124.71step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  62%|██████▏   | 932/1504 [00:12<00:04, 130.04step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  63%|██████▎   | 947/1504 [00:12<00:04, 133.67step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  64%|██████▍   | 962/1504 [00:12<00:03, 136.45step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  65%|██████▍   | 977/1504 [00:12<00:03, 139.83step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  66%|██████▌   | 992/1504 [00:12<00:03, 140.98step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  67%|██████▋   | 1007/1504 [00:13<00:03, 142.89step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  68%|██████▊   | 1022/1504 [00:13<00:03, 143.06step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  69%|██████▉   | 1037/1504 [00:13<00:03, 143.66step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  70%|██████▉   | 1052/1504 [00:13<00:03, 142.83step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  71%|███████   | 1067/1504 [00:13<00:03, 143.76step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  72%|███████▏  | 1082/1504 [00:13<00:02, 142.59step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  73%|███████▎  | 1097/1504 [00:13<00:03, 122.35step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  74%|███████▍  | 1110/1504 [00:13<00:04, 91.57step/s] 
+[Origin 6/13] 🎲 Drawing Posterior Samples:  75%|███████▍  | 1121/1504 [00:14<00:05, 75.73step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  75%|███████▌  | 1130/1504 [00:16<00:27, 13.64step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  76%|███████▌  | 1143/1504 [00:16<00:18, 19.02step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  77%|███████▋  | 1158/1504 [00:16<00:12, 27.00step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  78%|███████▊  | 1173/1504 [00:17<00:09, 36.76step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  79%|███████▉  | 1187/1504 [00:17<00:06, 47.24step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  80%|███████▉  | 1202/1504 [00:17<00:05, 60.23step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  81%|████████  | 1216/1504 [00:17<00:03, 72.12step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  82%|████████▏ | 1231/1504 [00:17<00:03, 85.91step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  83%|████████▎ | 1246/1504 [00:17<00:02, 97.92step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  84%|████████▍ | 1261/1504 [00:17<00:02, 108.61step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  85%|████████▍ | 1275/1504 [00:17<00:01, 115.98step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  86%|████████▌ | 1290/1504 [00:17<00:01, 123.52step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  87%|████████▋ | 1305/1504 [00:17<00:01, 129.80step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  88%|████████▊ | 1320/1504 [00:18<00:01, 134.70step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  89%|████████▉ | 1335/1504 [00:18<00:01, 138.32step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  90%|████████▉ | 1350/1504 [00:18<00:01, 140.00step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  91%|█████████ | 1365/1504 [00:18<00:00, 142.15step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  92%|█████████▏| 1380/1504 [00:18<00:00, 141.92step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  93%|█████████▎| 1395/1504 [00:18<00:00, 143.06step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  94%|█████████▍| 1410/1504 [00:18<00:00, 142.68step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  95%|█████████▍| 1425/1504 [00:18<00:00, 142.87step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  96%|█████████▌| 1440/1504 [00:18<00:00, 142.95step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  97%|█████████▋| 1455/1504 [00:18<00:00, 144.15step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  98%|█████████▊| 1470/1504 [00:19<00:00, 134.27step/s]
+[Origin 6/13] 🎲 Drawing Posterior Samples:  99%|█████████▊| 1484/1504 [00:19<00:00, 93.35step/s] 
+[Origin 6/13] 🎲 Drawing Posterior Samples:  99%|█████████▉| 1496/1504 [00:19<00:00, 73.88step/s]
+                                                                                                 
+
+[Origin 7/13] 🎲 Drawing Posterior Samples:   0%|          | 0/1508 [00:00<?, ?step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:   1%|          | 14/1508 [00:00<00:10, 140.00step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:   2%|▏         | 28/1508 [00:00<00:10, 139.78step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:   3%|▎         | 42/1508 [00:00<00:10, 136.70step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:   4%|▍         | 57/1508 [00:00<00:10, 139.06step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:   5%|▍         | 72/1508 [00:00<00:10, 139.93step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:   6%|▌         | 87/1508 [00:00<00:09, 142.19step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:   7%|▋         | 102/1508 [00:00<00:10, 139.47step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:   8%|▊         | 117/1508 [00:00<00:09, 139.60step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:   9%|▉         | 132/1508 [00:00<00:09, 140.32step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  10%|▉         | 147/1508 [00:01<00:09, 139.83step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  11%|█         | 162/1508 [00:01<00:09, 140.36step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  12%|█▏        | 177/1508 [00:01<00:09, 139.64step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  13%|█▎        | 191/1508 [00:01<00:09, 138.53step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  14%|█▎        | 206/1508 [00:01<00:09, 139.78step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  15%|█▍        | 220/1508 [00:01<00:09, 139.46step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  16%|█▌        | 235/1508 [00:01<00:09, 141.13step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  17%|█▋        | 250/1508 [00:01<00:09, 139.42step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  18%|█▊        | 265/1508 [00:01<00:08, 139.59step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  19%|█▊        | 279/1508 [00:01<00:08, 138.93step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  19%|█▉        | 294/1508 [00:02<00:08, 139.17step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  20%|██        | 309/1508 [00:02<00:08, 140.12step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  21%|██▏       | 324/1508 [00:02<00:08, 138.24step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  22%|██▏       | 339/1508 [00:02<00:08, 139.46step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  23%|██▎       | 353/1508 [00:02<00:13, 88.09step/s] 
+[Origin 7/13] 🎲 Drawing Posterior Samples:  24%|██▍       | 365/1508 [00:03<00:18, 62.32step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  25%|██▍       | 374/1508 [00:03<00:22, 51.31step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  25%|██▌       | 382/1508 [00:06<01:55,  9.79step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  26%|██▋       | 397/1508 [00:06<01:14, 14.88step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  27%|██▋       | 412/1508 [00:06<00:50, 21.51step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  28%|██▊       | 426/1508 [00:06<00:36, 29.26step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  29%|██▉       | 440/1508 [00:06<00:27, 38.69step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  30%|███       | 454/1508 [00:07<00:21, 49.70step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  31%|███       | 469/1508 [00:07<00:16, 63.20step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  32%|███▏      | 484/1508 [00:07<00:13, 76.49step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  33%|███▎      | 499/1508 [00:07<00:11, 90.03step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  34%|███▍      | 514/1508 [00:07<00:09, 100.84step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  35%|███▌      | 528/1508 [00:07<00:08, 109.73step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  36%|███▌      | 543/1508 [00:07<00:08, 119.12step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  37%|███▋      | 558/1508 [00:07<00:07, 125.54step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  38%|███▊      | 573/1508 [00:07<00:07, 131.55step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  39%|███▉      | 588/1508 [00:08<00:06, 135.40step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  40%|███▉      | 603/1508 [00:08<00:06, 137.62step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  41%|████      | 618/1508 [00:08<00:06, 140.83step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  42%|████▏     | 633/1508 [00:08<00:06, 142.31step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  43%|████▎     | 648/1508 [00:08<00:06, 142.37step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  44%|████▍     | 663/1508 [00:08<00:05, 142.70step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  45%|████▍     | 678/1508 [00:08<00:05, 142.89step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  46%|████▌     | 693/1508 [00:08<00:05, 143.81step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  47%|████▋     | 708/1508 [00:08<00:05, 143.26step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  48%|████▊     | 723/1508 [00:09<00:06, 113.88step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  49%|████▉     | 736/1508 [00:09<00:10, 76.68step/s] 
+[Origin 7/13] 🎲 Drawing Posterior Samples:  49%|████▉     | 746/1508 [00:09<00:12, 61.36step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  50%|█████     | 755/1508 [00:12<01:01, 12.26step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  51%|█████     | 769/1508 [00:12<00:41, 17.60step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  52%|█████▏    | 784/1508 [00:12<00:28, 25.05step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  53%|█████▎    | 798/1508 [00:12<00:21, 33.61step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  54%|█████▍    | 813/1508 [00:12<00:15, 44.62step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  55%|█████▍    | 828/1508 [00:12<00:11, 57.18step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  56%|█████▌    | 843/1508 [00:12<00:09, 70.37step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  57%|█████▋    | 858/1508 [00:13<00:07, 83.23step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  58%|█████▊    | 873/1508 [00:13<00:06, 95.91step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  59%|█████▉    | 888/1508 [00:13<00:05, 106.78step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  60%|█████▉    | 903/1508 [00:13<00:05, 115.99step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  61%|██████    | 918/1508 [00:13<00:04, 122.32step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  62%|██████▏   | 934/1508 [00:13<00:04, 129.79step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  63%|██████▎   | 949/1508 [00:13<00:04, 133.26step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  64%|██████▍   | 964/1508 [00:13<00:03, 137.64step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  65%|██████▍   | 979/1508 [00:13<00:03, 139.26step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  66%|██████▌   | 994/1508 [00:14<00:03, 139.79step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  67%|██████▋   | 1009/1508 [00:14<00:03, 141.90step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  68%|██████▊   | 1024/1508 [00:14<00:03, 141.01step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  69%|██████▉   | 1039/1508 [00:14<00:03, 141.74step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  70%|██████▉   | 1054/1508 [00:14<00:03, 141.54step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  71%|███████   | 1069/1508 [00:14<00:03, 142.89step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  72%|███████▏  | 1084/1508 [00:14<00:02, 143.18step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  73%|███████▎  | 1099/1508 [00:14<00:03, 127.00step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  74%|███████▍  | 1113/1508 [00:15<00:04, 90.43step/s] 
+[Origin 7/13] 🎲 Drawing Posterior Samples:  75%|███████▍  | 1124/1508 [00:15<00:05, 74.11step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  75%|███████▌  | 1133/1508 [00:17<00:27, 13.72step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  76%|███████▌  | 1147/1508 [00:17<00:18, 19.52step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  77%|███████▋  | 1161/1508 [00:18<00:12, 26.93step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  78%|███████▊  | 1175/1508 [00:18<00:09, 36.01step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  79%|███████▉  | 1190/1508 [00:18<00:06, 47.73step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  80%|███████▉  | 1205/1508 [00:18<00:05, 60.41step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  81%|████████  | 1220/1508 [00:18<00:03, 73.71step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  82%|████████▏ | 1235/1508 [00:18<00:03, 86.78step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  83%|████████▎ | 1250/1508 [00:18<00:02, 98.56step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  84%|████████▍ | 1265/1508 [00:18<00:02, 109.75step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  85%|████████▍ | 1280/1508 [00:18<00:01, 117.86step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  86%|████████▌ | 1295/1508 [00:18<00:01, 124.21step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  87%|████████▋ | 1310/1508 [00:19<00:01, 130.23step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  88%|████████▊ | 1325/1508 [00:19<00:01, 133.19step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  89%|████████▉ | 1340/1508 [00:19<00:01, 136.74step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  90%|████████▉ | 1355/1508 [00:19<00:01, 139.13step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  91%|█████████ | 1370/1508 [00:19<00:00, 139.91step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  92%|█████████▏| 1385/1508 [00:19<00:00, 141.24step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  93%|█████████▎| 1400/1508 [00:19<00:00, 140.47step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  94%|█████████▍| 1415/1508 [00:19<00:00, 141.25step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  95%|█████████▍| 1430/1508 [00:19<00:00, 141.58step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  96%|█████████▌| 1445/1508 [00:20<00:00, 141.93step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  97%|█████████▋| 1460/1508 [00:20<00:00, 141.90step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  98%|█████████▊| 1475/1508 [00:20<00:00, 128.39step/s]
+[Origin 7/13] 🎲 Drawing Posterior Samples:  99%|█████████▊| 1489/1508 [00:20<00:00, 91.42step/s] 
+[Origin 7/13] 🎲 Drawing Posterior Samples:  99%|█████████▉| 1500/1508 [00:20<00:00, 74.39step/s]
+                                                                                                 
+
+[Origin 8/13] 🎲 Drawing Posterior Samples:   0%|          | 0/1512 [00:00<?, ?step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:   1%|          | 15/1512 [00:00<00:10, 143.48step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:   2%|▏         | 30/1512 [00:00<00:10, 141.57step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:   3%|▎         | 45/1512 [00:00<00:10, 141.54step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:   4%|▍         | 60/1512 [00:00<00:10, 141.98step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:   5%|▍         | 75/1512 [00:00<00:10, 142.98step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:   6%|▌         | 90/1512 [00:00<00:09, 144.66step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:   7%|▋         | 105/1512 [00:00<00:09, 144.58step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:   8%|▊         | 120/1512 [00:00<00:09, 145.60step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:   9%|▉         | 135/1512 [00:00<00:09, 143.70step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  10%|▉         | 150/1512 [00:01<00:09, 144.11step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  11%|█         | 165/1512 [00:01<00:09, 142.62step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  12%|█▏        | 180/1512 [00:01<00:09, 141.87step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  13%|█▎        | 195/1512 [00:01<00:09, 143.29step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  14%|█▍        | 210/1512 [00:01<00:09, 143.78step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  15%|█▍        | 225/1512 [00:01<00:08, 144.81step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  16%|█▌        | 240/1512 [00:01<00:08, 145.37step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  17%|█▋        | 255/1512 [00:01<00:08, 145.08step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  18%|█▊        | 270/1512 [00:01<00:08, 145.37step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  19%|█▉        | 285/1512 [00:01<00:08, 143.80step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  20%|█▉        | 300/1512 [00:02<00:08, 143.42step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  21%|██        | 315/1512 [00:02<00:08, 142.56step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  22%|██▏       | 330/1512 [00:02<00:08, 142.72step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  23%|██▎       | 345/1512 [00:02<00:10, 116.43step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  24%|██▎       | 358/1512 [00:02<00:18, 61.10step/s] 
+[Origin 8/13] 🎲 Drawing Posterior Samples:  24%|██▍       | 368/1512 [00:03<00:26, 43.70step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  25%|██▍       | 376/1512 [00:03<00:31, 35.52step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  25%|██▌       | 382/1512 [00:07<02:40,  7.03step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  26%|██▋       | 397/1512 [00:07<01:39, 11.24step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  27%|██▋       | 412/1512 [00:07<01:05, 16.83step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  28%|██▊       | 426/1512 [00:08<00:46, 23.54step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  29%|██▉       | 440/1512 [00:08<00:33, 31.93step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  30%|███       | 454/1512 [00:08<00:25, 41.91step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  31%|███       | 469/1512 [00:08<00:19, 54.30step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  32%|███▏      | 483/1512 [00:08<00:15, 66.47step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  33%|███▎      | 498/1512 [00:08<00:12, 80.06step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  34%|███▍      | 512/1512 [00:08<00:10, 91.41step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  35%|███▍      | 527/1512 [00:08<00:09, 103.07step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  36%|███▌      | 542/1512 [00:08<00:08, 112.20step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  37%|███▋      | 557/1512 [00:08<00:07, 121.40step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  38%|███▊      | 572/1512 [00:09<00:07, 128.15step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  39%|███▉      | 587/1512 [00:09<00:06, 132.33step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  40%|███▉      | 602/1512 [00:09<00:06, 135.79step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  41%|████      | 617/1512 [00:09<00:06, 137.62step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  42%|████▏     | 632/1512 [00:09<00:06, 140.54step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  43%|████▎     | 647/1512 [00:09<00:06, 140.95step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  44%|████▍     | 662/1512 [00:09<00:06, 139.40step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  45%|████▍     | 677/1512 [00:09<00:05, 141.75step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  46%|████▌     | 692/1512 [00:09<00:05, 141.33step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  47%|████▋     | 707/1512 [00:10<00:05, 143.21step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  48%|████▊     | 722/1512 [00:10<00:05, 134.55step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  49%|████▊     | 736/1512 [00:10<00:08, 96.13step/s] 
+[Origin 8/13] 🎲 Drawing Posterior Samples:  49%|████▉     | 748/1512 [00:10<00:10, 76.04step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  50%|█████     | 758/1512 [00:12<00:48, 15.45step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  51%|█████     | 772/1512 [00:13<00:34, 21.55step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  52%|█████▏    | 786/1512 [00:13<00:24, 29.33step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  53%|█████▎    | 801/1512 [00:13<00:17, 39.59step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  54%|█████▍    | 816/1512 [00:13<00:13, 51.34step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  55%|█████▍    | 831/1512 [00:13<00:10, 64.45step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  56%|█████▌    | 846/1512 [00:13<00:08, 77.78step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  57%|█████▋    | 861/1512 [00:13<00:07, 90.16step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  58%|█████▊    | 876/1512 [00:13<00:06, 101.89step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  59%|█████▉    | 891/1512 [00:13<00:05, 110.81step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  60%|█████▉    | 906/1512 [00:14<00:05, 119.40step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  61%|██████    | 921/1512 [00:14<00:04, 125.08step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  62%|██████▏   | 936/1512 [00:14<00:04, 131.06step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  63%|██████▎   | 951/1512 [00:14<00:04, 134.93step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  64%|██████▍   | 966/1512 [00:14<00:03, 138.33step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  65%|██████▍   | 981/1512 [00:14<00:03, 140.80step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  66%|██████▌   | 996/1512 [00:14<00:03, 141.83step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  67%|██████▋   | 1011/1512 [00:14<00:03, 142.61step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  68%|██████▊   | 1026/1512 [00:14<00:03, 142.91step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  69%|██████▉   | 1041/1512 [00:14<00:03, 144.60step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  70%|██████▉   | 1056/1512 [00:15<00:03, 142.25step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  71%|███████   | 1071/1512 [00:15<00:03, 143.09step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  72%|███████▏  | 1086/1512 [00:15<00:02, 142.79step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  73%|███████▎  | 1101/1512 [00:15<00:03, 120.23step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  74%|███████▎  | 1114/1512 [00:15<00:04, 80.19step/s] 
+[Origin 8/13] 🎲 Drawing Posterior Samples:  74%|███████▍  | 1125/1512 [00:15<00:05, 65.99step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  75%|███████▌  | 1134/1512 [00:16<00:06, 57.44step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  76%|███████▌  | 1142/1512 [00:18<00:31, 11.92step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  76%|███████▋  | 1156/1512 [00:18<00:20, 17.64step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  77%|███████▋  | 1170/1512 [00:18<00:13, 24.98step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  78%|███████▊  | 1185/1512 [00:19<00:09, 34.71step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  79%|███████▉  | 1199/1512 [00:19<00:06, 45.36step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  80%|████████  | 1213/1512 [00:19<00:05, 57.19step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  81%|████████  | 1228/1512 [00:19<00:04, 70.73step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  82%|████████▏ | 1243/1512 [00:19<00:03, 84.29step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  83%|████████▎ | 1258/1512 [00:19<00:02, 97.31step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  84%|████████▍ | 1272/1512 [00:19<00:02, 106.75step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  85%|████████▌ | 1286/1512 [00:19<00:01, 114.35step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  86%|████████▌ | 1301/1512 [00:19<00:01, 122.13step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  87%|████████▋ | 1316/1512 [00:19<00:01, 127.75step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  88%|████████▊ | 1331/1512 [00:20<00:01, 132.57step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  89%|████████▉ | 1346/1512 [00:20<00:01, 136.22step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  90%|█████████ | 1361/1512 [00:20<00:01, 138.22step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  91%|█████████ | 1376/1512 [00:20<00:00, 140.14step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  92%|█████████▏| 1391/1512 [00:20<00:00, 141.46step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  93%|█████████▎| 1406/1512 [00:20<00:00, 141.96step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  94%|█████████▍| 1421/1512 [00:20<00:00, 140.31step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  95%|█████████▍| 1436/1512 [00:20<00:00, 140.93step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  96%|█████████▌| 1451/1512 [00:20<00:00, 141.81step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  97%|█████████▋| 1466/1512 [00:21<00:00, 143.17step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  98%|█████████▊| 1481/1512 [00:21<00:00, 113.82step/s]
+[Origin 8/13] 🎲 Drawing Posterior Samples:  99%|█████████▉| 1494/1512 [00:21<00:00, 87.92step/s] 
+[Origin 8/13] 🎲 Drawing Posterior Samples: 100%|█████████▉| 1505/1512 [00:21<00:00, 73.42step/s]
+                                                                                                 
+
+[Origin 9/13] 🎲 Drawing Posterior Samples:   0%|          | 0/1516 [00:00<?, ?step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:   1%|          | 14/1516 [00:00<00:10, 137.89step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:   2%|▏         | 28/1516 [00:00<00:10, 138.31step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:   3%|▎         | 42/1516 [00:00<00:10, 135.00step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:   4%|▍         | 57/1516 [00:00<00:10, 135.93step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:   5%|▍         | 72/1516 [00:00<00:10, 138.96step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:   6%|▌         | 86/1516 [00:00<00:10, 138.61step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:   7%|▋         | 101/1516 [00:00<00:10, 139.63step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:   8%|▊         | 115/1516 [00:00<00:10, 139.06step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:   9%|▊         | 130/1516 [00:00<00:09, 140.55step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  10%|▉         | 145/1516 [00:01<00:09, 140.62step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  11%|█         | 160/1516 [00:01<00:09, 139.78step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  12%|█▏        | 175/1516 [00:01<00:09, 140.31step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  13%|█▎        | 190/1516 [00:01<00:09, 138.54step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  14%|█▎        | 205/1516 [00:01<00:09, 139.82step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  14%|█▍        | 219/1516 [00:01<00:09, 139.38step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  15%|█▌        | 233/1516 [00:01<00:09, 139.00step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  16%|█▋        | 247/1516 [00:01<00:09, 138.27step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  17%|█▋        | 262/1516 [00:01<00:08, 139.49step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  18%|█▊        | 277/1516 [00:01<00:08, 140.53step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  19%|█▉        | 292/1516 [00:02<00:08, 141.54step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  20%|██        | 307/1516 [00:02<00:08, 142.01step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  21%|██        | 322/1516 [00:02<00:08, 141.34step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  22%|██▏       | 337/1516 [00:02<00:08, 142.84step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  23%|██▎       | 352/1516 [00:02<00:10, 110.33step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  24%|██▍       | 365/1516 [00:02<00:13, 82.91step/s] 
+[Origin 9/13] 🎲 Drawing Posterior Samples:  25%|██▍       | 376/1516 [00:03<00:16, 67.77step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  25%|██▌       | 385/1516 [00:05<01:18, 14.45step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  26%|██▋       | 399/1516 [00:05<00:54, 20.58step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  27%|██▋       | 413/1516 [00:05<00:38, 28.32step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  28%|██▊       | 427/1516 [00:05<00:28, 37.83step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  29%|██▉       | 442/1516 [00:05<00:21, 49.83step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  30%|███       | 457/1516 [00:05<00:16, 62.77step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  31%|███       | 472/1516 [00:06<00:13, 76.38step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  32%|███▏      | 487/1516 [00:06<00:11, 89.67step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  33%|███▎      | 502/1516 [00:06<00:10, 101.20step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  34%|███▍      | 517/1516 [00:06<00:08, 111.40step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  35%|███▌      | 532/1516 [00:06<00:08, 118.63step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  36%|███▌      | 547/1516 [00:06<00:07, 125.19step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  37%|███▋      | 562/1516 [00:06<00:07, 131.07step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  38%|███▊      | 577/1516 [00:06<00:07, 133.64step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  39%|███▉      | 592/1516 [00:06<00:06, 136.02step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  40%|████      | 607/1516 [00:07<00:06, 138.15step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  41%|████      | 622/1516 [00:07<00:06, 137.92step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  42%|████▏     | 637/1516 [00:07<00:06, 138.90step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  43%|████▎     | 652/1516 [00:07<00:06, 138.36step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  44%|████▍     | 666/1516 [00:07<00:06, 137.34step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  45%|████▍     | 681/1516 [00:07<00:06, 138.89step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  46%|████▌     | 695/1516 [00:07<00:05, 138.39step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  47%|████▋     | 710/1516 [00:07<00:05, 139.27step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  48%|████▊     | 724/1516 [00:07<00:06, 122.20step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  49%|████▊     | 737/1516 [00:08<00:14, 54.31step/s] 
+[Origin 9/13] 🎲 Drawing Posterior Samples:  49%|████▉     | 747/1516 [00:09<00:20, 37.84step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  50%|████▉     | 755/1516 [00:09<00:25, 30.10step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  50%|█████     | 761/1516 [00:13<01:47,  7.01step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  51%|█████     | 775/1516 [00:13<01:07, 10.98step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  52%|█████▏    | 789/1516 [00:13<00:44, 16.24step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  53%|█████▎    | 804/1516 [00:13<00:30, 23.55step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  54%|█████▍    | 819/1516 [00:13<00:21, 32.67step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  55%|█████▌    | 834/1516 [00:13<00:15, 43.52step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  56%|█████▌    | 849/1516 [00:13<00:11, 56.02step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  57%|█████▋    | 864/1516 [00:13<00:09, 69.28step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  58%|█████▊    | 879/1516 [00:14<00:07, 82.57step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  59%|█████▉    | 894/1516 [00:14<00:06, 94.57step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  60%|█████▉    | 908/1516 [00:14<00:05, 103.98step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  61%|██████    | 922/1516 [00:14<00:05, 112.35step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  62%|██████▏   | 936/1516 [00:14<00:04, 119.00step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  63%|██████▎   | 951/1516 [00:14<00:04, 126.28step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  64%|██████▎   | 966/1516 [00:14<00:04, 131.63step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  65%|██████▍   | 981/1516 [00:14<00:03, 135.51step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  66%|██████▌   | 996/1516 [00:14<00:03, 139.15step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  67%|██████▋   | 1011/1516 [00:14<00:03, 140.83step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  68%|██████▊   | 1026/1516 [00:15<00:03, 141.83step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  69%|██████▊   | 1041/1516 [00:15<00:03, 141.42step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  70%|██████▉   | 1056/1516 [00:15<00:03, 140.28step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  71%|███████   | 1071/1516 [00:15<00:03, 140.91step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  72%|███████▏  | 1086/1516 [00:15<00:03, 141.33step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  73%|███████▎  | 1101/1516 [00:15<00:02, 142.57step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  74%|███████▎  | 1116/1516 [00:15<00:04, 85.68step/s] 
+[Origin 9/13] 🎲 Drawing Posterior Samples:  74%|███████▍  | 1128/1516 [00:16<00:05, 65.70step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  75%|███████▌  | 1138/1516 [00:19<00:31, 12.16step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  76%|███████▌  | 1151/1516 [00:19<00:21, 16.74step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  77%|███████▋  | 1165/1516 [00:19<00:15, 23.18step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  78%|███████▊  | 1179/1516 [00:19<00:10, 31.21step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  79%|███████▉  | 1194/1516 [00:19<00:07, 41.66step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  80%|███████▉  | 1208/1516 [00:19<00:05, 52.59step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  81%|████████  | 1222/1516 [00:19<00:04, 64.58step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  82%|████████▏ | 1236/1516 [00:20<00:03, 76.89step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  83%|████████▎ | 1251/1516 [00:20<00:02, 90.19step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  84%|████████▎ | 1266/1516 [00:20<00:02, 102.59step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  84%|████████▍ | 1280/1516 [00:20<00:02, 110.44step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  85%|████████▌ | 1295/1516 [00:20<00:01, 118.67step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  86%|████████▋ | 1310/1516 [00:20<00:01, 124.79step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  87%|████████▋ | 1325/1516 [00:20<00:01, 129.59step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  88%|████████▊ | 1341/1516 [00:20<00:01, 135.47step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  89%|████████▉ | 1356/1516 [00:20<00:01, 135.80step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  90%|█████████ | 1371/1516 [00:20<00:01, 138.98step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  91%|█████████▏| 1386/1516 [00:21<00:00, 141.27step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  92%|█████████▏| 1401/1516 [00:21<00:00, 141.78step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  93%|█████████▎| 1416/1516 [00:21<00:00, 142.62step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  94%|█████████▍| 1431/1516 [00:21<00:00, 140.52step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  95%|█████████▌| 1446/1516 [00:21<00:00, 141.44step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  96%|█████████▋| 1461/1516 [00:21<00:00, 142.24step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  97%|█████████▋| 1476/1516 [00:21<00:00, 143.11step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples:  98%|█████████▊| 1491/1516 [00:21<00:00, 91.68step/s] 
+[Origin 9/13] 🎲 Drawing Posterior Samples:  99%|█████████▉| 1503/1516 [00:22<00:00, 67.09step/s]
+[Origin 9/13] 🎲 Drawing Posterior Samples: 100%|█████████▉| 1513/1516 [00:22<00:00, 54.49step/s]
+                                                                                                 
+
+[Origin 10/13] 🎲 Drawing Posterior Samples:   0%|          | 0/1520 [00:00<?, ?step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:   1%|          | 14/1520 [00:00<00:11, 136.83step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:   2%|▏         | 28/1520 [00:00<00:10, 136.15step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:   3%|▎         | 42/1520 [00:00<00:10, 136.76step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:   4%|▎         | 56/1520 [00:00<00:10, 137.22step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:   5%|▍         | 70/1520 [00:00<00:10, 136.44step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:   6%|▌         | 84/1520 [00:00<00:10, 137.03step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:   6%|▋         | 98/1520 [00:00<00:10, 137.48step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:   7%|▋         | 113/1520 [00:00<00:10, 138.94step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:   8%|▊         | 127/1520 [00:00<00:10, 137.90step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:   9%|▉         | 142/1520 [00:01<00:09, 138.91step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  10%|█         | 156/1520 [00:01<00:09, 138.10step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  11%|█▏        | 171/1520 [00:01<00:09, 138.30step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  12%|█▏        | 186/1520 [00:01<00:09, 140.41step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  13%|█▎        | 201/1520 [00:01<00:09, 138.97step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  14%|█▍        | 216/1520 [00:01<00:09, 139.15step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  15%|█▌        | 230/1520 [00:01<00:09, 139.21step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  16%|█▌        | 244/1520 [00:01<00:09, 139.24step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  17%|█▋        | 258/1520 [00:01<00:09, 139.12step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  18%|█▊        | 272/1520 [00:01<00:09, 137.91step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  19%|█▉        | 286/1520 [00:02<00:08, 137.36step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  20%|█▉        | 300/1520 [00:02<00:08, 136.27step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  21%|██        | 315/1520 [00:02<00:08, 138.42step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  22%|██▏       | 329/1520 [00:02<00:08, 138.07step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  23%|██▎       | 344/1520 [00:02<00:08, 139.26step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  24%|██▎       | 358/1520 [00:02<00:16, 69.83step/s] 
+[Origin 10/13] 🎲 Drawing Posterior Samples:  24%|██▍       | 369/1520 [00:03<00:19, 59.39step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  25%|██▍       | 378/1520 [00:03<00:22, 51.30step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  25%|██▌       | 386/1520 [00:06<01:40, 11.32step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  26%|██▋       | 400/1520 [00:06<01:06, 16.81step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  27%|██▋       | 414/1520 [00:06<00:46, 23.90step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  28%|██▊       | 429/1520 [00:06<00:32, 33.33step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  29%|██▉       | 444/1520 [00:06<00:24, 44.63step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  30%|███       | 459/1520 [00:06<00:18, 57.27step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  31%|███       | 474/1520 [00:06<00:14, 70.82step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  32%|███▏      | 489/1520 [00:06<00:12, 84.14step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  33%|███▎      | 504/1520 [00:06<00:10, 96.18step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  34%|███▍      | 518/1520 [00:07<00:09, 105.68step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  35%|███▌      | 532/1520 [00:07<00:08, 112.28step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  36%|███▌      | 547/1520 [00:07<00:08, 119.86step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  37%|███▋      | 562/1520 [00:07<00:07, 126.31step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  38%|███▊      | 577/1520 [00:07<00:07, 130.40step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  39%|███▉      | 592/1520 [00:07<00:06, 134.57step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  40%|███▉      | 607/1520 [00:07<00:06, 136.96step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  41%|████      | 622/1520 [00:07<00:06, 138.04step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  42%|████▏     | 638/1520 [00:07<00:06, 141.01step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  43%|████▎     | 653/1520 [00:07<00:06, 141.32step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  44%|████▍     | 668/1520 [00:08<00:05, 142.29step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  45%|████▍     | 683/1520 [00:08<00:05, 141.75step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  46%|████▌     | 698/1520 [00:08<00:05, 142.30step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  47%|████▋     | 713/1520 [00:08<00:05, 142.66step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  48%|████▊     | 728/1520 [00:08<00:07, 112.16step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  49%|████▉     | 741/1520 [00:08<00:09, 86.04step/s] 
+[Origin 10/13] 🎲 Drawing Posterior Samples:  49%|████▉     | 752/1520 [00:09<00:10, 72.53step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  50%|█████     | 761/1520 [00:11<00:55, 13.63step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  51%|█████     | 775/1520 [00:11<00:38, 19.40step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  52%|█████▏    | 789/1520 [00:11<00:27, 26.72step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  53%|█████▎    | 803/1520 [00:11<00:20, 35.75step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  54%|█████▍    | 817/1520 [00:12<00:15, 46.22step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  55%|█████▍    | 831/1520 [00:12<00:11, 58.10step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  56%|█████▌    | 845/1520 [00:12<00:09, 70.08step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  57%|█████▋    | 860/1520 [00:12<00:07, 83.62step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  58%|█████▊    | 875/1520 [00:12<00:06, 95.87step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  58%|█████▊    | 889/1520 [00:12<00:05, 105.21step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  59%|█████▉    | 903/1520 [00:12<00:05, 113.30step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  60%|██████    | 917/1520 [00:12<00:05, 118.43step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  61%|██████▏   | 932/1520 [00:12<00:04, 124.72step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  62%|██████▏   | 946/1520 [00:12<00:04, 128.29step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  63%|██████▎   | 960/1520 [00:13<00:04, 131.54step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  64%|██████▍   | 975/1520 [00:13<00:04, 135.54step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  65%|██████▌   | 990/1520 [00:13<00:03, 136.57step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  66%|██████▌   | 1005/1520 [00:13<00:03, 137.98step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  67%|██████▋   | 1020/1520 [00:13<00:03, 138.23step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  68%|██████▊   | 1034/1520 [00:13<00:03, 137.64step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  69%|██████▉   | 1049/1520 [00:13<00:03, 138.56step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  70%|██████▉   | 1063/1520 [00:13<00:03, 137.87step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  71%|███████   | 1077/1520 [00:13<00:03, 138.23step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  72%|███████▏  | 1092/1520 [00:13<00:03, 139.58step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  73%|███████▎  | 1106/1520 [00:14<00:03, 123.71step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  74%|███████▎  | 1119/1520 [00:14<00:04, 81.40step/s] 
+[Origin 10/13] 🎲 Drawing Posterior Samples:  74%|███████▍  | 1130/1520 [00:14<00:05, 66.81step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  75%|███████▍  | 1139/1520 [00:14<00:06, 58.26step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  75%|███████▌  | 1147/1520 [00:17<00:30, 12.42step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  76%|███████▋  | 1161/1520 [00:17<00:19, 18.45step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  77%|███████▋  | 1175/1520 [00:17<00:13, 26.15step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  78%|███████▊  | 1189/1520 [00:17<00:09, 35.55step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  79%|███████▉  | 1204/1520 [00:17<00:06, 47.51step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  80%|████████  | 1219/1520 [00:17<00:04, 60.80step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  81%|████████  | 1234/1520 [00:17<00:03, 74.13step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  82%|████████▏ | 1249/1520 [00:18<00:03, 87.14step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  83%|████████▎ | 1264/1520 [00:18<00:02, 99.59step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  84%|████████▍ | 1279/1520 [00:18<00:02, 109.47step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  85%|████████▌ | 1294/1520 [00:18<00:01, 117.82step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  86%|████████▌ | 1309/1520 [00:18<00:01, 123.64step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  87%|████████▋ | 1324/1520 [00:18<00:01, 129.05step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  88%|████████▊ | 1339/1520 [00:18<00:01, 132.57step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  89%|████████▉ | 1354/1520 [00:18<00:01, 135.02step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  90%|█████████ | 1369/1520 [00:18<00:01, 138.43step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  91%|█████████ | 1384/1520 [00:18<00:00, 139.09step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  92%|█████████▏| 1399/1520 [00:19<00:00, 140.99step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  93%|█████████▎| 1414/1520 [00:19<00:00, 142.58step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  94%|█████████▍| 1429/1520 [00:19<00:00, 141.86step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  95%|█████████▌| 1444/1520 [00:19<00:00, 140.87step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  96%|█████████▌| 1459/1520 [00:19<00:00, 140.43step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  97%|█████████▋| 1474/1520 [00:19<00:00, 141.11step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  98%|█████████▊| 1489/1520 [00:19<00:00, 115.87step/s]
+[Origin 10/13] 🎲 Drawing Posterior Samples:  99%|█████████▉| 1502/1520 [00:20<00:00, 83.76step/s] 
+[Origin 10/13] 🎲 Drawing Posterior Samples: 100%|█████████▉| 1513/1520 [00:20<00:00, 66.82step/s]
+                                                                                                  
+
+[Origin 11/13] 🎲 Drawing Posterior Samples:   0%|          | 0/1524 [00:00<?, ?step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:   1%|          | 14/1524 [00:00<00:10, 137.95step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:   2%|▏         | 29/1524 [00:00<00:10, 144.22step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:   3%|▎         | 44/1524 [00:00<00:10, 142.47step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:   4%|▍         | 59/1524 [00:00<00:10, 142.50step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:   5%|▍         | 74/1524 [00:00<00:10, 142.28step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:   6%|▌         | 89/1524 [00:00<00:10, 140.84step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:   7%|▋         | 105/1524 [00:00<00:09, 143.70step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:   8%|▊         | 120/1524 [00:00<00:09, 142.90step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:   9%|▉         | 135/1524 [00:00<00:09, 142.40step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  10%|▉         | 150/1524 [00:01<00:09, 141.15step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  11%|█         | 165/1524 [00:01<00:09, 139.38step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  12%|█▏        | 180/1524 [00:01<00:09, 141.98step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  13%|█▎        | 195/1524 [00:01<00:09, 142.21step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  14%|█▍        | 210/1524 [00:01<00:09, 143.17step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  15%|█▍        | 225/1524 [00:01<00:09, 143.81step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  16%|█▌        | 240/1524 [00:01<00:08, 144.23step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  17%|█▋        | 255/1524 [00:01<00:08, 145.32step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  18%|█▊        | 270/1524 [00:01<00:08, 144.26step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  19%|█▊        | 285/1524 [00:01<00:08, 143.90step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  20%|█▉        | 300/1524 [00:02<00:08, 142.73step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  21%|██        | 315/1524 [00:02<00:08, 141.30step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  22%|██▏       | 330/1524 [00:02<00:08, 142.43step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  23%|██▎       | 345/1524 [00:02<00:08, 142.95step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  24%|██▎       | 360/1524 [00:02<00:15, 74.73step/s] 
+[Origin 11/13] 🎲 Drawing Posterior Samples:  24%|██▍       | 372/1524 [00:03<00:17, 65.30step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  25%|██▌       | 382/1524 [00:05<01:30, 12.63step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  26%|██▌       | 396/1524 [00:06<01:03, 17.77step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  27%|██▋       | 411/1524 [00:06<00:44, 24.91step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  28%|██▊       | 426/1524 [00:06<00:32, 33.82step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  29%|██▉       | 441/1524 [00:06<00:24, 44.60step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  30%|██▉       | 456/1524 [00:06<00:18, 56.75step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  31%|███       | 471/1524 [00:06<00:15, 69.91step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  32%|███▏      | 486/1524 [00:06<00:12, 83.18step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  33%|███▎      | 501/1524 [00:06<00:10, 95.63step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  34%|███▍      | 516/1524 [00:06<00:09, 106.71step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  35%|███▍      | 531/1524 [00:07<00:08, 114.65step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  36%|███▌      | 546/1524 [00:07<00:07, 123.12step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  37%|███▋      | 561/1524 [00:07<00:07, 127.41step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  38%|███▊      | 576/1524 [00:07<00:07, 132.35step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  39%|███▉      | 591/1524 [00:07<00:06, 135.56step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  40%|███▉      | 606/1524 [00:07<00:06, 137.87step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  41%|████      | 621/1524 [00:07<00:06, 140.85step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  42%|████▏     | 636/1524 [00:07<00:06, 141.32step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  43%|████▎     | 651/1524 [00:07<00:06, 142.06step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  44%|████▎     | 666/1524 [00:07<00:06, 142.87step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  45%|████▍     | 681/1524 [00:08<00:05, 142.12step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  46%|████▌     | 696/1524 [00:08<00:05, 142.50step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  47%|████▋     | 711/1524 [00:08<00:05, 142.48step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  48%|████▊     | 726/1524 [00:08<00:05, 142.08step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  49%|████▊     | 741/1524 [00:08<00:08, 96.10step/s] 
+[Origin 11/13] 🎲 Drawing Posterior Samples:  49%|████▉     | 753/1524 [00:08<00:09, 77.71step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  50%|█████     | 763/1524 [00:11<00:49, 15.28step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  51%|█████     | 777/1524 [00:11<00:35, 21.32step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  52%|█████▏    | 791/1524 [00:11<00:25, 28.94step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  53%|█████▎    | 805/1524 [00:11<00:18, 38.30step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  54%|█████▍    | 820/1524 [00:11<00:14, 50.16step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  55%|█████▍    | 834/1524 [00:11<00:11, 62.07step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  56%|█████▌    | 849/1524 [00:11<00:08, 75.95step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  57%|█████▋    | 864/1524 [00:11<00:07, 88.60step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  58%|█████▊    | 879/1524 [00:12<00:06, 100.57step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  59%|█████▊    | 894/1524 [00:12<00:05, 110.81step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  60%|█████▉    | 909/1524 [00:12<00:05, 118.23step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  61%|██████    | 924/1524 [00:12<00:04, 124.07step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  62%|██████▏   | 939/1524 [00:12<00:04, 128.00step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  63%|██████▎   | 954/1524 [00:12<00:04, 131.98step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  64%|██████▎   | 969/1524 [00:12<00:04, 135.17step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  65%|██████▍   | 984/1524 [00:12<00:03, 138.77step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  66%|██████▌   | 999/1524 [00:12<00:03, 138.87step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  67%|██████▋   | 1014/1524 [00:13<00:03, 140.95step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  68%|██████▊   | 1029/1524 [00:13<00:03, 141.06step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  69%|██████▊   | 1044/1524 [00:13<00:03, 143.33step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  69%|██████▉   | 1059/1524 [00:13<00:03, 143.48step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  70%|███████   | 1074/1524 [00:13<00:03, 141.63step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  71%|███████▏  | 1089/1524 [00:13<00:03, 143.51step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  72%|███████▏  | 1104/1524 [00:13<00:02, 142.52step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  73%|███████▎  | 1119/1524 [00:13<00:04, 91.14step/s] 
+[Origin 11/13] 🎲 Drawing Posterior Samples:  74%|███████▍  | 1131/1524 [00:14<00:05, 66.14step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  75%|███████▍  | 1141/1524 [00:14<00:07, 54.39step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  75%|███████▌  | 1149/1524 [00:17<00:30, 12.33step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  76%|███████▋  | 1163/1524 [00:17<00:20, 17.93step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  77%|███████▋  | 1177/1524 [00:17<00:13, 25.12step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  78%|███████▊  | 1191/1524 [00:17<00:09, 34.01step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  79%|███████▉  | 1206/1524 [00:17<00:06, 45.51step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  80%|████████  | 1221/1524 [00:17<00:05, 58.43step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  81%|████████  | 1236/1524 [00:17<00:04, 71.76step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  82%|████████▏ | 1251/1524 [00:17<00:03, 85.01step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  83%|████████▎ | 1266/1524 [00:17<00:02, 97.60step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  84%|████████▍ | 1281/1524 [00:18<00:02, 107.87step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  85%|████████▌ | 1296/1524 [00:18<00:01, 115.42step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  86%|████████▌ | 1311/1524 [00:18<00:01, 121.84step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  87%|████████▋ | 1325/1524 [00:18<00:01, 126.44step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  88%|████████▊ | 1340/1524 [00:18<00:01, 131.52step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  89%|████████▉ | 1355/1524 [00:18<00:01, 135.78step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  90%|████████▉ | 1370/1524 [00:18<00:01, 138.08step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  91%|█████████ | 1385/1524 [00:18<00:00, 140.65step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  92%|█████████▏| 1400/1524 [00:18<00:00, 140.83step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  93%|█████████▎| 1415/1524 [00:18<00:00, 141.11step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  94%|█████████▍| 1430/1524 [00:19<00:00, 141.55step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  95%|█████████▍| 1445/1524 [00:19<00:00, 140.41step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  96%|█████████▌| 1460/1524 [00:19<00:00, 141.81step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  97%|█████████▋| 1475/1524 [00:19<00:00, 141.81step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  98%|█████████▊| 1490/1524 [00:19<00:00, 133.50step/s]
+[Origin 11/13] 🎲 Drawing Posterior Samples:  99%|█████████▊| 1504/1524 [00:19<00:00, 94.14step/s] 
+[Origin 11/13] 🎲 Drawing Posterior Samples:  99%|█████████▉| 1516/1524 [00:20<00:00, 76.67step/s]
+                                                                                                  
+
+[Origin 12/13] 🎲 Drawing Posterior Samples:   0%|          | 0/1528 [00:00<?, ?step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:   1%|          | 14/1528 [00:00<00:10, 138.90step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:   2%|▏         | 29/1528 [00:00<00:10, 140.26step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:   3%|▎         | 45/1528 [00:00<00:10, 145.53step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:   4%|▍         | 60/1528 [00:00<00:10, 144.34step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:   5%|▍         | 75/1528 [00:00<00:10, 144.95step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:   6%|▌         | 90/1528 [00:00<00:09, 144.65step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:   7%|▋         | 105/1528 [00:00<00:09, 144.45step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:   8%|▊         | 120/1528 [00:00<00:09, 145.45step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:   9%|▉         | 135/1528 [00:00<00:09, 143.80step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  10%|▉         | 150/1528 [00:01<00:09, 144.30step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  11%|█         | 165/1528 [00:01<00:09, 141.56step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  12%|█▏        | 180/1528 [00:01<00:09, 143.34step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  13%|█▎        | 195/1528 [00:01<00:09, 143.51step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  14%|█▎        | 210/1528 [00:01<00:09, 144.43step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  15%|█▍        | 225/1528 [00:01<00:09, 144.62step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  16%|█▌        | 240/1528 [00:01<00:08, 143.66step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  17%|█▋        | 255/1528 [00:01<00:08, 144.88step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  18%|█▊        | 270/1528 [00:01<00:08, 142.70step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  19%|█▊        | 285/1528 [00:01<00:08, 142.64step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  20%|█▉        | 300/1528 [00:02<00:08, 141.78step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  21%|██        | 315/1528 [00:02<00:08, 142.00step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  22%|██▏       | 330/1528 [00:02<00:08, 142.75step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  23%|██▎       | 345/1528 [00:02<00:08, 143.35step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  24%|██▎       | 360/1528 [00:02<00:16, 70.83step/s] 
+[Origin 12/13] 🎲 Drawing Posterior Samples:  24%|██▍       | 372/1528 [00:03<00:19, 60.73step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  25%|██▍       | 381/1528 [00:03<00:20, 55.08step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  25%|██▌       | 389/1528 [00:05<01:31, 12.39step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  26%|██▋       | 403/1528 [00:05<01:02, 18.13step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  27%|██▋       | 417/1528 [00:06<00:43, 25.44step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  28%|██▊       | 432/1528 [00:06<00:31, 35.23step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  29%|██▉       | 447/1528 [00:06<00:23, 46.59step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  30%|███       | 462/1528 [00:06<00:17, 59.53step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  31%|███       | 477/1528 [00:06<00:14, 72.75step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  32%|███▏      | 492/1528 [00:06<00:12, 86.15step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  33%|███▎      | 507/1528 [00:06<00:10, 98.38step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  34%|███▍      | 522/1528 [00:06<00:09, 108.68step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  35%|███▌      | 537/1528 [00:06<00:08, 117.29step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  36%|███▌      | 552/1528 [00:06<00:07, 123.68step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  37%|███▋      | 567/1528 [00:07<00:07, 127.78step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  38%|███▊      | 582/1528 [00:07<00:07, 132.26step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  39%|███▉      | 597/1528 [00:07<00:06, 135.02step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  40%|████      | 612/1528 [00:07<00:06, 138.24step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  41%|████      | 627/1528 [00:07<00:06, 140.15step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  42%|████▏     | 642/1528 [00:07<00:06, 140.04step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  43%|████▎     | 657/1528 [00:07<00:06, 140.85step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  44%|████▍     | 672/1528 [00:07<00:06, 142.01step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  45%|████▍     | 687/1528 [00:07<00:05, 141.76step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  46%|████▌     | 702/1528 [00:08<00:05, 141.15step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  47%|████▋     | 717/1528 [00:08<00:05, 141.28step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  48%|████▊     | 732/1528 [00:08<00:06, 119.06step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  49%|████▉     | 745/1528 [00:08<00:10, 77.71step/s] 
+[Origin 12/13] 🎲 Drawing Posterior Samples:  49%|████▉     | 755/1528 [00:08<00:12, 60.71step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  50%|█████     | 764/1528 [00:09<00:15, 50.77step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  50%|█████     | 771/1528 [00:11<01:09, 10.83step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  51%|█████▏    | 785/1528 [00:11<00:45, 16.30step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  52%|█████▏    | 799/1528 [00:12<00:31, 23.34step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  53%|█████▎    | 814/1528 [00:12<00:21, 32.77step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  54%|█████▍    | 829/1528 [00:12<00:15, 44.11step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  55%|█████▌    | 844/1528 [00:12<00:12, 56.76step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  56%|█████▌    | 859/1528 [00:12<00:09, 70.17step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  57%|█████▋    | 874/1528 [00:12<00:07, 83.90step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  58%|█████▊    | 889/1528 [00:12<00:06, 95.90step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  59%|█████▉    | 905/1528 [00:12<00:05, 108.45step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  60%|██████    | 920/1528 [00:12<00:05, 115.87step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  61%|██████    | 935/1528 [00:13<00:04, 122.48step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  62%|██████▏   | 950/1528 [00:13<00:04, 125.79step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  63%|██████▎   | 965/1528 [00:13<00:04, 129.97step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  64%|██████▍   | 980/1528 [00:13<00:04, 134.48step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  65%|██████▌   | 995/1528 [00:13<00:03, 136.75step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  66%|██████▌   | 1010/1528 [00:13<00:03, 139.88step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  67%|██████▋   | 1025/1528 [00:13<00:03, 140.57step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  68%|██████▊   | 1040/1528 [00:13<00:03, 142.34step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  69%|██████▉   | 1055/1528 [00:13<00:03, 142.05step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  70%|███████   | 1070/1528 [00:13<00:03, 141.00step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  71%|███████   | 1085/1528 [00:14<00:03, 139.75step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  72%|███████▏  | 1100/1528 [00:14<00:03, 140.71step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  73%|███████▎  | 1115/1528 [00:14<00:03, 121.51step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  74%|███████▍  | 1128/1528 [00:14<00:04, 90.79step/s] 
+[Origin 12/13] 🎲 Drawing Posterior Samples:  75%|███████▍  | 1139/1528 [00:14<00:05, 75.09step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  75%|███████▌  | 1148/1528 [00:17<00:25, 14.91step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  76%|███████▌  | 1162/1528 [00:17<00:17, 21.17step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  77%|███████▋  | 1176/1528 [00:17<00:12, 29.11step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  78%|███████▊  | 1190/1528 [00:17<00:08, 38.71step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  79%|███████▉  | 1205/1528 [00:17<00:06, 50.76step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  80%|███████▉  | 1220/1528 [00:17<00:04, 64.22step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  81%|████████  | 1235/1528 [00:17<00:03, 77.46step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  82%|████████▏ | 1250/1528 [00:17<00:03, 90.71step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  83%|████████▎ | 1264/1528 [00:17<00:02, 101.00step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  84%|████████▎ | 1279/1528 [00:18<00:02, 111.65step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  85%|████████▍ | 1294/1528 [00:18<00:01, 117.17step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  86%|████████▌ | 1309/1528 [00:18<00:01, 123.56step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  87%|████████▋ | 1324/1528 [00:18<00:01, 130.20step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  88%|████████▊ | 1339/1528 [00:18<00:01, 132.52step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  89%|████████▊ | 1355/1528 [00:18<00:01, 138.17step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  90%|████████▉ | 1370/1528 [00:18<00:01, 139.14step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  91%|█████████ | 1385/1528 [00:18<00:01, 141.48step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  92%|█████████▏| 1400/1528 [00:18<00:00, 142.68step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  93%|█████████▎| 1415/1528 [00:18<00:00, 142.08step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  94%|█████████▎| 1430/1528 [00:19<00:00, 142.93step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  95%|█████████▍| 1445/1528 [00:19<00:00, 141.32step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  96%|█████████▌| 1460/1528 [00:19<00:00, 142.49step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  97%|█████████▋| 1475/1528 [00:19<00:00, 141.60step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  98%|█████████▊| 1490/1528 [00:19<00:00, 142.74step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples:  98%|█████████▊| 1505/1528 [00:19<00:00, 98.21step/s] 
+[Origin 12/13] 🎲 Drawing Posterior Samples:  99%|█████████▉| 1517/1528 [00:20<00:00, 76.22step/s]
+[Origin 12/13] 🎲 Drawing Posterior Samples: 100%|█████████▉| 1527/1528 [00:20<00:00, 64.12step/s]
+                                                                                                  
+
+[Origin 13/13] 🎲 Drawing Posterior Samples:   0%|          | 0/1532 [00:00<?, ?step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:   1%|          | 15/1532 [00:00<00:10, 147.24step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:   2%|▏         | 30/1532 [00:00<00:10, 144.68step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:   3%|▎         | 45/1532 [00:00<00:10, 143.60step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:   4%|▍         | 60/1532 [00:00<00:10, 145.40step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:   5%|▍         | 75/1532 [00:00<00:09, 146.48step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:   6%|▌         | 90/1532 [00:00<00:09, 144.91step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:   7%|▋         | 105/1532 [00:00<00:09, 145.74step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:   8%|▊         | 120/1532 [00:00<00:09, 144.88step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:   9%|▉         | 135/1532 [00:00<00:09, 144.90step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  10%|▉         | 150/1532 [00:01<00:09, 143.06step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  11%|█         | 165/1532 [00:01<00:09, 141.11step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  12%|█▏        | 180/1532 [00:01<00:09, 142.11step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  13%|█▎        | 195/1532 [00:01<00:09, 143.02step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  14%|█▎        | 210/1532 [00:01<00:09, 143.43step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  15%|█▍        | 225/1532 [00:01<00:09, 143.50step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  16%|█▌        | 240/1532 [00:01<00:08, 143.85step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  17%|█▋        | 255/1532 [00:01<00:08, 144.97step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  18%|█▊        | 270/1532 [00:01<00:08, 144.59step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  19%|█▊        | 285/1532 [00:01<00:08, 143.24step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  20%|█▉        | 300/1532 [00:02<00:08, 141.79step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  21%|██        | 315/1532 [00:02<00:08, 141.37step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  22%|██▏       | 330/1532 [00:02<00:08, 142.52step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  23%|██▎       | 345/1532 [00:02<00:08, 142.27step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  23%|██▎       | 360/1532 [00:02<00:12, 90.56step/s] 
+[Origin 13/13] 🎲 Drawing Posterior Samples:  24%|██▍       | 372/1532 [00:02<00:16, 69.71step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  25%|██▍       | 382/1532 [00:03<00:20, 55.02step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  25%|██▌       | 390/1532 [00:06<01:59,  9.52step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  26%|██▋       | 403/1532 [00:06<01:22, 13.67step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  27%|██▋       | 417/1532 [00:06<00:56, 19.57step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  28%|██▊       | 431/1532 [00:07<00:40, 27.07step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  29%|██▉       | 446/1532 [00:07<00:29, 36.96step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  30%|███       | 460/1532 [00:07<00:22, 47.72step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  31%|███       | 474/1532 [00:07<00:17, 59.41step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  32%|███▏      | 489/1532 [00:07<00:14, 73.13step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  33%|███▎      | 504/1532 [00:07<00:11, 86.47step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  34%|███▍      | 519/1532 [00:07<00:10, 97.99step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  35%|███▍      | 534/1532 [00:07<00:09, 107.90step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  36%|███▌      | 549/1532 [00:07<00:08, 116.60step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  37%|███▋      | 563/1532 [00:08<00:07, 121.90step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  38%|███▊      | 578/1532 [00:08<00:07, 128.13step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  39%|███▊      | 593/1532 [00:08<00:07, 132.72step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  40%|███▉      | 608/1532 [00:08<00:06, 135.44step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  41%|████      | 623/1532 [00:08<00:06, 137.71step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  42%|████▏     | 638/1532 [00:08<00:06, 140.03step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  43%|████▎     | 653/1532 [00:08<00:06, 140.67step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  44%|████▎     | 668/1532 [00:08<00:06, 142.79step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  45%|████▍     | 683/1532 [00:08<00:05, 141.91step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  46%|████▌     | 698/1532 [00:08<00:05, 142.42step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  47%|████▋     | 713/1532 [00:09<00:05, 140.82step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  48%|████▊     | 728/1532 [00:09<00:05, 139.94step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  48%|████▊     | 743/1532 [00:09<00:08, 90.02step/s] 
+[Origin 13/13] 🎲 Drawing Posterior Samples:  49%|████▉     | 755/1532 [00:09<00:11, 67.38step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  50%|████▉     | 765/1532 [00:10<00:14, 54.16step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  50%|█████     | 773/1532 [00:12<00:59, 12.86step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  51%|█████▏    | 787/1532 [00:12<00:39, 18.70step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  52%|█████▏    | 801/1532 [00:12<00:27, 26.12step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  53%|█████▎    | 816/1532 [00:12<00:19, 36.03step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  54%|█████▍    | 831/1532 [00:12<00:14, 47.69step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  55%|█████▌    | 846/1532 [00:13<00:11, 60.17step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  56%|█████▌    | 861/1532 [00:13<00:09, 73.87step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  57%|█████▋    | 876/1532 [00:13<00:07, 86.45step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  58%|█████▊    | 891/1532 [00:13<00:06, 98.71step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  59%|█████▉    | 905/1532 [00:13<00:05, 107.78step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  60%|██████    | 920/1532 [00:13<00:05, 116.82step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  61%|██████    | 935/1532 [00:13<00:04, 123.61step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  62%|██████▏   | 950/1532 [00:13<00:04, 128.48step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  63%|██████▎   | 966/1532 [00:13<00:04, 134.71step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  64%|██████▍   | 981/1532 [00:13<00:04, 135.13step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  65%|██████▌   | 996/1532 [00:14<00:03, 138.33step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  66%|██████▌   | 1011/1532 [00:14<00:03, 139.30step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  67%|██████▋   | 1026/1532 [00:14<00:03, 140.53step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  68%|██████▊   | 1041/1532 [00:14<00:03, 142.03step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  69%|██████▉   | 1056/1532 [00:14<00:03, 140.64step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  70%|██████▉   | 1071/1532 [00:14<00:03, 142.32step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  71%|███████   | 1086/1532 [00:14<00:03, 140.68step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  72%|███████▏  | 1101/1532 [00:14<00:03, 142.79step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  73%|███████▎  | 1116/1532 [00:14<00:03, 124.14step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  74%|███████▎  | 1129/1532 [00:15<00:05, 80.15step/s] 
+[Origin 13/13] 🎲 Drawing Posterior Samples:  74%|███████▍  | 1140/1532 [00:15<00:06, 60.58step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  75%|███████▌  | 1149/1532 [00:15<00:07, 49.90step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  75%|███████▌  | 1156/1532 [00:18<00:32, 11.43step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  76%|███████▋  | 1170/1532 [00:18<00:21, 17.10step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  77%|███████▋  | 1184/1532 [00:18<00:14, 24.40step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  78%|███████▊  | 1199/1532 [00:18<00:09, 34.07step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  79%|███████▉  | 1213/1532 [00:18<00:07, 44.63step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  80%|████████  | 1227/1532 [00:18<00:05, 56.18step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  81%|████████  | 1242/1532 [00:19<00:04, 69.83step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  82%|████████▏ | 1257/1532 [00:19<00:03, 83.47step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  83%|████████▎ | 1272/1532 [00:19<00:02, 95.76step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  84%|████████▍ | 1287/1532 [00:19<00:02, 105.88step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  85%|████████▍ | 1302/1532 [00:19<00:02, 114.52step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  86%|████████▌ | 1317/1532 [00:19<00:01, 121.91step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  87%|████████▋ | 1332/1532 [00:19<00:01, 128.06step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  88%|████████▊ | 1347/1532 [00:19<00:01, 131.91step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  89%|████████▉ | 1362/1532 [00:19<00:01, 134.84step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  90%|████████▉ | 1377/1532 [00:19<00:01, 137.12step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  91%|█████████ | 1392/1532 [00:20<00:01, 138.25step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  92%|█████████▏| 1407/1532 [00:20<00:00, 140.36step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  93%|█████████▎| 1422/1532 [00:20<00:00, 139.91step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  94%|█████████▍| 1437/1532 [00:20<00:00, 141.01step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  95%|█████████▍| 1452/1532 [00:20<00:00, 141.05step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  96%|█████████▌| 1467/1532 [00:20<00:00, 140.70step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  97%|█████████▋| 1482/1532 [00:20<00:00, 142.22step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  98%|█████████▊| 1497/1532 [00:20<00:00, 133.46step/s]
+[Origin 13/13] 🎲 Drawing Posterior Samples:  99%|█████████▊| 1511/1532 [00:21<00:00, 93.58step/s] 
+[Origin 13/13] 🎲 Drawing Posterior Samples:  99%|█████████▉| 1523/1532 [00:21<00:00, 76.45step/s]
+                                                                                                  
+wandb: WARNING Saving files without folders. If you want to preserve subdirectories pass base_path to wandb.save, i.e. wandb.save("/mnt/folder/file.h5", base_path="/mnt")
+wandb: - 0.137 MB of 0.137 MB uploaded
+wandb: \ 0.137 MB of 0.137 MB uploaded
+wandb:                                                                                
+wandb: 
+wandb: Run history:
+wandb:            month-wise/by_ns_best/Brier_cls_sample █▅▅▅▆▅▂▂▄▂▅▅▆▅▆▂▃▂▆▃▄▄▅▇▇▆▁▃▄▃▁▃▃▆▃▁▃▁▂▃
+wandb:       month-wise/by_ns_best/Brier_cls_sample_mean ▁
+wandb:            month-wise/by_os_best/Brier_cls_sample ▂▃▂▃▃▃▂▁▃▄▆▃▄▅▅▆▄▁▂▆▅▇▆▇█▄▄▅▅▆▇▃▆▇▅▇▃▃▄▆
+wandb:       month-wise/by_os_best/Brier_cls_sample_mean ▁
+wandb:            month-wise/by_sb_best/Brier_cls_sample ▂▂▃▄▁▃▁▂▁▂▁▂▁▂▃▄▂▃▃▂▄▄▅▅▇▃▄▅▃▆▇▄▆▇▇▆▇▆▇█
+wandb:       month-wise/by_sb_best/Brier_cls_sample_mean ▁
+wandb:                        month-wise/lr_ns_best/CRPS ▅█▇▃▂▃▂▃▅▅▄▃▄▂▂▁▂▂▄▃▂▁▂▂▃▂▁▂▂▁▂▁▁▃▂▁▂▁▂▁
+wandb:                   month-wise/lr_ns_best/CRPS_mean ▁
+wandb:                  month-wise/lr_ns_best/MCR_sample █▃▂▆▅▃▅▂▁▁▁▂▁▃▃▆▃▃▁▂▃▅▂▂▂▂▇▄▄▆▂▅▅▂▁▄▁▅▄▆
+wandb:             month-wise/lr_ns_best/MCR_sample_mean ▁
+wandb:                   month-wise/lr_ns_best/QS_sample ▄██▂▂▃▂▃▅▅▄▃▄▂▂▁▂▂▄▃▂▁▃▂▃▂▁▂▂▁▂▁▁▃▂▁▂▁▂▁
+wandb:              month-wise/lr_ns_best/QS_sample_mean ▁
+wandb:                        month-wise/lr_os_best/CRPS ▁▁▁▁▂▁▁▁▁▁▃▁▁▁▂▁▁▁▁▃▂▂▂▂▂▂▂▁▂█▅▅▅▆▂▂▂▂▁▄
+wandb:                   month-wise/lr_os_best/CRPS_mean ▁
+wandb:                  month-wise/lr_os_best/MCR_sample ▇█▇▄▄▅▄▅▃▄▂▃▃▃▂▃▅▄▅▂▂▂▃▂▂▂▃▃▃▁▁▁▁▁▂▂▂▂▃▂
+wandb:             month-wise/lr_os_best/MCR_sample_mean ▁
+wandb:                   month-wise/lr_os_best/QS_sample ▁▁▁▁▂▁▁▁▁▁▃▁▂▂▂▁▁▁▁▃▂▂▂▂▂▂▂▁▂█▅▅▅▅▂▂▂▂▂▄
+wandb:              month-wise/lr_os_best/QS_sample_mean ▁
+wandb:                        month-wise/lr_sb_best/CRPS ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁█
+wandb:                   month-wise/lr_sb_best/CRPS_mean ▁
+wandb:                  month-wise/lr_sb_best/MCR_sample █▆▄▅▆▄▇▅█▄▅▅▄▅▃▄▃▅▅▅▃▃▃▄▃▆▃▅▅▃▂▂▃▂▄▃▃▃▂▁
+wandb:             month-wise/lr_sb_best/MCR_sample_mean ▁
+wandb:                   month-wise/lr_sb_best/QS_sample ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁█
+wandb:              month-wise/lr_sb_best/QS_sample_mean ▁
+wandb:                                  month-wise/month ▃▄▄▆▇██▁▂▃▇▇██▂▃▅▅▆▆▁▁▁▁▂▂▂▄▆▇▂▇▇▇▁▃▄▄▅▇
+wandb:             step-wise/by_ns_best/Brier_cls_sample ▅▆▇▇▇▇▆▆▆▆▆▇▆▆▆▇▇█████▇▇▆▆▆▆▅▄▃▂▂▁▁▁
+wandb:        step-wise/by_ns_best/Brier_cls_sample_mean ▁
+wandb:             step-wise/by_os_best/Brier_cls_sample ▁▁▂▂▃▃▃▄▄▄▄▄▄▄▄▅▆▅▅▅▅▆▇▇█████▇█▇▇▇▇▇
+wandb:        step-wise/by_os_best/Brier_cls_sample_mean ▁
+wandb:             step-wise/by_sb_best/Brier_cls_sample ▁▁▁▁▁▁▁▁▂▂▂▂▂▃▃▄▄▄▄▄▅▅▅▅▅▅▆▆▆▆▆▇▇▇██
+wandb:        step-wise/by_sb_best/Brier_cls_sample_mean ▁
+wandb:                         step-wise/lr_ns_best/CRPS ██▇▆▆▆▅▅▅▅▅▄▃▃▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▁▁▁▁▁▁▁
+wandb:                    step-wise/lr_ns_best/CRPS_mean ▁
+wandb:                   step-wise/lr_ns_best/MCR_sample █▂▁▁▁▁▁▁▂▁▁▂▂▃▃▄▃▃▃▄▃▄▄▄▄▅▄▃▅▄▅▅▄▃▅▅
+wandb:              step-wise/lr_ns_best/MCR_sample_mean ▁
+wandb:                    step-wise/lr_ns_best/QS_sample ▇██▆▆▆▆▆▅▆▅▄▃▃▂▂▃▂▂▂▂▂▂▂▂▂▂▂▂▁▁▁▁▁▁▁
+wandb:               step-wise/lr_ns_best/QS_sample_mean ▁
+wandb:                         step-wise/lr_os_best/CRPS ▁▁▁▁▁▁▁▁▁▁▂▂▁▁▁▂▂▂▂▂▂▂▄▅▅▆▇████████▇
+wandb:                    step-wise/lr_os_best/CRPS_mean ▁
+wandb:                   step-wise/lr_os_best/MCR_sample █▅▄▃▃▃▃▄▃▄▃▃▄▃▃▃▂▂▃▂▃▃▂▁▂▁▁▁▁▁▁▁▁▁▁▁
+wandb:              step-wise/lr_os_best/MCR_sample_mean ▁
+wandb:                    step-wise/lr_os_best/QS_sample ▁▁▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▃▅▅▅▆▇████████▇
+wandb:               step-wise/lr_os_best/QS_sample_mean ▁
+wandb:                         step-wise/lr_sb_best/CRPS ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▂▂▂▂▂█
+wandb:                    step-wise/lr_sb_best/CRPS_mean ▁
+wandb:                   step-wise/lr_sb_best/MCR_sample █▆▄▄▄▄▄▄▄▄▄▄▄▄▃▄▃▃▄▄▄▄▄▃▃▃▃▃▃▃▃▃▃▂▂▁
+wandb:              step-wise/lr_sb_best/MCR_sample_mean ▁
+wandb:                    step-wise/lr_sb_best/QS_sample ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▁▂▂▂▂▂▂█
+wandb:               step-wise/lr_sb_best/QS_sample_mean ▁
+wandb:                                    step-wise/step ▁▁▂▄▄▇▇▇█▂▄▄▅▆▆█▂▃▅█▂▃▆▆▇▁▄▄▅▆▇███▂▂▃▄▅▇
+wandb:      time-series-wise/by_ns_best/Brier_cls_sample █▅▆▅▄▅▅▂▃▂▂▁▁
+wandb: time-series-wise/by_ns_best/Brier_cls_sample_mean ▁
+wandb:      time-series-wise/by_os_best/Brier_cls_sample ▁▃▂▃▅▆▄▅▇█▇▃▄
+wandb: time-series-wise/by_os_best/Brier_cls_sample_mean ▁
+wandb:      time-series-wise/by_sb_best/Brier_cls_sample ▂▁▁▁▁▂▃▂▄▄▅▇█
+wandb: time-series-wise/by_sb_best/Brier_cls_sample_mean ▁
+wandb:                  time-series-wise/lr_ns_best/CRPS █▇▆▅▅▅▄▄▄▃▃▂▁
+wandb:             time-series-wise/lr_ns_best/CRPS_mean ▁
+wandb:            time-series-wise/lr_ns_best/MCR_sample ▄▅█▇▅▄▄▅▁▃▃▂▆
+wandb:       time-series-wise/lr_ns_best/MCR_sample_mean ▁
+wandb:             time-series-wise/lr_ns_best/QS_sample █▇▆▅▅▅▄▄▄▃▃▂▁
+wandb:        time-series-wise/lr_ns_best/QS_sample_mean ▁
+wandb:                  time-series-wise/lr_os_best/CRPS ▁▂▄▅▆▆▇▇▇▇▇██
+wandb:             time-series-wise/lr_os_best/CRPS_mean ▁
+wandb:            time-series-wise/lr_os_best/MCR_sample █▄▄▂▂▃▃▂▁▂▁▂▄
+wandb:       time-series-wise/lr_os_best/MCR_sample_mean ▁
+wandb:             time-series-wise/lr_os_best/QS_sample ▁▂▄▅▇▇▇██████
+wandb:        time-series-wise/lr_os_best/QS_sample_mean ▁
+wandb:                  time-series-wise/lr_sb_best/CRPS ▁▁▁▁▁▁▁▁▁▁▂▂█
+wandb:             time-series-wise/lr_sb_best/CRPS_mean ▁
+wandb:            time-series-wise/lr_sb_best/MCR_sample █▆▅▅▅▅▅▆▄▅▄▃▁
+wandb:       time-series-wise/lr_sb_best/MCR_sample_mean ▁
+wandb:             time-series-wise/lr_sb_best/QS_sample ▁▁▁▁▁▁▁▁▁▁▂▂█
+wandb:        time-series-wise/lr_sb_best/QS_sample_mean ▁
+wandb:                      time-series-wise/time-series ▂▂▃▃▅▆▇███▃▄▅▆▇██▂▂▃▆▇▇▂▂▄▅▆▆▇█▁▆▆▇▂▃▃▅█
+wandb: 
+wandb: Run summary:
+wandb:            month-wise/by_ns_best/Brier_cls_sample 0.00236
+wandb:       month-wise/by_ns_best/Brier_cls_sample_mean 0.00259
+wandb:            month-wise/by_os_best/Brier_cls_sample 0.00462
+wandb:       month-wise/by_os_best/Brier_cls_sample_mean 0.00401
+wandb:            month-wise/by_sb_best/Brier_cls_sample 0.00942
+wandb:       month-wise/by_sb_best/Brier_cls_sample_mean 0.00697
+wandb:                        month-wise/lr_ns_best/CRPS 0.02128
+wandb:                   month-wise/lr_ns_best/CRPS_mean 0.04562
+wandb:                  month-wise/lr_ns_best/MCR_sample 0.24932
+wandb:             month-wise/lr_ns_best/MCR_sample_mean 0.14489
+wandb:                   month-wise/lr_ns_best/QS_sample 0.02018
+wandb:              month-wise/lr_ns_best/QS_sample_mean 0.04141
+wandb:                        month-wise/lr_os_best/CRPS 0.08689
+wandb:                   month-wise/lr_os_best/CRPS_mean 0.04309
+wandb:                  month-wise/lr_os_best/MCR_sample 0.06736
+wandb:             month-wise/lr_os_best/MCR_sample_mean 0.18833
+wandb:                   month-wise/lr_os_best/QS_sample 0.07809
+wandb:              month-wise/lr_os_best/QS_sample_mean 0.03962
+wandb:                        month-wise/lr_sb_best/CRPS 8.79868
+wandb:                   month-wise/lr_sb_best/CRPS_mean 0.32622
+wandb:                  month-wise/lr_sb_best/MCR_sample 0.00197
+wandb:             month-wise/lr_sb_best/MCR_sample_mean 0.211
+wandb:                   month-wise/lr_sb_best/QS_sample 8.7007
+wandb:              month-wise/lr_sb_best/QS_sample_mean 0.30108
+wandb:                                  month-wise/month 504
+wandb:             step-wise/by_ns_best/Brier_cls_sample 0.00218
+wandb:        step-wise/by_ns_best/Brier_cls_sample_mean 0.00261
+wandb:             step-wise/by_os_best/Brier_cls_sample 0.00433
+wandb:        step-wise/by_os_best/Brier_cls_sample_mean 0.00409
+wandb:             step-wise/by_sb_best/Brier_cls_sample 0.00859
+wandb:        step-wise/by_sb_best/Brier_cls_sample_mean 0.00683
+wandb:                         step-wise/lr_ns_best/CRPS 0.02741
+wandb:                    step-wise/lr_ns_best/CRPS_mean 0.04284
+wandb:                   step-wise/lr_ns_best/MCR_sample 0.14646
+wandb:              step-wise/lr_ns_best/MCR_sample_mean 0.11618
+wandb:                    step-wise/lr_ns_best/QS_sample 0.02624
+wandb:               step-wise/lr_ns_best/QS_sample_mean 0.0393
+wandb:                         step-wise/lr_os_best/CRPS 0.06687
+wandb:                    step-wise/lr_os_best/CRPS_mean 0.04469
+wandb:                   step-wise/lr_os_best/MCR_sample 0.07814
+wandb:              step-wise/lr_os_best/MCR_sample_mean 0.13827
+wandb:                    step-wise/lr_os_best/QS_sample 0.06338
+wandb:               step-wise/lr_os_best/QS_sample_mean 0.04137
+wandb:                         step-wise/lr_sb_best/CRPS 0.87164
+wandb:                    step-wise/lr_sb_best/CRPS_mean 0.15209
+wandb:                   step-wise/lr_sb_best/MCR_sample 0.02558
+wandb:              step-wise/lr_sb_best/MCR_sample_mean 0.18452
+wandb:                    step-wise/lr_sb_best/QS_sample 0.84928
+wandb:               step-wise/lr_sb_best/QS_sample_mean 0.12999
+wandb:                                    step-wise/step 36
+wandb:      time-series-wise/by_ns_best/Brier_cls_sample 0.00251
+wandb: time-series-wise/by_ns_best/Brier_cls_sample_mean 0.00261
+wandb:      time-series-wise/by_os_best/Brier_cls_sample 0.00409
+wandb: time-series-wise/by_os_best/Brier_cls_sample_mean 0.00409
+wandb:      time-series-wise/by_sb_best/Brier_cls_sample 0.00722
+wandb: time-series-wise/by_sb_best/Brier_cls_sample_mean 0.00683
+wandb:                  time-series-wise/lr_ns_best/CRPS 0.03379
+wandb:             time-series-wise/lr_ns_best/CRPS_mean 0.04284
+wandb:            time-series-wise/lr_ns_best/MCR_sample 0.12352
+wandb:       time-series-wise/lr_ns_best/MCR_sample_mean 0.10956
+wandb:             time-series-wise/lr_ns_best/QS_sample 0.03087
+wandb:        time-series-wise/lr_ns_best/QS_sample_mean 0.0393
+wandb:                  time-series-wise/lr_os_best/CRPS 0.04888
+wandb:             time-series-wise/lr_os_best/CRPS_mean 0.04469
+wandb:            time-series-wise/lr_os_best/MCR_sample 0.12572
+wandb:       time-series-wise/lr_os_best/MCR_sample_mean 0.11793
+wandb:             time-series-wise/lr_os_best/QS_sample 0.04432
+wandb:        time-series-wise/lr_os_best/QS_sample_mean 0.04137
+wandb:                  time-series-wise/lr_sb_best/CRPS 0.39009
+wandb:             time-series-wise/lr_sb_best/CRPS_mean 0.15209
+wandb:            time-series-wise/lr_sb_best/MCR_sample 0.04986
+wandb:       time-series-wise/lr_sb_best/MCR_sample_mean 0.17613
+wandb:             time-series-wise/lr_sb_best/QS_sample 0.36768
+wandb:        time-series-wise/lr_sb_best/QS_sample_mean 0.12999
+wandb:                      time-series-wise/time-series 12
+wandb: 
+wandb: 🚀 View run swift-pine-72 at: https://wandb.ai/views_pipeline/fullzero_fortythree_calibration/runs/5t5n4sd7
+wandb: ⭐️ View project at: https://wandb.ai/views_pipeline/fullzero_fortythree_calibration
+wandb: Synced 5 W&B file(s), 0 media file(s), 36 artifact file(s) and 36 other file(s)
+wandb: Find logs at: ./wandb/run-20260906_184911-5t5n4sd7/logs

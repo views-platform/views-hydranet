@@ -57,3 +57,55 @@ M65's paired sd (0.0075) came from an **emit-only** flag on **one** artifact. A 
 2. **PROBE-1, zero training**: the horizon reach curve `‖∂L_k/∂h_origin‖` for k=1..36. Pre-registered: ratio(36/1) > 1 ⇒ (C) needs a bound before a single lesson; < 1e-3 ⇒ (C)'s advantage is nominal and F0 dies without GPU.
 3. **F2 test on the current model** (~8 GPU-h) — possibly a cheaper result than the epic.
 4. Then S3 (re-powered), S4, S5 (with the multivariate score), S6–S10.
+
+---
+
+# ⛔ AMENDMENT 2026-09-06 — the review's framing of the motive was wrong, and so was mine
+
+The panel and I both treated **M60** ("rolling the fed input moves the field 0/26") as undercutting
+the epic's motive, and I wrote that into the rulings above. **That reading is wrong, and the chair
+caught it.**
+
+**M60 measures the INSTANTANEOUS effect**: perturb the fed input at one step, does *that step's*
+output follow? No — because the current emission is dominated by the state. **M51 measures the
+CUMULATIVE effect**, and it is decisive: fed its own forecasts, occurrence collapses **×0.036** over
+36 steps; fed real observations, it is **flat, ×1.19**. Same model, same seed, one flag, identical at
+h1.
+
+The two are not in conflict. Together they locate the mechanism:
+
+> **bad input → the state degrades over many steps → the forecast collapses.**
+
+Which is also exactly why clamping the state works (M48/M56, +0.0591): it blocks the damage pathway
+without fixing the input. The clamp treats the symptom; the input is the cause.
+
+**So the motive stands, and it is stronger than the version this dossier originally argued.** The
+epic is not "delete exposure bias" as an abstraction — it is *the model is fed something after step 1
+that it was never trained on, and that is measurably the whole of the 36-month degradation.*
+
+## PROBE-A does not test what it was built to test — my error, not a finding
+
+`hold_last_real` does **not** remove the bad input. It replaces the model's forecast with a **stale**
+one: the origin's observation, frozen, while predicting up to 36 months ahead. That is a *third*
+condition, and plausibly worse than the model's own forecast, which at least attempts to move
+forward. Seed 42 returned ΔAP@h18 **−0.0103** with firing ×1.97 — a real measurement of *staleness*,
+and **not** evidence about removing feedback.
+
+**Consequence: PROBE-A is withdrawn as a gate on this epic.** More generally there may be **no clean
+inference-only analogue** of direct multi-horizon, because it changes what the decoder is
+*conditioned on*, and a horizon covariate cannot be emulated on weights that never had one. The
+panel's "gate the build on a cheap probe" recommendation was accepted here without that being
+checked, and it should not have been.
+
+The probe's four seeds are being finished because they are already paid for, and the result is worth
+recording as a fact about stale feedback. It carries no weight on whether to build.
+
+## What the amendment does NOT change
+
+Every other panel finding stands, and they are the reason this epic is still not ready to build:
+**F5's per-intensity weighting is rejected** (improper by theorem; already measured to fail here);
+**the ruler is blind to what a direct head gives up** and the library holds no multivariate proper
+score; the **four blockers** (C-218's scoring gate, ADR-027 §1 mandating recursion, the
+`input_channels` law, `extra="allow"`) are unaffected; and the **architecture facts** — parallel
+cells at one grid cell per month, 32×32 training crops, 4 channels per cell, line 604 — are
+unaffected.
