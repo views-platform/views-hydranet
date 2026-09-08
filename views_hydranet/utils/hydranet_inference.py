@@ -495,7 +495,7 @@ class HydraNetInference:
         return full_tensor[:, step, model_in_indices, :, :][:, :n_dyn]
 
     def _apply_feedback_transform(
-        self, t0_autoreg, full_tensor, model_in_indices, n_static: int, step: int
+        self, t0_autoreg, full_tensor, model_in_indices, n_static: int, step: int, origin: int
     ):
         """Replace the fed-back DYNAMIC channels per the diagnostic arm. Statics are untouched.
 
@@ -510,11 +510,14 @@ class HydraNetInference:
         # --- step remappings: choose WHICH month's real field, change nothing about it ---------
         if name == "identity":
             return t0_autoreg
-        if name in ("use_real", "wrong_month", "shuffle_months"):
+        if name in ("use_real", "wrong_month", "shuffle_months", "hold_last_real"):
             src = {
                 "use_real": step,
                 "wrong_month": step + int(param or 0),
                 "shuffle_months": self._month_shuffle.get(step, step),
+                # #324 PROBE-A: always the origin's own month, so the fed field never evolves and
+                # nothing the model emitted is ever fed back.
+                "hold_last_real": origin,
             }[name]
             if name == "use_real":
                 # The FULL slice, exactly what the teacher_forced branch feeds — including its
@@ -1077,7 +1080,12 @@ class HydraNetInference:
             # fire ~30 autoregressive steps into the first origin, wasting GPU on an arm that was
             # mis-specified before it started.
             name, param = self._feedback_arm
-            if name in ("use_real", "wrong_month", "shuffle_months") or name not in ("identity",):
+            if name in (
+                "use_real",
+                "wrong_month",
+                "shuffle_months",
+                "hold_last_real",
+            ) or name not in ("identity",):
                 offset = int(param) if name == "wrong_month" else 0
                 needed = [s + offset for s in steps] + [origin + offset]
                 oob = [m for m in needed if not 0 <= m < full_tensor.shape[1]]
@@ -1178,7 +1186,7 @@ class HydraNetInference:
                 # statics stay exactly as attached above.
                 if self._feedback_arm:
                     t0_autoreg = self._apply_feedback_transform(
-                        t0_autoreg, full_tensor, model_in_indices, len(static_indices), t
+                        t0_autoreg, full_tensor, model_in_indices, len(static_indices), t, origin
                     )
                     fb_prev_active = self._record_feedback_stats(
                         t0_autoreg[:, : t0_autoreg.shape[1] - len(static_indices)],
