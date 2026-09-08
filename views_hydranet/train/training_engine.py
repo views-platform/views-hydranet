@@ -1517,6 +1517,13 @@ def training_loop(
     # bn_recal_from-only experiment run (its lesson loop already recalibrated). Guarded: a recal
     # failure must NEVER lose a completed training run — snapshot the BN buffers first and restore
     # them on any error (so a half-reset model is never saved), then proceed to save as-is.
+    # The default is repeated here DELIBERATELY, against the usual no-shadow-default rule, and the
+    # reason is a regression this line already caused once. Dropping it made
+    # `config.get("bn_recalibrate")` return None for any caller passing a plain dict — every test
+    # fixture and every research driver — which SILENTLY SKIPPED the C-184 mitigation entirely.
+    # A shadow default risks divergence from the schema; no default at all risks the mitigation
+    # not running. The second is far worse, so the default stays, and
+    # `test_the_code_default_matches_the_schema_default` pins the two equal so they cannot drift.
     if config.get("bn_recalibrate", True) and not _bn_recal:
         _bn_snapshot = {
             k: v.clone()

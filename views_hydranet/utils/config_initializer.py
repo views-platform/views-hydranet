@@ -322,6 +322,12 @@ class HydraNetConfig(BaseModel):
     # C-324 inert-knob signature that cost 276 min of GPU on #308.
     input_noise_dropout: float | None = Field(default=None, gt=0.0, lt=1.0)
     random_flips: bool = Field(default=True)
+    # The C-184 mitigation: recompute BatchNorm running statistics forward-only after training.
+    # It has been read as `config.get("bn_recalibrate", True)` — a SHADOW DEFAULT on a production
+    # setting that ships inside every artifact, and one no schema validated. All 8 roster configs
+    # set it; a typo would have silently reverted to True with nothing raised. Promoted to a field
+    # so the schema owns the default and the near-miss guard below can catch a misspelling.
+    bn_recalibrate: bool = Field(default=True)
     # ADR-027 §2.1 (2026-09-05): the cell clamp, promoted from a diagnostic constructor argument to
     # a production setting. None (default) evolves the full ConvLSTM state — the §2 behaviour, and
     # byte-identical for every config that omits this key, which is what stops the amendment
@@ -1286,6 +1292,53 @@ class HydraNetConfig(BaseModel):
 
     def keys(self) -> list[str]:
         return list(self.model_fields.keys()) + list(self.__pydantic_extra__.keys())
+
+    @model_validator(mode="after")
+    def reject_near_miss_keys(self) -> "HydraNetConfig":
+        """A key that is ALMOST a known field is a typo, and `extra="allow"` would swallow it.
+
+        `extra = "allow"` is load-bearing and must stay: configs legitimately carry keys owned by
+        other layers (`skip_predictions_delivery` is read by views-pipeline-core's config sniffer,
+        not here). So unknown keys cannot simply be rejected.
+
+        But the same tolerance means `freeze_recurent: "cell"` validates, does nothing, and looks
+        enabled — the **C-324 inert-knob signature**, on a setting whose whole point is that it
+        changes a delivered forecast. This guard splits the two cases: an unknown key that is
+        within one edit of a real field is a typo and fails loud; anything else is another layer's
+        business and passes untouched.
+
+        Threshold is distance 1 deliberately. Distance 2 flags `delta` against `theta` and similar
+        unrelated short names, which would make the guard a nuisance and get it disabled.
+        """
+        extras = getattr(self, "__pydantic_extra__", None) or {}
+        if not extras:
+            return self
+        known = set(type(self).model_fields)
+
+        def within_one_edit(a: str, b: str) -> bool:
+            if abs(len(a) - len(b)) > 1:
+                return False
+            if len(a) == len(b):
+                return sum(x != y for x, y in zip(a, b)) == 1
+            short, long = (a, b) if len(a) < len(b) else (b, a)
+            for i in range(len(long)):
+                if long[:i] + long[i + 1 :] == short:
+                    return True
+            return False
+
+        typos = {
+            k: sorted(f for f in known if within_one_edit(k, f))
+            for k in extras
+            if any(within_one_edit(k, f) for f in known)
+        }
+        if typos:
+            detail = "; ".join(f"{k!r} -> did you mean {v}?" for k, v in sorted(typos.items()))
+            raise ValueError(
+                f"config key(s) one edit away from a real field: {detail}. Rename, or if the key "
+                "genuinely belongs to another layer, rename it so it is not a near-miss. "
+                'extra="allow" would otherwise accept it, and the setting would do nothing.'
+            )
+        return self
 
     class Config:
         extra = "allow"  # Tolerant Handshake
