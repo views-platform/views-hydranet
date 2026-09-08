@@ -276,22 +276,32 @@ def test_the_rate_SURVIVES_the_config_to_dict_handshake(valid_config_dict):
     assert off.get("input_noise_dropout") is None
 
 
-def test_a_TYPO_in_the_config_key_is_not_silently_accepted_as_the_real_one(valid_config_dict):
-    """`HydraNetConfig` sets `extra="allow"`, so `input_noise_droput: 0.204` validates cleanly
-    and the arm trains with the augmentation OFF and no warning — the same inert signature,
-    reached by a plausible authoring slip.
+def test_a_TYPO_in_the_config_key_now_FAILS_LOUD(valid_config_dict):
+    """`input_noise_droput: 0.204` must be rejected, not silently accepted and ignored.
 
-    This is NOT fixed here: changing `extra` is repo-wide and out of this epic's scope. The test
-    pins the behaviour so it is visible rather than surprising, and the mitigation that does catch
-    it is the S4 potency gate, which runs on the arm's own config and aborts on an inert knob.
+    ⚠️ **This test was inverted on 2026-09-06, on its own instructions.** It previously pinned the
+    OPPOSITE — that `extra="allow"` swallowed the typo and the arm trained with the augmentation
+    off and no warning — and recorded that the mitigation was the potency gate, adding: *"if that
+    changed, the typo now fails loud and this test should become an expectation of that, not of
+    silent acceptance."* It changed. `reject_near_miss_keys` now rejects any unknown key within one
+    edit of a real field, so the inert signature is unreachable through a plausible authoring slip.
+
+    `extra="allow"` itself is unchanged and must stay: these configs legitimately carry keys owned
+    by other layers (views-pipeline-core reads `skip_predictions_delivery` from the same dict).
     """
+    import pytest as _pytest
+
     from views_hydranet.utils.config_initializer import ConfigInitializer
 
-    resolved = ConfigInitializer({**valid_config_dict, "input_noise_droput": 0.204}).get_config()
-    assert resolved.get("input_noise_dropout") is None, (
-        "a typo'd key was somehow bound to the real field"
-    )
-    assert resolved.get("input_noise_droput") == 0.204, (
-        "extra='allow' no longer keeps unknown keys — if that changed, the typo now fails loud "
-        "and this test should become an expectation of that, not of silent acceptance"
-    )
+    with _pytest.raises(ValueError, match="one edit away from a real field"):
+        ConfigInitializer({**valid_config_dict, "input_noise_droput": 0.204}).get_config()
+
+
+def test_the_typo_message_names_input_noise_dropout(valid_config_dict):
+    """A guard that fires without naming the intended field gets routed around."""
+    import pytest as _pytest
+
+    from views_hydranet.utils.config_initializer import ConfigInitializer
+
+    with _pytest.raises(ValueError, match="input_noise_dropout"):
+        ConfigInitializer({**valid_config_dict, "input_noise_droput": 0.204}).get_config()

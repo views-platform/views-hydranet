@@ -36,7 +36,8 @@ class TestF5_CICFieldCountDrift:
         # #311 input noise (Sanchez-Gonzalez 2020, adapted): +input_noise_dropout -> 96
         # ADR-027 §2.1 cell clamp to production: +freeze_recurrent,
         # +freeze_recurrent_weight -> 98
-        CIC_CLAIMED_COUNT = 98
+        # C-184 mitigation promoted out of a shadow default: +bn_recalibrate -> 99
+        CIC_CLAIMED_COUNT = 99
         actual = len(HydraNetConfig.model_fields)
         assert actual == CIC_CLAIMED_COUNT, (
             f"CIC §3 claims {CIC_CLAIMED_COUNT} fields but HydraNetConfig has {actual}. "
