@@ -1309,6 +1309,14 @@ class HydraNetConfig(BaseModel):
 
         Threshold is distance 1 deliberately. Distance 2 flags `delta` against `theta` and similar
         unrelated short names, which would make the guard a nuisance and get it disabled.
+
+        ⚠️ **Known live near-miss: `rnn_type` vs `run_type`.** `rnn_type` is a real key in this
+        platform — `dancing_queen` and `party_princess` carry it — and it is one edit from
+        `run_type`. Those two are `BlockRNNModel`, so they never reach this schema, and a sweep of
+        every model in views-models confirms **0 of the 8 HydraNet configs** trips this guard
+        today. But HydraNet is itself an RNN, so a future HydraNet gaining an `rnn_type` key would
+        be rejected with a confusing "did you mean run_type?". If that happens the fix is an
+        explicit allowlist of platform-legitimate keys, NOT loosening the distance threshold.
         """
         extras = getattr(self, "__pydantic_extra__", None) or {}
         if not extras:
