@@ -88,6 +88,13 @@ FEEDBACK_TRANSFORMS: dict[str, bool] = {
     "inject": True,  # E2 precision
     "spatial_scramble": False,  # E2 spatial structure
     "shuffle_months": False,  # E2 temporal persistence (a step remapping, not a field op)
+    # #324 PROBE-A: hold the ORIGIN's real field for every step of the rollout. Nothing the
+    # model emits is ever fed back, and the input never evolves -- which is exactly direct
+    # multi-horizon's INFERENCE semantics, reproduced on an already-trained artifact. Paired
+    # with freeze_recurrent='cell' it bounds the prize of the whole #324 epic for ~1 GPU-hour.
+    # A step remapping like use_real/wrong_month: it chooses WHICH month, and changes nothing
+    # about the field it chooses.
+    "hold_last_real": False,
     "magnitude_perturb": True,  # E2 magnitude realism
 }
 

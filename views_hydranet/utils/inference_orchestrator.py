@@ -71,6 +71,22 @@ class InferenceOrchestrator:
                 "this layer happens to guess."
             )
         self.freeze_recurrent_weight: float = 1.0 if _weight is None else _weight
+        # Say so in the log. ADR-027 §2.1 admitted this to production, the artifact sidecar does
+        # NOT record it, and nothing else prints it — so a delivered forecast carried no evidence
+        # of whether the clamp was on. That is the C-324 inert-knob signature on the one setting
+        # whose entire purpose is to change the forecast: a run with a mistyped or unread key would
+        # look identical in every log to a run with the clamp live.
+        if self.freeze_recurrent is not None:
+            logger.info(
+                f"🧊 InferenceOrchestrator: recurrent state CLAMPED — "
+                f"freeze_recurrent={self.freeze_recurrent!r}, "
+                f"weight={self.freeze_recurrent_weight} (ADR-027 §2.1)."
+            )
+        else:
+            logger.info(
+                "InferenceOrchestrator: recurrent state evolves freely "
+                "(freeze_recurrent unset — ADR-027 §2 behaviour)."
+            )
         # Diagnostic feedback-field transform spec (#258/#262); see HydraNetInference.
         self.feedback_transform: Optional[str] = None
         # DIAGNOSTIC: correlated feedback sampler; None = independent Bernoulli.

@@ -145,3 +145,47 @@ def _cpu():
 
 class _DummyModel:
     """The orchestrator's __init__ only stores the model; it is never called here."""
+
+
+class TestTheClampIsVisibleInTheLog:
+    """A production setting that changes the forecast must announce itself.
+
+    ADR-027 §2.1 admitted the cell clamp to production. The artifact sidecar records 12 keys and
+    `freeze_recurrent` is not among them, and nothing printed it — so a delivered forecast carried
+    **no evidence of whether the clamp was on**. A run with a mistyped key would be
+    indistinguishable in every log from a run with the clamp live: the **C-324** inert-knob
+    signature, on the one setting whose only purpose is to change the output.
+
+    Found while smoke-testing a 29-hour run whose entire premise is the clamp.
+    """
+
+    def test_a_clamped_run_says_so(self, cfg, caplog):
+        import logging
+
+        from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
+
+        built = HydraNetConfig(**_with(cfg, freeze_recurrent="cell")).model_dump()
+        orch = InferenceOrchestrator.__new__(InferenceOrchestrator)
+        with caplog.at_level(logging.INFO):
+            InferenceOrchestrator.__init__(
+                orch, config=built, model=_DummyModel(), device=_cpu(), visualizer=None
+            )
+        assert "CLAMPED" in caplog.text and "'cell'" in caplog.text, (
+            f"a clamped run did not announce the clamp; log was: {caplog.text!r}"
+        )
+
+    def test_an_unclamped_run_also_says_so(self, cfg, caplog):
+        """Anti-vacuity: silence must not be the signal for either state."""
+        import logging
+
+        from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
+
+        built = HydraNetConfig(**cfg).model_dump()
+        built.pop("freeze_recurrent", None)
+        orch = InferenceOrchestrator.__new__(InferenceOrchestrator)
+        with caplog.at_level(logging.INFO):
+            InferenceOrchestrator.__init__(
+                orch, config=built, model=_DummyModel(), device=_cpu(), visualizer=None
+            )
+        assert "evolves freely" in caplog.text
+        assert "CLAMPED" not in caplog.text
