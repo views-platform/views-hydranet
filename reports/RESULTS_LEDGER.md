@@ -77,6 +77,36 @@ static-map worry is untouched. Rows **M38–M41**; dossier
 
 ---
 
+## 🎛️ ENSEMBLE ROSTER — 2026-09-08 — the clamp transfers big, the pool wins for the wrong reason, and the roster is not diverse
+
+**F1 does NOT fire — the cell clamp transfers, and by 2-3× what it was sold for**: ΔAP@h36 **+0.14
+to +0.19** on both test models × both compositions, against ADR-027 §2.1's +0.0591 on `fullzero_*`
+vehicles; `pink_pirate` unclamped is effectively **dead from h18** (AP 0.008 vs 0.268), and ΔAP@h1 is
+**exactly 0.0000** — the pre-registered VOID condition passing as a positive control (M71). **F2 does
+NOT fire — the pooled 8-member ensemble beats its best single member at every horizon** (AP@h18
+0.2203 vs 0.1804) — **but subsampling that same pool back to 16 draws collapses it to 0.1462,
+*below* the best member**, and AP is monotone in S (k=2 0.150, k=4 0.186, k=8 0.220): **the ensemble
+is buying sample count, not member disagreement** (M66). It has almost none to buy — **gate errors
+correlate 0.96–0.99 across all 28 pairs**, and a soft gate on every model compresses AP@h18 into
+0.228–0.286 across eight architectures (M67). **The composition is a firing-rate dial, not a skill
+lever**: `crps_events` and `n_false_pos` are unchanged (ratio 1.00) while `act_ratio` and
+`crps_none` move 1.3–4.3× (M72) — so **`gate_threshold=0.5` is a DELIVERY-SHAPE decision, not a
+model-quality one**: free if the gate ships beside the fatality field, ruinous if one field ships
+(then AP on the emitted field falls 0.2642 → 0.0675 and only **23 of 13,110 cells** are non-zero).
+`rusty_bucket` pools composed cubes, so the pooled product is the single-field case (M68). **A
+multi-τ roster cannot help**: E_τ~U(0,1)[(gate ≥ τ)] = gate, so averaging thresholds reconstructs the
+soft gate from below and never crosses it — within 0.5–0.7% at 64 τ (M69). **For point estimates,
+`gate × mu` beats the mean of 16 draws by +58% to +159%** at identical total mass, and `median` is an
+empty map (0.05–0.14% of cells non-zero) → views-hydranet#337 (M70). **K1 PASS 8/8** (`recall_mass` h36 0.016–0.057 vs a 0.01 floor, 13 origins — the worst clears
+it by 1.6×), **K2 PASS 8/8**, **K3 VOID** (comparator produced no scores; views-models#445, so the
+roster has NOT been checked against a baseline) (M73); 27 forecast maps, re-emit verified
+byte-identical (M74). ⚠️ Caveats: **`sb` only, one origin (517–552), ONE artifact per config — no
+seed replication**, so adjacent ranks sit inside C-119's ~20% variance; τ, S, clamp and collapse are
+the effects that are multiples of it. Rows **M66–M74**; dossier
+`reports/2026-09-06_ensemble_roster_dossier/`.
+
+---
+
 ## Claims Ledger — the rollout collapse (#258 / #262)
 
 **Why this section exists.** The run ledger below is per-*run* and the narrative is chronological, and
