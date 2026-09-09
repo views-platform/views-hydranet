@@ -4,12 +4,12 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-09-05                           |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). **C-319..C-322 added 2026-09-03 from the silence-vs-fade dossier: C-319 (field statistics blind to placement — occurrence, magnitude and alignment ALL survive a roll that destroys the forecast, so an internal statistic cannot close a causal claim about a truth-referenced score); C-320 (a falsifier band tighter than its own reference's sampling noise, which fired on the known-good control); C-321 (`--keep-cubes` silently disables the multi-arm contamination guard); C-322 (the model field's H axis runs opposite to priogrid row order — naive placement correlates 0.026, the flip gives 1.0000). **C-325 added 2026-09-04: two SCREEN-2 mechanism tests measured the network at INITIALISATION and were recorded as ruling a mechanism out; the arm's gradient does explode, 33 lessons later.** **C-328 added 2026-09-05: #311's input noise leaked into the C-184 BatchNorm recalibration pass, which would have confounded the S5 screen at the BN layer with every log looking clean; second instance of the mechanism after #289's, and found by a test written for a different prose invariant.** **C-329 added 2026-09-05 from the implementation-practice post-mortem: tests that cannot fail (tautology, vacuity, zero power) — invisible to mutation testing by construction, detected by the deletion test.** **C-330/C-331/C-332 added 2026-09-05 from `/code-review max` (partial — 11 finders, no expert panel); the same pass ESCALATED C-328 to four instances (the `bn_recal_from` path and `random_flips`, the latter left unfixed by decision), C-303 to TWELVE occurrences with a new sub-form (the false prose describes a safety gate, making an absent control look present), and C-329 with two further instances, both inside the commit that registered it.** **C-326 added the same day: launcher watchdogs kill the subshell, not the process tree — an arm reported CAPPED trained on for 7 more lessons; latent everywhere else (no `STALLED` line exists in any `ANOMALIES.txt`).** **C-327 added 2026-09-04: #308's Phase-2 clip ladder was pre-registered as a discriminator whose two hypotheses, derived properly, predict the SAME outcome — C-320's fifth instance, found before it was run and at no cost.** **C-320 escalated 2026-09-04 from three to FOUR occurrences, the fourth a distinct sub-form: #308's SCREEN rule enumerated three numeric outcomes and no failure branch, so when arm B died with NaN gradients at lesson 48 no branch of the rule could be evaluated.** |
-| Total Concerns    | 329                                  |
-| Open Concerns     | 177                                  |
+| Last Updated      | 2026-09-10                           |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). **C-319..C-322 added 2026-09-03 from the silence-vs-fade dossier: C-319 (field statistics blind to placement — occurrence, magnitude and alignment ALL survive a roll that destroys the forecast, so an internal statistic cannot close a causal claim about a truth-referenced score); C-320 (a falsifier band tighter than its own reference's sampling noise, which fired on the known-good control); C-321 (`--keep-cubes` silently disables the multi-arm contamination guard); C-322 (the model field's H axis runs opposite to priogrid row order — naive placement correlates 0.026, the flip gives 1.0000). **C-325 added 2026-09-04: two SCREEN-2 mechanism tests measured the network at INITIALISATION and were recorded as ruling a mechanism out; the arm's gradient does explode, 33 lessons later.** **C-328 added 2026-09-05: #311's input noise leaked into the C-184 BatchNorm recalibration pass, which would have confounded the S5 screen at the BN layer with every log looking clean; second instance of the mechanism after #289's, and found by a test written for a different prose invariant.** **C-329 added 2026-09-05 from the implementation-practice post-mortem: tests that cannot fail (tautology, vacuity, zero power) — invisible to mutation testing by construction, detected by the deletion test.** **C-330/C-331/C-332 added 2026-09-05 from `/code-review max` (partial — 11 finders, no expert panel); the same pass ESCALATED C-328 to four instances (the `bn_recal_from` path and `random_flips`, the latter left unfixed by decision), C-303 to TWELVE occurrences with a new sub-form (the false prose describes a safety gate, making an absent control look present), and C-329 with two further instances, both inside the commit that registered it.** **C-326 added the same day: launcher watchdogs kill the subshell, not the process tree — an arm reported CAPPED trained on for 7 more lessons; latent everywhere else (no `STALLED` line exists in any `ANOMALIES.txt`).** **C-327 added 2026-09-04: #308's Phase-2 clip ladder was pre-registered as a discriminator whose two hypotheses, derived properly, predict the SAME outcome — C-320's fifth instance, found before it was run and at no cost.** **C-320 escalated 2026-09-04 from three to FOUR occurrences, the fourth a distinct sub-form: #308's SCREEN rule enumerated three numeric outcomes and no failure branch, so when arm B died with NaN gradients at lesson 48 no branch of the rule could be evaluated.** **C-333..C-337 added 2026-09-10 from the review of #340 (PyPI publication). C-333 records that cross-repo release ordering is unguarded in BOTH directions — C-165's 2026-07-31b update has this repo blocked for weeks by an unpublished `views-pipeline-core`, and two months later this repo is the unpublished upstream doing it to 8 views-models models; the class recurred with the arrow reversed and a human found it both times. C-334 records that the platform's house publish template carries TWO defects that each independently block a first release — reproduced by executing its own logic, not by reading it — meaning it has never successfully performed one. C-337 is a decision, not a defect: publishing 0.1.0 arms a `<1.0.0` bound on all 8 models that semver lets any future 0.x walk through.** |
+| Total Concerns    | 334                                  |
+| Open Concerns     | 182                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 153                                 |
+| — net active risks | 158                                 |
 | Resolved Concerns | 152                                  |
 | Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -4160,6 +4160,166 @@ null is ambiguous, and no amount of after-the-fact analysis can separate them.
 mutation testing, lint, the full suite, type correctness, and code review. Mutation testing only
 probes the code the author already thought to test; it was 5/5 green while the change was inert.
 
+
+### C-333: Cross-repo release ordering is unguarded in BOTH directions — this repo was blocked by it in July and is now the cause of it
+
+| Field | Value |
+|-------|-------|
+| ID | C-333 |
+| Tier | 2 |
+| Source | review of #340 (2026-09-10), with verification: PyPI HTTP 404, wheel built, dependency tree resolved |
+| Trigger | Cutting the 0.1.0 GitHub Release — and thereafter any version bump that the 8 downstream `views-models` configs pin against |
+| Location | `pyproject.toml` (`name = "views-hydranet"`, `version = "0.1.0"`); `.github/workflows/` (no publish workflow); views-models: 8 model `run.sh`/requirements pinning `views-hydranet>=0.1.0,<1.0.0` |
+| Cross-refs | **C-165 update 2026-07-31b (the SAME class, reversed)**; views-hydranet#340; views-models#458 |
+
+`views-hydranet` has never been published to PyPI (`pypi.org/pypi/views-hydranet/json` → **HTTP 404**,
+verified 2026-09-10; `gh release list` empty; the only tag is `archive/vpc-3.0.0-from-git`). The
+**8 HydraNet models that constitute the entire `rusty_bucket` ensemble** declare
+`views-hydranet>=0.1.0,<1.0.0` and therefore **cannot be installed from a fresh clone by anyone who
+has not set this library up by hand.** It works on developer machines only because pip finds the
+package already present from a local source install and never consults PyPI.
+
+**The register already contains the mirror image of this.** C-165's `2026-07-31b` update records
+views-hydranet's own `test` job being red for weeks because `pyproject` required
+`views-pipeline-core >= 3.0.0` while PyPI topped out at 2.3.0 — *"a cross-repo release-ordering
+blocker that nothing in this repo can fix."* Two months later this repo is the unpublished upstream
+doing the same thing to views-models. **The class recurred with the arrow reversed and nothing
+detected it either time**; both were found by a human noticing an install failure.
+
+**Tier 2 rationale:** structural, not corrupting — the failure is a loud 404 at install time, so no
+wrong number is produced. But the trigger is concrete and already live (anyone handed the
+views-models repo), it disables the whole production ensemble rather than one component, and the
+recurrence shows no mechanism exists to catch it. Not Tier 1: nothing silently produces a wrong
+forecast.
+
+**Verified as part of this review, so the fix is smaller than it looks:** the package builds
+(`views_hydranet-0.1.0-py3-none-any.whl`, 67 files, MIT `LICENSE`, correct metadata), imports
+cleanly from the wheel with the source tree off `sys.path` (99 `HydraNetConfig` fields,
+`training_engine` + `InferenceOrchestrator` OK), and its **full dependency tree resolves from real
+PyPI — 140 packages**, every `views-*` sibling already published. **No packaging work is required;
+the missing artefacts are a workflow file and a cut Release.**
+
+---
+
+### C-334: The publish workflow this project treats as the house template cannot perform a first release, and crashes outright on a PEP 621 `pyproject`
+
+| Field | Value |
+|-------|-------|
+| ID | C-334 |
+| Tier | 3 |
+| Source | review of #340 (2026-09-10) — both defects reproduced by executing the template's own logic |
+| Trigger | Copying `views-r2darts2/.github/workflows/publish_package.yml` into this repo (the path #340 recommends) and cutting the first Release |
+| Location | upstream `views-platform/views-r2darts2` `.github/workflows/publish_package.yml`, step `Validate Version`; would land at `views-hydranet/.github/workflows/publish_package.yml` |
+| Cross-refs | C-333; views-hydranet#340; C-303 (a sanctioned artefact asserting a guarantee it does not deliver) |
+
+#340 proposes copying the `views-r2darts2` publish workflow and warns it is "worth reading rather
+than pasting." It is worse than suspected — **two independent defects, either of which alone stops
+the first publish.** Both were confirmed by running the template's own expressions, not by reading:
+
+1. **The 404 fallback makes a first release impossible.** When the package 404s the step sets
+   `latest_version="0.1.0"`, then asserts `parse(new) > parse(latest)` with `new` also `0.1.0`.
+   `parse('0.1.0') > parse('0.1.0')` is **False**. The fallback is initialised to the very version
+   being shipped and the comparison is strict, so **the step fails on exactly the case it exists to
+   permit.** Fix: fallback `"0.0.0"`, or skip the check entirely on 404.
+2. **It reads a table this repo does not have.** The step does
+   `toml.load(...)['tool']['poetry']['version']`. views-hydranet is **PEP 621** — the version lives
+   under `[project]` and there is **no `[tool.poetry]` table at all**. Executed here it raises
+   `KeyError: 'version'` and dies *before* reaching the assert. Fix: `['project']['version']`.
+
+Lesser issues in the same file: it curls `views_r2darts2` rather than the canonical hyphenated name
+(#340 notes r2darts2 has already validated against a wrong package name once); `actions/checkout@v3`
+and `setup-python@v4` are behind current majors, and this repo's CI already emits Node-20
+deprecation warnings on `@v4`.
+
+**Tier 3 rationale:** fails loud — a red workflow run, no silent corruption and no wrong output. It
+is registered rather than merely fixed in passing because the file is treated as the house template
+for the whole platform, so **the same two defects will be inherited by the next repo that copies
+it**, and because defect 1 means the template has *never successfully performed a first release* —
+consistent with #340's account that r2darts2 tagged 0.1.0 and never published.
+
+---
+
+### C-335: CI never builds the distributable, so packaging regressions can only surface at release time
+
+| Field | Value |
+|-------|-------|
+| ID | C-335 |
+| Tier | 3 |
+| Source | review of #340 (2026-09-10) |
+| Trigger | Changing packaging configuration in `pyproject.toml` (build backend, include/exclude, extras), or adding a subpackage without an `__init__.py` |
+| Location | `.github/workflows/ci.yml` — `lint` and `test` jobs only; no `build` step anywhere |
+| Cross-refs | C-165 (CI coverage / false-confidence theme); C-333 |
+
+`ci.yml` runs lint and tests and **never packages the project.** Nothing in the repository executes
+`python -m build`, so the wheel is only ever constructed by hand or, once C-333 is fixed, by the
+publish workflow at Release time — the single moment when a failure is most expensive and least
+convenient.
+
+The wheel is correct **today**: verified 2026-09-10 by building it and importing it from its own
+contents with the source tree off `sys.path`. But that verification was a manual act performed
+during a review; nothing repeats it. A dropped `__init__.py`, an include/exclude change, or an
+extras rename would pass lint, pass 2080 tests, and fail only when someone cuts a Release.
+
+**Tier 3 rationale:** maintainability / false-confidence, matching C-165's tier for the same class of
+gap. A `python -m build` step costs seconds and converts a release-time failure into a PR-time one.
+
+---
+
+### C-336: `views-frames (>=1.10.2,<2)` excludes the published latest, and is one upstream release from being a blocker
+
+| Field | Value |
+|-------|-------|
+| ID | C-336 |
+| Tier | 4 |
+| Source | review of #340 (2026-09-10) — dependency resolution against real PyPI |
+| Trigger | `views-frames` 1.x reaching end of support, or a fix this repo needs landing only in 2.x — at which point the pin must be widened before anything can install |
+| Location | `pyproject.toml`, `dependencies = [... "views-frames (>=1.10.2,<2)" ...]` |
+| Cross-refs | C-333 (both are cross-repo version-coordination risks) |
+
+`views-frames` latest on PyPI is **2.0.0**, which the `<2` bound excludes. Only **1.10.2** and
+**1.11.0** satisfy the constraint — verified by enumerating every published release, since a naive
+lexical sort hides `1.10.x` behind `1.6.0`.
+
+**This is fine today** and the full tree resolves (C-333). It is registered because the whole 1.x
+line is now two releases wide and frozen: the moment upstream stops shipping 1.x, or ships a needed
+fix only to 2.x, this pin becomes an install blocker of exactly the kind C-333 describes — and it
+would be discovered the same way, by a failed install rather than by a check.
+
+**Tier 4 rationale:** no current impact, no correctness risk, satisfiable today. Recorded so the
+next person to see a `views-frames` resolution failure finds the reason already written down.
+
+---
+
+### C-337: `>=0.1.0,<1.0.0` on all 8 models accepts any future 0.x, and semver promises nothing across 0.x minors
+
+| Field | Value |
+|-------|-------|
+| ID | C-337 |
+| Tier | 2 |
+| Source | review of #340 (2026-09-10) |
+| Trigger | Publishing a `0.2.0` — the first minor release after 0.1.0 ships — while the 8 downstream configs still carry `<1.0.0` |
+| Location | views-models: 8 model dependency declarations `views-hydranet>=0.1.0,<1.0.0`; this repo's `pyproject.toml` `version` and whatever release policy replaces it |
+| Cross-refs | C-333 (the same 8 pins, the same 8 models); views-hydranet#340 |
+
+All 8 constituent models of `rusty_bucket` pin `views-hydranet>=0.1.0,<1.0.0`. Under semver a `0.x`
+version makes **no compatibility promise across minors** — `0.2.0` is permitted to break everything
+`0.1.0` offered. So that range, which reads like a guard, in practice accepts **every future 0.x
+release including a deliberately breaking one**, and all 8 models would silently take it on their
+next fresh environment build.
+
+The exposure is created by *publishing*, not by the pin: today the 404 means nothing resolves at all
+(C-333), so the loose bound has never been exercised. Cutting 0.1.0 arms it.
+
+**Tier 2 rationale:** structural fragility with a concrete, near-term trigger — the next minor
+release — affecting the entire production ensemble at once, and with **no signal at pin time**: the
+constraint is satisfied, the install succeeds, and the breakage appears later as a runtime or import
+error in whatever environment was rebuilt most recently. Not Tier 1 because it cannot corrupt a
+forecast silently; the failure is loud when it arrives.
+
+**The decision this asks for** is whether the release after 0.1.0 should be **1.0.0**, so the
+downstream `<1.0.0` bound starts doing real work, or whether the 8 pins should be tightened to
+`~=0.1.0` / `>=0.1.0,<0.2.0`. Cheaper to settle before there are published versions to stay
+compatible with.
 
 ## Disagreements
 
