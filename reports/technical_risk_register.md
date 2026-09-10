@@ -6,12 +6,12 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-09-10 (review-rr strategic)     |
 | ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). **`C-106` is a THIRD gap, found 2026-09-10 (review-rr strategic): the ID appears nowhere in this file — not as an entry, not as a merge note, not as a cross-reference — so whether it was merged, renumbered or never assigned is unrecoverable from the register. Recorded as unexplained rather than quietly renumbered.** **C-319..C-322 added 2026-09-03 from the silence-vs-fade dossier: C-319 (field statistics blind to placement — occurrence, magnitude and alignment ALL survive a roll that destroys the forecast, so an internal statistic cannot close a causal claim about a truth-referenced score); C-320 (a falsifier band tighter than its own reference's sampling noise, which fired on the known-good control); C-321 (`--keep-cubes` silently disables the multi-arm contamination guard); C-322 (the model field's H axis runs opposite to priogrid row order — naive placement correlates 0.026, the flip gives 1.0000). **C-325 added 2026-09-04: two SCREEN-2 mechanism tests measured the network at INITIALISATION and were recorded as ruling a mechanism out; the arm's gradient does explode, 33 lessons later.** **C-328 added 2026-09-05: #311's input noise leaked into the C-184 BatchNorm recalibration pass, which would have confounded the S5 screen at the BN layer with every log looking clean; second instance of the mechanism after #289's, and found by a test written for a different prose invariant.** **C-329 added 2026-09-05 from the implementation-practice post-mortem: tests that cannot fail (tautology, vacuity, zero power) — invisible to mutation testing by construction, detected by the deletion test.** **C-330/C-331/C-332 added 2026-09-05 from `/code-review max` (partial — 11 finders, no expert panel); the same pass ESCALATED C-328 to four instances (the `bn_recal_from` path and `random_flips`, the latter left unfixed by decision), C-303 to TWELVE occurrences with a new sub-form (the false prose describes a safety gate, making an absent control look present), and C-329 with two further instances, both inside the commit that registered it.** **C-326 added the same day: launcher watchdogs kill the subshell, not the process tree — an arm reported CAPPED trained on for 7 more lessons; latent everywhere else (no `STALLED` line exists in any `ANOMALIES.txt`).** **C-327 added 2026-09-04: #308's Phase-2 clip ladder was pre-registered as a discriminator whose two hypotheses, derived properly, predict the SAME outcome — C-320's fifth instance, found before it was run and at no cost.** **C-320 escalated 2026-09-04 from three to FOUR occurrences, the fourth a distinct sub-form: #308's SCREEN rule enumerated three numeric outcomes and no failure branch, so when arm B died with NaN gradients at lesson 48 no branch of the rule could be evaluated.** **C-333..C-337 added 2026-09-10 from the review of #340 (PyPI publication). C-333 records that cross-repo release ordering is unguarded in BOTH directions — C-165's 2026-07-31b update has this repo blocked for weeks by an unpublished `views-pipeline-core`, and two months later this repo is the unpublished upstream doing it to 8 views-models models; the class recurred with the arrow reversed and a human found it both times. C-334 records that the platform's house publish template carries TWO defects that each independently block a first release — reproduced by executing its own logic, not by reading it — meaning it has never successfully performed one. C-337 is a decision, not a defect: publishing 0.1.0 arms a `<1.0.0` bound on all 8 models that semver lets any future 0.x walk through.** |
-| Total Concerns    | 334                                  |
-| Open Concerns     | 180                                  |
+| Total Concerns    | 337                                  |
+| Open Concerns     | 183                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 156                                 |
+| — net active risks | 159                                 |
 | Resolved Concerns | 154                                  |
-| Last curation pass | **2026-09-10 (review-rr strategic)** — 3 new clusters (18 instrument integrity, 19 declared-but-inert, 20 cross-repo coordination) covering ~45 of the 112 unmapped entries; C-330 (Tier 1) and C-312 relocated → §Resolved after verifying both fixes **in source** rather than trusting their banners; C-328 bannered FIXED (verified, previously unmarked); C-189's cross-ref repointed from the merged C-188 to C-182; C-110's location marked stale (`golden_hour`/3 → `rusty_bucket`/8); C-164's perpetual trigger rewritten; §Disagreements curated for the first time — 15 entries, **0 ever marked resolved**, two now carry evidence that events answered them. **Blind spots found and deliberately NOT registered here** (review-rr does not add risks): truth-data quality has **zero** coverage; ensemble benefit is assumed rather than measured; secrets handling has one mention with publication imminent. Previous pass: **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
+| Last curation pass | **2026-09-10 (review-rr strategic)** — 3 new clusters (18 instrument integrity, 19 declared-but-inert, 20 cross-repo coordination) covering ~45 of the 112 unmapped entries; C-330 (Tier 1) and C-312 relocated → §Resolved after verifying both fixes **in source** rather than trusting their banners; C-328 bannered FIXED (verified, previously unmarked); C-189's cross-ref repointed from the merged C-188 to C-182; C-110's location marked stale (`golden_hour`/3 → `rusty_bucket`/8); C-164's perpetual trigger rewritten; §Disagreements curated for the first time — 15 entries, **0 ever marked resolved**, two now carry evidence that events answered them. **Blind spots found and deliberately NOT registered here** (review-rr does not add risks): truth-data quality has **zero** coverage; ensemble benefit is assumed rather than measured; secrets handling has one mention with publication imminent. **C-338..C-340 registered 2026-09-10 immediately after this pass, closing the three blind spots it named — C-338 (truth-data aggregate assignments; the register covered whether we measure the model correctly and not whether the reference is correct, with a live instance at views-datafactory#484), C-339 (the 8-member ensemble's benefit is assumed, and the first measurement says sample count not diversity), C-340 (no secrets convention, at the moment the repo acquires its first secret).** Previous pass: **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
 ---
 
@@ -4263,6 +4263,114 @@ forecast silently; the failure is loud when it arrives.
 downstream `<1.0.0` bound starts doing real work, or whether the 8 pins should be tightened to
 `~=0.1.0` / `>=0.1.0,<0.2.0`. Cheaper to settle before there are published versions to stay
 compatible with.
+
+### C-338: the observed data can carry aggregate/summary assignments, and nothing flags one — a single cell-month can dominate a magnitude score
+
+| Field | Value |
+|-------|-------|
+| ID | C-338 |
+| Tier | 2 |
+| Source | review-rr strategic blind-spot analysis (2026-09-10); live instance found while reading forecast maps against validation truth |
+| Trigger | Reporting any magnitude metric (`crps_events`, `mag_on_true_pos`, `size_ratio`, peak-cell reads) for a month containing an unflagged aggregate — or training on a partition containing one — without first checking the truth field's own outliers |
+| Location | `reports/2026-09-06_ensemble_roster_dossier/results/v2_truth_validation.parquet` and every truth parquet built from the datafactory queryset; the scorer `reports/2026-07-29_v2_scoreboard_dossier/tools/score_v2_horizons.py` consumes them without an outlier check |
+| Cross-refs | C-275 (vintage drift — the adjacent "what data was this" gap); Cluster 18 (this is the *reference* being wrong rather than the instrument); views-datafactory#484 |
+
+**The register has extensive coverage of whether we measure the model correctly, and none of whether
+the thing we measure against is correct.** Every entry in Cluster 18 asks whether the instrument saw
+what it claimed; nothing asks whether the target was a real per-cell count.
+
+**Live instance, found 2026-09-10.** `lr_os_best` in priogrid **149451** (13.75°N, 25.25°E — North
+Darfur, Sudan) reads **27,413** at month 550 (2025-10) and **32,505** at month 552 (2025-12), with a
+**2** in the month between them. The same cell's other 23 months run 0–53, median 2. The next largest
+`lr_os_best` cell-month anywhere in the validation file is **1,100** — these are 25× and 30× that.
+`sb` and `ns` are both exactly 0 in the same cell-month. The underlying event is real (El Fasher fell
+in October 2025); the shape of the numbers is the shape of an **aggregate assigned to one
+coordinate**, not a per-cell count. Filed upstream as **views-datafactory#484**.
+
+**Why it matters here rather than only there.** One cell carrying 32,505 in a field whose next
+largest value is 1,100 **dominates any magnitude metric for that month** — a model is then graded
+largely on whether it hit one cell, and no metric in the 22-column scorer says so. The same value in
+a *calibration* partition is a training target, so the model is pulled toward an aggregate. Nothing
+in this repo distinguishes the two cases, and the dossier that surfaced it had to mark its `os`
+magnitude reads provisional by hand.
+
+**Tier 2 rationale:** structural, with a concrete trigger and no error signal — the score is
+computed, reported and believed, and the distortion is invisible in every column we emit. **Not Tier
+1**, because nothing is silently *corrupted*: the value is present and inspectable in the data, and
+whether it is an artefact at all is precisely what #484 asks. **Escalate to Tier 1 if the
+datafactory confirms these are aggregate assignments AND an instance is found in a calibration
+partition** — at that point a training target is knowingly wrong and nothing detects it.
+
+**What is missing is small:** an outlier check on the truth field at build time (`build_validation_truth.py`),
+flagging any cell-month above some multiple of the field's next-largest value, so a run either
+excludes it or reports it alongside the score.
+
+---
+
+### C-339: the ensemble's benefit is assumed, never measured — and the one measurement says it is sample count, not member diversity
+
+| Field | Value |
+|-------|-------|
+| ID | C-339 |
+| Tier | 2 |
+| Source | review-rr strategic blind-spot analysis (2026-09-10), from the ensemble-roster results M66/M67 |
+| Trigger | Shipping a `rusty_bucket` forecast, or defending the 8-member roster's cost — GPU for 8 trainings and 8 emits — on the grounds that pooling adds skill |
+| Location | `views-models/ensembles/rusty_bucket/configs/config_modelset.py`; `reports/2026-09-06_ensemble_roster_dossier/07_experiment_log.md` M66, M67 |
+| Cross-refs | C-110 (heterogeneous-member *calibration* — this entry is about member *benefit*, the adjacent question); Cluster 18 |
+
+The production deliverable is an 8-member ensemble. **Nothing in the register or the test suite
+verifies that pooling 8 members is better than pooling fewer, or than drawing more samples from
+one** — the benefit has been assumed since the roster was locked.
+
+The first measurement of it (M66/M67, 2026-09-08) does not support the assumption:
+
+- the pooled ensemble beats its best single member at every horizon (AP@h18 0.2203 vs 0.1804), **but
+  subsampling that same 128-draw pool back to 16 draws puts it *below* the best member** (0.1462),
+  and AP is monotone in S — k=2 → 0.150, k=4 → 0.186, k=8 → 0.220. The gain tracks **sample count**;
+- member gate errors correlate **0.96–0.99 across all 28 pairs**;
+- giving every model a soft gate compresses AP@h18 into **0.228–0.286** across eight architectures;
+- leave-one-out moves pooled AP by at most 0.0185, and one member's *removal improves* it.
+
+**Tier 2 rationale:** structural fragility with a live trigger and no error signal — the ensemble
+produces a forecast that looks fine while the justification for its shape is unverified, and the
+cost (8 trainings) is being paid on that justification. **Not Tier 1:** no output is wrong; the
+forecast is real and scoreable, and the pooled score is genuinely the best available. What is
+unverified is *why*, and therefore whether the roster is the right shape.
+
+⚠️ **The measurement above is itself one artifact per configuration, one origin, `sb` only** — it is
+enough to falsify "diversity is doing the work", not enough to size the effect.
+
+---
+
+### C-340: no convention for secrets in workflows, at the moment the repo acquires its first one
+
+| Field | Value |
+|-------|-------|
+| ID | C-340 |
+| Tier | 3 |
+| Source | review-rr strategic blind-spot analysis (2026-09-10) |
+| Trigger | Adding `PYPI_TOKEN` to this repository's Actions secrets for #340's publish workflow — the first secret this repo will hold |
+| Location | `.github/workflows/` (currently `ci.yml` only, which uses no secrets); the publish workflow proposed in #340 |
+| Cross-refs | C-333, C-334, C-335 (Cluster 20 — cross-repo and environment coordination); views-hydranet#340 |
+
+The register has **no entry on secret handling**, and the repository has never held a secret — `ci.yml`
+uses none. #340 changes that: publication requires `PYPI_TOKEN` in Actions secrets, and the template
+it recommends passes it on a command line
+(`poetry publish --build --username __token__ --password ${{ secrets.PYPI_TOKEN }}`).
+
+Nothing here is currently wrong — there is simply no convention, and the moment to establish one is
+before the first secret exists rather than after. The open questions are ordinary and unanswered:
+whether the token is scoped to this project or account-wide; whether publication should use PyPI
+**Trusted Publishing** (OIDC) instead of a long-lived token, which removes the secret entirely;
+whether `workflow_dispatch` on a secret-bearing workflow is acceptable given who can trigger it; and
+whether a token passed as a CLI argument rather than an environment variable is acceptable in this
+project's threat model.
+
+**Tier 3 rationale:** maintainability / convention gap. No correctness impact and no silent failure —
+a mishandled token is a security concern rather than a wrong forecast, and the blast radius is a
+package index account rather than this repository. Registered because the trigger is imminent and
+specific, and because "we never decided" is how the *next* repo inherits whatever this one does
+first.
 
 ## Disagreements
 
