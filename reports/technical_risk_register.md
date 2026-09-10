@@ -4,14 +4,14 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-09-10                           |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). **C-319..C-322 added 2026-09-03 from the silence-vs-fade dossier: C-319 (field statistics blind to placement — occurrence, magnitude and alignment ALL survive a roll that destroys the forecast, so an internal statistic cannot close a causal claim about a truth-referenced score); C-320 (a falsifier band tighter than its own reference's sampling noise, which fired on the known-good control); C-321 (`--keep-cubes` silently disables the multi-arm contamination guard); C-322 (the model field's H axis runs opposite to priogrid row order — naive placement correlates 0.026, the flip gives 1.0000). **C-325 added 2026-09-04: two SCREEN-2 mechanism tests measured the network at INITIALISATION and were recorded as ruling a mechanism out; the arm's gradient does explode, 33 lessons later.** **C-328 added 2026-09-05: #311's input noise leaked into the C-184 BatchNorm recalibration pass, which would have confounded the S5 screen at the BN layer with every log looking clean; second instance of the mechanism after #289's, and found by a test written for a different prose invariant.** **C-329 added 2026-09-05 from the implementation-practice post-mortem: tests that cannot fail (tautology, vacuity, zero power) — invisible to mutation testing by construction, detected by the deletion test.** **C-330/C-331/C-332 added 2026-09-05 from `/code-review max` (partial — 11 finders, no expert panel); the same pass ESCALATED C-328 to four instances (the `bn_recal_from` path and `random_flips`, the latter left unfixed by decision), C-303 to TWELVE occurrences with a new sub-form (the false prose describes a safety gate, making an absent control look present), and C-329 with two further instances, both inside the commit that registered it.** **C-326 added the same day: launcher watchdogs kill the subshell, not the process tree — an arm reported CAPPED trained on for 7 more lessons; latent everywhere else (no `STALLED` line exists in any `ANOMALIES.txt`).** **C-327 added 2026-09-04: #308's Phase-2 clip ladder was pre-registered as a discriminator whose two hypotheses, derived properly, predict the SAME outcome — C-320's fifth instance, found before it was run and at no cost.** **C-320 escalated 2026-09-04 from three to FOUR occurrences, the fourth a distinct sub-form: #308's SCREEN rule enumerated three numeric outcomes and no failure branch, so when arm B died with NaN gradients at lesson 48 no branch of the rule could be evaluated.** **C-333..C-337 added 2026-09-10 from the review of #340 (PyPI publication). C-333 records that cross-repo release ordering is unguarded in BOTH directions — C-165's 2026-07-31b update has this repo blocked for weeks by an unpublished `views-pipeline-core`, and two months later this repo is the unpublished upstream doing it to 8 views-models models; the class recurred with the arrow reversed and a human found it both times. C-334 records that the platform's house publish template carries TWO defects that each independently block a first release — reproduced by executing its own logic, not by reading it — meaning it has never successfully performed one. C-337 is a decision, not a defect: publishing 0.1.0 arms a `<1.0.0` bound on all 8 models that semver lets any future 0.x walk through.** |
-| Total Concerns    | 334                                  |
-| Open Concerns     | 182                                  |
+| Last Updated      | 2026-09-10 (review-rr strategic)     |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). **`C-106` is a THIRD gap, found 2026-09-10 (review-rr strategic): the ID appears nowhere in this file — not as an entry, not as a merge note, not as a cross-reference — so whether it was merged, renumbered or never assigned is unrecoverable from the register. Recorded as unexplained rather than quietly renumbered.** **C-319..C-322 added 2026-09-03 from the silence-vs-fade dossier: C-319 (field statistics blind to placement — occurrence, magnitude and alignment ALL survive a roll that destroys the forecast, so an internal statistic cannot close a causal claim about a truth-referenced score); C-320 (a falsifier band tighter than its own reference's sampling noise, which fired on the known-good control); C-321 (`--keep-cubes` silently disables the multi-arm contamination guard); C-322 (the model field's H axis runs opposite to priogrid row order — naive placement correlates 0.026, the flip gives 1.0000). **C-325 added 2026-09-04: two SCREEN-2 mechanism tests measured the network at INITIALISATION and were recorded as ruling a mechanism out; the arm's gradient does explode, 33 lessons later.** **C-328 added 2026-09-05: #311's input noise leaked into the C-184 BatchNorm recalibration pass, which would have confounded the S5 screen at the BN layer with every log looking clean; second instance of the mechanism after #289's, and found by a test written for a different prose invariant.** **C-329 added 2026-09-05 from the implementation-practice post-mortem: tests that cannot fail (tautology, vacuity, zero power) — invisible to mutation testing by construction, detected by the deletion test.** **C-330/C-331/C-332 added 2026-09-05 from `/code-review max` (partial — 11 finders, no expert panel); the same pass ESCALATED C-328 to four instances (the `bn_recal_from` path and `random_flips`, the latter left unfixed by decision), C-303 to TWELVE occurrences with a new sub-form (the false prose describes a safety gate, making an absent control look present), and C-329 with two further instances, both inside the commit that registered it.** **C-326 added the same day: launcher watchdogs kill the subshell, not the process tree — an arm reported CAPPED trained on for 7 more lessons; latent everywhere else (no `STALLED` line exists in any `ANOMALIES.txt`).** **C-327 added 2026-09-04: #308's Phase-2 clip ladder was pre-registered as a discriminator whose two hypotheses, derived properly, predict the SAME outcome — C-320's fifth instance, found before it was run and at no cost.** **C-320 escalated 2026-09-04 from three to FOUR occurrences, the fourth a distinct sub-form: #308's SCREEN rule enumerated three numeric outcomes and no failure branch, so when arm B died with NaN gradients at lesson 48 no branch of the rule could be evaluated.** **C-333..C-337 added 2026-09-10 from the review of #340 (PyPI publication). C-333 records that cross-repo release ordering is unguarded in BOTH directions — C-165's 2026-07-31b update has this repo blocked for weeks by an unpublished `views-pipeline-core`, and two months later this repo is the unpublished upstream doing it to 8 views-models models; the class recurred with the arrow reversed and a human found it both times. C-334 records that the platform's house publish template carries TWO defects that each independently block a first release — reproduced by executing its own logic, not by reading it — meaning it has never successfully performed one. C-337 is a decision, not a defect: publishing 0.1.0 arms a `<1.0.0` bound on all 8 models that semver lets any future 0.x walk through.** |
+| Total Concerns    | 337                                  |
+| Open Concerns     | 183                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 158                                 |
-| Resolved Concerns | 152                                  |
-| Last curation pass | **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
+| — net active risks | 159                                 |
+| Resolved Concerns | 154                                  |
+| Last curation pass | **2026-09-10 (review-rr strategic)** — 3 new clusters (18 instrument integrity, 19 declared-but-inert, 20 cross-repo coordination) covering ~45 of the 112 unmapped entries; C-330 (Tier 1) and C-312 relocated → §Resolved after verifying both fixes **in source** rather than trusting their banners; C-328 bannered FIXED (verified, previously unmarked); C-189's cross-ref repointed from the merged C-188 to C-182; C-110's location marked stale (`golden_hour`/3 → `rusty_bucket`/8); C-164's perpetual trigger rewritten; §Disagreements curated for the first time — 15 entries, **0 ever marked resolved**, two now carry evidence that events answered them. **Blind spots found and deliberately NOT registered here** (review-rr does not add risks): truth-data quality has **zero** coverage; ensemble benefit is assumed rather than measured; secrets handling has one mention with publication imminent. **C-338..C-340 registered 2026-09-10 immediately after this pass, closing the three blind spots it named — C-338 (truth-data aggregate assignments; the register covered whether we measure the model correctly and not whether the reference is correct, with a live instance at views-datafactory#484), C-339 (the 8-member ensemble's benefit is assumed, and the first measurement says sample count not diversity), C-340 (no secrets convention, at the moment the repo acquires its first secret).** Previous pass: **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
 ---
 
@@ -61,6 +61,26 @@ Open concerns reduce to **13 root decisions**. Fixing a root advances multiple e
 |---|---|---|:--:|---|
 | **16** | **Rollout-skill measurement integrity** — ✅ **LARGELY CLOSED 2026-08-15 by Epic #263** (S0–S7). Corrections to this row's original text: **|O| = 13, not ≈12** (the ≈12 came from `02b_method_review.md:72`, written *before* the partition was verified); the guard tests numbered **10, not 12** (that conflated `test_gw_stratified.py` with `test_score_v2_horizons.py`); and C-217 was already **cleared-with-residual**, not open. | C-217 ✅ asserted · C-218 ✅ asserted (runtime) · C-219 ✅ enforced in code · C-220 ✅ first-ever test · C-221 ✅ MDE stated · C-224 ✅ diagnostic exists (**Tier-1 governance ask UNCHANGED, still open**) · C-231 ✅ metric exists · C-248 ✅ inherited by the climatology · C-252 ✅ explicit · C-253 reused untouched · C-254 ✅ power stated. New: **C-277**. **Guard accounting: 10 pytest + 1 runtime** (C-218 cannot be a portable pytest without a cross-repo path — the C-247 sin). | done | **VERDICT DELIVERED:** the h36 "win" is an **ARTIFACT** — unanimous across 12/12 arm×target rows. See `reports/2026-08-15_rollout_ruler_trust_dossier/07_experiment_log.md`. |
 | **17** | **Global-server deploy readiness — every guard in this register fires before deployment, none after** | C-115 (silent CPU fallback), C-116 (publish-tail OOM — mechanism asserted and retracted twice; MEASURE first), C-163 + C-164 (no runtime harness / no peak-RSS seam test), C-192 (grid-name flip not wired into DataSniffer — gates the S2 commit), C-245 (out-of-repo pipeline-core hooks pinned by range only), C-272 (rolling-origin silently truncated), C-275 (no data-vintage record), C-276 (no forecast monitoring), C-110 (heterogeneous-member ensemble aggregation unverified) | 2 (parallelisable; disjoint files from cluster 16) | **IMMINENT.** `heavy_freighter` (global grid) is explicitly untested in the ensemble smoke, and the flip is 8× the cells of africa. Sequence by cost: C-115 (≈10-line hard CUDA gate) → C-192 (unblocks S2) → C-275 → C-116/163/164 → C-276 before serving. |
+
+**2026-09-10 refresh (review-rr strategic) — 3 new clusters, and the reason they were missing.**
+This pass found **112 of 182 open entries (62%) unmapped, including all three open Tier 1s and 33
+Tier 2s.** The 2026-08-15b pass found 55% and said so; it is now worse. **Three consecutive passes
+have found the map behind the intake**, which is itself the finding: the map is refreshed by a
+curation pass, entries arrive between passes, and nothing links the two. The three clusters below
+account for ~45 of the 112. Cluster 18 is the largest group in the entire register and had never
+been named.
+
+| # | Root decision | Member entries | Fix scope | Priority |
+|---|---|---|:--:|---|
+| **18** | **The instrument did not measure what it claims.** Not "the code is wrong" — the code ran correctly and answered a different question than the one asked. Four recurring shapes: (a) *the instrument cannot see the thing* — a statistic blind to the property under test; (b) *the decision rule cannot deliver a verdict* — branches that cannot fire, or fire on noise; (c) *the measurement was taken on the wrong object or phase* — an untrained network, a control with no dynamic range, a sentinel; (d) *the readout is assembled wrongly* — cells from different grids, unpaired RNG, a denominator that silently drops rows. | (a) C-292, C-293, C-319, C-323, C-331, C-291 · (b) C-305, C-306, C-307, C-320, C-327, C-332 · (c) C-299, C-308, C-318, C-325 · (d) C-289, C-296, C-297, C-298, C-309, C-310, C-311 | 2–3 (mostly method, not code) | **HIGHEST VALUE IN THE REGISTER.** 23 Tier-2/3 entries, every one of which cost GPU time or produced a wrong ledger row, currently read as 23 unrelated incidents. The cluster's own remedy is not 23 fixes: it is **one pre-flight question — "what would this measurement look like if the effect were absent?"** — which shapes (a), (b) and (c) all fail. |
+| **19** | **Declared but inert** — a knob, guard, or documented claim that exists, is cited, and does nothing. C-324 is the named root ("verified on a path production never takes"); C-303 is the prose form and is at **13 occurrences**. | C-303, C-324, C-329, C-334, C-271, C-302, C-264, C-130, C-216, C-263 | 1–2 | **near-term.** The cheap recurrence guard is mechanical and does not exist: for every config field and every named guard, assert a production caller. C-271 and C-302 are each a single grep. |
+| **20** | **Cross-repo and environment coordination** — this repo's correctness depends on artefacts it does not own and does not check: sibling package releases, pinned ranges, CI/lint environments, and documents cited but absent. | C-333, C-334, C-335, C-336, C-337, C-283, C-285, C-288, C-278, C-279 (+ mapped C-165, C-245) | 1–2 | **acute now** — publication (#340) makes this repo an upstream for the first time, and C-333 records the class recurring **with the arrow reversed**: C-165 has this repo blocked for weeks by an unpublished `views-pipeline-core`; two months later it is the unpublished upstream doing it to 8 views-models models. |
+
+**Unmapped after this refresh: ~67 of 180.** The residue is dominated by the Tier-4 architectural
+observations from the 2026-06 reviews (C-183, C-185, C-186, C-187, C-190, C-294, C-295 — capacity
+and receptive-field shape, none of which has ever fired) and by the old structural entries in
+clusters 3/5 that have carried "defer" for months. Both groups are signal-to-noise candidates for
+the next pass rather than clusters.
 
 **Cluster 7 status note (2026-08-15):** the register calls this "the live research front", but the V2 scoreboard has since delivered a verdict (gated_NB ≡ th_gated_NB ships; ZINB falsified as the crps_all front-runner and blooms in the free-running rollout). C-146 is now closed by the committed-likelihood docstring; several remaining members are likely mooted by that empirical result rather than by code. The member-level status review this map has requested since 2026-07-27 is still outstanding for the other 9.
 
@@ -362,7 +382,7 @@ Tier 4 rationale: integration tests do provide coverage. The gap is speed and is
 | Tier | 2 |
 | Source | review-rr strategic blind-spot analysis (2026-06-02); recalibrated 3→2 (review-rr 2026-06-05) |
 | Trigger | When evaluating the golden_hour ensemble's CRPS/MCR for the first time, or before relying on its calibration for delivery — verify the three members' posteriors share scale/support before concatenation, since two members use per-target sigma `{1.0, 0.75, 0.5}` and one uses uniform sigma `1.0` |
-| Location | `views-models/ensembles/golden_hour/`, `views-models/models/{pink_pirate,violet_visitor,blue_stranger}/configs/config_hyperparameters.py` |
+| Location | `views-models/ensembles/golden_hour/`, `views-models/models/{pink_pirate,violet_visitor,blue_stranger}/configs/config_hyperparameters.py`. **Stale as of 2026-09-10 (review-rr strategic): the production ensemble is now `rusty_bucket` with EIGHT members** — `purple_alien, pink_pirate, blue_stranger, bold_comet, blazing_meteor, heavy_freighter, bright_starship, violet_visitor` — so the heterogeneity this entry describes is wider than the three it names. |
 
 The golden_hour ensemble (set up 2026-06-02) concatenates 3 × 64 = 192 posterior samples across members trained with *different loss surfaces*: pink_pirate and violet_visitor use per-target Tobit sigma `{lr_sb: 1.0, lr_ns: 0.75, lr_os: 0.5}`, while blue_stranger uses uniform sigma `1.0`. Sigma directly controls the width of the Tobit predictive distribution, so the uniform-sigma member may produce systematically wider (or narrower) posteriors for ns/os targets than the per-target members. Naive concatenation of samples with different dispersion characteristics could distort the ensemble's aggregate calibration — the MCR could drift even if each member is individually well-calibrated. This is an unverified correctness assumption introduced by the orthogonal-ensemble design (whose diversity is intentional and desirable for ranking, but whose effect on magnitude calibration is untested).
 
@@ -1022,7 +1042,7 @@ The repo is *operated like production* (90-min GPU jobs, external services, hard
 | ID | C-164 |
 | Tier | 3 |
 | Source | expert-code-review (meta, 2026-06-18) — Feathers/Beck/Kleppmann |
-| Trigger | Any change to the eval→invert→assemble→publish output path or `n_posterior_samples` — no test exercises the seam or asserts memory scaling |
+| Trigger | Raising `n_posterior_samples`, or landing a change that alters how many arrays the eval→invert→assemble→publish path holds live at once (a new buffer, a retained cube, a widened dtype) — no test exercises the seam or asserts memory scaling. *(Rewritten 2026-09-10, review-rr strategic: the previous form, "any change to the output path", was perpetual — true of every edit, so it could never become acute.)* |
 | Location | `views_hydranet/utils/inference_orchestrator.py`, `feature_scaler.py:inverse_transform_volume`, `prediction_frame_assembler.py`; CI `tests/` |
 | Cross-refs | C-116 (the regression this would have caught), C-113 (analogous "no seconds-level seam test" gap, register §C-113) |
 
@@ -1338,7 +1358,7 @@ All 12 decoder upsampling layers (2 per head × 6 heads) use `ConvTranspose2d` w
 | Source | /falsify "the curriculum learning is 100% correctly implemented" (2026-06-26) — P5, SOFT falsification |
 | Trigger | When a config sets `ss_schedule="inverse_sigmoid"` with `ss_k < 1` (or `0`) — the schedule silently starts at high epsilon (no teacher-forcing warmup, curriculum defeated) for `k∈(0,1)`, or raises `ZeroDivisionError` mid-training for `k=0` |
 | Location | `views_hydranet/utils/scheduled_sampling.py:37-38` (constructor guards `k<1` for `exponential` only), `:56-59` (`k/(k+exp(shifted/k))` — `k=0` divides by zero), `views_hydranet/utils/config_initializer.py:701-704` (validator guards `exponential` k only) |
-| Cross-refs | C-182, C-188 (same missing-validation pattern); C-156 (the adjacent curriculum-subject coupling, P4) |
+| Cross-refs | C-182 (same missing-validation pattern; **C-188 was merged into C-182 on 2026-08-15 — this row previously pointed at the merged ID**); C-156 (the adjacent curriculum-subject coupling, P4) |
 
 The scheduled-sampling curriculum (ADR-056, Bengio et al. 2015) validates `k<1` as **invalid for `exponential`** in *both* `ScheduledSamplingMixer.__init__` and `HydraNetConfig.validate_scheduled_sampling_params`, but is **silent on the symmetric Bengio requirement `k≥1` for `inverse_sigmoid`** in *neither*. Confirmed by P5: `inverse_sigmoid` with `k=0.3` is accepted and runs a **silently wrong schedule shape** — epsilon starts at ~0.77 instead of ~0, so there is no teacher-forcing warmup and the curriculum is defeated; `k=0` raises a bare `ZeroDivisionError` deep in `get_epsilon` mid-training. **Tier 3:** not silent corruption on a *correct* config (the production schedules are unaffected; all three schedules are monotone-increasing as designed), but a real validation/robustness gap that mistrains or crashes under a plausible misconfig, asymmetric with the existing `exponential` guard (a copy-paste-asymmetry smell). The `CurriculumLearner` core (cooling, oscillation, relative thresholding) survived all probes — this is the scheduled-sampling sibling only. **Failing tests:** `tests/test_falsify_curriculum_ss.py` (3 stubs, red): mixer rejects `inverse_sigmoid k<1`; `k=0` → clean `ValueError` not `ZeroDivisionError`; config validator adds the `== "inverse_sigmoid"` k-bound guard. Fix: add the symmetric `k<1` reject for `inverse_sigmoid` in both the mixer constructor and the config validator.
 
@@ -3348,58 +3368,6 @@ given a plausible cause.
 > before an *emit*-only run — only the training queue's reuse path uses it. A one-line preflight in
 > the emit drivers would have converted four silent failures into one clear refusal.
 
-### C-312: the multi-task balancer can drive the loss negative, and two guards then stop training in silence — FIXED
-
-| Field | Value |
-|-------|-------|
-| ID | C-312 |
-| Tier | 2 |
-| Source | training-loop gradient audit (2026-08-26) |
-| Trigger | Writing a new arm config without `freeze_multitask_balancer: True`, or deliberately re-enabling the C-111 active balancer to revisit the C-113 bisect |
-| Location | `views_hydranet/utils/mtloss.py:66`; `views_hydranet/train/training_engine.py:1015` (`if w_loss > 0`) and `:1027` (`if lesson_loss > 0`) |
-| Cross-refs | C-111 (added `log_vars` to the optimizer), C-113 (the bisect the freeze flag exists for), **C-170 and C-124 — the SAME trigger (un-freezing the balancer), different mechanism**: C-170 is about the Kendall weighting *starving* the rare targets, this is about the guards below it *stopping training altogether*. Anyone acting on C-170's mitigation must read this too.**, C-314 |
-
-`MultiTaskLoss.forward` returns `coeffs * losses + torch.log(stds + eps)`. The second term is
-**negative whenever `log_var < 0`**. Per task, `term(L, v) = L/((r+1)e^v) + v/2` is minimised at
-`v* = log(L/(r+1))`, giving `term = 1/2 + log(L/(r+1))/2` — **negative once `L < (r+1)/e`**. That is
-not an exotic regime; it is what a well-fitted task looks like, and `v*` is exactly where gradient
-descent on `log_vars` is heading.
-
-ADR-014's guards read as "skip empty windows", but they key on the **sign of a quantity the balancer
-can make negative**. When it does, `backward()` is skipped at `:1015` and `optimizer.step()` at
-`:1027` — with no warning, no log record above DEBUG and no counter. The progress bar advances, the
-loss curves are written, wandb receives rows, and the run is externally indistinguishable from a
-healthy one.
-
-**Measured** on the `loop_config` vehicle with `log_vars` placed at their own fixed point: **2
-optimizer updates across 6 lessons**, versus 6 of 6 for the frozen control, same seed and data.
-
-**Not currently exposed.** Every live arm config — the incumbents and all six architecture bake-off
-arms — sets `freeze_multitask_balancer: True`, which pins `log_vars` at 0 so `log(stds) = 0` and
-every term is non-negative. No past result is in question. But the **config default is `False`**
-(`config_initializer.py:274`), so the exposure is one omitted line away, and 114 of the 156 model
-configs in views-models do not mention the flag at all.
-
-> **FIXED 2026-08-26.** The guards now ask ADR-014's actual question. A window backpropagates
-> unless its loss is **exactly zero** (the empty-window case ADR-014 means); a **non-finite** loss
-> now **raises** instead of being skipped like an empty window (a NaN used to fail `> 0` silently —
-> C-212 was exactly such a bug); and the optimization gate keys on `windows_trained > 0`, i.e.
-> whether gradient was actually produced. Measured after the fix: **6 of 6** lessons update, where
-> the old guards gave 2.
->
-> **The C-112 comparability question is answered by measurement, not assertion.** Under
-> `freeze_multitask_balancer: True` the balancer contributes `log(stds) = 0` and every task term is
-> non-negative, so the old `> 0` and new `!= 0` select the same windows.
-> `test_the_new_guard_is_byte_identical_when_frozen` proves it by observing every window's total
-> during a real frozen-balancer run rather than re-deriving the algebra, so it stays true if the
-> loss composition changes. **No existing result moves.**
->
-> Pinned by `tests/train/test_backward_gate.py` (10 tests). Mutation-verified: restoring the sign
-> guard, removing the empty-window skip, removing the optimization gate, removing the non-finite
-> check, and removing the `log(stds)` term are all caught.
-
----
-
 ### C-313: the NB clamp reinstates the C-178 dead-gradient trap that the architecture comment says is gone
 
 | Field | Value |
@@ -3784,6 +3752,8 @@ conclusion.
 | Location | `views_hydranet/train/training_engine.py` — `train()`'s `apply_input_noise`, and `_recalibrate_bn`'s call |
 | Cross-refs | C-184 (recurrent BatchNorm; the recal pass this leaked into exists *because* of it), C-324, C-303 |
 
+**FIXED 2026-09-05 — verified in source on `development` 2026-09-10 (review-rr strategic).** `training_engine.py:913` takes `training_augmentation: bool = True`, and `:929` gates `random_flips` on it alongside the input-noise path, so the C-184 recalibration pass suppresses **every** training-only augmentation rather than one of them. The entry stays in §Open because it is a **recurrence class**, not a single defect — four instances to date, and nothing compares the set of augmentations against the set suppressed. See the recurrence-class lifecycle note in §Register Conventions.
+
 `_recalibrate_bn` (the C-184 mitigation) runs forward-only over real windows to **recompute
 BatchNorm running statistics**, which are saved into the artifact and used at inference. #311's input
 noise was applied on that pass — measured, 30 calls with autograd disabled — so a treatment arm's BN
@@ -3893,33 +3863,6 @@ entirely removed, and **27 of 40 individual tests** passed with the call site de
 **Mitigation:** never derive an expected value from the expression under test; assert a collection is
 non-empty before asserting over it; assert what a value changed *to*, not that it changed; and run the
 deletion test before believing a coverage claim.
-
-### C-330: a per-step gradient hook attached to a tensor the loss also consumes
-
-| Field | Value |
-|-------|-------|
-| ID | C-330 |
-| Tier | **1** |
-| Source | `/code-review max` on `exp/silence-vs-fade`, 2026-09-05 |
-| Trigger | Calling `register_hook` on a **non-leaf** tensor — before doing so, enumerate every consumer of that tensor in the graph |
-| Location | `views_hydranet/train/training_engine.py:571` (`fed = t1_pred`), `:575` (hook), `:578` / `:653` (loss consumers) |
-| Cross-refs | C-324 (a knob whose reading is a fact about the harness), C-303 (the helper's docstring asserted the opposite) |
-
-**FIXED 2026-09-05.** On the legacy point head `fed = t1_pred`, and `t1_pred_for_loss = t1_pred`
-whenever `use_latent` is False — so the scheduled-sampling feedback tensor **is** the regression
-loss's input. `register_hook` on a non-leaf fires **once, on the gradient accumulated from every
-consumer**, so `ss_feedback_grad_clip` rescaled the *primary supervised gradient*, and `fed_grad_max`
-logged reg + gate + qs99 + feedback rather than the handoff the column is named for.
-
-Tier 1 because it corrupts **trained weights**, not a measurement, and does so silently: the run
-completes, the loss falls, and nothing distinguishes a clipped-supervision arm from a healthy one.
-Reachable through a validated config; nothing narrowed the flag to family heads; no test exercised
-the clip with `family=None`. The helper's own docstring asserted the opposite — *"`fed` is the sole
-tensor through which credit crosses"* — which is true for a family head, where `fed` is derived, and
-false on the copy-pasted `else`.
-
-**Fix:** the hook is attached only when `family is not None`, and a config validator rejects
-`ss_feedback_grad_clip` without `ss_backprop_through_feedback` outright.
 
 ### C-331: diagnostic arms that silently collapse into each other, or into their own control
 
@@ -4321,7 +4264,144 @@ downstream `<1.0.0` bound starts doing real work, or whether the 8 pins should b
 `~=0.1.0` / `>=0.1.0,<0.2.0`. Cheaper to settle before there are published versions to stay
 compatible with.
 
+### C-338: the observed data can carry aggregate/summary assignments, and nothing flags one — a single cell-month can dominate a magnitude score
+
+| Field | Value |
+|-------|-------|
+| ID | C-338 |
+| Tier | 2 |
+| Source | review-rr strategic blind-spot analysis (2026-09-10); live instance found while reading forecast maps against validation truth |
+| Trigger | Reporting any magnitude metric (`crps_events`, `mag_on_true_pos`, `size_ratio`, peak-cell reads) for a month containing an unflagged aggregate — or training on a partition containing one — without first checking the truth field's own outliers |
+| Location | `reports/2026-09-06_ensemble_roster_dossier/results/v2_truth_validation.parquet` and every truth parquet built from the datafactory queryset; the scorer `reports/2026-07-29_v2_scoreboard_dossier/tools/score_v2_horizons.py` consumes them without an outlier check |
+| Cross-refs | C-275 (vintage drift — the adjacent "what data was this" gap); Cluster 18 (this is the *reference* being wrong rather than the instrument); views-datafactory#484 |
+
+**The register has extensive coverage of whether we measure the model correctly, and none of whether
+the thing we measure against is correct.** Every entry in Cluster 18 asks whether the instrument saw
+what it claimed; nothing asks whether the target was a real per-cell count.
+
+**Live instance, found 2026-09-10.** `lr_os_best` in priogrid **149451** (13.75°N, 25.25°E — North
+Darfur, Sudan) reads **27,413** at month 550 (2025-10) and **32,505** at month 552 (2025-12), with a
+**2** in the month between them. The same cell's other 23 months run 0–53, median 2. The next largest
+`lr_os_best` cell-month anywhere in the validation file is **1,100** — these are 25× and 30× that.
+`sb` and `ns` are both exactly 0 in the same cell-month. The underlying event is real (El Fasher fell
+in October 2025); the shape of the numbers is the shape of an **aggregate assigned to one
+coordinate**, not a per-cell count. Filed upstream as **views-datafactory#484**.
+
+**Why it matters here rather than only there.** One cell carrying 32,505 in a field whose next
+largest value is 1,100 **dominates any magnitude metric for that month** — a model is then graded
+largely on whether it hit one cell, and no metric in the 22-column scorer says so. The same value in
+a *calibration* partition is a training target, so the model is pulled toward an aggregate. Nothing
+in this repo distinguishes the two cases, and the dossier that surfaced it had to mark its `os`
+magnitude reads provisional by hand.
+
+**Tier 2 rationale:** structural, with a concrete trigger and no error signal — the score is
+computed, reported and believed, and the distortion is invisible in every column we emit. **Not Tier
+1**, because nothing is silently *corrupted*: the value is present and inspectable in the data, and
+whether it is an artefact at all is precisely what #484 asks. **Escalate to Tier 1 if the
+datafactory confirms these are aggregate assignments AND an instance is found in a calibration
+partition** — at that point a training target is knowingly wrong and nothing detects it.
+
+**What is missing is small:** an outlier check on the truth field at build time (`build_validation_truth.py`),
+flagging any cell-month above some multiple of the field's next-largest value, so a run either
+excludes it or reports it alongside the score.
+
+---
+
+### C-339: the ensemble's benefit is assumed, never measured — and the one measurement says it is sample count, not member diversity
+
+| Field | Value |
+|-------|-------|
+| ID | C-339 |
+| Tier | 2 |
+| Source | review-rr strategic blind-spot analysis (2026-09-10), from the ensemble-roster results M66/M67 |
+| Trigger | Shipping a `rusty_bucket` forecast, or defending the 8-member roster's cost — GPU for 8 trainings and 8 emits — on the grounds that pooling adds skill |
+| Location | `views-models/ensembles/rusty_bucket/configs/config_modelset.py`; `reports/2026-09-06_ensemble_roster_dossier/07_experiment_log.md` M66, M67 |
+| Cross-refs | C-110 (heterogeneous-member *calibration* — this entry is about member *benefit*, the adjacent question); Cluster 18 |
+
+The production deliverable is an 8-member ensemble. **Nothing in the register or the test suite
+verifies that pooling 8 members is better than pooling fewer, or than drawing more samples from
+one** — the benefit has been assumed since the roster was locked.
+
+The first measurement of it (M66/M67, 2026-09-08) does not support the assumption:
+
+- the pooled ensemble beats its best single member at every horizon (AP@h18 0.2203 vs 0.1804), **but
+  subsampling that same 128-draw pool back to 16 draws puts it *below* the best member** (0.1462),
+  and AP is monotone in S — k=2 → 0.150, k=4 → 0.186, k=8 → 0.220. The gain tracks **sample count**;
+- member gate errors correlate **0.96–0.99 across all 28 pairs**;
+- giving every model a soft gate compresses AP@h18 into **0.228–0.286** across eight architectures;
+- leave-one-out moves pooled AP by at most 0.0185, and one member's *removal improves* it.
+
+**Tier 2 rationale:** structural fragility with a live trigger and no error signal — the ensemble
+produces a forecast that looks fine while the justification for its shape is unverified, and the
+cost (8 trainings) is being paid on that justification. **Not Tier 1:** no output is wrong; the
+forecast is real and scoreable, and the pooled score is genuinely the best available. What is
+unverified is *why*, and therefore whether the roster is the right shape.
+
+⚠️ **The measurement above is itself one artifact per configuration, one origin, `sb` only** — it is
+enough to falsify "diversity is doing the work", not enough to size the effect.
+
+---
+
+### C-340: no convention for secrets in workflows, at the moment the repo acquires its first one
+
+| Field | Value |
+|-------|-------|
+| ID | C-340 |
+| Tier | 3 |
+| Source | review-rr strategic blind-spot analysis (2026-09-10) |
+| Trigger | Adding `PYPI_TOKEN` to this repository's Actions secrets for #340's publish workflow — the first secret this repo will hold |
+| Location | `.github/workflows/` (currently `ci.yml` only, which uses no secrets); the publish workflow proposed in #340 |
+| Cross-refs | C-333, C-334, C-335 (Cluster 20 — cross-repo and environment coordination); views-hydranet#340 |
+
+The register has **no entry on secret handling**, and the repository has never held a secret — `ci.yml`
+uses none. #340 changes that: publication requires `PYPI_TOKEN` in Actions secrets, and the template
+it recommends passes it on a command line
+(`poetry publish --build --username __token__ --password ${{ secrets.PYPI_TOKEN }}`).
+
+Nothing here is currently wrong — there is simply no convention, and the moment to establish one is
+before the first secret exists rather than after. The open questions are ordinary and unanswered:
+whether the token is scoped to this project or account-wide; whether publication should use PyPI
+**Trusted Publishing** (OIDC) instead of a long-lived token, which removes the secret entirely;
+whether `workflow_dispatch` on a secret-bearing workflow is acceptable given who can trigger it; and
+whether a token passed as a CLI argument rather than an environment variable is acceptable in this
+project's threat model.
+
+**Tier 3 rationale:** maintainability / convention gap. No correctness impact and no silent failure —
+a mishandled token is a security concern rather than a wrong forecast, and the blast radius is a
+package index account rather than this repository. Registered because the trigger is imminent and
+specific, and because "we never decided" is how the *next* repo inherits whatever this one does
+first.
+
 ## Disagreements
+
+**Curation note, 2026-09-10 (review-rr strategic) — this section has never been curated.** All 15
+entries read as live; **not one carries a resolution marker**, and several have been answered by
+events rather than by a ruling. A disagreement that events have settled but that still reads as
+open is the same defect class as **C-303** — an artifact asserting a state that is not true.
+
+Two have factual answers now, recorded here as evidence rather than as rulings — **the adjudication
+is still the chair's**:
+
+- **D-08 — "Does the ZINB head dissolve the balancer (C-111)?"** Side A held that a single
+  likelihood means "nothing to weight", so the multi-task balancer is dissolved *by construction*.
+  **The evidence now contradicts Side A.** C-312 (2026-08-26) found the balancer live and
+  actively harmful — `log(stds)` goes negative once a task fits, and both ADR-014 guards key on that
+  sign, giving 2 updates in 6 lessons with nothing logged. Production did not dissolve it; it
+  **pins** it: all eight roster configs now set `freeze_multitask_balancer: True`, against a config
+  default of `False`. Side B's caution appears to have been correct.
+- **D-09 — "ZINB emit space: count-space `E[y]` vs `log1p(E[y])`."** Side A (count space) is what
+  shipped and what is measured. Verified 2026-09-10 on the roster cubes: `lr_*_best` values are
+  integral counts (`max 1382`, with float32 `expm1` round-trip noise such as `5.9999995`), and
+  ADR-069's `forecast_composition` composes at emit time in that space.
+
+Three more are plausibly moved by events but were **not** verified in this pass and are flagged only
+so the next one starts here: **D-05** and **D-06** sit in Cluster 1, which the map calls "largely
+addressed (2026-07-27)"; **D-15** (mixing-weight log) attaches to the 2-NB mixture head, which Epic
+#230 built and did **not** promote.
+
+**Recommended lifecycle, not applied here** (this skill does not decide disagreements): give each
+D-entry a `Status` row — `live` / `settled-by-ruling` / `settled-by-events` — so the next reader can
+tell a genuine open tension from an artefact of never having been revisited.
 
 
 ### D-01: VolumeHandler scope — God Object vs Deep Module
@@ -4515,6 +4595,90 @@ Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/s
 ---
 
 ## Resolved Concerns
+
+### C-330: a per-step gradient hook attached to a tensor the loss also consumes — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-330 |
+| Tier | **1** |
+| Source | `/code-review max` on `exp/silence-vs-fade`, 2026-09-05 |
+| Trigger | Calling `register_hook` on a **non-leaf** tensor — before doing so, enumerate every consumer of that tensor in the graph |
+| Location | `views_hydranet/train/training_engine.py:571` (`fed = t1_pred`), `:575` (hook), `:578` / `:653` (loss consumers) |
+| Cross-refs | C-324 (a knob whose reading is a fact about the harness), C-303 (the helper's docstring asserted the opposite) |
+
+**FIXED 2026-09-05.** On the legacy point head `fed = t1_pred`, and `t1_pred_for_loss = t1_pred`
+whenever `use_latent` is False — so the scheduled-sampling feedback tensor **is** the regression
+loss's input. `register_hook` on a non-leaf fires **once, on the gradient accumulated from every
+consumer**, so `ss_feedback_grad_clip` rescaled the *primary supervised gradient*, and `fed_grad_max`
+logged reg + gate + qs99 + feedback rather than the handoff the column is named for.
+
+Tier 1 because it corrupts **trained weights**, not a measurement, and does so silently: the run
+completes, the loss falls, and nothing distinguishes a clipped-supervision arm from a healthy one.
+Reachable through a validated config; nothing narrowed the flag to family heads; no test exercised
+the clip with `family=None`. The helper's own docstring asserted the opposite — *"`fed` is the sole
+tensor through which credit crosses"* — which is true for a family head, where `fed` is derived, and
+false on the copy-pasted `else`.
+
+**Fix:** the hook is attached only when `family is not None`, and a config validator rejects
+`ss_feedback_grad_clip` without `ss_backprop_through_feedback` outright.
+
+**RELOCATED to §Resolved 2026-09-10 (review-rr strategic).** The fix was verified in `development` source during this pass, not taken from the banner: `training_engine.py:555` attaches the hook only under `if family is not None`, and `config_initializer.py:814` rejects `ss_feedback_grad_clip` without `ss_backprop_through_feedback`. The header had flagged this relocation as pending since 2026-08-26.
+
+### C-312: the multi-task balancer can drive the loss negative, and two guards then stop training in silence — RESOLVED
+
+| Field | Value |
+|-------|-------|
+| ID | C-312 |
+| Tier | 2 |
+| Source | training-loop gradient audit (2026-08-26) |
+| Trigger | Writing a new arm config without `freeze_multitask_balancer: True`, or deliberately re-enabling the C-111 active balancer to revisit the C-113 bisect |
+| Location | `views_hydranet/utils/mtloss.py:66`; `views_hydranet/train/training_engine.py:1015` (`if w_loss > 0`) and `:1027` (`if lesson_loss > 0`) |
+| Cross-refs | C-111 (added `log_vars` to the optimizer), C-113 (the bisect the freeze flag exists for), **C-170 and C-124 — the SAME trigger (un-freezing the balancer), different mechanism**: C-170 is about the Kendall weighting *starving* the rare targets, this is about the guards below it *stopping training altogether*. Anyone acting on C-170's mitigation must read this too.**, C-314 |
+
+`MultiTaskLoss.forward` returns `coeffs * losses + torch.log(stds + eps)`. The second term is
+**negative whenever `log_var < 0`**. Per task, `term(L, v) = L/((r+1)e^v) + v/2` is minimised at
+`v* = log(L/(r+1))`, giving `term = 1/2 + log(L/(r+1))/2` — **negative once `L < (r+1)/e`**. That is
+not an exotic regime; it is what a well-fitted task looks like, and `v*` is exactly where gradient
+descent on `log_vars` is heading.
+
+ADR-014's guards read as "skip empty windows", but they key on the **sign of a quantity the balancer
+can make negative**. When it does, `backward()` is skipped at `:1015` and `optimizer.step()` at
+`:1027` — with no warning, no log record above DEBUG and no counter. The progress bar advances, the
+loss curves are written, wandb receives rows, and the run is externally indistinguishable from a
+healthy one.
+
+**Measured** on the `loop_config` vehicle with `log_vars` placed at their own fixed point: **2
+optimizer updates across 6 lessons**, versus 6 of 6 for the frozen control, same seed and data.
+
+**Not currently exposed.** Every live arm config — the incumbents and all six architecture bake-off
+arms — sets `freeze_multitask_balancer: True`, which pins `log_vars` at 0 so `log(stds) = 0` and
+every term is non-negative. No past result is in question. But the **config default is `False`**
+(`config_initializer.py:274`), so the exposure is one omitted line away, and 114 of the 156 model
+configs in views-models do not mention the flag at all.
+
+> **FIXED 2026-08-26.** The guards now ask ADR-014's actual question. A window backpropagates
+> unless its loss is **exactly zero** (the empty-window case ADR-014 means); a **non-finite** loss
+> now **raises** instead of being skipped like an empty window (a NaN used to fail `> 0` silently —
+> C-212 was exactly such a bug); and the optimization gate keys on `windows_trained > 0`, i.e.
+> whether gradient was actually produced. Measured after the fix: **6 of 6** lessons update, where
+> the old guards gave 2.
+>
+> **The C-112 comparability question is answered by measurement, not assertion.** Under
+> `freeze_multitask_balancer: True` the balancer contributes `log(stds) = 0` and every task term is
+> non-negative, so the old `> 0` and new `!= 0` select the same windows.
+> `test_the_new_guard_is_byte_identical_when_frozen` proves it by observing every window's total
+> during a real frozen-balancer run rather than re-deriving the algebra, so it stays true if the
+> loss composition changes. **No existing result moves.**
+>
+> Pinned by `tests/train/test_backward_gate.py` (10 tests). Mutation-verified: restoring the sign
+> guard, removing the empty-window skip, removing the optimization gate, removing the non-finite
+> check, and removing the `log(stds)` term are all caught.
+
+---
+
+**RELOCATED to §Resolved 2026-09-10 (review-rr strategic).** The fix was verified in `development` source during this pass, not taken from the banner: `config_initializer.py:295` declares `freeze_multitask_balancer` and `training_engine.py:127` consumes it; all eight roster configs pin it `True`. The header had flagged this relocation as pending since 2026-08-26.
+
 
 <!-- 2026-07-27 register tidy (review-rr strategic): the entries below were resolved-in-place in §Open and physically relocated here. -->
 
@@ -6634,6 +6798,30 @@ The current evaluation measures **calibration** (Brier/ECE/reliability, C-147) a
 ---
 
 ## Register Conventions
+
+### Recurrence classes need a different lifecycle (added 2026-09-10, review-rr strategic)
+
+Eight open entries do not describe a defect that can be fixed. They describe a **recurring practice
+failure**, and they accumulate occurrences: **C-303** (13), **C-320** (5), **C-328** (4), **C-329**,
+**C-318**, **C-211**, **C-228**, **C-277**.
+
+They cannot be resolved the way a defect is resolved. Every instance gets fixed and the class stays
+true, so they sit in §Open indefinitely, permanently inflating the open count and offering the next
+reader no way to tell "this is unfixed" from "this is a standing hazard being managed". C-328 is the
+clearest case: its fix is verified in source, and it is still correctly open.
+
+**They are a rate to drive down, not a bug to close.** What they need — proposed, not applied, since
+this is a governance change rather than a curation fix:
+
+- a `Kind` row distinguishing `defect` from `recurrence-class`;
+- for a recurrence class, a **closure criterion that is a mechanism rather than a fix** — the class
+  closes when something in the harness can detect the next instance, not when the last instance is
+  patched (C-303's would be: something compares a documented guard against its callers);
+- an occurrence count in the header, so the register reports the rate rather than burying it in
+  narrative.
+
+Until then they are counted as open concerns, which overstates the open figure by 8 and understates
+how much of the register is a standing-practice ledger rather than a defect list.
 
 - **ID format:** `C-xx` for concerns, `D-xx` for disagreements. IDs are permanent — gaps in numbering indicate merged or resolved entries
 - **Sources:** `repo-assimilation`, `expert-review`, `test-review`, `falsification-audit`, `clean-architecture-review`, `pr-review`, `tech-debt-audit`, `incident`
