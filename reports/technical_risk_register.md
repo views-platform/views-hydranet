@@ -4596,7 +4596,7 @@ Demoted per the three-track model: Tier-4, mechanical-or-standing, single-file/s
 
 ## Resolved Concerns
 
-### C-330: a per-step gradient hook attached to a tensor the loss also consumes
+### C-330: a per-step gradient hook attached to a tensor the loss also consumes — RESOLVED
 
 | Field | Value |
 |-------|-------|
@@ -4625,7 +4625,7 @@ false on the copy-pasted `else`.
 
 **RELOCATED to §Resolved 2026-09-10 (review-rr strategic).** The fix was verified in `development` source during this pass, not taken from the banner: `training_engine.py:555` attaches the hook only under `if family is not None`, and `config_initializer.py:814` rejects `ss_feedback_grad_clip` without `ss_backprop_through_feedback`. The header had flagged this relocation as pending since 2026-08-26.
 
-### C-312: the multi-task balancer can drive the loss negative, and two guards then stop training in silence — FIXED
+### C-312: the multi-task balancer can drive the loss negative, and two guards then stop training in silence — RESOLVED
 
 | Field | Value |
 |-------|-------|
