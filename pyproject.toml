@@ -17,6 +17,12 @@ dependencies = [
 # issue #215: matplotlib is imported lazily by VisualDiagnostics (optional plotting stack). Declare it
 # as an OPTIONAL extra so models that enable diagnostics (diagnostic_visualizations=True) can pin it via
 # `views-hydranet[viz]`; the default headless run path needs no plotting stack.
+[project.urls]
+Homepage = "https://github.com/views-platform/views-hydranet"
+Repository = "https://github.com/views-platform/views-hydranet"
+Issues = "https://github.com/views-platform/views-hydranet/issues"
+Changelog = "https://github.com/views-platform/views-hydranet/releases"
+
 [project.optional-dependencies]
 viz = ["matplotlib>=3.8,<4"]
 
