@@ -34,3 +34,49 @@ jobs:
             --ignore=tests/test_falsification_end_to_end_claim.py \
             --deselect "tests/test_falsification_repo_clean.py::TestF4_01_UncommittedChanges::test_git_working_tree_is_clean" \
             -v --tb=short
+
+  # The distributable is what people actually install; `test` only ever exercises the source
+  # tree. `pyproject.toml` is a second contract that NO test reads — nothing in tests/ references
+  # `readme`, `[project]` or the build system — so a broken packaging key passes the suite and
+  # fails the build. Without this job the first build happens in the publish workflow, i.e. after
+  # a tag is cut and a Release published, which is the worst moment to discover it.
+  #
+  # This deliberately builds the SAME WAY the publish workflow does (`uv build`), so what CI
+  # proves and what ships are the same artifact. Building here with a different tool would prove
+  # something else.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.11"
+
+      - name: Build sdist + wheel
+        run: uv build
+
+      # Catches what PyPI itself would reject at upload — chiefly a long_description (README)
+      # that does not render. That rejection would otherwise land mid-release.
+      - name: Validate the artifact metadata
+        run: uv run --no-project --python 3.11 --with twine twine check dist/*
+
+      # --no-deps keeps this fast: importing needs torch, whose default CUDA wheel is several GB.
+      # This proves the wheel installs and carries the right metadata; the full import check is a
+      # manual step in docs/guides/publishing-to-pypi.md (§B).
+      - name: Install the wheel and check its contract
+        run: |
+          uv venv /tmp/v --python 3.11
+          uv pip install --python /tmp/v/bin/python --no-deps dist/*.whl
+          /tmp/v/bin/python - <<'PY'
+          from importlib.metadata import metadata, version
+          m = metadata("views-hydranet")
+          print("version:", version("views-hydranet"))
+          reqs = m.get_all("Requires-Dist") or []
+          for r in reqs:
+              print("  requires:", r)
+          for expected in ("views-pipeline-core", "views-frames", "torch"):
+              assert any(expected in r for r in reqs), f"{expected} missing from wheel metadata"
+          urls = m.get_all("Project-URL") or []
+          assert any("Repository" in u for u in urls), "Project-URL Repository missing"
+          print("wheel metadata OK")
+          PY
