@@ -1,0 +1,139 @@
+name: Publish Package
+
+# Publishes views-hydranet to PyPI when a GitHub Release is published
+# (create a Release from a vX.Y.Z tag). Auth is PyPI Trusted Publishing (OIDC) —
+# there is NO stored API token in this repository. See docs/guides/publishing-to-pypi.md.
+#
+# This workflow goes to TestPyPI FIRST, installs the artifact back from there, and only
+# then publishes to real PyPI. The sibling repos (views-baseline, views-datafactory,
+# views-frames, views-postprocessing, views-reporting) publish straight to PyPI and treat
+# TestPyPI as an optional manual rehearsal; doing it in-workflow means the rehearsal cannot
+# be skipped on the release that actually matters.
+#
+# ONE-TIME SETUP — required before the first run, and it is TWO publishers, not one:
+#
+#   PyPI      https://pypi.org/manage/account/publishing/
+#   TestPyPI  https://test.pypi.org/manage/account/publishing/
+#
+#   Both with:  Owner: views-platform | Repo: views-hydranet
+#               Workflow: publish_package.yml | Environment: (leave blank)
+#
+#   For a package that does not exist yet, register a PENDING publisher on each site —
+#   that is what authorises the first-ever upload. Forgetting the TestPyPI one fails this
+#   workflow at the first publish step, before anything reaches real PyPI, which is the
+#   safe direction to fail in.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      testpypi_only:
+        description: "Stop after TestPyPI — rehearse without publishing for real"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write      # REQUIRED: mints the OIDC token for Trusted Publishing
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+
+      - name: Install uv (+ Python 3.11)
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86  # v5
+        with:
+          python-version: "3.11"   # the wheel is pure-Python (py3-none-any)
+
+      - name: Read the version being published
+        id: ver
+        run: |
+          v=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "publishing views-hydranet $v"
+
+      # Only meaningful on a Release. A manual dispatch has no tag to compare against.
+      - name: Guard — pyproject version must equal the tag being released
+        if: github.event_name == 'release'
+        run: |
+          tag="${{ github.event.release.tag_name }}"
+          ver="${{ steps.ver.outputs.version }}"
+          [ "${tag#v}" = "$ver" ] || {
+            echo "::error::tag $tag and pyproject version $ver disagree — one of them is wrong"
+            exit 1
+          }
+          echo "tag guard OK: $tag == v$ver"
+
+      # `cur` falls back to 0.0.0, NOT to the version being published: on a first-ever
+      # release the package 404s, and a fallback equal to our own version would make the
+      # strict `>` compare a value with itself and fail on exactly the case it exists to
+      # permit. (That is a live defect in the views-r2darts2 copy of this guard.)
+      - name: Guard — pyproject version must be newer than what is on PyPI
+        run: |
+          uv run --no-project --python 3.11 --with packaging python - <<'PY'
+          import json, tomllib, urllib.request
+          from packaging.version import parse
+          new = tomllib.load(open("pyproject.toml", "rb"))["project"]["version"]
+          try:
+              cur = json.load(urllib.request.urlopen(
+                  "https://pypi.org/pypi/views-hydranet/json"))["info"]["version"]
+          except Exception:
+              cur = "0.0.0"   # not on PyPI yet — anything is newer
+          assert parse(new) > parse(cur), (
+              f"pyproject version {new} must be > current PyPI {cur} — bump it before releasing"
+          )
+          print(f"version guard OK: {new} > {cur}")
+          PY
+
+      - name: Build (poetry-core backend, via uv)
+        run: uv build
+
+      - name: Show what is about to be published
+        run: |
+          ls -l dist/
+          uv run --no-project --python 3.11 --with twine twine check dist/*
+
+      # --check-url makes a re-run idempotent: a file already on TestPyPI is skipped
+      # rather than failing the job. TestPyPI refuses to overwrite a version, so without
+      # this, any second run of the same version would fail here.
+      - name: Publish to TestPyPI (Trusted Publishing — no token)
+        run: |
+          uv publish \
+            --publish-url https://test.pypi.org/legacy/ \
+            --check-url https://test.pypi.org/simple/ \
+            --trusted-publishing always
+
+      # Deliberately --no-deps. This proves the artifact is really on the index and is
+      # downloadable and installable; it does NOT import the package, because importing
+      # needs torch and the default CUDA wheel is multiple GB, which would dominate every
+      # release. The full clean-room import check is a manual step, documented in
+      # docs/guides/publishing-to-pypi.md §B.
+      - name: Install it back from TestPyPI (artifact reachability, no deps)
+        run: |
+          uv venv /tmp/verify --python 3.11
+          uv pip install --python /tmp/verify/bin/python --no-deps \
+            --index-url https://test.pypi.org/simple/ \
+            "views-hydranet==${{ steps.ver.outputs.version }}"
+          /tmp/verify/bin/python - <<'PY'
+          from importlib.metadata import metadata, version
+          m = metadata("views-hydranet")
+          print("installed version:", version("views-hydranet"))
+          reqs = m.get_all("Requires-Dist") or []
+          print("Requires-Dist:")
+          for r in reqs:
+              print("   ", r)
+          assert any("views-pipeline-core" in r for r in reqs), "pipeline-core missing from metadata"
+          assert any("views-frames" in r for r in reqs), "views-frames missing from metadata"
+          assert any("torch" in r for r in reqs), "torch missing from metadata"
+          PY
+
+      - name: Publish to PyPI (Trusted Publishing — no token)
+        if: github.event_name == 'release' || inputs.testpypi_only == false
+        run: uv publish --trusted-publishing always
+
+      - name: TestPyPI only — stopping here
+        if: github.event_name != 'release' && inputs.testpypi_only == true
+        run: echo "Rehearsal complete. Nothing was published to real PyPI."
