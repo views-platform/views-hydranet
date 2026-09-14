@@ -22,7 +22,6 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
-from views_hydranet.architectures.locked_dropout import LockedDropout
 from views_hydranet.distributions import resolve_family
 from views_hydranet.distributions.family_loss import FamilyLoss
 from views_hydranet.infrastructure.reproducibility_gate import ReproducibilityGate
@@ -939,27 +938,21 @@ def train(
     ctx.model.train()
     ctx.multitaskloss_instance.train()
 
-    # C-328 instance 5 (S3/#356): dropout is a training-only augmentation, so it belongs to the
-    # same gate as the flips and the input noise. `model.train()` above turns it on
-    # unconditionally,
-    # which meant both C-184 recalibration paths recomputed BN statistics — with `momentum=None`,
-    # equal weight, no EMA discount — on activations inflated by dropout's `1/(1-p)` scaling, while
-    # inference runs with dropout off. 14 of the 15 BatchNorms sit downstream of a dropout site.
+    # Dropout stays ON during a BatchNorm-recalibration pass, deliberately. It is NOT a training-
+    # only augmentation here: production inference runs `model.eval()` + `set_locked_dropout(True)`
+    # (ADR-057, MC-dropout with a locked mask), so every LockedDropout masks at forecast time and
+    # the BN running statistics must be estimated on dropout-shaped activations to match. The
+    # C-184 recal fix that flipped 6/6 bad seeds was validated with dropout on. Epic #353 / S3
+    # briefly switched dropout off on these passes on the premise that inference runs it off;
+    # `/code-review max` on #372 measured the result — running_var 14-21% low at the 14 BN layers
+    # downstream of a dropout site, gate-logit std +14% at inference — and the flip was reverted
+    # before merge. Do not re-add it.
     #
-    # Gated here rather than at the two call sites deliberately: a per-call-site fix is what
-    # invited
-    # the previous instance, where the first C-328 fix named `apply_input_noise` and left the flip.
-    # `model.eval()` is NOT the alternative — it would freeze the BN statistics the pass exists to
-    # recompute, which is the whole point of the pass.
-    #
-    # No restore is needed and none is written: `ctx.model.train()` immediately above re-enables
-    # every dropout module on entry to the NEXT call, so the flip cannot leak into a later training
-    # lesson. `_recalibrate_bn` additionally calls `model.eval()` when it returns. The `.training`
-    # flag is not part of `state_dict`, so a model saved from a recal pass is unaffected.
+    # Scheduled sampling IS gated here, not only at the call site: `training_augmentation=False`
+    # must mean what it says inside this function, or a future caller that forwards the schedule's
+    # epsilon accumulates BN statistics on self-fed fields with every log clean (C-303 shape).
     if not training_augmentation:
-        for _m in ctx.model.modules():
-            if isinstance(_m, (nn.Dropout, nn.Dropout2d, nn.Dropout3d, LockedDropout)):
-                _m.eval()
+        ss_epsilon = 0.0
 
     config = ctx.config
     model = ctx.model
@@ -1165,6 +1158,32 @@ def _reset_bn_stats(model: nn.Module) -> int:
     return n
 
 
+def _assert_bn_buffers_finite(model: nn.Module, context: str) -> None:
+    """Refuse to let a recalibration pass hand back non-finite BatchNorm statistics.
+
+    Both recal paths run forward-only, so the ADR-014 loss monitor is either skipped
+    (`bn_recal_from`, S4/#357) or irrelevant — the loss is not consumed. That leaves the one
+    thing a recal pass DOES produce, the BN buffers, unchecked: one non-finite activation on one
+    forward poisons `running_mean`/`running_var` of every BN layer, and with `momentum=None`
+    (cumulative average) they never recover. The state_dict is then saved, every log reads
+    HEALTHY, and the first loud failure is at inference. Found by `/code-review max` on #372,
+    end-to-end, after S4 removed the only (accidental) loud failure on that path.
+    """
+    bad = []
+    for name, m in model.named_modules():
+        if isinstance(m, nn.modules.batchnorm._BatchNorm):
+            for buf in ("running_mean", "running_var"):
+                t = getattr(m, buf, None)
+                if t is not None and not torch.isfinite(t).all():
+                    bad.append(f"{name}.{buf}")
+    if bad:
+        raise RuntimeError(
+            f"[FATAL] {context}: BatchNorm recalibration produced non-finite running statistics "
+            f"in {len(bad)} buffer(s): {bad[:6]}{' …' if len(bad) > 6 else ''}. These buffers "
+            "ship inside the artifact and are used at inference; refusing to hand them back."
+        )
+
+
 def _recalibrate_bn(ctx: "TrainingContext", sampler, planner, config: dict) -> None:
     """C-184 fix: recompute BatchNorm running statistics post-training.
 
@@ -1186,20 +1205,17 @@ def _recalibrate_bn(ctx: "TrainingContext", sampler, planner, config: dict) -> N
         for w in range(n_windows):
             target, threshold = planner.get_lesson(w)
             batch, _ = sampler.get_batch(target, threshold, batch_size=1)
-            # training_augmentation=False: this pass recomputes BN statistics on CLEAN data —
-            # which as of S3/#356 means dropout off as well as no flips and no input noise. Before
-            # that, `model.train()` left all 15 LockedDropout sites masking, and 14 of the 15
-            # BatchNorms sit downstream of one (C-328 instance 5).
+            # training_augmentation=False: this pass recomputes BN statistics on CLEAN data.
             # Every training-only augmentation is suppressed — the input noise (#311), the
             # random H/W flips, which are older and were polluting these buffers for as long as
-            # `random_flips` and BN recalibration have coexisted (C-328 instance 4), AND dropout,
-            # which this comment claimed was covered while `model.train()` left all 15
-            # LockedDropout sites masking (C-328 instance 5, S3/#356). 14 of the 15 BatchNorms sit
-            # downstream of a dropout site, so the statistics this pass exists to correct were
-            # being computed on activations inflated by dropout's 1/(1-p) scaling.
+            # `random_flips` and BN recalibration have coexisted (C-328 instance 4), and scheduled
+            # sampling (C-328 instance 5). Dropout is NOT suppressed, on purpose: inference runs
+            # MC-dropout (ADR-057), so the statistics must be estimated with it on — see `train()`.
             train(ctx, batch[0], None, stage_label="", training_augmentation=False)
             del batch
     model.eval()
+    # Raises inside the caller's fail-safe, which restores the pre-recal buffers.
+    _assert_bn_buffers_finite(model, "C-184 post-training recalibration")
 
 
 def training_loop(
@@ -1346,6 +1362,13 @@ def training_loop(
 
             # ADR-056: compute epsilon once per lesson
             ss_epsilon = ss_mixer.get_epsilon(lesson_idx) if ss_mixer is not None else 0.0
+            # C-328 instance 5 (S3/#356): a `bn_recal_from` pass must not substitute the model's
+            # own predictions for ground truth while it re-accumulates BN statistics. Zeroed HERE,
+            # once, so the value passed to `train()` and the value logged to wandb are the same
+            # object — the first version zeroed only the kwarg and logged the schedule's live eps,
+            # so the run's own record asserted SS was active on the pass whose buffers ship.
+            if _bn_recal:
+                ss_epsilon = 0.0
 
             # Pull one lesson per window in the batch (The Mixed Salad)
             for window_idx in range(config["windows_per_lesson"]):
@@ -1381,14 +1404,9 @@ def training_loop(
                     sample_handler,
                     pbar,
                     stage_label=slbl,
-                    # C-328 instance 5 (S3/#356): scheduled sampling is a training-only
-                    # perturbation too, and it was passed here unconditionally while
-                    # `training_augmentation` was False — the two augmentation families gated
-                    # inconsistently in the same call. On any SS or ITF arm the pass accumulated BN
-                    # statistics while the model's own predictions were substituted for ground
-                    # truth at rate eps, and under `ss_reverse=True` (#287) eps is at
-                    # `ss_epsilon_max` from lesson 0.
-                    ss_epsilon=0.0 if _bn_recal else ss_epsilon,
+                    # Already 0.0 on a recal pass (zeroed where it is computed, above), and
+                    # `train()` zeroes it again on `training_augmentation=False` regardless.
+                    ss_epsilon=ss_epsilon,
                     fed_grad_sink=_fed_sink,
                     # C-328: a `bn_recal_from` run drives THIS loop forward-only to re-accumulate
                     # BatchNorm statistics, so it is a recalibration pass even though it is not
@@ -1621,6 +1639,12 @@ def training_loop(
             )
             model.load_state_dict(_bn_snapshot, strict=False)
             model.eval()
+
+    # A `bn_recal_from` run exists only to produce BN buffers, and the caller saves them next. No
+    # fail-safe wraps this path (the weights came from a checkpoint that survives an abort), so a
+    # non-finite buffer must raise here, before torch.save.
+    if _bn_recal:
+        _assert_bn_buffers_finite(model, f"bn_recal_from={_bn_recal}")
 
     # 4. Final weight audit
     weight_norms = {}
