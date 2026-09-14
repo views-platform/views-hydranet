@@ -107,6 +107,52 @@ the effects that are multiples of it. Rows **M66–M74**; dossier
 
 ---
 
+## 🧰 EPIC #353 — 2026-09-14 — **no measurement; traps fixed, no forecast changed**
+
+**Read this first: this epic produced no experimental result.** It is remediation of the 25 findings
+`/code-review max` returned on PR #351 (`development` → `main`, 315 commits), every one verified at
+runtime and **none caught by the 2,079-test suite**. Nothing here is evidence about conflict, the
+model, or any arm. No number in this ledger moves because of it.
+
+**The scoping fact that made it an epic rather than a hotfix:** *none of the 25 findings ships a
+wrong forecast today.* No roster config sets `freeze_recurrent_weight`, `pushforward_weight`,
+`ss_backprop_through_feedback` or `bn_recal_from`, and all eight models use the incumbent
+architecture. Every finding is a trap for the **next** experiment or the **next** release.
+
+**The one behavioural change: S3 (#356).** Suppressing dropout and scheduled sampling on the C-184
+BatchNorm recalibration passes changes the running statistics written into **future** artifacts. The
+eight roster artifacts already trained are unaffected — they are files — but an artifact retrained
+after this is not bit-comparable with one trained before it. That is **C-328 instance 5**, and the
+consequence was recorded in the register *before* the code changed, per the story's own criteria.
+
+**What the stories closed**, in one line each:
+* **S1** a production clamp (`freeze_recurrent` + `weight=0.0`) could log `CLAMPED` and deliver the
+  unclamped control — **C-331** escalated from diagnostic to production.
+* **S2** two guards that comments promised and no code implemented — **C-303**, now fourteen.
+* **S3** dropout and SS reaching the BN recal pass; 14 of 15 BatchNorms sit downstream of a dropout.
+* **S4** `IntegrityGuardian` aborting a recalibration pass on a non-finite loss.
+* **S5** the clamp verdict logged before the override that can change it.
+* **S6** a rehearsal could burn a release version on TestPyPI and make the real Release skip its own
+  upload; and a wheel with **zero Python modules** passed both contract checks — forged and
+  demonstrated. **C-341 extended, not resolved.**
+* **S7** the gate probe drew from the RNG stream it observed, so an arm measured with it on was not
+  the arm of the same name — **C-344**.
+* **S8** unbounded stats buffers (the `rc=137` OOM that was recorded and never bounded), a dump whose
+  two arrays had different axis orders and one `n_reg`, and a derangement built for every arm that
+  made a two-step rollout fatal — **C-344**, **C-303**.
+* **S9** three tests that could not fail, including the sole pin for a knowingly-uncaught mutation,
+  which turned out to have **never executed anywhere** — **C-329**.
+
+**What this epic is actually evidence for:** the deletion test, not the test suite, is what finds
+this class. Five of my own guards survived their first mutation — three substring assertions in S6, a
+decorative `inject` parametrisation in S7, and an untested `ss_epsilon` gate in S3 — and every one was
+found by reverting the fix and watching the tests stay green. Recorded under **C-329**.
+
+⛔ **Open gate.** S6 could not be validated: `workflow_dispatch` only offers workflows on the default
+branch, and #351 is held. **#351 → `main` → the TestPyPI rehearsal green → only then a Release.**
+Recorded durably in `docs/guides/publishing-to-pypi.md`, not only in the issue that will be closed.
+---
+
 ## Claims Ledger — the rollout collapse (#258 / #262)
 
 **Why this section exists.** The run ledger below is per-*run* and the narrative is chronological, and

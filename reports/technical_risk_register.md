@@ -4,12 +4,12 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-09-10 (review-rr strategic)     |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). **`C-106` is a THIRD gap, found 2026-09-10 (review-rr strategic): the ID appears nowhere in this file — not as an entry, not as a merge note, not as a cross-reference — so whether it was merged, renumbered or never assigned is unrecoverable from the register. Recorded as unexplained rather than quietly renumbered.** **C-319..C-322 added 2026-09-03 from the silence-vs-fade dossier: C-319 (field statistics blind to placement — occurrence, magnitude and alignment ALL survive a roll that destroys the forecast, so an internal statistic cannot close a causal claim about a truth-referenced score); C-320 (a falsifier band tighter than its own reference's sampling noise, which fired on the known-good control); C-321 (`--keep-cubes` silently disables the multi-arm contamination guard); C-322 (the model field's H axis runs opposite to priogrid row order — naive placement correlates 0.026, the flip gives 1.0000). **C-325 added 2026-09-04: two SCREEN-2 mechanism tests measured the network at INITIALISATION and were recorded as ruling a mechanism out; the arm's gradient does explode, 33 lessons later.** **C-328 added 2026-09-05: #311's input noise leaked into the C-184 BatchNorm recalibration pass, which would have confounded the S5 screen at the BN layer with every log looking clean; second instance of the mechanism after #289's, and found by a test written for a different prose invariant.** **C-329 added 2026-09-05 from the implementation-practice post-mortem: tests that cannot fail (tautology, vacuity, zero power) — invisible to mutation testing by construction, detected by the deletion test.** **C-330/C-331/C-332 added 2026-09-05 from `/code-review max` (partial — 11 finders, no expert panel); the same pass ESCALATED C-328 to four instances (the `bn_recal_from` path and `random_flips`, the latter left unfixed by decision), C-303 to TWELVE occurrences with a new sub-form (the false prose describes a safety gate, making an absent control look present), and C-329 with two further instances, both inside the commit that registered it.** **C-326 added the same day: launcher watchdogs kill the subshell, not the process tree — an arm reported CAPPED trained on for 7 more lessons; latent everywhere else (no `STALLED` line exists in any `ANOMALIES.txt`).** **C-327 added 2026-09-04: #308's Phase-2 clip ladder was pre-registered as a discriminator whose two hypotheses, derived properly, predict the SAME outcome — C-320's fifth instance, found before it was run and at no cost.** **C-320 escalated 2026-09-04 from three to FOUR occurrences, the fourth a distinct sub-form: #308's SCREEN rule enumerated three numeric outcomes and no failure branch, so when arm B died with NaN gradients at lesson 48 no branch of the rule could be evaluated.** **C-333..C-337 added 2026-09-10 from the review of #340 (PyPI publication). C-333 records that cross-repo release ordering is unguarded in BOTH directions — C-165's 2026-07-31b update has this repo blocked for weeks by an unpublished `views-pipeline-core`, and two months later this repo is the unpublished upstream doing it to 8 views-models models; the class recurred with the arrow reversed and a human found it both times. C-334 records that the platform's house publish template carries TWO defects that each independently block a first release — reproduced by executing its own logic, not by reading it — meaning it has never successfully performed one. C-337 is a decision, not a defect: publishing 0.1.0 arms a `<1.0.0` bound on all 8 models that semver lets any future 0.x walk through.** |
-| Total Concerns    | 340                                  |
-| Open Concerns     | 186                                  |
+| Last Updated      | 2026-09-14 (Epic #353 remediation)   |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). **`C-106` is a THIRD gap, found 2026-09-10 (review-rr strategic): the ID appears nowhere in this file — not as an entry, not as a merge note, not as a cross-reference — so whether it was merged, renumbered or never assigned is unrecoverable from the register. Recorded as unexplained rather than quietly renumbered.** **C-319..C-322 added 2026-09-03 from the silence-vs-fade dossier: C-319 (field statistics blind to placement — occurrence, magnitude and alignment ALL survive a roll that destroys the forecast, so an internal statistic cannot close a causal claim about a truth-referenced score); C-320 (a falsifier band tighter than its own reference's sampling noise, which fired on the known-good control); C-321 (`--keep-cubes` silently disables the multi-arm contamination guard); C-322 (the model field's H axis runs opposite to priogrid row order — naive placement correlates 0.026, the flip gives 1.0000). **C-325 added 2026-09-04: two SCREEN-2 mechanism tests measured the network at INITIALISATION and were recorded as ruling a mechanism out; the arm's gradient does explode, 33 lessons later.** **C-328 added 2026-09-05: #311's input noise leaked into the C-184 BatchNorm recalibration pass, which would have confounded the S5 screen at the BN layer with every log looking clean; second instance of the mechanism after #289's, and found by a test written for a different prose invariant.** **C-329 added 2026-09-05 from the implementation-practice post-mortem: tests that cannot fail (tautology, vacuity, zero power) — invisible to mutation testing by construction, detected by the deletion test.** **C-330/C-331/C-332 added 2026-09-05 from `/code-review max` (partial — 11 finders, no expert panel); the same pass ESCALATED C-328 to four instances (the `bn_recal_from` path and `random_flips`, the latter left unfixed by decision), C-303 to TWELVE occurrences with a new sub-form (the false prose describes a safety gate, making an absent control look present), and C-329 with two further instances, both inside the commit that registered it.** **C-326 added the same day: launcher watchdogs kill the subshell, not the process tree — an arm reported CAPPED trained on for 7 more lessons; latent everywhere else (no `STALLED` line exists in any `ANOMALIES.txt`).** **C-327 added 2026-09-04: #308's Phase-2 clip ladder was pre-registered as a discriminator whose two hypotheses, derived properly, predict the SAME outcome — C-320's fifth instance, found before it was run and at no cost.** **C-320 escalated 2026-09-04 from three to FOUR occurrences, the fourth a distinct sub-form: #308's SCREEN rule enumerated three numeric outcomes and no failure branch, so when arm B died with NaN gradients at lesson 48 no branch of the rule could be evaluated.** **C-333..C-337 added 2026-09-10 from the review of #340 (PyPI publication). C-333 records that cross-repo release ordering is unguarded in BOTH directions — C-165's 2026-07-31b update has this repo blocked for weeks by an unpublished `views-pipeline-core`, and two months later this repo is the unpublished upstream doing it to 8 views-models models; the class recurred with the arrow reversed and a human found it both times. C-334 records that the platform's house publish template carries TWO defects that each independently block a first release — reproduced by executing its own logic, not by reading it — meaning it has never successfully performed one. C-337 is a decision, not a defect: publishing 0.1.0 arms a `<1.0.0` bound on all 8 models that semver lets any future 0.x walk through.** **2026-09-14, Epic #353 (remediating `/code-review max` on PR #351): ONE new entry and FIVE updates, deduped before writing. New: C-344 (a diagnostic instrument that perturbs or kills the run it measures — the gate probe drawing from the stream it observes, and two unbounded stats buffers that OOM-killed a probe run at rc=137). Updated rather than duplicated: C-331 escalated from a diagnostic risk to a PRODUCTION one (ADR-027 §2.1 promoted `freeze_recurrent`, so a zero weight now makes a delivered forecast claim a clamp it does not apply); C-328 instance 5 with the artifact consequence recorded BEFORE the change; C-303 from twelve to FOURTEEN; C-329 with three review-found instances plus TWO authored inside this epic and caught by its own deletion test; C-341 EXTENDED, not resolved — deleting the input closed one path, a branch dispatch at the release version was a second. **One routing correction: issue #361 filed the pass-0 docstring as C-320 occurrence 12; it is C-303, and C-320 stays at four.** This epic produced NO measurement — it fixed traps and changed no forecast, except S3, which changes future artifacts.** |
+| Total Concerns    | 341                                  |
+| Open Concerns     | 187                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 162                                 |
+| — net active risks | 163                                 |
 | Resolved Concerns | 154                                  |
 | Last curation pass | **2026-09-10 (review-rr strategic)** — 3 new clusters (18 instrument integrity, 19 declared-but-inert, 20 cross-repo coordination) covering ~45 of the 112 unmapped entries; C-330 (Tier 1) and C-312 relocated → §Resolved after verifying both fixes **in source** rather than trusting their banners; C-328 bannered FIXED (verified, previously unmarked); C-189's cross-ref repointed from the merged C-188 to C-182; C-110's location marked stale (`golden_hour`/3 → `rusty_bucket`/8); C-164's perpetual trigger rewritten; §Disagreements curated for the first time — 15 entries, **0 ever marked resolved**, two now carry evidence that events answered them. **Blind spots found and deliberately NOT registered here** (review-rr does not add risks): truth-data quality has **zero** coverage; ensemble benefit is assumed rather than measured; secrets handling has one mention with publication imminent. **C-338..C-340 registered 2026-09-10 immediately after this pass, closing the three blind spots it named — C-338 (truth-data aggregate assignments; the register covered whether we measure the model correctly and not whether the reference is correct, with a live instance at views-datafactory#484), C-339 (the 8-member ensemble's benefit is assumed, and the first measurement says sample count not diversity), C-340 (no secrets convention, at the moment the repo acquires its first secret).** **C-341..C-343 added 2026-09-10 from `expert-code-review` of PR #351 (the development→main release): C-341 (Tier 2) the publish workflow's manual path could publish IRREVERSIBLY to PyPI while skipping the tag guard — tier set by irreversibility, not likelihood, since a PyPI version cannot be deleted or reused; FIXED the same day by deleting the input rather than guarding it, together with a second defect in the same never-executed file (a `tomllib` import on the runner's Python, working only by accident of the current image). C-342 (Tier 3) a production release now depends on TestPyPI, deliberately unfixed. C-343 (Tier 4) `__all__` and the lazy `__getattr__` can drift. The same review MERGED its BN finding into C-328 rather than registering it: the recal fix is a real training-time behaviour change and the release PR had claimed none.** Previous pass: **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -2804,7 +2804,7 @@ clear persistence at every horizon (ledger M34, n=4) — which is what this entr
 
 ---
 
-### C-303: prose asserts a guard the code does not implement — TEN occurrences, one of which rendered a WRONG VERDICT
+### C-303: prose asserts a guard the code does not implement — FOURTEEN occurrences, one of which rendered a WRONG VERDICT
 
 | Field | Value |
 |-------|-------|
@@ -2910,6 +2910,29 @@ branch of a decision rule must be reachable by some input, and that should be de
 unit test over synthetic verdict inputs — not left to whichever direction the experiment happens to
 take.** The fix is recorded in that dossier's AMENDMENT 1, disclosed as post-hoc.
 
+
+**FOURTEEN occurrences — 2026-09-14 (Epic #353).** Four more, all found by `/code-review max` on
+PR #351 and fixed in this epic:
+
+* **S2 #355(a).** `_attach_feedback_grad_clip`'s call-site comment said *"A config validator rejects
+  the combination outright."* An exhaustive grep found **no such validator**. The named protection
+  did not exist; `reject_bptt_sa_without_a_family` now does, and the comment names it.
+* **S2 #355(b).** The pushforward's feedback comment described a composed mean while
+  `_family_feedback_log1p`'s `'mean'` branch called `_family_target_log1p_mean`, which ignores the
+  gate entirely. The C-259 guard that would have caught the mismatch is nested inside
+  `if self.ss_epsilon_max > 0`, and a pushforward arm never sets it.
+* **S8 #361.** `hydranet_inference.py`'s constructor comment said the body-mean dump was written
+  *"for the MC-dropout pass 0 only"*; the code has averaged over all D since 2026-09-03.
+  ⚠️ **Routing correction:** issue #361 filed this as *C-320 occurrence 12*. That is wrong — C-320
+  is about pre-registered decision rules that cannot deliver a verdict, and this is prose asserting
+  behaviour the code does not have. Recorded here, and C-320's count is unchanged at four.
+* **S7 #360.** `docs/CICs/InferenceOrchestrator.md` asserted `per_step_roll` was *"the only entry in
+  this list that mutates the forward pass rather than observing it."* False: `record_gate_probe`
+  drew from the generator the feedback transforms consume, so enabling the observer changed the arm
+  it observed. The prose is now true, and says since when.
+
+The pattern holds across all four: **the comment described the system the author intended, and no
+test read the comment.** Three of the four were in files this same PR had already reviewed.
 ### C-308: a probe measured the wrong phase of the rollout, and every downstream guard still passed — TWO occurrences
 
 | Field | Value |
@@ -3754,6 +3777,41 @@ conclusion.
 
 **FIXED 2026-09-05 — verified in source on `development` 2026-09-10 (review-rr strategic).** `training_engine.py:913` takes `training_augmentation: bool = True`, and `:929` gates `random_flips` on it alongside the input-noise path, so the C-184 recalibration pass suppresses **every** training-only augmentation rather than one of them. The entry stays in §Open because it is a **recurrence class**, not a single defect — four instances to date, and nothing compares the set of augmentations against the set suppressed. See the recurrence-class lifecycle note in §Register Conventions.
 
+**INSTANCE 5, and the decision to change artifacts again — 2026-09-14 (Epic #353 / S3 #356).**
+`training_augmentation`'s own comment claims it *"gates EVERY training-only augmentation, not one of
+them"*. It does not. Two perturbations still reach a recalibration pass:
+
+* **Dropout.** `train()` calls `ctx.model.train()` unconditionally, regardless of
+  `training_augmentation`, and `LockedDropout` masks in train mode (identity in eval). **14 of the
+  15 BatchNorms sit downstream of a dropout site** (`bn_enc_conv1` consumes
+  `pool0(dropout['e0s'](...))`), so statistics are recomputed with `momentum=None` — equal weight,
+  no EMA discount — on activations inflated by dropout's `1/(1-p)` scaling, while inference runs
+  with dropout off. Both recalibration paths are affected: `_recalibrate_bn`, whose docstring claims
+  *"Every training-only augmentation is suppressed"*, and the `bn_recal_from` lesson loop.
+* **Scheduled sampling.** `ss_epsilon` is passed to `train()` unconditionally on the `bn_recal_from`
+  path, with no `_bn_recal` term — so on any SS or ITF arm the pass accumulates statistics while the
+  model's own predictions are substituted for ground truth at rate ε, and under `ss_reverse=True`
+  (#287) ε is at `ss_epsilon_max` from lesson 0.
+
+The repository already ships the exact tool and does not use it here: `_batchnorm_eval` separates BN
+state from dropout state, and its only caller is the #289 pushforward.
+
+**⚠️ DECISION TAKEN — fix now, and this changes future artifacts.** Any model retrained after this
+lands carries different BatchNorm buffers than the same config trained before it, and those buffers
+ship inside the artifact and move the forecast. The eight roster models (retrained 2026-09-07/08)
+become a pre-fix cohort.
+
+Recorded **before** the code change, which is the point: C-328's previous instance changed artifacts
+and PR #351 asserted no behaviour change until `/code-review max` corrected it. The same mistake
+with advance warning is not the same mistake.
+
+The three options were fix-now, fix-behind-a-flag, and defer-to-the-next-retrain. **Fix-now** was
+taken because the defect is in the pass whose entire purpose is correcting BN statistics; a flag
+would leave the wrong behaviour reachable and add a knob whose no-op value is the bug (C-324); and
+deferring leaves the trap armed for exactly the event — the next retrain — at which it fires. The
+comparability cost is also smaller than it looks: a global retrain on the server is already planned,
+so these artifacts are destined for replacement regardless.
+
 **CONSEQUENCE FOR THE RELEASE, added 2026-09-10 (expert-code-review of PR #351).** This fix is a
 **training-time behaviour change for every existing config**, and the release PR asserted the
 opposite. On `main`, `random_flips` (default `True`) applied during the C-184 recalibration pass, so
@@ -3877,6 +3935,39 @@ entirely removed, and **27 of 40 individual tests** passed with the call site de
 non-empty before asserting over it; assert what a value changed *to*, not that it changed; and run the
 deletion test before believing a coverage claim.
 
+
+**THREE further instances — 2026-09-14 (Epic #353 / S9 #362), and two of my own, caught by the
+deletion test while writing this epic.**
+
+Found by review:
+
+1. **`tests/test_bptt_sa.py`'s C-259 reachability pin never ran — anywhere.** It read
+   `views-models/models/fullzero_fortytwo/configs/config_hyperparameters.py` from the sibling
+   checkout and skipped when absent. The review reported it as "always skips in CI"; verification
+   found **that model does not exist on the developer machine either**, so the sole pin for a
+   knowingly-uncaught mutation (R4, straight-through under `'mean'` feedback) had never executed in
+   its life. Rebuilt on this repo's own `valid_config_dict` and the sibling variant deleted.
+2. **F4-07 read a tracked file without an existence check**, so a staged deletion or partial
+   checkout produced a `FileNotFoundError` traceback indistinguishable from an infrastructure
+   fault — while the scan it performs silently stopped at that file. Now fails naming the file.
+3. **`tests/test_input_noise_gate.py` imported a `reports/` tool bare**, making the module's
+   collectability depend on dossier state. Guarded with `importorskip`, matching the other 13.
+
+**Measured sweep, not assumed:** of the 14 `tests/` modules that put a `reports/` path on
+`sys.path`, **1 was unguarded** (now 0). Unconditional `pytest.skip` call sites elsewhere were
+enumerated and left alone — they guard gitignored `reports/` artifacts under the documented C-247
+pattern, which is a different thing from a pin that never runs.
+
+**Two instances authored inside this epic and caught by its own discipline**, which is the evidence
+that the deletion test is the only detector for this class:
+
+* S6 #359's first-draft workflow tests asserted on substrings. "Delete the import" left the words in
+  a comment; "drop the purelib check" left the word in a docstring; "remove the `.devN` stamp step"
+  left the suffix present in a *different* step. Three tests, green against the very mutations they
+  named. Rewritten to pin an executable line or a slice of the specific step.
+* S7 #360's byte-identity test parametrised an `inject` arm over a **dense** fixture. `inject` only
+  activates cells that are zero, so on that fixture it was the identity regardless of the RNG — a
+  test case that could not fail. The fixture is now sparse, with a guard test asserting it stays so.
 ### C-331: diagnostic arms that silently collapse into each other, or into their own control
 
 | Field | Value |
@@ -3895,6 +3986,30 @@ deletion test before believing a coverage claim.
   `freeze_recurrent_weight`, whose documented `0.0` is itself a no-op. So a rolled arm can be
   byte-identical to free-running while writing its output under the treatment's filename, which is
   precisely what the sibling `freeze_anchor_roll=0` guard exists to prevent.
+
+  **⚠️ ESCALATED 2026-09-14 (Epic #353 / S1 #354) — this is no longer only a diagnostic risk.**
+  **ADR-027 §2.1** promoted `freeze_recurrent` to a **production** setting on 2026-09-05, so the
+  same zero weight now makes a *delivered forecast* claim a clamp it does not apply: the config
+  validates, `InferenceOrchestrator` logs `🧊 recurrent state CLAMPED — freeze_recurrent='cell',
+  weight=0.0 (ADR-027 §2.1)`, and `blend_recurrent_state` returns the freely-evolved state
+  unchanged. The blast radius moved from a research arm to the fleet.
+
+  **FIXED 2026-09-14** by `reject_inert_clamp` (`config_initializer.py`), which rejects
+  `freeze_recurrent is not None and freeze_recurrent_weight == 0.0`.
+
+  Recorded because the *mechanism choice* is the interesting part and a future reader will want to
+  re-litigate it: the obvious fix is `gt=0.0` on the field, matching `input_noise_dropout` and
+  `ss_feedback_grad_clip`, which both use it **citing C-324 by name**. That was rejected. **ADR-027
+  §2.1's Beige Team contract specifies this field as "outside `[0, 1]` is rejected"** — narrowing it
+  would contradict an accepted ADR — and `0.0` is a real diagnostic value: it is **M41's `w=0`
+  reference arm**, which `HydraNetInference` still accepts as a constructor argument. The defect was
+  never the value; it was the pair. A cross-field rule leaves the ADR's range intact and the
+  diagnostic reachable.
+
+  Verified before landing: **107 model configs in `views-models` swept, 0 invalidated** — none sets
+  `freeze_recurrent_weight` at all. Guarded by five tests in
+  `tests/test_freeze_recurrent_config.py`, confirmed to go red when the guard is neutered (**C-329**
+  deletion test), with two anti-vacuity cases that stay green.
 * `per_step_roll` under a clamp rolls a **constant** anchor (the clamp restores the frozen half at the
   top of every step), collapsing the Wave-2 per-step arm into the EXP-3 anchor-roll arm and removing
   the accumulation the docstring describes.
@@ -4426,6 +4541,26 @@ neighbour.
 thing tests catch — there is no seam. A workflow's first execution is its first test, and its
 failure surface is public.
 
+**EXTENDED, not resolved — 2026-09-14 (Epic #353 / S6 #359).** Deleting the `testpypi_only` input
+closed the path this entry describes, but the same file carried a second, independent route to an
+unverified publication, and `workflow_dispatch` still takes no branch restriction:
+
+A rehearsal dispatched from any branch built that branch's tree and uploaded it at the **release
+version**. Because TestPyPI refuses overwrites, that burned the version permanently; because
+`--check-url` skips a version already present, the real Release then **skipped its own upload**, the
+install-back validated the stale branch wheel, and `uv publish` pushed an unverified artifact to real
+PyPI. The tag and version guards are release-only, so nothing in the job could tell the two apart.
+
+Closed by making the collision impossible rather than detected: a non-release run stamps the
+`pyproject` version to `X.Y.Z.devN` before building, and PEP 440 orders `X.Y.Z.devN` strictly before
+`X.Y.Z`. The same story added the import check that a wheel with correct `.dist-info` and **zero
+Python modules** used to pass — demonstrated on a forged wheel, where `twine check` and every
+metadata assertion passed.
+
+⛔ **Still unexecuted.** This workflow has never run. `workflow_dispatch` only offers workflows
+present on the default branch, so validation to date is static. The live TestPyPI rehearsal is a
+**hard gate before any Release is cut** (#363).
+
 ---
 
 ### C-342: a production release depends on TestPyPI, a service with no uptime guarantee
@@ -4491,6 +4626,47 @@ Two small consequences:
 someone to edit this file incorrectly. Recorded rather than fixed because the fix — a `__dir__` and
 a one-line test asserting every `__all__` entry resolves — is two minutes whenever the file is next
 touched, and this release is not the moment to touch it again.
+
+
+---
+
+### C-344: a diagnostic instrument that perturbs, or kills, the run it is measuring
+
+| Field | Value |
+|-------|-------|
+| ID | C-344 |
+| Tier | 2 |
+| Source | `/code-review max` on PR #351 (2026-09-14), Epic #353 / S7 #360, S8 #361 |
+| Trigger | Adding or enabling any diagnostic that draws randomness, or that accumulates per-step records, on an engine the orchestrator holds across origins |
+| Location | `views_hydranet/utils/hydranet_inference.py` (the gate probe, `feedback_field_stats`, `gate_structure_stats`) |
+| Cross-refs | C-113 (shared-generator coupling), C-328 (augmentation reaching a non-training pass), C-331, cluster 18 (instrument integrity) |
+
+Two instances, same root: an **observer was given no budget of its own** — neither a randomness
+budget nor a memory budget — so switching it on changed, or ended, the experiment.
+
+**(1) The gate probe drew from the stream it observed.** `hydranet_inference.py` maintains
+deliberately separate RNG namespaces precisely so an intervention cannot be drawn from the stream it
+perturbs, and says so in two comments. The gate-structure probe had no namespace: it consumed
+`_fb_transform_gen`, the generator `thin`, `inject`, `magnitude_perturb` and both splices use, and
+the two interleave within one rollout step. Enabling the probe therefore changed the field the arm
+fed back — and by a **different amount on posterior sample 0**, where the length-scale sweep draws
+five extra fields, than on the rest. Any arm measured with the probe on was not the same arm as the
+headline run of the same name. The seeding block had *anticipated* the coupling in a comment and
+re-seeded around it, rather than separating the streams.
+
+**(2) The stats buffers were unbounded on an engine held across every origin.** Two plain lists,
+two append sites, and no `clear()`, cap or flush anywhere. One record per
+(origin × pass × step × batch × channel); at D=256 over 13 origins, hundreds of MB held for the whole
+run on top of the D×K cube. The file **recorded the symptom and left the cause**: it notes the first
+probe run was SIGKILLed at `rc=137` — the OOM killer — and attributes it to the instrumentation,
+without bounding anything.
+
+Both closed 2026-09-14: a fourth seed namespace with byte-identity tests across probe-on/probe-off
+for three arms × two posterior samples, and `DIAGNOSTIC_STATS_MAX_RECORDS` with a counted,
+warned truncation (memory measured flat at 28 MB across a further million appends).
+
+**What is NOT closed:** any gate-probe record already on disk was measured on a differently-thinned
+field than the headline run of its arm. That is a data consequence, not a code one.
 
 ## Disagreements
 
