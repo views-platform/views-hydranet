@@ -113,6 +113,52 @@ class TestTheClampActuallyReachesInference:
         )
         assert orch.freeze_recurrent_weight == 0.25
 
+    @pytest.mark.parametrize(
+        "entry", ["generate_prediction_frames", "generate_prediction_frames_streaming"]
+    )
+    def test_both_construction_sites_forward_the_clamp_to_inference(self, cfg, entry, monkeypatch):
+        """The two tests above read the orchestrator's ATTRIBUTES. Nothing read what the
+        orchestrator hands to `HydraNetInference`, and that is the clamp's only delivery path:
+        `/code-review max` on #372 deleted both `freeze_recurrent=` forwarding kwargs at both
+        construction sites and the FULL suite stayed green — every `freeze_recurrent: 'cell'`
+        roster config would run unclamped under a log saying `from config`. Pinned here at both
+        sites, by intercepting the constructor call itself."""
+        import views_hydranet.utils.inference_orchestrator as io_mod
+        from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
+
+        built = HydraNetConfig(
+            **_with(cfg, freeze_recurrent="cell", freeze_recurrent_weight=0.25)
+        ).model_dump()
+        orch = InferenceOrchestrator.__new__(InferenceOrchestrator)
+        InferenceOrchestrator.__init__(
+            orch, config=built, model=_DummyModel(), device=_cpu(), visualizer=None
+        )
+
+        received: dict = {}
+
+        class _Intercept(Exception):
+            pass
+
+        def _fake_inference(*a, **kw):
+            received.update(kw)
+            raise _Intercept  # stop before anything downstream needs a real model
+
+        monkeypatch.setattr(io_mod, "HydraNetInference", _fake_inference)
+        kwargs = dict(handler=None, scaler=None, origins=[1], all_targets=[])
+        if entry == "generate_prediction_frames_streaming":
+            kwargs["origin_sink"] = lambda *_a, **_k: None
+        with pytest.raises(_Intercept):
+            getattr(orch, entry)(**kwargs)
+
+        assert received.get("freeze_recurrent") == "cell", (
+            f"{entry} built HydraNetInference with freeze_recurrent="
+            f"{received.get('freeze_recurrent')!r}; the orchestrator's setting never reached "
+            "inference, so the production clamp is documentation only"
+        )
+        assert received.get("freeze_recurrent_weight") == 0.25, (
+            f"{entry} forwarded weight {received.get('freeze_recurrent_weight')!r}, not 0.25"
+        )
+
     def test_the_clamp_without_a_weight_fails_loud(self, cfg):
         """No shadow default: a bare dict must not have the blend strength guessed for it."""
         from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
@@ -212,6 +258,45 @@ class _DummyModel:
     """The orchestrator's __init__ only stores the model; it is never called here."""
 
 
+class TestTheConsumerRefusesTheInertPairToo:
+    """S1 put the rule in HydraNetConfig. Research drivers bypass pydantic — they set the two
+    attributes on the orchestrator after construction — so `cell@0.0` still reached
+    `HydraNetInference`, which printed `CLAMPED — weight=0.0` over an identity blend (#372)."""
+
+    @pytest.mark.parametrize("mode", ["cell", "hidden", "all"])
+    def test_a_zero_weight_with_a_mode_is_rejected_at_inference(self, cfg, mode):
+        import torch.nn as nn
+
+        from views_hydranet.utils.hydranet_inference import HydraNetInference
+
+        built = HydraNetConfig(**cfg).model_dump()
+        with pytest.raises(ValueError, match="inert"):
+            HydraNetInference(
+                nn.Identity(),
+                built,
+                device="cpu",
+                visualizer=None,
+                freeze_recurrent=mode,
+                freeze_recurrent_weight=0.0,
+            )
+
+    def test_a_zero_weight_with_no_mode_is_still_fine_at_inference(self, cfg):
+        """The weight is unread without a mode; rejecting it here would break the control."""
+        import torch.nn as nn
+
+        from views_hydranet.utils.hydranet_inference import HydraNetInference
+
+        built = HydraNetConfig(**cfg).model_dump()
+        HydraNetInference(
+            nn.Identity(),
+            built,
+            device="cpu",
+            visualizer=None,
+            freeze_recurrent=None,
+            freeze_recurrent_weight=0.0,
+        )
+
+
 class TestTheClampIsVisibleInTheLog:
     """A production setting that changes the forecast must announce itself.
 
@@ -275,15 +360,15 @@ class TestTheClampIsVisibleInTheLog:
 
         from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
 
-        built = HydraNetConfig(**cfg).model_dump()
-        built.pop("freeze_recurrent", None)
-        built.pop("freeze_recurrent_weight", None)
+        # With the clamp REQUESTED. The first draft popped the key, so the pre-PR premature
+        # `CLAMPED` block — the S5 regression itself — could be re-added and pass (#372 review).
+        built = HydraNetConfig(**_with(cfg, freeze_recurrent="cell")).model_dump()
         orch = InferenceOrchestrator.__new__(InferenceOrchestrator)
         with caplog.at_level(logging.INFO):
             InferenceOrchestrator.__init__(
                 orch, config=built, model=_DummyModel(), device=_cpu(), visualizer=None
             )
-        assert "freeze_recurrent=None from config" in caplog.text, caplog.text
-        assert "CLAMPED" not in caplog.text, (
+        assert "freeze_recurrent='cell' from config" in caplog.text, caplog.text
+        assert "CLAMPED" not in caplog.text and "evolves freely" not in caplog.text, (
             "the orchestrator announced a verdict before the override it documents as supported"
         )

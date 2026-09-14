@@ -112,6 +112,22 @@ def _write_records(path: Path, records: list[dict]) -> None:
         w.writerows(records)
 
 
+def refuse_a_truncated_record(inference, arm: str) -> None:
+    """S8/#361 capped both diagnostic buffers and COUNTS what it refused. A truncated buffer is a
+    prefix of the run — early origins only — and every per-step column mean off it is a biased
+    readout that looks exactly like a complete one. The inference engine cannot know whether
+    that is acceptable; this driver can, and it is not: a partial record is not this arm's
+    record. Written into the CSV it would be indistinguishable from a complete run (#372)."""
+    dropped = dict(getattr(inference, "diagnostic_stats_dropped", None) or {})
+    if dropped:
+        raise SystemExit(
+            f"arm {arm!r}: the diagnostic buffers overflowed and records were dropped "
+            f"({dropped}). What was captured covers only the early origins, so the CSV would be a "
+            "biased prefix passed off as the run. Lower n_posterior_samples or narrow the origin "
+            "list and rerun (S8/#361)."
+        )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--arm", required=True, help="feedback transform spec, e.g. 'thin:0.25'")
@@ -189,8 +205,10 @@ def main() -> int:
     )
     manager.execute_single_run(run_args)
 
-    stats = getattr(manager, "_realism_ctx", None)
-    stats = stats.orchestrator.inference.feedback_field_stats if stats else []
+    ctx = getattr(manager, "_realism_ctx", None)
+    inference = ctx.orchestrator.inference if ctx else None
+    stats = inference.feedback_field_stats if inference else []
+    refuse_a_truncated_record(inference, args.arm)
     if not stats:
         raise SystemExit(
             f"arm {args.arm!r} recorded NO fed-field statistics. Either the transform never ran "
@@ -201,7 +219,7 @@ def main() -> int:
     print(f"wrote {out} ({len(stats)} field records)")
 
     if args.gate_out:
-        gate = manager._realism_ctx.orchestrator.inference.gate_structure_stats
+        gate = inference.gate_structure_stats
         if not gate:
             raise SystemExit(
                 "--gate-out was requested but no gate-structure records exist; the probe would "

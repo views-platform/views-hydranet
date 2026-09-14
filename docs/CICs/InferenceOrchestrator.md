@@ -38,8 +38,13 @@ The `InferenceOrchestrator` is the **Unified Symmetry Engine** of the HydraNet p
   draws). **Each defaults to the value that reproduces the pre-seam path**
   — `None` for every switch, and `1.0` for `freeze_recurrent_weight`, which is read only when
   `freeze_recurrent` is set and whose `1.0` branch is the original code verbatim. The production path is
-  therefore **byte-identical** to before the seam existed. None is a config key, so no model config can enable one and
-  ADR-027's retirement of `freeze_h` is untouched. The **Unification Guarantee** is preserved because the
+  therefore **byte-identical** to before the seam existed. Since **ADR-027 §2.1** (2026-09-05) `freeze_recurrent` and
+  `freeze_recurrent_weight` ARE config keys — every roster config sets `freeze_recurrent: 'cell'` — and the orchestrator
+  reads them from the validated config (the `None is a config key` sentence that stood here until 2026-09-14 was stale by
+  nine days). The other switches remain constructor-only. `HydraNetConfig.reject_inert_clamp` refuses a mode with
+  `freeze_recurrent_weight=0.0` — the control wearing the treatment's name — and, because research drivers set these two
+  attributes on the orchestrator after construction and never pass through pydantic, `HydraNetInference.__init__` refuses
+  the same pair (Epic #353 / S1 #354, #372 review). ADR-027's retirement of `freeze_h` is untouched. The **Unification Guarantee** is preserved because the
   value is set once on the orchestrator and consumed identically by both construction sites. The constructed
   inference object is retained as `.inference` so a diagnostic driver can read its per-run records;
   production ignores it.

@@ -75,6 +75,13 @@ def parse_arm(spec: str) -> tuple[str | None, float]:
         raise SystemExit(f"arm {spec!r}: weight {w!r} is not a number") from None
     if not 0.0 <= weight <= 1.0:
         raise SystemExit(f"arm {spec!r}: weight must be in [0, 1], got {weight}")
+    if weight == 0.0:
+        # `cell@0` used to be accepted and was run as M41's w=0 reference. It is the control
+        # wearing the treatment's label: blend weight 0 returns the free-running state unchanged,
+        # while every log line says CLAMPED. HydraNetInference now refuses the pair too (#372).
+        raise SystemExit(
+            f"arm {spec!r}: weight 0 is not a weak clamp, it is the control — say `none`"
+        )
     return mode, weight
 
 

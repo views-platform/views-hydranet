@@ -63,6 +63,9 @@ class _Rollout:
     def _real_dynamic(self, full_tensor, model_in_indices, n_dyn, step):
         return HydraNetInference._real_dynamic(self, full_tensor, model_in_indices, n_dyn, step)
 
+    def _diagnostic_buffer_full(self, buffer, *, label):
+        return HydraNetInference._diagnostic_buffer_full(self, buffer, label=label)
+
     def _append_diagnostic_stat(self, buffer, record, *, label):
         return HydraNetInference._append_diagnostic_stat(self, buffer, record, label=label)
 
@@ -115,7 +118,10 @@ def test_the_fixture_is_sparse_enough_for_inject_to_do_anything():
 class TestTheNamespacesAreDistinct:
     """The acceptance criterion is 'asserted, not asserted-in-a-comment'."""
 
-    def test_all_four_streams_have_their_own_namespace(self):
+    def test_the_four_feedback_streams_have_their_own_namespace(self):
+        """Scope: the four streams the FEEDBACK path draws from. `arm_gen` (seeded `torch_seed`
+        alone) and the cube sampler's generator are outside it and not asserted here — on
+        posterior sample 0 they share a seed with `fb_gen`, a pre-existing overlap (#372)."""
         namespaces = {
             "fb_gen (family.sample / compose_samples)": 0,
             "transform": _FB_TRANSFORM_SEED_NAMESPACE,

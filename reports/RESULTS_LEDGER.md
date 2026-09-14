@@ -119,22 +119,26 @@ wrong forecast today.* No roster config sets `freeze_recurrent_weight`, `pushfor
 `ss_backprop_through_feedback` or `bn_recal_from`, and all eight models use the incumbent
 architecture. Every finding is a trap for the **next** experiment or the **next** release.
 
-**The one behavioural change: S3 (#356).** Suppressing dropout and scheduled sampling on the C-184
-BatchNorm recalibration passes changes the running statistics written into **future** artifacts. The
-eight roster artifacts already trained are unaffected — they are files — but an artifact retrained
-after this is not bit-comparable with one trained before it. That is **C-328 instance 5**, and the
-consequence was recorded in the register *before* the code changed, per the story's own criteria.
+**No roster artifact changes either.** The draft of this entry said S3 (#356) was the epic's one
+behavioural change — dropout and scheduled sampling suppressed on the C-184 BatchNorm
+recalibration passes, changing future artifacts. Half of that was wrong and is reverted: inference
+runs MC-dropout **on** (ADR-057), so BN statistics must be estimated with dropout on, and the draft
+had them 14–21% low at 14 of 15 layers (measured by `/code-review max` on #372). The
+scheduled-sampling half stands, and it touches no roster config — none uses `bn_recal_from` with
+an active schedule. **C-328 instance 5**, half-retracted in the register the same day.
 
 **What the stories closed**, in one line each:
 * **S1** a production clamp (`freeze_recurrent` + `weight=0.0`) could log `CLAMPED` and deliver the
   unclamped control — **C-331** escalated from diagnostic to production.
 * **S2** two guards that comments promised and no code implemented — **C-303**, now fourteen.
-* **S3** dropout and SS reaching the BN recal pass; 14 of 15 BatchNorms sit downstream of a dropout.
+* **S3** scheduled sampling reaching the `bn_recal_from` pass, zeroed where ε is computed so the
+  logged value is the used value. The dropout half of the story was wrong and is reverted (above).
 * **S4** `IntegrityGuardian` aborting a recalibration pass on a non-finite loss.
 * **S5** the clamp verdict logged before the override that can change it.
-* **S6** a rehearsal could burn a release version on TestPyPI and make the real Release skip its own
-  upload; and a wheel with **zero Python modules** passed both contract checks — forged and
-  demonstrated. **C-341 extended, not resolved.**
+* **S6** a rehearsal could burn a release version on TestPyPI and block the real Release at the
+  TestPyPI step (uv hard-fails a hash mismatch — verified; an earlier draft here claimed it was
+  silently skipped and an unverified wheel shipped, which is wrong); and a wheel with **zero Python
+  modules** passed both contract checks — forged and demonstrated. **C-341 extended, not resolved.**
 * **S7** the gate probe drew from the RNG stream it observed, so an arm measured with it on was not
   the arm of the same name — **C-344**.
 * **S8** unbounded stats buffers (the `rc=137` OOM that was recorded and never bounded), a dump whose

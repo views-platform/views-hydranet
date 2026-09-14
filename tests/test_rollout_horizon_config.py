@@ -71,6 +71,29 @@ def test_pushforward_weight_with_a_family_head_constructs(valid_config_dict):
     assert HydraNetConfig(**cfg).pushforward_weight == 0.3
 
 
+def test_pushforward_with_emit_family_core_on_a_self_zeroed_family_is_rejected(valid_config_dict):
+    """The SS block already rejects `emit_family_core` on a self-zeroed family because the training
+    feedback is not core-aware — but that guard is nested under `ss_epsilon_max > 0`, which a
+    pushforward arm never sets. So `zinb + emit_family_core + pushforward` VALIDATED while its SS
+    twin was rejected (#372 review). Same mismatch, now guarded on the pushforward too."""
+    cfg = dict(valid_config_dict)
+    cfg.update(
+        output_distribution="zinb",
+        emit_family_core=True,
+        forecast_composition="soft_gate",
+        pushforward_weight=0.3,
+    )
+    with pytest.raises(ValueError, match="not core-aware"):
+        HydraNetConfig(**cfg)
+
+
+def test_pushforward_with_emit_family_core_off_still_constructs_on_zinb(valid_config_dict):
+    """Anti-vacuity for the guard above: it is the core switch that is rejected, not zinb."""
+    cfg = dict(valid_config_dict)
+    cfg.update(output_distribution="zinb", pushforward_weight=0.3)
+    assert HydraNetConfig(**cfg).pushforward_weight == 0.3
+
+
 # ---------------------------------------------------------------------------
 # S2/#355 — ss_backprop_through_feedback, the guard a comment promised and
 # nobody wrote. Same shape as the pushforward guard directly above.

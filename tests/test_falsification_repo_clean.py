@@ -220,7 +220,8 @@ class TestF4_07_UntrackedDependencies:
         absent = []
         for rel in depends_on_reports:
             # `git ls-files` lists what is TRACKED, which is not the same as what is on disk: a
-            # staged deletion, or a partial checkout, leaves a tracked path with no file. A bare
+            # deletion left unstaged (`rm`, not `git rm` — a staged one drops out of ls-files and
+            # is invisible here), or a partial checkout, leaves a tracked path with no file. A bare
             # read_text() there raises FileNotFoundError, and this test then ERRORS with a
             # traceback indistinguishable from an infrastructure fault — while the scan it was
             # supposed to perform silently stops at that file (S9/#362).

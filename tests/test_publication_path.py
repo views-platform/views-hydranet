@@ -13,6 +13,7 @@ What they do NOT prove: that the workflow runs. Only a live dispatch does that, 
 behind #351 (the S10 gate).
 """
 
+import re
 from pathlib import Path
 
 REPO = Path(__file__).parent.parent
@@ -64,9 +65,11 @@ class TestTheContractReadsTheCodeNotJustTheMetadata:
 
 
 class TestARehearsalCannotOccupyAReleaseVersion:
-    """`workflow_dispatch` takes no branch restriction: whoever dispatches picks the ref. Combined
-    with `--check-url`, a rehearsal at the release version made the real Release skip its own
-    upload and validate the stale wheel. The `.devN` stamp makes the collision impossible."""
+    """`workflow_dispatch` takes no branch restriction: whoever dispatches picks the ref. A
+    rehearsal at the release version burned that version on TestPyPI, and the real Release then
+    died at the TestPyPI step on uv's hash-mismatch check (verified: skip on identical bytes,
+    exit 2 on different bytes) — a blocked release with a slot it could never reuse. The `.devN`
+    stamp makes the collision impossible."""
 
     def test_a_non_release_run_stamps_a_throwaway_version(self):
         """Pinned to the step, not to the suffix string: the suffix also appears in the version
@@ -93,18 +96,57 @@ class TestARehearsalCannotOccupyAReleaseVersion:
         )
 
 
-class TestNoPathPublishesWhileSkippingTheTagGuard:
-    """C-341: the tag guard and the real publish must carry the *identical* condition. The guide
-    states this as an invariant; nothing enforced it until now."""
+def _steps(text: str) -> dict[str, str]:
+    """The workflow's steps, keyed by `- name:`, each with its own block of text. Assertions are
+    made per step, not on substring counts across the file: a `count == 2` pin passed with the
+    condition moved to a different step, commented out, or its `==`/`!=` swapped (#372 review)."""
+    parts = text.split("- name: ")[1:]
+    return {part.split("\n", 1)[0].strip(): part for part in parts}
 
-    def test_the_tag_guard_and_the_real_publish_share_one_condition(self):
-        text = PUBLISH.read_text()
-        release_only = text.count("if: github.event_name == 'release'")
-        assert release_only == 2, (
-            f"expected exactly two release-only steps (the tag guard and the real PyPI publish); "
-            f"found {release_only}. A publish step without the guard, or a guard without the "
-            "publish, reopens C-341."
+
+class TestNoPathPublishesWhileSkippingTheTagGuard:
+    """C-341: the real PyPI publish, the tag guard and the PyPI-version guard carry the
+    *identical* release-only condition. The guide states this as an invariant; this enforces
+    it per step."""
+
+    RELEASE_ONLY = "if: github.event_name == 'release'"
+
+    def test_the_real_publish_is_release_only(self):
+        steps = _steps(PUBLISH.read_text())
+        # an executed `uv publish` line, not one quoted in a comment
+        publish = [
+            n
+            for n, b in steps.items()
+            if re.search(r"^\s+(run: )?uv publish", b, re.M) and "--publish-url" not in b
+        ]
+        assert publish == ["Publish to PyPI (Trusted Publishing — no token)"], (
+            f"expected exactly one real-PyPI publish step, found {publish}"
         )
+        block = steps[publish[0]]
+        assert self.RELEASE_ONLY in block and f"# {self.RELEASE_ONLY}" not in block, (
+            "the real PyPI publish step lost its release-only condition — a workflow_dispatch "
+            "rehearsal would `uv publish` to real PyPI (C-341)"
+        )
+
+    def test_both_guards_carry_the_same_release_only_condition(self):
+        steps = _steps(PUBLISH.read_text())
+        for name in (
+            "Guard — pyproject version must equal the tag being released",
+            "Guard — pyproject version must be newer than what is on PyPI",
+        ):
+            assert name in steps, f"step {name!r} is gone"
+            assert self.RELEASE_ONLY in steps[name], (
+                f"{name!r} is no longer release-only. The tag guard has no tag to compare on a "
+                "dispatch; the PyPI-version guard fails every rehearsal from an un-bumped ref "
+                "once a version is published."
+            )
+
+    def test_the_testpypi_publish_runs_on_both_events(self):
+        """The rehearsal is the point of the workflow; it must never be conditioned away."""
+        steps = _steps(PUBLISH.read_text())
+        block = steps["Publish to TestPyPI (Trusted Publishing — no token)"]
+        assert "--publish-url https://test.pypi.org/legacy/" in block
+        assert "if:" not in block, "the TestPyPI publish must run on release AND dispatch"
 
     def test_no_dispatch_input_can_reach_real_pypi(self):
         assert "inputs." not in PUBLISH.read_text(), (

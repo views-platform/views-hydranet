@@ -106,12 +106,13 @@ Two details worth knowing:
   `views-r2darts2` copy of this guard — do not copy that file.)
 - The TestPyPI publish passes `--check-url`, so a file already uploaded is skipped rather than
   failing. TestPyPI refuses to overwrite a version, so without it any re-run of the same version
-  would fail. That skip is only safe because a rehearsal can never occupy a release version — see
-  the `.devN` stamp below.
+  would fail. The skip is **hash-checked**: uv skips only a byte-identical file and hard-fails on a
+  same-name file with different bytes (verified on uv 0.8.13; the action pins that version). So the
+  skip can never validate the wrong file — what it cannot do is un-burn a version.
 - **A manual run never uploads at the release version.** Before it builds, a dispatch rewrites the
   `pyproject` version to `X.Y.Z.devN`, where `N` is the run number. PEP 440 orders `X.Y.Z.devN`
-  strictly *before* `X.Y.Z`, so the rehearsal and the release can never be the same file, and
-  `--check-url` can never mistake one for the other (**S6/#359**).
+  strictly *before* `X.Y.Z`, so a rehearsal can never occupy the version a Release will need on
+  TestPyPI (**S6/#359**).
 - **The contract check imports the package.** `views_hydranet/__init__.py` is a lazy PEP-562
   `__getattr__`, so `import views_hydranet` is torch-free and runs inside the `--no-deps` venv at no
   cost. Both CI and the release job run the same file, `.github/scripts/wheel_contract.py`; they
@@ -119,21 +120,25 @@ Two details worth knowing:
 
 ## Rehearsing without publishing
 
-Actions → **Publish Package** → *Run workflow*. It stamps a throwaway `.devN` version, builds, runs
-the version guard, uploads to TestPyPI and installs back — and stops. **Nothing reaches real PyPI,
-and there is no option to make it.**
+Actions → **Publish Package** → *Run workflow*. It reads the version, stamps a throwaway `.devN`
+onto it, builds, uploads to TestPyPI, installs back and runs the contract check — and stops.
+**Nothing reaches real PyPI, and there is no option to make it.**
 
 GitHub offers no branch restriction on `workflow_dispatch`: whoever dispatches picks the ref, and
 the job builds that ref's tree. The `.devN` stamp is what makes that harmless. Without it, a
-rehearsal from a feature branch would upload that branch's tree at the release version, burn that
-version on TestPyPI permanently, and then — because `--check-url` skips a version already present —
-the real Release would **skip its own upload**, validate the stale branch wheel, and publish an
-unverified artifact to real PyPI (**S6/#359**).
+rehearsal from a feature branch would upload that branch's tree at the release version and burn
+that version on TestPyPI permanently. The real Release at that version would then reach the
+TestPyPI step, find a file with the same name and different bytes, and **die there** — uv refuses a
+hash mismatch — with a version it can never reuse on TestPyPI (**S6/#359**). *(An earlier draft of
+this section said the mismatched file was silently skipped and an unverified wheel went on to real
+PyPI. That is not what uv does; the failure is a blocked release, not a wrong one.)*
 
-⚠️ **A rehearsal exercises one of the two guards, not both.** The tag-versus-`pyproject` check is
-`if: github.event_name == 'release'`, so it never runs on a manual dispatch. A green rehearsal is
-evidence that the build, the upload and the install-back work; it is **not** evidence that the tag
-guard works, because that guard is not on the path a rehearsal takes.
+⚠️ **A rehearsal exercises neither guard.** Both the tag-versus-`pyproject` check and the
+newer-than-PyPI check are `if: github.event_name == 'release'`. The second is release-only because
+a rehearsal is usually dispatched from `main` at the version already on PyPI — to prove the Trusted
+Publishing setup without spending a version — and a strict `>` would fail every such run. A green
+rehearsal is evidence that the build, the upload, the install-back and the contract check work; it
+is **not** evidence that either guard works, because neither is on the path a rehearsal takes.
 
 That is deliberate. An earlier version had a "Stop after TestPyPI" checkbox, ticked by default;
 unticking it published whatever version sat in `pyproject.toml` on the default branch, with no tag,

@@ -53,6 +53,7 @@ jobs:
       - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86  # v5
         with:
           python-version: "3.11"
+          version: "0.8.13"  # same uv as publish_package.yml, so CI builds what ships
 
       - name: Build sdist + wheel
         run: uv build

@@ -301,8 +301,6 @@ def test_the_mean_feedback_is_composed_not_the_raw_body_mean():
     The C-259 validator that would have caught it is nested inside `if ss_epsilon_max > 0`, and a
     pushforward arm never sets that.
     """
-    import torch.nn.functional as F
-
     from views_hydranet.distributions import resolve_family
     from views_hydranet.train.training_engine import (
         _family_feedback_log1p,
@@ -310,20 +308,27 @@ def test_the_mean_feedback_is_composed_not_the_raw_body_mean():
     )
 
     fam = resolve_family("nb")
-    torch.manual_seed(0)
-    raw = F.softplus(torch.randn(2, 3 * fam.n_params, 8, 8)) + 1e-3
-    gate = torch.rand(2, 3, 8, 8) * 0.05 + 0.003  # the model's real gate range
+    act = _activated(fam, seed=0)  # activated params, as the model emits them (C-323)
+    torch.manual_seed(1)
+    # a gate that differs per TARGET and per CELL, so a wrong axis or target order is visible
+    gate = torch.rand(1, 3, 8, 8) * 0.05 + 0.003  # the model's real gate range
 
-    fed = _family_feedback_log1p(raw, fam, "mean", gate, "soft_gate", None)
-    ungated = _family_target_log1p_mean(raw, fam)
+    fed = _family_feedback_log1p(act, fam, "mean", gate, "soft_gate", None)
+    ungated = _family_target_log1p_mean(act, fam)
 
-    assert not torch.equal(fed, ungated), (
-        "the mean feedback is the UNGATED body mean again — the pushforward would train on a "
-        "field deployment never emits (S2/#355)"
+    # The exact field deployment composes: expm1(fed) == gate * E[Y|body], per target, per cell.
+    # "Not equal to the ungated mean" and "smaller than it" are both satisfied by ANY gate applied
+    # on ANY axis in ANY target order — a mutation that applied sb's gate to os on a transposed
+    # grid passed the first draft of this test (#372 review). This does not.
+    torch.testing.assert_close(
+        torch.expm1(fed),
+        gate[:, :3] * torch.expm1(ungated),
+        rtol=1e-5,
+        atol=1e-6,
+        msg="the fed field is not gate x E[Y|body] per target and per cell — the pushforward "
+        "would train on a field deployment never emits (S2/#355)",
     )
-    assert float(torch.expm1(fed).mean()) < float(torch.expm1(ungated).mean()), (
-        "gating must shrink the fed field; this model's gate is ~0.003-0.05"
-    )
+    assert not torch.equal(fed, ungated), "vacuity guard: the gate must actually have acted"
 
 
 def test_the_mean_feedback_is_unchanged_for_self_zeroed():

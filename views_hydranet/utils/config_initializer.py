@@ -928,6 +928,25 @@ class HydraNetConfig(BaseModel):
             )
             logger.error(err_msg)
             raise ValueError(err_msg)
+        # The same core-awareness gap the SS block guards (ADR-068): `_family_feedback_log1p` is
+        # not `emit_family_core`-aware, so on a self-zeroed family the pushforward's auxiliary
+        # unroll trains on `gate x family.mean` / the self-zeroed sample while deployment emits
+        # and feeds the π-stripped core. That guard sits inside `if ss_epsilon_max > 0`, which a
+        # pushforward arm never sets — the exact nesting that hid S2's C-259 instance, one story
+        # later (#372 review). Guarded here for the pushforward independently.
+        if self.pushforward_weight > 0.0 and self.emit_family_core:
+            from views_hydranet.distributions.registry import self_zeroed_family_names
+
+            if self.output_distribution in self_zeroed_family_names():
+                err_msg = (
+                    f"pushforward_weight={self.pushforward_weight} with emit_family_core=True on "
+                    f"a self_zeroed family ({self.output_distribution!r}): the pushforward "
+                    "feedback is not core-aware, so training would feed the self-zeroed body "
+                    "while inference feeds the π-stripped core — a silent train/deploy exposure "
+                    "mismatch (C-234/C-239). Make _family_feedback_log1p core-aware first."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
         return self
 
     @model_validator(mode="after")
@@ -1299,15 +1318,23 @@ class HydraNetConfig(BaseModel):
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
-            # The 'mean' TRAINING feedback path (_family_target_log1p_mean) is UNGATED, but
-            # inference's mean path composes the gate (_emit_magnitude). So 'mean' feedback is only
-            # valid under self_zeroed composition; under a gate it silently mismatches — reject it
-            # until a gated-mean training feedback exists (C-259, deferred fix).
+            # 'mean' feedback under a GATED composition is rejected as a DESIGN CHOICE, not
+            # because the two paths disagree. They used to: the training 'mean' path fed the
+            # ungated body while inference composed the gate — that was C-259's original instance.
+            # Since Epic #353 / S2 (#355) `_family_feedback_log1p` composes exactly as
+            # `_emit_magnitude` does (both call `compose_mean`), so train == deploy holds for this
+            # pair too. The guard stays because a family head's evidenced production feedback is
+            # `sample` (ADR-070: it bounds the C-113 bloom 9/9 where `mean` blooms 9/9), and
+            # letting `mean` through under SS would open an untested exposure at no benefit.
+            # Delete this guard only with a pre-registered arm behind it — it is the thing that
+            # keeps S2's "the composed-mean path is unreachable from SS" claim true.
             if self.forecast_composition != "self_zeroed" and self.ss_feedback == "mean":
                 err_msg = (
                     "scheduled sampling is active with a GATED forecast_composition "
-                    f"({self.forecast_composition!r}) but ss_feedback='mean': the training mean "
-                    "feedback is UNGATED while inference's mean is gated (C-259). Use "
+                    f"({self.forecast_composition!r}) but ss_feedback='mean'. The evidenced "
+                    "feedback for a family head under SS is 'sample' (ADR-070); 'mean' is not "
+                    "wrong-by-construction any more (both paths compose the gate since #355) but "
+                    "it is unevidenced, and this guard keeps it off the SS path (C-259). Use "
                     "ss_feedback='sample' under a gate."
                 )
                 logger.error(err_msg)

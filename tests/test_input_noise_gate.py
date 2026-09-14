@@ -21,12 +21,17 @@ sys.path.insert(0, str(_ROOT / "reports" / "2026-09-04_input_noise_dossier" / "t
 
 # `input_noise_gate` lives in tracked `scripts/`, so a bare import is right: if it is missing, that
 # is a failure, not a reason to skip. `error_profile` lives under gitignored `reports/` and is only
-# force-tracked, so it is guarded with the repo's `importorskip` idiom (C-10, and the sibling files
-# test_roll_diagnosis / test_st_bias / test_escalation) — a bare import there makes the whole
-# module's collectability depend on dossier state (S9/#362).
+# force-tracked, so it is guarded with the repo's `importorskip` idiom (C-10) — but as a FIXTURE
+# scoped to the tests that use it, not at module level: a module-level skip took the 21 tests that
+# never touch it (the pre-registered DOMINANCE_FACTOR / MAX_CV / rule_md5 pins) down with it, and a
+# changed threshold would then have gone green-by-absence (S9/#362, #372 review).
 from input_noise_gate import DOMINANCE_FACTOR, MAX_CV, cv, rule_md5, select_design  # noqa: E402
 
-ep = pytest.importorskip("error_profile")
+
+@pytest.fixture
+def ep():
+    return pytest.importorskip("error_profile")
+
 
 # ---------------------------------------------------------------------------
 # The rule — every branch reachable and demonstrated
@@ -128,7 +133,7 @@ def _fixture():
     return g, support, tmap
 
 
-def test_the_truth_month_is_m0_plus_h_minus_1():
+def test_the_truth_month_is_m0_plus_h_minus_1(ep):
     """The off-by-one that would silently score against the wrong month. h=1 must read month m0."""
     g = {(100, 1, 1): ([1.0], None)}
     ep.per_cell(g, [(100, 1)], {(100, 1): 7.0}, 1)  # must not raise
@@ -136,7 +141,7 @@ def test_the_truth_month_is_m0_plus_h_minus_1():
         ep.per_cell(g, [(100, 1)], {(101, 1): 7.0}, 1)  # m0+h would be wrong
 
 
-def test_per_cell_computes_q_and_ey():
+def test_per_cell_computes_q_and_ey(ep):
     g, support, tmap = _fixture()
     recs = {r[1]: r for r in ep.per_cell(g, support, tmap, 2)}  # keyed by truth (unique here)
     assert recs[5.0][2] == pytest.approx(0.50)  # q
@@ -145,12 +150,12 @@ def test_per_cell_computes_q_and_ey():
     assert recs[3.0][4] is False  # any_fired
 
 
-def test_per_cell_refuses_an_empty_sample_vector():
+def test_per_cell_refuses_an_empty_sample_vector(ep):
     with pytest.raises(ValueError, match="empty sample vector"):
         ep.per_cell({(1, 1, 1): ([], None)}, [(1, 1)], {(1, 1): 0.0}, 1)
 
 
-def test_origin_rates_are_exactly_hand_computable():
+def test_origin_rates_are_exactly_hand_computable(ep):
     g, support, tmap = _fixture()
     (r,) = ep.origin_rates(ep.per_cell(g, support, tmap, 2), 2)
     assert r.origin == 100 and r.n_cells == 4 and r.n_event == 2
@@ -163,14 +168,14 @@ def test_origin_rates_are_exactly_hand_computable():
     assert r.fn_rate_hard == pytest.approx(0.5)
 
 
-def test_the_two_FN_definitions_are_genuinely_different():
+def test_the_two_FN_definitions_are_genuinely_different(ep):
     """If the soft and hard rates were identical the softer one would be decoration."""
     g, support, tmap = _fixture()
     (r,) = ep.origin_rates(ep.per_cell(g, support, tmap, 2), 2)
     assert r.fn_rate != pytest.approx(r.fn_rate_hard)
 
 
-def test_magnitude_error_uses_only_cells_ACTIVE_IN_BOTH():
+def test_magnitude_error_uses_only_cells_ACTIVE_IN_BOTH(ep):
     """A cell the model silenced is a false negative, not a magnitude error. Counting it as one
     would smear an occurrence failure into the magnitude channel and select the wrong design."""
     g, support, tmap = _fixture()
@@ -179,7 +184,7 @@ def test_magnitude_error_uses_only_cells_ACTIVE_IN_BOTH():
     assert r.mag_err_median == pytest.approx(math.log1p(0.5) - math.log1p(5.0))
 
 
-def test_origins_are_grouped_separately():
+def test_origins_are_grouped_separately(ep):
     g = {
         (100, 1, 1): ([1.0], None),
         (200, 1, 1): ([0.0], None),

@@ -279,6 +279,21 @@ class HydraNetInference:
             raise ValueError(
                 f"freeze_recurrent_weight must be in [0, 1]; got {freeze_recurrent_weight!r}."
             )
+        # The inert pair, rejected HERE as well as in HydraNetConfig.reject_inert_clamp: research
+        # drivers set these two attributes on the orchestrator after construction and never pass
+        # through pydantic, so a config-level check alone left `cell@0.0` reachable — and the
+        # effective-verdict log below would then print CLAMPED over a blend that is the identity
+        # (`torch.lerp(new, anchor, 0.0) is new`). That is the C-331 lie on the line meant to close
+        # it (#372 review). A weight of 0 with a mode set is not a weak clamp; it is the control
+        # under the treatment's name. Say `freeze_recurrent=None` for the control.
+        if freeze_recurrent is not None and freeze_recurrent_weight == 0.0:
+            raise ValueError(
+                f"freeze_recurrent={freeze_recurrent!r} with freeze_recurrent_weight=0.0 is "
+                "inert: blend_recurrent_state returns the freely-evolved state unchanged, so this "
+                "would "
+                "log CLAMPED and run the unclamped control (C-324/C-331). Use "
+                "freeze_recurrent=None for the control, or a weight > 0 to clamp."
+            )
         self.freeze_recurrent = freeze_recurrent
         self.freeze_recurrent_weight = freeze_recurrent_weight
         # S5/#358: the EFFECTIVE clamp verdict, emitted here because this is the last point at
@@ -663,27 +678,37 @@ class HydraNetInference:
                 )
         return active
 
-    def _append_diagnostic_stat(self, buffer: List[dict], record: dict, *, label: str) -> None:
-        """Append to a diagnostic buffer, or refuse and count the refusal.
+    def _diagnostic_buffer_full(self, buffer: List[dict], *, label: str) -> bool:
+        """True — and one refusal counted — when a diagnostic buffer is at its ceiling.
 
-        See ``DIAGNOSTIC_STATS_MAX_RECORDS``. The refusal is counted rather than silent because a
-        truncated buffer is a PREFIX of the run — early origins only — and averaging a column
-        over it would be a biased readout that looks exactly like a complete one.
+        See ``DIAGNOSTIC_STATS_MAX_RECORDS``. Ask BEFORE computing the record: the gate probe's
+        record costs a randperm, a topk, a Bernoulli and (on sample 0) five 49x49 correlated
+        draws, all of which were being spent on records that were then refused (#372 review).
+
+        The refusal is counted rather than silent because a truncated buffer is a PREFIX of the
+        run — early origins only — and averaging a column over it is a biased readout that looks
+        exactly like a complete one. The count is for the DRIVER to act on: nothing in this class
+        can know whether a partial record is acceptable to whoever asked for it.
         """
-        if len(buffer) >= DIAGNOSTIC_STATS_MAX_RECORDS:
-            dropped = self.diagnostic_stats_dropped.get(label, 0) + 1
-            self.diagnostic_stats_dropped[label] = dropped
-            if dropped == 1:
-                logger.warning(
-                    "%s reached its %d-record ceiling and is now DROPPING records. Anything read "
-                    "off it covers only the origins processed so far, so treat it as a prefix, "
-                    "not as the run. Lower posterior_D or narrow the origin list to capture it "
-                    "whole (S8/#361).",
-                    label,
-                    DIAGNOSTIC_STATS_MAX_RECORDS,
-                )
-            return
-        buffer.append(record)
+        if len(buffer) < DIAGNOSTIC_STATS_MAX_RECORDS:
+            return False
+        dropped = self.diagnostic_stats_dropped.get(label, 0) + 1
+        self.diagnostic_stats_dropped[label] = dropped
+        if dropped == 1:
+            logger.warning(
+                "%s reached its %d-record ceiling and is now DROPPING records. Anything read "
+                "off it covers only the origins processed so far, so treat it as a prefix, "
+                "not as the run. Lower n_posterior_samples or narrow the origin list to capture "
+                "it whole (S8/#361).",
+                label,
+                DIAGNOSTIC_STATS_MAX_RECORDS,
+            )
+        return True
+
+    def _append_diagnostic_stat(self, buffer: List[dict], record: dict, *, label: str) -> None:
+        """Append to a diagnostic buffer, or refuse and count the refusal."""
+        if not self._diagnostic_buffer_full(buffer, label=label):
+            buffer.append(record)
 
     def _record_gate_structure(self, gate, *, origin: int, sample_idx: int, step: int):
         """Record, per (origin, sample, step, target), what a coherent sampler COULD do with this
@@ -697,6 +722,10 @@ class HydraNetInference:
             g = g[:, :n_reg]
         for b in range(g.shape[0]):
             for c in range(g.shape[1]):
+                if self._diagnostic_buffer_full(
+                    self.gate_structure_stats, label="gate_structure_stats"
+                ):
+                    continue  # refused BEFORE the draws it would have cost
                 rec = gate_structure_stats(
                     g[b, c],
                     # NOT _fb_transform_gen. See _FB_GATE_PROBE_SEED_NAMESPACE: the probe used to
@@ -709,9 +738,7 @@ class HydraNetInference:
                     sweep_length_scales=(sample_idx == 0),
                 )
                 rec.update(origin=origin, sample_idx=sample_idx, step=step, target_idx=c)
-                self._append_diagnostic_stat(
-                    self.gate_structure_stats, rec, label="gate_structure_stats"
-                )
+                self.gate_structure_stats.append(rec)
 
     def _parse_hurdle_theta(self, theta):
         """Per-target NB dispersion theta for the hurdle-NB mean (#101). None unless hurdle_nb.

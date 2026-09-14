@@ -15,6 +15,8 @@ diagnostic run finishes and whether its output can be read afterwards:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -27,14 +29,115 @@ from views_hydranet.utils.hydranet_inference import (  # noqa: E402
 
 from .test_feedback_transform_seam import _cfg, _RecordingModel, _tensor  # noqa: E402
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
-def _inference(*, feedback_transform=None, time_steps=5):
+
+class _GatedModel(_RecordingModel):
+    """`_RecordingModel` emits a constant gate (cls = zeros -> sigmoid 0.5 everywhere), on which
+    Moran's I is NaN and `nan != nan` would make two identical probe records compare unequal.
+    This one emits a gate that varies with the input, so the probe's statistics are all finite."""
+
+    def forward(self, x, h):
+        out = super().forward(x, h)
+        return out._replace(cls=out.reg * 3.0 - 1.0)
+
+
+def _inference(*, feedback_transform=None, time_steps=5, record_gate_probe=False):
     cfg = _cfg()
     cfg["time_steps"] = time_steps
     cfg["steps"] = list(range(1, time_steps + 1))
     return HydraNetInference(
-        _RecordingModel(), cfg, device="cpu", feedback_transform=feedback_transform
+        _GatedModel() if record_gate_probe else _RecordingModel(),
+        cfg,
+        device="cpu",
+        feedback_transform=feedback_transform,
+        record_gate_probe=record_gate_probe,
     )
+
+
+# ────────────────────────────────── the wiring, on the real engine, not on a stub
+#
+# The S7 isolation tests seed their own generator inside a hand-rolled `_Rollout`, and the S8
+# cap tests call the wrapper directly. `/code-review max` on #372 deleted the probe's seeding
+# block outright, narrowed it to require an arm, and reverted both cap call sites to `.append`
+# — each passed the full suite. These drive `predict()` on a real HydraNetInference instead.
+
+
+class TestTheProbeIsWiredOnTheRealEngine:
+    def test_two_identical_predicts_give_identical_probe_records(self):
+        """Without its own seeded generator the probe falls back to the global torch RNG and
+        two runs of the same engine disagree — unreproducible instrumentation."""
+        records = []
+        for _ in range(2):
+            inf = _inference(record_gate_probe=True, time_steps=3)
+            inf.predict(_tensor(), 3, 0, ["feat"])
+            assert inf.gate_structure_stats, "the probe recorded nothing on a real predict()"
+            records.append(inf.gate_structure_stats)
+        assert records[0] == records[1], (
+            "the same engine, same seed, produced different gate-probe records — the probe is "
+            "not seeded from its own namespace on the real predict() path (S7/#360)"
+        )
+
+    def test_the_probe_runs_without_a_feedback_arm(self):
+        """The seeding must key on `record_gate_probe` alone; narrowing it to require an arm
+        leaves a probe-only run drawing from `generator=None` (the global RNG)."""
+        inf = _inference(record_gate_probe=True, time_steps=3, feedback_transform=None)
+        inf.predict(_tensor(), 3, 0, ["feat"])
+        assert inf._fb_gate_probe_gen is not None, (
+            "no probe generator was seeded on a probe-only run — the probe drew from torch's "
+            "global RNG"
+        )
+        assert inf.gate_structure_stats
+
+
+class TestTheCapIsWiredOnTheRealEngine:
+    def test_predict_past_the_ceiling_truncates_and_counts(self, monkeypatch):
+        """Reverting either append site to a bare `.append` reopens the rc=137 path with every
+        wrapper-level test green. This drives the real record path past a small ceiling."""
+        import views_hydranet.utils.hydranet_inference as hi
+
+        monkeypatch.setattr(hi, "DIAGNOSTIC_STATS_MAX_RECORDS", 3)
+        inf = _inference(record_gate_probe=True, time_steps=5, feedback_transform="identity")
+        inf.predict(_tensor(), 3, 0, ["feat"])
+        assert len(inf.gate_structure_stats) == 3, (
+            f"gate_structure_stats holds {len(inf.gate_structure_stats)} records past a ceiling "
+            "of 3 — the cap is not on the real record path"
+        )
+        assert len(inf.feedback_field_stats) == 3, (
+            f"feedback_field_stats holds {len(inf.feedback_field_stats)} records past a ceiling "
+            "of 3 — the cap is not on the real record path"
+        )
+        assert inf.diagnostic_stats_dropped.get("gate_structure_stats", 0) > 0
+        assert inf.diagnostic_stats_dropped.get("feedback_field_stats", 0) > 0
+
+
+class TestTheDriverRefusesATruncatedRecord:
+    """The count exists for the driver; the engine cannot know whether a prefix is acceptable."""
+
+    @staticmethod
+    def _tool():
+        import sys
+
+        tools = REPO_ROOT / "reports" / "2026-08-16_feedback_realism_dossier" / "tools"
+        sys.path.insert(0, str(tools))
+        return pytest.importorskip("realism_arm_entry")
+
+    def test_a_non_empty_drop_count_is_a_hard_stop(self):
+        tool = self._tool()
+
+        class _Inf:
+            diagnostic_stats_dropped = {"gate_structure_stats": 249_440}
+
+        with pytest.raises(SystemExit, match="dropped"):
+            tool.refuse_a_truncated_record(_Inf(), "thin:0.25")
+
+    def test_a_complete_record_passes(self):
+        tool = self._tool()
+
+        class _Inf:
+            diagnostic_stats_dropped: dict = {}
+
+        tool.refuse_a_truncated_record(_Inf(), "thin:0.25")
 
 
 # ─────────────────────────────────────────────────── (a) the buffers are bounded
@@ -83,7 +186,7 @@ class TestADiagnosticCannotOOMTheRunItDiagnoses:
                 )
         warnings = [r for r in caplog.records if r.levelname == "WARNING"]
         assert len(warnings) == 1, "the ceiling warning must fire once, not once per record"
-        assert "posterior_D" in warnings[0].getMessage()
+        assert "n_posterior_samples" in warnings[0].getMessage()  # the real config key
 
 
 # ─────────────────────────────────────────────── (b) the dump describes itself

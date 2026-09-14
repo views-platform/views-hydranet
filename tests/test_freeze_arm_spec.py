@@ -41,7 +41,6 @@ def _mod():
         ("hidden", ("hidden", 1.0)),
         ("all", ("all", 1.0)),
         ("cell@0.5", ("cell", 0.5)),
-        ("cell@0", ("cell", 0.0)),
         ("cell@1", ("cell", 1.0)),
         ("all@0.25", ("all", 0.25)),
     ],
@@ -58,7 +57,20 @@ def test_a_bare_mode_is_a_hard_freeze_so_published_arms_still_reproduce():
 
 
 @pytest.mark.parametrize(
-    "spec", ["celll", "Cell", "cell@abc", "cell@1.5", "cell@-0.1", "none@0.5", "@0.5", ""]
+    "spec",
+    # `cell@0` and `cell@0.0`: the inert pair — the control under the treatment's name (#372)
+    [
+        "celll",
+        "Cell",
+        "cell@abc",
+        "cell@1.5",
+        "cell@-0.1",
+        "none@0.5",
+        "@0.5",
+        "",
+        "cell@0",
+        "all@0.0",
+    ],
 )
 def test_malformed_specs_raise_rather_than_falling_back_to_the_control(spec):
     with pytest.raises(SystemExit):
