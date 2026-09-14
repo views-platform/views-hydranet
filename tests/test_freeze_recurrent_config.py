@@ -29,6 +29,27 @@ def _with(cfg, **over):
     return out
 
 
+def _build_inference(config_dict, *, freeze_recurrent):
+    """Construct a real `HydraNetInference` the way the orchestrator does, after any override.
+
+    S5/#358: the clamp verdict is emitted by this constructor, because it is the last point at
+    which `freeze_recurrent` can change. `HydraNetInference` type-checks the model, so this needs a
+    real `nn.Module` rather than the orchestrator test's bare `_DummyModel`.
+    """
+    import torch.nn as nn
+
+    from views_hydranet.utils.hydranet_inference import HydraNetInference
+
+    return HydraNetInference(
+        nn.Identity(),
+        config_dict,
+        device="cpu",
+        visualizer=None,
+        freeze_recurrent=freeze_recurrent,
+        freeze_recurrent_weight=1.0,
+    )
+
+
 class TestTheOffPathIsUnchanged:
     """The load-bearing property of the amendment."""
 
@@ -127,6 +148,50 @@ class TestTheModeIsValidated:
         """Every measurement behind ADR-027 §2.1 used a hard freeze; the default must be it."""
         assert HydraNetConfig(**cfg).freeze_recurrent_weight == 1.0
 
+    def test_a_clamp_with_a_zero_weight_is_rejected(self, cfg):
+        """S1/#354: `freeze_recurrent='cell'` + `weight=0.0` claims the clamp and delivers none.
+
+        `blend_recurrent_state` returns the freely-evolved state unchanged at weight 0.0, so this
+        pair validated, logged `recurrent state CLAMPED`, and shipped the unclamped control — the
+        C-324 inert-knob signature on a production setting (C-331, escalated from diagnostic arms).
+        """
+        with pytest.raises(ValueError, match="is inert"):
+            HydraNetConfig(**_with(cfg, freeze_recurrent="cell", freeze_recurrent_weight=0.0))
+
+    @pytest.mark.parametrize("mode", ["hidden", "cell", "all"])
+    def test_the_rejection_covers_every_mode(self, cfg, mode):
+        """Not just the production mode — a diagnostic arm can lie about itself too."""
+        with pytest.raises(ValueError, match="is inert"):
+            HydraNetConfig(**_with(cfg, freeze_recurrent=mode, freeze_recurrent_weight=0.0))
+
+    @pytest.mark.parametrize("weight", [1.0, 0.5, 0.25, 0.1])
+    def test_every_acting_weight_is_still_accepted(self, cfg, weight):
+        """Anti-vacuity: if the guard rejected everything it would prove nothing.
+
+        M41 swept w over {0, 0.1, 0.25, 0.5, 0.75, 1.0}; every non-zero point must stay reachable.
+        """
+        c = HydraNetConfig(**_with(cfg, freeze_recurrent="cell", freeze_recurrent_weight=weight))
+        assert c.freeze_recurrent_weight == weight
+
+    def test_a_zero_weight_without_a_clamp_is_still_legal(self, cfg):
+        """The ADR governs the RANGE; the guard governs the PAIR.
+
+        ADR-027 §2.1's Beige Team contract specifies the field as "outside [0, 1] is rejected", so
+        `gt=0.0` on the field would contradict it and would delete M41's `w=0` reference. A weight
+        of 0.0 with no clamp is meaningless but honest — nothing claims to be happening.
+        """
+        c = _with(cfg, freeze_recurrent_weight=0.0)
+        c.pop("freeze_recurrent", None)
+        assert HydraNetConfig(**c).freeze_recurrent_weight == 0.0
+
+    def test_the_message_names_the_way_out(self, cfg):
+        """A guard that says 'no' without saying 'do this instead' gets worked around."""
+        with pytest.raises(ValueError) as e:
+            HydraNetConfig(**_with(cfg, freeze_recurrent="cell", freeze_recurrent_weight=0.0))
+        msg = str(e.value)
+        assert "freeze_recurrent=None" in msg, msg
+        assert "C-324" in msg or "C-331" in msg, msg
+
 
 class TestFreezeHStaysRetired:
     """This amendment must not smuggle the retired mechanism back in."""
@@ -160,32 +225,65 @@ class TestTheClampIsVisibleInTheLog:
     """
 
     def test_a_clamped_run_says_so(self, cfg, caplog):
+        """S5/#358: the verdict now comes from the layer that CONSUMES the value.
+
+        It used to be emitted by `InferenceOrchestrator.__init__`, which runs before the
+        post-construction override that file documents as supported — so a driver-set clamp logged
+        "evolves freely" and then ran clamped.
+        """
         import logging
 
-        from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
-
         built = HydraNetConfig(**_with(cfg, freeze_recurrent="cell")).model_dump()
-        orch = InferenceOrchestrator.__new__(InferenceOrchestrator)
         with caplog.at_level(logging.INFO):
-            InferenceOrchestrator.__init__(
-                orch, config=built, model=_DummyModel(), device=_cpu(), visualizer=None
-            )
+            _build_inference(built, freeze_recurrent="cell")
         assert "CLAMPED" in caplog.text and "'cell'" in caplog.text, (
             f"a clamped run did not announce the clamp; log was: {caplog.text!r}"
         )
 
+    def test_a_driver_override_is_still_announced(self, cfg, caplog):
+        """The defect itself: config omits the key, a driver sets it, the run IS clamped.
+
+        This is the exact sequence `roster_arm_entry.py` performs — construct the orchestrator from
+        a config without the key, then assign the attribute before inference is built.
+        """
+        import logging
+
+        bare = HydraNetConfig(**cfg).model_dump()
+        bare.pop("freeze_recurrent", None)
+        with caplog.at_level(logging.INFO):
+            _build_inference(bare, freeze_recurrent="cell")
+        assert "CLAMPED" in caplog.text, (
+            "a driver-overridden clamp was not recorded as clamped — the provenance mechanism "
+            f"still lies about what ran. Log was: {caplog.text!r}"
+        )
+        assert "evolves freely" not in caplog.text
+
     def test_an_unclamped_run_also_says_so(self, cfg, caplog):
         """Anti-vacuity: silence must not be the signal for either state."""
+        import logging
+
+        built = HydraNetConfig(**cfg).model_dump()
+        built.pop("freeze_recurrent", None)
+        with caplog.at_level(logging.INFO):
+            _build_inference(built, freeze_recurrent=None)
+        assert "evolves freely" in caplog.text
+        assert "CLAMPED" not in caplog.text
+
+    def test_the_orchestrator_does_not_announce_a_verdict_it_cannot_know(self, cfg, caplog):
+        """S5/#358: it may say what config asked for; it may not say what will be in effect."""
         import logging
 
         from views_hydranet.utils.inference_orchestrator import InferenceOrchestrator
 
         built = HydraNetConfig(**cfg).model_dump()
         built.pop("freeze_recurrent", None)
+        built.pop("freeze_recurrent_weight", None)
         orch = InferenceOrchestrator.__new__(InferenceOrchestrator)
         with caplog.at_level(logging.INFO):
             InferenceOrchestrator.__init__(
                 orch, config=built, model=_DummyModel(), device=_cpu(), visualizer=None
             )
-        assert "evolves freely" in caplog.text
-        assert "CLAMPED" not in caplog.text
+        assert "freeze_recurrent=None from config" in caplog.text, caplog.text
+        assert "CLAMPED" not in caplog.text, (
+            "the orchestrator announced a verdict before the override it documents as supported"
+        )

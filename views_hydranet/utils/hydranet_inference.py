@@ -1,7 +1,7 @@
 import gc
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -52,6 +52,30 @@ _FB_TRANSFORM_SEED_NAMESPACE = 10_000_019
 # family.sample and compose_samples) nor with the transform RNG, for the same reason those two are
 # separated: an intervention drawn from the stream it perturbs correlates with what it measures.
 _FB_CORRELATED_SEED_NAMESPACE = 20_000_033
+# A FOURTH stream, for the gate-structure probe. The probe is an OBSERVER: it draws a randperm and,
+# on posterior sample 0, five correlated fields. Sharing the transform RNG made enabling it change
+# the treatment it observes — measured at 71 of 225 active cells flipping under `thin(p=0.25)`, and
+# by a DIFFERENT amount on sample 0 than on the rest, because the length-scale sweep is sample-0
+# only. An observer that perturbs its subject is not an observer (S7/#360).
+_FB_GATE_PROBE_SEED_NAMESPACE = 30_000_037
+
+# Ceiling on EACH diagnostic stats buffer. They are plain lists on an engine the orchestrator
+# builds ONCE and holds across every origin, and one record is appended per
+# (origin x posterior pass x step x batch x channel) — so at D=256 over 13 origins they reach
+# hundreds of MB, held for the whole run, on top of the DxK cube. The first gate-probe run was
+# SIGKILLed at rc=137 (the OOM killer) and the cause was never bounded. A diagnostic that can kill
+# the run it is diagnosing is worse than no diagnostic (S8/#361).
+#
+# Truncation is LOUD and counted (`diagnostic_stats_dropped`): a silently short buffer would bias
+# every column toward the early origins, which is the same silent-control defect class the arms
+# themselves are guarded against. If a run truncates, lower `posterior_D` or narrow the origins.
+#
+# The number is a MEMORY budget, not a record count: measured at ~280 B/record for the feedback
+# buffer and ~504 B for the gate buffer, 100k caps them at ~28 MB and ~50 MB, flat thereafter. A
+# 13-origin x 35-step x 3-target run spends 1,365 records per posterior pass, so everything up to
+# D≈73 is captured whole. It is deliberately NOT raised to fit D=256 (349,440 records, ~100 and
+# ~175 MB): a ceiling set to accommodate the configuration that caused the OOM bounds nothing.
+DIAGNOSTIC_STATS_MAX_RECORDS = 100_000
 
 _STATE_GROUPS = 8
 FREEZE_RECURRENT_MODES = ("hidden", "cell", "all")
@@ -257,6 +281,23 @@ class HydraNetInference:
             )
         self.freeze_recurrent = freeze_recurrent
         self.freeze_recurrent_weight = freeze_recurrent_weight
+        # S5/#358: the EFFECTIVE clamp verdict, emitted here because this is the last point at
+        # which `freeze_recurrent` can change — the orchestrator logs what config asked for, and a
+        # research driver may override the attribute between the two. ADR-027 §2.1 put the clamp in
+        # production, the artifact sidecar does not record it, and nothing else prints it, so
+        # without this line a delivered forecast carries no evidence of whether it was clamped.
+        if self.freeze_recurrent is not None:
+            logger.info(
+                "🧊 HydraNetInference: recurrent state CLAMPED — freeze_recurrent=%r, weight=%s "
+                "(ADR-027 §2.1).",
+                self.freeze_recurrent,
+                self.freeze_recurrent_weight,
+            )
+        else:
+            logger.info(
+                "HydraNetInference: recurrent state evolves freely (freeze_recurrent unset — "
+                "ADR-027 §2 behaviour)."
+            )
 
         # DIAGNOSTIC (silence-vs-fade EXP-3): spatially roll the anchor before holding it. The
         # clamp pins the state to its last real-observation value, which tangles two things — the
@@ -314,7 +355,10 @@ class HydraNetInference:
         # Diagnostic body-mean dump (silence-vs-fade dossier, 2026-09-02). Same contract as
         # freeze_recurrent: explicit argument, no config key, default None = byte-identical
         # production path. When set, writes the family's count-space body mean E[Y|body] and the
-        # gate P(y>0) as raw fields, for the MC-dropout pass 0 only. It reads tensors the family
+        # gate P(y>0) as raw fields, averaged over ALL D MC-dropout passes — matching what the
+        # scorer ranks on. (It wrote pass 0 only until 2026-09-03; the `n_passes` key in the npz is
+        # what tells the two apart, and this comment said "pass 0" until S8/#361. C-320.) It reads
+        # tensors the family
         # path already computes and adds NO forward pass and NO train()-mode work, so it cannot
         # perturb the run it measures (the BatchNorm scar: an extra train()-mode forward silently
         # wrote running stats). Every statistic is derived OFFLINE from these fields, so no
@@ -372,6 +416,9 @@ class HydraNetInference:
         # what its fixture tests say it does. A `thin` arm whose active fraction did not fall is a
         # silent no-op, and would otherwise be published as "this axis does not matter".
         self.feedback_field_stats: List[dict] = []
+        # Records the two buffers refused, per buffer. Non-empty means a column read off them is a
+        # PREFIX of the run, not the run — see DIAGNOSTIC_STATS_MAX_RECORDS.
+        self.diagnostic_stats_dropped: Dict[str, int] = {}
         # Does the GATE still carry the spatial structure that `compose_samples`' independent
         # Bernoulli then discards? Two fixes with nothing in common hang on the answer — a
         # correlated sampler (no retraining) vs training-side work. See
@@ -380,11 +427,16 @@ class HydraNetInference:
         # OPT-IN, not implied by an arm. Each record runs a randperm over the grid, a topk, and (on
         # sample 0) five correlated draws whose kernels reach 49x49 at the calibration length
         # scales — per origin x step x target, on every arm including ones with nothing to do with
-        # the gate. The first probe run was SIGKILLed (rc=137, `gateprobe_manifest.txt`), which is
-        # consistent with the instrumentation being the resource problem rather than the model.
+        # the gate. The first probe run was SIGKILLed (rc=137, `gateprobe_manifest.txt`) — the OOM
+        # killer, and the instrumentation was the resource problem, not the model. The compute cost
+        # above is why the probe is opt-in; the MEMORY cost was unbounded until S8/#361 capped both
+        # buffers at DIAGNOSTIC_STATS_MAX_RECORDS.
         self.record_gate_probe = bool(record_gate_probe)
         self._record_gate_probe = self.record_gate_probe
         self.gate_structure_stats: List[dict] = []
+        # The probe's OWN stream (see _FB_GATE_PROBE_SEED_NAMESPACE). Seeded per posterior sample
+        # at the top of the rollout; None until then, and None whenever the probe is off.
+        self._fb_gate_probe_gen = None
         # DIAGNOSTIC: correlation length for the fed-back gate draw. None = production's
         # independent Bernoulli. Applies to the FEEDBACK path only; the scored cube is untouched.
         if feedback_length_scale is not None and feedback_length_scale <= 0:
@@ -585,7 +637,8 @@ class HydraNetInference:
                     prev = prev_active[b, c]
                     prev_n = int(prev.sum())
                     persistence = (float((a & prev).sum()) / prev_n) if prev_n else -1.0
-                self.feedback_field_stats.append(
+                self._append_diagnostic_stat(
+                    self.feedback_field_stats,
                     {
                         "origin": origin,
                         "sample_idx": sample_idx,
@@ -605,9 +658,32 @@ class HydraNetInference:
                         # P(on | on at the previous step). -1 = no previous step.
                         "persistence": persistence,
                         "neighbour_pairs_per_active": (pairs / n_active) if n_active else -1.0,
-                    }
+                    },
+                    label="feedback_field_stats",
                 )
         return active
+
+    def _append_diagnostic_stat(self, buffer: List[dict], record: dict, *, label: str) -> None:
+        """Append to a diagnostic buffer, or refuse and count the refusal.
+
+        See ``DIAGNOSTIC_STATS_MAX_RECORDS``. The refusal is counted rather than silent because a
+        truncated buffer is a PREFIX of the run — early origins only — and averaging a column
+        over it would be a biased readout that looks exactly like a complete one.
+        """
+        if len(buffer) >= DIAGNOSTIC_STATS_MAX_RECORDS:
+            dropped = self.diagnostic_stats_dropped.get(label, 0) + 1
+            self.diagnostic_stats_dropped[label] = dropped
+            if dropped == 1:
+                logger.warning(
+                    "%s reached its %d-record ceiling and is now DROPPING records. Anything read "
+                    "off it covers only the origins processed so far, so treat it as a prefix, "
+                    "not as the run. Lower posterior_D or narrow the origin list to capture it "
+                    "whole (S8/#361).",
+                    label,
+                    DIAGNOSTIC_STATS_MAX_RECORDS,
+                )
+            return
+        buffer.append(record)
 
     def _record_gate_structure(self, gate, *, origin: int, sample_idx: int, step: int):
         """Record, per (origin, sample, step, target), what a coherent sampler COULD do with this
@@ -623,14 +699,19 @@ class HydraNetInference:
             for c in range(g.shape[1]):
                 rec = gate_structure_stats(
                     g[b, c],
-                    generator=self._fb_transform_gen,
+                    # NOT _fb_transform_gen. See _FB_GATE_PROBE_SEED_NAMESPACE: the probe used to
+                    # draw from the stream the feedback transforms consume, so an arm run with the
+                    # probe on was not the same arm (S7/#360).
+                    generator=self._fb_gate_probe_gen,
                     # The sweep is ~5 extra correlated draws per record; restricting it to the
                     # first posterior sample keeps the cost off every arm while still giving
                     # 13 origins x 35 steps of calibration data.
                     sweep_length_scales=(sample_idx == 0),
                 )
                 rec.update(origin=origin, sample_idx=sample_idx, step=step, target_idx=c)
-                self.gate_structure_stats.append(rec)
+                self._append_diagnostic_stat(
+                    self.gate_structure_stats, rec, label="gate_structure_stats"
+                )
 
     def _parse_hurdle_theta(self, theta):
         """Per-target NB dispersion theta for the hurdle-NB mean (#101). None unless hurdle_nb.
@@ -779,15 +860,33 @@ class HydraNetInference:
 
         Note ``mean(gate) * mean(mu) != mean(gate * mu)``: these are the posterior means of the
         two factors, not the posterior mean of the composed forecast, which is not stored.
+
+        ⚠️ **The two arrays do not share an axis order, and they do not have the same number of
+        channels.** ``mu`` is target-SECOND ``[T, n_reg, H, W]`` (``_body_mean_field`` stacks on
+        ``dim=1``); ``gate`` is target-LAST ``[T, H, W, n_cls]`` (the cube path transposes it that
+        way and the dump stores it unchanged). Writing ``mu[:, j] * gate[:, j]`` therefore
+        broadcasts a ``(H, W)`` field against an ``(W, n_cls)`` slice — an error on most grids,
+        and a silently WRONG per-target field on any grid where ``W == n_cls``.
+
+        The npz is self-describing so a consumer never has to know that from the source: it carries
+        ``mu_layout``, ``gate_layout``, ``n_reg`` (mu's axis 1) and ``n_cls`` (gate's axis 3). The
+        arrays are stored in their native layouts rather than reconciled, because dumps written
+        before S8/#361 are on disk in these layouts and re-orienting here would make old and new
+        files indistinguishable (S8/#361).
         """
         out_dir = Path(self.body_mean_dump_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
+        mu = np.asarray(mu_mean, dtype=np.float32)
+        gate = np.asarray(gate_mean, dtype=np.float32)
         np.savez_compressed(
             out_dir / f"bodymean_origin{origin}.npz",
-            mu=np.asarray(mu_mean, dtype=np.float32),
-            gate=np.asarray(gate_mean, dtype=np.float32),
+            mu=mu,
+            gate=gate,
             origin=np.int64(origin),
-            n_reg=np.int64(np.asarray(mu_mean).shape[1]),
+            n_reg=np.int64(mu.shape[1]),
+            n_cls=np.int64(gate.shape[3]),
+            mu_layout="T,n_reg,H,W",
+            gate_layout="T,H,W,n_cls",
             n_passes=np.int64(n_passes),
         )
 
@@ -1046,11 +1145,13 @@ class HydraNetInference:
             self._fb_correlated_gen = torch.Generator(device="cpu").manual_seed(
                 int(self.config["torch_seed"]) + _FB_CORRELATED_SEED_NAMESPACE + sample_idx
             )
-        # The gate probe draws from the transform RNG too, and is now independent of
-        # `_feedback_arm` — so seed it whenever either is active, not only when an arm is set.
-        if self._record_gate_probe and not self._feedback_arm:
-            self._fb_transform_gen = torch.Generator(device="cpu").manual_seed(
-                int(self.config["torch_seed"]) + _FB_TRANSFORM_SEED_NAMESPACE + sample_idx
+        # The probe's own stream, seeded per posterior sample like its siblings. It is seeded on
+        # `_record_gate_probe` ALONE: the probe is independent of `_feedback_arm`, and — since
+        # S7/#360 — no longer shares the transform's generator, so an arm's draws are now
+        # byte-identical whether the probe is on or off.
+        if self._record_gate_probe:
+            self._fb_gate_probe_gen = torch.Generator(device="cpu").manual_seed(
+                int(self.config["torch_seed"]) + _FB_GATE_PROBE_SEED_NAMESPACE + sample_idx
             )
         if self._feedback_arm:
             seed = int(self.config["torch_seed"])
@@ -1065,21 +1166,39 @@ class HydraNetInference:
             arm_gen = torch.Generator(device="cpu").manual_seed(seed)
             _, _, hh, ww = full_tensor.shape[0], full_tensor.shape[1], H, W
             self._scramble_perm = torch.randperm(hh * ww, generator=arm_gen)
+            name, param = self._feedback_arm
+            # Only `shuffle_months` reads `_month_shuffle`; it used to be built for EVERY arm,
+            # which made a short rollout fatal to arms that never touch it — no derangement of a
+            # single element exists, so the loop below exhausted and raised for `identity`, `thin`,
+            # `use_real` and the rest alike (S8/#361). Drawn AFTER `_scramble_perm`, so every arm's
+            # `arm_gen` stream is byte-identical to before.
+            self._month_shuffle = {}
             steps = list(range(origin + 1, origin + time_steps))
-            # A plain randperm leaves fixed points (~1 expected over 35 steps): those steps would
-            # feed the TRUE month while being scored as "persistence destroyed" — a silent control
-            # inside the treatment arm. Resample until deranged.
-            for _ in range(1000):
-                order = torch.randperm(len(steps), generator=arm_gen).tolist()
-                if all(i != j for i, j in enumerate(order)):
-                    break
-            else:  # pragma: no cover - astronomically unlikely
-                raise RuntimeError("could not draw a derangement for shuffle_months")
-            self._month_shuffle = dict(zip(steps, [steps[i] for i in order]))
+            if name == "shuffle_months":
+                # Fail loud rather than run as the control. At time_steps == 2 there is one step to
+                # permute and no derangement of one element; at time_steps == 1 there are none, and
+                # `_month_shuffle == {}` makes `.get(step, step)` feed the TRUE month at every step
+                # — a treatment arm silently delivering the control (C-331).
+                if len(steps) < 2:
+                    raise ValueError(
+                        f"shuffle_months needs at least two steps to permute, so time_steps must "
+                        f"be >= 3; got time_steps={time_steps} (steps to shuffle: {steps}). With "
+                        "fewer, no derangement exists and the arm would feed the true month at "
+                        "every step — the control, wearing the treatment's name (C-331)."
+                    )
+                # A plain randperm leaves fixed points (~1 expected over 35 steps): those steps
+                # would feed the TRUE month while being scored as "persistence destroyed" — a
+                # silent control inside the treatment arm. Resample until deranged.
+                for _ in range(1000):
+                    order = torch.randperm(len(steps), generator=arm_gen).tolist()
+                    if all(i != j for i, j in enumerate(order)):
+                        break
+                else:  # pragma: no cover - P(no derangement in 1000 draws) < 1e-400 for len >= 2
+                    raise RuntimeError("could not draw a derangement for shuffle_months")
+                self._month_shuffle = dict(zip(steps, [steps[i] for i in order]))
             # Pre-flight the month range this arm will need. The per-step check would otherwise
             # fire ~30 autoregressive steps into the first origin, wasting GPU on an arm that was
             # mis-specified before it started.
-            name, param = self._feedback_arm
             if name in (
                 "use_real",
                 "wrong_month",
