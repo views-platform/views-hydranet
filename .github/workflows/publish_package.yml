@@ -26,12 +26,14 @@ name: Publish Package
 on:
   release:
     types: [published]
+  # A manual run is ALWAYS a rehearsal: it stops after TestPyPI and can never publish for real.
+  # There is deliberately no input to change that. An earlier version had a `testpypi_only`
+  # checkbox defaulting to true, which meant unticking one box published whatever version sat in
+  # pyproject on the default branch — with no tag, no Release, and skipping the tag guard below,
+  # which only runs on a release event. A PyPI version cannot be deleted or reused, so that made a
+  # mis-click permanent and public. Real publication is reachable only through a published Release
+  # (C-341).
   workflow_dispatch:
-    inputs:
-      testpypi_only:
-        description: "Stop after TestPyPI — rehearse without publishing for real"
-        type: boolean
-        default: true
 
 permissions:
   contents: read
@@ -51,7 +53,10 @@ jobs:
       - name: Read the version being published
         id: ver
         run: |
-          v=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          # uv's 3.11, NOT the runner image's `python`: this needs tomllib (>=3.11), and the
+          # image's version is not ours to rely on — ubuntu-latest at 22.04 ships 3.10, where this
+          # raises ModuleNotFoundError. The step below already uses uv; these now agree (C-341).
+          v=$(uv run --no-project --python 3.11 python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
           echo "version=$v" >> "$GITHUB_OUTPUT"
           echo "publishing views-hydranet $v"
 
@@ -131,9 +136,11 @@ jobs:
           PY
 
       - name: Publish to PyPI (Trusted Publishing — no token)
-        if: github.event_name == 'release' || inputs.testpypi_only == false
+        if: github.event_name == 'release'
         run: uv publish --trusted-publishing always
 
-      - name: TestPyPI only — stopping here
-        if: github.event_name != 'release' && inputs.testpypi_only == true
-        run: echo "Rehearsal complete. Nothing was published to real PyPI."
+      - name: Manual run — stopping before real PyPI
+        if: github.event_name != 'release'
+        run: |
+          echo "Rehearsal complete. Nothing was published to real PyPI."
+          echo "To publish for real, publish a GitHub Release from a vX.Y.Z tag."

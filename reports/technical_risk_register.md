@@ -6,12 +6,12 @@
 | Owner             | Simon Polichinel von der Maase       |
 | Last Updated      | 2026-09-10 (review-rr strategic)     |
 | ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). **`C-106` is a THIRD gap, found 2026-09-10 (review-rr strategic): the ID appears nowhere in this file — not as an entry, not as a merge note, not as a cross-reference — so whether it was merged, renumbered or never assigned is unrecoverable from the register. Recorded as unexplained rather than quietly renumbered.** **C-319..C-322 added 2026-09-03 from the silence-vs-fade dossier: C-319 (field statistics blind to placement — occurrence, magnitude and alignment ALL survive a roll that destroys the forecast, so an internal statistic cannot close a causal claim about a truth-referenced score); C-320 (a falsifier band tighter than its own reference's sampling noise, which fired on the known-good control); C-321 (`--keep-cubes` silently disables the multi-arm contamination guard); C-322 (the model field's H axis runs opposite to priogrid row order — naive placement correlates 0.026, the flip gives 1.0000). **C-325 added 2026-09-04: two SCREEN-2 mechanism tests measured the network at INITIALISATION and were recorded as ruling a mechanism out; the arm's gradient does explode, 33 lessons later.** **C-328 added 2026-09-05: #311's input noise leaked into the C-184 BatchNorm recalibration pass, which would have confounded the S5 screen at the BN layer with every log looking clean; second instance of the mechanism after #289's, and found by a test written for a different prose invariant.** **C-329 added 2026-09-05 from the implementation-practice post-mortem: tests that cannot fail (tautology, vacuity, zero power) — invisible to mutation testing by construction, detected by the deletion test.** **C-330/C-331/C-332 added 2026-09-05 from `/code-review max` (partial — 11 finders, no expert panel); the same pass ESCALATED C-328 to four instances (the `bn_recal_from` path and `random_flips`, the latter left unfixed by decision), C-303 to TWELVE occurrences with a new sub-form (the false prose describes a safety gate, making an absent control look present), and C-329 with two further instances, both inside the commit that registered it.** **C-326 added the same day: launcher watchdogs kill the subshell, not the process tree — an arm reported CAPPED trained on for 7 more lessons; latent everywhere else (no `STALLED` line exists in any `ANOMALIES.txt`).** **C-327 added 2026-09-04: #308's Phase-2 clip ladder was pre-registered as a discriminator whose two hypotheses, derived properly, predict the SAME outcome — C-320's fifth instance, found before it was run and at no cost.** **C-320 escalated 2026-09-04 from three to FOUR occurrences, the fourth a distinct sub-form: #308's SCREEN rule enumerated three numeric outcomes and no failure branch, so when arm B died with NaN gradients at lesson 48 no branch of the rule could be evaluated.** **C-333..C-337 added 2026-09-10 from the review of #340 (PyPI publication). C-333 records that cross-repo release ordering is unguarded in BOTH directions — C-165's 2026-07-31b update has this repo blocked for weeks by an unpublished `views-pipeline-core`, and two months later this repo is the unpublished upstream doing it to 8 views-models models; the class recurred with the arrow reversed and a human found it both times. C-334 records that the platform's house publish template carries TWO defects that each independently block a first release — reproduced by executing its own logic, not by reading it — meaning it has never successfully performed one. C-337 is a decision, not a defect: publishing 0.1.0 arms a `<1.0.0` bound on all 8 models that semver lets any future 0.x walk through.** |
-| Total Concerns    | 337                                  |
-| Open Concerns     | 183                                  |
+| Total Concerns    | 340                                  |
+| Open Concerns     | 186                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 159                                 |
+| — net active risks | 162                                 |
 | Resolved Concerns | 154                                  |
-| Last curation pass | **2026-09-10 (review-rr strategic)** — 3 new clusters (18 instrument integrity, 19 declared-but-inert, 20 cross-repo coordination) covering ~45 of the 112 unmapped entries; C-330 (Tier 1) and C-312 relocated → §Resolved after verifying both fixes **in source** rather than trusting their banners; C-328 bannered FIXED (verified, previously unmarked); C-189's cross-ref repointed from the merged C-188 to C-182; C-110's location marked stale (`golden_hour`/3 → `rusty_bucket`/8); C-164's perpetual trigger rewritten; §Disagreements curated for the first time — 15 entries, **0 ever marked resolved**, two now carry evidence that events answered them. **Blind spots found and deliberately NOT registered here** (review-rr does not add risks): truth-data quality has **zero** coverage; ensemble benefit is assumed rather than measured; secrets handling has one mention with publication imminent. **C-338..C-340 registered 2026-09-10 immediately after this pass, closing the three blind spots it named — C-338 (truth-data aggregate assignments; the register covered whether we measure the model correctly and not whether the reference is correct, with a live instance at views-datafactory#484), C-339 (the 8-member ensemble's benefit is assumed, and the first measurement says sample count not diversity), C-340 (no secrets convention, at the moment the repo acquires its first secret).** Previous pass: **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
+| Last curation pass | **2026-09-10 (review-rr strategic)** — 3 new clusters (18 instrument integrity, 19 declared-but-inert, 20 cross-repo coordination) covering ~45 of the 112 unmapped entries; C-330 (Tier 1) and C-312 relocated → §Resolved after verifying both fixes **in source** rather than trusting their banners; C-328 bannered FIXED (verified, previously unmarked); C-189's cross-ref repointed from the merged C-188 to C-182; C-110's location marked stale (`golden_hour`/3 → `rusty_bucket`/8); C-164's perpetual trigger rewritten; §Disagreements curated for the first time — 15 entries, **0 ever marked resolved**, two now carry evidence that events answered them. **Blind spots found and deliberately NOT registered here** (review-rr does not add risks): truth-data quality has **zero** coverage; ensemble benefit is assumed rather than measured; secrets handling has one mention with publication imminent. **C-338..C-340 registered 2026-09-10 immediately after this pass, closing the three blind spots it named — C-338 (truth-data aggregate assignments; the register covered whether we measure the model correctly and not whether the reference is correct, with a live instance at views-datafactory#484), C-339 (the 8-member ensemble's benefit is assumed, and the first measurement says sample count not diversity), C-340 (no secrets convention, at the moment the repo acquires its first secret).** **C-341..C-343 added 2026-09-10 from `expert-code-review` of PR #351 (the development→main release): C-341 (Tier 2) the publish workflow's manual path could publish IRREVERSIBLY to PyPI while skipping the tag guard — tier set by irreversibility, not likelihood, since a PyPI version cannot be deleted or reused; FIXED the same day by deleting the input rather than guarding it, together with a second defect in the same never-executed file (a `tomllib` import on the runner's Python, working only by accident of the current image). C-342 (Tier 3) a production release now depends on TestPyPI, deliberately unfixed. C-343 (Tier 4) `__all__` and the lazy `__getattr__` can drift. The same review MERGED its BN finding into C-328 rather than registering it: the recal fix is a real training-time behaviour change and the release PR had claimed none.** Previous pass: **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
 ---
 
@@ -3754,6 +3754,19 @@ conclusion.
 
 **FIXED 2026-09-05 — verified in source on `development` 2026-09-10 (review-rr strategic).** `training_engine.py:913` takes `training_augmentation: bool = True`, and `:929` gates `random_flips` on it alongside the input-noise path, so the C-184 recalibration pass suppresses **every** training-only augmentation rather than one of them. The entry stays in §Open because it is a **recurrence class**, not a single defect — four instances to date, and nothing compares the set of augmentations against the set suppressed. See the recurrence-class lifecycle note in §Register Conventions.
 
+**CONSEQUENCE FOR THE RELEASE, added 2026-09-10 (expert-code-review of PR #351).** This fix is a
+**training-time behaviour change for every existing config**, and the release PR asserted the
+opposite. On `main`, `random_flips` (default `True`) applied during the C-184 recalibration pass, so
+BatchNorm running statistics were accumulated partly on H/W-flipped fields. On `development` that
+pass runs with `training_augmentation=False`, so they are computed on clean data. **Any model
+retrained after this release therefore carries different BatchNorm buffers than the same config
+trained before it**, and those buffers ship inside the artifact and move the forecast.
+
+The change is correct — the old behaviour was the defect. What was wrong is the claim of no
+behaviour change. The precise statement, verified: **existing artifacts are unaffected** (every new
+inference feature defaults to `None` on `InferenceOrchestrator`, and `freeze_recurrent` defaults to
+`None` from config), **retraining is affected**. PR #351's text corrected on the same day.
+
 `_recalibrate_bn` (the C-184 mitigation) runs forward-only over real windows to **recompute
 BatchNorm running statistics**, which are saved into the artifact and used at inference. #311's input
 noise was applied on that pass — measured, 30 calls with autograd disabled — so a treatment arm's BN
@@ -4371,6 +4384,113 @@ a mishandled token is a security concern rather than a wrong forecast, and the b
 package index account rather than this repository. Registered because the trigger is imminent and
 specific, and because "we never decided" is how the *next* repo inherits whatever this one does
 first.
+
+### C-341: the publish workflow's manual path can publish irreversibly to PyPI while skipping the tag guard
+
+| Field | Value |
+|-------|-------|
+| ID | C-341 |
+| Tier | 2 |
+| Source | expert-code-review of PR #351 (2026-09-10) — Nygard + Hickey seats, found by reading a file that has never executed |
+| Trigger | Running **Actions → Publish Package → Run workflow** with the "Stop after TestPyPI" box unticked |
+| Location | `.github/workflows/publish_package.yml` — tag guard `if: github.event_name == 'release'` (:60) vs real publish `if: github.event_name == 'release' \|\| inputs.testpypi_only == false` (:134) |
+| Cross-refs | C-340 (secrets/publication), C-334 (the template's defects), #340, #346 |
+
+The tag-versus-`pyproject` guard runs **only on a `release` event**. The real PyPI publish runs on a
+release **or** on a manual dispatch with `testpypi_only` false. So a manual dispatch with one
+checkbox unticked publishes whatever version happens to sit in `pyproject.toml` on the default
+branch, with **no tag, no GitHub Release, and no tag/version correspondence check** — the sole
+remaining protection being "newer than what is on PyPI".
+
+**Tier 2, and the tier rests on irreversibility rather than on likelihood.** A PyPI version cannot be
+deleted or reused. Every other finding in that review is recoverable; this one writes a permanent,
+untagged, unreviewed artifact to a public index under the project's name. It needs no failure of
+judgement beyond a mis-click, on a control placed next to the one legitimate manual action.
+
+**The design defect underneath it (Hickey):** one workflow, one trigger, and a boolean separating a
+*reversible, consequence-free rehearsal* from an *irreversible public publication*. Those are not
+one operation with a parameter.
+
+**FIXED 2026-09-10, same day, by deletion rather than by guarding:** the `testpypi_only` input is
+removed. A manual dispatch now **always** stops after TestPyPI; real publication is reachable only
+through a published Release, which is the only path the tag guard covers.
+
+**Second defect in the same never-executed file, fixed in the same commit:** the version-read step
+ran `python -c "import tomllib"` using the **runner image's** Python, while the step directly below
+it used `uv run --python 3.11`. `tomllib` requires ≥3.11, so that step worked only by accident of
+`ubuntu-latest` currently resolving to 24.04 (Python 3.12); on 22.04 (3.10) it raises
+`ModuleNotFoundError`. Now routed through `uv run --no-project --python 3.11`, matching its
+neighbour.
+
+**What generalises:** both defects are in a file that had never run, and neither is the kind of
+thing tests catch — there is no seam. A workflow's first execution is its first test, and its
+failure surface is public.
+
+---
+
+### C-342: a production release depends on TestPyPI, a service with no uptime guarantee
+
+| Field | Value |
+|-------|-------|
+| ID | C-342 |
+| Tier | 3 |
+| Source | expert-code-review of PR #351 (2026-09-10) — Nygard seat |
+| Trigger | Publishing a GitHub Release while `test.pypi.org` is unavailable, or after the TestPyPI pending publisher has been removed or has lapsed |
+| Location | `.github/workflows/publish_package.yml` — the TestPyPI publish and install-back steps carry no `if:` and no `continue-on-error`, so they gate the real publish |
+| Cross-refs | C-341, C-340, #340 |
+
+The workflow rehearses on TestPyPI before publishing for real, deliberately: the sibling repos
+(`views-baseline`, `views-datafactory`, `views-frames`, `views-postprocessing`, `views-reporting`)
+document TestPyPI as an *optional manual* step, and an optional rehearsal is one that gets skipped
+on the release that matters.
+
+The cost of making it mandatory is that **`test.pypi.org` — a service explicitly provided for
+experimentation, with no availability commitment — is now on the critical path of every tagged
+release.** If it is down, a real release fails after the tag is public, and recovering means
+re-running or editing the workflow under time pressure.
+
+**Tier 3, not 2:** the failure is loud and nothing wrong is published — the run stops before real
+PyPI, which is the safe direction. The cost is a blocked release and an awkward recovery, not a bad
+artifact.
+
+**Deliberately not fixed.** The obvious mitigations each give back the property the design exists
+for: `continue-on-error` makes the rehearsal skippable exactly when it is inconvenient, and a
+release-only bypass reintroduces the skipped-rehearsal problem. The genuine fix is Hickey's —
+**two workflows**, one dispatch-only rehearsal and one release-only publish — which is deferred
+until the current one has succeeded at least once. Restructuring a workflow that has never run is
+how C-341's defects got there.
+
+---
+
+### C-343: `__all__` and the lazy `__getattr__` can drift, and the one public symbol is invisible to `dir()`
+
+| Field | Value |
+|-------|-------|
+| ID | C-343 |
+| Tier | 4 |
+| Source | expert-code-review of PR #351 (2026-09-10) — Gang of Four + Hickey seats |
+| Trigger | Adding a second name to `__all__` in `views_hydranet/__init__.py` without adding a matching branch to `__getattr__` |
+| Location | `views_hydranet/__init__.py` |
+| Cross-refs | #181 (the public-API declaration this implements), C-329 (nothing asserts the pair agree) |
+
+`views_hydranet/__init__.py` declares `__all__ = ["HydranetManager"]` and resolves it through a PEP
+562 module-level `__getattr__`, so that importing the package does not drag in `torch` (verified:
+after `import views_hydranet`, `torch` is not in `sys.modules`; the two tests that guard this caught
+an eager first version).
+
+Two small consequences:
+
+1. **`__all__` asserts a name exists; `__getattr__` decides separately whether it does.** Nothing
+   checks they agree, so a name added to `__all__` alone would make `from views_hydranet import *`
+   raise `AttributeError` — and the star-import is the only place it would surface.
+2. **PEP 562 specifies `__getattr__` *and* `__dir__`; only the first is implemented.** Measured:
+   `'HydranetManager' in dir(views_hydranet)` is **False**, so the package's single public symbol is
+   absent from tab-completion and IDE discovery.
+
+**Tier 4:** no correctness or reliability impact, single-file scope, and the failure mode requires
+someone to edit this file incorrectly. Recorded rather than fixed because the fix — a `__dir__` and
+a one-line test asserting every `__all__` entry resolves — is two minutes whenever the file is next
+touched, and this release is not the moment to touch it again.
 
 ## Disagreements
 

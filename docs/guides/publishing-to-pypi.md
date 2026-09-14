@@ -70,6 +70,7 @@ actually matters.
 | pyproject version > PyPI | re-releasing a version, or going backwards |
 | `uv build` + `twine check` | a malformed wheel or unrenderable README |
 | **publish to TestPyPI** | discovering an upload problem on the real index |
+| tag guard and real publish share one condition | a path that publishes while skipping the guard (**C-341**) |
 | **install back from TestPyPI** | a wheel that uploads but is not actually installable |
 | publish to PyPI | — |
 
@@ -85,12 +86,17 @@ Two details worth knowing:
 
 ## Rehearsing without publishing
 
-Actions → **Publish Package** → *Run workflow*, leaving **"Stop after TestPyPI"** ticked. It
-builds, runs both guards, uploads to TestPyPI and installs back — and stops. Nothing reaches real
-PyPI.
+Actions → **Publish Package** → *Run workflow*. It builds, runs the guards, uploads to TestPyPI
+and installs back — and stops. **Nothing reaches real PyPI, and there is no option to make it.**
 
-Useful before a real release, and the way to prove the Trusted Publishing setup works without
-spending a version number.
+That is deliberate. An earlier version had a "Stop after TestPyPI" checkbox, ticked by default;
+unticking it published whatever version sat in `pyproject.toml` on the default branch, with no tag,
+no Release, and skipping the tag guard — which only runs on a release event. A PyPI version cannot
+be deleted or reused, so a mis-click was permanent and public. The checkbox is gone (**C-341**):
+a manual run is always a rehearsal, and real publication happens only through a published Release.
+
+Run it before a real release, and to prove the Trusted Publishing setup works without spending a
+version number.
 
 ## §B — the full clean-room import check (manual)
 
