@@ -339,6 +339,12 @@ class HydraNetConfig(BaseModel):
     # every measurement used; 0.0 = no-op. A field rather than a constant because M41's saturation
     # at w~0.1 was measured on the 40-lesson vehicle and never re-tested at L=300 (C-85: a scale
     # is a config field from day one).
+    #
+    # The range stays [0, 1] INCLUSIVE on purpose. `gt=0.0` would match the `input_noise_dropout`
+    # and `ss_feedback_grad_clip` pattern, but ADR-027 §2.1's Beige Team contract specifies this
+    # field as "outside [0, 1] is rejected", and 0.0 is a legitimate DIAGNOSTIC value — it is M41's
+    # `w=0` control arm, and `HydraNetInference` accepts it as a constructor argument for exactly
+    # that. What is rejected is the COMBINATION that lies; see the validator below.
     freeze_recurrent_weight: float = Field(default=1.0, ge=0.0, le=1.0)
     diagnostic_visualizations: bool = Field(default=False)
 
@@ -399,6 +405,41 @@ class HydraNetConfig(BaseModel):
                 f"freeze_recurrent must be None or one of {allowed}; got "
                 f"{self.freeze_recurrent!r}. ADR-027 §2.1 permits 'cell' in production; "
                 f"'hidden' and 'all' are diagnostics."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def reject_inert_clamp(self) -> "HydraNetConfig":
+        """A config that claims the clamp and sets its weight to zero is claiming nothing.
+
+        `blend_recurrent_state` at `freeze_recurrent_weight=0.0` returns the freely-evolved state
+        unchanged — `torch.lerp(new, anchor, 0.0)` is `new`, and the function's own docstring says
+        "0.0 is a no-op". So `freeze_recurrent='cell'` with a zero weight validates, logs
+        `recurrent state CLAMPED`, and delivers the unclamped control. That is the **C-324**
+        inert-knob signature on the one setting ADR-027 §2.1 promoted to production precisely
+        because it changes a delivered forecast.
+
+        **C-331** already records this, but only for diagnostic arms — `freeze_anchor_roll`
+        guards against a missing clamp and not against a zero weight, so a rolled arm can be
+        byte-identical to free-running under the treatment's filename. ADR-027 §2.1 changed the
+        blast radius from a research arm to a production setting; this is that escalation.
+
+        Why a cross-field rule rather than `gt=0.0` on the field: ADR-027 §2.1's Beige Team
+        contract specifies the field as "outside [0, 1] is rejected", and 0.0 is a real diagnostic
+        (M41's `w=0` reference, which `HydraNetInference` still accepts as a constructor argument).
+        Narrowing the field would contradict an accepted ADR and delete a measurement point. The
+        defect is not the value; it is the pair.
+
+        The honest way to express the unclamped control is `freeze_recurrent=None` — which is the
+        ADR-027 §2 behaviour, and is what a config omitting the key already gets.
+        """
+        if self.freeze_recurrent is not None and self.freeze_recurrent_weight == 0.0:
+            raise ValueError(
+                f"freeze_recurrent={self.freeze_recurrent!r} with freeze_recurrent_weight=0.0 is "
+                "inert: a zero weight makes blend_recurrent_state return the freely-evolved state "
+                "unchanged, so the run would log 'CLAMPED' and deliver the unclamped control "
+                "(C-324/C-331). Use freeze_recurrent=None for the unclamped control, or a weight "
+                "> 0 to clamp."
             )
         return self
 
@@ -817,6 +858,37 @@ class HydraNetConfig(BaseModel):
                 "clip is never applied and fed_grad_max would log a constant 0.0. Set the flag, "
                 "or remove the clip."
             )
+        return self
+
+    @model_validator(mode="after")
+    def reject_bptt_sa_without_a_family(self) -> "HydraNetConfig":
+        """S2/#355: `_attach_feedback_grad_clip` is skipped on a legacy head, and
+        said a validator stopped that combination reaching it. No such validator existed.
+
+        The hook is attached only inside `if ss_backprop_through_feedback and family is not None`
+        (`training_engine.py`). Its comment justified the `family is not None` half with *"A config
+        validator rejects the combination outright, so this branch is defence in depth"* — the
+        C-303 shape, prose asserting a guard the code never implements.
+
+        On a legacy point head `fed = t1_pred` and `prev_pred = fed` is left un-detached, so the
+        BPTT-SA wire IS connected across the full ~383-step graph while the per-step clip silently
+        does nothing and `fed_grad_max` logs a constant 0.0 that reads as a healthy gradient. That
+        is the regime GRAD-TRAJ measured blowing to 9.4e9 and overflowing float32 at lesson 48.
+
+        Mirrors `reject_pushforward_without_a_family`, which
+        `reject_feedback_clip_without_the_wire`'s own docstring already names as the pattern.
+        """
+        if self.ss_backprop_through_feedback and resolve_family(self.output_distribution) is None:
+            err_msg = (
+                f"ss_backprop_through_feedback=True but output_distribution="
+                f"'{self.output_distribution}' does not resolve to a distribution family. On a "
+                "legacy head the fed tensor IS the regression loss's input, so the "
+                "straight-through estimator does not apply, ss_feedback_grad_clip is skipped, and "
+                "fed_grad_max logs a constant 0.0 that reads as a healthy gradient. Use a family "
+                "head (e.g. 'nb'), or set ss_backprop_through_feedback=False (#308)."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return self
 
     @model_validator(mode="after")
