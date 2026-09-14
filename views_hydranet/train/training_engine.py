@@ -22,6 +22,7 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 
+from views_hydranet.architectures.locked_dropout import LockedDropout
 from views_hydranet.distributions import resolve_family
 from views_hydranet.distributions.family_loss import FamilyLoss
 from views_hydranet.infrastructure.reproducibility_gate import ReproducibilityGate
@@ -324,9 +325,10 @@ def _family_composed_mean_log1p(reg, family, gate, composition, threshold):
 def _family_feedback_log1p(reg, family, mode, gate, composition, threshold, generator=None):
     """EXP-4 (GTF): the per-target log1p feedback for scheduled sampling with a family head.
 
-    'mean' => log1p(E[y]) (fixes the legacy ss path, which fed raw n_params channels — shape-
-    mismatched to the n_reg dynamic inputs). 'sample' => one composition-aware family DRAW per
-    target (mirrors inference `_sample_feedback`), so training exposure == deployment exposure.
+    'mean' => log1p(composed E[y]) (fixes the legacy ss path, which fed raw n_params
+    channels — shape-mismatched to the n_reg dynamic inputs; and S2/#355, which fed it UNGATED).
+    'sample' => one composition-aware family DRAW per target (mirrors inference
+    `_sample_feedback`), so training exposure == deployment exposure.
     Returns ``[B, n_reg, H, W]`` in log1p space, matching the dynamic input channels.
 
     ``generator`` (C-261): seeds the family draw + composition Bernoulli so a parity test can
@@ -335,7 +337,23 @@ def _family_feedback_log1p(reg, family, mode, gate, composition, threshold, gene
     byte-reproducible today — the seeded path is exercised only by the parity test (C-261).
     """
     if mode != "sample":
-        return _family_target_log1p_mean(reg, family)
+        # S2/#355: the COMPOSED mean, not `_family_target_log1p_mean`. That one ignores the gate,
+        # so this branch fed `log1p(E[Y|body])` while deployment emits `log1p(gate x body)` — at
+        # this model's gate range (~0.003-0.05) a field 36.1x too large, measured.
+        #
+        # Provably a no-op for scheduled sampling, which is what this helper was written for: the
+        # C-259 validator rejects `ss_feedback='mean'` with a gated composition whenever SS is
+        # active, so the only composition that reaches here from SS is `self_zeroed` — where
+        # `_family_composed_mean_log1p` returns the ungated mean byte-identically (verified
+        # `torch.equal`). The behaviour that changes is the #289 PUSHFORWARD's, which calls this
+        # helper with `ss_feedback` and is not covered by that validator because it never sets
+        # `ss_epsilon_max`.
+        #
+        # ⚠️ Out of scope and deliberately not decided here: whether the pushforward should feed a
+        # composed MEAN or a composed DRAW. Deployment feeds a draw (ADR-070). `fed` is
+        # detached, so this is an exposure question, not a gradient one. Unreachable today —
+        # `pushforward_weight` defaults to 0.0 and no roster config sets it.
+        return _family_composed_mean_log1p(reg, family, gate, composition, threshold)
     npar = family.n_params
     n_reg = reg.shape[1] // npar
     draws = torch.stack(
@@ -583,8 +601,14 @@ def _process_sequence(
                 # rescale the primary supervised gradient and `fed_grad_max` would report
                 # reg + gate + qs99 + feedback rather than the handoff it is named for. The helper
                 # promises `fed` is "the sole tensor through which credit crosses"; that is true
-                # for a family head, where `fed` is derived, and false here. A config validator
-                # rejects the combination outright, so this branch is defence in depth.
+                # for a family head, where `fed` is derived, and false here.
+                #
+                # S2/#355: this used to end "A config validator rejects the combination outright,
+                # so this branch is defence in depth." No such validator existed — the C-303 shape.
+                # It does now: `reject_bptt_sa_without_a_family` in `config_initializer.py`,
+                # mirroring `reject_pushforward_without_a_family`. The claim survives only because
+                # it is now true, and it names the validator so the next reader can check it
+                # rather than trust it.
                 _attach_feedback_grad_clip(fed, ss_feedback_grad_clip, ss_feedback_grad_sink)
             prev_pred = fed if ss_backprop_through_feedback else fed.detach()
 
@@ -915,6 +939,28 @@ def train(
     ctx.model.train()
     ctx.multitaskloss_instance.train()
 
+    # C-328 instance 5 (S3/#356): dropout is a training-only augmentation, so it belongs to the
+    # same gate as the flips and the input noise. `model.train()` above turns it on
+    # unconditionally,
+    # which meant both C-184 recalibration paths recomputed BN statistics — with `momentum=None`,
+    # equal weight, no EMA discount — on activations inflated by dropout's `1/(1-p)` scaling, while
+    # inference runs with dropout off. 14 of the 15 BatchNorms sit downstream of a dropout site.
+    #
+    # Gated here rather than at the two call sites deliberately: a per-call-site fix is what
+    # invited
+    # the previous instance, where the first C-328 fix named `apply_input_noise` and left the flip.
+    # `model.eval()` is NOT the alternative — it would freeze the BN statistics the pass exists to
+    # recompute, which is the whole point of the pass.
+    #
+    # No restore is needed and none is written: `ctx.model.train()` immediately above re-enables
+    # every dropout module on entry to the NEXT call, so the flip cannot leak into a later training
+    # lesson. `_recalibrate_bn` additionally calls `model.eval()` when it returns. The `.training`
+    # flag is not part of `state_dict`, so a model saved from a recal pass is unaffected.
+    if not training_augmentation:
+        for _m in ctx.model.modules():
+            if isinstance(_m, (nn.Dropout, nn.Dropout2d, nn.Dropout3d, LockedDropout)):
+                _m.eval()
+
     config = ctx.config
     model = ctx.model
     device = ctx.device
@@ -1140,10 +1186,17 @@ def _recalibrate_bn(ctx: "TrainingContext", sampler, planner, config: dict) -> N
         for w in range(n_windows):
             target, threshold = planner.get_lesson(w)
             batch, _ = sampler.get_batch(target, threshold, batch_size=1)
-            # training_augmentation=False: this pass recomputes BN statistics on CLEAN data.
-            # Every training-only augmentation is suppressed — the input noise (#311) AND the
+            # training_augmentation=False: this pass recomputes BN statistics on CLEAN data —
+            # which as of S3/#356 means dropout off as well as no flips and no input noise. Before
+            # that, `model.train()` left all 15 LockedDropout sites masking, and 14 of the 15
+            # BatchNorms sit downstream of one (C-328 instance 5).
+            # Every training-only augmentation is suppressed — the input noise (#311), the
             # random H/W flips, which are older and were polluting these buffers for as long as
-            # `random_flips` and BN recalibration have coexisted (C-328 instance 4).
+            # `random_flips` and BN recalibration have coexisted (C-328 instance 4), AND dropout,
+            # which this comment claimed was covered while `model.train()` left all 15
+            # LockedDropout sites masking (C-328 instance 5, S3/#356). 14 of the 15 BatchNorms sit
+            # downstream of a dropout site, so the statistics this pass exists to correct were
+            # being computed on activations inflated by dropout's 1/(1-p) scaling.
             train(ctx, batch[0], None, stage_label="", training_augmentation=False)
             del batch
     model.eval()
@@ -1328,7 +1381,14 @@ def training_loop(
                     sample_handler,
                     pbar,
                     stage_label=slbl,
-                    ss_epsilon=ss_epsilon,
+                    # C-328 instance 5 (S3/#356): scheduled sampling is a training-only
+                    # perturbation too, and it was passed here unconditionally while
+                    # `training_augmentation` was False — the two augmentation families gated
+                    # inconsistently in the same call. On any SS or ITF arm the pass accumulated BN
+                    # statistics while the model's own predictions were substituted for ground
+                    # truth at rate eps, and under `ss_reverse=True` (#287) eps is at
+                    # `ss_epsilon_max` from lesson 0.
+                    ss_epsilon=0.0 if _bn_recal else ss_epsilon,
                     fed_grad_sink=_fed_sink,
                     # C-328: a `bn_recal_from` run drives THIS loop forward-only to re-accumulate
                     # BatchNorm statistics, so it is a recalibration pass even though it is not
@@ -1402,10 +1462,25 @@ def training_loop(
             # accumulated loss. `or _bn_recal` preserves the pre-fix behaviour of the recal pass,
             # which enters this block for its diagnostics but is separately barred from stepping.
             if windows_trained > 0 or _bn_recal:
-                # NUMERICAL AUDIT: Hard stop on explosion
-                IntegrityGuardian.monitor(
-                    model, torch.tensor([0.0]), lesson_loss, context=f"Lesson {lesson_idx}"
-                )
+                # NUMERICAL AUDIT: Hard stop on explosion.
+                #
+                # S4/#357: skipped on a recalibration pass, for the same reason the forward-only
+                # branch above skips the per-window finiteness check — `lesson_loss` accumulates
+                # unconditionally, so one non-finite window makes it NaN, and a recal pass consumes
+                # no loss and computes no gradient. Aborting here would throw away the corrected
+                # BatchNorm buffers the pass exists to produce, which is exactly what that branch
+                # promises does not happen ("behaves exactly as it did before this fix").
+                #
+                # ⚠️ The gate itself is NOT the defect and must stay: `windows_trained` can
+                # never increment on a recal pass (it is only bumped in the
+                # `else: w_loss.backward()` arm the branch above short-circuits), so dropping
+                # `or _bn_recal` would skip the whole tail — including the trajectory row and
+                # `forensics.finalize_lesson()` a recal run legitimately produces. The narrow
+                # exclusion is the fix.
+                if not _bn_recal:
+                    IntegrityGuardian.monitor(
+                        model, torch.tensor([0.0]), lesson_loss, context=f"Lesson {lesson_idx}"
+                    )
 
                 loss_history.append(lesson_loss.item())
                 loss_history_reg.append(lesson_reg / config["windows_per_lesson"])
@@ -1460,6 +1535,12 @@ def training_loop(
                 # all. `clip_grad_max_norm` defaults to 1.0, so every existing config is unchanged.
                 # NOTE (still open, C-314): this covers `model.parameters()` only — the balancer's
                 # `log_vars` are a separate optimizer param group and are clipped by nothing.
+                #
+                # S4/#357: this also runs on a recalibration pass, which the pre-C-312 gate
+                # (`if lesson_loss > 0`) could skip. Verified harmless: a recal pass runs no
+                # backward, so every `.grad` is None, `clip_grad_norm_` returns total_norm 0.0 and
+                # changes no weight. Left in the gate rather than excluded, because an exclusion
+                # would be a second special case earning nothing.
                 if config.get("clip_grad_norm"):
                     torch.nn.utils.clip_grad_norm_(
                         model.parameters(), max_norm=config.get("clip_grad_max_norm", 1.0)
