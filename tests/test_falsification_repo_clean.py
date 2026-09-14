@@ -217,7 +217,16 @@ class TestF4_07_UntrackedDependencies:
             for rel in sorted(tracked)
             if rel.endswith(".py") and (rel.startswith(("tests/", "scripts/")) or "/tools/" in rel)
         ]
+        absent = []
         for rel in depends_on_reports:
+            # `git ls-files` lists what is TRACKED, which is not the same as what is on disk: a
+            # staged deletion, or a partial checkout, leaves a tracked path with no file. A bare
+            # read_text() there raises FileNotFoundError, and this test then ERRORS with a
+            # traceback indistinguishable from an infrastructure fault — while the scan it was
+            # supposed to perform silently stops at that file (S9/#362).
+            if not (root / rel).exists():
+                absent.append(rel)
+                continue
             src = (root / rel).read_text()
 
             # A dossier tool named by path — how tests and drivers reach one.
@@ -233,6 +242,12 @@ class TestF4_07_UntrackedDependencies:
                     if (root / sibling).exists() and sibling not in tracked:
                         missing.append(f"{rel} -> {sibling} (sibling import)")
 
+        assert not absent, (
+            "F4-07 could not scan every tracked file: the following are tracked by git but absent "
+            "from the working tree, so this test's coverage is incomplete and its PASS would not "
+            "mean what it says. Restore them, or commit the deletion.\n  "
+            + "\n  ".join(sorted(absent))
+        )
         assert not missing, (
             "HARD FALSIFICATION F4-07: tracked code depends on untracked `reports/` file(s). "
             "Their guard tests will skip in CI and report success while measuring nothing. "

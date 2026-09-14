@@ -19,8 +19,14 @@ _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "scripts"))
 sys.path.insert(0, str(_ROOT / "reports" / "2026-09-04_input_noise_dossier" / "tools"))
 
-import error_profile as ep  # noqa: E402
+# `input_noise_gate` lives in tracked `scripts/`, so a bare import is right: if it is missing, that
+# is a failure, not a reason to skip. `error_profile` lives under gitignored `reports/` and is only
+# force-tracked, so it is guarded with the repo's `importorskip` idiom (C-10, and the sibling files
+# test_roll_diagnosis / test_st_bias / test_escalation) — a bare import there makes the whole
+# module's collectability depend on dossier state (S9/#362).
 from input_noise_gate import DOMINANCE_FACTOR, MAX_CV, cv, rule_md5, select_design  # noqa: E402
+
+ep = pytest.importorskip("error_profile")
 
 # ---------------------------------------------------------------------------
 # The rule — every branch reachable and demonstrated
