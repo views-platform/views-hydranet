@@ -26,13 +26,8 @@ name: Publish Package
 on:
   release:
     types: [published]
-  # A manual run is ALWAYS a rehearsal: it stops after TestPyPI and can never publish for real.
-  # There is deliberately no input to change that. An earlier version had a `testpypi_only`
-  # checkbox defaulting to true, which meant unticking one box published whatever version sat in
-  # pyproject on the default branch — with no tag, no Release, and skipping the tag guard below,
-  # which only runs on a release event. A PyPI version cannot be deleted or reused, so that made a
-  # mis-click permanent and public. Real publication is reachable only through a published Release
-  # (C-341).
+  # A manual run is ALWAYS a rehearsal — it stops after TestPyPI. There is deliberately no input to
+  # change that; do not add one back without reading C-341 first.
   workflow_dispatch:
 
 permissions:

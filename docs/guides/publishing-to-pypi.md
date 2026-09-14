@@ -70,9 +70,12 @@ actually matters.
 | pyproject version > PyPI | re-releasing a version, or going backwards |
 | `uv build` + `twine check` | a malformed wheel or unrenderable README |
 | **publish to TestPyPI** | discovering an upload problem on the real index |
-| tag guard and real publish share one condition | a path that publishes while skipping the guard (**C-341**) |
 | **install back from TestPyPI** | a wheel that uploads but is not actually installable |
 | publish to PyPI | — |
+
+Not a step, but the invariant that holds the table together: **the tag guard and the real publish
+carry the identical condition** (`github.event_name == 'release'`), so there is no path that
+publishes while skipping the guard. That was not true before **C-341**.
 
 Two details worth knowing:
 
@@ -86,8 +89,14 @@ Two details worth knowing:
 
 ## Rehearsing without publishing
 
-Actions → **Publish Package** → *Run workflow*. It builds, runs the guards, uploads to TestPyPI
-and installs back — and stops. **Nothing reaches real PyPI, and there is no option to make it.**
+Actions → **Publish Package** → *Run workflow*. It builds, runs the version guard, uploads to
+TestPyPI and installs back — and stops. **Nothing reaches real PyPI, and there is no option to make
+it.**
+
+⚠️ **A rehearsal exercises one of the two guards, not both.** The tag-versus-`pyproject` check is
+`if: github.event_name == 'release'`, so it never runs on a manual dispatch. A green rehearsal is
+evidence that the build, the upload and the install-back work; it is **not** evidence that the tag
+guard works, because that guard is not on the path a rehearsal takes.
 
 That is deliberate. An earlier version had a "Stop after TestPyPI" checkbox, ticked by default;
 unticking it published whatever version sat in `pyproject.toml` on the default branch, with no tag,
