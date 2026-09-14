@@ -28,6 +28,10 @@ on:
     types: [published]
   # A manual run is ALWAYS a rehearsal — it stops after TestPyPI. There is deliberately no input to
   # change that; do not add one back without reading C-341 first.
+  #
+  # GitHub offers no branch restriction on this trigger: whoever dispatches chooses the ref, and
+  # the job builds that ref's tree. A rehearsal therefore stamps a throwaway `.devN` version before
+  # it builds (see "Rehearsal — stamp"), so it can never occupy the version a Release will use.
   workflow_dispatch:
 
 permissions:
@@ -53,7 +57,16 @@ jobs:
           # raises ModuleNotFoundError. The step below already uses uv; these now agree (C-341).
           v=$(uv run --no-project --python 3.11 python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
           echo "version=$v" >> "$GITHUB_OUTPUT"
-          echo "publishing views-hydranet $v"
+          # What actually gets uploaded. On a Release it is the pyproject version; on a rehearsal it
+          # is a throwaway `.devN` (stamped two steps below, after the guards have read the real
+          # one). The two guards must compare the REAL version, so they run before the stamp.
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "publish_version=$v" >> "$GITHUB_OUTPUT"
+            echo "publishing views-hydranet $v"
+          else
+            echo "publish_version=$v.dev${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+            echo "rehearsing views-hydranet $v as $v.dev${{ github.run_number }}"
+          fi
 
       # Only meaningful on a Release. A manual dispatch has no tag to compare against.
       - name: Guard — pyproject version must equal the tag being released
@@ -88,6 +101,33 @@ jobs:
           print(f"version guard OK: {new} > {cur}")
           PY
 
+      # THE COLLISION FIX (S6/#359). Without this, a dispatch from any branch uploads that branch's
+      # tree at the release version; `--check-url` then SKIPS the upload when the real Release is
+      # published, the install-back validates the stale branch wheel, and `uv publish` pushes an
+      # unverified artifact to real PyPI. TestPyPI refuses overwrites, so the version is burned
+      # permanently and the tag guard, being release-only, never sees it.
+      #
+      # A `.devN` suffix makes the collision IMPOSSIBLE rather than detected: PEP 440 orders
+      # `0.2.0.devN` strictly BEFORE `0.2.0`, so a rehearsal can never occupy a release version and
+      # `--check-url` can never mistake one for the other. `run_number` is unique per run and stable
+      # across re-run attempts, which keeps a re-run idempotent.
+      - name: Rehearsal — stamp a throwaway .devN version
+        if: github.event_name != 'release'
+        run: |
+          uv run --no-project --python 3.11 python - <<'PY'
+          import re, pathlib
+          p = pathlib.Path("pyproject.toml")
+          src = p.read_text()
+          new, n = re.subn(
+              r'^version = "([^"]+)"$',
+              'version = "\\1.dev${{ github.run_number }}"',
+              src, count=1, flags=re.M,
+          )
+          assert n == 1, "no [project] version line to stamp — the rehearsal would upload a release version"
+          p.write_text(new)
+          PY
+          grep -m1 '^version = ' pyproject.toml
+
       - name: Build (poetry-core backend, via uv)
         run: uv build
 
@@ -96,9 +136,13 @@ jobs:
           ls -l dist/
           uv run --no-project --python 3.11 --with twine twine check dist/*
 
-      # --check-url makes a re-run idempotent: a file already on TestPyPI is skipped
-      # rather than failing the job. TestPyPI refuses to overwrite a version, so without
-      # this, any second run of the same version would fail here.
+      # --check-url makes a re-run idempotent: a file already on TestPyPI is skipped rather than
+      # failing the job. TestPyPI refuses to overwrite a version, so without this, any second run
+      # of the same version would fail here.
+      #
+      # Skipping is only safe because a rehearsal can no longer occupy a release version — see the
+      # `.devN` stamp above. Do not remove that stamp and keep this flag: together they were the
+      # path by which an unverified wheel reached real PyPI (S6/#359).
       - name: Publish to TestPyPI (Trusted Publishing — no token)
         run: |
           uv publish \
@@ -106,29 +150,20 @@ jobs:
             --check-url https://test.pypi.org/simple/ \
             --trusted-publishing always
 
-      # Deliberately --no-deps. This proves the artifact is really on the index and is
-      # downloadable and installable; it does NOT import the package, because importing
-      # needs torch and the default CUDA wheel is multiple GB, which would dominate every
-      # release. The full clean-room import check is a manual step, documented in
-      # docs/guides/publishing-to-pypi.md §B.
-      - name: Install it back from TestPyPI (artifact reachability, no deps)
+      # Deliberately --no-deps, and it DOES import the package: `views_hydranet/__init__.py` is a
+      # lazy PEP-562 `__getattr__`, so the top-level import pulls in no torch. That import is the
+      # only assertion here that reads the code rather than the `.dist-info`, and without it a wheel
+      # containing zero Python modules passes `twine check`, installs, satisfies every metadata
+      # assertion, and ships empty — demonstrated on a forged wheel in S6/#359.
+      #
+      # Same file as ci.yml's build job, on purpose: the two copies had already drifted.
+      - name: Install it back from TestPyPI and check its contract
         run: |
           uv venv /tmp/verify --python 3.11
           uv pip install --python /tmp/verify/bin/python --no-deps \
             --index-url https://test.pypi.org/simple/ \
-            "views-hydranet==${{ steps.ver.outputs.version }}"
-          /tmp/verify/bin/python - <<'PY'
-          from importlib.metadata import metadata, version
-          m = metadata("views-hydranet")
-          print("installed version:", version("views-hydranet"))
-          reqs = m.get_all("Requires-Dist") or []
-          print("Requires-Dist:")
-          for r in reqs:
-              print("   ", r)
-          assert any("views-pipeline-core" in r for r in reqs), "pipeline-core missing from metadata"
-          assert any("views-frames" in r for r in reqs), "views-frames missing from metadata"
-          assert any("torch" in r for r in reqs), "torch missing from metadata"
-          PY
+            "views-hydranet==${{ steps.ver.outputs.publish_version }}"
+          /tmp/verify/bin/python .github/scripts/wheel_contract.py
 
       - name: Publish to PyPI (Trusted Publishing — no token)
         if: github.event_name == 'release'
