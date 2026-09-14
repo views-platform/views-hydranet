@@ -73,6 +73,10 @@ actually matters.
 | **install back from TestPyPI** | a wheel that uploads but is not actually installable |
 | publish to PyPI | — |
 
+Not a step, but the invariant that holds the table together: **the tag guard and the real publish
+carry the identical condition** (`github.event_name == 'release'`), so there is no path that
+publishes while skipping the guard. That was not true before **C-341**.
+
 Two details worth knowing:
 
 - The version guard falls back to `0.0.0` when the package 404s, **not** to the version being
@@ -85,12 +89,23 @@ Two details worth knowing:
 
 ## Rehearsing without publishing
 
-Actions → **Publish Package** → *Run workflow*, leaving **"Stop after TestPyPI"** ticked. It
-builds, runs both guards, uploads to TestPyPI and installs back — and stops. Nothing reaches real
-PyPI.
+Actions → **Publish Package** → *Run workflow*. It builds, runs the version guard, uploads to
+TestPyPI and installs back — and stops. **Nothing reaches real PyPI, and there is no option to make
+it.**
 
-Useful before a real release, and the way to prove the Trusted Publishing setup works without
-spending a version number.
+⚠️ **A rehearsal exercises one of the two guards, not both.** The tag-versus-`pyproject` check is
+`if: github.event_name == 'release'`, so it never runs on a manual dispatch. A green rehearsal is
+evidence that the build, the upload and the install-back work; it is **not** evidence that the tag
+guard works, because that guard is not on the path a rehearsal takes.
+
+That is deliberate. An earlier version had a "Stop after TestPyPI" checkbox, ticked by default;
+unticking it published whatever version sat in `pyproject.toml` on the default branch, with no tag,
+no Release, and skipping the tag guard — which only runs on a release event. A PyPI version cannot
+be deleted or reused, so a mis-click was permanent and public. The checkbox is gone (**C-341**):
+a manual run is always a rehearsal, and real publication happens only through a published Release.
+
+Run it before a real release, and to prove the Trusted Publishing setup works without spending a
+version number.
 
 ## §B — the full clean-room import check (manual)
 
