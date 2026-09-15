@@ -347,6 +347,54 @@ Placement verified per target against each model's own gate: `corr = +1.0000`, w
 
 ---
 
+## M75 — Where the hard-gate threshold would have to sit: τ ≈ 0.2 by cell count; by fatalities, nowhere
+
+**Question (chair, 2026-09-15):** the three hard-gate configs in views-models still carry
+`gate_threshold = 0.5`. M68 showed what that costs in AP; it did not say where τ *should* be. The
+chair's rule: a threshold that fires on approximately the number of conflict cells — or the number of
+fatalities — observed over the last 36 months. An empirically derived τ, not a default.
+
+**Method** (`tools/hard_gate_threshold.py`, zero GPU): each model's own gate and body-mean dump at
+the last origin → the 36 forecast months (517–552), `sb`, against the validation truth for those
+months, over the 13,110 study cells (471,960 cell-months). For a grid of τ, count the cell-months
+with `gate ≥ τ` and sum `E[Y|body]` over them; find where each curve crosses the observed value.
+
+**Observed, 36 months:** **5,300** active cell-months (1.12%) and **131,614** fatalities.
+
+| model | τ matching cell count | cell-months firing at τ=0.5 | Σ gate (soft) |
+|---|---|---|---|
+| purple_alien | 0.175 | 969 | 3,977 |
+| pink_pirate | 0.199 | 1,117 | 4,462 |
+| blue_stranger | 0.228 | 1,499 | 5,008 |
+| **bold_comet** | **0.179** | 920 | 4,396 |
+| **blazing_meteor** | **0.187** | 969 | 4,107 |
+| heavy_freighter | 0.290 | 1,794 | 7,458 |
+| bright_starship | 0.193 | 1,355 | 4,647 |
+| **violet_visitor** | **0.257** | 1,736 | 5,757 |
+
+**Criterion 1 — cell count: τ ≈ 0.18–0.29, roughly 0.2.** At 0.5 the three hard-gate models fire on
+3–6× too few cell-months. The soft gate's expected count Σ gate (4.0k–7.5k) already brackets the
+observed 5,300, i.e. the gate head is approximately count-calibrated and the hard cut at 0.5 is what
+throws that away.
+
+**Criterion 2 — fatalities: unreachable by any threshold.** With no threshold at all (τ=0, every
+study cell counted with its full body mean) the eight models sum to 34k–122k against 131,614. Only
+heavy_freighter approaches it (121,641, 92%); the other seven sit at 26–49%. The threshold is not the
+limiting factor: the body under-predicts in total. This is the amount ceiling (M44, #241) read as a
+totals problem, and it is not a delivery-shape choice — no τ fixes it.
+
+**Reading.** If the roster keeps a hard gate, the number is about 0.2, and it should be
+**derived from the trailing 36 months at forecast time**, per model, not hard-coded: this measurement
+matched against the forecast window's *own* truth, which an operational forecast does not have. The
+base rate is what sets τ, so the trailing window should give a similar number, but that is the rule
+to write into the config, and it is a claim to be checked, not assumed. Whether to keep a hard gate
+at all is M68/M72's question (delivery shape), not this one's.
+
+⚠️ One origin, `sb` only, posterior-mean gate and body (no draw noise). Approximate, as asked.
+→ views-models issue filed for the three configs.
+
+---
+
 ## Open
 
 - **K3** (worse than climatology) remains **VOID** pending views-models#445.
