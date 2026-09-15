@@ -71,22 +71,22 @@ class InferenceOrchestrator:
                 "this layer happens to guess."
             )
         self.freeze_recurrent_weight: float = 1.0 if _weight is None else _weight
-        # Say so in the log. ADR-027 §2.1 admitted this to production, the artifact sidecar does
-        # NOT record it, and nothing else prints it — so a delivered forecast carried no evidence
-        # of whether the clamp was on. That is the C-324 inert-knob signature on the one setting
-        # whose entire purpose is to change the forecast: a run with a mistyped or unread key would
-        # look identical in every log to a run with the clamp live.
-        if self.freeze_recurrent is not None:
-            logger.info(
-                f"🧊 InferenceOrchestrator: recurrent state CLAMPED — "
-                f"freeze_recurrent={self.freeze_recurrent!r}, "
-                f"weight={self.freeze_recurrent_weight} (ADR-027 §2.1)."
-            )
-        else:
-            logger.info(
-                "InferenceOrchestrator: recurrent state evolves freely "
-                "(freeze_recurrent unset — ADR-027 §2 behaviour)."
-            )
+        # Say what CONFIG asked for — not what will be in effect. S5/#358: this block used to
+        # announce the verdict ("CLAMPED" / "evolves freely") from `__init__`, before the attribute
+        # override the comment above sanctions. A driver that sets `orchestrator.freeze_recurrent`
+        # after construction — `roster_arm_entry.py` is the one in-repo case — therefore produced a
+        # run that logged "evolves freely" and then rolled out clamped. The provenance mechanism
+        # written to close the C-324 gap was defeated by the only supported way to set the clamp.
+        #
+        # The effective verdict is emitted by `HydraNetInference.__init__`, which runs after every
+        # override has landed and is where the value is actually consumed.
+        logger.info(
+            "InferenceOrchestrator: freeze_recurrent=%r from config (weight=%s). A driver may "
+            "override this before inference is built; the effective value is logged by "
+            "HydraNetInference (ADR-027 §2.1).",
+            self.freeze_recurrent,
+            self.freeze_recurrent_weight,
+        )
         # Diagnostic feedback-field transform spec (#258/#262); see HydraNetInference.
         self.feedback_transform: Optional[str] = None
         # DIAGNOSTIC: correlated feedback sampler; None = independent Bernoulli.

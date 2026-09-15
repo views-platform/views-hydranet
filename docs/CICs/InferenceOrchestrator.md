@@ -32,14 +32,19 @@ The `InferenceOrchestrator` is the **Unified Symmetry Engine** of the HydraNet p
   diagnostics** that are forwarded to every `HydraNetInference` it builds — `freeze_recurrent` (hold a
   ConvLSTM memory half during free-running, #258/C-222), `freeze_recurrent_weight` (how far to pull that
   half back toward the anchor each step; **1.0 = the hard hold**, #280), `feedback_transform` and
-  `feedback_length_scale` (#258/#262), `record_gate_probe`, `freeze_anchor_roll` and `per_step_roll` (the only entry in this list that **mutates** the forward pass rather than observing it), and `body_mean_dump_dir` (write the
+  `feedback_length_scale` (#258/#262), `record_gate_probe`, `freeze_anchor_roll` and `per_step_roll` (the only entry in this list that **mutates** the forward pass rather than observing it — true only since **S7/#360**, which gave `record_gate_probe` its own RNG stream; until then it drew from the generator the feedback transforms consume, so switching the observer on changed the arm it observed). **Both diagnostic buffers the constructed `HydraNetInference` accumulates — `feedback_field_stats` and `gate_structure_stats` — are capped at `DIAGNOSTIC_STATS_MAX_RECORDS` (100,000 records each; S8/#361, the `rc=137` OOM). A refused record is counted in `inference.diagnostic_stats_dropped`, warned once, and the gate probe is refused *before* it spends its draws. A driver that reads these buffers after the run MUST check `diagnostic_stats_dropped` and refuse a non-empty count (`realism_arm_entry.refuse_a_truncated_record`): a truncated buffer is a prefix of the run — early origins only — and a column mean over it is a biased readout indistinguishable from a complete one.**, and `body_mean_dump_dir` (write the
   un-composed body mean and the gate as separate fields, so occurrence and magnitude can be read apart —
   the cube cannot do this, because its `soft_gate` composition is a per-draw Bernoulli mask on family
   draws). **Each defaults to the value that reproduces the pre-seam path**
   — `None` for every switch, and `1.0` for `freeze_recurrent_weight`, which is read only when
   `freeze_recurrent` is set and whose `1.0` branch is the original code verbatim. The production path is
-  therefore **byte-identical** to before the seam existed. None is a config key, so no model config can enable one and
-  ADR-027's retirement of `freeze_h` is untouched. The **Unification Guarantee** is preserved because the
+  therefore **byte-identical** to before the seam existed. Since **ADR-027 §2.1** (2026-09-05) `freeze_recurrent` and
+  `freeze_recurrent_weight` ARE config keys — every roster config sets `freeze_recurrent: 'cell'` — and the orchestrator
+  reads them from the validated config (the `None is a config key` sentence that stood here until 2026-09-14 was stale by
+  nine days). The other switches remain constructor-only. `HydraNetConfig.reject_inert_clamp` refuses a mode with
+  `freeze_recurrent_weight=0.0` — the control wearing the treatment's name — and, because research drivers set these two
+  attributes on the orchestrator after construction and never pass through pydantic, `HydraNetInference.__init__` refuses
+  the same pair (Epic #353 / S1 #354, #372 review). ADR-027's retirement of `freeze_h` is untouched. The **Unification Guarantee** is preserved because the
   value is set once on the orchestrator and consumed identically by both construction sites. The constructed
   inference object is retained as `.inference` so a diagnostic driver can read its per-run records;
   production ignores it.

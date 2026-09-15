@@ -29,6 +29,26 @@ stopping there leaves a tag in git that looks authoritative while `pip install` 
 hypothetical: a sibling package tagged `0.1.0`, never cut the Release, and twelve `views-models`
 models ended up pinned to a version that does not exist.
 
+## ⛔ Before the FIRST release: this workflow has never executed
+
+Everything below is reasoned from the file and verified statically. **No run of `publish_package.yml`
+has ever happened**, in any form. `workflow_dispatch` only offers workflows that are present on the
+**default branch**, so until `main` carries this file the rehearsal cannot even be triggered —
+verified: `HTTP 404: workflow publish_package.yml not found on the default branch`.
+
+The order is therefore fixed, and step 3 is not optional:
+
+1. the release PR merges to `main`
+2. Actions → **Publish Package** → *Run workflow* — a manual run is always a rehearsal
+3. **it goes green**
+4. **only then** cut a GitHub Release
+
+**Do not cut a Release before step 3.** The whole argument for putting the rehearsal *inside* the
+workflow is that a rehearsal you have to remember is one you skip on the release that matters. A
+first Release that fails does so publicly, and a PyPI version can never be deleted or reused.
+
+Delete this section once the first rehearsal has run green. (Epic #353 / S6 #359, S10 #363.)
+
 ## One-time setup — Trusted Publishing, and it is TWO publishers
 
 This repository holds **no API token**. Authentication is PyPI Trusted Publishing: PyPI mints a
@@ -71,6 +91,7 @@ actually matters.
 | `uv build` + `twine check` | a malformed wheel or unrenderable README |
 | **publish to TestPyPI** | discovering an upload problem on the real index |
 | **install back from TestPyPI** | a wheel that uploads but is not actually installable |
+| **`.github/scripts/wheel_contract.py`** | a wheel with correct metadata and **no Python modules** |
 | publish to PyPI | — |
 
 Not a step, but the invariant that holds the table together: **the tag guard and the real publish
@@ -85,18 +106,39 @@ Two details worth knowing:
   `views-r2darts2` copy of this guard — do not copy that file.)
 - The TestPyPI publish passes `--check-url`, so a file already uploaded is skipped rather than
   failing. TestPyPI refuses to overwrite a version, so without it any re-run of the same version
-  would fail.
+  would fail. The skip is **hash-checked**: uv skips only a byte-identical file and hard-fails on a
+  same-name file with different bytes (verified on uv 0.8.13; the action pins that version). So the
+  skip can never validate the wrong file — what it cannot do is un-burn a version.
+- **A manual run never uploads at the release version.** Before it builds, a dispatch rewrites the
+  `pyproject` version to `X.Y.Z.devN`, where `N` is the run number. PEP 440 orders `X.Y.Z.devN`
+  strictly *before* `X.Y.Z`, so a rehearsal can never occupy the version a Release will need on
+  TestPyPI (**S6/#359**).
+- **The contract check imports the package.** `views_hydranet/__init__.py` is a lazy PEP-562
+  `__getattr__`, so `import views_hydranet` is torch-free and runs inside the `--no-deps` venv at no
+  cost. Both CI and the release job run the same file, `.github/scripts/wheel_contract.py`; they
+  asserted the contract separately until 2026-09-14 and had already drifted.
 
 ## Rehearsing without publishing
 
-Actions → **Publish Package** → *Run workflow*. It builds, runs the version guard, uploads to
-TestPyPI and installs back — and stops. **Nothing reaches real PyPI, and there is no option to make
-it.**
+Actions → **Publish Package** → *Run workflow*. It reads the version, stamps a throwaway `.devN`
+onto it, builds, uploads to TestPyPI, installs back and runs the contract check — and stops.
+**Nothing reaches real PyPI, and there is no option to make it.**
 
-⚠️ **A rehearsal exercises one of the two guards, not both.** The tag-versus-`pyproject` check is
-`if: github.event_name == 'release'`, so it never runs on a manual dispatch. A green rehearsal is
-evidence that the build, the upload and the install-back work; it is **not** evidence that the tag
-guard works, because that guard is not on the path a rehearsal takes.
+GitHub offers no branch restriction on `workflow_dispatch`: whoever dispatches picks the ref, and
+the job builds that ref's tree. The `.devN` stamp is what makes that harmless. Without it, a
+rehearsal from a feature branch would upload that branch's tree at the release version and burn
+that version on TestPyPI permanently. The real Release at that version would then reach the
+TestPyPI step, find a file with the same name and different bytes, and **die there** — uv refuses a
+hash mismatch — with a version it can never reuse on TestPyPI (**S6/#359**). *(An earlier draft of
+this section said the mismatched file was silently skipped and an unverified wheel went on to real
+PyPI. That is not what uv does; the failure is a blocked release, not a wrong one.)*
+
+⚠️ **A rehearsal exercises neither guard.** Both the tag-versus-`pyproject` check and the
+newer-than-PyPI check are `if: github.event_name == 'release'`. The second is release-only because
+a rehearsal is usually dispatched from `main` at the version already on PyPI — to prove the Trusted
+Publishing setup without spending a version — and a strict `>` would fail every such run. A green
+rehearsal is evidence that the build, the upload, the install-back and the contract check work; it
+is **not** evidence that either guard works, because neither is on the path a rehearsal takes.
 
 That is deliberate. An earlier version had a "Stop after TestPyPI" checkbox, ticked by default;
 unticking it published whatever version sat in `pyproject.toml` on the default branch, with no tag,
@@ -109,9 +151,12 @@ version number.
 
 ## §B — the full clean-room import check (manual)
 
-The workflow's install-back deliberately uses `--no-deps`. It proves the artifact is on the index
-and installable; it does **not** import the package, because importing needs `torch` and the
-default CUDA wheel is several GB — that would dominate every release.
+The workflow's install-back uses `--no-deps`, and its contract check imports only the **top level**
+— which is free, because that import is lazy. What it cannot reach is anything that actually needs
+`torch`, whose default CUDA wheel is several GB and would dominate every release.
+
+So the automated check proves the package tree shipped and is importable; it does not prove the
+model code loads against real dependencies.
 
 Do the full check by hand once per meaningful release, using the CPU-only torch index so it takes
 minutes rather than an hour:

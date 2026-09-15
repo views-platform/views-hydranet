@@ -47,10 +47,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v4
+      # Pinned to SHAs, matching publish_package.yml. A floating tag on the job that proves the
+      # distributable is the one place a supply-chain swap would be invisible (S6/#359).
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86  # v5
         with:
           python-version: "3.11"
+          version: "0.8.13"  # keep in sync with publish_package.yml (same pin, same SHAs)
 
       - name: Build sdist + wheel
         run: uv build
@@ -60,23 +63,11 @@ jobs:
       - name: Validate the artifact metadata
         run: uv run --no-project --python 3.11 --with twine twine check dist/*
 
-      # --no-deps keeps this fast: importing needs torch, whose default CUDA wheel is several GB.
-      # This proves the wheel installs and carries the right metadata; the full import check is a
-      # manual step in docs/guides/publishing-to-pypi.md (§B).
+      # --no-deps, and the contract still imports the package: `views_hydranet/__init__.py` is a
+      # lazy PEP-562 `__getattr__`, so the top-level import needs no torch. publish_package.yml
+      # runs this SAME file against the wheel it downloads back from TestPyPI (S6/#359).
       - name: Install the wheel and check its contract
         run: |
           uv venv /tmp/v --python 3.11
           uv pip install --python /tmp/v/bin/python --no-deps dist/*.whl
-          /tmp/v/bin/python - <<'PY'
-          from importlib.metadata import metadata, version
-          m = metadata("views-hydranet")
-          print("version:", version("views-hydranet"))
-          reqs = m.get_all("Requires-Dist") or []
-          for r in reqs:
-              print("  requires:", r)
-          for expected in ("views-pipeline-core", "views-frames", "torch"):
-              assert any(expected in r for r in reqs), f"{expected} missing from wheel metadata"
-          urls = m.get_all("Project-URL") or []
-          assert any("Repository" in u for u in urls), "Project-URL Repository missing"
-          print("wheel metadata OK")
-          PY
+          /tmp/v/bin/python .github/scripts/wheel_contract.py

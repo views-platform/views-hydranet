@@ -288,6 +288,77 @@ def test_the_feedback_is_only_differentiable_under_mean(mode, expect_gradient):
         )
 
 
+def test_the_mean_feedback_is_composed_not_the_raw_body_mean():
+    """S2/#355: the `mean` branch fed the UNGATED body mean.
+
+    Deployment emits `log1p(gate x body)`; this branch returned `log1p(E[Y|body])`.
+
+    The #289 pushforward calls `_family_feedback_log1p` with `ss_feedback` (default `"mean"`), and
+    that branch returned `_family_target_log1p_mean`, which ignores the gate entirely. At this
+    model's gate range (~0.003-0.05) the fed field was **36.1x** larger than anything inference
+    produces, so the auxiliary unroll trained on inputs the forward pass never generates.
+
+    The C-259 validator that would have caught it is nested inside `if ss_epsilon_max > 0`, and a
+    pushforward arm never sets that.
+    """
+    from views_hydranet.distributions import resolve_family
+    from views_hydranet.train.training_engine import (
+        _family_feedback_log1p,
+        _family_target_log1p_mean,
+    )
+
+    fam = resolve_family("nb")
+    act = _activated(fam, seed=0)  # activated params, as the model emits them (C-323)
+    torch.manual_seed(1)
+    # a gate that differs per TARGET and per CELL, so a wrong axis or target order is visible
+    gate = torch.rand(1, 3, 8, 8) * 0.05 + 0.003  # the model's real gate range
+
+    fed = _family_feedback_log1p(act, fam, "mean", gate, "soft_gate", None)
+    ungated = _family_target_log1p_mean(act, fam)
+
+    # The exact field deployment composes: expm1(fed) == gate * E[Y|body], per target, per cell.
+    # "Not equal to the ungated mean" and "smaller than it" are both satisfied by ANY gate applied
+    # on ANY axis in ANY target order — a mutation that applied sb's gate to os on a transposed
+    # grid passed the first draft of this test (#372 review). This does not.
+    torch.testing.assert_close(
+        torch.expm1(fed),
+        gate[:, :3] * torch.expm1(ungated),
+        rtol=1e-5,
+        atol=1e-6,
+        msg="the fed field is not gate x E[Y|body] per target and per cell — the pushforward "
+        "would train on a field deployment never emits (S2/#355)",
+    )
+    assert not torch.equal(fed, ungated), "vacuity guard: the gate must actually have acted"
+
+
+def test_the_mean_feedback_is_unchanged_for_self_zeroed():
+    """Anti-vacuity, and the reason fixing the shared helper is safe.
+
+    `_family_feedback_log1p` is scheduled sampling's helper. C-259 rejects `ss_feedback='mean'`
+    with a gated composition whenever SS is active, so the only composition that reaches the mean
+    branch from SS is `self_zeroed` — where composing is the identity. If that stopped being true,
+    this change would have altered scheduled sampling, which it must not.
+    """
+    import torch.nn.functional as F
+
+    from views_hydranet.distributions import resolve_family
+    from views_hydranet.train.training_engine import (
+        _family_feedback_log1p,
+        _family_target_log1p_mean,
+    )
+
+    fam = resolve_family("nb")
+    torch.manual_seed(0)
+    raw = F.softplus(torch.randn(2, 3 * fam.n_params, 8, 8)) + 1e-3
+    gate = torch.rand(2, 3, 8, 8)
+
+    fed = _family_feedback_log1p(raw, fam, "mean", gate, "self_zeroed", None)
+    assert torch.equal(fed, _family_target_log1p_mean(raw, fam)), (
+        "self_zeroed composition is no longer the identity — scheduled sampling's mean feedback "
+        "has changed, which S2/#355 relied on it not doing"
+    )
+
+
 def test_a_grad_fn_is_not_evidence_the_wire_carries_anything():
     """The trap directly: the sampled feedback HAS a grad_fn and still delivers zero gradient.
 
@@ -624,7 +695,7 @@ def test_straight_through_is_NOT_applied_to_mean_feedback():
     )
 
 
-def test_C259_makes_the_mean_plus_sampling_configuration_unreachable():
+def test_C259_makes_the_mean_plus_sampling_configuration_unreachable(valid_config_dict):
     """Records why one mutation is left uncaught, rather than leaving it looking like an oversight.
 
     Mutation R4 — applying straight-through under 'mean' feedback too — SURVIVES this suite. It
@@ -635,21 +706,32 @@ def test_C259_makes_the_mean_plus_sampling_configuration_unreachable():
     config validation for a family head, so the mutated branch is unreachable in anything that can
     train. This test pins that reachability claim, so if C-259 is ever relaxed the justification
     fails here instead of the mutant quietly becoming live.
-    """
-    from pathlib import Path as _P
 
+    ⚠️ It is built from THIS repo's `valid_config_dict`. Until S9/#362 it instead read
+    `views-models/models/fullzero_fortytwo/configs/config_hyperparameters.py` from the sibling
+    checkout and skipped when that was missing — and **that model does not exist**, in CI or on the
+    developer machine, so the only pin for a knowingly-uncaught mutation had never executed
+    anywhere. A guard in name only: the C-303 shape wearing a C-329 hat.
+
+    The sibling-repo variant is not kept. A test whose subject is `HydraNetConfig` should not make
+    this suite's coverage depend on another repository being checked out beside it.
+    """
     from views_hydranet.utils.config_initializer import HydraNetConfig
 
-    p = (
-        _P(__file__).resolve().parents[2]
-        / "views-models/models/fullzero_fortytwo/configs/config_hyperparameters.py"
+    raw = dict(valid_config_dict)
+    raw.update(
+        run_type="calibration",
+        output_distribution="nb",
+        # `nb` has no zero mechanism, so ADR-069 requires it to declare a gate composition.
+        forecast_composition="soft_gate",
+        # BOTH are needed: scheduled sampling is ACTIVE only when a schedule is set AND
+        # epsilon_max > 0, and `validate_scheduled_sampling_params` returns early on a None
+        # schedule — so `ss_epsilon_max` alone never reaches the C-259 block.
+        ss_schedule="linear",
+        ss_warmup_lessons=10,
+        ss_epsilon_max=0.5,
+        ss_feedback="mean",
     )
-    if not p.exists():
-        pytest.skip("floor config not available in this checkout")
-    ns: dict = {}
-    exec(compile(p.read_text(), str(p), "exec"), ns)  # noqa: S102 - repo-local config
-    raw = dict(ns["get_hp_config"]())
-    raw.update(run_type="calibration", ss_epsilon_max=0.5, ss_feedback="mean")
     with pytest.raises(Exception, match="C-259"):
         HydraNetConfig(**raw)
 
