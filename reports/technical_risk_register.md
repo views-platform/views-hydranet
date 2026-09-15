@@ -3830,6 +3830,17 @@ does not come into being. The ledger and the CIC said this epic's *one behaviour
 that sentence is withdrawn there too. What generalises: the fix was reasoned from a comment about
 inference and never measured against inference. C-303's shape — in the register entry, this time.
 
+**What would have stopped it, now in place (2026-09-15):** the invariant was documented in three
+places — ADR-059, CIC `HydraBNUNet06LSTM4.md`, the `set_locked_dropout` docstring — all on the
+*consumer* side, and none was read by someone editing the training loop. (1) `TrainingEngine.md`
+now names ADR-059 at the recal invariant, on the side where the edit is made. (2) A forward-time
+hook test pins dropout ON during recal forwards. (3) The reviewer's measurement is a permanent test,
+`tests/train/test_bn_recal_matches_inference_regime.py`: real recalibration, then the model run as
+inference runs it, `running_var` required not to fall below what inference feeds BN — 1.12 in the
+correct regime, 0.85 with the mistake re-applied. Its first draft also passed on the mistake,
+because its inference leg routed through the same `train()` and inherited the flip; the regime is
+now re-imposed by hook before every forward, independent of `train()`. Deletion-tested both ways.
+
 **CONSEQUENCE FOR THE RELEASE, added 2026-09-10 (expert-code-review of PR #351).** This fix is a
 **training-time behaviour change for every existing config**, and the release PR asserted the
 opposite. On `main`, `random_flips` (default `True`) applied during the C-184 recalibration pass, so
