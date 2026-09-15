@@ -1,0 +1,45 @@
+{
+  "per_state": [
+    {
+      "state": "state_00.pt",
+      "sigma": 1.5138895511627197,
+      "drift_last10": 1.5748743289657343e-07,
+      "h_absmax": 0.0
+    },
+    {
+      "state": "state_01.pt",
+      "sigma": 1.4388136863708496,
+      "drift_last10": 0.00016346795315586772,
+      "h_absmax": 0.9952202439308167
+    },
+    {
+      "state": "state_02.pt",
+      "sigma": 1.4823068380355835,
+      "drift_last10": 8.042146638732539e-08,
+      "h_absmax": 1.8331693410873413
+    },
+    {
+      "state": "state_03.pt",
+      "sigma": 1.600031852722168,
+      "drift_last10": 0.0,
+      "h_absmax": 1.9278299808502197
+    },
+    {
+      "state": "state_04.pt",
+      "sigma": 1.5551514625549316,
+      "drift_last10": 7.665445612283601e-08,
+      "h_absmax": 2.5165319442749023
+    },
+    {
+      "state": "state_05.pt",
+      "sigma": 1.5015954971313477,
+      "drift_last10": 7.938841703942175e-08,
+      "h_absmax": 2.8666837215423584
+    }
+  ],
+  "sigma_max": 1.600031852722168,
+  "converged": true,
+  "gtf_alpha": 0.37501244222189767,
+  "m41_w": 0.1,
+  "verdict": "CORRESPONDENCE SUPERFICIAL \u2014 sigma_max outside [1.05, 1.20] and >= 1"
+}

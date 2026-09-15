@@ -1,0 +1,15 @@
+{
+  "label": "fullhalf_fortyfive",
+  "artifact": "calibration_model_20260821_141055.pt",
+  "pred_dir": "predictions_calibration_20260821_141055",
+  "weight_sha256": "9fa8ade312422b3c8aa37741bca8b425e12d3122a441c781b8921a811da668b2",
+  "total_lessons": 300,
+  "ss_epsilon_max": 0.5,
+  "ss_feedback": "sample",
+  "torch_seed": 45,
+  "output_distribution": "nb",
+  "forecast_composition": "soft_gate",
+  "resumed_from_artifact": false,
+  "head": "07c682822f6fbe601f21e6830e78341fb3b4a298",
+  "emit_head": "07c682822f6fbe601f21e6830e78341fb3b4a298"
+}

@@ -1,0 +1,33 @@
+wrote /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-08-24_architecture_bakeoff_dossier/results/score_shalfullzero_fortythree.csv  (7 rows: 1 models × 1 targets × 7 h)
+
+=== sb: crps_all / mcr_none by horizon ===
+h                           1      6      12     18     24     30     36
+model                                                                   
+shalfullzero_fortythree 0.1255 0.1124 0.1103 0.1340 0.1330 0.1686 0.8747
+{
+  "1": {
+    "ap": 0.4766258464458546,
+    "lo": 0.46532109152305684,
+    "hi": 0.49117476257163417,
+    "mde": 0.012926835524288666,
+    "n_origins": 13.0
+  },
+  "18": {
+    "ap": 0.3168725339424875,
+    "lo": 0.3009941556196622,
+    "hi": 0.33483015747047745,
+    "mde": 0.016918000925407628,
+    "n_origins": 13.0
+  }
+}
+{
+  "ratio": 0.6648244871850119,
+  "lo": 0.6327704477518624,
+  "hi": 0.7014896826195759,
+  "mde": 0.03435961743385674,
+  "ap_num": 0.3168725339424875,
+  "ap_den": 0.4766258464458546,
+  "numerator_h": 18.0,
+  "denominator_h": 1.0,
+  "n_origins": 13.0
+}

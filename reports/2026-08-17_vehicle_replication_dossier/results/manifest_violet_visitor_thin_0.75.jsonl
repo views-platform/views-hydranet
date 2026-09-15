@@ -1,0 +1,1 @@
+{"model": "violet_visitor", "arm": "thin:0.75", "artifact": "calibration_model_20260812_191742.pt", "pred_dir": "predictions_calibration_20260812_191742", "score_csv": "score_violet_visitor_thin_0.75.csv", "fedfield_csv": "fedfield_violet_visitor_thin_0.75.csv", "elapsed_s": 612.9, "cubes_deleted": true, "length_scale": null, "gate_probe": false}

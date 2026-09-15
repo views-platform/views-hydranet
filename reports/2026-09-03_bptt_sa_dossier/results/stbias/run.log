@@ -1,0 +1,30 @@
+[2026-09-04 18:31:32] === EXP-BIAS: n_draws=256 steps=1,3,5 ===
+[2026-09-04 18:31:32] --- screendetached_fortytwo <- calibration_model_20260904_124656.pt
+[2026-09-04 18:32:20] screendetached_fortytwo OK
+  screendetached_fortytwo  step  1  cos(d_ST,d_SF) = +0.2560   split-half(d_SF) = +0.4998   neg-ctrl = -0.0030   plateau = True   fwd-gap = 4.40e-07
+  screendetached_fortytwo  step  3  cos(d_ST,d_SF) = +0.5030   split-half(d_SF) = -0.0561   neg-ctrl = +0.0000   plateau = False   fwd-gap = 0.00e+00
+  screendetached_fortytwo  step  5  cos(d_ST,d_SF) = +0.6196   split-half(d_SF) = -0.1685   neg-ctrl = +0.0002   plateau = False   fwd-gap = 0.00e+00
+[2026-09-04 18:32:20] --- screenattached_fortytwo <- calibration_model_20260904_143617.pt
+[2026-09-04 18:33:08] screenattached_fortytwo OK
+  screenattached_fortytwo  step  1  cos(d_ST,d_SF) = +0.8182   split-half(d_SF) = +0.8494   neg-ctrl = +0.0021   plateau = False   fwd-gap = 5.96e-08
+  screenattached_fortytwo  step  3  cos(d_ST,d_SF) = +0.6086   split-half(d_SF) = +0.7544   neg-ctrl = +0.0013   plateau = True   fwd-gap = 1.64e-07
+  screenattached_fortytwo  step  5  cos(d_ST,d_SF) = +0.6697   split-half(d_SF) = +0.5630   neg-ctrl = +0.0010   plateau = False   fwd-gap = 1.86e-08
+[2026-09-04 18:33:08] === done ===
+[2026-09-04 18:34:23] === EXP-BIAS: n_draws=1024 steps=1,3,5 ===
+[2026-09-04 18:34:23] --- screendetached_fortytwo <- calibration_model_20260904_124656.pt
+[2026-09-04 18:37:16] screendetached_fortytwo OK
+  screendetached_fortytwo  step  1  cos(d_ST,d_SF) = +0.2560   split-half(d_SF) = +0.4998   neg-ctrl = -0.0030   plateau = True   fwd-gap = 4.40e-07
+  screendetached_fortytwo  step  3  cos(d_ST,d_SF) = +0.5030   split-half(d_SF) = -0.0561   neg-ctrl = +0.0000   plateau = False   fwd-gap = 0.00e+00
+  screendetached_fortytwo  step  5  cos(d_ST,d_SF) = +0.6196   split-half(d_SF) = -0.1685   neg-ctrl = +0.0002   plateau = False   fwd-gap = 0.00e+00
+  screendetached_fortytwo  step  1  cos(d_ST,d_SF) = +0.2126   split-half(d_SF) = +0.9413   neg-ctrl = +0.0018   plateau = True   fwd-gap = 4.40e-07
+  screendetached_fortytwo  step  3  cos(d_ST,d_SF) = +0.7066   split-half(d_SF) = +0.8943   neg-ctrl = -0.0001   plateau = False   fwd-gap = 8.94e-08
+  screendetached_fortytwo  step  5  cos(d_ST,d_SF) = +0.7820   split-half(d_SF) = +0.7938   neg-ctrl = -0.0008   plateau = False   fwd-gap = 7.45e-09
+[2026-09-04 18:37:16] --- screenattached_fortytwo <- calibration_model_20260904_143617.pt
+[2026-09-04 18:40:16] screenattached_fortytwo OK
+  screenattached_fortytwo  step  1  cos(d_ST,d_SF) = +0.8182   split-half(d_SF) = +0.8494   neg-ctrl = +0.0021   plateau = False   fwd-gap = 5.96e-08
+  screenattached_fortytwo  step  3  cos(d_ST,d_SF) = +0.6086   split-half(d_SF) = +0.7544   neg-ctrl = +0.0013   plateau = True   fwd-gap = 1.64e-07
+  screenattached_fortytwo  step  5  cos(d_ST,d_SF) = +0.6697   split-half(d_SF) = +0.5630   neg-ctrl = +0.0010   plateau = False   fwd-gap = 1.86e-08
+  screenattached_fortytwo  step  1  cos(d_ST,d_SF) = +0.8821   split-half(d_SF) = +0.8604   neg-ctrl = +0.0006   plateau = True   fwd-gap = 5.51e-07
+  screenattached_fortytwo  step  3  cos(d_ST,d_SF) = +0.7646   split-half(d_SF) = +0.9362   neg-ctrl = -0.0011   plateau = False   fwd-gap = 1.64e-07
+  screenattached_fortytwo  step  5  cos(d_ST,d_SF) = +0.7559   split-half(d_SF) = +0.8380   neg-ctrl = -0.0012   plateau = True   fwd-gap = 4.84e-08
+[2026-09-04 18:40:16] === done ===

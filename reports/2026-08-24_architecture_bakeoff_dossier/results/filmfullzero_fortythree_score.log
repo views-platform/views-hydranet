@@ -1,0 +1,33 @@
+wrote /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-08-24_architecture_bakeoff_dossier/results/score_filmfullzero_fortythree.csv  (7 rows: 1 models × 1 targets × 7 h)
+
+=== sb: crps_all / mcr_none by horizon ===
+h                           1      6      12     18     24     30     36
+model                                                                   
+filmfullzero_fortythree 0.1254 0.1115 0.1098 0.1336 0.1326 0.1685 0.8746
+{
+  "1": {
+    "ap": 0.4805699257233407,
+    "lo": 0.4683705065694983,
+    "hi": 0.49383737296164737,
+    "mde": 0.012733433196074534,
+    "n_origins": 13.0
+  },
+  "18": {
+    "ap": 0.34001576115351806,
+    "lo": 0.32456186513008356,
+    "hi": 0.3594128197705426,
+    "mde": 0.017425477320229532,
+    "n_origins": 13.0
+  }
+}
+{
+  "ratio": 0.7075260913211239,
+  "lo": 0.6617322102173919,
+  "hi": 0.7502344969268924,
+  "mde": 0.04425114335475022,
+  "ap_num": 0.34001576115351806,
+  "ap_den": 0.4805699257233407,
+  "numerator_h": 18.0,
+  "denominator_h": 1.0,
+  "n_origins": 13.0
+}

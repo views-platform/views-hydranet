@@ -1,0 +1,1 @@
+{"model": "fullzero_fortyfour", "arm": "identity", "artifact": "calibration_model_20260821_082106.pt", "pred_dir": "predictions_calibration_20260821_082106", "score_csv": "score_fullzero_fortyfour_identity.csv", "fedfield_csv": "fedfield_fullzero_fortyfour_identity.csv", "elapsed_s": 791.8, "cubes_deleted": false, "length_scale": null, "gate_probe": false}

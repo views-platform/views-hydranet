@@ -18,16 +18,18 @@ import pandas as pd
 import pytest
 
 # C-247/F-Z2: repo-relative (tests/ is one level below the repo root) — NEVER a hardcoded machine
-# path. The scorer + lodestar tools live under the gitignored `reports/` dossier tree, so they are
-# absent in a fresh clone / CI; skip this module cleanly there rather than erroring (false-green).
+# path. `reports/` is gitignored, but both tools below are **force-tracked** (`git add -f`), so a
+# normal clone has them and this module runs in CI. `score_v2_horizons.py` was NOT tracked until
+# 2026-08-15, which silently skipped this module everywhere and left `rescore_v2.py` — a tracked
+# driver that loads it at runtime — unable to run in a clean clone at all.
 _HN = Path(__file__).resolve().parents[1]
 _LODE_DIR = _HN / "reports/2026-07-17_lodestar_eval_dossier/tools"
 _V2_TOOL = _HN / "reports/2026-07-29_v2_scoreboard_dossier/tools/score_v2_horizons.py"
 
 if not _V2_TOOL.exists() or not (_LODE_DIR / "lodestar_score.py").exists():
     pytest.skip(
-        "v2 scoreboard dossier tools are gitignored (absent in a clone/CI); this test scores "
-        "research-dossier tooling and runs only where reports/ exists (C-247).",
+        "v2 scoreboard / lodestar tools are absent — both are force-tracked, so this means a "
+        "sparse or partial checkout, not a normal clone (C-247).",
         allow_module_level=True,
     )
 
@@ -129,3 +131,61 @@ def test_h1_matches_frozen_lodestar(fixture):
     assert h1["crps_none"] == pytest.approx(lode["crps_none"])
     assert h1["size_ratio"] == pytest.approx(lode["size_ratio"])
     assert h1["pos_mcr"] == pytest.approx(lode["pos_mcr"])
+
+
+# --- GH #282: the persistence baseline's history month was never loaded -------------------------
+
+
+def _rollout_skill_mod():
+    """Import the sibling that owns `_persistence_gathered` (dossier tool, force-tracked)."""
+    p = _HN / "reports/2026-07-25_t0_rollout_skill_dossier/tools/rollout_skill_score.py"
+    if not p.exists():
+        pytest.skip("rollout_skill_score.py absent — sparse checkout (C-247)")
+    spec = importlib.util.spec_from_file_location("rollout_skill_score", p)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["rollout_skill_score"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_persistence_refuses_when_the_history_month_was_never_loaded():
+    """GH #282, the guard.
+
+    `score_horizons_v2` built `tmap` from `{m0+h-1}` only. `_persistence_gathered` reads
+    `truth_map[(m0-1, u)]`, which is present ONLY because origins are usually consecutive — origin
+    k's history is origin k-1's h=1 forecast month. The FIRST origin has no predecessor, so its
+    history fell through `.get(..., 0.0)` and its whole persistence forecast became zeros, with no
+    error. Understated the baseline by 4-10% at 13 origins, and by everything at one.
+    """
+    rs = _rollout_skill_mod()
+    support = [(100, 1), (101, 1)]
+    tmap = {(100, 1): 5.0, (101, 1): 6.0}
+    with pytest.raises(ValueError, match="never loaded"):
+        rs._persistence_gathered(tmap, support, (1,), months_loaded={100, 101})
+
+
+def test_persistence_accepts_a_truth_map_that_includes_the_history_months():
+    rs = _rollout_skill_mod()
+    support = [(100, 1), (101, 1)]
+    tmap = {(99, 1): 5.0, (100, 1): 7.0, (101, 1): 6.0}
+    got = rs._persistence_gathered(tmap, support, (1,), months_loaded={99, 100, 101})
+    assert float(got[(100, 1, 1)][0][0]) == 5.0  # truth[m0-1], not truth[m0]
+    assert float(got[(101, 1, 1)][0][0]) == 7.0
+
+
+def test_both_scorers_load_the_pre_origin_month():
+    """The fix must live in BOTH scorers, or one of them silently keeps the defect.
+
+    Asserted on source text because the alternative is building two full cube fixtures for a
+    one-line set-union; the runtime guard above is what actually protects the number.
+    """
+    for tool in (
+        _V2_TOOL,
+        _HN / "reports/2026-07-25_t0_rollout_skill_dossier/tools/rollout_skill_score.py",
+    ):
+        if not tool.exists():
+            pytest.skip(f"{tool.name} absent — sparse checkout (C-247)")
+        src = tool.read_text()
+        assert "months |= {m0 - 1 for (m0, _u) in support}" in src, (
+            f"{tool.name} does not load the persistence history month — GH #282 regressed"
+        )

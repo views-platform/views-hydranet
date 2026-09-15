@@ -1,0 +1,112 @@
+[2026-09-05 02:32:38] === S4+S5+S6 chain: control=noisecontrol_fortytwo noise=noisedropout_fortytwo ===
+[2026-09-05 02:32:38] PHASE: WAIT FOR GPU
+[2026-09-05 02:32:38] GPU free (504 MiB)
+[2026-09-05 02:32:40] PHASE: BUILD ARMS
+Traceback (most recent call last):
+  File "/home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-09-04_input_noise_dossier/tools/make_noise_arm.py", line 183, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-09-04_input_noise_dossier/tools/make_noise_arm.py", line 178, in main
+    print(f"built {build(a.which, label=a.label, lessons=a.lessons)}")
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-09-04_input_noise_dossier/tools/make_noise_arm.py", line 130, in build
+    _verify(dest, dropout=dropout, lessons=lessons)
+  File "/home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-09-04_input_noise_dossier/tools/make_noise_arm.py", line 162, in _verify
+    assert arm[k] == floor[k], f"{k} drifted from the floor: {arm[k]} vs {floor[k]}"
+           ~~~^^^
+KeyError: 'pushforward_weight'
+ERROR conda.cli.main_run:execute(47): `conda run python /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-09-04_input_noise_dossier/tools/make_noise_arm.py control --label noisecontrol_fortytwo` failed. (See above for error)
+[2026-09-05 02:32:40] ABORT: arm build failed for noisecontrol_fortytwo 12
+[2026-09-05 02:32:41] === RUN_COMPLETE ===
+[2026-09-05 02:33:45] === S4+S5+S6 chain: control=noisecontrol_fortytwo noise=noisedropout_fortytwo ===
+[2026-09-05 02:33:45] PHASE: WAIT FOR GPU
+[2026-09-05 02:33:45] GPU free (494 MiB)
+[2026-09-05 02:33:47] PHASE: BUILD ARMS
+[2026-09-05 02:33:47] noisecontrol_fortytwo exists — reusing
+built /home/simon/Documents/scripts/views_platform/views-models/models/noisedropout_fortytwo
+[2026-09-05 02:33:48] built noisedropout_fortytwo
+built /home/simon/Documents/scripts/views_platform/views-models/models/noisesmoke_fortytwo
+[2026-09-05 02:33:48] built noisesmoke_fortytwo
+[2026-09-05 02:33:48] PHASE: SMOKE (2 lessons, noisesmoke_fortytwo)
+[2026-09-05 02:35:47] SMOKE OK
+[2026-09-05 02:35:47] PHASE: POTENCY GATE (C-324 + C-325)
+POTENT   noisedropout_fortytwo: loss off=265.802490 on=106.268646 rel=0.600197 (rate=0.204)
+[2026-09-05 02:35:59] POTENCY PASS
+[2026-09-05 02:35:59] PHASE: TRAIN noisecontrol_fortytwo (elapsed 2 min)
+[2026-09-05 03:59:56] noisecontrol_fortytwo trained (rc=0)
+[2026-09-05 03:59:56] PHASE: EMIT+SCORE noisecontrol_fortytwo
+[2026-09-05 04:11:02] ABORT: control arm produced no score — BRANCH 0: VOID, not negative 20
+[2026-09-05 04:11:02] === RUN_COMPLETE ===
+[2026-09-05 04:12:26] === S4+S5+S6 chain: control=noisecontrol_fortytwo noise=noisedropout_fortytwo ===
+[2026-09-05 04:12:26] PHASE: WAIT FOR GPU
+[2026-09-05 04:12:26] GPU free (491 MiB)
+[2026-09-05 04:12:28] PHASE: BUILD ARMS
+[2026-09-05 04:12:28] noisecontrol_fortytwo exists — reusing
+[2026-09-05 04:12:28] noisedropout_fortytwo exists — reusing
+[2026-09-05 04:12:28] noisesmoke_fortytwo exists — reusing
+[2026-09-05 04:12:28] PHASE: SMOKE (2 lessons, noisesmoke_fortytwo)
+[2026-09-05 04:12:28] SMOKE OK
+[2026-09-05 04:12:28] PHASE: POTENCY GATE (C-324 + C-325)
+POTENT   noisedropout_fortytwo: loss off=265.802490 on=106.268646 rel=0.600197 (rate=0.204)
+[2026-09-05 04:12:38] POTENCY PASS
+[2026-09-05 04:12:38] noisecontrol_fortytwo already trained — skipping
+[2026-09-05 04:12:38] noisecontrol_fortytwo already scored
+[2026-09-05 04:12:38] PHASE: FLOOR GATE on the control (C-299)
+FLOOR GATE: PASS
+  thresholds md5: 6d5714d5ceda147ed16f53143abe7e37
+  FG-A [         PASS] AP 0.32923 / prevalence 0.009077 = 36.27x (need >= 5.0x)
+  FG-B [not evaluated] no climatology reference supplied (advisory clause)
+  FG-C [         PASS] a 30% effect is 0.23046 AP; 3x MDE is 0.18000
+threshold_md5 = 6d5714d5ceda147ed16f53143abe7e37
+
+FG-A PASS (binding). FG-C is reported above, not binding — see this file's docstring.
+[2026-09-05 04:12:39] FLOOR GATE: FG-A PASS
+[2026-09-05 04:12:39] PHASE: TRAIN noisedropout_fortytwo (elapsed 0 min)
+[2026-09-05 05:36:38] noisedropout_fortytwo trained (rc=0)
+[2026-09-05 05:36:38] PHASE: WEIGHT-HASH CHECK
+weight-hash noisecontrol_fortytwo: cab486bcecd044b1b3973cf8
+weight-hash noisedropout_fortytwo: 64a75eab05649e96bf19db2c
+weights differ — the arms are genuinely distinct
+[2026-09-05 05:36:40] weight-hash PASS
+[2026-09-05 05:36:40] PHASE: EMIT+SCORE noisedropout_fortytwo
+[2026-09-05 05:47:57] noisedropout_fortytwo scored (rc=0)
+[2026-09-05 05:47:57] PHASE: VERDICT
+==============================================================================
+EPIC #311 / S5 readout — rule locked in 47d66af, before S1 ran
+==============================================================================
+  noisecontrol_fortytwo              7 scored rows
+  noisedropout_fortytwo              7 scored rows
+
+PRIMARY  AP@h18 (sb, free-running, 13 origins)
+  control 0.3292   noise 0.1329   Delta = -0.1963
+  (the band this n=1 design cannot see inside: +/-0.06)
+
+SECONDARY — reported always, never used to override the primary
+  metric           h     control       noise       delta
+  AP               1      0.4831      0.3651     -0.1181
+  act_ratio        1      0.4067      0.8168     +0.4100
+  size_ratio       1      0.0625      0.1528     +0.0903
+  crps_events      1     15.2452     16.0584     +0.8133
+  Brier            1      0.0056      0.0127     +0.0070
+  AP              18      0.3292      0.1329     -0.1963
+  act_ratio       18      0.0123      0.6903     +0.6780
+  size_ratio      18      0.0000      0.0250     +0.0250
+  crps_events     18     14.7428     14.1538     -0.5890
+  Brier           18      0.0084      0.0135     +0.0051
+  AP              36      0.2113      0.0938     -0.1176
+  act_ratio       36      0.0005      0.5899     +0.5894
+  size_ratio      36      0.0000      0.0000     +0.0000
+  crps_events     36     83.7933     83.3453     -0.4480
+  Brier           36      0.0103      0.0146     +0.0043
+
+------------------------------------------------------------------------------
+VERDICT: **Delta <= 0** (-0.1963) — the noise arm did not beat the control.
+         **INCONCLUSIVE, not 'input noise does not work'.** n=1 against a
+         +/-0.06 band. C-307: an underpowered screen is not a closure.
+
+  F5 FIRED: act_ratio rose while AP fell (0.0123 -> 0.6903). Per the pre-registration this is **M45 again** —
+  the firing lever — and is recorded as such, NOT as 'input noise is bad'.
+------------------------------------------------------------------------------
+STANDING SCOPE: n=1 per arm, one vehicle, one seed. A SCREEN, not a verdict.
+[2026-09-05 05:47:58] === DONE ===
+[2026-09-05 05:47:58] === RUN_COMPLETE ===

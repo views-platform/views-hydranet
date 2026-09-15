@@ -1,0 +1,191 @@
+name: Publish Package
+
+# Publishes views-hydranet to PyPI when a GitHub Release is published
+# (create a Release from a vX.Y.Z tag). Auth is PyPI Trusted Publishing (OIDC) —
+# there is NO stored API token in this repository. See docs/guides/publishing-to-pypi.md.
+#
+# This workflow goes to TestPyPI FIRST, installs the artifact back from there, and only
+# then publishes to real PyPI. The sibling repos (views-baseline, views-datafactory,
+# views-frames, views-postprocessing, views-reporting) publish straight to PyPI and treat
+# TestPyPI as an optional manual rehearsal; doing it in-workflow means the rehearsal cannot
+# be skipped on the release that actually matters.
+#
+# ONE-TIME SETUP — required before the first run, and it is TWO publishers, not one:
+#
+#   PyPI      https://pypi.org/manage/account/publishing/
+#   TestPyPI  https://test.pypi.org/manage/account/publishing/
+#
+#   Both with:  Owner: views-platform | Repo: views-hydranet
+#               Workflow: publish_package.yml | Environment: (leave blank)
+#
+#   For a package that does not exist yet, register a PENDING publisher on each site —
+#   that is what authorises the first-ever upload. Forgetting the TestPyPI one fails this
+#   workflow at the first publish step, before anything reaches real PyPI, which is the
+#   safe direction to fail in.
+
+on:
+  release:
+    types: [published]
+  # A manual run is ALWAYS a rehearsal — it stops after TestPyPI. There is deliberately no input to
+  # change that; do not add one back without reading C-341 first.
+  #
+  # GitHub offers no branch restriction on this trigger: whoever dispatches chooses the ref, and
+  # the job builds that ref's tree. A rehearsal therefore stamps a throwaway `.devN` version before
+  # it builds (see "Rehearsal — stamp"), so it can never occupy the version a Release will use.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write      # REQUIRED: mints the OIDC token for Trusted Publishing
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+
+      - name: Install uv (+ Python 3.11)
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86  # v5
+        with:
+          python-version: "3.11"   # the wheel is pure-Python (py3-none-any)
+          # Pinned: the TestPyPI step's `--check-url` skip-vs-fail semantics are uv's, verified
+          # on this version. Unpinned, the action installs whatever uv ships that day (#372).
+          version: "0.8.13"   # keep in sync with ci.yml (same pin, same action SHAs)
+
+      - name: Read the version being published
+        id: ver
+        run: |
+          # uv's 3.11, NOT the runner image's `python`: this needs tomllib (>=3.11), and the
+          # image's version is not ours to rely on — ubuntu-latest at 22.04 ships 3.10, where this
+          # raises ModuleNotFoundError. The step below already uses uv; these now agree (C-341).
+          v=$(uv run --no-project --python 3.11 python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          # What actually gets uploaded. On a Release it is the pyproject version; on a rehearsal it
+          # is a throwaway `.devN` (stamped two steps below, after the guards have read the real
+          # one). The two guards must compare the REAL version, so they run before the stamp.
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "publish_version=$v" >> "$GITHUB_OUTPUT"
+            echo "publishing views-hydranet $v"
+          else
+            echo "publish_version=$v.dev${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+            echo "rehearsing views-hydranet $v as $v.dev${{ github.run_number }}"
+          fi
+
+      # Only meaningful on a Release. A manual dispatch has no tag to compare against.
+      - name: Guard — pyproject version must equal the tag being released
+        if: github.event_name == 'release'
+        run: |
+          tag="${{ github.event.release.tag_name }}"
+          ver="${{ steps.ver.outputs.version }}"
+          [ "${tag#v}" = "$ver" ] || {
+            echo "::error::tag $tag and pyproject version $ver disagree — one of them is wrong"
+            exit 1
+          }
+          echo "tag guard OK: $tag == v$ver"
+
+      # `cur` falls back to 0.0.0, NOT to the version being published: on a first-ever
+      # release the package 404s, and a fallback equal to our own version would make the
+      # strict `>` compare a value with itself and fail on exactly the case it exists to
+      # permit. (That is a live defect in the views-r2darts2 copy of this guard.)
+      #
+      # Release-only, like the tag guard. A rehearsal is dispatched from whatever ref the operator
+      # picks — usually `main` at the version already on PyPI, to prove the Trusted Publishing
+      # setup without spending a version number — and strict `>` would fail every such run once
+      # 0.1.0 is published (#372 review). The rehearsal's own version is a throwaway `.devN`.
+      - name: Guard — pyproject version must be newer than what is on PyPI
+        if: github.event_name == 'release'
+        run: |
+          uv run --no-project --python 3.11 --with packaging python - <<'PY'
+          import json, tomllib, urllib.request
+          from packaging.version import parse
+          new = tomllib.load(open("pyproject.toml", "rb"))["project"]["version"]
+          try:
+              cur = json.load(urllib.request.urlopen(
+                  "https://pypi.org/pypi/views-hydranet/json"))["info"]["version"]
+          except Exception:
+              cur = "0.0.0"   # not on PyPI yet — anything is newer
+          assert parse(new) > parse(cur), (
+              f"pyproject version {new} must be > current PyPI {cur} — bump it before releasing"
+          )
+          print(f"version guard OK: {new} > {cur}")
+          PY
+
+      # THE COLLISION FIX (S6/#359). Without this, a dispatch from any branch uploads that branch's
+      # tree at the release version. TestPyPI refuses overwrites, so that version is burned there
+      # permanently, and the tag guard — release-only — never sees it. When the real Release is
+      # then published at that version, `--check-url` compares hashes: identical bytes are
+      # skipped (fine — that IS the release wheel), different bytes are a hard error, and the
+      # release job dies at the TestPyPI step with a version it can never reuse on TestPyPI.
+      # (Verified on uv 0.8.13 against a local index: skip on match, exit 2 on mismatch. An
+      # earlier comment here claimed the mismatch was silently skipped and an unverified wheel
+      # went on to real PyPI; it was not — #372 review.)
+      #
+      # A `.devN` suffix makes the collision IMPOSSIBLE rather than detected: PEP 440 orders
+      # `0.2.0.devN` strictly BEFORE `0.2.0`, so a rehearsal can never occupy a release version.
+      # `run_number` is unique per run and stable across re-run attempts, which keeps a re-run
+      # idempotent.
+      - name: Rehearsal — stamp a throwaway .devN version
+        if: github.event_name != 'release'
+        run: |
+          uv run --no-project --python 3.11 python - <<'PY'
+          import re, pathlib
+          p = pathlib.Path("pyproject.toml")
+          src = p.read_text()
+          new, n = re.subn(
+              r'^version = "([^"]+)"$',
+              'version = "\\1.dev${{ github.run_number }}"',
+              src, count=1, flags=re.M,
+          )
+          if n != 1:  # not `assert`: stripped under -O, and this must never be skippable
+              raise SystemExit("no [project] version line to stamp — the rehearsal would upload a release version")
+          p.write_text(new)
+          PY
+          grep -m1 '^version = ' pyproject.toml
+
+      - name: Build (poetry-core backend, via uv)
+        run: uv build
+
+      - name: Show what is about to be published
+        run: |
+          ls -l dist/
+          uv run --no-project --python 3.11 --with twine twine check dist/*
+
+      # --check-url makes a re-run idempotent: a file already on TestPyPI is skipped rather than
+      # failing the job. TestPyPI refuses to overwrite a version, so without this, any second run
+      # of the same version would fail here.
+      #
+      # The skip is hash-checked by uv (identical bytes only; a mismatch is a hard error), so it
+      # cannot validate the wrong file. What it cannot do is un-burn a version: without the `.devN`
+      # stamp above, a rehearsal at the release version leaves the real Release with a TestPyPI
+      # slot it can never fill (S6/#359).
+      - name: Publish to TestPyPI (Trusted Publishing — no token)
+        run: |
+          uv publish \
+            --publish-url https://test.pypi.org/legacy/ \
+            --check-url https://test.pypi.org/simple/ \
+            --trusted-publishing always
+
+      # Deliberately --no-deps, and it DOES import the package: `views_hydranet/__init__.py` is a
+      # lazy PEP-562 `__getattr__`, so the top-level import pulls in no torch. That import is the
+      # only assertion here that reads the code rather than the `.dist-info`, and without it a wheel
+      # containing zero Python modules passes `twine check`, installs, satisfies every metadata
+      # assertion, and ships empty — demonstrated on a forged wheel in S6/#359.
+      #
+      # Same file as ci.yml's build job, on purpose: the two copies had already drifted.
+      - name: Install it back from TestPyPI and check its contract
+        run: |
+          uv venv /tmp/verify --python 3.11
+          uv pip install --python /tmp/verify/bin/python --no-deps \
+            --index-url https://test.pypi.org/simple/ \
+            "views-hydranet==${{ steps.ver.outputs.publish_version }}"
+          /tmp/verify/bin/python .github/scripts/wheel_contract.py
+
+      - name: Publish to PyPI (Trusted Publishing — no token)
+        if: github.event_name == 'release'
+        run: uv publish --trusted-publishing always
+
+      - name: Manual run — stopping before real PyPI
+        if: github.event_name != 'release'
+        run: |
+          echo "Rehearsal complete. Nothing was published to real PyPI."
+          echo "To publish for real, publish a GitHub Release from a vX.Y.Z tag."

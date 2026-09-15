@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from views_hydranet.distributions import resolve_family
+
 logger = logging.getLogger(__name__)
 
 
@@ -102,6 +104,17 @@ class HydraNetConfig(BaseModel):
     scheduler: str = Field(...)
     warmup_steps: int = Field(..., ge=1)
     clip_grad_norm: bool = Field(...)
+    clip_grad_max_norm: float = Field(
+        default=1.0,
+        gt=0.0,
+        description=(
+            "C-314: the max_norm passed to clip_grad_norm_ when clip_grad_norm is True. "
+            "Was a literal 1.0 in training_engine, so the threshold could not be tuned from a "
+            "config at all; 1.0 is the default so every pre-existing config is unchanged. "
+            "Covers model.parameters() only — the MultiTaskLoss log_vars are a separate optimizer "
+            "param group and remain unclipped (C-314, open)."
+        ),
+    )
 
     # 6. Loss Functions (names: mse, shrinkage, lognormal_nll, tobit)
     loss_reg: str = Field(...)
@@ -178,6 +191,30 @@ class HydraNetConfig(BaseModel):
     ss_feedback: str = Field(default="mean")
     ss_warmup_lessons: int | None = Field(default=None, ge=1)
     ss_k: float | None = Field(default=None, gt=0.0)
+    # #287 (Teutsch et al. 2022): INCREASING teacher forcing. False (default) is the ADR-056
+    # decreasing-TF curriculum and is byte-identical to the pre-flag behaviour; True starts at
+    # ss_epsilon_max and decays to 0, so the model begins near free-running and is given
+    # progressively more ground truth. An ITF arm sets ss_warmup_lessons to the TOTAL lesson count,
+    # because that is the linear ramp length — see the itf-pilot dossier's AMENDMENT 1.
+    ss_reverse: bool = Field(default=False)
+    # #289 (Brandstetter et al. 2022): pushforward. An AUXILIARY loss — one extra unrolled step
+    # from the model's own emitted field, scored against ground truth at t+2. 0.0 (default) is
+    # byte-identical to the pre-flag model: the term is never computed. The main training loop
+    # stays teacher-forced either way; this does not change the trajectory, only the objective.
+    pushforward_weight: float = Field(default=0.0, ge=0.0)
+    # The paper's solver is stateless, so cutting the fed-back input cuts every gradient path.
+    # Ours is recurrent: `h` carries gradient, so False (default) lets the pushforward loss train
+    # the RECURRENCE to produce states that survive one step of self-feeding. True reproduces the
+    # stateless reading. Recorded as a fork the paper cannot settle for a recurrent model.
+    pushforward_detach_state: bool = Field(default=False)
+    ss_backprop_through_feedback: bool = Field(default=False)
+    # #308 GRAD-TRAJ follow-up. Max L2 norm of the gradient leaving the scheduled-sampling
+    # handoff, applied PER STEP. None (default) is a no-op. `clip_grad_norm` cannot substitute:
+    # it runs once at the END of the backward pass, and GRAD-TRAJ measured the intermediate
+    # gradient reaching 9.4e9 -- overflowing float32 at lesson 48 -- with it switched on
+    # throughout. `gt=0` because a clip of 0 would zero the feedback gradient entirely, which is
+    # not "bounded" but "the wire cut again", and would be indistinguishable from the C-324 no-op.
+    ss_feedback_grad_clip: float | None = Field(default=None, gt=0.0)
 
     # 7. Sampling & Reproducibility
     total_lessons: int = Field(..., ge=1)
@@ -276,7 +313,39 @@ class HydraNetConfig(BaseModel):
         ),
     )
     sweep: bool = Field(default=False)
+    # #311 (Sanchez-Gonzalez et al. 2020, adapted): per-step probability that a surviving input
+    # event is silenced, accumulating within one deployment horizon and resetting between. NOT the
+    # paper's Gaussian: S1 (#313) measured this model's free-running error as near-total SILENCING
+    # (FN 0.9959 vs FP 0.000027 at h18), so dense noise would model a failure that does not occur.
+    # None (default) is a no-op => every existing config is byte-identical. `gt=0.0` rather than
+    # `ge=0.0` because a dropout of 0.0 is a no-op indistinguishable from off, which is exactly the
+    # C-324 inert-knob signature that cost 276 min of GPU on #308.
+    input_noise_dropout: float | None = Field(default=None, gt=0.0, lt=1.0)
     random_flips: bool = Field(default=True)
+    # The C-184 mitigation: recompute BatchNorm running statistics forward-only after training.
+    # It has been read as `config.get("bn_recalibrate", True)` — a SHADOW DEFAULT on a production
+    # setting that ships inside every artifact, and one no schema validated. All 8 roster configs
+    # set it; a typo would have silently reverted to True with nothing raised. Promoted to a field
+    # so the schema owns the default and the near-miss guard below can catch a misspelling.
+    bn_recalibrate: bool = Field(default=True)
+    # ADR-027 §2.1 (2026-09-05): the cell clamp, promoted from a diagnostic constructor argument to
+    # a production setting. None (default) evolves the full ConvLSTM state — the §2 behaviour, and
+    # byte-identical for every config that omits this key, which is what stops the amendment
+    # silently changing every existing model. "cell" is the EVIDENCED production value (M48/M56:
+    # +0.0591 AP@h36, 4/4 seeds; M65 re-verified). "hidden" has no consistent effect (M58) and
+    # "all" is not evidenced — both remain legal for diagnostics, neither is recommended.
+    freeze_recurrent: str | None = Field(default=None)
+    # How far to pull the clamped half back to its anchor each step. 1.0 = hard freeze, the value
+    # every measurement used; 0.0 = no-op. A field rather than a constant because M41's saturation
+    # at w~0.1 was measured on the 40-lesson vehicle and never re-tested at L=300 (C-85: a scale
+    # is a config field from day one).
+    #
+    # The range stays [0, 1] INCLUSIVE on purpose. `gt=0.0` would match the `input_noise_dropout`
+    # and `ss_feedback_grad_clip` pattern, but ADR-027 §2.1's Beige Team contract specifies this
+    # field as "outside [0, 1] is rejected", and 0.0 is a legitimate DIAGNOSTIC value — it is M41's
+    # `w=0` control arm, and `HydraNetInference` accepts it as a constructor argument for exactly
+    # that. What is rejected is the COMBINATION that lies; see the validator below.
+    freeze_recurrent_weight: float = Field(default=1.0, ge=0.0, le=1.0)
     diagnostic_visualizations: bool = Field(default=False)
 
     # 10. Outbound Evaluation
@@ -321,6 +390,62 @@ class HydraNetConfig(BaseModel):
                 if field not in data:
                     data[field] = sentinel
         return data
+
+    @model_validator(mode="after")
+    def reject_unknown_freeze_recurrent_mode(self) -> "HydraNetConfig":
+        """ADR-027 §2.1 Beige Team: an unknown clamp mode must fail loud, not silently no-op.
+
+        A typo like ``freeze_recurent="cell"`` or ``freeze_recurrent="Cell"`` would otherwise leave
+        the rollout evolving freely while the config claims it is clamped — an arm that looks
+        treated and is not, which is the C-324 inert-knob signature.
+        """
+        allowed = ("hidden", "cell", "all")
+        if self.freeze_recurrent is not None and self.freeze_recurrent not in allowed:
+            err_msg = (
+                f"freeze_recurrent must be None or one of {allowed}; got "
+                f"{self.freeze_recurrent!r}. ADR-027 §2.1 permits 'cell' in production; "
+                f"'hidden' and 'all' are diagnostics."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def reject_inert_clamp(self) -> "HydraNetConfig":
+        """A config that claims the clamp and sets its weight to zero is claiming nothing.
+
+        `blend_recurrent_state` at `freeze_recurrent_weight=0.0` returns the freely-evolved state
+        unchanged — `torch.lerp(new, anchor, 0.0)` is `new`, and the function's own docstring says
+        "0.0 is a no-op". So `freeze_recurrent='cell'` with a zero weight validates, logs
+        `recurrent state CLAMPED`, and delivers the unclamped control. That is the **C-324**
+        inert-knob signature on the one setting ADR-027 §2.1 promoted to production precisely
+        because it changes a delivered forecast.
+
+        **C-331** already records this, but only for diagnostic arms — `freeze_anchor_roll`
+        guards against a missing clamp and not against a zero weight, so a rolled arm can be
+        byte-identical to free-running under the treatment's filename. ADR-027 §2.1 changed the
+        blast radius from a research arm to a production setting; this is that escalation.
+
+        Why a cross-field rule rather than `gt=0.0` on the field: ADR-027 §2.1's Beige Team
+        contract specifies the field as "outside [0, 1] is rejected", and 0.0 is a real diagnostic
+        (M41's `w=0` reference, which `HydraNetInference` still accepts as a constructor argument).
+        Narrowing the field would contradict an accepted ADR and delete a measurement point. The
+        defect is not the value; it is the pair.
+
+        The honest way to express the unclamped control is `freeze_recurrent=None` — which is the
+        ADR-027 §2 behaviour, and is what a config omitting the key already gets.
+        """
+        if self.freeze_recurrent is not None and self.freeze_recurrent_weight == 0.0:
+            err_msg = (
+                f"freeze_recurrent={self.freeze_recurrent!r} with freeze_recurrent_weight=0.0 is "
+                "inert: a zero weight makes blend_recurrent_state return the freely-evolved state "
+                "unchanged, so the run would log 'CLAMPED' and deliver the unclamped control "
+                "(C-324/C-331). Use freeze_recurrent=None for the unclamped control, or a weight "
+                "> 0 to clamp."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
 
     @model_validator(mode="after")
     def validate_laws(self) -> "HydraNetConfig":
@@ -514,7 +639,9 @@ class HydraNetConfig(BaseModel):
             return v
         vals = v if isinstance(v, list) else [v]
         if any(x is None or x <= 0 for x in vals):
-            raise ValueError(f"loss_class_pos_weight values must be > 0; got {v}")
+            err_msg = f"loss_class_pos_weight values must be > 0; got {v}"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return v
 
     @field_validator("reg_activation")
@@ -530,10 +657,12 @@ class HydraNetConfig(BaseModel):
     @classmethod
     def validate_hidden_channels_divisibility(cls, v: int) -> int:
         if v % 8 != 0:
-            raise ValueError(
+            err_msg = (
                 f"total_hidden_channels={v} is not divisible by 8. "
                 f"The architecture requires 4 LSTM cells x 2 states = 8 partitions."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return v
 
     @field_validator("loss_reg")
@@ -688,8 +817,10 @@ class HydraNetConfig(BaseModel):
 
     @model_validator(mode="after")
     def reject_unwired_rollout_horizon(self) -> "HydraNetConfig":
-        """C-264: `rollout_horizon` has NO runtime consumer yet — the ADR-058 B1 pushforward
-        path is unwired, so `training_loop`/`_process_sequence` always take the one-step path.
+        """C-264: `rollout_horizon` has NO runtime consumer yet — the ADR-058 B1 multi-step
+        rollout-training path is unwired, so `training_loop`/`_process_sequence` always take the
+        one-step path. (Distinct from `pushforward_weight` (#289), which IS wired: that is a
+        TWO-step auxiliary loss on a teacher-forced trajectory, not a K-step rollout.)
         A K>1 config would therefore SILENTLY train one-step (the experiment's premise invalid).
         Fail loud until the consumer lands (mirrors the other reject-if-ignored guards)."""
         if self.rollout_horizon != 1:
@@ -703,16 +834,148 @@ class HydraNetConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def reject_input_noise_that_cannot_apply(self):
+        """Input noise needs a horizon of at least 2, or it never applies (#311).
+
+        The dropout accumulates within one deployment horizon and resets at each segment start,
+        and the segment start is left CLEAN because deployment feeds a real observation at the seed
+        step. With `time_steps == 1` every step is a segment start, so the augmentation is a total
+        no-op while the config records it as on — the C-324 inert-knob signature, created by the
+        fix for the off-by-one that used to noise the seed step.
+        """
+        if self.input_noise_dropout is not None and self.time_steps < 2:
+            err_msg = (
+                f"input_noise_dropout={self.input_noise_dropout} with time_steps="
+                f"{self.time_steps}: every step would be a segment start, which is left clean, "
+                "so the augmentation could never apply."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def reject_feedback_clip_without_the_wire(self):
+        """`ss_feedback_grad_clip` does nothing unless the feedback wire is connected (#308).
+
+        `_attach_feedback_grad_clip` is called only inside `if ss_backprop_through_feedback`, so a
+        config that sets the clip alone is silently unclipped, `fed_grad_max` logs a constant 0.0
+        that reads as a healthy gradient, and the arm is scored as a treatment. Mirrors
+        `reject_pushforward_without_a_family`, which exists for exactly this failure mode.
+        """
+        if self.ss_feedback_grad_clip is not None and not self.ss_backprop_through_feedback:
+            err_msg = (
+                "ss_feedback_grad_clip is set but ss_backprop_through_feedback is False, so the "
+                "clip is never applied and fed_grad_max would log a constant 0.0. Set the flag, "
+                "or remove the clip."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def reject_bptt_sa_without_a_family(self) -> "HydraNetConfig":
+        """S2/#355: `_attach_feedback_grad_clip` is skipped on a legacy head, and
+        said a validator stopped that combination reaching it. No such validator existed.
+
+        The hook is attached only inside `if ss_backprop_through_feedback and family is not None`
+        (`training_engine.py`). Its comment justified the `family is not None` half with *"A config
+        validator rejects the combination outright, so this branch is defence in depth"* — the
+        C-303 shape, prose asserting a guard the code never implements.
+
+        On a legacy point head `fed = t1_pred` and `prev_pred = fed` is left un-detached, so the
+        BPTT-SA wire IS connected across the full ~383-step graph while the per-step clip silently
+        does nothing and `fed_grad_max` logs a constant 0.0 that reads as a healthy gradient. That
+        is the regime GRAD-TRAJ measured blowing to 9.4e9 and overflowing float32 at lesson 48.
+
+        Mirrors `reject_pushforward_without_a_family`, which
+        `reject_feedback_clip_without_the_wire`'s own docstring already names as the pattern.
+        """
+        if self.ss_backprop_through_feedback and resolve_family(self.output_distribution) is None:
+            err_msg = (
+                f"ss_backprop_through_feedback=True but output_distribution="
+                f"'{self.output_distribution}' does not resolve to a distribution family. On a "
+                "legacy head the fed tensor IS the regression loss's input, so the "
+                "straight-through estimator does not apply, ss_feedback_grad_clip is skipped, and "
+                "fed_grad_max logs a constant 0.0 that reads as a healthy gradient. Use a family "
+                "head (e.g. 'nb'), or set ss_backprop_through_feedback=False (#308)."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def reject_bptt_sa_that_cannot_run(self):
+        """BPTT-SA needs scheduled sampling to be active, or its whole block never executes (#308).
+
+        The feedback branch sits behind `if ss_epsilon > 0.0`, and `ss_epsilon` is 0 whenever
+        `ss_schedule` is None or `ss_epsilon_max` is 0.0 — the state every arm in the #311 fleet
+        pins. The config validates, the sidecar records the treatment as ON, and the weights are
+        NOT byte-identical (the RNG still advances), so even the weight-hash VOID gate passes. That
+        is C-324's signature with the one check that caught it in #308 disabled.
+        """
+        if self.ss_backprop_through_feedback and (
+            self.ss_schedule is None or not self.ss_epsilon_max
+        ):
+            err_msg = (
+                "ss_backprop_through_feedback is True but scheduled sampling is inactive "
+                f"(ss_schedule={self.ss_schedule!r}, ss_epsilon_max={self.ss_epsilon_max!r}), so "
+                "the feedback branch never runs and the arm would be scored as a treatment it "
+                "never received."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
+    def reject_pushforward_without_a_family(self) -> "HydraNetConfig":
+        """The #289 pushforward term is only computed when the head resolves to a distribution
+        family — `_process_sequence` guards on `family is not None`. A legacy / point / quantile
+        head with `pushforward_weight > 0` would therefore train with NO pushforward at all and
+        report a clean run, leaving the experiment's premise silently invalid. Mirrors
+        `reject_unwired_rollout_horizon`, which exists for exactly this failure mode."""
+        if self.pushforward_weight > 0.0 and resolve_family(self.output_distribution) is None:
+            err_msg = (
+                f"pushforward_weight={self.pushforward_weight} but output_distribution="
+                f"'{self.output_distribution}' does not resolve to a distribution family, so the "
+                "pushforward term is never computed — the run would look clean and train nothing "
+                "extra. Use a family head (e.g. 'nb'), or set pushforward_weight=0.0 (#289)."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        # The same core-awareness gap the SS block guards (ADR-068): `_family_feedback_log1p` is
+        # not `emit_family_core`-aware, so on a self-zeroed family the pushforward's auxiliary
+        # unroll trains on `gate x family.mean` / the self-zeroed sample while deployment emits
+        # and feeds the π-stripped core. That guard sits inside `if ss_epsilon_max > 0`, which a
+        # pushforward arm never sets — the exact nesting that hid S2's C-259 instance, one story
+        # later (#372 review). Guarded here for the pushforward independently.
+        if self.pushforward_weight > 0.0 and self.emit_family_core:
+            from views_hydranet.distributions.registry import self_zeroed_family_names
+
+            if self.output_distribution in self_zeroed_family_names():
+                err_msg = (
+                    f"pushforward_weight={self.pushforward_weight} with emit_family_core=True on "
+                    f"a self_zeroed family ({self.output_distribution!r}): the pushforward "
+                    "feedback is not core-aware, so training would feed the self-zeroed body "
+                    "while inference feeds the π-stripped core — a silent train/deploy exposure "
+                    "mismatch (C-234/C-239). Make _family_feedback_log1p core-aware first."
+                )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
+        return self
+
+    @model_validator(mode="after")
     def validate_pos_weight_length(self) -> "HydraNetConfig":
         """A per-target pos_weight list needs one entry per classification target (sb/ns/os)."""
         pw = self.loss_class_pos_weight
         if isinstance(pw, list):
             n = len(self.classification_targets or [])
             if len(pw) != n:
-                raise ValueError(
+                err_msg = (
                     f"loss_class_pos_weight list has {len(pw)} entries but there are "
                     f"{n} classification_targets — provide one pos_weight per target."
                 )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
         return self
 
     @model_validator(mode="after")
@@ -744,13 +1007,15 @@ class HydraNetConfig(BaseModel):
                 k for k in ("hurdle_threshold", "hurdle_mask_mode", "body_mask") if k in data
             ]
             if retired:
-                raise ValueError(
+                err_msg = (
                     f"{retired} is retired (ADR-065 amend. 2026-07-28). Use body_supervision ∈ "
                     "{'all','active'} + onset_lead/cessation_lag: body_mask='none' → "
                     "body_supervision='all'; 'pos_cells' → ('active', onset_lead=0, "
                     "cessation_lag=0); 'pos_timelines' → ('active', onset_lead>=T-1, "
                     "cessation_lag>=T-1). hurdle_threshold/hurdle_mask_mode likewise map to these."
                 )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
         return data
 
     @model_validator(mode="after")
@@ -1071,15 +1336,23 @@ class HydraNetConfig(BaseModel):
                 )
                 logger.error(err_msg)
                 raise ValueError(err_msg)
-            # The 'mean' TRAINING feedback path (_family_target_log1p_mean) is UNGATED, but
-            # inference's mean path composes the gate (_emit_magnitude). So 'mean' feedback is only
-            # valid under self_zeroed composition; under a gate it silently mismatches — reject it
-            # until a gated-mean training feedback exists (C-259, deferred fix).
+            # 'mean' feedback under a GATED composition is rejected as a DESIGN CHOICE, not
+            # because the two paths disagree. They used to: the training 'mean' path fed the
+            # ungated body while inference composed the gate — that was C-259's original instance.
+            # Since Epic #353 / S2 (#355) `_family_feedback_log1p` composes exactly as
+            # `_emit_magnitude` does (both call `compose_mean`), so train == deploy holds for this
+            # pair too. The guard stays because a family head's evidenced production feedback is
+            # `sample` (ADR-070: it bounds the C-113 bloom 9/9 where `mean` blooms 9/9), and
+            # letting `mean` through under SS would open an untested exposure at no benefit.
+            # Delete this guard only with a pre-registered arm behind it — it is the thing that
+            # keeps S2's "the composed-mean path is unreachable from SS" claim true.
             if self.forecast_composition != "self_zeroed" and self.ss_feedback == "mean":
                 err_msg = (
                     "scheduled sampling is active with a GATED forecast_composition "
-                    f"({self.forecast_composition!r}) but ss_feedback='mean': the training mean "
-                    "feedback is UNGATED while inference's mean is gated (C-259). Use "
+                    f"({self.forecast_composition!r}) but ss_feedback='mean'. The evidenced "
+                    "feedback for a family head under SS is 'sample' (ADR-070); 'mean' is not "
+                    "wrong-by-construction any more (both paths compose the gate since #355) but "
+                    "it is unevidenced, and this guard keeps it off the SS path (C-259). Use "
                     "ss_feedback='sample' under a gate."
                 )
                 logger.error(err_msg)
@@ -1124,9 +1397,9 @@ class HydraNetConfig(BaseModel):
         try:
             return getattr(self, key)
         except AttributeError:
-            logger.error(f"HydraNetConfig: key '{key}' not found.")
-
-            raise KeyError(key)
+            err_msg = f"HydraNetConfig: key '{key}' not found."
+            logger.error(err_msg)
+            raise KeyError(err_msg) from None
 
     def __contains__(self, key: str) -> bool:
         return hasattr(self, key)
@@ -1136,6 +1409,63 @@ class HydraNetConfig(BaseModel):
 
     def keys(self) -> list[str]:
         return list(self.model_fields.keys()) + list(self.__pydantic_extra__.keys())
+
+    @model_validator(mode="after")
+    def reject_near_miss_keys(self) -> "HydraNetConfig":
+        """A key that is ALMOST a known field is a typo, and `extra="allow"` would swallow it.
+
+        `extra = "allow"` is load-bearing and must stay: configs legitimately carry keys owned by
+        other layers (`skip_predictions_delivery` is read by views-pipeline-core's config sniffer,
+        not here). So unknown keys cannot simply be rejected.
+
+        But the same tolerance means `freeze_recurent: "cell"` validates, does nothing, and looks
+        enabled — the **C-324 inert-knob signature**, on a setting whose whole point is that it
+        changes a delivered forecast. This guard splits the two cases: an unknown key that is
+        within one edit of a real field is a typo and fails loud; anything else is another layer's
+        business and passes untouched.
+
+        Threshold is distance 1 deliberately. Distance 2 flags `delta` against `theta` and similar
+        unrelated short names, which would make the guard a nuisance and get it disabled.
+
+        ⚠️ **Known live near-miss: `rnn_type` vs `run_type`.** `rnn_type` is a real key in this
+        platform — `dancing_queen` and `party_princess` carry it — and it is one edit from
+        `run_type`. Those two are `BlockRNNModel`, so they never reach this schema, and a sweep of
+        every model in views-models confirms **0 of the 8 HydraNet configs** trips this guard
+        today. But HydraNet is itself an RNN, so a future HydraNet gaining an `rnn_type` key would
+        be rejected with a confusing "did you mean run_type?". If that happens the fix is an
+        explicit allowlist of platform-legitimate keys, NOT loosening the distance threshold.
+        """
+        extras = getattr(self, "__pydantic_extra__", None) or {}
+        if not extras:
+            return self
+        known = set(type(self).model_fields)
+
+        def within_one_edit(a: str, b: str) -> bool:
+            if abs(len(a) - len(b)) > 1:
+                return False
+            if len(a) == len(b):
+                return sum(x != y for x, y in zip(a, b)) == 1
+            short, long = (a, b) if len(a) < len(b) else (b, a)
+            for i in range(len(long)):
+                if long[:i] + long[i + 1 :] == short:
+                    return True
+            return False
+
+        typos = {
+            k: sorted(f for f in known if within_one_edit(k, f))
+            for k in extras
+            if any(within_one_edit(k, f) for f in known)
+        }
+        if typos:
+            detail = "; ".join(f"{k!r} -> did you mean {v}?" for k, v in sorted(typos.items()))
+            err_msg = (
+                f"config key(s) one edit away from a real field: {detail}. Rename, or if the key "
+                "genuinely belongs to another layer, rename it so it is not a near-miss. "
+                'extra="allow" would otherwise accept it, and the setting would do nothing.'
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
 
     class Config:
         extra = "allow"  # Tolerant Handshake

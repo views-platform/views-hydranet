@@ -1,0 +1,1 @@
+{"model": "purple_alien", "arm": "use_real", "artifact": "calibration_model_20260813_062540.pt", "pred_dir": "predictions_calibration_20260813_062540", "score_csv": "score_purple_alien_use_real.csv", "fedfield_csv": "fedfield_purple_alien_use_real.csv", "elapsed_s": 608.9, "cubes_deleted": true, "length_scale": null, "gate_probe": false}

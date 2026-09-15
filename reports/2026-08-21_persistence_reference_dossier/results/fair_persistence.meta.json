@@ -1,0 +1,29 @@
+{
+  "truth": "/home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-07-28_datafactory_migration_dossier/tools/v2_truth/calibration_datafactory_df.parquet",
+  "n_origins": 13,
+  "origins": [
+    457,
+    458,
+    459,
+    460,
+    461,
+    462,
+    463,
+    464,
+    465,
+    466,
+    467,
+    468,
+    469
+  ],
+  "n_support": 170430,
+  "horizons": [
+    1,
+    6,
+    12,
+    18,
+    24,
+    30,
+    36
+  ]
+}

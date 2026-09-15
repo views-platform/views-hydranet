@@ -1,0 +1,15 @@
+{
+  "label": "filmfullzero_fortythree",
+  "artifact": "calibration_model_20260825_190255.pt",
+  "pred_dir": "predictions_calibration_20260825_190255",
+  "weight_sha256": "34d0a5e6eddf46ae66eb35db13951032a4e764ce5d993e6550b53d3c507b2a05",
+  "total_lessons": 300,
+  "ss_epsilon_max": 0.0,
+  "ss_feedback": "sample",
+  "torch_seed": 43,
+  "output_distribution": "nb",
+  "forecast_composition": "soft_gate",
+  "resumed_from_artifact": false,
+  "head": "328e549b021ff02d1827dc2e56df8fba5332215d",
+  "emit_head": "328e549b021ff02d1827dc2e56df8fba5332215d"
+}

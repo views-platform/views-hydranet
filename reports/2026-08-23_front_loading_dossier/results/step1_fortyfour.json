@@ -1,0 +1,19 @@
+{
+ "seed": "fortyfour",
+ "origin": 335,
+ "period": 371,
+ "seq_len": 384,
+ "truth_active_fraction": 0.003395061707124114,
+ "mean_gate": 0.0044042752124369144,
+ "mean_gate_x_pnonzero": 0.0015522078610956669,
+ "mean_p_nonzero": 0.004789350088685751,
+ "sampled_emitted_active_fraction": 0.0015498456766363234,
+ "sampled_per_draw_sd": 0.0001779313623695199,
+ "sampled_se_of_mean": 1.258164729172484e-05,
+ "k_draws": 200,
+ "G_gate_over_truth": 1.2972592525181772,
+ "C_composed_over_truth": 0.4571957728599018,
+ "F2_analytic_vs_sampled_rel": 0.0015241417225941142,
+ "F2": "PASS",
+ "F4": "PASS"
+}

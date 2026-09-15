@@ -1,0 +1,1 @@
+{"model": "shortzero_fortyseven", "arm": "use_real", "artifact": "calibration_model_20260819_111701.pt", "pred_dir": "predictions_calibration_20260819_111701", "score_csv": "score_shortzero_fortyseven_use_real.csv", "fedfield_csv": "fedfield_shortzero_fortyseven_use_real.csv", "elapsed_s": 746.5, "cubes_deleted": true, "length_scale": null, "gate_probe": false}

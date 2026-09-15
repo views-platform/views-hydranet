@@ -1,0 +1,33 @@
+wrote /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-08-24_architecture_bakeoff_dossier/results/score_widefullzero_fortythree.csv  (7 rows: 1 models × 1 targets × 7 h)
+
+=== sb: crps_all / mcr_none by horizon ===
+h                           1      6      12     18     24     30     36
+model                                                                   
+widefullzero_fortythree 0.1252 0.1122 0.1104 0.1339 0.1329 0.1687 0.8747
+{
+  "1": {
+    "ap": 0.48609594636020337,
+    "lo": 0.4723283054235136,
+    "hi": 0.5026780193511828,
+    "mde": 0.01517485696383461,
+    "n_origins": 13.0
+  },
+  "18": {
+    "ap": 0.3406990456577003,
+    "lo": 0.3234201982899858,
+    "hi": 0.3607865096008086,
+    "mde": 0.0186831556554114,
+    "n_origins": 13.0
+  }
+}
+{
+  "ratio": 0.700888473168295,
+  "lo": 0.652218446467841,
+  "hi": 0.7443798483947427,
+  "mde": 0.04608070096345085,
+  "ap_num": 0.3406990456577003,
+  "ap_den": 0.48609594636020337,
+  "numerator_h": 18.0,
+  "denominator_h": 1.0,
+  "n_origins": 13.0
+}

@@ -1,0 +1,173 @@
+[2026-08-18 04:49:33] === lesson curve · HEAD eb388f90528f · budget 26h ===
+[2026-08-18 04:49:33] --- stage 1: sigma_seed at L=160, and the anchor's ceiling ---
+[2026-08-18 04:49:34] anchor oracle (use_real) on calibration_model_20260817_181608.pt
+[2026-08-18 05:07:43] anchor oracle OK in 18 min
+[2026-08-18 05:07:44] building longzero_fortythree (lessons=160 seed=43)
+built /home/simon/Documents/scripts/views_platform/views-models/models/longzero_fortythree
+[2026-08-18 05:07:45] seed arm longzero_fortythree (elapsed .30h)
+[2026-08-18 05:07:45] longzero_fortythree: train+emit start (HEAD eb388f9)
+[2026-08-18 06:21:36] longzero_fortythree: train+emit rc=0 in 73 min
+[2026-08-18 06:21:36] longzero_fortythree: cube predictions_calibration_20260818_060952 with 13 origins
+[2026-08-18 06:23:13] longzero_fortythree: scored + bootstrapped
+[2026-08-18 06:23:15] longzero_fortythree: cube deleted
+[2026-08-18 06:23:15] longzero_fortythree: ARM COMPLETE
+[2026-08-18 06:23:15] longzero_fortythree OK
+[2026-08-18 06:23:16] building longzero_fortyfour (lessons=160 seed=44)
+built /home/simon/Documents/scripts/views_platform/views-models/models/longzero_fortyfour
+[2026-08-18 06:23:17] seed arm longzero_fortyfour (elapsed 1.56h)
+[2026-08-18 06:23:17] longzero_fortyfour: train+emit start (HEAD eb388f9)
+[2026-08-18 07:22:40] longzero_fortyfour: train+emit rc=0 in 59 min
+[2026-08-18 07:22:40] longzero_fortyfour: cube predictions_calibration_20260818_071100 with 13 origins
+[2026-08-18 07:24:22] longzero_fortyfour: scored + bootstrapped
+[2026-08-18 07:24:24] longzero_fortyfour: cube deleted
+[2026-08-18 07:24:24] longzero_fortyfour: ARM COMPLETE
+[2026-08-18 07:24:24] longzero_fortyfour OK
+[2026-08-18 07:24:25] building longzero_fortyfive (lessons=160 seed=45)
+built /home/simon/Documents/scripts/views_platform/views-models/models/longzero_fortyfive
+[2026-08-18 07:24:25] seed arm longzero_fortyfive (elapsed 2.58h)
+[2026-08-18 07:24:25] longzero_fortyfive: train+emit start (HEAD eb388f9)
+[2026-08-18 08:23:25] longzero_fortyfive: train+emit rc=0 in 59 min
+[2026-08-18 08:23:25] longzero_fortyfive: cube predictions_calibration_20260818_081158 with 13 origins
+[2026-08-18 08:24:58] longzero_fortyfive: scored + bootstrapped
+[2026-08-18 08:25:01] longzero_fortyfive: cube deleted
+[2026-08-18 08:25:01] longzero_fortyfive: ARM COMPLETE
+[2026-08-18 08:25:01] longzero_fortyfive OK
+verify_curve: VOID (4 arms, 1 problem(s))
+[2026-08-18 08:25:02] stage 1 verdict: VOID
+[2026-08-18 08:25:02] building fullzero_fortytwo (lessons=300 seed=42)
+built /home/simon/Documents/scripts/views_platform/views-models/models/fullzero_fortytwo
+[2026-08-18 08:25:03] --- L=300: fullzero_fortytwo (elapsed 3.59h, remaining 22.41h) ---
+[2026-08-18 08:25:04] fullzero_fortytwo: total_lessons=300  TRAIN_TIMEOUT=21600s (6h)
+[2026-08-18 08:25:04] fullzero_fortytwo: total_lessons=300  TRAIN_TIMEOUT=21600s (6h)
+[2026-08-18 08:25:04] fullzero_fortytwo: train+emit start (HEAD eb388f9)
+[2026-08-18 08:25:04] fullzero_fortytwo: train+emit start (HEAD eb388f9)
+[2026-08-18 09:31:44] fullzero_fortytwo: train+emit rc=1 in 66 min
+[2026-08-18 09:31:44] fullzero_fortytwo: train+emit rc=1 in 66 min
+[2026-08-18 09:31:44] fullzero_fortytwo: FAILED — see fullzero_fortytwo_run.log
+[2026-08-18 09:31:44] fullzero_fortytwo: FAILED — see fullzero_fortytwo_run.log
+[2026-08-18 09:31:44] fullzero_fortytwo control FAILED
+verify_curve: UNDERPOWERED (4 arms, 0 problem(s))
+[2026-08-18 09:31:45] after L=300: UNDERPOWERED
+[2026-08-18 09:31:46] building sixhundredzero_fortytwo (lessons=600 seed=42)
+built /home/simon/Documents/scripts/views_platform/views-models/models/sixhundredzero_fortytwo
+[2026-08-18 09:31:46] --- L=600: sixhundredzero_fortytwo (elapsed 4.70h, remaining 21.30h) ---
+[2026-08-18 09:31:47] sixhundredzero_fortytwo: total_lessons=600  TRAIN_TIMEOUT=25200s (7h)
+[2026-08-18 09:31:47] sixhundredzero_fortytwo: total_lessons=600  TRAIN_TIMEOUT=25200s (7h)
+[2026-08-18 09:31:47] sixhundredzero_fortytwo: train+emit start (HEAD eb388f9)
+[2026-08-18 09:31:47] sixhundredzero_fortytwo: train+emit start (HEAD eb388f9)
+[2026-08-18 09:39:25] followup: waiting for the main driver to finish
+[2026-08-18 13:09:03] followup: waiting for the in-flight arm to end (train+emit+score+oracle)
+[2026-08-18 16:31:48] sixhundredzero_fortytwo: train+emit rc=124 in 420 min
+[2026-08-18 16:31:48] sixhundredzero_fortytwo: train+emit rc=124 in 420 min
+[2026-08-18 16:31:48] sixhundredzero_fortytwo: FAILED — TIMEOUT at 25200s. The cost estimate was wrong, not the arm.
+[2026-08-18 16:31:48] sixhundredzero_fortytwo: FAILED — TIMEOUT at 25200s. The cost estimate was wrong, not the arm.
+[2026-08-18 16:32:48] followup: no arm running; taking over
+[2026-08-18 16:32:48] followup: timeout formula 36*L+3600 -> 72*L (L=600: 7h -> 12h; L=900: 10h -> 18h). Measured worst rate
+        was 0.839 min/lesson, so 72 s/lesson carries ~1.4x margin.
+[2026-08-18 16:32:49] followup: RETRY the point lost to the CUDA failure: fullzero_fortytwo (L=300 seed=42)
+[2026-08-18 16:32:50] fullzero_fortytwo: total_lessons=300  TRAIN_TIMEOUT=21600s (6h)
+[2026-08-18 16:32:50] fullzero_fortytwo: total_lessons=300  TRAIN_TIMEOUT=21600s (6h)
+[2026-08-18 16:32:50] fullzero_fortytwo: train+emit start (HEAD eb388f9)
+[2026-08-18 16:32:50] fullzero_fortytwo: train+emit start (HEAD eb388f9)
+[2026-08-18 16:33:57] followup3: armed; waiting for the in-flight L=300 arm
+[2026-08-18 22:32:50] fullzero_fortytwo: train+emit rc=124 in 360 min
+[2026-08-18 22:32:50] fullzero_fortytwo: train+emit rc=124 in 360 min
+[2026-08-18 22:32:50] fullzero_fortytwo: FAILED — TIMEOUT at 21600s. The cost estimate was wrong, not the arm.
+[2026-08-18 22:32:50] fullzero_fortytwo: FAILED — TIMEOUT at 21600s. The cost estimate was wrong, not the arm.
+[2026-08-18 22:33:05] followup3: GPU free; taking over
+built /home/simon/Documents/scripts/views_platform/views-models/models/longzero_fortysix
+[2026-08-18 22:33:06] followup3: anchor seed longzero_fortysix — n -> 5 (AMENDMENT 2)
+[2026-08-18 22:33:06] longzero_fortysix: train+emit start (HEAD eb388f9)
+[2026-08-18 23:57:39] followup4: armed (GPU 735 MHz, 3105 MHz, 87); waiting for seed 46
+[2026-08-19 01:48:01] longzero_fortysix: train+emit rc=0 in 194 min
+[2026-08-19 01:48:01] longzero_fortysix: cube predictions_calibration_20260819_011352 with 13 origins
+[2026-08-19 01:49:36] longzero_fortysix: scored + bootstrapped
+[2026-08-19 01:49:38] longzero_fortysix: cube deleted
+[2026-08-19 01:49:38] longzero_fortysix: ARM COMPLETE
+[2026-08-19 01:49:43] followup4: GPU free; taking over
+[2026-08-19 01:49:43] followup4: ABORT — 10G free
+[2026-08-19 08:36:35] followup4: armed (GPU 600 MHz, 3105 MHz, 56); waiting for seed 46
+[2026-08-19 08:37:35] followup4: GPU free; taking over
+[2026-08-19 08:37:35] followup4: RECOVER L=300 from the saved artifact (emit only, no retrain). GPU 795 MHz, 3105 MHz, 55
+[2026-08-19 08:37:36] fullzero_fortytwo: total_lessons=300  TRAIN_TIMEOUT=45000s (12h)
+[2026-08-19 08:37:36] fullzero_fortytwo: total_lessons=300  TRAIN_TIMEOUT=45000s (12h)
+[2026-08-19 08:37:36] fullzero_fortytwo: RESUMING from calibration_model_20260818_221401.pt — training already done, emit only
+[2026-08-19 08:37:36] fullzero_fortytwo: RESUMING from calibration_model_20260818_221401.pt — training already done, emit only
+[2026-08-20 13:08:39] queue: === queue start · HEAD 9b16b9be9b69 · 3 arm(s): 300:42:resume@eb388f90528fa86d26936004ccf87d50b90b734a 160:47 600:42 ===
+[2026-08-20 13:08:41] queue: --- fullzero_fortytwo (L=300 seed=42 resume@eb388f90528fa86d26936004ccf87d50b90b734a) ---
+[2026-08-20 13:08:42] fullzero_fortytwo: total_lessons=300  TRAIN_TIMEOUT=45000s (12h)
+[2026-08-20 13:08:42] fullzero_fortytwo: RESUMING from calibration_model_20260818_221401.pt — training already done, emit only
+[2026-08-20 13:15:09] fullzero_fortytwo: train+emit rc=0 in 6 min
+[2026-08-20 13:15:09] fullzero_fortytwo: cube predictions_calibration_20260818_221401 with 13 origins
+[2026-08-20 13:18:37] fullzero_fortytwo: scored + bootstrapped (AP rc=0, retention rc=0)
+[2026-08-20 13:18:39] fullzero_fortytwo: cube deleted
+[2026-08-20 13:18:40] fullzero_fortytwo: oracle (use_real) on calibration_model_20260818_221401.pt
+[2026-08-20 13:25:32] fullzero_fortytwo: oracle OK in 6 min
+FLOOR GATE: PASS
+  thresholds md5: 6d5714d5ceda147ed16f53143abe7e37
+  FG-A [         PASS] AP 0.32984 / prevalence 0.009077 = 36.34x (need >= 5.0x)
+  FG-B [         PASS] AP(h1) 0.47788 / clim 0.29798 = 1.604x (want >= 1.2)
+  FG-C [         PASS] a 30% effect is 0.23089 AP; 3x MDE is 0.05473
+retention: 0.6902
+[2026-08-20 13:25:33] fullzero_fortytwo: GATE written: FLOORGATE_fullzero_fortytwo_PASS
+[2026-08-20 13:25:33] fullzero_fortytwo: ARM COMPLETE
+[2026-08-20 13:25:33] queue: fullzero_fortytwo OK
+verify_curve: UNDERPOWERED (6 arms, 0 problem(s))
+[2026-08-20 13:25:34] queue: building longzero_fortyseven (lessons=160 seed=47)
+built /home/simon/Documents/scripts/views_platform/views-models/models/longzero_fortyseven
+[2026-08-20 13:25:35] queue: --- [2026-08-20 13:25:34] queue: building longzero_fortyseven (lessons=160 seed=47)
+longzero_fortyseven (L=160 seed=47 fresh) ---
+[2026-08-20 13:25:35] [2026-08-20 13:25:34] queue: building longzero_fortyseven (lessons=160 seed=47)
+longzero_fortyseven: ABORT — arm dir missing
+[2026-08-20 13:25:35] queue: [2026-08-20 13:25:34] queue: building longzero_fortyseven (lessons=160 seed=47)
+longzero_fortyseven FAILED rc=2
+verify_curve: UNDERPOWERED (6 arms, 0 problem(s))
+[2026-08-20 13:25:37] queue: --- sixhundredzero_fortytwo (L=600 seed=42 fresh) ---
+[2026-08-20 13:25:38] sixhundredzero_fortytwo: total_lessons=600  TRAIN_TIMEOUT=90000s (25h)
+[2026-08-20 13:25:38] sixhundredzero_fortytwo: train+emit start (HEAD 9b16b9b)
+[2026-08-20 14:53:12] sixhundredzero_fortytwo: train+emit rc=1 in 87 min
+[2026-08-20 14:53:12] sixhundredzero_fortytwo: FAILED — see sixhundredzero_fortytwo_run.log
+[2026-08-20 14:53:12] queue: sixhundredzero_fortytwo FAILED rc=1
+verify_curve: UNDERPOWERED (6 arms, 0 problem(s))
+[2026-08-20 14:53:12] queue: === queue end · completed: fullzero_fortytwo · failed/skipped: [2026-08-20 13:25:34] queue: building longzero_fortyseven (lessons=160 seed=47)
+longzero_fortyseven sixhundredzero_fortytwo ===
+[2026-08-20 15:18:54] queue: === queue start · HEAD 9b16b9be9b69 · 2 arm(s): 160:47 600:42 ===
+[2026-08-20 15:18:56] queue: --- longzero_fortyseven (L=160 seed=47 fresh) ---
+[2026-08-20 15:18:56] longzero_fortyseven: total_lessons=160  TRAIN_TIMEOUT=24000s (6h)
+[2026-08-20 15:18:56] longzero_fortyseven: train+emit start (HEAD 9b16b9b)
+[2026-08-20 16:17:57] longzero_fortyseven: train+emit rc=0 in 59 min
+[2026-08-20 16:17:57] longzero_fortyseven: cube predictions_calibration_20260820_160246 with 13 origins
+[2026-08-20 16:21:12] longzero_fortyseven: scored + bootstrapped (AP rc=0, retention rc=0)
+[2026-08-20 16:21:14] longzero_fortyseven: cube deleted
+[2026-08-20 16:21:15] longzero_fortyseven: oracle (use_real) on calibration_model_20260820_160246.pt
+[2026-08-20 16:36:47] longzero_fortyseven: oracle OK in 15 min
+FLOOR GATE: PASS
+  thresholds md5: 6d5714d5ceda147ed16f53143abe7e37
+  FG-A [         PASS] AP 0.26047 / prevalence 0.009077 = 28.70x (need >= 5.0x)
+  FG-B [         PASS] AP(h1) 0.46065 / clim 0.29798 = 1.546x (want >= 1.2)
+  FG-C [         PASS] a 30% effect is 0.18233 AP; 3x MDE is 0.05965
+retention: 0.5654
+[2026-08-20 16:36:48] longzero_fortyseven: GATE written: FLOORGATE_longzero_fortyseven_PASS
+[2026-08-20 16:36:48] longzero_fortyseven: ARM COMPLETE
+[2026-08-20 16:36:48] queue: longzero_fortyseven OK
+verify_curve: UNDERPOWERED (7 arms, 0 problem(s))
+[2026-08-20 16:36:50] queue: --- sixhundredzero_fortytwo (L=600 seed=42 fresh) ---
+[2026-08-20 16:36:51] sixhundredzero_fortytwo: total_lessons=600  TRAIN_TIMEOUT=90000s (25h)
+[2026-08-20 16:36:51] sixhundredzero_fortytwo: train+emit start (HEAD 9b16b9b)
+[2026-08-20 19:32:28] sixhundredzero_fortytwo: train+emit rc=0 in 175 min
+[2026-08-20 19:32:28] sixhundredzero_fortytwo: cube predictions_calibration_20260820_192207 with 13 origins
+[2026-08-20 19:35:13] sixhundredzero_fortytwo: scored + bootstrapped (AP rc=0, retention rc=0)
+[2026-08-20 19:35:15] sixhundredzero_fortytwo: cube deleted
+[2026-08-20 19:35:15] sixhundredzero_fortytwo: oracle (use_real) on calibration_model_20260820_192207.pt
+[2026-08-20 19:44:35] sixhundredzero_fortytwo: oracle OK in 9 min
+FLOOR GATE: PASS
+  thresholds md5: 6d5714d5ceda147ed16f53143abe7e37
+  FG-A [         PASS] AP 0.34523 / prevalence 0.009077 = 38.03x (need >= 5.0x)
+  FG-B [         PASS] AP(h1) 0.49915 / clim 0.29798 = 1.675x (want >= 1.2)
+  FG-C [         PASS] a 30% effect is 0.24166 AP; 3x MDE is 0.03902
+retention: 0.6916
+[2026-08-20 19:44:35] sixhundredzero_fortytwo: GATE written: FLOORGATE_sixhundredzero_fortytwo_PASS
+[2026-08-20 19:44:35] sixhundredzero_fortytwo: ARM COMPLETE
+[2026-08-20 19:44:35] queue: sixhundredzero_fortytwo OK
+verify_curve: UNDERPOWERED (8 arms, 0 problem(s))
+[2026-08-20 19:44:36] queue: === queue end · completed: longzero_fortyseven sixhundredzero_fortytwo · failed/skipped: none ===

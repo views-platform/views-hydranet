@@ -34,3 +34,40 @@ jobs:
             --ignore=tests/test_falsification_end_to_end_claim.py \
             --deselect "tests/test_falsification_repo_clean.py::TestF4_01_UncommittedChanges::test_git_working_tree_is_clean" \
             -v --tb=short
+
+  # The distributable is what people actually install; `test` only ever exercises the source
+  # tree. `pyproject.toml` is a second contract that NO test reads — nothing in tests/ references
+  # `readme`, `[project]` or the build system — so a broken packaging key passes the suite and
+  # fails the build. Without this job the first build happens in the publish workflow, i.e. after
+  # a tag is cut and a Release published, which is the worst moment to discover it.
+  #
+  # This deliberately builds the SAME WAY the publish workflow does (`uv build`), so what CI
+  # proves and what ships are the same artifact. Building here with a different tool would prove
+  # something else.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # Pinned to SHAs, matching publish_package.yml. A floating tag on the job that proves the
+      # distributable is the one place a supply-chain swap would be invisible (S6/#359).
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86  # v5
+        with:
+          python-version: "3.11"
+          version: "0.8.13"  # keep in sync with publish_package.yml (same pin, same SHAs)
+
+      - name: Build sdist + wheel
+        run: uv build
+
+      # Catches what PyPI itself would reject at upload — chiefly a long_description (README)
+      # that does not render. That rejection would otherwise land mid-release.
+      - name: Validate the artifact metadata
+        run: uv run --no-project --python 3.11 --with twine twine check dist/*
+
+      # --no-deps, and the contract still imports the package: `views_hydranet/__init__.py` is a
+      # lazy PEP-562 `__getattr__`, so the top-level import needs no torch. publish_package.yml
+      # runs this SAME file against the wheel it downloads back from TestPyPI (S6/#359).
+      - name: Install the wheel and check its contract
+        run: |
+          uv venv /tmp/v --python 3.11
+          uv pip install --python /tmp/v/bin/python --no-deps dist/*.whl
+          /tmp/v/bin/python .github/scripts/wheel_contract.py

@@ -2,7 +2,7 @@
 
 **Status:** Active
 **Owner:** Training Strategy
-**Related ADRs:** ADR-011, ADR-056, ADR-058 (parked), ADR-060, ADR-070; C-246 / C-259 (feedback parity), C-184 (BN recalibration)
+**Related ADRs:** ADR-011, ADR-056, ADR-058 (parked), **ADR-059 (MC-dropout is the production posterior — the BN recal pass must run in that regime)**, ADR-060, ADR-070; C-246 / C-259 (feedback parity), C-184 (BN recalibration), C-328 (augmentation reaching the recal pass)
 **Last reviewed:** 2026-08-14
 
 ---
@@ -49,13 +49,16 @@ types (module docstring `training_engine.py:1`).
   sampling substitutes only the **INPUT**, never the target (ADR-056; see §4).
 - **Input-only scheduled substitution (invariant):** when `ss_epsilon > 0` and a previous
   prediction exists, `dyn_input = torch.where(mask, prev_pred, t0_gt)` (`training_engine.py:337-339`),
-  with `prev_pred` **detached** (`:362`, `:364`) so no gradient flows through the feedback edge.
+  with `prev_pred` **detached by default** so no gradient flows through the feedback edge — unless `ss_backprop_through_feedback` is set (#308), which leaves it attached and applies a straight-through estimator on a family head. `ss_feedback_grad_clip` then bounds that gradient **per step**, and it runs BEFORE the `raw_grad_norm` audit, so with the clip on that column is post-hook and no longer the pre-clip quantity its label claims.
 - **Train/inference feedback parity (invariant):** the fed-back copy is built by
   `_family_feedback_log1p` (`training_engine.py:218`), which for `ss_feedback="sample"` produces a
   composition-aware family draw that **mirrors** `hydranet_inference._sample_feedback`
   (`hydranet_inference.py:292`). The premise of scheduled sampling ("train exposure == deploy
   exposure") holds only if the two construct the same object; a mismatch silently invalidates any
   SS verdict (C-246 / C-259; test `tests/train/test_feedback_parity.py`).
+- **The BN-recalibration passes see CLEAN data (invariant):** both `_recalibrate_bn` and a `bn_recal_from` run pass `training_augmentation=False`, which suppresses every training-only augmentation on those passes — the input noise, `random_flips` and **scheduled sampling** — and **deliberately NOT dropout**. Inference is `model.eval()` + `set_locked_dropout(True)` (**ADR-059** — *"Monte-Carlo Dropout with locked masks is the production posterior. At inference we keep dropout active"* — and CIC `HydraBNUNet06LSTM4.md`; ADR-057 is the proposed-ADR origin, MC-dropout with a locked mask), so BatchNorm must normalise dropout-shaped activations; the C-184 fix was validated with dropout on. ⚠️ Epic #353 / S3 (#356) briefly switched dropout off on these passes on the premise that inference runs it off; `/code-review max` on #372 measured `running_var` 14–21% low at 14 of 15 BN layers and the flip was reverted before merge. What S3 did land: `ss_epsilon` was passed live into the `bn_recal_from` loop (C-328 instance 5); it is now zeroed where ε is computed — so the value logged to wandb is the value used — and `train()` zeroes it again internally whenever `training_augmentation=False`, so the flag means what it says inside the function and not only at one call site. Pinned by `tests/train/test_bn_recal_augmentation.py`: no suppressed call flips (anti-vacuity: ordinary calls do), dropout modules are in train mode *during* every recal forward (a forward-time hook, not an after-return read), and `_process_sequence` receives ε=0 on every recal forward. **And the invariant is measured, not only asserted:** `tests/train/test_bn_recal_matches_inference_regime.py` runs a real recalibration, then runs the model exactly as inference does over the same windows, and requires `running_var` to be no lower than the variance inference actually feeds BatchNorm (correct regime ≈1.12; the reverted S3 draft 0.85). It fails on ANY regime drift between the two passes, which is what three documents on the consumer side could not do. **Every recal exit asserts the BN buffers are finite** (`_assert_bn_buffers_finite`): a non-finite activation on one forward poisons every layer's running stats permanently under `momentum=None`, and nothing else on either path checks what the pass actually produces (S4 #357, #372 review).
+- **The segment start is left CLEAN (invariant):** input noise resets its accumulating mask at each `time_steps` boundary and does **not** drop on that step, because deployment feeds a real observation at the seed step and the design fits survival as `(1-p)^(h-1)`.
+- **Input noise touches DYNAMIC channels only (invariant):** `input_noise_dropout` (#311) is applied to `dyn_input` after the scheduled-sampling resolution and **before** the static re-attach, and `_noisable_channels` excludes any feature also declared static. Geometry is *"always the true values, never sampled"*. The Stage-5 diagnostic biopsy is never noised — it is a clean-performance probe. ⚠️ No arm in this fleet declares statics, so the exclusion branch is covered by a synthetic-config test (C-309).
 - **Static-channel re-attach (invariant):** every forward re-attaches input-only static channels
   as `[dynamic ⧺ static]` via `_attach_static_channels` (`training_engine.py:160`, called at `:344`
   in the main loop and `:710` in the diagnostic biopsy) — statics are geometry-constant, always the
@@ -132,6 +135,12 @@ types (module docstring `training_engine.py:1`).
 
 - **Explosion (hard stop):** `IntegrityGuardian.monitor` runs per lesson and hard-stops on a
   non-finite / exploded loss (`training_engine.py:976`). This is the primary loud guard.
+  ⚠️ **It is skipped on a BatchNorm-recalibration pass (Epic #353 / S4 #357).** A recal pass computes
+  no gradient and trains no weights; opening the ADR-014 tail on it meant a non-finite loss there
+  could abort a run whose weights were already final, discarding a completed training. The gate
+  around the tail (`windows_trained > 0 or _bn_recal`) is **required** and stays — `windows_trained`
+  can never increment on a recal pass, and the branch that short-circuits the backward is the head
+  of the same if/elif. Only the `monitor` call is excluded.
 - **The SS parameter guards live upstream, not here:** invalid `ss_schedule` / `ss_k` /
   `ss_epsilon_max` are rejected by `HydraNetConfig.validate_scheduled_sampling_params` and the
   `ScheduledSamplingMixer` constructor before the mixer reaches `training_loop` (`:885-893`); the
@@ -207,7 +216,7 @@ config["ss_feedback"] = "sample"   # MUST match inference feedback for parity (C
 - **Substituting the loss target under scheduled sampling.** Scheduled sampling replaces only the
   INPUT (`torch.where(mask, prev_pred, t0_gt)`, `:339`); computing loss against `prev_pred` instead
   of the true `y_reg` / `y_cls` (`:330`) breaks the ground-truth-target invariant (ADR-056).
-- **Feeding back a non-detached prediction.** `prev_pred` must be `.detach()`ed (`:362`, `:364`);
+- **Feeding back a non-detached prediction WITHOUT `ss_backprop_through_feedback`.** `prev_pred` is `.detach()`ed on the default path; removing that detach directly rather than via the flag bypasses the straight-through estimator, and for a family head un-detaching alone is a measured no-op (**C-324**). Setting `ss_feedback_grad_clip` without the flag is also incorrect and is now rejected by a validator: the clip would be silently inert. Historically:
   leaving the graph attached lets gradients flow through the exposure edge — not the trained model.
 - **Setting `ss_feedback="sample"` in training while inference feeds the mean (or vice versa).**
   This silently violates train/inference parity (C-246/C-259) — the two feedback objects diverge and

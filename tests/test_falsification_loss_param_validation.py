@@ -27,7 +27,17 @@ class TestF5_CICFieldCountDrift:
         # ADR-065 amend. 2026-07-28: +body_supervision, +onset_lead, +cessation_lag, -body_mask
         #   (net +2) -> 88
         # ADR-068 emit_family_core (th_gated_ZINBcore, Epic #167/#183): +emit_family_core -> 89
-        CIC_CLAIMED_COUNT = 89
+        # #287 ss_reverse (Teutsch 2022 ITF, increasing teacher forcing): +ss_reverse -> 90
+        # #289 pushforward (Brandstetter 2022): +pushforward_weight,
+        # +pushforward_detach_state -> 92
+        # C-314 (training-loop gradient audit): +clip_grad_max_norm -> 93
+        # #308 BPTT-SA: +ss_backprop_through_feedback -> 94
+        # #308 GRAD-TRAJ follow-up: +ss_feedback_grad_clip -> 95
+        # #311 input noise (Sanchez-Gonzalez 2020, adapted): +input_noise_dropout -> 96
+        # ADR-027 §2.1 cell clamp to production: +freeze_recurrent,
+        # +freeze_recurrent_weight -> 98
+        # C-184 mitigation promoted out of a shadow default: +bn_recalibrate -> 99
+        CIC_CLAIMED_COUNT = 99
         actual = len(HydraNetConfig.model_fields)
         assert actual == CIC_CLAIMED_COUNT, (
             f"CIC §3 claims {CIC_CLAIMED_COUNT} fields but HydraNetConfig has {actual}. "

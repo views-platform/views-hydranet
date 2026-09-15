@@ -1,0 +1,26 @@
+{
+  "state": "ITF FAILS TOO",
+  "detail": "both seeds <= control - 1\u03c3 \u2014 direction is not the answer",
+  "sigma": 0.0134,
+  "rows": [
+    {
+      "seed": 42,
+      "arm": "itffullhalf_fortytwo",
+      "control": 0.3298395823400329,
+      "itf": 0.31245626944549915,
+      "delta": -0.017383312894533764,
+      "sigmas": -1.2972621563084898,
+      "floor": "PASS"
+    },
+    {
+      "seed": 43,
+      "arm": "itffullhalf_fortythree",
+      "control": 0.33182533398580893,
+      "itf": 0.3104870219553184,
+      "delta": -0.021338312030490525,
+      "sigmas": -1.5924113455589943,
+      "floor": "PASS"
+    }
+  ],
+  "problems": []
+}

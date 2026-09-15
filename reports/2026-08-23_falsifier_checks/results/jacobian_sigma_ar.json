@@ -1,0 +1,61 @@
+{
+  "per_state": [
+    {
+      "state": "state_00.pt",
+      "sigma": 3.412039279937744,
+      "drift_last10": 2.096270525108779e-07,
+      "h_absmax": 65.62238311767578
+    },
+    {
+      "state": "state_01.pt",
+      "sigma": 7.762791633605957,
+      "drift_last10": 0.0,
+      "h_absmax": 56.62133026123047
+    },
+    {
+      "state": "state_02.pt",
+      "sigma": 4.636333465576172,
+      "drift_last10": 0.0,
+      "h_absmax": 19.737415313720703
+    },
+    {
+      "state": "state_03.pt",
+      "sigma": 1.8734074831008911,
+      "drift_last10": 0.0,
+      "h_absmax": 8.185757637023926
+    },
+    {
+      "state": "state_04.pt",
+      "sigma": 1.4819632768630981,
+      "drift_last10": 4.7459665116558925e-06,
+      "h_absmax": 5.125409126281738
+    },
+    {
+      "state": "state_05.pt",
+      "sigma": 1.479470133781433,
+      "drift_last10": 5.801447864120422e-06,
+      "h_absmax": 3.0173044204711914
+    },
+    {
+      "state": "state_06.pt",
+      "sigma": 1.476870059967041,
+      "drift_last10": 8.717492229324288e-06,
+      "h_absmax": 1.8316069841384888
+    },
+    {
+      "state": "state_07.pt",
+      "sigma": 1.4743841886520386,
+      "drift_last10": 1.067267700089044e-05,
+      "h_absmax": 1.597710371017456
+    }
+  ],
+  "sigma_max": 7.762791633605957,
+  "converged": true,
+  "gtf_alpha": 0.8711803630447978,
+  "m41_w": 0.1,
+  "verdict": "CORRESPONDENCE SUPERFICIAL \u2014 sigma_max outside [1.05, 1.20] and >= 1",
+  "iters": 250,
+  "n_states": 8,
+  "artifact": "/home/simon/Documents/scripts/views_platform/views-models/models/fullzero_fortythree/artifacts/calibration_model_20260821_045948.pt",
+  "states_dir": "/home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-08-23_falsifier_checks/results/states_ar"
+}

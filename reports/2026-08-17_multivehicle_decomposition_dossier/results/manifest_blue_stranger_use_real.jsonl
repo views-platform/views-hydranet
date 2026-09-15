@@ -1,0 +1,1 @@
+{"model": "blue_stranger", "arm": "use_real", "artifact": "calibration_model_20260813_042946.pt", "pred_dir": "predictions_calibration_20260813_042946", "score_csv": "score_blue_stranger_use_real.csv", "fedfield_csv": "fedfield_blue_stranger_use_real.csv", "elapsed_s": 816.6, "cubes_deleted": true, "length_scale": null, "gate_probe": false}

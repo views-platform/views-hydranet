@@ -1,0 +1,7 @@
+  AntiAliasedPool  rc=0   peak=4315   MiB  1448s  cube=yes  OK
+  DynamicTopSkip   rc=0   peak=4136   MiB  1607s  cube=yes  OK
+  FiLMSkip         rc=0   peak=4253   MiB  1476s  cube=yes  OK
+  ShallowPool      rc=0   peak=4188   MiB  1621s  cube=yes  OK
+  DualStream       rc=0   peak=4539   MiB  1295s  cube=yes  OK
+  WideMemory       rc=0   peak=4739   MiB  1308s  cube=yes  OK
+SMOKE OK — sentinel written

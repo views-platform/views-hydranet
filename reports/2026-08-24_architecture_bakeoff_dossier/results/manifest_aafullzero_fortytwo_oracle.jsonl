@@ -1,0 +1,1 @@
+{"model": "aafullzero_fortytwo", "arm": "use_real", "artifact": "calibration_model_20260825_041058.pt", "pred_dir": "predictions_calibration_20260825_041058", "score_csv": "score_aafullzero_fortytwo_use_real.csv", "fedfield_csv": "fedfield_aafullzero_fortytwo_use_real.csv", "elapsed_s": 647.2, "cubes_deleted": true, "length_scale": null, "gate_probe": false}

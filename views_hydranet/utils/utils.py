@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
+from views_hydranet.architectures.registry import get_architecture
 from views_hydranet.utils.count_mean_loss import CountMeanMSELoss
 from views_hydranet.utils.dense_nb_loss import DenseNBLoss
 from views_hydranet.utils.focal_loss import FocalLoss
@@ -26,25 +26,21 @@ logger = logging.getLogger(__name__)
 
 def choose_model(config: dict, device: torch.device) -> nn.Module:
     """Factory for model instantiation."""
-    if config["model"] == "HydraBNUNet06_LSTM4":
-        model = HydraBNUNet06_LSTM4(
-            config["input_channels"],
-            config["total_hidden_channels"],
-            config["output_channels"],
-            config["dropout_rate"],
-            output_distribution=config.get("output_distribution", "standard"),
-            n_static_channels=len(config.get("static_channels", [])),  # ADR-061 top-skip
-            static_top_skip=config.get("static_top_skip", True),  # C-228: False=encoder-only
-            reg_activation=config.get("reg_activation"),  # Exp B: decouple emit activation
-            n_quantiles=config.get("n_quantiles"),  # quantile head: K reg channels per target
-        ).to(device)
-    else:
-        err_msg = f"Unknown model type: {config['model']}"
-
-        logger.error(err_msg)
-
-        raise ValueError(err_msg)
-    return model
+    # ADR-061 top-skip / C-228 encoder-only / Exp B emit activation / quantile head width are all
+    # passed to EVERY architecture, so the registry stays a name lookup rather than a per-model
+    # argument table. get_architecture raises on an unknown name, naming what is registered.
+    model_cls = get_architecture(config["model"])
+    return model_cls(
+        config["input_channels"],
+        config["total_hidden_channels"],
+        config["output_channels"],
+        config["dropout_rate"],
+        output_distribution=config.get("output_distribution", "standard"),
+        n_static_channels=len(config.get("static_channels", [])),  # ADR-061 top-skip
+        static_top_skip=config.get("static_top_skip", True),  # C-228: False=encoder-only
+        reg_activation=config.get("reg_activation"),  # Exp B: decouple emit activation
+        n_quantiles=config.get("n_quantiles"),  # quantile head: K reg channels per target
+    ).to(device)
 
 
 # Loss registries: add new losses here, not in choose_loss().
@@ -207,7 +203,9 @@ def choose_loss(
         # n_quantiles.
         k = config.get("n_quantiles")
         if not k or k < 2:
-            raise ValueError("loss_reg='quantile' requires config['n_quantiles'] >= 2")
+            err_msg = "loss_reg='quantile' requires config['n_quantiles'] >= 2"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         criterion_reg = QuantileLoss(midpoint_levels(k)).to(device)
     elif isinstance(loss_reg_sigma, dict) and config["loss_reg"] == "tobit":
         criterion_reg = {
@@ -218,10 +216,12 @@ def choose_loss(
         try:
             criterion_reg = LOSS_REG_REGISTRY[config["loss_reg"]]["factory"](config, device)
         except KeyError:
-            raise ValueError(
+            err_msg = (
                 f"Unknown regression loss: '{config['loss_reg']}'. "
                 f"Available: {list(LOSS_REG_REGISTRY.keys())}"
-            ) from None
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
     _pw = config.get("loss_class_pos_weight")
     if config["loss_class"] == "weighted_bce" and isinstance(_pw, (list, tuple)):
         # per-target gate: one WeightedBCEWithLogitsLoss per classification target (sb/ns/os), each
@@ -233,10 +233,12 @@ def choose_loss(
         try:
             criterion_class = LOSS_CLASS_REGISTRY[config["loss_class"]]["factory"](config, device)
         except KeyError:
-            raise ValueError(
+            err_msg = (
                 f"Unknown classification loss: '{config['loss_class']}'. "
                 f"Available: {list(LOSS_CLASS_REGISTRY.keys())}"
-            ) from None
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
 
     logger.info(f"Regression loss: {criterion_reg}\n classification loss: {criterion_class}")
 

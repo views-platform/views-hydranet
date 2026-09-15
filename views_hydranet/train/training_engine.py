@@ -11,6 +11,7 @@ All functions here are importable and testable without views_pipeline_core.
 
 from __future__ import annotations
 
+import contextlib
 import functools
 import logging
 import math
@@ -157,6 +158,89 @@ class _SequenceIndices:
         self.cls_names = cls_targets
 
 
+@contextlib.contextmanager
+def _batchnorm_eval(model: nn.Module):
+    """Run a forward without letting it touch BatchNorm running statistics.
+
+    ``model.eval()`` on the whole model would also disable dropout and change the forward; this
+    flips only the ``_BatchNorm`` modules that are currently training, and restores exactly those.
+    ``torch.no_grad()`` is NOT a substitute — it stops gradients, not buffer updates.
+
+    Used by the pushforward auxiliary step (#289), whose extra forward would otherwise write
+    self-fed, off-distribution activations into buffers that are saved with the artifact and
+    recomputed by the C-184 BN recalibration.
+    """
+    flipped = [
+        m
+        for m in model.modules()
+        if isinstance(m, torch.nn.modules.batchnorm._BatchNorm) and m.training
+    ]
+    for m in flipped:
+        m.eval()
+    try:
+        yield
+    finally:
+        for m in flipped:
+            m.train()
+
+
+def _noisable_channels(config: dict) -> list[int]:
+    """Positions within the DYNAMIC input that input noise may touch — i.e. not geometry.
+
+    `dyn_input` is `t0[:, idx.feat]`, so its channel j is `config["features"][j]`. Statics are a
+    disjoint list re-attached afterwards, so in practice this returns every position.
+
+    ⚠️ The exclusion branch is defence in depth, and its reachability is narrower than an earlier
+    version of this docstring claimed. `_SequenceIndices` builds `feat` and `static` as two
+    independent index lists over the same axis (~:153), so an overlap is *structurally*
+    representable — but no **validated** config can produce one: the validator requires
+    `features == regression_targets`, rejects statics appearing in targets (ADR-060 I1), and
+    enforces `input_channels == 3*output_channels + len(static_channels)`. Measured 2026-09-04:
+    `static_channels` is EMPTY on every arm in this fleet.
+
+    So the branch is covered by a synthetic-config test rather than a real one — C-309, a guard
+    whose firing case has never been observed is not a guard. It is kept because the two index
+    lists are independent at this layer, and this function should not depend on a validator three
+    modules away staying the way it is.
+    """
+    statics = set(config.get("static_channels") or [])
+    return [j for j, name in enumerate(config.get("features") or []) if name not in statics]
+
+
+def _apply_input_noise(
+    dyn_input: torch.Tensor,
+    keep: torch.Tensor,
+    dropout: float,
+    channels: list[int],
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Silence input events the way free-running silences them (#311, S1 #313).
+
+    S1 measured what the model's own error actually is: at h18 it silences **99.6%** of true events
+    while firing on 0.003% of true zeros — FN/FP = 36,870x. It does not jitter, so Gaussian noise
+    (`SanchezGonzalez2020`'s instantiation for dense standardised fields) would model the wrong
+    failure. The rollout-induced part of that silencing fits a constant per-step dropout of
+    **p = 0.204** (relative residual 5% at h18); see `02_design.md`.
+
+    ACCUMULATING, because rollout error accumulates and the paper's own ablation found random-walk
+    noise beat i.i.d.: `keep` carries forward, so a dropped cell **stays dropped**. The caller
+    resets it every `time_steps` steps — a training window is 348 steps while deployment rolls 36,
+    and accumulating unbounded would leave 0.796^347 ~ 1e-35 of the input.
+
+    Only removes. It cannot manufacture occurrence (M45's lever), and it writes 0, where
+    `log1p(0) = 0` is on-manifold — so the negative-log-count hazard cannot arise.
+
+    `channels` lists the positions of `dyn_input` that may be noised; static geometry channels are
+    excluded by the caller because they are "always the true values, never sampled".
+    """
+    if not channels:
+        return dyn_input, keep
+    sel = dyn_input[:, channels]
+    survives = (torch.rand_like(sel) >= dropout).to(sel.dtype)
+    new_keep = keep.clone()
+    new_keep[:, channels] = keep[:, channels] * survives
+    return dyn_input * new_keep, new_keep
+
+
 def _attach_static_channels(
     dyn_input: torch.Tensor, t0_step: torch.Tensor, idx: "_SequenceIndices"
 ) -> torch.Tensor:
@@ -215,12 +299,35 @@ def _family_target_log1p_mean(reg: torch.Tensor, family) -> torch.Tensor:
     return torch.log1p(torch.stack(means, dim=1))  # [B, n_reg, H, W]
 
 
+def _family_composed_mean_log1p(reg, family, gate, composition, threshold):
+    """``log1p(compose_mean(E[Y|body], gate))`` — the DIFFERENTIABLE analogue of a composed draw.
+
+    Used as the straight-through surrogate for BPTT-SA (#308). It must be the *composed* mean, not
+    ``_family_target_log1p_mean``: that one ignores the gate entirely, so it is the analogue of an
+    UNCOMPOSED draw and would push gradient for a quantity the forward pass never produced.
+
+    Mirrors ``hydranet_inference._emit_magnitude``'s family branch, which is what deployment emits.
+    """
+    npar = family.n_params
+    n_reg = reg.shape[1] // npar
+    mus = torch.stack(
+        [family.mean(reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1)) for j in range(n_reg)],
+        dim=1,
+    )
+    if composition != "self_zeroed":
+        from views_hydranet.distributions.composition import compose_mean
+
+        mus = compose_mean(mus, gate[:, :n_reg], composition, threshold)
+    return torch.log1p(mus)
+
+
 def _family_feedback_log1p(reg, family, mode, gate, composition, threshold, generator=None):
     """EXP-4 (GTF): the per-target log1p feedback for scheduled sampling with a family head.
 
-    'mean' => log1p(E[y]) (fixes the legacy ss path, which fed raw n_params channels — shape-
-    mismatched to the n_reg dynamic inputs). 'sample' => one composition-aware family DRAW per
-    target (mirrors inference `_sample_feedback`), so training exposure == deployment exposure.
+    'mean' => log1p(composed E[y]) (fixes the legacy ss path, which fed raw n_params
+    channels — shape-mismatched to the n_reg dynamic inputs; and S2/#355, which fed it UNGATED).
+    'sample' => one composition-aware family DRAW per target (mirrors inference
+    `_sample_feedback`), so training exposure == deployment exposure.
     Returns ``[B, n_reg, H, W]`` in log1p space, matching the dynamic input channels.
 
     ``generator`` (C-261): seeds the family draw + composition Bernoulli so a parity test can
@@ -229,7 +336,23 @@ def _family_feedback_log1p(reg, family, mode, gate, composition, threshold, gene
     byte-reproducible today — the seeded path is exercised only by the parity test (C-261).
     """
     if mode != "sample":
-        return _family_target_log1p_mean(reg, family)
+        # S2/#355: the COMPOSED mean, not `_family_target_log1p_mean`. That one ignores the gate,
+        # so this branch fed `log1p(E[Y|body])` while deployment emits `log1p(gate x body)` — at
+        # this model's gate range (~0.003-0.05) a field 36.1x too large, measured.
+        #
+        # Provably a no-op for scheduled sampling, which is what this helper was written for: the
+        # C-259 validator rejects `ss_feedback='mean'` with a gated composition whenever SS is
+        # active, so the only composition that reaches here from SS is `self_zeroed` — where
+        # `_family_composed_mean_log1p` returns the ungated mean byte-identically (verified
+        # `torch.equal`). The behaviour that changes is the #289 PUSHFORWARD's, which calls this
+        # helper with `ss_feedback` and is not covered by that validator because it never sets
+        # `ss_epsilon_max`.
+        #
+        # ⚠️ Out of scope and deliberately not decided here: whether the pushforward should feed a
+        # composed MEAN or a composed DRAW. Deployment feeds a draw (ADR-070). `fed` is
+        # detached, so this is an exposure question, not a gradient one. Unreachable today —
+        # `pushforward_weight` defaults to 0.0 and no roster config sets it.
+        return _family_composed_mean_log1p(reg, family, gate, composition, threshold)
     npar = family.n_params
     n_reg = reg.shape[1] // npar
     draws = torch.stack(
@@ -249,6 +372,48 @@ def _family_feedback_log1p(reg, family, mode, gate, composition, threshold, gene
         cube = compose_samples(cube, g, composition, threshold, generator)
         draws = cube.squeeze(-1).permute(0, 3, 1, 2)  # -> [B, n_reg, H, W]
     return torch.log1p(draws.clamp(min=0.0))
+
+
+def _attach_feedback_grad_clip(
+    fed: torch.Tensor, max_norm: float | None, sink: list[float] | None
+) -> None:
+    """Bound the gradient leaving the scheduled-sampling handoff, ONE STEP AT A TIME.
+
+    `fed` is the sole tensor through which credit crosses from step i+1 back to step i, so it is
+    the exact bottleneck of the BPTT product chain. Clipping here bounds the per-step
+    amplification; `clip_grad_norm_` in the lesson loop cannot, because it runs once at the END of
+    the backward pass, long after the product has already overflowed. That distinction is the whole
+    reason this exists — the GRAD-TRAJ probe (#308, 2026-09-04) measured the attached arm's
+    pre-clip gradient norm rising 133,465 -> 9.4e9 between lessons 15-25 and 38-47 while its
+    control's FELL 859 -> 312, and float32 gave out at lesson 48. Clipping was on the whole time.
+
+    Scales, never truncates: an element-wise clamp would rotate the gradient, which is
+    Pascanu et al. 2013's argument for norm-rescaling inside a recurrence.
+
+    `max_norm=None` observes without acting, so the natural scale can be MEASURED before a
+    threshold is chosen rather than guessed. `sink` is appended to only when supplied, because
+    reading the norm forces a device sync on every one of the ~383 steps in a window.
+
+    Returns None ON PURPOSE. `register_hook` mutates the tensor, so an earlier version that
+    returned `fed` worked identically whether or not the caller assigned the result — mutation
+    testing found that dropping the assignment at the call site changed nothing, i.e. the
+    signature advertised a transformation the function does not perform. A future edit returning a
+    NEW tensor would then have broken silently. Named and typed as the side effect it is.
+    """
+    if not fed.requires_grad or (max_norm is None and sink is None):
+        return
+
+    def _hook(grad: torch.Tensor) -> torch.Tensor:
+        norm = grad.norm(2)
+        if sink is not None:
+            sink.append(norm.item())
+        if max_norm is None:
+            return grad
+        # `norm` can be 0 (a step that reached no supervised target) — the epsilon keeps the
+        # no-op branch from dividing by it rather than guarding the ratio afterwards.
+        return grad * (max_norm / (norm + 1e-12)) if norm > max_norm else grad
+
+    fed.register_hook(_hook)
 
 
 def _process_sequence(
@@ -278,6 +443,14 @@ def _process_sequence(
     ss_feedback: str = "mean",
     forecast_composition: str = "self_zeroed",
     gate_threshold: float | None = None,
+    pushforward_weight: float = 0.0,
+    pushforward_detach_state: bool = False,
+    ss_backprop_through_feedback: bool = False,
+    ss_feedback_grad_clip: float | None = None,
+    ss_feedback_grad_sink: list[float] | None = None,
+    input_noise_dropout: float | None = None,
+    input_noise_segment: int | None = None,
+    input_noise_channels: list[int] | None = None,
 ) -> dict[str, Any]:
     """
     Pure sequence processing: forward pass over [B, T, C, H, W] tensor.
@@ -322,6 +495,27 @@ def _process_sequence(
         decay_active = _active_window_mask(train_tensor[:, 1:, idx.reg, :, :], 0.0)
 
     prev_pred: torch.Tensor | None = None
+    _noise_keep: torch.Tensor | None = None  # accumulating keep-mask, reset per segment
+    # No usable default for the segment: a literal would be a shadow default (C-85) and would
+    # silently differ from the caller's `time_steps`. Demanded only when the noise is on.
+    _noise_segment = 0
+    if input_noise_dropout is not None:
+        # `bool` is excluded explicitly: isinstance(True, int) is True, and `segment=True` would
+        # give segment 1 — the mask resetting every step, silently turning the accumulating design
+        # into the i.i.d. one the paper's ablation found WORSE. `cv()` rejects bools for the same
+        # reason; the pattern was known here and not applied.
+        if (
+            isinstance(input_noise_segment, bool)
+            or not isinstance(input_noise_segment, int)
+            or input_noise_segment < 1
+        ):
+            err_msg = (
+                "input_noise_dropout is set but input_noise_segment is "
+                f"{input_noise_segment!r}; it must be a positive int (the deployment horizon)"
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        _noise_segment = input_noise_segment
 
     for i in range(seq_len - 1):
         t0 = train_tensor[:, i, :, :, :]
@@ -341,6 +535,23 @@ def _process_sequence(
         else:
             dyn_input = t0_gt
 
+        # #311: silence input events the way free-running silences them. AFTER the scheduled-
+        # sampling resolution so both branches are augmented identically (noising only the `else`
+        # would leave the eps>0 arm unaugmented and make the arms incomparable), and BEFORE the
+        # static re-attach so geometry is never touched.
+        if input_noise_dropout is not None:
+            if i % _noise_segment == 0:
+                # Segment start = the deployment seed step, which is fed a REAL observation
+                # (`hydranet_inference` feeds the true field at `t == origin`). The design fits
+                # survival S(h) = (1-p)^(h-1), i.e. horizon 1 is clean; dropping on this step made
+                # the implemented curve 0.796 at h1 against a fitted 1.0 — a flat 20.4%
+                # over-silencing at every horizon, four times the design's own residual tolerance.
+                _noise_keep = torch.ones_like(dyn_input)
+            else:
+                dyn_input, _noise_keep = _apply_input_noise(
+                    dyn_input, _noise_keep, input_noise_dropout, input_noise_channels or []
+                )
+
         # ADR-060 I3: re-attach static (input-only) channels [dynamic ⧺ static]. See helper.
         t0_input = _attach_static_channels(dyn_input, t0, idx)
 
@@ -352,17 +563,55 @@ def _process_sequence(
         # per-target log1p mean ('mean', fixes the legacy family path) or a composition-aware DRAW
         # ('sample', EXP-4: train exposure == deploy exposure). Legacy point head: raw pred.
         if ss_epsilon > 0.0:
+            # BPTT-SA (#308, Vlachas2023). The `.detach()` below is the ONLY cut in the training
+            # graph's feedback path: the recurrent state `h` already flows across steps undetached
+            # (~383-step graph, one backward() -- 2026-08-26 audit), so with it the model is told
+            # "step i was wrong" but never "and step i-1 produced the input that made it wrong".
+            # That is standard scheduled sampling, and it is a mechanical account of why M26-M33
+            # failed: the fed-back prediction is a constant, so no credit reaches its producer.
+            # Leaving it attached lets the gradient reach back through the handoff.
+            # Default False keeps every existing arm byte-identical.
             if family is not None:
-                prev_pred = _family_feedback_log1p(
-                    t1_pred,
-                    family,
-                    ss_feedback,
-                    torch.sigmoid(t1_pred_class),
-                    forecast_composition,
-                    gate_threshold,
-                ).detach()
+                gate_p = torch.sigmoid(t1_pred_class)
+                fed = _family_feedback_log1p(
+                    t1_pred, family, ss_feedback, gate_p, forecast_composition, gate_threshold
+                )
+                if ss_backprop_through_feedback and ss_feedback == "sample":
+                    # STRAIGHT-THROUGH. A DRAW is not reparameterised: d(draw)/d(params) is exactly
+                    # 0 (measured -- 167.8 under 'mean', 0.0 under 'sample'), so simply leaving it
+                    # attached is a NO-OP. The first attempt at #308 did exactly that and trained
+                    # two arms to byte-identical weights over 276 minutes.
+                    #
+                    # C-259 requires 'sample' whenever eps>0, so the differentiable mode is not
+                    # available and the draw must be kept in the FORWARD pass. Straight-through
+                    # gives forward = the draw, backward = the mean's gradient:
+                    #     fed = mean + (draw - mean).detach()
+                    # The added term is exactly zero in value, so the forward pass is unchanged --
+                    # which keeps the arms differing in credit assignment ONLY.
+                    surrogate = _family_composed_mean_log1p(
+                        t1_pred, family, gate_p, forecast_composition, gate_threshold
+                    )
+                    fed = surrogate + (fed - surrogate).detach()
             else:
-                prev_pred = t1_pred.detach()
+                fed = t1_pred
+            if ss_backprop_through_feedback and family is not None:
+                # Only when the wire is connected AND only on a family head. On the legacy point
+                # path `fed = t1_pred` (above) and `t1_pred_for_loss = t1_pred` when `use_latent`
+                # is False, so `fed` IS the regression loss's input. `register_hook` on a non-leaf
+                # fires once on the gradient accumulated from ALL consumers, so the clip would
+                # rescale the primary supervised gradient and `fed_grad_max` would report
+                # reg + gate + qs99 + feedback rather than the handoff it is named for. The helper
+                # promises `fed` is "the sole tensor through which credit crosses"; that is true
+                # for a family head, where `fed` is derived, and false here.
+                #
+                # S2/#355: this used to end "A config validator rejects the combination outright,
+                # so this branch is defence in depth." No such validator existed — the C-303 shape.
+                # It does now: `reject_bptt_sa_without_a_family` in `config_initializer.py`,
+                # mirroring `reject_pushforward_without_a_family`. The claim survives only because
+                # it is now true, and it names the validator so the next reader can check it
+                # rather than trust it.
+                _attach_feedback_grad_clip(fed, ss_feedback_grad_clip, ss_feedback_grad_sink)
+            prev_pred = fed if ss_backprop_through_feedback else fed.detach()
 
         t1_pred_for_loss = output.reg_latent if use_latent else t1_pred
 
@@ -513,8 +762,100 @@ def _process_sequence(
             )
             losses_list.append(crit_cj(pred_cj, targ_cj))
 
+        # ── PUSHFORWARD (Brandstetter et al. 2022, #289) ────────────────────────────────────
+        # An AUXILIARY loss. It does not change the recurrent trajectory — `h` is threaded by the
+        # main teacher-forced loop only — and at `pushforward_weight == 0.0` the branch is never
+        # entered, so that setting is byte-identical to the pre-flag model.
+        #
+        # It is NOT side-effect-free, and two side effects have to be suppressed explicitly:
+        #
+        # 1. **BatchNorm.** The model is in `train()` mode, so an extra `model(...)` call updates
+        #    `running_mean`/`running_var`/`num_batches_tracked` on all 15 BN layers — measured at
+        #    `num_batches_tracked` 5 -> 9 on a T=6 window, i.e. roughly HALF the saved BN
+        #    statistics would come from self-fed, off-distribution inputs. Those buffers are model
+        #    state: they go into the artifact and are used at eval. Worse, `train()` is also the
+        #    workhorse of `_recalibrate_bn` (the C-184 fix, `bn_recalibrate: True` by default),
+        #    which resets BN and recomputes with `momentum=None` — a cumulative average, so the
+        #    pushforward forwards would carry EQUAL weight rather than an EMA discount. An arm with
+        #    `pushforward_weight > 0` would then differ from its control at the BN layer for
+        #    reasons unrelated to the auxiliary loss, confounding the A/B. Suppressed by running
+        #    the extra forward with BN in eval mode.
+        # 2. **The recalibration pass itself.** `_recalibrate_bn` calls this under `no_grad`, where
+        #    the pushforward loss is computed and discarded — pure cost. Skipped via
+        #    `torch.is_grad_enabled()`.
+        #
+        # Dropout still advances the global RNG stream on the extra forward. Harmless (it cannot
+        # reach the `pushforward_weight == 0.0` control, which never enters this branch), but two
+        # arms differing only in `pushforward_weight` do not share a dropout stream.
+        #
+        # Take one extra step from the model's OWN emitted field and score it against ground truth
+        # at t+2 — "unroll 2 steps, cut the gradient after the first, compute the loss at the
+        # pushforward time". The gradient cut is `.detach()` on the fed field, which on the
+        # `sample` path is already unavoidable (`torch.poisson` severs it; measured as
+        # exactly 0.0),
+        # so on that path that half of the paper's method is a NO-OP and the SECOND UNROLL is the
+        # entire intervention. Recorded because implementing only the detach would have done
+        # nothing while looking correct.
+        #
+        # `pushforward_detach_state` is a fork the paper cannot settle: its solver is stateless, so
+        # cutting the input cuts every path. Ours is recurrent and `h` carries gradient, so False
+        # (default) lets the pushforward loss train the RECURRENCE to produce states that survive
+        # one step of self-feeding. True reproduces the stateless reading.
+        pf_loss = None
+        if (
+            pushforward_weight > 0.0
+            and family is not None
+            and i + 2 < seq_len
+            and torch.is_grad_enabled()  # see (2) above: no-op under _recalibrate_bn's no_grad
+        ):
+            fed = _family_feedback_log1p(
+                t1_pred,
+                family,
+                ss_feedback,
+                torch.sigmoid(t1_pred_class),
+                forecast_composition,
+                gate_threshold,
+            ).detach()
+            # The fed field stands in for t+1, so its static channels come from t1, matching how
+            # the main path pairs `dyn_input` with its own `t0`. A no-op while statics are
+            # geometry-constant, but the inconsistent pairing would become a real bug the moment a
+            # time-varying "static" channel is added.
+            # #289 x #311: `fed` is deliberately NOT passed through `_apply_input_noise`. With
+            # both knobs enabled the pushforward step would train on un-noised inputs while the
+            # main step trains on noised ones. Recorded rather than accidental: pushforward's input
+            # is already the model's own output, so it carries the model's real errors, and a
+            # training corruption on top would stack two different perturbations. Unreachable today
+            # (`pushforward_weight` defaults to 0.0); revisit before ever enabling both.
+            pf_in = _attach_static_channels(fed, t1, idx)
+            pf_h = h.detach() if pushforward_detach_state else h
+            with _batchnorm_eval(model):  # see (1) above
+                pf_out = model(pf_in, pf_h)
+            y2_reg = train_tensor[:, i + 2, idx.reg, :, :]
+            pf_terms = []
+            for j, name in enumerate(idx.reg_names):
+                loss_fn_j = (
+                    criterion_reg[name] if isinstance(criterion_reg, dict) else criterion_reg
+                )
+                # `family is not None` guarantees FamilyLoss, which always exposes n_params.
+                # Indexed rather than getattr-with-default: a default of 1 would silently
+                # mis-slice a multi-channel head instead of failing.
+                npar = loss_fn_j.n_params
+                # C-87 parity with the main reg loop: the same per-target weight, or the auxiliary
+                # term silently re-weights the targets relative to the primary objective.
+                tw_pf = 1.0 if target_weights is None else target_weights[name]
+                pf_terms.append(
+                    tw_pf
+                    * loss_fn_j(
+                        pf_out.reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1),
+                        y2_reg[:, j],
+                    )
+                )
+            pf_loss = torch.stack(pf_terms).sum()
+
         losses = torch.stack(losses_list)
         loss = cast(Any, multitaskloss_instance)(losses)
+        if pf_loss is not None:
+            loss = loss + pushforward_weight * pf_loss
         if qs99_weight is not None and qs99_weight > 0:
             loss = loss + qs99_weight * qs99_loss
         if decay_gate_weight > 0:
@@ -593,9 +934,27 @@ def train(
     pbar: tqdm,
     stage_label: str = "",
     ss_epsilon: float = 0.0,
+    fed_grad_sink: list[float] | None = None,
+    training_augmentation: bool = True,
 ) -> dict[str, torch.Tensor]:
     ctx.model.train()
     ctx.multitaskloss_instance.train()
+
+    # Dropout stays ON during a BatchNorm-recalibration pass, deliberately. It is NOT a training-
+    # only augmentation here: production inference runs `model.eval()` + `set_locked_dropout(True)`
+    # (ADR-057, MC-dropout with a locked mask), so every LockedDropout masks at forecast time and
+    # the BN running statistics must be estimated on dropout-shaped activations to match. The
+    # C-184 recal fix that flipped 6/6 bad seeds was validated with dropout on. Epic #353 / S3
+    # briefly switched dropout off on these passes on the premise that inference runs it off;
+    # `/code-review max` on #372 measured the result — running_var 14-21% low at the 14 BN layers
+    # downstream of a dropout site, gate-logit std +14% at inference — and the flip was reverted
+    # before merge. Do not re-add it.
+    #
+    # Scheduled sampling IS gated here, not only at the call site: `training_augmentation=False`
+    # must mean what it says inside this function, or a future caller that forwards the schedule's
+    # epsilon accumulates BN statistics on self-fed fields with every log clean (C-303 shape).
+    if not training_augmentation:
+        ss_epsilon = 0.0
 
     config = ctx.config
     model = ctx.model
@@ -604,7 +963,11 @@ def train(
     forensics = ctx.forensics
 
     # 1. Stochastic Data Augmentation (Tube-Level)
-    if config.get("random_flips"):
+    # `training_augmentation` gates EVERY training-only augmentation, not one of them. C-328's own
+    # trigger is "adding any augmentation without asking which non-training forwards also traverse
+    # it", and a per-augmentation flag invites the next instance: the first fix for C-328 named
+    # `apply_input_noise` and left this flip — older than the noise — polluting the same passes.
+    if config.get("random_flips") and training_augmentation:
         if np.random.rand() < 0.5:
             sample_handler = sample_handler.flip("H")
         if np.random.rand() < 0.5:
@@ -658,6 +1021,13 @@ def train(
         cls_valid_mask = _full[0, 0, _pg] > 0  # [H, W] bool — land cells
 
     # --- CORE SEQUENCE PROCESSING ---
+    # #311: this is a TRAINING augmentation. `training_augmentation=False` is passed by the C-184
+    # BatchNorm recalibration pass, whose whole purpose is to recompute BN running statistics —
+    # buffers saved into the artifact and used at inference. Recomputing them on deliberately
+    # corrupted inputs would put the treatment arm's BN layer on a different footing from the
+    # control's for a reason that is not the hypothesis, and the run would look clean. Same defect
+    # class as #289's, where the pushforward's extra forward wrote BN stats.
+    _input_noise = config.get("input_noise_dropout") if training_augmentation else None
     result = _process_sequence(
         train_tensor,
         model,
@@ -690,6 +1060,21 @@ def train(
         ss_feedback=config.get("ss_feedback", "mean"),
         forecast_composition=config.get("forecast_composition", "self_zeroed"),
         gate_threshold=config.get("gate_threshold"),
+        pushforward_weight=config.get("pushforward_weight", 0.0),
+        pushforward_detach_state=config.get("pushforward_detach_state", False),
+        ss_backprop_through_feedback=config.get("ss_backprop_through_feedback", False),
+        # #308 GRAD-TRAJ follow-up: bound the feedback gradient per step. None (default) is a
+        # no-op, so every existing arm is byte-identical.
+        ss_feedback_grad_clip=config.get("ss_feedback_grad_clip"),
+        ss_feedback_grad_sink=fed_grad_sink,
+        # #311 input noise. `time_steps` is the DEPLOYMENT horizon, read explicitly rather than
+        # hardcoded: the dropout accumulates over one rollout's worth of steps and then resets.
+        # Read ONLY when the noise is on — so the off path never touches the key (byte-identical,
+        # and callers without it keep working), while an enabled arm missing it fails loud rather
+        # than silently falling back to a shadow default (C-85).
+        input_noise_dropout=_input_noise,
+        input_noise_segment=config["time_steps"] if _input_noise is not None else None,
+        input_noise_channels=_noisable_channels(config) if _input_noise is not None else None,
     )
     step_total, step_reg, step_cls = result["per_step_losses"]
 
@@ -775,6 +1160,34 @@ def _reset_bn_stats(model: nn.Module) -> int:
     return n
 
 
+def _assert_bn_buffers_finite(model: nn.Module, context: str) -> None:
+    """Refuse to let a recalibration pass hand back non-finite BatchNorm statistics.
+
+    Both recal paths run forward-only, so the ADR-014 loss monitor is either skipped
+    (`bn_recal_from`, S4/#357) or irrelevant — the loss is not consumed. That leaves the one
+    thing a recal pass DOES produce, the BN buffers, unchecked: one non-finite activation on one
+    forward poisons `running_mean`/`running_var` of every BN layer, and with `momentum=None`
+    (cumulative average) they never recover. The state_dict is then saved, every log reads
+    HEALTHY, and the first loud failure is at inference. Found by `/code-review max` on #372,
+    end-to-end, after S4 removed the only (accidental) loud failure on that path.
+    """
+    bad = []
+    for name, m in model.named_modules():
+        if isinstance(m, nn.modules.batchnorm._BatchNorm):
+            for buf in ("running_mean", "running_var"):
+                t = getattr(m, buf, None)
+                if t is not None and not torch.isfinite(t).all():
+                    bad.append(f"{name}.{buf}")
+    if bad:
+        err_msg = (
+            f"[FATAL] {context}: BatchNorm recalibration produced non-finite running statistics "
+            f"in {len(bad)} buffer(s): {bad[:6]}{' …' if len(bad) > 6 else ''}. These buffers "
+            "ship inside the artifact and are used at inference; refusing to hand them back."
+        )
+        logger.error(err_msg)
+        raise RuntimeError(err_msg)
+
+
 def _recalibrate_bn(ctx: "TrainingContext", sampler, planner, config: dict) -> None:
     """C-184 fix: recompute BatchNorm running statistics post-training.
 
@@ -796,9 +1209,17 @@ def _recalibrate_bn(ctx: "TrainingContext", sampler, planner, config: dict) -> N
         for w in range(n_windows):
             target, threshold = planner.get_lesson(w)
             batch, _ = sampler.get_batch(target, threshold, batch_size=1)
-            train(ctx, batch[0], None, stage_label="")  # empty label ⇒ forward only, no biopsy
+            # training_augmentation=False: this pass recomputes BN statistics on CLEAN data.
+            # Every training-only augmentation is suppressed — the input noise (#311), the
+            # random H/W flips, which are older and were polluting these buffers for as long as
+            # `random_flips` and BN recalibration have coexisted (C-328 instance 4), and scheduled
+            # sampling (C-328 instance 5). Dropout is NOT suppressed, on purpose: inference runs
+            # MC-dropout (ADR-057), so the statistics must be estimated with it on — see `train()`.
+            train(ctx, batch[0], None, stage_label="", training_augmentation=False)
             del batch
     model.eval()
+    # Raises inside the caller's fail-safe, which restores the pre-recal buffers.
+    _assert_bn_buffers_finite(model, "C-184 post-training recalibration")
 
 
 def training_loop(
@@ -891,13 +1312,14 @@ def training_loop(
             epsilon_max=config.get("ss_epsilon_max", 1.0),
             warmup_lessons=config.get("ss_warmup_lessons"),
             k=config.get("ss_k"),
+            reverse=config.get("ss_reverse", False),
         )
 
     # OPT-IN trajectory diagnostic (bifurcation hunt): per-lesson grad-norm + gate-logit-mean +
     # losses → CSV. config.trajectory_log_path=None (default) ⇒ no hooks, no file, byte-unchanged.
     _traj_path = config.get("trajectory_log_path")
     _traj_file = _traj_writer = None
-    _traj_acc = {"gate_sum": 0.0, "gate_n": 0}
+    _traj_acc = {"gate_sum": 0.0, "gate_n": 0, "fed_max": 0.0}
     if _traj_path:
         import csv as _csv
 
@@ -911,22 +1333,46 @@ def training_loop(
         _traj_file = open(_traj_path, "w", newline="")
         _traj_writer = _csv.writer(_traj_file)
         _traj_writer.writerow(
-            ["lesson", "raw_grad_norm", "loss_reg", "loss_cls", "gate_logit_mean"]
+            ["lesson", "raw_grad_norm", "loss_reg", "loss_cls", "gate_logit_mean", "fed_grad_max"]
         )
         logger.info(f"📈 trajectory-log ON → {_traj_path}")
 
-    with tqdm(
-        total=total_iterations, desc="👾 Training HydraNet", unit="month", leave=True
-    ) as pbar:
+    # The feedback-gradient sink exists ONLY while the trajectory log does: reading each step's
+    # norm forces a device sync ~383 times per window, which is not a cost a production arm should
+    # pay for a diagnostic it never reads. `ss_feedback_grad_clip` is independent of it — the clip
+    # acts whether or not anything is watching.
+    _fed_sink: list[float] | None = [] if _traj_writer is not None else None
+
+    # The optional trajectory CSV must close on ANY exit from the lesson loop, not just the happy
+    # one. `IntegrityGuardian.monitor` has always been able to raise from inside this loop, and the
+    # C-312 non-finite check adds a second such exit; neither reached the `close()` below.
+    _traj_cleanup = contextlib.ExitStack()
+    if _traj_file is not None:
+        _traj_cleanup.callback(_traj_file.close)
+
+    with (
+        _traj_cleanup,
+        tqdm(
+            total=total_iterations, desc="👾 Training HydraNet", unit="month", leave=True
+        ) as pbar,
+    ):
         # Loop over Strategic Lessons
         for lesson_idx in range(config["total_lessons"]):
             optimizer.zero_grad()  # Reset gradients at start of Lesson
             lesson_loss = torch.tensor(0.0).to(device)
             lesson_reg = 0.0
             lesson_cls = 0.0
+            windows_trained = 0  # C-312: how many windows actually backpropagated
 
             # ADR-056: compute epsilon once per lesson
             ss_epsilon = ss_mixer.get_epsilon(lesson_idx) if ss_mixer is not None else 0.0
+            # C-328 instance 5 (S3/#356): a `bn_recal_from` pass must not substitute the model's
+            # own predictions for ground truth while it re-accumulates BN statistics. Zeroed HERE,
+            # once, so the value passed to `train()` and the value logged to wandb are the same
+            # object — the first version zeroed only the kwarg and logged the schedule's live eps,
+            # so the run's own record asserted SS was active on the pass whose buffers ship.
+            if _bn_recal:
+                ss_epsilon = 0.0
 
             # Pull one lesson per window in the batch (The Mixed Salad)
             for window_idx in range(config["windows_per_lesson"]):
@@ -957,12 +1403,76 @@ def training_loop(
                 # 3. Process Window (Accumulate Loss)
                 # Pass viz to capture training dynamics (Stage 5) for all windows
                 slbl = f"Stage 5: Training Forensic (Lesson {lesson_idx + 1}_Win {window_idx + 1})"
-                losses = train(ctx, sample_handler, pbar, stage_label=slbl, ss_epsilon=ss_epsilon)
+                losses = train(
+                    ctx,
+                    sample_handler,
+                    pbar,
+                    stage_label=slbl,
+                    # Already 0.0 on a recal pass (zeroed where it is computed, above), and
+                    # `train()` zeroes it again on `training_augmentation=False` regardless.
+                    ss_epsilon=ss_epsilon,
+                    fed_grad_sink=_fed_sink,
+                    # C-328: a `bn_recal_from` run drives THIS loop forward-only to re-accumulate
+                    # BatchNorm statistics, so it is a recalibration pass even though it is not
+                    # `_recalibrate_bn`. It leaves autograd ENABLED (it skips backward, it does not
+                    # disable grad), which is why a grad-state assertion cannot reach it — the
+                    # first fix for C-328 covered one of the two recalibration paths.
+                    training_augmentation=not _bn_recal,
+                )
 
                 # --- MEMORY-SAFE ACCUMULATION (ADR 014 Hardening) ---
+                # C-312: this guard used to read `if w_loss > 0`, which is NOT the question
+                # ADR-014 means to ask. MultiTaskLoss adds `log(stds)`, negative once a task fits
+                # well (per task, the term is negative for `L < (r+1)/e`), so with the balancer
+                # unfrozen a perfectly healthy window scores below zero and the whole backward was
+                # skipped in silence — measured at 2 updates across 6 lessons. The question is
+                # "did this window have anything to learn from", i.e. is the loss exactly zero,
+                # which is what an all-masked / empty window produces. Under the production config
+                # (`freeze_multitask_balancer=True` pins log_vars at 0, so every term is >= 0)
+                # `!= 0` and `> 0` select identically. NOTE "every term is >= 0" holds in float32,
+                # where mtloss's `log(stds + eps)` = `log(1 + 1e-8)` rounds to exactly 0.0; in
+                # float64 it is +1e-8 per task, still >= 0, so the equivalence survives either way.
+                # The test does not re-derive this — it observes every window's actual total. See
+                # tests/train/test_backward_gate.py
+                # ::test_the_new_guard_is_byte_identical_when_frozen.
                 w_loss = losses["total"]
-                if w_loss > 0 and not _bn_recal:  # BN-recal: forward-only, no grad
+                if _bn_recal:
+                    # BN-recal is forward-only: no backward, and no reason to abort the pass over
+                    # a non-finite loss nobody consumes. Kept OUT of the finiteness check below so
+                    # a `bn_recal_from` run behaves exactly as it did before this fix.
+                    pass
+                elif not torch.isfinite(w_loss):
+                    # RuntimeError, not ValueError: IntegrityGuardian.monitor raises RuntimeError
+                    # on the same condition a few lines below, and one fail-loud channel is worth
+                    # more than a more precise exception type nobody catches.
+                    err_msg = (
+                        f"Lesson {lesson_idx + 1} window {window_idx + 1}: loss is "
+                        f"{w_loss.item()}, not a finite number. Refusing to backpropagate NaN/inf "
+                        "into the model — this is a bug upstream in the loss (cf. C-212), not a "
+                        "skippable window. The old `if w_loss > 0` guard swallowed it silently."
+                    )
+                    logger.error(err_msg)
+                    raise RuntimeError(err_msg)
+                elif w_loss.item() == 0.0:
+                    # Reachable only when EVERY term is exactly zero. Under the production config
+                    # the classification terms are scored on the full grid with no mask, so an
+                    # all-zero target still yields a small non-zero BCE and this branch does not
+                    # fire — i.e. in production every window backpropagates, which is the intent.
+                    # It stays because a masked / genuinely empty window must not cost a backward.
+                    logger.debug(
+                        f"Lesson {lesson_idx + 1} window {window_idx + 1}: loss is exactly 0 "
+                        "(nothing supervised) — no backward, as ADR-014 intends."
+                    )
+                else:
                     w_loss.backward()
+                    windows_trained += 1
+                    # The hooks fire DURING backward, so the sink is only populated here. Max, not
+                    # mean: one step's blow-up is what overflows float32, and a mean over ~383
+                    # steps would bury it.
+                    if _fed_sink:
+                        _traj_acc["fed_max"] = max(_traj_acc["fed_max"], max(_fed_sink))
+                if _fed_sink is not None:
+                    _fed_sink.clear()
 
                 lesson_loss += w_loss.detach()  # Keep track of magnitude for logging
                 lesson_reg += losses["reg"].item()
@@ -972,11 +1482,31 @@ def training_loop(
                 del sample_handler, losses, w_loss
 
             # --- THE OPTIMIZATION GATE (ADR 014) ---
-            if lesson_loss > 0:
-                # NUMERICAL AUDIT: Hard stop on explosion
-                IntegrityGuardian.monitor(
-                    model, torch.tensor([0.0]), lesson_loss, context=f"Lesson {lesson_idx}"
-                )
+            # C-312: gated on whether gradient was actually produced, not on the SIGN of the
+            # accumulated loss. `or _bn_recal` preserves the pre-fix behaviour of the recal pass,
+            # which enters this block for its diagnostics but is separately barred from stepping.
+            if windows_trained > 0 or _bn_recal:
+                # NUMERICAL AUDIT: Hard stop on explosion.
+                #
+                # S4/#357: skipped on a recalibration pass. `lesson_loss` accumulates
+                # unconditionally, so one non-finite window makes it NaN — but a recal pass
+                # consumes no loss and computes no gradient, so a NaN loss there is not evidence
+                # of anything about the weights (which came from a checkpoint and survive an
+                # abort either way). What a recal pass DOES produce, the BN buffers, is checked
+                # at both recal exits by `_assert_bn_buffers_finite` — the monitor never looked at
+                # those. (An earlier version of this comment claimed aborting would "throw away"
+                # the buffers; it would not, and the #372 review said so.)
+                #
+                # ⚠️ The gate itself is NOT the defect and must stay: `windows_trained` can
+                # never increment on a recal pass (it is only bumped in the
+                # `else: w_loss.backward()` arm the branch above short-circuits), so dropping
+                # `or _bn_recal` would skip the whole tail — including the trajectory row and
+                # `forensics.finalize_lesson()` a recal run legitimately produces. The narrow
+                # exclusion is the fix.
+                if not _bn_recal:
+                    IntegrityGuardian.monitor(
+                        model, torch.tensor([0.0]), lesson_loss, context=f"Lesson {lesson_idx}"
+                    )
 
                 loss_history.append(lesson_loss.item())
                 loss_history_reg.append(lesson_reg / config["windows_per_lesson"])
@@ -1018,15 +1548,29 @@ def training_loop(
                             lesson_reg / config["windows_per_lesson"],
                             lesson_cls / config["windows_per_lesson"],
                             _gm,
+                            _traj_acc["fed_max"],
                         ]
                     )
                     _traj_file.flush()
                     _traj_acc["gate_sum"] = 0.0
                     _traj_acc["gate_n"] = 0
+                    _traj_acc["fed_max"] = 0.0
 
-                # Gradient Clipping
+                # Gradient Clipping. C-314: the threshold used to be the literal 1.0 while the
+                # only config field was the on/off bool, so it could not be tuned from a config at
+                # all. `clip_grad_max_norm` defaults to 1.0, so every existing config is unchanged.
+                # NOTE (still open, C-314): this covers `model.parameters()` only — the balancer's
+                # `log_vars` are a separate optimizer param group and are clipped by nothing.
+                #
+                # S4/#357: this also runs on a recalibration pass, which the pre-C-312 gate
+                # (`if lesson_loss > 0`) could skip. Verified harmless: a recal pass runs no
+                # backward, so every `.grad` is None, `clip_grad_norm_` returns total_norm 0.0 and
+                # changes no weight. Left in the gate rather than excluded, because an exclusion
+                # would be a second special case earning nothing.
                 if config.get("clip_grad_norm"):
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                    torch.nn.utils.clip_grad_norm_(
+                        model.parameters(), max_norm=config.get("clip_grad_max_norm", 1.0)
+                    )
 
                 # Optimize (Update Weights) — skipped in BN-recal (weights frozen, BN only)
                 if not _bn_recal:
@@ -1073,14 +1617,20 @@ def training_loop(
 
     logger.info("✅ Training complete!")
 
-    if _traj_file is not None:
-        _traj_file.close()
+    # (the trajectory CSV is closed by _traj_cleanup on every exit path, including exceptions)
 
     # C-184 FIX: post-training BN recalibration (default ON). Mutates `model` in place so the saved
     # artifact has corrected BN running stats (fixes the seed-bimodal eval collapse). Skipped for a
     # bn_recal_from-only experiment run (its lesson loop already recalibrated). Guarded: a recal
     # failure must NEVER lose a completed training run — snapshot the BN buffers first and restore
     # them on any error (so a half-reset model is never saved), then proceed to save as-is.
+    # The default is repeated here DELIBERATELY, against the usual no-shadow-default rule, and the
+    # reason is a regression this line already caused once. Dropping it made
+    # `config.get("bn_recalibrate")` return None for any caller passing a plain dict — every test
+    # fixture and every research driver — which SILENTLY SKIPPED the C-184 mitigation entirely.
+    # A shadow default risks divergence from the schema; no default at all risks the mitigation
+    # not running. The second is far worse, so the default stays, and
+    # `test_the_code_default_matches_the_schema_default` pins the two equal so they cannot drift.
     if config.get("bn_recalibrate", True) and not _bn_recal:
         _bn_snapshot = {
             k: v.clone()
@@ -1097,6 +1647,12 @@ def training_loop(
             )
             model.load_state_dict(_bn_snapshot, strict=False)
             model.eval()
+
+    # A `bn_recal_from` run exists only to produce BN buffers, and the caller saves them next. No
+    # fail-safe wraps this path (the weights came from a checkpoint that survives an abort), so a
+    # non-finite buffer must raise here, before torch.save.
+    if _bn_recal:
+        _assert_bn_buffers_finite(model, f"bn_recal_from={_bn_recal}")
 
     # 4. Final weight audit
     weight_norms = {}

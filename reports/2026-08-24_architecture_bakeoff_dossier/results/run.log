@@ -1,0 +1,471 @@
+[2026-08-25 02:41:58] queue: === queue start · HEAD 328e549b021f · 12 arm(s): 300:42:0.0::AntiAliasedPool 300:43:0.0::AntiAliasedPool 300:42:0.0::WideMemory 300:43:0.0::WideMemory 300:42:0.0::DynamicTopSkip 300:43:0.0::DynamicTopSkip 300:42:0.0::FiLMSkip 300:43:0.0::FiLMSkip 300:42:0.0::ShallowPool 300:43:0.0::ShallowPool 300:42:0.0::DualStream 300:43:0.0::DualStream ===
+[2026-08-25 02:42:00] queue: --- aafullzero_fortytwo (L=300 seed=42 eps=0.0 variant=AntiAliasedPool fresh) ---
+[2026-08-25 02:42:01] aafullzero_fortytwo: total_lessons=300  TRAIN_TIMEOUT=45000s (12h)
+[2026-08-25 02:42:01] aafullzero_fortytwo: train+emit start (HEAD 328e549)
+[2026-08-25 04:21:47] aafullzero_fortytwo: train+emit rc=0 in 99 min
+[2026-08-25 04:21:47] aafullzero_fortytwo: cube predictions_calibration_20260825_041058 with 13 origins
+[2026-08-25 04:24:34] aafullzero_fortytwo: scored + bootstrapped (AP rc=0, retention rc=0)
+[2026-08-25 04:24:36] aafullzero_fortytwo: cube deleted
+[2026-08-25 04:24:37] aafullzero_fortytwo: oracle (use_real) on calibration_model_20260825_041058.pt
+[2026-08-25 04:35:35] aafullzero_fortytwo: oracle OK in 10 min
+FLOOR GATE: PASS
+  thresholds md5: 6d5714d5ceda147ed16f53143abe7e37
+  FG-A [         PASS] AP 0.32139 / prevalence 0.009077 = 35.41x (need >= 5.0x)
+  FG-B [         PASS] AP(h1) 0.48389 / clim 0.29798 = 1.624x (want >= 1.2)
+  FG-C [         PASS] a 30% effect is 0.22497 AP; 3x MDE is 0.06461
+retention: 0.6642
+[2026-08-25 04:35:36] aafullzero_fortytwo: GATE written: FLOORGATE_aafullzero_fortytwo_PASS
+[2026-08-25 04:35:36] aafullzero_fortytwo: ARM COMPLETE
+[2026-08-25 04:35:36] queue: aafullzero_fortytwo OK
+# IN PROGRESS (1/12)
+
+| architecture | seed | control AP@h18 | arm AP@h18 | Δ | oracle | floor |
+|---|--:|--:|--:|--:|--:|---|
+| AntiAliasedPool | 42 | 0.3298 | 0.3214 | -0.0084 | 0.4991 | PASS |
+| AntiAliasedPool | 43 | 0.3318 | — | — | — | — |
+| DynamicTopSkip | 42 | 0.3298 | — | — | — | — |
+| DynamicTopSkip | 43 | 0.3318 | — | — | — | — |
+| FiLMSkip | 42 | 0.3298 | — | — | — | — |
+| FiLMSkip | 43 | 0.3318 | — | — | — | — |
+| ShallowPool | 42 | 0.3298 | — | — | — | — |
+| ShallowPool | 43 | 0.3318 | — | — | — | — |
+| DualStream | 42 | 0.3298 | — | — | — | — |
+| DualStream | 43 | 0.3318 | — | — | — | — |
+| WideMemory | 42 | 0.3298 | — | — | — | — |
+| WideMemory | 43 | 0.3318 | — | — | — | — |
+
+⚠️ Δ alone does not promote a candidate: the pre-registration requires the body metrics (`crps_all`, `size_ratio`, `mag_on_false_pos`) to be read beside it, and parameter counts reported — `ShallowPool` has 16% FEWER parameters, so a loss there may be capacity.
+[2026-08-25 04:35:39] queue: --- aafullzero_fortythree (L=300 seed=43 eps=0.0 variant=AntiAliasedPool fresh) ---
+[2026-08-25 04:35:39] aafullzero_fortythree: total_lessons=300  TRAIN_TIMEOUT=45000s (12h)
+[2026-08-25 04:35:39] aafullzero_fortythree: train+emit start (HEAD 328e549)
+[2026-08-25 06:13:37] aafullzero_fortythree: train+emit rc=0 in 97 min
+[2026-08-25 06:13:37] aafullzero_fortythree: cube predictions_calibration_20260825_060258 with 13 origins
+[2026-08-25 06:16:24] aafullzero_fortythree: scored + bootstrapped (AP rc=0, retention rc=0)
+[2026-08-25 06:16:26] aafullzero_fortythree: cube deleted
+[2026-08-25 06:16:26] aafullzero_fortythree: oracle (use_real) on calibration_model_20260825_060258.pt
+[2026-08-25 06:27:20] aafullzero_fortythree: oracle OK in 10 min
+FLOOR GATE: PASS
+  thresholds md5: 6d5714d5ceda147ed16f53143abe7e37
+  FG-A [         PASS] AP 0.33258 / prevalence 0.009077 = 36.64x (need >= 5.0x)
+  FG-B [         PASS] AP(h1) 0.47513 / clim 0.29798 = 1.595x (want >= 1.2)
+  FG-C [         PASS] a 30% effect is 0.23281 AP; 3x MDE is 0.04157
+retention: 0.7000
+[2026-08-25 06:27:21] aafullzero_fortythree: GATE written: FLOORGATE_aafullzero_fortythree_PASS
+[2026-08-25 06:27:21] aafullzero_fortythree: ARM COMPLETE
+[2026-08-25 06:27:21] queue: aafullzero_fortythree OK
+# IN PROGRESS (2/12)
+
+| architecture | seed | control AP@h18 | arm AP@h18 | Δ | oracle | floor |
+|---|--:|--:|--:|--:|--:|---|
+| AntiAliasedPool | 42 | 0.3298 | 0.3214 | -0.0084 | 0.4991 | PASS |
+| AntiAliasedPool | 43 | 0.3318 | 0.3326 | 0.0008 | 0.5017 | PASS |
+| DynamicTopSkip | 42 | 0.3298 | — | — | — | — |
+| DynamicTopSkip | 43 | 0.3318 | — | — | — | — |
+| FiLMSkip | 42 | 0.3298 | — | — | — | — |
+| FiLMSkip | 43 | 0.3318 | — | — | — | — |
+| ShallowPool | 42 | 0.3298 | — | — | — | — |
+| ShallowPool | 43 | 0.3318 | — | — | — | — |
+| DualStream | 42 | 0.3298 | — | — | — | — |
+| DualStream | 43 | 0.3318 | — | — | — | — |
+| WideMemory | 42 | 0.3298 | — | — | — | — |
+| WideMemory | 43 | 0.3318 | — | — | — | — |
+
+⚠️ Δ alone does not promote a candidate: the pre-registration requires the body metrics (`crps_all`, `size_ratio`, `mag_on_false_pos`) to be read beside it, and parameter counts reported — `ShallowPool` has 16% FEWER parameters, so a loss there may be capacity.
+[2026-08-25 06:27:24] queue: --- widefullzero_fortytwo (L=300 seed=42 eps=0.0 variant=WideMemory fresh) ---
+[2026-08-25 06:27:25] widefullzero_fortytwo: total_lessons=300  TRAIN_TIMEOUT=45000s (12h)
+[2026-08-25 06:27:25] widefullzero_fortytwo: train+emit start (HEAD 328e549)
+[2026-08-25 08:08:43] widefullzero_fortytwo: train+emit rc=0 in 101 min
+[2026-08-25 08:08:43] widefullzero_fortytwo: cube predictions_calibration_20260825_075607 with 13 origins
+[2026-08-25 08:11:30] widefullzero_fortytwo: scored + bootstrapped (AP rc=0, retention rc=0)
+[2026-08-25 08:11:32] widefullzero_fortytwo: cube deleted
+[2026-08-25 08:11:32] widefullzero_fortytwo: oracle (use_real) on calibration_model_20260825_075607.pt
+[2026-08-25 08:24:17] widefullzero_fortytwo: oracle OK in 12 min
+FLOOR GATE: PASS
+  thresholds md5: 6d5714d5ceda147ed16f53143abe7e37
+  FG-A [         PASS] AP 0.31877 / prevalence 0.009077 = 35.12x (need >= 5.0x)
+  FG-B [         PASS] AP(h1) 0.49622 / clim 0.29798 = 1.665x (want >= 1.2)
+  FG-C [         PASS] a 30% effect is 0.22314 AP; 3x MDE is 0.06171
+retention: 0.6424
+[2026-08-25 08:24:18] widefullzero_fortytwo: GATE written: FLOORGATE_widefullzero_fortytwo_PASS
+[2026-08-25 08:24:18] widefullzero_fortytwo: ARM COMPLETE
+[2026-08-25 08:24:18] queue: widefullzero_fortytwo OK
+# IN PROGRESS (3/12)
+
+| architecture | seed | control AP@h18 | arm AP@h18 | Δ | oracle | floor |
+|---|--:|--:|--:|--:|--:|---|
+| AntiAliasedPool | 42 | 0.3298 | 0.3214 | -0.0084 | 0.4991 | PASS |
+| AntiAliasedPool | 43 | 0.3318 | 0.3326 | 0.0008 | 0.5017 | PASS |
+| DynamicTopSkip | 42 | 0.3298 | — | — | — | — |
+| DynamicTopSkip | 43 | 0.3318 | — | — | — | — |
+| FiLMSkip | 42 | 0.3298 | — | — | — | — |
+| FiLMSkip | 43 | 0.3318 | — | — | — | — |
+| ShallowPool | 42 | 0.3298 | — | — | — | — |
+| ShallowPool | 43 | 0.3318 | — | — | — | — |
+| DualStream | 42 | 0.3298 | — | — | — | — |
+| DualStream | 43 | 0.3318 | — | — | — | — |
+| WideMemory | 42 | 0.3298 | 0.3188 | -0.0111 | 0.5077 | PASS |
+| WideMemory | 43 | 0.3318 | — | — | — | — |
+
+⚠️ Δ alone does not promote a candidate: the pre-registration requires the body metrics (`crps_all`, `size_ratio`, `mag_on_false_pos`) to be read beside it, and parameter counts reported — `ShallowPool` has 16% FEWER parameters, so a loss there may be capacity.
+[2026-08-25 08:24:21] queue: --- widefullzero_fortythree (L=300 seed=43 eps=0.0 variant=WideMemory fresh) ---
+[2026-08-25 08:24:21] widefullzero_fortythree: total_lessons=300  TRAIN_TIMEOUT=45000s (12h)
+[2026-08-25 08:24:21] widefullzero_fortythree: train+emit start (HEAD 328e549)
+[2026-08-25 10:16:59] widefullzero_fortythree: train+emit rc=0 in 112 min
+[2026-08-25 10:16:59] widefullzero_fortythree: cube predictions_calibration_20260825_095820 with 13 origins
+[2026-08-25 10:19:50] widefullzero_fortythree: scored + bootstrapped (AP rc=0, retention rc=0)
+[2026-08-25 10:19:52] widefullzero_fortythree: cube deleted
+[2026-08-25 10:19:53] widefullzero_fortythree: oracle (use_real) on calibration_model_20260825_095820.pt
+[2026-08-25 10:36:20] widefullzero_fortythree: oracle OK in 16 min
+FLOOR GATE: PASS
+  thresholds md5: 6d5714d5ceda147ed16f53143abe7e37
+  FG-A [         PASS] AP 0.34070 / prevalence 0.009077 = 37.53x (need >= 5.0x)
+  FG-B [         PASS] AP(h1) 0.48610 / clim 0.29798 = 1.631x (want >= 1.2)
+  FG-C [         PASS] a 30% effect is 0.23849 AP; 3x MDE is 0.05605
+retention: 0.7009
+[2026-08-25 10:36:21] widefullzero_fortythree: GATE written: FLOORGATE_widefullzero_fortythree_PASS
+[2026-08-25 10:36:21] widefullzero_fortythree: ARM COMPLETE
+[2026-08-25 10:36:21] queue: widefullzero_fortythree OK
+# IN PROGRESS (4/12)
+
+| architecture | seed | control AP@h18 | arm AP@h18 | Δ | oracle | floor |
+|---|--:|--:|--:|--:|--:|---|
+| AntiAliasedPool | 42 | 0.3298 | 0.3214 | -0.0084 | 0.4991 | PASS |
+| AntiAliasedPool | 43 | 0.3318 | 0.3326 | 0.0008 | 0.5017 | PASS |
+| DynamicTopSkip | 42 | 0.3298 | — | — | — | — |
+| DynamicTopSkip | 43 | 0.3318 | — | — | — | — |
+| FiLMSkip | 42 | 0.3298 | — | — | — | — |
+| FiLMSkip | 43 | 0.3318 | — | — | — | — |
+| ShallowPool | 42 | 0.3298 | — | — | — | — |
+| ShallowPool | 43 | 0.3318 | — | — | — | — |
+| DualStream | 42 | 0.3298 | — | — | — | — |
+| DualStream | 43 | 0.3318 | — | — | — | — |
+| WideMemory | 42 | 0.3298 | 0.3188 | -0.0111 | 0.5077 | PASS |
+| WideMemory | 43 | 0.3318 | 0.3407 | 0.0089 | 0.5094 | PASS |
+
+⚠️ Δ alone does not promote a candidate: the pre-registration requires the body metrics (`crps_all`, `size_ratio`, `mag_on_false_pos`) to be read beside it, and parameter counts reported — `ShallowPool` has 16% FEWER parameters, so a loss there may be capacity.
+[2026-08-25 10:36:25] queue: --- dynfullzero_fortytwo (L=300 seed=42 eps=0.0 variant=DynamicTopSkip fresh) ---
+[2026-08-25 10:36:25] dynfullzero_fortytwo: total_lessons=300  TRAIN_TIMEOUT=45000s (12h)
+[2026-08-25 10:36:25] dynfullzero_fortytwo: train+emit start (HEAD 328e549)
+[2026-08-25 12:57:06] dynfullzero_fortytwo: train+emit rc=0 in 140 min
+[2026-08-25 12:57:06] dynfullzero_fortytwo: cube predictions_calibration_20260825_124204 with 13 origins
+[2026-08-25 13:00:19] dynfullzero_fortytwo: scored + bootstrapped (AP rc=0, retention rc=0)
+[2026-08-25 13:00:22] dynfullzero_fortytwo: cube deleted
+[2026-08-25 13:00:22] dynfullzero_fortytwo: oracle (use_real) on calibration_model_20260825_124204.pt
+[2026-08-25 13:30:50] dynfullzero_fortytwo: oracle OK in 30 min
+FLOOR GATE: PASS
+  thresholds md5: 6d5714d5ceda147ed16f53143abe7e37
+  FG-A [         PASS] AP 0.33090 / prevalence 0.009077 = 36.45x (need >= 5.0x)
+  FG-B [         PASS] AP(h1) 0.47997 / clim 0.29798 = 1.611x (want >= 1.2)
+  FG-C [         PASS] a 30% effect is 0.23163 AP; 3x MDE is 0.05569
+retention: 0.6894
+[2026-08-25 13:30:51] dynfullzero_fortytwo: GATE written: FLOORGATE_dynfullzero_fortytwo_PASS
+[2026-08-25 13:30:51] dynfullzero_fortytwo: ARM COMPLETE
+[2026-08-25 13:30:51] queue: dynfullzero_fortytwo OK
+# IN PROGRESS (5/12)
+
+| architecture | seed | control AP@h18 | arm AP@h18 | Δ | oracle | floor |
+|---|--:|--:|--:|--:|--:|---|
+| AntiAliasedPool | 42 | 0.3298 | 0.3214 | -0.0084 | 0.4991 | PASS |
+| AntiAliasedPool | 43 | 0.3318 | 0.3326 | 0.0008 | 0.5017 | PASS |
+| DynamicTopSkip | 42 | 0.3298 | 0.3309 | 0.0011 | 0.4993 | PASS |
+| DynamicTopSkip | 43 | 0.3318 | — | — | — | — |
+| FiLMSkip | 42 | 0.3298 | — | — | — | — |
+| FiLMSkip | 43 | 0.3318 | — | — | — | — |
+| ShallowPool | 42 | 0.3298 | — | — | — | — |
+| ShallowPool | 43 | 0.3318 | — | — | — | — |
+| DualStream | 42 | 0.3298 | — | — | — | — |
+| DualStream | 43 | 0.3318 | — | — | — | — |
+| WideMemory | 42 | 0.3298 | 0.3188 | -0.0111 | 0.5077 | PASS |
+| WideMemory | 43 | 0.3318 | 0.3407 | 0.0089 | 0.5094 | PASS |
+
+⚠️ Δ alone does not promote a candidate: the pre-registration requires the body metrics (`crps_all`, `size_ratio`, `mag_on_false_pos`) to be read beside it, and parameter counts reported — `ShallowPool` has 16% FEWER parameters, so a loss there may be capacity.
+[2026-08-25 13:30:54] queue: --- dynfullzero_fortythree (L=300 seed=43 eps=0.0 variant=DynamicTopSkip fresh) ---
+[2026-08-25 13:30:55] dynfullzero_fortythree: total_lessons=300  TRAIN_TIMEOUT=45000s (12h)
+[2026-08-25 13:30:55] dynfullzero_fortythree: train+emit start (HEAD 328e549)
+[2026-08-25 15:29:24] dynfullzero_fortythree: train+emit rc=0 in 118 min
+[2026-08-25 15:29:24] dynfullzero_fortythree: cube predictions_calibration_20260825_151803 with 13 origins
+[2026-08-25 15:32:11] dynfullzero_fortythree: scored + bootstrapped (AP rc=0, retention rc=0)
+[2026-08-25 15:32:14] dynfullzero_fortythree: cube deleted
+[2026-08-25 15:32:14] dynfullzero_fortythree: oracle (use_real) on calibration_model_20260825_151803.pt
+[2026-08-25 15:43:39] dynfullzero_fortythree: oracle OK in 11 min
+FLOOR GATE: PASS
+  thresholds md5: 6d5714d5ceda147ed16f53143abe7e37
+  FG-A [         PASS] AP 0.33496 / prevalence 0.009077 = 36.90x (need >= 5.0x)
+  FG-B [         PASS] AP(h1) 0.48071 / clim 0.29798 = 1.613x (want >= 1.2)
+  FG-C [         PASS] a 30% effect is 0.23447 AP; 3x MDE is 0.06282
+retention: 0.6968
+[2026-08-25 15:43:40] dynfullzero_fortythree: GATE written: FLOORGATE_dynfullzero_fortythree_PASS
+[2026-08-25 15:43:40] dynfullzero_fortythree: ARM COMPLETE
+[2026-08-25 15:43:40] queue: dynfullzero_fortythree OK
+# IN PROGRESS (6/12)
+
+| architecture | seed | control AP@h18 | arm AP@h18 | Δ | oracle | floor |
+|---|--:|--:|--:|--:|--:|---|
+| AntiAliasedPool | 42 | 0.3298 | 0.3214 | -0.0084 | 0.4991 | PASS |
+| AntiAliasedPool | 43 | 0.3318 | 0.3326 | 0.0008 | 0.5017 | PASS |
+| DynamicTopSkip | 42 | 0.3298 | 0.3309 | 0.0011 | 0.4993 | PASS |
+| DynamicTopSkip | 43 | 0.3318 | 0.3350 | 0.0031 | 0.4944 | PASS |
+| FiLMSkip | 42 | 0.3298 | — | — | — | — |
+| FiLMSkip | 43 | 0.3318 | — | — | — | — |
+| ShallowPool | 42 | 0.3298 | — | — | — | — |
+| ShallowPool | 43 | 0.3318 | — | — | — | — |
+| DualStream | 42 | 0.3298 | — | — | — | — |
+| DualStream | 43 | 0.3318 | — | — | — | — |
+| WideMemory | 42 | 0.3298 | 0.3188 | -0.0111 | 0.5077 | PASS |
+| WideMemory | 43 | 0.3318 | 0.3407 | 0.0089 | 0.5094 | PASS |
+
+⚠️ Δ alone does not promote a candidate: the pre-registration requires the body metrics (`crps_all`, `size_ratio`, `mag_on_false_pos`) to be read beside it, and parameter counts reported — `ShallowPool` has 16% FEWER parameters, so a loss there may be capacity.
+[2026-08-25 15:43:43] queue: --- filmfullzero_fortytwo (L=300 seed=42 eps=0.0 variant=FiLMSkip fresh) ---
+[2026-08-25 15:43:44] filmfullzero_fortytwo: total_lessons=300  TRAIN_TIMEOUT=45000s (12h)
+[2026-08-25 15:43:44] filmfullzero_fortytwo: train+emit start (HEAD 328e549)
+[2026-08-25 17:21:27] filmfullzero_fortytwo: train+emit rc=0 in 97 min
+[2026-08-25 17:21:27] filmfullzero_fortytwo: cube predictions_calibration_20260825_171020 with 13 origins
+[2026-08-25 17:24:15] filmfullzero_fortytwo: scored + bootstrapped (AP rc=0, retention rc=0)
+[2026-08-25 17:24:17] filmfullzero_fortytwo: cube deleted
+[2026-08-25 17:24:18] filmfullzero_fortytwo: oracle (use_real) on calibration_model_20260825_171020.pt
+[2026-08-25 17:35:31] filmfullzero_fortytwo: oracle OK in 11 min
+FLOOR GATE: PASS
+  thresholds md5: 6d5714d5ceda147ed16f53143abe7e37
+  FG-A [         PASS] AP 0.31413 / prevalence 0.009077 = 34.61x (need >= 5.0x)
+  FG-B [         PASS] AP(h1) 0.48115 / clim 0.29798 = 1.615x (want >= 1.2)
+  FG-C [         PASS] a 30% effect is 0.21989 AP; 3x MDE is 0.05289
+retention: 0.6529
+[2026-08-25 17:35:31] filmfullzero_fortytwo: GATE written: FLOORGATE_filmfullzero_fortytwo_PASS
+[2026-08-25 17:35:31] filmfullzero_fortytwo: ARM COMPLETE
+[2026-08-25 17:35:31] queue: filmfullzero_fortytwo OK
+# IN PROGRESS (7/12)
+
+| architecture | seed | control AP@h18 | arm AP@h18 | Δ | oracle | floor |
+|---|--:|--:|--:|--:|--:|---|
+| AntiAliasedPool | 42 | 0.3298 | 0.3214 | -0.0084 | 0.4991 | PASS |
+| AntiAliasedPool | 43 | 0.3318 | 0.3326 | 0.0008 | 0.5017 | PASS |
+| DynamicTopSkip | 42 | 0.3298 | 0.3309 | 0.0011 | 0.4993 | PASS |
+| DynamicTopSkip | 43 | 0.3318 | 0.3350 | 0.0031 | 0.4944 | PASS |
+| FiLMSkip | 42 | 0.3298 | 0.3141 | -0.0157 | 0.5004 | PASS |
+| FiLMSkip | 43 | 0.3318 | — | — | — | — |
+| ShallowPool | 42 | 0.3298 | — | — | — | — |
+| ShallowPool | 43 | 0.3318 | — | — | — | — |
+| DualStream | 42 | 0.3298 | — | — | — | — |
+| DualStream | 43 | 0.3318 | — | — | — | — |
+| WideMemory | 42 | 0.3298 | 0.3188 | -0.0111 | 0.5077 | PASS |
+| WideMemory | 43 | 0.3318 | 0.3407 | 0.0089 | 0.5094 | PASS |
+
+⚠️ Δ alone does not promote a candidate: the pre-registration requires the body metrics (`crps_all`, `size_ratio`, `mag_on_false_pos`) to be read beside it, and parameter counts reported — `ShallowPool` has 16% FEWER parameters, so a loss there may be capacity.
+[2026-08-25 17:35:35] queue: --- filmfullzero_fortythree (L=300 seed=43 eps=0.0 variant=FiLMSkip fresh) ---
+[2026-08-25 17:35:35] filmfullzero_fortythree: total_lessons=300  TRAIN_TIMEOUT=45000s (12h)
+[2026-08-25 17:35:35] filmfullzero_fortythree: train+emit start (HEAD 328e549)
+[2026-08-25 19:14:24] filmfullzero_fortythree: train+emit rc=0 in 98 min
+[2026-08-25 19:14:24] filmfullzero_fortythree: cube predictions_calibration_20260825_190255 with 13 origins
+[2026-08-25 19:17:11] filmfullzero_fortythree: scored + bootstrapped (AP rc=0, retention rc=0)
+[2026-08-25 19:17:13] filmfullzero_fortythree: cube deleted
+[2026-08-25 19:17:14] filmfullzero_fortythree: oracle (use_real) on calibration_model_20260825_190255.pt
+[2026-08-25 19:28:29] filmfullzero_fortythree: oracle OK in 11 min
+FLOOR GATE: PASS
+  thresholds md5: 6d5714d5ceda147ed16f53143abe7e37
+  FG-A [         PASS] AP 0.34002 / prevalence 0.009077 = 37.46x (need >= 5.0x)
+  FG-B [         PASS] AP(h1) 0.48057 / clim 0.29798 = 1.613x (want >= 1.2)
+  FG-C [         PASS] a 30% effect is 0.23801 AP; 3x MDE is 0.05228
+retention: 0.7075
+[2026-08-25 19:28:29] filmfullzero_fortythree: GATE written: FLOORGATE_filmfullzero_fortythree_PASS
+[2026-08-25 19:28:29] filmfullzero_fortythree: ARM COMPLETE
+[2026-08-25 19:28:29] queue: filmfullzero_fortythree OK
+# IN PROGRESS (8/12)
+
+| architecture | seed | control AP@h18 | arm AP@h18 | Δ | oracle | floor |
+|---|--:|--:|--:|--:|--:|---|
+| AntiAliasedPool | 42 | 0.3298 | 0.3214 | -0.0084 | 0.4991 | PASS |
+| AntiAliasedPool | 43 | 0.3318 | 0.3326 | 0.0008 | 0.5017 | PASS |
+| DynamicTopSkip | 42 | 0.3298 | 0.3309 | 0.0011 | 0.4993 | PASS |
+| DynamicTopSkip | 43 | 0.3318 | 0.3350 | 0.0031 | 0.4944 | PASS |
+| FiLMSkip | 42 | 0.3298 | 0.3141 | -0.0157 | 0.5004 | PASS |
+| FiLMSkip | 43 | 0.3318 | 0.3400 | 0.0082 | 0.4990 | PASS |
+| ShallowPool | 42 | 0.3298 | — | — | — | — |
+| ShallowPool | 43 | 0.3318 | — | — | — | — |
+| DualStream | 42 | 0.3298 | — | — | — | — |
+| DualStream | 43 | 0.3318 | — | — | — | — |
+| WideMemory | 42 | 0.3298 | 0.3188 | -0.0111 | 0.5077 | PASS |
+| WideMemory | 43 | 0.3318 | 0.3407 | 0.0089 | 0.5094 | PASS |
+
+⚠️ Δ alone does not promote a candidate: the pre-registration requires the body metrics (`crps_all`, `size_ratio`, `mag_on_false_pos`) to be read beside it, and parameter counts reported — `ShallowPool` has 16% FEWER parameters, so a loss there may be capacity.
+[2026-08-25 19:28:33] queue: --- shalfullzero_fortytwo (L=300 seed=42 eps=0.0 variant=ShallowPool fresh) ---
+[2026-08-25 19:28:33] shalfullzero_fortytwo: total_lessons=300  TRAIN_TIMEOUT=45000s (12h)
+[2026-08-25 19:28:33] shalfullzero_fortytwo: train+emit start (HEAD 328e549)
+[2026-08-25 21:09:00] shalfullzero_fortytwo: train+emit rc=0 in 100 min
+[2026-08-25 21:09:00] shalfullzero_fortytwo: cube predictions_calibration_20260825_205608 with 13 origins
+[2026-08-25 21:11:50] shalfullzero_fortytwo: scored + bootstrapped (AP rc=0, retention rc=0)
+[2026-08-25 21:11:52] shalfullzero_fortytwo: cube deleted
+[2026-08-25 21:11:53] shalfullzero_fortytwo: oracle (use_real) on calibration_model_20260825_205608.pt
+[2026-08-25 21:24:48] shalfullzero_fortytwo: oracle OK in 12 min
+FLOOR GATE: PASS
+  thresholds md5: 6d5714d5ceda147ed16f53143abe7e37
+  FG-A [         PASS] AP 0.31200 / prevalence 0.009077 = 34.37x (need >= 5.0x)
+  FG-B [         PASS] AP(h1) 0.47953 / clim 0.29798 = 1.609x (want >= 1.2)
+  FG-C [         PASS] a 30% effect is 0.21840 AP; 3x MDE is 0.05190
+retention: 0.6506
+[2026-08-25 21:24:48] shalfullzero_fortytwo: GATE written: FLOORGATE_shalfullzero_fortytwo_PASS
+[2026-08-25 21:24:48] shalfullzero_fortytwo: ARM COMPLETE
+[2026-08-25 21:24:48] queue: shalfullzero_fortytwo OK
+# IN PROGRESS (9/12)
+
+| architecture | seed | control AP@h18 | arm AP@h18 | Δ | oracle | floor |
+|---|--:|--:|--:|--:|--:|---|
+| AntiAliasedPool | 42 | 0.3298 | 0.3214 | -0.0084 | 0.4991 | PASS |
+| AntiAliasedPool | 43 | 0.3318 | 0.3326 | 0.0008 | 0.5017 | PASS |
+| DynamicTopSkip | 42 | 0.3298 | 0.3309 | 0.0011 | 0.4993 | PASS |
+| DynamicTopSkip | 43 | 0.3318 | 0.3350 | 0.0031 | 0.4944 | PASS |
+| FiLMSkip | 42 | 0.3298 | 0.3141 | -0.0157 | 0.5004 | PASS |
+| FiLMSkip | 43 | 0.3318 | 0.3400 | 0.0082 | 0.4990 | PASS |
+| ShallowPool | 42 | 0.3298 | 0.3120 | -0.0178 | 0.4909 | PASS |
+| ShallowPool | 43 | 0.3318 | — | — | — | — |
+| DualStream | 42 | 0.3298 | — | — | — | — |
+| DualStream | 43 | 0.3318 | — | — | — | — |
+| WideMemory | 42 | 0.3298 | 0.3188 | -0.0111 | 0.5077 | PASS |
+| WideMemory | 43 | 0.3318 | 0.3407 | 0.0089 | 0.5094 | PASS |
+
+⚠️ Δ alone does not promote a candidate: the pre-registration requires the body metrics (`crps_all`, `size_ratio`, `mag_on_false_pos`) to be read beside it, and parameter counts reported — `ShallowPool` has 16% FEWER parameters, so a loss there may be capacity.
+[2026-08-25 21:24:51] queue: --- shalfullzero_fortythree (L=300 seed=43 eps=0.0 variant=ShallowPool fresh) ---
+[2026-08-25 21:24:52] shalfullzero_fortythree: total_lessons=300  TRAIN_TIMEOUT=45000s (12h)
+[2026-08-25 21:24:52] shalfullzero_fortythree: train+emit start (HEAD 328e549)
+[2026-08-25 23:07:25] shalfullzero_fortythree: train+emit rc=0 in 102 min
+[2026-08-25 23:07:25] shalfullzero_fortythree: cube predictions_calibration_20260825_225447 with 13 origins
+[2026-08-25 23:10:14] shalfullzero_fortythree: scored + bootstrapped (AP rc=0, retention rc=0)
+[2026-08-25 23:10:17] shalfullzero_fortythree: cube deleted
+[2026-08-25 23:10:17] shalfullzero_fortythree: oracle (use_real) on calibration_model_20260825_225447.pt
+[2026-08-25 23:23:14] shalfullzero_fortythree: oracle OK in 12 min
+FLOOR GATE: PASS
+  thresholds md5: 6d5714d5ceda147ed16f53143abe7e37
+  FG-A [         PASS] AP 0.31687 / prevalence 0.009077 = 34.91x (need >= 5.0x)
+  FG-B [         PASS] AP(h1) 0.47663 / clim 0.29798 = 1.600x (want >= 1.2)
+  FG-C [         PASS] a 30% effect is 0.22181 AP; 3x MDE is 0.05075
+retention: 0.6648
+[2026-08-25 23:23:14] shalfullzero_fortythree: GATE written: FLOORGATE_shalfullzero_fortythree_PASS
+[2026-08-25 23:23:14] shalfullzero_fortythree: ARM COMPLETE
+[2026-08-25 23:23:14] queue: shalfullzero_fortythree OK
+# IN PROGRESS (10/12)
+
+| architecture | seed | control AP@h18 | arm AP@h18 | Δ | oracle | floor |
+|---|--:|--:|--:|--:|--:|---|
+| AntiAliasedPool | 42 | 0.3298 | 0.3214 | -0.0084 | 0.4991 | PASS |
+| AntiAliasedPool | 43 | 0.3318 | 0.3326 | 0.0008 | 0.5017 | PASS |
+| DynamicTopSkip | 42 | 0.3298 | 0.3309 | 0.0011 | 0.4993 | PASS |
+| DynamicTopSkip | 43 | 0.3318 | 0.3350 | 0.0031 | 0.4944 | PASS |
+| FiLMSkip | 42 | 0.3298 | 0.3141 | -0.0157 | 0.5004 | PASS |
+| FiLMSkip | 43 | 0.3318 | 0.3400 | 0.0082 | 0.4990 | PASS |
+| ShallowPool | 42 | 0.3298 | 0.3120 | -0.0178 | 0.4909 | PASS |
+| ShallowPool | 43 | 0.3318 | 0.3169 | -0.0150 | 0.4991 | PASS |
+| DualStream | 42 | 0.3298 | — | — | — | — |
+| DualStream | 43 | 0.3318 | — | — | — | — |
+| WideMemory | 42 | 0.3298 | 0.3188 | -0.0111 | 0.5077 | PASS |
+| WideMemory | 43 | 0.3318 | 0.3407 | 0.0089 | 0.5094 | PASS |
+
+⚠️ Δ alone does not promote a candidate: the pre-registration requires the body metrics (`crps_all`, `size_ratio`, `mag_on_false_pos`) to be read beside it, and parameter counts reported — `ShallowPool` has 16% FEWER parameters, so a loss there may be capacity.
+[2026-08-25 23:23:18] queue: --- dualfullzero_fortytwo (L=300 seed=42 eps=0.0 variant=DualStream fresh) ---
+[2026-08-25 23:23:18] dualfullzero_fortytwo: total_lessons=300  TRAIN_TIMEOUT=45000s (12h)
+[2026-08-25 23:23:18] dualfullzero_fortytwo: train+emit start (HEAD 328e549)
+[2026-08-26 01:57:37] dualfullzero_fortytwo: train+emit rc=0 in 154 min
+[2026-08-26 01:57:37] dualfullzero_fortytwo: cube predictions_calibration_20260826_014222 with 13 origins
+[2026-08-26 02:01:26] dualfullzero_fortytwo: scored + bootstrapped (AP rc=0, retention rc=0)
+[2026-08-26 02:01:30] dualfullzero_fortytwo: cube deleted
+[2026-08-26 02:01:31] dualfullzero_fortytwo: oracle (use_real) on calibration_model_20260826_014222.pt
+[2026-08-26 02:20:42] dualfullzero_fortytwo: oracle OK in 19 min
+FLOOR GATE: PASS
+  thresholds md5: 6d5714d5ceda147ed16f53143abe7e37
+  FG-A [         PASS] AP 0.31745 / prevalence 0.009077 = 34.97x (need >= 5.0x)
+  FG-B [         PASS] AP(h1) 0.47551 / clim 0.29798 = 1.596x (want >= 1.2)
+  FG-C [         PASS] a 30% effect is 0.22222 AP; 3x MDE is 0.04799
+retention: 0.6676
+[2026-08-26 02:20:43] dualfullzero_fortytwo: GATE written: FLOORGATE_dualfullzero_fortytwo_PASS
+[2026-08-26 02:20:43] dualfullzero_fortytwo: ARM COMPLETE
+[2026-08-26 02:20:43] queue: dualfullzero_fortytwo OK
+# IN PROGRESS (11/12)
+
+| architecture | seed | control AP@h18 | arm AP@h18 | Δ | oracle | floor |
+|---|--:|--:|--:|--:|--:|---|
+| AntiAliasedPool | 42 | 0.3298 | 0.3214 | -0.0084 | 0.4991 | PASS |
+| AntiAliasedPool | 43 | 0.3318 | 0.3326 | 0.0008 | 0.5017 | PASS |
+| DynamicTopSkip | 42 | 0.3298 | 0.3309 | 0.0011 | 0.4993 | PASS |
+| DynamicTopSkip | 43 | 0.3318 | 0.3350 | 0.0031 | 0.4944 | PASS |
+| FiLMSkip | 42 | 0.3298 | 0.3141 | -0.0157 | 0.5004 | PASS |
+| FiLMSkip | 43 | 0.3318 | 0.3400 | 0.0082 | 0.4990 | PASS |
+| ShallowPool | 42 | 0.3298 | 0.3120 | -0.0178 | 0.4909 | PASS |
+| ShallowPool | 43 | 0.3318 | 0.3169 | -0.0150 | 0.4991 | PASS |
+| DualStream | 42 | 0.3298 | 0.3175 | -0.0124 | 0.4928 | PASS |
+| DualStream | 43 | 0.3318 | — | — | — | — |
+| WideMemory | 42 | 0.3298 | 0.3188 | -0.0111 | 0.5077 | PASS |
+| WideMemory | 43 | 0.3318 | 0.3407 | 0.0089 | 0.5094 | PASS |
+
+⚠️ Δ alone does not promote a candidate: the pre-registration requires the body metrics (`crps_all`, `size_ratio`, `mag_on_false_pos`) to be read beside it, and parameter counts reported — `ShallowPool` has 16% FEWER parameters, so a loss there may be capacity.
+[2026-08-26 02:20:48] queue: --- dualfullzero_fortythree (L=300 seed=43 eps=0.0 variant=DualStream fresh) ---
+[2026-08-26 02:20:48] dualfullzero_fortythree: total_lessons=300  TRAIN_TIMEOUT=45000s (12h)
+[2026-08-26 02:20:48] dualfullzero_fortythree: train+emit start (HEAD 328e549)
+[2026-08-26 02:20:52] dualfullzero_fortythree: train+emit rc=1 in 0 min
+[2026-08-26 02:20:52] dualfullzero_fortythree: FAILED — see dualfullzero_fortythree_run.log
+[2026-08-26 02:20:52] queue: dualfullzero_fortythree FAILED rc=1
+# IN PROGRESS (11/12)
+
+| architecture | seed | control AP@h18 | arm AP@h18 | Δ | oracle | floor |
+|---|--:|--:|--:|--:|--:|---|
+| AntiAliasedPool | 42 | 0.3298 | 0.3214 | -0.0084 | 0.4991 | PASS |
+| AntiAliasedPool | 43 | 0.3318 | 0.3326 | 0.0008 | 0.5017 | PASS |
+| DynamicTopSkip | 42 | 0.3298 | 0.3309 | 0.0011 | 0.4993 | PASS |
+| DynamicTopSkip | 43 | 0.3318 | 0.3350 | 0.0031 | 0.4944 | PASS |
+| FiLMSkip | 42 | 0.3298 | 0.3141 | -0.0157 | 0.5004 | PASS |
+| FiLMSkip | 43 | 0.3318 | 0.3400 | 0.0082 | 0.4990 | PASS |
+| ShallowPool | 42 | 0.3298 | 0.3120 | -0.0178 | 0.4909 | PASS |
+| ShallowPool | 43 | 0.3318 | 0.3169 | -0.0150 | 0.4991 | PASS |
+| DualStream | 42 | 0.3298 | 0.3175 | -0.0124 | 0.4928 | PASS |
+| DualStream | 43 | 0.3318 | — | — | — | — |
+| WideMemory | 42 | 0.3298 | 0.3188 | -0.0111 | 0.5077 | PASS |
+| WideMemory | 43 | 0.3318 | 0.3407 | 0.0089 | 0.5094 | PASS |
+
+⚠️ Δ alone does not promote a candidate: the pre-registration requires the body metrics (`crps_all`, `size_ratio`, `mag_on_false_pos`) to be read beside it, and parameter counts reported — `ShallowPool` has 16% FEWER parameters, so a loss there may be capacity.
+[2026-08-26 02:20:53] queue: === queue end · completed: aafullzero_fortytwo aafullzero_fortythree widefullzero_fortytwo widefullzero_fortythree dynfullzero_fortytwo dynfullzero_fortythree filmfullzero_fortytwo filmfullzero_fortythree shalfullzero_fortytwo shalfullzero_fortythree dualfullzero_fortytwo · failed/skipped: dualfullzero_fortythree ===
+[2026-08-26 09:05:46] queue: === queue start · HEAD a137c34db1c7 · 12 arm(s): 300:42:0.0::AntiAliasedPool 300:43:0.0::AntiAliasedPool 300:42:0.0::WideMemory 300:43:0.0::WideMemory 300:42:0.0::DynamicTopSkip 300:43:0.0::DynamicTopSkip 300:42:0.0::FiLMSkip 300:43:0.0::FiLMSkip 300:42:0.0::ShallowPool 300:43:0.0::ShallowPool 300:42:0.0::DualStream 300:43:0.0::DualStream ===
+[2026-08-26 09:05:49] queue: SKIP aafullzero_fortytwo — control and oracle both already scored
+[2026-08-26 09:05:51] queue: SKIP aafullzero_fortythree — control and oracle both already scored
+[2026-08-26 09:05:54] queue: SKIP widefullzero_fortytwo — control and oracle both already scored
+[2026-08-26 09:05:57] queue: SKIP widefullzero_fortythree — control and oracle both already scored
+[2026-08-26 09:06:00] queue: SKIP dynfullzero_fortytwo — control and oracle both already scored
+[2026-08-26 09:06:02] queue: SKIP dynfullzero_fortythree — control and oracle both already scored
+[2026-08-26 09:06:05] queue: SKIP filmfullzero_fortytwo — control and oracle both already scored
+[2026-08-26 09:06:08] queue: SKIP filmfullzero_fortythree — control and oracle both already scored
+[2026-08-26 09:06:10] queue: SKIP shalfullzero_fortytwo — control and oracle both already scored
+[2026-08-26 09:06:13] queue: SKIP shalfullzero_fortythree — control and oracle both already scored
+[2026-08-26 09:06:15] queue: SKIP dualfullzero_fortytwo — control and oracle both already scored
+[2026-08-26 09:06:18] queue: --- dualfullzero_fortythree (L=300 seed=43 eps=0.0 variant=DualStream fresh) ---
+[2026-08-26 09:06:19] dualfullzero_fortythree: total_lessons=300  TRAIN_TIMEOUT=45000s (12h)
+[2026-08-26 09:06:19] dualfullzero_fortythree: train+emit start (HEAD a137c34)
+[2026-08-26 11:18:30] dualfullzero_fortythree: train+emit rc=0 in 132 min
+[2026-08-26 11:18:30] dualfullzero_fortythree: cube predictions_calibration_20260826_110616 with 13 origins
+[2026-08-26 11:21:21] dualfullzero_fortythree: scored + bootstrapped (AP rc=0, retention rc=0)
+[2026-08-26 11:21:23] dualfullzero_fortythree: cube deleted
+[2026-08-26 11:21:24] dualfullzero_fortythree: oracle (use_real) on calibration_model_20260826_110616.pt
+[2026-08-26 11:35:30] dualfullzero_fortythree: oracle OK in 14 min
+FLOOR GATE: PASS
+  thresholds md5: 6d5714d5ceda147ed16f53143abe7e37
+  FG-A [         PASS] AP 0.33051 / prevalence 0.009077 = 36.41x (need >= 5.0x)
+  FG-B [         PASS] AP(h1) 0.48753 / clim 0.29798 = 1.636x (want >= 1.2)
+  FG-C [         PASS] a 30% effect is 0.23136 AP; 3x MDE is 0.04911
+retention: 0.6779
+[2026-08-26 11:35:31] dualfullzero_fortythree: GATE written: FLOORGATE_dualfullzero_fortythree_PASS
+[2026-08-26 11:35:31] dualfullzero_fortythree: ARM COMPLETE
+[2026-08-26 11:35:31] queue: dualfullzero_fortythree OK
+# COMPLETE
+
+| architecture | seed | control AP@h18 | arm AP@h18 | Δ | oracle | floor |
+|---|--:|--:|--:|--:|--:|---|
+| AntiAliasedPool | 42 | 0.3298 | 0.3214 | -0.0084 | 0.4991 | PASS |
+| AntiAliasedPool | 43 | 0.3318 | 0.3326 | 0.0008 | 0.5017 | PASS |
+| DynamicTopSkip | 42 | 0.3298 | 0.3309 | 0.0011 | 0.4993 | PASS |
+| DynamicTopSkip | 43 | 0.3318 | 0.3350 | 0.0031 | 0.4944 | PASS |
+| FiLMSkip | 42 | 0.3298 | 0.3141 | -0.0157 | 0.5004 | PASS |
+| FiLMSkip | 43 | 0.3318 | 0.3400 | 0.0082 | 0.4990 | PASS |
+| ShallowPool | 42 | 0.3298 | 0.3120 | -0.0178 | 0.4909 | PASS |
+| ShallowPool | 43 | 0.3318 | 0.3169 | -0.0150 | 0.4991 | PASS |
+| DualStream | 42 | 0.3298 | 0.3175 | -0.0124 | 0.4928 | PASS |
+| DualStream | 43 | 0.3318 | 0.3305 | -0.0013 | 0.5065 | PASS |
+| WideMemory | 42 | 0.3298 | 0.3188 | -0.0111 | 0.5077 | PASS |
+| WideMemory | 43 | 0.3318 | 0.3407 | 0.0089 | 0.5094 | PASS |
+
+⚠️ Δ alone does not promote a candidate: the pre-registration requires the body metrics (`crps_all`, `size_ratio`, `mag_on_false_pos`) to be read beside it, and parameter counts reported — `ShallowPool` has 16% FEWER parameters, so a loss there may be capacity.
+[2026-08-26 11:35:31] queue: === queue end · completed: aafullzero_fortytwo aafullzero_fortythree widefullzero_fortytwo widefullzero_fortythree dynfullzero_fortytwo dynfullzero_fortythree filmfullzero_fortytwo filmfullzero_fortythree shalfullzero_fortytwo shalfullzero_fortythree dualfullzero_fortytwo dualfullzero_fortythree · failed/skipped: none ===

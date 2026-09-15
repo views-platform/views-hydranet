@@ -85,7 +85,7 @@ for i in range(seq_len - 1):
    INPUT distribution, never the TARGET.
 2. **Feedback uses `output.reg` (post-ReLU, non-negative)** — matching the
    inference regime. NOT `output.reg_latent` (pre-ReLU, can be negative). C-99.
-3. **`prev_pred.detach()`** — no second-order gradient through the input path.
+3. **`prev_pred.detach()` BY DEFAULT; optionally attached under `ss_backprop_through_feedback` (#308, 2026-09-03).** With the flag `False` (the default) the feedback edge is cut and this invariant's original reading holds — no second-order gradient through the input path, matching Bengio et al. (2015) §2.4. With it `True` the edge is left attached (BPTT-SA, `Vlachas2023_LearningFromPredictions`). For a family head the fed value is a non-reparameterised DRAW, so `True` applies a straight-through estimator: forward is the draw, backward is the composed mean's gradient. Simply un-detaching is a measured **no-op** — see **C-324**. Per-step gradient bounding is available via `ss_feedback_grad_clip`, which is rejected without the flag and applies only on a family head.
    Bengio et al. (2015) §2.4 note this was also their approach: "back-propagate
    the gradient of the losses at times t → T through that decision. This was
    not done in the experiments."

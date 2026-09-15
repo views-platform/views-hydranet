@@ -1,0 +1,15 @@
+{
+  "label": "dynfullzero_fortytwo",
+  "artifact": "calibration_model_20260825_124204.pt",
+  "pred_dir": "predictions_calibration_20260825_124204",
+  "weight_sha256": "d853ad2b763707658a3a8d507859eda2ce50da00d24a092d0e8bbbe6d1225b4b",
+  "total_lessons": 300,
+  "ss_epsilon_max": 0.0,
+  "ss_feedback": "sample",
+  "torch_seed": 42,
+  "output_distribution": "nb",
+  "forecast_composition": "soft_gate",
+  "resumed_from_artifact": false,
+  "head": "328e549b021ff02d1827dc2e56df8fba5332215d",
+  "emit_head": "328e549b021ff02d1827dc2e56df8fba5332215d"
+}

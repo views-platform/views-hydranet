@@ -29,24 +29,43 @@ class ScheduledSamplingMixer:
         epsilon_max: float,
         warmup_lessons: int | None = None,
         k: float | None = None,
+        reverse: bool = False,
     ):
         if schedule not in VALID_SCHEDULES:
-            raise ValueError(f"Invalid schedule '{schedule}'. Must be one of: {VALID_SCHEDULES}")
+            err_msg = f"Invalid schedule '{schedule}'. Must be one of: {VALID_SCHEDULES}"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         if epsilon_max < 0 or epsilon_max > 1:
-            raise ValueError(f"epsilon_max must be in [0, 1], got {epsilon_max}")
+            err_msg = f"epsilon_max must be in [0, 1], got {epsilon_max}"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        # `k` is not optional for the two decay schedules: get_epsilon divides by it and
+        # exponentiates it, so a None here does not fall back to anything — it raises TypeError
+        # deep inside the training loop, hundreds of lessons after the config was accepted.
+        # Refuse the unusable combination at construction rather than carrying it as a value.
+        if schedule in ("exponential", "inverse_sigmoid") and k is None:
+            err_msg = f"{schedule} schedule requires k; got None."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         if schedule == "exponential" and k is not None and k >= 1.0:
-            raise ValueError(f"exponential schedule requires k < 1.0, got {k}")
+            err_msg = f"exponential schedule requires k < 1.0, got {k}"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         # Bengio 2015 inverse-sigmoid decay requires k >= 1 (k<1 is a wrong schedule shape; k=0
         # would divide by zero inside get_epsilon). Symmetric to the exponential k<1 guard above.
         if schedule == "inverse_sigmoid" and k is not None and k < 1.0:
-            raise ValueError(f"inverse_sigmoid schedule requires k >= 1.0, got {k}")
+            err_msg = f"inverse_sigmoid schedule requires k >= 1.0, got {k}"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         self.schedule = schedule
         self.epsilon_max = epsilon_max
         self.warmup_lessons = warmup_lessons or 0
         self.k = k
+        self.reverse = reverse
         logger.info(
-            f"ScheduledSamplingMixer: schedule={schedule}, "
-            f"epsilon_max={epsilon_max}, warmup={self.warmup_lessons}, k={k}"
+            f"ScheduledSamplingMixer: schedule={schedule}, epsilon_max={epsilon_max}, "
+            f"warmup={self.warmup_lessons}, k={k}, reverse={reverse}"
+            + (" (INCREASING teacher forcing — Teutsch 2022 ITF, #287)" if reverse else "")
         )
 
     def get_epsilon(self, lesson_idx: int) -> float:
@@ -67,4 +86,16 @@ class ScheduledSamplingMixer:
         else:
             raw = 0.0
 
+        if self.reverse:
+            # INCREASING teacher forcing (Teutsch et al. 2022, #287): epsilon starts at
+            # `epsilon_max` and DECAYS to 0, so the model begins near free-running and is given
+            # progressively more ground truth. The forward direction — epsilon rising from 0 — is
+            # the decreasing-TF curriculum that Teutsch reports failing on time series and that
+            # our own SS sweep measured as harmful (M30-M33).
+            #
+            # `warmup_lessons` is the linear ramp length, so an ITF arm sets it to the TOTAL
+            # lesson count: the paper's method ramps across training, not over a short warmup.
+            # See `2026-08-23_itf_pilot_dossier/05_analysis_plan.md` AMENDMENT 1 for why a strict
+            # mirror of our constant-dose SS arm was rejected.
+            return min((1.0 - raw) * self.epsilon_max, self.epsilon_max)
         return min(raw * self.epsilon_max, self.epsilon_max)

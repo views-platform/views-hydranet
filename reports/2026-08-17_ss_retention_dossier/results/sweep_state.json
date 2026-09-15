@@ -1,0 +1,13 @@
+{
+  "state": "UNDERPOWERED",
+  "rule_md5": "d1432db9a7611cf349f1009225365027",
+  "n_control": 4,
+  "n_treated": 4,
+  "p_value": 0.02857142857142857,
+  "diff_h18": -0.04257141118150021,
+  "guard_ok": true,
+  "censored": [],
+  "problems": [
+    "5 arm(s) at another lesson count ignored \u2014 this sweep is L=300: longzero_fortyfive, longzero_fortyfour, longzero_fortysix, longzero_fortythree, longzero_fortytwo"
+  ]
+}

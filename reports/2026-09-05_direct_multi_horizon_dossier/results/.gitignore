@@ -1,0 +1,9 @@
+# Live experiment output is NOT git-tracked, deliberately.
+#
+# It was, briefly, because `git add -f <dossier>` swept the whole directory in. A branch switch
+# then deleted score CSVs and the driver script out from under a RUNNING job — and bash reads
+# scripts incrementally, so removing a running script can kill the run outright. Nothing was lost
+# (it was committed), but the hazard is real and the fix is to not track output while it is being
+# written. Results are curated into the dossier's markdown; the raw CSVs stay local.
+*
+!.gitignore

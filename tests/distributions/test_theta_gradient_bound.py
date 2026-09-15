@@ -11,6 +11,21 @@ cancelled, so no forward-distorting θ-floor is needed (which would harm the hea
 requires). (At *moderate* θ with an *extreme* count the gradient is legitimately larger — that is
 real heavy-tail signal, not the `1/θ` floor pathology, and the existing global `clip_grad_norm`
 bounds it. That regime is out of C-202's scope.)
+
+TWO CAVEATS ADDED BY THE 2026-08-26 GRADIENT AUDIT (C-313), neither of which invalidates the
+result above:
+
+1. The `raw_theta=-16.0` row is **below** the clamp edge (`softplus(raw) == _EPS` at
+   `raw ≈ -13.8155`), so at that point the bound is met by a gradient of **exactly 0.0** — the
+   channel is dead, not cancelled. The `-10.0` and `-13.0` rows are above the edge and are the
+   ones that actually demonstrate the cancellation this test is named for. The row is kept
+   rather than deleted because it is the evidence that the dead zone exists;
+   `tests/distributions/test_gradient_dead_zones.py` asserts that fact directly.
+
+2. This test, C-202 and its resolution are all about **theta**. The identical clamp applies to
+   **mu**, where `dtheta/d(raw) -> 0` has no counterpart and the head-channel gradient near the
+   floor is approximately the observed count. That is not a defect in this test — it is simply
+   outside its scope, and it is registered separately as C-313.
 """
 
 from __future__ import annotations

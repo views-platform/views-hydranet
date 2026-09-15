@@ -1,0 +1,1 @@
+{"model": "blazing_meteor", "arm": "identity", "artifact": "calibration_model_20260812_232850.pt", "pred_dir": "predictions_calibration_20260812_232850", "score_csv": "score_blazing_meteor_identity.csv", "fedfield_csv": "fedfield_blazing_meteor_identity.csv", "elapsed_s": 422.3, "cubes_deleted": true, "length_scale": null, "gate_probe": true}

@@ -1,0 +1,33 @@
+wrote /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-08-24_architecture_bakeoff_dossier/results/score_dualfullzero_fortytwo.csv  (7 rows: 1 models × 1 targets × 7 h)
+
+=== sb: crps_all / mcr_none by horizon ===
+h                         1      6      12     18     24     30     36
+model                                                                 
+dualfullzero_fortytwo 0.1245 0.1130 0.1110 0.1343 0.1330 0.1687 0.8747
+{
+  "1": {
+    "ap": 0.4755127282917689,
+    "lo": 0.46548929392414196,
+    "hi": 0.48843297808228586,
+    "mde": 0.011471842079071953,
+    "n_origins": 13.0
+  },
+  "18": {
+    "ap": 0.31745074296953113,
+    "lo": 0.3036721216240589,
+    "hi": 0.3356638489652271,
+    "mde": 0.015995863670584115,
+    "n_origins": 13.0
+  }
+}
+{
+  "ratio": 0.6675967310274546,
+  "lo": 0.6388552135708988,
+  "hi": 0.7021273899455545,
+  "mde": 0.03163608818732783,
+  "ap_num": 0.31745074296953113,
+  "ap_den": 0.4755127282917689,
+  "numerator_h": 18.0,
+  "denominator_h": 1.0,
+  "n_origins": 13.0
+}
