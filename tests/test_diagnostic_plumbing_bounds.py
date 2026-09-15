@@ -90,6 +90,29 @@ class TestTheProbeIsWiredOnTheRealEngine:
         assert inf.gate_structure_stats
 
 
+class TestTheObserverDoesNotPerturbTheTreatmentOnTheRealEngine:
+    """The stub-based byte-identity test in `test_gate_probe_stream_isolation.py` cannot see a
+    production seeding that shares ONE generator between streams and re-seeds it per call — the
+    stub builds its own. The #372 guard audit applied exactly that mutation and the real `thin`
+    forecast changed with the probe on (6 of 360 values) while 36/36 stayed green. So: the real
+    engine, same arm, same seed, probe on vs off, the FORECAST byte-identical."""
+
+    @pytest.mark.parametrize("arm", ["thin:0.25", "inject:0.05"])
+    def test_the_forecast_is_byte_identical_with_the_probe_on_and_off(self, arm):
+        out = {}
+        for probe in (False, True):
+            inf = _inference(record_gate_probe=probe, time_steps=4, feedback_transform=arm)
+            mags, _ = inf.predict(_tensor(), 3, 0, ["feat"])
+            out[probe] = torch.as_tensor(mags).clone()
+            if probe:
+                assert inf.gate_structure_stats, "the probe recorded nothing — vacuous"
+        assert torch.equal(out[False], out[True]), (
+            f"arm={arm}: switching the gate probe on changed the forecast itself "
+            f"({int((out[False] != out[True]).sum())} values differ). The probe is drawing from a "
+            "stream the transform consumes (S7/#360)."
+        )
+
+
 class TestTheCapIsWiredOnTheRealEngine:
     def test_predict_past_the_ceiling_truncates_and_counts(self, monkeypatch):
         """Reverting either append site to a bare `.append` reopens the rc=137 path with every
@@ -141,6 +164,24 @@ class TestTheDriverRefusesATruncatedRecord:
 
 
 # ─────────────────────────────────────────────────── (a) the buffers are bounded
+
+
+class TestTheCeilingIsTheDocumentedBudget:
+    """The number is a memory budget with stated arithmetic: 1,365 records per posterior pass on
+    the 13-origin x 35-step x 3-target vehicle, so the ceiling must capture ordinary runs (D<=64)
+    whole and must NOT be large enough to fit D=256 — the configuration that OOM-killed the
+    first probe run. A ceiling raised to fit that case bounds nothing (#372 guard audit, 4k)."""
+
+    RECORDS_PER_PASS = 13 * 35 * 3
+
+    def test_an_ordinary_run_is_captured_whole(self):
+        assert DIAGNOSTIC_STATS_MAX_RECORDS >= 64 * self.RECORDS_PER_PASS
+
+    def test_the_oom_configuration_does_not_fit(self):
+        assert DIAGNOSTIC_STATS_MAX_RECORDS < 256 * self.RECORDS_PER_PASS, (
+            "the ceiling now accommodates D=256 — the configuration that was SIGKILLed at "
+            "rc=137. A cap sized to fit the case that caused the OOM bounds nothing."
+        )
 
 
 class TestADiagnosticCannotOOMTheRunItDiagnoses:

@@ -25,6 +25,7 @@ from views_hydranet.utils.hydranet_inference import (  # noqa: E402
     _FB_GATE_PROBE_SEED_NAMESPACE,
     _FB_TRANSFORM_SEED_NAMESPACE,
     HydraNetInference,
+    _namespaced_generator,
 )
 
 SEED = 4242
@@ -48,14 +49,14 @@ class _Rollout:
         self.gate_structure_stats: list[dict] = []
         self.diagnostic_stats_dropped: dict[str, int] = {}
         self.sample_idx = sample_idx
-        # Seeded exactly as `_forecast` seeds them, so the streams here are the production streams.
-        self._fb_transform_gen = torch.Generator(device="cpu").manual_seed(
-            SEED + _FB_TRANSFORM_SEED_NAMESPACE + sample_idx
+        # Seeded by the PRODUCTION helper, not by hand: a guard audit on #372 found the previous
+        # hand-rolled copies here made this file blind to `_namespaced_generator` — dropping the
+        # namespace from the helper put the probe back on the transform stream and passed 36/36.
+        self._fb_transform_gen = _namespaced_generator(
+            SEED, _FB_TRANSFORM_SEED_NAMESPACE, sample_idx
         )
         self._fb_gate_probe_gen = (
-            torch.Generator(device="cpu").manual_seed(
-                SEED + _FB_GATE_PROBE_SEED_NAMESPACE + sample_idx
-            )
+            _namespaced_generator(SEED, _FB_GATE_PROBE_SEED_NAMESPACE, sample_idx)
             if record_probe
             else None
         )
@@ -136,6 +137,43 @@ class TestTheNamespacesAreDistinct:
         r = _Rollout(arm=("thin", 0.25), record_probe=True, sample_idx=0)
         assert r._fb_gate_probe_gen is not r._fb_transform_gen
         assert r._fb_gate_probe_gen.initial_seed() != r._fb_transform_gen.initial_seed()
+
+
+class TestTheSeedFormulaItself:
+    """`_namespaced_generator` is the one place the four feedback streams are seeded. Every
+    mutation of it that keeps the return type — drop the namespace, drop the sample index, drop
+    the seed, ignore all three — survived the tests above (#372 guard audit). These pin it."""
+
+    def _first_draws(self, seed, namespace, sample_idx, n=4):
+        return _namespaced_generator(seed, namespace, sample_idx).initial_seed(), torch.rand(
+            n, generator=_namespaced_generator(seed, namespace, sample_idx)
+        )
+
+    def test_different_namespaces_give_different_streams(self):
+        a = self._first_draws(SEED, _FB_TRANSFORM_SEED_NAMESPACE, 0)[1]
+        b = self._first_draws(SEED, _FB_GATE_PROBE_SEED_NAMESPACE, 0)[1]
+        assert not torch.equal(a, b), "the transform and probe streams emit the same uniforms"
+
+    def test_different_posterior_samples_give_different_streams(self):
+        a = self._first_draws(SEED, _FB_GATE_PROBE_SEED_NAMESPACE, 0)[1]
+        b = self._first_draws(SEED, _FB_GATE_PROBE_SEED_NAMESPACE, 1)[1]
+        assert not torch.equal(a, b), "sample_idx is ignored — every posterior pass draws alike"
+
+    def test_different_torch_seeds_give_different_streams(self):
+        a = self._first_draws(SEED, _FB_GATE_PROBE_SEED_NAMESPACE, 0)[1]
+        b = self._first_draws(SEED + 1, _FB_GATE_PROBE_SEED_NAMESPACE, 0)[1]
+        assert not torch.equal(a, b), "torch_seed is ignored — the stream is not seeded from it"
+
+    def test_the_same_inputs_give_the_same_stream_and_a_fresh_generator(self):
+        g1 = _namespaced_generator(SEED, _FB_GATE_PROBE_SEED_NAMESPACE, 0)
+        g2 = _namespaced_generator(SEED, _FB_GATE_PROBE_SEED_NAMESPACE, 0)
+        assert g1 is not g2, "a shared generator re-seeded per call couples every stream"
+        assert torch.equal(torch.rand(4, generator=g1), torch.rand(4, generator=g2))
+
+    def test_the_formula_is_the_documented_one(self):
+        """`torch_seed + namespace + sample_idx`, so an existing dump's seed can be reproduced."""
+        g = _namespaced_generator(SEED, _FB_GATE_PROBE_SEED_NAMESPACE, 3)
+        assert g.initial_seed() == SEED + _FB_GATE_PROBE_SEED_NAMESPACE + 3
 
 
 @pytest.mark.parametrize("sample_idx", [0, 1])

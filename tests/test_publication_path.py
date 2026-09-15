@@ -16,6 +16,8 @@ behind #351 (the S10 gate).
 import re
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).parent.parent
 PUBLISH = REPO / ".github" / "workflows" / "publish_package.yml"
 CI = REPO / ".github" / "workflows" / "ci.yml"
@@ -41,38 +43,122 @@ class TestTheWheelContractIsOneFile:
             )
 
 
+def _contract_module():
+    """Import `.github/scripts/wheel_contract.py` as a module WITHOUT running `main()`."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("wheel_contract", CONTRACT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _contract_ast():
+    import ast
+
+    return ast.parse(CONTRACT.read_text())
+
+
 class TestTheContractReadsTheCodeNotJustTheMetadata:
     """A wheel whose `.dist-info` is correct and whose Python tree is empty passes `twine check`,
     installs under `--no-deps`, and satisfies every metadata assertion. Demonstrated on a forged
-    wheel in S6/#359. Importing the package is the only assertion that reads the code."""
+    wheel in S6/#359. Importing the package is the only assertion that reads the code.
 
-    def test_the_contract_imports_the_package(self):
-        """Matched on an executable line, not a substring: the first draft of this test passed
-        with the import commented out, because the words survived in the comment."""
-        lines = [ln.strip() for ln in CONTRACT.read_text().splitlines()]
-        assert any(ln.startswith("import views_hydranet") for ln in lines), (
-            "the wheel contract no longer imports the package, so a wheel containing zero Python "
-            "modules would pass it (S6/#359)"
+    The contract's checks are exercised IN-PROCESS here, not matched as text: a guard audit on
+    #372 left `require()` with a `pass` body, a `require()` that exited 0 after printing FAILED,
+    an emptied `REQUIRED_DEPENDENCIES`, a disabled purelib condition and a try/except around the
+    import all green under the previous, substring-based versions of these tests."""
+
+    def test_the_contract_imports_the_package_and_not_inside_a_try(self):
+        """An `import_module(PACKAGE)` call that is NOT wrapped in try/except: on an empty wheel
+        that call raising IS the contract firing. A try/except that swallowed it passed the
+        text-matching version of this test with the import line intact."""
+        import ast
+
+        tree = _contract_ast()
+        main = next(
+            n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "main"
+        )
+        imports = [
+            n
+            for n in ast.walk(main)
+            if isinstance(n, ast.Call) and getattr(n.func, "attr", None) == "import_module"
+        ]
+        assert imports, "main() no longer imports the package — an empty wheel would pass"
+        inside_try = [
+            n
+            for t in ast.walk(main)
+            if isinstance(t, ast.Try)
+            for n in ast.walk(t)
+            if n in imports
+        ]
+        assert not inside_try, (
+            "the package import is wrapped in try/except — its failure is swallowed"
+        )
+
+    def test_require_exits_non_zero_with_the_reason(self):
+        mod = _contract_module()
+        with pytest.raises(SystemExit) as exc:
+            mod.require(False, "the reason")
+        assert exc.value.code != 0 and exc.value.code is not None, "require() exited 0 on failure"
+        assert "the reason" in str(exc.value.code)
+        mod.require(True, "never raised")  # and it is not always-raise either
+
+    def test_the_metadata_check_rejects_a_missing_dependency(self):
+        mod = _contract_module()
+        good = [f"{d} (>=1)" for d in mod.REQUIRED_DEPENDENCIES]
+        mod.check_metadata(good, ["Repository, https://x"])  # the real shape passes
+        for dropped in mod.REQUIRED_DEPENDENCIES:
+            with pytest.raises(SystemExit, match=dropped):
+                mod.check_metadata(
+                    [r for r in good if dropped not in r], ["Repository, https://x"]
+                )
+        with pytest.raises(SystemExit, match="Project-URL"):
+            mod.check_metadata(good, [])
+
+    def test_required_dependencies_are_the_runtime_dependencies_in_pyproject(self):
+        """`REQUIRED_DEPENDENCIES = ()` passed everything. Pinned against the source of truth."""
+        import tomllib
+
+        mod = _contract_module()
+        deps = tomllib.loads((REPO / "pyproject.toml").read_text())["project"]["dependencies"]
+        names = {d.split(" ")[0].split(">")[0].split("(")[0].strip() for d in deps}
+        assert set(mod.REQUIRED_DEPENDENCIES) == names, (
+            f"the contract requires {sorted(mod.REQUIRED_DEPENDENCIES)} but pyproject declares "
+            f"{sorted(names)} — one of them drifted"
         )
 
     def test_the_import_must_resolve_to_the_installed_wheel(self):
-        """Both workflows run from the repo root, where `views_hydranet/` is on the path. Without
-        this assertion the import succeeds against the working tree and proves nothing."""
-        assert "views_hydranet.__file__.startswith(purelib)" in CONTRACT.read_text(), (
-            "the wheel contract no longer checks that the import resolved inside site-packages — "
-            "it would pass on an empty wheel by importing the source checkout instead"
+        """With a PYTHONPATH or .pth that puts the checkout ahead of site-packages, the import
+        succeeds against the working tree and proves nothing. Exercised, not text-matched: the
+        previous version passed with the condition `or True`-d and with `purelib = ""`."""
+        mod = _contract_module()
+        mod.check_installed_code(
+            "venv/site-packages/views_hydranet/__init__.py",
+            "venv/site-packages",
+            ["HydranetManager"],
         )
+        with pytest.raises(SystemExit, match="outside the installed site-packages"):
+            mod.check_installed_code(
+                "checkout/views_hydranet/__init__.py",
+                "venv/site-packages",
+                ["HydranetManager"],
+            )
+        with pytest.raises(SystemExit, match="public API changed"):
+            mod.check_installed_code(
+                "venv/site-packages/views_hydranet/__init__.py",
+                "venv/site-packages",
+                ["HydranetManager", "utils"],
+            )
 
     def test_the_contract_does_not_depend_on_assert_statements(self):
-        """Python strips `assert` under -O / PYTHONOPTIMIZE. A contract made of asserts is green in
-        an optimised interpreter with nothing checked (C-329) — review-diff F2 on #372."""
-        code_lines = [
-            ln.strip()
-            for ln in CONTRACT.read_text().splitlines()
-            if ln.strip() and not ln.strip().startswith("#")
-        ]
-        offenders = [ln for ln in code_lines if ln.startswith("assert ")]
-        assert not offenders, f"bare asserts in the wheel contract: {offenders}"
+        """Python strips `assert` under -O / PYTHONOPTIMIZE. A contract made of asserts is green
+        in an optimised interpreter with nothing checked (C-329). An AST scan, not a prefix match:
+        `assert(x), "m"` has no space after the keyword and slipped past `startswith`."""
+        import ast
+
+        offenders = [n.lineno for n in ast.walk(_contract_ast()) if isinstance(n, ast.Assert)]
+        assert not offenders, f"assert statements in the wheel contract at lines {offenders}"
 
 
 class TestARehearsalCannotOccupyAReleaseVersion:
