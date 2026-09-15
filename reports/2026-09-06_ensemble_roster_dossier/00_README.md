@@ -80,6 +80,10 @@ replication** — adjacent ranks sit inside C-119's ~20% training variance)
   scores (views-models#445), so **the roster has not been checked against a baseline** (**M73**).
 - **27 forecast maps**, nine per target for `sb`/`ns`/`os`, re-emit verified non-destructive
   (**M74**).
+- **Where τ would have to sit (M75, zero GPU):** ≈0.2 to fire on as many cell-months as observed
+  (the three hard-gate configs: 0.18 / 0.19 / 0.26; at 0.5 they fire on 3–6× too few). **No τ reaches
+  the observed fatalities** — even ungated the bodies sum to 26–92% of 131,614. Derive from the
+  trailing 36 months at forecast time; `tools/hard_gate_threshold.py`.
 - **views-datafactory#484** — two `lr_os_best` values of 27,413 and 32,505 in priogrid 149451
   (Darfur, 2025-10 and 2025-12) with a **2** in the month between and a next-largest of 1,100
   anywhere in the file. `os` magnitude for month 552 is provisional until resolved.
@@ -93,4 +97,4 @@ replication** — adjacent ranks sit inside C-119's ~20% training variance)
 | 04 | `04_run_plan.md` | the 9-run validation plan |
 | 05 | `05_analysis_plan.md` | **pre-registered before the first emit** |
 | 06 | `06_acceptance_criteria.md` | K1/K2/K3 — **pre-registered 2026-09-07, before the runs** |
-| 07 | `07_experiment_log.md` | **M66–M74 logged 2026-09-08** |
+| 07 | `07_experiment_log.md` | **M66–M74 logged 2026-09-08; M75 (hard-gate τ) 2026-09-15** |
