@@ -31,9 +31,13 @@ Three traps this module is built to avoid
 
 from __future__ import annotations
 
+import logging
+
 import torch
 
 from views_hydranet.utils.correlated_bernoulli import correlated_bernoulli
+
+logger = logging.getLogger(__name__)
 
 # Candidate correlation lengths swept on the ORACLE arm, so the length scale used in the
 # treatment is fixed by matching the REAL field's clustering on the control — never chosen by
@@ -127,9 +131,9 @@ def gate_structure_stats(
         active counts so a degenerate comparison is visible rather than inferred.
     """
     if gate.dim() != 2:
-        raise ValueError(
-            f"gate_structure_stats expects a 2-D [H, W] gate, got {tuple(gate.shape)}"
-        )
+        err_msg = f"gate_structure_stats expects a 2-D [H, W] gate, got {tuple(gate.shape)}"
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     g = gate.detach().cpu()
     indep = torch.bernoulli(g, generator=generator).to(torch.bool)
     top = topk_mask(g, generator=generator)

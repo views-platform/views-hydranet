@@ -509,10 +509,12 @@ def _process_sequence(
             or not isinstance(input_noise_segment, int)
             or input_noise_segment < 1
         ):
-            raise ValueError(
+            err_msg = (
                 "input_noise_dropout is set but input_noise_segment is "
                 f"{input_noise_segment!r}; it must be a positive int (the deployment horizon)"
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         _noise_segment = input_noise_segment
 
     for i in range(seq_len - 1):
@@ -1177,11 +1179,13 @@ def _assert_bn_buffers_finite(model: nn.Module, context: str) -> None:
                 if t is not None and not torch.isfinite(t).all():
                     bad.append(f"{name}.{buf}")
     if bad:
-        raise RuntimeError(
+        err_msg = (
             f"[FATAL] {context}: BatchNorm recalibration produced non-finite running statistics "
             f"in {len(bad)} buffer(s): {bad[:6]}{' …' if len(bad) > 6 else ''}. These buffers "
             "ship inside the artifact and are used at inference; refusing to hand them back."
         )
+        logger.error(err_msg)
+        raise RuntimeError(err_msg)
 
 
 def _recalibrate_bn(ctx: "TrainingContext", sampler, planner, config: dict) -> None:
@@ -1441,12 +1445,14 @@ def training_loop(
                     # RuntimeError, not ValueError: IntegrityGuardian.monitor raises RuntimeError
                     # on the same condition a few lines below, and one fail-loud channel is worth
                     # more than a more precise exception type nobody catches.
-                    raise RuntimeError(
+                    err_msg = (
                         f"Lesson {lesson_idx + 1} window {window_idx + 1}: loss is "
                         f"{w_loss.item()}, not a finite number. Refusing to backpropagate NaN/inf "
                         "into the model — this is a bug upstream in the loss (cf. C-212), not a "
                         "skippable window. The old `if w_loss > 0` guard swallowed it silently."
                     )
+                    logger.error(err_msg)
+                    raise RuntimeError(err_msg)
                 elif w_loss.item() == 0.0:
                     # Reachable only when EVERY term is exactly zero. Under the production config
                     # the classification terms are scored on the full grid with no mask, so an

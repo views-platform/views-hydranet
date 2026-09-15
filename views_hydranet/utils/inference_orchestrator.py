@@ -64,12 +64,14 @@ class InferenceOrchestrator:
         # is off, where the value is unused — so it cannot shadow anything observable.
         _weight = config.get("freeze_recurrent_weight")
         if self.freeze_recurrent is not None and _weight is None:
-            raise ValueError(
+            err_msg = (
                 "freeze_recurrent is set but freeze_recurrent_weight is missing. Build the "
                 "config through HydraNetConfig (ADR-027 §2.1), which supplies the default, "
                 "rather than passing a bare dict — otherwise the clamp strength is whatever "
                 "this layer happens to guess."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         self.freeze_recurrent_weight: float = 1.0 if _weight is None else _weight
         # Say what CONFIG asked for — not what will be in effect. S5/#358: this block used to
         # announce the verdict ("CLAMPED" / "evolves freely") from `__init__`, before the attribute
@@ -150,11 +152,13 @@ class InferenceOrchestrator:
         if not is_projecting:
             window_handler = handler.slice_time(origin + 1, origin + 1 + duration)
         elif origin < max_history_idx:
-            raise NotImplementedError(
+            err_msg = (
                 f"Partial projection is not supported: origin={origin} is within "
                 f"historical range (max_history_idx={max_history_idx}), but "
                 f"origin + duration={origin + duration} exceeds it."
             )
+            logger.error(err_msg)
+            raise NotImplementedError(err_msg)
         else:
             window_handler = handler.extrapolate_time(duration)
 

@@ -132,27 +132,35 @@ def blend_recurrent_state(
             extrapolating blend is not a decay and would leave the state off the segment entirely.
     """
     if mode not in FREEZE_RECURRENT_MODES:
-        raise ValueError(
+        err_msg = (
             f"blend_recurrent_state: mode must be one of {FREEZE_RECURRENT_MODES}; got {mode!r}."
         )
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     if new.shape != anchor.shape:
-        raise ValueError(
+        err_msg = (
             f"blend_recurrent_state: shape mismatch, new={tuple(new.shape)} vs "
             f"anchor={tuple(anchor.shape)}. Both must be the same recurrent state tensor."
         )
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     channels = new.shape[1]
     if channels % _STATE_GROUPS != 0:
-        raise ValueError(
+        err_msg = (
             f"blend_recurrent_state: {channels} channels is not divisible by {_STATE_GROUPS}. "
             "The ConvLSTM state is 4 short-term + 4 long-term groups; an uneven split would "
             "silently hold the wrong memory type."
         )
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     if not 0.0 <= weight <= 1.0:
-        raise ValueError(
+        err_msg = (
             f"blend_recurrent_state: weight must be in [0, 1]; got {weight!r}. Outside that range "
             "the result is an extrapolation, not a blend, and the state leaves the segment "
             "between what the model produced and what it learned from real observations."
         )
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     # weight == 1.0 takes the original branches verbatim, so the hard-freeze arms already measured
     # (M38/M39) stay byte-identical rather than passing through new float arithmetic.
     if weight == 1.0:
@@ -270,27 +278,35 @@ class HydraNetInference:
             rf = "sample" if self._family is not None else "mean"
         self.rollout_feedback = rf
         if self.rollout_feedback not in ("mean", "sample", "teacher_forced"):
-            raise ValueError(
+            err_msg = (
                 "rollout_feedback must be None (auto), 'mean', 'sample', or 'teacher_forced'; "
                 f"got {self.rollout_feedback!r}."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         if self.rollout_feedback == "sample" and self._family is None:
-            raise ValueError(
+            err_msg = (
                 "rollout_feedback='sample' needs a registered distribution family "
                 f"(output_distribution={self.output_distribution!r} has none)."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         # Diagnostic recurrent-state freeze (see blend_recurrent_state). Validated here rather
         # than at the call site so a typo fails loud instead of silently running the control arm —
         # a silent no-op would make an experiment report "no effect" when it never ran.
         if freeze_recurrent is not None and freeze_recurrent not in FREEZE_RECURRENT_MODES:
-            raise ValueError(
+            err_msg = (
                 f"freeze_recurrent must be None or one of {FREEZE_RECURRENT_MODES}; "
                 f"got {freeze_recurrent!r}."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         if not 0.0 <= freeze_recurrent_weight <= 1.0:
-            raise ValueError(
+            err_msg = (
                 f"freeze_recurrent_weight must be in [0, 1]; got {freeze_recurrent_weight!r}."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         # The inert pair, rejected HERE as well as in HydraNetConfig.reject_inert_clamp: research
         # drivers set these two attributes on the orchestrator after construction and never pass
         # through pydantic, so a config-level check alone left `cell@0.0` reachable — and the
@@ -299,13 +315,15 @@ class HydraNetInference:
         # it (#372 review). A weight of 0 with a mode set is not a weak clamp; it is the control
         # under the treatment's name. Say `freeze_recurrent=None` for the control.
         if freeze_recurrent is not None and freeze_recurrent_weight == 0.0:
-            raise ValueError(
+            err_msg = (
                 f"freeze_recurrent={freeze_recurrent!r} with freeze_recurrent_weight=0.0 is "
                 "inert: blend_recurrent_state returns the freely-evolved state unchanged, so this "
                 "would "
                 "log CLAMPED and run the unclamped control (C-324/C-331). Use "
                 "freeze_recurrent=None for the control, or a weight > 0 to clamp."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         self.freeze_recurrent = freeze_recurrent
         self.freeze_recurrent_weight = freeze_recurrent_weight
         # S5/#358: the EFFECTIVE clamp verdict, emitted here because this is the last point at
@@ -336,23 +354,27 @@ class HydraNetInference:
         # from "the clamp steadies the state's scale".
         if freeze_anchor_roll is not None:
             if not isinstance(freeze_anchor_roll, int) or isinstance(freeze_anchor_roll, bool):
-                raise ValueError(
-                    f"freeze_anchor_roll must be an int or None; got {freeze_anchor_roll!r}."
-                )
+                err_msg = f"freeze_anchor_roll must be an int or None; got {freeze_anchor_roll!r}."
+                logger.error(err_msg)
+                raise ValueError(err_msg)
             if freeze_anchor_roll == 0:
                 # A zero roll is the plain clamp wearing a rolled arm's label — it would write a
                 # duplicate of the control into a file named for the treatment.
-                raise ValueError(
+                err_msg = (
                     "freeze_anchor_roll=0 is the identity and reproduces the plain clamp arm; "
                     "run freeze_recurrent alone for that control instead."
                 )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
             if freeze_recurrent is None:
                 # Rolling an anchor nobody holds changes nothing. A silent no-op here would make
                 # the arm report "no effect" when it never ran.
-                raise ValueError(
+                err_msg = (
                     "freeze_anchor_roll needs freeze_recurrent set — the anchor is only read when "
                     "a memory half is held, so rolling it without a clamp is a no-op."
                 )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
         self.freeze_anchor_roll = freeze_anchor_roll
 
         # DIAGNOSTIC (Wave 2 attribution): spatially roll exactly ONE driver at EVERY step, then
@@ -366,17 +388,19 @@ class HydraNetInference:
             try:
                 which, raw = str(per_step_roll).split(":")
                 shift = int(raw)
-            except ValueError as exc:
-                raise ValueError(
-                    f"per_step_roll must look like 'cell:90'; got {per_step_roll!r}."
-                ) from exc
+            except ValueError:
+                err_msg = f"per_step_roll must look like 'cell:90'; got {per_step_roll!r}."
+                logger.error(err_msg)
+                raise ValueError(err_msg)
             if which not in ("input", "hidden", "cell"):
-                raise ValueError(f"per_step_roll driver must be input|hidden|cell; got {which!r}.")
+                err_msg = f"per_step_roll driver must be input|hidden|cell; got {which!r}."
+                logger.error(err_msg)
+                raise ValueError(err_msg)
             if shift == 0:
                 # A zero roll is the control arm wearing the treatment's label.
-                raise ValueError(
-                    "per_step_roll shift 0 is the identity; run the plain arm instead."
-                )
+                err_msg = "per_step_roll shift 0 is the identity; run the plain arm instead."
+                logger.error(err_msg)
+                raise ValueError(err_msg)
             self.per_step_roll = (which, shift)
 
         # Diagnostic body-mean dump (silence-vs-fade dossier, 2026-09-02). Same contract as
@@ -392,10 +416,12 @@ class HydraNetInference:
         # analysis logic sits in the inference path.
         self.body_mean_dump_dir = body_mean_dump_dir
         if body_mean_dump_dir is not None and self._family is None:
-            raise ValueError(
+            err_msg = (
                 "body_mean_dump_dir needs a registered distribution family "
                 f"(output_distribution={self.output_distribution!r} has none)."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
 
         # Diagnostic feedback-field transform (#258/#262 — measuring `the feedback realism gap`).
         # Same contract as freeze_recurrent: explicit argument, no config key, default None =
@@ -413,12 +439,14 @@ class HydraNetInference:
             log1p_cols = set((config.get("transformations") or {}).get("log1p", []))
             not_log1p = [f for f in config.get("features", []) if f not in log1p_cols]
             if not_log1p:
-                raise ValueError(
+                err_msg = (
                     f"feedback_transform={feedback_transform!r} needs every dynamic feature in "
                     f"log1p space (the transforms round-trip with expm1/log1p), but {not_log1p} "
                     "are not in transformations['log1p']. Every arm would be run on mis-scaled "
                     "counts and would look plausible."
                 )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
             # The E4 splice arms read the MODEL's field out of `t0_autoreg`, which is assembled
             # after both rollout_feedback branches. Under 'teacher_forced' that tensor holds the
             # REAL field, so "real occurrence x model magnitude" would splice real with real and
@@ -432,12 +460,14 @@ class HydraNetInference:
                 )
                 and self.rollout_feedback == "teacher_forced"
             ):
-                raise ValueError(
+                err_msg = (
                     f"feedback_transform={feedback_transform!r} splices the model's field with "
                     "the real one, but rollout_feedback='teacher_forced' already feeds the real "
                     "— the arm would splice real with real and report an E4 result that never "
                     "involved the model. Use rollout_feedback='sample' or 'mean'."
                 )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
         # Every arm self-reports the field it actually fed, per (sample, step). This is not
         # instrumentation for one experiment — it is how we check on REAL data that a transform did
         # what its fixture tests say it does. A `thin` arm whose active fraction did not fall is a
@@ -467,9 +497,9 @@ class HydraNetInference:
         # DIAGNOSTIC: correlation length for the fed-back gate draw. None = production's
         # independent Bernoulli. Applies to the FEEDBACK path only; the scored cube is untouched.
         if feedback_length_scale is not None and feedback_length_scale <= 0:
-            raise ValueError(
-                f"feedback_length_scale must be > 0 or None, got {feedback_length_scale}."
-            )
+            err_msg = f"feedback_length_scale must be > 0 or None, got {feedback_length_scale}."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         if feedback_length_scale is not None:
             # The copula is reachable only from _sample_feedback, and only on the soft_gate branch.
             # Under any other configuration a run launched with a correlation length executes the
@@ -478,13 +508,15 @@ class HydraNetInference:
             # parse_feedback_transform already do, so a diagnostic can never silently no-op.
             comp = self.config.get("forecast_composition", "self_zeroed")
             if self.rollout_feedback != "sample" or comp != "soft_gate":
-                raise ValueError(
+                err_msg = (
                     "feedback_length_scale needs rollout_feedback='sample' and "
                     f"forecast_composition='soft_gate' to have any effect; got "
                     f"rollout_feedback={self.rollout_feedback!r}, forecast_composition={comp!r}. "
                     "Under this configuration the correlated sampler is never reached and the run "
                     "would silently produce the independent-Bernoulli control."
                 )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
         self._feedback_length_scale = feedback_length_scale
         # Set per rollout in `predict`; declared here so the attribute always exists.
         self._fb_correlated_gen: torch.Generator | None = None
@@ -566,11 +598,13 @@ class HydraNetInference:
         """
         n_months = full_tensor.shape[1]
         if not 0 <= step < n_months:
-            raise ValueError(
+            err_msg = (
                 f"feedback transform asked for month index {step}, outside the loaded window "
                 f"[0, {n_months - 1}]. Refusing to clamp — a silently substituted month would "
                 "make the arm uninterpretable."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return full_tensor[:, step, model_in_indices, :, :][:, :n_dyn]
 
     def _apply_feedback_transform(
@@ -631,7 +665,9 @@ class HydraNetInference:
                 model_counts, real_counts, generator=g, on_empty_donor="zeros"
             )
         else:  # pragma: no cover - parse_feedback_transform already rejects unknown names
-            raise ValueError(f"unhandled feedback transform {name!r}")
+            err_msg = f"unhandled feedback transform {name!r}"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
 
         return torch.cat([torch.log1p(out), t0_autoreg[:, n_dyn:]], dim=1)
 
@@ -778,7 +814,9 @@ class HydraNetInference:
             logger.error(err_msg)
             raise ValueError(err_msg) from exc
         if any(v <= 0 for v in vals):
-            raise ValueError(f"hurdle_nb theta values must be > 0; got {vals}.")
+            err_msg = f"hurdle_nb theta values must be > 0; got {vals}."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return torch.tensor(vals, dtype=torch.float32).view(1, len(vals), 1, 1)
 
     def _parse_lognormal_sigma(self, sigma):
@@ -800,12 +838,16 @@ class HydraNetInference:
         if isinstance(sigma, dict):
             try:
                 vals = [float(sigma[t]) for t in targets]
-            except (KeyError, TypeError) as exc:
-                raise ValueError(f"hurdle_lognormal sigma missing a target: {sigma!r}.") from exc
+            except (KeyError, TypeError):
+                err_msg = f"hurdle_lognormal sigma missing a target: {sigma!r}."
+                logger.error(err_msg)
+                raise ValueError(err_msg)
         else:
             vals = [float(sigma)] * len(targets)
         if any(v <= 0 for v in vals):
-            raise ValueError(f"hurdle_lognormal sigma must be > 0; got {vals}.")
+            err_msg = f"hurdle_lognormal sigma must be > 0; got {vals}."
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return torch.tensor(vals, dtype=torch.float32).view(1, len(vals), 1, 1)
 
     def _roll_anchor(self, anchor: torch.Tensor) -> torch.Tensor:
@@ -824,11 +866,13 @@ class HydraNetInference:
         shift = self.freeze_anchor_roll
         h, w = anchor.shape[-2], anchor.shape[-1]
         if shift % h == 0 and shift % w == 0:
-            raise ValueError(
+            err_msg = (
                 f"freeze_anchor_roll={shift} is a whole number of grid periods for a {h}x{w} "
                 f"field, so torch.roll returns the anchor unchanged — this would run the plain "
                 f"clamp under a rolled arm's label. Choose a shift that is not a multiple of both."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return torch.roll(anchor, shifts=(shift, shift), dims=(-2, -1))
 
     def _body_mean_field(self, params_zstack) -> np.ndarray:
@@ -871,10 +915,12 @@ class HydraNetInference:
         which, shift = self.per_step_roll
         h, w = inp.shape[-2], inp.shape[-1]
         if shift % h == 0 and shift % w == 0:
-            raise ValueError(
+            err_msg = (
                 f"per_step_roll shift {shift} is a whole number of grid periods for {h}x{w}, so "
                 f"torch.roll returns the tensor unchanged."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         if which == "input":
             return torch.roll(inp, shifts=(shift, shift), dims=(-2, -1)), state
         half = state.shape[1] // 2
@@ -1221,12 +1267,14 @@ class HydraNetInference:
                 # `_month_shuffle == {}` makes `.get(step, step)` feed the TRUE month at every step
                 # — a treatment arm silently delivering the control (C-331).
                 if len(steps) < 2:
-                    raise ValueError(
+                    err_msg = (
                         f"shuffle_months needs at least two steps to permute, so time_steps must "
                         f"be >= 3; got time_steps={time_steps} (steps to shuffle: {steps}). With "
                         "fewer, no derangement exists and the arm would feed the true month at "
                         "every step — the control, wearing the treatment's name (C-331)."
                     )
+                    logger.error(err_msg)
+                    raise ValueError(err_msg)
                 # A plain randperm leaves fixed points (~1 expected over 35 steps): those steps
                 # would feed the TRUE month while being scored as "persistence destroyed" — a
                 # silent control inside the treatment arm. Resample until deranged.
@@ -1235,7 +1283,9 @@ class HydraNetInference:
                     if all(i != j for i, j in enumerate(order)):
                         break
                 else:  # pragma: no cover - P(no derangement in 1000 draws) < 1e-400 for len >= 2
-                    raise RuntimeError("could not draw a derangement for shuffle_months")
+                    err_msg = "could not draw a derangement for shuffle_months"
+                    logger.error(err_msg)
+                    raise RuntimeError(err_msg)
                 self._month_shuffle = dict(zip(steps, [steps[i] for i in order]))
             # Pre-flight the month range this arm will need. The per-step check would otherwise
             # fire ~30 autoregressive steps into the first origin, wasting GPU on an arm that was
@@ -1250,11 +1300,13 @@ class HydraNetInference:
                 needed = [s + offset for s in steps] + [origin + offset]
                 oob = [m for m in needed if not 0 <= m < full_tensor.shape[1]]
                 if oob:
-                    raise ValueError(
+                    err_msg = (
                         f"feedback arm {self.feedback_transform!r} needs month indices "
                         f"{min(needed)}..{max(needed)}, outside the loaded window "
                         f"[0, {full_tensor.shape[1] - 1}] (e.g. {oob[:3]}). Refusing to start."
                     )
+                    logger.error(err_msg)
+                    raise ValueError(err_msg)
         for t in range(origin + time_steps):
             if t < origin:
                 # 1. HISTORY DIGESTION: Update hidden state only

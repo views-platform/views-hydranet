@@ -62,6 +62,7 @@ Contracts must be clear enough that:
 ### Distribution Families & Output Heads (ADR-067)
 - `DistributionFamily.md` — the per-cell output-distribution ABC.
 - `DistributionRegistry.md` — the `name → family` registry + self-zeroed mirror.
+- `ArchitectureRegistry.md` — the `name → architecture` registry `make()` routes every model through; the six bake-off candidates are research-only.
 - `NBCore.md` — the shared Negative-Binomial count-math authority.
 - `ForecastComposer.md` — gate × body composition (ADR-069).
 - `PosteriorCubeSampler.md` — the D×K posterior-cube sampler `to_cube_samples` (ADR-067/070).
