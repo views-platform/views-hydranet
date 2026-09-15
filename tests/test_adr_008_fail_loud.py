@@ -6,7 +6,7 @@ the minority pattern in new code without anyone noticing, which is how a convent
 
 Two tiers, on purpose:
 * **Enforced** — every file the release touched, plus every file touched from now on, must have
-  zero un-logged `ValueError` / `RuntimeError` raises.
+  zero un-logged raises of any exception.
 * **Backlog** — 47 pre-existing un-logged raises in files the release did not touch are listed by
   count below. The test fails if that count GROWS (a new un-logged raise in an old file) and also
   if it SHRINKS without the number here being lowered — so the backlog is paid down visibly, not
@@ -19,11 +19,11 @@ import ast
 from pathlib import Path
 
 PACKAGE = Path(__file__).resolve().parents[1] / "views_hydranet"
-LOUD = {"error", "critical"}
-CHECKED = {"ValueError", "RuntimeError"}
+LOUD = {"error", "critical", "exception"}  # `exception` logs at ERROR with the traceback
 
 # Files with a pre-existing un-logged backlog, and the exact count on 2026-09-15. Lower a number
-# when you pay some down; never raise one.
+# when you pay some down; never raise one. Known limit (guard audit, B3): a per-file COUNT cannot
+# see a change that pays one raise down and adds another un-logged one in the same file.
 BACKLOG = {
     "architectures/locked_dropout.py": 1,
     "distributions/composition.py": 2,
@@ -55,6 +55,56 @@ BACKLOG = {
 }
 
 
+def _is_raise_of_exception(st: ast.stmt) -> bool:
+    """Every `raise <something>` in core logic, not two hand-picked classes: the first version
+    checked only ValueError/RuntimeError, and an un-logged `raise TypeError(...)` passed (guard
+    audit, A7-A10). Covered: `raise X(...)`, `raise pkg.X(...)`, `raise X` (bare class), and
+    `raise name` (a pre-built instance). Not covered: bare `raise` (a re-raise inside `except`)."""
+    return isinstance(st, ast.Raise) and st.exc is not None
+
+
+def _same_expression(a: ast.AST, b: ast.AST) -> bool:
+    return ast.dump(a) == ast.dump(b)
+
+
+def _logged_first(prev: ast.stmt | None, raise_st: ast.Raise) -> bool:
+    """The preceding statement is `logger.<error|critical|exception>(<the same thing raised>)`.
+
+    Receiver must be the name `logger` — `err_msg.error(...)` and `logging.error(...)` passed the
+    first version (audit A4, A11). And the LOGGED expression must be the RAISED one: a raise of
+    `err_msg` preceded by `logger.error("something else")` passed too (audit A3)."""
+    if not (isinstance(prev, ast.Expr) and isinstance(prev.value, ast.Call)):
+        return False
+    call = prev.value
+    f = call.func
+    if not (isinstance(f, ast.Attribute) and f.attr in LOUD):
+        return False
+    if not (isinstance(f.value, ast.Name) and f.value.id == "logger"):
+        return False
+    if not call.args:
+        return False
+    raised = raise_st.exc
+    # what was raised: X(arg) -> arg ; X -> nothing to compare ; name -> name
+    if isinstance(raised, ast.Call):
+        if not raised.args:
+            return True  # `raise X()` with no message: the log call is all there is to check
+        return _same_expression(call.args[0], raised.args[0])
+    if isinstance(raised, ast.Name):
+        return _same_expression(call.args[0], raised)
+    return True  # bare class: nothing raised to compare against
+
+
+def _is_protocol_raise(node: ast.AST, st: ast.Raise) -> bool:
+    """`AttributeError` inside a `__getattr__` is the Python protocol `hasattr()` relies on, not
+    a failure — logging it at ERROR would fire on every attribute probe (the PEP-562 lazy public
+    API in views_hydranet/__init__.py)."""
+    if not (isinstance(node, ast.FunctionDef) and node.name == "__getattr__"):
+        return False
+    exc = st.exc
+    name = exc.func if isinstance(exc, ast.Call) else exc
+    return isinstance(name, ast.Name) and name.id == "AttributeError"
+
+
 def _unlogged_raises(path: Path) -> list[int]:
     tree = ast.parse(path.read_text())
     out: list[int] = []
@@ -64,19 +114,9 @@ def _unlogged_raises(path: Path) -> list[int]:
             if not isinstance(stmts, list):
                 continue
             for i, st in enumerate(stmts):
-                if not (
-                    isinstance(st, ast.Raise)
-                    and isinstance(st.exc, ast.Call)
-                    and getattr(st.exc.func, "id", None) in CHECKED
-                ):
+                if not _is_raise_of_exception(st) or _is_protocol_raise(node, st):
                     continue
-                prev = stmts[i - 1] if i else None
-                logged = (
-                    isinstance(prev, ast.Expr)
-                    and isinstance(prev.value, ast.Call)
-                    and getattr(prev.value.func, "attr", "") in LOUD
-                )
-                if not logged:
+                if not _logged_first(stmts[i - 1] if i else None, st):
                     out.append(st.lineno)
     return out
 

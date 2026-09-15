@@ -152,11 +152,13 @@ class InferenceOrchestrator:
         if not is_projecting:
             window_handler = handler.slice_time(origin + 1, origin + 1 + duration)
         elif origin < max_history_idx:
-            raise NotImplementedError(
+            err_msg = (
                 f"Partial projection is not supported: origin={origin} is within "
                 f"historical range (max_history_idx={max_history_idx}), but "
                 f"origin + duration={origin + duration} exceeds it."
             )
+            logger.error(err_msg)
+            raise NotImplementedError(err_msg)
         else:
             window_handler = handler.extrapolate_time(duration)
 
