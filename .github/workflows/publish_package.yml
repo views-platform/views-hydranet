@@ -172,12 +172,27 @@ jobs:
       # assertion, and ships empty — demonstrated on a forged wheel in S6/#359.
       #
       # Same file as ci.yml's build job, on purpose: the two copies had already drifted.
+      #
+      # Retried: the index lags the upload. The first-ever run (2026-09-15, run 34970811166)
+      # uploaded 0.1.0.dev1 successfully and then died here with "no version of
+      # views-hydranet==0.1.0.dev1" — the file was on TestPyPI, its simple index was not yet.
+      # Five attempts, 20 s apart, `--no-cache` so a cached "not found" cannot poison a retry.
       - name: Install it back from TestPyPI and check its contract
         run: |
           uv venv /tmp/verify --python 3.11
-          uv pip install --python /tmp/verify/bin/python --no-deps \
-            --index-url https://test.pypi.org/simple/ \
-            "views-hydranet==${{ steps.ver.outputs.publish_version }}"
+          for attempt in 1 2 3 4 5; do
+            if uv pip install --python /tmp/verify/bin/python --no-deps --no-cache \
+                 --index-url https://test.pypi.org/simple/ \
+                 "views-hydranet==${{ steps.ver.outputs.publish_version }}"; then
+              break
+            fi
+            if [ "$attempt" = 5 ]; then
+              echo "::error::views-hydranet==${{ steps.ver.outputs.publish_version }} not installable from TestPyPI after 5 attempts"
+              exit 1
+            fi
+            echo "attempt $attempt: not on the index yet — waiting 20 s"
+            sleep 20
+          done
           /tmp/verify/bin/python .github/scripts/wheel_contract.py
 
       - name: Publish to PyPI (Trusted Publishing — no token)

@@ -195,6 +195,13 @@ blocked on #181, because semver's guarantee applies to a *defined* public API an
 
 ## Troubleshooting
 
+**"No solution found … there is no version of views-hydranet==X" at the install-back, right after
+a successful TestPyPI upload.** The index lags the upload by up to a minute. The step retries five
+times, 20 s apart, since the first-ever run hit exactly this (2026-09-15). If it still fails after
+five, check `https://test.pypi.org/simple/views-hydranet/` by hand — the file is either there
+(then it is something else) or the upload step lied.
+
+
 **`Trusted publishing exchange failure`** — the publisher is not registered on that site, or one of
 owner / repo / workflow filename does not match exactly. Check the *other* site too; TestPyPI and
 PyPI are configured independently.
