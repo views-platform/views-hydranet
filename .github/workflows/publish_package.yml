@@ -50,7 +50,7 @@ jobs:
           python-version: "3.11"   # the wheel is pure-Python (py3-none-any)
           # Pinned: the TestPyPI step's `--check-url` skip-vs-fail semantics are uv's, verified
           # on this version. Unpinned, the action installs whatever uv ships that day (#372).
-          version: "0.8.13"
+          version: "0.8.13"   # keep in sync with ci.yml (same pin, same action SHAs)
 
       - name: Read the version being published
         id: ver
@@ -136,7 +136,8 @@ jobs:
               'version = "\\1.dev${{ github.run_number }}"',
               src, count=1, flags=re.M,
           )
-          assert n == 1, "no [project] version line to stamp — the rehearsal would upload a release version"
+          if n != 1:  # not `assert`: stripped under -O, and this must never be skippable
+              raise SystemExit("no [project] version line to stamp — the rehearsal would upload a release version")
           p.write_text(new)
           PY
           grep -m1 '^version = ' pyproject.toml

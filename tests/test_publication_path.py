@@ -58,10 +58,21 @@ class TestTheContractReadsTheCodeNotJustTheMetadata:
     def test_the_import_must_resolve_to_the_installed_wheel(self):
         """Both workflows run from the repo root, where `views_hydranet/` is on the path. Without
         this assertion the import succeeds against the working tree and proves nothing."""
-        assert "assert views_hydranet.__file__.startswith(purelib)" in CONTRACT.read_text(), (
+        assert "views_hydranet.__file__.startswith(purelib)" in CONTRACT.read_text(), (
             "the wheel contract no longer checks that the import resolved inside site-packages — "
             "it would pass on an empty wheel by importing the source checkout instead"
         )
+
+    def test_the_contract_does_not_depend_on_assert_statements(self):
+        """Python strips `assert` under -O / PYTHONOPTIMIZE. A contract made of asserts is green in
+        an optimised interpreter with nothing checked (C-329) — review-diff F2 on #372."""
+        code_lines = [
+            ln.strip()
+            for ln in CONTRACT.read_text().splitlines()
+            if ln.strip() and not ln.strip().startswith("#")
+        ]
+        offenders = [ln for ln in code_lines if ln.startswith("assert ")]
+        assert not offenders, f"bare asserts in the wheel contract: {offenders}"
 
 
 class TestARehearsalCannotOccupyAReleaseVersion:

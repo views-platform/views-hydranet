@@ -29,11 +29,20 @@ reqs = m.get_all("Requires-Dist") or []
 print("Requires-Dist:")
 for r in reqs:
     print("   ", r)
+
+
+def require(condition: bool, message: str) -> None:
+    """Not `assert`: Python strips asserts under -O / PYTHONOPTIMIZE, and a contract whose
+    every check disappears in an optimised interpreter is one that cannot fail (C-329)."""
+    if not condition:
+        raise SystemExit(f"wheel contract FAILED: {message}")
+
+
 for expected in REQUIRED_DEPENDENCIES:
-    assert any(expected in r for r in reqs), f"{expected} missing from wheel metadata"
+    require(any(expected in r for r in reqs), f"{expected} missing from wheel metadata")
 
 urls = m.get_all("Project-URL") or []
-assert any("Repository" in u for u in urls), "Project-URL Repository missing"
+require(any("Repository" in u for u in urls), "Project-URL Repository missing")
 
 # The metadata above lives in `.dist-info` and says NOTHING about whether the wheel carries any
 # Python. A packaging change that dropped the package from the include set would produce correct
@@ -43,12 +52,14 @@ assert any("Repository" in u for u in urls), "Project-URL Repository missing"
 purelib = sysconfig.get_paths()["purelib"]
 import views_hydranet  # noqa: E402  (deliberate: it follows the metadata assertions)
 
-assert views_hydranet.__file__.startswith(purelib), (
+require(
+    views_hydranet.__file__.startswith(purelib),
     f"{PACKAGE} resolved to {views_hydranet.__file__}, which is outside the installed "
-    f"site-packages ({purelib}) — this check read a source tree, not the wheel"
+    f"site-packages ({purelib}) — this check read a source tree, not the wheel",
 )
-assert views_hydranet.__all__ == ["HydranetManager"], (
-    f"the declared public API changed: {views_hydranet.__all__!r}"
+require(
+    views_hydranet.__all__ == ["HydranetManager"],
+    f"the declared public API changed: {views_hydranet.__all__!r}",
 )
 print("imported:", views_hydranet.__file__)
 print("wheel contract OK")

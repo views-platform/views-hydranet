@@ -1482,12 +1482,14 @@ def training_loop(
             if windows_trained > 0 or _bn_recal:
                 # NUMERICAL AUDIT: Hard stop on explosion.
                 #
-                # S4/#357: skipped on a recalibration pass, for the same reason the forward-only
-                # branch above skips the per-window finiteness check — `lesson_loss` accumulates
-                # unconditionally, so one non-finite window makes it NaN, and a recal pass consumes
-                # no loss and computes no gradient. Aborting here would throw away the corrected
-                # BatchNorm buffers the pass exists to produce, which is exactly what that branch
-                # promises does not happen ("behaves exactly as it did before this fix").
+                # S4/#357: skipped on a recalibration pass. `lesson_loss` accumulates
+                # unconditionally, so one non-finite window makes it NaN — but a recal pass
+                # consumes no loss and computes no gradient, so a NaN loss there is not evidence
+                # of anything about the weights (which came from a checkpoint and survive an
+                # abort either way). What a recal pass DOES produce, the BN buffers, is checked
+                # at both recal exits by `_assert_bn_buffers_finite` — the monitor never looked at
+                # those. (An earlier version of this comment claimed aborting would "throw away"
+                # the buffers; it would not, and the #372 review said so.)
                 #
                 # ⚠️ The gate itself is NOT the defect and must stay: `windows_trained` can
                 # never increment on a recal pass (it is only bumped in the

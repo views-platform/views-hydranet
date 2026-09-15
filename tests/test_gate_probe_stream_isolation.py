@@ -63,8 +63,8 @@ class _Rollout:
     def _real_dynamic(self, full_tensor, model_in_indices, n_dyn, step):
         return HydraNetInference._real_dynamic(self, full_tensor, model_in_indices, n_dyn, step)
 
-    def _diagnostic_buffer_full(self, buffer, *, label):
-        return HydraNetInference._diagnostic_buffer_full(self, buffer, label=label)
+    def _refuse_if_diagnostic_buffer_full(self, buffer, *, label):
+        return HydraNetInference._refuse_if_diagnostic_buffer_full(self, buffer, label=label)
 
     def _append_diagnostic_stat(self, buffer, record, *, label):
         return HydraNetInference._append_diagnostic_stat(self, buffer, record, label=label)

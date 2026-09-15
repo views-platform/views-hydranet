@@ -92,6 +92,8 @@ IntegrityGuardian.monitor(model, prediction, loss, context="Epoch 5, Lesson 42")
 
 ## End of Contract
 
+**Not on the path of a BatchNorm-recalibration pass (Epic #353 / S4 #357, 2026-09-14).** A `bn_recal_from` run drives the lesson loop forward-only; it consumes no loss and computes no gradient, so `monitor` is skipped there — a NaN in `lesson_loss` on that path is not evidence about weights that came from a checkpoint. What that pass produces, the BN buffers, is checked instead by `training_engine._assert_bn_buffers_finite` at both recal exits. See CIC `TrainingEngine.md` §Explosion.
+
 This document defines the **intended meaning** of `IntegrityGuardian`.
 Changes to behavior that violate this intent are bugs.
 Changes to intent must update this contract.

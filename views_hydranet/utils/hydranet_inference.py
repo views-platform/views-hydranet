@@ -77,6 +77,18 @@ _FB_GATE_PROBE_SEED_NAMESPACE = 30_000_037
 # ~175 MB): a ceiling set to accommodate the configuration that caused the OOM bounds nothing.
 DIAGNOSTIC_STATS_MAX_RECORDS = 100_000
 
+
+def _namespaced_generator(torch_seed: int, namespace: int, sample_idx: int) -> torch.Generator:
+    """ONE seed formula for the per-sample feedback streams: `torch_seed + namespace + sample_idx`.
+
+    The namespaces above are what keep the streams apart; the formula is what keeps each stream
+    reproducible per posterior sample. Three hand-written copies of it had drifted into three
+    places before this existed (review-diff F4 on #372) — with one function, "four streams, one
+    formula" is a fact you can read rather than one you have to verify.
+    """
+    return torch.Generator(device="cpu").manual_seed(torch_seed + namespace + sample_idx)
+
+
 _STATE_GROUPS = 8
 FREEZE_RECURRENT_MODES = ("hidden", "cell", "all")
 
@@ -678,8 +690,10 @@ class HydraNetInference:
                 )
         return active
 
-    def _diagnostic_buffer_full(self, buffer: List[dict], *, label: str) -> bool:
-        """True — and one refusal counted — when a diagnostic buffer is at its ceiling.
+    def _refuse_if_diagnostic_buffer_full(self, buffer: List[dict], *, label: str) -> bool:
+        """True — and one refusal counted, and warned once — when a buffer is at its ceiling.
+
+        Named for the side effect, not as a query: calling it IS refusing a record.
 
         See ``DIAGNOSTIC_STATS_MAX_RECORDS``. Ask BEFORE computing the record: the gate probe's
         record costs a randperm, a topk, a Bernoulli and (on sample 0) five 49x49 correlated
@@ -707,7 +721,7 @@ class HydraNetInference:
 
     def _append_diagnostic_stat(self, buffer: List[dict], record: dict, *, label: str) -> None:
         """Append to a diagnostic buffer, or refuse and count the refusal."""
-        if not self._diagnostic_buffer_full(buffer, label=label):
+        if not self._refuse_if_diagnostic_buffer_full(buffer, label=label):
             buffer.append(record)
 
     def _record_gate_structure(self, gate, *, origin: int, sample_idx: int, step: int):
@@ -722,7 +736,7 @@ class HydraNetInference:
             g = g[:, :n_reg]
         for b in range(g.shape[0]):
             for c in range(g.shape[1]):
-                if self._diagnostic_buffer_full(
+                if self._refuse_if_diagnostic_buffer_full(
                     self.gate_structure_stats, label="gate_structure_stats"
                 ):
                     continue  # refused BEFORE the draws it would have cost
@@ -1169,16 +1183,16 @@ class HydraNetInference:
         # set on its own (the sweep's control is `identity`, but nothing requires an arm), and the
         # generator must exist before the first step either way.
         if self._feedback_length_scale is not None:
-            self._fb_correlated_gen = torch.Generator(device="cpu").manual_seed(
-                int(self.config["torch_seed"]) + _FB_CORRELATED_SEED_NAMESPACE + sample_idx
+            self._fb_correlated_gen = _namespaced_generator(
+                int(self.config["torch_seed"]), _FB_CORRELATED_SEED_NAMESPACE, sample_idx
             )
         # The probe's own stream, seeded per posterior sample like its siblings. It is seeded on
         # `_record_gate_probe` ALONE: the probe is independent of `_feedback_arm`, and — since
         # S7/#360 — no longer shares the transform's generator, so an arm's draws are now
         # byte-identical whether the probe is on or off.
         if self._record_gate_probe:
-            self._fb_gate_probe_gen = torch.Generator(device="cpu").manual_seed(
-                int(self.config["torch_seed"]) + _FB_GATE_PROBE_SEED_NAMESPACE + sample_idx
+            self._fb_gate_probe_gen = _namespaced_generator(
+                int(self.config["torch_seed"]), _FB_GATE_PROBE_SEED_NAMESPACE, sample_idx
             )
         if self._feedback_arm:
             seed = int(self.config["torch_seed"])
@@ -1187,8 +1201,8 @@ class HydraNetInference:
             # un-namespaced transform would draw the SAME uniforms that drive family.sample
             # and compose_samples' bernoulli — correlating the intervention with the quantity
             # it measures. Same defect class as the C-113 shared-generator coupling.
-            self._fb_transform_gen = torch.Generator(device="cpu").manual_seed(
-                seed + _FB_TRANSFORM_SEED_NAMESPACE + sample_idx
+            self._fb_transform_gen = _namespaced_generator(
+                seed, _FB_TRANSFORM_SEED_NAMESPACE, sample_idx
             )
             arm_gen = torch.Generator(device="cpu").manual_seed(seed)
             _, _, hh, ww = full_tensor.shape[0], full_tensor.shape[1], H, W
