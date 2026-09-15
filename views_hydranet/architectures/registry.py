@@ -22,7 +22,10 @@ a name -> lazy-factory dict, so importing the registry does not import torch or 
 from __future__ import annotations
 
 import importlib
+import logging
 from typing import TYPE_CHECKING, Callable
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     import torch.nn as nn
@@ -66,5 +69,7 @@ def get_architecture(name: str) -> "type[nn.Module]":
     factory = ARCHITECTURE_REGISTRY.get(name)
     if factory is None:
         available = ", ".join(sorted(ARCHITECTURE_REGISTRY)) or "(none registered)"
-        raise ValueError(f"Unknown model type: {name!r}. Registered architectures: {available}.")
+        err_msg = f"Unknown model type: {name!r}. Registered architectures: {available}."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     return factory()

@@ -64,12 +64,14 @@ class InferenceOrchestrator:
         # is off, where the value is unused — so it cannot shadow anything observable.
         _weight = config.get("freeze_recurrent_weight")
         if self.freeze_recurrent is not None and _weight is None:
-            raise ValueError(
+            err_msg = (
                 "freeze_recurrent is set but freeze_recurrent_weight is missing. Build the "
                 "config through HydraNetConfig (ADR-027 §2.1), which supplies the default, "
                 "rather than passing a bare dict — otherwise the clamp strength is whatever "
                 "this layer happens to guess."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         self.freeze_recurrent_weight: float = 1.0 if _weight is None else _weight
         # Say what CONFIG asked for — not what will be in effect. S5/#358: this block used to
         # announce the verdict ("CLAMPED" / "evolves freely") from `__init__`, before the attribute

@@ -203,7 +203,9 @@ def choose_loss(
         # n_quantiles.
         k = config.get("n_quantiles")
         if not k or k < 2:
-            raise ValueError("loss_reg='quantile' requires config['n_quantiles'] >= 2")
+            err_msg = "loss_reg='quantile' requires config['n_quantiles'] >= 2"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         criterion_reg = QuantileLoss(midpoint_levels(k)).to(device)
     elif isinstance(loss_reg_sigma, dict) and config["loss_reg"] == "tobit":
         criterion_reg = {
@@ -214,10 +216,12 @@ def choose_loss(
         try:
             criterion_reg = LOSS_REG_REGISTRY[config["loss_reg"]]["factory"](config, device)
         except KeyError:
-            raise ValueError(
+            err_msg = (
                 f"Unknown regression loss: '{config['loss_reg']}'. "
                 f"Available: {list(LOSS_REG_REGISTRY.keys())}"
-            ) from None
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
     _pw = config.get("loss_class_pos_weight")
     if config["loss_class"] == "weighted_bce" and isinstance(_pw, (list, tuple)):
         # per-target gate: one WeightedBCEWithLogitsLoss per classification target (sb/ns/os), each
@@ -229,10 +233,12 @@ def choose_loss(
         try:
             criterion_class = LOSS_CLASS_REGISTRY[config["loss_class"]]["factory"](config, device)
         except KeyError:
-            raise ValueError(
+            err_msg = (
                 f"Unknown classification loss: '{config['loss_class']}'. "
                 f"Available: {list(LOSS_CLASS_REGISTRY.keys())}"
-            ) from None
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
 
     logger.info(f"Regression loss: {criterion_reg}\n classification loss: {criterion_class}")
 

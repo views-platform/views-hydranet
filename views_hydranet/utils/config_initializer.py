@@ -401,11 +401,13 @@ class HydraNetConfig(BaseModel):
         """
         allowed = ("hidden", "cell", "all")
         if self.freeze_recurrent is not None and self.freeze_recurrent not in allowed:
-            raise ValueError(
+            err_msg = (
                 f"freeze_recurrent must be None or one of {allowed}; got "
                 f"{self.freeze_recurrent!r}. ADR-027 §2.1 permits 'cell' in production; "
                 f"'hidden' and 'all' are diagnostics."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return self
 
     @model_validator(mode="after")
@@ -434,13 +436,15 @@ class HydraNetConfig(BaseModel):
         ADR-027 §2 behaviour, and is what a config omitting the key already gets.
         """
         if self.freeze_recurrent is not None and self.freeze_recurrent_weight == 0.0:
-            raise ValueError(
+            err_msg = (
                 f"freeze_recurrent={self.freeze_recurrent!r} with freeze_recurrent_weight=0.0 is "
                 "inert: a zero weight makes blend_recurrent_state return the freely-evolved state "
                 "unchanged, so the run would log 'CLAMPED' and deliver the unclamped control "
                 "(C-324/C-331). Use freeze_recurrent=None for the unclamped control, or a weight "
                 "> 0 to clamp."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return self
 
     @model_validator(mode="after")
@@ -635,7 +639,9 @@ class HydraNetConfig(BaseModel):
             return v
         vals = v if isinstance(v, list) else [v]
         if any(x is None or x <= 0 for x in vals):
-            raise ValueError(f"loss_class_pos_weight values must be > 0; got {v}")
+            err_msg = f"loss_class_pos_weight values must be > 0; got {v}"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return v
 
     @field_validator("reg_activation")
@@ -651,10 +657,12 @@ class HydraNetConfig(BaseModel):
     @classmethod
     def validate_hidden_channels_divisibility(cls, v: int) -> int:
         if v % 8 != 0:
-            raise ValueError(
+            err_msg = (
                 f"total_hidden_channels={v} is not divisible by 8. "
                 f"The architecture requires 4 LSTM cells x 2 states = 8 partitions."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return v
 
     @field_validator("loss_reg")
@@ -836,11 +844,13 @@ class HydraNetConfig(BaseModel):
         fix for the off-by-one that used to noise the seed step.
         """
         if self.input_noise_dropout is not None and self.time_steps < 2:
-            raise ValueError(
+            err_msg = (
                 f"input_noise_dropout={self.input_noise_dropout} with time_steps="
                 f"{self.time_steps}: every step would be a segment start, which is left clean, "
                 "so the augmentation could never apply."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return self
 
     @model_validator(mode="after")
@@ -853,11 +863,13 @@ class HydraNetConfig(BaseModel):
         `reject_pushforward_without_a_family`, which exists for exactly this failure mode.
         """
         if self.ss_feedback_grad_clip is not None and not self.ss_backprop_through_feedback:
-            raise ValueError(
+            err_msg = (
                 "ss_feedback_grad_clip is set but ss_backprop_through_feedback is False, so the "
                 "clip is never applied and fed_grad_max would log a constant 0.0. Set the flag, "
                 "or remove the clip."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return self
 
     @model_validator(mode="after")
@@ -904,12 +916,14 @@ class HydraNetConfig(BaseModel):
         if self.ss_backprop_through_feedback and (
             self.ss_schedule is None or not self.ss_epsilon_max
         ):
-            raise ValueError(
+            err_msg = (
                 "ss_backprop_through_feedback is True but scheduled sampling is inactive "
                 f"(ss_schedule={self.ss_schedule!r}, ss_epsilon_max={self.ss_epsilon_max!r}), so "
                 "the feedback branch never runs and the arm would be scored as a treatment it "
                 "never received."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return self
 
     @model_validator(mode="after")
@@ -956,10 +970,12 @@ class HydraNetConfig(BaseModel):
         if isinstance(pw, list):
             n = len(self.classification_targets or [])
             if len(pw) != n:
-                raise ValueError(
+                err_msg = (
                     f"loss_class_pos_weight list has {len(pw)} entries but there are "
                     f"{n} classification_targets — provide one pos_weight per target."
                 )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
         return self
 
     @model_validator(mode="after")
@@ -991,13 +1007,15 @@ class HydraNetConfig(BaseModel):
                 k for k in ("hurdle_threshold", "hurdle_mask_mode", "body_mask") if k in data
             ]
             if retired:
-                raise ValueError(
+                err_msg = (
                     f"{retired} is retired (ADR-065 amend. 2026-07-28). Use body_supervision ∈ "
                     "{'all','active'} + onset_lead/cessation_lag: body_mask='none' → "
                     "body_supervision='all'; 'pos_cells' → ('active', onset_lead=0, "
                     "cessation_lag=0); 'pos_timelines' → ('active', onset_lead>=T-1, "
                     "cessation_lag>=T-1). hurdle_threshold/hurdle_mask_mode likewise map to these."
                 )
+                logger.error(err_msg)
+                raise ValueError(err_msg)
         return data
 
     @model_validator(mode="after")
@@ -1440,11 +1458,13 @@ class HydraNetConfig(BaseModel):
         }
         if typos:
             detail = "; ".join(f"{k!r} -> did you mean {v}?" for k, v in sorted(typos.items()))
-            raise ValueError(
+            err_msg = (
                 f"config key(s) one edit away from a real field: {detail}. Rename, or if the key "
                 "genuinely belongs to another layer, rename it so it is not a near-miss. "
                 'extra="allow" would otherwise accept it, and the setting would do nothing.'
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         return self
 
     class Config:

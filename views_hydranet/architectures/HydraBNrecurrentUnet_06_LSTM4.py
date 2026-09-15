@@ -1,3 +1,4 @@
+import logging
 from typing import NamedTuple
 
 import torch
@@ -7,6 +8,8 @@ import torch.nn.functional as F
 from views_hydranet.architectures.locked_dropout import LockedDropout
 from views_hydranet.distributions import resolve_family
 from views_hydranet.utils.quantile_head import init_quantile_conv_, monotone_quantiles
+
+logger = logging.getLogger(__name__)
 
 
 def _family_activation(family):
@@ -133,7 +136,9 @@ class HydraBNUNet06_LSTM4(nn.Module):
         self.n_quantiles = n_quantiles
         if self._is_quantile:
             if not n_quantiles or n_quantiles < 2:
-                raise ValueError("output_distribution='quantile' requires n_quantiles >= 2")
+                err_msg = "output_distribution='quantile' requires n_quantiles >= 2"
+                logger.error(err_msg)
+                raise ValueError(err_msg)
 
             # [B, K, H, W] -> monotone along the channel (quantile) axis
             def _monotone_channels(x):
@@ -171,10 +176,12 @@ class HydraBNUNet06_LSTM4(nn.Module):
         base = total_hidden_channels
         state = total_hidden_channels if state_channels is None else int(state_channels)
         if state % 8:
-            raise ValueError(
+            err_msg = (
                 f"state_channels={state} is not divisible by 8 (4 short-term + 4 long-term "
                 "groups); blend_recurrent_state would silently mis-assign memory types."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         lstm_padding = kernel_size // 2
 
         num_lstm_cells = 4

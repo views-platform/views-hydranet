@@ -108,15 +108,21 @@ def parse_feedback_transform(spec: str) -> tuple[str, float | None]:
     """
     name, _, raw = spec.partition(":")
     if name not in FEEDBACK_TRANSFORMS:
-        raise ValueError(
+        err_msg = (
             f"unknown feedback transform {name!r}; valid: {sorted(FEEDBACK_TRANSFORMS)}. "
             "A misspelled arm would silently run the control."
         )
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     takes_param = FEEDBACK_TRANSFORMS[name]
     if takes_param and not raw:
-        raise ValueError(f"feedback transform {name!r} requires a parameter, e.g. '{name}:0.25'.")
+        err_msg = f"feedback transform {name!r} requires a parameter, e.g. '{name}:0.25'."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     if raw and not takes_param:
-        raise ValueError(f"feedback transform {name!r} takes no parameter, got {raw!r}.")
+        err_msg = f"feedback transform {name!r} takes no parameter, got {raw!r}."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     if not takes_param:
         return name, None
     value = float(raw)
@@ -125,10 +131,12 @@ def parse_feedback_transform(spec: str) -> tuple[str, float | None]:
         # control while being scored as the treatment, which is the exact failure this parser
         # exists to prevent.
         if value != int(value) or int(value) == 0:
-            raise ValueError(
+            err_msg = (
                 f"wrong_month needs a NON-ZERO INTEGER month offset, got {raw!r}. A fractional "
                 "offset truncates and 0 is `use_real` — both silently run the control."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
     return name, value
 
 
@@ -155,10 +163,12 @@ def _active_pool(field: torch.Tensor) -> torch.Tensor:
     """The field's own active (>0) values — the empirical magnitude distribution to draw from."""
     pool = field[field > 0]
     if pool.numel() == 0:
-        raise ValueError(
+        err_msg = (
             "field has no active cells, so its magnitude distribution is undefined. Refusing to "
             "invent values — an arm built on a fabricated distribution is uninterpretable."
         )
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     return pool
 
 
@@ -169,7 +179,9 @@ def thin(field: torch.Tensor, *, p: float, generator: torch.Generator) -> torch.
     and only occurrence is degraded.
     """
     if not 0.0 <= p <= 1.0:
-        raise ValueError(f"thin: p must be in [0, 1], got {p}.")
+        err_msg = f"thin: p must be in [0, 1], got {p}."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     active = field > 0
     drop = (_rand_like(field, generator) < p) & active
     return torch.where(drop, torch.zeros_like(field), field)
@@ -182,7 +194,9 @@ def inject(field: torch.Tensor, *, q: float, generator: torch.Generator) -> torc
     changing the magnitude distribution (values are resampled from the field's own actives).
     """
     if not 0.0 <= q <= 1.0:
-        raise ValueError(f"inject: q must be in [0, 1], got {q}.")
+        err_msg = f"inject: q must be in [0, 1], got {q}."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     pool = _active_pool(field)
     empty = field == 0
     add = (_rand_like(field, generator) < q) & empty
@@ -200,9 +214,11 @@ def spatial_scramble(field: torch.Tensor, *, permutation: torch.Tensor) -> torch
     """
     b, c, h, w = field.shape
     if permutation.numel() != h * w:
-        raise ValueError(
+        err_msg = (
             f"spatial_scramble: permutation has {permutation.numel()} entries for a {h}x{w} grid."
         )
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     flat = field.reshape(b, c, h * w)
     return flat[:, :, permutation.to(field.device)].reshape(b, c, h, w)
 
@@ -216,7 +232,9 @@ def magnitude_perturb(
     *where*.
     """
     if sigma < 0:
-        raise ValueError(f"magnitude_perturb: sigma must be >= 0, got {sigma}.")
+        err_msg = f"magnitude_perturb: sigma must be >= 0, got {sigma}."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     active = field > 0
     # exp(sigma*Z) has mean exp(sigma^2/2) — at sigma=1.5 that is a x2.5 inflation, so a plain
     # lognormal would confound "magnitude realism" with "magnitude inflation". On a model with a
@@ -242,7 +260,9 @@ def splice_occurrence_magnitude(
     the donor's occurrence pattern into an arm meant to isolate magnitude.
     """
     if on_empty_donor not in ("raise", "zeros"):
-        raise ValueError(f"on_empty_donor must be 'raise' or 'zeros', got {on_empty_donor!r}.")
+        err_msg = f"on_empty_donor must be 'raise' or 'zeros', got {on_empty_donor!r}."
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     if on_empty_donor == "zeros" and not (magnitude_field > 0).any():
         # The rollout arm feeds the MODEL's field as donor, and the phenomenon under study is that
         # the model goes quiet. Raising here would abort the run at exactly the moment the effect

@@ -32,9 +32,12 @@ checks that dropping the renormalisation breaks them, so the trap cannot silentl
 
 from __future__ import annotations
 
+import logging
 import math
 
 import torch
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["correlated_bernoulli", "smooth_gaussian_field"]
 
@@ -81,7 +84,9 @@ def smooth_gaussian_field(
     there and make edge cells fire at the wrong rate.
     """
     if length_scale <= 0:
-        raise ValueError(f"length_scale must be > 0, got {length_scale}")
+        err_msg = f"length_scale must be > 0, got {length_scale}"
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     h, w = shape
     noise = torch.randn(1, 1, h, w, generator=generator, dtype=dtype).to(device)
     # Clamp to kernel WIDTH <= min(h, w), not just pad < dim: a kernel that wraps onto itself
@@ -113,10 +118,12 @@ def correlated_bernoulli(
         A 0/1 tensor of ``gate``'s shape and dtype.
     """
     if torch.any(gate < 0) or torch.any(gate > 1):
-        raise ValueError(
+        err_msg = (
             "correlated_bernoulli: gate must lie in [0, 1]; clipping would silently change the "
             "marginal activation rate this sampler exists to preserve."
         )
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     h, w = gate.shape[-2], gate.shape[-1]
     lead = gate.shape[:-2]
     n = int(torch.tensor(lead).prod()) if lead else 1

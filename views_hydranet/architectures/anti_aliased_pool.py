@@ -16,11 +16,15 @@ Only `pool0`/`pool1` are replaced. `forward` is untouched, inherited verbatim.
 
 from __future__ import annotations
 
+import logging
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from views_hydranet.architectures.HydraBNrecurrentUnet_06_LSTM4 import HydraBNUNet06_LSTM4
+
+logger = logging.getLogger(__name__)
 
 
 class MaxBlurPool2d(nn.Module):
@@ -37,7 +41,9 @@ class MaxBlurPool2d(nn.Module):
     def __init__(self, channels: int, filt_size: int = 5, stride: int = 2):
         super().__init__()
         if filt_size not in self._KERNELS:
-            raise ValueError(f"filt_size must be one of {sorted(self._KERNELS)}; got {filt_size}")
+            err_msg = f"filt_size must be one of {sorted(self._KERNELS)}; got {filt_size}"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         self.stride = stride
         self.channels = channels
         row = torch.tensor(self._KERNELS[filt_size], dtype=torch.float32)
@@ -49,11 +55,13 @@ class MaxBlurPool2d(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if x.shape[1] != self.channels:
-            raise ValueError(
+            err_msg = (
                 f"MaxBlurPool2d built for {self.channels} channels, got {x.shape[1]} — the blur "
                 "is depthwise, so a channel mismatch would silently mix or drop channels."
                 "depthwise, so a channel-count mismatch would silently mix or drop channels."
             )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
         # dense max at stride 1 (the max-pool benefit), then low-pass, then subsample
         x = F.max_pool2d(x, kernel_size=2, stride=1, padding=0)
         x = F.pad(x, (self.pad,) * 4, mode="reflect")
