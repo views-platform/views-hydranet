@@ -328,8 +328,12 @@ class TestTheClampIsVisibleInTheLog:
     def test_a_driver_override_is_still_announced(self, cfg, caplog):
         """The defect itself: config omits the key, a driver sets it, the run IS clamped.
 
-        This is the exact sequence `roster_arm_entry.py` performs — construct the orchestrator from
-        a config without the key, then assign the attribute before inference is built.
+        Pins the LAST link only: `HydraNetInference` built with `freeze_recurrent='cell'` from a
+        config that never named it must announce CLAMPED. The driver's actual sequence — construct
+        the orchestrator, assign the attribute, let the orchestrator forward it — is pinned by
+        `TestTheClampActuallyReachesInference.test_both_construction_sites_forward_the_clamp_to_inference`
+        (an earlier version of this docstring claimed this test performed that sequence; it never
+        built an orchestrator — #372 falsification P8).
         """
         import logging
 
