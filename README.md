@@ -118,11 +118,29 @@ HydraNet adopts the **PredictionFrame** interface mandated by `views-pipeline-co
 ## ⏱ Runtime Expectations
 
 How long a roster model takes, **measured**, per machine. Add a row when you run on a new machine;
-never estimate one. The configuration is the roster standard: 300 lessons × 3 windows, `window_dim`
-32, `time_steps` 36, `n_posterior_samples` 4 × `n_head_samples` 4, 13 validation origins,
-`diagnostic_visualizations: True` (about 12 figures per lesson).
+never estimate one — and add a new **workload** row if any knob below changes, because the
+machine rows only mean something against a fixed workload.
 
-| machine | GPU · driver | torch | train (300 lessons) | lessons / h | evaluate (13 origins) | measured |
+**Workload A — the roster standard (every row below).** These are the knobs that set the compute;
+anything else in the config is irrelevant to time.
+
+| knob | value | what it scales |
+|---|---|---|
+| `model` | `HydraBNUNet06_LSTM4`, `total_hidden_channels` 32, `input_channels` 3 (`sb`, `ns`, `os`), `output_channels` 1 | cost per step |
+| training volume | `total_lessons` 300 × `windows_per_lesson` 3 × 395 months = 355,500 forward/backward steps, batch 1 | **training, linearly** |
+| `window_dim` | 32 × 32 spatial crop per training window | cost per step |
+| `time_steps` | 36-month rollout horizon | length of every inference rollout |
+| region / grid | `africa_me_legacy`, 13,110 cells on the 180 × 180 model grid | inference cost per origin |
+| posterior | `n_posterior_samples` (D) 4 × `n_head_samples` (K) 4 = 16 draws per cell | **evaluation, linearly in D** (K is cheap) |
+| origins | 13 validation origins | **evaluation, linearly** |
+| targets | 3 regression + 3 classification (`*_sb`, `*_ns`, `*_os`) | both, mildly |
+| `diagnostic_visualizations` | `True` — about 12 figures per lesson | ≈ +1 h on training |
+| BatchNorm recalibration | `bn_recalibrate: True`, 30 forward-only windows after training | minutes |
+
+A global run (`region="land"`, 360 × 720) or a bigger `n_posterior_samples` is a **different
+workload** — start a new table, do not overwrite a row.
+
+| machine | GPU · driver | torch | train (workload A) | lessons / h | evaluate (workload A) | measured |
 |---|---|---|---|---|---|---|
 | laptop — i9-13900H, 31 GB, Linux Mint 21.1 | RTX 4070 Laptop 8 GB · 535 | 2.6.0+cu124 | **3 h 15 m** | **~92** | ~1 h | 2026-09-08 (`violet_visitor`), 2026-09-16 (`bold_comet`, 94/h at lesson 106) |
 | same laptop, **torch on CPU** | *(CUDA unavailable — torch 2.14+cu130 vs driver 535)* | 2.14.0+cu130 | 6 h 46 m | 44 | 65 min | 2026-09-16 (`violet_visitor`) — see #377 |
