@@ -17,11 +17,12 @@
 4. [Installation](#installation)  
 5. [Usage](#usage)  
 6. [Configuration & Stability](#configuration--stability)
-7. [Architecture](#architecture)  
-8. [Project Structure](#project-structure)  
-9. [Contributing](#contributing)  
-10. [License](#license)  
-11. [Acknowledgements](#acknowledgements)  
+7. [Runtime Expectations](#runtime-expectations)
+8. [Architecture](#architecture)  
+9. [Project Structure](#project-structure)  
+10. [Contributing](#contributing)  
+11. [License](#license)  
+12. [Acknowledgements](#acknowledgements)  
 
 ---
 
@@ -111,6 +112,32 @@ HydraNet adopts the **PredictionFrame** interface mandated by `views-pipeline-co
 - **Why:** Target-keyed output enables multi-target dispatch, enforces a validated `(N, S)` shape contract, and unlocks automatic parity auditing between the PF and legacy DataFrame paths.
 - **How:** The config declares `"prediction_format": "prediction_frame"`. The manager converts its internal DataFrames via `_to_pf_dict()` before returning. The upstream pipeline reads the flag and routes through `PredictionFrameDispatcher`.
 - **Guide:** See [`reports/guides/prediction_frame.md`](reports/guides/prediction_frame.md) for a self-contained implementation guide, including how to adopt this pattern in other model repos.
+
+---
+
+## ⏱ Runtime Expectations
+
+How long a roster model takes, **measured**, per machine. Add a row when you run on a new machine;
+never estimate one. The configuration is the roster standard: 300 lessons × 3 windows, `window_dim`
+32, `time_steps` 36, `n_posterior_samples` 4 × `n_head_samples` 4, 13 validation origins,
+`diagnostic_visualizations: True` (about 12 figures per lesson).
+
+| machine | GPU · driver | torch | train (300 lessons) | lessons / h | evaluate (13 origins) | measured |
+|---|---|---|---|---|---|---|
+| laptop — i9-13900H, 31 GB, Linux Mint 21.1 | RTX 4070 Laptop 8 GB · 535 | 2.6.0+cu124 | **3 h 15 m** | **~92** | ~1 h | 2026-09-08 (`violet_visitor`), 2026-09-16 (`bold_comet`, 94/h at lesson 106) |
+| same laptop, **torch on CPU** | *(CUDA unavailable — torch 2.14+cu130 vs driver 535)* | 2.14.0+cu130 | 6 h 46 m | 44 | 65 min | 2026-09-16 (`violet_visitor`) — see #377 |
+| server | *(to be measured)* | | | | | |
+
+**Read the CPU row as a warning, not a data point.** A fresh `pip install` resolves the newest torch,
+and torch's CUDA build moves faster than drivers get updated; if the driver cannot run it, torch
+falls back to CPU and the only trace is a `UserWarning` at import and a DEBUG log line. Everything
+else looks healthy and the run is merely 2× slower — on a server with an older driver it would be
+far worse. Check `torch.cuda.is_available()` in the env before a long run, or pin torch to a build
+your driver supports (`--index-url https://download.pytorch.org/whl/cu124`). Tracked in #377.
+
+**What the time is made of** (laptop, GPU): pure training steps run at ~55 months/s over 355,500
+months (≈1.8 h); the rest is per-lesson diagnostics, forensics and W&B logging (≈1–1.5 h).
+`diagnostic_visualizations: False` buys back roughly an hour per run.
 
 ---
 
