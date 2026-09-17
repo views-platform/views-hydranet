@@ -160,6 +160,22 @@ found by reverting the fix and watching the tests stay green. Recorded under **C
 ⛔ **Open gate.** S6 could not be validated: `workflow_dispatch` only offers workflows on the default
 branch, and #351 is held. **#351 → `main` → the TestPyPI rehearsal green → only then a Release.**
 Recorded durably in `docs/guides/publishing-to-pypi.md`, not only in the issue that will be closed.
+
+---
+
+## 📦 PYPI SMOKE — 2026-09-16 — **the wheel reproduces the checkout bit for bit**
+
+**Not a modelling result; a reproducibility one.** Four roster models retrained and evaluated from
+`views-hydranet` **0.1.0 installed from PyPI**, in a fresh env built the way the models' `run.sh`
+builds it. **All four artifacts are byte-identical** to the 2026-09-07/08 checkout-trained ones —
+190 tensors each, BatchNorm buffers included — and the frozen scorer gives identical AP/Brier/CRPS.
+Training on this machine is therefore deterministic across the packaging boundary. Train 3 h 00 m –
+4 h 55 m (76–99 lessons/h, the spread is laptop contention), eval 17–24 min. Found on the way: a
+fresh install can silently train on **CPU** when the resolved torch outpaces the driver (#377), and
+the models' env on this laptop is a symlink to the dev env, so `run.sh` never exercises the wheel
+here. The three hard-gate models now emit ~5× more cells than the 09-08 dossier cubes — not a
+regression: views-models `4f536fdb` lowered `gate_threshold` to 0.14/0.16/0.20 (M75 applied, to be
+swept in views-models#466). Row **M76**; `reports/2026-09-15_pypi_smoke/`.
 ---
 
 ## Claims Ledger — the rollout collapse (#258 / #262)

@@ -142,7 +142,7 @@ workload** — start a new table, do not overwrite a row.
 
 | machine | GPU · driver | torch | train (workload A) | lessons / h | evaluate (workload A) | measured |
 |---|---|---|---|---|---|---|
-| laptop — i9-13900H, 31 GB, Linux Mint 21.1 | RTX 4070 Laptop 8 GB · 535 | 2.6.0+cu124 | **3 h 15 m** | **~92** | ~1 h | 2026-09-08 (`violet_visitor`), 2026-09-16 (`bold_comet`, 94/h at lesson 106) |
+| laptop — i9-13900H, 31 GB, Linux Mint 21.1 | RTX 4070 Laptop 8 GB · 535 | 2.6.0+cu124 | **3 h 00 m – 4 h 55 m** | **76–99** | **17–24 min** | 2026-09-16, four models from the PyPI wheel: heavy_freighter 3 h 01 m / 99 per h (overnight, laptop idle), bold_comet 3 h 23 m / 89, purple_alien 4 h 56 m / 76 and violet_visitor 4 h 53 m / 77 (laptop in use). Same config took 3 h 15 m on 2026-09-08. |
 | same laptop, **torch on CPU** | *(CUDA unavailable — torch 2.14+cu130 vs driver 535)* | 2.14.0+cu130 | 6 h 46 m | 44 | 65 min | 2026-09-16 (`violet_visitor`) — see #377 |
 | server | *(to be measured)* | | | | | |
 
@@ -155,7 +155,14 @@ your driver supports (`--index-url https://download.pytorch.org/whl/cu124`). Tra
 
 **What the time is made of** (laptop, GPU): pure training steps run at ~55 months/s over 355,500
 months (≈1.8 h); the rest is per-lesson diagnostics, forensics and W&B logging (≈1–1.5 h).
-`diagnostic_visualizations: False` buys back roughly an hour per run.
+`diagnostic_visualizations: False` buys back roughly an hour per run. The spread across the four
+measured runs is the laptop being used at the same time, not the models: the fastest ran overnight.
+
+**Training is deterministic here.** All four models retrained on 2026-09-16 from the PyPI wheel
+produced artifacts **byte-identical** to the ones trained from the checkout on 2026-09-07/08 — every
+tensor, BatchNorm buffers included (`reports/2026-09-15_pypi_smoke/`). Same seed, same data, same
+torch build, same GPU ⇒ same weights. A different torch build or GPU is not expected to reproduce
+them bit for bit.
 
 ---
 
