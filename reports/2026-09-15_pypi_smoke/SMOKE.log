@@ -1,0 +1,23 @@
+2026-09-15 20:31:06  === env: creating /tmp/claude-1000/pypi-smoke-env from PyPI (the model run.sh path) ===
+  views-hydranet 0.1.0 from /tmp/claude-1000/pypi-smoke-env/lib/python3.11/site-packages/views_hydranet/__init__.py
+  from views_hydranet import HydranetManager: OK
+2026-09-15 20:31:09  env: PyPI wheel confirmed (site-packages)
+2026-09-15 20:31:09  === violet_visitor  train + evaluate  (artifacts before: 1) ===
+2026-09-16 04:26:48    violet_visitor  OK  CLAMPED — freeze_recurrent='cell', weight=1.0 (ADR-027 §2.1).
+2026-09-16 04:26:48  === bold_comet  train + evaluate  (artifacts before: 1) ===
+2026-09-16 09:38:51    bold_comet  FAILED rc=143  last line: 👾 Training | Lesson 211/300 | Window 3/3 | Target: lr_os_best | Threshold: 21:  70%|███████   | 249640/355500 [5:11:37<36:20, 48.55month/s]�
+2026-09-16 09:38:51  === purple_alien  train + evaluate  (artifacts before: 1) ===
+2026-09-16 09:44:03  === RELAUNCH on GPU (torch 2.6.0+cu124); first pass was CPU ===
+2026-09-16 09:44:03  === env: creating /tmp/claude-1000/pypi-smoke-env from PyPI (the model run.sh path) ===
+  views-hydranet 0.1.0 from /tmp/claude-1000/pypi-smoke-env/lib/python3.11/site-packages/views_hydranet/__init__.py
+  from views_hydranet import HydranetManager: OK
+2026-09-16 09:44:06  env: PyPI wheel confirmed (site-packages)
+2026-09-16 09:44:06  === bold_comet  train + evaluate  (artifacts before: 1) ===
+2026-09-16 13:33:56    bold_comet  OK  CLAMPED — freeze_recurrent='cell', weight=1.0 (ADR-027 §2.1).
+2026-09-16 13:33:56  === purple_alien  train + evaluate  (artifacts before: 1) ===
+2026-09-16 17:48:47    purple_alien  OK  CLAMPED — freeze_recurrent='cell', weight=1.0 (ADR-027 §2.1).
+2026-09-16 17:48:47  === heavy_freighter  train + evaluate  (artifacts before: 1) ===
+2026-09-16 21:08:52    heavy_freighter  OK  CLAMPED — freeze_recurrent='cell', weight=1.0 (ADR-027 §2.1).
+2026-09-16 21:08:52  === violet_visitor  train + evaluate  (artifacts before: 2) ===
+2026-09-17 01:25:06    violet_visitor  OK  CLAMPED — freeze_recurrent='cell', weight=1.0 (ADR-027 §2.1).
+2026-09-17 01:25:06  === SMOKE COMPLETE: 5 ok, 0 failed ===
