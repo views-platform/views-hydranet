@@ -70,16 +70,18 @@ def _same_expression(a: ast.AST, b: ast.AST) -> bool:
 def _logged_first(prev: ast.stmt | None, raise_st: ast.Raise) -> bool:
     """The preceding statement is `logger.<error|critical|exception>(<the same thing raised>)`.
 
-    Receiver must be the name `logger` — `err_msg.error(...)` and `logging.error(...)` passed the
-    first version (audit A4, A11). And the LOGGED expression must be the RAISED one: a raise of
-    `err_msg` preceded by `logger.error("something else")` passed too (audit A3)."""
+    Receiver must be a name ending in `logger` — `err_msg.error(...)` and `logging.error(...)`
+    passed the first version (audit A4, A11). And the LOGGED expression must be the RAISED one:
+    a raise of `err_msg` preceded by `logger.error("something else")` passed too (audit A3)."""
     if not (isinstance(prev, ast.Expr) and isinstance(prev.value, ast.Call)):
         return False
     call = prev.value
     f = call.func
     if not (isinstance(f, ast.Attribute) and f.attr in LOUD):
         return False
-    if not (isinstance(f.value, ast.Name) and f.value.id == "logger"):
+    # `logger`, or a module's own `_device_logger` / `_logger`: a Name ending in "logger".
+    # Still excludes `err_msg.error(...)` (audit A4) and the root `logging.error(...)` (A11).
+    if not (isinstance(f.value, ast.Name) and f.value.id.endswith("logger")):
         return False
     if not call.args:
         return False

@@ -15,7 +15,9 @@ if TYPE_CHECKING:
 _device_logger = logging.getLogger(__name__)
 
 
-def log_device_report(device: "torch.device", run_type: str) -> None:
+def log_device_report(
+    device: "torch.device", run_type: str, *, require_cuda: bool = False
+) -> None:
     """Prints a device banner at the start of a training/evaluation/forecasting run.
 
     Emits a standard 👾 banner for GPU runs and a loud 🚨 WARNING banner for CPU
@@ -25,10 +27,20 @@ def log_device_report(device: "torch.device", run_type: str) -> None:
         device:   The torch.device selected by setup_device().
         run_type: Human-readable label for the current operation
                   (e.g. "training", "evaluation", "forecasting").
+        require_cuda: when True, a CPU device is a hard stop (RuntimeError) rather than a
+                  warning — the config field of the same name (#377).
     """
     import torch  # local import — torch is a project dep but not a module-level import here
 
     label = run_type.upper()
+
+    if require_cuda and device.type != "cuda":
+        err_msg = (
+            f"require_cuda=True but the device for {run_type} is {device.type!r}: "
+            f"{cpu_fallback_diagnosis()} Refusing to run on CPU (#377)."
+        )
+        _device_logger.error(err_msg)
+        raise RuntimeError(err_msg)
 
     if device.type == "cuda":
         gpu_count = torch.cuda.device_count()
@@ -45,17 +57,60 @@ def log_device_report(device: "torch.device", run_type: str) -> None:
         print(f"  GPU Count: {gpu_count}")
         print("👾" + "=" * 100 + "\n")
     else:
+        why = cpu_fallback_diagnosis()
         _device_logger.warning(
-            "HydraNet running on CPU for %s. Performance will be severely degraded.", run_type
+            "HydraNet running on CPU for %s. %s Performance will be severely degraded.",
+            run_type,
+            why,
         )
         print("\n🚨" + "=" * 100)
         print(f"  ⚠️  WARNING: RUNNING ON CPU — {label}")
         print("  " + "-" * 98)
-        print("  No CUDA-capable GPU was detected.")
+        print(f"  {why}")
         print("  HydraNet is a spatiotemporal deep network designed for GPU execution.")
         print("  Expect severely degraded performance and very long runtimes.")
-        print("  This is NOT a hard stop. Proceeding on CPU.")
+        print("  This is NOT a hard stop. Set `require_cuda: true` in the config to make it one.")
         print("🚨" + "=" * 100 + "\n")
+
+
+def cpu_fallback_diagnosis() -> str:
+    """One sentence saying WHY torch is on the CPU — the banner used to say "No CUDA-capable GPU
+    was detected", which was false on 2026-09-16: the GPU was there, the freshly resolved torch
+    (2.14+cu130) needed a newer driver than 535, and `violet_visitor` trained for 6 h 46 m on
+    CPU under a banner that blamed the hardware (#377). Distinguish the three cases a reader
+    can act on: no NVIDIA driver at all, a driver that cannot run this torch's CUDA build, or
+    a CPU-only torch build."""
+    import shutil
+    import subprocess
+
+    import torch
+
+    cuda_build = torch.version.cuda
+    if cuda_build is None:
+        return f"torch {torch.__version__} is a CPU-only build (no CUDA support compiled in)."
+    driver = None
+    if shutil.which("nvidia-smi"):
+        try:
+            out = subprocess.run(
+                ["nvidia-smi", "--query-gpu=driver_version,name", "--format=csv,noheader"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if out.returncode == 0 and out.stdout.strip():
+                driver = out.stdout.strip().splitlines()[0]
+        except (OSError, subprocess.SubprocessError):
+            driver = None
+    if driver is None:
+        return (
+            f"No NVIDIA driver / GPU visible to this process (torch {torch.__version__}, "
+            f"built for CUDA {cuda_build})."
+        )
+    return (
+        f"A GPU is present (driver, name: {driver}) but torch {torch.__version__} is built "
+        f"for CUDA {cuda_build}, which this driver cannot run. Install a torch built for "
+        "your driver (e.g. --index-url https://download.pytorch.org/whl/cu124)."
+    )
 
 
 def log_ingestion_report(df_in: pd.DataFrame, df_out: pd.DataFrame, config: dict) -> None:

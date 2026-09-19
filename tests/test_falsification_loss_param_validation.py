@@ -37,7 +37,8 @@ class TestF5_CICFieldCountDrift:
         # ADR-027 §2.1 cell clamp to production: +freeze_recurrent,
         # +freeze_recurrent_weight -> 98
         # C-184 mitigation promoted out of a shadow default: +bn_recalibrate -> 99
-        CIC_CLAIMED_COUNT = 99
+        # #377: +require_cuda -> 100
+        CIC_CLAIMED_COUNT = 100
         actual = len(HydraNetConfig.model_fields)
         assert actual == CIC_CLAIMED_COUNT, (
             f"CIC §3 claims {CIC_CLAIMED_COUNT} fields but HydraNetConfig has {actual}. "
