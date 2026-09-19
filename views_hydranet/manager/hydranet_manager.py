@@ -214,7 +214,9 @@ class HydranetManager(ForecastingModelManager):
         Executes the training lifecycle and returns the trained model object.
         This method acts as the 'Operational Core' for both standard runs and sweeps.
         """
-        log_device_report(self.device, "training")
+        log_device_report(
+            self.device, "training", require_cuda=bool(self.configs.get("require_cuda", False))
+        )
         logger.info(f"Starting HydraNet training: {self.configs['run_type']}")
 
         # 0. Strict Config Handshake (ADR 008/015)
@@ -295,7 +297,9 @@ class HydranetManager(ForecastingModelManager):
             all_targets : list[str]     — regression_targets + classification_targets
             orchestrator: InferenceOrchestrator — wired with model, device, visualizer
         """
-        log_device_report(self.device, eval_type)
+        log_device_report(
+            self.device, eval_type, require_cuda=bool(self.configs.get("require_cuda", False))
+        )
         self.configs = ConfigInitializer(self.configs).get_config()
         ReproducibilityGate.lock_entropy(
             np_seed=self.configs["np_seed"], torch_seed=self.configs["torch_seed"]

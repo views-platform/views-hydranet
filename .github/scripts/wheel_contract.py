@@ -27,7 +27,7 @@ from importlib.metadata import metadata, version
 
 DISTRIBUTION = "views-hydranet"
 PACKAGE = "views_hydranet"
-REQUIRED_DEPENDENCIES = ("views-pipeline-core", "views-frames", "torch")
+REQUIRED_DEPENDENCIES = ("views-pipeline-core", "views-frames", "torch", "wandb")
 PUBLIC_API = ["HydranetManager"]
 
 

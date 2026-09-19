@@ -1,6 +1,6 @@
 [project]
 name = "views-hydranet"
-version = "0.1.0"
+version = "0.1.1"
 description = "views-hydranet is a package that contains modeling procedure, evaluation and forecasting using HydraNet implemented in PyTorch"
 authors = [
     {name = "Dylan",email = "52908667+smellycloud@users.noreply.github.com"}
@@ -11,7 +11,11 @@ requires-python = ">=3.11,<3.15"
 dependencies = [
     "views-pipeline-core (>=3.0.0,<4.0.0)",
     "views-frames (>=1.10.2,<2)",
-    "torch>=2.2.1,<3.0.0"
+    "torch>=2.2.1,<3.0.0",
+    # Imported at five sites (training_engine.py, utils.py: `wandb.run`, `wandb.log`). Until
+    # 2026-09-19 it was undeclared and arrived only through views-pipeline-core's pin (#381).
+    # Range matches views-pipeline-core 3.3.0's; the two names we use exist unchanged on 0.30.0.
+    "wandb>=0.18.7,<1.0"
 ]
 
 # issue #215: matplotlib is imported lazily by VisualDiagnostics (optional plotting stack). Declare it

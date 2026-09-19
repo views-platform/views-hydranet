@@ -328,6 +328,12 @@ class HydraNetConfig(BaseModel):
     # set it; a typo would have silently reverted to True with nothing raised. Promoted to a field
     # so the schema owns the default and the near-miss guard below can catch a misspelling.
     bn_recalibrate: bool = Field(default=True)
+    # #377 (2026-09-16): a fresh install resolved a torch whose CUDA build the driver could not
+    # run, torch fell back to CPU, and a roster model trained for 6 h 46 m under a banner that
+    # blamed the hardware. Default False keeps every existing config byte-identical (the banner
+    # still fires); True makes a CPU device a hard stop at the top of training, evaluation and
+    # forecasting — the roster configs should set it; CPU training is never intended there.
+    require_cuda: bool = Field(default=False)
     # ADR-027 §2.1 (2026-09-05): the cell clamp, promoted from a diagnostic constructor argument to
     # a production setting. None (default) evolves the full ConvLSTM state — the §2 behaviour, and
     # byte-identical for every config that omits this key, which is what stops the amendment
