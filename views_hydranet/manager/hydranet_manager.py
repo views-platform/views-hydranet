@@ -64,14 +64,17 @@ class HydranetManager(ForecastingModelManager):
         self,
         viz: "VisualDiagnostics",
         partition_bound: int | None = None,
-        *,
-        forecast: bool = False,
     ) -> tuple["VolumeHandler", "FeatureScaler", "DataSniffer"]:
         """
         Shared data ingestion pipeline (ADR 039 Steps 1-3).
 
         Fetch → Biopsy Stage 1 → Standardize → Sniff → Scale →
         Biopsy Stage 2 → (partition) → Volume → Biopsy Stage 3.
+
+        Identical on every run type. The handler returned is always the **history** volume; the
+        future volume is built later and per origin, by ``InferenceOrchestrator`` via
+        ``VolumeHandler.extrapolate_time``. There is nothing here for a forecast flag to select,
+        which is why this no longer takes one — see the sniffer call below.
 
         Parameters
         ----------
@@ -80,9 +83,6 @@ class HydranetManager(ForecastingModelManager):
         partition_bound : int, optional
             If set, filters the DataFrame to ``time_col <= partition_bound``
             before constructing the VolumeHandler (evaluation path).
-        forecast : bool
-            If True, passes ``is_forecast=True`` to the sniffer's
-            temporal continuity check.
 
         Returns
         -------
@@ -154,7 +154,22 @@ class HydranetManager(ForecastingModelManager):
         # DIAGNOSTIC: Stage 3 (Volume)
         viz.biopsy_volume(handler, "Stage 3: Global Volume")
 
-        sniffer.sniff_forecast_alignment(df, handler, is_forecast=forecast)
+        # `handler` is VolumeHandler.from_df(df) — the HISTORY volume, on every run type. So the
+        # history contract is the one that applies, and `is_forecast` is a constant here.
+        #
+        # This used to pass `is_forecast=forecast`, closing C-58 ("forecast mode never validates
+        # continuity"). The concern was real; the remedy was not. The forecast branch requires
+        # `min(volume months) == max(df months) + 1` — a volume beginning one month AFTER the
+        # frame — and the CIC (§8) names its second argument `forecast_handler` for that reason.
+        # A handler built from `df` begins where `df` begins, so the condition was unsatisfiable
+        # and every forecasting run died here, after a full training run. It went unseen because
+        # the test covering it mocks DataSniffer and only asserts the flag was passed.
+        #
+        # The property C-58 wanted is not unguarded: `extrapolate_time` establishes it by
+        # construction (it tiles the last frame and adds arange(1, steps+1) to the time channel),
+        # and test_volume_handler_hard_gates.py::test_extrapolate_time_temporal_continuity (C-23)
+        # pins it. Re-checking it here would be a guard that cannot fire.
+        sniffer.sniff_forecast_alignment(df, handler, is_forecast=False)
 
         del df
         gc.collect()
@@ -313,7 +328,7 @@ class HydranetManager(ForecastingModelManager):
         # ── Data pipeline ──────────────────────────────────────────────────────
 
         if forecast:
-            handler, scaler, sniffer = self._run_data_pipeline(viz, forecast=True)
+            handler, scaler, sniffer = self._run_data_pipeline(viz)
             origins = [handler.shape[0] - 1]
         else:
             run_type = self.configs["run_type"]

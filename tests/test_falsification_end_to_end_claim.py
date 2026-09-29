@@ -163,10 +163,30 @@ class TestPartialProjectionSliceOverflow:
 
 
 class TestForecastSnifferNeverCalled:
-    """P-04 (C-58): Forecast pipeline must pass is_forecast=True to sniffer."""
+    """P-04 (C-58): the data pipeline must sniff the handler it actually holds.
 
-    def test_forecast_mode_triggers_forecast_sniffer(self, tmp_path):
-        """Forecast pipeline must validate temporal continuity."""
+    **Amended.** C-58's concern — "forecast mode never validates temporal continuity" — was real.
+    Its remedy was not: the pipeline was changed to pass ``is_forecast=True``, and this test
+    pinned that. But the forecast branch of ``sniff_forecast_alignment`` requires
+    ``min(volume months) == max(df months) + 1``, a volume beginning one month *after* the frame,
+    and the CIC (§8) names its second argument ``forecast_handler`` accordingly. The pipeline
+    passes ``VolumeHandler.from_df(df)`` — the history volume, which begins where ``df`` begins.
+    The condition was unsatisfiable, so every forecasting run raised "Forecast Continuity Broken"
+    after a full training run. No forecasting run had ever completed.
+
+    This test could not see that, because it mocks ``DataSniffer``: it asserted the flag was
+    passed, never that the check it selects can pass. The guard and its test were added together
+    and neither could observe the other failing.
+
+    The property C-58 wanted is not lost. ``VolumeHandler.extrapolate_time`` establishes it by
+    construction, and ``test_volume_handler_hard_gates.py::test_extrapolate_time_temporal_
+    continuity`` (C-23) pins it. What is asserted here now is the corrected contract: the volume
+    the pipeline hands over is a history volume and must be described as one.
+    See ``tests/test_forecast_alignment_handler.py`` for the unmocked end of this.
+    """
+
+    def test_data_pipeline_sniffs_its_handler_as_history(self, tmp_path):
+        """The handler built from `df` must be checked against the history contract."""
         import pandas as pd
 
         manager = _make_manager(tmp_path)
@@ -195,10 +215,18 @@ class TestForecastSnifferNeverCalled:
             mock_sniffer = mock_sniffer_cls.return_value
             mock_viz = MagicMock()
 
-            manager._run_data_pipeline(mock_viz, forecast=True)
+            manager._run_data_pipeline(mock_viz)
 
             mock_sniffer.sniff_forecast_alignment.assert_called_once()
-            call_kwargs = mock_sniffer.sniff_forecast_alignment.call_args
-            assert call_kwargs[1].get("is_forecast") is True or (
-                len(call_kwargs[0]) >= 3 and call_kwargs[0][2] is True
-            ), "sniff_forecast_alignment must receive is_forecast=True in forecast mode"
+            args, kwargs = mock_sniffer.sniff_forecast_alignment.call_args
+
+            is_forecast = kwargs.get("is_forecast", args[2] if len(args) >= 3 else None)
+            assert is_forecast is False, (
+                "the pipeline passes VolumeHandler.from_df(df) — a history volume — so it must "
+                "be checked against the history contract. is_forecast=True selects a rule only "
+                "an extrapolated volume can satisfy, and raises for every run that reaches it."
+            )
+
+            # The call is still made, on every run type. C-58's concern was that the sniffer was
+            # skipped; that must not quietly become true as a side effect of correcting the flag.
+            assert args[0] is not None and args[1] is not None
