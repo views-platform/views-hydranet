@@ -6763,13 +6763,15 @@ Register header claims 69 total / 19 open / 50 resolved. Actual entry count: 68 
 
 ---
 
-### C-58: Forecast sniffer validation (`is_forecast=True`) is dead code — RESOLVED
+### C-58: Forecast sniffer validation (`is_forecast=True`) is dead code — remedy superseded by #390 — RESOLVED
 
 | Field | Value |
 |-------|-------|
 | ID | C-58 |
 | Resolved | 2026-04-19 |
-| Resolution | Added `forecast: bool` parameter to `_run_data_pipeline`, wired through to `sniff_forecast_alignment(is_forecast=forecast)`. Forecast path now passes `forecast=True`. Verified by `tests/test_falsification_end_to_end_claim.py::TestForecastSnifferNeverCalled`. |
+| Resolution | ⚠️ **SUPERSEDED 2026-09-29 by #390 — the concern stands, the remedy was wrong.** Originally: added a `forecast: bool` parameter to `_run_data_pipeline`, wired through to `sniff_forecast_alignment(is_forecast=forecast)`, pinned by `tests/test_falsification_end_to_end_claim.py::TestForecastSnifferNeverCalled`. That remedy made **every forecasting run impossible**: `_run_data_pipeline` builds the **history** volume on every run type, while the forecast branch requires `min(volume months) == max(df months) + 1` — a volume beginning one month *after* the frame it is checked against. The condition is unsatisfiable for a history handler, so `-t -f` died at the sniffer *after a full training run*, and no forecasting run had ever completed in this repository. It went unseen because the pinning test mocks `DataSniffer` and asserts only that the flag was **passed**, never that the branch it selects **can pass** — the guard and its test were added together and neither could observe the other failing (**C-329**). |
+| Resolution (current) | The parameter is removed and the call site passes `is_forecast=False` explicitly, which is the correct contract for a history-built handler. **C-58's property is not unguarded — it is established by construction.** Forecasting sets `origins = [handler.shape[0] - 1]`, so `is_projecting` is always true and the future volume is always built by `VolumeHandler.extrapolate_time`, which tiles the last frame and adds `arange(1, steps+1)` to the time channel; it cannot begin anywhere but `history_end + 1`. The history volume it extends is itself validated at runtime by the `is_forecast=False` branch (vol range must equal df range exactly). Pinned by `test_volume_handler_hard_gates.py::test_extrapolate_time_temporal_continuity` (C-23) and `tests/test_forecast_alignment_handler.py`, the first test anywhere to drive this path against the **real** `DataSniffer` and `VolumeHandler`. Re-checking it at the call site would be a guard that cannot fire. |
+| Lesson | A guard added with a test that mocks the thing it guards is not evidence. The remedy here was live for five months, was pinned, was green, and had never once been executed against a real sniffer. Cross-ref **C-329** (tests that cannot fail) and **C-303** (prose asserting a check the code does not perform). |
 
 ---
 

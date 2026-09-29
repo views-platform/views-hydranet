@@ -302,3 +302,48 @@ The DataFrame format is preserved internally (by `InferenceOrchestrator` and `Vo
 and on disk (the dispatcher converts PF→DataFrame for the parquet write). PredictionFrame is
 the **handoff boundary** between the model and the pipeline — not a replacement for DataFrames
 throughout.
+
+---
+
+## 7. Reading a HydraNet Forecast — What Is On Disk and What the Numbers Mean
+
+Everything above is about the handoff. This section is for whoever **consumes** the files a
+HydraNet run leaves under `data/generated/` — an ensemble step, a scorer, a plot. Five facts, each
+of which has been misread at least once.
+
+**7.1 One run writes six targets, not three.** Under `predictions_<run_type>_<timestamp>/origin_<k>/`
+there is one directory per target: the three fatality fields `lr_sb_best`, `lr_ns_best`,
+`lr_os_best` **and** the three gate probabilities `by_sb_best`, `by_ns_best`, `by_os_best`. The
+gate is the model's own P(y > 0) per cell, in [0, 1]. It is a first-class output, not a by-product
+(ADR-020). A consumer that reads only `lr_*` has discarded half the model.
+
+**7.2 The fatality draws are counts.** Training and the rollout operate in `log1p` space; the
+inverse transform (`expm1`) is applied before the frame is built (`InferenceOrchestrator`,
+`scaler.inverse_transform_volume`). On disk `lr_*` values are deaths — 0 to the thousands — not
+log-counts. Do not `expm1` them again.
+
+**7.3 The fatality draws are already gate-composed.** Every regression draw has passed through the
+run's `forecast_composition` (ADR-069) at emit time: under `soft_gate` each draw is masked by a
+Bernoulli(gate) coin, under `threshold_gate` by `gate ≥ gate_threshold`. So **a draw of 0 means
+the gate said no for that draw**, and the mean over draws already approximates `gate × body`.
+Multiplying `lr_*` by `by_*` a second time is the single most likely consumer error, and it
+silently squares the gate.
+
+**7.4 The output is always sampled; `S` is whatever the config said.** `y_pred` is `(N, S)` with
+`S = n_posterior_samples × n_head_samples` — MC-dropout passes times head draws per pass (ADR-067).
+Never assume a number: read `S` off the array. Draws within a cell are exchangeable for scoring but
+are **not** independent across passes (the `K` head draws of one pass share that pass's dropout
+mask), so treat `S` as the sample count for ranking and CRPS, not as `S` independent forecasts.
+`evaluation_mode: "point"` exists (ADR-021) and collapses `S` to one column; it is not used by any
+HydraNet config, and the arithmetic mean it applies is the worst point estimate measured on this
+model (ledger M70: `gate × body` beats it by 58–159% at equal mass — issue #337).
+
+**7.5 One evaluation, one directory — named by the artifact, not the run.** The timestamp in
+`predictions_<run_type>_<timestamp>` is the trained artifact's, so evaluating the same artifact
+twice writes a **second** directory with a second timestamp beside the first. A consumer that
+globs `predictions_*` and takes "the" directory has a coin-flip; take the newest, or the one named
+in the run's log. `identifiers.npz` carries `time` (month_id) and `unit` (priogrid_gid) for every
+row of `y_pred`; validation runs have 13 origins (`origin_0` … `origin_12`), forecasting runs one.
+
+What this section does **not** say: how these files compare to another model's. That is a
+property of the other model, and belongs in its documentation.

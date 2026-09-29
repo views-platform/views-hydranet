@@ -17,10 +17,14 @@ local source install and never consults the index.
 
 # 2. merge to development, then to main
 
-# 3. cut the GitHub Release from main with tag vX.Y.Z
-#    Releases -> Draft a new release -> tag vX.Y.Z -> Publish
+# 3. rehearse from main, and wait for it to go green. It stops before real PyPI.
+#    gh workflow run publish_package.yml --ref main
 
-# 4. watch Actions -> "Publish Package". It goes TestPyPI -> install-back -> PyPI.
+# 4. cut the GitHub Release from main with tag vX.Y.Z
+#    Releases -> Draft a new release -> tag vX.Y.Z -> Publish
+#    (or: gh release create vX.Y.Z --target main)
+
+# 5. watch Actions -> "Publish Package". It goes TestPyPI -> install-back -> PyPI.
 #    Then confirm: https://pypi.org/project/views-hydranet/
 ```
 
@@ -29,25 +33,16 @@ stopping there leaves a tag in git that looks authoritative while `pip install` 
 hypothetical: a sibling package tagged `0.1.0`, never cut the Release, and twelve `views-models`
 models ended up pinned to a version that does not exist.
 
-## ⛔ Before the FIRST release: this workflow has never executed
+## ⛔ Rehearse before you cut, every time
 
-Everything below is reasoned from the file and verified statically. **No run of `publish_package.yml`
-has ever happened**, in any form. `workflow_dispatch` only offers workflows that are present on the
-**default branch**, so until `main` carries this file the rehearsal cannot even be triggered —
-verified: `HTTP 404: workflow publish_package.yml not found on the default branch`.
+Step 3 above is not optional and it is not a first-release-only ritual. A manual run is always a
+rehearsal: it builds the wheel, uploads a throwaway `X.Y.Z.devN` to TestPyPI, installs it back and
+runs the contract check, then stops at a step named *Manual run — stopping before real PyPI*.
 
-The order is therefore fixed, and step 3 is not optional:
-
-1. the release PR merges to `main`
-2. Actions → **Publish Package** → *Run workflow* — a manual run is always a rehearsal
-3. **it goes green**
-4. **only then** cut a GitHub Release
-
-**Do not cut a Release before step 3.** The whole argument for putting the rehearsal *inside* the
-workflow is that a rehearsal you have to remember is one you skip on the release that matters. A
-first Release that fails does so publicly, and a PyPI version can never be deleted or reused.
-
-Delete this section once the first rehearsal has run green. (Epic #353 / S6 #359, S10 #363.)
+**Do not cut a Release before the rehearsal is green.** A Release that fails does so publicly, and
+a PyPI version can never be deleted or reused. The rehearsal is also the only way to exercise
+Trusted Publishing without spending a version — see §Rehearsing without publishing for what it
+does *not* prove.
 
 ## One-time setup — Trusted Publishing, and it is TWO publishers
 
