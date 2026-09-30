@@ -1332,6 +1332,13 @@ Their bet that `recall_mass` would be the second instance was right.
 
 **Not done, and it is the one that matters:** the clean-context adversarial pass. Still owed.
 
+⛔ **And the reviews made it harder, not easier — stated because it is the one cost of this exchange.**
+The pass requires an auditor who has **not** read the reasoning that produced the artifact. Both reviewers
+read the whole document before forming views, and both said so unprompted. So **the `models` session, the
+`views-evaluation` session, and anyone who has read either review thread are now ineligible to run it.**
+The pool of eligible auditors shrank by two today. Whoever eventually runs it must not have read this
+report's reasoning, this appendix, or either review exchange.
+
 **Two things that cannot be done on this machine**, recorded so nobody re-plans around them: **AP is not
 computable on a forecasting run** — the forecast months have no observed values, so there is no label —
 and the 8-model pooled-validation comparison **cannot be run here**: exactly one
