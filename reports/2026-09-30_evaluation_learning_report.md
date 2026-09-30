@@ -846,6 +846,21 @@ They have offered to implement them there rather than in `scripts/`, which is th
 a table of **S=16** arms; `pool_ensemble` concatenates on the sample axis so the pool's S is
 `n_members × S_member`, wider than any member it is compared against.
 
+⚠️ **And the mechanism is narrower than it looks — a peer's proposed explanation was checked and does
+not hold.** The `views-evaluation` session found that their kernel's `_guard_shapes` reshapes a 1-D
+`y_pred` to `(N,1)`, so a **point** forecast handed to a **sample** metric is silently scored as a
+one-member ensemble, and suggested that is where our silence comes from. Checked: **it is not.** Both
+persistence-injecting scorers import `crps_ensemble` from the **frozen lodestar**, not
+`calculate_crps_native`; and the persistence arm is built by `np.stack([...])` into shape **`(N,1)`**,
+not 1-D, so nothing is being silently reshaped. Our frozen ruler accepts it because **arithmetically it
+*is* a legitimate 1-member ensemble** — at `m=1` the `2/m²` spread term is exactly zero and CRPS reduces
+to MAE.
+
+⛔ **So the defect is not a silent reshape. It is that nothing compares S across arms at all** — which is
+precisely what `reference_sample_width` was written to do and what no scorer calls. Their finding stands
+as a **platform contract** finding (filed as views-evaluation#98, with our 31%-understatement figure as
+the cost evidence); it is not the cause here.
+
 Related and equally live: **"AP" means two different things** depending on whether an arm has a gate
 cube — a gated arm is ranked on a continuous probability, a gate-less arm on a statistic taking S+1
 values, which at S=1 is **two levels**. Exactly **one** instrument refuses the mismatch
@@ -1107,9 +1122,15 @@ locked glossary defines `pos-mcr` and `size-ratio` and warns they differ — but
 levels — **two levels at S=1** — for gate-less arms. Four scorers form it the same way; one refuses the
 mismatch.
 
-⚠️ **Two CRPS implementations**, with no parity test: the frozen hand-verified `lodestar_score.crps_ensemble`
-and `views_evaluation`'s `calculate_crps_native`. The `audit_run` → `screen_verdict` chain gates on the
-second; the lodestar ruler uses the first. ⚠️ And one of the two is **another repo's private function**:
+✅ **Two CRPS implementations, and they are now known to be the same quantity — parity closed 2026-09-30.**
+The `audit_run` → `screen_verdict` chain gates on `views_evaluation`'s `calculate_crps_native`; the
+lodestar ruler uses its own frozen `crps_ensemble`. The `views-evaluation` session ran the check this
+report asked for: **eight cases compared with `np.array_equal`, not `allclose` — max absolute difference
+`0.000e+00` on every one**, including 99.5%-zero with a Pareto tail, S=1, S=128, heavy ties, magnitude
+1e6 and float32 input; scalar wrappers agree to twelve digits. Both compute the same sorted-ensemble
+identity with the same **biased** `1/S²` spread convention, reached independently. ⚠️ Scope, theirs:
+synthetic cubes, their draws — it establishes that the **estimators** agree, not that any published
+number is right. ⚠️ And one of the two is **another repo's private function**:
 `crps_significance.py:27` imports `_crps_ensemble_numpy`, underscore-prefixed and not in that package's
 `__all__`, so it carries no stability guarantee and can change in a PATCH release. The reason is
 legitimate — the public `calculate_crps_native` returns a scalar mean while a paired origin-block CI
