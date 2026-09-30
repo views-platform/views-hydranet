@@ -23,10 +23,10 @@ single-seed, single-vehicle, `sb`-only, which is below this repo's own stated ba
 
 ---
 
-## §0 — The five things to know
+## §0 — The six things to know
 
-⛔ **1. The sanctioned selection rule, applied faithfully, promotes an empty map.** Not as a
-hypothesis — measured. A forecast with `size_ratio` **0.0000** and `act_ratio` **7.0e-05** (it fires
+⛔ **1. The sanctioned selection rule, applied faithfully, promotes an empty map.**
+*(MEASUREMENT · one board, all arms, all targets)* Not as a hypothesis — measured. A forecast with `size_ratio` **0.0000** and `act_ratio` **7.0e-05** (it fires
 ~14,000× less often than reality) cleared the 5% CRPS superiority bar with CRPSS **+0.0786**, a 90%
 origin-block CI excluding zero, and an effect ~12× the MDE — because **83.5% of the win was confident
 zeros**. The repo's own words: *"FAO-02's own selection rule, applied to its own primary metric
@@ -34,31 +34,61 @@ against its own mandated baseline, would have promoted this forecast."*
 (`2026-08-15_rollout_ruler_trust_dossier/07_experiment_log.md:347`) At h36 the ARTIFACT verdict is
 **12/12 — every arm, every target**. MEASUREMENT.
 
-⛔ **2. We run two evaluation regimes and have never reconciled them.** The adopted protocol (CRPS
+⛔ **2. Nothing in the apparatus scores the product that leaves the building.**
+*(MEASUREMENT about the code · the served-surface numbers below are one model, 16 draws, Africa+ME —
+not the pooled ensemble)* Every instrument in §2–§5 scores **AP** (gate discrimination) or **CRPS/Brier**
+on a sample cube. What the FAO receives is a **collapsed point surface** plus HDI bounds — a different
+object, and **no instrument scores it.** The concrete instance, measured on a 40-lesson rehearsal by the
+`models` session: `tower_point` served **0.0 for all 2,330,712 cells on global land, in all three
+targets**, and **every structural check passed** — valid manifest, right coverage, right months, file
+size 98.1% of a real run's. A downstream service reproduced the zeros independently. ⛔ **No metric in
+our inventory would have flagged it.** Nor is there any calibration of the predictive distribution at
+any aggregation level: on one model's validation, 468 origin-months, 90% interval coverage was
+**0% / 1% / 7%** where ~90% is wanted, and the cells behave as independent marginals
+(`Var(total)/ΣVar(cell)` ≈ 0.95), so any aggregate interval is too narrow by construction.
+
+⛔ **3. We run two evaluation regimes and have never reconciled them.**
+*(MEASUREMENT for the dates, the VOID and the promotion rule)* The adopted protocol (CRPS
 primary, QS99/Brier/MCR guardrails, strict eligibility conjunction) was adopted 2026-06-20 and its
 eligibility rule was **last applied 2026-06-22**. Everything since 2026-07-17 runs on a different
 ruler built in-repo: AP primary, the crps-all/events/none split, activation and size ratios,
 retention, zero-share-of-gap, paired origin-block CIs. The 8 production models were promoted under
-**neither** — K3 (comparison against a baseline) is **VOID**, so they have never been scored against
-any baseline at all (M73, views-models#445). MEASUREMENT for the dates and the VOID; INFERENCE that
-the two regimes disagree in general rather than in this one demonstrated case.
+**neither** — see §1 for what they *were* promoted under, which is the sharper question and is
+answerable: two kill criteria and no comparison to anything.
 
-⛔ **3. Nearly every scalar we reached for first was blind.** `crps_all` put four arms inside 0.0007
+⛔ **4. Nearly every scalar we reached for first was blind.** *(MEASUREMENT)* `crps_all` put four arms inside 0.0007
 of each other while gate AP spanned **13×** (M9). MCR read ≈1.0 while activation was 4–115× wrong
 (#258). Across the roster CRPS agreed to three decimals from step 6 while MCR spanned 10×. The
 pattern is not metric-specific: **on a 99.5%-zero field, an all-cell aggregate is a report about the
 zeros.** MEASUREMENT.
 
-⚠️ **4. Cheap probes are reliable at killing ideas and unreliable at establishing them.** This is
+⚠️ **5. Cheap probes are reliable at killing ideas and unreliable at establishing them.** This is
 the repo's own standing rule (`RESULTS_LEDGER.md`, adopted 2026-08-17) and it was adopted from
 evidence: *every* retired claim has stayed retired, while the programme's most-cited positive number
 (I-A's 89%) is flagged as the least trustworthy line in the table. Six interventions have failed;
 four failed on the same lever. INFERENCE, but well-supported.
 
-⚠️ **5. The test suite does not find this class of defect; deleting the fix does.** 2,079 tests were
+⚠️ **6. The test suite does not find this class of defect; deleting the fix does.** *(MEASUREMENT)* 2,079 tests were
 green when `/code-review max` returned **25 runtime-verified findings, none caught by the suite**
 (Epic #353). Then five of my own new guards survived their first mutation. The ledger's conclusion:
-*"the deletion test, not the test suite, is what finds this class."* MEASUREMENT.
+*"the deletion test, not the test suite, is what finds this class."*
+
+⛔ **And the conclusion this report records the facts for but had not drawn.** No forecast metric is
+computed in `views_hydranet/`; the whole ruler lives in `scripts/` and `reports/*/tools/`; `reports/`
+is gitignored; 22 tracked tool files carry hardcoded `/home/simon/...` paths; and the governing
+framework is a PDF outside git whose six in-repo citations are dangling. Therefore: **the apparatus
+that judges the delivered product cannot be run by anyone else, on any other machine, or in CI — so no
+result in this entire record is independently reproducible by a third party.** *(MEASUREMENT about the
+code; the conclusion is INFERENCE, but I cannot see a way around it.)*
+
+### The state of the models, in two lines
+
+**What works:** at **h=1** the model genuinely beats climatology and persistence, and at L=300 it beats
+a fairly-scored persistence on AP at **every** horizon to h36 (4 seeds). The ceiling — what it would
+score on perfect inputs — is ~0.47 AP and **flat across all 36 steps**.
+**What does not:** the free-running rollout throws away **two thirds** of that ceiling; every CRPS win
+beyond h1 is **ARTIFACT**; magnitude has no skill (`size_ratio` → 0); six interventions have failed,
+four on the same lever; and climatology overtakes on AP around **month 20**.
 
 ---
 
@@ -93,6 +123,26 @@ governing framework cannot be diffed, versioned, or checked by CI. MEASUREMENT.
 guardrails are measured against — reads **"TBD — set once the first clean eval lands."** The run
 ledger beneath it stops at **R5, 2026-06-20**. Nothing was ever entered under the eligibility scheme.
 MEASUREMENT.
+
+### What the 8 production models were actually promoted under
+
+The sharper question, and it is answerable. `reports/2026-09-06_ensemble_roster_dossier/06_acceptance_criteria.md`
+defines three criteria, all of them **kill** criteria, not rankings:
+
+| | criterion | outcome |
+|---|---|---|
+| **K1** | STARVED at t=36 — fires if `recall_mass < 0.01` | **PASS 8/8** (0.016–0.057, the worst clearing the floor by 1.6×) |
+| **K2** | BLOOM | **PASS 8/8** |
+| **K3** | WORSE THAN CLIMATOLOGY | ⛔ **VOID** — the comparator produced no scores (views-models#445) |
+
+So the de facto promotion rule was: **do not emit nothing, do not explode — and the one criterion that
+compares the model to anything at all could not be evaluated.** The dossier's own verdict table is
+explicit that VOID is *"not a pass and not a fail"*, and the log records it as *"VOID, not PASS … the
+roster has not been checked against a baseline."*
+
+⚠️ And `recall_mass`, the quantity K1 gates on, is **computed in exactly one script, read by nothing
+else, absent from the locked glossary and from every score CSV**, and the criterion is applied by a
+`print` against a hardcoded roster list. *(MEASUREMENT about the code.)*
 
 **Why this matters more than any individual metric finding:** the protocol was never the thing being
 tested. Its one head-to-head encounter with our data (§0.1) it lost. Everything else in this report is
@@ -381,7 +431,10 @@ the observed outcome is the Forecaster's Dilemma (Lerch2017). **C-224 (2026-07-3
 "exactly like the FAO-02-banned twCRPS."** But **C-167's close-out (2026-07-27) wired it into a
 pre-registered decision rule** — *"a magnitude change WINS iff crps_events improves [proper, selects]
 …"* — and that text was left standing. C-224 is later and supersedes; the register does not flag the
-conflict. **Unresolved in the documents as of today.**
+conflict. **Unresolved in the documents as of today — and it is a two-line register edit, not a
+research question.** Naming the action rather than only the state: add a supersede marker to C-167's
+close-out pointing at C-224, and strike `crps_events` from the decision rule it was wired into. This
+report is the forcing function; the register's owner is the actor.
 
 ⚠️ **Any statistic computed from the forecast alone cannot judge placement.** Occurrence, body
 magnitude and gate–body alignment are all preserved by a spatial roll that costs 48× in AP (C-319,
@@ -528,6 +581,7 @@ scope. **CLOSED-BY-EXHAUSTION** = we stopped asking; the evidence does not suppo
 | ⚠️ 7 | **Was any scheduled-sampling verdict measuring anything?** All four SS-on roster models trained under a config the repo now rejects, and *"there is no valid, non-floored SS measurement anywhere"* | and #288 asks whether the SS feedback path is differentiable at all | **#295, #288** |
 | ⚠️ 8 | **Do the direct-multi-horizon and recursive cubes score identically?** | *"Prove the ruler scores both cube types identically"* is a precondition nobody has met | **#310, #324** |
 | ⚠️ 9 | **Is the architecture bake-off attributable?** DualStream replaces the identity top-skip; WideMemory silently drops `state_channels`; MaxBlurPool2d needs an 8×8 grid and dies at the repo's own `window_dim=4`; arms matched on parameters but **not compute** (+5% to +20% wall-clock) | four open issues, no re-run | **#366–#369** |
+| ⛔ 12 | **Does AP@h18 predict anything about the served product?** If a model improves AP@h18 by 20%, what happens to the point surface the FAO receives? **Nobody knows, and no instrument connects them** — the collapse from cube to delivered number sits between them, unscored, with a measured effect of +58% to +159% (M70) | it needs one run's cube scored under every available collapse. Zero GPU | **#337, #388** |
 | ⛔ 11 | **Has long-horizon training ever been tried?** Aceituno2025 Thm 4.6: minima found on short horizons do not generalise to long ones, gap `O(e^{λ(T_h−T_l)})`. Scheduled sampling, increased teacher forcing and `truncated_nb` all changed **what the model is fed**; **none changed what is optimised** | so three experiments resembled long-horizon training and none was it. ⚠️ INFERENCE, and the sharpest unexamined direction in the record | — |
 | ⚠️ 10 | **Should QS99 be in the protocol at all?** C-224 is **Tier 1** and its governance ask is recorded as *unchanged, still open* | requires amending a framework that is not in the repo | C-224 |
 
@@ -551,6 +605,50 @@ scope. **CLOSED-BY-EXHAUSTION** = we stopped asking; the evidence does not suppo
 
 Axes we currently cannot see. Each is sourced, and each is a *present* state of the apparatus, not a
 historical anecdote.
+
+⚠️ **Basis, since this report's own discipline demands it:** every claim in §5 is a **MEASUREMENT about
+the code** — a reading of the apparatus as of 2026-09-30, by grep and by tracing call sites — not a
+measurement about a model. Where a claim rests on someone else's run, it says whose.
+
+### 5.0 ⛔ The delivered product is not scored, and the predictive distribution is not calibrated
+
+Two holes, and they are the largest in the report because they are about the output rather than the
+research.
+
+**(a) Nothing scores the served surface.** Every instrument in Appendix A takes a sample cube and
+returns AP, CRPS or Brier. The FAO receives a **collapsed point surface** plus HDI bounds. The collapse
+is not a formatting step — M70 measured that `gate × mu` beats the mean of 16 draws by **+58% to +159%**
+at identical total mass, and `median` is an **empty map** (0.05–0.14% of cells non-zero). So the stage
+with the largest measured effect on the delivered number has **no instrument at all**, and #388 asks
+whether D=4 gives the gate enough variation to support a point estimate while recording that *"no ledger
+entry answers it."*
+
+The concrete instance, supplied by the `models` session from a 40-lesson rehearsal: the served
+`tower_point` surface was **0.0 for all 2,330,712 cells on global land, in all three targets**, while
+**every structural check passed** — manifest valid, coverage right, months right, file size 98.1% of a
+real run's — and a downstream service reproduced the zeros independently. The model was undertrained and
+the estimator was behaving correctly. ⛔ **The finding is that nothing in our inventory would have
+flagged it.**
+
+**(b) No calibration of the predictive distribution, at any aggregation level.** §3 catalogues metric
+blindness thoroughly and contains **nothing** about whether the distribution is honest. Measured by the
+`models` session on `blue_stranger`, validation, 468 origin-months, summing draws:
+
+| | measured | wanted |
+|---|---|---|
+| 90% interval coverage | **0% / 1% / 7%** | ~90% |
+| PIT median | 1.000 (share >0.95: 99% / 96% / 79%) | ~0.5 |
+| MCR | 0.092 / 0.062 / 0.147 | ~1.0 |
+| `Var(total) / ΣVar(cell)` | ~0.95 | <1 if cells are dependent |
+
+Two separable faults: **location** (predicted totals ~10% of observed — the timid body again) and
+**variance** (cells behave as independent marginals, so any aggregate interval is too narrow *by
+construction*). ⚠️ **Scope, theirs:** one model, 16 draws, log1p space, Africa+ME — **not** the pooled
+ensemble, which is the open question. Tooling and pre-registered falsifiers: views-models#530.
+
+⚠️ Note the governance shape of (b): FAO-02 **rejects PIT for selection**, and this repo's own scope
+docs put active-cell PIT explicitly out of bounds. So the one family of diagnostics that would have seen
+this is excluded by both regimes at once.
 
 ### 5.1 ⛔ The largest hole: nothing guards against a spatially displaced forecast
 
@@ -614,7 +712,8 @@ persistence as **exactly zero, silently**.
 `mcr_readout` and `proper_score_audit` derive their RNG salt from `hash(str)`, which Python randomises
 per process, and no `PYTHONHASHSEED` is set anywhere in the repo. So their confidence intervals and
 randomized-PIT numbers **differ run to run**. `gate_reliability` fixed exactly this and says so in a
-comment; the fix was never back-ported. This matters because the reproducibility runbook nominates
+comment — a stable per-target seed instead of `hash()` — and **the fix was never back-ported to its two
+siblings. That is a five-minute change**, priced here because §8 prices everything else. This matters because the reproducibility runbook nominates
 `mcr_readout` as the human-readable determinism cross-check.
 
 ### 5.7 ⚠️ The ruler is not part of the package, and the protocol is not in the repo
@@ -624,6 +723,11 @@ and `reports/*/tools/`, reading arrays this repo does not write. `reports/` is g
 by `git add -f`), 22 tracked tool files carry hardcoded `/home/simon/...` paths (the register says 7),
 and the frozen lodestar's one soft check — support coverage — **cannot fail**: it prints a warning,
 continues, and the CSV carries no provisional flag.
+
+⛔ **Said out loud, because the report is otherwise rigorous about self-application: that last one is
+cluster 18 shape (b) — a decision rule that cannot deliver a verdict — sitting inside our own frozen
+instrument.** It is the same defect class §3.1 catalogues, in the tool whose freeze is the ruler's
+credibility.
 
 And the governing framework itself is not in the repo: FAO-02 lives as *"a memory file + a PDF in
 `~/brain`"* and **all six in-repo citations are dangling paths.** It cannot be diffed, versioned, or
@@ -658,7 +762,7 @@ the unknowns are concentrated wherever **no second computation of the same quant
 
 | where | why I think it lurks | the cheapest probe |
 |---|---|---|
-| ⛔ **The forecast path** | It has produced **zero output ever** — no `predictions_forecasting_*`, no `forecasting_log.txt` anywhere on disk. `extrapolate_time` is forecast-only code: it repeats the last observed frame and increments only the time column, so **`c_id` is frozen for 36 months** while in every backtest it carried the real per-month value. Calibration has months of exercise; this path has none. | Run one forecast and diff every identity column against a backtest's. |
+| ⚠️ **The forecast path — DOWNGRADED 2026-09-30, it has now run** | `extrapolate_time` is forecast-only code and had produced **zero output ever** when this row was written. The `models` session reports a 300-lesson global-land forecasting run in flight on a rented pod — three models complete, `predictions_forecasting_*` and `forecasting_log.txt` present, 2,333,448 rows × 128 pooled draws, months 561–596, 64,818 cells — and a 40-lesson rehearsal that completed the whole chain and is being served. ⚠️ **Their measurement, not mine:** nothing on this machine holds forecast output but pytest fixtures, so I cannot verify it here. **The row is now "exercised once" rather than "never run", and its priority drops accordingly** — but one run is one run, and §5.0 is what that run actually exposed. | Score the surface it produced. That is §5.0, not this row. |
 | ⛔ **The truth field** | §5.5. One outlier was found by eye, upstream, and filed. Nothing systematic has ever looked. A corrupt truth cell is invisible to every instrument we own, because every instrument scores *against* it. | An outlier scan at build time: any cell-month above the historical max by >10×. |
 | ⛔ **Every negative result whose implementation nobody audited** | The September postmortem names this its *"most expensive open question"*: ≥15 defects found *after* the author judged the code correct, **0 by his own review**, and C-324 proves an implementation can be fully green and **completely inert**. The audited experiments are #308 and #311. Every earlier negative — and there are six failed interventions — rests on an unaudited implementation. | A potency check at a trained checkpoint on each retired arm. Cheap; no retraining. |
 | ⚠️ **The in-package artifact, not the scorer** | **C-328 instance 4 is already in production:** `random_flips` defaults True and reaches BN recalibration, so ~half of every BN running statistic in every shipped artifact was accumulated on flipped fields. That is a whole class — *"which non-training forwards traverse this path?"* — and it was asked once, late. | Enumerate every forward pass that is not a training step, and what augmentation each sees. |
@@ -700,6 +804,12 @@ they have never been listed together. Ordered by how much they should change how
 **Rule for this section: no requirement without a scar.** Every row below is something that actually
 bit us here, with the cost. Nothing is included because it is good practice elsewhere.
 
+⚠️ **And read this as a menu with costs, not as a gate.** §8.1 argues against frameworks and this is a
+fifteen-row table, which is a fair thing to point at. The resolution: **nothing here is proposed as a
+mandatory checklist.** Rows 1, 3, 4 and 6 are the ones that would have prevented the most expensive
+failures on record and are cheap; the rest are priced so that whoever owns the protocol can choose. A
+list of fifteen enforced gates would be the 303 → 1,167-line validator this repo already warns about.
+
 Whoever owns the promotion protocol can compare this against it. I make no claim about what the
 protocol currently says.
 
@@ -711,7 +821,7 @@ protocol currently says.
 | ⛔ 4 | **Match S between arms and reference, enforced in the scorer, and refuse an AP comparison across gated/ungated arms.** | Persistence was published **understated by 31%** at h18 by two independent scoring defects. #282's share of it **scales as 1/n_origins**, so a single-origin study scores persistence as exactly zero, silently. | The check exists (`reference_sample_width`, `assert_sample_cube`) and **no scorer calls it**. |
 | ⛔ 5 | **Every metric that gates a decision must have a degenerate-forecast test that fires — run against the HEADLINE scorer, not the metric function in isolation.** Include the spatial roll and the single-huge-cell. | The roll: three field statistics unchanged, **AP 48× worse**, and **no test guards it**. The seven degenerates that *are* implemented all test `activation_metrics` in isolation; nothing feeds a degenerate cube through the scorer that produces the published row. | Days, not weeks. Synthetic fields, no GPU. |
 | ⛔ 6 | **Prove the intervention is potent, at a trained checkpoint, before spending GPU on the arm.** | **C-324 (Tier 1):** 7 unit tests, 5/5 mutations caught, lint clean, 1,901-test suite green — and **inert**. Two arms trained **276 minutes to byte-identical weights**. Caught only because the result was impossible; a half-connected knob would have produced a plausible number and the pre-registered rule would have read it as "hypothesis dead". | `scripts/potency_check.py` exists. Two call sites in the whole repo. |
-| ⛔ 7 | **Judge a guard by deleting the thing it guards, not by coverage.** | 2,079 green tests, 25 runtime-verified findings, **0 caught**. Then: **27 of 40 tests passed with the call site deleted**; **1 of 4 test files passed with the feature removed**; **17 of 33 mutations survived** the fix for the entry about tests that cannot fail. | Minutes per guard. |
+| ⛔ 7 | **Judge a guard by deleting the thing it guards, not by coverage.** | ⚠️ **Four separate studies, populations named, because quoting them together is the C-298 defect this report is about.** (i) Epic #353's release review: **2,079 green tests, 25 runtime-verified findings, 0 caught.** (ii) C-329's round-3 deletion test **on one feature**: **27 of 40 individual tests** passed with the call site deleted, and **1 of 4 test files** passed with the feature entirely removed. (iii) A `/ship-it` guard audit on **the fix for C-329**: **17 of 33 mutations survived.** (iv) Epic #353's **own new guards**, written by me: **5 survived their first mutation.** | Minutes per guard. |
 | ⛔ 8 | **An adversarial pass by a non-author, in a clean context, denied the commit message and design docs.** | **The highest-yield detector in the record: 9 of 31 retractions.** Against *"defects found by my own review: 0."* One round found errors introduced by the previous round's fix. | Hours. It is the cheapest thing on this list relative to what it finds. |
 | ⚠️ 9 | **A negative claim requires a search *plus* a positive control.** A uniform-zero result across a heterogeneous population is instrument failure until proven otherwise. | **C-309, twice** — once asserting an untested axis that was running in every arm of every experiment, and once in the *fix* for that, where "none of 26 papers has a claim" was a wrong glob path. | One extra query. |
 | ⚠️ 10 | **A cheap screen's NO must be recorded with its false-negative mode and a reopen trigger, or it does not close anything.** | C-307, and the chair's own words: *"we have dropped multiple things on the floor … then me later insisting that we try for real, and then it turns out that it in fact works. This happens so much."* | Two lines per closure. |
@@ -833,10 +943,20 @@ consequential:
 | BPTT-SA "unit tested (7), mutation tested 5/5, suite green (1,901)" | **inert on the production path**; two arms trained to byte-identical weights | **the result being impossible** — named as luck | 276 GPU-min |
 | C-58's forecast-sniffer remedy | made **every forecasting run impossible**; no forecasting run had ever completed in this repository | a fresh look, #390 | **months** |
 
-⛔ **Detector yield, across all 31:** non-author adversarial review **9** · two numbers disagreeing and
-the disagreement *traced* **3** · user escalation **3** · a control arm **2** · re-running on a
-non-floored vehicle **2** · running the pre-registered rule properly **2** · a systematic recompute **1**
-(which found 3) · an impossible result **1** · **the test suite: 0.**
+⛔ **Detector yield.** ⚠️ **These counts do not sum to 31, and the reason is a finding rather than an
+error — but it has to be stated, because a reader who adds them up should not have to guess.** The
+categories are **not mutually exclusive** (three retractions were caught by two mechanisms at once — one
+was found by a code review that was *also* a disagreement between two computed numbers), and **about
+eight of the 31 record no single identifiable detector**: they surfaced from a later programme
+contradicting an earlier one, with no one moment of detection. Treat the numbers as **hits per
+mechanism, not a partition**:
+
+non-author adversarial review **9** · two independently computed numbers disagreeing, and the
+disagreement *traced* rather than averaged **3** · user escalation **3** · a control or positive control
+**2** · re-running on a converged / non-floored vehicle **2** · running the pre-registered rule's own
+decision table properly **2** · a systematic recompute of every published figure **1** (which itself
+found 3) · a result being *impossible* **1** · ⛔ **the test suite: 0** — and that last one is exact, not
+approximate.
 
 ---
 
@@ -880,6 +1000,32 @@ trigger, not a conclusion*).
 3. **Not** that the retraction count is a sign of low quality. It is a sign of a *detection* practice.
    The alarming number is not 31 retractions; it is **0 caught by the test suite** and **0 found by the
    author's own review**.
+
+### What the first outside read changed (2026-09-30)
+
+The `models` session read the whole document at Simon's request and supplied 15 notes. It states
+plainly that it is **not** the clean-context adversarial pass §8 row 8 calls for — it read the reasoning
+before forming views, which is exactly what that pass forbids. Accepted and folded in:
+
+| their note | what changed |
+|---|---|
+| The forecast path has now run | §6 row 1 **downgraded** from ⛔ to ⚠️ and rewritten. Their measurement, attributed; unverifiable from this machine |
+| The `c_id`-frozen concern rests on a false premise — `c_id` is **constant across history too** (100% identical in early, mid and late 6-month windows), so freezing it forward introduces no shift | ⛔ **Concern withdrawn.** It was the only ⛔ in that row and it does not survive. Their stated limit: they checked the *input* frame, not `extrapolate_time`'s output |
+| Nothing scores the delivered product; no calibration at any aggregation level | **New §0 item 2 and new §5.0** — the largest addition in this revision, with their served-surface and coverage numbers and their scope caveat |
+| Appendix B's detector counts do not sum to 31 | Fixed, and the reason stated: overlapping categories, and ~8 retractions with no single detector |
+| Three deletion-test numbers with unnamed populations — *"the exact defect C-298 is about"* | Fixed: **four** studies, each population named, in §8 row 7 |
+| §8 is a 15-item framework while §8.1 disclaims frameworks | Resolved in the §8 preamble: a menu with costs, not a gate |
+| §5 and §8 drop the MEASUREMENT/INFERENCE discipline | Basis line added at the head of §5; §0 items tagged |
+| What were the 8 models promoted under, if neither regime? | **Answered in §1** — two kill criteria, and the one comparative criterion VOID |
+| The apparatus cannot be run by anyone else ⇒ nothing is independently reproducible | Drawn as a conclusion and **promoted into §0** |
+| The lodestar's cannot-fail check is cluster 18 shape (b) in our own frozen instrument | Said out loud in §5.7 |
+| Does AP@h18 predict anything about the served product? | **New §4.3 item 12** |
+| A two-line model-state summary belongs in §0 | Added |
+
+**Rejected, with reason:** their note 13 (*"§2.12 claims the counts say how, but I could not find the
+counts"*) — the counts are in §2.12's table; they read the file between the two commits.
+
+**Not done, and it is the one that matters:** the clean-context adversarial pass. Still owed.
 
 **The report's own weakest point, stated rather than buried.** It is a synthesis, and a synthesis is
 exactly the artifact class this repo has repeatedly found to drift — *"each dossier reasons locally and
