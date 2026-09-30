@@ -622,6 +622,51 @@ scope. **CLOSED-BY-EXHAUSTION** = we stopped asking; the evidence does not suppo
   marker, and several have been answered by events rather than by a ruling. A disagreement that events
   have settled but that still reads as open is the same defect class as C-303."*
 
+### 4.5 A third disposition — "decided, built, unread"
+
+⛔ **Neither CLOSED nor CLOSED-BY-EXHAUSTION, and it is worse than either.** §4.4's definition is *"we
+stopped asking; the evidence does not support closure"* — and both of its entries fit it exactly, because
+in each case **somebody concluded something** and the conclusion is what the evidence cannot bear
+(a `RESOLVED` banner contradicted by C-317; a close-out contradicted three days later).
+
+Calibration has no such conclusion. **Nobody decided it was fine.** It was prescribed, built, and then
+simply never read. There is no banner to contradict and no closure to be honest about — and *that is why
+it survived three months and a delivery.* A wrong closure at least leaves a claim someone can attack.
+This left nothing.
+
+So it is a third row, and §4.4's definition stays as it is rather than being widened.
+
+#### And it is a class, not an incident — measured 2026-09-30
+
+If the disposition exists once, the question is how many times. The candidate pool is §5.8's
+"computed, orphaned" column. **The distinction that does the work: was the metric merely *built*, or was
+it *prescribed* first?** A metric someone wrote on spec and nobody wired up is ordinary dead code. A
+metric the register or a dossier explicitly **asked for**, which was then built and never read, is a
+**decision that silently failed to execute** — which means the prescribing mechanism does not work.
+
+Grepped the register and every dossier design / plan / acceptance document for each name. The pool
+partitions four ways, and the piles are not the same finding:
+
+| pile | metrics | prescribed where | state |
+|---|---|---|---|
+| ⛔ **1. Prescribed as a GATE, built, never wired** | **positive-cell PIT** · **`recall_mass`** | register `:821` (2026-06-21, *"as a conditional diagnostic only"*) · `2026-09-06_ensemble_roster_dossier/06_acceptance_criteria.md:27-28`, which **defines the formula and the threshold**: *"K1 FIRES if recall_mass < 0.01"* | PIT: built, RNG unseeded, in no `HEADLINE_COLUMNS`. `recall_mass`: computed in **one** dossier tool, the name appears in **no score CSV, no glossary row, and no other code**, and the criterion is applied by a **`print`** against a hardcoded roster |
+| ⚠️ **2. Prescribed for REPORTING, built, emitted — but invisible to the decision rule** | `n_false_pos`, `mag_on_false_pos`, `mag_on_true_pos`, `act_pred`/`act_true` | `2026-08-24_truncated_nb_dossier/05_analysis_plan.md:83` requires them *"reported at every horizon"*; also `architecture_bakeoff/02_design.md:94`, `ensemble_roster/05_analysis_plan.md:47` | The reporting requirement **is met** — they are in the CSV. They are absent from `HEADLINE_COLUMNS` and unreadable by `verdict_token`, so no verdict can see them |
+| ⚠️ **3. Read once, by the dossier that built them, then dropped** | `moran_i`, `conc1pct`, `fss_1` | `2026-08-31_sharpness_diagnostic_dossier/05_analysis_plan.md` — `moran_i` **primary**, `conc1pct` secondary, S3 a falsifier on their disagreement | Read **correctly and once**: S1 and S5 both fired and killed a hypothesis. Nothing has read them since |
+| minor **4. Emitted to human-readable audit output, gated on by nothing** | `gate_auc`, `tail_miss`, `ratio_p10/p90` | nowhere — **zero** prescriptive mentions | Ordinary. They appear in per-run audit files; nothing claims they should do more |
+
+✅ **And the control case that proves the repo can do this properly.** `waste_frac` sits in the same file
+as `recall_mass`, and its docstring says: *"Reported alongside, **not as criteria**."* An explicit,
+honest, recorded disposition. **The whole difference between `waste_frac` and `recall_mass` is that one
+declared its status and the other did not** — so this is not a capability the repo lacks, it is one it
+applied unevenly.
+
+⛔ **The finding.** Pile 1 has **two** members and both are load-bearing: one is the calibration
+diagnostic whose absence let an all-zero surface ship, and the other is **the production roster's own
+acceptance criterion**. Two instances make it a class, and it is the second class in this record — after
+the register's cluster 18 — that reads as N unrelated incidents until someone names it. *(MEASUREMENT for
+the partition, which is a grep; INFERENCE that the prescribing mechanism is what fails, though I cannot
+see another reading when a kill criterion is applied by a `print`.)*
+
 ---
 
 ## §5 — Blind spots
@@ -890,6 +935,7 @@ protocol currently says.
 | ⛔ 6 | **Prove the intervention is potent, at a trained checkpoint, before spending GPU on the arm.** | **C-324 (Tier 1):** 7 unit tests, 5/5 mutations caught, lint clean, 1,901-test suite green — and **inert**. Two arms trained **276 minutes to byte-identical weights**. Caught only because the result was impossible; a half-connected knob would have produced a plausible number and the pre-registered rule would have read it as "hypothesis dead". | `scripts/potency_check.py` exists. Two call sites in the whole repo. |
 | ⛔ 7 | **Judge a guard by deleting the thing it guards, not by coverage.** | ⚠️ **Four separate studies, populations named, because quoting them together is the C-298 defect this report is about.** (i) Epic #353's release review: **2,079 green tests, 25 runtime-verified findings, 0 caught.** (ii) C-329's round-3 deletion test **on one feature**: **27 of 40 individual tests** passed with the call site deleted, and **1 of 4 test files** passed with the feature entirely removed. (iii) A `/ship-it` guard audit on **the fix for C-329**: **17 of 33 mutations survived.** (iv) Epic #353's **own new guards**, written by me: **5 survived their first mutation.** | Minutes per guard. |
 | ⛔ 8 | **An adversarial pass by a non-author, in a clean context, denied the commit message and design docs.** | **The highest-yield detector in the record: 9 of 31 retractions.** Against *"defects found by my own review: 0."* One round found errors introduced by the previous round's fix. | Hours. It is the cheapest thing on this list relative to what it finds. |
+| ⛔ 8b | **Every metric a plan prescribes must declare its status — gate, report-only, or diagnostic — and a prescribed gate must be wired to a verdict, not to a `print`.** | §4.5: **two** prescribed gates were built and never wired. One is the calibration diagnostic whose absence let an **all-zero surface ship**; the other is **`recall_mass`, the production roster's own K1 kill criterion**, whose name appears in no score CSV, no glossary row and no other code, and which is applied by a **`print`** against a hardcoded roster. `waste_frac`, in the same file, declares *"reported alongside, not as criteria"* — so the practice exists and was applied unevenly. | One line per metric. The `waste_frac` docstring is the template. |
 | ⚠️ 9 | **A negative claim requires a search *plus* a positive control.** A uniform-zero result across a heterogeneous population is instrument failure until proven otherwise. | **C-309, twice** — once asserting an untested axis that was running in every arm of every experiment, and once in the *fix* for that, where "none of 26 papers has a claim" was a wrong glob path. | One extra query. |
 | ⚠️ 10 | **A cheap screen's NO must be recorded with its false-negative mode and a reopen trigger, or it does not close anything.** | C-307, and the chair's own words: *"we have dropped multiple things on the floor … then me later insisting that we try for real, and then it turns out that it in fact works. This happens so much."* | Two lines per closure. |
 | ⚠️ 11 | **Recompute every headline figure from the committed data before it leaves the dossier.** Trace a suspicious number to its arm; do not "correct" it on suspicion. | **3 of 9 headline figures wrong**, all failing the same way (cells of a 4-D grid quoted as one comparison); **two had already propagated into the register**. And the pass produced a false positive of its own. | One pass per dossier. |
@@ -1126,6 +1172,16 @@ highest-yield detector in the record, working on this report. It stood for one c
 
 **Rejected, with reason:** their note 13 (*"§2.12 claims the counts say how, but I could not find the
 counts"*) — the counts are in §2.12's table; they read the file between the two commits.
+
+**A second round, 2026-09-30.** They declined a suggestion I had made — that calibration join §4.4's
+closed-by-exhaustion list — and the reason was better than the entry: **it is a third disposition, not a
+widening.** §4.4's entries each have a *conclusion* the evidence cannot bear; calibration has none, which
+is exactly why it survived three months and a delivery. They then proposed the check that turns it from an
+incident into a class, and it is the most productive thing either of us did: **grep the orphaned-metric
+pool for prescriptive mentions, and partition it by whether the metric was merely built or was
+prescribed first.** I ran it. **§4.5 is the result** — four piles, two prescribed gates that were never
+wired, and a control case (`waste_frac`) proving the repo can disposition a metric correctly and did not.
+Their bet that `recall_mass` would be the second instance was right.
 
 **Not done, and it is the one that matters:** the clean-context adversarial pass. Still owed.
 
