@@ -273,6 +273,65 @@ exactly that, and §5.3 shows its decisive clause is not running.
 ⚠️ **And one discipline failure is on record:** a dossier notes a falsifier being **changed after it
 fired**. That it is recorded is the practice working; that it happened is the practice failing.
 
+### 2.12 Pre-registration — it works here, and the counts say how
+
+Of the 25 dossiers dated after 2026-08-13: **21 pre-registered a falsifier list**, 20 ran at least one
+scored arm.
+
+| | count |
+|---|---|
+| a pre-registered **named falsifier actually fired** on real data | **9 of 20** |
+| at least one gate fired **or** a run was declared VOID | **13 of 20** |
+| a pre-registered **prediction was falsified** — the verdict contradicted the dossier's own stated expectation | **9 of 20** |
+| the verdict was **not** the one the dossier hoped for (negative / null / VOID / underpowered) | **15 of 20** |
+
+⛔ **The decisive evidence that it is not decorative** is the counterfactual: in four cases a falsifier
+voided an arm and the record states the *specific wrong claim* that would otherwise have been written.
+
+| arm | what fired | what would have been published |
+|---|---|---|
+| `shuffle_months` | F6 — the intervention moved its own target statistic only 5% | *"persistence matters somewhat"* — its −0.0415 "reads as a plausible middling effect" |
+| pushforward w=0.1 | F5 **and** F6 — the oracle fell, so the term damaged the **model** | *"pushforward is bad"* from its −0.10 AP@h18 — **"a different and wrong claim"** |
+| BPTT-SA SCREEN-1 | the weight-hash post-condition — two independently trained arms, **byte-identical** | *"BPTT-SA does not work here"* |
+| roster K3 | the comparator produced no scores | a **PASS** — instead, *"the roster has not been checked against a baseline"* |
+
+And the discipline held under pressure, which is the part that matters: *"F1 was amended, because its
+instrument was demonstrably wrong. F5 was not, because it was doing exactly its job. **Keeping that
+distinction under pressure is the difference between a falsifier and a formality.**"*
+
+**Where the value actually comes from — not the thresholds, the verdict state space.** Four states
+(EFFECT / NULL / UNDERPOWERED / VOID) produced the repo's two most honest labels and are the direct fix
+for an earlier null being *"uninterpretable rather than merely negative."*
+
+⚠️ **Its systematic blind spot, named twice independently: the apparatus, not the hypothesis.**
+*"Every falsifier in the 2026-08-14 plan assumes the readout is valid. **None fires on an
+uninformative measurement.**"* And: *"the pre-registration is meticulous about the **hypothesis** and
+silent about the **apparatus**."* Every gate added since — the floor gate, the potency check, the weight
+hash, BRANCH 0, the positive control — is an *apparatus* gate added after the fact.
+
+⚠️ **And a pre-registered rule is not a tested rule.** Six distinct classes of broken decision rule are
+on record. The worst: `truncated_nb`'s EFFECT clause used a permutation test implemented one-sided for
+`treatment > control`, so a **−0.2376** effect scored **p = 1.0000** and the author's own
+`EFFECT (NEGATIVE)` branch was **unreachable**. The response — md5-pinned, unit-tested,
+sabotage-verified rule modules in tracked `scripts/` — exists because *"a rule that lived only in the
+dossier would be a rule with no test in CI."*
+
+### 2.13 Validating the instrument on synthetic fields, before it sees data
+
+The single cleanest instance in the record, and it changed a primary endpoint **before the plan was
+finalised**: the sharpness dossier's planned primary metric, `fss_ratio`, *"was the planned primary and
+is NOT a blur detector"* — measured on synthetic fields with known answers it falls **further for a
+displaced field (0.267) than for a heavily blurred one (0.897)**. *"Used as intended it would have
+reported displacement as blur."* `moran_i` was promoted instead because it separates blur, displacement
+and thinning **by sign**. In the same pass, `conc1pct`'s direction was predicted, measured, and found
+**wrong** — so the measured direction is what got registered.
+
+Two siblings of the same practice: the **confound control** — a learner *given the answer*, which must
+score near-perfect or the instrument is broken (it caught a numerical bug on 2026-07-14 before any
+verdict was banked), and the discovery that a cited premise **did not exist**: C-190 had been cited as
+measuring the model as a strong low-pass filter, and *"the producing code does not exist in the repo or
+its history."*
+
 ---
 
 ## §3 — What does not work
@@ -469,6 +528,7 @@ scope. **CLOSED-BY-EXHAUSTION** = we stopped asking; the evidence does not suppo
 | ⚠️ 7 | **Was any scheduled-sampling verdict measuring anything?** All four SS-on roster models trained under a config the repo now rejects, and *"there is no valid, non-floored SS measurement anywhere"* | and #288 asks whether the SS feedback path is differentiable at all | **#295, #288** |
 | ⚠️ 8 | **Do the direct-multi-horizon and recursive cubes score identically?** | *"Prove the ruler scores both cube types identically"* is a precondition nobody has met | **#310, #324** |
 | ⚠️ 9 | **Is the architecture bake-off attributable?** DualStream replaces the identity top-skip; WideMemory silently drops `state_channels`; MaxBlurPool2d needs an 8×8 grid and dies at the repo's own `window_dim=4`; arms matched on parameters but **not compute** (+5% to +20% wall-clock) | four open issues, no re-run | **#366–#369** |
+| ⛔ 11 | **Has long-horizon training ever been tried?** Aceituno2025 Thm 4.6: minima found on short horizons do not generalise to long ones, gap `O(e^{λ(T_h−T_l)})`. Scheduled sampling, increased teacher forcing and `truncated_nb` all changed **what the model is fed**; **none changed what is optimised** | so three experiments resembled long-horizon training and none was it. ⚠️ INFERENCE, and the sharpest unexamined direction in the record | — |
 | ⚠️ 10 | **Should QS99 be in the protocol at all?** C-224 is **Tier 1** and its governance ask is recorded as *unchanged, still open* | requires amending a framework that is not in the repo | C-224 |
 
 ### 4.4 Closed-by-exhaustion — flagged honestly
@@ -795,10 +855,12 @@ load-bearing structural claims were verified independently of the harvest: clust
 question is quoted verbatim from `technical_risk_register.md:75`, and `assert_sample_cube` /
 `reference_sample_width` have **zero callers** outside their own module and tests.
 
-**What this report inherits without re-deriving.** The 2026-08-13 DRAFT's own header states that
-several of its citations are from memory. Where this report reuses a DRAFT claim, it is because a
-register entry, a ledger row or a dossier independently carries it — the A1–I4 letters are kept as
-cross-references, not as evidence.
+**The DRAFT's citations are audited, not inherited.** Its own header says several are from memory,
+and the dossier that absorbed it **parked** the verification. **Appendix D closes most of it**: 9 verify
+exactly, 4 carry a wrong C-number, 2 are mis-vehicled or misdated, 2 are misattributed within their own
+dossier, 1 is superseded, 1 is unsourced, and 1 is superseded by a better measurement. Two of the
+corrections change what the entry says — including the DRAFT's flagship scheduled-sampling result, which
+rests on a **VOID** run. The A1–I4 letters are kept as cross-references, not as evidence.
 
 **The scope ceiling on everything below the surface.** Most of the underlying record is **single-seed,
 single-vehicle, `sb`-only, one origin** — below this repo's own stated bar of ≥3 seeds on validation.
@@ -824,3 +886,75 @@ exactly the artifact class this repo has repeatedly found to drift — *"each do
 correctly; nothing forced a claim to survive contact with the others, and that is exactly where
 narrative drift lives."* This document has not itself been through the adversarial pass that §8.8
 identifies as the highest-yield detector in the record. **It should be.**
+
+---
+
+## Appendix D — Auditing the 2026-08-13 DRAFT's own citations
+
+The DRAFT's header states that several of its citations are from memory and unverified, and the dossier
+that absorbed it **parked** the verification. This appendix closes most of it. Of the entries checked:
+**9 verify exactly, 4 carry a wrong C-number, 2 are mis-vehicled or misdated, 2 are misattributed
+within their own dossier, 1 is superseded, 1 is unsourced, and 1 is superseded by a better
+measurement.**
+
+### D.1 ⛔ Corrections that change what the entry says
+
+| DRAFT | correction |
+|---|---|
+| **G6** — "scheduled sampling was falsified as the fix: ε∈{0,0.1,0.25,0.5} gave flat rollout AP and *harmed* T=0" | ⛔ **The cited run is VOID.** It ran on the floor-limited 40-lesson vehicle (control 0.77× prevalence, below random ranking); all four arms sit at 0.02–0.04 and nothing can discriminate. **Take 2 at L=300, 4v4 seeds, changes the content three ways:** SS is **worse, not flat** (−0.0426, p=0.0286, 4/4 pairs down); the **T=0 harm claim does not survive** — the anchor guard **passes** (ΔAP h1 −0.0277 against a 0.0440 limit), so it is a retention result, not a trade; and the mechanism **reverses** — SS largely *fixed* the zero collapse (`act_ratio` 9.4× at h18, 28× at h36) and lost AP anyway. The correct statement is **"it answered more, in worse places, and lost."** |
+| **G5 / I4** — the oracle-input rollout, credited to "2026-08-14, africa truncated_nb", with oracle AP 0.30→0.27 and free-running 0.008 | ⚠️ **Priority and vehicle both wrong.** The oracle probe is **2026-07-25 on zinb**, three weeks earlier, where it had already decomposed occurrence-as-bug from magnitude-as-ceiling and said so. And the quoted numbers come from the **VOID** 40-lesson vehicle. The replicated figures are oracle **0.4745 → 0.4793 → 0.4577** and free-running **0.4745 → 0.2569 → 0.1370** (M10/M24). ✅ The lesson survives and is *strengthened*: the oracle does not decay **at all**. |
+| **E1** — composed activation "12–69× below what the gate implies; `P(body>0)` 0.015–0.154 where it should be ≈1" | ⚠️ **Superseded by a 4-seed measurement, and the sign of the diagnosis flips.** The verified L=300 step-1 decomposition: **`G = 1.280` — the gate *over*-predicts occurrence by 28%** — attenuated **×0.332** by the body's own `P(draw>0)`, giving `C = 0.424`. That is a **~2.4× shortfall, not 12–69×**, and **the gate is hot, not approximately right.** |
+| **I2** — "jump-risk IS predictable (spearman 0.79); quantiles 48% sharper; tail ξ≈0.8" | ⚠️ **Partly misattributed, and the actionable part is missing.** 0.792 is **not** a jump-risk spearman — it is how well the learner ranks realized \|resid\| on active cells (the ARCH result); jump *risk* is measured as AP-skill/AUC on exceedance. **48.5% sharper verifies exactly.** But **ξ is 0.711–0.879 depending on threshold and is roughly state-invariant across volatility tertiles (0.841/0.619/0.800)** ⇒ **tail heaviness is not a per-state learnable target; the head needs a *fixed* heavy tail.** That is the design consequence and the DRAFT does not carry it. |
+| **H1** — "climatology overtakes by ~h18" | ⚠️ **Superseded, and it matters.** That is the v2 board's figure. On the corrected ruler the crossover is **≈ month 20** and **h18 is still a win (+0.032)**. State which substrate. The lesson is unaffected. |
+| **C1** — nb "beats climatology" on `crps_events` ≈14 with `size_ratio` 0.0 | ⚠️ The win was on **`crps_all`**, not on `crps_events`. `crps_events` ≈14 is the *tied* number showing no arm cracks magnitude. Add the identifier: **C-219**. |
+
+### D.2 ⛔ Four wrong C-numbers, and one unsourced figure
+
+| DRAFT cites | what that number actually is |
+|---|---|
+| **C-72** for "`exp(µ)` overflowed float32 → 63% Inf" | a misspelled `requirments.txt` in the package root. ⛔ **And the "63%" appears nowhere in `reports/` except the DRAFT and a verbatim copy of it — the figure is self-citing.** Either find the run or drop it. |
+| **C-85** for the stale-cache / all-equal-but-wrong instance | a demoted entry about a hardcoded flip probability. Better-sourced siblings exist: **C-321** (`--keep-cubes` disabling the multi-arm guard) and the `--resume` defect below. |
+| **C-132** for the ensemble dropping the `by_*` gate channel | the wandb train-run lifecycle being dropped by a manager override. ✅ The phenomenon is real and better documented: the pool loops over a meta that listed only `lr_` targets — *"the framework CAN pool `by_` … it simply is never asked to."* AP 0.316 against members 0.38–0.47, **fixed by adding a list, no retrain, no code change.** |
+| **C-286** for the same entry | `partition_audit` recording two fields that cannot express the state they name. |
+
+### D.3 ✅ Verified exactly
+
+**A7** (`size_ratio` ≈0.02, and it was called the next lever — the dossier's literal wording) · **C4**
+(`body_mask=pos_cells` lifted `size_ratio` ×11–60 and blew `crps_all`, ns 0.083→24.6 — **and both F2 and
+F3 fired**, which strengthens the point) · **F4** (the 2-NB mixture; understated if anything — 2.14% /
+1.51% / 3.45% across three seeds, all CIs excluding zero, and component-2 *directly measured alive*:
+median `w|active` 0.71–0.92, median `μ2:μ1` **14×–690×**) · **I1** (amount ceiling, 0.303 < 0.367,
+confound control at 0.99999 — **and EXP-01 was VOID on an instrument fault first**, a clean
+VOID-then-confirm) · **D5** (never pool the rollout — and **a verdict was reversed by it**) · **C7** (the
+different-months bug — with the co-equal half the DRAFT omits: **terminology drift**, fixed by a locked
+glossary alongside the frozen ruler) · **H3** (FAO-02's choices — and the tension is no longer a
+hypothesis; see §0.1) · **D1**'s C-number (C-184 is right — but **M65 re-scopes its magnitude: the ~20%
+figure used to size every recent screen is ~5× too large** for today's vehicle, measured 4.1% at h18).
+
+### D.4 ⚠️ The DRAFT's largest unverified block
+
+**A3, A5, A6, B1–B3, E1, G1–G4** all trace to issue #258 or ADR-070 rather than to a dossier, and
+**none reproduces from `reports/`.** Two have exact dossier-sourced substitutes that should replace
+them, because they are corroborated independently:
+
+- **A3** (CRPS blindness): `crps_all` **0.1353 / 0.1352 / 0.1350 / 0.1346** across four arms at h18
+  while gate AP spans **13×** and precision@k **37×**.
+- **A6** (window artifact): `crps_all` agreeing to **four** decimals at h36 (0.8753–0.8755).
+
+### D.5 Three things the DRAFT omits and should not
+
+1. ⛔ **The degenerate *learner*, not just the degenerate forecast.** The amount- and volatility-ceiling
+   dossiers both pre-registered a VOID-on-instrument-failure clause using a learner **given the answer**,
+   which must score near-perfect or the instrument is broken. It fired, caught a real numerical bug, and
+   predates the DRAFT's §5 red-team proposal by three weeks. It is the complementary half of the method.
+2. ⛔ **`crps_all`'s win over *persistence* — not just climatology — is ARTIFACT at h6/h18/h36**
+   (zero-share 73–82%, ΔAP negative at every horizon), and **h1 is the only non-artifact signal in the
+   whole programme**, UNDECIDABLE purely because no bootstrap CI was computed. The structural remedy is
+   already written down and unbuilt: *"make the collapsed control unusable as a reference — persistence
+   and climatology emitted by the scorer on every run, the artifact verdict applied automatically."*
+3. ⚠️ **One theorem reframes three failed programmes as one barrier.** Aceituno2025 Thm 4.6: minima found
+   on short horizons do not generalise to long ones, with a gap of `O(e^{λ(T_h−T_l)})`. Scheduled
+   sampling, increased teacher forcing and `truncated_nb` all changed **what the model is fed**; **none
+   changed what is optimised.** So long-horizon training *"has never actually been tried here, despite
+   three experiments that resembled it."* ⚠️ INFERENCE, and the sharpest unexamined direction in the
+   record.
