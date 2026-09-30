@@ -47,10 +47,17 @@ any aggregation level: on one model's validation, 468 origin-months, 90% interva
 **0% / 1% / 7%** where ~90% is wanted, and the cells behave as independent marginals
 (`Var(total)/ΣVar(cell)` ≈ 0.95), so any aggregate interval is too narrow by construction.
 
-⛔ **And the part that makes this worse than a gap: both regimes independently banned the instrument
-that would have seen it.** FAO-02 **rejects PIT for selection**, and this repo's own scope documents put
-active-cell PIT explicitly out of bounds *"anywhere, for any reason, including 'just as a diagnostic'"*.
-So it is not that nobody built the diagnostic — **it is that two independent rulers each excluded it.**
+⛔ **And the part that makes this worse than a gap. We prescribed the diagnostic that would have seen
+it, built it, left it unseeded, and wired it to nothing.** ⚠️ *(This replaces a claim about "both
+regimes banned it" that was wrong — see Appendix C.)* The chain, every link sourced:
+the register **prescribed** a positive-cell PIT as a *conditional diagnostic* on 2026-06-21
+(`technical_risk_register.md:821`, drawing the selection-vs-diagnostic distinction explicitly) → it was
+**built**, carefully, with its own Czado2009 discrete caveat documented (`scripts/proper_score_audit.py:82`)
+→ it is **not reproducible**, because its RNG salt is `hash(t + tag)` (`:248`), which Python randomises
+per process → **no current ruler emits it**: it is absent from `HEADLINE_COLUMNS` and no gate reads it →
+and a delivery served an **all-zero surface across global land** that a PIT would have shown instantly.
+**This is §5.8's "computed and read by nobody" pattern landing on the one diagnostic family that would
+have caught the delivery failure.** The fix is seeding one RNG and adding a column.
 
 ⛔ **And when the collapse is finally scored, the delivered one is the worst available.** Seven collapses
 of the same cube, measured 2026-09-30: **AP spans 18.9×**, and `tower_point` — the estimator the FAO is
@@ -120,10 +127,15 @@ four on the same lever; and climatology overtakes on AP around **month 20**.
 `2026-07-17_lodestar_eval_dossier` and then in every dossier from `2026-08-14` on. MEASUREMENT (grep).
 
 **The divergence is explicit, not drift.** `2026-08-15_rollout_ruler_trust_dossier/SCOPE.md:47` places
-**QS99 out of scope "anywhere, for any reason, including 'just as a diagnostic'"**, grouped with
-twCRPS, SCRPS and LogScore. Item 14 does the same for PIT / active-cell calibration, on the grounds
-that FAO-02 rejected it for selection. So one regime's guardrail is the other regime's banned term,
-in writing, in both directions.
+**QS99 out of scope "anywhere, for any reason, including 'just as a diagnostic'"** — item 15, grouped
+with twCRPS, SCRPS and LogScore. So one regime's guardrail is the other regime's banned term, in
+writing.
+
+⚠️ **Read item 15's scope precisely; an earlier draft of this report did not.** That clause covers
+twCRPS/SCRPS/LogScore/QS99 **only**. The adjacent item 14 (PIT / active-cell calibration) carries a
+*narrower* ground — *"FAO-02-rejected for selection; adding it now re-opens item 7 through the back
+door"* — i.e. out of scope **for that dossier**, on selection grounds. **PIT as a diagnostic is not
+banned anywhere in this repo; the register recommends it.** See §0 item 2 and Appendix C.
 
 **And the protocol is not in the repo.** Same file, item 8: FAO-02's definition *"lives outside git (a
 memory file + a PDF in `~/brain`) and every in-repo citation — e.g. `scripts/proper_score_audit.py:31`
@@ -696,9 +708,14 @@ Two separable faults: **location** (predicted totals ~10% of observed — the ti
 construction*). ⚠️ **Scope, theirs:** one model, 16 draws, log1p space, Africa+ME — **not** the pooled
 ensemble, which is the open question. Tooling and pre-registered falsifiers: views-models#530.
 
-⚠️ Note the governance shape of (b): FAO-02 **rejects PIT for selection**, and this repo's own scope
-docs put active-cell PIT explicitly out of bounds. So the one family of diagnostics that would have seen
-this is excluded by both regimes at once.
+⛔ Note the governance shape of (b), corrected: **the register prescribed exactly this diagnostic and
+nothing ever banned it.** `technical_risk_register.md:821` (2026-06-21): *"Use integrand-weighted
+threshold-weighted CRPS on ALL cells (proper) as the selector, **with a positive-cell PIT as a
+conditional diagnostic only**"* — the selection-vs-diagnostic distinction, drawn correctly, three months
+before the delivery. `:652` says the same. `scripts/proper_score_audit.py:82` implements
+`randomized_pit` and its header states its own limits. What is true of FAO-02 is only that it rejects
+PIT **for selection**. ⚠️ An earlier draft of this report claimed active-cell PIT was banned outright
+by a scope document; that was a misreading of an adjacent clause — see Appendix C.
 
 ### 5.1 ⛔ The largest hole: nothing guards against a spatially displaced forecast
 
@@ -1070,8 +1087,42 @@ before forming views, which is exactly what that pass forbids. Accepted and fold
 | The apparatus cannot be run by anyone else ⇒ nothing is independently reproducible | Drawn as a conclusion and **promoted into §0** |
 | The lodestar's cannot-fail check is cluster 18 shape (b) in our own frozen instrument | Said out loud in §5.7 |
 | Does AP@h18 predict anything about the served product? | **New §4.3 item 12** — and they then **measured it**: seven collapses of one cube, AP spanning 18.9×, `tower_point` last. Folded into §5.0 with their scope, their warning not to lead with `gate_only`, and their asymmetric 16-draw caveat |
-| *(their addition)* Both regimes banned the instrument that would have seen the all-zero surface — *"a different and more alarming claim than nobody built it"* | **Promoted into §0 item 2** at their suggestion |
+| *(their addition)* Both regimes banned the instrument that would have seen the all-zero surface | Promoted into §0 item 2 — then ⛔ **RETRACTED, see below** |
 | A two-line model-state summary belongs in §0 | Added |
+
+### ⛔ A claim in this report was retracted, and the mechanism is one this report catalogues
+
+**Sequence, because it is the most useful thing in this appendix.** The `models` session proposed a
+finding — *both regimes banned the diagnostic that would have caught the all-zero surface* — and I
+promoted it into §0. I then flagged to them what I thought its strongest objection was: PIT-for-selection
+and PIT-as-diagnostic are different asks, and FAO-02 only rejects the first. I believed the claim
+survived because a scope document banned PIT *"anywhere, for any reason, including 'just as a
+diagnostic'."* **I asked them to kill it if they read that clause differently. They did, on three counts,
+and I verified all three against the primary sources:**
+
+1. ⛔ **The clause is not about PIT.** `SCOPE.md` item **15** covers *twCRPS, SCRPS, LogScore, QS99* —
+   *"anywhere, for any reason, including 'just as a diagnostic'."* Item **14** is PIT, and its ground is
+   narrower: *"FAO-02-rejected for selection; adding it now re-opens item 7 through the back door"* —
+   out of scope **for that one dossier**, on selection grounds. I had applied item 15's text to item 14's
+   subject.
+2. ⛔ **The register prescribes PIT as a diagnostic.** `:821` (2026-06-21): *"…with a positive-cell PIT
+   as a **conditional diagnostic** only"* — the exact distinction my own objection had identified, drawn
+   correctly three months before the delivery. `:652` says the same.
+3. ⛔ **It is built.** `scripts/proper_score_audit.py:82` implements `randomized_pit`, and its header
+   documents its own limits including the Czado2009 discrete caveat.
+
+**What survives:** FAO-02 does reject PIT *for selection*. Only the diagnostic half was wrong.
+
+**What replaced it is stronger**, and it is theirs: **prescribed → built → left unseeded → wired to
+nothing → the failure it would have caught happened.** It needs no interpretation of anyone's ban and it
+is entirely inside this repo's control. It also joins §5.6, §5.8 and §5.0 into one causal story instead
+of three observations — which is what the register's cluster 18 did for 23 unrelated incidents.
+
+⚠️ **And the defect class is one this document catalogues.** Applying a clause from item 15 to item 14's
+subject is **C-298's shape at the level of prose** — text from one cell of a source quoted as though it
+described another — in a report whose Appendix D audits exactly that in someone else's document. It was
+caught by a non-author reading primary sources instead of my summary, which is **§8 row 8**, the
+highest-yield detector in the record, working on this report. It stood for one commit.
 
 **Rejected, with reason:** their note 13 (*"§2.12 claims the counts say how, but I could not find the
 counts"*) — the counts are in §2.12's table; they read the file between the two commits.
