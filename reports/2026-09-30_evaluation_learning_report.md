@@ -1177,12 +1177,17 @@ mismatch.
 ✅ **Two CRPS implementations, and they are now known to be the same quantity — parity closed 2026-09-30.**
 The `audit_run` → `screen_verdict` chain gates on `views_evaluation`'s `calculate_crps_native`; the
 lodestar ruler uses its own frozen `crps_ensemble`. The `views-evaluation` session ran the check this
-report asked for: **eight cases compared with `np.array_equal`, not `allclose` — max absolute difference
-`0.000e+00` on every one**, including 99.5%-zero with a Pareto tail, S=1, S=128, heavy ties, magnitude
+report asked for, and the check now lives in this repo at
+`reports/2026-08-15_rollout_ruler_trust_dossier/tools/crps_parity_check.py` — **re-run here independently,
+zero arguments, exit 0**: **eight cases compared with `np.array_equal`, not `allclose` — max absolute
+difference `0.000e+00` on every one**, including 99.5%-zero with a Pareto tail, S=1, S=128, heavy ties, magnitude
 1e6 and float32 input; scalar wrappers agree to twelve digits. Both compute the same sorted-ensemble
 identity with the same **biased** `1/S²` spread convention, reached independently. ⚠️ Scope, theirs:
-synthetic cubes, their draws — it establishes that the **estimators** agree, not that any published
-number is right. ⚠️ And one of the two is **another repo's private function**:
+synthetic cubes, fixed seed, their draws — it establishes that the **estimators** agree, not that any
+published number is right. ✅ It was written to this report's own standards: no hardcoded paths (§0 counts
+22 tool files carrying them), **exit 0/1/2 so it can be wired to a gate rather than joining §5.8's
+"computed and read by nobody"**, and a docstring that declares its own status and limits — the §4.5
+template, applied by someone else to a file they wrote for us. ⚠️ And one of the two is **another repo's private function**:
 `crps_significance.py:27` imports `_crps_ensemble_numpy`, underscore-prefixed and not in that package's
 `__all__`, so it carries no stability guarantee and can change in a PATCH release. The reason is
 legitimate — the public `calculate_crps_native` returns a scalar mean while a paired origin-block CI
