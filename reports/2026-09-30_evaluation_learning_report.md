@@ -1,0 +1,826 @@
+# What we have learned about evaluating HydraNets
+
+**Date:** 2026-09-30 · **Status:** consolidation report, no new measurement ·
+**Supersedes as the living document:** `reports/2026-08-13_evaluation_pitfalls_and_metric_battery_DRAFT.md`
+(retained as dated provenance; its taxonomy letters A1–I4 are preserved here unrenumbered).
+
+**What this is.** Eight months of trying to measure whether a HydraNet is any good, collected in one
+place: 53 dossiers, ~340 risk-register entries, 76 numbered claims, 26 measurement scripts, four
+postmortems. It is about **the ruler first** — which metrics, baselines, gates and experiment designs
+told us the truth and which fooled us — and then about the verdicts that ruler produced, so a reader
+can tell what state the models are actually in.
+
+**What this is not.** It does not review the platform's evaluation schema or governance protocol as
+documents. It reports what happened here. §8 states what our own scars demand of a promotion gate;
+comparing that against the protocol is the reader's job.
+
+**Two disciplines, carried from this repo's own practice.** Every claim is labelled **MEASUREMENT**
+(a number a run produced; overturned only by a harness bug or a re-run) or **INFERENCE** (a story
+built on measurements; overturned by thinking, and repeatedly has been). The distinction is
+`RESULTS_LEDGER.md:181`'s, adopted because five mechanism stories were retracted on 2026-08-16/17
+alone. And every claim carries its **scope** on the line, not in a footnote — most of this record is
+single-seed, single-vehicle, `sb`-only, which is below this repo's own stated bar.
+
+---
+
+## §0 — The five things to know
+
+⛔ **1. The sanctioned selection rule, applied faithfully, promotes an empty map.** Not as a
+hypothesis — measured. A forecast with `size_ratio` **0.0000** and `act_ratio` **7.0e-05** (it fires
+~14,000× less often than reality) cleared the 5% CRPS superiority bar with CRPSS **+0.0786**, a 90%
+origin-block CI excluding zero, and an effect ~12× the MDE — because **83.5% of the win was confident
+zeros**. The repo's own words: *"FAO-02's own selection rule, applied to its own primary metric
+against its own mandated baseline, would have promoted this forecast."*
+(`2026-08-15_rollout_ruler_trust_dossier/07_experiment_log.md:347`) At h36 the ARTIFACT verdict is
+**12/12 — every arm, every target**. MEASUREMENT.
+
+⛔ **2. We run two evaluation regimes and have never reconciled them.** The adopted protocol (CRPS
+primary, QS99/Brier/MCR guardrails, strict eligibility conjunction) was adopted 2026-06-20 and its
+eligibility rule was **last applied 2026-06-22**. Everything since 2026-07-17 runs on a different
+ruler built in-repo: AP primary, the crps-all/events/none split, activation and size ratios,
+retention, zero-share-of-gap, paired origin-block CIs. The 8 production models were promoted under
+**neither** — K3 (comparison against a baseline) is **VOID**, so they have never been scored against
+any baseline at all (M73, views-models#445). MEASUREMENT for the dates and the VOID; INFERENCE that
+the two regimes disagree in general rather than in this one demonstrated case.
+
+⛔ **3. Nearly every scalar we reached for first was blind.** `crps_all` put four arms inside 0.0007
+of each other while gate AP spanned **13×** (M9). MCR read ≈1.0 while activation was 4–115× wrong
+(#258). Across the roster CRPS agreed to three decimals from step 6 while MCR spanned 10×. The
+pattern is not metric-specific: **on a 99.5%-zero field, an all-cell aggregate is a report about the
+zeros.** MEASUREMENT.
+
+⚠️ **4. Cheap probes are reliable at killing ideas and unreliable at establishing them.** This is
+the repo's own standing rule (`RESULTS_LEDGER.md`, adopted 2026-08-17) and it was adopted from
+evidence: *every* retired claim has stayed retired, while the programme's most-cited positive number
+(I-A's 89%) is flagged as the least trustworthy line in the table. Six interventions have failed;
+four failed on the same lever. INFERENCE, but well-supported.
+
+⚠️ **5. The test suite does not find this class of defect; deleting the fix does.** 2,079 tests were
+green when `/code-review max` returned **25 runtime-verified findings, none caught by the suite**
+(Epic #353). Then five of my own new guards survived their first mutation. The ledger's conclusion:
+*"the deletion test, not the test suite, is what finds this class."* MEASUREMENT.
+
+---
+
+## §1 — The two regimes
+
+| | **adopted protocol** | **working ruler** |
+|---|---|---|
+| source | FAO Pre-Release Note 05, Topics C & D — adopted `RESULTS_LEDGER.md:607` | built in-repo from `2026-07-17_lodestar_eval_dossier` onward |
+| adopted / built | 2026-06-20 | 2026-07-17 |
+| primary | **CRPS**, 5% superiority margin over baseline | **AP** (gate ranking), with paired origin-block CIs |
+| guardrails | QS99, Brier, MCR — each within 1% | `crps_all` / `crps_events` / `crps_none` split, `act_ratio`, `size_ratio`, `retention`, `zero_share_of_gap`, the ceiling (the oracle's score) |
+| eligibility | strict conjunction, written down, explicit | per-dossier pre-registered predictions + falsifiers |
+| baseline | an empirical heuristic baseline | persistence **and** climatology, both emitted by the scorer |
+| last used | eligibility conjunction: **no dossier after 2026-06-22** | every dossier from 2026-08-14 onward |
+
+**Verification of those dates.** `Eligible`/`eligibility` appears in exactly four dossiers, all June
+2026, the last `2026-06-22_hurdle_body_dossier`. `AP`/`delta_AP`/`crps_events` appears from
+`2026-07-17_lodestar_eval_dossier` and then in every dossier from `2026-08-14` on. MEASUREMENT (grep).
+
+**The divergence is explicit, not drift.** `2026-08-15_rollout_ruler_trust_dossier/SCOPE.md:47` places
+**QS99 out of scope "anywhere, for any reason, including 'just as a diagnostic'"**, grouped with
+twCRPS, SCRPS and LogScore. Item 14 does the same for PIT / active-cell calibration, on the grounds
+that FAO-02 rejected it for selection. So one regime's guardrail is the other regime's banned term,
+in writing, in both directions.
+
+**And the protocol is not in the repo.** Same file, item 8: FAO-02's definition *"lives outside git (a
+memory file + a PDF in `~/brain`) and every in-repo citation — e.g. `scripts/proper_score_audit.py:31`
+— points at a path that does not exist in the tree."* Registered as a real problem; not fixed. So the
+governing framework cannot be diffed, versioned, or checked by CI. MEASUREMENT.
+
+**The baseline that was never set.** `RESULTS_LEDGER.md:633` — the reference that superiority and
+guardrails are measured against — reads **"TBD — set once the first clean eval lands."** The run
+ledger beneath it stops at **R5, 2026-06-20**. Nothing was ever entered under the eligibility scheme.
+MEASUREMENT.
+
+**Why this matters more than any individual metric finding:** the protocol was never the thing being
+tested. Its one head-to-head encounter with our data (§0.1) it lost. Everything else in this report is
+evidence about the ruler we built instead, and that ruler has itself been wrong repeatedly — §3.
+
+---
+
+## §2 — What works
+
+Instruments that have repeatedly told the truth. Each row names the case where it caught something
+nothing else could.
+
+### 2.1 The oracle comparison — the single most valuable instrument we have
+
+Emit the **same model twice**: free-running (`rollout_feedback='sample'`, it feeds on its own output)
+and **the oracle** (`='teacher_forced'`, handed the real field each month). The oracle's score is
+**the ceiling**. Both curves, per horizon.
+
+- **M10:** fed the real field, gate AP holds **0.4745 → 0.4793 (h18) → 0.4577 (h36)** over 36 steps.
+  It does not degrade *at all*. MEASUREMENT, one seed, `violet_visitor`, 160 lessons, `sb`.
+- **M24:** the same model left to feed on itself goes **0.474 → 0.257 → 0.137**. So the ceiling is
+  ~0.47 at *every* horizon and the rollout throws away two thirds of it. MEASUREMENT, same scope.
+
+**Why it works:** it separates *"the model is bad at long horizons"* from *"the model is poisoned by
+its own output"* — and the answer here was unambiguously the second. Nothing else we tried
+distinguished those two, and for months the horizon was blamed. It costs **no training**, only a
+second emit.
+
+**What it does not do:** the ceiling says what perfect inputs would buy. It says nothing about what is
+learnable from the data — that is the amount-ceiling question, §4.
+
+### 2.2 AP, because it has dynamic range where CRPS does not
+
+- **M9:** four arms score `crps_all` **0.1353 / 0.1352 / 0.1350 / 0.1346** at h18 — a span of
+  **0.0007** — while gate AP across the same four spans **13×**. MEASUREMENT.
+- Across the 8-model roster, CRPS was identical to **three decimals** from ~step 6 while MCR spanned
+  **10×** (#258).
+
+**The generalisable rule this yields:** *check a metric's dynamic range across your model set before
+ranking on it.* A proper score can be simultaneously proper and non-discriminating. That is not a
+criticism of CRPS; it is a statement about a 99.5%-zero field.
+
+### 2.3 The zero-share decomposition and the ARTIFACT verdict
+
+`scripts/rollout_ruler_core.py` (Epic #263, 86 never-skipping tests). For a claimed win it reports
+CRPSS, ΔAP, and **what fraction of the CRPS gap is true zeros**, then rules REAL / UNDECIDABLE /
+ARTIFACT against a pre-registered rule.
+
+This is the instrument that produced §0.1. It is the only thing in the repo that can look at a
+statistically significant, correctly computed, properly scored win and say *the gap is real and the
+win is not.* Applied to the whole board: at h1, **7 REAL / 0 ARTIFACT**; at h36, **0 / 12** — ARTIFACT
+unanimous. MEASUREMENT.
+
+**Its method rule matters and is easy to violate:** *the reference's S must equal the arms' cube
+width.* `crps_ensemble`'s `2/(m·m)` bias does not cancel across unequal S, and AP is quantised to S+1
+rank levels. Persistence scored at S=1 against arms at S>1 violates it — see §3 H-new.
+
+### 2.4 The two ratios that made the original disaster legible
+
+- **`act_ratio`** — how often the model fires versus how often reality does.
+- **`size_ratio`** — the **median** of guess ÷ truth on conflict cells.
+
+In #258 these were the only numbers that saw the defect: activation **4–115× wrong**, compensated by
+over-magnitude, so MCR read ≈1.0 and looked calibrated. In §0.1 they are what makes "promoted an empty
+map" a statement rather than an opinion: `act_ratio` 7.0e-05, `size_ratio` 0.0000.
+
+⚠️ **`size_ratio` (median) and `pos-mcr` (mean) are different metrics and we once conflated them.** A
+few large cells flatter the mean. `GLOSSARY.md` §4 records this explicitly.
+
+### 2.5 Paired designs — the cheapest real power we have
+
+- **M40:** pairing cut the MDE from **0.0541 → 0.0086, 6.3× on identical data.** The same effect reads
+  UNDERPOWERED unpaired and EFFECT paired. This answered #281 by demonstration. MEASUREMENT.
+- **M65:** the seed variance the programme had been designing against is **~5× too large**, and a
+  paired 2-seed design detects effects **3× smaller** than the programme's best result. MEASUREMENT.
+
+**The lesson is a design lesson, not a statistics lesson:** most of our "underpowered" verdicts were
+self-inflicted by comparing arms that also differed by seed. Pairing is free.
+
+⚠️ It does not rescue everything. The SS sweep's arms differ by seed *as well as* by treatment, so
+pairing cannot be applied retroactively there (M40's own caveat).
+
+### 2.6 The floor gate — refusing to measure on a vehicle that cannot measure
+
+`scripts/floor_gate.py`. A control arm scoring at or below chance has no dynamic range, and an
+experiment run on it is uninformative *in both directions*.
+
+- **M28:** both 40-lesson arms fail the gate — **2.16× and 0.99× chance** — and their two seeds sit
+  **2.3× apart**. A 40-lesson model *matches* climatology at h1 (0.97×/1.03×) and is **10–25× worse**
+  at h18. MEASUREMENT, `scripts/floor_gate.py` + lesson-curve EXP-01.
+- `postmortem_floor_limited_vehicle.md` is the consequence: the shared `truncated_smoke` vehicle
+  scored **0.0070 at h18 against a prevalence of 0.009077 — 0.77×, below random ranking.** Nine claims
+  (M1–M9) had to be individually re-dispositioned, and one manipulation read **+0.9%** on the floored
+  vehicle and **−93.7%** on a real one.
+
+**This is the highest-leverage cheap gate in the repo** and it is the reason the h1-matches-climatology
+observation is not evidence of anything.
+
+### 2.7 Direct manipulation with a known answer
+
+The probes that reliably killed hypotheses are the ones where the right answer was known in advance
+because we constructed the input:
+
+| probe | what it does | result |
+|---|---|---|
+| `spatial_scramble` | keeps count and magnitudes, moves the locations | AP **0.3008 → 0.0097** (M3); on a real vehicle 5× worse than control (M12) |
+| `thin:0.75` | deletes ¾ of true events, keeps placement | recovers **95.5%** (M12); **97%** of the oracle (M45-era) |
+| `wrong_month:-60` | a *real* field from the wrong month | 43% — and a verification pass nearly "corrected" this correct number |
+| roll the cell state 90 cells | displaces the recurrent map | forecast moves **90 cells intact, r≈0.90**, skill collapses **48×** (M54) |
+
+**Together these say: recall is nearly free, placement is everything.** MEASUREMENT, and replicated
+across vehicles for the scramble/thin pair (M3/M4 → M11/M12).
+
+### 2.8 Byte-identity, on the right object
+
+- **M13:** the Epic #263 board reproduces bit-for-bit from preserved cubes — worst **|ΔAP| = 0.00e+00**
+  over 7 horizons.
+- **M14:** the post-2026-08-12 inference commits are a proven no-op on the free-running path — worst
+  **|ΔAP| = 0.00e+00**.
+- **M22:** retraining at HEAD gave **190 weight tensors with identical sha256** five days and five
+  commits later.
+- **M76:** four roster models retrained from the **PyPI wheel** are byte-identical to checkout-trained
+  artifacts, BatchNorm buffers included.
+
+⚠️ **And the trap inside it:** the two byte-identical models of M22 have **different `.pt` file
+shas** — torch stamps mtimes into the zip. **File hashes are an invalid identity check**; hash the
+weight tensors.
+
+### 2.9 Recomputing the headline numbers from the committed data
+
+The verification pass of 2026-08-17 recomputed all nine headline figures from committed CSVs instead
+of copying dossier prose. **Three of nine were wrong or misleading, and all three failed the same
+way:** values pulled from different cells of the results grid and presented as a single comparison
+(Moran's I paired the oracle with free-running; `thin` activation paired h18 with h36; a peak quoted
+as a range). Registered **C-298**. None changed a conclusion; two had already propagated into the risk
+register.
+
+⚠️ **A verification pass produces false positives too.** "Occurrence merely being plausible — 43%"
+looked wrong until traced. *The fix is to trace the number to its arm, not to correct it on suspicion.*
+
+### 2.10 The MEASUREMENT / INFERENCE ledger
+
+Not a metric — a bookkeeping discipline, and on the evidence the most effective single practice in the
+record. It is what makes the retraction rate visible instead of embarrassing, and it carries the
+repo's standing rule (§0.4). Its own self-description is the best argument for it: the first version
+of the persistence section stated an unqualified claim that was wrong — *"the sentence this table
+exists to prevent, written into the table itself on day one."*
+
+### 2.11 VOID — a third outcome besides "it worked" and "it didn't"
+
+The single most transferable idea in the repo's experimental practice, and it is not a metric. **VOID
+means the instrument could not answer**, as distinct from the treatment not working. Harvested from the
+pre-analysis plans, the triggers actually used are:
+
+| trigger | what it means |
+|---|---|
+| the **control** arm fails the floor gate | the vehicle cannot resolve the effect we came to measure |
+| two arms' **trained weight hashes are identical** | the treatment was inert (C-324) |
+| `N ≠ 170430` or origins ≠ 13 in any row | the arms were scored on different supports and are not comparable |
+| h=1 metrics not identical across arms to 1e-6 | step 1 has no feedback, so a spread means something other than the treatment differed |
+| an arm produced **no scoreable artifact** | *"VOID, not negative. No Δ is quoted, estimated or implied; a crash is never evidence about H"* |
+| the **confound control given the answer** fails to score near-perfect (or scores AUC ≥ 0.99) | the instrument is broken, in either direction |
+| preserved cubes do not reproduce the shipped board exactly | the scorer, truth pin or cubes are not what produced it |
+
+And the rule that gives it teeth: **"Any of F1–F5 firing makes that candidate VOID, never 'worse'."**
+
+**Why it works:** without it, every one of those conditions produces a *number*, and a number gets
+read as a result. C-324 is the proof — an inert treatment produced byte-identical weights, and *"a
+half-connected knob would have produced a small number, and the pre-registered rule would have read it
+as 'hypothesis dead'."*
+
+⚠️ **The gap in it, named by the repo itself:** *"Every falsifier in the 2026-08-14 plan (F1, F2,
+F-DEGEN) assumes the readout is valid. **None fires on an uninformative measurement.** That is the
+hole, and it is generic: a pre-registration can be perfect about what would refute the hypothesis and
+silent about whether the instrument can see anything at all."* The floor gate (§2.6) exists to close
+exactly that, and §5.3 shows its decisive clause is not running.
+
+⚠️ **And one discipline failure is on record:** a dossier notes a falsifier being **changed after it
+fired**. That it is recorded is the practice working; that it happened is the practice failing.
+
+---
+
+## §3 — What does not work
+
+The 2026-08-13 DRAFT organised this by **symptom** (A1–I4: metric blindness, Goodhart, instability,
+composition, rollout, baselines, epistemics). Those letters are preserved and referenced below. But
+the register has since found the better organising principle, by **cause**, and named it for the first
+time on **2026-09-10**:
+
+> **Cluster 18 — "The instrument did not measure what it claims."** 23 Tier-2/3 entries, *"every one
+> of which cost GPU time or produced a wrong ledger row, currently read as 23 unrelated incidents."*
+> The register calls it **the highest-value group it has**.
+
+And its proposed remedy is one question, asked before the run:
+
+> ⛔ **"What would this measurement look like if the effect were absent?"**
+
+Three of cluster 18's four shapes fail that question. That single line is the most valuable sentence in
+this report.
+
+### 3.1 The four shapes of cluster 18
+
+| shape | the defect | worst instance |
+|---|---|---|
+| **(a) the instrument cannot see the thing** | the statistic cannot move when the thing under test moves | **C-319** — rolling the clamp anchor 90 cells leaves occurrence 0.718/0.715, magnitude 0.628/0.651, alignment 61.5/69.3 essentially unchanged while **AP@h18 falls 0.362 → 0.0075 (48×)**. Three statistics, all blind. (↔ DRAFT A1, A2) |
+| **(b) the decision rule cannot deliver a verdict** | branches unreachable or the outcome space omits "no number" | **C-303 occ. 9** — a one-sided permutation p made the EFFECT branch unreachable for a negative Δ, so the rule printed **"NULL / UNDERPOWERED, p = 1.0000" for a mean ΔAP of −0.2376 — 7.5× the 3×MDE bar, 4/4 seeds unanimous.** (↔ DRAFT C2, the power-vs-null pattern) |
+| **(c) measured on the wrong object, phase or training state** | correct arithmetic, wrong subject | **C-308** — a drift probe kept the *first six* forward calls, i.e. the teacher-forced warm-up, not the 36 free-running steps. Published σ_max **1.60**; true **7.7628**. It reported `max\|h\|` **rising** 0.000 → 2.867 where the real phase **collapses 40× (65.6 → 1.6)**. *"Every downstream guard passed."* (↔ DRAFT B1, B2, the wrong-object pattern) |
+| **(d) the readout assembled wrongly** | well-formed number, different population than its label | **C-298** — 3 of 9 headline figures wrong: *"the results grid here is four-dimensional and the prose is one-dimensional, so every sentence silently collapses three axes."* (↔ DRAFT C7) |
+
+### 3.2 The metrics themselves
+
+⛔ **`crps_all` on a 99.5%-zero field ranks the zeros, not the model.** Four arms inside **0.0007** at
+h18 while gate AP spans **13×** (M9). Across the roster, CRPS identical to **three decimals** from step
+6 while MCR spanned **10×** — *"ranking these models on CRPS ranks noise"* (#258). (DRAFT A3/A4.)
+
+⛔ **QS99 cannot work on this target, structurally.** **C-224 (Tier 1):** the 99th percentile of a
+99.7%-zero field **is zero** — the guardrail sits *inside* the zero mass. And it is worse than a bad
+choice: Taillardat2023 and Brehmer & Strokorb prove **no proper-score expectation** — including the
+banned twCRPS — separates different tail shapes ξ. **This is a guardrail of the adopted protocol.**
+Its Tier-1 governance ask is recorded as *unchanged, still open*.
+
+⛔ **MCR is a first-moment ratio and hides compensating errors.** It read ≈1.0 while activation was
+**4–115×** wrong, cancelled by over-magnitude (#258). (DRAFT A1, the compensating-error pattern.)
+
+⚠️ **`crps_events` must never select, and our own rules disagree about this.** Subsetting a score on
+the observed outcome is the Forecaster's Dilemma (Lerch2017). **C-224 (2026-07-30): display-only,
+"exactly like the FAO-02-banned twCRPS."** But **C-167's close-out (2026-07-27) wired it into a
+pre-registered decision rule** — *"a magnitude change WINS iff crps_events improves [proper, selects]
+…"* — and that text was left standing. C-224 is later and supersedes; the register does not flag the
+conflict. **Unresolved in the documents as of today.**
+
+⚠️ **Any statistic computed from the forecast alone cannot judge placement.** Occurrence, body
+magnitude and gate–body alignment are all preserved by a spatial roll that costs 48× in AP (C-319,
+M53). `GLOSSARY.md` now carries this as a ⛔ annotation on three separate metric rows.
+
+### 3.3 The classes the DRAFT did not have
+
+Eight defect classes are in the register and not in the A1–I4 taxonomy. They are the ones that have
+cost the most.
+
+**N1 — The declared-but-inert knob.** ⛔ **C-324, Tier 1.** A BPTT-SA implementation was *"unit tested
+(7), mutation tested 5/5, lint clean, suite green (1,901)"* — and **inert on the production config**.
+Two arms trained **276 minutes to byte-identical weights**. It was caught only because the result was
+**impossible**. The register's own comment is the lesson: *"A half-connected knob would have produced a
+small number, and the pre-registered rule would have read it as 'hypothesis dead'."* Nine other
+instances: C-216 (`feedback_clamp_log1p=[7,7,7]` → byte-identical rollout, and it had **already**
+misled a result — "clamp doesn't help" vs "clamp wasn't applied"), C-302 (a log path silently dropped
+by Pydantic `extra="ignore"`, so the failure mode is *an absent file that reads as "the diagnostic ran
+and found nothing"*), C-331 (`freeze_recurrent_weight=0.0` logs `🧊 recurrent state CLAMPED` and
+applies nothing — escalated to **production** by ADR-027 §2.1).
+
+**N2 — The instrument perturbs or kills the run it measures.** ⛔ **C-344** — the gate probe drew from
+the same RNG stream the feedback transforms use, so *"any arm measured with the probe on was not the
+same arm as the headline run of the same name"*, and probe records already on disk were measured on a
+differently-thinned field. **C-330, Tier 1** — a `register_hook` on a non-leaf fired on gradient
+accumulated from every consumer, so a feedback grad-clip **rescaled the primary supervised gradient**.
+⛔ **C-328 instance 4 is in every shipped artifact:** `random_flips` defaults True and reaches the
+BatchNorm recalibration pass, so **~half of every BN running statistic in every shipped artifact was
+accumulated on H/W-flipped fields.**
+
+**N3 — The reference, not the instrument, is wrong.** The register quotes itself: *"The register has
+extensive coverage of whether we measure the model correctly, and **none** of whether the thing we
+measure against is correct."* ⛔ **C-338** — priogrid 149451 reads **27,413** in m550 and **32,505** in
+m552 with a **2** between them, while the next largest cell-month anywhere is **1,100**. Filed upstream
+(views-datafactory#484). Nothing checks the truth field for outliers at build time. And **#282** — the
+first origin's persistence forecast was silently all zeros, understating the baseline by
+**10.5%/6.5%/4.1%**, and the error **scales as 1/n_origins**, so a single-origin study scores
+persistence as **exactly zero**, silently.
+
+**N4 — MDE borrowed from another contrast; noise floor unmeasured.** **C-306** — M41 judged
+`cell@0.5` vs `cell` (one blend weight apart) against an MDE computed for `cell` vs `none` (states
+diverge completely), and *"both quantities are called 'the paired MDE at h18'."* **C-317** — retraining
+the same config, same seed, same GPU, same torch reproduces its twin to **148%/114%/94%/78% of the
+seed-to-seed sd**. **C-253/C-254** — plain Newey–West on an origin×cell panel *manufactures*
+significance, and GW asymptotics live in origins (P=13), not in the cell cross-section.
+
+**N5 — Provenance not recorded, so runs are not comparable.** **C-300** — all four SS-on roster models
+trained **before** the validator that forbids their config landed, so they trained on an *ungated mean*
+and rolled out on a *gated sample*. Their rows are un-rerunnable *and* were produced under a config the
+repo now rejects. Conclusion, verbatim: **"There is no valid, non-floored SS measurement anywhere."**
+
+**N6 — A confident negative from a search whose non-empty case was never seen.** **C-309** — *"We have
+not tested that. It is a real, untested axis"* — while `CurriculumLearner` implements exactly it, has
+its own CIC, its own active ADR, config fields in a file edited earlier in the same session, and runs
+in **every arm of every experiment**. Then the fix *itself* failed the same way: a literature search
+returned "none of the 26 relevant papers has a single extracted claim" — all 26 had claims (70 across
+20 checked); the glob path was wrong. ⛔ **The amended rule is the transferable one: a negative claim
+requires a search plus a positive control, and a uniform-zero result across a heterogeneous population
+should be treated as instrument failure until proven otherwise.**
+
+**N7 — A cheap screen's NO recorded as a closure.** **C-307**, and the entry quotes the chair verbatim:
+
+> *"we have dropped multiple things on the floor … by doing quick smart tests to see if real
+> implementation makes sense, then dropping real implementation because the test told us to. Then me
+> later insisting that we try for real, and then it turns out that it in fact works. This happens so
+> much."*
+
+The instance: #294 concluded "correspondence superficial" from σ_max measured **on a teacher-forced
+model**, when α is a *training* parameter and training under teacher forcing reshapes the Jacobian. The
+rule now: **a proxy closure must carry its false-negative mode and a reopen trigger.** Applied
+retroactively to #290/#291/#294.
+
+**N8 — The harness is green for a reason unrelated to the code.** **C-283** — three tests shelled out
+to `ruff`, a binary the environment never installs. Red on **every CI run since at least 2026-08-14**:
+*"every CI `test` result before 2026-08-15 should be read as red for this reason unless shown
+otherwise."* **C-284** — `gpd_pwm_fit` saturates one-sidedly (true ξ 1.00/1.10/1.30 → 0.92/0.96/0.99)
+and **all three published h=36 tail rows sit at the ceiling, 0.951–0.965**; the only test pinned ξ=0.5,
+the last value where the estimator is still accurate.
+
+### 3.4 What does not detect any of this
+
+From 31 traceable retractions, ranked by yield:
+
+| detector | hits | note |
+|---|---|---|
+| `/code-review` or `/expert-code-review` **by a non-author, in a clean context** | **9** | The single highest-yield detector. One round found errors *introduced by the previous round's fix*. |
+| Two independently computed numbers disagreeing — **and the disagreement traced, not averaged** | 3 | |
+| A systematic recompute of every published figure | 1 (found 3 of 9) | Reusable and cheap. |
+| Re-running on a converged / non-floored vehicle | 2 | |
+| A **control arm** or positive control | 2 | The control is what made the treatment legible. |
+| Running the pre-registered rule's own decision table properly | 2 | The rule already had the answer. |
+| An **impossible** result | 1 | Named in the source as **luck**. |
+| User escalation | 3 | Produced the potency gate and C-324. |
+| **The test suite** | **0** | |
+
+⛔ **And the number that should govern practice:** in the September implementation postmortem,
+*"defects found by my own review: **0**"* — every one of ≥15 defects found *after* the author judged
+the code correct was found by a **mechanism**, not by looking harder. Against that: 2,079 green tests
+and 25 runtime-verified findings, 0 caught; 27 of 40 tests passing with the call site deleted; 17 of 33
+mutations surviving the fix for the entry about tests that cannot fail.
+---
+
+## §4 — Solved and not solved
+
+"Solved" is used in two senses below and they are kept apart, because conflating them is how a
+question gets closed by exhaustion and later reopened at cost. **CLOSED** = measured, with a stated
+scope. **CLOSED-BY-EXHAUSTION** = we stopped asking; the evidence does not support closure.
+
+### 4.1 Closed — measurement questions
+
+| question | verdict | evidence | scope |
+|---|---|---|---|
+| Is the long-horizon CRPS win over climatology real? | **No — ARTIFACT, 12/12 at h36** | Epic #263, an exact identity decomposition of archived CSVs, **no GPU** | the 2026-07-29 board; all arms, all targets |
+| Can a first-moment aggregate certify calibration? | **No.** MCR ≈1.0 with activation 4–115× wrong | #258 | the 8-model roster |
+| Does the rollout decay because the horizon is long, or because the model eats its own output? | **Its own output.** The oracle does not degrade at all across 36 steps | M10, M24 | 1 seed, `violet_visitor`, 160L, `sb` |
+| Where in the rollout does the damage go? | **Occurrence 89–95%; magnitude indistinguishable from zero** | I-A, replicated 4/4 vehicles, two body families, two compositions | 1 seed per vehicle — the repo calls this an **escalation trigger, not a conclusion** |
+| Is it recall or placement? | **Placement.** `thin:0.75` deletes ¾ of true events and keeps 95–97%; scrambling locations costs 31× | M3/M4 → M11/M12 | replicated across two vehicles |
+| Does more training fix the rollout? | **No — training is closed as a retention lever.** Retention 0.03 → 0.600 (160L) → 0.683 (300L, n=4) → 0.692 (600L). T=0 skill and the ceiling keep rising | M26–M29 | shape from 5 lesson counts; the plateau itself is a 2-point claim |
+| Does scheduled sampling help? | **No — it hurts, at every horizon** | M30–M33, 4v4 seeds, p=0.0286 | formally UNDERPOWERED (does not clear 3×MDE); direction established, magnitude not |
+| Does the model beat persistence at long horizons on AP? | **Yes at L=300, all four seeds, every horizon** | M34–M37 | one vehicle, AP only; the CRPS win remains ARTIFACT |
+| Does pairing buy power? | **Yes — MDE 0.0541 → 0.0086, 6.3× on identical data** | M40 | one horizon, two arms, one seed |
+| Is the packaging boundary a source of drift? | **No — byte-identical, 190 tensors × 4 models** | M76 | this machine |
+| Can a multi-τ roster beat the soft gate? | **No — algebraically impossible** | M69 | exact; zero GPU |
+| Is the ensemble buying diversity? | **No — it is buying sample count.** Gate errors correlate 0.96–0.99 across all 28 pairs | M66, M67 | one artifact per config, one origin, `sb` |
+
+### 4.2 Closed — and the closure is what should be read, not the number
+
+| question | what is closed | what is **not** |
+|---|---|---|
+| Does freezing the cell state help? | **Direction: yes**, four seeds, paired CI excludes zero, +0.039 AP@h18 (M38/M48) | **Mechanism: no.** M43 refuted the out-of-distribution-state hypothesis; M52 is explicitly "CONSISTENT-WITH, not causal". And M8's original 13× magnitude is **retired** — the control was broken |
+| Which half of the recurrent state matters? | The **cell** (M39, M56) | C-292: `hs = o⊙tanh(hl)` makes `cell ≈ all` **architecturally predetermined**, and C-323 makes the hidden-freeze null structurally guaranteed. The earlier "cell carries 89%" was withdrawn |
+| Is the amount ceiling real? | **Yes** — spearman 0.303 < persistence 0.367, confound-clean | It is a statement about *magnitude*. Jump-risk/volatility **is** predictable (spearman ≈0.79) |
+
+### 4.3 Not solved — and the reason each is stuck
+
+| # | Open question | Why it is stuck | issue |
+|---|---|---|---|
+| ⛔ 1 | **Is the h=1 win real?** It is the only non-ARTIFACT signal in the entire programme, and it reads **UNDECIDABLE for a purely procedural reason** — no bootstrap CI was computed. Both point estimates say REAL (CRPSS +0.197, ΔAP +0.152) | needs a re-run emitting **per-origin** scores at matched S; the cubes were score-then-deleted | — |
+| ⛔ 2 | **Which ledger rows rest on floor-limited vehicles?** M8's best case on the smoke vehicle (0.0912) is **3.6× below** an untreated 300-lesson baseline (0.3298) | the audit was only ever run on the rollout-collapse programme; the postmortem states that "this is the only floored measurement in the repo" is **not established** | **#280** |
+| ⛔ 3 | **Can the design resolve the effects we chase at all?** SS: −0.0426 with MDE 0.0541. *"If placement interventions land in the same 0.03–0.05 band, every future experiment returns UNDERPOWERED"* | one of four candidate fixes (a paired statistic) changes the MDE at **zero GPU** and has not been adopted generally | **#281** |
+| ⛔ 4 | **Is the truth data correct?** priogrid 149451 reads **27,413** then **32,505** with a **2** between them; the next largest cell-month anywhere is **1,100** | nothing checks the truth field for outliers at build time; filed upstream | C-338, views-datafactory#484 |
+| ⚠️ 5 | **Is D=4 enough gate variation for a delivered point estimate?** The gate is deterministic given a pass's mask, so D is the only lever; on `blazing_meteor` the gate kills 1–3 of 4 passes in **407 of 502** signal-carrying cells | "no ledger entry answers it" | **#388** |
+| ⚠️ 6 | **Is `aggregate_method` offering the wrong collapses?** `gate × mu` beats mean-of-16 by **+58% to +159%**; `median` is an empty map | indicative only — one artifact per config, one origin, `sb` | **#337** |
+| ⚠️ 7 | **Was any scheduled-sampling verdict measuring anything?** All four SS-on roster models trained under a config the repo now rejects, and *"there is no valid, non-floored SS measurement anywhere"* | and #288 asks whether the SS feedback path is differentiable at all | **#295, #288** |
+| ⚠️ 8 | **Do the direct-multi-horizon and recursive cubes score identically?** | *"Prove the ruler scores both cube types identically"* is a precondition nobody has met | **#310, #324** |
+| ⚠️ 9 | **Is the architecture bake-off attributable?** DualStream replaces the identity top-skip; WideMemory silently drops `state_channels`; MaxBlurPool2d needs an 8×8 grid and dies at the repo's own `window_dim=4`; arms matched on parameters but **not compute** (+5% to +20% wall-clock) | four open issues, no re-run | **#366–#369** |
+| ⚠️ 10 | **Should QS99 be in the protocol at all?** C-224 is **Tier 1** and its governance ask is recorded as *unchanged, still open* | requires amending a framework that is not in the repo | C-224 |
+
+### 4.4 Closed-by-exhaustion — flagged honestly
+
+- **"Is training reproducible?"** C-119 is marked **RESOLVED** and cluster 2 "mostly closed", on a
+  validation the postmortem itself scoped at **1 lesson / 3 windows** — a caveat the RESOLVED banner
+  does not carry. **C-317 is the full-run confirmation and it fails:** retraining the same config, same
+  seed, same GPU, same torch reproduces its twin to **148%/114%/94%/78% of the seed-to-seed sd**. The
+  two entries contradict each other and both stand. ⛔ **Treat training reproducibility as OPEN.**
+- **Whether `crps_events` may select.** C-167's close-out wired it into a decision rule (2026-07-27);
+  C-224 forbade it three days later as the Forecaster's Dilemma. C-224 supersedes, C-167's text stands,
+  the register does not flag it.
+- **Six of fifteen register "disagreements" have never been curated** — *"not one carries a resolution
+  marker, and several have been answered by events rather than by a ruling. A disagreement that events
+  have settled but that still reads as open is the same defect class as C-303."*
+
+---
+
+## §5 — Blind spots
+
+Axes we currently cannot see. Each is sourced, and each is a *present* state of the apparatus, not a
+historical anecdote.
+
+### 5.1 ⛔ The largest hole: nothing guards against a spatially displaced forecast
+
+We have **measured** that occurrence, body magnitude and gate–body alignment are all preserved by a
+90-cell roll that costs **48× in AP** (C-319; `GLOSSARY.md:157` carries it as a ⛔ on three metric
+rows). And **no test plants a rolled field and asserts that any metric fires.** The only artifact is a
+one-off cross-correlation script in one dossier.
+
+So three glossary-locked field statistics are *documented* placement-blind and *unguarded* against it.
+A future arm that improves all three and destroys placement would be reported as an improvement.
+
+### 5.2 ⛔ The method rule that no scorer enforces
+
+*The reference's S must equal the arms' cube width.* It is stated in one module
+(`rollout_ruler_core.reference_sample_width`) and **called by no scorer.** Live violators:
+`rollout_skill_score.score_horizons(add_persistence=True)` and
+`score_v2_horizons.score_horizons_v2(add_persistence=True)` inject a **1-sample** persistence arm into
+a table of **S=16** arms; `pool_ensemble` concatenates on the sample axis so the pool's S is
+`n_members × S_member`, wider than any member it is compared against.
+
+Related and equally live: **"AP" means two different things** depending on whether an arm has a gate
+cube — a gated arm is ranked on a continuous probability, a gate-less arm on a statistic taking S+1
+values, which at S=1 is **two levels**. Exactly **one** instrument refuses the mismatch
+(`ap_diff_origin_block_ci`); the two headline scorers do not.
+
+### 5.3 ⛔ FG-C — the floor-gate clause that matters — does not run
+
+`postmortem_floor_limited_vehicle.md:175` names FG-C as *"the one that names the real failure … not
+'the model is bad' but 'the effect we came to measure is smaller than what this setup can resolve'."*
+Both gates that call the floor gate — `lesson_curve_gate` and `ss_sweep_gate` — call it **without
+`mde_ap`**, so **FG-C never evaluates on either path**. And FG-B (worse than climatology) is
+**advisory and never binding**: a control worse than climatology still PASSes.
+
+Separately, `check_floor.py` records that **no dossier invoked the floor gate between 2026-08-26 and
+2026-09-04** — the C-299 mitigation lapsed for over a week, silently.
+
+### 5.4 ⚠️ The red-team exists, and is pointed at the wrong target
+
+Better than expected: **all seven** degenerate forecasts from the DRAFT's §5 proposal are implemented —
+all-zero, climatology, persistence (partial), over-concentrated spiky, frequency-right,
+magnitude-right, and a known-good oracle — in `tests/test_activation_metrics.py` and
+`tests/test_rollout_ruler_core.py`.
+
+But: **every one of them exercises `activation_metrics` in isolation.** Nothing feeds a degenerate cube
+through `score_v2_horizons._metric_row` or `lodestar_score.score_models` and asserts that the emitted
+**row** separates the cases. The DRAFT's own TODO — *"tabulate which metric separates which degenerate
+— that table is the paper's Figure 1"* — is **not done**. And the spiky case is tested only on a
+**uniform** magnitude field; no test feeds one 99,465-value cell, which is the shape that would leave
+`size_ratio` (a median) unmoved and `mcr_all` at ≈1.
+
+### 5.5 ⚠️ We audit whether we measured the model right, never whether the target is right
+
+The register says this about itself, verbatim: *"The register has extensive coverage of whether we
+measure the model correctly, and **none** of whether the thing we measure against is correct."*
+Consequences on record: C-338 (an implausible truth outlier, filed upstream, unchecked at build time)
+and **#282** — a baseline defect that **scales as 1/n_origins**, so a single-origin study scores
+persistence as **exactly zero, silently**.
+
+### 5.6 ⚠️ Two bootstrap CIs in the apparatus are not reproducible
+
+`mcr_readout` and `proper_score_audit` derive their RNG salt from `hash(str)`, which Python randomises
+per process, and no `PYTHONHASHSEED` is set anywhere in the repo. So their confidence intervals and
+randomized-PIT numbers **differ run to run**. `gate_reliability` fixed exactly this and says so in a
+comment; the fix was never back-ported. This matters because the reproducibility runbook nominates
+`mcr_readout` as the human-readable determinism cross-check.
+
+### 5.7 ⚠️ The ruler is not part of the package, and the protocol is not in the repo
+
+**No forecast metric is computed anywhere in `views_hydranet/`.** The entire ruler lives in `scripts/`
+and `reports/*/tools/`, reading arrays this repo does not write. `reports/` is gitignored (tracked only
+by `git add -f`), 22 tracked tool files carry hardcoded `/home/simon/...` paths (the register says 7),
+and the frozen lodestar's one soft check — support coverage — **cannot fail**: it prints a warning,
+continues, and the CSV carries no provisional flag.
+
+And the governing framework itself is not in the repo: FAO-02 lives as *"a memory file + a PDF in
+`~/brain`"* and **all six in-repo citations are dangling paths.** It cannot be diffed, versioned, or
+checked by CI.
+
+### 5.8 ⚠️ Metrics computed and read by nobody; metrics cited and computed by nobody
+
+| computed, orphaned | cited, never computed |
+|---|---|
+| `recall_mass`, `waste_frac` — the K1 acceptance criterion for the production roster is applied by a `print` and a hardcoded roster list | **QS99** — an FAO-02 guardrail; **no current ruler emits it** |
+| `gate_auc`, `ratio_p10/p90`, `tail_miss` — computed at every one of 36 steps, read by nothing | **the ceiling** (oracle AP) — load-bearing for two gates' falsifiers; no script computes it, it arrives as a CSV column |
+| `mag_on_true_pos`, `n_false_pos`, `act_pred`, `act_true` — in the CSV, absent from `HEADLINE_COLUMNS`, unreadable by `verdict_token` | **occurrence, body magnitude, gate–body alignment** — three glossary-locked metrics, in no score CSV |
+| `fss_1`, `fss_11`, `conc1pct`, `moran_i` — one CSV in one dossier, no gate reads them | **`mcr_all` and `mcr_none`** — the two columns the headline scorer emits have **no locked glossary definition**, while "MCR" already names four different quantities across the apparatus |
+
+### 5.9 minor — gates that exist and nobody runs
+
+`compare_run_determinism`: **one recorded invocation, 2026-06-15**, no test file — and it is the
+determinism gate. `ReproducibilityGate.audit_manifest`: *"has no production caller — the genome audit
+C-43 shipped never runs"* (C-271). `screen_verdict`: nothing has invoked it since its own dossier, and
+its thresholds are frozen to a 300-lesson floor, so it is meaningless on any other vehicle.
+
+---
+
+## §6 — Where the unknown unknowns are
+
+⚠️ **This section is INFERENCE throughout.** It reasons from where past surprises came from, to where
+the next ones probably are. Nothing here is measured.
+
+**The inference base:** of 31 traceable retractions, the detectors were an adversarial second pass (9),
+two numbers disagreeing (3), a control arm (2), an impossible result (1), and the test suite (**0**). So
+the unknowns are concentrated wherever **no second computation of the same quantity exists**.
+
+| where | why I think it lurks | the cheapest probe |
+|---|---|---|
+| ⛔ **The forecast path** | It has produced **zero output ever** — no `predictions_forecasting_*`, no `forecasting_log.txt` anywhere on disk. `extrapolate_time` is forecast-only code: it repeats the last observed frame and increments only the time column, so **`c_id` is frozen for 36 months** while in every backtest it carried the real per-month value. Calibration has months of exercise; this path has none. | Run one forecast and diff every identity column against a backtest's. |
+| ⛔ **The truth field** | §5.5. One outlier was found by eye, upstream, and filed. Nothing systematic has ever looked. A corrupt truth cell is invisible to every instrument we own, because every instrument scores *against* it. | An outlier scan at build time: any cell-month above the historical max by >10×. |
+| ⛔ **Every negative result whose implementation nobody audited** | The September postmortem names this its *"most expensive open question"*: ≥15 defects found *after* the author judged the code correct, **0 by his own review**, and C-324 proves an implementation can be fully green and **completely inert**. The audited experiments are #308 and #311. Every earlier negative — and there are six failed interventions — rests on an unaudited implementation. | A potency check at a trained checkpoint on each retired arm. Cheap; no retraining. |
+| ⚠️ **The in-package artifact, not the scorer** | **C-328 instance 4 is already in production:** `random_flips` defaults True and reaches BN recalibration, so ~half of every BN running statistic in every shipped artifact was accumulated on flipped fields. That is a whole class — *"which non-training forwards traverse this path?"* — and it was asked once, late. | Enumerate every forward pass that is not a training step, and what augmentation each sees. |
+| ⚠️ **The collapse from cube to delivered number** | M70: `gate × mu` beats mean-of-16-draws by **58–159%**, and `median` is an empty map. The collapse step has effects larger than most interventions we tested and the least scrutiny of any stage. #388 asks whether D=4 is enough and *"no ledger entry answers it."* | Score all available collapses on one existing cube. Zero GPU. |
+| ⚠️ **Anything measured once, by one instrument** | The three retractions caught by "two numbers disagreeing" only happened because a second computation existed. Where only one exists, the class is silent by construction: `recall_mass` (the production roster's own K1 criterion), `taillardat_index`, `hard_gate_threshold`. | For each single-source number that gates a decision, compute it a second way. |
+| ⚠️ **The CI signal itself** | C-283: three tests shelled out to a binary the environment never installs, and CI was **red on every run for ≥2 weeks** — *"every CI `test` result before 2026-08-15 should be read as red for this reason unless shown otherwise."* A gate can be broken for reasons wholly unrelated to the code, and stay broken. | Assert the CI job's own preconditions (every external binary it invokes exists). |
+| minor **Cross-model coupling in the pooled product** | The sample cube's randomness carries **no model identity** — `seed_t` is derived from `torch_seed` alone. Two roster models share `torch_seed` 42 and two share 43, and the 43 pair also share the composition rule. Pooled draws may therefore be less independent than the draw count implies. | Correlate the zero/nonzero mask patterns within each same-seed pair against a different-seed control pair. |
+---
+
+## §7 — What surprised us
+
+Results that contradicted a stated prior. These are the most informative rows in the whole record and
+they have never been listed together. Ordered by how much they should change how we measure.
+
+| # | The prior | What happened | Why it matters to evaluation |
+|---|---|---|---|
+| S1 | The diagnosed defect was the problem, so removing it would help | **M45 — the double-counted zero was LOAD-BEARING.** The occurrence process was being applied twice (M44: the gate is hot, the composition halves it). Removing that defect **collapsed the rollout by 70%**. | ⛔ A correctly diagnosed defect can be a **brake**. "We found the bug" does not license "fixing it will help" — that is a separate, testable claim. |
+| S2 | The dumb baseline beats us, so the model has no long-horizon value | **M34 overturns M1.** At L=300 the model beats a *fairly scored* persistence at **every** horizon (worst of 4 seeds 2.0–2.3×, gaps 2.1–4.3× MDE). Persistence itself moved ~1%. | ⚠️ **The ruler was stable; the model moved.** M1 was true of the 40-lesson vehicle it measured and nobody re-ran the race for two months. A baseline result has a *vehicle* scope, not just a metric scope. |
+| S3 | A fix that restores the missing behaviour should improve the forecast | Scheduled sampling **largely fixed the zero collapse** — `act_ratio` at h18 **9.4×**, at h36 **28×** — and **lost AP at every horizon**. It answered more, in worse places, and lost. | ⛔ Corrects the earlier "the model just needs to answer" story (M15/M18). **Restoring a field statistic is not evidence of a better forecast.** |
+| S4 | Sharper spatial structure is better | **M46 — 12 of 12 arms, six unrelated mechanisms:** sharpening the model's spatial view helps h1 and **hurts h36**. | ⚠️ h1 and h36 are different objects. An intervention validated at one horizon can be inverted at the other, and unanimity across mechanisms means it is the axis, not the implementation. |
+| S5 | Our diagnostics describe the field, so they can judge it | **M53 / EXP-3 — occurrence, body magnitude and gate–body alignment are ALL preserved by a spatial roll that destroys the forecast.** Alignment reads **61.5** (vs the clamp's 69.3) while `AP@h18` collapses **0.362 → 0.0075**. | ⛔ **Three diagnostics, all blind to placement.** Any internal statistic — one computed from the forecast alone, without truth — cannot distinguish a good forecast from the same forecast in the wrong place. Judging placement needs a truth-referenced score. |
+| S6 | The recurrent state is a memory of dynamics | **M54 — it is a MAP.** Roll it 90 cells and the forecast moves 90 cells **intact, r≈0.90**, while skill collapses **48×**. | ⚠️ A perfectly coherent, perfectly structured, perfectly self-consistent forecast can be entirely in the wrong place, and every structure metric will approve. |
+| S7 | Ensembling buys diversity | **M66 — the 8-member pool beats its best member (AP@h18 0.2203 vs 0.1804), but subsampling the same pool back to 16 draws collapses it to 0.1462 — *below* the best member.** AP is monotone in S. **M67:** gate errors correlate **0.96–0.99 across all 28 pairs**. | ⛔ The ensemble was buying **sample count, not member disagreement.** A pooled-vs-best comparison at unequal S measures S. Fix the draw count before claiming an ensemble effect. |
+| S8 | A roster of different thresholds adds something | **M69 — mathematically it cannot.** `E_τ~U(0,1)[(gate ≥ τ)] = gate`, so averaging thresholds reconstructs the soft gate **from below** and never crosses it — within 0.5–0.7% at 64 τ. | minor — but a good example of a design question settled with algebra and zero GPU. Do that first. |
+| S9 | The posterior mean is the natural point estimate | **M70 — `gate × mu` beats the mean of 16 draws by +58% to +159%** at identical total mass; `median` is an **empty map** (0.05–0.14% of cells non-zero). | ⚠️ How you collapse the cube is a first-class modelling decision with effects larger than most interventions we tested. |
+| S10 | Our failed approximation explains the failure | **M63 — the straight-through estimator is NOT backwards.** We tested our own excuse and it did not hold, so **the objective was wrong**, not the approximation. | ⚠️ Rare and valuable discipline: test the excuse. Without M63 the BPTT-SA null would have been attributed to an implementation detail and re-attempted. |
+| S11 | A component that ablates to nothing is unimportant | **C-323 — you cannot ablate a regenerated component.** `hs = o ⊙ tanh(hl)` is recomputed from the cell every step, so a perturbation self-heals. **M60's "hidden 0/26" is architecturally guaranteed, not a finding.** | ⛔ A null from an ablation that the architecture makes impossible is not evidence. Check whether the manipulation can survive one forward pass before interpreting its null. |
+| S12 | The mechanism story follows from the measurement | **"The recurrence diffuses the gate" was backwards on its own terms.** Smoothing *raises* spatial autocorrelation, so diffusion predicts Moran's I going **up** — it went **down** (M6). Falsified using data already on disk. | ⚠️ Four other mechanism stories were retracted the same week. A story that has not been asked to make a *directional* prediction has not been tested. |
+| S13 | The rollout starts from a broken state | **M43 — it does not.** The rollout does not begin from an out-of-distribution state; the hypothesis is refuted and the one positive intervention (M38) still has **no mechanism**. | ⚠️ We are comfortable shipping an intervention that works without knowing why. That is defensible; pretending otherwise is not. |
+| S14 | Fixing BatchNorm recalibration means giving it clean data | I switched dropout **off** during BN recal. **Inference runs MC-dropout ON** (ADR-059), so `running_var` came out **14–21% low at 14 of 15 BN layers**. Reverted before merge. | ⛔ The invariant was documented in **three places, all on the consumer side**, and none was read by a training-side edit. A "hygiene" fix to a measurement path changes the measurement. |
+| S15 | Identical models have identical files | **M22 — two byte-identical models have different `.pt` shas.** torch stamps mtimes into the zip. | minor, but it invalidated an identity check we were relying on. Hash the weight tensors. |
+| S16 | The test suite protects the measurement code | **2,079 green tests, 25 runtime-verified findings, 0 caught.** Then 5 of my own new guards survived their first mutation; a later audit found **17 of 33** mutations survived. | ⛔ Coverage is not sensitivity. The only reliable check is to **delete the fix and watch the test stay green**. |
+| S17 | Packaging is a plausible source of drift | **M76 — the PyPI wheel reproduces the checkout byte-identically**, 190 tensors × 4 models, BN buffers included. A *positive* surprise. | minor — worth recording because it removes a whole class of suspicion, cheaply. |
+
+---
+
+## §8 — What our own experience demands of a promotion gate
+
+**Rule for this section: no requirement without a scar.** Every row below is something that actually
+bit us here, with the cost. Nothing is included because it is good practice elsewhere.
+
+Whoever owns the promotion protocol can compare this against it. I make no claim about what the
+protocol currently says.
+
+| # | Requirement | The scar that earns it | Cost to adopt |
+|---|---|---|---|
+| ⛔ 1 | **Ask, before the run: "what would this measurement look like if the effect were absent?"** Record the answer. | Cluster 18 — **23 Tier-2/3 entries**, each of which cost GPU time or produced a wrong ledger row, and which the register read as 23 unrelated incidents until 2026-09-10. Three of its four shapes fail this one question. | One line in a pre-registration. |
+| ⛔ 2 | **A reference forecast on every scored run — persistence *and* climatology — with the zero-share decomposition and the ARTIFACT verdict applied automatically.** No result may be reported against `none`. | §0.1: a forecast with `size_ratio` 0.0000 cleared the 5% bar and would have been promoted. It stood **16 days**. This is the ledger's own recommendation #3 and it is **not implemented**. | Structural, cheap; the instruments exist (`rollout_ruler_core`, `climatology_resample`). |
+| ⛔ 3 | **A floor gate on the CONTROL arm before any treatment arm runs: FG-A `AP_ctrl ≥ 5 × prevalence`, and FG-C `(1−θ)·AP_ctrl ≥ 3 × MDE`.** | A 6-GPU-hour pre-registered sweep with falsifiers was **VOID as run**; 9 ledger rows and 5 inferences re-scoped, 3 claims retired. One manipulation read **+0.9%** on the floored vehicle and **−93.7%** on a real one. The condition was visible in a CSV **5 h 47 m before the last arm finished.** | Zero GPU beyond the control. ⛔ **And fix the existing gate: both callers omit `mde_ap`, so FG-C never evaluates.** |
+| ⛔ 4 | **Match S between arms and reference, enforced in the scorer, and refuse an AP comparison across gated/ungated arms.** | Persistence was published **understated by 31%** at h18 by two independent scoring defects. #282's share of it **scales as 1/n_origins**, so a single-origin study scores persistence as exactly zero, silently. | The check exists (`reference_sample_width`, `assert_sample_cube`) and **no scorer calls it**. |
+| ⛔ 5 | **Every metric that gates a decision must have a degenerate-forecast test that fires — run against the HEADLINE scorer, not the metric function in isolation.** Include the spatial roll and the single-huge-cell. | The roll: three field statistics unchanged, **AP 48× worse**, and **no test guards it**. The seven degenerates that *are* implemented all test `activation_metrics` in isolation; nothing feeds a degenerate cube through the scorer that produces the published row. | Days, not weeks. Synthetic fields, no GPU. |
+| ⛔ 6 | **Prove the intervention is potent, at a trained checkpoint, before spending GPU on the arm.** | **C-324 (Tier 1):** 7 unit tests, 5/5 mutations caught, lint clean, 1,901-test suite green — and **inert**. Two arms trained **276 minutes to byte-identical weights**. Caught only because the result was impossible; a half-connected knob would have produced a plausible number and the pre-registered rule would have read it as "hypothesis dead". | `scripts/potency_check.py` exists. Two call sites in the whole repo. |
+| ⛔ 7 | **Judge a guard by deleting the thing it guards, not by coverage.** | 2,079 green tests, 25 runtime-verified findings, **0 caught**. Then: **27 of 40 tests passed with the call site deleted**; **1 of 4 test files passed with the feature removed**; **17 of 33 mutations survived** the fix for the entry about tests that cannot fail. | Minutes per guard. |
+| ⛔ 8 | **An adversarial pass by a non-author, in a clean context, denied the commit message and design docs.** | **The highest-yield detector in the record: 9 of 31 retractions.** Against *"defects found by my own review: 0."* One round found errors introduced by the previous round's fix. | Hours. It is the cheapest thing on this list relative to what it finds. |
+| ⚠️ 9 | **A negative claim requires a search *plus* a positive control.** A uniform-zero result across a heterogeneous population is instrument failure until proven otherwise. | **C-309, twice** — once asserting an untested axis that was running in every arm of every experiment, and once in the *fix* for that, where "none of 26 papers has a claim" was a wrong glob path. | One extra query. |
+| ⚠️ 10 | **A cheap screen's NO must be recorded with its false-negative mode and a reopen trigger, or it does not close anything.** | C-307, and the chair's own words: *"we have dropped multiple things on the floor … then me later insisting that we try for real, and then it turns out that it in fact works. This happens so much."* | Two lines per closure. |
+| ⚠️ 11 | **Recompute every headline figure from the committed data before it leaves the dossier.** Trace a suspicious number to its arm; do not "correct" it on suspicion. | **3 of 9 headline figures wrong**, all failing the same way (cells of a 4-D grid quoted as one comparison); **two had already propagated into the register**. And the pass produced a false positive of its own. | One pass per dossier. |
+| ⚠️ 12 | **Enumerate every forward pass that is not a training step, and what augmentation each one sees.** | **C-328 instance 4 is in every shipped artifact:** `random_flips` defaults True and reaches BN recalibration, so ~half of every BatchNorm running statistic in every production model was accumulated on H/W-flipped fields. *"Every log, gate and score would have looked clean."* | A checklist line. |
+| ⚠️ 13 | **Audit the reference, not only the model.** An outlier scan on the truth field at build time. | The register on itself: *"extensive coverage of whether we measure the model correctly, and **none** of whether the thing we measure against is correct."* One truth cell reads 27,413 → 2 → 32,505 where the global maximum elsewhere is 1,100. | A single query at build time. |
+| ⚠️ 14 | **Pairing by default**, and record `torch_seed`, `S` and the vehicle alongside every score. | MDE **0.0541 → 0.0086** from pairing alone on identical data; the noise the programme designed against was **~5× too large**. And because the sample cube's randomness carries **no model identity**, a paired reading and an independent one are indistinguishable in the CSV. | Free. |
+| minor 15 | **Hash weight tensors, never `.pt` files.** | Two byte-identical models have different `.pt` shas — torch stamps mtimes. The invalid check *"would have shown 'still non-deterministic' even after a correct fix."* | Already implemented in `compare_run_determinism`. |
+
+### 8.1 Three things this list deliberately does not ask for
+
+- **A new framework.** The September postmortem's own conclusion: the failures were *"of attention at a
+  specific moment, not of missing machinery"*, and its fix was **four checklist lines**, explicitly not
+  a framework. The register separately warns that a guard-heavy config validator grew 303 → 1,167 lines.
+- **More metrics.** The apparatus already computes `recall_mass`, `gate_auc`, `tail_miss`, `fss_1`,
+  `moran_i`, `conc1pct`, `ratio_p10/p90` and more that **nothing reads**. Wiring an existing metric to a
+  decision beats adding one.
+- **Repo-wide gates.** The register's structural finding is that *"no gate in this repo is repo-wide;
+  each is opted into per launcher, and a dossier that forgets one gets no warning."* That is a real
+  problem — but the demonstrated failure mode of centralising is C-283, where one broken shared check
+  turned CI red for two weeks and nobody noticed.
+
+### 8.2 The one measurement this report recommends making
+
+⛔ **Establish whether the h=1 win is real.** It is the only non-ARTIFACT signal in the entire
+programme. It currently reads **UNDECIDABLE for a purely procedural reason** — no bootstrap CI was
+computed — while both point estimates say REAL (CRPSS +0.197, ΔAP +0.152). It needs a re-run emitting
+**per-origin** scores at matched S, because the cubes were score-then-deleted.
+
+It is cheap and it is decisive in both directions: it either establishes this project's first genuine
+win over a naive baseline, or it removes the last one.
+
+---
+
+## Appendix A — The instrument inventory
+
+**Where the ruler lives.** ⚠️ **No forecast metric is computed anywhere in `views_hydranet/`.** The
+entire apparatus is `scripts/` (26 files, 5,460 lines) plus `reports/*/tools/` (109 files), reading
+`origin_*/<target>/y_pred.npy` + `identifiers.npz` — arrays this repo does not write. The only
+evaluation artifact written in-package is the body-mean dump.
+
+### A.1 Still load-bearing
+
+| instrument | measures | scope | note |
+|---|---|---|---|
+| `reports/2026-07-17_lodestar_eval_dossier/tools/lodestar_score.py` | AP, Brier, crps all/events/none, `size_ratio` (median), `pos_mcr` (mean) | **T=0 only**; all-cell; support intersected across models | **FROZEN.** `--selftest` is the freeze gate. Every later ruler imports it. ⚠️ Its one soft check (support coverage, tol 0.20) **cannot fail** — warns, continues, no flag in the CSV |
+| `.../2026-07-29_v2_scoreboard_dossier/tools/score_v2_horizons.py` | the 21-column headline row | h∈{1,18,36}; all-cell | the current headline scorer; h=1 pinned byte-equal to lodestar |
+| `.../2026-07-25_t0_rollout_skill_dossier/tools/rollout_skill_score.py` | the lodestar row indexed by horizon, h=1..36 | all-cell | hardcoded `/home/simon` path; `block_bootstrap_crps` single-arm support = **C-277**, `xfail(strict=True)` |
+| `scripts/rollout_ruler_core.py` | `zero_share`, `crps_skill_score`, `climatology_resample`, `verdict_token`, `assert_sample_cube`, `reference_sample_width` | horizon-agnostic pure fns | **the current ruler contract**; 53 tests, never skips. `verdict_token` is the strongest guard in the repo. ⛔ `assert_sample_cube` / `reference_sample_width` are **called by no scorer** |
+| `.../2026-07-29_v2_scoreboard_dossier/tools/activation_metrics.py` | `act_pred/true/ratio`, `precision_at_k`, `mag_on_false_pos/true_pos` | all cell×draws; threshold-free | **the only red-teamed metric module** |
+| `scripts/ap_block_bootstrap.py` | origin-block CI + MDE on AP; AP ratio; AP diff | per horizon; 13 origins | the only instrument that **refuses** a gated-vs-ungated AP comparison |
+| `.../2026-08-22_state_freeze_l300_dossier/tools/paired_ci.py` | paired origin-block CI, AP(cell) − AP(none) | one horizon, two arms | the 6.3× MDE result |
+| `.../2026-08-21_persistence_reference_dossier/tools/fair_persistence.py` | persistence AP ranked by value vs by indicator | 7 horizons | repairs the S=1 AP quantisation defect — **not fixed at source** |
+| `scripts/floor_gate.py` | FG-A, FG-B (advisory), FG-C | one readout horizon; control arm | 20 `FLOORGATE_*` tokens on disk incl. 2 `_FAIL`. ⛔ FG-C never evaluates on either gate that calls it |
+| `scripts/potency_check.py` | does the knob move a number; does a positive control fire | pre-GPU, the arm's own config | **two call sites in the repo**, both post-dating the 276-wasted-minute incident |
+| `scripts/audit_run.py` | 13 per-step metrics incl. `spearman_pos`, `range_compression`, `gate_ap` | **every step 0–35** | `screen_verdict` reads 7 of 13; four are computed 36× and read by nobody |
+| `scripts/field_sharpness.py` | `fss_1`, `fss_11`, `fss_ratio`, `conc1pct`, `moran_i` | one field vs truth, threshold-matched | ⚠️ **contradicts itself**: module docstring says `moran_i` is primary and `fss_ratio` "must not be read as sharpness"; the function docstring 30 lines later calls `fss_ratio` "the primary readout" — a live C-303 instance |
+| `scripts/lesson_curve_gate.py`, `scripts/ss_sweep_gate.py`, `scripts/input_noise_gate.py` | verdict tokens with falsifiers | per programme | all three **can fail** and have; `ss_sweep_gate`'s anchor guard was in the pre-registration and **missing from the code until 2026-08-21** |
+| `scripts/arm_identity_check.py`, `scripts/arm_postflight.py` | config↔request identity; artifact completeness and support match | per arm | `arm_postflight`'s support-match check — its whole point — is **skipped when `reference` is omitted** |
+| `.../2026-09-03_drivers_and_dynamics_dossier/tools/subset_ap.py` | AP on an onset universe vs a continuation universe | partition, not subset | the **only** instrument that separates onset from continuation |
+| `.../2026-09-02_silence_vs_fade_dossier/tools/decompose.py` | the exact identity `mean(g·μ) = mean(g) × [Σgμ/Σg]` | all cells, nothing conditioned | the fix for C-318 (a conditional mean on a vanishing denominator, twice) |
+
+### A.2 Superseded or dead
+
+`compare_run_determinism` (**one recorded run, 2026-06-15; no test file** — and it is the determinism
+gate) · `crps_significance` (step-1 only; its iid-over-cells bootstrap is the construction C-221 later
+banned) · `gate_reliability` (pre-registered and "never run" until it was) · `diagnose_io_gain`
+(bloom-era, synthetic inputs by its own "HONESTY" docstring) · `hurdle_decompose` (still imported by
+three probes; its only range guard is a bare `assert`, stripped under `-O`) · `mcr_readout` (superseded
+as a readout, **load-bearing as the join library** for six scripts) · `screen_verdict` (thresholds
+frozen to a 300-lesson floor; nothing has invoked it since its dossier) · `sharpness_scorecard`
+(superseded as a ruler, load-bearing as a library) · `decay_attribution_probe`,
+`decay_discrimination_probe`, `gate_resolution_probe`, `single_window_overfit`,
+`probe_inverse_transform_memory` (**dead**) · `tail_scorecard` (**UNKNOWN/untrusted** — the ruler-trust
+dossier lists it "tracked, C-224-labelled, untested", and it is the only prediction-reading instrument
+with **no join guard**, so an unmatched cell is silently dropped from the positive set).
+
+### A.3 The same name, different quantities
+
+⛔ **"MCR" names five things** across the apparatus: `mcr_all` (all cells), `pos_mcr`/`mcr_events`
+(**mean** of per-cell ratios on event cells), `MCR` in `mcr_readout` (a different estimator on the
+positive subset), `mcr_none` (**absolute mass, not a ratio**), and `mcr` in `sharpness_scorecard`. The
+locked glossary defines `pos-mcr` and `size-ratio` and warns they differ — but has **no row for
+`mcr_all` or `mcr_none`, the two columns the headline scorer actually emits.**
+
+⛔ **"AP" names two things**: a continuous gate probability for gated arms, and a statistic with S+1
+levels — **two levels at S=1** — for gate-less arms. Four scorers form it the same way; one refuses the
+mismatch.
+
+⚠️ **Two CRPS implementations**, with no parity test: the frozen hand-verified `lodestar_score.crps_ensemble`
+and `views_evaluation`'s `calculate_crps_native`. The `audit_run` → `screen_verdict` chain gates on the
+second; the lodestar ruler uses the first.
+
+⚠️ **One metric block copied verbatim into three files**, each with a docstring saying "they must match
+the audit tool". **Nothing tests that they still match.**
+
+---
+
+## Appendix B — The retraction log
+
+31 traceable retractions or overturns, 2026-05 → 2026-09. **≥14 concern a published ledger row or a
+delivered verdict.** Two independent internal estimates of the base rate exist and both are lower
+bounds: a systematic recompute found **3 of 9 headline figures (33%)** wrong or misleading; a deletion
+test found **27 of 40 tests (68%)** passing with the call site removed.
+
+Full table with detection mechanism and how long each stood: see the source harvest. The ten most
+consequential:
+
+| claim announced | what it actually was | caught by | stood |
+|---|---|---|---|
+| "coords made it worse" + the FAO eligibility table + RESULTS_LOG deltas | the baseline alone swings **2.99–3.69** run-to-run from init-RNG drift | a **two-run parity gate** before a refactor | weeks |
+| **gated_NB beats climatology at h36** | **ARTIFACT** — 75.9% of the gap is `crps_none`, AP is *worse*, `size_ratio` 0.0000 | Epic #263, exact decomposition of archived CSVs, no GPU | **16 days** |
+| `gated_ZINBcore` "structurally dead, 5–15× worse" — arm retired | the frozen ruler's `crps_all` is **gate-independent**, so it scored the body **ungated**; re-tested, **~6× better** and viable | a re-test | 5 days |
+| "it is the long-term memory — **cell carries 89%**" | `hs = o⊙tanh(hl)` makes `cell ≈ all` architecturally predetermined | `/code-review medium` | ~1 day |
+| "the gate diffuses"; "the model needs to answer" | properties of a floored smoke vehicle promoted to properties of the model; one ratio's denominator held **two cells** | reading an unrelated CSV for an unrelated question (**luck**) | 3 days |
+| 3 of 9 feedback-realism headline figures | cells of a 4-D grid quoted as single comparisons; two had already propagated into the register | the Claims-Ledger verification pass | 1 day |
+| **`truncated_nb` fixes the #258 double zero** (it was built for it) | at L=300, 4 seeds: ΔAP@h18 −0.219 to −0.256, **7.5× the 3×MDE bar**. The double-counted zero was an accidental **brake** | re-running on a converged vehicle after the floored one was voided | **10 days** |
+| σ_max = 1.60 and "the first direct observation" of rising state drift | the probe sampled the **teacher-forced warm-up**; true σ_max **7.7628**, and the real phase **collapses 40×**. *"Every downstream guard passed"* | `/code-review medium`, incidentally | ~1 day |
+| BPTT-SA "unit tested (7), mutation tested 5/5, suite green (1,901)" | **inert on the production path**; two arms trained to byte-identical weights | **the result being impossible** — named as luck | 276 GPU-min |
+| C-58's forecast-sniffer remedy | made **every forecasting run impossible**; no forecasting run had ever completed in this repository | a fresh look, #390 | **months** |
+
+⛔ **Detector yield, across all 31:** non-author adversarial review **9** · two numbers disagreeing and
+the disagreement *traced* **3** · user escalation **3** · a control arm **2** · re-running on a
+non-floored vehicle **2** · running the pre-registered rule properly **2** · a systematic recompute **1**
+(which found 3) · an impossible result **1** · **the test suite: 0.**
+
+---
+
+## Appendix C — Provenance, and how much weight this report can carry
+
+**Sources read.** `reports/RESULTS_LEDGER.md` (claims M1–M76, the MEASUREMENT/INFERENCE split, the FAO-05
+criteria section and the abandoned run ledger) · `reports/technical_risk_register.md` (~340 entries,
+the 20 causal clusters, the §Disagreements section) · the four postmortems · `reports/GLOSSARY.md` ·
+`reports/2026-08-13_evaluation_pitfalls_and_metric_battery_DRAFT.md` · the 53 dossiers, prioritising the
+25 dated after 2026-08-13 · all 26 `scripts/` and the 109 dossier `tools/` · the evaluation-contract
+tests · GitHub issues, open and closed.
+
+**What is verified here.** Every figure in this report was traced to a `file:line`, an M-number, a
+C-number or an issue. Nine headline figures were spot-checked back to their source file. Two
+load-bearing structural claims were verified independently of the harvest: cluster 18's pre-flight
+question is quoted verbatim from `technical_risk_register.md:75`, and `assert_sample_cube` /
+`reference_sample_width` have **zero callers** outside their own module and tests.
+
+**What this report inherits without re-deriving.** The 2026-08-13 DRAFT's own header states that
+several of its citations are from memory. Where this report reuses a DRAFT claim, it is because a
+register entry, a ledger row or a dossier independently carries it — the A1–I4 letters are kept as
+cross-references, not as evidence.
+
+**The scope ceiling on everything below the surface.** Most of the underlying record is **single-seed,
+single-vehicle, `sb`-only, one origin** — below this repo's own stated bar of ≥3 seeds on validation.
+The two exceptions that carry real weight are the persistence re-reference (n=4 seeds) and the
+multi-vehicle decomposition (4 vehicles, 1 seed each, which the repo itself classes as an *escalation
+trigger, not a conclusion*).
+
+**Three things a reader should not conclude from this report.**
+
+1. **Not** that the adopted protocol is wrong in general. It is wrong on *this* target, demonstrated
+   once, decisively (§0.1) — and one of its guardrails is structurally inapplicable here (C-224, the
+   99th percentile of a 99.7%-zero field is zero). Whether it works elsewhere is not a question this
+   record can answer.
+2. **Not** that the working ruler is trustworthy because it caught the protocol out. §3 and §5 are
+   about the working ruler's own failures, and there are more of them than of the protocol's — because
+   it is the one we actually used.
+3. **Not** that the retraction count is a sign of low quality. It is a sign of a *detection* practice.
+   The alarming number is not 31 retractions; it is **0 caught by the test suite** and **0 found by the
+   author's own review**.
+
+**The report's own weakest point, stated rather than buried.** It is a synthesis, and a synthesis is
+exactly the artifact class this repo has repeatedly found to drift — *"each dossier reasons locally and
+correctly; nothing forced a claim to survive contact with the others, and that is exactly where
+narrative drift lives."* This document has not itself been through the adversarial pass that §8.8
+identifies as the highest-yield detector in the record. **It should be.**
