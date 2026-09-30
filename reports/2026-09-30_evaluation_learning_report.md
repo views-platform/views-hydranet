@@ -47,6 +47,17 @@ any aggregation level: on one model's validation, 468 origin-months, 90% interva
 **0% / 1% / 7%** where ~90% is wanted, and the cells behave as independent marginals
 (`Var(total)/ΣVar(cell)` ≈ 0.95), so any aggregate interval is too narrow by construction.
 
+⛔ **And the part that makes this worse than a gap: both regimes independently banned the instrument
+that would have seen it.** FAO-02 **rejects PIT for selection**, and this repo's own scope documents put
+active-cell PIT explicitly out of bounds *"anywhere, for any reason, including 'just as a diagnostic'"*.
+So it is not that nobody built the diagnostic — **it is that two independent rulers each excluded it.**
+
+⛔ **And when the collapse is finally scored, the delivered one is the worst available.** Seven collapses
+of the same cube, measured 2026-09-30: **AP spans 18.9×**, and `tower_point` — the estimator the FAO is
+served — is **last on both AP and mass**, 9.9× worse on AP than a plain mean and delivering **0.07% of
+observed mass**. §5.0 carries the table, the like-for-like comparison, and the one caveat that could
+overturn the worst row.
+
 ⛔ **3. We run two evaluation regimes and have never reconciled them.**
 *(MEASUREMENT for the dates, the VOID and the promotion rule)* The adopted protocol (CRPS
 primary, QS99/Brier/MCR guardrails, strict eligibility conjunction) was adopted 2026-06-20 and its
@@ -581,7 +592,7 @@ scope. **CLOSED-BY-EXHAUSTION** = we stopped asking; the evidence does not suppo
 | ⚠️ 7 | **Was any scheduled-sampling verdict measuring anything?** All four SS-on roster models trained under a config the repo now rejects, and *"there is no valid, non-floored SS measurement anywhere"* | and #288 asks whether the SS feedback path is differentiable at all | **#295, #288** |
 | ⚠️ 8 | **Do the direct-multi-horizon and recursive cubes score identically?** | *"Prove the ruler scores both cube types identically"* is a precondition nobody has met | **#310, #324** |
 | ⚠️ 9 | **Is the architecture bake-off attributable?** DualStream replaces the identity top-skip; WideMemory silently drops `state_channels`; MaxBlurPool2d needs an 8×8 grid and dies at the repo's own `window_dim=4`; arms matched on parameters but **not compute** (+5% to +20% wall-clock) | four open issues, no re-run | **#366–#369** |
-| ⛔ 12 | **Does AP@h18 predict anything about the served product?** If a model improves AP@h18 by 20%, what happens to the point surface the FAO receives? **Nobody knows, and no instrument connects them** — the collapse from cube to delivered number sits between them, unscored, with a measured effect of +58% to +159% (M70) | it needs one run's cube scored under every available collapse. Zero GPU | **#337, #388** |
+| ⛔ 12 | **Does AP@h18 predict anything about the served product?** ⚠️ **PARTLY ANSWERED 2026-09-30 and the answer is bad:** across seven collapses of one cube, **AP spans 18.9×**, and the delivered `tower_point` is **last**. So the optimisation target and the deliverable are connected by a transform with a larger effect than most interventions we have tested, and until 2026-09-30 nobody had scored it. **Still open:** whether it holds at the delivered 128 draws, and whether it holds on the pooled ensemble | the 128-draw repeat is queued on the `models` side; AP is not computable on the forecast months (no truth), so it needs **pooled validation** draws — which do not exist on one machine today | **#337, #388** |
 | ⛔ 11 | **Has long-horizon training ever been tried?** Aceituno2025 Thm 4.6: minima found on short horizons do not generalise to long ones, gap `O(e^{λ(T_h−T_l)})`. Scheduled sampling, increased teacher forcing and `truncated_nb` all changed **what the model is fed**; **none changed what is optimised** | so three experiments resembled long-horizon training and none was it. ⚠️ INFERENCE, and the sharpest unexamined direction in the record | — |
 | ⚠️ 10 | **Should QS99 be in the protocol at all?** C-224 is **Tier 1** and its governance ask is recorded as *unchanged, still open* | requires amending a framework that is not in the repo | C-224 |
 
@@ -629,6 +640,45 @@ The concrete instance, supplied by the `models` session from a 40-lesson rehears
 real run's — and a downstream service reproduced the zeros independently. The model was undertrained and
 the estimator was behaving correctly. ⛔ **The finding is that nothing in our inventory would have
 flagged it.**
+
+#### And when the collapse IS scored, the delivered one is the worst of seven
+
+Measured 2026-09-30 by the `models` session. ⚠️ **Scope, on the line: `blue_stranger`, validation
+partition, 6 origins, **16 draws**, `lr_sb_best`, Africa+ME. One model — NOT the pooled ensemble.**
+Seven collapses of the **same cube**:
+
+| collapse | AP | mass_ratio | nonzero_share |
+|---|---:|---:|---:|
+| `gate_only` | 0.29854 | 0.02864 | 1.00000 |
+| `mean` | 0.15659 | 0.06506 | 0.01450 |
+| `q95` | 0.15583 | 0.29371 | 0.01450 |
+| `gate_x_condmean` | 0.15539 | 0.12760 | 0.01450 |
+| `conditional_mean` | 0.12435 | 0.33015 | 0.01450 |
+| `median` | 0.04582 | 0.00658 | 0.00096 |
+| **`tower_point`** — **what the FAO is served** | **0.01578** | **0.00070** | **0.00009** |
+
+`mass_ratio` = collapsed total ÷ observed total. **AP spans 18.9× across collapses of one cube.**
+
+⛔ **The like-for-like comparison, and it needs no caveat: `tower_point` vs `mean`.** Both are magnitude
+collapses of the same cube. `tower_point` is **9.9× worse on AP** and delivers **0.07% of observed mass**
+against `mean`'s 6.5%. `mean` is roughly what a researcher looks at; `tower_point` is what the partner
+receives.
+
+⚠️ **Do not lead with `gate_only` winning** — the `models` session flagged this and they are right. AP
+measures discrimination of occurrence and the gate *is* the occurrence model, so scoring it on AP is
+close to scoring it on its own objective. `gate_only` 0.299 vs `mean` 0.157 is not like-for-like, and a
+magnitude-aware score would treat them differently.
+
+⚠️ **The caveat that could overturn the worst row, and it is asymmetric.** This is **16 draws**, and
+`tower_point` is a tip estimator on a 99.75%-zero field, where the tip floor is almost always all-zeros.
+Its 0.0 may be small-sample behaviour **of that estimator specifically** rather than a property of the
+collapse; the other six are far less sample-sensitive, so the caveat lands almost entirely on the row
+that looks worst. ⛔ **At the delivered 128 draws it could behave completely differently, and that is
+the open question.** If it recovers, this is a draw-count finding. If it does not, the partner has been
+served the worst available collapse of the cube throughout.
+
+✅ **One independent confirmation:** `median` returns **0.096% non-zero** — an empty map — reproducing
+M70 exactly at a different scope, by a different route, on a different vehicle.
 
 **(b) No calibration of the predictive distribution, at any aggregation level.** §3 catalogues metric
 blindness thoroughly and contains **nothing** about whether the distribution is honest. Measured by the
@@ -1019,13 +1069,21 @@ before forming views, which is exactly what that pass forbids. Accepted and fold
 | What were the 8 models promoted under, if neither regime? | **Answered in §1** — two kill criteria, and the one comparative criterion VOID |
 | The apparatus cannot be run by anyone else ⇒ nothing is independently reproducible | Drawn as a conclusion and **promoted into §0** |
 | The lodestar's cannot-fail check is cluster 18 shape (b) in our own frozen instrument | Said out loud in §5.7 |
-| Does AP@h18 predict anything about the served product? | **New §4.3 item 12** |
+| Does AP@h18 predict anything about the served product? | **New §4.3 item 12** — and they then **measured it**: seven collapses of one cube, AP spanning 18.9×, `tower_point` last. Folded into §5.0 with their scope, their warning not to lead with `gate_only`, and their asymmetric 16-draw caveat |
+| *(their addition)* Both regimes banned the instrument that would have seen the all-zero surface — *"a different and more alarming claim than nobody built it"* | **Promoted into §0 item 2** at their suggestion |
 | A two-line model-state summary belongs in §0 | Added |
 
 **Rejected, with reason:** their note 13 (*"§2.12 claims the counts say how, but I could not find the
 counts"*) — the counts are in §2.12's table; they read the file between the two commits.
 
 **Not done, and it is the one that matters:** the clean-context adversarial pass. Still owed.
+
+**Two things that cannot be done on this machine**, recorded so nobody re-plans around them: **AP is not
+computable on a forecasting run** — the forecast months have no observed values, so there is no label —
+and the 8-model pooled-validation comparison **cannot be run here**: exactly one
+`predictions_validation_*` directory survives on this machine (4.7 GB, in Trash, model unidentified),
+because the roster cubes were deleted in a disk cleanup. The pooled 128-draw repeat is therefore queued
+on the `models` side, without AP.
 
 **The report's own weakest point, stated rather than buried.** It is a synthesis, and a synthesis is
 exactly the artifact class this repo has repeatedly found to drift — *"each dossier reasons locally and
