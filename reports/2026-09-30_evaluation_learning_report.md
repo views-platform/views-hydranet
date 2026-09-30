@@ -195,9 +195,11 @@ the model set is smaller than the noise cannot rank that set. **Amendment: rank 
 
 **2. ⛔ QS99 cannot be a guardrail on this field.** The 99th percentile of a 99.7%-zero field **is zero**,
 so the guardrail sits inside the zero mass (C-224, **Tier 1**). And it is not merely a bad choice here:
-Taillardat2023 and Brehmer & Strokorb prove **no proper-score expectation** separates different tail
-shapes. **Amendment: drop QS99, or replace the tail guardrail with something that is not an expectation
-of a proper score.**
+C-224 cites Taillardat2023 and Brehmer & Strokorb for the claim that
+**no proper-score *expectation*** separates different tail shapes — ⚠️ a citation whose status is
+qualified in §3.2 and which the amendment does **not** need. **Amendment: drop QS99, or replace the tail
+guardrail with something that is not an expectation of a proper score.** ✅ It rests on the arithmetic
+alone.
 
 **3. ⛔ No CRPS-based superiority claim without the decomposition beside it.** This is the one that is
 *measured* rather than argued: the sanctioned rule, applied faithfully, promoted a forecast with
@@ -487,9 +489,20 @@ h18 while gate AP spans **13×** (M9). Across the roster, CRPS identical to **th
 
 ⛔ **QS99 cannot work on this target, structurally.** **C-224 (Tier 1):** the 99th percentile of a
 99.7%-zero field **is zero** — the guardrail sits *inside* the zero mass. And it is worse than a bad
-choice: Taillardat2023 and Brehmer & Strokorb prove **no proper-score expectation** — including the
-banned twCRPS — separates different tail shapes ξ. **This is a guardrail of the adopted protocol.**
-Its Tier-1 governance ask is recorded as *unchanged, still open*.
+choice: C-224 cites Taillardat2023 and Brehmer & Strokorb for the claim that **no proper-score
+*expectation*** — including the banned twCRPS — separates different tail shapes ξ. **This is a guardrail
+of the adopted protocol.** Its Tier-1 governance ask is recorded as *unchanged, still open*.
+
+⚠️ **Citation status, flagged not fixed — Appendix D's discipline applied to this report.** Reviewed
+2026-09-30 by the `library` session. **Brehmer & Strokorb is not in the library**, so half the
+impossibility citation cannot be verified from our own holdings. Taillardat2023 **is** held, and its
+extracted claim is narrower than the sentence needs: it concerns the expected **weighted** CRPS, not
+proper-score expectations in general. Ehm2016 sharpens what the impossibility can mean — **elementary
+scoring functions *can* distinguish forecasters pointwise** (Murphy diagrams) — so the barrier lives in
+the **expectation**, not in the scoring framework. ✅ C-224 and this report both say *expectation*, so the
+precision is intact; but the sentence currently rests on one verifiable paper about weighted CRPS plus one
+unverifiable one. ⛔ **The QS99 half needs none of it:** *"the 99th percentile of a 99.7%-zero field is
+zero"* is arithmetic.
 
 ⛔ **MCR is a first-moment ratio and hides compensating errors.** It read ≈1.0 while activation was
 **4–115×** wrong, cancelled by over-magnitude (#258). (DRAFT A1, the compensating-error pattern.)
@@ -507,6 +520,26 @@ FSS@1/conc1% spatial guard — stands. Register integrity tests green (54 passed
 
 ⚠️ **Why it mattered more than a tidy:** C-167's was the one instance of the conflict wired into a
 **pre-registered decision rule**, not merely into prose. It had stood for two months.
+
+⚠️ **The theory predicted the CRPS finding, and the report had only measured it.** Supplied by the
+`library` session: **Bolin2023** proves CRPS is **not locally scale invariant** — its scale function is
+`σ^{α−2}·s(Q)`, so **discriminatory power grows with scale.** On a near-zero field the scale is tiny, so
+the discriminatory power is tiny. That is the mechanism behind four arms sitting inside 0.0007. The
+finding moves from *"we measured that CRPS does not work here"* to *"we measured it, and the theory says
+it cannot."* ⚠️ And a caution on our own instrument from the same paper: **skill scores are in general
+improper even when built on a proper rule.** `CRPSS` appears throughout this record as a headline
+number — §2.3 uses it only inside a verdict that also requires ΔAP and the zero-share, which is the
+right shape, but a bare CRPSS ranking would be unsound.
+
+⚠️ **And a tension the report cites into existence without resolving.** §3.2 bans `crps_events` from
+selection on Lerch2017's authority. **Lerch2017's own proposed remedy for the Forecaster's Dilemma is
+proper *weighted* scoring rules — twCRPS among them** — which is the family banned by SCOPE.md item 15.
+So the literature's solution to the problem we cite is the thing we have excluded. ⚠️ Be precise about
+which "weighted": Gneiting2011 proves **multiplicatively** weighted scores improper, while
+**threshold-weighted and quantile-weighted CRPS are proper.** The ban is defensible for *selection*; it
+is **not** obviously defensible for *diagnostics*, and on the evidence here twCRPS-as-diagnostic looks
+caught in the crossfire of the QS99 ban rather than independently judged. Unresolved, and it belongs in
+the same governance amendment as §1's three.
 
 ⚠️ **Any statistic computed from the forecast alone cannot judge placement.** Occurrence, body
 magnitude and gate–body alignment are all preserved by a spatial roll that costs 48× in AP (C-319,
@@ -654,7 +687,7 @@ scope. **CLOSED-BY-EXHAUSTION** = we stopped asking; the evidence does not suppo
 | ⚠️ 8 | **Do the direct-multi-horizon and recursive cubes score identically?** | *"Prove the ruler scores both cube types identically"* is a precondition nobody has met | **#310, #324** |
 | ⚠️ 9 | **Is the architecture bake-off attributable?** DualStream replaces the identity top-skip; WideMemory silently drops `state_channels`; MaxBlurPool2d needs an 8×8 grid and dies at the repo's own `window_dim=4`; arms matched on parameters but **not compute** (+5% to +20% wall-clock) | four open issues, no re-run | **#366–#369** |
 | ⛔ 12 | **Does AP@h18 predict anything about the served product?** ⚠️ **PARTLY ANSWERED 2026-09-30 and the answer is bad:** across seven collapses of one cube, **AP spans 18.9×**, and the delivered `tower_point` is **last**. So the optimisation target and the deliverable are connected by a transform with a larger effect than most interventions we have tested, and until 2026-09-30 nobody had scored it. **Still open:** whether it holds at the delivered 128 draws, and whether it holds on the pooled ensemble | the 128-draw repeat is queued on the `models` side; AP is not computable on the forecast months (no truth), so it needs **pooled validation** draws — which do not exist on one machine today | **#337, #388** |
-| ⛔ 11 | **Has long-horizon training ever been tried?** Aceituno2025 Thm 4.6: minima found on short horizons do not generalise to long ones, gap `O(e^{λ(T_h−T_l)})`. Scheduled sampling, increased teacher forcing and `truncated_nb` all changed **what the model is fed**; **none changed what is optimised** | so three experiments resembled long-horizon training and none was it. ⚠️ INFERENCE, and the sharpest unexamined direction in the record | — |
+| ⛔ 11 | **Has long-horizon training ever been tried?** Aceituno2025 Thm 4.6: minima found on short horizons do not generalise to long ones, gap `O(e^{λ(T_h−T_l)})`. ⚠️ **Scope caveat added 2026-09-30: the theorem is derived for feedforward MLPs with smooth loss and ergodic dynamics; extension to RNNs is discussed as plausible and not proven — and the HydraNet is an RNN.** The mechanism, exponential gradient scaling in a chaotic autoregressive system, is generic, so I believe it transfers; that is INFERENCE. Scheduled sampling, increased teacher forcing and `truncated_nb` all changed **what the model is fed**; **none changed what is optimised** | so three experiments resembled long-horizon training and none was it. ⚠️ INFERENCE, and the sharpest unexamined direction in the record | — |
 | ⚠️ 10 | **Should QS99 be in the protocol at all?** C-224 is **Tier 1** and its governance ask is recorded as *unchanged, still open* | requires amending a framework that is not in the repo | C-224 |
 
 ### 4.4 Closed-by-exhaustion — flagged honestly
@@ -811,6 +844,25 @@ baselines or skill scores**, and **nothing that scores a collapse**. So the pair
 (§2.5) and the artifact verdict (§2.3) are strictly ahead of anything the platform has, and §8 row 2 has
 zero platform support. A migration would close §5.7 and lose §2.3 and §2.5 unless they move too. ⚠️ **Scope, theirs:** one model, 16 draws, log1p space, Africa+ME — **not** the pooled
 ensemble, which is the open question. Tooling and pre-registered falsifiers: views-models#530.
+
+⚠️ **This finding is predicted, and its fix exists in the literature.** Supplied by the `library`
+session: **Randahl2024**, written for conflict data, shows standard conformal prediction achieves correct
+**marginal** coverage while systematically **over-covering dense regions and under-covering sparse ones**
+on a skewed outcome — which is exactly the 0%/1%/7% shape measured above, the zeros over-covered and the
+events under-covered. Candidate fixes, none evaluated here: **Wang2024_SAUC**, a *sparsity-aware*
+calibration framework that calibrates zero and non-zero predictions **separately**, built for sparse
+zero-inflated spatiotemporal data — the closest thing in the library to a purpose-built answer; and
+**Kuleshov2018**'s post-hoc isotonic recalibration, which is cheap. ⚠️ **Guo2017** is worth reading beside
+C-328: it finds BatchNorm **worsens** calibration, and this repo has an open finding that ~half of every
+shipped artifact's BN statistics were accumulated on flipped fields.
+
+⚠️ **And a distinction §5.0(a) does not yet draw, which changes what the fix is.** Is the median an empty
+map because the **collapse** is wrong, or because the **distribution** is too zero-concentrated for any
+point summary to carry content? Bracher2021 argues absolute error is the right point-forecast loss in
+epidemic settings *because* it implies reporting the median — and if our median is structurally zero, then
+no reasonable point-forecast loss applied to it would see anything. **The first is a choice of estimator;
+the second is a property of the model, and only the first is fixable by changing `aggregate_method`.**
+The 128-draw repeat bears on this directly.
 
 ⛔ Note the governance shape of (b), corrected: **the register prescribed exactly this diagnostic and
 nothing ever banned it.** `technical_risk_register.md:821` (2026-06-21): *"Use integrand-weighted
@@ -977,7 +1029,7 @@ they have never been listed together. Ordered by how much they should change how
 | S4 | Sharper spatial structure is better | **M46 — 12 of 12 arms, six unrelated mechanisms:** sharpening the model's spatial view helps h1 and **hurts h36**. | ⚠️ h1 and h36 are different objects. An intervention validated at one horizon can be inverted at the other, and unanimity across mechanisms means it is the axis, not the implementation. |
 | S5 | Our diagnostics describe the field, so they can judge it | **M53 / EXP-3 — occurrence, body magnitude and gate–body alignment are ALL preserved by a spatial roll that destroys the forecast.** Alignment reads **61.5** (vs the clamp's 69.3) while `AP@h18` collapses **0.362 → 0.0075**. | ⛔ **Three diagnostics, all blind to placement.** Any internal statistic — one computed from the forecast alone, without truth — cannot distinguish a good forecast from the same forecast in the wrong place. Judging placement needs a truth-referenced score. |
 | S6 | The recurrent state is a memory of dynamics | **M54 — it is a MAP.** Roll it 90 cells and the forecast moves 90 cells **intact, r≈0.90**, while skill collapses **48×**. | ⚠️ A perfectly coherent, perfectly structured, perfectly self-consistent forecast can be entirely in the wrong place, and every structure metric will approve. |
-| S7 | Ensembling buys diversity | **M66 — the 8-member pool beats its best member (AP@h18 0.2203 vs 0.1804), but subsampling the same pool back to 16 draws collapses it to 0.1462 — *below* the best member.** AP is monotone in S. **M67:** gate errors correlate **0.96–0.99 across all 28 pairs**. | ⛔ The ensemble was buying **sample count, not member disagreement.** A pooled-vs-best comparison at unequal S measures S. Fix the draw count before claiming an ensemble effect. |
+| S7 | Ensembling buys diversity | **M66 — the 8-member pool beats its best member (AP@h18 0.2203 vs 0.1804), but subsampling the same pool back to 16 draws collapses it to 0.1462 — *below* the best member.** AP is monotone in S. **M67:** errors correlate **0.96–0.99 across all 28 pairs**. ⛔ **Corrected 2026-09-30 — this is not the gate.** The `library` session asked whether the correlation was on the gate or on the full output. Checked: `analyse_diversity.py:7,93` correlates `\|mean(draws) − truth\|` **in count space on the composed forecast**. So diversity is dead on the **delivered output**, not merely on the occurrence head — the stronger reading — and it falsifies the independence condition Deep Ensembles (Lakshminarayanan2017) rests on, where random initialisation is supposed to supply sufficient diversity. | ⛔ The ensemble was buying **sample count, not member disagreement.** A pooled-vs-best comparison at unequal S measures S. Fix the draw count before claiming an ensemble effect. |
 | S8 | A roster of different thresholds adds something | **M69 — mathematically it cannot.** `E_τ~U(0,1)[(gate ≥ τ)] = gate`, so averaging thresholds reconstructs the soft gate **from below** and never crosses it — within 0.5–0.7% at 64 τ. | minor — but a good example of a design question settled with algebra and zero GPU. Do that first. |
 | S9 | The posterior mean is the natural point estimate | **M70 — `gate × mu` beats the mean of 16 draws by +58% to +159%** at identical total mass; `median` is an **empty map** (0.05–0.14% of cells non-zero). | ⚠️ How you collapse the cube is a first-class modelling decision with effects larger than most interventions we tested. |
 | S10 | Our failed approximation explains the failure | **M63 — the straight-through estimator is NOT backwards.** We tested our own excuse and it did not hold, so **the objective was wrong**, not the approximation. | ⚠️ Rare and valuable discipline: test the excuse. Without M63 the BPTT-SA null would have been attributed to an implementation detail and re-attempted. |
@@ -1421,5 +1473,6 @@ them, because they are corroborated independently:
    on short horizons do not generalise to long ones, with a gap of `O(e^{λ(T_h−T_l)})`. Scheduled
    sampling, increased teacher forcing and `truncated_nb` all changed **what the model is fed**; **none
    changed what is optimised.** So long-horizon training *"has never actually been tried here, despite
-   three experiments that resembled it."* ⚠️ INFERENCE, and the sharpest unexamined direction in the
-   record.
+   three experiments that resembled it."* ⚠️ INFERENCE twice over — the theorem is proved for feedforward MLPs and the
+   HydraNet is an RNN, so the transfer is argued rather than established. Still the sharpest unexamined
+   direction in the record.
