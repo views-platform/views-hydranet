@@ -232,11 +232,17 @@ the method rule no scorer enforces, the floor-gate clause that never evaluates, 
 check that cannot fail, and the fact that nothing in it scores the delivered product. **Both rulers are
 defective; only one of them has been measured failing on a promotion decision.**
 
-⚠️ **And the actor, since a report can name one.** C-224's Tier-1 ask is FAO-02 owner sign-off. FAO-02 is
-not in this repo and not ours to amend — it is a pre-release note held outside git. **The only person in
-this loop who can carry these three amendments to its owner is Simon.** The ask is recorded as
-*"unchanged, still open"* and, as far as this record shows, **has never reached them.** That is the
-blocking step, and it is not a technical one.
+⚠️ **And the actor, named precisely, because an earlier draft of this passage got it wrong.** C-224's
+Tier-1 ask is FAO-02 owner sign-off — and **FAO-02 is Simon's own project**, a pre-release note under
+`~/brain/2_projects/fao02/`. So this is **not** waiting on an external party, and the earlier wording
+*"not ours to amend"* was misleading. What is true is narrower and still matters: **the document lives
+outside the code repository**, so it cannot be version-controlled with the code, cannot be checked by CI,
+and the repo's own references to it point at paths that do not exist in the tree (C-278). A developer in
+the code cannot read the rules they are being held to.
+
+⛔ **So all four amendments are Simon's to make, in a different project of his, not a technical step here.**
+C-224's ask is recorded as *"unchanged, still open"* since July and, as far as this record shows, has never
+been acted on.
 
 ---
 
