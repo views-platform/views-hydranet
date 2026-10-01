@@ -185,7 +185,7 @@ evidence about the ruler we built instead, and that ruler has itself been wrong 
 
 ⚠️ Raised by the `views-evaluation` session: §1 documented two unreconciled regimes and **declined to
 recommend which should win**, which on this report's own evidence may be the most consequential omission
-in it. They are right. The evidence supports three **specific** amendments, and it does not support
+in it. They are right. The evidence supports **four specific amendments** — three carried by measurements, the fourth by an argument and labelled as such — and it does not support
 "the working ruler wins" — so that is not what is recommended.
 
 **1. ⛔ CRPS cannot be the primary ranking metric on this field.** Not "is imperfect" — cannot. Four arms
@@ -193,8 +193,13 @@ inside **0.0007** at h18 while gate AP across the same four spans **13×** (M9);
 identical to **three decimals** from step 6 while MCR spanned 10×. A metric whose dynamic range across
 the model set is smaller than the noise cannot rank that set. **Amendment: rank on AP; report CRPS.**
 
-**2. ⛔ QS99 cannot be a guardrail on this field.** The 99th percentile of a 99.7%-zero field **is zero**,
-so the guardrail sits inside the zero mass (C-224, **Tier 1**). And it is not merely a bad choice here:
+**2. ⛔ QS99 is a tail guardrail that never reaches the tail.** The 99th percentile of a 99.7%-zero field
+**is zero**, so the guardrail sits inside the zero mass (C-224, **Tier 1**). ⚠️ **Read that precisely,
+because it is easy to garble and this session garbled it once in conversation: the claim is NOT that QS99
+evaluates to zero.** It does not — historical runs report values like 1.03 and 0.11
+(`2026-07-02_t0_calibration_screen_dossier`). The claim is that **τ=0.99 lands on the zero/positive onset
+boundary rather than on large-event magnitude**, because the real tail begins above the 99.7th percentile.
+It is a well-behaved score answering the wrong question. And it is not merely a bad choice here:
 C-224 cites Taillardat2023 and Brehmer & Strokorb for the claim that
 **no proper-score *expectation*** separates different tail shapes — ⚠️ a citation whose status is
 qualified in §3.2 and which the amendment does **not** need. **Amendment: drop QS99, or replace the tail
@@ -206,6 +211,21 @@ alone.
 `size_ratio` 0.0000 (§0.1). What separated the real h1 win from the artifactual h36 one was
 **`zero_share_of_gap` and the sign of ΔAP** — nothing in the CRPS number itself. **Amendment: a CRPS
 superiority claim is inadmissible unless it ships with the zero-share of the gap and ΔAP.**
+
+**4. ⚠️ Judge the twCRPS-as-diagnostic ban on its own merits, or lift it.** ⚠️ **Promoted to an amendment
+2026-10-01 at Simon's instruction, and it is the only one of the four resting on an argument rather than a
+number — that is stated here rather than left for a reader to notice.** The argument: §3.2 bans
+`crps_events` from selection on **Lerch2017's** authority, and Lerch2017's own proposed remedy for the
+problem it names is proper **weighted** scoring rules — twCRPS among them — which `SCOPE.md` item 15 bans
+*"anywhere, for any reason, including 'just as a diagnostic'."* So **the literature's solution to the
+problem we cite is the thing we excluded**, and it was excluded in the same clause as QS99 rather than
+assessed separately. **Amendment: the selection ban is defensible and should stand; the diagnostic ban
+should be re-derived or dropped.** ⚠️ Be precise about which weighting — Gneiting2011 proves
+**multiplicatively** weighted scores improper, while **threshold-weighted and quantile-weighted CRPS are
+proper**, so "twCRPS is banned" has been imprecise about what it bans. ⛔ **The honest status: no
+measurement supports this one.** It is a reading of two held papers against two of our own documents. If
+it is wrong, it is wrong because the exclusion was deliberate and reasoned somewhere this report has not
+found.
 
 **What is deliberately not recommended.** Adopting the working ruler wholesale. §5 lists its live holes —
 the method rule no scorer enforces, the floor-gate clause that never evaluates, the frozen instrument's
@@ -538,8 +558,9 @@ So the literature's solution to the problem we cite is the thing we have exclude
 which "weighted": Gneiting2011 proves **multiplicatively** weighted scores improper, while
 **threshold-weighted and quantile-weighted CRPS are proper.** The ban is defensible for *selection*; it
 is **not** obviously defensible for *diagnostics*, and on the evidence here twCRPS-as-diagnostic looks
-caught in the crossfire of the QS99 ban rather than independently judged. Unresolved, and it belongs in
-the same governance amendment as §1's three.
+caught in the crossfire of the QS99 ban rather than independently judged. **Promoted to §1 amendment 4 on
+2026-10-01**, carrying the label that it is the only amendment resting on an argument rather than a
+measurement.
 
 ⚠️ **Any statistic computed from the forecast alone cannot judge placement.** Occurrence, body
 magnitude and gate–body alignment are all preserved by a spatial roll that costs 48× in AP (C-319,
