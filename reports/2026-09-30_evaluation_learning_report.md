@@ -808,13 +808,34 @@ measures discrimination of occurrence and the gate *is* the occurrence model, so
 close to scoring it on its own objective. `gate_only` 0.299 vs `mean` 0.157 is not like-for-like, and a
 magnitude-aware score would treat them differently.
 
-⚠️ **The caveat that could overturn the worst row, and it is asymmetric.** This is **16 draws**, and
-`tower_point` is a tip estimator on a 99.75%-zero field, where the tip floor is almost always all-zeros.
-Its 0.0 may be small-sample behaviour **of that estimator specifically** rather than a property of the
-collapse; the other six are far less sample-sensitive, so the caveat lands almost entirely on the row
-that looks worst. ⛔ **At the delivered 128 draws it could behave completely differently, and that is
-the open question.** If it recovers, this is a draw-count finding. If it does not, the partner has been
-served the worst available collapse of the cube throughout.
+#### ⛔ RESOLVED 2026-10-01 at the delivered 128 draws, and it resolves the hard way
+
+The caveat on the worst row was that **16 draws** might be unfair to a tip estimator on a 99.75%-zero
+field — that `tower_point`'s near-zero could be small-sample behaviour of that estimator rather than a
+property of the collapse. **It was not.** Run `20261001_012905`, 8/8 models, **300 lessons**, pooled:
+
+| draws | 16 | 32 | 48 | **128 (delivered)** |
+|---|---|---|---|---|
+| cells `tower_point` keeps | 204 | 39 | 19 | **0** |
+
+**More draws destroyed the estimator rather than rescuing it.** At the delivered draw count
+`tower_point` returns **zero cells in all three targets**, and `mass_ratio` is **exactly 0** — not small,
+zero. Against what the pooled cube actually carries:
+
+| target | cells with signal | `mean` keeps | `tower_point` keeps |
+|---|---|---|---|
+| `lr_sb_best` | **46,488** | 46,488 | **0** |
+| `lr_ns_best` | 14,603 | 14,603 | **0** |
+| `lr_os_best` | 17,152 | 17,152 | **0** |
+
+⛔ **So `tower_point` is now worse than `median`**, which M70 already called an empty map (`median` keeps
+583 / 75 / 0). And the vehicle under this is no longer undertrained: **eight converged 300-lesson models,
+46,488 cells of genuine signal in `sb` alone, and the collapse the partner receives discards every one.**
+
+✅ **The `models` session, which raised the caveat, retracted it in the strongest terms once the series
+completed.** Recording that: the caveat was theirs, it was a good caveat, it was pre-registered as the
+thing that could demote the finding, and the measurement killed it. **§5.0 does not become a footnote. It
+becomes the delivery finding.**
 
 ✅ **One independent confirmation:** `median` returns **0.096% non-zero** — an empty map — reproducing
 M70 exactly at a different scope, by a different route, on a different vehicle.
@@ -831,8 +852,19 @@ blindness thoroughly and contains **nothing** about whether the distribution is 
 | `Var(total) / ΣVar(cell)` | ~0.95 | <1 if cells are dependent |
 
 Two separable faults: **location** (predicted totals ~10% of observed — the timid body again) and
-**variance** (cells behave as independent marginals, so any aggregate interval is too narrow *by
-construction*).
+**variance** (cells behave as independent marginals, so any aggregate interval is too narrow).
+
+⛔ **The variance half is CORRECTED 2026-10-01, and in our favour — I had it wrong.** I predicted the
+pooled product would show no cross-cell dependence, reasoning from the per-model emit path, which contains
+no spatial mechanism. **Measured, it shows a lot:** dependence ratio **9.81** on `sb`, 2.16 on `ns`, 1.88
+on `os` — against an independent-sampling baseline of 1.0. The coupling is a **between-model level shift**
+(one model hot across the whole field, another cold), and it enters at the **pooling** step, one level
+above the path I read. ⛔ **That is this report's own §3.1 shape (c) — measurement on the wrong object —
+committed by me, against my own pre-registration** (`reports/2026-09-30_dependence_ratio_prereg.md`, scored
+there). ✅ **Consequence, and it is the one piece of good news in this section: country and regional totals
+from the pooled product are *less* falsely confident than either session predicted.** The width half is
+partly rescued, and pooling is what buys it. ⚠️ The **location** half is untouched — the interval is
+honestly wide around a number that is still ~10× too low.
 
 ⚠️ **And the instrument for the first row already exists one repo over.** The `views-evaluation` session
 reports `Coverage(alpha)` — exactly the 90%-interval coverage measured by hand above — as **implemented
