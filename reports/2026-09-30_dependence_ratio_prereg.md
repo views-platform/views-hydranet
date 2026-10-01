@@ -95,3 +95,88 @@ none, the factor exists in the model and **is not surviving into the emitted cub
 not a modelling one. The `models` session flagged `seed_t` deriving from `torch_seed` alone with no model
 identity (`distributions/sampling.py:99`) as worth a look on that path. Agreed, and it is independent of
 which way the ratio falls.
+
+---
+
+# OUTCOME — measured 2026-10-01, run `20261001_012905`, 8/8 models, pooled 128 draws
+
+Scored against the predictions above, which were committed before the measurement existed.
+
+| prediction | verdict |
+|---|---|
+| **P1** — pooled ratio in `[0.9, 1.2]`, all three targets | ⛔ **REFUTED. My own F1 fires on all three.** |
+| **P2** — `threshold_gate` systematically higher than `soft_gate` | ✅ **SURVIVED**, direction only |
+| **P3** — if anything exceeds 1.3, the cause is the D axis | ⛔ **WRONG PREMISE.** The cause is pooling, which P3 did not contemplate |
+| **F3** — a within-pass ratio above 1 would invalidate §1's code reading | did not fire; §1's reading of the **per-model emit path** stands |
+
+## P1: refuted, and the error is one this report has a name for
+
+| target | pooled ratio (median) | range over 36 months | implied ρ |
+|---|---|---|---|
+| `lr_sb_best` | **9.8118** | 1.93 – 11.47 | ~1.4e-4 |
+| `lr_ns_best` | **2.1638** | 1.42 – 2.77 | ~1.8e-5 |
+| `lr_os_best` | **1.8823** | 1.01 – 3.02 | ~1.4e-5 |
+
+⛔ **Pooling manufactures cross-cell dependence, and the single-model measurement did not predict it.**
+Per-model ratios are 0.87–1.41; pooled `sb` is **9.81**. The dominant term is a **between-model level
+shift** — model A runs hot across the whole field, B cold — which is a common factor over every cell.
+
+⛔ **My error, named in this report's own vocabulary: §3.1 shape (c), measurement on the wrong object.** I
+traced the per-model emit path, established correctly that it contains no spatial-dependence mechanism, and
+then generalised that to the **pooled product**, which is one level up and outside the path I examined. The
+code reading was right about the object I read. The object that mattered was not it.
+
+✅ **What did survive is the sensitivity relation**, and it is what makes the result interpretable: `ratio
+≈ 1 + ρ·N` at `N = 64,818` converts all three numbers into ρ directly, and the three implied ρ values
+(1.4e-4, 1.8e-5, 1.4e-5) are what the ratios mean. **The framework held; the prediction made with it did
+not.** Those are separable and only the second was wrong.
+
+## P2: survived — derived from the architecture before the data existed
+
+`lr_sb_best`, per model, 16 draws:
+
+| `soft_gate` | | `threshold_gate` | |
+|---|---|---|---|
+| blue_stranger | 1.2251 | blazing_meteor | 1.4089 |
+| bright_starship | 1.0726 | bold_comet | 1.2110 |
+| heavy_freighter | 1.0472 | violet_visitor | 0.9967 |
+| pink_pirate | 1.0502 | | |
+| purple_alien | 0.8698 | | |
+| **median-of-medians** | **1.0502** (n=5) | **median-of-medians** | **1.2110** (n=3) |
+
+Ratio **1.153**, hard gate higher. **F2 did not fire.** The mechanism was derived, not guessed: a hard gate
+makes a cell's on/off state identical across all K draws within a pass, concentrating variance onto the D
+axis; a soft gate injects independent per-cell Bernoulli noise into every draw and inflates the denominator.
+
+⚠️ **Scope, and it is the honest limit: n=3 against n=5, one target, and the ranges overlap** —
+`violet_visitor` at 0.9967 sits below three of the five soft models. **Direction established, magnitude
+not**, which is this repo's own phrase for exactly this situation. Nothing more should be claimed from
+eight models.
+
+## The operational conclusion was half wrong, and the half that saved it was the hedge
+
+I wrote: *"no aggregate interval from this product carries usable width, because nothing in the emit path
+could have given it any — and that holds whichever way the measurement falls."*
+
+⛔ **The first clause is now false.** The pooled product carries width — ~**9.8× the independent-sampling
+baseline** on `sb`. ✅ **The second clause is what kept the claim honest**, and it is the only reason this is
+a correction rather than a retraction.
+
+✅ **And the corrected version is better news than either session predicted:** country and regional totals
+from the pooled product are **less falsely confident** than we both expected, and pooling specifically is
+what buys that. ⚠️ It does nothing for the **location** half — MCR ~0.09, predicted totals ~10% of
+observed — so the aggregate is honestly wide around a number that is far too low.
+
+## A measured follow-up worth pre-registering for the next roster
+
+The ratio tracks **signal density**: `sb` 1.99% of cells carrying signal → 9.81; `os` 0.74% → 1.88; `ns`
+0.63% → 2.16. Consistent with between-model level differences having more cells to accumulate over.
+**Testable on any future roster**, and it predicts that a denser target or a larger region raises the ratio.
+
+## Cross-session corrections recorded
+
+- **Mine:** P1 refuted; P3's premise wrong; the operational conclusion's first clause false.
+- **The `models` session's**, volunteered: their asymmetric 16-draw caveat on `tower_point` is dead — more
+  draws destroyed the estimator rather than rescuing it; and their M67 argument was wrong, because gate
+  errors correlating 0.96–0.99 **does not preclude systematic level differences** between models. Highly
+  correlated errors, differently-centred predictions.
