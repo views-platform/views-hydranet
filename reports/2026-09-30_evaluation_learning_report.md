@@ -1088,7 +1088,7 @@ they have never been listed together. Ordered by how much they should change how
 | S4 | Sharper spatial structure is better | **M46 — 12 of 12 arms, six unrelated mechanisms:** sharpening the model's spatial view helps h1 and **hurts h36**. | ⚠️ h1 and h36 are different objects. An intervention validated at one horizon can be inverted at the other, and unanimity across mechanisms means it is the axis, not the implementation. |
 | S5 | Our diagnostics describe the field, so they can judge it | **M53 / EXP-3 — occurrence, body magnitude and gate–body alignment are ALL preserved by a spatial roll that destroys the forecast.** Alignment reads **61.5** (vs the clamp's 69.3) while `AP@h18` collapses **0.362 → 0.0075**. | ⛔ **Three diagnostics, all blind to placement.** Any internal statistic — one computed from the forecast alone, without truth — cannot distinguish a good forecast from the same forecast in the wrong place. Judging placement needs a truth-referenced score. |
 | S6 | The recurrent state is a memory of dynamics | **M54 — it is a MAP.** Roll it 90 cells and the forecast moves 90 cells **intact, r≈0.90**, while skill collapses **48×**. | ⚠️ A perfectly coherent, perfectly structured, perfectly self-consistent forecast can be entirely in the wrong place, and every structure metric will approve. |
-| S7 | Ensembling buys diversity | **M66 — the 8-member pool beats its best member (AP@h18 0.2203 vs 0.1804), but subsampling the same pool back to 16 draws collapses it to 0.1462 — *below* the best member.** AP is monotone in S. **M67:** errors correlate **0.96–0.99 across all 28 pairs**. ⛔ **Corrected 2026-09-30 — this is not the gate.** The `library` session asked whether the correlation was on the gate or on the full output. Checked: `analyse_diversity.py:7,93` correlates `\|mean(draws) − truth\|` **in count space on the composed forecast**. So diversity is dead on the **delivered output**, not merely on the occurrence head — the stronger reading — and it falsifies the independence condition Deep Ensembles (Lakshminarayanan2017) rests on, where random initialisation is supposed to supply sufficient diversity. | ⛔ The ensemble was buying **sample count, not member disagreement.** A pooled-vs-best comparison at unequal S measures S. Fix the draw count before claiming an ensemble effect. |
+| S7 | Ensembling buys diversity | **M66 — the 8-member pool beats its best member (AP@h18 0.2203 vs 0.1804), but subsampling the same pool back to 16 draws collapses it to 0.1462 — *below* the best member.** AP is monotone in S. **M67:** errors correlate **0.96–0.99 across all 28 pairs**. ⛔ **Corrected 2026-09-30 — this is not the gate.** The `library` session asked whether the correlation was on the gate or on the full output. Checked: `analyse_diversity.py:7,93` correlates `\|mean(draws) − truth\|` **in count space on the composed forecast**. So the correlation is on the composed forecast, not merely on the occurrence head. ⛔ **Corrected again 2026-10-10 — the previous wording of this entry was wrong.** It read *"diversity is dead on the delivered output"*, which conflates two quantities: M67 correlates **errors**, and on the **delivered field** the eight disagree substantially. Measured on the 2026-09-29 handover (`I_mean`, `pred_lr_sb_best`, 8 models × 13 origins, 30,334,824 rows each, row order asserted identical on the month×grid key): pairwise Pearson **r = 0.273–0.552, median 0.439** on the union support; of the **328,562** cell-months where any model fires, **33.0% is one model firing alone** and only **13.5%** has all eight; total predicted mass spans **3.64×** (bold_comet 1.681× the eight-model mean, bright_starship 0.462×). ⚠️ `sb` only, calibration partition, **no truth** — so it says nothing about which member is closer to what happened, or whether pooling beats choosing. What is dead is therefore **error** diversity, not output diversity: the members disagree about *where to put mass* and agree almost perfectly about *what they fail to catch*. ⚠️ **That reconciliation is INFERENCE** — error correlation cannot be recomputed on the handover, which carries no truth. It also weakens the Deep Ensembles (Lakshminarayanan2017) claim this entry used to make: random initialisation **did** supply output diversity here, so the independence condition is not falsified at the level of predictions; what fails is the weaker, more practical requirement that members' *errors* be decorrelated enough for averaging to help. | ⛔ The ensemble was buying **sample count, not member disagreement.** A pooled-vs-best comparison at unequal S measures S. Fix the draw count before claiming an ensemble effect. |
 | S8 | A roster of different thresholds adds something | **M69 — mathematically it cannot.** `E_τ~U(0,1)[(gate ≥ τ)] = gate`, so averaging thresholds reconstructs the soft gate **from below** and never crosses it — within 0.5–0.7% at 64 τ. | minor — but a good example of a design question settled with algebra and zero GPU. Do that first. |
 | S9 | The posterior mean is the natural point estimate | **M70 — `gate × mu` beats the mean of 16 draws by +58% to +159%** at identical total mass; `median` is an **empty map** (0.05–0.14% of cells non-zero). | ⚠️ How you collapse the cube is a first-class modelling decision with effects larger than most interventions we tested. |
 | S10 | Our failed approximation explains the failure | **M63 — the straight-through estimator is NOT backwards.** We tested our own excuse and it did not hold, so **the objective was wrong**, not the approximation. | ⚠️ Rare and valuable discipline: test the excuse. Without M63 the BPTT-SA null would have been attributed to an implementation detail and re-attempted. |
@@ -1205,6 +1205,7 @@ evaluation artifact written in-package is the body-mean dump.
 | `scripts/arm_identity_check.py`, `scripts/arm_postflight.py` | config↔request identity; artifact completeness and support match | per arm | `arm_postflight`'s support-match check — its whole point — is **skipped when `reference` is omitted** |
 | `.../2026-09-03_drivers_and_dynamics_dossier/tools/subset_ap.py` | AP on an onset universe vs a continuation universe | partition, not subset | the **only** instrument that separates onset from continuation |
 | `.../2026-09-02_silence_vs_fade_dossier/tools/decompose.py` | the exact identity `mean(g·μ) = mean(g) × [Σgμ/Σg]` | all cells, nothing conditioned | the fix for C-318 (a conditional mean on a vanishing denominator, twice) |
+| `reports/2026-10-10_delivery_frame_measurements/delivery_frame_audit.py` | integrity, frame ordering (`II,III ≥ I`), collapse mass-ratios, per-step mass **and** step-to-step L1 churn, member distinctness on the union support | a **delivered handover folder**; no truth, so no AP/CRPS/calibration | ⚠️ **NEW 2026-10-10, ungated lab code, no tests.** The only instrument that reads the *delivered* product rather than a sample cube — a partial answer to §5.0(a). Its (e) section exists because the first version of that measurement was wrong: whole-field agreement on a 99%-zero field measures shared zeros (Appendix C) |
 
 ### A.2 Superseded or dead
 
@@ -1461,6 +1462,49 @@ and the 8-model pooled-validation comparison **cannot be run here**: exactly one
 `predictions_validation_*` directory survives on this machine (4.7 GB, in Trash, model unidentified),
 because the roster cubes were deleted in a disk cleanup. The pooled 128-draw repeat is therefore queued
 on the `models` side, without AP.
+
+### ⛔ A second claim in this report was retracted, 2026-10-10 — the same M67 row, the second time
+
+§7's **S7** row read *"diversity is dead on the **delivered output**"*. That was wrong, and it was my
+wording, not M67's. **M67 correlates errors** (`analyse_diversity.py:7,93` — `|mean(draws) − truth|` in
+count space). I restated an error correlation as a statement about the output.
+
+**What falsified it.** The 2026-09-29 handover is on disk (`~/Documents/views_selector_frames_20260929/`,
+312 parquet, collapses only). Measured directly — `I_mean`, `pred_lr_sb_best`, 8 models × 13 origins,
+30,334,824 rows each, row order asserted identical on the month×grid key:
+
+| | measured |
+|---|---|
+| pairwise Pearson r, 28 pairs, union support | **0.273–0.552, median 0.439** |
+| union support (any model fires) | **328,562** cell-months (1.083% of rows) |
+| of the union: one model firing alone | **33.0%** (108,446) |
+| of the union: all eight firing | **13.5%** (44,287) |
+| total predicted mass, max ÷ min member | **3.64×** (bold_comet 1.681× the eight-model mean, bright_starship 0.462×) |
+
+⚠️ `sb` only, calibration partition, **no truth** — it cannot say which member is closer to what
+happened, or whether pooling beats choosing.
+
+**What survives, and it is a sharper claim than the one it replaces.** Error diversity is dead; output
+diversity is not. The members disagree about *where to put mass* and agree almost perfectly about *what
+they fail to catch* — which is consistent on a 99.9%-zero field, where the error is dominated by events
+every member misses. ⚠️ **That reconciliation is INFERENCE**: error correlation cannot be recomputed on
+the handover, which carries no truth. The Deep Ensembles (Lakshminarayanan2017) falsification the row
+used to assert is also withdrawn in part — random initialisation **did** supply output diversity here,
+so the independence condition does not fail at the level of predictions; what fails is the weaker,
+practical requirement that members' errors be decorrelated enough for averaging to help.
+
+⛔ **The pattern, because it is now a pattern and not an incident.** This is the **second** correction to
+the same row. The `library` session caught the first (it was the composed forecast, not the gate). Both
+have the same shape: **restating a correlation without naming the quantity it is on.** A correlation
+coefficient is meaningless without its operand, and I twice carried one across a sentence boundary that
+changed the operand. ⚠️ Neither was caught by a reviewer reading the report — the first came from a peer
+asking what the correlation was *of*, the second from me measuring a different quantity for an unrelated
+reason and noticing the two could not both be described the way I had described them. **Appendix B's
+"two numbers disagreeing" detector, working on this report.** It stood 10 days.
+
+**It also qualifies §0 and §6.** Nothing in §0 asserts the overstated form, so no change there. §6's
+*"anything measured once, by one instrument"* row gains an instance: M67 was the only diversity
+measurement in the record until this one, and it was read as answering a question it never measured.
 
 **The report's own weakest point, stated rather than buried.** It is a synthesis, and a synthesis is
 exactly the artifact class this repo has repeatedly found to drift — *"each dossier reasons locally and
