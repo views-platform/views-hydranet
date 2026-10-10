@@ -25,14 +25,45 @@ single-seed, single-vehicle, `sb`-only, which is below this repo's own stated ba
 
 ## §0 — The six things to know
 
-⛔ **1. The sanctioned selection rule, applied faithfully, promotes an empty map.**
-*(MEASUREMENT · one board, all arms, all targets)* Not as a hypothesis — measured. A forecast with `size_ratio` **0.0000** and `act_ratio` **7.0e-05** (it fires
-~14,000× less often than reality) cleared the 5% CRPS superiority bar with CRPSS **+0.0786**, a 90%
-origin-block CI excluding zero, and an effect ~12× the MDE — because **83.5% of the win was confident
-zeros**. The repo's own words: *"FAO-02's own selection rule, applied to its own primary metric
+⛔ **1. The sanctioned rule's PRIMARY METRIC ranks an empty map top. Its guardrails then veto it.**
+*(MEASUREMENT · 4 arms × 3 targets, `2026-08-15` substrate, h36)* ⛔ **CORRECTED 2026-10-11 — an earlier
+version of this item claimed the rule "applied faithfully, promotes an empty map." That is RETRACTED: the
+rule would rule this forecast *Ineligible*.** See Appendix C for the retraction and how it stood.
+
+**What is measured.** A forecast with `size_ratio` **0.0000** and `act_ratio` **7.0e-05** (it fires
+~14,000× less often than reality) clears the 5% CRPS superiority bar with CRPSS **+0.0904**, a 90%
+origin-block CI of **[−0.0892, −0.0841]** excluding zero, and an effect ~34× the MDE — because **74.6%
+of the win is confident zeros**. At h36 the ARTIFACT verdict is **12/12 — every arm, every target**
+(verified in `results/rescore.csv`: 4 arms × 3 targets, all ARTIFACT). The repo's own words, and note
+how narrowly they are drawn: *"FAO-02's own selection rule, applied to **its own primary metric**
 against its own mandated baseline, would have promoted this forecast."*
-(`2026-08-15_rollout_ruler_trust_dossier/07_experiment_log.md:347`) At h36 the ARTIFACT verdict is
-**12/12 — every arm, every target**. MEASUREMENT.
+(`.../07_experiment_log.md:347`)
+
+**What the rule actually requires**, and the step the earlier version of this item skipped
+(`RESULTS_LEDGER.md:622`): eligibility is a **strict conjunction** — superiority **and** *"all guardrails
+non-inferior: QS99 & Brier within 1% of baseline; MCR calibration-distance `|MCR−1|` at least 1%
+closer-to-1 than baseline's."* ⛔ ***"Fail either → Ineligible (regardless of ranking)."*** On this row:
+
+| guardrail | the forecast | the baseline | verdict |
+|---|---:|---:|---|
+| `\|MCR−1\|` (magnitude calibration) | **0.99999** | 0.635 | ⛔ **FAIL, catastrophically** |
+| Brier | 0.010387 | 0.010280 | ⛔ **FAIL** — 1.04% worse, outside the 1% bar |
+| QS99 | never computed | — | not evaluated (`SCOPE.md:47`) |
+
+**So the conjunction rejects it, and MEASUREMENT already said so.** `technical_risk_register.md:654`
+(C-126, 2026-06-22, **3 targets × 3 seeds**): *"the sharp/shrinkage body **wins CRPS on all 3 targets,
+every seed**, while emitting ~1–4% of the true magnitude (MCR≈0.03) … i.e. CRPS-based selection picks
+the timid prophet exactly as F5 warns, and **the QS99/MCR guardrails correctly veto it.**"*
+
+⚠️ **The narrower claim that survives is still worth the amendments in §1, for a different reason.**
+Three things, each measured: (a) the **primary ranking metric cannot discriminate** an empty map from a
+real forecast — if anyone ranks on CRPS and reads the guardrails as advisory, they promote this; (b) the
+protection here rests on **one** guardrail, because QS99 is structurally inapplicable on a 99.7%-zero
+field (**C-224** — the unconditional 99th percentile *is* zero) and Brier failed by **0.04 percentage
+points**; and (c) nothing in this repo has ever **run** the conjunction — the baseline field is still
+*"TBD — set once the first clean eval lands"* (`RESULTS_LEDGER.md:638`), so the veto above is arithmetic
+I performed on an archived CSV, not a gate anyone executed. MEASUREMENT for (a) and (b); (c) is a
+statement about the code.
 
 ⛔ **2. Nothing in the apparatus scores the product that leaves the building.**
 *(MEASUREMENT about the code · the served-surface numbers below are one model, 16 draws, Africa+ME —
@@ -178,7 +209,12 @@ else, absent from the locked glossary and from every score CSV**, and the criter
 `print` against a hardcoded roster list. *(MEASUREMENT about the code.)*
 
 **Why this matters more than any individual metric finding:** the protocol was never the thing being
-tested. Its one head-to-head encounter with our data (§0.1) it lost. Everything else in this report is
+tested. ⛔ **Corrected 2026-10-11:** an earlier version of this sentence said its one head-to-head
+encounter with our data *"it lost"*. It did not — §0.1's conjunction **rejects** the empty map, and
+C-126 measured its guardrails working on that pathology across 3 targets and 3 seeds. What is true is
+that the conjunction has **never been run here**: the baseline it needs is unset (`:638`), K3 is VOID on
+the roster, and the one time anything resembling it was applied to our data only its primary metric was
+applied. The protocol was never the thing being tested, and it still has not been. Everything else in this report is
 evidence about the ruler we built instead, and that ruler has itself been wrong repeatedly — §3.
 
 ### What this report recommends, since declining to say would be the larger omission
@@ -1125,7 +1161,7 @@ protocol currently says.
 | # | Requirement | The scar that earns it | Cost to adopt |
 |---|---|---|---|
 | ⛔ ★1 | **Ask, before the run: "what would this measurement look like if the effect were absent?"** Record the answer. | Cluster 18 — **23 Tier-2/3 entries**, each of which cost GPU time or produced a wrong ledger row, and which the register read as 23 unrelated incidents until 2026-09-10. Three of its four shapes fail this one question. | One line in a pre-registration. |
-| ⛔ 2 | **A reference forecast on every scored run — persistence *and* climatology — with the zero-share decomposition and the ARTIFACT verdict applied automatically.** No result may be reported against `none`. | §0.1: a forecast with `size_ratio` 0.0000 cleared the 5% bar and would have been promoted. It stood **16 days**. This is the ledger's own recommendation #3 and it is **not implemented**. | Structural, cheap; the instruments exist (`rollout_ruler_core`, `climatology_resample`). |
+| ⛔ 2 | **A reference forecast on every scored run — persistence *and* climatology — with the zero-share decomposition and the ARTIFACT verdict applied automatically.** No result may be reported against `none`. | §0.1: a forecast with `size_ratio` 0.0000 cleared the 5% bar on the primary metric, and 74.6% of the win was confident zeros. ⚠️ It would **not** have been promoted — the MCR guardrail vetoes it (corrected 2026-10-11) — but nothing computed the decomposition, and the ARTIFACT verdict stood unexamined **16 days**. This is the ledger's own recommendation #3 and it is **not implemented**. | Structural, cheap; the instruments exist (`rollout_ruler_core`, `climatology_resample`). |
 | ⛔ ★3 | **A floor gate on the CONTROL arm before any treatment arm runs: FG-A `AP_ctrl ≥ 5 × prevalence`, and FG-C `(1−θ)·AP_ctrl ≥ 3 × MDE`.** | A 6-GPU-hour pre-registered sweep with falsifiers was **VOID as run**; 9 ledger rows and 5 inferences re-scoped, 3 claims retired. One manipulation read **+0.9%** on the floored vehicle and **−93.7%** on a real one. The condition was visible in a CSV **5 h 47 m before the last arm finished.** | Zero GPU beyond the control. ⛔ **And fix the existing gate: both callers omit `mde_ap`, so FG-C never evaluates.** |
 | ⛔ ★4 | **Match S between arms and reference, enforced in the scorer, and refuse an AP comparison across gated/ungated arms.** | Persistence was published **understated by 31%** at h18 by two independent scoring defects. #282's share of it **scales as 1/n_origins**, so a single-origin study scores persistence as exactly zero, silently. | The check exists (`reference_sample_width`, `assert_sample_cube`) and **no scorer calls it**. |
 | ⛔ 5 | **Every metric that gates a decision must have a degenerate-forecast test that fires — run against the HEADLINE scorer, not the metric function in isolation.** Include the spatial roll and the single-huge-cell. | The roll: three field statistics unchanged, **AP 48× worse**, and **no test guards it**. The seven degenerates that *are* implemented all test `activation_metrics` in isolation; nothing feeds a degenerate cube through the scorer that produces the published row. | Days, not weeks. Synthetic fields, no GPU. |
@@ -1344,10 +1380,14 @@ trigger, not a conclusion*).
 
 **Three things a reader should not conclude from this report.**
 
-1. **Not** that the adopted protocol is wrong in general. It is wrong on *this* target, demonstrated
-   once, decisively (§0.1) — and one of its guardrails is structurally inapplicable here (C-224, the
-   99th percentile of a 99.7%-zero field is zero). Whether it works elsewhere is not a question this
-   record can answer.
+1. **Not** that the adopted protocol is wrong — on this target or anywhere. ⛔ **An earlier version of
+   this item said it was "wrong on *this* target, demonstrated once, decisively." That is RETRACTED
+   (2026-10-11).** What this record shows is narrower: its **primary metric** cannot discriminate an
+   empty map (§0.1), while its **guardrails catch one** — both here by arithmetic and at C-126 by
+   multi-seed measurement. Two real weaknesses survive and neither is "the protocol is wrong": one of
+   its three guardrails is structurally inapplicable here (C-224, the 99th percentile of a 99.7%-zero
+   field is zero), and **the conjunction has never been executed in this repo at all**, so nothing
+   here is evidence about how it performs — in either direction.
 2. **Not** that the working ruler is trustworthy because it caught the protocol out. §3 and §5 are
    about the working ruler's own failures, and there are more of them than of the protocol's — because
    it is the one we actually used.
@@ -1462,6 +1502,68 @@ and the 8-model pooled-validation comparison **cannot be run here**: exactly one
 `predictions_validation_*` directory survives on this machine (4.7 GB, in Trash, model unidentified),
 because the roster cubes were deleted in a disk cleanup. The pooled 128-draw repeat is therefore queued
 on the `models` side, without AP.
+
+### ⛔⛔ THE LEAD CLAIM OF THIS REPORT WAS RETRACTED, 2026-10-11 — found by the adversarial pass
+
+**§0 item 1 said: *"The sanctioned selection rule, applied faithfully, promotes an empty map."*** It was
+the document's opening claim, §1's stated reason for recommending amendments, §8's row 2, and the one
+thing Appendix C told a reader they *may* conclude. **It is false.**
+
+**What the rule requires** (`RESULTS_LEDGER.md:622`): eligibility is a **strict conjunction** —
+superiority **and** all guardrails non-inferior, with *"MCR calibration-distance `|MCR−1|` at least 1%
+closer-to-1 than baseline's"*, and ***"Fail either → Ineligible (regardless of ranking)."*** On the §0.1
+row (`violet_visitor`/`sb`/h36, from the dossier's own shipped `results/rescore.csv`): `|MCR−1|` =
+**0.99999** against the baseline's **0.635**, and Brier **1.04%** worse against a 1% bar. **The
+conjunction rules it Ineligible.** It would have been rejected, not promoted.
+
+⛔ **And the repo already held the measured converse, which the report never cited.**
+`technical_risk_register.md:654` (C-126, 2026-06-22, **3 targets × 3 seeds**): *"CRPS-based selection
+picks the timid prophet exactly as F5 warns, and **the QS99/MCR guardrails correctly veto it.**"*
+
+**The defect's shape, and it is one this document catalogues.** The dossier's sentence is drawn narrowly
+and is correct: *"applied to **its own primary metric** against its own mandated baseline."* I quoted it
+accurately and then restated it as *"applied faithfully"* — a phrase **§1's own table defines** as
+*"strict conjunction, written down, explicit."* So the claim was manufactured by widening a correctly
+scoped quotation one step, in the lead item, of a report whose **Appendix D audits exactly that defect in
+someone else's document** and whose §3.1 names it as C-298's shape. It is the third instance of this
+class by me in this document (after the `SCOPE.md` item-14/item-15 swap and the M67 operand), and the
+most consequential by a wide margin.
+
+⚠️ **It also propagated a second error the same way.** §0.1's headline numbers (CRPSS **+0.0786**, zero
+share **83.5%**, effect ~12× MDE) are EXP-06's, which the dossier's own EXP-09 labels *"sliding, S=16,
+seed 0 (as first built)"* at `:457` and then supersedes at `:462` — *"Re-scored headline under the
+canonical convention (supersedes EXP-06's table)."* The shipped canonical values are **+0.0904**,
+**74.6%**, ~34× MDE. ⛔ **The reason EXP-06 was superseded is a reference/arm sample-count mismatch —
+the exact defect §2.3 elevates to a method rule.** §0 therefore quoted pre-fix numbers while §2.3 stated
+the rule that invalidated them. Appendix B carries a third value for the same quantity (**75.9%**, from
+the dossier's *design* document, i.e. pre-registration arithmetic rather than a result).
+
+**What survives and why §1's amendments still stand** — on a narrower and better-evidenced footing: the
+**primary ranking metric cannot discriminate** an empty map from a real forecast; the protection rests on
+**one** guardrail here, since QS99 is structurally inapplicable on a 99.7%-zero field (C-224) and Brier
+failed by 0.04 percentage points; and **the conjunction has never been executed in this repo**, the
+baseline still reading *"TBD"* (`:638`). The amendments were never really about the protocol being
+wrong; they are about what this data does to a rule whose tail guardrail cannot fire.
+
+✅ **How it was caught, and the method point.** By the clean-context adversarial pass that §8 row 8 names
+as the highest-yield detector in the record — run for the first time on this document, by a reader given
+the report and one question (*which claims are wrong, overstated, or unsupported by the evidence they
+cite?*) and **deliberately not given the author's view of where it was weak**. It went to
+`rescore.csv` and `RESULTS_LEDGER.md:622` and did the arithmetic. It returned **17 findings**; the author
+independently verified seven against primary sources before acting, and all seven held. ⛔ **The lead
+claim had survived four rounds of peer review by sessions that had read the reasoning first.** That is
+the strongest evidence in this document for its own §8 row 8, and it was bought at the cost of the
+document's headline. The remaining findings are not yet dispositioned — see the note below.
+
+⚠️ **Not yet dispositioned (2026-10-11).** Ten of the seventeen findings are unverified and unfixed, and
+four more are verified and unfixed: §0's *"every CRPS win beyond h1 is ARTIFACT"* (false — `rescore.csv`
+has REAL verdicts at h6 5/12, h12 3/12, h18 2/12, h24 1/12); §0 item 2's *"any aggregate interval is too
+narrow by construction"* (§5.0(b) retracts it, in our favour, and both statements are still in the
+document); §5.1's *"three separate metric rows"* in `GLOSSARY.md` (there is **one**); and §4.1's
+*"**Gate** errors correlate 0.96–0.99"* (the M67 operand error, third instance, after the §7 fix checked
+§0 and not §4). The reviewer also flagged four of its own findings as reasoning rather than citation
+mismatches, and audited **no** literature citation. **This appendix's provenance claims should be read as
+weaker than they were before this pass, not stronger.**
 
 ### ⛔ A second claim in this report was retracted, 2026-10-10 — the same M67 row, the second time
 
