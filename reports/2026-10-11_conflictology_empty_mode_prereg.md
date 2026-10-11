@@ -280,3 +280,95 @@ cell's positive count. If a cell's positive count over the window moves by more 
 1% of cells, say so on every line of the result rather than presenting the comparison as clean.
 
 **Nothing blocks the run.**
+
+---
+
+# OUTCOME — run 2026-10-11, all steps complete
+
+**Scope gate: ALL PASS** (64,818 cells · 13 origins · 13 distinct h1 months · span 457–504 ·
+conflictology cell set ≡ HydraNet cell set · pool 421–456). F5 did not fire.
+
+**Vintage drift: exactly zero.** Fresh pull vs the cached 2026-09-19 file on all 13,110 overlapping
+cells, months 421–456: per-cell positive counts **100.000% identical**, max |change| = 0, totals
+152,342.0 → 152,342.0 (**0.000%**). The §12 caveat is not needed; months 421–456 are fully settled.
+
+## T1 — positive-draw fraction (MEASUREMENT)
+
+| cell set | HydraNet (S=16, algebra) | conflictology (closed form) |
+|---|---|---|
+| **(ii) conflictology's top 100 by OBSERVED positive rate** | median **0.4062** (6.5/16) | median **0.7639** (27.5/36) |
+| (i) HydraNet's own top 100 cells by predicted mean | median 0.4375 | median 0.6111 |
+| all 64,818 land cells | median 0.1562 (n=602 with any positive draw) | median 0.0000 |
+
+MC check on set (ii) — closed form 0.7639, S=16 0.8125, S=64 0.7656, S=1000 0.7635. The S=16 reading
+is not Monte Carlo noise.
+
+Set (i) ∩ set (ii) = **54/100**.
+
+## T2 — `tower_point` on conflictology's own draws, S=16, `tip_mass`=0.25 (MEASUREMENT)
+
+**53 of 100** of the most persistently violent land cells on earth return **exactly 0** — fed
+conflictology's draws, which are **76% positive** in those cells.
+
+It is **not a bug.** The response is cleanly monotonic in the zero fraction:
+
+| conflictology positive-draw fraction | n | % returning `tower_point == 0` |
+|---|---|---|
+| 0.5–0.6 | 7 | **100.0%** |
+| 0.6–0.7 | 24 | 83.3% |
+| 0.7–0.8 | 28 | 64.3% |
+| 0.8–0.9 | 18 | 44.4% |
+| 0.9–1.0 | 23 | **0.0%** |
+
+Zero cells with ≥90% positive draws read zero. `tower_point` is a faithful **mode**, and the mode of a
+zero-inflated posterior *is* zero once the zero atom is the densest single point — which happens at a
+~25–35% zero fraction, not at 50%.
+
+## Verdict against the pre-registered predictions
+
+| | prediction | result | |
+|---|---|---|---|
+| **P1** | conflictology ≥ 0.5 on set (ii) | **0.7639** | ✅ HOLDS |
+| **P2** | HydraNet < 0.5 on set (ii), gap > 0.25 | 0.4062, gap **0.3577** | ✅ HOLDS |
+| **P3** | `tower_point` nonzero for the majority of set (ii) | 53% return zero | ❌ **FAILS** |
+| **P4** | set (i) ∩ set (ii) < 50 | **54** | ❌ FAILS |
+
+**F3 FIRES — Explanation A confirmed.** The data licenses a nonzero mode where HydraNet emits zero.
+On the 100 most persistently violent cells, observed history is positive in **76%** of months while
+HydraNet's own posterior is positive in **41%** of draws. ⛔ **Simon's prior is confirmed by
+measurement.**
+
+**F1 does NOT fire ⇒ Explanation C is eliminated.** The data does *not* say these cells are
+majority-zero. "The uncertainty is genuine" is dead as an explanation for the empty map.
+
+**F4 does NOT fire ⇒ mis-ranking is not the story.** 54/100 overlap: HydraNet's own ranking does pick
+out the persistently active cells. It ranks them correctly and then under-fires on them.
+
+**F2 FIRES, but re-diagnosed.** Its literal condition is met, and Explanation B is live — but the
+monotonicity table shows no implementation defect. ⛔ **The finding is the CHOICE of a mode readout,
+not a broken mode.** Route as a design/product question, **not** a bug report. The FAO-facing
+statement: *a cell with fatalities in 70% of recent months reads **zero** on the delivered map.*
+
+⇒ **A and B both hold and they compound.** The empty map has two independent causes.
+
+## ⛔ C-345 does not reproduce as written — correction required
+
+| C-345 as registered | measured here |
+|---|---|
+| *"top 100 cells by predicted mean have median 3/16 positive draws"* | reproduces **exactly (0.1875 = 3.00/16)** — but only when "cells" means the **100 most extreme cell-month ROWS pooled over all 36 horizons and 13 origins**, i.e. the top 100 of **30,334,824** rows. Per cell at h1 the same set reads **0.4375**. |
+| *"the posterior's mode is zero in 92% of the cells the model itself scores ≥100 fatalities"* | ⛔ **does not reproduce.** Only **5 rows** in the entire 30.3M-row delivery have a predicted mean ≥ 100. 92% of 5 is not an integer. All 5 do have a positive fraction < 0.5. |
+
+Per-horizon top-100 positive fraction is **flat**, not horizon-degrading: h1 0.375, h6 0.4375,
+h12 0.344, h18 0.375, h24 0.500, h36 0.4375. So the pooled 3/16 is a **tail-selection effect** — the
+100 most extreme means out of 30.3M are precisely the rows whose mean comes from one enormous draw
+among zeros — not a general property of the cells the model ranks highest.
+
+**The direction of C-345 survives** and is now established far better, by F3 against a proper control.
+Its two headline numbers are selection-dependent and must be restated. ⚠️ **C-345 lives only on the
+unmerged `docs/evaluation-learning-report` branch; it is not on `development`.** The amendment is not
+made here — it needs a decision about where that entry should live.
+
+## Artifacts
+
+`pull.py`, `drift.py`, `analyse.py`, `reconcile_c345.py`, `t1_per_cell.parquet`, `t2_tower.parquet`
+in the session scratchpad. Pull: 5.7 s, 24,890,112 rows. No GPU.
