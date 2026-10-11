@@ -126,3 +126,102 @@ Committed before looking. Two are against my own earlier framing, so they can sc
 Calibration partition, `REGION="land"`, 64,818 cells, months 457–504. Cell set: the 100 highest
 observed positive rate in months 421–456, identical to the 2026-10-11 run. Config read-only from
 views-models — ⛔ **nothing committed there.**
+
+---
+
+# OUTCOME — T1 complete, T0 partial, T2/T3 blocked. Run 2026-10-12.
+
+## T1 — C1 ELIMINATED. The family is not the ceiling. (MEASUREMENT)
+
+NB and ZINB fitted by MLE to each of the 100 cells' own 36 observations, using the repo's own
+families (`get_family`), scored with the production `prob_positive`:
+
+| | implied positive mass (median) | implied zero mass |
+|---|---|---|
+| **observed** | **0.7639** | 0.2361 |
+| **best-fit NB** | **0.7695** | 0.2305 |
+| best-fit ZINB | 0.7387 | 0.2613 |
+| **HydraNet's actual posterior** | **0.4062** | 0.5938 |
+
+NLL: NB 3.6953, ZINB 3.6819 — ZINB barely improves, i.e. there is **no excess zero spike beyond
+what a plain NB already handles**, consistent with views-baseline's "falls back to plain nb when no
+excess zeros."
+
+**Convergence verified** (guards against an optimiser artifact): fitted `mu / sample mean` = **1.0000
+at p5 and p95**, 0 of 100 cells off by >5% — the NB MLE's defining property. Per-cell agreement with
+observed: mean abs error **0.0272**, max 0.1027, corr **0.9644**. The three cells at 100% observed
+positive fit to 0.9931–1.0000. θ spans 0.179–3.431.
+
+⇒ **P1 FAILS.** I predicted the best-fit NB would be forced to ≥0.45 zero mass by overdispersion. It
+is not — the NB tracks the observed zero rate to within 0.006 at the median. **The production family,
+at its own best fit, would emit 0.7695 positive mass. HydraNet emits 0.4062.** The gap is not the
+distribution's expressiveness. **F2 fires; C1 is eliminated; the project continues.**
+
+(P1's ZINB half HOLDS — within 0.0252 of observed — but that is now uninformative, since NB already
+matches.)
+
+## T0 — partial, via a cheaper route than planned, and it answers a DIFFERENT question
+
+**Method substitution, declared:** rather than load an artifact, the 8 delivered models form a
+natural **composition × family 2×2**, so the delivered frames alone can test whether either design
+choice explains the under-firing. Same h1, same 100 cells.
+
+| model | composition | family | positive fraction | cells entirely zero |
+|---|---|---|---|---|
+| bold_comet | threshold | mixture_nb | 0.6250 | 1 |
+| blazing_meteor | threshold | mixture_nb | 0.5313 | 5 |
+| pink_pirate | soft | mixture_nb | 0.5000 | 3 |
+| blue_stranger | soft | mixture_nb | 0.4375 | 7 |
+| purple_alien | soft | mixture_nb | 0.4375 | 6 |
+| bright_starship | soft | nb | 0.4375 | 8 |
+| **violet_visitor** | **threshold** | **nb** | **0.3750** | **8** |
+| heavy_freighter | soft | nb | 0.2500 | 8 |
+
+Grouped: **threshold 0.5313 vs soft 0.4375** · **mixture_nb 0.500 vs nb 0.375**.
+
+⇒ **P2's premise is damaged.** I predicted the gate dominates. `threshold_gate` — which *can* hard-zero
+a whole cell (`violet_visitor`: `gate_threshold = 0.20`) — is associated with a **higher**, not lower,
+positive fraction. The composition type is not the cause, and the family contrasts more strongly than
+the gate does.
+
+⛔ **The real finding here is fleet-wide:** **all 8 delivered models under-fire** on these cells —
+0.25 to 0.625 against an observed 0.7639 — and **every one of them emits an entirely zero posterior
+in 1 to 8 of the 100 most persistently violent cells on earth.** This is not one model's defect, one
+family's, or one composition's.
+
+⚠️ **Confounded and not decisive:** 8 models, unbalanced 2×2, differing in architecture, seed and
+training history as well as in the two design axes. And it does **not** answer the prereg's actual
+T0 question — within a single model, is the zero mass from `(1 − g)` or from `P_body(0)`? That needs
+the artifact. **T0 is recorded PARTIAL, not done.**
+
+## ⛔ T2 / T3 / T0-proper — BLOCKED. F6 fires on the vehicle.
+
+All four local `violet_visitor` artifacts predate the delivery *and the region switch*:
+
+| artifact | date | |
+|---|---|---|
+| `calibration_model_20260812_191742.pt` | Aug 12 | |
+| `validation_model_20260908_135014.pt` | Sep 8 | |
+| `validation_model_20260916_032119.pt` | Sep 16 | |
+| `validation_model_20260917_010418.pt` | **Sep 17** | newest |
+| — | **Sep 19** | ⛔ `REGION` switched `africa_me_legacy` → `land` (runbook #499) |
+| — | **Sep 28** | the delivery ran |
+
+The newest local artifact is **two days older than the region switch**, so it was trained on
+`africa_me_legacy` (13,110 cells, 180×180 grid) — **not** the global `land` model (64,818 cells,
+360×720) that produced the delivery whose under-firing T1 just characterised. They load fine (plain
+`OrderedDict` state dicts, ~3.7 MB), and the network is fully convolutional so it would *run* on the
+global grid, but it is not the delivered model.
+
+**This is the F6 condition** — the artifact's config does not match the delivery's. Per §4, that is
+**VOID, not reinterpreted**. The three remaining measurements are therefore **not run**, pending a
+decision on the vehicle.
+
+## Found, not chased
+
+- `violet_visitor`'s `gate_threshold` is **0.20**, not the 0.5 recorded for `th_gated` in the
+  glossary/ledger. Not investigated; may be a legitimate per-model setting or may be drift.
+- The `mixture_nb` vs `nb` contrast (0.500 vs 0.375) is the strongest signal in the T0 table and was
+  not a pre-registered question. Not chased.
+- `heavy_freighter` is the weakest of the 8 at **0.2500** and is the designated global PoC/template.
+  Not chased.
