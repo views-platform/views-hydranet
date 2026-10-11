@@ -241,9 +241,42 @@ Committed before looking. My own prediction, so it can be scored against me:
 - The magnitude ceiling (`project_amount_ceiling_wall`, #241). Out of scope.
 - Anything about `ns` / `os`. `sb` only.
 
-## 12. Inputs required before the run — RESOLVED
+## 12. Inputs — ALL RESOLVED. Ready to run.
 
-Superseded by **§0**. `window_months = 36`, `n_samples = 64`, `seed = 42`, calibration partition
-train (121, 456) / test (457, 504), 64,818 global land cells, 13 origins, HydraNet S = 16.
+Config inputs: see **§0**. The data path, resolved 2026-10-11:
 
-**Remaining:** a fresh `lr_sb_best` pgm `land` pull for months 121–504. Nothing else blocks the run.
+### ✅ The pull works
+
+`datafactory_query` is installed in `views-hydranet-env` (and in views-models' `views-hydranet` and
+`views-baseline` envs). `~/.netrc` carries the entry for `204.168.219.108`, authentication succeeds,
+and `get_last_valid_month_id("http://204.168.219.108/grid.zarr")` returns **561**. The calibration
+partition needs only 121–504, well inside coverage.
+
+### ⛔ The local cache is NOT the delivery's input — do not reuse it
+
+`views-models/models/violet_visitor/data/raw/calibration_datafactory_df.parquet` looks like the
+right file and is not:
+
+| | cached raw file | the delivery |
+|---|---|---|
+| timestamp | **2026-09-19 14:56** (`calibration_data_fetch_log.txt`) | **2026-09-28 08:23** (frame filenames) |
+| cells | **13,110** (5,034,240 rows ÷ 384 months) — `africa_me_legacy` | **64,818** — `REGION = "land"` |
+
+The region switch happened **on 2026-09-19** (runbook #499), and this pull is on the pre-switch side
+of it. Nine days and an entire cell set apart from what the delivery ran on. ⇒ **Fresh pull, at
+`REGION = "land"`.** This is the stale-cache trap the standing rule names, caught by reading the
+provenance sidecar rather than the filename.
+
+### ⚠️ Vintage drift is a real residual, and it gets measured not assumed
+
+A pull today carries UCDP revisions the 2026-09-28 delivery never saw. Conflictology's pool is
+months **421–456 (Jan 2015 – Dec 2017)**, where revisions are mostly settled — the datafactory
+migration measured totals drift at **sb −0.35%** from vintage revisions — and a *positive-rate*
+readout is less revision-sensitive than a totals readout. But "mostly settled" is not a measurement.
+
+⇒ **Integrity step, run before T1:** compare the fresh pull's months 421–456 against the cached
+2026-09-19 file on the 13,110 overlapping Africa cells, and report the observed change in each
+cell's positive count. If a cell's positive count over the window moves by more than 1 for more than
+1% of cells, say so on every line of the result rather than presenting the comparison as clean.
+
+**Nothing blocks the run.**
