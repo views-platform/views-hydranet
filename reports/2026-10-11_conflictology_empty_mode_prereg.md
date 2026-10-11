@@ -45,12 +45,27 @@ Two consequences:
    retired 180×180 Africa grid. Corrected on the issue; recorded here because it is the same
    measurement.
 
-### ⚠️ Decision deferred to Simon, by his instruction
+### Config decisions — both settled 2026-10-11, NOTHING in views-models changed
 
-`n_samples = 64` (conflictology, production) ≠ **S = 16** (HydraNet, delivered). The repo's own
-method rule from the artifact verdict — *the reference's S MUST equal the arms' cube width* —
-points at 16 for the comparison. **This plan does not change the production config.** It runs
-**both**, plus closed form, and flags the mismatch for discussion (§6).
+**`window_months = 36` stays.** Simon's rationale, recorded as the input it is: *"this window is
+chosen because it usually performs okay."* So conflictology's bootstrap pool is months **421–456**
+(Jan 2015 – Dec 2017) by design, not by accident, and "always-active" in this test means
+always-active *over that window*. No alternative window is tested here.
+
+**`n_samples = 64` stays. The S mismatch is handled inside this plan, not by changing the config.**
+Conflictology is configured at 64 draws; HydraNet delivered 16. The two halves of the test are
+affected differently:
+
+- **T1 (positive-draw fraction)** is a proportion. 3/16 and 12/64 are both 0.1875 — unequal S
+  changes only the granularity (1/16 vs 1/64) and the MC variance, not the estimand. Benign.
+- **T2 (`tower_point`)** is *not* benign. The tip floor is a **fraction** of S (`tip_mass` 0.25), so
+  at S=16 the reported point is the median of **4** draws and at S=64 the median of **16**. A
+  disagreement between models would be unattributable — the readout itself changed. This is the
+  exact shape of the defect behind the artifact verdict's method rule (*the reference's S MUST equal
+  the arms' cube width*), which was found by that confound producing a wrong answer.
+
+⇒ **S = 16 is primary for both sub-tests**; 64 and 1000 run alongside purely to show the S=16
+reading is not Monte Carlo noise (§6). No production config is modified by this plan.
 
 ---
 
