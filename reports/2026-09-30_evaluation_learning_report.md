@@ -1,8 +1,31 @@
 # What we have learned about evaluating HydraNets
 
-**Date:** 2026-09-30 · **Status:** consolidation report, **no new measurement by this session** (§0.2 and §5.0 carry tables measured 2026-09-30 by the `models` session, attributed there) ·
+**Date:** 2026-09-30 · **Last revised 2026-10-11** · **Status:** consolidation report, **no new measurement by this session** (§0.2 and §5.0 carry tables measured 2026-09-30 by the `models` session, attributed there) ·
 **Supersedes as the living document:** `reports/2026-08-13_evaluation_pitfalls_and_metric_battery_DRAFT.md`
 (retained as dated provenance; its taxonomy letters A1–I4 are preserved here unrenumbered).
+
+---
+
+## ⛔ Read this before you rely on anything below
+
+**This document has been through one clean-context adversarial review (2026-10-11) and it did not come
+out clean.** That review returned **17 findings**. Five were verified against primary sources and
+**fixed**, including ⛔ **the retraction of §0 item 1, the report's lead claim** — see Appendix C. **Ten
+are recorded and NOT investigated**, listed in Appendix C under *"Open findings"*. They are not known to
+be wrong; they are not known to be right.
+
+**What that means for a reader.** The §0 items, §1's amendments, §4's verdicts and §5's blind spots are
+the load-bearing parts and they have now been attacked once. The remaining ten findings touch §4.1, §4.3,
+§5.4, §7, §8.2 and Appendix A. ⚠️ **No literature citation in this document has been audited by anyone**
+— the reviewer did not open the library, and §1's fourth amendment rests on citations rather than
+measurement.
+
+**This is a stopping point, not a finished document**, and it is marked as one deliberately. Its purpose
+was to stop eight months of evaluation knowledge being lost, and that purpose is served: the findings are
+written down, sourced, and the known-unreliable parts are named. ⛔ **It should not be the basis of a
+protocol change without the ten open findings being closed first.**
+
+---
 
 **What this is.** Eight months of trying to measure whether a HydraNet is any good, collected in one
 place: 53 dossiers, ~340 risk-register entries, 76 numbered claims, 26 measurement scripts, four
@@ -76,7 +99,11 @@ size 98.1% of a real run's. A downstream service reproduced the zeros independen
 our inventory would have flagged it.** Nor is there any calibration of the predictive distribution at
 any aggregation level: on one model's validation, 468 origin-months, 90% interval coverage was
 **0% / 1% / 7%** where ~90% is wanted, and the cells behave as independent marginals
-(`Var(total)/ΣVar(cell)` ≈ 0.95), so any aggregate interval is too narrow by construction.
+and ⛔ *corrected 2026-10-11:* an earlier version of this line read the dependence ratio as ≈0.95 and
+concluded *"any aggregate interval is too narrow by construction."* **§5.0(b) retracts that, in our
+favour** — measured, the pooled ratio is **9.81** on `sb`, so country and regional totals are *less*
+falsely confident than predicted. The coverage failure above stands; the variance half does not, and
+it was a one-model number generalised to "any aggregate".
 
 ⛔ **And the part that makes this worse than a gap. We prescribed the diagnostic that would have seen
 it, built it, left it unseeded, and wired it to nothing.** ⚠️ *(This replaces a claim about "both
@@ -145,9 +172,12 @@ fixed eleven days earlier on 2026-09-19 (#381)** — the same shape, in the same
 **What works:** at **h=1** the model genuinely beats climatology and persistence, and at L=300 it beats
 a fairly-scored persistence on AP at **every** horizon to h36 (4 seeds). The ceiling — what it would
 score on perfect inputs — is ~0.47 AP and **flat across all 36 steps**.
-**What does not:** the free-running rollout throws away **two thirds** of that ceiling; every CRPS win
-beyond h1 is **ARTIFACT**; magnitude has no skill (`size_ratio` → 0); six interventions have failed,
-four on the same lever; and climatology overtakes on AP around **month 20**.
+**What does not:** the free-running rollout throws away **two thirds** of that ceiling; the long-horizon
+CRPS win over climatology is **ARTIFACT — 12/12 at h36 and 12/12 at h30**, though ⛔ *corrected
+2026-10-11:* an earlier version of this line said *"every CRPS win beyond h1 is ARTIFACT"*, which is
+false — `rescore.csv` returns **REAL** at h6 (5/12), h12 (3/12), h18 (2/12) and h24 (1/12), so the
+decay is gradual and the win survives to about h18; magnitude has no skill (`size_ratio` → 0); six
+interventions have failed, four on the same lever; and climatology overtakes on AP around **month 20**.
 
 ---
 
@@ -726,7 +756,7 @@ scope. **CLOSED-BY-EXHAUSTION** = we stopped asking; the evidence does not suppo
 | Does pairing buy power? | **Yes — MDE 0.0541 → 0.0086, 6.3× on identical data** | M40 | one horizon, two arms, one seed |
 | Is the packaging boundary a source of drift? | **No — byte-identical, 190 tensors × 4 models** | M76 | this machine |
 | Can a multi-τ roster beat the soft gate? | **No — algebraically impossible** | M69 | exact; zero GPU |
-| Is the ensemble buying diversity? | **No — it is buying sample count.** Gate errors correlate 0.96–0.99 across all 28 pairs | M66, M67 | one artifact per config, one origin, `sb` |
+| Is the ensemble buying diversity? | **No on error diversity — it is buying sample count.** Errors on the **composed forecast** correlate 0.96–0.99 across all 28 pairs. ⛔ *Corrected 2026-10-11:* this row said *"**Gate** errors"* — the same operand error §7-S7 fixed twice; the §7 pass checked §0 and not §4. ⚠️ And see §7-S7: on the **delivered field** the members disagree substantially (r median 0.439), so what is dead is error diversity, not output diversity | M66, M67 | one artifact per config, one origin, `sb` |
 
 ### 4.2 Closed — and the closure is what should be read, not the number
 
@@ -971,11 +1001,15 @@ by a scope document; that was a misreading of an adjacent clause — see Appendi
 ### 5.1 ⛔ The largest hole: nothing guards against a spatially displaced forecast
 
 We have **measured** that occurrence, body magnitude and gate–body alignment are all preserved by a
-90-cell roll that costs **48× in AP** (C-319; `GLOSSARY.md:157` carries it as a ⛔ on three metric
-rows). And **no test plants a rolled field and asserts that any metric fires.** The only artifact is a
-one-off cross-correlation script in one dossier.
+90-cell roll that costs **48× in AP** (C-319). ⛔ *Corrected 2026-10-11:* an earlier version said
+`GLOSSARY.md` carries this as a ⛔ on **three** metric rows. It carries it on **one** — `:157`,
+`gate–body alignment`. Rows `:155` and `:156` do carry ⛔ marks, but for C-318 (conditioned statistics
+on a vanishing denominator), an unrelated defect. And **no test plants a rolled field and asserts that
+any metric fires.** The only artifact is a one-off cross-correlation script in one dossier.
 
-So three glossary-locked field statistics are *documented* placement-blind and *unguarded* against it.
+So three field statistics are measured placement-blind (M53) and unguarded, of which **one** is
+documented as such in the locked glossary. The measurement is unaffected; the documentation claim was
+two-thirds wrong.
 A future arm that improves all three and destroys placement would be reported as an improvement.
 
 ⚠️ **And it is a platform-wide hole, not a hydranet one.** Reported by the `views-evaluation` session:
@@ -1555,15 +1589,45 @@ claim had survived four rounds of peer review by sessions that had read the reas
 the strongest evidence in this document for its own §8 row 8, and it was bought at the cost of the
 document's headline. The remaining findings are not yet dispositioned — see the note below.
 
-⚠️ **Not yet dispositioned (2026-10-11).** Ten of the seventeen findings are unverified and unfixed, and
-four more are verified and unfixed: §0's *"every CRPS win beyond h1 is ARTIFACT"* (false — `rescore.csv`
-has REAL verdicts at h6 5/12, h12 3/12, h18 2/12, h24 1/12); §0 item 2's *"any aggregate interval is too
-narrow by construction"* (§5.0(b) retracts it, in our favour, and both statements are still in the
-document); §5.1's *"three separate metric rows"* in `GLOSSARY.md` (there is **one**); and §4.1's
-*"**Gate** errors correlate 0.96–0.99"* (the M67 operand error, third instance, after the §7 fix checked
-§0 and not §4). The reviewer also flagged four of its own findings as reasoning rather than citation
-mismatches, and audited **no** literature citation. **This appendix's provenance claims should be read as
-weaker than they were before this pass, not stronger.**
+✅ **The four other verified findings were fixed 2026-10-11** and each carries a dated correction in
+place: §0's *"every CRPS win beyond h1 is ARTIFACT"* (false — REAL at h6 5/12, h12 3/12, h18 2/12, h24
+1/12); §0 item 2's *"any aggregate interval is too narrow by construction"* (§5.0(b) retracts it, in our
+favour); §5.1's *"three separate metric rows"* in `GLOSSARY.md` (there is **one**); and §4.1's
+*"**Gate** errors correlate"* (the M67 operand, third instance — the §7 fix checked §0 and not §4).
+
+### ⚠️ Open findings — recorded 2026-10-11, NOT investigated
+
+The adversarial pass returned 17 findings. Five are fixed (above, plus the lead claim). **These ten are
+recorded as-received and deliberately not chased.** Each is the reviewer's claim, not a verified defect.
+Anyone acting on a section below should close its row first.
+
+| # | section | the reviewer's claim | status |
+|---|---|---|---|
+| 1 | §5.0, §6, §7-S9, §4.3-6 | M70's *"+58% to +159%"* is AP measured on `gate × mu`, which the dossier flags as non-zero on **100% of cells** — structurally the same object as `gate_only`, which §5.0 itself **disqualifies** as "not like-for-like". So *"the collapse has effects larger than most interventions we tested"* may not follow from the number | unverified; the number itself is not disputed |
+| 2 | §5.4 | *"**all seven** degenerate forecasts are implemented"* — the DRAFT's own header says **4 of 6**, and `SCOPE.md:48` says *"Do NOT build the spiky / frequency-right / magnitude-right cases."* §5.4 then contradicts itself two sentences later | unverified |
+| 3 | §0.4, §1 amd. 1, §2.2, §3.2, D.4 | the *"gate AP spans 13×"* figure is M8's ladder on the **40-lesson floored vehicle**, of which the ledger says *"DIRECTION CONFIRMED, MAGNITUDE RETIRED by M38 … quote the direction, never these numbers."* Cited five times, four without vehicle scope | unverified |
+| 4 | §4.1 | *"scrambling locations costs **31×**"* is M3's uncorrected floored number; the ledger directs *"cite the corrected number"* = M12's **5×**. §2.7 gives both, so §4.1 is the slip | unverified |
+| 5 | §4.3 item 12, §8.2 | both present as open/unfunded the question §5.0 declares **RESOLVED 2026-10-01** at 128 draws, pooled 8/8. §8.2's *"fund this first"* may already be spent | unverified (internal) |
+| 6 | §0 item 2 | the PIT counterfactual — *"a PIT would have shown it instantly"* — may not follow: the all-zero surface is a **forecasting** run with no truth (Appendix C's own point about AP), and `randomized_pit` consumes a **sample cube**, the input class §5.0(a) says cannot see a collapsed surface | unverified (reasoning); the prescribed→built→unseeded chain is separately verified and holds |
+| 7 | §7-S4 | *"six unrelated mechanisms ⇒ it is the axis, not the implementation"* is contradicted by §4.3 item 9 (two mechanisms absent or non-functional; arms not compute-matched) and by M46's own *"the cross-arm sign pattern is POST-HOC"* | unverified (internal) |
+| 8 | §2.8, §4.1, §7-S17 vs §4.4 | retraining byte-identity is used as a load-bearing positive (M22, M76) while §4.4 says *"treat training reproducibility as OPEN"* on C-317. The report applies its "both entries stand" discipline to C-119/C-317 but not to M22/M76 | unverified (internal) |
+| 9 | §4.3 item 1, §8.2 | *"the h=1 win reads UNDECIDABLE"* is the **persistence** comparison; against climatology `rescore.csv` gives CRPSS +0.3086, ΔAP +0.1765, CI excluding zero, verdict **REAL**. D.5 states the distinction; §4.3 and §8.2 may not | unverified |
+| 10 | §0 | *"no result in this entire record is independently reproducible by a third party"* may be broader than its premises — Appendix A.3's `crps_parity_check.py` has no hardcoded paths and was re-run independently, exit 0 | unverified (reasoning); the premises are each verified |
+
+**Smaller discrepancies the same pass reported, also unverified:** §2.3 says `rollout_ruler_core.py` has
+**86** never-skipping tests, Appendix A says **53**; §5.8 says *"MCR"* names **four** things, A.3 says
+**five**; A.3's twCRPS *"computed in seven places"* may overstate by ~2.3× (7 name occurrences, 2 imports,
+3 computations); *"the 25 dossiers dated after 2026-08-13"* may be **26**; §0's wandb comment is *inside*
+the dependency list, not two lines above it.
+
+⚠️ **Four of the ten are the reviewer's reasoning rather than citation mismatches** (rows 6, 7, 8, 10) and
+it said so. ⛔ **And it audited no literature citation at all** — Bolin2023, Lerch2017, Gneiting2011,
+Taillardat2023, Brehmer & Strokorb, Ehm2016, Aceituno2025, Lakshminarayanan2017 and the rest are
+unexamined by any reviewer, which matters most for §1's fourth amendment, the one resting on no
+measurement of ours.
+
+**This appendix's provenance claims should be read as weaker than they were before this pass, not
+stronger.**
 
 ### ⛔ A second claim in this report was retracted, 2026-10-10 — the same M67 row, the second time
 
