@@ -8,6 +8,52 @@ the same thing.
 
 ---
 
+## 0. Inputs resolved from views-models (read-only, 2026-10-11)
+
+Read from `views-models` @ `docs/darts-calibration-delivery-note`. **Nothing was changed there.**
+These supersede §12, which listed them as missing.
+
+| input | value | source |
+|---|---|---|
+| **conflictology model** | `light_strider` / `white_ranger` / `heavy_strider` — all three are `algorithm: "ConflictologyModel"`, `level: "pgm"`, byte-identical hyperparameters | `models/<m>/configs/config_meta.py` |
+| **`window_months`** | **36** | `models/light_strider/configs/config_hyperparameters.py` |
+| **`n_samples`** | **64** | same |
+| **`seed`** | 42 | same |
+| **partition** | **calibration** — train `(121, 456)`, test `(457, 504)` | `config_partitions.py`; identical in `violet_visitor` ("a platform convention, not model-specific") |
+| **conflictology's bootstrap pool** | months **421–456** (the last 36 before `train_end = 456`) | derived from the two rows above |
+| **HydraNet cube width** | **S = 16 = `n_posterior_samples` (4, MC-dropout) × `n_head_samples` (4)** | `config_hyperparameters.py`; composition at `views_hydranet/utils/hydranet_inference.py:1578` |
+| **delivered scope** (measured off the parquet, not inferred) | **13 origins**, 36 steps each, stride 1; origin 00 = months 457–492, origin 12 = 469–504; **64,818 cells**; 2,333,448 rows/file | `/home/simon/Documents/views_selector_frames_20260929/violet_visitor/I_mean/` |
+
+**Resolution:** `window_months = 36` ⇒ the positive-draw fraction takes 37 distinct values, finest
+step 1/36 ≈ 0.028. Comfortably clear of the **F6** VOID threshold.
+
+### ⛔ The delivery is GLOBAL, not Africa
+
+`models/violet_visitor/configs/config_queryset.py:26-28`:
+
+> *"64,818 PRIO-GRID land cells (global coverage, excluding water) — runbook #499 Step 1;
+> `africa_me_legacy` (13,110 cells) until 2026-09-19."* · `REGION = "land"`
+
+Two consequences:
+
+1. **This plan's cell count is 64,818, not 13,110.** Every scope assertion and cost figure below
+   uses the measured value.
+2. ⚠️ **Issue #394 understates its own central number.** The training raster at `REGION = "land"`
+   is the full PRIO-GRID 360 × 720 = **259,200** cells
+   (`config_queryset.py:27` — *"rows/cols with no land are zero"*), of which 64,818 are land. So
+   **75.0% of every magnitude likelihood term is non-land**, not the ~59% #394 claims from the
+   retired 180×180 Africa grid. Corrected on the issue; recorded here because it is the same
+   measurement.
+
+### ⚠️ Decision deferred to Simon, by his instruction
+
+`n_samples = 64` (conflictology, production) ≠ **S = 16** (HydraNet, delivered). The repo's own
+method rule from the artifact verdict — *the reference's S MUST equal the arms' cube width* —
+points at 16 for the comparison. **This plan does not change the production config.** It runs
+**both**, plus closed form, and flags the mismatch for discussion (§6).
+
+---
+
 ## 1. The question
 
 **C-345** (Tier 1) measured that on the 2026-09-29 delivery, the posterior's mode is zero in **92%**
@@ -65,7 +111,7 @@ months, same horizon, same sample count, same readout code.
 5. ⛔ **I do not have HydraNet's raw draws.** The handover
    (`/home/simon/Documents/views_selector_frames_20260929/`, 13 origins × 8 models) delivers three
    *collapses* — `I_mean`, `II_q95`, `III_conditional_mean` — each a single column
-   (`pred_lr_{sb,ns,os}_best`), 2,333,448 rows = 178 months × 13,110 cells. The cube is gone.
+   (`pred_lr_{sb,ns,os}_best`), 2,333,448 rows = 36 steps × 64,818 cells. The cube is gone.
    **Consequence: `tower_point` can be run on conflictology's draws but NOT on HydraNet's.** See §5.
 6. ⚠️ **C-298 / mismatched-months.** This repo has been bitten twice by comparing different month
    sets. Scope equality is a gate, not a hope (§7).
@@ -94,36 +140,40 @@ whether it fired.
 **Local hardware:** 31 GB RAM (21 GB available), 20 cores, RTX 4070 Laptop 8 GB, **63 GB disk free
 (94% full)**. No GPU is needed — bootstrap resampling is `np.random.choice`.
 
-**The decisive point: sample count is nearly irrelevant to T1.** Conflictology's support is the
-`window_months` observed values, so `E[positive-draw fraction] = k_pos / window_months` **exactly**,
-in closed form, at zero compute. Drawing samples adds Monte Carlo noise to a quantity that is already
-known analytically. The cap on resolution is `window_months`, not `S` (ledger item 3).
+**The decisive point: sample count is nearly irrelevant to T1.** Conflictology's support is its
+`window_months = 36` observed values, so
+`E[positive-draw fraction] = k_pos / 36` **exactly**, in closed form, at zero compute. Sampling adds
+Monte Carlo noise to a quantity already known analytically. The resolution cap is `window_months`,
+not `S` (ledger item 3).
 
 Sampling is needed only to (a) feed `tower_point` for T2 and (b) match HydraNet's noise level.
 
-**Three sample counts, all run:**
+**Conflictology is time-invariant within the test period** — it resamples pre-boundary history
+(months 421–456) and does not propagate. So draws are computed **per cell** and broadcast across
+months and origins. This is what makes every row below cheap.
 
-| S | purpose | cost |
-|---|---|---|
-| **closed form** | exact anchor, no MC noise | free |
-| **S = 16** | ⛔ **mandatory.** Matches the delivered cube width. The repo's own method rule from the artifact verdict — *the reference's S MUST equal the arms' cube width* — and `tower_point`'s tip floor is a **fraction of S** (`tip_mass` 0.25 of 16 = 4 draws), so T2 is only meaningful at the delivery's S. | 13,110 × 16 = 210 k draws |
-| **S = 1000** | shows the S=16 reading is not MC noise; SE of a proportion ≤ 0.016 | 13,110 × 1000 × 4 B = 52 MB |
+| S | purpose | per-cell cost (64,818 cells) | per-row cost (30.3 M rows) |
+|---|---|---|---|
+| **closed form** | exact anchor, no MC noise | free | — |
+| **S = 16** | ⛔ **primary.** Matches the delivered cube width (4 × 4). The method rule from the artifact verdict, and `tower_point`'s tip floor is a **fraction of S** (`tip_mass` 0.25 of 16 = 4 draws), so T2 is only meaningful at the delivery's S. | 1.04 M draws, **4 MB** | 1.94 GB ✓ |
+| **S = 64** | the production config's own value (§0) | 4.15 M draws, **17 MB** | 7.8 GB ⚠️ tight |
+| **S = 1000** | shows the S=16 reading is not MC noise; SE of a proportion ≤ 0.016 | 64.8 M draws, **259 MB** | **121 GB ✗ impossible** |
 
-Conflictology is **time-invariant within the test period** (it resamples pre-boundary history), so
-draws are computed **per cell**, not per cell-month, and broadcast. Materialising per-row at S=1000
-would be ~121 GB and is both unnecessary and impossible on 63 GB free — **do not do it.**
+⛔ **Per-row materialisation at S = 1000 is forbidden** — 121 GB against 63 GB free disk and 21 GB
+RAM. It is also unnecessary: per-cell broadcast gives the same numbers.
 
-**Binding constraints are the data pull and the 63 GB disk, not S.** No S above ~1000 will be run;
-it buys nothing against a `window_months`-sized support.
+**Binding constraints are the fresh data pull and the 94%-full disk, not S.** Nothing above
+S ≈ 1000 will be run; it buys nothing against a 36-value support.
 
 ## 7. Method
 
-1. Fresh pull of `lr_sb` at pgm for the delivery's partition. **No cached disk data.**
-2. Fit `ConflictologyModel` with `window_months` and `n_samples` read from the **delivery's own
-   config** — recorded in the log before running, not chosen here.
+1. Fresh pull of `lr_sb_best` at pgm, `REGION = "land"`, for the **calibration** partition
+   (train 121–456, test 457–504). **No cached disk data.**
+2. Fit `ConflictologyModel` with `window_months = 36`, `seed = 42` (§0). Run at S ∈ {16, 64, 1000}
+   plus closed form (§6). **The production config is not modified.**
 3. **Scope gate, asserted in code, run aborts on failure:** conflictology's cell set, month set,
-   target and horizon are *identical* to the HydraNet frames'. Assert `13_110` cells, the same
-   `month_id` set, `lr_sb`, h1.
+   target and horizon are *identical* to the HydraNet frames'. Assert **64,818** cells, month set
+   **457–504** across 13 origins, target `lr_sb_best`, h1 (origin month + 1).
 4. **T1:** compute the per-cell positive-draw fraction for conflictology (closed form, S=16, S=1000)
    and for HydraNet (algebra, S=16). Report the distribution over two cell sets:
    - **(i) HydraNet's own top 100 cells by predicted mean** — the C-345 set, for continuity.
@@ -176,8 +226,9 @@ Committed before looking. My own prediction, so it can be scored against me:
 - The magnitude ceiling (`project_amount_ceiling_wall`, #241). Out of scope.
 - Anything about `ns` / `os`. `sb` only.
 
-## 12. Inputs required before the run
+## 12. Inputs required before the run — RESOLVED
 
-1. ⛔ `window_months` and `n_samples` from the delivery's own config (views-models).
-2. ⛔ The delivery's partition boundary and month set.
-3. ⚠️ A fresh `lr_sb` pgm pull.
+Superseded by **§0**. `window_months = 36`, `n_samples = 64`, `seed = 42`, calibration partition
+train (121, 456) / test (457, 504), 64,818 global land cells, 13 origins, HydraNet S = 16.
+
+**Remaining:** a fresh `lr_sb_best` pgm `land` pull for months 121–504. Nothing else blocks the run.
