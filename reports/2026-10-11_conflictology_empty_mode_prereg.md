@@ -372,3 +372,61 @@ made here — it needs a decision about where that entry should live.
 
 `pull.py`, `drift.py`, `analyse.py`, `reconcile_c345.py`, `t1_per_cell.parquet`, `t2_tower.parquet`
 in the session scratchpad. Pull: 5.7 s, 24,890,112 rows. No GPU.
+
+---
+
+# CORRECTION + CORROBORATION — 2026-10-12, from the `faoapi` session
+
+## ⛔ Correction: my three-estimator table compared different subsamples
+
+As first reported, the "median value where nonzero" column was computed on **different denominators
+per estimator** — the mode's over the 47 cells it did not zero (which are by construction the
+high-positive-fraction cells), the median's over 98. That made the mode appear to give a *higher*
+central value than the median, which is backwards for these distributions. The cause was selection,
+not estimation. Caught by the `faoapi` session; verified here.
+
+**Recomputed, same 16 draws, same 100 cells:**
+
+| estimator | cells reading 0 (of 100) | median of the estimate, all 100 | median on the 47 cells the mode did not zero |
+|---|---|---|---|
+| mode (`tower_point`, shipped) | **53** | 0.00 | **9.0** |
+| median | **2** | 6.00 | **15.0** |
+| mean | **0** | 15.81 | **25.3** |
+
+On a common subsample the ordering is **mode 9.0 < median 15.0 < mean 25.3**, as it must be. The
+"cells reading 0" column was never affected and carries the argument on its own.
+
+## ✅ Corroboration: the effect is not an S=16 artifact — caveat 2 is closed
+
+Independently measured by `faoapi` on the **live FAO delivery**
+(`rusty_bucket_forecasting_20261001_012905`, served grid parquet, 2,330,712 rows, **S=128**), via the
+API rather than a cube:
+
+- `m561/pg199876` — 90/128 positive (70.3%), posterior mean 22.1, `hdi95_upper` 122 → `tower_point` **0.000**
+- `m562/pg199155` — 90/128 positive (70.3%), mean 17.3 → `tower_point` **0.000**
+- `m564/pg198434` — 71/128 positive (55.5%), mean 14.8 → `tower_point` **0.000**
+
+Synthetic sweep holding the positive draws fixed and varying only the exact-zero fraction: 10% zeros
+→ 5.50; **20% → 0.000**; 30% → 0.000; 70% → 0.000. So at S=128 the flip sits between a **10% and 20%**
+exact-zero fraction, against ~25–35% at S=16 here. Same direction, different S, different pipeline,
+different measurement route. **§5's caveat 2 — that unequal S makes a readout comparison
+unattributable — is satisfied from the other side.** The mechanism is general.
+
+## The defect is re-scoped, and not by me
+
+`faoapi` establishes that the delivered product is **already not a single number**: ADR-025 ships nine
+columns per series, and in the cells where `*_map` reads zero the signal is present in siblings —
+`sb`: **18,407** cells with `map == 0` and `hdi95_upper > 0`, of which 12,868 also have
+`hdi90_upper > 0`, and `severe_scenario > 0` in all 18,407. ⇒ **Nothing is lost on the wire.**
+
+So the defect is not "the map is empty" but "the column named as the headline estimate reads zero
+while four siblings in the same row say otherwise, and nothing tells the reader which to trust."
+A presentation-and-contract problem, differently owned.
+
+Also established there and recorded here so it is not re-investigated: `bimodality_flag` is set in
+**0 of 2,330,712 rows**, and that is **correct** — a zero atom plus a thin positive spread is
+zero-inflated, not bimodal in the 16-bin / prominence-0.4 / `min_mass` 0.15 sense. Wrong instrument
+for this shape, not a broken one. Neither session filed it.
+
+**⛔ Unchanged by any of the above: the HydraNet half.** 0.7639 observed vs 0.4062 in the model's own
+posterior on the 100 most persistently violent cells. That gap is not a presentation problem.
