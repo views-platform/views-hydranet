@@ -556,3 +556,137 @@ exactly true. That distinction must travel with any statement derived from them.
 2. `$OUT/FAILURE` survives a successful rerun — the script clears STATUS but not FAILURE, so this
    run shipped `STATUS: OK` beside a stale `FAILURE` from a failed first launch. Theirs; in
    tomorrow's PR.
+
+---
+
+# VERIFICATION II — B7 and A5 closed; four corrections to my own record. 2026-10-12.
+
+Two external objections (`opponent`'s **A5** and **B7**) existed only in conversation — neither
+appeared anywhere in `reports/`. Both are resolved below and both are now on the record. Along the
+way **four of my own claims turned out to be wrong**; they are listed first, because three of them
+are in text above this line.
+
+## ⛔ Correction 1 — "the body supplies 99%, not 94%" is an accounting rule, not a measurement
+
+`p0_zero_attribution.py` reported the body's share of the emitted zero mass as **99.1%** against
+T0's **94%** (§T0 above), and I presented that as T0 having under-credited the body. It is not. On
+the identical arrays:
+
+| attribution convention | body's share |
+|---|---|
+| T0's — a gate-killed cell-step is credited wholly to the gate | **93.2%** |
+| P0's — the body is credited first; the gate only where the body would have been positive | **99.1%** |
+
+**T0's 94% stands.** What P0 genuinely adds is that T0's number survives the production posterior
+(MC-dropout on, S=16 realised draws) rather than resting on one dropout-off analytic pass.
+
+The reason the conventions diverge so far is worth keeping: **where the gate says no, the body says
+no too.** Body `P(Y=0)` is **0.8881** on gate-killed cell-steps against **0.5665** where the gate
+lets the cell through. Only **0.52%** of all cell-step-draws are zero *because of* the gate. The
+threshold is almost never the binding constraint.
+
+## ⛔ Correction 2 — B7 as I stated it was built on conflated numbers
+
+I put it to the external seats as "an 0.08 accounting gap between the archive's 0.6250 and T0's
+0.5450". Both halves were wrong:
+
+- **0.6250 is `bold_comet`'s** positive fraction from the delivered-models table at §T0 — a
+  different model. The archive's figure is 0.3750.
+- T0 has **two** figures because they are two statistics: `1 − mean(composed zero)` = **0.4550** and
+  `1 − median(composed zero)` = **0.4714**. I mixed them.
+
+The coherent pair is the one §VERIFICATION already printed, and that section already said the
+−0.0964 gap "is not a disagreement", naming both reasons. **B7 was not an unexplained residue; it
+was a gap this document explained qualitatively and never quantified.** Quantified below.
+
+## ⛔ Correction 3 — P0's own ladder mixed two statistics
+
+Rungs A0/A/B used `1 − median` over cell-steps (`p0_zero_attribution.py:138`); rung C used
+`1 − mean` over all cell-step-draws (`:157`). Recomputed on **one** statistic:
+
+| rung | pooled mean | median over cells |
+|---|---|---|
+| A0 — 1 pass, dropout OFF, analytic | 0.4551 | 0.4528 |
+| A — 1 MC-dropout pass, analytic | 0.4048 | 0.3883 |
+| B — D=4 dropout, analytic | 0.4233 | 0.4156 |
+| C — D=4 dropout, 16 realised draws | 0.4290 | 0.4259 |
+
+Single-axis deltas, consistent statistic: **dropout switch −0.0503**, MC averaging +0.0185, realised
+draws +0.0057. **The conclusion survives** — the dropout switch is the only axis that materially
+moves the zero mass — but the mid-rung figures I quoted were contaminated. A0's pooled 0.4551
+reproduces T0's 0.4550, which is the check that the recomputation is right.
+
+## ⛔ Correction 4 — production inference IS reproducible. The broken thing was my harness.
+
+I reported that `LockedDropout` draws its mask from the global RNG and concluded that no delivered
+forecast can be reproduced. The first half is true (`architectures/locked_dropout.py:71`, the only
+unseeded global-RNG consumer on the inference path). The conclusion is false:
+`ReproducibilityGate.lock_entropy` calls `torch.manual_seed` and **is** called on the inference path
+at `manager/hydranet_manager.py:319-321`, inside `_setup_evaluation`, which serves eval and forecast
+alike. C-119's record confirms it empirically — same-seed runs bit-identical, **78/78 `y_pred`
+`array_equal`**.
+
+`p0_zero_attribution.py` never called it, which is why two runs of it disagreed. **The
+irreproducibility was mine.** Filed as **#397** — residual risks only (positional fragility of the
+C-119 kind; CPU and GPU draw different masks; no pass namespacing), explicitly *not* a fix to make
+now, because changing which mask is drawn breaks comparability with every logged metric.
+
+## ✅ A5 — the all-zero cells are explained, not anomalous
+
+`opponent` asked how 5 of 100 cells emit all 16 draws zero when the median body `P(0)` of 0.5665
+makes that a 1.1e-04 event — ~1771× too rare. **The all-zero cells are not drawn from the median.**
+Of the 3.31% of cell-steps that emit all 16 zero, **85.3% are gate kills** (zero by construction),
+and the remainder carry body `P(0)` median **0.8945** — essentially the 0.829 `opponent` derived as
+the requirement. The median was the wrong reference class. **A5 lands as explained.**
+
+## ✅ B7 — CLOSED. The reconstruction reproduces the written draws.
+
+`p1_matched_h1.py`. The only matchable slice is **h=1**, for three reasons established by reading
+the code and the archive:
+
+- h=1 is teacher-forced in **both** the fed input and the recurrent state —
+  `hydranet_inference.py:1318` feeds the real observed input at the seed step; the switch to fed-back
+  prediction is `:1383-1388`, reached only for `t > origin`; `:1219-1221` states it outright: *"h=1
+  is untouched by construction"*.
+- There are **13** matched slices, not one: `origin_N` = base origin `456+N`, so h=1 spans months
+  **457–469**, all out-of-sample. Pooling h=1 across origins is safe (13 distinct months); pooling
+  anything else is not, since stride 1 means adjacent origins share 35 of 36 months.
+- It is **weight-matched**, not substituted: the archive's sha, `PROVENANCE`'s and `.pt.sha256`'s are
+  all `4acbf4d3…`. Amendment 1's config-identity caveat does not apply to this comparison.
+
+| | pooled mean positive fraction, h=1, 13 months, 100 cells | |
+|---|---|---|
+| observed truth | **0.6438** | months 457–469 |
+| **archive, emitted draws** | **0.3791** | read from the archive, not recalled |
+| reconstruction, lead-in 421–468 | **0.3825** | residue **+0.0034**, 95% CI **[−0.0051, +0.0118]** |
+| reconstruction, lead-in 121–468 | 0.3909 | residue +0.0118, 95% CI [+0.0041, +0.0194] |
+
+⇒ **The short-lead-in reconstruction is statistically indistinguishable from the archive's own
+draws** (CI covers zero, 8/13 origins above). The full-lead-in reconstruction carries a small real
+positive bias of 1.2 pp, 11/13 origins. Either way the residue is **1.3–4.4% of the 0.2647 gap under
+study**. **The instrument is trustworthy: gate-versus-body can be asked of a reconstruction without
+a pod run.**
+
+### ⚠️ A methodological limit this exposed, which applies to the headline column above
+
+**The median-over-cells statistic is quantised at 1/16 = 0.0625** — one draw per cell — because each
+cell's positive fraction is `k/16`. The residues under test here are **0.003–0.053**, i.e. *smaller
+than the statistic's own granularity*. The per-origin medians duly bounce between 0.3750 and 0.4688
+on both sides while the pooled means agree to ~1 pp. So the `0.3750 / 0.4062 / 0.7639` column in
+§VERIFICATION **cannot resolve differences smaller than one draw per cell**, and the 0.4062-vs-0.3750
+spread between the delivered and retrained models is within that granularity. Every future
+comparison at S=16 needs the pooled statistic, or more draws.
+
+## Found, not chased (appended)
+
+- **The short lead-in matched the archive better than the faithful one** (+0.0034 vs +0.0118), which
+  is backwards: production digests the full partition before the origin. Either the eval's
+  `full_tensor` does not start at month 121, or a long sweep from a zero state drifts slightly. Small
+  and out of scope; recorded.
+- MC-dropout raises the **body's** own `P(Y=0)` 0.5286 → 0.5780 while the gate barely moves
+  (0.6945 → 0.7073). The posterior machinery pushes toward emptiness on the same half as the defect,
+  which is a reason any arm comparison must be read at the full D×K width, not one pass.
+- The draws archive carries **only** the three regression targets — 78 members = 13 origins × 3
+  targets × 2 files. The gate cube is concatenated at `inference_orchestrator.py:134` and dropped
+  before serialisation, so **the gate never leaves the pod**. That is why all of this had to be
+  reconstructed. The fields worth shipping are now narrow: gate, body `P(0)`, and two zero counters.
