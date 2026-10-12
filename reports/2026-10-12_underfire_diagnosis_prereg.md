@@ -225,3 +225,63 @@ decision on the vehicle.
   not a pre-registered question. Not chased.
 - `heavy_freighter` is the weakest of the 8 at **0.2500** and is the designated global PoC/template.
   Not chased.
+
+---
+
+# AMENDMENT 1 — the vehicle, 2026-10-12. Written BEFORE any measurement runs.
+
+**F6 is satisfied differently, not waived.** §7 named the vehicle as `violet_visitor`'s local
+artifacts. Those are VOID (all ≤ Sep 17; `REGION` switched to `land` on Sep 19; delivery Sep 28), and
+no global-land artifact survives anywhere — the pod was destroyed and this codebase never uploads
+weights (`log_artifact` has no non-test caller). See views-models#549, #550.
+
+**New vehicle:** a freshly trained `violet_visitor` at `REGION="land"`, 300 lessons, calibration,
+produced by one pod run (views-models#550, ~2 h 25 m to saved weights, ~$2.50, approved by Simon
+2026-10-12).
+
+⛔ **It is NOT the delivered model** and is not bit-reproducible (**C-317**). The views-models session
+holds the sha256 prefixes of all eight 2026-09-28 artifacts, so the divergence is **provable rather
+than assumed**, and the first thing recorded on the new artifact is its own sha256.
+
+**Why that is acceptable, stated as a limit rather than a dismissal:** T2 and T3 ask about the
+**loss** — where its gradient comes from, and whether it rewards timidity. Those are properties of
+the objective and the grid, not of one weight set. **T0** (gate vs body attribution) *is* weight-
+specific, so its result transfers to "a production-config HydraNet at global land", **not** to the
+delivered forecast. Every T0 line will carry that scope.
+
+The revised F6 condition: **VOID unless** the new artifact's sidecar confirms `REGION`-consistent
+`input_channels`, `output_distribution: 'nb'`, `forecast_composition: 'threshold_gate'` and
+`gate_threshold: 0.20`, matching the delivered config. Config identity is the gate; weight identity
+is explicitly not.
+
+## Three constraints added by the views-models review
+
+1. ⛔ **The artifact is three files.** `train_model.py` writes the `.pt` (`:73`), `.pt.config.json`
+   (`:138`) and `.pt.sha256` (`:144`). `model_artifact_fetcher.py:107` reconstructs the model **from
+   the config sidecar**; without it the `else` branch at `:125-128` calls `.to()` on an
+   `OrderedDict` and raises `AttributeError`. **All three must be pulled down**, or there is no
+   loadable vehicle. This is why views-models#549's original one-line fix was insufficient.
+
+2. ⚠️ **A `mixture_nb` vehicle would change what T3 scores.** `model_artifact_fetcher.py:117`
+   attaches `hurdle_nb_theta` **from the sidecar**. For `violet_visitor` (`nb`, sidecar
+   `hurdle_nb_theta: None`) no learned parameter sits outside the state dict. **If the vehicle is
+   ever switched to one of the five `mixture_nb` models, the sidecar becomes part of T3's object**
+   and T3 must be re-specified. Recorded now so it cannot be discovered mid-run.
+
+3. ⚠️ **The local-fit claim gets measured, not assumed.** Postmortem §2.2's ~3 GB VRAM peak is
+   **prose and the single source** — no run log carries an instrumented peak (the only VRAM string
+   in `violet_visitor`'s log is a preflight `VRAM: 32`, the pod's capacity). It is nonetheless
+   stronger evidence than first used: it was measured on a run that **trained**, so it already
+   includes the backward pass and BPTT activations across the 32-month window and four ConvLSTM
+   cells. ⇒ **`torch.cuda.max_memory_allocated()` is recorded on the first forward/backward and the
+   run stops if it surprises us.** ⛔ `disk_guard` is not consulted — postmortem §2.5: it reads the
+   host's RAM rather than the cgroup, and under-reports true peak 2–3× even corrected.
+
+## Unchanged by all of the above
+
+**T1 stands and needs no vehicle.** Best-fit NB implies 0.7695 positive mass against an observed
+0.7639 while HydraNet emits 0.4062. **C1 is eliminated and the distribution head is not the lever**,
+whatever the pod returns.
+
+T0's cross-model 2×2 also stands: all 8 delivered models under-fire (0.25–0.625 vs 0.7639), and
+neither composition nor family explains it.
