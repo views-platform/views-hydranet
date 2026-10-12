@@ -690,3 +690,56 @@ comparison at S=16 needs the pooled statistic, or more draws.
   targets × 2 files. The gate cube is concatenated at `inference_orchestrator.py:134` and dropped
   before serialisation, so **the gate never leaves the pod**. That is why all of this had to be
   reconstructed. The fields worth shipping are now narrow: gate, body `P(0)`, and two zero counters.
+
+---
+
+# P2 — the arm's gate `pos_weight`. Pre-registered at `4121ad9`, run 2026-10-12. **VERDICT D2.**
+
+The one number the experiment was missing. `weighted_bce` at `pos_weight = w` has its optimum at
+`s* = w·p/(w·p + 1 − p)`, so the loss asks for a calibrated gate only at `w = 1`; at the shipped
+`w = 2` and `p = 0.69` it asks for **0.8166**. Harmless under `threshold_gate`, which uses only the
+gate's ranking (the threshold binds on 3.9% of cell-steps; 0.52% of all draws are zero because of
+it). **Not** harmless under `soft_gate` + a zero-truncated body, where `P(body>0) = 1` by
+construction so `emitted P(y>0) = gate` exactly, and the inflation becomes a direct over-forecast.
+
+Measured on **all 64,818 land cells** at the 13 out-of-sample h=1 months P1 validated — 842,634
+cell-months, observed rate 0.003448. Deliberately not the 100-cell set, which was selected on the
+outcome and would condition the curve on `y` (the M5 error class).
+
+| gate bin | n | mean gate | observed p | `s*(w=2)` | `w_implied` |
+|---|---|---|---|---|---|
+| [0.00,0.01) | 813,744 | 0.0003 | 0.0002 | 0.0003 | 1.76 |
+| [0.01,0.05) | 18,149 | 0.0226 | 0.0169 | 0.0332 | 1.35 |
+| [0.05,0.10) | 4,157 | 0.0706 | 0.0683 | 0.1279 | 1.04 |
+| [0.10,0.20) | 2,825 | 0.1412 | 0.1473 | 0.2567 | 0.95 |
+| [0.20,0.30) | 1,197 | 0.2443 | 0.2389 | 0.3857 | 1.03 |
+| [0.60,0.70) | 313 | 0.6528 | 0.6965 | 0.8211 | 0.82 |
+| [0.90,1.01) | 162 | 0.9380 | 0.9691 | 0.9843 | 0.48 |
+
+median `|gate − p|` **0.0054** · median `|gate − 2p/(1+p)|` **0.0573** · tolerance 0.0298 ·
+monotone **True** · median `w_implied` **1.0365**
+
+⇒ **D2. The gate is calibrated — it behaves as if `pos_weight = 1` although it was trained at 2.**
+**The arm keeps `loss_class_pos_weight = 2.0`.** There is no hyperparameter to tune: the experiment
+is a pure composition change, which also removes the M45 failure mode by construction rather than by
+a guessed number.
+
+## Two consequences worth recording
+
+**1. The gate sits below its own loss's optimum — the same shape M6 found on the body.** M6: the
+body's θ is 0.1544 where its own NLL wants 0.2327. P2: the gate is calibrated where its own BCE
+wants inflation. **Two independent halves of the model, each falling short of its own objective in
+the same direction.** Neither is explained by the objective rewarding emptiness — that claim was
+retracted — so something common to both is leaving skill on the table. Named, not chased.
+
+**2. The gate is slightly CONSERVATIVE exactly where it matters.** At the top of the range it
+under-states: 0.6528 against an observed 0.6965, and 0.9380 against 0.9691. Under `soft_gate` the
+emitted occurrence is the gate, so the arm should land slightly **below** the observed rate rather
+than above it. That is consistent with M1's recomposition — gate median 0.6945 against the honest
+out-of-sample rate of **0.6944** — and it gives the arm a sharp pre-registered prediction:
+
+> **the treatment arm's emitted positive fraction on the 100-cell set should land at ≈0.69, matching
+> the honest observed rate, not at the in-sample 0.7639.**
+
+If it overshoots materially, the gate did not stay calibrated once it owned occurrence alone, and
+that is the finding rather than a tuning problem.
