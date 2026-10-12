@@ -156,8 +156,29 @@ def load_vehicle(artifact: str | Path, device: str = "cpu"):
     model.hurdle_nb_theta = cfg.get("hurdle_nb_theta")
     model.hurdle_lognormal_sigma = cfg.get("hurdle_lognormal_sigma")
     model.to(device).eval()      # eval(): no dropout, and BN buffers are NOT touched
-    if prov.get("sha256", "").strip() not in ("", "not recorded") and prov["sha256"] != sha:
-        raise SystemExit("VOID (F6): PROVENANCE sha256 disagrees with the file's own digest.")
+    # DECIDED, not inherited (raised by the views-models session 2026-10-12). views-models#549's
+    # collection is degraded-not-fatal when `.pt.sha256` is missing: it keeps the weights and
+    # PROVENANCE then reads `sha256: not recorded`. A blanket digest comparison would turn that
+    # deliberate degradation into a VOID here. It is ACCEPTED WITH A WARNING instead, because:
+    #   * the digest is computed from the file above either way, so the C-317 divergence record
+    #     against the delivered d92dcff4… is preserved regardless of the sidecar;
+    #   * the only thing actually lost is transit-corruption detection, and a corrupted state dict
+    #     would fail `load_state_dict` on keys or shapes before any measurement ran;
+    #   * refusing a trained 300-lesson model over a missing metadata file is disproportionate —
+    #     the same reasoning that justifies the upstream degraded path.
+    # A sidecar that EXISTS and DISAGREES is a different thing and stays fatal (checked above).
+    prov_sha = prov.get("sha256", "").strip()
+    if prov_sha in ("", "not recorded"):
+        print(
+            "⚠️  PROVENANCE carries no sha256 (`not recorded`) — accepted, not VOID. Integrity "
+            "against the pod's own record cannot be checked; the digest printed below is computed "
+            "here. See vehicle.py for why this is accepted rather than refused."
+        )
+    elif prov_sha != sha:
+        raise SystemExit(
+            f"VOID (F6): PROVENANCE records sha256 {prov_sha[:16]}… but the file's own digest is "
+            f"{sha[:16]}…. The artifact does not match its own provenance record."
+        )
     print(f"vehicle: {p.name}  sha256 {sha[:16]}…  (NOT the delivered weights — C-317)")
     print(f"  lessons {lessons} · run_type {prov.get('run_type', '?')} · "
           f"git {prov.get('git', '?')} · trained {prov.get('trained', '?')}")
