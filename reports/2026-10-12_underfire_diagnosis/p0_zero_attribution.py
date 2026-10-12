@@ -31,6 +31,16 @@ are therefore NOT on a common basis, and the residue between rung C and 0.3750 i
 UNMATCHED — indicative of the free-running roll's contribution, not a measurement of it. Settling
 B7 needs these rungs run on the archive's own origin and horizon.
 
+⛔ NOT REPRODUCIBLE RUN-TO-RUN. `LockedDropout.forward` draws its mask with `torch.rand_like`
+from the GLOBAL torch RNG (`locked_dropout.py:71`) — no generator is threaded in, and nothing here
+seeds it. Two runs of this script therefore give different dropout masks: measured across two runs,
+the body's share of the emitted zeros was 99.0% then 99.1% (stable), but the dropout delta A0->A
+was -0.063 then -0.049 and the gate-kill rate 4.6% then 3.9%. Read the single-axis deltas as a
+range, not a point, and read the per-pass sd printed below as the honest error bar. The same gap
+applies to production inference, where only the FAMILY draw is seeded
+(`hydranet_inference.py:1660`, from `config["torch_seed"]`) while the dropout mask is not —
+worth an issue, not chased here.
+
 ⚠️ IN-SAMPLE. Months 421-456 are inside the calibration training partition 121-456 (prereg
 Amendment: the leakage caveat). That is accepted: the question is the mechanism of composition,
 not skill, and both arms of the attribution are computed on the same cell-steps.

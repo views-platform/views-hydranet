@@ -1,0 +1,35 @@
+vehicle: calibration_model_20261012_033112.pt  sha256 4acbf4d3c2b457b0…  (NOT the delivered weights — C-317)
+  lessons 300 · run_type calibration · git f99413e · trained 2026-10-12T01:24:58Z to 2026-10-12T04:25:10Z
+⚠️  REGION IS RECORDED AS ENFORCED, NOT MEASURED. PROVENANCE says 'land (enforced at check_config -- the run refuses any other)' — which records that pod_run_model.sh:279-282 refuses any other value, NOT a read-back of the grid the weights saw. Nothing in a .pt or its sidecar records the region, and the net is fully convolutional, so this remains weaker than a measurement. The four known africa artifacts are additionally denied by hash.
+==============================================================================
+P0 — zero attribution on the PRODUCTION posterior (S = 4 x 4 = 16)
+==============================================================================
+  cells 100 · steps 35 (months 421-455, IN-SAMPLE) · tau 0.20 · sha 4acbf4d3c2b4…
+
+  RUNG A0  1 pass, dropout OFF, analytic   positive mass 0.4714   <- T0 reproduced
+  RUNG A   1 dropout pass, analytic        positive mass 0.4230   (mean of 4 passes: 0.4018 0.4558 0.4175 0.4168)
+  RUNG B   D=4 dropout passes, analytic    positive mass 0.4215
+  RUNG C   D=4 dropout, 16 realised draws  positive mass 0.4290   <- production emits this
+           reference: 0.4062 delivered · 0.3750 archive (h1, UNMATCHED) · 0.7639 observed (0.6944 honest)
+
+  ATTRIBUTION of the emitted zeros (rung C, all 16 columns):
+    emitted zero fraction            0.5710
+    of those, the BODY's own draw    99.1%   <- T0 inferred 94%
+    of those, the GATE's mask alone  0.9%
+    cell-steps killed by the gate    3.9%  (dropout OFF: 3.4%)
+
+  MC error across the D=4 passes (emitted zero fraction per pass):
+    0.5865  0.5436  0.5785  0.5754   sd 0.0189
+
+  WHAT MOVED THE NUMBER (one axis at a time, positive mass):
+    the dropout switch   (A0->A)     -0.0485
+    MC averaging over D  (A->B)      -0.0015
+    realised draws       (B->C)      +0.0075
+    residue to the archive           -0.0540  ⛔ UNMATCHED (h1 free-running vs 35-step teacher-forced) — indicative only, B7 NOT settled
+
+  INCIDENTAL — what dropout does to the two halves:
+    gate median        OFF 0.6945   ON 0.7073
+    body P(0) median   OFF 0.5286   ON 0.5780
+
+wrote p0_result.npz
+
