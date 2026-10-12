@@ -493,3 +493,66 @@ diagnoses and stops.**
 Four numbers ✅ · four predictions scored ✅ · one sentence ✅ · found-not-chased list ✅.
 **No fix attempted, nothing retrained, no new question added** — (c) is the same question as (b)
 with the instrument corrected, declared as such.
+
+---
+
+# VERIFICATION — T0 against the model's ACTUALLY-EMITTED posterior. 2026-10-12.
+
+A posterior draws archive came home with the run, which the plan did not anticipate: 6.46 MiB zstd
+→ 6,552,422,400 bytes, 78 members = 13 origins × 3 targets × (`y_pred.npy` + `identifiers.npz`),
+`zstd -t` clean. Same run and process as the weights (MANIFEST `source` matches the artefact
+timestamp). **We have never held a global-land HydraNet posterior before** — the 2026-09-28 archives
+were made on the pods and never transferred.
+
+T0 attributed zero mass from **one reconstructed forward pass**. This archive is the posterior the
+collapse itself consumed, so it can falsify T0's number. Run on `origin_0`, `lr_sb_best`:
+`y_pred` **(2,333,448, 16)** = 36 months × 64,818 cells × **S=16**, identifiers `time`/`unit`.
+
+| | composed positive-draw fraction, h1, sb | |
+|---|---|---|
+| observed history (conflictology) | **0.7639** | months 421–456 |
+| **retrained model, emitted archive** | **0.3750** | month 457, sampled, S=16 |
+| delivered model (2026-09-29) | **0.4062** | month 457+, sampled, S=16 |
+| retrained model, T0's single pass | 0.4714 | months 421–455, **analytic** |
+
+## What this establishes, and what it does not
+
+✅ **The vehicle substitution is validated.** The retrained model's emitted h1 positive fraction
+(**0.3750**) sits beside the delivered model's (**0.4062**) and far below observed history
+(0.7639). F6 was satisfied by *config* identity rather than weight identity (Amendment 1); this is
+direct evidence that the substitute reproduces the behaviour under study rather than merely sharing
+its config. **5 of the 100 cells emit all 16 draws zero.**
+
+⚠️ **T0's 0.4714 and the archive's 0.3750 are not the same quantity and the −0.0964 gap is not a
+disagreement.** T0 computed the **analytic** zero mass `(1−g) + g·P_NB(0)` on **train-period**
+months 421–455; the archive is **sampled** draws (granularity 1/16) at **month 457**, which is
+out-of-sample. Out-of-sample should be more timid, and it is. Both are reported; neither is
+corrected to the other.
+
+❌ **The archive cannot check T0's actual finding.** It stores composed draws only — no gate
+probabilities — so the gate-versus-body attribution (gate 0.034, body 0.511) rests entirely on the
+single-pass measurement and is not independently confirmed here. Recorded as a limit of the
+verification, not resolved by it.
+
+⛔ **These draws are from the RETRAINED model (`4acbf4d3c2b457b0…`), not the delivered one
+(`d92dcff463bd310f…`).** They do **not** make the delivery's frames II and III reproducible, and the
+delivery note's wording — *"no draws archive from this run exists on any machine we hold"* — remains
+exactly true. That distinction must travel with any statement derived from them.
+
+## Run timings, for the record
+
+01:24:58Z training begins · **03:31:12Z weights written (2 h 06 m)** · 04:25:10Z evaluation complete
+(+54 m) · 04:25:45Z done (**3 h 00 m**). Faster than `violet_visitor`'s 2026-09-28 run
+(2 h 25 m / 3 h 23 m) on equivalent hardware. ~$2.25 at $0.75/h.
+
+## Two upstream corrections, recorded because I relied on one of them
+
+1. ⛔ **`collect_artifact` runs AFTER evaluation, not before.** `main.py -t -e` is a single process,
+   so the stage runs when that process returns — **54 minutes after the weights existed**. The
+   protection I repeated in this prereg and on views-models#550 as "the stronger claim" **does not
+   exist yet**; only the weaker one does (collection precedes the collapse/parquet/draws/manifest
+   stages). Self-corrected by the views-models session; it cost nothing this time and would have
+   cost everything on a run that died in posterior sampling.
+2. `$OUT/FAILURE` survives a successful rerun — the script clears STATUS but not FAILURE, so this
+   run shipped `STATUS: OK` beside a stale `FAILURE` from a failed first launch. Theirs; in
+   tomorrow's PR.
