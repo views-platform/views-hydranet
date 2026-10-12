@@ -315,3 +315,52 @@ Recorded because each is a class, not an incident:
   anywhere is **one fewer skip**. A guard written in response to a surviving mutation was beaten by a
   cheaper mutation of the same kind. It now reads `pytestmark` and asserts the collected scope; 7/7
   caught on replay.
+
+---
+
+# AMENDMENT 3 — the data is not pinned by anything in this repository. 2026-10-13, before the arm trains.
+
+**New falsifier, because the condition had no instrument at all.**
+
+F5 pins config identity and Amendment 2 made it checkable across six files. But **byte-identical
+querysets do not pin the data they resolve to.** Both control and arm read
+`http://204.168.219.108/grid.zarr`, which is **unversioned** — there is no snapshot or vintage in
+the URL, so the same config text reads whatever the store holds on the day it runs. The control
+trained on 2026-10-12; the arm trains later. Nothing in either repository would notice if the store
+were re-exported in between, and a re-export is a routine operation, not an incident.
+
+This is the REGION finding one layer further out: the thing that reads the pre-registered question
+was narrower than the question. Six-file byte identity **cannot see this one**, by construction.
+
+| | fires if | then |
+|---|---|---|
+| **F8** | the store's `export_timestamp` or `source_digest`, read immediately before launch, differs from the values below | **VOID.** The arm trained on a different dataset than the control, so the contrast is dataset-plus-composition and the one-arm design is invalid. Re-run the control as a second arm (+~$2.25), or wait for a run that can share a vintage. |
+
+**The pinned vintage**, read fresh from the store by this session on 2026-10-13, independently of
+`models`' report of the same values:
+
+```
+export_timestamp     2026-09-21T03:11:06.788855+00:00
+source_digest        24471bd70ae98adb
+last_valid_month_id  561
+```
+
+**The instrument**, to be run in the minute before launch and its output recorded in the outcome
+log — not recalled:
+
+```bash
+curl -s --netrc http://204.168.219.108/grid.zarr/.zattrs \
+  | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['export_timestamp'], d['source_digest'])"
+```
+
+**Why this clears rather than merely defers the concern, for this run:** the export
+(**2026-09-21**) *predates* the control's training (**2026-10-12**). So the control already read
+this vintage, and an arm reading the same digest reads the same data. The pin is therefore a
+verified fact about both legs today, not an assumption about one. `last_valid_month_id: 561` also
+covers the archive's 457–469 h=1 window used by P1.
+
+**Credited to `models`' pre-spend audit.** They also established the fact that makes F5 point where
+it needs to: `git log f99413e..origin/development -- models/violet_visitor/{configs,run.sh,main.py,requirements.txt}`
+is **empty**, so `violet_visitor` as it is today is byte-for-byte `violet_visitor` as it was when it
+trained the control. Without that, pinning the arm to today's control source would have pinned it to
+the wrong thing.
