@@ -45,12 +45,12 @@ The composition triple, and nothing else:
 |---|---|---|
 | `output_distribution` | `nb` | **`truncated_nb`** |
 | `forecast_composition` | `threshold_gate` | **`soft_gate`** |
-| `gate_threshold` | `0.20` | **omitted** (ADR-069 refuses it under `soft_gate`) |
+| `gate_threshold` | `0.20` | **omitted** (stricter than the engine — see Amendment 2) |
 | `loss_class_pos_weight` | 2.0 | 2.0 — **unchanged, per P2** |
 | everything else, incl. seed 42, 300 lessons | — | identical |
 
 Config identity verified by diff on both sides; the symmetric difference is exactly those three
-keys. The arm is pinned in **`EXPERIMENT_ARMS`**, *not* `ROSTER` — `ROSTER` is read as
+keys. **⛔ That verification read one file. See Amendment 2 — it was too narrow, and the gap was live.** The arm is pinned in **`EXPERIMENT_ARMS`**, *not* `ROSTER` — `ROSTER` is read as
 `rusty_bucket`'s ensemble membership, and a ninth member would be pooled into the ensemble.
 
 **No hyperparameter is tuned.** P2's verdict D2 is what makes this a pure composition change, and it
@@ -245,3 +245,73 @@ deleting the command left the guard green **on the sentence explaining why the c
 The first is a new variant of C-303's class worth naming: **an assertion whose target is named in
 words that also occur in the surrounding prose cannot distinguish the thing from its description.**
 The second is the trap already recorded in this session's own standing notes — commit, then mutate.
+
+---
+
+# AMENDMENT 2 — F5 was pre-registered and unenforceable. 2026-10-12, before the arm trains.
+
+**F5 was already the right falsifier** ("the arm's config differs from the control anywhere but the
+composition triple → **VOID**"). What was wrong was the instrument that reads it. `models`'
+independent review of the arm found the confound guard diffed **`config_hyperparameters.py` and
+nothing else**, while the arm's README claimed everything else was copied unchanged. §2's sentence
+"config identity verified by diff on both sides" inherited exactly that scope, and is corrected
+above.
+
+**The gap was live, not theoretical. One word in a file nothing checked:**
+
+```
+models/amber_kestrel/configs/config_queryset.py
+-REGION = "land"
++REGION = "africa_me_legacy"
+```
+
+That trains the arm on **13,110 Africa/ME cells** against a control trained on **64,818 global land
+cells**, with the **full suite green** (8,255 passed). The comparison would then measure the dataset
+and report it as the composition. `evaluation_profile: hydranet_ucdp → default` is the same shape:
+the two runs scored with different metric sets, green.
+
+This is the day's recurring finding in a third place. P1 checked whether the reconstruction
+instrument could be trusted to read gate-vs-body; #552 was a construction check scoped to one list
+of models; F5 was an identity claim scoped to one config file. **In all three the pre-registered
+question was right and the thing that reads it was narrower than the question.**
+
+**F5's instrument is now specified rather than assumed** — byte identity across
+`config_queryset.py`, `config_partitions.py`, `config_sweep.py`, `main.py`, `run.sh`,
+`requirements.txt`, with the arm's own name normalised out and nothing else exempt, plus a dict diff
+of `config_meta` with `name` free. All six are byte-identical today, which is what makes identity
+the correct assertion rather than an aspiration. F5 is unchanged in text; it is now checkable.
+
+**A consequence to expect, so it is not later mistaken for a defect:** the arm's `config_queryset.py`
+carries `violet_visitor`'s docstring about a viewser→datafactory migration. That is the **control's**
+history, not the arm's. Correcting it in the arm alone would break the identity guard, and the
+control's files are not this experiment's to edit. **Inherited text is the correct outcome here;
+divergence is the hazard.**
+
+## ⛔ Correction to §2, in this repo's own code
+
+I recorded that ADR-069 "refuses `gate_threshold` under `soft_gate`" and that an explicit `None`
+would raise at config load. **That is wrong.**
+`views_hydranet/utils/config_initializer.py:1183` is `elif self.gate_threshold is not None:` — so a
+`soft_gate` config carrying `gate_threshold = None` loads fine, and only a **non-`None` value**
+raises. `models` verified both by construction against the pinned engine version.
+
+The arm still omits the key, and the guard pinning its absence stays: a `None` sitting beside
+`soft_gate` is an invitation to fill it in, so the pin is deliberately stricter than the engine. But
+the **reason** I gave was false, and it was false about this repository's code, which is where I am
+supposed to be the reliable party.
+
+## Found, not chased (appended) — two more on the arm, and a guard that beat its own fix
+
+Recorded because each is a class, not an incident:
+
+- **`ARM_FREE_KEYS` had no shrink-only pin**, in a file that already contains that pattern and whose
+  assertion message *recommends* widening it. One word plus a config edit makes it a 160-lesson arm
+  against a 300-lesson control, green.
+- **The arm's README had no `<!-- manual -->` markers**, so `update_catalogs.yml` would have deleted
+  it on the very merge that adds it (C-77/C-78, which already took `synthetic_chant`'s docs).
+- **#552's first fix was decorative.** The assertion written *because* a narrowing mutation survived
+  compared the derived variable against the declarations, while the real scope is the decorator:
+  `@pytest.mark.parametrize("model", TRACKED_MODELS)` → `ROSTER_MODELS` is green, and the only trace
+  anywhere is **one fewer skip**. A guard written in response to a surviving mutation was beaten by a
+  cheaper mutation of the same kind. It now reads `pytestmark` and asserts the collected scope; 7/7
+  caught on replay.
