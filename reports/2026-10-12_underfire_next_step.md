@@ -147,3 +147,106 @@ say "we expect no score improvement and will ship it anyway".
 `sb` only · h1 · one retrained vehicle (`4acbf4d3c2b457b0…`, **not** the delivered weights, C-317) ·
 one seed · the 100-cell set chosen by observed positive rate on the same window the honest fits use,
 which is a selection I have not tested for artefact.
+
+---
+
+# THE SEVEN FREE MEASUREMENTS — run 2026-10-12, after three external reviews
+
+Named by the `models`, `library` and `opponent` seats. Script
+`2026-10-12_underfire_diagnosis/m_free_measurements.py`, raw output `…/m_free_measurements.out`.
+No pod, read-only. **Several overturn my own report, including its centre.**
+
+## M1 — the composition fix WORKS, and it needs BOTH halves (opponent B1: CONFIRMED)
+
+Recomposed from T0's own gate and body parts, nothing retrained:
+
+| configuration | composed P(Y=0) | vs observed 0.2361 |
+|---|---|---|
+| `threshold_gate` + dense NB — **as shipped** | 0.5286 | +0.2925 |
+| `soft_gate` + dense NB | **0.6783** | +0.4422 ⛔ **worse** |
+| `threshold_gate` + zero-truncated body | **0.0000** | −0.2361 ⛔ **no zeros at all** |
+| **`soft_gate` + zero-truncated body** | **0.3055** | **+0.0694** |
+
+⇒ **76.3% of the zero-mass gap closes with no parameter moving.** `opponent` projected 78–82%;
+measured 76.3%.
+
+⛔ **Neither half works alone, and this is new.** Switching composition alone makes it *worse*
+(0.6783); truncating the body alone removes every zero (0.0000). Only the **pair** — the proper
+Cragg/Mullahy hurdle, gate owns the zeros, body is truncated — lands near the target.
+
+## M6 — ⛔ MY CENTRAL CLAIM IS WRONG. The loss does NOT prefer the model's θ.
+
+Non-circular θ profile at the model's own μ (`opponent` A3's prescribed test):
+
+| | θ |
+|---|---|
+| the model emits | **0.1544** |
+| **NLL-optimal** at that μ | **0.2327** (NLL 4.1377 vs the model's 4.2121) |
+| **CRPS-optimal** at that μ | **0.4298** |
+| honest fitted | 0.4323 |
+
+**The model sits BELOW its own training loss's optimum.** "The objective rewards emptiness" is
+**not supported** — NLL would prefer a *higher* θ, i.e. *less* zero mass, than the model produces.
+My T3 row 2 was circular exactly as `opponent` said, and the non-circular version reverses it.
+
+**And CRPS wants 1.85× the dispersion NLL wants — landing within 0.6% of the honest fitted value.**
+`opponent` A9 and `library` §6, independently, both land: the training score and the evaluation
+score disagree, and **CRPS agrees with the data.**
+
+⇒ The live question is no longer "why does the loss reward this" but **"why is the model below even
+its own loss's optimum?"** — which is the capacity/sharing argument of my §4, now with support
+rather than against it.
+
+## M4 — ⛔ my §7 tension DISSOLVES, in the opposite direction (opponent B9: does not land)
+
+| θ | standard CRPS | fair CRPS (Ferro 2014) |
+|---|---|---|
+| model 0.1544 | 31.5483 | 31.0328 |
+| honest 0.4323 | 30.9991 | 30.5793 |
+| CRPS-opt 0.4298 | **30.9410** | **30.5206** |
+
+The fair adjustment lowers every score by ~0.42–0.52 and **does not change the ranking.** So the
+small-ensemble bias is not what is holding the fix back.
+
+**Better than that: the model's θ is already worse on CRPS — the metric FAO-02 actually judges on.**
+I asked Simon to decide whether to fix the map knowing CRPS would not reward it. **That question is
+void.** CRPS already prefers the corrected dispersion.
+
+## M3 — B4 is right in principle and nearly irrelevant in magnitude
+
+marginal sd 27.78 · **sd around the model's own μ 27.23** · sd available at the observed zero rate
+14.96. Shortfall **1.86× marginal, 1.82× conditional** — my report said 2.04×. The correction is
+real and small; the feasibility argument stands.
+
+⚠️ **The incidental finding is larger than the correction.** Conditioning on μ reduces the residual
+sd from 27.78 to 27.23 — **2%**. The model's μ has Spearman 0.687 across cells but explains almost
+nothing *within* a cell. **It knows which cells are hot; it does not know when.**
+
+## M5 — selection inflates the gap by 0.07 (opponent A6: lands, not fatal)
+
+Cells chosen on 421–456 read **0.7639** on that window. Cells chosen on a **held-out** 385–420 read
+**0.6944** on the same window. Overlap 66/100.
+
+⇒ The honest target is **0.6944**, not 0.7639. Against the model's 0.4062 / 0.3750 the gap is
+**~0.29–0.32** rather than ~0.36. Exactly as `opponent` predicted: the phenomenon survives, the
+magnitude was inflated, and conflictology's standing as a *benchmark* does not.
+
+## M7 — the θ targets SURVIVE the bootstrap (opponent A8: does not land)
+
+Parametric bootstrap, 120 resamples per cell at n=36. **Only 9 of 100 cells' 95% CI covers the
+model's 0.1544.** Median CI width 0.4932.
+
+⇒ The model's dispersion is genuinely anomalous for **91%** of these cells, with small-sample
+uncertainty accounted for. The free-fit targets hold.
+
+## Where this leaves the diagnosis
+
+**Survives:** the gap (at ~0.30, not 0.36) · the gate being far more accurate about occurrence than
+the body · the body supplying the zero mass · θ anomalously low · no single-parameter fix.
+
+**Overturned, mine:** "the objective rewards emptiness" (M6 — the model is *below* the NLL optimum) ·
+the §7 CRPS tension (M4 — CRPS already prefers the fix) · 2.04× (M3 — 1.82×) · the gap's size
+(M5 — 0.07 of it was selection).
+
+**New:** only the `soft_gate` + truncated-body **pair** works · the model's μ explains ~2% of within-
+cell variance · CRPS and NLL want θ 1.85× apart.
