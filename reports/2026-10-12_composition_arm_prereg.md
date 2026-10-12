@@ -156,7 +156,12 @@ whether the composition fix works; a `found, not chased` list.
 
 ## 9. Glossary
 
-`reports/GLOSSARY.md` locks `gated_NB` (soft-gated NB) and `th_gated_NB` (threshold-gated NB) but has
-**no locked name for a soft-gated zero-truncated body**. Per the standing rule the glossary is edited
-rather than a synonym invented: this arm is to be named there before the run, and this document uses
-the config triple explicitly until it is.
+The arm's locked name is **`gated_truncNB`** — added to `reports/GLOSSARY.md` §2 before the run, per
+the standing rule that a missing word is added to the glossary rather than worked around. It follows
+the existing `[th_]gated_<bodymodel>[core]` pattern.
+
+The glossary also now records why **`th_gated_truncNB` is a named dead end**: a zero-truncated body
+under a hard threshold has no zero mass at all, and recomposing the delivered model that way emits
+`P(Y=0) = 0.0000` against an observed 0.2361 (M1). That is the measured reason this arm must pair the
+truncated body with a **soft** gate — and the reason the gate's *calibration* becomes load-bearing
+here where `th_gated_NB` needed only its *ranking*.

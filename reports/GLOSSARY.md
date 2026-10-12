@@ -101,6 +101,7 @@ stripped); the **bare distribution name** (`ZINB`, `ZIgamma`) for a *self-zeroed
 | **gated_NB** | **soft**: per draw `Bernoulli(gate) × NB(μ,θ)`, with `(μ,θ)` from the **nb** model | hurdle_nb, hurdle, hurdle_shrinkage, gate×body |
 | **th_gated_NB** | **hard**: full `NB(μ,θ)` body where `gate ≥ τ`, zeroed where `gate < τ`; `(μ,θ)` from the **nb** model; τ fixed a-priori | ⛔ **`masked_NB` (RETIRED — never live, see HARD LOCK above)**, masked_nb, masked, thresholded NB, hard_gated_NB |
 | **gated_ZINBcore** | **soft**: per draw `Bernoulli(gate) × NB(μ,θ)`, with `(μ,θ)` from the **zinb** model, **π dropped** | gated ZINB, ZINB×gate, hurdle_zinb, gated_zinb |
+| **gated_truncNB** | **soft**: per draw `Bernoulli(gate) × TruncNB(μ,θ)` — a **zero-truncated** NB body, so `P(body>0)=1` by construction and the emitted occurrence **is** the gate; `output_distribution='truncated_nb'` + `forecast_composition='soft_gate'` | soft_gate truncated_nb, truncated hurdle, hurdle_nb, gated_TNB, soft-gated truncated NB |
 
 **Why `gated_NB` vs `gated_ZINBcore` is a real distinction, not a typo:** both gate a bare `NB(μ,θ)` core; the
 *only* difference is the training that produced `(μ,θ)` — plain-NB (μ zero-diluted → **timid**) vs ZINB (π
@@ -115,9 +116,18 @@ is no self-zeroed standalone unless the distribution is ZI-wrapped):
 |---|---|---|---|
 | NB | — (NB is not self-zeroed) | `gated_NB` | `th_gated_NB` |
 | ZINB | `ZINB` | `gated_ZINBcore` | `th_gated_ZINBcore` |
+| truncated NB | ⛔ impossible (`P(Y=0)=0` by construction — no zero mechanism; ADR-069 refuses `self_zeroed`) | `gated_truncNB` | ⚠️ `th_gated_truncNB` — **degenerate**, see below |
 | gamma | — (no zero mass) | `gated_gamma` | `th_gated_gamma` |
 | lognormal | — (no zero mass) | `gated_lognormal` | `th_gated_lognormal` |
 | ZI-gamma *(if ever built)* | `ZIgamma` | `gated_ZIgammacore` | `th_gated_ZIgammacore` |
+
+**Why `th_gated_truncNB` is named but degenerate (measured, 2026-10-12):** a zero-truncated body has no zero
+mass of its own, so under `threshold_gate` the *only* zeros come from cells below τ — every kept cell is
+positive in every draw. Recomposing the delivered model's own output this way emits **`P(Y=0) = 0.0000`**
+against an observed 0.2361 (M1). The pairing is therefore a named dead end, not an arm: a zero-truncated body
+needs a **soft** gate, which is what `gated_truncNB` is. Equally, `gated_truncNB` makes the gate's
+*calibration* load-bearing where `th_gated_NB` needed only its *ranking* — the emitted occurrence is the gate
+itself.
 
 ## 3. The losses (how the body is scored during training)
 | locked name | what it does | banned aliases |
