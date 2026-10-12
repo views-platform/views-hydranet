@@ -97,6 +97,19 @@ def load_vehicle(artifact: str | Path, device: str = "cpu"):
     if sha_file.exists() and sha_file.read_text().strip() != sha:
         raise SystemExit(f"VOID: sha256 mismatch for {p.name}.")
 
+    # views-models#549's fix writes `artifact/INCOMPLETE` when the config sidecar is missing, and
+    # `pod_run_model.sh:100` writes `REHEARSAL` on a --rehearsal run. Refuse both if either lands
+    # beside the artifact. ⚠️ REHEARSAL is written to $OUT, NOT to $OUT/artifact/, and the
+    # documented pull copies only artifact/ — so a rehearsal artifact can arrive here with no
+    # marker at all and nothing in the .pt or its sidecar records the lesson count. Raised with
+    # the views-models session 2026-10-12.
+    for marker, why in (
+        ("INCOMPLETE", "the config sidecar was missing at collection time"),
+        ("REHEARSAL", "it is a --rehearsal artifact, trained at a handful of lessons"),
+    ):
+        if (p.parent / marker).exists():
+            raise SystemExit(f"VOID (F6): {marker} sits beside {p.name} — {why}.")
+
     if sha in KNOWN_AFRICA_SHA256:
         raise SystemExit(
             f"VOID (F6): {p.name} is a known africa_me_legacy artifact (13,110 cells). "
