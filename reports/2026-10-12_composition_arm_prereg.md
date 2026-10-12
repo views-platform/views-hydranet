@@ -165,3 +165,54 @@ under a hard threshold has no zero mass at all, and recomposing the delivered mo
 `P(Y=0) = 0.0000` against an observed 0.2361 (M1). That is the measured reason this arm must pair the
 truncated body with a **soft** gate — and the reason the gate's *calibration* becomes load-bearing
 here where `th_gated_NB` needed only its *ranking*.
+
+---
+
+# AMENDMENT 1 — F6 must READ the arm's code state, not accept it. 2026-10-12, before the arm trains.
+
+`models`' independent guard audit (commits `7415cce1`, `97c878f1`, unpushed) found that
+`PROVENANCE`'s **`git:` field can print a hardcoded `unknown`** that is indistinguishable from a real
+sha: in their fixture `git rev-parse --short HEAD` returned nothing, the script took its own
+`unknown` fallback, and their assertion matched the fallback. Their advice was to cite the sha as a
+value read rather than one the script promises.
+
+**That is load-bearing for this experiment in a way the advice understates, so F6 is amended.**
+
+This is a **one-arm** design (§6). Its entire validity rests on the 2026-10-12 vehicle being a valid
+control, and that in turn rests on exactly one claim: **the only code difference between control and
+arm is the artifact-collection move, which `models` verified is behaviour-neutral** (evaluation
+reloads from disk at `hydranet_manager.py:367`; `lock_entropy` re-seeds absolutely, so two processes
+sample as one). If the arm's `PROVENANCE` reports `git: unknown`, that claim becomes **unverifiable** —
+I would not be able to establish what code trained the arm, and therefore could not establish that
+the control is comparable.
+
+**F6 is extended with:**
+
+| | fires if | then |
+|---|---|---|
+| **F6c** | the arm's `PROVENANCE` carries `git: unknown`, an empty value, or a sha that does not resolve in the repo | **VOID.** Not negative, not degraded — the code delta to the control cannot be established, so the one-arm design loses its justification. Re-collect or run the control as a second arm (+~$2.25). |
+
+**Not** amended, because it is already correct: the artifact digest is **computed from the file**, not
+read from provenance — `2026-10-12_underfire_diagnosis/vehicle.py:117` does
+`hashlib.sha256(p.read_bytes())` and only then compares against the recorded value, with a documented
+decision to accept `sha256: not recorded` with a warning rather than VOID. So the digest half of
+`models`' warning never applied here. The `git:` half did, and was unguarded.
+
+**The control's own provenance, re-read rather than recalled:** `git: f99413e`, a real sha, and the
+computed digest `4acbf4d3c2b457b0…` matches `.pt.sha256`. The control side is established.
+
+## Found, not chased
+
+- **The forecast leg could have skipped artifact collection entirely** — a conditional wrapper left
+  the whole suite green while that leg trained a model and never collected it, which is #549's exact
+  failure on one of two legs, silently. The guard asserted a string offset that a conditional wrapper
+  does not move, while its own comment claimed to cover both legs. This arm runs the **calibration**
+  leg, so it was never going to bite the experiment — **but the forecast leg is the FAO delivery
+  path**, and that is worth Simon's attention independently of this run. Fixed on `models`' side;
+  the ordering guards now *execute* the extracted section on both legs with `main.py` stubbed and
+  assert the script's own invariant (the artefact is in `$OUT/artifact` before inference starts)
+  rather than reading offsets.
+- Two of `models`' guards fired on **correct** edits (`-e --saved` for `-e -sa`, `-r "$RUN_TYPE"` for
+  `-r calibration`) because they were pinned to literal invocation text. Recorded because it is the
+  mirror of C-303's class: a guard that fails on a correct change gets edited out of the way, which
+  is how a repo ends up with guards nobody trusts.
