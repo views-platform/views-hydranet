@@ -383,3 +383,113 @@ PROVENANCE** rather than taken on anyone's word, which is the point of the file.
   lives at `$OUT`, not in `artifact/`. PROVENANCE now carries the sha so the instruction is
   satisfiable, but the wording points at a file that does not travel. Cosmetic; views-models is
   taking it in tomorrow's PR rather than rebuilding the branch the pod is about to clone.
+
+---
+
+# OUTCOME — ALL FOUR MEASUREMENTS COMPLETE. 2026-10-12.
+
+**Vehicle:** `calibration_model_20261012_033112.pt`, sha256 `4acbf4d3c2b457b0…`, PROVENANCE
+`lessons: 300`, `mode: production`, `git f99413e`, trained 01:24:58Z–04:25:10Z. F6 **PASSED** on all
+eight conditions. C-317 divergence confirmed against the delivered `d92dcff463bd310f…` — different
+weights, **proven, not assumed.** Peak CUDA allocation **1.68 GiB** (prose figure was ~3 GB).
+
+## ⛔ Every one of the four pre-registered predictions FAILED
+
+That is the result, and it is why the predictions were committed first.
+
+| | prediction | measured | |
+|---|---|---|---|
+| **P1** | best-fit NB forced to ≥0.45 zero mass | **0.2305** vs observed 0.2361 | ❌ |
+| **P2** | the **gate** dominates the zero mass | gate 0.034, **body 0.511** | ❌ |
+| **P3** | non-land ≥50% of the gradient norm | **12.49%** | ❌ |
+| **P4** | the honest distribution scores better | model 4.21, honest 7.18 | ❌ |
+
+## T2 — ⛔ #394's MECHANISM IS REFUTED (F3 fires)
+
+One forward/backward, month 439→440, `eval()` mode (no dropout, no BN writes), loss 0.005487.
+
+| partition | cells | % cells | % loss | % gradient norm |
+|---|---|---|---|---|
+| non-land | 194,382 | **74.99%** | 0.23% | **12.49%** |
+| zero-land | 64,591 | 24.92% | 7.52% | 13.29% |
+| **active-land** | **227** | **0.09%** | **92.25%** | **74.21%** |
+
+#394's 75%-of-terms figure is **exactly right** (74.99% measured). Its *consequence* is not: the
+gradient does **not** follow the term count. **227 cells — 0.09% of the grid — carry 92% of the
+loss and 74% of the gradient.** The convolutional head concentrates on the live cells regardless of
+how many structural zeros surround them.
+
+⇒ **F3 FIRES.** The dilution is arithmetic without consequence. **The ocean mask is not the lever,
+and #394 should not be run as an intervention.** This was my hypothesis and my issue; it is dead.
+
+## T0 — the GATE KNOWS. The BODY is the problem. (P2 fails)
+
+35 steps, months 421–455, inside the train period.
+
+- gate probability on these cells: median **0.6945** (p10 0.3265, p90 0.9499) — the gate correctly
+  identifies them as active
+- cell-steps killed by the threshold (`g ≤ 0.20`): **3.4%**
+- the body's own `P(Y=0)` where the gate lets it through: median **0.5196**
+- **zero mass contributed by the gate 0.034 · by the body 0.511** → the body supplies **94%** of it
+
+## T3 — the OBJECTIVE REWARDS THE CONFIGURATION THAT EMPTIES THE MAP (F4 fires)
+
+⚠️ **The pre-registered comparison (a) is confounded and so was my own controlled comparison (b).
+Both are reported; the verdict rests on (c), which I added after seeing (b)'s size.**
+
+| | parameterisation | P(Y=0) | mean NLL | θ |
+|---|---|---|---|---|
+| | model: own μ, own θ | 0.5253 | **4.2121** | 0.1544 |
+| **(c)** | model μ + **honestly fitted** θ | 0.2758 | **5.5552** worse | 0.4323 |
+| | honest μ + model θ | 0.5556 | 4.7655 worse | 0.1544 |
+| **(a)** | honest: own μ, own θ | 0.3345 | 7.1826 worse | 0.4323 |
+| **(b)** | model, de-timidified to the observed zero rate | 0.2500 | 32.3723 worse | 0.5370 |
+
+**(b) was confounded by my own instrument.** In a 2-parameter NB, θ controls **both** zero mass and
+dispersion. Forcing `P(0)` down to 0.25 at fixed μ raised θ 4× and **cut the variance 4×** (to the
+Poisson floor for 16% of cell-steps). The actuals are heavy-tailed — median 7, p90 90, **max
+1528** — so (b) measured the penalty for destroying dispersion, not a reward for emptiness. Its
+32.37 is not evidence of anything about timidity.
+
+**(c) removes that.** It swaps in the *honestly fitted* θ (out-of-sample, fitted 385–420, scored
+421–456) rather than one chosen to hit a zero rate. That brings `P(Y=0)` to **0.2758**, close to the
+observed 0.2361 — and the loss gets **worse**, 4.21 → 5.56.
+
+⇒ **F4 FIRES, de-confounded. C2b is confirmed and it outranks #394.**
+
+## ⛔ The one sentence the definition of done asks for
+
+**The loss pays the body to be extremely overdispersed in order to cover a very heavy tail, and in a
+two-parameter NB you cannot be that overdispersed without putting half your mass on zero — so the
+empty map is the objective working exactly as specified, in a distribution family that cannot
+separate *how often* from *how big*.**
+
+Supporting: the model's θ is **0.1544**, *below* the entire range of honest per-cell fits
+(T1: 0.179–3.431). It is not a failure to converge — moving θ toward the honest value makes the loss
+**worse**. The gate already knows where the violence is (median 0.69); the body cannot report it
+without giving up the tail.
+
+**What this implies about the lever** (INFERENCE, not measurement): the fix is a parameterisation
+that separates occurrence from magnitude — not a loss-scope change (T2), not the head's
+expressiveness in the sense T1 tested, and not the gate (T0). ⛔ **Not pursued here. This project
+diagnoses and stops.**
+
+## Found, not chased
+
+- The model's **μ** is reasonable (median 10.2 against actual median 7); the defect is wholly in θ.
+- `mixture_nb` models scored a higher positive fraction than `nb` ones in the earlier cross-model
+  2×2 (0.500 vs 0.375) — consistent with a second component relieving the single-θ conflict, and
+  **untested as such.**
+- T1's ZINB barely improved on NB *when fitting an empirical per-cell distribution*; that is a
+  different object from a conditional model's fit and does **not** bear on whether ZINB would help
+  here.
+- views-models corrected a claim I had adopted: `collect_artifact` runs **after** evaluation, not
+  before, because `-t -e` is one process. The protection I repeated as "the stronger claim" does not
+  exist yet. Theirs to fix; recorded because I had relied on it.
+- `$OUT/FAILURE` survives a successful rerun (views-models, theirs).
+
+## Definition of done — MET
+
+Four numbers ✅ · four predictions scored ✅ · one sentence ✅ · found-not-chased list ✅.
+**No fix attempted, nothing retrained, no new question added** — (c) is the same question as (b)
+with the instrument corrected, declared as such.
