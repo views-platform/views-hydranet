@@ -20,7 +20,9 @@ print("y_pred", y.shape, y.dtype, " identifier keys:", list(ids.keys()))
 for k in ids:
     print("   %-14s %s" % (k, ids[k].shape))
 
-t1 = pd.read_parquet("/tmp/claude-1000/-home-simon-Documents-scripts-views-platform-views-hydranet/f7a7ca8c-4eb9-45a0-8923-271b8be2a39c/scratchpad/t1_fits.parquet")
+SCRATCH = ("/tmp/claude-1000/-home-simon-Documents-scripts-views-platform-views-hydranet/"
+           "f7a7ca8c-4eb9-45a0-8923-271b8be2a39c/scratchpad")
+t1 = pd.read_parquet(f"{SCRATCH}/t1_fits.parquet")
 cells = t1.priogrid_id.to_numpy()
 
 # locate the month/unit axes from the identifiers
@@ -39,7 +41,8 @@ pos = (Y > 0).mean(1)
 print("\n" + "=" * 70)
 print("COMPOSED POSITIVE-DRAW FRACTION, from the emitted posterior (h1, sb)")
 print("=" * 70)
-print("  retrained model, THIS archive      median %.4f   (n=%d cells)" % (np.median(pos), len(pos)))
+print("  retrained model, THIS archive      median %.4f   (n=%d cells)"
+      % (np.median(pos), len(pos)))
 print("  retrained model, T0 single pass    median 0.4714   <- the number T0 reported")
 print("  DELIVERED model (2026-09-29)       median 0.4062")
 print("  observed history (conflictology)   median 0.7639")
