@@ -47,7 +47,19 @@ loss_fn = FamilyLoss(get_family(cfg["output_distribution"]))
 npar = loss_fn.n_params
 
 # ONE teacher-forced step, then ONE backward — the smallest thing that produces a real gradient.
-model.train()                      # the production loss path runs in train() mode
+# ⛔ eval(), NOT train(), and the reason matters. `load_vehicle` already left the model in eval().
+# An earlier draft of this script called `model.train()` on the grounds that "the production loss
+# path runs in train() mode". That would have broken the measurement two ways:
+#   1. dropout_rate is 0.15, so the forward becomes stochastic and the gradient is a single noisy
+#      realisation rather than a reproducible quantity;
+#   2. BatchNorm would update running_mean/running_var/num_batches_tracked on EVERY step of the
+#      no_grad lead-in loop below as well as the graded step. `torch.no_grad()` does NOT prevent
+#      that — training_engine._batchnorm_eval's own docstring says so: "it stops gradients, not
+#      buffer updates". That is the C-184 / #289 defect class this repo has already been bitten by
+#      twice, and it would silently mutate the loaded artifact's buffers before the measurement.
+# eval() measures the EXPECTED-VALUE gradient rather than one dropout realisation, which is what a
+# partition-share question wants: a single realisation adds noise without moving the shares.
+assert not model.training, "model must be in eval() — see the comment above"
 h = torch.zeros(1, cfg["total_hidden_channels"], *vol.shape[-2:], device=vol.device)
 t = len(WINDOW) // 2               # a mid-window step, away from the zero-initialised state
 with torch.no_grad():              # thread the state up to t without building a graph
