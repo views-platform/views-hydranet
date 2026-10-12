@@ -216,3 +216,32 @@ computed digest `4acbf4d3c2b457b0…` matches `.pt.sha256`. The control side is 
   `-r calibration`) because they were pinned to literal invocation text. Recorded because it is the
   mirror of C-303's class: a guard that fails on a correct change gets edited out of the way, which
   is how a repo ends up with guards nobody trusts.
+
+## Found, not chased (appended) — the forecast-leg survivor has already cost us, once
+
+`models` checked rather than accepting my framing, and it got sharper: `pod_run_fao_delivery.sh:251`
+invokes `pod_run_model.sh --forecast` in a loop over **eight** models, so the forecast leg **is** the
+FAO delivery path, not merely similar to it. The conditional-wrapper survivor would have left all
+eight delivery models' weights uncollected with the suite green.
+
+**And the live gap beyond the audit: the weights are now collected and nothing retrieves them.**
+Phase 4b has no rsync by design — the forecasts leave by being *published*; the weights don't leave.
+`deliver/_fao/MANIFEST` records `models:` but not their artefacts, digests or location. So a
+successful FAO delivery ends with eight trained models on a machine about to be destroyed, and C-317
+says they are not reproducible. Filed as **views-models#551**; the guide is fixed at `2ebdc594`.
+
+⛔ **This is not hypothetical — it is the defect that produced this entire experiment's vehicle
+problem.** views-models#549/#550 ("the artifact that never came home") is the same failure already
+realised on the 2026-09-28 `violet_visitor` run: the weights were on a runpod disk that was deleted,
+which is why F6 blocked T0/T2/T3 (§"T2 / T3 / T0-proper — BLOCKED"), why Amendment 1 had to relax
+weight identity to *config* identity, and why a ~$2.25 pod run was needed to obtain a vehicle at all.
+**The cost of #551 is already measured: one lost delivered model, one blocked measurement programme,
+one pod run.** Recorded here because the prereg's own vehicle section is downstream of it.
+
+Also noted: `models` hit **both** audited failure modes while fixing them — a guard asserting that
+Phase 4b contains an rsync, where the adjacent prose says *"this phase has no rsync step"*, so
+deleting the command left the guard green **on the sentence explaining why the command was needed**
+(`b0d8b553`); and `git checkout --` discarding their own uncommitted edits during a mutation revert.
+The first is a new variant of C-303's class worth naming: **an assertion whose target is named in
+words that also occur in the surrounding prose cannot distinguish the thing from its description.**
+The second is the trap already recorded in this session's own standing notes — commit, then mutate.
