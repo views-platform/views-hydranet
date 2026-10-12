@@ -47,6 +47,8 @@ KNOWN_AFRICA_SHA256 = {
     "9c8508671db7bb1058b824c2573186998d321907c29edeeafd2958edade28615",  # validation  20260917
 }
 
+MIN_LESSONS = 300        # the delivered vehicle's length; 40 is smoke-only (retention programme)
+
 TARGETS = ["ged_sb_best", "ged_ns_best", "ged_os_best"]   # datafactory names, input order
 SB = 0                                                     # index of sb among the targets
 GATE_THRESHOLD = 0.20                                      # violet_visitor, threshold_gate
@@ -55,6 +57,25 @@ GATE_THRESHOLD = 0.20                                      # violet_visitor, thr
 def grid_rowcol(pg: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """PRIO-GRID id -> 1-based (row, col). Validated against the production file."""
     return (pg - 1) // GRID_COLS + 1, (pg - 1) % GRID_COLS + 1
+
+
+def read_provenance(d: Path) -> dict[str, str] | None:
+    """Parse `artifact/PROVENANCE` (views-models fix/549, `pod_run_model.sh:368`) -> key: value.
+
+    Written at collect time from values known there, because `$OUT/REHEARSAL` is written at `:445`
+    — after collection — and does not live under `artifact/`, so it neither exists yet nor travels
+    with what it describes. (My first suggested fix was to copy it at collect time; that would have
+    copied a file that did not exist, which the views-models session caught.)
+    """
+    f = d / "PROVENANCE"
+    if not f.exists():
+        return None
+    out: dict[str, str] = {}
+    for line in f.read_text().splitlines():
+        if ":" in line:
+            k, _, v = line.partition(":")
+            out[k.strip()] = v.strip()
+    return out
 
 
 def load_vehicle(artifact: str | Path, device: str = "cpu"):
@@ -97,18 +118,30 @@ def load_vehicle(artifact: str | Path, device: str = "cpu"):
     if sha_file.exists() and sha_file.read_text().strip() != sha:
         raise SystemExit(f"VOID: sha256 mismatch for {p.name}.")
 
-    # views-models#549's fix writes `artifact/INCOMPLETE` when the config sidecar is missing, and
-    # `pod_run_model.sh:100` writes `REHEARSAL` on a --rehearsal run. Refuse both if either lands
-    # beside the artifact. ⚠️ REHEARSAL is written to $OUT, NOT to $OUT/artifact/, and the
-    # documented pull copies only artifact/ — so a rehearsal artifact can arrive here with no
-    # marker at all and nothing in the .pt or its sidecar records the lesson count. Raised with
-    # the views-models session 2026-10-12.
     for marker, why in (
         ("INCOMPLETE", "the config sidecar was missing at collection time"),
         ("REHEARSAL", "it is a --rehearsal artifact, trained at a handful of lessons"),
     ):
         if (p.parent / marker).exists():
             raise SystemExit(f"VOID (F6): {marker} sits beside {p.name} — {why}.")
+
+    prov = read_provenance(p.parent)
+    if prov is None:
+        raise SystemExit(
+            "VOID (F6): no artifact/PROVENANCE beside the artifact. Lessons and region cannot be "
+            "established without it, and §4's F6 is VOID rather than reinterpret. Re-collect with "
+            "views-models fix/549-collect-pod-artifact (>= f99413ef), which writes it at "
+            "pod_run_model.sh:368."
+        )
+    if "REHEARSAL" in prov.get("mode", ""):
+        raise SystemExit(f"VOID (F6): PROVENANCE mode is {prov['mode']!r}.")
+    lessons = prov.get("lessons", "unknown")
+    if not lessons.isdigit() or int(lessons) < MIN_LESSONS:
+        raise SystemExit(
+            f"VOID (F6): PROVENANCE lessons is {lessons!r}; the delivered vehicle trained at "
+            f"{MIN_LESSONS}. A shorter run is a different model (M45's control was measured at "
+            "L=300, and 40 lessons is smoke-only per the retention programme)."
+        )
 
     if sha in KNOWN_AFRICA_SHA256:
         raise SystemExit(
@@ -123,12 +156,17 @@ def load_vehicle(artifact: str | Path, device: str = "cpu"):
     model.hurdle_nb_theta = cfg.get("hurdle_nb_theta")
     model.hurdle_lognormal_sigma = cfg.get("hurdle_lognormal_sigma")
     model.to(device).eval()      # eval(): no dropout, and BN buffers are NOT touched
+    if prov.get("sha256", "").strip() not in ("", "not recorded") and prov["sha256"] != sha:
+        raise SystemExit("VOID (F6): PROVENANCE sha256 disagrees with the file's own digest.")
     print(f"vehicle: {p.name}  sha256 {sha[:16]}…  (NOT the delivered weights — C-317)")
+    print(f"  lessons {lessons} · run_type {prov.get('run_type', '?')} · "
+          f"git {prov.get('git', '?')} · trained {prov.get('trained', '?')}")
     print(
-        "⚠️  REGION PROVENANCE IS NOT VERIFIABLE FROM THE ARTIFACT. Config identity passed and the "
-        "four known africa artifacts are denied by hash, but nothing in a .pt or its sidecar "
-        "records the region. That this artifact came from a REGION='land' run is the operator's "
-        "assertion, resting on pod_run_model.sh:279-282 refusing to start otherwise."
+        "⚠️  REGION IS RECORDED AS ENFORCED, NOT MEASURED. PROVENANCE says "
+        f"{prov.get('region', '?')!r} — which records that pod_run_model.sh:279-282 refuses any "
+        "other value, NOT a read-back of the grid the weights saw. Nothing in a .pt or its "
+        "sidecar records the region, and the net is fully convolutional, so this remains weaker "
+        "than a measurement. The four known africa artifacts are additionally denied by hash."
     )
     return model, cfg, sha
 

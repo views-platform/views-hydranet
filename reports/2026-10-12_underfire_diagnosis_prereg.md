@@ -329,3 +329,57 @@ limit); cells below it are reported, not forced.
 
 - The artifact sidecar does not record `region` or grid dimensions, so no artifact in this system
   can be audited for the extent it was trained on. The durable fix is a sidecar field.
+
+---
+
+# AMENDMENT 3 — F6 is now READ from the artifact, 2026-10-12. Still before any measurement.
+
+Amendment 2 recorded that region provenance was *unverifiable* and handled it with a hash deny-list
+plus an operator assertion. views-models closed that properly instead, so F6 is no longer an
+assertion for most of what it covers.
+
+**What changed upstream** (views-models `fix/549-collect-pod-artifact`, tip **`f99413ef`**): the pod
+now writes **`artifact/PROVENANCE`** at collection time, carrying `model`, `artefact`, `sha256`,
+`lessons`, `region`, `run_type`, `git`, `trained` and `mode`, plus an `artifact/REHEARSAL` marker on
+a rehearsal run.
+
+⛔ **My own suggested fix for this would have silently done nothing.** I proposed copying
+`$OUT/REHEARSAL` into `artifact/` at collect time. `stage collect_artifact` is at
+`pod_run_model.sh:318`; `$OUT/REHEARSAL` is written at **`:445`**. The copy would have copied a file
+that did not exist yet — a no-op that looks like a guard, which is the same defect class this whole
+thread is about. Caught by the views-models session; verified here from the pushed branch.
+
+**Revised F6, fourth and current.** VOID unless *all* of:
+
+1. the three files are present — `.pt`, `.pt.config.json` (required to load at all), `.pt.sha256`;
+2. no `INCOMPLETE` or `REHEARSAL` marker sits beside the artifact;
+3. `artifact/PROVENANCE` exists — **its absence is VOID**, because lessons and region cannot
+   otherwise be established and §4 says VOID rather than reinterpret;
+4. `PROVENANCE: mode` does not contain `REHEARSAL`;
+5. `PROVENANCE: lessons` is numeric and **≥ 300** (`MIN_LESSONS`). A shorter run is a different
+   model — M45's control was measured at L=300 and 40 lessons is smoke-only per the retention
+   programme;
+6. `PROVENANCE: sha256` agrees with the file's own digest;
+7. the sidecar matches the delivered config (Amendment 1);
+8. the sha256 is not one of the four known africa artifacts (Amendment 2) — kept as a backstop.
+
+Verified by unit test against five scenarios: missing PROVENANCE → VOID; rehearsal → VOID;
+40 lessons → VOID; `lessons: unknown` → VOID; `lessons: 300` production → ACCEPT. The parser
+splits on the first colon only, so values containing colons (`trained: …T20:00:00Z to …`) survive.
+
+⚠️ **`region:` is RECORDED AS ENFORCED, NOT MEASURED, and is printed that way.** It records that
+`pod_run_model.sh:279-282` refuses any value but `land` — not a read-back of the grid the weights
+saw. Nothing in a `.pt` or its sidecar records the region and the net is fully convolutional, so
+this is weaker than a measurement and the gate says so on every run rather than implying a check it
+cannot perform. views-models stated this limit themselves rather than letting the file imply more.
+
+**Tonight's run is production, not a rehearsal** — `pod_run_model.sh violet_visitor` with no
+`--rehearsal`, floor ≥ 300 lessons, per the views-models session. That will now be **readable off
+PROVENANCE** rather than taken on anyone's word, which is the point of the file.
+
+## Found, not chased (appended)
+
+- `artifact/INCOMPLETE` still instructs the reader to use "the git sha in MANIFEST", and MANIFEST
+  lives at `$OUT`, not in `artifact/`. PROVENANCE now carries the sha so the instruction is
+  satisfiable, but the wording points at a file that does not travel. Cosmetic; views-models is
+  taking it in tomorrow's PR rather than rebuilding the branch the pod is about to clone.
