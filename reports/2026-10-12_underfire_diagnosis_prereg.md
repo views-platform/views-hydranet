@@ -285,3 +285,47 @@ whatever the pod returns.
 
 T0's cross-model 2×2 also stands: all 8 delivered models under-fire (0.25–0.625 vs 0.7639), and
 neither composition nor family explains it.
+
+---
+
+# AMENDMENT 2 — the F6 gate was insufficient, 2026-10-12. Still before any measurement.
+
+Found by smoke-testing Amendment 1's own F6 check against the local artifacts: **all four PASS the
+config-identity test** despite being `africa_me_legacy`-trained. The sidecar records
+`model`, channel counts, dropout, seeds, `output_distribution`, `reg_activation` and
+`n_head_samples` — **no region and no grid size** — and the network is fully convolutional, so the
+state-dict shapes are identical between a 13,110-cell africa model and a 64,818-cell land one.
+
+⇒ **Config identity is necessary and NOT sufficient**, and Amendment 1's revised F6 would have
+admitted exactly the vehicle it was written to exclude.
+
+**Revised F6, third time:** VOID unless *all* of —
+
+1. the sidecar matches the delivered config (Amendment 1), **and**
+2. the artifact's sha256 is **not** one of the four known africa artifacts, denied by hash in
+   `2026-10-12_underfire_diagnosis/vehicle.py:KNOWN_AFRICA_SHA256`, **and**
+3. the operator asserts the artifact came from the views-models#550 pod run — which rests on
+   `pod_run_model.sh:279-282` refusing to start unless `REGION == 'land'`.
+
+⚠️ **(3) is an assertion, not a verification, and is recorded as such.** Nothing in a `.pt` or its
+sidecar can prove the region. `load_vehicle` prints that limit on every run rather than implying a
+check it cannot perform. The durable fix would be recording `region` in the sidecar — noted on the
+**found, not chased** list, not pursued here.
+
+## T3 gains a second, unregistered comparison — declared
+
+The pre-registered T3 (model vs honest NB fitted to observed history) is **confounded**: the honest
+fit is a per-cell constant while the model is conditional on inputs, so a model win could be
+legitimate conditioning rather than rewarded timidity. **P4 is scored on the registered comparison
+as written.**
+
+Added alongside, and reported separately: the model against a **mean-preserving de-timidified
+version of itself** — `mu` held, `theta` raised until `P(Y=0)` equals the observed zero rate. Same
+mean, same conditioning, strictly less zero mass. **F4 is judged on this controlled comparison**,
+because the registered one cannot carry it. The NB floor at fixed mean is `exp(-mu)` (Poisson
+limit); cells below it are reported, not forced.
+
+## Found, not chased (appended)
+
+- The artifact sidecar does not record `region` or grid dimensions, so no artifact in this system
+  can be audited for the extent it was trained on. The durable fix is a sidecar field.
