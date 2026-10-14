@@ -182,3 +182,83 @@ one-variable experiment #396 intended.
 *supervision-support* check — assert the count of cells entering the body's backward graph is
 unchanged between control and arm — not a config diff. A config diff is now known to be blind
 to exactly this.
+
+---
+
+# ⛔ CORRECTION (2026-10-14) — the addendum above states the mechanism with the wrong sign
+
+The addendum's language — *"what changed is what the body task has to say to the trunk"*,
+*"starves the body's supervision"* — **predicts the opposite of what happened.** A body task
+that goes quiet leaves the trunk freer to serve the gate, which should make the gate *better*.
+The gate got worse. The addendum's §"The mechanism" claim that it *"predicts the direction
+correctly"* is wrong and is retracted.
+
+Everything factual in the addendum stands: the two reductions, the `torch.where`, the no-op
+`body_supervision`, the frozen balancer, F5's blind spot, and the fourth-instance pattern. What
+is wrong is the causal story built on them, and the arithmetic of "290×".
+
+## What the two reductions actually do to the total
+
+`mtloss.py:61-65` with `log_vars` frozen at 0 — which `freeze_multitask_balancer: True` pins on
+every model in the fleet — reduces to a constant:
+
+    total = 0.5 * (body_sb + body_ns + body_os) + 1.0 * (gate_sb + gate_ns + gate_os)
+
+`1/((is_regression + 1) * 1)` and `log(1)`. **Two fixed numbers. Nothing in that expression
+reads the magnitudes, and there is no feedback path that could.** The learned-uncertainty
+balancer that *would* rescale the tasks is present and disabled (C-312: its `log(stds)` term
+goes negative once a task fits, and both ADR-014 guards keyed on that sign).
+
+So changing the body's reduction does not change the body's *weight*. It changes the body's
+*magnitude*, and the weight cannot respond.
+
+## Measured — `r2_loss_scale.py`, `r2_result.npz`
+
+`training_engine.py:1478-1479` accumulates `lesson_reg`/`lesson_cls` and writes them only to the
+opt-in trajectory CSV (`:1542-1553`); `trajectory_log_path` was unset on both runs, so the split
+is in neither `run.log` nor the offline wandb store. Recomputed on the **real sampler windows**
+(36 windows, 32×32, `VolumeSampler` + `CurriculumLearner`, calibration train volume 121–420),
+per step with the three targets summed, both artifacts in `eval()`:
+
+| term | median | × coeff |
+|---|---|---|
+| control `nb` body | 0.0801 | 0.0401 |
+| control body rescored as `truncated_nb` (same predictions) | 5.2466 | 2.6233 |
+| arm `truncated_nb` body | 5.1888 | 2.5944 |
+| control gate | 0.0675 | 0.0675 |
+| arm gate | 0.0737 | 0.0737 |
+
+* **control:** `0.5 × body = 0.0401` against `1.0 × gate = 0.0675` — the body term is **0.6×**
+  the gate term. The control's optimiser was **gate-dominated**.
+* **arm:** `2.5944` against `0.0737` — the body term is **35.2×** the gate term. The arm's
+  optimiser was **body-dominated**.
+* **the one variable, isolated:** the *same* control predictions scored by the other family go
+  **0.0801 → 5.2466, a factor of 65.5.**
+
+**That is the sign-correct mechanism.** The body did not fall silent; it became 35× louder than
+the gate on a shared trunk, and the frozen balancer had no way to notice. The gate inherited a
+trunk optimised for someone else.
+
+## "290×" was the wrong number for the wrong population
+
+0.003448 is the positive rate over **all land cells**. Training never reduces over that
+population: it reduces over 32×32 curriculum windows drawn toward activity. Measured on the
+windows the sampler actually draws, the positive fraction is **median 0.004508** (mean 0.005526,
+range 0.000133–0.012608) — a denominator ratio of **1/222**, and the *realised* loss-magnitude
+ratio is **65.5×**, not 222×, because the truncated law also renormalises by `1 − NB(0)`.
+
+Read "the body's fixed weight is concentrated into 1/222nd of the cells, which multiplied its
+magnitude 65.5× against an unchanged gate term" for every occurrence of "starved by 290×" above.
+
+## What does not change
+
+The recommendation. An emit-time axis — train `nb`, emit zero-truncated — keeps the body's
+dense reduction, so the body/gate balance stays at the control's 0.6× and the composition
+changes alone. It remains the only one of the two designs that is actually the one-variable
+experiment #396 intended, now for a measured reason rather than an asserted one.
+
+**And one more thing F5 could not have caught:** no config-identity check can see a loss
+*magnitude*. The arm's pre-registration asked whether the two configs matched. The question it
+needed to ask was whether the two **loss terms** still matched in scale. A future arm that
+changes a reduction, a mask, a normalisation or a family must assert that — the count of cells
+entering each task's backward graph and the resulting term magnitudes — not a config diff.

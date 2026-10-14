@@ -6,9 +6,9 @@ recomputed from disk rather than quoted.
 
 ⛔ ONE statistic per column, never mixed across sides (the defect that generated the phantom B7).
 """
+import hashlib
 import io
 import json
-import hashlib
 import tarfile
 from pathlib import Path
 
@@ -24,7 +24,7 @@ SCRATCH = ("/tmp/claude-1000/-home-simon-Documents-scripts-views-platform-views-
 BASE_ORIGIN, N_ORIGINS = 456, 13
 
 # ---------- F6 / F6c: the artefact describes itself, and the sha is a value READ ----------
-prov = dict(l.split(":", 1) for l in
+prov = dict(ln.split(":", 1) for ln in
             (x for x in (ARM / "artifact/PROVENANCE").read_text().splitlines() if ":" in x))
 prov = {k.strip(): v.strip() for k, v in prov.items()}
 pt = ARM / "artifact" / prov["artefact"]
@@ -38,7 +38,8 @@ print("=" * 90)
 print(f"  artefact      {prov['artefact']}")
 print(f"  sha256        {computed[:16]}…  recorded {prov['sha256'][:16]}…  "
       f"{'MATCH' if computed == prov['sha256'] else '⛔ MISMATCH -> F6 VOID'}")
-print(f"  lessons       {prov['lessons']}   mode {prov['mode']}   region {prov['region'].split(' ')[0]}")
+_region = prov['region'].split(' ')[0]
+print(f"  lessons       {prov['lessons']}   mode {prov['mode']}   region {_region}")
 print(f"  git           {prov['git']}")
 # ⛔ The .pt.config.json sidecar carries only 12 summary keys and does NOT record
 #    forecast_composition. Absence there is a property of the sidecar, not of the run — so the
@@ -47,6 +48,7 @@ print(f"  git           {prov['git']}")
 print(f"  sidecar says  output_distribution={cfg.get('output_distribution')!r} "
       f"(12 keys; it does not record forecast_composition)")
 import subprocess  # noqa: E402
+
 MODELS = "/home/simon/Documents/scripts/views_platform/views-models"
 src = subprocess.run(["git", "-C", MODELS, "show",
                       f"{prov['git']}:models/amber_kestrel/configs/config_hyperparameters.py"],
@@ -56,10 +58,11 @@ if src.returncode != 0:
 decl = {k: (k + "': '") for k in ()}
 got = {}
 for key in ("output_distribution", "forecast_composition"):
-    hits = [l.split(":", 1)[1].strip().strip(",").strip("'\"")
-            for l in src.stdout.splitlines() if f"'{key}'" in l and ":" in l.split("#")[0]]
+    hits = [ln.split(":", 1)[1].strip().strip(",").strip("'\"")
+            for ln in src.stdout.splitlines()
+            if f"'{key}'" in ln and ":" in ln.split("#")[0]]
     got[key] = hits[0] if hits else "<absent>"
-has_tau = any("'gate_threshold'" in l.split("#")[0] for l in src.stdout.splitlines())
+has_tau = any("'gate_threshold'" in ln.split("#")[0] for ln in src.stdout.splitlines())
 print(f"  config @ {prov['git']}  output_distribution={got['output_distribution']!r} "
       f"forecast_composition={got['forecast_composition']!r} "
       f"gate_threshold={'present' if has_tau else '<absent>'}")
@@ -114,6 +117,7 @@ print(f"  P-3 (|delta| <= 0.05)  ->  {'HELD' if abs(arm_ap - ctrl_ap) <= 0.05 el
 # ---------- P-1 / P-2 / F2 — the emitted forecast on the 100-cell set ----------
 cells = pd.read_parquet(f"{SCRATCH}/t1_fits.parquet").priogrid_id.to_numpy()
 import zstandard  # noqa: E402
+
 with open(ARM / "draws/predictions_calibration_20261013_010739_lr.tar.zst", "rb") as fh:
     raw = zstandard.ZstdDecompressor().stream_reader(fh).read()
 emit = {}
@@ -152,9 +156,10 @@ print("-" * 90)
 gsub = arm_gate[:, obs_idx].ravel()
 print(f"  emitted positive fraction, 100-cell set   {pooled_pos:.4f}")
 print(f"  mean gate on the same cell-months         {gsub.mean():.4f}")
-print(f"  self_zeroed would give                    1.0000  (P(trunc body = 0) = 0)")
+print("  self_zeroed would give                    1.0000  (P(trunc body = 0) = 0)")
 if pooled_pos > 0.97:
-    raise SystemExit("⛔ VOID: emitted draws are ~all positive — composed as self_zeroed, not soft_gate.")
+    raise SystemExit("⛔ VOID: emitted draws are ~all positive — "
+                     "composed as self_zeroed, not soft_gate.")
 print(f"  -> consistent with soft_gate, |emitted - gate| = {abs(pooled_pos - gsub.mean()):.4f}")
 
 print()
