@@ -313,3 +313,69 @@ def test_sequence_indices_reg_names_is_the_very_config_object():
     idx = _SequenceIndices(["a", "b", "c", "f"], cfg)
     assert idx.reg_names is cfg["regression_targets"]
     assert idx.cls_names is cfg["classification_targets"]
+
+
+# ── the trajectory column NAMES, which nothing tested until a mutation survived ──
+#
+# Deleting the tautological comparison guard (/review-diff) left a real gap: building the header
+# from the wrong config key mislabels every column, and that survived the whole suite. The concern
+# was genuine even though the guard was not — it just cannot be tested by comparing two things
+# that are the same object. So test the construction instead.
+
+
+def test_trajectory_task_columns_names_and_order():
+    from views_hydranet.train.training_engine import _trajectory_task_columns
+
+    cfg = {
+        "regression_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+        "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
+    }
+    assert _trajectory_task_columns(cfg) == [
+        "loss/body/lr_sb_best",
+        "loss/body/lr_ns_best",
+        "loss/body/lr_os_best",
+        "loss/gate/by_sb_best",
+        "loss/gate/by_ns_best",
+        "loss/gate/by_os_best",
+    ]
+
+
+def test_trajectory_task_columns_are_body_before_gate():
+    """The order the balancer's `is_regression` vector assumes. A swap mislabels every column."""
+    from views_hydranet.train.training_engine import _trajectory_task_columns
+
+    cols = _trajectory_task_columns(
+        {"regression_targets": ["r1", "r2"], "classification_targets": ["c1"]}
+    )
+    assert [c.split("/")[1] for c in cols] == ["body", "body", "gate"]
+
+
+def test_trajectory_task_columns_do_not_read_the_wrong_config_key():
+    """Asymmetric target lists, so reading the wrong key cannot coincidentally pass."""
+    from views_hydranet.train.training_engine import _trajectory_task_columns
+
+    cols = _trajectory_task_columns(
+        {"regression_targets": ["only_reg"], "classification_targets": ["c1", "c2", "c3"]}
+    )
+    assert cols == [
+        "loss/body/only_reg",
+        "loss/gate/c1",
+        "loss/gate/c2",
+        "loss/gate/c3",
+    ]
+
+
+def test_trajectory_header_width_matches_the_per_task_vector(rig):
+    """The header's task-column count must equal the length of `per_task`, or rows go ragged."""
+    from views_hydranet.train.training_engine import (
+        _TRAJECTORY_BASE_COLUMNS,
+        _trajectory_task_columns,
+    )
+
+    cfg = {
+        "regression_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+        "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
+    }
+    out = _run(rig)
+    assert len(_trajectory_task_columns(cfg)) == out["per_task"].shape[0]
+    assert len(_TRAJECTORY_BASE_COLUMNS) == 6

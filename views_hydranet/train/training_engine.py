@@ -185,6 +185,37 @@ def _batchnorm_eval(model: nn.Module):
             m.train()
 
 
+#: The fixed leading columns of the trajectory CSV. The per-task columns follow.
+_TRAJECTORY_BASE_COLUMNS = [
+    "lesson",
+    "raw_grad_norm",
+    "loss_reg",
+    "loss_cls",
+    "gate_logit_mean",
+    "fed_grad_max",
+]
+
+
+def _trajectory_task_columns(config: dict) -> list[str]:
+    """The per-task trajectory columns, in the order the balancer sums the tasks.
+
+    Body targets then gate targets, which is the order ``losses_list`` is built in
+    (``for j in range(idx.n_reg)`` then ``range(idx.n_cls)``) and therefore the order
+    ``per_task`` arrives in. ``_SequenceIndices`` takes its names straight from these same two
+    config lists, so config is the single source of truth for the order and no cross-check is
+    possible — pinned instead by the identity test in
+    ``tests/test_per_task_loss_instrumentation.py``.
+
+    Extracted because inline in ``training_loop`` it could not be mutation-tested: building the
+    header from the wrong config key mislabels every column and survived the whole suite
+    (/review-diff follow-up, PR #398). Third extraction for the same reason — anything worth
+    guarding inside ``training_loop`` has to come out of it to be testable.
+    """
+    return [f"loss/body/{n}" for n in config["regression_targets"]] + [
+        f"loss/gate/{n}" for n in config["classification_targets"]
+    ]
+
+
 def _open_trajectory_file(path: str):
     """Open the trajectory CSV for writing, creating its parent directory first.
 
@@ -1389,13 +1420,8 @@ def training_loop(
         # `test_sequence_indices_names_are_the_config_lists`.)
         # Writing the header here also means a run that aborts before lesson 1 (the C-312
         # non-finite exit, or IntegrityGuardian) still leaves a parsable file rather than 0 bytes.
-        _traj_task_cols = [f"loss/body/{n}" for n in config["regression_targets"]] + [
-            f"loss/gate/{n}" for n in config["classification_targets"]
-        ]
-        _traj_writer.writerow(
-            ["lesson", "raw_grad_norm", "loss_reg", "loss_cls", "gate_logit_mean", "fed_grad_max"]
-            + _traj_task_cols
-        )
+        _traj_task_cols = _trajectory_task_columns(config)
+        _traj_writer.writerow(_TRAJECTORY_BASE_COLUMNS + _traj_task_cols)
         _traj_file.flush()
         logger.info(f"📈 trajectory-log ON → {_traj_path}")
 
