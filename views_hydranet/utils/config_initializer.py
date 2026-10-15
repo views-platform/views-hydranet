@@ -170,6 +170,14 @@ class HydraNetConfig(BaseModel):
     # gate ≥ τ, else zero the cell). A float in the OPEN interval (0,1); None otherwise. Fixed
     # a-priori (never fit on scored months — Goodhart).
     gate_threshold: float | None = Field(default=None)
+    # The NLL DENOMINATOR of the zero-truncated body (glossary §3b). "positives" divides the
+    # per-cell losses by the count of y>0 cells; "all_cells" divides by every supervised cell,
+    # which is the denominator the JOINT HURDLE NLL actually has (the body's term is
+    # `sum over positives / N`, commensurate with the gate's mean over N). Default "positives"
+    # keeps every existing config byte-identical. Meaningful ONLY for truncated_nb — every other
+    # family already reduces over all cells — so setting it elsewhere is REJECTED rather than
+    # silently ignored (C-324). See reports/2026-10-15_loss_balance_prereg.md.
+    body_nll_denominator: str = Field(default="positives")
     # ADR-068 emit_family_core: emit the family's BULK body (π-stripped for zinb) instead of the
     # self-zeroed forecast, so an EXTERNAL gate supplies the zeros — the {gated,th_gated}_ZINBcore
     # arms. Emit-time only (read at eval, not baked in the artifact). Requires a self-zeroed family
@@ -411,6 +419,39 @@ class HydraNetConfig(BaseModel):
                 f"freeze_recurrent must be None or one of {allowed}; got "
                 f"{self.freeze_recurrent!r}. ADR-027 §2.1 permits 'cell' in production; "
                 f"'hidden' and 'all' are diagnostics."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
+
+    @field_validator("body_nll_denominator")
+    @classmethod
+    def validate_body_nll_denominator(cls, v: str) -> str:
+        """Only the two locked values (glossary §3b): 'positives' or 'all_cells'."""
+        valid = ("positives", "all_cells")
+        if v not in valid:
+            err_msg = (
+                f"body_nll_denominator={v!r} is not valid. Expected one of: {', '.join(valid)}."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return v
+
+    @model_validator(mode="after")
+    def reject_ignored_body_nll_denominator(self) -> "HydraNetConfig":
+        """`all_cells` is only implemented for truncated_nb — elsewhere it would be a silent no-op.
+
+        Every other family's ``nll`` already reduces over all cells (``weighted_nll_mean`` with
+        ``weight=None``), so the flag has nothing to change there. A config that sets it on ``nb``
+        is asking for a reduction it already has and would read as an arm that changed a variable
+        when it changed nothing — the **C-324** inert-knob signature, which this repository has
+        now recorded enough times to gate on. Fail loud instead.
+        """
+        if self.body_nll_denominator == "all_cells" and self.output_distribution != "truncated_nb":
+            err_msg = (
+                f"body_nll_denominator='all_cells' requires output_distribution='truncated_nb' "
+                f"(got {self.output_distribution!r}). Every other family already reduces over all "
+                f"cells, so the flag would be inert — see C-324."
             )
             logger.error(err_msg)
             raise ValueError(err_msg)

@@ -24,6 +24,8 @@ the caller supplying ``body_supervision='active'`` — the mask is applied insid
 
 from __future__ import annotations
 
+import logging
+
 import torch
 
 from views_hydranet.distributions.base import DistributionFamily
@@ -34,6 +36,8 @@ from views_hydranet.distributions.nb_core import (
     weighted_nll_mean,
 )
 from views_hydranet.utils.count_target_bridge import to_raw_counts
+
+logger = logging.getLogger(__name__)
 
 _EPS = 1e-6  # shared boundary guard (matches NBCore._EPS): clamps 1-NB(0) away from 0 for log/÷.
 
@@ -73,6 +77,27 @@ class TruncatedNBFamily(DistributionFamily):
     def _split(self, params: "torch.Tensor") -> tuple["torch.Tensor", "torch.Tensor"]:
         return params[..., 0], params[..., 1]
 
+    def __init__(self, *, body_nll_denominator: str = "positives") -> None:
+        """``body_nll_denominator`` selects the NLL denominator (glossary §3b).
+
+        ``"positives"`` (the default, and every pre-2026-10 config) divides by the count of ``y>0``
+        cells. ``"all_cells"`` divides by every supervised cell, which is the denominator the JOINT
+        HURDLE NLL has — see ``nll`` and ``reports/2026-10-15_loss_balance_prereg.md``.
+
+        Only the training-loss construction passes this (``utils.choose_loss_functions``); the
+        emit-time family is built without it, because a reduction has no role in drawing a sample.
+        """
+        super().__init__()
+        valid = ("positives", "all_cells")
+        if body_nll_denominator not in valid:
+            err_msg = (
+                f"body_nll_denominator={body_nll_denominator!r} is not valid. "
+                f"Expected one of: {', '.join(valid)}."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        self.body_nll_denominator = body_nll_denominator
+
     def nll(
         self,
         params: "torch.Tensor",
@@ -80,12 +105,26 @@ class TruncatedNBFamily(DistributionFamily):
         *,
         weight: "torch.Tensor | None" = None,
     ) -> "torch.Tensor":
-        """Mean zero-truncated NB negative log-likelihood, reduced over positive cells.
+        """Mean zero-truncated NB negative log-likelihood over the positive cells.
 
-        ``log P(Y=y | Y>0) = log NB(y) - log(1 - NB(0))``. The reduction is a mean over ``y>0``
-        (the truncated law's support), NOT over all cells — so ``weight=None`` means "mean over the
-        positives", not "mean over the whole grid". A caller ``weight`` (e.g. an active-cell mask)
-        is multiplied onto the ``y>0`` mask. No positive cells -> a graph-connected ``0`` loss.
+        ``log P(Y=y | Y>0) = log NB(y) - log(1 - NB(0))``. The NUMERATOR is always the sum over
+        ``y>0`` — zero cells have no truncated likelihood. What ``body_nll_denominator`` selects is
+        the DENOMINATOR:
+
+        * ``"positives"`` — divide by the count of ``y>0`` cells. ``weight=None`` therefore means
+          "mean over the positives", not "mean over the whole grid". This is the historical
+          behaviour and the guarantee pinned by
+          ``tests/distributions/test_truncated_negative_binomial.py:104-126``.
+        * ``"all_cells"`` — divide by every supervised cell (all of them when ``weight is None``).
+          This is the body term of the **joint hurdle NLL**: writing that likelihood out gives
+          ``sum over positives / N``, commensurate with the gate's mean over the same ``N``. It
+          also replaces a RANDOM denominator with a fixed one — at a 1-in-222 positive rate the
+          positive count per step is often 0 or 1, so ``E[Σ/N_pos] != E[Σ]/E[N_pos]`` and the
+          ``"positives"`` gradient is biased and high-variance (prereg §0, Amendment 1 §5).
+
+        A caller ``weight`` (e.g. an active-cell mask) is multiplied onto the ``y>0`` mask for the
+        numerator, and under ``"all_cells"`` it is also what defines "supervised" in the
+        denominator. No positive cells -> a graph-connected ``0`` loss under either setting.
         """
         mu, theta = self._split(params)
         counts = to_raw_counts(target)
@@ -102,6 +141,10 @@ class TruncatedNBFamily(DistributionFamily):
         pos_weight = positive.to(nll_per_cell.dtype)
         if weight is not None:
             pos_weight = pos_weight * torch.broadcast_to(weight.to(nll_per_cell), pos_weight.shape)
+        if self.body_nll_denominator == "all_cells":
+            # `nll_per_cell` is already zeroed outside y>0, so the numerator is unchanged; passing
+            # the SUPERVISED mask (not the positive mask) moves the denominator to the cell count.
+            return weighted_nll_mean(nll_per_cell, weight)
         return weighted_nll_mean(nll_per_cell, pos_weight)
 
     def sample(

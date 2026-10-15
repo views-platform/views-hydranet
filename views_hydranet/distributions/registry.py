@@ -18,22 +18,22 @@ if TYPE_CHECKING:
     from views_hydranet.distributions.base import DistributionFamily
 
 
-def _lazy(module: str, cls: str) -> Callable[[], "DistributionFamily"]:
+def _lazy(module: str, cls: str) -> Callable[..., "DistributionFamily"]:
     """Return a factory that imports ``views_hydranet.distributions.<module>.<cls>`` on first call.
 
     Deferring the import keeps this module (and therefore ``config_initializer``) torch-free until
     a family is actually instantiated.
     """
 
-    def factory() -> "DistributionFamily":
+    def factory(**kwargs) -> "DistributionFamily":
         mod = importlib.import_module(f"views_hydranet.distributions.{module}")
-        return getattr(mod, cls)()
+        return getattr(mod, cls)(**kwargs)
 
     return factory
 
 
 #: name -> lazy factory.
-DISTRIBUTION_REGISTRY: dict[str, Callable[[], "DistributionFamily"]] = {
+DISTRIBUTION_REGISTRY: dict[str, Callable[..., "DistributionFamily"]] = {
     "nb": _lazy("negative_binomial", "NegativeBinomialFamily"),  # A-S3 (#170)
     "zinb": _lazy("zero_inflated_negative_binomial", "ZINBFamily"),  # A-S4 (#171)
     "mixture_nb": _lazy("mixture_negative_binomial", "MixtureNBFamily"),  # Epic #230 S2 (#232)
@@ -72,11 +72,16 @@ def get_family(name: str) -> "DistributionFamily":
     return factory()
 
 
-def resolve_family(name: str) -> "DistributionFamily | None":
+def resolve_family(name: str, **kwargs) -> "DistributionFamily | None":
     """The strangler-fig seam: return the family for a registered ``name``, else ``None``.
 
     A ``None`` return means ``name`` is not a registered family (e.g. an existing
     ``output_distribution`` value) — the caller falls through to the existing code path, unchanged.
+
+    ``kwargs`` are forwarded to the family constructor. **Only the TRAINING-LOSS caller passes
+    any** (``utils.choose_loss_functions`` → ``body_nll_denominator``); the emit-time caller
+    (``hydranet_inference``) passes none and therefore constructs the family exactly as before,
+    because a reduction denominator is meaningless when drawing samples.
     """
     factory = DISTRIBUTION_REGISTRY.get(name)
-    return factory() if factory is not None else None
+    return factory(**kwargs) if factory is not None else None

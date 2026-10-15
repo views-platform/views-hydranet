@@ -180,7 +180,13 @@ def choose_loss(
     from views_hydranet.distributions import resolve_family
     from views_hydranet.distributions.family_loss import FamilyLoss
 
-    _family = resolve_family(config.get("output_distribution", "standard"))
+    # body_nll_denominator is read with NO fallback default — the schema owns it (P7 convention).
+    _dist = config.get("output_distribution", "standard")
+    _family = (
+        resolve_family(_dist, body_nll_denominator=config["body_nll_denominator"])
+        if _dist == "truncated_nb" and "body_nll_denominator" in config
+        else resolve_family(_dist)
+    )
     loss_reg_sigma = config.get("loss_reg_sigma")
     learnable = config.get("learnable_sigma", False)
     if _family is not None:
