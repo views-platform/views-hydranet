@@ -185,6 +185,29 @@ def _batchnorm_eval(model: nn.Module):
             m.train()
 
 
+def _assert_trajectory_columns_match(header_cols: list[str], task_names: list[str]) -> None:
+    """Fail loud when the config order the CSV header was built from disagrees with the order the
+    balancer actually sums in.
+
+    The header is written at open from ``config["regression_targets"]`` +
+    ``config["classification_targets"]`` so that the column count is fixed and a run that aborts
+    before lesson 1 still leaves a parsable file. That makes config a second source of truth for
+    the ORDER, and a mislabelled column is worse than no column — so the two are compared the
+    first time both are in scope.
+
+    Extracted as a function because the inline version was unguarded: a mutation deleting the
+    comparison survived the whole suite (/code-review follow-up, PR #398 — the C-329 shape).
+    """
+    expected = [f"loss/{n}" for n in task_names]
+    if expected != header_cols:
+        err_msg = (
+            "trajectory-log column names disagree with the task order the balancer sums in: "
+            f"header {header_cols} vs actual {expected}. Refusing to mislabel the columns."
+        )
+        logger.error(err_msg)
+        raise RuntimeError(err_msg)
+
+
 def _open_trajectory_file(path: str):
     """Open the trajectory CSV for writing, creating its parent directory first.
 
@@ -1615,15 +1638,7 @@ def training_loop(
                     # order the balancer actually summed in — a mislabelled column is worse than
                     # no column, and this is the only place both are in scope.
                     if _task_names is not None and not _traj_header_checked:
-                        _expected = [f"loss/{n}" for n in _task_names]
-                        if _expected != _traj_task_cols:
-                            err_msg = (
-                                "trajectory-log column names disagree with the task order the "
-                                f"balancer sums in: header {_traj_task_cols} vs actual "
-                                f"{_expected}. Refusing to mislabel the columns."
-                            )
-                            logger.error(err_msg)
-                            raise RuntimeError(err_msg)
+                        _assert_trajectory_columns_match(_traj_task_cols, _task_names)
                         _traj_header_checked = True
                     # Pad to the header's FIXED width so the CSV can never go ragged.
                     _pt_row = (

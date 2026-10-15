@@ -264,3 +264,50 @@ def test_per_task_keys_specifically_survive_the_train_boundary():
         "train() must forward per_task and task_names, or the per-task trajectory columns are "
         "inert in every real run while the unit tests on _process_sequence still pass."
     )
+
+
+# ── the header-order guard, which a mutation survived until it was extracted ──
+#
+# The CSV header is built from config so the column count is fixed and an early abort still leaves
+# a parsable file. That makes config a second source of truth for the ORDER, so the two are
+# compared the first time both are in scope. Deleting that comparison survived the entire suite
+# until the comparison became a function — the C-329 shape, found by mutation-testing the fix for
+# /code-review's F4.
+
+
+def test_matching_trajectory_columns_pass():
+    from views_hydranet.train.training_engine import _assert_trajectory_columns_match
+
+    _assert_trajectory_columns_match(
+        ["loss/body/lr_sb_best", "loss/gate/by_sb_best"],
+        ["body/lr_sb_best", "gate/by_sb_best"],
+    )
+
+
+def test_reordered_trajectory_columns_raise():
+    """config listing the targets in a different order than the balancer sums them."""
+    from views_hydranet.train.training_engine import _assert_trajectory_columns_match
+
+    with pytest.raises(RuntimeError, match="disagree with the task order"):
+        _assert_trajectory_columns_match(
+            ["loss/body/lr_ns_best", "loss/body/lr_sb_best"],
+            ["body/lr_sb_best", "body/lr_ns_best"],
+        )
+
+
+def test_wrong_number_of_trajectory_columns_raises():
+    """config naming fewer targets than the balancer actually sums."""
+    from views_hydranet.train.training_engine import _assert_trajectory_columns_match
+
+    with pytest.raises(RuntimeError, match="disagree with the task order"):
+        _assert_trajectory_columns_match(
+            ["loss/body/lr_sb_best"],
+            ["body/lr_sb_best", "gate/by_sb_best"],
+        )
+
+
+def test_renamed_target_in_trajectory_columns_raises():
+    from views_hydranet.train.training_engine import _assert_trajectory_columns_match
+
+    with pytest.raises(RuntimeError, match="disagree with the task order"):
+        _assert_trajectory_columns_match(["loss/body/lr_sb_best"], ["body/lr_sb_WRONG"])
