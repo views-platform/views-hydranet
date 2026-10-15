@@ -459,11 +459,15 @@ def _process_sequence(
     computes multi-task losses, and optionally records forensic data.
     No optimizer, no diagnostics, no data augmentation — just forward + loss.
 
-    Returns dict with keys: total, reg, cls, h, per_step_losses.
+    Returns dict with keys: total, reg, cls, h, per_task, task_names, per_step_losses.
+    ``per_task`` is the summed 6-vector the balancer combines (body then gate, in
+    ``task_names`` order); ``reg``/``cls`` are its two partial sums.
     """
     seq_len = train_tensor.shape[1]
     total_loss = torch.tensor(0.0).to(device)
     step_reg: list[float] = []
+    # Lazily shaped on the first step (the task count comes from the window's channel map).
+    per_task_sum: "torch.Tensor | None" = None
     step_cls: list[float] = []
     step_total: list[float] = []
 
@@ -853,6 +857,8 @@ def _process_sequence(
             pf_loss = torch.stack(pf_terms).sum()
 
         losses = torch.stack(losses_list)
+        if per_task_sum is None:
+            per_task_sum = torch.zeros_like(losses.detach())
         loss = cast(Any, multitaskloss_instance)(losses)
         if pf_loss is not None:
             loss = loss + pushforward_weight * pf_loss
@@ -867,6 +873,12 @@ def _process_sequence(
         loss_reg = losses[: idx.n_reg].sum()
         loss_class = losses[idx.n_reg :].sum()
 
+        # PER-TASK accumulation. `losses` is the 6-vector the balancer combines; the two sums
+        # above are all that used to survive, which is why r2/r3 had to reconstruct the per-target
+        # split from delivered WEIGHTS after the fact. Detached, no graph, no RNG — it cannot move
+        # a result. See reports/2026-10-13_composition_arm_outcome/.
+        per_task_sum += losses.detach()
+
         step_reg.append(loss_reg.detach().item())
         step_cls.append(loss_class.detach().item())
         step_total.append(loss.detach().item())
@@ -879,6 +891,8 @@ def _process_sequence(
         "reg": torch.tensor(np.sum(step_reg)).to(device),
         "cls": torch.tensor(np.sum(step_cls)).to(device),
         "h": h,
+        "per_task": per_task_sum,
+        "task_names": [f"body/{n}" for n in idx.reg_names] + [f"gate/{n}" for n in idx.cls_names],
         "per_step_losses": (step_total, step_reg, step_cls),
     }
 
@@ -1320,6 +1334,7 @@ def training_loop(
     _traj_path = config.get("trajectory_log_path")
     _traj_file = _traj_writer = None
     _traj_acc = {"gate_sum": 0.0, "gate_n": 0, "fed_max": 0.0}
+    _traj_header_written = False
     if _traj_path:
         import csv as _csv
 
@@ -1332,9 +1347,9 @@ def training_loop(
             dict(model.named_modules())[_hn].register_forward_hook(_gate_hook)
         _traj_file = open(_traj_path, "w", newline="")
         _traj_writer = _csv.writer(_traj_file)
-        _traj_writer.writerow(
-            ["lesson", "raw_grad_norm", "loss_reg", "loss_cls", "gate_logit_mean", "fed_grad_max"]
-        )
+        # The header is written with the FIRST data row, not here: the six per-task column names
+        # come from the window's own channel map, so deriving them from config would be a second
+        # source of truth that could silently disagree with the order the balancer sums in.
         logger.info(f"📈 trajectory-log ON → {_traj_path}")
 
     # The feedback-gradient sink exists ONLY while the trajectory log does: reading each step's
@@ -1362,6 +1377,8 @@ def training_loop(
             lesson_loss = torch.tensor(0.0).to(device)
             lesson_reg = 0.0
             lesson_cls = 0.0
+            lesson_per_task = None
+            _task_names: "list[str] | None" = None
             windows_trained = 0  # C-312: how many windows actually backpropagated
 
             # ADR-056: compute epsilon once per lesson
@@ -1477,6 +1494,10 @@ def training_loop(
                 lesson_loss += w_loss.detach()  # Keep track of magnitude for logging
                 lesson_reg += losses["reg"].item()
                 lesson_cls += losses["cls"].item()
+                if losses.get("per_task") is not None:
+                    _pt = losses["per_task"].detach().cpu().numpy()
+                    lesson_per_task = _pt if lesson_per_task is None else lesson_per_task + _pt
+                    _task_names = losses["task_names"]
 
                 # --- PER-WINDOW MEMORY RELEASE (C-07) ---
                 del sample_handler, losses, w_loss
@@ -1541,6 +1562,24 @@ def training_loop(
                 # OPT-IN trajectory row (pre-clip grad-norm + lesson gate-logit-mean + losses)
                 if _traj_writer is not None:
                     _gm = _traj_acc["gate_sum"] / max(_traj_acc["gate_n"], 1)
+                    _pt_row = (
+                        []
+                        if lesson_per_task is None
+                        else list(lesson_per_task / config["windows_per_lesson"])
+                    )
+                    if not _traj_header_written:
+                        _traj_writer.writerow(
+                            [
+                                "lesson",
+                                "raw_grad_norm",
+                                "loss_reg",
+                                "loss_cls",
+                                "gate_logit_mean",
+                                "fed_grad_max",
+                            ]
+                            + [f"loss/{n}" for n in (_task_names or [])]
+                        )
+                        _traj_header_written = True
                     _traj_writer.writerow(
                         [
                             lesson_idx,
@@ -1550,6 +1589,7 @@ def training_loop(
                             _gm,
                             _traj_acc["fed_max"],
                         ]
+                        + _pt_row
                     )
                     _traj_file.flush()
                     _traj_acc["gate_sum"] = 0.0
