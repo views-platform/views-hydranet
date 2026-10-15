@@ -219,8 +219,24 @@ print(f"P-1/P-2 within +/-{TOLERANCE:.0%}: {'YES' if ok else 'NO'}")
 if not in_band:
     print("VERDICT: ⛔ F1 FIRES — VOID. The intervention is not the intervention. DO NOT TRAIN.")
     raise SystemExit(1)
-print("VERDICT: ✅ F1 does not fire. The axis is wired, the magnitudes match the pre-committed")
-print("         table, and the arm is cleared to train.")
+print("VERDICT: ✅ F1 does not fire — the axis is WIRED and the pooled magnitude is in band.")
+if ok:
+    print("         Every per-target prediction is also within +/-30%.")
+else:
+    print("         ⚠️  BUT a per-target prediction (P-2) MISSED. F1 is the only VOID condition,")
+    print("             so the arm is still cleared — but the miss is a prediction error of MINE,")
+    print("             not a fault in the intervention, and it must be read before the arm runs.")
+    print("             CAUSE: the prereg projected `body_A = body_positives * (P/N)` using the")
+    print("             median positive FRACTION. That identity holds per step, NOT after")
+    print("             averaging over steps: `positives` divides by a per-step count that is")
+    print("             often 0 or 1, so mean(S/P) is dominated by the small-P steps while")
+    print("             mean(S/N) is not, so one multiplicative factor cannot carry the window")
+    print("             mean across. It is the mean-of-ratios vs ratio-of-means error, on the")
+    print("             target where P is smallest — exactly where the two diverge most.")
+    print("             DIRECTION: the miss is UPWARD. ns lands at 0.175 of its gate, not 0.058,")
+    print("             so the per-target spread under A is ~1.7x (0.297/0.175/0.204), not the 5x")
+    print("             the prereg's skepticism ledger warned about. A is MORE even-handed")
+    print("             than my own projection claimed — weakening prereg section 3.1 further.")
 print("=" * 94)
 np.savez(
     SP / "r5_result.npz",

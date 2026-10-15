@@ -23,7 +23,7 @@ about the workflow — the same rule the experiment log lives under.
 
 | | count |
 |---|---|
-| **WRONG** | **20** |
+| **WRONG** | **21** |
 | **RIGHT** | **12** |
 | OPEN | 1 |
 
@@ -32,7 +32,7 @@ distributed, and the split by *kind* is the actionable result:
 
 | class of claim | right | wrong | read |
 |---|---|---|---|
-| **Derivations / algebra / arithmetic** | **10** | **0** | **Reliable.** Every closed-form result in this programme has held, including three an adversarial panel checked line by line. |
+| **Derivations / algebra / arithmetic** | **10** | **1** | Closed-form results have held (three checked line by line by an adversarial panel). ⚠️ The one miss, **W-21**, was not algebra but a **statistic**: applying a per-step identity to a step-averaged quantity. |
 | **Claims about what exists in the repo** (a log, a test, a prior experiment, a paper's contents) | 0 | **6** | ⛔ **The worst class, and the cheapest to prevent** — every one would have been caught by a single `grep` or file read taking seconds. |
 | **Causal narratives about system behaviour** | 0 | **8** | ⛔ Wrong in **sign or magnitude**, not in kind. Coherence was being mistaken for evidence. |
 | Operational / tooling | 0 | 4 | Minor, self-caught, cost only wall clock. |
@@ -46,6 +46,13 @@ positive-cell denominator, Kendall's Appendix B, `results_balancer_bisect.md`, C
 status, the Cragg PDF. **This is the single largest cluster and the cheapest to eliminate**: check the
 artifact before describing it, always, because the check costs seconds and the error costs a
 committed document. Two of these reached a committed pre-registration.
+
+**1b. ⛔ Mean-of-ratios vs ratio-of-means, three times** (W-2, W-8, W-21). Each time I collapsed a
+distribution to one summary statistic and then used it as if it were a multiplier. **W-21 is the
+clearest: the identity was exactly right per step and wrong after averaging**, and it failed worst on
+the rarest target — the case where a random denominator is most often 0 or 1. Rule: before projecting
+with a ratio, check whether the denominator varies; if it does, compute the projection on the raw
+per-unit values, never on their median.
 
 **2. ⛔ The narrative arrived before the measurement, and it was wrong in sign.** "The body went
 quiet" against a measured 35× louder. "μ̂ biased low" against truncation raising it. "The denominator
@@ -96,6 +103,7 @@ External adversarial checking beats self-review here, and it is cheap relative t
 | W-18 | Launched a long job under `conda run` expecting streamed output. | operational | self | `conda run` buffers until exit; the monitor could not have fired. 25 min of blind wall clock. |
 | W-19 | Ordered the BPTT chunk sweep K = (1, 8, 24). | operational | self | Backwards. Cost is `(steps/K)` chunks × 6 backwards, so K=1 is ~23× the calls of K=24 **and** least faithful to production. Ran the most expensive, least useful block first. |
 | W-20 | On the control's `cos = +0.7244`: *"the pre-committed trigger fired"* (i.e. → N). | premature | the arm block, 20 minutes later | The arm gave `cos = −0.2033`, 75% of windows negative. A control-only reading would have sent the fork to N and been wrong. ⚠️ Mitigated: I did explicitly withhold the verdict pending the arm — but I framed the trigger as fired. |
+| W-21 | A's per-target magnitudes under the new denominator: **0.295 / 0.058 / 0.166** (prereg §4 P-2). | ⛔ **statistic** | the pre-flight, r5 | **`ns` missed by +202%** (0.058 predicted, **0.1753** measured). The projection used `body_A = body_positives × (P/N)` with the median positive *fraction*. That identity holds **per step**, not after averaging over steps: `positives` divides by a per-step count that is often 0 or 1, so `mean(S/P)` is dominated by small-P steps while `mean(S/N)` is not. **Mean-of-ratios vs ratio-of-means — the third instance of this error class in this programme** (cf. W-2, W-8). It bit hardest on the target where P is smallest, which is exactly where the two diverge most. ⚠️ `sb` +1% and `os` +23% were fine, and the **pooled** P-1 held (+23%), so only the rarest target was badly wrong. |
 
 ---
 
