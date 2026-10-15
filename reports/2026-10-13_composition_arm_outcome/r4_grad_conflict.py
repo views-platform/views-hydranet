@@ -62,7 +62,12 @@ CONTROL_PT = Path("/home/simon/Documents/views_hydranet_vehicle_20261012/"
 ARM_PT = (MODELS / "amber_kestrel/data/generated/calibration_delivery_20261013/"
           "artifact/calibration_model_20261013_010739.pt")
 N_SAMPLED_LESSONS = 4          # 4 lessons x 3 windows = 12 windows per (model, K)
-CHUNKS = (1, 8, 24)            # K: BPTT chunk lengths to test the verdict's stability
+CHUNKS = (24, 8, 1)            # K: BPTT chunk lengths to test the verdict's stability.
+#                                Ordered cheapest-and-most-faithful FIRST: cost is
+#                                (steps/K) chunks x 6 retain_graph backwards per window, so
+#                                K=1 is ~23x the backward calls of K=24, and K=24 also keeps
+#                                the most of production's full-window BPTT. The verdict lands
+#                                on the first block; K=8 and K=1 are the stability check.
 POS_WEIGHT = 2.0
 
 
