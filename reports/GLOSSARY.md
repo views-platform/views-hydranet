@@ -4,7 +4,7 @@
 used before for the same thing — listed so you can map old messages onto the locked name. I never introduce
 a new synonym. If I drift, you type **"drift"** and I stop and correct.
 
-Last rebuilt: 2026-07-17 (v2, complete). **Amended 2026-08-15:** added *the feedback realism gap* (the parent cause) and *the zero collapse* (its under-firing child); *the bloom* is now defined as the over-firing child of the same cause.
+Last rebuilt: 2026-07-17 (v2, complete). **Amended 2026-10-15:** added **§3b the task-loss balance** (*the balancer*, *task-loss term*, *frozen balancer*, *the NLL denominator*, *truncated NB loss*) and scoped the stale `TruncatedNB` banned alias in §3. **Amended 2026-08-15:** added *the feedback realism gap* (the parent cause) and *the zero collapse* (its under-firing child); *the bloom* is now defined as the over-firing child of the same cause.
 
 ---
 
@@ -136,7 +136,7 @@ itself.
 | **MAE** | absolute error; fits the **median**. **Identical to "pinball at 0.5".** | pinball τ0.5, pinball-at-0.5, median loss, "no dial" |
 | **the dial** | pinball loss at a level above 0.5 (0.6/0.7/0.8) — pushes guesses UP. | pinball, tau/τ, PinballBodyLoss, lifter |
 | **count_mean** | MSE computed in count space (not log space) — the one that blows up | count-space MSE |
-| **NB loss** | the negative-binomial likelihood body (the old floor) | hurdle_nb, TruncatedNB |
+| **NB loss** | the negative-binomial likelihood body (the old floor) | hurdle_nb; ⚠️ **`TruncatedNB`** — banned ONLY as a name for *this* row (it meant the discredited legacy `truncated_nb_loss.py`). The live zero-truncated family is **truncated NB loss**, §3b. |
 | **ZINB** | an **NB** body with an explicit extra spike of probability at exactly 0, sized to the data; always **self-zeroed** (§2b) | zero-inflated NB, zero_inflation |
 
 "No dial" was never a loss — it meant "a plain loss (MSE or MAE), not the dial." I'll say **"plain MSE"** or
@@ -149,6 +149,36 @@ itself.
 | **pos_weight** | the gate's eagerness knob (higher = fires more). Foundation: 2 best-calibrated of {2,3,4,5} | pw, gate weight |
 | **focal** | an alternative gate loss; knobs = **gamma** (focusing) + **alpha** (class weight) | focal loss |
 | **per-target pos_weight** | letting sb / ns / os each have their own pos_weight (vs one shared) | — |
+
+## 3b. The task-loss balance (how the SIX task losses become ONE number)
+
+Six task losses are computed per lesson — a body loss and a gate loss for each of sb / ns / os — and
+something must combine them into the scalar that is backpropagated. That combiner is **the
+balancer**, and until 2026-10 we had no words for any of this.
+
+| locked name | what it means | banned aliases |
+|---|---|---|
+| **the balancer** | `MultiTaskLoss` (`utils/mtloss.py`) — the combiner that turns the six **task-loss terms** into the one scalar. Implements Kendall/Gal/Cipolla homoscedastic-uncertainty weighting: a learnable `log_vars` per task, `coeff_j = 1/((is_regression_j + 1)·e^{v_j})`, plus a `v_j/2` regulariser. | MTL, multi-task loss, the weighting, mtloss |
+| **task-loss term** | the value ONE task contributes, **after** the balancer's coefficient — `coeff_j · L_j + v_j/2`. Distinct from the raw per-task loss `L_j`. | task loss, loss component, the weighted loss |
+| **frozen balancer** | `freeze_multitask_balancer: True` — `log_vars` are excluded from the optimizer and so stay at their **zero initialisation**, never learned. The objective then collapses to the **constant form** `total = 0.5·Σbody + 1.0·Σgate`. ⛔ Not "Kendall's weights frozen" — they were never learned; this is plain **uniform weighting**, and a regression task structurally cannot be weighted above 0.5. Every views-models config pins it `True`; the config **default is `False`**. | frozen weights, equal weighting (ambiguous — say *the constant form*), inert balancer, learned-then-frozen (⛔ false) |
+| **the NLL denominator** | what a body NLL's per-cell losses are **divided by** — a separate axis from the **supervision window** (§2, which cells are supervised at all). Two values: **positives** (the count of `y>0` cells) and **all cells** (every cell in the window). Set by `weighted_nll_mean`'s `weight` argument (`distributions/nb_core.py:62-79`): `weight=None` ⇒ all cells; the `y>0` mask ⇒ positives. ⛔ It is today an undeclared consequence of `output_distribution` — `nb` passes `None`, `truncated_nb` passes the mask — so swapping the family silently swaps the denominator and rescales that **task-loss term** by ~1/(positive fraction). | reduction, the mean, normalisation, dense/sparse reduction |
+| **truncated NB loss** | the **zero-truncated** NB likelihood body — NB renormalised by `1 − NB(0)`, so `P(Y=0) = 0` by construction. `output_distribution='truncated_nb'`. Composed only as **`gated_truncNB`** (§2c). ⚠️ Distinct from the discredited legacy `utils/truncated_nb_loss.py`; when that file is meant, say **the legacy truncated loss**. | TruncNB, zero-truncated NB, hurdle body, truncated_nb_loss (⇒ say *the legacy truncated loss*) |
+
+**Why these words had to exist (measured 2026-10-13/15,
+`reports/2026-10-13_composition_arm_outcome/`):** under the **frozen balancer** nothing reads the
+**task-loss terms**, so there is no feedback path that can notice one of them changing scale. The
+`gated_truncNB` arm changed the **NLL denominator** from **all cells** to **positives** as a
+side-effect of changing the family, multiplying the body term by ~222 and making it **35.2×** the
+gate term where the control's was **0.6×** — on a **shared trunk**, which is what makes the term
+scale the allocation rule for shared capacity. No config-identity check could see it.
+
+⛔ **A false claim to not repeat.** `utils/weighted_bce_loss.py:6-7`,
+`utils/truncated_nb_loss.py:4-6` and views-models' `config_hyperparameters.py:43` all assert that
+the gate and body NLLs' *"equal-weight sum is the joint hurdle-NB NLL"*. That is false on three
+counts: the denominators differ (**positives** vs **all cells**), the weights are 0.5 and 1.0 rather
+than equal, and `pos_weight = 2.0` makes the gate term a weighted rather than a proper Bernoulli
+NLL. Under **Cragg (1971)** separability a constant on one part cannot move that part's own MLE — but
+that holds only for **independently parameterised** parts, and our shared trunk is not that.
 
 ## 4. The scores (how we judge a finished model)
 | locked name | what it measures | banned aliases |
