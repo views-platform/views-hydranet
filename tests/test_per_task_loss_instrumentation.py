@@ -141,36 +141,126 @@ def test_per_task_values_are_finite_and_nonzero(rig):
 
 
 # ── the trajectory log must be able to come HOME from a pod ──────────────────────────────────
+#
+# The previous version of this block had two tests and /code-review (PR #398) was right to reject
+# both: one RE-IMPLEMENTED the production `os.makedirs` line inside the test and then asserted the
+# file existed, so deleting the production line left it green; the other asserted source-text
+# ordering via `str.index`, which proves nothing about behaviour and breaks on reformatting. The
+# production line is now a function, so these test behaviour.
 
 
-def test_trajectory_log_parent_directory_is_created(tmp_path):
-    """An ABSOLUTE path under the pod's deliver dir is the only way this file comes home.
-
-    `pod_run_model.sh` rsyncs `$ROOT/deliver/$MODEL` and creates only `artifact/`, `parquet/`
-    and `draws/` inside it — verified by reading the runner with the `models` session. A path
-    relative to the repo clone dies with the pod, which is exactly how the gate posterior was
-    lost (views-models#558 / C-161). Without the mkdir, an absolute path under a directory the
-    runner has not made raises FileNotFoundError mid-run, AFTER the data pull and the model
-    build — i.e. it wastes the expensive part before failing.
-    """
-    import csv
-    import os
+def test_opening_the_trajectory_file_creates_a_missing_parent(tmp_path):
+    """`pod_run_model.sh` creates only artifact/, parquet/ and draws/ under the deliver dir, so an
+    absolute path anywhere else has an unmade parent and `open()` alone would raise mid-run —
+    after the data pull and the model build."""
+    from views_hydranet.train.training_engine import _open_trajectory_file
 
     target = tmp_path / "deliver" / "amber_kestrel" / "logs" / "trajectory.csv"
     assert not target.parent.exists()
-    os.makedirs(os.path.dirname(os.path.abspath(str(target))), exist_ok=True)
-    with open(target, "w", newline="") as fh:
-        csv.writer(fh).writerow(["lesson"])
-    assert target.exists(), "an absolute path under an unmade parent must still be writable"
+    fh = _open_trajectory_file(str(target))
+    fh.close()
+    assert target.exists()
 
 
-def test_training_engine_creates_the_trajectory_parent_before_opening_it():
-    """Guard the ORDER: the mkdir must precede the open in the source, or the fix is cosmetic."""
+def test_opening_the_trajectory_file_still_fails_loud_on_a_file_as_parent(tmp_path):
+    """`exist_ok=True` must not mask a real misconfiguration."""
+    from views_hydranet.train.training_engine import _open_trajectory_file
+
+    clash = tmp_path / "logs"
+    clash.write_text("i am a file, not a directory")
+    with pytest.raises((FileExistsError, NotADirectoryError)):
+        _open_trajectory_file(str(clash / "trajectory.csv"))
+
+
+def test_opening_a_bare_filename_works(tmp_path, monkeypatch):
+    """A path with no directory component must not break on `dirname` being empty."""
+    from views_hydranet.train.training_engine import _open_trajectory_file
+
+    monkeypatch.chdir(tmp_path)
+    _open_trajectory_file("trajectory.csv").close()
+    assert (tmp_path / "trajectory.csv").exists()
+
+
+# ── the contract that actually broke: a hand-built dict silently dropped keys ────────────────
+
+
+def test_train_returns_every_key_the_training_loop_reads_from_it():
+    """⛔ THE REGRESSION GUARD FOR THE DEFECT THIS FILE EXISTS BECAUSE OF.
+
+    `_process_sequence` returned `per_task`/`task_names`, but `training_loop` does not call it —
+    it calls `train()`, whose return was a hand-built dict literal that dropped both. The
+    per-task CSV columns were therefore inert in every real run while every unit test passed,
+    because the tests called `_process_sequence` directly. That is C-324, inside the PR whose
+    purpose was to prevent a C-324.
+
+    So this asserts the CONTRACT structurally: every key `training_loop` reads out of the dict
+    `train` returns must be a key `train` actually puts in it. It is AST-based rather than
+    text-based, so it survives reformatting, and it generalises — it will catch the next key
+    somebody adds to `_process_sequence` and forgets to forward.
+    """
+    import ast
     import inspect
 
     from views_hydranet.train import training_engine
 
-    src = inspect.getsource(training_engine)
-    mk = src.index("os.makedirs(os.path.dirname(os.path.abspath(_traj_path))")
-    op = src.index('_traj_file = open(_traj_path, "w", newline="")')
-    assert mk < op, "the parent directory must be created BEFORE the file is opened"
+    tree = ast.parse(inspect.getsource(training_engine))
+    fns = {n.name: n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
+    assert {"train", "training_loop"} <= set(fns), "renamed functions — update this guard"
+
+    produced = set()
+    for node in ast.walk(fns["train"]):
+        if isinstance(node, ast.Return) and isinstance(node.value, ast.Dict):
+            produced |= {k.value for k in node.value.keys if isinstance(k, ast.Constant)}
+    assert produced, "train() no longer returns a dict literal — update this guard"
+
+    consumed = set()
+    for node in ast.walk(fns["training_loop"]):
+        # losses["x"]
+        if (
+            isinstance(node, ast.Subscript)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "losses"
+            and isinstance(node.slice, ast.Constant)
+        ):
+            consumed.add(node.slice.value)
+        # losses.get("x")
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "get"
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "losses"
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+        ):
+            consumed.add(node.args[0].value)
+
+    assert consumed, "training_loop no longer reads from `losses` — update this guard"
+    missing = consumed - produced
+    assert not missing, (
+        f"training_loop reads {sorted(missing)} from the dict train() returns, but train() does "
+        f"not produce them. train() produces {sorted(produced)}. A key dropped at this boundary "
+        f"makes the feature that depends on it silently inert — this is exactly how the per-task "
+        f"trajectory columns shipped dead (C-324, PR #398)."
+    )
+
+
+def test_per_task_keys_specifically_survive_the_train_boundary():
+    """The named instance of the contract above, so a failure says WHICH feature died."""
+    import ast
+    import inspect
+
+    from views_hydranet.train import training_engine
+
+    tree = ast.parse(inspect.getsource(training_engine))
+    train_fn = next(
+        n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "train"
+    )
+    keys = set()
+    for node in ast.walk(train_fn):
+        if isinstance(node, ast.Return) and isinstance(node.value, ast.Dict):
+            keys |= {k.value for k in node.value.keys if isinstance(k, ast.Constant)}
+    assert {"per_task", "task_names"} <= keys, (
+        "train() must forward per_task and task_names, or the per-task trajectory columns are "
+        "inert in every real run while the unit tests on _process_sequence still pass."
+    )

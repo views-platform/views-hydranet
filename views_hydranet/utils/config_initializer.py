@@ -447,11 +447,31 @@ class HydraNetConfig(BaseModel):
         when it changed nothing — the **C-324** inert-knob signature, which this repository has
         now recorded enough times to gate on. Fail loud instead.
         """
-        if self.body_nll_denominator == "all_cells" and self.output_distribution != "truncated_nb":
+        if self.body_nll_denominator != "all_cells":
+            return self
+        if self.output_distribution != "truncated_nb":
             err_msg = (
                 f"body_nll_denominator='all_cells' requires output_distribution='truncated_nb' "
                 f"(got {self.output_distribution!r}). Every other family already reduces over all "
                 f"cells, so the flag would be inert — see C-324."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        if self.body_supervision != "all":
+            # Under `all_cells` the denominator is the SUPERVISED cell count. With
+            # body_supervision='active' the supervision mask IS a positive mask —
+            # `resolve_body_supervision(0, 0, thr)` returns exactly `window > event_threshold`
+            # (`body_supervision.py:53-70`), so the denominator collapses back to the positive
+            # count and `all_cells` becomes BIT-IDENTICAL to `positives`. With non-zero
+            # onset_lead/cessation_lag it is not exactly inert but is attenuated by the dilation,
+            # so it is still not the joint hurdle NLL's denominator the flag claims to supply.
+            # Either way an arm would log the new axis and train the control — C-331's signature.
+            # Found by /code-review on PR #398.
+            err_msg = (
+                f"body_nll_denominator='all_cells' requires body_supervision='all' (got "
+                f"{self.body_supervision!r}). Under 'active' the supervision mask is itself a "
+                f"positive mask, so the denominator collapses to the positive count and the flag "
+                f"is inert (bit-identical at lead=lag=0) — see C-331."
             )
             logger.error(err_msg)
             raise ValueError(err_msg)

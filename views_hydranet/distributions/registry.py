@@ -79,7 +79,7 @@ def resolve_family(name: str, **kwargs) -> "DistributionFamily | None":
     ``output_distribution`` value) — the caller falls through to the existing code path, unchanged.
 
     ``kwargs`` are forwarded to the family constructor. **Only the TRAINING-LOSS caller passes
-    any** (``utils.choose_loss_functions`` → ``body_nll_denominator``); the emit-time caller
+    any** (``utils.choose_loss`` → ``body_nll_denominator``); the emit-time caller
     (``hydranet_inference``) passes none and therefore constructs the family exactly as before,
     because a reduction denominator is meaningless when drawing samples.
     """

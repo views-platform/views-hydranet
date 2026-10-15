@@ -84,7 +84,7 @@ class TruncatedNBFamily(DistributionFamily):
         cells. ``"all_cells"`` divides by every supervised cell, which is the denominator the JOINT
         HURDLE NLL has — see ``nll`` and ``reports/2026-10-15_loss_balance_prereg.md``.
 
-        Only the training-loss construction passes this (``utils.choose_loss_functions``); the
+        Only the training-loss construction passes this (``utils.choose_loss``); the
         emit-time family is built without it, because a reduction has no role in drawing a sample.
         """
         super().__init__()
@@ -125,6 +125,12 @@ class TruncatedNBFamily(DistributionFamily):
         A caller ``weight`` (e.g. an active-cell mask) is multiplied onto the ``y>0`` mask for the
         numerator, and under ``"all_cells"`` it is also what defines "supervised" in the
         denominator. No positive cells -> a graph-connected ``0`` loss under either setting.
+
+        ⚠️ The "commensurate with the gate" claim is exact only when the gate reduces over the
+        same cells. With ``cls_valid_mask`` configured the gate divides by land cells while this
+        divides by the full grid (``weight=None``), so the two task terms are then off by the land
+        fraction and the rebalance is partial. Pass the same valid mask as ``weight`` if that
+        matters. Found by /code-review on PR #398.
         """
         mu, theta = self._split(params)
         counts = to_raw_counts(target)

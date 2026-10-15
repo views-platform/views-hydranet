@@ -185,6 +185,26 @@ def _batchnorm_eval(model: nn.Module):
             m.train()
 
 
+def _open_trajectory_file(path: str):
+    """Open the trajectory CSV for writing, creating its parent directory first.
+
+    An ABSOLUTE path is the only way a pod run brings this file home: `pod_run_model.sh` rsyncs
+    `$ROOT/deliver/$MODEL` and creates only `artifact/`, `parquet/` and `draws/` inside it, so a
+    path relative to the repo clone dies with the pod — exactly how the gate posterior was lost
+    (views-models#558 / C-161). Without the mkdir, an absolute path under the deliver dir raises
+    ``FileNotFoundError`` mid-run, AFTER the data pull and the model build, i.e. it wastes the
+    expensive part before failing.
+
+    A parent that exists as a FILE still raises ``FileExistsError`` — ``exist_ok`` suppresses only
+    the already-a-directory case — so a genuine misconfiguration stays loud.
+
+    Extracted as a function so it can be tested by behaviour rather than by a test that
+    re-implements the same line (/code-review, PR #398).
+    """
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    return open(path, "w", newline="")
+
+
 def _noisable_channels(config: dict) -> list[int]:
     """Positions within the DYNAMIC input that input noise may touch — i.e. not geometry.
 
@@ -1156,10 +1176,19 @@ def train(
     train_log(step_total, step_reg, step_cls)
 
     # RETURN LOSS COMPONENTS
+    # `per_task`/`task_names` MUST be forwarded. They were not, and the per-task trajectory
+    # columns were therefore inert in every real run: `training_loop` calls `train`, not
+    # `_process_sequence`, so a hand-built dict here silently dropped them and `_pt_row` was
+    # always empty. Found by /code-review on PR #398 — a C-324 instance inside the very PR whose
+    # purpose was to prevent one. The end-to-end guard lives in
+    # `tests/test_per_task_loss_instrumentation.py` and drives `train` -> CSV, not
+    # `_process_sequence` -- which is why the original tests missed this.
     return {
         "total": result["total"],
         "reg": result["reg"],
         "cls": result["cls"],
+        "per_task": result.get("per_task"),
+        "task_names": result.get("task_names"),
     }
 
 
@@ -1335,7 +1364,8 @@ def training_loop(
     _traj_path = config.get("trajectory_log_path")
     _traj_file = _traj_writer = None
     _traj_acc = {"gate_sum": 0.0, "gate_n": 0, "fed_max": 0.0}
-    _traj_header_written = False
+    _traj_header_checked = False
+    _traj_task_cols: list[str] = []
     if _traj_path:
         import csv as _csv
 
@@ -1346,18 +1376,29 @@ def training_loop(
 
         for _hn in ("dec_conv4_head1_class", "dec_conv4_head2_class", "dec_conv4_head3_class"):
             dict(model.named_modules())[_hn].register_forward_hook(_gate_hook)
-        # Create the parent. An ABSOLUTE path is the only way a pod run brings this file home:
-        # `pod_run_model.sh` rsyncs `$ROOT/deliver/$MODEL` and makes only `artifact/`, `parquet/`
-        # and `draws/` inside it, so a path relative to the repo clone dies with the pod — exactly
-        # how the gate posterior was lost (views-models#558 / C-161). Without this mkdir an
-        # absolute path under the deliver dir raises FileNotFoundError mid-run, AFTER the data
-        # pull and the model build.
-        os.makedirs(os.path.dirname(os.path.abspath(_traj_path)), exist_ok=True)
-        _traj_file = open(_traj_path, "w", newline="")
+        _traj_file = _open_trajectory_file(_traj_path)
         _traj_writer = _csv.writer(_traj_file)
-        # The header is written with the FIRST data row, not here: the six per-task column names
-        # come from the window's own channel map, so deriving them from config would be a second
-        # source of truth that could silently disagree with the order the balancer sums in.
+        # Header at OPEN, from config, with a FIXED column count — and then asserted against the
+        # window's real task names at the first data row (below). An earlier version deferred the
+        # header to the first row so the names could come from the channel map; /code-review on
+        # PR #398 showed that trades one defect for two: a run that aborts before lesson 1 (the
+        # C-312 non-finite exit, or IntegrityGuardian) leaves a 0-byte file that `read_csv`
+        # rejects outright, and a first row written without task names locks in a 6-column header
+        # that every later 12-column row then sits under, giving a ragged CSV with no error.
+        # Writing it here fixes the count; the assertion keeps the config from lying about order.
+        _traj_task_cols = [f"loss/body/{n}" for n in config["regression_targets"]] + [
+            f"loss/gate/{n}" for n in config["classification_targets"]
+        ]
+        _traj_base_cols = [
+            "lesson",
+            "raw_grad_norm",
+            "loss_reg",
+            "loss_cls",
+            "gate_logit_mean",
+            "fed_grad_max",
+        ]
+        _traj_writer.writerow(_traj_base_cols + _traj_task_cols)
+        _traj_file.flush()
         logger.info(f"📈 trajectory-log ON → {_traj_path}")
 
     # The feedback-gradient sink exists ONLY while the trajectory log does: reading each step's
@@ -1570,24 +1611,26 @@ def training_loop(
                 # OPT-IN trajectory row (pre-clip grad-norm + lesson gate-logit-mean + losses)
                 if _traj_writer is not None:
                     _gm = _traj_acc["gate_sum"] / max(_traj_acc["gate_n"], 1)
+                    # Fail loud if the config order the header was built from disagrees with the
+                    # order the balancer actually summed in — a mislabelled column is worse than
+                    # no column, and this is the only place both are in scope.
+                    if _task_names is not None and not _traj_header_checked:
+                        _expected = [f"loss/{n}" for n in _task_names]
+                        if _expected != _traj_task_cols:
+                            err_msg = (
+                                "trajectory-log column names disagree with the task order the "
+                                f"balancer sums in: header {_traj_task_cols} vs actual "
+                                f"{_expected}. Refusing to mislabel the columns."
+                            )
+                            logger.error(err_msg)
+                            raise RuntimeError(err_msg)
+                        _traj_header_checked = True
+                    # Pad to the header's FIXED width so the CSV can never go ragged.
                     _pt_row = (
-                        []
+                        [""] * len(_traj_task_cols)
                         if lesson_per_task is None
                         else list(lesson_per_task / config["windows_per_lesson"])
                     )
-                    if not _traj_header_written:
-                        _traj_writer.writerow(
-                            [
-                                "lesson",
-                                "raw_grad_norm",
-                                "loss_reg",
-                                "loss_cls",
-                                "gate_logit_mean",
-                                "fed_grad_max",
-                            ]
-                            + [f"loss/{n}" for n in (_task_names or [])]
-                        )
-                        _traj_header_written = True
                     _traj_writer.writerow(
                         [
                             lesson_idx,

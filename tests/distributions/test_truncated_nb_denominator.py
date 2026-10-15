@@ -163,3 +163,109 @@ def test_positives_is_accepted_on_every_family_because_it_is_the_default(valid_c
             body_nll_denominator="positives",
         )
         assert cfg.body_nll_denominator == "positives"
+
+
+# ── F2: `all_cells` is EXACTLY inert under body_supervision='active' (C-331) ──
+#
+# Under `all_cells` the denominator is the SUPERVISED cell count. With body_supervision='active'
+# the supervision mask IS a positive mask — `resolve_body_supervision(0, 0, thr)` returns exactly
+# `window > event_threshold` — so the denominator collapses back to the positive count and the
+# flag becomes bit-identical to `positives`. An arm would log the new axis and train the control.
+# Found by /code-review on PR #398.
+
+
+def test_config_rejects_all_cells_with_active_body_supervision(valid_config_dict):
+    with pytest.raises(ValueError, match="requires body_supervision='all'"):
+        _cfg(
+            valid_config_dict,
+            output_distribution="truncated_nb",
+            forecast_composition="soft_gate",
+            body_supervision="active",
+            body_nll_denominator="all_cells",
+        )
+
+
+def test_config_accepts_all_cells_with_all_body_supervision(valid_config_dict):
+    cfg = _cfg(
+        valid_config_dict,
+        output_distribution="truncated_nb",
+        forecast_composition="soft_gate",
+        body_supervision="all",
+        body_nll_denominator="all_cells",
+    )
+    assert cfg.body_nll_denominator == "all_cells"
+
+
+def test_positives_is_unaffected_by_body_supervision(valid_config_dict):
+    """The default must not be the thing that fails validation, under any supervision window."""
+    for sup in ("all", "active"):
+        cfg = _cfg(
+            valid_config_dict,
+            output_distribution="truncated_nb",
+            forecast_composition="soft_gate",
+            body_supervision=sup,
+            body_nll_denominator="positives",
+        )
+        assert cfg.body_nll_denominator == "positives"
+
+
+def test_the_inert_pair_really_would_have_been_inert():
+    """Prove the premise of the guard above rather than asserting it.
+
+    `resolve_body_supervision(0, 0, thr)` must return the per-step positive mask, because that is
+    what makes `weight.sum()` equal the positive count and the flag bit-identical.
+    """
+    import torch
+
+    from views_hydranet.utils.body_supervision import resolve_body_supervision
+
+    window = torch.log1p(torch.tensor([[[[[0.0, 3.0], [0.0, 0.0]]]]]))
+    supervise = resolve_body_supervision(0, 0, 0.0)
+    assert torch.equal(supervise(window), window > 0.0)
+
+
+# ── F3: a caller that bypasses pydantic must still be refused ──
+
+
+def test_choose_loss_rejects_the_inert_pair_for_a_raw_dict_caller(valid_config_dict):
+    """`choose_loss` is reached with plain dicts that never ran the pydantic validator.
+
+    Before the fix such a dict was neither rejected nor forwarded — silently ignored, which is
+    the exact failure the validator exists to prevent. Found by /code-review on PR #398.
+    """
+    import torch
+
+    from views_hydranet.utils.utils import choose_loss
+
+    cfg = dict(valid_config_dict)
+    cfg.update(output_distribution="nb", body_nll_denominator="all_cells")
+    with pytest.raises(ValueError, match="requires output_distribution='truncated_nb'"):
+        choose_loss(cfg, torch.device("cpu"))
+
+
+def test_choose_loss_forwards_the_denominator_for_a_raw_dict_caller(valid_config_dict):
+    import torch
+
+    from views_hydranet.utils.utils import choose_loss
+
+    cfg = dict(valid_config_dict)
+    cfg.update(
+        output_distribution="truncated_nb",
+        forecast_composition="soft_gate",
+        body_nll_denominator="all_cells",
+    )
+    crit_reg, _, _ = choose_loss(cfg, torch.device("cpu"))
+    assert crit_reg.family.body_nll_denominator == "all_cells"
+
+
+def test_choose_loss_tolerates_a_dict_with_no_denominator_key(valid_config_dict):
+    """A pre-schema dict (no such key) must still build the loss, at the default."""
+    import torch
+
+    from views_hydranet.utils.utils import choose_loss
+
+    cfg = dict(valid_config_dict)
+    cfg.update(output_distribution="truncated_nb", forecast_composition="soft_gate")
+    cfg.pop("body_nll_denominator", None)
+    crit_reg, _, _ = choose_loss(cfg, torch.device("cpu"))
+    assert crit_reg.family.body_nll_denominator == "positives"

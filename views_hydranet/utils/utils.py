@@ -181,10 +181,25 @@ def choose_loss(
     from views_hydranet.distributions.family_loss import FamilyLoss
 
     # body_nll_denominator is read with NO fallback default — the schema owns it (P7 convention).
+    # `.get()` with no second argument yields None for a caller that bypassed `HydraNetConfig`
+    # (a raw dict from `get_hp_config()`, a measurement driver, a pre-schema config). Such a
+    # caller never ran `reject_ignored_body_nll_denominator`, so the family/denominator rule is
+    # re-checked HERE — the same pattern `HydraNetInference.__init__` uses to re-reject the inert
+    # clamp for pydantic-bypassing drivers. Without this, a dict setting 'all_cells' on `nb` was
+    # neither rejected nor forwarded: silently ignored, which is the exact failure the validator
+    # exists to prevent. Found by /code-review on PR #398.
     _dist = config.get("output_distribution", "standard")
+    _den = config.get("body_nll_denominator")
+    if _den is not None and _den != "positives" and _dist != "truncated_nb":
+        err_msg = (
+            f"body_nll_denominator={_den!r} requires output_distribution='truncated_nb' "
+            f"(got {_dist!r}); it would be silently ignored. See C-324."
+        )
+        logger.error(err_msg)
+        raise ValueError(err_msg)
     _family = (
-        resolve_family(_dist, body_nll_denominator=config["body_nll_denominator"])
-        if _dist == "truncated_nb" and "body_nll_denominator" in config
+        resolve_family(_dist, body_nll_denominator=_den)
+        if _dist == "truncated_nb" and _den is not None
         else resolve_family(_dist)
     )
     loss_reg_sigma = config.get("loss_reg_sigma")
