@@ -23,7 +23,7 @@ about the workflow — the same rule the experiment log lives under.
 
 | | count |
 |---|---|
-| **WRONG** | **21** |
+| **WRONG** | **22** |
 | **RIGHT** | **12** |
 | OPEN | 1 |
 
@@ -65,6 +65,15 @@ state it at the confidence the *story* deserves → measure → discover the sig
 > a caveat three messages later. Preferred output is *"I don't know yet — here is the measurement that
 > would settle it"*, not a mechanism.
 
+### ⛔ Amended 2026-10-15, after W-22 broke the rule the same day it was written
+
+The rule above was not enough, because W-22 was not a mechanism claim — it was a **readiness** claim:
+*"the pod can run as soon as X lands."* A statement that something is ready to execute asserts the
+state of every link in its chain. **So: before saying any work is ready to run, open the thing that
+will run it.** Not the config, not the library — the launcher, the installer, the pin. W-22 was
+caught only because briefing a peer forced me to describe the deployment path precisely, which is an
+accident, not a process.
+
 ### What actually caught the errors
 
 | caught by | count |
@@ -104,6 +113,7 @@ External adversarial checking beats self-review here, and it is cheap relative t
 | W-19 | Ordered the BPTT chunk sweep K = (1, 8, 24). | operational | self | Backwards. Cost is `(steps/K)` chunks × 6 backwards, so K=1 is ~23× the calls of K=24 **and** least faithful to production. Ran the most expensive, least useful block first. |
 | W-20 | On the control's `cos = +0.7244`: *"the pre-committed trigger fired"* (i.e. → N). | premature | the arm block, 20 minutes later | The arm gave `cos = −0.2033`, 75% of windows negative. A control-only reading would have sent the fork to N and been wrong. ⚠️ Mitigated: I did explicitly withhold the verdict pending the arm — but I framed the trigger as fired. |
 | W-21 | A's per-target magnitudes under the new denominator: **0.295 / 0.058 / 0.166** (prereg §4 P-2). | ⛔ **statistic** | the pre-flight, r5 | **`ns` missed by +202%** (0.058 predicted, **0.1753** measured). The projection used `body_A = body_positives × (P/N)` with the median positive *fraction*. That identity holds **per step**, not after averaging over steps: `positives` divides by a per-step count that is often 0 or 1, so `mean(S/P)` is dominated by small-P steps while `mean(S/N)` is not. **Mean-of-ratios vs ratio-of-means — the third instance of this error class in this programme** (cf. W-2, W-8). It bit hardest on the target where P is smallest, which is exactly where the two diverge most. ⚠️ `sb` +1% and `os` +23% were fine, and the **pooled** P-1 held (+23%), so only the rarest target was badly wrong. |
+| W-22 | *"The pod can run as soon as that [views-models config] edit lands."* | ⛔ **existence** — the 7th in that class | reading `tools/podrun/pod_run_model.sh` while briefing the `models` session | **Wrong, and it would have cost a silent no-op arm.** `:171-173` installs `views-hydranet~=0.1.1` **from PyPI**. The new key exists only on an unpushed local branch, `HydraNetConfig` sets `extra="allow"`, and `reject_near_miss_keys` only catches keys within one edit of a real field — so `body_nll_denominator` would be **silently accepted and ignored**, and the arm would come back byte-identical to its own control. A $2.25 confounded "null" with the C-324/C-331 signature. Also `:236` clones views-models at `development`, so a feature-branch config edit would not reach the pod either. ⚠️ **I asserted pod-readiness without opening the pod runner** — the same failure mode as W-1, W-5, W-7, W-12, W-13, W-16. |
 
 ---
 
