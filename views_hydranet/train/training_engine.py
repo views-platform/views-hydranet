@@ -1207,19 +1207,26 @@ def train(
     train_log(step_total, step_reg, step_cls)
 
     # RETURN LOSS COMPONENTS
-    # `per_task`/`task_names` MUST be forwarded. They were not, and the per-task trajectory
-    # columns were therefore inert in every real run: `training_loop` calls `train`, not
-    # `_process_sequence`, so a hand-built dict here silently dropped them and `_pt_row` was
-    # always empty. Found by /code-review on PR #398 — a C-324 instance inside the very PR whose
-    # purpose was to prevent one. The end-to-end guard lives in
-    # `tests/test_per_task_loss_instrumentation.py` and drives `train` -> CSV, not
-    # `_process_sequence` -- which is why the original tests missed this.
+    # `per_task` MUST be forwarded. It was not, and the per-task trajectory columns were
+    # therefore inert in every real run: `training_loop` calls `train`, not `_process_sequence`,
+    # so a hand-built dict here silently dropped it and `_pt_row` was always empty (C-324, found
+    # by /code-review on PR #398 — inside the very PR whose purpose was to prevent one).
+    #
+    # The guard is `tests/test_trajectory_log_end_to_end.py`, which runs a real `training_loop`
+    # with `trajectory_log_path` set and asserts the written CSV's per-task cells are populated,
+    # finite, and sum to `loss_reg + loss_cls` in the same row. ⛔ Two AST guards stood here
+    # first and were removed: comparing key NAMES to key NAMES cannot see a dropped VALUE, so
+    # `"per_task": None` passed them (independent guard audit, PR #398).
+    #
+    # `task_names` is deliberately NOT forwarded. `training_loop` builds its header from config
+    # and never reads it, so returning it would be dead plumbing — and the audit showed dead
+    # plumbing is unobservable by construction: a mutation setting it to garbage survived
+    # everything. `_process_sequence` still returns it, where it IS asserted.
     return {
         "total": result["total"],
         "reg": result["reg"],
         "cls": result["cls"],
         "per_task": result.get("per_task"),
-        "task_names": result.get("task_names"),
     }
 
 

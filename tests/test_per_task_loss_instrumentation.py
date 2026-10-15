@@ -119,12 +119,19 @@ def test_per_task_sums_to_the_two_pooled_values(rig):
 
 def test_task_names_order_matches_the_balancer_is_regression_flags(rig):
     """`task_names` must put the regression (body) tasks first — the order the balancer's
-    `is_regression` vector assumes. A silent re-order would mislabel every column."""
+    `is_regression` vector assumes. A silent re-order would mislabel every column.
+
+    ⚠️ Asserts the exact names, not just the prefixes. The prefix-only version was weaker than
+    its own docstring: reading the gate half from `idx.reg_names` kept every prefix correct and
+    was caught only incidentally, by the entry-count test (independent guard audit, PR #398).
+    """
     out = _run(rig)
+    assert out["task_names"] == rig["names"]
     body = [n for n in out["task_names"] if n.startswith("body/")]
     gate = [n for n in out["task_names"] if n.startswith("gate/")]
     assert out["task_names"] == body + gate
     assert len(body) == rig["idx"].n_reg and len(gate) == rig["idx"].n_cls
+    assert len(set(out["task_names"])) == len(out["task_names"]), "duplicate task names"
 
 
 def test_per_task_is_detached_and_cannot_carry_a_graph(rig):
@@ -179,91 +186,6 @@ def test_opening_a_bare_filename_works(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     _open_trajectory_file("trajectory.csv").close()
     assert (tmp_path / "trajectory.csv").exists()
-
-
-# ── the contract that actually broke: a hand-built dict silently dropped keys ────────────────
-
-
-def test_train_returns_every_key_the_training_loop_reads_from_it():
-    """⛔ THE REGRESSION GUARD FOR THE DEFECT THIS FILE EXISTS BECAUSE OF.
-
-    `_process_sequence` returned `per_task`/`task_names`, but `training_loop` does not call it —
-    it calls `train()`, whose return was a hand-built dict literal that dropped both. The
-    per-task CSV columns were therefore inert in every real run while every unit test passed,
-    because the tests called `_process_sequence` directly. That is C-324, inside the PR whose
-    purpose was to prevent a C-324.
-
-    So this asserts the CONTRACT structurally: every key `training_loop` reads out of the dict
-    `train` returns must be a key `train` actually puts in it. It is AST-based rather than
-    text-based, so it survives reformatting, and it generalises — it will catch the next key
-    somebody adds to `_process_sequence` and forgets to forward.
-    """
-    import ast
-    import inspect
-
-    from views_hydranet.train import training_engine
-
-    tree = ast.parse(inspect.getsource(training_engine))
-    fns = {n.name: n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
-    assert {"train", "training_loop"} <= set(fns), "renamed functions — update this guard"
-
-    produced = set()
-    for node in ast.walk(fns["train"]):
-        if isinstance(node, ast.Return) and isinstance(node.value, ast.Dict):
-            produced |= {k.value for k in node.value.keys if isinstance(k, ast.Constant)}
-    assert produced, "train() no longer returns a dict literal — update this guard"
-
-    consumed = set()
-    for node in ast.walk(fns["training_loop"]):
-        # losses["x"]
-        if (
-            isinstance(node, ast.Subscript)
-            and isinstance(node.value, ast.Name)
-            and node.value.id == "losses"
-            and isinstance(node.slice, ast.Constant)
-        ):
-            consumed.add(node.slice.value)
-        # losses.get("x")
-        if (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr == "get"
-            and isinstance(node.func.value, ast.Name)
-            and node.func.value.id == "losses"
-            and node.args
-            and isinstance(node.args[0], ast.Constant)
-        ):
-            consumed.add(node.args[0].value)
-
-    assert consumed, "training_loop no longer reads from `losses` — update this guard"
-    missing = consumed - produced
-    assert not missing, (
-        f"training_loop reads {sorted(missing)} from the dict train() returns, but train() does "
-        f"not produce them. train() produces {sorted(produced)}. A key dropped at this boundary "
-        f"makes the feature that depends on it silently inert — this is exactly how the per-task "
-        f"trajectory columns shipped dead (C-324, PR #398)."
-    )
-
-
-def test_per_task_keys_specifically_survive_the_train_boundary():
-    """The named instance of the contract above, so a failure says WHICH feature died."""
-    import ast
-    import inspect
-
-    from views_hydranet.train import training_engine
-
-    tree = ast.parse(inspect.getsource(training_engine))
-    train_fn = next(
-        n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "train"
-    )
-    keys = set()
-    for node in ast.walk(train_fn):
-        if isinstance(node, ast.Return) and isinstance(node.value, ast.Dict):
-            keys |= {k.value for k in node.value.keys if isinstance(k, ast.Constant)}
-    assert {"per_task", "task_names"} <= keys, (
-        "train() must forward per_task and task_names, or the per-task trajectory columns are "
-        "inert in every real run while the unit tests on _process_sequence still pass."
-    )
 
 
 # ── the premise the CSV header's correctness rests on ──

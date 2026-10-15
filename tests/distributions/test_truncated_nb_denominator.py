@@ -89,7 +89,7 @@ def test_caller_weight_defines_supervised_in_the_denominator():
 
 @pytest.mark.parametrize("bad", ["all cells", "dense", "ALL_CELLS", "", "N", None])
 def test_family_rejects_an_unknown_denominator(bad):
-    with pytest.raises(ValueError, match="body_nll_denominator"):
+    with pytest.raises(ValueError, match="is not valid. Expected one of"):
         TruncatedNBFamily(body_nll_denominator=bad)
 
 
@@ -133,8 +133,23 @@ def test_config_accepts_all_cells_on_truncated_nb(valid_config_dict):
 
 @pytest.mark.parametrize("bad", ["dense", "all cells", "ALL_CELLS", "positive"])
 def test_config_rejects_an_unknown_denominator(valid_config_dict, bad):
-    with pytest.raises(ValueError, match="body_nll_denominator"):
-        _cfg(valid_config_dict, body_nll_denominator=bad)
+    """⛔ Matches the VALUE-SET message, not just the field name.
+
+    Matching on `"body_nll_denominator"` alone was satisfied by a DIFFERENT validator: with the
+    field validator deleted, the pair validator raises
+    `"body_nll_denominator='dense' requires output_distribution='truncated_nb'"` — the substring
+    still matched, so all four parametrisations passed on an unrelated rule and deleting the
+    value lock left the suite green (independent guard audit, PR #398). The arm config is pinned
+    to `truncated_nb` here so the pair rule cannot fire and steal the assertion.
+    """
+    with pytest.raises(ValueError, match="is not valid. Expected one of"):
+        _cfg(
+            valid_config_dict,
+            output_distribution="truncated_nb",
+            forecast_composition="soft_gate",
+            body_supervision="all",
+            body_nll_denominator=bad,
+        )
 
 
 @pytest.mark.parametrize("dist", ["nb", "zinb"])
