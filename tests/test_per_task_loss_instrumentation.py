@@ -138,3 +138,39 @@ def test_per_task_values_are_finite_and_nonzero(rig):
     pt = out["per_task"].detach().numpy()
     assert np.isfinite(pt).all()
     assert (pt != 0).any(), "an all-zero split would pass the sum invariant vacuously"
+
+
+# ── the trajectory log must be able to come HOME from a pod ──────────────────────────────────
+
+
+def test_trajectory_log_parent_directory_is_created(tmp_path):
+    """An ABSOLUTE path under the pod's deliver dir is the only way this file comes home.
+
+    `pod_run_model.sh` rsyncs `$ROOT/deliver/$MODEL` and creates only `artifact/`, `parquet/`
+    and `draws/` inside it — verified by reading the runner with the `models` session. A path
+    relative to the repo clone dies with the pod, which is exactly how the gate posterior was
+    lost (views-models#558 / C-161). Without the mkdir, an absolute path under a directory the
+    runner has not made raises FileNotFoundError mid-run, AFTER the data pull and the model
+    build — i.e. it wastes the expensive part before failing.
+    """
+    import csv
+    import os
+
+    target = tmp_path / "deliver" / "amber_kestrel" / "logs" / "trajectory.csv"
+    assert not target.parent.exists()
+    os.makedirs(os.path.dirname(os.path.abspath(str(target))), exist_ok=True)
+    with open(target, "w", newline="") as fh:
+        csv.writer(fh).writerow(["lesson"])
+    assert target.exists(), "an absolute path under an unmade parent must still be writable"
+
+
+def test_training_engine_creates_the_trajectory_parent_before_opening_it():
+    """Guard the ORDER: the mkdir must precede the open in the source, or the fix is cosmetic."""
+    import inspect
+
+    from views_hydranet.train import training_engine
+
+    src = inspect.getsource(training_engine)
+    mk = src.index("os.makedirs(os.path.dirname(os.path.abspath(_traj_path))")
+    op = src.index('_traj_file = open(_traj_path, "w", newline="")')
+    assert mk < op, "the parent directory must be created BEFORE the file is opened"

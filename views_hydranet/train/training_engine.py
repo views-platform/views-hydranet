@@ -15,6 +15,7 @@ import contextlib
 import functools
 import logging
 import math
+import os
 from typing import Any, cast
 
 import numpy as np
@@ -1345,6 +1346,13 @@ def training_loop(
 
         for _hn in ("dec_conv4_head1_class", "dec_conv4_head2_class", "dec_conv4_head3_class"):
             dict(model.named_modules())[_hn].register_forward_hook(_gate_hook)
+        # Create the parent. An ABSOLUTE path is the only way a pod run brings this file home:
+        # `pod_run_model.sh` rsyncs `$ROOT/deliver/$MODEL` and makes only `artifact/`, `parquet/`
+        # and `draws/` inside it, so a path relative to the repo clone dies with the pod — exactly
+        # how the gate posterior was lost (views-models#558 / C-161). Without this mkdir an
+        # absolute path under the deliver dir raises FileNotFoundError mid-run, AFTER the data
+        # pull and the model build.
+        os.makedirs(os.path.dirname(os.path.abspath(_traj_path)), exist_ok=True)
         _traj_file = open(_traj_path, "w", newline="")
         _traj_writer = _csv.writer(_traj_file)
         # The header is written with the FIRST data row, not here: the six per-task column names
