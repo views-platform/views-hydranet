@@ -43,12 +43,20 @@ for magnitude and the gate inherited whatever was left.
 The positive-cell denominator is **not a defect**. It is deliberate, documented as *"the defining
 guarantee #3"*, pinned by `tests/distributions/test_truncated_negative_binomial.py:104-126`
 (`test_nll_reduces_over_positives_not_all_cells`), and implemented independently a second time in
-the legacy `utils/truncated_nb_loss.py:92`. Under **Cragg (1971)** separability
-(`Cragg1971_LimitedDependentVariables`, *proven*, §2 eqs (7) and (9)) a positive constant on one
-part of a hurdle cannot move that part's own MLE — so the denominator is statistically **immaterial
-for independently parameterised parts**. I claimed it was a defect and withdrew that.
+the legacy `utils/truncated_nb_loss.py:92`. Under **Mullahy (1986)** separability a positive
+constant on one part of a hurdle cannot move that part's own MLE — so the denominator is
+statistically **immaterial for independently parameterised parts**. I claimed it was a defect and
+withdrew that.
 
-**What makes it matter here is that our shared trunk violates Cragg's premise.** The parts are not
+⛔ **Citation corrected 2026-10-15 (Amendment 1, §4).** This originally cited **Cragg (1971)** §2
+eqs (7) and (9). Cragg **never states separate estimation** — his only relevant line is *"Maximum
+likelihood estimates may be calculated by iterative methods"*, on the **full** likelihood — and his
+model II is a continuous **truncated normal**, not a count hurdle.
+**`Mullahy1986_ModifiedCountDataModels`** states separability verbatim (*"can be obtained by separate
+maximization of Λᵖ¹ and Λᵖ²"*) and is the right model class. Cragg remains the correct citation for
+the two-part *model* and for the likelihood *factorisation*, not for separate estimation.
+
+**What makes it matter here is that our shared trunk violates Mullahy's premise.** The parts are not
 independently parameterised; they share every encoder weight. That is the whole finding.
 
 ### ⛔ A false claim in our own prose (a new C-303 instance)
@@ -142,7 +150,7 @@ Primary first. The **contrast set is the arm**, not the control — A changes on
 |---|---|---|---|
 | **P-1** | pooled `0.5·Σbody / gate` at lesson 1, measured by the §6 pre-flight | **0.225** | within **±30%** (0.16–0.29) ⇒ the intervention did what it is defined to do |
 | **P-2** | per-target `0.5·body/gate`, same readout | 0.295 / 0.058 / 0.166 | each within ±30% |
-| **P-3** | pooled gate AP, all land cells, 13 h=1 months | **recovers toward the control's 0.5631** | ≥ the arm-as-run's, by more than the 0.0413 month-to-month sd |
+| **P-3** | gate AP, all land cells, **paired by month** over the 13 h=1 months | **recovers toward the control's 0.5631** | the paired mean difference against the arm-as-run is **> +0.010** (the design's demonstrated half-width — Amendment 1, §3) |
 | **P-4** | emitted positive fraction, 100-cell set, h=1 | stays in the composition arm's pre-registered **[0.62, 0.76]** | the composition is unchanged, so this should not move |
 | **P-5** | `act_ratio` at h18 | **< 3×** the control's | the M45 lever, unchanged from the composition prereg |
 | **P-6** | `crps_all` | does not worsen | **> 5%** worse fails FAO-02's own bar |
@@ -168,18 +176,21 @@ here so that it cannot be discovered after a null and used to rescue the hypothe
 | | fires if | then |
 |---|---|---|
 | **F1** | the §6 pre-flight shows pooled `0.5·Σbody/gate` outside **0.11–0.45** (±2× the prediction) | **VOID** — the intervention is not the intervention. Do not train. |
-| **F2** | pooled gate AP is **below** the arm-as-run's by more than 0.0413 | **KILL.** The allocation story is wrong-signed; the balance was not what cost the gate. |
-| **F3** | pooled gate AP recovers but `crps_all` worsens by **> 5%** | the body paid for it. A **finding**, not something to tune away. |
+| **F2** | the **paired-by-month** gate-AP difference against the arm-as-run is **below −0.010** | **KILL.** The allocation story is wrong-signed; the balance was not what cost the gate. |
+| **F3** | gate AP recovers on P-3's paired contrast but `crps_all` worsens by **> 5%** | the body paid for it. A **finding**, not something to tune away. |
 | **F4** | `act_ratio` at h18 **> 5×** the control's | M45's mechanism reproduced; the denominator is not the fix. |
 | **F5** | emitted positive fraction leaves **[0.55, 0.85]** | the composition moved when only the loss was supposed to — a confound. **VOID.** |
 | **F6** | the arm's config differs from `amber_kestrel` anywhere but the new denominator axis | **VOID** |
 | **F7** | artifact arrives without all three files + `PROVENANCE` with `lessons ≥ 300` and `mode: production` | **VOID** — reuse `2026-10-12_underfire_diagnosis/vehicle.py`'s gate verbatim |
-| **F8** | training diverges, NaNs, or the stability gate trips (C-184 BatchNorm seed-bimodality, C-119 ~20% training variance) | **VOID, not negative** (C-307) |
+| **F8** | training diverges, NaNs, or the stability gate trips (C-184 BatchNorm seed-bimodality) | **VOID, not negative** (C-307) |
 
-⛔ **Pre-committed consequence.** This is an **n=1 SCREEN at 300 lessons**. Against the measured AP
-seed sd of ≤0.019 and C-119's pessimistic ~20%, a gate-AP change that is neither a recovery past the
-0.0413 sd nor a collapse past F2 is recorded as **INCONCLUSIVE, not negative** (C-307). It cannot
-ship on that basis without a seed replication.
+⛔ **Pre-committed consequence.** This is an **n=1 SCREEN at 300 lessons**. A gate-AP change that is
+neither a recovery past P-3's +0.010 nor a collapse past F2's −0.010 is recorded as **INCONCLUSIVE,
+not negative** (C-307). It cannot ship on that basis without a seed replication.
+
+⚠️ **And n=1 resolves a SIGN, not a size.** A's predicted recovery (~+0.031 back toward 0.5631) is
+**1.6× the 0.019 seed sd**. The paired-by-month design is sharp enough to say which direction the
+arm moved; it is not sharp enough to measure how far.
 
 ---
 
@@ -292,10 +303,38 @@ repository. Pull FRESH; never validate on cached disk data.
 | **P-3 recovers, no falsifier** | the allocation story holds. The *next* question is the per-target spread (§3.1), **not** another arm — a decision, not a sweep. |
 | **F2 fires** | **KILL A.** The balance was not what cost the gate. B becomes uninteresting for the same reason, and the open question returns to why both halves sit below their own objectives. |
 | **F3 fires** | recorded as the pre-registered magnitude-vs-occurrence trade, with §4a's caveat live. |
-| **INCONCLUSIVE** (neither recovery nor collapse) | **B** (§7a) is the pre-registered fallback. ⛔ Not a sweep of denominators. |
+| **INCONCLUSIVE** (neither recovery nor collapse) | **replicate A at a second seed.** ⛔ **NOT B** — struck, see §7a. ⛔ Not a sweep of denominators. |
 | **F5/F6/F7/F8** | VOID. Re-run or abandon; never reported as negative. |
 
-### 7a. Option B is the pre-registered FALLBACK — its costs, so it is not re-litigated from scratch
+### 7a. ⛔ Option B is STRUCK — it is not a fallback, and this repository already measured it
+
+**Struck 2026-10-15 (Amendment 1, §1).** `reports/results_balancer_bisect.md` is a **pre-registered,
+device-matched GPU/GPU bisect** whose verdict reads: *"H CORROBORATED — the C-111 fix (un-freezing
+the MultiTaskLoss balancer) is the cause of the C-113 acute runaway."* Free-running attractor
+**trainable log ~15–17 (`expm1` ~1e6–1e7, PATHOLOGICAL)** against **frozen log ~4–5 (~70–215,
+healthy)**, and the frozen arm held across **all three** seeds and both `freeze_h` settings.
+`technical_risk_register.md:429` records the disposition: *"Fix direction: **regularise** the
+balancer (bound/decay `log_vars`, lower its LR), **not permanent freeze**"*.
+
+⛔ **So B-as-written — unfreeze, unregularised, `log_vars` outside the gradient clip — is precisely
+the form this repository has already ruled against.** The text below was my original case for B and
+cited Kendall's Table 1 over our own experiment. It is kept, struck, so the error is on the record
+rather than edited out.
+
+⚠️ **What is NOT struck:** a *regularised* balancer (bounded or decayed `log_vars`, lower LR) is the
+register's own stated fix direction and remains open. It is **not** this plan's fallback and would
+need its own pre-registration, including **M-1** below.
+
+⛔ **M-1, found 2026-10-15 and fatal to B as specified** (`reports/2026-10-15_loss_balance_method_review.md`
+§2.2): the LR scheduler captures `base_lrs` over `unet.parameters()` **only**
+(`utils/utils.py:258-273`), `log_vars` are added as a **later** param group
+(`training_engine.py:134-136`), and `_LRScheduler.step()` zips against a length-1 `get_lr()`. So the
+balancer's LR is **never updated** and keeps the optimiser default `0.001` while the network decays
+on WarmupDecay. Verified after 900 steps: network `6.011e-04`, balancer `1.000e-03`. Total balancer
+travel ≈ **0.90 nats** against the **2.585 / 3.037 / 4.135 nats** its own fixed point needs — **B
+cannot reach its fixed point on this vehicle.**
+
+#### ~~The original case for B, struck — kept for the record~~
 
 **B** = unfreeze the balancer on `amber_kestrel` only (`freeze_multitask_balancer: False`, which is
 already the config **default**), letting the learned log-variances allocate the trunk.
@@ -428,3 +467,125 @@ scoped to the legacy loss.
 constant). Code → `expert-code-review` once the denominator axis is written. Risks → `register-risk`
 (the C-303 instance in §0, the §6a harness gap, and §4a as a methodological risk). Literature →
 the `library` session, which supplied §4a, §7a and §8.4–8.7. Claims → `falsify`, **after**.
+
+---
+
+# AMENDMENT 1 — four corrections, and the gradient test that was supposed to kill this plan. 2026-10-15, BEFORE the arm trains.
+
+⛔ **Why amending a pre-registration is legitimate here, stated so it can be challenged.** No arm has
+run. Every input below predates the arm: three corrections come from a 7-seat method review of *this
+document* (`reports/2026-10-15_loss_balance_method_review.md`), and the fourth from a measurement on
+the **two already-delivered artifacts**, not on the arm. Two of the four **tighten** a falsifier and
+none loosens one. This follows the composition prereg's own Amendment 1–3 pattern. ⚠️ The original
+text is struck through or quoted, never deleted.
+
+## 1. ⛔ B is STRUCK (§7, §7a)
+
+I offered B as the pre-registered fallback and dismissed this repository's prior trouble with it as
+*"the guard bug, not the method."* **That was wrong, and a dedicated pre-registered experiment
+already said so** — `reports/results_balancer_bisect.md`, 3 seeds, device-matched: un-freezing the
+balancer **is** the cause of the C-113 runaway. I cited Kendall's Table 1 over our own data.
+
+Compounding it, **M-1** (§7a above): the balancer's param group never receives the LR schedule, so it
+trains at a constant `0.001` and can travel ≈0.90 nats against the 2.6–4.1 its own fixed point needs.
+**B could not have tested Kendall's method on this vehicle even if it were safe.**
+
+The INCONCLUSIVE branch of §7 now reads *replicate A at a second seed*.
+
+## 2. ⛔ F8 no longer cites C-119's variance figure (§5)
+
+C-119 is **RESOLVED** (`technical_risk_register.md:38`, `:5518`; same-seed runs bit-identical, 78/78
+`y_pred` `array_equal`, `daab1c1`). Its *"~20% training variance"* is the **pre-fix** measurement and
+is not a live noise floor. **A dead number was sizing a VOID rule in a committed pre-registration.**
+
+## 3. P-3 and F2 re-sized to the paired-by-month contrast (§4, §5)
+
+I sized both on the **0.0413** month-to-month sd. `OUTCOME.md:67-68` already demonstrates this
+design's real resolution: paired by month, the composition arm's gate loss was **mean −0.0299, 95% CI
+[−0.0401, −0.0197], 0 of 13 months favouring the arm** — a half-width of **~0.010**, four times
+finer. Both thresholds are now ±0.010 on the paired difference, and §5 records that n=1 resolves a
+**sign, not a size**.
+
+## 4. Cragg → Mullahy for separability (§0)
+
+Adjudicated against both PDFs (method review §3a). Cragg **never states separate estimation** and his
+model II is a continuous **truncated normal**; Mullahy states it verbatim three times and is the
+right model class. ⚠️ Separately, our library claim is graded **`proven`** for a statement the paper
+does not make — flagged for `/library`, **not** edited by hand.
+
+## 5. ⛔ Two further errors in this document, corrected
+
+- **§1/§2 said the joint hurdle NLL is unreachable under the freeze. False.** With
+  `is_regression=False` the coefficient is exactly `1/((0+1)·1+eps) = 1.0` and the barrier
+  `log(1+eps) ≈ 0`, so **A's denominator + that flag = the exact joint hurdle NLL**, balancer still
+  frozen. ⚠️ Deliberately **not** bundled into this arm: the control measured 0.593 *with* the 0.5, so
+  keeping `is_regression=True` leaves the denominator as the single variable. It is a later arm, and
+  Kendall's factor of 2 descends from the **Gaussian exponent** (eq 5 → eq 10, where the task loss is
+  a squared residual), so applying it to an already-normalised NB log-density has no derivation
+  behind it.
+- **§3.1's objection was backwards.** I wrote that A leaves `lr_ns_best` *"effectively
+  unsupervised."* Measured: zeros supply **51.7% / 88.0% / 67.8%** of the *control's* body term, so
+  **the control's near-equal per-target ratios are the artefact**, produced by diluting the body with
+  cells that carry no magnitude information. A's spread is the likelihood being honest: with a
+  **median 0.88 positive cells per window** for `ns` (61% of windows averaging under one), there is
+  almost no magnitude signal to supervise. **And the real argument for A is an estimator argument:**
+  the positives denominator is a random variable, usually 0 for `ns`, so `E[Σ/N_pos] ≠ E[Σ]/E[N_pos]`
+  — the gradient is biased and high-variance. A is the unbiased estimator, not a tuning lever.
+
+## 6. 🔑 The gradient test — the plan's own precondition, and it HELD
+
+The method review found that a loss-value ratio has no direct causal path here: only **11.29%** of
+the model is shared (102,240 of 905,289 — body and gate have separate ~400k-param decoders), and
+under **AdamW** a per-task constant is **exactly** invisible on that task's private parameters
+(verified: max\|difference\| = **0.0** at scale 1 vs 65.5 over 60 steps). So the 65× can act *only* by
+tilting the summed gradient's direction on the shared subset — which nobody had measured.
+
+`r4_grad_conflict.py` (committed `1ebcc92` **before** the run; output `ca3d7f8`) measured it on both
+delivered artifacts. **The pre-committed N-branch did not fire:**
+
+| | control (`nb`) | arm (`truncated_nb`) |
+|---|---|---|
+| loss-value ratio (r2) | 0.593 | 35.2 |
+| **shared-trunk ‖grad‖ ratio** (K=24 / K=8) | **0.312 / 0.325** | **10.497 / 9.436** |
+| **cos(∇body, ∇gate)** | **+0.7244 / +0.7216** | **−0.2033 / −0.1807** |
+| windows in conflict | **0%** | **75%** |
+
+59× in loss became **~32×** in shared-trunk gradient norm and the cosine **flipped sign**. The gate's
+own gradient barely moved (sb 0.086 → 0.098); the body's grew **13–63×** and out-competed it.
+**Stability pre-registered and confirmed:** tripling the BPTT depth moved the cosine by **0.003**
+(control) and 0.023 (arm), so the verdict is not a truncation artifact. K=1 was dropped — ~3 h of 13
+cores for the block with no BPTT at all, i.e. the least faithful to production.
+
+### ⚠️ But it relocated the conflict, and §3 should have said this
+
+```
+CONTROL  diagonal +0.8606 / +0.8552 / +0.8482     off-diagonals and body-vs-body all NEGATIVE
+ARM      diagonal -0.4491 / +0.0580 / +0.3072     body-vs-body now POSITIVE (+0.28, +0.60)
+```
+
+In the control **each target's own body and gate cooperate** (+0.85) and the three *targets* compete.
+In the arm the three bodies gang up and **sb's own body turns against its own gate (−0.45)** — sb
+being the target with the most data and the one whose AP is scored.
+
+⛔ **So "the body drowned the gate" is right in the arm and wrong in the control.** The control's
+shared trunk has no body-vs-gate conflict at all; its conflict is **cross-target**. A new hypothesis
+this plan does not test, raised by the Gelman seat: the rarest target may be eating the trunk and
+starving both halves of the other two — which is the only *allocation* story that explains a
+common-mode shortfall across the gate/body split. **Named, not chased.**
+
+## 7. ⚠️ A better-motivated arm than A now exists, and it is not in this plan
+
+**`pos_weight` 2.0 → 1.0.** Derived independently by the Gneiting seat from **Gneiting & Ranjan
+(2011) Thm 1** (a weighted proper score is improper; the weighted-BCE optimum is `g* = wp/(1+(w−1)p)`
+≈ **2p**), matching **P2's measured implied 1.0365** and CRPS's `k=0` threshold term being the
+occurrence Brier score at weight 1. ⛔ **It also dissolves the "both halves under-reach" puzzle this
+plan calls the most interesting unexplained fact:** the gate's objective wants 2p and the gate
+delivers p, so under-reaching its objective means **landing on the truth**. Tracked as **O-2** in
+`reports/PREDICTION_LEDGER.md`. Not pre-registered; the chair's call whether it precedes A.
+
+## 8. What is unchanged
+
+The intervention (§2), the predicted magnitudes (§4 P-1/P-2), the free pre-flight gate and its hard
+stop (§5 F1, §6a), the instrumentation (§6b), the standing gates (§6d), the contrast set (§6f), the
+stop rules (§9) and the scope (§10). **A still runs as a correctness fix with its hypothesis demoted,
+not as a skill claim.**
