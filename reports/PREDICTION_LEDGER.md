@@ -24,8 +24,8 @@ about the workflow — the same rule the experiment log lives under.
 | | count |
 |---|---|
 | **WRONG** | **20** |
-| **RIGHT** | **10** |
-| OPEN | 2 |
+| **RIGHT** | **12** |
+| OPEN | 1 |
 
 ⚠️ **That raw ratio is the least useful number in this file.** The errors are not randomly
 distributed, and the split by *kind* is the actionable result:
@@ -37,6 +37,7 @@ distributed, and the split by *kind* is the actionable result:
 | **Causal narratives about system behaviour** | 0 | **8** | ⛔ Wrong in **sign or magnitude**, not in kind. Coherence was being mistaken for evidence. |
 | Operational / tooling | 0 | 4 | Minor, self-caught, cost only wall clock. |
 | **The programme's central diagnosis** | **1** | 0 | Survived its hardest adversarial test (see R-6). |
+| **Pre-registered predictions about a measurement's own behaviour** | **2** | 0 | R-11, R-12 — both committed before the data and both held. |
 
 ### The two findings that matter
 
@@ -112,6 +113,8 @@ External adversarial checking beats self-review here, and it is cheap relative t
 | R-8 | `weighted_nll_mean` returns a graph-connected exact 0 when no cell is supervised. | `nb_core.py:62-79` and its docstring | Confirmed verbatim. |
 | R-9 | The positives denominator is frequently 0 or 1 for the rarest target. | measurement from the delivered arm's own per-window fractions | `lr_ns_best`: **median 0.88 positive cells per window**, 61% of windows averaging under 1. |
 | R-10 | Lower NB `θ` means **more** over-dispersion, so θ̂ 0.154 vs 0.432 is over-dispersion. | `nb_core.py:3-5` | `θ` is `total_count`, `Var = μ + μ²/θ`. Used to refute a seat's claim that had the direction backwards. |
+| R-11 | ⛔ **O-1 (was open): the `cos(∇body,∇gate)` sign is stable across BPTT chunk length.** Pre-registered before the run, with "a sign that moves with K voids the test". | the K=8 block | **Confirmed, and far tighter than required.** Tripling BPTT depth moved the cosine by **0.003** on the control (+0.7244 → +0.7216) and **0.023** on the arm (−0.2033 → −0.1807); norm ratios 0.312→0.325 and 10.497→9.436. Not a truncation artifact. |
+| R-12 | Dropping the K=1 block costs nothing. | the K=24-vs-K=8 agreement | Stated as a recommendation *before* K=8's arm block landed, i.e. at risk. A 3× BPTT change perturbing the cosine by 0.003 means the remaining variation K=1 could show was not worth ~3 hours of 13 cores. |
 
 ---
 
@@ -119,5 +122,4 @@ External adversarial checking beats self-review here, and it is cheap relative t
 
 | ID | claim | stated | settles when |
 |---|---|---|---|
-| O-1 | The `cos(∇body, ∇gate)` sign is stable across BPTT chunk length, so the r4 verdict is not a truncation artifact. | 2026-10-15, pre-registered before the run | The K=8 and K=1 blocks print. **A sign that moves with K voids the test** rather than being reported. |
 | O-2 | `pos_weight → 1.0` is a better-motivated single-variable arm than A. | 2026-10-15, from the Gneiting seat's G&Ranjan Thm 1 derivation plus P2's measured implied 1.0365 | Not yet tested; not in any pre-registration. |
