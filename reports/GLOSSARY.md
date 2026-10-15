@@ -4,7 +4,7 @@
 used before for the same thing — listed so you can map old messages onto the locked name. I never introduce
 a new synonym. If I drift, you type **"drift"** and I stop and correct.
 
-Last rebuilt: 2026-07-17 (v2, complete). **Amended 2026-10-15:** added **§3b the task-loss balance** (*the balancer*, *task-loss term*, *frozen balancer*, *the NLL denominator*, *truncated NB loss*) and scoped the stale `TruncatedNB` banned alias in §3. **Amended 2026-08-15:** added *the feedback realism gap* (the parent cause) and *the zero collapse* (its under-firing child); *the bloom* is now defined as the over-firing child of the same cause.
+Last rebuilt: 2026-07-17 (v2, complete). **Amended 2026-10-16:** disambiguated the two "all"s in §3b (`body_supervision='all'` vs `body_nll_denominator='all_cells'`). **Amended 2026-10-15:** added **§3b the task-loss balance** (*the balancer*, *task-loss term*, *frozen balancer*, *the NLL denominator*, *truncated NB loss*) and scoped the stale `TruncatedNB` banned alias in §3. **Amended 2026-08-15:** added *the feedback realism gap* (the parent cause) and *the zero collapse* (its under-firing child); *the bloom* is now defined as the over-firing child of the same cause.
 
 ---
 
@@ -163,6 +163,16 @@ balancer**, and until 2026-10 we had no words for any of this.
 | **frozen balancer** | `freeze_multitask_balancer: True` — `log_vars` are excluded from the optimizer and so stay at their **zero initialisation**, never learned. The objective then collapses to the **constant form** `total = 0.5·Σbody + 1.0·Σgate`. ⛔ Not "Kendall's weights frozen" — they were never learned; this is plain **uniform weighting**, and a regression task structurally cannot be weighted above 0.5. Every views-models config pins it `True`; the config **default is `False`**. | frozen weights, equal weighting (ambiguous — say *the constant form*), inert balancer, learned-then-frozen (⛔ false) |
 | **the NLL denominator** | what a body NLL's per-cell losses are **divided by** — a separate axis from the **supervision window** (§2, which cells are supervised at all). Two values: **positives** (the count of `y>0` cells) and **all cells** (every cell in the window). Set by `weighted_nll_mean`'s `weight` argument (`distributions/nb_core.py:62-79`): `weight=None` ⇒ all cells; the `y>0` mask ⇒ positives. ⛔ It is today an undeclared consequence of `output_distribution` — `nb` passes `None`, `truncated_nb` passes the mask — so swapping the family silently swaps the denominator and rescales that **task-loss term** by ~1/(positive fraction). | reduction, the mean, normalisation, dense/sparse reduction |
 | **truncated NB loss** | the **zero-truncated** NB likelihood body — NB renormalised by `1 − NB(0)`, so `P(Y=0) = 0` by construction. `output_distribution='truncated_nb'`. Composed only as **`gated_truncNB`** (§2c). ⚠️ Distinct from the discredited legacy `utils/truncated_nb_loss.py`; when that file is meant, say **the legacy truncated loss**. | TruncNB, zero-truncated NB, hurdle body, truncated_nb_loss (⇒ say *the legacy truncated loss*) |
+
+⛔ **Two different "all"s — do not conflate them.** `body_supervision='all'` (§2, the locked
+**all-cell** supervision window) says *which cells are supervised at all*. `body_nll_denominator='all_cells'`
+(§3b) says *what the supervised cells' losses are divided by*. They are different axes on different
+objects, and the near-identical spelling is a real trap. The relationship is one-directional and
+enforced in code: **`all_cells` REQUIRES `body_supervision='all'`**, because under `'active'` the
+supervision mask is itself a positive mask, so the denominator collapses back to the positive count
+and the flag becomes bit-identical to `positives` (C-331). The reverse does not hold —
+`body_supervision='all'` says nothing about the denominator, and the default denominator stays
+`positives`.
 
 **Why these words had to exist (measured 2026-10-13/15,
 `reports/2026-10-13_composition_arm_outcome/`):** under the **frozen balancer** nothing reads the

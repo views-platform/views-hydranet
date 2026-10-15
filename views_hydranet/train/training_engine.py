@@ -185,29 +185,6 @@ def _batchnorm_eval(model: nn.Module):
             m.train()
 
 
-def _assert_trajectory_columns_match(header_cols: list[str], task_names: list[str]) -> None:
-    """Fail loud when the config order the CSV header was built from disagrees with the order the
-    balancer actually sums in.
-
-    The header is written at open from ``config["regression_targets"]`` +
-    ``config["classification_targets"]`` so that the column count is fixed and a run that aborts
-    before lesson 1 still leaves a parsable file. That makes config a second source of truth for
-    the ORDER, and a mislabelled column is worse than no column — so the two are compared the
-    first time both are in scope.
-
-    Extracted as a function because the inline version was unguarded: a mutation deleting the
-    comparison survived the whole suite (/code-review follow-up, PR #398 — the C-329 shape).
-    """
-    expected = [f"loss/{n}" for n in task_names]
-    if expected != header_cols:
-        err_msg = (
-            "trajectory-log column names disagree with the task order the balancer sums in: "
-            f"header {header_cols} vs actual {expected}. Refusing to mislabel the columns."
-        )
-        logger.error(err_msg)
-        raise RuntimeError(err_msg)
-
-
 def _open_trajectory_file(path: str):
     """Open the trajectory CSV for writing, creating its parent directory first.
 
@@ -1387,7 +1364,6 @@ def training_loop(
     _traj_path = config.get("trajectory_log_path")
     _traj_file = _traj_writer = None
     _traj_acc = {"gate_sum": 0.0, "gate_n": 0, "fed_max": 0.0}
-    _traj_header_checked = False
     _traj_task_cols: list[str] = []
     if _traj_path:
         import csv as _csv
@@ -1401,26 +1377,25 @@ def training_loop(
             dict(model.named_modules())[_hn].register_forward_hook(_gate_hook)
         _traj_file = _open_trajectory_file(_traj_path)
         _traj_writer = _csv.writer(_traj_file)
-        # Header at OPEN, from config, with a FIXED column count — and then asserted against the
-        # window's real task names at the first data row (below). An earlier version deferred the
-        # header to the first row so the names could come from the channel map; /code-review on
-        # PR #398 showed that trades one defect for two: a run that aborts before lesson 1 (the
-        # C-312 non-finite exit, or IntegrityGuardian) leaves a 0-byte file that `read_csv`
-        # rejects outright, and a first row written without task names locks in a 6-column header
-        # that every later 12-column row then sits under, giving a ragged CSV with no error.
-        # Writing it here fixes the count; the assertion keeps the config from lying about order.
+        # Header at OPEN, from config, with a FIXED column count. An earlier version deferred it
+        # to the first data row so the task names could come from the window's channel map, on the
+        # premise that config was a SECOND source of truth that might disagree about order.
+        # ⛔ That premise was false: `_SequenceIndices.__init__` assigns
+        # `self.reg_names = config["regression_targets"]` — the same list object — and
+        # `losses_list` is built `for j in range(idx.n_reg)` then `range(idx.n_cls)`. So config IS
+        # the order the balancer sums in, there is no second source, and the comparison the
+        # deferred version justified itself with could never have failed. (A guard that cannot
+        # fire reads as protection and is worse than none — it was deleted; pinned instead by
+        # `test_sequence_indices_names_are_the_config_lists`.)
+        # Writing the header here also means a run that aborts before lesson 1 (the C-312
+        # non-finite exit, or IntegrityGuardian) still leaves a parsable file rather than 0 bytes.
         _traj_task_cols = [f"loss/body/{n}" for n in config["regression_targets"]] + [
             f"loss/gate/{n}" for n in config["classification_targets"]
         ]
-        _traj_base_cols = [
-            "lesson",
-            "raw_grad_norm",
-            "loss_reg",
-            "loss_cls",
-            "gate_logit_mean",
-            "fed_grad_max",
-        ]
-        _traj_writer.writerow(_traj_base_cols + _traj_task_cols)
+        _traj_writer.writerow(
+            ["lesson", "raw_grad_norm", "loss_reg", "loss_cls", "gate_logit_mean", "fed_grad_max"]
+            + _traj_task_cols
+        )
         _traj_file.flush()
         logger.info(f"📈 trajectory-log ON → {_traj_path}")
 
@@ -1450,7 +1425,6 @@ def training_loop(
             lesson_reg = 0.0
             lesson_cls = 0.0
             lesson_per_task = None
-            _task_names: "list[str] | None" = None
             windows_trained = 0  # C-312: how many windows actually backpropagated
 
             # ADR-056: compute epsilon once per lesson
@@ -1569,7 +1543,6 @@ def training_loop(
                 if losses.get("per_task") is not None:
                     _pt = losses["per_task"].detach().cpu().numpy()
                     lesson_per_task = _pt if lesson_per_task is None else lesson_per_task + _pt
-                    _task_names = losses["task_names"]
 
                 # --- PER-WINDOW MEMORY RELEASE (C-07) ---
                 del sample_handler, losses, w_loss
@@ -1634,12 +1607,6 @@ def training_loop(
                 # OPT-IN trajectory row (pre-clip grad-norm + lesson gate-logit-mean + losses)
                 if _traj_writer is not None:
                     _gm = _traj_acc["gate_sum"] / max(_traj_acc["gate_n"], 1)
-                    # Fail loud if the config order the header was built from disagrees with the
-                    # order the balancer actually summed in — a mislabelled column is worse than
-                    # no column, and this is the only place both are in scope.
-                    if _task_names is not None and not _traj_header_checked:
-                        _assert_trajectory_columns_match(_traj_task_cols, _task_names)
-                        _traj_header_checked = True
                     # Pad to the header's FIXED width so the CSV can never go ragged.
                     _pt_row = (
                         [""] * len(_traj_task_cols)

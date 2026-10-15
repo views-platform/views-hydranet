@@ -179,6 +179,9 @@ def choose_loss(
     # loss_reg path below (byte-identical). A single shared instance (theta/pi are head-emitted).
     from views_hydranet.distributions import resolve_family
     from views_hydranet.distributions.family_loss import FamilyLoss
+    from views_hydranet.utils.config_initializer import (
+        validate_body_nll_denominator_pair,
+    )
 
     # body_nll_denominator is read with NO fallback default — the schema owns it (P7 convention).
     # `.get()` with no second argument yields None for a caller that bypassed `HydraNetConfig`
@@ -190,13 +193,7 @@ def choose_loss(
     # exists to prevent. Found by /code-review on PR #398.
     _dist = config.get("output_distribution", "standard")
     _den = config.get("body_nll_denominator")
-    if _den is not None and _den != "positives" and _dist != "truncated_nb":
-        err_msg = (
-            f"body_nll_denominator={_den!r} requires output_distribution='truncated_nb' "
-            f"(got {_dist!r}); it would be silently ignored. See C-324."
-        )
-        logger.error(err_msg)
-        raise ValueError(err_msg)
+    validate_body_nll_denominator_pair(_den, _dist, config.get("body_supervision", "all"))
     _family = (
         resolve_family(_dist, body_nll_denominator=_den)
         if _dist == "truncated_nb" and _den is not None

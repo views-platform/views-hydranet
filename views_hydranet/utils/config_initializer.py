@@ -46,6 +46,54 @@ FORECAST_COMPOSITIONS: tuple[str, ...] = ("self_zeroed", "soft_gate", "threshold
 _GATE_COMPOSITIONS: tuple[str, ...] = ("soft_gate", "threshold_gate")  # use an external gate
 
 
+def validate_body_nll_denominator_pair(
+    denominator: "str | None", output_distribution: str, body_supervision: str
+) -> None:
+    """The ONE statement of when ``body_nll_denominator`` is meaningful. Raises if it is not.
+
+    Called from two places on purpose, not duplicated into them:
+
+    * ``HydraNetConfig.reject_ignored_body_nll_denominator`` — the pydantic path, which every
+      production config takes.
+    * ``utils.choose_loss`` — for callers that hand it a plain dict and therefore never ran
+      pydantic at all (a raw ``get_hp_config()``, a measurement driver, a pre-schema config).
+      Same precedent as ``HydraNetInference.__init__`` re-rejecting the inert clamp.
+
+    An earlier version had the family rule in both places and the supervision rule in only one,
+    so a dict caller could still reach the exactly-inert pair the supervision rule exists to
+    refuse. One function removes that asymmetry by construction (/review-diff, PR #398).
+
+    ``"all_cells"`` requires:
+
+    * ``output_distribution == "truncated_nb"`` — every other family already reduces over all
+      cells, so the flag would change nothing (**C-324**); and
+    * ``body_supervision == "all"`` — under ``"active"`` the supervision mask IS a positive mask
+      (``resolve_body_supervision(0, 0, thr)`` returns exactly ``window > event_threshold``), so
+      the denominator collapses back to the positive count and the flag is bit-identical to
+      ``"positives"`` (**C-331**). With non-zero lead/lag it is attenuated by the dilation
+      instead, which is still not the joint hurdle NLL's denominator.
+    """
+    if denominator is None or denominator == "positives":
+        return
+    if output_distribution != "truncated_nb":
+        err_msg = (
+            f"body_nll_denominator={denominator!r} requires output_distribution='truncated_nb' "
+            f"(got {output_distribution!r}). Every other family already reduces over all cells, "
+            f"so the flag would be inert — see C-324."
+        )
+        logger.error(err_msg)
+        raise ValueError(err_msg)
+    if body_supervision != "all":
+        err_msg = (
+            f"body_nll_denominator={denominator!r} requires body_supervision='all' (got "
+            f"{body_supervision!r}). Under 'active' the supervision mask is itself a positive "
+            f"mask, so the denominator collapses to the positive count and the flag is inert "
+            f"(bit-identical at lead=lag=0) — see C-331."
+        )
+        logger.error(err_msg)
+        raise ValueError(err_msg)
+
+
 class HydraNetConfig(BaseModel):
     """
     The Exhaustive 'Minimum Strict Set' for HydraNet operations.
@@ -438,7 +486,7 @@ class HydraNetConfig(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def reject_ignored_body_nll_denominator(self) -> "HydraNetConfig":
+    def reject_ignored_body_nll_denominator(self) -> "HydraNetConfig":  # noqa: D401
         """`all_cells` is only implemented for truncated_nb — elsewhere it would be a silent no-op.
 
         Every other family's ``nll`` already reduces over all cells (``weighted_nll_mean`` with
@@ -447,34 +495,9 @@ class HydraNetConfig(BaseModel):
         when it changed nothing — the **C-324** inert-knob signature, which this repository has
         now recorded enough times to gate on. Fail loud instead.
         """
-        if self.body_nll_denominator != "all_cells":
-            return self
-        if self.output_distribution != "truncated_nb":
-            err_msg = (
-                f"body_nll_denominator='all_cells' requires output_distribution='truncated_nb' "
-                f"(got {self.output_distribution!r}). Every other family already reduces over all "
-                f"cells, so the flag would be inert — see C-324."
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
-        if self.body_supervision != "all":
-            # Under `all_cells` the denominator is the SUPERVISED cell count. With
-            # body_supervision='active' the supervision mask IS a positive mask —
-            # `resolve_body_supervision(0, 0, thr)` returns exactly `window > event_threshold`
-            # (`body_supervision.py:53-70`), so the denominator collapses back to the positive
-            # count and `all_cells` becomes BIT-IDENTICAL to `positives`. With non-zero
-            # onset_lead/cessation_lag it is not exactly inert but is attenuated by the dilation,
-            # so it is still not the joint hurdle NLL's denominator the flag claims to supply.
-            # Either way an arm would log the new axis and train the control — C-331's signature.
-            # Found by /code-review on PR #398.
-            err_msg = (
-                f"body_nll_denominator='all_cells' requires body_supervision='all' (got "
-                f"{self.body_supervision!r}). Under 'active' the supervision mask is itself a "
-                f"positive mask, so the denominator collapses to the positive count and the flag "
-                f"is inert (bit-identical at lead=lag=0) — see C-331."
-            )
-            logger.error(err_msg)
-            raise ValueError(err_msg)
+        validate_body_nll_denominator_pair(
+            self.body_nll_denominator, self.output_distribution, self.body_supervision
+        )
         return self
 
     @model_validator(mode="after")

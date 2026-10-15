@@ -269,3 +269,50 @@ def test_choose_loss_tolerates_a_dict_with_no_denominator_key(valid_config_dict)
     cfg.pop("body_nll_denominator", None)
     crit_reg, _, _ = choose_loss(cfg, torch.device("cpu"))
     assert crit_reg.family.body_nll_denominator == "positives"
+
+
+def test_choose_loss_rejects_the_inert_SUPERVISION_pair_for_a_raw_dict_caller(valid_config_dict):
+    """⛔ The asymmetry /review-diff found: `choose_loss` re-checked the FAMILY rule but not the
+    SUPERVISION rule, so a dict caller bypassing pydantic could still reach the exactly-inert
+    `all_cells` + `body_supervision='active'` pair that F2's validator exists to refuse.
+
+    Both rules now live in one function called from both paths, so they cannot drift apart.
+    """
+    import torch
+
+    from views_hydranet.utils.utils import choose_loss
+
+    cfg = dict(valid_config_dict)
+    cfg.update(
+        output_distribution="truncated_nb",
+        forecast_composition="soft_gate",
+        body_supervision="active",
+        body_nll_denominator="all_cells",
+    )
+    with pytest.raises(ValueError, match="requires body_supervision='all'"):
+        choose_loss(cfg, torch.device("cpu"))
+
+
+def test_the_rule_has_exactly_one_implementation():
+    """Both callers must delegate, so the two rules can never drift apart again."""
+    import ast
+    import inspect
+
+    from views_hydranet.utils import config_initializer as ci
+    from views_hydranet.utils import utils as u
+
+    assert "validate_body_nll_denominator_pair" in inspect.getsource(u.choose_loss)
+
+    # the pydantic-decorated validator: find it in the module AST and check its body delegates
+    tree = ast.parse(inspect.getsource(ci))
+    fn = next(
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, ast.FunctionDef) and n.name == "reject_ignored_body_nll_denominator"
+    )
+    called = {
+        c.func.id for c in ast.walk(fn) if isinstance(c, ast.Call) and isinstance(c.func, ast.Name)
+    }
+    assert "validate_body_nll_denominator_pair" in called, (
+        "the pydantic validator must delegate to the shared rule, not restate it"
+    )

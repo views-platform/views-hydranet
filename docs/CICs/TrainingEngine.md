@@ -113,13 +113,13 @@ types (module docstring `training_engine.py:1`).
 
 - **`make`** returns `(model, criterion, optimizer, scheduler)` (`training_engine.py:136`); mutates
   the model in place via `init_weights` and optional onset-bias init (`:91-96`).
-- **`train`** returns `{"total", "reg", "cls"}` loss tensors (`training_engine.py:758-762`); the
+- **`train`** returns `{"total", "reg", "cls", "per_task", "task_names"}` — the three loss tensors plus the per-task split. ⚠️ `per_task`/`task_names` were added 2026-10-16 and the **forwarding is the contract**: `training_loop` calls `train`, not `_process_sequence`, so a hand-built return dict here silently drops anything `_process_sequence` adds and the feature that depends on it ships inert (**C-324**; this is exactly how the per-task trajectory columns shipped dead on PR #398 before review). Pinned structurally by `tests/test_per_task_loss_instrumentation.py::test_train_returns_every_key_the_training_loop_reads_from_it`, an AST check that every key `training_loop` reads is a key `train` produces. The
   `"total"` retains the graph for `.backward()` in `training_loop` (`:964`). Side effects: sets
   `model.train()` / `multitaskloss.train()` (`:596-597`), optional random flips
   (`:606-610`), forensic recording (`:371-414`), and Stage-5 diagnostic biopsy plots when
   `viz and stage_label` (`:696-752`). An empty `stage_label` ⇒ forward-only, no biopsy (used by
   BN-recal, `:798`).
-- **`_process_sequence`** returns `{"total", "reg", "cls", "h", "per_step_losses"}`
+- **`_process_sequence`** returns `{"total", "reg", "cls", "h", "per_task", "task_names", "per_step_losses"}` — `per_task` is the summed 6-vector the balancer combines (body targets then gate targets, in `task_names` order, which is `config["regression_targets"]` then `["classification_targets"]`), and `reg`/`cls` are its two partial sums. It is `None` until the first step shapes it
   (`training_engine.py:535-541`). The scheduled-sampling draw is **stochastic** (family sample +
   composition Bernoulli), seedable via the `generator` argument (`:218`, `:228`, C-261).
 - **`training_loop`** returns a diagnostic summary dict (`final_loss`, `min_loss`, `max_loss`,

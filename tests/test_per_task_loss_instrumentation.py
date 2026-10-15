@@ -266,48 +266,50 @@ def test_per_task_keys_specifically_survive_the_train_boundary():
     )
 
 
-# ── the header-order guard, which a mutation survived until it was extracted ──
+# ── the premise the CSV header's correctness rests on ──
 #
-# The CSV header is built from config so the column count is fixed and an early abort still leaves
-# a parsable file. That makes config a second source of truth for the ORDER, so the two are
-# compared the first time both are in scope. Deleting that comparison survived the entire suite
-# until the comparison became a function — the C-329 shape, found by mutation-testing the fix for
-# /code-review's F4.
+# An earlier version of this file had four tests for a `_assert_trajectory_columns_match` guard
+# that compared the header (built from config) against the balancer's task names. /review-diff
+# (PR #398) found the guard could not fire: `_SequenceIndices.__init__` assigns
+# `self.reg_names = config["regression_targets"]` — the SAME list object — so it compared a list
+# to itself, and my justification for writing it ("config is a second source of truth that might
+# disagree") was false. The guard and its tests are gone. What replaces them is a test of the
+# premise that makes the header correct without any guard: if that premise is ever broken, THIS
+# fails, and the header's correctness has to be re-argued.
 
 
-def test_matching_trajectory_columns_pass():
-    from views_hydranet.train.training_engine import _assert_trajectory_columns_match
+def test_sequence_indices_names_are_the_config_lists(rig):
+    """`idx.reg_names`/`cls_names` must BE the config lists, not copies or a re-derivation.
 
-    _assert_trajectory_columns_match(
-        ["loss/body/lr_sb_best", "loss/gate/by_sb_best"],
-        ["body/lr_sb_best", "gate/by_sb_best"],
+    The trajectory CSV header is built from `config["regression_targets"]` +
+    `config["classification_targets"]`, while the balancer sums `losses_list` in
+    `range(idx.n_reg)` then `range(idx.n_cls)` order. Those agree only because `idx` takes its
+    names straight from config. Break that and the header silently mislabels its columns.
+    """
+    idx = rig["idx"]
+    cfg = {
+        "regression_targets": ["lr_sb_best", "lr_ns_best", "lr_os_best"],
+        "classification_targets": ["by_sb_best", "by_ns_best", "by_os_best"],
+        "features": ["f_a", "f_b"],
+    }
+    assert list(idx.reg_names) == cfg["regression_targets"]
+    assert list(idx.cls_names) == cfg["classification_targets"]
+    # and the task names the engine reports must be exactly those, body-first
+    assert rig["names"] == (
+        [f"body/{n}" for n in cfg["regression_targets"]]
+        + [f"gate/{n}" for n in cfg["classification_targets"]]
     )
 
 
-def test_reordered_trajectory_columns_raise():
-    """config listing the targets in a different order than the balancer sums them."""
-    from views_hydranet.train.training_engine import _assert_trajectory_columns_match
+def test_sequence_indices_reg_names_is_the_very_config_object():
+    """Stronger: the SAME object, which is why no comparison guard is needed."""
+    from views_hydranet.train.training_engine import _SequenceIndices
 
-    with pytest.raises(RuntimeError, match="disagree with the task order"):
-        _assert_trajectory_columns_match(
-            ["loss/body/lr_ns_best", "loss/body/lr_sb_best"],
-            ["body/lr_sb_best", "body/lr_ns_best"],
-        )
-
-
-def test_wrong_number_of_trajectory_columns_raises():
-    """config naming fewer targets than the balancer actually sums."""
-    from views_hydranet.train.training_engine import _assert_trajectory_columns_match
-
-    with pytest.raises(RuntimeError, match="disagree with the task order"):
-        _assert_trajectory_columns_match(
-            ["loss/body/lr_sb_best"],
-            ["body/lr_sb_best", "gate/by_sb_best"],
-        )
-
-
-def test_renamed_target_in_trajectory_columns_raises():
-    from views_hydranet.train.training_engine import _assert_trajectory_columns_match
-
-    with pytest.raises(RuntimeError, match="disagree with the task order"):
-        _assert_trajectory_columns_match(["loss/body/lr_sb_best"], ["body/lr_sb_WRONG"])
+    cfg = {
+        "regression_targets": ["a", "b"],
+        "classification_targets": ["c"],
+        "features": ["f"],
+    }
+    idx = _SequenceIndices(["a", "b", "c", "f"], cfg)
+    assert idx.reg_names is cfg["regression_targets"]
+    assert idx.cls_names is cfg["classification_targets"]
