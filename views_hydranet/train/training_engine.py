@@ -196,6 +196,27 @@ _TRAJECTORY_BASE_COLUMNS = [
 ]
 
 
+def _trajectory_per_task_cells(lesson_per_task, n_cols: int, windows_per_lesson: int) -> list:
+    """The per-task cells of one trajectory row: the lesson mean, or blanks of the right width.
+
+    Two properties, both of which survived an independent guard audit as inline code because
+    neither was reachable from the end-to-end test (PR #398):
+
+    * **Width.** ``None`` (a lesson that produced no per-task vector) must still yield exactly
+      ``n_cols`` cells, or the row sits under a wider header and the CSV goes ragged — which
+      ``read_csv`` either rejects or silently column-shifts. Unreachable in a healthy run, which
+      is precisely why it needs a unit test rather than an end-to-end one.
+    * **Divisor.** The values are a per-lesson MEAN, so they divide by ``windows_per_lesson`` to
+      stay commensurate with the ``loss_reg``/``loss_cls`` columns in the same row. Multiplying
+      instead would put the per-task numbers out by ``windows_per_lesson**2`` against the pooled
+      ones — the class of loss-scale error this instrumentation exists to diagnose, so it must
+      not be introducible silently.
+    """
+    if lesson_per_task is None:
+        return [""] * n_cols
+    return list(lesson_per_task / windows_per_lesson)
+
+
 def _trajectory_task_columns(config: dict) -> list[str]:
     """The per-task trajectory columns, in the order the balancer sums the tasks.
 
@@ -1640,11 +1661,8 @@ def training_loop(
                 # OPT-IN trajectory row (pre-clip grad-norm + lesson gate-logit-mean + losses)
                 if _traj_writer is not None:
                     _gm = _traj_acc["gate_sum"] / max(_traj_acc["gate_n"], 1)
-                    # Pad to the header's FIXED width so the CSV can never go ragged.
-                    _pt_row = (
-                        [""] * len(_traj_task_cols)
-                        if lesson_per_task is None
-                        else list(lesson_per_task / config["windows_per_lesson"])
+                    _pt_row = _trajectory_per_task_cells(
+                        lesson_per_task, len(_traj_task_cols), config["windows_per_lesson"]
                     )
                     _traj_writer.writerow(
                         [

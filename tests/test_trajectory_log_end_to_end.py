@@ -42,7 +42,10 @@ TINY_CONFIG = {
     "features": FEATURES,
     "steps": [1, 2],
     "total_lessons": 2,
-    "windows_per_lesson": 1,
+    # ⛔ 2, not 1. With one window per lesson the per-task divisor is `/1`, so multiplying
+    # instead of dividing by it is undetectable — a mutation doing exactly that survived this
+    # file's first version (independent guard audit, PR #398).
+    "windows_per_lesson": 2,
     "window_dim": 8,
     "np_seed": 42,
     "torch_seed": 42,
@@ -172,3 +175,31 @@ def test_the_per_task_cells_sum_to_the_pooled_columns_in_the_SAME_row(written_cs
 def test_the_file_is_written_under_a_parent_that_did_not_exist(written_csv, tmp_path):
     """The pod case: an absolute path under a directory the runner never created."""
     assert (tmp_path / "nested" / "logs" / "trajectory.csv").exists()
+
+
+# ── the two properties that are NOT reachable end-to-end, tested as a unit ──
+
+
+def test_per_task_cells_are_the_lesson_MEAN():
+    """Divides by windows_per_lesson. Multiplying puts the per-task numbers out by its square
+    against the pooled columns in the same row."""
+    from views_hydranet.train.training_engine import _trajectory_per_task_cells
+
+    cells = _trajectory_per_task_cells(np.array([6.0, 9.0, 3.0]), 3, 3)
+    assert cells == pytest.approx([2.0, 3.0, 1.0])
+
+
+def test_per_task_cells_pad_to_the_header_width_when_there_is_no_vector():
+    """A lesson that produced nothing must still yield the header's width, or the CSV goes
+    ragged. Unreachable in a healthy run, which is why it is tested here and not end to end."""
+    from views_hydranet.train.training_engine import _trajectory_per_task_cells
+
+    assert _trajectory_per_task_cells(None, 6, 3) == ["", "", "", "", "", ""]
+    assert len(_trajectory_per_task_cells(None, 6, 3)) == 6
+
+
+def test_per_task_cells_width_always_matches_the_column_count():
+    from views_hydranet.train.training_engine import _trajectory_per_task_cells
+
+    for n in (1, 3, 6, 12):
+        assert len(_trajectory_per_task_cells(None, n, 1)) == n
