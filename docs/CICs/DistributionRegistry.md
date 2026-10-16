@@ -46,7 +46,7 @@ decorator, chosen at the v1 `/expert-code-review` for fail-loud discovery and or
   source of truth, torch-free).
 - `get_family(name) -> DistributionFamily` — instantiate the family; **fail-loud** `ValueError`
   listing available names on an unknown name.
-- `resolve_family(name) -> DistributionFamily | None` — the single dispatch seam: the family for a
+- `resolve_family(name, **kwargs) -> DistributionFamily | None` — the single dispatch seam: the family for a
   registered name, else `None`.
 - `SELF_ZEROED_FAMILIES: frozenset[str]` + `self_zeroed_family_names() -> frozenset[str]` — the
   **torch-free mirror** of each family's `self_zeroed` class attribute (currently `{"zinb"}`), so config
@@ -71,6 +71,7 @@ decorator, chosen at the v1 `/expert-code-review` for fail-loud discovery and or
 ## 5. Outputs and Side Effects
 
 - `family_names()` returns a `frozenset` (immutable snapshot of the keys).
+- `resolve_family(**kwargs)` forwards to the family constructor (added 2026-10-16 for `body_nll_denominator`). **Only the training-loss caller passes any** — every other caller (the emit-time draw in `hydranet_inference`, the SS/pushforward feedback family, the biopsy, the architecture, `config_initializer`) passes none and gets the constructor defaults, which is correct because a loss-reduction denominator has no role in drawing a sample. A typo'd kwarg surfaces as a `TypeError` from the family constructor on the first call — loud, and at the call site rather than inside `importlib`.
 - `get_family`/`resolve_family` return a **new** family instance per call (factory invocation); no
   caching, no shared mutable state.
 - Import side effect: none beyond binding the module-level dict — no torch, no family import, no I/O.

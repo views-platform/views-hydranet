@@ -1,0 +1,134 @@
+loading vehicles …
+  calibration_model_20261012_033112.pt  sha 4acbf4d3c2b457b0…  dist=nb
+  calibration_model_20261013_010739.pt  sha 2a5efc2a67c08eac…  dist=truncated_nb
+
+shared parameters: 102,240 of 905,289 = 11.29% of the model
+  enc_conv0.weight, bn_enc_conv0.weight, bn_enc_conv0.bias, enc_conv1.weight, bn_enc_conv1.weight, bn_enc_conv1.bias, … (73 tensors)
+
+building the calibration train volume …
+
+
+######################  BPTT CHUNK K = 24  ######################
+
+==============================================================================================
+CONTROL (nb)   K=24   (12 windows · 102,240 shared params)
+==============================================================================================
+  task                    ||grad|| on shared  as-run coeff  coeff*||grad||
+  body/lr_sb_best                 4.0604e-02           0.5      2.0302e-02
+  body/lr_ns_best                 3.1210e-02           0.5      1.5605e-02
+  body/lr_os_best                 2.3978e-02           0.5      1.1989e-02
+  gate/by_sb_best                 8.5751e-02           1.0      8.5751e-02
+  gate/by_ns_best                 4.7425e-02           1.0      4.7425e-02
+  gate/by_os_best                 4.7670e-02           1.0      4.7670e-02
+
+  AS-RUN shared-trunk gradient-norm ratio  ||0.5*sum body|| / ||sum gate||  = 0.312
+     (compare the LOSS-VALUE ratio R2 measured: control 0.593, arm 35.2)
+
+  cos( grad body , grad gate ) on the shared trunk:  median +0.7244   mean +0.6287
+     range [+0.0034, +0.8491]   windows with cos < 0: 0%
+
+  PAIRWISE cosines, median over windows (body rows x gate cols):
+                            sb_bes    ns_bes    os_bes
+    body/lr_sb_best        +0.8606   +0.0125   -0.1059
+    body/lr_ns_best        -0.3004   +0.8552   -0.3205
+    body/lr_os_best        -0.1414   -0.1006   +0.8482
+
+  body-vs-body pairwise (do the three targets fight each other?):
+    body/lr_sb_best        vs body/lr_ns_best         -0.1141
+    body/lr_sb_best        vs body/lr_os_best         -0.2995
+    body/lr_ns_best        vs body/lr_os_best         -0.1144
+
+==============================================================================================
+ARM (truncated_nb)   K=24   (12 windows · 102,240 shared params)
+==============================================================================================
+  task                    ||grad|| on shared  as-run coeff  coeff*||grad||
+  body/lr_sb_best                 1.7534e+00           0.5      8.7668e-01
+  body/lr_ns_best                 4.0808e-01           0.5      2.0404e-01
+  body/lr_os_best                 1.5151e+00           0.5      7.5756e-01
+  gate/by_sb_best                 9.8490e-02           1.0      9.8490e-02
+  gate/by_ns_best                 3.9479e-02           1.0      3.9479e-02
+  gate/by_os_best                 3.4555e-02           1.0      3.4555e-02
+
+  AS-RUN shared-trunk gradient-norm ratio  ||0.5*sum body|| / ||sum gate||  = 10.497
+     (compare the LOSS-VALUE ratio R2 measured: control 0.593, arm 35.2)
+
+  cos( grad body , grad gate ) on the shared trunk:  median -0.2033   mean -0.0825
+     range [-0.6660, +0.8311]   windows with cos < 0: 75%
+
+  PAIRWISE cosines, median over windows (body rows x gate cols):
+                            sb_bes    ns_bes    os_bes
+    body/lr_sb_best        -0.4491   -0.2118   +0.6087
+    body/lr_ns_best        -0.3186   +0.0580   -0.0381
+    body/lr_os_best        -0.3255   -0.1079   +0.3072
+
+  body-vs-body pairwise (do the three targets fight each other?):
+    body/lr_sb_best        vs body/lr_ns_best         +0.2787
+    body/lr_sb_best        vs body/lr_os_best         +0.6041
+    body/lr_ns_best        vs body/lr_os_best         +0.0129
+
+
+######################  BPTT CHUNK K = 8  ######################
+
+==============================================================================================
+CONTROL (nb)   K=8   (12 windows · 102,240 shared params)
+==============================================================================================
+  task                    ||grad|| on shared  as-run coeff  coeff*||grad||
+  body/lr_sb_best                 3.6036e-02           0.5      1.8018e-02
+  body/lr_ns_best                 2.6653e-02           0.5      1.3326e-02
+  body/lr_os_best                 1.6228e-02           0.5      8.1142e-03
+  gate/by_sb_best                 7.2425e-02           1.0      7.2425e-02
+  gate/by_ns_best                 3.6830e-02           1.0      3.6830e-02
+  gate/by_os_best                 3.4234e-02           1.0      3.4234e-02
+
+  AS-RUN shared-trunk gradient-norm ratio  ||0.5*sum body|| / ||sum gate||  = 0.325
+     (compare the LOSS-VALUE ratio R2 measured: control 0.593, arm 35.2)
+
+  cos( grad body , grad gate ) on the shared trunk:  median +0.7216   mean +0.6223
+     range [+0.1216, +0.8380]   windows with cos < 0: 0%
+
+  PAIRWISE cosines, median over windows (body rows x gate cols):
+                            sb_bes    ns_bes    os_bes
+    body/lr_sb_best        +0.8586   -0.0300   +0.0770
+    body/lr_ns_best        -0.2613   +0.8048   -0.1995
+    body/lr_os_best        -0.0861   +0.0186   +0.7734
+
+  body-vs-body pairwise (do the three targets fight each other?):
+    body/lr_sb_best        vs body/lr_ns_best         -0.1126
+    body/lr_sb_best        vs body/lr_os_best         -0.2101
+    body/lr_ns_best        vs body/lr_os_best         +0.0122
+
+==============================================================================================
+ARM (truncated_nb)   K=8   (12 windows · 102,240 shared params)
+==============================================================================================
+  task                    ||grad|| on shared  as-run coeff  coeff*||grad||
+  body/lr_sb_best                 1.3173e+00           0.5      6.5863e-01
+  body/lr_ns_best                 3.7898e-01           0.5      1.8949e-01
+  body/lr_os_best                 1.2425e+00           0.5      6.2125e-01
+  gate/by_sb_best                 8.5525e-02           1.0      8.5525e-02
+  gate/by_ns_best                 3.6411e-02           1.0      3.6411e-02
+  gate/by_os_best                 2.9239e-02           1.0      2.9239e-02
+
+  AS-RUN shared-trunk gradient-norm ratio  ||0.5*sum body|| / ||sum gate||  = 9.436
+     (compare the LOSS-VALUE ratio R2 measured: control 0.593, arm 35.2)
+
+  cos( grad body , grad gate ) on the shared trunk:  median -0.1807   mean -0.0696
+     range [-0.5744, +0.7742]   windows with cos < 0: 75%
+
+  PAIRWISE cosines, median over windows (body rows x gate cols):
+                            sb_bes    ns_bes    os_bes
+    body/lr_sb_best        -0.3394   -0.1459   +0.5179
+    body/lr_ns_best        -0.2952   +0.0716   +0.0217
+    body/lr_os_best        -0.3056   -0.0536   +0.2396
+
+  body-vs-body pairwise (do the three targets fight each other?):
+    body/lr_sb_best        vs body/lr_ns_best         +0.2403
+    body/lr_sb_best        vs body/lr_os_best         +0.6063
+    body/lr_ns_best        vs body/lr_os_best         +0.0497
+
+
+######################  BPTT CHUNK K = 1  ######################
+
+[RUN STOPPED after the K=8 block, by design — see the commit message. The K=1 header above
+is the last line the process printed before it was killed; no K=1 results exist, and
+r4_result.npz was never written because the script saves only at the very end. This .out
+file IS the measurement.]

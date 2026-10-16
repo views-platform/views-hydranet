@@ -1,0 +1,51 @@
+Found 17 errors (1 fixed, 16 remaining).
+M1 — RECOMPOSITION: what each composition would emit (opponent B1)
+==============================================================================
+  threshold_gate + dense NB  (AS SHIPPED)  composed P(Y=0) 0.5286   gap to observed +0.2925
+  soft_gate      + dense NB                composed P(Y=0) 0.6783   gap to observed +0.4422
+  threshold_gate + ZERO-TRUNCATED body     composed P(Y=0) 0.0000   gap to observed -0.2361
+  soft_gate      + ZERO-TRUNCATED body     composed P(Y=0) 0.3055   gap to observed +0.0694
+  observed                                 0.2361
+  -> gap closed by composition alone, nothing retrained: 76.3%
+
+==============================================================================
+M3 — CONDITIONAL vs MARGINAL sd (opponent B4)
+==============================================================================
+  marginal sd of actuals        median   27.78
+  sd AROUND the model's mu      median   27.23  <- what a conditional model must match
+  sd available at observed P(0) median   14.96
+  shortfall vs MARGINAL  1.86x   (my report's claim)
+  shortfall vs CONDITIONAL 1.82x <- the honest comparison
+
+==============================================================================
+M5 — RE-SELECT the cells out-of-sample (opponent A6)
+==============================================================================
+  selected ON 421-456 (as reported)  observed positive rate on 421-456: median 0.7639
+  selected ON 385-420 (held out)     observed positive rate on 421-456: median 0.6944
+  overlap between the two sets: 66 / 100
+
+==============================================================================
+M6 — THETA PROFILE at the model's own mu: NLL vs CRPS argmin (A3/A9)
+==============================================================================
+  model's own theta                     0.1544
+  NLL-optimal theta at the model's mu   0.2327   (NLL 4.1377)
+  CRPS-optimal theta at the model's mu  0.4298   (CRPS 28.9526)
+  honest fitted theta                   0.4323
+  ratio CRPS-opt / NLL-opt              1.85x
+
+==============================================================================
+M4 — FAIR vs STANDARD CRPS at S=16 (opponent B9, Ferro 2014)
+==============================================================================
+  model theta 0.1544           standard  31.5483   fair  31.0328   fair-standard -0.5155
+  honest theta 0.4323          standard  30.9991   fair  30.5793   fair-standard -0.4198
+  CRPS-opt theta 0.4298        standard  30.9410   fair  30.5206   fair-standard -0.4204
+
+==============================================================================
+M7 — BOOTSTRAP theta at n=36 (opponent A8)
+==============================================================================
+  cells whose 95% bootstrap CI for theta COVERS the model's 0.1544: 9 of 100
+  median CI width: 0.4932   (honest point estimates span 0.179-3.431)
+  -> the model's theta sits outside most cells' CIs; A8 does not land
+
+
+[exited with code 0]

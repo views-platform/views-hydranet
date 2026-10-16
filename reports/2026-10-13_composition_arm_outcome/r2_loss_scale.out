@@ -1,0 +1,32 @@
+loading vehicles …
+  calibration_model_20261012_033112.pt  sha 4acbf4d3c2b457b0…  dist=nb  lessons=300  git=f99413e
+  calibration_model_20261013_010739.pt  sha 2a5efc2a67c08eac…  dist=truncated_nb  lessons=300  git=73c3f42
+building the calibration train volume (121-456, minus the 36-step horizon) …
+
+sampling 12 lessons x 3 windows at 32x32 …
+  control weights, both families on the same predictions …
+  arm weights, its own family …
+
+==========================================================================================
+R2 — TASK-LOSS MAGNITUDES ON THE REAL TRAINING WINDOWS
+==========================================================================================
+  36 windows · 32x32 = 1024 cells · per-step, 3 targets summed · eval mode
+  positive cell fraction in the sampled windows: median 0.004508  (mean 0.005526, range 0.000133-0.012608)
+  => the truncated reduction's denominator is 1/222 of the dense one
+
+  term                              median        mean   coeff  median x coeff
+  CONTROL nb        (a) body        0.0801      0.0956     0.5          0.0401
+  CONTROL truncated (b) body        5.2466      5.1757     0.5          2.6233
+  ARM     truncated (c) body        5.1888      5.1091     0.5          2.5944
+  CONTROL           gate            0.0675      0.0731     1.0          0.0675
+  ARM               gate            0.0737      0.0776     1.0          0.0737
+
+  THE BALANCE EACH RUN ACTUALLY ADDED UP (median per step):
+    control  0.5*body     0.0401  +  1.0*gate   0.0675   => body is      0.6x the gate term
+    arm      0.5*body     2.5944  +  1.0*gate   0.0737   => body is     35.2x the gate term
+
+  THE ONE VARIABLE, isolated on identical predictions (control weights):
+    nb 0.0801 -> truncated_nb 5.2466   ratio 65.5x
+==========================================================================================
+wrote r2_result.npz
+
