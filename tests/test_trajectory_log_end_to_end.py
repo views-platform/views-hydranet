@@ -114,16 +114,44 @@ def written_csv(tiny_handler, tmp_path):
     return {"config": config, "header": rows[0], "rows": rows[1:]}
 
 
-def test_the_header_is_the_base_columns_plus_one_column_per_task_BY_VALUE(written_csv):
-    """⛔ By VALUE, not by count. Renaming or reordering the base columns, dropping the task
-    columns, or building them from the wrong config key all mislabel real data."""
-    from views_hydranet.train.training_engine import (
-        _TRAJECTORY_BASE_COLUMNS,
-        _trajectory_task_columns,
-    )
+def test_the_header_is_exactly_these_literal_column_names(written_csv):
+    """⛔ LITERAL strings, not the production constants.
 
-    expected = _TRAJECTORY_BASE_COLUMNS + _trajectory_task_columns(written_csv["config"])
-    assert written_csv["header"] == expected
+    The first version of this test asserted
+    `header == _TRAJECTORY_BASE_COLUMNS + _trajectory_task_columns(config)` — which compares the
+    written header against the very constants that produced it. Renaming `"lesson"` to
+    `"LESSON_IDX"`, or swapping `"loss_reg"` and `"loss_cls"` while leaving the row order alone,
+    changed BOTH sides and the test stayed green while two columns of real data were mislabelled.
+    A tautology, and the third one I wrote in this PR.
+
+    So the names are spelled out here. Changing a column name is now a deliberate edit to this
+    literal — which is the point: downstream readers (and six-months-later me) parse by NAME.
+    """
+    assert written_csv["header"] == [
+        "lesson",
+        "raw_grad_norm",
+        "loss_reg",
+        "loss_cls",
+        "gate_logit_mean",
+        "fed_grad_max",
+        "loss/body/lr_ged_sb",
+        "loss/body/lr_ged_ns",
+        "loss/body/lr_ged_os",
+    ]
+
+
+def test_the_base_columns_are_in_the_order_the_row_is_written(written_csv):
+    """`loss_reg` must label the regression value and `loss_cls` the classification one.
+
+    Swapping the two header entries while the row-writing order is unchanged mislabels both
+    columns with no other symptom. TINY_CONFIG has no classification targets, so `loss_cls` is
+    identically 0 and `loss_reg` is not — which is what makes the swap detectable here.
+    """
+    header = written_csv["header"]
+    i_reg, i_cls = header.index("loss_reg"), header.index("loss_cls")
+    for row in written_csv["rows"]:
+        assert float(row[i_cls]) == 0.0, "no classification targets, so loss_cls must be 0"
+        assert float(row[i_reg]) != 0.0, "loss_reg must carry the regression loss"
 
 
 def test_rows_were_actually_written(written_csv):
