@@ -15,6 +15,7 @@ import contextlib
 import functools
 import logging
 import math
+import os
 from typing import Any, cast
 
 import numpy as np
@@ -182,6 +183,78 @@ def _batchnorm_eval(model: nn.Module):
     finally:
         for m in flipped:
             m.train()
+
+
+#: The fixed leading columns of the trajectory CSV. The per-task columns follow.
+_TRAJECTORY_BASE_COLUMNS = [
+    "lesson",
+    "raw_grad_norm",
+    "loss_reg",
+    "loss_cls",
+    "gate_logit_mean",
+    "fed_grad_max",
+]
+
+
+def _trajectory_per_task_cells(lesson_per_task, n_cols: int, windows_per_lesson: int) -> list:
+    """The per-task cells of one trajectory row: the lesson mean, or blanks of the right width.
+
+    Two properties, both of which survived an independent guard audit as inline code because
+    neither was reachable from the end-to-end test (PR #398):
+
+    * **Width.** ``None`` (a lesson that produced no per-task vector) must still yield exactly
+      ``n_cols`` cells, or the row sits under a wider header and the CSV goes ragged — which
+      ``read_csv`` either rejects or silently column-shifts. Unreachable in a healthy run, which
+      is precisely why it needs a unit test rather than an end-to-end one.
+    * **Divisor.** The values are a per-lesson MEAN, so they divide by ``windows_per_lesson`` to
+      stay commensurate with the ``loss_reg``/``loss_cls`` columns in the same row. Multiplying
+      instead would put the per-task numbers out by ``windows_per_lesson**2`` against the pooled
+      ones — the class of loss-scale error this instrumentation exists to diagnose, so it must
+      not be introducible silently.
+    """
+    if lesson_per_task is None:
+        return [""] * n_cols
+    return list(lesson_per_task / windows_per_lesson)
+
+
+def _trajectory_task_columns(config: dict) -> list[str]:
+    """The per-task trajectory columns, in the order the balancer sums the tasks.
+
+    Body targets then gate targets, which is the order ``losses_list`` is built in
+    (``for j in range(idx.n_reg)`` then ``range(idx.n_cls)``) and therefore the order
+    ``per_task`` arrives in. ``_SequenceIndices`` takes its names straight from these same two
+    config lists, so config is the single source of truth for the order and no cross-check is
+    possible — pinned instead by the identity test in
+    ``tests/test_per_task_loss_instrumentation.py``.
+
+    Extracted because inline in ``training_loop`` it could not be mutation-tested: building the
+    header from the wrong config key mislabels every column and survived the whole suite
+    (/review-diff follow-up, PR #398). Third extraction for the same reason — anything worth
+    guarding inside ``training_loop`` has to come out of it to be testable.
+    """
+    return [f"loss/body/{n}" for n in config["regression_targets"]] + [
+        f"loss/gate/{n}" for n in config["classification_targets"]
+    ]
+
+
+def _open_trajectory_file(path: str):
+    """Open the trajectory CSV for writing, creating its parent directory first.
+
+    An ABSOLUTE path is the only way a pod run brings this file home: `pod_run_model.sh` rsyncs
+    `$ROOT/deliver/$MODEL` and creates only `artifact/`, `parquet/` and `draws/` inside it, so a
+    path relative to the repo clone dies with the pod — exactly how the gate posterior was lost
+    (views-models#558 / C-161). Without the mkdir, an absolute path under the deliver dir raises
+    ``FileNotFoundError`` mid-run, AFTER the data pull and the model build, i.e. it wastes the
+    expensive part before failing.
+
+    A parent that exists as a FILE still raises ``FileExistsError`` — ``exist_ok`` suppresses only
+    the already-a-directory case — so a genuine misconfiguration stays loud.
+
+    Extracted as a function so it can be tested by behaviour rather than by a test that
+    re-implements the same line (/code-review, PR #398).
+    """
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    return open(path, "w", newline="")
 
 
 def _noisable_channels(config: dict) -> list[int]:
@@ -459,11 +532,15 @@ def _process_sequence(
     computes multi-task losses, and optionally records forensic data.
     No optimizer, no diagnostics, no data augmentation — just forward + loss.
 
-    Returns dict with keys: total, reg, cls, h, per_step_losses.
+    Returns dict with keys: total, reg, cls, h, per_task, task_names, per_step_losses.
+    ``per_task`` is the summed 6-vector the balancer combines (body then gate, in
+    ``task_names`` order); ``reg``/``cls`` are its two partial sums.
     """
     seq_len = train_tensor.shape[1]
     total_loss = torch.tensor(0.0).to(device)
     step_reg: list[float] = []
+    # Lazily shaped on the first step (the task count comes from the window's channel map).
+    per_task_sum: "torch.Tensor | None" = None
     step_cls: list[float] = []
     step_total: list[float] = []
 
@@ -853,6 +930,8 @@ def _process_sequence(
             pf_loss = torch.stack(pf_terms).sum()
 
         losses = torch.stack(losses_list)
+        if per_task_sum is None:
+            per_task_sum = torch.zeros_like(losses.detach())
         loss = cast(Any, multitaskloss_instance)(losses)
         if pf_loss is not None:
             loss = loss + pushforward_weight * pf_loss
@@ -867,6 +946,12 @@ def _process_sequence(
         loss_reg = losses[: idx.n_reg].sum()
         loss_class = losses[idx.n_reg :].sum()
 
+        # PER-TASK accumulation. `losses` is the 6-vector the balancer combines; the two sums
+        # above are all that used to survive, which is why r2/r3 had to reconstruct the per-target
+        # split from delivered WEIGHTS after the fact. Detached, no graph, no RNG — it cannot move
+        # a result. See reports/2026-10-13_composition_arm_outcome/.
+        per_task_sum += losses.detach()
+
         step_reg.append(loss_reg.detach().item())
         step_cls.append(loss_class.detach().item())
         step_total.append(loss.detach().item())
@@ -879,6 +964,8 @@ def _process_sequence(
         "reg": torch.tensor(np.sum(step_reg)).to(device),
         "cls": torch.tensor(np.sum(step_cls)).to(device),
         "h": h,
+        "per_task": per_task_sum,
+        "task_names": [f"body/{n}" for n in idx.reg_names] + [f"gate/{n}" for n in idx.cls_names],
         "per_step_losses": (step_total, step_reg, step_cls),
     }
 
@@ -1141,10 +1228,26 @@ def train(
     train_log(step_total, step_reg, step_cls)
 
     # RETURN LOSS COMPONENTS
+    # `per_task` MUST be forwarded. It was not, and the per-task trajectory columns were
+    # therefore inert in every real run: `training_loop` calls `train`, not `_process_sequence`,
+    # so a hand-built dict here silently dropped it and `_pt_row` was always empty (C-324, found
+    # by /code-review on PR #398 — inside the very PR whose purpose was to prevent one).
+    #
+    # The guard is `tests/test_trajectory_log_end_to_end.py`, which runs a real `training_loop`
+    # with `trajectory_log_path` set and asserts the written CSV's per-task cells are populated,
+    # finite, and sum to `loss_reg + loss_cls` in the same row. ⛔ Two AST guards stood here
+    # first and were removed: comparing key NAMES to key NAMES cannot see a dropped VALUE, so
+    # `"per_task": None` passed them (independent guard audit, PR #398).
+    #
+    # `task_names` is deliberately NOT forwarded. `training_loop` builds its header from config
+    # and never reads it, so returning it would be dead plumbing — and the audit showed dead
+    # plumbing is unobservable by construction: a mutation setting it to garbage survived
+    # everything. `_process_sequence` still returns it, where it IS asserted.
     return {
         "total": result["total"],
         "reg": result["reg"],
         "cls": result["cls"],
+        "per_task": result.get("per_task"),
     }
 
 
@@ -1320,6 +1423,7 @@ def training_loop(
     _traj_path = config.get("trajectory_log_path")
     _traj_file = _traj_writer = None
     _traj_acc = {"gate_sum": 0.0, "gate_n": 0, "fed_max": 0.0}
+    _traj_task_cols: list[str] = []
     if _traj_path:
         import csv as _csv
 
@@ -1330,11 +1434,23 @@ def training_loop(
 
         for _hn in ("dec_conv4_head1_class", "dec_conv4_head2_class", "dec_conv4_head3_class"):
             dict(model.named_modules())[_hn].register_forward_hook(_gate_hook)
-        _traj_file = open(_traj_path, "w", newline="")
+        _traj_file = _open_trajectory_file(_traj_path)
         _traj_writer = _csv.writer(_traj_file)
-        _traj_writer.writerow(
-            ["lesson", "raw_grad_norm", "loss_reg", "loss_cls", "gate_logit_mean", "fed_grad_max"]
-        )
+        # Header at OPEN, from config, with a FIXED column count. An earlier version deferred it
+        # to the first data row so the task names could come from the window's channel map, on the
+        # premise that config was a SECOND source of truth that might disagree about order.
+        # ⛔ That premise was false: `_SequenceIndices.__init__` assigns
+        # `self.reg_names = config["regression_targets"]` — the same list object — and
+        # `losses_list` is built `for j in range(idx.n_reg)` then `range(idx.n_cls)`. So config IS
+        # the order the balancer sums in, there is no second source, and the comparison the
+        # deferred version justified itself with could never have failed. (A guard that cannot
+        # fire reads as protection and is worse than none — it was deleted; pinned instead by
+        # `test_sequence_indices_names_are_the_config_lists`.)
+        # Writing the header here also means a run that aborts before lesson 1 (the C-312
+        # non-finite exit, or IntegrityGuardian) still leaves a parsable file rather than 0 bytes.
+        _traj_task_cols = _trajectory_task_columns(config)
+        _traj_writer.writerow(_TRAJECTORY_BASE_COLUMNS + _traj_task_cols)
+        _traj_file.flush()
         logger.info(f"📈 trajectory-log ON → {_traj_path}")
 
     # The feedback-gradient sink exists ONLY while the trajectory log does: reading each step's
@@ -1362,6 +1478,7 @@ def training_loop(
             lesson_loss = torch.tensor(0.0).to(device)
             lesson_reg = 0.0
             lesson_cls = 0.0
+            lesson_per_task = None
             windows_trained = 0  # C-312: how many windows actually backpropagated
 
             # ADR-056: compute epsilon once per lesson
@@ -1477,6 +1594,9 @@ def training_loop(
                 lesson_loss += w_loss.detach()  # Keep track of magnitude for logging
                 lesson_reg += losses["reg"].item()
                 lesson_cls += losses["cls"].item()
+                if losses.get("per_task") is not None:
+                    _pt = losses["per_task"].detach().cpu().numpy()
+                    lesson_per_task = _pt if lesson_per_task is None else lesson_per_task + _pt
 
                 # --- PER-WINDOW MEMORY RELEASE (C-07) ---
                 del sample_handler, losses, w_loss
@@ -1541,6 +1661,9 @@ def training_loop(
                 # OPT-IN trajectory row (pre-clip grad-norm + lesson gate-logit-mean + losses)
                 if _traj_writer is not None:
                     _gm = _traj_acc["gate_sum"] / max(_traj_acc["gate_n"], 1)
+                    _pt_row = _trajectory_per_task_cells(
+                        lesson_per_task, len(_traj_task_cols), config["windows_per_lesson"]
+                    )
                     _traj_writer.writerow(
                         [
                             lesson_idx,
@@ -1550,6 +1673,7 @@ def training_loop(
                             _gm,
                             _traj_acc["fed_max"],
                         ]
+                        + _pt_row
                     )
                     _traj_file.flush()
                     _traj_acc["gate_sum"] = 0.0

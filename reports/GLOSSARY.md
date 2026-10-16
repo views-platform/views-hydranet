@@ -4,7 +4,7 @@
 used before for the same thing — listed so you can map old messages onto the locked name. I never introduce
 a new synonym. If I drift, you type **"drift"** and I stop and correct.
 
-Last rebuilt: 2026-07-17 (v2, complete). **Amended 2026-08-15:** added *the feedback realism gap* (the parent cause) and *the zero collapse* (its under-firing child); *the bloom* is now defined as the over-firing child of the same cause.
+Last rebuilt: 2026-07-17 (v2, complete). **Amended 2026-10-16:** disambiguated the two "all"s in §3b (`body_supervision='all'` vs `body_nll_denominator='all_cells'`). **Amended 2026-10-15:** added **§3b the task-loss balance** (*the balancer*, *task-loss term*, *frozen balancer*, *the NLL denominator*, *truncated NB loss*) and scoped the stale `TruncatedNB` banned alias in §3. **Amended 2026-08-15:** added *the feedback realism gap* (the parent cause) and *the zero collapse* (its under-firing child); *the bloom* is now defined as the over-firing child of the same cause.
 
 ---
 
@@ -101,6 +101,7 @@ stripped); the **bare distribution name** (`ZINB`, `ZIgamma`) for a *self-zeroed
 | **gated_NB** | **soft**: per draw `Bernoulli(gate) × NB(μ,θ)`, with `(μ,θ)` from the **nb** model | hurdle_nb, hurdle, hurdle_shrinkage, gate×body |
 | **th_gated_NB** | **hard**: full `NB(μ,θ)` body where `gate ≥ τ`, zeroed where `gate < τ`; `(μ,θ)` from the **nb** model; τ fixed a-priori | ⛔ **`masked_NB` (RETIRED — never live, see HARD LOCK above)**, masked_nb, masked, thresholded NB, hard_gated_NB |
 | **gated_ZINBcore** | **soft**: per draw `Bernoulli(gate) × NB(μ,θ)`, with `(μ,θ)` from the **zinb** model, **π dropped** | gated ZINB, ZINB×gate, hurdle_zinb, gated_zinb |
+| **gated_truncNB** | **soft**: per draw `Bernoulli(gate) × TruncNB(μ,θ)` — a **zero-truncated** NB body, so `P(body>0)=1` by construction and the emitted occurrence **is** the gate; `output_distribution='truncated_nb'` + `forecast_composition='soft_gate'` | soft_gate truncated_nb, truncated hurdle, hurdle_nb, gated_TNB, soft-gated truncated NB |
 
 **Why `gated_NB` vs `gated_ZINBcore` is a real distinction, not a typo:** both gate a bare `NB(μ,θ)` core; the
 *only* difference is the training that produced `(μ,θ)` — plain-NB (μ zero-diluted → **timid**) vs ZINB (π
@@ -115,9 +116,18 @@ is no self-zeroed standalone unless the distribution is ZI-wrapped):
 |---|---|---|---|
 | NB | — (NB is not self-zeroed) | `gated_NB` | `th_gated_NB` |
 | ZINB | `ZINB` | `gated_ZINBcore` | `th_gated_ZINBcore` |
+| truncated NB | ⛔ impossible (`P(Y=0)=0` by construction — no zero mechanism; ADR-069 refuses `self_zeroed`) | `gated_truncNB` | ⚠️ `th_gated_truncNB` — **degenerate**, see below |
 | gamma | — (no zero mass) | `gated_gamma` | `th_gated_gamma` |
 | lognormal | — (no zero mass) | `gated_lognormal` | `th_gated_lognormal` |
 | ZI-gamma *(if ever built)* | `ZIgamma` | `gated_ZIgammacore` | `th_gated_ZIgammacore` |
+
+**Why `th_gated_truncNB` is named but degenerate (measured, 2026-10-12):** a zero-truncated body has no zero
+mass of its own, so under `threshold_gate` the *only* zeros come from cells below τ — every kept cell is
+positive in every draw. Recomposing the delivered model's own output this way emits **`P(Y=0) = 0.0000`**
+against an observed 0.2361 (M1). The pairing is therefore a named dead end, not an arm: a zero-truncated body
+needs a **soft** gate, which is what `gated_truncNB` is. Equally, `gated_truncNB` makes the gate's
+*calibration* load-bearing where `th_gated_NB` needed only its *ranking* — the emitted occurrence is the gate
+itself.
 
 ## 3. The losses (how the body is scored during training)
 | locked name | what it does | banned aliases |
@@ -126,7 +136,7 @@ is no self-zeroed standalone unless the distribution is ZI-wrapped):
 | **MAE** | absolute error; fits the **median**. **Identical to "pinball at 0.5".** | pinball τ0.5, pinball-at-0.5, median loss, "no dial" |
 | **the dial** | pinball loss at a level above 0.5 (0.6/0.7/0.8) — pushes guesses UP. | pinball, tau/τ, PinballBodyLoss, lifter |
 | **count_mean** | MSE computed in count space (not log space) — the one that blows up | count-space MSE |
-| **NB loss** | the negative-binomial likelihood body (the old floor) | hurdle_nb, TruncatedNB |
+| **NB loss** | the negative-binomial likelihood body (the old floor) | hurdle_nb; ⚠️ **`TruncatedNB`** — banned ONLY as a name for *this* row (it meant the discredited legacy `truncated_nb_loss.py`). The live zero-truncated family is **truncated NB loss**, §3b. |
 | **ZINB** | an **NB** body with an explicit extra spike of probability at exactly 0, sized to the data; always **self-zeroed** (§2b) | zero-inflated NB, zero_inflation |
 
 "No dial" was never a loss — it meant "a plain loss (MSE or MAE), not the dial." I'll say **"plain MSE"** or
@@ -139,6 +149,46 @@ is no self-zeroed standalone unless the distribution is ZI-wrapped):
 | **pos_weight** | the gate's eagerness knob (higher = fires more). Foundation: 2 best-calibrated of {2,3,4,5} | pw, gate weight |
 | **focal** | an alternative gate loss; knobs = **gamma** (focusing) + **alpha** (class weight) | focal loss |
 | **per-target pos_weight** | letting sb / ns / os each have their own pos_weight (vs one shared) | — |
+
+## 3b. The task-loss balance (how the SIX task losses become ONE number)
+
+Six task losses are computed per lesson — a body loss and a gate loss for each of sb / ns / os — and
+something must combine them into the scalar that is backpropagated. That combiner is **the
+balancer**, and until 2026-10 we had no words for any of this.
+
+| locked name | what it means | banned aliases |
+|---|---|---|
+| **the balancer** | `MultiTaskLoss` (`utils/mtloss.py`) — the combiner that turns the six **task-loss terms** into the one scalar. Implements Kendall/Gal/Cipolla homoscedastic-uncertainty weighting: a learnable `log_vars` per task, `coeff_j = 1/((is_regression_j + 1)·e^{v_j})`, plus a `v_j/2` regulariser. | MTL, multi-task loss, the weighting, mtloss |
+| **task-loss term** | the value ONE task contributes, **after** the balancer's coefficient — `coeff_j · L_j + v_j/2`. Distinct from the raw per-task loss `L_j`. | task loss, loss component, the weighted loss |
+| **frozen balancer** | `freeze_multitask_balancer: True` — `log_vars` are excluded from the optimizer and so stay at their **zero initialisation**, never learned. The objective then collapses to the **constant form** `total = 0.5·Σbody + 1.0·Σgate`. ⛔ Not "Kendall's weights frozen" — they were never learned; this is plain **uniform weighting**, and a regression task structurally cannot be weighted above 0.5. Every views-models config pins it `True`; the config **default is `False`**. | frozen weights, equal weighting (ambiguous — say *the constant form*), inert balancer, learned-then-frozen (⛔ false) |
+| **the NLL denominator** | what a body NLL's per-cell losses are **divided by** — a separate axis from the **supervision window** (§2, which cells are supervised at all). Two values: **positives** (the count of `y>0` cells) and **all cells** (every cell in the window). Set by `weighted_nll_mean`'s `weight` argument (`distributions/nb_core.py:62-79`): `weight=None` ⇒ all cells; the `y>0` mask ⇒ positives. ⛔ It is today an undeclared consequence of `output_distribution` — `nb` passes `None`, `truncated_nb` passes the mask — so swapping the family silently swaps the denominator and rescales that **task-loss term** by ~1/(positive fraction). | reduction, the mean, normalisation, dense/sparse reduction |
+| **truncated NB loss** | the **zero-truncated** NB likelihood body — NB renormalised by `1 − NB(0)`, so `P(Y=0) = 0` by construction. `output_distribution='truncated_nb'`. Composed only as **`gated_truncNB`** (§2c). ⚠️ Distinct from the discredited legacy `utils/truncated_nb_loss.py`; when that file is meant, say **the legacy truncated loss**. | TruncNB, zero-truncated NB, hurdle body, truncated_nb_loss (⇒ say *the legacy truncated loss*) |
+
+⛔ **Two different "all"s — do not conflate them.** `body_supervision='all'` (§2, the locked
+**all-cell** supervision window) says *which cells are supervised at all*. `body_nll_denominator='all_cells'`
+(§3b) says *what the supervised cells' losses are divided by*. They are different axes on different
+objects, and the near-identical spelling is a real trap. The relationship is one-directional and
+enforced in code: **`all_cells` REQUIRES `body_supervision='all'`**, because under `'active'` the
+supervision mask is itself a positive mask, so the denominator collapses back to the positive count
+and the flag becomes bit-identical to `positives` (C-331). The reverse does not hold —
+`body_supervision='all'` says nothing about the denominator, and the default denominator stays
+`positives`.
+
+**Why these words had to exist (measured 2026-10-13/15,
+`reports/2026-10-13_composition_arm_outcome/`):** under the **frozen balancer** nothing reads the
+**task-loss terms**, so there is no feedback path that can notice one of them changing scale. The
+`gated_truncNB` arm changed the **NLL denominator** from **all cells** to **positives** as a
+side-effect of changing the family, multiplying the body term by ~222 and making it **35.2×** the
+gate term where the control's was **0.6×** — on a **shared trunk**, which is what makes the term
+scale the allocation rule for shared capacity. No config-identity check could see it.
+
+⛔ **A false claim to not repeat.** `utils/weighted_bce_loss.py:6-7`,
+`utils/truncated_nb_loss.py:4-6` and views-models' `config_hyperparameters.py:43` all assert that
+the gate and body NLLs' *"equal-weight sum is the joint hurdle-NB NLL"*. That is false on three
+counts: the denominators differ (**positives** vs **all cells**), the weights are 0.5 and 1.0 rather
+than equal, and `pos_weight = 2.0` makes the gate term a weighted rather than a proper Bernoulli
+NLL. Under **Cragg (1971)** separability a constant on one part cannot move that part's own MLE — but
+that holds only for **independently parameterised** parts, and our shared trunk is not that.
 
 ## 4. The scores (how we judge a finished model)
 | locked name | what it measures | banned aliases |

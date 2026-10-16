@@ -1,0 +1,33 @@
+loading vehicles …
+  calibration_model_20261012_033112.pt  sha 4acbf4d3c2b457b0…  dist=nb
+  calibration_model_20261013_010739.pt  sha 2a5efc2a67c08eac…  dist=truncated_nb
+building the calibration train volume …
+control weights, both families …
+arm weights …
+
+==================================================================================================
+R3 — PER-TARGET TASK-LOSS MAGNITUDES (what R2 pooled)
+==================================================================================================
+  36 windows · 32x32 · per step · eval mode · target_weights all 1.0 (C-87)
+
+  target           pos frac   1/pos    body nb  body trunc  trunc/nb     gate   0.5b/g
+  lr_sb_best       0.009465     106     0.0487      2.4784      50.8   0.0377     32.9
+  lr_ns_best       0.000861    1162     0.0085      1.1962     141.0   0.0080     75.2
+  lr_os_best       0.004783     209     0.0269      1.8392      68.5   0.0240     38.3
+  POOLED (R2)      0.004508             0.0801      5.2466      65.5   0.0675     38.9
+
+  HOW THE THREE BODIES SHARE THE BODY BUDGET (median share of 0.5*sum body)
+    control nb      lr_sb_best=0.580  lr_ns_best=0.101  lr_os_best=0.319
+    control trunc   lr_sb_best=0.449  lr_ns_best=0.217  lr_os_best=0.334
+    arm trunc       lr_sb_best=0.454  lr_ns_best=0.215  lr_os_best=0.330
+
+  WHAT 'A' WOULD DO — rescale each target by its OWN P_t/N (the joint hurdle NLL)
+  target             as run    under A     gate  A: 0.5b/g
+  lr_sb_best         1.2439     0.0118   0.0399      0.295
+  lr_ns_best         0.5902     0.0005   0.0087      0.058
+  lr_os_best         0.9050     0.0043   0.0260      0.166
+  SUM                2.5944     0.0166   0.0737      0.225
+  control reference for the same ratio: 0.593
+==================================================================================================
+wrote r3_result.npz
+
