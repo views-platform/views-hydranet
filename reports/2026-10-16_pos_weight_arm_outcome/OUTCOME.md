@@ -18,11 +18,17 @@ So we trained one model at **1** instead of **2**, and asked: does the gate now 
 
 **It got worse. Twice as wrong.** The arm is killed.
 
-But here is the part worth staying awake for. At `pos_weight = 1` the gate **should** have been honest, because the theorem says 1 is the correct value. It wasn't. And it was wrong in the **opposite direction** from before — at 2 the gate *overstated* conflict, at 1 it *understated* it.
+But here is the part worth staying awake for. At `pos_weight = 1` the gate **should** have been honest, because the theorem says 1 is the correct value. It wasn't.
 
-**That means something else in the gate is pushing its probabilities down, and setting `pos_weight` to 2 had been accidentally cancelling it out.** We have been running a known-wrong setting that was silently correcting an unknown-wrong one.
+Looking at *why* found something better than the experiment was designed to produce:
 
-Finding the second problem is worth more than the experiment was designed to produce.
+> ⛔ **The gate's probabilities are squashed toward zero. It over-states small risks and under-states large ones — and `pos_weight` cannot fix that, at any value.**
+
+`pos_weight` can only shift the whole set of probabilities up or down. The gate's problem is not that they are too high or too low; it is that the **spread is too narrow**. At `pos_weight = 2` the shift happened to sit where most of the data is, so the gate *looked* about right wherever we measured it. At 1 the shift moved and the squashing became visible.
+
+It was never a hidden second problem. **It was always there, in the control, in plain sight — our measurement was looking at the one place it does not show.** 96% of all cell-months sit in a single bin where the gate's error is 0.0004.
+
+⚠️ **This is a correction to an earlier reading.** The first version of this document — following the readout it was written from — said there was "a second, independent downward bias" that removing the tilt "revealed". That was the right instinct with the wrong mechanism, and §2 now carries the corrected version. The error was in the evidence's interpretation, not in its measurements.
 
 ---
 
@@ -62,62 +68,102 @@ The pre-registration's kill criterion (§5) was **F1 or F2**. **F1 fired.** The 
 
 ---
 
-## 2. The finding that matters more than the verdict
+## 2. ⛔ The finding: the gate is UNDER-DISPERSED. No `pos_weight` can fix it.
 
-### The theorem
+### 2.1 What the theorem predicted, and what actually happened
 
-`weighted_bce` at `pos_weight = w` has its optimum at
+`weighted_bce` at `pos_weight = w` has its optimum at `s* = w·p / (1 + (w−1)·p)`.
 
-```
-s* = w·p / (1 + (w−1)·p)
-```
+**Gneiting & Ranjan (2011), Theorem 1:** weighting a proper scoring rule by a function of the *outcome* makes it **improper** — the minimiser becomes a tilted law rather than the truth. So `w ≠ 1` is **mathematically guaranteed** to miscalibrate, and `w = 1` is the only principled value.
 
-**Gneiting & Ranjan (2011), Theorem 1:** weighting a proper scoring rule by a function of the *outcome* makes it **improper** — its minimiser becomes a tilted law rather than the truth. So `w ≠ 1` is **mathematically guaranteed** to produce a miscalibrated gate, and `w = 1` is the only principled value.
-
-### What the theorem predicts, and what happened
-
-| | trained at | implied `w` the gate actually shows | reading |
+| | trained at | median implied `w` | reading |
 |---|---|---|---|
-| control | 2.0 | **1.3090** | over-states conflict, as the theorem predicts for w>1 |
+| control | 2.0 | **1.3090** | over-states, as the theorem predicts for w>1 |
 | arm | 1.0 | **0.6252** | ⛔ **under-states** — the theorem predicts 1.0 here |
 
-**At `w = 1` the gate should have been honest. It is not, and it errs the other way.**
+So the theorem's prediction fails at `w = 1`. The question is why.
 
-A tilt cannot explain an error that appears when the tilt is *removed*. So:
+### 2.2 ⛔ The answer: look at the SIGN. P-1 takes the absolute value and cannot see it.
 
-> ⛔ **There is a second, independent downward bias in the gate. The platform has been unknowingly compensating for it with an improper loss tilt.**
+Signed error, `gate − observed p`, every bin, both arms *(independently reproduced here; see §4.2)*:
 
-`w = 2` was pushing predictions up; something else was pushing them down; the two partially cancelled. Taking away the up-push revealed the down-push.
-
-### How the bias behaves — structured, not noise
-
-From the per-bin table (verified independently, §4.2), the arm's calibration error **grows monotonically with the gate's own confidence**:
-
-| gate bin | n | mean gate | observed p | error |
+| gate bin | n control | **control signed** | n arm | **arm signed** |
 |---|---|---|---|---|
-| [0.00, 0.01) | 818,958 | 0.0012 | 0.0003 | 0.0008 |
-| [0.01, 0.05) | 16,679 | 0.0224 | 0.0314 | 0.0091 |
-| [0.05, 0.10) | 3,104 | 0.0705 | 0.1221 | **0.0516** |
-| [0.10, 0.20) | 1,677 | 0.1409 | 0.2445 | **0.1036** |
-| *(below the n≥1000 threshold, for shape only)* | | | | |
-| [0.30, 0.40) | 421 | 0.3472 | 0.4941 | 0.1469 |
-| [0.50, 0.60) | 246 | 0.5471 | 0.7764 | **0.2293** |
+| [0.00, 0.01) | 808,517 | **+0.0004** | 818,958 | **+0.0008** |
+| [0.01, 0.05) | 21,343 | **+0.0100** | 16,679 | −0.0091 |
+| [0.05, 0.10) | 5,713 | **+0.0157** | 3,104 | −0.0516 |
+| [0.10, 0.20) | 3,275 | **+0.0154** | 1,677 | −0.1036 |
+| [0.20, 0.30) | 1,265 | **+0.0261** | 727 | −0.1438 |
+| [0.30, 0.40) | 700 | −0.0308 | 421 | −0.1469 |
+| [0.40, 0.50) | 525 | −0.0062 | 291 | −0.1892 |
+| [0.50, 0.60) | 387 | −0.0209 | 246 | −0.2293 |
+| [0.60, 0.70) | 334 | −0.0517 | 237 | −0.1943 |
+| [0.70, 0.80) | 291 | −0.0587 | 178 | −0.1646 |
+| [0.80, 0.90) | 219 | −0.0531 | 105 | −0.0825 |
+| [0.90, 1.01) | 65 | −0.0419 | 11 | −0.0823 |
 
-**The more confident the gate is, the more it under-states.** That is a systematic, ordered failure — it is not seed noise, and it tells us the bias is multiplicative-ish in the probability rather than a constant offset. **This is the single most useful diagnostic in the readout and it is new.**
+```
+control signs:  + + + + +  - - - - - - -      ⛔ crosses zero at 0.30
+arm signs:      +  - - - - - - - - - - -         same rotation, whole line dropped
+```
 
----
+⛔ **The control over-states where the data is and under-states where it is confident. That is a ROTATION — a wrong slope — not an offset.** The arm is the same rotation with the line pushed down.
+
+### 2.3 Confirmed parametrically
+
+Fitting `logit(observed p) = a + b·logit(gate)`. An honest gate gives `a = 0, b = 1`:
+
+| | n≥1000 bins | all bins | n-weighted |
+|---|---|---|---|
+| control | a=+0.063 **b=1.146** | a=+0.175 **b=1.177** | a=+0.026 **b=1.139** |
+| arm | a=+1.645 **b=1.419** | a=+0.902 **b=1.251** | a=+1.777 **b=1.456** |
+
+**`b > 1` in all six fits: the gate's logits are COMPRESSED — truth moves faster than the gate does.** The control's *level* is roughly right (`a ≈ 0`) with the wrong *slope*. The arm is wrong in both.
+
+⚠️ Method note: the n-weighted fits differ slightly between the two sessions that computed them (control b 1.139 here vs 1.134; arm b 1.456 vs 1.508), because the weighting scheme differs. **`b > 1` is unanimous across every fit either session ran**, which is the load-bearing part; no single coefficient should be quoted as *the* slope.
+
+### 2.4 ⛔ Why this is the mechanical reason no `pos_weight` works
+
+In logit space:
+
+- `s* = wp/(1+(w−1)p)` is approximately **a constant shift of `log w`** — it moves **`a`**.
+- Temperature scaling is `logit / T` — it moves **`b`**.
+
+**The defect is in `b`. `pos_weight` does not have the degree of freedom the defect requires.** Tuning `w` only slides the crossing point along the curve; the curve keeps the wrong shape.
+
+That is why `w = 2` "worked": it put the crossing point above the bulk of the data, so the gate looked calibrated *where the median samples it*. `w = 1` dropped the curve and the compression became measurable.
+
+### 2.5 ⚠️ And the instrument already knew
+
+`p2_gate_calibration.py:194` carries, as its VOID-branch message:
+
+> *"The gate cannot be repaired by a scalar `pos_weight` — the arm needs a new design."*
+
+**That is the correct diagnosis, written into the harness, and the branch never fired** — because it is gated on monotonicity and resolution, both of which this gate passes. The instrument had the right sentence behind the wrong condition. See §9's issue 4.
+
+### 2.6 What survives from the first reading
+
+The *shape* claim stands and is strengthened: the arm's error grows monotonically with the gate's confidence across four populated bins spanning 0.0008 to 0.1036. **A monotone ordering over that range is not seed noise**, so the shape is measured even at n=1. What changed is its name and its cause: **under-dispersion (slope), not bias (level)** — and it is **present in the control too**, not revealed by the arm.
+
+⛔ **The claim that must stay fenced is the CAUSE.** n=1, no seed replication. We have measured the shape; we have not identified what produces the compression.
 
 ## 3. ⛔ The CRPS result is an artefact. It must never be quoted as a gain.
 
+**`eval_type == "month-wise"`** (see §4.5 — the selection was positional, not by name, and the label was initially missing):
+
 | target | control | arm | change |
 |---|---|---|---|
-| sb | 0.1594 | 0.1010 | **−37%** |
-| ns | 0.1027 | 0.0173 | **−83%** |
-| os | 0.0265 | 0.0109 | **−59%** |
+| sb | 0.1594 | 0.1010 | **−36.6%** |
+| ns | 0.1027 | 0.0173 | **−83.2%** |
+| os | 0.0265 | 0.0109 | **−58.8%** |
+
+⚠️ The artefact conclusion is **robust across all three `eval_type`s** — step-wise gives −46.0% / −83.3% / −58.0%, and time-series-wise matches step-wise to 4 dp — so nothing here depends on which was selected.
 
 **This is not skill, and it is not a second fact.** It is §1's P-6 seen through a blind spot.
 
 The field is **99.7% zero**. On such a field, a forecast that fires less scores better *by construction*. `activation_metrics.py` says so in its own words:
+
+`reports/2026-07-29_v2_scoreboard_dossier/tools/activation_metrics.py:3-4,19`:
 
 > *"crps_all / MCR go BLIND when the field is ~99% zero: a forecast that almost never fires still [scores well]… This is the falsifier crps_all cannot see."*
 
@@ -172,13 +218,16 @@ Recomputed on the **common four bins only**:
 
 **The verdict survives and gets stronger: on a like-for-like support the arm is 2.4× worse, not 2.0×.**
 
-⚠️ **But one derived number in the evidence must be corrected.** `EVIDENCE.md` §2 interpolates the honest `pos_weight` using the control's **1.3090**, giving **≈1.55**. On the common support the control's implied `w` is **1.5381**, and the same interpolation gives
+⚠️ **The defect is in the pre-registered METHOD, not in one implementation.** The pod's own gate slice shows the same 5-vs-4 split (control 5 bins / 0.0175 / 1.3571; arm 4 bins / 0.0298 / 0.6047). **Both measurement paths inherit it because both implement the prereg's `n ≥ 1000` rule faithfully.** It is not a coding slip in either.
 
-```
-1 + (1.000 − 0.6252) / (1.5381 − 0.6252) = 1.41
-```
+⛔ **And following the correction one level down VOIDS the interpolated "honest `pos_weight`" entirely — both the original ≈1.55 and my corrected ≈1.41.** There is no scalar to interpolate *to*. `implied_w` across the usable bins:
 
-So the estimate is **support-dependent: ≈1.4 to ≈1.55**. The qualitative conclusion is unchanged — the honest value lies in (1, 2), it is **not** 2.0, and the direction of 2.5 is ruled out — but any single number quoted for it is an artefact of which bins were included, and that must travel with it. See §8.1.
+| | min | max | range | crosses 1.0? |
+|---|---|---|---|---|
+| control | 0.405 | 2.737 | **6.8×** | **YES** |
+| arm | 0.289 | 3.706 | **12.8×** | **YES** |
+
+A median over 4 or 5 of 12 equally-weighted bins was being read as *"the effective `pos_weight`"* while the underlying quantity varies by nearly an order of magnitude **and changes the sign of the error within each arm**. Both numbers were medians of a non-constant. See §2.4 for why no scalar can be the answer, and §8.1 for what replaces it.
 
 ### 4.3 P-3 held, as the pre-registration structurally predicted — with a note
 
@@ -194,7 +243,8 @@ Prereg §3.2 argued *in advance* that AP **cannot** move by this arm's mechanism
 |---|---|
 | ⛔ **Do not cite `pos_weight` from the `.npz` files.** | **Both** store `2.0`. Verified: it is the harness's hardcoded `SHIPPED_POS_WEIGHT` constant (`p2_gate_calibration.py:185`), not a value read from the model. **Meaningless here.** |
 | ✅ **The authoritative arm identity** | the library's own log line, `weighted_bce_loss.py:41`, on the *constructed* criterion: control `run.log:430` → **2.0**; arm `run.log:95` → **1.0**. This is exactly what the prereg's §6a pre-flight demanded. |
-| ⚠️ **Archival asymmetry, not a run difference** | the arm's delivery ships `configs_as_run/` (6 files); the control's does not, so the control's as-run config must be read from git at `73c3f42`. The two arms are **not symmetric as records**, which is a provenance weakness worth fixing for future arms. |
+| ⚠️ **Archival asymmetry, not a run difference** | the arm's delivery ships `configs_as_run/` (6 files); the control's does not, so the control's as-run config must be read from git at `73c3f42`. Also the control's gate slice is nested one level deeper (`gate_h1/gate_h1/`) than the arm's (`gate_h1/`). The two arms are **not symmetric as records**, which is a provenance weakness worth fixing for future arms. |
+| ⛔ **Do not cite `verdict` from the `.npz` files either** | **Both** store `verdict='D2'` — *"already calibrated, w_eff=1"*. The branch is `err1 <= sep and err1 < err2` where `sep = median(\|2p/(1+p) − p\|)/2` (`p2_gate_calibration.py:170,184`). Measured: control err1 0.0154 vs sep 0.0245 (passes by +0.0090); **arm err1 0.0303 vs sep 0.0313 — passes by nine ten-thousandths** while under-stating by 0.1036 at p≈0.12, a factor of 1.7 in probability. `sep` scales with `p`, so on a sparse field the tolerance inflates until it admits almost anything. **Not usable evidence for either arm.** See §9's issue 4. |
 
 ---
 
@@ -228,7 +278,9 @@ Prereg §3.2 argued *in advance* that AP **cannot** move by this arm's mechanism
 
 ⛔ **This is recorded as a ruling, not laundered into "only one thing changed."** The point of a pre-registration is defeated if an inconvenient clause is quietly dropped once the results are known. The clause tripped; a human overrode it, on a stated basis, on a stated date, having been shown what it would cost not to. **That is the honest form of this and it is what the record should contain.**
 
-⚠️ The residual risk is named, not dismissed: the hook is read-only *by inspection*, not by measurement. Nobody ran the control twice — once with logging, once without — to prove byte-identity. That measurement does not exist, and the ruling rests on a code read.
+✅ **And F6's scope claim is now measured, not assumed.** The as-run control config (git `73c3f42`) was diffed against the arm's captured `configs_as_run/config_hyperparameters.py`: **exactly two keys differ** — `loss_class_pos_weight` 2.0→1.0 and the added `trajectory_log_path`. Nothing else. The `copper_kestrel` PR commit (`628d5d80`) did touch the control's config file (24 insertions) but changed **zero** `'key': value` lines — comments and docstring only.
+
+⚠️ The residual risk is still named, not dismissed: the hook is read-only *by inspection*, not by measurement. Nobody ran the control twice — once with logging, once without — to prove byte-identity. **That measurement does not exist, and the ruling rests on a code read.**
 
 ---
 
@@ -241,7 +293,8 @@ Prereg §3.2 argued *in advance* that AP **cannot** move by this arm's mechanism
 - **Stack skew.** Pod torch 2.14.1, local torch 2.10.0+cu128; numpy matches at 1.26.4. Mitigated twice: both arms measured on the **same** local stack, and cross-validated against the pod's own slice.
 - **Library version matched.** The pod ran `views-hydranet==0.1.3`; the local checkout is 0.1.3 with no library drift since the release tag.
 - ⚠️ **One harness override, and it names a defect.** `vehicle.py` hardcodes `EXPECTED_SIDECAR["output_distribution"] = "nb"` and **VOIDs on anything else** — so it refuses **both** kestrels, which are `truncated_nb`. A scratchpad copy overrode that one value after asserting the committed file's sha256 (`a77044813c50b8f8052094bb0c913b7d7ab23839d5d4d67041bcb49f2466a4d8`) was unchanged; nothing else was altered. **The instrument refuses every arm it was built to compare.** That is a latent generality defect and it deserves its own issue (§9).
-- **CRPS comparability checked:** both arms' metricframes carry `data_version = 504` and `scoring_code_version = 2.0.0`, selected on `metric == "CRPS"`, `group_id == "mean"`.
+- **CRPS comparability checked:** both arms' metricframes carry `data_version = 504`, `scoring_code_version = 2.0.0`, the same partition `{'train': (121,456), 'test': (457,504)}` and `level = pgm`, selected on `metric == "CRPS"`, `group_id == "mean"`.
+- ⚠️ **The CRPS row was selected POSITIONALLY, not by name.** Three rows match that selection (month-wise, step-wise, time-series-wise) and the readout took `v[sel][0]` — the first in array order, which happens to be month-wise in all six cells. The numbers are right and consistently the same `eval_type` on both sides, so the comparison is valid, but **a reordering by the scorer would silently switch `eval_type` with no error raised.** That is the same failure class as `vehicle.py`'s hardcoded family above — selecting by position or by hardcoded constant rather than by name — and it is what made the missing label invisible.
 
 ---
 
@@ -249,25 +302,36 @@ Prereg §3.2 argued *in advance* that AP **cannot** move by this arm's mechanism
 
 ⚠️ **Everything in this section is derived and NOT pre-registered.** None of it is a result.
 
-### 8.1 The honest `pos_weight` is somewhere near 1.4–1.55, and chasing it would be a hack
+### 8.1 ⛔ There is NO honest `pos_weight`. Do not go looking for one.
 
-Interpolating the effective tilt to 1.0 gives **≈1.41** on a common bin support and **≈1.52–1.55** on each arm's own bins (§4.2). Two points, n=1 each.
+Two numbers were put forward and **both are void**: the readout's ≈1.55 and this session's corrected ≈1.41. Not merely support-dependent — **ill-posed**. `implied_w` varies 6.8× (control) and 12.8× (arm) across bins and changes the sign of the error inside each arm (§4.2), so both figures were medians of a non-constant.
 
-⛔ **And tuning to it would still be the wrong move**: good calibration numbers, underlying defect intact, cancellation valid only at the data distribution it was tuned against, **silent failure under distribution shift**. It would reproduce exactly the situation we are in now — a number that looks right for a reason nobody has written down.
+⛔ **`pos_weight` is the wrong shape of correction** (§2.4): it moves the level `a`, and the defect is in the slope `b`. Searching over `w` can only slide the crossing point along a curve that stays bent. **Any `w` that produces good calibration numbers will have produced them by putting the crossing where the median happens to look** — which is precisely the situation we are in now with `w = 2`, and precisely the failure this arm exposed.
 
-### 8.2 The principled treatment is post-hoc recalibration
+### 8.2 ⛔ Temperature scaling is not merely "principled" — it is the MATCHING fix
 
-Platt scaling or temperature scaling on the gate. By §4.3's rank argument it **provably cannot damage AP**, because monotone transformations are invisible to a ranking score. Cost: a one-parameter fit on arrays already in hand — seconds on CPU, **no GPU run**.
+This is now a mechanism rather than a preference:
 
-⚠️ Limit: applying it across all 36 horizons needs the gate posterior retained at h≥2, which is exactly **#558 / C-161**. At **h=1 it is possible today** from `gate_h1/`.
+| | moves | |
+|---|---|---|
+| `pos_weight` | the level `a` | wrong knob |
+| **temperature scaling** (`logit / T`) | **the slope `b`** | ⛔ **the broken parameter** |
+
+So temperature scaling has **exactly the one degree of freedom that is broken**, and by §4.3's rank argument it **provably cannot damage AP** — monotone transformations are invisible to a ranking score.
+
+Cost: a one-parameter fit on arrays already in hand. **Seconds on CPU, no GPU run, no arm.**
+
+⚠️ Limit: applying it across all 36 horizons needs the gate posterior retained at h≥2, which is exactly **#558 / C-161**. At **h=1 it is possible today** from `gate_h1/`. ⚠️ And it is a *post-hoc* repair — it fixes the emitted probabilities without touching whatever in training compresses them, which §8.4 says is the real target.
 
 ### 8.3 `pos_weight` cannot be learned
 
 It lives **inside** the loss, so minimising that loss with respect to it is degenerate. Any search over it is an outer loop, not gradient descent.
 
-### 8.4 The real target is the downward bias itself
+### 8.4 The real target is whatever COMPRESSES the gate's logits
 
-§2 says there is a second, independent mechanism pushing the gate's probabilities down, and §2's monotone structure says it scales with the gate's own confidence. **Treatments are secondary. Identifying that mechanism is the next question**, and it is a diagnosis task on arrays already in hand, not an arm.
+§2 identifies the defect as under-dispersion with `b ≈ 1.14` in the control and `b ≈ 1.42–1.46` in the arm. **What produces that compression is unknown and is the next question.** Candidates worth naming, none tested: the `pos_weight` tilt interacting with the sigmoid's saturation; the shared trunk (§9's open question); label noise in a 99.7%-zero field flattening the learned logits; or the MC-dropout posterior mean over D=4 draws itself shrinking extremes toward the centre — ⚠️ **that last one would be an artefact of the measurement rather than the model, and it is cheap to check by recomputing the curve from a single dropout pass.**
+
+**Treatments are secondary. This is a diagnosis task on arrays already in hand, not an arm.**
 
 ### 8.5 An endpoint the control's own write-up left open is now closed
 
@@ -282,20 +346,26 @@ It lives **inside** the loss, so minimising that loss with respect to it is dege
 ## 9. What this closes, what it opens, and what it leaves alone
 
 **Closed:**
-- `pos_weight = 1.0` as a skill or correctness improvement. **Killed.** It is theoretically the right value and empirically worse, which is the interesting part, not a paradox to be re-tested.
+- `pos_weight = 1.0` as a skill or correctness improvement. **Killed.** It is theoretically the right value and empirically worse — and §2.4 explains why that is not a paradox: `w` cannot address the actual defect at any value, so being "principled" about `w` was always going to be beside the point.
+- ⛔ **Tuning `pos_weight` at all.** Not just 1.0 — the whole axis (§8.1).
 - The composition arm's open `act_ratio` endpoint (§8.5).
 
 **Opened:**
-- ⛔ **The second downward bias in the gate** (§2) — the main finding, and the next thing to chase.
-- The gate's **confidence-dependent** miscalibration structure (§2) — a diagnostic lead that did not exist before this arm.
-- Post-hoc recalibration as the principled treatment (§8.2), cheap and available at h=1 today.
+- ⛔ **The gate is under-dispersed — its logits are compressed, `b ≈ 1.14` in the control** (§2). The main finding. It is present in the control, so it is a property of the platform and not of this arm.
+- ⛔ **No `pos_weight` can fix it**, because `w` moves the level and the defect is in the slope (§2.4). That closes a whole direction of work.
+- **Temperature scaling is the matching fix** (§8.2) — the one knob that moves `b`, provably harmless to AP, seconds on CPU.
+- **What causes the compression** (§8.4) — unknown, with one candidate (the D=4 posterior mean) that would make it a measurement artefact and is cheap to rule out.
 
 **Unaffected and still pending:**
 - **The denominator arm** (`body_nll_denominator`, `reports/2026-10-15_loss_balance_prereg.md`). Untouched by this result — different half of the loss, different mechanism, measured gradient evidence of its own. ⚠️ Note its config PR is expected to go **red** in views-models CI by design: the pin-floor guard will refuse the key because the runner's pin floor is 0.1.1 and the key needs 0.1.3.
 - **M-1 / C-162** — the balancer's learning rate never reaching its parameter group. Latent; this arm kept the balancer frozen.
 - **The joint-vs-marginal question** — the loss is a sum of per-target NLLs, i.e. a product of marginals, and conditional independence across violence types is assumed and untested.
 
-**Issues this readout argues for:**
-1. `vehicle.py`'s hardcoded `output_distribution: "nb"` refuses every arm it was built to compare (§7).
-2. Deliveries are asymmetric in what they archive — `configs_as_run/` present for the arm, absent for the control (§4.4).
-3. #558 / C-161 — the gate posterior at h≥2 not coming home — now blocks §8.2's all-horizon application, which is a second concrete cost for an issue that previously only cost retrieval convenience.
+**Issues this readout argues for**, worst first:
+
+1. ⛔ **`p2_gate_calibration.py`'s `sep` tolerance stamps a badly miscalibrated gate as "D2 — already calibrated".** The arm passes by **0.0009** while under-stating by 0.1036 at p≈0.12. `sep` scales with the base rate, so on a sparse field it inflates until it admits almost anything, and the verdict is written into every stored `.npz` (§4.4). **Higher severity than the rest, because it PASSES SILENTLY** where `vehicle.py` at least refuses loudly. ⚠️ And `:194` already contains the correct diagnosis — *"the gate cannot be repaired by a scalar pos_weight"* — behind the wrong condition (§2.5).
+2. ⛔ **P-1 as pre-registered cannot see either defect found by this arm.** It is a median of *absolute* errors over 4–5 equally-weighted bins, one of which holds **96%** of the cell-months. It discards the sign (so it cannot see the rotation, §2.2) and it silently changes support between arms (so it cannot see the comparability problem, §4.2). **The next pre-registration should read the per-bin curve, or fit level and slope, rather than a median of absolute errors.** This is the methodological lesson of the arm and it sits beside §5.1's threshold-sizing lesson.
+3. `vehicle.py`'s hardcoded `output_distribution: "nb"` refuses every arm it was built to compare (§7).
+4. **Selecting metricframe rows positionally** (`v[sel][0]`) rather than by name — three `eval_type`s match and a scorer reordering would switch silently (§7). Same failure class as 3.
+5. Deliveries are asymmetric in what they archive — `configs_as_run/` present for the arm, absent for the control; the gate slice nested one level deeper on the control (§4.4).
+6. #558 / C-161 — the gate posterior at h≥2 not coming home — now blocks §8.2's all-horizon application, which is a **second concrete cost** for an issue that previously only cost retrieval convenience.

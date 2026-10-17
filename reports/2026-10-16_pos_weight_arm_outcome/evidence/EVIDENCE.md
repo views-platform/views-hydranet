@@ -271,3 +271,34 @@ the arithmetic will find it.
 NOT copied: `p2_gate_calibration.py` and `vehicle.py` (committed unchanged at
 `reports/2026-10-12_underfire_diagnosis/`), and `p2_result_ORIGINAL_violet.npz` (the backup of the
 committed file, which is unchanged on disk).
+
+---
+
+# ⛔ CORRECTION APPENDED 2026-10-17 — §2's interpolation and §8's mechanism are SUPERSEDED
+
+**Appended rather than edited in place**, so the sequence of what was believed when stays legible.
+Nothing above is altered. The measurements above are sound; **the interpretation attached to two of
+them was wrong.** The corrected reading lives in `../OUTCOME.md` §2, §4.2, §8.1 and §8.2.
+
+**What is superseded, and by what:**
+
+| above | status | replaced by |
+|---|---|---|
+| §2's interpolated *"honest `pos_weight` ≈ 1.55"* | ⛔ **VOID** | `OUTCOME.md` §4.2 / §8.1 — `implied_w` varies **6.8×** (control) and **12.8×** (arm) across bins and **changes the sign of the error within each arm**, so there is no scalar to interpolate to. A corrected ≈1.41 was also computed and is **equally void** for the same reason. |
+| §8's *"a second, independent downward bias, revealed by removing the tilt"* | ⛔ **WRONG MECHANISM** | `OUTCOME.md` §2 — it is **under-dispersion (a slope error)**, not a bias (a level error), and it is **plainly present in the control**, which crosses zero between `[0.20,0.30)` and `[0.30,0.40)`. Removing the tilt did not reveal it; it moved the crossing point into the bins the median samples. |
+| §1's and §4's tables | sound, but **unlabelled** | P-1's medians are over **different bin supports** (control 5 bins, arm 4 — the arm's `[0.20,0.30)` holds 727 and drops out *because it fires less*). CRPS rows are **`eval_type == "month-wise"`**, selected positionally. |
+
+**Why the error was invisible:** P-1 as pre-registered takes the **absolute** error, so it cannot see
+a sign flip; and **96%** of all cell-months sit in the single bin `[0.00,0.01)` where the gate's error
+is +0.0004. The statistic was looking at the one place the defect does not show.
+
+**What survives and is strengthened:** the kill (F1, unambiguous — 2.39× on a common support), the
+monotone error *shape*, the CRPS-artefact finding, `act_ratio` as the guardrail that caught it, and
+the conclusion that this arm found something more valuable than it was designed to produce. The
+finding is simply a **different and better-specified defect** than first written — and one with a
+matching fix (§8.2: temperature scaling moves the slope; `pos_weight` cannot).
+
+**Verification scripts added beside this file:** `verify_headline.py` (reproduces P-1/P-2 and the
+`pos_weight` trap), `verify_bins.py` (the bin-support correction), `verify_slope.py` (the signed-error
+table, the zero crossing, and the logit fits). All three were written independently of the scripts
+above and agree with them on every measurement.
