@@ -1,0 +1,21 @@
+POS_WEIGHT ARM READOUT — copper_kestrel (w=1) vs amber_kestrel as-run (w=2)
+prereg: views-hydranet reports/2026-10-16_pos_weight_prereg.md
+
+                              prediction        control        arm         verdict
+P-1 median|gate-p|            <=0.010, no worse 0.0154/0.0175  0.0303/0.0298  MISSED - F1 FIRES
+P-2 median implied w          [0.90,1.15]       1.3090/1.3571  0.6252/0.6047  MISSED
+P-3 gate AP paired by month   unchanged +-0.010 0.5324         0.5385 (+0.0075) HELD
+P-4 CRPS sb/ns/os             no worse, <=2%    .1594/.1027/.0265  .1010/.0173/.0109  MISSED upward
+P-5 emitted pos frac 100cell  [0.55,0.85]       0.4999         0.3947         MISSED - F5 (ctrl too)
+P-6 act_ratio at h18          <= control        2.3520         0.4363         HELD
+
+(two numbers = local sweep / the pod's own gate slice, cross-validating)
+
+FALSIFIERS: F1 FIRES (KILL). F2 no. F3 no. F4 no. F5 fires but control also outside band.
+F6 literal trip on trajectory_log_path (not substantive). F7 pass. F8 no divergence.
+
+VALIDATION: amber gate AP 0.5324 and emitted pos frac 0.4999 reproduce OUTCOME.md exactly.
+P2 statistics path reproduces published 0.0054/0.0573/1.0365 from stored arrays.
+Local torch 2.10 vs pod 2.14 agree to ~0.002 on P-1.
+
+SPARSITY: at h=1 all land, P(emit>0) amber 0.00404 -> copper 0.00216; total mass 6138 -> 4099.

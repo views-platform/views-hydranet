@@ -19,7 +19,7 @@ prediction missed, and the reason it missed is the finding: retraining moved the
 | **F5** config identity | byte-identical bar the triple | does not fire |
 | **F6 / F6c** artefact + sha | digest MATCH; `73c3f42` resolves and declares the triple | does not fire |
 | **F8** data vintage | `2026-09-21T03:11:06.788855+00:00 / 24471bd70ae98adb`, unmoved | does not fire |
-| **F3 / F4** act_ratio, crps_all | **not measured** — h≥2 gate posterior deliberately not retrieved (#558) | open |
+| **F3 / F4** act_ratio, crps_all | ⛔ **BACK-FILLED 2026-10-17: act_ratio at h18 = **2.3520** (over-fires 2.35×). The original "not measured" was WRONG about what act_ratio needs — it reads the EMITTED COMPOSED draws (`lr_sb_best`, (2333448, 16) = 64,818 cells × 36 months × 16 draws), which DID come home in `draws/`. Only the raw `by_*` gate posterior at h≥2 died with the pod, and act_ratio does not use it. Measured by the pos_weight arm's readout; see `2026-10-16_pos_weight_arm_outcome/OUTCOME.md` §8.5. | **closed** |
 
 ## Predictions
 

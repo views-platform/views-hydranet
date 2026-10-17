@@ -164,7 +164,7 @@ this one.
 | **F3** | `crps_all` worsens by **> 5%** | fails FAO-02's own bar in the wrong direction. |
 | **F4** | `act_ratio` at h18 **>** the as-run arm's | ⛔ unexpected direction. This arm lowers eagerness; firing more would mean the knob does not do what its own loss says. A **finding**, not something to tune away. |
 | **F5** | emitted positive fraction leaves **[0.55, 0.85]** | the composition moved when only the gate loss was supposed to — a confound. **VOID.** |
-| **F6** | the arm's config differs from `amber_kestrel` anywhere but `loss_class_pos_weight` | **VOID** |
+| **F6** | the arm's config differs from `amber_kestrel` anywhere but `loss_class_pos_weight` **or `trajectory_log_path`** | **VOID** |
 | **F7** | artifact arrives without all three files + `PROVENANCE` with `lessons ≥ 300` and `mode: production` | **VOID** — reuse `2026-10-12_underfire_diagnosis/vehicle.py`'s gate verbatim |
 | **F8** | training diverges, NaNs, or the stability gate trips (C-184 BatchNorm seed-bimodality) | **VOID, not negative** (C-307) |
 
@@ -250,3 +250,57 @@ saying whether removing the improper tilt bought anything; a `found, not chased`
 
 Checked against `reports/GLOSSARY.md`. **`pos_weight`** is locked (§3, "the gate's eagerness knob
 (higher = fires more)"), as is **weighted_bce**. No new term introduced; no edit needed.
+
+
+---
+
+# AMENDMENT 1 — F6 contradicted §6, and the budget was ~4× wrong. 2026-10-17, AFTER the run.
+
+⛔ **Both of these are drafting defects in this document, recorded after the fact rather than
+edited away.** The run is complete; nothing here changes a threshold or a verdict. The F6 wording
+is corrected above *and* the original is preserved in this amendment, because a pre-registration
+that is silently rewritten once the results are in is worthless.
+
+## 1. §6 mandated the thing F6 voided on
+
+**As originally written**, F6 read: *"the arm's config differs from `amber_kestrel` anywhere but
+`loss_class_pos_weight` ⇒ VOID"* — while **§6 of the same document MANDATED** setting
+`trajectory_log_path`. So the plan required a second config difference and voided the run for
+having it. The arm duly differed in two values and F6 tripped **literally**.
+
+⚠️ **Ruling: Simon ruled the experiment NOT VOID on 2026-10-17**, after being shown the
+contradiction and the cost of the alternative (re-run the control with logging enabled, ~12 h,
+~$16). The substantive basis, read from the code: `training_engine.py:1423-1470` registers a
+**read-only** forward hook that accumulates `_o.detach().mean().item()` and writes a CSV — no RNG
+draw, no gradient path, no parameter touched, and `:1422` states the default case is
+*"byte-unchanged"*.
+
+⚠️ The residual risk, named not dismissed: that is a **code read, not a measurement.** Nobody ran
+the control twice to prove byte-identity, and that measurement does not exist.
+
+F6 above now exempts `trajectory_log_path` explicitly, so the next arm does not inherit the
+contradiction. **The instrumentation is mandatory and must therefore not be a void condition.**
+
+## 2. ⛔ The budget was wrong by ~4×
+
+§6 said *"one pod, ~3 h, ~$2.25."* The actual comparable run — `amber_kestrel`, 2026-10-13, same
+grid, same hardware class, 300 lessons plus the 13-origin evaluation — took **9 h 24 m**:
+its MANIFEST records `source: predictions_calibration_20261013_010739` (01:07:39Z) and
+`finished: 2026-10-13T10:31:36Z`. Cost was roughly **$7–13**, not $2.25.
+
+I inherited the ~3 h / $2.25 figure from the composition arm's pre-registration **without checking
+it**, and the `copper_kestrel` run bore out the longer number. ⛔ **I have no n=3 measurement; I
+never did.** The *"202–272 min, measured n=3"* figure that circulates in the configs is not mine
+and I cannot source it. **The MANIFEST is the only evidence either repo holds, and it says 9 h 24 m.**
+Future pre-registrations must quote the MANIFEST, not a prior document's estimate.
+
+## 3. Two thresholds cannot discriminate, and that is also mine
+
+P-1's `≤ 0.010` was sized on `violet_visitor`'s 0.0054 and **the control fails it** (0.0154).
+P-5's `[0.55, 0.85]` was sized on an expectation the composition arm itself missed and **the control
+fails it too** (0.4999). So F1 and F5 **as written** cannot distinguish arm from control; what
+discriminates is the paired contrast on one script and one dataset. The verdict stands; that
+justification does not. See `2026-10-16_pos_weight_arm_outcome/OUTCOME.md` §5.1.
+
+**Lesson, for the next plan:** size absolute thresholds on the actual control, or state them as
+paired differences from the outset.
