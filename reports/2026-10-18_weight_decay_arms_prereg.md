@@ -885,17 +885,31 @@ The plan's primary question was *"is `weight_decay` the cause of the under-dispe
 
 ## 1 — Every pair guard is keyed to `EXPERIMENT_ARMS`, so a replicate has NO pair guard of any kind
 
-`tests/test_roster_conformance.py` — all five pair guards are `@pytest.mark.parametrize("arm", sorted(EXPERIMENT_ARMS))`:
+> ✅ **FIXED by views-models #566 / PR #582, merged `4c29fb9e`. Amendment 11 records what changed and what it did NOT fix.** The description below is kept as the state this amendment was written against; the struck block is **no longer the code.**
+
+~~`tests/test_roster_conformance.py` — all five pair guards are `@pytest.mark.parametrize("arm", sorted(EXPERIMENT_ARMS))`:~~
 
 ```
-:765  the declared-contrast check
-:798  differs-from-its-control-only-on
-:880  byte-identity over ARM_IDENTICAL_FILES   <- the one they found
-:926  (pair guard)
-:949  (pair guard)
+~~:765  the declared-contrast check~~
+~~:798  differs-from-its-control-only-on~~
+~~:880  byte-identity over ARM_IDENTICAL_FILES   <- the one they found~~
+~~:926  (pair guard)~~
+~~:949  (pair guard)~~
 ```
 
-⛔ **So it is not "the byte-identity test misses replicates". It is that the entire pair-guard apparatus is keyed to `EXPERIMENT_ARMS`, and a model outside it is unguarded as a pair in every respect** — no genome check, no byte-identity, nothing.
+✅ **Now (verified in the merged tree):** five of the seven run over `PAIRED_MODELS`, which is `EXPERIMENT_ARMS ∪ SEED_REPLICATES`, and two keep `EXPERIMENT_ARMS` because they are contrast assertions a replicate must NOT satisfy:
+
+```
+:873   test_the_arm_is_its_declared_values                                    arm    <- CONTRAST, stays
+:906   test_the_arm_differs_from_its_control_only_on_its_declared_variable    arm    <- CONTRAST, stays
+:1013  test_the_paired_model_shares_its_controls_data_configuration_byte_for_byte   paired   <- the one they found
+:1059  test_the_paired_model_is_evaluated_the_same_way_as_its_control         paired
+:1078  test_a_paired_model_is_neither_a_roster_member_nor_an_ensemble_constituent   paired
+:1097  test_the_paired_models_rationale_survives_readme_regeneration          paired
+:1183  test_a_paired_model_is_a_candidate                                     paired
+```
+
+⛔ **So it is not "the byte-identity test misses replicates". It is that the entire pair-guard apparatus is keyed to `EXPERIMENT_ARMS`, and a model outside it is unguarded as a pair in every respect** — no genome check, no byte-identity, nothing. **That was the gap; it is now closed by widening five of the seven.**
 
 And `:883-890` states the hazard in its own words: `REGION = "land"` → `"africa_me_legacy"` *"trains it on 13,110 Africa/ME cells against a control trained on 64,818 global land cells, **makes the comparison meaningless, and leaves every test in the repository green**."*
 
@@ -1058,3 +1072,87 @@ Recorded because a negative result from a check is a result: **Amendment 2 §1's
 ⛔ **So the sigmoid is the SHARED UPSTREAM of both consumers — which is a stronger argument for the boundary than the single-site version.** Correcting at either sigmoid necessarily touches the autoregressive feedback. **The emitted gate cube is the only point downstream of the split.**
 
 ✅ **And the inert-knob trap is confirmed with its mechanism.** `extra = "allow"` at `config_initializer.py:1561`, and the near-miss guard `reject_near_miss_keys` at `:1503` **cannot** catch it: it returns early when `abs(len(a) − len(b)) > 1`, and `gate_temperature` (16) vs `gate_threshold` (14) differs by **2**. **Verified.** ⛔ **So a `gate_temperature` key validates silently, does nothing, and no guard in the library says so — C-324's signature, confirmed by construction rather than by analogy.**
+
+---
+
+# AMENDMENT 11 — ⛔ F13 HAS THE SAME GAP THE GUARDS HAD, AND IT FAILS IN THE OPPOSITE DIRECTION. 2026-10-19.
+
+**Source:** the `views-models` seat, reporting S1 (#566) merged as PR **#582** / `4c29fb9e`, six checks green. They flagged two renamed names. ⛔ **Verified in the merged tree — and the rename is the smallest of the three things this changes.**
+
+---
+
+## 1 — ✅ The names, verified rather than taken on report
+
+| what | status |
+|---|---|
+| five pair guards renamed `test_the_arm_*` → `test_the_paired_model_*`, argname `arm` → `paired`, set `EXPERIMENT_ARMS` → `PAIRED_MODELS` | ✅ **confirmed** at `:1013/:1059/:1078/:1097/:1183` |
+| two CONTRAST guards keep `test_the_arm_*` / `arm` / `EXPERIMENT_ARMS` | ✅ **confirmed** at `:873/:906` — and this is right, not an oversight: they assert a model **differs** from its control, which a replicate must **not** satisfy |
+| `PAIRED_MODELS = EXPERIMENT_ARMS ∪ SEED_REPLICATES` | ✅ confirmed, `:229-232` |
+| **`ARM_IDENTICAL_FILES` keeps its name** | ✅ confirmed, `:171` region — **F13's citation stands unchanged** |
+| `CORE_GENOME` keeps its name | ✅ confirmed — F13's second citation stands |
+
+**Amendment 8 §1 is corrected in place** with the stale line-number block struck rather than deleted. ⚠️ **Note the shape: Amendment 8's text was not wrong when written and is wrong now, because the code it described was fixed in response to it.** That is the good case, and it still has to be marked, or a reader six months out finds a false description of a file and no way to tell which direction the staleness runs.
+
+## 2 — ⛔ THE REAL FINDING: F13 PERMITS EXACTLY THE DEFECT THEIR NEW GUARD FORBIDS
+
+Their most consequential addition is the seed's **inverse**: nothing required a replicate's seed to **differ** from its control's, so a replicate carrying its control's own seed *"passed every guard and contributed zero to σ̂."*
+
+⛔ **F13, as this document locked it in Amendment 8 §3, has the identical hole:**
+
+> *"…identical in `CORE_GENOME` **except** `np_seed`/`torch_seed`."*
+
+⛔ **"Except" EXEMPTS those keys from the identity requirement. It does not require them to differ.** Three replicates all carrying seed 42 satisfy F13 word for word, and the readout would print the assertion as a **pass**.
+
+**The design is safe — the plan names 42/43/44 (Amendment 5 §2, §831) and views-models declares them per replicate. But F13 is the thing the number is checked against, and it would not catch it.**
+
+## 3 — ⛔⛔ AND IT FAILS IN THE OPPOSITE DIRECTION TO THE ONE AMENDMENT 8 WAS WRITTEN FOR, WHICH IS WORSE
+
+Amendment 8 §2's entire argument was that config divergence **inflates** `σ̂`, raising every threshold, making every effect fail — *"indistinguishable from an honest null"*, i.e. **mimicking the outcome already pre-registered as expected.** Conservative, and therefore survivable.
+
+⛔ **Seed collision does the reverse.** Every threshold in this plan is `C = k·σ̂` — `σ̂` is in the **denominator** of the comparison. So:
+
+| corruption | effect on `σ̂` | effect on `C` | what it mimics |
+|---|---|---|---|
+| config divergence (Amendment 8) | **inflates** | rises | ⚠️ a null — the expected result. Conservative |
+| **seed collision (this amendment)** | ⛔ **deflates toward 0** | ⛔ **falls toward 0** | ⛔ **a RESOLVED EFFECT. Anti-conservative** |
+
+⛔ **With `σ̂` under-stated, any nonzero difference clears the threshold.** And the plan cannot lean on determinism to bound how far it deflates — **Amendment 6 withdrew the determinism precondition** — but the direction does not depend on determinism at all: identical seeds can only ever make three runs **more** alike than three distinct seeds would, so `σ̂` can only be **under-stated**, and a threshold divided by an under-stated spread can only be **too permissive**.
+
+> ⛔ **This is the first corruption in this plan that would manufacture a positive result rather than suppress one.** Everything else on record here fails safe. **This one does not, and F13 as written would sign it off.**
+
+## 4 — F13 amended
+
+| | fires if | then |
+|---|---|---|
+| ~~**F13**~~ | ~~`σ̂` is reported without the byte-identity and genome assertion for all three replicates~~ | ~~VOID the number~~ |
+| ✅ **F13 (amended)** | `σ̂` is reported without **(a)** byte-identity across all six `ARM_IDENTICAL_FILES`, **(b)** `CORE_GENOME` identity except `np_seed`/`torch_seed`, **AND (c)** a positive assertion that the three `np_seed`/`torch_seed` values are **PAIRWISE DISTINCT** | ⛔ **VOID the number.** (a) and (b) alone admit a zero-spread cell |
+
+⛔ **(c) is not a tightening of (b). It is the direction (b) cannot express**, because an exemption and a requirement are different statements about the same key, and this document had only written one of them.
+
+## 5 — ⚠️ AND F13 CURRENTLY HAS NO MECHANICAL BACKING. THE PEER SAID SO AND IT MUST BE IN THIS PLAN.
+
+Their words, and this is the part a reader of the merge would otherwise get wrong:
+
+- **`SEED_REPLICATES` is `{}`** (verified, `:161`). So the replicate guards **collect zero cases**, and `PAIRED_MODELS` currently equals `EXPERIMENT_ARMS`. **The guards that back F13 exist and cannot fire.**
+- They proved all five mutations against a **synthetic** pair (`bright_starship` → `heavy_freighter`). ⛔ **Their own framing, kept verbatim because it is the honest distinction: that is evidence the guards are NOT DECORATIVE — it is NOT evidence they HOLD on the real `silver`/`bronze`/`cobalt` configs.**
+
+> ⛔ **So F13 is satisfied by a human assertion at readout time, not by the suite, until views-models #567 declares the three replicates.** **#569 must therefore assert (a), (b) and (c) directly against the three real configs and record the values — not record that the suite is green**, because while `SEED_REPLICATES` is empty a green suite says nothing about them. ✅ Added to #569's scope.
+
+## 6 — C-163, and it is the same lesson as Amendments 9 and 10
+
+They registered **C-163** (Tier 2): C-120 closed with a rule asserted as *generalisable* — *"an escape hatch must be guarded at the same scope it operates"* — and this change broke it three ways at once **in the sibling of the file that cites it.** Their transferable form:
+
+> ⛔ **When a declaration gains a sibling, audit the DECORATORS, the HATCHES and the INVERSE assertions.**
+> **A rule in a register is a rule someone must remember; a guard is one the suite enforces.**
+
+⛔ **That is this document's Amendment 9 and 10 lesson in different vocabulary, and the third place it has now been learned in two days:**
+
+| | the sibling | what was not re-audited |
+|---|---|---|
+| **Amendment 9** | a new arm table | the **old** table, still cited as authority by F1 |
+| **Amendment 10** | a new allocation | every **threshold** the allocation determines |
+| **Amendment 11** | a replicate beside an arm | the **inverse** assertion, in their guards **and in F13** |
+
+⛔ **All three are the same defect: a new case was added, and the statements that were only true of the old case were not revisited.** Amendment 9's standing requirement catches the first two by making an amendment name what it supersedes. **It does not catch the third**, because F13 did not supersede anything — it was incomplete from the moment a second kind of pair existed.
+
+> ⛔ **ADOPTED, and it is the stronger rule: when this plan gains a new KIND of unit, every falsifier must be re-read for the direction it does not constrain.** An exemption is not a requirement, and a falsifier that only forbids one sign of an error is half a falsifier.
