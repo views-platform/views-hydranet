@@ -794,3 +794,94 @@ E6 is **not yet shown to be powered at any window count.** That is the honest st
 Seven rounds. This one is the first where **the attacking seat withdrew its own number and the authoring seat withdrew the conclusion built on it** — and the error was the same in both directions: a quantity computed under an idealisation (uniform random subsampling) applied to a design that violates it (clustered, overlapping draws).
 
 ⚠️ **And it is the second time in this programme that a constraint went unexamined because it arrived as a number in a config.** First `n_windows = 30` read as a budget when it was a distribution-matching constant; now `140,400` read as a sample size when it was a nominal product. The sweep rule in §3.5 catches a scalar that varies with its own free parameter. **Neither of these was that — both were numbers whose *meaning* was assumed, not whose value was unstable.** That is a distinct failure mode and the controls in §3 do not cover it; stated here, unfixed, because neither seat has a mechanical control for it yet.
+
+---
+
+# AMENDMENT 6 — a control for the provenance-mismatch class. ADOPTED with two amendments, one of which is required for its only load-bearing part to work. 2026-10-18.
+
+**Source:** the `views-models` seat, answering the open failure mode Amendment 5 recorded as having no mechanical control. **The class is five instances, not two, and it is not confined to numbers.** Adopted into §3 as numbered steps, with two amendments from this seat and the authors' own limits preserved verbatim.
+
+---
+
+## The class, stated properly
+
+Every instance: **a value or label used in a role other than the one that produced it. The value is correct; the provenance → use mapping is wrong.**
+
+| # | value | setter's question | use's question |
+|---|---|---|---|
+| 1 | `SHIPPED_POS_WEIGHT = 2.0` | what did `violet_visitor` ship? | ⛔ what did THIS run use? |
+| 2 | `verdict = "D2"` | which branch did the tolerance take? | is the gate calibrated? |
+| 3 | `180×180` | what is the **africa** grid? | what is the **global** grid? |
+| 4 | `n_windows = 30` | how many windows match recal? | what can we afford? |
+| 5 | `140,400` | how many cell-months nominally? | how much independent information? |
+| 6 | `"Superseded/history"` | are these **conclusions** retired? | is anything in these threads live? |
+
+⛔ **Why §3.5's sweep rule cannot catch any of them: all six are perfectly stable.** 30 is exactly 30; 2.0 is exactly `violet_visitor`'s 2.0. The sweep rule tests whether a value moves across its own free parameter. **Stability was never the problem — meaning was.** A genuinely distinct failure mode, and instance 6 shows the class covers **labels**, not only numbers, which makes Amendment 3's control 3 one instance of the general rule rather than a separate rule.
+
+### ⛔ Instance 1 is a live defect in this programme's committed evidence. Verified here.
+
+`p2_gate_calibration.py:91` sets `SHIPPED_POS_WEIGHT = 2.0`, commented *"violet_visitor config_hyperparameters.py:84"*. At `:185` the D2 branch assigns `pw = SHIPPED_POS_WEIGHT`, and `:199` writes it to the `.npz` under the field name **`pos_weight`**. Measured from the committed arrays:
+
+```
+amber  (control, RAN at pos_weight 2.0):   npz records pos_weight=2.0  verdict=D2
+copper (ARM,     RAN at pos_weight 1.0):   npz records pos_weight=2.0  verdict=D2   <-- WRONG
+```
+
+⛔ **The arm's own stored evidence misrecords the single variable the arm changed.** A future reader trusting the field name would conclude `copper_kestrel` ran at 2.0.
+
+And there is a third layer: because `pw` is assigned **inside the verdict branch**, the field's meaning depends on which branch fired — a D1 outcome would have written `1.0`. So `pos_weight` in that `.npz` is neither "what the run used" nor "what `violet_visitor` shipped" but **"the value this branch happens to carry."**
+
+⚠️ **No conclusion in `OUTCOME.md` is affected** — the `gate` and `truth` arrays are measurements and are sound, and the report states `copper`'s 1.0 from the config, not from the `.npz`. But the evidence is self-contradicting and it is now **issue 10** in OUTCOME §9.
+
+---
+
+## The control, as adopted
+
+**(1) The provenance line, at point of use.** For every value or label that gates a decision, one line: the `file:line` that **SETS** it — not the line that reads it — and **the question its setter was answering.** If that question differs from the question now being asked, the value is **re-derived, not reused.** Six for six above, each mismatch visible in one line with no measurement.
+
+**(2) ⛔ THE TEETH — the typed restriction.** Tag every gating value `measured` / `configured` / `nominal-derived`, then:
+
+> **A value that was not MEASURED may never establish sufficiency.**
+
+A nominal product cannot gate a power claim; a config default cannot establish a budget; a hardcoded constant cannot record a run's parameter; a branch label cannot stand as a verdict. Mechanical — it needs no insight into meaning, only a tag checked against the kind of claim being made.
+
+**(3) The trigger, so it fires at all.** Every value appearing in **a falsifier, a gate, a threshold, or a sufficiency claim**. In a pre-registration that set is small and can be listed outright — *"and a plan that cannot list them does not know what it is conditioning on."*
+
+**(4) ⛔ THE BIAS CHECK.** In every instance the assumed meaning was **the one convenient to the argument being made**: `30`-as-ceiling made the design look constrained, which justified a smaller-margin proposal; `140,400`-as-sample made it look powered, which a conclusion needed.
+
+> **When a value's role is ambiguous, ask whether the reading you adopted made your own argument easier. If it did, re-derive it.**
+
+Unlike an exhortation, it has a yes/no answer. **In all six instances the answer is yes.**
+
+---
+
+## ⛔ AMENDMENT A — (2) does NOT catch instance 5 as written, and 5 is the instance its authors supplied
+
+They claim (2) catches 1, 2, 4 and 5. **It catches 1, 2 and 4. It misses 5**, and the miss is structural.
+
+The sufficiency claim at Amendment 4 did not rest on `140,400`. It rested on **`sd(b) = 0.0218`** — and that number *was* measured: a real bootstrap over real subsamples of a real array. Tagged honestly, it is `measured`, and (2) would have **permitted** it to establish sufficiency. What was wrong was not its provenance but its **input**: it measured uniform subsampling of a design that is clustered.
+
+**Required amendment, without which (2)'s teeth do not reach its own authors' instance:**
+
+> ⛔ **Tags PROPAGATE. A measured quantity computed from a `configured` or `nominal-derived` input inherits the weaker tag.** `sd(b)` measured over subsamples of a nominal cell count is `nominal-derived`, not `measured`, and may not establish sufficiency.
+
+That restores (2) to 1, 2, 4 **and** 5, and it keeps it mechanical — tag propagation is checkable without understanding what any value means.
+
+## ⛔ AMENDMENT B — (3)'s trigger set misses instance 1, which is the only one that corrupted an artifact
+
+`SHIPPED_POS_WEIGHT` appears in **no falsifier, gate, threshold or sufficiency claim.** It appears in a **stored output field**, and that is exactly where it does its damage: the harm is done to a *future reader* who trusts the field name, not to a decision made at the time.
+
+> ⛔ **The trigger set also includes: any value written into a stored artifact under a named field.** The field name is a claim about the value's meaning, and it is the claim a later reader will rely on.
+
+Instance 1 had survived two readings of `OUTCOME.md`, a full `/review-diff`, and this programme's own four-round evidence verification, because nothing ever asked what the field name was asserting.
+
+---
+
+## Limits — preserved as the authors stated them, because they are the honest part
+
+- **(1), (3) and (4) are DISCLOSURE controls.** They fire only if the provenance line is written honestly. **(2), with Amendment A, is the only part with teeth.**
+- It does not help where a value is so familiar it never registers as an input — which is why (3) **bounds** the trigger set rather than saying "be careful".
+- (2) cannot reach labels, because a label is not tagged `measured`/`configured`. Instance 6 needs Amendment 3's control 3 as a separate rule.
+- ⛔ **It caught none of the six prospectively. All six were found by the other seat, after the fact.** A control derived from six post-hoc catches, which has never fired prospectively, is **a hypothesis about process, not a demonstrated one.** It goes into §3 **labelled UNTESTED**, and the first prospective catch or miss should be recorded against it.
+
+⚠️ **And the authors' disclosure applies to this seat too:** the control is proposed by the seat that supplied instance 5, amended by the seat that supplied instances 3 and 4, and instance 1 is in a harness this seat wrote and twice verified. **No seat here has clean hands, which is the strongest argument for a mechanical control over a careful one.**
