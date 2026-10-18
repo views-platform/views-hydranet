@@ -1374,3 +1374,99 @@ R1–R4 are post-hoc monotone transforms of the **stored gate and truth arrays**
 **That is a materially different thing to tell Simon**, and it costs seconds. **Recommending R1 without F7 would be the fourth time in this programme a remedy was advanced on its mechanism rather than its effect** — after `pos_weight`, the NLL denominator, and the BatchNorm recal.
 
 **Revised recommendation to Simon: run Tier 2 — it is seconds — and report R1 with F7's verdict attached.** If F7 fires, R1 is still worth doing and must be described as cosmetic. If it does not, R1 is the first intervention in this programme with a measured benefit.
+
+---
+
+# AMENDMENT 13 — Tier 2 has run. ✅ R1 confirmed for the SHIPPED model, ⛔ fails for the arm, and "cosmetic" was my error. 2026-10-18.
+
+**Source:** the `views-models` seat executed Tier 2 after this seat refused the close. **It changed what we tell Simon twice over, and it took minutes.** The refusal was correct.
+
+---
+
+## 1 — The results
+
+**AMBER — the shipped baseline:**
+
+| | `b` held-out | `\|gate−obs\|` | AP | sharpness |
+|---|---|---|---|---|
+| raw | 1.1917 | 0.00981 | 0.54101 | 0.03439 |
+| **R1** (1 param) | **1.0378** | **0.00287** | 0.54101 | 0.03380 |
+| R3 (2 param) | 1.0037 | 0.00335 | 0.54101 | 0.03572 |
+| R4 (isotonic) | 0.9907 | 0.00482 | 0.53837 | 0.03555 |
+
+`T` mean **0.8708**, spread **0.8%** across 13 origin folds.
+
+| | verdict |
+|---|---|
+| **F2** `\|b−1\| = 0.0378` vs 0.05 | ✅ PASS |
+| **F9** `T` spread 0.8% vs 15% | ✅ PASS — **a single global temperature IS well-defined** |
+| **F8** R4 0.00482 vs R1 0.00287 | ✅ PASS — **isotonic is 68% WORSE; the defect IS a pure slope** |
+| **F7** `ΔAP = 0.00000` exactly | ⛔ **FIRES** |
+| **F10** rank identity True, 14 new ties | ✅ PASS |
+
+✅ **R1 cuts held-out calibration error by 71% with ONE parameter, stable to 0.8% across folds, and the non-parametric ceiling cannot beat it.** ⛔ **The first intervention in this programme with a measured benefit.**
+
+**COPPER — the killed arm:**
+
+| | `b` held-out | `\|gate−obs\|` |
+|---|---|---|
+| raw | 1.3633 | 0.00878 |
+| **R1** | **1.2482** | **0.01136** ⬆ **worse than raw** |
+| R3 | 1.0028 | 0.00929 |
+| **R4** | 0.9928 | **0.00430** ← best |
+
+**F2 FIRES** (`|b−1| = 0.2482`) and **F8 FIRES** (isotonic beats R1). ⛔ **R1 is not the matching fix for the arm.**
+
+## 2 — ✅ Their reconciliation is right, and it survives on a DEFENSIBLE estimator
+
+They explain F8's asymmetry by copper's large intercept, citing the **binned** `a = +1.645` from §1. ⚠️ **That number is confounded** — OUTCOME §8.6 established the bin-unweighted intercept is reproducible to 0.0001 from bin weighting plus the slope defect alone. So I refitted **bin-free**:
+
+```
+amber   bin-free  a = +0.1584   b = 1.1875
+copper  bin-free  a = +1.2980   b = 1.3596      <- 8.2x amber's intercept
+```
+
+✅ **The asymmetry is real and their mechanism holds on the clean estimator.** Amber's defect is **slope-only** (intercept ≈ 0.16); copper's is **slope AND level** (1.30), and one parameter cannot address two. **R3's two parameters fix it exactly** (`b = 1.0028`).
+
+⛔ **So "the defect is a pure slope" is TRUE for the shipped model and FALSE for the arm** — and it was predictable from a number published in rev 2 that neither seat connected to F8. Their mechanism for `T`: NLL-fitted temperature optimises **likelihood, not the slope**, giving `T = 0.9155` where the slope needs `1/1.36 = 0.73`.
+
+## 3 — ⛔ "COSMETIC" WAS MY ERROR. I retract it.
+
+I told Simon that if F7 fired I would describe R1 as **cosmetic**. ⛔ **That is wrong and their correction is right.**
+
+AP is rank-based and `R1` is monotone, so `ΔAP = 0` **by construction** — ✅ which is §3.2's structural argument confirmed numerically to five decimals, and a theorem rather than a measurement. But **the composed forecast is `gate × magnitude`**, so changing the stated probabilities **changes predicted counts**, and **AP cannot see that.**
+
+> ⛔ **R1 buys HONEST PROBABILITIES and nothing on the rank axis. Whether that is worthless or the entire point depends on whether the stated probabilities are consumed AS probabilities** — which, for a system delivering probabilistic forecasts to external partners, is a **product question, not a statistical one.**
+
+**That is Simon's judgement and this plan puts it to him as one, not as a verdict.**
+
+## 4 — ✅ AND THE FIRING-RATE RISK I WAS WORRIED ABOUT DOES NOT MATERIALISE
+
+`T = 0.8708 < 1` means `logit/T` **amplifies** the logits, and most cells sit at very negative logits — so I expected the mean gate to **fall**, worsening the under-firing that started this whole programme. Measured on amber:
+
+```
+true positive rate         0.003448
+raw   mean gate            0.004167   (1.209x truth)
+R1    mean gate            0.003278   (0.951x truth)     <- 21.3% lower
+```
+
+✅ **It falls, and it falls TOWARD the truth**: `|1.209 − 1| = 0.209` → `|0.951 − 1| = 0.049`. **R1 improves the aggregate occurrence rate as well as the slope.** The adverse direction I feared does not occur.
+
+**Free structural check:** cells above gate 0.5 are **1296 → 1296, unchanged** — `logit/T` preserves sign, so the count above 0.5 is invariant. Another confirmation of rank preservation, at no cost.
+
+⚠️ **F11 REMAINS UNRUN and R1 is NOT claimed to pass it.** `act_ratio` and CRPS are properties of the **composed** forecast, which Tier 2 does not build, and a 21% drop in mean gate is a ~21% drop in expected counts. **The guardrail that caught the CRPS artefact has not been applied to R1.** Their flagging this rather than glossing it is the right call, and it is the last gate before R1 goes anywhere near production.
+
+## 5 — H3 is NOT confirmed. Their point 4 is correct.
+
+F7 firing is **consistent with** a resolution limit but cannot establish one, because **AP is unchanged by construction under a monotone map — a test that cannot fail cannot confirm.** H3 stays live and untested, exactly as before. ⚠️ Worth noting this is the same reasoning I used against E2's exhaustive table, applied to my own hoped-for conclusion.
+
+## 6 — Standing, final
+
+| | status |
+|---|---|
+| **R1 on amber (shipped)** | ✅ **CONFIRMED by measurement** — 71% calibration gain, 1 parameter, `T` stable to 0.8%, isotonic cannot beat it, `ΔAP` exactly 0, aggregate rate improved. ⚠️ **F11 outstanding** |
+| **R1 on copper (killed arm)** | ⛔ **FAILS.** Its defect is slope **and** level; R3 is the matching fix there |
+| **"pure slope"** | ⛔ **arm-specific** — true for the shipped model, false for the arm |
+| **H1 / H4 / H2 / H3** | unchanged from Amendment 12 |
+
+⛔ **Nothing authorises F11, production use, or Tier 3.** What goes to Simon: **R1 is confirmed for the model that shipped, with F11 as the one remaining gate, and the "cosmetic" framing withdrawn** — the question is whether honest probabilities are worth having, and that is his.
