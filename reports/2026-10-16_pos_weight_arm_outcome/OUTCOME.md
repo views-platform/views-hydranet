@@ -5,6 +5,7 @@
 **Control:** `amber_kestrel` — the already-delivered run, gate trained at `pos_weight = 2.0`
 **Readout measured by:** the `views-models` session. **Written up and independently re-verified by:** this session.
 **Evidence:** `evidence/EVIDENCE.md` (273 lines of primary data) + the `.npz` arrays and scripts beside it.
+**Revision 3** (2026-10-18): §2.4's central identity upgraded from approximate to **exact**; §8.4's leading candidate **closed by derivation** and replaced with two named ones; §8.6 added; three issues added to §9. Rev 2 changed the *name* of the finding; rev 3 changes what to **do** about it. Nothing in §1–§6 is retracted.
 
 ---
 
@@ -126,10 +127,23 @@ Fitting `logit(observed p) = a + b·logit(gate)`. An honest gate gives `a = 0, b
 
 In logit space:
 
-- `s* = wp/(1+(w−1)p)` is approximately **a constant shift of `log w`** — it moves **`a`**.
+- `s* = wp/(1+(w−1)p)` is **EXACTLY a constant shift of `log w`** — it moves **`a`** and nothing else.
 - Temperature scaling is `logit / T` — it moves **`b`**.
 
-**The defect is in `b`. `pos_weight` does not have the degree of freedom the defect requires.** Tuning `w` only slides the crossing point along the curve; the curve keeps the wrong shape.
+⛔ **The first line is an identity, not an approximation** (rev 3 — rev 2 said "approximately" and understated the document's own strongest claim):
+
+```
+s*/(1 − s*) = [wp/(1+(w−1)p)] / [(1−p)/(1+(w−1)p)] = wp/(1−p)
+⟹  logit(s*) = log(w) + logit(p)          exactly, for all w > 0 and all p ∈ (0,1)
+```
+
+No small-`p` limit, no linearisation. **At the weighted-BCE optimum `pos_weight` has provably ZERO slope effect.**
+
+**The defect is in `b`. `pos_weight` does not have the degree of freedom the defect requires** — not approximately, not mostly, but as a matter of algebra. Tuning `w` only slides the crossing point along a curve that keeps the wrong shape.
+
+⚠️ Two consequences worth stating, because both were reached only after the peer review of rev 2:
+- The identity gives a **testable signature**: the fit's intercept should be `−log(w)`. On the data-weighted statistic the control gives **−0.9825** against a theoretical **−0.6931** — right sign, 0.29 logits out. (A *bin-unweighted* fit gives `+0.175` and appears to have the wrong sign; that is an artefact of bin weighting, not a finding. See §8.6.)
+- Because the effect is an exact intercept shift, **`pos_weight` cannot change ranks, AP, or resolution at its own optimum.** §4.3's measured AP residual is therefore not a `pos_weight` effect; see the note added there.
 
 That is why `w = 2` "worked": it put the crossing point above the bulk of the data, so the gate looked calibrated *where the median samples it*. `w = 1` dropped the curve and the compression became measurable.
 
@@ -145,7 +159,7 @@ That is why `w = 2` "worked": it put the crossing point above the bulk of the da
 
 The *shape* claim stands and is strengthened: the arm's error grows monotonically with the gate's confidence across four populated bins spanning 0.0008 to 0.1036. **A monotone ordering over that range is not seed noise**, so the shape is measured even at n=1. What changed is its name and its cause: **under-dispersion (slope), not bias (level)** — and it is **present in the control too**, not revealed by the arm.
 
-⛔ **The claim that must stay fenced is the CAUSE.** n=1, no seed replication. We have measured the shape; we have not identified what produces the compression.
+⛔ **The claim that must stay fenced is the CAUSE.** n=1, no seed replication. We have measured the shape; we have not identified what produces the compression. **Rev 3 narrows the field to two named candidates and one free experiment that separates them — §8.4.** It does not resolve it.
 
 ## 3. ⛔ The CRPS result is an artefact. It must never be quoted as a gain.
 
@@ -237,6 +251,8 @@ Prereg §3.2 argued *in advance* that AP **cannot** move by this arm's mechanism
 
 ⚠️ The note: paired by month the difference is **+0.0075**, bootstrap CI **[+0.0014, +0.0136]**, with the arm higher in **11 of 13** months. The CI **excludes zero** and its upper bound sits just outside the ±0.010 band. So this is **held-with-a-note, not a clean null** — there is a small, consistent positive residual that the monotone argument does not explain. Candidate explanations: seed noise (n=1, nothing separates it), or the altered loss changing what the trunk learned. **Unresolved, and §7 of the prereg forbids reading it as confirmation of the hypothesis.**
 
+⛔ **Rev 3 — the residual is NOT ATTRIBUTABLE, and the CI is measuring the wrong variance component.** The unit of randomisation for this intervention is the **training run**, and there is **one run per arm**. Pairing by month replicates the *evaluation*, not the *intervention* — the 13 months are 13 correlated reads of the same two artifacts, which is why the CI is tight. The prereg's own VOID rule (4) sizes the **seed** sd on AP at **~0.019**, and **+0.0075 is 0.39 of one seed sd**, so the whole CI lies inside it. By §2.4's exact identity `pos_weight` has no mechanism to move a rank-based score at all, so the right reading is: *two separately trained networks scored 0.0075 apart.* **Keep the number; drop the inference.** Attribution would need a seed replicate.
+
 ### 4.4 Traps in the evidence, confirmed
 
 | | |
@@ -288,7 +304,7 @@ Prereg §3.2 argued *in advance* that AP **cannot** move by this arm's mechanism
 
 - ⛔ **n = 1 per arm. No seed replication.** The pre-registration pre-commits that a screen **can kill an idea** and **cannot license a fleet change**. §2's mechanism is a **reading of the pattern** — strongly supported by the Gneiting & Ranjan theorem and by the monotone structure in §2, but **not separated from seed noise by measurement**. It must not be asserted as established.
 - **Calibration method, unchanged from P2:** posterior-mean gate over D=4 locked-dropout draws; bin edges `[0, .01, .05, .10, .20, .30, .40, .50, .60, .70, .80, .90, 1.01]`; medians over bins with n ≥ 1000; `NP_SEED = TORCH_SEED = 42`; `BASE_ORIGIN = 456`; `N_ORIGINS = 13`; `LEADIN_START = 421`; CPU. The positive fraction is a **pooled mean**, never a median over cells (draws quantise at 1/16).
-- **Two independent paths agree.** Local inference and the pod's own gate slice give P-1 within ~0.002 (control 0.0154 / 0.0175; arm 0.0303 / 0.0298), so the headline is not an artefact of either path.
+- **Two independent paths agree.** Local inference and the pod's own gate slice give P-1 within ~0.002 (control 0.0154 / 0.0175; arm 0.0303 / 0.0298), so the headline is not an artefact of either path. ⚠️ **Rev 3 — what this cross-check does and does not establish.** Both paths average over **D = 4** draws, not 4 against 16: `hydranet_inference.py:1707-1709` fills the gate cube with `np.repeat(prob_thwc[..., None], posterior_K, axis=-1)`, so the pod slice's 16 columns hold **4 distinct gate values repeated 4×** — the head-sample axis `K` is **pure duplication for the gate** and genuinely varies only the magnitude draws. So `g.mean(1)` over 16 columns is arithmetically the 4-draw mean, and `slice_calib.py:32`'s comment *"posterior-mean gate over the 16 draws"* is literally wrong. The agreement is therefore a **cross-stack** check (torch 2.10 vs 2.14) on an identical `D=4` structure — which is what we needed — and **not** evidence about draw count.
 - **Validation before interpretation.** P2's statistics block applied verbatim to the stored `violet_visitor` array reproduces its published 0.0054 / 0.0573 / 1.0365 **exactly**; the control's gate AP (0.5324) and positive fraction (0.4999) reproduce the composition arm's published values **exactly**. The harness is wired correctly.
 - **Stack skew.** Pod torch 2.14.1, local torch 2.10.0+cu128; numpy matches at 1.26.4. Mitigated twice: both arms measured on the **same** local stack, and cross-validated against the pod's own slice.
 - **Library version matched.** The pod ran `views-hydranet==0.1.3`; the local checkout is 0.1.3 with no library drift since the release tag.
@@ -305,6 +321,16 @@ Prereg §3.2 argued *in advance* that AP **cannot** move by this arm's mechanism
 ### 8.1 ⛔ There is NO honest `pos_weight`. Do not go looking for one.
 
 Two numbers were put forward and **both are void**: the readout's ≈1.55 and this session's corrected ≈1.41. Not merely support-dependent — **ill-posed**. `implied_w` varies 6.8× (control) and 12.8× (arm) across bins and changes the sign of the error inside each arm (§4.2), so both figures were medians of a non-constant.
+
+⛔ **Rev 3 — this is the first of THREE instances of one defect class, and the class now has a control.** All three were point summaries of a quantity that varies across its own free parameter and **straddles the value being tested**:
+
+| instance | the free parameter | the family | crosses |
+|---|---|---|---|
+| `implied_w` ≈ 1.5 (this section) | bin membership | 6.8× control, 12.8× arm | **1.0** |
+| the fit's intercept (§8.6) | bin weighting | 1.91 logits across bins | **zero** |
+| a "fit-free" stationary-condition ratio (§8.6) | bin count | 0.628 → 1.209 | **1.0** |
+
+**Standing rule, adopted jointly with the `views-models` seat on 2026-10-18 and now in force for the rest of this programme: before any scalar summary is reported, sweep whatever free parameter it depends on and show the family does not cross the value being tested.** Had it been in force, none of the three would have been published — two of them mine. The sweep is cheap; it is the only check that separates a measurement from an artefact of its own tuning.
 
 ⛔ **`pos_weight` is the wrong shape of correction** (§2.4): it moves the level `a`, and the defect is in the slope `b`. Searching over `w` can only slide the crossing point along a curve that stays bent. **Any `w` that produces good calibration numbers will have produced them by putting the crossing where the median happens to look** — which is precisely the situation we are in now with `w = 2`, and precisely the failure this arm exposed.
 
@@ -329,7 +355,50 @@ It lives **inside** the loss, so minimising that loss with respect to it is dege
 
 ### 8.4 The real target is whatever COMPRESSES the gate's logits
 
-§2 identifies the defect as under-dispersion with `b ≈ 1.14` in the control and `b ≈ 1.42–1.46` in the arm. **What produces that compression is unknown and is the next question.** Candidates worth naming, none tested: the `pos_weight` tilt interacting with the sigmoid's saturation; the shared trunk (§9's open question); label noise in a 99.7%-zero field flattening the learned logits; or the MC-dropout posterior mean over D=4 draws itself shrinking extremes toward the centre — ⚠️ **that last one would be an artefact of the measurement rather than the model, and it is cheap to check by recomputing the curve from a single dropout pass.**
+§2 identifies the defect as under-dispersion with `b ≈ 1.14` in the control and `b ≈ 1.42–1.46` in the arm. **Rev 3 narrows the field.** Rev 2 named four speculative candidates and pointed the reader at the MC-dropout posterior mean as the leading, cheap-to-check one. **That candidate is now closed on theory, and two better ones are named.**
+
+#### ⛔ CLOSED by derivation: the MC-dropout posterior mean is NOT an independent cause
+
+Rev 2 reasoned that averaging `D = 4` draws of a sigmoid shrinks extremes toward the centre. The algebra is right — `E[sigmoid(z+ε)] ≈ sigmoid(z/T)` with `T = sqrt(1 + πσ²/8) > 1` — but **training cancels it.** Training runs `LockedDropout` with `locked=False` (`locked_dropout.py:61-62`), i.e. a **fresh mask on every forward call**, so the loss averages over masks. Setting the expected weighted-BCE gradient to zero over both `y` and `ε`:
+
+```
+E_ε[ sigmoid(z+ε) ]  =  w·p / (1 + (w−1)·p)
+```
+
+**The stationary condition is on the MEAN OF THE SIGMOID over masks — which is exactly the functional inference reports.** The Jensen compression is absorbed into the weights during training. It therefore contributes nothing on its own, and bites only to the extent that something displaces the model from that optimum. Which is the next two items.
+
+⚠️ This also means a plausible "free fix" is **not** free: reporting `sigmoid(mean logit)` replaces a calibrated functional with an uncalibrated one and may **overshoot** to `b < 1`.
+
+#### ⛔ CO-LEAD CANDIDATE — BatchNorm recalibration fitted on the wrong distribution
+
+`_recalibrate_bn` (`training_engine.py:1294-1301`, `bn_recalibrate: True` in both arms) resets every BatchNorm's running statistics **after training** and re-accumulates them forward-only with `momentum=None` over **real 32×32 activity-seeking curriculum windows** (positive rate 0.004508). Inference then runs the **180×180 global land grid** (0.003448) with BatchNorm in eval mode, applying those fixed statistics.
+
+The class head has BatchNorm immediately upstream of its final linear layer (`bn_dec_conv1_head1_class`, defined at `HydraBNrecurrentUnet_06_LSTM4.py:249`, used at `:653`). If the recalibration distribution's activation variance exceeds the global grid's — which an activity-enriched window selection would produce — eval-mode BatchNorm divides by too large a σ, **shrinking the features entering the head and multiplicatively compressing the logit.**
+
+It fits every property of the defect: a **pure slope error in logit space**; applied **after the last gradient step**, so no training optimum can absorb it; **present in both arms**; independent of `pos_weight`. And it is precisely C-184's blind spot — that fix was validated on flipping seed-bimodal eval collapse (*"6/6 bad seeds GOOD"*, per its own docstring), **never on calibration slope**.
+
+#### ⛔ CO-LEAD CANDIDATE — `weight_decay: 0.1` on the class heads
+
+Both arms set `weight_decay: 0.1` — **ten times the AdamW default** — and `choose_scheduler` builds `AdamW(unet.parameters(), weight_decay=config["weight_decay"])` (`utils/utils.py:277-282`) with **no exclusion list**. So `dec_conv4_head{1,2,3}_class` are decayed. The mechanism for excluding a group already exists and is used twice for the balancer (`training_engine.py:113`, `:136`); the heads are simply not in it.
+
+Decoupled decay shrinks the head's weights multiplicatively every step, and shrinking a final linear layer **compresses its output range** — the textbook cause of under-confidence in a regularised classifier. Critically, it interacts with the item above: `E[s] = w·p/(1+(w−1)·p)` is the stationary point of the **loss**, while AdamW optimises **loss + penalty**, whose optimum is displaced toward smaller weights, i.e. **less extreme logits**. **Weight decay moves the optimum away from calibration by construction, in the compressing direction** — so it predicts the sign *a priori*, with no statistic required.
+
+#### The null, carried explicitly — a resolution limit
+
+Under-dispersion is also the generic signature of a predictor whose features cannot resolve per-cell `p`. If the model separates "quiet" from "active" but not 2% from 8%, the best achievable curve **is** flatter than truth, `b > 1` is an honest statement of limited resolution, and **no monotone recalibration can fix it** — it can only re-centre it. This is the hypothesis under which §8.2's temperature scaling "succeeds" on calibration and buys nothing real.
+
+#### ✅ Ruled out cheaply: it is not under-training
+
+`copper_kestrel`'s trajectory CSV (the per-lesson instrumentation shipped in PR #398, enabled for the arm only) gives the class-head logit mean per lesson. Block means: `−6.937 → −7.588 → −7.987 → −8.121 → −8.030 → −7.984`. OLS slope over lessons 100–200 is **−0.0019/lesson**; over 200–300 it is **+0.0003/lesson** — opposite in sign and an order of magnitude below the within-block sd (~0.09). **The head's logit LEVEL is converged by roughly lesson 150.** ⚠️ Necessary, not sufficient: the hook records only the mean (§9 issue 7), so a still-expanding *spread* cannot be excluded from existing artifacts.
+
+#### The free experiment that separates the two co-leads
+
+Fit the calibration slope on **32×32 activity-seeking curriculum windows** — the BatchNorm-recalibration distribution — and compare it to the global-grid slope. `VolumeSampler` + `CurriculumLearner` are already driven this way at `reports/2026-10-13_composition_arm_outcome/r3_per_target.py:93-108`.
+
+- **BatchNorm candidate predicts:** `b ≈ 1` on the windows, `b ≈ 1.15` globally.
+- **Weight-decay candidate predicts:** `b > 1` on **both**, since decay compresses the weights themselves.
+
+⚠️ Its method must be locked before it runs — the window slope has **two** free parameters (bin count and window count) and §8.1's standing rule applies to it. That is the job of `reports/2026-10-18_gate_underdispersion_prereg.md`.
 
 **Treatments are secondary. This is a diagnosis task on arrays already in hand, not an arm.**
 
@@ -340,6 +409,35 @@ It lives **inside** the loss, so minimising that loss with respect to it is dege
 ⛔ **That was wrong about what `act_ratio` needs.** It reads the **emitted composed draws** (`lr_sb_best`, shape (2333448, 16) = 64,818 cells × 36 months × 16 draws, `time` 457–492), which **did** come home in `draws/`. Only the raw `by_*` gate posterior at h≥2 died with the pod, and `act_ratio` does not use it.
 
 **The control's `act_ratio` at h18 is 2.3520**, back-filled into that document as part of this write-up. The earlier reasoning there was **wrong, not merely unlucky** — it confused two different archived objects.
+
+### 8.6 ⛔ A methodological result: §2.4's identity CANNOT be tested fit-free when `w ≠ 1`
+
+§2.4's exact identity invites a check that needs no fitting: the stationary condition is `E[s_i] = φ(p_i)` with `φ(p) = wp/(1+(w−1)p)`, so compare the observed mean gate against `mean_i[φ(p_i)]`. **That test does not exist for `w ≠ 1`, and the reason is worth recording because two sessions walked into it.**
+
+`p_i` is **never observed** — only a Bernoulli draw from it. Any estimator built from binned outcome frequencies therefore carries a **bin-level Jensen bias**, and `φ` is strictly concave for `w > 1` (`φ'' = −2w(w−1)/(1+(w−1)p)³ < 0`). The bias **flips sign with bin width**:
+
+| bins | cells/bin | `mean_i[φ(p_i)]` | ratio obs/pred |
+|---|---|---|---|
+| `φ(p̄)` — no averaging at all | — | 0.006871 | **0.606** |
+| 12 | 70,220 | 0.006631 | 0.628 |
+| 200 | 4,213 | 0.005490 | 0.759 |
+| 1,000 | 843 | 0.005303 | 0.786 |
+| 100,000 | 8.4 | 0.004981 | 0.837 |
+| 400,000 | 2.1 | 0.004223 | **0.987** |
+| 500,000 | 1.7 | 0.004040 | **1.032** |
+| per cell (analytic) | 1.0 | `p̄` = 0.003448 | **1.209** |
+
+Coarse bins destroy within-bin variance in `p`, raising `mean[φ]` and depressing the ratio. Fine bins replace `p` with its own sampling noise — at ~2 cells per bin `p_b ∈ {0, ½, 1}` — lowering `mean[φ]` and inflating the ratio. The per-cell limit is analytic: `φ(0) = 0` and `φ(1) = 1` for **every** `w`, so `mean_i[φ(y_i)] = p̄` exactly.
+
+⛔ **No resolution is unbiased, the family is monotone, and it crosses 1.0 between 2.0 and 1.7 cells per bin.** The point is **not** that any one figure is right — it is that **no point on the curve is privileged and the curve contains 1.0**. Debiasing would require a *model* for `p`, i.e. the fitting the test existed to avoid.
+
+**At `w = 1`, `φ(p) = p` is linear, the Jensen gap is exactly zero at every resolution, and the test is valid.** The arm sits at **0.945×**.
+
+⚠️ **So the apparent asymmetry between the arms — "the control misses its own optimum badly, the arm nearly hits it" — is not a fact about the two models. A valid fit-free test exists for one arm and cannot exist for the other.** That is a property of `pos_weight`, and the control's distance from its stationary condition is **UNMEASURED**: not small, not large, not signed.
+
+The same applies to the intercept signature in §2.4: the per-bin deviation `logit(obs) − logit(gate)` ranges **1.91 logits** (−1.01 to +0.90), so there is no single intercept to test. A bin-unweighted fit is reproducible to **0.0001** from bin weighting plus the slope defect alone, with no `log(w)` information left in it. Weighted by data mass the signature is present at **−0.9825**. Three implementations (quantile-digitize, sorted-index split, vectorised cumsum) agree at every shared resolution, so none of this is an artefact of a binning scheme.
+
+**Provenance:** derived jointly with the `views-models` seat across three adversarial rounds, 2026-10-18. Three of this session's claims and two of theirs were withdrawn in the process; the error trail is kept at `reports/2026-10-18_gate_underdispersion_prereg/superseded_v2_with_errors.md`.
 
 ---
 
@@ -354,7 +452,7 @@ It lives **inside** the loss, so minimising that loss with respect to it is dege
 - ⛔ **The gate is under-dispersed — its logits are compressed, `b ≈ 1.14` in the control** (§2). The main finding. It is present in the control, so it is a property of the platform and not of this arm.
 - ⛔ **No `pos_weight` can fix it**, because `w` moves the level and the defect is in the slope (§2.4). That closes a whole direction of work.
 - **Temperature scaling is the matching fix** (§8.2) — the one knob that moves `b`, provably harmless to AP, seconds on CPU.
-- **What causes the compression** (§8.4) — unknown, with one candidate (the D=4 posterior mean) that would make it a measurement artefact and is cheap to rule out.
+- **What causes the compression** (§8.4) — narrowed by rev 3 to **two co-lead candidates**, both defects in views-hydranet and both acting outside the training optimum: **BatchNorm recalibration fitted on 32×32 curriculum windows and applied to the 180×180 grid**, and **`weight_decay: 0.1` on the class heads**. The MC-dropout posterior mean is **closed by derivation** — training calibrates the very mean-of-sigmoid that inference reports. Under-training is **ruled out** (the head's logit level converges by ~lesson 150). One free CPU experiment separates the two survivors; its method must be locked first.
 
 **Unaffected and still pending:**
 - **The denominator arm** (`body_nll_denominator`, `reports/2026-10-15_loss_balance_prereg.md`). Untouched by this result — different half of the loss, different mechanism, measured gradient evidence of its own. ⚠️ Note its config PR is expected to go **red** in views-models CI by design: the pin-floor guard will refuse the key because the runner's pin floor is 0.1.1 and the key needs 0.1.3.
@@ -369,3 +467,6 @@ It lives **inside** the loss, so minimising that loss with respect to it is dege
 4. **Selecting metricframe rows positionally** (`v[sel][0]`) rather than by name — three `eval_type`s match and a scorer reordering would switch silently (§7). Same failure class as 3.
 5. Deliveries are asymmetric in what they archive — `configs_as_run/` present for the arm, absent for the control; the gate slice nested one level deeper on the control (§4.4).
 6. #558 / C-161 — the gate posterior at h≥2 not coming home — now blocks §8.2's all-horizon application, which is a **second concrete cost** for an issue that previously only cost retrieval convenience.
+7. ⛔ **The per-lesson gate instrumentation I shipped in PR #398 records the MEAN only, so it cannot answer the question that is now live.** `training_engine.py:1430-1432`'s forward hook accumulates `_o.detach().mean().item()` — one scalar per lesson, **no sd, no quantiles**. The live question (§8.4) is whether the logit *spread* is still expanding, and the statistic is not in the file. Adding an sd is a one-line change with no effect on training dynamics. ⚠️ Compounding it: `trajectory_log_path` was set for **`copper_kestrel` only** (`config_hyperparameters.py:233`); `amber_kestrel` sets none, so **no control baseline exists and never did.** A diagnostic enabled on one arm of a two-arm contrast cannot answer a question about either.
+8. **`fed_grad_max` is `0.0` on all 300 rows** of the arm's trajectory CSV — an inert column in the same instrumentation. C-324 shape: tested, logged, and carrying no information.
+9. ⛔ **The repo's lint gate is structurally blind to every script in `reports/`.** `.gitignore:203` contains `reports/`, and `ruff` honours gitignore patterns **even for files that were force-added and are tracked** (confirmed by `git ls-files`). So `ruff check .` — what CI runs, and what it passes — silently skips the whole directory; `ruff check --no-respect-gitignore reports/` reports **461 errors**. Every dossier script this programme has linted was linted only because it was named explicitly on the command line. The gate would never have caught any of them.
