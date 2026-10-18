@@ -966,3 +966,101 @@ The experiment has been as good as it can get without data since Amendment 3. E6
 ⚠️ **The honest summary: the experiment is no better than it was at Amendment 3, and the plan around it is much better.** Eight rounds of adversarial review found no reason to change what E6 measures — only six reasons the measurement as specified would not have meant what it claimed.
 
 **Next act is execution, and it is not either seat's to start.** The first three measurements are free and have not been asked for; the issues in OUTCOME §9 are Simon's repos and Simon's call.
+
+---
+
+# AMENDMENT 8 — F6 RULING, and E6f dominated E6 all along. 2026-10-18, after E1/E2/alignment.
+
+**Source:** the `views-models` seat executed E1, E2 and the E6d alignment check, then stopped before the window forward-pass build and asked this seat to rule on F6. **The ruling is below. It is neither of the two options offered.**
+
+---
+
+## 1 — ⛔ THE ANCHOR-SET MEASUREMENT IS CONFIRMED, AND I FOUND THE MECHANISM
+
+Their measurement: `planner.get_lesson(w)` for `w ∈ 0..29` yields **4–5 qualified anchor cells** per stratum and only **6 distinct `(target, threshold)` pairs**, cycling five times. Verified in code and by derivation:
+
+- `curriculum.py:102` — `subject = self.subjects[global_step_idx % len(self.subjects)]`. Six subjects (3 regression + 3 classification) ⇒ indices 0–29 cycle **six** subjects five times.
+- `curriculum.py:85-93` — `ratio = max_ratio + b·step`, then ⛔ **`ratio = min(ratio, max_ratio × roof_ratio)`**. With `max_ratio 0.95`, `min_ratio 0.05`, `slope_ratio 0.75`, `roof_ratio 0.7`, `total_steps = 300 × 3 = 900`:
+
+```
+b = -0.001333 /step          roof clip = 0.95 x 0.7 = 0.665
+ratio at steps 0,6,12,18,24,29  =  0.665 at every one
+⛔ the clip RELEASES at step 214 = lesson 71 of 300
+   -> steps 0..213 all carry the IDENTICAL ratio
+distinct (target,threshold) pairs over indices 0..29  =  6
+```
+
+Their reported thresholds reproduce exactly: `183 / 0.665 = 275.2`, `55 / 0.665 = 82.7`, `105 / 0.665 = 157.9` as the three subject maxima, and `by_sb_best` carries the same 183 as `lr_sb_best` because both count non-zero months.
+
+⛔ **So it is not merely "the hot end". The curriculum's intensity ratio is CLIPPED FLAT for the first 214 of 900 steps**, and `bn_recal_windows = 30` draws entirely from inside that flat region. The 30 is not 30 strata, or even 30 thresholds. **It is 6 strata of 4–5 eligible anchor cells.**
+
+### ⛔ This is a PRIMARY FINDING, not a precondition check — and it lands on C-184
+
+**The BatchNorm running statistics shipped inside both delivered artifacts were re-estimated over windows anchored on 4–5 cells per stratum, across 6 strata — a handful of conflict hotspots — and are then applied, frozen, to 64,818 land cells globally.**
+
+That is not an activity-enriched sample. **It is a degenerate one.** H1's premise — *the recal distribution is not the inference distribution* — is now established **by direct measurement of the recal distribution**, far more strongly than E6 could ever have shown it. ⛔ **H1 no longer needs E6 to be plausible.**
+
+And it qualifies C-184 itself: that fix was validated on flipping seed-bimodal eval collapse (*"6/6 bad seeds GOOD"*) and it **worked**. So C-184 repaired the collapse **while being structurally incapable of producing representative statistics** — 15 BatchNorm layers' running means and variances estimated from 30 forward passes over 6 strata. Both things are true, and the second was never checked because the first was the only endpoint. **Filed as OUTCOME §9 issue 11.**
+
+## 2 — ⛔ THE F6 RULING: F6 DOES NOT FIRE
+
+F6 is worded *"fires if E6 returns `+0.05 < b_grid − b_window < +0.10`, or any outcome F1–F5 do not cover."* **It is evaluated on E6's RESULT. E6 has not run.** And Amendment 5 made E6c — not this seat's judgement — the authority on sufficiency, explicitly: *"sufficiency is a measured property of the realised draw."*
+
+⛔ **Ruling (ii) would be me overriding my own decision rule on a precondition that rule does not cover** — which is the "decide afterwards what we predicted" failure the whole falsifier structure exists to prevent. **F6 does not fire. The anchor-set measurement is not an E6 result.**
+
+The executing seat's lean toward (i) is correct **by this plan's own structure**, and for the reason they gave: 4–5 anchors is a property of the anchor set, not of the realised cell union, and ±32 jitter over ~30 overlapping anchors does not cap the union at 4–5 cells.
+
+## 3 — ⛔ BUT NEITHER OPTION IS THE RIGHT NEXT STEP. E6f DOMINATES E6, AND ALWAYS DID.
+
+Every one of the eight attack rounds was about **E6's** confounds:
+
+| round | E6 confound | does it touch E6f? |
+|---|---|---|
+| §3.3 | sample-size attenuation | **no** |
+| A1 | gate-support mismatch (0.099 vs a 0.10 threshold) | **no** |
+| A2 | truncated spatial context, 96.5% vs 0.69% | **no** |
+| Am. 3 item 1 | patch-boundary artefact, 142× | **no** |
+| Am. 4 | bin rule unfittable at the interior sample | **no** |
+| Am. 5 | overlapping draws, correlated observations | **no** |
+| now | 6 strata, 4–5 anchors | **no** |
+
+**E6f re-estimates the BatchNorm statistics on the inference distribution and re-scores the SAME global-grid population.** It is a **paired test on identical cells**: no window geometry, no interior margin, no support matching, no anchor diversity, no binning asymmetry, no clustered sampling. **Not one of the seven confounds applies to it.**
+
+⛔ **And Amendment 2 already made E6f REQUIRED to name H1** (F1‴, strengthened to the equivalence test F1⁗ in Amendment 6). **So E6 was never sufficient and E6f was always necessary.** Eight rounds of adversarial review hardened the experiment that was not on the critical path, while the one that was sat in the plan unattacked since Amendment 2.
+
+**This is the single largest structural error in the programme and it is mine** — I added E6f as a supplement to my own lead candidate's signature test, and never noticed it superseded it.
+
+### Locked ordering, replacing Amendment 4's
+
+```
+1. E6c       free, runs anyway — F5'/F5b are live and it bounds what E6 can contribute
+2. ⛔ E6f    THE DISCRIMINATOR. Paired, same population, immune to all seven confounds
+3. E6/E6d    demoted to CORROBORATION. Run only if E6c shows it is powered; a null here
+             no longer blocks a verdict, because E6f does not depend on it
+```
+
+⚠️ **E6f's cost is UNMEASURED and must not be claimed.** It needs forward-only passes over the 360×720 grid across the training months to accumulate statistics — more than E6c, no gradients, no GPU. **Measure it on the first pass and stop if it exceeds minutes**, per Amendment 5's struck ratio: this plan does not get to assert a cost again.
+
+## 4 — E1 AND E2, RECORDED AGAINST THEIR PRE-REGISTRATIONS
+
+**E1 — `sigma` BELOW the pre-registered floor in both arms, every summary, family does not cross it:**
+
+| arm | floor | median σ | implied `T` | published `b` |
+|---|---|---|---|---|
+| amber | ≥ 0.85 | **0.459** | 1.040 | 1.146 |
+| copper | ≥ 1.20 | **0.594** | 1.067 | 1.419 |
+
+**E2 — removing the Jensen average barely moves the slope:**
+
+| arm | `mean(sigmoid)` | `sigmoid(mean logit)` | share of excess explained |
+|---|---|---|---|
+| amber | 1.1875 | 1.1713 | **8.6%** |
+| copper | 1.3596 | 1.3335 | **7.2%** |
+
+⛔ **E2's pre-registered SECOND outcome fires in both arms: the compression is in the NETWORK, not the reporting path.** R2 is not dropped (`b < 1` did not fire) but recovers under a tenth of the defect and is **quantitatively pointless as a remedy**.
+
+✅ **And Amendment 1's ATTACK 1 is confirmed with a number.** The derivation said C1's Jensen compression is absorbed at the loss's stationary point and contributes nothing independent. **Measured contribution: ~8%.** The residual the remaining candidates must explain is **1.171 (amber) / 1.334 (copper)**.
+
+⚠️ **E1 was labelled a MEASUREMENT, not a test** (§4), so σ landing below its floor is **not** a falsification of anything — it is the first honest number on the axis, and the bands were always derived by inverting published `b`. Recorded as such.
+
+**Alignment proven by content, not by offset arithmetic:** full-block equality over 300 timesteps × 11 channels gives a unique match at `(r0, c0) = (92, 496)`, and single-slice matching would have been insufficient because channels 3 and 4 are constant-valued (57 spurious candidates on one slice). **The geometry is sound; plumbing is not what blocks E6.**
