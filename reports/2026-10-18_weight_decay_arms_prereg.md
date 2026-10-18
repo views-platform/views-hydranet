@@ -333,3 +333,121 @@ They put the tension and declined to choose. **Both cannot fit one slot:**
 ---
 
 ⛔ **Two of the three things this seat contributed to §4 are now corrected by the other seat: the `2S` threshold (too lenient by 2.15×) and the dose-response mitigation (a fixed 1-in-6 error rate).** The derivation they verified — the 31.4× range on a 2-run spread — stands, and it is what made both errors visible. **Nothing is running and no model directory exists.**
+
+---
+
+# AMENDMENT 2 — `S` was ambiguous in my own text, arm 5 needs `5.27·S`, and arms 1–2 retroactively test Phase 1. 2026-10-18.
+
+**Source:** the `views-models` seat, following Amendment 1's `t`-correction one step further. **Their two numbers verified. ⛔ And doing so exposed a unit ambiguity in my own amendment and a consequence larger than the weight-decay question.**
+
+---
+
+## 1 — ⛔ `S` WAS AMBIGUOUS IN AMENDMENT 1, AND THE TWO READINGS DIFFER BY √2
+
+Amendment 1 wrote the thresholds as multiples of *"the pooled within-cell spread `S`"*. ⛔ **"Spread" and "sd estimate" are not the same quantity**, and for a pair they differ by exactly `√2`, since the unbiased sd estimate from two points is `σ̂ = |x₁−x₂|/√2`:
+
+```
+if S ≡ σ̂ (pooled SD)        W-1/W-3 crit = 4.303·S     arm 5 = 5.270·S
+if S ≡ |x₁−x₂| (the spread)  W-1/W-3 crit = 3.042·S     arm 5 = 3.726·S
+```
+
+⛔ **Their 4.30 and 5.27 are correct ONLY under the first reading — and §4 of this plan was written about the SPREAD** (the 31.4× range is a property of `|X₁−X₂|`). **So my own amendment mixed the two.**
+
+> ⛔ **LOCKED: `S ≡ σ̂`, the pooled within-cell SD estimate, with `σ̂ = |x₁−x₂|/√2` for a pair.** Every threshold in this plan is a multiple of **that**, and the readout must print `σ̂`, the raw spreads, and the conversion.
+
+⚠️ **This is the provenance-mismatch class in my own text, one amendment after I wrote the rule into the plan** — a value whose meaning was assumed rather than stated. **Caught by following their arithmetic, not by re-reading mine.**
+
+## 2 — ⛔ UPHELD. Arm 5 is n=1 against a mean of n=2, so its threshold is `5.27·S`
+
+`4.30·S` is the critical value for a **difference of two means**. Arm 5 is a **single run** against the control pair's mean:
+
+```
+Var(x − ȳ) = σ²(1 + 1/2) = 1.5σ²   ⇒   crit = 4.303·√1.5 = 5.270·S
+```
+
+**23% harsher, and it applies to the arm this seat just made the centrepiece.** Verified. **W-1/W-3 keep `4.30·S`** (both cells n=2); ⛔ **arm 5's existence test takes `5.27·S`.**
+
+## 3 — ⛔ UPHELD AND IT IS THE HEADLINE: `S` must be under 0.0356 or the design cannot detect a COMPLETE fix
+
+The whole defect is `1.1875 − 1.0 = 0.1875`. For arm 5 to detect **all** of it:
+
+```
+5.27·S < 0.1875   ⇒   ⛔ S < 0.0356
+```
+
+**Where `S` plausibly sits:**
+
+| | value | status |
+|---|---|---|
+| sampling-only `sd(b)` at full population | **0.0107** | ⛔ **MEASURED — a hard FLOOR** |
+| implied by the amber/copper gap of 0.17 if it were all run-to-run | **≤ ~0.120** | an UPPER bound (`0.17/√2`) |
+| ⛔ **the feasibility boundary** | **0.0356** | **sits INSIDE that range** |
+
+```
+S = 0.02  ->  detectable 0.105   WORKS        (defect 0.1875)
+S = 0.04  ->  detectable 0.211   MARGINAL — cannot detect a complete fix
+S = 0.08  ->  detectable 0.422   HOPELESS
+```
+
+⛔ **The design is genuinely marginal and nobody knows which side of the line it falls on.** Not a reason to cancel it — **a reason to say so before it runs**, which gives W-2's expected-cell status a **third** independent reason and now a **quantitative boundary.**
+
+## 4 — ✅ ADOPTED: arms 1–2 are the FEASIBILITY TEST, and `S` is a primary deliverable
+
+Their reframe, and it is the right one. **The five pods are not interchangeable: arms 1–2 produce `S`, and `S` decides whether arms 3–5 can answer anything.**
+
+> ⛔ **`S` is pre-registered as a primary deliverable in its own right, not as a denominator.**
+> - **`S < 0.036`** ⇒ the design can detect a complete fix; read the arms as planned.
+> - **`S > 0.036`** ⇒ ⛔ **the arms cannot resolve even a total effect. The correct response is MORE REPLICATES PER CELL, NOT MORE DOSES.** Report `S`, report the arms as uninformative, and let `S` size the next experiment.
+
+✅ **And it is a real finding either way — the first measurement of run-to-run variance in this training pipeline, which nothing in the record has.** Deliverable even if every slope comes back null.
+
+✅ **It also answers Amendment 1's own objection** that *"low power invites add-more-pods"*: **with `S` measured, "more pods" stops being a guess and becomes arithmetic.** Which this seat has now done:
+
+### ⛔ MY ADDITION: the replicate table, so the next experiment is pre-sized
+
+For the 2-cell comparison at equal `n`, detectable effect `= t(0.975, 2(n−1))·√(2/n)·σ̂`:
+
+| n per cell | df | detectable | needs `σ̂ <` |
+|---|---|---|---|
+| **2** | 2 | **4.303·σ̂** | **0.0436** |
+| **3** | 4 | **2.267·σ̂** | **0.0827** |
+| 4 | 6 | 1.730·σ̂ | 0.1084 |
+| 6 | 10 | 1.286·σ̂ | 0.1458 |
+| 8 | 14 | 1.072·σ̂ | 0.1748 |
+
+⛔ **Going from n=2 to n=3 nearly DOUBLES the detectable range** — `0.0436 → 0.0827` — because `df` goes 2→4 and `t` collapses 4.303→2.267. **That is the single highest-leverage change available to this design, and it costs two pods.** Recorded so that if `S > 0.036`, the next proposal is **n=3 on two cells (6 pods)** rather than more doses — and the number is already derived.
+
+## 5 — ⛔ AND THE CONSEQUENCE LARGER THAN THE WEIGHT-DECAY QUESTION: arms 1–2 retroactively test whether PHASE 1 was ever readable
+
+`amber` and `copper` differ by **0.17** in `b`, at **n=1 each**. That difference has **no** error bar anywhere in the record. With `S` measured, it acquires one:
+
+```
+se(amber − copper) = σ̂·√2      informal 2-sigma needs σ̂ < 0.17/(2√2)
+⇒ ⛔ Phase 1's comparison was readable only if σ̂ < 0.0601
+```
+
+⛔ **So if `S > 0.06`, the `pos_weight` comparison was never resolvable at n=1 per arm** — and `RESULTS.md` §1, `OUTCOME.md` §2 and every *"they differ in one config key"* sentence in this programme need re-scoping. **Pre-registered as a reading:**
+
+| | condition | consequence |
+|---|---|---|
+| **W-5** | `S > 0.0601` | ⛔ **PHASE 1's two-arm comparison was never resolvable.** The under-dispersion *finding* survives — it is present in **both** arms and in six fits — but the **amber-vs-copper DIFFERENCE** (0.17, and the R1-works/R1-fails asymmetry built on it) is not separable from run-to-run noise. `OUTCOME.md` and `RESULTS.md` require an amendment, and it is **not** optional |
+
+⚠️ **This is independent of the determinism branch in §7.** That one asks whether a fixed seed reproduces; **this one asks whether the observed gap exceeds the noise, whatever its mechanism.** ⛔ **Arms 1–2 therefore audit the previous phase as a by-product of enabling this one** — and that is the strongest reason to run them even if arms 3–5 return nothing.
+
+---
+
+## 6 — Tidy-up: the trend axis is NOT IN FORCE
+
+✅ Their catch: with the third dose at `0.0`, **`log(0)` is undefined, so there is no log axis and the trend fit is off the table.** Amendment 1's log-vs-linear sweep requirement is therefore **moot for this design.**
+
+> ⚠️ **It is retained in this document as the rule that WOULD apply if `0.001` were ever chosen, and explicitly marked NOT IN FORCE** — so the plan does not carry a dead requirement a later reader tries to satisfy.
+
+⛔ **The design is now three pairwise existence tests, not a trend**, and §5's readings are the pairwise ones.
+
+---
+
+## State
+
+⛔ **Both of the other seat's substantive numbers in this plan are withdrawn (`0.19`) or superseded (the arm-1 rationale); this seat has now had five corrected** — the `2S` band, the dose-response mitigation, the `4711` seed, the `0.001` recommendation, and now **the ambiguous `S`.**
+
+⛔ **And this round's net effect is to make the design look WORSE than when Simon authorised it.** He should know that before any pod starts, and both seats are telling him. **Nothing is running and no model directory exists.**
