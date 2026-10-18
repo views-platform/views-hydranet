@@ -597,3 +597,95 @@ both void               σ̂ on n=3 = 2 df  ⛔ IDENTICAL to the planned set's d
 **The design has improved four times since authorisation, and every improvement came from the other seat checking the one who wrote it.**
 
 **Nothing is running. No model directory exists. Three things await Simon's direct word: the allocation, the trainability risk, and — if he keeps the head-exemption arm instead — the library change in this repository.**
+
+---
+
+# AMENDMENT 5 — ⛔ the prereg tests `b` alone, and weight decay moves `a` too. A real effect could have read as a null. 2026-10-18.
+
+**Source:** the `views-models` seat, asked for a fifth improvement and returning two. **Both upheld.** ⛔ **The first is mechanistic and would have been a design failure; our own record contains the case that proves it.**
+
+---
+
+## 1 — ⛔ UPHELD. The gate heads carry DECAYED BIASES, so H2 predicts movement in BOTH `a` and `b`.
+
+**Verified in the architecture:**
+
+```
+:251  dec_conv4_head1_class = nn.Conv2d(base, output_channels, 3, padding=1)        <- no bias= arg -> bias=True
+:289  dec_conv4_head2_class = nn.Conv2d(base, output_channels, kernel_size, ...)    <- bias=True
+:339  dec_conv4_head3_class = nn.Conv2d(base, output_channels, kernel_size, ...)    <- bias=True
+
+the encoder, deliberately NOT:
+:196-201 enc_conv0 ... bias=False     :207 enc_conv1 bias=False     :212 bottleneck_conv bias=False
+```
+
+⛔ **So the three gate heads carry biases, the encoder explicitly does not, and AdamW decays every parameter in the group** — the only exclusions are `sigma_params` and `log_var_params` (`training_engine.py:113,136`). **The head's bias is decayed.**
+
+```
+weight shrinkage  ->  MULTIPLICATIVE on the logit  ->  the SLOPE  (b)
+bias shrinkage    ->  ADDITIVE       on the logit  ->  the LEVEL  (a)
+```
+
+⛔ **H2 therefore predicts movement in both, and this plan's readings were written on `b` alone. If weight decay acts mainly through the bias, every arm returns a `b` null and we conclude H2 is dead when it is not.**
+
+⚠️ **And their sharpest point: we measured the `a`/`b` distinction being decisive three days ago and then wrote a prereg testing one of them.** Tier 2: amber's defect is pure slope (`a = +0.16`), copper's is slope **and** level (`a = +1.30`) — **which is exactly why R1 worked on one and failed on the other.**
+
+### ⛔ AND OUR OWN RECORD CONTAINS THE CASE THAT PROVES A `b`-ONLY DESIGN MISLEADS
+
+**E6f.** `b` moved **1.1875 → 0.7793** — a **0.41** slope movement, twice the whole defect, straight past 1.0. ⛔ **Read on `b` alone that is a spectacular success.** What actually happened:
+
+| | `b` | `\|b−1\|` | mean gate | max signed error |
+|---|---|---|---|---|
+| before | 1.1875 | 0.1875 | 1.21× truth | +0.0587 |
+| after | **0.7793** | **0.2207** ⬆ | **5.75× truth** | **+0.6872** |
+
+⛔ **Calibration got WORSE in absolute terms and the gate became grossly over-confident — and a `b`-only reading would have called it the best result in the programme.** **That is the argument for item 1, it is from our own measurements three amendments ago, and neither seat connected it until now.**
+
+### Required changes, adopted
+
+1. ⛔ **Report `a`, `b` AND the held-out calibration error `|gate−obs|` per arm.** `b` remains the **primary** endpoint — under-dispersion *is* the slope, and that is H2's hypothesis — but ⛔ **`a` gets its own threshold and a level-only effect is a POSITIVE result, not a null**; and **the calibration error is the composite, reported because E6f proves a large slope move can coincide with calibration worsening.**
+2. ⛔ **`σ̂` is estimated SEPARATELY for `a`, for `b`, and for the calibration error.** They are different statistics with different variances, and **using `b`'s spread as `a`'s denominator would be W-28's units error in a new place** — their catch, and they are right that it is the same failure.
+3. **F10, F11, `4.303`/`2.905`/`4.969` and the `S ≡ σ̂` locking apply to each endpoint independently**, with its own `σ̂`.
+
+### Readings, extended
+
+| # | condition | consequence |
+|---|---|---|
+| **W-1** | `Δb < −4.303·σ̂_b` (or `−2.905·σ̂_b` under the recommended allocation) | ⛔ **weight decay implicated in the SLOPE defect** — H2's hypothesis. Cause only, never a ship decision |
+| **W-1a** | `\|Δa\| > ` its own threshold, with `Δb` null | ⛔ **weight decay moves the LEVEL and not the slope. A POSITIVE finding, not a null** — it means the decayed **bias** is doing the work and the under-dispersion has another cause |
+| **W-1b** | both move | ⛔ **report both and the composite.** A slope gain with a level loss is **E6f's signature** and must not be reported as an improvement |
+| **W-2** | all endpoints within threshold | INCONCLUSIVE at this n — the expected cell |
+| **W-3** | `Δb > +` threshold | wrong direction — H2's mechanism refuted |
+| **W-4** | W-2 **and** no arm's `b` below ~1.10 | evidence for H3/H4; R1 is the ceiling |
+| **W-5** | `σ̂_b > 0.0601` | ⛔ **Phase 1's amber-vs-copper comparison was never resolvable** — non-optional amendment to `OUTCOME.md`/`RESULTS.md` |
+
+## 2 — ⛔ UPHELD. Five runs, two seeds named. The third was unnamed.
+
+The allocation is `3 × 0.1 + 2 × 0.0` — **five runs — and the plan named only 42 and 43.**
+
+⚠️ **An unnamed seed is the provenance gap this programme has now found fourteen times.** *"Another seed"* in a plan becomes *whatever the operator typed* in a config, and then **the run that produced a number cannot be reproduced from the document.**
+
+**Adopted, and it buys a free pairing:**
+
+```
+wd 0.1   seeds 42, 43, 44
+wd 0.0   seeds 42, 43
+```
+
+⛔ **Two of the three cross-cell comparisons are then seed-paired**, removing seed as a between-cell nuisance for those two, while the unpaired third contributes to `σ̂` without confounding the contrast.
+
+✅ **`44` verified inside the repository's established range:** roster `torch_seed` values are **42, 43, 44, 45, 46, 47**. **It is not invented here.**
+
+## 3 — Scope: these are changes to the PLAN, not to the pods
+
+⛔ **Neither item changes the arm set, the cost, the code, or anything that runs** — item 1 extends what is *recorded and read*, item 2 names a value the plan had left blank. **Both tighten rather than loosen, and neither needs Simon's word.** This seat reached that conclusion independently of their saying so.
+
+⚠️ **Still awaiting his direct word, unchanged:** the allocation, the `wd = 0.0` trainability risk, and — if he keeps the head-exemption arm instead — the library change in this repository.
+
+## 4 — What they checked and found clean
+
+The `vehicle.py` accommodation transferring (all five arms inherit amber's `truncated_nb`, so the one documented override covers them), the truth window being a within-design constant, and W-28's control. **Recorded, because a negative result from a check is a result.**
+
+---
+
+⛔ **Eight of this seat's items corrected in this document. The fifth improvement was the one that mattered most: a design that tested one of two parameters a known mechanism moves, written by the seat that had measured the distinction being decisive.** **Nothing is running and no model directory exists.**
