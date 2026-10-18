@@ -214,3 +214,122 @@ Arm 5 needs a **views-hydranet library change**: `dec_conv4_head{1,2,3}_class` a
 **Done** when all authorised arms have a recorded `(b, a, sd, n, positives, sha, code sha, wall time, config diff)` row or a recorded VOID; F1–F9 are evaluated; §5's reading is stated with `Δ`, `S` and `Δ/S`; and the outcome document **does not describe any arm as better to serve.**
 
 **Stop rules.** No new questions mid-set. ⛔ **F7 stops after arm 1.** A null is INCONCLUSIVE, not negative — **W-2 is the expected cell and the plan says so in advance.** No scalar without its parameter sweep. No cost or power figure without a measurement. ⛔ **The executing seat attacks this plan before running it, and does not decide which of its own objections survive. Neither does this seat.**
+
+---
+
+# AMENDMENT 1 — my dose-response mitigation is wrong, their effect size is void, and the honest critical value is 4.30·S. 2026-10-18, BEFORE any pod starts.
+
+**Source:** three attacks from the `views-models` seat. **All three upheld.** ⛔ **Attack 1 kills the mitigation this seat built in §4, and their replacement is harsher than either of us wrote.**
+
+---
+
+## A1 — ⛔ UPHELD. Monotonicity is an ORDERING test, so replication buys it NOTHING.
+
+Simulated here, 200,000 draws per cell, under the null:
+
+| n per dose | P(strictly monotone in the hoped direction) |
+|---|---|
+| 1 | 16.58% |
+| 2 | 16.55% |
+| 4 | 16.83% |
+| 16 | 16.68% |
+
+**Theory `1/6 = 16.67%`. ⛔ FLAT in n, exactly as they claim** — under the null the three cell means are exchangeable, so all `3! = 6` orderings are equiprobable **whatever the replication.**
+
+⛔ **So §4(ii) is wrong as a test.** I proposed dose-response because it is *"robust to a badly-estimated σ"* — **true, and the cost is that it is also BLIND to σ, which is the one thing the five pods exist to produce.** It swaps a noisy threshold for a fixed 1-in-6 error rate and **forfeits the benefit of the replicates.** A one-in-six chance of a spurious monotone result is roughly the chance of publishing *"weight decay causes the under-dispersion"* **from pure run noise.**
+
+### ✅ REPLACEMENT, adopted — and it preserves the intuition while fixing the test
+
+> **Fit `b = c + k·log₁₀(weight_decay)` across ALL runs and test `k` against the pooled within-cell spread.** Report `k`, its interval, and the pooled `S`.
+
+**It uses every run rather than three means, it uses the magnitudes, it has a real null distribution, and it DOES improve with n.** ⛔ **The reframe that makes it work: dose-response as a SLOPE, not as an ORDERING.** And it subsumes both of §4's mitigations — pooling is how `S` is formed, and a monotone trend is the `k ≠ 0` case with magnitude attached.
+
+⛔ **And it is why a third dose point matters: with two points `k` is just the difference and there is no trend to test.**
+
+### ⛔ MY ADDITION: their replacement inherits a 2-df denominator, so the critical value is 4.30·S
+
+Five runs, with within-cell spreads available from **two** cells only (the third dose has n=1 and contributes no variance information) ⇒ **the pooled denominator has 2 df.**
+
+```
+t(0.975, df=2)  = 4.303      <- the honest two-sided critical value
+t(0.975, df=3)  = 3.182
+t(0.975, df=4)  = 2.776
+```
+
+⛔ **So §5's `2S` thresholds were far too lenient, and they were mine.** The honest minimum detectable effect is **~4.30·S**, not `2·S`. **§5's W-1 and W-3 are re-cut accordingly**, and this is a second, independent reason W-2 is the expected cell.
+
+## A2 — ⛔ UPHELD. The ~0.19 effect size is VOID, and the design's power is UNKNOWN rather than low.
+
+Their own figure, withdrawn by them: **0.19 is the size of the WHOLE DEFECT** (1.19 → 1.00). ⛔ **It assumes weight decay explains all of it.** We have **no** estimate of the weight-decay component — **H2 predicts the SIGN at convergence and nothing about the magnitude.**
+
+**If weight decay explains a third of the defect, the effect is 0.06 — against observed run-to-run gaps of 0.17.**
+
+⛔ **So the design's power is not low. It is UNKNOWN — and no arrangement of five pods fixes that, because the unknown is the effect size, not the variance.** Written in, because "low power" invites "add more pods" and that is the wrong response.
+
+⚠️ **And both of their numbers in this plan are now unmeasured, one of them unjustifiable:** the ~2 h 15 m wall time (unmeasured, which this seat flagged) and the ~0.19 effect (no derivation, which they have withdrawn). **Twelve for twelve across both seats, and the twelfth is theirs.** **F7's stop remains, anchored to an unmeasured figure, and the plan now says so where the stop is defined.**
+
+## A3 — ⛔ UPHELD. Pooling assumes equal variance, and less decay plausibly means MORE.
+
+Pooling arms 1–2 with arms 3–4 requires σ to be equal across cells. ⛔ **Weight decay is a regulariser; removing it plausibly increases run-to-run variability as well as moving the mean.** If σ differs, the pooled estimate is wrong for both and the trend test's denominator is mis-sized.
+
+⛔ **And with n=2 per cell the assumption cannot be tested** — two spreads differing 3× is unremarkable under equality, by §4's own 31.4× range.
+
+**Adopted as written:** stated as a **load-bearing assumption**; **both within-pair spreads reported separately beside the pooled one**; and ⛔ **a large discrepancy VOIDS the pooled denominator rather than being averaged into it** (new, **F10**).
+
+### ⛔ MY ADDITION: this interacts with A1's replacement in the worst place
+
+Under A3, σ should be **largest at the lowest decay**. And the lowest-decay cell is the **third dose point** — which is **n=1** and is the **highest-leverage point on the trend axis.**
+
+⛔ **So the point that contributes most to `k` is simultaneously the least replicated and plausibly the most variable.** That is not fixable within five pods, and it bears directly on the choice below.
+
+---
+
+## ⛔ THE THIRD DOSE: `0.001` vs `0.0`. My ruling, and it reverses my own recommendation.
+
+They put the tension and declined to choose. **Both cannot fit one slot:**
+
+```
+0.1 / 0.01 / 0.001   log-spaced, a testable trend, WEAKER lever
+0.1 / 0.01 / 0.0     the strongest existence test, -inf on a log axis, NO trend fit
+```
+
+**Ruling: `0.0`.** ⛔ **This reverses the `0.001` I recommended in §8, and A2 is why.**
+
+**The reasoning:** a trend test needs an effect size to be powered, and ⛔ **A2 establishes that we do not have one.** An **existence** test does not. With an unknown effect size, **the maximal lever maximises the chance of observing anything at all** — and the two nulls are not equally informative:
+
+- **a null at `0.0`** ⇒ removing decay **entirely** does not move the slope ⇒ ⛔ **H2 is dead**, cleanly.
+- **a null at `0.001`** ⇒ we have learned **almost nothing**; the effect may simply need full removal.
+
+> ⛔ **With an unknown effect size, prefer the maximal lever over the parameterised trend.** The trend cannot be powered against an effect we cannot size; the existence test only needs the effect to exist.
+
+✅ **And `weight_decay: 0.0` is config-only** — no library change, no code sha move, unlike arm 5's head exemption. **It is the cheap version of the strong test.**
+
+### ⚠️ And a free parameter neither of us had named: the trend AXIS
+
+`log₁₀` is not derived. **The effect of weight decay on a calibration slope has no known functional form**, so linear is equally undefended — and ⛔ **choosing the axis that admits your third point is choosing a parameterisation to fit the data.**
+
+**Pre-registered:** if a trend is fitted at all, ⛔ **the axis is swept (log and linear) and `k`'s SIGN must agree across both**, per §3.5's rule. **If it does not, the trend is a parameterisation artefact and is void.** Under the `0.0` ruling the trend fit degrades to the two replicated points plus a separate existence arm, **which is stated rather than papered over.**
+
+---
+
+## §5 re-cut, and §4 corrected
+
+| # | condition | consequence |
+|---|---|---|
+| **W-0** | any arm VOID under F1–F5, or **F10** fires | ⛔ **INCONCLUSIVE.** One void control collapses the variance estimate |
+| **W-1** | `Δ < −4.30·S` | ⛔ **`weight_decay` implicated as a cause.** Evidence about the CAUSE only — never a ship decision (§6) |
+| **W-2** | `\|Δ\| ≤ 4.30·S` | ⛔ **INCONCLUSIVE at this n — and the EXPECTED cell, for two stated reasons: a 2-df denominator and an unknown effect size.** Report `Δ`, both spreads, `S`, `Δ/S` and the implied minimum detectable effect |
+| **W-3** | `Δ > +4.30·S` | ⛔ **wrong direction — a finding.** H2's mechanism refuted |
+| **W-4** | W-2 fires **and** no arm's `b` falls below ~1.10 | ⛔ **evidence for H3 / H4, and R1 is the CEILING.** A real outcome |
+
+⛔ **§4(ii)'s dose-response mitigation is WITHDRAWN as a test** and retained only as the *motivation* for a third dose point, now expressed as A1's slope test where a third point is fitted at all.
+
+**New falsifier:**
+
+| | fires if | then |
+|---|---|---|
+| **F10** | the two within-pair spreads differ by more than **3×** | ⛔ **the pooled denominator is VOID.** Report both separately; do not average. A3's equal-variance assumption has failed and the trend test has no valid denominator |
+
+---
+
+⛔ **Two of the three things this seat contributed to §4 are now corrected by the other seat: the `2S` threshold (too lenient by 2.15×) and the dose-response mitigation (a fixed 1-in-6 error rate).** The derivation they verified — the 31.4× range on a 2-run spread — stands, and it is what made both errors visible. **Nothing is running and no model directory exists.**
