@@ -451,3 +451,94 @@ se(amber − copper) = σ̂·√2      informal 2-sigma needs σ̂ < 0.17/(2√2
 ⛔ **Both of the other seat's substantive numbers in this plan are withdrawn (`0.19`) or superseded (the arm-1 rationale); this seat has now had five corrected** — the `2S` band, the dose-response mitigation, the `4711` seed, the `0.001` recommendation, and now **the ambiguous `S`.**
 
 ⛔ **And this round's net effect is to make the design look WORSE than when Simon authorised it.** He should know that before any pod starts, and both seats are telling him. **Nothing is running and no model directory exists.**
+
+---
+
+# AMENDMENT 3 — the dominating allocation, and ⛔ the planned set's headline threshold is contingent on an assumption it cannot test. 2026-10-18.
+
+**Source:** the `views-models` seat applying this seat's own n-table to the pods in hand rather than to a future experiment. ⛔ **Their arithmetic verified exactly. And verifying it exposed something that makes their case stronger than they argued.**
+
+---
+
+## 1 — ✅ THEIR ALLOCATION, VERIFIED
+
+Same five pods, detecting the whole defect `0.1875`:
+
+| allocation | df | crit | max `σ̂` |
+|---|---|---|---|
+| planned — `2×0.1` vs `2×0.01` | 2 | 4.303·S | 0.0436 |
+| planned — arm 5, `1×0.0` vs the `0.1` mean | 2 | 5.270·S | 0.0356 |
+| ⛔ **theirs — `3×0.1` vs `2×0.0`** | **3** | **2.905·S** | **0.0645** |
+| alt — `2×0.1` vs `3×0.0` | 3 | 2.905·S | 0.0645 |
+| alt — `4×0.1` vs `1×0.0` | 3 | 3.558·S | 0.0527 |
+| alt — `3×0.1` vs `1×0.0` (+`1×0.01`) | 2 | 4.968·S | 0.0377 |
+
+**+48% on the two-cell comparison, +81% on the arm-5 existence test, for the same five pods** — `df` 2→3 collapses `t` 4.303→3.182, and the unbalanced `√(1/3+1/2)` is cheaper than `√(1+1/2)`.
+
+⛔ **And it is this seat's own n=3 argument applied to the allocation rather than to a hypothetical follow-up. The df gain was available inside the five pods the whole time and I did not look.** Their catch.
+
+⚠️ `2×0.1 + 3×0.0` is **statistically identical** (0.0645) — so their orientation, putting the **third run on the safe cell**, is the right one and is not arbitrary.
+
+## 2 — ⛔ WHAT I FOUND VERIFYING IT: the planned arm-5 threshold is CONTINGENT, and collapses below the sampling floor
+
+`5.270·S` for arm 5 assumes `S` is **pooled across the `0.1` and `0.01` cells** — because arm 5's own cell (`0.0`, n=1) contributes **no** variance information. Computed from the comparison alone:
+
+```
+arm 5 vs the 0.1 pair, sigma_hat from that pair only:  df = 1
+  t(0.975,1) = 12.706   crit = 12.706 x sqrt(1.5) = 15.56 * S
+  ⇒ max sigma_hat = 0.0120
+```
+
+⛔ **So if F10 fires — the two within-pair spreads differing by more than 3×, which A3 says is unremarkable at n=2 — arm 5's threshold collapses from `5.27·S` to `15.56·S`, and its tolerable `σ̂` falls from 0.0356 to 0.0120.**
+
+⛔ **0.0120 is BELOW the measured sampling-only floor of 0.0107.** **Arm 5 then becomes undetectable in principle, not merely underpowered.**
+
+### ⛔ And the assumption cannot be checked for the planned arm 5, even in principle
+
+A3 established that pooling is a **load-bearing, untestable** assumption at n=2. **It is worse than that for the planned set:**
+
+- **Planned:** arm 5's `σ̂` is borrowed from two cells that **do not include its own.** The `0.0` cell has **n=1**, so its variance **cannot be estimated at all** — ⛔ **there is nothing for F10 to check it against.** The headline 0.0356 rests on equal variance between `0.0` and cells it was never compared to, and **weight decay is a regulariser, so `0.0` is precisely where σ is most likely to differ.**
+- **Theirs:** `σ̂` is pooled across **exactly the two cells being compared, both replicated.** The assumption is still made — but ⛔ **F10 can actually test it**, because both cells produce a spread.
+
+> ⛔ **The planned allocation's headline number depends on an assumption that its own design makes unfalsifiable, in the cell where it is least likely to hold. Theirs does not.**
+
+**That is the strongest argument for their allocation and neither of us had it.** It is not about power; it is about whether the stated threshold means anything.
+
+## 3 — Their counter-argument, quantified — and it is weaker than they stated
+
+Their honest objection: the allocation **concentrates all intervention risk on `weight_decay: 0.0` being trainable at all**, with no intermediate dose to fall back on. **The risk is real** — `0.0` is no regularisation whatever and nothing in the record says this architecture trains stably there.
+
+**But the failure modes are not as asymmetric as that implies:**
+
+| | if `0.0` will not train |
+|---|---|
+| **planned** (1 run at `0.0`) | existence test **GONE**; the `0.01` comparison survives at max `σ̂` 0.0436; `σ̂` from 2 pairs = **2 df** |
+| **theirs** (2 runs at `0.0`) | **one** voids → 3 vs 1 survives **degraded but alive** (max `σ̂` 0.0377); **both** void → no intervention, but `σ̂` from n=3 = **2 df — the SAME as planned** |
+
+⛔ **So total failure of their allocation lands on exactly the `σ̂` quality the planned set would have delivered anyway** — and `σ̂` is the primary deliverable and the Phase-1 audit. **The downside is bounded below by the planned set's baseline.**
+
+⛔ **And the planned set does NOT hedge the trainability risk.** It has **one** zero-decay run; if that voids, the maximal lever is gone too — with **less** replication on the risky cell than theirs. **What the planned set genuinely retains is a DIFFERENT, graded lever (`0.01`) — not a fallback for the same one.** That is a real thing to want and it is the honest form of their objection.
+
+## 4 — ⛔ MY RECOMMENDATION, with the risk left where it belongs
+
+They offered no recommendation. **I will give one, because the evidence is now one-sided on everything except the trainability question:**
+
+> ⛔ **Recommend `3×0.1 + 2×0.0`**, on four grounds: **+48%/+81%** on the only quantity that decides readability; **3 df on `S`**, which is a primary deliverable; a **sharper Phase-1 audit**, which is deliverable whatever the arms do; and ⛔ **it does not stake its headline on an untestable cross-cell variance assumption**, which the planned arm 5 does and which collapses it below the sampling floor if F10 fires.
+
+⚠️ **The trainability risk is Simon's to price and I cannot price it** — nothing in the record says `wd=0.0` trains on this architecture, and I will not guess. **If he prefers the graded `0.01` cell as insurance against learning nothing at all, that is a coherent choice and the plan supports it.**
+
+**Pre-registered either way:**
+
+| | fires if | then |
+|---|---|---|
+| **F11** | a zero-decay run diverges, NaNs, or trips the C-184 / C-119 stability gate | ⛔ **VOID for that arm** (C-307, **not negative**). **The readout must state how many zero-decay runs survived BEFORE any slope is read**, and a single-survivor existence test is reported at **4.968·S**, not 2.905·S |
+
+## 5 — ✅ On the Phase-1 audit
+
+Their endorsement is adopted, and ⛔ **they are right that it gets BETTER under their allocation — 3 df on `σ̂` instead of 2** — which sharpens the `0.0601` boundary that decides whether the amber/copper comparison was ever resolvable. **A second reason to prefer it, and the one that survives whatever the arms do.**
+
+⛔ **W-5 stands: if `S > 0.0601`, the `pos_weight` difference was never separable from run noise, the R1-works/R1-fails asymmetry goes with it, and the amendment to `OUTCOME.md`/`RESULTS.md` is not optional.**
+
+---
+
+⛔ **Six of this seat's items corrected in this document; two of the other seat's withdrawn.** Neither seat has defended a position once, and the allocation that now looks best is one neither of us proposed when Simon authorised the set. **Nothing is running and no model directory exists.**
