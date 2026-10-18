@@ -81,7 +81,7 @@ Traced at `ce56244`. Between the gate head's final linear layer and the reported
 - `get_intensity_ratio` is `ratio = max_ratio + b·step` with `b = (−max_ratio + min_ratio)/(total_steps·slope_ratio) < 0` (`curriculum.py:79-93`), so the threshold **cools from hot to cold**. Indices 0–29 are the **hottest 10% of the schedule.**
 - `window_dim: 32`, `batch_size=1`, `training_augmentation=False` (clean data), **dropout deliberately left on**.
 
-⛔ **So the BatchNorm statistics that ship inside the artifact are estimated over 30 of the most activity-enriched 32×32 windows in the entire curriculum — and are then applied, frozen, to the whole quiet 180×180 global land grid at inference.**
+⛔ **So the BatchNorm statistics that ship inside the artifact are estimated over 30 of the most activity-enriched 32×32 windows in the entire curriculum — and are then applied, frozen, to the whole quiet 360×720 global grid (64,818 land cells) at inference.**
 
 The class head has BatchNorm immediately upstream of its final linear layer (`bn_dec_conv1_head1_class`, defined `:249`, used `:653`). A fixed σ estimated on an activity-enriched population is **too large** for the global grid, so eval-mode BatchNorm over-divides, shrinking the features entering the head and **multiplicatively compressing the logit**.
 
@@ -336,7 +336,8 @@ dec_conv4_class k3s1 → RF = 26 px per side
 | pass | cells with FULL context | **truncated** |
 |---|---|---|
 | **32×32 window** | 6×6 = 36 of 1,024 = 3.5% | ⛔ **96.5%** |
-| **180×180 grid** | 154×154 = 23,716 of 32,400 = 73.2% | 26.8% |
+| **360×720 grid, ALL cells** | 334×694 = 231,796 of 259,200 = 89.4% | 10.6% |
+| **360×720 grid, the 64,818 SCORED LAND cells** | 64,368 = 99.31% | ⛔ **0.69%** (450 cells) |
 
 All convolutions are `padding=1`, so a truncated cell's receptive field is filled with **zeros, not neighbours**. And this is the U-Net path **alone**: the recurrent cell state is zero-initialised and built across the lead-in on that same 32×32 window, and M54 established the state carries a spatial map of where conflict will be — so its reach is truncated too. Effectively **every** cell in a window pass is computed from less context than its global-pass counterpart.
 
@@ -370,8 +371,8 @@ E6c's 10 replicates give `sd(b)` at window sample size directly, and the plan us
 
 | quantity | computation | cells | isolates |
 |---|---|---|---|
-| **`b_grid`** | 180×180 pass | all 842,634 | the published fact (1.146) |
-| **`b_crop`** | 180×180 pass, **re-binned** to the window set's cell locations | window set | ⛔ **the SELECTION/support axis** — free, a re-binning of the `.npz` already on disk |
+| **`b_grid`** | 360×720 pass | all 842,634 | the published fact (1.146) |
+| **`b_crop`** | 360×720 pass, **re-binned** to the window set's cell locations | window set | ⛔ **the SELECTION/support axis** — free, a re-binning of the `.npz` already on disk |
 | **`b_window`** | 30 × 32×32 window passes | window set | selection **+** the recal-distribution match (activity **and** context) |
 
 - ⛔ **H1's signal is `b_crop − b_window`** — same cells, same truth, differing only in how each cell was computed.
@@ -394,7 +395,7 @@ E6c's 10 replicates give `sd(b)` at window sample size directly, and the plan us
 - **E6c runs first** and now reports **three** things: `b_crop`, `b_grid − b_crop`, and `sd(b)` across 10 replicates. Replicates are **stratified to the window set's gate histogram**, not random — random thinning cannot see the support axis (A1).
 - **Both passes are run**: the crop (free) and the window pass. **Their difference is H1's signal**, not a confound to be removed.
 - `n_windows ∈ {30, 60, 120}` and bin resolutions {12 locked, 40, 200} unchanged — but the sweep now applies to `b_crop − b_window`, and **F4 voids on a sign change in the difference**, not in either term alone.
-- **Report the truncated-context fraction (96.5% vs 26.8%) alongside every E6 number**, so no reader mistakes the window pass for the inference computation.
+- **Report the truncated-context fraction (96.5% vs 0.69% on the scored land cells) alongside every E6 number**, so no reader mistakes the window pass for the inference computation. ⚠️ Corrected in Amendment 2 — the grid is 360×720, not 180×180, and the scored population's truncation is 0.69%, not 26.8%.
 
 ### What this amendment does not fix
 
@@ -403,3 +404,116 @@ E6c's 10 replicates give `sd(b)` at window sample size directly, and the plan us
 ### Pattern, recorded
 
 Three attacks in this programme have now landed on **this seat's own decisive test for this seat's own lead candidate** — §3.3 (sample size), A1 (support), A2 (context). Each was found by the other seat or by applying the sweep rule to my own side. **An author cannot test what they did not imagine, and the author's lead candidate is the hypothesis they imagine least critically.** The `falsify` guard-mode rule — the auditor may not be the author — is doing work here that no amount of care in a single seat would have done.
+
+---
+
+# AMENDMENT 2 — H4 added as a fourth candidate. It was already on record in this repo. 2026-10-18, BEFORE any Tier-1 run.
+
+**Source:** three further attacks from the `views-models` seat. **All three upheld.** One of them — H4 — changes what a positive E6 **licenses**, which is the failure mode F1′ was written to prevent, one level further out than Amendment 1 reached.
+
+---
+
+## ⛔ H4 — TRAIN/INFERENCE GEOMETRY MISMATCH. **Co-lead, and the one that changes the remedy.**
+
+**Verified premise.** Training runs exclusively on **32×32 crops** (`window_dim: 32`, `windows_per_lesson: 3`, both arms byte-identical). Inference runs **one untiled pass over the full grid** (`hydranet_inference.py:1172`, `_, seq_len, _, H, W = full_tensor.shape`; no tiling anywhere on that path — the only matches for `tile` in the file are the word *quan**tile***). **The network is evaluated on an input geometry it never saw once in training.**
+
+### ⛔ It was identified in this repository six weeks ago, verified in code, and neither seat found it
+
+`reports/2026-09-05_direct_multi_horizon_dossier/02b_design_review_rulings.md:20`, committed **`968b788`, 2026-09-06**, under the heading *"Architecture facts the design assumed wrongly — all verified in code"*:
+
+> **"Training crops are 32×32 (`window_dim`), deployment 180×180. A K=36 full-res forecaster reaches 36 cells — wider than the training crop; long-horizon dynamics would be learned from boundary."**
+
+**Four rounds of candidate enumeration across two seats missed a candidate already written down, verified, and committed in our own `reports/`.** Recorded as a process finding in its own right: neither seat searched the repository's own record before enumerating. The candidate list was built from what we could each see from our seat and from the code we happened to open.
+
+### The second limb, which that ruling also quantifies
+
+The same document establishes that the four ConvLSTM cells are **parallel, not stacked**, at full resolution, with `pool0`/`pool1` **outside** the recurrence — so **the recurrent state propagates one grid cell per month.** Over a 36-month lead-in its spatial reach is **36 cells, wider than the 32-cell training crop.**
+
+⛔ **So in training the state's spatial reach was clipped by the crop boundary on every single window. At inference it is not clipped at all.** That is a second, independent geometry mismatch, and unlike the padding limb it is not confined to a margin — it affects the state everywhere.
+
+### Why it is not separable from H1 by the Amendment-1 design
+
+H4 predicts the window pass (the trained geometry) is honest and the global pass (an unseen geometry) is compressed: **`b_crop − b_window > 0`, bit-for-bit the same signature as H1, same sign, same magnitude class.** The crop carries the global pass's computation under H4 too, so `b_crop` does not separate them.
+
+**And the remedies are not the same size:**
+
+| | remedy | cost |
+|---|---|---|
+| **H1** | re-estimate BatchNorm statistics on the inference distribution | one-line, bounded, cheap |
+| **H4** | the training geometry does not match inference — train on larger windows, or infer in tiles | architectural, expensive, and it puts **the inference path** in question rather than one post-training step |
+
+⛔ **F1′ as written fires on `b_crop − b_window ≥ threshold` and licenses "recalibrate on the inference distribution." Under H4 that fix changes little and we would have bought the lesson with a Tier-3 arm.**
+
+⚠️ One honest qualification in H1's favour: the H1 fix is a **partial** H4 fix, because re-estimating BatchNorm statistics on the inference distribution also re-normalises full-context activations. So "H4 holds" does not make the cheap fix worthless — it makes it **incomplete**, and the distinction matters for what gets promised.
+
+---
+
+## A2 — ⛔ UPHELD. F2 could falsely kill H1, and Amendment 1 made this worse.
+
+Amendment 1 redefined H1 as *"the recal distribution is not the inference distribution"* — a claim about **distribution match**. But the BatchNorm statistics come from curriculum lessons 0–29 inside training months **121–456**, and E6's windows are at **457–469**. **E6's windows are therefore not the recal distribution** — they are a different draw from a similar selection rule, on data the statistics never saw.
+
+An imperfect distribution match produces `b_window > 1.10` with a small gap **while H1 is true.** F2′ read that as *"H1 is DEAD"*, converting a known limitation of the proxy into a negative result about the hypothesis. **That is my error and it was introduced by my own re-framing in Amendment 1.**
+
+**F2″ replaces F2′:** the verdict is **"H1 UNSUPPORTED ON THIS PROXY — Tier 3 required to kill it."** The alternative, reproducing the recal months, confounds time with selection and is still refused.
+
+## A3 — ⛔ UPHELD, and the correction is larger than they argued. The grid is 360×720.
+
+`vehicle.py:23` — `GRID_ROWS, GRID_COLS = 360, 720`; the volume is `[1, T, 3, 360, 720]` (`:212`); 64,818 land cells of 259,200. **180×180 = 32,400 is fewer than the land-cell count, so the figure could never have been right.** It is the **africa** grid (`africa_me_legacy`, 13,110 cells — see `2026-10-12_underfire_diagnosis_prereg.md:211`), carried into a global-model claim. Corrected throughout this plan, in `OUTCOME.md` rev 3, and in project memory.
+
+**And the relevant denominator is the scored population, not the grid:**
+
+| population | truncated context |
+|---|---|
+| 32×32 window | ⛔ **96.5%** (988 of 1,024) |
+| 360×720 grid, all cells | 10.6% — *their figure, correct for all cells* |
+| 360×720 grid, **the 64,818 scored land cells** | ⛔ **0.69%** (450 cells) |
+
+**The contrast A2's case rests on is 96.5% vs 0.69%, not 96.5% vs 26.8%.** Correcting it widens the gap by a further factor of ~39.
+
+---
+
+## The amended design
+
+### ⛔ My own counter-proposal is DEAD, and I checked before offering it
+
+I had intended to propose **E6e**: split the global grid into rim and interior cells and compare slopes, testing H4 without any window pass. **It is unpowered.** Land cells by distance to the grid boundary:
+
+```
+  0–3 px:    96 cells (0.15%)      13–30 px:  2,032 (3.13%)
+  3–7 px:   132 cells (0.20%)      30–60 px: 12,861 (19.84%)
+  7–13 px:  222 cells (0.34%)      60+ px:   49,475 (76.33%)
+```
+
+**450 truncated land cells at a 0.345% positive rate is ~1.6 expected positives.** No calibration slope can be fitted on that. E6e is not in this plan.
+
+### E6d — ADOPTED as specified, and it is the only viable signature discriminator
+
+Per cell on the **same** cells, compute `logit(p_crop) − logit(p_window)` and regress it on **distance-to-window-edge**. The mechanisms have different spatial signatures:
+
+- **H1** is a frozen per-channel scale error at BatchNorm; aggregated to the head it is approximately a single global logit scale — **no reason to correlate with edge distance.**
+- **H4** is a context/padding effect and **must concentrate by distance to the pass boundary**, since that is what sets how much of a cell's receptive field is zeros.
+
+It has power where E6e does not, because the **window** pass is where truncation actually varies: edge distance spans 0–15 across a 32-wide patch and 96.5% of cells sit below the 13-px full-context margin. **Pre-registered as a PRECONDITION on reading F1′**, the way E6c gates E6.
+
+### ⛔ E6f — NEW, and it is the definitive test: measure the REMEDY, not the signature
+
+A signature test infers the cause; this tests the fix. **Re-estimate the BatchNorm running statistics on the inference distribution** — forward-only over the 360×720 grid at the lead-in months, `momentum=None`, exactly as `_recalibrate_bn` does but sampling the inference geometry — then re-score the gate and refit `b`.
+
+| outcome | reading |
+|---|---|
+| `b → 1` within the power band | ⛔ **H1 is the binding cause and its cheap remedy WORKS.** H4 is at most secondary. This is the result that licenses the one-line fix — and it licenses it because the fix was *measured*, not inferred from a signature. |
+| `b` unchanged | ⛔ **H1's remedy does not work.** Either H1 is dead or (per the qualification above) the geometry limb dominates. **H4 or H2 or H3.** |
+
+**Cost:** CPU forward passes only — no gradients, no optimiser, no training. ⛔ **On a scratch copy of the artifact, never written back.** Re-estimating BatchNorm statistics changes the numeric posterior of every logged metric (C-112/C-119 comparability), so this is a diagnostic and must never be confused with a shipped change.
+
+**F1‴ replaces F1′:** H1 may be declared the cause **only if E6f also shows `b → 1`.** A positive `b_crop − b_window` with E6f unchanged is **H4-or-H2, not H1** — which is exactly the mis-licensing this amendment exists to prevent.
+
+---
+
+## Pattern, updated
+
+**Four attacks have now landed on this seat's own decisive test for this seat's own lead candidate** — §3.3 sample size, A1 support, A2 context, and now H4 remedy mis-licensing. Three came from the other seat; one from applying the sweep rule to my own side; and **one of them was sitting in this repository's own records, committed, verified, and never searched for.**
+
+The lesson is not that the test was badly built. It is that **a decisive test for a hypothesis you hold is the single place an author's imagination is weakest**, and that no amount of care in one seat substitutes for another seat trying to break it. The `falsify` guard-mode rule — the auditor may not be the author — has now earned its place four times in two days.
+
+⚠️ **And if H4 holds, the consequence should be stated rather than left implied:** the compression would be a defect in **the inference path** of this repository, not primarily a calibration problem — and the whole `pos_weight` programme, the temperature-scaling remedy, and two days of calibration work would be treating a symptom of a geometry mismatch.
