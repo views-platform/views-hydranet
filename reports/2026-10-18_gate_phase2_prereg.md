@@ -446,3 +446,68 @@ Adopted, as a reading with the same standing as R-0 … R-4:
 | **A5** | conceded in full; the `a`-fold-stability prerequisite survives as the non-definitional residue |
 
 ⛔ **Phase 2 still needs Simon's word, the proposition is weaker than when he gated it, and its most likely product is now an issue rather than a measurement.** Both seats agree on that, and it is written down before anything runs.
+
+---
+
+# AMENDMENT 4 — closing note. Two of faoapi's three facts are corroborated; the third is not, and the corroboration is weaker than "the same run". 2026-10-18.
+
+**Both seats closed.** Final verifications, and two precision points on the corroboration itself.
+
+---
+
+## 1 — ✅ EIGHT placeholder members, not four
+
+```
+temporary_otter · temporary_robin · temporary_finch · temporary_heron
+temporary_lynx  · temporary_bison · temporary_crane · temporary_fox
+```
+
+⛔ **The July shadow run was an eight-member roster of placeholder clones — the same arity as the real roster that replaced it.** That is a stronger corroboration of faoapi's account than four names would have been: it matches the *structure*, not just the naming convention.
+
+## 2 — ⚠️ Two precision points on the July corroboration
+
+faoapi reports FAO was served `rusty_bucket_forecasting_20260727_095355`. The local log records `Ensemble Model Timestamp: 20260727_100424`.
+
+- **The offset is 10 min 29 s, not nine minutes.** Minor, and stated because it is cheap to state.
+- ⛔ **They are DIFFERENT FIELDS.** faoapi's is a **forecasting run ID**; the log's is an **Ensemble Model Timestamp**. So this corroborates **the date, and that `rusty_bucket` ensemble activity occurred on 27 July around 10:00** — it does **not identify the run**, and the 10½-minute offset is unexplained.
+
+⚠️ **Calling it "the same run" would be the provenance-mismatch class applied to our own corroboration** — a timestamp in one field used to establish identity in another. **It is corroboration of existence and date. Not identity.** Recorded that way.
+
+**Position after this round:**
+
+| faoapi fact | status |
+|---|---|
+| the `temporary_*` placeholder members | ✅ **corroborated from views-models** (eight, by name) |
+| the July run (`…20260727_095355`) | ✅ **corroborated as to date and existence**; not identified |
+| the October run (`…20261001_012905`) | ⛔ **unverified by anyone but faoapi** |
+
+**Only the October run ID remains unverified — and it is the one the established claim is about.** The claim does not depend on it: *"no artifact postdates the switch, and no October run is recorded locally"* is true independently of what the October run is called.
+
+## 3 — ⛔ The twelfth instance, and it is the other seat's own search
+
+They reported *"ZERO files, whole platform"* and *"no trace in any form."* What ran was:
+
+```
+find . -maxdepth 6 -name "*forecasting_202610*"
+```
+
+⛔ **A filename search, depth-limited — which cannot see a string inside a `.py`, which is exactly where the one match lives.** The result was correct; **the words claimed a broader question than the method answered.**
+
+**Twelfth instance of the provenance-mismatch class, and the first where the mismatched value was a SEARCH RESULT rather than a number.** It generalises the class:
+
+> ⛔ **A search is a value with a provenance. "No matches" means "no matches to the query that ran", and the query is the setter's question.** `find -name` answers *"is there a file named this?"*; it does not answer *"does this string appear anywhere?"*. **Reporting the second from the first is the same error as reading a nominal product as a sample size.**
+
+✅ **And the corollary both seats now hold: record the distinction, not just the verdict.** *"Zero"* and *"one match, which is a test fixture on a different date"* are different facts, and collapsing them is what makes a row un-re-checkable.
+
+## 4 — Closed, by both seats
+
+| | |
+|---|---|
+| **Phase 2** | needs Simon's word; **weaker** than when he gated it; **most likely product is an issue, not a measurement** (R-P0) |
+| **what goes to him** | ⛔ **the unidentifiable serving weights** — it stands alone and depends on nothing either seat has still to verify |
+| **(a)** | not asserted by either seat |
+| **all three** | written down **before** anything ran |
+
+⛔ **Sixteen withdrawals between two seats, and not one had to be dragged out.** That is the only reason this record is usable, and it is the part that stops working the moment either seat starts defending a position rather than a measurement.
+
+**Both seats have nothing further to attack and nothing further to add. The next move is Simon's.**
