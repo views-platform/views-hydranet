@@ -1,0 +1,43 @@
+vehicle: calibration_model_20261013_010739.pt  sha256 2a5efc2a67c08eac…  (NOT the delivered weights — C-317)
+  lessons 300 · run_type calibration · git 73c3f42 · trained 2026-10-12T22:40:11Z to 2026-10-13T01:07:42Z
+⚠️  REGION IS RECORDED AS ENFORCED, NOT MEASURED. PROVENANCE says 'land (enforced at check_config -- the run refuses any other)' — which records that pod_run_model.sh:279-282 refuses any other value, NOT a read-back of the grid the weights saw. Nothing in a .pt or its sidecar records the region, and the net is fully convolutional, so this remains weaker than a measurement. The four known africa artifacts are additionally denied by hash.
+amber  sha 2a5efc2a67c08eac…
+PAIRED BASELINE  b_before = 1.1875   expect 1.1875   (554s)
+re-estimating 15 BN layers over 336 full-grid 360x720 months (dropout ON, no augmentation)
+    25/336  248s elapsed
+    50/336  330s elapsed
+    75/336  406s elapsed
+    100/336  477s elapsed
+    125/336  555s elapsed
+    150/336  638s elapsed
+    175/336  710s elapsed
+    200/336  780s elapsed
+    225/336  848s elapsed
+    250/336  913s elapsed
+    275/336  982s elapsed
+    300/336  1045s elapsed
+    325/336  1119s elapsed
+re-estimation: 1153s for 336 months (3.43s/month)
+✅ BN buffers finite
+
+                                    b    |b-1|
+before (as shipped)            1.1875   0.1875
+after BN re-estimation         0.7793   0.2207
+
+F1-quad EQUIVALENCE band: |b-1| <= 2*sd = 0.0214
+⛔ PARTWAY — improved but NOT equivalent to 1.0. Neither candidate named. This is the outcome the equivalence test exists to catch. STOP; report to Simon.
+
+SIGNED per-bin curve (§7 requires signed alongside absolute)
+  bin                  n     gate      obs   signed  (after re-estimation)
+  [0.00,0.01)      720785   0.0022   0.0000  +0.0022
+  [0.01,0.05)       77914   0.0218   0.0014  +0.0205
+  [0.05,0.10)       15109   0.0700   0.0065  +0.0635
+  [0.10,0.20)        9631   0.1408   0.0132  +0.1276
+  [0.20,0.30)        4214   0.2448   0.0230  +0.2218
+  [0.30,0.40)        2712   0.3472   0.0365  +0.3107
+  [0.40,0.50)        2138   0.4483   0.0496  +0.3987
+  [0.50,0.60)        1706   0.5494   0.0610  +0.4885
+  [0.60,0.70)        1602   0.6496   0.0880  +0.5616
+  [0.70,0.80)        1489   0.7509   0.1222  +0.6287
+  [0.80,0.90)        1657   0.8507   0.1635  +0.6872
+  [0.90,1.01)        3677   0.9677   0.4199  +0.5478
