@@ -885,3 +885,84 @@ Instance 1 had survived two readings of `OUTCOME.md`, a full `/review-diff`, and
 - ⛔ **It caught none of the six prospectively. All six were found by the other seat, after the fact.** A control derived from six post-hoc catches, which has never fired prospectively, is **a hypothesis about process, not a demonstrated one.** It goes into §3 **labelled UNTESTED**, and the first prospective catch or miss should be recorded against it.
 
 ⚠️ **And the authors' disclosure applies to this seat too:** the control is proposed by the seat that supplied instance 5, amended by the seat that supplied instances 3 and 4, and instance 1 is in a harness this seat wrote and twice verified. **No seat here has clean hands, which is the strongest argument for a mechanical control over a careful one.**
+
+---
+
+# AMENDMENT 7 — Amendment A had no stopping condition, and instance 1's history is not what I wrote. 2026-10-18. Final amendment.
+
+**Source:** the `views-models` seat. **Both items upheld. One corrects a false claim this seat committed one commit ago.**
+
+---
+
+## 1 — ⛔ UPHELD. Amendment A, as worded, forbids the measurement the plan depends on.
+
+> *"A measured quantity computed from a `configured` or `nominal-derived` input inherits the weaker tag."*
+
+**Every measured quantity in this plan has configured inputs** — bin edges, `np_seed`, `D = 4`, `LEADIN_START`. Applied literally, every measurement becomes `nominal-derived`, **no sufficiency claim is ever permitted, and E6c's own `sd(b)` — the measurement Amendment 5 made the authority — is forbidden by my own rule.** Either it gets ignored or it paralyses the plan. Neither is a control. **The rule ate itself and I did not notice.**
+
+**Qualifier adopted, which keeps it mechanical:**
+
+> ⛔ **Taint propagates only through an input that STANDS IN FOR the object the claim is about.**
+> **Test: does the measurement's input differ from the population the claim concerns?**
+
+| quantity | claim about | input | verdict |
+|---|---|---|---|
+| `sd(b) = 0.0218` | variance of the realised window draw | uniform subsamples of the global array | **differs → TAINT** |
+| E6c's `sd(b)` | variance of the realised window draw | **the realised window draw** | same → no taint |
+| bin edges, seed, `D` | not a substitute for any population — part of the estimator's definition | — | no taint |
+
+One yes/no question, no understanding of meaning required. It restores (2) to catching instances 1, 2, 4 and 5 **without** forbidding the measurement the plan rests on.
+
+## 2 — ⛔ UPHELD, AND IT CORRECTS A FALSE CLAIM I COMMITTED IN `0966fad`.
+
+Amendment 6 and OUTCOME §9 issue 10 said instance 1 survived *"because nothing ever asked what the field name was asserting."* **False. Something did.** `evidence/EVIDENCE.md:17-20`, under its own heading:
+
+> **"### TRAP — do not cite the `pos_weight` field inside the npz**
+> `p2_result_amber.npz` and `p2_result_copper.npz` BOTH store `pos_weight = 2.0`. That field is the harness's hardcoded `SHIPPED_POS_WEIGHT` constant (violet_visitor's value), not a value read from the model. `p2_gate_calibration.py:185` assigns `pw = SHIPPED_POS_WEIGHT` under verdict D2. **It is meaningless for these two arms.** Cite the run.log lines above instead."
+
+Verified present, plus further mentions at `:41` and `:155`. Written at evidence-staging by the `views-models` seat, which is why **no conclusion ever rested on it.** OUTCOME §9 issue 10 is corrected in the same commit as this amendment.
+
+⛔ **So the failure is not detection. It is that a documented defect in a stored artifact became a CAVEAT instead of a FIX.** A different failure, with a better control:
+
+> ⛔ **A caveat does not travel with the artifact.** A known-wrong stored field must be **fixed or renamed**, never annotated in a separate document. The `.npz` still says `pos_weight = 2.0`, **three files away** from the note that corrects it, so anyone who loads it without reading `EVIDENCE.md` gets the wrong answer.
+
+### The mechanical form for stored artifacts is a NAMING obligation, not a disclosure
+
+This supersedes Amendment B's provenance-line treatment for stored fields:
+
+> ⛔ **A stored field's name must be true of its value under the WEAKEST reading a later reader could take.**
+
+`pos_weight` asserts *"the pos_weight of this run"*. `shipped_pos_weight_reference` would have asserted nothing false, **and the defect could not have existed.**
+
+⛔ **And this is where the third layer settles the argument.** Because `pw` is assigned *inside* the verdict branch, a D1 outcome writes `1.0` — so the field means *"whatever this branch carries"*, neither the run's value nor `violet_visitor`'s. **No provenance line about a branch-dependent field could be written truthfully in the first place**, which is why disclosure was never the right instrument here and naming is.
+
+**One strengthening from this seat, since the branch dependence is the root:**
+
+> **A stored field whose value depends on which control-flow branch produced it must encode that branch, or be split into separate fields.** A single name cannot be true of two values chosen by a condition the name does not mention.
+
+**Remediation is small, concrete, and Simon's:** rename the field in the harness and regenerate, or drop it. Filed as OUTCOME §9 issue 10.
+
+---
+
+## Close of the attack phase
+
+Eight rounds. **The last three improved the CONTROL, not the experiment** — and the other seat's judgement that this is the end of useful attack is correct and I accept it.
+
+The experiment has been as good as it can get without data since Amendment 3. E6's honest state — **not shown to be powered at any window count, with F6 pre-committed if no affordable count clears the gate** — is a fact about the world, not a gap in the plan. Further rounds would refine a process rule neither seat has yet run, which is worth less than running E6d and E6c and finding out whether any of this is powered.
+
+### What the attack phase produced, for the record
+
+| | |
+|---|---|
+| rounds | 8 |
+| amendments | 7 |
+| claims withdrawn, this seat | 6 — including a power conclusion, an architectural limb refuted by our own ledger, a grid dimension, a tolerance justification, two jointly-unsatisfiable corrections, and a false claim about a defect's history |
+| claims withdrawn, other seat | 4 — including its own headline statistic, its own power bound, and the limb it supplied to H4 |
+| defect classes named | 3 — unstable scalars (§3.5), provenance mismatch (Amendment 6), caveat-instead-of-fix (here) |
+| prior art found in this repo, unsearched | 5, including a committed instrument and the 142× confound that would have dominated E6 |
+| controls adopted | 7, **all labelled UNTESTED** — none has fired prospectively |
+| cost | **$0.** Nothing on a GPU. Sigma unmeasured, so E1's prediction is unspent. |
+
+⚠️ **The honest summary: the experiment is no better than it was at Amendment 3, and the plan around it is much better.** Eight rounds of adversarial review found no reason to change what E6 measures — only six reasons the measurement as specified would not have meant what it claimed.
+
+**Next act is execution, and it is not either seat's to start.** The first three measurements are free and have not been asked for; the issues in OUTCOME §9 are Simon's repos and Simon's call.
