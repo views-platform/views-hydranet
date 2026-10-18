@@ -298,3 +298,91 @@ under a corrected gate g':  P'(composed > 0) = P(composed > 0) · g' / gate
 | `RND_PLAN.md` §5 | F11 is **open for the eight**, blocked for the kestrels |
 
 ⛔ **Four of the six attacks landed on things this plan asserted rather than measured** — a premise, a stale limitation, a table's logic and a band inherited from the wrong phase. **Phase 2 still needs Simon's word and nothing has run.**
+
+---
+
+# AMENDMENT 2 — A1 and A6 WITHDRAWN. The gate posteriors are for the wrong runs, and the served weights cannot be identified from this machine. 2026-10-18.
+
+**Source:** the `views-models` seat withdrawing both of its own Amendment-1 contributions after reading the run type and region it had not read the first time. ⛔ **Both withdrawals are correct. This seat's A2 extension inherits the defect and is withdrawn with them.**
+
+---
+
+## 1 — ⛔ WHAT WAS WRONG: the files answer a different question
+
+The on-disk `by_*` gate posteriors are **`predictions_validation_*` runs dated 2026-09-07 to 2026-09-17**, shape `(471960, 16)` = **13,110 africa cells × 36 horizons**. FAO is served from **`rusty_bucket_forecasting_20261001_012905`** — a **global forecast**, 64,742 cells.
+
+**Different region, different run type, different weights, two weeks earlier, pre-switch configs.** ⛔ **The filename says `predictions_validation_` and the date is in it, and neither seat read either.**
+
+**Verified here, independently:**
+
+- The region switch is on the record in this repo: **`2026-10-12_underfire_diagnosis_prereg.md:207` — "Sep 19 ⛔ `REGION` switched `africa_me_legacy` → `land` (runbook #499)"**, with the note that the newest local artifact *"is two days older than the region switch, so it was trained on `africa_me_legacy` (13,110 cells) — not the global `land` model (64,818 cells) that produced the delivery."*
+- ⛔ **Zero post-switch artifacts exist for any of the eight.** 22 `.pt` files across the eight models, **all dated before 2026-09-19**: purple_alien 0/3, pink_pirate 0/2, blue_stranger 0/2, bold_comet 0/3, heavy_freighter 0/3, bright_starship 0/3, violet_visitor 0/4, blazing_meteor 0/2.
+- The `forecasting_20261001` output directory is **not on this machine**.
+
+## 2 — What is withdrawn
+
+| | status |
+|---|---|
+| **A1** *"Phase 2 is array reads"* | ⛔ **WITHDRAWN.** True only if we accept measuring September africa **validation** runs in place of the served October **global forecast**. Their 1.5 h sweep estimate was **not too high — it was the estimate for the right question**, and they withdrew it in favour of files that answer a different one |
+| **A6** *"F11 is open for the eight"* | ⛔ **WITHDRAWN.** The factorisation `P(composed>0) = P(body>0)·gate` **is still correct**, but it needs the gate for the **served** run, which is not retained (`pod_run_model.sh` globs `'*/lr_*'`, #558). **F11 is blocked for the eight too.** `RND_PLAN.md` §5 reverts to blocked |
+| **this seat's A2 extension** | ⛔ **WITHDRAWN.** *"All eight are africa"* is established **of these September validation runs** and **not** of the served October run. The dissolution of the cross-grid confound rested on it, so that dissolution is withdrawn as well |
+| the h=1-and-h=36 addition | ⛔ **WITHDRAWN as scoped.** 36 horizons exist **for the September africa validation runs only.** The #558 limitation is **not** stale for the served run |
+
+⛔ **Eleventh instance of provenance-mismatch — a value used in a role other than the one that produced it — and the worst-placed: both seats celebrated an unblock in the same round, built on files whose run type and region neither had read.** Amendment 6's own control (*"the `file:line` that SETS it, and the question its setter was answering"*) applies to a **filename**, and neither of us applied it.
+
+### ⛔ And the hazard was already guarded in this programme's own tooling
+
+`reports/2026-10-12_underfire_diagnosis/vehicle.py:148-151` **denies four known `africa_me_legacy` artifacts by hash**, with the reason stated:
+
+> *"The config check cannot catch this — the sidecar records no region and the net is **fully convolutional** — so it is denied by hash."*
+
+and `:187-191`:
+
+> *"…the region is recorded as what `pod_run_model.sh:279-282` **refuses**, NOT a read-back of the grid the weights saw. **Nothing in a `.pt` or its sidecar records the region**, and the net is fully convolutional, so **this remains weaker than a measurement.**"*
+
+⛔ **So this repository already knew an africa artifact could be used where a global one was needed, built a hash-denial guard against it, and documented that region is NOT recoverable from an artifact — while both seats read eight directories without checking either.** Fourth instance of prior art in our own tooling, and the first where the guard was written by this very programme.
+
+## 3 — ⛔ WHAT IS ESTABLISHED, AND WHAT IS NOT
+
+The other seat raises two possibilities for the served run: **(a)** it ran the September africa-trained weights on the global grid, or **(b)** new weights were trained and never came home. **Neither seat can evidence either.**
+
+⛔ **This seat will not state (a).** It is the alarming reading, it is not excluded, and it is not established — and a programme that has withdrawn sixteen claims between two seats does not get to publish an inference of that size on an absence of files.
+
+**What IS established, and it is enough to act on:**
+
+> ⛔ **The weights behind the forecast FAO is being served cannot be identified from this machine.** No artifact for any of the eight postdates the region switch, and the serving run's own output directory is absent.
+
+**That holds under BOTH (a) and (b), and it is a finding in its own right:**
+
+- **Under (b)** it is a **reproducibility and provenance defect** — the served forecast is produced by weights that exist nowhere locally, independent of any calibration question.
+- **Under (a)** it would additionally be **H4 in a far more extreme form than anything measured** — trained on 13,110 africa cells, deployed on 64,742 global cells including continents absent from training. ⛔ **Not asserted.**
+
+⚠️ **And it decides whether Phase 2 is executable at all**, which is why it is now Step 0.
+
+## 4 — Step 0, REWRITTEN. A provenance gate, not a cost question.
+
+**Before any `b` is fitted, and in this order:**
+
+1. ⛔ **Identify which artifact produced `rusty_bucket_forecasting_20261001_012905`, per member, by `sha256` against the run's own provenance record — NOT by date, NOT by filename.**
+2. **Establish whether that artifact is on this machine.** ⛔ **If it is not, Phase 2 cannot measure the served models, and must say so rather than substituting September africa runs.**
+3. **Read back what region each member's weights were trained on.** ⚠️ Per `vehicle.py:187-191` this may be **unanswerable** — the sidecar records no region and the net is fully convolutional. **If so, state it as unanswerable; do not infer it from a date.**
+4. **Only then** the array-reads-or-sweeps question, and the cost.
+
+### ⛔ F-NEW — pre-registered refusal
+
+> **If the served weights cannot be identified, Phase 2 may measure the September africa validation runs ONLY if every statement about them is scoped to "these models, in September, on africa."** ⛔ **F-NEW fires on any sentence that crosses that boundary into a claim about what FAO receives** — and a fired F-NEW voids the sentence, not the measurement.
+
+**This is the control that was missing when both seats celebrated an unblock.** The measurement would have been fine; the sentence about it would not.
+
+## 5 — What survives of Amendment 1
+
+| | |
+|---|---|
+| ✅ **A2's core** (the cross-grid confound) | **stands and is now stronger** — if the served run is global and the measurable runs are africa, the mismatch is the whole problem rather than a nuisance |
+| ✅ **A3** disjoint ordered reading table | stands |
+| ✅ **A4** `max(0.05, 2·sd_model)` band | stands |
+| ✅ **A5** the near-definitional diagnostic, its undetermined threshold, and the falsifiable-not-confirmable asymmetry | stands |
+| ✅ **the `a`-fold-stability prerequisite** | stands — `T`'s spread was measured at 0.8% and `a`'s never was, and an unstable `a` cannot select even where the rule is definitional |
+| ✅ **the 1/16 quantisation caveat** on the factorisation | stands, and applies whenever the factorisation is used on a run whose gate IS retained |
+
+⛔ **Phase 2 is a weaker proposition than when Simon gated it, and the plan says so rather than preserving its own scope.** The next step is not a measurement — **it is a provenance question, and it may return "not answerable from here."**
