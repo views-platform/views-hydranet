@@ -171,3 +171,130 @@ Phase 1's `F1⁗` had three branches and the outcome that occurred was in none o
 ## 11. Glossary
 
 Every term checked against `reports/GLOSSARY.md`. **§5b** locks `the calibration level` (`a`), `the calibration slope` (`b`), `under-dispersed`, `over-dispersed` and `temperature scaling`, with the banned aliases — including that ⛔ **`timid` (§5) is about the BODY and must not be used for the gate**, and that *"the gate is miscalibrated"* names neither axis and is drift. `soft_gate`, `threshold_gate`, `self_zeroed`, `AP`, `act_ratio`, `MCR` and `calibrated` are unchanged. ⚠️ **`act_ratio` and `MCR` are BIAS metrics, not calibration metrics** — `OUTCOME.md §3.5`.
+
+---
+
+# AMENDMENT 1 — §2's premise is false, the reading table is not mutually exclusive, and the horizon limitation lifts. 2026-10-18, BEFORE any Phase-2 measurement.
+
+**Source:** six attacks from the `views-models` seat. **All six upheld. Two of them invert things this plan asserted, one is a contribution, and one of my own risk assessments was backwards.**
+
+---
+
+## A1 — ⛔ UPHELD. The gate posterior IS on disk, for all eight, at all 36 horizons.
+
+**Verified independently here:**
+
+```
+purple_alien     78 gate files      heavy_freighter   78
+pink_pirate      39                 bright_starship   39
+blue_stranger    39                 violet_visitor   117
+bold_comet       78                 blazing_meteor    39
+                 (39 = 13 origins x 3 targets)
+```
+
+Shape confirmed on `by_sb_best/y_pred.npy`: **`(471960, 16)` float32 = 13,110 cells × 36 horizons**, unsaturated, with `identifiers.npz` carrying `time`/`unit`.
+
+⛔ **So §2's premise — "may mean eight local forward passes" — is FALSE. Phase 2 is array reads.** My Step 0 pre-registered a question whose answer was already on disk, and assumed the expensive branch.
+
+⚠️ **And the other seat's ~1.5 h estimate was for sweeps, so it is also wrong — too HIGH.** ⛔ **The tenth unmeasured figure across both seats, and the first optimistic in the cheap direction.** F8 applies in both directions and both of us earned it.
+
+### ⛔ And it lifts the horizon limitation this plan inherited
+
+#558 / C-161 records *"the gate posterior does not come home."* **True of `pod_run_model.sh`'s calibration archive, which globs `'*/lr_*'` only. NOT true of these `predictions_validation_*` runs, which retain `by_*` at all 36 horizons.**
+
+**So the horizon question Phase 1 declared unmeasurable is measurable for these eight.** ⛔ **A limitation carried forward verbatim from Phase 1 was stale**, and neither seat checked it before writing it into two documents.
+
+**Bounded scope addition, pre-registered rather than allowed to balloon:** measure `b` at **h=1** (method-comparable to Phase 1) **and h=36** (the delivered horizon). **Not all 36** — the whole-curve question is a separate phase. **Pre-registered prediction: `b` at h=36 ≥ `b` at h=1 on every model**, since the rollout injects noise at every step. ⛔ **This is a genuine blind test** — no horizon-resolved gate calibration exists anywhere.
+
+## A2 — ⛔ UPHELD AND SHARPENED. All eight are AFRICA. None is on Phase 1's grid.
+
+They flagged `violet_visitor` as 13,110 cells against Phase 1's 64,818. **Measured here: all eight are 13,110 — `africa_me_legacy`. Every one.**
+
+That cuts two ways and the plan must say both:
+
+- ✅ **Their confound largely DISSOLVES for the eight-model comparison** — it is **within-grid**, same domain, same base rate, so counting models with `b > threshold` is legitimate.
+- ⛔ **But the comparison to Phase 1 is CROSS-GRID for all eight.** `amber`/`copper` are global land (64,818); every served model is africa (13,110). **So `b = 1.1875` is not a comparable reference for any served model**, and A1's measured lesson applies exactly: **restricting the same model's data to a different support moved `b` by up to 0.099, against a 0.10 decision threshold.**
+
+⛔ **Consequence for the generalisation question:** "does the defect generalise to the served models" is answerable **within africa**. ⛔ **Attributing any DIFFERENCE between the served models and amber/copper to anything other than the grid is NOT available from this data**, and no reading may do so.
+
+**F12′ extended:** common support **across arms, across populations, and across MODELS** — and ⛔ **a model's grid and cell count are recorded before any `b` is fitted**, with the Phase-1 reference marked cross-grid wherever it appears.
+
+## A3 — ⛔ UPHELD. The table was exhaustive but NOT MUTUALLY EXCLUSIVE.
+
+They are right and the defect is the mirror of the one I fixed:
+
+- **Reading 2** (`b > 1.05` on 1–4 of 8 → *treat only those*) and **reading 6** (*"mixed, no majority and no clean split"* → ⛔ *no treatment*) **overlap and prescribe opposite actions.** 1–4 of 8 **is not a majority**, and *"clean split"* is undefined — so reading 6 is **not a condition at all**, it is a catch-all that reverses reading 2.
+- **Readings 1 and 3 co-fire** (five at 1.2, one at 0.9) and then disagree on whether the defect is "platform-wide" or "not directional", **with no precedence given.**
+
+⛔ **I fixed non-exhaustiveness in Phase 1 and introduced non-exclusivity in Phase 2. A table that is exhaustive but overlapping has the identical defect: the outcome gets chosen after the fact.**
+
+### Readings, REPLACED — disjoint, ordered, with precedence
+
+Let `A` = the count of **`soft_gate`** models with `b − 1 > max(0.05, 2·sd_model)`, and `V` = models VOID under F1–F4. **Evaluate in order; the first matching row is the reading.**
+
+| # | condition | consequence |
+|---|---|---|
+| **R-0** | `V ≥ 3` | ⛔ **VOID the phase.** Too little survives to read |
+| **R-1** | any model with `1 − b > max(0.05, 2·sd_model)` | ⛔ **OVER-dispersion exists. Takes PRECEDENCE over all below.** A new finding; R1 would make that model worse; it leaves the treatment set and gets its own write-up; `OUTCOME.md §2` is qualified |
+| **R-2** | `A ≥ 4` of the 7 `soft_gate` | **majority — the defect is platform-wide within africa.** Phase 3 proceeds for those models |
+| **R-3** | `1 ≤ A ≤ 3` | **minority — model-specific.** Treat only those. ⚠️ Report *why they differ* as an open question, never as a cause |
+| **R-4** | `A = 0` | ⛔ **the defect does NOT generalise beyond the two kestrels.** Phase 3 is cancelled; the programme's scope collapses to amber/copper |
+
+**Disjoint by construction** (`A` partitions at 0, 1–3, ≥4), **ordered**, and R-1 is explicitly a precedence rule rather than a competing row. ⛔ **Reading 6 is DELETED** — "inconclusive" is now `R-0` with a numeric condition, not a catch-all.
+
+## A4 — ⛔ UPHELD. The fixed band contradicted Phase 1's own lesson.
+
+Phase 1 ended with `F1⁗` as an **equivalence test against measured `sd`**, precisely because a movement test would have named H1 on `b = 1.06`. **§5 then used an absolute `0.95 ≤ b ≤ 1.05` for all eight.**
+
+`sd(b)` was **0.0107** on 842,634 cells. On **13,110 cells × 13 origins** it scales to roughly **0.024**, so `1.05` is only ~2 sd — and ⛔ **for any model with fewer usable cells the band sits inside the noise, making `b > 1.05` unfalsifiable while reading as a finding.**
+
+⛔ **Band replaced everywhere by `max(0.05, 2·sd_model)` with `sd` bootstrapped PER MODEL**, already applied in the table above. **F2's floor stands** at `sd ≥ 0.027` → that model is UNMEASURED.
+
+## A5 — ⛔ UPHELD. My risk assessment was BACKWARDS. One addition restores the real risk.
+
+I called §3.4's diagnostic the riskiest item. **It is close to definitional, and their argument is correct:** R3's only advantage over R1 is that it fits an intercept; **`a` IS that intercept**; so *"large `|a|` predicts R3 wins"* is nearly *"the two-parameter family beats its restriction when the parameter it adds is large"* — the **definition** of when a nested family wins, not a claim about the world. In the bias limit it is an identity.
+
+**And their second point is decisive:** amber `a = +0.16`, copper `a = +1.30`, so ⛔ **any threshold in (0.16, 1.30) separates the two training cases perfectly — an eightfold interval. The 0.5 carries no information from n=2.** By §3.5's own sweep rule the admissible family is wide and all its members agree on the training cases, so ⛔ **the rule can be FALSIFIED by a miss but barely CONFIRMED by a hit.** That asymmetry is now stated, and the scoring will respect it.
+
+**Their refinement adopted:** the residual content is whether the bias reduction beats the **variance cost** of the extra parameter on held-out folds — **a sample-size question, not an `|a|` question** — so the threshold scales with per-fold `n` rather than sitting at a constant.
+
+### ⛔ My addition: the genuinely risky and UNMEASURED question is whether `a` is STABLE
+
+The diagnostic is measured on the **raw** gate's fit; the selection happens on **held-out folds**. ⛔ **If `a` is itself unstable across folds, it cannot be a selector at all — even in the bias limit where the rule is definitional.**
+
+**Tier 2 measured `T`'s fold stability (0.8%) and never measured `a`'s.** So:
+
+> ⛔ **Pre-registered prerequisite: report `a`'s spread across the 13 origin folds per model, BEFORE using it to select a remedy. If `a`'s fold spread exceeds its own distance from the threshold, the diagnostic is inadmissible for that model and the selection falls back to held-out `|gate−obs|` alone.**
+
+That is the part of the rule that is **not** definitional, it is measurable, and it has never been measured.
+
+## A6 — ✅ CONTRIBUTION, verified. F11 is open for the eight, blocked only for the kestrels.
+
+They answered the question I flagged and could not cost: ⛔ **`draws/` does NOT retain the uncomposed magnitude cube**, and there is a README saying so — `amber_kestrel/.../draws/README_GATE_POSTERIOR_MISSING.txt`: the `lr_*` archive is complete, the `by_*` archive is **9% truncated and marked DO_NOT_USE** because `pod_run_model.sh` globs `'*/lr_*'` only. **So F11 on amber does need a re-run, as `RND_PLAN.md` §5 said.**
+
+✅ **But for the eight served models the gate posterior IS intact — and their factorisation argument is correct.** Under `soft_gate` the composed sample is `body_draw × Bernoulli(gate)` with the two draws independent by construction, so:
+
+```
+P(composed > 0) = P(body > 0) · gate        =>   P(body > 0) = P(composed > 0) / gate
+under a corrected gate g':  P'(composed > 0) = P(composed > 0) · g' / gate
+```
+
+⛔ **So `act_ratio` under a corrected gate is computable ANALYTICALLY, per cell, at every horizon, with no re-run.** ⚠️ With the caveat that `P(composed > 0)` is estimated from 16 draws and so is quantised at 1/16 per cell — **fine pooled, not per-cell**, and the estimator must be pooled accordingly.
+
+⛔ **`RND_PLAN.md` §5 is therefore wrong as written: Phase 4 is GPU-blocked for the kestrels and OPEN for the models that actually ship.** Corrected there.
+
+---
+
+## What this amendment changes
+
+| | |
+|---|---|
+| §2 | premise false — **array reads, not sweeps**; Step 0 becomes a recorded fact, not an open question; both cost estimates void |
+| §2 (new) | ⛔ **h=1 AND h=36**, with a blind prediction that `b` worsens with horizon. The #558 limitation was stale |
+| §5 | ⛔ readings **replaced** with a disjoint, ordered table; reading 6 deleted; R-1 given precedence |
+| §5, §4 | the band is `max(0.05, 2·sd_model)`, bootstrapped per model |
+| §3.4 | the diagnostic is **near-definitional**, the threshold is undetermined by n=2, falsifiable-not-confirmable — **plus a new prerequisite that `a`'s fold stability be measured first** |
+| F12′ | extended to **across models**; grid and cell count recorded before fitting; Phase 1's reference marked **cross-grid** |
+| `RND_PLAN.md` §5 | F11 is **open for the eight**, blocked for the kestrels |
+
+⛔ **Four of the six attacks landed on things this plan asserted rather than measured** — a premise, a stale limitation, a table's logic and a band inherited from the wrong phase. **Phase 2 still needs Simon's word and nothing has run.**
