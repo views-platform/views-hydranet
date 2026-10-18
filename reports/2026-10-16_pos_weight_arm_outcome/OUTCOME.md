@@ -193,6 +193,79 @@ The arm **halved its firing rate** — `act_ratio` at h18 went **2.3520 → 0.43
 
 ---
 
+### 3.5 ⛔ What each metric is blind to — and the standing rule neither limb of which was written down
+
+**Added 2026-10-18 at Simon's request**, after he interrogated the word *"guardrail"*. §3's artefact happened **because** of what is tabulated here, so it belongs beside it.
+
+#### The identity: `act_ratio` is not recall. It is recall ÷ precision.
+
+With `TP` the true positives, `N` cells, and firing meaning `pred > 0`:
+
+```
+recall    = TP / (N · P(truth>0))
+precision = TP / (N · P(pred>0))
+recall / precision = P(pred>0) / P(truth>0) = act_ratio          ∎
+```
+
+So **`act_ratio = 1` means recall equals precision** — the model is as often wrong-positive as wrong-negative. Above 1 it over-fires; below 1 it under-fires. ⛔ **It is not a skill measure at all: it is the RATIO of the two skill measures, so skill divides out and what remains is pure firing BIAS.**
+
+⚠️ **The identity holds for `TP > 0` only, and that caveat is the sharp end of it.** At `TP = 0` the ratio `recall/precision` is `0/0` and undefined, while **`act_ratio` remains perfectly well defined and equals 1.0** whenever the model fires the right *number* of times. ⛔ **So a forecast firing on entirely the wrong cells scores a perfect `act_ratio`** — not as an edge case, but because `act_ratio` is defined exactly where the ratio-of-skills is not.
+
+⚠️ One asymmetry in the construction, worth knowing before quoting it: `act_pred` is `(cs > 0).mean()` over **all cell×sample draws of the composed cube**, while `act_true` is over **cells** (`activation_metrics.py:36-38`). The ratio therefore compares an *ensemble* firing frequency against an *observed* one.
+
+#### It is MCR's occurrence twin, and the pair is not redundant
+
+| metric | construction | axis |
+|---|---|---|
+| **MCR** | `mean(pred) / mean(truth)` (`scripts/audit_run.py:138`, `calculate_mcr_native`) | **magnitude** |
+| **`act_ratio`** | `P(pred>0) / P(truth>0)` (`activation_metrics.py:38`) | **occurrence** |
+
+Same construction — predicted over actual, pooled — applied to the two halves the architecture splits into. The body answers *how much*, the gate answers *whether*, and each limb gets its own ratio check.
+
+⛔ **The decisive evidence that they are not redundant is in the module's own docstring:**
+
+> *"`crps_all` / MCR go BLIND when the field is ~99% zero… That blindness is what let the collapse hide (views-hydranet#258 — **the models under-activate 4–115× yet MCR≈1**)."*
+> *"The single number the collapse investigation needed and MCR could not give."*
+
+**4–115× under-activation with MCR ≈ 1.** MCR averages over everything, so a model that fires rarely and over-magnitudes when it does fire comes out balanced: **the error cancels in the mean.** Each metric is blind exactly where the other sees.
+
+#### ⛔ The standing rule has two limbs. Neither was written down in this repository.
+
+The practice this project follows on the magnitude axis is *"MSLE rewards timid under-prediction — always read it with MCR; never rank on MSLE alone."* ⚠️ **I could not find that rule stated anywhere in `reports/`, in `GLOSSARY.md`, or in project memory** — so it is a convention held in practice, not a written rule. The occurrence limb is the same sentence and was equally unwritten:
+
+> ⛔ **CRPS rewards timid under-FIRING — always read it with `act_ratio`. Never rank on CRPS alone.**
+
+**And that is exactly what happened in §3.** The arm's 37–83% CRPS "improvement" *was its firing rate halving.* **Same trap, other limb** — and the convention already held for magnitude would have caught it had it ever been written for occurrence. The pre-registration caught it only by naming P-6 as an endpoint, which was a per-experiment choice. ⛔ **Both limbs are therefore promoted to standing rules here, because the next pre-registration may not think to include one.**
+
+#### ✅ And the companion that resolves `act_ratio`'s blindness already exists, in the same file
+
+`act_ratio` is blind to **where** the firing lands. **`topk_occurrence` in the same module is not**, and it was written for the same investigation: at the threshold-free operating point *"fire exactly as many cells as truly fire"* (`k = #true positives`) it reports **`precision_at_k`** — *"the fraction of fired cells that are truly positive (the gate's skill)"* — and **`mag_on_false_pos`**, which its docstring calls *"the falsifier `crps_all` cannot see."*
+
+⛔ **So the fix for the blindness is committed, sits beside the metric, and the pairing was never stated as a rule.** Read `act_ratio` with `precision_at_k`, always: the first says whether the model fires the right *number* of times, the second whether it fires in the right *places*.
+
+#### The blindness table
+
+| metric | measures | ⛔ BLIND to |
+|---|---|---|
+| **CRPS** | distributional fit | **whether the model fires at all** on a ~99%-zero field |
+| **`act_ratio`** | firing **volume** | **WHERE** the firing lands — scores 1.0 on entirely wrong cells |
+| **AP** | ranking / placement | **HOW MUCH** is predicted; it sees only order |
+| **MCR** | magnitude bias | **occurrence collapse** — the #258 blindness, 4–115× at MCR ≈ 1 |
+
+**No single metric here can distinguish a good forecast from a confidently wrong one.** That is why the pre-registration pairs them, and why §3's artefact was caught by a *pair* rather than by a number.
+
+#### Notation, for readers who did not write this
+
+- **`act` = activation** — module `activation_metrics.py`, function `activation_frequency`. ⚠️ **`act_true` is an unfortunate name**: it reads as *"actual true"*, which invites parsing `act_` as *"actual"* and makes `act_pred` nonsense. `activation_true` / `activation_pred` would not have needed asking. **Noted rather than renamed** — it is a field name in committed output.
+- **collapse** = `act_ratio << 1`, the map barely lights up. **bloom** = `act_ratio >> 1`, it lights up everywhere.
+- ⛔ **"Guardrail" is not a noun for `act_ratio`.** It is an existing measurement in committed code, already run and already reported as P-6 — not a proposal, an experiment or a fix. "Guardrail" names a **role it played in one pre-registration**, not its identity, and using it as a noun reads as precision while carrying none.
+
+#### Product decision, recorded as a dated human ruling
+
+**2026-10-18, Simon:** asked whether honest probabilities are worth having given that `ΔAP = 0` by construction — **"yes 100%"**. ⛔ **So R1 is wanted**, and §8.2's recommendation is no longer contingent on the product question. Recorded here in the same form as §6's F6 ruling, because it is a judgement rather than a measurement: which *output* gets corrected — the gate probability or the composed count forecast — is a separate question, and only one of them puts `act_ratio` in the path.
+
+---
+
 ## 4. What this session verified independently — and one thing the readout missed
 
 The readout was produced by another session. Per standing practice its claims were re-derived here from the raw arrays before being written down.
