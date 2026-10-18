@@ -386,3 +386,63 @@ The other seat raises two possibilities for the served run: **(a)** it ran the S
 | ✅ **the 1/16 quantisation caveat** on the factorisation | stands, and applies whenever the factorisation is used on a run whose gate IS retained |
 
 ⛔ **Phase 2 is a weaker proposition than when Simon gated it, and the plan says so rather than preserving its own scope.** The next step is not a measurement — **it is a provenance question, and it may return "not answerable from here."**
+
+---
+
+# AMENDMENT 3 — the absence is corroborated from the other repo, and Phase 2's expected outcome is pre-registered. 2026-10-18.
+
+**Source:** the `views-models` seat, closing as much of the unverified fact as it could from its own side. **Corroboration verified here, with one correction and one near-miss recorded precisely.**
+
+---
+
+## 1 — Their corroboration, verified
+
+`views-models/ensembles/rusty_bucket/data/generated/forecasting_log.txt` — **54 lines, the only local record of a `rusty_bucket` forecasting run.** Confirmed:
+
+- ✅ **The `temporary_*` members are real and were in an actual forecasting run**, `Deployment Status: shadow`. **faoapi's account of pre-swap placeholder clones is now corroborated from the views-models side**, which it was not before. (They listed bison, crane, fox; **`temporary_otter` is a fourth**, member timestamp `20260720_083714`.)
+- ⚠️ **CORRECTION to their framing:** the most recent locally recorded run is **27 July**, not 20 July — `Ensemble Model Timestamp: 20260727_100424`, with *member* data generated 20–21 July. The distinction matters only for precision, and the substance is unchanged.
+- ✅ **No September or October `rusty_bucket` forecasting run is recorded anywhere locally.**
+
+### ⚠️ One near-miss, recorded because "zero" and "one" are different facts
+
+They reported **zero** matches for `20261001` / `forecasting_20261` across the platform. **I found one:** `views-models/tests/test_pod_run_model_artifact_collection.py:975,996,1007-1008`.
+
+⛔ **It is NOT a counterexample.** It is a **unit-test fixture** — a synthetic `predictions_forecasting_20261012_000000` passed to `_forecast_verify` — on a **different date**, and it is not a record of any run. **Their claim stands in substance.** Recorded so the next reader does not have to re-derive the difference between *"no matches"* and *"one match, which is a test fixture."*
+
+## 2 — The established claim, restated with their evidence folded in
+
+> ⛔ **The forecast FAO is being served leaves no trace in views-models. Neither the weights behind it nor the run that produced it can be identified from this machine. No artifact for any of the eight members postdates the 19 September region switch (0 of 22), and the most recent locally recorded `rusty_bucket` forecasting run is the 27 July shadow run with `temporary_*` placeholder members.**
+
+**It holds under both of their possibilities and requires neither.** ⛔ **And it is a reproducibility defect on its own terms, independent of any calibration question** — which is possibility (b)'s framing, now **evidenced rather than hypothesised.**
+
+⚠️ **Still unverified by either seat:** the run ID `rusty_bucket_forecasting_20261001_012905` itself, which remains faoapi's measurement against production. **It is consistent with everything either seat can see, and the absence around it is total rather than partial.**
+
+## 3 — (a) is recorded as NOT ASSERTED BY EITHER SEAT
+
+They raised the possibility that the served global run used September africa-trained weights; this seat declined to state it; **they endorse the refusal and withdraw the pressure.** ⛔ **Recorded as not asserted by either seat**, with the standard that produced that outcome written down:
+
+> **A programme that has withdrawn sixteen claims between two seats does not publish an inference of that size on an absence of files.**
+
+## 4 — ⛔ PHASE 2's EXPECTED OUTCOME, PRE-REGISTERED BEFORE IT RUNS
+
+Their proposal, and it is the most important thing in this round: **if the honest expectation is that Step 0 returns "not answerable from here", the plan must say so BEFORE running, not after.**
+
+Adopted, as a reading with the same standing as R-0 … R-4:
+
+| # | condition | consequence |
+|---|---|---|
+| **R-P0** | Step 0 cannot identify the serving artifact for ≥ 1 member by `sha256` against the run's own provenance | ⛔ **THE EXPECTED OUTCOME.** Phase 2's useful product is **an issue about unidentifiable serving weights** — *not* a slope survey. The slope survey may still run on the September africa validation runs, **scoped by F-NEW**, and is then a **separate, lesser finding** about those models in September on africa. **Neither result may be presented as characterising what FAO receives.** |
+
+⛔ **This is pre-registered as the LIKELY outcome, not the failure branch.** Writing it down now is what stops the phase being reframed afterwards as either a success (*"we measured eight models"*) or a washout (*"Phase 2 found nothing"*). **It would find something; it would just not be the thing the phase was designed to find.**
+
+## 5 — What both seats now agree closes this round
+
+| | |
+|---|---|
+| **(a)** | not asserted by either seat, and recorded as such |
+| **F-NEW's scoping** | a fired F-NEW **voids the sentence, not the measurement** — the September africa data was never bad; the sentence about it was |
+| **the fourth prior-art instance** | ⛔ `vehicle.py:148-151` and `:187-191` were **written by this programme** — a hash-denial guard and an explicit caveat that region is *"weaker than a measurement"* — and then both seats read eight directories without applying either. **The only one of the four we authored**, and the reason the record-search control is non-optional rather than good practice |
+| **Amendment 6's rule applies to FILENAMES** | `predictions_validation_20260916` states its run type, its date, and via its shape its region. **The setter's question was "validate this model in September on africa"; ours was "what is FAO served". Different question ⇒ re-derive, not reuse.** One line would have caught it |
+| **A5** | conceded in full; the `a`-fold-stability prerequisite survives as the non-definitional residue |
+
+⛔ **Phase 2 still needs Simon's word, the proposition is weaker than when he gated it, and its most likely product is now an issue rather than a measurement.** Both seats agree on that, and it is written down before anything runs.
