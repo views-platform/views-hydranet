@@ -1141,3 +1141,84 @@ Simon authorised **E6d, E6c, E1 and E2** — four named experiments. **E6f was n
 ### Coordinate recovery, for the record
 
 The other seat replaced its brute-force content search with `r0 = p_row + (h_max − DIM − new_row_offset)`, `c0 = new_col_offset − p_col`, validated against the full-block content proof: lesson 0 → `(92, 496)`, content-verified identical. **Window coordinates are now free**, which is what makes E6c's union computable at all.
+
+---
+
+# AMENDMENT 10 — E6f HAS RUN. H1's remedy is dead, its mechanism is confirmed, and the finding INVERTS. 2026-10-18.
+
+**The discriminator returned.** `b` went **1.1875 → 0.7793**: it did not approach 1.0, it **crossed and overshot**, and the gate now over-predicts occurrence by **5.75×**. ⛔ **My blind prediction is wrong, the decision table had no branch for this, and the conclusion is the opposite of the one the plan was built to test.**
+
+---
+
+## 1 — The result
+
+All preconditions passed: paired baseline `b_before = 1.1875` reproducing F3′'s target **exactly**; `_reset_bn_stats` over 15 layers, `momentum=None`; 336 full-grid 360×720 months at training months 121–456; dropout ON; no augmentation; `no_grad`; `_assert_bn_buffers_finite` ✅ finite.
+
+| | `b` | `\|b−1\|` | pooled mean gate | max signed error | cells > 0.9 |
+|---|---|---|---|---|---|
+| before (as shipped) | **1.1875** | 0.1875 | 0.00417 (1.21× truth) | +0.0587 | 0.008% |
+| after re-estimation | **0.7793** | **0.2207** ⬆ | 0.01981 (**5.75× truth**) | **+0.6872** | 0.44% |
+
+**F1⁗'s equivalence band `|b−1| ≤ 0.0214`: NOT MET.** The after-curve over-states at **every** level — gate 0.24 → truth 0.023; gate 0.97 → truth 0.42.
+
+⛔ **Re-estimating the BatchNorm statistics on the inference distribution does not repair the gate. It produces a grossly over-confident one and makes calibration worse in absolute terms.**
+
+## 2 — ⛔ Two errors, one in each seat
+
+**O-3, mine, WRONG — and it was the headline blind prediction of this programme.** I predicted `b` would land at 1.10–1.16, reasoning that `weight_decay: 0.1` pins the trained optimum and BatchNorm re-estimation *"cannot undo what the weights are."* **It moved 2.2× the distance to 1.0 and past it.** Changing nothing but 15 layers' running means and variances swung the slope by **0.41 — more than twice the entire defect.** BatchNorm statistics are the **dominant** control on this gate's calibration and I allowed them almost none. Logged as **W-25**.
+
+**F1⁗'s decision table was NON-EXHAUSTIVE, and I signed it off.** Three outcomes were pre-registered — `b→1`, `b≈1.19`, `b≈1.10` — and **none covers crossing 1.0**. The script fell through to `else` and printed *"PARTWAY — improved but NOT equivalent"*, which is false: `|b−1|` got **worse**. ⚠️ The other seat wrote it, but **I attacked it in Amendment 6, strengthened it to an equivalence test, and approved the three branches.** And the symmetry is exact: I criticised E2's table for being **exhaustive** and therefore unfalsifiable, then missed that this one was the **opposite** failure. Logged as **W-26**.
+
+## 3 — H1: remedy DEAD, mechanism CONFIRMED
+
+- ⛔ **The remedy is dead — actively harmful, not inconclusive.** The one-line change this plan has treated as the cheap fix destroys the gate. **And it would blow F11's firing guardrail**: a mean gate at 5.75× the true rate would wreck `act_ratio` and the composed forecast. F11's trap, in the direction we never pre-registered.
+- ✅ **The mechanism is confirmed with enormous leverage** — far stronger evidence than E6 could ever have produced, which retrospectively justifies Amendment 8's ruling that E6f dominated E6.
+
+## 4 — ⛔ THE INVERSION: the criterion was wrong, and C-184 is arguably right BY DESIGN
+
+The other seat's mechanism is correct and self-consistent: hot windows have **high** activation variance, so eval-mode BatchNorm divides by a large σ and **shrinks** logits (under-confident, `b > 1`); the quiet global grid has **small** variance, so it divides by a small σ and **amplifies** them (over-confident, `b < 1`). It explains the sign of **both** endpoints.
+
+They read this as *"the degenerate recal sample is accidentally closer to honest than its own stated intent."* ⛔ **I think it is not accidental, and the reason inverts H1.**
+
+**`_recalibrate_bn` calls `train(ctx, batch[0], …)` (`training_engine.py:1321`), which puts the model in TRAIN mode — so BatchNorm normalises each window by ITS OWN batch statistics while accumulating the running averages.** During actual training, the same thing happens on the same 32×32 activity-seeking crops. **So the head's weights were trained against activations standardised by hot-window moments.**
+
+⛔ **The criterion for BatchNorm eval statistics is therefore not "match the inference distribution". It is "give the head the input scale it was trained against."** By that criterion:
+
+- the shipped hot-window recal **reproduces the training condition** → `b = 1.19`;
+- the global-grid recal **does not** → `b = 0.78`.
+
+**C-184's sample is not accidentally better. It is closer to the condition BatchNorm eval statistics exist to reproduce.** H1 as written — *"the recal distribution is not the inference distribution, therefore mismatch"* — had the criterion backwards, and E6f is the measurement that shows it.
+
+### ⛔ Which means the root cause is the TRAINING GEOMETRY, and H1 fuses into H4
+
+BatchNorm computes per-channel moments over `(N, H, W)`. On a 32×32 activity-seeking crop the spatial population is **hot**: a conflict cell sits near the batch mean. On the 360×720 grid the population is **mostly empty**: the same cell sits far above the mean. **"Standardised" means two different things, and the head only ever saw the first.**
+
+⛔ **So no choice of eval statistics can fix this, because the two populations have genuinely different conditional distributions — and the cause is that training crops are activity-seeking.** H1's mechanism is real, its remedy is dead, and its **root** is H4's selection limb, which Amendment 3 demoted on the strength of a states-only measurement that explicitly said *"No AP was measured and none may be inferred."* **H4 returns, as the cause of H1.**
+
+## 5 — ⛔ THE GOODHART TRAP, forbidden before anyone proposes it
+
+`b` crossed 1.0, so **by continuity there exists a recal distribution giving `b = 1.000` exactly** — some blend between hot windows and the global grid. **Tuning the recal distribution to hit `b = 1` is the "honest `pos_weight`" error one level up:** a nuisance parameter with no principled value, fitted to the endpoint it is judged on, which would also move the firing rate as a side effect.
+
+⛔ **Pre-emptively forbidden by this plan.** It is the obvious next idea, it is wrong for exactly the reason OUTCOME §8.1 is wrong, and it would be the eighth instance of a knob tuned to a target it cannot principledly aim.
+
+## 6 — R1 is STRENGTHENED, and that was not expected
+
+Neither endpoint of the BatchNorm axis is calibrated, the axis overshoots violently, and its gain cannot be aimed without tuning to the endpoint. **Temperature scaling sets the slope to 1.0 by construction, with one parameter, without touching the model, the weights, or the firing rate's dependence on them.**
+
+> ⛔ **The expensive axis is unaimable. The free axis is exact.**
+
+## 7 — H2 is neither confirmed nor refuted, and my reasoning for it is damaged
+
+Nothing here tests `weight_decay`. But **the premise I argued H2 from — that the weights pin the slope — is now in doubt**, because BatchNorm statistics moved it 0.41 with the weights untouched. H2 stays live and its argument is weaker than Amendment 8 presented it.
+
+## 8 — Candidate standing
+
+| | candidate | standing after E6f |
+|---|---|---|
+| **H1** | BatchNorm recal distribution | **mechanism CONFIRMED (0.41 leverage); remedy DEAD; criterion INVERTED** — the shipped sample is closer to the training condition, not further from honest |
+| **H4** | train/inference geometry | ⛔ **RETURNS as H1's root cause.** Activity-seeking 32×32 crops make BatchNorm's "normal" activity-conditional. Previously demoted on a states-only measurement that forbade exactly this inference |
+| **H2** | `weight_decay: 0.1` | live; its supporting argument damaged |
+| **H3** | resolution limit | live, untested |
+| **R1** | temperature scaling | **strengthened** — the only axis that sets the slope exactly without an unaimable gain |
+
+⛔ **Nothing here authorises Tier 3.** A training arm — the only thing that could test H4's root or H2 — is Simon's, and this result does not change that.
