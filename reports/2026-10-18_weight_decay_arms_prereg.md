@@ -118,7 +118,7 @@ Let `S ≡ σ̂` = the pooled within-cell **sd estimate** in `b` (Amendment 2 §
 
 | # | condition | consequence |
 |---|---|---|
-| **W-0** | any arm VOID under F1–F5 | ⛔ **the cell is VOID.** With 5 cells and no spares, **one void control collapses the variance estimate** and the set is INCONCLUSIVE |
+| **W-0** | any model VOID under F1–F5 | ⛔ **the cell is VOID.** ✅ **CORRECTED (Amendment 10): the approved allocation bought a SPARE on the control side.** With **three** control replicates, one void leaves two and `σ̂` survives at df=1. **Two void controls, or both interventions void, collapses it.** The original wording assumed 5 cells with no spares and was more pessimistic than the design |
 | **W-1** | `Δ < −2S` (lower decay → **lower** `b`, i.e. toward honest) | ⛔ **`weight_decay` is implicated as a cause.** Evidence about the CAUSE only — **never a ship decision** (§6) |
 | **W-2** | `\|Δ\| ≤ 2S` | ⛔ **INCONCLUSIVE at this n** — not a null. ⚠️ **With `S` known to ±76%, this is the EXPECTED cell unless the effect is large.** Report `Δ`, `S`, and the implied minimum detectable effect |
 | **W-3** | `Δ > +2S` (lower decay → **higher** `b`) | ⛔ **wrong direction — a finding.** `weight_decay` is not the cause and the mechanism argued in Phase 1 is refuted |
@@ -335,9 +335,11 @@ They put the tension and declined to choose. **Both cannot fit one slot:**
 | # | condition | consequence |
 |---|---|---|
 | **W-0** | any arm VOID under F1–F5, or **F10** fires | ⛔ **INCONCLUSIVE.** One void control collapses the variance estimate |
-| **W-1** | `Δ < −4.30·S` | ⛔ **`weight_decay` implicated as a cause.** Evidence about the CAUSE only — never a ship decision (§6) |
-| **W-2** | `\|Δ\| ≤ 4.30·S` | ⛔ **INCONCLUSIVE at this n — and the EXPECTED cell, for two stated reasons: a 2-df denominator and an unknown effect size.** Report `Δ`, both spreads, `S`, `Δ/S` and the implied minimum detectable effect |
-| **W-3** | `Δ > +4.30·S` | ⛔ **wrong direction — a finding.** H2's mechanism refuted |
+| **W-1** | `Δ < −C` | ⛔ **`weight_decay` implicated as a cause.** Evidence about the CAUSE only — never a ship decision (§6) |
+| **W-2** | `\|Δ\| ≤ C` | ⛔ **INCONCLUSIVE at this n — and the EXPECTED cell**, for an unknown effect size. Report `Δ`, every within-cell spread, `S`, `Δ/S` and the implied minimum detectable effect |
+| **W-3** | `Δ > +C` | ⛔ **wrong direction — a finding.** H2's mechanism refuted |
+
+⛔ **`C` CORRECTED (Amendment 10). The `4.30·S` written here was derived for two n=2 cells and the approved set is n=3 vs n=2:** `C = 2.905·S` **pooled (df=3)**, or `C = 3.928·S` **conservative (σ̂ from the three controls only, df=2) when F10 fires.** ⚠️ **And W-2's "2-df denominator" is stale — it is 3 df pooled.**
 | **W-4** | W-2 fires **and** no arm's `b` falls below ~1.10 | ⛔ **evidence for H3 / H4, and R1 is the CEILING.** A real outcome |
 
 ⛔ **§4(ii)'s dose-response mitigation is WITHDRAWN as a test** and retained only as the *motivation* for a third dose point, now expressed as A1's slope test where a third point is fitted at all.
@@ -383,9 +385,11 @@ if S ≡ |x₁−x₂| (the spread)  W-1/W-3 crit = 3.042·S     arm 5 = 3.726·
 Var(x − ȳ) = σ²(1 + 1/2) = 1.5σ²   ⇒   crit = 4.303·√1.5 = 5.270·S
 ```
 
-**23% harsher, and it applies to the arm this seat just made the centrepiece.** Verified. **W-1/W-3 keep `4.30·S`** (both cells n=2); ⛔ **arm 5's existence test takes `5.27·S`.**
+**23% harsher, and it applies to the arm this seat just made the centrepiece.** Verified **for the allocation this section was written against.**
 
-## 3 — ⛔ UPHELD AND IT IS THE HEADLINE: `S` must be under 0.0356 or the design cannot detect a COMPLETE fix
+⛔ **VOID BY CONSTRUCTION (Amendment 10). The approved set has NO n=1 cell**, so there is no separate "arm 5 existence test" to carry a harsher threshold. **W-1/W-3 and the existence test are the SAME comparison and take the same value** — `2.905·S` pooled, `3.928·S` conservative. **This section is retained as the derivation that produced the 1.5-factor; its application to the approved design is withdrawn.**
+
+## 3 — ⛔ UPHELD AS ARITHMETIC — ⚠️ **but the BOUNDARY IS CORRECTED to 0.0645 / 0.0477 (Amendment 10).** `0.0356` was derived for n=1 vs n=2 and the approved set is n=3 vs n=2
 
 The whole defect is `1.1875 − 1.0 = 0.1875`. For arm 5 to detect **all** of it:
 
@@ -978,3 +982,79 @@ Found while fixing it:
 ## 5 — Still outstanding, and it is theirs to tell me
 
 ⚠️ They have read §§0–12 and Amendments 3, 4, 5 in full and **skimmed 1, 2, 6, 7, 8.** I have corrected every stale reference a grep for the superseded values finds in the **live** sections. ⛔ **The amendments' own internal text is historical and correctly so** — it records superseded reasoning deliberately — **but if anything in 1, 2, 6, 7 or 8 is asserted as live and contradicts the approved set, it is a defect and I want it reported.**
+
+---
+
+# AMENDMENT 10 — ⛔ EVERY THRESHOLD IN THIS PLAN WAS DERIVED AT n=2 vs n=1. The approved set is n=3 vs n=2. 2026-10-19.
+
+**Source:** the `views-models` seat, answering Amendment 9 §5's request to report anything in Amendments 1–8 asserted as **live** and contradicting the approved allocation. ⛔ **They found it, it is the thresholds themselves, and it is the worst class of defect in this document: a pre-registered DECISION RULE that would misfire.**
+
+---
+
+## 1 — Reproduced, then recomputed
+
+I verified their arithmetic numerically before changing anything:
+
+| | `se` | `df` | `t(.975,df)` | crit | boundary for `0.1875` |
+|---|---|---|---|---|---|
+| **plan as written** — n=1 arm vs n=2 control mean | 1.2247 | 2 | 4.3027 | **5.270·S** | **0.0356** |
+| ✅ **approved, pooled** — n=2 vs n=3 | 0.9129 | **3** | 3.1824 | **2.905·S** | **0.0645** |
+| ✅ **approved, conservative** — `σ̂` from the 3 controls only | 0.9129 | 2 | 4.3027 | **3.928·S** | **0.0477** |
+
+⛔ **The plan's critical value is 1.81× too harsh.** `0.0356` is wrong; the boundary is **0.0645** pooled or **0.0477** conservative.
+
+## 2 — ⛔ WHY THIS IS WORSE THAN A STALE NUMBER: it is a decision rule that misfires
+
+§4 pre-registered: *"`S > 0.036` ⇒ the arms cannot resolve even a total effect… the correct response is MORE REPLICATES."*
+
+⛔ **So in the band `0.0356 < S < 0.0645` the plan commits IN ADVANCE to declaring the design uninformative when it is in fact informative** — and that band sits squarely between the measured sampling floor (**0.0107**) and the amber/copper upper bound (**~0.120**), which is exactly where this plan says nobody knows which side the answer falls.
+
+**A stale figure misleads a reader. A stale decision rule produces the wrong action automatically.**
+
+## 3 — ⛔ WHICH DENOMINATOR IS LOCKED, AND IT DECIDES WHETHER TWO READINGS CAN BOTH BE POSITIVE
+
+Their observation, and it must be settled in advance rather than discovered in the readout:
+
+```
+pooled boundary        0.0645   is ABOVE W-5's separability boundary 0.0601
+conservative boundary  0.0477   is BELOW it
+```
+
+**So:**
+- **Pooled, with `σ̂ ∈ (0.0601, 0.0645)`:** ✅ the design is readable **and** ⛔ the amber/copper gap was **not** separable. **Both readings positive.**
+- **Conservative, with `σ̂ ∈ (0.0477, 0.0601)`:** ⛔ the design is **not** readable **but** ✅ the amber/copper gap **was** separable. **The opposite pair.**
+
+> ⛔ **LOCKED: pooled (`C = 2.905·S`, df=3) is PRIMARY. The conservative value (`C = 3.928·S`, df=2) applies if and only if F10 fires** — the within-cell spreads differing by more than 3×, which A3 says is plausible because weight decay is a regulariser and removing it may raise variance. **Both boundaries are stated here so neither can be selected after the fact.**
+
+## 4 — The three further consequences of the same root
+
+1. **§5's `4.30·S` (Amendment 1's re-cut) is stale** — corrected in place to `C`, with both values given. ⚠️ **This seat called §5's original `2S` "too lenient by 2.15×"; `4.30·S` is now too harsh by 1.48×.** **Two corrections in opposite directions to the same threshold, neither caught by re-reading.** W-2's *"2-df denominator"* is also stale — it is **3 df**.
+2. ⛔ **Amendment 2 §2 is VOID BY CONSTRUCTION, not merely restated.** There is no n=1 cell, so **there is no separate existence test to carry a harsher threshold. W-1/W-3 and the existence test are the same comparison.** A live section asserting two different thresholds for one comparison is the shape that costs a readout. Marked void in place; the 1.5-factor derivation is retained as history.
+3. ✅ **And one thing got BETTER and the plan did not say so.** W-0 read *"with 5 cells and no spares, one void control collapses the variance estimate."* ⛔ **With three control replicates, one void leaves two and `σ̂` survives at df=1. The approved allocation bought a spare on the control side.** Corrected — **the plan was more pessimistic than the design.**
+
+## 5 — ⚠️ And `σ̂`'s definition is under-specified for n=3
+
+Amendment 2 §1 locked `S ≡ σ̂` with `σ̂ = |x₁−x₂|/√2` — **pair-specific.** ⛔ **For three replicates it is the ordinary sample sd of the three values**, and pooling across cells is the usual `√(Σ(nᵢ−1)sᵢ² / Σ(nᵢ−1))`. **Their catch. Locked: `σ̂` is the pooled sample sd; the pair formula was a special case of it and is not the definition.**
+
+## 6 — ✅ What they checked and found LIVE AND CORRECT
+
+Recorded because a negative result from a check is a result: **Amendment 2 §1's `S ≡ σ̂` lock** (modulo §5 above), **§4's forward-sizing table** (explicitly for sizing the *next* experiment, so `n=2 → 0.0436` is not this design's own threshold), **Amendment 6** (which states "verified for BOTH allocations"), **Amendment 7's M1–M4**, and **Amendment 8's pair-guard gap.**
+
+## 7 — ⛔ THE PATTERN, THIRD INSTANCE AND THE SAME ROOT AS AMENDMENT 9
+
+**Amendment 9:** nine amendments written on top of §3, none re-reading it.
+**Amendment 10:** ⛔ **four amendments written on top of Amendment 2's thresholds, none recomputing them when the allocation changed.**
+
+> ⛔ **Amendment 3 changed the allocation and did not recompute the thresholds that the allocation determines.** The standing requirement adopted in Amendment 9 — *every amendment names the sections it supersedes* — **would have caught this one too, and it was adopted one amendment too late.**
+
+**Strengthened: an amendment that changes `n`, the number of cells, or their sizes must recompute every threshold derived from them, or it is incomplete.** ⛔ **A threshold is not a number in a document. It is a function of the design, and changing the design silently invalidates it.**
+
+---
+
+## 8 — The insertion-point ruling, corrected and strengthened
+
+✅ **Their correction: it is BOTH sigmoids, not `:1428` alone.** `:1325` feeds `_sample_feedback` at `:1331` exactly as `:1428` feeds it at `:1438`, and both then feed `acc_probabilities` at `:1337`/`:1460`.
+
+⛔ **So the sigmoid is the SHARED UPSTREAM of both consumers — which is a stronger argument for the boundary than the single-site version.** Correcting at either sigmoid necessarily touches the autoregressive feedback. **The emitted gate cube is the only point downstream of the split.**
+
+✅ **And the inert-knob trap is confirmed with its mechanism.** `extra = "allow"` at `config_initializer.py:1561`, and the near-miss guard `reject_near_miss_keys` at `:1503` **cannot** catch it: it returns early when `abs(len(a) − len(b)) > 1`, and `gate_temperature` (16) vs `gate_threshold` (14) differs by **2**. **Verified.** ⛔ **So a `gate_temperature` key validates silently, does nothing, and no guard in the library says so — C-324's signature, confirmed by construction rather than by analogy.**
