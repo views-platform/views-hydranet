@@ -1470,3 +1470,45 @@ F7 firing is **consistent with** a resolution limit but cannot establish one, be
 | **H1 / H4 / H2 / H3** | unchanged from Amendment 12 |
 
 ⛔ **Nothing authorises F11, production use, or Tier 3.** What goes to Simon: **R1 is confirmed for the model that shipped, with F11 as the one remaining gate, and the "cosmetic" framing withdrawn** — the question is whether honest probabilities are worth having, and that is his.
+
+---
+
+# AMENDMENT 14 — a third place prior art hides, and the control from Amendment 3 was still too narrow. 2026-10-18.
+
+**Source:** the `views-models` seat, reversing one of my corrections and finding the third piece of prior art in the process.
+
+---
+
+## 1 — ⛔ My correction was wrong, and the mechanism is worse than the error
+
+I told them `scripts/sharpness_scorecard.py` does not exist. **It does** — 10,615 bytes, with the inline MCR at `:161`. **Their citation was correct and so was mine: there are TWO MCR implementations**, an inline `pp.mean()/tp.mean()` and the shared `calculate_mcr_native`.
+
+⛔ **The mechanism:** I wrote `grep … <path> | head -4 || find . -name …`. **The pipe makes the exit status `head`'s — which is 0 — so `||` never fired and `find` never ran.** I read an empty section as evidence of absence. **The command was structurally incapable of testing the claim it was used to support**, and a grep that finds nothing is indistinguishable in the output from a grep that never ran. Logged as **W-27**: same class as the eight prior existence errors, **new mechanism** — not skipping a check, but running one that could not fail and believing its silence.
+
+## 2 — ⛔ The third piece of prior art, and the most on-point conceptually
+
+`scripts/audit_run.py` has carried, in its `PRIMARY` metric set, all along:
+
+- **`range_compression`** (`:55-60`, `:130`) — *"1 = full dynamic range kept; **>>1 = compression** (the floor's blob ~20×)"*. ⛔ **The magnitude twin of the slope defect this programme spent three days and thirteen amendments naming on the gate.**
+- **`gate_brier`** (`:135`) — a committed proper calibration score for the gate.
+- **The MCR demotion** (`:107-108`, `:137`) — *"MCR is a ratio of pooled means and HIDES per-cell failure… **DO NOT read as calibration**… the user caught this 3×."*
+
+⚠️ **It would not have handed us the slope**, and the record should not imply it: `range_compression` is on the **magnitude** field, conditions on the **outcome**, and is a ratio of dynamic ranges rather than a regression coefficient. `gate_brier` is proper but does not decompose into slope and level. **What existed was the vocabulary and the suspicion, not the measurement.**
+
+## 3 — ⛔ The control extension: metric definitions inside scoring functions are a third hiding place
+
+Amendment 3's control says to search `reports/` **and** `scripts/` for prior art per candidate. **We did search `scripts/` — and still missed this, because we searched for instruments by FILE and this is a metric DEFINITION inside a scoring function's output dict.**
+
+> ⛔ **Extension, adopted: searching for files is not enough. Search for the CONCEPT — grep the metric names and the mechanism words (`compression`, `calibration`, `slope`, `reliability`) across scoring functions and metric dicts, not only for plausibly-named modules.**
+
+Three hiding places now: a dossier (`gate_calibration_dossier`), a tool (`gate_reliability.py`), **and a metric dict inside a scoring function.** Each was found by the other seat, after the fact, and none by the control that was supposed to catch it.
+
+## 4 — The MSLE claim, narrowed as offered
+
+The magnitude limb **is** written down — in the `views-models` seat's project memory (`project_mcr_timid_prophet`). ⛔ **It appears nowhere in views-hydranet's `reports/`, `GLOSSARY.md` or project memory.** So my stronger claim ("neither limb was written") is **withdrawn**; the useful half stands: **the rule lived in one seat's memory and in neither repository's text**, which is why the occurrence limb was never derived from it. Corrected in OUTCOME §3.5.
+
+## 5 — My answer to their question: the demotion DOES apply to `act_ratio`
+
+They asked whether MCR's per-cell demotion extends to `act_ratio`, since it is also a ratio of pooled means. ⛔ **Yes, and the proof was already in §3.5 before they asked.** The `TP = 0` case — a model firing the right *number* of times on entirely wrong cells scores exactly 1.0 — **is the demotion's complaint verbatim, transposed to the occurrence axis.** Twins in construction, twins in defect, and **only one carries the warning.** Written into §3.5 as a table, with `precision_at_k` named as `act_ratio`'s committed per-cell companion.
+
+⛔ **Neither MCR nor `act_ratio` is a calibration metric. Both are bias metrics, and both have per-cell companions already in the tree.**

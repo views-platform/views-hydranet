@@ -217,8 +217,10 @@ So **`act_ratio = 1` means recall equals precision** — the model is as often w
 
 | metric | construction | axis |
 |---|---|---|
-| **MCR** | `mean(pred) / mean(truth)` (`scripts/audit_run.py:138`, `calculate_mcr_native`) | **magnitude** |
-| **`act_ratio`** | `P(pred>0) / P(truth>0)` (`activation_metrics.py:38`) | **occurrence** |
+| **MCR** | `mean(pred) / mean(truth)` | **magnitude** |
+| **`act_ratio`** | `P(pred>0) / P(truth>0)` | **occurrence** |
+
+⚠️ **There are TWO MCR implementations in this repository and they are not the same code:** an inline `pp.mean() / tp.mean()` at `scripts/sharpness_scorecard.py:161`, and the shared helper `calculate_mcr_native` at `scripts/audit_run.py:138`. **A reader comparing MCR figures across dossiers may be comparing two implementations.** `act_ratio` is `activation_metrics.py:38`.
 
 Same construction — predicted over actual, pooled — applied to the two halves the architecture splits into. The body answers *how much*, the gate answers *whether*, and each limb gets its own ratio check.
 
@@ -231,7 +233,7 @@ Same construction — predicted over actual, pooled — applied to the two halve
 
 #### ⛔ The standing rule has two limbs. Neither was written down in this repository.
 
-The practice this project follows on the magnitude axis is *"MSLE rewards timid under-prediction — always read it with MCR; never rank on MSLE alone."* ⚠️ **I could not find that rule stated anywhere in `reports/`, in `GLOSSARY.md`, or in project memory** — so it is a convention held in practice, not a written rule. The occurrence limb is the same sentence and was equally unwritten:
+The practice this project follows on the magnitude axis is *"MSLE rewards timid under-prediction — always read it with MCR; never rank on MSLE alone."* ⚠️ **It is written down — but not here.** It lives in the `views-models` seat's project memory (`project_mcr_timid_prophet`): *"MSLE rewards timid under-prediction; always read it with the MCR=ŷ/ȳ magnitude guardrail. Never rank on MSLE alone."* ⛔ **It appears nowhere in views-hydranet's `reports/`, `GLOSSARY.md` or project memory.** So the rule lived in **one seat's memory and in neither repository's text**, which is why the occurrence limb was never derived from it. The occurrence limb is the same sentence and was equally unwritten:
 
 > ⛔ **CRPS rewards timid under-FIRING — always read it with `act_ratio`. Never rank on CRPS alone.**
 
@@ -243,6 +245,42 @@ The practice this project follows on the magnitude axis is *"MSLE rewards timid 
 
 ⛔ **So the fix for the blindness is committed, sits beside the metric, and the pairing was never stated as a rule.** Read `act_ratio` with `precision_at_k`, always: the first says whether the model fires the right *number* of times, the second whether it fires in the right *places*.
 
+#### ⛔ NEITHER IS A CALIBRATION METRIC. The repo already demoted one in writing — and the same objection applies to the other.
+
+`scripts/audit_run.py:107-108`, committed:
+
+> *"**PRIMARY: per-cell calibration** (MCR is a ratio of pooled means and **HIDES per-cell failure** — a rangeless blob reads `MCR_pos~0.8` while being wrong on every cell; **the user caught this 3×**)."*
+
+and `:137`:
+
+> *"**LEGACY** pooled ratios — kept for continuity, but **DO NOT read as calibration** (see above)"*
+
+⛔ **So MCR must not be presented as the magnitude calibration metric: this repository demoted it in writing, and the stated reason is a pooled ratio hiding per-cell failure — caught three times before this programme began.** Its `PRIMARY` replacements are per-cell and are all committed in the same dict: `pct_within2x`, `ratio_p10/med/p90`, `frac_zero_mass`, `tail_miss`, `spearman_pos`, `range_compression`.
+
+**Does the same demotion apply to `act_ratio`?** ⛔ **Yes — and the proof is already above, in this section.**
+
+`act_ratio` is also a ratio of pooled means. The `TP = 0` case is *exactly* the demotion's complaint transposed to the occurrence axis: **a model that fires the right NUMBER of times on entirely wrong cells scores precisely 1.0**, which is "wrong on every cell while the pooled ratio reads fine", verbatim. And the identity says why formally: **skill divides out, leaving bias.**
+
+| | MCR | `act_ratio` |
+|---|---|---|
+| construction | pooled predicted ÷ pooled actual | pooled predicted ÷ pooled actual |
+| what it measures | magnitude **bias** | occurrence **bias** |
+| hides | per-cell magnitude failure | per-cell placement failure |
+| committed per-cell companion | `pct_within2x`, `spearman_pos`, `range_compression` | **`precision_at_k`**, `mag_on_false_pos` |
+| demoted in writing? | ✅ yes, `audit_run.py:137` | ⛔ **no — and it should be** |
+
+**Twins in construction, twins in defect, and only one carries the warning.** Neither is a calibration metric; both are bias metrics with per-cell companions already in the tree.
+
+#### ⛔ And a compression metric for the magnitude side has been committed all along
+
+`audit_run.py:55-60`, in the same `PRIMARY` set:
+
+> **`range_compression`** — *"(median truth on big cells / median truth on small cells) divided by the same ratio on `E[y]`… **1 = full dynamic range kept; >>1 = compression** (the floor's blob ~20×)"*
+
+⛔ **That is the magnitude twin of the slope defect this programme spent three days and thirteen amendments naming on the gate** — compression as a named, instrumented quantity with a documented reading and a reference value. Also committed beside it: **`gate_brier`** (`:135`), a proper calibration score for the gate.
+
+⚠️ **It would NOT have handed us the slope**, and the report should not imply it: `range_compression` is computed on the **magnitude field**, conditions on the **outcome** (`big ≥ 100`, `small 1–10`), and is a ratio of dynamic ranges rather than a regression coefficient — a sibling concept, not the same estimator. `gate_brier` is proper but does not decompose into slope and level. **What existed was the vocabulary and the suspicion, not the measurement.**
+
 #### The blindness table
 
 | metric | measures | ⛔ BLIND to |
@@ -250,7 +288,7 @@ The practice this project follows on the magnitude axis is *"MSLE rewards timid 
 | **CRPS** | distributional fit | **whether the model fires at all** on a ~99%-zero field |
 | **`act_ratio`** | firing **volume** | **WHERE** the firing lands — scores 1.0 on entirely wrong cells |
 | **AP** | ranking / placement | **HOW MUCH** is predicted; it sees only order |
-| **MCR** | magnitude bias | **occurrence collapse** — the #258 blindness, 4–115× at MCR ≈ 1 |
+| **MCR** | magnitude bias ⛔ *demoted, `audit_run.py:137`* | **occurrence collapse** — the #258 blindness, 4–115× at MCR ≈ 1; **and per-cell failure** |
 
 **No single metric here can distinguish a good forecast from a confidently wrong one.** That is why the pre-registration pairs them, and why §3's artefact was caught by a *pair* rather than by a number.
 
