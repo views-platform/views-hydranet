@@ -1156,3 +1156,102 @@ They registered **C-163** (Tier 2): C-120 closed with a rule asserted as *genera
 ⛔ **All three are the same defect: a new case was added, and the statements that were only true of the old case were not revisited.** Amendment 9's standing requirement catches the first two by making an amendment name what it supersedes. **It does not catch the third**, because F13 did not supersede anything — it was incomplete from the moment a second kind of pair existed.
 
 > ⛔ **ADOPTED, and it is the stronger rule: when this plan gains a new KIND of unit, every falsifier must be re-read for the direction it does not constrain.** An exemption is not a requirement, and a falsifier that only forbids one sign of an error is half a falsifier.
+
+---
+
+# AMENDMENT 12 — ✅ F13 EXECUTED AGAINST THE REAL CONFIGS, ALL THREE CLAUSES PASS — ⛔ AND CLAUSE (b) WAS SCOPED TO 16 KEYS OF 63. 2026-10-19.
+
+**Source:** the `views-models` seat declared the three replicates and asked one checkable question that is this seat's to answer — *does `CORE_GENOME` carry `trajectory_log_path`?* ⛔ **Answered, and answering it exposed that the clause the question was about covers a quarter of the config.**
+
+---
+
+## 1 — ✅ Their question, answered from the constant
+
+`views_hydranet/infrastructure/reproducibility_gate.py:27-44`. **`CORE_GENOME` is 16 keys and `trajectory_log_path` is NOT among them** — the file contains no occurrence of the string at all.
+
+> ✅ **No exclusion needed. F13 clause (b) does not flag the three replicates, and the cell is correct as declared.** Their concern does not bite.
+
+## 2 — ⛔ BUT THE SCOPE THE QUESTION ASSUMED IS WRONG, AND IN THE PERMISSIVE DIRECTION
+
+**Measured, by loading `amber_kestrel`'s own `get_hp_config()`:**
+
+```
+hyperparameter keys in the config   63
+covered by CORE_GENOME              16
+⛔ OUTSIDE CORE_GENOME              47
+```
+
+⛔ **And `config_hyperparameters.py` is NOT one of the six `ARM_IDENTICAL_FILES`** (those are `config_queryset.py`, `config_partitions.py`, `config_sweep.py`, `main.py`, `run.sh`, `requirements.txt`). **So F13 (a) and (b) together leave 47 keys unconstrained by anything.** Among them:
+
+| key | value | ⛔ why its silent divergence would be worse than noise |
+|---|---|---|
+| `freeze_multitask_balancer` | `True` | **C-312.** The config **default is `False`**, and unfrozen the balancer made **2 updates in 6 lessons**. A replicate flipped to default trains barely at all |
+| `bn_recalibrate` | `True` | ⛔ **one of the two LEAD CANDIDATES of this entire programme.** A replicate differing here is not a replicate, it is the other arm |
+| `height` / `width` | `360` / `720` | ⛔ **the grid.** The other lead candidate is *"BN recal fitted on 32×32 windows applied to the 360×720 grid"* — this key names the second half of it |
+| `loss_class_pos_weight` | `2.0` | the axis Phase 1 closed analytically |
+| `output_distribution`, `forecast_composition` | `truncated_nb`, `soft_gate` | the composition the preceding epic settled |
+| `n_posterior_samples`, `evaluation_mode`, `rollout_feedback`, `freeze_recurrent`, `window_dim`-adjacent crop keys (`max_ratio`, `min_ratio`, `roof_ratio`, `slope_ratio`) | — | every one of them changes what the number means |
+
+> ⛔ **The two keys whose divergence would most corrupt `σ̂` are the two mechanisms this programme is trying to separate.** A cell that diverged on `bn_recalibrate` would feed the candidate effect into the variance estimate used to test for the candidate effect, and F13 as written would have certified it.
+
+## 3 — ⛔ AND IT INVERTS AMENDMENT 11 §5. THE SUITE IS THE STRONGER INSTRUMENT; F13 WAS THE WEAKER ONE.
+
+Amendment 11 §5 said *"F13 is satisfied by a human assertion at readout time, not by the suite"* and told #569 to assert against the real configs **rather than** trust a green suite. ⛔ **The first half was right and the implication was backwards.**
+
+| | scope |
+|---|---|
+| views-models `test_the_replicate_differs_from_its_control_only_on_the_seed` | ⛔ **the WHOLE hyperparameter dict**, admitting only `REPLICATE_FREE_KEYS ∪ INSTRUMENTATION_KEYS` |
+| **F13 (b) as written here** | ⚠️ **`CORE_GENOME` — 16 of 63** |
+
+✅ **Their guard is strictly stronger than this plan's falsifier.** The reason to run #569 by hand stands — a green suite says nothing while the declarations are new, and the **values** must be recorded, not a pass — but **the correct scope was theirs, and this plan should have taken it rather than invented a narrower one from a constant built for a different purpose.** `CORE_GENOME` is the *"every config must declare these"* list, not an *"a replicate may not differ on these"* list. **A list borrowed from one role into another is the provenance-mismatch class — fifteenth instance, and the first in a falsifier.**
+
+**F13 clause (b) is rescoped:**
+
+| | |
+|---|---|
+| ~~**(b)**~~ | ~~identical in `CORE_GENOME` except `np_seed`/`torch_seed`~~ |
+| ✅ **(b)** | **identical across the FULL hyperparameter dict**, admitting only `np_seed`, `torch_seed` and `trajectory_log_path` |
+
+## 4 — ✅ EXECUTED. ALL THREE CLAUSES, AGAINST THE REAL CONFIGS, VALUES RECORDED.
+
+Run here against the merged declarations, loading each `get_hp_config()` rather than reading prose:
+
+**(a) byte identity over the six `ARM_IDENTICAL_FILES`, own name normalised to the control, `run.sh` mode compared:**
+```
+silver_kestrel   IDENTICAL on all 6
+bronze_kestrel   IDENTICAL on all 6
+cobalt_kestrel   IDENTICAL on all 6
+```
+
+**(b) full-dict diff against `amber_kestrel` (63 keys; each replicate has 64):**
+```
+silver_kestrel   differs on 1:  [trajectory_log_path]
+bronze_kestrel   differs on 3:  [np_seed, torch_seed, trajectory_log_path]
+cobalt_kestrel   differs on 3:  [np_seed, torch_seed, trajectory_log_path]
+```
+
+**(c) pairwise seed distinctness over the CELL:**
+```
+silver  np=42 torch=42     bronze  np=43 torch=43     cobalt  np=44 torch=44
+PAIRWISE DISTINCT: True        np == torch within each run: True
+amber (the control, NOT a cell member): 42
+```
+
+**And the three against each other**, which is the comparison `σ̂` is actually taken over:
+```
+silver vs bronze   [np_seed, torch_seed, trajectory_log_path]
+silver vs cobalt   [np_seed, torch_seed, trajectory_log_path]
+bronze vs cobalt   [np_seed, torch_seed, trajectory_log_path]
+```
+
+> ✅ **F13 (a), (b) rescoped, and (c) all PASS on the real `silver`/`bronze`/`cobalt` configs. The validity condition for M1 is MET and these are the recorded values.** ⚠️ **This discharges #569's replicate half only.** The two zero-decay arms (views-models #568) do not exist yet and are not covered by anything above.
+
+## 5 — ✅ Their correction to (c), accepted, and it is sharper than what this plan wrote
+
+They withdrew #566's control-relative inverse — *"the replicate's seed must differ from its control's"* — because **`amber_kestrel` is not a cell member** (§7: trained in a different pod session, at a different time, under a different code sha). ⛔ **So `silver` at seed 42 is the approved design, and their guard would have refused the first real replicate it ever saw.**
+
+And their sharpening of this seat's (c):
+
+> ⛔ **(c) must be PAIRWISE over the cell, not "distinct from the control".** The control-relative form is **both wrong** (it forbids `silver`) **and insufficient** (it passes `bronze = cobalt = 43` as long as neither equals amber's 42).
+
+✅ **Correct, adopted, and it is the stronger statement: the CELL is the subject of (c), not the control.** The measurement in §4 is pairwise for that reason. ⚠️ **Note the pattern — Amendment 11 named the missing direction and still wrote the clause against the wrong subject.** Getting the direction right does not get the scope right, and these are two independent ways for a falsifier to be half of one.
