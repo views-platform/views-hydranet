@@ -779,3 +779,76 @@ This plan recorded their clean checks (the `vehicle.py` accommodation transferri
 **This item tightens a reading and removes an unsupported inference. It changes nothing that runs and needs no authorisation.** ⚠️ **Simon's word is still required on: the allocation, the `wd = 0.0` trainability risk, and the library change if he keeps the head-exemption arm.**
 
 **Nothing is running and no model directory exists.**
+
+---
+
+# AMENDMENT 7 — ⛔ THE ENDPOINTS ARE RESTRUCTURED. Measurements first; the causal question is demoted to a note. 2026-10-18.
+
+**Source:** Simon, 2026-10-18, after the design churn: *"when you (or any other session) get things right it is about the 'what'. It is the 'how' and 'why' you struggle with."*
+
+⛔ **He is right, and this repository's own record says so before he did.** `PREDICTION_LEDGER.md`'s by-kind table: **derivations 10 right / 1 wrong; causal narratives 0 right / 8 wrong.** He arrived at it independently, from watching the work.
+
+**He has decided the experiment runs.** This amendment changes what it is pointed at.
+
+---
+
+## 1 — ⛔ The error this corrects, which was mine
+
+The plan's primary question was *"is `weight_decay` the cause of the under-dispersion?"* ⛔ **That is a WHY.** It is the only kind of output that can come back inconclusive, because a causal verdict requires the effect to beat the noise — and §4's feasibility boundary showed we cannot know in advance whether it will.
+
+⛔ **This seat then judged the whole experiment on that weakest output and recommended dropping it.** That is the category error Simon named, applied to the recommendation itself: **the experiment's strongest outputs are measurements, and measurements return a value unconditionally.**
+
+> ⛔ **Pointed at the WHATs, this experiment cannot come back empty.**
+
+---
+
+## 2 — PRIMARY ENDPOINTS. All four return a value whatever happens.
+
+| # | the question | what delivers it | can it fail? |
+|---|---|---|---|
+| **M1** | ⛔ **How much does this training pipeline vary run to run, at fixed config?** `σ̂` from the three identical-config runs (`wd 0.1`, seeds 42/43/44) | 3 runs, 2 df | **No.** It is a spread of three numbers |
+| **M2** | ⛔ **Does `weight_decay: 0.0` train at all?** | the two zero-decay runs | **No.** Yes or no, and nobody currently knows |
+| **M3** | **What are `a`, `b` and the held-out calibration error at each setting?** Reported as a table of measurements with no causal claim attached | all five runs + the local sweep | **No.** Five rows of numbers |
+| **M4** | ⛔ **Does the calibration slope reproduce across identical runs?** M1 expressed as a readable fact rather than a denominator | the three identical runs | **No** |
+
+⛔ **M1 is the primary endpoint of this experiment.** Nothing in this repository's record contains a run-to-run variance figure for the training pipeline. It is the most reusable number available: **it sizes every future experiment, and it is the denominator that every single-run comparison in this programme has silently been missing.**
+
+### ✅ And one DERIVED reading stays primary, because it is arithmetic and not a story
+
+**W-5 — what `σ̂` implies about the comparison this programme has been reasoning from.** `amber` and `copper` differ by **0.17** in `b` at **n=1 each, with no error bar anywhere in the record.** `se = σ̂·√2`, so:
+
+> ⛔ **If `σ̂ > 0.0601`, the amber-vs-copper difference was never separable from run noise** — and the R1-works/R1-fails asymmetry built on it needs re-scoping, which makes the amendment to `OUTCOME.md`/`RESULTS.md` **non-optional.**
+
+⚠️ **This stays primary deliberately.** It is a **derivation from a measurement**, not a causal narrative — the category the ledger records as 10-for-11, not the one it records as 0-for-8.
+
+---
+
+## 3 — ⛔ DEMOTED: the causal question becomes a secondary note
+
+**W-1, W-1a, W-1b, W-2, W-3, W-4 are retained unchanged in their arithmetic and are no longer the point.**
+
+> **Reported as: "the effect of `weight_decay` on `a` and `b`, with its uncertainty, at this n."** With `Δ`, `σ̂`, `Δ/σ̂`, and the threshold stated. ⛔ **Not as a verdict on whether `weight_decay` causes the under-dispersion.**
+
+⛔ **And the readout may not assert a cause.** The strongest permissible sentence is *"the measured effect is X ± Y, which is / is not larger than the run-to-run variation at this n."* **F12 fires on any sentence in the readout that states or implies `weight_decay` is or is not the cause of the under-dispersion** — because the design cannot support it and because this is the error class the whole restructure exists to avoid.
+
+**W-2 is no longer "the expected cell."** It is **the expected state of one secondary note**, which is a different and much smaller claim. ⛔ **The experiment's expected outcome is now four numbers and one derivation, not an inconclusive verdict.**
+
+---
+
+## 4 — What does NOT change
+
+**Nothing about what runs.** Same five pods, same configs, same seeds, same allocation (`3 × weight_decay 0.1` at seeds 42/43/44; `2 × weight_decay 0.0` at seeds 42/43), same cost, same launch path, same gating questions settled in `2026-10-18_weight_decay_arms_launch_plan.md` §1.
+
+**Every falsifier is retained:** F1–F11 unchanged, plus **F12** above. `S ≡ σ̂` as locked in Amendment 2. The per-endpoint `σ̂` requirement from Amendment 5. The sha comparison recorded for provenance only, per Amendment 6.
+
+⛔ **This is a restructure of what the experiment is FOR, not a redesign of the experiment.** The five pods were already going to produce M1–M4; the plan simply did not treat them as the product.
+
+---
+
+## 5 — The honest case, restated
+
+⛔ **Previously:** *"expected outcome INCONCLUSIVE for three independent reasons; cannot say any model is better to serve."*
+
+✅ **Now:** **four measurements that return values unconditionally, plus a derivation that puts the first error bar on a comparison three days of work has rested on.** The causal question is a note attached to that, with its uncertainty stated.
+
+⚠️ **Unchanged and still true: no arm can be declared shippable** (F6) — no forecast stage means no `act_ratio`, no CRPS, no AP, so the firing-rate guardrail is unavailable.
