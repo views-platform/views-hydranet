@@ -491,7 +491,11 @@ arm 5 vs the 0.1 pair, sigma_hat from that pair only:  df = 1
 
 ⛔ **So if F10 fires — the two within-pair spreads differing by more than 3×, which A3 says is unremarkable at n=2 — arm 5's threshold collapses from `5.27·S` to `15.56·S`, and its tolerable `σ̂` falls from 0.0356 to 0.0120.**
 
-⛔ **0.0120 is BELOW the measured sampling-only floor of 0.0107.** **Arm 5 then becomes undetectable in principle, not merely underpowered.**
+⛔ **CORRECTED (Amendment 4): `0.0120` is ABOVE the measured floor of `0.0107`, by +12.6% — the original sentence had the inequality reversed, in the line carrying this plan's recommendation.** The correct statement loses nothing and is stronger:
+
+> ⛔ **`σ̂` would have to land in `[0.0107, 0.0120]` — a 12.6% window sitting directly ON a floor that cannot be gone below.** Training stochasticity would have to contribute **essentially nothing** beyond pure sampling noise. Given that amber and copper differ by **0.17**, that is not a narrow requirement — **it is close to requiring that run-to-run variance does not exist.**
+
+⚠️ *"Below the floor"* invited the reply *"then the floor is wrong"*; **a 12.6% window on top of the floor is a statement about the DESIGN, not about the floor.** The other seat's reframing, adopted.
 
 ### ⛔ And the assumption cannot be checked for the planned arm 5, even in principle
 
@@ -542,3 +546,54 @@ Their endorsement is adopted, and ⛔ **they are right that it gets BETTER under
 ---
 
 ⛔ **Six of this seat's items corrected in this document; two of the other seat's withdrawn.** Neither seat has defended a position once, and the allocation that now looks best is one neither of us proposed when Simon authorised the set. **Nothing is running and no model directory exists.**
+
+---
+
+# AMENDMENT 4 — a reversed inequality in the sentence carrying the recommendation, and both seats now agree on the allocation. 2026-10-18.
+
+## 1 — ⛔ MY ERROR, in the load-bearing line
+
+Amendment 3 wrote: *"0.0120 is BELOW the measured sampling-only floor of 0.0107."* ⛔ **`0.0120 > 0.0107`, by +12.6%. The inequality was reversed** — and it was the sentence the recommendation rested on. **Corrected in place in §2 of Amendment 3, with the error stated rather than silently edited.**
+
+**The conclusion survives and is stronger in their form:** `σ̂` would have to land in a **12.6% window sitting ON a floor that cannot be gone below**, i.e. training stochasticity contributing **essentially nothing** beyond sampling noise — against an observed amber/copper gap of **0.17**. ⚠️ **And "below the floor" invited "then the floor is wrong", where "a 12.6% window on the floor" is a claim about the design.** Theirs is the better sentence.
+
+### ⛔ The pattern, which is worth more than the instance
+
+**Both of this seat's arithmetic errors in this document are in the threshold sentences that carry recommendations:**
+
+| | error | where |
+|---|---|---|
+| Amendment 2 | `S` stated in ambiguous units — **spread vs sd, off by √2** | the line defining every threshold |
+| Amendment 3 | **a reversed inequality** | the line carrying the recommendation |
+
+⛔ **Not random slips: both are in the numbers doing the persuading.** Logged as **W-28**, with the control that follows: **any inequality or unit in a sentence that carries a recommendation gets evaluated numerically before the sentence is committed, not read back.** Both of these were caught by the other seat following the arithmetic, and neither by re-reading mine.
+
+## 2 — ✅ BOTH SEATS NOW AGREE ON THE ALLOCATION
+
+They have joined the recommendation: ⛔ **`3×0.1 + 2×0.0`** — on power (+48%/+81%), on **3 df for `S`**, on the **sharper Phase-1 audit**, and above all on ⛔ **not staking the headline on an untestable assumption.**
+
+**And they verified, independently, the failure-mode table that weakened their own objection:**
+
+```
+both 0.0 runs survive   df=3   2.905·S   max σ̂ 0.0645
+one voids               df=2   4.969·S   max σ̂ 0.0377   degraded but ALIVE
+both void               σ̂ on n=3 = 2 df  ⛔ IDENTICAL to the planned set's delivery
+```
+
+✅ **F11 confirmed to rounding (4.969 vs my 4.968).** ✅ **And they adopted the orientation point** — `2×0.1 + 3×0.0` is statistically identical, so putting the third run on the **safe** cell is *"the difference between a choice and an accident."*
+
+## 3 — ⚠️ WHAT REMAINS UNPRICED, BY BOTH SEATS
+
+⛔ **Neither seat will price the probability that `weight_decay: 0.0` trains on this architecture.** Nothing in the record speaks to it. The other seat's framing of the choice is the honest one and is adopted verbatim:
+
+> **Simon's choice is between the better-designed experiment and the one more likely to return something rather than nothing.**
+
+**That is a risk judgement, not an arithmetic one, and it is his alone.**
+
+## 4 — The state of the plan
+
+⛔ **Seven of this seat's items corrected in this document; three of the other seat's withdrawn.** The recommended allocation is one **neither seat proposed** when the pods were authorised, and the argument that now decides it — untestability rather than power — **neither seat had two rounds ago.**
+
+**The design has improved four times since authorisation, and every improvement came from the other seat checking the one who wrote it.**
+
+**Nothing is running. No model directory exists. Three things await Simon's direct word: the allocation, the trainability risk, and — if he keeps the head-exemption arm instead — the library change in this repository.**
