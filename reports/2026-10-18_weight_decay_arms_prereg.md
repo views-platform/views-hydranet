@@ -1,0 +1,216 @@
+# Pre-analysis plan — is `weight_decay` the cause of the gate's under-dispersion?
+
+**Date:** 2026-10-18 · **Phase 3**, superseding the Phase-2 slope survey · **Written before any pod starts.**
+**Owner:** views-hydranet seat. **Executing seat:** views-models, which **attacks this plan first and does not decide which of its own objections survive.**
+**Predecessors:** `2026-10-18_gate_underdispersion_prereg/RESULTS.md` (Phase 1 record) · `RND_PLAN.md` · `2026-10-18_gate_phase2_prereg.md` (superseded, with its four amendments kept as the trail)
+**Authorised:** five parallel pods and the arm set below — Simon, 2026-10-18, relayed by the `views-models` seat. ⛔ **This plan does not authorise anything; it is what must exist before the pods start.**
+
+---
+
+## 0. In plain words
+
+The gate's probabilities are squashed. We have ruled out the obvious causes and the cheap fixes. **One suspect is left that we can test at source: `weight_decay: 0.1`** — ten times the usual value, applied to every parameter including the layer that produces the gate.
+
+**This is a cause test, not a product test.** We train small models with the knob changed and look at one number. ⛔ **Nothing here can tell us whether a resulting model is better to serve** — that needs the forecast stage, which we are deliberately not running.
+
+⚠️ **And the honest headline about the design: with two runs per setting, the yardstick we measure the effect against is itself uncertain by a factor of thirty.** §4 derives that and §5 changes the reading rules because of it.
+
+---
+
+## 1. Why Phase 2 died, and why this is worth money
+
+**Simon, 2026-10-18:** *"the models being served are wrong and bad and we are trying to fix them."*
+
+⛔ **He is right, and the Phase-2 slope survey is withdrawn.** Measuring condemned models answers nothing that changes what gets built. ⚠️ **And the provenance detour that consumed the previous round was chasing a question nobody needed answered** — recorded, because it cost both seats a round.
+
+**What makes a cause test worth money instead:** `weight_decay: 0.1`, `bn_recalibrate: True`, `window_dim: 32` and `dropout_rate: 0.15` are **byte-identical across both Phase-1 arms**. ⛔ **The defect is in machinery shared by every hydranet this pipeline trains — so the replacements inherit it too.** That is the difference between a survey of models being thrown away and a test of the thing doing the throwing.
+
+⚠️ **The unidentifiable-serving-weights finding stands and is unaffected** (`2026-10-18_gate_phase2_prereg.md` §2, Amendments 2–4). It is a separate issue and does not depend on this experiment.
+
+---
+
+## 2. The cost structure, and ⛔ whose catch it was
+
+**Simon asked whether the 13 moving origins are needed. They are not** — the slope was never measured from the forecast stage. It comes from the local teacher-forced sweep that produced `b_before = 1.1875` in **554 s** on his machine.
+
+| stage | time | status |
+|---|---|---|
+| train, 300 lessons | ~2 h 15 m | **REQUIRED** — it is what we are changing |
+| forecast / 13 origins | ~8 h 53 m | ⛔ **NOT REQUIRED — skipped entirely** |
+| local slope measurement | ~9 min | free, CPU, after the fact |
+
+⛔ **~12 h / ~$16 per arm becomes ~2 h 15 m / ~$3–4.** ⚠️ **Both figures are the other seat's and UNMEASURED by this one. Eleven of eleven cost estimates across both seats have been optimistic. F7 stops the set after arm 1 if its wall time exceeds 2× the estimate.**
+
+⚠️ **#402's `to_cube_samples` work would give a 3.4× ceiling on the stage we are no longer running.** Irrelevant here and deliberately not pulled in — recorded so it is not re-proposed.
+
+---
+
+## 3. The arms
+
+Base config **`amber_kestrel`**, so controls are directly comparable to the published `b = 1.1875`. Everything identical except the varied key.
+
+| arm | name | `weight_decay` | seed | role |
+|---|---|---|---|---|
+| **1** | **`silver_kestrel`** | `0.1` (current) | **42** | control · ⛔ **and the determinism precondition** |
+| **2** | **`bronze_kestrel`** | `0.1` (current) | **43** | ⛔ **RUN-TO-RUN VARIANCE — what makes arms 3/4 readable** |
+| **3** | **`cobalt_kestrel`** | `0.01` | **42** | intervention |
+| **4** | **`indigo_kestrel`** | `0.01` | **43** | intervention variance |
+| **5** | **`russet_kestrel`** | `0.1`, exempting the 3 class heads | **42** | exploratory — ⛔ **NOT a controlled cell, and NOT authorised by this plan** (§8) |
+
+**Names are the `views-models` seat's call** (their CLAUDE.md). **The kestrel family is deliberate**, marking the lineage: `amber` (shipped baseline) → `copper` (`pos_weight` arm) → these five (weight-decay arms of the same line).
+
+✅ **And the names deliberately encode NOTHING about the configs.** Their reasoning, which this seat endorses and would have raised: a name like `wd001_kestrel` **asserts a value that can drift from the config and then lie** — ⛔ **the provenance-mismatch class applied to a directory name.** **The config is the only place the config is stated.**
+
+**Seeds named by value** (their point 5). ⚠️ **This seat proposed `4711` and was wrong** — that is `capture_regimes.py`'s own **anchor-RNG** default, not a model seed, which is the provenance-mismatch class a fourteenth time and caught before it reached a config. **`43` is the repository's established pair for `42`**, verified: 4 roster configs at `np_seed`/`torch_seed` 42 and 2 at 43, and the paired-run dossier names its own runs `fortytwo`/`fortythree`. **Their value stands.**
+
+⛔ **Arm 2 is the point of the design.** amber and copper differ in slope by **0.17** from one config key at n=1 each, and the effect expected from `weight_decay` is **~0.19**. **Those are the same size.** Without arm 2 no result is interpretable at any price.
+
+**The full config diff of each arm against `amber_kestrel` must be printed in this plan before the pods start**, so identity is checkable rather than asserted (their point 5, adopted).
+
+---
+
+## 4. ⛔ THE DESIGN'S CENTRAL WEAKNESS, DERIVED
+
+The other seat's point 1 — *"the decision threshold is measured by the experiment, not fixed in advance"* — is right and is a genuine improvement on Phase 1's absolute bands. ⛔ **But with n=2 per cell the measured threshold is a lottery, and the plan must say so before it runs.**
+
+For `X₁, X₂ ~ N(0, σ²)` iid, the observed spread is `|X₁ − X₂|`:
+
+```
+E|X₁ − X₂|  = 2σ/√π      ≈ 1.128 σ
+sd|X₁ − X₂| = σ√2·√(1−2/π) ≈ 0.853 σ
+⛔ so the observed spread is known to ±76% of itself
+5th–95th percentile of the observed spread:  0.088 σ … 2.782 σ  =  a 31.5× RANGE
+```
+
+**Derived, and confirmed by simulation at 200,000 draws.**
+
+⛔ **So a hard falsifier of the form "the effect exceeds the control spread" is a coin flip dressed as a decision.** A lucky small spread (0.09σ) makes any effect look decisive; an unlucky large one (2.78σ) hides a real effect. **This is the same class of error as Phase 1's absolute bands, one level up: a threshold whose own uncertainty was never stated.**
+
+### Two structural mitigations, both free
+
+**(i) POOL the two within-pair spreads.** Arms 1–2 give one estimate of σ at `wd = 0.1`; arms 3–4 give another at `wd = 0.01`. **Pooling gives 2 df instead of 1.** Still weak, still free, and it halves the threshold's variance.
+
+**(ii) ⛔ PREFER DOSE-RESPONSE OVER THRESHOLD-CROSSING.** Monotonicity across three `weight_decay` values is **robust to a badly-estimated σ**; a single threshold comparison is not. **The alternative explanations — nondeterminism, seed, and run-to-run drift — do not produce monotone dose-response.** ⛔ **This is the strongest evidence a five-cell design can buy here, and it is why §8 recommends re-spending arm 5.**
+
+---
+
+## 5. ⛔ Readings — THREE-WAY, not binary, and disjoint
+
+Let `S` = the pooled within-pair spread in `b` (§4(i)), and `Δ` = the mean `b` at `wd = 0.01` minus the mean `b` at `wd = 0.1`. **Evaluate in order; first match is the reading.**
+
+| # | condition | consequence |
+|---|---|---|
+| **W-0** | any arm VOID under F1–F5 | ⛔ **the cell is VOID.** With 5 cells and no spares, **one void control collapses the variance estimate** and the set is INCONCLUSIVE |
+| **W-1** | `Δ < −2S` (lower decay → **lower** `b`, i.e. toward honest) | ⛔ **`weight_decay` is implicated as a cause.** Evidence about the CAUSE only — **never a ship decision** (§6) |
+| **W-2** | `\|Δ\| ≤ 2S` | ⛔ **INCONCLUSIVE at this n** — not a null. ⚠️ **With `S` known to ±76%, this is the EXPECTED cell unless the effect is large.** Report `Δ`, `S`, and the implied minimum detectable effect |
+| **W-3** | `Δ > +2S` (lower decay → **higher** `b`) | ⛔ **wrong direction — a finding.** `weight_decay` is not the cause and the mechanism argued in Phase 1 is refuted |
+| **W-4** | W-2 fires **and** no arm's `b` falls below ~1.10 | ⛔ **evidence for H3 / H4 — the resolution limit or the geometry mismatch — and the post-hoc patch (R1) is the CEILING.** A real outcome, not a washout (their point 4, adopted) |
+
+⛔ **`2S` is a stated convention, not a significance level**, and §4 is why: with 2 df there is no honest `p`. **The reading reports `Δ/S` and lets the reader see how thin it is.**
+
+---
+
+## 6. ⛔ NO ARM CAN BE DECLARED SHIPPABLE FROM THIS EXPERIMENT
+
+Their point 3, adopted and strengthened, because it is the single most likely misreading.
+
+**Without the forecast stage there is no `act_ratio`, no CRPS, no AP.** ⛔ **The firing-rate guardrail — the thing that caught the 37–83% false CRPS win in `OUTCOME.md §3` — is UNAVAILABLE in this design.** And `RESULTS_LEDGER.md`'s eligibility conjunction is satisfiable by exactly that artefact (`RESULTS.md` §9 / M84).
+
+> ⛔ **A slope improvement here is evidence about the CAUSE. It is not, and cannot be, evidence that a model is better to serve.** Any arm that improves the slope must be re-run through the forecast stage with the firing-rate guardrail before the word "better" is used about it.
+
+---
+
+## 7. Arm 1 — ⛔ MY RULING: FRESH, and for a different reason than the one offered
+
+The open question put to this seat: fresh run (costs a pod, tests determinism) or reuse `amber_kestrel` as arm 1 (frees a pod, assumes determinism)?
+
+**Ruling: FRESH** — and ✅ **Simon has since ruled the same, directly: _"I agree with the fresh run, don't reuse amber."_** (relayed by the `views-models` seat; recorded as a relay, and it matches the independent ruling below rather than replacing it).
+
+⚠️ **But their argument for it is not the reason, and I think it is wrong.**
+
+**Their argument:** the determinism assumption carries the whole variance estimate. ⛔ **It does not.** What arms 1 and 2 measure is **total run-to-run variance at fixed config** — and that is the right quantity *whichever mechanism produces it*. If training is deterministic, the spread is seed variance; if not, it is seed plus nondeterminism. **Both are "run-to-run variance at fixed config", which is exactly what §5 compares `Δ` against.** The decomposition is interesting and not load-bearing.
+
+**The reason fresh is nonetheless required:**
+
+⛔ **`amber_kestrel` was trained on a different pod session at a different time under a different code sha.** Using it as one cell of a five-cell controlled experiment imports **every difference between then and now** — library version, environment, pod image — into the variance estimate. **And the variance estimate is the thing the entire design rests on.**
+
+> **A variance estimate must come from two runs in the same environment, or it is not a variance estimate for this experiment.**
+
+⚠️ **This is the provenance-mismatch class again, and it would have been the thirteenth instance:** `amber_kestrel`'s setter question was *"deliver the control arm for the pos_weight experiment"*; using it here asks *"what is run-to-run variance in this arm set"*. **Different question ⇒ re-derive, not reuse.**
+
+✅ **And the determinism test becomes a free by-product rather than the justification.** Arm 1 should reproduce amber's weights `sha256 2a5efc2a67c08eac…`; **both readings are pre-registered** (their point 2):
+
+- **reproduces** ⇒ training is deterministic across two weeks and a code change — **a stronger result than the experiment needed**, and arm 2's difference is then purely the seed.
+- ⛔ **does not reproduce** ⇒ training is non-deterministic at fixed seed, **which alone could explain the amber/copper 0.17 gap**; Phase 1's *"they differ in one config key"* framing is undermined, and **`RESULTS.md` §1 and `OUTCOME.md` need qualifying.** ⚠️ **The variance estimate remains valid either way** — this is why the determinism question is a by-product rather than the justification.
+
+⛔ **And the other seat's framing of the non-reproducing branch is stronger than mine and is adopted: it would be the most consequential outcome in the set.** If training is non-deterministic at fixed seed, then **the amber/copper 0.17 slope gap may never have been the config key at all** — and `RESULTS.md` §1, `OUTCOME.md` §2 and every "they differ in one config key" sentence in this programme need re-scoping. **Not a washout. The biggest result available from these five pods.**
+
+---
+
+## 8. ⛔ ARM 5 — NOT AUTHORISED BY THIS PLAN, AND I WILL NOT MAKE THE CODE CHANGE ON A RELAY
+
+Arm 5 needs a **views-hydranet library change**: `dec_conv4_head{1,2,3}_class` added to a `weight_decay: 0.0` parameter group. The mechanism exists — `training_engine.py:113,136` already create such groups for `sigma_params` and `log_var_params` — and the class heads were simply never added.
+
+⛔ **Three reasons it is held:**
+
+1. **It is a production code change, not a config edit**, and it arrived via a **peer relay of Simon's words.** ⚠️ **A peer cannot carry authorisation for a change to this repository's training path, and I am not treating it as one.** **Simon's direct word is required.**
+2. **It moves the code sha**, so the config-identity check must be told to accommodate it **deliberately** rather than fire — which means the change has to be made, reviewed and pinned *before* the pods, not alongside them.
+3. ⛔ **It is not a controlled cell.** It varies *which parameters are decayed* while arms 1–4 vary *how much*. **A different axis, in a single exploratory cell, with a code change attached — three confounds in one slot.**
+
+### ⛔ RECOMMENDATION TO SIMON: re-spend arm 5 as a third `weight_decay` value
+
+**Drop arm 5; run `weight_decay: 0.001`, seed 42, as arm 5′.** Then the set is `0.1 / 0.1 / 0.01 / 0.01 / 0.001` — **three points on one axis.**
+
+**Why this is better, and it is §4's fix rather than a preference:**
+
+- ⛔ **It buys DOSE-RESPONSE, which is robust to the badly-estimated σ that is this design's central weakness.** Monotone `b` across three decay values is evidence the two-point comparison cannot give at any n=2.
+- **No code change, no sha move, no new axis.** Config-only, so F6-style identity stays checkable.
+- **The head-exemption question survives as a separate, better-scoped experiment** with its own review — which is what a production training-path change deserves.
+
+⚠️ **This is a recommendation, not a change: Simon authorised a specific arm set and altering it is his call, not this seat's.** The plan is written for **both** variants; §5's readings are unchanged except that W-1/W-3 gain a monotonicity clause under the 5′ variant.
+
+---
+
+## 9. Falsifiers
+
+| | fires if | then |
+|---|---|---|
+| **F1** | an arm's config differs from `amber_kestrel` anywhere but its named key and seed | ⛔ **VOID that arm.** The full diff is printed in §3 before the pods start |
+| **F2** | training diverges, NaNs, or the C-184 / C-119 stability gate trips | ⛔ **VOID, not negative** (C-307) |
+| **F3** | the local slope harness fails to reproduce amber's `b = 1.1875` bin-free to three decimals on amber's own weights | ⛔ **VOID everything.** The paired-baseline precondition E6f met exactly |
+| **F4** | the sign of `Δ` changes across the three bin resolutions, or bin-free and binned disagree in sign | ⛔ **VOID** by the sweep rule |
+| **F5** | an arm's artifact arrives without all three files + `PROVENANCE` with `lessons ≥ 300` and `mode: production` | ⛔ **VOID** |
+| **F6** | ⛔ **any arm is described as better to serve, or any slope result is read as a ship decision** | ⛔ **a REASONING error, not a result** (§6). Retract and rewrite |
+| **F7** | arm 1's wall time exceeds **2×** the ~2 h 15 m estimate | ⛔ **STOP and report** before the rest of the set |
+| **F8** | any cost, power or sufficiency figure appears in the readout without a measurement behind it | ⛔ **VOID that figure.** Eleven of eleven optimistic |
+| **F9** | the readout quotes `Δ` without `S` and `Δ/S` beside it | ⛔ **VOID the sentence.** §4 is why |
+
+---
+
+## 10. Method — LOCKED
+
+- **Train only.** `total_lessons: 300`, no forecast stage, no origins. ⛔ **`to_cube_samples`/#402 explicitly not pulled in.**
+- **Slope measured locally, after the fact**, by the Phase-1 harness: `BASE_ORIGIN = 456`, `N_ORIGINS = 13`, `LEADIN_START = 421`, `D = 4`, `set_locked_dropout(True)`, CPU, target `sb`. ⛔ **Bin-free maximum likelihood is the estimator**; binned fits at the locked P2 edges reported alongside, never instead.
+- **Every artifact verified** by `sha256` against its `.pt.sha256` and its sidecar before use. ⚠️ `vehicle.py` hash-denies four known africa artifacts and **records that region is not a read-back** (`:187-191`) — the new arms are global, and that must be **confirmed from the run's own provenance, not inferred from a date.**
+- **Signed error reported alongside absolute.** **Common bin support across every compared pair.**
+- ⛔ **Record per arm:** `b` (bin-free + three binned weightings), `a`, bootstrap `sd(b)`, `n`, positives, weights `sha256`, code sha, wall time, and the full config diff.
+- ⛔ **No value written into a stored artifact under a name that is not true of it under the weakest reading a later reader could take** (`OUTCOME.md §9` issue 10).
+
+---
+
+## 11. Out of scope
+
+- **Shipping anything** (§6). **The forecast stage** and therefore `act_ratio`/CRPS/AP.
+- **The body (#530)** — Simon's sequencing. ⚠️ But a gate change moves the delivered totals; `RND_PLAN.md` §6.
+- **`h ≥ 2`** — #558. Everything is h=1.
+- **H1's remedy** — dead by measurement (`RESULTS.md` §6). ⛔ **Tuning the recal distribution remains banned.**
+- **The Phase-2 slope survey** — withdrawn (§1). Its unidentifiable-serving-weights finding stands separately.
+- ⛔ **Arm 5's library change** — held for Simon's direct word (§8).
+
+---
+
+## 12. Definition of done, and the stop rules
+
+**Done** when all authorised arms have a recorded `(b, a, sd, n, positives, sha, code sha, wall time, config diff)` row or a recorded VOID; F1–F9 are evaluated; §5's reading is stated with `Δ`, `S` and `Δ/S`; and the outcome document **does not describe any arm as better to serve.**
+
+**Stop rules.** No new questions mid-set. ⛔ **F7 stops after arm 1.** A null is INCONCLUSIVE, not negative — **W-2 is the expected cell and the plan says so in advance.** No scalar without its parameter sweep. No cost or power figure without a measurement. ⛔ **The executing seat attacks this plan before running it, and does not decide which of its own objections survive. Neither does this seat.**
