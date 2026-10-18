@@ -11,19 +11,25 @@
 **This document has been through one clean-context adversarial review (2026-10-11) and it did not come
 out clean.** That review returned **17 findings**. Five were verified against primary sources and
 **fixed**, including ⛔ **the retraction of §0 item 1, the report's lead claim** — see Appendix C. **Ten
-are recorded and NOT investigated**, listed in Appendix C under *"Open findings"*. They are not known to
-be wrong; they are not known to be right.
+were recorded and NOT investigated**, listed in Appendix C under *"Open findings"*.
+
+> ✅ **UPDATE 2026-10-19 — six of those ten are now adjudicated.** The five checkable citation rows
+> (**1, 2, 4, 5, 9**) were each verified against the primary source: **all five were real defects and all
+> five are fixed in place.** ⛔ **Row 3 was REFUTED** — it attributed the figure to M8, the report cites
+> **M9** at every site, and the ledger's own floor-status table classes M9 under *"survives"*.
+> **Four remain open (6, 7, 8, 10)**, and they are exactly the four the reviewer itself marked as reasoning
+> rather than citation mismatch.
 
 **What that means for a reader.** The §0 items, §1's amendments, §4's verdicts and §5's blind spots are
-the load-bearing parts and they have now been attacked once. The remaining ten findings touch §4.1, §4.3,
-§5.4, §7, §8.2 and Appendix A. ⚠️ **No literature citation in this document has been audited by anyone**
+the load-bearing parts and they have now been attacked once. ✅ **The remaining FOUR findings (2026-10-19)
+touch §0, §2.8, §4.1, §4.4 and §7** — §4.3, §5.0, §5.4 and §8.2 are cleared of open rows. ⚠️ **No literature citation in this document has been audited by anyone**
 — the reviewer did not open the library, and §1's fourth amendment rests on citations rather than
 measurement.
 
 **This is a stopping point, not a finished document**, and it is marked as one deliberately. Its purpose
 was to stop eight months of evaluation knowledge being lost, and that purpose is served: the findings are
 written down, sourced, and the known-unreliable parts are named. ⛔ **It should not be the basis of a
-protocol change without the ten open findings being closed first.**
+protocol change without the remaining open findings being closed first** — ⚠️ **four as of 2026-10-19, down from ten.**
 
 ---
 
@@ -749,7 +755,7 @@ scope. **CLOSED-BY-EXHAUSTION** = we stopped asking; the evidence does not suppo
 | Can a first-moment aggregate certify calibration? | **No.** MCR ≈1.0 with activation 4–115× wrong | #258 | the 8-model roster |
 | Does the rollout decay because the horizon is long, or because the model eats its own output? | **Its own output.** The oracle does not degrade at all across 36 steps | M10, M24 | 1 seed, `violet_visitor`, 160L, `sb` |
 | Where in the rollout does the damage go? | **Occurrence 89–95%; magnitude indistinguishable from zero** | I-A, replicated 4/4 vehicles, two body families, two compositions | 1 seed per vehicle — the repo calls this an **escalation trigger, not a conclusion** |
-| Is it recall or placement? | **Placement.** `thin:0.75` deletes ¾ of true events and keeps 95–97%; scrambling locations costs 31× | M3/M4 → M11/M12 | replicated across two vehicles |
+| Is it recall or placement? | **Placement.** `thin:0.75` deletes ¾ of true events and keeps 95–97%; scrambling locations costs **5×** (M12, `violet_visitor`) | M3/M4 → M11/M12 | replicated across two vehicles. ✅ **CORRECTED 2026-10-19 (open finding 4):** this row read **31×**, which is M3's figure on the **floor-limited** vehicle. `RESULTS_LEDGER.md:207` classes M3 *"understated, replicated … cite the corrected number"*, and the corrected number is M12's **5×** (0.0486 vs a 0.2569 control). §2.7 gave both; this row gave only the floored one, under M12's provenance |
 | Does more training fix the rollout? | **No — training is closed as a retention lever.** Retention 0.03 → 0.600 (160L) → 0.683 (300L, n=4) → 0.692 (600L). T=0 skill and the ceiling keep rising | M26–M29 | shape from 5 lesson counts; the plateau itself is a 2-point claim |
 | Does scheduled sampling help? | **No — it hurts, at every horizon** | M30–M33, 4v4 seeds, p=0.0286 | formally UNDERPOWERED (does not clear 3×MDE); direction established, magnitude not |
 | Does the model beat persistence at long horizons on AP? | **Yes at L=300, all four seeds, every horizon** | M34–M37 | one vehicle, AP only; the CRPS win remains ARTIFACT |
@@ -770,16 +776,16 @@ scope. **CLOSED-BY-EXHAUSTION** = we stopped asking; the evidence does not suppo
 
 | # | Open question | Why it is stuck | issue |
 |---|---|---|---|
-| ⛔ 1 | **Is the h=1 win real?** It is the only non-ARTIFACT signal in the entire programme, and it reads **UNDECIDABLE for a purely procedural reason** — no bootstrap CI was computed. Both point estimates say REAL (CRPSS +0.197, ΔAP +0.152) | needs a re-run emitting **per-origin** scores at matched S; the cubes were score-then-deleted | — |
+| ⛔ 1 | **Is the h=1 win real?** ⚠️ **TWO COMPARISONS, AND THIS ROW NAMED ONLY ONE — corrected 2026-10-19 (open finding 9).** Against **persistence** it reads **UNDECIDABLE for a purely procedural reason** — no bootstrap CI was computed; point estimates CRPSS +0.197, ΔAP +0.152. ✅ **Against CLIMATOLOGY the CI exists:** `2026-08-15_rollout_ruler_trust_dossier/results/rescore.csv`, `violet_visitor`/`sb`/`h=1` — `crpss_vs_clim` **0.3086**, `delta_AP` **0.1765**, `ci_excludes_zero` **True**, `verdict` **REAL**. ⛔ **So *"no bootstrap CI was computed"* is false for the climatology reference**, and D.5 states the distinction this row did not. ⚠️ **Two cautions this seat adds, neither in the finding:** that row's `zero_share_of_gap` is **0.7866** — 78.7% of the CRPS gap is true zeros, the same signature Epic #263 ruled **ARTIFACT** on at 74.6% — and its interval is wholly negative (`ci_lo` −0.0731, `ci_hi` −0.0426), so **the CI is on a loss difference, not on the ΔAP gain**; it must not be quoted as a CI on AP | the **persistence** half still needs a re-run emitting **per-origin** scores at matched S; the cubes were score-then-deleted | — |
 | ⛔ 2 | **Which ledger rows rest on floor-limited vehicles?** M8's best case on the smoke vehicle (0.0912) is **3.6× below** an untreated 300-lesson baseline (0.3298) | the audit was only ever run on the rollout-collapse programme; the postmortem states that "this is the only floored measurement in the repo" is **not established** | **#280** |
 | ⛔ 3 | **Can the design resolve the effects we chase at all?** SS: −0.0426 with MDE 0.0541. *"If placement interventions land in the same 0.03–0.05 band, every future experiment returns UNDERPOWERED"* | one of four candidate fixes (a paired statistic) changes the MDE at **zero GPU** and has not been adopted generally | **#281** |
 | ⛔ 4 | **Is the truth data correct?** priogrid 149451 reads **27,413** then **32,505** with a **2** between them; the next largest cell-month anywhere is **1,100** | nothing checks the truth field for outliers at build time; filed upstream | C-338, views-datafactory#484 |
 | ⚠️ 5 | **Is D=4 enough gate variation for a delivered point estimate?** The gate is deterministic given a pass's mask, so D is the only lever; on `blazing_meteor` the gate kills 1–3 of 4 passes in **407 of 502** signal-carrying cells | "no ledger entry answers it" | **#388** |
-| ⚠️ 6 | **Is `aggregate_method` offering the wrong collapses?** `gate × mu` beats mean-of-16 by **+58% to +159%**; `median` is an empty map | indicative only — one artifact per config, one origin, `sb` | **#337** |
+| ⚠️ 6 | **Is `aggregate_method` offering the wrong collapses?** `gate × mu` beats mean-of-16 by **+58% to +159%**; `median` is an empty map. ⛔ **SCOPE, added 2026-10-19 (open finding 1): `gate × mu` (`analytic_mean`) is non-zero on **100% of cells** — the dossier says so itself. It is therefore structurally the same object as `gate_only`, which §5.0 disqualifies as *"not like-for-like"*. The figure is a **dense-surface ranking** gain and may not be quoted as a collapse effect comparable to an intervention. ⛔ The like-for-like figure is `tower_point` vs `mean` — **9.9×**.** | indicative only — one artifact per config, one origin, `sb` | **#337** |
 | ⚠️ 7 | **Was any scheduled-sampling verdict measuring anything?** All four SS-on roster models trained under a config the repo now rejects, and *"there is no valid, non-floored SS measurement anywhere"* | and #288 asks whether the SS feedback path is differentiable at all | **#295, #288** |
 | ⚠️ 8 | **Do the direct-multi-horizon and recursive cubes score identically?** | *"Prove the ruler scores both cube types identically"* is a precondition nobody has met | **#310, #324** |
 | ⚠️ 9 | **Is the architecture bake-off attributable?** DualStream replaces the identity top-skip; WideMemory silently drops `state_channels`; MaxBlurPool2d needs an 8×8 grid and dies at the repo's own `window_dim=4`; arms matched on parameters but **not compute** (+5% to +20% wall-clock) | four open issues, no re-run | **#366–#369** |
-| ⛔ 12 | **Does AP@h18 predict anything about the served product?** ⚠️ **PARTLY ANSWERED 2026-09-30 and the answer is bad:** across seven collapses of one cube, **AP spans 18.9×**, and the delivered `tower_point` is **last**. So the optimisation target and the deliverable are connected by a transform with a larger effect than most interventions we have tested, and until 2026-09-30 nobody had scored it. **Still open:** whether it holds at the delivered 128 draws, and whether it holds on the pooled ensemble | the 128-draw repeat is queued on the `models` side; AP is not computable on the forecast months (no truth), so it needs **pooled validation** draws — which do not exist on one machine today | **#337, #388** |
+| ⛔ 12 | **Does AP@h18 predict anything about the served product?** ⚠️ **PARTLY ANSWERED 2026-09-30 and the answer is bad:** across seven collapses of one cube, **AP spans 18.9×**, and the delivered `tower_point` is **last**. So the optimisation target and the deliverable are connected by a transform with a larger effect than most interventions we have tested, and until 2026-09-30 nobody had scored it. ✅ **CLOSED 2026-10-01, and this row did not say so — corrected 2026-10-19 (open finding 5).** Both of the clauses that stood here as open are answered by §5.0's own resolution: run `20261001_012905`, **8/8 models, 300 lessons, pooled**, at the delivered **128 draws**. ⛔ **The row read "still open … queued" while the section 120 lines below it read "RESOLVED".** ⚠️ **What remains genuinely open is narrower:** AP is not computable on the *forecast* months (no truth), so a reading on the **delivered forecast frame** — as opposed to the validation partition — still does not exist | — | **#337, #388** |
 | ⛔ 11 | **Has long-horizon training ever been tried?** Aceituno2025 Thm 4.6: minima found on short horizons do not generalise to long ones, gap `O(e^{λ(T_h−T_l)})`. ⚠️ **Scope caveat added 2026-09-30: the theorem is derived for feedforward MLPs with smooth loss and ergodic dynamics; extension to RNNs is discussed as plausible and not proven — and the HydraNet is an RNN.** The mechanism, exponential gradient scaling in a chaotic autoregressive system, is generic, so I believe it transfers; that is INFERENCE. Scheduled sampling, increased teacher forcing and `truncated_nb` all changed **what the model is fed**; **none changed what is optimised** | so three experiments resembled long-horizon training and none was it. ⚠️ INFERENCE, and the sharpest unexamined direction in the record | — |
 | ⚠️ 10 | **Should QS99 be in the protocol at all?** C-224 is **Tier 1** and its governance ask is recorded as *unchanged, still open* | requires amending a framework that is not in the repo | C-224 |
 
@@ -861,6 +867,9 @@ research.
 **(a) Nothing scores the served surface.** Every instrument in Appendix A takes a sample cube and
 returns AP, CRPS or Brier. The FAO receives a **collapsed point surface** plus HDI bounds. The collapse
 is not a formatting step — M70 measured that `gate × mu` beats the mean of 16 draws by **+58% to +159%**
+⛔ **(scope, 2026-10-19, open finding 1: `gate × mu` is non-zero on 100% of cells, so this is a dense-surface
+ranking gain and is disqualified by the same argument this section applies to `gate_only` below — the
+like-for-like figure is `tower_point` vs `mean`, 9.9×)**
 at identical total mass, and `median` is an **empty map** (0.05–0.14% of cells non-zero). So the stage
 with the largest measured effect on the delivered number has **no instrument at all**, and #388 asks
 whether D=4 gives the gate enough variation to support a point estimate while recording that *"no ledger
@@ -1060,7 +1069,20 @@ Separately, `check_floor.py` records that **no dossier invoked the floor gate be
 
 ### 5.4 ⚠️ The red-team exists, and is pointed at the wrong target
 
-Better than expected: **all seven** degenerate forecasts from the DRAFT's §5 proposal are implemented —
+⛔ **CORRECTED 2026-10-19 (open finding 2). This paragraph claimed more than exists, and three of the cases
+it named were deliberately descoped.** The DRAFT's own superseding header says `tests/test_activation_metrics.py`
+*"already implements **4 of its 6** degenerates"*, and
+`2026-08-15_rollout_ruler_trust_dossier/SCOPE.md:50` says *"Do not build the spiky / frequency-right /
+magnitude-right cases."* ⛔ **Verified against the tests: no spiky, frequency-right or magnitude-right case
+exists in either file** — `test_activation_metrics.py` carries collapse, bloom, calibrated, a perfect oracle
+and climatology; `test_rollout_ruler_core.py` carries `test_degenerate_all_zero_forecast_scores_badly_on_skill`
+and the climatology battery. **The count of seven also counts the known-good reference as a degenerate; the
+DRAFT counts six degenerates plus that reference.** ⚠️ **And the paragraph contradicted itself two sentences
+later**, conceding the spiky case is tested *"only on a uniform magnitude field"* while asserting it was
+implemented. **The section's real point survives intact and is strengthened: the cases that DO exist all
+exercise `activation_metrics` in isolation.**
+
+~~Better than expected: **all seven** degenerate forecasts from the DRAFT's §5 proposal are implemented —~~
 all-zero, climatology, persistence (partial), over-concentrated spiky, frequency-right,
 magnitude-right, and a known-good oracle — in `tests/test_activation_metrics.py` and
 `tests/test_rollout_ruler_core.py`.
@@ -1139,7 +1161,7 @@ the unknowns are concentrated wherever **no second computation of the same quant
 | ⛔ **The truth field** | §5.5. One outlier was found by eye, upstream, and filed. Nothing systematic has ever looked. A corrupt truth cell is invisible to every instrument we own, because every instrument scores *against* it. | An outlier scan at build time: any cell-month above the historical max by >10×. |
 | ⛔ **Every negative result whose implementation nobody audited** | The September postmortem names this its *"most expensive open question"*: ≥15 defects found *after* the author judged the code correct, **0 by his own review**, and C-324 proves an implementation can be fully green and **completely inert**. The audited experiments are #308 and #311. Every earlier negative — and there are six failed interventions — rests on an unaudited implementation. | A potency check at a trained checkpoint on each retired arm. Cheap; no retraining. |
 | ⚠️ **The in-package artifact, not the scorer** | **C-328 instance 4 is already in production:** `random_flips` defaults True and reaches BN recalibration, so ~half of every BN running statistic in every shipped artifact was accumulated on flipped fields. That is a whole class — *"which non-training forwards traverse this path?"* — and it was asked once, late. | Enumerate every forward pass that is not a training step, and what augmentation each sees. |
-| ⚠️ **The collapse from cube to delivered number** | M70: `gate × mu` beats mean-of-16-draws by **58–159%**, and `median` is an empty map. The collapse step has effects larger than most interventions we tested and the least scrutiny of any stage. #388 asks whether D=4 is enough and *"no ledger entry answers it."* | Score all available collapses on one existing cube. Zero GPU. |
+| ⚠️ **The collapse from cube to delivered number** | ⛔ **CLAIM NARROWED 2026-10-19 (open finding 1).** The load-bearing figure here is **`tower_point` vs `mean` — 9.9× on AP**, the one like-for-like pair. ~~M70: `gate × mu` beats mean-of-16-draws by **58–159%**~~ — withdrawn as support, because `gate × mu` is non-zero on **100% of cells** and is the same object §5.0 disqualifies as `gate_only`. `median` is still an empty map. **The collapse step has the least scrutiny of any stage**, and on the like-for-like pair its effect is still larger than most interventions we tested. #388 asks whether D=4 is enough and *"no ledger entry answers it."* | Score all available collapses on one existing cube. Zero GPU. |
 | ⚠️ **Anything measured once, by one instrument** | The three retractions caught by "two numbers disagreeing" only happened because a second computation existed. Where only one exists, the class is silent by construction: `recall_mass` (the production roster's own K1 criterion), `taillardat_index`, `hard_gate_threshold`. | For each single-source number that gates a decision, compute it a second way. |
 | ⚠️ **The CI signal itself** | C-283: three tests shelled out to a binary the environment never installs, and CI was **red on every run for ≥2 weeks** — *"every CI `test` result before 2026-08-15 should be read as red for this reason unless shown otherwise."* A gate can be broken for reasons wholly unrelated to the code, and stay broken. | Assert the CI job's own preconditions (every external binary it invokes exists). |
 | minor **Cross-model coupling in the pooled product** | The sample cube's randomness carries **no model identity** — `seed_t` is derived from `torch_seed` alone. Two roster models share `torch_seed` 42 and two share 43, and the 43 pair also share the composition rule. Pooled draws may therefore be less independent than the draw count implies. | Correlate the zero/nonzero mask patterns within each same-seed pair against a different-seed control pair. |
@@ -1160,7 +1182,7 @@ they have never been listed together. Ordered by how much they should change how
 | S6 | The recurrent state is a memory of dynamics | **M54 — it is a MAP.** Roll it 90 cells and the forecast moves 90 cells **intact, r≈0.90**, while skill collapses **48×**. | ⚠️ A perfectly coherent, perfectly structured, perfectly self-consistent forecast can be entirely in the wrong place, and every structure metric will approve. |
 | S7 | Ensembling buys diversity | **M66 — the 8-member pool beats its best member (AP@h18 0.2203 vs 0.1804), but subsampling the same pool back to 16 draws collapses it to 0.1462 — *below* the best member.** AP is monotone in S. **M67:** errors correlate **0.96–0.99 across all 28 pairs**. ⛔ **Corrected 2026-09-30 — this is not the gate.** The `library` session asked whether the correlation was on the gate or on the full output. Checked: `analyse_diversity.py:7,93` correlates `\|mean(draws) − truth\|` **in count space on the composed forecast**. So the correlation is on the composed forecast, not merely on the occurrence head. ⛔ **Corrected again 2026-10-10 — the previous wording of this entry was wrong.** It read *"diversity is dead on the delivered output"*, which conflates two quantities: M67 correlates **errors**, and on the **delivered field** the eight disagree substantially. Measured on the 2026-09-29 handover (`I_mean`, `pred_lr_sb_best`, 8 models × 13 origins, 30,334,824 rows each, row order asserted identical on the month×grid key): pairwise Pearson **r = 0.273–0.552, median 0.439** on the union support; of the **328,562** cell-months where any model fires, **33.0% is one model firing alone** and only **13.5%** has all eight; total predicted mass spans **3.64×** (bold_comet 1.681× the eight-model mean, bright_starship 0.462×). ⚠️ `sb` only, calibration partition, **no truth** — so it says nothing about which member is closer to what happened, or whether pooling beats choosing. What is dead is therefore **error** diversity, not output diversity: the members disagree about *where to put mass* and agree almost perfectly about *what they fail to catch*. ⚠️ **That reconciliation is INFERENCE** — error correlation cannot be recomputed on the handover, which carries no truth. It also weakens the Deep Ensembles (Lakshminarayanan2017) claim this entry used to make: random initialisation **did** supply output diversity here, so the independence condition is not falsified at the level of predictions; what fails is the weaker, more practical requirement that members' *errors* be decorrelated enough for averaging to help. | ⛔ The ensemble was buying **sample count, not member disagreement.** A pooled-vs-best comparison at unequal S measures S. Fix the draw count before claiming an ensemble effect. |
 | S8 | A roster of different thresholds adds something | **M69 — mathematically it cannot.** `E_τ~U(0,1)[(gate ≥ τ)] = gate`, so averaging thresholds reconstructs the soft gate **from below** and never crosses it — within 0.5–0.7% at 64 τ. | minor — but a good example of a design question settled with algebra and zero GPU. Do that first. |
-| S9 | The posterior mean is the natural point estimate | **M70 — `gate × mu` beats the mean of 16 draws by +58% to +159%** at identical total mass; `median` is an **empty map** (0.05–0.14% of cells non-zero). | ⚠️ How you collapse the cube is a first-class modelling decision with effects larger than most interventions we tested. |
+| S9 | The posterior mean is the natural point estimate | **M70 — `gate × mu` beats the mean of 16 draws by +58% to +159%** at identical total mass; `median` is an **empty map** (0.05–0.14% of cells non-zero). ⛔ **2026-10-19 (open finding 1): `gate × mu` is non-zero on 100% of cells**, so the surprise is real but the figure is a dense-surface ranking gain — the like-for-like collapse effect is `tower_point` vs `mean`, **9.9×**. | ⚠️ How you collapse the cube is a first-class modelling decision — **on the like-for-like pair** its effect is still larger than most interventions we tested. |
 | S10 | Our failed approximation explains the failure | **M63 — the straight-through estimator is NOT backwards.** We tested our own excuse and it did not hold, so **the objective was wrong**, not the approximation. | ⚠️ Rare and valuable discipline: test the excuse. Without M63 the BPTT-SA null would have been attributed to an implementation detail and re-attempted. |
 | S11 | A component that ablates to nothing is unimportant | **C-323 — you cannot ablate a regenerated component.** `hs = o ⊙ tanh(hl)` is recomputed from the cell every step, so a perturbation self-heals. **M60's "hidden 0/26" is architecturally guaranteed, not a finding.** | ⛔ A null from an ablation that the architecture makes impossible is not evidence. Check whether the manipulation can survive one forward pass before interpreting its null. |
 | S12 | The mechanism story follows from the measurement | **"The recurrence diffuses the gate" was backwards on its own terms.** Smoothing *raises* spatial autocorrelation, so diffusion predicts Moran's I going **up** — it went **down** (M6). Falsified using data already on disk. | ⚠️ Four other mechanism stories were retracted the same week. A story that has not been asked to make a *directional* prediction has not been tested. |
@@ -1231,7 +1253,10 @@ finding** is §5.0 — the delivered product is unscored and the delivered colla
 seven. The **cheapest decisive** measurement is the h=1 question below. They are not the same thing and
 the report previously implied the second was the more important.
 
-**Fund §5.0 first if you can fund one:** the 128-draw repeat of the collapse comparison, and an aggregate
+⚠️ **PARTLY SPENT ALREADY — corrected 2026-10-19 (open finding 5):** the 128-draw repeat below **was run on
+2026-10-01**, 8/8 models, pooled (§5.0). What is left to fund is the aggregate reading, not the repeat.
+
+**Fund §5.0 first if you can fund one:** ~~the 128-draw repeat of the collapse comparison, and~~ an aggregate
 coverage number. Both are zero-GPU on an existing cube, and together they decide whether the partner is
 being served the worst available collapse of a distribution that is also mis-calibrated. That is a
 delivery finding, and delivery beats research here.
@@ -1239,7 +1264,9 @@ delivery finding, and delivery beats research here.
 **The h=1 question is the cheapest thing that could change the research story:**
 
 ⛔ **Establish whether the h=1 win is real.** It is the only non-ARTIFACT signal in the entire
-programme. It currently reads **UNDECIDABLE for a purely procedural reason** — no bootstrap CI was
+programme. ⚠️ **Scope corrected 2026-10-19 (open finding 9): this is the PERSISTENCE comparison.** Against
+climatology `rescore.csv` already carries a CI that excludes zero and a **REAL** verdict at h=1 (see §4.3
+item 1, with its two cautions). The persistence comparison reads **UNDECIDABLE for a purely procedural reason** — no bootstrap CI was
 computed — while both point estimates say REAL (CRPSS +0.197, ΔAP +0.152). It needs a re-run emitting
 **per-origin** scores at matched S, because the cubes were score-then-deleted.
 
@@ -1595,11 +1622,30 @@ place: §0's *"every CRPS win beyond h1 is ARTIFACT"* (false — REAL at h6 5/12
 favour); §5.1's *"three separate metric rows"* in `GLOSSARY.md` (there is **one**); and §4.1's
 *"**Gate** errors correlate"* (the M67 operand, third instance — the §7 fix checked §0 and not §4).
 
-### ⚠️ Open findings — recorded 2026-10-11, NOT investigated
+### Open findings — recorded 2026-10-11 · ✅ six adjudicated 2026-10-19, four still open
 
-The adversarial pass returned 17 findings. Five are fixed (above, plus the lead claim). **These ten are
-recorded as-received and deliberately not chased.** Each is the reviewer's claim, not a verified defect.
-Anyone acting on a section below should close its row first.
+The adversarial pass returned 17 findings. Five were fixed on receipt (above, plus the lead claim). The ten
+below were recorded as-received and deliberately not chased.
+
+> ✅ **2026-10-19 — the six CHECKABLE rows were adjudicated against primary sources.** Scope chosen in
+> advance: the rows whose claim is a citation or internal-consistency mismatch — the category
+> `PREDICTION_LEDGER.md`'s by-kind table says this seat is reliable in — and **not** the four the reviewer
+> marked as reasoning. **Result: 5 CONFIRMED and fixed in place, 1 REFUTED.**
+>
+> | row | verdict | the evidence that settled it |
+> |---|---|---|
+> | **1** | ⛔ **CONFIRMED** | `2026-09-06_ensemble_roster_dossier/07_experiment_log.md` says it itself under M70: *"`analytic_mean` is non-zero on **100%** of cells for soft-gate models."* §5.0's own table gives `gate_only` `nonzero_share` **1.00000** and disqualifies it as not like-for-like. **Same object, opposite treatment, 36 lines apart.** Fixed at all four citation sites; the like-for-like **9.9×** now carries the claim |
+> | **2** | ⛔ **CONFIRMED** | The DRAFT's superseding header: *"already implements **4 of its 6** degenerates."* `2026-08-15_rollout_ruler_trust_dossier/SCOPE.md:`**`50`** — ⚠️ **not `:48`; the finding's locator was off by two lines** and the line reads *"Do not build"* — *"Do not build the spiky / frequency-right / magnitude-right cases."* **And verified in the tests: none of those three cases exists in either file.** Fixed |
+> | **3** | ✅ **REFUTED** | ⛔ **The finding named the wrong measurement.** The report cites **M9** at all five sites, not M8. M9 is *"`crps_all` is blind to all of it"* — four arms inside 0.0007 while gate AP spans 13×. `RESULTS_LEDGER.md`'s floor-status table puts **M9 in the "survives" row** (*"M9 is about the metric, corroborated by Epic #263"*, confidence **High**) while M8 sits in *"uninformative and NOT re-derived"*. **Two different 13× figures were conflated — and §4.4 already scopes M8's retired one correctly.** ⛔ **This is itself the provenance-mismatch class, committed by the review.** No change made |
+> | **4** | ⛔ **CONFIRMED** | `RESULTS_LEDGER.md:207` classes M3 *"understated, replicated … cite the corrected number"*; M12 gives **5×** (0.0486 against a 0.2569 control). §2.7 carried both; §4.1 carried only the floored **31×**, under M12's provenance. Fixed |
+> | **5** | ⛔ **CONFIRMED** | §4.3 item 12 read *"still open … queued"* for the 128-draw question that §5.0, **120 lines later**, declares *"RESOLVED 2026-10-01"* on run `20261001_012905`, 8/8 models, pooled — and §8.2 then asked a reader to fund it. ⚠️ The finding's *"fund this first"* is a paraphrase of *"Fund §5.0 first if you can fund one"*. Both fixed; the genuinely-open residue is narrower and now stated |
+> | **9** | ⛔ **CONFIRMED, numbers exact** | `rescore.csv`, `violet_visitor`/`sb`/`h=1`: `crpss_vs_clim` **0.30862112…**, `delta_AP` **0.17648526…**, `ci_excludes_zero` **True**, `verdict` **REAL** — so *"no bootstrap CI was computed"* is false for the climatology reference. ⚠️ **Two cautions this seat adds that the finding did not:** `zero_share_of_gap` is **0.7866**, and Epic #263 ruled ARTIFACT at **74.6%**; and the interval is **wholly negative** (−0.0731, −0.0426), so it is a CI on a loss difference and **must not be quoted as a CI on ΔAP**. Fixed with both cautions |
+>
+> ⚠️ **The review's hit rate on its own checkable claims: 5 of 6.** That is a good instrument — and the one
+> miss was in the same class this report spends §4 cataloguing.
+
+⛔ **Rows 6, 7, 8 and 10 below remain OPEN and unverified.** Each is the reviewer's claim, not a verified
+defect. Anyone acting on a section they touch should close its row first.
 
 | # | section | the reviewer's claim | status |
 |---|---|---|---|
@@ -1621,7 +1667,8 @@ Anyone acting on a section below should close its row first.
 the dependency list, not two lines above it.
 
 ⚠️ **Four of the ten are the reviewer's reasoning rather than citation mismatches** (rows 6, 7, 8, 10) and
-it said so. ⛔ **And it audited no literature citation at all** — Bolin2023, Lerch2017, Gneiting2011,
+it said so. ✅ **Those four are exactly the four still open after 2026-10-19** — the pass above took the other
+six because they were checkable, and the division the reviewer drew in advance turned out to be the right one. ⛔ **And it audited no literature citation at all** — Bolin2023, Lerch2017, Gneiting2011,
 Taillardat2023, Brehmer & Strokorb, Ehm2016, Aceituno2025, Lakshminarayanan2017 and the rest are
 unexamined by any reviewer, which matters most for §1's fourth amendment, the one resting on no
 measurement of ours.
