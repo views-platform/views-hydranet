@@ -724,3 +724,73 @@ E6d  (margin calibration)  ->  E6c (selection confound + sd -> F5b power gate)
 Six attacks now, and this one found that **two of my own corrections were jointly unsatisfiable** — the interior rule I locked in Amendment 3 and the power gate I adopted in Amendment 2. Neither was wrong. Together they were impossible, and I committed both without checking they could hold at once.
 
 ⚠️ **And the binding constraint turned out to be a number I had never questioned**, inherited from a function whose purpose was distribution matching rather than budgeting. Both seats then spent a round optimising around it — them proposing a smaller margin, me verifying it was unlicensed — before either of us asked whether the constraint was real.
+
+---
+
+# AMENDMENT 5 — the 300-window power claim is void. Overlapping draws are correlated observations. 2026-10-18, BEFORE any Tier-1 run.
+
+**Source:** the `views-models` seat, attacking the figure it had itself supplied. **All three items upheld.** Item 1 withdraws the conclusion Amendment 4 rested on.
+
+---
+
+## 1 — ⛔ UPHELD. The 300 windows OVERLAP, so `sd(b)` is larger than either seat estimated, and "300 passes the gate" is VOID.
+
+Verified in `views_hydranet/utils/volume_sampler.py`:
+
+- `:44` — `self.rng = np.random.default_rng(seed)`, seeded **once** at construction.
+- `:79-81` — `_select_anchor(activity, threshold, self.min_events, self.rng, self.config)`.
+- `:84-85` — `r0 = np.clip(r_anc - self.rng.integers(0, dim), 0, h_max - dim)`, same for `c0`: **a ±32 jitter and nothing more.**
+- `:137` — `qualified_count = len(np.argwhere(activity >= threshold))`, returned at `:144` *"for transparency"*.
+
+So `w mod 30` draws **ten windows per threshold index**, each anchored in the set of cells with `activity ≥ threshold`, displaced by at most one window width. ⛔ **At the hot end of the cooling schedule the qualified set is SMALL by construction — that is what makes those indices hot.** Ten windows from a small anchor set with a ±32 jitter **overlap heavily.**
+
+**(a) `300 × 36 × 13 = 140,400` counts overlapping interior cells repeatedly.** The honest figure is the **union** of the 300 interior 6×6 regions, which at hot-end thresholds may be a small fraction of the nominal count.
+
+**(b) ⛔ And the power inference is void.** `sd(b) = 0.0218` was obtained by subsampling 140,400 **distinct** cells **uniformly at random** — the maximum-information case. Overlapping draws from a small anchor set are **positively correlated observations** carrying less independent information than the same number of distinct cells, so **the true `sd` at 300 windows EXCEEDS 0.0218 and may not clear the 0.027 gate at all.**
+
+⛔ **Amendment 4's conclusion — "300 windows PASSES the power gate" — is WITHDRAWN.** It was an inference from an optimistic bound presented as an estimate. The other seat supplied the bound and has withdrawn it; this seat drew the conclusion and withdraws that.
+
+### Locked — the power gate is evaluated on the realised sample, not the nominal one
+
+Before E6 may be read, **E6c reports all three**:
+
+1. **`qualified_count` at each of the 30 threshold indices** — already returned by the API, never used.
+2. **The count of DISTINCT interior cell-months in the union** of the realised window set.
+3. ⛔ **`sd(b)` bootstrapped over WINDOWS, not over cells** — the window is the sampling unit, so resampling cells understates the variance of a clustered design.
+
+**F5b's power gate is evaluated on (3).** ⛔ **And the window count is raised until the UNION clears the floor, never until the nominal count does.** No window-count figure appears in this plan as sufficient; sufficiency is a measured property of the realised draw.
+
+## 2 — ⛔ UPHELD. The 1/253 area argument is the `overhead → 0` limit. The number comes out of the plan.
+
+Cost is not proportional to area, because **300 window passes run the full recurrent lead-in 300 times.** The timestep count is identical for a window pass and a global pass; only the per-timestep spatial work scales:
+
+```
+global pass:    T_steps x (overhead + 259,200 x c)
+300 windows:  300 x T_steps x (overhead +  1,024 x c)
+```
+
+So "≈1.2 global-pass-equivalents" is the best case of a model that **ignores the dominant term at this tensor size** — at 32×32 on CPU, per-op dispatch plausibly dominates arithmetic, and we pay **300× the timestep evaluations** (~15,000 recurrent steps against ~49 for one global pass).
+
+⛔ **The figure is struck from the plan.** The conclusion survives with margin — this is minutes of CPU, and the budget is not the constraint — but it is stated as *"minutes of CPU, not a budget constraint, **to be measured on first run**"* rather than as a ratio that will be cited.
+
+⚠️ **One lever this seat should name rather than leave implicit:** `get_batch` already takes `batch_size`, so the windows can be drawn in batches instead of 300 sequential passes, which would collapse the dispatch overhead and make the area argument actually apply. **But batching changes the tensor shape, and `LockedDropout` caches masks by shape (`locked_dropout.py:66-73`), so it changes the realised dropout draw — and the recal pass it is matched against used `batch_size=1`.** It is therefore a decision to be locked, not an optimisation to assume. **Locked: `batch_size=1`, matching `_recalibrate_bn`.** Cost is not the binding constraint, so the match is worth more than the speed.
+
+## 3 — ⛔ UPHELD (guard). The 300-draw sequence is now load-bearing and must be pinned.
+
+`self.rng` is seeded once at construction, so the draw sequence is reproducible **only if nothing else consumes that generator in between** — and with `w mod 30` the sequence determines the sample.
+
+**Locked:** record `np_seed` and **hash the realised 300 `(r0, c0, threshold)` tuples**, asserting the hash on any re-run. A reordering or an extra consumer is then detected rather than silently changing the sample. Same class as F3′'s exact-reproduction precondition, which is why it belongs beside it.
+
+---
+
+## What this does to E6's standing
+
+E6 is **not yet shown to be powered at any window count.** That is the honest state, and it is a better state than Amendment 4 left it in, because the sufficiency criterion is now a measurement on the realised draw rather than a number inherited from a uniform-subsampling idealisation.
+
+⛔ **If E6c's union is small enough that no affordable window count clears the gate, F6 fires and Tier 1 cannot discriminate H1 from H2.** That outcome is pre-committed here rather than discovered later, and it would make the seed replicate (T3a) the next step rather than a fallback.
+
+## Pattern
+
+Seven rounds. This one is the first where **the attacking seat withdrew its own number and the authoring seat withdrew the conclusion built on it** — and the error was the same in both directions: a quantity computed under an idealisation (uniform random subsampling) applied to a design that violates it (clustered, overlapping draws).
+
+⚠️ **And it is the second time in this programme that a constraint went unexamined because it arrived as a number in a config.** First `n_windows = 30` read as a budget when it was a distribution-matching constant; now `140,400` read as a sample size when it was a nominal product. The sweep rule in §3.5 catches a scalar that varies with its own free parameter. **Neither of these was that — both were numbers whose *meaning* was assumed, not whose value was unstable.** That is a distinct failure mode and the controls in §3 do not cover it; stated here, unfixed, because neither seat has a mechanical control for it yet.
