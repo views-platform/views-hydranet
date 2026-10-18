@@ -49,13 +49,31 @@ The gate's probabilities are squashed. We have ruled out the obvious causes and 
 
 Base config **`amber_kestrel`**, so controls are directly comparable to the published `b = 1.1875`. Everything identical except the varied key.
 
+⛔ **CORRECTED 2026-10-18 (Amendment 9). THIS IS THE APPROVED SET AND THE ONLY ONE. F1's authority is this table.**
+
+| name | `weight_decay` | seed | role |
+|---|---|---|---|
+| **`silver_kestrel`** | `0.1` (current) | **42** | control replicate |
+| **`bronze_kestrel`** | `0.1` (current) | **43** | control replicate |
+| **`cobalt_kestrel`** | `0.1` (current) | **44** | control replicate |
+| **`indigo_kestrel`** | **`0.0`** | **42** | intervention — paired to `silver` (same seed) |
+| **`russet_kestrel`** | **`0.0`** | **43** | intervention — paired to `bronze` (same seed) |
+
+**The three replicates deliver `σ̂` (M1).** The two interventions are each a **one-key contrast** against their same-seed control, which is what makes them declarable under `test_roster_conformance`'s arm guard — declaring them against `amber` would make them three-key contrasts, which `:66-70` names as confounded.
+
+<details><summary>⛔ SUPERSEDED — the originally authorised set, struck in place, never run</summary>
+
 | arm | name | `weight_decay` | seed | role |
 |---|---|---|---|---|
-| **1** | **`silver_kestrel`** | `0.1` (current) | **42** | control · ⛔ **and the determinism precondition** |
-| **2** | **`bronze_kestrel`** | `0.1` (current) | **43** | ⛔ **RUN-TO-RUN VARIANCE — what makes arms 3/4 readable** |
-| **3** | **`cobalt_kestrel`** | `0.01` | **42** | intervention |
-| **4** | **`indigo_kestrel`** | `0.01` | **43** | intervention variance |
-| **5** | **`russet_kestrel`** | `0.1`, exempting the 3 class heads | **42** | exploratory — ⛔ **NOT a controlled cell, and NOT authorised by this plan** (§8) |
+| ~~1~~ | ~~`silver_kestrel`~~ | ~~`0.1`~~ | ~~42~~ | ~~control · the determinism precondition~~ |
+| ~~2~~ | ~~`bronze_kestrel`~~ | ~~`0.1`~~ | ~~43~~ | ~~run-to-run variance~~ |
+| ~~3~~ | ~~`cobalt_kestrel`~~ | ~~`0.01`~~ | ~~42~~ | ~~intervention~~ |
+| ~~4~~ | ~~`indigo_kestrel`~~ | ~~`0.01`~~ | ~~43~~ | ~~intervention variance~~ |
+| ~~5~~ | ~~`russet_kestrel`~~ | ~~`0.1`, heads exempt~~ | ~~42~~ | ~~exploratory, not authorised~~ |
+
+**Superseded by Amendments 3 (allocation), 4 (third dose = `0.0`) and 5 §2 (seeds 42/43/44).** ⛔ **Three names map to different configs here than in the approved table above** — `cobalt`, `indigo` and `russet`. **This is why the trail is kept rather than deleted: a reader who finds an old message must be able to see which mapping is live.** The determinism precondition was withdrawn in Amendment 6; the head-exemption arm was never authorised and is replaced by `0.0`.
+
+</details>
 
 **Names are the `views-models` seat's call** (their CLAUDE.md). **The kestrel family is deliberate**, marking the lineage: `amber` (shipped baseline) → `copper` (`pos_weight` arm) → these five (weight-decay arms of the same line).
 
@@ -63,9 +81,9 @@ Base config **`amber_kestrel`**, so controls are directly comparable to the publ
 
 **Seeds named by value** (their point 5). ⚠️ **This seat proposed `4711` and was wrong** — that is `capture_regimes.py`'s own **anchor-RNG** default, not a model seed, which is the provenance-mismatch class a fourteenth time and caught before it reached a config. **`43` is the repository's established pair for `42`**, verified: 4 roster configs at `np_seed`/`torch_seed` 42 and 2 at 43, and the paired-run dossier names its own runs `fortytwo`/`fortythree`. **Their value stands.**
 
-⛔ **Arm 2 is the point of the design.** amber and copper differ in slope by **0.17** from one config key at n=1 each, and the effect expected from `weight_decay` is **~0.19**. **Those are the same size.** Without arm 2 no result is interpretable at any price.
+⛔ **The replicates are the point of the design.** amber and copper differ in slope by **0.17** from one config key at n=1 each. ⚠️ **The "~0.19 expected effect" that stood here is WITHDRAWN** (Amendment 2 A2: it was the size of the *whole* defect and assumed `weight_decay` explains all of it). **We have no estimate of the effect's magnitude, which is why `σ̂` is the primary endpoint and not a denominator.** Without the replicates no result is interpretable at any price.
 
-**The full config diff of each arm against `amber_kestrel` must be printed in this plan before the pods start**, so identity is checkable rather than asserted (their point 5, adopted).
+**The full config diff of each model against `amber_kestrel` must be verified before the pods start**, so identity is checkable rather than asserted. ⚠️ **It cannot be printed here until the five directories exist** (views-models #567/#568), so this is **not an unmet precondition of the plan** — it is **views-models #569**, owned by this seat, and its method is fixed in `2026-10-18_weight_decay_arms_launch_plan.md` §1.4 plus Amendment 8's F13: **six-file byte identity (`config_queryset.py` first), then `CORE_GENOME` per pair.**
 
 ---
 
@@ -88,7 +106,7 @@ sd|X₁ − X₂| = σ√2·√(1−2/π) ≈ 0.853 σ
 
 ### Two structural mitigations, both free
 
-**(i) POOL the two within-pair spreads.** Arms 1–2 give one estimate of σ at `wd = 0.1`; arms 3–4 give another at `wd = 0.01`. **Pooling gives 2 df instead of 1.** Still weak, still free, and it halves the threshold's variance.
+**(i) POOL the within-cell spreads.** ⛔ **Under the approved set this is superseded by Amendment 3's allocation:** the three `wd = 0.1` replicates give `σ̂` on **2 df** directly, and the two `wd = 0.0` runs add a third, for **3 df** pooled across the compared cells. **Better than the 2 df this paragraph was written for.**
 
 **(ii) ⛔ PREFER DOSE-RESPONSE OVER THRESHOLD-CROSSING.** Monotonicity across three `weight_decay` values is **robust to a badly-estimated σ**; a single threshold comparison is not. **The alternative explanations — nondeterminism, seed, and run-to-run drift — do not produce monotone dose-response.** ⛔ **This is the strongest evidence a five-cell design can buy here, and it is why §8 recommends re-spending arm 5.**
 
@@ -96,7 +114,7 @@ sd|X₁ − X₂| = σ√2·√(1−2/π) ≈ 0.853 σ
 
 ## 5. ⛔ Readings — THREE-WAY, not binary, and disjoint
 
-Let `S` = the pooled within-pair spread in `b` (§4(i)), and `Δ` = the mean `b` at `wd = 0.01` minus the mean `b` at `wd = 0.1`. **Evaluate in order; first match is the reading.**
+Let `S ≡ σ̂` = the pooled within-cell **sd estimate** in `b` (Amendment 2 §1 locks the units), and `Δ` = the mean `b` at **`wd = 0.0`** minus the mean `b` at `wd = 0.1`. ⛔ **`0.0`, not `0.01`** — the third dose was ruled to `0.0` in Amendment 4. **Evaluate in order; first match is the reading.**
 
 | # | condition | consequence |
 |---|---|---|
@@ -175,7 +193,7 @@ Arm 5 needs a **views-hydranet library change**: `dec_conv4_head{1,2,3}_class` a
 
 | | fires if | then |
 |---|---|---|
-| **F1** | an arm's config differs from `amber_kestrel` anywhere but its named key and seed | ⛔ **VOID that arm.** The full diff is printed in §3 before the pods start |
+| **F1** | a model's config differs from `amber_kestrel` anywhere but the key and seed named in **§3's APPROVED table** (as corrected by Amendment 9) | ⛔ **VOID that model.** ⚠️ **F1's authority is §3's approved table only — never the superseded one kept beneath it.** The diff is verified by views-models #569 before the merge, not printed here |
 | **F2** | training diverges, NaNs, or the C-184 / C-119 stability gate trips | ⛔ **VOID, not negative** (C-307) |
 | **F3** | the local slope harness fails to reproduce amber's `b = 1.1875` bin-free to three decimals on amber's own weights | ⛔ **VOID everything.** The paired-baseline precondition E6f met exactly |
 | **F4** | the sign of `Δ` changes across the three bin resolutions, or bin-free and binned disagree in sign | ⛔ **VOID** by the sweep rule |
@@ -908,3 +926,55 @@ And `:883-890` states the hazard in its own words: `REGION = "land"` → `"afric
 ## 4 — What this does not change
 
 **Nothing about what runs.** Same five pods, same configs, same seeds, same allocation, same cost. ⛔ **This adds one assertion to a readout and one falsifier.** It is a check on M1, discovered in code, and it is the category the record says this seat is reliable in.
+
+---
+
+# AMENDMENT 9 — ⛔ §3's arm table was the SUPERSEDED set, and F1's authority was that table. 2026-10-18.
+
+**Source:** the `views-models` seat, reading this pre-registration end to end. ⛔ **Upheld in full. As written, F1 would have voided three of the five models AFTER they trained — three pods and the entire intervention cell, lost to a stale table in my own document.**
+
+---
+
+## 1 — The contradiction, verified
+
+`§3:54-58` still carried the originally authorised set. **Three names mapped to different configs than the approved allocation:**
+
+| name | §3 said | approved |
+|---|---|---|
+| `cobalt_kestrel` | `0.01` / seed 42 | **`0.1` / seed 44** |
+| `indigo_kestrel` | `0.01` / seed 43 | **`0.0` / seed 42** |
+| `russet_kestrel` | `0.1`, heads exempt / 42 | **`0.0` / seed 43** |
+
+⛔ **And `F1:178` named §3 as its authority** — *"the full diff is printed in §3 before the pods start."* **Evaluated as written against §3's table, `cobalt`, `indigo` and `russet` each differ from their "named key and seed", so all three VOID after ~2 h 15 m of training each.**
+
+⚠️ **No amendment superseded §3.** Amendments 3, 4 and 5 §2 changed the allocation in their own sections and **never went back to fix the table they invalidated.** That is on me: **I wrote six amendments on top of a section I had made wrong and did not re-read it once.**
+
+## 2 — ⛔ It was stale in FOUR ways, not one
+
+Found while fixing it:
+
+1. **The three config mappings** above.
+2. **`§3:66` carried the "~0.19 expected effect"** — ⛔ **withdrawn in Amendment 2 A2** as the size of the *whole* defect. A withdrawn number was still doing load-bearing work in a live section.
+3. **`§3:54` called `silver` "the determinism precondition"** — ⛔ **withdrawn in Amendment 6.**
+4. **`§4(i)` and `§5` still described the comparison as `0.01` vs `0.1`** — ⛔ the third dose was ruled to **`0.0`** in Amendment 4, so the readings' own `Δ` was defined on a dose that is not in the design.
+
+## 3 — What is corrected
+
+- **§3 now leads with the APPROVED table**, with the superseded one **struck in place beneath it** in a collapsed block, labelled, with the reason the trail is kept: ⛔ *"a reader who finds an old message must be able to see which mapping is live."*
+- **F1 re-pointed:** its authority is **§3's approved table only, never the superseded one**, and it states that the diff is verified by views-models **#569** before the merge rather than printed here.
+- **§3's config-diff precondition** now says it **cannot** be printed until the directories exist, so it reads as **#569's scope** rather than an unmet precondition of this plan.
+- **§3:66** replaced: the replicates are the point, and the `~0.19` is marked withdrawn with the reason.
+- **§4(i)** corrected: the approved allocation gives **3 df** pooled, better than the 2 df that paragraph was written for.
+- **§5's `Δ`** corrected to `wd = 0.0` minus `wd = 0.1`, with `S ≡ σ̂` per Amendment 2 §1.
+
+## 4 — ⛔ The lesson, and it is the one W-28 already named
+
+**Six amendments were written on top of a section they invalidated, and none of them re-read it.** Each amendment was internally correct and checked against the *measurement* it concerned; **none was checked against the document it was amending.**
+
+> ⛔ **An amendment that changes a design must name every section it invalidates, or the plan's own body becomes the stalest thing in it.**
+
+⚠️ **This is the exact generalisation of W-28 the other seat and I agreed on two days of work ago** — *"re-reading your own document cannot find a contradiction whose halves are in different sections"* — **and it then happened across nine amendments of my own.** Adopted as a standing requirement: **every future amendment carries a line naming the sections it supersedes, or it is incomplete.**
+
+## 5 — Still outstanding, and it is theirs to tell me
+
+⚠️ They have read §§0–12 and Amendments 3, 4, 5 in full and **skimmed 1, 2, 6, 7, 8.** I have corrected every stale reference a grep for the superseded values finds in the **live** sections. ⛔ **The amendments' own internal text is historical and correctly so** — it records superseded reasoning deliberately — **but if anything in 1, 2, 6, 7 or 8 is asserted as live and contradicts the approved set, it is a defect and I want it reported.**
