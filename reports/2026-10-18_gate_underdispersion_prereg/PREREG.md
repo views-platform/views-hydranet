@@ -1064,3 +1064,80 @@ Every one of the eight attack rounds was about **E6's** confounds:
 ⚠️ **E1 was labelled a MEASUREMENT, not a test** (§4), so σ landing below its floor is **not** a falsification of anything — it is the first honest number on the axis, and the bands were always derived by inverting published `b`. Recorded as such.
 
 **Alignment proven by content, not by offset arithmetic:** full-block equality over 300 timesteps × 11 channels gives a unique match at `(r0, c0) = (92, 496)`, and single-slice matching would have been insufficient because channels 3 and 4 are constant-valued (57 spurious candidates on one slice). **The geometry is sound; plumbing is not what blocks E6.**
+
+---
+
+# AMENDMENT 9 — E6c has run. E6 is not worth running. ✅ And a control fired prospectively for the first time — against its author. 2026-10-18.
+
+**Source:** the `views-models` seat executed E6c on the realised draw. **This is the first Tier-1 sufficiency measurement, and it settles E6's status by measurement rather than argument.**
+
+---
+
+## 1 — E6c, locked rule `get_lesson(w mod 30)`, interior margin 13
+
+| N win | nominal | UNION | dup | cell-months | pos | `b_crop` | `sd(b)` window-boot | gate |
+|---|---|---|---|---|---|---|---|---|
+| 30 | 312 | 294 | 1.1× | 3,822 | 22 | 1.0380 | 0.0666 | **FAIL** |
+| 60 | 556 | 528 | 1.1× | 6,864 | 125 | 1.1160 | 0.1269 | **FAIL** |
+| 120 | 1,007 | 862 | 1.2× | 11,206 | 131 | 1.1677 | 0.1002 | **FAIL** |
+| 300 | 2,421 | 1,838 | 1.3× | **23,894** | **314** | 1.1730 | **0.0470** | **FAIL** |
+
+`b_grid` (bin-free, full population) = **1.1875**. **F5′ selection confound = `b_grid − b_crop(300)` = +0.0145.**
+
+⛔ **E6 fails the power gate at every count** — 0.0470 against 0.027 at 300 windows, still 1.7× over. And the `sd` sequence is **non-monotone** (0.0666 / 0.1269 / 0.1002 / 0.0470), so extrapolating to a sufficient count is unsound **by §3.5's own rule**, and no count is offered. **No affordable window count is demonstrated to clear the gate.**
+
+## 2 — ⛔ MY AMENDMENT 5 CELL-MONTH FIGURE WAS 6× TOO HIGH. The binding term is LAND FRACTION.
+
+Amendment 5 argued the honest figure is the union, then **printed `300 × 36 × 13 = 140,400` in its own table as "cell-months".** Measured: `300 × 36 = 10,800` nominal interior cells, of which only **2,421 are land (22.4%)** and **1,838 are distinct** ⇒ **23,894 cell-months and 314 positives**, not 140,400. **The ±32 jitter displaces interiors over ocean.**
+
+The 22.4% land fraction is itself a consistency check: the grid is 64,818 land of 259,200 = **25.0%** land, so a semi-randomly jittered window set landing at 22.4% is exactly what it should be. **The number was always recoverable and I never recovered it.**
+
+### ⛔ The sharper lesson: a number can be corrected once and remain wrong for a second reason
+
+`140,400` was corrected in Amendment 5 **for independence** — overlapping draws carry less information. It remained wrong **for land fraction**, an entirely separate defect, and the correction gave no hint of it. **Fixing the reason a number is wrong does not make the number right.** This is the seventh instance of the Amendment 6 class and the second on this single figure.
+
+## 3 — ✅ FIRST PROSPECTIVE FIRE OF ANY CONTROL, AND IT FIRED AGAINST ITS AUTHOR
+
+Amendment 6 labelled all seven adopted controls **UNTESTED**, noting none had ever fired prospectively and that *"a control derived from post-hoc catches is a hypothesis about process, not a demonstrated one."*
+
+**Amendment 5's control fired.** It locked: *"E6c reports … the count of DISTINCT interior cell-months in the union"* and *"the window count is raised until the UNION clears the floor, never until the nominal count does."* **E6c measured instead of multiplying, and caught a 6× error in the amendment that created the control.**
+
+⛔ **Recorded against the UNTESTED label: one of seven controls has now fired prospectively, and it caught its own author's arithmetic.** That is the strongest available evidence that making the measurement the authority — rather than the careful reasoning of whoever wrote the plan — is the part that works. It is also exactly the clean-hands argument Amendment 6 made, now demonstrated rather than asserted.
+
+## 4 — ⛔ BOTH OF THE OTHER SEAT'S OWN ATTACKS OVER-ESTIMATED THEIR REALISED MAGNITUDE
+
+Recorded next to the attacks, at that seat's request:
+
+- **A1 (support mismatch).** Worst case was that support shift alone moves `b` by **0.099**, against F1's 0.10 threshold — the number that forced the whole `b_crop` redesign. **Realised: +0.0145**, about **7× smaller**. `b_crop(300) = 1.1730` against `b_grid = 1.1875` — the cells these windows select are **essentially ordinary** in their calibration slope. **A correct identification of a real axis, and a large over-estimate of its realised size.**
+- **Amendment 5 (clustered overlap).** Predicted heavy clustering from the 4–5-cell anchor set. **Realised duplication: 1.1–1.3×.** The ±32 jitter spreads the draws far more than the anchor count suggested. **Again a real axis, over-weighted.**
+
+⚠️ **This does not retire either redesign.** `b_crop` is still the correct reference and the union is still the correct denominator — both are now *known* to be small rather than *assumed* to be. But it is the honest record: **eight rounds hardened E6 against two confounds that measured at a seventh and a quarter of their predicted size, while the defect that actually killed it — 314 positives — was a term neither seat had named.**
+
+## 5 — E6's status: NOT WORTH RUNNING. F6 still does not fire.
+
+F6 is worded on E6's result and E6 has not run, so it does not fire — both seats agree. What E6c establishes is stronger and more useful: ⛔ **E6 cannot deliver a result worth reading at any defensible count.** That makes it **not worth running**, which is a different and better statement than *void*.
+
+**E6/E6d remain in the plan as corroboration only**, per Amendment 8, and a null there blocks nothing.
+
+## 6 — ✅ E6f IS POWERED. Measured, before the claim was made.
+
+Amendment 8 refused to assert E6f's cost. Its **power** is now measured on the existing arrays:
+
+```
+full population:  N = 842,634   positives = 2,905   b = 1.1875
+bootstrap sd(b), 40 reps, same-size resample:  0.0107   vs gate 0.027  ->  PASS
+```
+
+And E6f is **paired pre/post on identical cells**, so its `sd` on the *difference* is lower still. ⛔ **This is the first power claim in this programme made AFTER the measurement rather than before it** — the three that preceded it (Amendment 4's 300-windows, Amendment 5's 140,400, A1's 0.099) were all derived from idealisations and all three were wrong.
+
+⚠️ **Cost remains unmeasured and unclaimed.** Forward-only over 360×720 across the training months, no gradients, no GPU. **Measure on the first pass; stop if it exceeds minutes.**
+
+## 7 — ⛔ E6f IS NOT AUTHORISED, AND THE EXECUTING SEAT IS RIGHT TO REFUSE IT
+
+Simon authorised **E6d, E6c, E1 and E2** — four named experiments. **E6f was not among them**, and it is now the critical path. It also **re-estimates BatchNorm statistics**, which is a different kind of act from reading arrays even on a scratch copy.
+
+**This seat endorses the refusal.** The authorisation covered a named set, the set is complete, and the next step is outside it. ⛔ **No peer message — including this one — authorises E6f.**
+
+### Coordinate recovery, for the record
+
+The other seat replaced its brute-force content search with `r0 = p_row + (h_max − DIM − new_row_offset)`, `c0 = new_col_offset − p_col`, validated against the full-block content proof: lesson 0 → `(92, 496)`, content-verified identical. **Window coordinates are now free**, which is what makes E6c's union computable at all.
