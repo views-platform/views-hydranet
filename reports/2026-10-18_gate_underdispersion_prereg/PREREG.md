@@ -627,3 +627,100 @@ Verified prior art in this repository for our candidate list:
 Five attacks have now landed on this seat's own decisive test for this seat's own lead candidate, and **three of the five were already answered in this repository's committed record.** One of them — the 142× boundary confound — is the single largest effect anyone has measured in this programme, and it was in a file whose docstring explains why E6 as specified cannot work.
 
 ⛔ **The lesson is not "search harder."** It is that **a conclusion marked superseded took its instruments and its confound measurements down with it**, and that four rounds of two-seat enumeration built the candidate list from what each seat could see rather than from what the project already knew. The three locked controls in item 3 are the response; they are mechanical, and they are in §3 as steps, not as advice.
+
+---
+
+# AMENDMENT 4 — E6 was unpowered, the bin rule was the binding constraint, and the window budget was imaginary. 2026-10-18, BEFORE any Tier-1 run.
+
+**Source:** a power analysis from the `views-models` seat, pre-empting F5b's own computation. Reproduced in this seat to the digit. **Items 1 and 2 upheld. Item 3(a) adopted. Item 3(b) is CLOSED by the value only this seat could read — and it did not need to be open.**
+
+---
+
+## 1 — ⛔ UPHELD. At the interior sample the locked bin rule cannot fit at all.
+
+Reproduced here on the global `.npz`, 20 replicates, locked P2 edges:
+
+| sample | rule | bins | `b` | `sd(b)` |
+|---|---|---|---|---|
+| full grid | `n ≥ 1000` | 5 | 1.146 | — |
+| **30 windows (14,040 cm)** | **`n ≥ 1000`** | — | ⛔ **NO FIT — fewer than 2 bins clear the threshold** | — |
+| 30 windows | `n ≥ 200` | 2 | 1.121 | **0.207** |
+| 120 windows | `n ≥ 50` | 5.5 | 1.138 | 0.051 |
+
+**Amendment 3's 421–1,544 positives was the right number and the wrong constraint. BINS were binding.** At `n ≥ 200` a two-bin fit has zero residual degrees of freedom — a line through two points — with `sd = 0.207` against a **0.054** discrimination window.
+
+⛔ **And `n ≥ 1000` was a free parameter carried over from a sample 60× larger and never re-examined.** Sweeping it moves `b` across 1.12–1.18 with `sd` 0.05–0.21. **My own §3.5 standing rule obliged me to sweep it and I did not.** Sixth instance of that defect class, and the first where the rule was already written in the same document.
+
+## 2 — ⛔ UPHELD. Amendment 3's interior rule and F5b's power gate were jointly unsatisfiable.
+
+Margin 13 on a 32×32 window keeps 36 of 1,024 cells — it costs **96.5% of the sample**, and a binned-slope estimator cannot survive that at the specified window counts. Two corrections, each individually right, in direct conflict. Not a specification slip.
+
+## 3(a) — ⛔ ADOPTED. Fit the slope by maximum likelihood. It removes a free parameter.
+
+`logit P(y=1) = a + b·logit(gate)`, one logistic regression over every cell, no binning. Reproduced here:
+
+```
+full grid, BIN-FREE:   a = +0.1584   b = 1.1875        (binned n>=1000 gave 1.146)
+
+sd(b):            bin-free      binned
+  30 windows       0.0761        0.207      2.7x better
+  60 windows       0.0624        0.150
+  120 windows      0.0528        0.081
+```
+
+It uses every cell rather than a handful of bin means, and ⛔ **it eliminates the bin-threshold free parameter entirely**, which the sweep rule otherwise obliges us to sweep and report.
+
+⚠️ **Their caveat against their own proposal is upheld and locked:** the reference number changes. **F3′'s exact-reproduction precondition retargets to `b = 1.1875` bin-free**, the binned 1.146 remains the published fact, and **every population must be compared under the same estimator** or the switch itself becomes the effect.
+
+## 3(b) — ⛔ CLOSED. F3 passed at border = 13. Margin 8 is NOT empirically licensed.
+
+They could not read the value and correctly flagged it as the thing that decides whether E6 is cheap. Read here:
+
+- `capture_regimes.py:139-145` — `--border`, **`default=13`**, help text: *"receptive-field radius ~12–13 … **NOT tuned**"*.
+- `results/regimes_fortytwo.json:200` and `regimes_fortythree.json:200` — **`"border": 13`** in both seeds.
+
+**F3's 0.0006 interior PASS was measured at margin 13.** It licenses nothing about margin 8.
+
+⛔ **And there is a stronger reason the escape hatch was never available.** F3 measures agreement of **recurrent states**. The **gate's** receptive field is an *architectural fact*: with RF = 26, a cell within 13 px of the patch edge has zero padding **inside its receptive field by construction**. No border sweep of a state-agreement test can license a smaller margin for the gate output. The contamination at margin 8 might be small, but its size is exactly what is unknown — and assuming it is small is the error AMENDMENT 4 made in August.
+
+## ⛔ 4 — THE ACTUAL WAY OUT: the window budget was imaginary. 300 windows passes the gate and is nearly free.
+
+| windows | cell-months | `sd(b)` bin-free | power gate (< 0.027) |
+|---|---|---|---|
+| 30 | 14,040 | 0.0761 | fails |
+| 60 | 28,080 | 0.0624 | fails |
+| 120 | 56,160 | 0.0528 | fails |
+| ⛔ **300** | **140,400** | **0.0218** | ✅ **PASSES** |
+
+**And 300 window passes cost almost nothing.** A 32×32 window is 1,024 cells against the global grid's 259,200 — **1/253 of the area** — and the global pass is already run **four times** per arm for `D = 4`. So **300 window passes ≈ 1.2 global-pass-equivalents.**
+
+⛔ **I misread a distribution-matching constant as a budget.** `n_windows = 30` came from `bn_recal_windows = windows_per_lesson × 10`, which exists to **match the recal selection rule**, not to cap cost. Matching the recal *count* was never required; matching its *selection rule* is. Nothing in the plan ever justified 30 as affordable-vs-not, and the whole "cheap or expensive" framing of item 3(b) rests on a constraint that does not exist.
+
+### Locked: how to add windows without breaking the distribution match
+
+⛔ **`get_lesson(w mod 30)` for `w in range(N)`, `N = 300`** — the hot-end thresholds are preserved exactly while spatial coverage increases 10×. **Extending `w` to `0..299` would walk the entire curriculum and destroy the match**, which is the obvious wrong way to do this and is forbidden here explicitly.
+
+Window-count sweep becomes **{100, 200, 300}**, all three above the fit floor, with F4 still voiding on a sign change in `b_crop − b_window`.
+
+## 5 — ⛔ E6d is promoted again: it MEASURES the margin instead of assuming it
+
+E6d regresses `logit(p_crop) − logit(p_window)` on distance-to-window-edge. **That is the contamination-versus-margin curve for the gate itself** — the quantity 3(b) wanted and F3 cannot supply.
+
+**Locked order: E6d runs FIRST and the margin is read off it**, as the smallest distance at which the crop–window difference is indistinguishable from its interior asymptote. Margin 13 remains the **pre-registered default** and the fallback if E6d is itself unpowered. This converts the margin from an architectural assumption into a measurement, using the discriminator the other seat proposed for a different purpose.
+
+## Their caveat, upheld
+
+Their `sd` figures come from random subsamples of the **global, cold** gate distribution. Hot windows have higher positive rates and will populate the upper range better, so the true `sd` is probably somewhat lower. **An upper bound on available power, not a measurement of it. E6c on the real window set is the authority and if it disagrees, it wins.** Recorded so the 300 figure is read as a floor, not a target.
+
+## Running order, final
+
+```
+E6d  (margin calibration)  ->  E6c (selection confound + sd -> F5b power gate)
+     ->  E6 (b_crop vs b_window, interior, bin-free, N=300)  ->  E6f (the remedy test, F1'''')
+```
+
+## Pattern
+
+Six attacks now, and this one found that **two of my own corrections were jointly unsatisfiable** — the interior rule I locked in Amendment 3 and the power gate I adopted in Amendment 2. Neither was wrong. Together they were impossible, and I committed both without checking they could hold at once.
+
+⚠️ **And the binding constraint turned out to be a number I had never questioned**, inherited from a function whose purpose was distribution matching rather than budgeting. Both seats then spent a round optimising around it — them proposing a smaller margin, me verifying it was unlicensed — before either of us asked whether the constraint was real.
