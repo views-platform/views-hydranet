@@ -1255,3 +1255,101 @@ And their sharpening of this seat's (c):
 > ⛔ **(c) must be PAIRWISE over the cell, not "distinct from the control".** The control-relative form is **both wrong** (it forbids `silver`) **and insufficient** (it passes `bronze = cobalt = 43` as long as neither equals amber's 42).
 
 ✅ **Correct, adopted, and it is the stronger statement: the CELL is the subject of (c), not the control.** The measurement in §4 is pairwise for that reason. ⚠️ **Note the pattern — Amendment 11 named the missing direction and still wrote the clause against the wrong subject.** Getting the direction right does not get the scope right, and these are two independent ways for a falsifier to be half of one.
+
+---
+
+# AMENDMENT 13 — ✅ #569 COMPLETE: all five configs verified. ⛔ AND CLAUSE (c) INVERTS BETWEEN THE TWO KINDS OF UNIT. 2026-10-19.
+
+**Source:** the `views-models` seat merged **#568 as PR #584 (`e4ef5ccc`)**, so `indigo` and `russet` exist. ⛔ **Amendment 12 discharged the replicate half and explicitly said nothing covered the arms. This closes it.**
+
+---
+
+## 1 — ✅ EXECUTED. The arm half, against the merged configs, values recorded.
+
+Same method as Amendment 12 §4: each pair loaded through its own `get_hp_config()`, byte comparison with the arm's own name normalised to the control's, `run.sh` mode compared.
+
+**(a) byte identity over the six `ARM_IDENTICAL_FILES`:**
+```
+indigo_kestrel  vs silver_kestrel   IDENTICAL on all 6
+russet_kestrel  vs bronze_kestrel   IDENTICAL on all 6
+```
+
+**(b) full-dict diff against its OWN control (64 keys each):**
+```
+indigo vs silver   2:  trajectory_log_path  +  weight_decay   0.1 -> 0.0
+russet vs bronze   2:  trajectory_log_path  +  weight_decay   0.1 -> 0.0
+```
+✅ **One variable each, and it is the declared one.**
+
+**(c′) the seed:**
+```
+indigo  42/42   control silver 42/42   MATCH
+russet  43/43   control bronze 43/43   MATCH
+```
+
+**✅ And the confound the seed-matched pairing exists to avoid, measured rather than argued:**
+```
+russet vs bronze (its control)   2 keys
+russet vs amber  (the old pair)  4 keys   <- np_seed, torch_seed, trajectory_log_path, weight_decay
+```
+⛔ **Scored against `amber`, `russet` would have varied the seed AND the intervention at once.** The pairing is what makes it a one-variable arm, and that is now measured.
+
+**✅ The intervention is identical across both arms:** `weight_decay` `0.0` in both; `indigo` vs `russet` differ only on `{np_seed, torch_seed, trajectory_log_path}` — i.e. **the two arms are themselves a replicate pair of each other.** Cell: `silver`/`bronze`/`cobalt` at `0.1`, `indigo`/`russet` at `0.0`.
+
+> ✅ **#569 is COMPLETE. F13's validity condition is met for all five pods and these are the recorded values.**
+
+## 2 — ⛔ THE STRUCTURAL FINDING: CLAUSE (c) MEANS THE OPPOSITE THING FOR AN ARM
+
+Amendment 11 added (c) as *"the seeds must be PAIRWISE DISTINCT"*, and Amendment 12 adopted the peer's sharpening that **the cell is the subject**. ⛔ **Both were written while only replicates existed.**
+
+| unit | clause (c) requires | why |
+|---|---|---|
+| **replicate** | ⛔ seeds **PAIRWISE DISTINCT** across the cell | identical seeds ⇒ `σ̂` deflates ⇒ thresholds → 0 ⇒ **manufactures a positive** (Amendment 11 §3) |
+| **arm** | ⛔ seed **IDENTICAL to its control** | a differing seed adds run-to-run variance **to the contrast**, confounding the intervention with the noise `σ̂` was measured to bound |
+
+> ⛔ **Same clause letter. Opposite requirement. And a falsifier that does not name its unit is satisfiable by the wrong one.**
+
+**F13 is restated with its unit bound:**
+
+| | applies to | fires if |
+|---|---|---|
+| **F13 (a)** | every pair | byte identity over the six `ARM_IDENTICAL_FILES` is not asserted |
+| **F13 (b)** | every pair | full-dict identity, admitting only `np_seed`/`torch_seed`/`trajectory_log_path`, is not asserted |
+| **F13 (c-rep)** | the **replicate cell** | the three seeds are not asserted **pairwise distinct** |
+| **F13 (c-arm)** | each **arm↔control pair** | the arm's seed is not asserted **identical to its control's**, and its single declared variable not named |
+
+⛔ **Fourth time in three amendments that a statement true of one case was silently applied to another** — Amendment 9 (tables), 10 (thresholds), 11/12 (direction, subject, scope), 13 (unit). ⚠️ **And this one I introduced myself in Amendment 11, one amendment after adopting the rule that was supposed to prevent it.**
+
+## 3 — ⛔ THE VERSION QUESTION, ANSWERED — AND MY ENVIRONMENT IS THE WORST OF THE THREE
+
+They warned: *"if your F13 (b) full-dict check loads configs in an env with a DIFFERENT views-hydranet than 0.1.3, it is reading a different validator than the pod."*
+
+✅ **It does not bite, for a reason worth recording:** F13 (a) is a **byte** comparison and (b) is a **dict** comparison of `get_hp_config()` returns. ⛔ **Neither imports `views_hydranet` and neither constructs `HydraNetConfig`.** The check is **validator-independent by construction**, which is a property to keep rather than a lucky accident.
+
+⛔ **But their skew is worse than they measured, and the third version is mine:**
+```
+CI  roster_configs_load.yml   views-hydranet==0.1.1   pinned
+pod pod_run_model.sh:172      views-hydranet~=0.1.1   resolves 0.1.3
+⛔ THIS LAPTOP (conda views-hydranet-env)
+     import path  -> /home/simon/.../views-hydranet/views_hydranet/__init__.py   (the WORKING TREE)
+     dist version -> 0.1.0                                                       (stale editable metadata)
+```
+⛔ **So the local env validates against whatever branch is checked out, under a version string that is wrong.** ⚠️ **While I ran this check the tree was on `docs/evaluation-learning-report` — 59 commits behind `development`.** The dict check was unaffected; **a construction test run here would have been a statement about a stale branch wearing the label 0.1.0.** Their #585 should carry this as the third row.
+
+✅ **And one thing their concern does not reach, because the config already handles it.** `_trajectory_log_path`'s own docstring: the parent is created *in the config* precisely because `~=0.1.1` **still admits 0.1.1 and 0.1.2**, where the library does not create it and *"an absolute path would raise FileNotFoundError at the first write, which is after the data pull and the model build."* ⛔ **So the version range was already anticipated at the one place it would have cost a pod mid-run.**
+
+## 4 — ⚠️ AND AMENDMENT 12's RECORDED VALUE NEEDS ITS RESOLUTION CONTEXT
+
+The peer reported `/workspace/deliver/silver_kestrel/logs/trajectory.csv`; this seat measured `models/silver_kestrel/logs/trajectory.csv`. **Neither is wrong** — the helper is *"Absolute, inside the pod's rsynced deliver dir; relative off-pod. Env var wins."*
+
+⛔ **But it makes `trajectory_log_path` the only key in the config whose value depends on WHERE the config is read**, which is exactly why it belongs in `INSTRUMENTATION_KEYS` and is excluded from identity. ⚠️ **Amendment 12 §4 recorded the off-pod form without saying so; a reader comparing it against the pod's own log path would see a mismatch and conclude a config had changed.** **Recorded here: every `trajectory_log_path` value in Amendments 12 and 13 is the OFF-POD resolution.**
+
+## 5 — ⚠️ C-166 and C-165, as reported and NOT verified by this seat
+
+⚠️ **Flagged as their measurement, not mine** — this seat did not run those mutations, and the record's rule is not to describe an artifact it has not opened. **Their counts:** `weight_decay 0.0 → 0.05` and `→ 1e-12` on `indigo`, and `loss_class_pos_weight 1.0 → 1.7` on `copper`, each left **292 tests passing silently**; re-pointing `indigo`'s control to `amber` left **291 passing**. Root: `EXPERIMENT_ARMS`' declared tuple pins `(output_distribution, forecast_composition, gate_threshold, seed)` — **a shape chosen for the first arm, whose variable happened to BE those properties.** Fixed by `ARM_FREE_VALUES` + a coverage guard, and the control pinned by literal.
+
+⛔ **The consequence for this plan's readout, in their words and worth preserving verbatim:**
+
+> *"An arm running a different value is not a failed experiment; it is a successful experiment on a question nobody asked, reported as the answer to one they did."*
+
+⚠️ **Note what this does NOT do:** the fix guards the declaration going forward. ⛔ **It cannot tell us what a pod actually trained** — the weights do not carry the config (Amendment 8 §2's point in a new place). **The §1 values above are a statement about the configs on `development` at `e4ef5ccc`, not about any trained artifact**, and M1's readout must re-assert them against whatever the pods actually clone.
