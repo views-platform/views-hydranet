@@ -5,7 +5,7 @@
 **Artifacts:** `amber_kestrel` (`pos_weight = 2.0`, the delivered baseline) and `copper_kestrel` (`pos_weight = 1.0`, killed). Both on disk, both `truncated_nb`, `soft_gate`, 300 lessons.
 **Cost:** Tier 1 and Tier 2 are **$0** and CPU-only. Tier 3 is **gated** and requests nothing until Tier 1 has named a cause.
 
-**Authorship and inputs.** Written in this seat because pre-registration for views-hydranet experiments lives here — `reports/` holds 48 prior pre-analysis plans, every one committed from this repository. A draft written from the `views-models` seat is carried as **input, not as a base**: `inputs/views_models_draft_v3.md`, with this session's review of its v2 at `inputs/hydranet_review_of_draft_v2.md` and the superseded v2 with its errors intact at `inputs/superseded_draft_v2_with_errors.md`. The error trail is kept deliberately — a corrected document that hides what it corrected is worth less than one that shows it. **Candidates H1/H2/H3, experiment E6, and the F1 rank-identity invariant originate in this seat; the under-dispersion finding itself, the remedy ladder R1–R5, the origin-fold cross-validation and the GPU gate originate in the `views-models` seat.** Material rewritten rather than inherited, because a document carries its author's blind spots and the two seats have different ones.
+**Authorship and inputs.** Written in this seat because pre-registration for views-hydranet experiments lives here — `reports/` holds 48 prior pre-analysis plans, every one committed from this repository. A draft written from the `views-models` seat is carried as **input, not as a base**: `inputs/views_models_draft_v3.md`, with this session's review of its v2 at `inputs/hydranet_review_of_draft_v2.md` and the superseded v2 with its errors intact at `inputs/superseded_draft_v2_with_errors.md`. The error trail is kept deliberately — a corrected document that hides what it corrected is worth less than one that shows it. **Candidates H1/H2/H3, experiment E6, the F1 rank-identity invariant and R5's framing originate in this seat; the under-dispersion finding itself, the remedy ladder R1–R5 (including R5's existence), the origin-fold cross-validation and the GPU gate originate in the `views-models` seat.** ⚠️ Corrected 2026-10-18 at that seat's request, against its own interest: R5 is theirs, but the argument that a per-arm fitted temperature makes its calibration comparison near-vacuous — and therefore its final decomposition framing — is this seat's correction of their overreach. See Amendment 1. Material rewritten rather than inherited, because a document carries its author's blind spots and the two seats have different ones.
 
 ⛔ **Division of labour, fixed before anything runs.** This seat writes and owns this plan. The `views-models` seat **attacks it and executes the measurements**, and does not decide which of its own objections survive. That division is what produced every correction of the last two days; the previous draft collapsed it by having one seat write, integrate its own criticism, and declare the result final — which is the "auditor may not be the author" rule this project enforces in `falsify` guard mode, broken in the document that cites it.
 
@@ -289,3 +289,117 @@ Only these need hardware, and only if Tier 1 points at them. Each must carry the
 ## 12. Glossary
 
 Every term checked against `reports/GLOSSARY.md`. **§5b was added for this work** (2026-10-18) and locks `the calibration level` (`a`), `the calibration slope` (`b`), `under-dispersed`, `over-dispersed` and `temperature scaling`, with the banned aliases — including that **`timid` (§5) is about the BODY and must not be used for the gate**, and that *"the gate is miscalibrated"* names neither axis and is drift. `the gate`, `the body`, `soft_gate`, `AP`, `crps-all`, `act_ratio` and `calibrated` are unchanged from their existing entries.
+
+---
+
+# AMENDMENT 1 — E6 could not discriminate as specified. 2026-10-18, BEFORE any Tier-1 run.
+
+**Source:** four attacks from the `views-models` seat, the division of labour working as designed. **All four are upheld. Two are upheld with their severity raised.** Every number below was reproduced in this seat before being accepted.
+
+⛔ **The headline: F1 as written would have declared H1 the cause on a measurement artefact.** The plan is amended before anything ran, so nothing is retracted — but the design that was committed two commits ago was not sound, and it was my own lead candidate's test that was broken in my own candidate's favour for the **second** time (§3.3 was the first).
+
+---
+
+## A1 — ⛔ UPHELD. Gate-support mismatch alone moves `b` by 0.099 against F1's 0.10 threshold.
+
+Reproduced independently from `p2_result_amber.npz`, same code, same bins, same forward pass; **the only thing varying is which part of the gate range `b` is fitted over:**
+
+| population | cells | pos rate | bins | `b` | gap vs 1.146 |
+|---|---|---|---|---|---|
+| full global grid (published) | 842,634 | 0.00345 | 5 | **1.146** | — |
+| `gate ≥ 0.001` | 88,806 | 0.03231 | 5 | **1.047** | **+0.099** |
+| `gate ≥ 0.005` | 46,135 | 0.06034 | 5 | 1.117 | +0.029 |
+| `gate ≥ 0.01` | 34,117 | 0.08005 | 4 | 1.170 | −0.024 |
+| `gate ≥ 0.02` | 23,668 | 0.11201 | 4 | 1.178 | −0.032 |
+| `gate ≥ 0.05` | 12,774 | 0.19156 | 3 | 1.086 | +0.060 |
+
+**F1 fired on `b_grid − b_window ≥ +0.10`. A support shift alone produces +0.099** — one thousandth short, with no BatchNorm involved, from one array.
+
+⛔ **And the family is NON-MONOTONE** (1.146 → 1.047 → 1.117 → 1.170 → 1.178 → 1.086; range **0.131**), so the confound cannot even be sign-corrected. The window set's pooled positive rate will land inside 0.03–0.11 and its cell count (≤ 30×1024 = 30,720) inside 23k–88k — **exactly the rows where `b` swings most.**
+
+**Their three sub-points are all correct:**
+- **E6c was structurally blind to it.** Random thinning preserves the gate distribution; it controls sample size and leaves support identical. §3.3's attenuation confound and this support confound are **different axes**, and E6c covered only the first.
+- **F1's conjunction did not protect against it.** A support artefact is a stable feature of the data: it preserves its sign across bin resolutions and passes a random-subsample control cleanly. The triple condition filtered noise; this is not noise.
+- ⛔ **This is the bin-support defect a THIRD time in this programme** (it voided the first reading at 5-vs-4 bins). **F12 aimed at the old axis** — "non-common bin support *across arms*" — and the new comparison is **across populations.** A guard written for the last instance did not cover the next one.
+
+## A2 — ⛔ UPHELD, AND UNDERSTATED. 96.5% of cells in a 32×32 window have truncated context.
+
+They flagged this as possibly overstated and asked this seat to settle it from the architecture. **It is understated.** Receptive field to `dec_conv4_head1_class`, computed layer by layer (`RF += (k−1)·jump`, `jump *= s`):
+
+```
+enc_conv0 k3s1 RF=3 j=1 · pool0 k2s2 RF=4 j=2 · enc_conv1 k3s1 RF=8 j=2
+pool1 k2s2 RF=10 j=4 · bottleneck k3s1 RF=18 j=4 · upsample0 RF=18 j=2
+dec_conv0_class k3s1 RF=22 j=2 · upsample1 RF=22 j=1 · dec_conv1_class k3s1 RF=24
+dec_conv4_class k3s1 → RF = 26 px per side
+```
+
+| pass | cells with FULL context | **truncated** |
+|---|---|---|
+| **32×32 window** | 6×6 = 36 of 1,024 = 3.5% | ⛔ **96.5%** |
+| **180×180 grid** | 154×154 = 23,716 of 32,400 = 73.2% | 26.8% |
+
+All convolutions are `padding=1`, so a truncated cell's receptive field is filled with **zeros, not neighbours**. And this is the U-Net path **alone**: the recurrent cell state is zero-initialised and built across the lead-in on that same 32×32 window, and M54 established the state carries a spatial map of where conflict will be — so its reach is truncated too. Effectively **every** cell in a window pass is computed from less context than its global-pass counterpart.
+
+Their correction to this seat's mechanism statement is also accepted and is better than what the plan said: **BatchNorm is in eval mode with frozen per-channel statistics and does not re-estimate from the batch.** Running on hot windows does not "make the statistics correct"; it changes the input distribution so the activations entering BatchNorm resemble those the statistics were estimated from. H1's mechanism holds, stated that way.
+
+### ⛔ But their proposed fix does not work, and the reason changes what H1 *is*
+
+They proposed running both a crop and a window pass and pre-registering the difference as the confound. The crop cannot serve that role: **a crop of the global pass carries the global pass's activations, so BatchNorm mis-normalises it exactly as it mis-normalises the whole grid.** The crop does not test H1 — **it is the perfect control for A1's selection axis**, because it holds the computation fixed and varies only which cells are selected.
+
+And the deeper point: **the activity mismatch and the context mismatch are inseparable, because the recalibration pass itself ran on 32×32 window passes** (`training_engine.py:1312-1314`, `window_dim: 32`, `batch_size=1`). The recal distribution is *defined by* window-passes. So H1 is not "the recal windows were too hot" — **H1 is "the recal distribution is not the inference distribution", and it differs on at least two axes**, activity and spatial context, the second of which neither seat had identified.
+
+**Both axes have the same fix** (recalibrate on the inference distribution), so E6 does not need to separate them — it needs to separate **H1 from H2**. But this changes what a positive E6 licenses: it licenses *"recalibrate on the inference distribution"*, **not** *"the windows were too hot"*. Recorded so the remedy is not mis-specified later.
+
+## A3 — ⛔ UPHELD. No power analysis, and E6c already computes the number the plan threw away.
+
+The conclusive zones were `b_window ≤ 1.046` and `b_window > 1.10`; the inconclusive band is **0.054 wide**. The plan never stated the expected standard error on `b_window`, fitted on ~30k cells instead of 843k with far noisier per-bin rates.
+
+**If `sd(b_window) ≳ 0.027` — half the band — F1/F2/F6 are decided by sampling noise.** And §4's tolerance justification was **category-wrong**: the 0.043 spread across published weightings is a **systematic range**, not a standard error, and cannot size a power threshold. That error is mine.
+
+E6c's 10 replicates give `sd(b)` at window sample size directly, and the plan used them only for a bias check. **Adopted at zero extra cost.**
+
+## A4 — ⛔ UPHELD (minor). F3's harness check was too loose.
+
+`b_grid` at the 12 locked P2 edges is recomputed from the same `.npz` with the same code, so it must reproduce **1.146 exactly**, not merely exceed 1.10. A harness returning 1.12 is broken and F3 would not have fired.
+
+---
+
+## The amended design
+
+**`b_crop` replaces `b_grid` as E6's reference.** Crop and window are **the same cell locations**, so A1's support confound is removed *by construction* rather than by matching.
+
+| quantity | computation | cells | isolates |
+|---|---|---|---|
+| **`b_grid`** | 180×180 pass | all 842,634 | the published fact (1.146) |
+| **`b_crop`** | 180×180 pass, **re-binned** to the window set's cell locations | window set | ⛔ **the SELECTION/support axis** — free, a re-binning of the `.npz` already on disk |
+| **`b_window`** | 30 × 32×32 window passes | window set | selection **+** the recal-distribution match (activity **and** context) |
+
+- ⛔ **H1's signal is `b_crop − b_window`** — same cells, same truth, differing only in how each cell was computed.
+- **`b_grid − b_crop` is the measured selection confound**, reported as a number rather than assumed away.
+- ⚠️ **Residual, stated not hidden:** binning is on the *predicted* gate, which differs between the two passes, so bin populations still differ on the same cells. Mitigated by common gate support and by reporting per-bin `n` for both. This is as clean as the instrument gets.
+
+### Amended falsifiers — these REPLACE F1, F3, F5 and extend F12
+
+| | fires if | then |
+|---|---|---|
+| **F1′** | `b_crop − b_window ≥ max(0.10, 3·sd(b_window))`, sign preserved across all three bin resolutions and all three window counts | ⛔ **H2 is DEAD as primary cause. H1 is the cause** — and the remedy is *"recalibrate on the inference distribution"*, not *"use cooler windows"* (A2). |
+| **F2′** | `b_window > 1.10` **and** `\|b_crop − b_window\| ≤ max(0.05, 1.5·sd(b_window))` | ⛔ **H1 is DEAD.** H2 or H3. |
+| **F3′** | `b_grid` at the 12 locked edges **≠ 1.146** to three decimals | ⛔ **VOID — the harness does not reproduce the published fact.** Stop and fix it. The old `≤ 1.10` clause is retained as a separate, looser catch. |
+| **F5′** | **E6c:** `\|b_grid − b_crop\| ≥ 0.05` | ⛔ **the selection axis is live.** Not a void — `b_crop` is still the valid reference — but **`b_grid` must not appear in any E6 comparison**, and the magnitude is reported as the measured size of the confound that nearly broke F1. |
+| **F5b** | ⛔ **POWER GATE. `sd(b)` across E6c's 10 replicates ≥ 0.027** | ⛔ **F6 fires BEFORE E6 is read.** The instrument cannot resolve the inconclusive band and no E6 result may be interpreted. Zero extra work — the replicates are already specified. |
+| **F12′** | any comparison is reported on non-common bin support **across arms OR across populations** | **VOID.** Extended from the arms axis, which is the axis the last instance of this defect used. |
+
+### Amended method
+
+- **E6c runs first** and now reports **three** things: `b_crop`, `b_grid − b_crop`, and `sd(b)` across 10 replicates. Replicates are **stratified to the window set's gate histogram**, not random — random thinning cannot see the support axis (A1).
+- **Both passes are run**: the crop (free) and the window pass. **Their difference is H1's signal**, not a confound to be removed.
+- `n_windows ∈ {30, 60, 120}` and bin resolutions {12 locked, 40, 200} unchanged — but the sweep now applies to `b_crop − b_window`, and **F4 voids on a sign change in the difference**, not in either term alone.
+- **Report the truncated-context fraction (96.5% vs 26.8%) alongside every E6 number**, so no reader mistakes the window pass for the inference computation.
+
+### What this amendment does not fix
+
+⛔ **E6 still cannot separate H1's two axes** — activity mismatch and context mismatch — because the recalibration pass differs from inference in both. **That is a finding about the harness, not a gap in this plan**, and it is the strongest argument for the one-line fix: make the recal pass sample the inference distribution, at which point both axes close together and the question does not need separating.
+
+### Pattern, recorded
+
+Three attacks in this programme have now landed on **this seat's own decisive test for this seat's own lead candidate** — §3.3 (sample size), A1 (support), A2 (context). Each was found by the other seat or by applying the sweep rule to my own side. **An author cannot test what they did not imagine, and the author's lead candidate is the hypothesis they imagine least critically.** The `falsify` guard-mode rule — the auditor may not be the author — is doing work here that no amount of care in a single seat would have done.
