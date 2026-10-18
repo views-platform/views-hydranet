@@ -1299,3 +1299,78 @@ That is the third independent route to R1, and the strongest: ⛔ **every axis t
 **W-26 stays as one ledger entry naming both seats**, per their request and because it is accurate: they wrote a non-exhaustive table, this seat attacked it for the opposite failure and approved it.
 
 ⛔ **Nothing authorises Tier 3, and this amendment removes a candidate rather than adding one.**
+
+---
+
+# AMENDMENT 12 — the DIAGNOSIS has converged. The REMEDY has never been measured. 2026-10-18.
+
+**Source:** the `views-models` seat proposed the close and invited disagreement on exactly that point. ⛔ **I disagree, on one axis, and it is the cheapest thing in this plan.**
+
+---
+
+## 1 — ADOPTED: the two criteria are in irreconcilable conflict
+
+Their framing is better than Amendment 11's "unaimable axis" and belongs in issue 12:
+
+```
+(a) running stats = E[training batch moments]  ->  x_hat matches what the head SAW
+(b) running stats = eval-data moments          ->  x_hat is correctly STANDARDISED for the data
+```
+
+**They coincide only when training batches are i.i.d. samples of the eval distribution. Activity-seeking crops are not.** So `b = 1.19` and `b = 0.78` are **both correct implementations of incompatible criteria.**
+
+⛔ **The axis has no correct point, not merely no reachable one.** Adopted — it is strictly stronger than what Amendment 11 claimed.
+
+## 2 — ADOPTED with a sharpening: RECLASSIFY the full-schedule recal as a DEFECT
+
+They are right that killing it as a remedy does not dispose of it. `_recalibrate_bn` iterates `get_lesson(w)` for `w ∈ range(30)` — lesson indices **0–29 of 900, the first 3.3% of steps, all inside the roof-clipped flat region** (the hottest 23.8%). As an estimator of `E[training batch moments]` that is **biased**; the full-schedule draw is the **unbiased** implementation of the same criterion.
+
+⛔ **My sharpening: it is a defect under EITHER reading of the docstring, which makes the issue airtight regardless of what its author intended.**
+
+| docstring read as | the defect |
+|---|---|
+| **(b)** *"matches the true activation distribution"* = inference-time | **wrong population entirely** — curriculum windows are not the global grid |
+| **(a)** = training-time | **biased estimator** — 3.3% of steps, hottest 23.8%, 1.88× the mean ratio |
+
+**There is no reading under which the implementation satisfies its own stated purpose.** Filed as **OUTCOME issue 13**, with the one-line character of the fix noted (`get_lesson` over the full step range) and ⛔ **an explicit warning that fixing it is NOT expected to repair the calibration** — so no later reader treats the issue as a remedy and re-runs E6f's mistake in a third place.
+
+## 3 — ACCEPTED: the close must not read as "nothing"
+
+My *"I would rather hand him nothing than hand him a measurement neither of us could read"* was about that one measurement, but they are right that it must not colour the close. What this programme produced:
+
+- a **named, quantified defect in a shipped model** — under-dispersion, `b = 1.19` against 1.00 honest, six fits, surviving ten rounds of two-seat attack;
+- the mechanism **localised** — BatchNorm statistics carry **0.41** of leverage, a lower bound, with the root in activity-seeking training crops;
+- a **remedy killed by measurement** rather than by argument, **before it was shipped as advice**;
+- **13 issues**, several in production code, two of which (the silent `D2` stamp, the recal bias) would have gone unnoticed indefinitely.
+
+## 4 — ⛔ MY DISAGREEMENT: TIER 2 HAS NEVER RUN, SO R1 IS UNMEASURED
+
+`results/` holds `e1_sigma.py`, `e2_meanlogit.py`, `e6c_power.py`, `e6d_align.py`, `e6f_bn_reestimate.py`. **Nothing from Tier 2. R1 through R5 have not been executed once.**
+
+⛔ **We are about to recommend a remedy on three theoretical routes with zero measurement — after spending two days establishing that asserting remedies on theory is how we got here.** The pattern this plan named as its own main finding is the one the close would repeat.
+
+**And the plan already contains the falsifiers that would stop it.** They are pre-registered, they are unrun, and each has a different failure mode:
+
+| | fires if | consequence |
+|---|---|---|
+| **F7** | R1 reaches `b ≈ 1` held-out while **AP and sharpness are unchanged within the ~0.019 seed sd** | ⛔ **H3 — the gain is COSMETIC.** A calibration fix that adds no resolution has repaired a reporting defect, not the forecast |
+| **F8** | isotonic beats R1 held-out by **> 20%** on absolute calibration error | the defect is **not a pure slope** — OUTCOME §2 is incomplete a third time |
+| **F9** | R1's fitted `T` varies **> 15%** across the 13 origin folds | **no well-defined global temperature** — the simple fix is unavailable |
+
+⛔ **F7 is the one that matters, and H3 is still live and untested.** Three independent routes argue R1 acts on the **right parameter**. ⛔ **None argues it buys anything.** If the gate is at its resolution limit, R1 sets `b = 1.000` and the forecast is unchanged — and §3.6 of this plan says so in advance: *"Expect R1 to improve calibration and move nothing else — that is F7's whole point, not a surprise."*
+
+### And it is the cheapest thing in the plan
+
+R1–R4 are post-hoc monotone transforms of the **stored gate and truth arrays**. No model, no forward pass, no volume build. **Seconds of CPU on arrays already on disk — cheaper than E1, E2, E6c, E6d and E6f, every one of which has run.** F9's 13 origin folds are a loop over a 13-element axis in an array we have loaded repeatedly today.
+
+⛔ **The most expensive experiments ran and the cheapest one did not, because it was filed as a remedy rather than as a test.**
+
+## 5 — So: the diagnosis has converged. The remedy has not been tested.
+
+**Agreed and settled:** the defect, its magnitude, its localisation, H1's death as a remedy, the criterion conflict, the Goodhart ban, the scale-versus-shape generalisation, and that the root cause is a training-side proposal this programme never scoped.
+
+⛔ **Not settled, and one tier of free work away from being settled:** whether temperature scaling buys anything, or whether F7 fires and the honest answer is *"the gate is at its resolution limit, the calibration number can be fixed, and the forecast cannot."*
+
+**That is a materially different thing to tell Simon**, and it costs seconds. **Recommending R1 without F7 would be the fourth time in this programme a remedy was advanced on its mechanism rather than its effect** — after `pos_weight`, the NLL denominator, and the BatchNorm recal.
+
+**Revised recommendation to Simon: run Tier 2 — it is seconds — and report R1 with F7's verdict attached.** If F7 fires, R1 is still worth doing and must be described as cosmetic. If it does not, R1 is the first intervention in this programme with a measured benefit.
