@@ -689,3 +689,93 @@ The `vehicle.py` accommodation transferring (all five arms inherit amber's `trun
 ---
 
 ⛔ **Eight of this seat's items corrected in this document. The fifth improvement was the one that mattered most: a design that tested one of two parameters a known mechanism moves, written by the seat that had measured the distinction being decisive.** **Nothing is running and no model directory exists.**
+
+---
+
+# AMENDMENT 6 — ⛔ two of this seat's own positions cannot both hold, and determinism is untestable in this design. 2026-10-18.
+
+**Source:** the `views-models` seat, comparing two of this plan's own paragraphs. ⛔ **Upheld. It is a logical inconsistency between two positions this seat argued, and it was not visible in either paragraph alone.**
+
+---
+
+## 1 — ⛔ THE CONTRADICTION
+
+**Position A** — §7, this seat's reason for refusing to reuse amber:
+
+> *"`amber_kestrel` was trained in a different pod session under a different code sha. Reusing it imports every difference between then and now into the variance estimate the design rests on."*
+
+**Position B** — §7's pre-registered reading for arm 1:
+
+> *"does not reproduce ⇒ training non-deterministic at fixed seed."*
+
+⛔ **Position B compares the fresh run to amber across exactly the environment gap Position A says is large enough to corrupt a variance estimate. If the environment differs enough to invalidate a variance estimate, it differs enough to produce a sha mismatch on its own.**
+
+**So a mismatch has at least three candidate causes and the design contains no discriminator:**
+
+1. training non-determinism at fixed seed
+2. a library / environment difference
+3. a code-sha difference
+
+⛔ **The mismatch branch is therefore not a reading. It is an attribution with three explanations and no way to choose between them.**
+
+## 2 — ⛔ AND DETERMINISM IS UNTESTABLE HERE REGARDLESS. Verified for BOTH allocations.
+
+Determinism requires **two runs identical in every input** — same config, same seed. Checked:
+
+```
+recommended  (0.1,42) (0.1,43) (0.1,44) (0.0,42) (0.0,43)   identical (config,seed) pairs: 0
+planned      (0.1,42) (0.1,43) (0.01,42) (0.01,43) (0.0,42)  identical (config,seed) pairs: 0
+```
+
+⛔ **Zero in both. Determinism was never testable in this design, under either allocation** — not merely unsupported by the sha comparison, but absent from the design entirely. **Neither seat noticed, through four amendments of allocation argument.**
+
+## 3 — ⛔ MY ADDITION: the asymmetry is a CONJUNCTION against a DISJUNCTION, and that is why their fix is right
+
+They recommend keeping the sha comparison and dropping only the mismatch inference, on the grounds that *a match would be genuinely informative in the reassuring direction.* **That is correct, and the reason is worth stating because it says exactly how much a match buys:**
+
+```
+a MATCH    requires non-determinism AND environment AND code-sha differences to be ALL NULL
+           -> a CONJUNCTION of three nulls -> strong evidence for EACH of them
+a MISMATCH requires AT LEAST ONE of the three to be non-null
+           -> a DISJUNCTION -> evidence for NONE of them individually
+```
+
+⛔ **So the comparison is worth running and only half of it is readable** — which is an unusual and legitimate shape for a check, and it must be labelled as such rather than presented as a two-branch reading.
+
+### Adopted
+
+> **The sha comparison is RECORDED FOR PROVENANCE.** A **match** across a changed environment and code sha is informative in the reassuring direction and should be reported as such. ⛔ **A MISMATCH IS NOT EVIDENCE ABOUT TRAINING DETERMINISM** — the environment and code sha also differ, and nothing in this design separates the three causes. **The determinism reading is withdrawn.**
+
+## 4 — ✅ And their correction of their own attribution is right
+
+They put the non-reproducing branch in, with the line this seat adopted verbatim — *"the amber/copper 0.17 gap may never have been the config key at all."*
+
+⛔ **That sentence survives and is important. It belongs to W-5 — the Phase-1 audit via `σ̂` — which HAS a discriminator, and not to the sha comparison, which has none.** They attached a sound claim to the wrong test, and **the claim is unharmed by moving it.**
+
+**W-5 is unchanged:** if `σ̂_b > 0.0601`, the amber-vs-copper difference was never separable from run noise, whatever its mechanism — ⛔ **and that holds without needing to know anything about determinism**, which is precisely why it is the version that works.
+
+## 5 — ⛔ AND THIS SEAT DECLINES TO ADD A DETERMINISM TEST
+
+The obvious response to §2 is to recover determinism by adding a matched pair. ⛔ **Declining, and recording why so a later reader knows it was considered rather than missed:**
+
+**This seat's own argument, which they quoted back, established the decomposition is not load-bearing:**
+
+> *"Arms 1–2 measure total run-to-run variance at fixed config — the right quantity whichever mechanism produces it. Deterministic ⇒ seed variance; non-deterministic ⇒ seed plus nondeterminism. Both are what §5 compares `Δ` against."*
+
+⛔ **So recovering determinism would be scope creep for a question the design does not need answered.** A cheaper variant exists — two short runs (e.g. 10 lessons) identical in every input, which would test the training loop's determinism without 2 h 15 m — ⚠️ **but its cost is unmeasured, it may not hold at 300 lessons even if it holds at 10, and it answers a question that is not on this plan's critical path.** **Noted as available, deliberately not proposed.**
+
+## 6 — ✅ A control this seat stated and they named as one
+
+This plan recorded their clean checks (the `vehicle.py` accommodation transferring, the truth window as a within-design constant, W-28's control) on the stated ground that *"a negative result from a check is a result, and a reviewer who only reports hits leaves the next reader unable to tell what was looked at."*
+
+⛔ **They identify that as a control in its own right, and it is: it is the search-provenance rule turned around.** Stating what was checked and came back clean is **what makes the absence of a finding mean anything.** **Adopted as a standing requirement for both seats' reviews.**
+
+---
+
+## State
+
+⛔ **Nine of this seat's items corrected in this document.** **Item 1 came from the architecture; item 6 came from comparing two of this plan's own paragraphs** — ⛔ **neither was visible in the prereg's own text, which is the generalised form of W-28: re-reading your own document cannot find an error whose evidence is in a file, or a contradiction whose halves are in different sections.**
+
+**This item tightens a reading and removes an unsupported inference. It changes nothing that runs and needs no authorisation.** ⚠️ **Simon's word is still required on: the allocation, the `wd = 0.0` trainability risk, and the library change if he keeps the head-exemption arm.**
+
+**Nothing is running and no model directory exists.**
