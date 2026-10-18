@@ -517,3 +517,113 @@ A signature test infers the cause; this tests the fix. **Re-estimate the BatchNo
 The lesson is not that the test was badly built. It is that **a decisive test for a hypothesis you hold is the single place an author's imagination is weakest**, and that no amount of care in one seat substitutes for another seat trying to break it. The `falsify` guard-mode rule — the auditor may not be the author — has now earned its place four times in two days.
 
 ⚠️ **And if H4 holds, the consequence should be stated rather than left implied:** the compression would be a defect in **the inference path** of this repository, not primarily a calibration problem — and the whole `pos_weight` programme, the temperature-scaling remedy, and two days of calibration work would be treating a symptom of a geometry mismatch.
+
+---
+
+# AMENDMENT 3 — the record search, done properly. E6's central confound and H4's second limb were both already measured here. 2026-10-18, BEFORE any Tier-1 run.
+
+**Source:** a systematic prior-art search of `views-hydranet/reports/` by the `views-models` seat, after Amendment 2 recorded that one candidate had been missed. **It is not one candidate. It is five, and one of them is a committed tool.** Every claim below was verified in this seat against the committed file before acceptance.
+
+⛔ **Two of the hits are not hypotheses. They are (i) the confound that dominates E6 as specified, measured at 142×, and (ii) an empirical refutation of a limb I added to H4 in Amendment 2 — a prediction this repository registered, ran and scored WRONG in August.**
+
+---
+
+## 1 — ⛔ UPHELD. E6 must judge the INTERIOR. This repo wrote the amendment and then measured the artefact.
+
+`reports/2026-08-23_state_range_dossier/tools/capture_regimes.py:253-257`, committed:
+
+> *"**AMENDMENT 3: judge the INTERIOR**, because a patch and the full grid **MUST** disagree at the patch edge (border cells have no neighbours the full grid has). **Pooling the two confounds an unavoidable boundary artifact with the geometry effect F3 tests for.**"*
+
+And `07_experiment_log.md:54` carries the measurement of exactly that contrast:
+
+| | pooled `rel_abs_diff` | **interior** `rel_abs_diff` | gap |
+|---|---|---|---|
+| seed 42 | ≈ 0.10 | **0.0006** | ⛔ **142×** |
+| seed 43 | ≈ 0.10 | 0.0059 | 13× |
+
+**E6 as specified pools the whole 32×32 window.** On this repository's one measurement of the patch-vs-grid contrast, the pooled quantity is up to **142×** the interior quantity. So `b_window` as written would be **predominantly a boundary artefact**, and F1‴/F2″ would attribute it to BatchNorm or use it to weaken H1. **The same amendment, for the same reason, on the same geometry, was already written down — and I re-derived the design without it.**
+
+### Locked: E6 is interior-only, with the pooled value reported beside it
+
+- **Margin = 13 cells**, read off the architecture as `RF/2` with RF = 26 (Amendment 1). The prior tool parameterises this the same way — `--border`, *"Read off the architecture (3×3 convs, two 2×2 pools …)"* (`capture_regimes.py:139-142`).
+- **Interior = the central 6×6 of each 32×32 window**, 36 cells.
+- **Power, computed rather than assumed:** 30 windows × 36 cells × 13 scored months = **14,040 cell-months**, ≈ **421–1,544 positives** at the 0.03–0.11 hot-window positive rate. Workable; 60 and 120 windows scale it 2× and 4×. ⛔ **F5b's power gate is computed on the INTERIOR set, not the pooled set.**
+- **The pooled value is reported alongside, always**, so the gap is visible rather than assumed away — this repo's own number for it is 142×.
+
+## 2 — ⛔ UPHELD. H4's recurrent limb is REFUTED, and I reproduced a prediction my own ledger scores as wrong.
+
+Amendment 2 argued: the state propagates one cell per month, reaches 36 cells over the lead-in, wider than the 32-cell crop, so **unlike padding it is not confined to a margin**. That is, almost verbatim, AMENDMENT 4 of the August dossier (`capture_regimes.py:256-257`: *"the receptive field compounds ~12 cells PER TIMESTEP over 384 steps, so no part of a 32×32 patch stays boundary-free"*) — **registered before the run, and scored** (`07_experiment_log.md:60-67`):
+
+> **"AMENDMENT 4 predicted F3 would fail. It passed, comfortably."** … **"The theoretical receptive field is not the effective one."** The recurrence is **contracting** — F2 measures `max|h|` **65.622 → 1.832 over 30 free steps, a 35.8× collapse** — *"so influence decays faster than it propagates."*
+
+⛔ **A contracting recurrence does not carry boundary contamination 36 cells inward.** The limb is **withdrawn**. The theoretical receptive field was the wrong instrument, which is the same error AMENDMENT 4 made, and I made it again with the answer in the repository.
+
+### What survives of H4, at its real strength
+
+- ⛔ **The recurrent-reach limb: WITHDRAWN**, refuted at 0.0006 interior.
+- **The padding limb: SURVIVES** — but E6 now excludes it by construction (item 1), so it is not what E6 measures.
+- **The untested step: state agreement → gate slope.** The prior work scopes itself explicitly (`07_experiment_log.md:96`): *"2 seeds, one architecture, `sb`, **states only. No AP was measured and none may be inferred.**"* So **F3 does not license a claim about the calibration slope.**
+
+**H4 is therefore WEAKENED, NOT DEAD: plausible for outputs, disconfirmed for interior states, strongest in the padding margin, and demoted from co-lead.** H1 and H2 return to being the co-leads.
+
+⚠️ **And it rescues E6d.** That discriminator was proposed in fear that no boundary-free interior existed. F3 demonstrates one does, comfortably. E6d has a clean reference, for a reason neither seat derived.
+
+## 3 — ⛔ UPHELD, and there is a FIFTH hit neither seat cited. I also found why we missed them.
+
+Verified prior art in this repository for our candidate list:
+
+| candidate | prior art | what it is |
+|---|---|---|
+| **C1/C2** | `2026-08-03_lockeddropout_calibration_dossier/05_analysis_plan.md:11` | A **LOCKED** pre-analysis plan on LockedDropout and posterior calibration: *"**posterior spread**, improving calibration if the current posterior is **too tight**"*, with PIT / coverage / sharpness endpoints. We derived the probit/Jensen argument from first principles over three rounds. |
+| **H4** | `968b788` + AMENDMENT 3 (the confound) + F3 (the measurement) | items 1 and 2 above |
+| **H3** | `2026-10-12_underfire_next_step.md:76`; `PREDICTION_LEDGER.md:125` (W-17) | *"concentration of gradient is not the same as capacity to fit those cells individually"*; only **11.29%** of 905,289 params are shared, the gate has its own ~400k decoder |
+| — | `archived/2026-06-08_magnitude_calibration_dossier/`, `2026-07-20_distributional_head_dossier/` | two further calibration pre-analysis plans |
+| ⛔ **the instrument** | **`reports/2026-06-20_gate_calibration_dossier/` + `scripts/gate_reliability.py`** | **see below** |
+
+### ⛔ The fifth hit: the instrument already exists, committed, with its own pre-registration
+
+`reports/2026-06-20_gate_calibration_dossier/05_analysis_plan.md` is a pre-registered **gate reliability** plan (C-147) whose primary instrument is *"**Reliability diagram** — binned (deciles) mean-π vs empirical onset frequency, with per-bin counts"*, with a falsifier for exactly our direction — *"**F-underconfident:** reliability curve **above** the diagonal … gate too timid"* — a logged outcome in `07_experiment_log.md`, and a committed tool: **`scripts/gate_reliability.py`, 11 KB, `eb48924`, 2026-06-20.**
+
+**P2 reinvented that instrument.**
+
+⚠️ **Scoping it honestly, so this does not become the mirror error.** That era's vehicles ran **`pos_weight = 10.0`**, pre-foundation, and reported mean π 0.012 against 0.0077 prevalence — miscalibrated **HIGH**. Its H1 and F-underconfident are about the curve lying **below or above the diagonal**: a **LEVEL** claim. ⛔ **The level/slope decomposition — `a` versus `b`, and that `pos_weight` can only move `a` — is genuinely new, and so is the under-dispersion finding.** What already existed is **the instrument and the question**, not the answer.
+
+### ⛔ The mechanism, which is sharper than "we did not search"
+
+`MEMORY.md` — the index loaded at the start of every session in this repo — files `project_t0_calibration_failure.md`, `project_gate_resolution_finding.md` and `project_proper_score_gate_finding.md` under:
+
+> *"Superseded/history (folded into the foundation) … (zero-smear + timid-body threads)"*
+
+**The prior art was not merely unsearched. It was actively filtered out by a marker that said not to look.** And the marker was correct about the *conclusions* — those threads were superseded — while **silently retiring the instruments with them.** `gate_reliability.py` is not superseded; it is a working binned reliability diagram with bootstrap CIs and join guards.
+
+### Locked controls — their proposal, plus the two the mechanism requires
+
+1. ⛔ **Candidate enumeration is not closed until `reports/` has been searched for prior art on each candidate, and the search terms and the hits are recorded in the plan.** Their proposal, adopted verbatim as a numbered step in §3 rather than as a lesson, *because a lesson will not fire*.
+2. ⛔ **`scripts/` is searched too.** A reports-only search finds the dossier but not the tool, and the tool is the part that was rebuilt.
+3. ⛔ **A "superseded" marker retires a CONCLUSION. It never retires a tool, an instrument, or a falsifier.** Anything marked superseded must still be searched, and this one must be written into the memory index itself or it will filter the next search the same way.
+
+## 4 — E6f's three holes. All accepted; (a) is material.
+
+**(a) ⛔ F1‴ must be an EQUIVALENCE test against 1.0, not a movement test.** Amendment 2 records, against its own framing, that the H1 fix is a *partial* H4 fix. So if H4 is binding and re-estimating BatchNorm partially repairs it, `b` moves substantially toward 1 and F1‴ names H1 falsely. With `sd ≈ 0.027`, **`b = 1.06` is improved, is 2.2 sd from 1.0, and is NOT H1 confirmed.** F1⁗ requires `|b − 1| ≤ 2·sd(b)` with the power band stated, **and** `b` indistinguishable from 1.0 by that interval — not merely closer than before.
+
+**(b) The re-estimation months are now LOCKED to the training months, 121–456.** Leaving them unspecified was the same defect class as the original E6 — and the choice is not cosmetic: training months is a **one-off deployable change**, while re-estimating on the evaluation window makes the statistics **origin-dependent**, which is a different and larger remedy. **Two distinct fixes were hiding under "the inference distribution."** The plan claims the one-line change, so it locks the one-line change.
+
+**(c) E6f is PAIRED on the same scratch pipeline.** Per C-112/C-119, re-estimating BatchNorm changes every logged metric's numeric posterior, so post-fix `b` is compared against `b` computed **on the same scratch copy before the fix** — never against the published 1.146. **F3′'s exact-reproduction precondition extends to E6f's own baseline.**
+
+---
+
+## Candidate standing after Amendment 3
+
+| | candidate | standing |
+|---|---|---|
+| **H1** | BatchNorm recalibration distribution | ⛔ **CO-LEAD** |
+| **H2** | `weight_decay: 0.1` on the class heads | ⛔ **CO-LEAD** |
+| **H4** | train/inference geometry | **WEAKENED, demoted.** Recurrent limb withdrawn (refuted at 0.0006 interior); padding limb excluded from E6 by the interior rule; the state→slope step untested and explicitly unlicensed by F3's scope |
+| **H3** | resolution limit | the null, carried, with prior art |
+| **C1/C2** | MC-dropout chain | not independent causes (Amendment 1), with prior art |
+
+## Pattern, final form
+
+Five attacks have now landed on this seat's own decisive test for this seat's own lead candidate, and **three of the five were already answered in this repository's committed record.** One of them — the 142× boundary confound — is the single largest effect anyone has measured in this programme, and it was in a file whose docstring explains why E6 as specified cannot work.
+
+⛔ **The lesson is not "search harder."** It is that **a conclusion marked superseded took its instruments and its confound measurements down with it**, and that four rounds of two-seat enumeration built the candidate list from what each seat could see rather than from what the project already knew. The three locked controls in item 3 are the response; they are mechanical, and they are in §3 as steps, not as advice.
