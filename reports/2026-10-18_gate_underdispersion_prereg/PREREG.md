@@ -1222,3 +1222,80 @@ Nothing here tests `weight_decay`. But **the premise I argued H2 from — that t
 | **R1** | temperature scaling | **strengthened** — the only axis that sets the slope exactly without an unaimable gain |
 
 ⛔ **Nothing here authorises Tier 3.** A training arm — the only thing that could test H4's root or H2 — is Simon's, and this result does not change that.
+
+---
+
+# AMENDMENT 11 — I withdraw half of Amendment 10. No fixed BatchNorm statistic is correct, including the "principled" third one. 2026-10-18.
+
+**Source:** the `views-models` seat, measuring the training schedule. **Their arithmetic is verified exactly. It refutes the second half of Amendment 10's inversion — and the argument that refutes it also kills the third option they proposed.**
+
+---
+
+## 1 — Their schedule measurement, verified
+
+```
+roof 0.665, floor 0.05, b = -0.001333/step, total 900 steps
+  steps at roof 0.665 :  214  (23.8%)   <- the recal draw (0..29) lives entirely here
+  steps declining     :  461  (51.2%)
+  steps at floor 0.05 :  225  (25.0%)
+  MEAN ratio over training = 0.3540    recal sample = 0.665    ⛔ 1.88x hotter
+  median 0.3507;  50.8% of training runs below ratio 0.36
+```
+
+Every figure reproduces. **The head's final weights were fitted predominantly on much cooler crops than the recalibration samples, and a quarter of training ran at the floor.**
+
+## 2 — ⛔ WITHDRAWN: "C-184 is arguably right by design"
+
+Amendment 10 §4 made two claims. **The first stands, the second is wrong.**
+
+- ✅ **Stands:** `_recalibrate_bn`'s docstring states the wrong criterion (*"so eval-mode matches the true activation distribution"*), and H1 was formulated against it. The other seat adds that this is the **textbook** criterion — BatchNorm running statistics exist to estimate the **training** distribution's moments so eval reproduces the input scale the downstream weights were fitted against — which makes the point independent of E6f. **Adopted into OUTCOME issue 12 as the first-principles form.**
+- ⛔ **WITHDRAWN:** *"the shipped hot-window sample is closer to the condition BatchNorm eval statistics exist to reproduce"* and *"C-184 is arguably right by design."* **At 1.88× the mean training ratio, the shipped sample is not the training distribution either.** It is closer than the global grid and still badly mis-specified. **Right as a direction, wrong as a verdict** — their words, and they are correct.
+
+## 3 — ⛔ AND THE ARGUMENT THAT KILLS THE THIRD OPTION TOO
+
+They propose re-estimating over the full curriculum schedule (`get_lesson(step)` for `step ∈ 0..899`), arguing it is principled because the distribution is fully specified before measurement and is not fitted to the endpoint. **The procedural distinction is real and their self-protection is right. But the option is not principled, and the reason is the same one that explains both endpoints.**
+
+⛔ **In train mode BatchNorm standardises PER BATCH.** `training_engine.py:1027` — `ctx.model.train()` — so every forward during training normalises that window by **its own** moments. **The head was therefore never trained against any fixed set of moments at all.** It was trained against activations standardised *within each batch*, on batches that were **activity-selected**.
+
+Three consequences:
+
+1. **There is no "the training distribution's moments" the head was fitted against.** The criterion Amendment 10 stated — *"give the head the input scale it was trained against"* — was **underspecified**, and correctly specified it is **unsatisfiable by any fixed statistic.**
+2. **Averaging moments across a heterogeneous schedule reproduces per-batch standardisation at NO step.** A mean over ratios 0.665→0.05 is not what step 50 saw, nor step 800.
+3. ⛔ **So the full-schedule recal is a third arbitrary point on the same unaimable axis, not a principled option.** It would return some intermediate `b` — plausibly near 1.0, as they honestly flagged — and that number would mean nothing more than the other two.
+
+### Why this explains the signs, in principle rather than empirically
+
+The head learned a mapping from **"activity relative to a hot local neighbourhood"** to probability, because that is the only reference frame it ever saw.
+
+| eval statistics | what `x̂ = 0` means to the head | effect | measured |
+|---|---|---|---|
+| hot moments on the global grid | the global spread is **smaller** than assumed, so `x̂` compresses toward 0 | head **under**-reads | `b = 1.19` |
+| global moments on the global grid | `x̂ = 0` now means *quiet globally*, so `+2σ` is a far stronger claim than in training | head **over**-reads | `b = 0.78` |
+
+⛔ **No fixed moments can reproduce a per-batch, activity-selected reference frame. The axis is unaimable in principle, not merely in practice** — which is a stronger statement than Amendment 10's, and it is why §5's Goodhart ban extends to every point on the axis including the pre-specified ones.
+
+**Recommendation: the full-schedule recal does NOT go to Simon as a candidate.** It is the same axis, and its result would not be interpretable.
+
+## 4 — Their two H4 strengthenings, both accepted
+
+**1. The 0.41 leverage is a LOWER BOUND on the train/deploy mismatch.** BatchNorm statistics are only the *adjustable* channel; **the weights themselves were fitted on activity-seeking crops and no choice of eval statistics touches that.** So H4's scope exceeds the BatchNorm channel, and E6f measured the part that happens to be tunable. Accepted — it means E6f understated H4 rather than testing it.
+
+**2. ⛔ A scale fix cannot address a shape problem — and this is now the central conclusion.** Matching moments does not make the head's learned *function* appropriate to the globe, because the two populations have different conditional shapes.
+
+> **`pos_weight` moved the intercept when the defect was the slope. BatchNorm moments move the scale when the defect is the reference frame. The same error, one level up.**
+
+That is the third independent route to R1, and the strongest: ⛔ **every axis this programme has examined — `pos_weight`, the NLL denominator's weighting, the recal distribution — is a scale or level knob, and the defect has been a shape defect every time.** Temperature scaling is the only intervention considered that acts on the shape parameter directly.
+
+## 5 — Standing
+
+| | candidate | standing after Amendment 11 |
+|---|---|---|
+| **H1** | BatchNorm recal distribution | mechanism CONFIRMED (0.41, a lower bound) · remedy DEAD · criterion corrected · ⛔ **and NO fixed statistic satisfies the corrected criterion** |
+| **H4** | train/inference geometry | **root cause**, scope **larger** than the BatchNorm channel, conditional-shape argument intact and now central |
+| **H2** | `weight_decay: 0.1` | live, premise damaged |
+| **H3** | resolution limit | live, untested |
+| **R1** | temperature scaling | ⛔ **strengthened a third time** — the only axis that acts on shape rather than scale |
+
+**W-26 stays as one ledger entry naming both seats**, per their request and because it is accurate: they wrote a non-exhaustive table, this seat attacked it for the opposite failure and approved it.
+
+⛔ **Nothing authorises Tier 3, and this amendment removes a candidate rather than adding one.**
