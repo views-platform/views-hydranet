@@ -852,3 +852,59 @@ The plan's primary question was *"is `weight_decay` the cause of the under-dispe
 ✅ **Now:** **four measurements that return values unconditionally, plus a derivation that puts the first error bar on a comparison three days of work has rested on.** The causal question is a note attached to that, with its uncertainty stated.
 
 ⚠️ **Unchanged and still true: no arm can be declared shippable** (F6) — no forecast stage means no `act_ratio`, no CRPS, no AP, so the firing-rate guardrail is unavailable.
+
+---
+
+# AMENDMENT 8 — ⛔ M1 has a validity condition, and the cells it depends on are the only ones with no guard. 2026-10-18.
+
+**Source:** the `views-models` seat, following this seat's byte-identity catch one step further and finding a worse gap in its own issue. ⛔ **Verified here and it is wider than either of us stated.**
+
+---
+
+## 1 — Every pair guard is keyed to `EXPERIMENT_ARMS`, so a replicate has NO pair guard of any kind
+
+`tests/test_roster_conformance.py` — all five pair guards are `@pytest.mark.parametrize("arm", sorted(EXPERIMENT_ARMS))`:
+
+```
+:765  the declared-contrast check
+:798  differs-from-its-control-only-on
+:880  byte-identity over ARM_IDENTICAL_FILES   <- the one they found
+:926  (pair guard)
+:949  (pair guard)
+```
+
+⛔ **So it is not "the byte-identity test misses replicates". It is that the entire pair-guard apparatus is keyed to `EXPERIMENT_ARMS`, and a model outside it is unguarded as a pair in every respect** — no genome check, no byte-identity, nothing.
+
+And `:883-890` states the hazard in its own words: `REGION = "land"` → `"africa_me_legacy"` *"trains it on 13,110 Africa/ME cells against a control trained on 64,818 global land cells, **makes the comparison meaningless, and leaves every test in the repository green**."*
+
+## 2 — ⛔ AND THE CONSEQUENCE FOR M1, WHICH IS WHY THIS MATTERS MORE THAN A HYGIENE GAP
+
+**The asymmetry is the point:**
+
+| | supposed to | guarded? |
+|---|---|---|
+| the two **arms** (`indigo`, `russet`) | **differ**, on `weight_decay` | ✅ yes — they are in `EXPERIMENT_ARMS` |
+| the three **replicates** (`silver`, `bronze`, `cobalt`) | be **identical** | ⛔ **no — nothing** |
+
+⛔ **The cells with no guard are precisely the cells M1 depends on.** `σ̂` is the spread of the three identical-config runs. **Any config divergence among them feeds straight into `σ̂` as variance.**
+
+⛔⛔ **And here is why no reading in this plan could catch it:** a divergence would **inflate** `σ̂`, which raises every threshold, which makes every effect fail to reach significance — **producing exactly the outcome already pre-registered as expected (W-2, inconclusive).** **A corrupted `σ̂` is indistinguishable from the honest expected result.** It does not look like a failure; it looks like a measurement.
+
+> ⛔ **So #569 is not pre-merge hygiene. It is the VALIDITY CONDITION for the epic's primary output**, and it must be applied to the three replicates with **more** care than to the two arms — the opposite of where the repository's guards point.
+
+## 3 — Locked: `σ̂` is never reported without its validity condition attached
+
+> ⛔ **M1's readout must carry a positive assertion that the three replicates are byte-identical to each other and to `amber_kestrel` across all six `ARM_IDENTICAL_FILES`, and identical in `CORE_GENOME` except `np_seed`/`torch_seed`.**
+> **`σ̂` quoted without that assertion is VOID** — not because it is wrong, but because nothing distinguishes training variance from config divergence once they are in the same number.
+
+**This is the same shape as `OUTCOME.md §3.5`'s standing rule** — *never rank on CRPS alone, read it with `act_ratio`* — applied to the primary endpoint of this experiment: **a number that cannot be read without its companion.**
+
+**New falsifier:**
+
+| | fires if | then |
+|---|---|---|
+| **F13** | `σ̂` is reported without the byte-identity and genome assertion for all three replicates | ⛔ **VOID the number.** Nothing separates training variance from config divergence |
+
+## 4 — What this does not change
+
+**Nothing about what runs.** Same five pods, same configs, same seeds, same allocation, same cost. ⛔ **This adds one assertion to a readout and one falsifier.** It is a check on M1, discovered in code, and it is the category the record says this seat is reliable in.
