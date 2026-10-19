@@ -1,77 +1,102 @@
 # What we have learned about evaluating HydraNets
 
-**Date:** 2026-09-30 · **Last revised 2026-10-20** · **Status:** consolidation report, **no new measurement by this session** (§0.2 and §5.0 carry tables measured 2026-09-30 by the `models` session, attributed there) ·
+**Date:** 2026-09-30 · **Last revised 2026-10-20** · **Status:** ⛔ **LIVING DOCUMENT — expected to carry open rows; not a verdict and not finished.** Consolidation only: **no new measurement by this document** (§0.2 and §5.0 carry tables measured 2026-09-30 by the `models` session, attributed there) ·
 **Supersedes as the living document:** `reports/2026-08-13_evaluation_pitfalls_and_metric_battery_DRAFT.md`
 (retained as dated provenance; its taxonomy letters A1–I4 are preserved here unrenumbered).
 
 ---
 
-## ⛔ Read this before you rely on anything below
+## What this document is for
 
-**This document has been through one clean-context adversarial review (2026-10-11) and it did not come
-out clean.** That review returned **17 findings**. Five were verified against primary sources and
-**fixed**, including ⛔ **the retraction of §0 item 1, the report's lead claim** — see Appendix C. **Ten
-were recorded and NOT investigated**, listed in Appendix C under *"Open findings"*. ⚠️ **5 + 10 = 15, and
-the accounting has never closed for the other two** — nor does it reconcile with Appendix C's separate
-*"seven independently verified"*. Unexplained, and left visible rather than quietly rounded.
+**A living starting point, not a verdict.** Its job was to stop eight months of evaluation knowledge
+being lost, and that is done. From here it is the base for three things, each of which should be worked
+on its **own branch, cut from this one**:
 
-> ✅ **UPDATE 2026-10-19 — six of those ten are now adjudicated.** The five checkable citation rows
-> (**1, 2, 4, 5, 9**) were each verified against the primary source: **all five were real defects and all
-> five are fixed in place.** ⛔ **Row 3 was REFUTED** — it attributed the figure to M8, the report cites
-> **M9** at four of its five sites, and the ledger's own floor-status table classes M9 under
-> *"survives"*. ⛔ **The stated basis is WRONG and the verdict is re-opened: `Appendix D.4` carries the
-> 13× figure with NO M-number, C-number or issue**, and D.4 is one of the five sites the finding named.
-> The ledger-status half may still hold; it has to be re-argued. Found by the 2026-10-19/20 audit.
-> **Four remain open (6, 7, 8, 10)**, and they are exactly the four the reviewer itself marked as reasoning
-> rather than citation mismatch.
+| | downstream use | where it starts |
+|---|---|---|
+| 📄 | **an academic paper** on evaluating high-resolution conflict forecasts from both point-estimate and sample-estimate models | **§8.3** (the diagnostic suite, as a proposal) and **Appendix E** (the literature, including where it contradicts us) |
+| 📐 | **new metrics** | **§5.8** (what is computed and read by nothing), **§8.3**, and `Appendix E.3`/`E.5.2` — three instruments the literature has that we built by hand, plus one usable score we are not using |
+| ⚖️ | **a new evaluation scheme** | **§8** (what our own scars demand of a promotion gate) and **§1** (the two regimes) |
 
-**What that means for a reader.** The §0 items, §1's amendments, §4's verdicts and §5's blind spots are
-the load-bearing parts and they have now been attacked once. ✅ **The remaining FOUR findings (2026-10-19)
-touch §0, §2.8, §4.1, §4.4 and §7** — §4.3, §5.0, §5.4 and §8.2 are cleared of open rows. ⚠️ **The 2026-10-11 reviewer audited no literature citation**, and §1's fourth amendment rests on
-citations rather than measurement. ⛔ **No longer true of the document as a whole:** `Appendix E.5`
-(2026-10-19) records the `library` session auditing **seven of the eight** sources this report had
-flagged as unexamined — **only `Lerch2017` remains unaudited**. Four of its seven drift warnings turned
-out to be **already caveated in the text**. ⚠️ That audit checked *meaning* against the papers' extracted
-claims; **nobody has opened a PDF to confirm a given sentence is supported at the page cited.**
+⛔ **Open questions are not blockers here.** This document is expected to carry unresolved items for
+weeks; naming them is the point. It is **not** definitive, it does **not** need to be finished before it
+is useful, and it merges with its open rows intact.
 
-> ⛔ **NEW 2026-10-19 — `Appendix E` brings ten newly-ingested papers against this report and TWO OF
-> THEM CONTRADICT IT.** A third was filed as a contradiction and is **DEMOTED** — the fault was mine
-> (E.1.1). ⚠️ *An earlier version of this sentence read "THREE OF TWO OF THEM", a mangled edit left when
-> the count was corrected from three to two. Found by the 2026-10-19/20 audit.* Nothing in §0–§8 has been edited on their strength; each collision is stated as
-> two positions and left standing, on Simon's rule that a challenge we lost is worth more than a citation
-> that agrees. The three: **`Raftery2005`** — ensemble spread *structurally* understates predictive
-> uncertainty, so our gate under-dispersion may be a property of ensembles rather than a defect of our
-> network — ⛔ **DEMOTED: that transfer FAILS for a Bernoulli gate (`Var = p(1−p)` has no free `σ²`), the
-> direction may even reverse, and I had matched two different quantities to one word. Reclassified a
-> complement, and `RESULTS.md §3` had already measured the real contact at ~8%**; **`Walz2024_PrecipitationTropicalAfrica`** — in *northern tropical Africa*, a deterministic
-> U-Net plus post-hoc isotonic calibration beat postprocessed ECMWF ensembles on occurrence *and* amount,
-> which questions whether our ensemble axis was worth eight members; **`Resin2026`** — for **binary**
-> outcomes, PIT calibration is **provably equivalent to auto-calibration**, the strongest notion there is,
-> and FAO-02 rejected PIT. Appendix E also records **two proven non-identifiability results** that bound
-> what §8.3's suite can ever do.
+---
+
+## How much weight each part carries
+
+**Everything below has been attacked.** One clean-context adversarial review (2026-10-11) and **fifteen
+independent falsification audits, one per section (2026-10-19/20)** — each auditor in a clean context,
+denied the author's reasoning, required to record a risky prediction before every probe.
+
+**Fourteen of fifteen sections came back FALSIFIED. None survived.** ~70 hard findings. ⛔ **And zero
+wrong measurements** — every ratio, percentage and verdict count any auditor recomputed reproduced
+exactly, one of them to **17 significant digits**.
+
+✅ **So the single most useful thing to know about this report:**
+
+> **The numbers are reliable. The sentences about what exists are not.**
 >
-> ⛔ **And it RETRACTS one of its own citations, same day (E.0.1).** The first version cited `Walz2026`
-> about **AP**. That paper is about **ROC-AUC** — **zero** occurrences of "precision", "prevalence" or
-> "imbalance" in 21,011 words — and its discretisation result concerns the **outcome's** ordinal levels,
-> not our **prediction's** sample quantisation. Wrong twice over, in the provenance class Appendix C exists
-> for, within an hour of writing the appendix that warns about it. ⚠️ **All ten sources also carry EMPTY
-> stored key passages**, so every locator rests on a PDF text layer re-read by hand. And the
-> grid-discretisation challenge turned out to be **partly answered** (E.2.3), correcting this appendix's
-> own first version — the live consequence being a **missing sensitivity analysis**: every headline number
-> in this report is defined against one arbitrary quadrat size.
+> Every defect found is a claim that something *is called*, *is never called*, *does not exist*, *is
+> classified as X*, or *that the record says X*. Three audits independently named it **cluster 21 —
+> *"prose with a self-dating expiry: true when written, named its own expiry condition, never re-read
+> when that event landed"*** — the class this document itself catalogues.
 
-> ⛔ **NEW 2026-10-20 — FIFTEEN INDEPENDENT FALSIFICATION AUDITS, ONE PER SECTION. FOURTEEN CAME BACK
-> FALSIFIED; NONE SURVIVED.** ~70 hard findings. ⛔ **And ZERO wrong measurements** — every number any
-> auditor recomputed reproduced exactly, one to 17 significant digits. **Every defect is a sentence
-> asserting what exists, what is called, or what the record says.** `Appendix F` carries the result, what
-> was fixed, and — at length — **what was NOT fixed.** ⚠️ **Read `Appendix F.3` before relying on
-> Appendices A, B, C or D, on §1's amendments, or on §2.3's instrument claims.** Nine of the ~70 findings
-> were mine, introduced the day before the audit; the auditors found all nine and I would not have.
+| part | weight it carries |
+|---|---|
+| **Measurements, ratios, tables, CSV-derived figures** | ✅ **Trust them.** Fifteen audits, nothing wrong. |
+| **§0 items, §4's verdicts, §5's blind spots, §7** | 🟡 **Attacked, corrected, usable** — read the dated correction blocks inline. |
+| **§1's amendments 2, 3 and 4** | ⛔ **Do not rely.** All three fail at the strength stated — `Appendix F.3`. Amendment 4 asks to lift a ban that does not exist. |
+| **§2.3's instrument claims** | ⛔ **Qualified.** The ARTIFACT verdict has ruled **once**, from a gitignored tool, on one archived board — not "repeatedly". |
+| **Appendices A, B, C, D** | ⛔ **Read `Appendix F.3` first.** A omits the scorer that made the headline table; B is missing ≥11 retractions including this report's own lead claim, and its "source harvest" pointer resolves to nothing; C's open-findings table still shows the pre-adjudication state; D covers 20 of 43 DRAFT entries while claiming "most". |
+| **Appendix E's blockquotes** | ⚠️ **Treat as paraphrase.** Nine quote the library's machine-extracted summaries, not the papers' prose (`E.0.3`). The conclusions hold; the wording is not the sources'. |
+| **Citations to `M66`–`M76`** | ⛔ **Not ledger rows.** The ledger's table rows stop at **M65**. The underlying measurements are sound; the citations are empty. |
+| **Any literature claim** | ⚠️ `Appendix E.5` audited **seven of eight** flagged sources — only `Lerch2017` is unexamined. But that was a **content** audit; **nobody has opened a PDF to confirm a given sentence is supported at the page cited.** |
 
-**This is a stopping point, not a finished document**, and it is marked as one deliberately. Its purpose
-was to stop eight months of evaluation knowledge being lost, and that purpose is served: the findings are
-written down, sourced, and the known-unreliable parts are named. ⛔ **It should not be the basis of a
-protocol change without the remaining open findings being closed first** — ⚠️ **four as of 2026-10-19, down from ten.**
+---
+
+## Where the next branch should be cut
+
+**Four findings from the 2026-10-11 review remain open** — rows **6, 7, 8 and 10** in `Appendix C`, and
+they are exactly the four that reviewer marked as *reasoning* rather than citation mismatch. ⚠️ Row 3's
+**REFUTED** verdict is **re-opened**: its stated basis (*"the report cites M9 at every site"*) is false —
+`Appendix D.4` carries the figure with no identifier at all.
+
+🔴 **And the audit left ~45 findings unfixed, listed in `Appendix F.3`.** The cheapest high-value items:
+
+- **Every absence claim needs a `grep` before it ships, and every count needs re-deriving.** That is the
+  whole remedy for ~70 findings, and it is mechanical.
+- ⛔ **A sensitivity analysis over cell size.** `Moller1998` (p. 452, endorsing Rathbun & Cressie 1994)
+  establishes that a cell-constant-intensity model **has no continuum limit**, so `size_ratio`,
+  `act_ratio`, zero-share and the ARTIFACT verdict are all defined against **one arbitrary quadrat
+  size**, and nothing here says how any of them behave at 0.25° or 1.0°. Cheap, and it bears on every
+  headline number.
+- **Wire a score that already exists.** `Appendix E.5.2` names a strictly consistent score for **cell
+  expectations** that needs only predicted and observed counts — it runs on a delivered cube.
+
+---
+
+## Audit history, in one place
+
+- **2026-10-11** — clean-context adversarial review: **17 findings**. Five fixed on receipt, including
+  ⛔ **the retraction of §0 item 1, this report's lead claim**. Ten recorded and not investigated.
+  ⚠️ 5 + 10 = 15, and **the accounting has never closed for the other two**, nor reconciled with
+  `Appendix C`'s separate *"seven independently verified"*. Left visible rather than rounded.
+- **2026-10-19** — six of the ten adjudicated: **five CONFIRMED and fixed**, one refuted (and that
+  refutation is now itself re-opened, above). Four remain open.
+- **2026-10-19** — `Appendix E`: ten newly-ingested papers brought against the report. **Two contradict
+  it** — `Walz2024_PrecipitationTropicalAfrica` (a deterministic U-Net plus post-hoc calibration beat
+  postprocessed ECMWF ensembles **in northern tropical Africa**, on occurrence *and* amount) and
+  `Resin2026` (for **binary** outcomes PIT calibration is provably equivalent to auto-calibration). A
+  third, `Raftery2005`, was filed as a contradiction and is **demoted** — the transfer fails for a
+  Bernoulli gate. Plus **two proven non-identifiability results** bounding what any marginal diagnostic
+  can do. ⛔ Nothing in §0–§8 was edited to agree with the literature; each collision is stated as two
+  positions and left standing.
+- **2026-10-19/20** — fifteen falsification audits. `Appendix F`.
+
+⚠️ **Nine of the ~70 findings were introduced by me on 2026-10-19, the day before the audit.** The
+auditors found all nine; I would not have. They are itemised in `Appendix F.2`.
 
 ---
 
