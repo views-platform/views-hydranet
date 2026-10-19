@@ -1,6 +1,13 @@
 # RESULTS — the gate under-dispersion programme, complete measurement record
 
 **Date:** 2026-10-18 · **Status:** Phase 1 complete. ⛔ **Nothing further runs until this document, `RND_PLAN.md` and the Phase-2 pre-registration exist** (Simon, 2026-10-18).
+
+> ⛔ **The axis is now CLOSED for measurement — see `CONCLUSION.md` (2026-10-19), which carries the
+> decision for every question in this record.** This file is the evidence; that file is the verdict.
+> The one open result (H2, `weight_decay`, views-models #571/#572) is a named blank there, and the
+> decision is the same under every outcome it can have. Phase 2 is **recommended not to run**, so the
+> Phase-2 pre-registration named in the status line above is superseded rather than written.
+
 **Executed by:** the `views-models` seat. **Recorded, verified and written by:** this seat (views-hydranet).
 **Plan:** `PREREG.md` (14 amendments) · **Evaluation report:** `../2026-10-16_pos_weight_arm_outcome/OUTCOME.md` rev 3
 **Scripts:** `results/` — `e1_sigma.py`, `e2_meanlogit.py`, `e6d_align.py`, `e6c_power.py`, `e6f_bn_reestimate.py`, `tier2_remedies.py`, plus `e6f_amber.log` and `tier2_copper.log`.
