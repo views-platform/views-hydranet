@@ -27,11 +27,13 @@ touch §0, §2.8, §4.1, §4.4 and §7** — §4.3, §5.0, §5.4 and §8.2 are c
 measurement.
 
 > ⛔ **NEW 2026-10-19 — `Appendix E` brings ten newly-ingested papers against this report and THREE OF
-> THEM CONTRADICT IT.** Nothing in §0–§8 has been edited on their strength; both positions are stated and
+> TWO OF THEM CONTRADICT IT — a third did not, and the fault was mine (E.1.1).** Nothing in §0–§8 has been edited on their strength; both positions are stated and
 > the collisions are left standing, on Simon's rule that a challenge we lost is worth more than a citation
 > that agrees. The three: **`Raftery2005`** — ensemble spread *structurally* understates predictive
 > uncertainty, so our gate under-dispersion may be a property of ensembles rather than a defect of our
-> network; **`Walz2024_PrecipitationTropicalAfrica`** — in *northern tropical Africa*, a deterministic
+> network — ⛔ **DEMOTED: that transfer FAILS for a Bernoulli gate (`Var = p(1−p)` has no free `σ²`), the
+> direction may even reverse, and I had matched two different quantities to one word. Reclassified a
+> complement, and `RESULTS.md §3` had already measured the real contact at ~8%**; **`Walz2024_PrecipitationTropicalAfrica`** — in *northern tropical Africa*, a deterministic
 > U-Net plus post-hoc isotonic calibration beat postprocessed ECMWF ensembles on occurrence *and* amount,
 > which questions whether our ensemble axis was worth eight members; **`Resin2026`** — for **binary**
 > outcomes, PIT calibration is **provably equivalent to auto-calibration**, the strongest notion there is,
@@ -2067,9 +2069,47 @@ outside this appendix.
 
 ---
 
-### E.1 ⛔ THREE PAPERS CONTRADICT US
+### E.1 ⛔ TWO PAPERS CONTRADICT US — and a third did not, by my error
 
-#### E.1.1 Our gate under-dispersion may be structural, not a defect — `Raftery2005_BayesianModelAveraging`
+⚠️ **This section was filed as three contradictions. E.1.1's gate half is DEMOTED** to a complement after
+the `library` session answered the transfer question I had flagged, and the fault was a category error of
+mine. **E.1.2 and E.1.3 stand. E.1.1's contradiction of our ensemble DESIGN also stands** — see the box.
+
+#### E.1.1 ⛔ DEMOTED 2026-10-19 — this was a CATEGORY ERROR of mine, not a contradiction
+
+> ⛔ **Read this box before the entry below it.** The entry was filed as the first of three
+> contradictions. **It is not a contradiction, and the fault is mine.** The `library` session was asked
+> whether Raftery's variance decomposition transfers to a Bernoulli gate — the step I had flagged
+> INFERENCE — and its answer, checked by derivation here, is **no**:
+>
+> - **The transfer fails on a constraint.** For a Bernoulli outcome `Var(Y|p) = p(1−p)` is a deterministic
+>   function of the mean. **There is no free within-forecast `σ²` to be missed**, so the mechanism
+>   Raftery's decomposition describes has no analogue. `Raftery2005` C-3548 specifies **normal component
+>   PDFs** explicitly, and **nothing in the 615-paper corpus treats underdispersion of an
+>   ensemble-derived PROBABILITY.**
+> - ⛔ **And the direction may reverse. DERIVED here:** a mixture of `Bernoulli(p_k)` over members **is
+>   exactly `Bernoulli(p̄)`** — any distribution on `{0,1}` is Bernoulli — so there is no extra dispersion
+>   to find. Further, by concavity `p̄(1−p̄) ≥ Σ w_k p_k(1−p_k)`, so the pooled forecast is if anything
+>   **MORE** dispersed than its average member: **the opposite of Raftery's direction.** ⚠️ This corrects
+>   the `library` session's phrasing too, which said the mixture *"is not Bernoulli"* — for a single
+>   binary outcome it is.
+> - ⛔ **The real error is that I matched two different quantities to one word.** Raftery's
+>   "underdispersive" is about the **predictive interval at one location being too narrow.** Our
+>   `b ≈ 1.19` is about the **slope of the calibration curve across cells** — the spread of predicted
+>   probabilities over units being too concentrated. **Same word, different object.**
+>
+> ✅ **What survives is a complement, and we already measured it.** Averaging in probability space does
+> pull predictions toward the middle, which is the one real point of contact — and `RESULTS.md §3`
+> measured that contribution at **~8%**. So the literature names a mechanism this programme had already
+> quantified and found minor. **`Raftery2005` does not contradict our gate finding.** It is reclassified
+> **COMPLEMENTS**, and the entry is kept rather than deleted because the record of the mis-match is worth
+> more than a clean appendix.
+>
+> ⚠️ **Only the gate half is demoted.** The paper's contradiction of our **ensemble design** (below) is
+> unaffected — that part is about pooling rules and matched draw counts, and does not depend on the
+> variance decomposition transferring.
+
+**The original entry, retained:** our gate under-dispersion may be structural, not a defect — `Raftery2005_BayesianModelAveraging`
 
 > **What we have.** The gate's logits are compressed: slope `b ≈ 1.1875` on the shipped model, measured six
 > ways, surviving ten rounds of two-seat review (`2026-10-18_gate_underdispersion_prereg/RESULTS.md §1`).
@@ -2346,7 +2386,91 @@ the literature's instrument and measured against it**, and the result is ours to
 
 ---
 
-### E.5 What this appendix does not do
+### E.5 ✅ The citation audit — and the report mostly survives it
+
+**2026-10-19.** The `library` session audited the seven sources this report's Appendix C names as
+**"unexamined by any reviewer"**. ⚠️ **It could not see the report text**, so it returned *conditional*
+drift risks — "if the report says X, note that the paper proves Y". **Those conditions were then checked
+against the text here.**
+
+⛔ **Result: four of the seven warnings were ALREADY CAVEATED IN THE REPORT, two of them in the library's
+own terms.** That is the finding. This document was more careful with its literature than its own
+Appendix C gives it credit for — because a `library` session had already been consulted once and the
+record says so (*"Supplied by the `library` session: Bolin2023 proves…"*).
+
+| source | the library's drift warning | state in this report |
+|---|---|---|
+| **`Gneiting2011_Comparing`** | multiplicative weighting makes a proper score **improper** (Thm 1); **threshold- and quantile-weighted CRPS are proper.** Different operations | ✅ **ALREADY THERE, twice, near-verbatim**: *"Be precise about which weighting — Gneiting2011 proves **multiplicatively** weighted scores improper, while **threshold-weighted and quantile-weighted CRPS are proper**"* |
+| **`Bolin2023`** | CRPS is not locally scale invariant; the mechanism is the scale function `σ^{α−2}·s(Q)`, not a plain variance bias. And **skill scores built on proper rules are in general improper** (C-97) | ✅ **ALREADY THERE, both halves**, with the scale function quoted exactly, and the skill-score caution applied to our own `CRPSS` |
+| **`Aceituno2025`** | theory derived for **feedforward MLPs only**; extension to RNNs discussed, not proved. And it proves a performance–**learnability trade-off** | ✅ **Scope caveat already present** (*"added 2026-09-30"*). ⚠️ **The trade-off half is NOT**: the landscape roughens exponentially, so long-horizon training is *harder to optimise*, not merely better. **New, and it qualifies §8's row 11.** |
+| **`Taillardat2023` / `Brehmer & Strokorb`** | C-1479 **PROVES** expected **weighted** CRPS cannot discriminate different extremal tail behaviours — so citing it *for* CRPS-variant tail evaluation inverts it | ✅ **ALREADY FLAGGED as an overreach** — *"its extracted claim is narrower than the sentence needs: it concerns the expected **weighted** CRPS, not proper-score expectations in general"* |
+| **`Ehm2016`** | clean; but the paper separates **quantile** and **expectile** theory, and C-1861's uniqueness result is about expectiles at `α > 1/2` | ✅ **Used precisely** — cited for elementary scoring functions distinguishing forecasters *pointwise* via Murphy diagrams, locating the barrier in the **expectation** |
+| **`Lakshminarayanan2017`** | ⛔ C-1475 **explicitly distinguishes deep ensembles (model combination) from BMA (soft model selection)**; deep ensembles beat BMA **under misspecification**. `M=5` is empirical, not theoretical | ⚠️ **The report is careful. `Appendix E` is NOT — see E.5.1.** |
+| **`Taillardat2023`, further** | the `T_u` index works **ONLY under calibration** (C-1484) — an uncalibrated extremist can beat the ideal on it | 🆕 **New.** Not in the report, and it is the shape of defect §4 catalogues |
+
+#### E.5.1 ⛔ A CONFLATION I INTRODUCED IN THIS APPENDIX
+
+`Lakshminarayanan2017` C-1475 **explicitly distinguishes deep ensembles from BMA.** ⛔ **`Appendix E.1.1`
+reads `Raftery2005`'s BMA results onto our 8-member random-initialisation ensemble**, which the report
+discusses under Deep Ensembles. **Treating the two as the same object contradicts both papers.**
+
+**What that does and does not cost.** `Raftery2005`'s *"re-emit the BMA PDF as an unweighted ensemble of
+any desired size"* remains a real answer to our matched-S scar, because it is a property of BMA's own
+construction and we would be *adopting* BMA, not describing our current pool. ⛔ **But the reading of
+M67's 0.96–0.99 error correlation as "a deficiency of the pooling rather than the ensemble" imports a BMA
+frame onto a deep ensemble, and the paper that governs deep ensembles says that is a different object.**
+Recorded as an open question, not resolved: **does the between/within variance framing apply to a deep
+ensemble at all?** Neither session has an answer and the corpus has none.
+
+#### E.5.2 ✅ THE CORRECTION THAT MATTERS MOST: there IS a score-time instrument, and we already cite its author
+
+⛔ **`Appendix E.2.1` states that "there is NO usable evaluation instrument for self-excitation in either
+paper." True of those two papers — and I generalised it too far.** The corpus has score-time instruments
+for exactly our situation, and they are in a paper this report **already cites, for something else**:
+
+- **`Brehmer2023_PointProcessForecasts`** (Brehmer **& Strokorb**) C-3567: the Poisson scoring function
+  `S = Σ(−φ(B_i)·log λ_i + λ_i)` is **strictly consistent for CELL EXPECTATIONS regardless of whether the
+  process is Poisson.** ⛔ **It needs only the predicted expected count per cell and the observed count —
+  no fitted intensity. It runs on a delivered cube.** ⚠️ **And note the inversion: this report cites
+  "Brehmer & Strokorb" for a tail-shape IMPOSSIBILITY, while the paper's constructive result — a
+  consistent score for our exact data shape — goes unused.**
+- **`Brehmer2026_EarthquakeForecastEvaluation`** C-3591–3594: **logarithmic Murphy diagrams** for
+  cell-level expected counts; **isotonic-regression reliability diagrams on expected counts with no
+  parametric assumptions**; and **Diebold–Mariano tests with lag-adjusted variance for temporal
+  dependence.** 🔴 **That last one bears directly on §5.6's two irreproducible bootstrap CIs and on the
+  origin-block dependence problem** — and it is the state of the art for what CSEP does.
+
+⛔ **What is still absent, and now confirmed against 615 papers.** Compensator- and residual-based
+goodness-of-fit (time-rescaling; `Reinhart2018` C-618–622 reviews them) **all require the fitted
+conditional intensity `λ*(t|H_t)`, not cell expectations.** A delivered cube gives marginal expected
+counts per cell-period; **the self-exciting temporal structure is integrated out and cannot be
+reconstructed from the cube.** ✅ So the E.2.1 conclusion survives *for self-excitation specifically*,
+and fails for **cell-expectation evaluation**, which is a different and achievable thing.
+
+#### E.5.3 The grid-discretisation argument: NOT in the corpus, searched properly
+
+The `library` session searched **all 615 papers** semantically and by grep — MAUP, ecological fallacy,
+change of support, aggregation bias, raster artefact, discretisation + zero. ⛔ **The argument is not
+held.** Nearest misses, each explicitly *not* making it: `Browning2024` C-1754 (spatial/temporal
+aggregation error framed as a tractability trade-off), `Courgeau2012` (ecological fallacy, for
+individual-vs-aggregate inference), and four zero-inflation papers (`Lambert1992`, `Wang2024`,
+`Kong2020`, `Xu2023`) that model zero inflation without tracing it to discretisation.
+
+**Named leads, not held:** **Gotway & Young (2002)** on change-of-support for spatial data, and
+**Diggle (2003/2013)** on point-process aggregation. ⇒ **This is a fetch, not a search.** Taken with
+`E.2.3`'s Møller finding, it is the one literature gap in this appendix with a concrete next action.
+
+#### E.5.4 ⚠️ What this audit still does not do
+
+It is a **content audit against the papers' extracted claims, not a locator audit of our text.** Nobody
+has opened a PDF and confirmed that a specific sentence in §1–§8 is supported at the page this report
+cites. ⛔ **Appendix C's warning is narrowed, not lifted:** the citations are now checked for *drift of
+meaning* and found largely sound; they are **still unchecked for provenance** — which is the failure class
+`E.0.1` demonstrated on my own work, same day.
+
+---
+
+### E.6 What this appendix does not do
 
 - ⛔ **It audits none of the report's pre-existing citations.** Bolin2023, Gneiting2011, Taillardat2023,
   Brehmer & Strokorb, Ehm2016, Aceituno2025, Lakshminarayanan2017 remain **unexamined by any reviewer**, and
