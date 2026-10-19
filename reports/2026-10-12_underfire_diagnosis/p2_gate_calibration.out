@@ -1,0 +1,39 @@
+vehicle: calibration_model_20261012_033112.pt  sha256 4acbf4d3c2b457b0…  (NOT the delivered weights — C-317)
+  lessons 300 · run_type calibration · git f99413e · trained 2026-10-12T01:24:58Z to 2026-10-12T04:25:10Z
+⚠️  REGION IS RECORDED AS ENFORCED, NOT MEASURED. PROVENANCE says 'land (enforced at check_config -- the run refuses any other)' — which records that pod_run_model.sh:279-282 refuses any other value, NOT a read-back of the grid the weights saw. Nothing in a .pt or its sidecar records the region, and the net is fully convolutional, so this remains weaker than a measurement. The four known africa artifacts are additionally denied by hash.
+sweeping 421-468 x 4 passes, collecting the gate on all 64818 land cells …
+  842,634 cell-months · observed positive rate 0.003448
+
+==========================================================================================
+P2 — GATE RELIABILITY on all land cells, 13 out-of-sample h=1 months
+==========================================================================================
+  weights 4acbf4d3c2b4… · posterior-mean gate over D=4 · shipped pos_weight 2.0
+
+  gate bin                n  mean gate observed p  s*(w=1)=p    s*(w=2)  w_implied
+  [0.00,0.01)          813744     0.0003     0.0002     0.0002     0.0003     1.7647
+  [0.01,0.05)           18149     0.0226     0.0169     0.0169     0.0332     1.3470
+  [0.05,0.10)            4157     0.0706     0.0683     0.0683     0.1279     1.0365
+  [0.10,0.20)            2825     0.1412     0.1473     0.1473     0.2567     0.9524
+  [0.20,0.30)            1197     0.2443     0.2389     0.2389     0.3857     1.0298
+  [0.30,0.40)             686     0.3460     0.3353     0.3353     0.5022     1.0491
+  [0.40,0.50)             447     0.4510     0.4653     0.4653     0.6351     0.9438
+  [0.50,0.60)             377     0.5461     0.5279     0.5279     0.6910     1.0762
+  [0.60,0.70)             313     0.6528     0.6965     0.6965     0.8211     0.8192
+  [0.70,0.80)             308     0.7510     0.7662     0.7662     0.8676     0.9201
+  [0.80,0.90)             269     0.8479     0.8439     0.8439     0.9153     1.0313
+  [0.90,1.01)             162     0.9380     0.9691     0.9691     0.9843     0.4815
+
+  BRANCH TEST over 5 bins with n>=1000 (tolerance = half-separation 0.0298)
+    median |gate - p|          0.0054   <- D2 (already calibrated, w_eff=1)
+    median |gate - 2p/(1+p)|   0.0573   <- D1 (at its loss optimum, w_eff=2)
+    median w_implied           1.0365
+    observed frequency monotone in the gate bin: True
+    resolution: observed p spans 0.000170 -> 0.238931 across bins
+
+==========================================================================================
+  VERDICT: D2
+  => the arm's loss_class_pos_weight = 2.0000   (shipped 2.0)
+==========================================================================================
+
+wrote p2_result.npz
+

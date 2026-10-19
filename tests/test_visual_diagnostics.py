@@ -134,7 +134,15 @@ def test_vd_inactive_biopsy_training_performance_no_file(tmp_path, monkeypatch):
     """
     monkeypatch.chdir(tmp_path)
     vd = VisualDiagnostics(INACTIVE_CFG)
-    vd.biopsy_training_performance(_arr(), _arr(fill=0.5), _arr(), _arr(fill=0.3), "test")
+    vd.biopsy_training_performance(
+        _arr(),
+        _arr(fill=0.5),
+        _arr(),
+        _arr(fill=0.3),
+        "test",
+        y_hat_forecast=_arr(fill=0.15),
+        forecast_label="FORECAST",
+    )
     assert list(tmp_path.rglob("*.png")) == [], (
         "Inactive biopsy_training_performance must not write any PNG files."
     )
@@ -284,6 +292,8 @@ def test_vd_biopsy_training_performance_saves_png(vd_active, tmp_path):
         _arr(fill=1.0),
         _arr(fill=0.3),
         "training_perf_stage",
+        y_hat_forecast=_arr(fill=0.15),
+        forecast_label="FORECAST",
         time_indices=list(range(400, 406)),
     )
     pngs = list(tmp_path.rglob("*.png"))
@@ -743,7 +753,9 @@ def test_vd_biopsy_training_performance_logs_error_with_traceback(vd_active, cap
     import logging
 
     with caplog.at_level(logging.ERROR):
-        vd_active.biopsy_training_performance(None, None, None, None, "broken")
+        vd_active.biopsy_training_performance(
+            None, None, None, None, "broken", y_hat_forecast=None, forecast_label="FORECAST"
+        )
     errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
     assert errors, "biopsy_training_performance must log ERROR on failure"
     assert any(r.exc_info is not None and r.exc_info[0] is not None for r in errors)

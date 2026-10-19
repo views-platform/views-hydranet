@@ -1,0 +1,53 @@
+vehicle: calibration_model_20261012_033112.pt  sha256 4acbf4d3c2b457b0…  (NOT the delivered weights — C-317)
+  lessons 300 · run_type calibration · git f99413e · trained 2026-10-12T01:24:58Z to 2026-10-12T04:25:10Z
+⚠️  REGION IS RECORDED AS ENFORCED, NOT MEASURED. PROVENANCE says 'land (enforced at check_config -- the run refuses any other)' — which records that pod_run_model.sh:279-282 refuses any other value, NOT a read-back of the grid the weights saw. Nothing in a .pt or its sidecar records the region, and the net is fully convolutional, so this remains weaker than a measurement. The four known africa artifacts are additionally denied by hash.
+reading the archive's own h=1 draws …
+  13 origins, h1 months 457-469, 16 draws/cell
+
+sweeping lead-in 121-468 (348 steps x 5 passes) …
+
+sweeping lead-in 421-468 (48 steps x 5 passes) …
+
+======================================================================================
+P1 — MATCHED h=1: reconstruction vs the archive's own draws
+======================================================================================
+  statistic: MEDIAN over 100 cells of the per-cell positive-draw fraction
+  weights 4acbf4d3… (archive and vehicle are the SAME artifact) · tau 0.20 · S=16
+
+  PER ORIGIN (median per-cell positive fraction)
+  origin  month   observed   ARCHIVE  recon(121)  recon(421)
+  0       457       0.6800    0.3750      0.4375      0.4375
+  1       458       0.6100    0.3750      0.3750      0.3750
+  2       459       0.5700    0.3750      0.4375      0.3750
+  3       460       0.7200    0.3750      0.4375      0.4062
+  4       461       0.7000    0.4062      0.4062      0.4375
+  5       462       0.6500    0.3750      0.4375      0.3750
+  6       463       0.6300    0.3750      0.3750      0.4375
+  7       464       0.6300    0.3750      0.3750      0.3750
+  8       465       0.6500    0.4375      0.4375      0.3750
+  9       466       0.6100    0.3750      0.4688      0.4375
+  10      467       0.6600    0.4062      0.4375      0.3750
+  11      468       0.6100    0.3750      0.4375      0.4375
+  12      469       0.6500    0.4375      0.3750      0.3750
+
+  POOLED over the 13 h=1 slices
+  observed truth (13 months)         0.6438
+  ARCHIVE, emitted draws             0.3750   <- ground truth, read from the archive
+  lead-in 121:
+    rung A0 dropout OFF, analytic    0.4585
+    rung B  D=4 dropout, analytic    0.4173
+    rung C  D=4, 16 realised draws   0.4279   residue vs archive -0.0529
+  lead-in 421:
+    rung A0 dropout OFF, analytic    0.4191
+    rung B  D=4 dropout, analytic    0.3856
+    rung C  D=4, 16 realised draws   0.3870   residue vs archive -0.0120
+
+  SECOND COLUMN, NOT COMPARABLE TO THE ABOVE — pooled mean positive fraction
+    archive 0.3791
+    reconstruction, lead-in 121  0.3909
+    reconstruction, lead-in 421  0.3825
+
+  REFERENCE, in-sample 421-455 (P0): rung C 0.4290 pooled / 0.4259 median-over-cells
+
+wrote p1_result.npz
+

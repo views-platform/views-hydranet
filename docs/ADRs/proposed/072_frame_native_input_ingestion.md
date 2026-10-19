@@ -378,3 +378,110 @@ views_hydranet/ingestion/
 **Local dossiers / register:** `reports/2026-07-28_datafactory_migration_dossier` (P4), `reports/io_format_landscape.md`
 (target-state), register **C-173/C-174** (out-of-scope column-name-as-role coupling), **C-21** (why index rows
 are not unique by default).
+
+---
+
+## Amendment 1 — 2026-10-19 — seven findings from re-verifying this ADR against the code
+
+Status unchanged: **Proposed.** Nothing below relaxes the parity gate; three items tighten it and one
+removes a false negative that would have stopped the program for the wrong reason. Full working, with
+`file:line` for every claim, in `reports/2026-08-13_frame_native_input_dossier/03_harness.md §1`.
+
+**What survived re-verification.** The three facts of §3 hold. The §5 line numbers (`:236`, `:322-325`,
+`:339-340`) still resolve. §7's uniqueness obligation — *"a real design obligation, not a free lunch"* —
+was correct and is the item the companion dossier got wrong, not this ADR. §7's Beige rule (a NaN must
+raise a named exception) is correct and is now also the *difference from today* (A1.5).
+
+### A1.1 — §4.2 Inbound: hydranet calls neither API. The upstream half is already shipped.
+`ViewsDataLoader.get_feature_frame` is the **manager's** call, not the engine's. views-hydranet has no
+loader; `DataFetcher.fetch_df` reads a pre-baked artifact off disk (`data_fetcher.py:60`). views-pipeline-core
+#290 already ships everything upstream of us:
+
+| piece | location |
+|---|---|
+| `data_format: feature_frame` declaration, failing loud on a typo | `datafactory_contract.py:33-49` |
+| the dispatch to the frame fetch | `managers/model/model.py:1269-1277` |
+| the cache directory handed **to engine subclasses** | `model.py:1010-1024` `_get_cached_frame_path()` |
+| the loader for it, raising on torn write / empty frame / layout mismatch | `frame_cache.py:141-160` |
+
+**Amended Inbound row:** `read_dataframe(parquet)` → `load_frame_cache(self._get_cached_frame_path())`.
+A **like-for-like disk read**, not a cross-repo integration. The one prerequisite is a single key —
+`"data_format": "feature_frame"` — on the target model's queryset descriptor in views-models.
+
+### A1.2 — §3 fact 3 / §4.2 Transform: the derivation parity is a regression test, not a migration test.
+`channel_map` is `[time_col, id_col] + identity_cols + features + static_channels`
+(`volume_handler.py:165-171`). The `by_*` columns `apply_blueprint` writes are in **none** of those lists,
+so they never enter the tensor; `_execute_derivations` (`volume_handler.py:103`) is already the only
+derivation path feeding the volume. **`apply_blueprint` is deleted from the input path, not ported**; its
+one live consumer is `HydranetManager.prepare_actuals_df` (`hydranet_manager.py:199`), the actuals seam.
+`test_derivation_parity` stays green as a regression guard on a path that is already the only one in use.
+
+### A1.3 — §4.1 / §5 step 1: `row` and `col` do not exist in a `FeatureFrame`, and are needed twice. ⛔
+§4.1's worked example takes "row 150, column 400" as given and §5 step 1 says the coordinates "come from
+`ff.index`". Neither datafactory adapter supplies `row`/`col` — `grid_to_dataframe` returns a
+`(month_id, priogrid_id)` MultiIndex plus feature columns only (`grid_to_dataframe.py:84-90`) — and the
+frame path refuses to derive them **by contract**: *"no `row`/`col` derivation — grid geometry is engine
+domain; engines derive from the canonical `priogrid_id` unit ids when they need it"*
+(`feature_frame_path.py:17-19`). They exist today only because pipeline-core adds them on the **pandas**
+path (`dataloaders.py:537-542`, `_PRIOGRID_NCOL = 720`).
+
+We are that engine. And they are needed **twice**: as the scatter indices `r_idx`/`c_idx`, *and* as channel
+values, because `identity_cols` lists them (`amber_kestrel/configs/config_hyperparameters.py:81`) so they
+occupy two channels of the volume.
+
+**Added to §4.2 Assemble:** one new function, `views_hydranet/utils/grid_geometry.py::row_col_from_priogrid`
+— `row = (pgid-1)//720 + 1`, `col = (pgid-1)%720 + 1` — with `dataloaders.py:537-542` as an exact oracle
+and `row_offset/col_offset: 1` already consistent with it (the config documents this at `:88-91`). **This
+is the only genuinely new code in the ADR.** Everything else is re-sourcing.
+
+### A1.4 — §8: the exacting-parity risk has a specific mechanism, and the gate needs a stated precision policy. ⛔
+§8 warns that "a pandas reduction and a numpy reduction can differ in the last floating-point bit"
+(`:264-265`). The mechanism that will actually bite is different and is **dtype**, not reduction order:
+
+| step | pandas path | frame-native path as §5 describes it |
+|---|---|---|
+| delivered dtype | `ensure_float64(df)` — **float64** (`dataloaders.py:577`) | **float32** by `FeatureFrame` contract (`_validation.py:101`) |
+| scaling | `np.log1p` on a float64 Series (`feature_scaler.py:121`, `config_initializer.py:19`) | `np.log1p` on float32 values |
+| volume write | downcast at the scatter (`volume_handler.py:236`) | already float32 |
+
+`float32(log1p_f64(x)) ≠ log1p_f32(float32(x))` in the last bit for some `x`, so **the §7 gate fails and
+§8's "never widen the tolerance" rule correctly forbids the only escape** — a STOP with the wrong diagnosis
+attached.
+
+**Added to §7 as a structural invariant:** the frame-native path **upcasts feature values to float64 before
+the scaling transform and performs its only downcast at the volume scatter-write**, mirroring the pandas
+path step for step. This is a specification of what "identical inputs" means, committed in advance — not a
+tolerance. **It is also the only pre-approved reconciliation**: any other (reordering a reduction, changing
+a dtype elsewhere, altering the scaler's semantics) leaves the gate failed.
+
+**New precondition, a pre-committed STOP:** if values are float64 at the zarr boundary and the
+`FeatureFrame` coerces them to float32 before we receive them, information is lost upstream of us and
+bit-identity is structurally unreachable. Measure before capturing the parity anchor.
+
+### A1.5 — §7 Beige is right; state the behaviour change it implies.
+The pandas path fills NaN with 0.0 and logs the count (`dataloaders.py:561-574`); the frame path refuses to,
+by contract (`feature_frame_path.py:20-22`), and `FeatureScaler` already rejects NaN loudly
+(`feature_scaler.py:49-75`). So the frame-native path goes **loud where the current path went quiet**. That
+is the intended behaviour and this ADR asks for it — but it is a change, and it belongs in §8's consequences.
+**Read the logged fill count on the anchor partition before the gate.** Zero ⇒ the paths agree. Non-zero ⇒
+the migration has surfaced a pre-existing coverage hole; record it, do not fill it to pass the gate.
+
+### A1.6 — §6 scope: two facts that narrow it.
+- **The three viewser models cannot be migrated by this ADR at all.** `fetch_feature_frame` refuses a
+  non-frame-capable source outright (`feature_frame_path.py:165-171`). `pink_pirate`, `blue_stranger` and
+  `purple_alien` are excluded by a source gate, not deferred by choice.
+- **§5's "one genuinely pandas-idiomatic line" does not execute on any shipped config.** Every model config
+  in the fleet declares `static_channels: []`, so the `groupby` guard at `volume_handler.py:312` is dead
+  code today. Port it for correctness; it is not on the parity critical path.
+
+### A1.7 — ⚠️ Three citations in this ADR no longer resolve. Re-pin before review.
+| cited | actual (2026-10-19) |
+|---|---|
+| `dataloaders.py:1112` (§3 fact 2, §4.2, §10) | **past the end of a 1010-line file**; `get_feature_frame` is at `:960` |
+| `index.py:231-240` (`has_unique_rows`, §7, §10) | `:245-254` |
+| `index.py:28-37` (uniqueness stance, §10) | `:25-38` |
+| `_validation.py:45-49` (completeness rule) | ✅ still correct |
+
+The content of every one of those claims still holds; only the anchors moved. A plan a reviewer cannot
+check by following its own citations is not reviewable — and a dependency-floor test
+(`views-datafactory/tests/test_views_frames_floor.py` is the house template) is what stops this recurring.
