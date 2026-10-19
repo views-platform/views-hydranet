@@ -223,6 +223,24 @@ that holds only for **independently parameterised** parts, and our shared trunk 
 | **lesson** | one training iteration over `windows_per_lesson` windows; `total_lessons` sets both the number of gradient steps **and** the denominator of the curriculum cooling slope (`curriculum.py:85`), so changing it stretches the difficulty schedule rather than truncating it. The LR schedule is *not* rescaled — it is stepped per lesson on a fixed inverse-sqrt law, so a longer run is a strict prefix-extension in LR. | epoch, curriculum step |
 | **calibrated** | honest — a "10% chance" happens ~10% of the time (gate), or guesses are right-sized (body) | — |
 
+## 5b. How a gate is MIScalibrated (two separate defects — LOCKED 2026-10-18)
+
+`calibrated` (§5) is one word for a gate being honest. It being *dis*honest has **two independent
+axes**, and the whole `pos_weight` programme was spent discovering that we had no words for them.
+Fit `logit(observed rate) = a + b·logit(gate)` over gate bins. An honest gate gives `a = 0, b = 1`.
+
+| locked name | meaning | banned aliases |
+|---|---|---|
+| **the calibration level** (`a`) | **Whether the gate is too high or too low overall.** The intercept of that fit. A pure level error shifts every probability the same amount in logit space and leaves the *ordering* untouched. ⛔ **This is the ONLY axis `pos_weight` can move**, and it moves it by exactly `log(w)`: at the weighted-BCE optimum `logit(s*) = log(w) + logit(p)`, derived, not approximate. | bias, offset, miscalibration (bare) |
+| **the calibration slope** (`b`) | **Whether the gate's probabilities are spread too narrowly or too widely.** The slope of that fit. `b > 1` means truth moves faster than the gate does. ⛔ **`pos_weight` cannot move this at any value** — it has no slope degree of freedom. ⚠️ Measured `b` is a **lower bound** on the true compression: fitting on a noisy, binned predictor attenuates the slope toward 1. | calibration curve, reliability slope, dispersion |
+| **under-dispersed** | **The gate's probabilities are squashed toward the middle: too high where risk is low, too low where risk is high.** `b > 1`. Measured on both kestrels — control `1.146/1.177/1.139`, arm `1.419/1.251/1.456`, `b > 1` in all six fits (2026-10-16 OUTCOME §2). ⛔ **This is a SLOPE defect and is NOT a bias** — the signed error crosses zero (control, at gate ≈ 0.30), so any statistic that takes the absolute value is structurally blind to it. That is what hid it for two readings. ⛔ **Not "the gate is miscalibrated"** — that sentence is true of both axes and names neither. | squashed, compressed, over-regularised gate, timid gate (⛔ **timid** is §5 and is about the BODY) |
+| **over-dispersed** | The mirror: `b < 1`, probabilities too extreme. Not observed on this platform; named so the pair is sayable and so a remedy that overshoots can be reported in one word. | over-confident |
+| **temperature scaling** | **The one-parameter fix that moves the slope**: report `sigmoid(logit / T)` with a single fitted `T`. Strictly monotone, so it leaves **AP exactly unchanged** — AP depends on the gate only through ranks. Seconds on CPU, no retrain. ⚠️ Fitting and evaluating it on the same data is how a recalibration gets a free pass; cross-validate by origin. | temp scaling, Platt (⛔ **Platt/vector scaling** is the TWO-parameter version, `a + b·logit`, and is a different remedy) |
+
+⚠️ **Both axes are properties of a REPORTED number, not only of the weights.** The gate we measure is
+`mean(sigmoid(logit))` over `D = 4` locked-dropout draws, so anything between the head and that mean
+is in scope — see [[project_gate_underdispersion_candidates]].
+
 ## 6. The models we've actually run (described by their choices — codenames RETIRED)
 I will describe models by their §2/§3 choices, not by codenames. The codenames below are retired; they map to:
 
