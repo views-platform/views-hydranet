@@ -185,6 +185,26 @@ def _batchnorm_eval(model: nn.Module):
             m.train()
 
 
+def _merge_fed_max(current: float | None, window_values: list[float] | None) -> float | None:
+    """Fold one window's feedback-gradient norms into the lesson's running max.
+
+    ``None`` means NOT MEASURED and is distinct from ``0.0``, which means measured-and-zero. The
+    distinction is the whole point: the feedback wire is off on every roster config
+    (``ss_backprop_through_feedback`` defaults False), so the sink stays empty, and the old
+    ``0.0`` initialiser wrote a number indistinguishable from a wire that was on with a dead
+    gradient. Four validator docstrings in `config_initializer` name that exact misreading.
+
+    Extracted for one reason: both directions are then testable without driving a scheduled-
+    sampling family run through `training_loop`, and the case that matters most —
+    ``_merge_fed_max(None, [0.0]) == 0.0``, a genuine measured zero which must NOT be blanked —
+    is otherwise unreachable from any test in the suite.
+    """
+    if not window_values:
+        return current
+    window_max = max(window_values)
+    return window_max if current is None else max(current, window_max)
+
+
 #: The fixed leading columns of the trajectory CSV. The per-task columns follow.
 _TRAJECTORY_BASE_COLUMNS = [
     "lesson",
@@ -1085,6 +1105,9 @@ def train(
     # 5. STAGE 5 DIAGNOSTIC
     acc_y_reg: list[np.ndarray] = []
     acc_yh_reg: list[np.ndarray] = []
+    acc_yh_fc: list[np.ndarray] = []
+    # Set in the biopsy loop beside acc_yh_fc; initialised here so a reorder cannot NameError.
+    _biopsy_fc_label = "FORECAST"
     acc_y_cls: list[np.ndarray] = []
     acc_yh_cls: list[np.ndarray] = []
     acc_months = []
@@ -1201,6 +1224,37 @@ def train(
                     if _fam is not None:
                         _yh_reg = _family_target_log1p_mean(t1_pred, _fam)  # [B, n_reg, H, W]
                     acc_yh_reg.append(_yh_reg[0].permute(1, 2, 0).cpu().numpy())
+                    # ⛔ THE FORECAST ROW IS COMPOSED HERE, with the same helper the straight-
+                    # through surrogate uses and deployment mirrors
+                    # (`hydranet_inference._emit_magnitude`): log1p(compose_mean(E[Y], gate)).
+                    # `biopsy_training_performance` used to form `gate × body` itself from the
+                    # ALREADY-log1p body, and `gate · log1p(μ)` is not `log1p(gate · μ)` — they
+                    # agree only where the gate is 1. Its docstring called that "the ACTUAL
+                    # scored forecast", which is the C-303 shape, and it broke the standing
+                    # instruction that a plot shows the actual forecast and never a misleading
+                    # composition.
+                    if _fam is not None:
+                        _yh_fc = _family_composed_mean_log1p(
+                            t1_pred,
+                            _fam,
+                            torch.sigmoid(t1_pred_class),
+                            config.get("forecast_composition", "self_zeroed"),
+                            config.get("gate_threshold"),
+                        )
+                        _biopsy_fc_label = (
+                            "FORECAST (self-zeroed E[y])"
+                            if _fam.self_zeroed
+                            else "FORECAST log1p(compose(E[y], gate))"
+                        )
+                    else:
+                        # Legacy point heads are retired by the scope lock and `_emit_magnitude`
+                        # composes NOTHING for them ("identity — reg is already the log1p-space
+                        # point prediction"), so there is no deployment rule to mirror. Keep the
+                        # historical gate×body and SAY that is what it is, rather than inventing
+                        # a composition for a path nobody runs.
+                        _yh_fc = torch.sigmoid(t1_pred_class) * _yh_reg
+                        _biopsy_fc_label = "FORECAST (legacy gate·log1p body)"
+                    acc_yh_fc.append(_yh_fc[0].permute(1, 2, 0).cpu().numpy())
                     acc_y_cls.append(y_cls[0].permute(1, 2, 0).cpu().numpy())
                     acc_yh_cls.append(
                         torch.sigmoid(t1_pred_class[0]).permute(1, 2, 0).cpu().numpy()
@@ -1213,15 +1267,15 @@ def train(
         if acc_y_reg:
             # self-zeroed families (zinb) forecast the self-zeroed body directly (no ×gate); NB
             # (and legacy) forecast gate × body. Tell the biopsy which, so its forecast is honest.
-            _bfam = resolve_family(config.get("output_distribution", "standard"))
             viz.biopsy_training_performance(
                 np.stack(acc_y_reg),
                 np.stack(acc_yh_reg),
                 np.stack(acc_y_cls),
                 np.stack(acc_yh_cls),
                 stage_label,
+                y_hat_forecast=np.stack(acc_yh_fc),
+                forecast_label=_biopsy_fc_label,
                 time_indices=acc_months,
-                self_zeroed=bool(_bfam is not None and _bfam.self_zeroed),
             )
 
     # log each sequence/timeline/batch
@@ -1422,7 +1476,18 @@ def training_loop(
     # losses → CSV. config.trajectory_log_path=None (default) ⇒ no hooks, no file, byte-unchanged.
     _traj_path = config.get("trajectory_log_path")
     _traj_file = _traj_writer = None
-    _traj_acc = {"gate_sum": 0.0, "gate_n": 0, "fed_max": 0.0}
+    # ⛔ `fed_max` starts at None, NOT 0.0. It measures gradient through the autoregressive
+    # feedback wire, which `_attach_feedback_grad_clip` only ever feeds when
+    # `ss_backprop_through_feedback` is True — and that defaults False
+    # (`config_initializer.py:266`) and is set by no roster config. A 0.0 initialiser therefore
+    # wrote a real-looking zero on every production run, making "the wire is off" and "the wire
+    # is on and the gradient died" the same three characters in the CSV. This repo's own
+    # validator docstrings say so four times — "fed_grad_max logs a constant 0.0 that reads as a
+    # healthy gradient" — and two validators exist to block the two DANGEROUS configurations
+    # while the ordinary one, which is every run we ship, kept emitting it. None ⇒ blank cell
+    # ⇒ `read_csv` gives NaN ⇒ "not measured", which is the truth. Matches the per-task columns,
+    # which already blank rather than zero when a value is unavailable.
+    _traj_acc: dict = {"gate_sum": 0.0, "gate_n": 0, "fed_max": None}
     _traj_task_cols: list[str] = []
     if _traj_path:
         import csv as _csv
@@ -1586,8 +1651,7 @@ def training_loop(
                     # The hooks fire DURING backward, so the sink is only populated here. Max, not
                     # mean: one step's blow-up is what overflows float32, and a mean over ~383
                     # steps would bury it.
-                    if _fed_sink:
-                        _traj_acc["fed_max"] = max(_traj_acc["fed_max"], max(_fed_sink))
+                    _traj_acc["fed_max"] = _merge_fed_max(_traj_acc["fed_max"], _fed_sink)
                 if _fed_sink is not None:
                     _fed_sink.clear()
 
@@ -1671,14 +1735,14 @@ def training_loop(
                             lesson_reg / config["windows_per_lesson"],
                             lesson_cls / config["windows_per_lesson"],
                             _gm,
-                            _traj_acc["fed_max"],
+                            "" if _traj_acc["fed_max"] is None else _traj_acc["fed_max"],
                         ]
                         + _pt_row
                     )
                     _traj_file.flush()
                     _traj_acc["gate_sum"] = 0.0
                     _traj_acc["gate_n"] = 0
-                    _traj_acc["fed_max"] = 0.0
+                    _traj_acc["fed_max"] = None
 
                 # Gradient Clipping. C-314: the threshold used to be the literal 1.0 while the
                 # only config field was the on/off bool, so it could not be tuned from a config at
