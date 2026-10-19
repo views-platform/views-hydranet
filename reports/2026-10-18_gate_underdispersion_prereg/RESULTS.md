@@ -5,8 +5,9 @@
 > ⛔ **The axis is now CLOSED for measurement — see `CONCLUSION.md` (2026-10-19), which carries the
 > decision for every question in this record.** This file is the evidence; that file is the verdict.
 > The one open result (H2, `weight_decay`, views-models #571/#572) is a named blank there, and the
-> decision is the same under every outcome it can have. Phase 2 is **recommended not to run**, so the
-> Phase-2 pre-registration named in the status line above is superseded rather than written.
+> decision is the same under every outcome it can have. ⚠️ The Phase-2 pre-registration named in the
+> status line above **exists and is complete** — `../2026-10-18_gate_phase2_prereg.md`, 513 lines, three
+> upheld amendments. So all three conditions of Simon's 2026-10-18 gate are met.
 
 **Executed by:** the `views-models` seat. **Recorded, verified and written by:** this seat (views-hydranet).
 **Plan:** `PREREG.md` (14 amendments) · **Evaluation report:** `../2026-10-16_pos_weight_arm_outcome/OUTCOME.md` rev 3

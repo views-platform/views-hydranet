@@ -51,7 +51,10 @@ Row 11 is the only open question, and the next action is the same under every ou
 | `weight_decay` is **not** the cause | H2 joins H3 as unestablished | **the body** — no remaining gate hypothesis is both live and testable |
 | the arms are **inconclusive** (run-to-run variance) | n=1 at 300 lessons cannot resolve the ~0.019 seed sd | **the body** — and that is a C-307 inconclusive, not a negative |
 
-⛔ **There is no outcome under which the gate axis reopens.** The defect is recorded, the one fix is banked,
+⛔ **There is no outcome under which the gate axis reopens** — **including Phase 2's.** Phase 2 measures
+whether the defect exists on the served models; it cannot produce a fix, because R1 is banked and
+unapplicable (row 5) and no other remedy survived. It closes a **gap in the record**, not a decision.
+The defect is recorded, the one fix is banked,
 `pos_weight` is closed by algebra, the BN axis has no correct point, and the only untested hypotheses are
 either untestable as posed (H3) or training-side (the root cause). **That is what closes the axis, and it
 is why the conclusion could be written before the result arrived.**
@@ -76,7 +79,8 @@ is why the conclusion could be written before the result arrived.**
 | | item | owner | decision |
 |---|---|---|---|
 | 🔴 | 3 governance issues + 1 ledger correction (RND_PLAN §7) | **Simon** — eligibility is governance | **Open them.** Until then no fix can be called an improvement |
-| 🟡 | Phase 2 survey | this seat | ⛔ **Recommend NOT running it.** File the unidentifiable-serving-weights issue instead |
+| 🟡 | **Phase 2 — the survey of the eight served models** (`../2026-10-18_gate_phase2_prereg.md`, complete, 3 upheld amendments) | this seat | **RUN IT, after the body starts — it does not compete with the body.** ⛔ **This reverses my earlier "recommend not running", and the prereg's own A1 is what reversed it:** the gate posterior is already **on disk for all eight at all 36 horizons** (verified, `(471960, 16)` float32), so Phase 2 is **array reads, not forward passes**. It closes the §10 gap that *no gate-calibration number exists for any served model*, and A1's bounded addition — `b` at h=1 **and** h=36, pre-registered as `b(h=36) ≥ b(h=1)` on every model — is a **genuine blind test**, the only horizon-resolved gate calibration that would exist anywhere. ⚠️ I state **no cost figure**: A1 shows both seats were wrong about this one in opposite directions, and the standing rule forbids a figure I have not measured |
+| 🟡 | The unidentifiable-serving-weights issue | this seat | **File it.** Independent of Phase 2, not a substitute for it |
 | 🟡 | 13 issues in `OUTCOME.md §9`, 3 in `RND_PLAN §7` | this seat | **Unopened.** Open on Simon's go; several are in production code |
 | ⚠️ | `act_ratio` has **no pre-registered numeric band** | this seat | **Recorded as a gap.** Row 7's verdict is directional, not against a committed threshold |
 | ⚠️ | Validated at **h=1 only**; the delivery is 36 months | — | **#558 / C-161.** Nothing here extends past h=1 |
