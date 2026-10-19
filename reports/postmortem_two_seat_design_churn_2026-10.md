@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Date** | 2026-10-18 · ⚠️ **DRAFT. Not final.** The experiment it concerns has not run. |
-| **Span** | One working session, ~5.5 hours, views-hydranet + views-models seats in continuous exchange |
-| **Companion to** | `2026-10-16_pos_weight_arm_outcome/OUTCOME.md` rev 3 · `2026-10-18_gate_underdispersion_prereg/` · `2026-10-18_weight_decay_arms_prereg.md` (9 amendments) · ledger **W-25 … W-29**, results **M77 … M84** · views-models epic **#565** |
+| **Date** | 2026-10-18, extended **2026-10-19** · ⚠️ **DRAFT. Not final.** The experiment it concerns has not run. |
+| **Span** | One working session, ~5.5 hours, views-hydranet + views-models seats in continuous exchange · **plus a second day of pre-flight work (Amendments 10–13), added below as §3b, §4.6, and the §7/§8 revisions** |
+| **Companion to** | `2026-10-16_pos_weight_arm_outcome/OUTCOME.md` rev 3 · `2026-10-18_gate_underdispersion_prereg/` · `2026-10-18_weight_decay_arms_prereg.md` (**13** amendments) · ledger **W-25 … W-29**, results **M77 … M84** · views-models epic **#565** |
 | **Status** | **PROCESS post-mortem.** The science is in the documents and stands. This is about how the two seats behaved and what it cost the chair. |
 | **Method** | Read-only re-analysis of this session's 35 commits, ~25 cross-session rounds, and the chair's own statements. No new measurement. |
 
@@ -71,6 +71,22 @@
 
 ⛔ **The last two are the justification for the whole method.** Both were found by reading code and the document end to end — **not by either seat re-reading its own reasoning.**
 
+### 3b — ⚠️ Added 2026-10-19: seven more, and three of them failed in the ANTI-CONSERVATIVE direction
+
+⛔ **The draft above was written believing the design phase was over. It was not — Amendments 10–13 closed seven further defects, and the three marked below would have produced a POSITIVE result from a null experiment.** Nearly every catch in §3 was conservative: it made a real effect harder to see. These do the opposite.
+
+| caught | by | consequence avoided | direction |
+|---|---|---|---|
+| every threshold derived at **n=1 vs n=2** when the approved set is **n=3 vs n=2** | **this seat** | the pre-registered rule firing **1.81× too harsh**; §4 committed in advance to calling an informative design uninformative | conservative |
+| ⛔ **F13's "except `np_seed`/`torch_seed`" read as a REQUIREMENT when it is an EXEMPTION** | views-models' seed-inverse guard | ⛔ three replicates at seed 42 satisfy F13, `σ̂` collapses toward 0, **every threshold goes to 0 and anything clears** | ⛔ **anti-conservative** |
+| F13 clause (b) scoped to `CORE_GENOME` — **16 keys of 63** | views-models | 47 hyperparameters free to differ inside an assertion that reads *"the configurations are identical"* | ⛔ **anti-conservative** |
+| clause (c) written against the **control** rather than the **cell** | views-models, **withdrawn by its own author** | a falsifier that refuses a correct cell, because the control is not a cell member | conservative |
+| ⛔ **clause (c) INVERTS by unit** — pairwise-distinct for a replicate, **identical to its control** for an arm | **this seat, on executing it** | the two arms required to differ on the one seed they must share | ⛔ **anti-conservative** |
+| `SEED_REPLICATES = {}` — the five new guards **could not fire on any real model** | **this seat** | five mutations believed proved against the roster, proved only against a synthetic pair | conservative |
+| a **third** library-version row: this laptop imports the **working tree**, dist metadata **0.1.0** | **this seat** | a local config check that silently proves whatever branch is checked out | conservative |
+
+✅ **Both halves of views-models #569 are now executed against all five real configs and the measured values are recorded** (Amendment 12, the three replicates; Amendment 13, the two arms). **Nothing in the pre-flight gate is outstanding on this seat.**
+
 ✅ **And the repo's own guards earned their keep:** `vehicle.py`'s hash denial of africa artifacts, `test_roster_conformance`'s arm guard correctly refusing a replicate, `audit_run.py`'s written demotion of MCR, `--rehearsal`'s output branding. **Four mechanisms built earlier caught or would have caught today's hazards.**
 
 ## 4. What failed — this seat
@@ -99,9 +115,13 @@
 
 **4.5 — Nine amendments were written on top of a section they invalidated and none re-read it.** §3's table. ⛔ **Each amendment was checked against the measurement it concerned and none against the document it was amending.**
 
+**4.6 — ⚠️ Added 2026-10-19: the rule from 4.5 was adopted, and then broken in the next amendment.** Amendment 11 adopted the control for exactly this — *when a declaration gains a sibling, audit the decorators, the hatches and the inverse assertions* — and **wrote clause (c) against the wrong subject in the same document**, then shipped it with the wrong unit. ⛔ **Four times in four amendments, a statement true of one case was applied to another**: Amendment 9 (the arm tables), 10 (the thresholds), 11/12 (the seed rule's direction, subject and scope), 13 (its unit).
+
+⛔ **The honest reading: adopting a rule is not a control.** §6's DO list is partly a list of things this seat has already failed to do once after writing them down. **A control that lives only in prose has roughly the failure rate of the behaviour it replaced** — W-23 and W-29 record that for process rules; 4.6 records it for method rules. ⚠️ **What distinguishes the ones that held is that they were executed rather than read**: clause (c)'s unit inversion was found by *running* the falsifier against the real configs, not by re-reading it.
+
 ## 5. The systemic pattern — three classes, not thirty errors
 
-**5.1 — Provenance mismatch: a value or label used in a role other than the one that produced it.** ⛔ **Fourteen instances today**, including `SHIPPED_POS_WEIGHT` in a field named `pos_weight`, the africa grid figure in a global claim, `n_windows = 30` read as a budget, `140,400` read as a sample size, `predictions_validation_*` filenames read as served runs, a seed from a tool's anchor RNG, and A-vs-B allocation letters meaning opposite things in the two seats. **The value is always correct. The mapping is wrong.**
+**5.1 — Provenance mismatch: a value or label used in a role other than the one that produced it.** ⛔ **Fourteen instances on the first day; fifteen by 2026-10-19**, including `SHIPPED_POS_WEIGHT` in a field named `pos_weight`, the africa grid figure in a global claim, `n_windows = 30` read as a budget, `140,400` read as a sample size, `predictions_validation_*` filenames read as served runs, a seed from a tool's anchor RNG, and A-vs-B allocation letters meaning opposite things in the two seats. **The value is always correct. The mapping is wrong.**
 
 **5.2 — Causal narrative where a measurement was available.** The ledger's 0-for-8. ⛔ **Today's instances: the "hidden bias", "C-184 is right by design", and the blind prediction that E6f would land at 1.10–1.16 when it landed at 0.78.**
 
@@ -135,6 +155,10 @@
 
 **Can be said:** the pivots were each driven by a specific, checkable argument — a measurement, a derivation, or a code read — and the record names which. **Three of them would have produced wrong published conclusions had they not happened** (the hidden-bias reading, the stale arm table, the calibration insertion point).
 
+⚠️ **Added 2026-10-19, and it moves the balance — on the second day only.** §3b's three anti-conservative defects are a different class from everything in §3's table. **A conservative defect costs an experiment; an anti-conservative one produces a result that is wrong and looks right.** The seed-exemption defect would have driven `σ̂` toward zero and cleared **any** effect at the pre-registered threshold — a positive finding manufactured by the design, in an experiment whose expected outcome is a null, and one that **no later audit of the record would have caught**, because the output would have been internally consistent.
+
+⛔ **This does not settle the chair's counterfactual.** It is still unobservable whether holding the first position for five hours would have been better. **What it does say is narrower and checkable: the second day's adversarial work bought something specific and the first day's defence rests on a counterfactual.** ⚠️ **It also says the pre-flight phase was longer than this draft assumed** — the draft was written as if the design were finished, and four amendments followed it.
+
 ⛔ **Cannot be said: that the total was worth it.** The counterfactual world where this seat held its first position for five hours is unobservable. **It might have shipped a wrong mechanism and a voided experiment. It might have shipped a working gate fix by lunchtime.** Nothing in this document settles that, and any version that claims to is dishonest.
 
 ⚠️ **What is certain is the cost side: a working day the chair needed, and trust he says is spent.** Those are not counterfactual.
@@ -147,4 +171,9 @@
 - whether `σ̂` was small enough to make the design readable — **the question this seat could not answer in advance and said so**;
 - whether the **nine** defects listed in §3 that were caught pre-execution would have mattered, which only execution can show.
 
-⚠️ **One action already identified and not taken: the entire record of this session sits on one unpushed local branch.** Raised with the chair; unresolved at the time of writing.
+✅ **RESOLVED 2026-10-19 — the draft's one open action is closed.** Both branches this seat owns are pushed: `outcome/pos-weight-arm` (44 commits, Amendments 1–13 and the outcome dossier) and `docs/evaluation-learning-report` (22 commits). A branch sweep deleted two provably-dead branches and preserved two holding unpushed work. ⚠️ **The earlier block was a publication classifier refusing branch CREATION, not pushing** — pushing to an existing tracked branch works from this seat, which is why it could be done without the chair at a terminal.
+
+⚠️ **Two actions remain open, named rather than quietly dropped:**
+
+- ⛔ **No ledger entry exists for §3b or §4.6.** `PREDICTION_LEDGER.md` stops at **W-29**. The clause-(c) unit inversion is this seat's own defect, found by executing a falsifier rather than reading it, and it has no `W-` number yet.
+- ⚠️ `probe/conflictology-empty-mode` still reads **`Status: PRE-REGISTERED, NOT RUN`** on line 3 of a document that carries its own outcome, a correction and a corroboration. One line; the chair's call.
