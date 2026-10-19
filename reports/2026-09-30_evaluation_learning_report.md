@@ -1351,6 +1351,25 @@ parameterised** parts, and **our gate and body share a trunk.** The likelihood s
 *diagnostics* survive — but no claim that the two components can be independently **improved** survives,
 and §7's allocation findings are the evidence.
 
+> ⛔ **AND A SECOND BREAK, ON AN AXIS THIS SUBSECTION DOES NOT DEFEND — see `Appendix E.2`.** The
+> `opponent` session attacks the factorization not on **shared parameters** but on **conditional
+> independence across units.** Cragg splits *one observation's* likelihood; the panel likelihood is then a
+> product over cell-months, and that product requires occurrence in one cell-month to be conditionally
+> independent of its neighbours' **realised** history. Under a self-exciting DGP (`g ≠ 0` in Ogata's
+> intensity) it is not — occurrence is driven by `∫g(t−s)dN_s`, a function of realised events — so **the
+> likelihood does not factor over cells at all, and the "occurrence term" §8.3 proposes to diagnose is not
+> the fitted model's occurrence term under that DGP.**
+>
+> ⚠️ **This is the `opponent` session's derivation, explicitly flagged by it as inference and as the
+> load-bearing one: neither Hawkes nor Ogata mentions Cragg, hurdles or zero inflation.** It is recorded
+> here to be **checked, not cited.** ⛔ **Nothing in §8.3 is withdrawn on the strength of it** — but if it
+> holds, the factorization justification needs a conditional-independence assumption stated explicitly,
+> and we do not currently state one.
+>
+> ✅ **What the same pass could NOT break:** the algebra. `mean = (n_positive/S) × E[y|y>0]` is an
+> identity, three measurements carry two degrees of freedom, and **none of the ten papers touches it.** The
+> consistency-check framing stands.
+
 #### 🔴 The suite is a FACTORIZATION, not an orthogonal basis — and this report's own glossary proves it
 
 The proposal hopes for *"largely orthogonal"* diagnostics and concedes they are *"complementary, but not
@@ -1986,6 +2005,58 @@ about continuous weather variables and ours is a sparse count field, and that ga
 
 ---
 
+### E.0 ⛔ A RETRACTION IN THIS APPENDIX, AND A PROVENANCE WARNING ON ALL TEN SOURCES
+
+#### E.0.1 ⛔ RETRACTED, same day: `Walz2026_MonotoneDependenceAUC` cannot be cited about AP
+
+**The first version of this appendix (commit `2c2ad44`, 2026-10-19) cited `Walz2026` as *"our AP /
+S-quantisation scar named by a theorem."* ⛔ That is withdrawn. It was wrong twice over**, and it is the
+provenance-mismatch class this report devotes Appendix C to — committed by me within an hour of writing an
+appendix warning about it. Found by the `opponent` session, **verified here independently** on the PDF's
+own text layer (`pdftotext -W 2000 -H 2000`, 21,011 words):
+
+| check | result |
+|---|---|
+| occurrences of **"precision"** | **0** |
+| **"average precision" / "precision-recall" / "PR-AUC"** | **0** |
+| **"prevalence" / "imbalance"** | **0** |
+| what "AUC" means in the paper | **"receiver operating characteristic"** — ROC-AUC |
+
+**Error 1 — wrong AUC.** Our workhorse is **AP, which is PR-AUC**. The paper is about **ROC-AUC**. ⛔ The
+two diverge precisely on **prevalence**, which is our defining condition (99.7% zero), and the paper never
+mentions prevalence at all.
+
+**Error 2 — wrong discretisation.** The stability result *is* in the paper (p. 588: *"AGC(X, Y_k) depends
+much less on the discretization level k"*; p. 591: *"a factor that may be arbitrary"*) — but it concerns
+discretising **the OUTCOME Y into ordinal levels.** Our scar is that **the PREDICTION is quantised to S+1
+rank levels** by the sample-cube width. **Different quantities. I conflated them.**
+
+✅ **Where `Walz2026` CAN be cited here**, and it is still useful:
+- About **`gate_auc`** — which is ROC-AUC, and which §8.1 lists among the metrics *"nothing reads."*
+- It upgrades our `ΔAP = 0.00000` from a measured quirk to a **structural property**: these are **copula
+  functionals**, invariant under strictly increasing transformations of both margins, so
+  calibration-blindness is definitional for the class, not incidental to our implementation. **MERELY
+  COMPLEMENTS** — no contradiction.
+- Its **DeLong-type analytic tests** for comparing two such measures against a shared outcome are worth a
+  look given §5.6's two irreproducible bootstrap CIs. ⚠️ Whether a DeLong test survives spatially
+  dependent origin blocks is **not addressed in the paper**, and the `opponent` session's expectation is
+  that it does not.
+
+#### E.0.2 ⛔ All ten sources have EMPTY stored evidence
+
+`papers/_meta/<id>.json` carries **`"key_passages": []` for all ten.** The `opponent` session established
+(library GitHub #53) that Phase 5 of `/library add` **never ran for the 18 October batch or the two
+before it — 52 papers, 100% of each batch.**
+
+**Consequence for this appendix:** every locator in it was read out of a PDF text layer, not from stored
+verified passages. The ten were clipping-tested (`#51`) and came back clean — zero word delta on nine,
+four words on `Raftery2005` — so **these particular text layers are sound, which is not a general property
+of that corpus** (`Cox1955` lost 731 words to clipping). ⛔ **But a later reader cannot verify these
+citations without re-reading the PDFs.** Get the key passages added before any of this is relied on
+outside this appendix.
+
+---
+
 ### E.1 ⛔ THREE PAPERS CONTRADICT US
 
 #### E.1.1 Our gate under-dispersion may be structural, not a defect — `Raftery2005_BayesianModelAveraging`
@@ -2018,6 +2089,31 @@ as evidence of a bug.*
 
 **Neither position is retracted.** Our `b` is a measurement and stands. The causal story is an inference
 and now has a competitor from the literature.
+
+⛔ **The same paper contradicts our ENSEMBLE DESIGN, and supplies a fix for a scar in §8.** Verbatim,
+p. 1155: ensembles *"tend to be underdispersive"*; *"intervals based solely on the ensemble spread
+incorporate the first component but not the second"*; *"the BMA weights can be used to assess the
+usefulness of ensemble members"*; the BMA point forecast *"had root-mean-square errors 7% lower than the
+best of the ensemble members"*; and *"the BMA PDF can be represented as an unweighted ensemble of any
+desired size, by simulating from the BMA predictive distribution."*
+
+Three consequences, all from the `opponent` session's reading:
+
+1. ⛔ **Our benchmark is EQUAL-WEIGHT pooling, and Raftery's point is that a raw ensemble is the wrong
+   object to score.** M67's 0.96–0.99 error correlation is a measurement that **between-forecast variance
+   is near zero** — in this frame, that the raw ensemble supplies almost none of the variance a calibrated
+   distribution needs. **Same measurement, read as a deficiency of the POOLING rather than of the
+   ensemble.**
+2. A **weighted** combination beat the best member by **7% RMSE**. Our subsample result shows **equal-weight**
+   pooling does not — and §7-S7 generalises from the one rule tested to the class.
+3. 🔴 **Our matched-S confound has a PUBLISHED solution.** §8's row ★4 exists because persistence was
+   understated by **31%** partly through S-mismatch. BMA re-emits its PDF **as an unweighted ensemble of
+   any desired size**, so arms and reference can be compared at equal draw count **without re-running
+   anything.**
+
+⚠️ **Inference flag, the `opponent` session's:** BMA weights on 8 members correlating 0.96–0.99 would
+very likely degenerate onto one or two, which would **support** our conclusion. The paper does not report
+that case — its simulations cover calibrated or overdispersed ensembles, **which is not our regime.**
 
 #### E.1.2 A deterministic backbone plus post-hoc calibration beat the ensemble — in our region — `Walz2024_PrecipitationTropicalAfrica`
 
@@ -2072,6 +2168,18 @@ a **logical equivalence for binary outcomes**, not that the rejection's reasonin
 rejection was applied to a binary gate on the strength of an argument about extremes, and the collapse
 result means that application needs its own justification.** FAO-02 is governance and is not edited here.
 
+✅ **Resin2026 also names our MCR failure in its own words** (p. 2): *"care needs to be taken to avoid
+reliance on techniques that make forecasts appear calibrated with respect to a particular notion of
+calibration, even though they might be far from the goal of auto-calibration."* **MCR ≈ 1.0 while
+activation is 4–115× wrong is that sentence.** ⚠️ Our framing attributes it to aggregating over zeros;
+Resin's frame says the cause is **position in the hierarchy**, so the remedy is **naming which notion each
+guardrail certifies**, not adding guardrails. ⚠️ The mapping onto MCR is the `opponent` session's, not the
+paper's.
+
+✅ **And a held, read replacement for an unaudited citation.** `Resin2026` covers **count data and
+double-PIT calibration explicitly**, extending Czado et al. (2009) — the count-calibration citation
+**§8.3 flags as unaudited.** Cite Resin instead.
+
 **It also sharpens open finding 6 without closing it.** Our *"a PIT would have shown it instantly"* is
 about the **body's** all-zero surface, not the gate — and for a continuous or count outcome the collapse
 does not hold, so the claim keeps its original problem. **Row 6 stays open.**
@@ -2098,6 +2206,21 @@ are the same process.** No marginal, pooled, spectral or variance-based diagnost
 field was high here" from "an event here made more events likely". **That is the strongest single result
 against the orthogonality programme, and it is a theorem, not a caution.**
 
+⛔ **AND IT INVALIDATES AN INSTRUMENT ALREADY PRE-REGISTERED ON THIS BRANCH.** Hawkes's verbatim
+sentence (printed p. 86, Biometrika 58(1)): *"given a set of data from a point process we **cannot expect
+to discriminate** between a self-exciting and a doubly stochastic process on the basis of the estimated
+point spectrum, covariance density or other equivalent functions such as the variance-time function"* —
+and at p. 90, that he concentrated on second-order properties *"since these are most amenable to data
+analysis for testing goodness of fit."* He then constructs the matching doubly stochastic process term for
+term (eq. 18, same page).
+
+**A dependence ratio, a covariance density, a spectrum and a variance-time function are all second-order.**
+`reports/2026-09-30_dependence_ratio_prereg.md`, on this branch and **not yet run**, is a second-order
+instrument. ⛔ **If its stated purpose is to establish self-excitation, it cannot — however it reads.** If
+its purpose is dependence-of-some-kind against an independence null, it still works. **That distinction
+belongs in the pre-registration before it runs**, and it is the most actionable line in this appendix.
+(Found by the `opponent` session; quote verified against the PDF page.)
+
 **What it leaves open, which is the constructive half.** Discrimination is possible, but only by
 **likelihood on the conditional intensity**, not by a summary statistic.
 `Ogata1982_LinearIntensityModels` is exactly that: a unified model
@@ -2106,6 +2229,13 @@ driven by the external input and `h = 0` gives no external causation** (Section 
 fitted by partial likelihood with **AIC over response-function orders** (Section 4, eq. 4.1). ⛔ **So the
 separation Simon wants is a MODEL-SELECTION problem, not a metric problem.** That reframing is the most
 useful thing in this appendix for the planned article.
+
+⛔ **But be clear what it costs — this closes the question I put to both sessions.** Ogata's is a **model
+class with a selection procedure, not a diagnostic runnable on a delivered cube.** It needs a point-process
+intensity fitted to event times; a 360×720×months sample cube cannot be scored with it. **So the honest
+answer is that there is NO usable evaluation instrument for self-excitation in either paper.** ⚠️ And the
+compensator-based residual analysis one would reach for is **Ogata 1988, not Ogata & Akaike 1982** — not
+held, and `Ogata1982` contains none of it. ⛔ **Do not cite `Ogata1982` for residual analysis.**
 
 #### E.2.2 And a second non-identifiability, from the spatial side — `Moller1998_LogGaussianCoxProcesses`
 
@@ -2127,10 +2257,44 @@ discriminate LGCP from Thomas; it tests the LGCP assumption, not the clustering 
 
 ⚠️ **INFERENCE, flagged.** Our field is a **discretised raster**, not a point pattern, and these results
 are stated for point processes on a continuum. **Whether they transfer to PRIO-GRID cell-months is not
-established by these papers and I have not derived it.** It is, however, the question Simon raised — if
-conflict is a point process and our grid is an arbitrary discretisation, then our zero-inflation is partly
-manufactured by the grid, and ⛔ **none of these ten papers makes that argument explicitly.** Recorded as
-sought-and-not-found, not as supported.
+established by these papers and I have not derived it.**
+
+#### E.2.3 ⛔ CORRECTION to this appendix: the grid question is PARTLY answered, and more narrowly than I asked it
+
+**The first version of this appendix recorded the grid-discretisation challenge as "sought and NOT
+found".** ⛔ **That was wrong — I missed the relevant passage.** `Moller1998`, printed **p. 452**, on
+lattice models that hold intensity constant within square quadrats:
+
+> *"such models do not converge to anything reasonable as the sides of the quadrats tend to zero."*
+
+⚠️ **And a provenance caveat that must travel with it:** that clause is **attributed to Rathbun & Cressie
+(1994)**, which is **not held**. Møller endorses it (*"as noticed by"*) and builds his design argument on
+it, but he is not the primary source. ⛔ **Cite it as *`Moller1998` p. 452 endorsing Rathbun & Cressie
+1994*, or fetch the primary.** (Named by the `opponent` session rather than let through — it is the
+cite-from-elsewhere class this report's Appendix D exists for.)
+
+**What it does and does NOT establish.** ⛔ It does **not** say our zeros are artefactual — a low-intensity
+point process genuinely gives mostly-empty cells **at any resolution**, so the premise *"the grid
+manufactures the zero inflation"* is **not** supported. What it says is narrower and more useful: a
+**cell-constant-intensity model has no continuum limit**, so its fitted parameters estimate **no
+grid-independent quantity.** PRIO-GRID at 0.5° is exactly that construction.
+
+🔴 **The consequence for this report is a missing sensitivity analysis, not a refuted premise.**
+`size_ratio`, `act_ratio`, zero-share and the ARTIFACT verdict are **all defined against one arbitrary
+quadrat size**, and nothing in this report says how any of them behave at **0.25° or 1.0°**. ⚠️ The
+`opponent` session judges this the most fundable item in its dossier — cheap, and it bears on every
+headline number. **Recorded, not acted on.**
+
+✅ **And Møller supplies a rival MECHANISM for our zero inflation** (p. 451): Cox processes model
+aggregation *"due to a stochastic environmental heterogeneity"*, distinct from cluster processes where
+*"clusters are generated by an unseen point process"*. On that reading, **excess zeros and overdispersion
+are consequences of a varying rate and need no separate gate at all.** ⚠️ That mapping is the `opponent`
+session's — **Møller nowhere discusses zero inflation or hurdle models.**
+
+⛔ **And Hawkes's impossibility applies to this question too**, which neither session asked: if we ever try
+to establish *why* the field clusters — environmental heterogeneity versus contagion — **the two readings
+are second-order indistinguishable.** Only a likelihood-based nested fit separates them. That is a
+modelling programme, not a metric.
 
 ---
 
@@ -2142,22 +2306,18 @@ expensively, and §8.1's *"wiring an existing metric beats adding one"* applies 
 | | the literature | what we did instead |
 |---|---|---|
 | **Miscalibration vs discrimination** | `Gneiting2023_ConditionalCalibration`, **PROVEN** (§2.5–2.6, Thm 2.26): the score decomposition **`S̄ = MCB − DSC + UNC`** for *any* identifiable functional with a consistent scoring function, plus a universal **`R* = DSC/UNC`** nesting classical R². | ⛔ The gate programme spent three days establishing by derivation and measurement that **recalibration moves firing volume and cannot move placement** (`ΔAP = 0.00000` exactly). That is **MCB** moving while **DSC** is fixed. The decomposition was available as a theorem with an estimator. |
+| ⛔ **And it answers §0 item 4 on cubes we ALREADY HAVE** | Same decomposition. *"`crps_all` within 0.0007 while gate AP spans 13×"* is, decomposed, the statement that **DSC varies 13-fold while the sum stays flat** — it would show which term carries it. ⛔ **CRPS is not blind on this field; its MEAN is.** (`opponent`'s reading, sharper than §0's.) ⚠️ Neither of us checked whether the decomposition is implemented in `views_evaluation`. | §0 item 4 states the blindness as a property of the metric, not of its mean. |
 | **Reliability diagrams** | Same paper, **ARGUED** (§3.1): **CORP** — consistent, optimally binned, reproducible, **PAV-based** — giving *"non-decreasing reliability diagrams with guaranteed nonnegative MCB and DSC components."* | We have `scripts/gate_reliability.py`, a **binned** diagram with bootstrap CIs — which `RESULTS.md §12` records was itself *reinvented* because a "superseded" marker hid it. ⛔ **Binned, not CORP**, so the non-negativity guarantee does not hold for it. |
 | **Comparing a point model against a sample model** | `Gneiting2026_FairComparisonAIWPNWP`, **PROVEN**: **PCRPS** — apply EasyUQ (isotonic distributional regression) post hoc to deterministic output, then take mean CRPS. Purpose-built for *"fair comparison of single-valued output"* against ensembles. | ⛔ **§8's row ★4 exists because we got this wrong**: persistence was published **understated by 31%** at h18 by two scoring defects, one of which is S-mismatch between arms and reference. PCRPS is the literature's answer to that exact comparability problem — **and to §8.3's unsolved "both point and sample models" seam.** |
 
-⛔ **And one that speaks directly to our AP problem.** `Walz2026_MonotoneDependenceAUC`, **PROVEN**
-(Thm 2.5, eq. 20; Figure 1): the coefficient of monotone association **CMA reduces to AUC for a
-dichotomous outcome and to ½(ρ+1) for continuous outcomes** — one coefficient spanning gate and body — and
-*"**AGC depends much less on the discretization level of the outcome than AKC**: when Y is discretized into
-ordinal levels, AGC varies little with the number of levels k … **This stability makes AGC/CMA preferable
-when the discretization level is arbitrary or beyond the researcher's control**."*
-
-**That is our scar, named by a theorem.** This report records that **AP is quantised to S+1 rank levels**
-and that **the reference's S must equal the arms' cube width**, after a 31% understatement. ⛔ **CMA is
-stable under exactly the discretisation we cannot control.** Its mixture representation
-`CMA = 6∫α(1−α)·AUC^(α)dα` also **integrates discrimination over every dichotomisation threshold** — where
-our roster picks one `τ` empirically and the gate conclusion then found that **τ had silently absorbed a
-calibration defect**.
+⛔ **`Walz2026_MonotoneDependenceAUC` — see E.0.1. The version of this paragraph that cited it against
+AP is RETRACTED.** What survives: **CMA reduces to ROC-AUC for a dichotomous outcome and to ½(ρ+1) for
+continuous outcomes** (Thm 2.4, eqs. 17–18), so one coefficient spans a binary gate and a continuous body
+— which is the seam §8.3 leaves unsolved — and its mixture representation
+`CMA = 6∫α(1−α)·AUC^(α)dα` (Thm 2.5, eq. 20) **integrates discrimination over every dichotomisation
+threshold**, where our roster picks one `τ` empirically and the gate conclusion then found that **τ had
+silently absorbed a calibration defect**. ⚠️ **It is ROC-AUC throughout, so it speaks to `gate_auc`, not
+to AP**, and it says nothing about prevalence.
 
 ---
 
@@ -2188,7 +2348,16 @@ the literature's instrument and measured against it**, and the result is ours to
   process or an empirical finding on another dataset. **The two INFERENCE steps are marked where they occur**
   (E.1.1's transfer to a Bernoulli gate, E.2.2's transfer from point patterns to a raster) and neither is
   derived.
-- ⛔ **The grid-discretisation challenge was sought and NOT found.** If conflict is a point process and
-  PRIO-GRID is an arbitrary discretisation that manufactures our zero inflation, **none of these ten papers
-  argues it**. That is the most important open question this appendix raises and it is raised, not answered.
+- ⛔ **The grid-discretisation challenge is PARTLY answered — see E.2.3, which corrects this appendix's
+  first version.** The strong form (*the grid manufactures our zero inflation*) is **not** supported by any
+  of the ten. The narrow form is: a cell-constant-intensity model **has no continuum limit**, so its
+  parameters estimate no grid-independent quantity. 🔴 **The live consequence is a missing sensitivity
+  analysis** — every headline number here is defined against one arbitrary quadrat size.
+- **Provenance of the adversarial pass.** §E.0, E.1.2's reading, E.2.1's prereg consequence, E.2.3, and
+  the factorization attack in §8.3 come from the `opponent` session's dossier
+  (`9_library/opponent/dossiers/collisions_hydranet_evalreport_2026-10-19.md`, commit `fe82cba`), which
+  states its own budget: it read §0, §8.2 and §8.3 in full, the headings of §4/§5/§7, and the text layers
+  of **seven of the ten** papers — **not** `Gneiting2026`, `Walz2024_EasyUQ` or `Walz2024_Precipitation`,
+  because none of the six questions put to it pointed there. ⛔ **So E.1.2 and E.3's PCRPS row rest on my
+  reading alone, not on two.** Its closing table records **six hoped-for collisions as ABSENT**.
 
