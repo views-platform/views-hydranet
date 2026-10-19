@@ -86,9 +86,11 @@ So Phase 3 is not "apply R1". It is: **per model, choose between R1 (1 param), R
 
 ⛔ **CORRECTION WITHDRAWN 2026-10-18 (Phase-2 Amendment 2): F11 is blocked for the kestrels AND for the eight.** The gate posteriors that prompted the correction are **September africa `predictions_validation_*` runs**, not the served October global forecast, whose gate is not retained (#558). The factorisation below is still correct and applies only where the gate for the *served* run exists. Superseded text kept for the trail:** Their gate posterior is intact on disk at all 36 horizons, and under `soft_gate` the firing indicator factorises — `P(composed>0) = P(body>0)·gate` with independent draws — so `P(body>0)` is recoverable and `act_ratio` under a corrected gate is computable **analytically, with no re-run** (pooled, not per-cell: the 16 draws quantise it at 1/16). **For amber the `by_*` archive is 9% truncated and marked DO_NOT_USE, so the kestrels do need a re-run.**
 
-**So F11 requires a re-run for the kestrels only.** That re-run needs a GPU. ⛔ **Therefore "the last gate before production" is a Tier-3 item, not a cheap one, and any plan that lists it as a free check is wrong.** Either:
-- **(i)** enable `_dump_body_mean` and re-run the two arms — GPU, Simon's; or
-- **(ii)** recompose from stored draws if the magnitude cube is retained — ⚠️ **unverified; this seat has not checked whether `draws/` holds the uncomposed body.** **Check before costing it.**
+~~**So F11 requires a re-run for the kestrels only.** That re-run needs a GPU.~~ ⛔ **HALF WRONG, CORRECTED 2026-10-19 — see `RESULTS.md` §7b. The `act_ratio` limb of F11 is FREE and is now RUN on both kestrels; only the CRPS limb needs a re-run.**
+
+**What this section got wrong:** it costed F11 against the 36-horizon `by_*` archive, which for amber is 9% truncated. **At h=1 a hand-rescued `gate_h1` slice survives for BOTH kestrels** (13 origins × 3 targets × (64818, 16), all finite per its own `SLICE_MANIFEST.json`), and the composed draws survive complete in `*_lr.tar.zst`. ⛔ **And option (ii)'s open question — "does `draws/` hold the uncomposed body" — turned out not to matter: the body is never needed.** `E[z·(g'/g)] = g'·p` makes the reweighted composed indicator an unbiased estimator of the corrected firing rate, because `p = P(body>0)` is untouched by a gate recalibration. **Measured `Σz/Σg` = 0.986–1.007 across all six series, which is 1.0 as a zero-truncated body requires** — so at h=1 the composed firing indicator *is* the gate's Bernoulli draw.
+
+⚠️ **What survives of this section:** the **CRPS** limb genuinely does need a re-run. The per-cell body sample exists only where a draw fired, and at a mean gate of ~0.004 nearly every cell has zero positive draws out of 16. ⛔ **So "the last gate before production" is half free and half Tier 3**, and the half that discriminates between the two arms is the free half.
 
 ---
 
@@ -154,8 +156,12 @@ Simon's sequencing is gate-then-body, and that is right for *diagnosis*. ⛔ **B
    Phase 3   per-model remedy selection             FREE — rule pre-committed BEFORE Phase 2 reads out
       |      (R1 / R3 / none; Path B excluded)
       v
-   Phase 4   F11 firing-rate + CRPS on the          ⛔ NOT FREE — needs the composed forecast,
-      |      composed forecast                         which needs a re-run (GPU, Simon's)
+   Phase 4a  F11 firing-rate on the composed        ✅ DONE 2026-10-19, FREE, no GPU.
+      |      forecast                                 amber 1.2970 -> 0.9825 PASS;
+      |                                               copper 0.7078 -> 0.5703 FIRES
+   Phase 4b  CRPS on the composed forecast under     ⛔ NOT FREE and NOT recoverable from the
+      |      the corrected gate                        archives - the body sample is absent
+      |                                                wherever the gate is small (GPU, Simon's)
       v
    Phase 5   publish as a SEPARATE occurrence       free; touches nothing shipped (§6)
              product  — OR hold for #530

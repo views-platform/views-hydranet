@@ -190,7 +190,67 @@ All preconditions met: paired baseline `b_before = 1.1875` reproducing F3′'s t
 
 ⛔ **F7's verdict is NOT "cosmetic", and this seat retracts that word.** `ΔAP = 0` is a **theorem** under a monotone map, not a measurement. But the composed forecast is `gate × magnitude`, so changed probabilities **change predicted counts**, and AP structurally cannot see that. **R1 buys honest probabilities and nothing on the rank axis.** Whether that is worthless or the point is a **product question** — ruled on by Simon, 2026-10-18: *"yes 100%"*.
 
-⚠️ **F11 (the firing-rate check on a corrected gate) is UNRUN.** It needs the composed forecast, which Tier 2 does not build, and the uncomposed body output was not retained. **It is the last gate before production.**
+⚠️ ~~**F11 (the firing-rate check on a corrected gate) is UNRUN.** It needs the composed forecast, which Tier 2 does not build, and the uncomposed body output was not retained. **It is the last gate before production.**~~
+
+✅ **SUPERSEDED 2026-10-19 by §7b — F11 is RUN, it needed no GPU, and it separates the two arms.**
+
+---
+
+## 7b. ✅ F11 — RUN 2026-10-19. ⛔ R1 PASSES on amber and FAILS on copper, on the composed forecast.
+
+**MEASURED**, `results/f11_firing.py`, 13 origins × 3 targets × 64,818 cells × 16 draws = **13,482,144 cell-draws per target per model.** Truth is this session's own **FRESH** datafactory pull (`results/truth_pull.py`), which reproduced the Phase-1 cache **exactly** on all three targets — `act_true` sb 0.00344752, ns 0.00120100, os 0.00129119.
+
+### ⛔ Why this needed no GPU, and the plan said it did
+
+`RND_PLAN §5` states F11 *"requires a re-run for the kestrels"* because amber's `by_*` archive is 9% truncated and `DO_NOT_USE`. ⛔ **That is true of the 36-horizon archive and false at h=1.** A hand-rescued `gate_h1` slice survives for **both** kestrels — 13 origins × 3 targets × (64818, 16), every value finite per its own `SLICE_MANIFEST.json` — and the composed draws survive complete in `*_lr.tar.zst`. **Nothing at h=1 is missing.** `RND_PLAN §5` and §10 are corrected.
+
+### The estimator — exact in expectation, not an approximation
+
+Under `soft_gate`, `compose_samples` draws `Bernoulli(gate) × body_draw` per pass, so for cell `c`, pass `d`, the composed indicator `z = 1{composed > 0}` is Bernoulli with `E[z] = g·p`, where `p = P(body draw > 0)` is **untouched by a gate recalibration.** Therefore
+
+```
+E[ z · (g'/g) ] = g'·p = E[ z' ]            g' = sigmoid(logit(g)/T)
+```
+
+**The observed composed indicator, reweighted by the gate ratio, is an unbiased estimator of the corrected composed firing rate.** No per-cell inversion, no clipping, no imputation, and valid whether `g'` is above or below `g`. ⛔ **The body is never needed — which is exactly why the truncated `by_*` archive does not block this.** Max importance weight **1.0392** (amber) / **1.0249** (copper); the `g' > g` region is **≤ 0.16%** of cell-draws, so the variance cost is negligible.
+
+### ✅ An independent check that the join is right, and it is a strong one
+
+`Σz / Σg` estimates pooled `P(body draw > 0)`. The kestrels are `truncated_nb` — a **zero-truncated body cannot draw zero**, so this must be **1.0** exactly:
+
+| | sb | ns | os |
+|---|---|---|---|
+| amber | **1.0070** | **1.0067** | **0.9956** |
+| copper | **0.9986** | **0.9861** | **0.9964** |
+
+**All six within ~1.5 Monte-Carlo SE of 1.0.** ⛔ **So at h=1 the composed firing indicator IS the gate's Bernoulli draw, and the body contributes nothing to occurrence.** The "F11 needs the composed forecast" obstacle was real for a `nb` body and vacuous for a truncated one.
+
+### The result — `act_ratio` = P(pred>0)/P(truth>0), `activation_metrics.py:38`
+
+The committed instrument's `act_pred` was recomputed independently and **matched the accumulation to every printed digit** on all six series.
+
+| model | target | `act_true` | raw | **`act_ratio` raw** | R1 | **`act_ratio` R1** | T-sweep |
+|---|---|---|---|---|---|---|---|
+| **amber** | sb | 0.0034475 | 0.0042534 | **1.2338** | 0.0033573 | ✅ **0.9738** | 0.9681 – 0.9804 |
+| **amber** | ns | 0.0012010 | 0.0016635 | **1.3851** | 0.0012585 | ✅ **1.0479** | 1.0407 – 1.0561 |
+| **amber** | os | 0.0012912 | 0.0017868 | **1.3838** | 0.0012200 | ✅ **0.9449** | 0.9354 – 0.9558 |
+| **amber** | **pooled** | 0.0019799 | 0.0025679 | **1.2970** | 0.0019452 | ✅ **0.9825** | |
+| **copper** | sb | 0.0034475 | 0.0024119 | 0.6996 | 0.0020494 | ⛔ **0.5944** | single `T` on record |
+| **copper** | ns | 0.0012010 | 0.0008145 | 0.6782 | 0.0006506 | ⛔ **0.5418** | |
+| **copper** | os | 0.0012912 | 0.0009778 | 0.7573 | 0.0006874 | ⛔ **0.5323** | |
+| **copper** | **pooled** | 0.0019799 | 0.0014014 | 0.7078 | 0.0011291 | ⛔ **0.5703** | |
+
+✅ **AMBER: all three targets move from over-firing (1.23×–1.39×) to within 5.5% of honest, and the pooled rate lands at 0.9825.** The **sweep rule** is satisfied: `T` swept over its full measured fold range (0.8674–0.8747) moves `act_ratio` by at most 0.012 and **the family does not cross 1.0 on any target.** ⛔ **F11 does not fire. R1 improves amber's firing rate as well as its calibration.**
+
+⛔ **COPPER: the opposite, and worse than §7's aggregate suggested.** Copper already **under**-fires at 0.68×–0.76×, and R1 drives it to **0.53×–0.59×** — *away* from honest on every target. **F11 FIRES on copper.** This is now the **third** independent axis on which R1 fails the arm (F2 held-out slope, F8 isotonic beats it, F11 firing rate), and it is the one with a product consequence: a 43% firing deficit on a composed count forecast.
+
+### ⚠️ What F11 still cannot say, stated rather than glossed
+
+- ⛔ **`precision_at_k` is INVARIANT under R1 by construction** — top-k by gate score is rank-preserving, so the fired set is identical up to the 14 new ties F10 recorded. **DERIVED, and consistent with the measured `ΔAP = 0.00000` exactly.** The standing rule *"read `act_ratio` with `precision_at_k`, always"* therefore has nothing to add here: R1 moves firing **volume** and **cannot** move placement. ⚠️ **So F11 establishes that the volume is right, not that the firing lands anywhere better.**
+- ⛔ **CRPS on the composed forecast under the corrected gate is NOT recoverable from these archives.** The per-cell body sample exists only where a draw fired, and with a mean gate of ~0.004 the overwhelming majority of cells have **zero** positive draws out of 16 — so the body distribution is absent exactly where the gate is small, which is nearly everywhere. Substituting a pooled body sample would be a nuisance parameter standing in for the thing being measured, which this programme has banned twice. ⛔ **The CRPS half of `RND_PLAN §5` still needs a re-run; the `act_ratio` half never did.**
+- ⚠️ **No numeric guardrail band for `act_ratio` is pre-registered anywhere.** `PREREG:186` says *"`act_ratio` leaves its guardrail band"* and never states the band; the prior arm used *"≤ control"* (`OUTCOME.md` P-6). **A falsifier with no threshold cannot fire on a number alone**, so the verdicts above are stated as direction and magnitude against 1.0, which is the one value `act_ratio` has a meaning at. **Recorded as a gap in this programme's own pre-registration.**
+- ⚠️ **h=1 only.** The delivery is 36 months and the gate posterior is not retained beyond h=1 (#558 / C-161). **Unchanged by this measurement.**
+- ⚠️ **§7's "amber REPRODUCED here (0.004167 → 0.003278)" is a DIFFERENT object from this table's 0.0042534 → 0.0033573.** §7's is a 4-pass posterior-**mean** gate from P2's scoring sweep; this is the **16 delivered draws** of the production run. The −20.5% here against §7's −21.3% is agreement between two different measurements, **not a reproduction**, and calling it one would be the provenance-mismatch class.
 
 ---
 
@@ -267,7 +327,8 @@ sigmoid(logit(g)/T) ≥ τ   ⟺   logit(g) ≥ T·logit(τ)   ⟺   g ≥ sigmo
 **NOT established:**
 - ⛔ **H3 — the resolution limit.** F7 firing is *consistent with* it but cannot establish it, because **AP is unchanged by construction under a monotone map: a test that cannot fail cannot confirm.** Live and untested.
 - ⛔ **H2 — `weight_decay: 0.1`.** Live, and the premise this seat argued it from (that the weights pin the slope) is **damaged** by E6f's 0.41 of movement with the weights untouched.
-- ⛔ **The firing rate under a corrected gate (F11).** Unrun, needs the composed forecast.
+- ✅ **The firing rate under a corrected gate (F11) — RUN 2026-10-19, §7b.** `act_ratio` pooled: amber **1.2970 → 0.9825** (F11 does not fire); copper **0.7078 → 0.5703** (⛔ F11 FIRES). **No GPU.** ⛔ **Still NOT established: CRPS on the composed forecast under the corrected gate** — the body sample is absent wherever the gate is small, which is nearly everywhere, and no substitute is admissible.
+- ⛔ **That R1 fires in better PLACES.** `precision_at_k` is invariant under a monotone map by construction. R1 moves firing volume and cannot move placement.
 - ⛔ **Anything at h ≥ 2.** Validated at h=1 only; the delivery is 36 months; #558 / C-161.
 - ⛔ **Generalisation beyond amber and copper.** n=2, same architecture, one config key apart — **and the fix that works on one fails on the other.** No gate-calibration number exists for any served model.
 - ⛔ **The root cause.** Train/deploy geometry; training-side; never scoped by this programme.

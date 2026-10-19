@@ -1454,7 +1454,7 @@ R1    mean gate            0.003278   (0.951x truth)     <- 21.3% lower
 
 **Free structural check:** cells above gate 0.5 are **1296 → 1296, unchanged** — `logit/T` preserves sign, so the count above 0.5 is invariant. Another confirmation of rank preservation, at no cost.
 
-⚠️ **F11 REMAINS UNRUN and R1 is NOT claimed to pass it.** `act_ratio` and CRPS are properties of the **composed** forecast, which Tier 2 does not build, and a 21% drop in mean gate is a ~21% drop in expected counts. **The guardrail that caught the CRPS artefact has not been applied to R1.** Their flagging this rather than glossing it is the right call, and it is the last gate before R1 goes anywhere near production.
+⚠️ ~~**F11 REMAINS UNRUN and R1 is NOT claimed to pass it.**~~ ✅ **SUPERSEDED 2026-10-19: F11's `act_ratio` limb is RUN on both kestrels with no GPU and R1 PASSES it on amber and FAILS it on copper — `RESULTS.md` §7b. Only the CRPS limb remains unrun. The paragraph below describes the state before that measurement.** `act_ratio` and CRPS are properties of the **composed** forecast, which Tier 2 does not build, and a 21% drop in mean gate is a ~21% drop in expected counts. **The guardrail that caught the CRPS artefact has not been applied to R1.** Their flagging this rather than glossing it is the right call, and it is the last gate before R1 goes anywhere near production.
 
 ## 5 — H3 is NOT confirmed. Their point 4 is correct.
 
@@ -1464,7 +1464,7 @@ F7 firing is **consistent with** a resolution limit but cannot establish one, be
 
 | | status |
 |---|---|
-| **R1 on amber (shipped)** | ✅ **CONFIRMED by measurement** — 71% calibration gain, 1 parameter, `T` stable to 0.8%, isotonic cannot beat it, `ΔAP` exactly 0, aggregate rate improved. ⚠️ **F11 outstanding** |
+| **R1 on amber (shipped)** | ✅ **CONFIRMED by measurement** — 71% calibration gain, 1 parameter, `T` stable to 0.8%, isotonic cannot beat it, `ΔAP` exactly 0, aggregate rate improved. ✅ **F11's `act_ratio` limb RUN 2026-10-19 and PASSED on all three targets** — pooled 1.2970 → 0.9825 (`RESULTS.md` §7b). ⚠️ **Its CRPS limb is unrun and not recoverable from the archives.** |
 | **R1 on copper (killed arm)** | ⛔ **FAILS.** Its defect is slope **and** level; R3 is the matching fix there |
 | **"pure slope"** | ⛔ **arm-specific** — true for the shipped model, false for the arm |
 | **H1 / H4 / H2 / H3** | unchanged from Amendment 12 |
