@@ -26,6 +26,18 @@ touch §0, §2.8, §4.1, §4.4 and §7** — §4.3, §5.0, §5.4 and §8.2 are c
 — the reviewer did not open the library, and §1's fourth amendment rests on citations rather than
 measurement.
 
+> ⛔ **NEW 2026-10-19 — `Appendix E` brings ten newly-ingested papers against this report and THREE OF
+> THEM CONTRADICT IT.** Nothing in §0–§8 has been edited on their strength; both positions are stated and
+> the collisions are left standing, on Simon's rule that a challenge we lost is worth more than a citation
+> that agrees. The three: **`Raftery2005`** — ensemble spread *structurally* understates predictive
+> uncertainty, so our gate under-dispersion may be a property of ensembles rather than a defect of our
+> network; **`Walz2024_PrecipitationTropicalAfrica`** — in *northern tropical Africa*, a deterministic
+> U-Net plus post-hoc isotonic calibration beat postprocessed ECMWF ensembles on occurrence *and* amount,
+> which questions whether our ensemble axis was worth eight members; **`Resin2026`** — for **binary**
+> outcomes, PIT calibration is **provably equivalent to auto-calibration**, the strongest notion there is,
+> and FAO-02 rejected PIT. Appendix E also records **two proven non-identifiability results** that bound
+> what §8.3's suite can ever do, and the one challenge that was **sought and not found**.
+
 **This is a stopping point, not a finished document**, and it is marked as one deliberately. Its purpose
 was to stop eight months of evaluation knowledge being lost, and that purpose is served: the findings are
 written down, sourced, and the known-unreliable parts are named. ⛔ **It should not be the basis of a
@@ -1953,3 +1965,230 @@ them, because they are corroborated independently:
    three experiments that resembled it."* ⚠️ INFERENCE twice over — the theorem is proved for feedforward MLPs and the
    HydraNet is an RNN, so the transfer is argued rather than established. Still the sharpest unexamined
    direction in the record.
+
+---
+
+## Appendix E — The literature, and where it contradicts us
+
+**Added 2026-10-19.** Ten papers entered `~/brain/9_library` on 2026-10-18 (621 papers, 2,927 extracted
+claims). This appendix brings them against the report.
+
+⛔ **THE RULE FOR THIS APPENDIX, and it is Simon's: COMPLEMENT, DO NOT REVISE.** Where a paper
+contradicts something above, **nothing above is rewritten.** Both positions are stated — *this is what we
+had, this is what the paper says* — and the collision is left standing. A challenge we lost is worth more
+to this document than a citation that agrees with us. ⚠️ So **no claim in §0–§8 has been edited on the
+strength of anything below.** If a reader finds the two in tension, that tension is the content.
+
+**Provenance.** Every entry cites a `paper_id` and the locator the library's extraction carries. Claims
+are labelled with the library's own confidence (`proven` / `argued` / `empirical`). ⚠️ **Where I extend a
+paper's claim to our setting, that step is mine and is marked INFERENCE** — several of these papers are
+about continuous weather variables and ours is a sparse count field, and that gap is not always small.
+
+---
+
+### E.1 ⛔ THREE PAPERS CONTRADICT US
+
+#### E.1.1 Our gate under-dispersion may be structural, not a defect — `Raftery2005_BayesianModelAveraging`
+
+> **What we have.** The gate's logits are compressed: slope `b ≈ 1.1875` on the shipped model, measured six
+> ways, surviving ten rounds of two-seat review (`2026-10-18_gate_underdispersion_prereg/RESULTS.md §1`).
+> We concluded the compression is **in the network** (the reporting path explains ~8%), spent three days on
+> candidate causes, and banked **temperature scaling** as the one-parameter fix.
+
+> ⛔ **What the paper says.** `Raftery2005_BayesianModelAveraging`, claim 2, **PROVEN**: the BMA predictive
+> variance decomposes into **between-forecast variance (ensemble spread)** plus **within-forecast variance
+> (σ²)**, and this *"provides a theoretical explanation of the empirically observed coexistence of
+> spread-error correlation and **underdispersion in forecast ensembles**: the ensemble spread captures only
+> the first component, **systematically underestimating total predictive uncertainty**."* Empirically, the
+> raw ensemble range contained **29%** of observations against a nominal 66.7%.
+
+**The collision.** Our posterior is an ensemble — 16 MC-dropout draws. If under-dispersion is the
+*structural* consequence of reading spread off an ensemble and ignoring within-member variance, then we
+measured a known property of ensembles and diagnosed it as a defect of our network. ⛔ **And the remedy
+differs:** BMA adds a σ² term; we proposed rescaling the log-odds. A temperature fit can match the
+observed spread without supplying the missing variance component, which is the Goodhart shape this report
+spends §4 cataloguing.
+
+⚠️ **INFERENCE, and the gap is real.** Raftery's decomposition is for normal component PDFs on a
+continuous outcome. Our gate is a Bernoulli probability, where "variance" is a function of the mean and
+cannot be inflated independently. **Whether the decomposition transfers to a probability is not settled by
+this paper and I have not derived it.** What survives transfer without argument is the weaker, still
+uncomfortable point: *ensemble-derived uncertainty is expected to be too narrow, and we treated narrowness
+as evidence of a bug.*
+
+**Neither position is retracted.** Our `b` is a measurement and stands. The causal story is an inference
+and now has a competitor from the literature.
+
+#### E.1.2 A deterministic backbone plus post-hoc calibration beat the ensemble — in our region — `Walz2024_PrecipitationTropicalAfrica`
+
+> **What we have.** §7-S7: the 8-member ensemble was buying **sample count, not member disagreement** —
+> M66 (pooled beats best member at unequal S; subsample to 16 draws and it falls *below* the best member),
+> M67 (errors correlate 0.96–0.99 across all 28 pairs). The conclusion drawn was about our ensemble's
+> diversity.
+
+> ⛔ **What the paper says.** `Walz2024_PrecipitationTropicalAfrica`, **EMPIRICAL**: a two-stage **U-Net
+> CNN + EasyUQ** for 24-hour probabilistic precipitation over **northern tropical Africa** *"clearly
+> outperforms all competing methods — including monthly probabilistic climatology, raw and postprocessed
+> ECMWF ensemble forecasts, logistic regression, distributional index models"* — on **both occurrence
+> (Brier) and amount (CRPS)**. And separately: *"The HRES+EasyUQ forecast — a single deterministic NWP run
+> converted to probabilistic via EasyUQ — **outperforms the ensemble-based EPS+ISO forecast** for
+> precipitation occurrence, demonstrating that a well-calibrated deterministic forecast can be"* competitive
+> with an ensemble.
+
+**The collision.** We asked *"is our ensemble diverse enough?"* The literature's answer in the same region,
+on the same kind of sparse-extreme field, is that **the ensemble may be the wrong instrument**: one
+deterministic backbone plus an isotonic post-hoc UQ layer beat a physics ensemble on occurrence, at a
+fraction of the cost. ⛔ **That is not a refinement of M66/M67 — it questions whether the ensemble axis was
+worth the eight members.**
+
+⚠️ **Scope, stated because it is doing a lot of work:** 24-hour lead time against our 36 months; gridded
+precipitation against fatality counts; IMERG/ERA5 predictors against conflict history. **Different target,
+different horizon, same region and same architecture family.** Treat it as a strong prior on the *shape* of
+the answer, not as a result about us.
+
+#### E.1.3 For a binary gate, PIT calibration IS the strongest notion — and we rejected it — `Resin2026_HierarchiesCalibration`
+
+> **What we have.** FAO-02 is LOCKED: CRPS primary, QS99/Brier/MCR as guardrails, and ⛔ **twCRPS,
+> LogScore and PIT explicitly REJECTED** (`technical_risk_register.md:655`, on forecaster's-dilemma
+> grounds, `Lerch2017`). §0 separately argues *"a PIT would have shown it instantly"* about the all-zero
+> surface — a claim the 2026-10-11 adversarial pass flagged as **open finding 6**, still unverified.
+
+> ⛔ **What the paper says.** `Resin2026_HierarchiesCalibration`, claim 4, **PROVEN** (Section 2.4,
+> Figure 3): *"**For binary outcomes, numerous otherwise distinct notions of calibration collapse**:
+> auto-calibration, class-wise calibration, class-wise confidence calibration, threshold calibration,
+> conditional exceedance probability calibration, **probabilistic calibration**, double PIT calibration, and
+> strong quantile calibration **all coincide**."* And `Gneiting2023_ConditionalCalibration`, claim 1,
+> **PROVEN**: auto-calibration is the **strongest** notion, implying probabilistic calibration (uniform
+> PIT) and marginal calibration.
+
+**The collision.** Probabilistic calibration *is* PIT calibration. **Our gate is binary.** So for the gate,
+the thing FAO-02 rejected is **provably equivalent to auto-calibration — the strongest calibration notion
+available.** ⛔ Rejecting PIT for a binary gate is not the same decision as rejecting twCRPS for a
+heavy-tailed magnitude, and FAO-02 made them as one decision.
+
+⚠️ **What this does NOT say.** It does not say FAO-02 was wrong. The dilemma argument was about
+**outcome-selected scoring used for ranking**, and PIT was rejected in that company. The paper establishes
+a **logical equivalence for binary outcomes**, not that the rejection's reasoning fails. ⛔ **But the
+rejection was applied to a binary gate on the strength of an argument about extremes, and the collapse
+result means that application needs its own justification.** FAO-02 is governance and is not edited here.
+
+**It also sharpens open finding 6 without closing it.** Our *"a PIT would have shown it instantly"* is
+about the **body's** all-zero surface, not the gate — and for a continuous or count outcome the collapse
+does not hold, so the claim keeps its original problem. **Row 6 stays open.**
+
+---
+
+### E.2 ⛔ TWO PROVEN IMPOSSIBILITIES THAT BOUND §8.3 AND THE STATE-BASED EXTENSION
+
+§8.3 proposes diagnostics matched to the factorization of the data-generating process, and notes that
+**none of them can see dependence or self-excitation**. The literature is harsher than that: it says a
+whole *class* of diagnostic cannot see it, as a theorem.
+
+#### E.2.1 Self-exciting and doubly stochastic processes are indistinguishable at second order — `Hawkes1971_SelfExcitingSpectra`
+
+> ⛔ **PROVEN** (Section 3, eqs. 12–18, pp. 85–86): a self-exciting process with exponential kernel
+> `g(v) = α·exp(−βv)` has a covariance density *"**identical** to the covariance function of a doubly
+> stochastic Poisson process whose intensity has the same covariance structure. Thus self-exciting and
+> doubly stochastic processes with matching second-order properties **cannot be discriminated by methods
+> based on the estimated point spectrum, covariance density, or variance-time function**."*
+
+**What this challenges.** The hope — Simon's, and mine in §8.3 — that a *latent risk field* and a
+*self-exciting dynamic* can be measured by separate, near-orthogonal diagnostics. ⛔ **At second order they
+are the same process.** No marginal, pooled, spectral or variance-based diagnostic can separate "the risk
+field was high here" from "an event here made more events likely". **That is the strongest single result
+against the orthogonality programme, and it is a theorem, not a caution.**
+
+**What it leaves open, which is the constructive half.** Discrimination is possible, but only by
+**likelihood on the conditional intensity**, not by a summary statistic.
+`Ogata1982_LinearIntensityModels` is exactly that: a unified model
+`λ(t|H_t) = μ + ∫g(t−s)dN_s + ∫h(t−s)dX_s` in which **`g = 0` gives a doubly stochastic Poisson process
+driven by the external input and `h = 0` gives no external causation** (Section 2, eq. 2.3, pp. 102–103),
+fitted by partial likelihood with **AIC over response-function orders** (Section 4, eq. 4.1). ⛔ **So the
+separation Simon wants is a MODEL-SELECTION problem, not a metric problem.** That reframing is the most
+useful thing in this appendix for the planned article.
+
+#### E.2.2 And a second non-identifiability, from the spatial side — `Moller1998_LogGaussianCoxProcesses`
+
+> **EMPIRICAL** (Section 4, pp. 460–462): for certain parameters the pair correlation functions of a
+> **Thomas process** (clustering by offspring) and an **LGCP** (clustering by a latent Gaussian field) are
+> *"nearly indistinguishable, and **neither the F and G nearest-neighbor statistics nor the third-order
+> characteristic z(t) reliably discriminate** between the two models in finite samples."*
+
+**What this challenges.** The same hope, from the spatial direction: *clustering because the latent risk
+field is smooth* and *clustering because events beget events* are not reliably separable in finite samples
+either. ⛔ **Two independent literatures, two non-identifiability results, same conclusion.**
+
+✅ **And one genuinely usable instrument, which we do not have.** `Moller1998`, claim 1, **PROVEN** (Theorem
+1, eqs. 2–4, pp. 456–457): for a stationary LGCP all higher-order moments are determined by the first and
+second order, which *"provides a **testable third-order summary statistic z(t) that identically equals 1
+for all t > 0** under an LGCP."* **That is a falsifier for a model class** — the shape of thing §8's table
+demands and our apparatus does not contain. ⚠️ Subject to E.2.2's own warning that `z(t)` does not
+discriminate LGCP from Thomas; it tests the LGCP assumption, not the clustering mechanism.
+
+⚠️ **INFERENCE, flagged.** Our field is a **discretised raster**, not a point pattern, and these results
+are stated for point processes on a continuum. **Whether they transfer to PRIO-GRID cell-months is not
+established by these papers and I have not derived it.** It is, however, the question Simon raised — if
+conflict is a point process and our grid is an arbitrary discretisation, then our zero-inflation is partly
+manufactured by the grid, and ⛔ **none of these ten papers makes that argument explicitly.** Recorded as
+sought-and-not-found, not as supported.
+
+---
+
+### E.3 ✅ THREE INSTRUMENTS THE LITERATURE HAS AND WE BUILT BY HAND
+
+Not contradictions — but each is a published, proven version of something this report derived
+expensively, and §8.1's *"wiring an existing metric beats adding one"* applies to the literature too.
+
+| | the literature | what we did instead |
+|---|---|---|
+| **Miscalibration vs discrimination** | `Gneiting2023_ConditionalCalibration`, **PROVEN** (§2.5–2.6, Thm 2.26): the score decomposition **`S̄ = MCB − DSC + UNC`** for *any* identifiable functional with a consistent scoring function, plus a universal **`R* = DSC/UNC`** nesting classical R². | ⛔ The gate programme spent three days establishing by derivation and measurement that **recalibration moves firing volume and cannot move placement** (`ΔAP = 0.00000` exactly). That is **MCB** moving while **DSC** is fixed. The decomposition was available as a theorem with an estimator. |
+| **Reliability diagrams** | Same paper, **ARGUED** (§3.1): **CORP** — consistent, optimally binned, reproducible, **PAV-based** — giving *"non-decreasing reliability diagrams with guaranteed nonnegative MCB and DSC components."* | We have `scripts/gate_reliability.py`, a **binned** diagram with bootstrap CIs — which `RESULTS.md §12` records was itself *reinvented* because a "superseded" marker hid it. ⛔ **Binned, not CORP**, so the non-negativity guarantee does not hold for it. |
+| **Comparing a point model against a sample model** | `Gneiting2026_FairComparisonAIWPNWP`, **PROVEN**: **PCRPS** — apply EasyUQ (isotonic distributional regression) post hoc to deterministic output, then take mean CRPS. Purpose-built for *"fair comparison of single-valued output"* against ensembles. | ⛔ **§8's row ★4 exists because we got this wrong**: persistence was published **understated by 31%** at h18 by two scoring defects, one of which is S-mismatch between arms and reference. PCRPS is the literature's answer to that exact comparability problem — **and to §8.3's unsolved "both point and sample models" seam.** |
+
+⛔ **And one that speaks directly to our AP problem.** `Walz2026_MonotoneDependenceAUC`, **PROVEN**
+(Thm 2.5, eq. 20; Figure 1): the coefficient of monotone association **CMA reduces to AUC for a
+dichotomous outcome and to ½(ρ+1) for continuous outcomes** — one coefficient spanning gate and body — and
+*"**AGC depends much less on the discretization level of the outcome than AKC**: when Y is discretized into
+ordinal levels, AGC varies little with the number of levels k … **This stability makes AGC/CMA preferable
+when the discretization level is arbitrary or beyond the researcher's control**."*
+
+**That is our scar, named by a theorem.** This report records that **AP is quantised to S+1 rank levels**
+and that **the reference's S must equal the arms' cube width**, after a 31% understatement. ⛔ **CMA is
+stable under exactly the discretisation we cannot control.** Its mixture representation
+`CMA = 6∫α(1−α)·AUC^(α)dα` also **integrates discrimination over every dichotomisation threshold** — where
+our roster picks one `τ` empirically and the gate conclusion then found that **τ had silently absorbed a
+calibration defect**.
+
+---
+
+### E.4 ✅ ONE PLACE OUR MEASUREMENT MEETS THE LITERATURE AND OURS STANDS
+
+`Walz2024_EasyUQ`, **PROVEN**: EasyUQ is *"a special case of **isotonic distributional regression** (IDR)
+that leverages the **pool-adjacent-violators** algorithm under the stochastic monotonicity constraint."*
+
+⛔ **We tested this and it lost.** The gate programme's Tier-2 remedies compared temperature scaling (R1)
+against **isotonic** recalibration on the shipped model and recorded that **isotonic cannot beat R1**
+(`RESULTS.md §7`, §10). So on our data, for our gate, the one-parameter method beat the IDR-family method.
+
+**Stated as a complement, not a victory.** It is one model, one target, h=1, and `n = 2` models overall —
+far below the bar this report sets for a generalisation. ✅ But it is a case where this record **anticipated
+the literature's instrument and measured against it**, and the result is ours to keep.
+
+---
+
+### E.5 What this appendix does not do
+
+- ⛔ **It audits none of the report's pre-existing citations.** Bolin2023, Gneiting2011, Taillardat2023,
+  Brehmer & Strokorb, Ehm2016, Aceituno2025, Lakshminarayanan2017 remain **unexamined by any reviewer**, and
+  the standing warning in Appendix C is unchanged. `Lerch2017`, `Machete2012`, `Cragg1971` and
+  `Mullahy1986` were read for §8.3 and for E.1.3.
+- ⛔ **It closes none of the four open findings** (6, 7, 8, 10). E.1.3 sharpens row 6 and explicitly leaves
+  it open.
+- ⚠️ **It establishes no result about our models.** Every entry is either a theorem about a class of
+  process or an empirical finding on another dataset. **The two INFERENCE steps are marked where they occur**
+  (E.1.1's transfer to a Bernoulli gate, E.2.2's transfer from point patterns to a raster) and neither is
+  derived.
+- ⛔ **The grid-discretisation challenge was sought and NOT found.** If conflict is a point process and
+  PRIO-GRID is an arbitrary discretisation that manufactures our zero inflation, **none of these ten papers
+  argues it**. That is the most important open question this appendix raises and it is raised, not answered.
+
