@@ -179,8 +179,26 @@ def choose_loss(
     # loss_reg path below (byte-identical). A single shared instance (theta/pi are head-emitted).
     from views_hydranet.distributions import resolve_family
     from views_hydranet.distributions.family_loss import FamilyLoss
+    from views_hydranet.utils.config_initializer import (
+        validate_body_nll_denominator_pair,
+    )
 
-    _family = resolve_family(config.get("output_distribution", "standard"))
+    # body_nll_denominator is read with NO fallback default — the schema owns it (P7 convention).
+    # `.get()` with no second argument yields None for a caller that bypassed `HydraNetConfig`
+    # (a raw dict from `get_hp_config()`, a measurement driver, a pre-schema config). Such a
+    # caller never ran `reject_ignored_body_nll_denominator`, so the family/denominator rule is
+    # re-checked HERE — the same pattern `HydraNetInference.__init__` uses to re-reject the inert
+    # clamp for pydantic-bypassing drivers. Without this, a dict setting 'all_cells' on `nb` was
+    # neither rejected nor forwarded: silently ignored, which is the exact failure the validator
+    # exists to prevent. Found by /code-review on PR #398.
+    _dist = config.get("output_distribution", "standard")
+    _den = config.get("body_nll_denominator")
+    validate_body_nll_denominator_pair(_den, _dist, config.get("body_supervision", "all"))
+    _family = (
+        resolve_family(_dist, body_nll_denominator=_den)
+        if _dist == "truncated_nb" and _den is not None
+        else resolve_family(_dist)
+    )
     loss_reg_sigma = config.get("loss_reg_sigma")
     learnable = config.get("learnable_sigma", False)
     if _family is not None:

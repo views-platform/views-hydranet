@@ -82,3 +82,47 @@ channels (`volume_handler.py:312`) — has a direct numpy replacement: with rows
 - Touch the viewser→datafactory provider swap (ADR-071 owns it).
 - Fix column-name-as-role coupling (C-173/C-174).
 - Change any output-path or scoring code (ADR-047 already done; frozen).
+
+---
+
+# Errata — 2026-10-19 (read this before the body above)
+
+Verified against the code in `03_harness.md §1`. Four statements above are wrong; the design still stands,
+but two of these change what gets built.
+
+1. ⛔ **"`SpatioTemporalIndex` **is** the completeness/uniqueness contract … a construction-time invariant,
+   not re-implemented"** — **false.** views-frames C-21: duplicates are allowed and uniqueness is not
+   validated at construction (`index.py:25-38`); the check is opt-in (`has_unique_rows()`, `:245-254`,
+   "not run by default"). `validate_values` does not reject NaN/Inf either. The uniqueness and finiteness
+   gates in `DataSniffer` are **ported, not inherited**. The sentence "Uniqueness/completeness are largely
+   **free**" in the DataSniffer section is struck.
+
+2. ⛔ **"the `apply_blueprint` derivations … move to `VolumeHandler._execute_derivations`"** — they do not
+   move, because they are **already there**. `volume_handler.py:103` runs `_execute_derivations` during
+   construction, and the `by_*` columns `apply_blueprint` writes are absent from `channel_map`
+   (`:165-171`), so they never enter the tensor. `apply_blueprint` is **deleted** from the input path. Its
+   one live consumer is `prepare_actuals_df` (the F4 seam).
+
+3. ⛔ **"coordinates come from `ff.index` (integer `time`/`unit` arrays) instead of DataFrame columns"** —
+   incomplete in a way that hides the only new code in the program. `row`/`col` are supplied by **neither**
+   datafactory adapter and the frame path refuses to derive them by contract
+   (`feature_frame_path.py:17-19`). They must be decoded from `priogrid_id`, with
+   `dataloaders.py:537-542` as the exact oracle — and they are needed **twice**: as scatter indices *and*
+   as channel values, because `identity_cols` lists them (`config_hyperparameters.py:81`).
+
+4. ⚠️ **"call pipeline-core `feature_frame_path.get_feature_frame(...)`"** — that function does not exist
+   under that name, and more importantly hydranet should call **nothing**. It reads a pre-baked artifact off
+   disk (`data_fetcher.py:60`). pipeline-core #290 already ships the fetch, the `data_format:
+   feature_frame` dispatch and `_get_cached_frame_path()` **for engine subclasses to use**
+   (`model.py:1010-1024`, `:1269-1277`). The inbound change is
+   `read_dataframe(parquet)` → `load_frame_cache(self._get_cached_frame_path())`.
+
+5. 🆕 **Missing from the design entirely: the precision policy.** The pandas path scales in float64 and
+   downcasts at the volume write; a frame-native scaler on float32 values does not. See
+   `05_analysis_plan.md` Amendment A1.1 — the frame path upcasts to float64 for the transform and downcasts
+   only at the scatter-write.
+
+6. ⚠️ **The static-channel `groupby`** described as "the single pandas idiom left inside `from_df`" sits at
+   `volume_handler.py:312`, inside the data-backed-static guard — and **every** model config in the fleet
+   declares `static_channels: []`, so it does not execute today. Port it for correctness; it is not on the
+   parity critical path.

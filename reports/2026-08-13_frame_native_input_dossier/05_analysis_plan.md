@@ -54,3 +54,68 @@ S5 flip default + retire pandas + CIC/pyproject/ADR updates → S6 import-purity
 - **After the provider swap, separate from it** (ADR-071 §S9 sequencing lock).
 - **Never widen the parity tolerance to make the gate pass.**
 - **Cross-repo IDs cited as `repo#id`** (lesson from the C-132/C-286 collision).
+
+---
+
+# Amendment 1 — 2026-10-19 — the precision policy, and three clauses that rested on false premises
+
+Written before anything was executed, after the verification pass recorded in `03_harness.md §1` and
+`07_experiment_log.md E0`. The body above is **unchanged**; this amendment adds to the intervention
+definition and narrows three clauses. Nothing is relaxed.
+
+## A1.1 — The intervention definition gains a precision clause (⛔ load-bearing)
+
+The intervention above says "the input container/path … everything else held fixed." That was not
+sufficient to specify, because the two containers carry **different dtypes**: the pandas path delivers
+float64 (`ensure_float64`, `dataloaders.py:577`) and `FeatureFrame` is float32 by contract. The scaling
+transform therefore runs in a different precision in each path, and `float32(log1p_f64(x))` ≠
+`log1p_f32(float32(x))` in the last bit for some `x`.
+
+**The intervention is amended to read:** the frame-native path **upcasts feature values to float64 before
+the scaling transform and performs its only downcast at the volume scatter-write**, mirroring the pandas
+path step for step.
+
+This is not a tolerance. It is a specification of what "everything else held fixed" means, committed
+before the anchor. Without it, **P1 fails and F1 fires on a precision artefact** — a false STOP with the
+wrong diagnosis attached.
+
+**New precondition, pre-committed as a STOP:** if the values are float64 at the zarr boundary and the
+`FeatureFrame` coerces them to float32 before we receive them, information is lost upstream of us and
+`atol=0` is structurally unreachable. Measure this at **PF-6, before S1**. If it fires, the honest outcome
+is "the frame boundary is lossy for this source" — a finding, reported, not worked around.
+
+## A1.2 — P5 no longer leans on the index (it never could)
+
+P5 pre-registers a named exception for a duplicated `(time, unit)` row. The body above implied
+`SpatioTemporalIndex` supplies that. **It does not** — views-frames register C-21: duplicates are
+*allowed*, uniqueness is *not validated at construction*, and `has_unique_rows()` is opt-in and "not run by
+default" (`index.py:25-38`, `:245-254`). `validate_values` likewise does not reject NaN or Inf
+(`_validation.py:79-106`).
+
+**P5 is amended:** the five malformed-input cases are gates **we implement at the handshake**, ported from
+`DataSniffer._check_spatiotemporal_uniqueness` and `_check_non_finite`. P5 is now a test of our code, which
+is what makes it falsifiable. The prediction is unchanged; only the mechanism it relies on is corrected.
+
+## A1.3 — P2 is now a regression test, not a migration test
+
+P2 pre-registers derivation parity as a thing the migration must achieve. Re-checked: the numpy
+`_execute_derivations` is **already** the only derivation path feeding the volume — the `by_*` columns
+`apply_blueprint` writes are not in `channel_map` and are never read into the tensor (`03_harness.md §1.4`).
+
+**P2 is amended:** it predicts that `test_derivation_parity` stays green while `apply_blueprint` is
+**deleted from the input path**. That is a weaker prediction than written, and saying so is the point —
+the clause was claiming credit for work already done.
+
+## A1.4 — F1's STOP is narrowed by one named exclusion
+
+F1 says a P1 failure that "cannot be reconciled by matching reduction order" is a STOP. **The precision
+policy in A1.1 is the only pre-approved reconciliation.** Any other reconciliation — reordering a
+reduction, changing a dtype anywhere else, touching the scaler's semantics — is **not** covered and F1
+stands. This closes the obvious Goodhart route: "reconcile" must not become a licence to tune until the
+gate passes.
+
+## A1.5 — What locks this plan
+
+Locked when **PF-1** (human review of ADR-072) and **PF-3** (`data_format: feature_frame` on the target
+descriptor) close. From the moment the S1 anchor is captured, no further amendment: a change after that
+point is a new plan, not an amendment to this one.

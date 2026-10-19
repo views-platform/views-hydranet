@@ -1,0 +1,17 @@
+TIER 2 - copper   13 origins x 64,818 cells   positives 2,905
+
+         b held-out   |gate-obs|         AP   sharpness
+raw          1.3633      0.00878    0.54559     0.02582
+R1           1.2482      0.01136    0.54559     0.02550
+R3           1.0028      0.00929    0.54559     0.03792
+R4           0.9928      0.00430    0.54421     0.03567
+
+R1 temperature: mean 0.9155  min 0.9138  max 0.9183  spread 0.5%
+
+=== FALSIFIERS ===
+F2  |b_R1 - 1| = 0.2482 vs 0.05        -> FIRES: temperature is not the matching fix
+F9  T spread = 0.5% vs 15%     -> pass
+F8  R4 vs R1 on |gate-obs|: 0.00430 vs 0.01136 (+62.1%) -> FIRES: NOT a pure slope
+F7  dAP = 0.00000 (seed sd 0.019)  d_sharpness = 0.00032
+    does not fire as stated
+F10 rank identity R1 True  R3 True  new ties under R1 (mean) 8
