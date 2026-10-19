@@ -1,6 +1,6 @@
 # What we have learned about evaluating HydraNets
 
-**Date:** 2026-09-30 · **Last revised 2026-10-11** · **Status:** consolidation report, **no new measurement by this session** (§0.2 and §5.0 carry tables measured 2026-09-30 by the `models` session, attributed there) ·
+**Date:** 2026-09-30 · **Last revised 2026-10-20** · **Status:** consolidation report, **no new measurement by this session** (§0.2 and §5.0 carry tables measured 2026-09-30 by the `models` session, attributed there) ·
 **Supersedes as the living document:** `reports/2026-08-13_evaluation_pitfalls_and_metric_battery_DRAFT.md`
 (retained as dated provenance; its taxonomy letters A1–I4 are preserved here unrenumbered).
 
@@ -11,24 +11,34 @@
 **This document has been through one clean-context adversarial review (2026-10-11) and it did not come
 out clean.** That review returned **17 findings**. Five were verified against primary sources and
 **fixed**, including ⛔ **the retraction of §0 item 1, the report's lead claim** — see Appendix C. **Ten
-were recorded and NOT investigated**, listed in Appendix C under *"Open findings"*.
+were recorded and NOT investigated**, listed in Appendix C under *"Open findings"*. ⚠️ **5 + 10 = 15, and
+the accounting has never closed for the other two** — nor does it reconcile with Appendix C's separate
+*"seven independently verified"*. Unexplained, and left visible rather than quietly rounded.
 
 > ✅ **UPDATE 2026-10-19 — six of those ten are now adjudicated.** The five checkable citation rows
 > (**1, 2, 4, 5, 9**) were each verified against the primary source: **all five were real defects and all
 > five are fixed in place.** ⛔ **Row 3 was REFUTED** — it attributed the figure to M8, the report cites
-> **M9** at every site, and the ledger's own floor-status table classes M9 under *"survives"*.
+> **M9** at four of its five sites, and the ledger's own floor-status table classes M9 under
+> *"survives"*. ⛔ **The stated basis is WRONG and the verdict is re-opened: `Appendix D.4` carries the
+> 13× figure with NO M-number, C-number or issue**, and D.4 is one of the five sites the finding named.
+> The ledger-status half may still hold; it has to be re-argued. Found by the 2026-10-19/20 audit.
 > **Four remain open (6, 7, 8, 10)**, and they are exactly the four the reviewer itself marked as reasoning
 > rather than citation mismatch.
 
 **What that means for a reader.** The §0 items, §1's amendments, §4's verdicts and §5's blind spots are
 the load-bearing parts and they have now been attacked once. ✅ **The remaining FOUR findings (2026-10-19)
-touch §0, §2.8, §4.1, §4.4 and §7** — §4.3, §5.0, §5.4 and §8.2 are cleared of open rows. ⚠️ **No literature citation in this document has been audited by anyone**
-— the reviewer did not open the library, and §1's fourth amendment rests on citations rather than
-measurement.
+touch §0, §2.8, §4.1, §4.4 and §7** — §4.3, §5.0, §5.4 and §8.2 are cleared of open rows. ⚠️ **The 2026-10-11 reviewer audited no literature citation**, and §1's fourth amendment rests on
+citations rather than measurement. ⛔ **No longer true of the document as a whole:** `Appendix E.5`
+(2026-10-19) records the `library` session auditing **seven of the eight** sources this report had
+flagged as unexamined — **only `Lerch2017` remains unaudited**. Four of its seven drift warnings turned
+out to be **already caveated in the text**. ⚠️ That audit checked *meaning* against the papers' extracted
+claims; **nobody has opened a PDF to confirm a given sentence is supported at the page cited.**
 
-> ⛔ **NEW 2026-10-19 — `Appendix E` brings ten newly-ingested papers against this report and THREE OF
-> TWO OF THEM CONTRADICT IT — a third did not, and the fault was mine (E.1.1).** Nothing in §0–§8 has been edited on their strength; both positions are stated and
-> the collisions are left standing, on Simon's rule that a challenge we lost is worth more than a citation
+> ⛔ **NEW 2026-10-19 — `Appendix E` brings ten newly-ingested papers against this report and TWO OF
+> THEM CONTRADICT IT.** A third was filed as a contradiction and is **DEMOTED** — the fault was mine
+> (E.1.1). ⚠️ *An earlier version of this sentence read "THREE OF TWO OF THEM", a mangled edit left when
+> the count was corrected from three to two. Found by the 2026-10-19/20 audit.* Nothing in §0–§8 has been edited on their strength; each collision is stated as
+> two positions and left standing, on Simon's rule that a challenge we lost is worth more than a citation
 > that agrees. The three: **`Raftery2005`** — ensemble spread *structurally* understates predictive
 > uncertainty, so our gate under-dispersion may be a property of ensembles rather than a defect of our
 > network — ⛔ **DEMOTED: that transfer FAILS for a Bernoulli gate (`Var = p(1−p)` has no free `σ²`), the
@@ -50,6 +60,14 @@ measurement.
 > own first version — the live consequence being a **missing sensitivity analysis**: every headline number
 > in this report is defined against one arbitrary quadrat size.
 
+> ⛔ **NEW 2026-10-20 — FIFTEEN INDEPENDENT FALSIFICATION AUDITS, ONE PER SECTION. FOURTEEN CAME BACK
+> FALSIFIED; NONE SURVIVED.** ~70 hard findings. ⛔ **And ZERO wrong measurements** — every number any
+> auditor recomputed reproduced exactly, one to 17 significant digits. **Every defect is a sentence
+> asserting what exists, what is called, or what the record says.** `Appendix F` carries the result, what
+> was fixed, and — at length — **what was NOT fixed.** ⚠️ **Read `Appendix F.3` before relying on
+> Appendices A, B, C or D, on §1's amendments, or on §2.3's instrument claims.** Nine of the ~70 findings
+> were mine, introduced the day before the audit; the auditors found all nine and I would not have.
+
 **This is a stopping point, not a finished document**, and it is marked as one deliberately. Its purpose
 was to stop eight months of evaluation knowledge being lost, and that purpose is served: the findings are
 written down, sourced, and the known-unreliable parts are named. ⛔ **It should not be the basis of a
@@ -58,8 +76,8 @@ protocol change without the remaining open findings being closed first** — ⚠
 ---
 
 **What this is.** Eight months of trying to measure whether a HydraNet is any good, collected in one
-place: 53 dossiers, ~340 risk-register entries, 76 numbered claims, 26 measurement scripts, four
-postmortems. It is about **the ruler first** — which metrics, baselines, gates and experiment designs
+place: 53 dossiers, ~350 risk-register entries, 76 numbered claims (⚠️ **the ledger's table rows stop at
+M65**; M66–M76 exist only as prose, see `Appendix F`), 26 measurement scripts, **seven** postmortems. It is about **the ruler first** — which metrics, baselines, gates and experiment designs
 told us the truth and which fooled us — and then about the verdicts that ruler produced, so a reader
 can tell what state the models are actually in.
 
@@ -179,10 +197,16 @@ green when `/code-review max` returned **25 runtime-verified findings, none caug
 (Epic #353). Then five of my own new guards survived their first mutation. The ledger's conclusion:
 *"the deletion test, not the test suite, is what finds this class."*
 
-⛔ **And the conclusion this report records the facts for but had not drawn.** No forecast metric is
-computed in `views_hydranet/`; the whole ruler lives in `scripts/` and `reports/*/tools/`; `reports/`
-is gitignored; 22 tracked tool files carry hardcoded `/home/simon/...` paths; and the governing
-framework is a PDF outside git whose six in-repo citations are dangling. Therefore: **the apparatus
+⛔ **And the conclusion this report records the facts for but had not drawn.** ⚠️ **Three of this
+sentence's five premises are CORRECTED 2026-10-20 and the conclusion is weakened, not withdrawn:**
+~~No forecast metric is computed in `views_hydranet/`~~ — **false**, `utils/training_forensics.py:344`
+computes `average_precision_score` with **AP as the default**, so part of the ruler lives in-package;
+the ruler's *scored* half does live in `scripts/` and `reports/*/tools/`; `reports/` is gitignored
+**but 1,300+ files under it are force-tracked**, so "gitignored" overstates the practical
+irreproducibility; **21** tracked tool files carry hardcoded `/home/simon/...` paths, not 22 (the 22nd
+is a docstring in a test), **and none of them is in `scripts/`**; and the governing framework is a PDF
+outside git whose ~~six~~ **one** in-repo citation is a dangling *path* — the other five mention
+"FAO-02" and cite no path, so they cannot dangle. Therefore: **the apparatus
 that judges the delivered product cannot be run by anyone else, on any other machine, or in CI — so no
 result in this entire record is independently reproducible by a third party.** *(MEASUREMENT about the
 code; the conclusion is INFERENCE, but I cannot see a way around it.)*
@@ -379,7 +403,7 @@ criticism of CRPS; it is a statement about a 99.5%-zero field.
 
 ### 2.3 The zero-share decomposition and the ARTIFACT verdict
 
-`scripts/rollout_ruler_core.py` (Epic #263, 86 never-skipping tests). For a claimed win it reports
+`scripts/rollout_ruler_core.py` (Epic #263, ⛔ **53** tests, not 86 — and it **does** skip (three `pytest.skip` calls; corrected 2026-10-20)). For a claimed win it reports
 CRPSS, ΔAP, and **what fraction of the CRPS gap is true zeros**, then rules REAL / UNDECIDABLE /
 ARTIFACT against a pre-registered rule.
 
@@ -517,7 +541,7 @@ fired**. That it is recorded is the practice working; that it happened is the pr
 
 ### 2.12 Pre-registration — it works here, and the counts say how
 
-Of the 25 dossiers dated after 2026-08-13: **21 pre-registered a falsifier list**, 20 ran at least one
+Of the dossiers dated after 2026-08-13 — ⛔ **26, not 25, so every rate below has a wrong denominator. Re-derived 2026-10-20: ≥24 of 26 pre-registered a falsifier list (not 21) and 25 of 26 ran a scored arm (not 20), the sole exception being `2026-09-05_professor_forcing_dossier` ("No experiments run"). Numerators unverified.** Of the 25: **21 pre-registered a falsifier list**, 20 ran at least one
 scored arm.
 
 | | count |
@@ -530,6 +554,25 @@ scored arm.
 ⛔ **The decisive evidence that it is not decorative** is the counterfactual: in four cases a falsifier
 voided an arm and the record states the *specific wrong claim* that would otherwise have been written.
 
+> ⛔ **CORRECTED 2026-10-20 — TWO OF THESE FOUR ROWS DO NOT SUPPORT THE CLAIM, and one is evidence
+> AGAINST it.**
+>
+> **Row 3 (BPTT-SA SCREEN-1) is a pre-registration FAILURE that luck caught, not a success.** The
+> weight-hash post-condition is **absent from the plan locked at `4424f26`** before training; it enters
+> the next day in `AMENDMENT A2.3` (2026-09-04), described there as *"the **existing** weight-hash
+> post-condition"*. The dossier's own log says the locked rule would have published the wrong claim:
+> *"this was read as a defect, not as 'Δ ≤ 0, H is dead', **which is what the locked decision rule would
+> otherwise have said**."* ⛔ **And `Appendix B` of this report classifies that detector as *"the result
+> being impossible — named as luck"*, not as a gate.** Three independent confirmations. The row stays
+> **as the counterexample it actually is.**
+>
+> **Row 4 (roster K3) counts a gate that never ran.** The record says K3 *"was never evaluated"* because
+> the comparator produced no scores — it did not fire; and *"a PASS"* is this report's reconstruction, not
+> a quotation. The same dossier's weight-hash post-condition is recorded *"**Never computed** …
+> pre-registered and it did not run"*.
+>
+> ✅ **Rows 1 and 2 survive verbatim.** The honest count is **two** documented counterfactuals, not four.
+
 | arm | what fired | what would have been published |
 |---|---|---|
 | `shuffle_months` | F6 — the intervention moved its own target statistic only 5% | *"persistence matters somewhat"* — its −0.0415 "reads as a plausible middling effect" |
@@ -539,7 +582,10 @@ voided an arm and the record states the *specific wrong claim* that would otherw
 
 And the discipline held under pressure, which is the part that matters: *"F1 was amended, because its
 instrument was demonstrably wrong. F5 was not, because it was doing exactly its job. **Keeping that
-distinction under pressure is the difference between a falsifier and a formality.**"*
+distinction under pressure is the difference between a falsifier and a formality.**"* ⛔ **[Corrected
+2026-10-20: that third sentence is MINE, not the record's — it exists nowhere in this repository outside
+this report, and it sat inside the quotation marks. The first two sentences do paraphrase
+`2026-08-26_pushforward_dossier/05_analysis_plan.md:213`.]**
 
 **Where the value actually comes from — not the thresholds, the verdict state space.** Four states
 (EFFECT / NULL / UNDERPOWERED / VOID) produced the repo's two most honest labels and are the direct fix
@@ -583,7 +629,7 @@ composition, rollout, baselines, epistemics). Those letters are preserved and re
 the register has since found the better organising principle, by **cause**, and named it for the first
 time on **2026-09-10**:
 
-> **Cluster 18 — "The instrument did not measure what it claims."** 23 Tier-2/3 entries, *"every one
+> **Cluster 18 — "The instrument did not measure what it claims."** 23 Tier-1/2/3 entries (⛔ **24**, not 23; corrected 2026-10-20), *"every one
 > of which cost GPU time or produced a wrong ledger row, currently read as 23 unrelated incidents."*
 > The register calls it **the highest-value group it has**.
 
@@ -594,7 +640,7 @@ And its proposed remedy is one question, asked before the run:
 Three of cluster 18's four shapes fail that question. That single line is the most valuable sentence in
 this report.
 
-### 3.1 The four shapes of cluster 18
+### 3.1 The shapes of cluster 18 — ⛔ **FIVE since 2026-10-11, not four; shape (e) is C-345 and the register says it "inverts the cluster's usual remedy: the pre-flight question passes". So "three of four" is three of five, and the missing shape is the counterexample to the remedy this section calls its most valuable sentence.** The four shapes
 
 | shape | the defect | worst instance |
 |---|---|---|
@@ -936,6 +982,27 @@ magnitude-aware score would treat them differently.
 
 #### ⛔ RESOLVED 2026-10-01 at the delivered 128 draws, and it resolves the hard way
 
+> ⛔ **SCOPE CORRECTION, 2026-10-20 — THE "EMPTY MAP" FRAMING BELOW IS OVERSTATED FOR THE DELIVERED
+> PRODUCT, AND THIS REPO'S OWN TIER-1 REGISTER ENTRY ALREADY SAID SO.** Run `20261001_012905` is
+> **validation, Africa+ME** — not the global delivery. `reports/technical_risk_register.md:4776`
+> (**C-345, Tier 1**, 2026-10-11), whose `Location` field *names this section*:
+>
+> *"⛔ **That does not transfer to the delivery.** On the 2026-09-29 handover, **146,847** cell-months
+> have ≥8/16 positive draws, so a point map here is sparse but **not** empty. The 'empty map' framing was
+> overstated for this product; the *inversion* above is the durable finding and does not depend on it."*
+>
+> ⛔ **§5 cited C-345 zero times until this correction**, and the register was last updated 2026-10-11
+> while this report was revised on the 19th. Independently,
+> `reports/2026-10-11_conflictology_empty_mode_prereg.md` (on `development`) measures the live delivery:
+> **18,407** `sb` cells have `map == 0` **and** `hdi95_upper > 0`, with `severe_scenario > 0` in **all**
+> of them ⇒ *"nothing is lost on the wire"*.
+>
+> ✅ **What survives, and it is the durable half:** the *direction* — more draws destroyed the estimator
+> rather than rescuing it — with a mechanism (the zero-fraction flip point moves from ~25–35% at S=16 to
+> **10–20% at S=128**). ⛔ **What does not survive is "empty", and the defect re-scopes**: not *"the map is
+> empty"* but *"the column named as the headline estimate reads zero while four siblings in the same row
+> say otherwise, and nothing tells the reader which to trust."*
+
 The caveat on the worst row was that **16 draws** might be unfair to a tip estimator on a 99.75%-zero
 field — that `tower_point`'s near-zero could be small-sample behaviour of that estimator rather than a
 property of the collapse. **It was not.** Run `20261001_012905`, 8/8 models, **300 lessons**, pooled:
@@ -1054,7 +1121,7 @@ They have offered to implement them there rather than in `scripts/`, which is th
 ### 5.2 ⛔ The method rule that no scorer enforces
 
 *The reference's S must equal the arms' cube width.* It is stated in one module
-(`rollout_ruler_core.reference_sample_width`) and **called by no scorer.** Live violators:
+(`rollout_ruler_core.reference_sample_width`) and **not called by either HEADLINE scorer.** ⛔ **CORRECTED 2026-10-20: three tools DO call it** — `2026-08-15_rollout_ruler_trust_dossier/tools/rescore_v2.py:44,65` (**the tool that wrote the `rescore.csv` this report's headline numbers come from**), `tools/mde.py:118,143`, `tools/tail_index.py:34,84`; `assert_sample_cube` is called by `tools/partition_audit.py:55,159`. Register: `technical_risk_register.md:2265`. The defensible claim is that the two HEADLINE scorers do not call it. Live violators:
 `rollout_skill_score.score_horizons(add_persistence=True)` and
 `score_v2_horizons.score_horizons_v2(add_persistence=True)` inject a **1-sample** persistence arm into
 a table of **S=16** arms; `pool_ensemble` concatenates on the sample axis so the pool's S is
@@ -1137,7 +1204,7 @@ siblings. That is a five-minute change**, priced here because §8 prices everyth
 
 ### 5.7 ⚠️ The ruler is not part of the package, and the protocol is not in the repo
 
-**No forecast metric is computed anywhere in `views_hydranet/`.** The entire ruler lives in `scripts/`
+**No forecast metric is computed anywhere in `views_hydranet/` ⛔ **CORRECTED 2026-10-20: FALSE.** `views_hydranet/utils/training_forensics.py:344,359,364` computes `average_precision_score` and `roc_auc_score`, with **AP the default** (`:32`), reachable and imported by `train/training_engine.py:38`. ⛔ **The metric this universal negative misses is this report's own primary metric.**.** The entire ruler lives in `scripts/`
 and `reports/*/tools/`, reading arrays this repo does not write. `reports/` is gitignored (tracked only
 by `git add -f`), 22 tracked tool files carry hardcoded `/home/simon/...` paths (the register says 7),
 and the frozen lodestar's one soft check — support coverage — **cannot fail**: it prints a warning,
@@ -1244,10 +1311,10 @@ the fifteen rows so it cannot be mistaken for the record. It is the only forward
 
 | # | Requirement | The scar that earns it | Cost to adopt |
 |---|---|---|---|
-| ⛔ ★1 | **Ask, before the run: "what would this measurement look like if the effect were absent?"** Record the answer. | Cluster 18 — **23 Tier-2/3 entries**, each of which cost GPU time or produced a wrong ledger row, and which the register read as 23 unrelated incidents until 2026-09-10. Three of its four shapes fail this one question. | One line in a pre-registration. |
+| ⛔ ★1 | **Ask, before the run: "what would this measurement look like if the effect were absent?"** Record the answer. | Cluster 18 — **23 Tier-1/2/3 entries (⛔ **24**, not 23; corrected 2026-10-20)**, each of which cost GPU time or produced a wrong ledger row, and which the register read as 23 unrelated incidents until 2026-09-10. Three of its four shapes fail this one question. | One line in a pre-registration. |
 | ⛔ 2 | **A reference forecast on every scored run — persistence *and* climatology — with the zero-share decomposition and the ARTIFACT verdict applied automatically.** No result may be reported against `none`. | §0.1: a forecast with `size_ratio` 0.0000 cleared the 5% bar on the primary metric, and 74.6% of the win was confident zeros. ⚠️ It would **not** have been promoted — the MCR guardrail vetoes it (corrected 2026-10-11) — but nothing computed the decomposition, and the ARTIFACT verdict stood unexamined **16 days**. This is the ledger's own recommendation #3 and it is **not implemented**. | Structural, cheap; the instruments exist (`rollout_ruler_core`, `climatology_resample`). |
 | ⛔ ★3 | **A floor gate on the CONTROL arm before any treatment arm runs: FG-A `AP_ctrl ≥ 5 × prevalence`, and FG-C `(1−θ)·AP_ctrl ≥ 3 × MDE`.** | A 6-GPU-hour pre-registered sweep with falsifiers was **VOID as run**; 9 ledger rows and 5 inferences re-scoped, 3 claims retired. One manipulation read **+0.9%** on the floored vehicle and **−93.7%** on a real one. The condition was visible in a CSV **5 h 47 m before the last arm finished.** | Zero GPU beyond the control. ⛔ **And fix the existing gate: both callers omit `mde_ap`, so FG-C never evaluates.** |
-| ⛔ ★4 | **Match S between arms and reference, enforced in the scorer, and refuse an AP comparison across gated/ungated arms.** | Persistence was published **understated by 31%** at h18 by two independent scoring defects. #282's share of it **scales as 1/n_origins**, so a single-origin study scores persistence as exactly zero, silently. | The check exists (`reference_sample_width`, `assert_sample_cube`) and **no scorer calls it**. |
+| ⛔ ★4 | **Match S between arms and reference, enforced in the scorer, and refuse an AP comparison across gated/ungated arms.** | Persistence was published **understated by 31%** at h18 by two independent scoring defects. #282's share of it **scales as 1/n_origins**, so a single-origin study scores persistence as exactly zero, silently. | The check exists (`reference_sample_width`, `assert_sample_cube`). ⛔ **CORRECTED 2026-10-20: three tools DO call it** — `2026-08-15_rollout_ruler_trust_dossier/tools/rescore_v2.py:44,65` (**the tool that wrote the `rescore.csv` this report's headline numbers come from**), `tools/mde.py:118,143`, `tools/tail_index.py:34,84`; `assert_sample_cube` is called by `tools/partition_audit.py:55,159`. Register: `technical_risk_register.md:2265`. The defensible claim is that the two HEADLINE scorers do not call it. |
 | ⛔ 5 | **Every metric that gates a decision must have a degenerate-forecast test that fires — run against the HEADLINE scorer, not the metric function in isolation.** Include the spatial roll and the single-huge-cell. | The roll: three field statistics unchanged, **AP 48× worse**, and **no test guards it**. The seven degenerates that *are* implemented all test `activation_metrics` in isolation; nothing feeds a degenerate cube through the scorer that produces the published row. | Days, not weeks. Synthetic fields, no GPU. |
 | ⛔ ★6 | **Prove the intervention is potent, at a trained checkpoint, before spending GPU on the arm.** | **C-324 (Tier 1):** 7 unit tests, 5/5 mutations caught, lint clean, 1,901-test suite green — and **inert**. Two arms trained **276 minutes to byte-identical weights**. Caught only because the result was impossible; a half-connected knob would have produced a plausible number and the pre-registered rule would have read it as "hypothesis dead". | `scripts/potency_check.py` exists. Two call sites in the whole repo. |
 | ⛔ 7 | **Judge a guard by deleting the thing it guards, not by coverage.** | ⚠️ **Four separate studies, populations named, because quoting them together is the C-298 defect this report is about.** (i) Epic #353's release review: **2,079 green tests, 25 runtime-verified findings, 0 caught.** (ii) C-329's round-3 deletion test **on one feature**: **27 of 40 individual tests** passed with the call site deleted, and **1 of 4 test files** passed with the feature entirely removed. (iii) A `/ship-it` guard audit on **the fix for C-329**: **17 of 33 mutations survived.** (iv) Epic #353's **own new guards**, written by me: **5 survived their first mutation.** | Minutes per guard. |
@@ -1320,7 +1387,7 @@ apparatus, **two of the three proposed metrics already exist and nothing gates o
 
 | proposed | status in this repo | location |
 |---|---|---|
-| **M1 — activation calibration ratio** `R_A = Σ1(Ŷ>0) / Σ1(Y>0)` | ✅ **implemented**, identical definition | `2026-07-29_v2_scoreboard_dossier/tools/activation_metrics.py:28-40`, as **`act_ratio`** |
+| **M1 — activation calibration ratio** `R_A = Σ1(Ŷ>0) / Σ1(Y>0)` | ⚠️ **implemented as the DRAW-AVERAGED form**, not identically — see the naming note below. *(An earlier version of this cell said "identical definition", contradicting that note 130 lines later; corrected 2026-10-20.)* | `2026-07-29_v2_scoreboard_dossier/tools/activation_metrics.py:28-40`, as **`act_ratio`** |
 | **M2 — total magnitude ratio** `R_T = Σ E[Y] / Σ Y` | ✅ **in use as a diagnostic**, as **`mass_ratio`** | §5.0's collapse table, this report |
 | **M3 — conditional magnitude distance** `W₁(F₊, F̂₊)` | ⚠️ **`EMD` ships in views-evaluation but POINT-ONLY**; `pEMDiv` and Sinkhorn are listed *not implemented* | `reports/guides/eval_lib_implementation_details.md:184` |
 
@@ -1395,10 +1462,29 @@ mean = (n_positive / S) × E[y | y>0]
 so `R_T ≈ R_A × (conditional magnitude ratio)` — **three measurements, two degrees of freedom.** One line
 of algebra refutes an orthogonality claim, and an article resting on one would be refuted in review.
 
-**The honest framing is stronger than orthogonality.** A factorization makes the third quantity
-*determined* by the other two, which turns the suite into a **consistency check** rather than three
-independent readings: a model cannot satisfy all three while compensating one error with another, because
-the identity is exact. That is a sharper claim than "orthogonal", and it is provable.
+⛔ **RETRACTED 2026-10-20 — the inference I drew from that identity was WRONG.** I wrote that the
+factorization makes the third quantity *determined* by the other two, turning the suite into a
+**consistency check** a compensating model could not pass, and called it "provable". It is not.
+
+**The identity pins the conditional MEAN, not the conditional DISTRIBUTION.** `M3` is a Wasserstein
+distance between conditional *distributions*, which is free with both ratios at 1. Counterexample,
+verified numerically:
+
+> Truth: 100 cells at 10. Forecast: 50 cells at 5, 50 at 15.
+> **`R_A` = 1 · `R_T` = 1 · `W₁` = 5.**
+
+Both ratios perfect, the magnitude distributions completely different. ⛔ **So there are three degrees of
+freedom, not two, and a model CAN satisfy both ratios while compensating one magnitude error with
+another** — which is exactly what the counterexample does.
+
+⚠️ **And this subsection already contained its own refutation.** The validation list below demands a
+synthetic case of **"correct total with too many small and too few extreme events"** and **"correct mean
+with wrong tail"** — those *are* the third degree of freedom this argument denied.
+
+**What survives.** The three metrics are **not orthogonal** — `R_T ≈ R_A ×` (conditional magnitude
+ratio) is real, and two of the three do constrain each other. The honest claim is therefore **weaker than
+orthogonality AND weaker than a consistency check**: a partial factorization with one free dimension, and
+`M3` is the free one. That is still a reason to report all three; it is not a proof of anything.
 
 #### ⛔ The latent-state extension has a worse trap than the dilemma
 
@@ -1408,10 +1494,20 @@ and has a hard evaluation problem: **a latent state cannot be conditioned on, be
 Condition on a state **inferred by the model under evaluation** and the model defines the partition it is
 then scored on. That is circular, and it is worse than the dilemma, because nothing in the score reveals it.
 
-⛔ **This repo has already been bitten by exactly that.** **C-345**'s recorded scope limit is that *"it
-measured **model-defined** cell sets, never truth-defined ones"* — and the conflictology probe
-(`reports/2026-10-11_conflictology_empty_mode_prereg.md`) exists to repair it, by using a **truth-defined**
-cell set and a control with no fitted parameters.
+⚠️ **CORRECTED 2026-10-20. The repo has a NEAR-MISS here, not an instance, and my earlier wording
+overstated it twice.** I wrote that *"C-345's **recorded** scope limit is that 'it measured model-defined
+cell sets, never truth-defined ones'"* — ⛔ **that string exists nowhere but this report; it is my
+paraphrase inside quotation marks.** C-345's actual recorded scope
+(`reports/technical_risk_register.md`) is *"**No truth involved** — this is a statement about the model's
+own posterior, not about accuracy."*
+
+⛔ **And C-345 is not an instance of the circularity.** It scored nothing against truth, so there is no
+partition-defines-its-own-score loop in it — only a descriptive stratification by the model's own output.
+The latent-state trap named above is real; **C-345 is not an example of it.** What C-345 *does* show is
+the weaker and still useful point that a model-defined cell set answers a different question than a
+truth-defined one — which is why the conflictology probe
+(`reports/2026-10-11_conflictology_empty_mode_prereg.md`, on `development`) uses a **truth-defined** set
+and a control with no fitted parameters.
 
 **So the rule the extension needs:**
 - ✅ **Condition on observed history** — e.g. *"did this cell have conflict in the prior 12 months"*. That
@@ -1476,8 +1572,8 @@ literature as a claim to check.
 
 ## Appendix A — The instrument inventory
 
-**Where the ruler lives.** ⚠️ **No forecast metric is computed anywhere in `views_hydranet/`.** The
-entire apparatus is `scripts/` (26 files, 5,460 lines) plus `reports/*/tools/` (109 files), reading
+**Where the ruler lives.** ⚠️ **No forecast metric is computed anywhere in `views_hydranet/` ⛔ **CORRECTED 2026-10-20: FALSE.** `views_hydranet/utils/training_forensics.py:344,359,364` computes `average_precision_score` and `roc_auc_score`, with **AP the default** (`:32`), reachable and imported by `train/training_engine.py:38`. ⛔ **The metric this universal negative misses is this report's own primary metric.**.** The
+entire apparatus is `scripts/` (26 files, 5,460 lines) plus `reports/*/tools/` (⛔ **164 files, 106 `.py` — 109 matches no counting rule; corrected 2026-10-20**), reading
 `origin_*/<target>/y_pred.npy` + `identifiers.npz` — arrays this repo does not write. The only
 evaluation artifact written in-package is the body-mean dump.
 
@@ -1614,7 +1710,7 @@ approximate.
 
 **Sources read.** `reports/RESULTS_LEDGER.md` (claims M1–M76, the MEASUREMENT/INFERENCE split, the FAO-05
 criteria section and the abandoned run ledger) · `reports/technical_risk_register.md` (~340 entries,
-the 20 causal clusters, the §Disagreements section) · the four postmortems · `reports/GLOSSARY.md` ·
+the **21** causal clusters (⛔ corrected 2026-10-20 — cluster **21**, *"prose with a self-dating expiry"*, is the class of most of this audit's findings), the §Disagreements section) · the four postmortems · `reports/GLOSSARY.md` ·
 `reports/2026-08-13_evaluation_pitfalls_and_metric_battery_DRAFT.md` · the 53 dossiers, prioritising the
 25 dated after 2026-08-13 · all 26 `scripts/` and the 109 dossier `tools/` · the evaluation-contract
 tests · GitHub issues, open and closed.
@@ -1623,7 +1719,7 @@ tests · GitHub issues, open and closed.
 C-number or an issue. Nine headline figures were spot-checked back to their source file. Two
 load-bearing structural claims were verified independently of the harvest: cluster 18's pre-flight
 question is quoted verbatim from `technical_risk_register.md:75`, and `assert_sample_cube` /
-`reference_sample_width` have **zero callers** outside their own module and tests.
+`reference_sample_width` have **zero callers** outside their own module and tests. ⛔ **CORRECTED 2026-10-20: three tools DO call it** — `2026-08-15_rollout_ruler_trust_dossier/tools/rescore_v2.py:44,65` (**the tool that wrote the `rescore.csv` this report's headline numbers come from**), `tools/mde.py:118,143`, `tools/tail_index.py:34,84`; `assert_sample_cube` is called by `tools/partition_audit.py:55,159`. Register: `technical_risk_register.md:2265`. The defensible claim is that the two HEADLINE scorers do not call it. ⛔ **This is one of the two claims this appendix advertises as independently verified, and it is false — see `Appendix F`.**
 
 **The DRAFT's citations are audited, not inherited.** Its own header says several are from memory,
 and the dossier that absorbed it **parked** the verification. **Appendix D closes most of it**: 9 verify
@@ -2038,8 +2134,11 @@ own text layer (`pdftotext -W 2000 -H 2000`, 21,011 words):
 two diverge precisely on **prevalence**, which is our defining condition (99.7% zero), and the paper never
 mentions prevalence at all.
 
-**Error 2 — wrong discretisation.** The stability result *is* in the paper (p. 588: *"AGC(X, Y_k) depends
-much less on the discretization level k"*; p. 591: *"a factor that may be arbitrary"*) — but it concerns
+**Error 2 — wrong discretisation.** The stability result *is* in the paper (⛔ **at extracted-text LINES
+588 and 591, not printed pages — a 38-page arXiv preprint with no printed pagination; both sit on PDF
+page 8. I cited my own `grep -n` output as page numbers, in the paragraph retracting a provenance error.
+Corrected 2026-10-20.** Text: *"AGC(X, Y_k) depends much less on the discretization level k"* and *"a
+factor that may be arbitrary"*) — but it concerns
 discretising **the OUTCOME Y into ordinal levels.** Our scar is that **the PREDICTION is quantised to S+1
 rank levels** by the sample-cube width. **Different quantities. I conflated them.**
 
@@ -2053,6 +2152,37 @@ rank levels** by the sample-cube width. **Different quantities. I conflated them
   look given §5.6's two irreproducible bootstrap CIs. ⚠️ Whether a DeLong test survives spatially
   dependent origin blocks is **not addressed in the paper**, and the `opponent` session's expectation is
   that it does not.
+
+#### E.0.3 ⛔ NINE "VERBATIM" QUOTATIONS IN THIS APPENDIX ARE NOT VERBATIM — one defect, one cause
+
+**Found 2026-10-20 by an independent falsification audit that extracted all twelve available PDFs.** The
+defect tracks provenance exactly:
+
+- ✅ **Every `*"..."*` I read off a PDF page IS verbatim** — `Raftery2005` ×5 (printed p. 1155),
+  `Hawkes1971` (p. 86, p. 90), `Moller1998` (p. 451, p. 452), `Resin2026` (p. 2), `Walz2026` ×2.
+- ⛔ **Every `*"..."*` that came from the library's LLM-EXTRACTED CLAIM TEXT is a paraphrase or a
+  two-sentence composite**, not the paper's prose: `Hawkes1971` in E.2.1, `Moller1998` in E.2.2,
+  `Moller1998`'s `z(t)` claim, `Raftery2005`'s claim-2 block, `Resin2026`'s collapse quote,
+  `Gneiting2023`'s CORP quote, `Walz2024_EasyUQ`, both `Walz2024_Precipitation` quotes, and
+  `Gneiting2026`.
+
+⛔ **I quoted a machine summary of a paper as if it were the paper.** The text layers were fully
+extractable in every case, so this is not an extraction artefact — it is a method error, and it is the
+same provenance class as E.0.1 and as `Appendix D`.
+
+**What this does and does not cost.** The auditor's verdict on substance: *"I found no case where a paper
+was made to say something it does not say — only cases where it was made to say it in words it did not
+use, at a locator that does not hold."* ✅ So **every conclusion in this appendix stands**;
+⛔ **its representation of having read the sources does not.** ⚠️ **Treat every blockquote below as
+PARAPHRASE unless this note lists it as PDF-read.** Demoting them properly is a mechanical pass over the
+appendix and is **not yet done** — recorded as debt rather than described as fixed.
+
+**Three further locator defects from the same audit:**
+- ⛔ `Gneiting2023`'s `S̄ = MCB − DSC + UNC` is **Theorem 2.23**, not 2.26 — and the paper credits it to
+  **Dawid (1986) and Pohle (2020)**, an unflagged cite-from-elsewhere of the class E.2.3 polices.
+- ⛔ `Moller1998`'s `z(t)` is **eq (5)/(6) on p. 458**, outside the cited "Theorem 1, eqs. 2–4, pp. 456–457".
+- ⚠️ The corpus size is given as **621** here and **615** in three places; the actual counts are **617
+  PDFs / 621 sidecars**, so three corpus-wide *absence* claims cite a figure matching neither.
 
 #### E.0.2 ⛔ All ten sources have EMPTY stored evidence
 
@@ -2207,9 +2337,19 @@ the answer, not as a result about us.
 > **PROVEN**: auto-calibration is the **strongest** notion, implying probabilistic calibration (uniform
 > PIT) and marginal calibration.
 
-**The collision.** Probabilistic calibration *is* PIT calibration. **Our gate is binary.** So for the gate,
-the thing FAO-02 rejected is **provably equivalent to auto-calibration — the strongest calibration notion
-available.** ⛔ Rejecting PIT for a binary gate is not the same decision as rejecting twCRPS for a
+⛔ **COLLISION LARGELY DISSOLVED, 2026-10-20 — and by prior art in our own register.** The locator I
+cited, `technical_risk_register.md:655`, **rejects twCRPS and positive-subset conditioning, not PIT** —
+and the line above it *recommends* PIT/coverage. The real PIT locator is **`:965`**, and it reads:
+*"PIT is **FAO-02-REJECTED for *selection***… retained **as a diagnostic only, never as a gate**."*
+
+**So the register already drew the selection-versus-diagnosis distinction I presented as a new insight —
+on 2026-07-27.** ⛔ **That is the fourth instance in this programme of re-deriving this repository's own
+prior art** (see `RESULTS.md §12` on the gate axis). The collision as filed is retracted.
+
+**What survives, narrowly.** Probabilistic calibration *is* PIT calibration, and **our gate is binary**,
+so for the gate the notion is **provably equivalent to auto-calibration — the strongest available.** That
+makes PIT-as-diagnostic a stronger instrument for a binary gate than the register's wording implies, and
+it is worth saying. It is **not** the governance contradiction I claimed. ⛔ Rejecting PIT for a binary gate is not the same decision as rejecting twCRPS for a
 heavy-tailed magnitude, and FAO-02 made them as one decision.
 
 ⚠️ **What this does NOT say.** It does not say FAO-02 was wrong. The dilemma argument was about
@@ -2264,12 +2404,20 @@ and at p. 90, that he concentrated on second-order properties *"since these are 
 analysis for testing goodness of fit."* He then constructs the matching doubly stochastic process term for
 term (eq. 18, same page).
 
-**A dependence ratio, a covariance density, a spectrum and a variance-time function are all second-order.**
-`reports/2026-09-30_dependence_ratio_prereg.md`, on this branch and **not yet run**, is a second-order
-instrument. ⛔ **If its stated purpose is to establish self-excitation, it cannot — however it reads.** If
-its purpose is dependence-of-some-kind against an independence null, it still works. **That distinction
-belongs in the pre-registration before it runs**, and it is the most actionable line in this appendix.
-(Found by the `opponent` session; quote verified against the PDF page.)
+⛔ **RETRACTED 2026-10-20 — I WROTE THIS ABOUT A FILE I HAD NOT OPENED, which is this programme's own
+named failure mode.** The claim was that Hawkes invalidates
+`reports/2026-09-30_dependence_ratio_prereg.md`. **It does not, because that prereg is not about
+self-excitation at all:** it contains **zero** occurrences of self-excitation, contagion, diffusion,
+clustering or Hawkes, and what it predicts is `Var_d(total) / Σ_cells Var_d(cell)` — a variance ratio
+across **MC-dropout draws of our own forecast cube**, derived from reading the code. ⛔ **There is no
+observed point process for Hawkes's indistinguishability theorem to apply to.** I amplified the
+`opponent` session's conditional ("*if* its stated purpose is to establish self-excitation") into a
+headline invalidation without checking whether the condition held. It does not.
+
+✅ **What survives is the general warning, with no artifact attached:** a dependence ratio, a covariance
+density, a spectrum and a variance-time function are **all second-order**, so **none of them can ever
+establish self-excitation against a doubly stochastic alternative.** If this programme ever builds such an
+instrument for that purpose, Hawkes's theorem applies. It does not apply to the prereg we have.
 
 **What it leaves open, which is the constructive half.** Discrimination is possible, but only by
 **likelihood on the conditional intensity**, not by a summary statistic.
@@ -2428,12 +2576,20 @@ ensemble at all?** Neither session has an answer and the corpus has none.
 paper." True of those two papers — and I generalised it too far.** The corpus has score-time instruments
 for exactly our situation, and they are in a paper this report **already cites, for something else**:
 
-- **`Brehmer2023_PointProcessForecasts`** (Brehmer **& Strokorb**) C-3567: the Poisson scoring function
+⛔ **CORRECTED 2026-10-20 — I CONFLATED TWO PAPERS, and §3.2 was right all along.** The tail-shape
+impossibility §3.2 cites is **Brehmer & Strokorb (2019)**, which is **NOT held in the library**
+(verified: the only Brehmer PDFs are the 2023 and 2026 papers). `Brehmer2023` is *"Comparative evaluation
+of point process forecasts"* by Brehmer, **Gneiting**, Herrmann, Marzocchi, Schlather and Strokorb — a
+**different paper that merely shares an author**. ⛔ **So my "note the inversion" below — that the report
+cites this author for an impossibility while his constructive result goes unused — is VOID.** §3.2's
+claim that the impossibility paper is not held stands.
+
+✅ **The instrument itself is real and still worth having**, it just is not the paper the report cites:
+
+- **`Brehmer2023_PointProcessForecasts`** (Brehmer, Gneiting, Herrmann, Marzocchi, Schlather, Strokorb) C-3567: the Poisson scoring function
   `S = Σ(−φ(B_i)·log λ_i + λ_i)` is **strictly consistent for CELL EXPECTATIONS regardless of whether the
   process is Poisson.** ⛔ **It needs only the predicted expected count per cell and the observed count —
-  no fitted intensity. It runs on a delivered cube.** ⚠️ **And note the inversion: this report cites
-  "Brehmer & Strokorb" for a tail-shape IMPOSSIBILITY, while the paper's constructive result — a
-  consistent score for our exact data shape — goes unused.**
+  no fitted intensity. It runs on a delivered cube.** ⛔ **The "inversion" sentence that stood here is VOID — see the correction above. Two different papers.**
 - **`Brehmer2026_EarthquakeForecastEvaluation`** C-3591–3594: **logarithmic Murphy diagrams** for
   cell-level expected counts; **isotonic-regression reliability diagrams on expected counts with no
   parametric assumptions**; and **Diebold–Mariano tests with lag-adjusted variance for temporal
@@ -2495,3 +2651,111 @@ meaning* and found largely sound; they are **still unchecked for provenance** �
   because none of the six questions put to it pointed there. ⛔ **So E.1.2 and E.3's PCRPS row rest on my
   reading alone, not on two.** Its closing table records **six hoped-for collisions as ABSENT**.
 
+
+---
+
+## Appendix F — The 2026-10-19/20 falsification audit, and what it did to this report
+
+**Fifteen independent auditors, one per section, each in a clean context and each denied the author's
+reasoning, commit messages and session transcript** — because an author's justification for a sentence is
+the thing under test. Each was asked to record a **risky prediction before running every probe**, to open
+every cited `file:line` rather than trust it, to extract PDFs rather than trust a citation, and to report
+what it did **not** check as explicitly as what it did.
+
+### F.1 The result
+
+| | |
+|---|---|
+| pieces audited | **15 of 15** (§0–§8, front matter, Appendices A–E) |
+| **FALSIFIED** | **14** |
+| CONTESTED | 1 (§7) |
+| SURVIVED | **0** |
+| hard findings | **~70** |
+| ⛔ **wrong measurements found** | **ZERO** |
+
+⛔ **That last row is the finding.** Every ratio, percentage, multiplier and verdict count that any
+auditor recomputed reproduced **exactly** — `rescore.csv` to **17 significant digits**, the ARTIFACT
+board counts to the row, the roster seed table, all 53 dossiers, 350 register entries, 26 scripts, the
+`#282` figures *more* precisely than the register's own. **The numbers in this report are sound.**
+
+✅ **And every single defect is in one class: a sentence asserting that something exists, does not exist,
+is called, is never called, is classified as X, or that the record says X.** Three of the audits noted
+independently that this is **cluster 21 — *"prose with a self-dating expiry: text that was true when
+written, named its own expiry condition, and is never re-read when that event lands"*** — the class this
+document itself catalogues.
+
+### F.2 What was fixed here (2026-10-20)
+
+| | fix |
+|---|---|
+| front matter | the mangled *"THREE OF TWO OF THEM"* sentence; the stale `Last revised`; the *"no literature citation audited"* claim; the false *"M9 at every site"*; the postmortem count; the never-closing 17 = 5 + 10 accounting |
+| §0 / §5.7 / A.1 | *"no forecast metric in `views_hydranet/`"* — **false** at all three sites, and the metric it misses is this report's primary one; plus the four sibling premises in §0's reproducibility conclusion |
+| §2.12 | **two of the four pre-registration counterfactuals withdrawn** — row 3 is a pre-registration *failure* that luck caught, row 4 counts a gate that never ran; the authored sentence inside a quotation |
+| §2.3 / §5.2 / §8 ★4 / A.1 / Appendix C | *"called by no scorer"* / *"zero callers"* — **three tools call it**, one of them the tool that wrote this report's headline CSV |
+| §2.12 counts | 26 dossiers not 25, ≥24 not 21, 25 not 20 — **every published rate had a wrong denominator** |
+| §3 / §8 | cluster 18 has **five** shapes, not four — and the fifth is the counterexample to the sentence §3 calls its most valuable |
+| §5.0 | ⛔ **the "empty map" is overstated for the delivered product** — C-345, Tier 1, names this section and says so; §5 cited it zero times |
+| §8.3 | ⛔ **the degrees-of-freedom argument RETRACTED** — counterexample verified; the C-345 latent-state claim corrected |
+| Appendix E | **nine quotations identified as paraphrase**; my locators were `grep -n` line numbers; the PIT collision dissolved against prior art; the Brehmer conflation |
+| counts | 53 tests not 86 (and it skips); 164 tool files not 109; 21 clusters not 20; 24 cluster-18 entries not 23; 2/3 twCRPS sites not 7 |
+
+**Nine of the ~70 findings were introduced by me on 2026-10-19**, the day before the audit — the
+`Walz2026` mis-citation, the nine paraphrase-as-quotation, the line-number locators, the PIT collision,
+the Brehmer conflation, the degrees-of-freedom argument, the mangled front-matter sentence, the stale
+date, and ruling open finding 3 *REFUTED* on a basis that does not hold. **The auditors found all nine. I
+would not have.**
+
+### F.3 ⛔ What was NOT fixed — the honest list
+
+**This is debt, not a clean close.** The audit produced ~70 hard findings; roughly 25 are addressed above.
+
+- ⛔ **The nine Appendix E blockquotes are LABELLED as paraphrase, not rewritten.** They still sit inside
+  quotation marks. Demoting them is a mechanical pass and is not done.
+- ⛔ **`Appendix B` is still missing ≥11 retractions**, headed by **the retraction of this report's own
+  lead claim**, and its row 2 still quotes the superseded **75.9%** against the shipped **74.6%**. Its
+  *"see the source harvest"* pointer resolves to **no artifact on any branch**, so 21 of its 31
+  retractions are cited to nothing — which makes **§6's entire inference base unauditable**, and §6
+  additionally presents five of Appendix B's nine detector categories as if exhaustive, dropping *"the
+  user noticing"*, the largest omitted one.
+- ⛔ **`Appendix A` omits the scorer that produced this report's headline table** (`rescore_v2.py`) and
+  ~13 further instruments including `mde.py`, behind every `×MDE` bar in the document. `proper_score_audit.py`
+  is classified in neither A.1 nor A.2. `gate_reliability` is filed *"superseded or dead"* while §5.6
+  holds it up as the working template.
+- ⛔ **`Appendix D` claims to close *"most"* of the DRAFT: it accounts for 20 of 43 entries (47%)**, and
+  its own counts do not reconcile (D.3 lists eight where the summary says nine).
+- ⛔ **`Appendix C`'s open-findings table still reads "unverified" for all six rows adjudicated above it**,
+  so a reader following its own instruction gets the pre-adjudication state. It also still asserts, twice,
+  that the adversarial pass is *"still owed"* — inside the appendix documenting it.
+- ⛔ **M66–M76 are not ledger rows.** The ledger's table rows stop at **M65**; M66–M76 exist only as prose.
+  §2.8 and §4.1 cite `M76` as a row. The underlying measurement is sound; the citation is empty.
+- ⛔ **§2.3's ARTIFACT verdict has ruled exactly once**, on one archived board, from a gitignored tool —
+  268 score CSVs, one carries the zero-share column, none carries a verdict, and nothing in `scripts/`
+  imports the module. It is credited under *"instruments that have repeatedly told the truth."*
+- ⛔ **§1's amendments 2, 3 and 4 do not hold at the strength stated.** Amendment 4 asks to lift a
+  twCRPS-as-diagnostic ban that **does not exist** — three live scripts prescribe it as a diagnostic by
+  name — and repeats a mechanism this report already retracted for PIT. Amendment 3, the one labelled
+  *"measured rather than argued"*, is contradicted by the §0.1 it cites.
+- ⛔ **§7's S16 pools three studies §8 row 7 explicitly separates**, *"because quoting them together is
+  the C-298 defect this report is about"* — 37 lines apart.
+- ⛔ **§2.7 and §4.1 mix two statistics** (a gap-recovery share with an oracle-level ratio) into one
+  *"95–97%"* range, against this repo's own standing rule.
+- ⚠️ Four §4 findings, six §5 findings, and the §2 findings H4/H9 are recorded in the audit but not
+  reflected in the text.
+
+### F.4 ⚠️ What the audit itself did not establish
+
+- **No auditor opened a PDF except Appendix E's**, so the literature beyond `Appendix E.5`'s seven
+  sources is still unverified — and even that was a **content** audit, not a **locator** audit.
+- **Where two auditors agreed, nothing re-checked them.** Where two *disagreed* — on whether M66–M76 are
+  ledger rows — one was wrong, and the wrong one had already been relayed. ⛔ **So the single-pass
+  findings carry single-pass confidence.**
+- **One auditor's shell `grep` was `ugrep --ignore-files`, which silently skips the gitignored `reports/`
+  tree**; it caught this after three false negatives and re-ran. Any re-run must use `command grep`.
+- **Numerators were not re-derived** for §2.12's sub-table, and ~15 findings in the audits are marked
+  "unverified in both directions".
+
+### F.5 The one rule this produces
+
+⛔ **Every absence claim in this document needs a `grep` before it ships, and every count needs
+re-deriving.** Not one measurement failed; the sentences about what exists failed roughly seventy times.
+The remedy is mechanical, and it is cheaper than the audit that found the need for it.
