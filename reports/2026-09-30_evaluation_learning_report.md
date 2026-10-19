@@ -1214,6 +1214,10 @@ place and keep their scars.** If this ever becomes a proposal rather than a reco
 Whoever owns the promotion protocol can compare this against it. I make no claim about what the
 protocol currently says.
 
+⚠️ **§8.3 is a PROPOSAL and deliberately breaks this section's scar rule** — a diagnostic suite matched
+to the factorization of the data-generating process, from Simon's notes of 2026-10-19, kept separate from
+the fifteen rows so it cannot be mistaken for the record. It is the only forward-looking part of §8.
+
 | # | Requirement | The scar that earns it | Cost to adopt |
 |---|---|---|---|
 | ⛔ ★1 | **Ask, before the run: "what would this measurement look like if the effect were absent?"** Record the answer. | Cluster 18 — **23 Tier-2/3 entries**, each of which cost GPU time or produced a wrong ledger row, and which the register read as 23 unrelated incidents until 2026-09-10. Three of its four shapes fail this one question. | One line in a pre-registration. |
@@ -1272,6 +1276,158 @@ computed — while both point estimates say REAL (CRPSS +0.197, ΔAP +0.152). It
 
 It is cheap and it is decisive in both directions: it either establishes this project's first genuine
 win over a naive baseline, or it removes the last one.
+
+---
+
+### 8.3 A diagnostic suite matched to the factorization — ⛔ PROPOSAL, not a scar
+
+⚠️ **Status: this subsection breaks §8's own rule.** Every row above is earned by a scar. This one is a
+**proposal**, from Simon's notes of 2026-10-19, and it is marked as such so it cannot be mistaken for the
+record. It is here because §8 is where a reader asks *"so what should the gate measure?"* and the table
+above answers only *"what bit us."* ⛔ **Nothing below has been validated on synthetic data with known
+properties, and the proposal says so itself.**
+
+#### Why this is not the "more metrics" §8.1 refuses
+
+§8.1 declines new metrics on the ground that *"the apparatus already computes `recall_mass`, `gate_auc`,
+`tail_miss` … and more that **nothing reads**. Wiring an existing metric to a decision beats adding one."*
+That objection is **upheld, and it is the strongest argument for this subsection**: checked against the
+apparatus, **two of the three proposed metrics already exist and nothing gates on either.**
+
+| proposed | status in this repo | location |
+|---|---|---|
+| **M1 — activation calibration ratio** `R_A = Σ1(Ŷ>0) / Σ1(Y>0)` | ✅ **implemented**, identical definition | `2026-07-29_v2_scoreboard_dossier/tools/activation_metrics.py:28-40`, as **`act_ratio`** |
+| **M2 — total magnitude ratio** `R_T = Σ E[Y] / Σ Y` | ✅ **in use as a diagnostic**, as **`mass_ratio`** | §5.0's collapse table, this report |
+| **M3 — conditional magnitude distance** `W₁(F₊, F̂₊)` | ⚠️ **`EMD` ships in views-evaluation but POINT-ONLY**; `pEMDiv` and Sinkhorn are listed *not implemented* | `reports/guides/eval_lib_implementation_details.md:184` |
+
+So the proposal is **two-thirds wiring and one-third genuinely new** — and `act_ratio`'s own docstring
+already states the case for it: *"`crps_all`/MCR go BLIND when the field is ~99% zero … these metrics
+look at the thing that actually broke."* Written June 2026, independently of these notes.
+
+⛔ **And the gate-axis conclusion (`2026-10-18_gate_underdispersion_prereg/CONCLUSION.md` §9) found the
+hole this fills by name:** the eligibility conjunction has **no occurrence guardrail**, and halving the
+firing rate buys **37–83% CRPS**, so the artefact satisfies the shipping criteria outright. **`R_A` is
+the missing guardrail.** The same conclusion records that **`act_ratio` has no pre-registered numeric
+band**; the proposal supplies one (`R_A = 1`, with a direction table). Two independent threads arriving
+at the same missing instrument is the argument for wiring it.
+
+#### ⛔ The forecaster's dilemma constrains SELECTION, not diagnosis
+
+The standing objection to any positive-subset metric is FAO-02's: twCRPS and
+positive-subset/extremes-conditioning *"were considered and REJECTED there (the forecaster's dilemma,
+Lerch2017)"* — `technical_risk_register.md:655`.
+
+⛔ **An earlier reading of that in this programme was too strong, and is corrected here.** Lerch's result
+is that conditioning on the **realized outcome** destroys the **propriety of a rule used to rank
+forecasters**: a forecaster who always cries wolf wins when only the wolf days are scored. It is a
+theorem about **selection**. It is not a prohibition on conditional **diagnostics**, and this repo has
+never behaved as though it were — **`crps-events` ("CRPS over cells that truly had conflict") and
+`size-ratio` (conditioned on conflict cells) are both in the locked glossary and both in use.**
+
+The distinction that makes this coherent, and the frame proposed for the article:
+
+> **One proper rule, over the full outcome space, is reserved for ranking. The diagnostics are matched to
+> the factorization of the data-generating process, and are never used to select.**
+
+For a hurdle model the likelihood **factorizes** into an occurrence term and a conditional-magnitude term
+— **Cragg1971** (held: `9_library/papers/Cragg1971_LimitedDependentVariables.pdf`), with **Mullahy1986**
+for the binomial-plus-truncated-count form this repo's arm actually implements. Evaluating each factor
+against the matching data is then not arbitrary subsetting; it is evaluating the model that was fitted.
+
+⚠️ **The caveat, already on record and load-bearing:** Cragg's separability assumes **independently
+parameterised** parts, and **our gate and body share a trunk.** The likelihood still factorizes, so the
+*diagnostics* survive — but no claim that the two components can be independently **improved** survives,
+and §7's allocation findings are the evidence.
+
+#### 🔴 The suite is a FACTORIZATION, not an orthogonal basis — and this report's own glossary proves it
+
+The proposal hopes for *"largely orthogonal"* diagnostics and concedes they are *"complementary, but not
+fully orthogonal."* ⛔ **They cannot be orthogonal.** `GLOSSARY.md`'s *positive-draw fraction* row states
+the identity outright:
+
+```
+mean = (n_positive / S) × E[y | y>0]
+```
+
+so `R_T ≈ R_A × (conditional magnitude ratio)` — **three measurements, two degrees of freedom.** One line
+of algebra refutes an orthogonality claim, and an article resting on one would be refuted in review.
+
+**The honest framing is stronger than orthogonality.** A factorization makes the third quantity
+*determined* by the other two, which turns the suite into a **consistency check** rather than three
+independent readings: a model cannot satisfy all three while compensating one error with another, because
+the identity is exact. That is a sharper claim than "orthogonal", and it is provable.
+
+#### ⛔ The latent-state extension has a worse trap than the dilemma
+
+The proposal's natural extension — a state-based DGP (no conflict / pre-conflict / low / mid / high /
+extreme / post-conflict), with magnitude and self-excitation differing by state — is substantively right
+and has a hard evaluation problem: **a latent state cannot be conditioned on, because it is not observed.**
+Condition on a state **inferred by the model under evaluation** and the model defines the partition it is
+then scored on. That is circular, and it is worse than the dilemma, because nothing in the score reveals it.
+
+⛔ **This repo has already been bitten by exactly that.** **C-345**'s recorded scope limit is that *"it
+measured **model-defined** cell sets, never truth-defined ones"* — and the conflictology probe
+(`reports/2026-10-11_conflictology_empty_mode_prereg.md`) exists to repair it, by using a **truth-defined**
+cell set and a control with no fitted parameters.
+
+**So the rule the extension needs:**
+- ✅ **Condition on observed history** — e.g. *"did this cell have conflict in the prior 12 months"*. That
+  is covariate conditioning, pre-registrable, and proper. It is exactly the partition
+  `2026-06-23_body_sweep_dossier/15_decay_failure_confirmed.md:8-12` used to localise the decay failure.
+- ⛔ **Never condition on a model-inferred state.**
+
+#### What the suite cannot see, stated rather than discovered later
+
+- ⛔ **Dependence, and therefore self-excitation.** All three metrics are marginal or pooled by
+  construction and are blind to spatial and temporal dependence. The proposal raises self-excitation
+  differing by state; **no metric in it can detect self-excitation at all.** That is a fourth axis, and
+  `reports/2026-09-30_dependence_ratio_prereg.md` is where it already lives in this repo.
+- ⛔ **Point-forecast models.** The proposal's scope is *"both point estimate models and sample estimate
+  models"*, but `R_A` is **undefined for a point model** without a threshold — is a point forecast of 0.3
+  fatalities an activation? — and the threshold-free variant `R_A^(p) = Σpᵢ / Σ1(Y>0)` requires an
+  occurrence probability a pure point model does not emit. **Specify that seam or the suite silently covers
+  half its stated scope.**
+- ⚠️ **M3's conditional populations do not match**, and the proposal says so itself: the predicted positives
+  are conditional on **the model firing**, the observed positives on **reality firing**. That is the
+  version the dilemma objection does land on. ✅ **The repo already has the version that survives it:
+  `crps-events`, conditioned on cells where TRUTH was positive.** So M3 should be scoped as a **shape
+  diagnostic on the marginal severity distribution**, explicitly not conditional calibration, and
+  `crps-events` should carry the conditional claim.
+
+#### 🔴 A naming requirement, because this repo has already paid for it
+
+The proposal treats "total magnitude ratio" as one quantity. **This repo has three, and the glossary warns
+about confusing them:**
+
+| name | definition | note |
+|---|---|---|
+| **`size-ratio`** | **median** of (guess ÷ truth) on conflict cells | the glossary's locked term |
+| **`pos-mcr`** | **mean** of (guess ÷ truth) on conflict cells | *"a few big cells can flatter it (why we once distrusted it)"* |
+| **`mass_ratio`** | ratio of **sums**: Σ guess ÷ Σ truth | ⛔ **this is the proposal's `R_T`** |
+
+⛔ **`R_T` must enter under `mass_ratio`, not under a generic name.** Three claims have been withdrawn in
+this programme for the mean-versus-median class of error, and
+`feedback_never_mix_two_statistics` exists because a median-over-cells was compared to a pooled mean.
+Likewise the proposal's own warning — that `R_A` on thresholded draws and `R_A^(p)` on probabilities
+*"should not be conflated"* — must survive into the glossary, because `act_ratio` as implemented is
+computed over **draws of the composed cube**, which is neither of the proposal's two definitions exactly.
+
+#### What would have to happen before any of this gates a decision
+
+The proposal's own list, adopted unchanged because it is the right one: synthetic data with known
+properties, exercising **correct activation with underestimated magnitudes**, **correct total with too
+many small and too few extreme events**, **correct pooled magnitude distribution with magnitudes assigned
+to the wrong cases**, **correct mean with wrong tail**, and **correct marginals with wrong aggregates**.
+⛔ That is **row 5 of the table above** — *"every metric that gates a decision must have a
+degenerate-forecast test that fires"* — applied to this suite before it is trusted, and the degenerate
+harness it names already exists.
+
+⚠️ **Unaudited, and it matters here most.** The proposal cites Czado/Gneiting/Held on count-forecast
+calibration and recent tail-calibration work. ⛔ **No literature citation in this report has been audited
+by anyone**, and that caveat applies to these two as much as to §1's fourth amendment. **Lerch2017** and
+**Machete2012** are held and were read for the dilemma argument above; the count-calibration and
+tail-calibration citations are **not** verified. Treat the framing as this repo's reasoning, with the
+literature as a claim to check.
 
 ---
 
