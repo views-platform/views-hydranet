@@ -30,7 +30,8 @@ is useful, and it merges with its open rows intact.
 independent falsification audits, one per section (2026-10-19/20)** — each auditor in a clean context,
 denied the author's reasoning, required to record a risky prediction before every probe.
 
-**Fourteen of fifteen sections came back FALSIFIED. None survived.** ~70 hard findings. ⛔ **And zero
+**Fourteen of fifteen sections came back FALSIFIED. None survived.** **143 findings, 80 of them hard
+(~70 distinct after cross-auditor duplicates).** ⛔ **And zero
 wrong measurements** — every ratio, percentage and verdict count any auditor recomputed reproduced
 exactly, one of them to **17 significant digits**.
 
@@ -63,10 +64,12 @@ they are exactly the four that reviewer marked as *reasoning* rather than citati
 **REFUTED** verdict is **re-opened**: its stated basis (*"the report cites M9 at every site"*) is false —
 `Appendix D.4` carries the figure with no identifier at all.
 
-🔴 **And the audit left ~45 findings unfixed, listed in `Appendix F.3`.** The cheapest high-value items:
+🔴 **And the audit left ~38 of the ~70 distinct hard findings unfixed** — grouped into 11 bullets in
+`Appendix F.3`, which also breaks the ~70 down by kind: **~18 are false as written**, the rest overstated,
+stale, miscounted, badly cited or incomplete. The cheapest high-value items:
 
 - **Every absence claim needs a `grep` before it ships, and every count needs re-deriving.** That is the
-  whole remedy for ~70 findings, and it is mechanical.
+  whole remedy for most of the ~70, and it is mechanical.
 - ⛔ **A sensitivity analysis over cell size.** `Moller1998` (p. 452, endorsing Rathbun & Cressie 1994)
   establishes that a cell-constant-intensity model **has no continuum limit**, so `size_ratio`,
   `act_ratio`, zero-share and the ARTIFACT verdict are all defined against **one arbitrary quadrat
@@ -95,7 +98,7 @@ they are exactly the four that reviewer marked as *reasoning* rather than citati
   positions and left standing.
 - **2026-10-19/20** — fifteen falsification audits. `Appendix F`.
 
-⚠️ **Nine of the ~70 findings were introduced by me on 2026-10-19, the day before the audit.** The
+⚠️ **Nine of the ~70 distinct findings were introduced by me on 2026-10-19, the day before the audit.** The
 auditors found all nine; I would not have. They are itemised in `Appendix F.2`.
 
 ---
@@ -2695,8 +2698,48 @@ what it did **not** check as explicitly as what it did.
 | **FALSIFIED** | **14** |
 | CONTESTED | 1 (§7) |
 | SURVIVED | **0** |
-| hard findings | **~70** |
 | ⛔ **wrong measurements found** | **ZERO** |
+
+#### The finding count, derived rather than asserted
+
+⚠️ **An earlier version of this appendix said "~70 hard findings" without saying whether that was raw or
+distinct, and separately claimed "~45 remaining". Neither was derived. Corrected 2026-10-20** — and the
+irony of an un-derived count inside the appendix about un-derived counts is not lost.
+
+| audit | hard | soft |
+|---|---:|---:|
+| §0 | 6 | 6 |
+| §8 (incl. §8.1–8.3) | 10 | 5 |
+| Appendix E | 6 | 6 |
+| §4 | 4 | 5 |
+| Appendix C | 8 | 11 |
+| §1 + §3 | 8 | 8 |
+| §5 | 9 | 6 |
+| front matter, §6, §7, Appendices A/B/D | 19 | 8 |
+| §2 | 10 | 8 |
+| **RAW TOTAL** | **80** | **63** |
+
+**143 findings in total; 80 of them hard.** ⚠️ Roughly **10 of the 80 are the same defect found
+independently by different auditors** — *"called by no scorer"* was reported by **four** of them, as was
+the `views_hydranet` metric claim — so the **distinct** hard count is **~70**. About **32** were addressed
+on 2026-10-20 (`F.2`), leaving **~38**, not the 45 previously stated. ⚠️ `F.3` lists **11 bullets**, each
+covering several items; the remainder has never been enumerated one by one, and that is a gap.
+
+#### ⛔ And "wrong claims" is the wrong description. The ~70 by KIND:
+
+| kind | ≈ | what it means | example |
+|---|---:|---|---|
+| **Flatly false** | 18 | contradicted by the code or the record | *"No forecast metric is computed in `views_hydranet/`"* — it is, and it is **AP**, this report's primary metric |
+| **True but overstated** | 15 | holds in a narrower form | *"FG-C never evaluates"* — true of two of its three callers |
+| **Counts wrong** | 12 | a number nobody re-derived | 25 dossiers → **26**; 86 tests → **53**; 109 tool files → **164** |
+| **Stale — true when written** | 10 | superseded by a dated update nobody re-read | *"a `ruff` binary the environment never installs"* — added since, and the cited entry says so |
+| **Quotation / attribution** | 6 findings, ~15 instances | paraphrase inside quotation marks; wrong locator | nine `Appendix E` blockquotes are the library's machine summaries, not the papers' prose |
+| **Incomplete, not wrong** | 8 | an inventory or log missing members | `Appendix A` omits the scorer that produced the headline table |
+| **Reasoning / strength** | 8 | an inference the evidence does not carry | §1's amendments 2–4; §8.3's retracted degrees-of-freedom argument |
+
+⛔ **So the honest statement is NOT "~70 wrong claims".** It is: **on the order of 18 statements are false
+as written**, and roughly 50 more are overstated, stale, miscounted, badly cited or incomplete. ✅ **And
+across all 143 findings, not one is a wrong measurement.**
 
 ⛔ **That last row is the finding.** Every ratio, percentage, multiplier and verdict count that any
 auditor recomputed reproduced **exactly** — `rescore.csv` to **17 significant digits**, the ARTIFACT
@@ -2724,7 +2767,7 @@ document itself catalogues.
 | Appendix E | **nine quotations identified as paraphrase**; my locators were `grep -n` line numbers; the PIT collision dissolved against prior art; the Brehmer conflation |
 | counts | 53 tests not 86 (and it skips); 164 tool files not 109; 21 clusters not 20; 24 cluster-18 entries not 23; 2/3 twCRPS sites not 7 |
 
-**Nine of the ~70 findings were introduced by me on 2026-10-19**, the day before the audit — the
+**Nine of the ~70 distinct findings were introduced by me on 2026-10-19**, the day before the audit — the
 `Walz2026` mis-citation, the nine paraphrase-as-quotation, the line-number locators, the PIT collision,
 the Brehmer conflation, the degrees-of-freedom argument, the mangled front-matter sentence, the stale
 date, and ruling open finding 3 *REFUTED* on a basis that does not hold. **The auditors found all nine. I
@@ -2732,7 +2775,9 @@ would not have.**
 
 ### F.3 ⛔ What was NOT fixed — the honest list
 
-**This is debt, not a clean close.** The audit produced ~70 hard findings; roughly 25 are addressed above.
+**This is debt, not a clean close.** The audit produced **~70 distinct** hard findings; **~32** are
+addressed in `F.2`, leaving **~38**. ⚠️ The 11 bullets below group them; **they have never been enumerated
+one by one**, which is itself a gap of the kind this audit was about.
 
 - ⛔ **The nine Appendix E blockquotes are LABELLED as paraphrase, not rewritten.** They still sit inside
   quotation marks. Demoting them is a mechanical pass and is not done.
