@@ -1,6 +1,12 @@
 # Pre-analysis plan — does the empty mode survive a model with no fitted parameters?
 
-**Date written:** 2026-10-11 · **Status:** PRE-REGISTERED, NOT RUN · **Branch:** `probe/conflictology-empty-mode`
+**Date written:** 2026-10-11 · **Status:** **RUN 2026-10-11** (outcome below, all steps complete), **CORRECTED 2026-10-12** · **Branch:** `probe/conflictology-empty-mode`
+
+> ⚠️ Read §1–§12 as what was committed to BEFORE the run, and the `OUTCOME` and `CORRECTION`
+> sections below as what happened. The pre-registration is NOT edited to match the result — that
+> is the point of it. This status line read *"PRE-REGISTERED, NOT RUN"* above a completed
+> outcome, a verdict, a correction and an artifact list until 2026-10-19.
+
 **Origin:** Simon's objection to **C-345**, 2026-10-11 — *"It is not true that all observations should
 have the most likely point being zero. There are areas that are so violent that this makes no sense
 at all."* The test design is his: run the readout on **conflictology** and see whether it suffers
