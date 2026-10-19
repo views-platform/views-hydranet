@@ -37,14 +37,20 @@ VOID RULES
   2  the anchor sequence not identical across sizes -> VOID, the comparison is not matched.
   3  any non-finite moment -> VOID.
   4  a crop that is not exactly (1, T, C, D, D) -> VOID.
+  5  less than MEM_FLOOR_GB available at either checkpoint -> VOID. ⛔ Earned: the OOM killer
+     took two runs of this script at ~11.7 GB resident. The global raster and the dataframes
+     behind it are built, and the full-grid forward pass needs its own gigabytes of activations,
+     so the build is FREED before any pass runs and the floor is checked either side.
 
 USAGE
   python3 e7_bn_window_screen.py --smoke 4     # 4 windows per size, to time it
   python3 e7_bn_window_screen.py               # the screen
 """
 import argparse
+import gc
 import importlib.util
 import json
+import resource
 import sys
 import time
 from pathlib import Path
@@ -77,6 +83,30 @@ ART = (MODELS / "amber_kestrel/data/generated/calibration_delivery_20261013/arti
 SIZES = [32, 64, 128]
 N_WIN, WARM, STEPS = 300, 4, 12
 NP_SEED, TORCH_SEED = 42, 42
+MEM_FLOOR_GB = 6.0          # measured floor, VOID rule 5
+
+
+def mem_available_gb():
+    """MemAvailable, the kernel's own estimate of what can be had without swapping."""
+    for ln in Path("/proc/meminfo").read_text().splitlines():
+        if ln.startswith("MemAvailable:"):
+            return int(ln.split()[1]) / 1e6
+    raise SystemExit("VOID: cannot read MemAvailable")
+
+
+def peak_gb():
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1e6
+
+
+def need(gb, where):
+    """VOID rule 5. The OOM killer took two runs of this script at ~11.7 GB resident before
+    this guard existed: building the global raster and then running a full-grid forward pass in
+    one process. Refuse up front rather than be killed halfway."""
+    av = mem_available_gb()
+    print(f"    [mem] {where}: {av:.1f} GB available, peak so far {peak_gb():.1f} GB")
+    if av < gb:
+        raise SystemExit(f"VOID rule 5 ({where}): {av:.1f} GB available, need {gb:.1f} GB. "
+                         "Close something or lower N_WIN.")
 
 
 def hook_bn(model):
@@ -142,17 +172,35 @@ def main():
         raise SystemExit(f"VOID: as-run window_dim is {cfg['window_dim']}, not {SIZES[0]} — "
                          "the baseline size is wrong and every comparison is mislabelled")
 
+    # ---- build the training volume, take what the screen needs, then FREE the build ----
+    # ⛔ The raster plus the dataframes behind it peak near 8 GB and the full-grid forward pass
+    # needs its own gigabytes. Holding both is what the OOM killer took. So: the activity map
+    # is computed on the FULL time axis (it is what selects the anchors, and slicing it would
+    # change the training distribution), the volume is then CUT to the steps actually used, the
+    # lesson sequence is materialised, and everything upstream is dropped before any pass runs.
+    need(MEM_FLOOR_GB, "before building the volume")
     df = pull((121, 504), DIAG / "pull_land_all3_121_504.parquet")
     tr = df[(df.month_id >= 121) & (df.month_id <= 456)].copy()
     r, c = grid_rowcol(tr.priogrid_id.to_numpy())
     tr["row"], tr["col"], tr["c_id"] = r, c, 0
     tr = tr.rename(columns=dict(zip(TARGETS, cfg["regression_targets"])))
-    handler = VolumeHandler.from_df(FeatureScaler(cfg).fit_transform(tr), cfg)
+    scaled = FeatureScaler(cfg).fit_transform(tr)
+    handler = VolumeHandler.from_df(scaled, cfg)
     planner = CurriculumLearner(cfg, handler)
     tvh = VolumeSampler(handler, cfg).get_train_volume()
     act = {n: np.count_nonzero(tvh.data[..., tvh.channel_map.index(n)], axis=0)
            for n in planner.subjects}
-    print(f"train volume {tvh.data.shape}  (T, H, W, C)")
+    lessons = [planner.get_lesson(w % 30) for w in range(n_win)]
+    print(f"train volume {tvh.data.shape}  (T, H, W, C)  -> cutting to {WARM + STEPS} steps")
+
+    # ⚠️ slice_time returns a VIEW, so the parent raster stays alive and is NOT freed here.
+    # Measured and printed rather than assumed — the dataframes are the part that goes.
+    print(f"    raster {tvh.data.nbytes/1e9:.2f} GB, {len(tvh.channel_map)} channels "
+          f"(stays resident: slice_time is a view)")
+    tvh = tvh.slice_time(0, WARM + STEPS)
+    del df, tr, scaled, handler, planner
+    gc.collect()
+    need(MEM_FLOOR_GB, "after freeing the dataframes")
 
     # ---- reference: the full training extent, ONE spatial pass (there is only one grid) ----
     full_t = tvh.to_pytorch()
@@ -172,13 +220,13 @@ def main():
     out, anchors_ref = {}, None
     for D in SIZES:
         cfg["window_dim"] = D
-        sampler = VolumeSampler(handler, cfg)          # re-seeds rng from cfg['np_seed']
+        sampler = VolumeSampler(tvh, cfg)              # re-seeds rng from cfg['np_seed']
         anchors, orig = [], sampler._select_anchor
         sampler._select_anchor = lambda *x, **k: anchors.append(orig(*x, **k)) or anchors[-1]
         shift, vrat = [], []
         t0 = time.time()
         for w in range(n_win):
-            tgt, thr = planner.get_lesson(w % 30)
+            tgt, thr = lessons[w]
             vh = sampler._generate_window(tvh, act[tgt], thr)
             tens = vh.to_pytorch()
             if tens.shape[-2:] != (D, D) or tens.shape[0] != 1:
@@ -202,7 +250,8 @@ def main():
                       shift_med=float(np.median(s)), shift_p90=float(np.percentile(s, 90)),
                       vrat_med=float(np.median(v)), vrat_p90=float(np.percentile(v, 90)),
                       n_chan=int(s.size))
-        print(f"  D={D:<4} {n_win} win  {dt/60:5.1f} min ({dt/n_win:.2f} s/win)   "
+        print(f"  D={D:<4} {n_win} win  {dt/60:5.1f} min ({dt/n_win:.2f} s/win)  "
+              f"peak {peak_gb():.1f} GB  "
               f"|shift| med {out[D]['shift_med']:.4f} p90 {out[D]['shift_p90']:.4f}   "
               f"var ratio med {out[D]['vrat_med']:.4f}")
 
