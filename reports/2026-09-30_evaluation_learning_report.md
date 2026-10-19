@@ -36,7 +36,17 @@ measurement.
 > which questions whether our ensemble axis was worth eight members; **`Resin2026`** — for **binary**
 > outcomes, PIT calibration is **provably equivalent to auto-calibration**, the strongest notion there is,
 > and FAO-02 rejected PIT. Appendix E also records **two proven non-identifiability results** that bound
-> what §8.3's suite can ever do, and the one challenge that was **sought and not found**.
+> what §8.3's suite can ever do.
+>
+> ⛔ **And it RETRACTS one of its own citations, same day (E.0.1).** The first version cited `Walz2026`
+> about **AP**. That paper is about **ROC-AUC** — **zero** occurrences of "precision", "prevalence" or
+> "imbalance" in 21,011 words — and its discretisation result concerns the **outcome's** ordinal levels,
+> not our **prediction's** sample quantisation. Wrong twice over, in the provenance class Appendix C exists
+> for, within an hour of writing the appendix that warns about it. ⚠️ **All ten sources also carry EMPTY
+> stored key passages**, so every locator rests on a PDF text layer re-read by hand. And the
+> grid-discretisation challenge turned out to be **partly answered** (E.2.3), correcting this appendix's
+> own first version — the live consequence being a **missing sensitivity analysis**: every headline number
+> in this report is defined against one arbitrary quadrat size.
 
 **This is a stopping point, not a finished document**, and it is marked as one deliberately. Its purpose
 was to stop eight months of evaluation knowledge being lost, and that purpose is served: the findings are
