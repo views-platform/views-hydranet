@@ -231,3 +231,29 @@ def test_per_task_cells_width_always_matches_the_column_count():
 
     for n in (1, 3, 6, 12):
         assert len(_trajectory_per_task_cells(None, n, 1)) == n
+
+
+def test_fed_grad_max_is_BLANK_not_zero_when_the_feedback_wire_is_off(written_csv):
+    """⛔ The config in this rig leaves `ss_backprop_through_feedback` at its False default, so
+    `_attach_feedback_grad_clip` is never called and nothing is ever measured.
+
+    The column used to be initialised to 0.0 and written as a real number, making "the wire is
+    off" and "the wire is on and the gradient died" indistinguishable in a delivered
+    trajectory.csv — a misreading this repo's own validator docstrings name four times
+    (`config_initializer.py:951,958,977,989`) while only blocking the two configurations where it
+    is dangerous, never the ordinary one that ships.
+
+    A blank cell is what `read_csv` turns into NaN, i.e. "not measured", which is the truth.
+    """
+    assert "ss_backprop_through_feedback" not in written_csv["config"], (
+        "this guard is only meaningful while the rig leaves the feedback wire at its default"
+    )
+    col = written_csv["header"].index("fed_grad_max")
+    cells = [row[col] for row in written_csv["rows"]]
+    assert cells, "no rows were written, so this guard proved nothing"
+    assert all(c == "" for c in cells), (
+        f"fed_grad_max must be blank when nothing was measured, got {sorted(set(cells))}"
+    )
+    assert not any(c in ("0", "0.0") for c in cells), (
+        "a literal zero here reads as a healthy measured gradient — the exact defect"
+    )

@@ -2,7 +2,7 @@
 
 **Status:** Active
 **Owner:** Custodian (Visual Truth Engine)
-**Last Reviewed:** 13.03.2026
+**Last Reviewed:** 19.10.2026
 **Related ADRs:** ADR-005 (Testing), ADR-006 (CIC), ADR-008 (Failure Loudness), ADR-034 (Prediction Diagnostics), ADR-035 (Training Health Audit), ADR-037 (Geometric Health Visualization)
 
 ---
@@ -34,12 +34,15 @@ It implements the **Null Object pattern**: when `diagnostic_visualizations: Fals
   3. `biopsy_tensor(tensor, stage_label, channel_names)` — raw PyTorch tensor [B,T,C,H,W] or [T,C,H,W]
   4. `biopsy_sample(sample_vh, global_vh, stage_label)` — Stage 4 (training samples with global context)
   5. `biopsy_autoregressive(truth_seq, pred_seq, stage_label, channel_names, time_indices)` — Stage 5 inference (3×6 Truth/Pred/Delta grid)
-  6. `biopsy_training_performance(y_reg, y_hat_reg, y_cls, y_hat_cls, stage_label, time_indices)` — Stage 5 training (4×6 Y_Reg/Ŷ_Reg/Y_Cls/Ŷ_Cls grid)
+  6. `biopsy_training_performance(y_reg, y_hat_reg, y_cls, y_hat_cls, stage_label, *, y_hat_forecast, forecast_label, time_indices)` — Stage 5 training (5×6 grid: truth Reg / body log1p(E[y]) / truth Cls / cls gate / THE FORECAST). **Also persists the five fields as `.npz`.**
   7. `biopsy_loss_curves(history_reg, history_cls, history_total, stage_label)` — Live loss evolution (linear + log)
   8. `biopsy_feature_dossier(target_name, dossier, stage_label)` — Per-target forensic dossier (fed by `TrainingForensics`)
   9. `biopsy_health_constellation(weight_norms, stage_label)` — ADR-037 radar plot of mean L2 norms per functional block (Encoder, Bottleneck, Decoder, MultiTaskHead); saved to `02_training_dynamics/` as `constellation_{safe_label}.png`
 - **North-Up Convention:** All spatial grids are rendered with `origin='upper'` (index 0 = North), consistent with the VolumeHandler flip convention.
 - **Stats Overlay:** `_calculate_stats(data)` computes μ, σ, min, max from finite values only. Returns `"EMPTY"` for all-NaN or zero-element inputs.
+- **⛔ Units are named on every row label.** Regression rows carry **log1p counts**, not counts: the targets are trained in log1p space and a family head's biopsy value is already log1p'd (`training_engine._family_target_log1p_mean`). The row previously read `PREDICTION: body E[y]`, and a reader applied `log1p` to an already-log1p quantity and understated the body by an exponential. The label now says `log1p(E[y])`.
+- **⛔ One colour scale per UNIT, not per row** (`_shared_count_scale`). Rows 0/1/4 (log1p counts) share `(0.0, max)`; rows 2/3 (probabilities) are pinned to `(0.0, 1.0)`; the shared range is printed on the label. Independent per-row min–max stretching made "bright prediction over dark truth" the rendering a sparse panel *always* produces — an identically-zero truth row collapses to `vmin == vmax` and renders flat while a narrow prediction band saturates the colormap. Cross-row brightness comparisons taken from the old figure were unfalsifiable by construction. A degenerate span falls back to `vmax = 1.0`.
+- **⛔ `biopsy_training_performance` does NOT compose the forecast.** `y_hat_forecast` is a **required keyword** supplied by the caller, which composes with `training_engine._family_composed_mean_log1p` — the same helper deployment mirrors (`hydranet_inference._emit_magnitude`): `log1p(compose_mean(E[Y], gate))`. The method used to form `gate × y_hat_reg` itself, i.e. `gate · log1p(μ)`, which is a different function from `log1p(gate · μ)` and agrees only where the gate is 1 — under a docstring calling it "the ACTUAL scored forecast". Required rather than defaulted so a shadow default cannot silently restore it (C-85).
 
 ---
 
@@ -54,6 +57,7 @@ It implements the **Null Object pattern**: when `diagnostic_visualizations: Fals
 
 ## 5. Outputs and Side Effects
 - **PNG files** written to `reports/plots/diagnostics/{timestamp}/biopsy_{safe_label}.png` (relative to cwd at construction time).
+- **`biopsy_{safe_label}.npz`** — written by `biopsy_training_performance` **before** the figure is built, holding `y_reg`, `y_hat_reg`, `y_cls`, `y_hat_cls`, `y_hat_forecast` and a `units` string. `TrainingForensics` persists per-lesson **scalars only** (no `savez`/`np.save` anywhere in it), so before this the field existed solely as rendered pixels and any later question about it required a fresh training run. The write precedes the drawing because matplotlib is the part that fails and the array is the part that cannot be recovered; it never raises (a diagnostic must not abort a multi-hour run). **Measured cost at production shapes** (`window_dim: 32`, 6 biopsy steps, 3 targets): **196 KiB and 20 ms per biopsy** → **172 MiB and 18 s** across a 300-lesson × 3-window run, against a measured ≥50 min (≈13% of training) already spent on the PNGs. ⚠️ Gated on `diagnostic_visualizations` like every other method, so a diagnostics-off run still produces no field record.
 - **`loss_evolution.png`** and **`loss_evolution_log.png`** — written by `biopsy_loss_curves`, keyed by fixed name (not stage_label), so they are overwritten on each call (accumulating the latest view).
 - **`forensic_{target_name}.png`** — written by `biopsy_feature_dossier`, keyed by target name.
 - **`self.save_dir`** directory is created at construction (side effect of `os.makedirs`).
