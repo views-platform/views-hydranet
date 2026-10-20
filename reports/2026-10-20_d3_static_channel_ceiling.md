@@ -442,12 +442,56 @@ log, **300 replicates**. Done exactly, not by brute force: a sum of `k` i.i.d. `
 | the estimator's own attenuation | **0.154** | **0.081** |
 | what survives it | **0.063** | **0.056** |
 
+> ⛔ **AND §9.3 WAS NOT A WELL-POSED QUESTION UNTIL THIS TEST EXISTED.** The `opponent` seat's
+> strongest point, added after the first round and verified here independently. By the law of total
+> variance `Var(Y) = Var(E[Y|X]) + E[Var(Y|X)]`, write a realisation as `Y_s = m_s + e_s` with
+> `m = E[Y|X]`. If the conditional noise `e` is spatially uncorrelated with variance `σ²`, then for
+> `s ≠ t` `Cov(Y_s, Y_t) = Cov(m_s, m_t)` while `Var(Y_s) = Var(m) + σ²`, so
+>
+> `ρ_Y(1) = ρ_m(1) · Var(m) / (Var(m) + σ²)  <  ρ_m(1)`   — **strictly.**
+>
+> **A conditional-mean field is smoother than its own realisation BY CONSTRUCTION.** So "is the
+> model's field smoother than the truth's?" has the answer *yes* before any data is collected, for
+> any model that emits a conditional mean. The only question with content is **"is it smoother than
+> the decomposition requires?"** — and pushing the model through the truth's estimator is the one
+> form that asks it, because the simulation injects the model's own `E[Var(Y|X)]` back in. ⇒ **D6-C
+> is not a better comparator than §9.3's; it is the only version of the claim that means anything,
+> and §9.3 as originally written was untestable rather than merely imprecise.**
+>
+> ⚠️ Exact on the untransformed field with white conditional noise — and D6-A's attenuation fit
+> working to ≤0.009 at eight of nine windows is independent evidence that this field's sampling noise
+> **is** near-white. The `log` of a 336-month mean makes it approximate, **which is precisely why the
+> instrument has to be a simulation that applies the actual transform rather than an algebraic
+> correction factor.**
+
 **Pre-registered verdict: the truth falls OUTSIDE the interval on both axes ⇒ §9.3 STANDS.** ⛔ **And
 the seat was right about the magnitude:** the estimator alone accounts for **0.154** of the E–W gap,
 almost exactly the ~0.15 it predicted from a synthetic field. The honest gap is **0.06, not 0.22** —
 roughly **a quarter** of what §9.3 reported. The direction survives; the size does not.
 
-⚠️ **Two limitations, one of which cuts against me and one for me.**
+⛔ **CORRECTION to how the interval is named.** The 300 replicates carry **Monte Carlo variation in
+the simulation only** — there is **no parameter-uncertainty component at all**, because this is one
+training run and D6-C averaged over `d4`'s four dropout passes rather than propagating them. So it is
+a **simulation interval**, not a posterior-predictive interval, and the earlier label overstated it.
+It does not change the verdict: the truth sits **3.7** (E–W) and **3.0** (N–S) interval half-widths
+**below** the lower edge, so a 3× wider interval keeps it outside.
+
+✅ **0.063 / 0.056 is a FLOOR on three counts, all pointing the same way** (the first was mine, the
+other two the seat's and both verified here):
+
+1. The simulated field's atom is **larger** than the truth's (98.7% vs 94.2% silent) and the
+   understatement is **monotone in the atom** ⇒ the model's row is attenuated more than the truth's.
+2. The simulated support is not just sparser but **patchier** — 1.28% vs 5.85% of cells over 336
+   months — so it is fewer, more concentrated places, which lowers the model's row further.
+3. ⛔ **The model is over-dispersed, so the simulation injects more conditional noise than a
+   well-calibrated version of the same model would.** `θ = 0.1544` gives `Var = μ + 6.477μ²` against
+   the NLL-optimal `θ = 0.2327`'s `μ + 4.297μ²` — **1.51× the conditional variance the loss itself
+   would choose** (`d45ce2c` establishes the premise). More injected noise ⇒ rougher simulated field
+   ⇒ lower model row ⇒ **narrower measured gap.** Precisely: **0.06 is a floor on the smoothness
+   excess attributable to the MEAN FIELD**, because part of the model's simulated roughness is its
+   own over-dispersed noise rather than mean-field structure.
+
+⚠️ **Two further limitations, one of which cuts against me and one for me.**
 - **Against:** the simulated field is *less active than the truth* — 1.28% of cells ever fire in 336
   simulated months against **5.85%** observed, a factor of 4.6. The generative model is a poor fit to
   the truth's activity, which weakens this as a null. (It is also the under-firing this whole
@@ -508,9 +552,16 @@ cell's `sb` input by +1 in `log1p` space and `|Δ log mu|` falls below 10% of pe
 is **exactly 0 at ≥16**. A one-step blur of radius ~12 would return the ratio to 1 beyond 16 and it
 does not. ⇒ **A one-step decoder blur is excluded as the sole cause.**
 
-⚠️ **That is one candidate of five, and I will not claim more.** The window is **49 recurrent steps**,
-so the effective multi-step reach is far larger than one step's — the rising ratio is *consistent*
-with recurrent spatial reach rather than against it. And BN recal and global weight decay are both
+⛔ **AND THE SEAT WITHDREW ITS OWN DISCRIMINATOR, which strengthens this rather than weakening it.**
+Its "knee at the radius, identical in both heads (same decoder depth)" treated the receptive field as
+a **feed-forward decoder** property. The trunk is a **ConvLSTM**: effective spatial reach grows by
+roughly one kernel radius **per carried step**, over far more steps than D5-B probes. So **recurrent
+reach predicts exactly no knee** over any lag range shorter than the carried-state horizon ⇒ the
+monotone, knee-free, never-returning-to-1 profile is the **predicted signature** of recurrent reach,
+not merely consistent with it.
+
+⚠️ **That is one candidate of five excluded, and I will not claim more.** The window is **49 recurrent
+steps**, so the rising ratio *is what recurrent reach looks like*. And BN recal and global weight decay are both
 scale-free, so this profile does not touch them either. Live: recurrent reach, BN recal, global weight
 decay, and conditional-mean averaging. **Excluded: a single-step decoder blur.**
 
@@ -545,6 +596,58 @@ control, **not** the delivered weights — C-317), `sb` only. It bounds and narr
 And **nothing here revives S1**: that verdict rests on §2/§3's `+0.01 AP` and `R² 0.10` bounds and on
 C-152, neither of which involves the truth comparator at all.
 
+### 10.8 D8 — a by-product worth having, whose first reading was a confound
+
+The `opponent` seat noticed that D6-C threw off a free statistic: the simulated field fires in
+**1.28%** of cells over 336 months against the truth's **5.85%**, while the body's cell-level
+marginals are roughly calibrated (`b` 0.82–0.92). **Right mass, too few places** — on a cumulative
+support count, with no scale choice, no normalisation and no Moran's I, so it does not inherit the
+C-299 floor-limited annotation the Moran's I series carries. It asked for the derivation rather than
+the paragraph. `d8_support_vs_monthly.py` derives both halves **analytically** from the model's own
+per-cell parameters — `P(y>0) = gate·(1 − p^θ)`, support `= 1 − (1 − P)^T` — so there is no
+simulation noise at all.
+
+**⛔ And deriving it properly reversed its headline.** The seat's paragraph inferred over-persistence
+from a cumulative shortfall larger than the monthly one. Over 336 months that is what appears:
+
+| | model | truth | shortfall |
+|---|---|---|---|
+| monthly `P(y>0)` | 0.000841 | 0.002094 | **2.49×** |
+| cumulative support, 336 months | 0.012668 | 0.058471 | **4.62×** |
+| ratio cumulative / monthly | | | **1.853** |
+
+⛔ **But that cumulative column is confounded, and the confound pushes in exactly the direction the
+reading claims.** The model's 421–456 parameters are held **stationary** over 336 months while the
+truth's 336 months contain **28 years of real conflict relocation**. Nonstationarity inflates the
+truth's support, inflates the cumulative shortfall, and therefore *manufactures* apparent
+over-persistence. Match the windows and it **flips**:
+
+| both sides over 36 months, 421–456 | model | truth | shortfall |
+|---|---|---|---|
+| monthly `P(y>0)` | 0.000841 | 0.003518 | **4.18×** |
+| cumulative support | 0.006362 | 0.022077 | **3.47×** |
+| ratio cumulative / monthly | | | **0.829** |
+
+⇒ **Over-persistence is FALSIFIED.** On a like-for-like window the model **spreads relatively more**
+than the truth, not less: it touches 3.47× too few cells while firing 4.18× too rarely, so *per unit
+of firing* it uses more places than the truth does.
+
+✅ **Which agrees with §10.3 instead of adding to it.** A field that is too smooth spreads too little
+mass over relatively too many places, and that is what 0.829 says. Two instruments, no shared scale
+or normalisation, same conclusion.
+
+⚠️ **What D8 establishes and what it does not.** The clean numbers are the matched-window ones:
+**the model under-fires by 4.18× per cell-month and touches 3.47× too few cells.** 36 months is the
+model's own fitted window, so the truth there is **in-sample** — that favours the model and is the
+price of removing the larger confound. The 1.853 must not be quoted. ⚠️ The "event-months per
+ever-active cell" cross-check in the script (truth 12.035, model 22.300, ratio 1.853) is **the same
+quantity rearranged, not an independent measurement** — it verifies the algebra and nothing else, and
+the script's original comment claiming otherwise is corrected in place.
+
+⛔ **D8-A is the sixth instance of C-351**, and it is caught by the **population** slot — the two rows
+covered different windows. That the three-slot convention catches its own next instance is the only
+evidence available that the convention is worth anything.
+
 ---
 
 ## Appendix A — C-351, drafted and ⛔ NOT REGISTERED, with the reason
@@ -562,12 +665,12 @@ finding handed to it, not a bypass of it.
 | field | value |
 |---|---|
 | **ID** | C-351 |
-| **Tier** | **2** — not Tier 1: it corrupts *conclusions*, not data or forecasts, and every instance so far was caught. Not Tier 3: five instances in one day, three inside one report section, and two of them reached a committed artifact. |
-| **Source** | the D3/D4/D5/D6/D7 measurement pass, 2026-10-20, plus the `opponent` seat's §13 |
+| **Tier** | **2** — not Tier 1: it corrupts *conclusions*, not data or forecasts, and every instance so far was caught. Not Tier 3: **six** instances in one day, three inside one report section, and two of them reached a committed artifact. |
+| **Source** | the D3/D4/D5/D6/D7/D8 measurement pass, 2026-10-20, plus the `opponent` seat's §13 and §14 |
 | **Trigger** | **The next time a per-cell or per-block statistic is computed on this grid and reported as a property of the model** — specifically: any slope, calibration, correlation or dispersion number computed on a cell set chosen by activity (`active_cells_top100`, `tm > 0`, `y > 0`), on a window that overlaps its own readout, or comparing a model field against a truth field through a non-affine transform. |
 | **Location** | `reports/2026-10-12_underfire_diagnosis/vehicle.py:242` (`active_cells_top100`), `d4_mu_on_the_grid.py` (the `keep = tm > 0` coarsening and the lag-1 comparison), `d3_ceiling.py` (the first window choice), and §2/§3/§4/§8/§9.2/§9.3 of this report |
 
-**Narrative.** Five findings in one day were produced, reported or nearly reported from *a statistic
+**Narrative.** Six findings in one day were produced, reported or nearly reported from *a statistic
 computed on a set, or a scale, defined by the thing being measured*:
 
 | # | where | the artifact | what it did to the number |
@@ -577,11 +680,12 @@ computed on a set, or a scale, defined by the thing being measured*:
 | 3 | §9.1 | `active_cells_top100` selects the top 100 cells **by observed rate** | `b` **0.92 → 1.7301**, and it was the report's title |
 | 4 | §10.3 | truth has an atom of 0.986 at zero; `log`/`logit` are not affine | **0.154** of a 0.22 gap, ~¾ of the effect |
 | 5 | §10.4 | the coarsening admits only blocks with an event; admitted fraction **2.2% → 22.4%** | reversed the sign of the amplitude trend |
+| 6 | §10.8 | the model's window (36 months, stationary) vs the truth's (336 months, with regime change) | reversed the sign of the persistence reading, 1.853 → **0.829** |
 
-**Three of the five are in `§9`, which was itself written to correct `§4`.** Each was caught by a
+**Three of the six are in `§9`, which was itself written to correct `§4`.** Each was caught by a
 *different* mechanism — restriction to meaningful cells, a window audit, a full-grid forward pass, an
-adversarial peer, and a nested-population recomputation — and **no single habit would have caught
-more than two.** That is the risk: the class is not one mistake with one remedy, and on this grid the
+adversarial peer, a nested-population recomputation, and a window match — and **no single habit would
+have caught more than two.** That is the risk: the class is not one mistake with one remedy, and on this grid the
 tempting set is *always* the active one, because 98.6% of cells carry no signal.
 
 ⛔ **Why a guard in the measurement code is the wrong remedy** (and the reason this is a register
@@ -590,11 +694,27 @@ entry rather than a patch): these are one-off diagnostic scripts, not production
 shared file. A `utils` validator asserting "your cell set was not chosen by the outcome" cannot be
 written — selection is sometimes correct and sometimes fatal, and only the claim decides which.
 
-**What is proposed instead, and it is cheap:** a reporting convention. *Any* number offered as a
-property of the model states, in the same sentence, **the population it was computed on and how that
-population was chosen.** Each of the five would have been visible at the moment of writing: *"b =
-1.73 on 100 cells chosen by observed positive rate"* is self-refuting in a way that *"b = 1.73"* is
-not. §10 is written that way throughout — every row names its `n` and its condition.
+**What is proposed instead, and it is cheap:** a reporting convention with **three** slots.
+
+⛔ **The two-slot version failed on its own fifth instance, and the `opponent` seat found the hole.**
+The first draft of this entry asked only for *the population and how it was chosen*. Written to that
+rule, §9.3's truth row reads:
+
+> *"lag-1 autocorrelation 0.6419 on all 64,818 land cells, population not selected."*
+
+**Every word true, the population statement complete — and the number still wrong by 0.154**, because
+the defect was the **scale**, not the set. Population discipline cannot catch a transform error.
+
+| slot | states | the instance it catches |
+|---|---|---|
+| **population** | the set it was computed on **and the rule that chose it**, including the window | #1 ties, #2 window overlap, #3 selection, #5 admission rate, and D8-A's window mismatch (§10.8) |
+| **transform** | the scale the statistic lives on, and whether the things being compared share it | **#4** — `log mu`, `logit p` and a raw rate with an atom at 0.986 are three different objects |
+| **estimator** | how it was computed, and whether both sides went through the same one | #4 again, from the other side; it is what D6-C fixes |
+
+**The count of catching mechanisms was one higher than the count of slots being guarded** — which is
+the entry's own argument turned on the entry. *"b = 1.73 on 100 cells chosen by observed positive
+rate, OLS of log truth on log prediction"* is self-refuting where *"b = 1.73"* is not. §10 is written
+that way throughout — every row names its `n`, its condition and its estimator.
 
 **Cross-refs.** **C-307** (a cheap screen's null is inconclusive, not negative) — the sibling about
 how a *result* is read, where this is about how a *statistic* is built. **C-320** (a falsifier band

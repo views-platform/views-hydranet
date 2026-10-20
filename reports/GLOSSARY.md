@@ -279,8 +279,15 @@ the gate logit are continuous and atom-free; the truth is a raw rate with **98.6
 exactly zero**, and lag-1 Pearson is invariant under *affine* maps, not under `log` or `logit`. Pushing
 the model through **the truth's own estimator** (§10.3, 300 replicates) the model's field reads
 **+0.7053 / +0.6824**, not 0.8594 / 0.7636 — the estimator alone eats **0.154 / 0.081**. The truth's
-**+0.6419 / +0.6261** still falls **outside** the 95% posterior-predictive interval, so the finding
-stands, but **the like-for-like gap is 0.06, not 0.22.** ⛔ Quote 0.06. Never quote a model
+**+0.6419 / +0.6261** still falls **outside** the 95% **simulation** interval — ⚠️ a simulation
+interval, *not* a posterior-predictive one: it carries Monte Carlo variation only, with **no
+parameter-uncertainty component**, since this is one training run. The truth sits **3.7 / 3.0**
+half-widths below the lower edge, so a 3× wider interval keeps the verdict. The finding stands, but
+**the like-for-like gap is 0.06, not 0.22**, and 0.06 is a **floor** (the model's larger atom, its
+patchier support, and its own 1.51× over-dispersed conditional variance all push the measured gap
+down). ⛔ **And the comparison is only well posed in this form at all:** a conditional-mean field is
+smoother than its own realisation *by construction* (`ρ_Y = ρ_m·Var(m)/(Var(m)+σ²) < ρ_m`), so the
+question is never "smoother than the truth" but "smoother than the variance decomposition requires". ⛔ Quote 0.06. Never quote a model
 autocorrelation against a truth autocorrelation without passing one through the other's estimator.
 
 **Both heads have roughly calibrated marginals at cell level and both emit a field measurably smoother
