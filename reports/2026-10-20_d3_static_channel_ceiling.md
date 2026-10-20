@@ -418,6 +418,8 @@ must not be cited at all, including by me in a later section.
 | **§10.9** | the model is **more** concentrated, not less | ✅ **STANDS**, and **null-free** | This is the global half. Quote `N_eff` **215.0** vs the **debiased** truth, never the raw 516.9. |
 | **§10.10** | D9 was **conservative**; relocation carries the sweep | ✅ **STANDS**; the seat's debias corrected (1.74× overstated) | **2.49×** is the figure to quote. ⚠️ Add that the debiased series **dips at 72 months** — the direction is clear, the path is not. |
 | **§10.11** | *a few large smooth blobs where the truth has many small sharp spots* | ✅ the synthesis | Lead with this sentence, then **0.06** (local) and **2.49×** (global). ⛔ Never add the two — no shared scale. |
+| **§10.11** | *"the latent field is right; the point process on top is not"* | ⛔ **WITHDRAWN** — not identifiable (Cox1955 C-3611) | **Do not cite as an attribution.** NB emission and latent variance are one object reparameterised; one second-order number is one equation in two unknowns. The *descriptions* stand, the *location* of the defect does not. |
+| **§10.12** | the instrument that could locate it | ⚪ **PRE-REGISTERED, NOT RUN** | Nothing to quote yet. Read `2026-10-20_d12_spectral_prereg.md` before proposing any new smoothness measurement — it records why PSD-on-a-mask and the dispersion curve were both rejected. |
 | **S1** | the static base-rate channel is not the lever | ✅ **UNMOVED** across all five rounds | Unchanged. It rests on §2/§3's `+0.006–0.012 AP` / `R² 0.10` bounds and C-152 — **none of which any D-measurement touched.** |
 
 ### 10.2 ✅ D6-A — the noise objection is dead, and more thoroughly than the seat said
@@ -762,11 +764,39 @@ Smoothness is a *local-gradient* property and concentration is a *global-distrib
 there is no contradiction in being both: a single smooth blob is smooth **and** concentrated. §10.3
 measures the local half (fields smoother than the variance decomposition requires, by 0.06) and §10.9
 measures the global half (**2.49×** too few effective places — §10.9 read 2.40× and §10.10's debias
-widened it; 2.40 is stale wherever it still appears). ⇒ **The latent risk field is roughly
-right; the point process on top of it is not** — which is C-152/EXP-3's *"89% of the damage is cells
+widened it; 2.40 is stale wherever it still appears). ~~⇒ **The latent risk field is roughly
+right; the point process on top of it is not**~~ — which is C-152/EXP-3's *"89% of the damage is cells
 in the wrong places"* and is the shape Simon proposed from the architecture before any of it was
 measured. **And concentration is a joint property, so this is the first direct quantification of
 what C-152's class statement asserts.**
+
+> ⛔ **THE STRUCK CLAUSE IS WITHDRAWN (2026-10-20, round 6). The two NUMBERS stand; the causal
+> sentence does not.** It attributes the defect to one of two components, and `Cox1955` C-3611 shows
+> those two components are not separately identifiable from what was measured.
+>
+> **The argument.** Cox derives negative-binomial counts *as* a doubly stochastic Poisson process
+> whose rate is constant within periods and Type III distributed. So **an NB emission and a more
+> variable latent field are two parameterisations of one object**: our `gate × NB body` can be
+> re-expressed as a Cox process with a more variable latent intensity and conditionally Poisson
+> emission. Under that re-expression the sentence tries to split something that is partly a change of
+> coordinates.
+>
+> Formally it is the **same law of total variance** that already broke §9.3 and D10:
+> `Var(N) = E[Var(N|Λ)] + Var(E[N|Λ])`. One measured second-order quantity is **one equation in two
+> unknowns**, so blame is not attributable from it. **Third instance in this one programme** — see
+> the drafted register entry in Appendix A, which is a *different* defect from C-351 and needs a
+> different remedy.
+>
+> ⚠️ **What does NOT follow.** *"The model is over-smooth and over-concentrated"* is untouched —
+> those are descriptions of the emitted field, not attributions. What is withdrawn is **where the
+> defect lives**. §10.12 pre-registers the instrument that could answer it.
+>
+> ⛔ **And one superficially attractive rescue is also dead.** I first argued the problem was
+> `Hawkes1971`'s indistinguishability result. It is not: that theorem is conditional on two processes
+> having **matching** second-order properties, and ours demonstrably do not match. Hawkes in fact
+> runs the other way — it establishes the doubly stochastic class is *rich enough* to reproduce a
+> self-exciting process's second-order structure, so our mismatch is a **fitting failure, not a class
+> limitation.** Logged as a scope transfer off a dropped qualifier (`PREDICTION_LEDGER`).
 
 ---
 
