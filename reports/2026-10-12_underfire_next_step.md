@@ -104,6 +104,44 @@ each cell's own long-run base rate.
 Add one static channel per cell: its own historical positive rate (and/or mean) computed strictly
 from the training partition. ADR-060's `static_channels` machinery already exists and is wired
 (`config_initializer`, `static_channels.py`, `static_top_skip: true`). `input_channels` becomes 4.
+
+> ⛔ **THE WAY THIS ARM GOES WRONG SILENTLY — C-350, Tier 1. Read before building the channel.**
+>
+> "Computed strictly from the training partition" is the load-bearing clause of this whole arm, and
+> at the time of writing **this sentence is the only place it exists.** There is no test, no config
+> validator and no ADR invariant that can disagree with it.
+>
+> A base rate is an aggregate over a span of months. Build it over the full panel and the channel
+> carries validation-period information into **every training step** — not as a label, as an input
+> the encoder reads at each of ~383 BPTT steps and again, re-injected unchanged, at every rollout
+> step. The readout below then comes back optimistic by an unknown amount and the arm is
+> **unsalvageable**, because there is no way afterwards to say how much of the move was the
+> information and how much was the leak.
+>
+> ⛔ **Every existing guard stays green.** `volume_handler.py:279-320` checks a data-backed static
+> four ways — complete, finite, sanely scaled (`_STATIC_SANITY_ABS_CEIL`), constant per cell across
+> time (`per_cell_spread`) — and a leaking base rate passes all four, because it genuinely *is* all
+> four. **Provenance is the invariant that seam does not have.**
+>
+> ⚠️ **The convenient input is the wrong one.** `reports/2026-10-12_underfire_diagnosis/pull_land_all3_121_504.parquet`
+> — the 56 MB pull already on the laptop — spans months **121–504**, which crosses the partition
+> boundary. The leaking version is the path of least resistance. The channel is also produced
+> *outside this repository*, in a views-models queryset, so neither repo's guards see both halves:
+> this repo cannot know what span the column was aggregated over, and the producing repo has no
+> static-channel contract to violate.
+>
+> **Therefore, pre-flight conditions on S1, to be lifted verbatim into its pre-registration:**
+> 1. The pre-registration **states the month range** the channel was aggregated over, as a number,
+>    before the pod starts.
+> 2. That range is **verified against the column itself**, not against the queryset's description.
+> 3. The range **does not intersect any non-training partition**. If it does, the arm does not run.
+>
+> Cheapest durable remedy, if it turns out the partition dict is reachable at that block: make the
+> channel declare its range and fail loud in the same block that already fails loud four other ways.
+> ⚠️ Whether it is reachable there is **unverified** — measure it before choosing the remedy, because
+> the alternative is plumbing, and this register has recorded the cost of guards that grew a
+> validator 303 → 1,167 lines.
+
 ⛔ **Readout:** `(mu, theta)` and `P(Y=0)` on the 100-cell set, against the free-fit targets
 0.7695 / 14.36 / 0.459 — **not** AP, not CRPS. A pre-registered falsifier that `act_ratio` must not
 rise globally (M45's fifth-instance trap).
