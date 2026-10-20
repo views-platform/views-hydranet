@@ -15,6 +15,7 @@ behind #351 (the S10 gate).
 
 import ast
 import re
+import subprocess
 import sys
 from importlib.metadata import packages_distributions
 from pathlib import Path
@@ -262,9 +263,25 @@ def _third_party_imports() -> dict[str, set[str]]:
     module-top-only scan would have missed the one undeclared import whose failure arrives
     mid-training rather than at import.
     """
+    # Git-tracked files only, not `rglob`. `views_hydranet/wandb/` is a gitignored runtime dump
+    # that lives INSIDE the package directory (wandb's code-save writes `run-*/tmp/code/`), so a
+    # glob would treat whatever lands there as an import site of this package — reporting its
+    # imports as undeclared dependencies, or raising `SyntaxError` out of the test on a file that
+    # does not parse.
+    tracked = subprocess.run(
+        ["git", "ls-files", "views_hydranet/*.py"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    assert len(tracked) > 50, f"git ls-files returned {len(tracked)} package files — scan is blind"
+
     roots: dict[str, set[str]] = {}
-    for path in sorted((REPO / "views_hydranet").rglob("*.py")):
-        tree = ast.parse(path.read_text())
+    for path in sorted(REPO / p for p in tracked):
+        # Explicit encoding: 57 of the 67 package files carry non-ASCII docstrings, so the
+        # platform default decodes them wrongly wherever it is not UTF-8.
+        tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 names = [alias.name for alias in node.names]
@@ -288,11 +305,27 @@ def _partition(
 
     Separate from the test that uses it only so the `unresolvable` branch is reachable with a
     synthetic input — it is the branch that must never be quietly widened into a skip.
+
+    ⛔ The declared set is checked BEFORE the distribution is resolved, and the order is the whole
+    correctness of this function. Resolving first made the guard RED on a correct repo:
+    `matplotlib` is imported inside `VisualDiagnostics._load_mpl` and declared in the `viz` extra,
+    which neither `pip install .` nor `environment.yml`'s pip list installs. It therefore has no
+    resolvable distribution in the environment CI actually builds, and a resolve-first order filed
+    a correctly declared dependency as `unresolvable`. CI passed only because `pyod` happens to
+    pull matplotlib in unpinned — precisely the accidental transitive guarantor this guard exists
+    to catch.
     """
+    # One call: `packages_distributions()` is not cached and re-walks every distribution on
+    # sys.path, so calling it per module repeated a full metadata scan ~10 times.
+    providers_by_module = packages_distributions()
     undeclared: dict[str, set[str]] = {}
     unresolvable: set[str] = set()
     for module, files in found.items():
-        providers = packages_distributions().get(module)
+        if module.lower().replace("_", "-") in declared:
+            # The import name is the distribution name. True for all but `sklearn`, and the only
+            # check available for a declared dependency that is not installed.
+            continue
+        providers = providers_by_module.get(module)
         if not providers:
             unresolvable.add(module)
             continue
@@ -344,7 +377,7 @@ class TestEveryImportIsDeclared:
         assert len(found) >= 5, (
             f"the import scan found only {sorted(found)} — the walker is broken"
         )
-        assert len(found["torch"]) > 40, (
+        assert len(found.get("torch", ())) > 40, (
             f"torch was found in {len(found.get('torch', ()))} files; it is imported by most of "
             "the package, so a low count means the scan is missing whole files"
         )
@@ -369,6 +402,21 @@ class TestEveryImportIsDeclared:
         )
         assert unresolvable == {"a_module_no_distribution_provides"}
         assert not undeclared, "an unresolvable module must not be silently counted as declared"
+
+    def test_a_declared_dependency_that_is_not_installed_still_counts_as_declared(self):
+        """`matplotlib` is the live case: imported inside `VisualDiagnostics._load_mpl`, declared
+        in the `viz` extra, and installed by neither `pip install .` nor `environment.yml`'s pip
+        list. A resolve-before-declared order filed it as `unresolvable` and turned the guard red
+        on a correct repo — green in CI only because `pyod` pulls matplotlib in unpinned.
+
+        Asserted on a name that is declared but certainly absent from site-packages, so the test
+        does not depend on whether matplotlib happens to be installed where it runs."""
+        declared = self._declared() | {"a-declared-but-absent-distribution"}
+        undeclared, unresolvable = _partition(
+            {"a_declared_but_absent_distribution": {"synthetic"}}, declared
+        )
+        assert not unresolvable, "a declared dependency must not need to be installed to pass"
+        assert not undeclared
 
     def test_every_third_party_import_is_a_declared_dependency(self):
         undeclared, unresolvable = _partition(_third_party_imports(), self._declared())
