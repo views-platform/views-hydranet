@@ -281,6 +281,26 @@ def _third_party_imports() -> dict[str, set[str]]:
     return roots
 
 
+def _partition(
+    found: dict[str, set[str]], declared: set[str]
+) -> tuple[dict[str, set[str]], set[str]]:
+    """Split the imports into (undeclared, unresolvable) against a declared-distribution set.
+
+    Separate from the test that uses it only so the `unresolvable` branch is reachable with a
+    synthetic input — it is the branch that must never be quietly widened into a skip.
+    """
+    undeclared: dict[str, set[str]] = {}
+    unresolvable: set[str] = set()
+    for module, files in found.items():
+        providers = packages_distributions().get(module)
+        if not providers:
+            unresolvable.add(module)
+            continue
+        if not any(p.lower().replace("_", "-") in declared for p in providers):
+            undeclared[module] = files
+    return undeclared, unresolvable
+
+
 class TestEveryImportIsDeclared:
     """The guard chain derived every link from `pyproject`, and so could not see this class.
 
@@ -339,20 +359,19 @@ class TestEveryImportIsDeclared:
             "the scan is not descending into function bodies — the depth this guard needs"
         )
 
+    def test_an_uninstalled_import_is_reported_rather_than_passed_over(self):
+        """The `unresolvable` branch had no test, and neutering it (`unresolvable = set()`) left
+        the class green — a surviving mutation. An uninstalled import cannot be checked against
+        the declaration at all, so passing over it is the one outcome that must be impossible:
+        an incomplete environment and the next undeclared import look identical from here."""
+        undeclared, unresolvable = _partition(
+            {"a_module_no_distribution_provides": {"synthetic"}}, self._declared()
+        )
+        assert unresolvable == {"a_module_no_distribution_provides"}
+        assert not undeclared, "an unresolvable module must not be silently counted as declared"
+
     def test_every_third_party_import_is_a_declared_dependency(self):
-        declared = self._declared()
-        undeclared: dict[str, set[str]] = {}
-        unresolvable: set[str] = set()
-        for module, files in _third_party_imports().items():
-            providers = packages_distributions().get(module)
-            if not providers:
-                # Not installed, so its distribution name cannot be resolved. Fail loud rather
-                # than skip: either the test environment is incomplete or this is the next
-                # undeclared import, and a skip cannot tell them apart.
-                unresolvable.add(module)
-                continue
-            if not any(p.lower().replace("_", "-") in declared for p in providers):
-                undeclared[module] = files
+        undeclared, unresolvable = _partition(_third_party_imports(), self._declared())
 
         assert not unresolvable, (
             f"cannot resolve a distribution for {sorted(unresolvable)} — not installed in this "

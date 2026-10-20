@@ -64,15 +64,26 @@ dependencies = [
     # forensic computes AP/AUC, hours in.
     #
     # Ranges MATCHED to the upstream that already declares each, never invented (the `pandas`
-    # precedent above): numpy to `views-frames`, our own direct dependency; pydantic and tqdm to
-    # `viewser`; scikit-learn to `views-evaluation`, the sibling views-* package that declares it.
+    # precedent above), and each read off the PUBLISHED metadata rather than what happens to be
+    # installed here:
+    #   numpy     `views-frames` 1.11.0  `numpy<3,>=1.26`       (our own direct dependency)
+    #   pydantic  `viewser` 6.6.4        `pydantic<3.0.0,>=2.0.0`
+    #   tqdm      `viewser` 6.6.4        `tqdm<5.0.0,>=4.66.0`
     # ⚠️ The effective numpy ceiling is `viewser`'s `<2.0.0`, not the `<3` written here — same
     # shape as the pandas `<3.0` above, where viewser's `<2.0.0` also binds first. We write our
     # direct dependency's range and let the resolver intersect.
+    #
+    # ⛔ `scikit-learn` is the exception and its range is OURS, not matched. **No published
+    # package in our dependency tree declares scikit-learn** — not views-pipeline-core, viewser,
+    # views-frames or views-evaluation (all four checked, 2026-10-20). It reached this environment
+    # through `pyod`, whose own requirement is visible only once installed. So there is no upstream
+    # range to inherit, and our own needs bind: `sklearn.metrics.average_precision_score` and
+    # `roc_auc_score`, stable across the whole 1.x line. Deliberately wide, with the ceiling only
+    # because a 2.x would promise nothing.
     "numpy>=1.26,<3",
     "pydantic>=2.0,<3.0",
     "tqdm>=4.66,<5.0",
-    "scikit-learn>=1.6,<2.0"
+    "scikit-learn>=1.0,<2.0"
 ]
 
 [project.urls]
