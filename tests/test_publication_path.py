@@ -326,7 +326,17 @@ class TestEveryImportIsDeclared:
         )
         assert len(found["torch"]) > 40, (
             f"torch was found in {len(found.get('torch', ()))} files; it is imported by most of "
-            "the package, so a low count means the scan is not reaching nested imports"
+            "the package, so a low count means the scan is missing whole files"
+        )
+        # torch cannot prove the scan reaches NESTED imports — it is module-top in every one of
+        # those files, so a depth-0-only walker still finds it in >40. `sklearn` is imported at
+        # function level and nowhere else in the package, which makes it the one discriminator:
+        # restricting the walker to `tree.body` was a mutation that left this class green until
+        # this assertion existed, and it is the mutation that re-hides the sklearn instance.
+        assert "sklearn" in found, (
+            "sklearn was not found. It is imported inside "
+            "`TrainingForensics._calculate_cls_metric` and at no module top, so its absence means "
+            "the scan is not descending into function bodies — the depth this guard needs"
         )
 
     def test_every_third_party_import_is_a_declared_dependency(self):
