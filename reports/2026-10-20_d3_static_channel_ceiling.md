@@ -2,7 +2,18 @@
 
 **2026-10-20.** Free measurement, no pod, no training, nothing fetched. Run on artifacts already
 on disk. Scripts: `2026-10-12_underfire_diagnosis/d3_ceiling.py`, `d3_followup.py`, `d3_clean.py`,
-`slope_convention.py`.
+`slope_convention.py`, `slope_chase.py`, `smooth_control.py`, `d4_mu_on_the_grid.py`.
+
+> ⛔ **READ §9 BEFORE QUOTING §4 OR §8. This report's own headline is falsified inside it.**
+> §4 reported the body's magnitude slope as `b = 1.7301` and §8 built a "the two heads fail
+> differently" conclusion on it. **§9 removes the limit that forced both** — it stores `mu` on all
+> 64,818 land cells — and the slope **does not survive**: `b` = **0.92** in sample, **0.82** out of
+> sample. 1.7301 is an artifact of the **100-cell set selected on observed positive rate**. The
+> corrected finding is the opposite of §8's: **both heads fail the same way**, both emitting fields
+> far smoother than the truth with roughly calibrated cell-level marginals. §4 and §8 are kept
+> **unedited below except for pointers**, because the selection trap they fell into is the single
+> most repeatable error in this dossier — it is the same trap as §2's tie artifact and §3's
+> contamination, for the third time in one day.
 
 ## 0. Why it was run
 
@@ -93,6 +104,11 @@ reading the quantity it is being asked to predict. Re-run with every window endi
 **S1's honest ceiling on the body is R² ≈ 0.10**, on a selected 100-cell set.
 
 ## 4. What it found instead — the body's slope defect
+
+> ⛔ **SUPERSEDED IN ITS HEADLINE NUMBER BY §9, same day.** Everything in this section is correctly
+> measured **on the 100-cell selected set** and is wrong as a statement about the body. `b = 1.7301`
+> → **0.92 / 0.82** on the full grid. The ranking claim (spearman ≈ 0.69) **survives** and is in fact
+> stronger on the grid (0.82 / 0.78); it is the *spread* claim that does not. Kept unedited.
 
 The sign of every one of the twelve clean fits is **negative**: the higher a cell's history, the more
 the model under-predicts it. That has two readings with opposite consequences — missing information,
@@ -252,6 +268,117 @@ predicts.
 | **gate** | roughly calibrated (`b` 0.94 on active cells) | **over-smoothed** (0.96 vs ~0.70) |
 | **body** | **compressed** (`b` 1.73) | unmeasured |
 
+> ⛔ **THIS TABLE IS WRONG IN ITS BODY ROW AND §9 MEASURED IT.** "Unmeasured" was the honest state
+> when this was written and is the reason the forward pass was run. With `mu` on the grid the body
+> row reads **`b` 0.92 / 0.82 — roughly calibrated** and **field over-smoothed, 0.86–0.93 against the
+> same ~0.64 reference**. The two heads fail **the same way**. Kept struck rather than rewritten
+> because "the heads differ" was itself a correction of "the heads are the same", and the sequence
+> same → different → same, each step forced by a better measurement, is the useful record.
+
 This is C-152 and EXP-3 in a new coordinate rather than a new finding: *"89% of the damage is cells in
 the wrong places"*, with the marginals intact. It is also, unprompted, the shape Simon proposed — the
 latent risk field survives, what sits on top of it does not.
+
+## 9. D4 — `mu` on the grid, and the slope defect does not survive it
+
+§8.2 closed with a named limit: the discriminator could only run on the gate, because no artifact
+held `mu` on the full grid, and the gate turned out not to have the defect. `d4_mu_on_the_grid.py`
+removes the limit — one forward pass of the same vehicle, the same lead-in and the same locked-dropout
+protocol as `p2_gate_calibration.py`, collecting the `sb` body parameters **and** the gate for all
+64,818 land cells at all 49 months 421–469 in one pass, so the two heads cannot drift apart.
+
+**Cost, measured** (⛔ the standing rule — a number, not an estimate): **349.5 s wall, 3.95 GiB peak
+RSS**, 4 posterior passes, output `d4_result.npz` 138.9 MB. Capped at 8 threads. Truth panel positive
+rate **0.003499**, consistent with the 0.003448 on record.
+
+### 9.1 ⛔ `b` = 1.73 is a selection artifact
+
+| cell set | n | `b` | `r` | sd(`log mu`) | sd(`log truth`) | sd ratio |
+|---|---|---|---|---|---|---|
+| **in sample 421–456**, any event | 1,431 | **0.9234** | +0.8132 | 1.7140 | 1.9464 | 0.8806 |
+| in sample, ≥2 events | 904 | **1.0049** | +0.8261 | 1.4069 | 1.7114 | 0.8221 |
+| in sample, all land cells | 64,818 | 0.9032 | +0.5966 | 1.2813 | 1.9401 | 0.6605 |
+| **out of sample 457–469**, any event | 912 | **0.8170** | +0.7718 | 1.6149 | 1.7096 | 0.9446 |
+| out of sample, ≥2 events | 515 | **0.9670** | +0.7795 | 1.2311 | 1.5273 | 0.8061 |
+| out of sample, all land cells | 64,818 | 0.4491 | +0.4746 | 1.7108 | 1.6189 | 1.0568 |
+| **§4's 100-cell selected set** | 100 | **1.7301** | +0.7174 | — | — | **0.4146** |
+
+**The slope is ≈1, and the entire difference is the sd ratio, not the correlation.** `b = r·sd(truth)/sd(mu)`:
+on the selected set `0.7174 × (1/0.4146) = 1.730`; on the grid `0.8132 × (1/0.8806) = 0.923`. `r` is
+*higher* on the grid. So §4 did not measure a compressed body — it measured a **compressed predictor
+range**, which is what selecting the top 100 cells by observed positive rate produces: every selected
+cell is one the model already calls high-risk, so `mu` barely varies across them, while the observed
+rate keeps varying because at the top of a rate ranking it is partly noise.
+
+✅ **The selection gradient is monotone, which is the internal check:** as the condition on the
+outcome tightens, `n` falls 1,431 → 904 → 100 and `b` rises 0.9234 → 1.0049 → 1.7301. The headline
+sat at the extreme of a gradient the design created.
+
+⚠️ **Stated honestly: none of these rows is unbiased.** "Any event" and "≥2 events" also condition on
+the outcome, just far more weakly; "all land cells" does not, but **98.6% of land cells never fire**,
+so it is the tie-dominated statistic §2 already caught once — note its out-of-sample value of 0.4491
+at an sd ratio **above 1**, which is 13 months of quantised truth, not a finding. The supported claim
+is therefore **"`b` = 1.73 is not the body's slope"**, not "the body's slope is exactly 0.92".
+
+### 9.2 The discriminator, now on the head that was supposed to have the defect
+
+| `k` | blocks | `b` in sample | `r` | `b` out of sample | `r` |
+|---|---|---|---|---|---|
+| 1 | 1,431 / 912 | 0.9234 | +0.8132 | 0.8170 | +0.7718 |
+| 2 | 731 / 514 | 1.0455 | +0.8733 | 0.9123 | +0.8377 |
+| 4 | 346 / 267 | 1.1092 | +0.8864 | 0.9677 | +0.8713 |
+| 8 | 162 / 129 | 1.2321 | +0.8999 | 1.0202 | +0.9284 |
+| 16 | 78 / 65 | 1.4894 | +0.9392 | 1.1136 | +0.9557 |
+| 32 | 33 / 32 | 1.6438 | +0.9381 | 1.2318 | +0.9740 |
+
+⚠️ **`b` rising through 1 is not one of the three signatures `slope_chase.py` pre-registered** (S
+smoothing → `b`→1 · G global shrinkage → `b` flat · R rank noise → `b`→1 with `r` climbing). The
+discriminator therefore **does not discriminate here**, and its labels must not be applied. What it
+does establish is a one-line fact about variance: across `k` = 1…32 in sample, **sd(`log mu`) is flat
+— 1.7140 → 1.7045 — while sd(`log truth`) grows 1.9464 → 2.9867.** The model's amplitude does not
+scale up when the grid is coarsened and the truth's does.
+
+⇒ **The body has no large-scale amplitude structure.** It is not squashed cell by cell; it is missing
+the regional highs and lows, which is a statement about the *field*, not the marginals.
+
+### 9.3 ✅ Both heads emit a field far smoother than the truth
+
+| field | lag-1 autocorrelation, in sample (E–W / N–S) | out of sample |
+|---|---|---|
+| **body, `log mu`** | **+0.8594 / +0.7636** | **+0.9266 / +0.9227** |
+| **gate logit**, same pass | +0.9598 / +0.9574 | +0.9498 / +0.9464 |
+| truth, same window | +0.5915 / +0.5780 | +0.5089 / +0.5028 |
+| **truth, noise-controlled** — 336-month base rate (§8.3) | **+0.6419 / +0.6261** | same |
+
+Against the §8.3 noise control — the one reference that is not attenuated by a short window — the
+truth sits at **~0.64** and **both heads sit at 0.86–0.96.** The body ranks cells well: spearman(`mu`,
+truth) **+0.8205** in sample and **+0.7808** out of sample, better than the 0.687 §4 reported on the
+selected set.
+
+### 9.4 The corrected finding
+
+| head | cell-level marginals | its field |
+|---|---|---|
+| **gate** | roughly calibrated, `b` 0.39 all / 0.94 active | over-smoothed, 0.95–0.96 vs ~0.64 |
+| **body** | roughly calibrated, `b` 0.82–0.92 | over-smoothed, 0.86–0.93 vs ~0.64 |
+
+⛔ **The two heads fail the same way, and §8's "they fail differently" is withdrawn.** Both know which
+cells are dangerous and neither can say *where within a region* — they put the right total mass on a
+field that is too diffuse. Since the defect is shared across two heads that share only the trunk, it
+is **upstream of both**: the recurrent state and the decoder, not either head's marginals.
+
+**This sustains Simon's objection on its own terms and sharpens it.** His framing was that the hidden
+and cell state may encode the latent risk field well and the marked point process on top of it badly.
+Measured: the ranking is good (0.78–0.82) and the *spatial sharpness* is not (0.86–0.96 against 0.64).
+⇒ The lever is the **trunk or the loss**, as he argued, and **not** a per-cell static input — which
+§2 and §3 had already bounded at +0.01 AP and R² 0.10 from the other direction. Two independent routes
+to the same answer, and §9 is the one that identifies *what* is wrong rather than only what a channel
+could not fix.
+
+⚠️ **What §9 does NOT establish.** Why the fields are smooth. Over-smoothing is now measured on both
+heads and its *cause* is untested — decoder receptive field, the recurrent BatchNorm, weight decay on
+the heads, and the NLL's own preference are all live and none is measured. ⛔ It also closes nothing
+under C-307: one vehicle (`4acbf4d3c2b457b0…`, the retrained control, **not** the delivered weights —
+C-317), n=1, `sb` only, no pre-registered falsifier. And the C-152 class statement still binds — *any*
+proposal that improves per-cell marginals inherits that null unless it changes the joint or the
+sampler, and §9 says the marginals were not the problem in the first place.

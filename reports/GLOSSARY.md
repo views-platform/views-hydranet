@@ -242,29 +242,52 @@ Fit `logit(observed rate) = a + b·logit(gate)` over gate bins. An honest gate g
 `mean(sigmoid(logit))` over `D = 4` locked-dropout draws, so anything between the head and that mean
 is in scope — see [[project_gate_underdispersion_candidates]].
 
-## 5c. How a BODY is MIScalibrated in magnitude (LOCKED 2026-10-20)
+## 5c. How a BODY is MIScalibrated in magnitude (LOCKED 2026-10-20, REVISED 2026-10-20)
 
 §5b named the gate's two axes. The body has the **same two axes** and had no words for them, so the
 one measurement that found them had to borrow the gate's. Fit `log(mu_empirical) = a + b·log(mu_model)`
 over cells — truth on prediction, the same direction as §5b, so `b > 1` means the same thing in both.
 
+> ⛔ **REVISED THE SAME DAY IT WAS LOCKED, by the measurement this entry said could not be made.**
+> Every number below was first measured on the **100-cell selected set** of
+> `2026-10-20_d3_static_channel_ceiling.md` §4, because `mu` was not stored on the full grid. §9 of
+> that report stores it (`d4_mu_on_the_grid.py`, 349.5 s, 3.95 GiB, 64,818 land cells × 49 months)
+> and the slope **does not survive the move off the selected set**: the headline `b = 1.7301`
+> becomes **0.92** in sample and **0.82** out of sample. The selected set is `active_cells_top100`
+> — **top 100 by OBSERVED positive rate in the readout window** — so it selects cells on the
+> outcome, which is the one selection rule that biases a truth-on-prediction slope upward. The
+> locked names below are kept; the values are corrected and the old ones are kept visible.
+
 | locked name | meaning | banned aliases |
 |---|---|---|
-| **the magnitude level** | **Whether the body is too small or too large overall.** The intercept. Measured median `log(mu_model/mu_emp)` = **−0.5831** on the 100-cell set: the body predicts **~56%** of the empirical mean. ✅ **A global constant, and therefore free to fix** — two scalars drive the median to −0.0122. ⛔ **Not `size-ratio`** (§4), which is a median ratio on conflict cells and is a *score*; this is the intercept of a fit and is a *defect axis*. | bias, global under-prediction, timid (⛔ **timid** is §5 and is the behaviour, not the axis) |
-| **the magnitude slope** (`b`) | **Whether the body's per-cell magnitudes are spread too narrowly or too widely across cells.** `b > 1` means truth moves faster than `mu` does. Measured **1.7301** (sd ratio **0.4146**, spearman **0.6870**) — the body **ranks** cells well and commits to **41%** of the right spread. ⚠ A **lower bound**, for §5b's errors-in-variables reason; total-least-squares gives **2.41**. ⛔ **This axis is the BODY's, not the model's.** Measured like-for-like on 2026-10-20 — the same per-cell OLS estimator applied to the gate on 64,818 land cells — the **gate's** `b` is **0.3906** over all cells and **0.9444** over cells with any event, i.e. `b ≤ 1`. The gate's binned-logit 1.146–1.456 (§5b) is a **different estimator on different artifacts**, so it may not be quoted against this one in either direction. | body dispersion, shrinkage, range compression, regression to the mean |
-| **magnitude under-dispersion** | **The body's magnitudes are squashed toward the middle: too large in quiet cells, too small in violent ones.** `b > 1`. ⛔ **It is a SLOPE defect and survives the level fix** — the best two global scalars remove only **15.9%** of per-cell log-error variance, so it is **per-cell shrinkage, not a global mis-scaling**, and any remedy that is one number cannot touch it. | the magnitude gap, the amount ceiling (⛔ **the amount ceiling** is the separate claim that magnitude is *irreducible*; this axis is a measured defect in the model, not a statement about the data) |
+| **the magnitude level** | **Whether the body is too small or too large overall.** The intercept. Measured median `log(mu_model/mu_emp)` = **−0.5831** on the 100-cell set: the body predicts **~56%** of the empirical mean. ✅ **A global constant, and therefore free to fix** — two scalars drive the median to −0.0122. ⚠️ **This figure is a SELECTED-SET figure and has not been recomputed on the grid** (D4 stored `mu` but read out slope and spatial structure, not the level). Treat **−0.5831 as unverified off the 100-cell set** until it is recomputed. ⛔ **Not `size-ratio`** (§4), which is a median ratio on conflict cells and is a *score*; this is the intercept of a fit and is a *defect axis*. | bias, global under-prediction, timid (⛔ **timid** is §5 and is the behaviour, not the axis) |
+| **the magnitude slope** (`b`) | **Whether the body's per-cell magnitudes are spread too narrowly or too widely across cells.** `b > 1` means truth moves faster than `mu` does. ⛔ **At cell level there is NO slope defect.** On all 64,818 land cells (D4): cells with any event `b` = **0.9234** in sample (n=1431) / **0.8170** out of sample (n=912); cells with ≥2 events **1.0049** / **0.9670**. ⛔ **The `b` = 1.7301 (sd ratio 0.4146) that this entry was locked with is a SELECTION ARTIFACT of the 100-cell set** and may not be quoted as the body's slope. ⚠ Every one of these is a **lower bound** for §5b's errors-in-variables reason. ⚠️ The **all-land-cells** row (0.9032 in sample, 0.4491 out of sample) is **tie-dominated** — 98.6% of land cells never fire — and is not the number to quote; use the event-bearing rows. ✅ **Like-for-like the gate agrees**: **0.3906** all cells / **0.9444** active. The gate's binned-logit 1.146–1.456 (§5b) is a **different estimator on different artifacts** and may not be quoted against these in either direction. | body dispersion, shrinkage, range compression, regression to the mean |
+| **magnitude under-dispersion** | ⛔ **SCALE-DEPENDENT, and that is the finding.** `b` is ≈1 at cell level and **rises with spatial coarsening** — in sample 0.92 → 1.64, out of sample 0.82 → 1.23 across `k` = 1…32 — because `sd(log mu)` is **flat in `k`** (1.71 → 1.70) while the truth's **grows** (1.95 → 2.99). So the body is not squashed cell by cell; it **has no large-scale amplitude structure**. The term is retained for that coarse-scale deficit only. ⛔ The earlier reading — "squashed toward the middle, too large in quiet cells and too small in violent ones, `b > 1`" — described the selected set. ⚠️ `b` rising through 1 is **not one of the three signatures `slope_chase.py` pre-registered** (S: `b`→1 · G: `b` flat · R: `b`→1 with `r` climbing), so the discriminator does **not** discriminate here; the variance deficit is what it establishes, and §3's autocorrelation is the independent confirmation. | the magnitude gap, the amount ceiling (⛔ **the amount ceiling** is the separate claim that magnitude is *irreducible*; this axis is a measured defect in the model, not a statement about the data) |
 
-⛔ **The two heads do NOT fail the same way, and an earlier version of this entry said they did.**
-Measured like-for-like the same day (`2026-10-20_d3_static_channel_ceiling.md` §8):
+⛔ **THE TWO HEADS FAIL THE SAME WAY. This box has now said "same", then "different", then "same"
+again — each move forced by a better measurement, and the record of the moves is kept on purpose.**
 
-| head | per-cell slope `b` | spatial lag-1 autocorrelation of its field |
+| head | per-cell slope `b` (event-bearing) | spatial lag-1 autocorrelation of its own field |
 |---|---|---|
-| **gate** | **0.39** all cells / **0.94** active — marginals roughly right | **0.964**, against a noise-controlled truth asymptote of **~0.70** — field **over-smoothed** |
-| **body** | **1.73** — marginals **compressed** | not measurable from any saved artifact (`mu` is not stored on the full grid) |
+| **gate** | **0.39** all / **0.94** active | logit **0.9598 / 0.9574** in sample · **0.9498 / 0.9464** out of sample |
+| **body** | **0.92** in sample / **0.82** out of sample | `log mu` **0.8594 / 0.7636** in sample · **0.9266 / 0.9227** out of sample |
+| **the truth, same cells** | — | **0.5915 / 0.5780** in sample · **0.5089 / 0.5028** out of sample |
+| **the truth, noise-controlled** (336-month base rate) | — | **0.6419 / 0.6261** |
 
-So the gate's defect is **placement/structure with calibrated marginals**, and the body's is
-**compressed marginals**. ⛔ Do not report them as one defect: that sentence was written here before
-the like-for-like estimator existed, and the estimator contradicted it.
+**Both heads have roughly calibrated marginals at cell level and both emit a field far smoother than
+the truth, against the same noise-controlled reference (~0.64).** The body ranks cells well
+(spearman `mu` vs truth **+0.8205** in sample, **+0.7808** out of sample) and puts the mass in fields
+that are too diffuse. ⇒ The defect is **shared**, so it is **upstream of both heads** — the trunk and
+its recurrent state, not either head's marginals and not a missing per-cell input.
+
+⛔ **Why this box moved twice.** (1) *"Same"* was written from two **different estimators** (body
+per-cell OLS vs gate binned-logit) and was unsupported. (2) *"Different"* was written from the
+like-for-like estimator but with the body measured **only on a set selected on the outcome**, and the
+gate on the whole grid — a comparison between a biased slope and an unbiased one. (3) *"Same"* is now
+written with **both heads on the same 64,818 cells from the same forward pass**, which is the first
+version of this comparison in which neither side has a selection or an estimator advantage.
+⚠️ One vehicle (`4acbf4d3c2b457b0…`, the retrained control, **not** the delivered weights — C-317),
+n=1, `sb` only.
 
 ## 6. The models we've actually run (described by their choices — codenames RETIRED)
 I will describe models by their §2/§3 choices, not by codenames. The codenames below are retired; they map to:
