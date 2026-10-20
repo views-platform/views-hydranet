@@ -15,7 +15,34 @@ dependencies = [
     # Imported at five sites (training_engine.py, utils.py: `wandb.run`, `wandb.log`). Until
     # 2026-09-19 it was undeclared and arrived only through views-pipeline-core's pin (#381).
     # Range matches views-pipeline-core 3.3.0's; the two names we use exist unchanged on 0.30.0.
-    "wandb>=0.18.7,<1.0"
+    "wandb>=0.18.7,<1.0",
+    # ⛔ UNDECLARED until 2026-10-20 — the #381 defect a second time, and it shipped in 0.1.0
+    # through 0.1.3. pandas is imported at module top by SEVEN production modules and is on the
+    # production path for EVERY run type: `manager/hydranet_manager.py:152` calls
+    # `VolumeHandler.from_df(df, ...)`, so a training, evaluation or forecast run cannot start
+    # without it.
+    #   utils/data_sniffer.py        pd.api.types, pd.DataFrame, pd.MultiIndex
+    #   utils/data_fetcher.py        pd.DataFrame, pd.MultiIndex
+    #   utils/volume_handler.py      pd.DataFrame
+    #   utils/feature_scaler.py      pd.api.types, pd.DataFrame
+    #   utils/utils_logging.py       pd.DataFrame
+    #   manager/hydranet_manager.py  pd.DataFrame
+    #   utils/visual_diagnostics.py  pd.DataFrame, pd.MultiIndex  (viz extra, never headless)
+    #
+    # ⚠️ Why a bare `import views_hydranet` did not catch it: `__init__.py`'s PEP 562 lazy
+    # `__getattr__` means pandas is not loaded until `HydranetManager` is touched. So an import
+    # smoke test passes and only a real run fails — which is how this reached PyPI four times.
+    #
+    # Range MATCHED to views-pipeline-core's `pandas = ">=1.5.3,<3.0"`, deliberately not
+    # invented: that package documents the floor (the `pandas <2.0` ecosystem lock across eight
+    # views-* packages, #308) and the ceiling (pandas-1 pickles in model caches are untested
+    # against pandas 3). We use only `pd.DataFrame`, `pd.MultiIndex` and `pd.api.types`, so our
+    # own needs bind nothing — the ecosystem does. Locked here at 1.5.3.
+    #
+    # ⚠️ This DECLARES the dependency; it does not remove it. Removal is proposed ADR-072 and
+    # planned in `reports/2026-08-13_frame_native_input_dossier/` (PF-0 there is this change,
+    # deliberately separable so honesty does not wait on the migration).
+    "pandas>=1.5.3,<3.0"
 ]
 
 # issue #215: matplotlib is imported lazily by VisualDiagnostics (optional plotting stack). Declare it

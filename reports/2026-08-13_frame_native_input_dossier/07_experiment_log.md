@@ -62,7 +62,7 @@ ADR-072 — which is why the attribution note is above the table and not in a fo
 
 | id | stage | prereg clause | state |
 |---|---|---|---|
-| **E1** | PF-0 — pandas declared in `pyproject.toml` | — (honesty fix, separable) | ☐ not run |
+| **E1** | PF-0 — pandas declared in `pyproject.toml` | — (honesty fix, separable) | ✅ **DONE 2026-10-20** — `pandas>=1.5.3,<3.0`; seven import sites and the range's provenance recorded in the comment |
 | **E2** | PF-6 — source dtype at the zarr boundary | 05 P1 precondition | ☐ not run — **a STOP if float64** |
 | **E3** | PF-5 — the pandas path's NaN-fill count on the anchor | 05 P5 / §1.7 | ☐ not run |
 | **E4** | PF-8 — `row_col_from_priogrid` vs the pipeline-core oracle | 05 P1 | ☐ not run |
