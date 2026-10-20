@@ -209,3 +209,43 @@ pre-committed, because I have no prior for the knee's location and will not inve
 3. ✅ **ACCEPTED without reservation:** §9.3 is **suspended, not withdrawn**, until D6-C runs. The
    half of §9.4 that carries *"upstream of both"* never used the truth comparator and is unaffected,
    and the S1 verdict never depended on §9.3 at all — it is carried by §2/§3's bounds and C-152.
+
+---
+
+## ⛔ OUTCOME — logged 2026-10-20, after D5–D10 ran
+
+**Full results: `2026-10-20_d3_static_channel_ceiling.md` §10, with the decision table at §10.1.**
+This section exists because a pre-registration without an outcome link is a broken record, and
+`status` is supposed to refuse to call a programme ready while one is missing. Verdict **against the
+readings committed above**, not against anything written afterwards:
+
+| pre-committed item | fired? | outcome |
+|---|---|---|
+| **D5-A** — ≥0.85 architectural / ≤0.65 learned / between inconclusive | ⛔ **none** | **VOID** by this plan's own guard (§10.6): at random init `sd(log mu)` = **0.0017** and `sd(gate logit)` = **0.0016** against the committed **0.01** floor, mu spanning 0.4798–0.5328. ✅ The guard worked. The question is not answerable by an init measurement on this architecture. |
+| **D5-A VOID condition** — "below a 0.01 floor the test says nothing" | ✅ **FIRED** | Logged as a correct pre-commitment (`PREDICTION_LEDGER` R-16). |
+| **D5-B** — one-step impulse reach, descriptive | ✅ ran | Below 10% of peak at **10 cells**, exactly **0** at ≥16. ⚠️ Only **3** probe cells met `MINSEP=60`, not 6 — the top-100 active cells are clustered. Recorded as a limitation. |
+| **D6-A** — the noise objection I nominated as my own weakest joint | ⛔ **did not land** | Dead, and more thoroughly than the seat argued: nine windows, LOO, `ρ_S = 0.6329`, `v = 2.8131`; T=336 observed 0.6340 is **−0.17% past** the asymptote ⇒ attenuation indistinguishable from zero (§10.2). |
+| **D6-B** — the lag profile | ✅ ran | `ρ(model)/ρ(truth)` rises monotonically **1.34 → 4.08** (log mu) and **1.50 → 4.79** (gate), never returning to 1. Excludes a **one-step decoder blur** — one candidate of five, no more (§10.5). ⚠️ The seat later withdrew its own knee-based discriminator: a ConvLSTM's reach grows ~one kernel radius per carried step, so recurrent reach predicts **no knee**. |
+| **D6-C** — the falsifier, two branches committed in advance | ✅ **FIRED FOR §9.3** | The model reads **0.7053/0.6824** through the truth's estimator against 0.8594/0.7636 directly; 95% interval [0.6922, 0.7193] / [0.6683, 0.6962]; truth **0.6419/0.6261** **outside** it, 3.71 / 3.03 half-widths below the lower edge. **§9.3 STANDS** — but the estimator eats **0.154/0.081**, so the honest gap is **0.06, not 0.22** (§10.3). ⚠️ A **simulation** interval, not posterior-predictive: Monte Carlo only, and the 4 dropout passes were averaged rather than propagated. |
+
+### ⛔ What this plan did not foresee
+
+1. **§9.2 was an artifact nobody had attacked.** Testing D6 properly exposed it: the coarsening admits
+   only blocks with `tm > 0`, moving the admitted fraction **2.2% → 22.4%**, and on a nested
+   population the trend reverses. **WITHDRAWN** (§10.4, `W-33`).
+2. **D8, D9 and D10 are not in this plan at all.** They were built in response to the peer seat's
+   later rounds. D8's **both** readings were withdrawn (`W-34`, `W-35`); D9 settled the sign null-free
+   (**215.0** vs **536.3** effective cells, model **more** concentrated); D10 showed D9 was
+   **conservative** and corrected the seat's debias by 1.74× (`R-15`).
+3. **The leading candidate named in Amendment A1 — conditional-mean averaging — is still the leading
+   one, and still untested.** A1 predicted it alone explains the defect appearing identically on two
+   heads with different losses. Nothing since has touched that prediction. **E6** remains the free CPU
+   control separating BN recal from global weight decay.
+
+### The settled finding this programme produced
+
+> **The model emits a few large smooth blobs where the truth has many small sharp spots.**
+
+**0.06** smoother than the variance decomposition permits (local), **2.49×** too few effective places
+(global), while under-firing **4.18×** per cell-month. ⛔ The two headline figures share no scale and
+must never be combined. ✅ **The S1 verdict did not move in any round.**

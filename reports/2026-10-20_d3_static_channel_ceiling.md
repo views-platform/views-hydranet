@@ -4,8 +4,9 @@
 on disk. Scripts: `2026-10-12_underfire_diagnosis/d3_ceiling.py`, `d3_followup.py`, `d3_clean.py`,
 `slope_convention.py`, `slope_chase.py`, `smooth_control.py`, `d4_mu_on_the_grid.py`.
 
-> ⛔ **READ §10 FIRST. It audits §9, which audits §4 and §8. Three of this report's own claims are
-> falsified inside it, and §10.1 is the status table for every one.**
+> ⛔ **READ §10 FIRST. It audits §9, which audits §4 and §8. Inside it, THREE of this report's own
+> claims are WITHDRAWN (§9.2, §10.8-A, §10.8-B), one test is VOID (§10.6), and one claim survives at
+> a quarter its original effect size (§9.3). §10.1 tabulates every claim with the decision attached.**
 >
 > ⛔ **READ §9 BEFORE QUOTING §4 OR §8. This report's own headline is falsified inside it.**
 > §4 reported the body's magnitude slope as `b = 1.7301` and §8 built a "the two heads fail
@@ -386,7 +387,7 @@ C-317), n=1, `sb` only, no pre-registered falsifier. And the C-152 class stateme
 proposal that improves per-cell marginals inherits that null unless it changes the joint or the
 sampler, and §9 says the marginals were not the problem in the first place.
 
-## 10. D5–D7 — §9 audited against its own falsifier. One sub-claim survives shrunken, one is withdrawn.
+## 10. D5–D10 — §9 audited against its own falsifier, and the finding settled on both halves
 
 **2026-10-20, same day.** Pre-registered in `2026-10-20_d5_oversmoothing_prereg.md` (commits e9bc4b4,
 a00c975, b1b49a6 — **all before any of these ran**). Scripts `d5_why_smooth.py`,
@@ -397,14 +398,27 @@ The `opponent` seat attacked §9.3 (its §13, commit 885d6e8). ⛔ **The objecti
 own weakest joint failed; a different one landed and took most of my effect size with it; and testing
 it properly exposed a separate artifact in §9.2 that nobody had attacked.**
 
-### 10.1 Status of every §9 sub-claim
+### 10.1 Status of every claim in §9 and §10 — and what to DO with each
 
-| sub-claim | status |
-|---|---|
-| **§9.1** `b` = 1.73 is a selection artifact; the slope is ≈0.9 | ✅ **STANDS**, untouched |
-| **§9.2** the body has no large-scale amplitude structure | ⛔ **WITHDRAWN** — an admission-rate artifact (§10.4) |
-| **§9.3** both heads emit fields smoother than the truth | ✅ **STANDS** by its pre-registered falsifier, at **~¼ the effect size** (§10.3) |
-| **§9.4** the defect is upstream of both heads | ✅ stands, **wording corrected** (§10.5) |
+⛔ **This is the only table to read before quoting any number in this report.** Status alone is not
+actionable, so every row carries the decision. A claim marked WITHDRAWN is not merely weakened — it
+must not be cited at all, including by me in a later section.
+
+| # | claim | status | ⛔ DECISION — what to do with it |
+|---|---|---|---|
+| **§9.1** | `b` = 1.73 is a selection artifact; the slope is ≈0.9 | ✅ **STANDS**, untouched | Quote **0.9234** in sample / **0.8170** out, with `n` and the population. ⛔ Never quote 1.73 except as the artifact. |
+| **§9.2** | the body has no large-scale amplitude structure | ⛔ **WITHDRAWN** — admission-rate artifact (§10.4) | **Do not cite.** On a nested population the trend reverses (ratio 0.88 → 1.20). The body does *not* lack coarse amplitude. |
+| **§9.3** | both heads emit fields smoother than the truth | ✅ **STANDS** by its pre-registered falsifier, at **~¼** the effect size (§10.3) | Quote **0.06**, never 0.22, and always as a **floor** with the three reasons. ⚠️ Say "simulation interval", not "posterior-predictive". |
+| **§9.4** | the defect is upstream of both heads | ✅ stands, **wording corrected** (§10.5) | Say **"shared by both heads"**. ⛔ Not "architectural" — D5-A, the only test of that, is VOID. |
+| **§10.5** | a one-step decoder blur is excluded | ✅ **STANDS** (D7-C vs D5-B reach) | One candidate of five killed, **no more**. Four stay live. **E6** is the free CPU control separating BN recal from global weight decay. |
+| **§10.6** | D5-A can answer architectural-vs-learned | ⛔ **VOID** by its own pre-registered guard | **Do not re-run** an init measurement on this architecture: at init `sd(log mu)` = 0.0017 against a committed 0.01 floor. Needs a different instrument. |
+| **§10.8** D8-A | the model **over-persists** (ratio 1.853) | ⛔ **WITHDRAWN** — window confound | **Do not cite.** The 336-month truth contains 28 years of relocation the stationary model cannot have. |
+| **§10.8** D8-B | the model **spreads over more** places (0.829) | ⛔ **WITHDRAWN** — implicit null of 1.0 | **Do not cite.** `1−(1−P)^T` saturates; the real-field null is **0.19–0.46**, not 1.0. Superseded by §10.9, which needs no null. |
+| **§10.8** residue | it under-fires **4.18×** per cell-month and touches **3.47×** too few cells | ✅ **STANDS unconditionally** | Quotable as-is. ⛔ State the **matched 36-month** window every time — see the digit-collision warning in §10.8. |
+| **§10.9** | the model is **more** concentrated, not less | ✅ **STANDS**, and **null-free** | This is the global half. Quote `N_eff` **215.0** vs the **debiased** truth, never the raw 516.9. |
+| **§10.10** | D9 was **conservative**; relocation carries the sweep | ✅ **STANDS**; the seat's debias corrected (1.74× overstated) | **2.49×** is the figure to quote. ⚠️ Add that the debiased series **dips at 72 months** — the direction is clear, the path is not. |
+| **§10.11** | *a few large smooth blobs where the truth has many small sharp spots* | ✅ the synthesis | Lead with this sentence, then **0.06** (local) and **2.49×** (global). ⛔ Never add the two — no shared scale. |
+| **S1** | the static base-rate channel is not the lever | ✅ **UNMOVED** across all five rounds | Unchanged. It rests on §2/§3's `+0.006–0.012 AP` / `R² 0.10` bounds and C-152 — **none of which any D-measurement touched.** |
 
 ### 10.2 ✅ D6-A — the noise objection is dead, and more thoroughly than the seat said
 
@@ -616,6 +630,12 @@ from a cumulative shortfall larger than the monthly one. Over 336 months that is
 | cumulative support, 336 months | 0.012668 | 0.058471 | **4.62×** |
 | ratio cumulative / monthly | | | **1.853** |
 
+⚠️ **DIGIT COLLISION, flagged because it will trip a reader.** The **2.49×** in the table above is the
+*monthly under-firing* shortfall at the **336-month** comparison — and it belongs to a reading that is
+withdrawn three paragraphs below. The surviving monthly figure is **4.18×** (matched window). §10.10's
+**2.49×** is the *concentration* gap: a different statistic, on a different population, by a different
+estimator. The three digits coincide and nothing else does. ⇒ Never quote "2.49×" without its slots.
+
 ⛔ **But that cumulative column is confounded, and the confound pushes in exactly the direction the
 reading claims.** The model's 421–456 parameters are held **stationary** over 336 months while the
 truth's 336 months contain **28 years of real conflict relocation**. Nonstationarity inflates the
@@ -679,7 +699,7 @@ synthetic field:**
 The truth is **less** concentrated than the model at **every** window, and lengthening the window only
 widens the gap.
 
-### 10.11 D10 — the sweep caveat resolves, and D9 was conservative
+### 10.10 D10 — the sweep caveat resolves, and D9 was conservative
 
 `d10_debias_effective_cells.py`. `N_eff = (Σp)²/Σp²` is computed for the **truth** from a count-based
 estimate `p̂ = k/T`, and `E[Σp̂²] = Σp² + Σp(1−p)/T`, so the **denominator is biased up** and `N_eff`
@@ -730,7 +750,7 @@ logit nulls as corroboration** — they are an artifact of the atom choice, whic
 biting *inside the fix for a transform error*. The observed 0.829 sits above every null computed, but
 **D9-B is the finding and D9-A's multiplicative null is its only trustworthy corroboration.**
 
-### 10.10 The synthesis, corrected
+### 10.11 The synthesis, corrected
 
 ⛔ **An earlier version of §10.8 said D8 "agrees with §10.3" because both showed the model spreading.
 That reasoning was wrong even though the conclusion of agreement survives.** The two findings fit
@@ -741,7 +761,8 @@ together differently, and better:
 Smoothness is a *local-gradient* property and concentration is a *global-distribution* property, so
 there is no contradiction in being both: a single smooth blob is smooth **and** concentrated. §10.3
 measures the local half (fields smoother than the variance decomposition requires, by 0.06) and §10.9
-measures the global half (2.4× too few effective places). ⇒ **The latent risk field is roughly
+measures the global half (**2.49×** too few effective places — §10.9 read 2.40× and §10.10's debias
+widened it; 2.40 is stale wherever it still appears). ⇒ **The latent risk field is roughly
 right; the point process on top of it is not** — which is C-152/EXP-3's *"89% of the damage is cells
 in the wrong places"* and is the shape Simon proposed from the architecture before any of it was
 measured. **And concentration is a joint property, so this is the first direct quantification of
