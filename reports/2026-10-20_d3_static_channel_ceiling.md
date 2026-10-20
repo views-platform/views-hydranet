@@ -4,6 +4,9 @@
 on disk. Scripts: `2026-10-12_underfire_diagnosis/d3_ceiling.py`, `d3_followup.py`, `d3_clean.py`,
 `slope_convention.py`, `slope_chase.py`, `smooth_control.py`, `d4_mu_on_the_grid.py`.
 
+> ⛔ **READ §10 FIRST. It audits §9, which audits §4 and §8. Three of this report's own claims are
+> falsified inside it, and §10.1 is the status table for every one.**
+>
 > ⛔ **READ §9 BEFORE QUOTING §4 OR §8. This report's own headline is falsified inside it.**
 > §4 reported the body's magnitude slope as `b = 1.7301` and §8 built a "the two heads fail
 > differently" conclusion on it. **§9 removes the limit that forced both** — it stores `mu` on all
@@ -382,3 +385,219 @@ under C-307: one vehicle (`4acbf4d3c2b457b0…`, the retrained control, **not** 
 C-317), n=1, `sb` only, no pre-registered falsifier. And the C-152 class statement still binds — *any*
 proposal that improves per-cell marginals inherits that null unless it changes the joint or the
 sampler, and §9 says the marginals were not the problem in the first place.
+
+## 10. D5–D7 — §9 audited against its own falsifier. One sub-claim survives shrunken, one is withdrawn.
+
+**2026-10-20, same day.** Pre-registered in `2026-10-20_d5_oversmoothing_prereg.md` (commits e9bc4b4,
+a00c975, b1b49a6 — **all before any of these ran**). Scripts `d5_why_smooth.py`,
+`d6_estimator_null.py`, `d7_coarsening_sample.py`. Costs measured: **159.3 s / 2.99 GiB**,
+**7.7 s / 2.95 GiB**, **2.4 s / 3.29 GiB**. D6 and D7 read `d4_result.npz` — no new forward pass.
+
+The `opponent` seat attacked §9.3 (its §13, commit 885d6e8). ⛔ **The objection I had nominated as my
+own weakest joint failed; a different one landed and took most of my effect size with it; and testing
+it properly exposed a separate artifact in §9.2 that nobody had attacked.**
+
+### 10.1 Status of every §9 sub-claim
+
+| sub-claim | status |
+|---|---|
+| **§9.1** `b` = 1.73 is a selection artifact; the slope is ≈0.9 | ✅ **STANDS**, untouched |
+| **§9.2** the body has no large-scale amplitude structure | ⛔ **WITHDRAWN** — an admission-rate artifact (§10.4) |
+| **§9.3** both heads emit fields smoother than the truth | ✅ **STANDS** by its pre-registered falsifier, at **~¼ the effect size** (§10.3) |
+| **§9.4** the defect is upstream of both heads | ✅ stands, **wording corrected** (§10.5) |
+
+### 10.2 ✅ D6-A — the noise objection is dead, and more thoroughly than the seat said
+
+Fit `ρ_obs(T) = ρ_S/(1 + v/T)` on **nine** truth windows, not three, leave-one-out:
+
+| T (months) | 12 | 24 | 36 | 48 | 72 | 108 | 156 | 240 | 336 |
+|---|---|---|---|---|---|---|---|---|---|
+| observed (E–W/N–S mean) | 0.5172 | 0.5598 | 0.5848 | 0.5941 | 0.6036 | 0.6127 | 0.6266 | 0.6333 | **0.6340** |
+| LOO prediction | 0.4970 | 0.5680 | 0.5874 | 0.5984 | 0.6100 | 0.6176 | 0.6208 | 0.6239 | 0.6262 |
+
+Full fit **`ρ_S` = 0.6329, `v` = 2.8131**, max LOO error **0.020** (at T=12, the noisiest window; every
+other window predicts to **≤0.009**). ⇒ **The 336-month reference is at its asymptote** — the observed
+0.6340 is `−0.17%` *past* the fitted `ρ_S`, i.e. attenuation is indistinguishable from zero. The seat's
+3-window fit gave 0.6405 / 3.4612 / 1.02%; nine windows agree in substance and identify it better.
+**My §8.3 instinct was right and is now a measurement.**
+
+### 10.3 ⛔ D6-C — the falsifier fires FOR §9.3, and takes ~¾ of the gap with it
+
+The landing objection: `log mu` and the gate logit are continuous and **atom-free**; the truth is a raw
+rate with **98.6% of its mass at exactly zero**. Lag-1 Pearson is invariant under *affine* maps, not
+under `log` or `logit`, so the rows were never on one scale — and the truth **cannot** be put on the
+model's scale, because `log(0)` does not exist for 98.6% of land cells.
+
+The fix is to push the **model** through the **truth's** estimator. Per cell, 336 months of the
+gated-NB generative model, the base-rate field built exactly as §9.3 builds the truth's, lag-1 of its
+log, **300 replicates**. Done exactly, not by brute force: a sum of `k` i.i.d. `NB(θ, p)` is
+`NB(kθ, p)`, so `k ~ Binomial(336, gate)` then `S ~ NB(kθ, p)`.
+
+| | E–W | N–S |
+|---|---|---|
+| the model's field, measured directly (what §9.3 quoted) | **+0.8594** | **+0.7636** |
+| the same field through the truth's estimator, mean of 300 | **+0.7053** | **+0.6824** |
+| 95% posterior-predictive interval | [+0.6922, +0.7193] | [+0.6683, +0.6962] |
+| **the truth, observed** | **+0.6419** | **+0.6261** |
+| the estimator's own attenuation | **0.154** | **0.081** |
+| what survives it | **0.063** | **0.056** |
+
+**Pre-registered verdict: the truth falls OUTSIDE the interval on both axes ⇒ §9.3 STANDS.** ⛔ **And
+the seat was right about the magnitude:** the estimator alone accounts for **0.154** of the E–W gap,
+almost exactly the ~0.15 it predicted from a synthetic field. The honest gap is **0.06, not 0.22** —
+roughly **a quarter** of what §9.3 reported. The direction survives; the size does not.
+
+⚠️ **Two limitations, one of which cuts against me and one for me.**
+- **Against:** the simulated field is *less active than the truth* — 1.28% of cells ever fire in 336
+  simulated months against **5.85%** observed, a factor of 4.6. The generative model is a poor fit to
+  the truth's activity, which weakens this as a null. (It is also the under-firing this whole
+  programme is about, showing up in a new place.)
+- **For:** that mismatch makes the model's atom **larger** than the truth's, and the seat's own result
+  is that the understatement is **monotone in the atom**. So the model's 0.7053 is itself attenuated
+  *more* than the truth's 0.6419 is, and correcting for the mismatch would **widen** the surviving
+  gap. The test is conservative in the direction of my conclusion.
+- The simulation treats the model's 36-month mean parameters as stationary over 336 months; the
+  truth's 336 months are not stationary. Stated, not corrected.
+
+### 10.4 ⛔ D7 — §9.2 is WITHDRAWN. The seat found a tension; the tension was my artifact.
+
+The seat's sharpest point was that §9.2 and §9.3 are in tension — §9.2 says too *little* large-scale
+amplitude, §9.3 too *much* local correlation, and a blur produces the second and **the opposite** of
+the first. Correct, and the resolution is not a reconciliation: **§9.2 is wrong.**
+
+`d4_mu_on_the_grid.py`'s coarsening keeps only blocks with `tm > 0`, and a bigger block is more likely
+to contain an event. So the **admitted population changes with `k`**:
+
+| k | 1 | 2 | 4 | 8 | 16 | 32 |
+|---|---|---|---|---|---|---|
+| blocks admitted / blocks with land | 2.2% | — | — | 11.5% | 18.1% | **22.4%** |
+
+**A factor of 10.2.** §9.2's sd trend across `k` compares different populations at every step. Fix the
+cell set once (cells with any event at `k`=1) so the population is nested, and the trend **reverses**:
+
+| k | 1 | 2 | 4 | 8 | 16 | 32 |
+|---|---|---|---|---|---|---|
+| sd(`log mu`) | 1.7140 | 1.6858 | 1.7332 | 1.8274 | 1.8763 | 1.6918 |
+| sd(`log truth`) | 1.9464 | 1.7940 | 1.7184 | 1.6379 | 1.5694 | 1.5669 |
+| **ratio mu/truth** | **0.88** | 0.94 | 1.01 | 1.12 | **1.20** | 1.08 |
+
+The truth's spread **falls** under coarsening and the model's is flat, so the ratio **rises above 1**.
+⇒ The body does not lack coarse-scale amplitude; if anything it has slightly **too much**. §9.2's
+"flat 1.714 → 1.705 while the truth grows 1.946 → 2.987" was measuring the `tm > 0` admission rate.
+
+⛔ **This is the fifth instance of one error class in this dossier in one day, and the third inside
+§9 alone** — §2's tie artifact, §3's contamination, §9.1's selection, §9.3's scale mismatch, and now
+§9.2's admission rate. Every one is *a statistic computed on a set, or a scale, defined by the thing
+being measured.* It is no longer a run of bad luck; it is the characteristic failure of this entire
+measurement style, and the register entry is the deliverable (**C-351**).
+
+✅ **With §9.2 gone there is no tension: one defect, not two.** The model's field is over-correlated
+at every lag and its coarse-scale amplitude is fine.
+
+### 10.5 What the lag profile does and does not narrow
+
+`ρ(model)/ρ(truth)` rises monotonically and **never returns to 1**:
+
+| lag | 1 | 2 | 4 | 8 | 12 | 16 | 24 | 32 |
+|---|---|---|---|---|---|---|---|---|
+| `log mu` / truth, E–W | 1.34 | 1.47 | 1.66 | 1.95 | 2.24 | 2.42 | 2.82 | **4.08** |
+| gate logit / truth, E–W | 1.50 | 1.62 | 1.88 | 2.25 | 2.62 | 2.93 | 3.46 | **4.79** |
+
+**No knee.** D5-B measured the **one-step** impulse reach with the trained weights — perturb one land
+cell's `sb` input by +1 in `log1p` space and `|Δ log mu|` falls below 10% of peak at **10 cells** and
+is **exactly 0 at ≥16**. A one-step blur of radius ~12 would return the ratio to 1 beyond 16 and it
+does not. ⇒ **A one-step decoder blur is excluded as the sole cause.**
+
+⚠️ **That is one candidate of five, and I will not claim more.** The window is **49 recurrent steps**,
+so the effective multi-step reach is far larger than one step's — the rising ratio is *consistent*
+with recurrent spatial reach rather than against it. And BN recal and global weight decay are both
+scale-free, so this profile does not touch them either. Live: recurrent reach, BN recal, global weight
+decay, and conditional-mean averaging. **Excluded: a single-step decoder blur.**
+
+### 10.6 ⛔ D5-A is VOID, by a condition written before it ran
+
+The untrained-architecture control **fired its own pre-registered VOID guard**. At random init the
+field is essentially constant: `sd(log mu)` = **0.0017** and `sd(gate logit)` = **0.0016**, both far
+below the committed 0.01 floor, with `mu` spanning 0.4798–0.5328 and `gate` 0.4993–0.5266 over all
+64,818 cells. Its autocorrelations (+0.7745/+0.6146 and +0.5827/+0.3609) are the autocorrelation of
+numerical noise on a constant and **mean nothing**.
+
+**The architectural-vs-learned question is not answerable by an init measurement on this
+architecture**, because this architecture at init emits a constant. The prereg named this exact
+failure mode in advance (*"a random-init network through `softplus` is a real candidate for exactly
+that"*), which is the only reason the +0.77 was not reported as "architectural". ✅ **The guard is the
+result here** — and D5-B, written as the descriptive half, turned out to carry the architectural
+question instead.
+
+### 10.7 What §9 and §10 together now support
+
+1. The body's cell-level slope is ≈0.9, **not** 1.73 (§9.1).
+2. Both heads emit fields **measurably** smoother than the truth, by **0.06** on a like-for-like
+   estimator, surviving a pre-registered two-sided falsifier (§10.3).
+3. The coarse-scale amplitude story is **withdrawn** (§10.4).
+4. The defect is shared by both heads ⇒ it lies in **anything they share** (§10.5).
+5. A one-step decoder blur is **excluded**; four candidates remain, and the one the literature names
+   — a pixel-wise proper-scoring objective emitting a conditional mean — is the only one that
+   predicts the same signature on two heads with **different** losses.
+
+⛔ Under **C-307** this is still an n=1 screen on one artifact (`4acbf4d3c2b457b0…`, the retrained
+control, **not** the delivered weights — C-317), `sb` only. It bounds and narrows; it closes nothing.
+And **nothing here revives S1**: that verdict rests on §2/§3's `+0.01 AP` and `R² 0.10` bounds and on
+C-152, neither of which involves the truth comparator at all.
+
+---
+
+## Appendix A — C-351, drafted and ⛔ NOT REGISTERED, with the reason
+
+⛔ **This entry is not in `technical_risk_register.md` and must not be assumed to be.** C-350 was
+committed on `chore/register-c350-static-provenance` (**PR #419, open, unmerged**) and does **not**
+exist on this branch — measured: `grep -c "C-350"` returns **0** here. The register is therefore
+already forked across two branches, and its header carries hand-maintained counts plus a single
+enormous `ID accounting` cell. Adding C-351 here would fork it a **third** way and guarantee a
+conflict in exactly the field that records why the counts are what they are.
+
+**So it is drafted here and registered after #419 merges.** `register-risk` is the intake; this is the
+finding handed to it, not a bypass of it.
+
+| field | value |
+|---|---|
+| **ID** | C-351 |
+| **Tier** | **2** — not Tier 1: it corrupts *conclusions*, not data or forecasts, and every instance so far was caught. Not Tier 3: five instances in one day, three inside one report section, and two of them reached a committed artifact. |
+| **Source** | the D3/D4/D5/D6/D7 measurement pass, 2026-10-20, plus the `opponent` seat's §13 |
+| **Trigger** | **The next time a per-cell or per-block statistic is computed on this grid and reported as a property of the model** — specifically: any slope, calibration, correlation or dispersion number computed on a cell set chosen by activity (`active_cells_top100`, `tm > 0`, `y > 0`), on a window that overlaps its own readout, or comparing a model field against a truth field through a non-affine transform. |
+| **Location** | `reports/2026-10-12_underfire_diagnosis/vehicle.py:242` (`active_cells_top100`), `d4_mu_on_the_grid.py` (the `keep = tm > 0` coarsening and the lag-1 comparison), `d3_ceiling.py` (the first window choice), and §2/§3/§4/§8/§9.2/§9.3 of this report |
+
+**Narrative.** Five findings in one day were produced, reported or nearly reported from *a statistic
+computed on a set, or a scale, defined by the thing being measured*:
+
+| # | where | the artifact | what it did to the number |
+|---|---|---|---|
+| 1 | §2 | 98.6% of land cells tie at an observed rate of exactly 0 | made a channel out-rank the gate, 0.51 vs 0.20; reversed on meaningful cells |
+| 2 | §3 | the channel's window overlapped its own readout (301–456 vs 421–456) | R² **0.3802 → 0.1016** |
+| 3 | §9.1 | `active_cells_top100` selects the top 100 cells **by observed rate** | `b` **0.92 → 1.7301**, and it was the report's title |
+| 4 | §10.3 | truth has an atom of 0.986 at zero; `log`/`logit` are not affine | **0.154** of a 0.22 gap, ~¾ of the effect |
+| 5 | §10.4 | the coarsening admits only blocks with an event; admitted fraction **2.2% → 22.4%** | reversed the sign of the amplitude trend |
+
+**Three of the five are in `§9`, which was itself written to correct `§4`.** Each was caught by a
+*different* mechanism — restriction to meaningful cells, a window audit, a full-grid forward pass, an
+adversarial peer, and a nested-population recomputation — and **no single habit would have caught
+more than two.** That is the risk: the class is not one mistake with one remedy, and on this grid the
+tempting set is *always* the active one, because 98.6% of cells carry no signal.
+
+⛔ **Why a guard in the measurement code is the wrong remedy** (and the reason this is a register
+entry rather than a patch): these are one-off diagnostic scripts, not production, and
+`~/.claude/rules/design-preferences.md` prefers the bounded local change over a permanent guard in a
+shared file. A `utils` validator asserting "your cell set was not chosen by the outcome" cannot be
+written — selection is sometimes correct and sometimes fatal, and only the claim decides which.
+
+**What is proposed instead, and it is cheap:** a reporting convention. *Any* number offered as a
+property of the model states, in the same sentence, **the population it was computed on and how that
+population was chosen.** Each of the five would have been visible at the moment of writing: *"b =
+1.73 on 100 cells chosen by observed positive rate"* is self-refuting in a way that *"b = 1.73"* is
+not. §10 is written that way throughout — every row names its `n` and its condition.
+
+**Cross-refs.** **C-307** (a cheap screen's null is inconclusive, not negative) — the sibling about
+how a *result* is read, where this is about how a *statistic* is built. **C-320** (a falsifier band
+tighter than its own reference's noise) — same family, as instance 4 shows, where the comparator
+rather than the set is ill-posed. **C-152/EXP-3** — the substantive finding these statistics were
+chasing. **C-325** — why D5-A was pre-registered VOID rather than read.

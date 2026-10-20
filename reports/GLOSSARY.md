@@ -262,7 +262,7 @@ over cells — truth on prediction, the same direction as §5b, so `b > 1` means
 |---|---|---|
 | **the magnitude level** | **Whether the body is too small or too large overall.** The intercept. Measured median `log(mu_model/mu_emp)` = **−0.5831** on the 100-cell set: the body predicts **~56%** of the empirical mean. ✅ **A global constant, and therefore free to fix** — two scalars drive the median to −0.0122. ⚠️ **This figure is a SELECTED-SET figure and has not been recomputed on the grid** (D4 stored `mu` but read out slope and spatial structure, not the level). Treat **−0.5831 as unverified off the 100-cell set** until it is recomputed. ⛔ **Not `size-ratio`** (§4), which is a median ratio on conflict cells and is a *score*; this is the intercept of a fit and is a *defect axis*. | bias, global under-prediction, timid (⛔ **timid** is §5 and is the behaviour, not the axis) |
 | **the magnitude slope** (`b`) | **Whether the body's per-cell magnitudes are spread too narrowly or too widely across cells.** `b > 1` means truth moves faster than `mu` does. ⛔ **At cell level there is NO slope defect.** On all 64,818 land cells (D4): cells with any event `b` = **0.9234** in sample (n=1431) / **0.8170** out of sample (n=912); cells with ≥2 events **1.0049** / **0.9670**. ⛔ **The `b` = 1.7301 (sd ratio 0.4146) that this entry was locked with is a SELECTION ARTIFACT of the 100-cell set** and may not be quoted as the body's slope. ⚠ Every one of these is a **lower bound** for §5b's errors-in-variables reason. ⚠️ The **all-land-cells** row (0.9032 in sample, 0.4491 out of sample) is **tie-dominated** — 98.6% of land cells never fire — and is not the number to quote; use the event-bearing rows. ✅ **Like-for-like the gate agrees**: **0.3906** all cells / **0.9444** active. The gate's binned-logit 1.146–1.456 (§5b) is a **different estimator on different artifacts** and may not be quoted against these in either direction. | body dispersion, shrinkage, range compression, regression to the mean |
-| **magnitude under-dispersion** | ⛔ **SCALE-DEPENDENT, and that is the finding.** `b` is ≈1 at cell level and **rises with spatial coarsening** — in sample 0.92 → 1.64, out of sample 0.82 → 1.23 across `k` = 1…32 — because `sd(log mu)` is **flat in `k`** (1.71 → 1.70) while the truth's **grows** (1.95 → 2.99). So the body is not squashed cell by cell; it **has no large-scale amplitude structure**. The term is retained for that coarse-scale deficit only. ⛔ The earlier reading — "squashed toward the middle, too large in quiet cells and too small in violent ones, `b > 1`" — described the selected set. ⚠️ `b` rising through 1 is **not one of the three signatures `slope_chase.py` pre-registered** (S: `b`→1 · G: `b` flat · R: `b`→1 with `r` climbing), so the discriminator does **not** discriminate here; the variance deficit is what it establishes, and §3's autocorrelation is the independent confirmation. | the magnitude gap, the amount ceiling (⛔ **the amount ceiling** is the separate claim that magnitude is *irreducible*; this axis is a measured defect in the model, not a statement about the data) |
+| **magnitude under-dispersion** | ⛔ **RETIRED AS A BODY DEFECT, 2026-10-20 — twice corrected in one day and now withdrawn.** First locked as a cell-level slope defect (`b` 1.73, §4) — a selection artifact. Then restated as a coarse-scale amplitude deficit, on `sd(log mu)` flat in `k` while the truth's grew — **also an artifact**: the coarsening admits only blocks with an event, and the admitted fraction moves **2.2% → 22.4%** across `k` = 1…32, so the trend compared different populations (§10.4, `d7_coarsening_sample.py`). On a **nested** population the truth's spread **falls** and the ratio mu/truth **rises above 1** (0.88 → 1.20). ⇒ **The body is not under-dispersed in magnitude at any scale**, and no locked term is needed for a defect that is not there. Kept as an entry only to stop the name being reused. ⛔ The earlier reading — "squashed toward the middle, too large in quiet cells and too small in violent ones, `b > 1`" — described the selected set. ⚠️ `b` rising through 1 is **not one of the three signatures `slope_chase.py` pre-registered** (S: `b`→1 · G: `b` flat · R: `b`→1 with `r` climbing), so the discriminator does **not** discriminate here; the variance deficit is what it establishes, and §3's autocorrelation is the independent confirmation. | the magnitude gap, the amount ceiling (⛔ **the amount ceiling** is the separate claim that magnitude is *irreducible*; this axis is a measured defect in the model, not a statement about the data) |
 
 ⛔ **THE TWO HEADS FAIL THE SAME WAY. This box has now said "same", then "different", then "same"
 again — each move forced by a better measurement, and the record of the moves is kept on purpose.**
@@ -274,11 +274,22 @@ again — each move forced by a better measurement, and the record of the moves 
 | **the truth, same cells** | — | **0.5915 / 0.5780** in sample · **0.5089 / 0.5028** out of sample |
 | **the truth, noise-controlled** (336-month base rate) | — | **0.6419 / 0.6261** |
 
-**Both heads have roughly calibrated marginals at cell level and both emit a field far smoother than
-the truth, against the same noise-controlled reference (~0.64).** The body ranks cells well
-(spearman `mu` vs truth **+0.8205** in sample, **+0.7808** out of sample) and puts the mass in fields
-that are too diffuse. ⇒ The defect is **shared**, so it is **upstream of both heads** — the trunk and
-its recurrent state, not either head's marginals and not a missing per-cell input.
+⛔ **The autocorrelations above are NOT on one scale, and the raw gap is ~¾ artifact.** `log mu` and
+the gate logit are continuous and atom-free; the truth is a raw rate with **98.6% of its mass at
+exactly zero**, and lag-1 Pearson is invariant under *affine* maps, not under `log` or `logit`. Pushing
+the model through **the truth's own estimator** (§10.3, 300 replicates) the model's field reads
+**+0.7053 / +0.6824**, not 0.8594 / 0.7636 — the estimator alone eats **0.154 / 0.081**. The truth's
+**+0.6419 / +0.6261** still falls **outside** the 95% posterior-predictive interval, so the finding
+stands, but **the like-for-like gap is 0.06, not 0.22.** ⛔ Quote 0.06. Never quote a model
+autocorrelation against a truth autocorrelation without passing one through the other's estimator.
+
+**Both heads have roughly calibrated marginals at cell level and both emit a field measurably smoother
+than the truth.** The body ranks cells well (spearman `mu` vs truth **+0.8205** in sample, **+0.7808**
+out of sample). ⇒ The defect is **shared**, so it is upstream of both heads — in **anything they
+share**, which is the trunk *and* the input channels, the data, the optimiser, the loss weighting, the
+BatchNorm regime and the global weight decay. ⚠️ An earlier version of this line said "the trunk and
+its recurrent state", which named one shared thing as if it were the only one and contradicted this
+entry's own candidate list.
 
 ⛔ **Why this box moved twice.** (1) *"Same"* was written from two **different estimators** (body
 per-cell OLS vs gate binned-logit) and was unsupported. (2) *"Different"* was written from the
