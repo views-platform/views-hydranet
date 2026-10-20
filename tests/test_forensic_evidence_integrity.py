@@ -30,6 +30,7 @@ to the DATA, not to a label, because a label assertion cannot see a wrong number
 
 import numpy as np
 import pytest
+import torch
 
 from views_hydranet.train.training_engine import _merge_fed_max
 from views_hydranet.utils.visual_diagnostics import VisualDiagnostics
@@ -306,24 +307,15 @@ def _tiny_handler():
     )
 
 
-def test_a_failing_biopsy_neither_aborts_the_run_nor_leaves_the_model_in_eval_mode(monkeypatch):
-    """⛔ The biopsy block runs real family + composition code on live tensors, and the nearest
-    enclosing `try` was ~80 lines above it, guarding the time-index lookup only. So a raise in a
-    DIAGNOSTIC aborted `train()` — and the block is not diagnostics-gated: `viz` is a null object
-    that is truthy even with `diagnostic_visualizations: False`, so every run with a stage label
-    executes it.
+def _run_with_a_failing_biopsy(monkeypatch, *, fail_on_eval_call):
+    """Drive a real `train()` whose biopsy forward raises on its ``fail_on_eval_call``-th call.
 
-    `finally: model.train()` is the other half, and the more dangerous one: an escape that skipped
-    it would leave the remaining lessons training in eval mode — frozen BatchNorm statistics and
-    no dropout — which is far worse than a lost plot and would not raise anything.
-
-    The synthetic failure is the biopsy's own forward, raising only when the module is in eval
-    mode. That is the one forward `train()` performs outside train mode, so it fires inside the
-    block and nowhere else.
+    Eval mode is the discriminator: the biopsy's is the only forward `train()` performs outside
+    train mode, so the failure fires inside the Stage-5 block and nowhere else — and the rig needs
+    no family head to reach it.
     """
     from unittest.mock import MagicMock
 
-    import torch
     from tqdm import tqdm
 
     from tests.test_training_engine import TINY_CONFIG
@@ -334,13 +326,16 @@ def test_a_failing_biopsy_neither_aborts_the_run_nor_leaves_the_model_in_eval_mo
     criterion_reg, criterion_class, mtl = criterion
 
     real_forward = type(model).forward
+    eval_calls = {"n": 0}
 
-    def raise_only_in_eval(self, *a, **kw):
+    def raise_on_the_nth_eval_forward(self, *a, **kw):
         if not self.training:
-            raise RuntimeError("synthetic biopsy failure")
+            eval_calls["n"] += 1
+            if eval_calls["n"] >= fail_on_eval_call:
+                raise RuntimeError("synthetic biopsy failure")
         return real_forward(self, *a, **kw)
 
-    monkeypatch.setattr(type(model), "forward", raise_only_in_eval)
+    monkeypatch.setattr(type(model), "forward", raise_on_the_nth_eval_forward)
 
     ctx = TrainingContext(
         model=model,
@@ -356,6 +351,52 @@ def test_a_failing_biopsy_neither_aborts_the_run_nor_leaves_the_model_in_eval_mo
     result = train(
         ctx, _tiny_handler(), tqdm(total=5, disable=True), stage_label="containment_probe"
     )
+    if fail_on_eval_call <= 10:
+        assert eval_calls["n"] >= fail_on_eval_call, (
+            f"the synthetic failure never fired ({eval_calls['n']} eval forwards) — this rig "
+            "proves nothing"
+        )
+    else:
+        assert eval_calls["n"] > 0, "the biopsy block never ran — this rig proves nothing"
+    return result, model, ctx.viz
+
+
+def test_a_failing_biopsy_neither_aborts_the_run_nor_leaves_the_model_in_eval_mode(monkeypatch):
+    """⛔ The biopsy block runs real family + composition code on live tensors, and the nearest
+    enclosing `try` was ~80 lines above it, guarding the time-index lookup only. So a raise in a
+    DIAGNOSTIC aborted `train()`.
+
+    `finally: model.train()` is the other half, and the more dangerous one: an escape that skipped
+    it would leave the remaining lessons training in eval mode — frozen BatchNorm statistics and
+    no dropout — which is far worse than a lost plot and would not raise anything.
+    """
+    result, model, _ = _run_with_a_failing_biopsy(monkeypatch, fail_on_eval_call=1)
     assert torch.isfinite(result["total"]), "a failed diagnostic took the training run with it"
     assert model.training, "the run was left in EVAL mode — `finally: model.train()` is missing"
-    ctx.viz.biopsy_training_performance.assert_not_called()
+
+
+def test_a_biopsy_that_fails_PART_WAY_does_not_get_plotted(monkeypatch):
+    """The `_biopsy_ok` half, which the first version of this file could not see: failing on the
+    FIRST step leaves every accumulator empty, so `if acc_y_reg` skips the plot by itself and a
+    mutation setting `_biopsy_ok = True` in the handler survived.
+
+    Failing part way is the case the flag is for. The accumulators are appended at different
+    points inside one step, so a partial capture has rows of UNEQUAL length — a figure drawn from
+    it would pair a forecast panel with the wrong month, which is a wrong plot rather than a
+    missing one.
+    """
+    result, model, viz = _run_with_a_failing_biopsy(monkeypatch, fail_on_eval_call=3)
+    assert torch.isfinite(result["total"])
+    assert model.training
+    viz.biopsy_training_performance.assert_not_called()
+
+
+def test_a_biopsy_that_does_NOT_fail_is_plotted(monkeypatch):
+    """⛔ The completeness assertion for the two tests above. Both end in `assert_not_called()`,
+    which also passes if this rig never reaches the plot at all — so without this, "the plot was
+    skipped" and "the plot was never reachable" are the same observation.
+    """
+    result, model, viz = _run_with_a_failing_biopsy(monkeypatch, fail_on_eval_call=10**6)
+    assert torch.isfinite(result["total"])
+    assert model.training
+    viz.biopsy_training_performance.assert_called()
