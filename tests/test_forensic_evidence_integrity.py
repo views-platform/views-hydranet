@@ -400,3 +400,83 @@ def test_a_biopsy_that_does_NOT_fail_is_plotted(monkeypatch):
     assert torch.isfinite(result["total"])
     assert model.training
     viz.biopsy_training_performance.assert_called()
+
+
+# ----------------------------------- the ZINBcore wiring, end to end through a real `train()`
+#
+# ⛔ The two guards above test `_family_composed_mean_log1p(emit_core=...)` and
+# `_biopsy_forecast_label(...)` in isolation, and both are strong. Neither can see the CALL SITE:
+# mutations hardcoding `emit_core=False` and `_composition = "self_zeroed"` inside `train()`'s
+# biopsy loop both SURVIVED a mutation round, reinstating exactly the defect the fix removed.
+# That is C-324's shape — a correct, tested mechanism wired to nothing — and the reason this file
+# exists at all is that the previous version of this defect was found the same way.
+
+
+def _zinbcore_config(emit_core):
+    """`zinb + emit_family_core + soft_gate` — the mandated `ZINBcore` shape, since config rule
+    (2) REQUIRES a core-emitting zinb to declare a gate. `weighted_bce` because the gate head
+    emits logits and `bce` would reject them."""
+    from tests.test_training_engine import FEATURES, TINY_CONFIG
+
+    cfg = dict(TINY_CONFIG)
+    cfg["classification_targets"] = FEATURES
+    cfg["output_distribution"] = "zinb"
+    cfg["forecast_composition"] = "soft_gate"
+    cfg["emit_family_core"] = emit_core
+    cfg["loss_reg"] = "zinb"
+    cfg["loss_class"] = "weighted_bce"
+    cfg["loss_class_pos_weight"] = 2.0
+    return cfg
+
+
+def _run_biopsy(cfg):
+    """Run one real `train()` and return what the biopsy handed the plotter."""
+    from unittest.mock import MagicMock
+
+    from tqdm import tqdm
+
+    from views_hydranet.train.training_engine import TrainingContext, make, train
+
+    device = torch.device("cpu")
+    model, criterion, optimizer, scheduler = make(cfg, device)
+    criterion_reg, criterion_class, mtl = criterion
+    viz = MagicMock()
+    ctx = TrainingContext(
+        model=model,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        criterion_reg=criterion_reg,
+        criterion_class=criterion_class,
+        multitaskloss_instance=mtl,
+        config=cfg,
+        device=device,
+        viz=viz,
+    )
+    train(ctx, _tiny_handler(), tqdm(total=5, disable=True), stage_label="zinbcore_probe")
+    assert viz.biopsy_training_performance.called, "the biopsy never reached the plotter"
+    return viz.biopsy_training_performance.call_args
+
+
+def test_the_biopsy_row_a_zinbcore_arm_actually_gets_is_the_core():
+    """⛔ BINDS TO THE DATA, not to the label — a label assertion cannot see a wrong number.
+
+    The two runs differ in `emit_family_core` alone and the seeds are config-locked, so the
+    weights and therefore the predictions are identical and only the composition moves.
+    `mean_core` is μ and `mean` is (1−π)μ, so the core row must be strictly LARGER wherever π > 0.
+    If the call site stops reading the flag, the two rows come out byte-identical.
+    """
+    core = _run_biopsy(_zinbcore_config(True)).kwargs["y_hat_forecast"]
+    self_zeroed = _run_biopsy(_zinbcore_config(False)).kwargs["y_hat_forecast"]
+    assert core.shape == self_zeroed.shape
+    assert not np.array_equal(core, self_zeroed), (
+        "emit_family_core made no difference to the row the biopsy plots — the call site is not "
+        "reading the flag (C-324)"
+    )
+    assert (core >= self_zeroed).all(), "log1p(gate × μ_core) must dominate log1p(gate × (1−π)μ)"
+    assert (core > self_zeroed).any()
+
+
+def test_the_biopsy_label_a_zinbcore_arm_actually_gets_names_the_core_and_the_gate():
+    """The label half of the same wiring. `self_zeroed` in it would be the original defect."""
+    label = _run_biopsy(_zinbcore_config(True)).kwargs["forecast_label"]
+    assert label == "FORECAST log1p(soft_gate(E[y|core], gate))", label
