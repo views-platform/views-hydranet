@@ -4886,7 +4886,7 @@ field than the headline run of its arm. That is a data consequence, not a code o
 | Tier | 2 |
 | Source | `manual` (2026-10-20) — measurement by walking the import graph with `ast`, plus `/code-review high` on the v0.1.4 release surface; named as an unregistered blind spot by the 2026-10-20 review-rr pass, which does not add risks |
 | Trigger | Re-ranging or removing a bound in `pyproject.toml`'s `dependencies` (both range defects this class produced were caught by hand, never by the guard), **or** a sibling `views-*` package dropping a dependency we had relied on transitively — specifically the `views-pipeline-core → viewser → pyod → scikit-learn` hop, where no published package in our tree declares the dependency at all |
-| Location | `pyproject.toml` `dependencies` (nine entries as of 0.1.4; six of them added 2026-09-19 and 2026-10-20); `.github/scripts/wheel_contract.py:33` (`REQUIRED_DEPENDENCIES`); `tests/test_publication_path.py` (`TestEveryImportIsDeclared`, and the `REQUIRED_DEPENDENCIES`↔`pyproject` pin); `views_hydranet/__init__.py` (the lazy PEP 562 `__getattr__`); `views_hydranet/utils/training_forensics.py:344` (the function-level `sklearn` import) |
+| Location | `pyproject.toml` `dependencies` (nine entries as of 0.1.4; six of them added 2026-09-19 and 2026-10-20); `.github/scripts/wheel_contract.py:33` (`REQUIRED_DEPENDENCIES`); `tests/test_publication_path.py` (`TestEveryImportIsDeclared`, and the `REQUIRED_DEPENDENCIES`↔`pyproject` pin); `views_hydranet/__init__.py` (the lazy PEP 562 `__getattr__`); `views_hydranet/utils/training_forensics.py:344` (the function-level `sklearn` import); `pyproject.toml:10` (`requires-python`, the declared-RANGE instance found 2026-10-20 and fixed the same day); `poetry.lock:4940-4941` |
 | Cross-refs | Cluster **20** (cross-repo and environment coordination). C-285 (the same class inside our own CI env, half closed 2026-10-20); C-336 (a declared range whose ceiling excludes the published latest — the *range* half of this concern, already registered); C-333 (cross-repo release ordering, the same cluster and the same loud-failure tiering); C-329 (tests that cannot fail — the closest sibling in shape); C-303 (prose asserting a guard the code lacks — related but distinct: here the guards existed and ran); C-324 (inert-but-tested) |
 
 **Six instances, all measured 2026-10-20 unless dated otherwise.** `wandb` was undeclared until #381
@@ -4947,6 +4947,43 @@ publish job. (c) `environment.yml` now installs `.[viz]` rather than `.` (2026-1
 is asked for instead of arriving because `pyod` pulls it in unpinned — but that was this same
 accidental-guarantor shape **inside our own CI**, and the job was green either way. See C-285, whose
 other half (ruff pinned independently in three places) is still open.
+
+⛔ **A SEVENTH instance, in the declared-RANGE half this entry had just named as uncovered — found
+2026-10-20 by `/falsify` on the v0.1.4 release surface, hours after the paragraph above was
+written.** `pyproject.toml:10` declared `requires-python = ">=3.11,<3.15"`, advertising 3.12, 3.13
+and 3.14. But `viewser` 6.6.4's `pandas<2.0.0` against our own `pandas>=1.5.3` leaves **1.5.3 as the
+only satisfying release** — pandas is pinned to exactly one version rather than merely bounded, and
+that version's last wheel is **cp311**. (`numpy` is pinned to 1.26.4 the same way; cp312 is its
+last.) So three of the four advertised interpreters had no wheel for a dependency the package cannot
+start without, in **every release 0.1.0 through 0.1.3**.
+
+It is this entry's own shape with the arrow reversed: above, a real import had no declaration; here,
+a declaration had no reality behind it. Both were invisible for the same reason — every check derived
+from `pyproject` rather than from anything able to contradict it.
+
+⚠️ **And the knowledge already existed, in the consumer's repo, as a manual workaround.** views-models
+`tools/podrun/pod_run_model.sh:164` does `uv venv --python 3.11` and `docs/runpod_run_guide.md:228`
+says *"Python 3.11, not the image's 3.12."* Someone had already discovered 3.12 does not work and
+written it down where pip cannot enforce it — so the defect was not unknown, it was **unenforceable**.
+That is the more useful reading of this whole entry: six of the seven instances were things the
+system knew and could not check.
+
+**Fixed 2026-10-20**: ceiling narrowed to `<3.12`, `README.md:74`'s `Python >= 3.8` corrected (it is
+the wheel's `long_description` and renders on the PyPI project page), and guarded by
+`tests/test_publication_path.py::TestRequiresPythonIsServiceable`. ⚠️ That guard pins a **measured
+constant** and says so: it enforces the fix and makes widening the ceiling a deliberate edit, but it
+does not track pandas' wheel matrix, and the dependency ranges themselves are **still** unvalidated.
+
+⛔ **`poetry.lock:4940-4941` deliberately NOT regenerated, and this is a decision rather than an
+oversight.** `python-versions` there mirrors the old `>=3.11,<3.15` and the `content-hash` is keyed to
+`pyproject`'s dependencies, so both are now stale. But `poetry check --lock` **already failed before
+the edit** — measured: *"pyproject.toml changed significantly since poetry.lock was last generated"* —
+because the lock dates from 2026-08-01, six declared dependencies ago. Nothing in `.github/`,
+`tests/`, `environment.yml` or `docs/guides/` reads it, and no guard checks it. Regenerating would
+attach a 424 KB re-resolve to a one-line metadata fix and make an unvalidated artifact look
+authoritative. Its fate belongs to proposed **ADR-053** (`poetry.lock` → `uv.lock`). Recorded here
+because a committed artifact asserting a state the project has left is the C-303 shape, and this one
+is now knowingly left in place.
 
 
 ## Disagreements
