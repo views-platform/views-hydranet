@@ -30,7 +30,17 @@ PACKAGE = "views_hydranet"
 # Kept in lockstep with pyproject's `[project].dependencies` by test_publication_path.py's
 # `test_required_dependencies_are_the_runtime_dependencies_in_pyproject`, which caught this
 # tuple drifting when pandas was declared on 2026-10-20.
-REQUIRED_DEPENDENCIES = ("views-pipeline-core", "views-frames", "torch", "wandb", "pandas")
+REQUIRED_DEPENDENCIES = (
+    "views-pipeline-core",
+    "views-frames",
+    "torch",
+    "wandb",
+    "pandas",
+    "numpy",
+    "pydantic",
+    "tqdm",
+    "scikit-learn",
+)
 PUBLIC_API = ["HydranetManager"]
 
 
