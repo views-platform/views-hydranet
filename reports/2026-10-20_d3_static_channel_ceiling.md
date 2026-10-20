@@ -677,9 +677,49 @@ synthetic field:**
 | top 1% share | 0.8706 | 0.8515 | 0.7992 | 0.7072 | **0.9860** |
 
 The truth is **less** concentrated than the model at **every** window, and lengthening the window only
-widens the gap. ⚠️ A longer window is less noisy *and* spans more regime change, and those push the
-truth's concentration in opposite directions, so this is a **sensitivity sweep, not a clean bound** —
-but the sign does not depend on the window anywhere in it.
+widens the gap.
+
+### 10.11 D10 — the sweep caveat resolves, and D9 was conservative
+
+`d10_debias_effective_cells.py`. `N_eff = (Σp)²/Σp²` is computed for the **truth** from a count-based
+estimate `p̂ = k/T`, and `E[Σp̂²] = Σp² + Σp(1−p)/T`, so the **denominator is biased up** and `N_eff`
+is biased **down**. The truth row understates, and **the bias runs against the finding.** The model
+row needs no correction — `p_model` is analytic in `(mu, theta, gate)` and carries no count noise.
+
+⛔ **The `opponent` seat's version of this correction overstates the bias by 1.74×, and the reason is
+instructive.** It computed `B` as `Σp̂/T` = 6.33, i.e. it approximated `p(1−p) ≈ p`. On this field
+`Σp̂² = 100.60` against `Σp̂ = 228.03` — **44%**, not a negligible fraction — because the handful of
+cells with `p̂` near 1 are exactly the cells that dominate `Σp²`. Correctly, `B = (Σp̂ − Σp̂²)/T ·
+T/(T−1)` = **3.64**. ⚠️ I also checked the **numerator** bias the seat's formula omits
+(`E[(Σp̂)²] = (Σp)² + Σp(1−p)/T`, the same term): it is **< 0.02%** of `(Σp̂)²` at every window, so
+omitting it is adequate *here* — which is a fact about this field, and is why it was computed rather
+than assumed.
+
+| truth window | `N_eff` raw | `B` | **`N_eff` debiased** | bias | gap vs model's 215.0 |
+|---|---|---|---|---|---|
+| **36 mo (matched)** | 516.9 | 3.64 | **536.3** | +3.7% | **2.49×** |
+| 72 mo | 518.8 | 1.76 | 529.7 | +2.1% | 2.46× |
+| 156 mo | 585.1 | 0.79 | 594.2 | +1.6% | 2.76× |
+| 336 mo | 819.1 | 0.34 | 831.6 | +1.5% | 3.87× |
+
+⇒ **The matched-window gap widens from 2.40× to 2.49×** (not the seat's 2.57×).
+
+✅ **And the sweep caveat becomes a result.** D9-C flagged that noise reduction and regime change push
+the truth's concentration in opposite directions. The debias separates them: **noise explains at most
+3.7%** (at 36 months, falling to 1.5% at 336) against an observed rise of **+58.5%**, and a **+55.1%**
+rise survives debiasing. ⇒ **Relocation carries essentially all of it.**
+
+Which justifies the comparator rather than merely defending it. If the truth's footprint widens with
+the window almost entirely because conflict **relocates**, then the right comparator for a model
+holding its parameters fixed across a window is the **matched-window** truth — the one §10.9 used. ⛔
+**And note it is the conservative choice:** 36 months gives the *smallest* gap (2.49×) of the four,
+against 3.87× at 336. The comparator hardest on the conclusion is the one the conclusion rests on.
+This is the mirror image of D8-A's original confound, where the 336-month comparison was the wrong one.
+
+⚠️ **One thing neither of us flagged and the data does say: the debiased series is NOT monotone.**
+536.3 → 529.7 → 594.2 → 831.6 — it **dips at 72 months**, by more than the noise correction that
+produced the series. So *"relocation monotonically spreads the footprint"* is **not** what this shows;
+the 36→336 direction is clear and the path is not. Reported rather than smoothed.
 
 **The seat's nulls, recomputed on the real field rather than a synthetic one** (its own suggestion):
 the multiplicative null is **0.3910** exactly (its synthetic gave 0.4640). ⛔ The additive-logit null

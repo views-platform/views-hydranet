@@ -292,8 +292,11 @@ autocorrelation against a truth autocorrelation without passing one through the 
 
 ✅ **The global half, added 2026-10-20 (§10.9) — and it needs no estimator at all.** Share of firing
 mass in the top 0.1% of cells: model **0.4578** against the truth's **0.2455**. Effective cells
-(`(Σp)²/Σp²`): model **215.0** against **516.9** — **2.4× too few places**, robust at every truth
-window from 36 to 336 months. Both statistics are normalised by the total, so the model's 4.18×
+(`(Σp)²/Σp²`): model **215.0** against a **debiased** **536.3** — **2.49× too few places**, robust at
+every truth window from 36 to 336 months (2.46×–3.87×), and the matched 36-month window is the
+**conservative** end. ⚠️ The truth's raw 516.9 is biased **down** by count-sampling noise
+(`E[Σp̂²] = Σp² + Σp(1−p)/T`), i.e. against the finding; the model's row is analytic and needs no
+correction. Both statistics are normalised by the total, so the model's 4.18×
 under-firing **cancels exactly**: no scale choice, no null, no saturating map. ⇒ **The model emits a
 few large smooth blobs where the truth has many small sharp spots.** Smoothness is local-gradient,
 concentration is global-distribution, so a field can be both — and **concentration is a JOINT
