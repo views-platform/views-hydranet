@@ -661,22 +661,38 @@ class VisualDiagnostics:
             # renders flat, while a body row spanning a band of width 0.8 saturates the full
             # colormap. Any cross-row brightness comparison read off the old figure was
             # unfalsifiable by construction, and one was made and acted on. Rows 0/1/4 are log1p
-            # counts and now share a scale; rows 2/3 are probabilities on a fixed [0, 1].
+            # counts and share a scale.
+            #
+            # ⚠️ Row 2 (the BINARY cls truth) is on a fixed [0, 1] because it already spans it.
+            # Row 3 (the PREDICTED gate) is NOT, and sharing row 2's fixed scale over-corrected:
+            # this model's gate spans ~0.003-0.05, so [0, 1] renders the whole row black and
+            # erases the spatial structure the row exists to show — the same loss of information
+            # the shared scale was introduced to prevent, in the opposite direction. It keeps
+            # vmin = 0.0 (a probability's true floor, not a stretch) and gets its own vmax,
+            # printed on its label like the count rows'. The two are not compared for brightness
+            # against each other — one is a 0/1 indicator and one a probability — so giving row 3
+            # its own vmax costs nothing the shared scale was protecting.
             _count_scale = self._shared_count_scale([data_rows[r] for r in (0, 1, 4)])
             _prob_scale = (0.0, 1.0)
+            _gate = np.ravel(np.asarray(data_rows[3])[..., 0])
+            _gate = _gate[np.isfinite(_gate)]
+            _gate_max = float(_gate.max()) if _gate.size else 0.0
+            # Degenerate span falls back to 1.0 for the same reason `_shared_count_scale` does:
+            # vmin == vmax makes imshow render every panel identically.
+            _gate_scale = (0.0, _gate_max if _gate_max > 0.0 else 1.0)
             _scales = {
                 0: _count_scale,
                 1: _count_scale,
                 4: _count_scale,
                 2: _prob_scale,
-                3: _prob_scale,
+                3: _gate_scale,
             }
 
             row_labels = [
                 f"GROUND TRUTH (Reg)\nlog1p counts {self._fmt_scale(_count_scale)}",
                 f"PREDICTION: body\nlog1p(E[y]) {self._fmt_scale(_count_scale)}",
                 "GROUND TRUTH (Cls)\nP(y>0) [0, 1]",
-                "PREDICTION: cls gate\nP(y>0) [0, 1]",
+                f"PREDICTION: cls gate\nP(y>0) {self._fmt_scale(_gate_scale)}",
                 f"{forecast_label}\nlog1p counts {self._fmt_scale(_count_scale)}",
             ]
 

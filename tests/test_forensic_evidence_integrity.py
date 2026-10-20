@@ -7,7 +7,10 @@ left about the body's field, and three independent properties made it misleading
    another session applied ``log1p`` a second time and shrank a true finding by an exponential;
 2. every row was min-max stretched INDEPENDENTLY, so "bright body over dark truth" was the
    rendering a sparse panel always produces whatever the magnitudes are — and that reading was
-   made and acted on;
+   made and acted on. ⚠️ The fix then over-corrected by one row: the PREDICTED gate was pinned to
+   the same fixed ``[0, 1]`` as the binary cls truth, and at this model's gate range (~0.003-0.05)
+   that renders the row black and erases exactly the structure the row exists to show. Both
+   directions are guarded below;
 3. the forecast row was computed in the plot as ``gate × log1p(μ)`` under a docstring calling it
    "the ACTUAL scored forecast", while deployment emits ``log1p(compose_mean(μ, gate))``
    (`hydranet_inference._emit_magnitude`). Different functions of the same inputs; they agree
@@ -193,3 +196,77 @@ def test_a_measured_zero_is_kept_as_zero_not_blanked():
 def test_the_running_max_is_a_max_in_both_directions():
     assert _merge_fed_max(1.0, [2.0]) == 2.0
     assert _merge_fed_max(3.0, [2.0]) == 3.0
+
+
+# ------------------------------------------------- the shared scale must not black out the gate
+
+
+def _render_and_capture(vd, monkeypatch, *, gate_fill):
+    """Render one biopsy, recording every ``imshow``'s (vmin, vmax) and every row's y-label.
+
+    The scales are chosen inside ``biopsy_training_performance`` and then exist only as pixels, so
+    the only honest observable is what the plotting calls were handed. ``set_ylabel`` fires once
+    per row (``t_idx == 0``), so the two lists index by row in the same order.
+    """
+    import matplotlib.axes
+
+    scales, labels = [], []
+    real_imshow = matplotlib.axes.Axes.imshow
+    real_ylabel = matplotlib.axes.Axes.set_ylabel
+
+    def spy_imshow(self, *a, **kw):
+        scales.append((kw.get("vmin"), kw.get("vmax")))
+        return real_imshow(self, *a, **kw)
+
+    def spy_ylabel(self, label, *a, **kw):
+        labels.append(label)
+        return real_ylabel(self, label, *a, **kw)
+
+    monkeypatch.setattr(matplotlib.axes.Axes, "imshow", spy_imshow)
+    monkeypatch.setattr(matplotlib.axes.Axes, "set_ylabel", spy_ylabel)
+    vd.biopsy_training_performance(
+        _arr(2.0),
+        _arr(1.0),
+        _arr(1.0),
+        _arr(gate_fill),
+        "lesson_1",
+        y_hat_forecast=_arr(0.5),
+        forecast_label="FORECAST",
+    )
+    assert len(scales) == 30, f"expected 5 rows x 6 times of imshow, got {len(scales)}"
+    assert len(labels) == 5, f"expected one y-label per row, got {len(labels)}"
+    # 6 panels per row, in row order
+    return [scales[r * 6] for r in range(5)], labels
+
+
+def test_the_gate_row_is_not_pinned_to_the_full_probability_range(vd, monkeypatch):
+    """⛔ The gate row shared row 2's fixed [0, 1]. This model's gate spans ~0.003-0.05, so the
+    whole row rendered black and the spatial structure the row exists to show was erased — the
+    same loss of information the shared scale was added to prevent, over-corrected by one row.
+    """
+    rows, _ = _render_and_capture(vd, monkeypatch, gate_fill=0.05)
+    assert rows[3][0] == 0.0 and rows[3][1] == pytest.approx(0.05, abs=1e-6), (
+        f"the gate row must stretch to its own max, not [0, 1]; got {rows[3]}"
+    )
+
+
+def test_the_binary_cls_truth_row_is_still_pinned_to_zero_one(vd, monkeypatch):
+    """The anti-over-reach half. Row 2 is a 0/1 indicator that already spans [0, 1]; stretching it
+    too would make an all-ones truth panel indistinguishable from an all-0.05 one."""
+    rows, _ = _render_and_capture(vd, monkeypatch, gate_fill=0.05)
+    assert rows[2] == (0.0, 1.0), f"the binary cls truth row must stay on [0, 1]; got {rows[2]}"
+
+
+def test_the_gate_rows_label_prints_the_range_it_was_actually_drawn_on(vd, monkeypatch):
+    """A row with its own stretch and a hardcoded "[0, 1]" label is worse than the black row: it
+    is a wrong number. The label must carry the scale, like the three count rows already do."""
+    _, labels = _render_and_capture(vd, monkeypatch, gate_fill=0.05)
+    assert "0.05" in labels[3], f"the gate row label must print its own vmax; got {labels[3]!r}"
+    assert "[0, 1]" not in labels[3], f"the gate row label still claims [0, 1]: {labels[3]!r}"
+
+
+def test_an_all_zero_gate_row_does_not_collapse_to_a_degenerate_scale(vd, monkeypatch):
+    """`vmin == vmax` makes imshow render every panel identically — the original failure, and the
+    reason `_shared_count_scale` falls back to 1.0. The gate's own scale needs the same floor."""
+    rows, _ = _render_and_capture(vd, monkeypatch, gate_fill=0.0)
+    assert rows[3] == (0.0, 1.0), f"a degenerate gate row must fall back to [0, 1]; got {rows[3]}"
