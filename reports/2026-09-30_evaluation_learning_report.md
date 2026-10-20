@@ -1,5 +1,18 @@
 # What we have learned about evaluating HydraNets
 
+> ⛔ **PROVENANCE CORRECTION, 2026-10-20 — "99.5%" was never our number.** Every "99.5%-zero" in this
+> report (except the synthetic-fixture description, which keeps its own value) has been changed to
+> **99.7%**, our own measurement. `99.5%` is **Hegre et al. (2024)**'s figure for the VIEWS Prediction
+> Challenge — their PRIO-GRID, their period — confirmed verbatim in their source text (*"99.5% of the
+> historical values are zero"*) by the `library` seat on request. Ours, measured: the observed positive
+> rate on **all land cell-months is 0.003448 ⇒ 99.655% zero**, and on the **32×32 activity-seeking
+> curriculum windows** the median positive fraction is 0.004508 ⇒ **99.55%**. Neither rounds to 99.5%.
+> ⚠️ A third, different statistic is also in circulation and must not be substituted for these:
+> **98.59% of land CELLS never fire at all** (D3, cells-ever-active, not cell-months). No argument in
+> this report depends on which figure is used — the correction is made because a borrowed figure
+> standing in for a measurement we hold is the same error class as
+> `2026-10-20_d3_static_channel_ceiling.md`'s three self-inflicted ones.
+
 **Date:** 2026-09-30 · **Last revised 2026-10-20** · **Status:** ⛔ **LIVING DOCUMENT — expected to carry open rows; not a verdict and not finished.** Consolidation only: **no new measurement by this document** (§0.2 and §5.0 carry tables measured 2026-09-30 by the `models` session, attributed there) ·
 **Supersedes as the living document:** `reports/2026-08-13_evaluation_pitfalls_and_metric_battery_DRAFT.md`
 (retained as dated provenance; its taxonomy letters A1–I4 are preserved here unrenumbered).
@@ -211,7 +224,7 @@ answerable: two kill criteria and no comparison to anything.
 ⛔ **4. Nearly every scalar we reached for first was blind.** *(MEASUREMENT)* `crps_all` put four arms inside 0.0007
 of each other while gate AP spanned **13×** (M9). MCR read ≈1.0 while activation was 4–115× wrong
 (#258). Across the roster CRPS agreed to three decimals from step 6 while MCR spanned 10×. The
-pattern is not metric-specific: **on a 99.5%-zero field, an all-cell aggregate is a report about the
+pattern is not metric-specific: **on a 99.7%-zero field, an all-cell aggregate is a report about the
 zeros.** MEASUREMENT.
 
 ⚠️ **5. Cheap probes are reliable at killing ideas and unreliable at establishing them.** This is
@@ -450,7 +463,7 @@ learnable from the data — that is the amount-ceiling question, §4.
 
 **The generalisable rule this yields:** *check a metric's dynamic range across your model set before
 ranking on it.* A proper score can be simultaneously proper and non-discriminating. That is not a
-criticism of CRPS; it is a statement about a 99.5%-zero field.
+criticism of CRPS; it is a statement about a 99.7%-zero field.
 
 ### 2.3 The zero-share decomposition and the ARTIFACT verdict
 
@@ -724,7 +737,7 @@ this report.
 
 ### 3.2 The metrics themselves
 
-⛔ **`crps_all` on a 99.5%-zero field ranks the zeros, not the model.** Four arms inside **0.0007** at
+⛔ **`crps_all` on a 99.7%-zero field ranks the zeros, not the model.** Four arms inside **0.0007** at
 h18 while gate AP spans **13×** (M9). Across the roster, CRPS identical to **three decimals** from step
 6 while MCR spanned **10×** — *"ranking these models on CRPS ranks noise"* (#258). (DRAFT A3/A4.)
 
@@ -1843,7 +1856,7 @@ needs the **per-cell array** — so this is a missing public capability upstream
 Reported by the `views-evaluation` session, which is filing it.
 
 ✅ **A near-miss on the primary metric, and it was luck.** On 2026-09-18 views-evaluation changed average
-precision on a group with no positive truth from `0.0` to `nan`. On a 99.5%-zero field *"this group has no
+precision on a group with no positive truth from `0.0` to `nan`. On a 99.7%-zero field *"this group has no
 positives"* is the **ordinary case**, so a mean over groups would silently become a mean over fewer
 groups — and AP is this repo's primary metric. **It does not touch us:** verified that
 `calculate_ap_native` is imported nowhere here; AP comes from the frozen `lodestar_score.average_precision`
@@ -2035,7 +2048,7 @@ scores a collapse**, so §2.3 and §2.5 are strictly ahead of it. Plus a second 
 replicates and MSLE in **50%** — chance, reported as a plain number.
 
 **The near-miss they surfaced, recorded as luck:** views-evaluation changed AP on a group with no positive
-truth from `0.0` to `nan` on 2026-09-18. AP is this report's primary metric and on a 99.5%-zero field that
+truth from `0.0` to `nan` on 2026-09-18. AP is this report's primary metric and on a 99.7%-zero field that
 is the ordinary case, not an edge case. **It does not touch us** — verified, `calculate_ap_native` is
 imported nowhere here — but what saved us was the frozen ruler's independence, not a pin or a test.
 

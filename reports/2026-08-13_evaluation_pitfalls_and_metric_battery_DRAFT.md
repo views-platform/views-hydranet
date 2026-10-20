@@ -1,5 +1,18 @@
 # Evaluating sparse, heavy-tailed, autoregressive spatiotemporal count forecasts — a catalog of blind spots, Goodhart traps, and the metric battery we actually need
 
+> ⛔ **PROVENANCE CORRECTION, 2026-10-20 — "99.5%" was never our number.** Every "99.5%-zero" in this
+> report (except the synthetic-fixture description, which keeps its own value) has been changed to
+> **99.7%**, our own measurement. `99.5%` is **Hegre et al. (2024)**'s figure for the VIEWS Prediction
+> Challenge — their PRIO-GRID, their period — confirmed verbatim in their source text (*"99.5% of the
+> historical values are zero"*) by the `library` seat on request. Ours, measured: the observed positive
+> rate on **all land cell-months is 0.003448 ⇒ 99.655% zero**, and on the **32×32 activity-seeking
+> curriculum windows** the median positive fraction is 0.004508 ⇒ **99.55%**. Neither rounds to 99.5%.
+> ⚠️ A third, different statistic is also in circulation and must not be substituted for these:
+> **98.59% of land CELLS never fire at all** (D3, cells-ever-active, not cell-months). No argument in
+> this report depends on which figure is used — the correction is made because a borrowed figure
+> standing in for a measurement we hold is the same error class as
+> `2026-10-20_d3_static_channel_ceiling.md`'s three self-inflicted ones.
+
 > **⚠️ SUPERSEDED 2026-08-15 — absorbed into a dossier.** This file's content now lives in
 > `reports/2026-08-15_rollout_ruler_trust_dossier/`: §1–3 → `02_design.md` (verbatim, annotated with the
 > cluster-16 `C-xxx` IDs each entry instantiates), §4–5 → `03_harness_and_invariants.md` (the metric battery
@@ -48,7 +61,7 @@ Everything below follows from the DGP. The task is adversarial to naive evaluati
   predictable (jump-risk spearman ≈ 0.79). ⇒ the right thing to score is occurrence/rank/volatility, not
   point magnitude — but most scalar metrics score magnitude.
 
-**One-line thesis:** on a 99.5%-zero, heavy-tailed, autoregressive, gated, stochastic target, *almost every
+**One-line thesis:** on a 99.7%-zero, heavy-tailed, autoregressive, gated, stochastic target, *almost every
 convenient scalar metric is dominated by the zeros, blind to placement, blind to frequency, low-power on the
 tail, and computed on a different object than the one that rolls out.* You have to design the evaluation as
 deliberately as the model.
@@ -75,7 +88,7 @@ Grouped. Each: **what it is → the instance we hit → the lesson.**
   2.* **Lesson: a proper score can be simultaneously "proper" and non-discriminating; check its dynamic
   range across the model set before ranking on it.**
 - **A4 — "confident zeros, not event skill."** crps-all (all-cell CRPS) rewards predicting zero on a
-  99.5%-zero field; the long-horizon "win" of gated_NB was driven by confident zeros, not by getting events
+  99.7%-zero field; the long-horizon "win" of gated_NB was driven by confident zeros, not by getting events
   right (register C-231 / similar). **Lesson: on sparse targets, an all-cell proper score is an occurrence-
   free lunch.**
 - **A5 — Brier (occurrence) also flattens.** `Brier_cls_sample` spanned 0.0052–0.0057 across the roster —
@@ -260,7 +273,7 @@ Grouped. Each: **what it is → the instance we hit → the lesson.**
 
 ## 3. Meta-patterns (the recurring shapes across the catalog)
 
-1. **The zero-domination pattern.** Any all-cell aggregate on a 99.5%-zero field is a report about the zeros.
+1. **The zero-domination pattern.** Any all-cell aggregate on a 99.7%-zero field is a report about the zeros.
    (A3, A4, A5, C1, I3.)
 2. **The wrong-object pattern.** We repeatedly evaluated a different object than the one deployed: mean vs sample
    (B1), score-time vs emit-time composition (E2), T=0 vs rollout (B2/G1), pooled vs per-step (D5). **The single
