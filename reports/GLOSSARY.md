@@ -290,6 +290,15 @@ smoother than its own realisation *by construction* (`ρ_Y = ρ_m·Var(m)/(Var(m
 question is never "smoother than the truth" but "smoother than the variance decomposition requires". ⛔ Quote 0.06. Never quote a model
 autocorrelation against a truth autocorrelation without passing one through the other's estimator.
 
+✅ **The global half, added 2026-10-20 (§10.9) — and it needs no estimator at all.** Share of firing
+mass in the top 0.1% of cells: model **0.4578** against the truth's **0.2455**. Effective cells
+(`(Σp)²/Σp²`): model **215.0** against **516.9** — **2.4× too few places**, robust at every truth
+window from 36 to 336 months. Both statistics are normalised by the total, so the model's 4.18×
+under-firing **cancels exactly**: no scale choice, no null, no saturating map. ⇒ **The model emits a
+few large smooth blobs where the truth has many small sharp spots.** Smoothness is local-gradient,
+concentration is global-distribution, so a field can be both — and **concentration is a JOINT
+property**, making this the first direct quantification of what C-152's class statement asserts.
+
 **Both heads have roughly calibrated marginals at cell level and both emit a field measurably smoother
 than the truth.** The body ranks cells well (spearman `mu` vs truth **+0.8205** in sample, **+0.7808**
 out of sample). ⇒ The defect is **shared**, so it is upstream of both heads — in **anything they

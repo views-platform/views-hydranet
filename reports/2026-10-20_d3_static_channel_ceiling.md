@@ -628,25 +628,84 @@ over-persistence. Match the windows and it **flips**:
 | cumulative support | 0.006362 | 0.022077 | **3.47×** |
 | ratio cumulative / monthly | | | **0.829** |
 
-⇒ **Over-persistence is FALSIFIED.** On a like-for-like window the model **spreads relatively more**
-than the truth, not less: it touches 3.47× too few cells while firing 4.18× too rarely, so *per unit
-of firing* it uses more places than the truth does.
+> ⛔ **AND THIS CONCLUSION IS ALSO WITHDRAWN — I read 0.829 against an implicit null of 1.0, and the
+> correct null is nowhere near 1.** `1 − (1 − P)^T` is **concave and saturating** in `P`, so
+> support-per-unit-firing falls as firing rises **at fixed spatial arrangement**. The two rows sit
+> **4.18× apart in firing**, so part of the truth's lower support-per-month is the *map*, not the
+> arrangement. The `opponent` seat caught this; §10.9 settles it without a null at all.
 
-✅ **Which agrees with §10.3 instead of adding to it.** A field that is too smooth spreads too little
-mass over relatively too many places, and that is what 0.829 says. Two instruments, no shared scale
-or normalisation, same conclusion.
+⚠️ **What survives D8 unconditionally:** on the matched window **the model under-fires by 4.18× per
+cell-month and touches 3.47× too few cells.** Both are direct counts and neither depends on a null.
+**Not quotable:** 1.853, 0.829, and any reading of either. 36 months is the model's own fitted
+window, so the truth there is **in-sample** — that favours the model and is the price of removing the
+relocation confound. ⚠️ The "event-months per ever-active cell" line in the script (truth 12.035,
+model 22.300) is **the same quantity rearranged, not an independent check** — it returns 1.853
+identically, verifying the algebra and nothing else; the script's original comment claiming otherwise
+is corrected in place.
 
-⚠️ **What D8 establishes and what it does not.** The clean numbers are the matched-window ones:
-**the model under-fires by 4.18× per cell-month and touches 3.47× too few cells.** 36 months is the
-model's own fitted window, so the truth there is **in-sample** — that favours the model and is the
-price of removing the larger confound. The 1.853 must not be quoted. ⚠️ The "event-months per
-ever-active cell" cross-check in the script (truth 12.035, model 22.300, ratio 1.853) is **the same
-quantity rearranged, not an independent measurement** — it verifies the algebra and nothing else, and
-the script's original comment claiming otherwise is corrected in place.
+⛔ **D8-A is the sixth instance of C-351** (population slot — the rows covered different windows) and
+⛔ **D8-B is the seventh** (**transform** slot — a nonlinear map applied to two rows at operating
+points 4.18× apart, where the nonlinearity alone moves the statistic from 1.0 to 0.19–0.46). **The
+slot added to the convention yesterday caught the very next measurement made after it was added.**
+That is the first evidence the third slot is load-bearing rather than a tidy completion of a triple.
 
-⛔ **D8-A is the sixth instance of C-351**, and it is caught by the **population** slot — the two rows
-covered different windows. That the three-slot convention catches its own next instance is the only
-evidence available that the convention is worth anything.
+### 10.9 D9 — the sign, settled without a null, and it is over-concentration
+
+`d9_concentration.py`. "Arrangement" is a property of the **shape** of the per-cell firing field, so
+measure the shape. Both statistics below are **normalised by the total**, so the 4.18× level
+difference **cancels exactly** — no saturating map, no synthetic field, no parameterisation choice,
+no null.
+
+| | model | truth (36 mo) | model/truth |
+|---|---|---|---|
+| share of firing mass in the top **0.1%** of cells | **0.4578** | 0.2455 | **1.87×** |
+| share in the top 1% | 0.9860 | 0.8706 | 1.13× |
+| Gini of the per-cell rate | 0.9963 | 0.9910 | 1.005 |
+| **effective cells** (participation ratio `(Σp)²/Σp²`) | **215.0** | **516.9** | **0.416** |
+
+⇒ ⛔ **The model's firing mass is MORE concentrated than the truth's, and the seat's direction is
+right.** The model packs what little it fires into **215 effective cells against the truth's 517** —
+**2.4× fewer places** — and puts **1.87×** as much of its mass in the top 0.1% of cells.
+
+✅ **And it is robust across every truth window, which is the part the seat could not get from a
+synthetic field:**
+
+| truth window | 36 mo | 72 mo | 156 mo | 336 mo | **model** |
+|---|---|---|---|---|---|
+| Gini | 0.9910 | 0.9902 | 0.9877 | 0.9824 | **0.9963** |
+| effective cells | 516.9 | 518.8 | 585.1 | 819.1 | **215.0** |
+| top 1% share | 0.8706 | 0.8515 | 0.7992 | 0.7072 | **0.9860** |
+
+The truth is **less** concentrated than the model at **every** window, and lengthening the window only
+widens the gap. ⚠️ A longer window is less noisy *and* spans more regime change, and those push the
+truth's concentration in opposite directions, so this is a **sensitivity sweep, not a clean bound** —
+but the sign does not depend on the window anywhere in it.
+
+**The seat's nulls, recomputed on the real field rather than a synthetic one** (its own suggestion):
+the multiplicative null is **0.3910** exactly (its synthetic gave 0.4640). ⛔ The additive-logit null
+is **not exactly computable on the real field** — **97.79%** of cells have an estimated rate of
+exactly 0 and `logit(0) = −∞` — and the atom rule dominates it: `(k+0.5)/(T+1)` gives **0.2238** and
+`(k+1)/(T+2)` gives **0.1857**, against the synthetic's 0.7709. ⚠️ **I therefore do not count the
+logit nulls as corroboration** — they are an artifact of the atom choice, which is the transform slot
+biting *inside the fix for a transform error*. The observed 0.829 sits above every null computed, but
+**D9-B is the finding and D9-A's multiplicative null is its only trustworthy corroboration.**
+
+### 10.10 The synthesis, corrected
+
+⛔ **An earlier version of §10.8 said D8 "agrees with §10.3" because both showed the model spreading.
+That reasoning was wrong even though the conclusion of agreement survives.** The two findings fit
+together differently, and better:
+
+> **The model emits a few large smooth blobs where the truth has many small sharp spots.**
+
+Smoothness is a *local-gradient* property and concentration is a *global-distribution* property, so
+there is no contradiction in being both: a single smooth blob is smooth **and** concentrated. §10.3
+measures the local half (fields smoother than the variance decomposition requires, by 0.06) and §10.9
+measures the global half (2.4× too few effective places). ⇒ **The latent risk field is roughly
+right; the point process on top of it is not** — which is C-152/EXP-3's *"89% of the damage is cells
+in the wrong places"* and is the shape Simon proposed from the architecture before any of it was
+measured. **And concentration is a joint property, so this is the first direct quantification of
+what C-152's class statement asserts.**
 
 ---
 
@@ -665,12 +724,12 @@ finding handed to it, not a bypass of it.
 | field | value |
 |---|---|
 | **ID** | C-351 |
-| **Tier** | **2** — not Tier 1: it corrupts *conclusions*, not data or forecasts, and every instance so far was caught. Not Tier 3: **six** instances in one day, three inside one report section, and two of them reached a committed artifact. |
-| **Source** | the D3/D4/D5/D6/D7/D8 measurement pass, 2026-10-20, plus the `opponent` seat's §13 and §14 |
+| **Tier** | **2** — not Tier 1: it corrupts *conclusions*, not data or forecasts, and every instance so far was caught. Not Tier 3: **seven** instances in one day, three inside one report section, and two of them reached a committed artifact. |
+| **Source** | the D3/D4/D5/D6/D7/D8/D9 measurement pass, 2026-10-20, plus the `opponent` seat's §13/§14/§15 |
 | **Trigger** | **The next time a per-cell or per-block statistic is computed on this grid and reported as a property of the model** — specifically: any slope, calibration, correlation or dispersion number computed on a cell set chosen by activity (`active_cells_top100`, `tm > 0`, `y > 0`), on a window that overlaps its own readout, or comparing a model field against a truth field through a non-affine transform. |
 | **Location** | `reports/2026-10-12_underfire_diagnosis/vehicle.py:242` (`active_cells_top100`), `d4_mu_on_the_grid.py` (the `keep = tm > 0` coarsening and the lag-1 comparison), `d3_ceiling.py` (the first window choice), and §2/§3/§4/§8/§9.2/§9.3 of this report |
 
-**Narrative.** Six findings in one day were produced, reported or nearly reported from *a statistic
+**Narrative.** Seven findings in one day were produced, reported or nearly reported from *a statistic
 computed on a set, or a scale, defined by the thing being measured*:
 
 | # | where | the artifact | what it did to the number |
@@ -681,10 +740,11 @@ computed on a set, or a scale, defined by the thing being measured*:
 | 4 | §10.3 | truth has an atom of 0.986 at zero; `log`/`logit` are not affine | **0.154** of a 0.22 gap, ~¾ of the effect |
 | 5 | §10.4 | the coarsening admits only blocks with an event; admitted fraction **2.2% → 22.4%** | reversed the sign of the amplitude trend |
 | 6 | §10.8 | the model's window (36 months, stationary) vs the truth's (336 months, with regime change) | reversed the sign of the persistence reading, 1.853 → **0.829** |
+| 7 | §10.8 | `1−(1−P)^T` is concave, applied to two rows **4.18× apart in firing** | implicit null 1.0 against a true null of **0.19–0.46**; reversed the sign again |
 
-**Three of the six are in `§9`, which was itself written to correct `§4`.** Each was caught by a
+**Three of the seven are in `§9`, which was itself written to correct `§4`.** Each was caught by a
 *different* mechanism — restriction to meaningful cells, a window audit, a full-grid forward pass, an
-adversarial peer, a nested-population recomputation, and a window match — and **no single habit would
+adversarial peer, a nested-population recomputation, a window match, and a null-free re-measurement — and **no single habit would
 have caught more than two.** That is the risk: the class is not one mistake with one remedy, and on this grid the
 tempting set is *always* the active one, because 98.6% of cells carry no signal.
 
@@ -708,7 +768,7 @@ the defect was the **scale**, not the set. Population discipline cannot catch a 
 | slot | states | the instance it catches |
 |---|---|---|
 | **population** | the set it was computed on **and the rule that chose it**, including the window | #1 ties, #2 window overlap, #3 selection, #5 admission rate, and D8-A's window mismatch (§10.8) |
-| **transform** | the scale the statistic lives on, and whether the things being compared share it | **#4** — `log mu`, `logit p` and a raw rate with an atom at 0.986 are three different objects |
+| **transform** | the scale the statistic lives on, and whether the things being compared share it | **#4** — `log mu`, `logit p` and a raw rate with an atom at 0.986 are three different objects. ✅ **And #7**, a concave map read at two operating points 4.18× apart — made with this slot already in the convention, which is why it was caught in hours rather than days |
 | **estimator** | how it was computed, and whether both sides went through the same one | #4 again, from the other side; it is what D6-C fixes |
 
 **The count of catching mechanisms was one higher than the count of slots being guarded** — which is
