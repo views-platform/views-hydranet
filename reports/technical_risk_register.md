@@ -4,12 +4,12 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-10-20 (`register-risk` — C-346 added, closing the blind spot the same day's review-rr pass named; five existing entries corrected against measurement) |
+| Last Updated      | 2026-10-20 (`register-risk` — C-347/C-348/C-349 added from the v0.1.4 release's `falsify` audit and its own guard rounds) |
 | ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). **`C-106` is a THIRD gap, found 2026-09-10 (review-rr strategic): the ID appears nowhere in this file — not as an entry, not as a merge note, not as a cross-reference — so whether it was merged, renumbered or never assigned is unrecoverable from the register. Recorded as unexplained rather than quietly renumbered.** **C-319..C-322 added 2026-09-03 from the silence-vs-fade dossier: C-319 (field statistics blind to placement — occurrence, magnitude and alignment ALL survive a roll that destroys the forecast, so an internal statistic cannot close a causal claim about a truth-referenced score); C-320 (a falsifier band tighter than its own reference's sampling noise, which fired on the known-good control); C-321 (`--keep-cubes` silently disables the multi-arm contamination guard); C-322 (the model field's H axis runs opposite to priogrid row order — naive placement correlates 0.026, the flip gives 1.0000). **C-325 added 2026-09-04: two SCREEN-2 mechanism tests measured the network at INITIALISATION and were recorded as ruling a mechanism out; the arm's gradient does explode, 33 lessons later.** **C-328 added 2026-09-05: #311's input noise leaked into the C-184 BatchNorm recalibration pass, which would have confounded the S5 screen at the BN layer with every log looking clean; second instance of the mechanism after #289's, and found by a test written for a different prose invariant.** **C-329 added 2026-09-05 from the implementation-practice post-mortem: tests that cannot fail (tautology, vacuity, zero power) — invisible to mutation testing by construction, detected by the deletion test.** **C-330/C-331/C-332 added 2026-09-05 from `/code-review max` (partial — 11 finders, no expert panel); the same pass ESCALATED C-328 to four instances (the `bn_recal_from` path and `random_flips`, the latter left unfixed by decision), C-303 to TWELVE occurrences with a new sub-form (the false prose describes a safety gate, making an absent control look present), and C-329 with two further instances, both inside the commit that registered it.** **C-326 added the same day: launcher watchdogs kill the subshell, not the process tree — an arm reported CAPPED trained on for 7 more lessons; latent everywhere else (no `STALLED` line exists in any `ANOMALIES.txt`).** **C-327 added 2026-09-04: #308's Phase-2 clip ladder was pre-registered as a discriminator whose two hypotheses, derived properly, predict the SAME outcome — C-320's fifth instance, found before it was run and at no cost.** **C-320 escalated 2026-09-04 from three to FOUR occurrences, the fourth a distinct sub-form: #308's SCREEN rule enumerated three numeric outcomes and no failure branch, so when arm B died with NaN gradients at lesson 48 no branch of the rule could be evaluated.** **C-333..C-337 added 2026-09-10 from the review of #340 (PyPI publication). C-333 records that cross-repo release ordering is unguarded in BOTH directions — C-165's 2026-07-31b update has this repo blocked for weeks by an unpublished `views-pipeline-core`, and two months later this repo is the unpublished upstream doing it to 8 views-models models; the class recurred with the arrow reversed and a human found it both times. C-334 records that the platform's house publish template carries TWO defects that each independently block a first release — reproduced by executing its own logic, not by reading it — meaning it has never successfully performed one. C-337 is a decision, not a defect: publishing 0.1.0 arms a `<1.0.0` bound on all 8 models that semver lets any future 0.x walk through.** **2026-09-14, Epic #353 (remediating `/code-review max` on PR #351): ONE new entry and FIVE updates, deduped before writing. New: C-344 (a diagnostic instrument that perturbs or kills the run it measures — the gate probe drawing from the stream it observes, and two unbounded stats buffers that OOM-killed a probe run at rc=137). Updated rather than duplicated: C-331 escalated from a diagnostic risk to a PRODUCTION one (ADR-027 §2.1 promoted `freeze_recurrent`, so a zero weight now makes a delivered forecast claim a clamp it does not apply); C-328 instance 5 with the artifact consequence recorded BEFORE the change; C-303 from twelve to FOURTEEN, then EIGHTEEN on 2026-09-15 with three found in the PR's own trail and one by the guard audit; C-329 with three review-found instances plus TWO authored inside this epic and caught by its own deletion test; C-341 EXTENDED, not resolved — deleting the input closed one path, a branch dispatch at the release version was a second. **One routing correction: issue #361 filed the pass-0 docstring as C-320 occurrence 12; it is C-303, and C-320 stays at four.** This epic produced NO measurement — it fixed traps and changed no forecast. (An earlier version of this line excepted S3 as changing future artifacts; that half of S3 was wrong and is reverted — see C-328.)** **C-346 added 2026-10-20 (`register-risk`), closing the blind spot the same day's review-rr pass named and told the user to register: six load-bearing dependencies shipped undeclared across four releases, and the whole three-link guard chain derived from the declaration rather than from the import graph. Tier 2 — the failure is a loud `ImportError`, matching C-333's tiering; the register's own two-recurrence threshold was passed at six. Deduplicated against all twelve cluster-20 members before writing: NOT merged into C-285 (same accidental-guarantor shape but inside our CI env, not the published wheel — C-285 updated instead, half closed) and NOT merged into C-336 (which is the already-registered *range* half of the same concern). Cross-referenced to C-303/C-324/C-329 rather than merged: in this class the guards existed and ran, they just derived from the wrong source. The same pass made FIVE corrections against fresh measurement rather than against the entries' own text — and three of the five were entries asserting a state the system had already left: **C-335 verified RESOLVED** (`ci.yml:47` has a `build:` job running `uv build` at `:59`, deliberately the same command publish uses; bannered in place, relocation left to the next curation pass per the C-184/C-312/C-303 precedent), **C-341's "⛔ Still unexecuted" line falsified** (`gh run list`: ten runs, four published releases v0.1.0–v0.1.3), **C-342's deferral condition declared SPENT** (it rested on C-341's stale line; the entry stays open and stays Tier 3 — only the reason for inaction expired, and whether to act is the owner's call, not this skill's), **C-285's `Location` corrected** (it cites a `pyproject.toml` test extra that no longer exists), and ⛔ **C-337's PREMISE FALSIFIED**: it asserts 8 views-models configs pin `views-hydranet>=0.1.0,<1.0.0` and asks for tightening to `<0.2.0`; measured at views-models `7bcf9851`, every live pin is already `~=0.1.1` (= `>=0.1.1,<0.2.0`) across 15 `models/*/requirements.txt`, so the work it asks for was done at #462/#484 and never read back. The real residue — views-models CI pinning `views-hydranet==0.1.1` exactly while the models resolve to the newest 0.1.x — is filed as views-models#587. **That last one is C-303's shape pointed across a repository boundary, and cluster 20 is where it is most likely, because the cited artefact is the one thing a pass of this repository never opens.** This pass registered ONE risk and resolved NONE of the clustering/demotion recommendations the review-rr pass left open.** |
-| Total Concerns    | 343                                  |
-| Open Concerns     | 189                                  |
+| Total Concerns    | 346                                  |
+| Open Concerns     | 192                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 176                                 |
+| — net active risks | 179                                 |
 | Resolved Concerns | 154                                  |
 | Last curation pass | **2026-10-20 (review-rr strategic)** — ✅ **structure CLEAN on all six derived checks**: 342 headers / 342 distinct, §Open exactly 188 and §Resolved exactly 154 matching the header, no duplicate IDs, no ID in both sections, three gaps (C-34/C-106/C-188) all documented, 13 `[DEMOTED]` headers matching 13 backlog rows, and **0 of 188 open entries lack a tier or a trigger**. ✅ **Trigger quality: 0 weak of 188** — two flagged by pattern (C-164, C-192) were both false positives on inspection, which also confirms C-164's perpetual trigger WAS rewritten as the 2026-09-10 pass claimed. ✅ **No duplicates** — four title-overlap candidates (C-75/C-265, C-189/C-233, C-296/C-331, C-303/C-308) are all distinct concerns. ⛔ **One entry changed: C-345** gains the cross-artifact challenge and its resolution (see the entry). ⚠️ **One proposed change WITHDRAWN by the reviewer before applying it:** C-248 was proposed for demotion 1→2 as being about *"the planned"* GW ruler extension — reading the entry shows a **second symptom measured 2026-08-21 (#282, PR #283)** in which the same unloaded pre-origin month *"already breaks a shipped code path, not just a planned one"*, silently zeroing the persistence baseline. **Tier 1 is correct; the proposal was made from the title.** ⛔ **NOT ACTIONED, left as recommendations (this skill does not add risks or demote unilaterally):** (a) **clustering is stale** — 21 clusters cover 120 of 188 open entries, **68 unmapped including 16 Tier-1/2** (C-225/226/228/249/250/259/290/300/317/321/322/328/338/339/341/344), six weeks and ~25 entries since the last pass; (b) **27 live Tier-4s** — 40 open at Tier 4 against the tier's own *"does not affect correctness or reliability"*, only 13 demoted; (c) ⛔ **a BLIND SPOT that has now fired twice and is unregistered: an undeclared load-bearing dependency** — `wandb` (undeclared until 2026-09-19, #381) and `pandas` (undeclared through releases 0.1.0–0.1.3, declared 2026-10-20 in #408), both shipped to PyPI; the pandas instance has a specific mechanism worth capturing, that `__init__.py`'s lazy PEP-562 `__getattr__` lets an import smoke test pass while only a real run fails. Two recurrences is this register's own threshold for a cluster. **Use `register-risk` for it.** Previous pass: **2026-09-10 (review-rr strategic)** — 3 new clusters (18 instrument integrity, 19 declared-but-inert, 20 cross-repo coordination) covering ~45 of the 112 unmapped entries; C-330 (Tier 1) and C-312 relocated → §Resolved after verifying both fixes **in source** rather than trusting their banners; C-328 bannered FIXED (verified, previously unmarked); C-189's cross-ref repointed from the merged C-188 to C-182; C-110's location marked stale (`golden_hour`/3 → `rusty_bucket`/8); C-164's perpetual trigger rewritten; §Disagreements curated for the first time — 15 entries, **0 ever marked resolved**, two now carry evidence that events answered them. **Blind spots found and deliberately NOT registered here** (review-rr does not add risks): truth-data quality has **zero** coverage; ensemble benefit is assumed rather than measured; secrets handling has one mention with publication imminent. **C-338..C-340 registered 2026-09-10 immediately after this pass, closing the three blind spots it named — C-338 (truth-data aggregate assignments; the register covered whether we measure the model correctly and not whether the reference is correct, with a live instance at views-datafactory#484), C-339 (the 8-member ensemble's benefit is assumed, and the first measurement says sample count not diversity), C-340 (no secrets convention, at the moment the repo acquires its first secret).** **C-341..C-343 added 2026-09-10 from `expert-code-review` of PR #351 (the development→main release): C-341 (Tier 2) the publish workflow's manual path could publish IRREVERSIBLY to PyPI while skipping the tag guard — tier set by irreversibility, not likelihood, since a PyPI version cannot be deleted or reused; FIXED the same day by deleting the input rather than guarding it, together with a second defect in the same never-executed file (a `tomllib` import on the runner's Python, working only by accident of the current image). C-342 (Tier 3) a production release now depends on TestPyPI, deliberately unfixed. C-343 (Tier 4) `__all__` and the lazy `__getattr__` can drift. The same review MERGED its BN finding into C-328 rather than registering it: the recal fix is a real training-time behaviour change and the release PR had claimed none.** Previous pass: **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -74,7 +74,7 @@ been named.
 |---|---|---|:--:|---|
 | **18** | **The instrument did not measure what it claims.** Not "the code is wrong" — the code ran correctly and answered a different question than the one asked. Four recurring shapes: (a) *the instrument cannot see the thing* — a statistic blind to the property under test; (b) *the decision rule cannot deliver a verdict* — branches that cannot fire, or fire on noise; (c) *the measurement was taken on the wrong object or phase* — an untrained network, a control with no dynamic range, a sentinel; (d) *the readout is assembled wrongly* — cells from different grids, unpaired RNG, a denominator that silently drops rows. | (a) C-292, C-293, C-319, C-323, C-331, C-291 · (b) C-305, C-306, C-307, C-320, C-327, C-332 · (c) C-299, C-308, C-318, C-325 · (d) C-289, C-296, C-297, C-298, C-309, C-310, C-311 · **(e) NEW 2026-10-11 — *the instrument is correct and the INPUT is pathological*: C-345** (`tower_point` faithfully reports the posterior's mode; the mode is 0 in 92% of the cells the model itself scores ≥100 fatalities). ⛔ Shape (e) inverts the cluster's usual remedy: the pre-flight question passes, because the instrument *would* show the effect if the effect were there. It is detected instead by measuring the **positive-draw fraction** of the input before trusting any point summary of it, and it is the shape most likely to reach a partner, because every structural check passes. | 2–3 (mostly method, not code) | **HIGHEST VALUE IN THE REGISTER.** 24 Tier-1/2/3 entries, every one of which cost GPU time or produced a wrong ledger row, currently read as 23 unrelated incidents. The cluster's own remedy is not 23 fixes: it is **one pre-flight question — "what would this measurement look like if the effect were absent?"** — which shapes (a), (b) and (c) all fail. |
 | **19** | **Declared but inert** — a knob, guard, or documented claim that exists, is cited, and does nothing. C-324 is the named root ("verified on a path production never takes"); C-303 is the prose form and is at **13 occurrences**. | C-303, C-324, C-329, C-334, C-271, C-302, C-264, C-130, C-216, C-263 | 1–2 | **near-term.** The cheap recurrence guard is mechanical and does not exist: for every config field and every named guard, assert a production caller. C-271 and C-302 are each a single grep. |
-| **20** | **Cross-repo and environment coordination** — this repo's correctness depends on artefacts it does not own and does not check: sibling package releases, pinned ranges, CI/lint environments, and documents cited but absent. | C-333, C-334, C-335, C-336, C-337, C-283, C-285, C-288, C-278, C-279, **C-346** (+ mapped C-165, C-245) | 1–2 | **acute now** — publication (#340) makes this repo an upstream for the first time, and C-333 records the class recurring **with the arrow reversed**: C-165 has this repo blocked for weeks by an unpublished `views-pipeline-core`; two months later it is the unpublished upstream doing it to 8 views-models models. |
+| **20** | **Cross-repo and environment coordination** — this repo's correctness depends on artefacts it does not own and does not check: sibling package releases, pinned ranges, CI/lint environments, and documents cited but absent. | C-333, C-334, C-335, C-336, C-337, C-283, C-285, C-288, C-278, C-279, **C-346**, **C-347**, **C-348** (+ mapped C-165, C-245) | 1–2 | **acute now** — publication (#340) makes this repo an upstream for the first time, and C-333 records the class recurring **with the arrow reversed**: C-165 has this repo blocked for weeks by an unpublished `views-pipeline-core`; two months later it is the unpublished upstream doing it to 8 views-models models. |
 | **21** | **Prose with a self-dating expiry** — text that was **true when written**, names the future event that would falsify it, and is never re-read when that event lands. Distinct from C-303 (prose asserting a state the code never had) and from cluster 15 (register↔code sync): here nobody was wrong, and nobody was watching. | C-165 (named root — `environment.yml` said the CI `test` job could not resolve *"until views-pipeline-core 3.0.0 is published"* and predicted *"goes green with NO change here the moment 3.0.0 ships"*; it shipped, the job went green, and the note stood **ten more weeks** through the 0.1.2 release which read that file), C-283, C-303, C-174 | 1 (mechanical) | **cheap and unbuilt.** Any comment, docstring or register line whose truth depends on an external event needs a check that re-reads it when the event occurs — a dated review marker, or an assertion on the condition itself. C-165's note stated its own expiry condition in plain text and nothing parsed it. Found 2026-10-11 while reconciling an unrelated version drift, i.e. **by luck**. |
 
 **Unmapped after this refresh: ~67 of 180.** The residue is dominated by the Tier-4 architectural
@@ -4984,6 +4984,134 @@ attach a 424 KB re-resolve to a one-line metadata fix and make an unvalidated ar
 authoritative. Its fate belongs to proposed **ADR-053** (`poetry.lock` → `uv.lock`). Recorded here
 because a committed artifact asserting a state the project has left is the C-303 shape, and this one
 is now knowingly left in place.
+
+
+---
+
+### C-347: the documented clean-room release check passes against the working tree, so it can verify nothing and say OK
+
+| Field | Value |
+|-------|-------|
+| ID | C-347 |
+| Tier | 3 |
+| Source | `falsify` claim-mode audit of the v0.1.4 release readiness (2026-10-20) — found by running the documented procedure and reading its own output |
+| Trigger | Running `docs/guides/publishing-to-pypi.md` §B's snippet **from the repository root** — which is where an operator already is when they finish a release — and reading the `OK` line as confirmation that the published wheel works |
+| Location | `docs/guides/publishing-to-pypi.md` §B ("the full clean-room import check (manual)"); contrast `.github/scripts/wheel_contract.py:69-78` (`check_installed_code`), which guards the identical hazard |
+| Cross-refs | C-329 (a check that cannot fail — this is its *manual-procedure* form rather than its test form), C-303 (prose asserting a check the procedure does not perform), C-335 (the same false-confidence class at the other end of the release path) |
+
+§B exists because the automated install-back is `--no-deps` and its contract check imports only the
+lazy top level, so neither can prove the model code loads against real dependencies. It is the **only**
+step in the release path that does, and the guide tells the operator to run it "once per meaningful
+release".
+
+⛔ **Its snippet ends in `python -c "import views_hydranet; …print('OK', views_hydranet.__file__ …)"`,
+and `python -c` puts the current directory first on `sys.path`.** Run from the repo root — the natural
+place to be at the end of a release — the import resolves to the **working tree**, the config class
+loads from the working tree, and the procedure prints `OK` plus a path. It verified nothing about the
+published artifact. Observed on 2026-10-20 during the 0.1.4 release: the output read
+`OK /home/simon/.../views-hydranet/views_hydranet/__init__.py 101 config fields`, and the same session
+nearly reported it as a passing gate. Re-run from `/tmp` it resolved inside the venv's `site-packages`
+and genuinely passed.
+
+**The repository already knows about this hazard and defends against it — in the automated path only.**
+`wheel_contract.py:69-78` asserts `module_file.startswith(purelib)` with the message *"this check read
+a source tree, not the wheel"*, and that file's docstring explains the `PYTHONPATH`/`.pth` variant at
+length. The manual twin inherited the hazard and none of the defence.
+
+**Tier 3, matching C-335's tier for the same class:** no wrong number and no corruption — the artifact
+is whatever it is. What fails is the *verification*, at the one gate that reads real dependencies, and
+the failure mode is a green-looking line. Not Tier 2 because nothing downstream is structurally
+fragile; the cost is a false belief about a release.
+
+**Fix, one line in the guide:** add the `purelib` assertion the automated check already carries, so the
+snippet fails loudly when it reads a source tree, rather than relying on the operator noticing the path
+in the output. Prefer that over telling the operator to `cd` first — a precondition stated in prose is
+the thing that failed here.
+
+---
+
+### C-348: `requires-python` is not enforced by the installer the roster actually uses, so a metadata ceiling does not keep consumers off a bad release
+
+| Field | Value |
+|-------|-------|
+| ID | C-348 |
+| Tier | 3 |
+| Source | `falsify` follow-through on the v0.1.4 release (2026-10-20) — measured against the published 0.1.4 on real PyPI, after a claim made in the release notes turned out to be false |
+| Trigger | Relying on a `pyproject.toml` metadata bound (`requires-python`, or a dependency ceiling) to keep the 8-model roster off a release known to be unserviceable for it — the next time a version is withheld by narrowing metadata rather than by not publishing it |
+| Location | `pyproject.toml:10` (`requires-python`); views-models `tools/podrun/pod_run_model.sh:164,171` (`uv venv --python 3.11`, `uv pip install`) |
+| Cross-refs | C-346 (the declared-range class; this is about whether a declared range is *enforced*, not whether it is *correct*), C-337 (the other direction: a downstream pin believed to be doing work it was not), C-333 (cross-repo coordination, cluster 20) |
+
+0.1.4 narrowed `requires-python` to `>=3.11,<3.12`, correctly (C-346's seventh instance). The release
+notes then stated that a consumer on Python 3.12+ resolving `views-hydranet~=0.1.1` "will now resolve
+**back to 0.1.3**". **Measured against the published artifact, that is true of `pip` and false of
+`uv`:**
+
+| installer, Python 3.12 | behaviour |
+|---|---|
+| `pip` | honours `Requires-Python` strictly — `pip index versions views-hydranet` lists *"Available versions: 0.1.3, 0.1.2, 0.1.1, 0.1.0"*; 0.1.4 is excluded and a range pin falls back |
+| `uv` | **selects 0.1.4 anyway**, then fails building `pandas 1.5.3` from its sdist (no cp312 wheel). Nothing is installed |
+
+⛔ **The roster uses `uv`.** So the ceiling we just shipped protects `pip` consumers and documents
+intent, and does **not** stop the production installer from selecting a version its own metadata
+excludes. The install still fails — loudly, at a pandas build, which is the pre-0.1.4 behaviour — so
+nothing regressed. What is wrong is the belief that the metadata bound is a mechanism.
+
+**Tier 3, and 2 is defensible.** The failure is loud (a build error, not a wrong number) and nothing
+downstream silently changes, which argues 3; the register's own convention is to take the lower tier
+and say so. The argument for 2 is that this is a **protection we believe we have and do not**, in the
+cluster where that has now happened three times with the arrow pointing in different directions
+(C-333, C-337, C-346). Recorded at 3 with the disagreement visible.
+
+**What this does not establish:** whether `uv` ignores `Requires-Python` generally, or only for a
+package requested directly by name. Measured here with `uv pip install --python <3.12-venv>` and with
+`--refresh` to rule out a stale cache; not isolated further, and the `uv` version was not pinned in the
+measurement. ⚠️ Anyone extending this should re-measure rather than cite it.
+
+---
+
+### C-349: mutation testing is the repository's primary guard-verification method and it runs on unverified throwaway scripts, which have now returned false verdicts
+
+| Field | Value |
+|-------|-------|
+| ID | C-349 |
+| Tier | 2 |
+| Source | `ship-it` / `falsify` guard rounds across the v0.1.4 release work (2026-10-20); the same failure was recorded as ledger **W-23** earlier without a register entry |
+| Trigger | Reporting a mutation round's verdict — "N mutations, all caught" — from a harness written for that round, without first proving the harness can distinguish a caught mutation from a failed test *invocation* |
+| Location | No repository location: that is the finding. The harnesses are ad-hoc scripts under the session scratchpad. Contrast `tests/` and `.github/`, where every other verification method this repo relies on is committed and itself tested |
+| Cross-refs | C-329 (tests that cannot fail — that entry notes this class is *"invisible to mutation testing by construction"*; this entry is the complement: mutation testing's **verdicts** can also be wrong, for a mechanical reason), C-324, C-303 |
+
+Mutation testing is how this repository decides whether a guard is real. It gated `ship-it` step 5.5,
+it is `falsify`'s entire guard mode, and the practice rests on a measurement in this repo's own records
+that guards which cannot fire were found in **9 of 18 repositories**. Every round of it, however, runs
+on a script written for that round, thrown away afterwards, and checked by nothing.
+
+**Two false verdicts on 2026-10-20, in one session, both of the same shape — success inferred from the
+wrong object:**
+
+1. A harness passed `--timeout=600` to a `pytest` without `pytest-timeout` installed. Every run exited
+   **4** on a usage error, the harness read `returncode != 0` as "mutation caught", and **two
+   genuinely surviving mutations were recorded as caught** — mutations that hardcoded `emit_core=False`
+   and `_composition = "self_zeroed"` at a call site, reinstating the exact defect the fix had removed.
+   Caught only because the verdict looked too clean and the run was repeated with the return code
+   printed.
+2. A second harness wrote to `-o /dev/null` (permission denied) with `&& echo RESOLVES` after a `tail`,
+   so a failed resolution printed success. A third, in the same session, filtered requirement strings
+   with `r.split()[0]` and therefore matched **no** `name<spec` form, which produced the conclusion
+   *"NOBODY imposes the pandas `<2` ceiling"* — false; `viewser` 6.6.4 imposes it, and the claim was
+   seconds from being written into a register correction.
+
+**Tier 2, on the consequence rather than the frequency.** A false *survived* wastes time and is
+self-correcting. A false **caught** certifies a decorative guard, and the repository then believes in
+protection it does not have — which is the precise condition C-329 and the 9-of-18 measurement exist to
+prevent. It has now happened, it was caught by luck and suspicion rather than by any mechanism, and the
+method's output is quoted in commit messages, PR bodies and register entries as evidence.
+
+**The mitigation named and not built:** a committed mutation harness that (a) refuses to run against a
+dirty tree, (b) asserts the unmutated suite is **green** before mutating, (c) asserts each mutation's
+anchor matched exactly once, and (d) treats any exit code other than the pytest pass/fail codes as
+**UNRUN**, never as caught. The W-23 ledger entry already named (a). ⛔ Registered rather than built:
+this is a tool, the release it was found in is shipped, and building it inside a release would be the
+scope expansion this register has repeatedly recorded the cost of.
 
 
 ## Disagreements
