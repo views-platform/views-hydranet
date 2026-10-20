@@ -601,54 +601,105 @@ class VisualDiagnostics:
         y_cls: np.ndarray,
         y_hat_cls: np.ndarray,
         stage_label: str,
+        *,
+        y_hat_forecast: np.ndarray,
+        forecast_label: str,
         time_indices: Optional[List[float]] = None,
-        self_zeroed: bool = False,
     ) -> None:
-        """
-        5xN Forensic Grid for Training runs.
-        Rows: [truth Reg, body E[y], truth Cls, cls gate, THE FORECAST].
-        The last row is the ACTUAL scored forecast, which differs by mode:
-        - ``self_zeroed=True`` (ZINB): forecast = the self-zeroed body ``y_hat_reg`` (NO ×gate;
-          multiplying would double-count the structural zeros).
-        - ``self_zeroed=False`` (NB=gated_NB, and legacy hurdle): forecast = ``gate × body``.
-        Cols: up to 6 sequential time steps.
+        """5xN forensic grid for training runs, plus the arrays it was drawn from.
+
+        Rows: [truth Reg, body log1p(E[y]), truth Cls, cls gate, THE FORECAST]. Columns: up to 6
+        sequential time steps. Every regression-space row is in **log1p counts**, which is the
+        space the targets are trained in (``config_initializer.TRANSFORMS["log1p"]``) and the
+        space a family head's biopsy value is already in (``_family_target_log1p_mean`` log1p's
+        it). The row labels say so, because they did not and a reader of these panels in another
+        session log1p'd an already-log1p quantity and shrank a true finding by an exponential.
+
+        ⛔ ``y_hat_forecast`` is passed IN, not composed here. This method used to compute
+        ``gate × body`` itself, with a docstring calling that "the ACTUAL scored forecast". It is
+        not: deployment emits ``log1p(compose_mean(E[Y], gate))``
+        (``hydranet_inference._emit_magnitude``), and ``gate × log1p(μ)`` is a different function
+        of the same inputs — they agree only where the gate is 1. The standing instruction is that
+        a plot must show the ACTUAL forecast and never a misleading composition, so composition
+        now happens once, in the caller, using the same helper the model trains against. A
+        required keyword rather than a defaulted one: a shadow default here would silently restore
+        the wrong composition (C-85).
+
+        The arrays are written beside the PNG as ``.npz`` **before** the figure is built. They are
+        the only durable record of the field — ``TrainingForensics`` keeps per-lesson scalars and
+        nothing else — and until now the evidence existed solely as rendered pixels, so any later
+        question about the body field cost a fresh training run. The write precedes the plot
+        because matplotlib is the part that fails (hence the ``except`` below), and the data is
+        the part that cannot be recovered.
         """
         if not self.active:
             return
+
+        self._save_biopsy_arrays(
+            stage_label,
+            y_reg=y_reg,
+            y_hat_reg=y_hat_reg,
+            y_cls=y_cls,
+            y_hat_cls=y_hat_cls,
+            y_hat_forecast=y_hat_forecast,
+            time_indices=time_indices,
+        )
 
         plt, _ = _load_mpl()  # #215: lazy matplotlib, only when active
         try:
             # Inputs are [T, H, W, C]
             n_times = min(6, y_reg.shape[0])
 
-            # 5th row = THE ACTUAL FORECAST, honest per mode (never double-gate self-zeroed).
-            # - self_zeroed (ZINB): forecast IS the self-zeroed body y_hat_reg=(1-π)μ. Row 2 and
-            #   row 5 coincide by design — for ZINB the body IS the forecast (no separate gate).
-            # - gated (NB=gated_NB, legacy hurdle): forecast = gate × body — the diffuse body
-            #   (row 2) sharpened by the classification gate (row 4).
-            if self_zeroed:
-                y_hat_forecast = y_hat_reg
-                forecast_label = "FORECAST (self-zeroed E[y])"
-            else:
-                y_hat_forecast = y_hat_cls * y_hat_reg
-                forecast_label = "FORECAST (gated: gate·body)"
-
             fig, axes = plt.subplots(5, n_times, figsize=(18, 15))
 
-            row_labels = [
-                "GROUND TRUTH (Reg)",
-                "PREDICTION: body E[y]",
-                "GROUND TRUTH (Cls)",
-                "PREDICTION: cls gate",
-                forecast_label,
-            ]
             data_rows = [y_reg, y_hat_reg, y_cls, y_hat_cls, y_hat_forecast]
             cmaps = ["magma", "magma", "viridis", "viridis", "magma"]
+
+            # ⛔ ONE colour scale per UNIT, not per row. Each row used to be min-max stretched
+            # independently, which makes "bright body over dark truth" the rendering a sparse
+            # panel ALWAYS produces: an identically-zero truth row collapses to vmin == vmax and
+            # renders flat, while a body row spanning a band of width 0.8 saturates the full
+            # colormap. Any cross-row brightness comparison read off the old figure was
+            # unfalsifiable by construction, and one was made and acted on. Rows 0/1/4 are log1p
+            # counts and share a scale.
+            #
+            # ⚠️ Row 2 (the BINARY cls truth) is on a fixed [0, 1] because it already spans it.
+            # Row 3 (the PREDICTED gate) is NOT, and sharing row 2's fixed scale over-corrected:
+            # this model's gate spans ~0.003-0.05, so [0, 1] renders the whole row black and
+            # erases the spatial structure the row exists to show — the same loss of information
+            # the shared scale was introduced to prevent, in the opposite direction. It keeps
+            # vmin = 0.0 (a probability's true floor, not a stretch) and gets its own vmax,
+            # printed on its label like the count rows'. The two are not compared for brightness
+            # against each other — one is a 0/1 indicator and one a probability — so giving row 3
+            # its own vmax costs nothing the shared scale was protecting.
+            _count_scale = self._shared_count_scale([data_rows[r] for r in (0, 1, 4)])
+            _prob_scale = (0.0, 1.0)
+            _gate = np.ravel(np.asarray(data_rows[3])[..., 0])
+            _gate = _gate[np.isfinite(_gate)]
+            _gate_max = float(_gate.max()) if _gate.size else 0.0
+            # Degenerate span falls back to 1.0 for the same reason `_shared_count_scale` does:
+            # vmin == vmax makes imshow render every panel identically.
+            _gate_scale = (0.0, _gate_max if _gate_max > 0.0 else 1.0)
+            _scales = {
+                0: _count_scale,
+                1: _count_scale,
+                4: _count_scale,
+                2: _prob_scale,
+                3: _gate_scale,
+            }
+
+            row_labels = [
+                f"GROUND TRUTH (Reg)\nlog1p counts {self._fmt_scale(_count_scale)}",
+                f"PREDICTION: body\nlog1p(E[y]) {self._fmt_scale(_count_scale)}",
+                "GROUND TRUTH (Cls)\nP(y>0) [0, 1]",
+                f"PREDICTION: cls gate\nP(y>0) {self._fmt_scale(_gate_scale)}",
+                f"{forecast_label}\nlog1p counts {self._fmt_scale(_count_scale)}",
+            ]
 
             for r_idx in range(5):
                 row_data = data_rows[r_idx]
                 feat_slice = row_data[..., 0]  # Use first target only
-                vmin, vmax = np.nanmin(feat_slice), np.nanmax(feat_slice)
+                vmin, vmax = _scales[r_idx]
 
                 for t_idx in range(n_times):
                     ax = axes[r_idx, t_idx]
@@ -1238,6 +1289,73 @@ class VisualDiagnostics:
         plt.savefig(save_path, dpi=100)
         plt.close()
         logger.info(f"📸 VisualDiagnostics: Saved {save_path}")
+
+    @staticmethod
+    def _shared_count_scale(count_rows: list) -> Tuple[float, float]:
+        """One ``(vmin, vmax)`` spanning every log1p-count row, so brightness is comparable.
+
+        ⛔ The rows used to be scaled independently, which made "bright body over dark truth" the
+        rendering a sparse panel always produces regardless of the numbers: an identically-zero
+        truth row collapses to ``vmin == vmax`` and renders flat while a narrow body band fills
+        the colormap.
+
+        ``vmin`` is pinned to 0.0 because these are counts and a floating floor would reintroduce
+        the same stretch. A degenerate span (every row all-zero) falls back to ``vmax = 1.0``:
+        ``vmin == vmax`` makes imshow render every panel identically, which is the failure this
+        helper exists to avoid, and the printed per-panel stats remain the quantitative record
+        either way.
+        """
+        finite = np.concatenate([np.ravel(np.asarray(r)[..., 0]) for r in count_rows])
+        finite = finite[np.isfinite(finite)]
+        cmax = float(finite.max()) if finite.size else 0.0
+        return (0.0, cmax if cmax > 0.0 else 1.0)
+
+    @staticmethod
+    def _fmt_scale(scale: tuple) -> str:
+        """The shared colour range, printed on the row label so it cannot be mistaken."""
+        return f"[{scale[0]:.2f}, {scale[1]:.2f}]"
+
+    def _save_biopsy_arrays(
+        self,
+        stage_label: str,
+        **arrays: object,
+    ) -> None:
+        """Persist the biopsy fields beside the PNG, so the evidence outlives the pixels.
+
+        ``TrainingForensics`` accumulates per-lesson SCALARS only — no ``savez``, no ``np.save``
+        anywhere in it — and the 5-row grid was rendered straight from in-memory tensors which
+        were then dropped. The field therefore had no durable representation in the system, so
+        answering a later question about it ("is the body bright on cells with no recent
+        conflict?") required a fresh training run on rented hardware. One ``.npz`` per biopsy
+        removes that.
+
+        ⚠️ Gated on ``self.active`` like every other diagnostic, because the caller only reaches
+        this method when visual diagnostics are on. Turning diagnostics off therefore still
+        produces no field record — decoupling the two is a separate change, deliberately not made
+        here.
+
+        Never raises: a diagnostic that can abort a multi-hour training run is worse than a
+        missing diagnostic. ``units`` is stored alongside, because the log1p-vs-counts ambiguity
+        is exactly what made these arrays hard to read in the first place.
+        """
+        try:
+            payload = {k: np.asarray(v) for k, v in arrays.items() if v is not None}
+            payload["units"] = np.array(
+                "regression rows (y_reg, y_hat_reg, y_hat_forecast) are log1p counts; "
+                "classification rows (y_cls, y_hat_cls) are P(y>0) in [0, 1]"
+            )
+            save_path = os.path.join(
+                self.dirs["training"], f"biopsy_{_safe_stage_label(stage_label)}.npz"
+            )
+            np.savez_compressed(save_path, **payload)
+            logger.info(f"💾 VisualDiagnostics: Saved {save_path}")
+        except Exception:
+            logger.error(
+                "VisualDiagnostics: failed to persist biopsy arrays at '%s' — the PNG still "
+                "follows, but this field is not recoverable without a re-run.",
+                stage_label,
+                exc_info=True,
+            )
 
     def _calculate_stats(self, data: np.ndarray) -> str:
         """Returns μ, σ, min, max string."""

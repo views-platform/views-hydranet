@@ -13,7 +13,11 @@ What they do NOT prove: that the workflow runs. Only a live dispatch does that, 
 behind #351 (the S10 gate).
 """
 
+import ast
 import re
+import subprocess
+import sys
+from importlib.metadata import packages_distributions
 from pathlib import Path
 
 import pytest
@@ -249,4 +253,178 @@ class TestNoPathPublishesWhileSkippingTheTagGuard:
         assert "inputs." not in PUBLISH.read_text(), (
             "a workflow_dispatch input is back. The 'Stop after TestPyPI' checkbox was removed "
             "because unticking it published an untagged version permanently (C-341)."
+        )
+
+
+def _third_party_imports() -> dict[str, set[str]]:
+    """Every non-stdlib, non-first-party module `views_hydranet` imports, at ANY nesting depth.
+
+    Depth matters: `sklearn` is imported inside `TrainingForensics._calculate_cls_metric`, so a
+    module-top-only scan would have missed the one undeclared import whose failure arrives
+    mid-training rather than at import.
+    """
+    # Git-tracked files only, not `rglob`. `views_hydranet/wandb/` is a gitignored runtime dump
+    # that lives INSIDE the package directory (wandb's code-save writes `run-*/tmp/code/`), so a
+    # glob would treat whatever lands there as an import site of this package — reporting its
+    # imports as undeclared dependencies, or raising `SyntaxError` out of the test on a file that
+    # does not parse.
+    tracked = subprocess.run(
+        ["git", "ls-files", "views_hydranet/*.py"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    assert len(tracked) > 50, f"git ls-files returned {len(tracked)} package files — scan is blind"
+
+    roots: dict[str, set[str]] = {}
+    for path in sorted(REPO / p for p in tracked):
+        # Explicit encoding: 57 of the 67 package files carry non-ASCII docstrings, so the
+        # platform default decodes them wrongly wherever it is not UTF-8.
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                # level > 0 is a relative import, which is first-party by construction.
+                names = [node.module] if (node.level == 0 and node.module) else []
+            else:
+                continue
+            for name in names:
+                root = name.split(".")[0]
+                if root in sys.stdlib_module_names or root == "views_hydranet":
+                    continue
+                roots.setdefault(root, set()).add(str(path.relative_to(REPO)))
+    return roots
+
+
+def _partition(
+    found: dict[str, set[str]], declared: set[str]
+) -> tuple[dict[str, set[str]], set[str]]:
+    """Split the imports into (undeclared, unresolvable) against a declared-distribution set.
+
+    Separate from the test that uses it only so the `unresolvable` branch is reachable with a
+    synthetic input — it is the branch that must never be quietly widened into a skip.
+
+    ⛔ The declared set is checked BEFORE the distribution is resolved, and the order is the whole
+    correctness of this function. Resolving first made the guard RED on a correct repo:
+    `matplotlib` is imported inside `VisualDiagnostics._load_mpl` and declared in the `viz` extra,
+    which neither `pip install .` nor `environment.yml`'s pip list installs. It therefore has no
+    resolvable distribution in the environment CI actually builds, and a resolve-first order filed
+    a correctly declared dependency as `unresolvable`. CI passed only because `pyod` happens to
+    pull matplotlib in unpinned — precisely the accidental transitive guarantor this guard exists
+    to catch.
+    """
+    # One call: `packages_distributions()` is not cached and re-walks every distribution on
+    # sys.path, so calling it per module repeated a full metadata scan ~10 times.
+    providers_by_module = packages_distributions()
+    undeclared: dict[str, set[str]] = {}
+    unresolvable: set[str] = set()
+    for module, files in found.items():
+        if module.lower().replace("_", "-") in declared:
+            # The import name is the distribution name. True for all but `sklearn`, and the only
+            # check available for a declared dependency that is not installed.
+            continue
+        providers = providers_by_module.get(module)
+        if not providers:
+            unresolvable.add(module)
+            continue
+        if not any(p.lower().replace("_", "-") in declared for p in providers):
+            undeclared[module] = files
+    return undeclared, unresolvable
+
+
+class TestEveryImportIsDeclared:
+    """The guard chain derived every link from `pyproject`, and so could not see this class.
+
+    `REQUIRED_DEPENDENCIES` is pinned to `pyproject` (above), and the wheel metadata is pinned to
+    `REQUIRED_DEPENDENCIES`. Every link resolves back to the declaration — never to the imports,
+    which is where the truth is. So an import that nobody declared was invisible to all of it, and
+    the class shipped **six times**: `wandb` (undeclared until #381), `pandas` (undeclared through
+    releases 0.1.0–0.1.3), then `numpy`, `pydantic`, `tqdm` and `sklearn`, all four found on
+    2026-10-20 by walking the import graph rather than re-reading the declaration.
+
+    Each one resolved at install time anyway, through some other package's transitive choice —
+    which is why nothing failed, and why nothing caught it. `sklearn` arrived via
+    `views-pipeline-core -> viewser -> pyod -> scikit-learn`: three hops, the third an
+    outlier-detection package this repo never imports.
+
+    This is a permanent guard in a shared file, which the design preferences say to avoid in favour
+    of a bounded local change. It is here because the bounded local change **is** the declaration,
+    and the declaration was made correctly five times while the defect kept recurring: the thing
+    that recurs is nobody checking. Six instances and four published wheels is the overhead earned.
+
+    What it does NOT prove: that a declared range is *right*, or that a declared dependency is
+    still used. Only that nothing load-bearing is missing.
+    """
+
+    def _declared(self) -> set[str]:
+        import tomllib
+
+        project = tomllib.loads((REPO / "pyproject.toml").read_text())["project"]
+        specs = list(project["dependencies"])
+        for extra in project.get("optional-dependencies", {}).values():
+            specs.extend(extra)
+        return {
+            re.split(r"[\s\[\(><=!;~]", spec.strip())[0].lower().replace("_", "-")
+            for spec in specs
+        }
+
+    def test_the_scan_actually_found_the_imports(self):
+        """Without this, a walker that silently returns {} makes the test below vacuously green —
+        the C-329 shape. Asserted on torch because it is the one import that cannot go away."""
+        found = _third_party_imports()
+        assert len(found) >= 5, (
+            f"the import scan found only {sorted(found)} — the walker is broken"
+        )
+        assert len(found.get("torch", ())) > 40, (
+            f"torch was found in {len(found.get('torch', ()))} files; it is imported by most of "
+            "the package, so a low count means the scan is missing whole files"
+        )
+        # torch cannot prove the scan reaches NESTED imports — it is module-top in every one of
+        # those files, so a depth-0-only walker still finds it in >40. `sklearn` is imported at
+        # function level and nowhere else in the package, which makes it the one discriminator:
+        # restricting the walker to `tree.body` was a mutation that left this class green until
+        # this assertion existed, and it is the mutation that re-hides the sklearn instance.
+        assert "sklearn" in found, (
+            "sklearn was not found. It is imported inside "
+            "`TrainingForensics._calculate_cls_metric` and at no module top, so its absence means "
+            "the scan is not descending into function bodies — the depth this guard needs"
+        )
+
+    def test_an_uninstalled_import_is_reported_rather_than_passed_over(self):
+        """The `unresolvable` branch had no test, and neutering it (`unresolvable = set()`) left
+        the class green — a surviving mutation. An uninstalled import cannot be checked against
+        the declaration at all, so passing over it is the one outcome that must be impossible:
+        an incomplete environment and the next undeclared import look identical from here."""
+        undeclared, unresolvable = _partition(
+            {"a_module_no_distribution_provides": {"synthetic"}}, self._declared()
+        )
+        assert unresolvable == {"a_module_no_distribution_provides"}
+        assert not undeclared, "an unresolvable module must not be silently counted as declared"
+
+    def test_a_declared_dependency_that_is_not_installed_still_counts_as_declared(self):
+        """`matplotlib` is the live case: imported inside `VisualDiagnostics._load_mpl`, declared
+        in the `viz` extra, and installed by neither `pip install .` nor `environment.yml`'s pip
+        list. A resolve-before-declared order filed it as `unresolvable` and turned the guard red
+        on a correct repo — green in CI only because `pyod` pulls matplotlib in unpinned.
+
+        Asserted on a name that is declared but certainly absent from site-packages, so the test
+        does not depend on whether matplotlib happens to be installed where it runs."""
+        declared = self._declared() | {"a-declared-but-absent-distribution"}
+        undeclared, unresolvable = _partition(
+            {"a_declared_but_absent_distribution": {"synthetic"}}, declared
+        )
+        assert not unresolvable, "a declared dependency must not need to be installed to pass"
+        assert not undeclared
+
+    def test_every_third_party_import_is_a_declared_dependency(self):
+        undeclared, unresolvable = _partition(_third_party_imports(), self._declared())
+
+        assert not unresolvable, (
+            f"cannot resolve a distribution for {sorted(unresolvable)} — not installed in this "
+            "environment, so whether they are declared cannot be checked"
+        )
+        assert not undeclared, "undeclared load-bearing imports:\n" + "\n".join(
+            f"  {module}: {sorted(files)}" for module, files in sorted(undeclared.items())
         )

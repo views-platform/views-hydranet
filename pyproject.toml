@@ -1,6 +1,6 @@
 [project]
 name = "views-hydranet"
-version = "0.1.3"
+version = "0.1.4"
 description = "views-hydranet is a package that contains modeling procedure, evaluation and forecasting using HydraNet implemented in PyTorch"
 authors = [
     {name = "Dylan",email = "52908667+smellycloud@users.noreply.github.com"}
@@ -15,18 +15,90 @@ dependencies = [
     # Imported at five sites (training_engine.py, utils.py: `wandb.run`, `wandb.log`). Until
     # 2026-09-19 it was undeclared and arrived only through views-pipeline-core's pin (#381).
     # Range matches views-pipeline-core 3.3.0's; the two names we use exist unchanged on 0.30.0.
-    "wandb>=0.18.7,<1.0"
+    "wandb>=0.18.7,<1.0",
+    # ⛔ UNDECLARED until 2026-10-20 — the #381 defect a second time, and it shipped in 0.1.0
+    # through 0.1.3. pandas is imported at module top by SEVEN production modules and is on the
+    # production path for EVERY run type: `manager/hydranet_manager.py:152` calls
+    # `VolumeHandler.from_df(df, ...)`, so a training, evaluation or forecast run cannot start
+    # without it.
+    #   utils/data_sniffer.py        pd.api.types, pd.DataFrame, pd.MultiIndex
+    #   utils/data_fetcher.py        pd.DataFrame, pd.MultiIndex
+    #   utils/volume_handler.py      pd.DataFrame
+    #   utils/feature_scaler.py      pd.api.types, pd.DataFrame
+    #   utils/utils_logging.py       pd.DataFrame
+    #   manager/hydranet_manager.py  pd.DataFrame
+    #   utils/visual_diagnostics.py  pd.DataFrame, pd.MultiIndex  (viz extra, never headless)
+    #
+    # ⚠️ Why a bare `import views_hydranet` did not catch it: `__init__.py`'s PEP 562 lazy
+    # `__getattr__` means pandas is not loaded until `HydranetManager` is touched. So an import
+    # smoke test passes and only a real run fails — which is how this reached PyPI four times.
+    #
+    # Range MATCHED to views-pipeline-core's `pandas = ">=1.5.3,<3.0"`, deliberately not
+    # invented: that package documents the floor (the `pandas <2.0` ecosystem lock across eight
+    # views-* packages, #308) and the ceiling (pandas-1 pickles in model caches are untested
+    # against pandas 3). We use only `pd.DataFrame`, `pd.MultiIndex` and `pd.api.types`, so our
+    # own needs bind nothing — the ecosystem does. Locked here at 1.5.3.
+    #
+    # ⚠️ This DECLARES the dependency; it does not remove it. Removal is proposed ADR-072 and
+    # planned in `reports/2026-08-13_frame_native_input_dossier/` (PF-0 there is this change,
+    # deliberately separable so honesty does not wait on the migration).
+    "pandas>=1.5.3,<3.0",
+    # ⛔ The SAME defect, four more times, found 2026-10-20 by walking the import graph instead of
+    # reading the declaration — which is how `wandb` (#381) and `pandas` (above) were both missed.
+    # All four are load-bearing and all four resolved ONLY through somebody else's transitive
+    # choice, so each shipped in 0.1.0 through 0.1.3. Nothing was broken: that was equally true of
+    # wandb and pandas, for four releases each.
+    #
+    #   import      sites                                            only guarantor before today
+    #   numpy       21 modules, module-top                           views-frames -> numpy<3,>=1.26
+    #   pydantic    utils/config_initializer.py, module-top          v-p-core -> viewser -> pydantic
+    #   tqdm        train/training_engine.py, utils/hydranet_         v-p-core -> viewser -> tqdm
+    #               inference.py, both module-top
+    #   sklearn     utils/training_forensics.py:344, FUNCTION-level   v-p-core -> viewser -> pyod
+    #                                                                -> scikit-learn
+    #
+    # ⚠️ `sklearn` is the fragile one and is declared for that reason, not because it is heavy
+    # duty here: three hops, and the third is `pyod`, an outlier-detection package this repo never
+    # imports and whose dropping scikit-learn nothing here would notice. Because the import is
+    # inside `_calculate_cls_metric`, the failure is not at import — it is mid-training, when the
+    # forensic computes AP/AUC, hours in.
+    #
+    # Ranges MATCHED to the upstream that already declares each, never invented (the `pandas`
+    # precedent above), and each read off the PUBLISHED metadata rather than what happens to be
+    # installed here:
+    #   numpy     `views-frames` 1.11.0  `numpy<3,>=1.26`       (our own direct dependency)
+    #   pydantic  `viewser` 6.6.4        `pydantic<3.0.0,>=2.0.0`
+    #   tqdm      `viewser` 6.6.4        `tqdm<5.0.0,>=4.66.0`
+    # ⚠️ The effective numpy ceiling is `viewser`'s `<2.0.0`, not the `<3` written here — same
+    # shape as the pandas `<3.0` above, where viewser's `<2.0.0` also binds first. We write our
+    # direct dependency's range and let the resolver intersect.
+    #
+    # ⛔ `scikit-learn` is the exception and its range is OURS, not matched. **No published
+    # package in our dependency tree declares scikit-learn** — not views-pipeline-core, viewser,
+    # views-frames or views-evaluation (all four checked, 2026-10-20). It reached this environment
+    # through `pyod`, whose own requirement is visible only once installed. So there is no upstream
+    # range to inherit, and our own needs bind: `sklearn.metrics.average_precision_score` and
+    # `roc_auc_score`, stable across the whole 1.x line. Deliberately wide, with the ceiling only
+    # because a 2.x would promise nothing.
+    # ⚠️ The floor is 1.1.3 rather than 1.0 because of OUR `requires-python = ">=3.11"`, not
+    # because of the API: scikit-learn 1.0.2 advertises `Requires-Python >=3.7` and ships **zero
+    # cp311 wheels**, so a backtracking resolver can select it as "compatible" and then fail
+    # building the sdist against modern numpy. 1.1.3 is the first release with cp311 wheels.
+    "numpy>=1.26,<3",
+    "pydantic>=2.0,<3.0",
+    "tqdm>=4.66,<5.0",
+    "scikit-learn>=1.1.3,<2.0"
 ]
 
-# issue #215: matplotlib is imported lazily by VisualDiagnostics (optional plotting stack). Declare it
-# as an OPTIONAL extra so models that enable diagnostics (diagnostic_visualizations=True) can pin it via
-# `views-hydranet[viz]`; the default headless run path needs no plotting stack.
 [project.urls]
 Homepage = "https://github.com/views-platform/views-hydranet"
 Repository = "https://github.com/views-platform/views-hydranet"
 Issues = "https://github.com/views-platform/views-hydranet/issues"
 Changelog = "https://github.com/views-platform/views-hydranet/releases"
 
+# issue #215: matplotlib is imported lazily by VisualDiagnostics (optional plotting stack). Declare it
+# as an OPTIONAL extra so models that enable diagnostics (diagnostic_visualizations=True) can pin it via
+# `views-hydranet[viz]`; the default headless run path needs no plotting stack.
 [project.optional-dependencies]
 viz = ["matplotlib>=3.8,<4"]
 

@@ -185,6 +185,26 @@ def _batchnorm_eval(model: nn.Module):
             m.train()
 
 
+def _merge_fed_max(current: float | None, window_values: list[float] | None) -> float | None:
+    """Fold one window's feedback-gradient norms into the lesson's running max.
+
+    ``None`` means NOT MEASURED and is distinct from ``0.0``, which means measured-and-zero. The
+    distinction is the whole point: the feedback wire is off on every roster config
+    (``ss_backprop_through_feedback`` defaults False), so the sink stays empty, and the old
+    ``0.0`` initialiser wrote a number indistinguishable from a wire that was on with a dead
+    gradient. Four validator docstrings in `config_initializer` name that exact misreading.
+
+    Extracted for one reason: both directions are then testable without driving a scheduled-
+    sampling family run through `training_loop`, and the case that matters most —
+    ``_merge_fed_max(None, [0.0]) == 0.0``, a genuine measured zero which must NOT be blanked —
+    is otherwise unreachable from any test in the suite.
+    """
+    if not window_values:
+        return current
+    window_max = max(window_values)
+    return window_max if current is None else max(current, window_max)
+
+
 #: The fixed leading columns of the trajectory CSV. The per-task columns follow.
 _TRAJECTORY_BASE_COLUMNS = [
     "lesson",
@@ -372,19 +392,34 @@ def _family_target_log1p_mean(reg: torch.Tensor, family) -> torch.Tensor:
     return torch.log1p(torch.stack(means, dim=1))  # [B, n_reg, H, W]
 
 
-def _family_composed_mean_log1p(reg, family, gate, composition, threshold):
+def _family_composed_mean_log1p(reg, family, gate, composition, threshold, *, emit_core=False):
     """``log1p(compose_mean(E[Y|body], gate))`` — the DIFFERENTIABLE analogue of a composed draw.
 
     Used as the straight-through surrogate for BPTT-SA (#308). It must be the *composed* mean, not
     ``_family_target_log1p_mean``: that one ignores the gate entirely, so it is the analogue of an
     UNCOMPOSED draw and would push gradient for a quantity the forward pass never produced.
 
-    Mirrors ``hydranet_inference._emit_magnitude``'s family branch, which is what deployment emits.
+    ``emit_core`` (ADR-068) selects ``family.mean_core``, the π-stripped BULK body, exactly as
+    ``hydranet_inference._emit_magnitude`` does under the ``emit_family_core`` config flag. It is a
+    CALLER's choice rather than a config read here, because the callers differ and the difference
+    is not cosmetic: under ``zinb + emit_family_core + soft_gate`` — the mandated ``ZINBcore``
+    shape, since config rule (2) requires a core-emitting zinb to declare a gate — deployment emits
+    ``log1p(gate × μ_core)`` while ``family.mean`` gives ``log1p(gate × (1−π)μ)``, the π-and-gate
+    double count rule (1) forbids.
+
+    ⚠️ Only the biopsy forecast row passes it. The two feedback callers — this helper's use as the
+    straight-through surrogate, and ``_family_feedback_log1p``'s 'mean' branch — still use
+    ``family.mean`` unconditionally and so do NOT mirror deployment under that flag. Noted and
+    deliberately not fixed with the release: both are training-exposure paths, so changing them
+    changes a forecast. The surrogate's sibling ``fed`` draw has the same gap (``family.sample``,
+    never ``sample_core``), which is C-234's shape inside the training engine rather than
+    inference.
     """
     npar = family.n_params
     n_reg = reg.shape[1] // npar
+    mean_fn = family.mean_core if emit_core else family.mean
     mus = torch.stack(
-        [family.mean(reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1)) for j in range(n_reg)],
+        [mean_fn(reg[:, j * npar : (j + 1) * npar].permute(0, 2, 3, 1)) for j in range(n_reg)],
         dim=1,
     )
     if composition != "self_zeroed":
@@ -392,6 +427,25 @@ def _family_composed_mean_log1p(reg, family, gate, composition, threshold):
 
         mus = compose_mean(mus, gate[:, :n_reg], composition, threshold)
     return torch.log1p(mus)
+
+
+def _biopsy_forecast_label(composition, emit_core):
+    """The biopsy forecast row's label, derived from what the row was actually BUILT with.
+
+    It used to be keyed on ``family.self_zeroed``, which labelled a gate-composed field
+    "self-zeroed E[y]" for every ``ZINBcore`` arm: ``emit_family_core`` makes a zinb NOT
+    self-zeroed (``config_initializer``: ``is_self_zeroed_family = raw_self_zeroed and not
+    self.emit_family_core``) and rule (2) then REQUIRES it to declare a gate, so the family
+    attribute and the applied composition disagree exactly where the flag is on.
+
+    A pure function rather than four lines inline, because a label built inside ``train()``'s
+    biopsy loop cannot be asserted without a full training run — and an unassertable label is how
+    the wrong one survived.
+    """
+    body = "E[y|core]" if emit_core else "E[y]"
+    if composition == "self_zeroed":
+        return f"FORECAST (self_zeroed {body})"
+    return f"FORECAST log1p({composition}({body}, gate))"
 
 
 def _family_feedback_log1p(reg, family, mode, gate, composition, threshold, generator=None):
@@ -1085,6 +1139,9 @@ def train(
     # 5. STAGE 5 DIAGNOSTIC
     acc_y_reg: list[np.ndarray] = []
     acc_yh_reg: list[np.ndarray] = []
+    acc_yh_fc: list[np.ndarray] = []
+    # Set in the biopsy loop beside acc_yh_fc; initialised here so a reorder cannot NameError.
+    _biopsy_fc_label = "FORECAST"
     acc_y_cls: list[np.ndarray] = []
     acc_yh_cls: list[np.ndarray] = []
     acc_months = []
@@ -1172,56 +1229,103 @@ def train(
 
         # Re-run the midpoint steps in eval mode for diagnostic capture only
         model.eval()
-        h_diag = model.init_hTtime(hidden_channels=model.base, H=window_H, W=window_W).to(device)
-        with torch.no_grad():
-            for i in range(seq_len - 1):
-                t0 = train_tensor[:, i, :, :, :]
-                t1 = train_tensor[:, i + 1, :, :, :]
-                # ADR-060 I3 / C-157: the model was widened for statics — the diagnostic biopsy
-                # must re-attach them too, exactly like the main forward, or this forward crashes
-                # (N dynamic channels into an N+static-channel model).
-                t0_input = _attach_static_channels(t0[:, idx.feat, :, :], t0, idx)
-                output_diag = model(t0_input, h_diag)
-                t1_pred, t1_pred_class, h_diag = (
-                    output_diag.reg,
-                    output_diag.cls,
-                    output_diag.h_next,
-                )
-
-                if biopsy_start <= i < biopsy_end:
-                    y_reg = t1[:, idx.reg, :, :]
-                    y_cls = t1[:, idx.cls, :, :]
-                    acc_y_reg.append(y_reg[0].permute(1, 2, 0).cpu().numpy())
-                    # A family head emits n_params channels/target; collapse to per-target
-                    # log1p(E[y]) so the biopsy's body + E[y] rows are 3-channel like the truth
-                    # and gate (else y_hat_cls * y_hat_reg mis-broadcasts and the forensic plot is
-                    # skipped). Mirrors _emit_magnitude's family branch. Legacy = unchanged.
-                    _yh_reg = t1_pred
-                    _fam = resolve_family(config.get("output_distribution", "standard"))
-                    if _fam is not None:
-                        _yh_reg = _family_target_log1p_mean(t1_pred, _fam)  # [B, n_reg, H, W]
-                    acc_yh_reg.append(_yh_reg[0].permute(1, 2, 0).cpu().numpy())
-                    acc_y_cls.append(y_cls[0].permute(1, 2, 0).cpu().numpy())
-                    acc_yh_cls.append(
-                        torch.sigmoid(t1_pred_class[0]).permute(1, 2, 0).cpu().numpy()
+        # ⛔ The biopsy is a DIAGNOSTIC and must not be able to kill a multi-hour run. Since
+        # the forecast row started composing (`_family_composed_mean_log1p` above), this
+        # block runs real family + composition code on live tensors, and the only `try` in
+        # the region guards the time-index lookup ~80 lines up — a raise here aborted
+        # `train()`. `finally` restores train mode: an escape that skipped `model.train()`
+        # would leave the rest of the run in eval mode, which is far worse than a lost plot.
+        _biopsy_ok = True
+        try:
+            h_diag = model.init_hTtime(hidden_channels=model.base, H=window_H, W=window_W).to(
+                device
+            )
+            with torch.no_grad():
+                for i in range(seq_len - 1):
+                    t0 = train_tensor[:, i, :, :, :]
+                    t1 = train_tensor[:, i + 1, :, :, :]
+                    # ADR-060 I3 / C-157: the model was widened for statics — the diagnostic biopsy
+                    # must re-attach them too, exactly like the main forward, or this forward
+                    # crashes (N dynamic channels into an N+static-channel model).
+                    t0_input = _attach_static_channels(t0[:, idx.feat, :, :], t0, idx)
+                    output_diag = model(t0_input, h_diag)
+                    t1_pred, t1_pred_class, h_diag = (
+                        output_diag.reg,
+                        output_diag.cls,
+                        output_diag.h_next,
                     )
-                    if time_idx >= 0:
-                        m_id = sample_handler.data[i + 1, 0, 0, time_idx]
-                        acc_months.append(m_id)
-        model.train()
 
-        if acc_y_reg:
-            # self-zeroed families (zinb) forecast the self-zeroed body directly (no ×gate); NB
-            # (and legacy) forecast gate × body. Tell the biopsy which, so its forecast is honest.
-            _bfam = resolve_family(config.get("output_distribution", "standard"))
+                    if biopsy_start <= i < biopsy_end:
+                        y_reg = t1[:, idx.reg, :, :]
+                        y_cls = t1[:, idx.cls, :, :]
+                        acc_y_reg.append(y_reg[0].permute(1, 2, 0).cpu().numpy())
+                        # A family head emits n_params channels/target; collapse to per-target
+                        # log1p(E[y]) so the biopsy's body + E[y] rows are 3-channel like the truth
+                        # and gate (else y_hat_cls * y_hat_reg mis-broadcasts and the forensic plot
+                        # is skipped). Mirrors _emit_magnitude's family branch. Legacy = unchanged.
+                        _yh_reg = t1_pred
+                        _fam = resolve_family(config.get("output_distribution", "standard"))
+                        if _fam is not None:
+                            _yh_reg = _family_target_log1p_mean(t1_pred, _fam)  # [B, n_reg, H, W]
+                        acc_yh_reg.append(_yh_reg[0].permute(1, 2, 0).cpu().numpy())
+                        # ⛔ THE FORECAST ROW IS COMPOSED HERE, with the same helper the straight-
+                        # through surrogate uses and deployment mirrors
+                        # (`hydranet_inference._emit_magnitude`): log1p(compose_mean(E[Y], gate)).
+                        # `biopsy_training_performance` used to form `gate × body` itself from the
+                        # ALREADY-log1p body, and `gate · log1p(μ)` is not `log1p(gate · μ)` — they
+                        # agree only where the gate is 1. Its docstring called that "the ACTUAL
+                        # scored forecast", which is the C-303 shape, and it broke the standing
+                        # instruction that a plot shows the actual forecast and never a misleading
+                        # composition.
+                        if _fam is not None:
+                            _composition = config.get("forecast_composition", "self_zeroed")
+                            _emit_core = bool(config.get("emit_family_core", False))
+                            _yh_fc = _family_composed_mean_log1p(
+                                t1_pred,
+                                _fam,
+                                torch.sigmoid(t1_pred_class),
+                                _composition,
+                                config.get("gate_threshold"),
+                                emit_core=_emit_core,
+                            )
+                            _biopsy_fc_label = _biopsy_forecast_label(_composition, _emit_core)
+                        else:
+                            # Legacy point heads are retired by the scope lock and
+                            # `_emit_magnitude` composes NOTHING for them ("identity — reg is
+                            # already the log1p-space point prediction"), so there is no deployment
+                            # rule to mirror. Keep the historical gate×body and SAY that is what it
+                            # is, rather than inventing a composition for a path nobody runs.
+                            _yh_fc = torch.sigmoid(t1_pred_class) * _yh_reg
+                            _biopsy_fc_label = "FORECAST (legacy gate·log1p body)"
+                        acc_yh_fc.append(_yh_fc[0].permute(1, 2, 0).cpu().numpy())
+                        acc_y_cls.append(y_cls[0].permute(1, 2, 0).cpu().numpy())
+                        acc_yh_cls.append(
+                            torch.sigmoid(t1_pred_class[0]).permute(1, 2, 0).cpu().numpy()
+                        )
+                        if time_idx >= 0:
+                            m_id = sample_handler.data[i + 1, 0, 0, time_idx]
+                            acc_months.append(m_id)
+        except Exception:
+            _biopsy_ok = False
+            logger.error(
+                "Training: diagnostic biopsy failed — skipping the plot, training continues.",
+                exc_info=True,
+            )
+        finally:
+            model.train()
+
+        if acc_y_reg and _biopsy_ok:
+            # `forecast_label` names the composition the row was actually built with, so the
+            # figure cannot claim a composition it did not apply.
             viz.biopsy_training_performance(
                 np.stack(acc_y_reg),
                 np.stack(acc_yh_reg),
                 np.stack(acc_y_cls),
                 np.stack(acc_yh_cls),
                 stage_label,
+                y_hat_forecast=np.stack(acc_yh_fc),
+                forecast_label=_biopsy_fc_label,
                 time_indices=acc_months,
-                self_zeroed=bool(_bfam is not None and _bfam.self_zeroed),
             )
 
     # log each sequence/timeline/batch
@@ -1422,7 +1526,18 @@ def training_loop(
     # losses → CSV. config.trajectory_log_path=None (default) ⇒ no hooks, no file, byte-unchanged.
     _traj_path = config.get("trajectory_log_path")
     _traj_file = _traj_writer = None
-    _traj_acc = {"gate_sum": 0.0, "gate_n": 0, "fed_max": 0.0}
+    # ⛔ `fed_max` starts at None, NOT 0.0. It measures gradient through the autoregressive
+    # feedback wire, which `_attach_feedback_grad_clip` only ever feeds when
+    # `ss_backprop_through_feedback` is True — and that defaults False
+    # (`config_initializer.py:266`) and is set by no roster config. A 0.0 initialiser therefore
+    # wrote a real-looking zero on every production run, making "the wire is off" and "the wire
+    # is on and the gradient died" the same three characters in the CSV. This repo's own
+    # validator docstrings say so four times — "fed_grad_max logs a constant 0.0 that reads as a
+    # healthy gradient" — and two validators exist to block the two DANGEROUS configurations
+    # while the ordinary one, which is every run we ship, kept emitting it. None ⇒ blank cell
+    # ⇒ `read_csv` gives NaN ⇒ "not measured", which is the truth. Matches the per-task columns,
+    # which already blank rather than zero when a value is unavailable.
+    _traj_acc: dict = {"gate_sum": 0.0, "gate_n": 0, "fed_max": None}
     _traj_task_cols: list[str] = []
     if _traj_path:
         import csv as _csv
@@ -1586,8 +1701,7 @@ def training_loop(
                     # The hooks fire DURING backward, so the sink is only populated here. Max, not
                     # mean: one step's blow-up is what overflows float32, and a mean over ~383
                     # steps would bury it.
-                    if _fed_sink:
-                        _traj_acc["fed_max"] = max(_traj_acc["fed_max"], max(_fed_sink))
+                    _traj_acc["fed_max"] = _merge_fed_max(_traj_acc["fed_max"], _fed_sink)
                 if _fed_sink is not None:
                     _fed_sink.clear()
 
@@ -1671,14 +1785,14 @@ def training_loop(
                             lesson_reg / config["windows_per_lesson"],
                             lesson_cls / config["windows_per_lesson"],
                             _gm,
-                            _traj_acc["fed_max"],
+                            "" if _traj_acc["fed_max"] is None else _traj_acc["fed_max"],
                         ]
                         + _pt_row
                     )
                     _traj_file.flush()
                     _traj_acc["gate_sum"] = 0.0
                     _traj_acc["gate_n"] = 0
-                    _traj_acc["fed_max"] = 0.0
+                    _traj_acc["fed_max"] = None
 
                 # Gradient Clipping. C-314: the threshold used to be the literal 1.0 while the
                 # only config field was the on/off bool, so it could not be tuned from a config at
