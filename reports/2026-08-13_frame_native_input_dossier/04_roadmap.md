@@ -72,7 +72,7 @@ free, and one new decoder has to be written. The S0–S6 spine above stands; thi
 contents.
 
 ## S0 — governance + the separable honesty fix
-- **PF-0:** declare pandas in `pyproject.toml`. **Independent of everything else** — it removes a live
+- ✅ **PF-0 — DONE 2026-10-20.** `pandas>=1.5.3,<3.0` declared. **Was independent of everything else** — it removed a live
   risk from a published package (the #381 class) and needs no greenlight. Do it first, alone.
 - **PF-1 (human):** review ADR-072; resolve ADR-071's ordering lock, which is recorded only in a document
   that is itself still `proposed/`.

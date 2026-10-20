@@ -31,9 +31,11 @@ datafactory-migration dossier and ADR-071.
 4. ~~**The one non-trivial transform already has a proven numpy twin**~~ — ⛔ **superseded by something
    better**: the numpy twin is *already the only path feeding the volume*. Nothing has to move; the pandas
    half is deleted (`03_harness.md §1.4`).
-5. **Latent fragility to close**: pandas is an *undeclared but load-bearing* dependency (7 modules, absent
-   from `pyproject.toml`). ✅ holds, and it shipped in **release 0.1.2** this way. **PF-0 fixes this in one
-   line, independent of the rest of the program.**
+5. ~~**Latent fragility to close**: pandas is an *undeclared but load-bearing* dependency (7 modules,
+   absent from `pyproject.toml`).~~ ✅ **CLOSED 2026-10-20 — `PF-0` is DONE.** `pandas>=1.5.3,<3.0` is
+   now declared, with the seven import sites and the range's provenance in the comment. It held when
+   written and it shipped undeclared in **0.1.0 through 0.1.3**; it does not hold any more. ⚠️ **This
+   declares the dependency, it does not remove it** — removal is still the whole point of this program.
 
 ## Governing gate (non-negotiable)
 **Byte-identical parity**: for the same v2 inputs, the frame-native path must produce a model input volume
@@ -88,7 +90,7 @@ scatter indices and as channel values (`identity_cols` lists `row`/`col`). Every
 - [x] **Harness written**, with the 18-step handshake spec and an 11-item pre-flight checklist (`03`), 2026-10-19.
 - [x] **Experiment log opened** (`07`), 2026-10-19.
 - [x] **05 amended** with the precision policy, so the gate tests the container and not the dtype, 2026-10-19.
-- [ ] **PF-0** — declare pandas in `pyproject.toml`. ⚠️ Separable, one line, needs no greenlight. **Do this first, alone.**
+- [x] ✅ **PF-0 — pandas declared in `pyproject.toml`**, 2026-10-20: `pandas>=1.5.3,<3.0`, range matched to views-pipeline-core's documented floor and ceiling. Done alone, as planned.
 - [ ] **PF-1** — ⛔ maintainer review of ADR-072 (now + Amendment 1) and the ADR-071 ordering lock. **The human gate.** ⚠️ Re-pin the three drifted citations first (`03_harness.md §1.9` N7) — an ADR a reviewer cannot check by following its own line numbers is not reviewable.
 - [ ] **PF-3** — ⛔ `"data_format": "feature_frame"` on the target descriptor. **views-models ⇒ GitHub issue.**
 - [ ] **PF-6 / PF-5** — the two cheap pre-S1 measurements that can stop the program (source dtype; NaN-fill count).

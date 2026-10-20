@@ -32,7 +32,7 @@ Every claim below carries a `file:line`. Nothing here is from memory.
 | Claim (source) | Verdict | Evidence |
 |---|---|---|
 | pandas imported by 7 production modules | **HOLDS** | `data_sniffer.py:11`, `feature_scaler.py:10`, `data_fetcher.py:10`, `hydranet_manager.py:14`, `utils_logging.py:10`, `visual_diagnostics.py:11`, `volume_handler.py:9` |
-| pandas undeclared in `pyproject.toml` | **HOLDS** | `pyproject.toml` declares views-pipeline-core, views-frames, torch, wandb — no pandas |
+| ~~pandas undeclared in `pyproject.toml`~~ | ⛔ **NO LONGER HOLDS — fixed 2026-10-20** | `pandas>=1.5.3,<3.0` is now declared, range matched to views-pipeline-core's. It held when this was written, and 0.1.0–0.1.3 shipped without it |
 | `FeatureFrame` is `(N,F,S)` float32 + index + names | **HOLDS** | `views-frames/src/views_frames/feature_frame.py:26`, `:88-104` |
 | `SpatioTemporalIndex` exists, integer `time`/`unit` | **HOLDS** | `views-frames/src/views_frames/index.py:25`, `:44-60` |
 | datafactory's `output_format` default is `feature_frame` | **HOLDS** | `views-datafactory/src/datafactory_query/dataset.py:124` |
@@ -253,7 +253,7 @@ a branch nothing currently runs), and a dtype policy. Everything else is re-sour
 |---|---|---|
 | **no import-purity test in views-hydranet** | F3 (hidden pandas) is unfalsifiable without one, and this is exactly how pandas stayed undeclared through release 0.1.2 | `views-pipeline-core/tests/test_import_purity.py`, `views-datafactory/tests/test_import_purity.py` |
 | **no dependency-floor test** | `views-frames` / pipeline-core API drift breaks us silently | `views-datafactory/tests/test_views_frames_floor.py`, `views-pipeline-core/tests/test_dependency_floors.py` |
-| **pandas undeclared in `pyproject.toml`** | a published package with a load-bearing undeclared import; same class as #381 (wandb, undeclared until 2026-09-19) | the `#381` comment already in `pyproject.toml` |
+| ~~**pandas undeclared in `pyproject.toml`**~~ ✅ **CLOSED 2026-10-20** | was: a published package with a load-bearing undeclared import; same class as #381 (wandb, undeclared until 2026-09-19) | the `#381` comment already in `pyproject.toml` |
 | **no golden-reference capture tool** | S1 has nothing to capture with | S1 builds it; `scripts/arm_identity_check.py` is the house idiom |
 | **no priogrid→(row,col) decoder, and no test of one** | §1.5 | `dataloaders.py:537-542` is the oracle |
 
@@ -288,7 +288,7 @@ from the published package. It is listed as PF-0 for that reason.
 
 | id | gate | state 2026-10-19 |
 |---|---|---|
-| **PF-0** | pandas declared in `pyproject.toml` (the standalone honesty fix) | ☐ **open** — one line, independent of the rest |
+| **PF-0** | pandas declared in `pyproject.toml` (the standalone honesty fix) | ✅ **DONE 2026-10-20** — `pandas>=1.5.3,<3.0`, on branch `fix/declare-pandas` |
 | **PF-1** | ADR-072 reviewed by a human; ADR-071's ordering lock resolved (accept, or restate the lock in an accepted ADR) | ☐ **open — the only human gate**, both still in `proposed/` |
 | **PF-2** | target model named and its source confirmed frame-capable | ✅ amber_kestrel, `source: "views-datafactory"` (`config_queryset.py:48-56`) |
 | **PF-3** | `data_format: feature_frame` added to the target's descriptor | ☐ **open — views-models change ⇒ GH ISSUE, not a commit from here** |
