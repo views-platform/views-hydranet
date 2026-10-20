@@ -753,4 +753,40 @@ Metrics filled from `--evaluate`; *Bounded?* from the 36-step rollout / `diagnos
   SS is EXHAUSTED (proven, not assumed), even on the un-collapsed hurdle head.** → the real fix is **GTF / B1 rollout
   training (#78, cross-step gradients)** or the **count-likelihood head** (ZINB/hurdle-NB). Rollout dossier `07` EXP-02.
 
+- **2026-10-20 — D4–D10 (free CPU measurement, no pod, no training) → the over-smoothing is REAL but
+  4× smaller than first reported, and the bigger half of the defect is OVER-CONCENTRATION.**
+  Dossier `reports/2026-10-20_d3_static_channel_ceiling.md` §9–§10; pre-registration
+  `2026-10-20_d5_oversmoothing_prereg.md` (with its OUTCOME section); scripts `d4_mu_on_the_grid.py`,
+  `d5_why_smooth.py`, `d6_estimator_null.py`, `d7_coarsening_sample.py`, `d8_support_vs_monthly.py`,
+  `d9_concentration.py`, `d10_debias_effective_cells.py`. Costs measured — D4 **349.5 s / 3.95 GiB**
+  (8 threads, `d4_result.npz` 138.9 MB), the rest seconds. **The settled finding: the model emits a
+  few large smooth blobs where the truth has many small sharp spots** — **0.06** smoother than the
+  variance decomposition permits (local half, a FLOOR on three counts), **2.49×** too few effective
+  cells (global half, `N_eff` 215.0 vs a debiased 536.3), while under-firing **4.18×** per cell-month
+  and touching **3.47×** too few cells. ⛔ The two headline figures share no scale — never add them.
+  **Concentration is a joint property of both heads, so this is the first direct quantification of
+  what C-152's class statement has asserted on the strength of one roll test.**
+  ⛔ **Five of this programme's own claims died in it** — `b = 1.73` (a selection artifact of the
+  100-cell set: 0.9234/0.8170 on the grid), *"the two heads fail differently"* (they fail the same
+  way), §9.2's missing coarse amplitude (an admission-rate artifact, 2.2% → 22.4%), D8-A's
+  over-persistence (a window confound), D8-B's *"spreads over more places"* (read against an implicit
+  null of 1.0 when the real-field null is 0.19–0.46; the sign is the **opposite**). See
+  `PREDICTION_LEDGER` W-30…W-40 and R-14…R-17. **D5-A is VOID by its own pre-committed guard** —
+  at random init `sd(log mu)` = 0.0017 against a 0.01 floor, so architectural-vs-learned is not
+  answerable by an init measurement on this architecture.
+  **The load-bearing derivation:** `ρ_Y(1) = ρ_m(1)·Var(m)/(Var(m)+σ²) < ρ_m(1)` strictly ⇒ a
+  conditional-mean field is smoother than its own realisation **by construction**, so *"is the model's
+  field smoother than the truth's"* answers itself and only *"smoother than the decomposition
+  requires"* has content. That cut my own effect from 0.22 to 0.06.
+  ⚠️ **Not a lever yet — this is a diagnosis, not an intervention.** *Why* the fields are over-smooth
+  is open: four candidates live (recurrent reach, BN recal on 32×32 windows applied to 360×720, global
+  `weight_decay` 0.1, and conditional-mean averaging — the last being the only one predicting the same
+  signature on two heads with different losses, and the one the nowcasting literature names). A
+  one-step decoder blur is **excluded**. **E6** is the free CPU control separating BN recal from weight
+  decay. ✅ **The S1 verdict did not move in any of five adversarial rounds** — it rests on §2/§3's
+  `+0.006–0.012 AP` / `R² 0.10` bounds and C-152, none of which any of these measurements touched.
+  **Deliverable:** C-351, the three-slot reporting convention (**population, transform, estimator**),
+  drafted in Appendix A and ⛔ **not yet registered** — it waits on PR #419 to avoid a third fork of
+  the register's hand-counted header.
+
 *(Append wins/lessons here as runs land — especially negatives and "looked-right-but-wasn't".)*

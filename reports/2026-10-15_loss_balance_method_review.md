@@ -143,11 +143,41 @@ common cause:
 - **The body.** `θ = 0.1544` against a conditionally-honest `0.4323`, in the `total_count`
   parameterisation where `Var = μ + μ²/θ` — so **lower θ is MORE over-dispersion**. Machete (2012)
   Prop 2.1: the log score prefers to err with *more* uncertainty. An NLL-trained body on a
-  heavy-tailed rare target buys insurance against `−log p → ∞` by inflating dispersion. The
-  over-dispersion is what its objective asks for.
+  heavy-tailed rare target buys insurance against `−log p → ∞` by inflating dispersion. ~~The
+  over-dispersion is what its objective asks for.~~
+
+  > ⛔ **CONCEDED AND WRONG, 2026-10-20 — struck in place, not deleted, because the substitution
+  > that produced it is easy to repeat.** The struck sentence is a claim about **what the NLL
+  > wants**, and it is argued against the **conditionally-honest** `θ = 0.4323`, which is a claim
+  > about **what the data supports**. Those are two different comparators and `M6` measures the
+  > first one directly: the non-circular `θ` profile **at the model's own `μ`** puts the
+  > **NLL optimum at `θ = 0.2327`** (NLL **4.1377** against the model's **4.2121**) —
+  > *higher* than the emitted **0.1544**, i.e. the training objective wants **less** dispersion
+  > than the model produces, and scores the model's extra dispersion as **worse**. So the body's
+  > over-dispersion is **not** what its objective asks for; it is something the objective already
+  > penalises, which is why `2026-10-12_underfire_next_step.md` §M6 is headed
+  > *"⛔ MY CENTRAL CLAIM IS WRONG"* and why the live question there is *"why is the model below
+  > even its own loss's optimum?"*. `0.4323` and the CRPS optimum `0.4298` remain correct as the
+  > **data-honest** and **evaluation-preferred** values, and Machete remains correctly cited for
+  > the general direction — neither is a statement about this model's NLL gradient.
+  >
+  > ⚠️ Note what this does **not** overturn: the gate bullet above, and §2.4's estimator argument,
+  > do not depend on it. What it removes is the symmetry — the paragraph used the body's
+  > "objective asks for it" to mirror the gate's "objective asks for 2p", and **only the gate
+  > half survives**. That mirror is the same false unification `2026-10-20_d3_static_channel_ceiling.md`
+  > §4 fell into from the other end, and this is its second instance in the programme.
 
 **Two halves, two different mechanisms, both literature-grounded. The common-cause reading is
 retired.**
+
+⛔ **Amended 2026-10-20 in the light of the struck sentence above.** "Two halves, two different
+mechanisms" **stands** — the two heads do fail differently, and `2026-10-20_d3_static_channel_ceiling.md`
+§8 independently measured that (gate: calibrated marginals, over-smoothed field; body: compressed
+marginals, `b = 1.7301`). What does **not** stand is the *shape* of the parallel this section drew:
+**only the gate's mechanism is "the objective asks for it".** The body's over-dispersion is
+something its objective **penalises** (`M6`: NLL **4.1377** at `θ = 0.2327` against **4.2121** at the
+emitted **0.1544**), so the body half is still **unexplained**, not explained differently. Two
+mechanisms, one of them named and one of them open.
 
 ### 🔑 2.4 The real argument for A is an estimator argument, not a balance argument
 
