@@ -19,6 +19,11 @@ left about the body's field, and three independent properties made it misleading
 and a fourth made it unrecoverable: the arrays were rendered to PNG and dropped, so any later
 question cost a fresh run on rented hardware.
 
+⚠️ A FIFTH, found on the v0.1.4 release surface: once the forecast row started composing, the
+block ran real family + composition code with no enclosing ``try``, so a diagnostic could abort a
+multi-hour training run — and it is not diagnostics-gated, because ``viz`` is a null object that
+is truthy even when visual diagnostics are off.
+
 Each test below fails if its fix is reverted. The composition test is the important one: it binds
 to the DATA, not to a label, because a label assertion cannot see a wrong number.
 """
@@ -270,3 +275,87 @@ def test_an_all_zero_gate_row_does_not_collapse_to_a_degenerate_scale(vd, monkey
     reason `_shared_count_scale` falls back to 1.0. The gate's own scale needs the same floor."""
     rows, _ = _render_and_capture(vd, monkeypatch, gate_fill=0.0)
     assert rows[3] == (0.0, 1.0), f"a degenerate gate row must fall back to [0, 1]; got {rows[3]}"
+
+
+# ------------------------------------------- the biopsy must not be able to abort a 3-hour run
+
+
+def _tiny_handler():
+    """The canonical tiny synthetic world. ``TINY_CONFIG`` is imported (it is data, and
+    `test_balancer_freeze` sets the precedent); the handler is built here rather than reaching for
+    another module's fixture."""
+    from tests.test_training_engine import CHANNEL_MAP, FEATURES, IDENTITY, H, T, W
+    from views_hydranet.utils.volume_handler import VolumeHandler
+
+    rng = np.random.RandomState(42)
+    data = rng.rand(T, H, W, len(CHANNEL_MAP)).astype(np.float32)
+    for t in range(T):
+        data[t, :, :, 0] = 500 + t
+    for r in range(H):
+        for c in range(W):
+            data[:, r, c, 1] = 1 + r * W + c
+    return VolumeHandler(
+        data=data,
+        axes=("T", "H", "W", "C"),
+        channel_map=CHANNEL_MAP,
+        time_col="month_id",
+        id_col="priogrid_gid",
+        spatial_cols=("row", "col"),
+        identity_cols=tuple(IDENTITY),
+        feature_cols=tuple(FEATURES),
+    )
+
+
+def test_a_failing_biopsy_neither_aborts_the_run_nor_leaves_the_model_in_eval_mode(monkeypatch):
+    """⛔ The biopsy block runs real family + composition code on live tensors, and the nearest
+    enclosing `try` was ~80 lines above it, guarding the time-index lookup only. So a raise in a
+    DIAGNOSTIC aborted `train()` — and the block is not diagnostics-gated: `viz` is a null object
+    that is truthy even with `diagnostic_visualizations: False`, so every run with a stage label
+    executes it.
+
+    `finally: model.train()` is the other half, and the more dangerous one: an escape that skipped
+    it would leave the remaining lessons training in eval mode — frozen BatchNorm statistics and
+    no dropout — which is far worse than a lost plot and would not raise anything.
+
+    The synthetic failure is the biopsy's own forward, raising only when the module is in eval
+    mode. That is the one forward `train()` performs outside train mode, so it fires inside the
+    block and nowhere else.
+    """
+    from unittest.mock import MagicMock
+
+    import torch
+    from tqdm import tqdm
+
+    from tests.test_training_engine import TINY_CONFIG
+    from views_hydranet.train.training_engine import TrainingContext, make, train
+
+    device = torch.device("cpu")
+    model, criterion, optimizer, scheduler = make(TINY_CONFIG, device)
+    criterion_reg, criterion_class, mtl = criterion
+
+    real_forward = type(model).forward
+
+    def raise_only_in_eval(self, *a, **kw):
+        if not self.training:
+            raise RuntimeError("synthetic biopsy failure")
+        return real_forward(self, *a, **kw)
+
+    monkeypatch.setattr(type(model), "forward", raise_only_in_eval)
+
+    ctx = TrainingContext(
+        model=model,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        criterion_reg=criterion_reg,
+        criterion_class=criterion_class,
+        multitaskloss_instance=mtl,
+        config=TINY_CONFIG,
+        device=device,
+        viz=MagicMock(),  # truthy => the Stage-5 block runs, and no file I/O
+    )
+    result = train(
+        ctx, _tiny_handler(), tqdm(total=5, disable=True), stage_label="containment_probe"
+    )
+    assert torch.isfinite(result["total"]), "a failed diagnostic took the training run with it"
+    assert model.training, "the run was left in EVAL mode — `finally: model.train()` is missing"
+    ctx.viz.biopsy_training_performance.assert_not_called()
