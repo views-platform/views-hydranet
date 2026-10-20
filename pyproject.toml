@@ -42,18 +42,48 @@ dependencies = [
     # ⚠️ This DECLARES the dependency; it does not remove it. Removal is proposed ADR-072 and
     # planned in `reports/2026-08-13_frame_native_input_dossier/` (PF-0 there is this change,
     # deliberately separable so honesty does not wait on the migration).
-    "pandas>=1.5.3,<3.0"
+    "pandas>=1.5.3,<3.0",
+    # ⛔ The SAME defect, four more times, found 2026-10-20 by walking the import graph instead of
+    # reading the declaration — which is how `wandb` (#381) and `pandas` (above) were both missed.
+    # All four are load-bearing and all four resolved ONLY through somebody else's transitive
+    # choice, so each shipped in 0.1.0 through 0.1.3. Nothing was broken: that was equally true of
+    # wandb and pandas, for four releases each.
+    #
+    #   import      sites                                            only guarantor before today
+    #   numpy       21 modules, module-top                           views-frames -> numpy<3,>=1.26
+    #   pydantic    utils/config_initializer.py, module-top          v-p-core -> viewser -> pydantic
+    #   tqdm        train/training_engine.py, utils/hydranet_         v-p-core -> viewser -> tqdm
+    #               inference.py, both module-top
+    #   sklearn     utils/training_forensics.py:344, FUNCTION-level   v-p-core -> viewser -> pyod
+    #                                                                -> scikit-learn
+    #
+    # ⚠️ `sklearn` is the fragile one and is declared for that reason, not because it is heavy
+    # duty here: three hops, and the third is `pyod`, an outlier-detection package this repo never
+    # imports and whose dropping scikit-learn nothing here would notice. Because the import is
+    # inside `_calculate_cls_metric`, the failure is not at import — it is mid-training, when the
+    # forensic computes AP/AUC, hours in.
+    #
+    # Ranges MATCHED to the upstream that already declares each, never invented (the `pandas`
+    # precedent above): numpy to `views-frames`, our own direct dependency; pydantic and tqdm to
+    # `viewser`; scikit-learn to `views-evaluation`, the sibling views-* package that declares it.
+    # ⚠️ The effective numpy ceiling is `viewser`'s `<2.0.0`, not the `<3` written here — same
+    # shape as the pandas `<3.0` above, where viewser's `<2.0.0` also binds first. We write our
+    # direct dependency's range and let the resolver intersect.
+    "numpy>=1.26,<3",
+    "pydantic>=2.0,<3.0",
+    "tqdm>=4.66,<5.0",
+    "scikit-learn>=1.6,<2.0"
 ]
 
-# issue #215: matplotlib is imported lazily by VisualDiagnostics (optional plotting stack). Declare it
-# as an OPTIONAL extra so models that enable diagnostics (diagnostic_visualizations=True) can pin it via
-# `views-hydranet[viz]`; the default headless run path needs no plotting stack.
 [project.urls]
 Homepage = "https://github.com/views-platform/views-hydranet"
 Repository = "https://github.com/views-platform/views-hydranet"
 Issues = "https://github.com/views-platform/views-hydranet/issues"
 Changelog = "https://github.com/views-platform/views-hydranet/releases"
 
+# issue #215: matplotlib is imported lazily by VisualDiagnostics (optional plotting stack). Declare it
+# as an OPTIONAL extra so models that enable diagnostics (diagnostic_visualizations=True) can pin it via
+# `views-hydranet[viz]`; the default headless run path needs no plotting stack.
 [project.optional-dependencies]
 viz = ["matplotlib>=3.8,<4"]
 
