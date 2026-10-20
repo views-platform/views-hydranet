@@ -19,7 +19,20 @@ dependencies:
   - python=3.11
   - pip
   - pip:
-      - .
+      # `.[viz]`, not `.` — matplotlib is a runtime-OPTIONAL extra (pyproject's `viz`) and
+      # `tests/test_visual_diagnostics.py` / `test_memory_fingerprint.py` import it at module
+      # top, so without the extra the `test` job's collection depends on matplotlib arriving by
+      # accident. It does: `pyod` (views-pipeline-core -> viewser -> pyod) pulls it in UNPINNED.
+      # That is the same accidental-guarantor class as the four dependencies declared on
+      # 2026-10-20 — green only because somebody else's transitive choice happened to cover us.
+      # Closes HALF of C-285, whose Trigger is literally "adding a test that imports
+      # matplotlib": the same class as C-283, which fixed the missing `ruff` binary in this
+      # same list. C-285's OTHER half is untouched — ruff is still pinned independently here,
+      # in pyproject's dev group and in ci.yml's lint job, so the two jobs can still disagree
+      # about what "clean" means. Not fixed here (one source of truth for the test environment
+      # is a repo-wide change); the register entry stays open and its Location line is stale
+      # (it cites a `pyproject.toml:33-36` test extra that is now the dev group + `viz`).
+      - .[viz]
       - pytest
       - pytest-cov
       # tests/test_falsification_repo_clean.py shells out to the `ruff` BINARY

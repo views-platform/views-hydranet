@@ -120,3 +120,80 @@ def test_to_cube_samples_core_self_zeroed_raises():
     g = torch.Generator().manual_seed(0)
     with pytest.raises(ValueError, match="external gate|self_zeroed|zero mechanism"):
         to_cube_samples(params, z, k=4, generator=g, n_reg=1, composition="self_zeroed", core=True)
+
+
+# ── the TRAINING engine's mirror of the same switch (the biopsy forecast row) ──────────────────
+#
+# `_emit_magnitude` has read `emit_family_core` since ADR-068. `training_engine` never did: its
+# biopsy forecast row called `family.mean` unconditionally under a docstring claiming it "Mirrors
+# ``hydranet_inference._emit_magnitude``'s family branch, which is what deployment emits". For the
+# mandated `ZINBcore` shape — `zinb + emit_family_core + soft_gate`, mandated because config rule
+# (2) REQUIRES a core-emitting zinb to declare a gate — the row therefore plotted
+# `log1p(gate × (1−π)μ)`, the π-and-gate double count rule (1) forbids, while deployment emits
+# `log1p(gate × μ_core)`. Found by /code-review on the v0.1.4 release surface: a C-303 instance
+# inside the change made to remove one.
+
+
+def _activated_zinb(mu=5.0, theta=1.0, pi=0.9, n_reg=1, H=4, W=4):
+    """``[B, n_reg*3, H, W]`` of activated zinb params, the shape the regression head emits."""
+    params = torch.zeros(1, n_reg * 3, H, W)
+    for j in range(n_reg):
+        params[:, j * 3 + 0] = mu
+        params[:, j * 3 + 1] = theta
+        params[:, j * 3 + 2] = pi
+    return params
+
+
+def test_the_biopsy_composition_is_core_aware_under_emit_family_core():
+    """`emit_core=True` must compose the π-stripped CORE, exactly as `_emit_magnitude:893` does.
+
+    μ=5, π=0.9, gate=0.5 ⇒ deployment emits log1p(0.5 × 5) = log1p(2.5); `family.mean` would give
+    log1p(0.5 × 0.5) = log1p(0.25), a field 10× too small and double-counting the zeros.
+    """
+    from views_hydranet.train.training_engine import _family_composed_mean_log1p
+
+    z = resolve_family("zinb")
+    act = _activated_zinb()
+    gate = torch.full((1, 1, 4, 4), 0.5)
+    core = _family_composed_mean_log1p(act, z, gate, "soft_gate", None, emit_core=True)
+    assert torch.allclose(core, torch.log1p(torch.tensor(2.5)).expand_as(core), atol=1e-5), (
+        f"expected log1p(gate × μ_core) = log1p(2.5), got {float(core.flatten()[0])}"
+    )
+
+
+def test_the_biopsy_composition_default_is_unchanged():
+    """⛔ `emit_core` defaults to False and the default must stay byte-identical to `family.mean`.
+
+    The other two callers of this helper are TRAINING-exposure paths (the BPTT-SA straight-through
+    surrogate and `_family_feedback_log1p`'s 'mean' branch) and neither passes `emit_core`. If the
+    default moved, those two would change a forecast silently — which is the thing the release
+    review was looking for.
+    """
+    from views_hydranet.train.training_engine import _family_composed_mean_log1p
+
+    z = resolve_family("zinb")
+    act = _activated_zinb()
+    gate = torch.full((1, 1, 4, 4), 0.5)
+    default = _family_composed_mean_log1p(act, z, gate, "soft_gate", None)
+    self_zeroed = torch.log1p(0.5 * z.mean(_zinb_params(5.0, 1.0, 0.9)))
+    assert torch.equal(default, self_zeroed.expand_as(default)), (
+        "the default is no longer `family.mean` — two training paths just changed"
+    )
+    assert not torch.allclose(
+        default, _family_composed_mean_log1p(act, z, gate, "soft_gate", None, emit_core=True)
+    ), "emit_core=True is indistinguishable from the default — the switch is inert"
+
+
+def test_the_biopsy_label_names_the_composition_actually_applied():
+    """The label was keyed on `family.self_zeroed`, which is False for a ZINBcore arm but said
+    "self-zeroed E[y]" anyway — because `emit_family_core` strips π and rule (2) then forces a
+    gate. It must name the applied composition and the mean actually used."""
+    from views_hydranet.train.training_engine import _biopsy_forecast_label
+
+    core_arm = _biopsy_forecast_label("soft_gate", True)
+    assert "soft_gate" in core_arm and "E[y|core]" in core_arm, core_arm
+    assert "self_zeroed" not in core_arm, (
+        f"a gate-composed core row must not be labelled self-zeroed: {core_arm}"
+    )
+    assert _biopsy_forecast_label("self_zeroed", False) == "FORECAST (self_zeroed E[y])"
+    assert "threshold_gate" in _biopsy_forecast_label("threshold_gate", False)
