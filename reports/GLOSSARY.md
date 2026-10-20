@@ -251,12 +251,20 @@ over cells — truth on prediction, the same direction as §5b, so `b > 1` means
 | locked name | meaning | banned aliases |
 |---|---|---|
 | **the magnitude level** | **Whether the body is too small or too large overall.** The intercept. Measured median `log(mu_model/mu_emp)` = **−0.5831** on the 100-cell set: the body predicts **~56%** of the empirical mean. ✅ **A global constant, and therefore free to fix** — two scalars drive the median to −0.0122. ⛔ **Not `size-ratio`** (§4), which is a median ratio on conflict cells and is a *score*; this is the intercept of a fit and is a *defect axis*. | bias, global under-prediction, timid (⛔ **timid** is §5 and is the behaviour, not the axis) |
-| **the magnitude slope** (`b`) | **Whether the body's per-cell magnitudes are spread too narrowly or too widely across cells.** `b > 1` means truth moves faster than `mu` does. Measured **1.7301** (sd ratio **0.4146**, spearman **0.6870**) — the body **ranks** cells well and commits to **41%** of the right spread. ⚠️ A **lower bound**, for §5b's errors-in-variables reason; total-least-squares gives **2.41**. ⛔ **Not the same estimator as the gate's `b`** — the gate's is binned logits on cell-month Bernoullis, this is OLS on per-cell log means, so comparing 1.73 against the gate's 1.146–1.456 is **indicative and not like-for-like**. | body dispersion, shrinkage, range compression, regression to the mean |
+| **the magnitude slope** (`b`) | **Whether the body's per-cell magnitudes are spread too narrowly or too widely across cells.** `b > 1` means truth moves faster than `mu` does. Measured **1.7301** (sd ratio **0.4146**, spearman **0.6870**) — the body **ranks** cells well and commits to **41%** of the right spread. ⚠ A **lower bound**, for §5b's errors-in-variables reason; total-least-squares gives **2.41**. ⛔ **This axis is the BODY's, not the model's.** Measured like-for-like on 2026-10-20 — the same per-cell OLS estimator applied to the gate on 64,818 land cells — the **gate's** `b` is **0.3906** over all cells and **0.9444** over cells with any event, i.e. `b ≤ 1`. The gate's binned-logit 1.146–1.456 (§5b) is a **different estimator on different artifacts**, so it may not be quoted against this one in either direction. | body dispersion, shrinkage, range compression, regression to the mean |
 | **magnitude under-dispersion** | **The body's magnitudes are squashed toward the middle: too large in quiet cells, too small in violent ones.** `b > 1`. ⛔ **It is a SLOPE defect and survives the level fix** — the best two global scalars remove only **15.9%** of per-cell log-error variance, so it is **per-cell shrinkage, not a global mis-scaling**, and any remedy that is one number cannot touch it. | the magnitude gap, the amount ceiling (⛔ **the amount ceiling** is the separate claim that magnitude is *irreducible*; this axis is a measured defect in the model, not a statement about the data) |
 
-⛔ **Both halves of the model are under-dispersed.** The gate carries `b` 1.146–1.456 (§5b) and the
-body carries `b` 1.73 (above). Report it as **one defect on two heads** unless and until a measurement
-separates them — see `2026-10-20_d3_static_channel_ceiling.md` §4.
+⛔ **The two heads do NOT fail the same way, and an earlier version of this entry said they did.**
+Measured like-for-like the same day (`2026-10-20_d3_static_channel_ceiling.md` §8):
+
+| head | per-cell slope `b` | spatial lag-1 autocorrelation of its field |
+|---|---|---|
+| **gate** | **0.39** all cells / **0.94** active — marginals roughly right | **0.964**, against a noise-controlled truth asymptote of **~0.70** — field **over-smoothed** |
+| **body** | **1.73** — marginals **compressed** | not measurable from any saved artifact (`mu` is not stored on the full grid) |
+
+So the gate's defect is **placement/structure with calibrated marginals**, and the body's is
+**compressed marginals**. ⛔ Do not report them as one defect: that sentence was written here before
+the like-for-like estimator existed, and the estimator contradicted it.
 
 ## 6. The models we've actually run (described by their choices — codenames RETIRED)
 I will describe models by their §2/§3 choices, not by codenames. The codenames below are retired; they map to:

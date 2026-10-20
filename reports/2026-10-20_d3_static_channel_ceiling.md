@@ -126,8 +126,9 @@ the ordering is suggestive and the ratio is not a measurement. Both are **lower 
 errors-in-variables reason §5b already states: noise in the predictor attenuates the slope toward 1.
 Total-least-squares on the body gives **2.41**.
 
-⛔ **Both halves of the model are under-dispersed, and the body looks worse than the gate.** That is
-one defect wearing two coats, not two findings.
+⛔ **An earlier version of this section concluded "one defect wearing two coats, not two findings."
+§8 measured the like-for-like comparison the same day and it is wrong.** Kept here, struck, because
+the reasoning that produced it is the reasoning `§5b`'s wording invites.
 
 ## 5. ⛔ Two global scalars do not fix it
 
@@ -174,3 +175,83 @@ for the gate's slope is the first place to look, not a new covariate.
 - The D3-GATE ΔAP is fitted and scored on the same months: a **ceiling**, deliberately generous.
 - No falsifier was pre-registered for D3 — it is a measurement that bounds a proposal, not an arm.
   Under C-307 that makes it **informative about a ceiling** and not a closure of anything.
+
+
+## 8. The chase — and the correction it forced
+
+`slope_chase.py` and `smooth_control.py`, same day, same artifacts. Written to find the mechanism
+behind `b = 1.73`. It did not find it, and it falsified §4's closing sentence instead.
+
+### 8.1 ⛔ The gate does NOT share the body's slope defect
+
+§4 compared the body's per-cell OLS `b` against the gate's binned-logit `b` and flagged the estimator
+mismatch, then drew a unifying conclusion anyway. Applying the **body's own estimator** to the gate,
+on all 64,818 land cells at the 13 out-of-sample months:
+
+| cell set | n | `b` | r | sd(pred) ÷ sd(truth) |
+|---|---|---|---|---|
+| all land cells | 64,818 | **0.3906** | +0.5678 | 1.4538 |
+| cells with any event | 912 | **0.9444** | +0.7270 | 0.7698 |
+| *(body, same estimator, §4)* | 100 | *1.7301* | *+0.7174* | *0.4146* |
+
+`b ≤ 1` for the gate under this estimator — **over**-dispersed on all cells, essentially calibrated on
+active ones. The body's compression is **the body's alone**, as far as anything here measures.
+GLOSSARY §5c has been corrected in the same commit.
+
+### 8.2 The scale discriminator ran, and tested the wrong head
+
+Aggregating into `k×k` blocks separates three mechanisms: spatial smoothing relaxes `b` toward 1 as
+`k` grows, global shrinkage leaves it flat, rank noise relaxes it while `r` climbs steeply.
+
+| k | blocks | `b` | r |
+|---|---|---|---|
+| 1 | 912 | 0.9444 | +0.7270 |
+| 2 | 514 | 0.7479 | +0.8364 |
+| 4 | 267 | 0.7772 | +0.8932 |
+| 8 | 129 | 0.8348 | +0.9280 |
+| 16 | 65 | 0.9085 | +0.9573 |
+| 32 | 32 | 0.9854 | +0.9876 |
+
+`b` hovers at 0.75–0.99 at every scale while `r` climbs 0.73 → 0.99. For the gate that is the
+**rank-noise** signature and there is no slope defect to explain.
+
+⛔ **Stated plainly: the discriminator could not test the body, because `mu` is not saved on the full
+grid by any artifact in this dossier.** The gate is the only head available at 360×720, and the gate
+turns out not to have the defect. **The mechanism behind `b = 1.73` is still unidentified.** Closing it
+needs one forward pass of the vehicle to write `mu` over the land grid — no training, no pod, but not
+free either.
+
+### 8.3 ✅ What the chase did find: the gate's field is spatially over-smoothed
+
+| field | lag-1 autocorrelation (E–W / N–S) |
+|---|---|
+| **gate logit** | **+0.9644 / +0.9601** |
+| truth logit, 13 months | +0.5371 / +0.5234 |
+
+⚠ **That naive comparison is confounded** — 13 months of a rate quantised to 1/13 and positive in
+1.4% of cells is a noisy field, and noise attenuates autocorrelation. Controlled by lengthening the
+truth window:
+
+| truth window | months | lag-1 (E–W / N–S) |
+|---|---|---|
+| 445–456 | 12 | +0.5594 / +0.5250 |
+| 421–456 | 36 | +0.6200 / +0.6063 |
+| 385–456 | 72 | +0.6472 / +0.6285 |
+| 301–456 | 156 | +0.6743 / +0.6567 |
+| 121–456 | **336** | **+0.6980 / +0.6797** |
+
+The truth's autocorrelation rises and flattens — increments of 0.083, 0.027, 0.027, 0.024 per
+roughly-doubled window — so it is heading for **~0.70–0.75**, not 0.96. Part of the original gap was
+noise; **most of it survives the control.** The gate's field is genuinely smoother than the process it
+predicts.
+
+⛔ **So the two heads fail differently, and this is the sharper statement §4 should have made:**
+
+| head | marginals | spatial structure |
+|---|---|---|
+| **gate** | roughly calibrated (`b` 0.94 on active cells) | **over-smoothed** (0.96 vs ~0.70) |
+| **body** | **compressed** (`b` 1.73) | unmeasured |
+
+This is C-152 and EXP-3 in a new coordinate rather than a new finding: *"89% of the damage is cells in
+the wrong places"*, with the marginals intact. It is also, unprompted, the shape Simon proposed — the
+latent risk field survives, what sits on top of it does not.
