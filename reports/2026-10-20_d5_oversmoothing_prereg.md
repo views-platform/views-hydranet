@@ -70,3 +70,58 @@ It cannot tell us whether the over-smoothing *costs* anything. That needs the co
 scored, which is `crps`/AP on a rollout, not a forward pass. Nothing here touches the C-152 class
 statement: a proposal that sharpens the field still inherits that null unless it changes the joint or
 the sampler.
+
+---
+
+## ⛔ Amendment A1 — committed BEFORE the run, after the `library` seat answered
+
+I asked the `library` seat whether the corpus holds anything on over-smoothing in likelihood-trained
+dense predictors. It does, and it **names a fifth candidate I had not listed — which is now the
+leading one.** Recorded here rather than in the write-up so it cannot be mistaken for a post-hoc
+explanation of whatever D5-A returns.
+
+| held | what it says | level |
+|---|---|---|
+| **`Price2023_GenCast`** (C-2868) | *"MSE-trained deterministic models like GraphCast produce blurry forecasts closer to the ensemble mean"*, while a diffusion objective matches ERA5 power spectra | **empirical** (§3), weather on a sphere |
+| **`Ribeiro2025_FlowCast`** (C-2909) | *"Deterministic nowcasting models trained with pixel-wise losses like MSE produce overly smooth forecasts at longer lead times **because they average over possible futures**"* | **empirical/introductory**, precipitation |
+| **`BondTaylor2022_DeepGenerativeModelling`** (C-438) | direct likelihood optimisation penalises missing modes more than implausible samples — the theoretical reason GANs are sharper than VAEs | theoretical, generative models generally |
+| **`Tancik2020_FourierFeatures`** (C-187) | spectral bias: the NTK eigenvalue spectrum decays rapidly with frequency, so standard nets cannot learn high-frequency content | mechanistic, but **MLPs with positional inputs, not conv/U-Net** |
+
+### What this changes
+
+**Candidate 5 — the objective emits a conditional mean, and a conditional mean of a point process is
+a smooth intensity field.** My §"four live candidates" listed "the objective's own preference" as a
+vague fourth item. The literature names it precisely, in two papers, in a domain shaped like ours
+(gridded geophysical fields, rare intense events, rollout horizons) — and it is the **standard**
+explanation for exactly this signature in exactly this class of model.
+
+⇒ **The `≤ 0.65` branch's stated next step is amended.** If the smoothness is learned, the leading
+candidate is no longer BN recal or global weight decay; it is the objective averaging over futures,
+which is **literature-grounded** where those two are repo-grounded hunches. E6 remains worth running
+(it is free) but is demoted from "the next experiment" to "the cheap control that rules out two
+confounds first."
+
+### ⛔ And it converges with Simon's own framing, which was prior to all of it
+
+His objection was that the hidden and cell state may encode *"the first stochastic process, the latent
+risk map or risk field"* well and *"the second stochastic process, which is like a marked spatial
+point process"* badly. The literature's statement is that a likelihood-trained deterministic predictor
+emits **the conditional mean**, which **is** the latent intensity field, and cannot emit a realisation
+of the point process on top of it. **These are the same claim.** Three independent routes — his
+architectural intuition, D4's lag-1 measurement, and the weather/nowcasting literature — land on one
+place, and his came first.
+
+It also closes a loop with **C-152**, whose class statement already said *"any future proposal that
+improves per-cell marginals inherits this null unless it also changes the joint or the sampler."* The
+literature's remedy class is exactly that: not a sharper field, but a different objective or a drawn
+sample. C-152 was the right rule before anyone knew why.
+
+### ⚠️ The gap, and it is a decision for Simon, not an action I will take
+
+The corpus holds the **phenomenon** and not the **mechanism or the diagnostic**. The `library` seat
+reports nothing on spectral bias in convolutional or U-Net architectures (Tancik is MLP-only), nothing
+treating NLL→blurriness as a studied defect with a remedy beyond "use a GAN or diffusion objective",
+and **none** of the canonical dense-prediction references held — `Ledig2017` (SRGAN), `Wang2018`
+(ESRGAN), `Isola2017` (pix2pix). It also reports that our lag-1 comparison (model 0.86–0.96 against
+truth 0.51–0.59) is **a cleaner quantification of this than anything in the corpus**. ⛔ An
+acquisition costs money and is Simon's call; nothing is fetched here.
