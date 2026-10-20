@@ -4,12 +4,12 @@
 |-------------------|--------------------------------------|
 | Project           | views-hydranet                       |
 | Owner             | Simon Polichinel von der Maase       |
-| Last Updated      | 2026-10-20 (review-rr strategic — structure CLEAN, C-345 cross-artifact challenge resolved) |
-| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). **`C-106` is a THIRD gap, found 2026-09-10 (review-rr strategic): the ID appears nowhere in this file — not as an entry, not as a merge note, not as a cross-reference — so whether it was merged, renumbered or never assigned is unrecoverable from the register. Recorded as unexplained rather than quietly renumbered.** **C-319..C-322 added 2026-09-03 from the silence-vs-fade dossier: C-319 (field statistics blind to placement — occurrence, magnitude and alignment ALL survive a roll that destroys the forecast, so an internal statistic cannot close a causal claim about a truth-referenced score); C-320 (a falsifier band tighter than its own reference's sampling noise, which fired on the known-good control); C-321 (`--keep-cubes` silently disables the multi-arm contamination guard); C-322 (the model field's H axis runs opposite to priogrid row order — naive placement correlates 0.026, the flip gives 1.0000). **C-325 added 2026-09-04: two SCREEN-2 mechanism tests measured the network at INITIALISATION and were recorded as ruling a mechanism out; the arm's gradient does explode, 33 lessons later.** **C-328 added 2026-09-05: #311's input noise leaked into the C-184 BatchNorm recalibration pass, which would have confounded the S5 screen at the BN layer with every log looking clean; second instance of the mechanism after #289's, and found by a test written for a different prose invariant.** **C-329 added 2026-09-05 from the implementation-practice post-mortem: tests that cannot fail (tautology, vacuity, zero power) — invisible to mutation testing by construction, detected by the deletion test.** **C-330/C-331/C-332 added 2026-09-05 from `/code-review max` (partial — 11 finders, no expert panel); the same pass ESCALATED C-328 to four instances (the `bn_recal_from` path and `random_flips`, the latter left unfixed by decision), C-303 to TWELVE occurrences with a new sub-form (the false prose describes a safety gate, making an absent control look present), and C-329 with two further instances, both inside the commit that registered it.** **C-326 added the same day: launcher watchdogs kill the subshell, not the process tree — an arm reported CAPPED trained on for 7 more lessons; latent everywhere else (no `STALLED` line exists in any `ANOMALIES.txt`).** **C-327 added 2026-09-04: #308's Phase-2 clip ladder was pre-registered as a discriminator whose two hypotheses, derived properly, predict the SAME outcome — C-320's fifth instance, found before it was run and at no cost.** **C-320 escalated 2026-09-04 from three to FOUR occurrences, the fourth a distinct sub-form: #308's SCREEN rule enumerated three numeric outcomes and no failure branch, so when arm B died with NaN gradients at lesson 48 no branch of the rule could be evaluated.** **C-333..C-337 added 2026-09-10 from the review of #340 (PyPI publication). C-333 records that cross-repo release ordering is unguarded in BOTH directions — C-165's 2026-07-31b update has this repo blocked for weeks by an unpublished `views-pipeline-core`, and two months later this repo is the unpublished upstream doing it to 8 views-models models; the class recurred with the arrow reversed and a human found it both times. C-334 records that the platform's house publish template carries TWO defects that each independently block a first release — reproduced by executing its own logic, not by reading it — meaning it has never successfully performed one. C-337 is a decision, not a defect: publishing 0.1.0 arms a `<1.0.0` bound on all 8 models that semver lets any future 0.x walk through.** **2026-09-14, Epic #353 (remediating `/code-review max` on PR #351): ONE new entry and FIVE updates, deduped before writing. New: C-344 (a diagnostic instrument that perturbs or kills the run it measures — the gate probe drawing from the stream it observes, and two unbounded stats buffers that OOM-killed a probe run at rc=137). Updated rather than duplicated: C-331 escalated from a diagnostic risk to a PRODUCTION one (ADR-027 §2.1 promoted `freeze_recurrent`, so a zero weight now makes a delivered forecast claim a clamp it does not apply); C-328 instance 5 with the artifact consequence recorded BEFORE the change; C-303 from twelve to FOURTEEN, then EIGHTEEN on 2026-09-15 with three found in the PR's own trail and one by the guard audit; C-329 with three review-found instances plus TWO authored inside this epic and caught by its own deletion test; C-341 EXTENDED, not resolved — deleting the input closed one path, a branch dispatch at the release version was a second. **One routing correction: issue #361 filed the pass-0 docstring as C-320 occurrence 12; it is C-303, and C-320 stays at four.** This epic produced NO measurement — it fixed traps and changed no forecast. (An earlier version of this line excepted S3 as changing future artifacts; that half of S3 was wrong and is reverted — see C-328.)** |
-| Total Concerns    | 342                                  |
-| Open Concerns     | 188                                  |
+| Last Updated      | 2026-10-20 (`register-risk` — C-346 added, closing the blind spot the same day's review-rr pass named; five existing entries corrected against measurement) |
+| ID accounting     | C-188 merged into C-182 on 2026-08-15; C-275/C-276 added the same day; C-284..C-287 added 2026-08-15 from PR #274's `/code-review max`; C-260 relocated → §Resolved 2026-08-15 (fix verified in source + test); C-288 added 2026-08-15 from PR #276's CI failure; C-292/C-293 added 2026-08-16 from PR #277's code review; C-294/C-295 the same day from the architecture read it prompted; **C-289/C-290/C-291 added 2026-08-16 from PR #278 (feedback-realism), filling a gap C-292 already cross-referenced — they had been assigned in conversation and never written; C-296/C-297 added the same day from PR #278's code review and from authoring its fixes; C-298 added 2026-08-17 from the Claims Ledger verification pass; C-299/C-300 added 2026-08-17 from `postmortem_floor_limited_vehicle.md`; C-301/C-302 added 2026-08-18 from the code read behind the lesson-curve pre-registration; **C-303/C-304 added 2026-08-22 from PR #283's `/code-review medium` + `/review-diff`; **C-308 added 2026-08-23 (a probe measured the wrong rollout phase; every downstream guard still passed); C-307 added 2026-08-23 from the user's observation that cheap screens keep being recorded as closures — a pattern predating this session; C-305/C-306 added 2026-08-22 from PR #292's reviews, and C-303 escalated from three to FIVE occurrences — the fourth inside the provenance document written to prevent it;** the same pass MERGED two findings into existing entries rather than adding new ones — GH #282 (persistence baseline silently zeroed for the first origin) is a second, already-shipping symptom of C-248's unloaded pre-origin months, and C-293's "AP is a ranking statistic so the comparison is valid" was CORRECTED: at S=1 with no gate, persistence is ranked on a two-level score while gated arms get a continuous probability.** **C-312..C-315 added 2026-08-26 from the training-loop gradient audit (forward/backward/gradient flow, ahead of the pushforward arm); the same pass recorded C-303's TENTH occurrence — the first inside production source rather than a report. C-316 added the same day (test-suite pollution found because the new tests failed only in full-suite runs). **C-312 FIXED and C-314 partly fixed on the same branch; C-313 and C-315 remain open by decision (C-112: changing the clamp or clipping the balancer would move training dynamics). C-312 and C-303 carry FIXED banners but stay in §Open pending the next curation relocation, as C-184 and the PR-#216 entries did.** `C-34`/`C-188` are intentional numbering gaps (merged entries). **`C-106` is a THIRD gap, found 2026-09-10 (review-rr strategic): the ID appears nowhere in this file — not as an entry, not as a merge note, not as a cross-reference — so whether it was merged, renumbered or never assigned is unrecoverable from the register. Recorded as unexplained rather than quietly renumbered.** **C-319..C-322 added 2026-09-03 from the silence-vs-fade dossier: C-319 (field statistics blind to placement — occurrence, magnitude and alignment ALL survive a roll that destroys the forecast, so an internal statistic cannot close a causal claim about a truth-referenced score); C-320 (a falsifier band tighter than its own reference's sampling noise, which fired on the known-good control); C-321 (`--keep-cubes` silently disables the multi-arm contamination guard); C-322 (the model field's H axis runs opposite to priogrid row order — naive placement correlates 0.026, the flip gives 1.0000). **C-325 added 2026-09-04: two SCREEN-2 mechanism tests measured the network at INITIALISATION and were recorded as ruling a mechanism out; the arm's gradient does explode, 33 lessons later.** **C-328 added 2026-09-05: #311's input noise leaked into the C-184 BatchNorm recalibration pass, which would have confounded the S5 screen at the BN layer with every log looking clean; second instance of the mechanism after #289's, and found by a test written for a different prose invariant.** **C-329 added 2026-09-05 from the implementation-practice post-mortem: tests that cannot fail (tautology, vacuity, zero power) — invisible to mutation testing by construction, detected by the deletion test.** **C-330/C-331/C-332 added 2026-09-05 from `/code-review max` (partial — 11 finders, no expert panel); the same pass ESCALATED C-328 to four instances (the `bn_recal_from` path and `random_flips`, the latter left unfixed by decision), C-303 to TWELVE occurrences with a new sub-form (the false prose describes a safety gate, making an absent control look present), and C-329 with two further instances, both inside the commit that registered it.** **C-326 added the same day: launcher watchdogs kill the subshell, not the process tree — an arm reported CAPPED trained on for 7 more lessons; latent everywhere else (no `STALLED` line exists in any `ANOMALIES.txt`).** **C-327 added 2026-09-04: #308's Phase-2 clip ladder was pre-registered as a discriminator whose two hypotheses, derived properly, predict the SAME outcome — C-320's fifth instance, found before it was run and at no cost.** **C-320 escalated 2026-09-04 from three to FOUR occurrences, the fourth a distinct sub-form: #308's SCREEN rule enumerated three numeric outcomes and no failure branch, so when arm B died with NaN gradients at lesson 48 no branch of the rule could be evaluated.** **C-333..C-337 added 2026-09-10 from the review of #340 (PyPI publication). C-333 records that cross-repo release ordering is unguarded in BOTH directions — C-165's 2026-07-31b update has this repo blocked for weeks by an unpublished `views-pipeline-core`, and two months later this repo is the unpublished upstream doing it to 8 views-models models; the class recurred with the arrow reversed and a human found it both times. C-334 records that the platform's house publish template carries TWO defects that each independently block a first release — reproduced by executing its own logic, not by reading it — meaning it has never successfully performed one. C-337 is a decision, not a defect: publishing 0.1.0 arms a `<1.0.0` bound on all 8 models that semver lets any future 0.x walk through.** **2026-09-14, Epic #353 (remediating `/code-review max` on PR #351): ONE new entry and FIVE updates, deduped before writing. New: C-344 (a diagnostic instrument that perturbs or kills the run it measures — the gate probe drawing from the stream it observes, and two unbounded stats buffers that OOM-killed a probe run at rc=137). Updated rather than duplicated: C-331 escalated from a diagnostic risk to a PRODUCTION one (ADR-027 §2.1 promoted `freeze_recurrent`, so a zero weight now makes a delivered forecast claim a clamp it does not apply); C-328 instance 5 with the artifact consequence recorded BEFORE the change; C-303 from twelve to FOURTEEN, then EIGHTEEN on 2026-09-15 with three found in the PR's own trail and one by the guard audit; C-329 with three review-found instances plus TWO authored inside this epic and caught by its own deletion test; C-341 EXTENDED, not resolved — deleting the input closed one path, a branch dispatch at the release version was a second. **One routing correction: issue #361 filed the pass-0 docstring as C-320 occurrence 12; it is C-303, and C-320 stays at four.** This epic produced NO measurement — it fixed traps and changed no forecast. (An earlier version of this line excepted S3 as changing future artifacts; that half of S3 was wrong and is reverted — see C-328.)** **C-346 added 2026-10-20 (`register-risk`), closing the blind spot the same day's review-rr pass named and told the user to register: six load-bearing dependencies shipped undeclared across four releases, and the whole three-link guard chain derived from the declaration rather than from the import graph. Tier 2 — the failure is a loud `ImportError`, matching C-333's tiering; the register's own two-recurrence threshold was passed at six. Deduplicated against all twelve cluster-20 members before writing: NOT merged into C-285 (same accidental-guarantor shape but inside our CI env, not the published wheel — C-285 updated instead, half closed) and NOT merged into C-336 (which is the already-registered *range* half of the same concern). Cross-referenced to C-303/C-324/C-329 rather than merged: in this class the guards existed and ran, they just derived from the wrong source. The same pass made FIVE corrections against fresh measurement rather than against the entries' own text — and three of the five were entries asserting a state the system had already left: **C-335 verified RESOLVED** (`ci.yml:47` has a `build:` job running `uv build` at `:59`, deliberately the same command publish uses; bannered in place, relocation left to the next curation pass per the C-184/C-312/C-303 precedent), **C-341's "⛔ Still unexecuted" line falsified** (`gh run list`: ten runs, four published releases v0.1.0–v0.1.3), **C-342's deferral condition declared SPENT** (it rested on C-341's stale line; the entry stays open and stays Tier 3 — only the reason for inaction expired, and whether to act is the owner's call, not this skill's), **C-285's `Location` corrected** (it cites a `pyproject.toml` test extra that no longer exists), and ⛔ **C-337's PREMISE FALSIFIED**: it asserts 8 views-models configs pin `views-hydranet>=0.1.0,<1.0.0` and asks for tightening to `<0.2.0`; measured at views-models `7bcf9851`, every live pin is already `~=0.1.1` (= `>=0.1.1,<0.2.0`) across 15 `models/*/requirements.txt`, so the work it asks for was done at #462/#484 and never read back. The real residue — views-models CI pinning `views-hydranet==0.1.1` exactly while the models resolve to the newest 0.1.x — is filed as views-models#587. **That last one is C-303's shape pointed across a repository boundary, and cluster 20 is where it is most likely, because the cited artefact is the one thing a pass of this repository never opens.** This pass registered ONE risk and resolved NONE of the clustering/demotion recommendations the review-rr pass left open.** |
+| Total Concerns    | 343                                  |
+| Open Concerns     | 189                                  |
 | — of which demoted (tech-debt) | 13 (tagged `[DEMOTED]` in §Open Concerns; indexed in §Tech-Debt Backlog) |
-| — net active risks | 175                                 |
+| — net active risks | 176                                 |
 | Resolved Concerns | 154                                  |
 | Last curation pass | **2026-10-20 (review-rr strategic)** — ✅ **structure CLEAN on all six derived checks**: 342 headers / 342 distinct, §Open exactly 188 and §Resolved exactly 154 matching the header, no duplicate IDs, no ID in both sections, three gaps (C-34/C-106/C-188) all documented, 13 `[DEMOTED]` headers matching 13 backlog rows, and **0 of 188 open entries lack a tier or a trigger**. ✅ **Trigger quality: 0 weak of 188** — two flagged by pattern (C-164, C-192) were both false positives on inspection, which also confirms C-164's perpetual trigger WAS rewritten as the 2026-09-10 pass claimed. ✅ **No duplicates** — four title-overlap candidates (C-75/C-265, C-189/C-233, C-296/C-331, C-303/C-308) are all distinct concerns. ⛔ **One entry changed: C-345** gains the cross-artifact challenge and its resolution (see the entry). ⚠️ **One proposed change WITHDRAWN by the reviewer before applying it:** C-248 was proposed for demotion 1→2 as being about *"the planned"* GW ruler extension — reading the entry shows a **second symptom measured 2026-08-21 (#282, PR #283)** in which the same unloaded pre-origin month *"already breaks a shipped code path, not just a planned one"*, silently zeroing the persistence baseline. **Tier 1 is correct; the proposal was made from the title.** ⛔ **NOT ACTIONED, left as recommendations (this skill does not add risks or demote unilaterally):** (a) **clustering is stale** — 21 clusters cover 120 of 188 open entries, **68 unmapped including 16 Tier-1/2** (C-225/226/228/249/250/259/290/300/317/321/322/328/338/339/341/344), six weeks and ~25 entries since the last pass; (b) **27 live Tier-4s** — 40 open at Tier 4 against the tier's own *"does not affect correctness or reliability"*, only 13 demoted; (c) ⛔ **a BLIND SPOT that has now fired twice and is unregistered: an undeclared load-bearing dependency** — `wandb` (undeclared until 2026-09-19, #381) and `pandas` (undeclared through releases 0.1.0–0.1.3, declared 2026-10-20 in #408), both shipped to PyPI; the pandas instance has a specific mechanism worth capturing, that `__init__.py`'s lazy PEP-562 `__getattr__` lets an import smoke test pass while only a real run fails. Two recurrences is this register's own threshold for a cluster. **Use `register-risk` for it.** Previous pass: **2026-09-10 (review-rr strategic)** — 3 new clusters (18 instrument integrity, 19 declared-but-inert, 20 cross-repo coordination) covering ~45 of the 112 unmapped entries; C-330 (Tier 1) and C-312 relocated → §Resolved after verifying both fixes **in source** rather than trusting their banners; C-328 bannered FIXED (verified, previously unmarked); C-189's cross-ref repointed from the merged C-188 to C-182; C-110's location marked stale (`golden_hour`/3 → `rusty_bucket`/8); C-164's perpetual trigger rewritten; §Disagreements curated for the first time — 15 entries, **0 ever marked resolved**, two now carry evidence that events answered them. **Blind spots found and deliberately NOT registered here** (review-rr does not add risks): truth-data quality has **zero** coverage; ensemble benefit is assumed rather than measured; secrets handling has one mention with publication imminent. **C-338..C-340 registered 2026-09-10 immediately after this pass, closing the three blind spots it named — C-338 (truth-data aggregate assignments; the register covered whether we measure the model correctly and not whether the reference is correct, with a live instance at views-datafactory#484), C-339 (the 8-member ensemble's benefit is assumed, and the first measurement says sample count not diversity), C-340 (no secrets convention, at the moment the repo acquires its first secret).** **C-341..C-343 added 2026-09-10 from `expert-code-review` of PR #351 (the development→main release): C-341 (Tier 2) the publish workflow's manual path could publish IRREVERSIBLY to PyPI while skipping the tag guard — tier set by irreversibility, not likelihood, since a PyPI version cannot be deleted or reused; FIXED the same day by deleting the input rather than guarding it, together with a second defect in the same never-executed file (a `tomllib` import on the runner's Python, working only by accident of the current image). C-342 (Tier 3) a production release now depends on TestPyPI, deliberately unfixed. C-343 (Tier 4) `__all__` and the lazy `__getattr__` can drift. The same review MERGED its BN finding into C-328 rather than registering it: the recal fix is a real training-time behaviour change and the release PR had claimed none.** Previous pass: **2026-08-15 (review-rr strategic).** 24 entries relocated §Open → §Resolved: the 12 PR-#216 bannered entries (C-138/234/235/236/237/238/239/240/241/242/243/247) whose relocation this header had flagged as pending, plus 12 whose fixes were verified in source but never recorded (C-132/146/179/180/193/194/195/196/197/201/251 + C-184, the last with residual C-273). C-188 merged into C-182; C-134 re-tiered 2→3; 7 Tier-4 entries demoted; 2 causal clusters added (14 positional coupling, 15 register↔code sync). Open 145 → 120, then → 122 with 2 blind-spot entries registered the same day (C-275 data vintage, C-276 forecast monitoring). |
 
@@ -74,7 +74,7 @@ been named.
 |---|---|---|:--:|---|
 | **18** | **The instrument did not measure what it claims.** Not "the code is wrong" — the code ran correctly and answered a different question than the one asked. Four recurring shapes: (a) *the instrument cannot see the thing* — a statistic blind to the property under test; (b) *the decision rule cannot deliver a verdict* — branches that cannot fire, or fire on noise; (c) *the measurement was taken on the wrong object or phase* — an untrained network, a control with no dynamic range, a sentinel; (d) *the readout is assembled wrongly* — cells from different grids, unpaired RNG, a denominator that silently drops rows. | (a) C-292, C-293, C-319, C-323, C-331, C-291 · (b) C-305, C-306, C-307, C-320, C-327, C-332 · (c) C-299, C-308, C-318, C-325 · (d) C-289, C-296, C-297, C-298, C-309, C-310, C-311 · **(e) NEW 2026-10-11 — *the instrument is correct and the INPUT is pathological*: C-345** (`tower_point` faithfully reports the posterior's mode; the mode is 0 in 92% of the cells the model itself scores ≥100 fatalities). ⛔ Shape (e) inverts the cluster's usual remedy: the pre-flight question passes, because the instrument *would* show the effect if the effect were there. It is detected instead by measuring the **positive-draw fraction** of the input before trusting any point summary of it, and it is the shape most likely to reach a partner, because every structural check passes. | 2–3 (mostly method, not code) | **HIGHEST VALUE IN THE REGISTER.** 24 Tier-1/2/3 entries, every one of which cost GPU time or produced a wrong ledger row, currently read as 23 unrelated incidents. The cluster's own remedy is not 23 fixes: it is **one pre-flight question — "what would this measurement look like if the effect were absent?"** — which shapes (a), (b) and (c) all fail. |
 | **19** | **Declared but inert** — a knob, guard, or documented claim that exists, is cited, and does nothing. C-324 is the named root ("verified on a path production never takes"); C-303 is the prose form and is at **13 occurrences**. | C-303, C-324, C-329, C-334, C-271, C-302, C-264, C-130, C-216, C-263 | 1–2 | **near-term.** The cheap recurrence guard is mechanical and does not exist: for every config field and every named guard, assert a production caller. C-271 and C-302 are each a single grep. |
-| **20** | **Cross-repo and environment coordination** — this repo's correctness depends on artefacts it does not own and does not check: sibling package releases, pinned ranges, CI/lint environments, and documents cited but absent. | C-333, C-334, C-335, C-336, C-337, C-283, C-285, C-288, C-278, C-279 (+ mapped C-165, C-245) | 1–2 | **acute now** — publication (#340) makes this repo an upstream for the first time, and C-333 records the class recurring **with the arrow reversed**: C-165 has this repo blocked for weeks by an unpublished `views-pipeline-core`; two months later it is the unpublished upstream doing it to 8 views-models models. |
+| **20** | **Cross-repo and environment coordination** — this repo's correctness depends on artefacts it does not own and does not check: sibling package releases, pinned ranges, CI/lint environments, and documents cited but absent. | C-333, C-334, C-335, C-336, C-337, C-283, C-285, C-288, C-278, C-279, **C-346** (+ mapped C-165, C-245) | 1–2 | **acute now** — publication (#340) makes this repo an upstream for the first time, and C-333 records the class recurring **with the arrow reversed**: C-165 has this repo blocked for weeks by an unpublished `views-pipeline-core`; two months later it is the unpublished upstream doing it to 8 views-models models. |
 | **21** | **Prose with a self-dating expiry** — text that was **true when written**, names the future event that would falsify it, and is never re-read when that event lands. Distinct from C-303 (prose asserting a state the code never had) and from cluster 15 (register↔code sync): here nobody was wrong, and nobody was watching. | C-165 (named root — `environment.yml` said the CI `test` job could not resolve *"until views-pipeline-core 3.0.0 is published"* and predicted *"goes green with NO change here the moment 3.0.0 ships"*; it shipped, the job went green, and the note stood **ten more weeks** through the 0.1.2 release which read that file), C-283, C-303, C-174 | 1 (mechanical) | **cheap and unbuilt.** Any comment, docstring or register line whose truth depends on an external event needs a check that re-reads it when the event occurs — a dated review marker, or an assertion on the condition itself. C-165's note stated its own expiry condition in plain text and nothing parsed it. Found 2026-10-11 while reconciling an unrelated version drift, i.e. **by luck**. |
 
 **Unmapped after this refresh: ~67 of 180.** The residue is dominated by the Tier-4 architectural
@@ -2373,6 +2373,20 @@ C-283 fixed the missing `ruff`. The underlying condition is unchanged: `pip inst
 
 **Not fixed here** — the right fix is one source of truth for the test environment, which is a repo-wide change and outside this PR's scope (`SCOPE.md`).
 
+✅ **HALF CLOSED 2026-10-20.** `environment.yml`'s pip list now installs `.[viz]` rather than `.`, so
+matplotlib is declared into the CI test environment instead of arriving by accident. It *was*
+arriving: `pyod` (`views-pipeline-core → viewser → pyod`) pulls it in unpinned, so the `test` job
+was green either way — the accidental-guarantor shape of C-346, inside our own CI rather than in a
+published wheel. This entry's Trigger (*"adding a test that imports `matplotlib`"*) is therefore no
+longer live.
+
+⛔ **The other half is untouched and this entry stays OPEN:** `ruff` is still pinned independently in
+`environment.yml`, in `pyproject.toml`'s poetry dev group and in `ci.yml`'s `lint` job, so the two
+jobs can still disagree about what "clean" means. ⚠️ **The `Location` line above is STALE:** it cites
+`pyproject.toml:33-36` as a *test extra declaring matplotlib*; there is no test extra in `pyproject`
+today — matplotlib is declared in `[tool.poetry.group.dev.dependencies]` and, as of 2026-10-20, in a
+`[project.optional-dependencies]` `viz` extra. See also C-346.
+
 ---
 
 ### C-286: `partition_audit` records two fields that cannot express the state they name
@@ -4401,6 +4415,16 @@ extras rename would pass lint, pass 2080 tests, and fail only when someone cuts 
 **Tier 3 rationale:** maintainability / false-confidence, matching C-165's tier for the same class of
 gap. A `python -m build` step costs seconds and converts a release-time failure into a PR-time one.
 
+✅ **RESOLVED — verified in source 2026-10-20 (`register-risk`).** `ci.yml` now carries a third job:
+`build:` at `:47`, running `uv build` at `:59`, with a comment at `:44` stating that it
+*"deliberately builds the SAME WAY the publish workflow does (`uv build`), so what CI proves is what
+publish does."* That is exactly the fix this entry asked for, and it also closes the gap the entry
+did not name — not merely *that* CI builds, but that it builds by the same command. The `Location`
+line above (*"`lint` and `test` jobs only; no `build` step anywhere"*) is therefore **stale and
+superseded by this banner**. ⛔ **Left in §Open pending the next curation relocation**, following the
+precedent this register already set for C-184, C-312, C-303 and the PR-#216 entries: `register-risk`
+updates entries, it does not relocate them.
+
 ---
 
 ### C-336: `views-frames (>=1.10.2,<2)` excludes the published latest, and is one upstream release from being a blocker
@@ -4458,6 +4482,34 @@ forecast silently; the failure is loud when it arrives.
 downstream `<1.0.0` bound starts doing real work, or whether the 8 pins should be tightened to
 `~=0.1.0` / `>=0.1.0,<0.2.0`. Cheaper to settle before there are published versions to stay
 compatible with.
+
+⛔ **THE PREMISE OF THIS ENTRY IS FALSE, measured at views-models `7bcf9851` on 2026-10-20.** It
+asserts *"8 views-models configs pin `views-hydranet>=0.1.0,<1.0.0`"* and asks for them to be
+tightened to `<0.2.0`. **No live pin in that repository says that.** Every one is
+`views-hydranet~=0.1.1`, which is `>=0.1.1, ==0.1.*` — i.e. `>=0.1.1,<0.2.0` — across **15**
+`models/*/requirements.txt`, plus `tools/podrun/pod_run_model.sh:172` and
+`docs/runpod_run_guide.md:213`. **The tightening this entry asks for is already done**, and was done
+at #462 (0.1.0, 2026-09-15) and #484 (0.1.1, 2026-09-19) per `roster_configs_load.yml:31`'s own
+header. The only `>=0.1.0,<1.0.0` strings in the whole repository are two lines inside
+`reports/conda_to_uv_migration_investigation.md`, which is a document and not a pin; every `==0.1.x`
+constraint found is a frozen record (a delivery snapshot under `data/generated/` or a
+`wandb/run-*/files/requirements.txt`).
+
+⚠️ **What this entry should have been, and the residue that is real.** views-models
+`.github/workflows/roster_configs_load.yml:53` installs `views-hydranet==0.1.1` **exactly**, while
+the 15 model requirements resolve to the newest `0.1.x`. The moment 0.1.4 publishes, that CI job
+validates all 8 roster configs against a different version than the pods run — and that workflow's
+own header asks for the two to be kept in step. Filed as **views-models#587** (2026-10-20); ⛔ issue
+only, no commits in that repository, per standing instruction.
+
+⚠️ **How the false premise survived a year of passes, which is the generalisable part:** this entry
+was written on 2026-09-10 from a review of #340, *before* #462 and #484 tightened the pins, and
+nothing re-read the other repository afterwards. It is C-303's shape pointed across a repository
+boundary — prose asserting a state the system does not have — and the register's own cross-repo
+cluster (20) is where that is most likely, because the cited artefact is the one thing a pass of
+this repository never opens. **The entry is corrected rather than resolved:** the semver question it
+raises (whether the release after 0.1.x should be 1.0.0) is still unanswered and still worth a
+decision. See also C-346.
 
 ### C-338: the observed data can carry aggregate/summary assignments, and nothing flags one — a single cell-month can dominate a magnitude score
 
@@ -4637,6 +4689,17 @@ metadata assertion passed.
 present on the default branch, so validation to date is static. The live TestPyPI rehearsal is a
 **hard gate before any Release is cut** (#363).
 
+⚠️ **The paragraph above is STALE as of 2026-10-20 and is retained only as the record.** Measured
+with `gh run list --workflow=publish_package.yml`: the workflow has run **ten times** and
+**published four times** — `v0.1.0` (2026-09-15), `v0.1.1` (2026-09-19), `v0.1.2` (2026-09-29) and
+`v0.1.3` (2026-10-16), every `release` event succeeding, each preceded by a successful
+`workflow_dispatch` rehearsal. Two early dispatches failed (2026-09-15, 2026-09-29) and both were
+fixed before the Release. So the #363 hard gate was met, four times, and *"a workflow's first
+execution is its first test"* — the line this entry generalises to — no longer applies to this file.
+**The entry itself stands:** the defects it records were real and are fixed, and nothing here
+re-opens them. ⛔ Noted because the stale sentence is load-bearing elsewhere: it is the premise
+C-342's deferral rests on (see that entry).
+
 ---
 
 ### C-342: a production release depends on TestPyPI, a service with no uptime guarantee
@@ -4670,6 +4733,17 @@ release-only bypass reintroduces the skipped-rehearsal problem. The genuine fix 
 **two workflows**, one dispatch-only rehearsal and one release-only publish — which is deferred
 until the current one has succeeded at least once. Restructuring a workflow that has never run is
 how C-341's defects got there.
+
+⚠️ **The deferral condition is SPENT, measured 2026-10-20 (`register-risk`).** It read *"deferred
+until the current one has succeeded at least once"*; it has succeeded **four** times — `v0.1.0`,
+`v0.1.1`, `v0.1.2`, `v0.1.3`, every `release` event green (`gh run list
+--workflow=publish_package.yml`; see the correction appended to C-341, whose *"Still unexecuted"*
+line was this deferral's stated premise). **The entry stays OPEN and stays Tier 3**: the concern is
+unchanged — `test.pypi.org` is still on the critical path of every tagged release with no `if:` and
+no `continue-on-error` — and what has changed is only that the *reason for not acting* has expired.
+⛔ **This is not a recommendation to split the workflow.** Whether Hickey's two-workflow fix is now
+worth its cost is a decision for the owner, and `register-risk` does not make it. What is no longer
+available is declining it on the grounds that the workflow has never run.
 
 ---
 
@@ -4801,6 +4875,115 @@ field than the headline run of its arm. That is a data consequence, not a code o
 **What this does NOT establish.** Whether the posterior is wrong — that needs truth, and the delivery carries none. The timidity is separately measured (MCR 0.062–0.147 ⇒ ~6–15% of observed mass; `size_ratio` → 0; §5.0), so the direction is not in doubt, but **no measurement here decomposes how much of the empty mode is timidity versus genuine irreducible uncertainty.** That decomposition is the open question.
 
 **Fix (none of it is "change the estimator").** (a) Publish the **positive-draw fraction** beside any delivered point surface, so a reader can see where the mode is uninformative; (b) treat a point summary as **inadmissible** on a bimodal cell — views-frames already ships a `bimodality` flag and nothing in this repo reads it; (c) decide deliberately what a delivery should carry where the mode is zero and the mean is 218 — the mean, an interval, or a refusal; (d) re-measure on the **validation** partition against truth to split timidity from irreducible uncertainty. Reproduce with `reports/2026-10-10_delivery_frame_measurements/delivery_frame_audit.py` plus the positive-draw-fraction derivation above.
+
+---
+
+### C-346: six load-bearing dependencies shipped undeclared across four releases, and every link in the guard chain derived from the declaration rather than from the imports
+
+| Field | Value |
+|-------|-------|
+| ID | C-346 |
+| Tier | 2 |
+| Source | `manual` (2026-10-20) — measurement by walking the import graph with `ast`, plus `/code-review high` on the v0.1.4 release surface; named as an unregistered blind spot by the 2026-10-20 review-rr pass, which does not add risks |
+| Trigger | Re-ranging or removing a bound in `pyproject.toml`'s `dependencies` (both range defects this class produced were caught by hand, never by the guard), **or** a sibling `views-*` package dropping a dependency we had relied on transitively — specifically the `views-pipeline-core → viewser → pyod → scikit-learn` hop, where no published package in our tree declares the dependency at all |
+| Location | `pyproject.toml` `dependencies` (nine entries as of 0.1.4; six of them added 2026-09-19 and 2026-10-20); `.github/scripts/wheel_contract.py:33` (`REQUIRED_DEPENDENCIES`); `tests/test_publication_path.py` (`TestEveryImportIsDeclared`, and the `REQUIRED_DEPENDENCIES`↔`pyproject` pin); `views_hydranet/__init__.py` (the lazy PEP 562 `__getattr__`); `views_hydranet/utils/training_forensics.py:344` (the function-level `sklearn` import); `pyproject.toml:10` (`requires-python`, the declared-RANGE instance found 2026-10-20 and fixed the same day); `poetry.lock:4940-4941` |
+| Cross-refs | Cluster **20** (cross-repo and environment coordination). C-285 (the same class inside our own CI env, half closed 2026-10-20); C-336 (a declared range whose ceiling excludes the published latest — the *range* half of this concern, already registered); C-333 (cross-repo release ordering, the same cluster and the same loud-failure tiering); C-329 (tests that cannot fail — the closest sibling in shape); C-303 (prose asserting a guard the code lacks — related but distinct: here the guards existed and ran); C-324 (inert-but-tested) |
+
+**Six instances, all measured 2026-10-20 unless dated otherwise.** `wandb` was undeclared until #381
+(2026-09-19). `pandas` was undeclared through releases **0.1.0, 0.1.1, 0.1.2 and 0.1.3** — imported at
+module top by **seven** production modules and on the path of *every* run type, since
+`manager/hydranet_manager.py:152` calls `VolumeHandler.from_df`, so no training, evaluation or
+forecast run can start without it (declared in #408/#410). Walking the import graph then found four
+more, all of which also shipped in 0.1.0–0.1.3: `numpy` (21 modules, module-top), `pydantic`
+(`utils/config_initializer.py`), `tqdm` (`train/training_engine.py`,
+`utils/hydranet_inference.py`) and `sklearn` (`utils/training_forensics.py:344`, **inside a function
+body**).
+
+**Nothing ever failed, and that is the finding.** Every instance resolved through another package's
+transitive choice, measured off *published* metadata: `numpy` ← `views-frames → numpy<3,>=1.26` (1
+hop); `pydantic` and `tqdm` ← `views-pipeline-core → viewser` (2 hops each); `sklearn` ←
+`views-pipeline-core → viewser → pyod → scikit-learn` (**3 hops**, and `pyod` is an
+outlier-detection package this repo never imports, so nothing here would notice it dropping
+scikit-learn). The `sklearn` case is the sharpest: because the import is inside
+`_calculate_cls_metric`, the failure would not be at import — it would be **hours into a training
+run**, when the forensic computes AP/AUC.
+
+⛔ **Why it stayed invisible for four releases — two mechanisms, and the second is the register-worthy
+one.** (1) `views_hydranet/__init__.py` is a PEP 562 lazy `__getattr__`, so a bare
+`import views_hydranet` loads nothing: an import smoke test passes against a wheel that cannot run.
+(2) **Every link in the guard chain derived from the declaration.** `wheel_contract.py`'s
+`REQUIRED_DEPENDENCIES` was pinned to `pyproject` by `test_publication_path.py`, and the wheel
+metadata was pinned to `REQUIRED_DEPENDENCIES`. Three links, all green, all of them reading the
+declaration and none of them reading the import graph. **A guard chain that derives from the thing
+under test cannot falsify it** — which is C-329's shape arranged across three files instead of
+inside one assertion.
+
+**Tier 2, not 1.** The failure mode is an `ImportError`: loud, and no forecast was ever wrong because
+of it — the same reasoning that tiers C-333 at 2. Not Tier 3, because it reached PyPI in four
+consecutive releases and the entire guard chain was blind by construction rather than by oversight.
+The `sklearn` sub-case stretches "loud" about as far as it goes — loud but late, and it costs a
+multi-hour run.
+
+**Evidenced mitigation, NOT closure.** `TestEveryImportIsDeclared` in `tests/test_publication_path.py`
+is the first guard here that derives from the import graph: it walks `git ls-files
+'views_hydranet/*.py'` with `ast.walk` (**not** `tree.body` — `sklearn` is function-level), resolves
+each third-party module through `importlib.metadata.packages_distributions()`, checks *declared*
+before it resolves (the `matplotlib`/`viz`-extra case, which made the guard red on a correct repo in
+its first form), and asserts its own scan completeness. Hardened over three mutation rounds, 11
+mutations, **two survivors, both closed**: M4 restricted the walker to `tree.body`, which re-hid
+`sklearn` and left the whole class green — the completeness assertion proved the scan reached whole
+*files* and never that it descended *into* them; M6 neutered the `unresolvable` branch.
+
+⚠️ **What the mitigation does not cover — the live residue.** (a) It checks **declared vs imported,
+never whether a declared range is satisfiable or correct.** Both range defects this class produced
+were found by hand: `scikit-learn>=1.0` was unsatisfiable at our own
+`requires-python = ">=3.11"` (1.0.2 advertises `Requires-Python >=3.7` and ships **zero** cp311
+wheels, so a backtracking resolver can select it and then fail building the sdist), and the first
+commit's `scikit-learn` provenance claim was simply **wrong** — read off an *editable*
+`views-evaluation 0.4.0` checkout in the local conda env, when published `views-evaluation 2.0.0`,
+`views-pipeline-core`, `viewser` and `views-frames` declare no scikit-learn at all. C-336 is the
+already-registered instance of this half. (b) It runs in the `test` job, which is **not** the
+publish job. (c) `environment.yml` now installs `.[viz]` rather than `.` (2026-10-20), so matplotlib
+is asked for instead of arriving because `pyod` pulls it in unpinned — but that was this same
+accidental-guarantor shape **inside our own CI**, and the job was green either way. See C-285, whose
+other half (ruff pinned independently in three places) is still open.
+
+⛔ **A SEVENTH instance, in the declared-RANGE half this entry had just named as uncovered — found
+2026-10-20 by `/falsify` on the v0.1.4 release surface, hours after the paragraph above was
+written.** `pyproject.toml:10` declared `requires-python = ">=3.11,<3.15"`, advertising 3.12, 3.13
+and 3.14. But `viewser` 6.6.4's `pandas<2.0.0` against our own `pandas>=1.5.3` leaves **1.5.3 as the
+only satisfying release** — pandas is pinned to exactly one version rather than merely bounded, and
+that version's last wheel is **cp311**. (`numpy` is pinned to 1.26.4 the same way; cp312 is its
+last.) So three of the four advertised interpreters had no wheel for a dependency the package cannot
+start without, in **every release 0.1.0 through 0.1.3**.
+
+It is this entry's own shape with the arrow reversed: above, a real import had no declaration; here,
+a declaration had no reality behind it. Both were invisible for the same reason — every check derived
+from `pyproject` rather than from anything able to contradict it.
+
+⚠️ **And the knowledge already existed, in the consumer's repo, as a manual workaround.** views-models
+`tools/podrun/pod_run_model.sh:164` does `uv venv --python 3.11` and `docs/runpod_run_guide.md:228`
+says *"Python 3.11, not the image's 3.12."* Someone had already discovered 3.12 does not work and
+written it down where pip cannot enforce it — so the defect was not unknown, it was **unenforceable**.
+That is the more useful reading of this whole entry: six of the seven instances were things the
+system knew and could not check.
+
+**Fixed 2026-10-20**: ceiling narrowed to `<3.12`, `README.md:74`'s `Python >= 3.8` corrected (it is
+the wheel's `long_description` and renders on the PyPI project page), and guarded by
+`tests/test_publication_path.py::TestRequiresPythonIsServiceable`. ⚠️ That guard pins a **measured
+constant** and says so: it enforces the fix and makes widening the ceiling a deliberate edit, but it
+does not track pandas' wheel matrix, and the dependency ranges themselves are **still** unvalidated.
+
+⛔ **`poetry.lock:4940-4941` deliberately NOT regenerated, and this is a decision rather than an
+oversight.** `python-versions` there mirrors the old `>=3.11,<3.15` and the `content-hash` is keyed to
+`pyproject`'s dependencies, so both are now stale. But `poetry check --lock` **already failed before
+the edit** — measured: *"pyproject.toml changed significantly since poetry.lock was last generated"* —
+because the lock dates from 2026-08-01, six declared dependencies ago. Nothing in `.github/`,
+`tests/`, `environment.yml` or `docs/guides/` reads it, and no guard checks it. Regenerating would
+attach a 424 KB re-resolve to a one-line metadata fix and make an unvalidated artifact look
+authoritative. Its fate belongs to proposed **ADR-053** (`poetry.lock` → `uv.lock`). Recorded here
+because a committed artifact asserting a state the project has left is the C-303 shape, and this one
+is now knowingly left in place.
 
 
 ## Disagreements
