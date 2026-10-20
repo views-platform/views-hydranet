@@ -71,7 +71,8 @@ HydraNet fits into the VIEWS pipeline as follows:
 
 ### Prerequisites  
 
-- Python >= 3.8  
+- Python 3.11 (`>=3.11,<3.12`) — see `pyproject.toml`'s `requires-python` for why the ceiling is
+  this tight: the pinned `pandas 1.5.3` publishes no wheel above cp311.
 - GPU support recommended (e.g., NVIDIA CUDA).   
 
 ### Steps  

@@ -354,8 +354,10 @@ class TestEveryImportIsDeclared:
     and the declaration was made correctly five times while the defect kept recurring: the thing
     that recurs is nobody checking. Six instances and four published wheels is the overhead earned.
 
-    What it does NOT prove: that a declared range is *right*, or that a declared dependency is
-    still used. Only that nothing load-bearing is missing.
+    What it does NOT prove: that a declared dependency is still used, or that a declared dependency
+    RANGE is right. Only that nothing load-bearing is missing. ⚠️ One half of the range gap is now
+    covered by `TestRequiresPythonIsServiceable` below — `requires-python`, which is also a
+    declared range and was also never validated. The dependency ranges themselves still are not.
     """
 
     def _declared(self) -> set[str]:
@@ -427,4 +429,69 @@ class TestEveryImportIsDeclared:
         )
         assert not undeclared, "undeclared load-bearing imports:\n" + "\n".join(
             f"  {module}: {sorted(files)}" for module, files in sorted(undeclared.items())
+        )
+
+
+class TestRequiresPythonIsServiceable:
+    """`requires-python` is a declared range too, and nothing validated it either.
+
+    ⛔ Found 2026-10-20 by `/falsify` on the v0.1.4 release surface, in the residue
+    `TestEveryImportIsDeclared` above had already confessed to. The ceiling was `<3.15`, so the
+    wheel advertised 3.11 through 3.14 — while `viewser` 6.6.4's `pandas<2.0.0` against our own
+    `pandas>=1.5.3` leaves **1.5.3 as the only satisfying release**, pinning pandas to one version
+    whose last wheel is cp311. Three of the four advertised interpreters had no wheel for a
+    dependency the package cannot start without, in every release 0.1.0 through 0.1.3.
+
+    It is the same shape as the imports above with the arrow turned around: there, a real import
+    had no declaration; here, a declaration had no reality behind it. Both were invisible for the
+    same reason — every check derived from `pyproject` rather than from anything that could
+    contradict it.
+
+    ⚠️ **This pins a MEASURED CONSTANT, and that is a real limitation, not a formality.** It
+    enforces the current fix and makes widening the ceiling a deliberate edit that forces a
+    re-read. It does **not** track pandas' wheel matrix: if upstream lifts `pandas<2.0.0`, this
+    keeps passing while the ceiling could safely widen — a false negative, in the harmless
+    direction. The honest guard would resolve the tree and query wheel availability per
+    interpreter, which needs the network; this suite has **zero** network tests, and a guard gated
+    behind an env var is one that never runs in CI (C-324, the shape this repository keeps paying
+    for). The trade is named rather than hidden.
+
+    `packaging` is safe to import here: `pytest` declares `packaging>=22` as a hard requirement, so
+    it is present wherever this suite runs. One hop from a declared test dependency — deliberately
+    checked, because an earlier draft of this guard avoided it on the mistaken belief that it was
+    an accidental guarantor of exactly the kind C-346 is about.
+    """
+
+    # The highest CPython minor for which EVERY pin of the currently resolved tree publishes a
+    # wheel. Measured 2026-10-20 against published PyPI metadata; the binding constraint is
+    # `pandas==1.5.3` (cp311 is its last wheel), and numpy==1.26.4 is the next tightest (cp312).
+    HIGHEST_WHEEL_SUPPORTED_MINOR = 11
+
+    def test_requires_python_advertises_no_interpreter_without_a_pandas_wheel(self):
+        """Fail-closed by construction: a ceiling that is deleted or widened to `<4` makes
+        `contains()` true for every later minor, so it fails without a special case for it."""
+        import tomllib
+
+        from packaging.specifiers import SpecifierSet
+
+        declared = tomllib.loads((REPO / "pyproject.toml").read_text())["project"][
+            "requires-python"
+        ]
+        spec = SpecifierSet(declared)
+        # 30 rather than the current ceiling: the point is to catch a RAISED or absent ceiling, so
+        # the probe must look past wherever it sits today.
+        advertised = [
+            m for m in range(self.HIGHEST_WHEEL_SUPPORTED_MINOR, 30) if spec.contains(f"3.{m}.0")
+        ]
+        assert advertised, f"requires-python {declared!r} admits no 3.x at all — read it again"
+
+        unserviceable = [m for m in advertised if m > self.HIGHEST_WHEEL_SUPPORTED_MINOR]
+        assert not unserviceable, (
+            f"requires-python {declared!r} advertises Python "
+            f"{', '.join(f'3.{m}' for m in unserviceable)}, but the locked dependency tree has no "
+            f"wheel above 3.{self.HIGHEST_WHEEL_SUPPORTED_MINOR}: `pandas==1.5.3` is pinned to "
+            f"exactly one release by viewser's `pandas<2.0.0` against our `pandas>=1.5.3`, and "
+            f"cp311 is its last wheel. Published metadata would make a capability claim the tree "
+            f"cannot deliver. Fix the ceiling, or lift the upstream pandas bound first and "
+            f"re-measure HIGHEST_WHEEL_SUPPORTED_MINOR."
         )
