@@ -125,3 +125,87 @@ and **none** of the canonical dense-prediction references held — `Ledig2017` (
 (ESRGAN), `Isola2017` (pix2pix). It also reports that our lag-1 comparison (model 0.86–0.96 against
 truth 0.51–0.59) is **a cleaner quantification of this than anything in the corpus**. ⛔ An
 acquisition costs money and is Simon's call; nothing is fetched here.
+
+---
+
+## ⛔ Amendment A2 — D6, and the falsifier §9.3 did not have
+
+**Committed before D6 runs.** The `opponent` seat attacked §9.3's comparator two ways (its §13,
+commit 885d6e8). One objection — the one *I* nominated as my weakest joint — **fails**. A different
+one **lands**, and it is the fourth instance of today's error class.
+
+### What lands: the four rows are not on the same scale
+
+`log mu` and the gate logit are continuous and atom-free. The truth is a **raw rate with an atom of
+mass 0.986 at exactly zero**. Lag-1 Pearson is invariant under *affine* maps, not under `log` or
+`logit`, and the truth cannot be put on the model's scale because `log(0)` does not exist for 98.6%
+of land cells. On a synthetic field of known smoothness the seat measured my estimator understating
+the true log-intensity lag-1 by **0.073 → 0.146 as the silent fraction rises**, monotone in the atom,
+with our panel more silent than any row it tested ⇒ **at least ~0.15 of my reported 0.22–0.32 gap is
+reproducible with no model involved.**
+
+⛔ **Not to be fixed by transforming the truth.** The seat tried `log((n+0.5)/337)` and it is *worse*
+— 0.64/0.63 against a ground truth of 0.97 — because logging a quantised count injects noise into
+near-silent cells. One field reads 0.97, 0.85 or 0.65 depending only on which monotone map it is
+measured on. ⚠️ That its wrong fix lands on our reported 0.6419/0.6261 is coincidence in its
+synthetic, and a warning.
+
+### D6-C — the pre-registered falsifier, reading committed now
+
+Push **the model** through **the truth's estimator**, not the truth through the model's scale. Both
+rows then become one functional of two objects of the same kind.
+
+Per land cell, from `d4_result.npz` (already holds `mu`, `theta`, `gate` for all 64,818 cells; **no
+new forward pass**): draw 336 months of the gated-NB generative model, build the empirical base-rate
+field **exactly as §9.3 builds the truth's**, take lag-1 of its log, and replicate. Exactly, not by
+brute force: `k ~ Binomial(336, gate)` then `S ~ NB(k·theta, p)`, since a sum of `k` i.i.d.
+`NB(theta, p)` is `NB(k·theta, p)`.
+
+| outcome | pre-committed reading |
+|---|---|
+| **0.642 falls OUTSIDE** the posterior-predictive distribution of the statistic | §9.3's finding **STANDS** — the model's field is smoother than the truth's by more than the estimator can explain |
+| **0.642 falls INSIDE** it | §9.3's finding is **WITHDRAWN** — the gap is the estimator, and the truth's intensity is consistent with being as smooth as the model's |
+
+⛔ No third branch, no post-hoc reinterpretation of a near miss. Two-sided, α = 0.05, ≥ 200 replicates.
+
+### D6-A — the objection I nominated, independently re-derived
+
+The seat fitted classical attenuation `ρ_obs(T) = ρ_S/(1 + v/T)` on my three truth windows,
+over-identified it, and the held-out 36-month point landed to **0.0004** (`v` = 3.4612, `ρ_S` =
+**0.6405**) ⇒ the 336-month reference is attenuated by **1.02%**. ⛔ **I am not taking that on its
+word.** D6-A refits it from the parquet on **more windows than it used**, holding out different
+points, because a two-parameter fit through three points that predicts the middle one is impressive
+only if the middle one is not doing the work.
+
+### D6-B — the lag PROFILE, which separates what lag-1 cannot
+
+The seat's sharpest point, conceded on sight: **§9.2 and §9.3 are in tension.** §9.2 says too
+*little* large-scale amplitude (`sd(log mu)` flat 1.714 → 1.705 while the truth's grows 1.946 →
+2.987); §9.3 says too *much* local correlation. A receptive-field blur produces the second and **the
+opposite of the first** — blurring preserves regional contrast and destroys local contrast. So
+"diffuse" does not cover both and they may be two defects.
+
+D6-B computes `ρ(lag)` for lag 1…32 on both heads instead of lag 1 alone. **A receptive-field limit
+has a hard length scale and shows a knee at its radius, identical in both heads (same decoder depth);
+a shrinkage or normalisation cause is scale-free and shows none.** Descriptive — ⛔ no threshold is
+pre-committed, because I have no prior for the knee's location and will not invent one after seeing it.
+
+### Two concessions and one contest, recorded before the numbers
+
+1. ✅ **CONCEDED: *"two heads that share only the trunk"* is false.** They also share the input
+   channels, the data, the optimiser, the loss weighting, the BatchNorm regime and the weight decay.
+   "Upstream of both" names **everything shared**, not the trunk — and my own ⚠️ list four lines
+   below named BatchNorm and weight decay, so the sentence contradicted its own caveat. §9.4 is
+   corrected to "upstream of both heads, in anything they share".
+2. ⚠️ **CONTESTED, precisely: candidate 4 is not dead, only its narrow form is.** The seat argues
+   *"the NLL's own preference"* cannot cause a defect in both heads because the gate trains on
+   weighted BCE. **Right about the NB NLL specifically, wrong about the candidate as A1 restated it.**
+   A1's candidate is not "the NB likelihood's preference" but *"a pixel-wise proper-scoring objective
+   emits a conditional mean"* — and that covers **both** heads, because BCE's conditional mean is `p`
+   exactly as the NB's is `mu`. `Ribeiro2025_FlowCast`'s wording is *"pixel-wise losses"*, not "the
+   NLL". So the count is **three live plus one, not three**: BN recal, global weight decay, receptive
+   field, **and** conditional-mean averaging, which remains the leading one and is the only candidate
+   that predicts the defect appearing identically on two heads with different losses.
+3. ✅ **ACCEPTED without reservation:** §9.3 is **suspended, not withdrawn**, until D6-C runs. The
+   half of §9.4 that carries *"upstream of both"* never used the truth comparator and is unaffected,
+   and the S1 verdict never depended on §9.3 at all — it is carried by §2/§3's bounds and C-152.
