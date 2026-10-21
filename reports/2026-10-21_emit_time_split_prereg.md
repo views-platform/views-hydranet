@@ -93,3 +93,90 @@ as an artifact. ⇒ **An improvement here would be a genuine surprise and a stro
 **Zero-truncated draw:** rejection-free inverse-CDF on the NB conditioned to `y ≥ 1`, i.e. draw
 `u ~ U(p0, 1)` and invert — ⛔ **not** rejection sampling, whose cost explodes exactly where `p0 → 1`,
 which is most of this grid.
+
+---
+
+# OUTCOME — 2026-10-21. ⛔ P-2 REFUTED, F2 FIRED. Cost 107.3 s / 3.07 GiB.
+
+Driver `2026-10-12_underfire_diagnosis/emit_time_split_test.py`, committed before it ran. Frozen
+`nb` control cube, out of sample 457–469, 842,634 cell-months, common random numbers across arms.
+
+| emission | theta | composed CRPS | vs base | emitted pos frac | CRPS on `y=0` | CRPS on `y>0` |
+|---|---|---|---|---|---|---|
+| NB | model's own | 0.050758 | — | 0.0009 | 0.000463 | 14.589 |
+| **zero-truncated** | **model's own** | **0.047741** | **−5.94%** | **0.0037** | 0.006274 | **12.034** |
+| NB | ×21.99 | 0.046048 | −9.28% | 0.0022 | 0.001052 | 13.053 |
+| zero-truncated | ×21.99 | 0.046023 | −9.33% | 0.0037 | 0.001693 | 12.860 |
+
+Observed positive fraction: **0.0034**.
+
+## ⛔ P-2 was wrong, at 65% confidence, and the reasoning error is the useful part
+
+I predicted composed CRPS would get **worse by 5–30%**. It is **5.94% better**. The argument was:
+*"99.66% of out-of-sample cell-months have truth 0, so a floor of 1 wherever the gate fires is paid
+for on every one of them."*
+
+**Half of that is right and it is the wrong half.** Truncation does cost on true-zero cells —
+0.000463 → **0.006274**, a 13.5× increase, exactly the direction P-4 named. But I reasoned about the
+**count** of cells instead of their **contribution**, and those are not the same thing on a field
+like this:
+
+| | share of cells | per-cell CRPS | share of the pooled mean |
+|---|---|---|---|
+| truth = 0 | **99.66%** | 0.000463 | **~1%** |
+| truth > 0 | 0.34% | **14.589** | **~99%** |
+
+⇒ **The pooled CRPS is almost entirely the event cells**, and truncation improves those by **17.5%**
+(14.589 → 12.034). The 13.5× penalty on the zeros is real and still nearly invisible. ⚠️ This is the
+same error as reading a 97.8%-empty grid's `b` as a property of the model: a population can dominate
+the *count* and contribute nothing to the *statistic*.
+
+## ✅ P-1 confirmed, and it is arithmetic rather than a result
+
+Emitted positive fraction **0.0009 → 0.0037** against an observed **0.0034** — within 9%, and it is
+the manipulation check: with `P(body > 0) = 1`, emitted `P(y>0) = gate` exactly, so this measures
+that the gate is calibrated, which `P2` already established at median `|gate − p| = 0.0054`.
+
+## ⭐ The finding the 2×2 was built for: the two levers are SUBSTITUTES, not additive
+
+| | |
+|---|---|
+| theta rescale under **NB** emission | **−9.28%** |
+| theta rescale under **truncated** emission | **−3.60%** |
+| truncation at the **model's** theta | **−5.94%** |
+| truncation at **theta ×22** | **−0.05%** |
+
+⇒ Each lever alone recovers 6–9%; together they recover 9.33%, barely more than the better one
+alone. **They are doing the same job — moving mass off the zero atom — by two different routes.**
+
+⛔ **F4 as worded did NOT fire** (the theta effect does not *reverse* sign, it shrinks), so the
+falsifier is recorded as not-fired rather than stretched to cover this. But the substitution is
+real, and the committed consequence applies: **neither number may be quoted as additive with the
+other.**
+
+## ⭐ Why truncation is nonetheless the better of the two, despite the smaller CRPS gain
+
+1. ⛔ **It has NO free parameter.** The theta route needs a scale fitted on data (21.99, fitted in
+   sample). Truncation is a change of emission rule with nothing to tune, nothing to overfit and
+   nothing to re-fit per model.
+2. **It lands the positive rate where the truth is.** 0.0037 against 0.0034 observed, versus the
+   theta route's 0.0022 — which is still 35% short.
+3. It is the combination `M1` computed analytically at **76.3%** of the zero-mass gap and that the
+   engine has never been able to run.
+
+## ⇒ Verdict and what it licenses
+
+**The emit-time axis is worth building.** §2 committed to building only if the arithmetic paid, and
+it pays: a parameter-free emission change recovers 5.94% of composed CRPS, fixes the emitted
+positive rate to within 9% of observed, and needs no retraining.
+
+⛔ **What this does NOT establish**, and none of it may be skipped when the axis is written up:
+
+- **n = 1, one target (`sb`), one vehicle**, and that vehicle's checkpoint is **deleted** — this is
+  the last question the frozen cube can answer.
+- It is a change to **emission on delivered weights**. It says nothing about training.
+- `crps_all` is one FAO-02 column. **AP, Brier, MCR and `crps_events` are unmeasured here**, and
+  C-352 records that one of the platform's three AP constructions is coupled to exactly the
+  dispersion this changes. ⇒ The build must be scored on the full battery, not on this number.
+- ⚠️ The gain is concentrated in **0.34% of cells**. That is where the signal is, and it is also
+  where n is smallest.

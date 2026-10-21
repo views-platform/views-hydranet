@@ -1,0 +1,25 @@
+================================================================================================
+EMIT-TIME SPLIT — train as nb, emit zero-truncated. Arithmetic, nothing retrained.
+================================================================================================
+  vehicle      4acbf4d3c2b457b0…  nb, the delivered violet_visitor config
+  population   13 months x 64,818 land cells = 842,634 cell-months, out of sample
+  truth        99.66% exact zeros, observed positive fraction 0.0034
+  draws        COMMON RANDOM NUMBERS: one u per member, shared by both emission rules
+
+  cell                                   composed CRPS     vs base   pos frac  CRPS on y=0  CRPS on y>0
+  NB emission      | model theta              0.050758       0.00%     0.0009     0.000463    14.589041
+  zero-truncated   | model theta              0.047741      -5.94%     0.0037     0.006274    12.034246
+  NB emission      | theta x 22.0             0.046048      -9.28%     0.0022     0.001052    13.052675
+  zero-truncated   | theta x 22.0             0.046023      -9.33%     0.0037     0.001693    12.860276
+
+  THE 2x2, read as the prereg's F4 asks — does the theta effect survive the emission rule?
+    NB emission      theta rescale moves CRPS -9.28%
+    zero-truncated   theta rescale moves CRPS -3.60%
+    model theta      truncation moves CRPS   -5.94%
+    theta x 22.0     truncation moves CRPS   -0.05%
+
+================================================================================================
+COST, measured
+================================================================================================
+  wall time 107.33 s
+  peak RSS  3.07 GiB

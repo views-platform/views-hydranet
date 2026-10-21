@@ -23,8 +23,8 @@ about the workflow — the same rule the experiment log lives under.
 
 | | count |
 |---|---|
-| **WRONG** | **54** |
-| **RIGHT** | **25** |
+| **WRONG** | **55** |
+| **RIGHT** | **26** |
 | OPEN | 1 |
 
 ⚠️ **That raw ratio is the least useful number in this file.** The errors are not randomly
@@ -164,6 +164,8 @@ External adversarial checking beats self-review here, and it is cheap relative t
 | W-53 | ⭐ **Pre-stated in `composed_crps_recalibration.py` before it ran:** *"I expect the CRPS gain from it to be SMALL — under 3% — because the field is 97.8% zeros and the gate, not the body's dispersion, decides almost every cell's score."* ⛔ **Measured −9.58% held out** (scale fitted on 421–456, scored on 457–469 which the fit never saw; the out-of-sample oracle is −9.90%, so the gap from not having seen the window is 0.31 points). I was wrong by more than 3×, and wrong about the mechanism: the body's dispersion is what decides the zeros, so it decides most cells' scores precisely *because* the field is 97.8% zeros. **My pre-committed 5% threshold makes the NLL-vs-CRPS divergence MATERIAL**, which is the opposite of the "retire it as negligible" outcome I expected. |
 | W-54 | **Same file, same run:** *"I expect the gate slope's optimum to sit near 1.0 (the gate is calibrated: median \|gate − p\| = 0.0054) and to buy less than the theta arm."* The second half held (2.27% against 9.98%); the first half did **not** — the optimum is at slope ≈ 25 on a plateau running from about 10 upward, i.e. the scored metric wants a near-hard threshold. ⚠️ Calibration of the *marginal* probability does not imply the identity map minimises a composed ensemble score, and I conflated the two. |
 
+| W-55 | ⛔ **Pre-registered at 65% confidence in `2026-10-21_emit_time_split_prereg.md` P-2:** zero-truncated emission would make composed CRPS **WORSE by 5–30%**, because *"99.66% of out-of-sample cell-months have truth 0, so a floor of 1 wherever the gate fires is paid for on every one of them."* **Measured −5.94%, i.e. BETTER**, and F2 fired. ⭐ **The error is a clean instance of a class this repo keeps hitting:** I reasoned about the *count* of cells rather than their *contribution*. True-zero cells are 99.66% of the population and supply ~1% of the pooled CRPS; event cells are 0.34% and supply ~99%. The penalty I predicted is real (per-cell CRPS on zeros rose 13.5×) and nearly invisible in the statistic. Same shape as reading an all-land `b` as a property of the model. |
+
 ## RIGHT
 
 | ID | claim, as stated | settled by | note |
@@ -197,6 +199,8 @@ External adversarial checking beats self-review here, and it is cheap relative t
 | R-24 | ⭐ **The guard I wrote into the sweep, not a prediction about the world but about my own method:** the script prints `⛔ THE OPTIMUM IS AT A GRID EDGE — the number above is a bound, not an optimum` when `argmin` lands on an endpoint. It **fired on both arms on the first run** (theta monotone to −8.42% at 8.0, gate monotone to −1.52% at 2.2), which stopped two unbracketed numbers being reported as optima. Logged as right because the guard was written before the run and it caught its author. |
 
 | R-25 | ⭐ **Pre-stated in `dropout_cost_test.py` before it ran:** *"I expect B to score EQUAL OR BETTER on composed CRPS, and I will call a difference under 1% indistinguishable at n=1."* **Held: B is 0.42% better**, inside the band I declared indistinguishable, at 6.5× less wall time. The decision rule attached to it — *"only A better by more than 1% would say the dropout posterior earns its cost"* — therefore resolves against the dropout posterior. ⚠️ The sharper half of the same prediction, that B would be **strictly** better, is **not resolved**: 0.42% is inside my own indistinguishable band, so it is underpowered rather than confirmed, and I am not counting it as a second right. |
+
+| R-26 | ⭐ **Same prereg, P-1, stated as the manipulation check rather than the result:** truncated emission would raise the emitted positive fraction to ≈ the gate's own mean, within 20% of the observed 0.0034. **Measured 0.0037 — within 9%.** Logged as right with the caveat I attached to it before running: this is arithmetic (`P(body>0)=1` makes emitted `P(y>0)=gate` exactly), so it confirms the gate is calibrated rather than confirming the hypothesis. |
 
 ## OPEN
 
