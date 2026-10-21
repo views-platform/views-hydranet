@@ -142,6 +142,14 @@ itself.
 "No dial" was never a loss — it meant "a plain loss (MSE or MAE), not the dial." I'll say **"plain MSE"** or
 **"plain MAE"**, never "no dial".
 
+**Additive terms (added AFTER the balancer, each with its own plain weight; byte-identical no-op at 0):**
+| locked name | what it does | banned aliases |
+|---|---|---|
+| **the structure penalty** | ⭐ **LOCKED 2026-10-21.** A term penalising the mismatch between the *within-block dispersion* of the composed field and of the truth, summed over block sizes `k`. Weight `struct_penalty_weight`. ⛔ The gate is **detached** inside it, so gradients reach the **body only**. ⚠️ **NOT a proper scoring rule** — a `k×k` block sum of per-cell-`theta` NBs has no closed form, so this is moment-matching, in Mathieu's gradient-difference family. Pre-registered in `2026-10-21_structure_penalty_arm_prereg.md` | spatial loss, sharpness loss, multi-scale loss, GDL, block loss |
+| **the qs99 regulariser** | the existing distribution-free pinball term on `mu`, weight `qs99_weight` | qs99 loss |
+| **the decay penalty** | the existing gate-side term on recently-active-now-zero cells, weight `decay_gate_weight` | decay loss |
+| **the parameter-prior ridge** | the existing family π/μ ridge, weight `pi_penalty_weight` | pi penalty, π-ridge |
+
 **The gate's loss + knob:**
 | locked name | what it does | banned aliases |
 |---|---|---|
