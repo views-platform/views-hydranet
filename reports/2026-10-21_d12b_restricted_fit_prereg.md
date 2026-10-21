@@ -301,6 +301,16 @@ uncertainty** — ρ ≈ 0.27–0.46 between neighbouring cells, measured in fou
 ⛔ Not pursued here: it bears on how posterior spread is reported in the product, which is a different
 question from over-smoothing, and it has had exactly one measurement.
 
+✅ **Both halves of it are now tracked where they belong, not in this addendum** (2026-10-21):
+**C-128** (locked-dropout posterior calibration unvalidated) carries the magnitude and spatial table
+plus ⭐ **the cheap cost test nobody has run** — score a dropout-OFF run against the current one at
+**matched total sample count** on the frozen ruler, since every MC draw costs a full forward pass and
+head draws are free. **C-209** (epistemic and aleatoric folded onto one flat `S`) carries the
+consequence that the two components differ in **spatial structure**, not only in size, so no stored
+frame tells a consumer which part of its spread is shareable across neighbouring cells — which is
+**C-110**'s aggregation concern with a measured number attached for the first time. ⛔ The dropout-off
+test is **not proposed as a decision**: it changes what inference delivers, so it is the owner's.
+
 ## 4. Where the D12 programme actually lands
 
 | | |
