@@ -142,6 +142,14 @@ itself.
 "No dial" was never a loss — it meant "a plain loss (MSE or MAE), not the dial." I'll say **"plain MSE"** or
 **"plain MAE"**, never "no dial".
 
+**Additive terms (added AFTER the balancer, each with its own plain weight; byte-identical no-op at 0):**
+| locked name | what it does | banned aliases |
+|---|---|---|
+| **the structure penalty** | ⭐ **LOCKED 2026-10-21.** A term penalising the mismatch between the *within-block dispersion* of the composed field and of the truth, summed over block sizes `k`. Weight `struct_penalty_weight`. ⛔ The gate is **detached** inside it, so gradients reach the **body only**. ⚠️ **NOT a proper scoring rule** — a `k×k` block sum of per-cell-`theta` NBs has no closed form, so this is moment-matching, in Mathieu's gradient-difference family. Pre-registered in `2026-10-21_structure_penalty_arm_prereg.md` | spatial loss, sharpness loss, multi-scale loss, GDL, block loss |
+| **the qs99 regulariser** | the existing distribution-free pinball term on `mu`, weight `qs99_weight` | qs99 loss |
+| **the decay penalty** | the existing gate-side term on recently-active-now-zero cells, weight `decay_gate_weight` | decay loss |
+| **the parameter-prior ridge** | the existing family π/μ ridge, weight `pi_penalty_weight` | pi penalty, π-ridge |
+
 **The gate's loss + knob:**
 | locked name | what it does | banned aliases |
 |---|---|---|
@@ -241,6 +249,83 @@ Fit `logit(observed rate) = a + b·logit(gate)` over gate bins. An honest gate g
 ⚠️ **Both axes are properties of a REPORTED number, not only of the weights.** The gate we measure is
 `mean(sigmoid(logit))` over `D = 4` locked-dropout draws, so anything between the head and that mean
 is in scope — see [[project_gate_underdispersion_candidates]].
+
+## 5c. How a BODY is MIScalibrated in magnitude (LOCKED 2026-10-20, REVISED 2026-10-20)
+
+§5b named the gate's two axes. The body has the **same two axes** and had no words for them, so the
+one measurement that found them had to borrow the gate's. Fit `log(mu_empirical) = a + b·log(mu_model)`
+over cells — truth on prediction, the same direction as §5b, so `b > 1` means the same thing in both.
+
+> ⛔ **REVISED THE SAME DAY IT WAS LOCKED, by the measurement this entry said could not be made.**
+> Every number below was first measured on the **100-cell selected set** of
+> `2026-10-20_d3_static_channel_ceiling.md` §4, because `mu` was not stored on the full grid. §9 of
+> that report stores it (`d4_mu_on_the_grid.py`, 349.5 s, 3.95 GiB, 64,818 land cells × 49 months)
+> and the slope **does not survive the move off the selected set**: the headline `b = 1.7301`
+> becomes **0.92** in sample and **0.82** out of sample. The selected set is `active_cells_top100`
+> — **top 100 by OBSERVED positive rate in the readout window** — so it selects cells on the
+> outcome, which is the one selection rule that biases a truth-on-prediction slope upward. The
+> locked names below are kept; the values are corrected and the old ones are kept visible.
+
+| locked name | meaning | banned aliases |
+|---|---|---|
+| **the magnitude level** | **Whether the body is too small or too large overall.** The intercept. Measured median `log(mu_model/mu_emp)` = **−0.5831** on the 100-cell set: the body predicts **~56%** of the empirical mean. ✅ **A global constant, and therefore free to fix** — two scalars drive the median to −0.0122. ⚠️ **This figure is a SELECTED-SET figure and has not been recomputed on the grid** (D4 stored `mu` but read out slope and spatial structure, not the level). ✅ **RECOMPUTED ON THE GRID 2026-10-21** (`2026-10-21_body_scoreboard.md` B-3, `body_scoreboard.py`, 64,818 land cells, the **gated forecast** `gate × mu` against the truth's window mean): the level is **NOT A SINGLE NUMBER** — on cells with truth > 0 in the 36-month window it is **−2.3368 (9.7%)**, and on the 336-month base-rate population **+0.1778 (119.5%)**. ⛔ **The sign flips with the population**, because selecting cells on a 36-month truth selects observations whose own sampling noise biases them up. ⇒ **−0.5831 is retired as a quotable scalar**; quote the level only with its population, and prefer the 336-month one. ⚠️ `mu` **alone** may not be compared to the truth's window mean at all — it is a *conditional* mean against an *unconditional* one (`W-52`). ⛔ **Not `size-ratio`** (§4), which is a median ratio on conflict cells and is a *score*; this is the intercept of a fit and is a *defect axis*. | bias, global under-prediction, timid (⛔ **timid** is §5 and is the behaviour, not the axis) |
+| **the magnitude slope** (`b`) | **Whether the body's per-cell magnitudes are spread too narrowly or too widely across cells.** `b > 1` means truth moves faster than `mu` does. ⛔ **At cell level there is NO slope defect.** On all 64,818 land cells (D4): cells with any event `b` = **0.9234** in sample (n=1431) / **0.8170** out of sample (n=912); cells with ≥2 events **1.0049** / **0.9670**. ⛔ **The `b` = 1.7301 (sd ratio 0.4146) that this entry was locked with is a SELECTION ARTIFACT of the 100-cell set** and may not be quoted as the body's slope. ⚠ Every one of these is a **lower bound** for §5b's errors-in-variables reason. ⚠️ The **all-land-cells** row (0.9032 in sample, 0.4491 out of sample) is **tie-dominated** — 98.6% of land cells never fire — and is not the number to quote; use the event-bearing rows. ✅ **Like-for-like the gate agrees**: **0.3906** all cells / **0.9444** active. The gate's binned-logit 1.146–1.456 (§5b) is a **different estimator on different artifacts** and may not be quoted against these in either direction. | body dispersion, shrinkage, range compression, regression to the mean |
+| **magnitude under-dispersion** | ⛔ **RETIRED AS A BODY DEFECT, 2026-10-20 — twice corrected in one day and now withdrawn.** First locked as a cell-level slope defect (`b` 1.73, §4) — a selection artifact. Then restated as a coarse-scale amplitude deficit, on `sd(log mu)` flat in `k` while the truth's grew — **also an artifact**: the coarsening admits only blocks with an event, and the admitted fraction moves **2.2% → 22.4%** across `k` = 1…32, so the trend compared different populations (§10.4, `d7_coarsening_sample.py`). On a **nested** population the truth's spread **falls** and the ratio mu/truth **rises above 1** (0.88 → 1.20). ⇒ **The body is not under-dispersed in magnitude at any scale**, and no locked term is needed for a defect that is not there. Kept as an entry only to stop the name being reused. ⛔ The earlier reading — "squashed toward the middle, too large in quiet cells and too small in violent ones, `b > 1`" — described the selected set. ⚠️ `b` rising through 1 is **not one of the three signatures `slope_chase.py` pre-registered** (S: `b`→1 · G: `b` flat · R: `b`→1 with `r` climbing), so the discriminator does **not** discriminate here; the variance deficit is what it establishes, and §3's autocorrelation is the independent confirmation. | the magnitude gap, the amount ceiling (⛔ **the amount ceiling** is the separate claim that magnitude is *irreducible*; this axis is a measured defect in the model, not a statement about the data) |
+
+⛔ **THE TWO HEADS FAIL THE SAME WAY. This box has now said "same", then "different", then "same"
+again — each move forced by a better measurement, and the record of the moves is kept on purpose.**
+
+| head | per-cell slope `b` (event-bearing) | spatial lag-1 autocorrelation of its own field |
+|---|---|---|
+| **gate** | **0.39** all / **0.94** active | logit **0.9598 / 0.9574** in sample · **0.9498 / 0.9464** out of sample |
+| **body** | **0.92** in sample / **0.82** out of sample | `log mu` **0.8594 / 0.7636** in sample · **0.9266 / 0.9227** out of sample |
+| **the truth, same cells** | — | **0.5915 / 0.5780** in sample · **0.5089 / 0.5028** out of sample |
+| **the truth, noise-controlled** (336-month base rate) | — | **0.6419 / 0.6261** |
+
+⛔ **The autocorrelations above are NOT on one scale, and the raw gap is ~¾ artifact.** `log mu` and
+the gate logit are continuous and atom-free; the truth is a raw rate with **98.6% of its mass at
+exactly zero**, and lag-1 Pearson is invariant under *affine* maps, not under `log` or `logit`. Pushing
+the model through **the truth's own estimator** (§10.3, 300 replicates) the model's field reads
+**+0.7053 / +0.6824**, not 0.8594 / 0.7636 — the estimator alone eats **0.154 / 0.081**. The truth's
+**+0.6419 / +0.6261** still falls **outside** the 95% **simulation** interval — ⚠️ a simulation
+interval, *not* a posterior-predictive one: it carries Monte Carlo variation only, with **no
+parameter-uncertainty component**, since this is one training run. The truth sits **3.7 / 3.0**
+half-widths below the lower edge, so a 3× wider interval keeps the verdict. The finding stands, but
+**the like-for-like gap is 0.06, not 0.22**, and 0.06 is a **floor** (the model's larger atom, its
+patchier support, and its own 1.51× over-dispersed conditional variance all push the measured gap
+down). ⛔ **And the comparison is only well posed in this form at all:** a conditional-mean field is
+smoother than its own realisation *by construction* (`ρ_Y = ρ_m·Var(m)/(Var(m)+σ²) < ρ_m`), so the
+question is never "smoother than the truth" but "smoother than the variance decomposition requires". ⛔ Quote 0.06. Never quote a model
+autocorrelation against a truth autocorrelation without passing one through the other's estimator.
+
+✅ **The global half, added 2026-10-20 (§10.9) — and it needs no estimator at all.** Share of firing
+mass in the top 0.1% of cells: model **0.4578** against the truth's **0.2455**. Effective cells
+(`(Σp)²/Σp²`): model **215.0** against a **debiased** **536.3** — **2.49× too few places**, robust at
+every truth window from 36 to 336 months (2.46×–3.87×), and the matched 36-month window is the
+**conservative** end. ⚠️ The truth's raw 516.9 is biased **down** by count-sampling noise
+(`E[Σp̂²] = Σp² + Σp(1−p)/T`), i.e. against the finding; the model's row is analytic and needs no
+correction. Both statistics are normalised by the total, so the model's 4.18×
+under-firing **cancels exactly**: no scale choice, no null, no saturating map. ⇒ **The model emits a
+few large smooth blobs where the truth has many small sharp spots.** Smoothness is local-gradient,
+concentration is global-distribution, so a field can be both — and **concentration is a JOINT
+property**, making this the first direct quantification of what C-152's class statement asserts.
+
+**Both heads have roughly calibrated marginals at cell level and both emit a field measurably smoother
+than the truth.** The body ranks cells well (spearman `mu` vs truth **+0.8205** in sample, **+0.7808**
+out of sample). ⇒ The defect is **shared**, so it is upstream of both heads — in **anything they
+share**, which is the trunk *and* the input channels, the data, the optimiser, the loss weighting, the
+BatchNorm regime and the global weight decay. ⚠️ An earlier version of this line said "the trunk and
+its recurrent state", which named one shared thing as if it were the only one and contradicted this
+entry's own candidate list.
+
+⛔ **Why this box moved twice.** (1) *"Same"* was written from two **different estimators** (body
+per-cell OLS vs gate binned-logit) and was unsupported. (2) *"Different"* was written from the
+like-for-like estimator but with the body measured **only on a set selected on the outcome**, and the
+gate on the whole grid — a comparison between a biased slope and an unbiased one. (3) *"Same"* is now
+written with **both heads on the same 64,818 cells from the same forward pass**, which is the first
+version of this comparison in which neither side has a selection or an estimator advantage.
+⚠️ One vehicle (`4acbf4d3c2b457b0…`, the retrained control, **not** the delivered weights — C-317),
+n=1, `sb` only.
 
 ## 6. The models we've actually run (described by their choices — codenames RETIRED)
 I will describe models by their §2/§3 choices, not by codenames. The codenames below are retired; they map to:

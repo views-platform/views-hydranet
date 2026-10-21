@@ -753,4 +753,101 @@ Metrics filled from `--evaluate`; *Bounded?* from the 36-step rollout / `diagnos
   SS is EXHAUSTED (proven, not assumed), even on the un-collapsed hurdle head.** → the real fix is **GTF / B1 rollout
   training (#78, cross-step gradients)** or the **count-likelihood head** (ZINB/hurdle-NB). Rollout dossier `07` EXP-02.
 
+- **2026-10-21 — D12c (free CPU, 0.77 s / 0.17 GiB) → the nugget route is CLOSED: the fit's
+  detection floor sits above the effect, and our own 4-draw MC noise sits at its magnitude.**
+  Addendum in `reports/2026-10-21_d12b_restricted_fit_prereg.md`; script `d12c_draw_noise.py`
+  (committed `4fe27da` BEFORE it ran). **Split-half:** the same field built twice from disjoint draw
+  pairs, so `Var(F12 − F34)/4` is the MC noise of the field D12 fitted, in the same transform.
+  ⭐ **Magnitude matches** — in sample the body's whole fitted nugget (0.0789) is accounted for by its
+  own four draws (0.0710 white share). ⛔ **Structure does not** (`W-50`): the difference field's
+  lag-1 is **+0.27 to +0.46** in all four cases, so MC-dropout noise is **spatially correlated** —
+  dropout removes channels and convolutions spread it — hence not a nugget, F2 unresolved, and the
+  truth's nugget still unquotable. ⛔ **The gate closes the method:** its provable 1.3–1.6% white MC
+  noise fits as **exactly 0**, which measures a **~2% detection floor**, makes D12b's cleanest result
+  a **false negative**, and satisfies F4's condition ⇒ **no further variogram work.** ⚪ By-product,
+  one measurement and not pursued: **our MC-dropout posterior spread is spatially correlated noise,
+  not independent per-cell uncertainty.** ⛔ D12's scale profile is untouched — no fitted parameter.
+
+- **2026-10-21 — D12b (free CPU, 0.10 s / 0.09 GiB, reads D12's saved curves) → the truth's
+  cell-scale noise IS identified without a sill, and it CONTRADICTS D6-C by 1.5–2.6×.**
+  Pre-registration + OUTCOME `reports/2026-10-21_d12b_restricted_fit_prereg.md`; script
+  `d12b_restricted_fit.py` (committed `3738dcf` BEFORE it ran). **Design:** replace D12's `n/(n+s)`
+  with **`n/var`**, where `var` is measured, so no sill is needed — then compare M0 (no nugget)
+  against M1 (nugget) over the monotone lag range only. ✅ **The design held** (`R-21`): every
+  admissible cell identifies the truth's nugget at **30–45 SE** from zero, `p < 1e-7`, on curves that
+  never plateau. ⛔ **But both blind predictions failed** (`W-47`): truth `n/var` is **0.2760 /
+  0.3308 / 0.2938 / 0.3736** (±0.02 at 2 SE) against D6-C's corrected target of **0.1793** — 6–12 SE
+  away. ⇒ **F3's stop rule is in force: neither number is quotable, and the 0.06 oversmoothing
+  residual's single-instrument standing is now a known weakness.** ⛔ **F2 also fired** (`W-48`): the
+  model's `log mu` nugget is 0.016–0.131 of variance at 2.4–12.4 SE from zero in 3 of 4 cells, while
+  the **gate's is exactly 0 in every cell** (M1 ≡ M0) — from the same forward pass. ⭐ Leading and
+  **untested** explanation: `mu` is the mean of only **4** locked-dropout draws, so residual MC noise
+  is cell-independent — a nugget by construction — which would make it an artifact of our instrument
+  rather than the model. Resolvable from data already on disk (the across-draw variance of `MU`).
+  ⚠️ `W-49` records a defect in my own F5, which fires on a nugget that is legitimately zero.
+  ⛔ **D12's scale profile is untouched** — it is a ratio of two γ curves at matched `d` and uses no
+  fitted parameter.
+
+- **2026-10-21 — D12 (free CPU, 391.4 s / 2.68 GiB, no pod, no training) → the amplitude deficit is
+  SCALE-DEPENDENT and worst at ONE CELL; the fitted layer is VOID; and the programme's own 12.8×
+  correlation-length figure is overstated.** Pre-registration + OUTCOME
+  `reports/2026-10-20_d12_spectral_prereg.md`; scripts `d12_variogram.py` (committed `3468fe3`
+  BEFORE it ran) and the post-hoc `d12b_curve_readout.py`; artifacts `d12_result.npz`,
+  `d12_fits.csv`, two `.out` files. **Instrument:** the empirical variogram `γ(d)` over all land
+  pairs, computed by offset multiplicity (22,612 half-plane offsets, DMAX 120 cells) rather than by
+  enumerating 4.2e9 pairs. ✅ **Verified against §9.3**: `ρ(1) = 1 − γ(1)/var` reproduces its lag-1
+  autocorrelations to **≤ 0.0090** by a different estimator route. ⛔ **F3 fired in 4/4 cells — no
+  field plateaus by d = 120**, so the three-parameter exponential's sill, nugget and range are
+  inadmissible and **P-1/P-2/P-3/P-5 and F2/F4 are VOID, not missed**; the free nugget↔D6-C
+  consistency check never ran. ⭐ **The answer, model-free:** `γ_model(d)/γ_truth(d)` divided by the
+  variance ratio (the same-shape null) runs **0.391 → 0.870** for the body and **0.112 → 0.822** for
+  the gate across d = 1 → 32 cells in sample — the deficit is **monotone in scale, nearly closed by
+  32 cells.** ⛔ **The "gate 3.5× worse than the body" ratio is WITHDRAWN 2026-10-21** — not
+  like-for-like (`logit(gate)` vs `log mu`, each against its own null), a C-351 violation in the one
+  claim that pointed the next arm back at the gate (`W-51`). Each field's own deficit stands. Same shape as
+  `Ayzel2020_RainNet` C-3654 and `Ravuri2021` C-3657, in our units. ⛔ **Corrects our own number:**
+  `ξ = −1/ln ρ(1)` assumes an exponential the fields do not have (it predicts `ρ_truth(8) = 0.029`
+  against a measured **0.316**), so the **12.8× / 3.5×** too-long correlation lengths become
+  **2.0–7.0× / 1.9–5.0×** depending on a swept threshold — the sign survives everywhere, the
+  multiplier is not quotable as a scalar (`W-44`, `W-45`; `R-19`, `R-20`). ⚠️ Curves go non-monotone
+  from d ≈ 9 because the pair population changes with distance on a 25%-land mask — C-351 inside the
+  one instrument chosen because the mask was not supposed to matter. ⛔ Component attribution remains
+  foreclosed (`Cox1955` C-3611, now registered as C-353).
+
+- **2026-10-20 — D4–D10 (free CPU measurement, no pod, no training) → the over-smoothing is REAL but
+  4× smaller than first reported, and the bigger half of the defect is OVER-CONCENTRATION.**
+  Dossier `reports/2026-10-20_d3_static_channel_ceiling.md` §9–§10; pre-registration
+  `2026-10-20_d5_oversmoothing_prereg.md` (with its OUTCOME section); scripts `d4_mu_on_the_grid.py`,
+  `d5_why_smooth.py`, `d6_estimator_null.py`, `d7_coarsening_sample.py`, `d8_support_vs_monthly.py`,
+  `d9_concentration.py`, `d10_debias_effective_cells.py`. Costs measured — D4 **349.5 s / 3.95 GiB**
+  (8 threads, `d4_result.npz` 138.9 MB), the rest seconds. **The settled finding: the model emits a
+  few large smooth blobs where the truth has many small sharp spots** — **0.06** smoother than the
+  variance decomposition permits (local half, a FLOOR on three counts), **2.49×** too few effective
+  cells (global half, `N_eff` 215.0 vs a debiased 536.3), while under-firing **4.18×** per cell-month
+  and touching **3.47×** too few cells. ⛔ The two headline figures share no scale — never add them.
+  **Concentration is a joint property of both heads, so this is the first direct quantification of
+  what C-152's class statement has asserted on the strength of one roll test.**
+  ⛔ **Five of this programme's own claims died in it** — `b = 1.73` (a selection artifact of the
+  100-cell set: 0.9234/0.8170 on the grid), *"the two heads fail differently"* (they fail the same
+  way), §9.2's missing coarse amplitude (an admission-rate artifact, 2.2% → 22.4%), D8-A's
+  over-persistence (a window confound), D8-B's *"spreads over more places"* (read against an implicit
+  null of 1.0 when the real-field null is 0.19–0.46; the sign is the **opposite**). See
+  `PREDICTION_LEDGER` W-30…W-40 and R-14…R-17. **D5-A is VOID by its own pre-committed guard** —
+  at random init `sd(log mu)` = 0.0017 against a 0.01 floor, so architectural-vs-learned is not
+  answerable by an init measurement on this architecture.
+  **The load-bearing derivation:** `ρ_Y(1) = ρ_m(1)·Var(m)/(Var(m)+σ²) < ρ_m(1)` strictly ⇒ a
+  conditional-mean field is smoother than its own realisation **by construction**, so *"is the model's
+  field smoother than the truth's"* answers itself and only *"smoother than the decomposition
+  requires"* has content. That cut my own effect from 0.22 to 0.06.
+  ⚠️ **Not a lever yet — this is a diagnosis, not an intervention.** *Why* the fields are over-smooth
+  is open: four candidates live (recurrent reach, BN recal on 32×32 windows applied to 360×720, global
+  `weight_decay` 0.1, and conditional-mean averaging — the last being the only one predicting the same
+  signature on two heads with different losses, and the one the nowcasting literature names). A
+  one-step decoder blur is **excluded**. **E6** is the free CPU control separating BN recal from weight
+  decay. ✅ **The S1 verdict did not move in any of five adversarial rounds** — it rests on §2/§3's
+  `+0.006–0.012 AP` / `R² 0.10` bounds and C-152, none of which any of these measurements touched.
+  **Deliverable:** C-351, the three-slot reporting convention (**population, transform, estimator**),
+  drafted in Appendix A and ⛔ **not yet registered** — it waits on PR #419 to avoid a third fork of
+  the register's hand-counted header.
+
 *(Append wins/lessons here as runs land — especially negatives and "looked-right-but-wasn't".)*

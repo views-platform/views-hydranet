@@ -1,0 +1,181 @@
+====================================================================================================
+1. ESTIMATOR VERIFICATION — rho(1) = 1 - gamma(1)/var against §9.3, computed another way
+====================================================================================================
+  field                              dir         D12      §9.3      diff
+  model log mu                       E-W      0.8583    0.8594   -0.0011
+  model log mu                       N-S      0.7609    0.7636   -0.0027
+  model gate logit                   E-W      0.9594    0.9598   -0.0004
+  model gate logit                   N-S      0.9567    0.9574   -0.0007
+  truth log mean, window             E-W      0.5842    0.5915   -0.0073
+  truth log mean, window             N-S      0.5690    0.5780   -0.0090
+  truth log mean, 336-mo base rate   E-W      0.6378    0.6419   -0.0041
+  truth log mean, 336-mo base rate   N-S      0.6192    0.6261   -0.0069
+
+  worst absolute disagreement 0.0090  ✅ the estimator reproduces §9.3 — only the FITTED MODEL is misspecified
+
+====================================================================================================
+2. WHERE THE CURVES STOP BEING ONE POPULATION (the honest reach)
+====================================================================================================
+  in sample      E-W        first non-monotone bin across the four fields: d = 9
+  in sample      N-S        first non-monotone bin across the four fields: d = 1
+  in sample      isotropic  first non-monotone bin across the four fields: d = 19
+  out of sample  E-W        first non-monotone bin across the four fields: d = 19
+  out of sample  N-S        first non-monotone bin across the four fields: d = 14
+  out of sample  isotropic  first non-monotone bin across the four fields: d = 40
+
+====================================================================================================
+3. MODEL-FREE RANGE: smallest d with rho(d) <= tau, tau SWEPT
+====================================================================================================
+
+  in sample
+    E-W
+      field                               tau=0.7  tau=0.5  tau=0.3
+      model log mu                              5        9       17
+      model gate logit                          7       13       24
+      truth log mean, window                    1        2        6
+      truth log mean, 336-mo base rate          1        3        9
+      ratio log/336mo                       5.00x    3.00x    1.89x
+      ratio gate/336mo                      7.00x    4.33x    2.67x
+      ratio log/window                      5.00x    4.50x    2.83x
+      ratio gate/window                     7.00x    6.50x    4.00x
+    N-S
+      field                               tau=0.7  tau=0.5  tau=0.3
+      model log mu                              3        7       11
+      model gate logit                          6       10       14
+      truth log mean, window                    1        2        5
+      truth log mean, 336-mo base rate          1        3        7
+      ratio log/336mo                       3.00x    2.33x    1.57x
+      ratio gate/336mo                      6.00x    3.33x    2.00x
+      ratio log/window                      3.00x    3.50x    2.20x
+      ratio gate/window                     6.00x    5.00x    2.80x
+
+  out of sample
+    E-W
+      field                               tau=0.7  tau=0.5  tau=0.3
+      model log mu                              7       15       29
+      model gate logit                          7       14       29
+      truth log mean, window                    1        1        4
+      truth log mean, 336-mo base rate          1        3        9
+      ratio log/336mo                       7.00x    5.00x    3.22x
+      ratio gate/336mo                      7.00x    4.67x    3.22x
+      ratio log/window                      7.00x   15.00x    7.25x
+      ratio gate/window                     7.00x   14.00x    7.25x
+    N-S
+      field                               tau=0.7  tau=0.5  tau=0.3
+      model log mu                              7       11       15
+      model gate logit                          7       11       16
+      truth log mean, window                    1        1        3
+      truth log mean, 336-mo base rate          1        3        7
+      ratio log/336mo                       7.00x    3.67x    2.14x
+      ratio gate/336mo                      7.00x    3.67x    2.29x
+      ratio log/window                      7.00x   11.00x    5.00x
+      ratio gate/window                     7.00x   11.00x    5.33x
+
+====================================================================================================
+4. THE SCALE PROFILE: rho(d) per field, over the monotone range
+====================================================================================================
+
+  in sample
+    E-W    d1    d2    d4    d8    d16   d32 
+      model log mu                       +0.858  +0.832  +0.729  +0.567  +0.341  +0.195
+      model gate logit                   +0.959  +0.921  +0.827  +0.656  +0.421  +0.239
+      truth log mean, window             +0.584  +0.485  +0.371  +0.237  +0.070  -0.062
+      truth log mean, 336-mo base rate   +0.638  +0.566  +0.447  +0.316  +0.186  +0.074
+    N-S    d1    d2    d4    d8    d16   d32 
+      model log mu                       +0.761  +0.824  +0.703  +0.487  +0.180  -0.015
+      model gate logit                   +0.957  +0.916  +0.804  +0.582  +0.232  -0.023
+      truth log mean, window             +0.569  +0.454  +0.305  +0.115  -0.080  -0.170
+      truth log mean, 336-mo base rate   +0.619  +0.536  +0.408  +0.261  +0.057  -0.167
+
+  out of sample
+    E-W    d1    d2    d4    d8    d16   d32 
+      model log mu                       +0.926  +0.901  +0.826  +0.677  +0.462  +0.282
+      model gate logit                   +0.949  +0.910  +0.813  +0.652  +0.458  +0.274
+      truth log mean, window             +0.499  +0.396  +0.269  +0.176  +0.041  -0.104
+      truth log mean, 336-mo base rate   +0.638  +0.566  +0.447  +0.316  +0.186  +0.074
+    N-S    d1    d2    d4    d8    d16   d32 
+      model log mu                       +0.922  +0.904  +0.814  +0.621  +0.278  +0.002
+      model gate logit                   +0.945  +0.909  +0.805  +0.619  +0.289  +0.034
+      truth log mean, window             +0.488  +0.358  +0.217  +0.034  -0.089  -0.151
+      truth log mean, 336-mo base rate   +0.619  +0.536  +0.408  +0.261  +0.057  -0.167
+
+====================================================================================================
+5. THE PRE-REGISTERED QUESTION: at WHAT SCALE is the amplitude missing?
+====================================================================================================
+
+  gamma_model(d)/gamma_truth(d) is the raw amplitude ratio at scale d. It tends to the
+  ratio of total variances if the two fields have the SAME SHAPE, so that ratio is the null:
+  divide by it and what is left is shape alone. 1.00 = the model carries its full share
+  of structure at that scale; below 1.00 = structure missing AT THAT SCALE specifically.
+  ⚠️ Post-hoc, like §3 and §4 — the prereg asked for this comparison parameter-by-parameter from the
+  fit, and the fit is void, so this is the curve-level substitute.
+
+  in sample, E-W, vs 336-month base rate
+      field                   d1      d2      d4      d8     d16     d32
+      log mu               0.391   0.387   0.491   0.633   0.810   0.870
+        (raw ratio)        0.087   0.086   0.109   0.141   0.180   0.193
+      gate logit           0.112   0.182   0.314   0.504   0.711   0.822
+        (raw ratio)        0.044   0.071   0.122   0.196   0.276   0.319
+      variance null (model/truth): 0.222
+
+  in sample, N-S, vs 336-month base rate
+      field                   d1      d2      d4      d8     d16     d32
+      log mu               0.628   0.380   0.502   0.694   0.870   0.870
+        (raw ratio)        0.139   0.084   0.111   0.154   0.193   0.193
+      gate logit           0.114   0.181   0.330   0.565   0.814   0.876
+        (raw ratio)        0.044   0.070   0.128   0.220   0.317   0.340
+      variance null (model/truth): 0.222
+
+  in sample, E-W, vs window mean
+      field                   d1      d2      d4      d8     d16     d32
+      log mu               0.341   0.326   0.432   0.567   0.709   0.758
+        (raw ratio)        0.149   0.142   0.188   0.247   0.309   0.331
+      gate logit           0.098   0.153   0.276   0.451   0.622   0.716
+        (raw ratio)        0.075   0.117   0.211   0.345   0.475   0.547
+      variance null (model/truth): 0.436
+
+  in sample, N-S, vs window mean
+      field                   d1      d2      d4      d8     d16     d32
+      log mu               0.555   0.323   0.428   0.580   0.760   0.868
+        (raw ratio)        0.242   0.141   0.187   0.253   0.331   0.379
+      gate logit           0.100   0.154   0.281   0.472   0.711   0.874
+        (raw ratio)        0.077   0.117   0.215   0.361   0.543   0.668
+      variance null (model/truth): 0.436
+
+  out of sample, E-W, vs 336-month base rate
+      field                   d1      d2      d4      d8     d16     d32
+      log mu               0.205   0.229   0.314   0.473   0.661   0.776
+        (raw ratio)        0.081   0.091   0.124   0.187   0.261   0.307
+      gate logit           0.140   0.208   0.337   0.509   0.666   0.784
+        (raw ratio)        0.050   0.074   0.119   0.180   0.236   0.277
+      variance null (model/truth): 0.396
+
+  out of sample, N-S, vs 336-month base rate
+      field                   d1      d2      d4      d8     d16     d32
+      log mu               0.206   0.207   0.315   0.513   0.765   0.855
+        (raw ratio)        0.082   0.082   0.125   0.203   0.303   0.338
+      gate logit           0.143   0.196   0.330   0.515   0.754   0.828
+        (raw ratio)        0.051   0.069   0.117   0.182   0.267   0.293
+      variance null (model/truth): 0.396
+
+  out of sample, E-W, vs window mean
+      field                   d1      d2      d4      d8     d16     d32
+      log mu               0.148   0.165   0.238   0.392   0.560   0.651
+        (raw ratio)        0.165   0.184   0.265   0.438   0.626   0.727
+      gate logit           0.101   0.150   0.255   0.422   0.565   0.658
+        (raw ratio)        0.101   0.150   0.255   0.422   0.564   0.657
+      variance null (model/truth): 1.117
+
+  out of sample, N-S, vs window mean
+      field                   d1      d2      d4      d8     d16     d32
+      log mu               0.153   0.149   0.238   0.393   0.662   0.867
+        (raw ratio)        0.171   0.167   0.266   0.439   0.740   0.968
+      gate logit           0.107   0.142   0.249   0.394   0.653   0.840
+        (raw ratio)        0.106   0.141   0.249   0.394   0.652   0.839
+      variance null (model/truth): 1.117
+
+====================================================================================================
+COST, measured
+====================================================================================================
+  wall time 0.0 s
+  peak RSS  0.03 GiB

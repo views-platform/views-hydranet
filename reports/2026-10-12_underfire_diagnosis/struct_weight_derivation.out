@@ -1,0 +1,29 @@
+============================================================================================
+DERIVING struct_penalty_weight BY GRADIENT-NORM MATCHING AT INITIALISATION
+============================================================================================
+  config sidecar   calibration_model_20261013_010739.pt.config.json
+  family           truncated_nb
+  hidden channels  32
+  window           rows 191-223, cols 350-382, land 99.4%, positive cells 2
+  block sizes      (2, 8)
+
+  term                                  value      grad norm
+  body NLL                           3.220172   5.932350e+01
+  structure penalty                  0.223680   3.334188e+00
+
+  ⇒ derived weight (grad-norm matched)   17.7925
+    the term's share of the total loss   55.3%
+  ⛔ §3's FALLBACK FIRED: halved 1 time(s) to keep the term under 50% of the loss
+    final weight                        8.89624
+    final share                         38.2%
+
+  ⚠️ READ THIS AS A STARTING SCALE, NOT A BALANCE CLAIM. Measured on an UNTRAINED network (C-325:
+  two mechanism tests measured at init were recorded as ruling a mechanism out, and the arm's
+  gradient exploded 33 lessons later). One window, one seed, one step. The run's per-task
+  trajectory log is what would show the two terms drifting apart.
+
+============================================================================================
+COST, measured
+============================================================================================
+  wall time 3.83 s
+  peak RSS  2.90 GiB
