@@ -1,0 +1,14 @@
+============================================================================================
+HELD-OUT: fit the theta scale IN SAMPLE, report it OUT OF SAMPLE
+============================================================================================
+  fitted on 421-456  ->  optimal theta scale 21.9921  (in-sample CRPS 0.071879)
+
+  OUT OF SAMPLE 457-469, which the fit never saw
+    delivered parameters            CRPS 0.051114   pos frac 0.0009
+    the IN-SAMPLE-fitted scale      CRPS 0.046216   pos frac 0.0023   = -9.58%
+    the best possible out of sample CRPS 0.046055                 = -9.90%  (an oracle)
+    observed positive fraction      0.0034
+
+  ⇒ the gap between the fitted scale and the oracle is the cost of not having seen the window: 0.31 points
+
+  wall time 112.9 s

@@ -23,8 +23,8 @@ about the workflow — the same rule the experiment log lives under.
 
 | | count |
 |---|---|
-| **WRONG** | **52** |
-| **RIGHT** | **22** |
+| **WRONG** | **54** |
+| **RIGHT** | **24** |
 | OPEN | 1 |
 
 ⚠️ **That raw ratio is the least useful number in this file.** The errors are not randomly
@@ -161,6 +161,9 @@ External adversarial checking beats self-review here, and it is cheap relative t
 
 ---
 
+| W-53 | ⭐ **Pre-stated in `composed_crps_recalibration.py` before it ran:** *"I expect the CRPS gain from it to be SMALL — under 3% — because the field is 97.8% zeros and the gate, not the body's dispersion, decides almost every cell's score."* ⛔ **Measured −9.58% held out** (scale fitted on 421–456, scored on 457–469 which the fit never saw; the out-of-sample oracle is −9.90%, so the gap from not having seen the window is 0.31 points). I was wrong by more than 3×, and wrong about the mechanism: the body's dispersion is what decides the zeros, so it decides most cells' scores precisely *because* the field is 97.8% zeros. **My pre-committed 5% threshold makes the NLL-vs-CRPS divergence MATERIAL**, which is the opposite of the "retire it as negligible" outcome I expected. |
+| W-54 | **Same file, same run:** *"I expect the gate slope's optimum to sit near 1.0 (the gate is calibrated: median \|gate − p\| = 0.0054) and to buy less than the theta arm."* The second half held (2.27% against 9.98%); the first half did **not** — the optimum is at slope ≈ 25 on a plateau running from about 10 upward, i.e. the scored metric wants a near-hard threshold. ⚠️ Calibration of the *marginal* probability does not imply the identity map minimises a composed ensemble score, and I conflated the two. |
+
 ## RIGHT
 
 | ID | claim, as stated | settled by | note |
@@ -189,6 +192,9 @@ External adversarial checking beats self-review here, and it is cheap relative t
 | R-22 | ⭐ **Stated in the check's own docstring before it ran:** *"I expect the shortfall to SHRINK but to stay large — level somewhere in 20–50%, i.e. still a 2–5× deficit, not a 10× one and not closed. If it closes past ~80% I was wrong about the body being timid at all."* | the check | **Held: 24.7%.** Holding the population fixed at the 1,431 truth-positive cells and changing only the truth's estimator moves the level from 9.7% to 24.7%, and the slope from 0.5171 to **0.4562** — worse, not better. ⇒ Noise selection explains **part** of the shortfall and not most of it, so **the body is timid (~4×)**, and the loss arm's purpose is not narrowed. ⚪ The competing reading (`b ≈ 1.08`, 119.5%, "roughly right") was an **atom artifact**: 62.2% of that population has truth exactly 0 in the comparison window. |
 
 ---
+
+| R-23 | ⭐ **Pre-stated in the same docstring:** *"I expect the theta sweep's optimum to sit ABOVE 1.0 — M6 measured the CRPS-optimal theta at 0.4298 against the model's 0.1544 on the body alone, so the scored metric wants LESS dispersion than the model emits."* **Confirmed, and by far more than the ~2.8× that reasoning implied:** the out-of-sample optimum is a scale of **25.8** on each cell's own theta. Direction right, magnitude badly underestimated — the same shape as W-53. |
+| R-24 | ⭐ **The guard I wrote into the sweep, not a prediction about the world but about my own method:** the script prints `⛔ THE OPTIMUM IS AT A GRID EDGE — the number above is a bound, not an optimum` when `argmin` lands on an endpoint. It **fired on both arms on the first run** (theta monotone to −8.42% at 8.0, gate monotone to −1.52% at 2.2), which stopped two unbracketed numbers being reported as optima. Logged as right because the guard was written before the run and it caught its author. |
 
 ## OPEN
 
