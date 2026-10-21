@@ -242,3 +242,71 @@ pre-registered: the model's fitted `ξ` exceeds the fit reach, so those ranges a
 | ⛔ **blocked** | quoting either, per F3; and the 0.06 residual's single-instrument standing is now a known weakness rather than an assumption |
 | ⚪ **next, cheap, and NOT run** | the across-draw variance of `MU` — resolves F2 and tells us whether §2's disagreement is a four-draw artifact. It needs no fit and no new sweep |
 | ⛔ **unchanged** | D12's scale profile (§3 of the D12 outcome). It is a ratio of two `γ` curves at matched `d` and uses **no fitted parameter**, so nothing here touches it |
+
+---
+
+# ⛔ D12c ADDENDUM — run 2026-10-21. My explanation for F2 is HALF right, which kills the route
+
+`d12c_draw_noise.py`, committed `4fe27da` before it ran. Cost **0.77 s / 0.17 GiB**. ⛔ Post-hoc,
+and narrower than F2: it tests only whether the model's nugget is our own 4-draw MC-dropout noise.
+
+⚠️ **Two provenance facts, because both cut against this section's authority.** (1) The `(1 − ρ_D)`
+white-share line in §1 was **added after the first run** and the script re-run, so that one number
+is post-hoc even within D12c; the split-half total and the lag-1 reading are from the committed
+version. (2) I first wrote this commit's hash as `1e5cbb5` from memory — it is `4fe27da`, and that
+is the second artifact detail I stated without reading it in this hour (the other was D12b's cost).
+⛔ Same reflex, two instances, both caught only because something else made me open the file.
+
+**Split-half:** build the same field twice from disjoint draw pairs. For iid draws
+`Var(F₁₂ − F₃₄) = s²` while the 4-draw field carries `s²/4`, so one subtraction measures the MC noise
+of the field D12 actually fitted, in the same transform, on the same cells.
+
+## 1. ⭐ The magnitude matches. The structure does not.
+
+| field | white part of MC noise | D12b's fitted nugget |
+|---|---|---|
+| body `log mu`, in sample | **0.0710** | **0.0789** |
+| body `log mu`, out of sample | 0.0320 | 0.0161 |
+| gate logit, in sample | 0.0128 | **0.0000** |
+| gate logit, out of sample | 0.0164 | **0.0000** |
+
+⇒ **In sample the body's entire fitted nugget is accounted for by our own four draws, to within 10%.**
+
+⛔ **But the difference field is NOT WHITE** — its lag-1 autocorrelation is **+0.3654 / +0.3630**
+(body, in sample) and **+0.4576 / +0.4088** (gate), in all four cases, both directions. So
+MC-dropout noise is **spatially correlated at one cell**, which is what should have been expected:
+dropout removes *channels*, and convolutions spread the perturbation across cells. ⇒ It is **not a
+pure nugget**, and the magnitude agreement above rests on a **crude** `(1 − ρ_D)` split that the
+script labels as such.
+
+⇒ **F2 is not resolved.** The noise is real, of the right size, and in the wrong shape. Per F2's own
+rule the truth's nugget **remains unquotable**. Logged `W-50`.
+
+## 2. ⛔ And the gate exposes a detection floor, which closes the method
+
+The gate's field provably contains **1.3–1.6%** white MC noise, and the fit returned **exactly 0** in
+every cell with `M1 ≡ M0` (`F = 0`, `p = 1`). ⇒ **A nugget of a few percent of variance is below this
+instrument's detection floor on this grid**, so "the gate has no cell-scale noise" was a **false
+negative** — and D12b's cleanest-looking result is the one that is wrong.
+
+⇒ **That is F4's condition in substance:** the nested comparison has no power at the scale of the
+effect. **F4's pre-registered consequence applies — no further variogram work.** The nugget/sill
+decomposition cannot be done with this instrument on this grid, and that is now measured rather than
+suspected.
+
+## 3. ⚪ One by-product worth more than the nugget, and NOT claimed as a finding
+
+**Our MC-dropout posterior spread is spatially correlated noise, not independent per-cell
+uncertainty** — ρ ≈ 0.27–0.46 between neighbouring cells, measured in four independent cells.
+⛔ Not pursued here: it bears on how posterior spread is reported in the product, which is a different
+question from over-smoothing, and it has had exactly one measurement.
+
+## 4. Where the D12 programme actually lands
+
+| | |
+|---|---|
+| ⭐ **durable** | **D12's scale profile** — the deficit is monotone in scale, worst at one cell (body 0.391, gate 0.112 of their due share), nearly closed by 32 cells. ⛔ It is a ratio of two γ curves at matched `d` and uses **no fitted parameter**, so none of D12b's or D12c's failures touch it |
+| ⭐ **durable** | the correlation-length excess is **real in sign everywhere** and **1.9–7.0× in size**, not the 12.8× an exponential extrapolation gave |
+| ⛔ **closed as unanswerable** | the nugget/sill decomposition, by F4's condition — detection floor above the effect, and our own instrument's MC noise sitting at the same magnitude |
+| ⛔ **still in dispute, unresolved** | the truth's noise share: 0.28–0.37 here against D6-C's 0.179. ⚠️ And D12c records an untested **candidate design error** in that comparison — D6-C pushed the *model's* field through the truth's estimator, so its attenuation depends on the *model's* rate field while the nugget depends on the *truth's*, and firing differs 4.18× between them. They may never have been the same quantity |
+| ⛔ **foreclosed, not pending** | the component attribution (`Cox1955` C-3611, registered as C-353) |

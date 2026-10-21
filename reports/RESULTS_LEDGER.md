@@ -753,6 +753,21 @@ Metrics filled from `--evaluate`; *Bounded?* from the 36-step rollout / `diagnos
   SS is EXHAUSTED (proven, not assumed), even on the un-collapsed hurdle head.** → the real fix is **GTF / B1 rollout
   training (#78, cross-step gradients)** or the **count-likelihood head** (ZINB/hurdle-NB). Rollout dossier `07` EXP-02.
 
+- **2026-10-21 — D12c (free CPU, 0.77 s / 0.17 GiB) → the nugget route is CLOSED: the fit's
+  detection floor sits above the effect, and our own 4-draw MC noise sits at its magnitude.**
+  Addendum in `reports/2026-10-21_d12b_restricted_fit_prereg.md`; script `d12c_draw_noise.py`
+  (committed `4fe27da` BEFORE it ran). **Split-half:** the same field built twice from disjoint draw
+  pairs, so `Var(F12 − F34)/4` is the MC noise of the field D12 fitted, in the same transform.
+  ⭐ **Magnitude matches** — in sample the body's whole fitted nugget (0.0789) is accounted for by its
+  own four draws (0.0710 white share). ⛔ **Structure does not** (`W-50`): the difference field's
+  lag-1 is **+0.27 to +0.46** in all four cases, so MC-dropout noise is **spatially correlated** —
+  dropout removes channels and convolutions spread it — hence not a nugget, F2 unresolved, and the
+  truth's nugget still unquotable. ⛔ **The gate closes the method:** its provable 1.3–1.6% white MC
+  noise fits as **exactly 0**, which measures a **~2% detection floor**, makes D12b's cleanest result
+  a **false negative**, and satisfies F4's condition ⇒ **no further variogram work.** ⚪ By-product,
+  one measurement and not pursued: **our MC-dropout posterior spread is spatially correlated noise,
+  not independent per-cell uncertainty.** ⛔ D12's scale profile is untouched — no fitted parameter.
+
 - **2026-10-21 — D12b (free CPU, 0.10 s / 0.09 GiB, reads D12's saved curves) → the truth's
   cell-scale noise IS identified without a sill, and it CONTRADICTS D6-C by 1.5–2.6×.**
   Pre-registration + OUTCOME `reports/2026-10-21_d12b_restricted_fit_prereg.md`; script

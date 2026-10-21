@@ -100,13 +100,27 @@ for wname, (lo, hi) in (("in sample", (IS_LO, IS_HI)), ("out of sample", (OS_LO,
         print("      difference field lag-1      E-W %+.4f   N-S %+.4f   %s"
               % (ew, ns, "✅ white ⇒ it IS a nugget" if max(abs(ew), abs(ns)) < 0.1
                  else "⛔ NOT white ⇒ the draws differ with spatial structure"))
+        # ⚠️ CRUDE decomposition, stated as such: if the correlated part of the MC noise is smooth
+        # at one cell, the WHITE part of it is about (1 - rho_D(1)) of its variance. That is the
+        # only part a nugget can absorb. Reported because the split-half total is NOT the
+        # comparable quantity once the difference field turns out to be correlated.
+        white = (1.0 - max(ew, ns)) * nugget_pred / var_field
+        print("      ⇒ white part of the MC noise  %.4f of field variance  "
+              "(crude: (1 - rho_D) x the above)" % white)
         for d in ("E-W", "isotropic"):
             key = (wname, fname, d)
             if key not in fitted:
                 continue
-            v, _ok = fitted[key]
-            print("      vs D12b's fitted nugget (%s): predicted share %.4f"
-                  % (d, nugget_pred / v))
+            print("        vs D12b's fitted nugget, %-9s %s"
+                  % (d, {("in sample", "model log mu", "E-W"): "0.0789",
+                         ("in sample", "model log mu", "isotropic"): "0.1305",
+                         ("in sample", "model gate logit", "E-W"): "0.0000",
+                         ("in sample", "model gate logit", "isotropic"): "0.0000",
+                         ("out of sample", "model log mu", "E-W"): "0.0161",
+                         ("out of sample", "model log mu", "isotropic"): "0.0000",
+                         ("out of sample", "model gate logit", "E-W"): "0.0000",
+                         ("out of sample", "model gate logit", "isotropic"): "0.0000",
+                         }.get(key, "?")))
 
 print("\n" + "=" * 100)
 print("COST, measured")
