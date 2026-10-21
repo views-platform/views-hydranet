@@ -152,8 +152,35 @@ selects observations whose 36-month mean is **upward-biased by their own samplin
 prediction/truth ratio is biased **down**. The **336-month** population is the far less noise-selected
 one — and on it the delivered forecast has `b ≈ 1.08` and sits ~20% **high**.
 
-⛔ **This is logged and NOT chased, per §1's cap.** ⚠️ But it has to be said plainly, because it cuts
-against the programme's standing framing: **on the least noise-selected population available, the
-gated forecast is neither timid in spread nor low in level.** That deserves its own scrutiny — the
-336-month window spans the regime change D8-A tripped over — and it is **not** a result of this
-session.
+## 7. ✅ THE FLAG IS RESOLVED — it was an ATOM ARTIFACT, and the body IS timid
+
+`body_level_selection_check.py`, committed with its expectation pre-stated, run 2026-10-21, **3.17 s /
+2.99 GiB.**
+
+⛔ **The `b ≈ 1.08` / 119.5% reading is not about the body at all.** Of the 3,790 cells with a positive
+336-month base rate, **2,359 — 62.2% — have truth EXACTLY 0 in the comparison window.** So `log(0 + ε)
+= −13.8` drove both the median and the regression. That is D8-A's window mismatch wearing a different
+hat: a population defined over 336 months, compared against a 36-month truth.
+
+**With the population held FIXED (the 1,431 cells with truth > 0 in the window) and only the truth's
+estimator changed:**
+
+| truth estimator | `b` | `r` | level | implied |
+|---|---|---|---|---|
+| 36-month window mean | 0.5171 | +0.8312 | −2.3368 | **9.7%** |
+| 336-month base rate (less noisy, same cells) | **0.4562** | +0.7107 | −1.3998 | **24.7%** |
+
+⇒ **Noise selection explains part of it and not most of it.** The shortfall moves from ~10× to **~4×**,
+and the slope gets **worse**, not better (0.52 → 0.46). ⚠️ The 336-month row is a **bound**, not an
+estimate — it assumes the model's 36-month mean stands in for a 336-month one, which is the
+stationarity assumption D8-A violated.
+
+✅ **My pre-stated expectation was 20–50%; measured 24.7%** (`R-22`). ⇒ **The body is timid: ~4× too
+small in level on event cells and committing about half the right spread in log space.**
+
+⇒ ⭐ **So the loss arm's purpose is NOT narrowed.** Level, spread and spatial structure are all
+genuinely wrong, and the design notes stand as written.
+
+⚪ Part 3 of the check is identical to part 2 by construction — the 336-month window **contains** the
+36-month one, so no cell has `truth > 0` in the window with a zero base rate. It passed trivially and
+is kept as the sanity check it is.

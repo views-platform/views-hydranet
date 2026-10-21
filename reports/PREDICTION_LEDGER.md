@@ -24,7 +24,7 @@ about the workflow — the same rule the experiment log lives under.
 | | count |
 |---|---|
 | **WRONG** | **52** |
-| **RIGHT** | **21** |
+| **RIGHT** | **22** |
 | OPEN | 1 |
 
 ⚠️ **That raw ratio is the least useful number in this file.** The errors are not randomly
@@ -186,6 +186,7 @@ External adversarial checking beats self-review here, and it is cheap relative t
 | R-19 | D12's design claim, stated in the pre-registration before it ran: *"lag-1 autocorrelation is `γ` at `d = 1`, so D12 is §9.3's own statistic swept over its free parameter rather than a new quantity."* | the run itself | **Held to ≤ 0.0090** across all eight field-direction pairs (model `log mu` E–W 0.8583 vs §9.3's 0.8594), by a different estimator route — `np.corrcoef` on shifted grids vs `1 − γ(1)/var`. ⇒ This is what separated *"the fit is misspecified"* from *"the instrument is broken"*, and it is the only reason anything in D12 is readable. |
 | R-20 | D12's **F1** was committed as a falsifier, i.e. the prediction that the model's structure function stays **below** the truth's at every resolved distance. | the measurement | **F1 never fired** — in 4/4 window × direction cells, across all 120 distance bins each. ⇒ The model's field is flatter than the truth's at **every** scale, which is the curve-level survivor of the void P-2 and makes *"flatter AND smoother"* a measured statement rather than a fitted one. |
 | R-21 | D12b's design claim, stated in its §2 before the run: *"`n/var(Z)` is the white-noise share and `var(Z)` is MEASURED, not fitted ⇒ no sill is needed"*, after D12's F3 killed every fitted sill. | the fit | **Held.** Every admissible cell identifies the truth's nugget at **30–45 SE** from zero with M1 beating M0 at `p < 1e-7`, on curves that still do not plateau. ⇒ The quantity D12 could not estimate was never the one that needed an asymptote — one substitution recovered it. ⚠️ What the design could not protect against was the ANSWER being contradicted by another instrument (`W-47`). |
+| R-22 | ⭐ **Stated in the check's own docstring before it ran:** *"I expect the shortfall to SHRINK but to stay large — level somewhere in 20–50%, i.e. still a 2–5× deficit, not a 10× one and not closed. If it closes past ~80% I was wrong about the body being timid at all."* | the check | **Held: 24.7%.** Holding the population fixed at the 1,431 truth-positive cells and changing only the truth's estimator moves the level from 9.7% to 24.7%, and the slope from 0.5171 to **0.4562** — worse, not better. ⇒ Noise selection explains **part** of the shortfall and not most of it, so **the body is timid (~4×)**, and the loss arm's purpose is not narrowed. ⚪ The competing reading (`b ≈ 1.08`, 119.5%, "roughly right") was an **atom artifact**: 62.2% of that population has truth exactly 0 in the comparison window. |
 
 ---
 
