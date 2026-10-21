@@ -279,8 +279,9 @@ its full share of structure at that scale.
 Out of sample, E–W (null 0.396): body **0.205** → 0.776, gate **0.140** → 0.784.
 
 ⇒ **The deficit is monotone in scale and nearly closed by 32 cells.** At one cell the body carries
-**39%** of its due share of structure and the gate **11%** — the gate is **3.5× worse than the body at
-the smallest scale** and they converge as the scale grows. ⇒ This is the same shape
+**39%** of its due share of structure and the gate **11%**, and both converge as the scale grows.
+
+> ⛔ **THE 3.5× GATE-vs-BODY COMPARISON IS WITHDRAWN (2026-10-21).** The two numbers stand individually — each field's deficit against its own same-shape null — but their RATIO is not like-for-like: `logit(gate)` and `log mu` are different transforms of different quantities, each normalised by its own variance ratio against the same truth field. ⇒ **C-351's transform and population slots, violated in the one claim that pointed the next arm back at the gate**, and stated four times on the day C-351 was registered. The gate's own deficit (0.112 of its due structure at one cell) is unaffected; *"worse than the body"* is not a quantity this measurement produced. ⇒ This is the same shape
 `Ayzel2020_RainNet` C-3654 reports (*"significant loss at 16 km and below"*) and
 `Ravuri2021` C-3657's "effective resolution", in our own units.
 

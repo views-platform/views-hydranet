@@ -62,15 +62,38 @@ and which no intervention has touched.
 
 ⚠️ That is an argument, not a guarantee. It could be the eighth.
 
-## 5. Gate or body?
+## 5. Gate or body? — ⛔ BODY. Reversed 2026-10-21, and the reason is about me, not the data
 
-**Lean: the gate first.**
+**An earlier version of this section read *"Lean: the gate first"*, on the strength of the gate being
+*"3.5× worse than the body at one cell."* ⛔ That ratio is withdrawn** (`W-51`): `logit(gate)` and
+`log mu` are different transforms of different quantities, each normalised by its own variance ratio,
+so the comparison between them was never like-for-like. **The number that pointed this arm back at the
+gate does not survive C-351 — the rule registered the same day I wrote it.**
 
-| for | against |
+⚠️ **And Simon named the pattern before I checked it, which is why this section is rewritten rather
+than defended.** The record supports him, and it is countable:
+
+| evidence | count |
 |---|---|
-| it is **3.5× worse than the body** at one cell (0.112 vs 0.391) | ⛔ what gets **scored** is the composed forecast (gate × body); a gate-only fix may move CRPS by nothing — which is exactly the #396 composition finding, where **neither half worked alone** |
-| a block version of its loss is a natural proper object: *"did this k×k block contain any event?"* — Bernoulli at every scale, and the question conflict forecasting actually asks | the gate and body are summed through a **frozen** balancer at fixed 1.0 / 0.5, so a new term's weight is a hand-set free parameter |
-| its only other axis is **closed on algebra** — `pos_weight` is a pure intercept shift, no effect on ranks or spatial structure | |
+| preregistrations named for the **gate** in the last seven (`pos_weight`, `gate_phase2`, `gate_underdispersion`) | **3** |
+| preregistrations named for the **body** | **0** |
+| §8.2 of `2026-10-20_d3_static_channel_ceiling.md`, whose own heading is *"The scale discriminator ran, and tested **the wrong head**"* — written one section after §8.1 established the body, not the gate, carries the slope defect | 1 documented instance |
+| the reason D4 had to exist at all: **no saved artifact held `mu` on the full grid**, while the gate already had `p2_gate_calibration.py`, `t0_gate_vs_body.py` and `gate_reliability.py` | instrumentation asymmetric **before** any result was |
+
+⇒ **A measurement bias and a research bias are indistinguishable from inside**: more instruments on
+the gate produce more findings on the gate, which justify more instruments on the gate. ⛔ **So the
+arm is BODY-first by decision, not by argument**, and the body half of the readout is the one that
+decides.
+
+**What still has to be true about the body half, pre-committed here:**
+- the readout is the **body's** scale profile, `γ_model(d)/γ_truth(d)` over the same-shape null, at `k ∈ {1,2,4,8}`;
+- ⛔ **the gate's profile is not read at all unless the body's moves.** If the body half is null, a gate improvement is not a result, it is a consolation;
+- ⛔ a gate-vs-body comparison may only be quoted if both sides share a transform and a null. Today's do not.
+
+⚪ **Kept from the old section, because they are still true and still arguments for the gate:** a block
+version of the gate's loss is a natural proper object (*"did this k×k block contain any event?"*), and
+`pos_weight` is closed on algebra so nothing competes there. ⇒ They are reasons the gate is *tractable*,
+not evidence it is *where the defect is*. ⚠️ That distinction is exactly what the last three preregs lost.
 
 ## 6. ⛔ Open questions — these are what the prereg has to answer, and three need Simon
 

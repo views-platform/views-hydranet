@@ -5237,6 +5237,17 @@ the defect was the **scale**, not the set. Population discipline cannot catch a 
 the entry's own argument turned on the entry. *"b = 1.73 on 100 cells chosen by observed positive rate,
 OLS of log truth on log prediction"* is self-refuting where *"b = 1.73"* is not.
 
+**Update 2026-10-21 — instance #9, and it steered a research decision before it was caught.** The
+claim *"the gate is **3.5× worse than the body** at the smallest scale"* (0.112 vs 0.391) compared
+`logit(gate)` against `log mu` — different transforms of different quantities, each normalised by its
+own variance ratio against the same truth field. ⛔ Not like-for-like, so the ratio is **withdrawn**;
+each field's own deficit stands. ⚠️ **What makes this the most expensive instance so far is not the
+number but its use:** it was the stated reason to aim the next retrain at the gate, it was repeated
+four times, and it reached a merged dossier, both ledgers, project memory and PR #422 — **on the same
+day this entry was registered.** The user identified the pattern before the measurement was
+re-read. ⇒ Recorded here because instances #1–#8 were all caught by *measurement*, and this one was
+caught by a *person noticing a direction of travel*, which is not a mechanism the three slots contain.
+
 **Update 2026-10-21 — instance #8, and the first one BETWEEN two instruments rather than inside one.**
 D12b's P-1 compared the **truth field's** fitted nugget against **D6-C's** measured estimator
 attenuation and treated a 1.5–2.6× gap as a contradiction (`W-47`). ⚠️ But D6-C pushed the **model's**
