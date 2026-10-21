@@ -28,7 +28,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent))
-from vehicle import SB, TARGETS, pull  # noqa: E402
+from vehicle import SB, TARGETS, emitted_magnitude, pull  # noqa: E402
 
 SP = Path(__file__).parent
 EPS = 1e-6
@@ -36,6 +36,15 @@ IS_LO, IS_HI = 421, 456
 OS_LO, OS_HI = 457, 469
 SHOW = (1, 2, 4, 8, 16, 32)
 t_start = time.time()
+
+def _family_of(npz, name):
+    """Which family wrote this npz. Loud fallback: only the frozen nb control lacks the key."""
+    if "family" in npz.files:
+        return str(npz["family"])
+    print(f"  \u26a0 {name} carries no `family` key (it predates Amendment 4) \u21d2 assuming 'nb'. "
+          "Its provenance file establishes this; any NEW artifact records it.")
+    return "nb"
+
 #: Optional filename suffix, so a SECOND vehicle can be measured without overwriting the first.
 #: ⛔ Default "" keeps every existing filename byte-for-byte: the control's `d4_result.npz` was
 #: produced by a checkpoint that NO LONGER EXISTS on disk (see
@@ -51,7 +60,9 @@ npz = np.load(SP / f"d4_result{TAG}.npz")
 MU, GATE = npz["mu"], npz["gate"]
 land_cells, months = npz["land_cells"], list(npz["months"])
 mcol = {m: i for i, m in enumerate(months)}
-mu_pm = MU.mean(0).astype(np.float64)
+FAMILY = _family_of(npz, f"d4_result{TAG}.npz")
+# The EMITTED magnitude per draw, then averaged — under `nb` both steps are no-ops.
+mu_pm = emitted_magnitude(MU.astype(np.float64), npz["theta"].astype(np.float64), FAMILY).mean(0)
 gt_pm = GATE.mean(0).astype(np.float64)
 
 df = pull((121, 504), SP / "pull_land_all3_121_504.parquet")

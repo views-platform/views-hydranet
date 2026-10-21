@@ -59,7 +59,7 @@ import numpy as np  # noqa: E402
 from scipy.optimize import curve_fit  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).parent))
-from vehicle import SB, TARGETS, grid_rowcol, pull  # noqa: E402
+from vehicle import SB, TARGETS, emitted_magnitude, grid_rowcol, pull  # noqa: E402
 
 SP = Path(__file__).parent
 H, W = 360, 720
@@ -70,6 +70,15 @@ DMAX = 120                       # cells. Must exceed 3 * the gate's xi (24.37 -
                                  # F5 can be EVALUATED rather than hit by construction.
 MIN_PAIRS = 1_000                # VOID condition 1: bins below this are dropped
 t_start = time.time()
+
+def _family_of(npz, name):
+    """Which family wrote this npz. Loud fallback: only the frozen nb control lacks the key."""
+    if "family" in npz.files:
+        return str(npz["family"])
+    print(f"  \u26a0 {name} carries no `family` key (it predates Amendment 4) \u21d2 assuming 'nb'. "
+          "Its provenance file establishes this; any NEW artifact records it.")
+    return "nb"
+
 #: Optional filename suffix, so a SECOND vehicle can be measured without overwriting the first.
 #: ⛔ Default "" keeps every existing filename byte-for-byte: the control's `d4_result.npz` was
 #: produced by a checkpoint that NO LONGER EXISTS on disk (see
@@ -171,7 +180,11 @@ Y = (w.pivot(index="priogrid_id", columns="month_id", values=TARGETS[SB])
      .reindex(land_cells)[months].to_numpy(np.float64))        # (n_land, 49)
 base336 = (df[df.month_id <= 456].groupby("priogrid_id")[TARGETS[SB]].mean()
            .reindex(land_cells).to_numpy(np.float64))          # the §8.3 noise control
-mu_pm = MU.mean(0).astype(np.float64)                          # posterior mean over 4 draws
+FAMILY = _family_of(npz, f"d4_result{TAG}.npz")
+# ⛔ B-1's "model log mu" field is the EMITTED magnitude, per draw then averaged (Amendment 4).
+# Under `nb` both the transform and the ordering are no-ops.
+mu_pm = emitted_magnitude(MU.astype(np.float64),
+                          npz["theta"].astype(np.float64), FAMILY).mean(0)
 gt_pm = GATE.mean(0).astype(np.float64)
 mcol = {m: i for i, m in enumerate(months)}
 

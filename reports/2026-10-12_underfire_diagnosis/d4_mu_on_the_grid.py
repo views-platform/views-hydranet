@@ -118,8 +118,12 @@ mu = MU.mean(0).astype(np.float64)        # [len(kept), n_land] posterior-mean m
 th = TH.mean(0).astype(np.float64)
 gt = GATE.mean(0).astype(np.float64)
 out_path = SP / f"d4_result{TAG}.npz"
+# `family` is stored because the readouts must compose the EMITTED magnitude, and what `mu` means
+# is the family's business (Amendment 4). The frozen nb control predates this key; readouts fall
+# back to "nb" loudly rather than silently.
 np.savez_compressed(out_path, mu=MU, theta=TH, gate=GATE, land_cells=land_cells,
-                    months=np.asarray(kept, np.int32), sha=sha)
+                    months=np.asarray(kept, np.int32), sha=sha,
+                    family=cfg["output_distribution"])
 print(f"saved {out_path} ({out_path.stat().st_size / 1e6:.1f} MB)")
 
 # ---- observed counts on the same cells/months ----
