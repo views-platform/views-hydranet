@@ -62,6 +62,12 @@ for _a in sys.argv[1:]:
     if _a.startswith("--tag="):
         TAG = _a.split("=", 1)[1]
 
+#: ⛔ `--dropout-off` runs ONE deterministic pass with MC dropout disabled, for the C-128 cost test:
+#: is the dropout posterior worth 4x the forward passes, against simply drawing more from the head?
+#: It lives HERE rather than in a separate script so the two conditions share one forward loop —
+#: a cost comparison between two near-identical loops in two files is a comparison of the files.
+DROPOUT_OFF = "--dropout-off" in sys.argv[1:]
+
 LEADIN_START, FIRST_KEPT, LAST_FED = 421, 421, 469
 IS_LO, IS_HI = 421, 456          # in sample  (the window §4's b = 1.73 came from)
 OS_LO, OS_HI = 457, 469          # out of sample (p2's gate window)
@@ -78,7 +84,23 @@ t_start = time.time()
 
 ReproducibilityGate.lock_entropy(np_seed=42, torch_seed=42)
 model, cfg, sha = load_vehicle(ART)
-model.set_locked_dropout(True)
+if DROPOUT_OFF:
+    # ⛔ `set_locked_dropout(False)` is NOT enough and this is the trap: it clears `locked` but
+    # never calls `.eval()`, so a module already switched to train() by an earlier True would keep
+    # resampling a FRESH mask every forward — more dropout noise, not less. Put them in eval
+    # explicitly, then PROVE it below rather than trusting it.
+    from views_hydranet.architectures.locked_dropout import LockedDropout
+    n_do = 0
+    for m in model.modules():
+        if isinstance(m, LockedDropout):
+            m.locked = False
+            m.eval()
+            n_do += 1
+    if n_do == 0:
+        raise SystemExit("VOID: --dropout-off found no LockedDropout modules to disable.")
+    print(f"  --dropout-off: {n_do} LockedDropout modules set to eval()")
+else:
+    model.set_locked_dropout(True)
 for m in model.modules():
     if "BatchNorm" in type(m).__name__ and m.training:
         raise SystemExit(f"VOID: {type(m).__name__} in train() mode — BN would be rewritten.")
@@ -95,10 +117,28 @@ vol, _, _ = build_volume(df, months)
 print(f"sweeping {months[0]}-{months[-1]} ({len(months)} steps) x {POSTERIOR_D} passes, "
       f"collecting sb (mu, theta) + gate on all {len(land_cells):,} land cells …")
 
+if DROPOUT_OFF:
+    POSTERIOR_D = 1   # one deterministic pass; the ensemble is built from head draws instead
+
 MU = np.zeros((POSTERIOR_D, len(kept), len(land_cells)), dtype=np.float32)
 TH = np.zeros_like(MU)
 GATE = np.zeros_like(MU)
 with torch.no_grad():
+    if DROPOUT_OFF:
+        # ⛔ PROVE dropout is off before spending the pass: two forwards on the same input must be
+        # BIT-IDENTICAL. If any mask is still live they will not be, and a "dropout-off" arm that
+        # silently kept dropping would make the whole cost comparison meaningless — the C-324
+        # inert-knob signature, pointed the other way.
+        h0 = torch.zeros(1, cfg["total_hidden_channels"], *vol.shape[-2:])
+        a = model(vol[:, 0], h0).reg
+        b = model(vol[:, 0], h0).reg
+        if not torch.equal(a, b):
+            raise SystemExit(
+                "VOID: --dropout-off is not off — two forwards on identical input differ by "
+                f"max {float((a - b).abs().max()):.3e}. A LockedDropout is still sampling."
+            )
+        print("  dropout-off VERIFIED: two forwards on identical input are bit-identical")
+
     for d in range(POSTERIOR_D):
         model.reset_locked_dropout()
         h = torch.zeros(1, cfg["total_hidden_channels"], *vol.shape[-2:])
