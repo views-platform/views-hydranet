@@ -416,8 +416,9 @@ def _structure_penalty(
     ``:1075``'s ``prob[:, :n_reg]``.
 
     Within-block variance is ``E[x²] − E[x]²`` over each ``k×k`` block, via two average pools. The
-    penalty is the absolute difference of LOGS, so a 10× dispersion error costs the same at every
-    intensity and the term cannot be dominated by the few violent cells.
+    The penalty is a ONE-SIDED difference of LOGS: a 10× dispersion SHORTFALL costs the same at
+    every intensity, and excess dispersion costs nothing. See the comment at the accumulation for
+    why the asymmetry is measured rather than assumed.
 
     Args:
         mu: ``[B, H, W]`` the body's activated conditional mean for one target.
@@ -447,7 +448,16 @@ def _structure_penalty(
     for k in _STRUCT_BLOCKS:
         var_pred = _block_variance(composed, k)
         var_true = _block_variance(target, k)
-        pen = pen + (torch.log(var_pred + 1e-6) - torch.log(var_true + 1e-6)).abs().mean()
+        # ⛔ ONE-SIDED, and the asymmetry is MEASURED rather than convenient. D12's falsifier F1 —
+        # "the model's gamma exceeds the truth's at any d" — never fired: in 4/4 window x direction
+        # cells across 480 distance bins the model's structure function is BELOW the truth's at
+        # every scale. The defect has one direction. A symmetric |difference| would spend most of
+        # its gradient enforcing FLATNESS, because on a 97.8%-empty field most blocks have no truth
+        # dispersion at all: measured on the derivation window (2 positive cells in 1,024), the
+        # symmetric form's value was 12.381 against the one-sided 0.224 — ⇒ 98.2% of it was
+        # pushing toward flatness, fighting the defect the term exists to fix.
+        shortfall = torch.log(var_true + 1e-6) - torch.log(var_pred + 1e-6)
+        pen = pen + shortfall.clamp_min(0.0).mean()
     return pen
 
 

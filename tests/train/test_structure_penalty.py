@@ -96,6 +96,26 @@ def test_penalty_rises_when_the_field_is_smoothed():
     assert smooth > sharp + 1.0, f"smoothing must cost materially: {smooth} vs {sharp}"
 
 
+def test_excess_dispersion_is_NOT_penalised():
+    """⭐ THE ASYMMETRY. The term is one-sided, and D12's F1 is why.
+
+    F1 — "the model's gamma exceeds the truth's at any d" — never fired: 4/4 cells, 480 bins, the
+    model below the truth at every scale. So the defect has one direction, and on a 97.8%-empty
+    field a symmetric penalty would spend most of its gradient enforcing FLATNESS where the truth
+    has no dispersion. If this test fails, the term is fighting the defect it exists to fix.
+    """
+    torch.manual_seed(0)
+    truth = torch.full((2, 8, 8), 1.0)  # flat truth: no dispersion to match
+    sharp_mu = 2.0 * (truth + 5.0 * (torch.rand_like(truth) < 0.1).float())  # over-dispersed
+    matched_mu = 2.0 * truth
+
+    over = _structure_penalty(sharp_mu, _flat_gate(truth.shape), truth)
+    matched = _structure_penalty(matched_mu, _flat_gate(truth.shape), truth)
+    assert over.item() == pytest.approx(matched.item(), abs=1e-6), (
+        "excess dispersion must cost nothing; a symmetric penalty would punish it"
+    )
+
+
 def test_gradient_reaches_mu_and_not_the_gate():
     """⭐ THE ONE-VARIABLE CONTRACT. The gate is detached inside the term.
 
