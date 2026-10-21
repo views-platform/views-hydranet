@@ -216,3 +216,114 @@ and whether the `library`'s self-excitation sub-folder gets extracted.
   pooled score vector"*), and which `Ravuri2021` C-3657 reports empirically for CSI. So D12 measures
   something the scoring framework cannot see, and that is a fact about the framework, not a licence to
   reopen it. ⛔ FAO-02 is LOCKED and changing it is Simon's decision alone.
+
+---
+
+# ⛔ OUTCOME — run 2026-10-21. The FIT is VOID; the CURVES answer the question and CORRECT the basis of this prereg
+
+`d12_variogram.py` (committed `3468fe3` **before** it ran) and the post-hoc `d12b_curve_readout.py`.
+Cost measured: **391.4 s / 2.68 GiB** at 4 threads for the sweep (22,612 half-plane offsets × 8
+field-windows), **0.0 s / 0.03 GiB** for the readout. ⚠️ My pre-run projection was **14 min** against
+**6.5 min** actual — conservative by 2.1×, recorded because the projection was printed before the run.
+
+## 1. ✅ The estimator is sound — verified against §9.3 by a different route
+
+For a field of variance `v`, `ρ(d) = 1 − γ(d)/v`, so `γ(1)` must reproduce §9.3's lag-1
+autocorrelations, which were computed with `np.corrcoef` on shifted grids
+(`d4_mu_on_the_grid.py:172`), not from a variogram.
+
+| field | dir | D12 | §9.3 | diff |
+|---|---|---|---|---|
+| model `log mu` | E–W | 0.8583 | 0.8594 | −0.0011 |
+| model `log mu` | N–S | 0.7609 | 0.7636 | −0.0027 |
+| model gate logit | E–W | 0.9594 | 0.9598 | −0.0004 |
+| model gate logit | N–S | 0.9567 | 0.9574 | −0.0007 |
+| truth, window | E–W | 0.5842 | 0.5915 | −0.0073 |
+| truth, 336-mo | E–W | 0.6378 | 0.6419 | −0.0041 |
+
+⇒ **Worst disagreement 0.0090.** The measurement is right; what follows is a failure of the *model
+fitted to it*, not of the instrument.
+
+## 2. ⛔ F3 FIRED IN ALL FOUR CELLS — the fitted layer is VOID, by a condition written before the run
+
+**No field plateaus by `d = 120`.** Model `log mu` E–W climbs 0.233 → 1.571 and the 336-month truth
+2.679 → 7.240 across the full reach. §5's F3 says the consequence is that the sill comparison is
+**"VOID for lack of reach — and it must be declared rather than fitted through"**, and since
+`n + s(1 − exp(−d/ξ))` has only one sill to place, an inadmissible sill makes the fitted **nugget**
+and **range** inadmissible with it.
+
+⇒ **P-1, P-2, P-3, P-5, F2 and F4 are VOID, not missed.** The `⛔ MISSED` lines in
+`d12_variogram.out` record an inadmissible fit and ⛔ **must not be read as falsifications** — e.g.
+"P-3 gate/truth ξ ratio 2.599" is a ratio of two numbers that are not ranges.
+
+⚠️ **And a second limit this prereg did not anticipate.** The curves are **non-monotone from
+`d ≈ 9`** (in sample, E–W; `d ≈ 19` isotropic). A variogram cannot decrease. The pair population
+changes with `d` on a 25%-land mask — by `d = 64` a large share of pairs span two continents — so the
+large-`d` bins are not one population. ⛔ **That is C-351's population slot biting inside D12**, in the
+one instrument chosen because the mask was *not* supposed to matter. The mask does not bias γ at a
+given `d`; it changes *which* γ each `d` estimates.
+
+## 3. ⭐ THE ANSWER, model-free: the amplitude goes missing at the SMALLEST scales
+
+`γ_model(d)/γ_truth(d)` tends to the ratio of total variances if the two fields have the same shape,
+so that ratio is the null. Divide by it and what is left is **shape alone**: 1.00 = the model carries
+its full share of structure at that scale.
+
+**In sample, E–W, against the 336-month base-rate truth** (variance null 0.222):
+
+| | d1 | d2 | d4 | d8 | d16 | d32 |
+|---|---|---|---|---|---|---|
+| **body `log mu`** | **0.391** | 0.387 | 0.491 | 0.633 | 0.810 | 0.870 |
+| **gate logit** | **0.112** | 0.182 | 0.314 | 0.504 | 0.711 | 0.822 |
+
+Out of sample, E–W (null 0.396): body **0.205** → 0.776, gate **0.140** → 0.784.
+
+⇒ **The deficit is monotone in scale and nearly closed by 32 cells.** At one cell the body carries
+**39%** of its due share of structure and the gate **11%** — the gate is **3.5× worse than the body at
+the smallest scale** and they converge as the scale grows. ⇒ This is the same shape
+`Ayzel2020_RainNet` C-3654 reports (*"significant loss at 16 km and below"*) and
+`Ravuri2021` C-3657's "effective resolution", in our own units.
+
+## 4. ⛔ AND IT CORRECTS THIS PREREG'S OWN BASIS — the 12.8× was an extrapolation, not a measurement
+
+§1b and §1c converted lag-1 autocorrelation to a correlation length with `ξ = −1/ln ρ`, giving
+**24.37** cells for the gate against **1.90** for the truth ⇒ the **12.8×** and **3.5×** that were
+quoted all programme. ⛔ **That conversion assumes the correlation function is exponential, and it is
+not.** The exponential fitted at `d = 1` predicts `ρ_truth(8) = 0.029`; the measured value is
+**0.316** — wrong by a factor of **11**, because the truth's decay is fast at one cell and slow after.
+
+Model-free ranges instead — the smallest `d` with `ρ(d) ≤ τ`, with **τ swept** rather than chosen
+(`feedback_sweep_before_reporting_a_scalar`), in sample, E–W, against the 336-month truth:
+
+| τ | body | gate | truth | body ratio | gate ratio |
+|---|---|---|---|---|---|
+| 0.7 | 5 | 7 | 1 | **5.00×** | **7.00×** |
+| 0.5 | 9 | 13 | 3 | **3.00×** | **4.33×** |
+| 0.3 | 17 | 24 | 9 | **1.89×** | **2.67×** |
+
+⇒ **The model's correlation length is longer than the truth's in every cell and at every threshold —
+the SIGN is confirmed — but by 1.9–5.0× (body) and 2.0–7.0× (gate), not 3.5× and 12.8×.** The
+ratio moves by 2.6× across the threshold sweep, so ⛔ **no single multiplier is quotable at all**;
+the range is the result. Logged as `W-44`.
+
+⚠️ **Does that reopen §1b and §1c?** Checked, not assumed: at τ = 0.5 the gate's range is ~13 cells,
+so an FFT needs ~39 cells against the Africa window's ~20 — **both rejections stand, with the margin
+shrinking from 73-vs-20 to 39-vs-20.** The instruments were rejected for the right reason on an
+overstated number.
+
+## 5. ⚠️ One anomaly, flagged and NOT claimed
+
+The body's in-sample **N–S** `ρ(1) = 0.761` is **below** its own `ρ(2) = 0.824` — the only inversion
+in 16 field-direction-window cells, and absent from the gate, from the truth and from the same field
+out of sample. A field more unlike its immediate neighbour than its second neighbour is what
+transposed-convolution checkerboarding and 32×32 patch stitching both produce. ⛔ **One cell, one
+window, one head, and no second instrument** — recorded as an observation, with no mechanism claimed.
+
+## 6. What D12 did and did not settle
+
+| | |
+|---|---|
+| ✅ **settled** | the deficit's **scale profile** — worst at 1 cell, closed by ~32; the gate worse than the body below 8 cells; the model flatter than the truth at **every** resolved `d` (F1 never fired, 4/4 cells) |
+| ⛔ **void** | every fitted parameter, hence the nugget/sill decomposition — so §4's free consistency check against D6-C's 0.154/0.081 **did not run**, and the nugget *is not* an estimate of the emission term |
+| ⛔ **still foreclosed** | the component attribution (§0). `Cox1955` C-3611 is untouched by any of this, and C-353 now registers the class |
+| 🔵 **open, and cheap** | a restricted-range fit, inside the monotone region, recovers the nugget — ✅ **pre-registered 2026-10-21 as `reports/2026-10-21_d12b_restricted_fit_prereg.md`**, which states up front that it is an *estimation* plan rather than a test (the curves were already seen), drops the fitted sill entirely in favour of `n/var`, and ⛔ **corrects this prereg's §4 target from 0.154/0.081 to 0.179/0.106** — attenuation is multiplicative, not additive (`W-46`) |

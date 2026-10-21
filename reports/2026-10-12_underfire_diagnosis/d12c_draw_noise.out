@@ -1,0 +1,46 @@
+====================================================================================================
+D12c — the model's nugget against its own 4-draw MC noise (split-half)
+====================================================================================================
+  D12b's fitted nuggets, as n/var:  in sample E-W 0.0789, isotropic 0.1305;  out of sample E-W 0.0161, isotropic 0.0000
+
+  in sample (421-456)
+    model log mu
+      var(field, 4-draw)          1.641828
+      var(F12 - F34)              0.734855
+      ⇒ predicted MC nugget       0.183714   = 0.1119 of field variance
+      difference field lag-1      E-W +0.3654   N-S +0.3630   ⛔ NOT white ⇒ the draws differ with spatial structure
+      ⇒ white part of the MC noise  0.0710 of field variance  (crude: (1 - rho_D) x the above)
+        vs D12b's fitted nugget, E-W       0.0789
+        vs D12b's fitted nugget, isotropic 0.1305
+    model gate logit
+      var(field, 4-draw)          2.874709
+      var(F12 - F34)              0.272182
+      ⇒ predicted MC nugget       0.068046   = 0.0237 of field variance
+      difference field lag-1      E-W +0.4576   N-S +0.4088   ⛔ NOT white ⇒ the draws differ with spatial structure
+      ⇒ white part of the MC noise  0.0128 of field variance  (crude: (1 - rho_D) x the above)
+        vs D12b's fitted nugget, E-W       0.0000
+        vs D12b's fitted nugget, isotropic 0.0000
+
+  out of sample (457-469)
+    model log mu
+      var(field, 4-draw)          2.926946
+      var(F12 - F34)              0.521342
+      ⇒ predicted MC nugget       0.130335   = 0.0445 of field variance
+      difference field lag-1      E-W +0.2669   N-S +0.2816   ⛔ NOT white ⇒ the draws differ with spatial structure
+      ⇒ white part of the MC noise  0.0320 of field variance  (crude: (1 - rho_D) x the above)
+        vs D12b's fitted nugget, E-W       0.0161
+        vs D12b's fitted nugget, isotropic 0.0000
+    model gate logit
+      var(field, 4-draw)          2.617476
+      var(F12 - F34)              0.302486
+      ⇒ predicted MC nugget       0.075621   = 0.0289 of field variance
+      difference field lag-1      E-W +0.4311   N-S +0.3913   ⛔ NOT white ⇒ the draws differ with spatial structure
+      ⇒ white part of the MC noise  0.0164 of field variance  (crude: (1 - rho_D) x the above)
+        vs D12b's fitted nugget, E-W       0.0000
+        vs D12b's fitted nugget, isotropic 0.0000
+
+====================================================================================================
+COST, measured
+====================================================================================================
+  wall time 0.65 s
+  peak RSS  0.17 GiB
