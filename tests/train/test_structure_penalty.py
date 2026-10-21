@@ -38,11 +38,37 @@ def test_block_variance_matches_a_hand_computed_block():
     assert torch.allclose(got.squeeze(), want, atol=1e-6)
 
 
-def test_block_variance_is_zero_on_a_constant_field_and_never_negative():
-    """The two-moment form can go float-epsilons negative; the clamp must hold it at 0."""
+def test_block_variance_is_zero_on_a_constant_field():
     got = _block_variance(torch.full((2, 8, 8), 7.5), 2)
-    assert (got >= 0).all()
     assert torch.allclose(got, torch.zeros_like(got), atol=1e-6)
+
+
+def test_block_variance_never_goes_negative_under_catastrophic_cancellation():
+    """⭐ The clamp is load-bearing, and the first version of this test could not see it.
+
+    `E[x²] − E[x]²` loses precision when `x²` exceeds float32's ~7 significant digits. Measured:
+    at a field magnitude of 1e7 the raw form reaches **−8,388,608**, and `log(negative + 1e-6)` is
+    NaN — which would kill a multi-hour run at whichever lesson first produced a large `mu`. An
+    earlier version used a magnitude of 7.5, where the raw form is exactly 0.0, so removing the
+    clamp left the suite green (mutation M5 SURVIVED). The regime is extreme for a count field;
+    the clamp is one op, and a NaN here is unrecoverable.
+    """
+    torch.manual_seed(0)
+    x = (1e7 + torch.rand(4, 16, 16)).float()
+    raw = nn_functional_block_var_without_clamp(x, 2)
+    assert raw.min() < 0, "this fixture must actually reach the cancellation regime"
+
+    got = _block_variance(x, 2)
+    assert (got >= 0).all()
+    assert torch.isfinite(torch.log(got + 1e-6)).all()
+
+
+def nn_functional_block_var_without_clamp(field, k):
+    """The unclamped two-moment form, kept here so the test above can PROVE its fixture bites."""
+    import torch.nn.functional as F
+
+    x = field.unsqueeze(1)
+    return F.avg_pool2d(x * x, k) - F.avg_pool2d(x, k) ** 2
 
 
 def test_penalty_is_near_zero_when_the_composed_field_matches_the_truth():
