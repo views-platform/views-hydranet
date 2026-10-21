@@ -69,9 +69,16 @@ measured the same way.**
 
 | slot | value |
 |---|---|
-| population | cells with truth > 0 in the window (truth-defined, arm-independent), **and** the all-land version for completeness |
-| transform | `log(mu + 1e-6) − log(truth + 1e-6)`, per cell |
+| population | **three**, all truth-defined and therefore arm-independent: all land; truth > 0 in the window; 336-month base rate > 0. ⛔ Reported as a **set**, never as one number — §5 shows why |
+| transform | `log(prediction + 1e-6) − log(truth + 1e-6)`, per cell |
 | estimator | the **median** over the population |
+| ⛔ predictor | the **gated forecast**, `gate × mu` (GLOSSARY §2) — **primary**. The **body alone**, `mu`, is reported alongside for continuity with §4's `b`, and ⛔ **is not comparable to the truth's window mean**: see below |
+
+⛔ **A defect in this entry's first draft, caught by running it.** The first version compared `mu` —
+the body's **conditional** mean, the magnitude *given an event* — against the truth's **unconditional**
+window mean, which averages over months with no event. Different objects: a C-351 **estimator**
+violation, and it manufactured an apparent **+28% over-prediction** out of nothing. The gated forecast
+is the unconditional object and is the one the truth can be compared to. Logged as `W-52`.
 
 ⭐ **This closes a gap the locked glossary itself records.** `GLOSSARY.md:263` defines *"the magnitude
 level"* as the intercept, gives **−0.5831** (the body predicting ~56% of the empirical mean), and then
@@ -106,6 +113,47 @@ conflict cells and is a **score**; this is the intercept of a fit and is a **def
 
 ## 5. Baselines
 
-Computed on the **control** artifact (`calibration_model_20261013_010739.pt` lineage, via
-`d4_result.npz`, vehicle sha `4acbf4d3c2b457b0…`) by `body_scoreboard.py`, committed before it ran.
-⇒ Filled in below by that run — ⛔ **not from memory, and not from this document's drafting.**
+Computed on the **control** artifact (via `d4_result.npz`, vehicle sha `4acbf4d3c2b457b0…`) by
+`body_scoreboard.py`, committed before it ran. **Cost measured: 6.38 s / 2.69 GiB.** Land cells with
+truth exactly 0: **97.79%** in the in-sample window, **94.15%** on the 336-month base rate.
+
+### B-1 — the scale profile
+
+| window | direction | d1 | d2 | d4 | d8 | d16 | d32 |
+|---|---|---|---|---|---|---|---|
+| in sample | E–W | **0.391** | 0.387 | 0.491 | 0.633 | 0.810 | 0.870 |
+| in sample | isotropic | 0.546 | 0.515 | 0.593 | 0.732 | 0.893 | 0.967 |
+| out of sample | E–W | **0.205** | 0.229 | 0.314 | 0.473 | 0.661 | 0.776 |
+| out of sample | isotropic | 0.210 | 0.251 | 0.339 | 0.500 | 0.721 | 0.851 |
+
+### B-2 and B-3 — in sample, the **gated forecast** against the truth
+
+| population | n | `b` | `r` | level | implied |
+|---|---|---|---|---|---|
+| all land | 64,818 | 0.6593 | +0.7142 | +0.1106 | 111.7% |
+| **truth > 0 in window** | 1,431 | **0.5171** | +0.8312 | **−2.3368** | **9.7%** |
+| **336-mo base rate > 0** | 3,790 | **1.0803** | +0.7940 | **+0.1778** | **119.5%** |
+
+Out of sample, same three: `b` 0.4433 / 0.4851 / 0.8496, level +0.0447 / **−1.7728** / +2.0291.
+The body alone (`mu`) is in `body_scoreboard.out`; ⛔ its all-land level (+8.18) is **not a comparison
+to the truth at all** — it degenerates to median `log mu` plus the constant `−log ε`.
+
+## 6. ⛔ WHAT THE BASELINE RUN ESTABLISHED ABOUT THE RULER ITSELF
+
+**`b` and the level are NOT scalars, and the scoreboard must never print them as one.**
+
+| | spread across the three truth-defined populations |
+|---|---|
+| `b`, in sample, gated | **0.52 → 1.08** (2.1×) |
+| the level, in sample, gated | **9.7% → 119.5%** — ⛔ **the sign flips** |
+
+⇒ **Why, and it is not a defect in the measurement:** selecting cells with an event *in 36 months*
+selects observations whose 36-month mean is **upward-biased by their own sampling noise**, so the
+prediction/truth ratio is biased **down**. The **336-month** population is the far less noise-selected
+one — and on it the delivered forecast has `b ≈ 1.08` and sits ~20% **high**.
+
+⛔ **This is logged and NOT chased, per §1's cap.** ⚠️ But it has to be said plainly, because it cuts
+against the programme's standing framing: **on the least noise-selected population available, the
+gated forecast is neither timid in spread nor low in level.** That deserves its own scrutiny — the
+336-month window spans the regime change D8-A tripped over — and it is **not** a result of this
+session.

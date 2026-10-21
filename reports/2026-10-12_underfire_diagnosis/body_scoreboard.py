@@ -93,20 +93,26 @@ for wname in ("in sample", "out of sample"):
 print("\n" + "-" * 96)
 print("B-2  the magnitude slope b  |  B-3  the magnitude level (median log mu - log truth)")
 print("-" * 96)
-print("     %-14s %-22s %8s %8s %9s %9s %9s"
-      % ("window", "population", "n", "b", "r", "level", "implied %"))
+print("     %-13s %-26s %-21s %7s %7s %8s %8s %8s"
+      % ("window", "predictor", "population", "n", "b", "r", "level", "implied"))
 for wname, (lo, hi) in (("in sample", (IS_LO, IS_HI)), ("out of sample", (OS_LO, OS_HI))):
     j = [mcol[m] for m in range(lo, hi + 1)]
-    mu_w, y_w = mu_pm[j].mean(0), Y[:, j].mean(1)
-    for pname, keep in (("all land", np.ones(len(land_cells), bool)),
-                        ("truth > 0 in window", y_w > 0),
-                        ("336-mo base rate > 0", base336 > 0)):
-        x, y = np.log(mu_w[keep] + EPS), np.log(y_w[keep] + EPS)
-        b, _a = np.polyfit(x, y, 1)
-        r = float(np.corrcoef(x, y)[0, 1])
-        level = float(np.median(x - y))
-        print("     %-14s %-22s %8d %8.4f %+9.4f %+9.4f %8.1f%%"
-              % (wname, pname, keep.sum(), b, r, level, 100 * np.exp(level)))
+    mu_w, gt_w, y_w = mu_pm[j].mean(0), gt_pm[j].mean(0), Y[:, j].mean(1)
+    # ⛔ TWO PREDICTORS, and the distinction is the whole correctness of B-3. `mu` is the body's
+    # CONDITIONAL mean (the magnitude given an event); the truth's window mean is UNCONDITIONAL
+    # (it averages over months with no event). Comparing them is a C-351 estimator violation and
+    # it manufactures apparent over-prediction. The composed forecast `gate x mu` — GLOSSARY §2's
+    # "gated forecast" — is the unconditional object and is the one comparable to the truth.
+    for predname, pred in (("gated forecast (gate x mu)", gt_w * mu_w), ("body alone (mu)", mu_w)):
+        for pname, keep in (("all land", np.ones(len(land_cells), bool)),
+                            ("truth > 0 in window", y_w > 0),
+                            ("336-mo base rate > 0", base336 > 0)):
+            x, y = np.log(pred[keep] + EPS), np.log(y_w[keep] + EPS)
+            b, _a = np.polyfit(x, y, 1)
+            r = float(np.corrcoef(x, y)[0, 1])
+            level = float(np.median(x - y))
+            print("     %-13s %-26s %-21s %7d %7.4f %+8.4f %+8.4f %7.1f%%"
+                  % (wname, predname, pname, keep.sum(), b, r, level, 100 * np.exp(level)))
 
 print("""
      ⛔ READING RULES (§4 of the scoreboard file)
