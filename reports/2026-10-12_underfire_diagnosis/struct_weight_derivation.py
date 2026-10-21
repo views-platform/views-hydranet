@@ -7,6 +7,12 @@ multiplying the arm by a sweep.
 
   weight = ||d(body NLL)/d(theta)|| / ||d(struct_pen)/d(theta)||
 
+⛔ RE-DERIVED 2026-10-21. The first derivation produced 8.89624 against a penalty that composed
+`gate * params[..., 0]` — the PARENT NB mean. On `truncated_nb` the magnitude the head emits is
+`mu / (1 - NB(0))`, measured ~2.1x larger, so that weight balanced the body NLL against the wrong
+field and is VOID. The term now asks the family for its own mean (`training_engine.py`, commit
+1964d79) and the weight must be measured again on the same vehicle.
+
 ⚠️ This is GradNorm's idea as a ONE-TIME CONSTANT, not as the dynamic algorithm, which was declined
 on cost. The constant is measured once, reported, and then fixed for the run.
 
@@ -100,7 +106,7 @@ def grad_norm(term: torch.Tensor) -> float:
 
 
 nll = criterion(params, target)
-pen = _structure_penalty(params[..., 0], gate_logits, target)
+pen = _structure_penalty(family, params, gate_logits, target)
 g_nll = grad_norm(nll)
 g_pen = grad_norm(pen)
 
