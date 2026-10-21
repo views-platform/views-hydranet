@@ -1,0 +1,65 @@
+/home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-10-12_underfire_diagnosis/composed_crps_recalibration.py:120: RuntimeWarning: overflow encountered in exp
+  gt = 1.0 / (1.0 + np.exp(-gate_slope * lg))
+================================================================================================
+§4.3 — COMPOSED-CRPS RECALIBRATION ON THE DELIVERED WEIGHTS. Nothing retrained.
+================================================================================================
+  vehicle      4acbf4d3c2b457b0…  (the frozen nb control; its checkpoint is DELETED)
+  partition    OUT OF SAMPLE 457-469, 13 months x 64,818 land cells = 842,634 cell-months
+  ensemble     4 posterior draws x 4 head draws = 16 members
+  truth        ged_sb_best, count space, 99.66% exact zeros
+
+  BASELINE composed CRPS, the model's own parameters   0.051114
+
+  SWEEP — theta scale  (body dispersion)
+    value       composed CRPS  vs baseline
+    0.2500           0.055981        9.52%
+    0.4848           0.054000        5.65%
+    0.9402           0.051600        0.95%
+    1.8232           0.049260       -3.63%
+    3.5355           0.047893       -6.30%
+    6.8562           0.046597       -8.84%
+    13.2957          0.046240       -9.54%
+    25.7835          0.046014       -9.98%
+    50.0000          0.046296       -9.43%
+    96.9614          0.046266       -9.49%
+    188.0302         0.046512       -9.00%
+    364.6332         0.046552       -8.93%
+    707.1068         0.046615       -8.80%
+    1371.2409        0.046720       -8.60%
+    2659.1479        0.046643       -8.75%
+    5156.6927        0.046733       -8.57%
+    10000.0000       0.046678       -8.68%
+    ⇒ optimum at 25.7835, CRPS 0.046014, a 9.98% improvement on the delivered parameters
+
+  SWEEP — gate slope   (Platt, no intercept)
+    value       composed CRPS  vs baseline
+    0.4000           0.052631        2.97%
+    0.5493           0.052090        1.91%
+    0.7544           0.051535        0.82%
+    1.0359           0.051044       -0.14%
+    1.4226           0.050649       -0.91%
+    1.9537           0.050413       -1.37%
+    2.6829           0.050252       -1.69%
+    3.6844           0.050113       -1.96%
+    5.0596           0.050060       -2.06%
+    6.9483           0.050006       -2.17%
+    9.5419           0.049995       -2.19%
+    13.1037          0.049978       -2.22%
+    17.9949          0.049970       -2.24%
+    24.7120          0.049953       -2.27%
+    33.9363          0.049964       -2.25%
+    46.6039          0.049962       -2.26%
+    64.0000          0.049967       -2.24%
+    ⇒ optimum at 24.7120, CRPS 0.049953, a 2.27% improvement on the delivered parameters
+
+  ⛔ READING. Under 1% on both arms retires the NLL-vs-CRPS divergence as measured-and-negligible.
+  Over 5% on either makes it material, and the two pre-registrations that name it as an
+  unquantified limitation need amending. ⚠️ Either way this is ONE vehicle, ONE target (`sb`) and
+  n=1, and a recalibration that helps out of sample here is not evidence it would help on a
+  retrained model.
+
+================================================================================================
+COST, measured
+================================================================================================
+  wall time 45.47 s
+  peak RSS  3.00 GiB

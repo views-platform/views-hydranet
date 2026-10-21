@@ -133,11 +133,17 @@ def composed_crps(theta_scale: float, gate_slope: float) -> float:
         )
         members.append(np.expm1(comp.numpy()))
     ens = np.concatenate(members, axis=-1).reshape(T * C, D * HEAD_DRAWS)
-    return float(crps_ensemble(Y.reshape(-1), ens).mean())
+    # ⛔ The emitted positive fraction is returned ALONGSIDE the score, never after it, because a
+    # CRPS gain on a 97.8%-zero field is exactly what predicting zero more confidently buys. The
+    # 2026-08-15 rollout-ruler verdict (ARTIFACT 4/4, 74.6% of the gap = true zeros) is this repo
+    # reading such a gain as skill once already. Observed positive fraction is printed beside it.
+    return (float(crps_ensemble(Y.reshape(-1), ens).mean()), float((ens > 0).mean()))
 
 
-base = composed_crps(1.0, 1.0)
+base, base_pos = composed_crps(1.0, 1.0)
+obs_pos = float((Y > 0).mean())
 print(f"\n  BASELINE composed CRPS, the model's own parameters   {base:.6f}")
+print(f"  emitted positive fraction {base_pos:.4f} against an OBSERVED {obs_pos:.4f}")
 
 for name, grid, call in (
     # ⛔ GRIDS WIDENED 2026-10-21 AFTER THE FIRST RUN, and the reason is recorded rather than
@@ -154,13 +160,15 @@ for name, grid, call in (
      lambda v: composed_crps(1.0, v)),
 ):
     print(f"\n  SWEEP — {name}")
-    print("    %-10s %14s %12s" % ("value", "composed CRPS", "vs baseline"))
+    print("    %-10s %14s %12s %10s %10s" % (
+        "value", "composed CRPS", "vs baseline", "pos frac", "vs obs"))
     vals = []
     for v in grid:
-        c = call(v)
+        c, pf = call(v)
         vals.append(c)
         mark = "  <-- model's own" if abs(v - 1.0) < 1e-9 else ""
-        print("    %-10.4f %14.6f %11.2f%%%s" % (v, c, 100 * (c - base) / base, mark))
+        print("    %-10.4f %14.6f %11.2f%% %10.4f %9.2fx%s"
+              % (v, c, 100 * (c - base) / base, pf, pf / obs_pos, mark))
     vals = np.asarray(vals)
     k = int(vals.argmin())
     print("    ⇒ optimum at %.4f, CRPS %.6f, a %.2f%% improvement on the delivered parameters"
