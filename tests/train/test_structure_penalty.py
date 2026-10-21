@@ -29,6 +29,20 @@ def _flat_gate(shape):
     return torch.zeros(shape)
 
 
+def _nb_params(mu, theta=5.0):
+    """Activated `nb` params from a bare mu. `nb.mean()` returns mu, so the composed field is
+    exactly `gate * mu` and every assertion written against the old signature still means what it
+    said — which is the point: the family-mean fix must be a NO-OP for nb."""
+    return torch.stack([mu, torch.full_like(mu, theta)], dim=-1)
+
+
+def _pen(mu, gate, truth, family="nb"):
+    """Call the term the way the engine does: the family composes its own mean."""
+    from views_hydranet.distributions import get_family
+
+    return _structure_penalty(get_family(family), _nb_params(mu), gate, truth)
+
+
 def test_block_variance_matches_a_hand_computed_block():
     """Two average pools must give the same answer as computing one block by hand."""
     x = torch.tensor([[[1.0, 3.0], [5.0, 11.0]]])  # [1, 2, 2], one 2x2 block
@@ -75,7 +89,7 @@ def test_penalty_is_near_zero_when_the_composed_field_matches_the_truth():
     """Identity case. sigmoid(0) = 0.5, so mu = 2 * truth makes the composed field the truth."""
     truth = torch.rand(2, 8, 8) * 5.0
     mu = 2.0 * truth
-    pen = _structure_penalty(mu, _flat_gate(truth.shape), truth)
+    pen = _pen(mu, _flat_gate(truth.shape), truth)
     assert pen.item() == pytest.approx(0.0, abs=1e-3)
 
 
@@ -90,8 +104,8 @@ def test_penalty_rises_when_the_field_is_smoothed():
     sharp_mu = 2.0 * truth
     smooth_mu = torch.full_like(truth, 2.0 * truth.mean())  # same total, no structure
 
-    sharp = _structure_penalty(sharp_mu, _flat_gate(truth.shape), truth)
-    smooth = _structure_penalty(smooth_mu, _flat_gate(truth.shape), truth)
+    sharp = _pen(sharp_mu, _flat_gate(truth.shape), truth)
+    smooth = _pen(smooth_mu, _flat_gate(truth.shape), truth)
     assert smooth > sharp
     assert smooth > sharp + 1.0, f"smoothing must cost materially: {smooth} vs {sharp}"
 
@@ -109,8 +123,8 @@ def test_excess_dispersion_is_NOT_penalised():
     sharp_mu = 2.0 * (truth + 5.0 * (torch.rand_like(truth) < 0.1).float())  # over-dispersed
     matched_mu = 2.0 * truth
 
-    over = _structure_penalty(sharp_mu, _flat_gate(truth.shape), truth)
-    matched = _structure_penalty(matched_mu, _flat_gate(truth.shape), truth)
+    over = _pen(sharp_mu, _flat_gate(truth.shape), truth)
+    matched = _pen(matched_mu, _flat_gate(truth.shape), truth)
     assert over.item() == pytest.approx(matched.item(), abs=1e-6), (
         "excess dispersion must cost nothing; a symmetric penalty would punish it"
     )
@@ -122,11 +136,13 @@ def test_gradient_reaches_mu_and_not_the_gate():
     If the gate were reachable, the arm would train two heads at once and no null or win could be
     attributed to the body — the #396 composition problem, reintroduced by the fix for it.
     """
+    from views_hydranet.distributions import get_family
+
     truth = torch.rand(2, 8, 8)
     mu = torch.rand(2, 8, 8, requires_grad=True)
     gate = torch.zeros(2, 8, 8, requires_grad=True)
 
-    _structure_penalty(mu, gate, truth).backward()
+    _structure_penalty(get_family("nb"), _nb_params(mu), gate, truth).backward()
 
     assert mu.grad is not None and mu.grad.abs().sum() > 0, "the body must receive gradient"
     assert gate.grad is None or gate.grad.abs().sum() == 0, "the gate must NOT receive gradient"
@@ -137,7 +153,7 @@ def test_penalty_fails_loud_when_a_block_size_does_not_divide_the_grid():
     nobody chose. That is the C-351 population failure inside a loss, so it must raise."""
     truth = torch.rand(1, 7, 7)  # 7 is divisible by neither 2 nor 8
     with pytest.raises(ValueError, match="do not"):
-        _structure_penalty(torch.rand(1, 7, 7), _flat_gate(truth.shape), truth)
+        _pen(torch.rand(1, 7, 7), _flat_gate(truth.shape), truth)
 
 
 def test_block_sizes_are_the_pre_registered_ones():
@@ -156,7 +172,7 @@ def test_weight_zero_is_byte_identical():
     weight = 0.0
     pen = torch.tensor(0.0)
     if weight > 0:  # the engine's own guard, mirrored
-        pen = _structure_penalty(torch.rand(1, 7, 7), _flat_gate((1, 7, 7)), torch.rand(1, 7, 7))
+        pen = _pen(torch.rand(1, 7, 7), _flat_gate((1, 7, 7)), torch.rand(1, 7, 7))
     assert pen.item() == 0.0
 
 
@@ -198,3 +214,64 @@ def test_config_default_leaves_the_penalty_off(valid_config_dict):
     from views_hydranet.utils.config_initializer import HydraNetConfig
 
     assert HydraNetConfig(**valid_config_dict).struct_penalty_weight == 0.0
+
+
+def test_the_composed_field_is_the_FAMILYS_mean_not_the_raw_mu_channel():
+    """⭐ THE DEFECT THIS SIGNATURE EXISTS TO PREVENT, and it shipped once (0.1.5, default-off).
+
+    The first version composed `sigmoid(gate) * params[..., 0]`. Channel 0 is whatever a family
+    calls `mu`, and for `truncated_nb` that is the PARENT NB's mean — while the magnitude the head
+    emits is `E[Y | Y>0] = mu / (1 - NB(0))` (`truncated_negative_binomial.py:12`). So the penalty
+    constrained the dispersion of a field roughly HALF the size of the forecast, and the arm would
+    have measured the wrong object at full cost.
+
+    This asserts the two are genuinely different for `truncated_nb`, so a revert to channel 0
+    cannot pass. ⛔ If the families ever made them equal this test must FAIL, not be relaxed.
+    """
+    from views_hydranet.distributions import get_family
+
+    torch.manual_seed(0)
+    mu = 0.2 + torch.rand(2, 8, 8)  # small mu => 1 - NB(0) well below 1, the real regime
+    params = _nb_params(mu)
+    fam = get_family("truncated_nb")
+
+    emitted = fam.mean(params)
+    assert (emitted > mu).all(), "truncated_nb's mean must exceed its parent mu"
+    assert float((emitted / mu).median()) > 1.5, "the fixture must reach a material truncation gap"
+
+    truth = (torch.rand(2, 8, 8) < 0.1).float() * 10.0
+    gate = _flat_gate(truth.shape)
+    via_family = _structure_penalty(fam, params, gate, truth)
+    via_raw_channel = _structure_penalty(get_family("nb"), params, gate, truth)
+    assert not torch.isclose(via_family, via_raw_channel, atol=1e-4), (
+        "the penalty is identical whether or not the truncation is applied — it is reading the "
+        "raw mu channel again"
+    )
+
+
+def test_the_family_mean_fix_is_a_NO_OP_for_nb():
+    """⭐ The other half of the contract: nb's `mean()` returns mu, so nothing changes there.
+
+    This is why the defect was invisible — the entire D3-D12 programme and the whole body
+    scoreboard ran on the nb vehicle `4acbf4d3...`, where `gate * mu` IS the gated forecast. The
+    fix must therefore leave nb byte-identical, or it silently invalidates those baselines too.
+    """
+    from views_hydranet.distributions import get_family
+
+    torch.manual_seed(0)
+    mu = 0.2 + torch.rand(2, 8, 8)
+    truth = (torch.rand(2, 8, 8) < 0.1).float() * 10.0
+    gate = torch.randn(2, 8, 8)
+
+    from views_hydranet.train.training_engine import _block_variance
+
+    composed_by_hand = torch.sigmoid(gate) * mu
+    expected = torch.zeros(())
+    for k in _STRUCT_BLOCKS:
+        shortfall = torch.log(_block_variance(truth, k) + 1e-6) - torch.log(
+            _block_variance(composed_by_hand, k) + 1e-6
+        )
+        expected = expected + shortfall.clamp_min(0.0).mean()
+
+    got = _structure_penalty(get_family("nb"), _nb_params(mu), gate, truth)
+    assert torch.allclose(got, expected, atol=1e-6)

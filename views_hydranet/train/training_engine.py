@@ -24,6 +24,7 @@ import torch.nn as nn
 from tqdm import tqdm
 
 from views_hydranet.distributions import resolve_family
+from views_hydranet.distributions.base import DistributionFamily
 from views_hydranet.distributions.family_loss import FamilyLoss
 from views_hydranet.infrastructure.reproducibility_gate import ReproducibilityGate
 from views_hydranet.utils.body_supervision import (
@@ -399,17 +400,29 @@ def _block_variance(field: torch.Tensor, k: int) -> torch.Tensor:
 
 
 def _structure_penalty(
-    mu: torch.Tensor,
+    family: DistributionFamily,
+    params: torch.Tensor,
     gate_logits: torch.Tensor,
     target: torch.Tensor,
 ) -> torch.Tensor:
-    """Mismatch between the within-block dispersion of the composed field and of the truth.
+    """Mismatch between the within-block dispersion of the composed forecast and of the truth.
 
-    ⛔ THE GATE IS DETACHED. The composed field ``sigmoid(gate) * mu`` is the only object
-    comparable to observed counts — ``mu`` alone is the body's *conditional* mean (the magnitude
-    GIVEN an event) while the target is unconditional, and comparing those two manufactured a
-    phantom +28% over-prediction once already (`W-52`). Detaching the gate keeps gradients in the
-    BODY, so the arm changes one head (§2 of the pre-registration).
+    ⛔ THE COMPOSED FIELD IS ``gate × family.mean(params)``, NOT ``gate × params[..., 0]``.
+    Channel 0 is whatever a family calls ``mu``, and for ``truncated_nb`` that is the PARENT NB's
+    mean while the magnitude the head emits is ``E[Y | Y>0] = mu / (1 − NB(0))`` — stated at
+    ``truncated_negative_binomial.py:12`` and returned by its own ``mean()``. Measured on the
+    delivered arm, ``1 − p0 = 0.471``, so ``gate × mu`` is roughly HALF the field the model emits
+    and a dispersion penalty on it would constrain an object that is not the forecast. Under ``nb``
+    the two are IDENTICAL (``mean()`` returns ``mu``), which is why this stayed invisible while the
+    whole D3–D12 measurement programme ran on the nb vehicle (`4acbf4d3…`) — and why fixing it
+    changes nothing for nb. Asking the family instead of indexing a channel is the same
+    family-agnostic hook pattern as ``family.parameter_penalty`` at the accumulation site.
+
+    ⛔ THE GATE IS DETACHED. The composed forecast is the only object comparable to observed counts
+    — the body's mean alone is *conditional* (the magnitude GIVEN an event) while the target is
+    unconditional, and comparing those two manufactured a phantom +28% over-prediction once
+    already (`W-52`). Detaching the gate keeps gradients in the BODY, so the arm changes one head
+    (§2 of the pre-registration).
 
     The gate for regression target ``j`` is classification channel ``j``: the pairing is
     ``gate order = reg``, stated at ``utils/hydranet_inference.py:1643`` and relied on by
@@ -421,7 +434,9 @@ def _structure_penalty(
     why the asymmetry is measured rather than assumed.
 
     Args:
-        mu: ``[B, H, W]`` the body's activated conditional mean for one target.
+        family: the regression head's distribution family, asked for its own ``mean``.
+        params: ``[B, H, W, n_params]`` the family's ACTIVATED parameters for one target
+            (``family_loss.py:24`` — the family consumes the activated head output).
         gate_logits: ``[B, H, W]`` pre-sigmoid gate output for the SAME target.
         target: ``[B, H, W]`` observed counts for that target.
 
@@ -433,7 +448,7 @@ def _structure_penalty(
             the remainder, which would make the penalty a statement about a sub-grid nobody chose —
             the C-351 population failure, inside a loss term. Fail loud instead.
     """
-    h, w = mu.shape[-2:]
+    h, w = params.shape[-3:-1]
     bad = [k for k in _STRUCT_BLOCKS if h % k or w % k]
     if bad:
         err_msg = (
@@ -443,8 +458,8 @@ def _structure_penalty(
         logger.error(err_msg)
         raise ValueError(err_msg)
 
-    composed = torch.sigmoid(gate_logits).detach() * mu
-    pen = mu.new_zeros(())
+    composed = torch.sigmoid(gate_logits).detach() * family.mean(params)
+    pen = params.new_zeros(())
     for k in _STRUCT_BLOCKS:
         var_pred = _block_variance(composed, k)
         var_true = _block_variance(target, k)
@@ -973,11 +988,12 @@ def _process_sequence(
                     )
                     logger.error(err_msg)
                     raise ValueError(err_msg)
-                # mu is parameter channel 0 (`family.nll`'s own convention); the gate for reg
-                # target j is classification channel j ("gate order = reg",
-                # utils/hydranet_inference.py:1643).
+                # The FAMILY composes its own mean — never `pred_j[..., 0]`, which is the raw
+                # mu channel and under `truncated_nb` is ~2x below the magnitude the head emits
+                # (see `_structure_penalty`). The gate for reg target j is classification channel
+                # j ("gate order = reg", utils/hydranet_inference.py:1643).
                 struct_pen = struct_pen + tw * _structure_penalty(
-                    pred_j[..., 0], t1_pred_class[:, j, :, :], target_j
+                    loss_fn_j.family, pred_j, t1_pred_class[:, j, :, :], target_j
                 )
 
             # C-200/C-205: family parameter-prior ridge (family-agnostic hook — nb returns a
