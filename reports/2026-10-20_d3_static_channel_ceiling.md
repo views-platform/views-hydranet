@@ -783,9 +783,17 @@ what C-152's class statement asserts.**
 >
 > Formally it is the **same law of total variance** that already broke §9.3 and D10:
 > `Var(N) = E[Var(N|Λ)] + Var(E[N|Λ])`. One measured second-order quantity is **one equation in two
-> unknowns**, so blame is not attributable from it. **Third instance in this one programme** — see
-> the drafted register entry in Appendix A, which is a *different* defect from C-351 and needs a
-> different remedy.
+> unknowns**, so blame is not attributable from it. **Third instance in this one programme**
+> (§9.3, D10, here).
+>
+> ⛔ **CORRECTED 2026-10-21: this pointer was wrong.** It said *"see the drafted register entry in
+> Appendix A, which is a different defect from C-351"* — but Appendix A **is** C-351, and no other
+> appendix exists, so the sentence pointed at itself while denying it. The two defects are genuinely
+> different: C-351 is about how a statistic is **built** (population, transform, estimator);
+> **this** one is about what may be **attributed** from a statistic that was built correctly — one
+> second-order number, two unknowns. ⚠️ **And so this defect has three instances in this programme
+> and NO register entry.** It is not C-351, it is not drafted, and it is handed to `register-risk`
+> as an open intake item rather than claimed as logged.
 >
 > ⚠️ **What does NOT follow.** *"The model is over-smooth and over-concentrated"* is untouched —
 > those are descriptions of the emitted field, not attributions. What is withdrawn is **where the
