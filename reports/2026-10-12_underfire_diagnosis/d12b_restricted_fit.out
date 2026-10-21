@@ -1,0 +1,121 @@
+====================================================================================================
+D12b — the nugget, normalised by the field's own MEASURED variance
+====================================================================================================
+  corrected D6-C targets (§1):  E-W 0.1793   N-S 0.1063   isotropic bracket [0.1063, 0.1793]
+
+  in sample, E-W:  monotone reach d <= 9
+      field                                  n/var     +-2SE        xi     xi SE   RSS M1    RSS M0
+      model log mu                          0.0789    0.0569    18.748    18.590   0.0068    0.0140
+        M1 vs M0: F(1,6) = 6.32, p = 0.04562   |   n = 0.1296 +- 0.0467  (2.8 SE from 0)   |   lags 9
+      model gate logit                      0.0000    0.0150   142.160   312.648   0.0017    0.0017
+        M1 vs M0: F(1,6) = -0.00, p = 1   |   n = 0.0000 +- 0.0216  (0.0 SE from 0)   |   lags 9
+      truth log mean, window                0.3145    0.0245     4.532     0.379   0.0037    0.2036
+        M1 vs M0: F(1,6) = 320.85, p = 1.947e-06   |   n = 1.1837 +- 0.0460  (25.7 SE from 0)   |   lags 9
+      truth log mean, 336-mo base rate      0.2760    0.0127     5.865     0.359   0.0046    0.7779
+        M1 vs M0: F(1,6) = 1006.06, p = 6.526e-08   |   n = 2.0415 +- 0.0469  (43.5 SE from 0)   |   lags 9
+
+  in sample, N-S:  monotone reach d <= 1  ⛔ VOID — fewer than 4 usable lags (declared VOID in the prereg §5.1 before the run)
+
+  in sample, isotropic:  monotone reach d <= 19
+      field                                  n/var     +-2SE        xi     xi SE   RSS M1    RSS M0
+      model log mu                          0.1305    0.0211    16.841     1.578   0.0059    0.0561
+        M1 vs M0: F(1,16) = 135.24, p = 3.238e-09   |   n = 0.2142 +- 0.0173  (12.4 SE from 0)   |   lags 19
+      model gate logit                      0.0000    0.0157    27.108     3.010   0.0113    0.0113
+        M1 vs M0: F(1,16) = 0.00, p = 1   |   n = 0.0000 +- 0.0225  (0.0 SE from 0)   |   lags 19
+      truth log mean, window                0.3821    0.0154     8.547     0.317   0.0122    1.1780
+        M1 vs M0: F(1,16) = 1530.29, p = 1.11e-16   |   n = 1.4383 +- 0.0290  (49.7 SE from 0)   |   lags 19
+      truth log mean, 336-mo base rate      0.3308    0.0166     9.087     0.442   0.0567    3.5388
+        M1 vs M0: F(1,16) = 983.47, p = 8.882e-16   |   n = 2.4464 +- 0.0613  (39.9 SE from 0)   |   lags 19
+
+  out of sample, E-W:  monotone reach d <= 19
+      field                                  n/var     +-2SE        xi     xi SE   RSS M1    RSS M0
+      model log mu                          0.0161    0.0135    21.098     1.991   0.0082    0.0111
+        M1 vs M0: F(1,16) = 5.68, p = 0.02993   |   n = 0.0472 +- 0.0197  (2.4 SE from 0)   |   lags 19
+      model gate logit                      0.0000    0.0114    14.813     0.808   0.0042    0.0042
+        M1 vs M0: F(1,16) = 0.00, p = 1   |   n = 0.0000 +- 0.0149  (0.0 SE from 0)   |   lags 19
+      truth log mean, window                0.4747    0.0603     7.320     1.236   0.0819    0.5235
+        M1 vs M0: F(1,16) = 86.30, p = 7.58e-08   |   n = 1.2441 +- 0.0790  (15.7 SE from 0)   |   lags 19
+      truth log mean, 336-mo base rate      0.2938    0.0156     7.077     0.280   0.0426    2.3915
+        M1 vs M0: F(1,16) = 881.70, p = 1.998e-15   |   n = 2.1731 +- 0.0577  (37.6 SE from 0)   |   lags 19
+
+  out of sample, N-S:  monotone reach d <= 14
+      field                                  n/var     +-2SE        xi     xi SE   RSS M1    RSS M0
+      model log mu                          0.0147    0.0248 10000.000 1049678.455   0.0168    0.0191
+        M1 vs M0: F(1,11) = 1.56, p = 0.2383   |   n = 0.0430 +- 0.0363  (1.2 SE from 0)   |   lags 14
+      model gate logit                      0.0000    0.0109    91.330    38.063   0.0025    0.0025
+        M1 vs M0: F(1,11) = 0.00, p = 1   |   n = 0.0000 +- 0.0143  (0.0 SE from 0)   |   lags 14
+      truth log mean, window                0.4164    0.0297     6.342     0.432   0.0097    0.4075
+        M1 vs M0: F(1,11) = 450.88, p = 2.809e-10   |   n = 1.0912 +- 0.0390  (28.0 SE from 0)   |   lags 14
+      truth log mean, 336-mo base rate      0.3169    0.0208     9.235     0.759   0.0468    2.4200
+        M1 vs M0: F(1,11) = 558.10, p = 8.894e-11   |   n = 2.3439 +- 0.0768  (30.5 SE from 0)   |   lags 14
+
+  out of sample, isotropic:  monotone reach d <= 40
+      field                                  n/var     +-2SE        xi     xi SE   RSS M1    RSS M0
+      model log mu                          0.0000    0.0114    19.065     0.411   0.0249    0.0249
+        M1 vs M0: F(1,37) = -0.00, p = 1   |   n = 0.0000 +- 0.0167  (0.0 SE from 0)   |   lags 40
+      model gate logit                      0.0000    0.0096    18.016     0.315   0.0136    0.0136
+        M1 vs M0: F(1,37) = 0.00, p = 1   |   n = 0.0000 +- 0.0125  (0.0 SE from 0)   |   lags 40
+      truth log mean, window                0.5266    0.0308    10.215     0.512   0.0974    1.6732
+        M1 vs M0: F(1,37) = 598.89, p = 1.11e-16   |   n = 1.3803 +- 0.0404  (34.2 SE from 0)   |   lags 40
+      truth log mean, 336-mo base rate      0.3736    0.0167    13.622     0.429   0.2818   10.4235
+        M1 vs M0: F(1,37) = 1331.53, p = 1.11e-16   |   n = 2.7632 +- 0.0617  (44.8 SE from 0)   |   lags 40
+
+====================================================================================================
+PREDICTIONS (§3) — ⭐ only P-1 and P-2 are blind
+====================================================================================================
+  P-1  in sample      E-W   truth n/var 0.2760 +-0.0127  vs 0.1793   ⛔ DISAGREES
+  P-2  in sample      iso   truth n/var 0.3308 +-0.0166  vs [0.1063, 0.1793]   ⛔ OUTSIDE
+  P-1  out of sample  E-W   truth n/var 0.2938 +-0.0156  vs 0.1793   ⛔ DISAGREES
+  P-2  out of sample  iso   truth n/var 0.3736 +-0.0167  vs [0.1063, 0.1793]   ⛔ OUTSIDE
+  P-3  in sample      E-W   model log mu n/var 0.0789, n = 2.8 SE from 0   ⛔ NOT 0
+  P-3  in sample      isotropic model log mu n/var 0.1305, n = 12.4 SE from 0   ⛔ NOT 0
+  P-3  out of sample  E-W   model log mu n/var 0.0161, n = 2.4 SE from 0   ⛔ NOT 0
+  P-3  out of sample  isotropic model log mu n/var 0.0000, n = 0.0 SE from 0   ✅ ~0
+  P-4  in sample      E-W   M1 beats M0 for truth p=6.53e-08 / for model p=0.0456   ⛔ not the predicted asymmetry
+  P-5  in sample      E-W   xi model 18.75 vs truth 5.87   ✅ longer
+  P-4  in sample      isotropic M1 beats M0 for truth p=8.88e-16 / for model p=3.24e-09   ⛔ not the predicted asymmetry
+  P-5  in sample      isotropic xi model 16.84 vs truth 9.09   ✅ longer
+  P-4  out of sample  E-W   M1 beats M0 for truth p=2e-15 / for model p=0.0299   ⛔ not the predicted asymmetry
+  P-5  out of sample  E-W   xi model 21.10 vs truth 7.08   ✅ longer
+  P-4  out of sample  isotropic M1 beats M0 for truth p=1.11e-16 / for model p=1   ✅ asymmetry as predicted
+  P-5  out of sample  isotropic xi model 19.07 vs truth 13.62   ✅ longer
+
+====================================================================================================
+FALSIFIERS (§4)
+====================================================================================================
+  in sample      E-W        model log mu                       F1 ⛔ FIRES — xi 18.75 exceeds the fit reach 9; report as a bound
+  in sample      E-W        model gate logit                   F1 ⛔ FIRES — xi 142.16 exceeds the fit reach 9; report as a bound
+  in sample      E-W        model gate logit                   F5 ⛔ FIRES — a fit SE exceeds its own parameter (ratio 21594570890.43): VOID
+  in sample      isotropic  model gate logit                   F1 ⛔ FIRES — xi 27.11 exceeds the fit reach 19; report as a bound
+  in sample      isotropic  model gate logit                   F5 ⛔ FIRES — a fit SE exceeds its own parameter (ratio 22523105846.68): VOID
+  out of sample  E-W        model log mu                       F1 ⛔ FIRES — xi 21.10 exceeds the fit reach 19; report as a bound
+  out of sample  E-W        model gate logit                   F5 ⛔ FIRES — a fit SE exceeds its own parameter (ratio 14896952076.13): VOID
+  out of sample  N-S        model log mu                       F1 ⛔ FIRES — xi 10000.00 exceeds the fit reach 14; report as a bound
+  out of sample  N-S        model log mu                       F5 ⛔ FIRES — a fit SE exceeds its own parameter (ratio 104.97): VOID
+  out of sample  N-S        model gate logit                   F1 ⛔ FIRES — xi 91.33 exceeds the fit reach 14; report as a bound
+  out of sample  N-S        model gate logit                   F5 ⛔ FIRES — a fit SE exceeds its own parameter (ratio 14287339589.57): VOID
+  out of sample  isotropic  model log mu                       F5 ⛔ FIRES — a fit SE exceeds its own parameter (ratio 16677062459.57): VOID
+  out of sample  isotropic  model gate logit                   F5 ⛔ FIRES — a fit SE exceeds its own parameter (ratio 12502456126.06): VOID
+  in sample      E-W        F2 ⛔ FIRES — the MODEL's nugget is 2.8 SE from 0. Either the model field carries genuine cell-scale noise (making the N-S lag-1 inversion a mechanism) or M1 is still misspecified. ⛔ The truth's nugget may NOT be quoted until that is settled.
+  in sample      E-W        F3 ⛔ FIRES — truth n/var 0.2760 +-0.0127 vs 0.1793. Report both, quote neither alone, do NOT re-choose the range.
+  in sample      isotropic  F2 ⛔ FIRES — the MODEL's nugget is 12.4 SE from 0. Either the model field carries genuine cell-scale noise (making the N-S lag-1 inversion a mechanism) or M1 is still misspecified. ⛔ The truth's nugget may NOT be quoted until that is settled.
+  in sample      isotropic  F3 ⛔ FIRES — truth n/var 0.3308 +-0.0166 vs 0.1428. Report both, quote neither alone, do NOT re-choose the range.
+  out of sample  E-W        F2 ⛔ FIRES — the MODEL's nugget is 2.4 SE from 0. Either the model field carries genuine cell-scale noise (making the N-S lag-1 inversion a mechanism) or M1 is still misspecified. ⛔ The truth's nugget may NOT be quoted until that is settled.
+  out of sample  E-W        F3 ⛔ FIRES — truth n/var 0.2938 +-0.0156 vs 0.1793. Report both, quote neither alone, do NOT re-choose the range.
+  out of sample  isotropic  F3 ⛔ FIRES — truth n/var 0.3736 +-0.0167 vs 0.1428. Report both, quote neither alone, do NOT re-choose the range.
+
+====================================================================================================
+⚠️ ONE LIMIT ON EVERY SE ABOVE
+====================================================================================================
+  curve_fit's covariance assumes independent, equal-variance residuals. Variogram
+  estimates at neighbouring lags share pairs and have strongly unequal pair counts, so these are
+  OPTIMISTIC by an unknown factor. ⇒ Every "+- 2 SE" tolerance above is a LOWER bound on the real
+  uncertainty, which makes F3 (disagreement) easier to fire and P-1 (agreement) harder — i.e. the
+  bias runs against the finding, which is the direction we want. Stated here rather than after
+  seeing whether it mattered.
+
+====================================================================================================
+COST, measured
+====================================================================================================
+  wall time 0.10 s
+  peak RSS  0.09 GiB

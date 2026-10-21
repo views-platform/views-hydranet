@@ -162,3 +162,83 @@ wrong and the number gets reported rather than explained away.
 - ⛔ It **cannot** be read as a prediction that survived, except for P-1 and P-2 (§0).
 - ⛔ It **does not** touch FAO-02, any config, or any trained artifact. Nothing here moves S1 or the
   loss-arm design.
+
+---
+
+# ⛔ OUTCOME — run 2026-10-21. P-1 and P-2, the only blind predictions, BOTH FAILED. The stop rule is in force.
+
+`d12b_restricted_fit.py`, committed `3738dcf` **before** it ran. Cost measured: **0.10 s / 0.09 GiB**
+— under the predicted second, as §7 required it to be reported either way. ⚠️ I first wrote "0.60 s /
+0.19 GiB" into this section from memory and corrected it against the printed output; the rule is to
+read the artifact, and for one sentence I did not.
+
+## 1. ✅ The design worked — the nugget IS identified without a sill
+
+Every admissible cell gives a truth nugget **30–45 standard errors from zero**, with M1 beating M0 at
+`p < 1e-7`, on a curve that never plateaus. ⇒ **Dropping `n/(n+s)` for `n/var` did exactly what §2
+claimed it would**, and that is the one thing here that went right (`R-21`).
+
+## 2. ⛔ P-1 AND P-2 FAILED IN ALL FOUR ADMISSIBLE CELLS
+
+| cell | truth `n/var` | ±2 SE | target (corrected D6-C) | |
+|---|---|---|---|---|
+| in sample, E–W | **0.2760** | 0.0127 | 0.1793 | ⛔ |
+| in sample, isotropic | **0.3308** | 0.0166 | [0.1063, 0.1793] | ⛔ |
+| out of sample, E–W | **0.2938** | 0.0156 | 0.1793 | ⛔ |
+| out of sample, isotropic | **0.3736** | 0.0167 | [0.1063, 0.1793] | ⛔ |
+
+⇒ **The variogram says the truth's white-noise share is 1.5–2.6× larger than D6-C's attenuation
+implies.** The disagreement is 6–12 SE wide, so it does not go away under the SE caveat in §4 — and
+that caveat runs the wrong way for a rescue, since the real uncertainty is *larger* than the printed
+SE and F3 was already firing at the printed one.
+
+**F3's pre-registered consequence, in force:** *"one of the two instruments is wrong. ⛔ Report both
+numbers, quote neither alone, and do not fix it by re-choosing the fit range."* ⇒ **Neither 0.179 nor
+0.28–0.37 is quotable**, and D6-C's **0.154 → 0.06 residual** now rests on a measurement another
+instrument contradicts. Logged `W-47`.
+
+## 3. ⛔ F2 FIRED TOO, AND IT GATES EVERYTHING ABOVE
+
+The **model's** `log mu` nugget is **not** zero in three of four cells — `n/var` 0.0161–0.1305, at
+**2.4–12.4 SE** from zero (P-3 ⛔, and P-4's predicted asymmetry fails with it in 3/4 cells).
+
+⚠️ **And the split between heads is the informative part, which no prediction anticipated:**
+
+| field | nugget | M1 vs M0 |
+|---|---|---|
+| model **gate logit** | **exactly 0**, at the bound, in **every** cell | `F = 0`, `p = 1` — M1 ≡ M0 |
+| model **`log mu`** | 0.016–0.131 of variance | `p = 3e-9` … 0.046 |
+
+Both fields come from the same forward pass. ⇒ **Whatever puts cell-scale noise in the body's field
+does not touch the gate's.**
+
+⭐ **The leading explanation is our own instrument, not the model.** `d4_result.npz` holds **4**
+posterior draws under locked dropout and `mu` is their mean (`d4_mu_on_the_grid.py:107`). Residual
+MC-dropout noise after averaging only four draws is **cell-independent by construction — i.e. exactly
+a nugget** — and it enters `log mu` multiplicatively while the gate's sigmoid compresses it. ⛔ This
+is a hypothesis, not a finding: it has a **direct test on data already on disk** (the per-cell
+across-draw variance of `MU`, whose share of total variance should match the fitted nugget), and it
+has **not been run**.
+
+⇒ Until that is settled, F2's own rule holds: **the truth's nugget may not be quoted**, and §2's
+disagreement in F3 may itself be an artifact of comparing a 4-draw field against a 300-replicate
+simulation.
+
+## 4. ⛔ A DEFECT IN MY OWN F5
+
+F5 fires on *"a fit SE exceeds its own parameter"*, implemented as `SE/max(n, 1e-12)`. When the
+nugget pins at its lower bound of exactly 0 — which is the **correct** answer for the gate — that
+ratio is ~2e10 and F5 fires trivially, reporting VOID for the cleanest result in the table. ⇒ The
+gate's eight "F5 FIRES" lines are **a falsifier defect, not a finding**; the substantive content is
+`n = 0` at the boundary with M1 ≡ M0. Logged `W-49`. **F1's firings are genuine** and
+pre-registered: the model's fitted `ξ` exceeds the fit reach, so those ranges are bounds, not values.
+
+## 5. Where this leaves the programme
+
+| | |
+|---|---|
+| ✅ **established** | the truth's field has a large, unambiguously identified cell-scale noise component; the `n/var` design works without a sill |
+| ⛔ **in dispute, by two of our own instruments** | its *size* — 0.28–0.37 here against 0.179 from D6-C |
+| ⛔ **blocked** | quoting either, per F3; and the 0.06 residual's single-instrument standing is now a known weakness rather than an assumption |
+| ⚪ **next, cheap, and NOT run** | the across-draw variance of `MU` — resolves F2 and tells us whether §2's disagreement is a four-draw artifact. It needs no fit and no new sweep |
+| ⛔ **unchanged** | D12's scale profile (§3 of the D12 outcome). It is a ratio of two `γ` curves at matched `d` and uses **no fitted parameter**, so nothing here touches it |

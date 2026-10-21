@@ -753,6 +753,26 @@ Metrics filled from `--evaluate`; *Bounded?* from the 36-step rollout / `diagnos
   SS is EXHAUSTED (proven, not assumed), even on the un-collapsed hurdle head.** → the real fix is **GTF / B1 rollout
   training (#78, cross-step gradients)** or the **count-likelihood head** (ZINB/hurdle-NB). Rollout dossier `07` EXP-02.
 
+- **2026-10-21 — D12b (free CPU, 0.10 s / 0.09 GiB, reads D12's saved curves) → the truth's
+  cell-scale noise IS identified without a sill, and it CONTRADICTS D6-C by 1.5–2.6×.**
+  Pre-registration + OUTCOME `reports/2026-10-21_d12b_restricted_fit_prereg.md`; script
+  `d12b_restricted_fit.py` (committed `3738dcf` BEFORE it ran). **Design:** replace D12's `n/(n+s)`
+  with **`n/var`**, where `var` is measured, so no sill is needed — then compare M0 (no nugget)
+  against M1 (nugget) over the monotone lag range only. ✅ **The design held** (`R-21`): every
+  admissible cell identifies the truth's nugget at **30–45 SE** from zero, `p < 1e-7`, on curves that
+  never plateau. ⛔ **But both blind predictions failed** (`W-47`): truth `n/var` is **0.2760 /
+  0.3308 / 0.2938 / 0.3736** (±0.02 at 2 SE) against D6-C's corrected target of **0.1793** — 6–12 SE
+  away. ⇒ **F3's stop rule is in force: neither number is quotable, and the 0.06 oversmoothing
+  residual's single-instrument standing is now a known weakness.** ⛔ **F2 also fired** (`W-48`): the
+  model's `log mu` nugget is 0.016–0.131 of variance at 2.4–12.4 SE from zero in 3 of 4 cells, while
+  the **gate's is exactly 0 in every cell** (M1 ≡ M0) — from the same forward pass. ⭐ Leading and
+  **untested** explanation: `mu` is the mean of only **4** locked-dropout draws, so residual MC noise
+  is cell-independent — a nugget by construction — which would make it an artifact of our instrument
+  rather than the model. Resolvable from data already on disk (the across-draw variance of `MU`).
+  ⚠️ `W-49` records a defect in my own F5, which fires on a nugget that is legitimately zero.
+  ⛔ **D12's scale profile is untouched** — it is a ratio of two γ curves at matched `d` and uses no
+  fitted parameter.
+
 - **2026-10-21 — D12 (free CPU, 391.4 s / 2.68 GiB, no pod, no training) → the amplitude deficit is
   SCALE-DEPENDENT and worst at ONE CELL; the fitted layer is VOID; and the programme's own 12.8×
   correlation-length figure is overstated.** Pre-registration + OUTCOME
