@@ -802,7 +802,9 @@ Metrics filled from `--evaluate`; *Bounded?* from the 36-step rollout / `diagnos
   consistency check never ran. ⭐ **The answer, model-free:** `γ_model(d)/γ_truth(d)` divided by the
   variance ratio (the same-shape null) runs **0.391 → 0.870** for the body and **0.112 → 0.822** for
   the gate across d = 1 → 32 cells in sample — the deficit is **monotone in scale, nearly closed by
-  32 cells, and the gate is 3.5× worse than the body at one cell.** Same shape as
+  32 cells.** ⛔ **The "gate 3.5× worse than the body" ratio is WITHDRAWN 2026-10-21** — not
+  like-for-like (`logit(gate)` vs `log mu`, each against its own null), a C-351 violation in the one
+  claim that pointed the next arm back at the gate (`W-51`). Each field's own deficit stands. Same shape as
   `Ayzel2020_RainNet` C-3654 and `Ravuri2021` C-3657, in our units. ⛔ **Corrects our own number:**
   `ξ = −1/ln ρ(1)` assumes an exponential the fields do not have (it predicts `ρ_truth(8) = 0.029`
   against a measured **0.316**), so the **12.8× / 3.5×** too-long correlation lengths become

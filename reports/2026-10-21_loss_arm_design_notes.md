@@ -62,15 +62,106 @@ and which no intervention has touched.
 
 ⚠️ That is an argument, not a guarantee. It could be the eighth.
 
-## 5. Gate or body?
+## 5. Gate or body? — ⛔ BODY. Reversed 2026-10-21, and the reason is about me, not the data
 
-**Lean: the gate first.**
+**An earlier version of this section read *"Lean: the gate first"*, on the strength of the gate being
+*"3.5× worse than the body at one cell."* ⛔ That ratio is withdrawn** (`W-51`): `logit(gate)` and
+`log mu` are different transforms of different quantities, each normalised by its own variance ratio,
+so the comparison between them was never like-for-like. **The number that pointed this arm back at the
+gate does not survive C-351 — the rule registered the same day I wrote it.**
 
-| for | against |
+⚠️ **And Simon named the pattern before I checked it, which is why this section is rewritten rather
+than defended.** The record supports him, and it is countable:
+
+| evidence | count |
 |---|---|
-| it is **3.5× worse than the body** at one cell (0.112 vs 0.391) | ⛔ what gets **scored** is the composed forecast (gate × body); a gate-only fix may move CRPS by nothing — which is exactly the #396 composition finding, where **neither half worked alone** |
-| a block version of its loss is a natural proper object: *"did this k×k block contain any event?"* — Bernoulli at every scale, and the question conflict forecasting actually asks | the gate and body are summed through a **frozen** balancer at fixed 1.0 / 0.5, so a new term's weight is a hand-set free parameter |
-| its only other axis is **closed on algebra** — `pos_weight` is a pure intercept shift, no effect on ranks or spatial structure | |
+| preregistrations named for the **gate** in the last seven (`pos_weight`, `gate_phase2`, `gate_underdispersion`) | **3** |
+| preregistrations named for the **body** | **0** |
+| §8.2 of `2026-10-20_d3_static_channel_ceiling.md`, whose own heading is *"The scale discriminator ran, and tested **the wrong head**"* — written one section after §8.1 established the body, not the gate, carries the slope defect | 1 documented instance |
+| the reason D4 had to exist at all: **no saved artifact held `mu` on the full grid**, while the gate already had `p2_gate_calibration.py`, `t0_gate_vs_body.py` and `gate_reliability.py` | instrumentation asymmetric **before** any result was |
+
+⇒ **A measurement bias and a research bias are indistinguishable from inside**: more instruments on
+the gate produce more findings on the gate, which justify more instruments on the gate. ⛔ **So the
+arm is BODY-first by decision, not by argument**, and the body half of the readout is the one that
+decides.
+
+**What still has to be true about the body half, pre-committed here:**
+- the readout is the **body's** scale profile, `γ_model(d)/γ_truth(d)` over the same-shape null, at `k ∈ {1,2,4,8}`;
+- ⛔ **the gate's profile is not read at all unless the body's moves.** If the body half is null, a gate improvement is not a result, it is a consolation;
+- ⛔ a gate-vs-body comparison may only be quoted if both sides share a transform and a null. Today's do not.
+
+⚪ **Kept from the old section, because they are still true and still arguments for the gate:** a block
+version of the gate's loss is a natural proper object (*"did this k×k block contain any event?"*), and
+`pos_weight` is closed on algebra so nothing competes there. ⇒ They are reasons the gate is *tractable*,
+not evidence it is *where the defect is*. ⚠️ That distinction is exactly what the last three preregs lost.
+
+## 5b. ✅ THE SEAM, READ 2026-10-21 — and it changes the design
+
+### What is already there, and it is better than I expected
+
+⭐ **The reduction site already adds FOUR weighted terms AFTER the balancer**
+(`train/training_engine.py:989-998`):
+
+```
+loss = multitaskloss_instance(losses)            # the frozen 6-vector balancer
+loss = loss + pushforward_weight * pf_loss
+loss = loss + qs99_weight       * qs99_loss
+loss = loss + decay_gate_weight * decay_pen
+loss = loss + pi_penalty_weight * pi_pen
+```
+
+⇒ **A spatial term is the FIFTH instance of an established pattern, not a new mechanism.**
+
+| what that buys | consequence |
+|---|---|
+| ⛔ the **frozen balancer is not touched** | §6.2's worry shrinks: the term does not enter the 6-vector, so the per-task instrumentation, the `log_var` pins and every comparability guard stay intact |
+| the weight is a **plain config float** | exactly `qs99_weight` / `decay_gate_weight` / `pi_penalty_weight`, and **byte-identical no-op at 0** — the repo's own default-off-flag guardrail |
+| ⭐ the loss boundary **has the grid** | `pred_j` is `[B, H, W, n_params]` and `target_j` `[B, H, W]` at `:817-823`; `t1_pred_class` is `[B, n_cls, H, W]`. So a block aggregate needs **no new plumbing** |
+| a **spatial penalty precedent exists** | `_decay_gate_penalty` (`:357`) is already a spatial, label-conditioned gate term with its own weight |
+
+⇒ **Answer to §6.1: B is a contained change** — one loss module, one config field plus validator, ~6 lines at the reduction site mirroring `pi_penalty_weight`. **Not** a training-engine restructure.
+
+### ⛔ And the finding that kills "B stays a proper scoring rule"
+
+**§3 claimed B keeps us inside proper scoring rules. That does not survive the seam read.** A proper
+score on a `k×k` block aggregate needs the **distribution of the block sum**. A sum of independent
+negative binomials is NB **only if `p` is shared**, and ours emits `theta` (hence `p`) **per cell**.
+⇒ **The block-sum distribution has no closed form here**, and sampling it differentiably needs a
+reparameterised NB we do not have.
+
+⇒ **What is actually achievable cheaply is a multi-scale STRUCTURE-MOMENT penalty** — match the
+within-block dispersion of prediction and truth at `k ∈ {2, 4, 8}` — which is Mathieu's
+gradient-difference loss generalised across scales. **Honest consequence: B and A are the same family,
+and neither is a proper score.** The calibration trade §8.1 warns about is therefore **live**, not
+excluded by construction as §3 asserted.
+
+### ⛔⛔ The real design problem, which neither §3 nor §5 saw: the readout IS the trained quantity
+
+A within-block dispersion penalty at `k ∈ {2,4,8}` and **B-1**, the γ-ratio profile at `d = 1…32`, are
+**nearly the same object**. ⇒ Training on one and reading out on the other is **Goodhart by
+construction**: the arm would be guaranteed to move its own scoreboard number and that movement would
+mean nothing.
+
+**The resolution, and it has to be in the prereg:**
+1. ⛔ **B-1 cannot be the arm's primary verdict.** It becomes a *manipulation check* — did the term do
+   what it was told — which is necessary but not evidence of improvement.
+2. ⭐ **The verdict rests on numbers the term does NOT optimise: B-2 (slope) and B-3 (level)**, which
+   are magnitude-calibration quantities, plus **FAO-02's CRPS and its guardrails**. If sharpening the
+   structure also pulls the level from 24.7% toward 100% and the slope from 0.46 toward 1, that is
+   independent evidence. If structure improves while level and slope do not move, the term bought
+   sharpness and nothing else.
+3. The scales are **split**: train on `k ∈ {2, 8}`, read the profile at **d = 1, 4, 16, 32**. ⚠️ This
+   reduces the leak; it does not remove it, and the prereg must say so rather than imply independence.
+
+### ⚠️ One asymmetry to name out loud, because it is exactly the pull we just diagnosed
+
+**The clean proper-score version of this idea exists — but only for the gate.** *"Did any event occur
+in this `k×k` block?"* is `1 − Π(1 − g_i)`, closed form and differentiable, so a block-level Brier or
+log score on the **gate** is tractable and proper, while the body's block sum is neither. ⇒ **The
+tractable, elegant, publishable version of this arm is the gate version.** That is precisely the
+structural pull `feedback_the_body_is_the_target_not_the_gate` records, and it is noted here so that
+the next person to read these notes sees the temptation rather than falls into it. ⛔ **The arm stays
+body-first. The gate version is recorded as available, not as preferable.**
 
 ## 6. ⛔ Open questions — these are what the prereg has to answer, and three need Simon
 
