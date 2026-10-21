@@ -140,9 +140,17 @@ base = composed_crps(1.0, 1.0)
 print(f"\n  BASELINE composed CRPS, the model's own parameters   {base:.6f}")
 
 for name, grid, call in (
-    ("theta scale  (body dispersion)", np.geomspace(0.25, 8.0, 13),
+    # ⛔ GRIDS WIDENED 2026-10-21 AFTER THE FIRST RUN, and the reason is recorded rather than
+    # the first run being quietly discarded: BOTH optima landed on a grid edge, so the edge guard
+    # below fired and neither number was reportable. The first run's bracket was theta 0.25-8.0
+    # (monotone down to -8.42% at the edge) and gate slope 0.4-2.2 (monotone down to -1.52%).
+    # Widening a bracket that failed to contain its optimum is not the same as moving a threshold
+    # after seeing a result — no decision rule changed, and the §4.3 reading rule (1% / 5%) is as
+    # committed. theta -> inf is the Poisson limit; gate slope -> inf is a hard 0.5 threshold,
+    # i.e. `threshold_gate`, which is why the upper end must be reached rather than guessed.
+    ("theta scale  (body dispersion)", np.geomspace(0.25, 1.0e4, 17),
      lambda v: composed_crps(v, 1.0)),
-    ("gate slope   (Platt, no intercept)", np.linspace(0.4, 2.2, 13),
+    ("gate slope   (Platt, no intercept)", np.geomspace(0.4, 64.0, 17),
      lambda v: composed_crps(1.0, v)),
 ):
     print(f"\n  SWEEP — {name}")
