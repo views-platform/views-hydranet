@@ -70,6 +70,16 @@ DMAX = 120                       # cells. Must exceed 3 * the gate's xi (24.37 -
                                  # F5 can be EVALUATED rather than hit by construction.
 MIN_PAIRS = 1_000                # VOID condition 1: bins below this are dropped
 t_start = time.time()
+#: Optional filename suffix, so a SECOND vehicle can be measured without overwriting the first.
+#: ⛔ Default "" keeps every existing filename byte-for-byte: the control's `d4_result.npz` was
+#: produced by a checkpoint that NO LONGER EXISTS on disk (see
+#: `d4_result_CONTROL_nb_4acbf4d3.PROVENANCE.md`), so an unconditional `out_path` made reading out
+#: a second artifact destroy the only copy of the first. Found by a readiness falsification audit.
+TAG = ""
+for _a in sys.argv[1:]:
+    if _a.startswith("--tag="):
+        TAG = _a.split("=", 1)[1]
+
 
 
 def offsets(dmax: int) -> list[tuple[int, int, float]]:
@@ -144,7 +154,7 @@ def fit(dist: np.ndarray, gam: np.ndarray):
 
 
 # ---------------------------------------------------------------- data
-npz = np.load(SP / "d4_result.npz")
+npz = np.load(SP / f"d4_result{TAG}.npz")
 MU, GATE = npz["mu"], npz["gate"]                 # (4, 49, 64818)
 land_cells, months = npz["land_cells"], list(npz["months"])
 sha = str(npz["sha"])
@@ -207,10 +217,10 @@ for wname, (lo, hi) in (("in sample", (IS_LO, IS_HI)), ("out of sample", (OS_LO,
             print("               gamma(d): " + "  ".join(
                 f"d{int(dist[i])}={gam[i]:.3f}" for i in idx))
 
-np.savez_compressed(SP / "d12_result.npz",
+np.savez_compressed(SP / f"d12_result{TAG}.npz",
                     **{f"{k[0]}|{k[1]}|{k[2]}|{part}": np.asarray(v[part])
                        for k, v in results.items() for part in ("dist", "gam", "cnt")})
-with open(SP / "d12_fits.csv", "w") as fh:
+with open(SP / f"d12_fits{TAG}.csv", "w") as fh:
     fh.write("window,field,direction,ok,nugget,sill,xi,nugget_over_sill,dmax,bins,var\n")
     for (wn, fn, dn), v in results.items():
         fh.write('%s,"%s",%s,%s,%s,%s,%s,%s,%d,%d,%.6f\n' % (

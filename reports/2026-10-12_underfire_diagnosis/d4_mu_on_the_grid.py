@@ -52,6 +52,16 @@ if ART is None:
     raise SystemExit("usage: d4_mu_on_the_grid.py <path to calibration_model_*.pt>")
 SP = Path(__file__).parent
 POSTERIOR_D = 4
+#: Optional filename suffix, so a SECOND vehicle can be measured without overwriting the first.
+#: ⛔ Default "" keeps every existing filename byte-for-byte: the control's `d4_result.npz` was
+#: produced by a checkpoint that NO LONGER EXISTS on disk (see
+#: `d4_result_CONTROL_nb_4acbf4d3.PROVENANCE.md`), so an unconditional `out_path` made reading out
+#: a second artifact destroy the only copy of the first. Found by a readiness falsification audit.
+TAG = ""
+for _a in sys.argv[1:]:
+    if _a.startswith("--tag="):
+        TAG = _a.split("=", 1)[1]
+
 LEADIN_START, FIRST_KEPT, LAST_FED = 421, 421, 469
 IS_LO, IS_HI = 421, 456          # in sample  (the window §4's b = 1.73 came from)
 OS_LO, OS_HI = 457, 469          # out of sample (p2's gate window)
@@ -107,7 +117,7 @@ with torch.no_grad():
 mu = MU.mean(0).astype(np.float64)        # [len(kept), n_land] posterior-mean mu
 th = TH.mean(0).astype(np.float64)
 gt = GATE.mean(0).astype(np.float64)
-out_path = SP / "d4_result.npz"
+out_path = SP / f"d4_result{TAG}.npz"
 np.savez_compressed(out_path, mu=MU, theta=TH, gate=GATE, land_cells=land_cells,
                     months=np.asarray(kept, np.int32), sha=sha)
 print(f"saved {out_path} ({out_path.stat().st_size / 1e6:.1f} MB)")

@@ -36,8 +36,18 @@ IS_LO, IS_HI = 421, 456
 OS_LO, OS_HI = 457, 469
 SHOW = (1, 2, 4, 8, 16, 32)
 t_start = time.time()
+#: Optional filename suffix, so a SECOND vehicle can be measured without overwriting the first.
+#: ⛔ Default "" keeps every existing filename byte-for-byte: the control's `d4_result.npz` was
+#: produced by a checkpoint that NO LONGER EXISTS on disk (see
+#: `d4_result_CONTROL_nb_4acbf4d3.PROVENANCE.md`), so an unconditional `out_path` made reading out
+#: a second artifact destroy the only copy of the first. Found by a readiness falsification audit.
+TAG = ""
+for _a in sys.argv[1:]:
+    if _a.startswith("--tag="):
+        TAG = _a.split("=", 1)[1]
 
-npz = np.load(SP / "d4_result.npz")
+
+npz = np.load(SP / f"d4_result{TAG}.npz")
 MU, GATE = npz["mu"], npz["gate"]
 land_cells, months = npz["land_cells"], list(npz["months"])
 mcol = {m: i for i, m in enumerate(months)}
@@ -51,9 +61,9 @@ Y = (w.pivot(index="priogrid_id", columns="month_id", values=TARGETS[SB])
 base336 = (df[df.month_id <= 456].groupby("priogrid_id")[TARGETS[SB]].mean()
            .reindex(land_cells).to_numpy(np.float64))
 
-curves = np.load(SP / "d12_result.npz")
+curves = np.load(SP / f"d12_result{TAG}.npz")
 var = {}
-for line in (SP / "d12_fits.csv").read_text().splitlines()[1:]:
+for line in (SP / f"d12_fits{TAG}.csv").read_text().splitlines()[1:]:
     head, _ok, _n, _s, _xi, _nos, _dm, _bins, v = line.rsplit(",", 8)
     wn, rest = head.split(",", 1)
     fn, dn = rest.rsplit(",", 1)
