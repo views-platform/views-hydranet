@@ -377,6 +377,80 @@ def _decay_gate_penalty(
     return torch.sigmoid(gate_logits)[decay].mean()
 
 
+#: Block sizes the structure penalty is evaluated at. FIXED in code, not configurable: the
+#: pre-registration commits to k = 2 and 8 (`reports/2026-10-21_structure_penalty_arm_prereg.md`
+#: §2), and a configurable set would make the arm two variables instead of one. The scoreboard
+#: reads structure back at d = 1, 4, 16, 32 — deliberately not these — so the readout is not
+#: wholly the trained quantity (§5 of that plan; the leak is reduced, not removed).
+_STRUCT_BLOCKS = (2, 8)
+
+
+def _block_variance(field: torch.Tensor, k: int) -> torch.Tensor:
+    """``E[x²] − E[x]²`` within each ``k×k`` block of ``[B, H, W]``, as ``[B, 1, H/k, W/k]``.
+
+    Two average pools rather than a reshape, so the gradient path is one PyTorch op per moment.
+    ``clamp_min(0)`` because the two-moment form can go a few float-epsilons negative on a
+    constant block, which would make the log below NaN.
+    """
+    x = field.unsqueeze(1)
+    m1 = nn.functional.avg_pool2d(x, k)
+    m2 = nn.functional.avg_pool2d(x * x, k)
+    return (m2 - m1 * m1).clamp_min(0.0)
+
+
+def _structure_penalty(
+    mu: torch.Tensor,
+    gate_logits: torch.Tensor,
+    target: torch.Tensor,
+) -> torch.Tensor:
+    """Mismatch between the within-block dispersion of the composed field and of the truth.
+
+    ⛔ THE GATE IS DETACHED. The composed field ``sigmoid(gate) * mu`` is the only object
+    comparable to observed counts — ``mu`` alone is the body's *conditional* mean (the magnitude
+    GIVEN an event) while the target is unconditional, and comparing those two manufactured a
+    phantom +28% over-prediction once already (`W-52`). Detaching the gate keeps gradients in the
+    BODY, so the arm changes one head (§2 of the pre-registration).
+
+    The gate for regression target ``j`` is classification channel ``j``: the pairing is
+    ``gate order = reg``, stated at ``utils/hydranet_inference.py:1643`` and relied on by
+    ``:1075``'s ``prob[:, :n_reg]``.
+
+    Within-block variance is ``E[x²] − E[x]²`` over each ``k×k`` block, via two average pools. The
+    penalty is the absolute difference of LOGS, so a 10× dispersion error costs the same at every
+    intensity and the term cannot be dominated by the few violent cells.
+
+    Args:
+        mu: ``[B, H, W]`` the body's activated conditional mean for one target.
+        gate_logits: ``[B, H, W]`` pre-sigmoid gate output for the SAME target.
+        target: ``[B, H, W]`` observed counts for that target.
+
+    Returns:
+        Scalar penalty, summed over ``_STRUCT_BLOCKS``.
+
+    Raises:
+        ValueError: if a block size does not divide the grid. ``avg_pool2d`` would silently drop
+            the remainder, which would make the penalty a statement about a sub-grid nobody chose —
+            the C-351 population failure, inside a loss term. Fail loud instead.
+    """
+    h, w = mu.shape[-2:]
+    bad = [k for k in _STRUCT_BLOCKS if h % k or w % k]
+    if bad:
+        err_msg = (
+            f"struct_penalty_weight > 0 needs every block size in {_STRUCT_BLOCKS} to divide the "
+            f"{h}x{w} grid; {bad} do not, and avg_pool2d would silently drop the remainder"
+        )
+        logger.error(err_msg)
+        raise ValueError(err_msg)
+
+    composed = torch.sigmoid(gate_logits).detach() * mu
+    pen = mu.new_zeros(())
+    for k in _STRUCT_BLOCKS:
+        var_pred = _block_variance(composed, k)
+        var_true = _block_variance(target, k)
+        pen = pen + (torch.log(var_pred + 1e-6) - torch.log(var_true + 1e-6)).abs().mean()
+    return pen
+
+
 def _family_target_log1p_mean(reg: torch.Tensor, family) -> torch.Tensor:
     """Collapse a family head's per-target activated params ``[B, n_reg*n_params, H, W]``
     (target-major) to per-target ``log1p(E[y])`` ``[B, n_reg, H, W]`` — the self-zeroed mean
@@ -560,6 +634,7 @@ def _process_sequence(
     ss_epsilon: float = 0.0,
     cls_valid_mask: torch.Tensor | None = None,
     decay_gate_weight: float = 0.0,
+    struct_penalty_weight: float = 0.0,
     body_supervision: str = "all",
     onset_lead: int = 0,
     cessation_lag: int = 0,
@@ -800,6 +875,7 @@ def _process_sequence(
         # C-200: family parameter-prior ridge (e.g. ZINB π/μ-ridge), accumulated across targets and
         # scaled by pi_penalty_weight at the reduction site (qs99/decay additive precedent).
         pi_pen = torch.tensor(0.0, device=device)
+        struct_pen = torch.tensor(0.0, device=device)
         for j in range(idx.n_reg):
             # Issue #44: per-target loss instance (or shared single instance)
             loss_fn_j = (
@@ -864,6 +940,35 @@ def _process_sequence(
                     qs99_loss = qs99_loss + tw * pinball.mean()
             else:
                 losses_list.append(tw * loss_fn_j(pred_j, target_j))
+
+            # The structure penalty (2026-10-21 prereg). Accumulated on the full grid, scaled by
+            # struct_penalty_weight at the reduction site, byte-identical no-op at 0. Needs a
+            # FamilyLoss because it reads mu as parameter channel 0 of pred_j; a non-family head
+            # has no such channel, so this FAILS LOUD rather than penalising whatever is there —
+            # the C-324 failure (an arm that trains on something inert and reports a clean null).
+            if struct_penalty_weight > 0:
+                if not isinstance(loss_fn_j, FamilyLoss):
+                    err_msg = (
+                        f"struct_penalty_weight={struct_penalty_weight} requires a distribution "
+                        f"family (nb/zinb/truncated_nb); target {idx.reg_names[j]} uses "
+                        f"{type(loss_fn_j).__name__}, which emits no mu channel"
+                    )
+                    logger.error(err_msg)
+                    raise ValueError(err_msg)
+                if j >= idx.n_cls:
+                    err_msg = (
+                        f"struct_penalty_weight={struct_penalty_weight} needs one classification "
+                        f"target per regression target (gate order = reg); got "
+                        f"{idx.n_reg} reg and {idx.n_cls} cls"
+                    )
+                    logger.error(err_msg)
+                    raise ValueError(err_msg)
+                # mu is parameter channel 0 (`family.nll`'s own convention); the gate for reg
+                # target j is classification channel j ("gate order = reg",
+                # utils/hydranet_inference.py:1643).
+                struct_pen = struct_pen + tw * _structure_penalty(
+                    pred_j[..., 0], t1_pred_class[:, j, :, :], target_j
+                )
 
             # C-200/C-205: family parameter-prior ridge (family-agnostic hook — nb returns a
             # graph-safe 0, zinb the π/μ-ridge). Accumulated on the full-grid params; scaled by
@@ -993,6 +1098,8 @@ def _process_sequence(
             loss = loss + qs99_weight * qs99_loss
         if decay_gate_weight > 0:
             loss = loss + decay_gate_weight * decay_pen
+        if struct_penalty_weight > 0:
+            loss = loss + struct_penalty_weight * struct_pen
         if pi_penalty_weight:
             loss = loss + pi_penalty_weight * pi_pen
         total_loss += loss
@@ -1189,6 +1296,7 @@ def train(
         ss_epsilon=ss_epsilon,
         cls_valid_mask=cls_valid_mask,
         decay_gate_weight=config.get("decay_gate_weight", 0.0),
+        struct_penalty_weight=config.get("struct_penalty_weight", 0.0) or 0.0,
         # ADR-065 amend.: the point-body supervision window is driven ONLY by the validated
         # body_supervision + onset_lead/cessation_lag (C-194). Event threshold comes from the
         # binary-target derivation — the sole authority for "what is an event" (C-195).

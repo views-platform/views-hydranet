@@ -190,6 +190,13 @@ class HydraNetConfig(BaseModel):
     body_supervision: str = Field(default="all")
     onset_lead: int = Field(default=0, ge=0)
     cessation_lag: int = Field(default=0, ge=0)
+    # The structure penalty (2026-10-21 prereg): an additive term matching the within-block
+    # dispersion of the composed field to the truth's, at the k = 2 and 8 fixed in
+    # `_STRUCT_BLOCKS`. Default 0.0 = byte-identical no-op, the repo's default-off-flag pattern.
+    # ⛔ Declared here, not only read via `config.get`, so a roster config setting it against a
+    # PUBLISHED package that lacks the field fails the schema instead of being silently accepted
+    # under `extra="allow"` — the W-22 trap, which cost one confounded arm.
+    struct_penalty_weight: float = Field(default=0.0, ge=0.0)
     # QS99 tail regularizer (C-48): strict when hurdle active + weight > 0.
     qs99_weight: float | None = Field(default=None, ge=0.0)
     qs99_tau: float | None = Field(default=None, gt=0.0, lt=1.0)
@@ -484,6 +491,26 @@ class HydraNetConfig(BaseModel):
             logger.error(err_msg)
             raise ValueError(err_msg)
         return v
+
+    @model_validator(mode="after")
+    def reject_inert_struct_penalty(self) -> "HydraNetConfig":
+        """A structure penalty needs a distribution family; otherwise it cannot be computed.
+
+        `_structure_penalty` reads `mu` as parameter channel 0 of the family's activated output. A
+        legacy (non-family) body emits no such channel, so the term would have nothing to read and
+        the engine raises. Rejecting here means the arm dies at config time rather than after the
+        pod has been paid for — C-324's lesson, where an inert setting produced a clean-looking
+        null.
+        """
+        if self.struct_penalty_weight > 0 and resolve_family(self.output_distribution) is None:
+            err_msg = (
+                f"struct_penalty_weight={self.struct_penalty_weight} requires a distribution "
+                f"family output_distribution (nb/zinb/truncated_nb); got "
+                f"{self.output_distribution!r}, which emits no mu channel"
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        return self
 
     @model_validator(mode="after")
     def reject_ignored_body_nll_denominator(self) -> "HydraNetConfig":  # noqa: D401
