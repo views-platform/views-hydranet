@@ -213,7 +213,7 @@ np.savez_compressed(SP / "d12_result.npz",
 with open(SP / "d12_fits.csv", "w") as fh:
     fh.write("window,field,direction,ok,nugget,sill,xi,nugget_over_sill,dmax,bins,var\n")
     for (wn, fn, dn), v in results.items():
-        fh.write("%s,%s,%s,%s,%s,%s,%s,%s,%d,%d,%.6f\n" % (
+        fh.write('%s,"%s",%s,%s,%s,%s,%s,%s,%d,%d,%.6f\n' % (
             wn, fn, dn, v["ok"],
             "" if not v["ok"] else f"{v['n']:.6f}",
             "" if not v["ok"] else f"{v['s']:.6f}",

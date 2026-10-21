@@ -753,6 +753,30 @@ Metrics filled from `--evaluate`; *Bounded?* from the 36-step rollout / `diagnos
   SS is EXHAUSTED (proven, not assumed), even on the un-collapsed hurdle head.** → the real fix is **GTF / B1 rollout
   training (#78, cross-step gradients)** or the **count-likelihood head** (ZINB/hurdle-NB). Rollout dossier `07` EXP-02.
 
+- **2026-10-21 — D12 (free CPU, 391.4 s / 2.68 GiB, no pod, no training) → the amplitude deficit is
+  SCALE-DEPENDENT and worst at ONE CELL; the fitted layer is VOID; and the programme's own 12.8×
+  correlation-length figure is overstated.** Pre-registration + OUTCOME
+  `reports/2026-10-20_d12_spectral_prereg.md`; scripts `d12_variogram.py` (committed `3468fe3`
+  BEFORE it ran) and the post-hoc `d12b_curve_readout.py`; artifacts `d12_result.npz`,
+  `d12_fits.csv`, two `.out` files. **Instrument:** the empirical variogram `γ(d)` over all land
+  pairs, computed by offset multiplicity (22,612 half-plane offsets, DMAX 120 cells) rather than by
+  enumerating 4.2e9 pairs. ✅ **Verified against §9.3**: `ρ(1) = 1 − γ(1)/var` reproduces its lag-1
+  autocorrelations to **≤ 0.0090** by a different estimator route. ⛔ **F3 fired in 4/4 cells — no
+  field plateaus by d = 120**, so the three-parameter exponential's sill, nugget and range are
+  inadmissible and **P-1/P-2/P-3/P-5 and F2/F4 are VOID, not missed**; the free nugget↔D6-C
+  consistency check never ran. ⭐ **The answer, model-free:** `γ_model(d)/γ_truth(d)` divided by the
+  variance ratio (the same-shape null) runs **0.391 → 0.870** for the body and **0.112 → 0.822** for
+  the gate across d = 1 → 32 cells in sample — the deficit is **monotone in scale, nearly closed by
+  32 cells, and the gate is 3.5× worse than the body at one cell.** Same shape as
+  `Ayzel2020_RainNet` C-3654 and `Ravuri2021` C-3657, in our units. ⛔ **Corrects our own number:**
+  `ξ = −1/ln ρ(1)` assumes an exponential the fields do not have (it predicts `ρ_truth(8) = 0.029`
+  against a measured **0.316**), so the **12.8× / 3.5×** too-long correlation lengths become
+  **2.0–7.0× / 1.9–5.0×** depending on a swept threshold — the sign survives everywhere, the
+  multiplier is not quotable as a scalar (`W-44`, `W-45`; `R-19`, `R-20`). ⚠️ Curves go non-monotone
+  from d ≈ 9 because the pair population changes with distance on a 25%-land mask — C-351 inside the
+  one instrument chosen because the mask was not supposed to matter. ⛔ Component attribution remains
+  foreclosed (`Cox1955` C-3611, now registered as C-353).
+
 - **2026-10-20 — D4–D10 (free CPU measurement, no pod, no training) → the over-smoothing is REAL but
   4× smaller than first reported, and the bigger half of the defect is OVER-CONCENTRATION.**
   Dossier `reports/2026-10-20_d3_static_channel_ceiling.md` §9–§10; pre-registration
