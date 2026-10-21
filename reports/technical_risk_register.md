@@ -709,6 +709,41 @@ Tier 3 rationale: a **validation gap**, not a known defect — spot-checked beni
 
 ⭐ **And the cheap experiment nobody has run, recorded here because it is a COST question, not a calibration one.** Each MC-dropout draw costs a **full forward pass**, while head draws are free. ⇒ **Score a dropout-OFF run against the current one at MATCHED TOTAL SAMPLE COUNT on the frozen ruler** (`reports/2026-07-17_lodestar_eval_dossier/tools/lodestar_score.py`). No retrain, no pod, no config change to the roster. If the scored distribution is indistinguishable, every production inference is paying `D` forward passes for nothing; if it is worse, the epistemic layer is earning them and this entry escalates toward delivery-relevant. ⛔ **Not proposed as a decision here** — it touches what inference delivers, so it is the owner's call, and FAO-02 governs the scoring.
 
+> ### ✅ RUN 2026-10-21 — the dropout posterior does NOT earn its cost
+>
+> Simon asked for it directly (*"since we are not working on the uncertainty now I would switch MC
+> dropout off and just sample more from the head"*). Measured, at **matched 16 members**, on the
+> out-of-sample partition 457–469 × 64,818 land cells:
+>
+> | condition | composed CRPS | emitted positives | forward sweeps | wall time |
+> |---|---|---|---|---|
+> | **A** — as deployed, 4 dropout passes × 4 head draws | 0.056503 | 0.0012 | 4 | **738.8 s** |
+> | **B** — dropout OFF, 1 pass × 16 head draws | **0.056264** | 0.0011 | 1 | **114.3 s** |
+>
+> ⇒ **B is 0.42% BETTER and costs 6.5× less wall time.** The saving is larger than the 4× pass
+> ratio because a dropout pass is itself slower (184.7 s against 110 s).
+>
+> ⛔ **By this entry's own pre-stated rule — "if the scored distribution is indistinguishable, every
+> production inference is paying `D` forward passes for nothing" — the answer is that it is.** 0.42%
+> sits inside the 1% band declared indistinguishable at n=1 before the run.
+>
+> **What the three extra passes do buy, measured:** across-pass sd of `mu` is **17.4%** of `mu`, so
+> the dropout posterior is real rather than negligible. But it is also **biased**: the dropout-off
+> `mu` is **6.7% higher** than the 4-pass mean (median ratio 1.0669), because averaging a nonlinear
+> head over masks is not the head at the mean. On a model this programme has measured as
+> **under**-firing, MC-dropout averaging pushes `mu` the wrong way.
+>
+> ⚠️ **Three limits, stated rather than left to be found.** (1) The vehicle is `2a5efc2a…`,
+> `truncated_nb` — the family the programme decided against on the same day. The question is about
+> the inference machinery rather than the family, but this must be re-confirmed on the next `nb`
+> control. (2) n = 1, one target (`sb`). (3) ⛔ **Scored with `lodestar_score.py`'s CRPS estimator
+> copied verbatim, but NOT by running the ruler script itself** — the composed ensemble was built
+> here. Same estimator, different harness.
+>
+> ⛔ **Still the owner's call.** This measures the cost; it does not change what inference delivers.
+> Driver: `reports/2026-10-12_underfire_diagnosis/dropout_cost_test.py`, committed before it ran,
+> with a gate that aborts unless two forwards on identical input are bit-identical.
+
 ---
 
 ### C-129: Rollout-training (Axis B) × ZITD distributional-head coordination is untracked

@@ -24,7 +24,7 @@ about the workflow — the same rule the experiment log lives under.
 | | count |
 |---|---|
 | **WRONG** | **54** |
-| **RIGHT** | **24** |
+| **RIGHT** | **25** |
 | OPEN | 1 |
 
 ⚠️ **That raw ratio is the least useful number in this file.** The errors are not randomly
@@ -195,6 +195,8 @@ External adversarial checking beats self-review here, and it is cheap relative t
 
 | R-23 | ⭐ **Pre-stated in the same docstring:** *"I expect the theta sweep's optimum to sit ABOVE 1.0 — M6 measured the CRPS-optimal theta at 0.4298 against the model's 0.1544 on the body alone, so the scored metric wants LESS dispersion than the model emits."* **Confirmed, and by far more than the ~2.8× that reasoning implied:** the out-of-sample optimum is a scale of **25.8** on each cell's own theta. Direction right, magnitude badly underestimated — the same shape as W-53. |
 | R-24 | ⭐ **The guard I wrote into the sweep, not a prediction about the world but about my own method:** the script prints `⛔ THE OPTIMUM IS AT A GRID EDGE — the number above is a bound, not an optimum` when `argmin` lands on an endpoint. It **fired on both arms on the first run** (theta monotone to −8.42% at 8.0, gate monotone to −1.52% at 2.2), which stopped two unbracketed numbers being reported as optima. Logged as right because the guard was written before the run and it caught its author. |
+
+| R-25 | ⭐ **Pre-stated in `dropout_cost_test.py` before it ran:** *"I expect B to score EQUAL OR BETTER on composed CRPS, and I will call a difference under 1% indistinguishable at n=1."* **Held: B is 0.42% better**, inside the band I declared indistinguishable, at 6.5× less wall time. The decision rule attached to it — *"only A better by more than 1% would say the dropout posterior earns its cost"* — therefore resolves against the dropout posterior. ⚠️ The sharper half of the same prediction, that B would be **strictly** better, is **not resolved**: 0.42% is inside my own indistinguishable band, so it is underpowered rather than confirmed, and I am not counting it as a second right. |
 
 ## OPEN
 
