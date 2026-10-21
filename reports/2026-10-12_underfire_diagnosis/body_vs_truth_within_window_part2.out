@@ -1,0 +1,14 @@
+================================================================================================
+PART 2 — block fixed effects: every CELL contributes, not every block
+================================================================================================
+  k        cells       blocks  mean log body  mean log body Mann-Whitney
+            used         used  event (resid)  empty (resid)            p
+  8         8957          162         0.0184        -0.0035     1.40e-05
+  16       16337           78         0.0583        -0.0056     9.37e-05
+  32       23773           33         0.1158        -0.0074     1.05e-03
+  64       32810           14         0.0941        -0.0043     3.67e-19
+
+  SAME TEST ON THE GATE, as the control — the gate visibly DOES track the truth,
+  so if this machinery is sound the gate must come out strongly POSITIVE.
+  gate k=16  event +1.8792   empty -0.1804   p 0.00e+00
+  gate k=32  event +2.6250   empty -0.1681   p 0.00e+00
