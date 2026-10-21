@@ -57,6 +57,59 @@ distinction matters because the dynamic version was declined on cost grounds. **
 fallback:** if the derived weight makes the term exceed **50%** of the total loss at initialisation,
 halve it until it does not, and report that this happened.
 
+## 3b. ⛔ AMENDMENT 2026-10-21, BEFORE ANY ARM RUNS — the term is ONE-SIDED, and the weight is derived
+
+**§2's term was symmetric (`|log Var_pred − log Var_true|`). It is now one-sided:**
+
+> `struct_pen = Σ_k max(0, log Var_true − log Var_pred)`
+
+⛔ **Why, and it was measured rather than reasoned.** On the derivation window — **2 positive cells
+in 1,024**, representative of the curriculum's 1-in-222 rate — the symmetric form's value was
+**12.381** against the one-sided **0.224**. ⇒ **98.2% of the symmetric penalty was punishing the
+model for having MORE dispersion than a truth that has none**, i.e. enforcing **flatness** on a
+97.8%-empty field. It would have fought the defect it exists to fix, and the arm would have been
+worse than useless — it would have been *informatively* wrong in the opposite direction.
+
+✅ **The asymmetry is justified by a pre-committed falsifier, not by convenience.** D12's **F1** —
+*"the model's γ exceeds the truth's at any d"* — **never fired**: 4/4 window × direction cells, 480
+distance bins, the model below the truth at **every** scale. **The defect has one direction, so the
+penalty has one direction.**
+
+### The derived weight (§3), measured
+
+`struct_weight_derivation.py` on a **fresh** model built from the control's own config sidecar, one
+real window chosen by **land coverage only**, CPU, **8.39 s / 2.90 GiB**:
+
+| | value |
+|---|---|
+| body NLL / its gradient norm | 3.220172 / **5.932e+01** |
+| structure penalty / its gradient norm | 0.223680 / **3.334e+00** |
+| grad-norm-matched weight | **17.7925** → the term would be **55.3%** of the loss |
+| ⛔ §3's 50% fallback | **FIRED once** |
+| ⭐ **`struct_penalty_weight` = ** | **8.89624** (term at **38.2%** of the loss) |
+
+⚠️ **Measured at initialisation, which is C-325's exact trap** (two mechanism tests measured at init
+were recorded as ruling a mechanism out; the arm's gradient exploded 33 lessons later). ⇒ **This is a
+starting scale, not a claim the two terms stay balanced.** The per-task trajectory log is what would
+show them drifting apart, and §7.5 already requires it to be on.
+
+### Implementation status
+
+✅ **Built and committed** (`6de8afb` and before): `_structure_penalty` + `_block_variance` in
+`train/training_engine.py`, the fifth additive term at the reduction site, `struct_penalty_weight`
+declared in the schema with `reject_inert_struct_penalty`, CIC field count 101 → 102. **13 tests,
+2288 passing, ruff clean.** Mutation-tested: the un-detached gate, a constant penalty, the removed
+divisibility guard, a changed block set, the removed `clamp_min`, the symmetric form and a flipped
+direction are **all caught**. ⚠️ **Not independent** — I wrote the code and the tests.
+
+⛔ **And one process failure, recorded because it is the third instance:** the one-sided change was
+mutation-tested while **uncommitted**, so `git checkout --` reverted the mutation and ate the change
+with it (`feedback_commit_before_mutation_testing`, written after the first two). Recoverable here,
+but it also produced a **false mutation result** — the file had silently reverted to the committed
+symmetric version, so one mutation looked caught by the wrong test and I briefly recorded the
+smoothing test as weaker than it is. **Re-run against committed code with an assertion that each
+mutation actually applied.**
+
 ## 4. Pre-registered predictions, with a prior
 
 | # | quantity | baseline (control) | prediction | my confidence |
