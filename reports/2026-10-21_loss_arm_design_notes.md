@@ -95,6 +95,74 @@ version of the gate's loss is a natural proper object (*"did this k×k block con
 `pos_weight` is closed on algebra so nothing competes there. ⇒ They are reasons the gate is *tractable*,
 not evidence it is *where the defect is*. ⚠️ That distinction is exactly what the last three preregs lost.
 
+## 5b. ✅ THE SEAM, READ 2026-10-21 — and it changes the design
+
+### What is already there, and it is better than I expected
+
+⭐ **The reduction site already adds FOUR weighted terms AFTER the balancer**
+(`train/training_engine.py:989-998`):
+
+```
+loss = multitaskloss_instance(losses)            # the frozen 6-vector balancer
+loss = loss + pushforward_weight * pf_loss
+loss = loss + qs99_weight       * qs99_loss
+loss = loss + decay_gate_weight * decay_pen
+loss = loss + pi_penalty_weight * pi_pen
+```
+
+⇒ **A spatial term is the FIFTH instance of an established pattern, not a new mechanism.**
+
+| what that buys | consequence |
+|---|---|
+| ⛔ the **frozen balancer is not touched** | §6.2's worry shrinks: the term does not enter the 6-vector, so the per-task instrumentation, the `log_var` pins and every comparability guard stay intact |
+| the weight is a **plain config float** | exactly `qs99_weight` / `decay_gate_weight` / `pi_penalty_weight`, and **byte-identical no-op at 0** — the repo's own default-off-flag guardrail |
+| ⭐ the loss boundary **has the grid** | `pred_j` is `[B, H, W, n_params]` and `target_j` `[B, H, W]` at `:817-823`; `t1_pred_class` is `[B, n_cls, H, W]`. So a block aggregate needs **no new plumbing** |
+| a **spatial penalty precedent exists** | `_decay_gate_penalty` (`:357`) is already a spatial, label-conditioned gate term with its own weight |
+
+⇒ **Answer to §6.1: B is a contained change** — one loss module, one config field plus validator, ~6 lines at the reduction site mirroring `pi_penalty_weight`. **Not** a training-engine restructure.
+
+### ⛔ And the finding that kills "B stays a proper scoring rule"
+
+**§3 claimed B keeps us inside proper scoring rules. That does not survive the seam read.** A proper
+score on a `k×k` block aggregate needs the **distribution of the block sum**. A sum of independent
+negative binomials is NB **only if `p` is shared**, and ours emits `theta` (hence `p`) **per cell**.
+⇒ **The block-sum distribution has no closed form here**, and sampling it differentiably needs a
+reparameterised NB we do not have.
+
+⇒ **What is actually achievable cheaply is a multi-scale STRUCTURE-MOMENT penalty** — match the
+within-block dispersion of prediction and truth at `k ∈ {2, 4, 8}` — which is Mathieu's
+gradient-difference loss generalised across scales. **Honest consequence: B and A are the same family,
+and neither is a proper score.** The calibration trade §8.1 warns about is therefore **live**, not
+excluded by construction as §3 asserted.
+
+### ⛔⛔ The real design problem, which neither §3 nor §5 saw: the readout IS the trained quantity
+
+A within-block dispersion penalty at `k ∈ {2,4,8}` and **B-1**, the γ-ratio profile at `d = 1…32`, are
+**nearly the same object**. ⇒ Training on one and reading out on the other is **Goodhart by
+construction**: the arm would be guaranteed to move its own scoreboard number and that movement would
+mean nothing.
+
+**The resolution, and it has to be in the prereg:**
+1. ⛔ **B-1 cannot be the arm's primary verdict.** It becomes a *manipulation check* — did the term do
+   what it was told — which is necessary but not evidence of improvement.
+2. ⭐ **The verdict rests on numbers the term does NOT optimise: B-2 (slope) and B-3 (level)**, which
+   are magnitude-calibration quantities, plus **FAO-02's CRPS and its guardrails**. If sharpening the
+   structure also pulls the level from 24.7% toward 100% and the slope from 0.46 toward 1, that is
+   independent evidence. If structure improves while level and slope do not move, the term bought
+   sharpness and nothing else.
+3. The scales are **split**: train on `k ∈ {2, 8}`, read the profile at **d = 1, 4, 16, 32**. ⚠️ This
+   reduces the leak; it does not remove it, and the prereg must say so rather than imply independence.
+
+### ⚠️ One asymmetry to name out loud, because it is exactly the pull we just diagnosed
+
+**The clean proper-score version of this idea exists — but only for the gate.** *"Did any event occur
+in this `k×k` block?"* is `1 − Π(1 − g_i)`, closed form and differentiable, so a block-level Brier or
+log score on the **gate** is tractable and proper, while the body's block sum is neither. ⇒ **The
+tractable, elegant, publishable version of this arm is the gate version.** That is precisely the
+structural pull `feedback_the_body_is_the_target_not_the_gate` records, and it is noted here so that
+the next person to read these notes sees the temptation rather than falls into it. ⛔ **The arm stays
+body-first. The gate version is recorded as available, not as preferable.**
+
 ## 6. ⛔ Open questions — these are what the prereg has to answer, and three need Simon
 
 1. ⚪ **Unverified, and the first thing to read:** can `choose_loss` / `FamilyLoss` take an additional
