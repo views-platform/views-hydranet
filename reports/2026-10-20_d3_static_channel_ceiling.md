@@ -783,9 +783,20 @@ what C-152's class statement asserts.**
 >
 > Formally it is the **same law of total variance** that already broke §9.3 and D10:
 > `Var(N) = E[Var(N|Λ)] + Var(E[N|Λ])`. One measured second-order quantity is **one equation in two
-> unknowns**, so blame is not attributable from it. **Third instance in this one programme** — see
-> the drafted register entry in Appendix A, which is a *different* defect from C-351 and needs a
-> different remedy.
+> unknowns**, so blame is not attributable from it. **Third instance in this one programme**
+> (§9.3, D10, here).
+>
+> ⛔ **CORRECTED 2026-10-21: this pointer was wrong.** It said *"see the drafted register entry in
+> Appendix A, which is a different defect from C-351"* — but Appendix A **is** C-351, and no other
+> appendix exists, so the sentence pointed at itself while denying it. The two defects are genuinely
+> different: C-351 is about how a statistic is **built** (population, transform, estimator);
+> **this** one is about what may be **attributed** from a statistic that was built correctly — one
+> second-order number, two unknowns. ⚠️ **The broken pointer had hidden a class with three instances
+> in this programme and no register entry at all** (§9.3 ill-posed and rescued by D6-C; §10.10 caught
+> analytically; this one withdrawn). ✅ **Registered 2026-10-21 as `C-353`**, Tier 2, with the honest
+> note that only one of the three produced a lasting withdrawal and that **no remedy is proposed
+> because there is nothing to patch** — every number is correct and the defect is in the sentence.
+> ⇒ **A descriptive second-order claim may be made from one measurement; an attributive one may not.**
 >
 > ⚠️ **What does NOT follow.** *"The model is over-smooth and over-concentrated"* is untouched —
 > those are descriptions of the emitted field, not attributions. What is withdrawn is **where the
@@ -800,16 +811,24 @@ what C-152's class statement asserts.**
 
 ---
 
-## Appendix A — C-351, drafted and ⛔ NOT REGISTERED, with the reason
+## Appendix A — C-351, drafted here and ✅ REGISTERED on 2026-10-21
 
-⛔ **This entry is not in `technical_risk_register.md` and must not be assumed to be.** C-350 was
+✅ **REGISTERED 2026-10-21** as `C-351` in `reports/technical_risk_register.md` (§Open Concerns,
+Tier 2, counts recounted to 349/195/182), on branch `chore/register-c352-ap-dispersion` after #419
+and #420 merged. The text below is the draft that was handed to `register-risk`; the registered
+entry adds the tier rationale, the dedup result (C-307/C-309/C-319/C-320/C-325 — NEW with
+cross-references, no merge) and the limit that the convention has been held for one day by one
+author. **The reason it was withheld for one commit is kept below, because the reservation itself
+is recorded in the register's `ID accounting` cell.**
+
+⛔ **At the time this appendix was written the entry was NOT in `technical_risk_register.md`.** C-350 was
 committed on `chore/register-c350-static-provenance` (**PR #419, open, unmerged**) and does **not**
 exist on this branch — measured: `grep -c "C-350"` returns **0** here. The register is therefore
 already forked across two branches, and its header carries hand-maintained counts plus a single
 enormous `ID accounting` cell. Adding C-351 here would fork it a **third** way and guarantee a
 conflict in exactly the field that records why the counts are what they are.
 
-**So it is drafted here and registered after #419 merges.** `register-risk` is the intake; this is the
+**So it was drafted here and registered after #419 merged.** `register-risk` is the intake; this was the
 finding handed to it, not a bypass of it.
 
 | field | value |
