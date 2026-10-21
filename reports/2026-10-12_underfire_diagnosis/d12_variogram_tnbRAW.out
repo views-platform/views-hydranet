@@ -1,0 +1,154 @@
+d4_result.npz  vehicle sha 2a5efc2a67c08eac05b8e32b7634e1c0a7eba04c3938781ad7264d702bdf93dd  mu (4, 49, 64818)  months 421-469
+land cells 64,818 = 25.01% of the grid
+
+offsets: 22,612 (half-plane disc, DMAX 120)  E-W 120  N-S 120
+
+==============================================================================================
+in sample  (421-456)
+==============================================================================================
+
+  model log mu   var 0.0503  sd 0.2243
+    direction    nugget     sill       xi    n/(n+s)    dmax bins
+    isotropic    0.0370   0.0200   17.448     0.6488     120  120
+               gamma(d): d1=0.049  d2=0.027  d4=0.032  d8=0.040  d16=0.046  d32=0.050  d64=0.055  d120=0.055
+    E-W          0.0263   0.0186   31.207     0.5857     120  120
+               gamma(d): d1=0.041  d2=0.006  d4=0.008  d8=0.013  d16=0.018  d32=0.022  d64=0.025  d120=0.028
+    N-S          0.0190   0.0218   10.464     0.4648     120  120
+               gamma(d): d1=0.032  d2=0.008  d4=0.010  d8=0.018  d16=0.024  d32=0.027  d64=0.036  d120=0.019
+
+  model gate logit   var 0.7220  sd 0.8497
+    direction    nugget     sill       xi    n/(n+s)    dmax bins
+    isotropic    0.1415   0.8804   25.618     0.1385     120  120
+               gamma(d): d1=0.071  d2=0.120  d4=0.226  d8=0.397  d16=0.602  d32=0.779  d64=0.918  d120=1.041
+    E-W          0.1046   0.6196   17.071     0.1444     120  120
+               gamma(d): d1=0.054  d2=0.105  d4=0.208  d8=0.353  d16=0.530  d32=0.665  d64=0.605  d120=0.769
+    N-S          0.1029   0.9414   20.881     0.0985     120  120
+               gamma(d): d1=0.063  d2=0.112  d4=0.230  d8=0.430  d16=0.666  d32=0.811  d64=1.043  d120=0.845
+
+  truth log mean, window   var 3.7638  sd 1.9401
+    direction    nugget     sill       xi    n/(n+s)    dmax bins
+    isotropic    2.2211   3.5150   30.843     0.3872     120  120
+               gamma(d): d1=1.706  d2=2.045  d4=2.545  d8=3.160  d16=3.869  d32=4.442  d64=5.239  d120=5.604
+    E-W          2.0173   2.2511   18.895     0.4726     120  120
+               gamma(d): d1=1.565  d2=1.939  d4=2.366  d8=2.872  d16=3.500  d32=3.998  d64=3.779  d120=4.496
+    N-S          1.9388   3.3437   18.078     0.3670     120  120
+               gamma(d): d1=1.622  d2=2.056  d4=2.615  d8=3.332  d16=4.065  d32=4.402  d64=5.822  d120=3.907
+
+  truth log mean, 336-mo base rate   var 7.3963  sd 2.7196
+    direction    nugget     sill       xi    n/(n+s)    dmax bins
+    isotropic    3.8653   6.5527   35.642     0.3710     120  120
+               gamma(d): d1=2.887  d2=3.429  d4=4.299  d8=5.382  d16=6.555  d32=7.855  d64=9.096  d120=10.350
+    E-W          2.5898   4.2731    9.972     0.3774     120  120
+               gamma(d): d1=2.679  d2=3.209  d4=4.090  d8=5.056  d16=6.020  d32=6.848  d64=5.918  d120=7.240
+    N-S          4.2815   8.8306   55.455     0.3265     120  120
+               gamma(d): d1=2.816  d2=3.434  d4=4.378  d8=5.468  d16=6.977  d32=8.635  d64=10.412  d120=10.642
+
+==============================================================================================
+out of sample  (457-469)
+==============================================================================================
+
+  model log mu   var 0.0763  sd 0.2762
+    direction    nugget     sill       xi    n/(n+s)    dmax bins
+    isotropic    0.0612   0.0231   27.058     0.7258     120  120
+               gamma(d): d1=0.077  d2=0.043  d4=0.050  d8=0.061  d16=0.068  d32=0.072  d64=0.078  d120=0.086
+    E-W          0.0396   0.0205   15.422     0.6593     120  120
+               gamma(d): d1=0.064  d2=0.010  d4=0.014  d8=0.021  d16=0.028  d32=0.031  d64=0.031  d120=0.036
+    N-S          0.0355   0.0273   22.740     0.5652     120  120
+               gamma(d): d1=0.050  d2=0.012  d4=0.015  d8=0.024  d16=0.031  d32=0.036  d64=0.045  d120=0.039
+
+  model gate logit   var 1.3725  sd 1.1715
+    direction    nugget     sill       xi    n/(n+s)    dmax bins
+    isotropic    0.2874   1.5956   30.811     0.1526     120  120
+               gamma(d): d1=0.130  d2=0.200  d4=0.370  d8=0.661  d16=1.048  d32=1.348  d64=1.601  d120=1.956
+    E-W          0.0427   1.1113   11.948     0.0370     120  120
+               gamma(d): d1=0.096  d2=0.173  d4=0.346  d8=0.597  d16=0.884  d32=1.126  d64=0.993  d120=1.276
+    N-S          0.3732   1.8967   39.315     0.1644     120  120
+               gamma(d): d1=0.120  d2=0.177  d4=0.357  d8=0.708  d16=1.178  d32=1.477  d64=1.814  d120=1.891
+
+  truth log mean, window   var 2.6209  sd 1.6189
+    direction    nugget     sill       xi    n/(n+s)    dmax bins
+    isotropic    1.8567   2.2527   38.976     0.4518     120  120
+               gamma(d): d1=1.412  d2=1.686  d4=2.016  d8=2.357  d16=2.797  d32=3.063  d64=3.644  d120=4.029
+    E-W          1.3677   1.5329   11.073     0.4715     120  120
+               gamma(d): d1=1.313  d2=1.582  d4=1.915  d8=2.160  d16=2.515  d32=2.892  d64=2.738  d120=2.995
+    N-S          1.6434   1.7962   16.022     0.4778     120  120
+               gamma(d): d1=1.342  d2=1.684  d4=2.051  d8=2.531  d16=2.855  d32=3.017  d64=3.873  d120=2.660
+
+  truth log mean, 336-mo base rate   var 7.3963  sd 2.7196
+    direction    nugget     sill       xi    n/(n+s)    dmax bins
+    isotropic    3.8653   6.5527   35.642     0.3710     120  120
+               gamma(d): d1=2.887  d2=3.429  d4=4.299  d8=5.382  d16=6.555  d32=7.855  d64=9.096  d120=10.350
+    E-W          2.5898   4.2731    9.972     0.3774     120  120
+               gamma(d): d1=2.679  d2=3.209  d4=4.090  d8=5.056  d16=6.020  d32=6.848  d64=5.918  d120=7.240
+    N-S          4.2815   8.8306   55.455     0.3265     120  120
+               gamma(d): d1=2.816  d2=3.434  d4=4.378  d8=5.468  d16=6.977  d32=8.635  d64=10.412  d120=10.642
+
+saved d12_result.npz (curves) and d12_fits.csv (24 fits)
+
+==============================================================================================
+PRE-COMMITTED PREDICTIONS (§3 of the prereg)
+==============================================================================================
+
+  in sample, E-W, vs the 336-month base-rate truth
+    P-1 model/truth xi ratio     3.129   (predicted 2.9-3.5x longer)  ✅
+    P-2 model/truth sill ratio   0.004   (predicted LOWER, ~0.436x)   ✅
+    P-3 gate/truth xi ratio      1.712   (predicted >10x longer)      ⛔ MISSED
+    P-4 truth nugget            2.5898   (predicted > 0, material)    ✅
+    P-5 model nugget            0.0263   (predicted ~0)               ⛔ MISSED
+
+  in sample, N-S, vs the 336-month base-rate truth
+    P-1 model/truth xi ratio     0.189   (predicted 2.9-3.5x longer)  ⛔ MISSED
+    P-2 model/truth sill ratio   0.002   (predicted LOWER, ~0.436x)   ✅
+    P-3 gate/truth xi ratio      0.377   (predicted >10x longer)      ⛔ MISSED
+    P-4 truth nugget            4.2815   (predicted > 0, material)    ✅
+    P-5 model nugget            0.0190   (predicted ~0)               ⛔ MISSED
+
+  out of sample, E-W, vs the 336-month base-rate truth
+    P-1 model/truth xi ratio     1.546   (predicted 2.9-3.5x longer)  ⛔ MISSED
+    P-2 model/truth sill ratio   0.005   (predicted LOWER, ~0.436x)   ✅
+    P-3 gate/truth xi ratio      1.198   (predicted >10x longer)      ⛔ MISSED
+    P-4 truth nugget            2.5898   (predicted > 0, material)    ✅
+    P-5 model nugget            0.0396   (predicted ~0)               ⛔ MISSED
+
+  out of sample, N-S, vs the 336-month base-rate truth
+    P-1 model/truth xi ratio     0.410   (predicted 2.9-3.5x longer)  ⛔ MISSED
+    P-2 model/truth sill ratio   0.003   (predicted LOWER, ~0.436x)   ✅
+    P-3 gate/truth xi ratio      0.709   (predicted >10x longer)      ⛔ MISSED
+    P-4 truth nugget            4.2815   (predicted > 0, material)    ✅
+    P-5 model nugget            0.0355   (predicted ~0)               ⛔ MISSED
+
+==============================================================================================
+FALSIFIERS (§5) and VOID conditions (§6)
+==============================================================================================
+  in sample      E-W  F1 model gamma exceeds truth at: ✅ nowhere
+  in sample      E-W  F2 model xi not longer:  ✅ 31.21 > 9.97
+  in sample      E-W  F3 truth not plateaued: ⛔ FIRES   (criterion: last 10% of bins varying by >5% of n+s — chosen HERE, the prereg said 'not plateaued' without a threshold)
+  in sample      E-W  F4 n/(n+s) vs D6-C 0.154: 0.3774  ⛔ FIRES, disagrees
+  in sample      E-W  F5 gate xi vs reach:     ✅ xi 17.1 <= dmax 120
+  in sample      N-S  F1 model gamma exceeds truth at: ✅ nowhere
+  in sample      N-S  F2 model xi not longer:  ⛔ FIRES
+  in sample      N-S  F3 truth not plateaued: ⛔ FIRES   (criterion: last 10% of bins varying by >5% of n+s — chosen HERE, the prereg said 'not plateaued' without a threshold)
+  in sample      N-S  F4 n/(n+s) vs D6-C 0.081: 0.3265  ⛔ FIRES, disagrees
+  in sample      N-S  F5 gate xi vs reach:     ✅ xi 20.9 <= dmax 120
+  out of sample  E-W  F1 model gamma exceeds truth at: ✅ nowhere
+  out of sample  E-W  F2 model xi not longer:  ✅ 15.42 > 9.97
+  out of sample  E-W  F3 truth not plateaued: ⛔ FIRES   (criterion: last 10% of bins varying by >5% of n+s — chosen HERE, the prereg said 'not plateaued' without a threshold)
+  out of sample  E-W  F4 n/(n+s) vs D6-C 0.154: 0.3774  ⛔ FIRES, disagrees
+  out of sample  E-W  F5 gate xi vs reach:     ✅ xi 11.9 <= dmax 120
+  out of sample  N-S  F1 model gamma exceeds truth at: ✅ nowhere
+  out of sample  N-S  F2 model xi not longer:  ⛔ FIRES
+  out of sample  N-S  F3 truth not plateaued: ⛔ FIRES   (criterion: last 10% of bins varying by >5% of n+s — chosen HERE, the prereg said 'not plateaued' without a threshold)
+  out of sample  N-S  F4 n/(n+s) vs D6-C 0.081: 0.3265  ⛔ FIRES, disagrees
+  out of sample  N-S  F5 gate xi vs reach:     ✅ xi 39.3 <= dmax 120
+  VOID-4 anisotropy  in sample      model log mu                       xi E-W/N-S 2.982
+  VOID-4 anisotropy  in sample      model gate logit                   xi E-W/N-S 0.818
+  VOID-4 anisotropy  in sample      truth log mean, 336-mo base rate   xi E-W/N-S 0.180
+  VOID-4 anisotropy  out of sample  model log mu                       xi E-W/N-S 0.678
+  VOID-4 anisotropy  out of sample  model gate logit                   xi E-W/N-S 0.304
+  VOID-4 anisotropy  out of sample  truth log mean, 336-mo base rate   xi E-W/N-S 0.180
+
+==============================================================================================
+COST, measured
+==============================================================================================
+  wall time 118.9 s
+  peak RSS  3.04 GiB
