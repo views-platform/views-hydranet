@@ -791,9 +791,12 @@ what C-152's class statement asserts.**
 > appendix exists, so the sentence pointed at itself while denying it. The two defects are genuinely
 > different: C-351 is about how a statistic is **built** (population, transform, estimator);
 > **this** one is about what may be **attributed** from a statistic that was built correctly — one
-> second-order number, two unknowns. ⚠️ **And so this defect has three instances in this programme
-> and NO register entry.** It is not C-351, it is not drafted, and it is handed to `register-risk`
-> as an open intake item rather than claimed as logged.
+> second-order number, two unknowns. ⚠️ **The broken pointer had hidden a class with three instances
+> in this programme and no register entry at all** (§9.3 ill-posed and rescued by D6-C; §10.10 caught
+> analytically; this one withdrawn). ✅ **Registered 2026-10-21 as `C-353`**, Tier 2, with the honest
+> note that only one of the three produced a lasting withdrawal and that **no remedy is proposed
+> because there is nothing to patch** — every number is correct and the defect is in the sentence.
+> ⇒ **A descriptive second-order claim may be made from one measurement; an attributive one may not.**
 >
 > ⚠️ **What does NOT follow.** *"The model is over-smooth and over-concentrated"* is untouched —
 > those are descriptions of the emitted field, not attributions. What is withdrawn is **where the
