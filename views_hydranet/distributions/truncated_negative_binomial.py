@@ -48,6 +48,9 @@ _EPS = 1e-6  # shared boundary guard (matches NBCore._EPS): clamps 1-NB(0) away 
 #: touches the point forecast.
 _MAX_REJECT_ROUNDS = 128
 
+#: ⛔ #441: this threshold selects the floor-to-1 branch, and the premise it was chosen for
+#: (``E[Y|Y>0] -> 1``) does not hold when ``theta`` is also small. The correct predicate is
+#: ``mu/(1-p0) < 1 + tol``, not ``p0 > _MODERATE_P0``. See ``sample``'s docstring.
 #: PERF (2026-08-14): cells with ``P(Y=0) > _MODERATE_P0`` are the mu->0 background (the ~99%-zero
 #: conflict grid), where ``E[Y|Y>0] -> 1`` so a residual zero floors to 1 EXACTLY — rejection there
 #: is pointless and O(rounds × whole-grid) (~112 s/call at 180×180, the #258 emit blocker). So we
@@ -161,12 +164,31 @@ class TruncatedNBFamily(DistributionFamily):
     ) -> "torch.Tensor":
         """Draw ``k`` counts per cell from ``NB(mu, theta) | Y>0`` -> ``[..., k]``, never 0.
 
-        Two-regime rejection (PERF, 2026-08-14): the mu->0 background (``P(Y=0) > _MODERATE_P0``,
-        the ~99%-zero grid) has ``E[Y|Y>0] -> 1``, so any zero there floors to 1 EXACTLY — no
-        rejection. Only the MODERATE-mu zeros are rejection-redrawn, scatter-style (cost scales
-        with that small subset, not the whole grid — the flat full-grid loop was ~112 s/call at
-        180×180, the #258 emit blocker). Deterministic under ``generator`` (same seed+params ->
-        same draws -> same indices -> same output; C-3, the S2 #121 gate)."""
+        Two-regime rejection (PERF, 2026-08-14): zeros in the ``P(Y=0) > _MODERATE_P0`` background
+        floor to 1 EXACTLY — no rejection. Only the MODERATE-mu zeros are rejection-redrawn,
+        scatter-style (cost scales with that small subset, not the whole grid — the flat full-grid
+        loop was ~112 s/call at 180×180, the #258 emit blocker). Deterministic under ``generator``
+        (same seed+params -> same draws -> same indices -> same output; C-3, the S2 #121 gate).
+
+        ⛔ **THE FAST PATH IS KNOWN-WRONG IN ONE REGIME — see #441, and do not trust this sampler's
+        mean there.** Its justification used to read *"the mu->0 background has E[Y|Y>0] -> 1"*.
+        That is true as ``mu -> 0`` at **FIXED theta** and FALSE when ``theta -> 0`` alongside it,
+        which is what a body fitted to a 99.7%-zero target does: ``E[Y|Y>0] = mu/(1-p0)`` stays
+        large when both shrink together. Measured on the delivered ``nb`` control
+        (median ``theta`` 3.6e-06): **99.05%** of cells are in this branch, the analytic
+        ``E[Y|Y>0]`` there is **35.1**, and this method returns **1.02** — a **54x** gap, against
+        an earlier claim of "<1% ... ~4% in the small-mu corner". The share of that background
+        where the premise actually holds is **0.00%**.
+
+        ⚠️ A delivered ``truncated_nb``-TRAINED model (``theta`` ~0.044) hits the branch on ~0.31%
+        of cells, so the exposure is small today. An ``nb`` body emitted truncated (ADR-073) would
+        hit it on 99%. ``mean()`` below is CORRECT; it is this method that disagrees with it, and
+        ``test_the_sampler_agrees_with_the_family_s_own_mean`` is a strict xfail pinning that.
+
+        ⛔ Not fixed here because there is no cheap exact alternative: ``torch.distributions.
+        NegativeBinomial`` raises ``NotImplementedError`` for both ``cdf`` and ``icdf``, rejection
+        does not terminate when ``p0 -> 1``, and the Gamma-Poisson tilt has acceptance ``1-p0``.
+        Replacing one approximation with another invented on the spot is what produced this."""
         mu, theta = self._split(params)
         out = NBCore.sample(mu, theta, k, generator)
         p0 = NBCore.prob_zero(mu, theta).unsqueeze(-1).expand_as(out)  # [*cells, k]

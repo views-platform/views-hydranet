@@ -12,7 +12,10 @@ source of truth (v1 /expert-code-review; mirrors ``utils.LOSS_REG_REGISTRY``).
 from __future__ import annotations
 
 import importlib
+import logging
 from typing import TYPE_CHECKING, Callable
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from views_hydranet.distributions.base import DistributionFamily
@@ -51,6 +54,24 @@ DISTRIBUTION_REGISTRY: dict[str, Callable[..., "DistributionFamily"]] = {
 SELF_ZEROED_FAMILIES: frozenset[str] = frozenset({"zinb"})
 
 
+#: Torch-free MIRROR of ``DistributionFamily.n_params`` — parameters the head emits per cell, per
+#: target. The class attribute is the AUTHORITY; this mirror exists only so ``config_initializer``
+#: (which must stay torch-free — CRP) can enforce ADR-073's emit/train parameter-layout rule
+#: without importing a family. A parity test (``test_registry``) asserts this equals
+#: ``{n: get_family(n).n_params for n in family_names()}`` so they cannot drift.
+#:
+#: ⛔ This is what keeps ADR-073's surface narrow STRUCTURALLY rather than by convention: a model
+#: trained on one family can only be emitted from another laying its parameters out the same way.
+#: Measured 2026-10-21 — nb 2, truncated_nb 2, zinb 3, mixture_nb 5 — so the only admissible pair
+#: today is ``nb <-> truncated_nb``, and it cannot widen by accident.
+FAMILY_N_PARAMS: dict[str, int] = {
+    "nb": 2,
+    "zinb": 3,
+    "mixture_nb": 5,
+    "truncated_nb": 2,
+}
+
+
 def family_names() -> frozenset[str]:
     """The set of registered family names — the single source of truth (torch-free)."""
     return frozenset(DISTRIBUTION_REGISTRY)
@@ -59,6 +80,19 @@ def family_names() -> frozenset[str]:
 def self_zeroed_family_names() -> frozenset[str]:
     """Registered self-zeroed families (torch-free mirror of the ``self_zeroed`` attribute)."""
     return SELF_ZEROED_FAMILIES
+
+
+def family_n_params(name: str) -> int:
+    """Parameters per cell for a registered family (torch-free mirror of ``n_params``)."""
+    try:
+        return FAMILY_N_PARAMS[name]
+    except KeyError:
+        available = ", ".join(sorted(FAMILY_N_PARAMS)) or "(none registered)"
+        # ADR-008: log before raising. The repo ratchets the un-logged-raise backlog downward and
+        # this function's first version grew it, which `test_adr_008_fail_loud` caught.
+        err_msg = f"'{name}' is not a registered distribution family. Available: {available}."
+        logger.error(err_msg)
+        raise ValueError(err_msg) from None
 
 
 def get_family(name: str) -> "DistributionFamily":

@@ -1,0 +1,30 @@
+================================================================================================
+THE FLAG: is the ~10x magnitude shortfall real, or selection?
+================================================================================================
+
+  1. THE 336-MONTH POPULATION, CHECKED FOR THE ATOM
+     cells with base336 > 0                       3790
+     of those, truth EXACTLY 0 in 421-456         2359  = 62.2%
+     ⇒ ⛔ ATOM-DOMINATED: the median and the regression are driven by log(eps) = -13.8, so 119.5%% is NOT a reading about the body
+
+  2. POPULATION FIXED (1431 cells, truth > 0 in window); ONLY THE TRUTH ESTIMATOR MOVES
+     truth estimator                           b         r     level   implied
+     36-month window mean                 0.8774   +0.8383   +0.8832    241.9%
+     336-month base rate                  0.7483   +0.6929   +1.8403    629.8%
+
+  3. BOTH-POSITIVE population (1431 cells): no atom on either side
+     truth estimator                           b         r     level   implied
+     36-month window mean                 0.8774   +0.8383   +0.8832    241.9%
+     336-month base rate                  0.7483   +0.6929   +1.8403    629.8%
+
+  ⛔ WHAT THIS CANNOT SETTLE. The predictor is a 36-month model window and the 336-month base rate
+  spans a regime change (D8-A's confound, §10.8). Comparing the two assumes the model's 36-month
+  mean stands in for a 336-month one, which is the stationarity assumption D8-A violated.
+  ⇒ Part 2's second row is a BOUND, not an estimate, and the direction of the bound is what this
+  check is for.
+
+================================================================================================
+COST, measured
+================================================================================================
+  wall time 4.84 s
+  peak RSS  2.71 GiB

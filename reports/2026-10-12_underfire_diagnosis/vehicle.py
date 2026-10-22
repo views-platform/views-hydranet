@@ -31,10 +31,46 @@ EXPECTED_SIDECAR = {
     "dropout_rate": 0.15,
     "static_channels": [],
     "static_top_skip": True,
-    "output_distribution": "nb",
     "reg_activation": None,
     "n_head_samples": 4,
 }
+#: ⛔ AMENDMENT 4 (2026-10-21). The vehicle families F6 admits, and nothing else.
+#: `nb` is the delivered `violet_visitor` config every D3-D12 number was measured on (checkpoint
+#: `4acbf4d3…`, now DELETED). `truncated_nb` is `amber_kestrel`'s delivered arm (`2a5efc2a…`), the
+#: vehicle the structure-penalty arm runs on and the only one still on disk.
+#: ⛔ A number measured under one is NEVER quoted against the other.
+ADMITTED_FAMILIES = ("nb", "truncated_nb")
+
+
+def emitted_magnitude(mu, theta, family: str):
+    """The per-cell magnitude the head actually EMITS, which is not always ``mu``.
+
+    ⛔ ``mu`` is channel 0 of a family's parameters, and what that means is the family's business.
+    For ``truncated_nb`` it is the PARENT NB's mean, while the head emits
+    ``E[Y | Y>0] = mu / (1 - NB(0; mu, theta))`` (`truncated_negative_binomial.py:12` and its own
+    ``mean()``). Measured on the delivered arm, ``1 - p0 = 0.471`` — so composing ``gate * mu``
+    reads a field roughly HALF the forecast, and B-3 would measure the wrong object.
+
+    This is the SAME defect found and fixed in the loss term (`training_engine.py`, commit
+    `1964d79`); it was in the measurement too, and Amendment 4's second half is this function.
+
+    ⛔ Under ``nb`` this is the identity, so every existing ``nb`` baseline is unchanged — asserted
+    by the caller's regression check rather than assumed.
+
+    Takes numpy arrays (the readouts work off `d4_result.npz`, which stores `mu` and `theta`), and
+    is applied PER DRAW, before averaging over draws — under `nb` that ordering is a no-op, and
+    under `truncated_nb` averaging a ratio is not the ratio of averages.
+    """
+    if family == "nb":
+        return mu
+    if family == "truncated_nb":
+        # 1 - NB(0) = 1 - (theta/(theta+mu))**theta, via expm1/log1p for small mu (C-201).
+        log_p0 = theta * (np.log(theta) - np.log(theta + mu))
+        p_pos = -np.expm1(log_p0)
+        return mu / np.maximum(p_pos, 1e-12)
+    raise SystemExit(f"VOID: emitted_magnitude has no rule for family {family!r}")
+
+
 # ⛔ THE SIDECAR DOES NOT RECORD THE REGION OR THE GRID SIZE, and the network is fully
 # convolutional, so neither the config nor the state-dict shapes can tell an `africa_me_legacy`
 # artifact from a `land` one. Found 2026-10-12 by smoke-testing this guard against the local
@@ -99,6 +135,19 @@ def load_vehicle(artifact: str | Path, device: str = "cpu"):
     cfg = json.loads(sidecar.read_text())
 
     # ---- F6, amended: CONFIG identity with the delivery. Weight identity not required. ----
+    # ⛔ AMENDMENT 4, 2026-10-21: `output_distribution` is checked against a SET, not a value.
+    # The pin at "nb" refused the arm's own vehicle and in doing so exposed that the whole D3-D12
+    # programme was measured on an `nb` checkpoint that is now DELETED, while the arm runs on
+    # `truncated_nb`. Measured before widening it: NINE of F6's ten keys are identical between the
+    # two vehicles and `hurdle_nb_theta` is None on both, so this is the only key that differs.
+    # ⛔ The two families' numbers are NOT comparable — the caller records which one it loaded.
+    fam = cfg.get("output_distribution")
+    if fam not in ADMITTED_FAMILIES:
+        raise SystemExit(
+            f"VOID (F6): output_distribution {fam!r} is not an admitted vehicle family "
+            f"{ADMITTED_FAMILIES}. Amendment 4 admits exactly these two; anything else is a "
+            "different model and needs its own amendment, not a widening here."
+        )
     bad = {k: (cfg.get(k), v) for k, v in EXPECTED_SIDECAR.items() if cfg.get(k) != v}
     if bad:
         raise SystemExit(

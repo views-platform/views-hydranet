@@ -1,0 +1,57 @@
+================================================================================================
+§4.3 — COMPOSED-CRPS RECALIBRATION ON THE DELIVERED WEIGHTS. Nothing retrained.
+================================================================================================
+  vehicle      4acbf4d3c2b457b0…  (the frozen nb control; its checkpoint is DELETED)
+  partition    OUT OF SAMPLE 457-469, 13 months x 64,818 land cells = 842,634 cell-months
+  ensemble     4 posterior draws x 4 head draws = 16 members
+  truth        ged_sb_best, count space, 99.66% exact zeros
+
+  BASELINE composed CRPS, the model's own parameters   0.051114
+
+  SWEEP — theta scale  (body dispersion)
+    value       composed CRPS  vs baseline
+    0.2500           0.055981        9.52%
+    0.3337           0.055174        7.94%
+    0.4454           0.053836        5.33%
+    0.5946           0.053009        3.71%
+    0.7937           0.052189        2.10%
+    1.0595           0.050621       -0.96%
+    1.4142           0.049776       -2.62%
+    1.8877           0.049053       -4.03%
+    2.5198           0.048098       -5.90%
+    3.3636           0.047744       -6.59%
+    4.4898           0.047310       -7.44%
+    5.9932           0.046905       -8.23%
+    8.0000           0.046809       -8.42%
+    ⇒ optimum at 8.0000, CRPS 0.046809, a 8.42% improvement on the delivered parameters
+    ⛔ THE OPTIMUM IS AT A GRID EDGE — the sweep does not bracket it and the number above is a bound, not an optimum.
+
+  SWEEP — gate slope   (Platt, no intercept)
+    value       composed CRPS  vs baseline
+    0.4000           0.052631        2.97%
+    0.5500           0.052086        1.90%
+    0.7000           0.051575        0.90%
+    0.8500           0.051375        0.51%
+    1.0000           0.051114        0.00%  <-- model's own
+    1.1500           0.050891       -0.44%
+    1.3000           0.050733       -0.75%
+    1.4500           0.050632       -0.94%
+    1.6000           0.050528       -1.15%
+    1.7500           0.050460       -1.28%
+    1.9000           0.050430       -1.34%
+    2.0500           0.050377       -1.44%
+    2.2000           0.050336       -1.52%
+    ⇒ optimum at 2.2000, CRPS 0.050336, a 1.52% improvement on the delivered parameters
+    ⛔ THE OPTIMUM IS AT A GRID EDGE — the sweep does not bracket it and the number above is a bound, not an optimum.
+
+  ⛔ READING. Under 1% on both arms retires the NLL-vs-CRPS divergence as measured-and-negligible.
+  Over 5% on either makes it material, and the two pre-registrations that name it as an
+  unquantified limitation need amending. ⚠️ Either way this is ONE vehicle, ONE target (`sb`) and
+  n=1, and a recalibration that helps out of sample here is not evidence it would help on a
+  retrained model.
+
+================================================================================================
+COST, measured
+================================================================================================
+  wall time 30.62 s
+  peak RSS  3.01 GiB

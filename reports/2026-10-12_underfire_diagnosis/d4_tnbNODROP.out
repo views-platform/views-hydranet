@@ -1,0 +1,74 @@
+vehicle: calibration_model_20261013_010739.pt  sha256 2a5efc2a67c08eac…  (NOT the delivered weights — C-317)
+  lessons 300 · run_type calibration · git 73c3f42 · trained 2026-10-12T22:40:11Z to 2026-10-13T01:07:42Z
+⚠️  REGION IS RECORDED AS ENFORCED, NOT MEASURED. PROVENANCE says 'land (enforced at check_config -- the run refuses any other)' — which records that pod_run_model.sh:279-282 refuses any other value, NOT a read-back of the grid the weights saw. Nothing in a .pt or its sidecar records the region, and the net is fully convolutional, so this remains weaker than a measurement. The four known africa artifacts are additionally denied by hash.
+  --dropout-off: 15 LockedDropout modules set to eval()
+vehicle sha 2a5efc2a67c08eac05b8e32b7634e1c0a7eba04c3938781ad7264d702bdf93dd  family truncated_nb  n_params 2
+sweeping 421-469 (49 steps) x 4 passes, collecting sb (mu, theta) + gate on all 64,818 land cells …
+  dropout-off VERIFIED: two forwards on identical input are bit-identical
+  pass 1/1 done  (110s)
+saved /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-10-12_underfire_diagnosis/d4_result_tnbNODROP.npz (18.1 MB)
+truth panel (64818, 49)  positive rate 0.003499
+
+==============================================================================
+1. THE BODY'S SLOPE ON THE FULL GRID — IN SAMPLE  421-456
+==============================================================================
+  cells with any event     n   1431  b   2.4852  r +0.7232  sd(mu) 0.5664  sd(truth) 1.9464  ratio 0.2910
+  cells with >= 2 events   n    904  b   2.1469  r +0.7564  sd(mu) 0.6029  sd(truth) 1.7114  ratio 0.3523
+  all land cells           n  64818  b   1.2998  r +0.1646  sd(mu) 0.2457  sd(truth) 1.9401  ratio 0.1266
+  (100-cell selected set, D3 section 4:  b 1.7301  r +0.7174  sd ratio 0.4146)
+
+==============================================================================
+2. DISCRIMINATOR — does the BODY's slope relax as the grid is COARSENED?  IN SAMPLE  421-456
+==============================================================================
+   S smoothing => b -> 1.   G global shrinkage => b flat.   R rank noise => b -> 1, r climbs.
+     k   blocks          b          r     sd(mu)  sd(truth)
+     1     1431     2.4852    +0.7232     0.5664     1.9464
+     2      731     3.2928    +0.7343     0.4727     2.1197
+     4      346     4.0342    +0.6510     0.3738     2.3167
+     8      162     4.6353    +0.4951     0.2765     2.5883
+    16       78     2.9124    +0.1808     0.1774     2.8583
+    32       33     0.4643    +0.0184     0.1186     2.9867
+
+==============================================================================
+3. IS THE mu FIELD SMOOTHER THAN THE TRUTH?  IN SAMPLE  421-456
+==============================================================================
+  log mu                                 east-west +0.2034   north-south +0.2983
+  log truth mean                         east-west +0.5915   north-south +0.5780
+  log truth mean, 336-month base rate    east-west +0.6419   north-south +0.6261
+  gate logit (same pass)                 east-west +0.9679   north-south +0.9583
+  spearman(mu, truth mean) +0.6816 on cells with any event
+
+==============================================================================
+1. THE BODY'S SLOPE ON THE FULL GRID — OUT OF SAMPLE 457-469
+==============================================================================
+  cells with any event     n    912  b   1.9573  r +0.7184  sd(mu) 0.6275  sd(truth) 1.7096  ratio 0.3670
+  cells with >= 2 events   n    515  b   1.7992  r +0.7575  sd(mu) 0.6430  sd(truth) 1.5273  ratio 0.4210
+  all land cells           n  64818  b   0.5955  r +0.1083  sd(mu) 0.2944  sd(truth) 1.6189  ratio 0.1818
+  (100-cell selected set, D3 section 4:  b 1.7301  r +0.7174  sd ratio 0.4146)
+
+==============================================================================
+2. DISCRIMINATOR — does the BODY's slope relax as the grid is COARSENED?  OUT OF SAMPLE 457-469
+==============================================================================
+   S smoothing => b -> 1.   G global shrinkage => b flat.   R rank noise => b -> 1, r climbs.
+     k   blocks          b          r     sd(mu)  sd(truth)
+     1      912     1.9573    +0.7184     0.6275     1.7096
+     2      514     2.5818    +0.7440     0.5408     1.8767
+     4      267     3.0502    +0.6490     0.4340     2.0399
+     8      129     2.3846    +0.3514     0.3308     2.2444
+    16       65     0.0965    +0.0088     0.2179     2.3833
+    32       32    -2.1454    -0.1275     0.1513     2.5467
+
+==============================================================================
+3. IS THE mu FIELD SMOOTHER THAN THE TRUTH?  OUT OF SAMPLE 457-469
+==============================================================================
+  log mu                                 east-west +0.2241   north-south +0.3152
+  log truth mean                         east-west +0.5089   north-south +0.5028
+  log truth mean, 336-month base rate    east-west +0.6419   north-south +0.6261
+  gate logit (same pass)                 east-west +0.9651   north-south +0.9539
+  spearman(mu, truth mean) +0.6727 on cells with any event
+
+==============================================================================
+COST, measured
+==============================================================================
+  wall time 114.3 s
+  peak RSS  3.16 GiB

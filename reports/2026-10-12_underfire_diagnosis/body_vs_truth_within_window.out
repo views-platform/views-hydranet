@@ -1,0 +1,28 @@
+================================================================================================
+IS THE BODY DARKEST WHERE THE CONFLICT IS? — within-window, the block is its own control
+================================================================================================
+  vehicle        2a5efc2a67c08eac…  family truncated_nb
+  population     64,818 land cells, months 421-456, target ged_sb_best
+  event cells    1,431  (2.21%)
+
+  THE GLOBAL NUMBER, for contrast (this is what the scoreboard reports)
+    pearson(log body, log truth), all land            +0.1242
+    pearson(log body, log truth), event cells only    +0.5835
+
+  THE WITHIN-BLOCK TEST
+    k      blocks  med body on  med body on     median     blocks      sign
+             used  event cells  empty cells       diff   negative    test p
+    8         162      16.0191      16.7106    -0.3889        58%  4.92e-02
+    16         78      16.9437      17.3491    -0.2784        60%  8.88e-02
+    32         33      15.9201      17.4793    -0.9417        64%  1.63e-01
+    64         14      14.1263      17.4882    -2.9217        79%  5.74e-02
+
+  READING. A negative median difference at every k, with most blocks negative, means the body is
+  systematically SMALLER on the cells where conflict actually happened than on the empty cells
+  beside them — and the positive global correlation is then a between-region artifact.
+
+================================================================================================
+COST, measured
+================================================================================================
+  wall time 3.38 s
+  peak RSS  2.96 GiB

@@ -267,7 +267,17 @@ class HydraNetInference:
         # ADR-067 strangler-fig: a registered family (nb/zinb) owns emit (family.mean) + sampling
         # (family.sample). resolve_family returns None for every legacy value, so those keep their
         # exact emit/sampler path below (byte-identical). Head emits activated params per cell.
-        self._family = resolve_family(self.output_distribution)
+        #
+        # ADR-073: the family we EMIT from need not be the one we TRAINED on. `emit_distribution`
+        # is None for every existing config, so `_emit_distribution` is `output_distribution` and
+        # this is byte-identical — the whole roster depends on that and a test pins it. When set,
+        # resolving `_family` here is the ONLY change needed: every other use of `self._family`
+        # (`:278` feedback auto-resolve, `:287`/`:418` validation, `_emit_magnitude`, the feedback
+        # mean and draw, and the emitted cube) is already emit-side. `self.output_distribution`
+        # stays the TRAINED name, because the legacy branches below key on the head's layout.
+        self._emit_distribution = config.get("emit_distribution") or self.output_distribution
+        self._assert_emit_family_can_read_this_head()
+        self._family = resolve_family(self._emit_distribution)
         # H-SAMPLE / ADR-070: the autoregressive FEEDBACK copy — the C-113 bloom mitigation.
         # None (default) = AUTO: resolve to 'sample' for a registered family head (the mitigation;
         # T=0-neutral so the scored T=0 product is byte-unchanged), 'mean' for a legacy head (raw
@@ -542,6 +552,43 @@ class HydraNetInference:
             self.model.set_locked_dropout(True)
 
         logger.info("HydraNetInference initialized successfully.")
+
+    def _assert_emit_family_can_read_this_head(self) -> None:
+        """ADR-073's parameter-layout rule, re-checked for callers that never ran the schema.
+
+        ⛔ `HydraNetConfig` already enforces this, and that is not enough. This class is routinely
+        constructed from a RAW DICT — `get_hp_config()` returns one, and every measurement driver
+        in `reports/` builds one — and such a caller never ran `validate_emit_distribution`. With
+        `extra="allow"` upstream, an unchecked `emit_distribution` would be neither rejected nor
+        honoured on that path: **silently ignored**, which is the precise failure this axis exists
+        to avoid. The repo already re-checks twice for exactly this reason (`choose_loss` for
+        `body_nll_denominator`, and the inert clamp in this same `__init__`).
+
+        No-op when the emitted family is the trained one, which is every existing config.
+        """
+        if self._emit_distribution == self.output_distribution:
+            return
+        from views_hydranet.distributions.registry import FAMILY_N_PARAMS
+
+        emit_n = FAMILY_N_PARAMS.get(self._emit_distribution)
+        trained_n = FAMILY_N_PARAMS.get(self.output_distribution)
+        if emit_n is None or trained_n is None:
+            err_msg = (
+                f"emit_distribution={self._emit_distribution!r} requires both it and "
+                f"output_distribution={self.output_distribution!r} to be registered distribution "
+                f"families; got {', '.join(sorted(FAMILY_N_PARAMS))} as the registered set."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
+        if emit_n != trained_n:
+            err_msg = (
+                f"emit_distribution={self._emit_distribution!r} emits {emit_n} parameters per "
+                f"cell but this head was trained as {self.output_distribution!r}, which emits "
+                f"{trained_n}. The channels mean what the trained family says they mean "
+                f"(ADR-073)."
+            )
+            logger.error(err_msg)
+            raise ValueError(err_msg)
 
     def _parse_feedback_clamp(self, raw):
         """Validate the per-target log1p feedback ceiling (C-113). None => disabled.
@@ -1049,6 +1096,16 @@ class HydraNetInference:
         emitted core (C-234). Drawn on CPU with the caller's seeded generator (S2 #121). Only the
         fed-back copy uses this; the scored cube is unchanged.
         """
+        # ⛔ ADR-073, and this is a DECISION rather than a consequence of which line was edited.
+        # `self._family` is the EMITTED family, so under `emit_distribution` the fed-back draw
+        # follows what the model emits. That is C-234's principle two paragraphs above, applied
+        # to a second emit-time axis: feeding back a body the model never emitted makes h>=2 a
+        # rollout over a history that does not exist.
+        # ⚠️ PROVISIONAL, and the conflict is on the record. M45 measured truncated draws fed back
+        # compounding x8-22 by h18 and costing 0.238 AP (4 seeds, RESULTS_LEDGER.md:403). That was
+        # a truncated-TRAINED body, not an nb body emitted truncated, so it does not settle this —
+        # but it is why the choice is written down instead of assumed. Issue #433 settles it with
+        # a measurement, and is BLOCKED on an nb vehicle with known provenance.
         fam = self._family
         npar = fam.n_params
         n_reg = reg.shape[1] // npar
