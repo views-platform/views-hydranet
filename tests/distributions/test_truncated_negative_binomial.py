@@ -245,3 +245,39 @@ def test_initial_raw_bias_finite_for_large_theta_prior():
         bias = fam.initial_raw_bias(priors={"theta": prior})
         assert torch.isfinite(bias).all()
         assert fam.activate(bias)[1] == pytest.approx(prior, rel=1e-4)
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "#441: sample()'s floor-to-1 fast path assumes E[Y|Y>0] -> 1, which holds as mu -> 0 at "
+        "FIXED theta and fails when theta -> 0 too. XFAIL(strict) so the suite records the defect "
+        "without going red, and SHOUTS (XPASS) the moment it is fixed."
+    ),
+)
+def test_the_sampler_agrees_with_the_family_s_own_mean():
+    """⛔ THE GUARD THAT DID NOT EXIST, which is why a 54x error shipped.
+
+    A family must agree with itself: the mean of many draws from `sample()` must match `mean()`.
+    The existing tests cover the sampler's SUPPORT (never 0) and its DETERMINISM, never its mean —
+    so nothing could see the fast path returning 1.0 where the distribution says 35.6.
+
+    Measured on the delivered `nb` control cube's own parameters, which is the regime an
+    `emit_distribution='truncated_nb'` run would put 99% of the grid into.
+    """
+    import torch
+
+    from views_hydranet.distributions.truncated_negative_binomial import TruncatedNBFamily
+
+    fam = TruncatedNBFamily()
+    # (mu, theta) pairs: the first two are the real grid's medians; the last two are ordinary
+    # values where the fast path's premise genuinely holds and the sampler is already correct.
+    cases = [(0.00067, 3.6e-06), (0.02, 1.3e-04), (0.3, 1.0), (5.0, 5.0)]
+    params = torch.tensor([[mu, th] for mu, th in cases], dtype=torch.float64)
+    analytic = fam.mean(params)
+    drawn = fam.sample(params.float(), 20000, torch.Generator().manual_seed(0)).double().mean(-1)
+    # 10% is loose for 20k draws and deliberately so: this must fail on a 30x error, not on noise.
+    assert torch.allclose(drawn, analytic, rtol=0.10), (
+        f"sampler disagrees with its own mean: analytic {analytic.tolist()} vs "
+        f"drawn {drawn.tolist()}"
+    )
