@@ -743,3 +743,99 @@ out-of-sample rate of **0.6944** — and it gives the arm a sharp pre-registered
 
 If it overshoots materially, the gate did not stay calibrated once it owned occurrence alone, and
 that is the finding rather than a tuning problem.
+
+---
+
+# AMENDMENT 4 — F6 admits a `truncated_nb` vehicle. 2026-10-21, BEFORE the re-baseline runs.
+
+⛔ **This amends a pre-registered falsifier. It is written and committed before the measurement it
+permits, and it is deliberately the narrowest change that unblocks that measurement.**
+
+## Why it is needed, and why it is not a convenience
+
+`vehicle.py` pinned `EXPECTED_SIDECAR["output_distribution"] = "nb"` — the delivered
+`violet_visitor` config. That pin **did its job**: on 2026-10-21 it refused to measure the arm's own
+vehicle and printed
+
+> `VOID (F6): the artifact's config does not match the delivery's. output_distribution: got
+> 'truncated_nb' expected 'nb'`
+
+rather than producing a number. The refusal exposed a structural problem the programme had not
+noticed:
+
+| | |
+|---|---|
+| the vehicle **every** D3–D12 measurement and the whole body scoreboard was taken on | `violet_visitor`, **`nb`**, `calibration_model_20261012_033112.pt`, sha `4acbf4d3…` |
+| ⛔ that checkpoint | **DELETED.** No `.pt`, no `.config.json`, no `.sha256`, anywhere under `views-models` |
+| the vehicle the structure-penalty arm runs on | `amber_kestrel`, **`truncated_nb`**, `calibration_model_20261013_010739.pt`, sha `2a5efc2a…` — on disk, with sidecar and digest |
+
+⇒ **The diagnosis and the arm are on different families, and the diagnosis's vehicle no longer
+exists.** The instrument was pinned to something unmeasurable. Comparing a `truncated_nb` arm
+against `nb` baselines would move **two** variables — the exact error
+`2026-10-15_loss_balance_prereg.md` warned about in writing.
+
+## What changes
+
+**F6 clause 7 (config identity) now admits `output_distribution ∈ {`nb`, `truncated_nb`}`** and the
+loaded family is **printed and stored with every result**. Every other clause is untouched.
+
+**Measured before writing this, so the amendment is evidenced rather than asserted:** of F6's ten
+config keys, **nine are identical** between the two vehicles —
+
+`model` `HydraBNUNet06_LSTM4` · `input_channels` 3 · `total_hidden_channels` 32 ·
+`output_channels` 1 · `dropout_rate` 0.15 · `static_channels` `[]` · `static_top_skip` `True` ·
+`reg_activation` `None` · `n_head_samples` 4
+
+— and `hurdle_nb_theta` is `None`, so Amendment 1 §2's T3 re-spec guard is already satisfied.
+**`output_distribution` is the only key that differs.** Same architecture, same capacity, same
+dropout, same draw count.
+
+## ⛔ What this amendment does NOT do
+
+1. ⛔ **It does not make the two families' numbers comparable.** Every baseline in
+   `2026-10-21_body_scoreboard.md` §5 and §7 — B-1's profile, `b` 0.4562, the level 24.7% — stays an
+   **`nb`** measurement and keeps standing as one. A `truncated_nb` re-baseline is a **second,
+   separate** baseline set. ⛔ No number is ever quoted across the two.
+2. ⛔ **It changes no estimator and no population.** Clauses 1–6 and the C-351 slots of B-1, B-2 and
+   B-3 are as written.
+3. ⛔ **It does not revisit any D3–D12 conclusion.** Those were measured on the `nb` vehicle, F6
+   passed as written at the time, and they are unaffected.
+4. ⚠️ **It cannot verify what the sidecar does not record.** `forecast_composition`,
+   `body_nll_denominator` and `loss_class_pos_weight` are all **absent** from both sidecars, so F6
+   has never been able to confirm them and still cannot. Recorded as a limitation, not fixed here.
+
+## ⛔ AND THE SECOND HALF, without which the amendment would license a wrong measurement
+
+**The readouts compose the forecast as `gate × mu`, and under `truncated_nb` that is not the
+forecast.** `truncated_negative_binomial.py:12` and its own `mean()`: the magnitude the head emits is
+
+> `E[Y | Y>0] = mu / (1 − NB(0; mu, theta))`
+
+`body_scoreboard.py:116`, `body_level_selection_check.py:62` and `d12_variogram.py:175` all use
+`gt_w * mu_w`. On the delivered arm `1 − p0 = 0.471`, so that is **roughly half** the emitted field.
+This is the **same defect** that was just found and fixed in the loss term itself
+(`training_engine.py`, commit `1964d79`) — found there first, and it is in the measurement too.
+
+⇒ **The readouts must compose the family's own mean, per draw, before averaging over draws.**
+`theta` is already stored in `d4_result.npz`, so nothing needs re-deriving. ⛔ **Under `nb` this is a
+strict no-op** (`nb.mean()` returns `mu`), which is the property that keeps the existing `nb`
+baselines valid and is asserted rather than assumed.
+
+## The gate on the re-baseline, pre-committed
+
+1. The frozen `nb` baseline is preserved as `d4_result_CONTROL_nb_4acbf4d3.npz` **before** anything
+   writes (done; sha256 `cf13f2d7e165d7d3…`, byte-identical, with a provenance file).
+2. Outputs carry `--tag=_tnb`, so no `nb` artifact is overwritten (done, verified a no-op at the
+   default tag).
+3. ⛔ **The arm's predictions `P-2` and `P-3` are restated against the `truncated_nb` baselines in a
+   committed amendment to `2026-10-21_structure_penalty_arm_prereg.md` BEFORE the arm runs.** The
+   24.7% and 0.4562 thresholds are `nb` numbers and do not transfer.
+4. ⚠️ `struct_penalty_weight = 8.89624` is **VOID** — gradient-norm matched against the uncorrected
+   composed field. Re-derived on the corrected term, same vehicle and window: **27.0768**, 44.9% of
+   the loss at initialisation, and the pre-committed 50%-of-loss fallback **did not fire** this time.
+   Body NLL and its gradient norm came out bit-identical to the first derivation, which is the check
+   that only the penalty moved.
+
+⚠️ **The honest cost of this amendment:** a pre-registered guard was widened after it fired. That is
+the move that destroys a pre-registration's value when it is done quietly, so it is recorded here in
+full, with the one differing key measured, before the measurement it permits.

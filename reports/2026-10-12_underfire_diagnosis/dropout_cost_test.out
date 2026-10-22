@@ -1,0 +1,27 @@
+================================================================================================
+IS MC DROPOUT WORTH 4x THE FORWARD PASSES? — matched at 16 members
+================================================================================================
+  vehicle      2a5efc2a67c08eac…  ⚠️ truncated_nb, the family the programme is moving OFF
+  population   13 months x 64,818 land cells = 842,634 cell-months, out of sample
+
+  condition                           composed CRPS     pos frac   fwd sweeps
+  A  4 dropout passes x 4 draws            0.056503       0.0012            4
+  B  dropout OFF, 1 pass x 16              0.056264       0.0011            1
+  observed                                        —       0.0034
+
+  ⇒ B vs A: -0.42% on CRPS, at ONE QUARTER of the forward cost
+
+  WHAT THE EXTRA THREE PASSES BUY, measured on the body's own parameter
+    mean across-pass variance of mu            1.607137e-01
+    mean mu                                    2.303772e+00
+    across-pass sd as a share of mu            0.1740
+    dropout-off mu vs the 4-pass mean, median ratio  1.0669
+
+  ⛔ READING. A difference under 1% is indistinguishable at n=1 and makes B the cheaper equal.
+  Only A being better by more than 1% would say the dropout posterior earns its cost.
+
+================================================================================================
+COST, measured
+================================================================================================
+  wall time 5.93 s
+  peak RSS  3.03 GiB

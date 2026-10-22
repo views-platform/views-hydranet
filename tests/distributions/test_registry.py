@@ -73,3 +73,27 @@ def test_self_zeroed_mirror_matches_class_attribute():
 
     truth = frozenset(n for n in family_names() if get_family(n).self_zeroed)
     assert self_zeroed_family_names() == truth
+
+
+def test_n_params_mirror_matches_class_attribute():
+    """ADR-073: FAMILY_N_PARAMS (torch-free mirror, read by config) must equal the ground truth
+    from each family's `n_params` — the two cannot silently drift.
+
+    ⛔ This mirror is load-bearing beyond bookkeeping. It is what stops a model trained on one
+    family being emitted from another whose parameter layout differs, which would reinterpret the
+    head's channels as something they were never trained to mean. A stale mirror would make that
+    guard pass on a combination it must refuse.
+    """
+    from views_hydranet.distributions import family_names, get_family
+    from views_hydranet.distributions.registry import FAMILY_N_PARAMS, family_n_params
+
+    truth = {n: get_family(n).n_params for n in family_names()}
+    assert FAMILY_N_PARAMS == truth
+    assert all(family_n_params(n) == truth[n] for n in truth)
+
+
+def test_family_n_params_fails_loud_on_an_unknown_name():
+    from views_hydranet.distributions.registry import family_n_params
+
+    with pytest.raises(ValueError, match="not a registered distribution family"):
+        family_n_params("not_a_family")
