@@ -1,6 +1,8 @@
 # Artifact manifest — the frozen cubes this dossier's results rest on
 
-**Written 2026-10-22.** ⛔ **These files are NOT in git and NOT backed up anywhere.**
+**Written 2026-10-22. ✅ ARCHIVED the same day — see §Archive below.**
+
+⚠️ They are still NOT in git, and git is not where they belong.
 `reports/` is gitignored (`.gitignore:203`) and none of them was ever force-added, so they exist on
 one disk, in one directory. The `nb` control's **checkpoint has been deleted**, which makes
 `d4_result_CONTROL_nb_4acbf4d3.npz` the sole surviving record of the delivered control model.
@@ -19,18 +21,42 @@ become uncheckable — not wrong, but unverifiable, which for this programme is 
 
 **430 MB total, 297 MB after de-duplication.**
 
-## ⛔ Why they are not archived yet
+## ✅ Archive
 
-Simon's decision (2026-10-22) was to archive them **outside git**. There is currently nowhere to
-archive them *to*:
+**Google Drive**, uploaded 2026-10-22 with `rclone`:
 
-- no external media mounted (`/media/simon` empty), no network volume;
-- the system disk is at **99% — 18 GB free of 938 GB**.
+```
+gdrive:views-hydranet-artifacts/2026-10-12_underfire_diagnosis/
+```
 
-A second copy on the same volume is not an archive, so this manifest records *what* needs saving
-and *why* rather than pretending the job is done. ⚠️ The 99%-full disk is independently a live risk
-for anything that retrieves artifacts from a pod — this repo already has a scar where a run filled
-the disk with a 37 GB wandb cache.
+**12 objects, 297.18 MiB.** Every one verified **identical by checksum** after upload
+(`rclone check --one-way --combined`, all `=`). To re-verify or restore:
+
+```bash
+rclone check  reports/2026-10-12_underfire_diagnosis \
+              gdrive:views-hydranet-artifacts/2026-10-12_underfire_diagnosis \
+              --filter "+ *.npz" --filter "+ ARTIFACT_MANIFEST.md" --filter "- *" --one-way
+rclone copy   gdrive:views-hydranet-artifacts/2026-10-12_underfire_diagnosis <dest>
+```
+
+⛔ `d4_result.npz` is **deliberately absent from the archive.** It is byte-identical to
+`d4_result_CONTROL_nb_4acbf4d3.npz` (same sha256 locally, same sha1 on Drive), so archiving it
+would have cost 133 MB to store the same bytes twice. 430 MB on disk became 297 MB archived.
+
+⚠️ **The archive has an expiry date on it.** `rclone` here uses its own shared Google client ID,
+which Google is retiring — it **stops working during 2026**:
+<https://rclone.org/drive/#making-your-own-client-id>. A restore attempted after that fails until
+someone creates a private client ID. ⇒ Verify the archive before relying on it, not after.
+
+⚠️ **One copy is not a backup.** Drive plus this machine is two copies of 297 MB of irreplaceable
+measurement, on one account and one disk. Issue #448 asks the durable-storage question properly.
+
+## Why this needed saying at all
+
+The system disk was at **99% (18 GB free of 938 GB)** when this manifest was first written, there
+was no external media and no network volume mounted, and an OOM crash froze the machine hours later.
+⛔ All five cubes survived that crash — **verified in seconds, by checksum, because this file
+existed.** That is the entire argument for writing it.
 
 **What a reader should do before trusting a number from this dossier:** check that the file is still
 present and its sha256 still matches. If it does not, the number is unverifiable and should be
