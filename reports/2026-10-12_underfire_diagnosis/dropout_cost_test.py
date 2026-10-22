@@ -13,7 +13,8 @@ ensemble size, never of ensemble size:
 ⇒ B costs a QUARTER of A's forward work. If B scores no worse, the dropout posterior is being paid
 for and not used.
 
-⛔ WHY THIS IS NOT OBVIOUSLY A WIN FOR A. MC dropout contributes EPISTEMIC spread that head sampling
+⛔ WHY THIS IS NOT OBVIOUSLY A WIN FOR A. MC dropout contributes EPISTEMIC spread that head
+sampling
 cannot produce — C-128 measured it at 11.2% of the body field's spatial variance, and spatially
 correlated (lag-1 +0.27…+0.46), because dropout removes channels and the convolutions spread the
 hole. The case for keeping it is that this is real uncertainty. The case against is that we have
@@ -75,73 +76,86 @@ def load(tag):
             z["gate"][:, j, :].astype(np.float64), z["land_cells"], str(z["sha"]))
 
 
-MU_A, TH_A, GT_A, land, sha_a = load("_tnb")        # 4 dropout passes
-MU_B, TH_B, GT_B, land_b, sha_b = load("_tnbNODROP")  # 1 deterministic pass
-if sha_a != sha_b or not np.array_equal(land, land_b):
-    raise SystemExit("VOID: the two conditions are not the same vehicle or the same cells.")
-if MU_B.shape[0] != 1:
-    raise SystemExit(f"VOID: the dropout-off cube has {MU_B.shape[0]} passes, expected 1.")
+# ⛔ Everything below runs in `main()`, NOT at import. These filenames match pytest's default
+# `python_files = *_test.py`, so a plain `pytest --collect-only` IMPORTS them — and the `.npz`
+# cubes they read are gitignored, so on CI the import raised `FileNotFoundError` and broke
+# collection for the whole suite (`test_falsify_zero_surprises.py::test_P2`). A measurement
+# driver should do its work when RUN, never when imported.
+def main() -> None:
+    MU_A, TH_A, GT_A, land, sha_a = load("_tnb")        # 4 dropout passes
+    MU_B, TH_B, GT_B, land_b, sha_b = load("_tnbNODROP")  # 1 deterministic pass
+    if sha_a != sha_b or not np.array_equal(land, land_b):
+        raise SystemExit("VOID: the two conditions are not the same vehicle or the same cells.")
+    if MU_B.shape[0] != 1:
+        raise SystemExit(f"VOID: the dropout-off cube has {MU_B.shape[0]} passes, expected 1.")
 
-df = pull((121, 504), SP / "pull_land_all3_121_504.parquet")
-w = df[(df.month_id >= OOS_LO) & (df.month_id <= OOS_HI)]
-Y = (w.pivot(index="priogrid_id", columns="month_id", values=TARGETS[SB])
-     .reindex(land)[list(range(OOS_LO, OOS_HI + 1))].to_numpy(np.float64)).T
-T, C = Y.shape
+    df = pull((121, 504), SP / "pull_land_all3_121_504.parquet")
+    w = df[(df.month_id >= OOS_LO) & (df.month_id <= OOS_HI)]
+    Y = (w.pivot(index="priogrid_id", columns="month_id", values=TARGETS[SB])
+         .reindex(land)[list(range(OOS_LO, OOS_HI + 1))].to_numpy(np.float64)).T
+    T, C = Y.shape
 
-print("=" * 96)
-print("IS MC DROPOUT WORTH 4x THE FORWARD PASSES? — matched at 16 members")
-print("=" * 96)
-print(f"  vehicle      {sha_a[:16]}…  ⚠️ truncated_nb, the family the programme is moving OFF")
-print(f"  population   {T} months x {C:,} land cells = {T * C:,} cell-months, out of sample")
-
-
-def ensemble(MU, TH, GT, head_draws):
-    rng = np.random.default_rng(SEED)
-    gen = torch.Generator().manual_seed(SEED)
-    mem = []
-    for d in range(MU.shape[0]):
-        p = MU[d] / (MU[d] + TH[d])
-        dr = rng.negative_binomial(np.repeat(TH[d][None], head_draws, 0),
-                                   1.0 - np.repeat(p[None], head_draws, 0)).astype(np.float64)
-        comp = compose_samples(torch.from_numpy(np.log1p(dr)).permute(1, 2, 0),
-                               torch.from_numpy(GT[d]), "soft_gate", generator=gen)
-        mem.append(np.expm1(comp.numpy()))
-    return np.concatenate(mem, -1).reshape(T * C, -1)
+    print("=" * 96)
+    print("IS MC DROPOUT WORTH 4x THE FORWARD PASSES? — matched at 16 members")
+    print("=" * 96)
+    print(f"  vehicle      {sha_a[:16]}…  ⚠️ truncated_nb, the family the programme is moving OFF")
+    print(f"  population   {T} months x {C:,} land cells = {T * C:,} cell-months, out of sample")
 
 
-ens_a = ensemble(MU_A, TH_A, GT_A, 4)    # 4 passes x 4 = 16
-ens_b = ensemble(MU_B, TH_B, GT_B, 16)   # 1 pass  x 16 = 16
-assert ens_a.shape == ens_b.shape, (ens_a.shape, ens_b.shape)
+    def ensemble(MU, TH, GT, head_draws):
+        rng = np.random.default_rng(SEED)
+        gen = torch.Generator().manual_seed(SEED)
+        mem = []
+        for d in range(MU.shape[0]):
+            p = MU[d] / (MU[d] + TH[d])
+            dr = rng.negative_binomial(np.repeat(TH[d][None], head_draws, 0),
+                                       1.0 - np.repeat(p[None], head_draws, 0)).astype(np.float64)
+            comp = compose_samples(torch.from_numpy(np.log1p(dr)).permute(1, 2, 0),
+                                   torch.from_numpy(GT[d]), "soft_gate", generator=gen)
+            mem.append(np.expm1(comp.numpy()))
+        return np.concatenate(mem, -1).reshape(T * C, -1)
 
-yv = Y.reshape(-1)
-ca = float(crps_ensemble(yv, ens_a).mean())
-cb = float(crps_ensemble(yv, ens_b).mean())
-obs = float((yv > 0).mean())
 
-print("\n  %-34s %14s %12s %12s" % ("condition", "composed CRPS", "pos frac", "fwd sweeps"))
-print("  %-34s %14.6f %12.4f %12d" % ("A  4 dropout passes x 4 draws", ca, (ens_a > 0).mean(), 4))
-print("  %-34s %14.6f %12.4f %12d" % ("B  dropout OFF, 1 pass x 16", cb, (ens_b > 0).mean(), 1))
-print("  %-34s %14s %12.4f" % ("observed", "—", obs))
-print("\n  ⇒ B vs A: %+.2f%% on CRPS, at ONE QUARTER of the forward cost"
-      % (100 * (cb - ca) / ca))
+    ens_a = ensemble(MU_A, TH_A, GT_A, 4)    # 4 passes x 4 = 16
+    ens_b = ensemble(MU_B, TH_B, GT_B, 16)   # 1 pass  x 16 = 16
+    assert ens_a.shape == ens_b.shape, (ens_a.shape, ens_b.shape)
 
-# Where A's spread actually comes from — the thing the cost buys.
-mu_bar = MU_A.mean(0)
-between = MU_A.var(0, ddof=1).mean()          # across dropout passes
-print("\n  WHAT THE EXTRA THREE PASSES BUY, measured on the body's own parameter")
-print("    mean across-pass variance of mu            %.6e" % between)
-print("    mean mu                                    %.6e" % mu_bar.mean())
-print("    across-pass sd as a share of mu            %.4f"
-      % float(np.sqrt(between) / mu_bar.mean()))
-print("    dropout-off mu vs the 4-pass mean, median ratio  %.4f"
-      % float(np.median(MU_B[0] / np.clip(mu_bar, 1e-12, None))))
+    yv = Y.reshape(-1)
+    ca = float(crps_ensemble(yv, ens_a).mean())
+    cb = float(crps_ensemble(yv, ens_b).mean())
+    obs = float((yv > 0).mean())
 
-print("""
-  ⛔ READING. A difference under 1% is indistinguishable at n=1 and makes B the cheaper equal.
-  Only A being better by more than 1% would say the dropout posterior earns its cost.""")
+    print("\n  %-34s %14s %12s %12s" % ("condition", "composed CRPS", "pos frac", "fwd sweeps"))
+    print("  %-34s %14.6f %12.4f %12d"
+          % ("A  4 dropout passes x 4 draws", ca, (ens_a > 0).mean(), 4))
+    print("  %-34s %14.6f %12.4f %12d"
+          % ("B  dropout OFF, 1 pass x 16", cb, (ens_b > 0).mean(), 1))
+    print("  %-34s %14s %12.4f" % ("observed", "—", obs))
+    print("\n  ⇒ B vs A: %+.2f%% on CRPS, at ONE QUARTER of the forward cost"
+          % (100 * (cb - ca) / ca))
 
-print("\n" + "=" * 96)
-print("COST, measured")
-print("=" * 96)
-print("  wall time %.2f s" % (time.time() - t_start))
-print("  peak RSS  %.2f GiB" % (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 ** 2))
+    # Where A's spread actually comes from — the thing the cost buys.
+    mu_bar = MU_A.mean(0)
+    between = MU_A.var(0, ddof=1).mean()          # across dropout passes
+    print("\n  WHAT THE EXTRA THREE PASSES BUY, measured on the body's own parameter")
+    print("    mean across-pass variance of mu            %.6e" % between)
+    print("    mean mu                                    %.6e" % mu_bar.mean())
+    print("    across-pass sd as a share of mu            %.4f"
+          % float(np.sqrt(between) / mu_bar.mean()))
+    print("    dropout-off mu vs the 4-pass mean, median ratio  %.4f"
+          % float(np.median(MU_B[0] / np.clip(mu_bar, 1e-12, None))))
+
+    print("""
+      ⛔ READING. A difference under 1% is indistinguishable at n=1 and makes B the cheaper equal.
+      Only A being better by more than 1% would say the dropout posterior earns its cost.""")
+
+    print("\n" + "=" * 96)
+    print("COST, measured")
+    print("=" * 96)
+    print("  wall time %.2f s" % (time.time() - t_start))
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 ** 2
+    print("  peak RSS  %.2f GiB" % peak)
+
+
+if __name__ == "__main__":
+    main()
