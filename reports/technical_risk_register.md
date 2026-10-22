@@ -5555,7 +5555,7 @@ incorrect, and it is in every delivered model today without making any of them w
 
 ---
 
-### C-357: a RESOLVED concern's pre-fix measurement is still cited as a live noise floor, in two pre-registrations
+### C-357: a closed concern's pre-fix measurement is still cited as a live noise floor, in two pre-registrations
 
 | Field | Value |
 |-------|-------|
@@ -5566,7 +5566,14 @@ incorrect, and it is in every delivered model today without making any of them w
 | Location | `reports/2026-10-15_loss_balance_prereg.md` §5 (F8); `reports/2026-10-12_composition_arm_prereg.md` §5; the figure's origin at **C-119** |
 | Cross-refs | **C-119 — the resolved entry whose pre-fix number is being quoted** (a pointer back to this entry has been added there); C-307 (a cheap screen's NO recorded as a closure — the adjacent failure of a conclusion outliving its evidence) |
 
-C-119 is **RESOLVED** (`daab1c1`; bit-identical same-seed runs, 78/78 `y_pred` `array_equal`). Its
+C-119 is **RESOLVED** (`daab1c1`; bit-identical same-seed runs, 78/78 `y_pred` `array_equal`).
+
+⚠️ **This entry's own title says "closed" rather than "RESOLVED", and that is not style.** The
+register's structural count keys on the literal `^### C-\d+.*RESOLVED`, so an entry whose *title*
+contains the word is counted as resolved. Registering this one at first made the header's Open count
+disagree with the file by exactly one — an entry about stale resolved entries, miscounted as
+resolved. Caught by `test_register_header_matches_actual_counts` the same day. ⛔ **The marker is
+load-bearing: never use the word in an entry title.** Its
 *"~20% training variance"* is the **pre-fix** measurement — it is the size of the defect that was
 fixed, not a property of the pipeline that remains. Two live pre-registrations size falsifiers from
 it, which makes those falsifiers roughly **4× too coarse to fire**.

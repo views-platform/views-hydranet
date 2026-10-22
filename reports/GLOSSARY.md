@@ -59,6 +59,26 @@ Two ways a cell's predicted zero can arise:
 | **gated zeros** | the zeros come from the separate **gate** (gate × body) — every model so far | use_gate, gate-on, hurdle |
 | **self-zeroed** | **no separate gate** — the body's own output covers the zeros across all cells. A count body (NB/ZINB) puts probability mass on 0; a plain point body just regresses toward 0 (the default `standard`). | dense_nb, standard ("no gate"), zero_handling=none, use_gate=False |
 
+## 2bb. The emit-time split (which family we DRAW from, vs which we TRAINED on) — ADR-073
+
+Until 2026-10-21 these were one setting. `output_distribution` chose the family for **both** the
+training loss and the emitted draw, so a body trained one way could only be drawn the same way.
+
+| locked name | what it is | banned aliases |
+|---|---|---|
+| **the emit-time split** | training the body on one distribution family and **emitting** it from another: `output_distribution` is the family it was TRAINED on, `emit_distribution` the family it is DRAWN from. `None` (the default) means they are the same, which is every model to date. The pair it exists for is `nb` trained, `truncated_nb` emitted — the gate then owns occurrence and the body owns only magnitude. ⛔ The emitting family must declare the same `n_params`, because the head's channels mean what the trained family says they mean | emit family, emission family, train/emit decouple, dual family, `emit_family_core` (⛔ that is **§ADR-068** and is a *different* axis: which part of ONE family to emit) |
+
+⚠️ **`gated forecast = gate × body` is unchanged by this** (§1). The split changes *what the body
+is*, never how the gate and body combine — that is §2c.
+
+⛔ **The TERM stays locked; the IDEA was rejected on 2026-10-22.** We still need the name to talk
+about the axis, and `emit_distribution` still exists as a default-off config field — so keep using
+this vocabulary. But **do not describe the emit-time split as a route to anything.** It is strictly
+dominated: it inverts the emitted magnitude field's rank correlation with the gate (+0.49 → −0.16)
+and pays 13.5× on the empty background to buy an event-cell gain that a family-free recalibration
+takes outright at no background cost (M67; ADR-073 §0). ⇒ A sentence using this term should say
+what was *measured*, never that it is the plan.
+
 ## 2c. The forecast-composition arms (how a trained gate + body become ONE scored forecast)
 An **arm** is a specific rule for turning a trained **body** and the **gate** into the single scored
 forecast. It is a *compose-time / score-time* choice, layered on top of the §2/§3 training choices — the

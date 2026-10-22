@@ -23,9 +23,16 @@ about the workflow — the same rule the experiment log lives under.
 
 | | count |
 |---|---|
-| **WRONG** | **55** |
+| **WRONG** | **58** |
 | **RIGHT** | **26** |
 | OPEN | 1 |
+
+⛔ **2026-10-22 — the three rows added today (`W-56`, `W-57`, `W-58`) were all stated to Simon in
+chat as grounds for a decision, and all three were caught by an independent panel rather than by
+me.** Two of them are the **same C-351 population error** as `W-55` from the day before, once in
+each direction. The actionable pattern is not the ratio: it is that I recommend on the first
+measurement and gather the disconfirming ones afterwards, when they were free and available on the
+same artifact at the same time.
 
 ⚠️ **That raw ratio is the least useful number in this file.** The errors are not randomly
 distributed, and the split by *kind* is the actionable result:
@@ -165,6 +172,9 @@ External adversarial checking beats self-review here, and it is cheap relative t
 | W-54 | **Same file, same run:** *"I expect the gate slope's optimum to sit near 1.0 (the gate is calibrated: median \|gate − p\| = 0.0054) and to buy less than the theta arm."* The second half held (2.27% against 9.98%); the first half did **not** — the optimum is at slope ≈ 25 on a plateau running from about 10 upward, i.e. the scored metric wants a near-hard threshold. ⚠️ Calibration of the *marginal* probability does not imply the identity map minimises a composed ensemble score, and I conflated the two. |
 
 | W-55 | ⛔ **Pre-registered at 65% confidence in `2026-10-21_emit_time_split_prereg.md` P-2:** zero-truncated emission would make composed CRPS **WORSE by 5–30%**, because *"99.66% of out-of-sample cell-months have truth 0, so a floor of 1 wherever the gate fires is paid for on every one of them."* **Measured −5.94%, i.e. BETTER**, and F2 fired. ⭐ **The error is a clean instance of a class this repo keeps hitting:** I reasoned about the *count* of cells rather than their *contribution*. True-zero cells are 99.66% of the population and supply ~1% of the pooled CRPS; event cells are 0.34% and supply ~99%. The penalty I predicted is real (per-cell CRPS on zeros rose 13.5×) and nearly invisible in the statistic. Same shape as reading an all-land `b` as a property of the model. |
+| W-56 | ⛔ **Stated to Simon in chat, twice, as a reason to be cautious about fixing the sampler:** *"At the model's own fitted spread, a correct truncated draw says: given any violence at all in a cell-month, there is a 29–56% chance of at least 100 fatalities, and up to a 37% chance of at least 1000."* | ⛔ **population — C-351 again, and in the opposite direction to `W-55` on the same axis** | the Betancourt seat derived the contradiction from the published numbers alone, then I measured it on the frozen cube | **Wrong by three orders of magnitude.** Computed at the GRID-MEDIAN `theta` (3.69e-06), on cells that almost never emit. Gate-weighted mean `theta` is **0.0902** — 24,000× the median — and gate-weighted **`P(Y≥100 \| Y>0)` = 0.00054**, about one positive in 2,000. The identity closes end to end (`E[gate·(1−p0)]` = 0.000899 against the measured emitted positive fraction 0.000900), so the arithmetic was never in doubt; only the population was. ⭐ **Same error as `W-55` eight hours earlier, inverted:** there I weighed 99.66% of cells as if they carried the score; here I weighed them as if they carried the emission. A population can dominate the count and contribute nothing to *either*. |
+| W-57 | **Stated to Simon as the reason the sampler fix was hard, and inherited uncritically from the method's own docstring:** *"there is no cheap exact alternative — `torch.distributions.NegativeBinomial` raises `NotImplementedError` for both `cdf` and `icdf`, rejection does not terminate when `p0 → 1`."* | ⛔ **never describe an artifact I haven't opened — the artifact here being our own driver** | the Sutton seat pointed at `reports/2026-10-12_underfire_diagnosis/emit_time_split_test.py`'s `ensemble()` | **Refuted by this repository.** The driver that produced the headline does the exact truncated draw in three lines — `p0 = p_succ**th`, `u = p0 + u*(1−p0)`, `nbinom.ppf(u, th, p_succ)` — with cost that *falls* as `p0 → 1`. The docstring was describing a limitation of `torch`, not of the problem, and I repeated it as if it were the problem. ⇒ The fix target is **inverse-CDF with the driver as its oracle**, which also turns ADR-073 §6's "distributional, never bit-exact" concession into a parity test. |
+| W-58 | **Recommended to Simon as "the fix", on the strength of my own numerical check:** the logarithmic-series limit of the zero-truncated NB, *"exact in our regime — total variation ≤ 0.00013"*. | ⛔ **sweep the free parameter before reporting a scalar — I ran the sweep and then quoted one end of it** | the Gneiting seat, independently, on the population that carries the score | **Half right, and I reported the favourable half.** My own table has TV **≤ 1.3e-04** for `theta ≤ 1e-04` *and* **0.0116 at `theta` = 0.044, `mu` = 0.05** rising to **0.0282 at `mu` = 2** — and `theta ≈ 0.044` is the gate-firing population (median `theta` in the gate's top 1% = 0.0352). ⇒ The proposal would have replaced an approximation that is catastrophic where ~1% of the score lives with one that is worst where 99% of it lives. ⚠️ It is a genuine small-`theta` branch and a torch-native closed form was verified against the driver (medians identical, means to 0.2%) — but it is the *branch*, not the fix, and I sold it as the fix. |
 
 ## RIGHT
 
