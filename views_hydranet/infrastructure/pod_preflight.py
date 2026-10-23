@@ -21,9 +21,17 @@ Run it on the pod AFTER the install and BEFORE training::
 
 It exits non-zero and names the offending keys, so a launcher can stop on it.
 
-⚠️ What it does NOT check: that a declared field is *wired to anything*. A key can be declared,
-accepted, and still inert (C-324). That is the job of a potency check at a trained checkpoint, and
-this module deliberately does not pretend to cover it.
+⛔ ``--require`` asks TWO questions, and both have to be asked. **Does the installed schema
+declare the field** (otherwise the key is swallowed by ``extra="allow"`` — the W-22 shape above),
+and **does the config actually set it** (otherwise the field takes its schema default, so the
+capability the run depends on is simply off). A build can declare ``trajectory_log_path`` perfectly
+while the config never sets it, and the run then trains with the instrumentation silently absent —
+the same class of believable null, arrived at from the other side. ⚠️ The second question needs
+``--config``; without it the pre-flight says so rather than reporting a pass it did not earn.
+
+⚠️ What it does NOT check: that a declared and set field is *wired to anything*. A key can be
+declared, accepted, set, and still inert (C-324). That is the job of a potency check at a trained
+checkpoint, and this module deliberately does not pretend to cover it.
 """
 
 from __future__ import annotations
@@ -106,6 +114,15 @@ def missing_required(required: list[str]) -> list[str]:
     return [k for k in required if k not in declared]
 
 
+def required_not_set(required: list[str], config_keys: set[str]) -> list[str]:
+    """Named capabilities the run depends on that the CONFIG never sets.
+
+    ⛔ The other half of :func:`missing_required`. A declared field the config omits falls back to
+    its schema default, so the run proceeds with the capability off and nothing says so.
+    """
+    return [k for k in required if k not in config_keys]
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--config", type=Path, help="roster config_hyperparameters.py or a .json")
@@ -113,7 +130,8 @@ def main(argv: list[str] | None = None) -> int:
         "--require",
         default="",
         help="comma-separated config fields this run depends on; each must be DECLARED by the "
-        "installed schema. Use for a field the run would otherwise set silently.",
+        "installed schema AND SET by --config. Use for a capability whose absence would "
+        "otherwise be silent.",
     )
     args = ap.parse_args(argv)
 
@@ -126,6 +144,9 @@ def main(argv: list[str] | None = None) -> int:
 
     problems: list[str] = []
 
+    # Loaded before the --require block because that block now asks a question about it.
+    keys = load_config_keys(args.config) if args.config is not None else None
+
     required = [k.strip() for k in args.require.split(",") if k.strip()]
     if required:
         gone = missing_required(required)
@@ -137,9 +158,20 @@ def main(argv: list[str] | None = None) -> int:
             )
         else:
             print("  ✅ all declared by the installed schema")
+        if keys is None:
+            print("  ⚠️ NOT CHECKED: whether the config sets them — pass --config to check that.")
+        else:
+            unset = required_not_set(required, keys)
+            if unset:
+                problems.append(
+                    f"the config does NOT set {unset} — those fields would take their schema "
+                    f"defaults, so the capability this run depends on would simply be off and "
+                    f"nothing would say so"
+                )
+            else:
+                print("  ✅ all set by the config")
 
-    if args.config is not None:
-        keys = load_config_keys(args.config)
+    if keys is not None:
         unknown = undeclared_keys(keys)
         print(f"\n  config: {args.config} ({len(keys)} keys)")
         if unknown:
