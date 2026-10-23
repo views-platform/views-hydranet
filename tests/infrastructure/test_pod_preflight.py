@@ -21,6 +21,7 @@ from views_hydranet.infrastructure.pod_preflight import (
     load_config_keys,
     main,
     missing_required,
+    required_not_set,
     undeclared_keys,
 )
 
@@ -112,3 +113,47 @@ def test_it_says_what_it_does_NOT_prove(tmp_path, capsys):
     p.write_text(json.dumps({"output_distribution": "nb"}))
     main(["--config", str(p)])
     assert "does NOT prove" in capsys.readouterr().out
+
+
+def test_required_not_set_passes_a_field_the_config_sets():
+    assert required_not_set(["trajectory_log_path"], {"trajectory_log_path", "steps"}) == []
+
+
+def test_required_not_set_reports_a_field_the_config_omits():
+    assert required_not_set(["trajectory_log_path"], {"steps"}) == ["trajectory_log_path"]
+
+
+def test_a_required_field_the_config_DOES_NOT_SET_fails_the_preflight(tmp_path, capsys):
+    """⭐⭐ The other half of W-22, and the shape that would have gone out on views-models#593.
+
+    `trajectory_log_path` is declared by every build we would install, so the declare-check is
+    green. If the config never sets it the field takes its schema default, the per-task loss split
+    is never written, and the control run returns a result nobody can read back — exactly the
+    believable null this module exists to stop, reached from the other side.
+    """
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps({"output_distribution": "nb"}))
+    assert main(["--config", str(p), "--require", "trajectory_log_path"]) == 1
+    out = capsys.readouterr().out
+    assert "PRE-FLIGHT FAILED" in out
+    assert "trajectory_log_path" in out
+    assert "does NOT set" in out
+    assert "DO NOT TRAIN" in out
+
+
+def test_a_required_field_the_config_sets_passes_the_preflight(tmp_path, capsys):
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps({"output_distribution": "nb", "trajectory_log_path": "/w/t.csv"}))
+    assert main(["--config", str(p), "--require", "trajectory_log_path"]) == 0
+    out = capsys.readouterr().out
+    assert "all declared by the installed schema" in out
+    assert "all set by the config" in out
+
+
+def test_require_without_a_config_says_the_set_half_was_not_checked(capsys):
+    """A pre-flight may not report a pass it did not earn. Without `--config` the set-question is
+    unanswerable, so it must be named rather than quietly skipped."""
+    assert main(["--require", "trajectory_log_path"]) == 0
+    out = capsys.readouterr().out
+    assert "NOT CHECKED" in out
+    assert "--config" in out
