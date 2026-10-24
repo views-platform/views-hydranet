@@ -80,6 +80,14 @@ def load_config_keys(path: Path) -> set[str]:
     ``ast.parse`` first so a syntactically broken config fails as a parse error naming the file
     rather than as a confusing ``exec`` traceback — the convention ``arm_identity_check.py``
     already follows.
+
+    ⛔ ``__file__`` is in the namespace because a roster config may legitimately read it. Seven of
+    views-models' 140 configs derive their own model name with
+    ``Path(__file__).resolve().parent.parent.name`` — the six ``*_kestrel`` models and
+    ``heavy_freighter`` — and that is how every one of them sets ``trajectory_log_path``. Without
+    it ``exec`` raises ``NameError`` and this pre-flight cannot read the one config shape it was
+    written to check. ``__name__`` is set alongside it, and deliberately not to ``"__main__"``: a
+    config guarded by ``if __name__ == "__main__"`` must not have that block run here.
     """
     text = path.read_text()
     if path.suffix == ".json":
@@ -87,7 +95,7 @@ def load_config_keys(path: Path) -> set[str]:
 
         return set(json.loads(text))
     ast.parse(text)
-    ns: dict = {}
+    ns: dict = {"__file__": str(path), "__name__": "__views_hydranet_config__"}
     exec(compile(text, str(path), "exec"), ns)  # noqa: S102 - a repo-local, trusted config
     if "get_hp_config" not in ns:
         err_msg = f"{path} defines no get_hp_config(); it is not a roster config."

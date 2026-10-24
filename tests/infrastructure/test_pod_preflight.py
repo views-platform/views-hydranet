@@ -80,6 +80,105 @@ def test_load_config_keys_reports_a_syntax_error_against_the_file(tmp_path):
         load_config_keys(p)
 
 
+#: A roster config in the shape that this pre-flight could not read until 2026-10-24. Seven of
+#: views-models' 140 configs open like this — the six ``*_kestrel`` models and ``heavy_freighter``
+#: — and it is how every one of them sets ``trajectory_log_path``, which is the field the
+#: ``--require`` half of this module exists to check.
+_CONFIG_THAT_READS_DUNDER_FILE = """\
+from pathlib import Path
+
+_MODEL_NAME = Path(__file__).resolve().parent.parent.name
+
+
+def get_hp_config():
+    return {
+        'output_distribution': 'nb',
+        'trajectory_log_path': str(Path('/workspace/deliver') / _MODEL_NAME / 'trajectory.csv'),
+    }
+"""
+
+
+def test_load_config_keys_reads_a_config_that_derives_its_name_from_dunder_file(tmp_path):
+    """⭐ The gate could not read the one config shape it was written to check.
+
+    ``exec`` ran against an empty namespace, so a config reading ``__file__`` raised
+    ``NameError`` before ``get_hp_config`` was ever defined. It failed closed — the traceback
+    exits non-zero — but it handed the operator a ``NameError`` instead of a diagnosis, and it
+    refused configs that were correct.
+    """
+    model = tmp_path / "heavy_freighter" / "configs"
+    model.mkdir(parents=True)
+    p = model / "config_hyperparameters.py"
+    p.write_text(_CONFIG_THAT_READS_DUNDER_FILE)
+    assert load_config_keys(p) == {"output_distribution", "trajectory_log_path"}
+
+
+def test_the_dunder_file_a_config_reads_is_its_own_path(tmp_path):
+    """Not merely DEFINED — the configs above derive a MODEL NAME from it, so any placeholder
+    that happened to be a valid path would hand them the wrong name silently.
+
+    The config asserts it itself, so a loader that defined ``__file__`` as anything else fails
+    here rather than in a pod's deliver directory three hours in.
+    """
+    model = tmp_path / "heavy_freighter" / "configs"
+    model.mkdir(parents=True)
+    p = model / "config_hyperparameters.py"
+    p.write_text(
+        "from pathlib import Path\n"
+        "_MODEL_NAME = Path(__file__).resolve().parent.parent.name\n"
+        "if _MODEL_NAME != 'heavy_freighter':\n"
+        "    raise AssertionError('__file__ was not this config: got ' + _MODEL_NAME)\n"
+        "def get_hp_config():\n"
+        "    return {'output_distribution': 'nb'}\n"
+    )
+    assert load_config_keys(p) == {"output_distribution"}
+
+
+def test_the_namespace_sets_dunder_name_explicitly(tmp_path):
+    """⛔ This pins the SENTINEL, not merely "not ``__main__``", and the distinction is a measured
+    one: dropping ``__name__`` from the namespace altogether left the whole file green.
+
+    It survives because ``exec`` inserts ``__builtins__`` as the builtins MODULE, so an unresolved
+    global ``__name__`` falls through to ``builtins.__name__`` — the string ``"builtins"``, which
+    is not ``"__main__"``, so the guard below appears to hold. That is a CPython detail, not a
+    contract. Asserting the sentinel is what makes the namespace line load-bearing.
+    """
+    p = tmp_path / "config_hyperparameters.py"
+    p.write_text(
+        "if __name__ != '__views_hydranet_config__':\n"
+        "    raise AssertionError('the pre-flight did not name its namespace: ' + __name__)\n"
+        "def get_hp_config():\n"
+        "    return {'output_distribution': 'nb'}\n"
+    )
+    assert load_config_keys(p) == {"output_distribution"}
+
+
+def test_a_configs_main_guard_does_not_run(tmp_path):
+    """The consequence that matters: a config whose file ends in a CLI block must not have that
+    block executed by a pre-flight that only wants its keys."""
+    p = tmp_path / "config_hyperparameters.py"
+    p.write_text(
+        "ran = False\n"
+        "def get_hp_config():\n"
+        "    return {'output_distribution': 'nb'}\n"
+        "if __name__ == '__main__':\n"
+        "    raise AssertionError('the pre-flight executed this config as a script')\n"
+    )
+    assert load_config_keys(p) == {"output_distribution"}
+
+
+def test_a_config_reading_dunder_file_PASSES_the_preflight(tmp_path, capsys):
+    """End to end through ``main()``, because the unit above would pass on a module whose CLI
+    still crashed."""
+    model = tmp_path / "heavy_freighter" / "configs"
+    model.mkdir(parents=True)
+    p = model / "config_hyperparameters.py"
+    p.write_text(_CONFIG_THAT_READS_DUNDER_FILE)
+    assert main(["--config", str(p), "--require", "trajectory_log_path"]) == 0
+    out = capsys.readouterr().out
+    assert "all set by the config" in out
+
+
 def test_a_clean_config_PASSES_the_preflight(tmp_path, capsys):
     p = tmp_path / "c.json"
     p.write_text(json.dumps({"output_distribution": "nb", "dropout_rate": 0.15}))
