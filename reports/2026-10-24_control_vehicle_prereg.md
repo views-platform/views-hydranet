@@ -8,6 +8,65 @@ artifact later work can be measured *on*.
 
 ---
 
+## 0a. DEFINITION OF DONE — read this section alone if you read nothing else
+
+Added 2026-10-24 at Simon's request, because too much adjacent work had been raised at once and
+the goal stopped being legible. This section is the goal. Everything below it is how to score the
+result, which is a different job and must not gate the launch.
+
+### The goal, one sentence
+
+**Train `heavy_freighter` once, on a pod, on views-hydranet 0.1.7, global land, the calibration
+partition, 300 lessons — and bring the artifact home.**
+
+### DONE when all six are true
+
+| # | done | whose |
+|---|---|---|
+| 1 | the run completed — `STATUS: OK`, no `FAILURE`, no `INCOMPLETE` | views-models |
+| 2 | the artifact came home — state dict + its two sidecars, the 13 parquets, the posterior archive, `PROVENANCE` | views-models |
+| 3 | `trajectory.csv` came home with **~300 rows and its six per-task columns populated**, not blank | views-models |
+| 4 | the config as run is recorded and is the one we meant: **63 keys, `h_init` absent, `trajectory_log_path` set** | views-models |
+| 5 | **FG-A passes** on it — `AP_ctrl(h18) ≥ 5.0 × prevalence(h18)`, prevalence from the run's own score row | this repo |
+| 6 | a score row exists on the frozen lodestar, all three targets, at `h*` | this repo |
+
+1–4 are the run. 5–6 happen **after** the artifact lands and need no decision before launch.
+⛔ 5 is not ceremony: `floor_gate` FG-A is the only check in either repository that detects a
+C-184 bad BatchNorm basin, which is the live way a control comes back unusable with clean logs.
+
+### BLOCKING — exactly one thing
+
+⛔ **The config edit must be committed to `development`.** `pod_run_model.sh` clones with
+`-b development`, so that branch is what a pod trains, and the edit currently exists only in the
+views-models working tree. Verified against `origin/development` @ `2e73de38`, freshly fetched:
+`h_init` still present, `trajectory_log_path` still absent.
+
+One PR in views-models. Needs Simon's word. Nothing else blocks.
+
+### NOT BLOCKING — and I raised most of these, so I am naming them off the path
+
+| raised | why it does not gate the launch |
+|---|---|
+| views-hydranet PR **#456** / a 0.1.8 | the pre-flight bug it fixes is in a module **nothing on the pod calls**. 0.1.7 trains correctly; verified by validating this config through `HydraNetConfig` on 0.1.7 from real PyPI. ⛔ Do not wait for it. |
+| views-models **#602** | adds the pre-flight to `pod_run_model.sh`. A safety gate for future runs. Not this one. |
+| **this document's** §1–§9 | how to score the artifact, and the VOID rules. Needed when it lands, not to launch. |
+| `h* = 18`, and the vehicle | scoring decisions. They set §6's threshold and §5's V7. ⛔ Both can be answered after the pod is running. |
+| `ss_schedule` / `freeze_recurrent` being ON | a fact about *what this is a control for*, not a defect. **Change nothing** — a control's job is to match the arms. |
+| the other 7 fleet configs' `config_sweep.py` | no sweep executes in this run. |
+
+### The command
+
+After the standard pod setup (`/root/.netrc` at mode 600, piped from the laptop;
+`WANDB_MODE=offline`):
+
+```sh
+./tools/podrun/pod_run_model.sh heavy_freighter
+```
+
+~4 h on RTX PRO 4500 SE class hardware (202–272 min measured, n=3), ~$2.25.
+
+---
+
 ## 0. Why this document exists
 
 #593's Acceptance checklist was audited on 2026-10-24 (`/falsify`, probe P5) and **two of its
