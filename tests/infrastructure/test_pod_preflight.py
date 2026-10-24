@@ -134,9 +134,28 @@ def test_the_dunder_file_a_config_reads_is_its_own_path(tmp_path):
     assert load_config_keys(p) == {"output_distribution"}
 
 
+def test_the_namespace_sets_dunder_name_explicitly(tmp_path):
+    """⛔ This pins the SENTINEL, not merely "not ``__main__``", and the distinction is a measured
+    one: dropping ``__name__`` from the namespace altogether left the whole file green.
+
+    It survives because ``exec`` inserts ``__builtins__`` as the builtins MODULE, so an unresolved
+    global ``__name__`` falls through to ``builtins.__name__`` — the string ``"builtins"``, which
+    is not ``"__main__"``, so the guard below appears to hold. That is a CPython detail, not a
+    contract. Asserting the sentinel is what makes the namespace line load-bearing.
+    """
+    p = tmp_path / "config_hyperparameters.py"
+    p.write_text(
+        "if __name__ != '__views_hydranet_config__':\n"
+        "    raise AssertionError('the pre-flight did not name its namespace: ' + __name__)\n"
+        "def get_hp_config():\n"
+        "    return {'output_distribution': 'nb'}\n"
+    )
+    assert load_config_keys(p) == {"output_distribution"}
+
+
 def test_a_configs_main_guard_does_not_run(tmp_path):
-    """``__name__`` is set, and deliberately NOT to ``"__main__"``. A config whose file ends in a
-    CLI block must not have that block executed by a pre-flight that only wants its keys."""
+    """The consequence that matters: a config whose file ends in a CLI block must not have that
+    block executed by a pre-flight that only wants its keys."""
     p = tmp_path / "config_hyperparameters.py"
     p.write_text(
         "ran = False\n"
