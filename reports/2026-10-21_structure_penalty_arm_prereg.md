@@ -482,6 +482,94 @@ constructions is coupled to dispersion. It is reported as an FAO-02 guardrail an
 5. **Instrumentation that must be on, because it was off on both delivered runs:**
    `trajectory_log_path` set, and the per-task loss split logged (#398's six columns).
 
+## 7.6. ⛔ AMENDMENT 2026-10-25 — THE READOUT'S INPUTS DO NOT COME HOME BY THEMSELVES
+
+⛔ **A PRE-TERMINATION STEP, NOT A POST-RUN HOPE.** Confirmed by the `models` session on 2026-10-25
+and verified here against both code sites: the pod's collection path archives **`lr_*` only**.
+
+| site | what it does |
+|---|---|
+| `tools/podrun/pod_run_model.sh:634` | `N_DRAWS=$(... find "$BASE" -path '*/lr_*' -name '*.np*' \| wc -l)` |
+| `tools/podrun/pod_run_model.sh:637` | tars `-path '*/lr_*'` into `$OUT/draws/${BASE}_lr.tar.zst` |
+| `tools/collapse/collapse_predictions.py:46-48` | `TARGETS = ("lr_sb_best","lr_ns_best","lr_os_best")`, commented *"`by_*` are gate probabilities, not fatalities, and are deliberately absent"* |
+
+⇒ **The gate posterior is never collected, and `pod_run_model.sh` is on the never-modify list.** This is
+therefore a **runbook requirement**, not a code change, and it is written into this pre-registration
+because the alternative is remembering it at 300 lessons with a billing clock running.
+
+⚠️ **This already happened once, on this arm's own control.** Three of five delivery directories did
+not exist until an audit went looking; the entire `by_*` side was pod-only. It was rescued by hand and
+the rescue is on disk — **verified here, byte count and digest both**:
+
+```
+~/views-diagnostics/hf_control_gate_draws/predictions_calibration_20261025_132124_by.tar.zst
+661,982,015 bytes   sha256 09200542952a6fa76c72c2a837e83309e0e972214e3cb36c1239d188675312ac
+(6,552,442,880 bytes raw, 78 entries, ~8.9:1)
+```
+
+### ⛔ Required before `terminate`, in this order
+
+1. **Run the sweep.** `tools/podrun/pod_sweep_outputs.sh` (on views-models PR #589, **not merged** —
+   run it by hand). It mtime-sweeps every real mount from the run's start, exits **2** when run output
+   exists outside `$OUT` and **1** when it could not see a mount, *refusing rather than reporting a
+   clean sweep it cannot back*. ⚠️ **It does not move anything** — it says where things are.
+2. **Rescue the five classes that live outside `$OUT`**, all of which were pod-only on the control:
+   the computed metricframes (`data/generated/<model>/calibration/metricframe_*`), the W&B eval
+   tables, **the `by_*` gate posterior**, the training input parquet **and its `queryset_digest`
+   provenance**, and `logs/views_pipeline_*.log`.
+3. **Budget it.** `by_*` compresses ~**8.9:1**, not the 1256:1 the `lr_*` side gets — about **630 MB**
+   and **~2 min**. Record the byte count and `sha256` beside the control's above.
+
+⛔ **THIS ARM'S READOUT CANNOT BE COMPUTED WITHOUT STEP 2.** `d4_mu_on_the_grid.py` needs the
+delivered artifact **and** builds the per-draw μ cube that §4b's 1/n extrapolation splits. A pod
+terminated before the rescue voids P-4 by making its estimator uncomputable — and VOIDS IT SILENTLY,
+because the `lr_*` parquets will be present and will look like a complete delivery.
+
+## 7.7. ⚠️ AMENDMENT 2026-10-25 — TWO KEYS THAT MUST BE LEFT WRONG
+
+⛔ **Do not "fix" either of these for the arm. Both are wrong, both are wrong *identically on both
+sides*, and correcting one would make this a two-variable experiment.** Flagged by the `models`
+session; both verified here.
+
+| key | state | why it is left alone |
+|---|---|---|
+| `diagnostic_visualizations` | **absent** from `heavy_freighter/configs/config_hyperparameters.py`, **`True`** in `config_meta.py:26` — and `config_meta` wins the merge **silently**, because the key is not in `_SAFETY_CRITICAL_KEYS` (which does not exist in that repo at all). ⇒ **Visualisations were ON for the control.** | turning them off would be the second variable |
+| `h_init` | declared in `heavy_freighter` and **read by nothing** in views-hydranet 0.1.7 — verified: zero hits in `views_hydranet/` outside stale `wandb/run-*/files/config.yaml` snapshots. This is the dead key the pod pre-flight found. | dead, but declared identically on both sides; removal waits for the 8-source atomic edit |
+
+⚠️ ⇒ **The arm's identity claim is "identical except `struct_penalty_weight`", and that includes
+being identically wrong about these two.** `arm_identity_check.py` compares config values and would
+not notice a silent `config_meta` override, so this clause is the only thing standing between the
+arm and a two-variable contrast.
+
+## 7.8. ⛔ AMENDMENT 2026-10-25 — WHAT §4b's NOISE FLOOR DOES *NOT* BOUND
+
+⛔ **THE MEASURED FLOOR IS NOT A BOUND ON RUN-TO-RUN VARIANCE, AND IT READS AS IF IT WERE.** Raised
+by the `models` session, and it is right.
+
+§4b's floor (max split-half `|A−B|` = **0.0080** on B-1, **0.0021** on P-3's slope) is computed by
+splitting the **per-MC-dropout-draw μ of a single checkpoint**. ⇒ It measures **draw noise within one
+run**. It says nothing about a *different run*: a different `torch_seed`/`np_seed`, a different data
+order, a different optimisation trajectory. Run-to-run variance is a strictly larger quantity and is
+**unmeasured** — that is what views-models #572/#566's σ̂ work exists to measure, and **σ̂ is still
+unmeasured**.
+
+⇒ **Pre-committed wording rule, so the readout cannot overstate itself:** any sentence reporting that
+the arm moved B-1 or the slope by *X* must be accompanied by the statement that *X* is **not bounded
+against run-to-run (seed) variance**. The floor licenses the claim that the estimators can *resolve*
+a move of that size; it does not license attributing the move to the intervention.
+
+### ⚠️ And why a second seed is NOT bought now
+
+A second **arm** seed against an n = 1 control buys a spread on **one side of a difference**, which
+does not bound the difference. Bounding it needs replicates on **both** sides — that is the σ̂
+experiment, not this screen. §7.1 already calls n = 1 at 300 lessons a **SCREEN** where a null is
+**INCONCLUSIVE, not negative** (C-307), and that framing is sufficient and honest.
+
+⇒ **Pre-committed trigger for the second $3, decided now rather than after:** spend it **only if the
+screen comes back positive and near the ask** — P-3 in `[0.50, 0.60]` or P-4's intercept in
+`[0.34, 0.44]`. A clearly-positive or clearly-null screen does not warrant a replicate; a *marginal*
+one does, because only then is the number load-bearing.
+
 ## 8. Contrast set
 
 Against the **control** `calibration_model_20261013_010739.pt` (sha `4acbf4d3c2b457b0…`,
