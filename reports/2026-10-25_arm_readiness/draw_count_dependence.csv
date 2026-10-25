@@ -1,0 +1,26 @@
+# Draw-count dependence of B-1 and P-3's slope — control heavy_freighter 0ca3f31f, 2026-10-25
+# Each quantity through ITS OWN instrument. 11 cubes built from d4_result_hf0125.npz's 4 stored
+# MC-dropout draws: 4 singles, 3 disjoint 2-vs-2 partitions (6 halves), and the full cube.
+quantity,instrument,draws,cube,value
+B1_d1_insample_EW,body_scoreboard.py,1,s0,0.762
+B1_d1_insample_EW,body_scoreboard.py,1,s1,0.760
+B1_d1_insample_EW,body_scoreboard.py,1,s2,0.746
+B1_d1_insample_EW,body_scoreboard.py,1,s3,0.751
+B1_d1_insample_EW,body_scoreboard.py,2,p1A,0.532
+B1_d1_insample_EW,body_scoreboard.py,2,p1B,0.524
+B1_d1_insample_EW,body_scoreboard.py,2,p2A,0.532
+B1_d1_insample_EW,body_scoreboard.py,2,p2B,0.526
+B1_d1_insample_EW,body_scoreboard.py,2,p3A,0.529
+B1_d1_insample_EW,body_scoreboard.py,2,p3B,0.530
+B1_d1_insample_EW,body_scoreboard.py,4,full,0.400
+P3_slope_336mo,body_level_selection_check.py,1,s0,0.4879
+P3_slope_336mo,body_level_selection_check.py,1,s1,0.4894
+P3_slope_336mo,body_level_selection_check.py,1,s2,0.4937
+P3_slope_336mo,body_level_selection_check.py,1,s3,0.4941
+P3_slope_336mo,body_level_selection_check.py,2,p1A,0.4949
+P3_slope_336mo,body_level_selection_check.py,2,p1B,0.4990
+P3_slope_336mo,body_level_selection_check.py,2,p2A,0.4961
+P3_slope_336mo,body_level_selection_check.py,2,p2B,0.4978
+P3_slope_336mo,body_level_selection_check.py,2,p3A,0.4964
+P3_slope_336mo,body_level_selection_check.py,2,p3B,0.4973
+P3_slope_336mo,body_level_selection_check.py,4,full,0.4996
