@@ -1483,7 +1483,7 @@ its thresholds are frozen to a 300-lesson floor, so it is meaningless on any oth
 
 ---
 
-### 5.10 ⚠️ Three lessons from 2026-10-25 that are not about the ceiling (added 2026-10-25)
+### 5.10 ⚠️ Five lessons from 2026-10-25 that are not about the ceiling (added 2026-10-25)
 
 #### ⛔ L4 — a VOID condition drafted globally over a deliberate sweep voids your own measurement
 
@@ -1531,6 +1531,44 @@ turns out to be a documented mode interaction with its own test. The usual failu
 cannot fire; this was the inverse, and it is cheaper to resolve but it costs attention. **A guard whose
 visible signature is an absence will be read as a gap by anyone who did not write it**, so it needs to
 say so at the site.
+
+#### ⛔ L7 — a derived constant must carry its vehicle in the same sentence as its value
+
+The structure arm's one derived constant, `struct_penalty_weight = 8.89624`, was committed into a
+prereg under a ⭐, with the explicit rationale that deriving it **removes a free parameter rather than
+multiplying the arm by a sweep**. It was wrong by **21×**, three independent ways at once: it was
+measured on the **wrong family** (the `truncated_nb` vehicle, not the `nb` one the arm runs on), it
+pinned **v1** of a script whose **v2 had already superseded it on disk**, and it was gradient-matched
+against **one** of the **three** targets the loss sums over.
+
+⇒ **The rule, and it is narrow on purpose.** A number *derived* from an artifact is a claim about that
+artifact, so it must be written with its **checkpoint sha** and the **script version that produced it**
+in the same sentence as its value. ⚠️ Note what did *not* protect it: the derivation was scripted,
+committed, reproducible, cost-reported, carried an honest C-325 caveat about being measured at
+initialisation, and **ran correctly every time**. Every error was in *what it was pointed at*, which no
+amount of rigour inside the script can see. ⛔ **Deriving a constant removes the free parameter and
+replaces it with a provenance obligation** — that is the trade, and only half of it was being paid.
+
+⭐ **And the direction is the expensive one.** A 21×-too-large weight would have trained a $3 arm at a
+term strength nothing had derived, and the resulting null would have read as evidence against *a
+spatial penalty* rather than against *my arithmetic*. Compare `W-59`, where the error pointed at
+**cancelling** a justified experiment. Both directions are live; this one burns money and then
+mislabels the ashes.
+
+#### ⚠️ L8 — two committed documents can contradict each other, and no gate in either one looks
+
+The second of L7's three errors is the structural one. `2026-10-12_underfire_diagnosis_prereg.md`
+recorded `8.89624` as **VOID** with its replacement, on **2026-10-21**. `2026-10-21_structure_penalty_arm_prereg.md`
+§3b went on quoting `8.89624` as the pinned value. **Both were committed, both were in the repository,
+and they disagreed for four days.**
+
+⇒ Every pre-flight gate this project has asserts that **the config matches the prereg**. None asserts
+that **the prereg matches the last derivation that ran**, and none asserts that **two preregs agree
+about a number they both name**. ⚠️ This is a different shape from §5.9's "gates that exist and nobody
+runs": the gates ran, passed, and were **scoped to one document**. ⛔ The cheap version of the fix is
+not a new gate but a convention — **a derived constant gets exactly one home, and every other mention
+is a link to it**, because a value duplicated across two documents will diverge and a grep is the only
+thing that will ever notice.
 
 ---
 
@@ -2059,6 +2097,7 @@ retracted number.]** of the gap is `crps_none`, AP is *worse*, `size_ratio` 0.00
 | C-58's forecast-sniffer remedy | made **every forecasting run impossible**; no forecasting run had ever completed in this repository | a fresh look, #390 | **months** |
 | **"the sharpness ceiling is 0.498, so the structure arm's upside is capped"** (2026-10-25) | ⛔ **CATEGORY ERROR.** The ceiling was measured **unnormalised** and compared to B-1's **variance-normalised** 0.391. Re-measured with B-1's own estimator: **0.983–1.009** at every lag ⇒ the ceiling is **~1.0** and the arm's premise survives. The error pointed at **killing** a justified experiment | `/falsify` on the claim *"the run is done and we have everything we need"* — probe P5, the one predicted most likely to bite | **~1 hour** |
 | **`C_full = 0.665`**, the 1/n-corrected ceiling (2026-10-25) | Spearman–Brown's *additive noise, variance ∝ 1/n* premise is a statement about **counts**, applied to a `log(rate+eps)` field. Gives **0.665** logged vs **0.262** raw. **Withdrawn** | the same audit — and the refuting evidence was the prereg's **own pre-registered Q-4** | **~1 hour** |
+| **`struct_penalty_weight` = 8.89624**, the structure arm's one *derived* constant, committed into a prereg under a ⭐ (2026-10-21) | ⛔ **Wrong by 21× — correct value 0.416904 — three independent ways at once.** Derived on the **`truncated_nb`** vehicle, not the `nb` one the arm runs on; pinned **v1** where **v2 had already superseded it on disk**; gradient-matched against **one** of the **three** targets the loss sums over. The script was correct, committed and reproducible every time — every error was in **what it was pointed at** | ⭐ **Simon**, asking whether there is a penalty weight per violence type (there is not) — a question about the **schema**, which exposed all three | **4 days**, and it was ~1 hour from the pod |
 
 ⛔ **Detector yield.** ⚠️ **These counts do not sum to 31, and the reason is a finding rather than an
 error — but it has to be stated, because a reader who adds them up should not have to guess.** The

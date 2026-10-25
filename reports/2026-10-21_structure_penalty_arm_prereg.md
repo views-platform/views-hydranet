@@ -52,6 +52,15 @@
 > B-1's own estimator: **0.983–1.009 across d = 1…32**. ⇒ The arm's implicit ceiling of 1.0 is
 > **measured, not assumed**, and P-4 needs no capping. ⛔ That ceiling is an UPPER bound — systematic
 > provider geocoding survives a split-half comparison.
+>
+> ### ⛔ SECOND AMENDMENT, SAME DAY — the derived weight was also wrong, three separate ways
+>
+> **`struct_penalty_weight` = 0.416904**, not §3b's **8.89624**. See **§3c**. The three errors: the
+> old number was derived on the **`truncated_nb`** vehicle (not `nb`), it was **v1's** value that
+> **v2 had already superseded** on disk, and it was matched against **one** of the **three** targets
+> the loss sums over. ⭐ The third was found by Simon asking whether there is a penalty weight per
+> violence type. There is not — **one global scalar, `tw = 1.0` per target**, and the **rarest**
+> target (non-state) carries **45.3%** of the summed penalty.
 
 **2026-10-21.** Written **before** anything is built or run. ⛔ **This verb writes the plan only.**
 Design notes behind it: `2026-10-21_loss_arm_design_notes.md` (with its §5b seam read). Ruler:
@@ -193,6 +202,10 @@ penalty has one direction.**
 
 ### The derived weight (§3), measured
 
+⛔⛔ **THE TABLE BELOW IS RETRACTED — ALL THREE OF ITS NUMBERS. It is kept because each of its
+three errors is a different kind of error, and the third was found by a question from Simon rather
+than by any check in this document.** The replacement is the §3c block that follows it.
+
 `struct_weight_derivation.py` on a **fresh** model built from the control's own config sidecar, one
 real window chosen by **land coverage only**, CPU, **8.39 s / 2.90 GiB**:
 
@@ -208,6 +221,92 @@ real window chosen by **land coverage only**, CPU, **8.39 s / 2.90 GiB**:
 were recorded as ruling a mechanism out; the arm's gradient exploded 33 lessons later). ⇒ **This is a
 starting scale, not a claim the two terms stay balanced.** The per-task trajectory log is what would
 show them drifting apart, and §7.5 already requires it to be on.
+
+## 3c. ⛔⛔ AMENDMENT 2026-10-25 — THE PINNED WEIGHT WAS WRONG THREE SEPARATE WAYS
+
+⛔ **`struct_penalty_weight = 8.89624` is VOID.** The replacement, derived on the vehicle that will
+actually train and over the terms the loss actually contains, is **0.416904** — **21× smaller**.
+`struct_weight_derivation_v3.py`, output in `struct_weight_derivation_v3.out`, **2.79 s / 2.90 GiB /
+$0**.
+
+⭐ **The three errors are independent, and they are worth separating because each one is a different
+failure of this document rather than three symptoms of one.**
+
+| # | the error | how it was caught |
+|---|---|---|
+| **1** | ⛔ **WRONG FAMILY.** Both earlier derivations ran on `calibration_model_20261013_010739.pt` — that is **amber_kestrel, `truncated_nb`** (sha `2a5efc2a…`). The arm runs on **`nb`**. The family swap alone moved the body NLL from 3.2202 to 0.4251 on the same window and the same seed, which is the same ~65× family effect §8 already measured for the body/gate ratio. | reading the two `.out` files while re-running; nothing in this prereg asserted which vehicle the weight came from |
+| **2** | ⛔ **SUPERSEDED BY ITS OWN RE-RUN.** §3b's table reports **v1** (17.7925, halved to 8.89624). A **v2** run after the family-mean fix exists on disk and gives **27.0768 with no halving**. `2026-10-12_underfire_diagnosis_prereg.md:833-834` records 8.89624 as VOID and 27.0768 as its replacement — **so this prereg has been contradicted by a sibling prereg since 2026-10-21 and neither noticed.** | `struct_weight_derivation_v2.out` |
+| **3** | ⛔ **ONE TARGET, APPLIED TO THREE.** The derivation called `_structure_penalty` **once**, on `SB`. `training_engine.py:995` accumulates it over **every** regression target and `:1127-1128` multiplies that **sum** by the single scalar. A weight matched against one of three terms lands the term at the wrong strength. | ⭐ **Simon's question** — *"do we have one for each type of violence?"* — not by any gate in this document |
+
+### The replacement derivation, all three targets, vehicle `0ca3f31f` (`nb`, dropout 0.125)
+
+| target | positive cells | body NLL | ‖∂NLL/∂θ‖ | struct pen | ‖∂pen/∂θ‖ |
+|---|---|---|---|---|---|
+| `ged_sb_best` | 2 | 0.425147 | 9.5437e-01 | 0.207398 | 3.0310e+00 |
+| `ged_ns_best` | 2 | 0.386821 | 9.9605e-01 | **0.374910** | **3.7407e+00** |
+| `ged_os_best` | 2 | 0.435904 | 1.7008e+00 | 0.244822 | 2.1537e+00 |
+| **summed, tw = 1.0 each** | | **1.247872** | **2.1886e+00** | **0.827130** | **5.2496e+00** |
+
+| | value |
+|---|---|
+| grad-norm-matched weight | **0.416904** |
+| the term's share of the total loss | **21.7%** |
+| §3's 50% fallback | **did NOT fire** |
+| ⭐ **`struct_penalty_weight` = ** | **0.416904** |
+
+### ⛔ 3c.1 There is NO per-violence-type penalty weight, and the equal weighting is not neutral
+
+`struct_penalty_weight` is **one global scalar** (`config_initializer.py`, `Field(default=0.0,
+ge=0.0)`). The only per-target dial is `target_weights`
+(`config_initializer.py:204`, `Field(default=None)`), read at `training_engine.py:927-929`:
+
+```python
+tw = 1.0
+if target_weights is not None:
+    tw = target_weights[idx.reg_names[j]]
+```
+
+⛔ **`heavy_freighter` sets no `target_weights`** — the key is absent from the delivered artifact's
+config sidecar and from the roster config. ⇒ **`tw = 1.0` for all three violence types**, so
+state-based, non-state and one-sided receive **equal** structural pressure despite positive rates of
+**0.009465 / 0.000861 / 0.004783** — an ~11× spread.
+
+⚠️ **And the equal weighting is actively lopsided, measured rather than argued.** In the table above,
+**non-state — the rarest target — contributes the LARGEST share of the summed penalty (0.374910 of
+0.827130 = 45.3%) and the largest penalty gradient (3.7407e+00).** ⇒ The term points its hardest
+structural pressure at the target with the least data to support it. That is a property of the arm
+**as designed**, recorded here so the outcome is not read as a surprise, and it is **not** changed by
+this amendment: introducing `target_weights` would be a **second variable** and the arm stays at one.
+
+⚠️ **Scope of this fix.** It corrects the *scale* of a term whose *direction* is unchanged, and it
+leaves C-325 exactly where §3b left it: still measured at **initialisation**, still one window, one
+seed, one step. The 21× move is itself the argument for why an init-measured scalar deserves the
+trajectory log §7.5 requires.
+
+### ⚠️ 3c.2 Two things this amendment had to verify first, both of which could have failed silently
+
+- ⛔ **The import path.** v1 failed with `_structure_penalty() takes 3 positional arguments but 4
+  were given`: run from the `reports/` subdirectory, the **installed** `views_hydranet` **0.1.5**
+  (3-arg) shadowed the working tree (4-arg). The env is a **regular install, not a dev install** —
+  site-packages holds a real `views_hydranet` plus `views_hydranet-0.1.5.dist-info` and there is no
+  editable finder. v3 prepends the repo root to `sys.path` and **prints the resolved
+  `views_hydranet.__file__`** so a reader can see which copy answered. ⭐ And the throwaway venv this
+  nearly cost: `git diff v0.1.7 -- views_hydranet/train/training_engine.py` is **empty**, so the
+  working tree is byte-identical to the `v0.1.7` tag for this file and the 4-arg signature is
+  **0.1.7's**, not a local edit.
+- ⛔ **The head really is three targets wide.** Slicing `out.reg[:, j*npar:(j+1)*npar]` past the end
+  of the tensor returns an **empty** slice in torch rather than raising, so a 2-target head would
+  have produced a plausible-looking table. Checked explicitly: `out.reg` is **(1, 6, 32, 32)** = 3 ×
+  2 NB params, `out.cls` is **(1, 3, 32, 32)**.
+
+### ⚠️ 3c.3 A finding about this prereg, not about the weight
+
+⛔ Error #2 means **§7's pre-flight gates cannot catch a stale pinned constant.** They assert the
+config matches the prereg; they do not assert the prereg matches the last derivation that ran. Error
+#1 means **no gate recorded which checkpoint a derived constant came from.** ⇒ A derived constant
+needs its **vehicle sha and its script version named in the same sentence as its value**, which is
+why the §3c table above names `0ca3f31f` and `struct_weight_derivation_v3.py` inline. Routed as a
+gate gap, not fixed here.
 
 ### Implementation status
 

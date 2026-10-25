@@ -1,0 +1,42 @@
+============================================================================================
+DERIVING struct_penalty_weight BY GRADIENT-NORM MATCHING — ALL THREE TARGETS
+============================================================================================
+  views_hydranet   /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/__init__.py
+  config sidecar   calibration_model_20261025_132124.pt.config.json
+  family           nb
+  dropout_rate     0.125
+  hidden channels  32
+  target_weights   None   (None ⇒ tw = 1.0 for every target, i.e. NO per-violence-type weight)
+  reg targets      None
+  window           rows 191-223, cols 350-382, land 99.4%
+  block sizes      (2, 8)
+
+  target      pos cells       body NLL         ‖∂NLL‖     struct pen         ‖∂pen‖
+  ged_sb_best          2       0.425147   9.543690e-01       0.207398   3.030977e+00
+  ged_ns_best          2       0.386821   9.960473e-01       0.374910   3.740712e+00
+  ged_os_best          2       0.435904   1.700771e+00       0.244822   2.153722e+00
+
+  summed over 3 targets                 value      grad norm
+  body NLL                           1.247872   2.188596e+00
+  structure penalty                  0.827130   5.249634e+00
+
+  ⇒ derived weight (grad-norm matched)   0.416904
+    the term's share of the total loss   21.7%
+    §3's 50% fallback did not fire
+
+  ⚠️ SUPERSEDED, for comparison. The 2026-10-21 derivations were SB-only AND were run on
+     calibration_model_20261013_010739.pt = the truncated_nb vehicle 2a5efc2a -- NOT
+     the nb vehicle the arm runs on:
+       v1  17.7925 -> 8.89624 after one halving, term at 38.2% of the loss
+       v2  27.0768, no halving, term at 44.9%
+
+  ⚠️ READ THIS AS A STARTING SCALE, NOT A BALANCE CLAIM. Measured on an UNTRAINED network (C-325:
+  two mechanism tests measured at init were recorded as ruling a mechanism out, and the arm's
+  gradient exploded 33 lessons later). One window, one seed, one step. The run's per-task
+  trajectory log is what would show the two terms drifting apart.
+
+============================================================================================
+COST, measured
+============================================================================================
+  wall time 2.61 s
+  peak RSS  3.07 GiB
