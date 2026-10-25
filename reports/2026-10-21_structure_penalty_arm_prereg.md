@@ -35,7 +35,7 @@
 > |---|---|
 > | **P-2 (level) is WITHDRAWN** | the deficit it targets does not exist on this vehicle. It becomes a **guardrail**: B-3 must not *degrade*. ⛔ It may not be reported as a hypothesis test |
 > | **P-3 (slope) STANDS**, restated against **0.4996** | ≥ 0.55 remains a genuine ask — about +0.05 |
-> | **P-4 (B-1 d=1) STANDS**, restated against **0.400** | +0.10 absolute ⇒ ≥ 0.50 |
+> | **P-4 (B-1 d=1) STANDS**, restated against **0.400** | +0.10 absolute ⇒ ≥ 0.50. ⛔ **SUPERSEDED the same day by §4b — 0.400 is 28% MC-dropout artifact; the baseline is 0.287 and the target is 0.39** |
 > | **§5's verdict shrinks to B-2 alone** | plus FAO-02. B-3 moves from verdict to guardrail |
 > | **F2 is rewritten** | "B-1 moves but B-2 does not" — B-3 can no longer carry a negative |
 > | **§8's contrast set is corrected** | it paired the `truncated_nb` *filename* with the `nb` *sha*. Verified: `calibration_model_20261013_010739.pt` is `2a5efc2a…`, not `4acbf4d3…` |
@@ -334,6 +334,7 @@ mutation actually applied.**
 | **P-2** ⛔ **WITHDRAWN** | B-3 level | **95.9%** on this vehicle, not 24.7% | ⇒ no deficit to close. Now a **guardrail**: must not degrade | — |
 | **P-3** ⭐ **the hypothesis, restated** | B-2 slope `b`, 1,431 truth-positive cells, 336-month truth | **0.4996** | rises to **≥ 0.55** | **35%**, unchanged |
 | **P-4** **restated** | B-1 at d = 1, in-sample E–W | **0.400** | rises by **≥ 0.10** ⇒ **≥ 0.50** | 60%, unchanged |
+| ⛔ **P-4 SUPERSEDED, see §4b** | the **same** quantity, extrapolated to infinite MC-dropout draws | **0.287** | rises by **≥ 0.10** ⇒ **≥ 0.39** | 60%, unchanged |
 | **P-2** ⭐ **the hypothesis** | **B-3 level**, in-sample, truth-positive cells, 336-month truth | **24.7%** | rises to **≥ 40%** | **35%** |
 | **P-3** ⭐ **the hypothesis** | **B-2 slope `b`**, same population | **0.4562** | rises to **≥ 0.55** | **35%** |
 | **P-4** | B-1 at **untrained** scales (d = 1, 4, 16, 32) | 0.391 / 0.491 / 0.810 / 0.870 | d = 1 rises by **≥ 0.10** absolute | 60% |
@@ -342,6 +343,95 @@ mutation actually applied.**
 ⛔ **35% is a deliberate, low prior, and it is the honest one:** seven interventions have failed, four
 of them on the same lever. ⚠️ A 35% prior means a null is the **expected** outcome and must not be
 written up as a surprise.
+
+## 4b. ⛔ AMENDMENT 2026-10-25, BEFORE THE ARM RUNS — P-4's BASELINE WAS 28% MEASUREMENT ARTIFACT
+
+⛔ **P-4's old baseline 0.400 and old target 0.50 are both VOID. The baseline is 0.287 and the target
+is 0.39.** The prediction, the quantity and the step size are unchanged; only the two numbers move,
+and they move because the old ones were measured through an instrument that reads its own sampling
+noise as signal.
+
+### What was wrong
+
+B-1 is read from `d4_result*.npz`, which stores μ for each **MC-dropout draw**. Each draw is a
+different stochastic forward pass, and randomness between draws is **spatial variability** as far as
+a variogram is concerned. ⇒ Fewer draws ⇒ a noisier μ field ⇒ the model's field looks **rougher** ⇒
+**B-1 reads higher**. The control has 4 draws, so its B-1 carries four draws' worth of that noise.
+
+Measured on the control's own stored draws — 11 cubes, all through `body_scoreboard.py` itself, CPU,
+$0 (`reports/2026-10-25_arm_readiness/draw_count_dependence.csv`):
+
+| MC-dropout draws | cubes | B-1 at d = 1, in-sample E–W | sd |
+|---|---|---|---|
+| 1 | 4 singles | 0.7547 | 0.0075 |
+| 2 | 3 disjoint 2-vs-2 partitions (6 halves) | 0.5288 | 0.0033 |
+| **4** | the full cube | **0.4000** | — |
+| **∞** | 1/n fit `0.2870 + 0.4700/n` | **0.2870** | — |
+
+⇒ **About 0.11 of the control's 0.400 — roughly 28% — is our own MC-dropout noise.** P-4 asked for a
+**+0.10** rise in a quantity whose artifact term at n = 4 is **0.1175**: the yardstick carried an
+error the size of the effect.
+
+⭐ **The direction of the error FAVOURS this arm's premise, and that is why it must be written down
+before the run rather than after.** The body's spatial-structure deficit is **deeper** than this
+document has claimed throughout — 0.287 of its due structure, not 0.400 — so there is *more*
+headroom, not less. An amendment made after seeing the arm's result could not be distinguished from
+choosing the baseline that flattered it.
+
+### The new numbers, and where each comes from
+
+| | value | derivation |
+|---|---|---|
+| **baseline** | **0.287** | the 1/n fit's intercept on the control's 11 cubes |
+| **step** | **+0.10** | ⭐ **UNCHANGED** — the same absolute step §4 already committed to |
+| **target** | **≥ 0.39** | 0.287 + 0.10, i.e. Simon's standing rule *"rewrite those two targets to sit above where the model already is"* applied to the corrected baseline |
+
+⛔ **The step size is not re-chosen here.** Had it been, this amendment would be selecting an effect
+size with the instrument's behaviour already known. The only inputs are the corrected baseline and
+the rule that was already in force.
+
+### ⛔ How P-4 is to be READ — fixed now, before any arm number exists
+
+> **P-4 is judged on the ∞-draw extrapolated value, not the 4-draw value.** The arm's
+> `d4_result` cube is split into the same 4 singles and 3 disjoint 2-vs-2 partitions, each is run
+> through `body_scoreboard.py`, and `B-1(d=1)` is regressed on `1/n_draws`. **The intercept is the
+> number P-4 is scored against.** Cost: 4 + 6 variogram runs, ~17 min CPU, $0.
+
+⚠️ **Why this clause exists in this form.** Both readings will be available once the arm lands — the
+4-draw value and the intercept — and they can disagree about pass/fail. Naming the estimator *after*
+the numbers exist is the discretion this pre-registration is for removing. ⛔ Both numbers are to be
+**reported**; only the intercept **decides**.
+
+### ⚠️ What this amendment does NOT claim
+
+- **It does not fix P-3.** It does not need to: measured through its own instrument
+  (`body_level_selection_check.py`, 336-month estimator), the slope moves **+0.008** across a 4× change
+  in draws and the 4-draw value 0.4996 sits **0.003** from its fitted asymptote 0.5024. ⇒ **P-3 is
+  draw-count robust and its baseline and target stand unchanged.**
+- **It does not establish that the artifact cancels arm-vs-control.** It does not. The artifact's size
+  depends on how much dropout variance the μ field carries, and the structure penalty changes field
+  dispersion **by design** — so assuming cancellation would assume the arm has no effect. That is the
+  whole reason P-4 moves to the intercept instead of keeping the 4-draw value on both sides.
+- **It does not settle the 1/n form by theory.** The form is **measured**: residuals ±0.007 for B-1 and
+  ±0.0001 for P-3's slope across a 4× range. ⛔ This is explicitly *not* `W-60`'s error, where a 1/n
+  premise was **assumed** across a log transform and withdrawn — but it is **three draw counts fitting
+  two parameters**, one residual degree of freedom, so the intercept is **indicative**. The robust
+  claims are the sign and the order of magnitude.
+- **It does not touch the noise floor, which is now measured and is not the problem.** Same draw count
+  on both sides, the three partitions give a max |A−B| of **0.0080** on B-1 and **0.0021** on P-3's
+  slope — **12× and 24× below** their asks. The `/falsify` finding that no floor existed is answered;
+  what replaced it is this bias, which is a different defect.
+
+### ⚠️ Retroactive scope, recorded rather than quietly left
+
+The same artifact inflates **every** 4-draw B-1 number this programme has published, including the
+D12 headline *"the body carries 0.391 of its due spatial structure at 1 cell"* on the deleted `nb`
+vehicle. ⛔ Those figures are not corrected here — the deleted vehicle cannot be re-measured — but
+they are **upper bounds on the model's structure**, i.e. the deficit they describe is understated.
+Registered as part of this amendment's trail; cross-ref **C-128** (the locked-dropout posterior,
+which already recorded that 11.2% of the body field's spatial variance at 4 draws is MC noise and
+that it is **spatially correlated**, lag-1 +0.27 to +0.46 — this amendment is that fact arriving in
+a headline).
 
 ## 5. ⛔ The readout, and why B-1 is NOT the verdict
 
