@@ -534,12 +534,52 @@ session; both verified here.
 | key | state | why it is left alone |
 |---|---|---|
 | `diagnostic_visualizations` | **absent** from `heavy_freighter/configs/config_hyperparameters.py`, **`True`** in `config_meta.py:26` — and `config_meta` wins the merge **silently**, because the key is not in `_SAFETY_CRITICAL_KEYS` (which does not exist in that repo at all). ⇒ **Visualisations were ON for the control.** | turning them off would be the second variable |
-| `h_init` | declared in `heavy_freighter` and **read by nothing** in views-hydranet 0.1.7 — verified: zero hits in `views_hydranet/` outside stale `wandb/run-*/files/config.yaml` snapshots. This is the dead key the pod pre-flight found. | dead, but declared identically on both sides; removal waits for the 8-source atomic edit |
+| ~~`h_init`~~ | ⛔ **THIS ROW IS WRONG AND IS KEPT WITH THE REASON.** It said `h_init` is still declared in `heavy_freighter` and must be left alone. **It was already deleted** — `git show c8ae1803:…/config_hyperparameters.py \| grep -c h_init` → **0**, and PR #603's own subject is *"set trajectory_log_path on heavy_freighter and **drop the dead h_init key**"*. | ⇒ **Nothing to leave alone. There is no `h_init` exception and the pre-flight needs no carve-out for it.** The key is genuinely dead in views-hydranet 0.1.7 (zero hits outside stale `wandb/run-*` snapshots) **and** absent from the config. See §7.7b for how this error was made. |
 
 ⚠️ ⇒ **The arm's identity claim is "identical except `struct_penalty_weight`", and that includes
 being identically wrong about these two.** `arm_identity_check.py` compares config values and would
 not notice a silent `config_meta` override, so this clause is the only thing standing between the
 arm and a two-variable contrast.
+
+### ⛔ 7.7b — HOW §7.7's `h_init` ROW WAS WRONG, and the pre-flight run that found it
+
+⭐ **The gate was run for the first time, and running it is what caught this.** Until 2026-10-25 this
+pre-registration had *described* `pod_preflight` in §7.3 and §7.6 without ever executing it — the
+exact shape this document registers as **C-303** twenty times over. Run against the local checkout it
+printed **DO NOT TRAIN** on two counts:
+
+```
+  version      0.1.5
+  file         .../views-hydranet/views_hydranet/__init__.py     ⚠️ metadata 0.1.5, module = the 0.1.7 tree
+  required fields: struct_penalty_weight, trajectory_log_path
+  ✅ all declared by the installed schema
+  config: .../heavy_freighter/configs/config_hyperparameters.py (63 keys)
+  ⛔ the config does NOT set ['struct_penalty_weight', 'trajectory_log_path']
+  ⛔ 1 config key(s) declared by NEITHER the installed schema nor any foreign layer: ['h_init']
+```
+
+⛔ **Both failures are artifacts of reading a STALE views-models branch**, and neither is real at the
+sha the arm will run from:
+
+| | local checkout (`docs/572-sigma-hat-version-null`, HEAD `e71c35cc`) | **`c8ae1803`**, the control's own as-run sha, contained in `origin/development` |
+|---|---|---|
+| `trajectory_log_path` | **absent** (0 hits) | **set** (2 hits) |
+| `h_init` | present (1 hit) | **absent** (0 hits) |
+
+⇒ **At the correct sha the pre-flight passes on both clauses.** The gate is sound; the branch I pointed
+it at was not.
+
+⚠️ ⇒ **SECOND INSTANCE TODAY of the same error, and that is the finding.** Earlier the same stale
+checkout made `trajectory_log_path` look like it was never set at all, which would have been reported
+as a missing §7.5 requirement. Both times the stale branch made the state look **worse** than it is,
+and both times the fix was to resolve the sha the artifact itself names (`MANIFEST` → `git: c8ae1803`)
+rather than to trust the working tree. This is `W-61`'s class — *an absence is only as wide as the
+search, and the search's scope was never stated* — pointed at a branch instead of a directory.
+
+⛔ **PRE-COMMITTED RULE FOR THE ARM, since this has now cost two false findings:** every claim about
+what the arm's config does is to be made against **`git show <sha>:<path>`** for the sha the run will
+use, never against the views-models working tree. The arm's own `MANIFEST` records its sha; that is
+the only admissible source.
 
 ## 7.8. ⛔ AMENDMENT 2026-10-25 — WHAT §4b's NOISE FLOOR DOES *NOT* BOUND
 
