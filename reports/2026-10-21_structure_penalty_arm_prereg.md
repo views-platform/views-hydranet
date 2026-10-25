@@ -1,5 +1,58 @@
 # Pre-registration — the structure-penalty arm (`struct`)
 
+> ## ⛔ AMENDMENT 2026-10-25 — THE VEHICLE CHANGED, AND ONE OF THE TWO HYPOTHESES IS WITHDRAWN
+>
+> Nothing below is deleted. Every original value is kept and annotated.
+>
+> **What happened.** §8 contrasted against `truncated_nb` `2a5efc2a…` because `vehicle.py` recorded it
+> as *"the only one still on disk"* — the `nb` vehicle `4acbf4d3…` that every baseline in §4 was
+> measured on had been **deleted**. On 2026-10-25 `body_scoreboard.py` was run against the
+> `truncated_nb` vehicle for the first time and returned **B-1(d=1) = 1.462**, i.e. *above* its due
+> share of spatial structure. ⇒ **The arm's premise does not exist on that vehicle.**
+>
+> A live `nb` vehicle now exists — **`heavy_freighter` `0ca3f31f…`**, trained 2026-10-25 on
+> views-hydranet 0.1.7, global land, 300 lessons (`reports/2026-10-24_control_vehicle_prereg.md`).
+> `vehicle.py` **Amendment 5** admits it; exactly one F6 key differs from the deleted vehicle,
+> `dropout_rate` 0.125 against 0.15, and the non-comparability rule is stated at that site.
+>
+> **Measured on it, like-for-like** (population: the 1,431 cells with truth > 0 in 421–456; truth
+> estimator: the 336-month base rate — the same combination that produced 24.7% and 0.4562, via
+> `body_level_selection_check.py`):
+>
+> | | the deleted `nb` (what §4 is written against) | **`heavy_freighter`, live** | verdict |
+> |---|---|---|---|
+> | **B-1** at d = 1, in-sample E–W | 0.391 | **0.400** | ✅ **reproduces** |
+> | **B-2** slope `b` | 0.4562 | **0.4996** | ✅ **reproduces** |
+> | **B-3** level | 24.7% | **95.9%** | ⛔ **does NOT reproduce** |
+>
+> ⇒ **Two independent models, trained nine days apart at different dropout rates, agree on the
+> spatial-structure deficit and on the spread deficit.** The *level* deficit is gone: this vehicle is
+> at 95.9% of the right size on event cells, against a P-2 target of 40%.
+>
+> **Consequences, pre-committed before the arm runs:**
+>
+> | | |
+> |---|---|
+> | **P-2 (level) is WITHDRAWN** | the deficit it targets does not exist on this vehicle. It becomes a **guardrail**: B-3 must not *degrade*. ⛔ It may not be reported as a hypothesis test |
+> | **P-3 (slope) STANDS**, restated against **0.4996** | ≥ 0.55 remains a genuine ask — about +0.05 |
+> | **P-4 (B-1 d=1) STANDS**, restated against **0.400** | +0.10 absolute ⇒ ≥ 0.50 |
+> | **§5's verdict shrinks to B-2 alone** | plus FAO-02. B-3 moves from verdict to guardrail |
+> | **F2 is rewritten** | "B-1 moves but B-2 does not" — B-3 can no longer carry a negative |
+> | **§8's contrast set is corrected** | it paired the `truncated_nb` *filename* with the `nb` *sha*. Verified: `calibration_model_20261013_010739.pt` is `2a5efc2a…`, not `4acbf4d3…` |
+>
+> ⚠️ **This makes the arm WEAKER AND HONEST.** It now tests **one** proposition, not two: *can a
+> spatial term be made to produce structure, and if so does magnitude spread follow?* ⛔ And §1b's
+> counterweight `C-3661` bears directly on it — the one published model that bought sharpness came
+> out **under-dispersed**, with heavy-intensity decay at long lead. The literature supports the
+> **mechanism** and is **neutral-to-negative on this verdict**. That is the state of the evidence and
+> it is not to be softened.
+>
+> **The ceiling is no longer an open assumption.** `reports/2026-10-25_sharpness_ceiling_prereg.md`
+> measured the achievable value of B-1 by splitting the truth into independent halves and applying
+> B-1's own estimator: **0.983–1.009 across d = 1…32**. ⇒ The arm's implicit ceiling of 1.0 is
+> **measured, not assumed**, and P-4 needs no capping. ⛔ That ceiling is an UPPER bound — systematic
+> provider geocoding survives a split-half comparison.
+
 **2026-10-21.** Written **before** anything is built or run. ⛔ **This verb writes the plan only.**
 Design notes behind it: `2026-10-21_loss_arm_design_notes.md` (with its §5b seam read). Ruler:
 `2026-10-21_body_scoreboard.md`, baselined on the control **before** this plan existed.
@@ -73,7 +126,11 @@ a hurdle likelihood.** The closest analogue is DGMR noting **89% of UK cells con
 
 ⇒ **Consequence, pre-committed:** the mechanism transfers by argument, **not** by precedent. No effect
 size from any paper above may be quoted as an expectation for this arm. §4's priors stand on our own
-measurements (B-1 0.391 at d = 1; B-3 24.7%) and on the seven-failure base rate, and on nothing else.
+measurements (B-1 0.391 at d = 1; B-3 24.7%) ⛔ **[AMENDED 2026-10-25: `B-3 24.7%` is
+WITHDRAWN as a prior — it is **95.9%** on the vehicle this arm now runs on, so it grounds nothing. The
+live priors are **B-1 0.400** and **B-2 0.4996**, both on `0ca3f31f…`. And with the level hypothesis
+gone, counterweight `C-3661` is no longer a limitation at the edge of this plan — it is evidence
+against its single remaining verdict, and must be read as such.]** and on the seven-failure base rate, and on nothing else.
 
 ## 2. The intervention — ONE variable
 
@@ -174,6 +231,10 @@ mutation actually applied.**
 | # | quantity | baseline (control) | prediction | my confidence |
 |---|---|---|---|---|
 | **P-1** ⚪ *manipulation check* | B-1 at the **trained** scales | — | the within-block dispersion gap closes by **≥ 50%** at `k = 2` and `k = 8` | **85%** — if this fails the term is inert, not wrong |
+| ⛔ **AMENDED 2026-10-25** | the three rows below are kept verbatim; the live baselines and their status are in the header amendment | | | |
+| **P-2** ⛔ **WITHDRAWN** | B-3 level | **95.9%** on this vehicle, not 24.7% | ⇒ no deficit to close. Now a **guardrail**: must not degrade | — |
+| **P-3** ⭐ **the hypothesis, restated** | B-2 slope `b`, 1,431 truth-positive cells, 336-month truth | **0.4996** | rises to **≥ 0.55** | **35%**, unchanged |
+| **P-4** **restated** | B-1 at d = 1, in-sample E–W | **0.400** | rises by **≥ 0.10** ⇒ **≥ 0.50** | 60%, unchanged |
 | **P-2** ⭐ **the hypothesis** | **B-3 level**, in-sample, truth-positive cells, 336-month truth | **24.7%** | rises to **≥ 40%** | **35%** |
 | **P-3** ⭐ **the hypothesis** | **B-2 slope `b`**, same population | **0.4562** | rises to **≥ 0.55** | **35%** |
 | **P-4** | B-1 at **untrained** scales (d = 1, 4, 16, 32) | 0.391 / 0.491 / 0.810 / 0.870 | d = 1 rises by **≥ 0.10** absolute | 60% |
@@ -192,6 +253,7 @@ Training on one and reading out on the other is **Goodhart by construction**.
 |---|---|
 | ⚪ **manipulation check** | **B-1 at k = 2, 8** — did the term do what it was told. Necessary, and **not evidence of improvement** |
 | ⭐ **the verdict** | **B-2 (slope) and B-3 (level)** — magnitude calibration, which the term does **not** optimise |
+| ⛔ **AMENDED 2026-10-25** | **the verdict is B-2 (slope) ALONE.** B-3's deficit does not exist on `0ca3f31f…` (95.9%), so it becomes a guardrail that must not degrade and cannot carry a verdict either way |
 | ⭐ **the verdict** | **FAO-02: `crps_all` primary, with QS99 / Brier / MCR guardrails** — unchanged and untouched |
 | ⚠️ **partial independence only** | B-1 at **d = 1, 4, 16, 32** while training at `k = 2, 8`. **This reduces the leak; it does not remove it**, and no claim will be made as if it did |
 
@@ -204,7 +266,7 @@ constructions is coupled to dispersion. It is reported as an FAO-02 guardrail an
 | ID | fires if | consequence |
 |---|---|---|
 | **F1** | B-1 at `k = 2, 8` does **not** move | ⛔ the term is **INERT** ⇒ **VOID, not negative** — an implementation failure (C-324's class), and the arm is re-run after a fix, not written up |
-| **F2** | ⭐ B-1 moves but **B-2 and B-3 do not** | ⛔ **NEGATIVE, and the strongest possible one:** the objective can be made to produce structure, and structure does not buy magnitude calibration. ⇒ The loss is **not** the lever for the body's timidity, and the three remaining mechanisms (BN recal, `weight_decay`, recurrent state) become the live list |
+| **F2** | ⭐ B-1 moves but **B-2 and B-3 do not** ⛔ **[AMENDED 2026-10-25: "B-2 alone". B-3 is a guardrail on this vehicle and cannot fire F2.]** | ⛔ **NEGATIVE, and the strongest possible one:** the objective can be made to produce structure, and structure does not buy magnitude calibration. ⇒ The loss is **not** the lever for the body's timidity, and the three remaining mechanisms (BN recal, `weight_decay`, recurrent state) become the live list |
 | **F3** | `crps_all` degrades beyond FAO-02's 5% margin | ⛔ **NEGATIVE** — sharpness bought with calibration, the wall `project_body_knob_quest` and `project_body_mask_sweep_negative` both hit. ⚠️ **Not a trade to be argued afterwards** |
 | **F4** | the arm's weight hash equals the control's | ⛔ **VOID** — the config never reached the model (C-324/C-331) |
 | **F5** | non-finite loss or gradient at any lesson | ⛔ **VOID** — report, do not interpret |
@@ -234,7 +296,18 @@ constructions is coupled to dispersion. It is reported as an FAO-02 guardrail an
 ## 8. Contrast set
 
 Against the **control** `calibration_model_20261013_010739.pt` (sha `4acbf4d3c2b457b0…`,
-`truncated_nb`, git `f99413e` lineage) — the artifact the whole scoreboard is baselined on. ⛔ One
+`truncated_nb`, git `f99413e` lineage) — the artifact the whole scoreboard is baselined on.
+
+⛔ **CORRECTED 2026-10-25 — this names a file/sha pair that does not exist, and the vehicle is
+replaced.** Verified on disk: `calibration_model_20261013_010739.pt` is **`2a5efc2a67c08eac…`**
+(`truncated_nb`, amber_kestrel); **`4acbf4d3…`** was the `nb` vehicle
+`calibration_model_20261012_033112.pt`, which is **DELETED**. The row above pairs one vehicle's
+filename with the other's digest.
+
+⇒ **The contrast set is now `heavy_freighter` `0ca3f31ff86ab348…`** — `nb`, global land, 300 lessons,
+views-hydranet 0.1.7, trained 2026-10-25, with `PROVENANCE` and a 172-package `ENVIRONMENT` beside it.
+⛔ One variable relative to it: `struct_penalty_weight` from 0 to the derived value, trained from the
+**same config** on the **same package version**. ⛔ One
 variable relative to it: `struct_penalty_weight` from 0 to the derived value.
 
 ## 9. Cost
