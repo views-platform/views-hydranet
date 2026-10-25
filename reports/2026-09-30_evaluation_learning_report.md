@@ -13,7 +13,7 @@
 > standing in for a measurement we hold is the same error class as
 > `2026-10-20_d3_static_channel_ceiling.md`'s three self-inflicted ones.
 
-**Date:** 2026-09-30 · **Last revised 2026-10-20** · **Status:** ⛔ **LIVING DOCUMENT — expected to carry open rows; not a verdict and not finished.** Consolidation only: **no new measurement by this document** (§0.2 and §5.0 carry tables measured 2026-09-30 by the `models` session, attributed there) ·
+**Date:** 2026-09-30 · **Last revised 2026-10-25** · **Status:** ⛔ **LIVING DOCUMENT — expected to carry open rows; not a verdict and not finished.** Consolidation only: **no new measurement by this document** (§0.2 and §5.0 carry tables measured 2026-09-30 by the `models` session, attributed there) ·
 **Supersedes as the living document:** `reports/2026-08-13_evaluation_pitfalls_and_metric_battery_DRAFT.md`
 (retained as dated provenance; its taxonomy letters A1–I4 are preserved here unrenumbered).
 
@@ -110,6 +110,12 @@ stale, miscounted, badly cited or incomplete. The cheapest high-value items:
   can do. ⛔ Nothing in §0–§8 was edited to agree with the literature; each collision is stated as two
   positions and left standing.
 - **2026-10-19/20** — fifteen falsification audits. `Appendix F`.
+- **2026-10-25** — `/falsify` on the sharpness-ceiling measurement: **3 hard + 1 soft**, two of them
+  retractions of numbers this project had held for about an hour. ⭐ The first audit in this history
+  whose findings are mostly **about the report's own subject matter rather than its prose** — see
+  **§5.5 L1–L3** (the ceiling of a normalised statistic is not the ceiling of its unnormalised cousin)
+  and **§5.10 L4–L6**. Two retractions added to `Appendix B`; one new instrument to `Appendix A.1`; a
+  fourth row to `Appendix A.3`. ⛔ Nothing was deleted.
 
 ⚠️ **Nine of the ~70 distinct findings were introduced by me on 2026-10-19, the day before the audit.** The
 auditors found all nine; I would not have. They are itemised in `Appendix F.2`.
@@ -1361,6 +1367,78 @@ Consequences on record: C-338 (an implausible truth outlier, filed upstream, unc
 and **#282** — a baseline defect that **scales as 1/n_origins**, so a single-origin study scores
 persistence as **exactly zero, silently**.
 
+> ⭐⭐ **FIRST PARTIAL CLOSURE, 2026-10-25 — and the closure itself produced the deeper lesson.**
+> `reports/2026-10-25_sharpness_ceiling_prereg.md` is the first instrument in this project pointed at
+> the **target** rather than the model. It is free (laptop, **78 s**, $0) and it generalises to any
+> normalised skill statistic. What follows is the transferable part; the measurement's own numbers are
+> in that prereg and in `GLOSSARY.md §5d`.
+
+#### ⭐⭐ L1 — a normalised score silently asserts that its own ceiling is 1.0, and on a noisy target that is an assumption, not a fact
+
+`2026-10-21_body_scoreboard.md` B-1 reports *"the body carries **0.391** of its due spatial structure at
+one cell"*. A ratio against truth reads as *"39% of the way to perfect"* — but **only if perfect is
+attainable**. On a 99.7%-zero count field assembled from event reports, a large share of the truth
+field's own spatial variation may be sampling noise that **no model could or should reproduce**. Nobody
+had checked. Three days of experiment design rested on it.
+
+**The method, and it is cheap and general.** Split the in-sample months into two independent halves —
+two noisy observations of the same latent field `f`. Then `gamma_A = gamma_f + nug_A`,
+`gamma_B = gamma_f + nug_B`, and the **cross**-variogram `gamma_cross = gamma_f`, because the two
+nuggets are independent and mean-zero. So `gamma_cross/gamma_B` is the reproducible fraction, **with no
+fitted parameter**. ⇒ Any ratio-to-truth metric can be given a measured ceiling this way, for the price
+of computing it twice.
+
+#### ⛔⛔ L2 — THE DEEPER LESSON: the ceiling must be measured with the SAME estimator it will be compared against
+
+This is the finding, and it cost a wrong conclusion that was published for about an hour before
+`/falsify` caught it.
+
+The first measurement returned `C(1) = 0.498` and the prereg's own decision rule concluded *"the arm's
+upside is capped at 0.498, not 1.0"* — i.e. **0.391 is already most of the way to the ceiling, don't run
+the experiment.** That was wrong, and wrong in the direction that kills work.
+
+| | estimator | what it measures |
+|---|---|---|
+| **B-1**, which produced `0.391` | `gamma_model/gamma_truth` **divided by the ratio of the two fields' variances** (the same-shape null) | **shape** |
+| the ceiling as first measured, `0.498` | `gamma_cross/gamma_B`, **not** variance-normalised | **amplitude** |
+
+Re-measured with **B-1's own** estimator on the two halves: **0.983 – 1.009 across `d = 1…32`**, within
+1.7% of 1.0. ⇒ **The true ceiling for `0.391` is ~1.0.** The variance normalisation cancels exactly the
+noise the first number measured: two noisy halves of the truth have the **same variogram shape** even
+though each is individually noisy in **amplitude**.
+
+⇒ **The generalisable rule.** *A normalising step in a metric changes what its ceiling is.* The ceiling
+of a normalised statistic is **not** the ceiling of its unnormalised cousin, even when both are
+dimensionless and both live in `[0, 1]`. ⛔ So "measure the ceiling" is not enough — **measure the
+ceiling by running your actual metric on two independent halves of the truth.** Substitute half-A for
+the model and half-B for the truth, change nothing else. Anything else answers a different question.
+
+⚠️ **Both numbers are real; they bound different things.** `0.498` says slightly under half the
+**amplitude** of the truth's one-cell variogram is signal rather than month-sampling noise — a genuine
+fact about the data, and one that matters for any metric that is *not* variance-normalised. It simply
+does not bound B-1. Locked as two distinct terms in `GLOSSARY.md §5d` for exactly this reason.
+
+#### ⭐ L3 — a reliability correction is scale-specific; do not carry a 1/n noise argument across a nonlinear transform
+
+The prereg also converted the half-sample number to a full-sample one with Spearman–Brown
+(`C_full = 2C/(1+C)`). The algebra is right. ⛔ **The premise is not transferable.** "Additive noise with
+variance ∝ 1/n" is a statement about **counts**; it was applied to a `log(rate + 1e-6)` field, where a
+cell that is zero in both halves is pinned at `log(eps) = -13.8` regardless of `n` — error variance ~0,
+not ∝ 1/n.
+
+Its own pre-registered sweep refuted it: the correction gives **0.665** on the logged field and **0.262**
+on raw counts, **3.3× apart**. Both cannot describe one noise process. ⇒ Withdrawn. **A split-half
+reliability needs no scaling argument and should be reported at the `n` it was measured at.** The
+correction was the only part of the measurement that tried to extrapolate, and it was the only part that
+broke.
+
+⛔ **What none of this removes.** A split-half comparison cancels noise **independent between the
+halves** (event sampling, month-binning). **Systematic provider geocoding lands in the same cell in both
+halves, survives, and is counted as reproducible structure.** ⇒ Every ceiling above, the ~1.0 included,
+is an **UPPER BOUND**. A **low** ceiling is conclusive; a **high** one is not. This is the §5.5 blind
+spot reappearing one level down: we have now audited whether the target's *noise* is reproducible, and
+still not whether the target is *right*.
+
 ### 5.6 ⚠️ Two bootstrap CIs in the apparatus are not reproducible
 
 `mcr_readout` and `proper_score_audit` derive their RNG salt from `hash(str)`, which Python randomises
@@ -1402,6 +1480,57 @@ checked by CI.
 determinism gate. `ReproducibilityGate.audit_manifest`: *"has no production caller — the genome audit
 C-43 shipped never runs"* (C-271). `screen_verdict`: nothing has invoked it since its own dossier, and
 its thresholds are frozen to a 300-lesson floor, so it is meaningless on any other vehicle.
+
+---
+
+### 5.10 ⚠️ Three lessons from 2026-10-25 that are not about the ceiling (added 2026-10-25)
+
+#### ⛔ L4 — a VOID condition drafted globally over a deliberate sweep voids your own measurement
+
+The ceiling prereg pre-registered a **sweep** over a free parameter (the log offset `eps`, plus a raw
+untransformed slot) *and* predicted, as **Q-4**, that the raw slot would diverge from the logged one by
+more than 0.10. It then wrote a void rule reading *"**any** `C(d) < 0` or `> 1`"*.
+
+Both fired — on the raw and contiguous slots, exactly the ones Q-4 said would misbehave. The primary
+slot was clean and strictly monotone. ⛔ **And the driver printed `VOID` and then printed its decision
+verdict anyway**, resolving the contradiction silently in favour of reporting.
+
+⇒ **The rule.** When a design includes a sweep over values chosen to probe degeneracy, **scope the void
+conditions to the primary slot.** A swept diagnostic slot going degenerate is a *finding*; only the
+primary slot going degenerate is a *void*. ⚠️ Related to §5.3 and to Appendix A's recurring theme — this
+is a gate that **could** fire, fired correctly, and still meant nothing, which is a third failure mode
+alongside "cannot fire" and "never run".
+
+#### ⚠️ L5 — evaluation outputs can fail to leave the machine that produced them
+
+On the 2026-10-25 control run, **three of five delivery directories did not exist** until an audit went
+looking. The pod runner collects `$OUT` only, and both it and `tools/collapse` ship `lr_*` alone — so the
+**entire gate side (`by_*`)**, the gate posterior (6.55 GB raw) and the `by_*` metricframes **reached
+neither the parquets nor the draws archive**. They existed on the pod and nowhere else, and would have
+died with it.
+
+⇒ Most of this project's open evaluation questions are about the **gate**. A gate-calibration
+measurement that discovers after terminate that `by_*` never came home is a wasted pod. ⛔ **Collection
+of the artifact a measurement needs is part of the measurement's pre-registration, not an infrastructure
+detail.** Reported by the `models` session's own independent `/falsify`.
+
+#### ⚪ L6 — "unmeasured" must be representable distinctly from "measured zero"
+
+The control run's `trajectory.csv` carries `fed_grad_max` **blank in all 300 rows**. That is correct and
+deliberate. The column measures gradient through the autoregressive feedback wire, which is only ever fed
+when `ss_backprop_through_feedback` is True — default False, set by no roster config. The column
+**used** to initialise to `0.0`, which made *"the wire is off"* and *"the wire is on and the gradient
+died"* **the same three characters** in a delivered CSV. Blank → `read_csv` NaN → "not measured", which
+is the truth. Pinned by `tests/test_trajectory_log_end_to_end.py::test_fed_grad_max_is_BLANK_not_zero_when_the_feedback_wire_is_off`.
+
+⇒ This is the same defect class the repo already records as *"an unmeasured input absorbed as a value —
+fix by DELETING the representation, never by adding a guard"*, applied to an **output**. ⚠️ And a second
+observation worth keeping: **two independent audits ran on 2026-10-25 and each flagged the other's
+working guard as a defect** — this blank column, and a loud `aggregate_method is IGNORED` warning that
+turns out to be a documented mode interaction with its own test. The usual failure here is guards that
+cannot fire; this was the inverse, and it is cheaper to resolve but it costs attention. **A guard whose
+visible signature is an absence will be read as a gap by anyone who did not write it**, so it needs to
+say so at the site.
 
 ---
 
@@ -1798,6 +1927,7 @@ evaluation artifact written in-package is the body-mean dump.
 | `.../2026-09-03_drivers_and_dynamics_dossier/tools/subset_ap.py` | AP on an onset universe vs a continuation universe | partition, not subset | the **only** instrument that separates onset from continuation |
 | `.../2026-09-02_silence_vs_fade_dossier/tools/decompose.py` | the exact identity `mean(g·μ) = mean(g) × [Σgμ/Σg]` | all cells, nothing conditioned | the fix for C-318 (a conditional mean on a vanishing denominator, twice) |
 | `reports/2026-10-10_delivery_frame_measurements/delivery_frame_audit.py` | integrity, frame ordering (`II,III ≥ I`), collapse mass-ratios, per-step mass **and** step-to-step L1 churn, member distinctness on the union support | a **delivered handover folder**; no truth, so no AP/CRPS/calibration | ⚠️ **NEW 2026-10-10, ungated lab code, no tests.** The only instrument that reads the *delivered* product rather than a sample cube — a partial answer to §5.0(a). Its (e) section exists because the first version of that measurement was wrong: whole-field agreement on a 99%-zero field measures shared zeros (Appendix C) |
+| `reports/2026-10-25_sharpness_ceiling/ceiling.py` | **split-half variogram reliability** of the TRUTH: `gamma_A`, `gamma_B` and `gamma_cross` in one pass, over 2 split schemes × 3 transforms × 3 targets × {E–W, isotropic} | the 64,818-cell land grid, months 121–456; **no model artifact is read** | ⭐ **NEW 2026-10-25.** The **first instrument in the apparatus pointed at the target rather than the model** (§5.5). Free: 78.0 s, 4.76 GiB, $0, no GPU. ⛔ Reports an **amplitude** fraction (0.498 at `d=1`); the **shape** fraction that actually bounds B-1 (~1.0) needs the variance normalisation added — see §5.5 L2, and do not quote one for the other. ⛔ Its `c_full()` half→full correction is **WITHDRAWN** (§5.5 L3). Committed before it ran; no tests
 
 ### A.2 Superseded or dead
 
@@ -1830,6 +1960,17 @@ with **no join guard**, so an unmatched cell is silently dropped from the positi
 positive subset), `mcr_none` (**absolute mass, not a ratio**), and `mcr` in `sharpness_scorecard`. The
 locked glossary defines `pos-mcr` and `size-ratio` and warns they differ — but has **no row for
 `mcr_all` or `mcr_none`, the two columns the headline scorer actually emits.**
+
+⛔ **"fraction of its due spatial structure" names two things — added 2026-10-25, and it cost a wrong
+verdict.** `0.391` (B-1) is a variogram ratio **divided by the ratio of the two fields' variances**;
+`0.498` (the split-half ceiling, as first measured) is a variogram ratio **with no such normalisation**.
+Both are dimensionless, both live in `[0, 1]`, and they were compared directly to conclude the
+structure-penalty arm had almost no headroom. Re-measuring the ceiling **with B-1's own estimator** gives
+**~1.0**, so the arm's headroom was real all along. ⇒ **A normalising step changes what a statistic's
+ceiling is.** Now locked as two separate terms, `GLOSSARY.md §5d`, with the general rule in **§5e**:
+a comparison must name, per side, the population, the transform, the estimator **and whether it is
+normalised and by what**. ⚠️ The fourth row of this appendix, and the **third** time this project has
+compared two same-named statistics built by different estimators (see `GLOSSARY.md §5e`).
 
 ⛔ **"AP" names two things**: a continuous gate probability for gated arms, and a statistic with S+1
 levels — **two levels at S=1** — for gate-less arms. Four scorers form it the same way; one refuses the
@@ -1886,7 +2027,9 @@ the audit tool". **Nothing tests that they still match.**
 
 ## Appendix B — The retraction log
 
-31 traceable retractions or overturns, 2026-05 → 2026-09. **≥14 concern a published ledger row or a
+31 traceable retractions or overturns, 2026-05 → 2026-09. ⛔ **[UPDATED 2026-10-25: **33**, through
+2026-10. The two added are the last two rows of the table below and are dated there. The prose counts in
+this paragraph are NOT re-derived — they are the 2026-09 figures and are left as measured.]** **≥14 concern a published ledger row or a
 delivered verdict.** Two independent internal estimates of the base rate exist and both are lower
 bounds: a systematic recompute found **3 of 9 headline figures (33%)** wrong or misleading; a deletion
 test found **27 of 40 tests (68%)** passing with the call site removed.
@@ -1914,6 +2057,8 @@ retracted number.]** of the gap is `crps_none`, AP is *worse*, `size_ratio` 0.00
 | σ_max = 1.60 and "the first direct observation" of rising state drift | the probe sampled the **teacher-forced warm-up**; true σ_max **7.7628**, and the real phase **collapses 40×**. *"Every downstream guard passed"* | `/code-review medium`, incidentally | ~1 day |
 | BPTT-SA "unit tested (7), mutation tested 5/5, suite green (1,901)" | **inert on the production path**; two arms trained to byte-identical weights | **the result being impossible** — named as luck | 276 GPU-min |
 | C-58's forecast-sniffer remedy | made **every forecasting run impossible**; no forecasting run had ever completed in this repository | a fresh look, #390 | **months** |
+| **"the sharpness ceiling is 0.498, so the structure arm's upside is capped"** (2026-10-25) | ⛔ **CATEGORY ERROR.** The ceiling was measured **unnormalised** and compared to B-1's **variance-normalised** 0.391. Re-measured with B-1's own estimator: **0.983–1.009** at every lag ⇒ the ceiling is **~1.0** and the arm's premise survives. The error pointed at **killing** a justified experiment | `/falsify` on the claim *"the run is done and we have everything we need"* — probe P5, the one predicted most likely to bite | **~1 hour** |
+| **`C_full = 0.665`**, the 1/n-corrected ceiling (2026-10-25) | Spearman–Brown's *additive noise, variance ∝ 1/n* premise is a statement about **counts**, applied to a `log(rate+eps)` field. Gives **0.665** logged vs **0.262** raw. **Withdrawn** | the same audit — and the refuting evidence was the prereg's **own pre-registered Q-4** | **~1 hour** |
 
 ⛔ **Detector yield.** ⚠️ **These counts do not sum to 31, and the reason is a finding rather than an
 error — but it has to be stated, because a reader who adds them up should not have to guess.** The
