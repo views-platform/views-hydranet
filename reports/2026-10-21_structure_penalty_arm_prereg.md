@@ -16,6 +16,65 @@ Design notes behind it: `2026-10-21_loss_arm_design_notes.md` (with its §5b sea
 ⚠️ **The hypothesis is the second clause.** That the term moves *sharpness* is near-certain and is a
 manipulation check, not a finding (§5). The claim with content is that **level and slope move too**.
 
+## 1b. ⛔ Literature grounding — ADDED 2026-10-25, and it was missing
+
+⚠️ **This plan went to the pre-flight gate with no citations at all.** The design notes behind it
+carried four sources; this prereg carried none, and the four it carried were all *supporting*. Every
+counterweight below was absent from both documents. Claim IDs are from `~/brain/9_library`, read
+2026-10-25.
+
+### ⭐⭐ The mechanism is a theorem, not an analogy
+
+| source | claim | what it establishes |
+|---|---|---|
+| **Bishop 1994** `C-1522` | minimising a sum-of-squares error gives outputs approximating the **conditional average** of the target, `f(x) = ⟨t\|x⟩`, in the limit of enough data and a flexible enough network | ⭐⭐ §1's mechanism is a **limit result**, not a tendency. At its optimum a per-cell loss **is** the smeared field |
+| **Bishop 1994** `C-1528` | on a multi-valued inverse problem a least-squares net "gives a very poor fit **because** it approximates the conditional average"; a mixture-density net recovers the modes | the worked failure case, from 1994 |
+
+### ⭐⭐ It is the loss, not the architecture — someone ran that control
+
+| source | claim | what it establishes |
+|---|---|---|
+| **Mathieu 2016** `C-3634` | a multi-scale Laplacian-pyramid architecture enlarges the effective receptive field and leaves sharpness **identical at 24.7** vs the single-scale ℓ2 model | ⭐⭐ the only experiment in the library that **separates** loss from capacity, and it lands on §1's side |
+| **Mathieu 2016** `C-3633` | Adv+GDL 31.5/0.91/**25.4** vs ℓ2 27.6/0.86/**24.7**; *"the loss function, not the architecture"* | the effect size, on images |
+
+### ⭐ Not an MSE quirk — any per-cell loss does it
+
+| source | claim | what it establishes |
+|---|---|---|
+| **Ayzel 2020 (RainNet)** `C-3654` | trained with **`logcosh`** (≈ MAE, a median) and still loses power at **16 km and below**, at a **single** 5-min step | ⛔ switching to a robust/median loss does **not** escape it |
+| **Isola 2017** `C-3642` | L1 **and** L2 blur; they capture low frequencies and fail on high-frequency crispness; "L1 incentivizes greyish, averaged colors" | two loss families, same defect |
+| ⭐ **Shi 2015 (ConvLSTM)** `C-3292` | **our own architecture's paper** records that ConvLSTM blurs at longer lead times and attributes it to the model "blur[ring] predictions to minimize error under uncertainty" | the architecture we use says so about itself |
+
+### ⭐ Why a *spatial* term is the right SHAPE of fix
+
+| source | claim | what it establishes |
+|---|---|---|
+| ⭐ **Isola 2017** `C-3644` | a **70×70** patch discriminator is optimal; a **1×1 "PixelGAN" adds colour diversity but NO spatial sharpness**; PatchGAN "effectively imposes a Markov random field assumption, penalising structure at the patch scale" | ⭐⭐ **a per-cell critic cannot fix a per-cell defect.** The structural argument for `k > 1`, measured |
+| **Mathieu 2016** `C-3632` | the Gradient Difference Loss penalises the **gradient difference** between prediction and truth (unlike total variation, which penalises the gradient itself) | ⛔ `struct_pen` is in GDL's family, generalised across scales — and §2's one-sided form is the same distinction |
+| **Ravuri 2021 (DGMR)** `C-3657` | a U-Net on per-grid-cell regression had effective resolution **8 km at T+30, 32 km at T+90** on a 1 km grid; *"CSI does not penalise loss of small-scale structure"* | ⭐ the defect is invisible to the standard metric — which is §5's reason `AP` is not a verdict quantity |
+| **Ravuri 2021** `C-3659` | **56 Met Office forecasters preferred the sharp model 88% / 89%** of the time (p < 10⁻⁴), calling the smooth one *"too bland"* and *"blocky"*; "standard metrics and expert judgments are not mutually indicative of forecast value" | the operational relevance, from forecasters rather than from a score |
+
+### ⛔ THE COUNTERWEIGHTS — every one of these was absent, and they are the reason F2/F3 exist
+
+| source | claim | what it costs this arm |
+|---|---|---|
+| ⛔ **Ravuri 2021** `C-3661` | **DGMR ensembles are UNDER-DISPERSED** vs PySTEPS on rank histograms, and heavy-rainfall intensity **decays** at T+90 | ⛔⛔ the sharp fix carries its own calibration cost — and **under-dispersion is a defect we already have** (the gate's logits are compressed, slope b > 1 in all six fits). This arm could trade one of our problems for the other, and nothing in the readout would catch that unless `crps_all` moves. ⚠️ Named here as a **limitation, not a falsifier** — adding a dispersion readout is out of scope for this plan |
+| ⛔ **Ravuri 2021** `C-3658` | without grid-cell regularisation **CSI degrades**; without the discriminators, **best per-cell CSI but poor spectrum** (λ = 20 selected **for CRPS**) | ⛔ the sharpness/per-cell trade is **measured**, not hypothetical. One picks a point on that curve. ⇒ This is **F3** with a number behind it, and it is why the weight is derived rather than chosen for effect |
+| ⛔ **Gneiting 2007** `C-3526` | the governing paradigm is **maximising sharpness SUBJECT TO calibration** — calibration is the constraint, sharpness the objective within it | ⛔ **F3 is not a preference, it is the field's standard.** Sharpness bought with calibration is not a trade to be argued afterwards |
+| ⛔ **Mathieu 2016** `C-3633` | the winner was **Adv+GDL** (31.5), not GDL alone; adversarial-only reached 30.6 | ⛔ **`struct_pen` is the cheap, stable, non-GAN HALF of the literature's fix.** A partial effect is the *expected* outcome, which is consistent with §4's 35% prior and must not be read as a failure of the mechanism |
+| ⛔ **Ayzel 2020** `C-3656` | proposes three remedies for the smoothing — #1 **"a spectral power penalty in the loss"** — and calls all three **UNTESTED** | ⛔ **our exact remedy is on the record as never having been run.** No one has published the result we are about to measure, in either direction. That is the value of the arm and also why no prior is borrowable |
+
+### ⛔ THE GAP — nothing in the library is a count field
+
+Every source above is **images or radar**: continuous, dense, and scored with L1 / L2 / logcosh / CSI /
+PSD. ⛔ **Nothing in the library applies a spatial-structure penalty to a ~99.7%-zero COUNT field under
+a hurdle likelihood.** The closest analogue is DGMR noting **89% of UK cells contain no rain**
+(`C-3661`) — and they required importance sampling to train on it at all.
+
+⇒ **Consequence, pre-committed:** the mechanism transfers by argument, **not** by precedent. No effect
+size from any paper above may be quoted as an expectation for this arm. §4's priors stand on our own
+measurements (B-1 0.391 at d = 1; B-3 24.7%) and on the seven-failure base rate, and on nothing else.
+
 ## 2. The intervention — ONE variable
 
 Add a fifth additive term at the reduction site, in the pattern
@@ -154,7 +213,11 @@ constructions is coupled to dispersion. It is reported as an FAO-02 guardrail an
 
 1. **n = 1 at 300 lessons is a SCREEN.** A null is **INCONCLUSIVE, not negative** (C-307), measured
    against the ~**0.019** seed sd. ⛔ Only F2 and F3 produce a *negative*; absence of effect does not.
-2. **C-184 BatchNorm seed-bimodality / C-119 ~20% training variance** — an unstable run is **VOID**.
+2. **C-184 BatchNorm seed-bimodality** — an unstable run is **VOID**. ⛔ **CORRECTED 2026-10-25:**
+   this clause read "/ C-119 ~20% training variance". **C-119 is RESOLVED and that figure is a
+   PRE-FIX measurement** (C-357), so it is not a live noise floor and must not appear beside a VOID
+   rule as if it were. The live floor is §7.1's **≤0.019 seed sd**; the demonstrated paired-by-month
+   resolution is **±0.010**. This is registered risk **M-5** appearing in a third pre-registration.
 3. ⛔⛔ **THE W-22 GATE, and it is the one most likely to be skipped.** The pod installs
    `views-hydranet~=0.1.1` **from PyPI** (`tools/podrun/pod_run_model.sh:171-173`) and
    `HydraNetConfig` sets `extra="allow"`, so a config key that exists only on a local branch is
