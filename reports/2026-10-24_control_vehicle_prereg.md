@@ -124,6 +124,12 @@ the only gate, and the six per-task columns follow from it automatically. #593 o
 
 ## 3. ⛔ Skepticism ledger
 
+⚠️ **AMENDED 2026-10-25, while the run was training.** Simon asked for every expected weakness of
+this vehicle and four of them (**S7–S10**) were in neither §3 nor §8 — they lived only in session
+memory. They are added here rather than left out, because a pre-registration that omits a known
+limitation is the thing this section exists to prevent. Nothing above S7 was changed. The one
+factual **correction** this prompted is in **§7 A1**.
+
 | # | The worry | Why it is pre-committed, not waved away |
 |---|---|---|
 | S1 | A bad BatchNorm basin (C-184, ~40%) produces a vehicle that cannot rank, and nothing says so | **V7** below: FG-A is binding and self-contained in the control's own score row |
@@ -132,6 +138,10 @@ the only gate, and the six per-task columns follow from it automatically. #593 o
 | S4 | I score it with whichever CRPS estimator flatters it (C-358, FAO-02 is silent) | **§4** pre-commits the estimator *and* requires both be reported |
 | S5 | The vehicle is compared against a reference of different ensemble width | **§4**: C-330's equal-S rule, which is necessary but *not sufficient* |
 | S6 | This run becomes "the control" for arms it was never matched to | **§8**: what this does not establish |
+| **S7** | ⭐ **It is read as a plain `nb` baseline, and it is not one.** Two *closed* interventions are ON in this config: `ss_schedule: 'linear'` + `ss_epsilon_max: 0.5` — scheduled sampling, closed **HARMFUL** (M30–M33: AP h18 **−0.0426**, p=0.0286, 4v4) — and `freeze_recurrent: 'cell'`, the only intervention that ever won (**+0.039**). §2's "everything else … identical" covers them silently | Correct for *matching a future arm*, wrong for comparing anything measured here to the M-numbered ledger, which crosses both axes. Every number this run produces is **heavy_freighter-as-configured**. ⛔ Any readout that cites an M-number alongside this control must say so in the same sentence |
+| **S8** | ⭐ **It is read as a magnitude baseline.** The body's size-ratio is **~0.02** — seed-stable and magnitude-capped (the standing state, not a new failure) | It is a usable **occurrence** baseline and a poor **magnitude** baseline. ⛔ No future arm may claim a win against it without naming which of the two it beat |
+| **S9** | ⚠️ **The artifact will not record which library built it.** `PROVENANCE` carries model, sha256, lessons, region, run_type, git, trained, mode — **not** the `views-hydranet` version (C-165/C-166; measured as probe P6 on 2026-10-24) | Recoverable, but only while the pod exists: grep `run.log` for `+ views-hydranet==` (the `tee` at `pod_run_model.sh:101` captures the `uv pip install` at `:171`). ⛔ **Do this by hand when the artifact lands** — after the pod is destroyed it is unrecoverable |
+| **S10** | ⚠️ **A1 cannot be ticked on this run** — see the correction in §7 | The 0.1.7 pre-flight raises `NameError: __file__` on precisely this config family. Not a threat to the run; a hole in its *evidence*, and §0a already places it off the critical path |
 
 ## 4. Pre-committed readout
 
@@ -203,6 +213,15 @@ RESOLVED and that figure is a PRE-FIX measurement (C-357).
       installed wheel and the gate reports on the wrong tree (reproduced accidentally 2026-10-24).
       ⛔ Requires views-hydranet **≥ 0.1.7**; `0.1.6` checks only that the schema *declares*
       `trajectory_log_path`, not that the config *sets* it. `~=0.1.1` resolves to 0.1.7 (verified).
+      ⛔ **CORRECTION, 2026-10-25 — A1 as written cannot pass, and the sentence above is wrong.**
+      0.1.7's `load_config_keys` execs the config in an empty namespace (`ns: dict = {}`), so a
+      config that reads `__file__` raises `NameError: name '__file__' is not defined`. Seven of
+      views-models' 140 configs derive their own name that way — the six `*_kestrel` models **and
+      `heavy_freighter`** — and it is how every one of them sets `trajectory_log_path`. So the
+      pre-flight cannot read the one config shape it was written to check. Fixed on
+      `fix/preflight-cannot-read-a-config-using-dunder-file` (**PR #456**, 4/4 mutations caught);
+      reaching a pod needs a **0.1.8**, which is Simon's call. ⛔ Leave **A1 unticked and say so**
+      rather than substituting a weaker check — §0a puts both off this run's critical path.
 - [ ] **A2** No VOID rule fired (§5), each checked and recorded, including the ones that passed
 - [ ] **A3** `scripts/arm_postflight.py` and the weight-hash post-condition
 - [ ] **A4** `scripts/potency_check.py` at the trained checkpoint — the C-324 gap the pre-flight
@@ -220,6 +239,12 @@ RESOLVED and that figure is a PRE-FIX measurement (C-357).
 - **It settles nothing about the body.** The body's zero mass, θ's lack of an interior optimum and
   the truncation-inverts-placement finding (M67) are untouched by having a vehicle.
 - **A null on anything measured here is INCONCLUSIVE, not negative** (C-307): n=1 at 300 lessons.
+- **It settles nothing about the gate's dispersion.** The gate's logits are COMPRESSED — fitted
+  slope **b > 1 in all six fits** (control 1.146, arm 1.419) — and the two live candidates (BN
+  recal fitted on 32×32 windows then applied to the 360×720 grid; `weight_decay 0.1` applied
+  globally with the heads not excluded) are both untouched by this run. `pos_weight` is closed
+  analytically: it is a pure `log(w)` intercept shift, so it cannot move ranks, AP or resolution.
+- **It does not say which library produced it** — S9 above. The version is in `run.log` only.
 
 ## 9. Open before launch — Simon's two
 
