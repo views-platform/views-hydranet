@@ -347,6 +347,61 @@ version of this comparison in which neither side has a selection or an estimator
 ⚠️ One vehicle (`4acbf4d3c2b457b0…`, the retrained control, **not** the delivered weights — C-317),
 n=1, `sb` only.
 
+## 5d. The spatial-structure CEILING — two fractions, and they are not interchangeable (LOCKED 2026-10-25)
+
+`2026-10-21_body_scoreboard.md` B-1 says the body *"carries 0.391 of its due spatial structure at one
+cell"*. That sentence silently needs an **achievable value**, and until 2026-10-25 nobody had measured
+one. `2026-10-25_sharpness_ceiling_prereg.md` measured it by splitting the 336 in-sample months into two
+independent halves — two noisy observations of the same latent field — and comparing them.
+
+⛔ **It produced TWO numbers, and conflating them was the finding.** Both are locked:
+
+| locked name | definition | measured | banned aliases |
+|---|---|---|---|
+| **reproducible amplitude fraction** `C(d)` | `gamma_cross(d)/gamma_B(d)` between the two half-samples. **Not** variance-normalised | **0.498** at `d=1`; 0.795 at `d=32` | "the ceiling", "reproducible fraction" unqualified |
+| **reproducible shape fraction** | the same split-half comparison under **B-1's own** estimator — the variogram ratio **divided by the ratio of the two fields' variances** (the same-shape null) | **0.983 – 1.009** across `d = 1…32` | "the ceiling" unqualified |
+
+⭐ **Only the shape fraction bounds B-1**, because B-1 divides amplitude out. ⇒ **the ceiling the 0.391
+is read against is ~1.0**, and the amplitude fraction 0.498 bounds something else: how much of the truth
+variogram's **size** is signal rather than month-sampling noise.
+
+> ⛔ **This box exists because the two were conflated once, in the document that measured them.** The
+> prereg's §3 decision rule compared `C(1) = 0.498` (amplitude) against B-1's `0.391` (shape) and
+> concluded the arm's upside was "capped at 0.498, not 1.0". That is a category error and it errs toward
+> **falsely throttling** the arm. Corrected in that prereg as **X-1**, with the original text kept.
+>
+> ⚠️ **This is the THIRD recorded instance of the same error class in this glossary** — see §5c's *"Why
+> this box moved twice"*, item (1): *"'Same' was written from two **different estimators** and was
+> unsupported."* The rule that follows from three instances is in §5e.
+
+⛔ **Standing caveat on BOTH fractions, which no estimator removes.** A split-half comparison cancels
+noise that is **independent between the halves** (event-level sampling, month-binning). Systematic
+provider geocoding lands in the **same cell in both halves**, survives, and is counted as reproducible
+structure. ⇒ Every fraction above is an **UPPER BOUND**. A **low** value is conclusive; a **high** value
+is not.
+
+⛔ **`C_full` / "the 1/n-corrected ceiling" (0.665) is WITHDRAWN, not locked.** It applied
+Spearman–Brown, whose premise (additive noise, variance ∝ 1/n) is a statement about **counts**, to a
+`log(rate + eps)` field. The same correction gives 0.665 logged and 0.262 raw — 3.3× apart. Do not quote
+it.
+
+## 5e. ⛔ THE ESTIMATOR-NAMING RULE (LOCKED 2026-10-25, from three instances)
+
+Three separate measurements in this project have been wrong in the same way: **two numbers that share a
+name were produced by different estimators and were compared as if they were one quantity.**
+
+| # | where | what was compared |
+|---|---|---|
+| 1 | §5c item (1) | body per-cell OLS vs gate binned-logit, both called a "slope" |
+| 2 | `feedback_never_mix_two_statistics` | a median-over-cells vs a pooled mean, which invented a phantom finding (B7) |
+| 3 | §5d / X-1 | a variance-normalised variogram ratio vs a raw one, both called a "fraction of structure" |
+
+⇒ **THE RULE.** A sentence comparing two statistics must name, for **each side**: the **population**,
+the **transform**, the **estimator**, *and* **whether it is normalised and by what**. The first three
+were already required by C-351 (*"name the population with every number"*); **the fourth is new and is
+what all three instances above actually missed.** A ratio and a normalised ratio are different
+quantities even when both are dimensionless and both live in `[0, 1]`.
+
 ## 6. The models we've actually run (described by their choices — codenames RETIRED)
 I will describe models by their §2/§3 choices, not by codenames. The codenames below are retired; they map to:
 
