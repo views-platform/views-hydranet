@@ -1,0 +1,19 @@
+========================================================================================
+P4 — the penalty's share of the loss, against THREE candidate denominators
+========================================================================================
+  views_hydranet            /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/__init__.py
+  vehicle                   calibration_model_20261025_132124.pt  (nb)
+  sum body NLL              1.247872
+  sum gate BCE (pw 2.0)     2.079120
+  sum structure penalty     0.827130
+  balancer output           2.703056
+    = 0.5*body + 1.0*gate   2.703056   (the frozen-balancer identity)
+  weighted penalty w*pen    0.344834   at w = 0.416904
+
+  denominator                                             share
+  sum(body) + w*pen          <- §3c REPORTS THIS          21.7%
+  balancer  + w*pen          <- the optimiser sees this    11.3%
+  0.5*sum(body) + w*pen      <- body only, as weighted    35.6%
+
+  ⇒ §3's 50% fallback does NOT fire under ANY reading, so the pinned weight is unchanged.
+  ⚠️ If §3 is read as matching the body AS WEIGHTED (x0.5): w = 0.208452
