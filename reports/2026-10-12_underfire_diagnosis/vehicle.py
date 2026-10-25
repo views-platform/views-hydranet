@@ -28,7 +28,6 @@ EXPECTED_SIDECAR = {
     "input_channels": 3,
     "total_hidden_channels": 32,
     "output_channels": 1,
-    "dropout_rate": 0.15,
     "static_channels": [],
     "static_top_skip": True,
     "reg_activation": None,
@@ -40,6 +39,27 @@ EXPECTED_SIDECAR = {
 #: vehicle the structure-penalty arm runs on and the only one still on disk.
 #: ⛔ A number measured under one is NEVER quoted against the other.
 ADMITTED_FAMILIES = ("nb", "truncated_nb")
+
+#: ⛔ AMENDMENT 5 (2026-10-25). `dropout_rate` is checked against a SET, for the same reason and in
+#: the same shape as Amendment 4's family set — and it was found the same way, by F6 refusing a
+#: vehicle and the refusal being the finding.
+#:
+#: WHY. The whole D3-D12 programme, including `2026-10-21_body_scoreboard.md`'s B-1 = 0.391, was
+#: measured on the `nb` checkpoint `4acbf4d3…` at dropout 0.15, and that file is **DELETED**. The
+#: structure-penalty arm's §8 therefore contrasts against `truncated_nb` `2a5efc2a…` "the only one
+#: still on disk" — and on 2026-10-25 the scoreboard was run on it for the first time and returned
+#: B-1(d=1) = **1.462**, i.e. ABOVE its due share. ⇒ The arm's premise does not exist on the vehicle
+#: it would run on, and the premise is an `nb` finding.
+#:
+#: `heavy_freighter` `0ca3f31f…` (trained 2026-10-25, views-hydranet 0.1.7) is the only LIVE `nb`
+#: vehicle. Measured before widening, exactly as Amendment 4 did: of F6's keys, **only
+#: `dropout_rate` differs** (0.125 against 0.15); model, channels, hidden size, static config,
+#: `reg_activation` and `n_head_samples` are identical, and `hurdle_nb_theta` is None on both.
+#:
+#: ⛔ A number measured at one dropout rate is NEVER quoted against the other. Dropout is a
+#: regularisation knob and this programme's readouts are smoothness readouts, so the two are
+#: exactly the pair most likely to interact. The caller records which rate it loaded.
+ADMITTED_DROPOUT = (0.15, 0.125)
 
 
 def emitted_magnitude(mu, theta, family: str):
@@ -147,6 +167,13 @@ def load_vehicle(artifact: str | Path, device: str = "cpu"):
             f"VOID (F6): output_distribution {fam!r} is not an admitted vehicle family "
             f"{ADMITTED_FAMILIES}. Amendment 4 admits exactly these two; anything else is a "
             "different model and needs its own amendment, not a widening here."
+        )
+    drop = cfg.get("dropout_rate")
+    if drop not in ADMITTED_DROPOUT:
+        raise SystemExit(
+            f"VOID (F6): dropout_rate {drop!r} is not an admitted value {ADMITTED_DROPOUT}. "
+            "Amendment 5 admits exactly these two; anything else is a different vehicle and needs "
+            "its own amendment, not a widening here."
         )
     bad = {k: (cfg.get(k), v) for k, v in EXPECTED_SIDECAR.items() if cfg.get(k) != v}
     if bad:
