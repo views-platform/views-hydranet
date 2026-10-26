@@ -189,3 +189,28 @@ increasing overall. ⛔ The comparator is B-1 on the identical transform, which 
 | fields | `hf_control_20261025/.../biopsy_stage_5:_training_forensic_(lesson_297_win_1).npz` + the arm's matched file |
 | predecessors | `instrument_battery.py` (`b4da301`), `fss_skill_threshold.py` (`8c2d537`) |
 | risks | **C-372** blocks any arm. **C-370**/**C-371** concern VS-p, not FSS. |
+
+---
+
+## Amendment 1 — 2026-10-26, after the run: TWO of my own pre-registrations were wrong
+
+⛔ Recorded here rather than adjusted, because changing a pre-registration after seeing the number
+it produces is worse than the error.
+
+**A1-1 — P-F2 predicted "monotone worsening" under T-3. FSS is NOT monotone.** Measured at `n=1`,
+counts: `0.5204 → 0.3571 → 0.3776 → 0.3673` for 0/1/2/3 smoothing passes. The **second** pass
+scores **better** than the first. Same shape in log1p (`0.3469 → 0.3878 → 0.3673`) and at `n=3`,
+`n=15`. The *direction* of P-F2 ("weak on blur") was right; the *monotonicity* was wrong, and
+**D-4 fires on the version I committed.** Logged as **W-70**.
+
+**A1-2 — D-2's stated consequence is refuted by this run's own control column.** D-2 commits me to
+saying "the body's over-smoothness defect has **no** diagnostic". That is false: **B-1**, carried
+alongside as the retired instrument, moves `0.4465 → 0.1710 → 0.1116 → 0.0855` under the same
+three smoothing passes — strongly monotone, a 5.2× swing, while being **exactly flat** under
+displacement (`0.4465 → 0.4466 → 0.4464 → 0.4422`). ⇒ **B-1 is a dispersion instrument and always
+was.** This morning's verdict stands as narrowed: B-1 is retired **as the placement diagnostic**,
+not as an instrument. I wrote D-2 assuming FSS was the only candidate on the table, with B-1's
+replacement column already in my own script. Logged as **W-71**.
+
+**Nothing else changed.** F-1, F-2, F-3, C-1, C-2 all PASS; no VOID condition fired; P-F1, P-F3 and
+P-F4 hold as written; D-1, D-3, D-4, D-6 fire as written.
