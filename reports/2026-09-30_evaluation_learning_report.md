@@ -13,7 +13,7 @@
 > standing in for a measurement we hold is the same error class as
 > `2026-10-20_d3_static_channel_ceiling.md`'s three self-inflicted ones.
 
-**Date:** 2026-09-30 · **Last revised 2026-10-25** · **Status:** ⛔ **LIVING DOCUMENT — expected to carry open rows; not a verdict and not finished.** Consolidation only: **no new measurement by this document** (§0.2 and §5.0 carry tables measured 2026-09-30 by the `models` session, attributed there) ·
+**Date:** 2026-09-30 · **Last revised 2026-10-26** · **Status:** ⛔ **LIVING DOCUMENT — expected to carry open rows; not a verdict and not finished.** Consolidation only: **no new measurement by this document** (§0.2 and §5.0 carry tables measured 2026-09-30 by the `models` session, attributed there) ·
 **Supersedes as the living document:** `reports/2026-08-13_evaluation_pitfalls_and_metric_battery_DRAFT.md`
 (retained as dated provenance; its taxonomy letters A1–I4 are preserved here unrenumbered).
 
@@ -116,6 +116,12 @@ stale, miscounted, badly cited or incomplete. The cheapest high-value items:
   **§5.5 L1–L3** (the ceiling of a normalised statistic is not the ceiling of its unnormalised cousin)
   and **§5.10 L4–L6**. Two retractions added to `Appendix B`; one new instrument to `Appendix A.1`; a
   fourth row to `Appendix A.3`. ⛔ Nothing was deleted.
+- **2026-10-26** — the structure-penalty arm returned **negative**, and produced the first case in
+  this record of **two instruments for one quantity disagreeing by sign** (§7 **S18**). Three new §8
+  rows — **16, 17, 18** — all earned the same day, which is the largest single-day addition to that
+  table. ⚠️ **No new measurement by this document:** every figure is cited from
+  `reports/2026-10-26_structure_penalty_arm_outcome.md` §4 and §4c, whose matched-window numbers are
+  re-derived by `reports/2026-10-26_matched_window/matched_forensic_window.py`.
 
 ⚠️ **Nine of the ~70 distinct findings were introduced by me on 2026-10-19, the day before the audit.** The
 auditors found all nine; I would not have. They are itemised in `Appendix F.2`.
@@ -1625,6 +1631,7 @@ they have never been listed together. Ordered by how much they should change how
 | S15 | Identical models have identical files | **M22 — two byte-identical models have different `.pt` shas.** torch stamps mtimes into the zip. | minor, but it invalidated an identity check we were relying on. Hash the weight tensors. |
 | S16 | The test suite protects the measurement code | **2,079 green tests, 25 runtime-verified findings, 0 caught.** Then 5 of my own new guards survived their first mutation; a later audit found **17 of 33** mutations survived. | ⛔ Coverage is not sensitivity. The only reliable check is to **delete the fix and watch the test stay green**. |
 | S17 | Packaging is a plausible source of drift | **M76 — the PyPI wheel reproduces the checkout byte-identically**, 190 tensors × 4 models, BN buffers included. A *positive* surprise. | minor — worth recording because it removes a whole class of suspicion, cheaply. |
+| ⭐ S18 | A pre-registered diagnostic and the loss term that targets it are two readings of one quantity, so either can stand in for the other | **M85–M88 — they moved in OPPOSITE directions on the same two checkpoints.** `_structure_penalty` **1.7223 → 0.3540** (4.87× better); the **B-1** diagnostic `γ_model(d)/γ_truth(d)` at d=1 **0.400 → 0.090** (4.44× worse), and worse at *every* scale. Both were built to answer *"does this model carry its due spatial structure?"* The term's own docstring says why: it is a **one-sided difference of logs**, so a dispersion shortfall is charged at every intensity and **excess dispersion costs nothing**. On a matched biopsy window with byte-identical truth, the body's **mean rose 18.7×** while its **max rose 1.53×** and its **p75 rose 82×** — it raised the floor, not the peaks. | ⛔ **A loss term's own value is not a diagnostic of the thing the term is named after.** It measures the pressure applied, not the result obtained. The pre-registered success criterion **P-1 PASSED** (79.4% of the gap closed) on a run that lost **11 of 12** held-out scores. ⇒ §8 rows **16–18**; register **C-366 (Tier 1)**. ⚠️ This also means **S4 and S5 are not the whole story**: S5 said internal statistics cannot judge placement, which is true — S18 adds that a *truth-referenced* statistic can also fail, if it is referenced to the wrong feature of the truth. |
 
 ---
 
@@ -1634,10 +1641,11 @@ they have never been listed together. Ordered by how much they should change how
 bit us here, with the cost. Nothing is included because it is good practice elsewhere.
 
 ⚠️ **And read this as a menu with costs, not as a gate.** §8.1 argues against frameworks and this is a
-fifteen-row table, which is a fair thing to point at. The resolution: **nothing here is proposed as a
+eighteen-row table (⛔ **fifteen until 2026-10-26**; rows 16–18 were all earned in one day), which is a fair thing to point at. The resolution: **nothing here is proposed as a
 mandatory checklist.** **Rows ★1, ★3, ★4 and ★6 are the four** that would have prevented the most
-expensive failures on record and are cheap; the other eleven are priced so that whoever owns the protocol
-can choose. A list of fifteen enforced gates would be the 303 → 1,167-line validator ⛔ **[CORRECTED 2026-10-20:
+expensive failures on record and are cheap; the other fourteen are priced so that whoever owns the protocol
+can choose. ⚠️ **Row 16 is a candidate fifth ★ and is deliberately not promoted** — see its cost column.
+A list of eighteen enforced gates would be the 303 → 1,167-line validator ⛔ **[CORRECTED 2026-10-20:
 NOT in this repo's register. `grep` finds the figure nowhere in `reports/technical_risk_register.md`,
 `docs/` or `CLAUDE.md` — it appears only in this report. Its actual home is the author's global
 `~/.claude/rules/design-preferences.md`, which attributes it to "one repo here" and not to this
@@ -1646,8 +1654,8 @@ one is not.]** this repo already
 warns about.
 
 ⚠️ The `views-evaluation` session asked whether the table would be stronger as **those four, with the
-eleven in an appendix.** It would be, for a reader choosing what to adopt; it would be weaker as a record
-of what bit us, which is what the scar rule is for. **Compromise: the four carry a ★. The eleven stay in
+rest in an appendix.** It would be, for a reader choosing what to adopt; it would be weaker as a record
+of what bit us, which is what the scar rule is for. **Compromise: the four carry a ★. The others stay in
 place and keep their scars.** If this ever becomes a proposal rather than a record, cut it to the four.
 
 Whoever owns the promotion protocol can compare this against it. I make no claim about what the
@@ -1655,7 +1663,7 @@ protocol currently says.
 
 ⚠️ **§8.3 is a PROPOSAL and deliberately breaks this section's scar rule** — a diagnostic suite matched
 to the factorization of the data-generating process, from Simon's notes of 2026-10-19, kept separate from
-the fifteen rows so it cannot be mistaken for the record. It is the only forward-looking part of §8.
+the eighteen rows so it cannot be mistaken for the record. It is the only forward-looking part of §8.
 
 | # | Requirement | The scar that earns it | Cost to adopt |
 |---|---|---|---|
@@ -1687,6 +1695,9 @@ version.]** | The roll: three field statistics unchanged, **AP 48× worse**, and
 | ⚠️ 13 | **Audit the reference, not only the model.** An outlier scan on the truth field at build time. | The register on itself: *"extensive coverage of whether we measure the model correctly, and **none** of whether the thing we measure against is correct."* One truth cell reads 27,413 → 2 → 32,505 where the global maximum elsewhere is 1,100. | A single query at build time. |
 | ⚠️ 14 | **Pairing by default**, and record `torch_seed`, `S` and the vehicle alongside every score. | MDE **0.0541 → 0.0086** from pairing alone on identical data; the noise the programme designed against was **~5× too large**. And because the sample cube's randomness carries **no model identity**, a paired reading and an independent one are indistinguishable in the CSV. | Free. |
 | minor 15 | **Hash weight tensors, never `.pt` files.** | Two byte-identical models have different `.pt` shas — torch stamps mtimes. The invalid check *"would have shown 'still non-deterministic' even after a correct fix."* | Already implemented in `compare_run_determinism`. |
+| ⛔ 16 | **No quantity that appears in the training objective may serve as a promotion criterion.** Report it; never gate on it. | 2026-10-26: **P-1, the arm's pre-registered headline prediction, WAS the penalty term's own value.** It passed at 79.4% of the gap closed while the arm lost **11 of 12** held-out scores and the spatial diagnostic the term was built to serve moved the **opposite way** (§7 S18). ⛔ Goodhart's law with a pre-registration attached — which is worse than Goodhart without one, because the pre-registration is what we point at to say the result was not fished for. | One line in a pre-registration. ⚠️ A candidate ★; not promoted here, because the ★ set is a four-row editorial choice that predates this scar and renumbering it is the protocol owner's call. |
+| ⛔ 17 | **Label every pre-registered prediction with the property it is sensitive to — level, spread, placement, rank — and require at least one prediction from a class the intervention does not act on.** | 2026-10-26: **2 of 5 predictions passed, and both passes were the only two quantities sensitive to the SPREAD of predictions rather than to their placement** — while the intervention's sole mechanism is spread. The headline statistic, the calibration slope `b`, improved **0.4996 → 0.8066** and cleared its ≥0.55 bar; the correlation `r` **on the same fit fell** (+0.6833 → +0.6090) and had not been pre-registered beside it. Register **C-369**. | One column in the prediction table. |
+| ⚠️ 18 | **Carry a FLOOR statistic of the predicted field — median and p75 — not only tail statistics. And report correlation-type diagnostics under BOTH Pearson and Spearman.** | 2026-10-26, matched window, 18,432 cell-month-targets: the body's **max rose 1.53×** while its **p75 rose 82×** and a quarter of the field sat above ≈17 counts on a window **>99% zero**. A tail-weighted battery (AP, QS99, max, tail_miss) is close to blind to an intervention that floods the empty 99%. Separately, `body vs gate` **fell 3.5× on Pearson and ROSE on Spearman**; ⭐ the split is itself the finding — **ranks preserved, magnitudes destroyed** — and resolving it to one number would have deleted it. | Two percentiles and one extra correlation. Free. ⚠️ §8.1 warns against adding metrics; these are **percentiles of a field already computed**, not new instruments. |
 
 ### 8.1 Three things this list deliberately does not ask for
 
