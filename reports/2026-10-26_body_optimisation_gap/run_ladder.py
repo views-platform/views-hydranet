@@ -11,7 +11,11 @@ the post-hoc fit is allowed to be.
   R4  isotonic mu | mu-order  + global theta        the RANK-PRESERVING CEILING
   R5  mu = y per cell         + global theta        the NLL floor, i.e. the denominator
 
-  S_k = (NLL_R0 - NLL_Rk) / (NLL_R0 - NLL_R5)
+  S_k = (NLL_R0 - NLL_Rk) / (NLL_R0 - NLL_R5)   the plan's share. ⛔ R0 has a free theta per
+                                                cell and every other rung has ONE, so this is
+                                                not a like-for-like share. Kept as the record.
+  T_k = (NLL_R1 - NLL_Rk) / (NLL_R1 - NLL_R5)   Amendment 2 / A-6.2: the WITHIN-NEST share. One
+                                                global theta on every term. This is the readout.
 
 NESTING, stated precisely because F2 depends on it: R1 < R2 < R4 < R5 are nested, each strictly
 containing the one above, so their NLLs must be non-increasing. ⛔ R0 is NOT in that nest - it has
@@ -155,6 +159,11 @@ def ladder(name, path, is_gate):
 
             den = r0 - r5
             share = {k: (r0 - v) / den for k, v in (("S1", r1), ("S2", r2), ("S4", r4))}
+            # Amendment 2 / A-6.2: the WITHIN-NEST share. R1, R2, R4, R5 all carry ONE global
+            # theta, so this compares like with like; the R0-based S_k above does not, and is
+            # kept only as the record of what the original plan asked for.
+            nden = r1 - r5
+            share |= {k: (r1 - v) / nden for k, v in (("T2", r2), ("T4", r4))}
             out[key] = dict(cells=len(rows), n=y.size, zeros=float((y == 0).mean()),
                             r0=r0, r1=r1, r2=r2, r4=r4, r5=r5,
                             theta_model=float(np.median(th0)), theta1=t1, theta4=t4,
@@ -164,7 +173,7 @@ def ladder(name, path, is_gate):
         print(f"-- {lab}")
         print(f"   {'cells':>7s} {'n':>11s} {'%zero':>7s} {'R0':>10s} {'R1':>10s} {'R2':>10s} "
               f"{'R4':>10s} {'R5':>10s} | {'S1':>8s} {'S2':>8s} {'S4':>8s} | "
-              f"{'th_mdl':>8s} {'th*':>8s}")
+              f"{'T2':>8s} {'T4':>8s} | {'th_mdl':>8s} {'th*':>8s}")
         for n in N_SWEEP:
             d = out[(n, tag)]
             mark = ""
@@ -176,6 +185,7 @@ def ladder(name, path, is_gate):
                   f"{d['r0']:10.4f} {d['r1']:10.4f} {d['r2']:10.4f} {d['r4']:10.4f} "
                   f"{d['r5']:10.4f} | "
                   f"{d['S1']:+8.4f} {d['S2']:+8.4f} {d['S4']:+8.4f} | "
+                  f"{d['T2']:+8.4f} {d['T4']:+8.4f} | "
                   f"{d['theta_model']:8.4f} {d['theta1']:8.4f}{mark}")
     print("   R3 per target: VOID - the cube carries one target (Amendment 1)")
     return out
