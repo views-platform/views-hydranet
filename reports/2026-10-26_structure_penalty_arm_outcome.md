@@ -153,6 +153,76 @@ for overshoot, which is the thing that is missing.
 
 ---
 
+### 4c. ⭐⭐ A MATCHED IN-TRAINING WINDOW — the same finding, on byte-identical truth
+
+§4 is measured at the two trained checkpoints. This subsection measures the same thing *during*
+training, on a window both runs saw, and it is the strongest single piece of evidence in this
+document because the two arms are compared against **the same truth array**.
+
+- control: `~/views-diagnostics/hf_control_20261025/diagnostics/251026_1043/02_training_dynamics/biopsy_stage_5:_training_forensic_(lesson_297_win_1).npz`
+- arm: `~/views-diagnostics/hf_arm_20261026/plots/02_training_dynamics/biopsy_stage_5:_training_forensic_(lesson_297_win_1).npz`
+
+⭐ `y_reg` **and** `y_cls` are byte-identical between the two files (`np.array_equal`, asserted in
+the reader, not assumed). Same lesson, same window, same months 293–298.
+
+**POPULATION:** 6 steps × 32×32 × 3 targets = 18,432 cell-month-targets.
+**TRANSFORM:** log1p counts, as stored. **ESTIMATOR:** plain mean / percentile / correlation over
+that population.
+⛔ This is an **in-sample curriculum window**. It is not the held-out score of §3a and must never
+be quoted beside it.
+
+| mean (log1p) | truth | body | gate | forecast | forecast ÷ truth |
+|---|---|---|---|---|---|
+| control | 0.0147 | 0.0720 | 0.0107 | 0.0163 | **1.11×** |
+| arm | 0.0147 | **1.3449** | 0.0119 | **0.1247** | **8.51×** |
+
+**Reading 1 — the level.** The control's emitted field matches the truth's level to 11% on this
+window. The arm's is 8.51× it. Consistent in sign and rough size with P-2's held-out 95.9% → 1026.4%,
+and arrived at by a different instrument on a different population, so the two are corroborating,
+⛔ not combinable.
+
+Every number in this subsection is produced by `reports/2026-10-26_matched_window/matched_forensic_window.py`, which asserts the truth
+equality before it compares anything and exits VOID if it fails.
+
+**Reading 2 — the arm raised the FLOOR, it did not raise the PEAKS.**
+
+| body percentile | p50 | p75 | p90 | p99 | max |
+|---|---|---|---|---|---|
+| truth | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 5.8377 |
+| control | 0.0060 | 0.0357 | 0.1584 | 1.3240 | 2.8413 |
+| arm | 0.1862 | **2.9228** | 3.5370 | 4.0684 | 4.3522 |
+
+The body's mean rose **18.7×** while its maximum rose **1.53×**. p75 rose **82×**. A quarter of the
+arm's body field sits above 2.92 in log1p (≈ 17 counts) on a window where **over 99% of the truth
+is exactly zero**. The control's body spans p50→p99 by a factor of 221; the arm's by 22.
+⇒ the intervention did not sharpen the map, it flooded it — which is what a one-sided dispersion
+penalty with no cost for overshoot (§4a) predicts.
+
+**Reading 3 — placement, and ⛔ two correlation conventions that disagree.**
+
+| | Pearson | | Spearman | |
+|---|---|---|---|---|
+| | control | arm | control | arm |
+| body vs truth | +0.4861 | **+0.0933** | +0.1470 | +0.0981 |
+| body vs gate | +0.8516 | **+0.2418** | +0.7890 | **+0.8920** |
+| gate vs truth | +0.6213 | +0.6065 | +0.1497 | +0.1498 |
+
+- **The gate is untouched** on both conventions — corroborating §3a's Brier 0.82–1.02×.
+- **body vs truth falls on both conventions.** Placement got worse, not better.
+- ⛔ **body vs gate falls 3.5× on Pearson and RISES on Spearman.** Per the standing rule, this is
+  reported as a split and not resolved to one number. The honest reading of the split is that the
+  arm's body still **ranks** cells roughly as the gate does — better, even — and has lost the
+  **amplitude** relationship, because its values are compressed against a high floor.
+- ⭐ That is the same shape as P-3 (§5): the scale statistic `b` improved while the correlation `r`
+  fell. Two independent populations, two independent instruments, one pattern — **ranks preserved,
+  magnitudes destroyed.**
+
+⚠️ Note against over-reading: the control's body-vs-truth Spearman is only +0.147. The control did
+**not** place well in rank terms either. The claim here is strictly comparative — the arm placed
+*worse* — not that the control was good.
+
+---
+
 ## 5. ⚠️ P-3 PASSED, AND THE PASS IS AN ARTEFACT — read this before quoting 0.8066
 
 `body_level_selection_check.py`, **same instrument, same session, both arms**, population fixed at
