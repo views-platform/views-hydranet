@@ -221,6 +221,58 @@ penalty with no cost for overshoot (§4a) predicts.
 **not** place well in rank terms either. The claim here is strictly comparative — the arm placed
 *worse* — not that the control was good.
 
+### 4d. ⭐⭐ C-366 ANSWERED — the two instruments measure DISJOINT properties
+
+`reports/2026-10-26_body_optimisation_gap/c366_two_instruments.py`, both instruments
+re-implemented from their own source and run on **one shared field**: the matched
+`lesson_297_win_1` biopsy, byte-identical truth, 18 fields (6 steps × 3 targets), 18,432
+cell-values. Space is **swept**, not chosen — counts (the penalty's native inputs, reconstructed
+as `y_hat_cls * expm1(y_hat_reg)`) and log1p.
+
+**⛔ F1 did not fire.** The sign disagreement **reproduces on the shared field**, so it is a
+property of the two definitions and not of the two populations:
+
+| space | penalty ctrl → arm | B-1 d=1 | d=2 | d=4 | d=8 |
+|---|---|---|---|---|---|
+| counts | 0.5468 → **0.1164** (4.70× better) | 0.3618 → 0.3635 ⚠️ tied | 0.7411 → **0.6226** | 0.9786 → **0.8160** | 1.0245 → **0.9432** |
+| log1p | 0.3075 → **0.0403** (7.63× better) | 0.3801 → **0.1988** | 0.7121 → **0.4107** | 0.9477 → **0.6305** | 1.0459 → **0.8862** |
+
+⚠️ **At d=1 in counts the two arms are tied** (0.3618 vs 0.3635). The disagreement is firm at
+**d ≥ 2 in both spaces** and at d=1 in log1p only. ⛔ Do not quote the d=1 figure alone.
+
+**The four hypotheses, all pre-committed in the script's docstring before it ran.**
+
+| | claim | verdict |
+|---|---|---|
+| **H1** | the penalty is homogeneous in amplitude — scaling the field moves it with nothing rearranged | ✅ ×4 takes it 0.5468 → **0.2029** (counts) |
+| **H2** | B-1 is **exactly invariant** to that scaling | ✅ **EXACT.** max \|change\| over d ∈ (1,2,4,8) = **0.000e+00** at ×0.5/×2/×4; 4.4e-16 at ×100 |
+| **H3** | the penalty is **exactly invariant** to permuting cells *within* each block | ✅ **EXACT.** shuffle within 2×2 → penalty change **+0.000e+00**, block variance unchanged at k=2 *and* k=8 (≤5.7e-14), while B-1 d=1 jumps **0.3618 → 0.6856** |
+| **H4** | adding unstructured noise **improves** the penalty and **raises** B-1 | ✅ penalty 0.5468 → 0.3226 → 0.2446 → 0.1933 at τ = 0.5/1/2 sd, B-1 d=1 0.3618 → 0.5008 → 0.7054 → **0.9185** |
+
+⇒ **The penalty sees how much dispersion there is and is blind to where it sits, at the very
+scale it is evaluated on. B-1 sees where it sits and is blind to how much.** They were never two
+estimates of one quantity, so a disagreement by sign is not a contradiction. **C-366 dissolves.**
+
+**⭐ And the penalty half of the arm's change is fully accounted for by AMPLITUDE alone.**
+Step 4 swept scale × smoothing passes against the arm's observed pair. In counts the closest cell
+is **scale ×8 with zero smoothing** — penalty **0.1256** against the arm's **0.1164** (within 8%)
+— and by H2 that costs B-1 *exactly nothing*. ⇒ **The term bought amplification, not structure.**
+
+**⛔ AND HALF MY OWN MECHANISM IS REFUTED BY THE SAME BATTERY, which is why it is here.**
+Two readings of the arm have been offered in this programme and the battery kills both:
+
+1. ⛔ **"The penalty was satisfied by flooding the field with noise"** — stated in §4c's framing
+   and repeated to Simon. **Refuted by H4:** noise *raises* B-1 (to 0.9185 at τ=2 sd). The arm's
+   B-1 **fell**. Whatever the arm did, it was not adding unstructured noise.
+2. ⛔ **"The field was smoothed"** — my own replacement guess, offered before measuring.
+   **Refuted by the lag profile.** A 3×3 box smooth hits short lags hardest and leaves d=8
+   untouched (B-1 d=1 → 0.1526, d=8 → **1.0303**). The arm lost structure at **every** lag with
+   d=8 at **0.9432**. Local smoothing has the wrong shape.
+
+⇒ **The arrangement half of the arm's change remains unexplained** — a narrower open question
+than C-366 was, and one that now has a sharp constraint on it: the arm's loss is **scale-free
+across lags 2–8**, which neither of the two cheap mechanisms produces.
+
 ---
 
 ## 5. ⚠️ P-3 PASSED, AND THE PASS IS AN ARTEFACT — read this before quoting 0.8066
