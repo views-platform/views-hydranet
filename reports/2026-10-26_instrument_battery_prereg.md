@@ -170,3 +170,39 @@ term is answering a different question from the one our defect poses, and §5's 
 | fields | `hf_control_20261025/.../biopsy_stage_5:_training_forensic_(lesson_297_win_1).npz` and the arm's matched file |
 | predecessor | `reports/2026-10-26_body_optimisation_gap/c366_two_instruments.py` (`c3ec352`) |
 | risks | **C-370**, **C-371**, **C-372** (`5423738`); **C-366** updated, left open |
+
+---
+
+## Amendment 1 — 2026-10-26, after the run: ⛔ F-4 FIRED, and the bar was unsatisfiable
+
+**F-4 fired as written:** the relative gap between the sampled estimate and the closed form was
+**1.6951%** at `K = 4096`, against a 1% bar. By §6 that makes every VS-p number VOID.
+
+⛔ **The bar was unsatisfiable by construction.** The sampled estimator is a mean of `K` squared
+differences, and its own relative standard error at `K = 4096` is **~2% — larger than the bar it
+had to clear.** No correct closed form could have passed it. This is the same defect class as the
+structure-penalty prereg's P-1, whose ±8.6% tolerance was finer than its own grid's 22.7%
+resolution. **Fourth instance of a falsifier that cannot be satisfied.** Logged as **W-69**.
+
+⛔ **A threshold cannot settle this question at any K I can afford, so the test is replaced — not
+weakened.** A mis-specified threshold cannot distinguish "noisy estimator" from "wrong formula".
+**Convergence can:** if the closed form is right, the relative error must fall like `1/√K`.
+
+`reports/2026-10-26_body_optimisation_gap/f4_convergence_amendment.py`:
+
+| K | rel. error | ratio to previous |
+|---|---|---|
+| 256 | 6.8446% | — |
+| 1,024 | 3.4280% | **2.00×** |
+| 4,096 | 1.7108% | **2.00×** |
+| 16,384 | 0.8593% | **1.99×** |
+| 65,536 | 0.4301% | **2.00×** |
+
+Expected under a correct closed form: **2.00×** per 4× in K. Observed: 2.00, 2.00, 1.99, 2.00 —
+and it crosses the original 1% bar at `K = 16,384`.
+
+⇒ **The closed form is correct. The VS-p numbers are RESTORED, not rescued** — the original
+falsifier was not softened, it was replaced by one that can tell the two hypotheses apart, and the
+replacement is recorded here rather than applied silently. ⚠️ **A reader who disagrees with that
+distinction should treat every VS-p number in this run as VOID**, which is what §6 says and what I
+would have had to accept if the convergence had plateaued.
