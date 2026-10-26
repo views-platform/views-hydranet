@@ -6429,6 +6429,28 @@ variant is known in advance to need its own bias term. Cross-refs: **C-373**, **
 | **Trigger** | ⛔ **Any readout that takes one statistic from the control's BIOPSY cubes and another from the control's d4/prediction cubes and reports them as properties of one model.** `2026-10-26_structure_penalty_arm_outcome.md` already cites both lanes. |
 | **Location** | `~/views-diagnostics/hf_control_20261025/` — contains `diagnostics/251026_1043/` (900 npz) and `diagnostics/251026_1321/` (0 npz) and **nothing else**: no `.pt`, no `PROVENANCE`, no `*.config.json` |
 
+**✅ THE CONTROL INSTANCE IS CLOSED, 2026-10-26, and the evidence was written down before it could
+decay.** The `models` session's deadline point — the pairing is *verifiable now and unpairable
+later* — prompted the search. **Both control checkpoints were found on disk**, and the ambiguity
+resolves three independent ways:
+
+| evidence | finding |
+|---|---|
+| **digest** | `hf_control_artifact/.../calibration_model_20261025_132124.pt` hashes to `0ca3f31f…`, **exactly** the `sha` key inside `d4_result_hf0125.npz`. The forecast lane is pinned |
+| **the other checkpoint** | `…_094319.pt` (`09707ba1…`) is **5 lessons, `mode: REHEARSAL — NOT FIT FOR MEASUREMENT OR DELIVERY`**, and has **no diagnostics dir at all**. It never produced a biopsy, so there was never a crossing to make |
+| **mtime** | ⭐ `251026_1043` was written **48 s after** the production run started (10:43:18 UTC) and `251026_1321` **39 s after** it ended (13:21:27 UTC). The rehearsal finished 09:43:21 UTC, over an hour earlier |
+
+⇒ **both control lanes are one model — `0ca3f31f…`, 300 lessons, production.** Written to
+`~/views-diagnostics/hf_control_20261025/PROVENANCE` + `checkpoint.sha256` (verifies `OK`), in the
+arm's existing format.
+
+⛔ **THE ENTRY STAYS OPEN, because the instance is closed and the CLASS is not.** Nothing in the
+pipeline writes a provenance record beside retrieved biopsy cubes; this one was reconstructed by
+hand. The next artifact will arrive with the same gap. ⚠️ And the reconstruction was only possible
+because the checkpoints had not been deleted — `models` reports four hashed kestrel checkpoints in
+the same recoverable-but-unlabelled state, which is **C-174 arriving as a deadline** rather than a
+preference.
+
 **Narrative.** An artifact has two independent lanes — the **biopsy** cubes written during training,
 and the **d4 / prediction** cubes written after it. Pairing them requires knowing both came from one
 checkpoint.
@@ -6440,8 +6462,11 @@ checkpoint.
 | **control** d4 cube | yes — `sha` key = `0ca3f31f…`, and `2026-10-21_structure_penalty_arm_prereg.md` names that vehicle in five places | |
 | **control** biopsy | ⛔ **NOTHING.** The tree has no checkpoint, no PROVENANCE, no sidecar | ⛔ **unverifiable from disk** |
 
-⇒ The control pairing is **consistent** — directory `hf_control_20261025`, prereg says `0ca3f31f`
-trained 2026-10-25 — and **not verified**. ⛔ **Consistency of a date is not a match of a digest.**
+⇒ ⚠️ **As first registered, the control pairing was consistent and not verified** — and
+"consistency of a date is not a match of a digest" is why it was registered rather than waved past.
+It is now verified; see the banner above. ⭐ **The lesson survives the closure:** the check cost ten
+minutes and could have returned the opposite answer, and nothing in the tree would have told us
+either way.
 
 ⭐ **Why this is registered now rather than noted.** The `models` session measured the same class in
 `silver_kestrel` and it had *already happened there*: silver's biopsy is library 0.1.4 / checkpoint
