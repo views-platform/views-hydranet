@@ -87,7 +87,12 @@ def load_config_keys(path: Path) -> set[str]:
 
         return set(json.loads(text))
     ast.parse(text)
-    ns: dict = {}
+    # ``__file__`` must be in the namespace: a roster config may resolve paths relative to itself
+    # at module level (``heavy_freighter`` does, via the ``_trajectory_log_path`` helper PR #603
+    # added), and ``exec`` into a bare dict leaves ``__file__`` undefined -> ``NameError``, exit 1.
+    # C-367: the gate crashed on the very config it exists to check, and the published 0.1.7 wheel
+    # carries the same defect.
+    ns: dict = {"__file__": str(path)}
     exec(compile(text, str(path), "exec"), ns)  # noqa: S102 - a repo-local, trusted config
     if "get_hp_config" not in ns:
         err_msg = f"{path} defines no get_hp_config(); it is not a roster config."
