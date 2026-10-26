@@ -297,6 +297,49 @@ single-pass pre-registration from me should carry.
 
 ---
 
+## ⭐ AMENDMENT 3 — 2026-10-26. A-6.1 IS DISCHARGED: the instrument is sound.
+
+`reports/2026-10-26_body_optimisation_gap/reconcile_gate.py`, on `t3_result.npz`, 100 cells ×
+36 months = 3,600.
+
+**The prior measurement reproduces EXACTLY.** Running `m_free_measurements.py`'s estimator
+verbatim — μ averaged over months then repeated per cell, θ searched on its 28-point geometric
+grid — this implementation returns the model's own θ = **0.1544** and θ\* = **0.2327** at NLL
+**4.1377**. Both numbers, to four decimals. ⇒ ⛔ **the NLL code was never the problem**, and
+Run 2's 0.2963 is not an instrument fault.
+
+**The 0.0636 gap decomposes into three named, measured causes**, changed one at a time:
+
+| step | θ\* | moves it by |
+|---|---|---|
+| [A] their estimator, verbatim | **0.2327** | — (reproduces) |
+| [B] + continuous search instead of the 28-point grid | 0.2447 | **+0.0120** |
+| [D] + the model's per-cell-month μ instead of a time-averaged one | 0.2553 | **+0.0106** |
+| the ladder, on the `d4` cube | **0.2963** | **+0.0410** |
+
+⇒ **64% of the gap is the ARTEFACT** — `t3` is a scoring readout, the `d4` cube is a 49-step
+free-running rollout, and they are different objects. 19% is grid rounding, 17% is μ granularity.
+
+⛔⛔ **AND P-1's TOLERANCE WAS UNSATISFIABLE BY CONSTRUCTION.** The grid is
+`geomspace(0.02, 5.0, 28)` — **22.7% per step**, so 0.2327 is a grid point and the continuous
+optimum it stands for is only located to about ±11%. P-1 pre-committed **±0.02 = ±8.6%**, *finer
+than the resolution of the number being matched*. ⭐ A fourth defect in this document, of the same
+family as §8 row 18 in the evaluation report — **quote a statistic's resolution before setting a
+tolerance against it.**
+
+### Status after Amendment 3
+
+- **F1 / A-6.1: DISCHARGED.** The prior number is reproduced and the residual is attributed. The
+  ladder's figures are no longer void on replication grounds.
+- ⚠️ **Still NOT a pre-registered result.** The readout was re-based from `S_k` to `T_k` after
+  Run 2's numbers were on screen (Amendment 2c). It is a **measurement with pre-committed
+  thresholds**, which is weaker, and is to be quoted that way.
+- ⚠️ **n = 1 vehicle, one seed**, and §6's narrowed reading applies: *de-prioritise post-hoc
+  recalibration and recomposition on this vehicle; look at the representation next.* ⛔ **No class
+  of intervention is retired by this.**
+
+---
+
 ## Provenance
 
 - the parked measurement: `reports/2026-10-12_underfire_next_step.md:205-235`,
