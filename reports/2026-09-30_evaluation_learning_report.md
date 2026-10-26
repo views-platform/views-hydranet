@@ -13,7 +13,7 @@
 > standing in for a measurement we hold is the same error class as
 > `2026-10-20_d3_static_channel_ceiling.md`'s three self-inflicted ones.
 
-**Date:** 2026-09-30 · **Last revised 2026-10-26** · **Status:** ⛔ **LIVING DOCUMENT — expected to carry open rows; not a verdict and not finished.** Consolidation only: **no new measurement by this document** (§0.2 and §5.0 carry tables measured 2026-09-30 by the `models` session, attributed there) ·
+**Date:** 2026-09-30 · **Last revised 2026-10-26b** · **Status:** ⛔ **LIVING DOCUMENT — expected to carry open rows; not a verdict and not finished.** Consolidation only: **no new measurement by this document** (§0.2 and §5.0 carry tables measured 2026-09-30 by the `models` session, attributed there) ·
 **Supersedes as the living document:** `reports/2026-08-13_evaluation_pitfalls_and_metric_battery_DRAFT.md`
 (retained as dated provenance; its taxonomy letters A1–I4 are preserved here unrenumbered).
 
@@ -717,6 +717,73 @@ score near-perfect or the instrument is broken (it caught a numerical bug on 202
 verdict was banked), and the discovery that a cited premise **did not exist**: C-190 had been cited as
 measuring the model as a strong low-pass filter, and *"the producing code does not exist in the repo or
 its history."*
+
+#### ⭐⭐ 2026-10-26 — the practice run as a BATTERY, and it retired the programme's primary readout
+
+§2.13 as written validates **one instrument at a time, against the transform its author imagined**.
+Run against **five** controlled transforms at once — amplify, shuffle-within-block, smooth, displace,
+inflate predictive variance — it does something stronger: it exposes what an instrument is **blind**
+to, which is not visible from its definition and was not visible from this section's own table.
+
+**Three instruments went in. Each failed at least one transform, and the failures were not where their
+authors looked.**
+
+| instrument | its cheap-satisfaction route | how it was found |
+|---|---|---|
+| `_structure_penalty` (the **shipped loss term**) | **amplification** — unbounded gain from scaling the field, which costs the arrangement nothing | measured, after the arm had already run |
+| **B-1** (the **scoreboard's primary structure readout**) | ⛔ **exactly blind to displacement** — `0.000e+00` under translation, and it reports *better* structure as the forecast is slid away from truth while rank correlation with truth falls **41%** | the battery |
+| **VS-p** (the proposed replacement) | **variance inflation** — a two-sided score has an interior minimum, so widening the predictive distribution improves it with the arrangement untouched | ⭐ **derived from the algebra before a line was written** |
+
+⛔ **Only the one caught in advance was caught by running a battery first.** That is the sentence this
+section was missing.
+
+**What it cost to learn each way.** `_structure_penalty`'s loophole cost a pod arm. B-1's cost a
+morning of CPU. VS-p's cost nothing — it was found by auditing a plan. ⇒ **the battery is the cheapest
+of the three positions to be in, and the only one that is cheap before the money is spent.**
+
+#### ⛔ The error class, which the repo had already written down and then committed anyway
+
+`scripts/field_sharpness.py:27-37` carries a calibration table measured on synthetic fields. Read with
+2026-10-26's result in hand, it already said so:
+
+> The blur detectors are the **INTRINSIC** statistics — computed on the prediction alone, with no
+> reference to truth, so **a wrong-place forecast cannot move them**.
+
+`moran_i` perfect **0.636** / displaced-3 **0.636**; `conc1pct` **0.0277** / **0.0277** — identical to
+four decimals. **B-1 is the same kind of statistic, used as an agreement statistic.** ⇒ **the class is
+INTRINSIC-USED-AS-AGREEMENT**, and the repo named it in a docstring while the scoreboard committed the
+error two months later. ⚠️ `moran_i` is not thereby wrong: unmoved-by-displacement is a usable
+*signature* **when read beside something that does move**. On its own it cannot tell a perfect forecast
+from one displaced three cells — and on its own is how B-1 was being read.
+
+#### ⭐ What replaced it, and the one thing that made the replacement trustworthy
+
+**FSS**, with the skill threshold from **Roberts & Lean (2008**, MWR 136:78–97,
+`10.1175/2007MWR2123.1`, p. 82–83): `FSS_uniform = 0.5 + f_o/2`, and as `f_o → 0` the neighbourhood at
+which a forecast crosses it is **twice the displacement error**. Our `f_o = 0.003448` sits in that
+limit, so the bar is **0.501724**.
+
+⭐ **The paper supplied a prediction with a known answer, taken BEFORE measuring**, and our own
+production code reproduced it exactly — `scale_min = 2D` for `D = 1, 2, 3, 5, 8, 11`. That is this
+section's practice with the synthetic field replaced by **a published derivation**, which is stronger:
+the answer was not one we chose.
+
+⚠️ **And FSS then failed a transform too.** It **saturates on blur** — the second box-smoothing pass
+scores *better* than the first (`0.3571 → 0.3776`) — because count-matched FSS is a function of the
+forecast's **rank order alone**, proven to `0.000e+00`. That same property makes it immune to the
+amplification route that killed `_structure_penalty`, and makes it **totally magnitude-blind**: a
+diagnostic, never a training target. ⇒ ⛔ **B-1 and FSS are a PAIR. Dispersion and placement. Neither
+substitutes for the other, and no instrument in either battery can see predictive variance at all.**
+
+**Two of the battery's own pre-registered calls were wrong and are logged rather than adjusted** —
+W-70 (predicted monotone blur response; it is not monotone) and W-71 (pre-registered that
+over-smoothness would have *no* diagnostic, contradicted by a comparator column already in the same
+script). ⚠️ **The second is the instructive one:** "retired" was applied to an instrument when it
+should have been applied to one of its roles. Same class as the note in project memory that
+*"superseded" retires a CONCLUSION — never a tool, an instrument, or a falsifier.*
+
+**Sources:** `2026-10-26_instrument_battery_prereg.md` · `2026-10-26_fss_battery_prereg.md` ·
+`2026-10-26_fss_battery_outcome.md` · C-366, C-370, C-373, C-374.
 
 ---
 
