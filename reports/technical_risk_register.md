@@ -6438,7 +6438,25 @@ resolves three independent ways:
 |---|---|
 | **digest** | `hf_control_artifact/.../calibration_model_20261025_132124.pt` hashes to `0ca3f31f…`, **exactly** the `sha` key inside `d4_result_hf0125.npz`. The forecast lane is pinned |
 | **the other checkpoint** | `…_094319.pt` (`09707ba1…`) is **5 lessons, `mode: REHEARSAL — NOT FIT FOR MEASUREMENT OR DELIVERY`**, and has **no diagnostics dir at all**. It never produced a biopsy, so there was never a crossing to make |
-| **mtime** | ⭐ `251026_1043` was written **48 s after** the production run started (10:43:18 UTC) and `251026_1321` **39 s after** it ended (13:21:27 UTC). The rehearsal finished 09:43:21 UTC, over an hour earlier |
+| **mtime** | ⭐ all **900** biopsy `.npz` were written between **11:04:30 and 13:20:23 UTC**, entirely inside the production run's `10:43:18 → 13:21:27` window, the last one **64 s before** the checkpoint was saved. The rehearsal finished 09:43:21 UTC — **81 minutes** before the first npz |
+
+⚠️ **The mtime line was first written against the DIRECTORY mtimes and is now against the files
+inside, which is stronger — corrected after the `models` seat warned that writing a provenance file
+changes its containing directory's mtime.** ⛔ **Documenting provenance can destroy the signal a
+later reader reaches for first.** This tree escaped it by luck of layout (the sidecar went in the
+parent; the evidence lives in `diagnostics/251026_*/`, verified unchanged after the write) — ⇒ **the
+rule is capture the mtimes before writing the sidecar**, now recorded in the file itself.
+
+⭐ **And the signal is an INSTRUMENT, not a coincidence — established across four runs.** The
+last-biopsy→checkpoint gap: silver **70 s**, bronze **73 s**, cobalt **71 s** (measured by the
+`models` seat), this control **64 s**. Four independent runs write biopsy-then-weights about 70 s
+apart, so the ordering is a property of the *pipeline*. ⇒ **an mtime pairing argument is reusable on
+any future artifact**, which neither seat had before today.
+
+⭐ **The generalisation, from the `models` seat:** *the reason silver's crossing was caught is that
+silver was the only replicate instrumented well enough to contradict itself* — ⛔ **a
+well-instrumented artifact looks worse than a bare one, and the bare one is the dangerous one.**
+That is the argument for this entry staying open.
 
 ⇒ **both control lanes are one model — `0ca3f31f…`, 300 lessons, production.** Written to
 `~/views-diagnostics/hf_control_20261025/PROVENANCE` + `checkpoint.sha256` (verifies `OK`), in the
