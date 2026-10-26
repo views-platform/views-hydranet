@@ -1,0 +1,49 @@
+====================================================================================================
+PART 1 -- THE FLOOR on all land cells. Fixed weights, MC-dropout ON, eval mode, h=1.
+====================================================================================================
+  The falsifier runs first: S is the stored column count, D the distinct fields in it.
+   tgt  origins   cells   S   D    r mean   r worst  rho mean
+    sb       13   64818  16   4   +0.9559   +0.9490   +0.6623
+    ns       13   64818  16   4   +0.9274   +0.8956   +0.6721
+    os       13   64818  16   4   +0.9241   +0.9017   +0.6670
+
+====================================================================================================
+PART 2 -- THE FLOOR on 32x32 patches of the same grid, which is the drift's population.
+====================================================================================================
+
+  sb: 780 mostly-land patches (13 origins x the grid), 4 distinct draws each
+      all patches        Pearson median +0.9239  p10 +0.0171  p90 +0.9691  Spearman median +0.2918
+      top-decile activity (n=78, the population the curriculum picks)  Pearson median +0.9469  Spearman median +0.9837
+
+  ns: 780 mostly-land patches (13 origins x the grid), 4 distinct draws each
+      all patches        Pearson median +0.8155  p10 +0.1382  p90 +0.9485  Spearman median +0.4187
+      top-decile activity (n=78, the population the curriculum picks)  Pearson median +0.9290  Spearman median +0.9545
+
+  os: 780 mostly-land patches (13 origins x the grid), 4 distinct draws each
+      all patches        Pearson median +0.8926  p10 +0.0450  p90 +0.9553  Spearman median +0.3444
+      top-decile activity (n=78, the population the curriculum picks)  Pearson median +0.9253  Spearman median +0.9618
+
+====================================================================================================
+PART 3 -- THE DRIFT. Consecutive snapshots, one fixed 32x32 window, byte-identical truth.
+====================================================================================================
+  34 snapshots, lessons 94..299
+  lessons  94-149 (n=12):  body r +0.4704 rho +0.5275 | gate r +0.4572 rho +0.5332 | forecast r +0.3303 rho +0.5461
+  lessons 200-299 (n=15):  body r +0.0944 rho +0.1249 | gate r +0.0333 rho +0.2023 | forecast r -0.0197 rho +0.1197
+
+====================================================================================================
+VERDICT -- the GATE field, the one field measured on both sides.
+====================================================================================================
+                                            sb        ns        os
+  floor, fixed weights, all patches    +0.9239   +0.8155   +0.8926
+  floor, fixed weights, ACTIVE patch   +0.9469   +0.9290   +0.9253
+
+  drift, lessons  94-149 (pooled targets)  gate r +0.4572
+  drift, lessons 200-299 (pooled targets)  gate r +0.0333
+
+  Re-drawing dropout at fixed weights changes 0.075 of the field's shape, on the matched
+  active population and at the worst of the three targets. Between two consecutive snapshots
+  late in training the same field changes 0.967 of its shape -- 12.9x more.
+
+  => MC-dropout noise is RULED OUT as the explanation, ON THIS FIELD. The observation that
+     the output keeps moving while the loss plateaus survives its own strongest control.
+  ⚠️ The body's and the forecast's floors are NOT measured -- no draw axis was saved for them.
