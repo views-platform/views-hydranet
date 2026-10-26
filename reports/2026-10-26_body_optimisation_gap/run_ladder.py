@@ -45,7 +45,13 @@ from sklearn.isotonic import IsotonicRegression
 ROOT = Path("/home/simon/Documents/scripts/views_platform/views-hydranet")
 DOSS = ROOT / "reports/2026-10-12_underfire_diagnosis"
 sys.path.insert(0, str(DOSS))
-from vehicle import SB, TARGETS, emitted_magnitude, pull  # noqa: E402
+from vehicle import (  # noqa: E402
+    SB,  # noqa: E402
+    TARGETS,
+    active_cells_top100,
+    emitted_magnitude,
+    pull,
+)
 
 EPS = 1e-6
 IS_LO, IS_HI = 421, 456
@@ -56,6 +62,12 @@ CUBES = [
     ("CONTROL (0ca3f31f)", DOSS / "d4_result_hf0125.npz", False),
     ("ARM (aab48beb)", DOSS / "d4_result_ARM_hf0126.npz", False),
 ]
+
+#: Amendment 1 A-1: the population is a SWEPT parameter, not a choice. `None` = all land cells.
+#: ⛔ Cells are selected on the IN-SAMPLE window only, so the out-of-sample column is never
+#: selected on itself. A-4 pins n=1000 as the headline, fixed before this sweep was run.
+N_SWEEP = (100, 1000, 10000, None)
+HEADLINE_N = 1000
 
 
 def nb_nll(y, mu, theta):
@@ -122,41 +134,50 @@ def ladder(name, path, is_gate):
     Y = (w.pivot(index="priogrid_id", columns="month_id", values=TARGETS[SB])
          .reindex(land)[months].to_numpy(np.float64))
 
+    sel = {n: active_cells_top100(df, IS_LO, IS_HI, n) for n in N_SWEEP if n is not None}
+    pos = {c: i for i, c in enumerate(land)}
+
     out = {}
-    for tag, lo, hi in (("IS", IS_LO, IS_HI), ("OS", OS_LO, OS_HI)):
-        cols = [mcol[m] for m in range(lo, hi + 1)]
-        y = Y[:, cols].ravel()
-        mu0 = mu_pm[cols, :].T.ravel()
-        th0 = th_pm[cols, :].T.ravel()
+    for n in N_SWEEP:
+        rows = np.arange(len(land)) if n is None else np.array([pos[c] for c in sel[n]])
+        for tag, lo, hi in (("IS", IS_LO, IS_HI), ("OS", OS_LO, OS_HI)):
+            key = (n, tag)
+            cols = [mcol[m] for m in range(lo, hi + 1)]
+            y = Y[np.ix_(rows, cols)].ravel()
+            mu0 = mu_pm[np.ix_(cols, rows)].T.ravel()
+            th0 = th_pm[np.ix_(cols, rows)].T.ravel()
 
-        r0 = nb_nll(y, mu0, th0)
-        t1, r1 = best_theta(y, mu0)
-        r2, p2 = rung_affine(y, mu0)
-        r4, mu_iso, t4 = rung_isotonic(y, mu0)
-        t5, r5 = best_theta(y, y)
+            r0 = nb_nll(y, mu0, th0)
+            t1, r1 = best_theta(y, mu0)
+            r2, p2 = rung_affine(y, mu0)
+            r4, mu_iso, t4 = rung_isotonic(y, mu0)
+            t5, r5 = best_theta(y, y)
 
-        den = r0 - r5
-        share = {k: (r0 - v) / den for k, v in (("S1", r1), ("S2", r2), ("S4", r4))}
-        out[tag] = dict(n=y.size, zeros=float((y == 0).mean()), r0=r0, r1=r1, r2=r2, r4=r4, r5=r5,
-                        theta_model=float(th0.mean()), theta1=t1, theta4=t4, theta5=t5,
-                        p2=p2, den=den, **share)
-    print(f"\n{'=' * 100}\n{name}   family={fam}   cells={len(land):,}\n{'=' * 100}")
-    for tag in ("IS", "OS"):
-        d = out[tag]
-        lab = "IN-SAMPLE 421-456" if tag == "IS" else "out of sample 457-469"
-        print(f"-- {lab}   n={d['n']:,}   truth exactly zero {100 * d['zeros']:.2f}%")
-        print(f"   R0 as trained        NLL {d['r0']:.6f}"
-              f"   (model theta mean {d['theta_model']:.4f})")
-        print(f"   R1 global theta      NLL {d['r1']:.6f}   theta* {d['theta1']:.4f}"
-              + ("   <-- REPLICATION GATE P-1" if is_gate else ""))
-        print(f"   R2 affine on log mu  NLL {d['r2']:.6f}   a {d['p2']['a']:+.4f}"
-              f" b {d['p2']['b']:+.4f} theta {d['p2']['theta']:.4f}")
-        print("   R3 per target        VOID - the cube carries one target")
-        print(f"   R4 isotonic (rank)   NLL {d['r4']:.6f}   theta {d['theta4']:.4f}")
-        print(f"   R5 oracle mu=y       NLL {d['r5']:.6f}   theta {d['theta5']:.4f}"
-              "   <-- the floor")
-        print(f"   recoverable gap R0-R5 = {d['den']:.6f}")
-        print(f"   SHARE CLOSED    S1 {d['S1']:+.4f}   S2 {d['S2']:+.4f}   S4 {d['S4']:+.4f}")
+            den = r0 - r5
+            share = {k: (r0 - v) / den for k, v in (("S1", r1), ("S2", r2), ("S4", r4))}
+            out[key] = dict(cells=len(rows), n=y.size, zeros=float((y == 0).mean()),
+                            r0=r0, r1=r1, r2=r2, r4=r4, r5=r5,
+                            theta_model=float(np.median(th0)), theta1=t1, theta4=t4,
+                            theta5=t5, p2=p2, den=den, **share)
+    print(f"\n{'=' * 104}\n{name}   family={fam}   land cells={len(land):,}\n{'=' * 104}")
+    for tag, lab in (("IS", "IN-SAMPLE 421-456"), ("OS", "out of sample 457-469")):
+        print(f"-- {lab}")
+        print(f"   {'cells':>7s} {'n':>11s} {'%zero':>7s} {'R0':>10s} {'R1':>10s} {'R2':>10s} "
+              f"{'R4':>10s} {'R5':>10s} | {'S1':>8s} {'S2':>8s} {'S4':>8s} | "
+              f"{'th_mdl':>8s} {'th*':>8s}")
+        for n in N_SWEEP:
+            d = out[(n, tag)]
+            mark = ""
+            if n == HEADLINE_N:
+                mark = "  <-- HEADLINE (A-4)"
+            if is_gate and n == 100:
+                mark = "  <-- P-1 REPLICATION GATE"
+            print(f"   {d['cells']:7,d} {d['n']:11,d} {100 * d['zeros']:6.2f}% "
+                  f"{d['r0']:10.4f} {d['r1']:10.4f} {d['r2']:10.4f} {d['r4']:10.4f} "
+                  f"{d['r5']:10.4f} | "
+                  f"{d['S1']:+8.4f} {d['S2']:+8.4f} {d['S4']:+8.4f} | "
+                  f"{d['theta_model']:8.4f} {d['theta1']:8.4f}{mark}")
+    print("   R3 per target: VOID - the cube carries one target (Amendment 1)")
     return out
 
 

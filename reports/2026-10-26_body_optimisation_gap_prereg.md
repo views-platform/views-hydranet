@@ -240,6 +240,63 @@ this morning, and the result must be quoted with that attached.
 
 ---
 
+## ⛔ AMENDMENT 2 — 2026-10-26, after the second execution. RUN 2 IS ALSO VOID.
+
+Output: `reports/2026-10-26_body_optimisation_gap/run2_sweep.out`, 173.7 s, 3 cubes × 4 population
+sizes × 2 windows. ⛔ **F1 fires, and a second design defect in §3 is exposed that would have
+voided the readout even if F1 had not.**
+
+**(a) ⛔ F1 FIRES — the replication gate misses by 3× its tolerance.**
+On the vehicle and population the target was measured on (`4acbf4d3`, n = 100, months 421–456):
+
+| | pre-committed target | measured in Run 2 |
+|---|---|---|
+| the model's own θ | 0.1544 | **0.1395** |
+| **NLL-optimal θ\*** | **0.2327** | ⛔ **0.2963** |
+| NLL at the model's θ | 4.2121 | 4.1172 |
+
+⭐ **The direction replicates and the magnitudes do not.** The model does sit below its own NLL's
+optimum — 0.1395 against 0.2963 — which is the qualitative claim this plan was built on, and it
+holds. But P-1 pre-committed **±0.02** and the miss is **0.0636**. Per F1 the consequence is fixed
+in advance: **VOID, fix the instrument, report nothing from the ladder.** The likely causes are
+estimator differences I did not pin — `m_free_measurements.py` reads `t3["MDL"]`, takes a **median**
+over cells and searches θ on a **grid**, where this reads the `d4` cube, takes a **draw-mean** then
+a median, and optimises θ continuously. ⛔ Which of those moves 0.2327 → 0.2963 is **not yet
+measured**, and no number below is quotable until it is.
+
+**(b) ⛔ The share S_k is not a share — a design defect in §3, found by execution.**
+S_k is defined against **R0**, and R0 carries **a free θ in every cell** (the model's own), while
+every other rung carries **one global θ**. R1 is therefore not a relaxation of R0 but a
+**restriction** of it, and the denominator `R0 − R5` subtracts two quantities with different
+parameter counts. ⇒ the negative shares throughout Run 2 are substantially **that asymmetry, not a
+property of the body**. §3 said R0 sits outside the nest; it then used R0 as the baseline anyway.
+
+**(c) ⚠️ What is NOT being done, deliberately.** The clean comparison inside the nest is
+**R1 → R4** — one global θ on both sides, only μ differing. That quantity is computable from the
+output already on disk and is **stable across all four population sizes**. ⛔ **It is not reported
+as this experiment's result and it is not being substituted for S_k**, because choosing a baseline
+after seeing which baseline gives a readable answer is the same error class as choosing a
+population after seeing which one works — Amendment 1(a), six hours earlier, same day.
+
+### A-6 — what must happen before any third run, committed now
+
+1. **Reconcile the estimator** against `m_free_measurements.py` on its own artefact until the
+   0.2327 is reproduced or the discrepancy is attributed to a named, measured cause. ⛔ Until then
+   P-1 cannot pass and nothing downstream is readable.
+2. **Re-define the readout baseline to R1**, with its rationale written here and not after the
+   fact: R1 is the weakest member of the nest, so `(R1 − R_k)/(R1 − R5)` compares like with like.
+   ⚠️ R0 is then **reported beside** the ladder as the model-as-trained reference and is **no
+   longer a denominator**.
+3. **P-2, P-3, P-4 and §6 are re-stated against the new baseline before it is computed**, or they
+   do not apply. The current predictions were written for a quantity that does not exist.
+
+⚠️ **Two executions, two voids, both from defects in this document rather than in the code.** The
+plan was written in one pass this morning and neither defect survived contact with its own first
+run. That is what pre-registration is for, and it is also a measurement of how much weight a
+single-pass pre-registration from me should carry.
+
+---
+
 ## Provenance
 
 - the parked measurement: `reports/2026-10-12_underfire_next_step.md:205-235`,
