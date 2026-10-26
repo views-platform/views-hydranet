@@ -1,0 +1,329 @@
+# Structure-penalty arm — OUTCOME
+
+**Pre-registration:** `reports/2026-10-21_structure_penalty_arm_prereg.md` (amended 4×, last `7a290ed`,
+2026-10-25T23:59:52+01:00 — **2 h 31 m before the run started**).
+**Verdict: the arm is NEGATIVE on every proper score, and the two predictions it PASSED both
+passed for a reason that makes them uninformative.** The finding is not the sign of the result.
+It is that **the penalty term and the B-1 diagnostic disagree about the same model by sign.**
+
+---
+
+## 1. What ran
+
+| | |
+|---|---|
+| views-models branch / commit | `feat/607-struct-penalty-arm` / `fa2de298` |
+| checkpoint | `calibration_model_20261026_040937.pt`, sha256 `aab48beb4fa8480da1552694351774b094abba0450fa270ccdffb66a85b23696` — **digest re-verified here on disk, not taken on report** |
+| trained | 2026-10-26T01:43:09Z → 04:09:42Z, 300 lessons, mode `production`, region `land` |
+| hardware / cost | RTX PRO 4500 Blackwell, 87 GB RAM, 128 vCPU · **~$3.00** |
+| the ONE changed key | `'struct_penalty_weight': 0.416904` on `heavy_freighter` |
+| control | `calibration_model_20261025_132124.pt`, git `c8ae1803`, same 300 lessons, `STATUS: OK` |
+| data | ⭐ all 2,834 files / 1.4 GB at `~/views-diagnostics/hf_arm_20261026/` |
+
+⭐ **The weight is the PRE-REGISTERED one.** The prereg's original `8.89624` was retracted in
+`de4fd3e` — three independent errors (derived on amber_kestrel's `truncated_nb`; a superseded v1
+script; gradient-matched against **one** of the three regression targets `training_engine.py:995`
+sums over). `0.416904` was committed to §3c at 2026-10-25T23:59, and the pod began training at
+2026-10-26T01:43. ⇒ **This is a pre-registered result, not an exploratory one.** The `models`
+session flagged the opposite possibility, correctly and without knowing the amendment existed.
+
+### 1b. ⭐ The experiment is clean — measured by the `models` session, not assumed
+
+| | |
+|---|---|
+| `queryset_digest` | **IDENTICAL** to the control: `a7fce3a6cfdc4c8b5dbb46be37a3a1ddc75f3c80ae090d06cfc5c5928a1bc685`, pgm, months 121–504 |
+| truth grids `y_reg`, `y_cls` | **BYTE-IDENTICAL** arm vs control in all three training windows at lesson 300 |
+| trajectory at lesson 0 | **NINE columns byte-identical**: `loss_reg`, `loss_cls`, `gate_logit_mean`, `b_{sb,ns,os}`, `g_{sb,ns,os}`. Only `raw_grad_norm` differs — which is the manipulation. |
+| environment | `views-hydranet==0.1.7`, `views-pipeline-core==3.3.4`, `torch==2.14.1` — 176-line pinned set, **exactly the control's** |
+
+⇒ The floating `views-hydranet~=0.1.1` PyPI range (`pod_run_model.sh:172`) **did not bite**. That
+was HARD-3 of the 2026-10-26 readiness falsification; it was a live risk, and it resolved
+favourably by luck rather than by a pin. ⛔ **It is still unpinned for the next arm.**
+
+---
+
+## 2. Gate A — the penalty is live
+
+`struct_pen` has no logged magnitude (**C-365**), so the manipulation check used lesson-0
+`raw_grad_norm`:
+
+| | |
+|---|---|
+| arm | 1794.6770552604437 |
+| control | 1591.1967992930588 |
+| Δ | **+203.480256 = +12.788%** |
+
+⚠️ **One-sided by construction:** it can condemn an inert knob; it cannot certify a correct one.
+It did not condemn. Gate B (throughput) 33.8 s/lesson vs the control's 31.6, threshold 63.0.
+
+---
+
+## 3. ⛔ THE SCORECARD — all five pre-registered predictions
+
+| # | quantity | control | **arm** | prediction | verdict |
+|---|---|---|---|---|---|
+| **P-1** ⚪ manipulation | structure penalty, trained ckpt, 12-draw mean | 1.7223 | **0.3540** | gap closes ≥ 50% | ✅ **PASSED** — 79.4% closed |
+| **P-2** guardrail | B-3 level, implied | 95.9% | **1026.4%** | must not degrade | ⛔ **BLOWN, 10.7×** |
+| **P-3** ⭐ the hypothesis | B-2 slope `b`, 336-mo, 1,431 cells | 0.4996 | **0.8066** | rises to ≥ 0.55 | ✅ **PASSED** — ⚠️ see §5 |
+| **P-4** | B-1 at d=1, in-sample E–W, **1/n intercept** | 0.287 | **0.085** | rises ≥ 0.10 ⇒ ≥ 0.387 | ⛔ **FAILED, OPPOSITE SIGN** |
+| **P-5** | FAO-02 `crps_all` | — | 8–38% worse | not worse by > 5% | ⛔ **FAILED** |
+
+**2 passed, 3 failed.** ⛔ **And the two that passed are the only two quantities on the board that
+are sensitive to the SPREAD of the predictions rather than their accuracy.** That is §5.
+
+### 3a. The held-out scores (`metrics/`, 6 metricframes — the authoritative scores)
+
+| target | metric | arm | control | ratio | better |
+|---|---|---|---|---|---|
+| `lr_sb_best` | CRPS | 0.08876 | 0.08219 | 1.08× | CONTROL |
+| `lr_sb_best` | QS_sample | 0.07271 | 0.06232 | 1.17× | CONTROL |
+| `lr_sb_best` | MCR_sample | 2.16320 | 0.39742 | 5.44× | CONTROL |
+| `lr_ns_best` | CRPS | 0.01956 | 0.01605 | 1.22× | CONTROL |
+| `lr_ns_best` | QS_sample | 0.01867 | 0.01333 | 1.40× | CONTROL |
+| `lr_ns_best` | MCR_sample | 4.06027 | 0.37719 | 10.76× | CONTROL |
+| `lr_os_best` | CRPS | 0.01449 | 0.01052 | 1.38× | CONTROL |
+| `lr_os_best` | QS_sample | 0.01765 | 0.00953 | 1.85× | CONTROL |
+| `lr_os_best` | MCR_sample | 7.22472 | 0.35506 | 20.35× | CONTROL |
+| `by_sb_best` | Brier_cls_sample | 0.00270 | 0.00269 | 1.00× | CONTROL |
+| `by_ns_best` | Brier_cls_sample | 0.00126 | 0.00153 | 0.82× | **ARM** |
+| `by_os_best` | Brier_cls_sample | 0.00134 | 0.00132 | 1.02× | CONTROL |
+
+**Control better on 11 of 12.** ⭐ **The gate barely moved** (all three Brier within 0.82–1.02×),
+which is the signature of a penalty acting on the body and leaving the gate alone — consistent
+with `_structure_penalty`'s gate being **detached** by design.
+
+⛔ **MCR crossed 1.0 and overshot, monotonically in target sparsity.** Control MCR 0.355–0.397 —
+it UNDER-predicts, the timid-prophet failure the MCR guardrail exists to catch. Arm 2.16 → 4.06 →
+7.22 for sb → ns → os. ⇒ The penalty did not fail to act on magnitude. **It acted far too hard,
+in the direction the control was deficient, and hardest where the target is rarest** — which is
+exactly §3c.1's measurement that non-state carries 0.374910 of the 0.827130 summed penalty
+(**45.3%**) and the largest penalty gradient (3.7407e+00) despite being the rarest target.
+
+---
+
+## 4. ⭐⭐ THE FINDING — two instruments for one quantity, disagreeing by SIGN
+
+Both of these were built to answer *"does this model carry its due spatial structure?"*
+Both were run on **the same two checkpoints**, and for the penalty on **the same window**
+(rows 191–223, cols 350–382, land 99.4%), the same seed, the same 12-draw dropout sweep.
+
+| instrument | control | arm | direction |
+|---|---|---|---|
+| **`_structure_penalty`** — the loss term, Σ over blocks (2, 8) | 1.7223 | **0.3540** | ⭐ **4.87× BETTER** |
+| **B-1** — γ_model(d)/γ_truth(d) at d = 1, in-sample E–W | 0.400 | **0.090** | ⛔ **4.44× WORSE** |
+
+⛔ **They cannot both be describing the same change.** And B-1 is worse at **every** scale, not
+just the finest:
+
+| d | 1 | 2 | 4 | 8 | 16 | 32 |
+|---|---|---|---|---|---|---|
+| control, in-sample E–W | 0.400 | 0.488 | 0.572 | 0.697 | 0.872 | 0.929 |
+| **arm**, in-sample E–W | **0.090** | **0.181** | **0.351** | **0.523** | **0.609** | **0.676** |
+| control, out-of-sample E–W | 0.183 | 0.196 | 0.243 | 0.394 | 0.578 | 0.716 |
+| **arm**, out-of-sample E–W | **0.088** | **0.168** | **0.326** | **0.496** | **0.556** | **0.636** |
+
+### 4a. The mechanism, read off the term's own docstring
+
+`training_engine._structure_penalty`:
+
+> *"The penalty is a ONE-SIDED difference of LOGS: a 10× dispersion **SHORTFALL** costs the same at
+> every intensity, and **excess dispersion costs nothing**."*
+
+⇒ The term says *"your within-block dispersion is below the truth's — raise it"*, and **places no
+cost whatever on raising it too far.** Nothing in the objective opposes it except the body NLL,
+which the frozen balancer weights **0.5**. The cheapest available route to satisfying it is to
+inflate the field.
+
+**That is what the model did.** `models` measured the conditional mean μ̂ falling 0.85 → ~0.10 in
+the control and **RISING 0.85 → ~9 in the arm**, while `loss_reg` barely moved — a mean/dispersion
+trade along an NB likelihood ridge, with a higher θ-CoV panel in the arm, which is consistent.
+
+⚠️ **Flagged as the leading hypothesis, NOT as a measurement.** Nobody has run the
+profile-likelihood check that would establish the ridge. What IS measured: the penalty fell 4.87×,
+B-1 fell 4.44×, μ̂ rose ~10×, MCR rose 5–20×.
+
+### 4b. ⛔ Why this is a defect in the term and not a dose error
+
+A smaller weight reaches the same place more slowly. A one-sided penalty with no opposing term
+has **one** direction available to it and **no** stationary point in that direction short of the
+body NLL's own resistance. Halving the weight halves the pressure; it does not introduce a cost
+for overshoot, which is the thing that is missing.
+
+⇒ **The next move is not a weaker weight. It is a two-sided penalty, or none.**
+
+---
+
+## 5. ⚠️ P-3 PASSED, AND THE PASS IS AN ARTEFACT — read this before quoting 0.8066
+
+`body_level_selection_check.py`, **same instrument, same session, both arms**, population fixed at
+the 1,431 truth-positive cells, 336-month base-rate truth estimator:
+
+| | control | arm |
+|---|---|---|
+| **`b`** — the pre-registered quantity | 0.4996 | **0.8066** ✅ |
+| **`r`** — rank correlation, same fit | **+0.6833** | **+0.6090** ⛔ |
+| level (implied) | 95.9% | **1026.4%** ⛔ |
+
+⛔ **`b` rose while `r` FELL.** `b` is the OLS coefficient of log-truth on log-μ: widening the
+predictor's dynamic range raises `b` without the predictions becoming more accurate, and here the
+agreement actually got *worse*. ⇒ **P-3 passes as written and tells us nothing we wanted to know.**
+
+⚠️ **This is the pre-registration's fault, not the arm's.** §4 chose a scale-sensitive statistic
+as the headline for an intervention whose only mechanism is to change scale. The prereg should
+have pre-committed `r` alongside `b`, or pre-committed `b` *conditional on the level guardrail
+holding*. It did neither. **W-63.**
+
+---
+
+## 6. P-4 scored on its pre-committed estimator — and the estimator now exists as code
+
+§4b fixed **the 1/n intercept, not the 4-draw value**, as P-4's scoring quantity, before any arm
+number existed. New cubes: `d4_result_ARM_hf0126_{s0..s3,p1A..p3B}.npz`, the three **disjoint**
+2-vs-2 partitions of four draws.
+
+| | n=1 | n=2 | n=4 | 1/n fit | residuals |
+|---|---|---|---|---|---|
+| **arm** B-1 d=1 | 0.1072 (sd 0.0010, 4 cubes) | 0.0967 (sd 0.0005, 6 halves) | 0.0900 | **0.0847 + 0.0227/n** | ±0.0006 |
+| control B-1 d=1 | 0.7547 (sd 0.0075) | 0.5288 (sd 0.0033) | 0.4000 | **0.2870 + 0.4700/n** | ±0.007 |
+
+| | |
+|---|---|
+| control intercept | 0.287 |
+| **arm intercept** | **0.085** |
+| prediction | rises ≥ 0.10 ⇒ **≥ 0.387** |
+| observed move | **−0.202** |
+| split-half noise floor, arm (equal draws, 3 disjoint partitions) | **0.0010** |
+| **gap / floor** | **202×** |
+
+⭐ **A second-order finding worth keeping:** the arm's draw-count bias is **0.0227**, against the
+control's **0.4700** — **21× smaller**. The control's B-1 was 28% MC-dropout artefact because its
+field variance was small; the arm's field variance is dominated by its inflated mean, so dropout
+noise is a negligible share of it. ⇒ **The same diagnostic has a 21× different noise content on
+two checkpoints of the same architecture.** Any future B-1 comparison must sweep draws on *both*
+sides; a single-sided correction would have been wrong by 0.45 here.
+
+⛔ **`split_draws.py` is now a committed instrument** (`reports/2026-10-25_arm_readiness/`). The
+control's splits were made ad hoc in a shell on 2026-10-25 and that code died with the shell —
+so from then until now, **the estimator §4b pre-registered for scoring the headline prediction
+existed only as a command someone had typed.** That is C-106's shape applied to an estimator:
+second instance of "a load-bearing thing with no durable home" recorded today, the first being
+the `models` session's abort gate lost to an overwritten plan file.
+
+---
+
+## 7. ⛔ THE SEVENTH INSTANCE
+
+`reports/2026-10-21_structure_penalty_arm_prereg.md` §4, written before the run:
+
+> *"35% is a deliberate, low prior, and it is the honest one: **seven interventions have failed,
+> four of them on the same lever.**"*
+
+And the method review of the sibling fork asked outright whether this was *"the seventh instance
+waiting to happen."*
+
+**It was.** M45 (`truncated_nb` ×1170 → −0.238 AP), M62 (`act_ratio` ×3.0), M64 (×56), and now
+this: **an intervention that made the model predict more, and lost on every proper score.**
+`project_firing_is_not_the_lever` records the rule as *"AP loss scales with how much the model
+FIRES"*; §3a's MCR 0.36 → 2.2–7.2 is that rule, measured one more time.
+
+⭐ **What is new here, and worth the $3:** the previous four were interventions that increased
+firing *as a side effect*. This one increased it as its **designed mechanism**, with a
+pre-registered diagnostic that was supposed to detect the intended effect — and the diagnostic
+**reported success while the outcome failed**. ⇒ The lever is not merely unhelpful; **the
+instrument we built to steer it points the wrong way.**
+
+---
+
+## 8. ⚠️ LIMITS — pre-registered, and binding
+
+1. ⛔ **n = 1 against n = 1.** Nothing here bounds run-to-run variance. σ̂ is still unmeasured
+   (views-models #572/#566). **The 1.08× CRPS gap on `lr_sb_best` is NOT distinguishable from
+   seed noise.** The 5–20× MCR gap, the 0.202 B-1 gap (202× its floor) and the 10.7× level gap
+   are far too large to be seed noise, and those carry the verdict.
+2. ⛔ **§7.8's second-seed trigger did not fire** — it was defined for *"the screen comes back
+   positive and near the ask"* (P-3 ∈ [0.50, 0.60] or P-4's intercept ∈ [0.34, 0.44]). P-4 came
+   back at 0.085, P-3 at 0.8066 with `r` falling. Neither is near its ask in the sense the trigger
+   meant. ⇒ **No second seed is owed, and the reason is the pre-committed rule, not a judgement
+   made after seeing the numbers.**
+3. ⚠️ **The split-half floor still does not bound seed variance.** It splits one checkpoint's
+   draws. Unchanged from §7.8.
+4. ⚠️ **The penalty-share figures are TWO POINTS, NOT A TRAJECTORY** (C-325, narrowed not
+   retired). They cannot show when a term drifted, a spike that resolved, or a divergence that
+   reversed. **C-365's fix — one trajectory column per additive loss term — would have made §4
+   a curve instead of two points, and it is now the single highest-value change for the next arm.**
+5. ⚠️ **Region is recorded as ENFORCED, not measured.** `PROVENANCE` records that
+   `pod_run_model.sh:279-282` refuses any region but `land`; nothing in a `.pt` or its sidecar
+   records the region, and the net is fully convolutional. Weaker than a measurement.
+6. ⚠️ **P-1 is scored on the SUMMED penalty over blocks (2, 8), not per block.** The prereg asked
+   for "≥ 50% at `k = 2` **and** `k = 8`". The instrument reports the sum. ⇒ **P-1's pass is
+   reported at lower resolution than it was pre-registered at**, and a per-block split is owed
+   before anyone leans on it.
+
+### 8b. ⛔ The verification failure rate behind §1b and §3a was THREE
+
+The `models` session self-reported, unprompted, that a `/falsify` pass on *"I can terminate the
+pod"* was FALSIFIED with three hard findings, all since remediated and registered (C-179/C-180/
+C-181, plus instances on C-161 and C-169):
+
+1. It synced one of two diagnostics folders and verified the sync with a count taken **inside the
+   folder it had synced**. The 13 per-origin `03_model_reasoning` biopsies were nearly destroyed.
+2. It skipped `slice_gate_posterior.py`, which the run guide mandates before teardown, and
+   substituted a raw superset for the validator. Run afterwards it came back clean — **but that
+   was not known when the pod was declared safe to kill.**
+3. A digest comparison of its own produced **empty hashes and reported agreement**.
+
+⇒ **Recorded here because §1b's cleanliness evidence and §3a's scores rest on that session's
+verification, and its measured failure rate on the day was three.** The checkpoint digest and the
+B-1/penalty/P-3 numbers in this document were re-derived here from the artefacts on disk; the
+`queryset_digest`, byte-identity and trajectory-column claims were **not** independently re-run
+and carry that session's verification only.
+
+---
+
+## 9. Where the two gate artefacts are, and why they are not interchangeable
+
+| | |
+|---|---|
+| `gate_draws/gate_h1.tar.zst` (43.8 MB) | the h=1 slice, **VALIDATED**: `slice_gate_posterior.py` exit 0, 13 origins × 3 targets, every row count exactly 64,818, 16 draws consistent across targets, all probabilities finite in (0,1). sha `c13e86a55aac430465405c4eb95fec53fa2d682aee708b7378f0662b1efa6e08` |
+| `gate_draws/by_*.tar.zst` (683 MB, 78 members) | the full posterior, byte-identical to the pod per member — but **none of those structural checks ran on it**. sha `80bedf6816d3d6100912849b5bac095c728977a660e4bb4abf423fb28394aeec` |
+
+⛔ **The control has NO h=1 slice** (`~/views-diagnostics/hf_control_gate_draws/`, 662 MB, raw
+only, 117 entries = 13 origins × 3 targets × 3 files). ⇒ A slice-vs-slice gate comparison requires
+making one from the control's raw archive first. **Given §3a — the gate moved 0.82–1.02× — there
+is currently nothing for a gate-side readout to read, so this is recorded and not chased.**
+
+---
+
+## 10. What this closes and what it opens
+
+**CLOSED.** The structure penalty as written is not a usable lever. Not at this weight, and not at
+a smaller one — §4b. ⛔ **Do not re-propose a one-sided dispersion penalty** without first
+answering §4's disagreement.
+
+**OPEN, in priority order.**
+1. ⭐⭐ **Why do `_structure_penalty` and B-1 disagree by sign?** Both claim to measure carried
+   spatial structure. One is within-block dispersion on 32×32 training windows, one-sided, in
+   logs; the other is a variance-normalised variogram ratio on the 360×720 grid. **Until that is
+   resolved, neither can be trusted as a target, and B-1 has been the body programme's primary
+   diagnostic since D12.**
+2. ⭐ **C-365** — a trajectory column per additive loss term. Needs a 0.1.8 release. It converts
+   §4 from two points into a curve and is the cheapest large improvement available.
+3. ⭐ **Pin the pod's views-hydranet.** `~=0.1.1` floats; it resolved to 0.1.7 by luck this time.
+   `pod_run_model.sh` is on the never-modify list, so this needs an env seam or an explicit
+   decision to accept the risk.
+4. **A two-sided dispersion penalty**, if §4's disagreement resolves in the term's favour. A
+   symmetric log penalty has a stationary point; the current one does not.
+5. **σ̂** (#572/#566) — still unmeasured, and limit 1 will bind on every future n=1 screen.
+
+---
+
+## Provenance
+
+| | |
+|---|---|
+| arm data | `~/views-diagnostics/hf_arm_20261026/` — 2,834 files, 1.4 GB |
+| control data | `~/views-diagnostics/hf_control_artifact/`, `hf_control_gate_draws/`, `hf_control_inputs/` |
+| new cubes | `reports/2026-10-12_underfire_diagnosis/d4_result_ARM_hf0126{,_s0..s3,_p1A..p3B}.npz`, `d12_result_ARM_hf0126*.npz` |
+| new instrument | `reports/2026-10-25_arm_readiness/split_draws.py` |
+| readouts re-run here | `body_scoreboard.py`, `body_level_selection_check.py`, `d12_variogram.py`, `struct_pen_at_checkpoint.py` — **both arms, same session, same instrument** |
+| ⛔ the pod | **TERMINATED.** HydraNet is not bit-reproducible (C-317). Nothing more can be taken from it. |
