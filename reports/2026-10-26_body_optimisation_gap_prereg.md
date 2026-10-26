@@ -183,6 +183,63 @@ the structure-penalty prereg failed to do.
 
 ---
 
+## ⛔ AMENDMENT 1 — 2026-10-26, after the first execution. RUN 1 IS VOID.
+
+The plan above was executed once. **The result is VOID and is not scored against any prediction.**
+Three reasons, two of them defects in this document and one in how I invoked it.
+
+**(a) ⛔ The replication gate was unsatisfiable as written — a population error in §3.1.**
+P-1 asked R1 to reproduce **θ\* = 0.2327**. That number was never measured on all land cells.
+`m_free_measurements.py:26-27` reads `MDL, Y = t3["MDL"], t3["SCOREY"]` — `[36,100,2]` params and
+`[100,36]` actuals — and `2026-10-12_underfire_next_step.md:186-188` states the scope in its own
+words: *"the 100-cell set chosen by observed positive rate."* **3,600 cell-months, not 2,333,448.**
+Its θ is a **median over that set** and its NLL **4.2121** is a mean over it. On all land cells the
+same model's NLL is **0.0211**, a 200× different object. ⇒ **F1 fires** — but on the *gate's* own
+specification, not on the instrument.
+
+**(b) ⛔ The all-cell NLL is won by maximal overdispersion, which makes the ladder measure the
+wrong thing.** Run 1, control, in-sample: R0 = **0.0211** with the model's per-cell θ averaging
+**0.0008**, against R1's best single θ = 0.0057 at **0.0300**. R0 beats every other rung and all
+three shares are **negative**. ⚠️ The nest itself is sound — R1 0.0300 > R2 0.0261 > R4 0.0256 >
+R5 0.0067, monotone, F2 does not fire — and R0 is outside the nest exactly as §3 says. But the
+reason R0 wins is that on a **99.65%-zero** population a θ near zero puts almost all mass on zero
+and scores well for it. ⇒ **the quantity is dominated by the zeros and carries almost no magnitude
+information**, so H is not being tested. Limit 2 anticipated that no *absolute* NLL from this
+population describes anything; it did not anticipate that the *comparison* would be vacuous too.
+
+**(c) ⚠️ My own invocation destroyed the gate's output.** I piped the run through `tail -45`, which
+discarded the entire `OLD CONTROL (4acbf4d3)` block — the one cube the gate belongs to. Even had
+(a) and (b) not held, P-1 could not have been read. Self-inflicted, and logged.
+
+### What is amended, committed BEFORE the re-run
+
+⛔ **The population is not replaced by one that works.** Picking a population after seeing which
+one answers the question is the defect this whole document exists to avoid. Instead the population
+becomes **a swept free parameter**, per the standing rule and per the §8 row 18 added to the
+evaluation report today:
+
+> **A-1.** The ladder runs at **n ∈ {100, 1,000, 10,000} most-active land cells** (by observed
+> positive rate on the window, `vehicle.py:318 active_cells_top100`) **and on all 64,818**, every
+> rung at every n, both arms, one script, one session.
+> **A-2.** The replication gate P-1 is read at **n = 100 on the OLD CONTROL (`4acbf4d3`)** — the
+> vehicle and the population it was measured on. It gates **nothing else**: a miss voids the
+> instrument, a hit licenses only the n = 100 column.
+> **A-3.** ⭐ **S_4 must be reported at every n.** If S_4 crosses either decision threshold
+> (0.25 / 0.50) as n moves, ⛔ **no scalar is quotable and the decision rules in §6 do not fire** —
+> that outcome is the result, exactly as C-351 instance #3 (`b` = 1.7301 on 100 cells, 0.92 on the
+> grid) and `body_scoreboard.py:13-18` already require.
+> **A-4.** Predictions P-2, P-3, P-4 and the §6 decision rules are now read on the **n = 1,000**
+> column, pre-committed here as the headline, with the full sweep beside it. ⚠️ **n = 1,000 is
+> chosen as the middle rung of a sweep fixed before the sweep was run, not for its value.**
+> **A-5.** Run 1's all-land numbers are **kept and reported** as the n = 64,818 column. They are a
+> real measurement of a different question and are not deleted.
+
+⚠️ **This amendment weakens the pre-registration and says so.** The headline column is now named
+after Run 1 revealed the original one was vacuous. That is a weaker commitment than the one made
+this morning, and the result must be quoted with that attached.
+
+---
+
 ## Provenance
 
 - the parked measurement: `reports/2026-10-12_underfire_next_step.md:205-235`,
