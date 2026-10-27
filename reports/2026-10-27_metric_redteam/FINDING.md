@@ -2,7 +2,12 @@
 
 **Date** 2026-10-27 · **Issue** #478 (epic #477, RP-1) · **Script**
 `reports/2026-10-27_metric_redteam/redteam_forecasts.py`, committed at `c6bd6e1` **before it ran**
-(D-5) · **Output** `redteam_forecasts.out` · **21.7 s, 6.66 GiB, CPU**
+(D-5), amended at `ea56fca` **before the amendment ran** · **Output** `redteam_forecasts.out`
+· **22.9 s, 8.26 GiB, CPU** · **11 forecasts, 12 void gates, all PASS**
+
+⚠️ **AMENDED** after Simon's RP-10 argument: four forecasts added — **oracle (raw truth)** and
+**blurred-truth r ∈ {1,2,4}**. Findings 3–5 below come entirely from those four and are the
+reason the amendment was worth making before M2 ran.
 
 ## C-351 slots
 
@@ -97,3 +102,91 @@ an observation, not a finding: M1 does not score anything.**
 is **M2's** measurement and remains **open** in `PREDICTION_LEDGER.md`.
 
 ⇒ The seven are safe for **#479** to score.
+
+
+---
+
+# AMENDMENT (2026-10-27, `ea56fca`) — the four forecasts RP-10 asked for
+
+`reports/2026-10-27_measurement_floor/ARGUMENT.md` holds the argument. Four rows added:
+
+| forecast | field total | frac > 0 | max | `size_ratio` |
+|---|---|---|---|---|
+| **oracle (raw truth)** | 50,881 | 0.003448 | 2,482.0 | **1.0000** |
+| blurred-truth r=1 | **50,881** (exact) | 0.047694 | 281.9 | **0.3371** |
+| blurred-truth r=2 | **50,881** (exact) | 0.081489 | 114.4 | **0.2594** |
+| blurred-truth r=4 | **50,881** (exact) | 0.131980 | 40.2 | **0.1747** |
+| reference (delivered) | 16,612 | 0.012225 | 54.5 | **0.2598** |
+| **TRUTH** | **50,881** | **0.003448** | **2,482.0** | 1.0000 |
+
+⭐ **G-h, the new oracle gate, passes exactly:** raw truth scores `crps_all` **0**, `size_ratio`
+**1**, `AP` **1**, `Brier` **0** — all at 17 significant figures. ⇒ A column that does not rank this
+row first in M2 is definitively broken, and now there is a row to check that against.
+
+⚠️ `grid_rowcol` returns **1-based** (row, col) — its own docstring says so, and
+`d5_why_smooth.py:67` subtracts 1. I used it raw and got `IndexError: index 720 out of bounds`. ⛔
+It failed **loudly only because the grid is exactly 720 wide**; one column wider and the index would
+have **wrapped silently**, smearing mass to the wrong hemisphere with every gate still green. That
+is **C-322**'s shape. Bounds assertions added either side.
+
+## ⭐⭐⭐ Finding 3 — `size_ratio` cannot distinguish the delivered model from blurred truth, and the two differ 3× in mass
+
+| | `size_ratio` | field total |
+|---|---|---|
+| reference (delivered) | **0.2598** | **16,612** |
+| blurred-truth r=2 | **0.2594** | **50,881** |
+| | **0.15% apart** | **3.06× apart** |
+
+⇒ ⛔⛔ **On the column quoted as the magnitude guardrail, the delivered model is indistinguishable
+from the truth itself blurred over a 5×5 neighbourhood — while carrying one third of the mass.**
+
+⇒ **`size_ratio` conflates sharpness with mass and resolves neither.** Finding 1 showed it
+saturating at 0 for four forecasts; this shows it colliding at 0.26 for two more that differ by a
+factor of three in the quantity it is named after.
+
+## ⭐⭐ Finding 4 — a mass-preserving blur reads as a massive under-prediction
+
+Every blurred row has the **exactly correct** per-month total (gate G-i, max relative error
+**4.8e-16**). Yet:
+
+| | `size_ratio` | reads as |
+|---|---|---|
+| blurred r=1 | 0.3371 | "**66% too small**" |
+| blurred r=2 | 0.2594 | "**74% too small**" |
+| blurred r=4 | 0.1747 | "**83% too small**" |
+
+⇒ ⛔ **`size_ratio` penalises appropriate smoothing, exactly as RP-10 predicted it would** — and the
+penalty grows with the blur even though the mass never changes. ⇒ The column cannot be used to ask
+*"is the model under-predicting?"* on a field whose sharpness is in question, which per RP-10 is
+every field we have.
+
+⚠️ M2 (#479) must now check whether **CRPS** does the same thing. If blurred truth also scores worse
+on CRPS, the penalty reaches FAO-02's **primary** metric.
+
+## ⭐⭐ Finding 5 — but the delivered model is NOT a blurred truth, and that vindicates RP-10's split
+
+Ask each column what blur radius the delivered model resembles:
+
+| column | the radius it implies |
+|---|---|
+| `size_ratio` 0.2598 | ≈ **r=2** |
+| `frac > 0` 0.012225 | **below r=1** (0.047694) ⇒ an effective radius under one cell |
+| `max` 54.5 | between **r=2** and **r=4** |
+| field total 16,612 | ⛔ **no blur reproduces it** — every blur preserves 50,881 |
+
+⇒ **The columns disagree about the radius and the total matches none of them.** The delivered model
+is **thin AND mass-deficient**, which is not what any amount of blurring produces.
+
+⇒ ⭐⭐⭐ **This is exactly the split RP-10's argument predicted, now measured.** Simon's point
+defends *spreading* the mass; it does not defend *losing* it. The delivered model's smoothness might
+be defensible on his argument — ⛔ **its missing two thirds is not, and no measurement-error story
+reaches it.** Under-reporting makes the latent total **≥ 50,881**, so the deficit is if anything
+understated.
+
+⇒ ⛔ **"Under-firing" has been carried as one defect. It is two**, and only one of them is
+potentially the task rather than the model.
+
+## Status
+
+🔵 **M1 complete. 11 forecasts, 12 gates, all PASS.** No metric scored — that is M2 (#479). The
+declared prediction (forecast 5 ⇒ `AP == 1.0` and `Brier == 0.0` exactly) remains **open**.
