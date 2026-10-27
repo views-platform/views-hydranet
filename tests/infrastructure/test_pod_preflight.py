@@ -65,24 +65,6 @@ def test_load_config_keys_reads_a_roster_style_config(tmp_path):
     assert load_config_keys(p) == {"output_distribution", "steps"}
 
 
-def test_load_config_keys_defines___file___for_a_config_that_resolves_its_own_path(tmp_path):
-    """C-367 — the gate crashed on the very config it exists to check.
-
-    ``heavy_freighter`` resolves a path relative to itself at module level (the
-    ``_trajectory_log_path`` helper PR #603 added), so ``exec`` into a bare namespace raises
-    ``NameError: name '__file__' is not defined`` and the pre-flight exits 1 on a config that is
-    perfectly valid. Deleting the ``__file__`` entry in ``load_config_keys`` must turn this red.
-    """
-    p = tmp_path / "config_hyperparameters.py"
-    p.write_text(
-        "from pathlib import Path\n"
-        "_HERE = Path(__file__).resolve().parent.parent\n"
-        "def get_hp_config():\n"
-        "    return {'trajectory_log_path': str(_HERE / 'traj.csv'), 'steps': 1}\n"
-    )
-    assert load_config_keys(p) == {"trajectory_log_path", "steps"}
-
-
 def test_load_config_keys_refuses_a_file_with_no_get_hp_config(tmp_path):
     """Fail loud rather than silently pre-flighting an empty key set — which would PASS."""
     p = tmp_path / "config_hyperparameters.py"

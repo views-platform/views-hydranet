@@ -6210,10 +6210,25 @@ carry the same pattern (views-models #604). ⇒ `NameError: name '__file__' is n
 ⭐ **The mechanism is the finding:** the gate's *earlier* "successful" run passed only because the
 STALE config had no `__file__` in it. The same PR that fixed the trajectory path broke the gate's
 ability to read the config, and **reasoning about the sha could not see it, because the defect is in
-the READER and not in the config.** Fix: `ns = {"__file__": str(path)}` — with it the config execs
-clean and reports 63 keys. ⚠️ **Needs a 0.1.8 to reach a pod**, which collides with C-368's sibling
-risk that `pod_run_model.sh:172` pins a floating `~=0.1.1` range. Fails LOUD (exit 1), which is why
-this is Tier 2 and not Tier 1. New instance of **C-303**.
+the READER and not in the config.** ⚠️ **Needs a 0.1.8 to reach a pod**, which collides with
+C-368's sibling risk that `pod_run_model.sh:172` pins a floating `~=0.1.1` range. Fails LOUD
+(exit 1), which is why this is Tier 2 and not Tier 1. New instance of **C-303**.
+
+⛔ **THE FIX THIS ENTRY ORIGINALLY NAMED WAS INCOMPLETE — corrected 2026-10-27.** It said
+*"Fix: `ns = {"__file__": str(path)}` — with it the config execs clean and reports 63 keys."* The
+config does exec clean, and that is **not sufficient**: `exec` into a namespace with no `__name__`
+also means a roster config guarded by `if __name__ == "__main__"` has **no guard**, so the gate
+would run the config's main block. The delivered fix sets both —
+`ns = {"__file__": str(path), "__name__": "__views_hydranet_config__"}` — with `__name__`
+deliberately *not* `"__main__"`.
+
+⇒ **Delivered by PR #456, not by this branch.** A partial fix (the `__file__` half only) was
+committed here as `2c0bb3b` and has been **reverted**: two independent changes to the same two
+files would have conflicted at merge, and the other one is strictly better. ⛔ **Why the partial fix
+was wrong is the reusable part:** I verified it by checking that the config *executed*, which is the
+symptom C-367 names, and never asked what else an empty `exec` namespace removes. **A fix verified
+only against the symptom it was written for is unverified against the rest of the mechanism.**
+⚠️ The entry stays **open** — the defect is in the published 0.1.7 wheel and only an 0.1.8 moves it.
 
 ### C-368: ⛔ the pod's views-hydranet version is decided by PyPI at install time, on a never-modify script
 
