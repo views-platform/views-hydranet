@@ -12,24 +12,24 @@ THE STRUCTURE PENALTY AT A TRAINED CHECKPOINT
   window               rows 191-223, cols 350-382, land 99.4%
 
   target           body NLL     struct pen
-  ged_sb_best      0.018696       0.424161
-  ged_ns_best      0.020574       0.665189
-  ged_os_best      0.022731       0.771412
-  SUM              0.062001       1.860762
+  ged_sb_best      0.027861       1.083439
+  ged_ns_best      0.023609       0.731353
+  ged_os_best      0.028631       0.534831
+  SUM              0.080102       2.349623
 
-  sum gate BCE (pw 2.0)  0.094500
-  balancer output        0.125500   (= 0.5*body + 1.0*gate)
-  weighted penalty       0.775759
+  sum gate BCE (pw 2.0)  0.120802
+  balancer output        0.160853   (= 0.5*body + 1.0*gate)
+  weighted penalty       0.979567
 
   SWEEP over 12 stochastic dropout draws (dropout 0.125 ON):
   stat         body       gate        pen   balancer   share%
-  mean     0.061871   0.091959   1.722281   0.122894    85.4%
-  sd       0.001437   0.004090   0.119166   0.004287     0.7%
-  min      0.059828   0.084168   1.473082   0.115648    83.9%
-  max      0.063746   0.097306   1.837875   0.129056    86.0%
-  eval     0.066841   0.097603   2.206440   0.131024    87.5%
+  mean     0.079899   0.121736   2.615536   0.161686    87.1%
+  sd       0.001968   0.004262   0.099946   0.004441     0.6%
+  min      0.076436   0.116463   2.460846   0.157141    86.0%
+  max      0.083249   0.129201   2.783217   0.169067    88.0%
+  eval     0.076842   0.116715   2.589139   0.155136    87.4%
 
-  ⇒ share of the loss the optimiser sees: 83.9% .. 86.0%  (dropout off: 87.5%)
+  ⇒ share of the loss the optimiser sees: 86.0% .. 88.0%  (dropout off: 87.4%)
 
   ⚠️ AT INITIALISATION on this same window and seed (struct_weight_derivation_v3.py), the
      control's figures were: body 1.247872, gate 2.079120, penalty 0.827130,
@@ -43,5 +43,5 @@ THE STRUCTURE PENALTY AT A TRAINED CHECKPOINT
 ==============================================================================================
 COST, measured
 ==============================================================================================
-  wall time 4.28 s
+  wall time 3.67 s
   peak RSS  2.91 GiB

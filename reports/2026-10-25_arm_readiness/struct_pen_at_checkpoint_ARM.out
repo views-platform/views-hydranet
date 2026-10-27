@@ -1,0 +1,47 @@
+vehicle: calibration_model_20261026_040937.pt  sha256 aab48beb4fa8480d…  (NOT the delivered weights — C-317)
+  lessons 300 · run_type calibration · git fa2de29 · trained 2026-10-26T01:43:09Z to 2026-10-26T04:09:42Z
+⚠️  REGION IS RECORDED AS ENFORCED, NOT MEASURED. PROVENANCE says 'land (enforced at check_config -- the run refuses any other)' — which records that pod_run_model.sh:279-282 refuses any other value, NOT a read-back of the grid the weights saw. Nothing in a .pt or its sidecar records the region, and the net is fully convolutional, so this remains weaker than a measurement. The four known africa artifacts are additionally denied by hash.
+==============================================================================================
+THE STRUCTURE PENALTY AT A TRAINED CHECKPOINT
+==============================================================================================
+  views_hydranet       /home/simon/Documents/scripts/views_platform/views-hydranet/views_hydranet/__init__.py
+  artifact             calibration_model_20261026_040937.pt
+  family / dropout     nb / 0.125
+  struct_penalty_weight  0.416904   (NOT in the sidecar — §3c default)
+  block sizes          (2, 8)
+  window               rows 191-223, cols 350-382, land 99.4%
+
+  target           body NLL     struct pen
+  ged_sb_best      0.021065       0.522562
+  ged_ns_best      0.030867       1.335640
+  ged_os_best      0.023582       0.846334
+  SUM              0.075514       2.704536
+
+  sum gate BCE (pw 2.0)  0.116714
+  balancer output        0.154471   (= 0.5*body + 1.0*gate)
+  weighted penalty       1.127532
+
+  SWEEP over 12 stochastic dropout draws (dropout 0.125 ON):
+  stat         body       gate        pen   balancer   share%
+  mean     0.074963   0.114743   2.922318   0.152225    88.9%
+  sd       0.001525   0.003060   0.156412   0.003531     0.5%
+  min      0.072293   0.110831   2.528900   0.148452    87.5%
+  max      0.077133   0.119368   3.104287   0.157757    89.6%
+  eval     0.074813   0.114911   2.932578   0.152318    88.9%
+
+  ⇒ share of the loss the optimiser sees: 87.5% .. 89.6%  (dropout off: 88.9%)
+
+  ⚠️ AT INITIALISATION on this same window and seed (struct_weight_derivation_v3.py), the
+     control's figures were: body 1.247872, gate 2.079120, penalty 0.827130,
+     balancer 2.703056, share 11.3%. Compare term for term — a LARGE move in the penalty's
+     share is the C-325 drift §3c could not otherwise see, and a reason to publish the
+     per-term trajectory column (C-365) before the NEXT arm.
+
+  ⛔ TWO POINTS, NOT A TRAJECTORY. This cannot show when a term drifted, a spike that
+     resolved, or a divergence that reversed. C-325 is narrowed, not retired.
+
+==============================================================================================
+COST, measured
+==============================================================================================
+  wall time 4.21 s
+  peak RSS  2.90 GiB

@@ -33,6 +33,36 @@ reason to trust an interpolation between two points.
 The same window, seed and parquet as `struct_weight_derivation_v3.py`, so every figure here is
 directly comparable to §3c's table.
 
+⛔⛔ AMENDMENT 1, 2026-10-27 — THE FIRST RUN OF THIS SCRIPT OVERWROTE THE CHECKPOINT'S BATCHNORM
+STATE, AND EVERY ABSOLUTE NUMBER IN `struct_pen_at_checkpoint_CONTROL.out` WAS LOW. The line that
+enabled MC-dropout was a bare `model.train()`. That is not selective: all 15 `nn.BatchNorm2d`
+layers went into training mode too, normalising by the current batch and updating their running
+buffers toward it at momentum 0.1. The 13 forwards below therefore left only 0.9**13 = 0.2542 of
+the delivered statistics in place before the row labelled `eval` was measured.
+
+Measured directly, by `bn_drift_during_the_sweep.py` on this same artifact, window and seed:
+
+  · all 15 layers moved; |Δrunning_mean| up to 3.49 sd (mean 0.43), |Δrunning_var| up to 2.61x
+    its own value (mean 0.81); `num_batches_tracked` 10410 → 10423, exactly +13
+  · the `eval` row: penalty 2.222250 measured against 2.589139 with the buffers intact (−14.2%);
+    body −12.8%, gate −16.1%, balancer −15.3%
+  · the twelve-draw sweep, by more: penalty mean 1.756 against 2.532 (−31%)
+  · with BatchNorm held in eval mode the same 13 forwards move the buffers 0.00e+00
+
+⭐ WHAT IT DID NOT CHANGE, and the reason the verdict stands: the SHARE. 87.6% → 87.4% on the
+`eval` row, 85.4% → 86.8% on the sweep. The penalty and the balancer fall together, so the ratio
+nearly cancels, and §3c's conclusion — 11.3% of the loss at initialisation, ~87% at the checkpoint
+— is a 7.7x move that a 20% error in the absolute terms does not reach. ⚠️ Both ends of that
+comparison are sound for a second reason: `struct_weight_derivation_v3.py` has the same bare
+`model.train()`, but it builds FRESH weights with `choose_model` and does ONE forward, so it has no
+delivered buffers to corrupt.
+
+⛔ THE FIX IS NOT NEW KNOWLEDGE, WHICH IS THE WORST PART. `p0_zero_attribution.py`,
+`p1_matched_h1.py` and `t2_gradient_partition.py` — all three older, all three in this same
+programme — use `set_locked_dropout` instead and say why in comments; one of them asserts that no
+BatchNorm is in train mode and calls it "the C-184/#289 trap, which my own T2 nearly walked into".
+This was a regression from documented practice, not a gap in it.
+
 Usage, with the control as the baseline:
 
     python reports/2026-10-25_arm_readiness/struct_pen_at_checkpoint.py \\
@@ -86,7 +116,21 @@ device = torch.device("cpu")
 # it is the whole point: `load_vehicle` also runs the F6 identity gate on the sidecar.
 model = load_vehicle(ART, device=str(device))
 model = model[0] if isinstance(model, tuple) else model
-model.train()  # the training-time graph, matching how the penalty is actually evaluated
+
+# ⛔ AMENDMENT 1, 2026-10-27. This line was `model.train()`, and that was wrong — see the
+# amendment block in the module docstring for the measurement. `train()` is not selective: it put
+# all 15 BatchNorm2d layers into training mode too, so each of the 13 forwards below overwrote a
+# tenth of the checkpoint's delivered running statistics. `set_locked_dropout` turns MC-dropout on
+# and nothing else, which is what this script wanted and what three older scripts in this same
+# programme already do (`p0_zero_attribution.py`, `p1_matched_h1.py`, `t2_gradient_partition.py`).
+model.set_locked_dropout(True)
+for _m in model.modules():
+    if isinstance(_m, torch.nn.modules.batchnorm._BatchNorm) and _m.training:
+        raise SystemExit(
+            f"VOID: {type(_m).__name__} is in train() mode — its running statistics would be "
+            "rewritten by the sweep below, and the `eval` row would report a checkpoint "
+            "re-normalised on this one window. Asserted, not assumed."
+        )
 
 family = get_family(cfg["output_distribution"])
 criterion = FamilyLoss(family)
@@ -143,17 +187,43 @@ def forward():
 b_sum, g_sum, p_sum, balanced, share, body, pen = measure(out)
 w_pen = weight * p_sum
 
-# ⛔ SWEEP THE FREE PARAMETER BEFORE REPORTING THE SCALAR. In `train()` mode dropout is ON, so
-# every forward pass is a different draw and the share above is ONE sample of a random variable.
-# ⚠️ An earlier hand-run of this sweep reported sd EXACTLY 0.000000 over 12 draws because it had
-# omitted `model.train()` — dropout was off and it swept nothing. An exact zero across a stochastic
-# sweep is the tell, and the guard below is that `eval()` is reported SEPARATELY rather than being
-# allowed to masquerade as a draw.
+# ⛔ SWEEP THE FREE PARAMETER BEFORE REPORTING THE SCALAR. With MC-dropout on, every forward is a
+# different draw and the share above is ONE sample of a random variable.
+# ⚠️ An earlier hand-run of this sweep reported sd EXACTLY 0.000000 over 12 draws because dropout
+# was off and it swept nothing. An exact zero across a stochastic sweep is the tell.
+# ⛔ AND AMENDMENT 1 CREATED A SECOND WAY TO GET THAT ZERO. `set_locked_dropout` LOCKS the mask
+# across forwards — that is its purpose, one coherent mask per posterior sample — so without
+# `reset_locked_dropout()` all twelve draws would share one mask and sd would be 0.000000 again,
+# for a new reason. The guard is unchanged: a zero sd here voids the run.
 DRAWS = 12
-sweep = np.array([measure(forward())[:5] for _ in range(DRAWS)])
+
+
+def draw():
+    model.reset_locked_dropout()  # ⛔ one fresh mask per draw; see above
+    return measure(forward())[:5]
+
+
+sweep = np.array([draw() for _ in range(DRAWS)])
+# ⛔ AMENDMENT 1a, same day, caught by cross-checking this row against the same quantity measured
+# independently in `bn_drift_during_the_sweep.py` (2.589 there against 2.620 here). My first fix
+# wrote `model.set_locked_dropout(False)` here on the reasoning that `model.eval()` would unfreeze
+# BatchNorm. BOTH halves were wrong. `set_locked_dropout(False)` only clears the `locked` FLAG —
+# the submodules stay in train mode, so dropout keeps firing and resamples on every call
+# (`tests/test_locked_dropout.py:123`: "locked False == per-step resampling (the bug)"). The row
+# labelled `eval` was a thirteenth dropout draw. And `model.eval()` has nothing to unfreeze: with
+# amendment 1 applied, BatchNorm never left eval mode. ⇒ `model.eval()` was right all along; only
+# the `train()` at the top was ever the defect.
 model.eval()
 eval_row = measure(forward())[:5]
-model.train()
+#: ⛔ The label must not be able to lie again: with dropout genuinely off the forward is
+#: deterministic, so two of them agree bit for bit. If they do not, dropout is still firing.
+if measure(forward())[:5] != eval_row:
+    raise SystemExit(
+        "VOID: two consecutive `eval` forwards disagree, so dropout is still active and the row "
+        "labelled `eval` is another stochastic draw. This is amendment 1a's defect returning."
+    )
+if not np.isfinite(sweep[:, 2]).all() or sweep[:, 2].std(ddof=1) == 0.0:
+    raise SystemExit("VOID: the penalty's sd across the sweep is exactly 0 — nothing was swept.")
 
 print("=" * 94)
 print("THE STRUCTURE PENALTY AT A TRAINED CHECKPOINT")
