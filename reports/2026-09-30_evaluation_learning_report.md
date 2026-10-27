@@ -731,7 +731,7 @@ authors looked.**
 | instrument | its cheap-satisfaction route | how it was found |
 |---|---|---|
 | `_structure_penalty` (the **shipped loss term**) | **amplification** — unbounded gain from scaling the field, which costs the arrangement nothing | measured, after the arm had already run |
-| **B-1** (the **scoreboard's primary structure readout**) | ⛔ **exactly blind to displacement** — `0.000e+00` under translation, and it reports *better* structure as the forecast is slid away from truth while rank correlation with truth falls **41%** | the battery |
+| **B-1** (the scoreboard's structure readout, and its **primary** one until 2026-10-27 — now the **dispersion half, B-1a**) | ⛔ **exactly blind to displacement** — `0.000e+00` under translation, and it reports *better* structure as the forecast is slid away from truth while rank correlation with truth falls **41%** | the battery |
 | **VS-p** (the proposed replacement) | **variance inflation** — a two-sided score has an interior minimum, so widening the predictive distribution improves it with the arrangement untouched | ⭐ **derived from the algebra before a line was written** |
 
 ⛔ **Only the one caught in advance was caught by running a battery first.** That is the sentence this
@@ -800,6 +800,25 @@ amplification route that killed `_structure_penalty`, and makes it **totally mag
 diagnostic, never a training target. ⇒ ⛔ **B-1 and FSS are a PAIR. Dispersion and placement. Neither
 substitutes for the other, and no instrument in either battery can see predictive variance at all.**
 
+✅ **AND THAT PAIR IS NOW THE RULER, NOT A FINDING ABOUT IT — 2026-10-27.** The scoreboard was
+amended and **B-1 split in place**: `B-1a` is the dispersion half (the variogram ratio, numbers
+unchanged) and `B-1b` is the placement half (count-matched FSS). ⭐ **Splitting rather than appending
+FSS as a fourth number was deliberate, and the reason is a reading failure rather than a measurement
+one:** a separate entry can be quoted, or not quoted, independently — and the sentence that got us
+here was *"B-1 is the primary readout for any arm aimed at spatial structure"*, which a reader would
+have gone on believing while a `B-4` sat further down the page. **A pair cannot be half-quoted.**
+
+⚠️ **NAMING, so the rest of this document reads correctly.** Everywhere *below* this section — §4's
+sharpness-ceiling thread, the `0.391`, the `0.983–1.009` split-half reliability, the withdrawn
+ceiling claim — **"B-1" means the variogram ratio, which is now `B-1a`.** Those passages are not
+restated here; one note is safer than eight renames.
+
+⛔ **What the split still does not have: σ̂.** Neither half carries a noise floor, so neither carries
+a decision rule, and the scoreboard now says so in its own reading rule 7. Blocked on
+views-models#625. ⇒ **the pair is defined and baselined and no arm can yet be scored on it** — which
+is the same C-372 wall every other endpoint in this programme sits behind, and worth stating plainly
+rather than leaving as an implication of a good result.
+
 **Two of the battery's own pre-registered calls were wrong and are logged rather than adjusted** —
 W-70 (predicted monotone blur response; it is not monotone) and W-71 (pre-registered that
 over-smoothness would have *no* diagnostic, contradicted by a comparator column already in the same
@@ -808,7 +827,9 @@ should have been applied to one of its roles. Same class as the note in project 
 *"superseded" retires a CONCLUSION — never a tool, an instrument, or a falsifier.*
 
 **Sources:** `2026-10-26_instrument_battery_prereg.md` · `2026-10-26_fss_battery_prereg.md` ·
-`2026-10-26_fss_battery_outcome.md` · C-366, C-370, C-373, C-374.
+`2026-10-26_fss_battery_outcome.md` · `2026-10-26_scoreboard_update_plan.md` (applied 2026-10-27) ·
+`2026-10-21_body_scoreboard.md` Amendment 1 · `2026-10-26_body_optimisation_gap/b1b_*.{py,out}` ·
+C-366, C-370, C-373, C-374, **C-376** · W-70, W-71, **W-73**, **W-74**, **R-27**.
 
 ---
 
