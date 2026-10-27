@@ -27,6 +27,7 @@ from views_hydranet.infrastructure.pod_preflight import (
     required_not_set,
     undeclared_keys,
 )
+from views_hydranet.utils.config_initializer import HydraNetConfig
 
 
 def test_it_reports_the_interpreter_that_will_actually_train():
@@ -236,27 +237,51 @@ def test_required_not_set_reports_a_field_the_config_omits():
     }
 
 
-def test_required_not_set_reports_a_field_SET_TO_ITS_OWN_DEFAULT():
+@pytest.mark.parametrize("field", ["trajectory_log_path", "require_cuda", "struct_penalty_weight"])
+def test_required_not_set_reports_a_field_SET_TO_ITS_OWN_DEFAULT(field):
     """⭐⭐ Presence is not the question; being TURNED ON is.
 
     `trajectory_log_path: None` is the field's own default and means "write no trajectory file", so
     the run is exactly as uninstrumented as if the key were absent. A key-presence test reported
     `all set by the config` for it. ⛔ This test is the one that would have failed before the fix.
+
+    ⛔⛔ IT IS PARAMETRISED BECAUSE A GUARD AUDIT PROVED THE SINGLE-VALUE VERSION WEAK. With only
+    `trajectory_log_path` it pinned the one motivating default that is a **singleton**, so two
+    mutations to production code left it green:
+
+    * narrowing the comparison to `field.default is None and config[key] is None` — which stops
+      flagging `require_cuda: False`, a case `required_not_set`'s own docstring names verbatim;
+    * changing `==` to `is` — which stops flagging `struct_penalty_weight: 0.0` parsed from JSON,
+      the field the structure-penalty pre-registration exists to turn on.
+
+    ⇒ of the three fields the production docstring names, **two were unguarded**. `False` and `0.0`
+    are not singletons under `==`, so each kills one of those mutations and the trio kills both.
     """
-    got = required_not_set(["trajectory_log_path"], {"trajectory_log_path": None})
-    assert list(got) == ["trajectory_log_path"], "the key must stay addressable, not be prose"
-    assert got["trajectory_log_path"].startswith("= its schema default")
-    assert "the capability is off" in got["trajectory_log_path"]
+    default = HydraNetConfig.model_fields[field].default
+    got = required_not_set([field], {field: default})
+    assert list(got) == [field], "the key must stay addressable, not be prose"
+    assert got[field].startswith("= its schema default")
+    assert "the capability is off" in got[field]
 
 
 def test_a_required_field_SET_TO_ITS_DEFAULT_fails_the_preflight(tmp_path, capsys):
-    """The same defect end-to-end, because the unit test alone would not have caught the wiring."""
+    """The same defect end-to-end, because the unit test alone would not have caught the wiring.
+
+    ⛔ IT ASSERTS THE **REASON**, not just the verdict, because a guard audit deleted the reason
+    and left this test green. Collapsing `main()`'s formatting to `", ".join(sorted(unset))`
+    drops `(= its schema default ...)` from the operator's message — and that distinction is the
+    whole justification for `required_not_set` returning `{field: why}` rather than a list.
+    Telling someone a key is "not set" when it is present sends them hunting for the wrong
+    thing, so the words that prevent that are part of the contract and are pinned like one.
+    """
     p = tmp_path / "c.json"
     p.write_text(json.dumps({"output_distribution": "nb", "trajectory_log_path": None}))
     assert main(["--config", str(p), "--require", "trajectory_log_path"]) == 1
     out = capsys.readouterr().out
     assert "PRE-FLIGHT FAILED" in out
     assert "does NOT turn on" in out
+    assert "schema default" in out, "the REASON must reach the operator, not only the verdict"
+    assert "the capability is off" in out
     assert "DO NOT TRAIN" in out
 
 
@@ -275,6 +300,9 @@ def test_a_required_field_the_config_DOES_NOT_SET_fails_the_preflight(tmp_path, 
     assert "PRE-FLIGHT FAILED" in out
     assert "trajectory_log_path" in out
     assert "does NOT turn on" in out
+    # ⛔ The absent case must say "absent", not "schema default" — the two are different diagnoses
+    # and reporting the wrong one is what the {field: why} shape exists to prevent.
+    assert "absent" in out
     assert "DO NOT TRAIN" in out
 
 
@@ -287,7 +315,7 @@ def test_a_required_field_the_config_sets_passes_the_preflight(tmp_path, capsys)
     assert "all turned on by the config" in out
 
 
-def test_the_preflight_REFUSES_to_run_without_a_config():
+def test_the_preflight_REFUSES_to_run_without_a_config(capsys):
     """⛔⛔ THIS TEST REPLACES ITS OWN INVERSE, and the inverse is the reason it exists.
 
     It used to read `assert main(["--require", "trajectory_log_path"]) == 0` and check that the
@@ -303,12 +331,16 @@ def test_the_preflight_REFUSES_to_run_without_a_config():
 
     `--config` is now `required=True`, so argparse exits 2 before any verdict is printed.
     """
-    with pytest.raises(SystemExit) as e:
-        main(["--require", "trajectory_log_path"])
-    assert e.value.code == 2
-    with pytest.raises(SystemExit) as e:
-        main([])
-    assert e.value.code == 2
+    for argv in (["--require", "trajectory_log_path"], []):
+        with pytest.raises(SystemExit) as e:
+            main(argv)
+        assert e.value.code == 2
+        # ⛔ WHICH argument was refused, not merely THAT something was. A guard audit showed the
+        # code-only assertion is satisfied by ANY argparse usage error: making `--require` required
+        # instead failed this test via an unrelated AttributeError, and `required=True` with
+        # `nargs="?"` left it green while a bare `--config` crashed inside load_config instead of
+        # being refused. An exit code is a verdict; the cause is what makes it the right verdict.
+        assert "--config" in capsys.readouterr().err
 
 
 def test_a_degenerate_config_is_REFUSED_rather_than_passing_empty(tmp_path):
@@ -323,6 +355,40 @@ def test_a_degenerate_config_is_REFUSED_rather_than_passing_empty(tmp_path):
         p.write_text(json.dumps(payload))
         with pytest.raises(ValueError, match="non-empty config mapping"):
             load_config(p)
+
+
+@pytest.mark.parametrize("returns", ["{}", "[]", "''", "3"])
+def test_a_degenerate_PY_config_is_REFUSED_TOO(tmp_path, returns):
+    """⛔⛔ THE WORST SURVIVOR OF THE GUARD AUDIT, and it was an asymmetry rather than a bug.
+
+    `_require_config_mapping`'s docstring says "Both the Python and the JSON path come through
+    here" — and every degenerate-input test entered via **JSON**, while every encoding test came
+    in via **Python**. So bypassing the check on the `.py` path alone (`return
+    dict(get_hp_config())`) left the whole suite green while `load_config` returned `{}` and
+    `main()` returned **0**: a full `✅ PRE-FLIGHT PASSED` on zero keys, which is verbatim the
+    failure that docstring claims to refuse. The production code was correct; nothing asserted
+    it on this side of the branch.
+
+    ⇒ A shared chokepoint is only guarded if every path INTO it is exercised.
+    """
+    p = tmp_path / "config_hyperparameters.py"
+    p.write_text(f"def get_hp_config():\n    return {returns}\n")
+    with pytest.raises(ValueError, match="non-empty config mapping"):
+        load_config(p)
+
+
+def test_an_empty_PY_config_cannot_reach_a_PASS(tmp_path, capsys):
+    """The same asymmetry at the CLI, because `load_config` raising is not the asserted contract.
+
+    ⛔ `main()` returning 0 on an empty key set is the vacuous pass this PR exists to close, and
+    the audit reached it through the `.py` door. An empty key set satisfies every clause in the
+    module by construction, so it must never get as far as a verdict.
+    """
+    p = tmp_path / "config_hyperparameters.py"
+    p.write_text("def get_hp_config():\n    return {}\n")
+    with pytest.raises(ValueError, match="non-empty config mapping"):
+        main(["--config", str(p)])
+    assert "PRE-FLIGHT PASSED" not in capsys.readouterr().out
 
 
 def test_a_config_with_an_unimportable_suffix_is_REFUSED_by_name(tmp_path):
