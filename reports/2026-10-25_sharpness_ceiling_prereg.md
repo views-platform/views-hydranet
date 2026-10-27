@@ -16,13 +16,53 @@ wrong, following the retraction convention of `reports/2026-09-30_evaluation_lea
 
 | # | where | what is wrong | severity |
 |---|---|---|---|
-| **X-1** | **§3** | ⛔ The decision rule compares **two different estimators**. `C(1)` is a raw variogram ratio (**amplitude**); B-1's 0.391 is variance-normalised (**shape**). Applying B-1's own estimator to the two halves gives **0.983–1.009 at every lag**, so the ceiling 0.391 is measured against is **~1.0**, not 0.498. §3 as written would have **falsely throttled** the arm | ⛔ hard |
+| **X-1** | **§3** | ⛔⛔ **RETRACTED 2026-10-27b — see the block below this table. Its evidence is ~1.0 for any dataset including noise, and §3's rule was right.** As written: ⛔ The decision rule compares **two different estimators**. `C(1)` is a raw variogram ratio (**amplitude**); B-1's 0.391 is variance-normalised (**shape**). Applying B-1's own estimator to the two halves gives **0.983–1.009 at every lag**, so the ceiling 0.391 is measured against is **~1.0**, not 0.498. §3 as written would have **falsely throttled** the arm | ⛔ hard |
 | **X-2** | **§1**, half-to-full | ⛔ `C_full` is Spearman–Brown, whose premise — additive noise with variance ∝ 1/n — is a statement about **counts**. It is applied to `log(rate + eps)`. Own evidence: 0.665 on the logged field vs 0.262 on raw counts, **3.3× apart**. ⇒ **`C_full = 0.665` is withdrawn** | ⛔ hard |
 | **X-3** | **§4** | ⚠️ W1/W2 are drafted **globally** over a sweep whose degenerate arms **Q-4 explicitly predicts**. They fired on `raw`/`contiguous` slots while the primary slot was clean, and the driver printed `VOID` then reported a verdict anyway | ⚠️ soft |
 
-⭐ **Net effect on the arm: its premise SURVIVES, on better evidence than it had.** The ceiling is ~1.0,
-so the body's 0.391 is a genuine ~61% shortfall. ⛔ The §5 directional caveat is untouched and still
-applies to every number here, the ~1.0 included.
+⛔⛔ **X-1 IS RETRACTED — 2026-10-27b. THE ~1.0 CEILING IS ~1.0 FOR ANY DATASET, INCLUDING PURE
+NOISE, AND IT RELEASED AN ARM.**
+
+X-1's whole case is *"applying B-1's own estimator to the two halves gives **0.983–1.009** at every
+lag"*. Those six numbers were a hand-typed literal in `falsify_ceiling_stubs.py:25`. Searched for by
+VALUE, not by substring: **not in any committed script, not in `ceiling_table.csv`, not in
+`ceiling_result.npz`.** The largest `C` value anywhere in that table is **0.9300**.
+
+**They were then reproduced, which is what settles it.** From `ceiling_result.npz`'s stored
+`gA`/`gB`, the ratio `γ_A/γ_B` over the implied variance ratio reproduces the tuple with a variance
+ratio of **1.0251 at all six lags, constant to 0.00002**:
+
+| lag | `γ_A/γ_B` | the typed tuple | implied var ratio |
+|---|---|---|---|
+| 1 | 1.0342 | 1.0089 | 1.0251 |
+| 2 | 1.0206 | 0.9957 | 1.0251 |
+| 4 | 1.0344 | 1.0091 | 1.0251 |
+| 8 | 1.0108 | 0.9861 | 1.0250 |
+| 16 | 1.0080 | 0.9833 | 1.0251 |
+| 32 | 1.0114 | 0.9866 | 1.0251 |
+
+⇒ The tuple is `[γ_A/γ_B] / [var_A/var_B]` — **B-1's formula with one half of the TRUTH standing in
+for the model.**
+
+⛔ **AND THAT QUANTITY CANNOT BE A CEILING.** Two halves of one dataset have the same roughness and
+the same variance *by construction*, so the ratio is ~1.0 whatever the data are — it would read ~1.0
+on white noise. It measures *"are the two halves statistically alike"*, which was never in question.
+The thing a model must actually beat is how well one half **predicts** the other, and that is the
+**cross** term: `C_half(1) = 0.4982`, which `ceiling.out` committed and which stands.
+
+⭐ **WHAT THIS DOES TO THE ARM, and it is the useful part.** B-1 read **0.391**.
+
+| ceiling used | 0.391 is… | headroom |
+|---|---|---|
+| ~1.0 (X-1, retracted) | 39% of achievable | ~61% |
+| **0.498 (real)** | **78.5% of achievable** | **~21%** |
+
+⇒ **§3's rule was right and X-1 overturned it on a self-referential statistic.** The arm was
+released on a number that is 1.0 for any input. ⚠️ The arm then ran and returned a **null** — and
+against ~21% headroom that null is close to what the ceiling predicts, rather than the mystery it
+was recorded as. See `2026-10-26_structure_penalty_arm_outcome.md`'s amendment.
+
+⛔ The §5 directional caveat is untouched and still applies to `0.498`.
 
 Audit trail: `reports/2026-10-25_sharpness_ceiling/falsify_ceiling_stubs.py` — 5 red-by-design tests,
 one per finding. A test turning green means that defect is fixed.

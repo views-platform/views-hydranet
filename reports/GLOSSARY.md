@@ -361,9 +361,31 @@ independent halves — two noisy observations of the same latent field — and c
 | **reproducible amplitude fraction** `C(d)` | `gamma_cross(d)/gamma_B(d)` between the two half-samples. **Not** variance-normalised | **0.498** at `d=1`; 0.795 at `d=32` | "the ceiling", "reproducible fraction" unqualified |
 | **reproducible shape fraction** | the same split-half comparison under **B-1's own** estimator — the variogram ratio **divided by the ratio of the two fields' variances** (the same-shape null) | **0.983 – 1.009** across `d = 1…32` | "the ceiling" unqualified |
 
-⭐ **Only the shape fraction bounds B-1**, because B-1 divides amplitude out. ⇒ **the ceiling the 0.391
-is read against is ~1.0**, and the amplitude fraction 0.498 bounds something else: how much of the truth
-variogram's **size** is signal rather than month-sampling noise.
+⛔⛔ **CORRECTED 2026-10-27b, AND THE LOCKED CONCLUSION IS REVERSED.** This read:
+
+> ⭐ **Only the shape fraction bounds B-1**, because B-1 divides amplitude out. ⇒ **the ceiling the
+> 0.391 is read against is ~1.0**, and the amplitude fraction 0.498 bounds something else.
+
+**The first clause is sound and the conclusion does not follow.** B-1 does divide amplitude out, so a
+bound on B-1 must indeed be shape-like. ⛔ But the **shape fraction as measured is degenerate**: it
+compares one half of the truth against the other under B-1's formula, and two halves of one dataset
+have the same roughness *and* the same variance **by construction**. ⇒ it is ~1.0 for **any** dataset,
+white noise included. Measured: `[γ_A/γ_B] / [var_A/var_B]` reproduces the recorded 0.983–1.009 with a
+variance ratio of **1.0251 at all six lags, constant to 0.00002**.
+
+**A quantity that is ~1.0 regardless of the data cannot bound anything.** ⇒ **the ceiling B-1's 0.391
+is read against is `0.498`** — the cross term, which is how well one half **predicts** the other, and
+which is the only one of the two that a model has to beat.
+
+| | `0.391` is… | headroom |
+|---|---|---|
+| against ~1.0 (withdrawn) | 39% of achievable | ~61% |
+| **against 0.498 (locked)** | **78.5%** | **~21%** |
+
+⛔ **Both terms stay locked and both keep their definitions** — the distinction between them was a real
+finding and the conflation was a real error. What is withdrawn is *which one bounds B-1*. ⚠️ This
+sentence had released a pod arm (`2026-10-25_sharpness_ceiling_prereg.md` X-1, now retracted); see the
+amendment in `2026-10-26_structure_penalty_arm_outcome.md` for what it does to that arm's null.
 
 > ⛔ **This box exists because the two were conflated once, in the document that measured them.** The
 > prereg's §3 decision rule compared `C(1) = 0.498` (amplitude) against B-1's `0.391` (shape) and

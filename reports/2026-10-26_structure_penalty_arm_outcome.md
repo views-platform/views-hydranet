@@ -269,6 +269,31 @@ Two readings of the arm have been offered in this programme and the battery kill
    untouched (B-1 d=1 → 0.1526, d=8 → **1.0303**). The arm lost structure at **every** lag with
    d=8 at **0.9432**. Local smoothing has the wrong shape.
 
+⛔ **AMENDED 2026-10-27b — THE NULL IS MUCH LESS SURPRISING THAN THIS DOCUMENT RECORDS, because
+the headroom it was measured against was overstated 3×.**
+
+This arm was released by amendment **X-1** of `2026-10-25_sharpness_ceiling_prereg.md`, which held
+that B-1's `0.391` sat against a ceiling of **~1.0** — a ~61% shortfall, i.e. a lot to win. **X-1 is
+now retracted.** Its evidence was B-1's formula applied to two halves of the TRUTH, which is ~1.0
+for any dataset including white noise, because two halves of one dataset share a roughness and a
+variance by construction. The real ceiling is the cross term, **0.498**.
+
+| ceiling | `0.391` is… | headroom the arm was chasing |
+|---|---|---|
+| ~1.0 (as released) | 39% of achievable | ~61% |
+| **0.498 (real)** | **78.5%** | **~21%** |
+
+⇒ **The body was already carrying ~78% of the structure the truth can even demonstrate.** A null
+from an arm chasing the remaining ~21% is close to what the ceiling implies — so the question is no
+longer *"why did a 61% gap not close?"* but *"why did a 21% gap not close?"*, which is a far smaller
+and far less mysterious question. ⚠️ **The arm's measurements are unaffected** — every number in
+this document stands; what changes is the size of the prize it was scored against.
+
+⛔ **The verdict is NOT reversed and the money is not recovered.** The arm still ran, still returned
+a null, and its own term and its own diagnostic still disagreed by sign — that finding is
+independent of the ceiling and is the more valuable half of this document. What is withdrawn is the
+framing of the null as unexplained.
+
 ⇒ **The arrangement half of the arm's change remains unexplained** — a narrower open question
 than C-366 was, and one that now has a sharp constraint on it: the arm's loss is **scale-free
 across lags 2–8**, which neither of the two cheap mechanisms produces.
