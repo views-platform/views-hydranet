@@ -8,11 +8,110 @@ artifact later work can be measured *on*.
 
 ---
 
+## ⛔ AMENDMENT 1 — 2026-10-27. THIS PLAN'S READOUT IS NOT EXECUTABLE, AND ONE VOID RULE VOIDS EVERYTHING
+
+A `/code-review max` was run on the pull request carrying this document. It produced 15 findings.
+⛔ **The run this plan describes has already happened** — `calibration_model_20261025_132124.pt`,
+300 lessons, production, trained 2026-10-25 — so what follows is **not** a pre-launch correction. It
+is here to stop a later reader discharging these rules against the delivered artifact and reaching a
+false verdict, in either direction. **Every item below was verified against source before being
+written here, not taken from the review.**
+
+### ⛔ 1. V2 voids EVERY possible run, including a perfect one
+
+V2 (line 182) voids if *"the sidecar's config is not identical to the run config."* **The sidecar is
+an architecture subset by design** — `train_model.py:75-138` builds it from five architecture keys
+plus seven provenance keys, and `pod_run_model.sh` states that it *"carries architecture only."*
+
+| | keys |
+|---|---|
+| the sidecar on `calibration_model_20261025_132124.pt` | **12** (measured) |
+| `get_hp_config()` | **63** |
+
+⇒ **the clause is structurally always true.** Applied literally it voids the control vehicle the
+entire structure programme rests on. ⛔ **V2 as written is void; the artifact is not.** What V2 should
+have said is what `vehicle.py`'s `load_vehicle()` actually enforces — that the sidecar's
+**architecture** keys match the delivery's — which it does, and which was checked.
+
+### ⛔ 2. V7 was never dischargeable, and run anyway it would have passed on the wrong quantity
+
+V7 (line 187) needs **gate AP at h = 18**, and line 190 calls it *"the only rule here that can catch
+a bad basin."* Three independent reasons it cannot be discharged as written:
+
+- **The frozen lodestar has no horizon axis.** Verified: zero matches for `horizon`/`"h"` in
+  `lodestar_score.py`, and its gatherer is `gather_t0` — `m0 = int(t.min()); sel = t == m0`, i.e.
+  T = 0 only. Its emitted row has no `h` key. The horizon-aware instrument is a **different** tool.
+- **The gate posterior never leaves the pod.** `pod_run_model.sh` archives `*/lr_*` — the body —
+  and `collapse_predictions.py` records that `by_*` gate probabilities are *"deliberately absent."*
+- ⛔ **And if it is run anyway it returns a number.** `lodestar_score.py:158-159` is
+  `p = ... if has_gate else (cs > 0).mean(1)` — with no gate template it **silently substitutes a
+  body surrogate**, the fraction of count samples above zero at S = 16. ⇒ V7 would have been ticked
+  on a 17-level body statistic, not on the gate.
+
+Registered as **C-380**. ⇒ **this plan's one binding gate could not fail, and its failure mode was
+to pass.**
+
+### ⛔ 3. §0a omits half the VOID rules, in the section that says to read it alone
+
+§0a's six DONE items contain **no** check for **V2** (sidecar identity), **V3** (sha256 matches
+PROVENANCE), **V4** (support) or **V8** (BN recalibration under augmentation). Item 2 requires
+PROVENANCE to *exist* but not that its digest matches. ⇒ a run §5 says must be discarded can be
+certified DONE by a reader following this document's own instruction. ⚠️ **The four omitted rules
+are precisely the four nobody would catch by eye.**
+
+### ⚠️ 4. V1, V3 and V4 are labelled "verbatim" and diverge from the code in BOTH directions
+
+- **V1** says *"its `lessons` ≠ 300"* and cites `vehicle.py` F6 *verbatim*. The code is
+  `if not lessons.isdigit() or int(lessons) < MIN_LESSONS` (`:215`) — a **floor, not an equality**.
+  A 320-lesson restart passes F6 and is VOID under V1. V1 also drops the `isdigit()` leg entirely,
+  and states `mode` *is* REHEARSAL where the code is a substring test with a safe default (`:212`).
+- **V3**'s flat *"the sha256 does not match PROVENANCE's"* re-imposes a VOID the module explicitly
+  declined: it accepts an unrecorded digest with a warning, over eleven lines of argument.
+- **V4** sources *"the global land grid (360×720)"* to `vehicle.py`, which says the opposite:
+  *"THE SIDECAR DOES NOT RECORD THE REGION OR THE GRID SIZE … REGION IS RECORDED AS ENFORCED, NOT
+  MEASURED."* ⚠️ V4 also mixes a grid **shape** with a cell **count** — global land is **64,818**
+  cells, not 360×720 = 259,200 — so a correct score row reads as a mismatch.
+
+⇒ **`load_vehicle()` already mechanises all of this and raises per clause. Run it.** Nothing in §5
+or §7 tells the reader to, and A2 asks only that a human re-read the prose.
+
+### ⚠️ 5. §2 records the wrong path for one of the only two keys this run changes
+
+§2 gives `trajectory_log_path` as `/workspace/deliver/heavy_freighter/trajectory.csv`. The committed
+helper resolves to `_POD_DELIVER_ROOT / _MODEL_NAME / "logs" / "trajectory.csv"` — verified in
+views-models' `heavy_freighter/configs/config_hyperparameters.py:56`. **The `logs/` segment is
+missing.** ⇒ someone discharging V5 or DONE item 3 at the stated path finds nothing and declares a
+good run VOID.
+
+### ⚠️ 6. "a control's job is to match the arms" is false for this control
+
+§0a's NOT-BLOCKING table leaves scheduled sampling on, reasoning that *"a control's job is to match
+the arms."* Measured across views-models: **`heavy_freighter` is the only config in the fleet with
+`ss_epsilon_max` non-zero** (0.5); every other config is 0.0. And scheduled sampling is recorded
+**closed HARMFUL** in this repo's own ledger. ⇒ the scheduled-sampling half matches **nothing**, and
+§8's own statement — *"It is not a matched control for any arm"* — is the accurate one.
+
+### ⚠️ 7. Smaller, and recorded rather than fixed
+
+- §6's noise floor is an **average-precision** seed sd used as an **MDE** for non-AP endpoints, on a
+  different support and at a different horizon. Already registered as **C-357**, second instance.
+- `check_floor.py`, the only tool wiring FG-A to a score CSV, **cannot report a FAIL** — **C-377**.
+- Nothing records that the C-184 BN recalibration ran — **C-378**.
+- `arm_postflight.py` implements no hash, and `potency_check.py` has no CLI and cannot apply to a
+  control — **C-303** occurrence 21 and **C-324**.
+- `floor_gate`'s `threshold_md5` is recorded in no pre-registration anywhere — **C-379**.
+
+---
+
 ## 0a. DEFINITION OF DONE — read this section alone if you read nothing else
 
-Added 2026-10-24 at Simon's request, because too much adjacent work had been raised at once and
-the goal stopped being legible. This section is the goal. Everything below it is how to score the
-result, which is a different job and must not gate the launch.
+Added 2026-10-24 on Simon's instruction, **relayed through the views-models session** — the
+qualification matters and was dropped from an earlier version of this line, against the standing
+rule that a peer session's report of an approval is never the approval itself. Reason: too much
+adjacent work had been raised at once and the goal stopped being legible. This section is the goal.
+Everything below it is how to score the result, which is a different job and must not gate the
+launch. ⚠️ **But see Amendment 1 item 3: as written it omits four of the eight VOID rules, so
+"read this alone" is not safe advice for accepting an artifact.**
 
 ### The goal, one sentence
 

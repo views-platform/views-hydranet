@@ -474,7 +474,16 @@ constructions is coupled to dispersion. It is reported as an FAO-02 guardrail an
    `HydraNetConfig` sets `extra="allow"`, so a config key that exists only on a local branch is
    **silently accepted and ignored** — the arm returns **byte-identical to its control** and looks
    like a clean null. ⇒ **Assert, on the pod, that the installed package contains
-   `struct_penalty_weight` before the run starts.** This cost a $2.25 confounded null once already.
+   `struct_penalty_weight` before the run starts.**
+
+   ⛔ **CORRECTED 2026-10-27.** This line read *"This cost a $2.25 confounded null once already."*
+   **It did not. No such run exists.** W-22 is recorded counterfactually throughout
+   (`PREDICTION_LEDGER.md`: *"it **would have** cost a silent no-op arm … the arm **would** come back
+   byte-identical to its own control"*), and `2026-10-18_weight_decay_arms_launch_plan.md` confirms
+   it was never launched. ⇒ **the gate's real justification is the opposite of what this sentence
+   claimed: it worked, and the money was saved.** ⚠️ Converting a caught near-miss into a paid loss
+   inside the gate's own rationale is itself a W-22-class error — an existence claim stated without
+   looking — and it would have inflated a register occurrence count that drives tiering.
 4. **Standing gates** (the #311 precedent): `scripts/floor_gate.py` FG-A and FG-C on the **control**
    first; the potency pre-flight on the arm's config **and at a trained checkpoint** (C-324/C-325);
    `scripts/arm_identity_check.py`; `scripts/arm_postflight.py`; the weight-hash post-condition;
