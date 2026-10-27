@@ -12,12 +12,15 @@ checked.
 from __future__ import annotations
 
 import json
+import sys
 
 import pytest
 
 from views_hydranet.infrastructure.pod_preflight import (
+    CONFIG_MODULE_NAME,
     FOREIGN_KEYS,
     installed_report,
+    load_config,
     load_config_keys,
     main,
     missing_required,
@@ -176,7 +179,7 @@ def test_a_config_reading_dunder_file_PASSES_the_preflight(tmp_path, capsys):
     p.write_text(_CONFIG_THAT_READS_DUNDER_FILE)
     assert main(["--config", str(p), "--require", "trajectory_log_path"]) == 0
     out = capsys.readouterr().out
-    assert "all set by the config" in out
+    assert "all turned on by the config" in out
 
 
 def test_a_clean_config_PASSES_the_preflight(tmp_path, capsys):
@@ -198,8 +201,16 @@ def test_an_undeclared_key_FAILS_the_preflight(tmp_path, capsys):
     assert "DO NOT TRAIN" in out
 
 
-def test_a_missing_required_field_FAILS_the_preflight(capsys):
-    assert main(["--require", "a_field_from_a_future_release"]) == 1
+def test_a_missing_required_field_FAILS_the_preflight(tmp_path, capsys):
+    """⚠️ This test used to pass NO `--config`, which is why it needed changing rather than fixing.
+
+    It still asserts the same thing — an undeclared `--require` field is the W-22 shape and must
+    fail — but it can no longer do so on an invocation that checks no config, because that
+    invocation is now refused outright. See `test_the_preflight_REFUSES_to_run_without_a_config`.
+    """
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps({"output_distribution": "nb"}))
+    assert main(["--config", str(p), "--require", "a_field_from_a_future_release"]) == 1
     out = capsys.readouterr().out
     assert "PRE-FLIGHT FAILED" in out
     assert "W-22" in out
@@ -215,11 +226,37 @@ def test_it_says_what_it_does_NOT_prove(tmp_path, capsys):
 
 
 def test_required_not_set_passes_a_field_the_config_sets():
-    assert required_not_set(["trajectory_log_path"], {"trajectory_log_path", "steps"}) == []
+    cfg = {"trajectory_log_path": "/w/t.csv", "steps": 1}
+    assert required_not_set(["trajectory_log_path"], cfg) == []
 
 
 def test_required_not_set_reports_a_field_the_config_omits():
-    assert required_not_set(["trajectory_log_path"], {"steps"}) == ["trajectory_log_path"]
+    got = required_not_set(["trajectory_log_path"], {"steps": 1})
+    assert got == ["trajectory_log_path (absent)"]
+
+
+def test_required_not_set_reports_a_field_SET_TO_ITS_OWN_DEFAULT():
+    """⭐⭐ Presence is not the question; being TURNED ON is.
+
+    `trajectory_log_path: None` is the field's own default and means "write no trajectory file", so
+    the run is exactly as uninstrumented as if the key were absent. A key-presence test reported
+    `all set by the config` for it. ⛔ This test is the one that would have failed before the fix.
+    """
+    got = required_not_set(["trajectory_log_path"], {"trajectory_log_path": None})
+    assert len(got) == 1
+    assert got[0].startswith("trajectory_log_path (= its schema default")
+    assert "the capability is off" in got[0]
+
+
+def test_a_required_field_SET_TO_ITS_DEFAULT_fails_the_preflight(tmp_path, capsys):
+    """The same defect end-to-end, because the unit test alone would not have caught the wiring."""
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps({"output_distribution": "nb", "trajectory_log_path": None}))
+    assert main(["--config", str(p), "--require", "trajectory_log_path"]) == 1
+    out = capsys.readouterr().out
+    assert "PRE-FLIGHT FAILED" in out
+    assert "does NOT turn on" in out
+    assert "DO NOT TRAIN" in out
 
 
 def test_a_required_field_the_config_DOES_NOT_SET_fails_the_preflight(tmp_path, capsys):
@@ -236,7 +273,7 @@ def test_a_required_field_the_config_DOES_NOT_SET_fails_the_preflight(tmp_path, 
     out = capsys.readouterr().out
     assert "PRE-FLIGHT FAILED" in out
     assert "trajectory_log_path" in out
-    assert "does NOT set" in out
+    assert "does NOT turn on" in out
     assert "DO NOT TRAIN" in out
 
 
@@ -246,13 +283,118 @@ def test_a_required_field_the_config_sets_passes_the_preflight(tmp_path, capsys)
     assert main(["--config", str(p), "--require", "trajectory_log_path"]) == 0
     out = capsys.readouterr().out
     assert "all declared by the installed schema" in out
-    assert "all set by the config" in out
+    assert "all turned on by the config" in out
 
 
-def test_require_without_a_config_says_the_set_half_was_not_checked(capsys):
-    """A pre-flight may not report a pass it did not earn. Without `--config` the set-question is
-    unanswerable, so it must be named rather than quietly skipped."""
-    assert main(["--require", "trajectory_log_path"]) == 0
+def test_the_preflight_REFUSES_to_run_without_a_config():
+    """⛔⛔ THIS TEST REPLACES ITS OWN INVERSE, and the inverse is the reason it exists.
+
+    It used to read `assert main(["--require", "trajectory_log_path"]) == 0` and check that the
+    output said "NOT CHECKED". Measured on that version: the run ALSO printed
+    `✅ PRE-FLIGHT PASSED — the installed package can honour this config` and exited **0**, with no
+    config in evidence anywhere — and `main([])` with no arguments at all did the same. A pod
+    wrapper whose `--config "$CFG"` expanded empty therefore got a green gate.
+
+    ⇒ The suite was DEFENDING the vacuous pass, which is this module's docstring turned inside out:
+    "a pre-flight that cannot fail is worse than none — it converts an unchecked run into a run
+    someone believes was checked." Printing a warning next to a zero exit is not a refusal; a
+    launcher reads the exit code.
+
+    `--config` is now `required=True`, so argparse exits 2 before any verdict is printed.
+    """
+    with pytest.raises(SystemExit) as e:
+        main(["--require", "trajectory_log_path"])
+    assert e.value.code == 2
+    with pytest.raises(SystemExit) as e:
+        main([])
+    assert e.value.code == 2
+
+
+def test_a_degenerate_config_is_REFUSED_rather_than_passing_empty(tmp_path):
+    """⛔ A JSON sidecar holding `{}`, `[]` or `""` used to yield 0 keys and a full PASS.
+
+    An empty key set satisfies every clause in this module by construction, so degrading to one is
+    the worst available failure mode. A top-level string was worse than useless: it yielded one
+    "key" per character and sent the operator after phantom schema drift.
+    """
+    for payload in ({}, [], "", "output_distribution", 3):
+        p = tmp_path / "c.json"
+        p.write_text(json.dumps(payload))
+        with pytest.raises(ValueError, match="non-empty config mapping"):
+            load_config(p)
+
+
+def test_a_config_is_registered_in_sys_modules_so_a_dataclass_works(tmp_path):
+    """⛔ A regression the hand-built namespace introduced and `exec_module` removes.
+
+    `dataclasses` does `sys.modules.get(cls.__module__).__dict__` with no guard, so a config
+    defining a `@dataclass` died with `AttributeError: 'NoneType' object has no attribute
+    '__dict__'` — the sentinel `__name__` was never registered. No current roster config uses one,
+    so this is the latent half of the class the importlib loader closes.
+    """
+    p = tmp_path / "config_hyperparameters.py"
+    p.write_text(
+        "import dataclasses\n"
+        "@dataclasses.dataclass\n"
+        "class Spec:\n"
+        "    n: int = 1\n"
+        "def get_hp_config():\n"
+        "    return {'output_distribution': 'nb', 'steps': Spec().n}\n"
+    )
+    assert load_config_keys(p) == {"output_distribution", "steps"}
+
+
+def test_a_config_is_not_left_behind_in_sys_modules(tmp_path):
+    """It is a gate, not an import: the module must not outlive the check."""
+    p = tmp_path / "config_hyperparameters.py"
+    p.write_text("def get_hp_config():\n    return {'output_distribution': 'nb'}\n")
+    load_config_keys(p)
+    assert CONFIG_MODULE_NAME not in sys.modules
+
+
+def test_a_utf8_config_loads_under_a_non_utf8_locale(tmp_path, monkeypatch):
+    """⛔ THE FIX FOR C-367 DID NOT REACH THREE OF THE SEVEN CONFIGS IT WAS WRITTEN FOR.
+
+    `bronze_kestrel`, `cobalt_kestrel` and `silver_kestrel` contain non-ASCII bytes (⛔/⚠️ in
+    comments) AND read `__file__`. `Path.read_text()` with no `encoding=` decodes with the locale's
+    encoding, so on a slim pod image without C.UTF-8 the gate died with
+    `UnicodeDecodeError: 'ascii' codec can't decode byte 0xe2` — the same failure class C-367
+    names, surviving the fix for C-367. A real import always reads source as UTF-8 (PEP 3120).
+
+    A BOM is the other half and needs the same machinery: plain `encoding="utf-8"` would fix the
+    locale case and leave `SyntaxError: invalid non-printable character U+FEFF`.
+    """
+    p = tmp_path / "config_hyperparameters.py"
+    p.write_bytes(
+        "\ufeff# ⛔ a comment with a non-ASCII marker\n"
+        "def get_hp_config():\n"
+        "    return {'output_distribution': 'nb'}\n".encode()
+    )
+    monkeypatch.setenv("LC_ALL", "C")
+    monkeypatch.setenv("LANG", "C")
+    assert load_config_keys(p) == {"output_distribution"}
+
+
+def test_a_repeated_require_flag_keeps_EVERY_field(tmp_path, capsys):
+    """⛔ `--require a --require b` used to keep only `b`, silently, because it was a `store`.
+
+    The invocation the structure-penalty pre-registration documents needs two fields, and two flags
+    is the natural spelling — so the undeclared one was discarded without a word and the gate
+    passed. Both spellings must now work.
+    """
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps({"output_distribution": "nb"}))
+    rc = main(
+        [
+            "--config",
+            str(p),
+            "--require",
+            "a_field_from_a_future_release",
+            "--require",
+            "output_distribution",
+        ]
+    )
     out = capsys.readouterr().out
-    assert "NOT CHECKED" in out
-    assert "--config" in out
+    assert rc == 1
+    assert "a_field_from_a_future_release" in out
+    assert "does NOT declare" in out
