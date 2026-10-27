@@ -90,7 +90,7 @@ def installed_report() -> dict[str, str]:
     }
 
 
-def _mapping_keys(obj: object, path: Path) -> dict[str, object]:
+def _require_config_mapping(obj: object, path: Path) -> dict[str, object]:
     """The config mapping itself, or a LOUD failure. ⛔ Never a silently empty one.
 
     Both the Python and the JSON path come through here, because the JSON path used to accept any
@@ -145,16 +145,22 @@ def load_config(path: Path) -> dict[str, object]:
         import json
 
         # utf-8-sig, not utf-8: a BOM'd sidecar is valid and json.loads chokes on the mark.
-        return _mapping_keys(json.loads(path.read_text(encoding="utf-8-sig")), path)
+        return _require_config_mapping(json.loads(path.read_text(encoding="utf-8-sig")), path)
 
     spec = importlib.util.spec_from_file_location(CONFIG_MODULE_NAME, path.resolve())
-    if spec is None or spec.loader is None:  # pragma: no cover - needs an unimportable suffix
+    if spec is None or spec.loader is None:
+        # ⛔ REACHABLE, and it was marked `# pragma: no cover` until a review tested it:
+        # `spec_from_file_location` returns None for ANY suffix the import machinery does not
+        # recognise — `.txt`, `.yaml`, `.cfg`, or no extension at all. A `--config` path with a
+        # forgotten `.py` lands here, which is an ordinary operator typo and not an exotic input.
         err_msg = f"{path} cannot be imported as a Python module."
         logger.error(err_msg)
         raise ValueError(err_msg)
     module = importlib.util.module_from_spec(spec)
     # Registered BEFORE exec_module, as production does, so a config that self-imports or is
-    # imported by a sibling resolves. Popped afterwards: this is a gate, not an import.
+    # imported by a sibling resolves. Popped afterwards: this is a gate, not an import, and a
+    # second call must not reuse a stale module. ⚠️ It pops only OUR entry — anything the config
+    # itself imported stays, which is what importing means and is not this function's to undo.
     sys.modules[spec.name] = module
     try:
         spec.loader.exec_module(module)
@@ -165,7 +171,7 @@ def load_config(path: Path) -> dict[str, object]:
         err_msg = f"{path} defines no get_hp_config(); it is not a roster config."
         logger.error(err_msg)
         raise ValueError(err_msg)
-    return _mapping_keys(get_hp_config(), path)
+    return _require_config_mapping(get_hp_config(), path)
 
 
 def load_config_keys(path: Path) -> set[str]:
@@ -191,7 +197,7 @@ def missing_required(required: list[str]) -> list[str]:
     return [k for k in required if k not in declared]
 
 
-def required_not_set(required: list[str], config: dict[str, object]) -> list[str]:
+def required_not_set(required: list[str], config: dict[str, object]) -> dict[str, str]:
     """Named capabilities the run depends on that the CONFIG does not TURN ON.
 
     ⛔ The other half of :func:`missing_required`. A declared field the config omits falls back to
@@ -203,22 +209,23 @@ def required_not_set(required: list[str], config: dict[str, object]) -> list[str
     test as ``✅ all set by the config``, which is the precise state this function exists to catch.
     Same for ``require_cuda: false``, where the default means the CPU hard-stop is off.
 
-    Returns one human-readable descriptor per offending field, naming WHICH of the two it is, so
-    the operator is not sent looking for an absent key that is present.
+    Returns ``{field: why}`` rather than a list of prose, so the reason reaches the operator AND
+    the key stays addressable — naming WHICH of the two it is matters, because telling someone a
+    key is "not set" when it is present sends them hunting for the wrong thing.
     """
     from views_hydranet.utils.config_initializer import HydraNetConfig
 
     fields = HydraNetConfig.model_fields
-    out: list[str] = []
+    out: dict[str, str] = {}
     for key in required:
         if key not in config:
-            out.append(f"{key} (absent)")
+            out[key] = "absent"
             continue
         field = fields.get(key)
         # A field with a default_factory has `default is PydanticUndefined`, which equals nothing,
         # so those fall through as set — correct, since there is no single default to compare to.
         if field is not None and config[key] == field.default:
-            out.append(f"{key} (= its schema default {field.default!r}, so the capability is off)")
+            out[key] = f"= its schema default {field.default!r}, so the capability is off"
     return out
 
 
@@ -270,8 +277,9 @@ def main(argv: list[str] | None = None) -> int:
             print("  ✅ all declared by the installed schema")
         unset = required_not_set(required, config)
         if unset:
+            detail = ", ".join(f"{k} ({why})" for k, why in sorted(unset.items()))
             problems.append(
-                f"the config does NOT turn on {unset} — so the capability this run depends on "
+                f"the config does NOT turn on {detail} — so the capability this run depends on "
                 f"would simply be off and nothing would say so"
             )
         else:

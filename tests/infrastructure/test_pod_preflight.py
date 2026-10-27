@@ -227,12 +227,13 @@ def test_it_says_what_it_does_NOT_prove(tmp_path, capsys):
 
 def test_required_not_set_passes_a_field_the_config_sets():
     cfg = {"trajectory_log_path": "/w/t.csv", "steps": 1}
-    assert required_not_set(["trajectory_log_path"], cfg) == []
+    assert required_not_set(["trajectory_log_path"], cfg) == {}
 
 
 def test_required_not_set_reports_a_field_the_config_omits():
-    got = required_not_set(["trajectory_log_path"], {"steps": 1})
-    assert got == ["trajectory_log_path (absent)"]
+    assert required_not_set(["trajectory_log_path"], {"steps": 1}) == {
+        "trajectory_log_path": "absent"
+    }
 
 
 def test_required_not_set_reports_a_field_SET_TO_ITS_OWN_DEFAULT():
@@ -243,9 +244,9 @@ def test_required_not_set_reports_a_field_SET_TO_ITS_OWN_DEFAULT():
     `all set by the config` for it. ⛔ This test is the one that would have failed before the fix.
     """
     got = required_not_set(["trajectory_log_path"], {"trajectory_log_path": None})
-    assert len(got) == 1
-    assert got[0].startswith("trajectory_log_path (= its schema default")
-    assert "the capability is off" in got[0]
+    assert list(got) == ["trajectory_log_path"], "the key must stay addressable, not be prose"
+    assert got["trajectory_log_path"].startswith("= its schema default")
+    assert "the capability is off" in got["trajectory_log_path"]
 
 
 def test_a_required_field_SET_TO_ITS_DEFAULT_fails_the_preflight(tmp_path, capsys):
@@ -321,6 +322,22 @@ def test_a_degenerate_config_is_REFUSED_rather_than_passing_empty(tmp_path):
         p = tmp_path / "c.json"
         p.write_text(json.dumps(payload))
         with pytest.raises(ValueError, match="non-empty config mapping"):
+            load_config(p)
+
+
+def test_a_config_with_an_unimportable_suffix_is_REFUSED_by_name(tmp_path):
+    """⛔ THIS TEST EXISTS BECAUSE I MARKED ITS BRANCH `# pragma: no cover` AND WAS WRONG.
+
+    `spec_from_file_location` returns None for any suffix the import machinery does not recognise.
+    Measured: `.txt`, `.yaml`, `.cfg` and a bare name with no extension all return None. So
+    `--config models/x/configs/config_hyperparameters` — a forgotten `.py`, an ordinary typo — hits
+    a branch I had declared uncoverable. A coverage exemption over a live path is the same defect
+    class as a test that cannot fail (C-329), pointed the other way.
+    """
+    for name in ("cfg.txt", "cfg.yaml", "cfg"):
+        p = tmp_path / name
+        p.write_text("def get_hp_config():\n    return {'output_distribution': 'nb'}\n")
+        with pytest.raises(ValueError, match="cannot be imported as a Python module"):
             load_config(p)
 
 
