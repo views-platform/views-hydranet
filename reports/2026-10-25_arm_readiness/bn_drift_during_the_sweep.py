@@ -51,6 +51,14 @@ MC-dropout draws stay LOW (1-4). Thirteen is used here because that is exactly w
 script did, and reproducing its forward count is the whole point. Nothing here estimates anything
 from thirteen draws; the draws are the independent variable.
 
+⛔ ITS SWEEP IS NOT COMPARABLE WITH `struct_pen_at_checkpoint.py`'S, AND THE TWO `.out` FILES SIT
+SIDE BY SIDE. This script replicates the DEFECTIVE path, so `model.train()` leaves dropout UNLOCKED
+in both of its arms — a fresh mask every call. The fixed script locks one mask per draw. Both are
+legitimate; they are different estimators (`docs/CICs/LockedDropout.md` §3), and holding BatchNorm
+fixed, the difference is worth ~3% on the sweep mean. ⇒ Read M-D's two rows against EACH OTHER,
+which is what it is for, and never against the other script's sweep. ⚠️ The `eval` rows ARE
+comparable: with dropout off the mask policy cannot matter, and they agree to six decimals.
+
 ⛔ ONE WINDOW, ONE SEED, ONE ARTIFACT — the same window, seed and parquet as the script under test,
 so every figure is directly comparable to the committed output. This says nothing about any other
 window, and a BatchNorm drift measured on a 99.4%-land window is not a bound on a coastal one.
@@ -66,6 +74,7 @@ import resource
 import sys
 import time
 from pathlib import Path
+from typing import NamedTuple
 
 import numpy as np
 import torch
@@ -186,6 +195,14 @@ def restore():
         m.num_batches_tracked.copy_(nbt)
 
 
+class Drift(NamedTuple):
+    """⛔ Named, because `drift_hot[2]` told a reader nothing about what index 2 held."""
+
+    d_mean: np.ndarray
+    d_var: np.ndarray
+    num_batches_tracked: list[int]
+
+
 def drift():
     """Per-layer relative movement of the buffers away from the delivered snapshot."""
     dmu, dvar = [], []
@@ -196,7 +213,7 @@ def drift():
     return np.array(dmu), np.array(dvar)
 
 
-def sequence(label, freeze_bn):
+def sequence(freeze_bn):
     """Re-run the published sequence of 13 forwards, optionally holding BatchNorm in eval mode.
 
     ⛔ The seed is re-locked and the snapshot restored at entry, so the two calls see IDENTICAL
@@ -213,14 +230,14 @@ def sequence(label, freeze_bn):
     # ⛔ Read the counter HERE, not after the function returns. My first version printed it at
     # report time, by which point the second sequence had restored the snapshot — so it showed
     # 10410 -> 10410 and said the counter never moved, which is the opposite of what happened.
-    after = (*drift(), [int(m.num_batches_tracked) for m in bns])
+    after = Drift(*drift(), [int(m.num_batches_tracked) for m in bns])
     model.eval()
     ev = measure(forward())
-    return label, first, sweep, ev, after
+    return first, sweep, ev, after
 
 
 # ───────── M-B/M-C: the published sequence, reproduced ─────────
-lab_hot, first_hot, sweep_hot, eval_hot, drift_hot = sequence("train() as published", False)
+first_hot, sweep_hot, eval_hot, drift_hot = sequence(freeze_bn=False)
 
 #: The eval row the checkpoint actually delivers: same weights, pristine buffers, dropout off.
 restore()
@@ -228,7 +245,7 @@ model.eval()
 eval_pristine = measure(forward())
 
 # ───────── M-D: the same sequence with BatchNorm held still ─────────
-lab_cold, first_cold, sweep_cold, eval_cold, drift_cold = sequence("BatchNorm frozen", True)
+first_cold, sweep_cold, eval_cold, drift_cold = sequence(freeze_bn=True)
 
 HDR = "  %-22s %10s %10s %10s %10s %8s"
 ROW = "  %-22s %10.6f %10.6f %10.6f %10.6f %7.1f%%"
@@ -237,13 +254,14 @@ print()
 print("=" * 94)
 print("M-B  HOW FAR THE DELIVERED BUFFERS MOVED over the 13 published forwards")
 print("=" * 94)
-for name, d in (("|Δrunning_mean| / sd", drift_hot[0]), ("|Δrunning_var| / var", drift_hot[1])):
+for name, d in (("|Δrunning_mean| / sd", drift_hot.d_mean),
+                ("|Δrunning_var| / var", drift_hot.d_var)):
     print(f"  {name:<24s} max {d.max():.4f}   mean {d.mean():.4f}   "
           f"layers over 10%: {int((d > 0.10).sum())}/{len(d)}")
-nbt1 = drift_hot[2]
+nbt1 = drift_hot.num_batches_tracked
 print(f"  num_batches_tracked       {min(nbt0)}..{max(nbt0)}  ⇒  {min(nbt1)}..{max(nbt1)}")
 print(f"  and with BatchNorm frozen, for contrast: "
-      f"max |Δmean|/sd {drift_cold[0].max():.2e}, max |Δvar|/var {drift_cold[1].max():.2e}")
+      f"max |Δmean|/sd {drift_cold.d_mean.max():.2e}, max |Δvar|/var {drift_cold.d_var.max():.2e}")
 
 print()
 print("=" * 94)
@@ -261,7 +279,8 @@ print()
 print("=" * 94)
 print("M-D  AND WHETHER THE TWELVE-DRAW SWEEP ITSELF WAS READING A MOVING INSTRUMENT")
 print("=" * 94)
-for lab, first, sweep in ((lab_hot, first_hot, sweep_hot), (lab_cold, first_cold, sweep_cold)):
+for lab, first, sweep in (("train() as published", first_hot, sweep_hot),
+                          ("BatchNorm frozen", first_cold, sweep_cold)):
     print(f"  {lab}:")
     print(HDR % ("stat", "body", "gate", "pen", "balancer", "share%"))
     print(ROW % ("forward #1 (headline)", *first))

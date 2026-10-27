@@ -47,6 +47,11 @@ Measured directly, by `bn_drift_during_the_sweep.py` on this same artifact, wind
   · the `eval` row: penalty 2.222250 measured against 2.589139 with the buffers intact (−14.2%);
     body −12.8%, gate −16.1%, balancer −15.3%
   · the twelve-draw sweep, by more: penalty mean 1.756 against 2.532 (−31%)
+  ⚠️ those two sweep figures are `bn_drift_during_the_sweep.py`'s, which replicates the DEFECTIVE
+    path and therefore leaves dropout UNLOCKED in both of its arms. This script's own corrected
+    sweep reads 2.6155, not 2.532, and the 3.3% between them is the mask policy, not BatchNorm —
+    see the second paragraph of amendment 1 and C-384's extension. The `eval` rows need no such
+    caveat: with dropout off the mask policy cannot matter, and they agree to six decimals.
   · with BatchNorm held in eval mode the same 13 forwards move the buffers 0.00e+00
 
 ⭐ WHAT IT DID NOT CHANGE, and the reason the verdict stands: the SHARE. 87.6% → 87.4% on the
@@ -123,6 +128,13 @@ model = model[0] if isinstance(model, tuple) else model
 # tenth of the checkpoint's delivered running statistics. `set_locked_dropout` turns MC-dropout on
 # and nothing else, which is what this script wanted and what three older scripts in this same
 # programme already do (`p0_zero_attribution.py`, `p1_matched_h1.py`, `t2_gradient_partition.py`).
+# ⚠️ IT CHANGES TWO THINGS, NOT ONE, and the first version of this comment named only the first.
+# Per `docs/CICs/LockedDropout.md` §3 the two calls are different ESTIMATORS: `train()` leaves
+# `locked=False`, which is `F.dropout(training=True)` — a fresh mask on every call, i.e. every
+# timestep — while this locks one cached mask per (shape, device, dtype) until `reset()`. Holding
+# BatchNorm fixed and varying only the mask policy moves the control's sweep mean 2.5323 -> 2.6155
+# (+3.3%) and the arm's 2.8619 -> 2.9223 (+2.1%). ⭐ The sign reversal is untouched — BatchNorm is
+# worth 1.5x and 7.1x — but a correction that changes two things must say so. C-384's extension.
 model.set_locked_dropout(True)
 for _m in model.modules():
     if isinstance(_m, torch.nn.modules.batchnorm._BatchNorm) and _m.training:
@@ -198,12 +210,22 @@ w_pen = weight * p_sum
 DRAWS = 12
 
 
-def draw():
+#: ⛔ C-385: the per-target rows below used to come from forward #1 alone, and on this instrument
+#: that draw has measured 2.66 sd from the sweep's own mean. The sweep now keeps its PER-TARGET
+#: terms too, so the breakdown can be read from the distribution instead of from one sample.
+per_body = np.zeros((DRAWS, len(TARGETS)))
+per_pen = np.zeros((DRAWS, len(TARGETS)))
+
+
+def draw(i):
     model.reset_locked_dropout()  # ⛔ one fresh mask per draw; see above
-    return measure(forward())[:5]
+    row = measure(forward())
+    per_body[i] = [float(v) for v in row[5]]
+    per_pen[i] = [float(v) for v in row[6]]
+    return row[:5]
 
 
-sweep = np.array([draw() for _ in range(DRAWS)])
+sweep = np.array([draw(i) for i in range(DRAWS)])
 # ⛔ AMENDMENT 1a, same day, caught by cross-checking this row against the same quantity measured
 # independently in `bn_drift_during_the_sweep.py` (2.589 there against 2.620 here). My first fix
 # wrote `model.set_locked_dropout(False)` here on the reasoning that `model.eval()` would unfreeze
@@ -237,10 +259,16 @@ print(f"  block sizes          {_STRUCT_BLOCKS}")
 print(f"  window               rows {r0}-{r0 + WINDOW}, cols {c0}-{c0 + WINDOW}, "
       f"land {100 * land[r0:r0 + WINDOW, c0:c0 + WINDOW].mean():.1f}%")
 print()
-print("  %-12s %12s %14s" % ("target", "body NLL", "struct pen"))
-for name, bj, pj in zip(TARGETS, body, pen):
-    print("  %-12s %12.6f %14.6f" % (name, float(bj), float(pj)))
-print("  %-12s %12.6f %14.6f" % ("SUM", b_sum, p_sum))
+print("  ⛔ C-385 — DRAW #1 IS ONE SAMPLE, and on this instrument it has measured 2.66 sd")
+print("     from the sweep's mean. The sweep columns are the ones to quote; draw #1 is kept")
+print("     only so the two can be compared.")
+print("  %-12s %13s %14s %13s %14s"
+      % ("target", "body draw#1", "pen draw#1", "body sweep", "pen sweep"))
+for j, name in enumerate(TARGETS):
+    print("  %-12s %13.6f %14.6f %13.6f %14.6f"
+          % (name, float(body[j]), float(pen[j]), per_body[:, j].mean(), per_pen[:, j].mean()))
+print("  %-12s %13.6f %14.6f %13.6f %14.6f"
+      % ("SUM", b_sum, p_sum, per_body.sum(1).mean(), per_pen.sum(1).mean()))
 print()
 print(f"  sum gate BCE (pw {POS_WEIGHT})  {g_sum:.6f}")
 print(f"  balancer output        {balanced:.6f}   (= 0.5*body + 1.0*gate)")

@@ -11,11 +11,14 @@ THE STRUCTURE PENALTY AT A TRAINED CHECKPOINT
   block sizes          (2, 8)
   window               rows 191-223, cols 350-382, land 99.4%
 
-  target           body NLL     struct pen
-  ged_sb_best      0.027861       1.083439
-  ged_ns_best      0.023609       0.731353
-  ged_os_best      0.028631       0.534831
-  SUM              0.080102       2.349623
+  ⛔ C-385 — DRAW #1 IS ONE SAMPLE, and on this instrument it has measured 2.66 sd
+     from the sweep's mean. The sweep columns are the ones to quote; draw #1 is kept
+     only so the two can be compared.
+  target         body draw#1     pen draw#1    body sweep      pen sweep
+  ged_sb_best       0.027861       1.083439      0.026627       1.225651
+  ged_ns_best       0.023609       0.731353      0.025189       0.805474
+  ged_os_best       0.028631       0.534831      0.028083       0.584412
+  SUM               0.080102       2.349623      0.079899       2.615536
 
   sum gate BCE (pw 2.0)  0.120802
   balancer output        0.160853   (= 0.5*body + 1.0*gate)
@@ -43,5 +46,5 @@ THE STRUCTURE PENALTY AT A TRAINED CHECKPOINT
 ==============================================================================================
 COST, measured
 ==============================================================================================
-  wall time 3.67 s
-  peak RSS  2.91 GiB
+  wall time 3.47 s
+  peak RSS  2.93 GiB

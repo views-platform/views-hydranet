@@ -36,8 +36,34 @@ programme already use:
 | **`_structure_penalty`, corrected** | **2.6155** | **2.9223** | **1.12× WORSE** |
 | **B-1**, unchanged | 0.400 | 0.090 | ⛔ **4.44× WORSE** |
 
+⚠️ **Every `_structure_penalty` figure in this document is a 12-draw sweep mean, never a single
+draw** (C-385). The instrument also prints a per-target breakdown from draw #1, and on this vehicle
+draw #1 has measured 2.66 sd from the sweep's own mean, so the script now prints the sweep mean
+beside it. Nothing in this document quotes the draw-#1 column.
+
 ⇒ ⭐ **Both instruments say the arm is worse. The sign disagreement was a property of the
 measurement, not of the model.**
+
+⛔ **THE FIX CHANGED TWO THINGS AND THIS AMENDMENT ORIGINALLY NAMED ONE** (`/review-diff` F-1,
+C-384's extension). `model.train()` and `set_locked_dropout(True)` are different *dropout
+estimators*, not only different BatchNorm modes: per `docs/CICs/LockedDropout.md` §3 the first
+leaves `locked=False`, which is `F.dropout(training=True)` — a fresh mask on **every call**, i.e.
+every timestep — while the second locks **one** cached mask per draw until `reset()`. Holding
+BatchNorm fixed and varying only the mask policy is already measured on this branch, in
+`bn_drift_during_the_sweep_{CONTROL,ARM}.out`'s frozen arm:
+
+| sweep mean | BatchNorm | mask | control | arm |
+|---|---|---|---|---|
+| as published | **corrupted** | unlocked | 1.7223 | 0.3540 |
+| **pure-BatchNorm counterfactual** | clean | unlocked | **2.5323** | **2.8619** |
+| corrected, as printed by the fixed script | clean | **locked** | 2.6155 | 2.9223 |
+
+⇒ **BatchNorm is worth 1.5× on the control and 7.1× on the arm; the mask policy is worth +3.3% and
++2.1%.** The sign reversal is carried entirely by the first and cannot be touched by the second —
+but a correction that changes two things has to say so, and the row to quote against the published
+one is the middle row, which isolates the defect. ⚠️ The `eval` rows need no such caveat: with
+dropout off the mask policy cannot matter, and the two scripts agree there to all six decimals,
+which is what caught `W-81`.
 
 ⚠️ **And the 1.12× is not a finding either.** The sweep's sd is within-checkpoint dropout noise, not
 seed variance, and §8's limit 1 binds unchanged: n = 1 against n = 1, σ̂ unmeasured. The honest

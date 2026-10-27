@@ -52,6 +52,14 @@ WINDOW = 32
 cfg = json.loads(Path(f"{ART}.config.json").read_text())
 ReproducibilityGate.lock_entropy(np_seed=42, torch_seed=42)
 model = choose_model(cfg, torch.device("cpu"))
+# ⛔ C-384 lives in this directory and this is its shape: a bare `train()` also puts every
+# BatchNorm into training mode, where each forward overwrites the running buffers. It is SAFE
+# HERE, for two reasons that must both hold — `choose_model` builds FRESH weights, so there are no
+# delivered statistics to corrupt, and this script does ONE forward, so there is nothing to drift
+# across. ⇒ If either ever changes — a `load_vehicle`, or a sweep — this line must become
+# `model.set_locked_dropout(True)` with the `_BatchNorm`-in-train assertion that
+# `struct_pen_at_checkpoint.py` now carries. Stated rather than assumed, because the script that
+# did corrupt a published finding was two files away and differed in exactly these two respects.
 model.train()
 family = get_family(cfg["output_distribution"])
 criterion = FamilyLoss(family)
