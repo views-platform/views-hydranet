@@ -148,7 +148,13 @@ IDX_SCO = INDEX[sco_m]
 
 #: ⚠️ C-322: the model field's H axis runs opposite to priogrid row order. `grid_rowcol`
 #: is the validated mapping (naive placement correlates 0.026; the flip gives 1.0000).
-ROW, COL = grid_rowcol(np.asarray(land_cells))
+#: ⚠️ `grid_rowcol` returns ONE-BASED (row, col) — its own docstring says so, and
+#: `d5_why_smooth.py:67` subtracts 1. Getting this wrong raised IndexError here; on a grid one
+#: column wider it would have WRAPPED SILENTLY, which is C-322's shape.
+_LR, _LC = grid_rowcol(np.asarray(land_cells))
+ROW, COL = _LR - 1, _LC - 1
+assert ROW.min() >= 0 and ROW.max() < GRID_ROWS, "row index outside the grid"
+assert COL.min() >= 0 and COL.max() < GRID_COLS, "col index outside the grid"
 
 rng = np.random.default_rng(SEED)
 
