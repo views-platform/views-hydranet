@@ -23,8 +23,8 @@ about the workflow — the same rule the experiment log lives under.
 
 | | count |
 |---|---|
-| **WRONG** | **79** |
-| **RIGHT** | **28** |
+| **WRONG** | **82** |
+| **RIGHT** | **27** |
 | OPEN | 1 |
 
 ⛔ **2026-10-25 — four rows added (`W-59`, `W-60`, `W-61`, `W-62`).** ⭐ **Two of the three were caught by my
@@ -125,9 +125,30 @@ had already been relayed to another session as a launch instruction. ⚠️ **Th
 three is a claim about an artifact's behaviour made from reasoning about the artifact rather than from
 running it** — `W-63` a gate never executed, `W-64` a script whose usage line I never read, `W-65` a
 mechanism asserted before the measurement that tests it. ⇒ The cost of executing each was, in order:
-**one second**, **one `grep`**, **forty minutes**. None was expensive. ⭐ `R-14` is the counterweight and
+**one second**, **one `grep`**, **forty minutes**. None was expensive. ~~⭐ `R-14` is the counterweight and
 it is the same discipline working: a caveat attached to a number *in the same sentence as the number*
-stopped a 25-percentage-point error, and is the rule `L7` was written for.
+stopped a 25-percentage-point error, and is the rule `L7` was written for.~~
+⛔⛔ **WITHDRAWN 2026-10-27.** There was no 25-percentage-point error for the caveat to stop. The
+arm's share did not come in below the control's; both numbers came from a script that had overwritten
+the checkpoint's BatchNorm statistics, and corrected they are 1pp apart in the other direction. The
+caveat was honest and cost nothing — it was simply not load-bearing. ⇒ **This block's own
+counterweight is gone, and its remaining claim is the uncomfortable one:** the three W rows were
+caught cheaply, and the one R row standing against them has been withdrawn. See `W-82`.
+
+⛔⛔ **2026-10-27 — three rows added (`W-80`, `W-81`, `W-82`) and one RIGHT row WITHDRAWN (`R-14`),
+all from one defect.** A bare `model.train()` in a diagnostic script, written to switch MC-dropout
+on, also put 15 `BatchNorm2d` layers into training mode and overwrote the checkpoint's delivered
+running statistics over 13 forwards. ⇒ **It reversed the headline finding of a published outcome
+document** (`2026-10-26_structure_penalty_arm_outcome.md` amendment 2): the penalty term and B-1 do
+not disagree by sign; corrected, both say the arm is worse.
+
+⭐ **What caught it is the thing worth recording.** Not a test, not a linter, not a review. Simon
+asked *"these are serious things. Do we understand them in depth? Have we shown what effect they
+have on the machinery?"* — and the answer was no: I had confirmed the defect existed and never
+measured what it did. ⚠️ **Two of the three new rows are claims I made while fixing it** — a
+signature I asserted without testing (`W-80`) and a fix of my own that reintroduced the defect class
+it was fixing (`W-81`). ⇒ **The dangerous moment was not finding the bug; it was the half hour after,
+when I was confident.**
 
 ## WRONG
 
@@ -226,6 +247,12 @@ stopped a 25-percentage-point error, and is the rule `L7` was written for.
 
 | W-79 | ⛔⛔ **Committed as amendment X-1 of `2026-10-25_sharpness_ceiling_prereg.md`, locked into `GLOSSARY.md` §5d, quoted as settled in the living evaluation report, and USED TO RELEASE A POD ARM:** *"applying B-1's own estimator to the two halves gives 0.983–1.009 at every lag, so the ceiling 0.391 is measured against is **~1.0**, not 0.498. §3 as written would have falsely throttled the arm."* | ⛔⛔ **a decision made on a SELF-REFERENTIAL statistic — one that returns ~1.0 for any dataset, white noise included — and the worst consequence of any error in this ledger, because it authorised spending** | ⭐ **`/code-review max` on PR #457; the six numbers value-searched, then REPRODUCED from `ceiling_result.npz`** | **The six numbers exist only as a hand-typed literal** at `falsify_ceiling_stubs.py:25` — not in any committed script, not in `ceiling_table.csv`, not in `ceiling_result.npz`, whose largest `C` anywhere is 0.9300. ⭐ **Then reproduced, which is what settles it:** `[γ_A/γ_B] / [var_A/var_B]` gives them with a variance ratio of **1.0251 at all six lags, constant to 0.00002** ⇒ the tuple is **B-1's formula with one half of the TRUTH standing in for the model.** ⛔ **Two halves of one dataset share a roughness and a variance BY CONSTRUCTION, so that is ~1.0 whatever the data are.** It cannot bound anything. The real ceiling is the cross term, `0.498`. ⇒ **B-1's 0.391 is 78.5% of achievable, not 39%** — headroom ~21%, not ~61%. §3's rule was right and X-1 overturned it. ⚠️ **One thing it buys back:** the arm's null stops being a mystery — a 21% gap failing to close is close to what the ceiling implies. ⛔ And **I nearly cleared this finding**: my first check `grep`ed for the values and 'found' them, because `1.0090` is a substring of `0.7510090098618774`. **A substring grep is not a measurement.** |
 
+| W-80 | ⛔ **Reported to Simon as the evidence for the BatchNorm finding, before measuring it:** the committed output's first forward (`SUM struct pen 1.860762`) lying **above** the twelve-draw max 1.837875 is *"what a drifting buffer looks like; it is not what dropout noise alone looks like."* | `bn_drift_during_the_sweep.py` M-D, the same day | ⛔ **Not a signature.** With BatchNorm **completely frozen** forward #1 still lies outside the twelve-draw range — and **below** it, where the committed run's lay above. One of 13 exchangeable draws is the min or max 15% of the time. ⭐ The finding survived on the direct measurements (M-B, M-C), which is the point: I had reached for an indirect tell when the direct measurement cost 3 seconds. ⚠️ **Still unexplained and logged as open:** with BatchNorm frozen, forward #1 sits ~2.7 sd below the sweep mean in independent runs, and `reset_locked_dropout()` is byte-identical in effect to `set_locked_dropout(True)`'s own reset, so a mask-path difference is ruled out. |
+
+| W-81 | ⛔⛔ **Written into the fix for the defect itself**, as a code comment asserting its own reasoning: `model.set_locked_dropout(False)` turns dropout off, and `model.eval()` must be avoided there because it *"would also unfreeze BN"*. | re-read of `set_locked_dropout` plus `tests/test_locked_dropout.py:123`, minutes later | ⛔ **Both halves wrong.** `set_locked_dropout(False)` only clears the `locked` **flag** — the submodules stay in train mode, so dropout keeps firing and resamples per call; the repo's own test says so in a comment: *"locked False == per-step resampling (the bug)"*. And with the fix applied BatchNorm never leaves eval, so `model.eval()` had nothing to unfreeze. ⇒ The row labelled `eval` became a thirteenth stochastic draw — **the same class of defect as the one being fixed, introduced by the fix.** ⭐ Caught by cross-checking the new row against the same quantity measured by an independent script (2.589 vs 2.620), not by reasoning. A determinism guard now requires two `eval` forwards to agree bit for bit. |
+
+| W-82 | ⛔⛔ **`R-14`'s ✅, closed 2026-10-26 and quoted in this ledger's own 2026-10-26 block as the counterweight to three wrong rows:** the control's trained penalty share of 83.9–86.0% *"is an UPPER bound"*, and the arm's measured 47.0–61.1% showed the caveat *"was load-bearing and in the right direction"*, having *"stopped a 25-percentage-point error"*. | `struct_pen_at_checkpoint.py` re-run on both checkpoints with the BatchNorm fix, 2026-10-27 | ⛔ **There was no 25-point error to stop.** Corrected: control **86.0–88.0%**, arm **87.5–89.6%** — the arm is ~1pp **above** the control, not ~30pp below. Both published figures came from the BatchNorm-corrupted path, which is established by reproduction and not by argument: the defective path returns the arm's share as 46.3–62.9% with dropout off at **75.4%**, against the published 47.0–61.1% and **75.5%**. ⚠️ **`R-14`'s second-order claim stands** — the arm's B-1 draw-count bias 0.0227 against the control's 0.4700 came from `split_draws.py`, which calls no `train()` at all. ⇒ One row's two halves resolved opposite ways, which is why the withdrawal is recorded here rather than by editing `R-14` into silence. |
+
 ## RIGHT
 
 | ID | claim, as stated | settled by | note |
@@ -262,7 +289,7 @@ stopped a 25-percentage-point error, and is the rule `L7` was written for.
 
 | R-26 | ⭐ **Same prereg, P-1, stated as the manipulation check rather than the result:** truncated emission would raise the emitted positive fraction to ≈ the gate's own mean, within 20% of the observed 0.0034. **Measured 0.0037 — within 9%.** Logged as right with the caveat I attached to it before running: this is arithmetic (`P(body>0)=1` makes emitted `P(y>0)=gate` exactly), so it confirms the gate is calibrated rather than confirming the hypothesis. |
 
-| R-14 | ✅ **Stated in `a01c7ef`'s own commit message and in the prereg's §4b, in the same sentence as the number:** the control's trained penalty share of 83.9–86.0% *"is an **UPPER bound** — the control trained with weight 0"*. | `struct_pen_at_checkpoint.py` on the arm, 2026-10-26 | **The arm's share is 47.0–61.1% (mean 54.4%, dropout off 75.5%) against the control's 83.9–86.0%.** The caveat was load-bearing and in the right direction: had I quoted 85% as what to expect of a model actually trained against the term, I would have been wrong by ~25 percentage points and in the direction that would have made the term look more dominant than it is. ⭐ **A second-order result fell out of the same caveat being honest:** the arm's B-1 draw-count bias is **0.0227** against the control's **0.4700** — **21× smaller**, because the arm's field variance is dominated by its inflated mean rather than by MC-dropout noise. ⇒ The same diagnostic carries 21× different noise content on two checkpoints of one architecture, so **a one-sided draw correction would have been wrong by 0.45 here**. |
+| R-14 | ⛔ **WITHDRAWN 2026-10-27 — this ✅ is counted as WRONG at `W-82`; the row is kept, not deleted, because its second half survives.** Originally: ✅ **Stated in `a01c7ef`'s own commit message and in the prereg's §4b, in the same sentence as the number:** the control's trained penalty share of 83.9–86.0% *"is an **UPPER bound** — the control trained with weight 0"*. | `struct_pen_at_checkpoint.py` on the arm, 2026-10-26 | **The arm's share is 47.0–61.1% (mean 54.4%, dropout off 75.5%) against the control's 83.9–86.0%.** The caveat was load-bearing and in the right direction: had I quoted 85% as what to expect of a model actually trained against the term, I would have been wrong by ~25 percentage points and in the direction that would have made the term look more dominant than it is. ⭐ **A second-order result fell out of the same caveat being honest:** the arm's B-1 draw-count bias is **0.0227** against the control's **0.4700** — **21× smaller**, because the arm's field variance is dominated by its inflated mean rather than by MC-dropout noise. ⇒ The same diagnostic carries 21× different noise content on two checkpoints of one architecture, so **a one-sided draw correction would have been wrong by 0.45 here**. ⛔⛔ **WITHDRAWAL, 2026-10-27:** the first half of this row is false. Both share figures were measured through a `model.train()` that overwrote the checkpoint's BatchNorm statistics; corrected, the arm is 87.5–89.6% against the control's 86.0–88.0%, so the arm did **not** come in below and the caveat was not load-bearing. The draw-count half is unaffected (`split_draws.py` calls no `train()`). See `W-82` and `C-384`. |
 
 | R-27 | ⭐ **Stated in `b1b_hitrate_and_m4.py`'s docstring before it ran, and flagged there as derived rather than measured:** at `n=1` the filter is the identity and `matched_pred_thresh` forces `sum(prd) = sum(obs) = E`, so the denominator is `2E` and the numerator counts differing cells `2(E−H)` ⇒ **`FSS(1) = H/E`, the hit rate exactly.** The docstring's own warning: *"⛔ Derived, therefore NOT yet true of our code — that is the error class with seven recorded instances in this programme."* | the check, on all 49 monthly fields of both windows | **Holds to one ulp** (`1.110e-16`). ⇒ B-1b gets a scalar with **no free parameter** — the exact opposite of `scale_min`'s defect — and one a reader can state in words: *the share of this month's events the forecast put inside its own top-`E` cells*. ⚠️ The gate I wrote to test it was itself mis-specified (`W-74`); the claim held, the test of it did not. |
 

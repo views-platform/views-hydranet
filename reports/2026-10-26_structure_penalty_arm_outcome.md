@@ -5,6 +5,60 @@
 **Verdict: the arm is NEGATIVE on every proper score, and the two predictions it PASSED both
 passed for a reason that makes them uninformative.** The finding is not the sign of the result.
 It is that **the penalty term and the B-1 diagnostic disagree about the same model by sign.**
+⛔⛔ **THAT SENTENCE IS WITHDRAWN — see Amendment 2 immediately below. The two instruments do not
+disagree.** The verdict is unaffected.
+
+---
+
+## ⛔⛔ Amendment 2, 2026-10-27 — §4's HEADLINE FINDING IS WITHDRAWN
+
+**What is withdrawn:** the sign-disagreement finding; §4's `_structure_penalty` row (control
+1.7223, arm 0.3540, *"4.87× BETTER"*); §4a's *"the penalty fell 4.87×"*; and §7's closing claim
+that *"the instrument we built to steer it points the wrong way."*
+
+**What is NOT withdrawn: the verdict.** The arm is negative on every proper score. §3, §4c, §5 and
+§6 come from other scripts and are untouched, as is every B-1 figure.
+
+**The cause.** `struct_pen_at_checkpoint.py:89` enabled MC-dropout with a bare `model.train()`.
+That is not selective: all 15 `nn.BatchNorm2d` layers entered training mode too, and the 13 forwards
+that follow overwrote the checkpoint's delivered running statistics at momentum 0.1, leaving
+`0.9**13 = 0.2542` of them. ⇒ The script reported the penalty of a model **re-normalised on one
+32×32 window**, not of the checkpoint. Measured directly: all 15 layers moved, `|Δrunning_mean|` up
+to 3.49 sd, `num_batches_tracked` 10410 → 10423.
+
+**Re-measured on both checkpoints with the fix** — `model.set_locked_dropout(True)`, which is the
+idiom `p0_zero_attribution.py`, `p1_matched_h1.py` and `t2_gradient_partition.py` in this same
+programme already use:
+
+| instrument | control | arm | direction |
+|---|---|---|---|
+| `_structure_penalty`, **as published** | 1.7223 | 0.3540 | ⛔ **WITHDRAWN** — *"4.87× better"* |
+| **`_structure_penalty`, corrected** | **2.6155** | **2.9223** | **1.12× WORSE** |
+| **B-1**, unchanged | 0.400 | 0.090 | ⛔ **4.44× WORSE** |
+
+⇒ ⭐ **Both instruments say the arm is worse. The sign disagreement was a property of the
+measurement, not of the model.**
+
+⚠️ **And the 1.12× is not a finding either.** The sweep's sd is within-checkpoint dropout noise, not
+seed variance, and §8's limit 1 binds unchanged: n = 1 against n = 1, σ̂ unmeasured. The honest
+reading is that **the penalty term does not distinguish the two checkpoints**, where it previously
+appeared to distinguish them 4.87× in the arm's favour.
+
+**The attribution is reproduced, not inferred.** Re-running the sequence through the defective path
+returns the published figures: the arm's share comes back **46.3–62.9%, dropout off 75.4%**, against
+`PREDICTION_LEDGER` R-14's published **47.0–61.1%, dropout off 75.5%**; and §4's 0.3540 sits inside
+that path's measured penalty range [0.2406, 0.4714] while lying **7.3× below** the corrected 2.9223.
+The defect cost the arm **7.1×** in the penalty (2.862 → 0.402) against the control's 1.5×, and that
+asymmetry is the entire gap.
+
+⛔ **The fix was not new knowledge, which is the part worth keeping.** Three older scripts in this
+programme already avoid this and say why in comments; one asserts that no BatchNorm is in train mode
+and calls it *"the C-184/#289 trap, which my own T2 nearly walked into."* This was a regression from
+documented practice. Registered **C-384**; ledger `W-80`, `W-81`, `W-82`; R-14's ✅ withdrawn.
+
+**Evidence, all committed:** `struct_pen_at_checkpoint_{CONTROL,ARM}.out`,
+`bn_drift_during_the_sweep_{CONTROL,ARM}.out`, and `bn_drift_during_the_sweep.py`, which measures
+the defect rather than arguing it.
 
 ---
 
@@ -109,7 +163,8 @@ Both were run on **the same two checkpoints**, and for the penalty on **the same
 
 | instrument | control | arm | direction |
 |---|---|---|---|
-| **`_structure_penalty`** — the loss term, Σ over blocks (2, 8) | 1.7223 | **0.3540** | ⭐ **4.87× BETTER** |
+| ~~**`_structure_penalty`** — the loss term, Σ over blocks (2, 8)~~ | ~~1.7223~~ | ~~**0.3540**~~ | ⛔ **WITHDRAWN, amdt 2** |
+| **`_structure_penalty`**, corrected | **2.6155** | **2.9223** | **1.12× WORSE** |
 | **B-1** — γ_model(d)/γ_truth(d) at d = 1, in-sample E–W | 0.400 | **0.090** | ⛔ **4.44× WORSE** |
 
 ⛔ **They cannot both be describing the same change.** And B-1 is worse at **every** scale, not
@@ -139,8 +194,15 @@ the control and **RISING 0.85 → ~9 in the arm**, while `loss_reg` barely moved
 trade along an NB likelihood ridge, with a higher θ-CoV panel in the arm, which is consistent.
 
 ⚠️ **Flagged as the leading hypothesis, NOT as a measurement.** Nobody has run the
-profile-likelihood check that would establish the ridge. What IS measured: the penalty fell 4.87×,
-B-1 fell 4.44×, μ̂ rose ~10×, MCR rose 5–20×.
+profile-likelihood check that would establish the ridge. What IS measured: B-1 fell 4.44×, μ̂ rose ~10×, MCR rose 5–20×.
+
+⛔⛔ **AMENDMENT 2.** The list above used to carry a fourth item, *"the penalty fell 4.87×"*, and it
+is withdrawn: corrected, the penalty did **not** fall — 2.6155 → 2.9223. ⚠️ **That sharpens the
+hypothesis rather than removing it.** The model inflated the conditional mean by ~10× and the
+penalty it was inflating *against* did not improve. The inflation is still measured; what is no
+longer evidence is that the term rewarded it. Whether the term fell at the windows the optimiser
+actually saw is a different question from what it reads at this one, and nothing here answers it —
+C-365's per-term trajectory column is what would.
 
 ### 4b. ⛔ Why this is a defect in the term and not a dose error
 
@@ -375,9 +437,16 @@ FIRES"*; §3a's MCR 0.36 → 2.2–7.2 is that rule, measured one more time.
 
 ⭐ **What is new here, and worth the $3:** the previous four were interventions that increased
 firing *as a side effect*. This one increased it as its **designed mechanism**, with a
-pre-registered diagnostic that was supposed to detect the intended effect — and the diagnostic
-**reported success while the outcome failed**. ⇒ The lever is not merely unhelpful; **the
-instrument we built to steer it points the wrong way.**
+pre-registered diagnostic that was supposed to detect the intended effect.
+
+⛔⛔ **AMENDMENT 2 WITHDRAWS THE REST OF THIS PARAGRAPH.** It read: *"and the diagnostic reported
+success while the outcome failed. ⇒ The lever is not merely unhelpful; the instrument we built to
+steer it points the wrong way."* The diagnostic did not report success — **the script measuring it
+did**, through a bare `model.train()` that overwrote the checkpoint's BatchNorm statistics.
+Corrected, the penalty term and B-1 agree. ⇒ **What is new here is narrower, and it is about the
+method rather than the lever: an intervention whose designed mechanism was to increase firing lost
+on every proper score, for the fifth time.** The instrument pointing the wrong way was my own
+measurement of it — a worse finding about this programme, and a better one about the term.
 
 ---
 
@@ -398,6 +467,10 @@ instrument we built to steer it points the wrong way.**
    retired). They cannot show when a term drifted, a spike that resolved, or a divergence that
    reversed. **C-365's fix — one trajectory column per additive loss term — would have made §4
    a curve instead of two points, and it is now the single highest-value change for the next arm.**
+   ⛔⛔ **AND AS PUBLISHED THEY WERE ALSO WRONG** — amendment 2. Both points were measured through a
+   `model.train()` that re-estimated the checkpoint's BatchNorm statistics on the measurement
+   window. Corrected: control 2.6155, arm 2.9223. Two points remain two points; they are now the
+   right two.
 5. ⚠️ **Region is recorded as ENFORCED, not measured.** `PROVENANCE` records that
    `pod_run_model.sh:279-282` refuses any region but `land`; nothing in a `.pt` or its sidecar
    records the region, and the net is fully convolutional. Weaker than a measurement.
