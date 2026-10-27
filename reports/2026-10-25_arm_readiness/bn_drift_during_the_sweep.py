@@ -210,7 +210,10 @@ def sequence(label, freeze_bn):
             m.eval()
     first = measure(forward())
     sweep = np.array([measure(forward()) for _ in range(DRAWS)])
-    after = drift()
+    # ⛔ Read the counter HERE, not after the function returns. My first version printed it at
+    # report time, by which point the second sequence had restored the snapshot — so it showed
+    # 10410 -> 10410 and said the counter never moved, which is the opposite of what happened.
+    after = (*drift(), [int(m.num_batches_tracked) for m in bns])
     model.eval()
     ev = measure(forward())
     return label, first, sweep, ev, after
@@ -237,7 +240,7 @@ print("=" * 94)
 for name, d in (("|Δrunning_mean| / sd", drift_hot[0]), ("|Δrunning_var| / var", drift_hot[1])):
     print(f"  {name:<24s} max {d.max():.4f}   mean {d.mean():.4f}   "
           f"layers over 10%: {int((d > 0.10).sum())}/{len(d)}")
-nbt1 = [int(m.num_batches_tracked) for m in bns if m.num_batches_tracked is not None]
+nbt1 = drift_hot[2]
 print(f"  num_batches_tracked       {min(nbt0)}..{max(nbt0)}  ⇒  {min(nbt1)}..{max(nbt1)}")
 print(f"  and with BatchNorm frozen, for contrast: "
       f"max |Δmean|/sd {drift_cold[0].max():.2e}, max |Δvar|/var {drift_cold[1].max():.2e}")
