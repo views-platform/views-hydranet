@@ -8,7 +8,7 @@ list plus five additions.
 meant end-2027 this register is under-scoped and the horizon line is the thing to correct, not the
 ranking.
 
-**Last updated** 2026-10-27 · **9 entries** · 1 live (RP-3) · 7 queued · 1 parked (RP-9)
+**Last updated** 2026-10-27b · **9 entries** · **2 live (RP-1 #477, RP-3 #468)** · 6 queued · 1 parked (RP-9)
 
 ## How this works
 
@@ -26,7 +26,7 @@ ranking.
 
 | # | ID | challenge | status | cost | can it end in a pod run? |
 |---|---|---|---|---|---|
-| **1** | **RP-1** | The metric battery cannot see what we are trying to fix | 🔵 queued | **CPU, hours** | no — it makes later ones readable |
+| **1** | **RP-1** | The metric battery cannot see what we are trying to fix | 🟢 **LIVE** — epic **#477** | **CPU, hours** | no — it makes later ones readable |
 | **2** | **RP-2** | No noise floor: run-to-run σ̂ has never been computed | 🔵 queued | **CPU, ~1 h** | no — same |
 | **3** | **RP-3** | The family-free recalibration beats our emission by 15% | 🟢 **LIVE** — epic **#468** | **CPU, minutes** | no GPU needed; ships or dies on CPU |
 | **4** | **RP-4** | Is the body actually under-dispersed, or is it the draw count? | 🔵 queued | **CPU, an afternoon** | no |
@@ -47,7 +47,15 @@ it is independent, already open, and needs no GPU.
 
 ## RP-1 · The metric battery cannot see what we are trying to fix
 
-**Rank 1.** 🔵 queued. CPU, hours. ⛔ Not droppable — it is the precondition for reading anything else.
+**Rank 1.** 🟢 **LIVE — epic #477.** CPU, hours. Stories **#478**–**#484**.
+
+⛔⛔ **The investigation changed what this entry is, and the change is the finding.** This is **not a design problem.** `reports/2026-08-13_evaluation_pitfalls_and_metric_battery_DRAFT.md` is **31 KB**, catalogues failure modes A–I, and its **§5** already designs exactly this method — *"treat the metric suite itself as software under test, and unit-test it with adversarial/degenerate forecasts whose true quality is known"* — naming **seven** forecasts, the acceptance rule *"a metric that cannot separate these is blind and must not be used for selection"*, and **three stated results**. ⛔ **It was never written.** A repo-wide grep for a degenerate-forecast harness returns nothing. ⇒ **C-383's shape, third time this week** — and one of the unverified claims is *"CRPS fails on sparse (all collapse together)"*, about **FAO-02's PRIMARY metric**. The draft also says the harness *"would have flagged the #258 defect on day one, on synthetic data, before any model run."*
+
+⭐ **And reading the frozen ruler gave a derived inventory before any measurement:** of its seven columns, **AP** and **Brier** depend on the gate alone (⇒ blind to all magnitude, and rank-based AP is blind to gate *calibration* too); **size_ratio** uses `cs.mean(1)` and a **median** (⇒ blind to the ensemble's spread *and* to the tail); **pos_mcr** is `mean(ey/truth)` (⇒ weights each cell by `1/truth`, so it is **dominated by the smallest events**); and all three CRPS columns use the **plug-in** (`2.0/(m*m)`, `lodestar_score.py:33`), which Ferro2014 proves favours **under-dispersed** ensembles. ⇒ **Nothing in the frozen ruler is both magnitude-sensitive and unbiased toward the defect** — that is the thesis #477 measures. ⭐ The ruler documents one of these itself and nobody drew the consequence: `apply_threshold_gate`'s comment reads *"body-only; p (AP/Brier) unchanged"*.
+
+⚠️ Two further gaps found by reading, to be confirmed not asserted: **QS99** is a locked FAO-02 guardrail and is **absent from the frozen ruler's output** (#482); and **AFSS** = **1.000000** under count-matching ⇒ zero information, while **hit rate** is **identically** FSS(n=1) (R-27) ⇒ a duplicate, not an independent column.
+
+⛔ **What would end it early, and it is a real possibility:** if **#479**'s separation matrix shows the battery **does** separate all seven, the premise is wrong — three measured blind spots do not imply a uniformly blind battery, and `crps_events` is tail-weighted and may do most of the work. ⇒ The epic closes at M2, **#444** closes with it, and ⭐ **that is the most valuable outcome available**: our instruments would be sound and the defect entirely in the model. ⚠️ **Prior, stated before measuring so it can be scored: partial blindness, not total.**
 
 **The claim.** Our instruments are blind to the defect we are hunting, and this was measured three
 independent times in two weeks.
