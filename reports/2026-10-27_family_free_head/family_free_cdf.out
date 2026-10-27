@@ -1,0 +1,36 @@
+GATE 0  sorted pairwise identity == brute force, foreign input                     PASS
+==================================================================================================
+S2 (#460) — THE FAMILY-FREE CONDITIONAL CDF, REPRODUCED FROM THE FROZEN CUBE
+==================================================================================================
+  cube          d4_result.npz  sha 4acbf4d3c2b457b0…  family nb  draws 4
+  fit           36 months 421-456 x 64,818 = 2,333,448 cell-months
+  score         13 months 457-469 x 64,818 = 842,634 cell-months
+  index         E[gate x mu], per draw then averaged (C-386). range 4.300e-13 .. 28.967
+  truth         ged_sb_best counts. score-window positive fraction 0.003448, zero fraction 0.996552
+
+  ⭐ M67 splits its gain: ~99.7% of it on the 0.34% of cell-months with an event. Reported per sweep point below.
+
+    bins     n/bin     plug-in        fair vs 0.046023  background event cells
+      50   46669.0    0.057975    0.057973      +26.0%    0.003710      15.744
+     250    9333.8    0.048389    0.048381       +5.1%    0.005027      12.583
+    1000    2333.4    0.042003    0.041979       -8.7%    0.002399      11.490
+    2000    1166.7    0.041354    0.041309      -10.1%    0.002061      11.399
+    4000     583.4    0.040135    0.040050      -12.8%    0.001971      11.072
+    8000     291.7    0.039186    0.039026      -14.9%    0.001964      10.799
+   16000     145.8    0.039287    0.038971      -14.6%    0.002005      10.816
+   32000      72.9    0.039493    0.038856      -14.2%    0.002073      10.856
+
+==================================================================================================
+  VOID GATES
+==================================================================================================
+  ⛔ FAIL  G-a  B=8000 reproduces 0.039327                            got 0.039186
+  PASS  G-b  the curve TURNS OVER at 16000                         8000 0.039186 vs 16000 0.039287
+  PASS  G-c  ladder shape: loses <250, crosses ~1000, peaks at 8000 250 0.048389  1000 0.042003  argmin B=8000
+  ⛔ FAIL  G-d  background ties 0.000260, event law wins 10.831       got 0.001964 and 10.799
+
+  ⚠️ NOT GATED: M67's comparators 0.046023 (best parametric cell) and 0.050758
+     (delivered). This script does not know which composition each was, so they are
+     quoted as targets only. Whether they reproduce is an open question, not a claim.
+
+==================================================================================================
+  wall time 5.3 s   peak RSS 3.22 GiB
