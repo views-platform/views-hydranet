@@ -1,3 +1,11 @@
+⚠️ RE-RUN 2026-10-27b after two corrections; supersedes the 2026-10-26 output.
+   (1) the estimator behind the B-1 column is renamed `gamma_iso` — it averages E-W AND N-S
+       and is NOT the scoreboard's B-1a, which is E-W only (W-77);
+   (2) the draw is re-seeded per space, so T-2's two spaces now see the SAME permutations
+       and the FSS columns are byte-identical across them, as the transform requires (W-78).
+   ⇒ The B-1 column still differs by space, correctly: an isotropic variogram is not
+     rank-order invariant. Only FSS is.
+
 ======================================================================================================================
 STAGE 1b — FSS THROUGH THE FIVE-TRANSFORM BATTERY
            prereg ../2026-10-26_fss_battery_prereg.md (571ea76, committed first)
@@ -63,8 +71,8 @@ space = log1p      FSS at n = (1, 3, 5, 9, 15, 23)
     x16                       0.5204  0.7378  0.7813  0.8175  0.8839  0.9514   smin    1   B-1  0.4778   R-1 +0.1592
 
   T-2 shuffle within block
-    k=2                       0.3265  0.7175  0.7688  0.8136  0.8844  0.9512   smin    3   B-1  0.6609   R-1 +0.1542
-    k=8                       0.0714  0.3041  0.5084  0.7423  0.8988  0.9618   smin    5   B-1  1.1372   R-1 +0.1259
+    k=2                       0.2959  0.7025  0.7697  0.8167  0.8863  0.9519   smin    3   B-1  0.7434   R-1 +0.1545
+    k=8                       0.0714  0.3115  0.4900  0.7399  0.9039  0.9639   smin    7   B-1  1.1086   R-1 +0.1255
 
   T-3 smooth
     1 pass                    0.3469  0.6046  0.6048  0.6170  0.7258  0.8742   smin    3   B-1  0.1797   R-1 +0.1572

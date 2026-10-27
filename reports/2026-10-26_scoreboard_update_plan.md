@@ -66,7 +66,9 @@ rate `f_o = 0.003448` that is **0.501724**.
 
 > 1. **An arm aimed at spatial structure is read on BOTH B-1 and B-4.** B-1 is the **dispersion**
 >    readout; B-4 is the **placement** readout. ⛔ Neither is sufficient and neither substitutes for
->    the other — B-1 is exactly displacement-blind (`0.000e+00` under translation) and B-4 saturates
+>    the other — B-1 is perversely displacement-sensitive (`0.2727 → 0.3338`, i.e. BETTER as the
+>    forecast slides away; ⚠️ this read "exactly displacement-blind (`0.000e+00` under translation)"
+>    until 2026-10-27b, and no run measured that — see the scoreboard's §2 and `W-77`) and B-4 saturates
 >    under blur after one box pass. **An arm that moves one and not the other has moved one defect.**
 
 ### Change 3 — Add a reading rule on what B-4 may **not** be used for

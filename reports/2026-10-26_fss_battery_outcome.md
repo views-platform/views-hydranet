@@ -56,8 +56,30 @@ Three consequences, all exact:
 
 1. ⭐ **No amplification loophole.** The exact route that made `_structure_penalty`'s 4.4× gain
    pure amplification is **unavailable** to FSS.
-2. ⭐ **Counts ≡ log1p, byte for byte.** The first space-invariant statistic in this programme —
-   every other one has had to be reported twice and never mixed.
+2. ⭐ **Counts ≡ log1p on the rank-order test** — `0` differing binary cells in 10,368,
+   `max |ΔFSS| = 0.000e+00`. The first space-invariant statistic in this programme; every other one
+   has had to be reported twice and never mixed.
+
+   ⛔ **NARROWED 2026-10-27b. This read "byte for byte" and that was an over-generalisation of a
+   valid test.** The rank-order check is sound — it transforms ONE field and compares — but the
+   battery's **T-2 rows differ across the two spaces** in the very table this claim sits beside:
+
+   | T-2 | counts | log1p |
+   |---|---|---|
+   | `k=2`, FSS(n=1) | **0.2959** | **0.3265** |
+   | `k=8`, `scale_min` | **7** | **5** |
+
+   ⚠️ **And they differ for a reason that has nothing to do with the space.** `fss_battery.py:87`
+   creates `rng = np.random.default_rng(20261026)` at **module level** and the
+   `for space in ("counts", "log1p")` loops at `:181`/`:249` never re-seed it — so the shuffle draws
+   permutations #1/#2 for counts and #3/#4 for log1p. Shuffling commutes with `log1p` and the
+   count-match is by rank, so **the same permutation would give byte-identical fields**; the
+   divergence is the draw, not the transform. ⇒ The T-2 numbers for the two spaces are **two
+   different experiments**, and the T-4 rows being byte-identical across spaces is what proves it.
+
+   ⇒ **The claim holds where it was measured and not one step further.** Logged as `W-78`; the
+   same root cause gives `c366_two_instruments.py` two different committed numbers for one nominal
+   transform (B-1 d1 = 0.7712 at STEP 2 against 0.6856 at STEP 3).
 3. ⛔ **FSS is totally blind to magnitude and calibration.** **D-3 FIRES: FSS is a DIAGNOSTIC and
    never a training target.** A forecast scaled by any `c > 0` satisfies it identically.
 

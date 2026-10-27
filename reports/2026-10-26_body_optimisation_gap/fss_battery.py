@@ -69,14 +69,28 @@ def binary_stack(preds, truths, r=1.0):
 
 
 # --------------------------------------------- I-2 (B-1) and R-1, copied verbatim from Stage 1
-def gamma_ew(f, d):
+def gamma_iso(f, d):
+    """⛔ ISOTROPIC — the mean of the E-W and N-S semivariance, NOT B-1a's estimator.
+
+    ⚠️ RENAMED 2026-10-27b. It was called `gamma_ew` under a comment saying it was copied verbatim
+    from Stage 1, and it is not: `instrument_battery.py:69` and `c366_two_instruments.py:93` are
+    **E-W only**, as is the scoreboard's `d12` source. One name, two instruments — and the
+    scoreboard quoted THIS one's displacement series as B-1a's, which inverted the evidence. On the
+    same field and window the two give B-1(d=1) = 0.4465 here against 0.2727 there, and under
+    displacement this one moves 0.96% while B-1a's own moves +22.4%. See `W-77`.
+
+    ⛔ Kept rather than replaced, and renamed rather than quietly corrected: every number in
+    `fss_battery.out` was produced by this function, so swapping it would silently restate a
+    committed artifact. The B-1 column here is an isotropic comparator and is labelled as one.
+    """
     a, b = f[:, :, d:], f[:, :, : f.shape[2] - d]
     c, e = f[:, d:, :], f[:, : f.shape[1] - d, :]
     return 0.5 * (np.mean((a - b) ** 2) + np.mean((c - e) ** 2))
 
 
 def b1(pred, truth, d):
-    return (gamma_ew(pred, d) / gamma_ew(truth, d)) / (pred.var() / truth.var())
+    """⚠️ B-1's FORM on the isotropic estimator above — not comparable to the scoreboard's B-1a."""
+    return (gamma_iso(pred, d) / gamma_iso(truth, d)) / (pred.var() / truth.var())
 
 
 def spearman_ref(pred, truth):
@@ -84,7 +98,21 @@ def spearman_ref(pred, truth):
 
 
 # ------------------------------------------- transforms, copied verbatim from instrument_battery
-rng = np.random.default_rng(20261026)
+SEED = 20261026
+rng = np.random.default_rng(SEED)
+
+
+def reseed() -> None:
+    """Reset the module-level draw so each space sees the SAME permutations.
+
+    ⛔ `global`, and that is the whole point. Both space loops live inside `main()`, so a bare
+    `rng = np.random.default_rng(SEED)` there binds a LOCAL and leaves the module-level generator
+    that `shuffle_in_blocks` reads untouched — an inert fix that reads as a real one. My first
+    attempt at this correction was exactly that, and `ruff`'s F841 caught it, not me. Same class as
+    the register's C-329 sub-form 4: the repair looked right and changed nothing.
+    """
+    global rng
+    rng = np.random.default_rng(SEED)
 
 
 def shuffle_in_blocks(f, k):
@@ -179,6 +207,11 @@ def main() -> None:
           f"max {int((h0 > 0).sum(axis=(1, 2)).max())}")
 
     for space in ("counts", "log1p"):
+        # ⛔ RE-SEEDED PER SPACE, added 2026-10-27b. The module-level rng was never reset, so T-2
+        # drew different permutations for counts and log1p and the committed .out shows the two
+        # diverging (k=2: 0.2959 vs 0.3265) where the transform guarantees they cannot. The
+        # divergence was the draw, not the space. See `W-78`.
+        reseed()
         cp, ct = flatten(ctl, space)
         print()
         print("=" * 118)
@@ -247,6 +280,11 @@ def main() -> None:
     print("THE ARM — DESCRIPTIVE ONLY, not a verdict (prereg §7.5; n=1, C-307)")
     print("=" * 118)
     for space in ("counts", "log1p"):
+        # ⛔ RE-SEEDED PER SPACE, added 2026-10-27b. The module-level rng was never reset, so T-2
+        # drew different permutations for counts and log1p and the committed .out shows the two
+        # diverging (k=2: 0.2959 vs 0.3265) where the transform guarantees they cannot. The
+        # divergence was the draw, not the space. See `W-78`.
+        reseed()
         ap, at = window(*flatten(arm, space))
         cpx, ctx = window(*flatten(ctl, space))
         print(f"  {space}")

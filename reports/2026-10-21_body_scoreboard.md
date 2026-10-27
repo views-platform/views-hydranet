@@ -87,9 +87,30 @@ its full share of structure at that scale. ⛔ **No fitted parameter** — which
 and D12c's failures. **Source:** `d12_variogram.py` + saved curves (`d12_result.npz`), so re-reading it
 on a new artifact costs one 391 s sweep.
 
-⛔ **What B-1a cannot see, measured not assumed:** under pure translation of the forecast by 1, 2 and
-3 cells it moves `0.4465 → 0.4466 → 0.4464 → 0.4422` — **exactly flat**, while the forecast's rank
-correlation with the truth falls 41%. ⇒ It is a dispersion instrument and nothing else.
+⛔⛔ **WHAT B-1a CANNOT SEE — CORRECTED 2026-10-27b, AND THE CORRECTION MATTERS MORE THAN THE
+CLAIM IT REPLACES.** An earlier version of this paragraph said B-1a moves
+`0.4465 → 0.4466 → 0.4464 → 0.4422` under translation — *"exactly flat"*. **Two things were wrong
+with that**, both found by `/code-review max` on PR #457 and both verified before being written here:
+
+1. ⛔ **Those numbers are from a DIFFERENT ESTIMATOR.** `fss_battery.py:72-75` defines a function
+   called `gamma_ew` that averages the **E-W and N-S** semivariance, while B-1a's own estimator —
+   `instrument_battery.py:69`, `c366_two_instruments.py:93` and the scoreboard's `d12` source — is
+   **E-W only**. One name, two instruments, and the scoreboard was quoting the wrong one.
+2. ⛔ **On B-1a's own estimator it is NOT flat. It moves the WRONG WAY.**
+
+| displacement | `s=0` | `s=1` | `s=2` | `s=3` |
+|---|---|---|---|---|
+| **B-1a, E-W (its real estimator)** | 0.2727 | 0.2727 | 0.2756 | **0.3338** |
+
+⇒ **+22.4%, and upward** — B-1a reads the forecast as carrying *more* of its due structure as the
+forecast slides away from the truth, while rank correlation with truth falls 41%.
+
+⭐ **This makes the case for the pair STRONGER, not weaker, which is why the error is worth this
+much space.** An instrument that does not move is *useless*; one that moves in the **wrong
+direction** is *actively misleading* — it would reward an arm for displacing its forecast. ⛔ **I
+replaced a real and damning measurement with a tidier false one.** Logged as `W-77`.
+
+⇒ B-1a is a dispersion instrument, and on placement it is worse than blind.
 
 ### B-1b — PLACEMENT: count-matched FSS
 
@@ -183,8 +204,12 @@ which (B-1a and B-1b) are scale-resolved — and those two are one pair, not two
 
 1. ⛔ **An arm aimed at spatial structure is read on BOTH B-1a AND B-1b.** B-1a is the
    **dispersion** readout; B-1b is the **placement** readout. **Neither is sufficient and neither
-   substitutes for the other** — B-1a is exactly displacement-blind (`0.000e+00` under translation)
-   and B-1b saturates under blur after one box pass. ⇒ **An arm that moves one and not the other has
+   substitutes for the other** — B-1a is **perversely displacement-sensitive** (it reads
+   `0.2727 → 0.3338` across a 3-cell slide, i.e. **better** as the forecast moves away from truth),
+   and B-1b saturates under blur after one box pass. ⚠️ **This clause said `0.000e+00` under
+   translation until 2026-10-27b.** No run ever measured that for translation — every `0.000e+00` in
+   the record is for **rescaling** or a production-equality gate — and the real number is worse for
+   B-1a than the false one was. See §2's B-1a entry and `W-77`. ⇒ **An arm that moves one and not the other has
    moved one defect, and the report must say which.** Both are scale-resolved and both are
    independent of `AP`.
 2. ⛔ **No gate-vs-body comparison is quotable unless both sides share a transform and a null.**
