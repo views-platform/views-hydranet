@@ -1,6 +1,27 @@
 # Plan — updating the body's scoreboard after the FSS battery
 
-**Date:** 2026-10-26 · **Status:** ⛔ **A PLAN. Nothing in it is applied.**
+**Date:** 2026-10-26 · **Status: ✅ APPLIED 2026-10-27, with two changes to the plan itself.**
+
+> **Simon's decision on §3's open question: SPLIT B-1 in place.** So there is no B-4. B-1 becomes
+> **B-1a** (dispersion, the existing variogram ratio, numbers unchanged) and **B-1b** (placement,
+> count-matched FSS), landed as Amendment 1 of `2026-10-21_body_scoreboard.md`.
+>
+> **⛔ TWO DEPARTURES FROM THIS PLAN, both forced by M-1 and both recorded rather than applied
+> silently:**
+>
+> 1. **`scale_min` is DROPPED from the estimator slot.** Measured 1 in both windows, both
+>    predictors, all 49 monthly fields — pinned at the floor, because a 360×720 domain drives the
+>    no-skill bar to 0.5018 while FSS at a single cell is already 0.63. Swept to a binding target it
+>    is no better: the month-to-month spread swallows the in-vs-out difference. Replaced by
+>    **`FSS(n=1)`**, which has no free parameter and equals the hit rate exactly. `W-73`, `C-376`.
+> 2. **Changes 1–5 are not five changes.** Change 1 ("add B-4") is void by the split; Changes 2–5
+>    landed as written, with Change 2's pair-rule and Changes 3–4 folded into §4's reading rules as
+>    rules 1, 5 and 6, plus a rule 7 on σ̂ that this plan did not list.
+>
+> **M-1, M-2 and M-4 are done** (`b1b_placement_baseline`, `b1b_target_skill_sweep`,
+> `b1b_hitrate_and_m4`; 33 s + 38 s + 78 s local CPU, no money). **M-3 — σ̂ — is still the gate and
+> is still blocked on views-models#625**, so §4's new rule 7 says in the scoreboard itself that
+> neither half carries a decision rule yet.
 **Target:** `reports/2026-10-21_body_scoreboard.md`
 **Evidence:** `2026-10-26_fss_battery_outcome.md` · `2026-10-26_instrument_battery_prereg.md`
 

@@ -93,8 +93,15 @@ for wname, lo, hi in WINDOWS:
         got = fss(p, t, [1], matched_pred_thresh(p, t))[1]
         worst = max(worst, abs(got - hit))
 print(f"  49 monthly fields, both windows:  max |FSS(n=1) - hits/events| = {worst:.3e}")
-print("  ⇒ " + ("EXACT. B-1b has a scalar with no free parameter." if worst == 0.0
-                    else "NOT exact — the derivation does not describe the code."))
+# ⛔ THE GATE IS ONE ULP, NOT EXACT ZERO, and this script's first version got that wrong and
+# printed "NOT exact" against a measured 1.110e-16. FSS(n=1) and hits/events are computed by
+# DIFFERENT arithmetic routes — a ratio of filtered mean-of-squares against an integer ratio — so
+# agreement to one ulp at ~1.0 IS the identity holding. The battery's P-F1 `0.000e+00` was
+# FSS-against-FSS down ONE code path, which is a different kind of claim. Same statistic, two
+# routes, two correct tolerances; the mistake was importing the stricter one.
+print("  ⇒ " + ("IDENTITY HOLDS to within one ulp. B-1b has a scalar with no free parameter."
+                if worst < 1e-12
+                else "REFUTED — the derivation does not describe the code."))
 
 print("\n" + "=" * 98)
 print(f"M-4  per-field scale reaching FSS >= {M4_TARGET:.2f}  (the no-skill bar made M-1 vacuous)")

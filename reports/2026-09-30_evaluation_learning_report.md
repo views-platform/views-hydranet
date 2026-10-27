@@ -13,7 +13,7 @@
 > standing in for a measurement we hold is the same error class as
 > `2026-10-20_d3_static_channel_ceiling.md`'s three self-inflicted ones.
 
-**Date:** 2026-09-30 · **Last revised 2026-10-26b** · **Status:** ⛔ **LIVING DOCUMENT — expected to carry open rows; not a verdict and not finished.** Consolidation only: **no new measurement by this document** (§0.2 and §5.0 carry tables measured 2026-09-30 by the `models` session, attributed there) ·
+**Date:** 2026-09-30 · **Last revised 2026-10-27** · **Status:** ⛔ **LIVING DOCUMENT — expected to carry open rows; not a verdict and not finished.** Consolidation only: **no new measurement by this document** (§0.2 and §5.0 carry tables measured 2026-09-30 by the `models` session, attributed there) ·
 **Supersedes as the living document:** `reports/2026-08-13_evaluation_pitfalls_and_metric_battery_DRAFT.md`
 (retained as dated provenance; its taxonomy letters A1–I4 are preserved here unrenumbered).
 
@@ -767,6 +767,31 @@ limit, so the bar is **0.501724**.
 production code reproduced it exactly — `scale_min = 2D` for `D = 1, 2, 3, 5, 8, 11`. That is this
 section's practice with the synthetic field replaced by **a published derivation**, which is stronger:
 the answer was not one we chose.
+
+⛔ **AND THE NEXT DAY THAT EXACT REPRODUCTION TURNED OUT TO HAVE EARNED THE WRONG CONFIDENCE —
+2026-10-27.** On the strength of it, `scale_min` was committed as one of the scoreboard's placement
+slots. Measured on the actual population — all 64,818 land cells, 49 monthly fields — **it is pinned
+at 1 in every single field**, for both predictors, in both windows. It has no dynamic range at all.
+
+⚠️ **The mechanism is a sentence from the same two pages, quoted in our own script and then not
+applied:** *"if the domain is large, `f_o → 0` and `FSS_uniform → 0.5`"*. A 360×720 domain at
+`f_o = 0.0035` puts the bar at **0.5018**, while our FSS at a **single cell** is **0.6267** — so the
+bar never binds. The ideal 128×128 bands have an `f_o` an order of magnitude larger and a forecast
+that starts *below* the bar, which is the only regime where the statistic can travel.
+
+⇒ ⭐ **THE LESSON, and it refines rather than contradicts the paragraph above: a validation on a
+synthetic field — or against a published derivation — checks that the IMPLEMENTATION is right. It
+says nothing about whether the statistic will DISCRIMINATE on the real population.** Those are two
+different claims, and the exactness of the first one is precisely what made the second feel settled.
+`W-73`, registered as **C-376**, and the fifth instance of C-320's "a readout that cannot deliver a
+verdict" — the first of the five produced by a check that *passed*.
+
+⇒ **What replaced it is the shape of the remedy:** `FSS(n=1)`, which has **no free parameter**, and
+which equals the hit rate `H/E` exactly — derived first, then measured to one ulp over 49 fields
+(`R-27`). ⚠️ The gate I wrote to test that identity was itself mis-specified (exact zero against two
+different arithmetic routes, `W-74`): **the claim held and the test of it did not**, which is the
+fifth instance of the *other* standing class, a threshold written without the resolution of the
+quantity it gates.
 
 ⚠️ **And FSS then failed a transform too.** It **saturates on blur** — the second box-smoothing pass
 scores *better* than the first (`0.3571 → 0.3776`) — because count-matched FSS is a function of the
