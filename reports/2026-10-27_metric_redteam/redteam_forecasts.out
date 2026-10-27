@@ -1,0 +1,43 @@
+G-0  the three imported FROZEN primitives reproduce their hand cases:
+       crps({0,2} vs 0) = 0.5 | brier = 0.0 / 0.25 | AP = 1.0 | AP(no positives) = nan
+       ⇒ the frozen ruler's own functions are in hand, not copies            PASS
+================================================================================================
+M1 (#478) — THE DEGENERATE-FORECAST RED-TEAM HARNESS
+================================================================================================
+  cube      d4_result.npz  sha 4acbf4d3c2b457b0  family nb  draws 4
+  score     13 months 457-469 x 64,818 cells = 842,634 cell-months
+  fit       36 months 421-456 (climatology + persistence's lag)
+  truth     ged_sb_best counts. positives 2,905 (0.003448), max 2482, total 50881
+  S         256 members per forecast, identical across all seven (epic #263's rule)
+  spiky     1/30 of active cells = 97 occupied cells per month
+
+  forecast                    field total    frac>0          max  size_ratio
+  all-zero                              0  0.000000          0.0      0.0000
+  climatology                      75,534  0.022077        373.8      0.3750
+  persistence                      51,285  0.003412      2,482.0      0.0000
+  spiky-1/30                       50,881  0.001496         52.7      0.0000
+  freq-right/mag-wrong             50,881  0.003448         17.5      2.9192
+  mag-right/freq-wrong             50,881  0.003448      2,482.0      0.0000
+  reference (delivered)            16,612  0.012225         54.5      0.2598
+  TRUTH                            50,881  0.003448      2,482.0      1.0000
+
+================================================================================================
+  VOID GATES
+================================================================================================
+  PASS  G-a  ALL-ZERO: crps_none, size_ratio, pos_mcr all EXACTLY 0.0
+        crps_none=0  size_ratio=0  pos_mcr=0
+  PASS  G-c  CLIMATOLOGY: per-cell gate == fit-window positive rate
+        max |delta rate| 0.000e+00; identical across months True
+  PASS  G-d  PERSISTENCE: byte-identical to the truth field lagged one month
+        array_equal True; max |delta| 0.0
+  PASS  G-b  SPIKY: per-month total exact and occupancy exactly k
+        max relative total error 4.454e-16; occupancy 97..97 (want exactly 97)
+  PASS  G-e  FREQ-RIGHT: nonzero cell SET == the truth-positive set
+        array_equal True; nonzero 2,905 vs truth positives 2,905
+  PASS  G-f  MAG-RIGHT: sorted nonzero multiset == truth's, every month
+        all 13 months exact: True
+  PASS  G-g  ALL SEVEN: N == 842,634, identical ordering, identical S == 256
+        asserted per forecast above (shape and gate-shape assertions)
+
+  wall time 21.7 s   peak RSS 6.66 GiB
+  all construction gates PASS — the seven are safe for M2 (#479) to score
