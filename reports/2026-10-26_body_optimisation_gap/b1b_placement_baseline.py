@@ -172,13 +172,24 @@ if _gap != 0.0:
 for wname, (lo, hi) in (("in sample", (IS_LO, IS_HI)), ("out of sample", (OS_LO, OS_HI))):
     j = [mcol[m] for m in range(lo, hi + 1)]
     truths = [to_grid(Y[:, k], RR, CC) for k in j]
-    f_o = float((Y[:, j] > 0).mean())                        # M-2, on THIS population
+    #: ⛔ `f_o` MUST BE TAKEN ON THE DOMAIN FSS ACTUALLY SCORES (`/code-review max` on PR #457).
+    #: It was `(Y[:, j] > 0).mean()` — the event frequency over LAND cell-months, 64,818 of them.
+    #: But `to_grid` lays the land values onto a zero-filled 360x720 field, so every FSS below is
+    #: scored over **259,200** cells, ocean included, and Roberts & Lean's bar is a function of the
+    #: scored domain's `f_o`. Two populations, one name: C-351/§5e's shape, and the bar is the one
+    #: quantity in this script that depends on which is used. ⇒ Both are reported, and the bar is
+    #: computed from the SCORED one, with the land figure kept beside it because it is the number
+    #: the published baseline carried and a reader will otherwise think it vanished.
+    f_o_land = float((Y[:, j] > 0).mean())
+    f_o = float((Y[:, j] > 0).sum()) / (GRID_ROWS * GRID_COLS * len(j))
     the_bar = bar(f_o)
     print("\n" + "-" * 98)
     print(f"{wname}  months {lo}-{hi}  ({len(j)} monthly fields)")
     print("-" * 98)
-    print(f"  M-2  f_o on all land cell-months in the window = {f_o:.6f}"
-          f"   ⇒ bar 0.5 + f_o/2 = {the_bar:.6f}"
+    print(f"  M-2  f_o on the SCORED 360x720 domain = {f_o:.6f}"
+          f"   ⇒ bar 0.5 + f_o/2 = {the_bar:.6f}")
+    print(f"       f_o on land cell-months only  = {f_o_land:.6f}"
+          f"   (bar would be {bar(f_o_land):.6f})   ⛔ NOT the scored domain; see the comment"
           f"   (mean events/field {float((Y[:, j] > 0).sum()) / len(j):.1f})")
 
     for predname, field in (("body alone (mu)", MU_PM), ("gated forecast (gate x mu)",

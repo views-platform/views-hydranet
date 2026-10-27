@@ -125,7 +125,9 @@ production at `scripts/sharpness_scorecard.py:78`.
 | estimator | pooled FSS — FBS summed over the window's monthly fields **before** the ratio — reported at **`n = 1, 3, 5, 9, 17, 33, 65`**. ⭐ The headline scalar is **`FSS(n=1)`**, which **is the hit rate exactly**: `H/E`, the share of the month's events sitting inside the forecast's own top-`E` cells. Measured identity, `1.1e-16` over 49 fields (`R-27`) |
 
 **Reads:** higher is better; `1.00` = every event placed in a fired cell. **No-skill bar:** a uniform
-forecast scores `0.5 + f_o/2` (p.83), which is **0.501759** in sample and **0.501724** out of sample.
+forecast scores `0.5 + f_o/2` (p.83), which is **0.500440** in sample and **0.500431** out of sample.
+
+⛔ **AMENDED 2026-10-27:** these bar figures were computed from `f_o` on **land cell-months** (0.003518 / 0.003448) while FSS is scored over the full **360×720** field, ocean included. On the scored domain `f_o` is **0.000880 / 0.000862** and the bar is **0.500440 / 0.500431**. ⭐ Every conclusion is unchanged and the degeneracy is **worse**, not better: the bar sits even closer to 0.5 against an FSS of 0.6267 at one cell, and `scale_min` still reads 1 on all 49 fields. (`/code-review max` on PR #457; `b1b_placement_baseline.py` M-2 now reports both.)
 
 ⛔ **THREE DECLARED DEPARTURES FROM B-1a (C-351), stated because they are real and not hidden:**
 
@@ -279,8 +281,10 @@ defect in `body_level_selection_check.py` — where the same mistake is made ove
 rather than 4 draws, inside a check whose subject *is* magnitude — recorded there and left for its
 own branch.
 
-`f_o` on this population: **0.003518** in sample, **0.003448** out of sample. Gate C-1 passed — one
-pooled field equals production `fss` at `0.000e+00`.
+⛔ **`f_o`, both populations named** (§5e's rule, and the bar depends on which):
+**on land cell-months** 0.003518 in sample / 0.003448 out; **on the scored 360×720 domain**, which is
+what Roberts & Lean's bar takes, **0.000880** / **0.000862** ⇒ bar **0.500440** / **0.500431**.
+Gate C-1 passed — one pooled field equals production `fss` at `0.000e+00`.
 
 ⚪ **Two things the baseline run turned up, LOGGED AND NOT CHASED** (§1 cap, rule 2):
 

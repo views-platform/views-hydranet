@@ -11,7 +11,7 @@
 >
 > 1. **`scale_min` is DROPPED from the estimator slot.** Measured 1 in both windows, both
 >    predictors, all 49 monthly fields — pinned at the floor, because a 360×720 domain drives the
->    no-skill bar to 0.5018 while FSS at a single cell is already 0.63. Swept to a binding target it
+>    no-skill bar to 0.5004 while FSS at a single cell is already 0.63. Swept to a binding target it
 >    is no better: the month-to-month spread swallows the in-vs-out difference. Replaced by
 >    **`FSS(n=1)`**, which has no free parameter and equals the hit rate exactly. `W-73`, `C-376`.
 > 2. **Changes 1–5 are not five changes.** Change 1 ("add B-4") is void by the split; Changes 2–5
@@ -60,7 +60,7 @@ A new `### B-4` block in §2, with its three C-351 slots filled the same way as 
 | estimator | pooled FSS (FBS summed over fields **before** the ratio), reported at `n = 1, 3, 5, 9, 17, 33, 65` plus **`scale_min`** = the smallest `n` reaching `0.5 + f_o/2` |
 
 **Reads:** higher is better; `scale_min` smaller is better. **Bar:** `0.5 + f_o/2`. At the land base
-rate `f_o = 0.003448` that is **0.501724**.
+rate `f_o = 0.000862` on the scored 360×720 domain that is **0.500431**. ⚠️ Read 0.501724 from an `f_o` on land cell-months until 2026-10-27; the conclusion is unchanged and the degeneracy worse.
 
 ### Change 2 — ⛔ Rewrite reading rule 1 as a **pair**, not a primary
 

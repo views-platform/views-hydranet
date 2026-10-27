@@ -105,6 +105,17 @@ def rung_affine(y, mu0):
     t1, _ = best_theta(y, mu0)
     r = minimize(obj, x0=np.array([0.0, 1.0, np.log(t1)]), method="Nelder-Mead",
                  options={"xatol": 1e-5, "fatol": 1e-9, "maxiter": 2000})
+    # ⛔ `r.success` was not checked (`/code-review max` on PR #457). Nelder-Mead returns its LAST
+    # point when it hits `maxiter`, with no exception and a perfectly well-formed `r.x` — so a
+    # non-converged fit yields a fitted `b` that looks exactly like a converged one. This is a
+    # rung of a ladder whose whole output is the comparison between rungs, so a silently
+    # unconverged rung does not produce a worse number, it produces a meaningless one.
+    if not r.success:
+        raise RuntimeError(
+            f"VOID: the ladder's NB fit did not converge — {r.message!r} after {r.nit} iterations, "
+            f"fun={r.fun:.6f}. Nelder-Mead returns its last point regardless, so this would "
+            "otherwise be reported as a fitted value. Raise `maxiter` or re-seed `x0`."
+        )
     a, b, lt = r.x
     return float(r.fun), {"a": float(a), "b": float(b), "theta": float(np.exp(lt))}
 

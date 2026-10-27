@@ -13,6 +13,7 @@ go green before the claim "models is ready for the pod" can be reasserted.
 from __future__ import annotations
 
 import subprocess
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -45,9 +46,16 @@ def test_H1_pod_preflight_can_read_the_config_it_gates() -> None:
     """
     from views_hydranet.infrastructure.pod_preflight import load_config_keys
 
-    cfg = Path(__file__).parent / "_hf_at_c8ae1803.py"
-    cfg.write_text(_show(AS_RUN_SHA, HF_CFG))
-    keys = load_config_keys(cfg)          # ⛔ raises NameError today
+    # ⛔ WAS `Path(__file__).parent / "_hf_at_c8ae1803.py"` — a generated module written into the
+    # repository tree on every run (`/code-review max` on PR #457). Two problems, neither loud:
+    # the file persists after the test, so a later run imports a stale generation rather than the
+    # one it just wrote; and it lands in a `reports/` directory that `git add -f` is routinely
+    # pointed at, which is exactly how a compiled `.pyc` got force-tracked on this branch
+    # (commit `9d44699`). A generated input belongs in a temporary directory that cleans itself.
+    with tempfile.TemporaryDirectory() as td:
+        cfg = Path(td) / "_hf_at_c8ae1803.py"
+        cfg.write_text(_show(AS_RUN_SHA, HF_CFG))
+        keys = load_config_keys(cfg)      # ⛔ raises NameError today
     assert "trajectory_log_path" in keys
 
 

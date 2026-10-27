@@ -5,13 +5,21 @@ F1 fired in Run 2. This attributes the gap to named causes by starting from
 ⛔ It reproduces the prior number first; if it cannot, nothing below it means anything.
 """
 
+import sys
 from pathlib import Path
 
 import numpy as np
 import torch
 
-ROOT = Path("/home/simon/Documents/scripts/views_platform/views-hydranet")
+ROOT = Path(__file__).resolve().parents[2]
 DOSS = ROOT / "reports/2026-10-12_underfire_diagnosis"
+
+# ⛔ C-347, and it was MISSING here (`/code-review max` on PR #457). Without this the import below
+# resolves to whatever `views-hydranet` wheel is installed in the environment — 0.1.7 at the time
+# of writing — and NOT to the working tree this script's numbers are attributed to. Nothing fails;
+# the script runs and reports a number measured against different code than the report claims.
+# Every sibling instrument in this dossier does this on its first two lines.
+sys.path.insert(0, str(ROOT))
 
 from views_hydranet.distributions.nb_core import NBCore  # noqa: E402
 

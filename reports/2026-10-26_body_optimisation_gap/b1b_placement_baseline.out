@@ -11,7 +11,8 @@ B-1b — THE PLACEMENT HALF OF B-1.  baseline on the CONTROL artifact
 --------------------------------------------------------------------------------------------------
 in sample  months 421-456  (36 monthly fields)
 --------------------------------------------------------------------------------------------------
-  M-2  f_o on all land cell-months in the window = 0.003518   ⇒ bar 0.5 + f_o/2 = 0.501759   (mean events/field 228.0)
+  M-2  f_o on the SCORED 360x720 domain = 0.000880   ⇒ bar 0.5 + f_o/2 = 0.500440
+       f_o on land cell-months only  = 0.003518   (bar would be 0.501759)   ⛔ NOT the scored domain; see the comment   (mean events/field 228.0)
 
   body alone (mu)
     M-1  pooled FSS   n1=0.6267  n3=0.8201  n5=0.8550  n9=0.8819  n17=0.9066  n33=0.9277  n65=0.9495
@@ -28,7 +29,8 @@ in sample  months 421-456  (36 monthly fields)
 --------------------------------------------------------------------------------------------------
 out of sample  months 457-469  (13 monthly fields)
 --------------------------------------------------------------------------------------------------
-  M-2  f_o on all land cell-months in the window = 0.003448   ⇒ bar 0.5 + f_o/2 = 0.501724   (mean events/field 223.5)
+  M-2  f_o on the SCORED 360x720 domain = 0.000862   ⇒ bar 0.5 + f_o/2 = 0.500431
+       f_o on land cell-months only  = 0.003448   (bar would be 0.501724)   ⛔ NOT the scored domain; see the comment   (mean events/field 223.5)
 
   body alone (mu)
     M-1  pooled FSS   n1=0.5883  n3=0.7983  n5=0.8339  n9=0.8661  n17=0.8955  n33=0.9186  n65=0.9451
@@ -43,6 +45,6 @@ out of sample  months 457-469  (13 monthly fields)
          per-field values: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 
 ==================================================================================================
-cost  51.54 s  /  3.10 GiB peak RSS
+cost  75.63 s  /  2.19 GiB peak RSS
 ⚠ M-3 (sigma-hat) is absent and blocked on views-models#625. Until it exists these are
   BASELINES and B-1b carries NO decision rule.

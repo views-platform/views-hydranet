@@ -173,7 +173,7 @@ which is the signature of a penalty acting on the body and leaving the gate alon
 with `_structure_penalty`'s gate being **detached** by design.
 
 ⛔ **MCR crossed 1.0 and overshot, monotonically in target sparsity.** Control MCR 0.355–0.397 —
-it UNDER-predicts, the timid-prophet failure the MCR guardrail exists to catch. Arm 2.16 → 4.06 →
+it UNDER-predicts — **timid**, in the locked vocabulary — the failure the MCR guardrail exists to catch. Arm 2.16 → 4.06 →
 7.22 for sb → ns → os. ⇒ The penalty did not fail to act on magnitude. **It acted far too hard,
 in the direction the control was deficient, and hardest where the target is rarest** — which is
 exactly §3c.1's measurement that non-state carries 0.374910 of the 0.827130 summed penalty

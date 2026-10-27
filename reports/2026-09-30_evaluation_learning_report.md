@@ -761,7 +761,7 @@ from one displaced three cells — and on its own is how B-1 was being read.
 **FSS**, with the skill threshold from **Roberts & Lean (2008**, MWR 136:78–97,
 `10.1175/2007MWR2123.1`, p. 82–83): `FSS_uniform = 0.5 + f_o/2`, and as `f_o → 0` the neighbourhood at
 which a forecast crosses it is **twice the displacement error**. Our `f_o = 0.003448` sits in that
-limit, so the bar is **0.501724**.
+limit, so the bar is **0.500431** on the scored 360×720 domain.
 
 ⭐ **The paper supplied a prediction with a known answer, taken BEFORE measuring**, and our own
 production code reproduced it exactly — `scale_min = 2D` for `D = 1, 2, 3, 5, 8, 11`. That is this
@@ -775,7 +775,7 @@ at 1 in every single field**, for both predictors, in both windows. It has no dy
 
 ⚠️ **The mechanism is a sentence from the same two pages, quoted in our own script and then not
 applied:** *"if the domain is large, `f_o → 0` and `FSS_uniform → 0.5`"*. A 360×720 domain at
-`f_o = 0.0035` puts the bar at **0.5018**, while our FSS at a **single cell** is **0.6267** — so the
+`f_o = 0.00088` on the scored domain puts the bar at **0.5004**, while our FSS at a **single cell** is **0.6267** — so the
 bar never binds. The ideal 128×128 bands have an `f_o` an order of magnitude larger and a forecast
 that starts *below* the bar, which is the only regime where the statistic can travel.
 
