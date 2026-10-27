@@ -1,0 +1,87 @@
+====================================================================================================
+STAGE 1 — THE INSTRUMENT BATTERY.  prereg ../2026-10-26_instrument_battery_prereg.md
+====================================================================================================
+  F-2 truth byte-identical across arms: True
+  I-3 weights: inverse distance, TRUNCATED at radius 4 (24 half-plane offsets) — DECLARED DEVIATION, C-371
+
+====================================================================================================
+space = counts
+====================================================================================================
+  baseline   I-1     0.5468   I-2(d1)   0.3618   I-3 1667120.9840   R-1 +0.1492
+
+  T-1 amplify  (P-1 ctrl: I-1 monotone better · I-2 EXACT · I-3 interior minimum)
+      x0.5                   I-1     0.7600   I-2(d1)   0.3618   I-3 1668338.8048   R-1 +0.1492
+      x1                     I-1     0.5468   I-2(d1)   0.3618   I-3 1667120.9840   R-1 +0.1492
+      x2                     I-1     0.3487   I-2(d1)   0.3618   I-3 1662772.7566   R-1 +0.1492
+      x4                     I-1     0.2029   I-2(d1)   0.3618   I-3 1653748.7398   R-1 +0.1492
+      x8                     I-1     0.1256   I-2(d1)   0.3618   I-3 1751554.9559   R-1 +0.1492
+      x16                    I-1     0.0875   I-2(d1)   0.3618   I-3 4285216.3584   R-1 +0.1492
+
+  T-2 shuffle within block  (I-1 exactly 0 at k=2 · I-2 moves · I-3 MAY IMPROVE)
+      k=2                    I-1     0.5468   I-2(d1)   0.7712   I-3 1667997.0423   R-1 +0.1462
+      k=8                    I-1     0.5969   I-2(d1)   0.9745   I-3 1668454.0642   R-1 +0.1245
+
+  T-3 smooth  (all three must worsen)
+      1 pass                 I-1     0.7061   I-2(d1)   0.1526   I-3 1668559.2569   R-1 +0.1475
+      2 pass                 I-1     0.7460   I-2(d1)   0.1059   I-3 1668631.3918   R-1 +0.1469
+      3 pass                 I-1     0.7952   I-2(d1)   0.0833   I-3 1668689.8684   R-1 +0.1456
+
+  T-4 displace, cropped to the valid overlap  (P-1: I-2 EXACTLY invariant)
+    s=0 (24x24, fixed)   I-1     0.7881   I-2(d1)   0.2727   I-3 3008108.3219   R-1 +0.1592
+    s=1 (24x24, fixed)   I-1     1.0214   I-2(d1)   0.2727   I-3 3009858.8318   R-1 +0.1517
+    s=2 (24x24, fixed)   I-1     1.2083   I-2(d1)   0.2756   I-3 3010148.7973   R-1 +0.1249
+    s=3 (24x24, fixed)   I-1     1.3739   I-2(d1)   0.3338   I-3 3010310.4428   R-1 +0.0940
+
+  T-5 inflate per-cell predictive variance, MEAN FIELD FIXED  (P-2 / C-370)
+      ⚠️ I-1 and I-2 take a POINT field and have no variance channel at all.
+    tau^2 =  0.0000 x var(truth)   I-1     0.5468   I-2(d1)   0.3618   I-3 1667120.9840
+    tau^2 =  0.0625 x var(truth)   I-1     0.5468   I-2(d1)   0.3618   I-3 1667059.8475
+    tau^2 =  0.2500 x var(truth)   I-1     0.5468   I-2(d1)   0.3618   I-3 1666900.2834
+    tau^2 =  1.0000 x var(truth)   I-1     0.5468   I-2(d1)   0.3618   I-3 1666619.7124
+    tau^2 =  4.0000 x var(truth)   I-1     0.5468   I-2(d1)   0.3618   I-3 1671220.3926
+    tau^2 = 16.0000 x var(truth)   I-1     0.5468   I-2(d1)   0.3618   I-3 1781190.5398
+    => P-2 / C-370 CONFIRMED — an interior minimum at tau* > 0.  argmin at tau^2 = 1.0 x var(truth), VS-p 1666619.7124 vs 1667120.9840 at tau=0
+
+====================================================================================================
+space = log1p
+====================================================================================================
+  baseline   I-1     0.3075   I-2(d1)   0.3801   I-3       0.5841   R-1 +0.1492
+
+  T-1 amplify  (P-1 ctrl: I-1 monotone better · I-2 EXACT · I-3 interior minimum)
+      x0.5                   I-1     0.5236   I-2(d1)   0.3801   I-3       0.7149   R-1 +0.1492
+      x1                     I-1     0.3075   I-2(d1)   0.3801   I-3       0.5841   R-1 +0.1492
+      x2                     I-1     0.1513   I-2(d1)   0.3801   I-3       1.3095   R-1 +0.1492
+      x4                     I-1     0.0966   I-2(d1)   0.3801   I-3      24.1893   R-1 +0.1492
+      x8                     I-1     0.0677   I-2(d1)   0.3801   I-3     435.3654   R-1 +0.1492
+      x16                    I-1     0.0522   I-2(d1)   0.3801   I-3    7194.5735   R-1 +0.1492
+
+  T-2 shuffle within block  (I-1 exactly 0 at k=2 · I-2 moves · I-3 MAY IMPROVE)
+      k=2                    I-1     0.3075   I-2(d1)   0.6494   I-3       0.7073   R-1 +0.1459
+      k=8                    I-1     0.3498   I-2(d1)   1.2900   I-3       0.8845   R-1 +0.1269
+
+  T-3 smooth  (all three must worsen)
+      1 pass                 I-1     0.4642   I-2(d1)   0.1644   I-3       0.7346   R-1 +0.1477
+      2 pass                 I-1     0.5167   I-2(d1)   0.1199   I-3       0.7560   R-1 +0.1474
+      3 pass                 I-1     0.5674   I-2(d1)   0.0967   I-3       0.7689   R-1 +0.1466
+
+  T-4 displace, cropped to the valid overlap  (P-1: I-2 EXACTLY invariant)
+    s=0 (24x24, fixed)   I-1     0.4547   I-2(d1)   0.3617   I-3       0.6523   R-1 +0.1592
+    s=1 (24x24, fixed)   I-1     0.6238   I-2(d1)   0.3621   I-3       0.9295   R-1 +0.1517
+    s=2 (24x24, fixed)   I-1     0.8053   I-2(d1)   0.3671   I-3       0.9948   R-1 +0.1249
+    s=3 (24x24, fixed)   I-1     0.9652   I-2(d1)   0.3901   I-3       1.0573   R-1 +0.0940
+
+  T-5 inflate per-cell predictive variance, MEAN FIELD FIXED  (P-2 / C-370)
+      ⚠️ I-1 and I-2 take a POINT field and have no variance channel at all.
+    tau^2 =  0.0000 x var(truth)   I-1     0.3075   I-2(d1)   0.3801   I-3       0.5841
+    tau^2 =  0.0625 x var(truth)   I-1     0.3075   I-2(d1)   0.3801   I-3       0.5838
+    tau^2 =  0.2500 x var(truth)   I-1     0.3075   I-2(d1)   0.3801   I-3       0.5831
+    tau^2 =  1.0000 x var(truth)   I-1     0.3075   I-2(d1)   0.3801   I-3       0.5841
+    tau^2 =  4.0000 x var(truth)   I-1     0.3075   I-2(d1)   0.3801   I-3       0.6499
+    tau^2 = 16.0000 x var(truth)   I-1     0.3075   I-2(d1)   0.3801   I-3       1.9024
+    => P-2 / C-370 CONFIRMED — an interior minimum at tau* > 0.  argmin at tau^2 = 0.25 x var(truth), VS-p 0.5831 vs 0.5841 at tau=0
+
+====================================================================================================
+F-4 — is the closed form right? analytic VS-2 against a sampled estimate, K = 4096
+====================================================================================================
+  mean |sampled - analytic| / mean |analytic|, 6 shortest offsets, K=4096: 1.6951%
+  => F-4 FIRES — the closed form is wrong and every VS-p number with it is VOID (bar: 1%)

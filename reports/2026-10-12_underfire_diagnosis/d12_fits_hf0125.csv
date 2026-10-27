@@ -1,0 +1,25 @@
+window,field,direction,ok,nugget,sill,xi,nugget_over_sill,dmax,bins,var
+in sample,"model log mu",isotropic,True,0.088236,0.280667,20.074768,0.239184,120,120,0.277887
+in sample,"model log mu",E-W,True,0.058797,0.210541,17.002344,0.218300,120,120,0.277887
+in sample,"model log mu",N-S,True,0.059479,0.288563,14.051710,0.170896,120,120,0.277887
+in sample,"model gate logit",isotropic,True,0.611752,12.016431,49.969247,0.048443,120,120,8.708066
+in sample,"model gate logit",E-W,True,0.860422,6.186482,36.524004,0.122099,120,120,8.708066
+in sample,"model gate logit",N-S,True,0.522294,16.623697,58.597468,0.030462,120,120,8.708066
+in sample,"truth log mean, window",isotropic,True,2.221083,3.514956,30.842647,0.387215,120,120,3.763849
+in sample,"truth log mean, window",E-W,True,2.017276,2.251061,18.895452,0.472614,120,120,3.763849
+in sample,"truth log mean, window",N-S,True,1.938803,3.343719,18.077946,0.367022,120,120,3.763849
+in sample,"truth log mean, 336-mo base rate",isotropic,True,3.865272,6.552741,35.642105,0.371018,120,120,7.396317
+in sample,"truth log mean, 336-mo base rate",E-W,True,2.589790,4.273107,9.971996,0.377361,120,120,7.396317
+in sample,"truth log mean, 336-mo base rate",N-S,True,4.281503,8.830649,55.455450,0.326529,120,120,7.396317
+out of sample,"model log mu",isotropic,True,0.447715,3.899054,39.261542,0.103000,120,120,3.192436
+out of sample,"model log mu",E-W,True,0.197489,2.225390,19.489782,0.081510,120,120,3.192436
+out of sample,"model log mu",N-S,True,0.458389,5.025857,45.558396,0.083583,120,120,3.192436
+out of sample,"model gate logit",isotropic,True,0.409635,6.287036,55.047216,0.061170,120,120,4.583059
+out of sample,"model gate logit",E-W,True,0.492343,2.979518,34.564979,0.141809,120,120,4.583059
+out of sample,"model gate logit",N-S,True,0.329063,9.336573,69.838821,0.034045,120,120,4.583059
+out of sample,"truth log mean, window",isotropic,True,1.856672,2.252721,38.975991,0.451812,120,120,2.620947
+out of sample,"truth log mean, window",E-W,True,1.367736,1.532880,11.073344,0.471533,120,120,2.620947
+out of sample,"truth log mean, window",N-S,True,1.643409,1.796248,16.022018,0.477783,120,120,2.620947
+out of sample,"truth log mean, 336-mo base rate",isotropic,True,3.865272,6.552741,35.642105,0.371018,120,120,7.396317
+out of sample,"truth log mean, 336-mo base rate",E-W,True,2.589790,4.273107,9.971996,0.377361,120,120,7.396317
+out of sample,"truth log mean, 336-mo base rate",N-S,True,4.281503,8.830649,55.455450,0.326529,120,120,7.396317

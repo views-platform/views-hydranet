@@ -836,6 +836,15 @@ baselines valid and is asserted rather than assumed.
    Body NLL and its gradient norm came out bit-identical to the first derivation, which is the check
    that only the penalty moved.
 
+   ⛔ **AMENDMENT 2026-10-25 — 27.0768 IS ALSO VOID, and it is kept here with the reason.** Both
+   derivations ran on `calibration_model_20261013_010739.pt`, which is the **`truncated_nb`**
+   vehicle `2a5efc2a…` — **not** the `nb` vehicle the arm runs on. "Same vehicle and window" above is
+   *true of the two derivations relative to each other* and **false of the arm**. And both matched the
+   penalty against **`SB` alone** while `training_engine.py:995` sums it over all three targets.
+   ⇒ Re-derived on `heavy_freighter` `0ca3f31f…` (`nb`, dropout 0.125) over all three targets:
+   **`struct_penalty_weight` = 0.416904**, term at **21.7%** of the loss, fallback did not fire.
+   Full account in `2026-10-21_structure_penalty_arm_prereg.md` **§3c**.
+
 ⚠️ **The honest cost of this amendment:** a pre-registered guard was widened after it fired. That is
 the move that destroys a pre-registration's value when it is done quietly, so it is recorded here in
 full, with the one differing key measured, before the measurement it permits.

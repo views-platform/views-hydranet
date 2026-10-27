@@ -1,0 +1,58 @@
+vehicle: calibration_model_20261026_040937.pt  sha256 aab48beb4fa8480d…  (NOT the delivered weights — C-317)
+  lessons 300 · run_type calibration · git fa2de29 · trained 2026-10-26T01:43:09Z to 2026-10-26T04:09:42Z
+⚠️  REGION IS RECORDED AS ENFORCED, NOT MEASURED. PROVENANCE says 'land (enforced at check_config -- the run refuses any other)' — which records that pod_run_model.sh:279-282 refuses any other value, NOT a read-back of the grid the weights saw. Nothing in a .pt or its sidecar records the region, and the net is fully convolutional, so this remains weaker than a measurement. The four known africa artifacts are additionally denied by hash.
+==============================================================================================
+M-A  BATCHNORM INVENTORY — checked before anything is assumed about the mechanism
+==============================================================================================
+  artifact                 calibration_model_20261026_040937.pt
+  family / dropout         nb / 0.125
+  _BatchNorm modules       15
+  distinct momentum        [0.1]
+  track_running_stats      {True}
+  classes                  ['BatchNorm2d']
+  num_batches_tracked      min 10410  max 10410  (as delivered)
+  ⇒ predicted weight still on the DELIVERED buffers after 13 forwards: (1-0.1)**13 = 0.2542
+
+==============================================================================================
+M-B  HOW FAR THE DELIVERED BUFFERS MOVED over the 13 published forwards
+==============================================================================================
+  |Δrunning_mean| / sd     max 3.1876   mean 0.4127   layers over 10%: 14/15
+  |Δrunning_var| / var     max 2.2683   mean 0.6720   layers over 10%: 15/15
+  num_batches_tracked       10410..10410  ⇒  10423..10423
+  and with BatchNorm frozen, for contrast: max |Δmean|/sd 0.00e+00, max |Δvar|/var 0.00e+00
+
+==============================================================================================
+M-C  WHAT IT COST THE PUBLISHED `eval` ROW
+==============================================================================================
+  row                          body       gate        pen   balancer   share%
+  eval, buffers moved      0.071621   0.090115   0.926888   0.125925    75.4%
+  eval, buffers pristine   0.074813   0.114911   2.932578   0.152318    88.9%
+  Δ (published − true)    -0.003192  -0.024797  -2.005690  -0.026393   -13.5pp
+  ⇒ the committed row reports a penalty of 0.926888 where the checkpoint as delivered gives 2.932578
+
+==============================================================================================
+M-D  AND WHETHER THE TWELVE-DRAW SWEEP ITSELF WAS READING A MOVING INSTRUMENT
+==============================================================================================
+  train() as published:
+  stat                         body       gate        pen   balancer   share%
+  forward #1 (headline)    0.071978   0.078895   0.296621   0.114884    51.8%
+  sweep mean               0.074425   0.085312   0.401598   0.122524    57.4%
+  sweep sd                 0.003009   0.004207   0.065046   0.004660     4.4%
+  sweep min                0.068343   0.079052   0.240582   0.116043    46.3%
+  sweep max                0.078522   0.091093   0.471426   0.128597    62.9%
+    forward #1's penalty 0.296621 lies INSIDE the sweep range [0.240582, 0.471426]
+
+  BatchNorm frozen:
+  stat                         body       gate        pen   balancer   share%
+  forward #1 (headline)    0.073251   0.108014   2.297562   0.144639    86.9%
+  sweep mean               0.075481   0.114150   2.861943   0.151891    88.7%
+  sweep sd                 0.001259   0.003785   0.135300   0.003918     0.4%
+  sweep min                0.073984   0.107657   2.653711   0.145221    87.8%
+  sweep max                0.077562   0.120207   3.057802   0.157316    89.4%
+    forward #1's penalty 2.297562 lies ⛔ OUTSIDE the sweep range [2.653711, 3.057802]
+
+==============================================================================================
+COST, measured
+==============================================================================================
+  wall time 3.98 s
+  peak RSS  2.90 GiB

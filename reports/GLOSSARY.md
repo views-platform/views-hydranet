@@ -228,6 +228,10 @@ that holds only for **independently parameterised** parts, and our shared trunk 
 | **crps-none** | body quality: CRPS over cells that were truly zero (lower better) | zero-CRPS, neg-CRPS |
 | **size-ratio** | **median** of (guess ÷ truth) on conflict cells; 1.0 = right-sized, <1 = too low | ratio_med |
 | **pos-mcr** | **mean** of (guess ÷ truth) on conflict cells. NOTE: mean ≠ median; a few big cells can flatter it (why we once distrusted it). Different metric from size-ratio. | MCR, MCR_pos, mcr_pos |
+| **FSS** | **Fractions Skill Score — how well the forecast puts events in the right PLACES, at a stated spatial scale.** Both fields are binarised, each is convolved with an `n × n` uniform filter to give a local *fraction*, and the score is `1 − FBS / FBS_worst` on those fractions. ⛔ Here it is always **count-matched** (`matched_pred_thresh` picks the forecast threshold that makes the forecast's event count equal the truth's) and **pooled** — FBS summed over the window's monthly fields *before* the ratio. ⇒ It is a function of **rank order alone**: measured blind to magnitude at `0.000e+00`, and it saturates after one box-smoothing pass. It is therefore **B-1b**, the placement half of the pair, and says nothing about dispersion. ⛔ `n` is quoted with every value; the headline scalar is **`FSS(n=1)`**. | fractions score, FSS score, fraction skill, fractional skill score |
+| **hit rate** | **The share of truly-active cells the forecast also marks active**, `H / E`. ⭐ **Identically equal to `FSS(n=1)`** under count-matching — derived, then measured to one ulp (`1.110e-16`) across 49 fields (`R-27`): at `n = 1` the filter is the identity and count-matching forces `sum(prd) = sum(obs) = E`, so FSS collapses to `H / E`. ⇒ The two names are **the same number**. Either may be used; ⛔ **never both in one comparison as if they were two pieces of evidence.** | POD, probability of detection, recall, detection rate |
+| **AFSS** | **The value FSS tends to at the largest scale**, Roberts & Lean Eq. (8), reached at `n = 2N − 1`. ⛔ **Under count-matching it is exactly `1.000000`**, because count-matching forces `f_M = f_o` — so **AFSS carries ZERO bias information here** and is a *control*, never a finding (`P-F3`). ⚠️ On a 24-wide window `n = 47` is unavailable, so an AFSS reported for such a window is **derived, not observed**, and must say which. | asymptotic FSS, FSS asymptote, FSS limit |
+| **no-skill bar** | **What a UNIFORM forecast scores**: `0.5 + f_o / 2` (Roberts & Lean p.83), where `f_o` is the observed event frequency over the scored domain. Measured on the body's windows, **on the scored 360×720 domain**: `f_o` **0.000880** in sample and **0.000862** out, so the bar is **0.500440** and **0.500431**. ⚠️ The published baseline first reported 0.501759 / 0.501724, from an `f_o` taken on **land cell-months only** — see the warning below. ⛔ **On this grid the bar is useless as a threshold** — a 360×720 domain drives `f_o → 0`, so the bar sits at ~0.5004 while FSS at a single cell is already 0.63. That is why `scale_min` (the smallest `n` reaching the bar) read **1** on all 49 fields, both windows and both predictors, and was **dropped** from the scoreboard (`C-376`, `W-73`). ⚠️ **`f_o` must be computed over the domain FSS actually scores**, not over a sub-population of it — an `f_o` taken on land cell-months while the score runs on the full grid is a different quantity. | uniform-forecast score, FSS floor, skill threshold, random-forecast score |
 | **positive-draw fraction** | **What share of a cell's own posterior draws are above zero.** Per cell, `n_positive / S`. ⛔ It is a property of the **posterior's shape**, not of any point summary taken from it: it is what decides whether the mode is at zero, so a point map reads 0 wherever this is ≤ 0.5 regardless of how large the cell's mean is. Recoverable without the cube from any two of (mean, conditional mean, firing rate), since `mean = (n_positive/S) × E[y|y>0]`. Measured on the 2026-09-29 delivery (S=16): **3/16** median in the cells the model itself scores ≥100 fatalities (**C-345**). | pos-draw share, non-zero draw fraction, n_pos/S |
 | **retention** | **How much of its month-1 ability the model still has later on.** The forecast runs 36 months ahead one month at a time. Month 1 gets real observed data as input; every month after that the model has to feed on its **own** previous guess, and errors compound. Retention = `AP(h) ÷ AP(h=1)`, free-running, same cube. Example: 0.3452 at month 18 against 0.4991 at month 1 = **0.69**, i.e. it kept 69% and lost 31% to its own output. 1.0 = lost nothing. ⚠️ It can exceed 1.0 without anything being wrong — more cells have conflict at later horizons (1343 events at h1, 1547 at h18), so AP can legitimately be higher later. **Absolute `AP(h18)` is the primary endpoint and retention is co-primary; the two must agree in sign**, because a ratio can move on its denominator. Interval: `scripts/ap_block_bootstrap.py --ratio`. | retention rate, skill retention, decay ratio |
 | **the ceiling** | **What the model would score at a given month if its inputs were perfect.** A diagnostic in which we cheat: instead of letting the model feed on its own guess, we hand it the **real observed field** each month, so it can never wander off. Whatever it scores then is the best that month could possibly go for this model — hence *ceiling*. It is the score of **the oracle** arm. Measured 0.5072 at month 18 on the 600-lesson reference, against 0.3452 free-running: **the 0.16 gap is self-inflicted, not caused by the horizon** — fed good inputs the model stays as sharp at month 18 as at month 1. ⛔ **The ceiling is NOT the month-1 score.** Those are two different numbers and calling AP(h=1) 'the ceiling' is drift — the month-1 score is the **T=0** score (§7). It is the ceiling *of the feedback path*: it says what perfect occurrence and magnitude would buy, nothing about what is learnable from the data. | headroom, upper bound, oracle ceiling |
@@ -346,6 +350,94 @@ written with **both heads on the same 64,818 cells from the same forward pass**,
 version of this comparison in which neither side has a selection or an estimator advantage.
 ⚠️ One vehicle (`4acbf4d3c2b457b0…`, the retrained control, **not** the delivered weights — C-317),
 n=1, `sb` only.
+
+## 5d. The spatial-structure CEILING — two fractions, and they are not interchangeable (LOCKED 2026-10-25)
+
+`2026-10-21_body_scoreboard.md` B-1 says the body *"carries 0.391 of its due spatial structure at one
+cell"*. That sentence silently needs an **achievable value**, and until 2026-10-25 nobody had measured
+one. `2026-10-25_sharpness_ceiling_prereg.md` measured it by splitting the 336 in-sample months into two
+independent halves — two noisy observations of the same latent field — and comparing them.
+
+⛔ **It produced TWO numbers, and conflating them was the finding.** Both are locked:
+
+| locked name | definition | measured | banned aliases |
+|---|---|---|---|
+| **reproducible amplitude fraction** `C(d)` | `gamma_cross(d)/gamma_B(d)` between the two half-samples. **Not** variance-normalised | **0.498** at `d=1`; 0.795 at `d=32` | "the ceiling", "reproducible fraction" unqualified |
+| **reproducible shape fraction** | the same split-half comparison under **B-1's own** estimator — the variogram ratio **divided by the ratio of the two fields' variances** (the same-shape null) | **0.983 – 1.009** across `d = 1…32` | "the ceiling" unqualified |
+
+⛔⛔ **CORRECTED 2026-10-27b, AND THE LOCKED CONCLUSION IS REVERSED.** This read:
+
+> ⭐ **Only the shape fraction bounds B-1**, because B-1 divides amplitude out. ⇒ **the ceiling the
+> 0.391 is read against is ~1.0**, and the amplitude fraction 0.498 bounds something else.
+
+**The first clause is sound and the conclusion does not follow.** B-1 does divide amplitude out, so a
+bound on B-1 must indeed be shape-like. ⛔ But the **shape fraction as measured is degenerate**: it
+compares one half of the truth against the other under B-1's formula, and two halves of one dataset
+have the same roughness *and* the same variance **by construction**. ⇒ it is ~1.0 for **any** dataset,
+white noise included. Measured: `[γ_A/γ_B] / [var_A/var_B]` reproduces the recorded 0.983–1.009 with a
+variance ratio of **1.0251 at all six lags, constant to 0.00002**.
+
+**A quantity that is ~1.0 regardless of the data cannot bound anything.** ⇒ **the ceiling B-1's 0.391
+is read against is `0.498`** — the cross term, which is how well one half **predicts** the other, and
+which is the only one of the two that a model has to beat.
+
+| | `0.391` is… | headroom |
+|---|---|---|
+| against ~1.0 (withdrawn) | 39% of achievable | ~61% |
+| **against 0.498 (locked)** | **78.5%** | **~21%** |
+
+⛔ **Both terms stay locked and both keep their definitions** — the distinction between them was a real
+finding and the conflation was a real error. What is withdrawn is *which one bounds B-1*. ⚠️ This
+sentence had released a pod arm (`2026-10-25_sharpness_ceiling_prereg.md` X-1, now retracted); see the
+amendment in `2026-10-26_structure_penalty_arm_outcome.md` for what it does to that arm's null.
+
+> ⛔ **This box exists because the two were conflated once, in the document that measured them.** The
+> prereg's §3 decision rule compared `C(1) = 0.498` (amplitude) against B-1's `0.391` (shape) and
+> concluded the arm's upside was "capped at 0.498, not 1.0". That is a category error and it errs toward
+> **falsely throttling** the arm. Corrected in that prereg as **X-1**, with the original text kept.
+>
+> ⚠️ **This is the THIRD recorded instance of the same error class in this glossary** — see §5c's *"Why
+> this box moved twice"*, item (1): *"'Same' was written from two **different estimators** and was
+> unsupported."* The rule that follows from three instances is in §5e.
+
+⛔ **Standing caveat on BOTH fractions, which no estimator removes.** A split-half comparison cancels
+noise that is **independent between the halves** (event-level sampling, month-binning). Systematic
+provider geocoding lands in the **same cell in both halves**, survives, and is counted as reproducible
+structure. ⇒ Every fraction above is an **UPPER BOUND**. A **low** value is conclusive; a **high** value
+is not.
+
+⛔ **`C_full` / "the 1/n-corrected ceiling" (0.665) is WITHDRAWN, not locked.** It applied
+Spearman–Brown, whose premise (additive noise, variance ∝ 1/n) is a statement about **counts**, to a
+`log(rate + eps)` field. The same correction gives 0.665 logged and 0.262 raw — 3.3× apart. Do not quote
+it.
+
+## 5e. ⛔ THE ESTIMATOR-NAMING RULE (LOCKED 2026-10-25, from three instances — a FOURTH added 2026-10-27)
+
+Four separate measurements in this project have been wrong in the same way: **two numbers that share a
+name were produced by different estimators and were treated as if they were one quantity.** ⛔ The fourth
+is the costliest so far, because what it corrupted was not a number but a **plan**.
+
+| # | where | what was compared |
+|---|---|---|
+| 1 | §5c item (1) | body per-cell OLS vs gate binned-logit, both called a "slope" |
+| 2 | `feedback_never_mix_two_statistics` | a median-over-cells vs a pooled mean, which invented a phantom finding (B7) |
+| 3 | §5d / X-1 | a variance-normalised variogram ratio vs a raw one, both called a "fraction of structure" |
+| 4 | `e1_sigma.py` vs views-models#625 | an **across-draw** logit sd — MC-dropout noise *inside one checkpoint* — vs a **run-to-run `σ̂`** — variance *across independently seeded trainings*. Both are called "sigma". I read the existence of the first as the existence of the second, and reported a **free local job on 26 GB of seed replicates already on this disk** as an *external blocker* gating the whole structure programme (`W-83`) |
+
+⇒ **THE RULE.** A sentence comparing two statistics must name, for **each side**: the **population**,
+the **transform**, the **estimator**, *and* **whether it is normalised and by what**. The first three
+were already required by C-351 (*"name the population with every number"*); **the fourth is new and is
+what all three instances above actually missed.** A ratio and a normalised ratio are different
+quantities even when both are dimensionless and both live in `[0, 1]`.
+
+⛔ **AND THE TWO SIGMAS ARE NOW NAMED, because instance 4 will otherwise recur:**
+
+| locked name | what it measures | banned aliases |
+|---|---|---|
+| **across-draw σ** | **Spread over MC-dropout draws of ONE checkpoint.** `e1_sigma.py`'s quantity: the sd of the gate logit over `D = 4` locked-dropout draws. ⛔ It is a property of **one trained model's own stochasticity** and bounds nothing about training. | sigma (bare), dropout sigma, logit sd |
+| **run-to-run σ̂** | **Spread over independently SEEDED trainings of one config.** What a decision rule needs, what `C-372` and the scoreboard's rule 7 are about, and what views-models#625 asks for. Computable from `silver`/`bronze`/`cobalt_kestrel` (seeds 42/43/44) — ⚠️ `n = 3`, common complete population **origins 0–5**, family `truncated_nb`. | sigma-hat (acceptable short form), seed sigma, sigma (bare — ⛔ NEVER, this is instance 4) |
+
+⇒ **"Sigma" bare is banned.** Say which one, every time.
 
 ## 6. The models we've actually run (described by their choices — codenames RETIRED)
 I will describe models by their §2/§3 choices, not by codenames. The codenames below are retired; they map to:

@@ -1,0 +1,32 @@
+==================================================================================================
+B-1b COMPOSITION CHECK — E[gate x mu] against E[gate] x E[mu]
+==================================================================================================
+  vehicle sha 4acbf4d3c2b457b0…  family nb  draws 4  months 49  land cells 64,818
+
+  THE FIELDS DIFFER, and by how much — per land cell-month, over all 49 months:
+    Cov(gate, mag) > 0 in 51.86% of cells, < 0 in 48.14%
+    mean Cov +9.412828e-05   |Cov| max 4.750126e-01
+    corrected/published − 1: mean +1.9590%  median +0.4923%  max +233.76%  min -87.20%
+    total emitted mass: published 69,093.2  corrected 69,392.1  (+0.4327%)
+
+  IN SAMPLE  (months 421–456, 36 fields)
+    n        body alone gated PUBLISHED gated CORRECTED            Δ
+    1          0.626706       0.666301       0.665570    -0.000731
+    3          0.820129       0.849951       0.849678    -0.000272
+    9          0.881947       0.909152       0.909301    +0.000149
+    33         0.927692       0.947525       0.947651    +0.000126
+    81         0.959998       0.972968       0.972931    -0.000037
+
+  OUT OF SAMPLE  (months 457–469, 13 fields)
+    n        body alone gated PUBLISHED gated CORRECTED            Δ
+    1          0.588296       0.646816       0.648537    +0.001721
+    3          0.798336       0.847832       0.848317    +0.000486
+    9          0.866149       0.913522       0.913546    +0.000024
+    33         0.918551       0.952372       0.952439    +0.000066
+    81         0.954195       0.975530       0.975459    -0.000071
+
+  ⛔ VOID GATE: the body-alone column must be untouched by this correction — `MU_PM` is
+     identical in both compositions. Published baseline: 0.6267 in sample, 0.5883 out.
+  ⛔ And the published GATED headline to reproduce: 0.6663 in sample, 0.6468 out.
+
+  wall time 9.8 s

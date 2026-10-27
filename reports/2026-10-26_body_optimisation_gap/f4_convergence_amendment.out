@@ -1,0 +1,11 @@
+AMENDMENT 1 — does the sampled estimate CONVERGE to the closed form like 1/sqrt(K)?
+  identity under test:  E|X_i - X_j|^2 = (m_i - m_j)^2 + v_i + v_j
+         K    rel err      ratio to previous
+       256    6.8169%                       
+      1024    3.4222%   1.99x  (2.00 expected)
+      4096    1.7089%   2.00x  (2.00 expected)
+     16384    0.8525%   2.00x  (2.00 expected)
+     65536    0.4296%   1.98x  (2.00 expected)
+
+  A ratio of 2.00 per 4x in K is 1/sqrt(K) exactly. A PLATEAU would mean the closed
+  form is wrong and every VS-p number in the battery is VOID.

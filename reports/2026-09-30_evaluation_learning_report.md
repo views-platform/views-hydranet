@@ -13,7 +13,7 @@
 > standing in for a measurement we hold is the same error class as
 > `2026-10-20_d3_static_channel_ceiling.md`'s three self-inflicted ones.
 
-**Date:** 2026-09-30 · **Last revised 2026-10-20** · **Status:** ⛔ **LIVING DOCUMENT — expected to carry open rows; not a verdict and not finished.** Consolidation only: **no new measurement by this document** (§0.2 and §5.0 carry tables measured 2026-09-30 by the `models` session, attributed there) ·
+**Date:** 2026-09-30 · **Last revised 2026-10-27** · **Status:** ⛔ **LIVING DOCUMENT — expected to carry open rows; not a verdict and not finished.** Consolidation only: **no new measurement by this document** (§0.2 and §5.0 carry tables measured 2026-09-30 by the `models` session, attributed there) ·
 **Supersedes as the living document:** `reports/2026-08-13_evaluation_pitfalls_and_metric_battery_DRAFT.md`
 (retained as dated provenance; its taxonomy letters A1–I4 are preserved here unrenumbered).
 
@@ -110,6 +110,18 @@ stale, miscounted, badly cited or incomplete. The cheapest high-value items:
   can do. ⛔ Nothing in §0–§8 was edited to agree with the literature; each collision is stated as two
   positions and left standing.
 - **2026-10-19/20** — fifteen falsification audits. `Appendix F`.
+- **2026-10-25** — `/falsify` on the sharpness-ceiling measurement: **3 hard + 1 soft**, two of them
+  retractions of numbers this project had held for about an hour. ⭐ The first audit in this history
+  whose findings are mostly **about the report's own subject matter rather than its prose** — see
+  **§5.5 L1–L3** (the ceiling of a normalised statistic is not the ceiling of its unnormalised cousin)
+  and **§5.10 L4–L6**. Two retractions added to `Appendix B`; one new instrument to `Appendix A.1`; a
+  fourth row to `Appendix A.3`. ⛔ Nothing was deleted.
+- **2026-10-26** — the structure-penalty arm returned **negative**, and produced the first case in
+  this record of **two instruments for one quantity disagreeing by sign** (§7 **S18**). Three new §8
+  rows — **16, 17, 18** — all earned the same day, which is the largest single-day addition to that
+  table. ⚠️ **No new measurement by this document:** every figure is cited from
+  `reports/2026-10-26_structure_penalty_arm_outcome.md` §4 and §4c, whose matched-window numbers are
+  re-derived by `reports/2026-10-26_matched_window/matched_forensic_window.py`.
 
 ⚠️ **Nine of the ~70 distinct findings were introduced by me on 2026-10-19, the day before the audit.** The
 auditors found all nine; I would not have. They are itemised in `Appendix F.2`.
@@ -705,6 +717,119 @@ score near-perfect or the instrument is broken (it caught a numerical bug on 202
 verdict was banked), and the discovery that a cited premise **did not exist**: C-190 had been cited as
 measuring the model as a strong low-pass filter, and *"the producing code does not exist in the repo or
 its history."*
+
+#### ⭐⭐ 2026-10-26 — the practice run as a BATTERY, and it retired the programme's primary readout
+
+§2.13 as written validates **one instrument at a time, against the transform its author imagined**.
+Run against **five** controlled transforms at once — amplify, shuffle-within-block, smooth, displace,
+inflate predictive variance — it does something stronger: it exposes what an instrument is **blind**
+to, which is not visible from its definition and was not visible from this section's own table.
+
+**Three instruments went in. Each failed at least one transform, and the failures were not where their
+authors looked.**
+
+| instrument | its cheap-satisfaction route | how it was found |
+|---|---|---|
+| `_structure_penalty` (the **shipped loss term**) | **amplification** — unbounded gain from scaling the field, which costs the arrangement nothing | measured, after the arm had already run |
+| **B-1** (the scoreboard's structure readout, and its **primary** one until 2026-10-27 — now the **dispersion half, B-1a**) | ⛔ **exactly blind to displacement** — `0.000e+00` under translation, and it reports *better* structure as the forecast is slid away from truth while rank correlation with truth falls **41%** | the battery |
+| **VS-p** (the proposed replacement) | **variance inflation** — a two-sided score has an interior minimum, so widening the predictive distribution improves it with the arrangement untouched | ⭐ **derived from the algebra before a line was written** |
+
+⛔ **Only the one caught in advance was caught by running a battery first.** That is the sentence this
+section was missing.
+
+**What it cost to learn each way.** `_structure_penalty`'s loophole cost a pod arm. B-1's cost a
+morning of CPU. VS-p's cost nothing — it was found by auditing a plan. ⇒ **the battery is the cheapest
+of the three positions to be in, and the only one that is cheap before the money is spent.**
+
+#### ⛔ The error class, which the repo had already written down and then committed anyway
+
+`scripts/field_sharpness.py:27-37` carries a calibration table measured on synthetic fields. Read with
+2026-10-26's result in hand, it already said so:
+
+> The blur detectors are the **INTRINSIC** statistics — computed on the prediction alone, with no
+> reference to truth, so **a wrong-place forecast cannot move them**.
+
+`moran_i` perfect **0.636** / displaced-3 **0.636**; `conc1pct` **0.0277** / **0.0277** — identical to
+four decimals. **B-1 is the same kind of statistic, used as an agreement statistic.** ⇒ **the class is
+INTRINSIC-USED-AS-AGREEMENT**, and the repo named it in a docstring while the scoreboard committed the
+error two months later. ⚠️ `moran_i` is not thereby wrong: unmoved-by-displacement is a usable
+*signature* **when read beside something that does move**. On its own it cannot tell a perfect forecast
+from one displaced three cells — and on its own is how B-1 was being read.
+
+#### ⭐ What replaced it, and the one thing that made the replacement trustworthy
+
+**FSS**, with the skill threshold from **Roberts & Lean (2008**, MWR 136:78–97,
+`10.1175/2007MWR2123.1`, p. 82–83): `FSS_uniform = 0.5 + f_o/2`, and as `f_o → 0` the neighbourhood at
+which a forecast crosses it is **twice the displacement error**. Our `f_o = 0.003448` sits in that
+limit, so the bar is **0.500431** on the scored 360×720 domain.
+
+⭐ **The paper supplied a prediction with a known answer, taken BEFORE measuring**, and our own
+production code reproduced it exactly — `scale_min = 2D` for `D = 1, 2, 3, 5, 8, 11`. That is this
+section's practice with the synthetic field replaced by **a published derivation**, which is stronger:
+the answer was not one we chose.
+
+⛔ **AND THE NEXT DAY THAT EXACT REPRODUCTION TURNED OUT TO HAVE EARNED THE WRONG CONFIDENCE —
+2026-10-27.** On the strength of it, `scale_min` was committed as one of the scoreboard's placement
+slots. Measured on the actual population — all 64,818 land cells, 49 monthly fields — **it is pinned
+at 1 in every single field**, for both predictors, in both windows. It has no dynamic range at all.
+
+⚠️ **The mechanism is a sentence from the same two pages, quoted in our own script and then not
+applied:** *"if the domain is large, `f_o → 0` and `FSS_uniform → 0.5`"*. A 360×720 domain at
+`f_o = 0.00088` on the scored domain puts the bar at **0.5004**, while our FSS at a **single cell** is **0.6267** — so the
+bar never binds. The ideal 128×128 bands have an `f_o` an order of magnitude larger and a forecast
+that starts *below* the bar, which is the only regime where the statistic can travel.
+
+⇒ ⭐ **THE LESSON, and it refines rather than contradicts the paragraph above: a validation on a
+synthetic field — or against a published derivation — checks that the IMPLEMENTATION is right. It
+says nothing about whether the statistic will DISCRIMINATE on the real population.** Those are two
+different claims, and the exactness of the first one is precisely what made the second feel settled.
+`W-73`, registered as **C-376**, and the fifth instance of C-320's "a readout that cannot deliver a
+verdict" — the first of the five produced by a check that *passed*.
+
+⇒ **What replaced it is the shape of the remedy:** `FSS(n=1)`, which has **no free parameter**, and
+which equals the hit rate `H/E` exactly — derived first, then measured to one ulp over 49 fields
+(`R-27`). ⚠️ The gate I wrote to test that identity was itself mis-specified (exact zero against two
+different arithmetic routes, `W-74`): **the claim held and the test of it did not**, which is the
+fifth instance of the *other* standing class, a threshold written without the resolution of the
+quantity it gates.
+
+⚠️ **And FSS then failed a transform too.** It **saturates on blur** — the second box-smoothing pass
+scores *better* than the first (`0.3571 → 0.3776`) — because count-matched FSS is a function of the
+forecast's **rank order alone**, proven to `0.000e+00`. That same property makes it immune to the
+amplification route that killed `_structure_penalty`, and makes it **totally magnitude-blind**: a
+diagnostic, never a training target. ⇒ ⛔ **B-1 and FSS are a PAIR. Dispersion and placement. Neither
+substitutes for the other, and no instrument in either battery can see predictive variance at all.**
+
+✅ **AND THAT PAIR IS NOW THE RULER, NOT A FINDING ABOUT IT — 2026-10-27.** The scoreboard was
+amended and **B-1 split in place**: `B-1a` is the dispersion half (the variogram ratio, numbers
+unchanged) and `B-1b` is the placement half (count-matched FSS). ⭐ **Splitting rather than appending
+FSS as a fourth number was deliberate, and the reason is a reading failure rather than a measurement
+one:** a separate entry can be quoted, or not quoted, independently — and the sentence that got us
+here was *"B-1 is the primary readout for any arm aimed at spatial structure"*, which a reader would
+have gone on believing while a `B-4` sat further down the page. **A pair cannot be half-quoted.**
+
+⚠️ **NAMING, so the rest of this document reads correctly.** Everywhere *below* this section — §4's
+sharpness-ceiling thread, the `0.391`, the `0.983–1.009` split-half reliability, the withdrawn
+ceiling claim — **"B-1" means the variogram ratio, which is now `B-1a`.** Those passages are not
+restated here; one note is safer than eight renames.
+
+⛔ **What the split still does not have: σ̂.** Neither half carries a noise floor, so neither carries
+a decision rule, and the scoreboard now says so in its own reading rule 7. Blocked on
+views-models#625. ⇒ **the pair is defined and baselined and no arm can yet be scored on it** — which
+is the same C-372 wall every other endpoint in this programme sits behind, and worth stating plainly
+rather than leaving as an implication of a good result.
+
+**Two of the battery's own pre-registered calls were wrong and are logged rather than adjusted** —
+W-70 (predicted monotone blur response; it is not monotone) and W-71 (pre-registered that
+over-smoothness would have *no* diagnostic, contradicted by a comparator column already in the same
+script). ⚠️ **The second is the instructive one:** "retired" was applied to an instrument when it
+should have been applied to one of its roles. Same class as the note in project memory that
+*"superseded" retires a CONCLUSION — never a tool, an instrument, or a falsifier.*
+
+**Sources:** `2026-10-26_instrument_battery_prereg.md` · `2026-10-26_fss_battery_prereg.md` ·
+`2026-10-26_fss_battery_outcome.md` · `2026-10-26_scoreboard_update_plan.md` (applied 2026-10-27) ·
+`2026-10-21_body_scoreboard.md` Amendment 1 · `2026-10-26_body_optimisation_gap/b1b_*.{py,out}` ·
+C-366, C-370, C-373, C-374, **C-376** · W-70, W-71, **W-73**, **W-74**, **R-27**.
 
 ---
 
@@ -1361,6 +1486,78 @@ Consequences on record: C-338 (an implausible truth outlier, filed upstream, unc
 and **#282** — a baseline defect that **scales as 1/n_origins**, so a single-origin study scores
 persistence as **exactly zero, silently**.
 
+> ⭐⭐ **FIRST PARTIAL CLOSURE, 2026-10-25 — and the closure itself produced the deeper lesson.**
+> `reports/2026-10-25_sharpness_ceiling_prereg.md` is the first instrument in this project pointed at
+> the **target** rather than the model. It is free (laptop, **78 s**, $0) and it generalises to any
+> normalised skill statistic. What follows is the transferable part; the measurement's own numbers are
+> in that prereg and in `GLOSSARY.md §5d`.
+
+#### ⭐⭐ L1 — a normalised score silently asserts that its own ceiling is 1.0, and on a noisy target that is an assumption, not a fact
+
+`2026-10-21_body_scoreboard.md` B-1 reports *"the body carries **0.391** of its due spatial structure at
+one cell"*. A ratio against truth reads as *"39% of the way to perfect"* — but **only if perfect is
+attainable**. On a 99.7%-zero count field assembled from event reports, a large share of the truth
+field's own spatial variation may be sampling noise that **no model could or should reproduce**. Nobody
+had checked. Three days of experiment design rested on it.
+
+**The method, and it is cheap and general.** Split the in-sample months into two independent halves —
+two noisy observations of the same latent field `f`. Then `gamma_A = gamma_f + nug_A`,
+`gamma_B = gamma_f + nug_B`, and the **cross**-variogram `gamma_cross = gamma_f`, because the two
+nuggets are independent and mean-zero. So `gamma_cross/gamma_B` is the reproducible fraction, **with no
+fitted parameter**. ⇒ Any ratio-to-truth metric can be given a measured ceiling this way, for the price
+of computing it twice.
+
+#### ⛔⛔ L2 — THE DEEPER LESSON: the ceiling must be measured with the SAME estimator it will be compared against
+
+This is the finding, and it cost a wrong conclusion that was published for about an hour before
+`/falsify` caught it.
+
+The first measurement returned `C(1) = 0.498` and the prereg's own decision rule concluded *"the arm's
+upside is capped at 0.498, not 1.0"* — i.e. **0.391 is already most of the way to the ceiling, don't run
+the experiment.** That was wrong, and wrong in the direction that kills work.
+
+| | estimator | what it measures |
+|---|---|---|
+| **B-1**, which produced `0.391` | `gamma_model/gamma_truth` **divided by the ratio of the two fields' variances** (the same-shape null) | **shape** |
+| the ceiling as first measured, `0.498` | `gamma_cross/gamma_B`, **not** variance-normalised | **amplitude** |
+
+Re-measured with **B-1's own** estimator on the two halves: **0.983 – 1.009 across `d = 1…32`**, within
+1.7% of 1.0. ⇒ **The true ceiling for `0.391` is ~1.0.** The variance normalisation cancels exactly the
+noise the first number measured: two noisy halves of the truth have the **same variogram shape** even
+though each is individually noisy in **amplitude**.
+
+⇒ **The generalisable rule.** *A normalising step in a metric changes what its ceiling is.* The ceiling
+of a normalised statistic is **not** the ceiling of its unnormalised cousin, even when both are
+dimensionless and both live in `[0, 1]`. ⛔ So "measure the ceiling" is not enough — **measure the
+ceiling by running your actual metric on two independent halves of the truth.** Substitute half-A for
+the model and half-B for the truth, change nothing else. Anything else answers a different question.
+
+⚠️ **Both numbers are real; they bound different things.** `0.498` says slightly under half the
+**amplitude** of the truth's one-cell variogram is signal rather than month-sampling noise — a genuine
+fact about the data, and one that matters for any metric that is *not* variance-normalised. It simply
+does not bound B-1. Locked as two distinct terms in `GLOSSARY.md §5d` for exactly this reason.
+
+#### ⭐ L3 — a reliability correction is scale-specific; do not carry a 1/n noise argument across a nonlinear transform
+
+The prereg also converted the half-sample number to a full-sample one with Spearman–Brown
+(`C_full = 2C/(1+C)`). The algebra is right. ⛔ **The premise is not transferable.** "Additive noise with
+variance ∝ 1/n" is a statement about **counts**; it was applied to a `log(rate + 1e-6)` field, where a
+cell that is zero in both halves is pinned at `log(eps) = -13.8` regardless of `n` — error variance ~0,
+not ∝ 1/n.
+
+Its own pre-registered sweep refuted it: the correction gives **0.665** on the logged field and **0.262**
+on raw counts, **3.3× apart**. Both cannot describe one noise process. ⇒ Withdrawn. **A split-half
+reliability needs no scaling argument and should be reported at the `n` it was measured at.** The
+correction was the only part of the measurement that tried to extrapolate, and it was the only part that
+broke.
+
+⛔ **What none of this removes.** A split-half comparison cancels noise **independent between the
+halves** (event sampling, month-binning). **Systematic provider geocoding lands in the same cell in both
+halves, survives, and is counted as reproducible structure.** ⇒ Every ceiling above, the ~1.0 included,
+is an **UPPER BOUND**. A **low** ceiling is conclusive; a **high** one is not. This is the §5.5 blind
+spot reappearing one level down: we have now audited whether the target's *noise* is reproducible, and
+still not whether the target is *right*.
+
 ### 5.6 ⚠️ Two bootstrap CIs in the apparatus are not reproducible
 
 `mcr_readout` and `proper_score_audit` derive their RNG salt from `hash(str)`, which Python randomises
@@ -1402,6 +1599,95 @@ checked by CI.
 determinism gate. `ReproducibilityGate.audit_manifest`: *"has no production caller — the genome audit
 C-43 shipped never runs"* (C-271). `screen_verdict`: nothing has invoked it since its own dossier, and
 its thresholds are frozen to a 300-lesson floor, so it is meaningless on any other vehicle.
+
+---
+
+### 5.10 ⚠️ Five lessons from 2026-10-25 that are not about the ceiling (added 2026-10-25)
+
+#### ⛔ L4 — a VOID condition drafted globally over a deliberate sweep voids your own measurement
+
+The ceiling prereg pre-registered a **sweep** over a free parameter (the log offset `eps`, plus a raw
+untransformed slot) *and* predicted, as **Q-4**, that the raw slot would diverge from the logged one by
+more than 0.10. It then wrote a void rule reading *"**any** `C(d) < 0` or `> 1`"*.
+
+Both fired — on the raw and contiguous slots, exactly the ones Q-4 said would misbehave. The primary
+slot was clean and strictly monotone. ⛔ **And the driver printed `VOID` and then printed its decision
+verdict anyway**, resolving the contradiction silently in favour of reporting.
+
+⇒ **The rule.** When a design includes a sweep over values chosen to probe degeneracy, **scope the void
+conditions to the primary slot.** A swept diagnostic slot going degenerate is a *finding*; only the
+primary slot going degenerate is a *void*. ⚠️ Related to §5.3 and to Appendix A's recurring theme — this
+is a gate that **could** fire, fired correctly, and still meant nothing, which is a third failure mode
+alongside "cannot fire" and "never run".
+
+#### ⚠️ L5 — evaluation outputs can fail to leave the machine that produced them
+
+On the 2026-10-25 control run, **three of five delivery directories did not exist** until an audit went
+looking. The pod runner collects `$OUT` only, and both it and `tools/collapse` ship `lr_*` alone — so the
+**entire gate side (`by_*`)**, the gate posterior (6.55 GB raw) and the `by_*` metricframes **reached
+neither the parquets nor the draws archive**. They existed on the pod and nowhere else, and would have
+died with it.
+
+⇒ Most of this project's open evaluation questions are about the **gate**. A gate-calibration
+measurement that discovers after terminate that `by_*` never came home is a wasted pod. ⛔ **Collection
+of the artifact a measurement needs is part of the measurement's pre-registration, not an infrastructure
+detail.** Reported by the `models` session's own independent `/falsify`.
+
+#### ⚪ L6 — "unmeasured" must be representable distinctly from "measured zero"
+
+The control run's `trajectory.csv` carries `fed_grad_max` **blank in all 300 rows**. That is correct and
+deliberate. The column measures gradient through the autoregressive feedback wire, which is only ever fed
+when `ss_backprop_through_feedback` is True — default False, set by no roster config. The column
+**used** to initialise to `0.0`, which made *"the wire is off"* and *"the wire is on and the gradient
+died"* **the same three characters** in a delivered CSV. Blank → `read_csv` NaN → "not measured", which
+is the truth. Pinned by `tests/test_trajectory_log_end_to_end.py::test_fed_grad_max_is_BLANK_not_zero_when_the_feedback_wire_is_off`.
+
+⇒ This is the same defect class the repo already records as *"an unmeasured input absorbed as a value —
+fix by DELETING the representation, never by adding a guard"*, applied to an **output**. ⚠️ And a second
+observation worth keeping: **two independent audits ran on 2026-10-25 and each flagged the other's
+working guard as a defect** — this blank column, and a loud `aggregate_method is IGNORED` warning that
+turns out to be a documented mode interaction with its own test. The usual failure here is guards that
+cannot fire; this was the inverse, and it is cheaper to resolve but it costs attention. **A guard whose
+visible signature is an absence will be read as a gap by anyone who did not write it**, so it needs to
+say so at the site.
+
+#### ⛔ L7 — a derived constant must carry its vehicle in the same sentence as its value
+
+The structure arm's one derived constant, `struct_penalty_weight = 8.89624`, was committed into a
+prereg under a ⭐, with the explicit rationale that deriving it **removes a free parameter rather than
+multiplying the arm by a sweep**. It was wrong by **21×**, three independent ways at once: it was
+measured on the **wrong family** (the `truncated_nb` vehicle, not the `nb` one the arm runs on), it
+pinned **v1** of a script whose **v2 had already superseded it on disk**, and it was gradient-matched
+against **one** of the **three** targets the loss sums over.
+
+⇒ **The rule, and it is narrow on purpose.** A number *derived* from an artifact is a claim about that
+artifact, so it must be written with its **checkpoint sha** and the **script version that produced it**
+in the same sentence as its value. ⚠️ Note what did *not* protect it: the derivation was scripted,
+committed, reproducible, cost-reported, carried an honest C-325 caveat about being measured at
+initialisation, and **ran correctly every time**. Every error was in *what it was pointed at*, which no
+amount of rigour inside the script can see. ⛔ **Deriving a constant removes the free parameter and
+replaces it with a provenance obligation** — that is the trade, and only half of it was being paid.
+
+⭐ **And the direction is the expensive one.** A 21×-too-large weight would have trained a $3 arm at a
+term strength nothing had derived, and the resulting null would have read as evidence against *a
+spatial penalty* rather than against *my arithmetic*. Compare `W-59`, where the error pointed at
+**cancelling** a justified experiment. Both directions are live; this one burns money and then
+mislabels the ashes.
+
+#### ⚠️ L8 — two committed documents can contradict each other, and no gate in either one looks
+
+The second of L7's three errors is the structural one. `2026-10-12_underfire_diagnosis_prereg.md`
+recorded `8.89624` as **VOID** with its replacement, on **2026-10-21**. `2026-10-21_structure_penalty_arm_prereg.md`
+§3b went on quoting `8.89624` as the pinned value. **Both were committed, both were in the repository,
+and they disagreed for four days.**
+
+⇒ Every pre-flight gate this project has asserts that **the config matches the prereg**. None asserts
+that **the prereg matches the last derivation that ran**, and none asserts that **two preregs agree
+about a number they both name**. ⚠️ This is a different shape from §5.9's "gates that exist and nobody
+runs": the gates ran, passed, and were **scoped to one document**. ⛔ The cheap version of the fix is
+not a new gate but a convention — **a derived constant gets exactly one home, and every other mention
+is a link to it**, because a value duplicated across two documents will diverge and a grep is the only
+thing that will ever notice.
 
 ---
 
@@ -1458,6 +1744,7 @@ they have never been listed together. Ordered by how much they should change how
 | S15 | Identical models have identical files | **M22 — two byte-identical models have different `.pt` shas.** torch stamps mtimes into the zip. | minor, but it invalidated an identity check we were relying on. Hash the weight tensors. |
 | S16 | The test suite protects the measurement code | **2,079 green tests, 25 runtime-verified findings, 0 caught.** Then 5 of my own new guards survived their first mutation; a later audit found **17 of 33** mutations survived. | ⛔ Coverage is not sensitivity. The only reliable check is to **delete the fix and watch the test stay green**. |
 | S17 | Packaging is a plausible source of drift | **M76 — the PyPI wheel reproduces the checkout byte-identically**, 190 tensors × 4 models, BN buffers included. A *positive* surprise. | minor — worth recording because it removes a whole class of suspicion, cheaply. |
+| ⭐ S18 | A pre-registered diagnostic and the loss term that targets it are two readings of one quantity, so either can stand in for the other | **M85–M88 — they moved in OPPOSITE directions on the same two checkpoints.** `_structure_penalty` **1.7223 → 0.3540** (4.87× better); the **B-1** diagnostic `γ_model(d)/γ_truth(d)` at d=1 **0.400 → 0.090** (4.44× worse), and worse at *every* scale. Both were built to answer *"does this model carry its due spatial structure?"* The term's own docstring says why: it is a **one-sided difference of logs**, so a dispersion shortfall is charged at every intensity and **excess dispersion costs nothing**. On a matched biopsy window with byte-identical truth, the body's **mean rose 18.7×** while its **max rose 1.53×** and its **p75 rose 82×** — it raised the floor, not the peaks. | ⛔ **A loss term's own value is not a diagnostic of the thing the term is named after.** It measures the pressure applied, not the result obtained. The pre-registered success criterion **P-1 PASSED** (79.4% of the gap closed) on a run that lost **11 of 12** held-out scores. ⇒ §8 rows **16–18**; register **C-366 (Tier 1)**. ⚠️ This also means **S4 and S5 are not the whole story**: S5 said internal statistics cannot judge placement, which is true — S18 adds that a *truth-referenced* statistic can also fail, if it is referenced to the wrong feature of the truth. |
 
 ---
 
@@ -1467,10 +1754,11 @@ they have never been listed together. Ordered by how much they should change how
 bit us here, with the cost. Nothing is included because it is good practice elsewhere.
 
 ⚠️ **And read this as a menu with costs, not as a gate.** §8.1 argues against frameworks and this is a
-fifteen-row table, which is a fair thing to point at. The resolution: **nothing here is proposed as a
+eighteen-row table (⛔ **fifteen until 2026-10-26**; rows 16–18 were all earned in one day), which is a fair thing to point at. The resolution: **nothing here is proposed as a
 mandatory checklist.** **Rows ★1, ★3, ★4 and ★6 are the four** that would have prevented the most
-expensive failures on record and are cheap; the other eleven are priced so that whoever owns the protocol
-can choose. A list of fifteen enforced gates would be the 303 → 1,167-line validator ⛔ **[CORRECTED 2026-10-20:
+expensive failures on record and are cheap; the other fourteen are priced so that whoever owns the protocol
+can choose. ⚠️ **Row 16 is a candidate fifth ★ and is deliberately not promoted** — see its cost column.
+A list of eighteen enforced gates would be the 303 → 1,167-line validator ⛔ **[CORRECTED 2026-10-20:
 NOT in this repo's register. `grep` finds the figure nowhere in `reports/technical_risk_register.md`,
 `docs/` or `CLAUDE.md` — it appears only in this report. Its actual home is the author's global
 `~/.claude/rules/design-preferences.md`, which attributes it to "one repo here" and not to this
@@ -1479,8 +1767,8 @@ one is not.]** this repo already
 warns about.
 
 ⚠️ The `views-evaluation` session asked whether the table would be stronger as **those four, with the
-eleven in an appendix.** It would be, for a reader choosing what to adopt; it would be weaker as a record
-of what bit us, which is what the scar rule is for. **Compromise: the four carry a ★. The eleven stay in
+rest in an appendix.** It would be, for a reader choosing what to adopt; it would be weaker as a record
+of what bit us, which is what the scar rule is for. **Compromise: the four carry a ★. The others stay in
 place and keep their scars.** If this ever becomes a proposal rather than a record, cut it to the four.
 
 Whoever owns the promotion protocol can compare this against it. I make no claim about what the
@@ -1488,7 +1776,7 @@ protocol currently says.
 
 ⚠️ **§8.3 is a PROPOSAL and deliberately breaks this section's scar rule** — a diagnostic suite matched
 to the factorization of the data-generating process, from Simon's notes of 2026-10-19, kept separate from
-the fifteen rows so it cannot be mistaken for the record. It is the only forward-looking part of §8.
+the eighteen rows so it cannot be mistaken for the record. It is the only forward-looking part of §8.
 
 | # | Requirement | The scar that earns it | Cost to adopt |
 |---|---|---|---|
@@ -1520,6 +1808,9 @@ version.]** | The roll: three field statistics unchanged, **AP 48× worse**, and
 | ⚠️ 13 | **Audit the reference, not only the model.** An outlier scan on the truth field at build time. | The register on itself: *"extensive coverage of whether we measure the model correctly, and **none** of whether the thing we measure against is correct."* One truth cell reads 27,413 → 2 → 32,505 where the global maximum elsewhere is 1,100. | A single query at build time. |
 | ⚠️ 14 | **Pairing by default**, and record `torch_seed`, `S` and the vehicle alongside every score. | MDE **0.0541 → 0.0086** from pairing alone on identical data; the noise the programme designed against was **~5× too large**. And because the sample cube's randomness carries **no model identity**, a paired reading and an independent one are indistinguishable in the CSV. | Free. |
 | minor 15 | **Hash weight tensors, never `.pt` files.** | Two byte-identical models have different `.pt` shas — torch stamps mtimes. The invalid check *"would have shown 'still non-deterministic' even after a correct fix."* | Already implemented in `compare_run_determinism`. |
+| ⛔ 16 | **No quantity that appears in the training objective may serve as a promotion criterion.** Report it; never gate on it. | 2026-10-26: **P-1, the arm's pre-registered headline prediction, WAS the penalty term's own value.** It passed at 79.4% of the gap closed while the arm lost **11 of 12** held-out scores and the spatial diagnostic the term was built to serve moved the **opposite way** (§7 S18). ⛔ Goodhart's law with a pre-registration attached — which is worse than Goodhart without one, because the pre-registration is what we point at to say the result was not fished for. | One line in a pre-registration. ⚠️ A candidate ★; not promoted here, because the ★ set is a four-row editorial choice that predates this scar and renumbering it is the protocol owner's call. |
+| ⛔ 17 | **Label every pre-registered prediction with the property it is sensitive to — level, spread, placement, rank — and require at least one prediction from a class the intervention does not act on.** | 2026-10-26: **2 of 5 predictions passed, and both passes were the only two quantities sensitive to the SPREAD of predictions rather than to their placement** — while the intervention's sole mechanism is spread. The headline statistic, the calibration slope `b`, improved **0.4996 → 0.8066** and cleared its ≥0.55 bar; the correlation `r` **on the same fit fell** (+0.6833 → +0.6090) and had not been pre-registered beside it. Register **C-369**. | One column in the prediction table. |
+| ⚠️ 18 | **Carry a FLOOR statistic of the predicted field — median and p75 — not only tail statistics. And report correlation-type diagnostics under BOTH Pearson and Spearman.** | 2026-10-26, matched window, 18,432 cell-month-targets: the body's **max rose 1.53×** while its **p75 rose 82×** and a quarter of the field sat above ≈17 counts on a window **>99% zero**. A tail-weighted battery (AP, QS99, max, tail_miss) is close to blind to an intervention that floods the empty 99%. Separately, `body vs gate` **fell 3.5× on Pearson and ROSE on Spearman**; ⭐ the split is itself the finding — **ranks preserved, magnitudes destroyed** — and resolving it to one number would have deleted it. | Two percentiles and one extra correlation. Free. ⚠️ §8.1 warns against adding metrics; these are **percentiles of a field already computed**, not new instruments. |
 
 ### 8.1 Three things this list deliberately does not ask for
 
@@ -1798,6 +2089,7 @@ evaluation artifact written in-package is the body-mean dump.
 | `.../2026-09-03_drivers_and_dynamics_dossier/tools/subset_ap.py` | AP on an onset universe vs a continuation universe | partition, not subset | the **only** instrument that separates onset from continuation |
 | `.../2026-09-02_silence_vs_fade_dossier/tools/decompose.py` | the exact identity `mean(g·μ) = mean(g) × [Σgμ/Σg]` | all cells, nothing conditioned | the fix for C-318 (a conditional mean on a vanishing denominator, twice) |
 | `reports/2026-10-10_delivery_frame_measurements/delivery_frame_audit.py` | integrity, frame ordering (`II,III ≥ I`), collapse mass-ratios, per-step mass **and** step-to-step L1 churn, member distinctness on the union support | a **delivered handover folder**; no truth, so no AP/CRPS/calibration | ⚠️ **NEW 2026-10-10, ungated lab code, no tests.** The only instrument that reads the *delivered* product rather than a sample cube — a partial answer to §5.0(a). Its (e) section exists because the first version of that measurement was wrong: whole-field agreement on a 99%-zero field measures shared zeros (Appendix C) |
+| `reports/2026-10-25_sharpness_ceiling/ceiling.py` | **split-half variogram reliability** of the TRUTH: `gamma_A`, `gamma_B` and `gamma_cross` in one pass, over 2 split schemes × 3 transforms × 3 targets × {E–W, isotropic} | the 64,818-cell land grid, months 121–456; **no model artifact is read** | ⭐ **NEW 2026-10-25.** The **first instrument in the apparatus pointed at the target rather than the model** (§5.5). Free: 78.0 s, 4.76 GiB, $0, no GPU. ⛔ Reports an **amplitude** fraction (0.498 at `d=1`); the **shape** fraction that actually bounds B-1 (~1.0) needs the variance normalisation added — see §5.5 L2, and do not quote one for the other. ⛔ Its `c_full()` half→full correction is **WITHDRAWN** (§5.5 L3). Committed before it ran; no tests
 
 ### A.2 Superseded or dead
 
@@ -1830,6 +2122,17 @@ with **no join guard**, so an unmatched cell is silently dropped from the positi
 positive subset), `mcr_none` (**absolute mass, not a ratio**), and `mcr` in `sharpness_scorecard`. The
 locked glossary defines `pos-mcr` and `size-ratio` and warns they differ — but has **no row for
 `mcr_all` or `mcr_none`, the two columns the headline scorer actually emits.**
+
+⛔ **"fraction of its due spatial structure" names two things — added 2026-10-25, and it cost a wrong
+verdict.** `0.391` (B-1) is a variogram ratio **divided by the ratio of the two fields' variances**;
+`0.498` (the split-half ceiling, as first measured) is a variogram ratio **with no such normalisation**.
+Both are dimensionless, both live in `[0, 1]`, and they were compared directly to conclude the
+structure-penalty arm had almost no headroom. Re-measuring the ceiling **with B-1's own estimator** gives
+**~1.0**, so the arm's headroom was real all along. ⇒ **A normalising step changes what a statistic's
+ceiling is.** Now locked as two separate terms, `GLOSSARY.md §5d`, with the general rule in **§5e**:
+a comparison must name, per side, the population, the transform, the estimator **and whether it is
+normalised and by what**. ⚠️ The fourth row of this appendix, and the **third** time this project has
+compared two same-named statistics built by different estimators (see `GLOSSARY.md §5e`).
 
 ⛔ **"AP" names two things**: a continuous gate probability for gated arms, and a statistic with S+1
 levels — **two levels at S=1** — for gate-less arms. Four scorers form it the same way; one refuses the
@@ -1886,7 +2189,9 @@ the audit tool". **Nothing tests that they still match.**
 
 ## Appendix B — The retraction log
 
-31 traceable retractions or overturns, 2026-05 → 2026-09. **≥14 concern a published ledger row or a
+31 traceable retractions or overturns, 2026-05 → 2026-09. ⛔ **[UPDATED 2026-10-25: **33**, through
+2026-10. The two added are the last two rows of the table below and are dated there. The prose counts in
+this paragraph are NOT re-derived — they are the 2026-09 figures and are left as measured.]** **≥14 concern a published ledger row or a
 delivered verdict.** Two independent internal estimates of the base rate exist and both are lower
 bounds: a systematic recompute found **3 of 9 headline figures (33%)** wrong or misleading; a deletion
 test found **27 of 40 tests (68%)** passing with the call site removed.
@@ -1914,6 +2219,9 @@ retracted number.]** of the gap is `crps_none`, AP is *worse*, `size_ratio` 0.00
 | σ_max = 1.60 and "the first direct observation" of rising state drift | the probe sampled the **teacher-forced warm-up**; true σ_max **7.7628**, and the real phase **collapses 40×**. *"Every downstream guard passed"* | `/code-review medium`, incidentally | ~1 day |
 | BPTT-SA "unit tested (7), mutation tested 5/5, suite green (1,901)" | **inert on the production path**; two arms trained to byte-identical weights | **the result being impossible** — named as luck | 276 GPU-min |
 | C-58's forecast-sniffer remedy | made **every forecasting run impossible**; no forecasting run had ever completed in this repository | a fresh look, #390 | **months** |
+| **"the sharpness ceiling is 0.498, so the structure arm's upside is capped"** (2026-10-25) | ⛔ **CATEGORY ERROR.** The ceiling was measured **unnormalised** and compared to B-1's **variance-normalised** 0.391. Re-measured with B-1's own estimator: **0.983–1.009** at every lag ⇒ the ceiling is **~1.0** and the arm's premise survives. The error pointed at **killing** a justified experiment | `/falsify` on the claim *"the run is done and we have everything we need"* — probe P5, the one predicted most likely to bite | **~1 hour** |
+| **`C_full = 0.665`**, the 1/n-corrected ceiling (2026-10-25) | Spearman–Brown's *additive noise, variance ∝ 1/n* premise is a statement about **counts**, applied to a `log(rate+eps)` field. Gives **0.665** logged vs **0.262** raw. **Withdrawn** | the same audit — and the refuting evidence was the prereg's **own pre-registered Q-4** | **~1 hour** |
+| **`struct_penalty_weight` = 8.89624**, the structure arm's one *derived* constant, committed into a prereg under a ⭐ (2026-10-21) | ⛔ **Wrong by 21× — correct value 0.416904 — three independent ways at once.** Derived on the **`truncated_nb`** vehicle, not the `nb` one the arm runs on; pinned **v1** where **v2 had already superseded it on disk**; gradient-matched against **one** of the **three** targets the loss sums over. The script was correct, committed and reproducible every time — every error was in **what it was pointed at** | ⭐ **Simon**, asking whether there is a penalty weight per violence type (there is not) — a question about the **schema**, which exposed all three | **4 days**, and it was ~1 hour from the pod |
 
 ⛔ **Detector yield.** ⚠️ **These counts do not sum to 31, and the reason is a finding rather than an
 error — but it has to be stated, because a reader who adds them up should not have to guess.** The

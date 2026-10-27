@@ -1,0 +1,151 @@
+====================================================================================================
+C-366 -- TWO INSTRUMENTS, ONE SHARED FIELD. Matched biopsy lesson_297_win_1.
+====================================================================================================
+  truth byte-identical across the two arms: True
+
+  18 fields per arm (6 steps x 3 targets), 32x32, 18,432 cell-values
+
+====================================================================================================
+STEP 1 -- F1: does the sign disagreement REPRODUCE on this one shared field?
+====================================================================================================
+
+  space = counts
+    penalty   control     0.5468   arm     0.1164   ARM BETTER  (4.70x)
+    B-1 d=1     control     0.3618   arm     0.3635   ARM BETTER
+    B-1 d=2     control     0.7411   arm     0.6226   CONTROL BETTER
+    B-1 d=4     control     0.9786   arm     0.8160   CONTROL BETTER
+    B-1 d=8     control     1.0245   arm     0.9432   CONTROL BETTER
+
+  space = log1p
+    penalty   control     0.3075   arm     0.0403   ARM BETTER  (7.63x)
+    B-1 d=1     control     0.3801   arm     0.1988   CONTROL BETTER
+    B-1 d=2     control     0.7121   arm     0.4107   CONTROL BETTER
+    B-1 d=4     control     0.9477   arm     0.6305   CONTROL BETTER
+    B-1 d=8     control     1.0459   arm     0.8862   CONTROL BETTER
+
+====================================================================================================
+STEP 2 -- THE BATTERY. Controlled transforms of the CONTROL's own forecast field.
+====================================================================================================
+  H1 scaling moves the penalty · H2 scaling leaves B-1 EXACT · H3 within-block shuffle
+  leaves the penalty EXACT · H4 noise improves the penalty and RAISES B-1.
+
+  space = counts
+    transform                 penalty  d penalty     B-1 d1     B-1 d2     B-1 d4     B-1 d8
+    identity                   0.5468    +0.0000     0.3618     0.7411     0.9786     1.0245
+    scale x0.5                 0.7600    +0.2132     0.3618     0.7411     0.9786     1.0245
+    scale x2                   0.3487    -0.1981     0.3618     0.7411     0.9786     1.0245
+    scale x4                   0.2029    -0.3439     0.3618     0.7411     0.9786     1.0245
+    shuffle within 2x2         0.5468    +0.0000     0.7712     0.7238     0.9607     1.0241
+    shuffle within 8x8         0.5969    +0.0500     0.9745     1.0419     0.9807     1.0231
+    + white noise 0.5sd        0.3226    -0.2242     0.5008     0.7902     0.9567     0.9734
+    + white noise 1sd          0.2446    -0.3022     0.7054     0.8690     0.9206     0.8971
+    + white noise 2sd          0.1933    -0.3536     0.9185     0.9522     0.8902     0.8190
+    3x3 box smooth             0.7061    +0.1593     0.1526     0.4727     0.8985     1.0303
+    (identity B-1)                                   0.3618     0.7411     0.9786     1.0245
+
+  space = log1p
+    transform                 penalty  d penalty     B-1 d1     B-1 d2     B-1 d4     B-1 d8
+    identity                   0.3075    +0.0000     0.3801     0.7121     0.9477     1.0459
+    scale x0.5                 0.5236    +0.2161     0.3801     0.7121     0.9477     1.0459
+    scale x2                   0.1513    -0.1562     0.3801     0.7121     0.9477     1.0459
+    scale x4                   0.0966    -0.2109     0.3801     0.7121     0.9477     1.0459
+    shuffle within 2x2         0.3075    +0.0000     0.6530     0.7087     0.9240     1.0449
+    shuffle within 8x8         0.3500    +0.0425     1.3381     1.1252     0.9464     1.0319
+    + white noise 0.5sd        0.1888    -0.1188     0.5906     0.8069     0.9340     0.9985
+    + white noise 1sd          0.1279    -0.1796     0.9083     0.9374     0.9276     0.9092
+    + white noise 2sd          0.0667    -0.2409     1.2127     1.0808     0.9197     0.8430
+    3x3 box smooth             0.4642    +0.1567     0.1644     0.4577     0.8463     1.0506
+    (identity B-1)                                   0.3801     0.7121     0.9477     1.0459
+
+====================================================================================================
+STEP 3 -- EXACTNESS. H2 and H3 claim INVARIANCE, which is a stronger claim than a trend.
+====================================================================================================
+
+  space = counts
+    H2  B-1 under scaling x0.5     max |change| over d in (1, 2, 4, 8) = 0.000e+00
+    H2  B-1 under scaling x2       max |change| over d in (1, 2, 4, 8) = 0.000e+00
+    H2  B-1 under scaling x4       max |change| over d in (1, 2, 4, 8) = 0.000e+00
+    H2  B-1 under scaling x100     max |change| over d in (1, 2, 4, 8) = 4.441e-16
+    H3  shuffle within 2x2: block variance at k=2 max |change| = 5.684e-14
+    H3  shuffle within 2x2: block variance at k=8 max |change| = 1.776e-15
+    H3  shuffle within 2x2: PENALTY change = +0.000e+00   B-1 d1 0.6856  B-1 d2 0.7368  B-1 d4 0.9591  B-1 d8 1.0241
+    H3  shuffle within 8x8: block variance at k=2 max |change| = 3.954e+01
+    H3  shuffle within 8x8: block variance at k=8 max |change| = 1.776e-15
+    H3  shuffle within 8x8: PENALTY change = +6.488e-02   B-1 d1 1.0110  B-1 d2 1.0039  B-1 d4 0.9920  B-1 d8 1.0197
+
+  space = log1p
+    H2  B-1 under scaling x0.5     max |change| over d in (1, 2, 4, 8) = 0.000e+00
+    H2  B-1 under scaling x2       max |change| over d in (1, 2, 4, 8) = 0.000e+00
+    H2  B-1 under scaling x4       max |change| over d in (1, 2, 4, 8) = 0.000e+00
+    H2  B-1 under scaling x100     max |change| over d in (1, 2, 4, 8) = 1.110e-16
+    H3  shuffle within 2x2: block variance at k=2 max |change| = 1.776e-15
+    H3  shuffle within 2x2: block variance at k=8 max |change| = 1.665e-16
+    H3  shuffle within 2x2: PENALTY change = +0.000e+00   B-1 d1 0.7243  B-1 d2 0.7045  B-1 d4 0.9389  B-1 d8 1.0446
+    H3  shuffle within 8x8: block variance at k=2 max |change| = 1.384e+00
+    H3  shuffle within 8x8: block variance at k=8 max |change| = 1.110e-16
+    H3  shuffle within 8x8: PENALTY change = +4.038e-02   B-1 d1 1.2860  B-1 d2 1.1225  B-1 d4 0.9845  B-1 d8 1.0391
+
+====================================================================================================
+STEP 4 -- CAN THE ARM'S SIGNATURE BE REPRODUCED BY HAND, from the control?
+====================================================================================================
+  H1-H4 say the penalty sees amplitude and not arrangement, B-1 the reverse. The move that
+  improves the penalty while worsening B-1 is therefore AMPLIFY (free for B-1, good for
+  the penalty) plus SMOOTH (bad for both, but amplification more than pays for it).
+  ⛔ Neither alone will do it: scaling leaves B-1 EXACT, and smoothing alone makes the
+  penalty WORSE. If no (scale, smooth) cell lands near the arm, this mechanism is refuted.
+
+  space = counts   ARM OBSERVED: penalty 0.1164   B-1 d1 0.3635  B-1 d2 0.6226  B-1 d4 0.8160  B-1 d8 0.9432
+      scale  smooths   penalty    B-1 d1    B-1 d2    B-1 d4    B-1 d8    |err|
+          1        0    0.5468    0.3618    0.7411    0.9786    1.0245    3.790
+          1        1    0.7061    0.1526    0.4727    0.8985    1.0303    5.200
+          1        2    0.7460    0.1059    0.3607    0.8092    1.0330    5.565
+          1        3    0.7952    0.0833    0.2940    0.7272    1.0306    6.029
+          2        0    0.3487    0.3618    0.7411    0.9786    1.0245    2.087
+          2        1    0.4970    0.1526    0.4727    0.8985    1.0303    3.404
+          2        2    0.5347    0.1059    0.3607    0.8092    1.0330    3.748
+          2        3    0.5850    0.0833    0.2940    0.7272    1.0306    4.223
+          4        0    0.2029    0.3618    0.7411    0.9786    1.0245    0.835
+          4        1    0.3155    0.1526    0.4727    0.8985    1.0303    1.844
+          4        2    0.3497    0.1059    0.3607    0.8092    1.0330    2.159
+          4        3    0.3988    0.0833    0.2940    0.7272    1.0306    2.623
+          8        0    0.1256    0.3618    0.7411    0.9786    1.0245    0.170
+          8        1    0.1768    0.1526    0.4727    0.8985    1.0303    0.652
+          8        2    0.2023    0.1059    0.3607    0.8092    1.0330    0.892
+          8        3    0.2398    0.0833    0.2940    0.7272    1.0306    1.257
+         16        0    0.0875    0.3618    0.7411    0.9786    1.0245    0.339
+         16        1    0.1074    0.1526    0.4727    0.8985    1.0303    0.210
+         16        2    0.1103    0.1059    0.3607    0.8092    1.0330    0.206
+         16        3    0.1321    0.0833    0.2940    0.7272    1.0306    0.331
+         32        0    0.0703    0.3618    0.7411    0.9786    1.0245    0.487
+         32        1    0.0752    0.1526    0.4727    0.8985    1.0303    0.486
+         32        2    0.0671    0.1059    0.3607    0.8092    1.0330    0.577
+         32        3    0.0783    0.0833    0.2940    0.7272    1.0306    0.523
+    => closest: scale x8, 0 smoothing pass(es), |err| 0.170
+
+  space = log1p   ARM OBSERVED: penalty 0.0403   B-1 d1 0.1988  B-1 d2 0.4107  B-1 d4 0.6305  B-1 d8 0.8862
+      scale  smooths   penalty    B-1 d1    B-1 d2    B-1 d4    B-1 d8    |err|
+          1        0    0.3075    0.3801    0.7121    0.9477    1.0459    6.874
+          1        1    0.4642    0.1644    0.4577    0.8463    1.0506   10.639
+          1        2    0.5167    0.1199    0.3578    0.7592    1.0483   11.933
+          1        3    0.5674    0.0967    0.2971    0.6837    1.0396   13.191
+          2        0    0.1513    0.3801    0.7121    0.9477    1.0459    2.996
+          2        1    0.2581    0.1644    0.4577    0.8463    1.0506    5.521
+          2        2    0.3022    0.1199    0.3578    0.7592    1.0483    6.607
+          2        3    0.3515    0.0967    0.2971    0.6837    1.0396    7.830
+          4        0    0.0966    0.3801    0.7121    0.9477    1.0459    1.638
+          4        1    0.1311    0.1644    0.4577    0.8463    1.0506    2.370
+          4        2    0.1498    0.1199    0.3578    0.7592    1.0483    2.825
+          4        3    0.1841    0.0967    0.2971    0.6837    1.0396    3.676
+          8        0    0.0677    0.3801    0.7121    0.9477    1.0459    0.920
+          8        1    0.0776    0.1644    0.4577    0.8463    1.0506    1.042
+          8        2    0.0794    0.1199    0.3578    0.7592    1.0483    1.076
+          8        3    0.0970    0.0967    0.2971    0.6837    1.0396    1.514
+         16        0    0.0522    0.3801    0.7121    0.9477    1.0459    0.536
+         16        1    0.0579    0.1644    0.4577    0.8463    1.0506    0.552
+         16        2    0.0513    0.1199    0.3578    0.7592    1.0483    0.378
+         16        3    0.0613    0.0967    0.2971    0.6837    1.0396    0.628
+         32        0    0.0472    0.3801    0.7121    0.9477    1.0459    0.412
+         32        1    0.0478    0.1644    0.4577    0.8463    1.0506    0.301
+         32        2    0.0402    0.1199    0.3578    0.7592    1.0483    0.107
+         32        3    0.0453    0.0967    0.2971    0.6837    1.0396    0.229
+    => closest: scale x32, 2 smoothing pass(es), |err| 0.107
