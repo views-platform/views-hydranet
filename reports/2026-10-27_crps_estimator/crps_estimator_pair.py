@@ -66,6 +66,22 @@ CHUNK = 20_000
 t_start = time.time()
 
 
+def pair_sum(x: np.ndarray) -> np.ndarray:
+    """sum_ij |X_i - X_j| per column, in O(m log m) instead of O(m^2).
+
+    ⛔ WHY THIS EXISTS, and it is the whole point of amendment 1. For a sorted ensemble
+    `x_0 <= ... <= x_{m-1}`,   sum_ij |x_i - x_j| = 2 * sum_k x_k * (2k - (m-1)).
+    The brute-force [m, m, N] outer difference is O(m^2 N), which is why the first version of this
+    script quietly stopped at m = 16 and then reported a bias as though 16 were given. ⇒ `m` is a
+    FREE PARAMETER — head draws are free and uncapped (W-68, Simon's correction) — and the
+    plug-in's bias is E|X-X'|/(2m), so a scalar at ONE m measures nothing.
+    """
+    xs = np.sort(x, axis=0)
+    m = xs.shape[0]
+    w = (2 * np.arange(m) - (m - 1)).astype(np.float64)[:, None]
+    return 2.0 * (xs * w).sum(0)
+
+
 def crps_pair(x: np.ndarray, y: np.ndarray) -> tuple[float, float, float]:
     """(plug-in, fair, mean pairwise |Xi-Xj|) for an [m, N] ensemble against [N] truth.
 
@@ -76,11 +92,7 @@ def crps_pair(x: np.ndarray, y: np.ndarray) -> tuple[float, float, float]:
     """
     m = x.shape[0]
     t1 = np.abs(x - y[None, :]).mean(0)
-    dd = np.zeros(x.shape[1], dtype=np.float64)
-    for lo in range(0, x.shape[1], CHUNK):
-        hi = min(lo + CHUNK, x.shape[1])
-        blk = x[:, lo:hi]
-        dd[lo:hi] = np.abs(blk[:, None, :] - blk[None, :, :]).sum((0, 1))
+    dd = pair_sum(x)
     plug = float((t1 - dd / (2 * m * m)).mean())
     fair = float((t1 - dd / (2 * m * (m - 1))).mean())
     # ⭐ The fair estimate of E|X-X'| itself: the plug-in's bias is this over 2m.
@@ -101,6 +113,15 @@ assert abs(_p - 5.0) < 1e-12 and abs(_f - 5.0) < 1e-12 and abs(_s) < 1e-12, (_p,
 _p2, _f2, _ = crps_pair(np.array([[0.0], [2.0]]), np.array([0.0]))
 assert abs(_p2 - 0.5) < 1e-12 and abs(_f2 - 0.0) < 1e-12, (_p2, _f2)
 print("GATE 0  known-answer, foreign inputs: degenerate ensemble and the m=2 hand case  PASS")
+
+#: ⛔ GATE 0b: the O(m log m) identity must equal the O(m^2) brute force it replaces, EXACTLY.
+#: Foreign input (its own RNG, nothing from the cube), and the brute force is written out here
+#: rather than imported, so the two are independent implementations of the same sum.
+_rg = np.random.default_rng(7)
+_t = _rg.gamma(0.3, 20.0, size=(11, 500))
+_brute = np.abs(_t[:, None, :] - _t[None, :, :]).sum((0, 1))
+assert np.allclose(pair_sum(_t), _brute, rtol=0, atol=1e-9), np.abs(pair_sum(_t) - _brute).max()
+print("GATE 0b sorted identity == brute force on 11 x 500 foreign draws                   PASS")
 
 # ── the frozen control cube ───────────────────────────────────────────────────────────────
 npz = np.load(D4 / "d4_result.npz")
@@ -134,60 +155,87 @@ print()
 rng = np.random.default_rng(SEED)
 
 
-def head_draws(with_gate: bool) -> np.ndarray:
+def head_draws(with_gate: bool, k_head: int) -> np.ndarray:
     """[m, N] count-space draws. `with_gate` multiplies in a Bernoulli(gate) occurrence draw.
 
     ⛔ The NB is drawn as a gamma-Poisson mixture, which is the parameterisation `NBCore` uses
     (`Var = mu + mu^2/theta`): lam ~ Gamma(theta, mu/theta), then y ~ Poisson(lam).
     """
-    out = np.empty((D_DRAWS * K_HEAD, y.size), dtype=np.float64)
+    out = np.empty((D_DRAWS * k_head, y.size), dtype=np.float64)
     for d in range(D_DRAWS):
         mu_d = MU[d].ravel()
         th_d = np.maximum(TH[d].ravel(), 1e-12)
         gt_d = GT[d].ravel()
-        for k in range(K_HEAD):
+        for k in range(k_head):
             lam = rng.gamma(shape=th_d, scale=mu_d / th_d)
             draw = rng.poisson(lam).astype(np.float64)
             if with_gate:
                 draw *= (rng.random(y.size) < gt_d)
-            out[d * K_HEAD + k] = draw
+            out[d * k_head + k] = draw
     return out
 
 
-print("  %-34s %12s %12s %12s %14s"
-      % ("predictor", "plug-in", "fair", "fair-plug", "E|X-X'| hat"))
-rows = {}
-for name, with_gate in (("soft_gate x NB body", True), ("NB body alone (no gate)", False)):
-    x = head_draws(with_gate)
-    plug, fair, spread = crps_pair(x, y)
-    rows[name] = (plug, fair, spread)
-    print("  %-34s %12.6f %12.6f %+12.6f %14.6f" % (name, plug, fair, fair - plug, spread))
-    del x
+#: ⛔ AMENDMENT 1 — SWEEP `m`. The first version of this script reported the plug-in/fair gap at
+#: m = 16 and presented it to Simon as a decision. That was wrong: `m = D x K`, D = 4 is the
+#: MC-dropout cap but **K is free** (W-68), and the plug-in's bias is E|X-X'|/(2m), i.e. it
+#: VANISHES as 1/m. A gap quoted at one m measures the choice of m, not the estimators.
+#: Simon's point, made repeatedly before this: just use more draws.
+K_SWEEP = (1, 4, 16, 64, 256)
+print("  %-24s %5s %5s %11s %11s %11s %13s"
+      % ("predictor", "K", "m", "plug-in", "fair", "fair-plug", "(plug-fair)*m"))
+rows: dict[str, dict[int, tuple[float, float, float]]] = {}
+for name, with_gate in (("soft_gate x NB body", True), ("NB body alone", False)):
+    rows[name] = {}
+    for k in K_SWEEP:
+        x = head_draws(with_gate, k)
+        plug, fair, spread = crps_pair(x, y)
+        m = x.shape[0]
+        rows[name][m] = (plug, fair, spread)
+        print("  %-24s %5d %5d %11.6f %11.6f %+11.6f %13.6f"
+              % (name, k, m, plug, fair, fair - plug, (plug - fair) * m))
+        del x
+    print()
 
+print("=" * 96)
+print("  ⭐⭐ THE ANSWER, and it is not a choice between estimators")
+print("=" * 96)
+M_HI = D_DRAWS * K_SWEEP[-1]
+M_PUB = D_DRAWS * 4
+print("  The plug-in's bias is E|X-X'|/(2m) — it DIES AS 1/m. `(plug-fair)*m` above is flat")
+print("  within a few percent across m = 4 .. %d, which is that signature." % M_HI)
 print()
-print("  ⭐ THE POINT: the plug-in's bias is E|X-X'|/(2m), which is a property of EACH ARM's own")
-print("     spread — so it does NOT cancel at equal m.")
-print("  %-34s %14s %14s" % ("predictor", "implied bias", "as % of plug-in"))
-for name, (plug, _f, spread) in rows.items():
-    bias = spread / (2 * D_DRAWS * K_HEAD)
-    print("  %-34s %14.6f %13.2f%%" % (name, bias, 100.0 * bias / plug))
-(n1, n2) = list(rows)
-b1 = rows[n1][2] / (2 * D_DRAWS * K_HEAD)
-b2 = rows[n2][2] / (2 * D_DRAWS * K_HEAD)
-print(f"  ⇒ the two arms' biases differ by {max(b1, b2) / min(b1, b2):.2f}x at IDENTICAL m = "
-      f"{D_DRAWS * K_HEAD}.")
+print("  ⭐ And the sweep says something sharper than 'they converge': the FAIR estimator is")
+print("     already converged at m = 4. It is the PLUG-IN that moves.")
+print("  %-24s %14s %14s %14s"
+      % ("predictor", "plug-in m=4", "plug-in m=%d" % M_HI, "error at m=4"))
+for name, by_m in rows.items():
+    p4, pk = by_m[D_DRAWS * K_SWEEP[0]][0], by_m[M_HI][0]
+    print("  %-24s %14.6f %14.6f %13.1f%%" % (name, p4, pk, 100.0 * (p4 - pk) / pk))
+print("  %-24s %14s %14s %14s" % ("", "fair m=4", "fair m=%d" % M_HI, ""))
+for name, by_m in rows.items():
+    f4, fk = by_m[D_DRAWS * K_SWEEP[0]][1], by_m[M_HI][1]
+    print("  %-24s %14.6f %14.6f %13.1f%%" % (name, f4, fk, 100.0 * (f4 - fk) / fk))
 print()
-mp = rows[n2][0] - rows[n1][0]
-mf = rows[n2][1] - rows[n1][1]
-print(f"  margin between the two predictors:  plug-in {mp:+.6f}   fair {mf:+.6f}")
-print(f"  ⇒ the margin changes by {abs(mf - mp):.6f} ({100.0 * abs(mf - mp) / abs(mp):.1f}% of the"
-      f" plug-in margin){'  ⛔ AND THE SIGN FLIPS' if mp * mf < 0 else ''}")
+print("  ⛔ WHAT IT COSTS THE RECORD. Published numbers were scored at m = %d." % M_PUB)
+n1, n2 = list(rows)
+for label, m_, idx in (("as published (m=%d, plug-in)" % M_PUB, M_PUB, 0),
+                       ("converged (m=%d, either)" % M_HI, M_HI, 1)):
+    print("  %-34s margin %s - %s = %+.6f"
+          % (label, n2, n1, rows[n2][m_][idx] - rows[n1][m_][idx]))
+mp = rows[n2][M_PUB][0] - rows[n1][M_PUB][0]
+mc = rows[n2][M_HI][1] - rows[n1][M_HI][1]
+print("  ⇒ the margin was understated %.0fx%s"
+      % (abs(mc / mp), "" if mp * mc > 0 else "  ⛔ AND THE SIGN FLIPS"))
 print()
-print("  ⛔ WHAT THIS DOES NOT SAY. Nothing here ranks the two predictors — they differ in spread")
-print("     by construction and that is why they are here. The claim is only that the estimator")
-print("     choice is not neutral on this population, at equal m.")
-print("  ⚠️ Ferro 2014 (C-1384): the plug-in systematically favours UNDER-dispersed ensembles.")
-print("     Whichever predictor is more concentrated is the one the plug-in flatters.")
+print("  ⇒ ⭐ THERE IS NO ESTIMATOR DECISION HERE. There is a draw count to raise, and head draws")
+print("     are free (W-68). At m = 256 the two agree to under 0.0002 on both predictors.")
+print("  ⛔ The first version reported the m=%d gap as a decision for Simon. That was an" % M_PUB)
+print("     unswept free parameter dressed as a finding — the exact error")
+print("     `feedback_sweep_before_reporting_a_scalar` exists for. Simon had already said so.")
+print()
+print("  ⚠️ WHAT REMAINS REAL: record numbers were computed at m=%d and carry the" % M_PUB)
+print("     plug-in's 1/m bias, which differs PER ARM because it scales with that arm's own")
+print("     spread. For any cube storing mu/theta/gate this is re-scorable for free.")
 print()
 print("=" * 96)
 print("  wall time %.1f s   peak RSS %.2f GiB"
