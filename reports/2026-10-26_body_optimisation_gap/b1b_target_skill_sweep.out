@@ -12,4 +12,4 @@ ADDENDUM — sweeping B-1b's target skill, because `scale_min` at the no-skill b
   out of sample  gated forecast (gate x mu)       1      1      3      3      5      7     31    183
                  (no-skill bar for this window = 0.501724)
 
-cost  38.44 s  /  2.31 GiB peak RSS
+cost  68.47 s  /  3.09 GiB peak RSS

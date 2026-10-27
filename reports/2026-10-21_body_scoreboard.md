@@ -257,9 +257,27 @@ monthly fields in sample, 13 out of sample, ~228 and ~224 events per field.
 | window | predictor | n1 (= hit rate) | n3 | n5 | n9 | n17 | n33 | n65 |
 |---|---|---|---|---|---|---|---|---|
 | in sample | **body alone (`mu`)** | **0.6267** | 0.8201 | 0.8550 | 0.8819 | 0.9066 | 0.9277 | 0.9495 |
-| in sample | gated forecast | 0.6663 | 0.8500 | 0.8840 | 0.9092 | 0.9309 | 0.9475 | 0.9660 |
+| in sample | gated forecast | **0.6656** | 0.8497 | 0.8840 | 0.9093 | 0.9310 | 0.9477 | 0.9660 |
 | out of sample | **body alone (`mu`)** | **0.5883** | 0.7983 | 0.8339 | 0.8661 | 0.8955 | 0.9186 | 0.9451 |
-| out of sample | gated forecast | 0.6468 | 0.8478 | 0.8846 | 0.9135 | 0.9364 | 0.9524 | 0.9705 |
+| out of sample | gated forecast | **0.6485** | 0.8483 | 0.8848 | 0.9135 | 0.9364 | 0.9524 | 0.9705 |
+
+⛔ **AMENDMENT, 2026-10-27 — THE GATED ROWS WERE RECOMPOSED.** They were built as
+`E[gate] × E[mu]`, averaging each half over the four MC-dropout draws and multiplying afterwards.
+The gated forecast is **`E[gate × mu]`**, and the two differ by `Cov(gate, mu)` over draws, which is
+not zero by construction: both heads sit on one shared trunk and see the same dropout mask on every
+draw. ⇒ `n=1` moves **0.6663 → 0.6656** in sample and **0.6468 → 0.6485** out of sample; no other
+cell moves by more than 0.0002, and ⭐ **the body-alone rows do not move at all**, which is the gate
+that proves the recomposition is the only change. The defect was found by `/code-review max` on
+PR #457 and measured by `b1b_composition_check.py` before anything was edited.
+
+⚠️ **The field was wrong by much more than the score was.** Per land cell-month the two
+compositions differ by **+1.96% on average** (median +0.49%, extremes +234% / −87%), and the total
+emitted mass by +0.43%. FSS barely notices because `matched_pred_thresh` is a **count-matched
+quantile**, so FSS is blind to any monotone distortion of the field. ⇒ **A rank-based readout
+survived this; a magnitude-based one would not have.** Registered as **C-386**, with the sibling
+defect in `body_level_selection_check.py` — where the same mistake is made over **36 months**
+rather than 4 draws, inside a check whose subject *is* magnitude — recorded there and left for its
+own branch.
 
 `f_o` on this population: **0.003518** in sample, **0.003448** out of sample. Gate C-1 passed — one
 pooled field equals production `fss` at `0.000e+00`.
@@ -267,7 +285,7 @@ pooled field equals production `fss` at `0.000e+00`.
 ⚪ **Two things the baseline run turned up, LOGGED AND NOT CHASED** (§1 cap, rule 2):
 
 - The **gated forecast is better placed than the body alone at every scale**, and the gap *widens*
-  out of sample (0.5883 → 0.6468). ⇒ The gate carries placement information the body does not. This
+  out of sample (0.5883 → 0.6485). ⇒ The gate carries placement information the body does not. This
   is consistent with the rest of the record and is **not** pursued here.
 - ⭐ **The two halves of B-1 degrade out of sample by very different amounts.** B-1a falls
   `0.391 → 0.205` at d=1, a **48%** drop; B-1b falls `0.6267 → 0.5883`, a **6%** drop. ⇒ The body's

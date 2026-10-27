@@ -20,7 +20,7 @@ in sample  months 421-456  (36 monthly fields)
          per-field values: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 
   gated forecast (gate x mu)
-    M-1  pooled FSS   n1=0.6663  n3=0.8500  n5=0.8840  n9=0.9092  n17=0.9309  n33=0.9475  n65=0.9660
+    M-1  pooled FSS   n1=0.6656  n3=0.8497  n5=0.8840  n9=0.9093  n17=0.9310  n33=0.9477  n65=0.9660
     M-1  scale_min (smallest n reaching the bar) = 1
     M-4  per-field scale_min: 36/36 fields reach the bar  min 1  median 1  max 1
          per-field values: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
@@ -37,12 +37,12 @@ out of sample  months 457-469  (13 monthly fields)
          per-field values: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 
   gated forecast (gate x mu)
-    M-1  pooled FSS   n1=0.6468  n3=0.8478  n5=0.8846  n9=0.9135  n17=0.9364  n33=0.9524  n65=0.9705
+    M-1  pooled FSS   n1=0.6485  n3=0.8483  n5=0.8848  n9=0.9135  n17=0.9364  n33=0.9524  n65=0.9705
     M-1  scale_min (smallest n reaching the bar) = 1
     M-4  per-field scale_min: 13/13 fields reach the bar  min 1  median 1  max 1
          per-field values: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 
 ==================================================================================================
-cost  33.12 s  /  2.30 GiB peak RSS
+cost  51.54 s  /  3.10 GiB peak RSS
 ⚠ M-3 (sigma-hat) is absent and blocked on views-models#625. Until it exists these are
   BASELINES and B-1b carries NO decision rule.

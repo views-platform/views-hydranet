@@ -85,9 +85,26 @@ def scale_at(scores, target):
 npz = np.load(D4 / "d4_result.npz")
 land_cells, months = npz["land_cells"], list(npz["months"])
 mcol = {int(m): i for i, m in enumerate(months)}
-MU_PM = emitted_magnitude(npz["mu"].astype(np.float64), npz["theta"].astype(np.float64),
-                          "nb").mean(0)
-GT_PM = npz["gate"].astype(np.float64).mean(0)
+#: ⛔ WAS `"nb"`, HARD-CODED. `emitted_magnitude` is the identity under `nb` and is NOT under
+#: `truncated_nb`, where the head emits `mu / (1 - NB(0))` — so a hard-coded family silently reads
+#: a field roughly half the forecast on any truncated artifact. The npz is self-describing.
+#: (`/code-review max` on PR #457.) The `or "nb"` fallback matches `b1b_placement_baseline.py`:
+#: `d4_result.npz` predates Amendment 4 and its PROVENANCE establishes the family.
+FAMILY = str(npz["family"]) if "family" in npz.files else "nb"
+MAG = emitted_magnitude(npz["mu"].astype(np.float64), npz["theta"].astype(np.float64),
+                        FAMILY)
+MU_PM = MAG.mean(0)
+#: ⛔ THE GATED FORECAST IS E[gate x mu], NOT E[gate] x E[mu]. Averaging the two halves over the
+#: four MC-dropout draws and multiplying afterwards drops Cov(gate, mu), and the covariance is not
+#: zero by construction: both heads sit on one shared trunk and see the SAME dropout mask on every
+#: draw. Measured by `b1b_composition_check.py`: Cov > 0 in 51.9% of land cell-months and < 0 in
+#: 48.1%, mean relative difference +1.96% per cell, total emitted mass +0.43%. ⭐ FSS barely
+#: notices, because `matched_pred_thresh` is a count-matched quantile and FSS is therefore blind to
+#: any monotone distortion of the field — measured at -0.0007 (in sample) and +0.0017 (out) at
+#: n=1, the sign flipping between windows, so it is not even a bias. ⚠️ Composed correctly ANYWAY,
+#: because the next statistic to read this field may be magnitude-sensitive rather than rank-based.
+#: `views_hydranet/utils/hydranet_inference.py:995` carries the same warning about the same thing.
+GATED_PM = (npz["gate"].astype(np.float64) * MAG).mean(0)
 rows, cols = grid_rowcol(land_cells)
 RR, CC = rows - 1, cols - 1
 
@@ -108,7 +125,7 @@ for wname, (lo, hi) in (("in sample", (IS_LO, IS_HI)), ("out of sample", (OS_LO,
     truths = [to_grid(Y[:, k], RR, CC) for k in j]
     f_o = float((Y[:, j] > 0).mean())
     for predname, field in (("body alone (mu)", MU_PM),
-                            ("gated forecast (gate x mu)", GT_PM * MU_PM)):
+                            ("gated forecast (gate x mu)", GATED_PM)):
         sc = pooled_fss([to_grid(field[k], RR, CC) for k in j], truths, ODD)
         cells = [scale_at(sc, t) for t in TARGETS_SKILL]
         print(f"  {wname:<14} {predname:<27} "

@@ -124,9 +124,22 @@ else:
           "Its PROVENANCE file establishes this; emitted_magnitude is the identity under nb.")
 land_cells, months = npz["land_cells"], list(npz["months"])
 mcol = {int(m): i for i, m in enumerate(months)}
-MU_PM = emitted_magnitude(npz["mu"].astype(np.float64), npz["theta"].astype(np.float64),
-                          FAMILY).mean(0)
-GT_PM = npz["gate"].astype(np.float64).mean(0)
+MAG = emitted_magnitude(npz["mu"].astype(np.float64), npz["theta"].astype(np.float64),
+                        FAMILY)
+MU_PM = MAG.mean(0)
+#: ⛔ THE GATED FORECAST IS E[gate x mu], NOT E[gate] x E[mu]. Averaging the two halves over the
+#: four MC-dropout draws and multiplying afterwards drops Cov(gate, mu), and the covariance is not
+#: zero by construction: both heads sit on one shared trunk and see the SAME dropout mask on every
+#: draw. Found by `/code-review max` on PR #457 and measured by `b1b_composition_check.py`:
+#: Cov > 0 in 51.9% of land cell-months and < 0 in 48.1%, mean relative difference +1.96% per cell,
+#: total emitted mass +0.43%. ⭐ FSS barely notices, because `matched_pred_thresh` is a
+#: count-matched quantile and FSS is therefore blind to any monotone distortion of the field —
+#: measured at -0.0007 (in sample) and +0.0017 (out of sample) at n=1, with the sign flipping
+#: between windows, so it is not even a bias. ⚠️ It is composed correctly ANYWAY, because the next
+#: statistic to read this field may be magnitude-sensitive rather than rank-based, and then the
+#: 1.96% is not negligible. `views_hydranet/utils/hydranet_inference.py:995` carries the same
+#: warning about the same quantity.
+GATED_PM = (npz["gate"].astype(np.float64) * MAG).mean(0)
 
 rows, cols = grid_rowcol(land_cells)
 RR, CC = rows - 1, cols - 1
@@ -169,7 +182,7 @@ for wname, (lo, hi) in (("in sample", (IS_LO, IS_HI)), ("out of sample", (OS_LO,
           f"   (mean events/field {float((Y[:, j] > 0).sum()) / len(j):.1f})")
 
     for predname, field in (("body alone (mu)", MU_PM), ("gated forecast (gate x mu)",
-                                                         GT_PM * MU_PM)):
+                                                         GATED_PM)):
         preds = [to_grid(field[k], RR, CC) for k in j]
         sc = pooled_fss(preds, truths, ODD)
         print(f"\n  {predname}")
