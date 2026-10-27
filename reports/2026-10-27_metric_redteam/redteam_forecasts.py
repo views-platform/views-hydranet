@@ -79,13 +79,23 @@ sys.path.insert(0, str(D4))
 sys.path.insert(0, str(RULER))
 
 from lodestar_score import average_precision, brier, crps_ensemble  # noqa: E402
-from vehicle import SB, TARGETS, emitted_magnitude, pull  # noqa: E402
+from scipy.ndimage import uniform_filter  # noqa: E402
+from vehicle import (  # noqa: E402
+    GRID_COLS,
+    GRID_ROWS,
+    SB,
+    TARGETS,
+    emitted_magnitude,
+    grid_rowcol,
+    pull,
+)
 
 IS_LO, IS_HI = 421, 456
 OS_LO, OS_HI = 457, 469
 S = 256
 CONC = 30
 SEED = 20261027
+BLUR_R = (1, 2, 4)
 
 t_start = time.time()
 
@@ -135,6 +145,10 @@ K_SPIKE = int(round(N_ACT / CONC))
 # ⛔ C-386: the index is E[gate x mu] — per draw, THEN averaged. Never E[gate] x E[mu].
 INDEX = (GT * MAG).mean(0)
 IDX_SCO = INDEX[sco_m]
+
+#: ⚠️ C-322: the model field's H axis runs opposite to priogrid row order. `grid_rowcol`
+#: is the validated mapping (naive placement correlates 0.026; the flip gives 1.0000).
+ROW, COL = grid_rowcol(np.asarray(land_cells))
 
 rng = np.random.default_rng(SEED)
 
@@ -218,7 +232,48 @@ def f_reference():
     return out, (GT[:, sco_m, :].mean(0)).ravel()
 
 
+def _blur(field: np.ndarray, r: int) -> np.ndarray:
+    """Box-mean blur of radius r on the full grid, gathered back to the land cells, with each
+    month's LAND total renormalised to exactly the input's.
+
+    ⛔ The renormalisation is not cosmetic. A box mean conserves mass over the whole grid, but
+    mass blurred onto sea cells is lost when gathering back to land. Renormalising per month
+    makes the comparison fair: SAME mass, LESS sharpness. That is the only contrast RP-10 wants.
+    """
+    out = np.zeros_like(field)
+    for t_i in range(field.shape[0]):
+        g = np.zeros((GRID_ROWS, GRID_COLS))
+        g[ROW, COL] = field[t_i]
+        out[t_i] = uniform_filter(g, size=2 * r + 1, mode="constant")[ROW, COL]
+        s = out[t_i].sum()
+        if s > 0:
+            out[t_i] *= field[t_i].sum() / s
+    return out
+
+
+def f_oracle():
+    """⭐ The truth itself. Every column MUST rank this first; one that does not is broken."""
+    return _tile(Y_SCO), (Y_SCO.ravel() > 0).astype(np.float64)
+
+
+def _make_smoothed(r: int):
+    """⭐ RP-10: the truth blurred at a declared radius, total preserved.
+
+    ⛔ If a column scores this WORSE than the raw truth, that column penalises a forecast which
+    is correct about WHERE conflict is to within the measurement's own precision, and wrong only
+    about a sharpness that is partly an artifact of geocoding and aggregation. See
+    `reports/2026-10-27_measurement_floor/ARGUMENT.md`. ⚠️ r is ASSUMED, not read from the data
+    (the cache carries no precision fields), so it is SWEPT and no single r is "the" floor.
+    """
+    def _f():
+        field = _blur(Y_SCO, r)
+        gate = _blur((Y_SCO > 0).astype(np.float64), r)
+        return _tile(field), np.clip(gate.ravel(), 0.0, 1.0)
+    return _f
+
+
 FORECASTS = {
+    "oracle (raw truth)": f_oracle,
     "all-zero": f_all_zero,
     "climatology": f_climatology,
     "persistence": f_persistence,
@@ -226,10 +281,12 @@ FORECASTS = {
     "freq-right/mag-wrong": f_freq_right_mag_wrong,
     "mag-right/freq-wrong": f_mag_right_freq_wrong,
     "reference (delivered)": f_reference,
+    **{f"blurred-truth r={r}": _make_smoothed(r) for r in BLUR_R},
 }
 
 gates: list[tuple[str, bool, str]] = []
 summary: list[tuple[str, float, float, float, float]] = []
+blur_profile: list[tuple[int, float, float, float]] = []
 
 for name, fn in FORECASTS.items():
     cs, p = fn()
@@ -271,6 +328,24 @@ for name, fn in FORECASTS.items():
         ok = bool(np.array_equal(field > 0, Y_SCO > 0))
         det = f"array_equal {ok}; nonzero {(field > 0).sum():,} vs truth positives {N_ACT:,}"
         gates.append(("G-e  FREQ-RIGHT: nonzero cell SET == the truth-positive set", ok, det))
+    if name == "oracle (raw truth)":
+        c = crps_ensemble(TRUTH, cs)
+        r = ey[EV] / TRUTH[EV]
+        ok = (float(c.mean()) == 0.0 and float(np.median(r)) == 1.0
+              and float(average_precision((TRUTH > 0).astype(float), p)) == 1.0
+              and float(brier((TRUTH > 0).astype(float), p)) == 0.0)
+        det = (f"crps_all={float(c.mean()):.17g}  size_ratio={float(np.median(r)):.17g}  "
+               f"AP={float(average_precision((TRUTH > 0).astype(float), p)):.17g}  "
+               f"Brier={float(brier((TRUTH > 0).astype(float), p)):.17g}")
+        gates.append(("G-h  ORACLE: crps_all EXACTLY 0, size_ratio 1, AP 1, Brier 0", ok, det))
+    if name.startswith("blurred-truth"):
+        rr = int(name.split("=")[1])
+        rel = np.abs(field.sum(1) - Y_SCO.sum(1)) / np.maximum(Y_SCO.sum(1), 1e-30)
+        ok = bool(rel.max() < 1e-9)
+        blur_profile.append((rr, float(ey.max()), float((ey > 0).mean()),
+                             float(np.median(ey[EV] / TRUTH[EV]))))
+        gates.append((f"G-i  BLURRED r={rr}: per-month land total preserved exactly", ok,
+                      f"max relative total error {rel.max():.3e}"))
     if name == "mag-right/freq-wrong":
         ok = all(np.array_equal(np.sort(field[t][field[t] > 0]),
                                 np.sort(Y_SCO[t][Y_SCO[t] > 0])) for t in range(T_SCO))
@@ -278,8 +353,14 @@ for name, fn in FORECASTS.items():
                       f"all {T_SCO} months exact: {ok}"))
     del cs, p, ey, field
 
-gates.append((f"G-g  ALL SEVEN: N == {N:,}, identical ordering, identical S == {S}", True,
-              "asserted per forecast above (shape and gate-shape assertions)"))
+gates.append((f"G-g  ALL {len(FORECASTS)}: N == {N:,}, identical ordering, identical S == {S}",
+              True, "asserted per forecast above (shape and gate-shape assertions)"))
+mono = (all(blur_profile[i][1] > blur_profile[i + 1][1] for i in range(len(blur_profile) - 1))
+        and all(blur_profile[i][2] < blur_profile[i + 1][2]
+                for i in range(len(blur_profile) - 1)))
+gates.append(("G-j  BLUR is monotone in r: max falls, frac>0 rises", mono,
+              "  ".join(f"r={r}: max {mx:,.1f} frac {fr:.6f} sr {sr:.4f}"
+                        for r, mx, fr, sr in blur_profile)))
 
 print(f"  {'forecast':<24} {'field total':>14} {'frac>0':>9} {'max':>12} {'size_ratio':>11}")
 for name, tot, frac, mx, sr in summary:

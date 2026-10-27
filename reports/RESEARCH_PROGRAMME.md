@@ -8,7 +8,7 @@ list plus five additions.
 meant end-2027 this register is under-scoped and the horizon line is the thing to correct, not the
 ranking.
 
-**Last updated** 2026-10-27b · **9 entries** · **2 live (RP-1 #477, RP-3 #468)** · 6 queued · 1 parked (RP-9)
+**Last updated** 2026-10-27c · **10 entries** · **2 live (RP-1 #477, RP-3 #468)** · 7 queued · 1 parked (RP-9)
 
 ## How this works
 
@@ -28,15 +28,18 @@ ranking.
 |---|---|---|---|---|---|
 | **1** | **RP-1** | The metric battery cannot see what we are trying to fix | 🟢 **LIVE** — epic **#477** | **CPU, hours** | no — it makes later ones readable |
 | **2** | **RP-2** | No noise floor: run-to-run σ̂ has never been computed | 🔵 queued | **CPU, ~1 h** | no — same |
-| **3** | **RP-3** | The family-free recalibration beats our emission by 15% | 🟢 **LIVE** — epic **#468** | **CPU, minutes** | no GPU needed; ships or dies on CPU |
-| **4** | **RP-4** | Is the body actually under-dispersed, or is it the draw count? | 🔵 queued | **CPU, an afternoon** | no |
-| **5** | **RP-5** | Both heads sit BELOW their own objectives and nobody knows why | 🔵 queued | CPU first, then **GPU** | ⭐ **yes** |
-| **6** | **RP-6** | Magnitude ranking loses to persistence (0.303 vs 0.367) | 🔵 queued | **GPU** | ⭐ **yes** |
-| **7** | **RP-7** | Nothing scores spatial dependence or aggregates | 🔵 queued | CPU | no |
+| **3** | **RP-10** | ⭐ **The truth is not ground truth — we have never estimated the Bayes error floor** | 🔵 queued | **CPU, minutes** (route A) | no |
+| **4** | **RP-7** | Nothing scores spatial dependence or aggregates | 🔵 queued | CPU | no |
+| **5** | **RP-4** | Is the body actually under-dispersed, or is it the draw count? | 🔵 queued | **CPU, an afternoon** | no |
+| **6** | **RP-5** | Both heads sit BELOW their own objectives and nobody knows why | 🔵 queued | CPU first, then **GPU** | ⭐ **yes** |
+| **7** | **RP-6** | Magnitude ranking loses to persistence (0.303 vs 0.367) | 🔵 queued | **GPU** | ⭐ **yes** |
 | **8** | **RP-8** | Everything we know is month 1 | 🔵 queued | **GPU, large** | ⭐ **yes** |
+| — | **RP-3** | The family-free recalibration beats our emission by 15% | 🟢 **LIVE in parallel** — epic **#468** | **CPU, minutes** | no GPU needed |
 | — | **RP-9** | Optimisation pathologies (plasticity, edge of stability, ridge) | ⛔ **PARKED** | — | — |
 
-⚠️ **Why two pieces of enabling work sit above every experiment.** RP-1 and RP-2 are **hours of CPU
+⛔ **RE-RANKED 2026-10-27b, and the reason is a new entry.** Simon raised that the input data is **not ground truth** — `ged_sb_best` is a sum of geocoded point events whose sharpness is partly an artifact of measurement, reporting and aggregation ⇒ there is an irreducible **Bayes error floor** and we have never estimated it. That became **RP-10**, entered at **rank 3**, and it pulled **RP-7 from 7 to 4** because if the fine-scale target is partly noise then **aggregates may be the only well-posed target**. RP-4, RP-5 and RP-6 each moved down one; **RP-3 is unranked and runs in parallel.** Full argument: `reports/2026-10-27_measurement_floor/ARGUMENT.md`.
+
+⚠️ **Why the enabling work sits above every experiment.** RP-1 and RP-2 are **hours of CPU
 between them**, and the alternative is spending ~$2.25 and a day of pod time on an arm whose result
 we cannot read — three of our instruments were measurably blind in the last two weeks, and we have
 no noise floor at all. ⇒ They are ranked first because they are **cheap and they make everything
@@ -129,7 +132,7 @@ alone**. ⇒ σ̂ discharges the noise-floor requirement for `truncated_nb` @ 0.
 
 ## RP-3 · The family-free recalibration beats our emission by 15%
 
-**Rank 3.** 🟢 **LIVE — epic #468.** CPU, minutes. Runs in parallel with RP-1/RP-2.
+**Unranked — runs in parallel.** 🟢 **LIVE — epic #468.** CPU, minutes. Runs in parallel with RP-1/RP-2.
 
 **The claim.** Keep the model's `gate × mu` **ranking**, throw its predicted **amounts** away, look
 up what history did at each rank. Fit 421–456, score 457–469, 842,634 held-out cell-months:
@@ -153,9 +156,80 @@ primary metric at zero training cost** — not on being upstream. ⛔ The defect
 
 ---
 
+## RP-10 · The truth is not ground truth — we have never estimated the Bayes error floor
+
+**Rank 3.** 🔵 queued. **CPU, minutes** for route A. ⭐ **New 2026-10-27, raised by Simon.** Full
+argument: `reports/2026-10-27_measurement_floor/ARGUMENT.md`.
+
+**The claim.** `ged_sb_best` at `(priogrid_id, month_id)` is a **sum of geocoded point events**.
+Many of those events are geocoded to an administrative centroid rather than to where the deaths
+occurred, and many carry month-or-coarser dates. ⇒ Aggregating them into a 0.5° × 1-month bin makes
+a **spiky field by construction**, and some of that spikiness is **our ignorance of where and when,
+recorded as though it were knowledge.**
+
+⇒ ⛔ **CRPS against that field is proper for predicting the OBSERVATION, not the process.** A model
+that correctly predicted latent conflict intensity would score **worse** than one that also learned
+to mimic the measurement noise. There is an **irreducible CRPS** no model can beat.
+
+⇒ ⛔⛔ **We have never estimated it**, which means **"the model scores 0.039" is uninterpretable** —
+near-optimal or terrible, we cannot say.
+
+**⚠️ A correction made before building on it.** I claimed in conversation that GED's `where_prec` /
+`date_prec` would let us perturb the truth within its own declared precision. **True of GED as a
+source, false of the data we hold:** `pull_land_all3_121_504.parquet` has exactly
+`['ged_sb_best', 'ged_ns_best', 'ged_os_best']` and **no precision fields** — they are event-level
+and were summed away. ⇒ Two routes, not equivalent:
+
+| route | gives | cost |
+|---|---|---|
+| **A · declared swept kernel** — blur the truth at a stated radius, total preserved, sweep r | a floor **conditional on an assumed** precision ⇒ bounds the **shape**, not the level | **CPU, minutes.** Available now. |
+| **B · event-level GED** — perturb each event within its own coded precision, re-aggregate | the **actual** floor the data declares for itself | needs an event-level pull that does not exist here |
+
+⛔ **Do not report A's number as "the floor."** Report it as *"the floor under an assumed blur of
+radius r"*, with r swept (D-4).
+
+**⭐⭐⭐ Why it ranks this high: it reframes D12, our most-quoted spatial result.** The body carries
+**0.391** of its due spatial structure at **1 cell** and **0.870** at **32**. We have read that one
+way — *"the model fails at fine scale."* The second reading is that **the fine scale is partly
+unlearnable because at 1 cell we are scoring measurement noise.** ⛔ The two have never been
+distinguished **and they imply opposite actions**: fix the model, or change the target. ⇒ The floor
+**per spatial scale** settles it.
+
+**⚠️ The bound, from our own record.** `thin_0.75` keeps **97%** of the oracle after deleting 25% of
+events while **scrambling placement costs 81%** ⇒ if locations were mostly artifact, scrambling could
+not cost 81%. **Placement carries real signal**; this argument is about **sharpness**, not about
+whether location matters. ⭐ Compatible at different scales — which is D12's profile exactly.
+
+**⛔ And the half that cuts the other way, which is the contribution.** Location and date error
+**move** mass; the **total is preserved**. Under-reporting makes the observed total an **undercount**
+⇒ the latent total is **≥ 50,881**, while the delivered model emits **16,612**.
+
+⇒ ⛔⛔ **Measurement error excuses the smoothing and makes the mass deficit WORSE.** ⇒ The diagnosis
+**splits in two**, and the split is the point:
+
+| question | status |
+|---|---|
+| *is the field too smooth?* | ⚠️ possibly defensible, possibly even correct |
+| *is the total one third of truth?* | ⛔ **not defensible by any measurement-error story** |
+
+⚠️ These have been carried as one defect ("under-firing"). **They are not one defect.**
+
+**⛔ What it does not touch.** `size_ratio` saturating is **arithmetic**; the plug-in bias is
+**arithmetic**; AP ranking on the gate is a **code path**; C-387 is a **derivation**. Those are
+properties of the **instruments**; this is a property of the **target**. Neither excuses the other.
+
+**What an epic does.** Route A per spatial scale, swept; then route B if A says the question is live.
+⭐ **Started already, inside RP-1:** an eighth red-team forecast — blurred truth, total preserved —
+because ⛔ **if blurred truth scores WORSE than raw truth on our columns, the battery actively
+penalises the forecast this argument says may be right.**
+
+**Blocks.** RP-4, RP-5, RP-6, RP-7 — every magnitude claim is read against this floor.
+
+---
+
 ## RP-4 · Is the body actually under-dispersed, or is it the draw count?
 
-**Rank 4.** 🔵 queued. CPU, an afternoon. ⭐ The cheapest entry that could change what a standing
+**Rank 5.** 🔵 queued. CPU, an afternoon. ⭐ The cheapest entry that could change what a standing
 belief means.
 
 **What is measured.** The body **under-fires**: emitted positive fraction **0.0009** against an
@@ -189,7 +263,7 @@ under-dispersed at m=1024," in which case the entry closes having removed a conf
 
 ## RP-5 · Both heads sit BELOW their own objectives and nobody knows why
 
-**Rank 5.** 🔵 queued. CPU diagnosis first, then possibly GPU. ⭐ **The most interesting unexplained
+**Rank 6.** 🔵 queued. CPU diagnosis first, then possibly GPU. ⭐ **The most interesting unexplained
 fact in the record** — the loss-balance method review's own words.
 
 **The claim.** Each head stops short of its own best achievable loss:
@@ -227,7 +301,7 @@ then, and only if a residue survives, design one measurement for it.
 
 ## RP-6 · Magnitude ranking loses to persistence
 
-**Rank 6.** 🔵 queued. GPU. ⚠️ Revisits a direction previously closed as a wall.
+**Rank 7.** 🔵 queued. GPU. ⚠️ Revisits a direction previously closed as a wall.
 
 **The claim, measured.** On **magnitude**, spearman **0.303** against persistence's **0.367**,
 confound-clean (`project_amount_ceiling_wall`). ⇒ A dumb baseline ranks *how big* better than we do.
@@ -258,7 +332,7 @@ entry without an arm. ⇒ ⭐ **Re-rank after RP-3.**
 
 ## RP-7 · Nothing scores spatial dependence or aggregates
 
-**Rank 7.** 🔵 queued. CPU. Partly covered by **#473** inside RP-3.
+**Rank 4** (up from 7, on RP-10). 🔵 queued. CPU. Partly covered by **#473** inside RP-3.
 
 **The claim.** Everything we emit and everything we score is **per-cell and independent**.
 
@@ -327,6 +401,7 @@ These are not queued because they are not research. They apply to every entry ab
 | **D-3** | ⛔ **No new emitting family.** NB + ZINB only (scope lock 2026-07-22). | ADR-073 §0 forecloses the class; **C-387** disqualified the quantile head structurally. Two heads, one cause: neither can place an atom where 99.66% of the mass lives. |
 | **D-4** | ⛔ **Sweep the free parameter before reporting a scalar.** | Three claims withdrawn in one programme; **M68** is the fourth — a bin-count sweep manufactured a turning point. |
 | **D-5** | ⛔ **Measurement scripts are committed BEFORE they run.** | The only reason #460 and #461 are trustworthy. |
+| **D-6** | ⛔ **Log, document and report as insights arise — not at the end.** An argument that exists only in a chat turn is lost to the next context window. | Simon, 2026-10-27: *"make sure you log and document and report frequently so the insights or thought we produce are not lost or diluted or truncated."* ⭐ RP-10 exists because this rule was applied the moment he raised it. |
 
 ---
 
