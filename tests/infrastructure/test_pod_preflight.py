@@ -257,7 +257,14 @@ def test_required_not_set_reports_a_field_SET_TO_ITS_OWN_DEFAULT(field):
     ⇒ of the three fields the production docstring names, **two were unguarded**. `False` and `0.0`
     are not singletons under `==`, so each kills one of those mutations and the trio kills both.
     """
-    default = HydraNetConfig.model_fields[field].default
+    # ⛔ ROUND-TRIPPED THROUGH JSON, not passed as `model_fields[...].default` itself, and that is
+    # the whole point. My first version of this test handed `required_not_set` the IDENTICAL object
+    # the schema holds, so `config[key] is field.default` was trivially true and the `==` → `is`
+    # mutation sailed through a test written to catch it. A real config value never is that object:
+    # a `.json` sidecar parses a fresh float, and a `.py` config's literal is its own constant.
+    # ⚠️ `None` and `False` are singletons, so neither can distinguish `is` from `==` — only a
+    # fresh `0.0` can, which is why `struct_penalty_weight` is the load-bearing parameter here.
+    default = json.loads(json.dumps(HydraNetConfig.model_fields[field].default))
     got = required_not_set([field], {field: default})
     assert list(got) == [field], "the key must stay addressable, not be prose"
     assert got[field].startswith("= its schema default")
@@ -303,6 +310,28 @@ def test_a_required_field_the_config_DOES_NOT_SET_fails_the_preflight(tmp_path, 
     # ⛔ The absent case must say "absent", not "schema default" — the two are different diagnoses
     # and reporting the wrong one is what the {field: why} shape exists to prevent.
     assert "absent" in out
+    assert "DO NOT TRAIN" in out
+
+
+def test_a_NUMERIC_default_fails_the_preflight_through_a_real_json_sidecar(tmp_path, capsys):
+    """⛔⛔ THE MUTATION THAT SURVIVED MY FIRST ATTEMPT AT FIXING THIS GUARD.
+
+    `struct_penalty_weight: 0.0` is the field the structure-penalty pre-registration exists to turn
+    on, and `0.0` is its schema default — so setting it is exactly as off as omitting it. Changing
+    the comparison from `==` to `is` stops flagging it, because `json.loads` builds a fresh float
+    object that is not the one `model_fields` holds.
+
+    ⚠️ The unit test could not catch that on its own while it passed the schema's own default
+    object in. Going through a written sidecar is what makes the value foreign, and a written
+    sidecar is what a pod actually has.
+    """
+    p = tmp_path / "c.json"
+    p.write_text(json.dumps({"output_distribution": "nb", "struct_penalty_weight": 0.0}))
+    assert main(["--config", str(p), "--require", "struct_penalty_weight"]) == 1
+    out = capsys.readouterr().out
+    assert "PRE-FLIGHT FAILED" in out
+    assert "struct_penalty_weight" in out
+    assert "schema default" in out
     assert "DO NOT TRAIN" in out
 
 
