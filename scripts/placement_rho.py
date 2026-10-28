@@ -23,9 +23,17 @@ that AP scored 0.736228 on (+0.4925 -> -0.1605).
 
 CONVENTIONS, declared because every one of them is a free parameter and D-4 forbids reporting a
 scalar without sweeping it:
-  * population  'events'  truth > 0 only (the conditional-magnitude question)
+  * population  'events'  truth > 0 only (the conditional-magnitude question). THE DEFAULT, and
+                          the only one validated against the defect this module exists for.
                 'union'   truth > 0 OR pred > 0 (adds the false alarms' magnitudes)
                 'all'     every cell (dominated by the 99.66% tied at zero)
+    ⛔⛔ MEASURED, 2026-10-28 (#483): population='all' is BLIND TO THE VERY DEFECT THIS MODULE
+    WAS BUILT FOR. A forecast firing in exactly the truth-positive cells with a CONSTANT
+    magnitude scores 0.000000 on 'events' and **0.999998** on 'all', because on the all-cell
+    population the zeros tie with zeros and the positives tie with positives, and that near-
+    perfect agreement swamps the ordering question entirely. ==> 'events' is not a preference,
+    it is the population the instrument means something on; a caller who takes 'all' gets a
+    number that cannot fail. This is why the free parameter is swept and reported as a table.
   * pooling     'pooled'  one correlation over the whole population
                 'monthly' per month, then the mean over months
   * ties        average ranks (scipy's default). A CONSTANT input vector carries no rank
@@ -33,8 +41,14 @@ scalar without sweeping it:
                 incidental: nan would propagate into a verdict, and 0.0 is the honest value
                 ("no ranking skill"), which is also what a random forecast tends to.
 
-NOT a replacement for anything. FAO-02 is locked and lodestar_score.py is frozen; this measures
-what they are blind to and is quoted beside them, never instead of them.
+NOT a replacement for anything, and NOT a standalone selector. FAO-02 is locked and
+lodestar_score.py is frozen; this measures what they are blind to and is quoted BESIDE them,
+never instead of them. ⛔ Measured reason, not a disclaimer: the degenerate `spiky-1/30` forecast
+-- all of a month's mass on 97 cells, the #258 defect -- scores 0.521 here, ABOVE persistence
+(0.428) and climatology (0.394), because the cells it picks correlate with the truth even though
+its field is absurd. A column that measures conditional-magnitude RANKING says nothing about
+placement, calibration or mass, and ranking a forecast on it alone would select for exactly the
+pathology the rest of the battery exists to catch.
 """
 
 from __future__ import annotations
