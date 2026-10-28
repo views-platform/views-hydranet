@@ -196,3 +196,40 @@ That gap was measured on amber, which this section shows is numerically `silver_
 comparison is still **family vs family across a 3.7× level shift**, and `vehicle.py:43,60` forbids
 quoting one against the other. The determinism result removes the *noise* objection to that
 comparison; it does nothing about the *family* objection, which is the binding one.
+
+---
+
+## 8 · ⭐ A PRE-REGISTERED PREDICTION about the σ̂ profile, written before the aggregate ran
+
+Committed **before** `sigma_hat_aggregate.py` was run, so it can be wrong on the record.
+
+**The observation it rests on.** Comparing the `_s42` and `_s43` cubes directly (seeds 42 vs 43,
+same grid, same months, both verified aligned), the seed perturbs the two heads by **very different
+amounts**:
+
+| field | max \|Δ\| | mean \|Δ\| |
+|---|---|---|
+| `mu` (the body) | 1.7811e+01 | **4.3500e+00** |
+| `theta` | 9.4711e-01 | 4.0893e-02 |
+| `gate` | 9.0743e-01 | **7.4293e-03** |
+
+⇒ In mean absolute terms the seed moves the **body ~585× more than the gate**. ⚠️ Not a
+like-for-like ratio — `mu` is a count-scale magnitude and `gate` is a probability in [0,1], so the
+two are not on a common scale and **no scalar is quotable from this**. It is a direction, not a
+size.
+
+**P3, declared.** Because B-1b's *gated* variant multiplies in the seed-stable half while B-1a and
+B-1b's *body alone* variant are driven by `mu`:
+
+1. **CV(B-1b gated) < CV(B-1b body alone)** at every `n`.
+2. **CV(B-1a) > CV(B-1b gated)** at comparable scales.
+
+⛔ **The honest counter-case.** Both B-1a and B-1b are computed on **thresholded or rank-reduced**
+fields — B-1b binarises through `matched_pred_thresh` and B-1a is a variogram *ratio* — and both
+operations discard magnitude. A large `mu` perturbation that preserves rank order would therefore
+move **neither**, and the whole prediction would fail. ⇒ If P3 is refuted, that is the mechanism to
+look at first, and it would be a result about the instruments rather than about the seed.
+
+⚠️ **And P3 is about the CV, not about which σ̂ is larger in absolute terms.** B-1a and B-1b are
+different statistics on different scales; their raw σ̂ values are not comparable, which is why the
+aggregator prints the CV beside every one.
