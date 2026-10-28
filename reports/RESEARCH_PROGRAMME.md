@@ -228,7 +228,7 @@ from three true seed replicates, with all eight gates passing.
   so there is no measurement-noise term to subtract and no way to argue the floor down.
 
 ⛔ **Scope, binding:** `truncated_nb` @ dropout 0.15. The published B-1a 0.391 / B-1b 0.6267 are
-`nb` @ 0.15 on a **deleted** checkpoint and the live `nb` control is @ **0.125**; family alone shifts
+`nb` @ 0.15 on a checkpoint ⛔ **wrongly recorded as deleted — it is on disk, C-394/W-99** (⚠️ but with no replicate, so σ̂ there is still unmeasured) and the live `nb` control is @ **0.125**; family alone shifts
 B-1a **3.7×**. ⇒ discharged for `truncated_nb` @ 0.15, **provisionally** for `nb` as a transported CV.
 ⚠️ **n=3, 2 df**: 95% CI **[0.52σ̂, 6.28σ̂]**. Two more seeds take the bar 4.97σ̂ → ~3.0σ̂ at ~17 min each.
 
@@ -289,7 +289,7 @@ over n = 1, 2, 4 — **draw noise wearing a seed-effect costume. Hard stop and r
 
 | | family | dropout | status |
 |---|---|---|---|
-| published B-1a **0.391** / B-1b **0.6267** | `nb` | 0.15 | checkpoint **DELETED** |
+| published B-1a **0.391** / B-1b **0.6267** | `nb` | 0.15 | ⛔ **said "checkpoint DELETED" — WRONG, corrected 2026-10-28: on disk at `~/Documents/views_hydranet_vehicle_20261012/`, sha `4acbf4d3…`. ⚠️ Reproducible, but still NO REPLICATE — σ̂ here needs ≥2 more seeds. C-394 / W-99.** |
 | the live `nb` control | `nb` | **0.125** | live |
 | the three replicates | **`truncated_nb`** | 0.15 | live |
 

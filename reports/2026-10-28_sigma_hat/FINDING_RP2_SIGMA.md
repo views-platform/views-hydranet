@@ -114,6 +114,16 @@ counter-case is unused, not confirmed.
   shift from the family alone**, reproduced here from a live checkpoint. ⇒ σ̂ discharges the noise
   floor for **`truncated_nb` @ 0.15** and, for `nb`, only **provisionally as a transported CV**.
   ⛔ Amend the prereg's rule 7 to say which half is discharged.
+
+  > ⛔⛔ **CORRECTED 2026-10-28 — the checkpoint is NOT deleted.** It is at
+  > `~/Documents/views_hydranet_vehicle_20261012/calibration_model_20261012_033112.pt`, sha256
+  > `4acbf4d3…`, **exactly** the sha stored inside `d4_result.npz`, with its sidecar and run
+  > directory; family `nb`, dropout 0.15, git `f99413e`. The claim came from a provenance note
+  > whose sentence was correctly scoped (*"not on disk anywhere under `views-models`"*) and
+  > whose heading generalised it. ⇒ The published numbers **are** reproducible and the vehicle
+  > **is** a live comparator. ⛔ **But everything this bullet concludes STANDS**: σ̂ needs ≥2
+  > further seeds and this is one checkpoint at seed 42, so no replicate exists in the `nb` @
+  > 0.15 cell and σ̂ there is still unmeasured. **Reproducible ≠ resolvable.** C-394 / W-99.
 - **Not the gate-slope σ̂** of the 2026-10-21 readout (M74, C-390). Different statistic, never
   quoted against this one (GLOSSARY §5e).
 - **Not a verdict on any arm.** These are noise measurements against known-identical configs.
