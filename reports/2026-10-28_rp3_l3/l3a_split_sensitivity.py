@@ -53,9 +53,13 @@ C-351 SLOTS, declared:
 ⛔ THE GATES, declared before the run:
   G-L3a  ⭐⭐ THE COPY GATE, RUNS FIRST. The binned-CDF scorer here is a COPY of the committed
          `family_free_cdf.py` loop, lifted into a function. At the ORIGINAL split (fit 421–456,
-         score 457–469) with B = 8,000 it must return 0.039327. If it does not, the copy is wrong
-         and EVERY row below is void — nothing else is reported. This is C-383's shape: a second
+         score 457–469) with B = 8,000 it must reproduce `family_free_cdf.out`'s own numbers,
+         0.039186 plug-in and 0.039026 fair, to 1e-6. If it does not, the copy is wrong and EVERY
+         row below is void — nothing else is reported. This is C-383's shape: a second
          implementation of a published statistic is void until it reproduces the first.
+         ⛔⛔ AMENDMENT 1: this gate was first written against M67's LEDGER value 0.039327 and
+         failed. The copy was exact; the anchor was wrong — the script being copied also fails
+         that ledger value, in its own committed output. See the constants block.
   G-L3b  the copy also reproduces the published SHAPE at the original split: B=16,000 is worse
          than B=8,000 (the turn-over), and B=250 loses to 0.046023 while B=1,000 beats it.
   G-L3c  NON-VACUITY: the internal margins are not all the same number (ptp > 0). A sweep whose
@@ -88,7 +92,18 @@ B_SWEEP = (1, 50, 250, 1_000, 2_000, 4_000, 8_000, 16_000, 32_000)
 SCORE_LEN = 13                     #: M67's own score-window length, held fixed across splits
 ORIG_B = 456                       #: the published boundary: fit 421-456, score 457-469
 BOUNDARIES = (433, 437, 440, 443, 447, 450, 453, ORIG_B)
-PUBLISHED_B8000 = 0.039327         #: family_free_cdf.py's G-a target, the copy gate's anchor
+#: ⛔⛔ AMENDMENT 1, 2026-10-28 — THE ANCHOR WAS WRONG, NOT THE CODE. G-L3a first ran against
+#: M67's ledger value 0.039327 and failed at 0.039186. The lifted scorer is EXACT: 0.039186 /
+#: 0.039287 / 0.048389 / 0.042003 and argmin B=8,000 all match `family_free_cdf.out` to six
+#: decimals. What it does not match is the LEDGER, and neither does the script it was copied
+#: from -- that script's own committed output reads "⛔ FAIL G-a ... got 0.039186". ⇒ A COPY gate
+#: must be anchored on the committed implementation, not on a number no implementation has ever
+#: produced. The tolerance drops from 5e-5 to 1e-6 because an exact copy should be exact, and the
+#: fair estimator is now gated too. ⚠️ M67's 0.039327 remains unreproduced by BOTH
+#: implementations and stays an open item of #460; it is recorded below, never used as a target.
+COMMITTED_B8000_PLUGIN = 0.039186  #: family_free_cdf.out, the B=8,000 row, plug-in 1/n^2
+COMMITTED_B8000_FAIR = 0.039026    #: the same row, fair 1/(n(n-1))
+LEDGER_M67 = 0.039327              #: ⛔ NOT A TARGET. Never reproduced by either implementation.
 PARAMETRIC_ORIG = 0.046023         #: ⛔ valid on the ORIGINAL window ONLY. Never on another row.
 
 t_start = time.time()
@@ -230,16 +245,23 @@ xo_f, yo_f = INDEX[f_cols].ravel(), Y[f_cols].ravel()
 xo_s, yo_s = INDEX[s_cols].ravel(), Y[s_cols].ravel()
 orig = {B: binned_cdf_crps(xo_f, yo_f, xo_s, yo_s, B) for B in B_SWEEP}
 
-g_a = abs(orig[8_000][0] - PUBLISHED_B8000) < 5e-5
+g_a = (
+    abs(orig[8_000][0] - COMMITTED_B8000_PLUGIN) < 1e-6
+    and abs(orig[8_000][1] - COMMITTED_B8000_FAIR) < 1e-6
+)
 g_b = (
     orig[16_000][0] > orig[8_000][0]
     and orig[250][0] > PARAMETRIC_ORIG > orig[1_000][0]
 )
 print("=" * 99)
-print("  G-L3a / G-L3b — THE COPY GATE, against the committed family_free_cdf.py")
+print("  G-L3a / G-L3b — THE COPY GATE, against the committed family_free_cdf.OUT")
 print("=" * 99)
-print(f"  {'PASS' if g_a else '⛔ FAIL'}  G-L3a  original split, B=8000 reproduces "
-      f"{PUBLISHED_B8000:.6f}: got {orig[8_000][0]:.6f}")
+print(f"  {'PASS' if g_a else '⛔ FAIL'}  G-L3a  original split, B=8000 reproduces the committed "
+      f"{COMMITTED_B8000_PLUGIN:.6f} / {COMMITTED_B8000_FAIR:.6f} to 1e-6: "
+      f"got {orig[8_000][0]:.6f} / {orig[8_000][1]:.6f}")
+print(f"           ⚠️ for the record, NOT gated: M67's ledger value {LEDGER_M67:.6f} is "
+      f"reproduced by NEITHER implementation (gap {orig[8_000][0] - LEDGER_M67:+.6f}, "
+      f"{100.0 * (orig[8_000][0] / LEDGER_M67 - 1.0):+.2f}%) — open item of #460.")
 print(f"  {'PASS' if g_b else '⛔ FAIL'}  G-L3b  published shape: 16k {orig[16_000][0]:.6f} > "
       f"8k {orig[8_000][0]:.6f}; 250 {orig[250][0]:.6f} > {PARAMETRIC_ORIG} > "
       f"1k {orig[1_000][0]:.6f}")
