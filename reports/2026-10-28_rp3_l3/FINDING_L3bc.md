@@ -1,7 +1,7 @@
 # L3b / L3c (#471) — it works on all three targets, and the published target is the best of the three
 
 **Date** 2026-10-28 · **Scripts** `l3b_three_target_cube.py` (committed `4b1c3b7`),
-`l3c_three_target_scores.py` + `binned_cdf.py` (committed `0b00a6e`), all before their runs ·
+`l3c_three_target_scores.py` + `binned_cdf.py` (committed `a731e27`), all before their runs ·
 **Outputs** `l3b_three_target_cube.out`, `l3c_three_target_scores.out` · **Cost** 818.1 s + 49.3 s,
 CPU, nothing retrained · **All gates PASS**
 
