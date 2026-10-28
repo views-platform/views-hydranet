@@ -142,3 +142,57 @@ the same scale, and because it is the shape of the thing σ̂ exists to catch.
 - **Not** that 0.1.2 → 0.1.4 is inert in general — only for **this config**, which is what the
   comparison covers.
 - **Not** a σ̂ for anything #462/#463 asks for. That measurement has not run.
+
+---
+
+## 7 · ⭐⭐⭐ ADDENDUM — an UNPLANNED gate, found by reading the artifact manifest, and it is stronger than G-3
+
+**G-9, not pre-declared.** `ARTIFACT_MANIFEST.md` records an existing `truncated_nb` cube,
+`d4_result_tnb.npz` (2026-10-21). Its stored vehicle sha is **`2a5efc2a`** — ⛔ **amber**, the
+checkpoint the σ̂ allowlist refuses by name. But §1 measured amber's weights as **190/190
+bit-identical to `silver_0_1_4`**, which is this run's `_s42` replicate.
+
+⇒ Two cubes, produced **seven days apart** from two different `.pt` files whose weights are
+identical to the bit. They must agree, and they do:
+
+| | `array_equal` | max \|Δ\| |
+|---|---|---|
+| `mu` | **True** | **0.000000e+00** |
+| `theta` | **True** | **0.000000e+00** |
+| `gate` | **True** | **0.000000e+00** |
+
+`land_cells` and `months` equal. ⇒ **End-to-end SCORING determinism is exact** — not just the
+dropout masks, which is all G-3 could show, but the entire 4-pass × 49-step autoregressive sweep
+over 64,818 land cells.
+
+⭐ **And it doubles as a reproduction gate on the instrument.** The current
+`d4_mu_on_the_grid.py` reproduced a seven-day-old committed cube bit-for-bit, so the question
+*"did the script change in between?"* is answered by the measurement rather than by reading the
+diff: any change affecting the default path would have broken the equality. ⚠️ It establishes this
+for the **default** path only; `--dropout-off` was added on 2026-10-21 and is not exercised here.
+
+⇒ **Consequence for σ̂: there is NO measurement-noise term to subtract.** Training is
+bit-deterministic (§1) and scoring is bit-deterministic (here), so any spread the three replicates
+show on B-1a/B-1b is **the seed and nothing else**. That is a stronger footing than the design
+asked for.
+
+### ⚠️ One thing to put in front of Simon rather than act on
+
+**amber's exclusion is a provenance rule, and it now has no numerical content for this comparison.**
+views-models forbids pooling amber because it is a different pod session at git `73c3f42`. That rule
+stands and I have **not** overridden it. But amber's weights *are* `silver_0_1_4`'s, and its scored
+cube *is* `_s42`'s, to the bit — so admitting it would add **exactly zero** information rather than
+contaminating anything. ⇒ The refusal is harmless here, not costly. ⛔ **Noted, not changed** — a
+views-models rule is not mine to relax, and nothing in this result needs it relaxed.
+
+⚠️ **And a manifest observation, not a finding:** `d4_result_tnb.npz` is now a redundant copy of
+`d4_result_s42.npz` (129 MB), the same shape of duplication the manifest already flags between
+`d4_result.npz` and `d4_result_CONTROL_nb_4acbf4d3.npz`. One of each pair could go.
+
+### ⛔ What this does NOT license
+
+It does **not** make the `truncated_nb` B-1a figure of **1.462** comparable to `nb`'s **0.391**.
+That gap was measured on amber, which this section shows is numerically `silver_0_1_4` — so the
+comparison is still **family vs family across a 3.7× level shift**, and `vehicle.py:43,60` forbids
+quoting one against the other. The determinism result removes the *noise* objection to that
+comparison; it does nothing about the *family* objection, which is the binding one.
