@@ -29,6 +29,7 @@ def _oracle_rho(a: np.ndarray, b: np.ndarray) -> float:
     Deliberately does not call scipy.stats.spearmanr. Average ranks are built from the sorted
     order with each tie group assigned the mean of the positions it occupies.
     """
+
     def ranks(x: np.ndarray) -> np.ndarray:
         order = np.argsort(x, kind="stable")
         out = np.empty(x.size, dtype=np.float64)
@@ -37,7 +38,7 @@ def _oracle_rho(a: np.ndarray, b: np.ndarray) -> float:
             j = i
             while j + 1 < x.size and x[order[j + 1]] == x[order[i]]:
                 j += 1
-            out[order[i:j + 1]] = (i + j) / 2.0 + 1.0
+            out[order[i : j + 1]] = (i + j) / 2.0 + 1.0
             i = j + 1
         return out
 
@@ -49,13 +50,15 @@ def _oracle_rho(a: np.ndarray, b: np.ndarray) -> float:
 
 # --- the hand cases ---
 def test_perfect_ordering_is_exactly_one():
-    assert pr.placement_rho(np.array([1.0, 2.0, 3.0]), np.array([10.0, 20.0, 30.0]),
-                            population="all") == pytest.approx(1.0, abs=1e-12)
+    assert pr.placement_rho(
+        np.array([1.0, 2.0, 3.0]), np.array([10.0, 20.0, 30.0]), population="all"
+    ) == pytest.approx(1.0, abs=1e-12)
 
 
 def test_reversed_ordering_is_exactly_minus_one():
-    assert pr.placement_rho(np.array([3.0, 2.0, 1.0]), np.array([10.0, 20.0, 30.0]),
-                            population="all") == pytest.approx(-1.0, abs=1e-12)
+    assert pr.placement_rho(
+        np.array([3.0, 2.0, 1.0]), np.array([10.0, 20.0, 30.0]), population="all"
+    ) == pytest.approx(-1.0, abs=1e-12)
 
 
 # --- the independent oracle, including ties ---
@@ -112,10 +115,12 @@ def test_a_monotone_rescale_of_the_prediction_changes_nothing():
     truth = np.where(rng.random(800) < 0.1, rng.integers(1, 90, 800), 0).astype(np.float64)
     pred = rng.gamma(1.0, 3.0, size=800)
     base = pr.placement_rho(pred, truth, population="events")
-    assert pr.placement_rho(pred * 1000.0, truth, population="events") == pytest.approx(base,
-                                                                                        abs=1e-12)
-    assert pr.placement_rho(pred ** 1.7, truth, population="events") == pytest.approx(base,
-                                                                                      abs=1e-12)
+    assert pr.placement_rho(pred * 1000.0, truth, population="events") == pytest.approx(
+        base, abs=1e-12
+    )
+    assert pr.placement_rho(pred**1.7, truth, population="events") == pytest.approx(
+        base, abs=1e-12
+    )
 
 
 def test_the_events_population_ignores_the_zero_cells_and_union_does_not():
@@ -148,16 +153,14 @@ def test_it_refuses_a_nan_in_the_PREDICTION_rather_than_ranking_it():
     """⛔ `match` names which check fired. A loose `match="non-finite"` matched BOTH raise sites,
     so deleting either one left the suite green (guard audit 2026-10-28, mutations M06/M19)."""
     with pytest.raises(pr.PlacementRhoError, match="non-finite PRED"):
-        pr.placement_rho(np.array([1.0, np.nan, 3.0]), np.array([1.0, 2.0, 3.0]),
-                         population="all")
+        pr.placement_rho(np.array([1.0, np.nan, 3.0]), np.array([1.0, 2.0, 3.0]), population="all")
 
 
 def test_it_refuses_a_nan_in_the_TRUTH_too():
     """The original suite checked only `pred`, so reducing the check to `truth` alone survived
     (mutation M20)."""
     with pytest.raises(pr.PlacementRhoError, match="non-finite TRUTH"):
-        pr.placement_rho(np.array([1.0, 2.0, 3.0]), np.array([1.0, np.nan, 3.0]),
-                         population="all")
+        pr.placement_rho(np.array([1.0, 2.0, 3.0]), np.array([1.0, np.nan, 3.0]), population="all")
 
 
 def test_it_refuses_mismatched_shapes():
@@ -202,9 +205,9 @@ def test_the_sweep_returns_every_cell_of_the_grid_with_the_RIGHT_VALUES():
     pred = rng.gamma(1.0, 1.0, size=900)
     got = pr.sweep(pred, truth, month)
     #: the grid is written out HERE, not read from the module
-    expected_keys = {(pop, pool)
-                     for pop in ("events", "union", "all")
-                     for pool in ("pooled", "monthly")}
+    expected_keys = {
+        (pop, pool) for pop in ("events", "union", "all") for pool in ("pooled", "monthly")
+    }
     assert set(got) == expected_keys
     for pop, pool in expected_keys:
         assert got[(pop, pool)] == pytest.approx(

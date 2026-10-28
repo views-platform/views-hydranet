@@ -135,8 +135,9 @@ def placement_rho(
         inm = month == m
         sel = inm & _select(pred, truth, population)
         if sel.sum() < 2:
-            raise PlacementRhoError(f"month {m}: population {population!r} selected "
-                                    f"{int(sel.sum())} cells")
+            raise PlacementRhoError(
+                f"month {m}: population {population!r} selected {int(sel.sum())} cells"
+            )
         per.append(_rho(pred[sel], truth[sel]))
     return float(np.mean(per))
 
