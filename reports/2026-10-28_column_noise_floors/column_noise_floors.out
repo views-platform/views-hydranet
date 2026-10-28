@@ -1,0 +1,161 @@
+G-0  the three imported FROZEN primitives reproduce their hand cases:
+       crps({0,2} vs 0) = 0.5 | brier = 0.0 / 0.25 | AP = 1.0 | AP(no positives) = nan
+       ⇒ the frozen ruler's own functions are in hand, not copies            PASS
+================================================================================================
+M1 (#478) — THE DEGENERATE-FORECAST RED-TEAM HARNESS
+================================================================================================
+  cube      d4_result.npz  sha 4acbf4d3c2b457b0  family nb  draws 4
+  score     13 months 457-469 x 64,818 cells = 842,634 cell-months
+  fit       36 months 421-456 (climatology + persistence's lag)
+  truth     ged_sb_best counts. positives 2,905 (0.003448), max 2482, total 50881
+  S         256 members per forecast, identical across all seven (epic #263's rule)
+  spiky     1/30 of active cells = 97 occupied cells per month
+
+  forecast                    field total    frac>0          max  size_ratio
+  oracle (raw truth)               50,881  0.003448      2,482.0      1.0000
+  all-zero                              0  0.000000          0.0      0.0000
+  climatology                      75,534  0.022077        373.8      0.3750
+  persistence                      51,285  0.003412      2,482.0      0.0000
+  spiky-1/30                       50,881  0.001496         52.7      0.0000
+  freq-right/mag-wrong             50,881  0.003448         17.5      2.9192
+  mag-right/freq-wrong             50,881  0.003448      2,482.0      0.0000
+  reference (delivered)            16,612  0.012225         54.5      0.2598
+  blurred-truth r=1                50,881  0.047694        281.9      0.3371
+  blurred-truth r=2                50,881  0.081489        114.4      0.2594
+  blurred-truth r=4                50,881  0.131980         40.2      0.1747
+  TRUTH                            50,881  0.003448      2,482.0      1.0000
+
+================================================================================================
+  VOID GATES
+================================================================================================
+  PASS  G-h  ORACLE: crps_all EXACTLY 0, size_ratio 1, AP 1, Brier 0
+        crps_all=0  size_ratio=1  AP=1  Brier=0
+  PASS  G-a  ALL-ZERO: crps_none, size_ratio, pos_mcr all EXACTLY 0.0
+        crps_none=0  size_ratio=0  pos_mcr=0
+  PASS  G-c  CLIMATOLOGY: per-cell gate == fit-window positive rate
+        max |delta rate| 0.000e+00; identical across months True
+  PASS  G-d  PERSISTENCE: byte-identical to the truth field lagged one month
+        array_equal True; max |delta| 0.0
+  PASS  G-b  SPIKY: per-month total exact and occupancy exactly k
+        max relative total error 4.454e-16; occupancy 97..97 (want exactly 97)
+  PASS  G-e  FREQ-RIGHT: nonzero cell SET == the truth-positive set
+        array_equal True; nonzero 2,905 vs truth positives 2,905
+  PASS  G-f  MAG-RIGHT: sorted nonzero multiset == truth's, every month
+        all 13 months exact: True
+  PASS  G-i  BLURRED r=1: per-month land total preserved exactly
+        max relative total error 2.407e-16
+  PASS  G-i  BLURRED r=2: per-month land total preserved exactly
+        max relative total error 3.544e-16
+  PASS  G-i  BLURRED r=4: per-month land total preserved exactly
+        max relative total error 4.815e-16
+  PASS  G-g  ALL 11: N == 842,634, identical ordering, identical S == 256
+        asserted per forecast above (shape and gate-shape assertions)
+  PASS  G-j  BLUR is monotone in r: max falls, frac>0 rises
+        r=1: max 281.9 frac 0.047694 sr 0.3371  r=2: max 114.4 frac 0.081489 sr 0.2594  r=4: max 40.2 frac 0.131980 sr 0.1747
+
+  wall time 42.3 s   peak RSS 8.26 GiB
+  all construction gates PASS — the seven are safe for M2 (#479) to score
+====================================================================================================
+RP-2b — the noise floor of the BATTERY's columns, from three seed replicates
+====================================================================================================
+  population 842,634 cell-months (= M2's) · S 256 · pooled sd ddof=1, n=3, 2 df
+  Tier A 16 columns (no sampler) · Tier B 4 NOT RUN (#441)
+
+G-V  VOID GATE — the duplicated score() against M2's committed separation_matrix.npz
+  PASS  G-V  99 values over 5 deterministic forecasts, max |Δ| 0.000e+00
+
+building ey and the gate per replicate (composed PER DRAW then averaged — C-386)
+    _s42  sha c7745155  family truncated_nb  ey sum 127,168  frac>0 1.000000
+    _s43  sha 80696bb5  family truncated_nb  ey sum 74,147  frac>0 1.000000
+    _s44  sha 23fb3221  family truncated_nb  ey sum 158,778  frac>0 1.000000
+  PASS  G-A  shas ['23fb3221', '80696bb5', 'c7745155'], amber absent, families ['truncated_nb']
+
+G-P  PARTITION GATE — a ZERO-SUM ensemble perturbation holding the row mean bit-exactly
+  PASS  G-P0a  STRUCTURAL, exact: every row of the perturbed ensemble has nonzero spread, min ptp 1.000000e-03 -- the perturbation is real, not a no-op
+  PASS  G-P0b  the row mean is held to FLOAT NOISE, reported with its scale: shift 4.547e-13 on a field max of 2.846e+03, relative 1.598e-16 (NOT asserted as exactly zero -- Amendment 1)
+  PASS  G-Pa  all 16 Tier-A columns move at float-noise scale only -- worst size_ratio 4.441e-16
+  PASS  G-Pb  NON-VACUITY: Tier-B moves -- crps_all 3.0491e-02, crps_events 6.2896e+00, crps_none 8.8381e-03, QS99 4.8240e-03
+  PASS  G-Pc  THE DISCRIMINATING GATE: largest Tier-B move (crps_events 6.2896e+00) exceeds the largest Tier-A move (size_ratio 4.441e-16) by 1.42e+16x ==> the partition is demonstrated, not assumed
+
+scoring the three replicates (degenerate ensemble — Tier A exact by G-Pa)
+    _s42 done  (81s)
+    _s43 done  (89s)
+    _s44 done  (98s)
+
+====================================================================================================
+  TIER A — sigma-hat per column (n=3, ddof=1, 2 df).  ⛔ 4.97 sigma-hat is the honest bar
+====================================================================================================
+  column       reads               s42         s43         s44        mean      sd(1)       CV     4.97sd
+  AP           gate           0.781213    0.744911    0.768499    0.764874   0.018420    0.024   0.091547
+  Brier        gate           0.001599    0.001642    0.001575    0.001605   0.000034    0.021   0.000170
+  size_ratio   mean field     1.070601    0.921630    1.448769    1.147000   0.271747    0.237   1.350584
+  pos_mcr      mean field     2.594552    1.837156    3.355896    2.595868   0.759371    0.293   3.774074
+  MCR_field    mean field     2.499326    1.457267    3.120569    2.359054   0.840477    0.356   4.177168
+  FSS1         mean field     0.638696    0.593129    0.574279    0.602035   0.033119    0.055   0.164601
+  FSS3         mean field     0.822978    0.785424    0.766945    0.791782   0.028552    0.036   0.141905
+  FSS5         mean field     0.855463    0.814710    0.795843    0.822005   0.030472    0.037   0.151446
+  FSS9         mean field     0.882066    0.837464    0.822395    0.847308   0.031029    0.037   0.154216
+  FSS17        mean field     0.907020    0.859305    0.851605    0.872643   0.030019    0.034   0.149194
+  FSS33        mean field     0.925953    0.880024    0.879027    0.895001   0.026810    0.030   0.133245
+  FSS65        mean field     0.950932    0.910847    0.912672    0.924817   0.022635    0.024   0.112495
+  AFSS         mean field     1.000000    1.000000    1.000000    1.000000   0.000000    0.000   0.000000
+  hit_rate     mean field     0.638696    0.593129    0.574279    0.602035   0.033119    0.055   0.164601
+  act_freq     mean field     1.000000    1.000000    1.000000    1.000000   0.000000    0.000   0.000000
+  Gini         mean field     0.962631    0.946836    0.905108    0.938192   0.029720    0.032   0.147707
+  PASS  G-N  NON-VACUITY: 14 of 16 Tier-A columns have σ̂ > 0
+
+  SATURATED COLUMNS -- sigma-hat = 0 because the column is PINNED:
+       AFSS         identical 1.000000 in all three replicates ==> EXCLUDED from any 'most stable' reading
+       act_freq     identical 1.000000 in all three replicates ==> EXCLUDED from any 'most stable' reading
+
+  among the 14 LIVE columns (saturated excluded):
+  CV > 1 (sigma-hat exceeds the mean): 0 of 14 -- NONE  ==> P4 REFUTED
+  ⇒ most stable:  Brier 0.0213, AP 0.0241, FSS65 0.0245
+  ⇒ least stable: size_ratio 0.2369, pos_mcr 0.2925, MCR_field 0.3563
+  P5 -- the two GATE-only columns: Brier CV 0.0213, AP CV 0.0241; lowest two live: Brier, AP ==> P5 CONFIRMED
+     (literal P5 named no saturation exclusion -- see the finding)
+
+  FAO-02's LOCKED MCR GUARDRAIL against its own seed noise:
+       margin (A.1, distance from 1)   0.01
+       sigma-hat here                  0.840477
+       ==> the seed noise is 84x that margin, and the
+           4.97 sigma-hat bar is 418x it.
+       SCOPED: truncated_nb @ 0.15, expectation composition, NOT the
+           delivered `nb` draws -- an order-of-magnitude statement only.
+
+====================================================================================================
+  TIER B — DECLARED NOT RUN, and the reason is a REGISTERED DEFECT
+====================================================================================================
+
+  crps_all · crps_events · crps_none · QS99 — the ONLY four columns reading the ensemble beyond its
+  mean, i.e. the battery's only window onto DISPERSION (RP-1/M72).
+
+  ⛔ Their noise floor needs real draws from `truncated_nb`. **#441 is OPEN**:
+     `TruncatedNBFamily.sample()` disagrees with `.mean()` by up to **54x at small theta**, and the
+     issue title states the fast path's premise **"fails on 99% of the grid"**. ⇒ σ̂ would carry a
+     known 54x defect across essentially the whole population, and a noise floor contaminated by a
+     sampler bug is worse than none. Fixing #441 is out of scope (register, do not fix).
+
+  ⭐ THE RESULT, DECLARED BEFORE THE RUN: RP-1 found only 4 of 20 columns can SEE dispersion.
+     Those are exactly the 4 whose noise floor CANNOT be measured. The battery's one window onto
+     the defect this programme has chased since July is also its one unmeasurable window.
+
+  ⇒ Reported as UNMEASURED. ⛔ Not as zero, and not as fine.
+
+====================================================================================================
+  HOW TO READ THIS
+====================================================================================================
+
+  ⚠️ n=3, 2 df. 95% CI on each σ̂ is [0.52σ̂, 6.28σ̂] — a 12.1-fold span; bounds from the UPPER
+     limit. The honest bar against ONE unreplicated arm is 4.97σ̂, printed per row.
+  ⛔ `truncated_nb` @ dropout 0.15 ONLY. M2's committed battery values are the `nb` control's, and
+     family alone shifts B-1a 3.7x ⇒ NEVER quote a level here against a level there. Only σ̂ and
+     the CV transfer, and only provisionally.
+  ⭐ Tier A is EXACT, not approximate — G-Pa re-measured RP-1's partition on this very
+     construction, so a degenerate ensemble returns what any ensemble of that mean would give.
+  ⚠️ A σ̂ of 0 is legitimate where a column has no model dependence; it is not evidence of quality.
+  wall 98.1s  peak RSS 10.03 GiB
+
+====================================================================================================
+  ALL GATES PASS
+====================================================================================================

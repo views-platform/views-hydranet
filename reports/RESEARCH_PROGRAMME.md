@@ -53,8 +53,8 @@ ranking.
 
 | next | entry | why |
 |---|---|---|
-| **1** | ⭐ **RP-2b** — the noise floor of the other **18** battery columns | A **readout, not a pod run**: the three seed-replicate cubes already exist on disk (M75). Supplies the paper's **second criterion** (evaluation report §9.4b), which the synthetic population structurally cannot. |
-| **2** | **RP-3** — the family-free recalibration (#468), already live | Resume where it stands. |
+| **1** | ⭐ **RP-2b** — the noise floor of the other **18** battery columns | ✅ **DONE 2026-10-28** (**M76**): 16 of 18 measured; ⛔ the 4 dispersion columns are **UNMEASURABLE** until **#441** is fixed. ⭐⭐⭐ **FAO-02's locked MCR margin is 1% and its seed noise is 84× that** (**C-392**). |
+| **2** | **RP-3** — the family-free recalibration (#468), already live | ⬅️ **NEXT.** Resume where it stands. |
 | **3** | **RP-4** — is the body under-dispersed, or is it the draw count? | ⛔ Starts **doubly constrained**: 14 of 20 columns are blind to dispersion (RP-1), and the noise floor of the 4 that are not is what RP-2b will supply. |
 
 ⛔ **This supersedes the "next pick is Simon's" line below**, which was written before he answered.

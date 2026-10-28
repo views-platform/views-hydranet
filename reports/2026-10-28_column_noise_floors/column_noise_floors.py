@@ -179,9 +179,22 @@ def score(cs: np.ndarray, p: np.ndarray) -> dict:
 #: the partition, from RP-1/M72 — declared, not rediscovered
 GATE_ONLY = ("AP", "Brier")
 ENSEMBLE = ("crps_all", "crps_events", "crps_none", "QS99")
-COLS = ["AP", "Brier", "crps_all", "crps_events", "crps_none", "size_ratio", "pos_mcr",
-        "QS99", "MCR_field", *[f"FSS{n}" for n in SCALES], "AFSS", "hit_rate",
-        "act_freq", "Gini"]
+COLS = [
+    "AP",
+    "Brier",
+    "crps_all",
+    "crps_events",
+    "crps_none",
+    "size_ratio",
+    "pos_mcr",
+    "QS99",
+    "MCR_field",
+    *[f"FSS{n}" for n in SCALES],
+    "AFSS",
+    "hit_rate",
+    "act_freq",
+    "Gini",
+]
 MEAN_ONLY = tuple(c for c in COLS if c not in GATE_ONLY + ENSEMBLE)
 TIER_A = list(GATE_ONLY) + list(MEAN_ONLY)
 REPLICATES = {"_s42": "c7745155", "_s43": "80696bb5", "_s44": "23fb3221"}
@@ -211,8 +224,13 @@ z = np.load(RT / "separation_matrix.npz", allow_pickle=True)
 cols_npz = list(z["cols"])
 names_npz = list(z["names"])
 vals = z["values"]
-DETERMINISTIC = ("oracle (raw truth)", "all-zero", "persistence", "spiky-1/30",
-                 "freq-right/mag-wrong")
+DETERMINISTIC = (
+    "oracle (raw truth)",
+    "all-zero",
+    "persistence",
+    "spiky-1/30",
+    "freq-right/mag-wrong",
+)
 worst = 0.0
 checked = 0
 for nm in DETERMINISTIC:
@@ -226,8 +244,11 @@ for nm in DETERMINISTIC:
         worst = max(worst, abs(a - b))
         checked += 1
     del cs, pp
-gate(worst == 0.0, "G-V",
-     f"{checked} values over {len(DETERMINISTIC)} deterministic forecasts, max |Δ| {worst:.3e}")
+gate(
+    worst == 0.0,
+    "G-V",
+    f"{checked} values over {len(DETERMINISTIC)} deterministic forecasts, max |Δ| {worst:.3e}",
+)
 if fails:
     print("\n⛔ VOID — the duplicated scorer does not reproduce M2. Nothing below runs.")
     sys.exit(1)
@@ -248,8 +269,10 @@ for tag in REPLICATES:
     mag = emitted_magnitude(mu, th, fams[tag])
     EYS[tag] = (gt * mag).mean(0).ravel()
     PS[tag] = gt.mean(0).ravel()
-    print(f"    {tag}  sha {shas[tag]}  family {fams[tag]}  "
-          f"ey sum {EYS[tag].sum():,.0f}  frac>0 {(EYS[tag] > 0).mean():.6f}")
+    print(
+        f"    {tag}  sha {shas[tag]}  family {fams[tag]}  "
+        f"ey sum {EYS[tag].sum():,.0f}  frac>0 {(EYS[tag] > 0).mean():.6f}"
+    )
     del npz, mu, th, gt, mag
 
 gate(
@@ -267,7 +290,7 @@ base = np.repeat(ey0[:, None], S, axis=1)
 pert = base.copy()
 delta = np.maximum(ey0, 1e-3)[:, None] * 0.5
 pert[:, : S // 2] += delta
-pert[:, S // 2:] -= delta
+pert[:, S // 2 :] -= delta
 #: AMENDMENT 1, 2026-10-28 -- G-P0 AND G-Pa AS FIRST WRITTEN BOTH FAILED, AND THE GATES
 #: WERE WRONG, NOT THE DATA. They asserted bit-exactness of a floating-point mean.
 #: G-P0 wanted `pert.mean(1) == base.mean(1)` exactly and got a max shift of 4.547e-13;
@@ -289,29 +312,42 @@ mean_shift = float(np.abs(pert.mean(1) - base.mean(1)).max())
 rel_shift = mean_shift / max(scale, 1e-30)
 sa = score(base, PS["_s42"])
 sb = score(pert, PS["_s42"])
-moved_a = {k: abs(sa[k] - sb[k]) for k in TIER_A
-           if not (np.isnan(sa[k]) and np.isnan(sb[k]))}
+moved_a = {k: abs(sa[k] - sb[k]) for k in TIER_A if not (np.isnan(sa[k]) and np.isnan(sb[k]))}
 moved_b = {k: abs(sa[k] - sb[k]) for k in ENSEMBLE}
 _wa = max(moved_a, key=lambda k: moved_a[k])
 _wb = max(moved_b, key=lambda k: moved_b[k])
 ratio = moved_b[_wb] / max(moved_a[_wa], 1e-300)
-gate(spread > 0.0, "G-P0a",
-     f"STRUCTURAL, exact: every row of the perturbed ensemble has nonzero spread, "
-     f"min ptp {spread:.6e} -- the perturbation is real, not a no-op")
-gate(rel_shift < 1e-12, "G-P0b",
-     f"the row mean is held to FLOAT NOISE, reported with its scale: shift "
-     f"{mean_shift:.3e} on a field max of {scale:.3e}, relative {rel_shift:.3e} "
-     f"(NOT asserted as exactly zero -- Amendment 1)")
-gate(moved_a[_wa] < 1e-12, "G-Pa",
-     f"all {len(moved_a)} Tier-A columns move at float-noise scale only -- worst "
-     f"{_wa} {moved_a[_wa]:.3e}")
-gate(max(moved_b.values()) > 0.0, "G-Pb",
-     "NON-VACUITY: Tier-B moves -- "
-     + ", ".join(f"{k} {v:.4e}" for k, v in moved_b.items()))
-gate(ratio > 1e6, "G-Pc",
-     f"THE DISCRIMINATING GATE: largest Tier-B move ({_wb} {moved_b[_wb]:.4e}) exceeds "
-     f"the largest Tier-A move ({_wa} {moved_a[_wa]:.3e}) by {ratio:.2e}x ==> the "
-     f"partition is demonstrated, not assumed")
+gate(
+    spread > 0.0,
+    "G-P0a",
+    f"STRUCTURAL, exact: every row of the perturbed ensemble has nonzero spread, "
+    f"min ptp {spread:.6e} -- the perturbation is real, not a no-op",
+)
+gate(
+    rel_shift < 1e-12,
+    "G-P0b",
+    f"the row mean is held to FLOAT NOISE, reported with its scale: shift "
+    f"{mean_shift:.3e} on a field max of {scale:.3e}, relative {rel_shift:.3e} "
+    f"(NOT asserted as exactly zero -- Amendment 1)",
+)
+gate(
+    moved_a[_wa] < 1e-12,
+    "G-Pa",
+    f"all {len(moved_a)} Tier-A columns move at float-noise scale only -- worst "
+    f"{_wa} {moved_a[_wa]:.3e}",
+)
+gate(
+    max(moved_b.values()) > 0.0,
+    "G-Pb",
+    "NON-VACUITY: Tier-B moves -- " + ", ".join(f"{k} {v:.4e}" for k, v in moved_b.items()),
+)
+gate(
+    ratio > 1e6,
+    "G-Pc",
+    f"THE DISCRIMINATING GATE: largest Tier-B move ({_wb} {moved_b[_wb]:.4e}) exceeds "
+    f"the largest Tier-A move ({_wa} {moved_a[_wa]:.3e}) by {ratio:.2e}x ==> the "
+    f"partition is demonstrated, not assumed",
+)
 del base, pert, delta
 
 # ---------------------------------------------------------------- score the three
@@ -327,8 +363,10 @@ for tag in REPLICATES:
 print("\n" + "=" * 100)
 print("  TIER A — sigma-hat per column (n=3, ddof=1, 2 df).  ⛔ 4.97 sigma-hat is the honest bar")
 print("=" * 100)
-print(f"  {'column':<12} {'reads':<11} {'s42':>11} {'s43':>11} {'s44':>11} {'mean':>11} "
-      f"{'sd(1)':>10} {'CV':>8} {'4.97sd':>10}")
+print(
+    f"  {'column':<12} {'reads':<11} {'s42':>11} {'s43':>11} {'s44':>11} {'mean':>11} "
+    f"{'sd(1)':>10} {'CV':>8} {'4.97sd':>10}"
+)
 rows: list[tuple[str, float, float, float]] = []
 for cn in TIER_A:
     v = np.array([SC[t][cn] for t in REPLICATES], dtype=np.float64)
@@ -340,11 +378,16 @@ for cn in TIER_A:
     mn = float(v.mean())
     cv = sd / abs(mn) if mn else float("nan")
     rows.append((cn, mn, sd, cv))
-    print(f"  {cn:<12} {reads:<11} {v[0]:>11.6f} {v[1]:>11.6f} {v[2]:>11.6f} {mn:>11.6f} "
-          f"{sd:>10.6f} {cv:>8.3f} {4.97 * sd:>10.6f}")
+    print(
+        f"  {cn:<12} {reads:<11} {v[0]:>11.6f} {v[1]:>11.6f} {v[2]:>11.6f} {mn:>11.6f} "
+        f"{sd:>10.6f} {cv:>8.3f} {4.97 * sd:>10.6f}"
+    )
 
-gate(any(r[2] > 0 for r in rows), "G-N",
-     f"NON-VACUITY: {sum(1 for r in rows if r[2] > 0)} of {len(rows)} Tier-A columns have σ̂ > 0")
+gate(
+    any(r[2] > 0 for r in rows),
+    "G-N",
+    f"NON-VACUITY: {sum(1 for r in rows if r[2] > 0)} of {len(rows)} Tier-A columns have σ̂ > 0",
+)
 
 #: AMENDMENT 1 -- SATURATION DETECTION, added because the first run would have reported
 #: two DEGENERATE columns as "the most stable". `ey = gate x emitted_magnitude` is
@@ -355,8 +398,10 @@ gate(any(r[2] > 0 for r in rows), "G-N",
 SAT = [r for r in rows if r[2] == 0.0]
 print("\n  SATURATED COLUMNS -- sigma-hat = 0 because the column is PINNED:")
 for r in SAT:
-    print(f"       {r[0]:<12} identical {r[1]:.6f} in all three replicates "
-          f"==> EXCLUDED from any 'most stable' reading")
+    print(
+        f"       {r[0]:<12} identical {r[1]:.6f} in all three replicates "
+        f"==> EXCLUDED from any 'most stable' reading"
+    )
 if not SAT:
     print("       none")
 live = [r for r in rows if r[2] > 0.0]
@@ -364,17 +409,21 @@ live = [r for r in rows if r[2] > 0.0]
 over1 = [r for r in live if r[3] > 1.0]
 by_cv = sorted((r for r in live if np.isfinite(r[3])), key=lambda r: r[3])
 print(f"\n  among the {len(live)} LIVE columns (saturated excluded):")
-print(f"  CV > 1 (sigma-hat exceeds the mean): {len(over1)} of {len(live)} -- "
-      f"{', '.join(r[0] for r in over1) if over1 else 'NONE'}"
-      f"  ==> P4 {'CONFIRMED' if over1 else 'REFUTED'}")
+print(
+    f"  CV > 1 (sigma-hat exceeds the mean): {len(over1)} of {len(live)} -- "
+    f"{', '.join(r[0] for r in over1) if over1 else 'NONE'}"
+    f"  ==> P4 {'CONFIRMED' if over1 else 'REFUTED'}"
+)
 print(f"  ⇒ most stable:  {', '.join(f'{r[0]} {r[3]:.4f}' for r in by_cv[:3])}")
 print(f"  ⇒ least stable: {', '.join(f'{r[0]} {r[3]:.4f}' for r in by_cv[-3:])}")
 _g = sorted((r for r in live if r[0] in GATE_ONLY), key=lambda r: r[3])
 _lo2 = [r[0] for r in by_cv[:2]]
 p5 = set(r[0] for r in _g) == set(_lo2)
-print(f"  P5 -- the two GATE-only columns: "
-      f"{', '.join(f'{r[0]} CV {r[3]:.4f}' for r in _g)}; lowest two live: "
-      f"{', '.join(_lo2)} ==> P5 {'CONFIRMED' if p5 else 'REFUTED'}")
+print(
+    f"  P5 -- the two GATE-only columns: "
+    f"{', '.join(f'{r[0]} CV {r[3]:.4f}' for r in _g)}; lowest two live: "
+    f"{', '.join(_lo2)} ==> P5 {'CONFIRMED' if p5 else 'REFUTED'}"
+)
 print("     (literal P5 named no saturation exclusion -- see the finding)")
 
 #: AMENDMENT 1 -- THE FAO-02 COMPARISON, added because it is the sharpest thing in the
@@ -421,8 +470,8 @@ print(f"""
   ⭐ Tier A is EXACT, not approximate — G-Pa re-measured RP-1's partition on this very
      construction, so a degenerate ensemble returns what any ensemble of that mean would give.
   ⚠️ A σ̂ of 0 is legitimate where a column has no model dependence; it is not evidence of quality.
-  wall {time.time() - t0:.1f}s  peak RSS {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss /
-  1048576:.2f} GiB""")
+  wall {time.time() - t0:.1f}s  peak RSS {
+    resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1048576:.2f} GiB""")
 print("\n" + "=" * 100)
 print(f"  {'ALL GATES PASS' if not fails else '⛔ FAILED GATES: ' + ', '.join(fails)}")
 print("=" * 100)

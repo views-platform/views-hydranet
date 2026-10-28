@@ -2217,6 +2217,22 @@ seed replicates needed to give them one already exist on disk — the cubes are 
 scoring the remaining columns on them is a readout, not a pod run. That is the single cheapest
 expansion of the paper's evidence base currently available.
 
+> ✅ **DONE 2026-10-28 (RP-2b, M76) — 16 of the 18, and the result is sharper than the plan.**
+> * ⭐⭐⭐ **FAO-02's locked MCR guardrail has a 1% margin and 84× that in seed noise** (σ̂ 0.840477;
+>   the 4.97σ̂ bar is 418× the margin). ⛔ Not a claim FAO-02 is wrong — a claim that **our ability
+>   to test compliance is two orders of magnitude coarser than the test.** **C-392.**
+> * ⭐⭐ **A clean split**: gate-only columns **CV 0.021–0.024**, placement/shape **0.024–0.055**,
+>   ⛔ magnitude calibration **0.237 / 0.293 / 0.356** ⇒ **the quantity the programme most wants to
+>   move is measured by its three least resolvable columns.**
+> * ⛔⛔ **The remaining 4 are UNMEASURABLE, not unmeasured.** They are the only columns that read
+>   the ensemble beyond its mean, so their noise floor needs real `truncated_nb` draws — and
+>   **#441** is open, with `sample()` vs `mean()` differing **54×** and *"failing on 99% of the
+>   grid"*. ⇒ **The 4 columns that can SEE dispersion are exactly the 4 whose noise cannot be
+>   measured.** For the paper this is a structural statement about the battery, not a to-do.
+> * ⛔ **Two columns saturate** under expectation composition (`AFSS`, `act_freq` at exactly 1.0),
+>   so a σ̂ of 0 there is a **ceiling, not stability** — the C-376 shape, caught by a gate added
+>   after the first run would have reported them as the most stable columns.
+
 ⛔ **And it reframes one of RP-1's own findings.** RP-1 said 14 of 20 columns are functions of the
 mean field alone, and called that a redundancy result. It is also a **resolution** result waiting to
 be measured: columns that read the same statistic will have **correlated** noise floors, so a battery
