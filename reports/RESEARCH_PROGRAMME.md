@@ -154,10 +154,40 @@ reports it. Changing the framework is Simon's call, separately.
 
 **Rank 2.** 🔵 queued. CPU ~37 min + gates. Issues **#462**, **#463** already filed.
 
+## ⛔ AMENDED 2026-10-28 — part of this entry was WRONG, and it is corrected before the work continues
+
+**σ̂ is NOT unrun.** `/home/simon/Documents/kestrel_sigma_backup_20261021/READOUT.md`, dated
+**2026-10-21**, reports σ̂ for the **gate-calibration slope `b`** over seeds 42/43/44, with M1–M4 and
+a pre-registration. ⇒ **W-83's shape a second time** — a quantity recorded as missing while the
+artifact sat on this machine. ⚠️ The fix that worked was not vigilance: it was **reading the
+directory before planning the compute**, four minutes, now the first step of any "never measured"
+claim.
+
+**What RP-2 step 0 measured instead** (`reports/2026-10-28_sigma_hat/`, **M74**):
+
+- ⭐⭐⭐ **The pipeline is bit-deterministic.** `amber` ≡ `silver` ≡ `silver_0_1_4` at **190 of 190**
+  state-dict entries, across git **73c3f42 vs 2e73de3** and views-hydranet **0.1.2/0.1.3/0.1.4**.
+  Every other pair agrees on **15/190**, and those 15 are exactly the BatchNorm
+  `num_batches_tracked` counters ⇒ **0 of 175 float tensors agree between any two seeds.**
+  ⇒ **This entry's falsification question is ANSWERED: rerun variance is exactly zero, so σ̂ across
+  seeds is pure seed sensitivity and the seed axis is NOT decorative.** ⭐ That also means the
+  planned **mask-pairing gate G-3** is superseded by stronger evidence for *training* — though not
+  for the *scoring* forward pass, so it is narrowed rather than dropped.
+- ⛔⛔ **And it refutes the readout's choice of σ̂.** `READOUT.md` selects the same-version pair
+  (**0.0002…0.0196**, df=1) over the as-launched family (**0.0351/0.0932/0.0434**, df=2) by arguing
+  *"by elimination the excess sits on the 0.1.3/0.1.4 boundary"*. That boundary is **numerically
+  inert**, so there is nothing to eliminate onto it ⇒ the pair is **the same estimate with the
+  outlying seed dropped**, understating the floor **3×–200×**. See **C-390**.
+
+⇒ **What is still genuinely unrun: σ̂ for B-1a / B-1b**, which is what #462/#463 ask for. The
+2026-10-21 readout measures a **different statistic** (GLOSSARY §5e). ⛔ Never quote one against
+the other — that collision is what produced W-83.
+
 **The claim.** Every arm this programme has run is **n=1**, and we cannot distinguish a real effect
 from seed variance.
 
-- ⭐ **It is unrun, not blocked.** Three true seed replicates sit on local disk —
+- ⚠️ **It is unrun for B-1a/B-1b, not blocked** — ⛔ *the original wording "it is unrun" was wrong as
+  written and is corrected above.* Three true seed replicates sit on local disk —
   `{silver,bronze,cobalt}_kestrel`, seeds **42/43/44**, identical configs but the seed, git `2e73de3`.
 - ⛔ **W-83**: I told Simon σ̂ *"doesn't exist"* and it was the load-bearing fact in a strategic
   recommendation. He asked *"are you sure? have you checked?"* and the data was on this machine.
