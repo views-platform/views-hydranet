@@ -1,0 +1,42 @@
+vehicle: calibration_model_20261012_033112.pt  sha256 4acbf4d3c2b457b0…  (NOT the delivered weights — C-317)
+  lessons 300 · run_type calibration · git f99413e · trained 2026-10-12T01:24:58Z to 2026-10-12T04:25:10Z
+⚠️  REGION IS RECORDED AS ENFORCED, NOT MEASURED. PROVENANCE says 'land (enforced at check_config -- the run refuses any other)' — which records that pod_run_model.sh:279-282 refuses any other value, NOT a read-back of the grid the weights saw. Nothing in a .pt or its sidecar records the region, and the net is fully convolutional, so this remains weaker than a measurement. The four known africa artifacts are additionally denied by hash.
+  PASS  G-4  no BatchNorm in train() mode
+vehicle sha 4acbf4d3c2b457b0…  family nb  n_params 2  dropout 0.15  targets 3
+  PASS  G-1  checkpoint sha == d4_result.npz's stored sha (4acbf4d3c2b457b0… vs 4acbf4d3c2b457b0…)
+sweeping 421-469 (49 steps) x 4 passes, collecting (mu, theta, gate) for ALL 3 targets on 64,818 land cells …
+  pass 1/4 done  (236s)
+  pass 2/4 done  (455s)
+  pass 3/4 done  (616s)
+  pass 4/4 done  (773s)
+
+===================================================================================================
+  THE GATES
+===================================================================================================
+  PASS  G-2  BIT IDENTITY of the sb slice against d4_result.npz (mu, theta, gate)
+           all three arrays (4, 49, 64818) bit-identical, np.array_equal, no tolerance
+           ⇒ lead-in, month range, draw count, dropout masks and slice arithmetic
+             are all proven identical in ONE assertion — AND d4_result.npz is
+             proven to be what it claims, from the vehicle it claims.
+  PASS  G-3  NON-VACUITY: 3 of 3 target pairs differ in mu
+           ged_sb_best vs ged_ns_best: max |delta mu| 2.745401e+01
+           ged_sb_best vs ged_os_best: max |delta mu| 2.858225e+01
+           ged_ns_best vs ged_os_best: max |delta mu| 1.239290e+01
+    per-target level, posterior mean over draws:
+      ged_sb_best    mu mean   0.062514  theta mean   0.000711  gate mean   0.003538
+      ged_ns_best    mu mean   0.076763  theta mean   0.003038  gate mean   0.008160
+      ged_os_best    mu mean   0.174021  theta mean   0.000412  gate mean   0.002793
+  PASS  G-5  the saved cube round-trips bit-identically (413.3 MB)
+           saved /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-10-28_rp3_l3/l3b_cube3.npz
+           shape (3, 4, 49, 64818) = (targets, draws, months, land cells), axis 0 = ['ged_sb_best', 'ged_ns_best', 'ged_os_best']
+
+===================================================================================================
+  ALL GATES PASS
+===================================================================================================
+  ⛔ This cube MEASURES NOTHING. It is raw head output. Composition is the scorer's job
+     and is E[gate x mu] per draw then averaged, never E[gate] x E[mu] (C-386).
+  ⛔ `d4_mu_on_the_grid.py` was NOT modified. #487 holds the decision about whether the
+     repo's cube writer should ever carry a target axis.
+
+  wall time 818.1 s
+  peak RSS  3.19 GiB
