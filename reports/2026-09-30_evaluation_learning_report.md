@@ -27,9 +27,16 @@ on its **own branch, cut from this one**:
 
 | | downstream use | where it starts |
 |---|---|---|
-| 📄 | **an academic paper** on evaluating high-resolution conflict forecasts from both point-estimate and sample-estimate models | **§8.3** (the diagnostic suite, as a proposal) and **Appendix E** (the literature, including where it contradicts us) |
+| 📄 | **an academic paper** on evaluating high-resolution conflict forecasts from both point-estimate and sample-estimate models — ⭐⭐⭐ **its method is now stated: synthetic forecasts embodying named failure modes and virtues, a KNOWN correct ranking over them, and the MINIMAL set of metrics that reproduces that ranking every time** | ⭐⭐⭐ **§9** (the terminal objective, and what of it is already built) · **§8.3** (the diagnostic suite, as a proposal) · **Appendix E** (the literature, including where it contradicts us) |
 | 📐 | **new metrics** | **§5.8** (what is computed and read by nothing), **§8.3**, and `Appendix E.3`/`E.5.2` — three instruments the literature has that we built by hand, plus one usable score we are not using |
 | ⚖️ | **a new evaluation scheme** | **§8** (what our own scars demand of a promotion gate) and **§1** (the two regimes) |
+
+⭐⭐⭐ **And as of 2026-10-28 the paper is not one of three equal downstream uses — it is the terminal
+objective, and this document is its learning vehicle.** Simon: *"this is 100% why the evaluation report
+exists — that is to learn these things."* ⇒ Every measurement of a metric's blindness, redundancy or
+parameter-sensitivity recorded here is a **paper artifact**, which is why logging as results arrive
+(D-6) is load-bearing rather than hygiene. **Read §9 first if you are reading this document for the
+paper.**
 
 ⛔ **Open questions are not blockers here.** This document is expected to carry unresolved items for
 weeks; naming them is the point. It is **not** definitive, it does **not** need to be finished before it
@@ -2059,6 +2066,134 @@ by anyone**, and that caveat applies to these two as much as to §1's fourth ame
 tail-calibration citations are **not** verified. Treat the framing as this repo's reasoning, with the
 literature as a claim to check.
 
+
+---
+
+## §9 — THE TERMINAL OBJECTIVE: a minimal sufficient battery, validated against a known ranking
+
+⭐⭐⭐ **Added 2026-10-28, stated by Simon, and it is the frame every other section of this report
+should be read against.** Until now this report has read as a scar log with a local purpose — stop
+HydraNet being judged by instruments that cannot see its defects. That purpose stands and is not
+reduced. But it is the **means**, not the end.
+
+### 9.1 The objective, in Simon's own framing
+
+> *"The end goal is not just to fix HydraNet (it is also that) but to write a paper which uses
+> synthetic forecasts mirroring known failure modes and virtues, and thus have a known ranking, to
+> hone in on a minimal set of evaluation metrics which together can rank the synthetic forecasts
+> correctly every time."*
+> — Simon, 2026-10-28
+
+Unpacked into its four commitments, because each one is a separate piece of work:
+
+| | commitment | status |
+|---|---|---|
+| **1** | A population of **synthetic forecasts**, each one built to embody a **named** failure mode or virtue, with construction verified rather than asserted | ✅ **BUILT** — epic #477, eleven forecasts, twelve construction gates, all PASS |
+| **2** | A **known correct ranking** over that population — the ground truth the battery is judged against | ⛔ **DOES NOT EXIST.** See §9.3 |
+| **3** | A search over subsets of the battery for the **minimal** set that reproduces that ranking **every time** | ⛔ Not yet well-posed, because it depends on 2 |
+| **4** | The paper | — |
+
+⇒ **This report is the learning vehicle for commitment 3, and epic #477 delivered commitment 1.**
+That is why logging, documentation and reporting are load-bearing right now rather than hygiene: the
+measurements being made this month are not a detour on the way to a better model, they **are** the
+paper's evidence base, and an unlogged measurement is one the paper cannot cite.
+
+### 9.2 What is already in hand toward it
+
+⭐ **The harness** — `reports/2026-10-27_metric_redteam/redteam_forecasts.py`. Eleven forecasts over
+842,634 cell–months, each with a declared defect or virtue and a construction gate that must pass
+before it is allowed to be scored: persistence byte-identical to the lagged truth, the blurs
+preserving their monthly total to 2.4e-16, the magnitude-permuted one holding the sorted nonzero
+multiset exactly, and so on. ⛔ The gates are the reason this is a usable population and not a set of
+plausible-looking arrays — two of the eleven would have been silently wrong without them.
+
+⭐ **The separation matrix** — `separation_matrix.npz`, an 11 × 20 table of every column's score on
+every forecast, committed with its captured output. This is the paper's raw data.
+
+⭐⭐ **The blindness partition** — the single most useful result for commitment 3, because it is a
+statement about **redundancy**, which is what "minimal" means. Of the twenty columns:
+
+| reads | how many | which |
+|---|---|---|
+| the gate only | **2** | AP, Brier |
+| the ensemble beyond its row mean | **4** | crps_all / crps_events / crps_none, QS99 |
+| **the mean field alone** | **14** | size_ratio, pos_mcr, MCR_field, FSS × 7, AFSS, hit_rate, act_freq, Gini |
+
+Confirmed at exactly `0.000e+00` by two perturbations that hold the row mean bit-exactly. ⇒ **Fourteen
+of twenty columns carry no information about dispersion at all**, and a minimal set cannot contain two
+columns that are both functions of the same statistic for a reason that is now derived rather than
+suspected.
+
+⭐ **One non-redundancy measurement done properly.** `placement_rho`'s highest |Spearman| against any
+existing column, across the eleven forecasts, is **0.7790** (`crps_events`), then AP 0.477, Brier
+0.464, QS99 0.437, FSS 0.40–0.35, size_ratio 0.268, AFSS 0.021. That is the template every candidate
+column should be held to before it enters a minimal set — redundancy **measured**, not argued.
+
+⭐ **One measured blind spot with its instrument built.** Permuting the oracle's event magnitudes among
+themselves — placement held byte-identical — moves AP, Brier, FSS1, FSS9, AFSS and hit_rate by exactly
+`0.000e+00` at every permuted fraction, while `placement_rho` falls 1.000000 → −0.030036 monotonically.
+⇒ A minimal sufficient battery **must** contain a magnitude-ranking column, and this is the first
+proof of that by construction rather than by appeal.
+
+### 9.3 ⛔ The missing piece, and it is the next piece of work
+
+**There is no declared ground-truth ranking of the eleven forecasts.** Verified, not assumed: the only
+ordering constraint anywhere in the harness is `separation_matrix.py:47`'s **G-1 — every column must
+rank `oracle (raw truth)` FIRST**. Nothing declares whether `climatology` should beat `persistence`,
+or where `blurred-truth r=1` belongs relative to the delivered model, or whether `spiky-1/30` is worse
+than `all-zero`.
+
+⇒ **"Ranks the synthetic forecasts correctly every time" has no criterion yet**, so commitment 3 is not
+a well-posed search. Writing that ranking down — ⛔ **before** running any subset search, and with a
+stated justification per adjacent pair — is the gate the paper rests on, and it is a *judgement* task
+rather than a measurement one, which means it is Simon's and not mine to fix by computation.
+
+⚠️ **And it will be contested in exactly two places, both already measured:**
+
+1. **`crps_events` and `placement_rho` both rank the mass-preserving blur ABOVE the delivered model**
+   (13.946399 vs 14.486967; 0.6825 vs 0.6291). Either the declared ranking says a blur of the truth
+   genuinely is a better forecast than ours — defensible, and it preserves the total exactly — or both
+   columns are wrong here. That is a real fork and the paper cannot dodge it.
+2. **`spiky-1/30` scores 0.521 on `placement_rho`, above persistence (0.428) and climatology (0.394)**,
+   while being an absurd field. ⇒ No single column can be the ranking criterion; the paper's claim is
+   necessarily about a **set**.
+
+### 9.4 ⛔ Three constraints the minimality claim must respect
+
+**(a) It cannot claim orthogonality.** §8.3's retraction stands: `R_T ≈ R_A ×` (conditional magnitude
+ratio) is a real identity, so some proposed diagnostics constrain each other — but the counterexample
+(100 cells at 10 vs 50 at 5 and 50 at 15: both ratios exactly 1, W₁ = 5) shows there are **three
+degrees of freedom, not two**. A minimal set is a **partial factorization with measured redundancy**,
+which is a weaker and defensible claim. ⛔ An orthogonality claim would be refuted in review by one
+line of algebra, and this report has already made and retracted it once.
+
+**(b) A column is not a column — it is a column plus its parameter values.** Measured: `placement_rho`
+scores its own target defect at **0.000000** under `population='events'` and **0.999998** under
+`population='all'`. Same code, same forecast, opposite verdict. ⇒ The minimal set must be specified as
+**(column, population, transform, estimator)** tuples, per C-351. A paper naming only column names
+would not be reproducible.
+
+**(c) The estimator is part of the answer, and it moves rankings.** Measured in M4: nine of the eleven
+forecasts are built so every ensemble member is identical, so the plug-in CRPS estimator's bias is
+exactly 0.000000 for them — but climatology pays 0.000229 and the delivered model 0.000068, and at the
+draw count this project's record was built on (m = 16) the gap between plug-in and fair CRPSS is
+**3.06 points, 18.1%**. ⇒ Which estimator the battery uses is not a detail; it changes which forecast
+wins.
+
+### 9.5 What this changes about how the work is done
+
+Nothing about the ranked research queue — the instruments still come before the experiments. What it
+changes is the **disposition of each result**: every measurement of a metric's blindness, redundancy or
+parameter-sensitivity is now a **paper artifact**, which means
+
+- ⛔ it is logged when it arrives, not at the end of the epic (D-6), because the paper needs the
+  provenance and not just the number;
+- ⛔ the synthetic population is **append-only and gated** — a new forecast enters only with a
+  construction gate, or the whole population's credibility goes with it;
+- ⛔ a correction to a published number is logged as a correction with its mechanism, because the
+  paper's method section is partly a claim about how the errors were caught. Four of epic #477's own
+  numbers were wrong and all four ran toward the conclusion already drawn; that is a finding about
+  method, and it belongs in the paper rather than being quietly fixed.
 ---
 
 ## Appendix A — The instrument inventory

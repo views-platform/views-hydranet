@@ -4,11 +4,36 @@
 forgotten and we work **one epic at a time**. Agreed with Simon 2026-10-27 from his own four-item
 list plus five additions.
 
+## ⭐⭐⭐ The terminal objective — stated by Simon 2026-10-28
+
+The queue below is the means. The end is a **paper**:
+
+> use **synthetic forecasts mirroring known failure modes and virtues** — and therefore carrying a
+> **known ranking** — to hone in on a **minimal set of evaluation metrics which together rank the
+> synthetic forecasts correctly every time**.
+
+⇒ **Fixing HydraNet is a real goal and not the only one.** Every entry in this queue that measures what
+a metric can or cannot see is simultaneously a **paper artifact**, and is to be logged as results
+arrive (**D-6**) rather than at epic close, because the paper needs the provenance and not just the
+number.
+
+**Where it is written up in full:** `reports/2026-09-30_evaluation_learning_report.md` **§9** — what of
+it is already built (the eleven-forecast gated population and the 11 × 20 separation matrix, from
+RP-1 / epic #477), ⛔ what is missing (**a declared ground-truth ranking — it does not exist; the only
+ordering constraint in the harness is "the oracle ranks first"**), and the three constraints the
+minimality claim must respect.
+
+⛔ **The next piece of work on the paper is not a measurement.** It is Simon declaring the correct
+ranking of the eleven synthetic forecasts, pair by pair, **before** any subset search runs. Two pairs
+are already known to be contested by measurement: `crps_events` and `placement_rho` both rank the
+mass-preserving blur **above** the delivered model, and `spiky-1/30` outranks persistence on
+`placement_rho`.
+
 **Horizon.** ⚠️ Simon said *"a couple of months left"* — read as **to end-2026, ~9 weeks**. If he
 meant end-2027 this register is under-scoped and the horizon line is the thing to correct, not the
 ranking.
 
-**Last updated** 2026-10-27 · **9 entries** · 1 live (RP-3) · 7 queued · 1 parked (RP-9)
+**Last updated** 2026-10-28 · **10 entries** · **1 live (RP-3 #468)** · **1 measured out (RP-1 — epic #477, all seven stories closed; awaiting merge)** · 7 queued · 1 parked (RP-9)
 
 ## How this works
 
@@ -26,17 +51,20 @@ ranking.
 
 | # | ID | challenge | status | cost | can it end in a pod run? |
 |---|---|---|---|---|---|
-| **1** | **RP-1** | The metric battery cannot see what we are trying to fix | 🔵 queued | **CPU, hours** | no — it makes later ones readable |
+| **1** | **RP-1** | The metric battery cannot see what we are trying to fix | ✅ **MEASURED OUT 2026-10-28** — epic **#477**, all seven stories closed; ⛔ awaiting merge only | **CPU, hours — spent: ~7 min of compute across six scripts** | no — it makes later ones readable |
 | **2** | **RP-2** | No noise floor: run-to-run σ̂ has never been computed | 🔵 queued | **CPU, ~1 h** | no — same |
-| **3** | **RP-3** | The family-free recalibration beats our emission by 15% | 🟢 **LIVE** — epic **#468** | **CPU, minutes** | no GPU needed; ships or dies on CPU |
-| **4** | **RP-4** | Is the body actually under-dispersed, or is it the draw count? | 🔵 queued | **CPU, an afternoon** | no |
-| **5** | **RP-5** | Both heads sit BELOW their own objectives and nobody knows why | 🔵 queued | CPU first, then **GPU** | ⭐ **yes** |
-| **6** | **RP-6** | Magnitude ranking loses to persistence (0.303 vs 0.367) | 🔵 queued | **GPU** | ⭐ **yes** |
-| **7** | **RP-7** | Nothing scores spatial dependence or aggregates | 🔵 queued | CPU | no |
+| **3** | **RP-10** | ⭐ **The truth is not ground truth — we have never estimated the Bayes error floor** | 🔵 queued | **CPU, minutes** (route A) | no |
+| **4** | **RP-7** | Nothing scores spatial dependence or aggregates | 🔵 queued | CPU | no |
+| **5** | **RP-4** | Is the body actually under-dispersed, or is it the draw count? | 🔵 queued | **CPU, an afternoon** | no |
+| **6** | **RP-5** | Both heads sit BELOW their own objectives and nobody knows why | 🔵 queued | CPU first, then **GPU** | ⭐ **yes** |
+| **7** | **RP-6** | Magnitude ranking loses to persistence (0.303 vs 0.367) | 🔵 queued | **GPU** | ⭐ **yes** |
 | **8** | **RP-8** | Everything we know is month 1 | 🔵 queued | **GPU, large** | ⭐ **yes** |
+| — | **RP-3** | The family-free recalibration beats our emission by 15% | 🟢 **LIVE in parallel** — epic **#468** | **CPU, minutes** | no GPU needed |
 | — | **RP-9** | Optimisation pathologies (plasticity, edge of stability, ridge) | ⛔ **PARKED** | — | — |
 
-⚠️ **Why two pieces of enabling work sit above every experiment.** RP-1 and RP-2 are **hours of CPU
+⛔ **RE-RANKED 2026-10-27b, and the reason is a new entry.** Simon raised that the input data is **not ground truth** — `ged_sb_best` is a sum of geocoded point events whose sharpness is partly an artifact of measurement, reporting and aggregation ⇒ there is an irreducible **Bayes error floor** and we have never estimated it. That became **RP-10**, entered at **rank 3**, and it pulled **RP-7 from 7 to 4** because if the fine-scale target is partly noise then **aggregates may be the only well-posed target**. RP-4, RP-5 and RP-6 each moved down one; **RP-3 is unranked and runs in parallel.** Full argument: `reports/2026-10-27_measurement_floor/ARGUMENT.md`.
+
+⚠️ **Why the enabling work sits above every experiment.** RP-1 and RP-2 are **hours of CPU
 between them**, and the alternative is spending ~$2.25 and a day of pod time on an arm whose result
 we cannot read — three of our instruments were measurably blind in the last two weeks, and we have
 no noise floor at all. ⇒ They are ranked first because they are **cheap and they make everything
@@ -47,7 +75,53 @@ it is independent, already open, and needs no GPU.
 
 ## RP-1 · The metric battery cannot see what we are trying to fix
 
-**Rank 1.** 🔵 queued. CPU, hours. ⛔ Not droppable — it is the precondition for reading anything else.
+**Rank 1.** ✅ **MEASURED OUT 2026-10-28 — epic #477, stories #478–#484 all CLOSED.** ⛔ The only
+item left is pushing and merging the branch, which is Simon's. CPU; ~7 minutes of compute total.
+
+> ### ⭐⭐ THE ANSWER, and the thesis below was CONFIRMED, not refuted
+>
+> **The battery is partially blind and three blind spots are TOTAL.** `RESULTS_LEDGER` **M69–M73**
+> carries the measured record; five `FINDING_*.md` files carry the detail.
+>
+> - ⛔ **13 of 18 scoring columns give the worst constructible magnitude forecast the ORACLE's
+>   exact score** — and **14 of 20** including `MCR_field` and `act_freq`.
+> - ⭐⭐⭐ **14 of 20 columns are functions of the MEAN FIELD alone**, derived from the source and
+>   confirmed at exactly `0.000e+00` ⇒ the ensemble's dispersion is visible to **exactly four**
+>   columns, three of which are one CRPS split.
+> - ⭐⭐⭐ A **100% permutation of the event-cell magnitudes**, placement untouched, moves six
+>   battery columns by **exactly 0** and the new instrument by **1.03** ⇒ **#444 confirmed, as a
+>   curve.**
+> - ⛔ **`matched_pred_thresh` keeps its documented promise in 75 of 143 forecast-months (52%)**,
+>   failing in three distinct ways — **C-388**, and the delivered model is affected by one of them.
+> - ⛔ **Of FAO-02's three locked guardrails the frozen ruler computes exactly ONE as defined** —
+>   QS99 absent, MCR present only as two statistics that are not it — **C-389**.
+> - ⛔ **The plug-in CRPS charges 9 of 11 forecasts nothing and the BASELINE 3.4× the model** ⇒
+>   **18% skill inflation at m=16**, in the direction that flatters us.
+> - ⭐ **The instrument built:** `scripts/placement_rho.py`, 42 tests, two independent guard
+>   audits, swept, with two measured ways to misuse it written into its own docstring.
+>
+> ⚠️ **Three of my own published claims were corrected in place** (`W-91`, `W-92`, `W-94`), each by
+> a gate written to reject my own explanation. ⇒ The epic's real output is not the instrument; it
+> is that **four separately-published numbers of ours were wrong in the same direction** — toward
+> the conclusion already drawn.
+>
+> **Hands to the queue:** RP-4 inherits the four-column dispersion constraint · RP-6 inherits a new
+> first question (its `0.303` vs `0.367` ordering **reverses** on this population) · RP-10 gained
+> **two** measured points (`crps_events` and `placement_rho` both rank the mass-preserving blur
+> **above** the delivered model) · ⛔ **Gini is dead as a candidate instrument** (`W-89`).
+>
+> ⚠️ **Still owed, none of it in this entry's scope:** #481's count of estimator-sensitive recorded
+> comparisons (rule written, cubes mostly deleted); C-389's validation-partition guardrail pass;
+> C-388 is registered, **not fixed**; and whether C-388's worst mechanism fires on the B-1a/B-1b
+> populations is **unmeasured**.
+
+⛔⛔ **The investigation changed what this entry is, and the change is the finding.** This is **not a design problem.** `reports/2026-08-13_evaluation_pitfalls_and_metric_battery_DRAFT.md` is **31 KB**, catalogues failure modes A–I, and its **§5** already designs exactly this method — *"treat the metric suite itself as software under test, and unit-test it with adversarial/degenerate forecasts whose true quality is known"* — naming **seven** forecasts, the acceptance rule *"a metric that cannot separate these is blind and must not be used for selection"*, and **three stated results**. ⛔ **It was never written.** A repo-wide grep for a degenerate-forecast harness returns nothing. ⇒ **C-383's shape, third time this week** — and one of the unverified claims is *"CRPS fails on sparse (all collapse together)"*, about **FAO-02's PRIMARY metric**. The draft also says the harness *"would have flagged the #258 defect on day one, on synthetic data, before any model run."*
+
+⭐ **And reading the frozen ruler gave a derived inventory before any measurement:** of its seven columns, **AP** and **Brier** depend on the gate alone (⇒ blind to all magnitude, and rank-based AP is blind to gate *calibration* too); **size_ratio** uses `cs.mean(1)` and a **median** (⇒ blind to the ensemble's spread *and* to the tail); **pos_mcr** is `mean(ey/truth)` (⇒ weights each cell by `1/truth`, so it is **dominated by the smallest events**); and all three CRPS columns use the **plug-in** (`2.0/(m*m)`, `lodestar_score.py:33`), which Ferro2014 proves favours **under-dispersed** ensembles. ⇒ **Nothing in the frozen ruler is both magnitude-sensitive and unbiased toward the defect** — that is the thesis #477 measures. ⭐ The ruler documents one of these itself and nobody drew the consequence: `apply_threshold_gate`'s comment reads *"body-only; p (AP/Brier) unchanged"*.
+
+⚠️ Two further gaps found by reading, to be confirmed not asserted: **QS99** is a locked FAO-02 guardrail and is **absent from the frozen ruler's output** (#482); and **AFSS** = **1.000000** under count-matching ⇒ zero information, while **hit rate** is **identically** FSS(n=1) (R-27) ⇒ a duplicate, not an independent column.
+
+⛔ **What would end it early, and it is a real possibility:** if **#479**'s separation matrix shows the battery **does** separate all seven, the premise is wrong — three measured blind spots do not imply a uniformly blind battery, and `crps_events` is tail-weighted and may do most of the work. ⇒ The epic closes at M2, **#444** closes with it, and ⭐ **that is the most valuable outcome available**: our instruments would be sound and the defect entirely in the model. ⚠️ **Prior, stated before measuring so it can be scored: partial blindness, not total.**
 
 **The claim.** Our instruments are blind to the defect we are hunting, and this was measured three
 independent times in two weeks.
@@ -121,7 +195,7 @@ alone**. ⇒ σ̂ discharges the noise-floor requirement for `truncated_nb` @ 0.
 
 ## RP-3 · The family-free recalibration beats our emission by 15%
 
-**Rank 3.** 🟢 **LIVE — epic #468.** CPU, minutes. Runs in parallel with RP-1/RP-2.
+**Unranked — runs in parallel.** 🟢 **LIVE — epic #468.** CPU, minutes. Runs in parallel with RP-1/RP-2.
 
 **The claim.** Keep the model's `gate × mu` **ranking**, throw its predicted **amounts** away, look
 up what history did at each rank. Fit 421–456, score 457–469, 842,634 held-out cell-months:
@@ -145,9 +219,80 @@ primary metric at zero training cost** — not on being upstream. ⛔ The defect
 
 ---
 
+## RP-10 · The truth is not ground truth — we have never estimated the Bayes error floor
+
+**Rank 3.** 🔵 queued. **CPU, minutes** for route A. ⭐ **New 2026-10-27, raised by Simon.** Full
+argument: `reports/2026-10-27_measurement_floor/ARGUMENT.md`.
+
+**The claim.** `ged_sb_best` at `(priogrid_id, month_id)` is a **sum of geocoded point events**.
+Many of those events are geocoded to an administrative centroid rather than to where the deaths
+occurred, and many carry month-or-coarser dates. ⇒ Aggregating them into a 0.5° × 1-month bin makes
+a **spiky field by construction**, and some of that spikiness is **our ignorance of where and when,
+recorded as though it were knowledge.**
+
+⇒ ⛔ **CRPS against that field is proper for predicting the OBSERVATION, not the process.** A model
+that correctly predicted latent conflict intensity would score **worse** than one that also learned
+to mimic the measurement noise. There is an **irreducible CRPS** no model can beat.
+
+⇒ ⛔⛔ **We have never estimated it**, which means **"the model scores 0.039" is uninterpretable** —
+near-optimal or terrible, we cannot say.
+
+**⚠️ A correction made before building on it.** I claimed in conversation that GED's `where_prec` /
+`date_prec` would let us perturb the truth within its own declared precision. **True of GED as a
+source, false of the data we hold:** `pull_land_all3_121_504.parquet` has exactly
+`['ged_sb_best', 'ged_ns_best', 'ged_os_best']` and **no precision fields** — they are event-level
+and were summed away. ⇒ Two routes, not equivalent:
+
+| route | gives | cost |
+|---|---|---|
+| **A · declared swept kernel** — blur the truth at a stated radius, total preserved, sweep r | a floor **conditional on an assumed** precision ⇒ bounds the **shape**, not the level | **CPU, minutes.** Available now. |
+| **B · event-level GED** — perturb each event within its own coded precision, re-aggregate | the **actual** floor the data declares for itself | needs an event-level pull that does not exist here |
+
+⛔ **Do not report A's number as "the floor."** Report it as *"the floor under an assumed blur of
+radius r"*, with r swept (D-4).
+
+**⭐⭐⭐ Why it ranks this high: it reframes D12, our most-quoted spatial result.** The body carries
+**0.391** of its due spatial structure at **1 cell** and **0.870** at **32**. We have read that one
+way — *"the model fails at fine scale."* The second reading is that **the fine scale is partly
+unlearnable because at 1 cell we are scoring measurement noise.** ⛔ The two have never been
+distinguished **and they imply opposite actions**: fix the model, or change the target. ⇒ The floor
+**per spatial scale** settles it.
+
+**⚠️ The bound, from our own record.** `thin_0.75` keeps **97%** of the oracle after deleting 25% of
+events while **scrambling placement costs 81%** ⇒ if locations were mostly artifact, scrambling could
+not cost 81%. **Placement carries real signal**; this argument is about **sharpness**, not about
+whether location matters. ⭐ Compatible at different scales — which is D12's profile exactly.
+
+**⛔ And the half that cuts the other way, which is the contribution.** Location and date error
+**move** mass; the **total is preserved**. Under-reporting makes the observed total an **undercount**
+⇒ the latent total is **≥ 50,881**, while the delivered model emits **16,612**.
+
+⇒ ⛔⛔ **Measurement error excuses the smoothing and makes the mass deficit WORSE.** ⇒ The diagnosis
+**splits in two**, and the split is the point:
+
+| question | status |
+|---|---|
+| *is the field too smooth?* | ⚠️ possibly defensible, possibly even correct |
+| *is the total one third of truth?* | ⛔ **not defensible by any measurement-error story** |
+
+⚠️ These have been carried as one defect ("under-firing"). **They are not one defect.**
+
+**⛔ What it does not touch.** `size_ratio` saturating is **arithmetic**; the plug-in bias is
+**arithmetic**; AP ranking on the gate is a **code path**; C-387 is a **derivation**. Those are
+properties of the **instruments**; this is a property of the **target**. Neither excuses the other.
+
+**What an epic does.** Route A per spatial scale, swept; then route B if A says the question is live.
+⭐ **Started already, inside RP-1:** an eighth red-team forecast — blurred truth, total preserved —
+because ⛔ **if blurred truth scores WORSE than raw truth on our columns, the battery actively
+penalises the forecast this argument says may be right.**
+
+**Blocks.** RP-4, RP-5, RP-6, RP-7 — every magnitude claim is read against this floor.
+
+---
+
 ## RP-4 · Is the body actually under-dispersed, or is it the draw count?
 
-**Rank 4.** 🔵 queued. CPU, an afternoon. ⭐ The cheapest entry that could change what a standing
+**Rank 5.** 🔵 queued. CPU, an afternoon. ⭐ The cheapest entry that could change what a standing
 belief means.
 
 **What is measured.** The body **under-fires**: emitted positive fraction **0.0009** against an
@@ -181,7 +326,7 @@ under-dispersed at m=1024," in which case the entry closes having removed a conf
 
 ## RP-5 · Both heads sit BELOW their own objectives and nobody knows why
 
-**Rank 5.** 🔵 queued. CPU diagnosis first, then possibly GPU. ⭐ **The most interesting unexplained
+**Rank 6.** 🔵 queued. CPU diagnosis first, then possibly GPU. ⭐ **The most interesting unexplained
 fact in the record** — the loss-balance method review's own words.
 
 **The claim.** Each head stops short of its own best achievable loss:
@@ -219,7 +364,7 @@ then, and only if a residue survives, design one measurement for it.
 
 ## RP-6 · Magnitude ranking loses to persistence
 
-**Rank 6.** 🔵 queued. GPU. ⚠️ Revisits a direction previously closed as a wall.
+**Rank 7.** 🔵 queued. GPU. ⚠️ Revisits a direction previously closed as a wall.
 
 **The claim, measured.** On **magnitude**, spearman **0.303** against persistence's **0.367**,
 confound-clean (`project_amount_ceiling_wall`). ⇒ A dumb baseline ranks *how big* better than we do.
@@ -250,7 +395,7 @@ entry without an arm. ⇒ ⭐ **Re-rank after RP-3.**
 
 ## RP-7 · Nothing scores spatial dependence or aggregates
 
-**Rank 7.** 🔵 queued. CPU. Partly covered by **#473** inside RP-3.
+**Rank 4** (up from 7, on RP-10). 🔵 queued. CPU. Partly covered by **#473** inside RP-3.
 
 **The claim.** Everything we emit and everything we score is **per-cell and independent**.
 
@@ -319,6 +464,7 @@ These are not queued because they are not research. They apply to every entry ab
 | **D-3** | ⛔ **No new emitting family.** NB + ZINB only (scope lock 2026-07-22). | ADR-073 §0 forecloses the class; **C-387** disqualified the quantile head structurally. Two heads, one cause: neither can place an atom where 99.66% of the mass lives. |
 | **D-4** | ⛔ **Sweep the free parameter before reporting a scalar.** | Three claims withdrawn in one programme; **M68** is the fourth — a bin-count sweep manufactured a turning point. |
 | **D-5** | ⛔ **Measurement scripts are committed BEFORE they run.** | The only reason #460 and #461 are trustworthy. |
+| **D-6** | ⛔ **Log, document and report as insights arise — not at the end.** An argument that exists only in a chat turn is lost to the next context window. | Simon, 2026-10-27: *"make sure you log and document and report frequently so the insights or thought we produce are not lost or diluted or truncated."* ⭐ RP-10 exists because this rule was applied the moment he raised it. |
 
 ---
 
@@ -326,7 +472,7 @@ These are not queued because they are not research. They apply to every entry ab
 
 | ID | outcome |
 |---|---|
-| — | *(none yet)* |
+| **RP-1** | ✅ **MEASURED OUT 2026-10-28**, epic #477, seven stories. The thesis was **confirmed**: the battery is partially blind, three blind spots are total, and a 100% magnitude scramble leaves six columns bit-identical. Byproducts: **C-388**, **C-389**, C-303→23, `W-87`–`W-94`, `R-29`–`R-34`, `RESULTS_LEDGER` M69–M73, one new instrument, and locked `MCR`/`QS99` glossary rows. ⛔ Awaiting merge only. |
 
 ## §Dropped
 
