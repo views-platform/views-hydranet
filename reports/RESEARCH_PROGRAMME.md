@@ -47,6 +47,36 @@ ranking.
 4. An entry leaves the queue only to **§Closed** or **§Dropped**, with the outcome written down.
    ⛔ Never delete an entry.
 
+## ⛔ RE-RANK 2026-10-28, after RP-1 and RP-2 both closed
+
+Required by rule 3 (*"when an epic closes, re-rank before picking the next one; record the re-rank
+with its reason"*). **The order below is UNCHANGED, and that is the finding** — but two entries
+changed shape and one new candidate appeared, so the reasoning is recorded rather than the ranking.
+
+**What changed:**
+
+1. ⭐⭐⭐ **A NEW CANDIDATE, and it is the cheapest thing on this register: `RP-2b` — measure the
+   noise floor of the other 18 battery columns on the three seed replicates.** RP-1 measured what
+   the 20 columns can *discriminate*; RP-2 measured what 2 of them can *resolve*. ⇒ **18 columns
+   have no measured noise floor**, and the cubes already exist on disk (M75), so this is a
+   **readout, not a pod run** — hours of CPU, no new training. It is also directly the paper's
+   second criterion (evaluation report **§9.4b**). ⚠️ **Not inserted into the ranking without
+   Simon** — it is a new entry and the queue is his.
+2. ⛔ **RP-5 got harder, and knowing that is the point.** RP-5 asks why both heads sit below their
+   own objectives. **C-391 says the body-side placement readout cannot support a single-run
+   comparison at all** ⇒ RP-5 must either use the gated out-of-sample readout or replicate its arms.
+3. ⭐ **RP-6 keeps its new first question** (from RP-1): whether its recorded 0.303-vs-0.367
+   magnitude-ranking ordering is population-dependent, since `placement_rho` gives 0.629 vs 0.428.
+4. ⭐ **RP-4 is now doubly constrained before it starts**: 14 of 20 columns are blind to dispersion
+   (RP-1), and the noise floor of the 4 that are not is **unmeasured** (RP-2 covered B-1a/B-1b, not
+   the CRPS splits).
+
+**Why the order does not move.** RP-3 is already live (#468) and nothing measured today bears on it.
+Everything below it is an *experiment*, and both closed entries were *instruments* — the discipline
+is instruments before experiments, so closing two instruments does not promote any experiment past
+another. ⇒ **No re-ranking is warranted on the evidence; the next pick is Simon's between RP-3
+continuing, the new RP-2b readout, and RP-4.**
+
 ## ⭐ The queue, in order
 
 | # | ID | challenge | status | cost | can it end in a pod run? |
