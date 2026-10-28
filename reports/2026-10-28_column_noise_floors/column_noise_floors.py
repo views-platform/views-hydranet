@@ -268,20 +268,50 @@ pert = base.copy()
 delta = np.maximum(ey0, 1e-3)[:, None] * 0.5
 pert[:, : S // 2] += delta
 pert[:, S // 2:] -= delta
+#: AMENDMENT 1, 2026-10-28 -- G-P0 AND G-Pa AS FIRST WRITTEN BOTH FAILED, AND THE GATES
+#: WERE WRONG, NOT THE DATA. They asserted bit-exactness of a floating-point mean.
+#: G-P0 wanted `pert.mean(1) == base.mean(1)` exactly and got a max shift of 4.547e-13;
+#: G-Pa then wanted every Tier-A column to move by exactly 0.0 and got size_ratio
+#: 4.441e-16 -- machine epsilon beside a value of ~1.07, and CAUSED BY G-P0's residual
+#: rather than by any partition violation. Adding +/-delta to 128 members each and
+#: averaging 256 float64s does not cancel to zero in IEEE754.
+#: W-96: THIS IS W-93 REPEATED, THE SAME DAY. M4's G-D asserted `spread == 0.0` exactly
+#: and failed at +/-8.2e-19 for the same reason. The lesson recorded there was "assert the
+#: STRUCTURAL fact, print the residual as noise with its scale, and log it rather than
+#: widening a tolerance quietly" -- and the next gate was written the same wrong way.
+#: Amended to assert what IS structural, and to make the DISCRIMINATING comparison the
+#: gate: Tier-A moves at float-noise scale while Tier-B moves by many orders more.
+#: RP-1's original result held the mean bit-exactly because it PERMUTED values within a
+#: row; an additive offset cannot do that.
+spread = float(np.ptp(pert, axis=1).min())
+scale = float(np.abs(ey0).max())
 mean_shift = float(np.abs(pert.mean(1) - base.mean(1)).max())
+rel_shift = mean_shift / max(scale, 1e-30)
 sa = score(base, PS["_s42"])
 sb = score(pert, PS["_s42"])
 moved_a = {k: abs(sa[k] - sb[k]) for k in TIER_A
            if not (np.isnan(sa[k]) and np.isnan(sb[k]))}
 moved_b = {k: abs(sa[k] - sb[k]) for k in ENSEMBLE}
-gate(mean_shift == 0.0, "G-P0",
-     f"the perturbation holds the row mean EXACTLY: max shift {mean_shift:.3e}")
 _wa = max(moved_a, key=lambda k: moved_a[k])
-gate(max(moved_a.values()) == 0.0, "G-Pa",
-     f"all {len(moved_a)} Tier-A columns move by exactly 0.000e+00 "
-     f"(worst: {_wa} {moved_a[_wa]:.3e})")
+_wb = max(moved_b, key=lambda k: moved_b[k])
+ratio = moved_b[_wb] / max(moved_a[_wa], 1e-300)
+gate(spread > 0.0, "G-P0a",
+     f"STRUCTURAL, exact: every row of the perturbed ensemble has nonzero spread, "
+     f"min ptp {spread:.6e} -- the perturbation is real, not a no-op")
+gate(rel_shift < 1e-12, "G-P0b",
+     f"the row mean is held to FLOAT NOISE, reported with its scale: shift "
+     f"{mean_shift:.3e} on a field max of {scale:.3e}, relative {rel_shift:.3e} "
+     f"(NOT asserted as exactly zero -- Amendment 1)")
+gate(moved_a[_wa] < 1e-12, "G-Pa",
+     f"all {len(moved_a)} Tier-A columns move at float-noise scale only -- worst "
+     f"{_wa} {moved_a[_wa]:.3e}")
 gate(max(moved_b.values()) > 0.0, "G-Pb",
-     "NON-VACUITY: Tier-B moves — " + ", ".join(f"{k} {v:.4e}" for k, v in moved_b.items()))
+     "NON-VACUITY: Tier-B moves -- "
+     + ", ".join(f"{k} {v:.4e}" for k, v in moved_b.items()))
+gate(ratio > 1e6, "G-Pc",
+     f"THE DISCRIMINATING GATE: largest Tier-B move ({_wb} {moved_b[_wb]:.4e}) exceeds "
+     f"the largest Tier-A move ({_wa} {moved_a[_wa]:.3e}) by {ratio:.2e}x ==> the "
+     f"partition is demonstrated, not assumed")
 del base, pert, delta
 
 # ---------------------------------------------------------------- score the three
@@ -316,16 +346,49 @@ for cn in TIER_A:
 gate(any(r[2] > 0 for r in rows), "G-N",
      f"NON-VACUITY: {sum(1 for r in rows if r[2] > 0)} of {len(rows)} Tier-A columns have σ̂ > 0")
 
-over1 = [r for r in rows if r[3] > 1.0]
-by_cv = sorted((r for r in rows if np.isfinite(r[3])), key=lambda r: r[3])
-print(f"\n  ⇒ CV > 1 (σ̂ exceeds the mean): {len(over1)} of {len(rows)} — "
-      f"{', '.join(r[0] for r in over1) if over1 else 'NONE'}")
+#: AMENDMENT 1 -- SATURATION DETECTION, added because the first run would have reported
+#: two DEGENERATE columns as "the most stable". `ey = gate x emitted_magnitude` is
+#: STRICTLY POSITIVE everywhere: a sigmoid gate is never exactly 0, and truncated_nb's
+#: E[Y|Y>0] = mu/(1-p0) > 0. So `act_freq` pins at exactly 1.0 and `AFSS` with it, and
+#: their sigma-hat of 0 is a CEILING, not stability. Calling them stable would be the
+#: C-376 shape: a readout at its limit reported as a measurement.
+SAT = [r for r in rows if r[2] == 0.0]
+print("\n  SATURATED COLUMNS -- sigma-hat = 0 because the column is PINNED:")
+for r in SAT:
+    print(f"       {r[0]:<12} identical {r[1]:.6f} in all three replicates "
+          f"==> EXCLUDED from any 'most stable' reading")
+if not SAT:
+    print("       none")
+live = [r for r in rows if r[2] > 0.0]
+
+over1 = [r for r in live if r[3] > 1.0]
+by_cv = sorted((r for r in live if np.isfinite(r[3])), key=lambda r: r[3])
+print(f"\n  among the {len(live)} LIVE columns (saturated excluded):")
+print(f"  CV > 1 (sigma-hat exceeds the mean): {len(over1)} of {len(live)} -- "
+      f"{', '.join(r[0] for r in over1) if over1 else 'NONE'}"
+      f"  ==> P4 {'CONFIRMED' if over1 else 'REFUTED'}")
 print(f"  ⇒ most stable:  {', '.join(f'{r[0]} {r[3]:.4f}' for r in by_cv[:3])}")
 print(f"  ⇒ least stable: {', '.join(f'{r[0]} {r[3]:.4f}' for r in by_cv[-3:])}")
-_g = [r for r in rows if r[0] in GATE_ONLY]
-print(f"  ⇒ P5 check — the two GATE-only columns: "
-      f"{', '.join(f'{r[0]} CV {r[3]:.4f}' for r in _g)}  "
-      f"(lowest two overall: {', '.join(r[0] for r in by_cv[:2])})")
+_g = sorted((r for r in live if r[0] in GATE_ONLY), key=lambda r: r[3])
+_lo2 = [r[0] for r in by_cv[:2]]
+p5 = set(r[0] for r in _g) == set(_lo2)
+print(f"  P5 -- the two GATE-only columns: "
+      f"{', '.join(f'{r[0]} CV {r[3]:.4f}' for r in _g)}; lowest two live: "
+      f"{', '.join(_lo2)} ==> P5 {'CONFIRMED' if p5 else 'REFUTED'}")
+print("     (literal P5 named no saturation exclusion -- see the finding)")
+
+#: AMENDMENT 1 -- THE FAO-02 COMPARISON, added because it is the sharpest thing in the
+#: table and nothing else would surface it. FAO-02 Appendix A.1 locks MCR with a
+#: non-inferiority margin of 1%, judged as distance from 1 (C-389, GLOSSARY section 4).
+_mcr = next((r for r in live if r[0] == "MCR_field"), None)
+if _mcr is not None:
+    print("\n  FAO-02's LOCKED MCR GUARDRAIL against its own seed noise:")
+    print("       margin (A.1, distance from 1)   0.01")
+    print(f"       sigma-hat here                  {_mcr[2]:.6f}")
+    print(f"       ==> the seed noise is {_mcr[2] / 0.01:.0f}x that margin, and the")
+    print(f"           4.97 sigma-hat bar is {4.97 * _mcr[2] / 0.01:.0f}x it.")
+    print("       SCOPED: truncated_nb @ 0.15, expectation composition, NOT the")
+    print("           delivered `nb` draws -- an order-of-magnitude statement only.")
 
 print("\n" + "=" * 100)
 print("  TIER B — DECLARED NOT RUN, and the reason is a REGISTERED DEFECT")
