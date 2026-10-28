@@ -67,13 +67,18 @@ class PlacementRhoError(ValueError):
 def _rho(pred: np.ndarray, truth: np.ndarray) -> float:
     """Spearman rho on one population, with constant inputs mapped to 0.0 (no rank information)."""
     if pred.size < 2:
-        raise PlacementRhoError(f"need at least 2 cells to rank, got {pred.size}")
+        raise PlacementRhoError(f"_rho needs at least 2 cells to rank, got {pred.size}")
     if np.ptp(pred) == 0.0 or np.ptp(truth) == 0.0:
         return 0.0
     r = spearmanr(pred, truth).statistic
     if not np.isfinite(r):
+        #: ⚠️ ADMITTED UNREACHABLE BACKSTOP, and said so rather than counted as coverage. Both
+        #: inputs are checked finite by the caller and both are non-constant by the branch above,
+        #: so scipy has no documented path to a nan here. A guard audit cannot kill this line
+        #: (2026-10-28: mutation M19 survived 27 mutations). It is kept because the alternative is
+        #: trusting a third-party return value silently; it is NOT claimed to be tested.
         raise PlacementRhoError(
-            "spearmanr returned non-finite on non-constant inputs -- refusing to report it"
+            "_rho got a non-finite rho from spearmanr on non-constant inputs -- refusing it"
         )
     return float(r)
 
@@ -107,8 +112,10 @@ def placement_rho(
     truth = np.asarray(truth, dtype=np.float64)
     if pred.shape != truth.shape or pred.ndim != 1:
         raise PlacementRhoError(f"need matching 1-D arrays, got {pred.shape} and {truth.shape}")
-    if not (np.isfinite(pred).all() and np.isfinite(truth).all()):
-        raise PlacementRhoError("non-finite input -- fail loud rather than rank a nan")
+    if not np.isfinite(pred).all():
+        raise PlacementRhoError("non-finite PRED -- fail loud rather than rank a nan")
+    if not np.isfinite(truth).all():
+        raise PlacementRhoError("non-finite TRUTH -- fail loud rather than rank a nan")
     if pooling not in POOLINGS:
         raise PlacementRhoError(f"pooling must be one of {POOLINGS}, got {pooling!r}")
 
