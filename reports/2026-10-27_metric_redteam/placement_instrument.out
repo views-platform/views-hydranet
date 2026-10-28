@@ -1,0 +1,167 @@
+G-0  the three imported FROZEN primitives reproduce their hand cases:
+       crps({0,2} vs 0) = 0.5 | brier = 0.0 / 0.25 | AP = 1.0 | AP(no positives) = nan
+       ⇒ the frozen ruler's own functions are in hand, not copies            PASS
+================================================================================================
+M1 (#478) — THE DEGENERATE-FORECAST RED-TEAM HARNESS
+================================================================================================
+  cube      d4_result.npz  sha 4acbf4d3c2b457b0  family nb  draws 4
+  score     13 months 457-469 x 64,818 cells = 842,634 cell-months
+  fit       36 months 421-456 (climatology + persistence's lag)
+  truth     ged_sb_best counts. positives 2,905 (0.003448), max 2482, total 50881
+  S         256 members per forecast, identical across all seven (epic #263's rule)
+  spiky     1/30 of active cells = 97 occupied cells per month
+
+  forecast                    field total    frac>0          max  size_ratio
+  oracle (raw truth)               50,881  0.003448      2,482.0      1.0000
+  all-zero                              0  0.000000          0.0      0.0000
+  climatology                      75,534  0.022077        373.8      0.3750
+  persistence                      51,285  0.003412      2,482.0      0.0000
+  spiky-1/30                       50,881  0.001496         52.7      0.0000
+  freq-right/mag-wrong             50,881  0.003448         17.5      2.9192
+  mag-right/freq-wrong             50,881  0.003448      2,482.0      0.0000
+  reference (delivered)            16,612  0.012225         54.5      0.2598
+  blurred-truth r=1                50,881  0.047694        281.9      0.3371
+  blurred-truth r=2                50,881  0.081489        114.4      0.2594
+  blurred-truth r=4                50,881  0.131980         40.2      0.1747
+  TRUTH                            50,881  0.003448      2,482.0      1.0000
+
+================================================================================================
+  VOID GATES
+================================================================================================
+  PASS  G-h  ORACLE: crps_all EXACTLY 0, size_ratio 1, AP 1, Brier 0
+        crps_all=0  size_ratio=1  AP=1  Brier=0
+  PASS  G-a  ALL-ZERO: crps_none, size_ratio, pos_mcr all EXACTLY 0.0
+        crps_none=0  size_ratio=0  pos_mcr=0
+  PASS  G-c  CLIMATOLOGY: per-cell gate == fit-window positive rate
+        max |delta rate| 0.000e+00; identical across months True
+  PASS  G-d  PERSISTENCE: byte-identical to the truth field lagged one month
+        array_equal True; max |delta| 0.0
+  PASS  G-b  SPIKY: per-month total exact and occupancy exactly k
+        max relative total error 4.454e-16; occupancy 97..97 (want exactly 97)
+  PASS  G-e  FREQ-RIGHT: nonzero cell SET == the truth-positive set
+        array_equal True; nonzero 2,905 vs truth positives 2,905
+  PASS  G-f  MAG-RIGHT: sorted nonzero multiset == truth's, every month
+        all 13 months exact: True
+  PASS  G-i  BLURRED r=1: per-month land total preserved exactly
+        max relative total error 2.407e-16
+  PASS  G-i  BLURRED r=2: per-month land total preserved exactly
+        max relative total error 3.544e-16
+  PASS  G-i  BLURRED r=4: per-month land total preserved exactly
+        max relative total error 4.815e-16
+  PASS  G-g  ALL 11: N == 842,634, identical ordering, identical S == 256
+        asserted per forecast above (shape and gate-shape assertions)
+  PASS  G-j  BLUR is monotone in r: max falls, frac>0 rises
+        r=1: max 281.9 frac 0.047694 sr 0.3371  r=2: max 114.4 frac 0.081489 sr 0.2594  r=4: max 40.2 frac 0.131980 sr 0.1747
+
+  wall time 23.9 s   peak RSS 8.27 GiB
+  all construction gates PASS — the seven are safe for M2 (#479) to score
+
+======================================================================================================================
+M6 (#483) — THE PLACEMENT-PRESERVING MAGNITUDE INSTRUMENT, validated
+======================================================================================================================
+  instrument  scripts/placement_rho.py — Spearman rho(pred magnitude, truth magnitude)
+  population  842,634 cell-months; the instrument's own cell population is SWEPT
+  sweep       3 populations x 2 poolings = 6 cells per forecast
+
+  forecast                    even/pool     even/mont     unio/pool     unio/mont      all/pool      all/mont  
+  oracle (raw truth)            1.000000      1.000000      1.000000      1.000000      1.000000      1.000000
+  all-zero                      0.000000      0.000000      0.000000      0.000000      0.000000      0.000000
+  climatology                   0.394095      0.391295      0.285455      0.285081      0.352475      0.352281
+  persistence                   0.427759      0.428123     -0.036521     -0.033530      0.467375      0.467694
+  spiky-1/30                    0.521009      0.533686      0.366716      0.380653      0.583557      0.583750
+  freq-right/mag-wrong          0.000000      0.000000      0.000000      0.000000      0.999998      0.999998
+  mag-right/freq-wrong          0.008470      0.008603     -0.855659     -0.855683     -0.000697     -0.000750
+  reference (delivered)         0.629054      0.622563      0.498262      0.496668      0.495209      0.494920
+  blurred-truth r=1             0.682500      0.679505      0.375421      0.376566      0.210250      0.211981
+  blurred-truth r=2             0.565867      0.564075      0.287490      0.289039      0.172297      0.172968
+  blurred-truth r=4             0.506428      0.497150      0.219182      0.220735      0.147117      0.148017
+
+----------------------------------------------------------------------------------------------------------------------
+  V-1 — the ORACLE must score EXACTLY 1.0 in all six sweep cells
+----------------------------------------------------------------------------------------------------------------------
+       max |rho - 1| over the six cells: 1.110e-16   PASS
+
+----------------------------------------------------------------------------------------------------------------------
+  V-2 ⭐ THE ACCEPTANCE CRITERION — the pairs M2 showed the battery CANNOT separate
+----------------------------------------------------------------------------------------------------------------------
+       oracle (raw truth)  vs  freq-right/mag-wrong
+            M2 columns giving them the SAME value to 1e-6: 14 of 20
+            AP, Brier, crps_none, MCR_field, FSS1, FSS3, FSS5, FSS9, FSS17, FSS33, FSS65, AFSS, hit_rate, act_freq
+            placement_rho (events, pooled):  1.000000  vs  0.000000   separation 1.000000
+       spiky-1/30  vs  all-zero
+            M2 columns giving them the SAME value to 1e-6: 10 of 20
+            size_ratio, FSS1, FSS3, FSS5, FSS9, FSS17, FSS33, FSS65, AFSS, hit_rate
+            placement_rho (events, pooled):  0.521009  vs  0.000000   separation 0.521009
+       ⇒ V-2 PASS
+
+----------------------------------------------------------------------------------------------------------------------
+  V-3 — scale-free: a monotone rescale of the prediction must change NOTHING
+----------------------------------------------------------------------------------------------------------------------
+       rho  base 1.000000000000   x1000 1.000000000000   ^1.3 1.000000000000
+       ⇒ V-3 PASS  (max |delta| 0.000e+00)
+
+----------------------------------------------------------------------------------------------------------------------
+  V-4 / V-5 ⭐ the SWEPT known answer: scramble f of the ORACLE's event-cell magnitudes
+----------------------------------------------------------------------------------------------------------------------
+       f      cells scrambled   placement_rho           |d AP|     |d Brier|      |d FSS1|      |d FSS9|      |d AFSS|  |d hit_rate|
+       0.00                 0        1.000000        0.000e+00     0.000e+00     0.000e+00     0.000e+00     0.000e+00     0.000e+00
+       0.10               290        0.890970        0.000e+00     0.000e+00     0.000e+00     0.000e+00     0.000e+00     0.000e+00
+       0.25               726        0.750752        0.000e+00     0.000e+00     0.000e+00     0.000e+00     0.000e+00     0.000e+00
+       0.50             1,452        0.477811        0.000e+00     0.000e+00     0.000e+00     0.000e+00     0.000e+00     0.000e+00
+       0.75             2,179        0.249725        0.000e+00     0.000e+00     0.000e+00     0.000e+00     0.000e+00     0.000e+00
+       1.00             2,905       -0.030036        0.000e+00     0.000e+00     0.000e+00     0.000e+00     0.000e+00     0.000e+00
+
+       V-4  monotone non-increasing in f: PASS   rho 1.000000 -> -0.030036
+       V-5  every placement column moved by EXACTLY 0: PASS   worst |delta| 0.000e+00
+       ⇒ ⭐ a 100% magnitude scramble, placement untouched: six placement columns identical to
+         the last bit, and the instrument reads 1.000 -> -0.030. That is #444, closed.
+
+----------------------------------------------------------------------------------------------------------------------
+  V-6 — is this a relabelling of a column we already have? |Spearman| across the eleven
+----------------------------------------------------------------------------------------------------------------------
+       column          |Spearman| vs placement_rho
+       crps_events       0.7790
+       AP                0.4772
+       Brier             0.4635
+       QS99              0.4374
+       FSS3              0.4027
+       FSS5              0.4027
+       FSS9              0.4027
+       FSS65             0.4027
+       act_freq          0.3954
+       FSS1              0.3478
+       FSS17             0.3478
+       FSS33             0.3478
+       size_ratio        0.2681
+       crps_all          0.1549
+       hit_rate          0.0793
+       Gini              0.0669
+       crps_none         0.0644
+       pos_mcr           0.0456
+       MCR_field         0.0257
+       AFSS              0.0207
+       ⇒ V-6 PASS — highest is 0.7790
+
+======================================================================================================================
+  WHAT THE INSTRUMENT SAYS ABOUT THE DELIVERED MODEL
+======================================================================================================================
+  reference (delivered)    events/pooled  0.629054   events/monthly  0.622563
+  persistence              events/pooled  0.427759   events/monthly  0.428123
+  climatology              events/pooled  0.394095   events/monthly  0.391295
+  blurred-truth r=1        events/pooled  0.682500   events/monthly  0.679505
+  ⚠️ This is RP-6's question (magnitude ranking, the recorded 0.303 vs persistence 0.367)
+     measured on a DIFFERENT population — these are T=0 land cell-months over 13 months,
+     not RP-6's. ⛔ Do not quote one against the other (C-351).
+
+======================================================================================================================
+  GATES
+======================================================================================================================
+  PASS  V-1  the oracle scores exactly 1.0 in all six sweep cells
+  PASS  V-2  known-good above known-bad on both pairs the battery cannot separate
+  PASS  V-3  scale-free to 1e-12
+  PASS  V-4  monotone non-increasing in the scramble fraction
+  PASS  V-5  every placement column moved by exactly 0 across the curve
+  PASS  V-6  not a monotone relabelling of any existing column
+
+  wall time 16.8 s   peak RSS 8.27 GiB
+  wrote /home/simon/Documents/scripts/views_platform/views-hydranet/reports/2026-10-27_metric_redteam/placement_instrument.npz

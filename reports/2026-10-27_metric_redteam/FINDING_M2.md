@@ -15,17 +15,24 @@ three of the blind spots are **total** — identical scores to six decimal place
 
 ---
 
-## ⛔⛔⛔ Finding A — 12 of 18 scoring columns give the battery's WORST forecast the oracle's exact score
+## ⛔⛔⛔ Finding A — 13 of 18 scoring columns give the battery's WORST forecast the oracle's exact score
+
+> ⛔ **COUNT CORRECTED 2026-10-28 (M6 / #483, `W-92`): 13 of 18, not 12.** The original count
+> omitted **`MCR_field`**, which reads **1.000000** for both the oracle and `freq-right/mag-wrong`
+> — a fact this same document states one section later, about `spiky`, without adding it here.
+> Including the two non-scoring columns it is **14 of 20** (`act_freq` also matches at 0.003448).
+> The conclusion is unchanged and slightly stronger. ⚠️ The number as first published was wrong by
+> one in the direction that understated the finding.
 
 `freq-right/mag-wrong` fires **exactly** where truth fires and emits a constant magnitude, so it
 carries **no per-cell magnitude information at all**. It is the **worst of all eleven** forecasts on
 conditional magnitude: `crps_events` **18.779348**, worse even than predicting nothing (17.514974).
 
-**Twelve of eighteen scoring columns award it the oracle's exact value:**
+**Thirteen of eighteen scoring columns award it the oracle's exact value:**
 
 `AP` **1.000000** · `Brier` **0.000000** · `crps_none` **0.000000** · `FSS1` **1.000000** ·
 `FSS3` · `FSS5` · `FSS9` · `FSS17` · `FSS33` · `FSS65` **all 1.000000** · `AFSS` **1.000000** ·
-`hit_rate` **1.000000**
+`hit_rate` **1.000000** · **`MCR_field` 1.000000** (added by the 2026-10-28 correction)
 
 ⇒ ⛔⛔ **Two thirds of the battery cannot distinguish the worst magnitude forecast we could
 construct from the truth itself.**
