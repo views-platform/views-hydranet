@@ -4,6 +4,31 @@
 forgotten and we work **one epic at a time**. Agreed with Simon 2026-10-27 from his own four-item
 list plus five additions.
 
+## ⭐⭐⭐ The terminal objective — stated by Simon 2026-10-28
+
+The queue below is the means. The end is a **paper**:
+
+> use **synthetic forecasts mirroring known failure modes and virtues** — and therefore carrying a
+> **known ranking** — to hone in on a **minimal set of evaluation metrics which together rank the
+> synthetic forecasts correctly every time**.
+
+⇒ **Fixing HydraNet is a real goal and not the only one.** Every entry in this queue that measures what
+a metric can or cannot see is simultaneously a **paper artifact**, and is to be logged as results
+arrive (**D-6**) rather than at epic close, because the paper needs the provenance and not just the
+number.
+
+**Where it is written up in full:** `reports/2026-09-30_evaluation_learning_report.md` **§9** — what of
+it is already built (the eleven-forecast gated population and the 11 × 20 separation matrix, from
+RP-1 / epic #477), ⛔ what is missing (**a declared ground-truth ranking — it does not exist; the only
+ordering constraint in the harness is "the oracle ranks first"**), and the three constraints the
+minimality claim must respect.
+
+⛔ **The next piece of work on the paper is not a measurement.** It is Simon declaring the correct
+ranking of the eleven synthetic forecasts, pair by pair, **before** any subset search runs. Two pairs
+are already known to be contested by measurement: `crps_events` and `placement_rho` both rank the
+mass-preserving blur **above** the delivered model, and `spiky-1/30` outranks persistence on
+`placement_rho`.
+
 **Horizon.** ⚠️ Simon said *"a couple of months left"* — read as **to end-2026, ~9 weeks**. If he
 meant end-2027 this register is under-scoped and the horizon line is the thing to correct, not the
 ranking.
