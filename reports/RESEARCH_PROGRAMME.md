@@ -47,6 +47,32 @@ ranking.
 4. An entry leaves the queue only to **§Closed** or **§Dropped**, with the outcome written down.
    ⛔ Never delete an entry.
 
+## ✅ THE ORDER, DECIDED BY SIMON 2026-10-28 — do not re-litigate
+
+> *"the new cheap RP-2b, then RP-3 continuing, before we move on to RP-4"* — Simon, 2026-10-28
+
+| next | entry | why |
+|---|---|---|
+| **1** | ⭐ **RP-2b** — the noise floor of the other **18** battery columns | A **readout, not a pod run**: the three seed-replicate cubes already exist on disk (M75). Supplies the paper's **second criterion** (evaluation report §9.4b), which the synthetic population structurally cannot. |
+| **2** | **RP-3** — the family-free recalibration (#468), already live | Resume where it stands. |
+| **3** | **RP-4** — is the body under-dispersed, or is it the draw count? | ⛔ Starts **doubly constrained**: 14 of 20 columns are blind to dispersion (RP-1), and the noise floor of the 4 that are not is what RP-2b will supply. |
+
+⛔ **This supersedes the "next pick is Simon's" line below**, which was written before he answered.
+
+## ⚠️ STANDING OWED LIST — carried, not done, so it is not lost
+
+| owed | since | whose |
+|---|---|---|
+| ⛔ **Merge PR #486** (RP-2) into `development` | 2026-10-28 | **Simon** — the auto-mode classifier refused the merge ("Merge Without Review") |
+| ⛔ **Declare the ground-truth ranking of the eleven synthetic forecasts** — the paper's gate; a judgement, not a computation | 2026-10-28 | **Simon** (candidate draft at `reports/2026-10-28_candidate_ranking_DRAFT.md`) |
+| ⚠️ **Comment on views-models#625** retracting the *"origins 0–5"* constraint as route-dependent | 2026-10-27 | me — ⛔ **still owed**; the `GLOSSARY.md` half is now corrected (2026-10-28) |
+| ⚠️ **C-389's guardrail pass** — QS99 and FAO-02's MCR on the **validation** partition, 36-month protocol, vs the empirical conflictology baseline | 2026-10-28 | outside any current epic |
+| ⚠️ **#481's missing count** — how many recorded comparisons are estimator-sensitive (rule written; most cubes deleted) | 2026-10-28 | — |
+| ⚠️ **C-388 is registered, NOT fixed** — `matched_pred_thresh` is production `scripts/`; changing it changes committed FSS columns | 2026-10-28 | **Simon's call** |
+| ⚠️ Whether C-388's mechanism (a) fires on the populations the published **B-1a/B-1b** FSS numbers used | 2026-10-28 | unmeasured |
+| 🔵 **#444** left OPEN deliberately — answered by measurement; retiring a standing concern is Simon's call | 2026-10-28 | **Simon** |
+| 🔵 **Branch cleanup** — fully-merged branches need deletion | — | **Simon** |
+
 ## ⛔ RE-RANK 2026-10-28, after RP-1 and RP-2 both closed
 
 Required by rule 3 (*"when an epic closes, re-rank before picking the next one; record the re-rank
